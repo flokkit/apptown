@@ -64,8 +64,8 @@ export function FindingsTab({ slug }: { slug: string }) {
             const maxFix = fs.map((f) => f.package?.fixedIn ?? '').sort((a, b) =>
               a.localeCompare(b, undefined, { numeric: true })).at(-1)
             return (
-              <details key={group} className="diff-file" open={actionable > 0}>
-                <summary>
+              <section key={group} className="diff-file">
+                <h3>
                   <span className="badge">
                     {actionable > 0 ? `${actionable} actionable` : 'all suppressed'}
                   </span>
@@ -75,9 +75,9 @@ export function FindingsTab({ slug }: { slug: string }) {
                     {reached > 0 ? ` · ${reached} reached` : ''}
                     {maxFix ? ` · all fixed by ${maxFix}` : ''}
                   </span>
-                </summary>
+                </h3>
                 <FindingsTable findings={fs} projectSlug={slug} onChanged={reload} />
-              </details>
+              </section>
             )
           })}
         </Section>

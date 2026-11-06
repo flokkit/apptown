@@ -46,9 +46,9 @@ describe('the screenshots at approval', () => {
   })
 })
 
-it('shows failed resources next to pictures with the list one fold down', async () => {
+it('shows failed resources next to pictures with the list inline', async () => {
   const { html, text } = await render({ commit: 'abc', failedResources: [{ path: '/', view: 'desktop', type: 'Stylesheet', url: 'dead.example/style.css', status: 404 }] })
-  expect(html).toContain('<details class="warn small"><summary>1 resource failed to load</summary>')
+  expect(html).toContain('<section class="warn small"><p>1 resource failed to load</p>')
   expect(text).toContain('Stylesheet: dead.example/style.css — 404')
 })
 

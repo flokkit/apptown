@@ -1,3 +1,4 @@
+import { usePageName } from '../chrome'
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { del, post } from '../api'
@@ -19,7 +20,7 @@ import { WhatIfPanel } from './PackWhatIf'
 // project.
 
 export default function PackPage() {
-  const { name = '' } = useParams()
+  const { name = '', version } = useParams()
   const nav = useNavigate()
   const [params] = useSearchParams()
   const whatIfId = params.get('whatIf')
@@ -29,17 +30,23 @@ export default function PackPage() {
   const [editing, setEditing] = useState(false)
   const q = useGet<PackHistory>(`/packs/${name}`, { kind: 'config' })
   const { run, busy, err: actErr } = useAction(q.reload)
-  const [open, setOpen] = useState<number | null>(null)
   const h = q.data
+  usePageName(`/packs/${name}`, h?.name)
   if (!h) return <ReadStatus q={q} what="the pack" />
   const recommend = (version: number) => run(() => post(`/packs/${name}/recommended`, { version, ...(whatIfQ.data?.pack === name && whatIfQ.data.version === version ? { whatIf: whatIfQ.data.id } : {}) }))
   const enabled = packsQ.data?.find(p => p.name === name)?.enabled
   const d = h.declaration
   if (editing) return <PackEditor draft={draftFrom(h.name, h.description, d)} existing onDone={() => { setEditing(false); void q.reload() }} />
 
+  if (version) {
+    const v = h.versions.find(v => String(v.version) === version)
+    return <><h1>Version {version}</h1><StaleNote q={q} />{v ? <>
+      <Contents v={v} /><Limits v={v} base={h.versions.find(b => b.version === v.basedOn)} />
+      <WhatIfPanel pack={h.name} version={v.version} />
+    </> : <p>This version does not exist.</p>}</>
+  }
   return (
     <div>
-      <div className="page-area"><Link to="/packs">Packs</Link></div>
       <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
         <h1 style={{ margin: 0 }}>{h.name}</h1>
         {/* The same tags as the list: only what is unusual, and the version new projects get. */}
@@ -93,7 +100,7 @@ export default function PackPage() {
               <span className="muted small">{lineage(v)}</span>
               <span className="grow" />
               <span className="muted small" title={v.at}>{relTime(v.at)}</span>
-              <button className="subtle" aria-expanded={open === v.version} onClick={() => setOpen(open === v.version ? null : v.version)}>{open === v.version ? 'Hide contents' : 'Contents'}</button>
+              <Link to={`/packs/${encodeURIComponent(name)}/versions/${v.version}`}>Contents</Link>
               {canManage && v.version !== h.recommended && (
                 <QuietConfirm label={`Recommend v${v.version}`} className="subtle" yes="Recommend it" disabled={busy || !q.current || !!whatIfId && (!whatIfQ.current || whatIfQ.data?.pack !== name)}
                   ask={`New projects will get v${v.version}, and projects on other versions will be offered it. No project moves.`}
@@ -101,9 +108,6 @@ export default function PackPage() {
               )}
             </div>
             {v.note && v.note !== 'published contents' && v.note !== v.name && <div className="small mt-1" >{v.note}</div>}
-            {open === v.version && <Contents v={v} />}
-            {open === v.version && <Limits v={v} base={h.versions.find((b) => b.version === v.basedOn)} />}
-            {open === v.version && <WhatIfPanel pack={h.name} version={v.version} />}
           </div>
         ))}
       </Section>

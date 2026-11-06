@@ -6,73 +6,13 @@ import { Status } from './Status'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
-it('opens and closes help by tapping inside a linked row without navigating', () => {
-  const el = document.createElement('div')
-  const root = createRoot(el)
-  act(() => root.render(<a href="/deployment"><Status word="unreachable" help="AppTown can't reach Club host since 31 Oct, 00:00. The app may still be running." /></a>))
-  const details = el.querySelector('details')!
-  const summary = el.querySelector('summary')!
-  expect(details.open).toBe(false)
-  const tap = new MouseEvent('click', { bubbles: true, cancelable: true })
-  act(() => summary.dispatchEvent(tap))
-  expect(tap.defaultPrevented).toBe(true)
-  expect(details.open).toBe(true)
-  expect(details.textContent).toContain('The app may still be running.')
-  act(() => summary.click())
-  expect(details.open).toBe(false)
-  expect(el.querySelector('[role="status"]')).toBeNull()
-  act(() => root.unmount())
-})
-
-it('keeps one help open beside its chip and dismisses on outside taps or Escape', () => {
-  const el = document.createElement('div')
-  document.body.append(el)
-  const root = createRoot(el)
-  act(() => root.render(<><Status word="unknown" help="No runtime reading." /><Status word="unreachable" help="The host did not answer." /><button>Elsewhere</button></>))
-  const summaries = el.querySelectorAll('summary')
-  const details = el.querySelectorAll('details')
-  const viewport = window.innerWidth
-  Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true })
-  details[1].getBoundingClientRect = () => ({ left: 300 }) as DOMRect
-  details[1].querySelector('div')!.getBoundingClientRect = () => ({ width: 358 }) as DOMRect
-  act(() => summaries[0].click())
-  expect(details[0].open).toBe(true)
-  act(() => summaries[1].click())
-  expect(details[0].open).toBe(false)
-  expect(details[1].open).toBe(true)
-  expect(details[1].querySelector('div')!.style.left).toBe('-284px')
-  act(() => el.querySelector('button')!.dispatchEvent(new Event('pointerdown', { bubbles: true })))
-  expect(details[1].open).toBe(false)
-  act(() => summaries[0].click())
-  act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
-  expect(details[0].open).toBe(false)
-  expect(document.activeElement).toBe(summaries[0])
-  act(() => root.unmount())
-  el.remove()
-  Object.defineProperty(window, 'innerWidth', { value: viewport, configurable: true })
-})
-
-
-it('clamps help using its rendered width at Large size', () => {
-  const el = document.createElement('div')
-  const root = createRoot(el)
-  act(() => root.render(<Status word="unknown" help="No runtime reading." />))
-  const details = el.querySelector('details')!
-  const panel = details.querySelector('div')!
-  const viewport = window.innerWidth
-  Object.defineProperty(window, 'innerWidth', { value: 1440, configurable: true })
-  details.getBoundingClientRect = () => ({ left: 900 }) as DOMRect
-  panel.getBoundingClientRect = () => {
-    expect(details.open).toBe(true)
-    return { width: 576 } as DOMRect
-  }
+it('keeps status explanations readable inside linked rows without a fold or an extra control', () => {
+  const el = document.createElement('div'), root = createRoot(el)
   try {
-    act(() => el.querySelector('summary')!.click())
-    expect(details.open).toBe(true)
-    expect(panel.style.left).toBe('-52px')
-    expect(900 + Number.parseFloat(panel.style.left) + 576).toBe(1424)
-  } finally {
-    act(() => root.unmount())
-    Object.defineProperty(window, 'innerWidth', { value: viewport, configurable: true })
-  }
+    act(() => root.render(<a href="/deployment"><Status word="unreachable" help="The app may still be running." /></a>))
+    expect(el.querySelector('details, summary, button')).toBeNull()
+    expect(el.querySelector('.status-help-inline')?.textContent).toContain('The app may still be running.')
+    expect(el.querySelector('a')?.getAttribute('href')).toBe('/deployment')
+    expect(el.querySelector('[role="status"]')).toBeNull()
+  } finally { act(() => root.unmount()) }
 })

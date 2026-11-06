@@ -1,3 +1,4 @@
+import { routeAncestors } from './breadcrumbs'
 import { Disclosure } from './Popover'
 import { useEffect, useRef, useState } from 'react'
 import { TechnicalDetailMark, TechnicalDetailSwitch } from './pages/change/TechnicalDetail'
@@ -12,67 +13,29 @@ import { type Size, applySize, currentSize } from './size'
 import { Theme, applyTheme, currentTheme } from './theme'
 import type { ProjectDetail, ProjectPage } from './wire.gen'
 
-// The top bar (design/subsystems/ui-coherence.md § Top bar): one fixed strip that says
-// what you are doing, on every page, in the same place — AppTown › project ›
-// page · state. It replaced two ad-hoc sticky headers (the change page's
-// context strip, the chat's room header). Right side: find anything, the
-// theme, who you are. The sidebar is navigation and nothing else.
-
-const INSTANCE: [RegExp, string][] = [
-  [/^\/$/, 'Home'],
-  [/^\/attention$/, 'Attention'],
-  [/^\/projects$/, 'Projects'],
-  [/^\/deployments$/, 'Deployments'],
-  [/^\/releases$/, 'Releases'],
-  [/^\/targets/, 'Targets'],
-  [/^\/backups$/, 'Backups'],
-  [/^\/(packs|workflows|guidance|policies)/, 'Ways of working'],
-  [/^\/integrations/, 'Integrations'],
-  [/^\/services/, 'Services'],
-  [/^\/people/, 'People'],
-  [/^\/usage/, 'Usage'],
-  [/^\/evals/, 'Evals'],
-  [/^\/complaints/, 'Complaints'],
-  [/^\/docs/, 'Docs'],
-  [/^\/projects\/_new/, 'Create project'],
-]
-const PROJECT_PAGE: Record<string, string> = {
-  '': 'Overview', changes: 'Changes', deployments: 'Deployments', console: 'Chat', security: 'Security', settings: 'Settings', memory: 'Memory',
-  release: 'Release', releases: 'Release', workflows: 'Workflows', board: 'Overview', usage: 'Settings',
-}
+// One trail links the route's ancestor pages, ending at the parent.
+// The current page is named by its heading in main.
 
 type Me = { user?: string; role?: string; mode: string }
 
 // On a narrow screen (chrome.ts useNarrow) the bar is the menu button, the
 // name and where you are; App puts finding, the theme and who you are in
 // the menu instead.
-export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }: {
-  me: Me | null; narrow?: boolean; menuOpen?: boolean; onMenu?: () => void
+export default function TopBar({ me, narrow = false, menuOpen = false, onMenu, standalone = false }: {
+  me: Me | null; narrow?: boolean; menuOpen?: boolean; onMenu?: () => void; standalone?: boolean
 }) {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const page = usePageContext()
-  const m = pathname.match(/^\/projects\/([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?/)
+
   const slug = usePageProject()
   // The crumb falls back to the slug, which is known, when the project
   // itself cannot be read.
   const proj = useGet<ProjectDetail>(slug ? `/projects/${slug}` : null).data
 
-  // The sentence: AppTown › project › page · state.
-  const crumbs: { label: string; to?: string }[] = []
-  // Inside a project the crumbs are the one way up: AppTown (home) › Projects › the project.
-  if (slug) crumbs.push({ label: 'Projects', to: '/projects' })
-  if (slug) crumbs.push({ label: `${proj?.icon ? proj.icon + ' ' : ''}${proj?.name ?? slug}`, to: `/projects/${slug}` })
-  if (page.crumbs && page.crumbs.length > 0) {
-    crumbs.push(...page.crumbs)
-  } else if (m && m[1] !== '_new') {
-    const tab = m[2] ?? ''
-    let label = PROJECT_PAGE[tab] ?? tab
-    if (tab === 'releases' && m[3]) label = `Release #${m[3]}`
-    if (tab !== '') crumbs.push({ label })
-  } else {
-    const hit = INSTANCE.find(([re]) => re.test(pathname))
-    if (hit) crumbs.push({ label: hit[1] })
-  }
+  const crumbs = routeAncestors(pathname, {
+    ...page.names,
+    ...(slug ? { [`/projects/${slug}`]: proj?.name ?? slug } : {}),
+  }, search).filter(c => c.to !== '/')
 
   // ⌘K / Ctrl-K, registered once: focuses whichever find box the page has —
   // the front page's big one or the bar's small one (same id, never both).
@@ -91,23 +54,28 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }:
 
   return (
     <header className="topbar">
-      {narrow && (
+      {narrow && !standalone && (
         <button className="subtle topbar-menu" aria-label={menuOpen ? 'close the menu' : 'open the menu'}
           aria-expanded={menuOpen} aria-controls="sidebar" onClick={onMenu}>{menuOpen ? '✕' : '☰'}</button>
       )}
+      <nav className="topbar-trail" aria-label="Breadcrumb">
       <Link to="/" className="topbar-logo">{PRODUCT}</Link>
+      {narrow && crumbs.length > 1 && <span className="topbar-ellipsis" aria-label="More ancestors">› …</span>}
       {crumbs.map((c, i) => (
         <span key={i} className={'topbar-crumb' + (i === crumbs.length - 1 ? ' last' : '')}>
           <span className="topbar-sep">›</span>
-          {c.to ? <Link to={c.to}>{c.label}</Link> : <span className="topbar-here">{c.label}</span>}
+          <Link to={c.to}>{c.label}</Link>
         </span>
       ))}
+      </nav>
       <span className="grow" />
+      {!standalone && <>
       {me && <AttentionLights />}
       <Disclosure className="account-menu topbar-search" closeOnAction={false} trigger={<button id="open-find" className="subtle" aria-label="Search">Find</button>}>
         {close => <Find onNavigate={close} />}
       </Disclosure>
       <Link to="/projects">Projects</Link>
+      </>}
     </header>
   )
 }

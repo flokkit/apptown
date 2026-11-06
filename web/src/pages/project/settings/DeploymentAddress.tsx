@@ -31,7 +31,7 @@ function AddressForm({ path }: { path: string }) {
       {draft && <button type="button" disabled={busy} onClick={() => setDraft(null)}>Discard changes</button>}
       <p className="muted">Leave empty to use the generated address. Configure DNS for custom hostnames separately.</p>
     </form>
-    {settings.reservedHosts.length > 0 && <details><summary>Reserved hostnames</summary>{settings.reservedHosts.map((host) => <div key={host}><code>{host}</code></div>)}</details>}
+    {settings.reservedHosts.length > 0 && <section><h3>Reserved hostnames</h3>{settings.reservedHosts.map((host) => <div key={host}><code>{host}</code></div>)}</section>}
     {err && <div className="error" role="alert">{err}</div>}
   </section>
 }

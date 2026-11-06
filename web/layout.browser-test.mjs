@@ -2,6 +2,7 @@ import { productionCSS } from './production-css.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, readFile } from 'node:fs/promises'
 import { build } from 'esbuild'
+import { rowFontDifferences } from './row-font-sizes.mjs'
 import { wrappedRowActions } from './row-action-lines.mjs'
 // People navigation is a route contract, independent of rendered tab state.
 const app = await readFile(new URL('./src/App.tsx', import.meta.url), 'utf8')
@@ -10,21 +11,30 @@ assert.ok(!app.includes('path="/people"') && !app.includes('/people?tab='), 'old
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE)
 const css = await productionCSS()
 const fixture = await build({
-  absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic',
+  absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
   stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
     import { createRoot } from 'react-dom/client'
+    import { MemoryRouter } from 'react-router-dom'
+    import { ProjectListRow } from './ProjectListRow'
+    import { DailyChart } from './pages/Usage'
     import { Disclosure } from './Popover'
     import { Status } from './Status'
     import { SplitButton } from './SplitButton'
     import { MoreMenu } from './MoreMenu'
     import { ListRow } from './ListRow'
+    import { ListTable } from './ListTable'
+    import { LibraryRow, LibraryRows } from './LibraryRow'
     import AgentActivity from './AgentActivity'
     import { Tabs } from './Tabs'
     const long = 'A very long project identity with a long-unbroken-identifier-abcdefghijklmnopqrstuvwxyz0123456789'
-    createRoot(document.getElementById('root')).render(<>
+    createRoot(document.getElementById('root')).render(<MemoryRouter>
       <main style={{padding: 12}}>
-        <div style={{display:"flex",justifyContent:"flex-end"}}><Status word="unknown" help="No runtime reading." /></div>
-        <div className="project-rows"><div className="project-row"><div className="project-identity"><div className="project-copy">{long}</div></div><div className="project-state">Waiting for you</div><div className="project-action"><SplitButton compact icon="" label="Change" onMain={()=>{document.body.dataset.main='yes'}} items={[{label:'Catalog change',hint:'Choose a prepared change'}]} /></div></div></div>
+        <div className="row"><span className="row-status"><Status word="unknown" help="No runtime reading." /></span><span className="row-status"><Status word="unknown" help="No current inventory confirms presence. Ask an administrator to check this target." /></span></div>
+        <div className="project-rows">{['Short description', long].map((blurb,i)=><ProjectListRow key={i} project={{slug:'project-'+i,name:i?'A project with more words':'Short name',blurb,hasDeployments:false,canChange:false,observation:'unknown'}} />)}</div>
+        <ListTable label="Wrapping records" rows={["Short",long]} rowKey={r=>r} columns={[{key:"name",label:"Name",phone:"name",render:r=><a href="#record">{r}</a>},{key:"detail",label:"Description",phone:"detail",render:r=>r}]} />
+        <LibraryRows><LibraryRow name="Short policy" to="/policies/short" /><LibraryRow name={long} to="/policies/long" /></LibraryRows>
+        <DailyChart days={Array.from({length:90},(_,i)=>new Date(Date.UTC(2026,7,i+1)).toISOString().slice(0,10))} perDay={new Map([['2026-10-29',{step:100,console:50,other:10,cost:0}]])} />
+        <SplitButton compact icon="" label="Change" onMain={()=>{document.body.dataset.main='yes'}} items={[{label:'Catalog change',hint:'Choose a prepared change'}]} />
         <div className="ch-page" style={{paddingInline:6}}><Tabs className="tabs ch-tabs">{['Overview','Code','Conversation','Details'].map((label,i)=><a key={label} className={'tab'+(i===0?' active':'')} href="#change">{label}</a>)}</Tabs></div>
         <div className="row console-head" style={{marginBottom:8}}><h1 style={{margin:0}}>Project chat</h1><span className="badge here">questions &amp; setup</span><span className="console-head-space" style={{flex:1}} /><AgentActivity connected busy={false} /><div className="head-menu"><button aria-label="Chat menu">⋯</button></div></div>
         <div className="ch-decision-choices"><button>Accept</button><button>Send back…</button><button>Abandon change</button></div>
@@ -38,7 +48,7 @@ const fixture = await build({
         <Disclosure className="head-menu" trigger={<button>Session details</button>}><button>Start fresh</button></Disclosure>
         <Disclosure className="account-menu" closeOnAction={false} trigger={<button>Find</button>}>{close=><div className="topbar-find"><input aria-label="Find" onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();document.body.dataset.found=e.currentTarget.value;close()}}}/><button onClick={close}>First match</button></div>}</Disclosure>
       </main>
-    </>)` },
+    </MemoryRouter>)` },
 })
 // Render the real People page so its phone overrides and token options are covered.
 const peopleFixture = await build({
@@ -80,6 +90,22 @@ const targetFixture = await build({
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main style={{padding:18}}><InfrastructureNew /></main></MemoryRouter></QueryClientProvider>)
   ` },
 })
+const trailFixture = await build({
+  absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
+  stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
+    import { createRoot } from 'react-dom/client'
+    import { MemoryRouter } from 'react-router-dom'
+    import { QueryClientProvider } from '@tanstack/react-query'
+    import { newQueryClient, getKey } from './data'
+    import TopBar from './TopBar'
+    const me = {mode:'internal',user:'sam'}, client = newQueryClient()
+    window.fetch = async path => new Response(JSON.stringify(String(path).endsWith('/auth/me') ? me : String(path).endsWith('/authz/me') ? {instance:{'platform:manage-deploy-targets':true}} : {items:[],sources:[]}))
+    client.setQueryData(getKey('/auth/me'), me)
+    client.setQueryData(getKey('/authz/me'), {instance:{'platform:manage-deploy-targets':true}})
+    client.setQueryData(getKey('/attention'), {items:[],sources:[]})
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/club-newsletter/memory/decisions']}><TopBar me={me} narrow /></MemoryRouter></QueryClientProvider>)
+  ` },
+})
 const browser = await chromium.launch({ headless: true })
 const out = process.env.APPTOWN_LAYOUT_OUT
 if (out) await mkdir(out, { recursive: true })
@@ -104,6 +130,15 @@ try {
   assert.equal(wrapped[0].label, 'Wrapped action label')
   assert.ok(wrapped[0].lines > 1)
   await page.evaluate(() => document.getElementById('line-fixtures').remove())
+  await page.locator('.project-name').last().evaluate(el => {el.style.fontSize='var(--fs-xl)'})
+  assert.ok((await page.evaluate(rowFontDifferences)).length > 0, 'font detector rejects different row title sizes')
+  await page.locator('.project-name').last().evaluate(el => {el.style.removeProperty('font-size')})
+  await page.locator('.pack-row .list-identity').last().evaluate(el => {el.style.fontSize='var(--fs-xl)'})
+  assert.ok((await page.evaluate(rowFontDifferences)).some(d => d.row === '.list-row'), 'font detector compares rows inside library wrappers')
+  await page.locator('.pack-row .list-identity').last().evaluate(el => {el.style.removeProperty('font-size')})
+  await page.locator('.record-table tbody tr:last-child td:first-child').evaluate(el => {el.style.fontSize='var(--fs-xl)'})
+  assert.ok((await page.evaluate(rowFontDifferences)).some(d => d.row === '.record-table tbody tr'), 'font detector compares the same column across record rows')
+  await page.locator('.record-table tbody tr:last-child td:first-child').evaluate(el => {el.style.removeProperty('font-size')})
   for (const width of [390, 800, 1440]) {
     await page.setViewportSize({ width, height: 844 })
     for (const size of ['small', 'medium', 'large']) {
@@ -115,13 +150,14 @@ try {
       assert.deepEqual(await page.evaluate(wrappedRowActions), [], `one-line action labels at ${width}, ${size}`)
       assert.ok(await page.locator('.int-list-row button').isVisible(), 'integration action remains visible')
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `page fits at ${width}, ${size}`)
-      await page.locator('.status-help summary').click()
-      assert.ok(await page.locator('.status-help > div').evaluate(element => {
-        const rect = element.getBoundingClientRect()
-        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
-        return Math.abs(rect.width - Math.min(32 * rem, innerWidth - 2 * rem)) < 1 && rect.left >= 0 && rect.right <= innerWidth
-      }), `status help fits at ${width}, ${size}`)
-      await page.keyboard.press('Escape')
+      assert.ok(await page.getByText('No runtime reading.', {exact:true}).isVisible(), 'status explanation stays inline')
+      assert.ok(await page.locator('.project-description').evaluateAll(els => els.every(el => el.scrollWidth <= el.clientWidth + 1)), `free text wraps at ${width}, ${size}`)
+      assert.deepEqual(await page.evaluate(rowFontDifferences), [], `same text sizes between rows at ${width}, ${size}`)
+      assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).webkitTextSizeAdjust), '100%', 'iOS does not inflate individual rows')
+      assert.ok(await page.locator('.usage-chart').evaluate(plot => {
+        const bounds = plot.getBoundingClientRect()
+        return [...plot.children].every(bar => { const r = bar.getBoundingClientRect(); return r.left >= bounds.left && r.right <= bounds.right + 0.5 })
+      }), `all 90 daily bars fit the plot at ${width}, ${size}`)
       for (const name of ['Change: more options', 'More actions for Project', 'More actions for Long project', 'Session details', 'Account', 'Manage', 'Find']) {
         const trigger = page.getByRole('button', { name, exact: true })
         await trigger.click()
@@ -146,11 +182,20 @@ try {
         await page.locator('main').click({ position: { x: 2, y: 2 } })
         await panel.waitFor({ state: 'detached' })
       }
+      if (width <= 800) assert.ok(await page.locator('table[aria-label="Wrapping records"] td').evaluateAll(cells => cells.every(cell => cell.scrollWidth <= cell.clientWidth + 1)), `record text wraps at ${width}, ${size}`)
       if (out) for (const theme of ['light', 'dark']) {
         await page.evaluate(theme => { document.documentElement.dataset.theme = theme }, theme)
         await page.screenshot({ path: `${out}/${width}-${size}-${theme}.png`, fullPage: true })
       }
     }
+  }
+  for (const size of ['small', 'medium', 'large']) {
+    await page.setViewportSize({width:390,height:844})
+    await page.goto('http://layout.test/')
+    await page.evaluate(size => {document.documentElement.dataset.size=size},size)
+    await page.addScriptTag({content:trailFixture.outputFiles[0].text})
+    await page.locator('.attention-light').last().waitFor()
+    assert.ok(await page.locator('.topbar').evaluate(bar => [...bar.children].every(el => {const r=el.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth+1})), `deep phone trail keeps controls on screen at ${size}: ${JSON.stringify(await page.locator('.topbar').evaluate(bar => [...bar.children].map(el=>({cls:el.className, left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right}))))}`)
   }
   for (const width of [390, 800, 1440]) {
     await page.setViewportSize({ width, height: 844 })

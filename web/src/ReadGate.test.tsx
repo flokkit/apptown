@@ -157,7 +157,7 @@ describe('StaleScope', () => {
     // The notice stands above the sections, and the reason is not repeated
     // as text in each one.
     expect(el.firstElementChild).toBe(notices[0])
-    expect(el.querySelectorAll('details.status-help:not([open])')).toHaveLength(3)
+    expect(el.querySelectorAll('.status-help-inline')).toHaveLength(3)
     // The section that never had an answer is still an error, not old.
     expect(el.querySelector('.error')?.textContent).toBe('● unknownThe broken list could not be read: no such list')
     expect(el.textContent).toContain('grace')

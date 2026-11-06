@@ -155,12 +155,12 @@ describe('a project page while its review refreshes', () => {
     const root = createRoot(el)
     const settle = () => settled(client)
     const lane = () => el.querySelector('section[aria-label="Conforms"]') as HTMLElement
-    const rowOf = (check: string) => [...el.querySelectorAll('strong')].find((s) => s.textContent === check)?.closest('button') as HTMLElement | undefined
+    const rowOf = (check: string) => [...el.querySelectorAll('strong')].find((s) => s.textContent === check)
+    void rowOf
     try {
       await act(async () => { root.render(<QueryClientProvider client={client}><RouterProvider router={router} /></QueryClientProvider>) })
       await settle()
-      expect(el.textContent).not.toContain('check-1 detail') // each check starts closed
-      await act(async () => { rowOf('check-1')!.click() })
+      expect(el.querySelector('button.check-open')).toBeNull()
       expect(el.textContent).toContain('check-1 detail')
 
       judged = 3
@@ -175,7 +175,7 @@ describe('a project page while its review refreshes', () => {
       await act(async () => { await router.navigate(`/conformance/reviews/${uuid(2)}/projects/shop`) })
       await settle()
       expect(lane(), 'review 2 is shown').toBeDefined()
-      expect(el.textContent, 'another review starts with its checks closed').not.toContain('check-1 detail')
+      expect(el.textContent, 'another review shows its checks inline').toContain('check-1 detail')
     } finally {
       act(() => root.unmount())
       el.remove()

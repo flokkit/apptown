@@ -41,8 +41,7 @@ Display rules: loading, empty, failed and denied reads remain distinct. A failed
 refresh keeps the last answer under an `unknown` light; its help includes the
 failure and last successful read time. `StaleScope` says once that the refresh
 failed and the last answer is shown. `ReadGate`, `ReadStatus` and `StaleNote` own
-these displays; pages reuse them. First-read failures show `unknown`, with the resource and reason in a
-disclosure. Initial reads show `Loading…` without a status light. A
+these displays; pages reuse them. First-read failures show `unknown`, with the resource and reason inline. Initial reads show `Loading…` without a status light. A
 browser-to-AppTown failure never establishes a deployment host's reachability. Offline is stated once at the top of the page.
 
 Owners supply typed recorded outcomes and freshness classifications. Health and

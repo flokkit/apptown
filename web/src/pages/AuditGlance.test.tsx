@@ -32,7 +32,7 @@ it('shows the latest backup once and caps the history at ten', () => {
     items: [{ kind: 'need', name: 'postgres', caveat: 'Technical copy limits' }],
   })) })
   const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><BackupsView /></QueryClientProvider></MemoryRouter>)
-  expect(firstView(html)).not.toContain('Technical copy limits')
+  expect(firstView(html)).toContain('Technical copy limits')
   const el = document.createElement('div'); el.innerHTML = html
   expect(el.querySelectorAll('table')[0].querySelectorAll('tbody tr')).toHaveLength(1)
   expect(el.querySelectorAll('table')[1].querySelectorAll('tbody tr')).toHaveLength(10)
@@ -62,7 +62,8 @@ it('keeps commands, approval credentials, comments and step identifiers behind D
   const visible = firstView(html)
   expect(visible).toContain('Approved by Sam')
   for (const word of ['mvn', '/apptown-cache', 'secret-token', 'raw-uuid', 'scan-source:osv', 'internal-workflow']) expect(visible).not.toContain(word)
-  expect(html).toContain('secret-token')
+  expect(html).not.toContain('secret-token')
+  expect(html).toContain('href="/work"')
 })
 
 it('replaces an empty decisions table with a clear empty state', () => {
@@ -103,7 +104,7 @@ it('shows target facts beside the inventory while resource ids stay in detail', 
   client.setQueryData(getKey('/infrastructure'), { targets: [{ target: 'Kitchen', statusLabel: 'working', live: true, facts: 'ssh root@internal-host TOKEN_NAME', resources: [{ kind: 'container', name: 'apptown-dep-raw-id', id: 'raw-provider-id', status: 'running', statusLabel: 'running', record: 'recorded', hosts: [{ project: 'Diary', deployment: 'main' }] }] }] })
   const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ResourceTables t={client.getQueryData<{ targets: import('../wire.gen').InfrastructureView[] }>(getKey('/infrastructure'))!.targets[0]} onChanged={() => {}} /></QueryClientProvider></MemoryRouter>)
   expect(firstView(html)).toContain('working')
-  expect(firstView(html)).not.toContain('raw-provider-id')
+  expect(firstView(html)).toContain('raw-provider-id')
   expect(firstView(html)).toContain('Diary')
   expect(html).toContain('Diary')
   client.clear()

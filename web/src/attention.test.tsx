@@ -348,7 +348,7 @@ it('counts an expired item once when its owner coverage has the same key', () =>
 // A check that has never been read is not checked yet, never working.
 it('shows a never-checked source as not checked yet in the full list', async () => {
  responses(() => json({ items: [], sources: [{ ...known.sources[0], observedAt: '0001-01-01T00:00:00Z' }, { ...known.sources[0], key: 'checked', name: 'Checked source' }] }))
- const v = mount(<AttentionPage />); await settled(v.client)
+ const v = mount(<AttentionPage checks />); await settled(v.client)
  const rows = [...v.el.querySelectorAll('section[aria-label="All checks"] .attention-row')]
  const never = rows.find(r => r.textContent!.includes('Worker availability'))!
  expect(never.querySelector('.row-status')!.textContent).toContain('not checked yet')
@@ -402,17 +402,17 @@ it('shows a not-known light when Attention cannot be read', async () => {
 })
 
 // Working checks fold into one line; the ones that are not working stay in view.
-it('folds working checks into one line and keeps the rest in view', async () => {
+it('keeps working checks inline with the checks needing attention', async () => {
  responses(() => json({ items: [], sources: [
   { ...known.sources[0], key: 'ok-1', name: 'Fine one' },
   { ...known.sources[0], key: 'protection/ok-2', name: 'Fine two' },
   { ...known.sources[0], key: 'never', name: 'Never read', observedAt: '0001-01-01T00:00:00Z' },
  ] }))
- const v = mount(<AttentionPage />); await settled(v.client)
+ const v = mount(<AttentionPage checks />); await settled(v.client)
  const all = v.el.querySelector('section[aria-label="All checks"]')!
- const fold = all.querySelector('details.attention-working')!
+ const fold = all.querySelector('section.attention-working')!
  expect(fold.hasAttribute('open')).toBe(false)
- expect(fold.querySelector('summary')!.textContent).toBe('2 more checks working')
+ expect(fold.querySelector('h3')!.textContent).toBe('2 more checks working')
  expect(fold.textContent).toContain('Fine one')
  // Grouped by the same kinds as the problems above.
  expect(fold.textContent).toContain('Hosts and deployments · 1')

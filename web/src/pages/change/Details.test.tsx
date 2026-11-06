@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation, useSearchParams } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { ChangeView, RunDetail, Step } from '../../api'
@@ -17,11 +17,17 @@ const detail = (id: string, steps: Step[] = []): RunDetail => ({ run: { id, stat
 const view = (): ChangeView => ({ waitingOn: { kind: 'check', says: 'script failed', tone: 'bad', run: 'work', step: 'check', checks: 1, who: [], you: 'yes' }, change: { id: 'change', title: 'A better calendar', body: 'Show the times.\nKeep the invitation.', openedBy: 'sam', createdAt: '2026-11-01T08:00:00Z', state: 'in_progress', type: 'feature', editRevision: 1, branch: 'calendar', baseSha: 'abc' }, detail: detail('work', [step('agent', 'agent/pi', 'pass', { evidence: { durationMs: 120000, files: ['one', 'two'] } }), step('check', 'script', 'fail', { evidence: { reason: 'A start time is missing.', actions: ['Add a time to every ride.'] } }), step('review', 'agent/review', 'pass', { evidence: { verdict: 'accept', summary: 'The text is clear.\nA longer conclusion.' } }), step('accept', 'approval', 'pending', { startedAt: '', config: { approvers: ['priya'] } })]), runs: [], evidence: { targets: [], releases: [], merged: false }, usage: { total: 0, costMicros: 0 }, adrs: [], projectSlug: 'club' } as unknown as ChangeView)
 afterEach(() => vi.unstubAllGlobals())
 const settle = () => act(async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)) })
+function Record({ v }: { v: ChangeView }) {
+  const [params] = useSearchParams()
+  const path = useLocation().pathname
+  const id = path.match(/\/records\/([^/]+)$/)?.[1]
+  return <ChangeDetails view={v} current reload={() => {}} recordId={id ? decodeURIComponent(id) : undefined} runId={params.get('run') || undefined} />
+}
 async function mount(v: ChangeView, answers: Record<string, unknown> = {}, initial = '/changes/change?tab=details') {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(answers[String(url).replace('/api/v1', '')] ?? []))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   document.body.append(el)
-  await act(async () => root.render(<MemoryRouter initialEntries={[initial]}><QueryClientProvider client={client}><TechnicalDetailSwitch /><ChangeDetails view={v} current reload={() => {}} /></QueryClientProvider></MemoryRouter>))
+  await act(async () => root.render(<MemoryRouter initialEntries={[initial]}><QueryClientProvider client={client}><TechnicalDetailSwitch /><Record v={v} /></QueryClientProvider></MemoryRouter>))
   await settle()
   return { el, client, close: () => { act(() => root.unmount()); el.remove(); client.clear() }, click: async (a: HTMLAnchorElement) => { await act(async () => a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }))); await settle() } }
 }
@@ -44,15 +50,9 @@ it('shows only the story and valued facts, with plain evidence links and actions
   await act(async () => rerun.click())
   expect(vi.mocked(fetch).mock.calls.some(([url, init]) => String(url).endsWith('/steps/check/run') && init?.method === 'POST')).toBe(true)
   await f.click(failed.querySelector('a')!)
-  const opened = failed.nextElementSibling!
-  expect(opened.classList.contains('ch-check-evidence-row')).toBe(true)
-  expect(opened.querySelector('.step-card')).not.toBeNull()
-  const buttons = [...failed.querySelectorAll('button'), ...opened.querySelectorAll('button')]
-  expect(buttons.filter(b => b.textContent === 'hide')).toHaveLength(1) // The opened link becomes "hide" in place.
-  expect(buttons.filter(b => b.textContent !== 'hide')).toHaveLength(2) // No duplicate actions inside the evidence.
-  await act(async () => buttons.find(b => b.textContent === 'hide')!.click())
-  expect(failed.nextElementSibling?.classList.contains('ch-check-evidence-row') ?? false).toBe(false)
-  expect(failed.querySelector('a')?.textContent).toBe('details')
+  expect(f.el.querySelector('.step-card')).not.toBeNull()
+  expect(f.el.querySelector('h1')?.textContent).toBe('Check')
+  expect(f.el.querySelector('button[aria-expanded]')).toBeNull()
   f.close()
 })
 
@@ -128,8 +128,8 @@ it('names who abandoned a draft even when no run ever started', async () => {
 
 it('omits unrecorded dates from opened approval evidence', async () => {
   const v = view(); const approval = v.detail!.steps.find(s => s.type === 'approval')!; approval.finishedAt = ''
-  const f = await mount(v, {}, '/changes/change?tab=details#entry-accept-0')
-  const evidence = f.el.querySelector('#entry-accept-0 .ch-story-evidence')!
+  const f = await mount(v, {}, '/changes/change/records/entry-accept-0')
+  const evidence = f.el.querySelector('.ch-story-evidence')!
   expect(evidence.textContent).not.toContain('Started')
   expect(evidence.textContent).not.toContain('Finished')
   f.close()
@@ -147,12 +147,12 @@ it('dates an acceptance by its recorded decision and shows the merge once', asyn
   f.close()
 })
 
-it.each(['preview', 'review', 'checks'])('opens a shareable %s anchor at its timeline evidence', async anchor => {
+it.each(['preview', 'review', 'checks'])('opens a shareable %s page with its evidence', async anchor => {
   const v = view()
   v.detail!.steps.push(step('boot', 'preview', 'pass', { evidence: { reason: 'Preview recorded.' } }))
-  const f = await mount(v, {}, `/changes/change?tab=details#${anchor}`)
-  expect(f.el.querySelector(`#${anchor}`)?.closest('li')?.querySelector('.ch-story-evidence')).not.toBeNull()
-  expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+  const f = await mount(v, {}, `/changes/change/records/${anchor}`)
+  expect(f.el.querySelector('.ch-story-evidence')).not.toBeNull()
+  expect(f.el.querySelector('h1')).not.toBeNull()
   f.close()
 })
 
@@ -342,7 +342,7 @@ it('shows a few request lines once and links to the complete request without a d
     expect(asked.textContent).toContain('Request line 4.')
     expect(asked.textContent).not.toContain('Request line 5.')
     const link = [...asked.querySelectorAll('a')].find(a => a.textContent === 'full request')!
-    expect(link.getAttribute('href')).toBe('/changes/change?tab=details#request-text')
+    expect(link.getAttribute('href')).toBe('/changes/change/records/request')
     await f.click(link)
     expect(f.el.querySelector('#request-text')?.textContent).toBe(v.change.body)
     expect(f.el.querySelector('details')).toBeNull()
@@ -368,4 +368,51 @@ it.each([[0, 2, 'not priced'], [3000, 1, 'at least $0.0030'], [0, 0, '$0.00']] a
     const row = [...f.el.querySelectorAll('.ch-facts-table tr')].find(r => r.querySelector('th')?.textContent === 'Cost')
     expect(row?.textContent).toContain(expected)
   } finally { f.close() }
+})
+
+it('retains binary records and their provenance on the record page', async () => {
+  const v = view()
+  v.detail!.artifacts = [{id:'shot',runId:'work',name:'step-check',kind:'screenshot',body:'',binary:true,ref:'https://example.test/record',createdAt:'2026-11-01T10:01:00Z'}]
+  const f = await mount(v, {'/artifacts/shot':{bodyBase64:'cGhvdG8='}}, '/changes/change/records/record-shot')
+  try {
+    await vi.waitFor(() => expect(f.el.querySelector('img[src="data:image/png;base64,cGhvdG8="]')).not.toBeNull())
+    expect(f.el.querySelector('h1')?.textContent).toBe('step-check')
+    expect(f.el.textContent).toContain('step-check · screenshot')
+    expect(f.el.querySelector('a[href="https://example.test/record"]')?.textContent).toBe('Open record')
+  } finally { f.close() }
+})
+
+
+it.each(['preview', 'review', 'checks'])('names an empty %s record without inventing evidence', async name => {
+  const v = view()
+  v.detail!.steps = [step('agent', 'agent/pi', 'pass', {evidence:{output:'This is agent work, not a preview.'}})]
+  const f = await mount(v, {}, `/changes/change/records/${name}`)
+  try {
+    expect(f.el.querySelector('h1')?.textContent).toBe(name.charAt(0).toUpperCase()+name.slice(1))
+    expect(f.el.textContent).toContain(`No ${name} ${name === 'checks' ? 'were' : 'was'} recorded.`)
+    expect(f.el.textContent).not.toContain('This is agent work')
+  } finally {f.close()}
+})
+
+it('reads the review from the run named by the link', async () => {
+  const v = view()
+  v.detail!.steps = [step('new-review', 'agent/review', 'pass', {evidence:{verdict:'approve',summary:'Newer review conclusion.'}})]
+  const old = detail('older', [step('old-review', 'agent/review', 'fail', {runId:'older',evidence:{verdict:'reject',summary:'Earlier review conclusion.'}})])
+  v.runs = [{id:'older'}] as ChangeView['runs']
+  const f = await mount(v, {'/runs/older/trace':old}, '/changes/change/records/review?run=older')
+  try {
+    expect(f.el.textContent).toContain('Earlier review conclusion.')
+    expect(f.el.textContent).not.toContain('Newer review conclusion.')
+  } finally {f.close()}
+})
+
+
+it('does not claim that a review is absent before its run has been read', async () => {
+  const v = view()
+  v.runs = [{id:'unread'}] as ChangeView['runs']
+  const f = await mount(v, {}, '/changes/change/records/review?run=unread')
+  try {
+    expect(f.el.textContent).toContain('This record has not been read.')
+    expect(f.el.textContent).not.toContain('No review was recorded.')
+  } finally {f.close()}
 })

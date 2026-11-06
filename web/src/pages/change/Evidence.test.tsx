@@ -247,14 +247,15 @@ it('shows an offered approval as waiting for you, independently of check labels'
   expect(html.includes('Not merged and not released.')).toBe(state === 'shipped' || state === 'abandoned')
  })
 
-it('names script checks individually and makes each receipt the disclosure', () => {
+it('names script checks individually and links each receipt to its full record', () => {
  const steps = ['tests', 'style'].map((name, i) => ({ id: String(i), name, type: 'script', status: 'fail', statusLabel: 'failed', evidence: { command: 'private-command' }, config: {} } as unknown as Step))
  expect(steps.map(s => receiptOf(s).title)).toEqual(['Tests', 'Style'])
  const view = { change: { state: 'in_progress' } } as ChangeView
  const html = renderToStaticMarkup(<MemoryRouter><Evidence view={view} runs={[{ run: { id: 'run', status: 'running' } as Run, steps }]} workTab={() => '#record'} /></MemoryRouter>)
- expect(html).toMatch(/<details[^>]*id="step-0"[^>]*><summary/)
+ expect(html).toMatch(/<section[^>]*id="step-0"[^>]*><h3/)
  expect(html).not.toContain('<summary>Details</summary>')
- expect(html).toContain('Kind: Script')
+ expect(html).toContain('href="/#record"')
+ expect(html).not.toContain('private-command')
 })
 
 it('shows preview resource failures and the needs given to an agent', () => {

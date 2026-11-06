@@ -141,7 +141,7 @@ it('shows a checked age only for stale project observations, without an empty sp
   const el = home([project('fresh', { observedAt }), project('stale', { observedAt, observationStale: true })])
   const [fresh, stale] = [...el.querySelectorAll('.project-state')]
   expect(fresh.textContent).toContain('working')
-  expect([...fresh.children].filter(c => !c.classList.contains('status-help')).map(c => c.textContent).join('')).not.toContain('Checked')
+  expect([...fresh.children].filter(c => !c.classList.contains('status-help-inline')).map(c => c.textContent).join('')).not.toContain('Checked')
   expect(fresh.querySelector(':scope > .muted.small')).toBeNull()
   expect(stale.textContent).toContain('Checked')
 })

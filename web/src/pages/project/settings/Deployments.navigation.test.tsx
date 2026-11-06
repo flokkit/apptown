@@ -80,7 +80,7 @@ it('routes to the full card with footer controls and the TopBar breadcrumb', asy
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`${base}/main`]}><TopBar me={null} /><Routes><Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} /></Routes></MemoryRouter></QueryClientProvider>))
     await vi.waitFor(() => expect(el.querySelector('.deploy-entry')).not.toBeNull())
-    await vi.waitFor(() => expect(el.querySelector('.topbar')?.textContent).toContain('AppTown›Projects›Lunch›Deployments›Lunch Orders'))
+    await vi.waitFor(() => expect(el.querySelector('.topbar')?.textContent).toContain('AppTown›Projects›Lunch›Deployments'))
     expect(el.querySelector('.topbar a[href="/projects/lunch/deployments"]')).not.toBeNull()
     expect(el.querySelector('.topbar a[href="/projects"]')?.textContent).toBe('Projects')
     expect(el.querySelector('.deployment-page-heading')?.textContent).toContain('Lunch Orders')

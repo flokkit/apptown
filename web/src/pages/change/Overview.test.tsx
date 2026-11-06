@@ -45,7 +45,7 @@ it('leads with the preview, separates request from report and links every eviden
   const html = render(view())
   const facts = ['The change', 'Preview', 'Open it and try it', 'You asked', 'What was made', 'Checks', 'Reviewer', 'Your decision']
   for (let i = 1; i < facts.length; i++) expect(html.indexOf(facts[i])).toBeGreaterThan(html.indexOf(facts[i - 1]))
-  for (const fact of ['#preview', '#checks', '#review', '?tab=changes', 'How it was done']) expect(html).toContain(fact)
+  for (const fact of ['/records/preview', '/records/checks', '/records/review', '?tab=changes', 'How it was done']) expect(html).toContain(fact)
   expect(html).toContain('Keep the dinner invitation.')
   expect(html).not.toContain('No review recorded')
 })
@@ -242,15 +242,15 @@ it('shows a long request excerpt with a link to the complete request', () => {
   expect(el.textContent).toContain('First line.')
   expect(el.querySelector('.ch-change-card')?.textContent).not.toContain('Last request line.')
   const link = [...el.querySelectorAll('a')].find(a => a.textContent === 'full request →')!
-  expect(link.getAttribute('href')).toBe('/?tab=details#request-text')
+  expect(link.getAttribute('href')).toBe(`/changes/${v.change.id}/records/request`)
 })
 
 it('keeps large code files, screenshot failures and status help open on a change', () => {
   const raw = 'diff --git a/site.txt b/site.txt\n--- a/site.txt\n+++ b/site.txt\n@@ -1 +1,450 @@\n' + Array.from({ length: 450 }, (_, i) => `+line ${i}`).join('\n')
   const html = renderToStaticMarkup(<InlineHelp.Provider value>
     <Status word="unknown" help="The checks could not be read." />
-    <DiffView raw={raw} unfolded />
-    <Screenshots unfolded shots={{ failedResources: [{ path: '/', view: 'desktop', type: 'image', url: '/missing.png', status: 404 }] } as never} />
+    <DiffView raw={raw} />
+    <Screenshots shots={{ failedResources: [{ path: '/', view: 'desktop', type: 'image', url: '/missing.png', status: 404 }] } as never} />
   </InlineHelp.Provider>)
   const el = document.createElement('div'); el.innerHTML = html
   expect(el.querySelector('details, summary')).toBeNull()
@@ -263,7 +263,7 @@ it('links a long reviewer conclusion to the run that recorded it', () => {
   const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={(step, run) => `?tab=details&run=${run}&step=${step}`} /></QueryClientProvider></MemoryRouter>)
   const el = document.createElement('div'); el.innerHTML = html
   const link = [...el.querySelectorAll('a')].find(a => a.textContent === 'full review →')!
-  expect(link.getAttribute('href')).toBe('/?tab=details&run=working-run&step=undefined#review')
+  expect(link.getAttribute('href')).toBe(`/changes/${v.change.id}/records/review?run=working-run`)
 })
 
 it.each([[true, true], [true, false], [false, true], [false, false]])('states acceptance consequences and only offered decisions (deploys=%s, abandon=%s)', async (deploys, abandon) => {
@@ -306,7 +306,7 @@ it.each([[true, true], [true, false], [false, true], [false, false]])('states ac
 
 it('keeps recorded desktop and phone pictures in the hero with desktop first', () => {
   const el = document.createElement('div')
-  el.innerHTML = renderToStaticMarkup(<Screenshots hero unfolded shots={{ commit: 'abc', shots: [
+  el.innerHTML = renderToStaticMarkup(<Screenshots hero shots={{ commit: 'abc', shots: [
     { artifact: 'phone', view: 'phone', path: '/' }, { artifact: 'desktop', view: 'desktop', path: '/' },
   ] }} head="abc" />)
   expect([...el.querySelectorAll('figcaption')].map(e => e.textContent)).toEqual(['Desktop', 'Phone'])
@@ -949,4 +949,27 @@ it.each(['waiting for approval', 'cancelled', 'superseded'] as const)('keeps a l
  expect(row.textContent?.toLowerCase()).toContain(state)
  expect(row.textContent).not.toContain('live')
  if (state === 'waiting for approval') expect(row.querySelector('a')?.getAttribute('href')).toBe('/projects/club/deployments/production')
+})
+
+it('keeps legacy step selectors from reopening evidence inside the timeline', async () => {
+  const v = view()
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.endsWith(`/changes/${id}`) ? v : url.endsWith('/auth/me') ? {user:'sam'} : []
+  ))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  client.setQueryData(getKey(`/changes/${id}`), v)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/changes/${id}?tab=details&step=script`]}><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('.ch-details')).not.toBeNull())
+    expect(el.querySelector('.step-card, .ch-check-evidence-row')).toBeNull()
+    expect(el.querySelector('a[href*="/records/entry-script-0?run=run"]')).not.toBeNull()
+  } finally { act(() => root.unmount()); client.clear() }
+})
+
+
+it('retains the preview run in the logs link', () => {
+  const v = view()
+  v.detail!.steps.push(step('preview', 'pass', {screenshots:{shots:[],unavailable:'No capture was recorded.'}}, {id:'boot',runId:'preview-run'}))
+  const el = document.createElement('div'); el.innerHTML = render(v)
+  expect([...el.querySelectorAll('a')].find(a=>a.textContent==='logs →')?.getAttribute('href')).toBe(`/changes/${v.change.id}/records/preview?run=preview-run`)
 })

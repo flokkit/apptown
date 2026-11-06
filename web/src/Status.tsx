@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef } from 'react'
+import { useContext } from 'react'
 import { lastSeen } from './format'
 import type { DisplayStatus, RuntimeState, HealthStatus, CheckLabel, ReleaseLabel, UpdateLabel, CopyLabel, JobLabel, TargetLabel, DepartureLabel, ResourceLabel, ProgressLabel, ADRLabel } from './wire.gen'
 
@@ -41,46 +41,9 @@ export function Status({ word, help, staleAt, observation = false, old = false, 
   const label = staleAt && !['failed', 'unreachable', 'unknown', 'not set up', 'not applicable', 'not checked yet', 'none'].includes(word) ? lastSeen(staleAt) : old ? `old · ${operational}` : operational
   // An old reading is amber, except a failure: an old failure is still a failure.
   const tone = STATUS_LIGHT[word] === 'fail' ? 'fail' : old || staleAt && label.startsWith('last seen') ? 'pending' : observation && ['working', 'running'].includes(word) ? 'pass' : STATUS_LIGHT[word]
-  const ref = useRef<HTMLDetailsElement>(null)
-  useEffect(() => {
-    const closeOutside = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node) && ref.current) ref.current.open = false
-    }
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && ref.current?.open) {
-        ref.current.open = false
-        ref.current.querySelector('summary')?.focus()
-      }
-    }
-    document.addEventListener('pointerdown', closeOutside, true)
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('pointerdown', closeOutside, true)
-      document.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [])
   const chip = <span className={`chip ${tone}`} title={help} aria-label={help ? `${label}: ${help}` : undefined}>{/* Every state has its dot; a neutral one is grey, so it sits in line with the rest. */}<span aria-hidden="true">● </span>{reason ?? label}</span>
   if (!help) return chip
-  if (inlineHelp) return <span className="status-inline">{chip} <span className="small muted">{help}</span></span>
-  return <details ref={ref} className="status-help" onClick={(e) => e.stopPropagation()}>
-    <summary onClick={(e) => {
-      // A linked row must open its help without following the row's link.
-      e.preventDefault()
-      e.stopPropagation()
-      const details = e.currentTarget.parentElement as HTMLDetailsElement
-      if (!details.open) {
-        document.querySelectorAll<HTMLDetailsElement>('.status-help[open]').forEach(other => { other.open = false })
-        const help = details.querySelector('div')!
-        details.open = true
-        const width = help.getBoundingClientRect().width
-        const left = details.getBoundingClientRect().left
-        help.style.left = `${Math.max(16 - left, Math.min(0, window.innerWidth - 16 - left - width))}px`
-      } else {
-        details.open = false
-      }
-    }}>{chip}</summary>
-    <div className="small muted">{help}</div>
-  </details>
+  return <span className={inlineHelp ? 'status-inline' : 'status-help-inline'}>{chip}<span className="small muted">{help}</span></span>
 }
 
 // Change wording and tone are supplied by Workflow together.

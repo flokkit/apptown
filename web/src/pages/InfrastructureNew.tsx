@@ -36,7 +36,6 @@ export function InfrastructureNew() {
   return (
     <div className="infrastructure-new-div">
       <div className="row infrastructure-new-div-2">
-        <Link to="/targets" className="small">Deployment targets</Link><span className="muted small">/</span>
         <h1 className="infrastructure-new-h1">Add a deployment target</h1>
       </div>
       <ol className="wiz-steps">

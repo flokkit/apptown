@@ -2,11 +2,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { getKey, newQueryClient } from '../data'
 import type { Target, TargetPage } from '../wire.gen'
-import { OfferStep } from './InfrastructureNew'
+import { InfrastructureNew, OfferStep } from './InfrastructureNew'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const target = (revision = 7, domain = 'old.example'): Target => ({
@@ -128,4 +129,14 @@ describe('target wizard completion', () => {
     h.failRead(); await h.click('Read current settings')
     expect(h.button('Keep my edits on current settings').disabled).toBe(true); expect(h.domain().value).toBe('mine.example'); expect(h.writes).toHaveLength(1)
   })
+})
+
+
+it('leaves the target parent trail to the top bar', () => {
+  const client = newQueryClient(), el = document.createElement('div')
+  try {
+    el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><InfrastructureNew /></QueryClientProvider></MemoryRouter>)
+    expect(el.querySelector('h1')?.textContent).toBe('Add a deployment target')
+    expect(el.querySelector('a[href="/targets"]')).toBeNull()
+  } finally {client.clear()}
 })

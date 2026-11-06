@@ -44,11 +44,11 @@ function Thumb({ id, label, onOpen }: { id: string; label: string; onOpen: (src:
   )
 }
 
-export function Screenshots({ shots, head, at, unfolded = false, hero = false }: { hero?: boolean; unfolded?: boolean; shots?: PreviewScreenshots; head?: string; at?: string }) {
+export function Screenshots({ shots, head, at, hero = false }: { hero?: boolean; shots?: PreviewScreenshots; head?: string; at?: string }) {
   const [open, setOpen] = useState<{ src: string; label: string } | null>(null)
   if (!shots) return null
-  const Resources = unfolded ? 'section' : 'details'
-  const Heading = unfolded ? 'p' : 'summary'
+  const Resources = 'section'
+  const Heading = 'p'
   const taken = hero ? [...(shots.shots ?? [])].sort((a, b) => Number(b.view === 'desktop') - Number(a.view === 'desktop')) : shots.shots ?? []
   const cmp = sameCommitWords(shots.commit, head)
   return (

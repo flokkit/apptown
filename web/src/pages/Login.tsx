@@ -44,18 +44,16 @@ export default function Login({ needsBootstrap, onSignedIn, external }: {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+    <div style={{ minHeight: 'calc(100vh - var(--topbar-h))', display: 'grid', placeItems: 'center' }}>
       <form onSubmit={submit} className="card" style={{ width: 340, display: 'grid', gap: 12, padding: 24 }}>
-        <h1><b>{PRODUCT}</b></h1>
-        {needsBootstrap ? (
+        <h1>{needsBootstrap ? 'Create the first administrator' : 'Sign in'}</h1>
+        {needsBootstrap && (
           <div className="muted small">
             No accounts exist yet. Create the first one · it will be the
             administrator. It needs the setup token in the file
             {' '}<code>setup-token</code> in {PRODUCT}'s data directory on its
             host ({PRODUCT}'s log says where; the desktop trial's ready link fills it in).
           </div>
-        ) : (
-          <div className="muted small">Sign in</div>
         )}
         {needsBootstrap && <LocalTrialNote />}
         <label className="small muted">Username

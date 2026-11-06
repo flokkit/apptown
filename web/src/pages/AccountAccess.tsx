@@ -4,7 +4,7 @@ import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { Section } from '../Section'
 import { QuietConfirm } from '../QuietConfirm'
-import { Disclosure } from '../Popover'
+import { FormMenu } from '../MoreMenu'
 import { Modal } from '../Modal'
 import { ListTable } from '../ListTable'
 import { fmtStamp, fmtWhen, relTime } from '../format'
@@ -13,7 +13,7 @@ import './People.css'
 
 // Keep credential consequences outside the table's fixed-width action cell.
 function CredentialConfirm({ label, ask, onYes }: { label: string; ask: string; onYes: () => void }) {
-  return <Disclosure closeOnAction={false} trigger={<button className="subtle danger">{label}</button>}>
+  return <FormMenu closeOnAction={false} trigger={<button className="subtle danger">{label}</button>}>
     {close => <>
       <p>{ask}</p>
       <div className="row row-2">
@@ -21,7 +21,7 @@ function CredentialConfirm({ label, ask, onYes }: { label: string; ask: string; 
         <button className="subtle" onClick={close}>No</button>
       </div>
     </>}
-  </Disclosure>
+  </FormMenu>
 }
 
 // Coding agents people have connected through the browser sign-in
@@ -51,18 +51,18 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
             { key: 'connected', label: 'Connected', phone: 'extra', render: d => <span title={fmtStamp(d.createdAt ?? '')}><span className="record-wide">{fmtStamp(d.createdAt ?? '')}</span><span className="record-phone">{relTime(d.createdAt ?? '') || '—'}</span></span> },
             { key: 'used', label: 'Last used', phone: 'time', kind: 'time', render: d => <span title={fmtStamp(d.lastUsed ?? '')}>{relTime(d.lastUsed ?? '') || 'never'}</span> },
             { key: 'action', label: '', phone: 'action', render: d => <CredentialConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },
-          ]} /> : <details><summary>Connections and permissions</summary>
+          ]} /> : <section><h3>Connections and permissions</h3>
       {connections.map(d => (
         <div key={d.id} className="row small people-div-2">
           <span className="badge">{d.clientName}</span>
           <span>as <b>{d.user}</b></span>
           <span className="muted">· {d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span>
-          <span className="muted">Connected {fmtStamp(d.createdAt)}{d.lastUsed ? `, last used ${fmtStamp(d.lastUsed)}` : ''}</span><details><summary>Permissions</summary><p>{d.scopes.join(', ')}</p></details>
+          <span className="muted">Connected {fmtStamp(d.createdAt)}{d.lastUsed ? `, last used ${fmtStamp(d.lastUsed)}` : ''}</span><span>Permissions: {d.scopes.join(', ')}</span>
           <span className="grow" />
           <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`}
             onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} />
         </div>
-      ))}</details>}
+      ))}</section>}
         </div>
       })}
       {selected && <Modal title={`${selected.clientName} as ${selected.user}`} onClose={() => setSelected(null)}>

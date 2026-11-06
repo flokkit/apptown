@@ -1,4 +1,5 @@
 @layer components {
+.standalone-page { padding-top: var(--topbar-h); }
 .layout { display: flex; min-height: 100vh; padding-top: var(--topbar-h); }
 /* The sidebar's column runs the full height of the page however long it is
    (the nav stretches with the layout); its contents stay in view while the
@@ -26,18 +27,19 @@
 .sidebar .topbar-find { margin-bottom: 8px; }
 .sidebar .topbar-find input, .sidebar .topbar-find input:focus { width: 100%; }
 
-/* The top bar: AppTown › project › page · state — the one fixed anchor. */
+/* The top bar links to every ancestor page; the page heading names this page. */
 .topbar {
   position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); z-index: var(--z-topbar);
   display: flex; align-items: center; padding: 0 16px 0 14px;
   border-bottom: 1px solid var(--border);
   font-size: var(--fs-base); white-space: nowrap; gap: 16px; background: var(--bg);
 }
-.topbar-logo { font-family: var(--font-heading); font-weight: var(--fw-strong); color: var(--text); margin-right: 4px; font-size: var(--fs-logo); letter-spacing: -.04em; }
+.topbar-trail { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.topbar-logo { flex-shrink: 0; font-family: var(--font-heading); font-weight: var(--fw-strong); color: var(--text); margin-right: 4px; font-size: var(--fs-logo); letter-spacing: -.04em; }
 .topbar-logo span { color: var(--accent); }
 .topbar-logo:hover { text-decoration: none; }
 .topbar-crumb { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.topbar-crumb a { color: var(--text); }
+.topbar-crumb a { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 .topbar-sep { color: var(--faint); }
 .topbar-here { font-weight: 600; overflow: hidden; text-overflow: ellipsis; max-width: 48vw; }
 .topbar-user { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: var(--fs-sm); margin-left: 6px; }
@@ -69,9 +71,11 @@
 .sidebar-backdrop { display: none; }
 @media (max-width: 800px) {
   .topbar { padding: 0 10px 0 6px; height: auto; min-height: var(--topbar-h); gap: 6px; padding-inline: 8px; }
+  .topbar-trail { gap: var(--space-1); flex: 0 1 auto; }
   .topbar-crumb { overflow: hidden; display: none; }
   .topbar-crumb a, .topbar-here { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40vw; }
   .topbar-crumb:not(.last) { display: none; }
+  .topbar-crumb.last { display: inline-flex; }
   .topbar-chip { max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
   .sidebar {
     position: fixed; top: var(--topbar-h); bottom: 0; left: 0; z-index: var(--z-sidebar); overflow-y: auto;

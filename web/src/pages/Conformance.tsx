@@ -1,3 +1,4 @@
+import { usePageName } from '../chrome'
 import { Tabs } from '../Tabs'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -30,7 +31,7 @@ import './conformance.css'
 // --- the page ---------------------------------------------------------------------------------------
 
 export default function Conformance({ tab }: { tab: 'projects' | 'project' | 'reviews' | 'checks' | 'remediations' | 'remediation' | 'ways' | 'what-ifs' }) {
-  const { reviewId, slug, remId } = useParams()
+  const { reviewId, slug, remId, checkKey } = useParams()
   const rid = reviewId ?? ''
   const base = rid ? `/conformance/reviews/${rid}` : '/conformance'
   const { run: act, busy: starting, err: actErr } = useAction()
@@ -43,6 +44,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
   // An AppTown with nothing adopted answers projects: null; the lists below
   // treat that as none (it once crashed the page on a fresh AppTown).
   const view = useMemo(() => viewQ.data ? { ...viewQ.data, projects: viewQ.data.projects ?? [] } : undefined, [viewQ.data])
+  usePageName(`/conformance/reviews/${rid}`, view?.lens.review ? `Review #${view.lens.review.number}` : undefined)
   const liveQ = useGet<ConformanceReviewDetail>(following ? `/conformance/reviews/${following}` : null, { poll: 700 })
   // A review detail names its review; one without it (gone) has nothing to follow.
   const liveData = liveQ.data
@@ -83,17 +85,22 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
   const readOnly = rid !== ''
   const active = tab === 'project' ? 'projects' : tab === 'remediation' ? 'remediations' : tab
 
+  const title = checkKey ? view?.checkDefs[checkKey]?.title || 'Check'
+    : rid && tab === 'projects' ? `Review #${view?.lens.review?.number ?? ''}`
+    : { projects: 'Conformance', project: 'Project', checks: 'Checks', reviews: 'Reviews', remediations: 'Remediations', remediation: 'Remediation', ways: 'Ways of working', 'what-ifs': 'What-ifs' }[tab]
+
   return (
     <div>
       {/* The page's actions sit on the title's line: one primary, Check now;
           fixing every finding is a plain button beside it. While a review
           runs, its progress takes their place. */}
-      <PageHead page="conformance" actions={!readOnly && (tab !== 'project' || (live && isUnfinished(live.review.status))) ? (live && isUnfinished(live.review.status)
+      {tab !== 'project' && tab !== 'remediation' && <PageHead page="conformance" title={title} actions={!readOnly ? (live && isUnfinished(live.review.status)
         ? <ReviewProgress d={live} />
         : <span className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             {fixable > 0 && <button disabled={busy} title="Start a remediation over every finding: one change per project at a time, each waiting for your approval" onClick={() => remediation.start('all', '')}>Fix {fixable} {fixable === 1 ? 'problem' : 'problems'}</button>}
             <button className="primary" disabled={busy} onClick={() => run()}>{busy ? 'Starting…' : 'Check now'}</button>
-          </span>) : undefined} />
+          </span>) : undefined} />}
+      {(tab === 'project' || tab === 'remediation') && live && isUnfinished(live.review.status) && <ReviewProgress d={live} />}
 
       {view && <LensBanner view={view} />}
       {!readOnly && tab === 'projects' && s && <p className="muted small" style={{ margin: '4px 0 0' }}>{s.findings} confirmed problem{s.findings === 1 ? '' : 's'} to fix now. {s.flagged > 0 && `${s.flagged} possible problem${s.flagged === 1 ? '' : 's'} to review. `}{s.incompleteProjects} app{s.incompleteProjects === 1 ? '' : 's'} not fully checked.</p>}

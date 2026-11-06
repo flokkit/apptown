@@ -71,11 +71,12 @@ export default function DocsPage() {
     if (!section && first) nav(first, { replace: true })
   }, [first, section, nav])
 
-  if (!manifest) return <ReadStatus q={q} what="the documentation list" />
+  if (!manifest) return <><h1>{slug || 'Docs'}</h1><ReadStatus q={q} what="the documentation list" /></>
+  const title = slug ? (section === 'guides' ? manifest.groups.flatMap(g => g.guides).find(g => g.slug === slug)?.title : manifest.integrations.find(i => i.capability === section && i.provider === slug)?.title) ?? slug : 'Docs'
 
   return (
     <div>
-      <h1>Docs</h1>
+      <h1>{title}</h1>
       <StaleNote q={q} />
       {!first ? <div className="muted">{PRODUCT} ships no documentation.</div> : (
         <div className="docs-layout">

@@ -1,13 +1,12 @@
 import './Console.css'
-import { Disclosure } from '../Popover'
-import { Status } from '../Status'
+import { FormMenu } from '../MoreMenu'
 import { PRODUCT } from '../brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ChangeView, post } from '../api'
 import AgentActivity from '../AgentActivity'
 import { AgentActionsSwitch, useAgentActions } from '../AgentActions'
-import { setPageContext, useChatViewport, useNarrow } from '../chrome'
+import { useChatViewport, useNarrow } from '../chrome'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { ConsoleSessionView } from '../wire.gen'
@@ -49,12 +48,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
     () => (localStorage.getItem('chat-zoom') === 'terminal' ? 'terminal' : 'chat'))
   const setZoomKeep = (z: 'chat' | 'terminal') => { setZoom(z); localStorage.setItem('chat-zoom', z) }
   const [robotBusy, setRobotBusy] = useState(false)
-  const [hasMessages, setHasMessages] = useState(false)
-  const [controlsOpen, setControlsOpen] = useState<boolean | null>(null)
-  const [composing, setComposing] = useState(false)
-  // What the chat is about is one tap down on a phone, open on a desk
-  // (styles/console.css hides the fold's line on a desk). React writes `open` only
-  // when this changes, so a tap holds until the screen crosses the breakpoint.
+  // Context stays inline at both widths.
   const narrow = useNarrow()
   useChatViewport(narrow)
   const [showActions, setShowActions] = useAgentActions()
@@ -72,20 +66,12 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   // leaves its chip out and has room for the agent-actions switch.
   const actionsBesideAbout = narrow && !!shopId && !!session && zoom === 'chat'
   const isWorkshop = shopId !== ''
-  const compactHead = narrow && isWorkshop && zoom === 'chat'
-  const expanded = !composing && (controlsOpen ?? !hasMessages)
-  const toggleControls = () => setControlsOpen(!expanded)
-  const toggleName = expanded ? 'Hide change controls' : 'Show change controls'
   // One read of the change feeds the action bar and the status card; its
   // status shows once, above both.
   const change = useGet<ChangeView>(shopId ? `/changes/${shopId}` : null, { poll: 4000 })
   useKickoff(kickoff, slug, changeId, session, status === 'attached', change.data?.change.body)
   // A change is named by its number, known once the change is read.
   const shopName = change.data ? `change ${change.data.change.number}` : 'this change'
-  useEffect(() => {
-    setPageContext({ crumbs: [{ label: shopId ? `Chat · ${shopName}` : 'Chat' }] })
-    return () => setPageContext({})
-  }, [shopId, shopName])
   // A chat that cannot open says why in one line and goes back where the
   // person came from: the change, or the project for its own chat.
   if (!session && openErr) return <div>
@@ -97,20 +83,15 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
     </p>
   </div>
   return (
-    <div onFocusCapture={(e) => { if ((e.target as HTMLElement).matches('.chat-input textarea')) setComposing(true) }}
-      onBlurCapture={(e) => { if ((e.target as HTMLElement).matches('.chat-input textarea')) setComposing(false) }}
-      className={`console ${isWorkshop ? 'console-workshop' : 'console-desk'}`}>
-      <div className={compactHead ? `console-controls ${expanded ? 'controls-open' : 'controls-folded'}` : 'console-controls'}>
+    <div className={`console ${isWorkshop ? 'console-workshop' : 'console-desk'}`}>
+      <div className="console-controls">
       {/* One row, three zones (layering: story left, escape hatches right):
           where am I → what is this chat about → (only if degraded) connection.
           The robot buddy owns the turn state; plumbing (model, session, reset
           actions) lives behind ⋯ where those who need it can find it. */}
       <div className="row console-head mb-2" >
-        {/* The phone title also opens the secondary controls. */}
         {narrow && shopId
-          ? <h1 className="console-chat-page-h1">{compactHead
-            ? <button className="change-controls-title" aria-expanded={expanded} aria-label={toggleName} onClick={toggleControls}>{shopName.charAt(0).toUpperCase() + shopName.slice(1)}</button>
-            : <Link to={`/changes/${shopId}`}>{shopName.charAt(0).toUpperCase() + shopName.slice(1)}</Link>}</h1>
+          ? <h1 className="console-chat-page-h1"><Link to={`/changes/${shopId}`}>{shopName.charAt(0).toUpperCase() + shopName.slice(1)}</Link></h1>
           : <h1 className="console-chat-page-h1">{isWorkshop ? 'Change chat' : 'Project chat'}</h1>}
         {/* The address names the change before the session answers: a
             change chat says it is one from its first paint, never the
@@ -119,14 +100,12 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           ? (narrow ? null : <Link className="badge here" to={`/changes/${shopId}`}
               title="What you and the helper change here is saved onto this change.">{shopName}</Link>)
           : <span className="badge here" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>}
-        {compactHead && change.data && <span className="console-state"><Status word={change.data.statusLabel} /></span>}
-        {compactHead && <button className="change-controls-toggle" aria-expanded={expanded} aria-label={toggleName} onClick={toggleControls}>{expanded ? '▴' : '▾'}</button>}
         <span className="console-head-space grow" />
         {session?.mayAct && zoom === 'chat' && <AgentActivity busy={robotBusy} connected={status === 'attached'} />}
         {(!narrow || zoom !== 'chat') && <button disabled={!session} className="subtle" onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
           {zoom === 'chat' ? 'Terminal ▾' : '← back to the chat'}
         </button>}
-        <Disclosure className="head-menu" hidden={compactHead && !expanded} trigger={<button className="subtle" aria-label="Session details and resets">⋯</button>}>
+        <FormMenu className="head-menu" trigger={<button className="subtle" aria-label="Session details and resets">⋯</button>}>
           <div className="head-menu-card">
             <div className="muted small console-chat-page-div">
               {session?.openedBy && <>opened by {session.openedBy}<br /></>}
@@ -141,7 +120,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
               <button className="subtle danger" onClick={() => void end()}>end chat</button>
             </>}
           </div>
-        </Disclosure>
+        </FormMenu>
       </div>
       {/* Which chats exist: until it is read, nothing opens; a chat on the
           worker's save line already marks this same read when it is old. */}
@@ -155,13 +134,14 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
       )}
       {isWorkshop && changeId !== '' && session?.mayAct && zoom === 'chat' && change.data && (
         <div className="console-primary-actions">
-          <WorkshopActions changeId={changeId} view={change.data} robotBusy={robotBusy} sessionId={session?.id} hideRestart={compactHead && !expanded} />
+          <WorkshopActions changeId={changeId} view={change.data} robotBusy={robotBusy} sessionId={session?.id} />
         </div>
       )}
       {openErr && (
         <div className="error">
           {openErr}
-          {appTownInstead && (
+          <Link to={shopId ? `/changes/${shopId}` : `/projects/${slug}`}>{shopId ? `Back to ${change.data ? shopName : 'the change'}` : 'Back to the project'}</Link>
+      {appTownInstead && (
             <> <button className="subtle" onClick={() => void open('apptown')}>Open it on {PRODUCT} instead</button></>
           )}
         </div>
@@ -173,21 +153,16 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           file complaints. The server log says why.
         </div>
       )}
-      {/* What the chat is about sits above it, folded to one line on a
-          phone, and steps aside while you type, so the conversation keeps
-          the room (styles/console.css .console-extra, .chat-pane). The worker's
-          save line and the changes this chat started stay outside the fold:
-          one qualifies the conversation, the other may be the next thing to
-          do. */}
-      <div className="console-extra console-secondary" hidden={compactHead && !expanded}>
+      {/* Keep context, the worker's saved-copy warning and started changes visible. */}
+      <div className="console-extra console-secondary">
         {(shopId || (!shopId && !introSeen) || session?.continuedFrom) && (
           <div className={actionsBesideAbout ? 'console-about-line' : undefined}>
-            <details className="console-about" open={!narrow}>
-              <summary className="small">
+            <section className="console-about">
+              <h3 className="small">
                 {shopId
                   ? <>{narrow ? 'About this change' : shopName}{change.data && !actionsBesideAbout && <> · {changeChip(change.data)}</>}</>
                   : 'About this chat'}
-              </summary>
+              </h3>
               {!shopId && !introSeen && <ChatIntro slug={slug}
                 onDismiss={() => { localStorage.setItem(introKey, '1'); setIntroSeen(true) }} />}
               {session?.continuedFrom && (
@@ -196,20 +171,19 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
                 </div>
               )}
               {session?.changeId && change.data ? <ChangeContext view={change.data} /> : null}
-            </details>
+            </section>
             {actionsBesideAbout && <AgentActionsSwitch shown={showActions} onChange={setShowActions} />}
           </div>
         )}
       </div>
       </div>
       <div className="console-extra">
-        {/* Outside the fold: when the worker cannot be reached, this line
-            says the conversation shown is AppTown's last copy. */}
+        {/* An unreachable worker leaves this conversation as the last saved copy. */}
         {session?.changeId ? <WorkerSaveLine slug={slug} session={session} /> : null}
         {session && <StartedChanges sessionId={session.id} />}
       </div>
       <Bubbles hidden={zoom !== 'chat'} sessionId={session?.id ?? null} attached={status === 'attached'}
-          starting={status !== 'attached' || !session ? <StartingLine opening={!session} /> : undefined} onBusy={setRobotBusy} onHasMessages={setHasMessages} actionsSwitch={!actionsBesideAbout}
+          starting={status !== 'attached' || !session ? <StartingLine opening={!session} /> : undefined} onBusy={setRobotBusy} actionsSwitch={!actionsBesideAbout}
           readOnly={!session || session.mayAct ? undefined : session.openedBy}
           starters={shopId ? undefined : [
             // The project chat's three jobs, as things you could say (the

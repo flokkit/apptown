@@ -1,3 +1,5 @@
+import { usePageName } from '../chrome'
+import { ProjectCount } from './DependentProjects'
 import './GuidanceBlockPage.css'
 import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
@@ -31,6 +33,7 @@ export default function GuidanceBlockPage() {
     setBody(view.block.bodyMd || ''); setTags(view.block.tags)
   }, [view, editing, current])
 
+  usePageName(`/guidance/${id}`, view?.block.name)
   if (!view) return <div><h1>{viewQ.err && !viewQ.denied ? 'Guidance unavailable' : 'Guidance'}</h1>
     <ReadStatus q={viewQ} what="the guidance block" />
     {viewQ.err && <p>This guidance could not be opened. Choose it from the library.</p>}
@@ -49,7 +52,6 @@ export default function GuidanceBlockPage() {
   const canEdit = !editing && !viewingOld && block.origin !== 'stock'
   return (
     <div>
-      <div className="muted small"><Link to="/guidance">Guidance</Link></div>
       <div className="row guidance-block-page-div">
         <h1 className="grow guidance-block-page-h1">{block.name.split('/').at(-1)!.replaceAll('-', ' ')}</h1>
         {canEdit && <button disabled={!current} title={current ? undefined : 'Reading the current text first'} onClick={() => setEditing(true)}>Edit</button>}
@@ -97,14 +99,7 @@ export default function GuidanceBlockPage() {
         </Section>
       )}
 
-      <Section title="Used by" count={usedBy.length}>
-        {usedBy.length === 0 ? <p className="muted small">No project uses it directly.</p>
-          : usedBy.map((u, i) => (
-            <Link key={i} className="card row" to={`/projects/${u.projectSlug}`}>
-              <strong>{u.projectSlug}</strong><span className="muted small">v{u.version}{u.disabled ? ' · turned off' : ''}</span>
-            </Link>
-          ))}
-      </Section>
+      <p><ProjectCount to={`/guidance/${id}/projects`} count={usedBy.length} /></p>
 
       {!editing && checks.length > 0 && (
         <Section title="Checks" count={checks.length} note="Checked on every change; versioned with this text.">

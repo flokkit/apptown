@@ -1,12 +1,12 @@
 @layer components {
 .record-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
 .record-table th { color: var(--muted); font-weight: normal; text-align: left; }
-.record-table th, .record-table td { padding: var(--space-2); border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.record-table th, .record-table td { padding: var(--space-2); border-bottom: 1px solid var(--border); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .record-table td > a { font-weight: 500; }
 .record-table .number { text-align: right; font-variant-numeric: tabular-nums; }
 .record-table .technical { font-family: var(--font-mono); }
 .record-table button.link { padding-inline: 0; }
-.record-table .record-action { text-align: right; }
+.record-table .record-action { text-align: right; overflow-wrap: normal; }
 .record-table .time { color: var(--muted); }
 .record-phone { display: none; }
 @media (width <= 800px) {
@@ -16,7 +16,7 @@
   .record-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .record-table thead th { overflow: visible; }
   .record-table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto; grid-template-rows: auto auto; gap: 0 var(--space-2); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); align-items: center; }
-  .record-table td { display: block; padding: 0; border: 0; min-width: 0; }
+  .record-table td { display: block; padding: 0; border: 0; min-width: 0; white-space: normal; overflow-wrap: anywhere; overflow: visible; }
   .section-body > .record-table td:first-child, .section-body > .record-table td:last-child { padding: 0; }
   .record-table .phone-name { grid-area: 1 / 1 / 2 / 3; }
   .record-table .phone-state { grid-area: 1 / 3; }

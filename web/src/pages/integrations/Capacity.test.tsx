@@ -99,7 +99,7 @@ describe("a target's capacity", () => {
       memory, cpu: { ...memory, total: fig(8), hostUsed: undefined },
       tenants: [{ kind: 'other', name: 'other containers', containers: 3, used: fig(2 ** 20), promised: fig(0), unlimited: 3, cpus: 0, cpuUnlimited: 3, cpuUnread: 0 }],
     })
-    expect(noLimit).toMatch(/other containers<\/td><td>3<\/td><td>[^<]+<\/td><td>without a set limit<\/td>/)
+    expect(noLimit).toMatch(/other containers<\/td><td[^>]*>3<\/td><td[^>]*>[^<]+<\/td><td[^>]*>without a set limit<\/td>/)
   })
 
   it('says a CPU promise is partial when a limit was not read, never 0 or unpromised', () => {
@@ -115,15 +115,15 @@ describe("a target's capacity", () => {
     const cpuLabel = html.match(/aria-label="(CPU limits:[^"]*)"/)![1]
     expect(cpuLabel).not.toContain('without a set limit')
     expect(cpuLabel).toContain('not read')
-    expect(html).toMatch(/a\/main<\/a><\/td>(<td>[^<]*<\/td>){4}<td>1 limit could not be read<\/td>/)
-    expect(html).toMatch(/b\/main<\/a><\/td>(<td>[^<]*<\/td>){4}<td>at least 2 CPUs \(1 limit could not be read\)<\/td>/)
+    expect(html).toMatch(/a\/main<\/a><\/td>(<td[^>]*>[^<]*<\/td>){4}<td[^>]*>1 limit could not be read<\/td>/)
+    expect(html).toMatch(/b\/main<\/a><\/td>(<td[^>]*>[^<]*<\/td>){4}<td[^>]*>at least 2 CPUs \(1 limit could not be read\)<\/td>/)
   })
 })
 
 
 // A Docker host with per-app readings is drawn as bars, in view; app
-// details are the one fold.
-it('draws a Docker host as bars in view, with app details one fold down', () => {
+// details stay inline.
+it('draws a Docker host as bars in view, with app details inline', () => {
   const memory = { total: fig(8 * 2 ** 30), hostUsed: fig(2 * 2 ** 30), promised: { sum: { apptown: fig(10 * 2 ** 30), other: fig(0) }, limited: count(1, 0), unlimited: count(19, 0), unread: count(0, 0) }, overcommitted: true }
   const c = { memory, disk: { total: fig(49 * 2 ** 30), free: fig(23 * 2 ** 30), path: '/var/lib/docker', low: false, refuses: false }, tenants: Array.from({ length: 9 }, (_, i) => ({ name: `app-${i}`, kind: 'deployment', containers: 1, used: fig(0), promised: fig(i === 0 ? 10 * 2 ** 30 : 0), unlimited: 1, cpus: 0, cpuUnlimited: 1, cpuUnread: 0 })) }
   const html = render(c)
@@ -133,7 +133,7 @@ it('draws a Docker host as bars in view, with app details one fold down', () => 
   expect(front).toContain('10 GB requested; host total 8 GB')
   expect(front).toContain('role="img"')
   expect(front).not.toContain('<dt>')
-  expect(front).not.toContain('app-0</td>')
+  expect(front).toContain('app-0</td>')
   expect(html).toContain('App resource details')
   expect(html).not.toContain('<summary>Details</summary>')
   expect(html).toContain('over by 2 GB')

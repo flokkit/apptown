@@ -74,7 +74,7 @@
     "apptown/pixel-spacing": 11
   },
   "web/src/styles/base.css": {
-    "apptown/pixel-spacing": 8
+    "apptown/pixel-spacing": 4
   },
   "web/src/styles/card.css": {
     "apptown/pixel-spacing": 23
@@ -83,10 +83,10 @@
     "apptown/pixel-spacing": 61
   },
   "web/src/styles/charts.css": {
-    "apptown/pixel-spacing": 26
+    "apptown/pixel-spacing": 25
   },
   "web/src/styles/chip.css": {
-    "apptown/pixel-spacing": 9,
+    "apptown/pixel-spacing": 8,
     "declaration-no-important": 2
   },
   "web/src/styles/code.css": {

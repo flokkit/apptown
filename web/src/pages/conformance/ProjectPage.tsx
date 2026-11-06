@@ -1,5 +1,5 @@
 import './ProjectPage.css'
-import { Fragment, useState } from 'react'
+import { Fragment } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { post } from '../../api'
 import { useAction, useGet } from '../../data'
@@ -15,28 +15,27 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
   covered?: ConformanceView['openRemediations'][number]; v: Verdict; def?: CheckDefinition; exceptions: Disposition[]; adj?: Adjudication; prior?: PriorConfirmation; readOnly: boolean
   onConfirm?: (v: Verdict) => void; onFix?: (v: Verdict) => void; onRecheck?: () => void; onDecision?: (v: Verdict) => void
 }) {
-  const [open, setOpen] = useState(false)
   const lane = laneOf(v)
   const undecidedAI = v.evaluator === 'llm' && (lane === 'broken' || lane === 'unassessed')
   const decision = exceptions.find(d => d.fingerprint === `guidance|${v.block}@${v.version}|${v.check}|`)
   return (
     <>
       <div className="card row check-row project-page-check-row-card-check-row">
-        <button className="row subtle check-open" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <div className="row check-open">
           {/* A check that has not judged anything is neither a pass nor a problem: it says why instead. */}
           <span className="row-status">{lane === 'unassessed' ? <span className="muted small">not judged yet</span> : <StateChip finding={v.lane === 'findings'} label={v.statusLabel} />}</span>
           <strong>{def?.title || v.check}</strong>
           <span className="muted small">{lane === 'unassessed' || undecidedAI
             ? (v.detail ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : 'Not run yet')
             : [`from ${v.block}`, lane === 'flagged' && prior ? `confirmed before at ${shortSha(prior.sha)} by ${prior.by}` : ''].filter(Boolean).join(' · ')}</span>
-        </button>
+        </div>
         {covered && <BeingFixed change={covered} />}
         {!readOnly && undecidedAI && <div className="row project-page-check-row-div-2">
           <button onClick={onRecheck}>Re-check</button>
           {!decision && <button onClick={() => onDecision?.(v)}>Record a decision</button>}
         </div>}
       </div>
-      {open && (
+      {(
         <div className="check-results">
           <div className="project-page-check-row-div">
             <div className="small muted">{v.block} version {v.version} · {v.check}</div>
@@ -145,7 +144,7 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
   return (
     <div>
       <div className="row mt-3 project-page-div-2">
-        <h2 className="grow project-page-h2">{p.name || slug}</h2>
+        <h1 className="grow project-page-h2">{p.name || slug}</h1>
         {!readOnly && (
           <span className="row project-page-check-row-div-2">
             {fixable > 0 && <button disabled={busy} onClick={() => remediation.start('project', slug)}>Fix {fixable} {fixable === 1 ? 'problem' : 'problems'}</button>}

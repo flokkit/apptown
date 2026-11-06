@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
 import { createStore } from './hooks'
 
-// What the top bar says (design/subsystems/ui-coherence.md § Top bar): a page whose
-// URL doesn't tell the whole story — a change, a decision — publishes its
-// crumb and state here; the bar derives everything else from the route.
-export type Crumb = { label: string; to?: string }
-export type PageContext = { crumbs?: Crumb[]; chip?: { text: string; cls?: string } }
+// Pages provide display names for dynamic route segments. The shell owns the trail.
+export type PageContext = { names?: Record<string, string> }
 
 const pageContext = createStore<PageContext>({})
 export const setPageContext = pageContext.set
 export const usePageContext = pageContext.use
+
+export function usePageName(path: string, name: string | undefined): void {
+  useEffect(() => {
+    setPageContext({ names: name ? { [path]: name } : {} })
+    return () => setPageContext({})
+  }, [path, name])
+}
 
 // The shell's one breakpoint: under it the sidebar folds into a menu button
 // and the top bar keeps only the menu, the name and where you are; finding,

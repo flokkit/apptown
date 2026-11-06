@@ -7,7 +7,7 @@ HTTP projections and invoke the corresponding application commands.
 Dashboard/project lists use visibility-filtered server queries. The interface
 keeps owner outcomes and their evidence distinct. Status chips use the shared
 [status vocabulary](../../stock/docs/guides/glossary.md#status-words) in
-`web/src/Status.tsx`; reasons and next actions appear in help or details.
+`web/src/Status.tsx`; short reasons and next actions appear inline; long records have linked pages.
 A page rendering successfully does not prove every optional request succeeded;
 approver hints and policy lists still need the recorded narrow-account usability
 smoke.
@@ -25,6 +25,16 @@ The project sidebar starts with Overview, Changes and Deployments, followed by
 the Security, Settings and Memory groups. Memory holds Notes and Decisions.
 Overview shows the project's work and deployments; the notes agents read are
 under Memory › Notes.
+
+The top bar has one breadcrumb trail built from the registered routes. It links
+every ancestor page and ends at the parent. The h1 names the current page;
+pages supply only display names for dynamic segments. There are no in-page
+parent labels. On phones the middle ancestors collapse to “…” .
+
+Page facts stay inline at both widths. Long content opens on its own page.
+Menus and popovers are the only disclosures; the page-disclosure ratchet allows
+zero uses outside their shared components. A dependent-project count links to
+the thing's projects page rather than listing names inline.
 
 ## Action ownership
 
@@ -80,7 +90,7 @@ named exception: `max(1rem, 16px)` keeps phone fields from zooming on focus.
 The browser fixture `web/type-scale.browser-test.mjs` checks computed phone
 field sizes at all three settings using the installed Playwright module
 (`APPTOWN_PLAYWRIGHT_MODULE`). `make check-web-layout`, included in
-`make precheck`, runs it alongside the row and disclosure browser checks.
+`make precheck`, runs it alongside the row and popover browser checks.
 The pixel grid-track count may only decrease from `scripts/web-grid-baseline.json`.
 
 Static page styles belong in the page's stylesheet under `@layer pages`;
@@ -97,7 +107,7 @@ run the ratchet.
 
 One interface serves every screen; a narrow one reflows rather than hides.
 Under the shell's breakpoint (`NARROW_QUERY` in `web/src/chrome.ts`) the
-sidebar is a menu. Text follows the browser size choice; form fields, including
+sidebar is a menu. HTML disables text autosizing. Text follows the browser size choice; form fields, including
 the console composer, stay at least 16px. On any touch screen controls have
 a 44px minimum.
 Every tabbed page uses `Tabs`: one horizontally scrolling row, a shaded edge
@@ -112,8 +122,7 @@ Home, Projects, Deployments, Targets, Integrations, People
 accounts and Conformance projects share `ListRow`: identity and purpose, state
 and freshness, then the next action. Actions size to their contents; identity
 text wraps in the remaining space. Lists supply a container query so cells
-stack in the same reading order when their available width is narrow. Technical evidence and maintenance open beneath a row
-or on its linked page. Packs and workflows lead with their authored purpose;
+stack in the same reading order when their available width is narrow. Short facts stay visible; long evidence opens on a linked page. Packs and workflows lead with their authored purpose;
 versions and maintenance remain secondary. Usage labels its chart in tokens and
 its money total as recorded cost, with incomplete pricing stated explicitly.
 
@@ -121,8 +130,7 @@ Shared disclosures use `web/src/Popover.tsx`: an opaque, scrolling panel capped
 by the visual viewport. Opening focuses the first control; Escape and outside
 click close it and return focus to the trigger. Controls keep ordinary Tab
 navigation. Account navigation remains links. Find focuses its input, keeps
-focus there while typing, and follows the first result on Enter. Status help
-keeps its separate placement code. Phone chat controls wrap with 44px targets.
+focus there while typing, and follows the first result on Enter. Status reasons stay inline. Phone chat controls wrap with 44px targets.
 Dialogs derive their accessible name from the visible title, and `FieldRow`
 connects a label to its control by id.
 

@@ -46,7 +46,7 @@ async function mount(path: string, allowed = true, configured = true) {
   document.body.append(el)
   await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><Routes>
     <Route path="/projects/:slug/:tab/:stab" element={<Project />} />
-    <Route path="/integrations/profiles/:profile" element={<ModelProfilePage />} />
+    <Route path="/integrations/profiles/:profile" element={<ModelProfilePage projects />} />
   </Routes></MemoryRouter></QueryClientProvider>))
   return { el, writes, cleanup: () => { act(() => root.unmount()); el.remove(); client.clear() } }
 }

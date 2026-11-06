@@ -1,3 +1,4 @@
+import { ProjectCount } from '../DependentProjects'
 import { Spinner } from '../../Spinner'
 import './parts.css'
 import { Status } from '../../Status'
@@ -6,7 +7,7 @@ import { Status } from '../../Status'
 // chips, bars and banners the views are built from.
 
 import type { CSSProperties } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { post } from '../../api'
 import { useAction } from '../../data'
 import type { ConformanceObservation, ConformanceView, CheckDefinition, Adjudication, Disposition, Lanes, Review, RemediationStarted, Verdict as WireVerdict } from '../../wire.gen'
@@ -206,6 +207,8 @@ export function ReviewProgress({ d }: { d: LiveReview }) {
 
 // "How it's judged": the actual sh/rubric/tool/probe, where it runs, adopters.
 export function HowJudged({ def }: { def?: CheckDefinition }) {
+  const { reviewId } = useParams()
+  const base = reviewId ? `/conformance/reviews/${reviewId}` : '/conformance'
   if (!def) return null
   const how = def.evaluator === 'sh' ? def.sh : def.evaluator === 'llm' ? def.rubric : def.evaluator === 'tool' ? def.tool : def.probe
   return (
@@ -218,7 +221,7 @@ export function HowJudged({ def }: { def?: CheckDefinition }) {
       {how && <pre className="mono conformance-code conformance-code-short">{how}</pre>}
       {def.files && def.files.length > 0 && <div className="muted small">judged on: <span className="mono">{def.files.join(', ')}</span></div>}
       {def.evaluator === 'llm' && def.scope === 'diff' && <div className="muted small">Runs when a change lands.</div>}
-      <div className="muted small">adopted by {def.adopters.length} project{def.adopters.length === 1 ? '' : 's'}: {def.adopters.join(', ')}</div>
+      <div className="muted small">Adopted by <ProjectCount count={def.adopters.length} to={`${base}/checks/${encodeURIComponent(def.key)}/projects`} /></div>
     </div>
   )
 }

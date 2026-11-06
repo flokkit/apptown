@@ -33,7 +33,7 @@ async function mount(t = trace(), address = '/changes/change/work/step?run=run&a
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   document.body.append(el)
   const rounds = runStory({ run: t.run, steps: t.steps, events: t.events, artifacts: t.artifacts } as RunDetail)
-  await act(async () => root.render(<QueryClientProvider client={client}><TechnicalDetailSwitch /><MemoryRouter initialEntries={[address]}>{conversation ? <ConversationLog changeId="change" rounds={rounds} /> : <Routes><Route path="/changes/:id/work/:stepId" element={<WorkRecordPage />} /></Routes>}</MemoryRouter></QueryClientProvider>))
+  await act(async () => root.render(<QueryClientProvider client={client}><TechnicalDetailSwitch /><MemoryRouter initialEntries={[address]}>{conversation ? <ConversationLog changeId="change" rounds={rounds} /> : <Routes><Route path="/changes/:id/work/:stepId/request" element={<WorkRecordPage section="request" />} /><Route path="/changes/:id/work/:stepId/workflow" element={<WorkRecordPage section="workflow" />} /><Route path="/changes/:id/work/:stepId/report" element={<WorkRecordPage section="report" />} /><Route path="/changes/:id/work/:stepId/records/:artifactId" element={<WorkRecordPage section="record" />} /><Route path="/changes/:id/work/:stepId" element={<WorkRecordPage />} /></Routes>}</MemoryRouter></QueryClientProvider>))
   await settle()
   await settle()
   return { el, close: () => { act(() => root.unmount()); el.remove(); client.clear() }, click: async (e: Element) => { await act(async () => (e as HTMLElement).click()); await settle() } }
@@ -41,7 +41,7 @@ async function mount(t = trace(), address = '/changes/change/work/step?run=run&a
 
 it('gives the session its own address, named inputs, produced files and explicit data gaps', async () => {
   const f = await mount()
-  for (const text of ['← Change 12 · Fix the calendar', 'test-model', '90s', 'What the agent was given', 'The session', 'What it produced', 'Needs a key.', '+1 −1 (whole change)']) expect(f.el.textContent).toContain(text)
+  for (const text of ['Work record', 'test-model', '90s', 'What the agent was given', 'The session', 'What it produced', 'Needs a key.', '+1 −1 (whole change)']) expect(f.el.textContent).toContain(text)
   expect(f.el.querySelector('a[href="/guidance/rules%2Fshared?version=4"]')).not.toBeNull()
   expect(f.el.querySelector('a[href="/changes/change?tab=changes#diff-app.ts"]')).not.toBeNull()
   expect(f.el.querySelectorAll('.work-event')).toHaveLength(5)
@@ -52,12 +52,9 @@ it('gives the session its own address, named inputs, produced files and explicit
   await f.click(f.el.querySelector<HTMLButtonElement>('button.ch-goggles')!)
   const full = [...f.el.querySelectorAll('a')].find(a => a.textContent === 'full text')!
   await f.click(full)
-  expect(f.el.querySelector('.work-full pre')?.textContent).toBe('long output '.repeat(80))
-  await f.click(f.el.querySelector('a[href$="#text-instructions"]')!)
-  expect(f.el.textContent).toContain('Use the shared rules.')
-  await f.click(f.el.querySelector('a[href$="#workflow-text"]')!)
-  expect(f.el.querySelector('#workflow-text')?.textContent).toContain('kind: pipeline')
-  expect(f.el.querySelector('#workflow-text')?.textContent).not.toContain('library-copy')
+  expect(f.el.querySelector('h1')?.textContent).toBe('step-step')
+  expect(f.el.querySelector('.work-full pre')?.textContent).toBe(trace().artifacts[0].body)
+  expect(f.el.querySelector('.work-events')).toBeNull()
   f.close()
 })
 
@@ -117,4 +114,19 @@ it('uses quiet missing facts and never emits empty separators in a run record', 
   expect(f.el.textContent).toContain('make v2 · run workflow text')
   for (const text of ['tokens and cost', 'Session identity unavailable', 'The saved agent log', 'No instruction record exposed', 'Worker chats are recorded', 'result unknown', ' ·  · ']) expect(f.el.textContent).not.toContain(text)
   f.close()
+})
+
+it.each([
+  ['request','Change request','Keep the time.\nKeep the invitation.'],
+  ['workflow','Workflow','kind: pipeline'],
+  ['report','Report','The report'],
+  ['records/instructions','steering-implement','Use the shared rules.'],
+])('reads %s on its own page with one title', async (part,title,text) => {
+  const f = await mount(trace(), `/changes/change/work/step/${part}?run=run&attempt=step-0`)
+  try {
+    expect([...f.el.querySelectorAll('h1')].map(h=>h.textContent)).toEqual([title])
+    expect(f.el.textContent).toContain(text)
+    expect(f.el.textContent).not.toContain('library-copy')
+    expect(f.el.querySelector('.work-events, details')).toBeNull()
+  } finally { f.close() }
 })

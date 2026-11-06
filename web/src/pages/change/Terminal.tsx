@@ -38,10 +38,10 @@ export function collapseProgress(lines: string[]): string[] {
   return out
 }
 
-export function Terminal({ stepId, name, running, startedAt, finishedAt, defaultOpen }: {
-  stepId: string; name: string; running: boolean; startedAt?: string; finishedAt?: string; defaultOpen?: boolean
+export function Terminal({ stepId, name, running, startedAt, finishedAt }: {
+  stepId: string; name: string; running: boolean; startedAt?: string; finishedAt?: string
 }) {
-  const [open, setOpen] = useState(!!defaultOpen)
+  const open = true
   const [follow, setFollow] = useState(true)
   const pane = useRef<HTMLPreElement>(null)
   // Running: poll the ring. Finished: read the transcript once.
@@ -59,8 +59,8 @@ export function Terminal({ stepId, name, running, startedAt, finishedAt, default
 
   return (
     <div className="terminal-block">
-      <div className="terminal-head row" onClick={() => setOpen((o) => !o)} role="button">
-        <span className="mono muted small" style={{ width: 12 }}>{open ? '▾' : '▸'}</span>
+      <div className="terminal-head row">
+        <span className="mono muted small" style={{ width: 12 }}></span>
         <strong className="small">{name}</strong>
         {running
           ? <span className="small grow" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -69,7 +69,7 @@ export function Terminal({ stepId, name, running, startedAt, finishedAt, default
           : <span className="muted small grow" >
               {elapsed ? `${fmtElapsed(elapsed)} · ` : ''}{keptErr ? 'terminal output could not be read' : !feed ? '…' : total > 0 ? `${total} line${total === 1 ? '' : 's'}` : 'no terminal output kept'}{feed?.status ? ` · ${feed.status}` : ''}
             </span>}
-        <span className="muted small">{running ? `${fmtElapsed(elapsed)} · ${total} line${total === 1 ? '' : 's'}` : (open ? 'close' : 'open the terminal')}</span>
+        <span className="muted small">{running ? `${fmtElapsed(elapsed)} · ${total} line${total === 1 ? '' : 's'}` : ''}</span>
       </div>
       {open && (
         <div>

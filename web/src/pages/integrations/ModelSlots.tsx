@@ -1,3 +1,5 @@
+import { usePageName } from '../../chrome'
+import { ProjectCount } from '../DependentProjects'
 import './ModelSlots.css'
 import { useState } from 'react'
 import { put } from '../../api'
@@ -64,7 +66,7 @@ export function ModelProfiles({ help, title }: { help?: Help; title: string }) {
                     <Link to={to} className="int-name" onClick={(e) => e.stopPropagation()}>{p}</Link>
                     <div className="muted small">{differs(data, p)}</div>
                   </div>}
-                  state={<span className="muted small">{on.length === 0 ? 'No projects' : on.map((x) => x.name || x.slug).join(', ')}</span>} />
+                  state={<ProjectCount to={`${to}/projects`} count={on.length} />} />
               </div>
             )
           })}
@@ -76,19 +78,19 @@ export function ModelProfiles({ help, title }: { help?: Help; title: string }) {
 
 // ModelProfilePage: one profile — its model for each job, and the projects
 // on it. A new profile exists once its first job has a model.
-export function ModelProfilePage() {
+export function ModelProfilePage({ projects = false }: { projects?: boolean }) {
   const { profile = 'standard' } = useParams()
   const slotsQ = useProfiles()
   const modelsQ = useGet<ModelCatalogList>('/model-catalog', { kind: 'config' })
   const data = slotsQ.data
+  usePageName(`/integrations/profiles/${profile}`, profile)
   const models = modelsQ.data?.models ?? []
   const [custom, setCustom] = useState<string | null>(null) // the job being given a model by hand
   const [customVal, setCustomVal] = useState('')
   const nav = useNavigate()
   const { run, err: actErr } = useAction()
 
-  const crumb = <div className="muted small int-crumb"><Link to="/integrations">Integrations</Link> › <Link to="/integrations/profiles">Model profiles</Link></div>
-  if (!data) return <div>{crumb}<h1>{profile}</h1><ReadStatus q={slotsQ} what="the model profiles" /></div>
+  if (!data) return <div><h1>{projects ? 'Projects' : profile}</h1><ReadStatus q={slotsQ} what="the model profiles" /></div>
 
   const isNew = !data.profiles.includes(profile)
   const spent = data.slots.some((r) => r.spend7d)
@@ -145,8 +147,8 @@ export function ModelProfilePage() {
 
   return (
     <div>
-      {crumb}
-      <h1>{profile}</h1>
+
+      <h1>{projects ? 'Projects' : profile}</h1>
       <div className="page-head-line model-slots-model-profile-page-page-head-line">
         {profile === 'standard' ? 'The default profile: every project uses it unless moved to another.'
           : isNew ? "A new profile. Choose a model for any task to keep it; tasks left unset follow this profile's basic choices, then standard's models."
@@ -161,7 +163,7 @@ export function ModelProfilePage() {
       ))}
       {actErr && <div className="error">{actErr}</div>}
 
-      <Section title="Tasks" count={data.slots.length}>
+      {!projects && <Section title="Tasks" count={data.slots.length}>
         <table className="stack slots-table model-slots-model-profile-page-slots-table">
           <thead>
             <tr>
@@ -186,9 +188,10 @@ export function ModelProfilePage() {
             ))}
           </tbody>
         </table>
-      </Section>
+      </Section>}
 
-      {!isNew && <Section title="Projects" count={on.length}>
+      {!isNew && !projects && <p><ProjectCount to={`/integrations/profiles/${profile}/projects`} count={on.length} /></p>}
+      {projects && <Section title="Projects" count={on.length}>
         {on.length === 0 ? <p className="muted small">No projects use it.</p>
           : <p>{on.map((x, i) => <span key={x.slug}>{i > 0 && ', '}<Link to={`/projects/${x.slug}`}>{x.name || x.slug}</Link></span>)}</p>}
         {others.length > 0 && <><h3>Other projects</h3><div role="list">

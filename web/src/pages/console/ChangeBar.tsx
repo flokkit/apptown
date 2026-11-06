@@ -128,14 +128,7 @@ export function ChangeContext({ view: v }: { view: ChangeView }) {
         </span>
         <span className="grow" />
       </div>
-      {soFar && (
-        <details className="mt-1">
-          <summary className="muted small">what's in it so far</summary>
-          <div className="small mt-1" style={{ whiteSpace: 'pre-wrap', maxHeight: 160, overflowY: 'auto' }}>
-            {soFar.slice(0, 1200)}
-          </div>
-        </details>
-      )}
+      {soFar && <p><Link to={`/changes/${v.change.id}/records/summary`}>What was made</Link></p>}
     </div>
   )
 }

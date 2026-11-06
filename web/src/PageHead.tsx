@@ -229,7 +229,6 @@ export function PageHead({ page, actions, sub, help, line, title }: { page: Help
   help = help ?? (sub ? SUB_HELP[page]?.[sub] : undefined)
   return (
     <div className="page-head">
-      {sub && <div className="page-area">{h.title}</div>}
       <div className="page-head-row">
         <h1>{title ?? sub ?? h.title}</h1>
         {help ? <HelpButton about={sub ?? h.title} guide={help.guide}>{help.body}</HelpButton>

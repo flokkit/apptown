@@ -31,7 +31,7 @@ describe("this AppTown's disks", () => {
     expect(html).toContain('where Docker keeps its data: exit status 1')
     expect(html).toContain('New work is blocked. Check the disk and free space.')
     expect(html).toContain('ago')
-    const summaries = [...html.matchAll(/<summary class="host-row">([\s\S]*?)<\/summary>/g)].map(m => m[1]).join(' ')
+    const summaries = [...html.matchAll(/<h3 class="host-row">([\s\S]*?)<\/h3>/g)].map(m => m[1]).join(' ')
     expect(summaries).toContain('60% disk free')
     expect(summaries).not.toContain('/var/lib')
     expect(summaries).not.toContain('where Docker')

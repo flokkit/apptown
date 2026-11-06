@@ -175,7 +175,6 @@ export function EvalScorecardPage() {
   const variantWords = e ? (e.subjectKind === 'pack' ? `with ${e.subject}` : `on ${e.subject}`) : ''
   return (
     <div>
-      <div className="row mb-2" ><Link to="/evals" className="small">← Evals</Link></div>
       <ReadStatus q={q} what="this eval" denied={EVALS_DENIED} />
       <StaleNote q={q} />
       {actErr && <div className="error small">{actErr}</div>}
@@ -347,8 +346,8 @@ function CheckTable({ baseline, variant, variantWords }: { baseline: Arm; varian
   }
   keys.sort((p, q) => Number(changed(q)) - Number(changed(p)) || p.localeCompare(q))
   return (
-    <details open className="mt-2">
-      <summary className="small">Checks, finding by finding, against the Change's base ({keys.length})</summary>
+    <section className="mt-2">
+      <h3 className="small">Checks, finding by finding, against the Change's base ({keys.length})</h3>
       <table className="small evals-checks">
         <thead><tr><th className="evals-tally-heading">Check</th><th className="evals-tally-heading">Base</th><th className="evals-tally-heading">As it runs now</th><th className="evals-tally-heading">{variantWords}</th></tr></thead>
         <tbody>{keys.map((k) => {
@@ -365,7 +364,7 @@ function CheckTable({ baseline, variant, variantWords }: { baseline: Arm; varian
           )
         })}</tbody>
       </table>
-    </details>
+    </section>
   )
 }
 

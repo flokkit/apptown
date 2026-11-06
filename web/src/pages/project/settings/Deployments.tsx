@@ -147,9 +147,9 @@ export function DeploymentPage() {
   const label = e ? deploymentName(e) : 'Deployment'
   const { run, busy, err } = useAction()
   useLayoutEffect(() => {
-    setPageContext({ crumbs: [{ label: 'Deployments', to: `/projects/${slug}/deployments` }, { label }] })
+    setPageContext({ names: { [`/projects/${slug}/deployments/${name}`]: label } })
     return () => setPageContext({})
-  }, [slug, label])
+  }, [slug, name, label])
   return <><ReadStatus q={q} what="the deployment" /><StaleNote q={q} />
     {e && <div className="row row-2"><button disabled={busy} onClick={() => run(async () => { await post<DeploymentChecked>(`/projects/${slug}/deployments/${name}/check`, {}); await q.reload() })}>Refresh status</button>{err && <span className="error">{err}</span>}</div>}
     {e && <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} displayLabel={e ? deploymentName(e) : undefined} url={e?.url} env={q.refreshFailed ? { ...e, observation: 'unknown' } : e} current={q.current} reload={q.reload} />}

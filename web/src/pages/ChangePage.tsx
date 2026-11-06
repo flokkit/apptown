@@ -14,7 +14,6 @@ import { ChangeOverview } from './change/Overview'
 import { StatePanel } from './change/StatePanel'
 import { ConversationLog } from './change/Conversation'
 import { useRunDetail } from './change/Tabs'
-import { changeChip } from './change/next'
 import { ChangeDetails } from './change/Details'
 import './change/change.css'
 
@@ -30,7 +29,6 @@ export default function ChangePage() {
   const rawTab = params.get('tab') ?? ''
   const tab: ChangeTab = (CHANGE_TABS as readonly string[]).includes(rawTab) ? rawTab as ChangeTab : 'overview'
   const runParam = params.get('run') || undefined
-  const stepParam = params.get('step') || undefined
 
   // The address names the change by its id or its friendly form (slug#n).
   const read = useGet<ChangeView>(`/changes/${encodeURIComponent(id ?? '')}`, { poll: 3000 })
@@ -41,12 +39,10 @@ export default function ChangePage() {
   useEffect(() => {
     if (!view) return
     const ch = view.change
-    const chip = changeChip(view)
     setPageContext({
-      crumbs: [{ label: `Change ${ch.number} · ${changeTitle(ch)}` }],
-      chip,
+      names: { [`/changes/${id}`]: `Change ${ch.number} · ${changeTitle(ch)}` },
     })
-  }, [view?.change.number, view?.change.state, view?.change.title, view?.change.body, view && changeChip(view).text]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view?.change.number, view?.change.state, view?.change.title, view?.change.body]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => setPageContext({}), [])
 
   useEffect(() => {
@@ -107,7 +103,7 @@ export default function ChangePage() {
           {tab === 'conversation' && (
             <ConversationLog earlierRuns={(view.runs ?? []).map(r => r.id!).filter(id => id !== view.detail?.run.id && id !== work.detail?.run.id)} rounds={[...(workRunId && work.detail ? runStory(work.detail) : []), ...(view.detail ? runStory(view.detail) : [])].filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-'))} request={view.change.body || view.change.title} report={changeReport(view)} changeId={view.change.id!} chatHref={view.change.state === 'in_progress' ? `/projects/${view.projectSlug}/console?change=${view.change.id}` : undefined} />
           )}
-          {tab === 'details' && <ChangeDetails key={view.change.id} view={view} current={current} reload={reload} runId={runParam} focusStep={stepParam} />}
+          {tab === 'details' && <ChangeDetails key={view.change.id} view={view} current={current} reload={reload} runId={runParam} />}
 
         </div>
       </section>

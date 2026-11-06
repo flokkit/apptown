@@ -1,3 +1,4 @@
+import { ProjectCount } from './DependentProjects'
 import { useTechnicalDetail } from './change/TechnicalDetail'
 import { Section, Group } from '../Section'
 import { PageHead } from '../PageHead'
@@ -138,8 +139,7 @@ function IntegrationsBook({ name, area }: { name?: string; area: Area }) {
     }
     return (
         <div>
-          <div className="muted small int-crumb"><Link to={`/${area}`}>{areaTitle(area)}</Link> › {name}</div>
-          <h1>{name}</h1>
+              <h1>{name}</h1>
           <div className="card">No integration is called “{name}”. It may have been removed or renamed.{' '}
             <Link to={`/${area}`}>See them all</Link>.</div>
         </div>
@@ -201,7 +201,6 @@ export const KIND_HELP: Record<string, { body: ReactNode; guide: string }> = {
   </> },
 }
 
-const areaTitle = (a: Area) => INTEGRATION_MENU.find((g) => g.key === a)!.heading
 
 // What the page knows about the health reading it shows.
 type Reading = { q: Gated; now: number }
@@ -419,7 +418,6 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
   const editSpec = b.capability === 'cloud-account' ? undefined
     : catalog.find((c) => c.capability === b.capability && c.provider === b.provider && c.multi)
   const docs = catalog.find((c) => c.capability === b.capability && c.provider === b.provider && c.hasDocs)
-  const meta = capabilityMeta(b.capability, spec?.title)
   const state = healthState(b.health)
   // A test's answer, or why AppTown could not be asked.
   const [test, setTest] = useState<{ h?: IntegrationHealth; err?: string; at: number } | null>(null)
@@ -453,9 +451,6 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
 
   return (
     <div className="int-detail">
-      <div className="muted small int-crumb">
-        <Link to={`/${areaOf(b.capability)}`}>{areaTitle(areaOf(b.capability))}</Link> › <Link to={kindPath(b.capability)}>{meta.title}</Link>
-      </div>
       <div className="int-detail-head">
         <ConnIcon name={iconForBinding(b)} size={22} />
         <div style={{ minWidth: 0 }} className="grow">
@@ -528,7 +523,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
         </dl>
       </Section>
 
-      {b.usedBy && <Section title="Used by"><UsedBy use={b.usedBy} capability={b.capability} /></Section>}
+      {b.usedBy && <Section title="Used by"><UsedBy use={b.usedBy} capability={b.capability} name={b.name} /></Section>}
     </div>
   )
 }
@@ -539,7 +534,7 @@ const APPTOWN_WIDE = new Set(['scm', 'executor', 'model', 'secrets', 'registry']
 // What names this integration: the projects that attach it and the standing
 // deployments on targets it reaches. An AppTown-wide service is used without
 // being named, so none here does not mean it is unused.
-function UsedBy({ use, capability }: { use: IntegrationUse; capability: string }) {
+function UsedBy({ use, capability, name }: { use: IntegrationUse; capability: string; name: string }) {
   if (use.projects.length === 0 && use.deployments.length === 0) {
     // What AppTown itself runs on serves every project without being named
     // by one; what a project attaches says so plainly when nobody has yet.
@@ -550,17 +545,7 @@ function UsedBy({ use, capability }: { use: IntegrationUse; capability: string }
     return <p className="muted">{words}</p>
   }
   return <>
-    {use.projects.map((p) => (
-      <Link key={p.slug} to={`/projects/${p.slug}`} className="card row int-related-row">
-        <span className="int-name">{p.name}</span><span className="muted small">project</span>
-      </Link>
-    ))}
-    {use.deployments.map((d) => (
-      <div key={`${d.project}/${d.name}`} className="card row int-related-row">
-        <Link className="int-name" to={`/projects/${d.project}/deployments/${d.name}`}>{d.project}/{d.name}</Link>
-        <span className="muted small">deployment on <Link to={`/targets/${d.target}`}>{d.target}</Link></span>
-      </div>
-    ))}
+    <p><ProjectCount to={`/${areaOf(capability)}/${name}/projects`} count={new Set([...use.projects.map(p => p.slug), ...use.deployments.map(d => d.project)]).size} /></p>
   </>
 }
 

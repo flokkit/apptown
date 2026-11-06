@@ -1,3 +1,5 @@
+import { setPageContext } from '../../chrome'
+import { Screenshots } from '../../Screenshots'
 import './work-record.css'
 import './deploy-scene.css'
 import '../../overview-line.css'
@@ -33,11 +35,10 @@ export function logRows(body: string): LogRow[] {
     return { kind, text }
   })
 }
-function RecordText({ artifact, session = false, code }: { artifact: Artifact; session?: boolean; code: string }) {
+function RecordText({ artifact, session = false, code, fullHref }: { artifact: Artifact; session?: boolean; code: string; fullHref: string }) {
   const truncated = (artifact.bodyBytes ?? 0) > new TextEncoder().encode(artifact.body).length
   const q = useGet<Artifact>(truncated ? `/artifacts/${artifact.id}` : null)
   const body = q.data?.body ?? artifact.body
-  const location = useLocation()
   const [messages, setMessages] = useState(false)
   const rows = logRows(body)
   const counts = new Map<string, number>()
@@ -47,19 +48,25 @@ function RecordText({ artifact, session = false, code }: { artifact: Artifact; s
     {session ? <>
       <div className="work-mini"><span>{[...counts].map(([kind, count]) => `${count} ${kind}`).join(' · ')}</span><div role="group" aria-label="Session view"><button aria-pressed={messages} onClick={() => setMessages(true)}>messages only</button><button aria-pressed={!messages} onClick={() => setMessages(false)}>everything</button></div></div>
       <ol className="work-events" aria-label="Session events">{rows.map((r, i) => (!messages || r.kind === 'said') && <li key={i} className="work-event">
-        <span className="muted" title="The agent log does not expose event times">—</span><strong>{r.kind}</strong><div><div className="work-line">{firstLine(r.text)}</div>{r.text.length > 180 && <><pre>{r.text.slice(0, 400).split('\n').slice(0, 3).join('\n')}</pre><Link to={`${location.pathname}${location.search}#log-${artifact.id}-${i}`}>full text</Link></>}{r.kind === 'edited' && (() => { const path = r.text.match(/"path"\s*:\s*"([^"]+)"/)?.[1]; return path && <Link to={`${code}#diff-${path}`}>{path} in Code</Link> })()}</div><span className="muted">{r.kind === 'said' ? 'recorded' : '—'}</span>
+        <span className="muted" title="The agent log does not expose event times">—</span><strong>{r.kind}</strong><div><div className="work-line">{firstLine(r.text)}</div>{r.text.length > 180 && <><pre>{r.text.slice(0, 400).split('\n').slice(0, 3).join('\n')}</pre><Link to={fullHref}>full text</Link></>}{r.kind === 'edited' && (() => { const path = r.text.match(/"path"\s*:\s*"([^"]+)"/)?.[1]; return path && <Link to={`${code}#diff-${path}`}>{path} in Code</Link> })()}</div><span className="muted">{r.kind === 'said' ? 'recorded' : '—'}</span>
       </li>)}</ol>
-      {rows.map((r, i) => r.text.length > 180 && location.hash === `#log-${artifact.id}-${i}` && <section className="work-full" id={`log-${artifact.id}-${i}`} key={i}><h3>Full text · event {i + 1}</h3><pre>{r.text}</pre></section>)}
     </> : <pre className="work-full">{body || 'No text was recorded.'}</pre>}
     {artifact.ref && <a href={artifact.ref}>Open record</a>}
   </div>
 }
 
-export default function WorkRecordPage() {
-  const { id, stepId } = useParams()
+type RecordSection = 'request' | 'workflow' | 'report' | 'record'
+
+export default function WorkRecordPage({ section }: { section?: RecordSection }) {
+  const { id, stepId, artifactId } = useParams()
   const [params] = useSearchParams()
   const run = params.get('run')
   const change = useGet<ChangeView>(`/changes/${encodeURIComponent(id ?? '')}`, { poll: 3000 })
+  const changeName = change.data ? `Change ${change.data.change.number} · ${changeTitle(change.data.change)}` : id || 'Change'
+  useEffect(() => {
+    setPageContext({ names: { [`/changes/${id}`]: changeName, [`/changes/${id}/work/${stepId}`]: 'Work record' } })
+    return () => setPageContext({})
+  }, [id, stepId, changeName])
   const trace = useGet<RunTrace>(run ? `/runs/${encodeURIComponent(run)}/trace` : null, { poll: 3000 })
   const [technical] = useTechnicalDetail()
   const location = useLocation()
@@ -70,10 +77,10 @@ export default function WorkRecordPage() {
   const entry = detail && runStory(detail).find(e => e.key === params.get('attempt') && (e.step?.id || 'run') === stepId)
   if (!v || !t) return <div className="ch-page"><ReadStatus q={change} what="the change" /><ReadStatus q={trace} what="the work record" />{!run && <p>This address does not name a run.</p>}</div>
   if (t.change?.id !== v.change.id || !entry) return <div className="ch-page"><p>This session is not in this change’s work record.</p><Link to={`/changes/${v.change.id}?tab=details`}>Back to the change</Link></div>
-  return <WorkRecord key={entry.key} view={v} trace={t} entry={entry} technical={technical} notes={<><StaleNote q={change} /><StaleNote q={trace} /></>} />
+  return <WorkRecord section={section} artifactId={artifactId} key={entry.key} view={v} trace={t} entry={entry} technical={technical} notes={<><StaleNote q={change} /><StaleNote q={trace} /></>} />
 }
 
-function WorkRecord({ view: v, trace, entry, technical, notes }: { view: ChangeView; trace: RunTrace; entry: StoryEntry; technical: boolean; notes: React.ReactNode }) {
+function WorkRecord({ view: v, trace, entry, technical, notes, section, artifactId }: { view: ChangeView; trace: RunTrace; entry: StoryEntry; technical: boolean; notes: React.ReactNode; section?: RecordSection; artifactId?: string }) {
   const code = `/changes/${v.change.id}?tab=changes`
   const diff = useGetText(`/changes/${v.change.id}/diff`)
   const files = diff.data ? parseUnifiedDiff(diff.data) : []
@@ -84,10 +91,24 @@ function WorkRecord({ view: v, trace, entry, technical, notes }: { view: ChangeV
   const records = entry.records.filter(a => !['agent-log', 'steering'].includes(a.kind))
   const guidance = trace.guidance as { imports?: { name: string; version: number }[] } | null
   const location = useLocation()
-  const link = (anchor: string) => `${location.pathname}${location.search}#${anchor}`
+  const base = `/changes/${v.change.id}/work/${entry.step?.id || 'run'}`
+  const link = (part: string) => `${base}/${part}${location.search}`
+  const recordLink = (a: Artifact) => link(`records/${a.id}`)
+  if (section) {
+    const artifact = entry.records.find(a => a.id === artifactId)
+    const title = section === 'request' ? 'Change request' : section === 'workflow' ? 'Workflow' : section === 'report' ? 'Report' : artifact?.name || 'Record'
+    return <div className="ch-page work-page">{notes}<h1>{title}</h1><section className="ch-change-card work-full">
+      {section === 'request' ? <pre>{v.change.body || v.change.title}</pre>
+        : section === 'workflow' ? <pre>{trace.workflow.definition ? dump(trace.workflow.definition) : 'not recorded'}</pre>
+        : section === 'report' ? <pre>{evidence && 'output' in evidence && evidence.output || 'No report was recorded.'}</pre>
+        : !artifact ? <p>This record is not in this work session.</p>
+        : artifact.binary ? <Screenshots shots={{shots:[{artifact:artifact.id!,path:artifact.name,view:'record'}]}} />
+        : <RecordText artifact={artifact} code={code} fullHref={recordLink(artifact)} />}
+    </section></div>
+  }
   return <div className="ch-page work-page">
     {notes}
-    <header><Link to={`/changes/${v.change.id}?tab=details`}>← Change {v.change.number} · {changeTitle(v.change)}</Link><h1>Work record</h1>
+    <header><h1>Work record</h1>
       <p className="work-byline">{[
         entry.step?.type === 'agent/review' ? 'Reviewer' : 'Agent',
         evidence && 'provider' in evidence && evidence.provider,
@@ -99,24 +120,20 @@ function WorkRecord({ view: v, trace, entry, technical, notes }: { view: ChangeV
       ].filter(Boolean).join(' · ')}</p>
     </header>
     <section className="ch-change-card"><h2>What the agent was given</h2><table className="ch-facts-table"><tbody>
-      <tr><th>Request</th><td>{firstLine(v.change.body || v.change.title)} <Link to={link('request-text')}>full request</Link><span className="small muted"> · Change request</span></td></tr>
-      <tr><th>Instructions</th><td>{instructions.length ? instructions.map(a => <div key={a.id}><Link to={link(`text-${a.id}`)}>{a.name}</Link></div>) : <span className="muted">not recorded</span>}</td></tr>
+      <tr><th>Request</th><td>{firstLine(v.change.body || v.change.title)} <Link to={link('request')}>full request</Link><span className="small muted"> · Change request</span></td></tr>
+      <tr><th>Instructions</th><td>{instructions.length ? instructions.map(a => <div key={a.id}><Link to={recordLink(a)}>{a.name}</Link></div>) : <span className="muted">not recorded</span>}</td></tr>
       <tr><th>Pinned guidance</th><td>{guidance?.imports?.length ? guidance.imports.map(g => <div key={g.name}><Link to={`/guidance/${encodeURIComponent(g.name)}?version=${g.version}`}>{g.name} v{g.version}</Link></div>) : <span className="muted">not recorded</span>}</td></tr>
-      <tr><th>Workflow step</th><td>{[`${entry.detail.run.workflowName} v${entry.detail.run.workflowVersion}`, entry.step?.stage, entry.step?.name || 'run'].filter(Boolean).join(' · ')} <Link to={link('workflow-text')}>workflow text</Link></td></tr>
+      <tr><th>Workflow step</th><td>{[`${entry.detail.run.workflowName} v${entry.detail.run.workflowVersion}`, entry.step?.stage, entry.step?.name || 'run'].filter(Boolean).join(' · ')} <Link to={link('workflow')}>workflow text</Link></td></tr>
     </tbody></table></section>
     <section className="ch-change-card"><h2>The session</h2><p className="small muted">{fmtStamp(entry.at)}{entry.step?.finishedAt && ` → ${fmtStamp(entry.step.finishedAt)}`} · {entry.session || '—'}{!logs.length && ' · log not recorded'}</p>
-      {logs.length ? logs.map(a => <RecordText key={a.id} artifact={a} session code={code} />) : null}
+      {logs.length ? logs.map(a => <RecordText key={a.id} artifact={a} session code={code} fullHref={recordLink(a)} />) : null}
     </section>
     <section className="ch-change-card"><h2>What it produced</h2><table className="ch-facts-table"><tbody>
       <tr><th>Files changed</th><td>{changed ? changed.length ? changed.map(path => { const f = files.find(f => f.path === path); return <div key={path}><Link to={`${code}#diff-${path}`}>{path}</Link> <span className="mono small">{f ? `+${f.adds} −${f.dels} (whole change)` : '—'}</span></div> }) : 'No files changed.' : <span className="muted">—</span>}<ReadStatus q={diff} what="file counts" /><StaleNote q={diff} /> · <Link to={code}>code for the whole change →</Link></td></tr>
-      <tr><th>Records</th><td>{[...logs, ...records].map(a => <div key={a.id}><Link to={link(a.kind === 'agent-log' ? `record-${a.id}` : `text-${a.id}`)}>{a.kind === 'agent-log' ? 'agent log' : a.name || a.kind}</Link></div>)}{!logs.length && !records.length && <span className="muted">not recorded</span>}</td></tr>
-      {evidence && 'output' in evidence && evidence.output && <tr><th>Report</th><td>{firstLine(evidence.output)} <Link to={link('report-text')}>full report</Link></td></tr>}
+      <tr><th>Records</th><td>{[...logs, ...records].map(a => <div key={a.id}><Link to={recordLink(a)}>{a.kind === 'agent-log' ? 'agent log' : a.name || a.kind}</Link></div>)}{!logs.length && !records.length && <span className="muted">not recorded</span>}</td></tr>
+      {evidence && 'output' in evidence && evidence.output && <tr><th>Report</th><td>{firstLine(evidence.output)} <Link to={link('report')}>full report</Link></td></tr>}
       <tr><th>Blockers reported</th><td>{evidence?.reason || evidence?.blockedBy || <span className="muted">not recorded</span>}</td></tr>
     </tbody></table><h3>Chats on this change</h3><Link to={`/changes/${v.change.id}?tab=conversation`}>Read the conversation</Link><ChangeWorkerChats changeId={v.change.id!} /></section>
-    {location.hash === '#request-text' && <section id="request-text" className="ch-change-card work-full"><h2>Change request</h2><pre>{v.change.body || v.change.title}</pre></section>}
-    {location.hash === '#workflow-text' && <section id="workflow-text" className="ch-change-card work-full"><h2>Workflow</h2><pre>{trace.workflow.definition ? dump(trace.workflow.definition) : 'not recorded'}</pre></section>}
-    {location.hash === '#report-text' && evidence && 'output' in evidence && <section id="report-text" className="ch-change-card work-full"><h2>Report</h2><pre>{evidence.output}</pre></section>}
-    {[...instructions, ...records].filter(a => location.hash === `#text-${a.id}`).map(a => <section id={`text-${a.id}`} key={a.id} className="ch-change-card"><h2>{a.name || a.kind}</h2><RecordText artifact={a} code={code} /></section>)}
     {technical && <section className="ch-change-card work-full"><h2>Technical detail</h2><h3>Trace JSON</h3><pre>{JSON.stringify(trace, null, 2)}</pre></section>}
   </div>
 }

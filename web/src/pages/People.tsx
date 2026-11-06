@@ -1,4 +1,4 @@
-import { Disclosure } from '../Popover'
+import { FormMenu } from '../MoreMenu'
 import { ListTable } from '../ListTable'
 import { AccountStatus } from '../Status'
 import { Modal } from '../Modal'
@@ -211,7 +211,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
   const reset = useAction(undefined, { affects: ['/invites'] })
   // One row per account: name and role, then when they were last seen and
   // the one Manage control. On a phone it is two lines.
-  const manage = (u: Account) => canEdit && <Disclosure className="account-actions" closeOnAction={false} trigger={<button className="subtle" aria-label={`Actions for ${u.username}`}>Manage</button>}>
+  const manage = (u: Account) => canEdit && <FormMenu className="account-actions" closeOnAction={false} trigger={<button className="subtle" aria-label={`Actions for ${u.username}`}>Manage</button>}>
 
         <div className="account-action-list">
         <label>Role                 {canEdit ? (
@@ -260,7 +260,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
           <QuietConfirm label="remove" ask={`Remove the name ${u.username}? Its grants, tokens and invites are revoked; the record keeps its history.`}
             onYes={() => act(() => del(`/users/${encodeURIComponent(u.username)}`))} />
         </>}
-      </Disclosure>
+      </FormMenu>
   const accountRows = <ListTable label="Accounts" className="people-accounts" rows={accounts} rowKey={u => u.username} columns={[
     { key: 'name', label: 'Name', phone: 'name', render: u => <Link to={`/people/accounts/${encodeURIComponent(u.username)}`}>{u.username}</Link> },
     { key: 'role', label: 'Role', phone: 'detail', render: u => u.role === 'admin' ? 'Admin' : 'Member' },
@@ -406,8 +406,8 @@ function GroupsCard({ groups, users, grants, act, canEdit, name, actionError }: 
     const editable = canEdit && kind(g) === 'team'
     const members = g.kind === 'built-in' ? users.filter(u => !u.disabled && (u.hasPassword || u.acted)).map(u => u.username) : g.members
     return <>
-      <PageHead page="people" title={g.name} line={<>{kind(g)} group. {g.description}{g.kind === 'built-in' && ' Everyone who is signed in; grant this group a role to give everyone that access.'}</>} actions={editable && <Disclosure className="more-menu" closeOnAction={false} trigger={<button aria-label={`More actions for ${g.name}`}>⋯</button>}><QuietConfirm label="Delete group" ask={`Delete group ${g.name}? Approval steps naming group:${g.name} will stop matching anyone.`}
-          onYes={() => act(() => del(`/groups/${encodeURIComponent(g.name)}`).then(() => navigate('/people/groups')))} /></Disclosure>} />
+      <PageHead page="people" title={g.name} line={<>{kind(g)} group. {g.description}{g.kind === 'built-in' && ' Everyone who is signed in; grant this group a role to give everyone that access.'}</>} actions={editable && <FormMenu className="more-menu" closeOnAction={false} trigger={<button aria-label={`More actions for ${g.name}`}>⋯</button>}><QuietConfirm label="Delete group" ask={`Delete group ${g.name}? Approval steps naming group:${g.name} will stop matching anyone.`}
+          onYes={() => act(() => del(`/groups/${encodeURIComponent(g.name)}`).then(() => navigate('/people/groups')))} /></FormMenu>} />
       <Section title="Members" count={members.length} action={<div className="row">
         {editable && <button className="primary" onClick={() => setAdding(true)}>Add member</button>}
 
@@ -416,7 +416,7 @@ function GroupsCard({ groups, users, grants, act, canEdit, name, actionError }: 
           { key: 'name', label: 'Name', phone: 'name', render: m => <Link to={`/people/accounts/${encodeURIComponent(m)}`}>{m}</Link> },
           { key: 'status', label: 'Status', phone: 'state', render: m => <AccountStatus {...users.find(u => u.username === m)} /> },
           { key: 'seen', label: 'Last seen', phone: 'time', kind: 'time', render: m => relTime(users.find(u => u.username === m)?.lastSeen ?? '') || '—' },
-          { key: 'action', label: '', phone: 'action', render: m => editable && <Disclosure className="more-menu" trigger={<button aria-label={`More actions for ${m}`}>⋯</button>}><button onClick={() => act(() => del(`/groups/${encodeURIComponent(g.name)}/members/${encodeURIComponent(m)}`))}>Remove member</button></Disclosure> },
+          { key: 'action', label: '', phone: 'action', render: m => editable && <FormMenu className="more-menu" trigger={<button aria-label={`More actions for ${m}`}>⋯</button>}><button onClick={() => act(() => del(`/groups/${encodeURIComponent(g.name)}/members/${encodeURIComponent(m)}`))}>Remove member</button></FormMenu> },
         ]} />
       </Section>
       <Section title="Roles granted" action={<Link to="/people/roles">Manage roles</Link>}>{rolesFor(g).length ? rolesFor(g).map(r => <p key={r.id}>{grantTitle(r)} · {r.scopeType}{r.scopeId && `: ${r.scopeId}`} · granted by {r.grantedBy}{r.reason && ` · ${r.reason}`}</p>) : <p>No roles granted.</p>}</Section>

@@ -92,13 +92,13 @@ export function OwnDisks() {
       <StaleNote q={q} />
       {q.data.disks.length === 0 && <p className="muted small">Waiting for the first disk check.</p>}
       <div className="host-disks">
-        {q.data.disks.map(d => <details key={d.what + (d.path ?? '')} className="host-disk">
-          <summary className="host-row">
+        {q.data.disks.map(d => <section key={d.what + (d.path ?? '')} className="host-disk">
+          <h3 className="host-row">
             {/* Each disk is named for what it holds, so two readings of one machine are not mistaken for one disk. */}
             <strong>{d.what.startsWith('this ') ? `${PRODUCT}'s data` : d.what.includes('Docker') ? 'Worker apps' : d.what.includes('worker') ? 'Worker storage' : d.what}</strong>
             <DiskChip d={d} />
             <span className="muted small">{d.unknown ? 'Disk not known' : d.low ? 'Low on disk' : `${Math.round(100 * (d.freeBytes ?? 0) / (d.totalBytes || 1))}% disk free`}</span>
-          </summary>
+          </h3>
           <div className="small">{d.what}{d.path && <p><code>{d.path}</code></p>}
             {d.unknown || `${fmtBytes(d.freeBytes ?? 0)} free of ${fmtBytes(d.totalBytes ?? 0)}`} · {readingAge(d.readAt, d.stale)}
             {d.unknown && !!d.totalBytes && <p>Disk size: {fmtBytes(d.totalBytes)}</p>}
@@ -107,7 +107,7 @@ export function OwnDisks() {
             {d.warningBytes ? <p>Free some space when less than {fmtBytes(d.warningBytes)} is free.</p> : null}
             {d.floorBytes ? <p>New work stops below {fmtBytes(d.floorBytes)} free.</p> : null}
           </div>
-        </details>)}
+        </section>)}
       </div>
     </div>
   )
@@ -154,11 +154,11 @@ function JobQueue() {
               <thead><tr><th>Job</th><th>State</th><th>When</th><th>Outcome</th></tr></thead>
               <tbody>
                 {groups.slice(0, count).map(({ job: j, count: repeats }) => (
-                  <GlanceRow name={0} state={1} fact={2} labels={["Job", "State", "When", "Outcome"]} key={j.id}>
+                  <GlanceRow labels={["Job", "State", "When", "Outcome"]} key={j.id}>
                     <td className="stack-lead">{JOB_WORDS[j.kind] ?? j.kind.replaceAll('-', ' ')}{repeats === 1 && typeof j.receipt?.target === 'string' && <> on {j.receipt.target}</>}{repeats > 1 && <span className="muted"> · {repeats} done</span>}</td>
                     <td className="stack-end"><Status word={j.statusLabel} help={j.error || j.state} />{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
                     <td className="muted">{j.finishedAt ? 'Finished ' : j.startedAt ? 'Started ' : 'Queued '}{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
-                    <td data-label="outcome" className={j.error ? 'error' : ''}>{jobReceipt(j)}<details className="inline-detail"><summary>Technical details</summary><div>{j.kind}</div><code className="job-key">{j.key}</code></details></td>
+                    <td data-label="outcome" className={j.error ? 'error' : ''}>{jobReceipt(j)}<section className="inline-detail"><h3>Technical details</h3><div>{j.kind}</div><code className="job-key">{j.key}</code></section></td>
                   </GlanceRow>
                 ))}
               </tbody>

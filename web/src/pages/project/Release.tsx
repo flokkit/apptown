@@ -1,8 +1,9 @@
+import { usePageName } from '../../chrome'
 import './Release.css'
 import { ReleaseAssent } from './ReleaseApproval'
 import { Status } from '../../Status'
 import { Fragment, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { openAfter, post } from '../../api'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -14,11 +15,12 @@ import type { ReleaseBundleView, ReleaseDetail, ReleaseListed, ReleasePreviewSta
 import { fmtStamp } from '../../format'
 import { PRODUCT } from '../../brand'
 
-export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: string }) {
+export function ReleasePermalinkPage({ slug, number, log = false }: { slug: string; number?: string; log?: boolean }) {
   // The log can gain health-controller notes after release. Keep reading
   // the current version, and reset the cadence when the permalink changes.
   const path = number ? `/projects/${slug}/releases/${number}` : null
   const [cadence, setCadence] = useState<{ path: string | null; poll: number }>({ path: null, poll: 2000 })
+  usePageName(path || '', number ? `Release #${number}` : undefined)
   const q = useGet<ReleaseDetail>(path, { poll: cadence.path === path ? cadence.poll : 2000 })
   const { data } = q
   const state = data?.release?.state
@@ -30,6 +32,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
   if (!data || !data.release) return <ReadStatus q={q} what="the release" />
   const r = data.release
   const when = r.releasedAt || r.createdAt
+  if (log) return <><h1>Release log</h1><StaleNote q={q} /><div className="release-log">{data.events.map((e, i) => <p key={i}><span className="muted">{fmtStamp(e.at)}</span> {e.text}</p>)}</div></>
   return (
     <div className="release-page">
       <StaleNote q={q} />
@@ -79,26 +82,13 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
           {!data.bundle && r.externalRef && <><dt>Image</dt><dd><ImageReference value={r.externalRef} /></dd></>}
           {data.sbomArtifact && <><dt>Software list</dt><dd><a href={`/api/v1/artifacts/${data.sbomArtifact}`} target="_blank" rel="noreferrer">Components in this release (SBOM)</a></dd></>}
         </dl>
-        {data.events.length > 0 && (
-          <details className="release-block"><summary>Release log</summary><div>
-            <div className="release-log">
-              {data.events.map((e, i) => (
-                <div key={i} style={{ color: e.text.startsWith('FAILED') ? 'var(--bad)' : undefined }} className="release-event">
-                  <span className="muted">{fmtStamp(e.at)}</span>  {e.text}
-                </div>
-              ))}
-              {r.state === 'releasing' && <div className="muted release-event">…</div>}
-            </div>
-          </div></details>
-        )}
+        {data.events.length > 0 && <p><Link to={`/projects/${slug}/releases/${r.number}/log`}>Release log</Link></p>}
         {r.state === 'released' && r.externalRef && r.externalRef.includes('/') && (
           <div className="release-next">
             <OpenThisVersion slug={slug} number={r.number} isLive={data.isLive} />
           </div>
         )}
-        <div className="release-next">
-          <Link className="muted small" to={`/projects/${slug}`}>← back to the project</Link>
-        </div>
+
       </div>
     </div>
   )
@@ -172,4 +162,9 @@ function ReleaseDeployments({ slug, bundleId }: { slug: string; bundleId: string
     {names.map(name => <p key={name}><Link to={`/projects/${slug}/deployments/${name}`}>{ran.find(r => r.deployment === name)?.deploymentLabel || name}</Link> · {q.current && ran.some(r => r.deployment === name && r.serving) ? 'Running here' : 'Has run here'}</p>)}
     {q.current && names.length === 0 && <p>No successful deployments are recorded for this bundle.</p>}
   </div>
+}
+
+export function ReleaseLogPage() {
+  const { slug = '', number } = useParams()
+  return <ReleasePermalinkPage slug={slug} number={number} log />
 }

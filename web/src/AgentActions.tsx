@@ -54,21 +54,11 @@ export function toolSummary(tools: { name: string }[]): string {
 }
 
 // The change page lets its switch reveal actions; live chat also offers individual folds.
-export function ToolFold({ tools, show = false, inline = false }: { inline?: boolean; tools: { name: string; detail?: string }[]; show?: boolean }) {
-  if (inline) return <div className="tool-fold">
+export function ToolFold({ tools, show = false }: { tools: { name: string; detail?: string }[]; show?: boolean }) {
+  return <div className="tool-fold">
     <p className="small">{toolSummary(tools)}</p>
     {show && tools.map((t, i) => <div key={i} className="small tool-line">{TOOL_WORDS[t.name] ?? t.name}{t.detail ? <> <code>{t.detail}</code></> : ''}</div>)}
   </div>
-  return (
-    <details className="tool-fold" open={show}>
-      <summary className="small">{toolSummary(tools)}</summary>
-      {tools.map((t, i) => (
-        <div key={i} className="small tool-line">
-          {TOOL_WORDS[t.name] ?? t.name}{t.detail ? <> <code>{t.detail}</code></> : ''}
-        </div>
-      ))}
-    </details>
-  )
 }
 
 // A consecutive run folds without losing the original action order.

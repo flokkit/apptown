@@ -23,7 +23,8 @@ describe('server display vocabulary', () => {
   it('keeps the state readable and its reason in help', () => {
     const html = renderToStaticMarkup(<Status word="failed" help="Tests did not pass." />)
     expect(html).toContain('aria-hidden="true">● </span>failed')
-    expect(html).toContain('<details class="status-help"><summary>')
+    expect(html).not.toContain('<details')
+    expect(html).toContain('status-help-inline')
     expect(html).not.toContain('role="status"')
     expect(html).toContain('title="Tests did not pass."')
     expect(html).toContain('aria-label="failed: Tests did not pass."')
@@ -35,16 +36,6 @@ it('draws status lights only in the shared Status component', () => {
  for (const file of files.filter(f => f.endsWith('.tsx') && !f.includes('.test.') && f !== 'Status.tsx')) {
   expect(readFileSync(`src/${file}`, 'utf8'), file).not.toContain('●')
  }
-})
-
-it('keeps help out of table layout and resets the global disclosure box', () => {
- const css = readFileSync('src/styles/chip.css', 'utf8') as string
- expect(css).toMatch(/\.status-help\s*\{[^}]*margin: 0/)
- expect(css).toMatch(/\.status-help > summary\s*\{[^}]*padding: 0; border: 0; background: none/)
- expect(css).toMatch(/\.status-help\[open\] > summary::before\s*\{ content: none/)
- expect(css).toMatch(/\.status-help > div\s*\{[^}]*position: absolute/)
- const project = readFileSync('src/pages/Project.tsx', 'utf8') as string
- expect(project.slice(project.indexOf('function ProjectHeader')).match(/<div className="project-heading">[\s\S]*?<\/div>/)?.[0]).not.toContain('RuntimeStatus')
 })
 
 // A neutral state is grey: a dot in line with the rest, never a colour.

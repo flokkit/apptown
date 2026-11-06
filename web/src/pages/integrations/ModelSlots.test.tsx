@@ -35,7 +35,8 @@ it('says what an unset task gets, on each profile', async () => {
   const rows = [...el.querySelectorAll('[role=listitem]')].map((r) => r.textContent)
   expect(rows[0]).toContain('The default profile')
   expect(rows[1]).toContain('Same as standard')
-  expect(rows[1]).toContain('A')
+  expect(rows[1]).not.toContain('A')
+  expect(el.querySelector('a[href="/integrations/profiles/high/projects"]')?.textContent).toBe('1 project')
   const unset = (job: string) => el.querySelector<HTMLSelectElement>(`select[aria-label="${job} model"]`)!.options[0].textContent
   await at('/integrations/profiles/standard')
   await vi.waitFor(() => expect(el.querySelector('select')).not.toBeNull())
@@ -62,7 +63,8 @@ it('says what an unset task gets, on each profile', async () => {
   await vi.waitFor(() => expect(el.querySelector('h1')!.textContent).toBe('high'))
   expect(unset('Review')).toBe('Same as standard (m/review)')
   expect(unset('Worker')).toBe("Same as standard's Review (m/review)")
-  expect(el.querySelector('section[aria-label="Projects"]')!.textContent).toContain('A')
+  expect(el.querySelector('section[aria-label="Projects"]')).toBeNull()
+  expect(el.querySelector('a[href$="/high/projects"]')?.textContent).toBe('1 project')
   // A profile's basic choice beats a task cell in standard, including the label.
   matrix.slots[0].patterns.high = 'm/high'
   await act(async () => { await client.invalidateQueries() })

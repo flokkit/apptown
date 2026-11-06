@@ -9,8 +9,9 @@ export type ListColumn<T> = {
   phone: 'name' | 'state' | 'action' | 'detail' | 'extra' | 'time'
 }
 
-// Native column headers on wide screens; the same cells occupy two lines on
-// phones. Truncated facts stay available on the linked record's page.
+// Native column headers on wide screens; the same cells form two groups on
+// phones, where free text wraps within its cell. Desktop truncation keeps
+// inventories compact; full facts stay on the linked record page.
 export function ListTable<T>({ label, columns, rows, rowKey, className = '' }: {
   label: string; columns: ListColumn<T>[]; rows: T[]; rowKey: (row: T) => string; className?: string
 }) {

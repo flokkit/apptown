@@ -69,11 +69,11 @@ export function BackupsView() {
       {latest.size === 0 ? <p className="muted small">No backups yet.</p> : <>
       <table className="stack small">
         <thead><tr><th>App</th><th>State</th><th>Taken</th><th></th></tr></thead>
-        <tbody>{[...latest.values()].map(b => <GlanceRow key={b.id} name={0} state={1} fact={2} labels={['App', 'State', 'Taken', 'Actions']}>
+        <tbody>{[...latest.values()].map(b => <GlanceRow key={b.id} labels={['App', 'State', 'Taken', 'Actions']}>
           <td><Link to={`/projects/${b.project}`}>{b.project} · {b.deploymentLabel || b.deployment}</Link></td>
           <td><Status word={b.statusLabel} help={b.error || undefined} /></td>
           <td>{fmtWhen(b.takenAt)}</td>
-          <td><details><summary>Actions and details</summary>
+          <td><section><h3>Actions and details</h3>
             <p>{b.deploymentLabel || b.deployment} · <KeptOn b={b} /> · {fmtBytes(b.bytes)}</p>
             <Contents items={b.items} />
             {managed(b) ? b.trigger === 'take-down' && <Link to={`/projects/${b.project}/deployments`}>Start a new deployment from this</Link>
@@ -81,19 +81,19 @@ export function BackupsView() {
                 <button className="subtle" disabled={busy} onClick={() => takeNow(b.project, b.deployment)}>Back up now</button>
                 <RestoreOver b={b} onYes={() => restore(b)} />
               </>}
-          </details></td>
+          </section></td>
         </GlanceRow>)}</tbody>
       </table>
       </>}
       </Section>
       {data.backups.length > 0 && <Section title="All backups" count={data.backups.length}>
         <table className="stack small"><thead><tr><th>App</th><th>State</th><th>Taken</th><th>Details</th></tr></thead>
-          <tbody>{data.backups.slice(0, shown).map(b => <GlanceRow id={`backup-${b.id}`} key={b.id} name={0} state={1} fact={2} labels={['App', 'State', 'Taken', 'Details']}>
+          <tbody>{data.backups.slice(0, shown).map(b => <GlanceRow id={`backup-${b.id}`} key={b.id} labels={['App', 'State', 'Taken', 'Details']}>
             <td>{b.project} · {b.deploymentLabel || b.deployment}</td>
             <td><Status word={b.statusLabel} help={b.error || (b.status === 'pruned' ? 'This old copy has been removed.' : undefined)} /></td>
             <td>{fmtWhen(b.takenAt)}</td>
             <td>{b.deploymentLabel || b.deployment} · {b.beforeRelease ? <Link to={`/projects/${b.project}/releases/${b.beforeRelease}`}>before release {b.beforeRelease}</Link> : b.trigger} · {b.actor}{b.status === 'pruned' ? <p>Copy removed</p> : <>
-              <KeptOn b={b} /><details><summary>Location</summary><code>{setPlace(b, data.where)}</code></details>
+              <KeptOn b={b} /><section><h3>Location</h3><code>{setPlace(b, data.where)}</code></section>
               {(b.status === 'ok' || b.status === 'partial') && !managed(b) && (b.trigger === 'take-down'
                 ? <RestoreInto b={b} busy={busy} onRestore={into => restore(b, into)} />
                 : <RestoreOver b={b} onYes={() => restore(b)} />)}
@@ -124,7 +124,7 @@ function Contents({ items }: { items: BackupItem[] }) {
     return (
       <div key={i.kind + i.name} title={i.error || i.how}>
         {itemName(i)} {badge && <span className="badge">{badge}</span>}
-        {i.caveat && <details className="muted small"><summary>Limits</summary>{i.caveat}</details>}
+        {i.caveat && <section className="muted small"><h3>Limits</h3>{i.caveat}</section>}
       </div>
     )
   })}</>

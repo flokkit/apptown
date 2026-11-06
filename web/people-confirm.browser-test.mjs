@@ -12,7 +12,7 @@ const bundle = await build({
     import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
     import {TokensCard,AgentsCard} from './pages/AccountAccess';
     window.fetch=async path=>new Response(JSON.stringify(String(path).includes('/delegations')?{delegations:[{id:'d',clientName:'ChatGPT',user:'sam',scopes:['apptown:user:read'],createdAt:'2026-11-05T01:00:00Z'}]}:{tokens:[{Name:'tom-laptop',User:'sam',Role:'admin',Purpose:'cli'}]}));
-    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main style={{padding:18}}><AgentsCard canEdit/><TokensCard/></main></MemoryRouter></QueryClientProvider>);
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><div className="layout"><aside className="sidebar"/><main className="main"><AgentsCard canEdit/><TokensCard/></main></div></MemoryRouter></QueryClientProvider>);
   ` },
 })
 const css = await productionCSS()
@@ -22,7 +22,7 @@ const browser = await chromium.launch({ headless: true })
 try {
   const page = await browser.newPage()
   await page.route('http://probe.test/**', r => r.fulfill({ contentType: 'text/html', body: '<html></html>' }))
-  for (const width of [1440, 390]) for (const size of ['medium', 'large']) for (const theme of ['light', 'dark']) {
+  for (const width of [801, 900, 1024, 1440, 390]) for (const size of ['medium', 'large']) for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('http://probe.test/')
     await page.setContent(`<style>${css}</style><div id="root"></div>`)
@@ -32,6 +32,12 @@ try {
       const trigger = page.getByRole('button', { name: action, exact: true })
       const row = trigger.locator('xpath=ancestor::tr')
       const before = await row.boundingBox()
+      assert.ok(await trigger.evaluate(button => {
+        const cell = button.closest('td').getBoundingClientRect()
+        const box = button.getBoundingClientRect()
+        return box.left >= cell.left && box.right <= cell.right && box.left >= 0 && box.right <= innerWidth
+      }), `Complete ${action} button fits: ${width}, ${size}, ${theme}`)
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Page has no horizontal overflow')
       await trigger.click()
       const clipped = await page.locator('td.record-action').evaluateAll(cells => cells.filter(c => c.scrollWidth > c.clientWidth + 1).map(c => c.textContent))
       assert.deepEqual(clipped, [], `Confirmation clipped at ${width}px`)

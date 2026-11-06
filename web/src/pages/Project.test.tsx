@@ -184,7 +184,8 @@ it.each([
       return b!
     })
     expect([...el.querySelectorAll('h1')].map(h => h.textContent)).toEqual([area ? title : 'Alpha'])
-    expect(el.querySelector('.page-area')?.textContent ?? null).toBe(area)
+    expect(el.querySelector('.page-area')).toBeNull()
+    void area
     expect(el.querySelector('.page-help-pop')).toBeNull()
     act(() => button.click())
     const popover = el.querySelector('.page-help-pop')!
@@ -255,7 +256,7 @@ it.each([
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/projects/a/${path}`]}><Routes><Route path="/projects/:slug/:tab/:stab?" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
     await vi.waitFor(() => expect([...el.querySelectorAll('h1')].map(h => h.textContent)).toEqual([title]))
-    expect(el.querySelector('.project-heading')?.textContent).toBe('Alpha')
+    expect(el.querySelector('.project-heading')).toBeNull()
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
 
@@ -296,7 +297,7 @@ it.each([['notes', 'Notes'], ['decisions', 'Decisions']])('loaded Memory %s has 
     await vi.waitFor(() => expect(el.querySelector('main h1')?.textContent).toBe(title))
     expect(el.querySelector('.topbar-crumb.last')?.textContent).toBe('›Memory')
     expect([...el.querySelectorAll('main h1')].map(h => h.textContent)).toEqual([title])
-    expect(el.querySelector('main .project-heading')?.textContent).toBe('Alpha')
+    expect(el.querySelector('main .project-heading')).toBeNull()
     // The page's own list loads after its heading; wait for it rather than
     // reading it on the heading's frame.
     await vi.waitFor(() => expect(el.textContent).toContain(tab === 'notes' ? 'No notes yet' : 'No decisions recorded yet.'))

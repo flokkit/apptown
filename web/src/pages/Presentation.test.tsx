@@ -82,13 +82,9 @@ it.each([false, true])('counts an app\'s deployments in one line without a fold 
 it.each([false, true])('expands resource evidence by row and preserves remove confirmation (phone=%s)', async narrow => {
   const target = { target: 'kitchen', live: true, resources: [{ kind: 'container', name: 'old-calendar', id: 'container-id', record: 'unrecorded', status: 'running', statusLabel: 'running', detail: 'provider evidence' }] } as InfrastructureView
   const el = await show(<ResourceTables t={target} onChanged={() => {}} />, {}, narrow)
-  const toggle = [...el.querySelectorAll('button')].find(b => b.textContent === 'View resource')!
-  expect(toggle.getAttribute('aria-expanded')).toBe('false')
-  await act(async () => toggle.click())
-  expect(toggle.getAttribute('aria-expanded')).toBe('true')
+  expect(el.querySelector('[aria-expanded]')).toBeNull()
   expect(el.textContent).toContain('provider evidence')
   await press(el, 'Remove')
-  expect(toggle.getAttribute('aria-expanded')).toBe('true')
   expect(el.textContent).toContain('Remove container old-calendar from kitchen?')
   expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
 })
@@ -145,14 +141,14 @@ it.each([false, true])('offers only uncovered fixes and keeps evidence and links
   expect([...el.querySelectorAll('button')].map(b => b.textContent)).toContain('Fix 1 problem')
   expect(el.querySelector('a[href="/changes/change"]')?.textContent).toBe('change #12')
   expect(el.querySelector('a[href="/projects/calendar"]')).not.toBeNull()
-  await act(async () => { (el.querySelector('button.check-open') as HTMLButtonElement).click() })
   expect(el.textContent).toContain('README missing')
   expect(el.textContent).toContain('hygiene version 1 · clean')
   expect(el.querySelector('a[href="/conformance/reviews/review"]')).not.toBeNull()
-  expect(el.textContent).not.toContain('Open a change to fix')
+  expect([...el.querySelectorAll('button')].filter(b => b.textContent === 'Open a change to fix')).toHaveLength(1)
 })
 
 it('names project creation in the top bar', async () => {
   const el = await show(<TopBar me={null} />, {}, false, '/projects/_new')
-  expect(el.querySelector('.topbar-here')?.textContent).toBe('Create project')
+  expect(el.querySelector('.topbar-crumb.last a')?.textContent).toBe('Projects')
+  expect(el.querySelector('.topbar-here')).toBeNull()
 })
