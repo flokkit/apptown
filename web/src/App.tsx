@@ -1,3 +1,10 @@
+import { ReleaseLogPage } from './pages/project/Release'
+import { ChangeRecordPage } from './pages/change/Details'
+import { GeneratedGuidance } from './pages/GuidanceLibrary'
+import { PastChatsPage } from './pages/change/Conversation'
+import WorkflowLibrary from './pages/WorkflowLibrary'
+import PoliciesPage from './pages/PoliciesPage'
+import { CheckProjects, GuidanceProjects, PolicyProjects, PackProjects, IntegrationProjects } from './pages/DependentProjects'
 import { DeploymentPage } from './pages/project/settings/Deployments'
 import WorkRecordPage from './pages/change/WorkRecord'
 import { MEMORY_TABS, SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL } from './pages/project/tabs'
@@ -217,9 +224,15 @@ export default function App() {
   // stands on its own, signed in or not.
   // The page moves the token out of the address bar once read, leaving /invite.
   const invite = routePath.match(/^\/invite(?:\/([^/]+))?\/?$/)
-  if (invite) return <InvitePage token={invite[1] ? decodeURIComponent(invite[1]) : ''} />
+  if (invite) {
+    const page = <InvitePage token={invite[1] ? decodeURIComponent(invite[1]) : ''} />
+    return <><TopBar me={null} standalone narrow={narrow} /><main className="standalone-page"><Routes>
+      <Route path="/invite" element={page} />
+      <Route path="/invite/:token" element={page} />
+    </Routes></main></>
+  }
   if (me && me.mode === 'internal' && !me.user) {
-    return <Login needsBootstrap={!!me.needsBootstrap} onSignedIn={loadMe} external={me.external} />
+    return <><TopBar me={null} standalone narrow={narrow} /><main className="standalone-page"><Login needsBootstrap={!!me.needsBootstrap} onSignedIn={loadMe} external={me.external} /></main></>
   }
   return (
     <div className="layout">
@@ -253,6 +266,8 @@ export default function App() {
         <Suspense fallback={<div className="muted">Loading…</div>}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/attention/checks" element={<AttentionPage checks />} />
+          <Route path="/attention/checks/:checkKey" element={<AttentionPage checks />} />
           <Route path="/attention" element={<AttentionPage />} />
  <Route path="/updates" element={<UpdatesPage />} />
           <Route path="/projects" element={<Projects />} />
@@ -263,6 +278,10 @@ export default function App() {
           <Route path="/complaints/answered" element={<InstanceGate page="complaints"><Complaints tab="answered" /></InstanceGate>} />
           <Route path="/complaints/archive" element={<InstanceGate page="complaints"><Complaints tab="archived" /></InstanceGate>} />
           <Route path="/conformance" element={<InstanceGate page="conformance"><Conformance tab="projects" /></InstanceGate>} />
+          <Route path="/conformance/checks/:checkKey/projects" element={<InstanceGate page="conformance"><CheckProjects /></InstanceGate>} />
+          <Route path="/conformance/reviews/:reviewId/checks/:checkKey/projects" element={<InstanceGate page="conformance"><CheckProjects /></InstanceGate>} />
+          <Route path="/conformance/checks/:checkKey" element={<InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate>} />
+          <Route path="/conformance/reviews/:reviewId/checks/:checkKey" element={<InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate>} />
           <Route path="/conformance/checks" element={<InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate>} />
           <Route path="/conformance/reviews" element={<InstanceGate page="conformance"><Conformance tab="reviews" /></InstanceGate>} />
           <Route path="/conformance/reviews/:reviewId" element={<InstanceGate page="conformance"><Conformance tab="projects" /></InstanceGate>} />
@@ -270,19 +289,39 @@ export default function App() {
           <Route path="/conformance/reviews/:reviewId/projects/:slug" element={<InstanceGate page="conformance"><Conformance tab="project" /></InstanceGate>} />
           <Route path="/conformance/projects/:slug" element={<InstanceGate page="conformance"><Conformance tab="project" /></InstanceGate>} />
           <Route path="/conformance/what-ifs" element={<InstanceGate page="conformance"><Conformance tab="what-ifs" /></InstanceGate>} />
+          <Route path="/conformance/what-ifs/:id/projects/:slug" element={<InstanceGate page="conformance"><WhatIfPage /></InstanceGate>} />
           <Route path="/conformance/what-ifs/:id" element={<InstanceGate page="conformance"><WhatIfPage /></InstanceGate>} />
           <Route path="/conformance/remediations" element={<InstanceGate page="conformance"><Conformance tab="remediations" /></InstanceGate>} />
           <Route path="/conformance/ways" element={<InstanceGate page="conformance"><Conformance tab="ways" /></InstanceGate>} />
           <Route path="/conformance/remediations/:remId" element={<InstanceGate page="conformance"><Conformance tab="remediation" /></InstanceGate>} />
           <Route path="/projects/_new" element={<NewProject />} />
+          <Route path="/projects/:slug/releases/:number/log" element={<ReleaseLogPage />} />
           <Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} />
           <Route path="/projects/:slug" element={<Project />} />
           <Route path="/operations/:id" element={<OperationPage />} />
           <Route path="/projects/:slug/:tab" element={<Project />} />
           <Route path="/projects/:slug/:tab/:stab" element={<Project />} />
+          <Route path="/changes/:id/records/:recordId" element={<ChangeRecordPage />} />
+          <Route path="/changes/:id/work/:stepId/request" element={<WorkRecordPage section="request" />} />
+          <Route path="/changes/:id/work/:stepId/workflow" element={<WorkRecordPage section="workflow" />} />
+          <Route path="/changes/:id/work/:stepId/report" element={<WorkRecordPage section="report" />} />
+          <Route path="/changes/:id/work/:stepId/records/:artifactId" element={<WorkRecordPage section="record" />} />
           <Route path="/changes/:id/work/:stepId" element={<WorkRecordPage />} />
           <Route path="/changes/:id" element={<ChangePage />} />
           <Route path="/adrs/:id" element={<AdrPage />} />
+          <Route path="/projects/:slug/chats" element={<PastChatsPage />} />
+          <Route path="/projects/:slug/chats/:sessionId" element={<PastChatsPage />} />
+          <Route path="/guidance/generated" element={<GeneratedGuidance page />} />
+          <Route path="/guidance/generated/:name" element={<GeneratedGuidance page />} />
+          <Route path="/workflows/:name" element={<WorkflowLibrary page />} />
+          <Route path="/policies/:name" element={<PoliciesPage page />} />
+          <Route path="/packs/:name/versions/:version" element={<PackPage />} />
+          <Route path="/guidance/:id/projects" element={<GuidanceProjects />} />
+          <Route path="/policies/:name/projects" element={<PolicyProjects />} />
+          <Route path="/packs/:name/projects" element={<PackProjects />} />
+          <Route path="/integrations/profiles/:profile/projects" element={<InstanceGate page="integrations"><ModelProfilePage projects /></InstanceGate>} />
+          <Route path="/integrations/:name/projects" element={<InstanceGate page="integrations"><IntegrationProjects /></InstanceGate>} />
+          <Route path="/services/:name/projects" element={<InstanceGate page="integrations"><IntegrationProjects /></InstanceGate>} />
           <Route path="/guidance" element={<WaysOfWorking tab="guidance" />} />
           <Route path="/guidance/:id" element={<GuidanceBlockPage />} />
           <Route path="/workflows" element={<WaysOfWorking tab="workflows" />} />

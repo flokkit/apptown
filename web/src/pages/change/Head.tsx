@@ -1,5 +1,5 @@
 import './Head.css'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { shortName } from '../newProject/draft'
 import { useFailureAdvice, recommendationWords } from './advice'
 import { ChangeStatus } from '../../Status'
@@ -85,12 +85,10 @@ export function changeReport(view: ChangeView, plainFirst = false): string | und
 // on an answer the page read itself, keeps the draft while the page polls,
 // saves only what changed with the revision it started from, and on a
 // conflict shows the current text and lets the person choose.
-export function RequestEntry({ view, current = true, reload }: { view: ChangeView; current?: boolean; reload: () => void }) {
+export function RequestEntry({ view, current = true, reload, full = false }: { view: ChangeView; current?: boolean; reload: () => void; full?: boolean }) {
   const ch = view.change
-  const location = useLocation()
   const request = ch.body || ch.title
   const lines = request.split('\n')
-  const full = location.hash === '#request-text'
   // The request is fixed once work starts: it is what the work was asked to do. Only the ticket link stays editable.
   const started = !!view.detail
   const [editing, setEditing] = useState(false)
@@ -132,7 +130,7 @@ export function RequestEntry({ view, current = true, reload }: { view: ChangeVie
         <span>{ch.openedBy ? `by ${ch.openedBy}` : 'Requested'}</span><button className="link" disabled={!editing && !current} onClick={() => (editing ? discard() : open())}>{editing ? 'Cancel' : started ? (ch.externalRef ? 'Edit ticket link' : 'Add ticket link') : 'Edit'}</button>
         <time dateTime={ch.createdAt}>{fmtStamp(ch.createdAt)}</time>
       </div>
-      {!editing && <div id={full ? 'request-text' : undefined} className="ch-request">{full ? request : lines.slice(0, 4).join('\n')}{!full && lines.length > 4 && <><br /><Link to={`${location.pathname}?tab=details#request-text`}>full request</Link></>}</div>}
+      {!editing && <div id={full ? 'request-text' : undefined} className="ch-request">{full ? request : lines.slice(0, 4).join('\n')}{!full && lines.length > 4 && <><br /><Link to={`/changes/${ch.id}/records/request`}>full request</Link></>}</div>}
       {!editing && ch.externalRef && <p className="muted small">Ticket: {ch.externalRef}</p>}
         {editing && (
           <div className="head-request-entry-div">
@@ -275,7 +273,7 @@ function DiffBlock({ path, what, empty }: { path: string; what: string; empty: s
       ? <div className="muted small">{empty}</div>
       : !diff.startsWith('diff --git')
         ? <pre className="log mt-2 head-diff-block-log">{diff}</pre>
-        : <div className="head-diff-block-div"><DiffView raw={diff} unfolded /></div>}
+        : <div className="head-diff-block-div"><DiffView raw={diff} /></div>}
   </>
 }
 
@@ -285,7 +283,7 @@ export function SoFarNote({ text, href, label = 'Read the full report →', plai
   const clipped = !!href && (text.length > 520 || lines.length > 4)
   const shown = clipped ? lines.slice(0, 4).join('\n').slice(0, 520) + '…' : text
   return <div>
-    <>{plain ? <div className="ch-request">{shown}</div> : <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(shown, true) }} />}</>
+    <>{plain ? <div className="ch-request">{shown}</div> : <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(shown) }} />}</>
     {clipped && <a href={href}>{label}</a>}
   </div>
 }

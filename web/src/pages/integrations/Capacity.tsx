@@ -39,7 +39,7 @@ function countWords(r: Resource): string {
 function ResourceRow({ label, r, format }: { label: string; r: Resource; format: (v: number) => string }) {
   const p = r.promised.sum
   return (
-    <GlanceRow name={0} fact={1} labels={["Resource", "Total", "Limits", "Used"]}>
+    <GlanceRow labels={["Resource", "Total", "Limits", "Used"]}>
       <td>{label}</td>
       <td><FigureWords f={r.total} format={format} /></td>
       <td>
@@ -121,7 +121,7 @@ export function Capacity({ name }: { name: string }) {
         : c.disk?.low && <p className="capacity-warning">Low on disk. Free some space.</p>}
       {c.elastic && <p>{c.words}{c.readAt && <span className="muted"> · {readingAge(c.readAt, c.stale)}</span>}</p>}
       {shown.length > 0 && <p className="error small">Part of the capacity check failed: {shown.join('; ')}{reasons.length > shown.length ? `; and ${reasons.length - shown.length} more (App resource details)` : ''}</p>}
-      {bars ? <Bars c={c} /> : <details className="capacity-details"><summary>Details</summary>
+      {bars ? <Bars c={c} /> : <section className="capacity-details"><h3>Details</h3>
       {c.memory && c.cpu && (
         <table className="small mt-1" >
           <thead><tr><th></th><th>has</th><th>{c.kind === 'portainer' ? `declared by ${PRODUCT}'s deployments` : 'app resource limits'}</th><th>in use by containers</th></tr></thead>
@@ -137,7 +137,7 @@ export function Capacity({ name }: { name: string }) {
           <thead><tr><th>deployment</th><th>part</th><th>runs on</th><th>listed per month</th></tr></thead>
           <tbody>
             {(c.parts ?? []).map((p, i) => (
-              <GlanceRow name={0} fact={3} labels={["App", "Part", "Size", "Monthly price"]} key={`${p.deployment}/${p.part}/${i}`}>
+              <GlanceRow labels={["App", "Part", "Size", "Monthly price"]} key={`${p.deployment}/${p.part}/${i}`}>
                 <td>{p.deployment}</td>
                 <td>{p.part || 'app'}{p.need ? <span className="muted"> (service)</span> : null}</td>
                 <td>{p.runsOn}</td>
@@ -147,11 +147,11 @@ export function Capacity({ name }: { name: string }) {
           </tbody>
         </table>
       )}
-      </details>}
+      </section>}
       {c.estimate && (
         <div className="mt-1">
           Estimated <b><FigureWords f={c.estimate} format={usd} /></b> a month (databases extra)
-          <details><summary>Estimate details</summary>{c.estimate.reason}</details>
+          <section><h3>Estimate details</h3>{c.estimate.reason}</section>
         </div>
       )}
       <StaleNote q={q} inline />
@@ -232,8 +232,8 @@ function Bars({ c }: { c: TargetCapacity }) {
           <DiskState d={c.disk} />
         </>
       ) : c.disk && <DiskLine d={c.disk} />}
-      <details className="cap-details">
-        <summary className="muted">App resource details</summary>
+      <section className="cap-details">
+        <h3 className="muted">App resource details</h3>
         <CapacityTable heads={['containers', 'memory used', 'memory limits', 'without a set limit', 'CPU limits']}
           rows={[
             ...tenants.map((t) => ({
@@ -246,7 +246,7 @@ function Bars({ c }: { c: TargetCapacity }) {
             { name: 'what the host has', kind: 'free', cells: ['', f(m.total, fmtBytes), '', '', c.cpu ? f(c.cpu.total, cpuWords) : ''] },
           ]} />
         {host && !host.known && <div className="muted small">the whole host's use: unknown · {host.reason}</div>}
-      </details>
+      </section>
     </div>
   )
 }

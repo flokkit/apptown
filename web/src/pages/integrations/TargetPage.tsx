@@ -1,3 +1,4 @@
+import { usePageName } from '../../chrome'
 import './TargetPage.css'
 import { useHostStates } from '../../hostState'
 import { BackgroundReading } from '../../BackgroundReading'
@@ -90,6 +91,7 @@ export function TargetPage() {
   const infra = useGet<InfrastructureTargets>('/infrastructure', { poll: 30000 })
   const here = infra.data?.targets.find((x) => x.target === name)
 
+  usePageName(`/targets/${name}`, data?.target?.displayLabel || name)
   if (!data || !data.target) return <ReadStatus q={pageQ} what="the deployment target" />
   const t = data.target
   const state = hostState(t.name, t.statusLabel)
@@ -104,7 +106,6 @@ export function TargetPage() {
   // is about, except a failed connection, which is about the whole host.
   return (
     <div>
-      <div className="muted small mb-2" ><Link to="/targets">Targets</Link> › {t.displayLabel || t.name}</div>
       <StaleNote q={pageQ} />
       <div className="row target-page-div">
         <h1 className="grow target-page-h1">{t.displayLabel || t.name}</h1>

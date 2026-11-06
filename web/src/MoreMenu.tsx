@@ -22,3 +22,7 @@ export function MoreMenu({ label, items }: { label: string; items: MoreItem[] })
     </Disclosure>
   )
 }
+
+// Action menus with form controls (account management and chat resets) share
+// the same popover boundary as a row's command menu.
+export { Disclosure as FormMenu } from './Popover'

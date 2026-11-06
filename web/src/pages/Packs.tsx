@@ -1,9 +1,9 @@
+import { Link } from 'react-router-dom'
 import './Packs.css'
 import { LibraryRow, LibraryRows, firstSentence } from '../LibraryRow'
 import { Section } from '../Section'
 import { MoreMenu } from '../MoreMenu'
 import { useState } from 'react'
-import { renderMd } from '../md'
 import { GuidanceBlock, post } from '../api'
 import { fmtSize, sizeTitle } from '../format'
 import { Status } from '../Status'
@@ -11,7 +11,7 @@ import { OriginChip } from '../OriginChip'
 import { Modal } from '../Modal'
 import { firstErr, useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import type { GuidanceBlockDetail, LibraryWorkflow, PackPolicy, PackSaved, PolicyLibraryList, PackView } from '../wire.gen'
+import type { LibraryWorkflow, PackPolicy, PackSaved, PolicyLibraryList, PackView } from '../wire.gen'
 import { type Draft, draftFrom, keptAsWritten } from './packDraft'
 
 // Ways of working: the pack store. Stock packs are read-only; a pack of
@@ -39,11 +39,6 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
   const blocks = blocksQ.data ?? []
   const workflows = Array.isArray(workflowsQ.data) ? workflowsQ.data : []
   const loadErr = firstErr(blocksQ.err, workflowsQ.err)
-  const [openBlock, setOpenBlock] = useState<string | null>(null)
-  const [openWf, setOpenWf] = useState<string | null>(null)
-
-  const showBlock = (id: string) => setOpenBlock(openBlock === id ? null : id)
-
   const packWf = pack.workflows.map((n) => workflows.find((w) => w.name === n) ?? { name: n, kind: '?', description: '(not in library)', stages: [], yaml: '', latestVersion: 0 })
   const packPol = pack.policies ?? []
   const packBytes = pack.guidance.reduce((n, name) => n + (blocks.find((x) => x.name === name)?.bytes ?? 0), 0)
@@ -58,14 +53,13 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
           const b = blocks.find((x) => x.name === name)
           return (
             <div key={name} className="card packs-entry">
-              <div className="row" style={{ cursor: b ? 'pointer' : 'default' }} onClick={() => b && showBlock(b.id)}>
+              <div className="row">
                 <code>{name}</code>
                 {b ? <span className="muted small">v{b.latestVersion} · <span title={sizeTitle(b.bytes)}>{fmtSize(b.bytes)}</span> · {b.tags}</span>
                    : <Status word="failed" help="This adopted pack is missing from the library. Ask an administrator to restore the pack or change the project’s adoption." />}
                 <span className="grow" />
-                {b && <span className="muted small">{openBlock === b.id ? 'hide' : 'read'}</span>}
+                {b && <Link to={`/guidance/${b.id}`}>Read</Link>}
               </div>
-              {b && openBlock === b.id && <BlockBody id={b.id} />}
             </div>
           )
         })}
@@ -73,17 +67,14 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
         <div className="conn-section-head mt-4" ><h2>Workflows</h2><span className="muted small">{pack.workflows.length}</span></div>
         {packWf.map((w) => (
           <div key={w.name} className="card packs-entry">
-            <div className="row packs-entry-action"  onClick={() => setOpenWf(openWf === w.name ? null : w.name)}>
+            <div className="row packs-entry-action">
               <strong>{w.name}</strong>
               <span className="badge">{w.kind}</span>
               <span className="muted small">{w.stages.join(' → ')}</span>
               <span className="grow" />
-              <span className="muted small">{openWf === w.name ? 'hide' : 'yaml'}</span>
+              <Link to={`/workflows/${encodeURIComponent(w.name)}`}>Definition</Link>
             </div>
             <div className="muted small packs-entry-note">{w.description}</div>
-            {openWf === w.name && (
-              <pre className="mt-2 packs-source">{w.yaml}</pre>
-            )}
           </div>
         ))}
 
@@ -251,20 +242,6 @@ export function PackEditor({ draft, existing, onDone }: { draft: Draft; existing
         <button onClick={() => onDone()}>Cancel</button>
       </div>
     </div>
-  )
-}
-
-// BlockBody reads one guidance block's body through the shared read, so
-// opening it again, or elsewhere, asks once.
-function BlockBody({ id }: { id: string }) {
-  const q = useGet<GuidanceBlockDetail>(`/guidance/blocks/${id}`, { kind: 'config' })
-  if (!q.data) return <ReadStatus q={q} what="the block" />
-  return (
-    <>
-      <StaleNote q={q} />
-      <div className="md-doc mt-2 packs-block-body"
-        dangerouslySetInnerHTML={{ __html: renderMd(q.data.block.bodyMd || '(empty)') }} />
-    </>
   )
 }
 

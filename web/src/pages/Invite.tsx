@@ -63,7 +63,7 @@ export default function InvitePage({ token: fromLink }: { token: string }) {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16, boxSizing: 'border-box' }}>
+    <div style={{ minHeight: 'calc(100vh - var(--topbar-h))', display: 'grid', placeItems: 'center', padding: 16, boxSizing: 'border-box' }}>
       <div className="card" style={{ width: 'min(380px, 100%)', boxSizing: 'border-box', display: 'grid', gap: 12, padding: 24 }}>
         <h1>{reset ? 'Reset password' : 'Join ' + PRODUCT}</h1>
         {!token && <>

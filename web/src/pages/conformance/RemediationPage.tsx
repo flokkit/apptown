@@ -31,11 +31,10 @@ export function RemediationPage({ id }: { id: string }) {
   return (
     <div>
       <StaleNote q={q} />
-      <Link to="/conformance/remediations" className="subtle small">← all remediations</Link>
       <div className="row remediation-page-div">
         <div>
           <div className="row remediation-page-div-2">
-            <h2 className="remediation-page-h2">Remediation #{m.number}</h2>
+            <h1 className="remediation-page-h2">Remediation #{m.number}</h1>
             <Status word={m.statusLabel} help={m.status.replaceAll('_', ' ')} />
             <JobBar counts={m.counts} />
           </div>

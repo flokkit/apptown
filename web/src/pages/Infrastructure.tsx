@@ -1,6 +1,6 @@
 import './infrastructure.css'
 import { Group } from '../Section'
-import { useId, useState } from 'react'
+import { useId } from 'react'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { Link } from 'react-router-dom'
@@ -89,7 +89,6 @@ const HEALTH_KINDS = ['container', 'stack', 'app', 'database']
 function ResourceRow({ r, target, onChanged, confirmed, invalidated, seenAt }: { r: Resource; target: string; onChanged: () => void; confirmed: boolean; invalidated: boolean; seenAt?: string }) {
   const unknownReason = invalidated ? 'Inventory predates the latest change. The next inventory check must confirm this resource; ask an administrator to check the target if it cannot finish.' : 'No current inventory confirms presence. Ask an administrator to check this target.'
   const host = r.url?.replace(/^https?:\/\//, '').replace(/\/$/, '')
-  const [open, setOpen] = useState(false)
   const detailId = useId()
   const { run, busy, err } = useAction()
   const removable = r.record === 'unrecorded' && ['container', 'volume', 'stack'].includes(r.kind)
@@ -117,8 +116,7 @@ function ResourceRow({ r, target, onChanged, confirmed, invalidated, seenAt }: {
       <span className="row-status">{state}</span>
       <strong className="infrastructure-resource-row-strong">{r.name || `Unlinked ${r.kind}`}</strong>
       <span className="muted small grow infrastructure-resource-row-span">{meta}</span>
-      <span className="row-action"><button aria-expanded={open} aria-controls={detailId} onClick={() => setOpen(!open)}>{open ? 'Hide resource' : 'View resource'}</button></span>
-      {open && <div id={detailId} className="resource-evidence small infrastructure-resource-row-resource-evidence">
+      {<div id={detailId} className="resource-evidence small infrastructure-resource-row-resource-evidence">
         {r.url && <div><a href={r.url} target="_blank" rel="noreferrer">{host}</a></div>}
         {r.id && <div className="muted" title="the provider's id">{r.id}</div>}
         {r.detail && <div className="muted">{r.detail}</div>}

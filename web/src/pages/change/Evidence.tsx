@@ -1,7 +1,6 @@
 import { Status } from '../../Status'
 import { Section } from '../../Section'
 import { PRODUCT } from '../../brand'
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ChangeView, Run, Step, TestsEvidence } from '../../api'
 import { fmtStamp } from '../../format'
@@ -282,14 +281,14 @@ export function Evidence({ view, runs, workTab, extraErr }: {
       {proof?.inAdvance && <p className="small" data-testid="in-advance">
         <strong>Accepted in advance</strong> by {proof.inAdvance.approver}, {fmtStamp(proof.inAdvance.at)}: {proof.inAdvance.shown.join(' ')}
       </p>}
-      {!!proof?.targets.length && <details className="ch-targets">
-        <summary>{proof.targets.length === 1 ? 'The requirement this change answers to' : `${proof.targets.length} requirements this change answers to`}</summary>
+      {!!proof?.targets.length && <section className="ch-targets">
+        <h3>{proof.targets.length === 1 ? 'The requirement this change answers to' : `${proof.targets.length} requirements this change answers to`}</h3>
         {proof.targets.map(t => <div key={`${t.block}:${t.check}`} className="mt-2">
           <strong>{t.title || t.expects || t.check}</strong>
           <div className="muted small"><code>{t.block}{t.version ? `@${t.version}` : ''} · {t.check}</code></div>
           {t.title && t.expects && <p className="small">{t.expects}</p>}
         </div>)}
-      </details>}
+      </section>}
       <div className="ch-ledger">
         {runs.map(({ run, role, steps }) => {
           const live = run.status === 'running'
@@ -357,7 +356,6 @@ export function Evidence({ view, runs, workTab, extraErr }: {
 // CleanRun: every receipt of a finished run passed, so it reads as one line
 // naming what passed, with the receipts one click away.
 function CleanRun({ receipts, to, noun = 'checks' }: { noun?: string; receipts: Receipt[]; to: (stepId?: string) => string }) {
-  const [open, setOpen] = useState(false)
   if (receipts.length === 0) return null
   // Which checks they were is in Details: the usual answer is just that they passed.
   return (
@@ -369,9 +367,9 @@ function CleanRun({ receipts, to, noun = 'checks' }: { noun?: string; receipts: 
         </span>
         <span className="ch-line-by" />
         <span className="ch-line-when">{receipts[receipts.length - 1]?.when}</span>
-        <button className="subtle ch-line-link" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Details'}</button>
+        <Link className="ch-line-link" to={to()}>Full record</Link>
       </div>
-      {open && receipts.map((r) => <Line key={r.key} r={r} to={to(r.stepId)} />)}
+
     </>
   )
 }
@@ -380,8 +378,8 @@ const observedWords = (o: string) => o === 'stopped' ? 'stopped' : o === 'missin
 
 function Line({ r, to }: { r: Receipt; to: string }) {
   return (
-    <details className="ch-receipt" id={r.key}>
-      <summary className="ch-line">
+    <section className="ch-receipt" id={r.key}>
+      <h3 className="ch-line">
         <span className="receipt-state"><Status word={r.statusLabel} /></span>
         <span className="ch-line-what">
           <span className="ch-line-title">{r.title}</span>
@@ -389,14 +387,12 @@ function Line({ r, to }: { r: Receipt; to: string }) {
         </span>
         <span className="ch-line-by" />
         <span className="ch-line-when">{r.when}</span>
-        <span aria-hidden="true">⌄</span>
-      </summary>
-      <div className="ch-receipt-body small">
-        {r.kind && <p>Kind: {r.kind}</p>}
-        {r.name && <p>{r.name}</p>}<p>{r.result}</p><p>{r.sentence}</p><p>{r.by}</p>
         <Link to={to}>Full record</Link>
+      </h3>
+
+      <div className="ch-receipt-body small"><p>{r.result}</p>{r.result === 'evidence unreadable' && <p>{r.sentence}</p>}
       </div>
-    </details>
+    </section>
   )
 }
 

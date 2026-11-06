@@ -1,45 +1,42 @@
 import { PRODUCT } from '../brand'
 import { Section } from '../Section'
 import { FormEvent, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { GuidanceBlock, post } from '../api'
 import { fmtSize, sizeTitle } from '../format'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { LibraryRow, LibraryRows, firstSentence } from '../LibraryRow'
 import { MoreMenu } from '../MoreMenu'
-import { renderMd } from '../md'
-import type { BlockView } from '../api'
 import type { GeneratedGuidance } from '../wire.gen'
 
 // Machine-written steering sections, rendered live — the library shows
 // EVERYTHING that steers agents, authored and generated alike, each with
 // what it costs an agent's context.
-function GeneratedGuidance() {
+export function GeneratedGuidance({ page = false }: { page?: boolean }) {
+  const { name } = useParams()
   const q = useGet<GeneratedGuidance>('/guidance/generated')
   const data = q.data
-  const [open, setOpen] = useState<string | null>(null)
-  if (!data) return <ReadStatus q={q} what="the generated guidance" />
+  if (!data) return <>{page && <h1>{name || 'Automatic guidance'}</h1>}<ReadStatus q={q} what="the generated guidance" /></>
   const gens = data.generated ?? [], always = data.alwaysBytes ?? 0, conditional = data.conditionalBytes ?? 0
-  if (gens.length === 0) return null
+  if (gens.length === 0) return page ? <><h1>{name || 'Automatic guidance'}</h1><p>No automatic guidance is recorded.</p></> : null
   return (
-    <Section title="Automatic guidance" count={gens.length}
+    <>{page && <h1>{name || 'Automatic guidance'}</h1>}<Section title={page ? '' : 'Automatic guidance'} count={name ? undefined : gens.length}
       note={<>Written from instance settings. <span title={sizeTitle(always)}>{fmtSize(always)}</span> per step
         {conditional > 0 && <> · up to <span title={sizeTitle(conditional)}>{fmtSize(conditional)}</span> in some steps</>}</>}>
       <StaleNote q={q} />
       <LibraryRows>
-        {gens.map((g) => (
-          <LibraryRow key={g.name} name={g.name.split('/').at(-1)!.replaceAll('-', ' ')} open={open === g.name}
-            onToggle={() => setOpen(open === g.name ? null : g.name)}
+        {gens.filter(g => !page || !name || g.name === name).map((g) => (
+          <LibraryRow key={g.name} name={g.name.split('/').at(-1)!.replaceAll('-', ' ')} to={page && name ? undefined : `/guidance/generated/${encodeURIComponent(g.name)}`}
             purpose={`from ${g.source}`}
             state={<span className="muted small">{g.always ? 'every step' : 'some steps'} · <span title={sizeTitle(g.bytes)}>{fmtSize(g.bytes)}</span></span>}
-            detail={<>
+            detail={page && name && <>
               <pre className="log" style={{ whiteSpace: 'pre-wrap' }}>{(g.bodyMd ?? '').trim()}</pre>
               {g.note && <p className="muted small">{g.note}</p>}
             </>} />
         ))}
       </LibraryRows>
-    </Section>
+    </Section></>
   )
 }
 
@@ -110,24 +107,14 @@ export default function GuidanceLibrary() {
 // One guidance block, laid out like a workflow or pack row: the whole row
 // opens its full text in place; editing and versions are on its own page.
 function GuidanceRow({ b }: { b: GuidanceBlock }) {
-  const [open, setOpen] = useState(false)
   const nav = useNavigate()
   return (
-    <LibraryRow name={b.name.split('/').at(-1)!.replaceAll('-', ' ')} open={open} onToggle={() => setOpen(!open)}
+    <LibraryRow name={b.name.split('/').at(-1)!.replaceAll('-', ' ')} to={`/guidance/${b.id}`}
       badges={b.origin !== 'stock' && <span className="badge">yours</span>}
       purpose={firstSentence(b.summary || 'No text yet')}
       menu={b.id && <MoreMenu label={b.name} items={[
         { label: 'Open its page', hint: `Versions, projects using it${b.origin !== 'stock' ? ', and editing' : ''}.`, onClick: () => nav(`/guidance/${b.id}`) },
       ]} />}
-      detail={b.id && <GuidanceText id={b.id} />} />
+ />
   )
-}
-
-function GuidanceText({ id }: { id: string }) {
-  const q = useGet<BlockView>(`/guidance/blocks/${encodeURIComponent(id)}`)
-  return <div>
-    {!q.data ? <ReadStatus q={q} what="the guidance text" />
-      : <div className="md text-box" dangerouslySetInnerHTML={{ __html: renderMd(q.data.block.bodyMd || '_No text yet._') }} />}
-    <p className="small"><Link to={`/guidance/${id}`}>Versions, projects using it{q.data?.block.origin !== 'stock' ? ' and editing' : ''} →</Link></p>
-  </div>
 }

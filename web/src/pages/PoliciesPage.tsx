@@ -1,6 +1,7 @@
+import { useParams } from 'react-router-dom'
+import { ProjectCount } from './DependentProjects'
 import './PoliciesPage.css'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { del, post } from '../api'
 import { OriginChip } from '../OriginChip'
 import { Section } from '../Section'
@@ -8,7 +9,7 @@ import { LibraryRow, LibraryRows } from '../LibraryRow'
 import { MoreMenu } from '../MoreMenu'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import type { PolicyLibraryEntry, PolicyLibraryList, PolicyUsageList, ProjectRow } from '../wire.gen'
+import type { PolicyLibraryEntry, PolicyLibraryList, ProjectRow } from '../wire.gen'
 
 // The policy LIBRARY: instance-level, named policy definitions — the place
 // you manage your rules, same store/pin pattern as guidance and workflows.
@@ -25,7 +26,8 @@ const RULES: { rule: string; label: string; params: string[] }[] = [
   { rule: 'scanFailOnCeiling', label: 'scan failOn may not be looser than…', params: ['max'] },
 ]
 
-export default function PoliciesPage() {
+export default function PoliciesPage({ page = false }: { page?: boolean }) {
+  const { name } = useParams()
   const libQ = useGet<PolicyLibraryList>('/policy-library', { kind: 'config' })
   const projectsQ = useGet<ProjectRow[]>('/projects')
   const lib = libQ.data ? libQ.data.library ?? [] : null
@@ -45,15 +47,17 @@ export default function PoliciesPage() {
   const totalProjects = projectsQ.data.length
 
   if (editing) {
-    return <PolicyEditor policy={editing} onDone={() => setEditing(null)} />
+    return <>{page && <h1>Edit {name}</h1>}<PolicyEditor policy={editing} onDone={() => setEditing(null)} /></>
   }
 
   return (
     <div>
+      {page && <h1>{name}</h1>}
       <StaleNote q={[libQ, projectsQ]} />
       {actErr && <div className="error">{actErr}</div>}
-      <Section title="Policies" count={lib.length} action={<button className="primary" onClick={() => setEditing(blank())}>New policy</button>}>
-        {lib.length === 0 ? <p className="muted">No policies yet.</p> : <LibraryRows>{lib.map((p) => <PolicyCard key={p.name} p={p} totalProjects={totalProjects} onClone={() => setEditing(clone(p))}
+      {page && !lib.some(p => p.name === name) && <p>This policy is no longer in the library.</p>}
+      <Section title={page ? '' : 'Policies'} count={page ? undefined : lib.length} action={!page && <button className="primary" onClick={() => setEditing(blank())}>New policy</button>}>
+        {lib.length === 0 ? <p className="muted">No policies yet.</p> : <LibraryRows>{lib.filter(p => !page || p.name === name).map((p) => <PolicyCard page={page} key={p.name} p={p} totalProjects={totalProjects} onClone={() => setEditing(clone(p))}
           onEdit={() => setEditing(structuredClone(p))} onRemove={() => { if (!busy) void remove(p) }} />)}</LibraryRows>}
       </Section>
     </div>
@@ -64,25 +68,14 @@ export default function PoliciesPage() {
 // big — a rule you can say in one sentence. Open the card for the precise
 // reading, the fix, and standing: who follows the rule right now, and for
 // anyone who doesn't, exactly why and what to do about it.
-function PolicyCard({ p, totalProjects, onClone, onEdit, onRemove }: {
-  p: PolicyLibraryEntry; totalProjects: number; onClone: () => void; onEdit: () => void; onRemove: () => void
+function PolicyCard({ page, p, totalProjects, onClone, onEdit, onRemove }: {
+  page: boolean; p: PolicyLibraryEntry; totalProjects: number; onClone: () => void; onEdit: () => void; onRemove: () => void
 }) {
-  const [open, setOpen] = useState(false)
-  // Who follows it: the projects that adopted it, named on the row. A rule
-  // nobody adopted asks for nothing.
-  const usageQ = useGet<PolicyUsageList>(p.adoptedBy > 0 ? `/policy-library/${p.name}/usage` : null)
-  const usage = usageQ.data ? usageQ.data.usedBy ?? [] : null
-  const usageErr = usageQ.err
-  const scope = p.adoptedBy >= totalProjects && totalProjects > 0 ? 'all projects'
-    : `${p.adoptedBy} project${p.adoptedBy === 1 ? '' : 's'} (${p.packs.length > 0 ? 'through packs' : 'adopted directly'})`
-  const names = usage?.map((u) => u.project) ?? []
-  const who = p.adoptedBy === 0 ? <span className="muted">no projects</span>
-    : usage === null ? <span className="muted">{p.adoptedBy} project{p.adoptedBy === 1 ? '' : 's'}</span>
-      : <>{names.slice(0, 3).join(', ')}{names.length > 3 ? ` and ${names.length - 3} more` : ''}
-        {p.nonConformant> 0 && <span className="policies-page-policy-card-span"> · {p.nonConformant} not following it</span>}</>
+  const scope = p.adoptedBy >= totalProjects && totalProjects > 0 ? 'all projects' : `${p.adoptedBy} projects`
+  const who = <ProjectCount to={`/policies/${encodeURIComponent(p.name)}/projects`} count={p.adoptedBy} />
   const [deleting, setDeleting] = useState(false)
   return (
-    <LibraryRow name={p.name} open={open} onToggle={() => setOpen(!open)}
+    <LibraryRow name={p.name} to={page ? undefined : `/policies/${encodeURIComponent(p.name)}`}
       badges={p.origin !== 'stock' && <span className="badge">yours</span>}
       purpose={p.description}
       state={<span className="small">{who}</span>}
@@ -93,7 +86,7 @@ function PolicyCard({ p, totalProjects, onClone, onEdit, onRemove }: {
           { label: 'Delete…', danger: true, onClick: () => setDeleting(true) },
         ] : []),
       ]} />}
-      detail={<>
+      detail={page && <>
           <div className="muted small"><OriginChip origin={p.origin} />
             {p.packs.length > 0 && <> · in packs: {p.packs.join(', ')}</>}</div>
           <div className="policies-page-policy-card-div">
@@ -106,37 +99,17 @@ function PolicyCard({ p, totalProjects, onClone, onEdit, onRemove }: {
               {p.fix}
             </div>
           )}
-          <details className="policies-page-policy-card-div">
-            <summary className="muted small policies-page-policy-card-summary">definition</summary>
+          <section className="policies-page-policy-card-div">
+            <h3 className="muted small policies-page-policy-card-summary">definition</h3>
             <pre className="policies-page-policy-card-pre">
 {['rule: ' + p.rule,
   ...(Object.keys(p.with ?? {}).length
     ? ['with:', ...Object.entries(p.with).map(([k, v]) => `  ${k}: ${JSON.stringify(v)}`)]
     : ['with: {}'])].join('\n')}
             </pre>
-          </details>
-          {p.adoptedBy > 0 && (
-            <div className="policies-page-policy-card-div">
-              <div className="muted small mb-1" >Who it applies to</div>
-              {p.nonConformant === 0
-                ? <div>✓ {scope}</div>
-                : <>
-                    <div>applies to {scope} — {p.nonConformant} not following it:</div>
-                    {usageErr ? <div className="error small">Could not list which projects: {usageErr}</div>
-                      : usage === null && <div className="muted small">checking…</div>}
-                    {usage?.filter((u) => !u.conformant).map((u) => (
-                      <div key={u.slug} className="policies-page-div">
-                        ✗ <Link to={`/projects/${u.slug}`}>{u.project}</Link>
-                        {u.violations.map((v, i) => (
-                          <div key={i} className="small policies-page-div-2">
-                            workflow “{v.workflow}” {v.detail} — <span className="muted">{p.fix}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </>}
-            </div>
-          )}
+          </section>
+          {p.adoptedBy > 0 && <p>Applies to {scope}. {p.nonConformant} not following it.</p>}
+
       </>}>
       {deleting && <div className="row small" onClick={(e) => e.stopPropagation()}>
         Delete “{p.name}” from the library? Projects that adopted it keep their copies.

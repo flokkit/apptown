@@ -35,7 +35,7 @@ export function ArtifactBody({ artifact }: { artifact: Artifact }) {
       {truncated && full === null && !fullQ.err && <div className="muted small">Reading the full body…</div>}
       {isJson || artifact.kind === 'agent-log'
         ? <pre className="log" style={{ maxHeight: 400 }}>{body}</pre>
-        : <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(body, true) }} />}
+        : <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(body) }} />}
     </section>
   )
 }

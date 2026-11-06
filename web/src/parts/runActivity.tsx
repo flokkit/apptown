@@ -111,7 +111,7 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
       <thead><tr><th>When</th>{showProject && <th>Project</th>}<th>What happened</th><th>Outcome</th><th>Took</th></tr></thead>
       <tbody>
         {events.map((e) => e.kind === 'change' ? (
-          <GlanceRow name={showProject ? 2 : 1} state={showProject ? 3 : 2} fact={0} labels={["When", ...(showProject ? ["Project"] : []), "Change", "State", "Duration"]} key={`c${e.c.changeId}`}>
+          <GlanceRow labels={["When", ...(showProject ? ["Project"] : []), "Change", "State", "Duration"]} key={`c${e.c.changeId}`}>
             <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(e.when)}</td>
             {showProject && <td className="muted small">{e.c.project}</td>}
             <td className="stack-lead"><Link className="tap-open" to={`/changes/${e.c.changeId}`}><span className="muted small">#{e.c.changeNumber}</span> {e.c.title}</Link></td>
@@ -121,7 +121,7 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
               : <td className="muted small stack-hide" />}
           </GlanceRow>
         ) : (
-          <GlanceRow name={showProject ? 2 : 1} state={showProject ? 3 : 2} fact={0} labels={["When", ...(showProject ? ["Project"] : []), "Change", "State", "Duration"]} key={`r${e.r.number}`} style={{ background: 'var(--ok-bg)' }}>
+          <GlanceRow labels={["When", ...(showProject ? ["Project"] : []), "Change", "State", "Duration"]} key={`r${e.r.number}`} style={{ background: 'var(--ok-bg)' }}>
             <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(e.when)}</td>
             {showProject && <td className="muted small" />}
             <td className="stack-lead">

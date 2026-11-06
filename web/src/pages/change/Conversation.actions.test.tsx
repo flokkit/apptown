@@ -46,17 +46,13 @@ for (const live of [false, true]) {
     expect(el.textContent).toContain('Saved the notes.')
     const folds = el.querySelectorAll<HTMLDetailsElement>('.tool-fold')
     expect(folds).toHaveLength(3)
-    expect(folds[1].querySelector(live ? 'summary' : 'p')?.textContent).toBe('ran 1 command, read 1 file')
+    expect(folds[1].querySelector('p')?.textContent).toBe('ran 1 command, read 1 file')
     if (!live) {
       expect(el.querySelector('details')).toBeNull()
       expect(el.querySelectorAll('.tool-line')).toHaveLength(0)
     }
-    expect([...folds].every(f => !f.open)).toBe(true)
-    if (live) {
-      folds[1].open = true
-      expect(folds[0].open).toBe(false)
-      expect(folds[2].open).toBe(false)
-    }
+    expect(el.querySelector('details')).toBeNull()
+    expect(el.querySelectorAll('.tool-line')).toHaveLength(0)
     await act(async () => toggle.click())
     expect(toggle.checked).toBe(true)
     // Restores individual entries, in record order, with all command/file details reachable.

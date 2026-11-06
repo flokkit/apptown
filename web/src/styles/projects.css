@@ -94,7 +94,7 @@ span.application-open { color: var(--text); border: 1px solid var(--border-stron
 .project-identity { display: flex; align-items: center; min-width: 0; gap: 12px; }
 .project-copy { min-width: 0; }
 .project-name { color: var(--text); overflow-wrap: anywhere; }
-.project-row .project-description { display: block; max-width: 100%; }
+.project-row .project-description { display: block; min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .project-summary { margin-top: 4px; }
 .project-state { min-width: 0; }
 .project-action { justify-self: end; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }

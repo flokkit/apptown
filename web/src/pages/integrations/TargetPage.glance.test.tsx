@@ -23,7 +23,8 @@ it.each([false, true])('leads with the host name, state and app address, and lin
   const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/kitchen']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name" element={<TargetPage />} /></Routes></QueryClientProvider></MemoryRouter>)
   const el = document.createElement('div')
   el.innerHTML = html
-  expect([...el.querySelectorAll('button')].filter(b => b.textContent === 'View resource')).toHaveLength(1)
+  expect([...el.querySelectorAll('button')].filter(b => b.textContent === 'View resource')).toHaveLength(0)
+  expect(el.textContent).toContain('orphan-data')
   expect(el.querySelector('.target-settings')?.textContent).toContain('SSH keysecret HOST_KEY')
   expect(el.querySelector('.target-settings a[href="/integrations/secrets"]')?.textContent).toBe('Edit secret')
   expect(el.querySelector('a[href="/targets/kitchen"]')).toBeNull()

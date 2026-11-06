@@ -3134,6 +3134,7 @@ var newsletterNeon = map[string]string{
 // Redirects are covered at their destinations. The wildcard has no finite
 // address set; a separate not-found capture exercises its rendered page.
 var cameraRouteExclusions = map[string]string{
+	"/invite/:token":              "consumed once and removed from the address bar; invite-pending captures acceptance at /invite",
 	"/docs":                       "redirects to the first guide; docs captures /docs/guides/quickstart",
 	"/projects/:slug/workflows/*": "redirects to /projects/:slug/settings/working",
 	"*":                           "unbounded unknown addresses; camera-not-found captures the not-found page",

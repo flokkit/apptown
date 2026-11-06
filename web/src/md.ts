@@ -25,12 +25,12 @@ const SANITIZE = {
   FORBID_ATTR: ['style', 'srcset'],
 }
 
-export function renderMd(src: string | null | undefined, unfolded = false): string {
+export function renderMd(src: string | null | undefined): string {
   const document = window.document
   const html = marked.parse(src ?? '') as string
   // The fragment stays inert until every image source has been classified.
   const fragment = DOMPurify.sanitize(html, { ...SANITIZE, RETURN_DOM_FRAGMENT: true })
-  if (unfolded) {
+  {
     fragment.querySelectorAll('details, summary').forEach(el => {
       const replacement = document.createElement(el.tagName === 'DETAILS' ? 'section' : 'h4')
       replacement.append(...el.childNodes)

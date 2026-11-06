@@ -32,15 +32,15 @@ export function WhatIfsList() {
                 const counts: Record<string, number> = {}
                 for (const p of w.projects) counts[p.outcome] = (counts[p.outcome] ?? 0) + 1
                 return (
-                  <GlanceRow name={0} state={2} summary={<>{w.projects.length} projects</>} labels={["Pack", "Asked", "State", "Answers"]} key={w.id}>
-                    <td><Link to={`/conformance/what-ifs/${w.id}`}>{w.pack} v{w.version}</Link>{w.advanceWorkflows && <details><summary>Other changes</summary>and other workflows to newest</details>}</td>
+                  <GlanceRow labels={["Pack", "Asked", "State", "Answers"]} key={w.id}>
+                    <td><Link to={`/conformance/what-ifs/${w.id}`}>{w.pack} v{w.version}</Link>{w.advanceWorkflows && <section><h3>Other changes</h3>and other workflows to newest</section>}</td>
                     <td>{w.requestedBy}<div className="muted">{relTime(w.createdAt)}</div></td>
                     <td><Status word={w.statusLabel} help={w.detail || undefined} /></td>
                     <td>
-                      <details><summary>{w.projects.length} apps · Results</summary><div className="row" style={{ flexWrap: 'wrap', gap: 4 }}>
+                      <section><h3>{w.projects.length} apps · Results</h3><div className="row" style={{ flexWrap: 'wrap', gap: 4 }}>
                         {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} help={OUTCOME_WORDS[o]} /></span>)}
                         {w.movesBackProjects > 0 && <span className="badge moves-back">{w.movesBackProjects} move rules back</span>}
-                      </div></details>
+                      </div></section>
                     </td>
                   </GlanceRow>
                 )

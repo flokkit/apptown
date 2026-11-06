@@ -55,6 +55,32 @@ describe('the daily usage chart', () => {
     }
   })
 
+  it('counts tokens from instance work and distinguishes spend without recorded tokens', async () => {
+    const report = {
+      totals: { total: 700, costMicros: 67100 }, byKind: [], byModel: [], byProject: [], byWorkflow: [],
+      byDayKind: [{ day: day(1), kind: 'narrative', total: 700, costMicros: 67100 }],
+    }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(report))))
+    const client = newQueryClient()
+    const el = document.createElement('div')
+    const root = createRoot(el)
+    try {
+      await act(async () => { root.render(<QueryClientProvider client={client}><UsageView /></QueryClientProvider>) })
+      await settled(client)
+      expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).toContain('700 tokens')
+      expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).toContain('Other work 700')
+      report.byDayKind[0].total = 0
+      report.totals.total = 0
+      await act(async () => { await client.invalidateQueries() })
+      await settled(client)
+      expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).toContain('tokens not recorded · $0.0671')
+      expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).not.toContain('0 tokens')
+      expect(el.textContent).not.toContain('tallest day 1')
+      expect(el.textContent).not.toContain('No usage recorded yet.')
+      expect(el.textContent).toContain('Tokens not recorded.')
+    } finally { act(() => root.unmount()); client.clear() }
+  })
+
   // Spend AppTown could not count is not shown as a complete total.
   it('qualifies the price when some calls are unpriced', async () => {
     const report = {

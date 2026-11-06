@@ -3,8 +3,7 @@ import { AgentActionsSwitch, ToolFold, foldTools, useAgentActions } from '../../
 import { Section } from '../../Section'
 import { fmtWhen } from '../../format'
 import { PRODUCT } from '../../brand'
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { renderMd } from '../../md'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -34,7 +33,7 @@ export function ConversationLog({ changeId, chatHref, request, report, rounds = 
       {data && <UnreadableNote view={data} />}
       {none && (request ? <>
         <div className="bubble-row you"><div className="bubble you conversation-conversation-log-bubble-you">{request}</div></div>
-        {report && <div className="bubble-row"><div className="bubble"><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(report, true) }} /></div></div>}
+        {report && <div className="bubble-row"><div className="bubble"><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(report) }} /></div></div>}
       </> : <p className="muted">No chat yet.</p>)}
       {earlierRuns.map(id => <RunRounds key={id} id={id} changeId={changeId} />)}
       {rounds.map((e, i) => <p key={e.key}><Link to={workRecordHref(changeId, e)}>Agent round {i + 1} · work record</Link></p>)}
@@ -79,12 +78,12 @@ export function ChatMessages({ chat, pictures }: { chat: ChatHistoryEntry; pictu
     <>
       <AgentActionsSwitch shown={showActions} onChange={setShowActions} />
       {messages.map((m) => !m.text && m.tools?.length ?
-        <ToolFold inline key={`${m.i}-${showActions}`} tools={m.tools} show={showActions} /> : (
+        <ToolFold key={`${m.i}-${showActions}`} tools={m.tools} show={showActions} /> : (
         <div key={m.i} className={'bubble-row' + (m.role === 'you' ? ' you' : '')}>
           <div className={'bubble' + (m.role === 'you' ? ' you' : '')}>
-            {!!m.tools?.length && <ToolFold inline key={String(showActions)} tools={m.tools} show={showActions} />}
+            {!!m.tools?.length && <ToolFold key={String(showActions)} tools={m.tools} show={showActions} />}
             {m.text && (m.role === 'helper'
-              ? <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(m.text, true) }} />
+              ? <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(m.text) }} />
               : <YourWords text={m.text} pictures={pictures} />)}
           </div>
         </div>
@@ -94,40 +93,27 @@ export function ChatMessages({ chat, pictures }: { chat: ChatHistoryEntry; pictu
 }
 
 // The ended chats opened on the project itself rather than on a change,
-// folded: read only when someone opens the fold.
-export function PastChats({ slug, section = false }: { slug: string; section?: boolean }) {
-  const [open, setOpen] = useState(false)
-  const q = useGet<ChatHistoryView>(open ? `/projects/${slug}/transcript` : null)
-  const data = q.data
-  const sessions = data ? data.sessions ?? [] : null
-  const body = <>
-      {open && <ReadStatus q={q} what="the past chats" className="small" />}
-      {open && <StaleNote q={q} />}
-      {data && <UnreadableNote view={data} />}
-      {sessions?.length === 0 && !data?.unreadable && <div className="muted small conversation-div">No ended chats on this project.</div>}
-      {sessions?.map((se) => (
-        <details key={se.id} className="conversation-details">
-          <summary><span>{chatOpening(se)}<span className="muted small conversation-span">{chatByline(se)}</span></span></summary>
-          <div className="conversation-div-3"><ChatMessages chat={se} pictures={`/api/v1/projects/${slug}/transcript/${se.id}/pictures/`} /></div>
-        </details>
-      ))}
+// available on the project's past-chats page.
+export function PastChats({ slug, section: _section = false }: { slug: string; section?: boolean }) {
+  return <p><Link to={`/projects/${slug}/chats`}>Past chats</Link></p>
+}
+
+export function PastChatsPage() {
+  const { slug = '', sessionId } = useParams()
+  const q = useGet<ChatHistoryView>(`/projects/${slug}/transcript`)
+  const sessions = q.data?.sessions ?? []
+  const selected = sessions.find(s => s.id === sessionId)
+  return <><h1>{sessionId ? selected ? chatOpening(selected) : 'Chat' : 'Past chats'}</h1>
+    <ReadStatus q={q} what="the past chats" /><StaleNote q={q} />
+    {q.data && <UnreadableNote view={q.data} />}
+    {q.data && (sessionId ? selected ? <>
+      <p className="muted small">{chatByline(selected)}</p>
+      <ChatMessages chat={selected} pictures={`/api/v1/projects/${slug}/transcript/${selected.id}/pictures/`} />
+    </> : <p>This chat is not recorded.</p> : <Section title="Chats" count={sessions.length}>
+      {sessions.map(se => <p key={se.id}><Link to={`/projects/${slug}/chats/${se.id}`}>{chatOpening(se)}</Link> · {chatByline(se)}</p>)}
+      {sessions.length === 0 && !q.data.unreadable && <p>No ended chats on this project.</p>}
+    </Section>)}
   </>
-  // As a page section the chats load only when asked for, like the fold did.
-  if (section) {
-    return (
-      <Section title="Past chats" note={open ? undefined : 'Chats that have ended, with what was said.'} action={<button className="link" aria-expanded={open} onClick={() => setOpen(o => !o)}>{open ? 'Hide' : 'Show'}</button>}>
-        {open ? body : null}
-      </Section>
-    )
-  }
-  return (
-    <details  onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)} className="conversation-past-chats-details">
-      {/* One child: the fold's summary is a flex row, which would split the
-          words into columns on a phone. */}
-      <summary><span><strong>Past chats</strong></span></summary>
-      {body}
-    </details>
-  )
 }
 
 function YourWords({ text, pictures }: { text: string; pictures: string }) {

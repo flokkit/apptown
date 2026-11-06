@@ -222,15 +222,13 @@ function GivesRow({ title, summary, items, q, what }: {
   title: string; summary: string; items: { key: string; label: string; note?: string; to?: string }[]
   q: Gated & { data?: unknown }; what: string
 }) {
-  const [open, setOpen] = useState(false)
   return (
     <div role="listitem" className="card wow-gives-item">
       <div className="row wow-gives">
         <strong>{title}</strong>
         <span className="muted small">{q.data ? summary : <ReadStatus q={q} what={what} className="small" />}</span>
-        {items.length > 0 && <span className="row-action"><button className="subtle" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Hide' : 'View'}</button></span>}
       </div>
-      {open && <ul className="wow-gives-list">
+      {items.length > 0 && <ul className="wow-gives-list">
         {items.map((it) => <li key={it.key}>
           {it.to ? <Link to={it.to}>{it.label}</Link> : <span>{it.label}</span>}
           {it.note && <span className="muted small"> · {it.note}</span>}

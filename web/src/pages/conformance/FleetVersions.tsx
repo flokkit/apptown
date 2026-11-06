@@ -1,5 +1,5 @@
+import { ProjectCount } from '../DependentProjects'
 import { GlanceRow } from '../../GlanceRow'
-import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import type { FleetView } from '../../wire.gen'
@@ -20,21 +20,20 @@ export function FleetVersionsTab() {
     <div>
       <StaleNote q={q} />
       <p className="muted small mt-0" style={{ maxWidth: 720 }}>
-        {behind.length > 0 ? `Updates available for: ${behind.join(', ')}.` : ' Every project is on its recommended version.'}
+        {behind.length > 0 ? `Updates available for ${behind.length} projects.` : ' Every project is on its recommended version.'}
       </p>
       <div style={{ overflowX: 'auto' }}>
         <table className="stack">
           <thead><tr><th>Pack</th><th>Versions and who is on them</th></tr></thead>
           <tbody>
             {packs.map((p) => (
-              <GlanceRow name={0} labels={["Pack", "Versions and projects"]} key={p.pack}>
+              <GlanceRow labels={["Pack", "Versions and projects"]} key={p.pack}>
                 <td><b>{p.pack}</b>{p.platform ? <span className="muted small"> · platform</span> : null}<div className="muted small">recommended v{p.recommended}</div></td>
                 <td>
                   {p.versions.filter(v => v.projects.length > 0).map((v) => (
                     <div key={v.version} className="small" style={{ marginBottom: 2 }}>
                       <span className="badge">v{v.version}</span>{' '}
-                      <b>{v.projects.length}</b> project{v.projects.length === 1 ? '' : 's'}
-                      {v.projects.length > 0 && <span className="muted"> — {v.projects.map((s, i) => <span key={s}>{i > 0 ? ', ' : ''}<Link to={`/projects/${s}/settings/working`}>{s}</Link></span>)}</span>}
+                      <ProjectCount count={v.projects.length} to={`/packs/${encodeURIComponent(p.pack)}/projects?version=${v.version}`} />
                       {v.note && v.version === p.recommended ? <span className="muted"> · {v.note}</span> : null}
                     </div>
                   ))}

@@ -1,5 +1,5 @@
 import { fmtWhen } from '../format'
-import { Status, STATUS_LIGHT } from '../Status'
+import { Status } from '../Status'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { renderMd } from '../md'
@@ -41,8 +41,8 @@ export default function AdrPage() {
   useEffect(() => {
     if (!adr) return
     setProjectScope(adr.projectSlug ?? null)
-    setPageContext({ crumbs: [{ label: `Decision ${String(adr.number).padStart(3, '0')} · ${adr.title}` }], chip: { text: adr.statusLabel, cls: STATUS_LIGHT[adr.statusLabel] } })
-  }, [adr])
+    setPageContext({ names: { [`/adrs/${id}`]: `Decision ${String(adr.number).padStart(3, '0')} · ${adr.title}` } })
+  }, [adr, id])
   // The editor starts only from an answer this page read itself (a held one
   // may be old), and follows each newer reading until someone edits. A save
   // sends only the fields that changed, each with the text it started from
@@ -84,9 +84,7 @@ export default function AdrPage() {
 
   return (
     <div>
-      <div className="muted small">
-        <Link to={`/projects/${adr.projectSlug}/memory/decisions`}>{adr.projectSlug} · decisions</Link>
-      </div>
+
       <div className="row">
         <h1 className="mb-0">ADR-{String(adr.number).padStart(3, '0')} — {adr.title}</h1>
         <Status word={adr.statusLabel} help={`Decision: ${adr.status}.`} />

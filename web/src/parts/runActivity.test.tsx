@@ -35,7 +35,7 @@ describe('the change history on a phone', () => {
   })
   it('names a bare number by its column', () => {
     const took = [...doc().querySelectorAll('td')].find((td) => td.textContent === '2m')!
-    expect(took.getAttribute('data-label')).toBe('took')
+    expect(took.getAttribute('data-label')).toBe('Duration')
   })
 })
 
@@ -83,11 +83,11 @@ it('keeps history source and duration behind the row on a phone', () => {
   try {
     const el = document.createElement('div')
     el.innerHTML = renderToStaticMarkup(<MemoryRouter><ChangeHistoryTable changes={[row()]} showProject /></MemoryRouter>)
-    expect(el.querySelector('.glance-name')?.textContent).toContain('Change the page heading')
-    expect(el.querySelector('.glance-state')?.textContent).toContain('landed')
-    expect(el.querySelector('tr[aria-expanded]')?.getAttribute('aria-expanded')).toBe('false')
+    expect(el.querySelector('td.stack-lead')?.textContent).toContain('Change the page heading')
+    expect(el.textContent).toContain('landed')
+    expect(el.querySelector('tr[aria-expanded]')).toBeNull()
     el.querySelectorAll('details').forEach(d => d.remove())
-    expect(el.textContent).not.toContain('demo-smoke')
-    expect(el.textContent).not.toContain('2m')
+    expect(el.textContent).toContain('demo-smoke')
+    expect(el.textContent).toContain('2m')
   } finally { vi.unstubAllGlobals() }
 })

@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
+import { rowFontDifferences } from '../../../web/row-font-sizes.mjs';
 import { wrappedRowActions } from '../../../web/row-action-lines.mjs';
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE);
 const base = process.env.DESIGN_URL, out = process.env.DESIGN_OUT;
@@ -80,6 +81,9 @@ try {
     await request('/projects/club-newsletter/members', { grantee: 'sam', role: 'project-approver' });
     await request('/projects', { slug: 'shared-notes', name: 'Shared Notes', blurb: 'Notes for the household.' });
     if (!audit) await request('/projects/shared-notes/repo', { defaultBranch: 'main' });
+    const projectChat = await request('/projects/club-newsletter/console', {});
+    const endedChat = await fetch(`/api/v1/console/${projectChat.session.id}`, {method:'DELETE'});
+    if (!endedChat.ok) throw new Error('could not end the project chat for its history page: ' + endedChat.status);
     const blocks = await request('/guidance/blocks');
     const adr = await request('/projects/club-newsletter/adrs', { title: 'Keep newsletter pages static', tags: 'delivery' });
     await request('/users', { username: 'retired', password: 'disposable-password' });
@@ -102,15 +106,16 @@ try {
     const remediation = await request('/conformance/remediations', { scope: 'all', concurrency: 1 });
     const backups = await request('/projects/club-newsletter/deployments/main/backups');
     const operation = await request('/projects/club-newsletter/deployments/main/backups/' + backups.backups.find(b => b.bytes > 0).id + '/restore', { confirm: 'main' });
-    return { guidance: blocks[0].id, advisory: advisory?.change.id, delivered: delivered.change.id, review: review.reviewId, adr: adr.id, invite: new URL(invite.link).pathname, failed: failed.change.id, evaluation: evaluation.id, whatif: whatif.id, remediation: remediation.remediation.id, operation: operation.operationId };
+    return { projectChat: projectChat.session.id, guidance: blocks[0].id, advisory: advisory?.change.id, delivered: delivered.change.id, review: review.reviewId, adr: adr.id, invite: new URL(invite.link).pathname, failed: failed.change.id, evaluation: evaluation.id, whatif: whatif.id, remediation: remediation.remediation.id, operation: operation.operationId };
   }, !!process.env.DESIGN_AUDIT);
   if (process.env.DESIGN_AUDIT) await page.goto(base + '/?cameraPrepare=1', { waitUntil: 'networkidle' });
   const routes = {
     'infrastructure-expanded': '/targets', 'target-settings': '/targets/design-preview', 'target-resources': '/targets/built-in-docker',
-    'backup-store-details': '/backups', 'release-invalid': '/releases/6', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-agents-expanded': '/people/agents-and-tokens', 'people-revoke': '/people/agents-and-tokens', 'people-disconnect': '/people/agents-and-tokens',
+    'backup-store-details': '/backups', 'release-invalid': '/releases/6', 'usage-90': '/usage', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-agents-expanded': '/people/agents-and-tokens', 'people-revoke': '/people/agents-and-tokens', 'people-disconnect': '/people/agents-and-tokens',
+
     'guidance-block': '/guidance/' + seeded.guidance, 'guidance-missing': '/guidance/lang%2Fselection%2Fdjango-fullstack', 'release-record': '/projects/club-newsletter/releases/1',
     home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', releases: '/releases', deployments: '/deployments', backups: '/backups',
-    'project-deployments': '/projects/club-newsletter/deployments', fleet: '/deployments', 'deployment-infrastructure': '/targets', attention: '/attention', updates: '/updates',
+    'project-deployments': '/projects/club-newsletter/deployments', fleet: '/deployments', 'deployment-infrastructure': '/targets', attention: '/attention', 'attention-checks': '/attention/checks', 'attention-condition': '/attention/checks/' + encodeURIComponent(infraCases.pending.items[0].key), updates: '/updates',
     'target-offers': '/targets', 'release-detail': '/projects/club-newsletter/releases/' + facts.releases.find(r => r.serving).number,
     'memory-decisions-empty': '/projects/shared-notes/memory/decisions', 'target-cloud': '/targets/design-cloud', infrastructure: '/targets', jobs: '/targets', 'infrastructure-new': '/targets/new',
     conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews',
@@ -160,7 +165,7 @@ try {
     catch (err) {
       await mkdir(out, { recursive: true });
       await page.screenshot({ path: `${out}/discovery-error.png`, fullPage: true });
-      throw new Error(`${screen}: ${await page.locator('body').innerText()} ${err}`);
+      throw new Error(`${screen}: ${await page.locator('body').innerText()} ${err}; browser errors ${JSON.stringify(errors)}`);
     }
     const links = await page.locator('main a[href]').evaluateAll(els => els.map(el => el.getAttribute('href')));
     const detail = links.find(href => pattern.test(href));
@@ -168,16 +173,60 @@ try {
     if (screen === 'target') routes['target-unknown'] = '/targets/design-preview';
     if (!detail) throw new Error(`No detail link for ${screen}`);
   }
-  await page.goto(`${base}/changes/${process.env.DESIGN_CHANGE}?tab=conversation`, { waitUntil: 'networkidle' });
-  const workRecord = page.locator('a[href*="/work/"]').first();
-  await workRecord.waitFor();
-  routes['work-record'] = await workRecord.getAttribute('href');
+  await page.goto(`${base}/changes/${seeded.delivered}?tab=conversation`, { waitUntil: 'networkidle' });
+  await page.locator('a[href*="/work/"]').first().waitFor();
+  const workRecords = await page.locator('a[href*="/work/"]').evaluateAll(els => [...new Set(els.map(el => el.getAttribute('href')))]);
+  for (const href of workRecords) {
+    await page.goto(base + href, {waitUntil:'networkidle'});
+    const artifact = page.locator('main a[href*="/records/"]').first();
+    if (await artifact.count()) {
+      routes['work-record'] = href;
+      routes['work-record-artifact'] = await artifact.getAttribute('href');
+      break;
+    }
+  }
+  if (!routes['work-record-artifact']) throw new Error('No seeded work session has an artifact');
+  const workURL = new URL(routes['work-record'], base);
+  for (const part of ['request','workflow','report']) routes['work-record-'+part] = `${workURL.pathname}/${part}${workURL.search}`;
   routes['change-code'] = `/changes/${process.env.DESIGN_CHANGE}?tab=changes`;
-  routes['change-findings'] = `/changes/${process.env.DESIGN_CHANGE}?tab=details#checks`;
+  routes['change-findings'] = `/changes/${process.env.DESIGN_CHANGE}/records/checks`;
   for (const tab of ['overview', 'conversation', 'details']) routes['change-' + tab] = `/changes/${process.env.DESIGN_CHANGE}?tab=${tab}`;
   Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies', 'workflow-new': '/workflows', 'infrastructure-connection': '/targets/new' });
   if (process.env.DESIGN_AUDIT) routes['change-advisory'] = `/changes/${seeded.advisory}`;
   if (process.env.DESIGN_AUDIT) routes['reviews-running'] = '/conformance/reviews?cameraRunning=1';
+  const linked = await page.evaluate(async () => {
+    const read = async path => { const r = await fetch('/api/v1' + path); if (!r.ok) throw new Error(path + ': ' + r.status); return r.json(); };
+    const [policies, workflows, generated, integrations, conformance, transcript, docs] = await Promise.all([
+      read('/policy-library'), read('/workflows/library'), read('/guidance/generated'), read('/integrations'), read('/conformance'), read('/projects/club-newsletter/transcript'), read('/docs'),
+    ]);
+    return { policy: policies.library[0].name, workflow: workflows[0].name, generated: generated.generated[0]?.name,
+      integration: integrations.integrations[0].name, service: (integrations.integrations.find(b => ['llm','errors'].includes(b.capability)) || integrations.integrations[0]).name,
+      check: Object.keys(conformance.checkDefs)[0], session: transcript.sessions?.[0]?.id, doc: docs.integrations[0] };
+  });
+  Object.assign(routes, {
+    'integration-doc': `/docs/${linked.doc.capability}/${linked.doc.provider}`,
+    'integration-doc-admin': `/docs/${linked.doc.capability}/${linked.doc.provider}`,
+    'profile-projects': '/integrations/profiles/standard/projects',
+    'guidance-projects': `/guidance/${seeded.guidance}/projects`,
+    'policy': `/policies/${encodeURIComponent(linked.policy)}`,
+    'policy-projects': `/policies/${encodeURIComponent(linked.policy)}/projects`,
+    'workflow': `/workflows/${encodeURIComponent(linked.workflow)}`,
+    'pack-version': `${routes.pack}/versions/1`, 'pack-projects': `${routes.pack}/projects`,
+    'integration-projects': `/integrations/${linked.integration}/projects`, 'service-projects': `/services/${linked.service}/projects`,
+    'check-projects': `/conformance/checks/${encodeURIComponent(linked.check)}/projects`,
+    'review-check-projects': `/conformance/reviews/${seeded.review}/checks/${encodeURIComponent(linked.check)}/projects`,
+    'check-record': `/conformance/checks/${encodeURIComponent(linked.check)}`,
+    'review-check-record': `/conformance/reviews/${seeded.review}/checks/${encodeURIComponent(linked.check)}`,
+    'what-if-project': `/conformance/what-ifs/${seeded.whatif}/projects/club-newsletter`,
+    'past-chats': '/projects/club-newsletter/chats', 'past-chat': `/projects/club-newsletter/chats/${seeded.projectChat}`,
+    'release-log': '/projects/club-newsletter/releases/1/log',
+  });
+  routes['automatic-guidance'] = '/guidance/generated';
+  if (linked.generated) routes['generated-guidance'] = `/guidance/generated/${encodeURIComponent(linked.generated)}`;
+  await page.goto(`${base}/changes/${seeded.delivered}?tab=details`, {waitUntil:'networkidle'});
+  routes['change-review-record'] = `/changes/${seeded.delivered}/records/review`;
+  routes['change-record'] = await page.locator('a[href*="/records/"]').first().getAttribute('href');
+  routes['change-artifact'] = await page.locator('a[href*="/records/record-"]').first().getAttribute('href');
   const selected = new Set((process.env.DESIGN_PAGES || '').split(',').filter(Boolean));
   for (const name of selected) if (name !== 'login' && !(name in routes)) throw new Error('unknown camera page: ' + name);
   const captures = [];
@@ -186,7 +235,9 @@ try {
   const disclosures = [];
   await writeFile(`${out}/content-exclusions.json`, JSON.stringify(cameraContentExclusions, null, 2));
   let cameraUser = 'sam';
-  for (const [screen, path] of Object.entries(routes)) {
+  const changedFirst = name => /projects$|^work-record|^change-(record|artifact|review-record)|^policy$|^workflow$|^pack-version$|guidance/.test(name)
+  const orderedRoutes = Object.entries(routes).sort(([a], [b]) => Number(changedFirst(b)) - Number(changedFirst(a)))
+  for (const [screen, path] of orderedRoutes) {
     if (selected.size && !selected.has(screen)) continue;
     const username = screen === 'change-non-approver' ? 'tom' : 'sam';
     if (username !== cameraUser) {
@@ -216,13 +267,7 @@ try {
         if (screen === 'deployment') {
           if (await page.getByRole('button', { name: 'Approve', exact: true }).count() !== 1 || !(await page.locator('main').innerText()).includes('running on Production')) throw new Error('waiting release is missing its approval meaning or doors');
         }
-        if (screen === 'infrastructure-expanded') {
-          const summary = page.locator('.host-disk > summary').first();
-          const before = await summary.locator('strong').boundingBox();
-          await summary.click();
-          const after = await summary.locator('strong').boundingBox();
-          if (!before || !after || Math.abs(before.x - after.x) > 1 || Math.abs(before.y - after.y) > 1) throw new Error('disk title moved on expansion');
-        }
+        if (screen === 'infrastructure-expanded' && await page.locator('.host-disk h3').count() === 0) throw new Error('disk facts are missing');
         if (!process.env.DESIGN_BASELINE && !cameraContentExclusions[screen] && (screen === 'conformance' || screen === 'conformance-project-mixed')) {
           const notes = page.locator('.conformance-broken');
           if (!(await notes.count())) throw new Error('unavailable checks must remain visible');
@@ -242,7 +287,7 @@ try {
           const words = await check.innerText();
           if (!words.startsWith('Target check:') || !facts.length || facts.some(fact => !words.includes(fact))) throw new Error('target check facts are missing');
         }
-        if (screen === 'target-resources') await page.locator('#target-resources').getByRole('button', { name: 'View resource', exact: true }).first().click();
+        if (screen === 'target-resources' && !await page.locator('#target-resources .resource-evidence').first().isVisible()) throw new Error('resource facts are missing');
         if (!process.env.DESIGN_BASELINE && screen === 'packs') {
           const boxed = await page.locator('.pack-actions button').evaluateAll(els => els.some(el => getComputedStyle(el).borderTopWidth !== '0px'));
           if (boxed) throw new Error('pack actions must be plain links');
@@ -259,10 +304,15 @@ try {
             if (!/\d+ shipped/.test(await facts.innerText())) throw new Error('phone project hides shipped facts');
           }
         }
+        if (screen === 'integration-doc-admin') await page.getByRole('button', {name:'Admin',exact:true}).click();
+        if (screen === 'usage-90') {
+          await page.getByRole('button', {name:'90d',exact:true}).click();
+          await page.waitForFunction(() => document.querySelectorAll('.usage-col').length === 90);
+          await page.getByRole('slider').press('End');
+        }
         if (screen === 'usage-details') await page.getByRole('button', { name: 'Details', exact: true }).click();
         if (screen === 'usage-timing') await page.getByRole('button', { name: 'Time spent', exact: true }).click();
         if (screen === 'backup-store-details') await page.getByRole('region', { name: 'Backup store', exact: true }).getByText('household-copies', { exact: true }).waitFor();
-        if (screen === 'people-agents-expanded') await page.locator('main details').evaluateAll(els => els.forEach(el => { el.open = true; }));
         if (screen === 'people-revoke' || screen === 'people-disconnect') await page.getByRole('button', { name: screen === 'people-revoke' ? 'revoke' : 'disconnect', exact: true }).first().click();
         if (screen === 'people-actions') await page.getByRole('button', { name: 'Actions for sam', exact: true }).click();
         if (screen.startsWith('new-project-')) {
@@ -470,6 +520,16 @@ try {
           }
         }
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+        if (overflow) {
+          await page.screenshot({path:`${out}/${screen}/${size}-${theme}-overflow.png`,fullPage:true});
+          const outside = await page.locator('body *').evaluateAll(els => els.filter(el => {const r=el.getBoundingClientRect();return r.width && (r.right>innerWidth+1 || r.left< -1)}).map(el=>({tag:el.tagName,cls:el.className,text:el.textContent.slice(0,100),width:el.getBoundingClientRect().width})).slice(-25));
+          errors.push(`${screen}: horizontal overflow at ${size}: ${JSON.stringify(outside)}`);
+        }
+        const headerOverflow = await page.locator('.topbar').evaluateAll(bars => bars.some(bar => [...bar.children].some(el => {const r=el.getBoundingClientRect();return r.width && (r.left < -1 || r.right > innerWidth+1)})));
+        if (headerOverflow) errors.push(`${screen}: fixed top-bar controls leave the viewport at ${size}`);
+        const fonts = await page.evaluate(rowFontDifferences);
+        if (fonts.length) errors.push(`${screen}: different font sizes between rows ${JSON.stringify(fonts)}`);
+        if (await page.locator('main details').count()) errors.push(`${screen}: page fold-down remains`);
         const clipped = await page.locator('main *').evaluateAll(els => els.filter(el => {
           if (el.matches('.record-table td') && getComputedStyle(el).textOverflow === 'ellipsis' && el.querySelector('a[href], [title]')) return false;
           if (!el.getClientRects().length || el.closest('pre, .xterm, .diff, .log') || el.matches('.tabs') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return false;
@@ -480,8 +540,9 @@ try {
         await page.evaluate(() => window.scrollTo(0, 0));
         await page.screenshot({ path: `${out}/${screen}/${size}-${theme}.png`, fullPage: true });
         finalPaths.add(new URL(page.url()).pathname);
-        captures.push({ screen, path, finalPath: new URL(page.url()).pathname, size, theme, words: words.trim().split(/\s+/).filter(Boolean).length, text: words, headings, overflow, clipped });
+        captures.push({ screen, path, finalPath: new URL(page.url()).pathname, size, theme, words: words.trim().split(/\s+/).filter(Boolean).length, text: words, headings, overflow, headerOverflow, clipped, fonts });
         await writeFile(`${out}/pages-progress.json`, JSON.stringify(captures, null, 2));
+        await writeFile(`${out}/layout-errors.json`, JSON.stringify(errors, null, 2));
         console.log('captured', screen, size, theme, overflow ? 'OVERFLOW' : '');
         // The navigation capture deliberately covers main with its backdrop.
         // Preserve that screenshot, then restore main before its disclosure check.
@@ -520,6 +581,7 @@ try {
           await page.getByRole('button', { name: 'enable', exact: true }).waitFor();
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-other.png`, fullPage: true });
         }
+
         if (!process.env.DESIGN_BASELINE && screen === 'change') {
           await page.goto(`${base}/changes/${process.env.DESIGN_CHANGE}?tab=details&theme=${theme}&size=${size.endsWith('-large') ? 'large' : 'medium'}`, { waitUntil: 'networkidle' });
           const checks = page.getByRole('table', { name: 'Checks', exact: true });
@@ -571,7 +633,8 @@ try {
       await mkdir(`${out}/login`, { recursive: true });
       const words = await page.locator('body').innerText();
       await page.screenshot({ path: `${out}/login/${size}-${theme}.png`, fullPage: true });
-      captures.push({ screen: 'login', path: '/', size, theme, words: words.trim().split(/\s+/).length, headings: await page.getByRole('heading', { level: 1 }).allTextContents(), overflow: false });
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+      captures.push({ screen: 'login', path: '/', size, theme, words: words.trim().split(/\s+/).length, headings: await page.getByRole('heading', { level: 1 }).allTextContents(), overflow });
     }
   }
   await writeFile(`${out}/disclosures.json`, JSON.stringify(disclosures, null, 2));

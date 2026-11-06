@@ -111,9 +111,9 @@ describe('what the chat is about folds to one line on a phone', () => {
     // The head names the change once; the fold line says where it stands.
     it('a change chat starts folded: the head names the change, the fold line says where it stands', () => {
       const page = parse(firstPaint(ON_CHANGE))
-      const about = page.querySelector('details.console-about')!
+      const about = page.querySelector('section.console-about')!
       expect(about.hasAttribute('open')).toBe(false)
-      expect(about.querySelector('summary')!.textContent).toBe('About this change · ● waiting for you')
+      expect(about.querySelector('h3')!.textContent).toBe('About this change · ● waiting for you')
       expect(page.querySelector('.console-head h1')!.textContent).toBe('Change 49')
     })
     // A worker that cannot be reached qualifies the conversation itself:
@@ -147,15 +147,15 @@ describe('what the chat is about folds to one line on a phone', () => {
       })
       try {
         await vi.waitFor(() => expect(el.textContent).toContain('The worker cannot be reached'))
-        expect(el.querySelector('details.console-about')!.hasAttribute('open')).toBe(false)
+        expect(el.querySelector('section.console-about')!.hasAttribute('open')).toBe(false)
         // The switch shares the About line and stays outside its disclosure.
         const aboutLine = el.querySelector('.console-about-line')!
-        expect(aboutLine.querySelector('summary')?.textContent).toContain('About this change')
+        expect(aboutLine.querySelector('h3')?.textContent).toContain('About this change')
         expect(aboutLine.querySelector('[role="switch"]')).not.toBeNull()
         expect(el.querySelectorAll('[role="switch"]')).toHaveLength(1)
         expect(aboutLine.querySelector('[role="switch"]')!.closest('details')).toBeNull()
         await act(async () => { (aboutLine.querySelector('[role="switch"]') as HTMLInputElement).click() })
-        expect(el.querySelector('details.console-about')!.hasAttribute('open')).toBe(false)
+        expect(el.querySelector('section.console-about')!.hasAttribute('open')).toBe(false)
         const line = Array.from(el.querySelectorAll('strong')).find((n) => n.textContent?.startsWith('The worker cannot be reached'))!
         expect(line.closest('details')).toBeNull()
       } finally {
@@ -164,19 +164,19 @@ describe('what the chat is about folds to one line on a phone', () => {
     })
     it('the fold line and the change card say the same words', () => {
       const view = { statusLabel: 'waiting for you', change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' }, commits: [{}] }
-      const line = parse(firstPaint(ON_CHANGE, view)).querySelector('details.console-about > summary')!.textContent
+      const line = parse(firstPaint(ON_CHANGE, view)).querySelector('section.console-about > h3')!.textContent
       expect(line).toBe('About this change · ● waiting for you')
       expect(renderToStaticMarkup(<ChangeContext view={view as unknown as ChangeView} />)).toContain('waiting for you')
     })
   })
   it('on a desk the fold is open', () => {
-    expect(parse(firstPaint(ON_CHANGE)).querySelector('details.console-about')!.hasAttribute('open')).toBe(true)
+    expect(parse(firstPaint(ON_CHANGE)).querySelector('section.console-about')!.hasAttribute('open')).toBe(false)
   })
   // A project chat whose intro was dismissed has nothing to fold.
   it('a project chat with its intro dismissed shows no empty fold', () => {
     localStorage.setItem('chat-intro-seen-p', '1')
     try {
-      expect(parse(firstPaint('')).querySelector('details.console-about')).toBeNull()
+      expect(parse(firstPaint('')).querySelector('section.console-about')).toBeNull()
     } finally { localStorage.removeItem('chat-intro-seen-p') }
   })
 })
@@ -234,49 +234,25 @@ describe('phone change controls', () => {
     for (const selector of ['.tryit-restart', '.head-menu', '.console-secondary']) {
       expect((el.querySelector(selector) as HTMLElement).hidden).toBe(hidden)
     }
-    expect(el.querySelector('.console-secondary summary')?.textContent).toBe('About this change')
+    expect(el.querySelector('.console-secondary h3')?.textContent).toBe('About this change')
     expect(el.querySelector('.console-secondary [role="switch"]')).not.toBeNull()
   }
-  it('folds after a message, opens from either toggle, and always keeps the main actions', async () => {
+  it('keeps context and actions inline while messages arrive and the composer has focus', async () => {
     messageCount = 1
-    // Preview readiness does not mean the independent conversation read has
-    // arrived. Hold it back to exercise that ordering on every run.
     let releaseMessages!: () => void
     messagesReady = new Promise<void>(resolve => { releaseMessages = resolve })
-    const { el, done } = await mount()
-    try {
-      const toggle = el.querySelector<HTMLButtonElement>('.change-controls-toggle')!
-      expect(toggle?.getAttribute('aria-expanded')).toBe('true')
-      await act(async () => { releaseMessages() })
-      await vi.waitFor(() => expect(toggle?.getAttribute('aria-expanded')).toBe('false'))
-      expect(toggle.getAttribute('aria-label')).toBe('Show change controls')
-      secondary(el, true); mainActions(el)
-      act(() => toggle.click())
-      expect(toggle.getAttribute('aria-expanded')).toBe('true')
-      expect(toggle.getAttribute('aria-label')).toBe('Hide change controls')
-      secondary(el, false); mainActions(el)
-      act(() => el.querySelector<HTMLButtonElement>('.change-controls-title')!.click())
-      expect(toggle.getAttribute('aria-expanded')).toBe('false')
-      secondary(el, true); mainActions(el)
-    } finally { done() }
-  })
-  it('starts an empty chat unfolded, folds on its first message, and preserves an explicit choice on refresh', async () => {
-    messageCount = 0
     const { el, client, done } = await mount()
     try {
-      const toggle = el.querySelector<HTMLButtonElement>('.change-controls-toggle')!
-      expect(toggle?.getAttribute('aria-expanded')).toBe('true')
+      expect(el.querySelector('.change-controls-toggle')).toBeNull()
       secondary(el, false); mainActions(el)
-      await act(async () => { client.setQueryData(getKey('/console/s1/messages?from=0'), { messages: [{ i: 0, role: 'you', text: 'Hello' }] }); await new Promise(r => setTimeout(r, 0)) })
-      expect(toggle.getAttribute('aria-expanded')).toBe('false')
-      act(() => toggle.click())
-      await act(async () => { client.setQueryData(getKey('/console/s1/messages?from=0'), { messages: [{ i: 0, role: 'you', text: 'Hello' }, { i: 1, role: 'helper', text: 'Hi' }] }); await new Promise(r => setTimeout(r, 0)) })
-      expect(toggle.getAttribute('aria-expanded')).toBe('true')
+      await act(async () => releaseMessages())
+      await act(async () => { client.setQueryData(getKey('/console/s1/messages?from=0'), { messages: [{ i: 0, role: 'you', text: 'Hello' }] }) })
+      secondary(el, false); mainActions(el)
       act(() => el.querySelector<HTMLTextAreaElement>('textarea')!.focus())
-      expect(toggle.getAttribute('aria-expanded')).toBe('false')
-      secondary(el, true); mainActions(el)
+      secondary(el, false); mainActions(el)
       act(() => el.querySelector<HTMLTextAreaElement>('textarea')!.blur())
-      expect(toggle.getAttribute('aria-expanded')).toBe('true')
+      secondary(el, false); mainActions(el)
+      expect(el.querySelector('details')).toBeNull()
     } finally { done() }
   })
   it('keeps desktop controls unfolded after messages', async () => {
@@ -286,7 +262,7 @@ describe('phone change controls', () => {
     try {
       expect(el.querySelector('.change-controls-toggle')).toBeNull()
       expect(el.querySelector<HTMLDetailsElement>('.head-menu')!.hidden).toBe(false)
-      expect(el.querySelector<HTMLDetailsElement>('.console-about')!.open).toBe(true)
+      expect(el.querySelector('.console-about h3')?.textContent).toContain('change 49')
       mainActions(el)
     } finally { done() }
   })

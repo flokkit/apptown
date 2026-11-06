@@ -31,7 +31,6 @@ function mount(client: ReturnType<typeof newQueryClient>) {
   return { el, unmount: () => act(() => root.unmount()) }
 }
 
-const button = (el: HTMLElement, text: string) => [...el.querySelectorAll('button')].find((b) => b.textContent === text)!
 
 describe("a project's way of working", () => {
   afterEach(() => { vi.unstubAllGlobals() })
@@ -54,7 +53,6 @@ describe("a project's way of working", () => {
       expect(el.textContent).toContain('quick-change, research')
       expect(el.querySelector('input[type=checkbox]')).toBeNull()
       expect([...el.querySelectorAll('button')].some((b) => /Save|Add|remove/.test(b.textContent ?? ''))).toBe(false)
-      await act(async () => { button(el, 'View').click() })
       expect(el.querySelector('a[href="/guidance/house-style"]')).not.toBeNull()
     } finally {
       unmount()

@@ -1,7 +1,8 @@
+import { usePageName } from '../../chrome'
 import { StateRecord } from './StatePanel'
 import { TechnicalWords, useTechnicalDetail } from './TechnicalDetail'
-import { ReactNode, createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { ReactNode, useCallback, useEffect, useState } from 'react'
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import type { Artifact, ChangeView, RunDetail } from '../../api'
 import { post } from '../../api'
 import type { ReleaseDetail, RunTrace } from '../../wire.gen'
@@ -30,33 +31,34 @@ function ReleaseRead({ slug, number, receive }: { slug: string; number: number; 
   return <><ReadStatus q={q} what={`release #${number}`} /><StaleNote q={q} /></>
 }
 
-// A plain link opens evidence in place. It has an address, supports back/forward
-// navigation, and never turns the story line into a disclosure control.
-// An open piece of evidence offers "hide" in the same place, so it closes where it opened.
-const OpenEvidence = createContext<{ opened: Set<string>; close: (id: string) => void }>({ opened: new Set(), close: () => {} })
-function EvidenceLink({ id, children }: { id: string; children: ReactNode }) {
-  const location = useLocation()
-  const { opened, close } = useContext(OpenEvidence)
-  if (opened.has(id)) return <button type="button" className="link" onClick={() => close(id)}>hide</button>
-  return <Link to={`${location.pathname}?tab=details#${id}`}>{children}</Link>
+// Evidence has its own page so opening a record never expands the list.
+function EvidenceLink({ id, runId, children }: { id: string; runId?: string; children: ReactNode }) {
+  const { pathname } = useLocation()
+  const base = pathname.match(/^\/changes\/[^/]+/)?.[0] ?? pathname
+  return <Link to={`${base}/records/${encodeURIComponent(id)}${runId ? `?run=${encodeURIComponent(runId)}` : ''}`}>{children}</Link>
 }
-function RecordLink({ artifact, open }: { artifact: Artifact; open: boolean }) {
+
+function RecordLink({ artifact, runId }: { artifact: Artifact; runId: string }) {
   const label = artifact.kind === 'agent-log' ? 'agent log' : artifact.kind === 'steering' ? 'agent instructions' : artifact.kind === 'scan-report' ? 'security scan report' : artifact.kind === 'sbom' ? 'software inventory' : artifact.kind === 'approval-brief' ? 'approval brief' : artifact.kind === 'screenshot' ? 'screenshots' : artifact.name.startsWith('step-') ? `${artifact.kind.replace(/-/g, ' ')} report` : artifact.name || artifact.kind.replace(/-/g, ' ')
   return <div className="ch-story-record" id={`record-${artifact.id}`}>
-    <EvidenceLink id={`record-${artifact.id}`}>{label}</EvidenceLink>
-    {open && <div className="ch-story-evidence">
-      <p className="small muted">{artifact.name} · {artifact.kind.replace(/-/g, ' ')} · {fmtStamp(artifact.createdAt)}</p>
-      {artifact.kind === 'agent-reported' && <p>Reported by the agent.</p>}
-      {artifact.ref && <a href={artifact.ref} target="_blank" rel="noreferrer">Open record</a>}
-      {artifact.binary ? <Screenshots unfolded shots={{ shots: [{ artifact: artifact.id!, path: artifact.name, view: "record" }] }} /> : artifact.body && <ArtifactBody artifact={artifact} />}
-    </div>}
+    <EvidenceLink id={`record-${artifact.id}`} runId={runId}>{label}</EvidenceLink>
+
   </div>
 }
 
-function Records({ records, opened }: { records: Artifact[]; opened: Set<string> }) {
+function RecordBody({ artifact }: { artifact: Artifact }) {
+  return <div className="ch-story-evidence">
+      <p className="small muted">{artifact.name} · {artifact.kind.replace(/-/g, ' ')} · {fmtStamp(artifact.createdAt)}</p>
+      {artifact.kind === 'agent-reported' && <p>Reported by the agent.</p>}
+      {artifact.ref && <a href={artifact.ref} target="_blank" rel="noreferrer">Open record</a>}
+      {artifact.binary ? <Screenshots shots={{ shots: [{ artifact: artifact.id!, path: artifact.name, view: "record" }] }} /> : artifact.body && <ArtifactBody artifact={artifact} />}
+  </div>
+}
+
+function Records({ records, runId }: { records: Artifact[]; runId: string }) {
   // A record written again (an approval brief asked for twice) shows once: its latest copy.
   const latest = [...new Map([...records].sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? '')).map(a => [`${a.kind}/${a.name}`, a])).values()]
-  return <>{latest.map(a => <RecordLink key={a.id} artifact={a} open={opened.has(`record-${a.id}`)} />)}</>
+  return <>{latest.map(a => <RecordLink key={a.id} artifact={a} runId={runId} />)}</>
 }
 
 type Phase = { key: string; title: string; entries: StoryEntry[]; landing: boolean }
@@ -81,7 +83,17 @@ export function storyPhases(story: StoryEntry[], summaries: ChangeView['runs']):
   return phases
 }
 
-export function ChangeDetails({ view, current, reload, focusStep, runId }: { view: ChangeView; current: boolean; reload: () => void; focusStep?: string; runId?: string }) {
+export function ChangeRecordPage() {
+  const { id = '', recordId = '' } = useParams()
+  const [params] = useSearchParams()
+  const q = useGet<ChangeView>(`/changes/${id}`, { poll: 3000 })
+  usePageName(`/changes/${id}`, q.data ? `Change ${q.data.change.number} · ${q.data.change.title}` : undefined)
+  return <><ReadStatus q={q} what="the change record" /><StaleNote q={q} />
+    {q.data && <ChangeDetails view={q.data} recordId={recordId} current={q.current} reload={q.reload} runId={params.get('run') || undefined} />}
+  </>
+}
+
+export function ChangeDetails({ recordId, view, current, reload, runId }: { recordId?: string; view: ChangeView; current: boolean; reload: () => void; runId?: string }) {
   const [technical] = useTechnicalDetail()
   const [traces, setTraces] = useState<Record<string, RunDetail>>({})
   const [releases, setReleases] = useState<Record<number, ReleaseDetail>>({})
@@ -89,14 +101,6 @@ export function ChangeDetails({ view, current, reload, focusStep, runId }: { vie
   const receiveRelease = useCallback((n: number, detail: ReleaseDetail) => setReleases(old => ({ ...old, [n]: detail })), [])
   const [adding, setAdding] = useState(false)
   const location = useLocation()
-  const [opened, setOpened] = useState<Set<string>>(new Set())
-  useEffect(() => { if (location.hash) setOpened(old => new Set([...old, decodeURIComponent(location.hash.slice(1))])) }, [location.hash])
-  const navigate = useNavigate()
-  const close = useCallback((id: string) => {
-    setOpened(old => { const next = new Set(old); next.delete(id); if (id.startsWith('entry-')) next.delete('checks'); return next })
-    // Drop the address's anchor so the same link opens it again.
-    if (decodeURIComponent(location.hash.slice(1)) === id) navigate(`${location.pathname}${location.search}`, { replace: true })
-  }, [location.hash, location.pathname, location.search, navigate])
   const details = [...Object.values(traces).filter(d => d.run.id !== view.detail?.run.id), ...(view.detail ? [view.detail] : [])]
   const ids = new Set([...(view.runs ?? []).map(r => r.id!), ...(runId ? [runId] : []), ...details.flatMap(d => d.steps.flatMap(s => s.type === 'workflow/call' && s.evidence.childRunId ? [s.evidence.childRunId] : []))])
   ids.delete(view.detail?.run.id ?? '')
@@ -104,8 +108,9 @@ export function ChangeDetails({ view, current, reload, focusStep, runId }: { vie
   const phases = storyPhases(story, view.runs ?? [])
   if (!phases.length || phases[0].landing) phases.unshift({ key: 'request', title: 'Work', landing: false, entries: [] })
   const latest = view.detail
-  const previewEntry = [...story].reverse().find(e => e.step?.type === 'preview') || story.find(e => e.step?.type === 'agent/pi')
-  const reviewEntry = [...story].reverse().find(e => e.step?.type === 'agent/review')
+  const recordStory = runId ? story.filter(e => e.detail.run.id === runId) : story
+  const previewEntry = [...recordStory].reverse().find(e => e.step?.type === 'preview')
+  const reviewEntry = [...recordStory].reverse().find(e => e.step?.type === 'agent/review')
   const reportEntry = [...story].reverse().find(e => e.step?.type === 'agent/pi') || story.at(-1)
   const fullReport = changeReport(view)
   const mergedEntry = story.find(e => e.step?.type === 'scm/merged' && e.step.status === 'pass' && !e.step.overrideBy)
@@ -127,9 +132,22 @@ export function ChangeDetails({ view, current, reload, focusStep, runId }: { vie
   }
   if (view.change.state === 'abandoned' && !story.some(e => e.events.some(event => event.kind === 'run.abandoned'))) extraRows.push({ key: 'abandoned', at: view.change.closedAt || '', label: 'Abandoned', facts: <>Abandoned{view.change.abandonedBy && ` by ${view.change.abandonedBy}`}: {view.stateDetail}</> })
   useEffect(() => {
-    const target = focusStep ? `step-${focusStep}` : decodeURIComponent(location.hash.slice(1))
+    const target = decodeURIComponent(location.hash.slice(1))
     if (target) document.getElementById(target)?.scrollIntoView({ block: 'start' })
-  }, [opened, focusStep, runId, story.length, location.hash])
+  }, [runId, story.length, location.hash])
+  if (recordId) {
+    const recordsRead = runId ? view.detail?.run.id === runId || !!traces[runId] : [...ids].every(id => !!traces[id])
+    const entry = story.find(e => `entry-${e.key}` === recordId)
+      || (recordId === 'preview' ? previewEntry : recordId === 'review' ? reviewEntry : undefined)
+    const artifact = story.flatMap(e => e.records).find(a => `record-${a.id}` === recordId)
+    return <><h1>{recordId === 'request' ? 'Request' : recordId === 'summary' ? 'Report' : recordId === 'preview' ? 'Preview' : recordId === 'review' ? 'Review' : recordId === 'checks' ? 'Checks' : entry?.step ? stepTitle(entry.step) : artifact?.name || 'Record'}</h1>
+      {[...ids].map(id => <TraceRead key={id} id={id} receive={receive} />)}
+      {recordId === 'request' ? <RequestEntry full view={view} current={current} reload={reload} /> : recordId === 'summary' ? <Report text={fullReport || 'No report was recorded.'} changeId={view.change.id!} />
+        : recordId === 'checks' ? recordStory.some(e => e.text.startsWith('Checks:')) ? recordStory.filter(e => e.text.startsWith('Checks:')).map(e => <EntryEvidence key={e.key} entry={e} view={view} reload={reload} />) : <p>{recordsRead ? 'No checks were recorded.' : 'This record has not been read.'}</p>
+        : entry ? <EntryEvidence entry={entry} view={view} reload={reload} />
+        : artifact ? <RecordBody artifact={artifact} /> : recordId === 'preview' && recordsRead ? <p>No preview was recorded.</p> : recordId === 'review' && recordsRead ? <p>No review was recorded.</p> : <p>This record has not been read.</p>}
+    </>
+  }
   let previousDate = ''
   const time = (at: string) => {
     const stamp = at ? new Date(at) : null
@@ -138,12 +156,8 @@ export function ChangeDetails({ view, current, reload, focusStep, runId }: { vie
     previousDate = date
     return <time dateTime={at}>{changed && <span>{date}</span>}{stamp?.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</time>
   }
-  const entryEvidence = (e: StoryEntry, open: boolean) => <>
-    {open && e.step?.type !== 'agent/pi' && !e.key.startsWith('work-') && <EntryEvidence entry={e} view={view} reload={reload} report={e === reportEntry ? fullReport : undefined} />}
-  </>
   const entryRow = (e: StoryEntry) => {
     const key = `entry-${e.key}`, s = e.step
-    const open = opened.has(key) || (!!focusStep && focusStep === s?.id) || (opened.has('summary') && e === reportEntry) || (opened.has('preview') && e === previewEntry) || (opened.has('review') && e === reviewEntry)
     const agentWork = s?.type === 'agent/pi' || e.key.startsWith('work-')
     const facts = e.key.startsWith('work-') ? (e.detail.run.id === latest?.run.id && view.diffstat?.match(/\d+ files? changed/)?.[0]) || 'no report' : e.text
     const label = e.key.startsWith('event-') && e.events.some(event => event.kind === 'main.merged') ? 'Brought up to date with main' : s?.type === 'agent/pi' ? 'Agent worked' : s?.type === 'agent/review' ? 'Reviewer' : s?.type === 'approval' ? 'Approval' : s?.type === 'scm/merged' ? 'Merged' : s?.type === 'build' ? 'Built' : e.text.startsWith('Abandoned') ? 'Abandoned' : e.text.startsWith('Checks:') ? 'Checks' : 'Agent worked'
@@ -152,20 +166,18 @@ export function ChangeDetails({ view, current, reload, focusStep, runId }: { vie
       <div className="ch-detail-facts"><div className={`ch-story-line${s?.type === 'agent/review' ? ' ch-review-text' : ''}`}>{s?.type === 'agent/review' ? <ResultMark text={facts.replace(/^Reviewer: /, '')} /> : e === mergedEntry && view.change.landedSha ? `merged at ${view.change.landedSha.slice(0, 12)}` : facts.replace(/^(Reviewer|Approval|Landing): |^Agent worked,? ?|^Abandoned ?/, '') || 'Finished'}</div>
         {e === previewEntry && <span id="preview" />}{e === reviewEntry && <span id="review" />}
         <TechnicalWords shown={technical}>{e.detail.run.workflowName} v{e.detail.run.workflowVersion} · run {e.detail.run.number}{s && ` · ${s.name} · ${s.type}`}{s?.type === 'agent/pi' && s.evidence.model && ` · ${s.evidence.model}`}{s?.type === 'approval' && s.config.means && ` · ${s.config.means}`}</TechnicalWords>
-        {entryEvidence(e, open)}
-        {agentWork && e === reportEntry && fullReport && opened.has('summary') && <Report text={fullReport} changeId={view.change.id!} />}
       </div>
       <div className="ch-detail-actions">
-        {agentWork ? <Link to={workRecordHref(view.change.id!, e)}>session</Link> : <EvidenceLink id={key}>{s?.type === 'agent/review' ? 'full review' : 'details'}</EvidenceLink>}
+        {agentWork ? <Link to={workRecordHref(view.change.id!, e)}>session</Link> : <EvidenceLink id={key} runId={e.detail.run.id!}>{s?.type === 'agent/review' ? 'full review' : 'details'}</EvidenceLink>}
         {e.actionStep && <StepActions step={e.actionStep} onChange={reload} />}
         {agentWork && <Link to={`/changes/${view.change.id}?tab=changes`}>code</Link>}
         {e === reportEntry && fullReport && <EvidenceLink id="summary">report</EvidenceLink>}
-        <Records records={agentWork ? [] : e.records} opened={opened} />
+        <Records records={agentWork ? [] : e.records} runId={e.detail.run.id!} />
       </div>
     </li>
   }
   const u = view.usage
-  return <OpenEvidence.Provider value={{ opened, close }}><div className="ch-details">
+  return <div className="ch-details">
     {[...ids].map(id => <TraceRead key={id} id={id} receive={receive} />)}
     {(view.evidence?.releases ?? []).map(r => <ReleaseRead key={r.number} slug={view.projectSlug} number={r.number} receive={receiveRelease} />)}
     {phases.map((phase, i) => {
@@ -177,7 +189,7 @@ export function ChangeDetails({ view, current, reload, focusStep, runId }: { vie
         if (!e.text.startsWith('Checks:')) { rows.push({ at: e.at, render: () => entryRow(e) }); continue }
         const checks = phase.entries.filter(e => e.text.startsWith('Checks:'))
         if (e !== checks[0]) continue
-        rows.push({ at: e.at, render: () => <li key={e.key} className="ch-detail-row ch-story-entry" id={!phases.slice(0, i).some(p => p.entries.some(e => e.text.startsWith('Checks:'))) && e === phase.entries.find(e => e.text.startsWith('Checks:')) ? 'checks' : undefined}>{time(e.at)}<div className="ch-event-label">Checks</div><div className="ch-detail-facts ch-check-facts"><table className="ch-items-table" aria-label="Checks"><tbody>{checks.map(check => <CheckRow key={check.key} entry={check} technical={technical} opened={opened} reload={reload} open={opened.has(`entry-${check.key}`) || opened.has('checks') || (!!focusStep && focusStep === check.step?.id) || (opened.has('preview') && check === previewEntry)} evidence={entryEvidence} preview={check === previewEntry} />)}</tbody></table></div></li> })
+        rows.push({ at: e.at, render: () => <li key={e.key} className="ch-detail-row ch-story-entry" id={!phases.slice(0, i).some(p => p.entries.some(e => e.text.startsWith('Checks:'))) && e === phase.entries.find(e => e.text.startsWith('Checks:')) ? 'checks' : undefined}>{time(e.at)}<div className="ch-event-label">Checks</div><div className="ch-detail-facts ch-check-facts"><table className="ch-items-table" aria-label="Checks"><tbody>{checks.map(check => <CheckRow key={check.key} entry={check} technical={technical} reload={reload} preview={check === previewEntry} />)}</tbody></table></div></li> })
       }
       for (const row of extraRows) {
         const target = row.key === 'advance' ? (phases.map((p, index) => (p.entries[0]?.at || view.change.createdAt) <= row.at ? index : -1).filter(index => index >= 0).at(-1) ?? 0) : phases.length - 1
@@ -195,7 +207,7 @@ export function ChangeDetails({ view, current, reload, focusStep, runId }: { vie
       {u && (u.total > 0 || u.costMicros > 0 || u.unpriced > 0) && <tr><th scope="row">Cost</th><td>{fmtTokens(u.total)} tokens{` · ${fmtPrice(u.costMicros, u.unpriced)}`}</td></tr>}
       <Attachments changeId={view.change.id!} readOnly={['shipped', 'abandoned'].includes(view.change.state)} />
     </tbody></table></section>
-  </div></OpenEvidence.Provider>
+  </div>
 }
 
 // The pass/fail mark carries the result colour; the words after it stay plain.
@@ -205,30 +217,28 @@ function ResultMark({ text }: { text: string }) {
   return <><span className={`ch-mark ${tone}`}>{tone === 'warn' ? 'unknown' : text[0]}</span>{text.slice(tone === 'warn' ? 7 : 1)}</>
 }
 
-function CheckRow({ entry, technical, opened, reload, open, evidence, preview }: { entry: StoryEntry; technical: boolean; opened: Set<string>; reload: () => void; open: boolean; evidence: (e: StoryEntry, open: boolean) => ReactNode; preview: boolean }) {
+function CheckRow({ entry, technical, reload, preview }: { entry: StoryEntry; technical: boolean; reload: () => void; preview: boolean }) {
   const s = entry.step!
   const na = s.status === 'not_applicable' && !s.overrideBy
   const duration = s.startedAt && s.finishedAt ? Math.max(0, Date.parse(s.finishedAt) - Date.parse(s.startedAt)) : undefined
   return <><tr id={`entry-${entry.key}`} className={na ? 'muted' : undefined}>
     <th scope="row">{preview && <span id="preview" />}{stepTitle(s)}<TechnicalWords shown={technical}>{s.name} · {s.type} · run {entry.detail.run.number}</TechnicalWords></th>
-    <td><div className="ch-check-result">{na ? "doesn't apply: no matching part" : <ResultMark text={checkResult(s)} />}<Records records={entry.records} opened={opened} /></div>
+    <td><div className="ch-check-result">{na ? "doesn't apply: no matching part" : <ResultMark text={checkResult(s)} />}<Records records={entry.records} runId={entry.detail.run.id!} /></div>
       {na && <TechnicalWords shown={technical}>{checkResult(s)}</TechnicalWords>}
       {!na && !s.overrideBy && ['fail', 'error', 'needs_human'].includes(s.status) && !!s.evidence.actions?.length && <p className="ch-story-reason">To satisfy this check: {s.evidence.actions?.join(' ')}</p>}
     </td>
     <td className="ch-check-duration">{duration != null && `${Math.round(duration / 1000)}s`}</td>
-    <td className="ch-check-actions"><div className="ch-check-links"><EvidenceLink id={`entry-${entry.key}`}>details</EvidenceLink>{entry.actionStep && <StepActions step={entry.actionStep} onChange={reload} />}</div></td>
+    <td className="ch-check-actions"><div className="ch-check-links"><EvidenceLink id={`entry-${entry.key}`} runId={entry.detail.run.id!}>details</EvidenceLink>{entry.actionStep && <StepActions step={entry.actionStep} onChange={reload} />}</div></td>
   </tr>
-  {/* An opened check's evidence gets the whole width under its row, not the result column. */}
-  {open && <tr className="ch-check-evidence-row"><td colSpan={4}>{evidence(entry, open)}</td></tr>}
+
   </>
 }
 
-function EntryEvidence({ entry, view, reload, report }: { entry: StoryEntry; view: ChangeView; reload: () => void; report?: string }) {
+function EntryEvidence({ entry, view, reload }: { entry: StoryEntry; view: ChangeView; reload: () => void }) {
   const [technical] = useTechnicalDetail()
   return <div className="ch-story-evidence">
     {entry.step && (entry.current ? <StepCard evidenceOnly step={entry.step} head={view.head} onChange={reload} hideApproveForm /> : <pre className="log">{JSON.stringify(entry.step.evidence, null, 2)}</pre>)}
     {entry.session && <p className="small">Session: <code>{entry.session}</code></p>}
-    {report && <Report text={report} changeId={view.change.id!} />}
     {/* Decision records belong where the workflow asks for one, or beside work that already links some. */}
     {entry.step?.type === 'adr/require' && <AdrLinks view={view} onChange={reload} />}
     {entry.step?.type === 'approval' && !!view.evidence?.targets.length && <table className="ch-items-table"><tbody>{view.evidence.targets.map(t => <tr key={`${t.block}:${t.check}`}><th scope="row">{t.title || t.check}</th><td>{t.expects}</td></tr>)}</tbody></table>}

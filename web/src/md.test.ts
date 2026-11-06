@@ -94,8 +94,9 @@ describe('Markdown image resources', () => {
 
 it('shows embedded disclosures as open sections when the change page requests it', () => {
   const text = '<details><summary>Recorded commands</summary><p>npm test</p><details><summary>Result</summary><p>Passed</p></details></details>'
-  const el = document.createElement('div'); el.innerHTML = renderMd(text, true)
+  const el = document.createElement('div'); el.innerHTML = renderMd(text)
   expect(el.querySelector('details, summary')).toBeNull()
   expect(el.textContent).toBe('Recorded commandsnpm testResultPassed')
-  expect(renderMd(text)).toContain('<details>')
+  expect(renderMd(text)).not.toContain('<details>')
+  expect(renderMd(text)).toContain('<section><h4>Recorded commands</h4>')
 })

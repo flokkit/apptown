@@ -31,7 +31,7 @@
 
 /* Lists of work line up: the state and the action take fixed columns, so
    titles start, and actions end, at the same place on every row. */
-.row-status { flex: 0 0 13em; }
+.row-status { flex: 0 0 13em; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .row-action { flex: 0 0 11em; display: flex; justify-content: flex-end; white-space: nowrap; }
 @media (max-width: 800px) { .row-status, .row-action { flex: 0 0 auto; } }
 

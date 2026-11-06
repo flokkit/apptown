@@ -287,6 +287,8 @@ APPTOWN_PLAYWRIGHT_MODULE ?= $(CURDIR)/web/node_modules/playwright/index.mjs
 check-web-layout:       ## content-sized rows and phone fields hold at every text size
 	python3 scripts/web-grid-check_test.py
 	python3 scripts/web-grid-check.py
+	python3 scripts/web-fold-check_test.py
+	python3 scripts/web-fold-check.py
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" node web/type-scale.browser-test.mjs
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" node web/layout.browser-test.mjs
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" node web/people-confirm.browser-test.mjs

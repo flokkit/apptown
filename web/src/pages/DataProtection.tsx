@@ -326,7 +326,7 @@ export function OperationPage() {
         <thead><tr><th>Step</th><th>Started</th><th>Took</th><th></th></tr></thead>
         <tbody>
           {op.steps.map((st, i) => (
-            <GlanceRow name={0} state={3} fact={1} labels={["Step", "Started", "Took", "Details"]} key={i}>
+            <GlanceRow labels={["Step", "Started", "Took", "Details"]} key={i}>
               <td>{st.name}{st.detail && <div className={st.failed ? 'error' : 'muted'}>{st.detail}</div>}</td>
               <td className="muted data-protection-td">{fmtWhen(st.started)}</td>
               <td className="muted">{st.ended ? elapsed(st.started, new Date(st.ended).getTime()) : elapsed(st.started)}{st.bytes ? ` · ${fmtBytes(st.bytes)}` : ''}</td>

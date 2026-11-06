@@ -60,13 +60,13 @@ it('reads a crash-loop note after successful release and marks a failed refresh'
   const el = document.createElement('div')
   const root = createRoot(el)
   try {
-    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="14" /></MemoryRouter></QueryClientProvider>) })
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="14" log /></MemoryRouter></QueryClientProvider>) })
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
-    expect(el.textContent).toContain('Released')
+    expect(el.querySelector('h1')?.textContent).toBe('Release log')
     expect(el.textContent).not.toContain(note)
     await act(async () => { await vi.advanceTimersByTimeAsync(8500) })
     expect(el.textContent).toContain(note)
-    expect(el.textContent).toContain('Released')
+    expect(el.querySelector('h1')?.textContent).toBe('Release log')
     await act(async () => { await vi.advanceTimersByTimeAsync(8500) })
     expect(el.textContent).toContain(note)
     expect(el.textContent).toContain('unknown')
@@ -94,7 +94,7 @@ it('starts reading the new permalink after a historical release stopped polling'
   const client = newQueryClient()
   const el = document.createElement('div')
   const root = createRoot(el)
-  const page = (number: string) => <QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number={number} /></MemoryRouter></QueryClientProvider>
+  const page = (number: string) => <QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number={number} log /></MemoryRouter></QueryClientProvider>
   try {
     await act(async () => { root.render(page('14')) })
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })

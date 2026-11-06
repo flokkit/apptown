@@ -2,7 +2,7 @@ import { Status } from '../Status'
 import { Link } from 'react-router-dom'
 import { ATTENTION_GROUPS, attentionGroup, attentionRows, attentionState, attentionSummary, attentionItemWord as word, useAttention } from '../attention'
 import { useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useParams } from 'react-router-dom'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { Group, Section } from '../Section'
 import { lastSeen, relTime } from '../format'
@@ -50,16 +50,17 @@ function bunch(items: AttentionItem[]) {
   return out
 }
 
-function ItemRow({ items }: { items: AttentionItem[] }) {
+function ItemRow({ items, full = false }: { items: AttentionItem[]; full?: boolean }) {
   const item = items[0]
   return <article className="card row attention-row">
     <span className="row-status"><Status word={word(item)} staleAt={item.stale && !item.unknown ? item.observedAt : undefined} /></span>
     <span className="attention-what">
       <Link to={item.href}>{item.title}</Link>{items.length > 1 && <span className="muted"> · {items.length}</span>}
       <Detail text={withoutRepeatedName(item.title, item.detail)} />
-      {items.length > 1 && <details className="small"><summary>Show all {items.length}</summary>
+      {items.length > 1 && !full && <p><Link to={`/attention/checks/${encodeURIComponent(item.key)}`}>{items.length} recorded conditions</Link></p>}
+      {items.length > 1 && full && <section className="small"><h3>All {items.length} conditions</h3>
         <ul className="attention-lines">{items.map((i, n) => <li key={i.key}><Link to={i.href}>{i.title} ({n + 1})</Link> <span className="muted">{i.key}</span></li>)}</ul>
-      </details>}
+      </section>}
     </span>
     {/* The chip already says "last seen" for a stale low or advisory reading. */}
     {!(item.stale && !item.unknown && word(item) === 'low') && <small className="muted attention-seen">{observed(item.observedAt, item.stale, item.attemptedAt)}</small>}
@@ -80,19 +81,24 @@ function SourceRow({ source }: { source: AttentionCoverage }) {
   </article>
 }
 
-export default function AttentionPage() {
+export default function AttentionPage({ checks = false }: { checks?: boolean }) {
+  const { checkKey } = useParams()
   const q = useAttention()
   const state = attentionState(q)
   const { hash } = useLocation()
   const ready = !!q.data
   useEffect(() => { if (ready && hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' }) }, [ready, hash])
+  if (q.data && checkKey) {
+    const group = bunch(attentionRows(q.data).items).find(items => items.some(item => item.key === checkKey))
+    return <><h1>{group?.[0].title || 'Recorded conditions'}</h1><StaleNote q={q} />{group ? <ItemRow full items={group} /> : <p>This condition is no longer recorded.</p>}</>
+  }
   return <div>
-    <div className="row"><h1 style={{ margin: 0 }} className="grow">Attention</h1></div>
+    <div className="row"><h1 style={{ margin: 0 }} className="grow">{checks ? 'All checks' : 'Attention'}</h1></div>
     <ReadStatus q={q} what="conditions that need action" />
     <StaleNote q={q} />
     {q.data && <>
       <p className="muted attention-summary" role="status">{attentionSummary(state.count, state.unknown)}</p>
-      {ATTENTION_GROUPS.map(g => {
+      {!checks && ATTENTION_GROUPS.map(g => {
         const items = attentionRows(q.data!).items.filter(i => attentionGroup(i.key) === g.key)
         const unknown = attentionRows(q.data!).sources.filter(s => attentionGroup(s.key) === g.key)
         if (!items.length && !unknown.length) return null
@@ -114,15 +120,16 @@ export default function AttentionPage() {
         </div>
         const others = q.data!.sources.filter(s => !working(s))
         const fine = q.data!.sources.filter(working)
+        if (!checks) return <p><Link to="/attention/checks">All {q.data!.sources.length} checks</Link></p>
         return <Section title="All checks" note={`${q.data!.sources.length} checks`}>
           {others.map(row)}
-          {fine.length > 0 && <details className="attention-working">
-            <summary>{others.length > 0 ? `${fine.length} more checks working` : `All ${fine.length} checks working`}</summary>
+          {fine.length > 0 && <section className="attention-working">
+            <h3>{others.length > 0 ? `${fine.length} more checks working` : `All ${fine.length} checks working`}</h3>
             {ATTENTION_GROUPS.map(g => {
               const these = fine.filter(f => attentionGroup(f.key) === g.key)
               return these.length > 0 && <Group key={g.key} label={`${g.title} · ${these.length}`}>{these.map(row)}</Group>
             })}
-          </details>}
+          </section>}
         </Section>
       })()}
     </>}

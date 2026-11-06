@@ -3,7 +3,7 @@ import { MoreMenu } from '../MoreMenu'
 import { Section } from '../Section'
 import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { LibraryWorkflow, del, post, put } from '../api'
 import { firstErr, useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
@@ -27,7 +27,8 @@ spec:
           uses: approval
 `
 
-export default function WorkflowLibrary() {
+export default function WorkflowLibrary({ page = false }: { page?: boolean }) {
+  const { name } = useParams()
   const libsQ = useGet<LibraryWorkflow[]>('/workflows/library', { kind: 'config' })
   const libs = libsQ.data ?? []
   const [msg, setMsg] = useState('')
@@ -83,6 +84,7 @@ export default function WorkflowLibrary() {
 
   return (
     <div>
+      {page && <h1>{name}</h1>}
       {editor && (
         <div className="card mb-4" >
           <div className="row" style={{ marginBottom: 6 }}>
@@ -103,14 +105,15 @@ export default function WorkflowLibrary() {
       <ReadStatus q={libsQ} what="the workflows" />
       <StaleNote q={libsQ} />
       {libsQ.data && libs.length === 0 && <p className="muted">No workflows.</p>}
+      {page && libsQ.data && !libs.some(l => l.name === name) && <p>This workflow is no longer in the library.</p>}
       {TIERS.map(([tier, label]) => {
-        const rows = libs.filter((l) => (l.tier ?? 'extra') === tier).sort((a, b) => a.name.localeCompare(b.name))
+        const rows = libs.filter((l) => (l.tier ?? 'extra') === tier && (!page || l.name === name)).sort((a, b) => a.name.localeCompare(b.name))
         if (rows.length === 0) return null
         return (
-          <Section key={tier} title={label} count={rows.length}>
+          <Section key={tier} title={page ? '' : label} count={page ? undefined : rows.length}>
             <LibraryRows>
               {rows.map((l) => (
-                <WorkflowRow key={l.name} l={l} busy={busy}
+                <WorkflowRow key={l.name} l={l} busy={busy} page={page}
                   binding={tier === 'system' ? bindings?.bindings.find((b) => b.stock === l.name) : undefined}
                   candidates={bindings?.candidates ?? []}
                   onBind={(name) => void bind(l.name, name)}
@@ -129,15 +132,14 @@ export default function WorkflowLibrary() {
 // purpose is the first sentence of a workflow's description: what it is for.
 // One workflow: its name and purpose, who ships it and its version. The
 // whole row opens what it does in full; the less common acts sit behind ⋯.
-function WorkflowRow({ l, busy, binding, candidates, onBind, onCopy, onEdit, onDelete }: {
-  l: LibraryWorkflow; busy: boolean
+function WorkflowRow({ page, l, busy, binding, candidates, onBind, onCopy, onEdit, onDelete }: {
+  page: boolean; l: LibraryWorkflow; busy: boolean
   binding?: { stock: string; name: string; custom: boolean }; candidates: string[]
   onBind: (name: string) => void; onCopy: () => void; onEdit: () => void; onDelete: () => void
 }) {
-  const [open, setOpen] = useState(false)
   const stock = l.origin === 'stock' || (l.origin ?? '').startsWith('stock/')
   return (
-    <LibraryRow name={l.name} open={open} onToggle={() => setOpen(!open)}
+    <LibraryRow name={l.name} to={page ? undefined : `/workflows/${encodeURIComponent(l.name)}`}
       badges={binding?.custom && <span className="badge">custom</span>}
       purpose={l.description && firstSentence(l.description)}
       state={<span className="muted small">{stock ? PRODUCT : 'yours'} · v{l.latestVersion}</span>}
@@ -148,7 +150,7 @@ function WorkflowRow({ l, busy, binding, candidates, onBind, onCopy, onEdit, onD
           { label: 'Delete', danger: true, disabled: busy, onClick: onDelete },
         ] : []),
       ]} />}
-      detail={<>
+      detail={page && <>
           {l.description && <p>{l.description}</p>}
           <p className="small">{l.kind} · {l.stages.join(' → ')}</p>
           {binding && (

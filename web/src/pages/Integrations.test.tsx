@@ -311,7 +311,8 @@ describe('one integration', () => {
     await vi.waitFor(() => expect(page.text()).toContain('Used by'))
     const used = page.el.querySelector('section[aria-label="Used by"]')!
     const links = [...used.querySelectorAll('a')].map((a) => [(a.classList.contains('int-name') ? a : a.querySelector('.int-name') ?? a).textContent, a.getAttribute('href')])
-    expect(links).toEqual([['Shop', '/projects/shop'], ['Blog', '/projects/blog'], ['shop/prod', '/projects/shop/deployments/prod'], ['lan-host', '/targets/lan-host']])
+    expect(links).toEqual([['2 projects', '/integrations/django-check/projects']])
+    expect(used.textContent).not.toContain('Shop')
     page.done()
     const other = await mount('/integrations/gitlab')
     await vi.waitFor(() => expect(other.text()).toContain('Used by'))

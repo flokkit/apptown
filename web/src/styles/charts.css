@@ -11,10 +11,10 @@
   min-width: 140px; margin: 6px 0 4px; border: 1px solid var(--border);
 }
 .usage-chart {
-  display: flex; align-items: flex-end; gap: 2px; height: 120px;
+  display: flex; align-items: flex-end; gap: 0; height: 120px;
   border-bottom: 1px solid var(--rule); padding-bottom: 1px; cursor: pointer; touch-action: pan-y; user-select: none;
 }
-.usage-col { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 3px; }
+.usage-col { flex: 1 1 0; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
 .usage-col:hover { background: var(--hover); }
 /* The picked day: its column boxed in the accent. */
 .usage-col.on { background: var(--accent-bg); outline: 1.5px solid var(--accent); outline-offset: 1px; border-radius: var(--radius-xs); }

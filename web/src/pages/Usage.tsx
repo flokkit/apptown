@@ -20,7 +20,7 @@ type Row = Record<string, string | number>
 // purpose of one of AppTown's own calls (narrative, conformance-review, …),
 // which reads as written.
 export const LANE_LABEL: Record<string, string> = { step: 'Automated work', console: 'Chat', 'guidance-checklist': 'Rule checks', 'conformance-review': 'Project checks', 'approval-brief': 'Approval summaries', 'pack-assistance': 'Ways of working help', 'what-if': 'Setup comparisons', 'project-description': 'Project descriptions', narrative: 'Summaries' }
-const LANE_COLOR: Record<string, string> = { step: 'var(--accent)', console: 'var(--note)' }
+const LANE_COLOR: Record<string, string> = { step: 'var(--accent)', console: 'var(--note)', other: 'var(--muted)' }
 
 // One figure in the totals panel: a label, the amount, and a qualifying line
 // only when there is something to qualify.
@@ -138,24 +138,24 @@ export function TimingView({ days }: { days: number }) {
   )
 }
 
-type DayTotals = { step: number; console: number; cost: number }
+type DayTotals = { step: number; console: number; other: number; cost: number }
 
 // The daily chart. Its numbers are readable without a mouse: one day is
 // always selected and spelled out under the chart (the latest day with use,
 // until someone picks another). The chart is one wide control, a slider
 // over the days: tap or drag along it on a phone, click it, or use the
 // arrow keys. Columns are too narrow to be separate tap targets.
-function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay: Map<string, DayTotals>; shownFrom?: string }) {
+export function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay: Map<string, DayTotals>; shownFrom?: string }) {
   const [picked, setPicked] = useState<number | null>(null)
   const lastUsed = days.reduce((at, d, i) => (perDay.has(d) ? i : at), days.length - 1)
   const at = Math.min(picked ?? lastUsed, days.length - 1)
   const day = days[at]
   const e = perDay.get(day)
-  const total = e ? e.step + e.console : 0
-  const maxDay = Math.max(1, ...[...perDay.values()].map((x) => x.step + x.console))
+  const total = e ? e.step + e.console + e.other : 0
+  const maxDay = Math.max(0, ...[...perDay.values()].map((x) => x.step + x.console + x.other))
   const label = new Date(day + 'T00:00:00Z').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'UTC' })
   const detail = !e ? `${label}: no use`
-    : `${label}: ${fmtTokens(total)} tokens · ${LANE_LABEL.step} ${fmtTokens(e.step)}, ${LANE_LABEL.console} ${fmtTokens(e.console)}`
+    : `${label}: ${total === 0 && e.cost > 0 ? 'tokens not recorded' : `${fmtTokens(total)} tokens · ${LANE_LABEL.step} ${fmtTokens(e.step)}, ${LANE_LABEL.console} ${fmtTokens(e.console)}${e.other > 0 ? `, Other work ${fmtTokens(e.other)}` : ''}`}`
       + (e.cost > 0 ? ` · ${fmtCost(e.cost)}` : '')
   const pickAt = (el: HTMLElement, clientX: number) => {
     const r = el.getBoundingClientRect()
@@ -170,12 +170,12 @@ function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay: Map<s
     return true
   }
   // The legend names only the kinds of use the window has.
-  const lanes = (['step', 'console'] as const).filter(k => [...perDay.values()].some(x => x[k] > 0))
+  const lanes = (['step', 'console', 'other'] as const).filter(k => [...perDay.values()].some(x => x[k] > 0))
   return (
-    <Section title="Daily tokens" action={<span className="muted">tallest day {fmtTokens(maxDay)}</span>}>
+    <Section title="Daily tokens" action={<span className="muted">{maxDay > 0 ? `tallest day ${fmtTokens(maxDay)}` : 'No tokens recorded'}</span>}>
       <div className="usage-chart-panel">
       {lanes.length > 0 && <div className="muted small usage-legend">
-        {lanes.map(k => <span key={k}><span style={{ color: LANE_COLOR[k] }}>■</span> {LANE_LABEL[k]}</span>)}
+        {lanes.map(k => <span key={k}><span style={{ color: LANE_COLOR[k] }}>■</span> {LANE_LABEL[k] ?? 'Other work'}</span>)}
       </div>}
       <div className="usage-chart" role="slider" tabIndex={0} aria-label="day to show"
         aria-valuemin={0} aria-valuemax={days.length - 1} aria-valuenow={at} aria-valuetext={detail}
@@ -184,13 +184,12 @@ function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay: Map<s
         onKeyDown={(ev) => { if (key(ev.key)) ev.preventDefault() }}>
         {days.map((d, i) => {
           const x = perDay.get(d)
-          const t = x ? x.step + x.console : 0
+          const t = x ? x.step + x.console + x.other : 0
           return (
             <div key={d} className={'usage-col' + (picked !== null && i === at ? ' on' : '')}>
               {x && (
-                <div className="usage-stack" style={{ height: `${Math.max(3, (t / maxDay) * 100)}%` }}>
-                  {x.console > 0 && <div style={{ flex: x.console, background: LANE_COLOR.console }} />}
-                  {x.step > 0 && <div style={{ flex: x.step, background: LANE_COLOR.step }} />}
+                <div className="usage-stack" style={{ height: `${Math.max(3, (t / Math.max(1, maxDay)) * 100)}%` }}>
+                  {(['other', 'console', 'step'] as const).map(k => x[k] > 0 && <div key={k} style={{ flex: x[k], background: LANE_COLOR[k] }} />)}
                 </div>
               )}
             </div>
@@ -235,8 +234,9 @@ export function UsageView({ project }: { project?: string }) {
   }
   const perDay = new Map<string, DayTotals>()
   for (const r of data.byDayKind ?? []) {
-    const e = perDay.get(r.day) ?? { step: 0, console: 0, cost: 0 }
+    const e = perDay.get(r.day) ?? { step: 0, console: 0, other: 0, cost: 0 }
     if (r.kind === 'step' || r.kind === 'console') e[r.kind] += r.total
+    else e.other += r.total
     e.cost += r.costMicros
     perDay.set(r.day, e)
   }
@@ -286,7 +286,7 @@ export function UsageView({ project }: { project?: string }) {
 
       {data.totals.total === 0 && (
         <div className="muted mt-3" >
-          No usage recorded yet.
+          {data.totals.costMicros > 0 || data.totals.incomplete > 0 || data.totals.unpriced > 0 ? 'Tokens not recorded.' : 'No usage recorded yet.'}
         </div>
       )}
     </div>

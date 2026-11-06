@@ -1,7 +1,7 @@
 import './WhatIfPage.css'
 import { GlanceRow } from '../GlanceRow'
 import { Status } from '../Status'
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { currentUser, get, HttpError, post } from '../api'
 import { QuietConfirm } from '../QuietConfirm'
@@ -46,18 +46,21 @@ export const OUTCOME_WORDS: Record<string, string> = {
 export const OUTCOME_ORDER = ['new-failures', 'could-not-assess', 'no-new-failures', 'not-evaluated', 'not-yet-judged']
 
 export default function WhatIfPage() {
-  const { id = '' } = useParams()
+  const { id = '', slug } = useParams()
   const [running, setRunning] = useState(true)
   const q = useGet<WhatIf>(`/conformance/what-if/${id}`, { poll: running ? 3000 : undefined })
   const w = q.data
   if (w && running !== (w.state === 'queued' || w.state === 'running')) setRunning(!running)
+  if (w && slug) {
+    const p = w.projects.find(p => p.projectSlug === slug)
+    return <><h1>{slug}</h1><StaleNote q={q} />{p ? <ProjectResult w={w} p={p} /> : <p>This project was not assessed.</p>}</>
+  }
   if (!w) return <ReadStatus q={q} what="the what-if" />
   return (
     <div className="what-if-page-div">
-      <div className="muted small"><Link to="/conformance/what-ifs">What-ifs</Link> · <Link to="/packs">Packs</Link> › <Link to={`/packs/${w.pack}`}>{w.pack}</Link></div>
       <h1 className="mb-1">What-if: {w.pack} v{w.version}</h1>
       <StaleNote q={q} />
-      <details><summary>Test details</summary><div className="row small what-if-page-div-2">
+      <section><h3>Test details</h3><div className="row small what-if-page-div-2">
         <State w={w} />
         <span className="muted">{w.requestedBy} · {relTime(w.createdAt)}</span>
         <span className="muted">
@@ -68,7 +71,7 @@ export default function WhatIfPage() {
         {w.advanceWorkflows && <span className="muted">moves each project's other workflows to the newest version</span>}
         {(w.also ?? []).length > 0 && <span className="muted">with, for projects already on them: {alsoWords(w)}</span>}
       </div>
-      </details>
+      </section>
       <Decide w={w} />
       <Summary w={w} />
       <Fleet gaps={w.fleet} projects={w.projects.length} />
@@ -108,8 +111,8 @@ function Fleet({ gaps, projects }: { gaps: WhatIfFleetGap[], projects: number })
   if (gaps.length === 0) return null
   const shown = gaps.slice(0, 8)
   return (
-    <details className="card what-if-page-fleet-card">
-      <summary><strong>Checks that could not run</strong> <span className="muted small">{gaps.length} check{gaps.length === 1 ? '' : 's'}</span></summary>
+    <section className="card what-if-page-fleet-card">
+      <h3><strong>Checks that could not run</strong> <span className="muted small">{gaps.length} check{gaps.length === 1 ? '' : 's'}</span></h3>
       {shown.map((g, i) => (
         <div key={i} className="small what-if-page-div-3">
           <div>{g.block ? <code className="what-if-page-code">{g.block} · {g.check}</code> : <span>the whole project</span>} <strong>{g.projects} of {projects}</strong> <span className="muted">— {g.words}</span></div>
@@ -117,7 +120,7 @@ function Fleet({ gaps, projects }: { gaps: WhatIfFleetGap[], projects: number })
         </div>
       ))}
       {gaps.length > shown.length && <div className="muted small">and {gaps.length - shown.length} more; each project's row lists its own.</div>}
-    </details>
+    </section>
   )
 }
 
@@ -163,7 +166,6 @@ type Adopted = { changeId: string | null; changeNumber: number; slug: string; st
 // door in turn, bound to that candidate, and its row shows what came of it.
 function Table({ w }: { w: WhatIf }) {
   // Rows are keyed by project id.
-  const [open, setOpen] = useState<string | null>(null)
   const [ticked, setTicked] = useState<string[]>([])
   const [adopted, setAdopted] = useState<Record<string, Adopted>>({})
   // The run belongs to the person who confirmed it on this page: once the
@@ -222,33 +224,19 @@ function Table({ w }: { w: WhatIf }) {
         <tbody>
           {w.projects.map((p) => {
             const pid = p.projectId ?? ''
-            const rows = w.rows.filter((r) => r.projectId === p.projectId && r.result !== 'unchanged' && !RULE_MOVES.has(r.result))
-            const back = p.moves.filter((m) => m.back).length
             const done = adopted[pid]
             const cannot = !p.candidateDigest ? (p.outcome === 'not-evaluated' || p.outcome === 'not-yet-judged' ? OUTCOME_WORDS[p.outcome] : 'no candidate was assessed') : done && 'changeId' in done ? 'its Change is open' : ''
             return (
-              <Fragment key={pid}>
-                <GlanceRow name={1} state={2} summary={p.candidateDigest ? <>{p.newFailures.length} new {p.newFailures.length === 1 ? 'failure' : 'failures'}</> : 'Not assessed yet'} labels={["Select", "Project", "Answer", "Score", "Details", "Adoption", "Actions"]}>
+              <GlanceRow key={pid} labels={["Select", "Project", "Answer", "Score", "Details", "Adoption", "Actions"]}>
                   <td><input type="checkbox" aria-label={`adopt on ${p.projectSlug}`} title={cannot || undefined} disabled={!!cannot || asking}
                     checked={ticked.includes(pid)} onChange={(e) => setTicked(e.target.checked ? [...ticked, pid] : ticked.filter((x) => x !== pid))} /></td>
                   <td><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="badge what-if-page-badge">would join</span>}</td>
                   <td><Status word={p.statusLabel} help={OUTCOME_WORDS[p.outcome]} /></td>
                   <td><ScoreLine s={p.score} />{p.fixed > 0 && <div className="muted">{p.fixed} fixed</div>}</td>
-                  <td><details><summary>Check details</summary>
-                    {p.newFailures.map((c, i) => <div key={i}><Check c={c} />{c.exceptedToday && <span> (exception approved)</span>}</div>)}
-                    {p.notAssessedBy.map(g => <p key={g.reason} title={`${g.words}. To assess: ${g.remedy}`}>{g.count} {REASON_SHORT[g.reason] ?? g.words}. {g.remedy}</p>)}
-                    {p.notAssessed.filter(c => !c.block).map((c, i) => <p key={i}>{c.why}</p>)}
-                    {back > 0 && <p>{back} rules move to an older version</p>}
-                    <Moves moves={p.moves} />
-                    {p.sha && <p>Checked commit: <code>{p.sha}</code></p>}
-                  </details></td>
+                  <td><Link to={`/conformance/what-ifs/${w.id}/projects/${p.projectSlug}`}>Check details</Link></td>
                   <td><AdoptedCell a={done} /></td>
-                  <td>{(rows.length > 0 || p.moves.length > 0) && <button className="subtle" onClick={() => setOpen(open === pid ? null : pid)}>{open === pid ? 'hide' : 'details'}</button>}</td>
+                  <td />
                 </GlanceRow>
-                {open === pid && (
-                  <tr><td colSpan={7}><Moves moves={p.moves} />{rows.map((r, i) => <Row key={i} r={r} />)}</td></tr>
-                )}
-              </Fragment>
             )
           })}
         </tbody>
@@ -256,6 +244,21 @@ function Table({ w }: { w: WhatIf }) {
       </div>
     </>
   )
+}
+
+function ProjectResult({ w, p }: { w: WhatIf; p: WhatIf['projects'][number] }) {
+  const rows = w.rows.filter(r => r.projectId === p.projectId && r.result !== 'unchanged' && !RULE_MOVES.has(r.result))
+  const back = p.moves.filter(m => m.back).length
+  return <>
+    <Status word={p.statusLabel} help={OUTCOME_WORDS[p.outcome]} /><ScoreLine s={p.score} />
+    {p.newFailures.map((c, i) => <p key={i}><Check c={c} />{c.exceptedToday && ' (exception approved)'}</p>)}
+    {p.notAssessedBy.map(g => <p key={g.reason}>{g.count} {REASON_SHORT[g.reason] ?? g.words}. {g.remedy}</p>)}
+    {p.notAssessed.filter(c => !c.block).map((c, i) => <p key={i}>{c.why}</p>)}
+    {back > 0 && <p>{back} rules move to an older version</p>}
+    <Moves moves={p.moves} />
+    {p.sha && <p>Checked commit: <code>{p.sha}</code></p>}
+    {rows.map((r, i) => <Row key={i} r={r} />)}
+  </>
 }
 
 // alsoWords names the other packs a what-if moved with its own.
@@ -332,7 +335,7 @@ function Row({ r }: { r: WhatIfRow }) {
             : 'Past fixes of this check: no history.'}
         </div>
       )}
-      {r.brief && <details className="mt-1"><summary>The brief a fix would start from</summary><pre className="what-if-page-row-pre">{r.brief}</pre></details>}
+      {r.brief && <section className="mt-1"><h3>The brief a fix would start from</h3><pre className="what-if-page-row-pre">{r.brief}</pre></section>}
     </div>
   )
 }

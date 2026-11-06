@@ -52,7 +52,7 @@ async function render(answer: (url: string, init?: RequestInit) => unknown) {
   const el = document.createElement('div')
   const root = createRoot(el)
   await act(async () => {
-    root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/conformance/what-ifs/${WHAT_IF}`]}><Routes><Route path="/conformance/what-ifs/:id" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
+    root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/conformance/what-ifs/${WHAT_IF}`]}><Routes><Route path="/conformance/what-ifs/:id/projects/:slug" element={<WhatIfPage />} /><Route path="/conformance/what-ifs/:id" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
   })
   await settled(client)
   return { el, client, done: () => { act(() => root.unmount()); client.clear() } }
@@ -77,19 +77,17 @@ describe('the what-if page', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
     const { el, done } = await render(url => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : whatIf)
     try {
-      const rows = [...el.querySelectorAll('tr.glance-row')]
+      const rows = projectRows(el)
       expect(rows).toHaveLength(4)
-      expect(rows[0].querySelector('.glance-state')?.textContent).toContain('failed')
-      expect(rows[0].querySelector('.glance-fact')?.textContent).toBe('2 new failures')
-      expect(rows[3].querySelector('.glance-fact')?.textContent).toBe('Not assessed yet')
+      expect(rows[0].textContent).toContain('failed')
+      expect(rows[3].textContent).toContain('not evaluated')
       expect(rows[0].textContent).not.toContain('0123456789')
-      await act(async () => { (rows[0] as HTMLElement).click() })
-      expect(rows[0].nextElementSibling?.textContent).toContain('0123456789')
-      const labels = [...rows[0].nextElementSibling!.querySelectorAll('dt')].map(el => el.textContent)
-      expect(labels).toEqual(['Select', 'Score', 'Details', 'Adoption', 'Actions'])
-      const firstView = rows[0].cloneNode(true) as HTMLElement
-      firstView.querySelectorAll('details').forEach(d => d.remove())
-      expect(firstView.textContent).not.toContain('0123456789')
+      const link = rows[0].querySelector<HTMLAnchorElement>(`a[href="/conformance/what-ifs/${WHAT_IF}/projects/ledger"]`)!
+      expect(link.textContent).toBe('Check details')
+      await act(async () => link.click())
+      expect(el.querySelector('h1')?.textContent).toBe('ledger')
+      expect(el.textContent).toContain('0123456789')
+      expect(el.querySelector('details, [aria-expanded]')).toBeNull()
     } finally { done() }
   })
 
@@ -104,18 +102,20 @@ describe('the what-if page', () => {
     // Across projects: the check, how many it is missing from, why, and what would make it assessable.
     expect(text).toContain('img · scan 1 of 4 — no image of the app at this commit could be usedTo assess: the app must ship an image')
     const rows = projectRows(el).map((r) => r.textContent)
-    expect(rows[0]).toContain('ledger● failednew failures3 checks · 1 pass · 2 failCheck detailsdocs · readmedeps · audit (exception approved)')
-    expect(rows[0]).toContain('1 rules move to an older version')
-    expect(rows[0]).toContain('0123456789')
+    expect(rows[0]).toContain('ledger● failednew failures3 checks · 1 pass · 2 failCheck details')
+    expect(rows[0]).not.toContain('0123456789')
     expect(rows[1]).toContain('till● unknowncould not assess2 checks · 1 pass · 1 could not be checked1 fixed')
-    expect(rows[1]).toContain('1 need an image')
-    expect(projectRows(el)[1].querySelector('[title="no image of the app at this commit could be used. To assess: the app must ship an image"]')).not.toBeNull()
+    expect(projectRows(el)[1].querySelector('a[href$="/projects/till"]')).not.toBeNull()
     expect(rows[2]).toContain('shopwould join● passedno new failuresno checks')
     expect(rows[3]).toContain('mail● unknownnot evaluated')
     expect(button(el, 'Recommend v2')).toBeUndefined()
     expect(el.querySelector(`a[href="/packs/team?whatIf=${WHAT_IF}"]`)).not.toBeNull()
     expect(el.querySelector('a[href="/evals/new?pack=team&version=2"]')).not.toBeNull()
-    await act(async () => { button(el, 'details').click() })
+    await act(async () => { (projectRows(el)[0].querySelector(`a[href="/conformance/what-ifs/${WHAT_IF}/projects/ledger"]`) as HTMLAnchorElement).click() })
+    expect(el.textContent).toContain('1 rules move to an older version')
+    expect(el.textContent).toContain('0123456789')
+    expect(el.textContent).toContain('docs · readme')
+    expect(el.textContent).toContain('deps · audit (exception approved)')
     expect(el.textContent).toContain('would fail')
     expect(el.textContent).toContain('no README')
     expect(el.textContent).not.toContain('hygiene · fixme')
@@ -249,7 +249,7 @@ describe('the what-if page', () => {
     const el = document.createElement('div')
     const root = createRoot(el)
     await act(async () => {
-      root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/conformance/what-ifs/${WHAT_IF}`]}><Routes><Route path="/conformance/what-ifs/:id" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
+      root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/conformance/what-ifs/${WHAT_IF}`]}><Routes><Route path="/conformance/what-ifs/:id/projects/:slug" element={<WhatIfPage />} /><Route path="/conformance/what-ifs/:id" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
     })
     await settled(client)
     for (const slug of ['ledger', 'shop']) await act(async () => { (el.querySelector(`input[aria-label="adopt on ${slug}"]`) as HTMLInputElement).click() })

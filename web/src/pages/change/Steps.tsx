@@ -159,7 +159,7 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
         </div>
       )}
       {step.type === 'preview' && step.evidence.screenshots && (
-        <Screenshots unfolded shots={step.evidence.screenshots} head={head} at={step.finishedAt ?? undefined} />
+        <Screenshots shots={step.evidence.screenshots} head={head} at={step.finishedAt ?? undefined} />
       )}
       {(step.type === 'agent/pi' || step.type === 'preview' || step.type === 'build') && ev.reason != null && (
         <div className="error">{ev.reason}{ev.logTail ? <pre className="log">{ev.logTail}</pre> : null}</div>

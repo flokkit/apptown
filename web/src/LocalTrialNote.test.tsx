@@ -43,7 +43,8 @@ describe('the desktop trial first run', () => {
 
   it('names the product on the first-account page', () => {
     const el = render(<Login needsBootstrap onSignedIn={() => {}} />)
-    expect(el.querySelector('b')?.textContent).toBe('AppTown')
+    expect(el.querySelector('h1')?.textContent).toBe('Create the first administrator')
+    expect(el.textContent).toContain('AppTown')
     expect(el.textContent).not.toContain("forge's")
   })
 })
