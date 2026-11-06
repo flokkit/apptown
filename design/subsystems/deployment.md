@@ -118,7 +118,8 @@ known contract requirements inside project creation. Refusal rolls back creation
 A person with deploy authority is recorded as the follows-main setter; agent
 credentials leave that feed unconfirmed. With the default choice, missing default
 placement or denied deploy authority leaves no deployment, as with ordinary
-project creation. Later landings release only existing follows-main deployments.
+project creation. Existing deployments that follow main request each later
+landing’s bundle.
 
 ## Landing builds and follows-main releases
 
@@ -399,7 +400,7 @@ A held deployment admits no attempt (`Outcomes.Admit` refuses it, except a
 `ExecuteRelease` before any preparation, for releases queued before the
 backup), no data restore and, while `unconfirmed`, no take-down. After an
 adoption, the bundle of the release AppTown last shipped there may be
-deployed by hand, also on a landing-fed deployment (`handBundle`).
+deployed by hand, also on a deployment that follows main (`handBundle`).
 
 ## Releasing over data AppTown cannot copy
 

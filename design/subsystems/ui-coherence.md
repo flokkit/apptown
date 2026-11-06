@@ -164,7 +164,7 @@ are omitted from the timeline; workflow names and versions belong in the facts.
 
 The earlier UI pass is a dated implementation record. It did not define the later
 plugin contribution-slot vocabulary. That vocabulary remains a prerequisite for
-the proposed structured Codex chat surface; see [plugins](plugins.md#ui-extension).
+the proposed structured Codex chat surface; see [plugins](plugins.md).
 
 This audit checked routes and page consumers in source. It did not perform a
 browser usability review or assert that the current deployment matches local HEAD.

@@ -6,13 +6,13 @@ Before anything ships, AppTown checks it for the
 things you would not want to discover later: dependencies with known
 security holes, a password or token committed by accident, and it
 records exactly what is inside the build. A scan that finds something
-stops the ship and shows you what and where.
+blocks the landing and shows you what and where.
 
 Every landing runs every attached source scanner (dependencies,
 secrets, SBOM by default) on the committed tree before the approval,
 and every attached image scanner (trivy by default) on the public part's
 image: pulled by its declared reference, or built from the landing's commit
-(or found cached for that commit); failed scans block the deploy. The release
+(or found cached for that commit); failed scans block the landing. The release
 resolves its own images, so the scan's receipt names the image it scanned and
 how it got it, not the release's digest, and lists the other parts and init
 steps, which it does not scan.

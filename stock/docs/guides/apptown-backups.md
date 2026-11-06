@@ -172,7 +172,7 @@ import into them again.
   restored data. An app whose last release did not
   record how to rebuild it is named by the restore. A promotion-fed deployment
   can take a new release through its normal checks, followed by restoring its
-  copy from backup. A landing-fed deployment needs recorded bundle provenance
+  copy from backup. A deployment that follows main needs recorded bundle provenance
   for a manual redeploy; unknown historical software cannot be inferred from
   its name or revision. A failure with one app does not stop the others.
 - **App Platform and Portainer deployments** stay where they are. AppTown

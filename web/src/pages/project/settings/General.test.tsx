@@ -27,6 +27,7 @@ function mount(answer: () => Response, onChanged: () => void = () => {}) {
   const sent: Record<string, unknown>[] = []
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === 'PATCH') { sent.push(JSON.parse(String(init.body))); return answer() }
+    if (url.endsWith('/overview')) return new Response(JSON.stringify({ repo: { defaultBranch: 'main', commits: 1, head: { sha: 'abc', subject: 'Initial', when: '' } } }))
     return new Response(url.endsWith('/projects') || url.endsWith('/deployments') ? '[]' : '{}')
   }))
   const client = newQueryClient()
@@ -47,6 +48,7 @@ describe('project settings form', () => {
     const f = mount(() => new Response(JSON.stringify({ ...project(''), blurbSource: 'generated' })))
     try {
       await f.render({ ...project('Truck roster'), blurbSource: 'person' })
+      await vi.waitFor(() => expect([...f.el.querySelectorAll('h2')].map(h => h.textContent)).toEqual(['Project details', 'Repository', 'Delete project']))
       expect(f.el.textContent).toContain('Description (edited by you)')
       await act(async () => { type(f.inputs()[2], '') })
       await act(async () => { f.button('Save')!.click() })

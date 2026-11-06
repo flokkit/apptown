@@ -30,8 +30,9 @@ and what has to be true at the end.
    their name.
 5. **AppTown** lands it: catch up with main, tests, scanners, the way
    of working's checks judged on what the change introduced (C15), the
-   approval inherited from the acceptance, merge, image scan, deploy to
-   main (C13). *Receipt:* the bundle and the release record.
+   image scan, approval inherited from the acceptance, merge, then build
+   the runtime bundle (C13). Deployments that follow main request the bundle
+   separately. *Receipt:* the bundle, then each deployment's release record.
 
 **Done when:** `main` carries the merge, the standing deployment serves
 it, and the change reads shipped. **The boundary that matters:** the

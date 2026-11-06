@@ -21,7 +21,7 @@ metadata:
   description: Small change, one glance.
   tier: core            # core | extras — how the library shows it; system workflows have none
   category: change
-  system: true          # only on AppTown's own workflows (land, ship, …); never picked
+  system: true          # only on AppTown's own workflows (land, adopt-integration, …); never picked
   deprecated: false
 spec: ...
 ```
@@ -54,8 +54,7 @@ spec:
 - **`lifecycle`** ("paced by people"): stages wait at their gates for a
   person; advancing is requested and gate-checked.
 - **`pipeline`** ("runs straight through"): stages advance on their own
-  when their checks pass. The landing (`land`) and shipping (`ship`)
-  workflows are pipelines.
+  when their checks pass. The landing (`land`) workflow is a pipeline.
 - **`role`** says what the workflow is for: a **working** lane is a way of
   working on a change that a person picks; a **landing** workflow is the
   system's, run for every project when a change is accepted.

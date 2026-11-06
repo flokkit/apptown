@@ -475,15 +475,15 @@ Three tiers, one caching rule each, all provably fresh:
 flowchart LR
     BR[browser] --> FD{front door<br/>by hostname}
     FD -->|change-41.preview.*| PC[preview container<br/>built from the change's tree<br/>always no-cache]
-    FD -->|slug.main.*| EC[deployment container<br/>latest landed main]
+    FD -->|slug.main.*| EC[deployment container<br/>last successful release]
     BR -->|the target's own address| RC[release on a target<br/>exact receipted image]
 ```
 
 - A **preview** exists to show the latest edit: its container is
   fingerprint-gated (a changed tree kills and rebuilds it) and its
   responses are never cached.
-- A **deployment** serves what landed on main, redeployed by the
-  landing run.
+- A **deployment** runs a released bundle. A deployment that follows main
+  requests each completed landing’s bundle and releases it separately.
 - A **release** is recorded by image digest: every later deploy of it
   runs exactly those bytes. It is built from the landed source. Landing
   makes a merge commit whose files are exactly those of the change the

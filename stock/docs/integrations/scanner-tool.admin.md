@@ -25,8 +25,8 @@ at `/work`) or `target: image` (the built container, handed over as a
 tarball — write `${IMAGE_TAR}` in the command). Test pulls the image
 before you save.
 
-Attaching is the whole act: the stock `land` and `ship` workflows carry
-*scan points* (`on: source` in the gates, `on: image` before deploy)
+Attaching is the whole act: the stock `land` workflow carries
+*scan points* (`on: source` in the gates, `on: image` in the gates)
 that run every attached scanner with that target, each as its own check
 with its own receipt. Nobody edits a workflow to add a scanner.
 
@@ -62,7 +62,8 @@ detected.
 ## Policy hooks
 
 `scanner-bound` requires the capability bound; `build-requires-scan`
-gates deploys on scans (`scan-failon-ceiling` ships too). The stock `land` workflow runs every
-source scanner before the approval and every image scanner before the
-deploy; `ship` does the same for lanes that call it. Every lane hardens
-by attaching a scanner, not by editing a workflow.
+requires scans before a build (`scan-failon-ceiling` ships too). The stock
+`land` workflow runs every source and image scanner before approval. Image scanners pull or build the image they check.
+After merging, landing builds the runtime bundle. Deployments that follow
+main request that bundle separately. Attach a scanner to include it in
+landings; no workflow edit is needed.

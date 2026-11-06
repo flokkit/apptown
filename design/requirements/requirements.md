@@ -480,10 +480,10 @@ change is judged on what it introduced: a finding that already fails on
 with `main`, tests, the source scanners, the way of working's checks, the
 image scan, one human approval (the acceptance counts for it where the
 accepter could approve it, was shown its sentence and the checks raised
-nothing new), merge, deploy to the
-project's `main` deployment, release record. Done when: `main`
-carries the merge and the standing deployment serves it. *Land run on
-the change page.*
+nothing new), merge, then build the runtime bundle or clean tree. Done when:
+`main` carries the merge and the build is complete. Deployments that follow
+main request the bundle separately under their setter's deploy authority.
+*Land run on the change page.*
 
 **C14 Look at an old release.** A maintainer boots the exact bytes of a
 past release on the preview tier beside today's version, with fresh
