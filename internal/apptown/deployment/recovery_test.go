@@ -1,4 +1,4 @@
-package deployment_test
+package deployment
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -16,85 +15,85 @@ import (
 var errRead = errors.New("read unavailable")
 var errWrite = errors.New("write unavailable")
 
-type source struct {
-	snapshot            deployment.Snapshot
-	target              deployment.RecoveryTarget
+type recoveryFixtureSource struct {
+	snapshot            Snapshot
+	target              RecoveryTarget
 	loadErr, prepareErr error
 	prepared            int
 }
 
-func (s *source) LoadAttempt(context.Context, ids.ID) (deployment.Snapshot, error) {
+func (s *recoveryFixtureSource) LoadAttempt(context.Context, ids.ID) (Snapshot, error) {
 	return s.snapshot, s.loadErr
 }
-func (s *source) PrepareObservation(context.Context, deployment.Attempt) (deployment.RecoveryTarget, error) {
+func (s *recoveryFixtureSource) PrepareObservation(context.Context, Attempt) (RecoveryTarget, error) {
 	s.prepared++
 	return s.target, s.prepareErr
 }
 
-type observer func(context.Context, deployment.Attempt, map[string]any, func(string, ...any)) (deploy.Observation, error)
+type recoveryFixtureObserver func(context.Context, Attempt, map[string]any, func(string, ...any)) (deploy.Observation, error)
 
-func (o observer) Resume(ctx context.Context, at deployment.Attempt, checkpoint map[string]any, log func(string, ...any)) (deploy.Observation, error) {
+func (o recoveryFixtureObserver) Resume(ctx context.Context, at Attempt, checkpoint map[string]any, log func(string, ...any)) (deploy.Observation, error) {
 	return o(ctx, at, checkpoint, log)
 }
 
-type settlement struct {
+type executionSettlement struct {
 	calls                              []string
-	attempt                            deployment.Attempt
-	completion                         deployment.Completion
+	attempt                            Attempt
+	completion                         Completion
 	cause                              error
-	outcome                            deployment.Outcome
+	outcome                            Outcome
 	completeErr, failErr, uncertainErr error
 }
 
-func (s *settlement) Complete(ctx context.Context, c deployment.Completion) (deployment.Outcome, error) {
+func (s *executionSettlement) Complete(ctx context.Context, c Completion) (Outcome, error) {
 	s.calls = append(s.calls, "complete")
 	s.completion = c
 	s.attempt = c.Attempt
 	return s.outcome, s.completeErr
 }
-func (s *settlement) Fail(ctx context.Context, at deployment.Attempt, cause error) (deployment.Outcome, error) {
+func (s *executionSettlement) Fail(ctx context.Context, at Attempt, cause error) (Outcome, error) {
 	s.calls = append(s.calls, "fail")
 	s.attempt = at
 	s.cause = cause
 	return s.outcome, s.failErr
 }
-func (s *settlement) Uncertain(ctx context.Context, at deployment.Attempt, cause error) (deployment.Outcome, error) {
+func (s *executionSettlement) Uncertain(ctx context.Context, at Attempt, cause error) (Outcome, error) {
 	s.calls = append(s.calls, "uncertain")
 	s.attempt = at
 	s.cause = cause
-	if s.outcome == deployment.Applied {
-		return deployment.Uncertain, s.uncertainErr
+	if s.outcome == Applied {
+		return Uncertain, s.uncertainErr
 	}
 	return s.outcome, s.uncertainErr
 }
 
-type reporter struct {
+type recoveryFixtureReporter struct {
 	applied  int
 	releases []ids.ID
 	logs     []string
 }
 
-func (r *reporter) Log(releaseID ids.ID, format string, args ...any) {
+func (r *recoveryFixtureReporter) Log(releaseID ids.ID, format string, args ...any) {
 	r.releases = append(r.releases, releaseID)
 	r.logs = append(r.logs, fmt.Sprintf(format, args...))
 }
-func (r *reporter) Applied(ids.ID) { r.applied++ }
+func (r *recoveryFixtureReporter) Applied(ids.ID) { r.applied++ }
 
-func fixture(t *testing.T) (deployment.Recoverer, *source, *settlement, *reporter, *int) {
+func recoveryFixture(t *testing.T) (Recoverer, *recoveryFixtureSource, *executionSettlement, *recoveryFixtureReporter, *int) {
 	t.Helper()
-	at := deployment.Attempt{ID: idstest.N(7), DeploymentID: idstest.N(3), Generation: 2}
-	s := &source{snapshot: deployment.Snapshot{Attempt: at, Status: deployment.AttemptUncertain, Checkpoint: map[string]any{"providerID": "original"}}}
+	at := Attempt{ID: idstest.N(7), DeploymentID: idstest.N(3), Generation: 2}
+	s := &recoveryFixtureSource{snapshot: Snapshot{Attempt: at, Status: AttemptUncertain, Checkpoint: map[string]any{"providerID": "original"}}}
 	calls := new(int)
-	s.target = deployment.RecoveryTarget{ReleaseID: idstest.N(11), DesiredGeneration: 2, Observer: observer(func(ctx context.Context, got deployment.Attempt, checkpoint map[string]any, log func(string, ...any)) (deploy.Observation, error) {
+	s.target = RecoveryTarget{ReleaseID: idstest.N(11), DesiredGeneration: 2, Observer: recoveryFixtureObserver(func(ctx context.Context, got Attempt, checkpoint map[string]any, log func(string, ...any)) (deploy.Observation, error) {
 		*calls++
 		if got != at || !reflect.DeepEqual(checkpoint, s.snapshot.Checkpoint) {
 			t.Fatal("lost admitted identity")
 		}
 		return deploy.Observation{Generation: 2, Rollout: "active", URL: "https://app.example"}, nil
 	})}
-	store := &settlement{outcome: deployment.Applied}
-	report := &reporter{}
-	return deployment.Recoverer{Source: s, Store: store, Reporter: report}, s, store, report, calls
+	store := &executionSettlement{outcome: Applied}
+	report := &recoveryFixtureReporter{}
+	return Recoverer{Source: s, Store: store, Reporter: report}, s, store, report, calls
 }
 
 func TestRecoverySettlesOnlyConfirmedEffects(t *testing.T) {
@@ -110,9 +109,9 @@ func TestRecoverySettlesOnlyConfirmedEffects(t *testing.T) {
 		{"timeout", context.DeadlineExceeded, "uncertain", "uncertain", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			r, s, store, report, calls := fixture(t)
+			r, s, store, report, calls := recoveryFixture(t)
 			original := s.target.Observer
-			s.target.Observer = observer(func(ctx context.Context, at deployment.Attempt, checkpoint map[string]any, log func(string, ...any)) (deploy.Observation, error) {
+			s.target.Observer = recoveryFixtureObserver(func(ctx context.Context, at Attempt, checkpoint map[string]any, log func(string, ...any)) (deploy.Observation, error) {
 				o, _ := original.Resume(ctx, at, checkpoint, log)
 				return o, tc.cause
 			})
@@ -140,18 +139,18 @@ func TestRecoverySettlesOnlyConfirmedEffects(t *testing.T) {
 func TestRecoveryReadAndReplayDoNotContactProvider(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
-		status  deployment.AttemptState
+		status  AttemptState
 		loadErr error
 		outcome string
 	}{
-		{"absent", 0, deployment.ErrAttemptAbsent, "absent"},
+		{"absent", 0, ErrAttemptAbsent, "absent"},
 		{"read failed", 0, errRead, ""},
-		{"done", deployment.AttemptDone, nil, "done"},
-		{"failed", deployment.AttemptFailed, nil, "failed"},
-		{"superseded", deployment.AttemptSuperseded, nil, "superseded"},
+		{"done", AttemptDone, nil, "done"},
+		{"failed", AttemptFailed, nil, "failed"},
+		{"superseded", AttemptSuperseded, nil, "superseded"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			r, s, store, report, calls := fixture(t)
+			r, s, store, report, calls := recoveryFixture(t)
 			s.loadErr = tc.loadErr
 			s.snapshot.Status = tc.status
 			got, err := r.Run(context.Background(), idstest.N(7))
@@ -166,7 +165,7 @@ func TestRecoveryReadAndReplayDoNotContactProvider(t *testing.T) {
 }
 
 func TestRecoveryMissingInputsRemainUncertain(t *testing.T) {
-	r, s, store, report, calls := fixture(t)
+	r, s, store, report, calls := recoveryFixture(t)
 	s.prepareErr = errRead
 	got, err := r.Run(context.Background(), idstest.N(7))
 	if !errors.Is(err, errRead) || got.Outcome != "uncertain" || *calls != 0 || !reflect.DeepEqual(store.calls, []string{"uncertain"}) || report.applied != 0 {
@@ -175,10 +174,10 @@ func TestRecoveryMissingInputsRemainUncertain(t *testing.T) {
 }
 
 func TestRecoveryChecksGenerationBeforeObservationAndAfterSettlement(t *testing.T) {
-	for _, out := range []deployment.Outcome{deployment.Superseded, deployment.AlreadyApplied} {
+	for _, out := range []Outcome{Superseded, AlreadyApplied} {
 		for _, before := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/before=%v", out, before), func(t *testing.T) {
-				r, s, store, report, calls := fixture(t)
+				r, s, store, report, calls := recoveryFixture(t)
 				store.outcome = out
 				if before {
 					s.target.DesiredGeneration++
@@ -202,11 +201,11 @@ func TestRecoveryCancellationDoesNotSettle(t *testing.T) {
 	for _, after := range []bool{false, true} {
 		for _, cause := range []error{nil, errors.New("lost response"), deploy.Terminal(errors.New("rejected"))} {
 			t.Run(fmt.Sprintf("after=%v/cause=%v", after, cause), func(t *testing.T) {
-				r, s, store, report, calls := fixture(t)
+				r, s, store, report, calls := recoveryFixture(t)
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 				original := s.target.Observer
-				s.target.Observer = observer(func(ctx context.Context, at deployment.Attempt, checkpoint map[string]any, log func(string, ...any)) (deploy.Observation, error) {
+				s.target.Observer = recoveryFixtureObserver(func(ctx context.Context, at Attempt, checkpoint map[string]any, log func(string, ...any)) (deploy.Observation, error) {
 					o, _ := original.Resume(ctx, at, checkpoint, log)
 					cancel()
 					return o, cause
@@ -230,7 +229,7 @@ func TestRecoveryCancellationDoesNotSettle(t *testing.T) {
 func TestRecoverySettlementWriteFailureCannotReportSuccess(t *testing.T) {
 	for _, uncertainFails := range []bool{false, true} {
 		t.Run(fmt.Sprint(uncertainFails), func(t *testing.T) {
-			r, _, store, report, _ := fixture(t)
+			r, _, store, report, _ := recoveryFixture(t)
 			store.completeErr = errWrite
 			if uncertainFails {
 				store.uncertainErr = errWrite
@@ -250,21 +249,21 @@ func TestRecoverySettlementWriteFailureCannotReportSuccess(t *testing.T) {
 }
 
 func TestRecoveryFailureWriteAndConcurrentUncertaintySettlement(t *testing.T) {
-	r, s, store, report, _ := fixture(t)
-	s.target.Observer = observer(func(context.Context, deployment.Attempt, map[string]any, func(string, ...any)) (deploy.Observation, error) {
+	r, s, store, report, _ := recoveryFixture(t)
+	s.target.Observer = recoveryFixtureObserver(func(context.Context, Attempt, map[string]any, func(string, ...any)) (deploy.Observation, error) {
 		return deploy.Observation{}, deploy.Terminal(errors.New("rejected"))
 	})
 	store.failErr = errWrite
 	if _, err := r.Run(context.Background(), idstest.N(7)); !errors.Is(err, errWrite) || len(report.logs) != 0 {
-		t.Fatalf("failed settlement: %v logs=%v", err, report.logs)
+		t.Fatalf("failed executionSettlement: %v logs=%v", err, report.logs)
 	}
-	for _, out := range []deployment.Outcome{deployment.Superseded, deployment.AlreadyApplied} {
-		r, s, store, report, _ := fixture(t)
+	for _, out := range []Outcome{Superseded, AlreadyApplied} {
+		r, s, store, report, _ := recoveryFixture(t)
 		s.prepareErr = errRead
 		store.outcome = out
 		got, err := r.Run(context.Background(), idstest.N(7))
 		if err != nil || got.Outcome != string(out) || len(report.logs) != 0 || report.applied != 0 {
-			t.Fatalf("concurrent settlement: %+v %v", got, err)
+			t.Fatalf("concurrent executionSettlement: %+v %v", got, err)
 		}
 	}
 }

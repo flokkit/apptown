@@ -158,7 +158,9 @@ catch up in the chat and land again"]
 tests · scans · approval"]
     G --> MG["merge to main,
 only if main and the branch haven't moved"]
-    MG --> D["deploy · release"]
+    MG --> B["build bundle or clean tree"]
+    B --> L["landed"]
+    L --> D["release requests for follows-main deployments"]
 ```
 
 Why?
@@ -195,9 +197,11 @@ moved).
 
 ## Approval: what a person agrees to
 
-A landing merges into `main` and deploys only when a person has approved
-it, or a person allowed to land changes started it. The check is made at the
-merge and at the deploy, so it holds however the landing was started.
+A landing merges into `main` only when a person has approved it, or someone
+allowed to land changes started it. The merge checks that authority however
+the landing was started. Deployment is authorized separately: automatic
+requests use each follows-main setting's recorded setter and credential,
+rechecked before execution. Landing approvers remain part of the record.
 Coding agents, chats, workflow steps and AppTown's own schedules can ask
 for a landing; they cannot approve one, and they cannot stand in for that
 person.

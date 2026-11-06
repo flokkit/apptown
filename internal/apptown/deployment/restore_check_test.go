@@ -263,7 +263,7 @@ func TestTheRecordedReleaseCanBeDeployedAgainAfterAnAdoption(t *testing.T) {
 		Handle: map[string]any{"appId": "app-1", "deploymentId": "dep-1"}}}); err != nil {
 		t.Fatal(err)
 	}
-	mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.Feed = "landing" })
+	mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.Feed = "main" })
 	driver.observed = deploy.Observation{Rollout: "active", Running: "dep-9"}
 	if _, err := s.Deployments.HoldAfterRestore(ctx); err != nil {
 		t.Fatal(err)

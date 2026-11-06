@@ -11,7 +11,7 @@ import (
 
 // Automatic runner kinds come from the execution registry; SQL binds this value.
 func autoStepTypes() []string {
-	keys := []string{workflowexec.CallKind, workflowexec.MergeRequestKind, workflowexec.ReconcileKind, workflowexec.DeployKind, workflowexec.PreviewKind, workflowexec.ScriptKind, workflowexec.TestsKind, workflowexec.AgentKind, workflowexec.ReviewKind, verification.ScanKind, verification.GuidanceKind}
+	keys := []string{workflowexec.CallKind, workflowexec.MergeRequestKind, workflowexec.ReconcileKind, workflowexec.BuildKind, workflowexec.PreviewKind, workflowexec.ScriptKind, workflowexec.TestsKind, workflowexec.AgentKind, workflowexec.ReviewKind, verification.ScanKind, verification.GuidanceKind}
 	sort.Strings(keys)
 	return keys
 }

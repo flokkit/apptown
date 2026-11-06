@@ -53,7 +53,7 @@ func newPortainerNeeds(t *testing.T) (*promotionTargets, *ReleaseBundle, *backup
 	}
 	p.revision = strings.TrimSpace(head)
 	asked := &backupsAsked{}
-	p.s.providers.afterRelease = asked.ask
+	p.s.release.Data = asked
 	// The release door resolves secrets as AppTown's wiring does
 	// (release_wiring.go), from the secrets store the intranet door reads.
 	p.s.release.Secrets = storeSecrets{p.s.env.secrets}
@@ -599,16 +599,28 @@ func TestANamedPortainerReleaseOfAnUnpublishedBundleIsRefusedWhenAsked(t *testin
 // on failure; the wrapper must never request a backup of that failed rollout.
 func TestPortainerReconcileFailureDoesNotRequestBackup(t *testing.T) {
 	t.Parallel()
-	asked := &backupsAsked{}
 	entered := false
 	failure := errors.New("provider unavailable")
-	d := &portainerRelease{Driver: &portainer.Driver{Config: func(context.Context, ids.ID) (*portainer.Target, error) { entered = true; return nil, failure }}, providers: &Providers{afterRelease: asked.ask}, target: &Target{ID: idstest.N(9)}, dep: &Deployment{ID: idstest.N(8), ProjectID: idstest.N(7), Name: "customer-blue"}}
+	d := &portainerRelease{Driver: &portainer.Driver{Config: func(context.Context, ids.ID) (*portainer.Target, error) { entered = true; return nil, failure }}, providers: &Providers{}, target: &Target{ID: idstest.N(9)}, dep: &Deployment{ID: idstest.N(8), ProjectID: idstest.N(7), Name: "customer-blue"}}
 	ingress := &deploy.Ingress{Hosts: []string{"blue.apps.example"}, CertificateDomain: "apps.example", URL: "https://blue.apps.example"}
 	observation, err := d.Reconcile(t.Context(), deploy.Placement{ID: d.dep.ID}, 1, deploy.Artifact{Kind: "compose", Source: &deploy.Source{Ingress: ingress}}, "request", func(string, ...any) {}, nil)
 	if !entered || err == nil || !strings.Contains(err.Error(), failure.Error()) || observation.Rollout == "active" {
 		t.Fatalf("driver failure not exercised: %+v %v", observation, err)
 	}
-	if got := asked.of(); len(got) != 0 {
-		t.Fatalf("failed/non-active rollout requested backups: %v", got)
-	}
+
 }
+
+func (b *backupsAsked) BeforeRelease(context.Context, ids.ID, string, bool) (ReleaseWitness, error) {
+	return portainerCopyWitness{}, nil
+}
+func (b *backupsAsked) AfterRelease(project ids.ID, name string) { b.ask(project, name) }
+
+type portainerCopyWitness struct{}
+
+func (portainerCopyWitness) Complete() bool { return true }
+func (portainerCopyWitness) CopyEvidence() json.RawMessage {
+	return json.RawMessage(`{"outcome":"no-data","reason":"test fixture has no prior data"}`)
+}
+func (portainerCopyWitness) CopyWords() string                                    { return "test fixture has no prior data" }
+func (portainerCopyWitness) BackupID() ids.ID                                     { return ids.Nil }
+func (portainerCopyWitness) After(context.Context, []string) ([]string, []string) { return nil, nil }

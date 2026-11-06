@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS deployments (
   desired_generation  BIGINT NOT NULL DEFAULT 0,
   observed_generation BIGINT NOT NULL DEFAULT 0,
   readiness    TEXT NOT NULL DEFAULT 'reconciled', -- reconciled | reconciling | uncertain | failed
-  feed         TEXT NOT NULL DEFAULT 'landing',    -- landing | promotion | schedule | manual
+  feed         TEXT NOT NULL DEFAULT 'main' CHECK (feed IN ('main', 'promotion', 'manual')),
   audience     TEXT NOT NULL DEFAULT 'team',       -- team | organisation | partners | public
   data_class   TEXT NOT NULL DEFAULT 'synthetic',  -- synthetic | non-production | production
   url          TEXT NOT NULL DEFAULT '',
@@ -77,6 +77,9 @@ CREATE TABLE IF NOT EXISTS deployments (
   -- filling until the rebuild that puts its data back has ended. '' otherwise.
   restore_check TEXT NOT NULL DEFAULT '' CONSTRAINT deployment_restore_check CHECK (restore_check IN ('', 'unconfirmed', 'gone', 'filling', 'not-filled')),
   display_label TEXT NOT NULL DEFAULT '',
+  feed_revision BIGINT NOT NULL DEFAULT 1 CHECK (feed_revision > 0),
+  feed_authority_json JSONB,
+  promoted_from_id UUID REFERENCES deployments(id),
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
   UNIQUE(project_id, name)
 );
@@ -124,14 +127,14 @@ CREATE TABLE IF NOT EXISTS release_bundles (
   registry          TEXT NOT NULL DEFAULT '',
   platform          TEXT NOT NULL DEFAULT '',             -- os/arch, a digest bundle's
   built_on_json     JSONB NOT NULL DEFAULT '{}'::jsonb,   -- where a digest bundle was built
-  -- The deploy step attempt that committed the bundle; 0 for bundles
+  -- The build step attempt that committed the bundle; 0 for bundles
   -- committed before attempts were recorded.
   run_id UUID,
   step_id UUID,
   attempt           BIGINT NOT NULL DEFAULT 0,
   CONSTRAINT release_bundle_form CHECK (registry = '' OR (platform <> '' AND target_id IS NULL AND attempt > 0))
 );
--- One bundle per deploy step attempt.
+-- One bundle per build step attempt.
 CREATE UNIQUE INDEX IF NOT EXISTS release_bundles_attempt ON release_bundles(step_id, attempt) WHERE attempt > 0;
 -- One attempt to bring a deployment to a generation (§2.4): the
 -- idempotency key makes a retry the same attempt.
@@ -270,7 +273,11 @@ CREATE TABLE IF NOT EXISTS release_requests (
   provider_binding_json JSONB,
   ingress_json JSONB,
   authority_json JSONB,
-  require_promotion BOOLEAN NOT NULL DEFAULT false
+  require_promotion BOOLEAN NOT NULL DEFAULT false,
+  feed_revision BIGINT,
+  landing_approvers TEXT NOT NULL DEFAULT '',
+  backup_evidence_json JSONB,
+  uncopied_acceptance_json JSONB
 );
 -- An operator's override of one part's resources on one deployment
 -- (design/subsystems/deployment.md): set as a recorded act,

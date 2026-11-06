@@ -59,7 +59,19 @@ spec:
       steps:
         - {name: scan, uses: scan, with: {on: source}}
 `)
-	if err := a.Ways.BindSystemWorkflow(t.Context(), "land", "ship", "fixture"); err != nil {
+	seedLibraryWorkflow(t, a, ch.ProjectID, "no-assent-landing", `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata: {name: no-assent-landing, system: true}
+spec:
+  kind: pipeline
+  role: landing
+  stages:
+    - name: gates
+      steps: [{name: scan, uses: scan, with: {on: source}}]
+    - name: ship
+      steps: [{name: build, uses: build}]
+`)
+	if err := a.Ways.BindSystemWorkflow(t.Context(), "land", "no-assent-landing", "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	if w := bearerCall(a, agent, "POST", fmt.Sprintf("/api/v1/changes/%d/runs", ch.ID), `{"workflow":"quiet-work"}`); w.Code != 201 {
@@ -91,13 +103,13 @@ spec:
 
 // Remediation admits its run without the start-time check; the
 // AppTown's own instrument is no person, so its deploy waits.
-func TestARemediationRunDoesNotDeployWithoutAPerson(t *testing.T) {
+func TestARemediationRunMayBuildWithoutDeploying(t *testing.T) {
 	t.Parallel()
 	a, _, item, def := remediationAttemptFixture(t, false)
 	installFakeGit(t, a, nil)
 	deployed := false
 	fixture := installDispatchFixture(t, a)
-	fixture.runners["deploy"] = func(task *workflow.Execution) {
+	fixture.runners["build"] = func(task *workflow.Execution) {
 		if _, err := task.Claim(); err != nil {
 			return // refused at the effect
 		}
@@ -106,7 +118,7 @@ func TestARemediationRunDoesNotDeployWithoutAPerson(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	def.Run.Spec = schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "deploy", Steps: []schema.Step{{Name: "deploy", Uses: "deploy"}}}}}
+	def.Run.Spec = schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "build", Steps: []schema.Step{{Name: "build", Uses: "build"}}}}}
 	run, err := remediationAttemptsFor(a).Start(context.Background(), item, def, "review-worker")
 	if err != nil {
 		t.Fatalf("remediation start: %v", err)
@@ -115,16 +127,16 @@ func TestARemediationRunDoesNotDeployWithoutAPerson(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.Work.Wait()
-	if deployed {
-		t.Fatal("AppTown's own remediation deployed with no person")
+	if !deployed {
+		t.Fatal("a build required deploy assent")
 	}
-	requireStepWaitingOnAPerson(t, a, run.ID, "deploy")
+	requireReleases(t, a, run.ProjectID, 0, nil)
 }
 
 // A send-back is a fresh root; the person's start of the first run
 // authorizes nothing in it. An agent's send-back reaches the deploy and
 // waits there.
-func TestAnAgentsSendBackDoesNotRedeploy(t *testing.T) {
+func TestAnAgentsSendBackMayBuildWithoutDeploying(t *testing.T) {
 	t.Parallel()
 	a, agent, ch, _ := shipFixture(t)
 	seedLibraryWorkflow(t, a, ch.ProjectID, "work-and-deploy", `apiVersion: apptown.dev/v1
@@ -138,7 +150,7 @@ spec:
       onEnter:
         - {name: edit, uses: agent/pi, with: {prompt: "Make the requested edit"}}
       steps:
-        - {name: publish, uses: deploy, with: {deployment: main}}
+        - {name: publish, uses: build}
 `)
 	deploys := 0
 	fixture := installDispatchFixture(t, a)
@@ -151,7 +163,7 @@ spec:
 			t.Error(err)
 		}
 	}
-	fixture.runners["deploy"] = func(task *workflow.Execution) {
+	fixture.runners["build"] = func(task *workflow.Execution) {
 		if _, err := task.Claim(); err != nil {
 			return // refused at the effect
 		}
@@ -173,9 +185,10 @@ spec:
 		t.Fatalf("send-back: %d %s", w.Code, w.Body.String())
 	}
 	a.Work.Wait()
-	if deploys != 1 {
-		t.Fatalf("the agent's send-back redeployed: %d", deploys)
+	if deploys != 2 {
+		t.Fatalf("the agent send-back should build again: %d", deploys)
 	}
+	requireReleases(t, a, ch.ProjectID, 0, nil)
 }
 
 // A run admitted before this rule carries no landing fact (the
@@ -186,17 +199,20 @@ func TestARunAdmittedBeforeTheRuleDoesNotLandOnRecovery(t *testing.T) {
 	a, _, ch, before := shipFixture(t)
 	// This models an old run via a caller-pickable copy with the same effects;
 	// system workflows cannot be picked through StartRun.
-	_, yaml, err := a.Ways.WorkflowVersion(t.Context(), "ship", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	yaml = strings.Replace(yaml, "name: ship", "name: old-ship", 1)
-	yaml = strings.Replace(yaml, "  system: true\n", "", 1)
-	if _, _, err := a.Ways.PublishWorkflow(t.Context(), yaml, "fixture"); err != nil {
-		t.Fatal(err)
-	}
+	seedLibraryWorkflow(t, a, ch.ProjectID, "old-landing", `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata: {name: old-landing}
+spec:
+  kind: pipeline
+  role: landing
+  stages:
+    - name: gates
+      steps: [{name: scan, uses: scan, with: {on: source}}]
+    - name: ship
+      steps: [{name: build, uses: build}]
+`)
 	a.Work.Stop()
-	run, err := a.Work.StartRun(asLander(t, a), workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "old-ship"})
+	run, err := a.Work.StartRun(asLander(t, a), workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "old-landing"})
 	if run == nil || err == nil || !strings.Contains(err.Error(), "dispatch") {
 		t.Fatalf("setup: %+v %v", run, err)
 	}
@@ -244,25 +260,6 @@ func TestTheMergeWaitsForAPersonsApproval(t *testing.T) {
 	if merged, _, _ := mergeRunForTest(t, a, run); !merged {
 		t.Fatal("an approved landing did not merge")
 	}
-}
-
-// requireStepWaitingOnAPerson: the refused effect is recorded on its step,
-// waiting on a person, with the reason.
-func requireStepWaitingOnAPerson(t *testing.T, a *App, runID ids.ID, name string) {
-	t.Helper()
-	snap, err := a.Work.Snapshot(a.asEngine(context.Background()), runID, workflow.DetailView)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, s := range snap.Steps {
-		if s.Name == name {
-			if s.Status != workflow.StatusNeedsHuman || !strings.Contains(string(s.Evidence), "no person has approved this run") {
-				t.Fatalf("%s: %s %s", name, s.Status, s.Evidence)
-			}
-			return
-		}
-	}
-	t.Fatalf("no step %q", name)
 }
 
 // driveChange advances the change's running runs as the engine would until

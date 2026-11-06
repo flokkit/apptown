@@ -42,7 +42,7 @@ func TestEveryUnsettledDockerAttemptCanBeSettled(t *testing.T) {
 		},
 		"the host stopped answering after a healthy boot": func(_ context.Context, _ func(), daemon *fakeDaemon) (booter, func(map[string]any) error) {
 			return bootFunc(func() (BootResult, error) {
-				res, err := (&fakeBoot{daemon: daemon}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Identity: &deploy.DockerIdentity{Deployment: "7", Generation: generation, Artifact: art.Hash}}, c)
+				res, err := (&fakeBoot{daemon: daemon}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, identity: &deploy.DockerIdentity{Deployment: "7", Generation: generation, Artifact: art.Hash}}, c)
 				daemon.unreachable = true
 				return res, err
 			}), nil
@@ -68,7 +68,7 @@ func TestEveryUnsettledDockerAttemptCanBeSettled(t *testing.T) {
 			boot, fail := run(ctx, cancel, daemon)
 			noted := map[string]any{}
 			d := &Driver{Allowed: AuthorisedWhenRequested, ServingLabel: "stable-serving", Scope: func(context.Context) (Scope, error) { return Scope{Client: daemon}, nil }, Boot: boot,
-				URL: func(_, _ string, _ int) (string, error) { return "http://game", nil }, AfterRelease: func(deploy.Placement) {}}
+				URL: func(_, _ string, _ int) (string, error) { return "http://game", nil }}
 			_, err := d.Reconcile(ctx, place, generation, art, "key", func(string, ...any) {}, func(values map[string]any) error {
 				if fail != nil {
 					if err := fail(values); err != nil {

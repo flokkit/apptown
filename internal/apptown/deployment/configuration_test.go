@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/access"
 
@@ -27,7 +28,7 @@ type configurationWorld struct {
 }
 
 func (w *configurationWorld) Require(context.Context, access.Permission) (access.Caller, error) {
-	return access.Caller{Principal: access.Principal{Name: w.actor.Name}, Verified: true, Receipt: w.actor.Name}, w.denial
+	return access.Caller{Principal: access.Principal{ID: idstest.N(501), Kind: "user", Name: w.actor.Name, Via: "header", Credential: "header:" + w.actor.Name}, Verified: true, Receipt: w.actor.Name}, w.denial
 }
 func (w *configurationWorld) Project(_ context.Context, id ids.ID) (ReleaseProject, error) {
 	return ReleaseProject{Application: Application{ID: id, Slug: w.actor.ProjectSlug}, OwnerGroup: w.actor.OwnerGroup}, nil
@@ -44,7 +45,7 @@ func configurationFixture(t *testing.T) (*Service, *configurationWorld, Configur
 	// Project is an external prerequisite; this suite owns only Deployment setup.
 	project := createTestProject(t, db, "config", "Configuration")
 	w := &configurationWorld{actor: configurationIdentity{Name: "alice", ProjectSlug: "config", OwnerGroup: "team"}, contract: &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true}}}}
-	s := New(context.Background(), db, Dependencies{Authority: w, Configuration: ConfigurationDependencies{Authority: w, Projects: w, Contracts: w}})
+	s := New(context.Background(), db, Dependencies{Authority: w, Releases: ReleaseDependencies{Authority: w}, Configuration: ConfigurationDependencies{Authority: w, Projects: w, Contracts: w}})
 	target, err := s.Targets.Put(context.Background(), &Target{Name: "cloud", Kind: KindDOApp, Origin: OriginAttached, Status: TargetReady, NeedsMode: "managed", Capabilities: TargetCapabilities{Needs: []string{"postgres"}}})
 	if err != nil {
 		t.Fatal(err)

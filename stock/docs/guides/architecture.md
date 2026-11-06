@@ -340,11 +340,11 @@ While `in_progress`, chat turns and working runs accumulate on the
 change's branch. "Blocked" out of `landing` covers both a merge that
 cannot proceed and rules that changed mid-wait — either way the change
 page shows the one clear next action. `shipped` means the gates passed,
-the merge landed, and the deploy ran.
+the merge landed, and the merged tree built. Release requests run afterwards.
 
 The landing run is where governance concentrates: scans, the approval
 (with its **means** — the written sentence saying what an OK asserts),
-the law re-check, the merge, the deploy. A change that waits while the
+the law re-check, the merge, the build. A change that waits while the
 rules change gets paused with a "Restart landing" action, never
 silently grandfathered.
 
@@ -512,7 +512,8 @@ Four surfaces consume the contract, with rising strictness:
 flowchart LR
     WT[change working tree] -->|freshest possible| PV[preview<br/>change-41.preview.*]
     WT -->|cold boot| BG[boot gate / rehearsal]
-    MAIN[hub: main branch] -->|deploy at landing| EV[deployment<br/>slug.main.*]
+    MAIN[hub: main branch] -->|build runtime bundle| RB[runtime bundle]
+    RB -->|release request after landing| EV[follows-main deployments]
     MAIN -->|committed tree only| BLD[build once<br/>push to the registry]
     BLD -->|digest recorded as receipt| REL[release<br/>on a target]
 ```
@@ -524,16 +525,16 @@ flowchart LR
   change preview boots there.
 - **Boot gate**: the same cold boot, as a gate — the app must come up
   from nothing, because that is exactly what a deploy will demand.
-- **Deployment**: after landing, the deploy step boots the contract
-  from the hub's main. Data dirs mount named volumes that survive
+- **Deployment**: after landing completes, each follows-main deployment
+  requests the landing's runtime bundle under its recorded setting authority. Data dirs mount named volumes that survive
   redeploys; preview volumes die with their preview.
-- **Release**: the release stages the COMMITTED tree only (dirty files
-  cannot ship) and builds it once. With a worker, the build runs there,
+- **Runtime bundle**: the landing stages the committed tree and builds its
+  runtime images once. With a worker, the build runs there,
   the images go to the project's container registry, and the bundle
   records each by digest; every target pulls those digests and nothing
-  is built on a target. Without a worker, a landing's deploy builds on the
+  is built on a target. Without a worker, a landing builds on the
   Docker host. With a container registry attached, AppTown publishes the
-  images it booted there and records them by digest; without one it
+  images it built there and records them by digest; without one it
   records image IDs. An intranet release (`apptown release`) ships only a
   release published by digest, which Portainer pulls; nothing is built at
   release.
@@ -546,7 +547,7 @@ flowchart LR
 
 Previews favour freshness (the folder, rebuilt as it changes); releases
 favour exactness (the committed tree, by digest where there is a worker);
-deployments sit between (committed `main`, redeployed per landing).
+deployments take recorded runtime bundles through release requests.
 
 ### Where a release can go
 

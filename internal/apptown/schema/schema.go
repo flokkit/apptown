@@ -126,7 +126,7 @@ var SupportedSteps = map[string]bool{
 	"agent/pi":             true,
 	"scm/mr":               true,
 	"preview":              true,
-	"deploy":               true,
+	"build":                true,
 	"workflow/call":        true, // composition.md §2: call a pipeline workflow as a step
 	"scan":                 true, // integrations.md §5: tool-provider check against the workspace
 	"agent/review":         true, // the cop model: independent claim-vs-diff verification
@@ -261,7 +261,7 @@ func (d *Doc) validate(strict bool) error {
 			}
 			seenStep[s.Name] = true
 			if !SupportedSteps[s.Uses] {
-				return fmt.Errorf("stage %q step %q: unsupported uses %q (supported: script, approval, artifact/require, adr/require, agent/pi, scm/mr, preview, deploy, workflow/call, scan, tests, agent/review, guidance/conformance)", st.Name, s.Name, s.Uses)
+				return fmt.Errorf("stage %q step %q: unsupported uses %q (supported: script, approval, artifact/require, adr/require, agent/pi, scm/mr, preview, build, workflow/call, scan, tests, agent/review, guidance/conformance)", st.Name, s.Name, s.Uses)
 			}
 			if s.Uses == "approval" {
 				if err := validateApproval(st.Name, s, strict); err != nil {

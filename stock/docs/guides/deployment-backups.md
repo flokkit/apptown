@@ -92,22 +92,21 @@ a store, production data on App Platform reads "not protected off-host" and
 a take-down keeps the cluster as before. `apptown data -p <project>
 <deployment>` prints the same.
 
-**Every release onto data is copied first, and checked after.** When a
-landing releases onto a deployment that already runs a release and holds
-data, AppTown takes a copy first (trigger `pre-release`). If that copy is
-incomplete or cannot be taken, the release is refused before anything is
-built or started, unless the data is synthetic. To release anyway, a
-person retries the deploy step accepting that
-(`apptown retry <change> --accept-uncopied-data`); the attempt records who
-and when, and a later retry accepts nothing. An agent's connection or a
-chat cannot accept. A first release, a deployment that holds no data and a
-target that keeps its own backups need no copy.
+**Every release checks its data protection first.** Before executing a release,
+AppTown takes the pre-release copy (trigger `pre-release`). An incomplete or
+unavailable copy stops an automatic release. A person requesting a manual
+release may explicitly accept the known inability to copy with
+`apptown release --accept-uncopied-data`. The request records who accepted,
+when, the deployment and why. Execution rechecks that choice and current
+authority, and records the copy outcome. A different copy problem requires a
+new decision. A first release, a deployment holding no data, or data protected
+by the target records why no copy is needed.
 
 After the release boots, AppTown reads each need's data again on a Docker
 host: the storage it is on, and its declared measure (Postgres tables,
 rows and size; S3 objects and size; Redis keys; MariaDB tables, rows and
-size). The step fails, saying the release is running, which copy to
-restore from, and that the check changed nothing, when the data is on
+size). The release records a failed continuity check while retaining that the new
+code is running. It says which copy to restore from and that the check changed nothing, when the data is on
 other storage than before, when a measure that was at least its floor
 before fell by more than half (rows 20, objects 5, keys 5, tables 1, size
 1 MiB; tables going from some to none always counts), or when a measure

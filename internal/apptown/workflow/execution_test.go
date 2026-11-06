@@ -38,7 +38,7 @@ func TestExecutionKeepsClaimPrivateAndRefreshesAfterRunnerReturns(t *testing.T) 
 		if err != nil || projectID != run.ProjectID || runID != run.ID || stepID != id {
 			t.Fatalf("participant scope: %d %d %d %v", projectID, runID, stepID, err)
 		}
-		if _, _, _, err := e.ClaimedStep("deploy"); !errors.Is(err, ErrStepAttemptLost) {
+		if _, _, _, err := e.ClaimedStep("build"); !errors.Is(err, ErrStepAttemptLost) {
 			t.Fatal("participant admitted wrong kind", err)
 		}
 		exposed := e.Step()

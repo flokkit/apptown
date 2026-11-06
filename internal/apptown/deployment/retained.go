@@ -109,7 +109,7 @@ func (s *RetentionState) UnmarshalJSON(data []byte) error {
 	return retentionStateCodec.ReadJSON(s, data)
 }
 
-// Retained reads the retained-resources ledger. Settlement goes through Service.
+// Retained reads the retained-resources ledger. settlement goes through Service.
 type Retained struct{ db *database.DB }
 
 func NewRetained(db *database.DB) *Retained { return &Retained{db: db} }

@@ -7,10 +7,8 @@ import (
 
 	"github.com/flokkit/apptown/internal/ids"
 
-	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
 )
 
@@ -20,26 +18,18 @@ const workflowCompletionJob = "workflow-completion"
 // AppTown's clock, which stamps it (nil is the real one).
 type workflowCompletionEffects struct{ now func() time.Time }
 
-func (w workflowCompletionEffects) RecordCompletionIn(ctx context.Context, tx *database.Tx, in workflow.CompletedRun) (workflow.ReleaseReceipt, error) {
-	var receipt workflow.ReleaseReceipt
-	if in.Release {
-		release, err := deployment.CreateReleaseIn(ctx, tx, deployment.ReleaseDraft{Source: deployment.ReleaseFromWorkflow, ProjectID: in.ProjectID, RunID: in.RunID, ChangeID: in.ChangeID, Deployment: "main", Actor: in.ApprovedBy, At: clock.Or(w.now)()})
-		if err != nil {
-			return receipt, err
-		}
-		receipt = workflow.ReleaseReceipt{ID: release.ID, Number: release.Number}
-	}
+func (w workflowCompletionEffects) RecordCompletionIn(ctx context.Context, tx *database.Tx, in workflow.CompletedRun) error {
 	if in.Narrative {
 		if err := (narratives{}).requestIn(ctx, tx, in.ChangeID); err != nil {
-			return receipt, err
+			return err
 		}
 	}
 	for _, effect := range in.Effects {
-		if err := (jobQueue{}).EnqueueIn(ctx, tx, jobs.Request{Operation: workflowCompletionJob, Key: completionKey(in.RunID, effect), Values: map[string]any{"runId": in.RunID, "effect": effect.String()}}); err != nil {
-			return receipt, err
+		if err := (jobQueue{}).EnqueueIn(ctx, tx, jobs.Request{Operation: workflowCompletionJob, Key: completionKey(in.RunID, effect), Values: map[string]any{"runId": in.RunID, "effect": effect.String(), "approvedBy": in.ApprovedBy}}); err != nil {
+			return err
 		}
 	}
-	return receipt, nil
+	return nil
 }
 
 // Work supplies its locked completed-Run transaction. Job selection retains

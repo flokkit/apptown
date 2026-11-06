@@ -26,7 +26,7 @@ import (
 func landingRecheckFixture(t *testing.T) (*App, *workflow.Run, map[string]ids.ID) {
 	t.Helper()
 	spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "finish",
-		OnEnter: []schema.Step{{Name: "image", Uses: "scan"}, {Name: "deploy", Uses: "deploy"}},
+		OnEnter: []schema.Step{{Name: "image", Uses: "scan"}, {Name: "build", Uses: "build"}},
 		Steps:   []schema.Step{{Name: "passed", Uses: "scan"}, {Name: "tests", Uses: "tests"}, {Name: "accept", Uses: "approval"}},
 	}}}
 	a, ctx, ch := changeScenario(t, spec, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: spec})
@@ -91,7 +91,7 @@ func landingRemediationFixture(t *testing.T, a *App, source *workflow.Run) (work
 	}
 	item := items[0]
 	spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "finish",
-		OnEnter: []schema.Step{{Name: "image", Uses: "scan"}, {Name: "deploy", Uses: "deploy"}},
+		OnEnter: []schema.Step{{Name: "image", Uses: "scan"}, {Name: "build", Uses: "build"}},
 		Steps:   []schema.Step{{Name: "passed", Uses: "scan"}, {Name: "tests", Uses: "tests"}, {Name: "accept", Uses: "approval"}},
 	}}}
 	prepared := workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: spec, AdoptionID: source.AdoptionID}
@@ -151,7 +151,7 @@ func TestLandingRecheckRollbackIncludesRetryBudgetAndNeverDispatches(t *testing.
 			req, run := landingRemediationFixture(t, a, run)
 			d := installDispatchFixture(t, a)
 			var calls atomic.Int32
-			for _, typ := range []string{"scan", "deploy", "tests"} {
+			for _, typ := range []string{"scan", "build", "tests"} {
 				d.runners[typ] = func(*workflow.Execution) { calls.Add(1) }
 			}
 			if failure == "last receipt" {
@@ -167,7 +167,7 @@ func TestLandingRecheckRollbackIncludesRetryBudgetAndNeverDispatches(t *testing.
 				t.Fatal("uncommitted work was dispatched")
 			}
 			requireSteps(t, a, 1, func(s *workflow.Step) bool {
-				return s.RunID == run.ID && s.Name == "deploy" && s.Status == workflow.StatusPending
+				return s.RunID == run.ID && s.Name == "build" && s.Status == workflow.StatusPending
 			})
 			requireEvents(t, a, 0, eventKind("step.recheck"))
 			if got, err := a.Work.Run(a.asEngine(context.Background()), run.ID); err != nil || got.RetryRevision != 0 {
@@ -219,7 +219,7 @@ func TestLandingRecheckRemediationCallerCountsOnlyCommittedWork(t *testing.T) {
 	}
 	d := installDispatchFixture(t, a)
 	var calls atomic.Int32
-	for _, typ := range []string{"scan", "deploy", "tests"} {
+	for _, typ := range []string{"scan", "build", "tests"} {
 		d.runners[typ] = func(task *workflow.Execution) {
 			if item := recheckItem(t, a, req); item.TransientRetries != 1 {
 				t.Errorf("dispatched before the retry was committed: %+v", item)
@@ -272,7 +272,7 @@ func TestLandingRecheckFailedEntryStillBlocksDeployment(t *testing.T) {
 	a, run, stepIDs := landingRecheckFixture(t)
 	d := installDispatchFixture(t, a)
 	var deployed atomic.Bool
-	d.runners["deploy"] = func(*workflow.Execution) { deployed.Store(true) }
+	d.runners["build"] = func(*workflow.Execution) { deployed.Store(true) }
 	for _, typ := range []string{"scan", "tests"} {
 		d.runners[typ] = func(task *workflow.Execution) {
 			id := task.Step().ID
@@ -298,7 +298,7 @@ func TestLandingRecheckFailedEntryStillBlocksDeployment(t *testing.T) {
 		t.Fatal("deployment ran after a failed image scan")
 	}
 	requireSteps(t, a, 1, func(s *workflow.Step) bool {
-		return s.RunID == run.ID && s.Name == "deploy" && s.Status == workflow.StatusPending
+		return s.RunID == run.ID && s.Name == "build" && s.Status == workflow.StatusPending
 	})
 	requireSteps(t, a, 1, func(s *workflow.Step) bool { return s.Name == "tests" && s.Status == workflow.StatusPending })
 }
@@ -316,7 +316,7 @@ func TestLandingRecheckManagedRecoveryHonorsEntryOrder(t *testing.T) {
 			}
 			d := installDispatchFixture(t, a)
 			var calls []ids.ID
-			for _, typ := range []string{"scan", "deploy", "tests"} {
+			for _, typ := range []string{"scan", "build", "tests"} {
 				d.runners[typ] = func(task *workflow.Execution) {
 					id := task.Step().ID
 					calls = append(calls, id)
@@ -336,13 +336,13 @@ func TestLandingRecheckManagedRecoveryHonorsEntryOrder(t *testing.T) {
 				t.Fatal(err)
 			}
 			d.wait()
-			if !reflect.DeepEqual(calls, []ids.ID{stepIDs["image"], stepIDs["deploy"], stepIDs["tests"]}) {
+			if !reflect.DeepEqual(calls, []ids.ID{stepIDs["image"], stepIDs["build"], stepIDs["tests"]}) {
 				t.Fatalf("entry order / replay: %v", calls)
 			}
 			requireSteps(t, a, 2, func(s *workflow.Step) bool { return evidenceField(s, "result") == "fresh" && s.Attempt == 2 })
 			// Deployment stayed pending before it ever claimed an attempt.
 			requireSteps(t, a, 1, func(s *workflow.Step) bool {
-				return s.Name == "deploy" && evidenceField(s, "result") == "fresh" && s.Attempt == 1
+				return s.Name == "build" && evidenceField(s, "result") == "fresh" && s.Attempt == 1
 			})
 		})
 	}
@@ -370,7 +370,7 @@ func TestAChangesLandingGatesRunAgainFromItsOwnRoute(t *testing.T) {
 	a, run, _ := landingRecheckFixture(t)
 	d := installDispatchFixture(t, a)
 	var calls atomic.Int32
-	for _, typ := range []string{"scan", "deploy", "tests"} {
+	for _, typ := range []string{"scan", "build", "tests"} {
 		d.runners[typ] = func(*workflow.Execution) { calls.Add(1) }
 	}
 	w := authzCall(a.Handler(), "alice", "POST", "/api/v1/changes/"+run.ChangeID.String()+"/recheck", "")
@@ -392,7 +392,7 @@ func TestAChangesLandingGatesRunAgainFromItsOwnRoute(t *testing.T) {
 func prepareLandingRecheckFixture(t *testing.T, a *App) {
 	t.Helper()
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
-		deps.Automatic = []string{"scan", "deploy", "tests"}
+		deps.Automatic = []string{"scan", "build", "tests"}
 		deps.Report = func(err error) {
 			var verdict *workflow.StepError
 			if !errors.As(err, &verdict) {
@@ -401,7 +401,7 @@ func prepareLandingRecheckFixture(t *testing.T, a *App) {
 		}
 		runner := func(task *workflow.Execution) {
 			current := task.Step()
-			if current.Name == "deploy" {
+			if current.Name == "build" {
 				t.Error("failed image admitted deployment")
 				return
 			}
@@ -421,6 +421,6 @@ func prepareLandingRecheckFixture(t *testing.T, a *App) {
 				t.Error(err)
 			}
 		}
-		deps.Runners = map[string]workflow.Runner{"scan": runner, "deploy": runner, "tests": runner}
+		deps.Runners = map[string]workflow.Runner{"scan": runner, "build": runner, "tests": runner}
 	})
 }

@@ -90,8 +90,8 @@ type noEffects struct{}
 func (noEffects) RecordAbandonIn(context.Context, *database.Tx, workflow.AbandonEffects) error {
 	return nil
 }
-func (noEffects) RecordCompletionIn(context.Context, *database.Tx, workflow.CompletedRun) (workflow.ReleaseReceipt, error) {
-	return workflow.ReleaseReceipt{}, nil
+func (noEffects) RecordCompletionIn(context.Context, *database.Tx, workflow.CompletedRun) error {
+	return nil
 }
 func (noEffects) RetryCompletionIn(context.Context, *database.Tx, ids.ID) (bool, error) {
 	return false, nil
@@ -383,7 +383,7 @@ func (f *taskAppTown) recover(t *testing.T) {
 		if err != nil {
 			return workflow.InterruptedSteps{}, err
 		}
-		return workflow.InterruptStepsIn(f.ctx, tx, withTasks, []string{DeployKind}, time.Now())
+		return workflow.InterruptStepsIn(f.ctx, tx, withTasks, []string{BuildKind}, time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

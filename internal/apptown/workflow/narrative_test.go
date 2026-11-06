@@ -28,7 +28,7 @@ func TestNarrativeParserRequiresACompleteValidNote(t *testing.T) {
 		{"bad\xff", "", "", true},
 	} {
 		got, err := ParseNarrative(tc.out)
-		if (err != nil) != tc.bad || got.Title != tc.title || got.Note != tc.note {
+		if (err != nil) != tc.bad || got.title != tc.title || got.Note != tc.note {
 			t.Fatalf("parse %q: %+v %v", tc.out, got, err)
 		}
 	}

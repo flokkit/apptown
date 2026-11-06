@@ -205,7 +205,7 @@ func TestAPublicHostPortDoesNotRefuseABuiltInDeployment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dep, err := s.Deployments.EnsureStanding(t.Context(), projectID, "main", local.ID, Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"})
+	dep, err := s.Deployments.EnsureStanding(t.Context(), projectID, "main", local.ID, Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,14 +213,15 @@ func TestAPublicHostPortDoesNotRefuseABuiltInDeployment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	port, err := s.Deployments.StablePort(t.Context(), projectID, "main", names.App())
+	daemon.PublishPorts()
+	t.Cleanup(daemon.Close)
+	port, err := s.Deployments.stablePort(t.Context(), projectID, "main", names.App())
 	if err != nil {
 		t.Fatal(err)
 	}
-	art, err := docker.SourceArtifact(deploy.Source{Workspace: ws, Revision: "revision", Slug: "p", Contract: c}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	source := deploy.Source{Workspace: ws, Revision: "revision", Slug: "p", Contract: c}
+	body := []byte(`{"version":1,"revision":"revision"}`)
+	art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)), Source: &source}
 	run := idstest.N(7)
 	out, err := s.RunLanding(t.Context(), landingClaim{projectID, run}, LandingInput{
 		Start:  Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "public-port", Inputs: Inputs{ReleaseRun: run, Revision: "revision", ArtifactHash: art.Hash, DockerSource: string(art.Body)}},

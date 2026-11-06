@@ -65,9 +65,7 @@ and boots nothing; values a need injects are not settings. A refusal is a
 consumers they would reach, never values), `refused` (the owner's words) or
 `unassessable` (a store or record that could not be read: neither a pass nor
 a claim that a value is absent), bound to the deployment, target, commit
-and check time. The landing's deploy step calls it before its release-build
-task is reserved, and records the refusal in its log and evidence;
-`ExecuteRelease` calls the same check before secrets are resolved or a
+and check time. `ExecuteRelease` calls the same check before secrets are resolved or a
 need registered. It is early, not final: boot and `ExecuteRelease`
 resolve authority and settings again, so a setting removed during a build
 still refuses there. Existing target and registry selection at landing is
@@ -102,36 +100,28 @@ not freeze upstream image tags, package downloads, secret values or target
 configuration. An earlier revision can still fail on unavailable dependencies or
 its own bugs. See the [contract reference](../../stock/docs/guides/contract-reference.md).
 
-## Deploy step progress
+## Landing builds and follows-main releases
 
-A landing's deploy step reports a named `stage` on `GET /steps/{id}/live`:
-`preparing`, `building`, `starting`, `checking`, and `live`. The deploy step owns
-these milestones; Docker reports image preparation, startup and readiness entry.
-Reused images skip building. A stage advances only when that work begins, and
-`live` follows publication and recording. Failures record `failedStage` alongside
-the reason; Docker boot phases identify preparation, images, startup or checking.
-The web scene stops when progress cannot be read. Completed landings show the
-recorded address and duration; only a page that saw the deploy running celebrates.
+The landing workflow’s `build` step builds the merged commit without booting a
+deployment, fulfilling runtime needs or executing init steps. It records an
+attempt-bound runtime bundle, or a successful clean-tree build when no runtime
+is declared. A declared runtime without a bundle fails the build. Both worker
+and Docker-host builds use this contract.
 
-The same step exposes phase messages through its existing live log:
-source and target selection, worker image build, publication of each image,
-runtime configuration, host image preparation, dependency startup, initialization
-and app parts, readiness and visitor-page checks, and release recording. An elapsed
-heartbeat continues during long operations. Messages describe work being entered;
-the step outcome and deployment observation establish success. They contain names,
-not environment values, credentials, command arguments or raw build output.
-The existing progress feed retains its last 500 lines and captures that tail for
-the step's log on return, including failure. This is best-effort
-history: a daemon crash can lose the in-memory tail, and restart settlement and
-provider observations remain authoritative. Detailed BuildKit and container output
-are not streamed by these phase messages.
+Completion records the landing and durable follow-up intent atomically. After
+that transaction commits, Deployment creates one queued release request per
+follows-main deployment for exactly that run’s bundle. A no-runtime landing
+creates none. A target refusal fails the release and leaves the change landed.
 
-Once a landing's deploy attempt is admitted, it runs to its own outcome.
-Abandoning the change while it deploys does not cut the deploy short into an
-outcome no one knows: the deploy finishes and settles applied or failed, and
-the step's own outcome is then refused because its run has ended. A step whose
-interruption is noticed before admission deploys nothing. A deploy under way when AppTown
-stops is found still running at startup and observed.
+Feeds are `main`, `promotion` and `manual`. More than one deployment may follow
+main. A follows-main setting records its setter, credential and revision; the
+write requires deployment permission and protected-release permission where
+applicable. Automatic execution checks that setting revision and the setter’s
+current grants again. Landing approvers are provenance, never deploy authority.
+An unconfirmed setting refuses execution with “follows main is not confirmed
+for this deployment”. The deployment card and `deployment confirm-feed` record
+fresh authorization. Removal and hand-deploy protections follow feed `main`,
+regardless of the deployment’s name.
 
 ## Release bundles
 
@@ -140,9 +130,9 @@ It has one of two forms.
 
 - **By digest** (an AppTown with a worker, or a project with a container
   registry on an AppTown without one). With a worker, the landing's
-  deploy step has the worker build every image once, from the landed commit,
+  build step has the worker build every image once, from the landed commit,
   in private Docker. Without one, the landing builds on its Docker host as
-  below, and AppTown saves each image it booted (`docker save`) and
+  below, and AppTown saves each built image (`docker save`) and
   publishes it the same way. A worker changes where a release is built, not
   what it produces. AppTown, not the worker, publishes each image to the
   project's container-registry attachment (the one container-registry
@@ -153,12 +143,9 @@ It has one of two forms.
   worker with the profile it measured, or the Docker host's name, role
   `docker-host`), and the run, step and attempt.
   It is committed once, in a transaction that checks the attempt still owns
-  the step, and never changes afterwards. Landing deployment inputs carry
-  the bundle's ID, so a generation runs exactly the bundle it was admitted
-  with. A landing built on its Docker host publishes after the boot, so its
-  generation names the run, not the bundle. If that publication fails, the
-  step ends with an error that says the new version is running and was not
-  published, and no bundle is recorded.
+  the step, and never changes afterwards. Release inputs carry the bundle’s ID. Publication completes before any
+  release is requested. A publication failure fails the build; no new
+  runtime has been started.
 - **By image ID** (an AppTown without a worker whose project has no
   container registry, and every bundle recorded before). The images are built on the target and the bundle records the
   daemon-local image IDs and the target they were read on.
@@ -202,7 +189,7 @@ page) shows its bundle's form: by digest with the registry, platform and each
 part and init image's `<repository>@sha256:…`, or by image ID. A person can
 tell from it before promoting whether the release can go to App Platform.
 
-A landing deploys only to a Docker host; App Platform and Portainer are
+A landing builds a bundle; App Platform and Portainer are
 promotion targets. A registry that refuses or cannot be reached is an
 error. A digest the registry confirms missing is refused, never rebuilt:
 registry retention decides how long a release can be redeployed. Docker
@@ -345,14 +332,15 @@ need whose kind the catalogue cannot read), or when the target cannot take a
 copy (an App Platform target with no backup store or copy runner; a Portainer
 environment AppTown cannot reach for data, such as an async edge agent). A
 deployment that has served no release holds nothing yet and is not asked;
-one that holds no data is not affected; a release of the bundle the
-deployment already runs (an operator's override redeploying it) brings no new
-code and is not asked. Such a release is refused, naming
+one that holds no data is not affected; redeploying the bundle already running still runs its init steps and can change data. Such a release is refused, naming
 why and how to go on. A person may release anyway with `acceptUncopiedData`
-(`apptown release --accept-uncopied-data`): the release's first log line then
-says who chose it and why the data could not be copied. There is no
-freshness rule: data AppTown can copy is copied nightly and after each
-release, and the protection view shows a stale copy.
+(`apptown release --accept-uncopied-data`). The request records the person,
+time, deployment and known copy problem, and its log displays that choice.
+Execution rechecks current authority and the same copy problem before applying
+the exception. Automatic follows-main requests never carry an exception.
+Every release takes its pre-release copy; failure stops execution unless that
+manual exception applies. The copy outcome remains recorded even when accepted.
+Scheduled copies also run nightly and after each successful release.
 
 ## Removing a deployment
 
@@ -1045,13 +1033,12 @@ deployment was serving gets a last line in its log: "taken down — <who>
 deleted the deployment <name> on <target>; it no longer serves this
 release".
 
-A landing reports `backing-up` between preparing and building. Its deploy
-step records the copy outcome, optional set with its status, reason and any
-per-attempt acceptance on success and failure. A successful deployment does
-not certify a complete backup. Workflow completion links the numbered release
-to the successful deployment attempt's stored backup ID. Release detail reads
-that set's current availability; backup history labels the explicit reverse
-association. Neither direction is inferred from timestamps or names.
+Every queued release takes its pre-deploy copy before runtime preparation. The
+request records the copy outcome, set identity and reason. The generation and
+release both retain the backup ID. After startup, the continuity comparison and
+the request for a later backup are separate operations. A continuity failure is
+recorded without hiding that the new code is running. Release detail reads the
+set’s current availability; neither direction is inferred from timestamps or names.
 
 A release is live (`isLive` on its detail) only while it is the newest
 released on its deployment and that deployment still stands; a deployment
@@ -1324,7 +1311,7 @@ its image moved.
 
 Need credentials. A kind's `generate:` names the credentials each deployment
 and each preview gets its own value for (`dependency.LocalRuntime.Credentials`):
-the Docker host's releases and landing deploys and Portainer's stack use the
+Docker-host releases and Portainer's stack use the
 deployment's (`deployment.NeedSecretsScope`), every preview its own by name
 (`PreviewNeedScope`, chosen when it is prepared, so its identity is stable),
 a rehearsal and a drill of a copy their operation's. The values are derived
@@ -1430,7 +1417,7 @@ explicitly cleared choice. It never chooses the first provider, silently falls
 back to `main`, or substitutes another deployment after deletion. The preference
 is visible independently of release execution; each release command still names
 its existing destination. Choosing a preference requires current deployment-bind
-authority and an eligible standing, non-landing deployment in that project.
+authority and an eligible standing, deployment that does not follow main in that project.
 Existing provider placement and target-offer rules also apply. Reads retain an
 unavailable choice so the person can clear or replace it.
 

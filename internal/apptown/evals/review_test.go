@@ -127,22 +127,19 @@ func TestADeletionFencesTheCopyAboutToBeMade(t *testing.T) {
 	}
 }
 
-// A landing's deploy step that passed because there was nothing to deploy
-// (merge is the release) is not scored as a deployment.
-func TestAMergeOnlyReleaseIsNotScoredAsDeployed(t *testing.T) {
+// Evaluation deployment results come from the landing's release requests.
+func TestLandingScoreReadsReleaseRequests(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 1)
 	ch := &workflow.Change{State: workflow.ChangeShipped}
 	landing := &workflow.Run{ID: idstest.N(77)}
-	w.work.snapshots[idstest.N(77)] = &workflow.RunSnapshot{Steps: []*workflow.Step{{Name: "deploy", Type: "deploy", Status: workflow.StatusPass,
-		Evidence: json.RawMessage(`{"skipped":"no .apptown/app.yaml — nothing to deploy; merge is the release"}`)}}}
-	if got := w.service.score(context.Background(), Arm{}, ch, nil, landing); got.Deploy == "deployed" {
-		t.Fatalf("a merge-only release scored as %q", got.Deploy)
+	w.work.snapshots[landing.ID] = &workflow.RunSnapshot{Steps: []*workflow.Step{{Name: "build", Type: "build", Status: workflow.StatusPass}}}
+	if got := w.service.score(t.Context(), Arm{}, ch, nil, landing); got.Deploy != "not reached" {
+		t.Fatalf("build counted as deployment: %q", got.Deploy)
 	}
-	// Evidence that cannot be read claims neither deployed nor merge-only.
-	w.work.snapshots[idstest.N(77)].Steps[0].Evidence = json.RawMessage(`{"skipped":7}`)
-	if got := w.service.score(context.Background(), Arm{}, ch, nil, landing); !strings.Contains(got.Deploy, "not known") || strings.HasPrefix(got.Deploy, "deployed") {
-		t.Fatalf("unreadable deploy evidence scored as %q", got.Deploy)
+	w.service.deps.Deployments = noDeployments{releases: []LandingRelease{{Deployment: "main", State: "released"}, {Deployment: "staging", State: "failed", Failure: "copy failed"}}}
+	if got := w.service.score(t.Context(), Arm{}, ch, nil, landing); got.Deploy != "main: deployed; staging: failed: copy failed" {
+		t.Fatalf("release outcomes: %q", got.Deploy)
 	}
 }
 

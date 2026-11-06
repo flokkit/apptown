@@ -2,7 +2,6 @@ package evals
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"time"
 
@@ -76,14 +75,29 @@ func (s *Service) score(ctx context.Context, a Arm, ch *workflow.Change, work, l
 		if snap, err := s.deps.Work.Snapshot(ctx, landing.ID, workflow.DetailView); err == nil {
 			for _, st := range snap.Steps {
 				switch {
-				case st.Type == "deploy":
-					sc.Deploy = deployOutcome(st)
 				case gateSteps[st.Type]:
 					sc.Checks = append(sc.Checks, CheckResult{StatusLabel: checkLabel(st.Status.String()), Step: st.Name, Type: st.Type, Status: st.Status.String()})
 				}
 			}
 		}
 	}
+	if requests, err := s.deps.Deployments.LandingRequests(ctx, ch.ProjectID, ch.ID); err != nil {
+		sc.Deploy = "not known: " + err.Error()
+	} else if len(requests) > 0 {
+		outcomes := make([]string, 0, len(requests))
+		for _, r := range requests {
+			result := r.State
+			if r.State == "released" {
+				result = "deployed"
+			}
+			if r.Failure != "" {
+				result += ": " + r.Failure
+			}
+			outcomes = append(outcomes, r.Deployment+": "+result)
+		}
+		sc.Deploy = strings.Join(outcomes, "; ")
+	}
+
 	return sc
 }
 
@@ -255,25 +269,4 @@ func tally(arms []Arm, costs map[ids.ID]ArmCost) (out []Tally, comparable, notCo
 		}
 	}
 	return out, comparable, notComparable
-}
-
-// deployOutcome reads what a landing's deploy step witnessed: a deployment,
-// a release that was only the merge (nothing to deploy), or a failure.
-func deployOutcome(st *workflow.Step) string {
-	var ev struct {
-		Skipped string `json:"skipped"`
-		Reason  string `json:"reason"`
-	}
-	unread := len(st.Evidence) > 0 && json.Unmarshal(st.Evidence, &ev) != nil
-	switch {
-	case st.Status != workflow.StatusPass:
-		return strings.TrimSpace("failed: " + st.Status.String() + " " + ev.Reason)
-	case unread:
-		// Passed, but whether it deployed or found nothing to deploy is in
-		// evidence that cannot be read: not claimed either way.
-		return "passed; its evidence could not be read, so whether it deployed is not known"
-	case ev.Skipped != "":
-		return "nothing to deploy: the merge is the release"
-	}
-	return "deployed"
 }

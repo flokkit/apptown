@@ -127,7 +127,7 @@ func (s *Service) chooseStartFrom(ctx context.Context, tx *database.Tx, dep *Dep
 	if err := RefusesStartFrom(t); err != nil {
 		return err
 	}
-	if dep.Feed == "landing" {
+	if dep.Feed == "main" {
 		return fmt.Errorf("%w: a deployment fed by every landing is deployed by no person; start a promotion-fed deployment from a copy", ErrStartFrom)
 	}
 	// A release already in flight was authorised without this copy; the

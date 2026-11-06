@@ -79,12 +79,13 @@ every declared secret, where its value comes from:
 A boot stops, before any container exists, when a required secret has
 no value for that deployment or preview. The message names the secret and this page.
 
-A deploy checks the same thing earlier, before anything is built. When a
-landing or a manual deploy selects a commit, AppTown reads that commit's
+Release execution checks the same thing before preparing runtime needs.
+It reads the selected bundle's committed
 declaration and the deployment's bindings and stops if a required secret
-has no value there. The deploy step says `missing-settings`, names the
+has no value there. The release says `missing-settings`, names the
 deployment, the secret and the parts it would reach, and points here; no
-image is built or published and no secret is generated. A secret AppTown
+deployment is started and no secret is generated. The landing build does
+not require deployment secrets. A secret AppTown
 generates is not missing: it is made at boot. Values a service gives the
 app (a database's `DATABASE_URL`) are not secrets and are not checked. If
 a store cannot be read (Infisical unreachable), the deploy stops as

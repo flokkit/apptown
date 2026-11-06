@@ -454,7 +454,7 @@ func TestAPreviewBootsUnderThePreviewProfile(t *testing.T) {
 // run's landing does.
 func landAs(t *testing.T, w *digestWorld, b *ReleaseBundle, run ids.ID) {
 	t.Helper()
-	dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "main", w.lab.ID, Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"})
+	dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "main", w.lab.ID, Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,7 +467,7 @@ func landAs(t *testing.T, w *digestWorld, b *ReleaseBundle, run ids.ID) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	port, err := w.s.Deployments.StablePort(t.Context(), w.project, dep.Name, names.App())
+	port, err := w.s.Deployments.stablePort(t.Context(), w.project, dep.Name, names.App())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -495,9 +495,19 @@ func TestALandingRunsMainsProfileAndKeepsItsOverride(t *testing.T) {
 	if run := ranWith(t, w, "lab", worker, 0); !strings.Contains(run, "--memory 1073741824") || !strings.Contains(run, "GREETING=hi") {
 		t.Errorf("the landing ran the worker without main's production profile: %s", run)
 	}
-	if _, err := w.s.SetOverride(context.Background(), OverrideChange{ProjectID: w.project, Deployment: "main", Part: "worker",
-		Resources: appcontract.Resources{MemoryBytes: 3 << 30}, Reason: "an import ran out of memory"}); err != nil {
+	override, err := w.s.SetOverride(context.Background(), OverrideChange{ProjectID: w.project, Deployment: "main", Part: "worker",
+		Resources: appcontract.Resources{MemoryBytes: 3 << 30}, Reason: "an import ran out of memory"})
+	if err != nil {
 		t.Fatal(err)
+	}
+	if override.Release != nil {
+		rel, err := w.s.Releases.ByNumber(t.Context(), w.project, override.Release.Number)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := w.s.ExecuteRelease(t.Context(), rel.ID); err != nil {
+			t.Fatal(err)
+		}
 	}
 	from := len(w.hosts.ran("lab"))
 	landAs(t, w, b, idstest.N(802))

@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/dbtest"
@@ -42,7 +45,7 @@ func TestWorkflowCompletionRollsBackEveryRequiredRecord(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, failure := range []string{"INSERT INTO run_events", "UPDATE changes SET state=", "INSERT INTO releases", "INSERT INTO release_changes", "INSERT INTO jobs"} {
+	for _, failure := range []string{"INSERT INTO run_events", "UPDATE changes SET state=", "INSERT INTO jobs"} {
 		t.Run(failure, func(t *testing.T) {
 			if failure == "INSERT INTO jobs" {
 				failNextJobInsert(t, store)
@@ -71,7 +74,7 @@ func TestWorkflowCompletionRollsBackEveryRequiredRecord(t *testing.T) {
 	if out, err := a.Work.AdvanceFrom(ctx, run); err != nil || !out.Advanced {
 		t.Fatal(err)
 	}
-	requireReleases(t, a, run.ProjectID, 1, func(r *deployment.Release) bool { return r.RunID == run.ID })
+	requireReleases(t, a, run.ProjectID, 0, func(r *deployment.Release) bool { return r.RunID == run.ID })
 }
 
 func TestWorkflowCompletionConcurrentWinner(t *testing.T) {
@@ -103,10 +106,10 @@ func TestWorkflowCompletionConcurrentWinner(t *testing.T) {
 	if winners != 1 {
 		t.Fatalf("%d completion winners", winners)
 	}
-	requireReleases(t, a, run.ProjectID, 1, func(r *deployment.Release) bool { return r.RunID == run.ID && r.BundleID == bundle })
-	requireChangeReleases(t, a, run.ProjectID, run.ChangeID, 1)
+	requireReleases(t, a, run.ProjectID, 0, func(r *deployment.Release) bool { return r.RunID == run.ID && r.BundleID == bundle })
+	requireChangeReleases(t, a, run.ProjectID, run.ChangeID, 0)
 	requireEvents(t, a, 1, runEventKind(run.ID, "run.done"))
-	requireJobs(t, a, 1, func(_ *rivertype.JobRow, r jobs.Request) bool { return r.Operation == workflowCompletionJob })
+	requireJobs(t, a, 2, func(_ *rivertype.JobRow, r jobs.Request) bool { return r.Operation == workflowCompletionJob })
 	requireJobs(t, a, 1, func(_ *rivertype.JobRow, r jobs.Request) bool { return r.Operation == narrativeJob })
 }
 
@@ -187,9 +190,9 @@ func changeScenarioIn(t *testing.T, a *App, spec schema.Spec, additional ...work
 		deps.Git = fakeGit{}
 		// A fake deploy runner reports through the same claim/outcome commands
 		// as a real runner. Calls and approvals are driven explicitly by each test.
-		deps.Automatic = []string{"deploy"}
+		deps.Automatic = []string{"build"}
 		deps.Report = func(err error) { t.Error(err) }
-		deps.Runners = map[string]workflow.Runner{"deploy": func(task *workflow.Execution) {
+		deps.Runners = map[string]workflow.Runner{"build": func(task *workflow.Execution) {
 			_, err := task.Claim()
 			if err != nil {
 				t.Error(err)
@@ -293,7 +296,7 @@ func TestWorkflowCompletionParentJobAdvancesOnlyOnce(t *testing.T) {
 func completionReleaseScenario(t *testing.T) (*App, context.Context, *workflow.Run, ids.ID) {
 	t.Helper()
 	a, ctx, run := completionScenario(t, schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{
-		{Name: "deploy", Uses: "deploy", With: map[string]any{"deployment": "main"}},
+		{Name: "build", Uses: "build", With: map[string]any{}},
 		{Name: "accept", Uses: "approval"},
 	}}}})
 	snapshot, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
@@ -305,7 +308,7 @@ func completionReleaseScenario(t *testing.T) (*App, context.Context, *workflow.R
 	a.Work.Stop()
 	deployed, approved := false, false
 	for _, step := range snapshot.Steps {
-		if step.Name == "deploy" {
+		if step.Name == "build" {
 			deployed = step.Status == workflow.StatusPass
 		}
 		if step.Name == "accept" {
@@ -328,4 +331,91 @@ func completionReleaseScenario(t *testing.T) (*App, context.Context, *workflow.R
 		t.Fatal(err)
 	}
 	return a, ctx, snapshot.Run, bundle
+}
+
+// Approval provenance never supplies deployment permission. Completion commits
+// first; an unconfirmed or revoked setting fails only its release.
+func TestLandingRequestsUseStandingFeedAuthorityAfterCompletion(t *testing.T) {
+	for _, scenario := range []string{"project approver only", "revoked setter", "unconfirmed migration"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+			a, ctx, run, bundle := completionReleaseScenario(t)
+			testAdministrator(t, a, "admin")
+			target, err := a.Deployment.Targets.ByName(t.Context(), deployment.BuiltInTargetName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), run.ProjectID, "follows", target.ID, deployment.Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			grant, err := a.Access.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "setter", Capability: string(access.CapDeploymentDeploy), Scope: access.ScopeProject, ScopeID: run.ProjectID.String(), By: "admin"}, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if scenario != "unconfirmed migration" {
+				dep, err = a.Deployment.ConfirmFeed(verifiedContext(t.Context(), access.Principal{ID: testPrincipalOf(t, a.DB, "setter"), Kind: "user", Name: "setter", Via: "header", Credential: identity.HeaderCredential("setter")}), run.ProjectID, dep.Name, dep.FeedRevision)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if out, err := a.Work.AdvanceFrom(ctx, run); err != nil || out.RunStatus != workflow.RunDone {
+				t.Fatalf("completion: %+v %v", out, err)
+			}
+			requireReleases(t, a, run.ProjectID, 0, func(*deployment.Release) bool { return true })
+			runQueuedJobForTest(t, a, workflowCompletionJob, fmt.Sprintf("%s/release", run.ID))
+			requests, err := a.Deployment.Releases.LandingRequests(t.Context(), run.ProjectID, run.ChangeID)
+			if err != nil || len(requests) != 1 {
+				t.Fatalf("requests: %+v %v", requests, err)
+			}
+			rel := requests[0]
+			if rel.BundleID != bundle || rel.RunID != run.ID {
+				t.Fatalf("request selected other work: %+v", rel)
+			}
+			var raw []byte
+			var approvers string
+			// sql-guarantee: requester identity and approver provenance are separate
+			// persisted facts; no public read exposes the credential snapshot.
+			if err := a.DB.SQL().QueryRowContext(t.Context(), `SELECT COALESCE(authority_json,'{}'::jsonb),landing_approvers FROM release_requests WHERE release_id=$1`, rel.ID).Scan(&raw, &approvers); err != nil {
+				t.Fatal(err)
+			}
+			if approvers != "alice" {
+				t.Fatalf("approvers: %q", approvers)
+			}
+			if scenario != "unconfirmed migration" {
+				var authority operations.Authority
+				if err := json.Unmarshal(raw, &authority); err != nil {
+					t.Fatal(err)
+				}
+				if pr := authority.Principal(); pr.Name != "setter" || pr.Credential == "" {
+					t.Fatalf("authority: %+v", pr)
+				}
+			}
+			if scenario == "revoked setter" {
+				if ok, err := a.Access.Revoke(t.Context(), grant, "admin"); err != nil || !ok {
+					t.Fatalf("revoke: %t %v", ok, err)
+				}
+			}
+			err = a.Deployment.ExecuteRelease(t.Context(), rel.ID)
+			if err == nil {
+				t.Fatal("invalid execution unexpectedly succeeded")
+			}
+			if scenario == "unconfirmed migration" && !strings.Contains(err.Error(), "follows main is not confirmed for this deployment") {
+				t.Fatal(err)
+			}
+			if scenario == "revoked setter" && !strings.Contains(err.Error(), "confirm follows main again") {
+				t.Fatal(err)
+			}
+			ch, err := a.Work.Change(ctx, run.ChangeID)
+			if err != nil || ch.State != workflow.ChangeShipped {
+				t.Fatalf("release refusal changed landing: %+v %v", ch, err)
+			}
+			if scenario == "unconfirmed migration" {
+				confirmed, err := a.Deployment.ConfirmFeed(verifiedContext(t.Context(), access.Principal{ID: testPrincipalOf(t, a.DB, "setter"), Kind: "user", Name: "setter", Via: "header", Credential: identity.HeaderCredential("setter")}), run.ProjectID, dep.Name, dep.FeedRevision)
+				if err != nil || !confirmed.FeedConfirmed || confirmed.FeedRevision <= dep.FeedRevision {
+					t.Fatalf("confirm: %+v %v", confirmed, err)
+				}
+			}
+		})
+	}
 }

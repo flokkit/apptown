@@ -12,7 +12,7 @@ import { ContinueDecision, TurnDecision } from './Turn'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const at = '2026-11-04T01:00:00Z'
 const step = (name: string, type: Step['type'], status: Step['status']): Step => ({ id: name, runId: 'landing', stage: 'land', name, type, status, statusLabel: status === 'pass' ? 'passed' : status, config: {}, evidence: {}, startedAt: status === 'pending' ? '' : at, finishedAt: status === 'pass' ? '2026-11-04T01:00:10Z' : '', overrideBy: '', overrideReason: '' } as Step)
-const view = (): ChangeView => ({ change: { id: 'change', state: 'landing' }, waitingOn: { kind: 'work', run: 'landing', step: 'deploy', says: 'Landing: deploying — step 3 of 4' }, runs: [{ id: 'landing', role: 'landing' }], detail: { run: { id: 'landing', currentStage: 'land', status: 'running', createdAt: at }, steps: [step('accept', 'approval', 'pass'), step('merged', 'scm/merged', 'pass'), step('deploy', 'deploy', 'running'), step('record', 'artifact/require', 'pending')], stages: ['land'] } } as ChangeView)
+const view = (): ChangeView => ({ change: { id: 'change', state: 'landing' }, waitingOn: { kind: 'work', run: 'landing', step: 'build', says: 'Landing: deploying — step 3 of 4' }, runs: [{ id: 'landing', role: 'landing' }], detail: { run: { id: 'landing', currentStage: 'land', status: 'running', createdAt: at }, steps: [step('accept', 'approval', 'pass'), step('merged', 'scm/merged', 'pass'), step('build', 'build', 'running'), step('record', 'artifact/require', 'pending')], stages: ['land'] } } as ChangeView)
 function html(v: ChangeView) { return renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}><Now view={v} /></QueryClientProvider>) }
 
 it('shows landing progress, ordered plain titles, approval fact and timings during deploy', () => {
@@ -26,13 +26,13 @@ it('shows landing progress, ordered plain titles, approval fact and timings duri
  expect(text).toContain('Started')
  expect(text).toContain('aria-label="running"')
  const el = document.createElement('div'); el.innerHTML = text
- expect([...el.querySelectorAll('.ch-now-steps li strong')].map(s => s.textContent)).toEqual(['Approval', 'Merged', 'Deploy', 'Required file recorded'])
+ expect([...el.querySelectorAll('.ch-now-steps li strong')].map(s => s.textContent)).toEqual(['Approval', 'Merged', 'Build', 'Required file recorded'])
  expect(el.querySelector('details')).toBeNull()
 })
 
 it('groups consecutive checks and expands the whole group on failure or running', () => {
  const v = view()
- v.detail!.steps = [step('secret scan', 'scan', 'pass'), step('dependencies', 'scan', 'pass'), step('unit tests', 'tests', 'pass'), step('conformance', 'guidance/conformance', 'pending'), step('deploy', 'deploy', 'running')]
+ v.detail!.steps = [step('secret scan', 'scan', 'pass'), step('dependencies', 'scan', 'pass'), step('unit tests', 'tests', 'pass'), step('conformance', 'guidance/conformance', 'pending'), step('build', 'build', 'running')]
  const draw = () => { const el = document.createElement('div'); el.innerHTML = html(v); return el }
  expect(draw().querySelectorAll('.ch-now-steps li')).toHaveLength(2)
  expect(draw().querySelector('li')!.textContent).toContain('secret scan, dependencies, unit tests, conformance')
@@ -45,14 +45,14 @@ it('groups consecutive checks and expands the whole group on failure or running'
 
 it('names work, keeps later stages out, and distinguishes pending deployment from completed work', () => {
  const v = view(); v.runs = []; v.change.state = 'in_progress'
- v.detail!.steps = [step('agent', 'agent/pi', 'pass'), step('deploy', 'deploy', 'pending'), { ...step('future', 'tests', 'pending'), stage: 'later' }]
+ v.detail!.steps = [step('agent', 'agent/pi', 'pass'), step('build', 'build', 'pending'), { ...step('future', 'tests', 'pending'), stage: 'later' }]
  const text = html(v)
  expect(text).toContain('Work — step 2 of 2')
  expect(text).toContain('Agent finished')
- expect(text).toContain('Waiting to deploy')
+ expect(text).toContain('Waiting to build')
  expect(text).not.toContain('future')
  v.detail!.steps[1].status = 'pass'
- expect(html(v)).toContain('Accepted work deployed')
+ expect(html(v)).toContain('Accepted work built')
 })
 
 it('is absent when idle, awaiting a decision, or finished', () => {
@@ -74,7 +74,7 @@ it('polls called work and deploy facts inside the same block', async () => {
   expect(el.textContent).toContain('Tests')
   expect(el.querySelector('h3')?.textContent).toBe('Landing — step 1 of 1')
   expect(el.querySelectorAll('[aria-label="Now"]')).toHaveLength(1)
-  v.detail!.steps = [step('deploy', 'deploy', 'running')]
+  v.detail!.steps = [step('build', 'build', 'running')]
   vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ running: true, lines: ['building the image for main'], total: 1 })))
   await act(async () => root.render(<QueryClientProvider client={client}><Now view={{ ...v }} /></QueryClientProvider>))
   await vi.waitFor(async () => { await act(async () => {}); expect(el.textContent).toContain('building the image for main') })
@@ -111,10 +111,10 @@ it.each([
  { running: true, lines: [], total: 0 },
 ])('keeps deployment visible when progress has no lines: %j', progress => {
  const client = newQueryClient()
- client.setQueryData(getKey('/steps/deploy/live?from=0'), progress)
+ client.setQueryData(getKey('/steps/build/live?from=0'), progress)
  try {
   const text = renderToStaticMarkup(<QueryClientProvider client={client}><Now view={view()} /></QueryClientProvider>)
-  expect(text).toContain('Deploying the accepted work')
+  expect(text).toContain('Building the accepted work')
   expect(text).toContain('Landing — step 3 of 4')
  } finally { client.clear() }
 })

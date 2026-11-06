@@ -14,7 +14,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/dbtest"
-	"github.com/flokkit/apptown/internal/deploy"
 	dockerhost "github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -141,8 +140,8 @@ func TestCheckAgainSettlesWhatItObserves(t *testing.T) {
 			_, stepID := deployRun(t, a)
 			// The boot is recorded, its settlement is not: the attempt is
 			// uncertain, with its boot proof.
-			dbtest.FailNextStatement(t, a.DB, "-- name: FinishAttempt")
-			a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+			dbtest.FailNextStatement(t, a.DB, "terminal=$2, observed_json=$3")
+			executeBootFixture(t, a, a.asEngine(context.Background()), stepID)
 			env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
 			if err != nil || env.Readiness != deployment.ReadinessUncertain {
 				t.Fatalf("fixture: %+v %v", env, err)
@@ -206,7 +205,7 @@ func TestAReleaseWhoseMigrationFailsEndsFailed(t *testing.T) {
 		}
 		return "", nil, false
 	}
-	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+	executeBootFixture(t, a, a.asEngine(context.Background()), stepID)
 	env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
 	if err != nil {
 		t.Fatal(err)
@@ -221,12 +220,19 @@ func TestAReleaseWhoseMigrationFailsEndsFailed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var evidence struct {
-		FailedStage deploy.DeployStage `json:"failedStage"`
-		Reason      string             `json:"reason"`
+	if step.Status != workflow.StatusPass {
+		t.Fatalf("release failure changed build outcome: %s %s", step.Status, step.Evidence)
 	}
-	if err := json.Unmarshal(step.Evidence, &evidence); err != nil || evidence.FailedStage != deploy.Starting || !strings.Contains(evidence.Reason, "migration failed") {
-		t.Fatalf("boot failure evidence: %s (%v)", step.Evidence, err)
+	rel, err := a.Deployment.Releases.Last(t.Context(), env.ProjectID, env.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events, e := a.Deployment.Releases.Events(t.Context(), rel.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if rel.State != deployment.ReleaseFailed || len(events) == 0 || !strings.Contains(events[len(events)-1].Text, "migration failed") {
+		t.Fatalf("release lost its failure: %+v", rel)
 	}
 
 }
@@ -249,7 +255,7 @@ func TestCheckAgainFailsAnAttemptWithNoRecordOfItsBoot(t *testing.T) {
 		}
 		return "", nil, false
 	}
-	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+	executeBootFixture(t, a, a.asEngine(context.Background()), stepID)
 	env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
 	if err != nil || env.Readiness != deployment.ReadinessUncertain {
 		t.Fatalf("fixture: the attempt is not in doubt: %+v %v", env, err)

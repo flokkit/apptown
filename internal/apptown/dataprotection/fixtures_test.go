@@ -25,7 +25,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 )
 
-// claimedAttempt stands in for Work's claimed deploy step attempt: it
+// claimedAttempt stands in for Work's claimed build step attempt: it
 // fences a write in a transaction, as Work does, while it is current, and
 // refuses once lost. failAfter makes the fence's own transaction fail after
 // the write, as Work's commit can.
@@ -40,14 +40,14 @@ type claimedAttempt struct {
 }
 
 func (c *claimedAttempt) ClaimedStep(kind string) (ids.ID, ids.ID, ids.ID, error) {
-	if kind != "deploy" {
+	if kind != "build" {
 		return ids.Nil, ids.Nil, ids.Nil, errAttemptLost
 	}
 	return c.project, c.run, c.step, nil
 }
 
 func (c *claimedAttempt) InAttempt(kind string, write func(*database.Tx, int64) error) error {
-	if c.lost || kind != "deploy" || (c.lostAfter > 0 && c.fenced >= c.lostAfter) {
+	if c.lost || kind != "build" || (c.lostAfter > 0 && c.fenced >= c.lostAfter) {
 		return errAttemptLost
 	}
 	c.fenced++

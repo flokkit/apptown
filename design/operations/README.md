@@ -117,3 +117,5 @@ replaces the failed app container and reuses standing services and their
 data) or take the deployment down. Each press is in the
 ledger as `deployment.checked-again`. Do not edit the records by hand. See
 [uncertain outcomes and restart](../subsystems/deployment.md#uncertain-outcomes-and-restart).
+
+- [Upgrading landing and deployment](deploy-model-upgrade.md): drain admitted landings and confirm follows-main settings.

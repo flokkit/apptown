@@ -15,8 +15,8 @@ type retryScopeRecorder struct {
 	retry func(context.Context, *database.Tx, ids.ID) (bool, error)
 }
 
-func (r retryScopeRecorder) RecordCompletionIn(context.Context, *database.Tx, CompletedRun) (ReleaseReceipt, error) {
-	return ReleaseReceipt{}, nil
+func (r retryScopeRecorder) RecordCompletionIn(context.Context, *database.Tx, CompletedRun) error {
+	return nil
 }
 func (r retryScopeRecorder) RetryCompletionIn(ctx context.Context, tx *database.Tx, id ids.ID) (bool, error) {
 	return r.retry(ctx, tx, id)

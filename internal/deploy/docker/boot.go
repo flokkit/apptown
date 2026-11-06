@@ -42,27 +42,27 @@ type BootRequest struct {
 	// or AuthorisedWhenRequested for an owner that authorizes at request time.
 	Allowed func(context.Context) error
 	// Stage reports deploy milestones when the boot enters that work. Nil disables it.
-	Stage func(deploy.DeployStage)
+	stage func(deploy.DeployStage)
 	// Log reports phase entry. It receives no environment values or command output.
 	// Nil disables progress reporting without changing boot behavior.
-	Log          deploy.Logf
+	log          deploy.Logf
 	ChangeTitle  string  // informational title for a change preview; empty for runs and releases
 	Slug         string  // the application's current display address; not routing identity
 	URL          string  // selected deployment address; empty when unknown
-	ExactOrigins *string // nil retains captured route context; non-nil is the owner's exact browser origin (empty means none).
-	ServingLabel string  // immutable label for a standing host route; separate from secret scope
+	exactOrigins *string // nil retains captured route context; non-nil is the owner's exact browser origin (empty means none).
+	servingLabel string  // immutable label for a standing host route; separate from secret scope
 	DataClass    string  // what a standing deployment holds; "" or "synthetic" lets a moved service be recreated
 	Name         string  // the public app container: apptown-preview-change-7, <prefix>env-<slug>-main
 	StackID      string  // owner of its stack (services, init, network): pvsnap-change-7, pv<step>, env-<slug>-<env>
 	Workspace    string  // the tree to boot: a worktree, a run workspace, the project checkout
 	// HostPort pins a standing deployment's stable port; 0 lets docker pick
 	// (previews).
-	HostPort int
+	hostPort int
 	// Persistent marks a standing deployment: its needs are reused when
 	// already running (data survives releases), everything restarts with the
 	// host, and the labels say class=env — never reaped. Previews are the
 	// opposite on every count.
-	Persistent bool
+	persistent bool
 	// Deployment names which deployment's secret bindings apply
 	//: "preview" for every preview, the standing
 	// deployment's name for a deploy or rebuild. Empty means preview.
@@ -93,7 +93,7 @@ type BootRequest struct {
 	// Docker configuration; its owner sweeps it (SweepBootConfigs). A
 	// prepared boot without one is refused.
 	Scratch  string
-	Identity *deploy.DockerIdentity // Standing execution from a selected source; previews have no deployment identity.
+	identity *deploy.DockerIdentity // Standing execution from a selected source; previews have no deployment identity.
 	// Recorded is a release's images: IDs already on this daemon, or images
 	// by digest it pulls. The boot runs them and builds nothing
 	// (PrepareImages), for a standing deployment or a release's preview.
@@ -104,16 +104,16 @@ type BootRequest struct {
 	// (appcontract.Contract.PublicRelease), answers it at ReleasePath, and
 	// the boot witnesses that answer. "" (a preview of a worktree) tells it
 	// nothing and witnesses nothing.
-	Revision string
+	revision string
 	// Record records the containers, networks, named volumes and images a
 	// boot creates. Standing deployments use it for deletion ownership;
 	// change previews use it for inventory and retain disposable cleanup.
 	// nil records nothing. A creation that cannot be recorded fails the boot.
 	Record         func(deploy.Owned) error
-	Storage        deploy.StorageBindings
+	storage        deploy.StorageBindings
 	restoreStorage deploy.StorageRestore
 	// Owned is the deployment's list before this boot (Ownership.Recorded).
-	Owned []deploy.Owned
+	owned []deploy.Owned
 	// Sealed boots a restore rehearsal: no address outside its host, its
 	// own network, its needs filled before any init step, and only the
 	// public part (Sealed). nil boots as before.
@@ -138,8 +138,8 @@ type BootRequest struct {
 }
 
 func (t BootRequest) logf(format string, args ...any) {
-	if t.Log != nil {
-		t.Log(format, args...)
+	if t.log != nil {
+		t.log(format, args...)
 	}
 }
 
@@ -186,7 +186,7 @@ func (r BootResult) Image() string { return r.Stack.Plan.PublicPart().Image }
 // Boot phases, on BootError. The callers word their own failures per phase
 // — the step evidence, the button's sentence and the rebuild log all differ.
 const (
-	PhaseImages  = "images"  // preparing or pulling selected images
+	phaseImages  = "images"  // preparing or pulling selected images
 	PhaseResolve = "resolve" // an unknown need: refused at the door
 	PhaseSecrets = "secrets" // a declared secret nothing provides, or a broken declaration
 	PhaseConfig  = "config"  // the values a browser may be given could not be read
@@ -195,7 +195,7 @@ const (
 	PhaseParts   = "parts"   // init containers or non-public parts
 	PhaseApp     = "app"     // the public app container did not start
 	PhaseProbe   = "probe"   // it started but never answered (LogTail has its last words)
-	PhasePage    = "page"    // it answered, but the page a visitor opens is refused or missing
+	phasePage    = "page"    // it answered, but the page a visitor opens is refused or missing
 )
 
 type BootError struct {
@@ -211,7 +211,7 @@ func (e *BootError) Error() string { return e.Err.Error() }
 // What it left on the host is on the deployment's list (Ownership), so the
 // next release or a take-down removes it. Only an error with no phase (one
 // a boot did not report) leaves the outcome unknown.
-func (e *BootError) KnownOutcome() bool { return e.Phase != "" }
+func (e *BootError) knownOutcome() bool { return e.Phase != "" }
 func (e *BootError) Unwrap() error      { return e.Err }
 
 // asBootError: the phase-carrying error behind a boot failure; any other
@@ -423,8 +423,8 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		return res, &BootError{Phase: PhaseSecrets, Err: err}
 	}
 	res.Stack = rs
-	t.own = Ownership{storage: t.Storage, restoreStorage: t.restoreStorage, Record: t.Record, Needs: map[string]string{}, priorResources: t.Owned, persistent: t.Persistent}
-	if t.Persistent {
+	t.own = Ownership{storage: t.storage, restoreStorage: t.restoreStorage, Record: t.Record, Needs: map[string]string{}, priorResources: t.owned, persistent: t.persistent}
+	if t.persistent {
 		t.own.info = dockerlabel.Informational(t.Slug, t.Deployment)
 	} else {
 		t.own.info = dockerlabel.PreviewInformational(t.Slug, t.ChangeTitle)
@@ -451,7 +451,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	t.contributions = &contributions
 	plan := rs.Plan
 	wasStatic := c.PublicPart().IsStatic()
-	t.release = c.PublicRelease(t.Revision)
+	t.release = c.PublicRelease(t.revision)
 	if t.ReleaseImage != "" {
 		plan, err = deploy.PreparedReleaseApp(plan, t.ReleaseImage)
 		if err != nil {
@@ -467,18 +467,18 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	if err := AdmitDisk(ctx, t.Docker, h.deps.DFImage); err != nil {
 		return res, &BootError{Phase: PhaseResolve, Err: err}
 	}
-	if t.Identity != nil || t.Recorded != nil {
+	if t.identity != nil || t.Recorded != nil {
 		plan, err = h.prepareImages(ctx, t, plan)
 		if err != nil && t.Recorded != nil {
-			return res, &BootError{Phase: PhaseImages, Err: err} // only asked the daemon: nothing changed
+			return res, &BootError{Phase: phaseImages, Err: err} // only asked the daemon: nothing changed
 		}
 		if err != nil {
-			return res, &BootError{Phase: PhaseImages, Err: err}
+			return res, &BootError{Phase: phaseImages, Err: err}
 		}
 	}
 
-	if t.Stage != nil {
-		t.Stage(deploy.Starting)
+	if t.stage != nil {
+		t.stage(deploy.Starting)
 	}
 	if err := allowed(ctx); err != nil {
 		return res, &BootError{Phase: PhaseNeeds, Err: err}
@@ -486,7 +486,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	network := ""
 	if len(rs.Services) > 0 {
 		t.logf("Starting or reusing %d dependency services", len(rs.Services))
-		if t.Persistent {
+		if t.persistent {
 			// The env's standing rail: a running sidecar is reused, so its
 			// postgres (and its data) survives releases.
 			var serr error
@@ -561,8 +561,8 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		return res, &BootError{Phase: PhaseApp, Err: err}
 	}
 	res.HostPort = hostPort
-	if t.Stage != nil {
-		t.Stage(deploy.Checking)
+	if t.stage != nil {
+		t.stage(deploy.Checking)
 	}
 	t.logf("Checking application readiness")
 	if t.Sealed != nil {
@@ -628,7 +628,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		status, ok, why := staticPageServes(probeU)
 		res.Page = &PageWitness{Path: "/", Host: hostOf(probeU), Status: status, Passed: ok, Verdict: why}
 		if !ok {
-			return res, &BootError{Phase: PhasePage, Err: errors.New(why)}
+			return res, &BootError{Phase: phasePage, Err: errors.New(why)}
 		}
 	} else if t.PageCheck {
 		// The readiness path is often exempt from what refuses visitors
@@ -642,12 +642,12 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		if err != nil {
 			why := fmt.Sprintf("GET / as a visitor got no answer: %v", err)
 			res.Page = &PageWitness{Path: path, Host: host, Verdict: why}
-			return res, &BootError{Phase: PhasePage, Err: errors.New(why), LogTail: containerLogTail(ctx, t.Docker, t.Name)}
+			return res, &BootError{Phase: phasePage, Err: errors.New(why), LogTail: containerLogTail(ctx, t.Docker, t.Name)}
 		}
 		why := check.PageRefusal(status, path)
 		res.Page = &PageWitness{Path: path, Host: host, Status: status, Passed: why == "", Verdict: why}
 		if why != "" {
-			return res, &BootError{Phase: PhasePage, Err: errors.New(why), LogTail: containerLogTail(ctx, t.Docker, t.Name)}
+			return res, &BootError{Phase: phasePage, Err: errors.New(why), LogTail: containerLogTail(ctx, t.Docker, t.Name)}
 		}
 		res.Page.Verdict = fmt.Sprintf("GET %s answered %d: a visitor who opens the app is not refused", path, status)
 	}

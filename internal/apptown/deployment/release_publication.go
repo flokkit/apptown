@@ -111,7 +111,7 @@ var errNoReleaseRegistry = fmt.Errorf("%w: this project has no container registr
 // LandingRegistry is the repository a landing publishes its release to.
 // A project with no container registry is first given the one
 // container-registry connector AppTown offers, through the integrations
-// owner (integration.AttachOfferedRegistry), as LandingTarget gives a
+// owner (integration.AttachOfferedRegistry), as landingTarget gives a
 // landing the one offered Docker host; with none or several the refusal
 // names the choice a person makes.
 //
@@ -135,10 +135,10 @@ func (s *Service) LandingRegistry(ctx context.Context, projectID ids.ID, who str
 	return s.env.ReleaseRepository(ctx, projectID)
 }
 
-// TargetPlatform is the platform a Docker host runs images for, as its
+// targetPlatform is the platform a Docker host runs images for, as its
 // daemon answers, in canonical OCI form. A daemon that cannot be asked, or
 // an answer that names no known platform, is an error, never a guess.
-func (s *Service) TargetPlatform(ctx context.Context, t *Target) (string, error) {
+func (s *Service) targetPlatform(ctx context.Context, t *Target) (string, error) {
 	if t.Kind != KindDockerHost {
 		return "", fmt.Errorf("%s (%s) is not a Docker host", t.Name, t.Kind)
 	}
@@ -209,7 +209,7 @@ func (s *Service) tagRelease(ctx context.Context, number int64, b *ReleaseBundle
 type ReleasePublication struct {
 	// Log reports phase entry only; image names, never credentials or image contents.
 	Log deploy.Logf
-	// By is the deploy step attempt publishing it: it must own its step
+	// By is the build step attempt publishing it: it must own its step
 	// before each image is written and when the bundle is committed.
 	By       AttemptClaim
 	ChangeID ids.ID
@@ -226,7 +226,7 @@ type ReleasePublication struct {
 
 // PublishRelease publishes every image of a release to the project's
 // registry and commits the bundle naming them by the digests the registry
-// read back, in one transaction with the check that the deploy step attempt
+// read back, in one transaction with the check that the build step attempt
 // still owns its step. Images are tagged change-<change>-<image> for people
 // and retention rules (changeTag); a retry of the landing moves the tag to
 // its own build, and the bundle records the digest.
@@ -237,9 +237,9 @@ type ReleasePublication struct {
 // naming the registry's answer.
 func (s *Service) PublishRelease(ctx context.Context, in ReleasePublication) (*ReleaseBundle, error) {
 	if in.By == nil {
-		return nil, errors.New("a release is published only by a claimed deploy step attempt")
+		return nil, errors.New("a release is published only by a claimed build step attempt")
 	}
-	projectID, runID, _, err := in.By.ClaimedStep("deploy")
+	projectID, runID, _, err := in.By.ClaimedStep("build")
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func (s *Service) PublishRelease(ctx context.Context, in ReleasePublication) (*R
 	withheld := !purpose.Integrations()
 	published, registry := map[string]string{}, ""
 	for _, img := range in.Plan.Images {
-		if err := in.By.InAttempt("deploy", func(*database.Tx, int64) error { return nil }); err != nil {
+		if err := in.By.InAttempt("build", func(*database.Tx, int64) error { return nil }); err != nil {
 			return nil, err
 		}
 		if in.Log != nil {
@@ -309,11 +309,11 @@ func sourceCredential(withheld bool, repo oci.Repository, source string) oci.Cre
 	return repo.Credential
 }
 
-// PublishesLanding says whether a landing of projectID built on a Docker
+// publishesLanding says whether a landing of projectID built on a Docker
 // host is published (PublishLanded): when the project has a container
 // registry. None is false; a registry that cannot be used (a credential
 // named but not held) is the refusal, before anything is built.
-func (s *Service) PublishesLanding(ctx context.Context, projectID ids.ID) (bool, error) {
+func (s *Service) publishesLanding(ctx context.Context, projectID ids.ID) (bool, error) {
 	_, err := s.env.ReleaseRepository(ctx, projectID)
 	if errors.Is(err, errNoReleaseRegistry) {
 		return false, nil
@@ -321,20 +321,9 @@ func (s *Service) PublishesLanding(ctx context.Context, projectID ids.ID) (bool,
 	return err == nil, err
 }
 
-// PublishLanded publishes what a landing built on its Docker host, as
-// PublishRelease publishes what the worker built: a worker changes where a
-// release is built, never what it produces. Each image of in.Plan that is
-// built from the tree is the one the boot ran (LandingResult.Images),
-// saved from the host's daemon (`docker save`, an OCI layout in a tar);
-// image-only declarations are copied by PublishRelease as on the worker.
-// The bundle names the host as where its images were built, for the
-// platform its daemon runs. The saved files are removed before it returns.
-func (s *Service) PublishLanded(ctx context.Context, landed LandingResult, in ReleasePublication) (*ReleaseBundle, error) {
-	t, err := s.Targets.ByID(ctx, landed.TargetID)
-	if err != nil {
-		return nil, fmt.Errorf("reading the landing's target: %w", err)
-	}
-	if in.Platform, err = s.TargetPlatform(ctx, t); err != nil {
+func (s *Service) publishImages(ctx context.Context, t *Target, parts, init map[string]string, in ReleasePublication) (*ReleaseBundle, error) {
+	var err error
+	if in.Platform, err = s.targetPlatform(ctx, t); err != nil {
 		return nil, err
 	}
 	in.Build = BundleBuild{Worker: t.Name, Role: "docker-host"}
@@ -343,7 +332,6 @@ func (s *Service) PublishLanded(ctx context.Context, landed LandingResult, in Re
 		return nil, err
 	}
 	ran := map[string]string{} // image name -> the image the boot ran
-	parts, init := landed.Images(ctx)
 	for part, img := range in.Plan.Parts {
 		ran[img] = cmp.Or(ran[img], parts[part])
 	}

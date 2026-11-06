@@ -366,7 +366,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	// before Deployment, which is given it; data protection itself is
 	// built over the same one after.
 	starter := dataprotection.NewStarter(db, starterDependenciesFor(a))
-	deploymentDeps := a.deploymentDependencies(changes)
+	deploymentDeps := a.deploymentDependencies()
 	deploymentDeps.Operations = a.operations
 	deploymentDeps.CopyStarter = starter
 	deploymentDeps.CopyCheck = starter
@@ -376,6 +376,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.HostReaders = deployment.HostReaders{Snapshots: a.hostSnapshots, Targets: a.targets, Hosts: a.hosts, Providers: a.targetProviders, Inventory: a.Deployment.Inventory}
 	a.vhostRules.deployments = a.Deployment.Deployments // standing hostnames route by its records
 	a.DataProtection = dataprotection.New(starter, dataProtectionDependencies(a))
+	deploymentDeps.Releases.Data.(*releaseData).data = a.DataProtection
 	a.backupRecords = dataprotection.NewBackups(db, cfg.clock.Now)
 	a.Backups = instancebackup.New(instanceBackupDependencies(a))
 	a.Preview = preview.New(db, previewDependencies(a, changes))

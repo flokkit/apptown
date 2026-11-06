@@ -13,9 +13,12 @@ import (
 // FollowUps applies already-admitted durable effects. River owns delivery;
 // Workflow owns transition/intent transactions and current effect observations.
 type FollowUps struct {
-	DB        *database.DB
-	Work      *workflow.Service
-	Landings  AcceptedLandings
+	DB       *database.DB
+	Work     *workflow.Service
+	Landings AcceptedLandings
+	Releases interface {
+		RequestLandingReleases(context.Context, ids.ID, ids.ID, ids.ID, string) error
+	}
 	Uplifts   UpliftSettlement
 	Resources Resources
 	// Chats ends a closed change's chats before its folder is removed, and

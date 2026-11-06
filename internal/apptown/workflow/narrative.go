@@ -64,10 +64,11 @@ const EmptyCommittedChange = "No committed changes since this change started."
 // short, with gapQuote attributing it to the person). A draft that does not
 // say is unknown, never met.
 type NarrativeDraft struct {
-	Title, Note string
-	met         RequestMet
-	gap         string
-	gapQuote    string
+	title    string
+	Note     string
+	met      RequestMet
+	gap      string
+	gapQuote string
 }
 
 type NarrativePublication struct {
@@ -121,7 +122,7 @@ func ParseNarrative(out string) (NarrativeDraft, error) {
 		title, body, _ := strings.Cut(rest, "\n")
 		title = strings.Trim(strings.TrimSpace(title), `"'.`)
 		if len(title) <= 90 {
-			draft.Title = title
+			draft.title = title
 		}
 		draft.Note = strings.TrimSpace(body)
 	}
@@ -142,7 +143,7 @@ func ParseNarrative(out string) (NarrativeDraft, error) {
 	if draft.Note == "" {
 		return NarrativeDraft{}, errNarrativeEmpty
 	}
-	if !utf8.ValidString(draft.Title) || !utf8.ValidString(draft.Note) || !utf8.ValidString(draft.gap) || !utf8.ValidString(draft.gapQuote) {
+	if !utf8.ValidString(draft.title) || !utf8.ValidString(draft.Note) || !utf8.ValidString(draft.gap) || !utf8.ValidString(draft.gapQuote) {
 		return NarrativeDraft{}, fmt.Errorf("invalid narrative text")
 	}
 	draft.Note = bound(draft.Note, 2000)
@@ -407,7 +408,7 @@ func (s narratives) publish(ctx context.Context, in NarrativePublication) error 
 	}
 	observed := *source.Change
 	ch := &observed
-	if ch.ID.IsZero() || ch.ProjectID.IsZero() || strings.TrimSpace(draft.Note) == "" || len(draft.Note) > 2000 || len(draft.Title) > 90 || len(draft.gap) > maxGap || !utf8.ValidString(draft.gap) || !utf8.ValidString(draft.Note) || !utf8.ValidString(draft.Title) {
+	if ch.ID.IsZero() || ch.ProjectID.IsZero() || strings.TrimSpace(draft.Note) == "" || len(draft.Note) > 2000 || len(draft.title) > 90 || len(draft.gap) > maxGap || !utf8.ValidString(draft.gap) || !utf8.ValidString(draft.Note) || !utf8.ValidString(draft.title) {
 		return fmt.Errorf("invalid narrative publication")
 	}
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
@@ -427,7 +428,7 @@ func (s narratives) publish(ctx context.Context, in NarrativePublication) error 
 		if n != 1 {
 			return ErrNarrativeChanged
 		}
-		if _, err := editChangeTitleIn(ctx, tx, ch.ProjectID, ch.ID, changeTitleEdit{act: reviseTitle, words: draft.Title, observed: ch.Title}); err != nil {
+		if _, err := editChangeTitleIn(ctx, tx, ch.ProjectID, ch.ID, changeTitleEdit{act: reviseTitle, words: draft.title, observed: ch.Title}); err != nil {
 			return err
 		}
 		if s.notes == nil {

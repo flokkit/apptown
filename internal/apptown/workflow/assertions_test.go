@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/adrs"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
@@ -430,4 +431,58 @@ func createScopeADR(t *testing.T, db *database.DB, in adrs.Create, accepted bool
 		}
 	}
 	return row.ID
+}
+
+// A build requirement is satisfied by the current runner's outcome and its
+// matching artifact. An attached assertion or an earlier build's ref is not proof.
+func TestBuildRequirementMatchesTheCurrentBuildOutcome(t *testing.T) {
+	for _, scenario := range []string{"runtime", "no runtime", "wrong ref", "no bundle", "no clean-tree build"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+			q, run := admitWorkflowSpec(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "build", Uses: "build"}, {Name: "require", Uses: "artifact/require", With: map[string]any{"kind": "build"}}}}}})
+			evidence := map[string]any{"runtime": true, "bundle": "current-bundle"}
+			artifact := ArtifactDraft{Kind: "build", Name: "runtime-bundle", Ref: "current-bundle"}
+			switch scenario {
+			case "no runtime":
+				evidence = map[string]any{"runtime": false, "cleanTreeBuild": "pass", "commit": "committed-tree"}
+				artifact.Name = "no-runtime"
+				artifact.Ref = "committed-tree"
+			case "wrong ref":
+				artifact.Ref = "earlier-bundle"
+			case "no bundle":
+				delete(evidence, "bundle")
+			case "no clean-tree build":
+				evidence = map[string]any{"runtime": false, "commit": "committed-tree"}
+				artifact.Name = "no-runtime"
+				artifact.Ref = "committed-tree"
+			}
+			s := newServiceWithAuthority(q.db, Dependencies{Automatic: []string{"build"}, Runners: map[string]Runner{"build": func(e *Execution) {
+				if _, err := e.Claim(); err != nil {
+					t.Fatal(err)
+				}
+				out, encodeErr := EncodeOutcome(StatusPass, evidence, nil)
+				if err := e.Finish(out, encodeErr); err != nil {
+					t.Fatal(err)
+				}
+			}}}, allowProject(run.ProjectID))
+			s.Stop()
+			if err := s.ExecuteStep(t.Context(), admittedStepID(t, q, run, "build")); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.AttachArtifact(t.Context(), run.ID, artifact); err != nil {
+				t.Fatal(err)
+			}
+			assertion, err := NewAssertions(q.db, nil).Evaluate(t.Context(), Assertion{StepID: admittedStepID(t, q, run, "require")})
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := StatusFail
+			if scenario == "runtime" || scenario == "no runtime" {
+				want = StatusPass
+			}
+			if assertion.Status != want {
+				t.Fatalf("%s: %s %s", scenario, assertion.Status, assertion.Evidence)
+			}
+		})
+	}
 }

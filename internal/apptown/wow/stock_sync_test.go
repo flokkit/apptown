@@ -289,11 +289,11 @@ func TestAPolicyOnlyReleasePublishesThePacksThatNameIt(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, p := range setup.Policies {
-			if p.Name == "deploy-requires-scan" {
+			if p.Name == "build-requires-scan" {
 				return p.With
 			}
 		}
-		t.Fatalf("%s v%d installs no deploy-requires-scan", pack, version)
+		t.Fatalf("%s v%d installs no build-requires-scan", pack, version)
 		return nil
 	}
 	if got := applied(before.Version); got["requires"] != "scan" {
@@ -304,7 +304,7 @@ func TestAPolicyOnlyReleasePublishesThePacksThatNameIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tightened := strings.Replace(string(raw), "with: { uses: deploy, requires: scan }", "with: { uses: deploy, requires: tests }", 1)
+	tightened := strings.Replace(string(raw), "with: { uses: build, requires: scan }", "with: { uses: build, requires: tests }", 1)
 	release := New(s.db, Dependencies{Stock: changedStock{FS: stock.FS, files: fstest.MapFS{"policies.yaml": {Data: []byte(tightened)}}}, ToolLines: stock.Versions()})
 	release.SyncStock(t.Context())
 	latest, err := libraryRows(s.db).PackByName(t.Context(), pack)

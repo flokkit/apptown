@@ -24,7 +24,7 @@ type Driver struct {
 	Scope        func(context.Context) (Scope, error)                            // which daemon: AppTown's own, or an attached host's
 	Boot         booter                                                          // the stack boot
 	URL          func(servingLabel, deployment string, port int) (string, error) // the address a deployment is reached at
-	AfterRelease func(p deploy.Placement)                                        // what follows a release (a backup)
+	// what follows a release (a backup)
 	// Registry is the credential a release's images by digest are pulled
 	// with, and Scratch the folder each pull's own Docker configuration is
 	// written under (RecordedImages). A credential that cannot be read is
@@ -111,10 +111,10 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
 	req := BootRequest{
-		Log: logf, ExactOrigins: &origin, URL: originURL,
-		Name: name, StackID: names.Stack(), Slug: slug, ServingLabel: d.ServingLabel, Workspace: ws,
-		Deployment: p.Name, DataClass: d.DataClass, HostPort: p.HostPort, Persistent: true, Probe: 90 * time.Second, Docker: dk,
-		Identity: &id, Services: SourceServices(art), Revision: source.Revision, fill: d.Fill, Allowed: d.Allowed, Storage: d.Storage, restoreStorage: d.RestoreStorage,
+		log: logf, exactOrigins: &origin, URL: originURL,
+		Name: name, StackID: names.Stack(), Slug: slug, servingLabel: d.ServingLabel, Workspace: ws,
+		Deployment: p.Name, DataClass: d.DataClass, hostPort: p.HostPort, persistent: true, Probe: 90 * time.Second, Docker: dk,
+		identity: &id, Services: SourceServices(art), revision: source.Revision, fill: d.Fill, Allowed: d.Allowed, storage: d.Storage, restoreStorage: d.RestoreStorage,
 	}
 
 	if err := d.Allowed(ctx); err != nil {
@@ -124,7 +124,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 		req.Record = func(o deploy.Owned) error { return d.Owner.Created(ctx, o) }
 	}
 	if d.Owned != nil {
-		if req.Owned, err = d.Owned(ctx); err != nil {
+		if req.owned, err = d.Owned(ctx); err != nil {
 			return deploy.Observation{}, deploy.Terminal(fmt.Errorf("reading what the deployment owns: %w", err))
 		}
 	}
@@ -139,7 +139,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 		}
 	}
 	res, err := d.Boot.Boot(ctx, req, c)
-	if err != nil && AsBootError(err).KnownOutcome() {
+	if err != nil && AsBootError(err).knownOutcome() {
 		return deploy.Observation{}, deploy.Terminal(err) // the boot said the new version did not come up
 	}
 	if err != nil {
@@ -149,11 +149,10 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
-	o, err := RecordBoot(ctx, dk, id, name, res.Image(), url, res.HostPort, checkpoint)
+	o, err := recordBoot(ctx, dk, id, name, res.Image(), url, res.HostPort, checkpoint)
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	d.AfterRelease(p)
 	return o, nil
 }
 

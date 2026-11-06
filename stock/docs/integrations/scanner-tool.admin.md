@@ -61,7 +61,7 @@ detected.
 
 ## Policy hooks
 
-`scanner-bound` requires the capability bound; `deploy-requires-scan`
+`scanner-bound` requires the capability bound; `build-requires-scan`
 gates deploys on scans (`scan-failon-ceiling` ships too). The stock `land` workflow runs every
 source scanner before the approval and every image scanner before the
 deploy; `ship` does the same for lanes that call it. Every lane hardens

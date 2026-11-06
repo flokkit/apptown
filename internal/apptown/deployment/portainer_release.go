@@ -136,9 +136,7 @@ func (d *portainerRelease) Reconcile(ctx context.Context, pl deploy.Placement, g
 	}
 	pl.URL = art.Source.Ingress.URL
 	o, err := d.Driver.Reconcile(ctx, pl, generation, art, key, logf, checkpoint)
-	if err == nil && o.Rollout == "active" && d.providers.afterRelease != nil {
-		d.providers.afterRelease(d.dep.ProjectID, d.dep.Name)
-	}
+
 	return o, err
 }
 

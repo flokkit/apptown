@@ -223,7 +223,7 @@ func digestOrigin(by deployment.AttemptClaim) deployment.BundleOrigin {
 	return deployment.BundleOrigin{Registry: releaseRepo, Platform: "linux/amd64", Build: deployment.BundleBuild{Worker: "http://worker:7070", Role: "agent"}, By: by}
 }
 
-// claimedAttempt is Work's claim of a deploy step attempt, which a digest
+// claimedAttempt is Work's claim of a build step attempt, which a digest
 // bundle is committed under: its fence's transaction, always held.
 type claimedAttempt struct {
 	db                 *database.DB
@@ -232,15 +232,15 @@ type claimedAttempt struct {
 }
 
 func (c *claimedAttempt) ClaimedStep(kind string) (ids.ID, ids.ID, ids.ID, error) {
-	if kind != "deploy" {
-		return ids.Nil, ids.Nil, ids.Nil, errors.New("not a deploy step")
+	if kind != "build" {
+		return ids.Nil, ids.Nil, ids.Nil, errors.New("not a build step")
 	}
 	return c.project, c.run, c.step, nil
 }
 
 func (c *claimedAttempt) InAttempt(kind string, write func(*database.Tx, int64) error) error {
-	if kind != "deploy" {
-		return errors.New("not a deploy step")
+	if kind != "build" {
+		return errors.New("not a build step")
 	}
 	return c.db.InTx(context.Background(), func(tx *database.Tx) error { return write(tx, c.at) })
 }

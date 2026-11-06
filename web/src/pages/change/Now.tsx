@@ -28,9 +28,9 @@ function CalledRun({ id, receive }: { id: string; receive: (id: string, detail: 
 }
 
 function StepFact({ step: s }: { step: Step }) {
-  const live = useGet<StepProgress>(s.status === 'running' && s.type === 'deploy' ? `/steps/${s.id}/live?from=0` : null, { poll: 3000 })
+  const live = useGet<StepProgress>(s.status === 'running' && s.type === 'build' ? `/steps/${s.id}/live?from=0` : null, { poll: 3000 })
   const fact = s.type === 'approval' ? s.evidence.approver || approversOf(s)
-    : s.type === 'deploy' ? live.data?.lines?.at(-1)?.slice(0, 180) || s.evidence.url || s.evidence.reason || (s.status === 'running' ? 'Deploying the accepted work' : s.status === 'pending' ? 'Waiting to deploy' : s.status === 'pass' ? 'Accepted work deployed' : 'Deployment stopped')
+    : s.type === 'build' ? live.data?.lines?.at(-1)?.slice(0, 180) || s.evidence.reason || (s.status === 'running' ? 'Building the accepted work' : s.status === 'pending' ? 'Waiting to build' : s.status === 'pass' ? 'Accepted work built' : 'Build stopped')
     : s.type === 'agent/pi' ? s.status === 'running' ? 'Agent working' : s.status === 'pending' ? 'Waiting to start' : s.evidence.reason || 'Agent finished'
     : checks.has(s.type) ? s.name.replace(/[-_]/g, ' ') : s.evidence.reason
   return <span className="ch-now-fact">{fact}<StaleNote q={live} />{live.err && <span className="error">Progress could not be read: {live.err}</span>}</span>

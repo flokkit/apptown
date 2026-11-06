@@ -95,7 +95,7 @@ func TestNarrativePublicationRefusesChangedSource(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := owner.publish(ctx, NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "new", Note: "new note"}}); !errors.Is(err, ErrNarrativeChanged) {
+			if err := owner.publish(ctx, NarrativePublication{Source: source, Draft: NarrativeDraft{title: "new", Note: "new note"}}); !errors.Is(err, ErrNarrativeChanged) {
 				t.Fatalf("stale %s: %v", changed, err)
 			}
 			assertNarrative(t, owner, ch.ID, "automatic", "previous")

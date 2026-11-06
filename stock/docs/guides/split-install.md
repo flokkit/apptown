@@ -61,7 +61,7 @@ install's compose file sets it ("With Docker" below).
 With `-no-local-docker` AppTown starts no container and no project process
 on its host. Installed from its image, AppTown's host runs Docker for
 AppTown's own container only, and AppTown is not given its socket. It needs a worker and an external database (`-db-url`), and
-deploys a landing to an attached Docker host instead of its own. This is
+builds runtime bundles on the worker. Releases run separately on attached targets. This is
 the split install.
 
 ## Setting up a split install
@@ -91,8 +91,9 @@ the split install.
    backups](apptown-backups.md)). The managed database's own backups do
    not replace it: they hold neither the data directory nor the secrets.
 4. **An app host.** Attach a Docker host and offer it to the projects that
-   may use it ([Deployment targets](deployment-targets.md)). A project's first landing
-   creates its `main` deployment there.
+   may use it ([Deployment targets](deployment-targets.md)). Create a deployment
+   on that host with `feed: main` through the deployment API to release each
+   landing automatically ([Previews and deployments](container-lifecycle.md)).
 5. **A registry for each project.** Each landing publishes its images to
    the project's container registry, and the Docker host pulls them from
    there (see the [package registries](../integrations/registry-registry.admin.md) Admin tab).

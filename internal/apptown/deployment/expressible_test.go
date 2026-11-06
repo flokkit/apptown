@@ -30,10 +30,10 @@ func TestTargetRefusesContract(t *testing.T) {
 }
 
 func TestDeployableByHand(t *testing.T) {
-	if err := (&Deployment{Kind: preview, Feed: "landing"}).deployableByHand(); !errors.Is(err, errPreviewNotDeployed) {
+	if err := (&Deployment{Kind: preview, Feed: "main"}).deployableByHand(); !errors.Is(err, errPreviewNotDeployed) {
 		t.Fatalf("a preview follows its change: %v", err)
 	}
-	if err := (&Deployment{Kind: Standing, Name: "main", Feed: "landing"}).deployableByHand(); !errors.Is(err, errFedByLanding) || !strings.HasPrefix(err.Error(), "main is") {
+	if err := (&Deployment{Kind: Standing, Name: "main", Feed: "main"}).deployableByHand(); !errors.Is(err, errFedByLanding) || !strings.HasPrefix(err.Error(), "main is") {
 		t.Fatalf("a landing-fed deployment is deployed by landing: %v", err)
 	}
 	if err := (&Deployment{Kind: Standing, Name: "staging", Feed: "promotion"}).deployableByHand(); err != nil {
@@ -44,7 +44,7 @@ func TestDeployableByHand(t *testing.T) {
 // A landing-fed deployment takes by hand only the bundle it is known to run:
 // another bundle, or software without recorded provenance, remains landing's.
 func TestDeployableByHandAtTheBundleItRuns(t *testing.T) {
-	main := &Deployment{Kind: Standing, Name: "main", Feed: "landing"}
+	main := &Deployment{Kind: Standing, Name: "main", Feed: "main"}
 	if err := main.deployableByHandAt(idstest.N(5), idstest.N(5)); err != nil {
 		t.Fatalf("what runs may be deployed again: %v", err)
 	}
@@ -53,16 +53,16 @@ func TestDeployableByHandAtTheBundleItRuns(t *testing.T) {
 			t.Fatalf("bundle %s with %s running is landing's: %v", c[0], c[1], err)
 		}
 	}
-	if err := (&Deployment{Kind: preview, Feed: "landing"}).deployableByHandAt(idstest.N(5), idstest.N(5)); !errors.Is(err, errPreviewNotDeployed) {
+	if err := (&Deployment{Kind: preview, Feed: "main"}).deployableByHandAt(idstest.N(5), idstest.N(5)); !errors.Is(err, errPreviewNotDeployed) {
 		t.Fatalf("a preview follows its change, whatever it runs: %v", err)
 	}
 }
 
 func TestRemovable(t *testing.T) {
-	if err := (&Deployment{Name: "main"}).removable(); !errors.Is(err, errMainNotRemoved) {
+	if err := (&Deployment{Name: "follows", Feed: "main"}).removable(); !errors.Is(err, errMainNotRemoved) {
 		t.Fatalf("main is never removed by hand: %v", err)
 	}
-	if err := (&Deployment{Name: "staging"}).removable(); err != nil {
+	if err := (&Deployment{Name: "main", Feed: "manual"}).removable(); err != nil {
 		t.Fatalf("another deployment may be torn down: %v", err)
 	}
 }

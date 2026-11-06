@@ -114,7 +114,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 		t.Fatalf("release row: %+v", release)
 	}
 	// A second release updates the app (PUT) as generation 2; the cluster is reused.
-	out, _, err = requestBundleForTest(t, a, p, env, b, "bls")
+	out, _, err = requestBundleForTest(t, a, p, env, b, "bls", true)
 	if err != nil {
 		t.Fatal(err)
 	}

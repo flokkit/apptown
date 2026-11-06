@@ -10,14 +10,12 @@ before root authority; a restricted token cannot recover permissions from its
 owner's broader role. An agent-purpose personal token is restricted like an
 OAuth delegation holding every scope, in `access.Decide` and in Identity's
 administration check alike (`access.CredentialCovers`), so it never approves,
-lands or administers. Merging into the default branch and deploying are acts
-a person answers for: the engine performs either only when the run (or the run
-that called it) carries a person's approval, or was admitted by someone
-holding `change:land`, recorded on the run when it was created. The check is
-made at the effect itself, the merge admission and the deploy step's claim, so
-it holds whichever door started the run and when it resumes
-(`workflow/assent.go`). Starting a run whose definition would reach either
-effect before a required approval is also refused early to a caller without
+lands or administers. Merging into the default branch requires a person's approval on the run (or its caller), or admission under `change:land`.
+The merge checks that authority at admission (`workflow/assent.go`).
+Deployment requires `deployment:deploy` and, for protected deployments,
+`release:promote`. Automatic requests use the follows-main setting's recorded
+setter and credential, rechecked at execution; landing approvers supply
+provenance only. Starting a run whose definition would merge before a required approval is also refused early to a caller without
 `change:land`. Agents, consoles, step runs and AppTown's own triggers hold no
 landing authority and cannot approve. Root may approve its own Change. Non-root approval follows
 project eligibility, the independent-approval rule and quorum requirements.

@@ -294,3 +294,37 @@ func (h Deployments) resourceOverride(w http.ResponseWriter, r *http.Request, se
 		WriteJSON(w, 200, out)
 	})
 }
+
+type FeedConfirmationRequest struct {
+	Revision int64 `json:"revision"`
+}
+
+// ConfirmFeed records a person's standing authorization at the revision shown.
+func (h Deployments) ConfirmFeed(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	jsonCommand(w, r, jsonBody{strict: true}, func(in FeedConfirmationRequest) {
+		dep, err := h.deployment.ConfirmFeed(r.Context(), p.ID, r.PathValue("name"), in.Revision)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		WriteJSON(w, 200, dep)
+	})
+}
+
+type FeedsConfirmed struct {
+	Confirmed []string `json:"confirmed"`
+	Refused   []string `json:"refused"`
+}
+
+func (h Deployments) ConfirmAllFeeds(w http.ResponseWriter, r *http.Request) {
+	confirmed, refused, err := h.deployment.ConfirmAllFeeds(r.Context())
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, FeedsConfirmed{Confirmed: confirmed, Refused: refused})
+}

@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -251,6 +252,66 @@ func (s *Releases) BeforeBackups(ctx context.Context, projectID ids.ID, backups 
 	out := map[ids.ID]int64{}
 	for _, r := range rows {
 		out[r.BackupID] = r.Number
+	}
+	return out, nil
+}
+
+// LandingRequests is the follows-main work requested by this change's landings,
+// rather than every later release that also happens to contain the change.
+func (s *Releases) LandingRequests(ctx context.Context, projectID, changeID ids.ID) ([]*Release, error) {
+	rows, err := releaseRecords(deploymentsql.New(s.db.SQL()).LandingRequestsForChange(ctx, deploymentsql.LandingRequestsForChangeParams{ProjectID: projectID, ChangeID: changeID}))
+	if err != nil {
+		return nil, err
+	}
+	for _, rel := range rows {
+		if rel.State == ReleaseFailed {
+			events, err := s.Events(ctx, rel.ID)
+			if err != nil {
+				return nil, err
+			}
+			if len(events) > 0 {
+				rel.Failure = events[len(events)-1].Text
+			}
+		}
+	}
+	return rows, nil
+}
+
+// RequestMetadata is the recorded authority and data evidence of a queued
+// release. Credential names a credential record, never its secret value.
+type RequestMetadata struct {
+	Feed               string          `json:"feed"`
+	SettingsRevision   int64           `json:"settingsRevision"`
+	SetBy              string          `json:"setBy"`
+	Setter             ids.ID          `json:"setter,omitzero"`
+	Credential         string          `json:"credential"`
+	Approvers          string          `json:"approvers"`
+	BackupEvidence     json.RawMessage `json:"backupEvidence,omitempty"`
+	UncopiedAcceptance json.RawMessage `json:"uncopiedAcceptance,omitempty"`
+}
+
+func (s *Releases) RequestMetadata(ctx context.Context, releaseID ids.ID) (*RequestMetadata, error) {
+	row, err := deploymentsql.New(s.db.SQL()).ReleaseRequestMetadata(ctx, releaseID)
+	if found, e := database.Lookup(err); e != nil || !found {
+		return nil, e
+	}
+	out := &RequestMetadata{Approvers: row.LandingApprovers}
+	if row.FeedRevision.Valid {
+		out.Feed = "main"
+		out.SettingsRevision = row.FeedRevision.Int64
+	}
+	if row.AuthorityJson != nil {
+		principal, err := releasePrincipal(*row.AuthorityJson)
+		if err != nil {
+			return nil, err
+		}
+		out.SetBy, out.Setter, out.Credential = principal.Name, principal.ID, principal.Credential
+	}
+	if row.BackupEvidenceJson != nil {
+		out.BackupEvidence = *row.BackupEvidenceJson
+	}
+	if row.UncopiedAcceptanceJson != nil {
+		out.UncopiedAcceptance = *row.UncopiedAcceptanceJson
 	}
 	return out, nil
 }

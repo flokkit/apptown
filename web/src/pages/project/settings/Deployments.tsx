@@ -166,17 +166,24 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
   const place = e.target ? placeWords(e.target.title, e.target.vendor, e.target.region) : 'not bound'
   const meta = [
     `${place}${e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}`,
-    e.feed === 'landing' ? 'updates on every change' : 'updates when released',
+    e.feed === 'main' ? 'updates on every change' : 'updates when released',
     e.audience === 'team' ? 'team only' : e.audience,
     `${e.data === 'synthetic' ? 'test' : e.data} data`,
   ].filter(Boolean).join(' · ')
   // The row's one action: settle an uncertain deployment first; otherwise
   // ship to one fed by promotion. One fed by landing needs neither.
+  const confirmFeed = async () => {
+    const result = await run(() => post(`${base}/confirm-feed`, { revision: e.feedRevision }))
+    if (result) onChanged()
+  }
   const action = e.readiness === 'uncertain'
     ? <button disabled={busy} onClick={checkAgain} title="ask the host what runs and settle the deployment from that">Check again</button>
-    : e.feed !== 'landing' && e.target
+    : e.feed === 'main'
+    ? <button disabled={busy} onClick={confirmFeed}>Confirm follows main</button>
+    : e.target
     ? <button disabled={busy} onClick={deploy} title="ship the latest bundle here and open the release">Deploy latest</button>
     : null
+
   return (
     <div className="card deploy-entry">
       <header className="deploy-head">
@@ -259,7 +266,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
           {action}
           <DisplayLabelEdit value={e.displayLabel || e.name} machineKey={e.name} path={`/projects/${slug}/deployments/${e.id}/label`} onChanged={onChanged} />
           <Link to={`/projects/${slug}/releases`}>Releases →</Link>
-          {e.name !== 'main' && !torn && (
+          {e.feed !== 'main' && !torn && (
             <QuietConfirm key={known ? 'known' : 'unknown'} label="Tear down" disabled={!known}
               title={known ? undefined : 'reading what a take-down would do to its data…'}
               prepare={holdsData ? async () => { await prot.reload() } : undefined}

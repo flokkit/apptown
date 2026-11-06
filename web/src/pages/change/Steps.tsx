@@ -136,8 +136,8 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
       )}
 
       {step.type === 'agent/pi' && step.status === 'running' && <LiveFeed stepId={stepId} />}
-      {['deploy', 'scan', 'tests'].includes(step.type) && step.status === 'running' && (
-        <LiveFeed stepId={stepId} label={step.type === 'deploy' ? 'deploying' : step.type === 'tests' ? 'running tests' : 'scanning'} />
+      {['build', 'scan', 'tests'].includes(step.type) && step.status === 'running' && (
+        <LiveFeed stepId={stepId} label={step.type === 'build' ? 'building' : step.type === 'tests' ? 'running tests' : 'scanning'} />
       )}
       {(step.type === 'agent/pi' || step.type === 'agent/review') && step.status !== 'running' && step.status !== 'pending' && (
         <FinishedFeed stepId={stepId} omitEmpty={evidenceOnly} />
@@ -152,7 +152,7 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
           <pre className="log step-log">{step.evidence.output}</pre>
         </section>
       )}
-      {(step.type === 'preview' || step.type === 'deploy') && step.evidence.url != null && (
+      {step.type === 'preview' && step.evidence.url != null && (
         <div className="muted small step-note">
           <a href={step.evidence.url} target="_blank" rel="noreferrer">{step.evidence.url}</a>
           {step.evidence.commit && <> · built from commit <code>{step.evidence.commit.slice(0, 7)}</code>{head ? <> ({sameCommitWords(step.evidence.commit, head).text})</> : null}</>}
@@ -161,7 +161,7 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
       {step.type === 'preview' && step.evidence.screenshots && (
         <Screenshots unfolded shots={step.evidence.screenshots} head={head} at={step.finishedAt ?? undefined} />
       )}
-      {(step.type === 'agent/pi' || step.type === 'preview' || step.type === 'deploy') && ev.reason != null && (
+      {(step.type === 'agent/pi' || step.type === 'preview' || step.type === 'build') && ev.reason != null && (
         <div className="error">{ev.reason}{ev.logTail ? <pre className="log">{ev.logTail}</pre> : null}</div>
       )}
 
@@ -267,7 +267,7 @@ export function StepActions({ step, onChange }: { step: Step; onChange: () => vo
   return <>
         {step.type === 'policy/current' && step.status === 'needs_human' && <button className="link" disabled={busy} onClick={() => act(() => post(`/runs/${step.runId}/restart-landing`, {}))}>Retry landing</button>}
         <span className="step-acts" aria-busy={busy}>
-          {['script', 'agent/pi', 'preview', 'deploy', 'agent/review', 'scan', 'guidance/conformance'].includes(step.type) && step.status !== 'running' && (
+          {['script', 'agent/pi', 'preview', 'build', 'agent/review', 'scan', 'guidance/conformance'].includes(step.type) && step.status !== 'running' && (
             <button className="link" onClick={() => act(() => post(`/steps/${step.id}/run`))}>Re-run</button>
           )}
           {(step.type === 'artifact/require' || step.type === 'adr/require' || step.type === 'scm/merged') && step.status !== 'pass' && (
@@ -304,7 +304,7 @@ export function ChildRunSteps({ childId, childNumber, workflow, live, onChange }
       <div className="muted small">↳ {workflow} · child run{childNumber ? ` ${childNumber}` : trace?.run ? ` ${trace.run.number}` : ''}</div>
       <ReadStatus q={read} what="the called workflow" /><StaleNote q={read} />
       {steps.map((s) => {
-        const url = (s.type === 'preview' || s.type === 'deploy') ? s.evidence?.url : undefined
+        const url = s.type === 'preview' ? s.evidence?.url : undefined
         const reason = s.evidence?.reason
         return (
           <div key={s.id} className="row mt-1 step-actions">
@@ -319,7 +319,7 @@ export function ChildRunSteps({ childId, childNumber, workflow, live, onChange }
             {s.type === 'approval' && s.status === 'pending' && !failed && live && read.current && trace?.run?.status === 'running' && s.stage === trace.run.currentStage && !checksRunning(steps, trace.run.currentStage) && (
               <DecisionForm stepId={s.id!} means={s.config.means} instructions={s.config.instructions} onDone={onChange} approveLabel="Accept" rejectLabel="Send back with a note" />
             )}
-            {['script', 'agent/pi', 'preview', 'deploy', 'workflow/call', 'scan', 'agent/review'].includes(s.type) && ['fail', 'error'].includes(s.status) && (
+            {['script', 'agent/pi', 'preview', 'build', 'workflow/call', 'scan', 'agent/review'].includes(s.type) && ['fail', 'error'].includes(s.status) && (
               <button className="subtle" onClick={() => act(() => post(`/steps/${s.id}/run`))}>Re-run</button>
             )}
             {!s.overrideBy && ['fail', 'error', 'needs_human'].includes(s.status) && (

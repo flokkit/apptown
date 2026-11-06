@@ -153,7 +153,11 @@ type packs interface {
 // deployments takes a copy's standing deployments down, main included, with
 // no final copy or backup on any target: a copy's data is synthetic and
 // nothing will restore it (dataprotection.Service.TakeDownWithProject).
+// LandingRelease is the outcome of one follows-main request of an eval landing.
+type LandingRelease struct{ Deployment, State, Failure string }
+
 type deployments interface {
+	LandingRequests(context.Context, ids.ID, ids.ID) ([]LandingRelease, error)
 	StandingNames(ctx context.Context, projectID ids.ID) ([]string, error)
 	TakeDownWithProject(ctx context.Context, projectID ids.ID, name string) error
 }

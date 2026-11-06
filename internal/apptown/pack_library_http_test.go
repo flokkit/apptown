@@ -28,7 +28,7 @@ func TestPackLibraryHTTPWarningsProtectionAndManifest(t *testing.T) {
 		// Strict: a field a pack does not have, the retired autoAdopt among
 		// them, and a policy defined inline instead of named.
 		{"boss", `{"name":"custom-pack","guidence":["x"]}`, 400}, {"boss", `{"name":"custom-pack","autoAdopt":true}`, 400},
-		{"boss", `{"name":"custom-pack","policies":[{"name":"deploy-requires-scan","rule":"requireStepBefore","with":{"uses":"deploy","requires":"scan"}}]}`, 400}} {
+		{"boss", `{"name":"custom-pack","policies":[{"name":"deploy-requires-scan","rule":"requireStepBefore","with":{"uses":"build","requires":"scan"}}]}`, 400}} {
 		w := authzCall(h, tc.who, "POST", "/api/v1/packs", tc.body)
 		if w.Code != tc.code {
 			t.Fatalf("save refusal: %d %s", w.Code, w.Body.String())
@@ -162,7 +162,7 @@ spec:
 			}
 			Candidates []string
 		}
-		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != 200 || len(out.Bindings) != 4 {
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != 200 || len(out.Bindings) != 3 {
 			t.Fatalf("system workflows: %d %s %v", w.Code, w.Body.String(), err)
 		}
 		expected := name
@@ -347,7 +347,7 @@ func TestAdoptingADropKeepsWhatTheProjectHasAndSaysSo(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"strict", "team-strict"} {
-		if err := a.Ways.SaveLibraryPolicy(t.Context(), wow.LibraryPolicy{Name: name, Rule: "requireStepBefore", With: map[string]any{"uses": "deploy", "requires": "scan"}}, "fixture"); err != nil {
+		if err := a.Ways.SaveLibraryPolicy(t.Context(), wow.LibraryPolicy{Name: name, Rule: "requireStepBefore", With: map[string]any{"uses": "build", "requires": "scan"}}, "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -357,7 +357,7 @@ func TestAdoptingADropKeepsWhatTheProjectHasAndSaysSo(t *testing.T) {
 	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/pack", `{"names":["team"]}`); w.Code != 200 {
 		t.Fatalf("apply: %d %s", w.Code, w.Body.String())
 	}
-	if err := a.Adoption.InstallPolicy(t.Context(), idstest.N(1), "own-rule", "ours", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "lint"}, "", "fixture"); err != nil {
+	if err := a.Adoption.InstallPolicy(t.Context(), idstest.N(1), "own-rule", "ours", "requireStepBefore", map[string]any{"uses": "build", "requires": "lint"}, "", "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.recordAdoption(a.projectByID(context.Background(), idstest.N(1)), "edit", "fixture installs the project's own policy", "fixture"); err != nil {

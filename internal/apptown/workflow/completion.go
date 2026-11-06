@@ -21,6 +21,7 @@ const (
 	CompletionCleanup CompletionEffect = iota + 1
 	CompletionAdopt
 	CompletionLand
+	CompletionRelease
 	completionParent
 )
 
@@ -30,6 +31,8 @@ func (e CompletionEffect) String() string {
 		return "cleanup"
 	case CompletionAdopt:
 		return "adopt"
+	case CompletionRelease:
+		return "release"
 	case CompletionLand:
 		return "land"
 	case completionParent:
@@ -41,7 +44,7 @@ func (e CompletionEffect) String() string {
 
 type CompletedRun struct {
 	RunID, ProjectID, ChangeID ids.ID
-	Release                    bool
+	Landing                    bool
 	// ApprovedBy names who approved the run's approvals, as their votes
 	// recorded them: the people answerable for what it releases. Empty when
 	// no approval passed by a vote.
@@ -51,12 +54,8 @@ type CompletedRun struct {
 	// root run of a change.
 	Narrative bool
 }
-type ReleaseReceipt struct {
-	ID     ids.ID `json:"release"`
-	Number int64  `json:"number"`
-}
 type completionRecorder interface {
-	RecordCompletionIn(context.Context, *database.Tx, CompletedRun) (ReleaseReceipt, error)
+	RecordCompletionIn(context.Context, *database.Tx, CompletedRun) error
 	RetryCompletionIn(context.Context, *database.Tx, ids.ID) (bool, error)
 }
 
@@ -138,11 +137,9 @@ func (w advanceStore) complete(ctx context.Context, run *Run) error {
 						return fmt.Errorf("change %s: closed as record marked %d rows", run.ChangeID, n)
 					}
 				}
-				completed.Release, err = workflowsql.New(tx.SQL()).CompletionHasProductionDeploy(ctx, workflowsql.CompletionHasProductionDeployParams{RunID: run.ID, ProjectID: run.ProjectID, Status: StatusPass.String()})
-				if err != nil {
-					return err
-				}
-				if completed.Release {
+				if spec.Role == "landing" {
+					completed.Landing = true
+					completed.Effects = append(completed.Effects, CompletionRelease)
 					if completed.ApprovedBy, err = approvedByIn(ctx, tx, run); err != nil {
 						return err
 					}
@@ -165,17 +162,8 @@ func (w advanceStore) complete(ctx context.Context, run *Run) error {
 			}
 			completed.Effects = append(completed.Effects, completionParent)
 		}
-		receipt, err := w.completion.RecordCompletionIn(ctx, tx, completed)
-		if err != nil {
+		if err := w.completion.RecordCompletionIn(ctx, tx, completed); err != nil {
 			return err
-		}
-		if completed.Release {
-			if receipt.ID.IsZero() || receipt.Number <= 0 {
-				return fmt.Errorf("required completion release was not recorded")
-			}
-			if err := recordReceiptIn(ctx, tx, run.ID, "release.created", receipt, w.now()); err != nil {
-				return err
-			}
 		}
 		return nil
 	})

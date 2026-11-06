@@ -47,10 +47,13 @@ type Deployment struct {
 	DesiredGeneration  int64           `json:"desiredGeneration"`
 	ObservedGeneration int64           `json:"observedGeneration"`
 	Readiness          Readiness       `json:"readiness"`
-	Feed               string          `json:"feed"`
-	Audience           string          `json:"audience"`
-	DataClass          string          `json:"data"`
-	URL                string          `json:"url"`
+	FeedRevision       int64           `json:"feedRevision"`
+	FeedConfirmed      bool            `json:"feedConfirmed"`
+	feedAuthority      json.RawMessage
+	Feed               string `json:"feed"`
+	Audience           string `json:"audience"`
+	DataClass          string `json:"data"`
+	URL                string `json:"url"`
 	// The built-in host's handle, as columns (the Docker driver reads them).
 	HostPort  int    `json:"-"`
 	Container string `json:"-"`
@@ -71,7 +74,7 @@ type Deployment struct {
 }
 
 // ReadingBasis names the settled deployment facts that observation depends on.
-// Admission, readiness and restore holds do not change what is running.
+// admission, readiness and restore holds do not change what is running.
 func (e *Deployment) ReadingBasis() any {
 	return struct {
 		ID, ProjectID, TargetID            ids.ID
@@ -140,9 +143,9 @@ func (at Attributes) WithDefaults() Attributes {
 
 func (at Attributes) Validate() error {
 	switch at.Feed {
-	case "landing", "promotion", "schedule", "manual":
+	case "main", "promotion", "manual":
 	default:
-		return fmt.Errorf("feed must be landing, promotion, schedule or manual (got %q)", at.Feed)
+		return fmt.Errorf("feed must be main, promotion or manual (got %q)", at.Feed)
 	}
 	switch at.Audience {
 	case "team", "organisation", "partners", "public":
@@ -193,6 +196,9 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		DesiredGeneration:  r.DesiredGeneration,
 		ObservedGeneration: r.ObservedGeneration,
 		Feed:               r.Feed,
+		FeedRevision:       r.FeedRevision,
+		FeedConfirmed:      r.FeedAuthorityJson != nil,
+		feedAuthority:      feedAuthority(r.FeedAuthorityJson),
 		Audience:           r.Audience,
 		DataClass:          r.DataClass,
 		URL:                r.Url,
@@ -417,4 +423,11 @@ func deploymentByIDRecord(row deploymentsql.DeploymentByIDRow, err error) (*Depl
 
 func deploymentByNameRecord(row deploymentsql.DeploymentByNameRow, err error) (*Deployment, error) {
 	return appliedDeploymentRecord(row.Deployment, row.LastAppliedAt, err)
+}
+
+func feedAuthority(raw *json.RawMessage) json.RawMessage {
+	if raw == nil {
+		return nil
+	}
+	return *raw
 }

@@ -25,7 +25,7 @@ func workflowSourceForTest(t *testing.T, a *App, run *workflow.Run) workflow.Sou
 
 func TestWorkspaceReadFailureCannotPassRunnerOrServeFiles(t *testing.T) {
 	t.Parallel()
-	for _, typ := range []string{"script", "tests", "preview", "deploy", "reconcile"} {
+	for _, typ := range []string{"script", "tests", "preview", "build", "reconcile"} {
 		t.Run(typ, func(t *testing.T) {
 			t.Parallel()
 			a, run, step := attemptFixture(t, typ)

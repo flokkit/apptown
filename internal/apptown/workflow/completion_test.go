@@ -13,9 +13,9 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-type completionRecorderFunc func(context.Context, *database.Tx, CompletedRun) (ReleaseReceipt, error)
+type completionRecorderFunc func(context.Context, *database.Tx, CompletedRun) error
 
-func (f completionRecorderFunc) RecordCompletionIn(ctx context.Context, tx *database.Tx, in CompletedRun) (ReleaseReceipt, error) {
+func (f completionRecorderFunc) RecordCompletionIn(ctx context.Context, tx *database.Tx, in CompletedRun) error {
 	return f(ctx, tx, in)
 }
 func (f completionRecorderFunc) RetryCompletionIn(context.Context, *database.Tx, ids.ID) (bool, error) {
@@ -23,38 +23,28 @@ func (f completionRecorderFunc) RetryCompletionIn(context.Context, *database.Tx,
 }
 func TestCompletionOwnerRequiresPinnedSnapshotAndAllParticipants(t *testing.T) {
 	t.Parallel()
-	for _, failure := range []string{"modified definition", "port failure", "no release receipt", "success"} {
+	for _, failure := range []string{"modified definition", "port failure", "success"} {
 		t.Run(failure, func(t *testing.T) {
 			t.Parallel()
 			q, run, id := activityFixture(t)
 			transitionStoredStepForTest(t, q.db, id, StatusPass)
-			if failure == "no release receipt" {
-				// sql-guarantee: the no-release-receipt branch needs the same receipt-free stored run to become a landing declaration; no generated mutation changes definition_json.
-				completionExec(t, q.db, `UPDATE runs SET definition_json='{"kind":"pipeline","role":"landing","stages":[{"name":"finish"}]}' WHERE id=$1`, run.ID)
-				// sql-guarantee: the no-release-receipt branch needs the same receipt-free step to become a deploy declaration; no generated mutation changes type and config together.
-				completionExec(t, q.db, `UPDATE steps SET type='deploy',config_json='{"deployment":"main"}' WHERE id=$1`, id)
-				var err error
-				run, err = readRun(context.Background(), q.db, run.ID)
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
+
 			calls := 0
-			recorder := completionRecorderFunc(func(ctx context.Context, tx *database.Tx, in CompletedRun) (ReleaseReceipt, error) {
+			recorder := completionRecorderFunc(func(ctx context.Context, tx *database.Tx, in CompletedRun) error {
 				calls++
 				if in.RunID != run.ID || in.ProjectID != run.ProjectID || in.ChangeID != run.ChangeID {
 					t.Fatalf("scope %+v", in)
 				}
-				if !in.Release && !reflect.DeepEqual(in.Effects, []CompletionEffect{CompletionCleanup, CompletionLand}) || !in.Narrative {
+				if !in.Landing && !reflect.DeepEqual(in.Effects, []CompletionEffect{CompletionCleanup, CompletionLand}) || !in.Narrative {
 					t.Fatalf("effects %+v", in.Effects)
 				}
 				if err := recordReceiptIn(ctx, tx, in.RunID, "test.external.receipt", struct{}{}, time.Now()); err != nil {
-					return ReleaseReceipt{}, err
+					return err
 				}
 				if failure == "port failure" {
-					return ReleaseReceipt{}, errors.New("external record failed")
+					return errors.New("external record failed")
 				}
-				return ReleaseReceipt{}, nil
+				return nil
 			})
 			owner := advanceStore{db: q.db, completion: recorder}
 			if failure == "modified definition" {
@@ -100,9 +90,9 @@ func TestCompletionChildRequiresEveryInheritedArtifact(t *testing.T) {
 	insertBinaryArtifactForTest(t, q.db, child.ID, "preview", "image", "", []byte{0, 255, 42}, time.Time{})
 	completionExec(t, q.db, `CREATE FUNCTION veto_child_copy() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 	completionExec(t, q.db, `CREATE TRIGGER veto_child_copy BEFORE INSERT ON artifacts FOR EACH ROW EXECUTE FUNCTION veto_child_copy()`)
-	owner := advanceStore{db: q.db, completion: completionRecorderFunc(func(context.Context, *database.Tx, CompletedRun) (ReleaseReceipt, error) {
+	owner := advanceStore{db: q.db, completion: completionRecorderFunc(func(context.Context, *database.Tx, CompletedRun) error {
 		t.Fatal("incomplete child reached effects")
-		return ReleaseReceipt{}, nil
+		return nil
 	})}
 	if err := owner.complete(context.Background(), child); err == nil {
 		t.Fatal("child completed without its inherited artifact")
@@ -130,12 +120,12 @@ func TestARecordRunClosesItsChangeWithoutLanding(t *testing.T) {
 		t.Fatalf("a record run's last stage: %+v %v", next, err)
 	}
 	var effects []CompletionEffect
-	recorder := completionRecorderFunc(func(_ context.Context, _ *database.Tx, in CompletedRun) (ReleaseReceipt, error) {
+	recorder := completionRecorderFunc(func(_ context.Context, _ *database.Tx, in CompletedRun) error {
 		effects = in.Effects
-		if in.Release {
+		if in.Landing {
 			t.Fatal("a record run cut a release")
 		}
-		return ReleaseReceipt{}, nil
+		return nil
 	})
 	if err := (advanceStore{db: q.db, completion: recorder}).complete(ctx, record); err != nil {
 		t.Fatal(err)

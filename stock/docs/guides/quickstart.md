@@ -20,7 +20,8 @@ is in [Running AppTown](running-apptown.md).
 4. Use **Try it** to boot a preview. The commit needs a valid
    `.apptown/app.yaml`: a process running in the chat is not packaging.
 5. Use **Check and land**, and follow the checks and approval the project's
-   workflow asks for. A landing updates `main` and deploys it. Use **Open**
+   workflow asks for. A landing updates `main` and builds its bundle. Deployments that follow main
+   request that bundle afterwards. Use **Open**
    once the deployment has an address. Deploying anywhere else needs a
    deployment target offered to the project.
 
@@ -47,10 +48,11 @@ of who asked, what ran and who approved.
    [Running your app while you work](how-apps-run.md) explains
    the difference between running it as you work and booting it cold.
 3. **Land.** **Check and land** runs the project's checks and asks the
-   approvers. Merging into `main` and deploying need a person's approval, or
+   approvers. Merging into `main` needs a person's approval, or
    a landing started by someone allowed to land; the approval shows what the
    change adds.
-4. **Deploy.** A landing deploys to the project's `main` deployment. Other
+4. **Deploy.** A landing builds its runtime bundle. Deployments configured to
+   follow main request that bundle after landing completes. Other
    deployments, the kinds of target, taking a deployment down and backups
    are in [Previews and deployments](container-lifecycle.md).
 

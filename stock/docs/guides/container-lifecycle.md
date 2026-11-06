@@ -2,7 +2,7 @@
 
 A **preview** is a temporary copy of your app, booted to try a change. A
 **deployment** is a named, standing copy of your app on a deployment
-target: `main`, fed by every landing, and any others the project adds. This
+target. A project chooses which deployments follow main and which take manual releases. This
 guide covers where each runs, how long it lasts, taking a deployment down,
 and backups. The containers behind chats and workflow steps have their own
 rules, in [What chats and steps can use](runtime-environments.md).
@@ -35,19 +35,30 @@ A deployment stays up until a new release replaces it or someone takes it
 down. It restarts on its own, and AppTown's clean-up never removes it.
 Its backing services (its database, its cache) belong to it.
 
-`main` is fed by every landing. A project adds other deployments under
-**Settings › Deployments**, choosing a name, one of the targets offered to
-the project, who it is for, and whether its data is production data. Those
-are fed by promotion: **Deploy latest** on the deployment's card ships the
-latest release there; `apptown release <project> <deployment>` does the same
-from the command line and follows its log. `apptown release <project>` with no
-deployment named promotes what landed on `main` to the intranet.
+A project adds deployments under **Settings › Deployments**, choosing a name,
+a target offered to the project, an audience and a data class. A follows-main
+deployment requests the runtime bundle from every completed landing. Its
+setting records who authorized those automatic releases and with which
+credential. Create that setting through
+`POST /api/v1/projects/<project>/deployments`, for example:
 
-A landing's deploy step names each phase in its log as it starts: building
-and publishing images, starting services, running init, starting parts,
-checking readiness and recording the release. The log stays on the step
-afterwards, including after a failure. The step's outcome, not the last
-line, says whether the deploy worked.
+```json
+{"name":"main","target":"<target>","feed":"main","audience":"team","data":"synthetic"}
+```
+
+This requires permission to bind and deploy to that target, including
+protected-release permission where needed. The card's creation form adds a
+manual-release deployment. Migrated follows-main settings need **Confirm follows
+main** before automatic releases can run.
+
+Other deployments take manual releases. **Deploy latest** on a deployment's
+card and `apptown release <project> <deployment>` request the latest runtime
+bundle. `apptown release <project>` uses the project's chosen release
+preference. Each release has its own log and outcome.
+
+A release checks its pre-release copy before starting services, running init
+steps and starting app parts. It then checks readiness and records the outcome.
+The release keeps its log and copy evidence, including after failure.
 
 **How a deploy replaces what runs.** A deploy starts the new release in place
 of the old one. It does not check
@@ -82,8 +93,8 @@ and says which choice to make.
 
 ## Taking a deployment down
 
-A deployment other than `main` has **Tear down** on its card under
-**Settings › Deployments**. `main` goes only when its project is deleted.
+A deployment that does not follow main has **Tear down** on its card under
+**Settings › Deployments**. Follows-main deployments go when their project is deleted.
 A take-down removes exactly what AppTown recorded creating for the
 deployment. What it does depends on the target:
 
@@ -131,7 +142,7 @@ backup store and a copy runner is in
 | App Platform | the managed Postgres and the deployment's bucket, from the target's copy runner into the backup store, when both are set; DigitalOcean's own daily backups are shown beside them |
 | Bucket website | nothing: it holds no data |
 
-- **When.** After every release, every night, and on **Back up now**. The
+- **When.** Before and after every release, every night, and on **Back up now**. The
   newest 14 sets of a production deployment are kept, and the newest seven
   of any other.
 - **Partial sets.** A set says which items it could not copy and why (a need

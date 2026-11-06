@@ -1,6 +1,6 @@
 # Stock workflow: land — the landing contract (design/subsystems/dev-loop.md). The ONLY
-# path a Change's branch takes to main and prod: gates, one human approval,
-# merge (on entry to ship, role: landing), deploy, release record. Working
+# path a Change's branch takes to main: gates, one human approval,
+# merge (on entry to ship, role: landing), build, landing record. Working
 # workflows (quick-change, implement, ...) accrue commits to the branch and
 # never merge; hardening every landing means editing this file once.
 apiVersion: apptown.dev/v1
@@ -10,7 +10,7 @@ metadata:
   system: true
   category: landing
   description: >-
-    Land a change: bring it up to date with main, run its tests, scans and guidance checks, get a person's approval, merge, deploy and record the release. The only way from a change's branch to main.
+    Land a change: bring it up to date with main, run its tests, scans and guidance checks, get a person's approval, merge and build the runtime bundle or clean tree. The only way from a change's branch to main.
 spec:
   kind: pipeline
   role: landing
@@ -65,7 +65,7 @@ spec:
           uses: approval
           with:
             approvers: ["role:project-approver"]
-            means: "I am the human answerable for this landing: it merges and ships on my say-so."
+            means: "I am the human answerable for this landing: it merges on my say-so."
             # A yes given before the work exists (an adoption's opener can give
             # one): what it means, on the condition AppTown witnesses.
             inAdvance: "I answer for this landing before it runs, on a condition AppTown checks: it merges no code, and every gate passes with every check passing or not applicable, none excused."
@@ -73,10 +73,9 @@ spec:
             instructions: "Read what changed (the summary and the diff) and the checks before you decide."
     - name: ship
       onEnter:
-        - name: deploy
-          uses: deploy
-          with: { deployment: main }
+        - name: build
+          uses: build
       steps:
-        - name: release-exists
+        - name: build-exists
           uses: artifact/require
-          with: { kind: release }
+          with: { kind: build }

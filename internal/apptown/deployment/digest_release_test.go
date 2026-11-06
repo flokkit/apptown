@@ -33,7 +33,7 @@ func (w *digestWorld) mainOf(t *testing.T, b *ReleaseBundle) *Deployment {
 // the step's ctx.
 func (w *digestWorld) landMain(t *testing.T, ctx context.Context, b *ReleaseBundle) (LandingResult, error) {
 	t.Helper()
-	dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "main", w.lab.ID, Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"})
+	dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "main", w.lab.ID, Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func (w *digestWorld) landMain(t *testing.T, ctx context.Context, b *ReleaseBund
 	if err != nil {
 		t.Fatal(err)
 	}
-	port, err := w.s.Deployments.StablePort(t.Context(), w.project, dep.Name, names.App())
+	port, err := w.s.Deployments.stablePort(t.Context(), w.project, dep.Name, names.App())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,39 +55,6 @@ func (w *digestWorld) landMain(t *testing.T, ctx context.Context, b *ReleaseBund
 		Start:  Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: fmt.Sprintf("run-%d-deploy", runID), Inputs: Inputs{ReleaseRun: runID, Revision: w.revision, ArtifactHash: art.Hash, DockerSource: string(art.Body), BundleID: b.ID}},
 		Source: *art.Source, HostPort: port, DataClass: "synthetic", Bundle: b,
 	})
-}
-
-// A landing whose step is interrupted once its deploy is admitted (its run
-// abandoned while the host pulls the bundle) deploys to the end and
-// settles by the deploy's own outcome: main is left with no attempt that
-// only a recovery observation could end.
-func TestAnInterruptedLandingSettlesByItsDeploysOutcome(t *testing.T) {
-	t.Parallel()
-	w := newDigestWorld(t, "", nil)
-	b := w.publish(t)
-	ctx, interrupt := context.WithCancel(context.Background())
-	defer interrupt()
-	hook := func(host string) {
-		if host == digestHostOf("lab") {
-			interrupt()
-		}
-	}
-	w.hosts.onPull.Store(&hook)
-	out, err := w.landMain(t, ctx, b)
-	w.hosts.onPull.Store(nil)
-	if err != nil || out.Boot.Err != nil || out.Execution.Outcome != Applied {
-		t.Fatalf("the interrupted landing: %+v %v %v", out.Execution, err, out.Boot.Err)
-	}
-	if ctx.Err() == nil {
-		t.Fatal("the landing pulled nothing on lab: it was never interrupted")
-	}
-	dep, err := w.s.Deployments.ByName(t.Context(), w.project, "main")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if open, err := w.s.Outcomes.HasOpenAttempt(t.Context(), dep.ID); err != nil || open {
-		t.Errorf("main's attempt is left open: %v %v", open, err)
-	}
 }
 
 // removeContainer is a host losing a deployment's container.
@@ -330,7 +297,7 @@ func TestALegacyLandingFedDeploymentCannotInferItsRunningBundle(t *testing.T) {
 	mustExec(t, w.db, `DELETE FROM deployment_attempt_inputs USING deployment_attempts a WHERE a.id=attempt_id AND a.deployment_id=$1`, dep.ID)
 	// sql-guarantee: preserve the historical release metadata while removing its generation association.
 	mustExec(t, w.db, `UPDATE releases SET generation=0, commit_sha='' WHERE deployment_id=$1`, dep.ID)
-	mutateStoredDeployment(t, w.db, w.project, "staging", func(r *deploymentsql.Deployment) { r.Feed = "landing" })
+	mutateStoredDeployment(t, w.db, w.project, "staging", func(r *deploymentsql.Deployment) { r.Feed = "main" })
 
 	_, err = w.s.RequestRelease(t.Context(), DeploySelection{ProjectID: w.project, DeploymentName: "staging", BundleID: b.ID})
 	if !errors.Is(err, errFedByLanding) {

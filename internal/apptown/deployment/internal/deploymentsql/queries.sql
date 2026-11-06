@@ -126,6 +126,8 @@ LOCK TABLE targets IN SHARE ROW EXCLUSIVE MODE;
 INSERT INTO deployments (display_label, id, project_id, name, kind, target_id, feed, audience, data_class, host_port, updated_at)
   VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(target_id),sqlc.arg(feed),sqlc.arg(audience),sqlc.arg(data_class),0,sqlc.arg(updated_at))
   ON CONFLICT (project_id, name) DO UPDATE SET target_id=excluded.target_id, feed=excluded.feed, audience=excluded.audience,
+ feed_revision=deployments.feed_revision+CASE WHEN deployments.feed IS DISTINCT FROM excluded.feed THEN 1 ELSE 0 END,
+ feed_authority_json=CASE WHEN deployments.feed IS DISTINCT FROM excluded.feed THEN NULL ELSE deployments.feed_authority_json END,
   data_class=excluded.data_class, updated_at=excluded.updated_at
   WHERE (deployments.desired_generation=0 AND deployments.observed_generation=0)
   OR (deployments.target_id=excluded.target_id AND
@@ -134,7 +136,7 @@ INSERT INTO deployments (display_label, id, project_id, name, kind, target_id, f
 
 -- name: RecordPreview :one
 INSERT INTO deployments (display_label, id, project_id, name, kind, change_id, target_id, handle_json, host_port, container, url, feed, audience, data_class, observed_generation, desired_generation, updated_at)
-  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(change_id),sqlc.arg(target_id),sqlc.arg(handle_json),sqlc.arg(host_port),sqlc.arg(container),sqlc.arg(url),'landing','team','synthetic',1,1,sqlc.arg(updated_at))
+  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(change_id),sqlc.arg(target_id),sqlc.arg(handle_json),sqlc.arg(host_port),sqlc.arg(container),sqlc.arg(url),'manual','team','synthetic',1,1,sqlc.arg(updated_at))
   ON CONFLICT (project_id, name) DO UPDATE SET handle_json=excluded.handle_json, host_port=excluded.host_port, container=excluded.container,
   url=excluded.url, desired_generation=deployments.desired_generation+1, observed_generation=deployments.desired_generation+1, updated_at=excluded.updated_at RETURNING *;
 
@@ -591,3 +593,32 @@ SELECT * FROM targets WHERE kind='docker-host' AND status<>'retired' ORDER BY na
 
 -- name: ReleasesBeforeBackups :many
 SELECT backup_id, number FROM releases WHERE project_id=sqlc.arg(project_id) AND backup_id=ANY(sqlc.arg(backup_ids)::uuid[]);
+
+-- name: ConfirmMainFeed :execrows
+UPDATE deployments SET feed_authority_json=sqlc.arg(authority), feed_revision=feed_revision+1
+WHERE id=sqlc.arg(id) AND feed='main' AND feed_revision=sqlc.arg(revision);
+
+-- name: MainDeployments :many
+SELECT * FROM deployments WHERE project_id=$1 AND feed='main' AND kind='standing' ORDER BY id;
+
+-- name: LandingReleaseExists :one
+SELECT EXISTS(SELECT 1 FROM releases WHERE run_id=$1 AND deployment_id=$2);
+
+-- name: LinkLandingRequest :execrows
+UPDATE release_requests SET feed_revision=$2, landing_approvers=$3 WHERE release_id=$1;
+
+-- name: RecordReleaseBackup :execrows
+UPDATE release_requests SET backup_evidence_json=$2 WHERE release_id=$1;
+
+-- name: AttachReleaseBackup :execrows
+UPDATE releases SET backup_id=$2 WHERE id=$1;
+
+-- name: LandingRequestsForChange :many
+SELECT r.* FROM releases r JOIN release_requests q ON q.release_id=r.id JOIN runs w ON w.id=r.run_id
+WHERE r.project_id=$1 AND w.change_id=$2 AND q.feed_revision IS NOT NULL ORDER BY r.number DESC;
+
+-- name: ReleaseRequestMetadata :one
+SELECT authority_json,feed_revision,landing_approvers,backup_evidence_json,uncopied_acceptance_json FROM release_requests WHERE release_id=$1;
+
+-- name: RecordUncopiedAcceptance :execrows
+UPDATE release_requests SET uncopied_acceptance_json=$2 WHERE release_id=$1;

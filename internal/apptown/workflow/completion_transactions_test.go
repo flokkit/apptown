@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -33,8 +34,8 @@ func completionSpecFixture(t *testing.T, spec schema.Spec) (*database.DB, *Run, 
 	return db, run, &spec
 }
 
-func noCompletionEffects(context.Context, *database.Tx, CompletedRun) (ReleaseReceipt, error) {
-	return ReleaseReceipt{}, nil
+func noCompletionEffects(context.Context, *database.Tx, CompletedRun) error {
+	return nil
 }
 
 func TestWorkflowChildCompletionCannotFinishNewerCall(t *testing.T) {
@@ -131,11 +132,11 @@ func TestWorkflowChildCompletionAtomicHandoff(t *testing.T) {
 	// The participant fails after Work has written the child handoff. Both
 	// its receipt and Work's changes must roll back together.
 	refusal := errors.New("participant refused")
-	failing := advanceStore{db: store, completion: completionRecorderFunc(func(ctx context.Context, tx *database.Tx, in CompletedRun) (ReleaseReceipt, error) {
+	failing := advanceStore{db: store, completion: completionRecorderFunc(func(ctx context.Context, tx *database.Tx, in CompletedRun) error {
 		if err := recordReceiptIn(ctx, tx, in.RunID, "test.participant", struct{}{}, time.Now()); err != nil {
-			return ReleaseReceipt{}, err
+			return err
 		}
-		return ReleaseReceipt{}, refusal
+		return refusal
 	})}
 	if err := failing.complete(context.Background(), child); !errors.Is(err, refusal) {
 		t.Fatalf("completion: %v", err)
@@ -391,53 +392,19 @@ func completionSnapshot(t *testing.T, db *database.DB) string {
 	return snapshot
 }
 
-func TestCompletionRequestsReleaseOnlyForStandingDeploymentInItsTree(t *testing.T) {
+func TestCompletionQueuesLandingReleaseWorkWithoutADeployStep(t *testing.T) {
 	t.Parallel()
-	for _, scenario := range []string{"main", "prod", "default", "preview", "nested", "other project", "no deploy"} {
-		t.Run(scenario, func(t *testing.T) {
-			t.Parallel()
-			db, run, spec := completionFixture(t, "landing")
-			deployed := run.ID
-			config := `{"deployment":"main"}`
-			switch scenario {
-			case "prod":
-				config = `{"deployment":"prod"}`
-			case "default":
-				config = `{}`
-			case "preview":
-				config = `{"deployment":"preview"}`
-			case "nested", "other project":
-				project := run.ProjectID
-				if scenario == "other project" {
-					project = workflowTestProject(t, db, "foreign", "Foreign", "")
-				}
-				deployed = insertStoredRun(t, db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: project, WorkflowName: "child", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "finish", DefinitionJson: json.RawMessage(mustJSON(spec)), ParentRunID: run.ID}).ID
-			}
-			if scenario != "no deploy" {
-				insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: deployed, Stage: "finish", Name: "deploy", Type: "deploy", Status: StatusPass.String(), ConfigJson: json.RawMessage(config)})
-			}
-			want := scenario != "preview" && scenario != "no deploy" && scenario != "other project"
-			calls := 0
-			owner := advanceStore{db: db, completion: completionRecorderFunc(func(_ context.Context, _ *database.Tx, in CompletedRun) (ReleaseReceipt, error) {
-				calls++
-				if in.Release != want {
-					t.Errorf("release requested=%v want=%v", in.Release, want)
-				}
-				return ReleaseReceipt{ID: idstest.N(7), Number: 8}, nil
-			})}
-			if err := owner.complete(context.Background(), run); err != nil {
-				t.Fatal(err)
-			}
-			if calls != 1 {
-				t.Fatalf("participant calls: %d", calls)
-			}
-			expected := 0
-			if want {
-				expected = 1
-			}
-			wantEventCount(t, db, expected, kindWith("release.created", "number", "8"))
-		})
+	db, run, _ := completionFixture(t, "landing")
+	owner := advanceStore{db: db, completion: completionRecorderFunc(func(_ context.Context, _ *database.Tx, in CompletedRun) error {
+		if !in.Landing || !slices.Contains(in.Effects, CompletionRelease) {
+			t.Fatalf("landing did not reserve release work: %+v", in)
+		}
+		return nil
+	})}
+	if err := owner.complete(t.Context(), run); err != nil {
+		t.Fatal(err)
 	}
+	wantEventCount(t, db, 0, ofKind("release.created"))
 }
 
 // A landing's release names who approved it: the people whose votes passed
@@ -446,7 +413,7 @@ func TestCompletionRequestsReleaseOnlyForStandingDeploymentInItsTree(t *testing.
 func TestCompletionReleaseNamesWhoApprovedTheLanding(t *testing.T) {
 	t.Parallel()
 	db, run, _ := completionFixture(t, "landing")
-	insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "deploy", Type: "deploy", Status: StatusPass.String(), ConfigJson: json.RawMessage(`{"deployment":"main"}`)})
+	insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "build", Type: "build", Status: StatusPass.String(), ConfigJson: json.RawMessage(`{"deployment":"main"}`)})
 	// No owner operation records a finished vote without the approval
 	// machinery around it; the recorded evidence is the input under test.
 	approved := func(name, overrideBy, evidence string) {
@@ -466,9 +433,9 @@ func TestCompletionReleaseNamesWhoApprovedTheLanding(t *testing.T) {
 	approved("second-look", "", `{"decisions":[{"approver":"bls","decision":"approve","comment":"","at":""}],"quorum":1,"approvals":1}`)
 	approved("waived", "erin", `{"decisions":[{"approver":"frank","decision":"approve","comment":"","at":""}],"quorum":1,"approvals":1}`)
 	var got string
-	owner := advanceStore{db: db, completion: completionRecorderFunc(func(_ context.Context, _ *database.Tx, in CompletedRun) (ReleaseReceipt, error) {
+	owner := advanceStore{db: db, completion: completionRecorderFunc(func(_ context.Context, _ *database.Tx, in CompletedRun) error {
 		got = in.ApprovedBy
-		return ReleaseReceipt{ID: idstest.N(7), Number: 8}, nil
+		return nil
 	})}
 	if err := owner.complete(context.Background(), run); err != nil {
 		t.Fatal(err)

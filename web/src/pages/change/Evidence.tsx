@@ -56,7 +56,7 @@ export type Receipt = {
 
 const TITLE: Record<string, string> = {
   'agent/pi': 'Implementation', 'agent/review': 'Review', tests: 'Tests', scan: 'Scan',
-  'guidance/conformance': 'Ways of working', approval: 'Approval', preview: 'Preview', deploy: 'Deploy',
+  'guidance/conformance': 'Ways of working', approval: 'Approval', preview: 'Preview', build: 'Build',
   reconcile: 'Up to date with main', 'artifact/require': 'Required record', 'adr/require': 'Decision record',
   'scm/merged': 'Merged', 'policy/current': 'Rules still current', 'workflow/call': 'Called workflow', script: 'Script',
 }
@@ -196,8 +196,8 @@ function sentence(s: Step, live: boolean): string {
     }
     case 'preview':
       return join(s.evidence.url || clip(reason), s.evidence.screenshots?.failedResources?.length ? `${plural(s.evidence.screenshots.failedResources.length + (s.evidence.screenshots.failedResourcesMore ?? 0), 'resource')} failed to load` : '')
-    case 'deploy':
-      return s.evidence.url ? s.evidence.url : clip(reason)
+    case 'build':
+      return s.evidence.runtime === false ? 'Clean-tree build; no runtime declared' : s.evidence.bundle ? 'Runtime bundle built' : clip(reason)
     case 'artifact/require':
     case 'adr/require':
     case 'scm/merged':
@@ -224,8 +224,8 @@ function by(s: Step): string {
     }
     case 'scan':
       return join(s.evidence.binding ?? s.name, where(s), secs(s.evidence.durationMs))
-    case 'deploy':
-      return join((s.evidence as { deployment?: string }).deployment)
+    case 'build':
+      return ''
     default:
       return join(where(s), secs(s.evidence?.durationMs))
   }

@@ -35,7 +35,7 @@ func TestDeploymentResourcesHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dep, err := a.service.Deployments.EnsureStanding(t.Context(), a.project, "main", builtin.ID, deployment.Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"})
+	dep, err := a.service.Deployments.EnsureStanding(t.Context(), a.project, "main", builtin.ID, deployment.Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -34,15 +34,15 @@ func admitLandingSpec(t *testing.T, spec schema.Spec) (queries, *Run) {
 func landingRecheckFixture(t *testing.T) (landingRechecks, *Run, map[string]ids.ID) {
 	t.Helper()
 	spec := schema.Spec{Role: "landing", Stages: []schema.Stage{{Name: "finish", OnEnter: []schema.Step{
-		{Name: "image", Uses: "scan"}, {Name: "deploy", Uses: "deploy"}, {Name: "optional", Uses: "scan"},
+		{Name: "image", Uses: "scan"}, {Name: "build", Uses: "build"}, {Name: "optional", Uses: "scan"},
 	}}}}
 	q, run := admitLandingSpec(t, spec)
 	w := q.db
-	owner := newLandingRechecks(w, []string{"scan", "deploy", "tests"}, nil)
+	owner := newLandingRechecks(w, []string{"scan", "build", "tests"}, nil)
 	stepIDs := map[string]ids.ID{}
 	for _, step := range []struct{ name, typ, status, evidence, override, stage string }{
 		{"image", "scan", "fail", `{"reason":"provider overloaded"}`, "", "finish"},
-		{"deploy", "deploy", "skipped", `{"reason":"not run: “image” did not pass"}`, "", "finish"},
+		{"build", "build", "skipped", `{"reason":"not run: “image” did not pass"}`, "", "finish"},
 		{"optional", "scan", "skipped", `{"reason":"no image to scan"}`, "", "finish"},
 		{"tests", "tests", "error", `{"reason":"provider overloaded"}`, "", "finish"},
 		{"passed", "scan", "pass", `{"reason":"clean"}`, "", "finish"},
@@ -52,7 +52,7 @@ func landingRecheckFixture(t *testing.T) (landingRechecks, *Run, map[string]ids.
 		{"old", "scan", "fail", `{"reason":"old stage"}`, "", "earlier"},
 	} {
 		var id ids.ID
-		if step.name == "image" || step.name == "deploy" || step.name == "optional" {
+		if step.name == "image" || step.name == "build" || step.name == "optional" {
 			id = admittedStepID(t, q, run, step.name)
 		} else {
 			// Selection needs extra historical rows beyond the declared entry checks.
@@ -99,7 +99,7 @@ func TestLandingRecheckAtomicBatchPreservesDecisions(t *testing.T) {
 	})
 	wantStepCount(t, owner.db, 1, func(s *Step) bool { return s.Name == "override" && s.Status == StatusFail && s.OverrideBy == "alice" })
 	wantStepCount(t, owner.db, 5, func(s *Step) bool {
-		return s.Status != StatusPending && (s.Name == "deploy" || s.Name == "old" || s.Name == "require" || s.Name == "passed" || s.Name == "optional")
+		return s.Status != StatusPending && (s.Name == "build" || s.Name == "old" || s.Name == "require" || s.Name == "passed" || s.Name == "optional")
 	})
 	if err := (advanceStore{db: owner.db, completion: completionRecorderFunc(noCompletionEffects)}).complete(context.Background(), run); err != ErrRunMoved {
 		t.Fatalf("old advancement decision accepted: %v", err)

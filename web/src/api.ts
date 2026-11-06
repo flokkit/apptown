@@ -4,7 +4,7 @@
 // from the Go structs). A type here is either one of those, or derived from
 // one where the UI reads it more precisely (a step's evidence by its type);
 // api-types.test.ts holds that rule.
-import type { ChangeState as WireChangeState, RunState, StepState, DeployStage, BackupReference } from './wire.gen'
+import type { ChangeState as WireChangeState, RunState, StepState, DeployStage } from './wire.gen'
 import { ENTRY_HEADER, noteServed } from './pageUpdate'
 import type { Artifact as WireArtifact, Change as WireChange, Project as WireProject, Run as WireRun, Step as WireStep } from './wire.gen'
 import type { ADRChangeSummary, ADRRecord, AdvanceResult as WireAdvanceResult, ChangeCockpit, ChangeRunSummary, CockpitEvidence, DashboardView, Event as WireEvent, ReleaseListed, RunSnapshot, ShippedComparison } from './wire.gen'
@@ -139,9 +139,9 @@ export type Step =
   | (StepBase & { type: 'tests'; config: StepConfig; evidence: TestsEvidence })
   | (StepBase & { type: 'scan'; config: StepConfig; evidence: ScanEvidence })
   | (StepBase & { type: 'preview'; config: StepConfig; evidence: ServeEvidence })
-  | (StepBase & { type: 'deploy'; config: StepConfig; evidence: ServeEvidence & {
+  | (StepBase & { type: 'build'; config: StepConfig; evidence: EvidenceBase & {
+    commit?: string; runtime?: boolean; bundle?: string; cleanTreeBuild?: string
     failedStage?: Exclude<DeployStage, 'live'>
-    backup?: { outcome: string; set?: BackupReference; reason: string; accepted?: { by: string; at: string; attempt: number } }
   } })
   | (StepBase & { type: 'guidance/conformance'; config: StepConfig; evidence: ConformanceEvidence })
   | (StepBase & { type: 'workflow/call'; config: StepConfig; evidence: CallEvidence })

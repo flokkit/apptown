@@ -23,14 +23,33 @@ func TestBundleImagesRecordsActualImages(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	plan := &appcontract.Plan{
-		Parts: []appcontract.Part{{Name: "web", Image: "build:web"}, {Name: "worker", Image: "build:worker"}},
-		Init:  []appcontract.InitContainer{{Name: "same-worker", Image: "build:worker"}, {Name: "migrate", Image: "build:migrate"}},
+	contract, err := appcontract.Parse([]byte(`app:
+  web:
+    image: build:web
+    ports: ["8080"]
+    public: true
+  worker:
+    image: build:worker
+init:
+  - name: same-worker
+    image: build:worker
+  - name: migrate
+    image: build:migrate
+`))
+	if err != nil {
+		t.Fatal(err)
 	}
-	landed := LandingResult{Boot: LandingBoot{Boot: docker.BootResult{Stack: docker.ResolvedStack{Plan: plan}}}, Docker: docker.Scope{Client: daemon}}
-	parts, init := landed.Images(context.Background())
+	parts, init, err := docker.NewHost(docker.Dependencies{}).BuildImages(context.Background(), docker.Scope{Client: daemon}, "bundle-build", t.TempDir(), contract)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if parts["web"] == parts["worker"] || parts["worker"] != init["same-worker"] || init["migrate"] == parts["web"] ||
 		!strings.HasPrefix(parts["web"], "sha256:") || !strings.HasPrefix(init["migrate"], "sha256:") {
 		t.Fatalf("bundle lost actual images: %v %v", parts, init)
+	}
+	for _, args := range daemon.Commands() {
+		if len(args) > 0 && args[0] == "run" {
+			t.Fatal("building images booted a container")
+		}
 	}
 }

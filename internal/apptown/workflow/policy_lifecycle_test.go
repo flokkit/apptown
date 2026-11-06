@@ -40,10 +40,10 @@ func (policyLawRules) ViolationsIn(ctx context.Context, q database.Queryer, proj
 
 func policyGateFixture(t *testing.T) (*database.DB, *Run) {
 	t.Helper()
-	spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "deploy", Uses: "deploy"}}}, {Name: "later"}}}
+	spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "build", Uses: "build"}}}, {Name: "later"}}}
 	store, change := changeEditFixture(t, ChangeDraft{Title: "Policy gate"})
 	run := insertStoredRun(t, store, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "test", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "finish", DefinitionJson: json.RawMessage(mustJSON(spec))})
-	installPolicy(t, store, run.ProjectID, "scan-first", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "scan"})
+	installPolicy(t, store, run.ProjectID, "scan-first", "requireStepBefore", map[string]any{"uses": "build", "requires": "scan"})
 	run, err := ReadRunIn(context.Background(), store, run.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +116,7 @@ func TestPolicyRefreshFollowsCurrentRulesWithoutInventingGates(t *testing.T) {
 	wantEqual(t, "override", wantStepState(t, db, gate, StatusPass).OverrideBy, "")
 	wantEventCount(t, db, 1, ofKind("law.satisfied"))
 	// An automatic pass does not exempt the landing from a later amendment.
-	installPolicy(t, db, run.ProjectID, "new-amendment", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "tests"})
+	installPolicy(t, db, run.ProjectID, "new-amendment", "requireStepBefore", map[string]any{"uses": "build", "requires": "tests"})
 	if err := laws.refresh(ctx, run); err != nil {
 		t.Fatal(err)
 	}

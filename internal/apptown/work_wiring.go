@@ -2,6 +2,7 @@ package apptown
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -43,13 +44,13 @@ func (a *App) workDependencies() workflow.Dependencies {
 	if a.cfg.worker != nil {
 		builds = &workflowexec.ReleaseBuilds{Tasks: a.tasks, PrivateDocker: a.cfg.privateDocker}
 	}
-	shipping := workflowexec.NewShipping(a.DB, workflowexec.ShippingDependencies{Deployment: a.Deployment, Previews: a.Preview, Docker: &a.docker, Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Progress: &a.progress, Backups: backupRequests{db: a.DB, life: a.life}, ReleaseData: releaseData{a.DataProtection}, Builds: builds, Now: a.cfg.clock.Now, Screenshots: verification.NewScreenshots(checksFor(a), screenshotsAuthority(a.cfg.localTLS))}, workflowexec.ShippingConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, Routing: a.cfg.routing()})
+	shipping := workflowexec.NewShipping(a.DB, workflowexec.ShippingDependencies{Deployment: a.Deployment, Previews: a.Preview, Docker: &a.docker, Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Progress: &a.progress, Builds: builds, Now: a.cfg.clock.Now, Screenshots: verification.NewScreenshots(checksFor(a), screenshotsAuthority(a.cfg.localTLS))}, workflowexec.ShippingConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, Routing: a.cfg.routing()})
 	repositories := workflowexec.NewRepositories(a.DB, a.repositoryAttachments, a.branches, workflowexec.RepositoryConfig{DataDir: a.cfg.dataDir, PublicHost: a.cfg.publicHost, Now: a.cfg.clock.Now})
 	runners := make(map[string]workflow.Runner)
 	runners[workflowexec.CallKind] = workflowexec.NewCalls(a.DB, jobReporter{}).Run
 	runners[workflowexec.MergeRequestKind] = repositories.RunSCMMR
 	runners[workflowexec.ReconcileKind] = repositories.RunReconcile
-	runners[workflowexec.DeployKind] = shipping.RunDeploy
+	runners[workflowexec.BuildKind] = shipping.RunBuild
 	runners[workflowexec.PreviewKind] = shipping.RunPreview
 	runners[workflowexec.ScriptKind] = commands.RunScript
 	runners[workflowexec.TestsKind] = commands.RunTests
@@ -185,6 +186,18 @@ type evalDeployments struct {
 	data       *dataprotection.Service
 }
 
+func (d evalDeployments) LandingRequests(ctx context.Context, projectID, changeID ids.ID) ([]evals.LandingRelease, error) {
+	requests, err := d.deployment.Releases.LandingRequests(ctx, projectID, changeID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]evals.LandingRelease, 0, len(requests))
+	for _, r := range requests {
+		out = append(out, evals.LandingRelease{Deployment: r.Deployment, State: r.State.String(), Failure: r.Failure})
+	}
+	return out, nil
+}
+
 func (d evalDeployments) StandingNames(ctx context.Context, projectID ids.ID) ([]string, error) {
 	placed, err := d.deployment.Deployments.ForProject(ctx, projectID)
 	var names []string
@@ -234,16 +247,19 @@ func screenshotsAuthority(t *console.LocalTLS) *verification.LocalAuthority {
 	return &verification.LocalAuthority{Prelude: console.LocalTLSPrelude(*t)}
 }
 
-// releaseData hands a landing data protection's copy and witness around its
+// releaseData supplies data protection's copy and continuity witness for each
 // release (dataprotection.BeforeRelease).
-type releaseData struct{ data *dataprotection.Service }
+type releaseData struct {
+	data  *dataprotection.Service
+	after func(ids.ID, string)
+}
 
-func (r releaseData) BeforeRelease(ctx context.Context, projectID ids.ID, deployment string, synthetic bool) (workflowexec.ReleaseWitness, error) {
+func (r releaseData) BeforeRelease(ctx context.Context, projectID ids.ID, deployment string, synthetic bool) (deployment.ReleaseWitness, error) {
 	w, err := r.data.BeforeRelease(ctx, projectID, deployment, synthetic)
 	if err != nil {
 		return nil, err
 	}
-	return w, nil
+	return dataReleaseWitness{w}, nil
 }
 
 type standingDestinations struct{}
@@ -252,3 +268,23 @@ func (standingDestinations) StandingDestination(ctx context.Context, q database.
 	s, err := deployment.ReadStandingConsentSelection(ctx, q, projectID, in.DeploymentID, in.TargetID)
 	return workflow.StandingDestination{Resource: s.Resource, PromotionResource: s.PromotionResource, PromotionRequired: s.PromotionRequired}, err
 }
+
+type dataReleaseWitness struct{ copyWitness }
+type copyWitness interface {
+	Complete() bool
+	CopyOutcome() dataprotection.CopyOutcome
+	CopyWords() string
+	After(context.Context, []string) ([]string, []string)
+}
+
+func (w dataReleaseWitness) CopyEvidence() json.RawMessage {
+	raw, _ := json.Marshal(w.CopyOutcome())
+	return raw
+}
+func (w dataReleaseWitness) BackupID() ids.ID {
+	if set := w.CopyOutcome().Set; set != nil {
+		return set.ID
+	}
+	return ids.Nil
+}
+func (r releaseData) AfterRelease(projectID ids.ID, name string) { r.after(projectID, name) }

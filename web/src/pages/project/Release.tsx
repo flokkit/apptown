@@ -96,7 +96,7 @@ function ReleasePage({ slug }: { slug: string }) {
 function ReleaseChoice({ slug, onConfigured }: { slug: string; onConfigured: () => void }) {
   const deployments = useGet<DeploymentView[]>(`/projects/${slug}/deployments`)
   if (!deployments.data) return <ReadStatus q={deployments} what="the project's deployments" />
-  if (!deployments.data.some(d => d.kind === 'standing' && d.name !== 'main' && d.feed !== 'landing')) return <><StaleNote q={deployments} /><p>No environment is available for a manual release. <Link to={`/projects/${slug}/settings/deployments`}>Add a release environment in deployment settings</Link>.</p></>
+  if (!deployments.data.some(d => d.kind === 'standing' && d.feed !== 'main')) return <><StaleNote q={deployments} /><p>No environment is available for a manual release. <Link to={`/projects/${slug}/settings/deployments`}>Add a release environment in deployment settings</Link>.</p></>
   return <><StaleNote q={deployments} /><ReleaseDefaultPicker slug={slug} deployments={deployments.data} onConfigured={onConfigured} /></>
 }
 
@@ -154,6 +154,8 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
         {/* One list of facts: where it runs, what it is built from, what it
             contains. Empty facts are left out rather than folded away. */}
         <dl className="facts release-record">
+          {data.request?.feed === 'main' && <><dt>Automatic release</dt><dd>Follows main, set by {data.request.setBy || 'unconfirmed'} · settings revision {data.request.settingsRevision}</dd></>}
+          {data.request?.approvers && <><dt>Landing approved by</dt><dd>{data.request.approvers}</dd></>}
           {data.bundle && <BundleFacts bundle={data.bundle} />}
           {r.commitSha && <><dt>Commit</dt><dd><code>{r.commitSha.slice(0, 12)}</code></dd></>}
           {!data.bundle && r.externalRef && <><dt>Image</dt><dd><ImageReference value={r.externalRef} /></dd></>}

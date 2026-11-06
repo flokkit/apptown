@@ -382,13 +382,7 @@ func TestDeploymentDoorsAskTheProjectsLifecycle(t *testing.T) {
 			return err
 		},
 		"new deployment": func() error { _, err := w.bind(w.project, "beta", "production", ids.Nil); return err },
-		// Workflow completion releases inside its own transaction.
-		"release creation": func() error {
-			return w.db.InTx(ctx, func(tx *database.Tx) error {
-				_, err := deployment.CreateReleaseIn(ctx, tx, deployment.ReleaseDraft{At: time.Now(), Source: deployment.ReleaseFromBranch, ProjectID: w.project, Deployment: "prod", Revision: "abc", Actor: "alice"})
-				return err
-			})
-		},
+
 		"rehearsal": func() error { _, err := w.s.RequestRehearsal(ctx, w.project, "prod", ids.Nil); return err },
 		"restored copy": func() error {
 			_, err := w.s.RequestRestoredCopy(ctx, w.project, "prod", RestoredCopyRequest{})

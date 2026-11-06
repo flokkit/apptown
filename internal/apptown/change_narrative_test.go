@@ -251,7 +251,11 @@ func TestNarrativePublicationIncludesReleaseNotesAtomically(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	in := workflow.NarrativePublication{Source: source, Draft: workflow.NarrativeDraft{Title: "generated", Note: "new note"}}
+	draft, err := workflow.ParseNarrative("TITLE: generated\nnew note")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := workflow.NarrativePublication{Source: source, Draft: draft}
 	dbtest.FailNextStatement(t, db, "-- name: FillChangeReleaseNotes")
 	if err := owner.PublishNarrative(ctx, in); err == nil {
 		t.Fatal("release failure did not reject publication")

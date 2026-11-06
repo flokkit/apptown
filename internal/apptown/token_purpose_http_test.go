@@ -361,9 +361,9 @@ func TestAnAgentCannotLandThroughALaneWithNoApproval(t *testing.T) {
 	t.Run("agent token over HTTP", func(t *testing.T) {
 		t.Parallel()
 		a, agent, ch, before := shipFixture(t)
-		w := bearerCall(a, agent, "POST", fmt.Sprintf("/api/v1/changes/%d/runs", ch.ID), `{"workflow":"ship"}`)
+		w := bearerCall(a, agent, "POST", fmt.Sprintf("/api/v1/changes/%d/runs", ch.ID), `{"workflow":"land"}`)
 		if w.Code != 422 || !strings.Contains(w.Body.String(), "run by AppTown") {
-			t.Fatalf("an agent started ship: %d %s", w.Code, w.Body.String())
+			t.Fatalf("an agent started land: %d %s", w.Code, w.Body.String())
 		}
 		a.Work.Wait()
 		if after := defaultTip(t, a); after != before {
@@ -376,9 +376,9 @@ func TestAnAgentCannotLandThroughALaneWithNoApproval(t *testing.T) {
 		if err := recordCatalogFixture(a.Adoption, t.Context(), ch.ProjectID, "fixture"); err != nil {
 			t.Fatal(err)
 		}
-		res := mcp_call(t, a, agent, "start_change_lane", map[string]any{"id": ch.ID, "lane": "ship"})
+		res := mcp_call(t, a, agent, "start_change_lane", map[string]any{"id": ch.ID, "lane": "land"})
 		if res["isError"] != true {
-			t.Fatalf("an agent started ship over MCP: %v", res)
+			t.Fatalf("an agent started land over MCP: %v", res)
 		}
 		a.Work.Wait()
 		if after := defaultTip(t, a); after != before {
@@ -389,8 +389,8 @@ func TestAnAgentCannotLandThroughALaneWithNoApproval(t *testing.T) {
 		t.Parallel()
 		a, _, ch, before := shipFixture(t)
 		ctx := callerMCPContext(context.Background(), &authIdentity{User: "boss", Via: "oauth", DelegationID: idstest.N(1), Scopes: access.ScopeNames()}, "boss via client")
-		if _, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "ship"}); err == nil {
-			t.Fatal("an OAuth agent started ship")
+		if _, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "land"}); err == nil {
+			t.Fatal("an OAuth agent started land")
 		}
 		a.Work.Wait()
 		if after := defaultTip(t, a); after != before {
@@ -408,12 +408,12 @@ func TestAnAgentCannotLandThroughALaneWithNoApproval(t *testing.T) {
 			t.Fatalf("a landing request merged without approval: %s -> %s", before, after)
 		}
 	})
-	t.Run("a person who may land cannot pick ship", func(t *testing.T) {
+	t.Run("a person who may land cannot pick land", func(t *testing.T) {
 		t.Parallel()
 		a, _, ch, before := shipFixture(t)
 		cli := tokenFor(t, a, "boss-cli", "boss", "admin", access.TokenCLI)
-		if w := bearerCall(a, cli, "POST", fmt.Sprintf("/api/v1/changes/%d/runs", ch.ID), `{"workflow":"ship"}`); w.Code != 422 || !strings.Contains(w.Body.String(), "run by AppTown") {
-			t.Fatalf("the person's ship: %d %s", w.Code, w.Body.String())
+		if w := bearerCall(a, cli, "POST", fmt.Sprintf("/api/v1/changes/%d/runs", ch.ID), `{"workflow":"land"}`); w.Code != 422 || !strings.Contains(w.Body.String(), "run by AppTown") {
+			t.Fatalf("the person's land: %d %s", w.Code, w.Body.String())
 		}
 		a.Work.Wait()
 		if after := defaultTip(t, a); after != before {

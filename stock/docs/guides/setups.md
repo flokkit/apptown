@@ -129,11 +129,12 @@ the host's public address and port. Other
 deployment names have no Traefik hostname route; give them their own ingress
 to the published port.
 
-Create the project's `main` deployment on the attached target before its
-first landing; with local Docker enabled, a landing otherwise creates
-the missing `main` on the built-in host. Cloud targets receive promotions
-from a Docker `main`; Portainer and App Platform remain experimental. Target setup and
-credentials are in [Deployment targets](deployment-targets.md).
+Create a deployment on the chosen target with feed `main` to deploy each
+landing automatically. Creating that setting records the creator’s deploy
+authority. A landing builds its runtime bundle without booting a deployment;
+the deployment takes the bundle afterwards. Projects without a runtime only
+build and land. Portainer and App Platform remain experimental. Target setup
+and credentials are in [Deployment targets](deployment-targets.md).
 
 Restore tests need `-restore-gate-image` pinned by digest and a stated
 `-public-host` origin. The target's gate container must reach `/gate/redeem`

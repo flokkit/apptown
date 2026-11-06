@@ -71,7 +71,7 @@ type fakeBoot struct {
 func (b *fakeBoot) Boot(_ context.Context, req BootRequest, _ *appcontract.Contract) (BootResult, error) {
 	b.req = req
 	b.daemon.exists, b.daemon.running, b.daemon.image = true, true, "sha256:game"
-	b.daemon.labels = req.Identity.Labels()
+	b.daemon.labels = req.identity.Labels()
 	return BootResult{HostPort: 41233, Stack: ResolvedStack{Plan: &appcontract.Plan{
 		Parts: []appcontract.Part{{Name: "game", Public: true, Image: "sha256:game"}}}}}, nil
 }
@@ -80,13 +80,12 @@ func TestDriverRunsAPlacementFromSource(t *testing.T) {
 	t.Parallel()
 	daemon := &fakeDaemon{}
 	boot := &fakeBoot{daemon: daemon}
-	var released []string
 	d := &Driver{Allowed: AuthorisedWhenRequested, ServingLabel: "stable-serving",
-		Scope:        func(context.Context) (Scope, error) { return Scope{Client: daemon}, nil },
-		Boot:         boot,
-		URL:          func(_, _ string, port int) (string, error) { return fmt.Sprintf("http://127.0.0.1:%d", port), nil },
-		AfterRelease: func(p deploy.Placement) { released = append(released, p.Name) },
-		DataClass:    "production",
+		Scope: func(context.Context) (Scope, error) { return Scope{Client: daemon}, nil },
+		Boot:  boot,
+		URL:   func(_, _ string, port int) (string, error) { return fmt.Sprintf("http://127.0.0.1:%d", port), nil },
+
+		DataClass: "production",
 	}
 	c, err := appcontract.Parse([]byte("app:\n  game:\n    static: .\n    public: true\n"))
 	if err != nil {
@@ -113,14 +112,11 @@ func TestDriverRunsAPlacementFromSource(t *testing.T) {
 		t.Fatalf("observation after boot: %+v", o)
 	}
 	name := ByKey(idstest.N(7)).App()
-	if boot.req.Name != name || boot.req.Slug != "game" || boot.req.ServingLabel != "stable-serving" || boot.req.Deployment != "main" || !boot.req.Persistent || boot.req.Identity.Deployment != "7" || boot.req.Revision != "abc" || boot.req.DataClass != "production" {
+	if boot.req.Name != name || boot.req.Slug != "game" || boot.req.servingLabel != "stable-serving" || boot.req.Deployment != "main" || !boot.req.persistent || boot.req.identity.Deployment != "7" || boot.req.revision != "abc" || boot.req.DataClass != "production" {
 		t.Fatalf("the boot request names the placement and the revision it serves: %+v", boot.req)
 	}
 	if noted["container"] != name || noted["dockerReady"] == nil {
 		t.Fatalf("checkpoints carry the container and the boot proof: %v", noted)
-	}
-	if len(released) != 1 || released[0] != "main" {
-		t.Fatalf("what follows a release is told the placement: %v", released)
 	}
 
 	// Resume from what was noted: the proof is verified against the host,
@@ -286,7 +282,7 @@ func TestObserveDistinguishesUnavailableFromStopped(t *testing.T) {
 func TestAFailedBootIsAKnownFailure(t *testing.T) {
 	t.Parallel()
 	phases := map[string]bool{"": false}
-	for _, p := range []string{PhaseImages, PhaseResolve, PhaseSecrets, PhaseConfig, PhaseNeeds, PhaseFill, PhaseParts, PhaseApp, PhaseProbe, PhasePage} {
+	for _, p := range []string{phaseImages, PhaseResolve, PhaseSecrets, PhaseConfig, PhaseNeeds, PhaseFill, PhaseParts, PhaseApp, PhaseProbe, phasePage} {
 		phases[p] = true
 	}
 	for phase, terminal := range phases {
@@ -360,7 +356,7 @@ func TestDriverBootsTheImagesItsSourceNames(t *testing.T) {
 		daemon := &fakeDaemon{}
 		boot := &fakeBoot{daemon: daemon}
 		d := &Driver{Allowed: AuthorisedWhenRequested, ServingLabel: "stable-serving", Scope: func(context.Context) (Scope, error) { return Scope{Client: daemon}, nil }, Boot: boot,
-			URL: func(_, _ string, port int) (string, error) { return "https://stable-serving.example", nil }, AfterRelease: func(deploy.Placement) {}}
+			URL: func(_, _ string, port int) (string, error) { return "https://stable-serving.example", nil }}
 		art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 			Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c, Images: images, Init: map[string]string{}}}
 		if _, err := d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil }); err != nil {
@@ -386,9 +382,9 @@ func TestARecordedBootWithAMissingImageChangesNothing(t *testing.T) {
 		}
 		return nil, nil
 	}}
-	_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Name: ByKey(idstest.N(7)).App(), StackID: ByKey(idstest.N(7)).Stack(), Workspace: t.TempDir(), Docker: Scope{Client: fake}, Persistent: true,
-		Identity: &deploy.DockerIdentity{Deployment: "7", Generation: 2}, Recorded: &RecordedImages{Parts: map[string]string{"game": "sha256:gone"}}}, c)
-	if !errors.Is(err, ErrRecordedImageMissing) || AsBootError(err).Phase != PhaseImages {
+	_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Name: ByKey(idstest.N(7)).App(), StackID: ByKey(idstest.N(7)).Stack(), Workspace: t.TempDir(), Docker: Scope{Client: fake}, persistent: true,
+		identity: &deploy.DockerIdentity{Deployment: "7", Generation: 2}, Recorded: &RecordedImages{Parts: map[string]string{"game": "sha256:gone"}}}, c)
+	if !errors.Is(err, ErrRecordedImageMissing) || AsBootError(err).Phase != phaseImages {
 		t.Fatalf("a missing recorded image: %v", err)
 	}
 	for _, args := range fake.args {
@@ -415,7 +411,7 @@ func TestDriverKeepsServingIdentitySeparateFromDisplayAddress(t *testing.T) {
 				scope = scope.WithHost("ssh://target", "host.example", "apps.example")
 			}
 			var observedLabel string
-			d := Driver{Allowed: AuthorisedWhenRequested, ServingLabel: "original", Scope: func(context.Context) (Scope, error) { return scope, nil }, Boot: boot, AfterRelease: func(deploy.Placement) {}, URL: func(label, _ string, _ int) (string, error) {
+			d := Driver{Allowed: AuthorisedWhenRequested, ServingLabel: "original", Scope: func(context.Context) (Scope, error) { return scope, nil }, Boot: boot, URL: func(label, _ string, _ int) (string, error) {
 				observedLabel = label
 				// The address is the caller's choice (deployment.dockerReach):
 				// the attached host's front door, or this AppTown's routes.
@@ -429,7 +425,7 @@ func TestDriverKeepsServingIdentitySeparateFromDisplayAddress(t *testing.T) {
 			if remote {
 				want = "https://original.apps.example"
 			}
-			if err != nil || out.URL != want || observedLabel != "original" || boot.req.ServingLabel != "original" || boot.req.Slug != "renamed" || boot.req.URL != want || boot.req.ExactOrigins == nil || *boot.req.ExactOrigins != want {
+			if err != nil || out.URL != want || observedLabel != "original" || boot.req.servingLabel != "original" || boot.req.Slug != "renamed" || boot.req.URL != want || boot.req.exactOrigins == nil || *boot.req.exactOrigins != want {
 				t.Fatalf("serving/display boundary: out=%+v callback=%q request=%+v err=%v", out, observedLabel, boot.req, err)
 			}
 		})

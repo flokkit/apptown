@@ -8,7 +8,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
-func (a FollowUps) Complete(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
+func (a FollowUps) Complete(ctx context.Context, key string, values map[string]any) (map[string]any, error) {
 	task, err := a.Work.FollowUp(engineCaller(ctx), key)
 	if err != nil {
 		if errors.Is(err, workflow.ErrCompletionTask) {
@@ -21,6 +21,9 @@ func (a FollowUps) Complete(ctx context.Context, key string, _ map[string]any) (
 	}
 	run := task.Run
 	switch task.Effect {
+	case workflow.CompletionRelease:
+		approvers, _ := values["approvedBy"].(string)
+		err = a.Releases.RequestLandingReleases(ctx, run.ProjectID, run.ID, run.ChangeID, approvers)
 	case workflow.CompletionLand:
 		err = a.Landings.Advance(ctx, run.ID)
 	case workflow.CompletionAdopt:

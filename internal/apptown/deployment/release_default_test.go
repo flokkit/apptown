@@ -32,7 +32,7 @@ func TestExplicitReleaseDefaultKeepsIdentityAndRequiresCurrentRevision(t *testin
 	if err != nil || after != chosen {
 		t.Fatalf("label changed default: %+v %v", after, err)
 	}
-	in.Feed = "landing"
+	in.Feed = "main"
 	if _, err := s.Configure(t.Context(), in); err == nil {
 		t.Fatal("default became landing-fed")
 	}

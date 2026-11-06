@@ -241,7 +241,7 @@ func jobAttempts(kind, key string) (int, error) {
 			return 0, fmt.Errorf("invalid completion key %q", key)
 		}
 		switch effect {
-		case "cleanup", "adopt", "parent", "land":
+		case "cleanup", "adopt", "parent", "land", "release":
 			return jobBudgets[kind], nil
 		}
 	case workflowAbandonmentJob:

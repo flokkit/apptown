@@ -32,7 +32,7 @@ func TestLawAtTheAct(t *testing.T) {
 	landSpec := schema.Spec{Kind: "lifecycle", Role: "landing", Stages: []schema.Stage{
 		{Name: "ship", Steps: []schema.Step{
 			{Name: "ok", Uses: "approval", With: map[string]any{"approvers": []any{"bls"}, "means": "go"}},
-			{Name: "deploy", Uses: "deploy"},
+			{Name: "build", Uses: "build"},
 		}},
 	}}
 	chID := createReadTestChange(t, a, pid, "t")
@@ -46,9 +46,9 @@ func TestLawAtTheAct(t *testing.T) {
 	gittest.Run(t, wt, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "the change's work")
 
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
-		deps.Automatic = []string{"deploy"}
+		deps.Automatic = []string{"build"}
 		deps.Report = func(err error) { t.Error(err) }
-		deps.Runners = map[string]workflow.Runner{"deploy": func(task *workflow.Execution) {
+		deps.Runners = map[string]workflow.Runner{"build": func(task *workflow.Execution) {
 			if _, err := task.Claim(); err != nil {
 				t.Error(err)
 				return
@@ -72,7 +72,7 @@ func TestLawAtTheAct(t *testing.T) {
 
 	// The amendment lands WHILE the run waits at its approval.
 	if err := a.Adoption.InstallPolicy(t.Context(), pid, "deploy-requires-scan", "Cannot deploy without a security check first", "requireStepBefore",
-		map[string]any{"uses": "deploy", "requires": "scan"}, "stock", "bls"); err != nil {
+		map[string]any{"uses": "build", "requires": "scan"}, "stock", "bls"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -129,7 +129,7 @@ func TestLawRelaxesClearsPause(t *testing.T) {
 		t.Fatal(err)
 	}
 	landSpec := schema.Spec{Kind: "lifecycle", Role: "landing", Stages: []schema.Stage{
-		{Name: "ship", Steps: []schema.Step{{Name: "deploy", Uses: "deploy"}}}}}
+		{Name: "ship", Steps: []schema.Step{{Name: "build", Uses: "build"}}}}}
 	chID := createReadTestChange(t, a, pid, "t")
 	ch, _ := a.changeByID(context.Background(), chID)
 	_ = prepareChangeWorkspaceForTest(a, p, ch)
@@ -137,7 +137,7 @@ func TestLawRelaxesClearsPause(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(wt, "f.txt"), []byte("x\n"), 0o644)
 	gittest.Run(t, wt, "add", "f.txt")
 	gittest.Run(t, wt, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "the change's work")
-	if err := a.Adoption.InstallPolicy(t.Context(), pid, "x", "", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "scan"}, "stock", "test"); err != nil {
+	if err := a.Adoption.InstallPolicy(t.Context(), pid, "x", "", "requireStepBefore", map[string]any{"uses": "build", "requires": "scan"}, "stock", "test"); err != nil {
 		t.Fatal(err)
 	}
 	policies, err := a.Adoption.ProjectPolicies(context.Background(), a.DB, pid)
@@ -146,9 +146,9 @@ func TestLawRelaxesClearsPause(t *testing.T) {
 	}
 	policyID := policies[0].ID
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
-		deps.Automatic = []string{"deploy"}
+		deps.Automatic = []string{"build"}
 		deps.Report = func(err error) { t.Error(err) }
-		deps.Runners = map[string]workflow.Runner{"deploy": func(task *workflow.Execution) {
+		deps.Runners = map[string]workflow.Runner{"build": func(task *workflow.Execution) {
 			if _, err := task.Claim(); err != nil {
 				t.Error(err)
 				return

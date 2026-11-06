@@ -189,7 +189,7 @@ func TestRequestReleaseCheckedSelection(t *testing.T) {
 				in.BundleID = ids.Nil
 				want = errNoBundle
 			case "landing":
-				mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.Feed = "landing" })
+				mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.Feed = "main" })
 				want = errFedByLanding
 			case "preview":
 				row, err := deploymentsql.New(s.db.SQL()).DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: in.ProjectID, Name: in.DeploymentName})
@@ -284,7 +284,7 @@ func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 		if _, err := s.Outcomes.Complete(t.Context(), Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active", Health: "healthy"}}); err != nil {
 			t.Fatal(err)
 		}
-		mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.Feed = "landing" })
+		mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.Feed = "main" })
 		dep, err = s.Deployments.ByName(t.Context(), in.ProjectID, in.DeploymentName)
 		if err != nil {
 			t.Fatal(err)
@@ -349,10 +349,10 @@ func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 		// sql-guarantee: the legacy shape (no attempt inputs, a release without a generation) that no operation writes now.
 		mustExec(t, w.s.db, `INSERT INTO releases(id,project_id,number,state,deployment,approved_by,created_at,released_at,notes,commit_sha,source_sha,bundle_id,deployment_id) VALUES ($5,$1,1,'released',$2,'bls','2026-09-08T00:00:00Z','2026-09-08T00:00:00Z','','','',$3,$4)`, w.in.ProjectID, w.in.DeploymentName, w.running.ID, w.dep.ID, ids.New(time.Now()))
 		w.s.copyCheck = copyCheckSays("copy provider unavailable")
-		if why, _, err := w.s.uncopiedData(t.Context(), w.dep, nil, w.running.ID, false, "alice"); err != nil || why == "" {
+		if why, _, err := w.s.uncopiedData(t.Context(), w.dep, nil, false, "alice"); err != nil || why == "" {
 			t.Fatalf("unknown software waived uncopied data: why=%q err=%v", why, err)
 		}
-		if why, note, err := w.s.uncopiedData(t.Context(), w.dep, nil, w.running.ID, true, "alice"); err != nil || why != "" || note == "" {
+		if why, note, err := w.s.uncopiedData(t.Context(), w.dep, nil, true, "alice"); err != nil || why != "" || note == "" {
 			t.Fatalf("explicit uncopied data acceptance: why=%q note=%q err=%v", why, note, err)
 		}
 		if got, err := w.s.RequestRelease(t.Context(), w.in); !errors.Is(err, errFedByLanding) || !got.ID.IsZero() {

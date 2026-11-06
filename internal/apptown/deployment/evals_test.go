@@ -62,7 +62,7 @@ func TestEvalCopiesArePlacedOnEvalTargetsOnly(t *testing.T) {
 	if err := s.refusesPlacement(ctx, idstest.N(999999), builtIn); err == nil {
 		t.Fatal("a project whose purpose cannot be read was placed")
 	}
-	if err := s.RefusesLanding(ctx, copy, w.remote); !errors.Is(err, ErrReleaseRefused) {
+	if err := s.refusesLanding(ctx, copy, w.remote); !errors.Is(err, ErrReleaseRefused) {
 		t.Fatalf("a copy's landing on an ordinary host: %v", err)
 	}
 	s.env.routes.EvalDomain = "eval.example.com"
@@ -70,8 +70,8 @@ func TestEvalCopiesArePlacedOnEvalTargetsOnly(t *testing.T) {
 		t.Fatalf("a copy on the built-in host with an eval domain: %v", err)
 	}
 
-	attrs := Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"}
-	if got, err := s.LandingTarget(ctx, copy, "main", attrs); err != nil || got.ID != evalHost.ID {
+	attrs := Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"}
+	if got, err := s.landingTarget(ctx, copy, "main", attrs); err != nil || got.ID != evalHost.ID {
 		t.Fatalf("a copy lands on the host attached for evals: %+v %v", got, err)
 	}
 	mode := w.service(true)
@@ -80,7 +80,7 @@ func TestEvalCopiesArePlacedOnEvalTargetsOnly(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if got, err := mode.LandingTarget(ctx, real, "main", attrs); err != nil || got.ID != w.remote.ID {
+	if got, err := mode.landingTarget(ctx, real, "main", attrs); err != nil || got.ID != w.remote.ID {
 		t.Fatalf("an ordinary landing never picks the host attached for evals: %+v %v", got, err)
 	}
 }

@@ -42,7 +42,7 @@ func (e WorkflowEntry) OriginRef() string {
 }
 
 // StockSystemWorkflows are AppTown's own jobs an instance may stand in for.
-var StockSystemWorkflows = []string{"land", "ship", "adopt-integration", "retire-integration"}
+var StockSystemWorkflows = []string{"land", "adopt-integration", "retire-integration"}
 
 var (
 	errStockWorkflow     = fault.New(fault.Conflict, "an AppTown-shipped (stock) workflow is read-only and re-syncs on release; author your own under a different name")

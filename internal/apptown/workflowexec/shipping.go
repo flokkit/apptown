@@ -7,7 +7,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/ids"
 
-	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -20,18 +19,18 @@ import (
 	"github.com/flokkit/apptown/internal/progress"
 )
 
-const DeployKind = "deploy"
+const BuildKind = "build"
 const PreviewKind = "preview"
 
 // NotContinued are the step kinds an AppTown restart ends instead of
-// continuing: a deploy step builds, publishes and deploys, and a restart
+// continuing: a build step builds and publishes, and a restart
 // leaves it in error until someone runs it again (design/operations/workers.md,
 // "Releases built on the worker"). Its release-build task, if any, is stopped and released
-// (tasks.UnsettledStepsIn), and its deployment attempt is observed by the
-// deployment owner, never applied again by a resumed step.
-func NotContinued() []string { return []string{DeployKind} }
+// (tasks.UnsettledStepsIn). Deployment release requests have their own
+// execution and recovery.
+func NotContinued() []string { return []string{BuildKind} }
 
-// shipping adapts deployment effects into workflow evidence and settlement.
+// shipping adapts builds and previews into workflow evidence and settlement.
 // Deployment still owns release admission, generation guards and providers.
 type shipping struct {
 	db         *database.DB
@@ -40,14 +39,10 @@ type shipping struct {
 	docker     *docker.Scope
 	checks     CompileCheck
 	progress   *progress.Feeds
-	backups    interface{ AfterRelease(ids.ID, string) }
-	// releaseData copies and witnesses a deployment's data around a
-	// landing's release; nil takes no copy and witnesses nothing.
-	releaseData releaseData
-	builds      *ReleaseBuilds
-	shots       screenshotter
-	cfg         ShippingConfig
-	clock       func() time.Time // AppTown's clock; nil is the real one
+	builds     *ReleaseBuilds
+	shots      screenshotter
+	cfg        ShippingConfig
+	clock      func() time.Time // AppTown's clock; nil is the real one
 }
 type ShippingConfig struct {
 	DataDir, Image string
@@ -62,10 +57,6 @@ type ShippingDependencies struct {
 	// worker's executor when one is configured.
 	Checks   CompileCheck
 	Progress *progress.Feeds
-	Backups  interface{ AfterRelease(ids.ID, string) }
-	// ReleaseData copies a deployment's data before a landing releases
-	// onto it and witnesses it afterwards (dataprotection.BeforeRelease).
-	ReleaseData releaseData
 	// Builds, on an AppTown with a worker, is where its releases are built;
 	// nil builds each on its target (docker.PrepareImages), as before.
 	Builds *ReleaseBuilds
@@ -76,22 +67,6 @@ type ShippingDependencies struct {
 	// (verification.Screenshots); nil takes none, and the boot's evidence
 	// says so.
 	Screenshots screenshotter
-}
-
-// releaseData is data protection's part in a landing's release: a copy
-// before it, and a witness of each need's data after it.
-type releaseData interface {
-	BeforeRelease(ctx context.Context, projectID ids.ID, deployment string, synthetic bool) (ReleaseWitness, error)
-}
-
-// ReleaseWitness is what was read before the release: whether the copy
-// holds all the data, in words, and the check made once it has booted
-// (problems fail the step; notes are what was not compared).
-type ReleaseWitness interface {
-	Complete() bool
-	CopyOutcome() dataprotection.CopyOutcome
-	CopyWords() string
-	After(ctx context.Context, declared []string) (problems, notes []string)
 }
 
 // screenshotter takes AppTown's pictures of a preview's pages.
@@ -107,14 +82,14 @@ type CompileCheck struct {
 }
 
 func NewShipping(db *database.DB, d ShippingDependencies, cfg ShippingConfig) *shipping {
-	return &shipping{db: db, deployment: d.Deployment, previews: d.Previews, docker: d.Docker, checks: d.Checks, progress: d.Progress, backups: d.Backups, releaseData: d.ReleaseData, builds: d.Builds, shots: d.Screenshots, cfg: cfg, clock: d.Now}
+	return &shipping{db: db, deployment: d.Deployment, previews: d.Previews, docker: d.Docker, checks: d.Checks, progress: d.Progress, builds: d.Builds, shots: d.Screenshots, cfg: cfg, clock: d.Now}
 }
 func (a *shipping) projectSlugOf(ctx context.Context, id ids.ID) string {
 	p, _ := project.ByIDIn(ctx, a.db, id)
 	return p.Slug
 }
 
-// recordArtifact writes what a step made (a release, a preview, a merge
+// recordArtifact writes what a step made (a build, a preview, a merge
 // request): the step's evidence of what is running. The effect has happened,
 // so it is written though the caller stops; one that cannot be written is
 // the step's error, never a pass.

@@ -7,7 +7,7 @@ func workResourcesFor(a *App) workcommands.Resources {
 }
 func workflowFollowUps(a *App) workcommands.FollowUps {
 	return workcommands.FollowUps{
-		DB: a.DB, Work: a.Work,
+		DB: a.DB, Work: a.Work, Releases: a.Deployment,
 		Landings: workcommands.AcceptedLandings{DB: a.DB, Work: a.Work, Lanes: a.lifecycle},
 		Uplifts:  upliftSettlementFor(a), Resources: workResourcesFor(a),
 		Chats: a.changeConsole,

@@ -52,7 +52,7 @@ func persistedRecoveryFixture(t *testing.T, stage schema.Stage, scanners []Scann
 	}
 	defer func() { _ = tx.Rollback() }()
 	ready, err := NewStages(recordedScanners(scanners), func(uses string) bool {
-		return uses == "script" || uses == "scan" || uses == "deploy" || strings.HasPrefix(uses, "agent/")
+		return uses == "script" || uses == "scan" || uses == "build" || strings.HasPrefix(uses, "agent/")
 	}).EnterIn(context.Background(), tx, runID, &spec, stage.Name, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -68,12 +68,12 @@ func TestWorkflowRecoveryUsesPinnedSequenceAndRecordedScanners(t *testing.T) {
 	stage := schema.Stage{Name: "work", OnEnter: []schema.Step{
 		{Name: "prepare", Uses: "script"},
 		{Name: "image", Uses: "scan", With: map[string]any{"on": "image"}},
-		{Name: "deploy", Uses: "deploy"},
+		{Name: "build", Uses: "build"},
 	}, Steps: []schema.Step{{Name: "source", Uses: "scan", With: map[string]any{"on": "source"}}}}
 	db, id, ready := persistedRecoveryFixture(t, stage, []Scanner{{Name: "old-image", Target: "image"}, {Name: "source-a", Target: "source"}, {Name: "source-b", Target: "source"}})
 	transitionStoredStepForTest(t, db, ready[0].ID, StatusPass)
 	transitionStoredStepForTest(t, db, ready[1].ID, StatusFail)
-	plans := newDispatchPlans(db, []string{"deploy", "scan", "script"})
+	plans := newDispatchPlans(db, []string{"build", "scan", "script"})
 	plan, err := plans.Plan(context.Background(), id)
 	if err != nil {
 		t.Fatal(err)
@@ -93,7 +93,7 @@ func TestWorkflowRecoveryUsesPinnedSequenceAndRecordedScanners(t *testing.T) {
 				t.Error(err)
 			}
 		},
-		"deploy": func(stepID ids.ID) { calls = append(calls, stepID) },
+		"build":  func(stepID ids.ID) { calls = append(calls, stepID) },
 		"script": func(stepID ids.ID) { calls = append(calls, stepID) },
 	}, stages: recoveryStageEffects{}, report: func(err error) { t.Error(err) }})
 	d.restartPending(nil)

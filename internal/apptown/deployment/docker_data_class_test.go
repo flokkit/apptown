@@ -28,27 +28,3 @@ func TestADockerReleaseCarriesTheDeploymentsDataClass(t *testing.T) {
 		}
 	}
 }
-
-// A landing reads the deployment's class; one it cannot read is unknown,
-// never synthetic.
-func TestALandingReadsTheDataClassAndUnknownIsProtected(t *testing.T) {
-	t.Parallel()
-	db := testDB(t)
-	pid := createTestProject(t, db, "dc", "DC")
-	s := New(context.Background(), db, Dependencies{})
-	target, err := s.Targets.Put(context.Background(), &Target{Name: "local", Kind: KindDockerHost, Origin: OriginBuiltIn, Status: TargetReady})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.Deployments.EnsureStanding(t.Context(), pid, "main", target.ID, Attributes{DataClass: "production"}.WithDefaults()); err != nil {
-		t.Fatal(err)
-	}
-	if got := s.Deployments.DataClassOf(t.Context(), pid, "main"); got != "production" {
-		t.Fatalf("main: %q", got)
-	}
-	for _, name := range []string{"missing", ""} {
-		if got := s.Deployments.DataClassOf(t.Context(), pid, name); got != "" {
-			t.Fatalf("%q reads as %q, not unknown", name, got)
-		}
-	}
-}

@@ -64,11 +64,11 @@ func TestDockerDeploymentUsesSelectedSource(t *testing.T) {
 				t.Fatal("driver received moving checkout")
 			}
 			daemon.exists, daemon.running, daemon.image = true, true, "sha256:built"
-			daemon.labels = bt.Identity.Labels()
+			daemon.labels = bt.identity.Labels()
 			served = c.PublicPart().Env["MARKER"]
 			return BootResult{HostPort: 1234, Stack: ResolvedStack{Plan: &appcontract.Plan{Parts: []appcontract.Part{{Name: "web", Public: true, Image: "sha256:built"}}}}}, nil
 		}),
-		URL: func(string, string, int) (string, error) { return "http://app", nil }, AfterRelease: func(deploy.Placement) {},
+		URL: func(string, string, int) (string, error) { return "http://app", nil },
 	}
 	_, err = d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(1), Label: "1", Name: "main"}, 1, art, "selected-A", func(string, ...any) {}, func(map[string]any) error { return nil })
 	if err != nil {

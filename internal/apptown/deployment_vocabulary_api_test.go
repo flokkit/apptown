@@ -11,8 +11,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/apptown/schema"
-	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
@@ -56,24 +54,25 @@ func TestDeploymentVocabularyRoutesKeepAuthorizationAndRetireOldPaths(t *testing
 	}
 }
 
-func TestDeployRejectsObsoleteSelectorBeforeExternalWork(t *testing.T) {
+func TestBuildRejectsDeploymentOptionsBeforeExternalWork(t *testing.T) {
 	t.Parallel()
 	a, f := bootWorld(t)
-	_, step := bootStep(t, a, "landing", schema.Step{Name: "deploy", Uses: "deploy", With: map[string]any{"environment": "other"}})
 	f.reset()
-	a.Work.ExecuteStep(a.asEngine(context.Background()), step)
-	result, err := workflow.ReadStepIn(context.Background(), a.DB, step)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Status != workflow.StatusError || !strings.Contains(string(result.Evidence), "unknown field") {
-		t.Fatalf("obsolete selector silently defaulted: %s %s", result.Status, result.Evidence)
+	_, _, err := a.Ways.PublishWorkflow(t.Context(), `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata: {name: invalid-build}
+spec:
+  kind: pipeline
+  stages:
+    - name: build
+      steps: [{name: build, uses: build, with: {deployment: other}}]
+`, "fixture")
+	if err == nil || !strings.Contains(err.Error(), "build takes no options") {
+		t.Fatalf("build options admitted: %v", err)
 	}
 	if calls := f.joined(); len(calls) != 0 {
-		t.Fatalf("invalid selector performed external work: %v", calls)
+		t.Fatalf("invalid options performed work: %v", calls)
 	}
-	// sql-guarantee: no attempt may be written anywhere; the owner lists only open attempts, and a refused selector must leave not even a finished one
-	completionCount(t, a.DB, 0, `SELECT count(*) FROM deployment_attempts`)
 }
 
 func TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity(t *testing.T) {
@@ -91,7 +90,7 @@ func TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity(t *
 	targetPath := "/api/v1/targets/" + target.ID.String() + "/label"
 	depPath := "/api/v1/projects/game/deployments/" + dep.ID.String() + "/label"
 	defaultPath := "/api/v1/projects/game/release/default"
-	_, err = a.Integrations.Bindings.Save(t.Context(), "label-connection", "deploy", "portainer", `{"urlFrom":"URL","apiKeyFrom":"KEY"}`, "boss")
+	_, err = a.Integrations.Bindings.Save(t.Context(), "label-connection", "build", "portainer", `{"urlFrom":"URL","apiKeyFrom":"KEY"}`, "boss")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -55,10 +55,9 @@ type Providers struct {
 	inventories  map[string]InventoryFactory
 	digitalOcean digitalocean.Options
 	s3Bucket     s3bucket.Options
-	// afterRelease is told a Docker host or Portainer released a deployment;
 	// databaseContainer is AppTown's own database, which the built-in
 	// host's inventory knows is there.
-	afterRelease      func(projectID ids.ID, deployment string)
+
 	databaseContainer string
 	installation      string
 	// markers mark in place what records name, by kind (MarkRecorded).
@@ -78,9 +77,9 @@ type ProviderDependencies struct {
 	S3Bucket     s3bucket.Options
 	// Drivers and Inventories replace the built-in factories for a kind
 	// (a test's fake provider); the rest are built here.
-	Drivers           map[string]DriverFactory
-	Inventories       map[string]InventoryFactory
-	AfterRelease      func(projectID ids.ID, deployment string)
+	Drivers     map[string]DriverFactory
+	Inventories map[string]InventoryFactory
+
 	DatabaseContainer string
 	// Applied is told an effect may have changed what a target holds (the
 	// inventory cache); nil is fine.
@@ -107,7 +106,7 @@ func NewProviders(ctx context.Context, db *database.DB, records ProviderRecords,
 		hosts: hosts, env: env, projects: deps.Projects, secrets: deps.Secrets, integrations: deps.Integrations,
 		drivers: maps.Clone(deps.Drivers), inventories: maps.Clone(deps.Inventories),
 		digitalOcean: deps.DigitalOcean, s3Bucket: deps.S3Bucket,
-		afterRelease: deps.AfterRelease, databaseContainer: deps.DatabaseContainer, installation: deps.Installation}
+		databaseContainer: deps.DatabaseContainer, installation: deps.Installation}
 	// The DigitalOcean driver judges its deadlines and grace on AppTown's
 	// clock too, unless its options name a clock of their own.
 	if p.digitalOcean.Now == nil {
@@ -170,11 +169,7 @@ func (p *Providers) dockerDriver(ctx context.Context, t *Target, dep *Deployment
 			reach, err := dockerReach(p.env.RoutesFor(ctx, dep.ProjectID), t, servingLabel, name, port)
 			return reach.URL, err
 		},
-		AfterRelease: func(pl deploy.Placement) {
-			if p.afterRelease != nil {
-				p.afterRelease(dep.ProjectID, pl.Name)
-			}
-		},
+
 		Registry: func() (*docker.RegistryCredential, error) { return p.env.releaseLogin(ctx, dep.ProjectID) },
 		Scratch:  p.hosts.BootScratch(),
 		Owner:    ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock},

@@ -57,12 +57,12 @@ func sourceAt(ws, commit, slug string, services []deploy.ServiceSpec) (deploy.Ar
 	if err != nil {
 		return deploy.Artifact{}, fmt.Errorf("selected Docker source requires .apptown/app.yaml: %w", err)
 	}
-	return SourceArtifact(deploy.Source{Workspace: ws, Revision: commit, Slug: slug, Contract: c}, services)
+	return sourceArtifact(deploy.Source{Workspace: ws, Revision: commit, Slug: slug, Contract: c}, services)
 }
 
-// SourceArtifact binds a declaration already read from the selected tree to its
+// sourceArtifact binds a declaration already read from the selected tree to its
 // durable inputs. Validation and boot share this declaration; no head is reread.
-func SourceArtifact(source deploy.Source, services []deploy.ServiceSpec) (deploy.Artifact, error) {
+func sourceArtifact(source deploy.Source, services []deploy.ServiceSpec) (deploy.Artifact, error) {
 	ws, c := source.Workspace, source.Contract
 	if c == nil {
 		return deploy.Artifact{}, ErrNoContract

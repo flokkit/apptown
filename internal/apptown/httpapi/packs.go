@@ -104,7 +104,7 @@ func (h Packs) packRequirements(ctx context.Context, pack wow.Pack) []packRequir
 				caps["executor"] = true
 			case strings.HasPrefix(m[1], "scm/"):
 				caps["scm"] = true
-			case m[1] == "deploy" || m[1] == "preview":
+			case m[1] == "build" || m[1] == "preview":
 				caps["deploy"] = true
 			case m[1] == "scan":
 				caps["scanner"] = true

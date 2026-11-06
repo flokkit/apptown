@@ -256,9 +256,9 @@ func TestWorkflowRetryFencesStaleAdvancement(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			store := advanceStore{db: w.db, completion: completionRecorderFunc(func(context.Context, *database.Tx, CompletedRun) (ReleaseReceipt, error) {
+			store := advanceStore{db: w.db, completion: completionRecorderFunc(func(context.Context, *database.Tx, CompletedRun) error {
 				t.Error("stale completion reached its external effects")
-				return ReleaseReceipt{}, nil
+				return nil
 			})}
 			if err := store.complete(context.Background(), run); !errors.Is(err, ErrRunMoved) {
 				t.Fatalf("stale completion: %v", err)
@@ -286,7 +286,7 @@ func TestWorkflowRetryEarlierProducerAndBusyLanding(t *testing.T) {
 	transitionScopeRun(t, s.db, workflowsql.TransitionRunParams{At: time.Now(), ID: result.RunID, NextStatus: "done"})
 	recordScopeRunSteps(t, s.db, result.RunID, "pass")
 	landing := insertStoredRun(t, s.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, ChangeID: run.ChangeID, WorkflowName: "land", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "finish", DefinitionJson: json.RawMessage(`{"role":"landing"}`)}).ID
-	insertStoredStep(t, s.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: landing, Stage: "finish", Name: "deploy", Type: "deploy", Status: StatusRunning.String(), ConfigJson: json.RawMessage(`{}`)})
+	insertStoredStep(t, s.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: landing, Stage: "finish", Name: "build", Type: "build", Status: StatusRunning.String(), ConfigJson: json.RawMessage(`{}`)})
 	if _, err := s.sendBack(context.Background(), run.ChangeID, "interrupt live deployment", "alice", "", run.ProjectID); err == nil {
 		t.Fatal("send-back overlapped a live landing runner")
 	}

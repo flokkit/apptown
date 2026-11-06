@@ -17,7 +17,6 @@ named engine feature.
 | **fix-bug** | agent commits a failing reproduction → smallest fix → same reproduction passes; "cannot reproduce" stops for a person | repro → fix → repro passing | **Shipped** (`fix-bug.yaml`) |
 | **quick-change** | small change → one approval → landing ships it (console C2 pairs with it) | CHANGE.md | **Shipped** (`quick-change.yaml`) |
 | **land** | the only path from a change's branch to main: catch up with main, tests, scans, guidance checks → one person's approval → merge, deploy, release record | the approval's stated meaning; scan and check evidence; release record | **Shipped** (`land.yaml`, a system workflow) |
-| **ship** | callable pipeline: scan source and image, deploy to `main`, require the release record (`workflow/call: ship`) | release artifact | **Shipped** (`ship.yaml`, a system workflow); `land` carries its own ship stage, and no stock workflow calls it today |
 | **dependency-uplift** | agent applies patch/minor updates → build+tests → dep scan → report → approve; majors surfaced, never applied | the auditor's "do you patch monthly?" answered by completed runs | **Shipped** (`dependency-uplift.yaml`) — scheduled monthly |
 | **security-triage** | CVE/advisory list → agent assesses applicability → patch (sub-workflow) or waive with ADR | waivers are ADRs; patches are runs | Sketch — `workflow/call` exists; the triage prompt does not |
 | **release** | promotion to the intranet: ship the latest release the landing published to the project's registry as a stack, numbered record with its log | release rows + release events | Not a workflow: built into AppTown (`internal/apptown/deployment/intranet_release.go`, `apptown release`); an internet rung is not |
@@ -59,7 +58,7 @@ named engine feature.
   install servers.
 - Rejection feeds back: prompts include `${{feedback.latest}}` so reject →
   re-run → rework works everywhere.
-- Effects (deploy, send, post) sit behind their own gates, always last.
+- Effects (merge, send, post) sit behind their own gates, always last.
 - A workflow whose outcome is a record rather than commits (research,
   product-spec) declares `role: record`: accepting it closes the change,
   and nothing lands or redeploys. Work that changes the app is

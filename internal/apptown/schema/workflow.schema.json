@@ -128,7 +128,9 @@
             },
             "executor": {
               "type": "string",
-              "enum": ["docker"],
+              "enum": [
+                "docker"
+              ],
               "description": "Every project step runs in a container; docker is the only value."
             },
             "image": {
@@ -173,7 +175,7 @@
                         "agent/pi",
                         "scm/mr",
                         "preview",
-                        "deploy",
+                        "build",
                         "workflow/call",
                         "scan",
                         "agent/review",
@@ -334,7 +336,7 @@
                       "if": {
                         "properties": {
                           "uses": {
-                            "const": "deploy"
+                            "const": "build"
                           }
                         },
                         "required": [
@@ -346,10 +348,7 @@
                           "with": {
                             "type": "object",
                             "additionalProperties": false,
-                            "properties": {
-                              "deployment": {},
-                              "services": {}
-                            }
+                            "properties": {}
                           }
                         }
                       }
@@ -570,7 +569,7 @@
                         "agent/pi",
                         "scm/mr",
                         "preview",
-                        "deploy",
+                        "build",
                         "workflow/call",
                         "scan",
                         "agent/review",
@@ -731,7 +730,7 @@
                       "if": {
                         "properties": {
                           "uses": {
-                            "const": "deploy"
+                            "const": "build"
                           }
                         },
                         "required": [
@@ -743,10 +742,7 @@
                           "with": {
                             "type": "object",
                             "additionalProperties": false,
-                            "properties": {
-                              "deployment": {},
-                              "services": {}
-                            }
+                            "properties": {}
                           }
                         }
                       }
