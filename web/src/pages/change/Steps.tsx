@@ -165,6 +165,12 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
         <div className="error">{ev.reason}{ev.logTail ? <pre className="log">{ev.logTail}</pre> : null}</div>
       )}
 
+      {step.type === 'tests' && step.evidence.inputs && (
+        <section className="mt-2">
+          <h4>Test inputs</h4>
+          <pre className="log">{JSON.stringify(step.evidence.inputs, null, 2)}</pre>
+        </section>
+      )}
       {step.type === 'tests' && (step.evidence.skippedTests?.length ?? 0) > 0 && (
         <div className="muted small step-note">
           skipped: {step.evidence.skippedTests!.join(', ')}

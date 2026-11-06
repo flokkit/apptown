@@ -84,6 +84,27 @@ Reports omit the field when there are no blockers. Bullets saying only `None`,
 `N/A` or `No blockers` (ignoring case and trailing punctuation) declare no
 blockers, as does `Blockers: none` on one line.
 
+Every stock stage that boots an app runs the landing `tests` step against the
+agent’s committed work before boot, guidance conformance and review. The `build`
+command uses the `implement` workflow. The reproduction stage of `fix-bug`
+commits an intentionally failing test and is judged before the fix stage runs
+the declared tests. Test failures use the bounded rework loop above. The tests
+run without Docker access, with declared toolchains and services and throwaway
+secrets, just as at landing. Landing still runs its own tests under current law.
+The change’s recorded checks and acceptance dialog show these results.
+Missing declarations follow landing’s applicability rule: a matching toolchain
+requires tests; otherwise the step reports not applicable.
+
+Every witnessed `tests` result keeps its inputs in the step's evidence in
+Details: the committed Git tree hash, test declarations and AppTown version,
+plus each command's container image digest, installed toolchain versions
+reported by mise, and declared services' container image digests. Image digests
+are Docker's content-addressed image IDs read from the containers that ran.
+Unreadable inputs are recorded as `unknown`. Each command has its own record
+because toolchain ranges and image tags can resolve differently between
+commands. Work-phase and landing tests both run afresh; inputs do not enable
+result reuse.
+
 Every stock stage that boots an app checks guidance conformance before review.
 Its agents are instructed to commit, run `apptown check`, run `apptown dev up`,
 open affected pages, and report what ran and what came back. AppTown's own

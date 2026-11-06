@@ -13,6 +13,14 @@ chat environment does not establish that a cold deployment will boot. Committing
 work, running checks, accepting a Change and landing it are separate operations
 with separate evidence and permission requirements.
 
+Stock code-changing workflows run declared tests against committed work before
+preview, review and acceptance, using the same `tests` step and applicability
+as landing. Failures return to the stage’s agent with full evidence through
+the existing bounded rework loop. The recorded result appears in the change’s
+checks and acceptance dialog. Landing runs its own tests again under current
+law. See [handover checks](workflow-domain.md#handover-checks) for the round
+bound and failure handling.
+
 The application layer coordinates admission and preparation; Workflow owns state,
 SCM owns repository effects, Conversation owns chat scope and Deployment owns
 preview execution. See [Changes](change-lifecycle.md), [console](console.md),

@@ -63,6 +63,7 @@ type CheckSpec struct {
 	Limits         execution.Limits `json:"limits,omitzero"`
 	TimeoutSeconds int              `json:"timeoutSeconds"`
 	Writable       bool             `json:"writable,omitempty"`
+	CaptureInputs  bool             `json:"captureInputs,omitempty"`
 	Report         string           `json:"report,omitempty"`
 	// History says a bundle follows the tree, to present read-only at
 	// /history.
@@ -89,6 +90,7 @@ type CheckAnswer struct {
 	RunErr      string                `json:"runErr,omitempty"`
 	Output      []byte                `json:"output,omitempty"`
 	Report      []byte                `json:"report,omitempty"`
+	Inputs      *execution.RunInputs  `json:"inputs,omitempty"`
 	ReportErr   string                `json:"reportErr,omitempty"`
 }
 
@@ -206,13 +208,13 @@ func (s *Server) runCheck(w http.ResponseWriter, r *http.Request) {
 	out := s.Checks.Run(ctx, execution.Docker, execution.Request{Limits: limits,
 		Workspace: workspace, WorkspaceRO: !spec.Writable, ExportImage: spec.ExportImage,
 		Image: spec.Image, Argv: spec.Argv, Env: spec.Env, NoEntrypoint: spec.NoEntrypoint,
-		Network: network, Timeout: timeout, Report: spec.Report, History: history,
+		Network: network, Timeout: timeout, Report: spec.Report, CaptureInputs: spec.CaptureInputs, History: history,
 		Files: spec.Files, FilesDir: filepath.Join(dir, "files"), Services: spec.Services,
 		Mounts: s.toolCacheMounts(),
 		Name:   "apptown-check-" + id,
 		Labels: []string{dockerlabel.Class + "=check", s.CheckOwnerLabel(), dockerlabel.Deadline + "=" + strconv.FormatInt(deadline.Unix(), 10)},
 	})
-	answer := CheckAnswer{Termination: out.Termination, ExitCode: out.ExitCode, Output: tail(out.Output, maxCheckOutput), Report: out.Report}
+	answer := CheckAnswer{Termination: out.Termination, ExitCode: out.ExitCode, Output: tail(out.Output, maxCheckOutput), Report: out.Report, Inputs: out.Inputs}
 	if out.RunErr != nil && out.Termination != execution.Exited {
 		answer.RunErr = out.RunErr.Error()
 	}

@@ -186,6 +186,10 @@ spec:
               report with one line `Pages: /path /other/path` naming up to
               three of them (paths on the app). AppTown pictures them, and
               the home page, for whoever approves.
+        - name: tests
+          uses: tests
+          with:
+            appliesTo: [tool:go, tool:node, tool:python, tool:ruby, tool:java, tool:dotnet, tool:rust]
         - name: boot
           uses: preview
       steps:

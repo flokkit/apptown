@@ -1,6 +1,7 @@
 package stock
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -108,6 +109,72 @@ func TestDeclaredTestsExplainCleanCheckout(t *testing.T) {
 			text := strings.Join(strings.Fields(string(raw)), " ")
 			if !strings.Contains(text, "Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).") {
 				t.Error("test declaration must explain the clean checkout and installing dependencies first")
+			}
+		})
+	}
+}
+
+// Code-producing stages test the committed work before preview or review. The
+// reproduction stage deliberately commits a failing test, so it is judged first.
+func TestEveryCodeChangeStageRunsTheLandingTestsBeforeHandover(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"quick-change", "dependency-uplift", "fix-bug", "plan-execute", "implement", "adopt-integration", "retire-integration"} {
+		t.Run(name, func(t *testing.T) {
+			raw, err := os.ReadFile(name + ".yaml")
+			if err != nil {
+				t.Fatal(err)
+			}
+			type step struct {
+				Name, Uses string
+				With       map[string]any
+			}
+			var doc struct {
+				Spec struct {
+					Stages []struct {
+						Name    string
+						OnEnter []step `yaml:"onEnter"`
+						Steps   []step
+					}
+				}
+			}
+			if err := yaml.Unmarshal(raw, &doc); err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, stage := range doc.Spec.Stages {
+				all := append(stage.OnEnter, stage.Steps...)
+				agent, tests, boot := -1, -1, -1
+				for i, s := range all {
+					switch s.Uses {
+					case "agent/pi":
+						agent = i
+					case "tests":
+						tests = i
+						if s.Name != "tests" || len(s.With) != 1 || s.With["appliesTo"] == nil {
+							t.Fatalf("%s: tests must use landing applicability", stage.Name)
+						}
+						words := s.With["appliesTo"].([]any)
+						if got := fmt.Sprint(words); got != "[tool:go tool:node tool:python tool:ruby tool:java tool:dotnet tool:rust]" {
+							t.Fatalf("%s: applicability %s", stage.Name, got)
+						}
+					case "preview":
+						boot = i
+					case "agent/review", "approval":
+						if boot >= 0 && (tests <= agent || tests >= i) {
+							t.Fatalf("%s: review/approval precedes declared tests", stage.Name)
+						}
+					}
+				}
+				if boot < 0 {
+					continue
+				}
+				found = true
+				if tests <= agent || tests >= boot {
+					t.Fatalf("%s: agent=%d tests=%d boot=%d", stage.Name, agent, tests, boot)
+				}
+			}
+			if !found {
+				t.Fatal("no code change stage checked")
 			}
 		})
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/version"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,7 +34,7 @@ func testsExecutor(t *testing.T, a *App, run func(execution.Request) execution.O
 		commands := workflowexec.NewCommands(a.DB, workflowexec.CommandDependencies{
 			Runner: a.processRunner, Progress: &a.progress, Branches: a.branches, Tasks: a.tasks, Panics: jobReporter{}, Docker: &a.docker,
 			Checks: workflowexec.CompileCheck{Run: func(_ context.Context, req execution.Request) execution.Outcome { return run(req) }, Image: "apptown-agent:test"}, Catalog: a.Dependencies,
-		}, workflowexec.CommandConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage})
+		}, workflowexec.CommandConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, AppTownVersion: version.String()})
 		deps.Runners[workflowexec.TestsKind] = commands.RunTests
 	})
 }
@@ -173,6 +174,10 @@ func TestALandingTestsItsCandidateWithoutItsFolder(t *testing.T) {
 	}
 	step := reviewExecute(t, a, run, "tests")
 	ev := stepEvidence(t, step)
+	inputs, ok := ev["inputs"].(map[string]any)
+	if !ok || inputs["tree"] == "unknown" || inputs["declarations"] == "unknown" || inputs["apptownVersion"] != version.String() {
+		t.Fatalf("landing lacks its tested inputs: %s", step.Evidence)
+	}
 	if step.Status != workflow.StatusPass || ev["candidate"] != source.Landing.Candidate || ev["commit"] != source.Landing.Candidate || strings.Join(seen.all(), ",") != "candidate" {
 		t.Fatalf("landing: %s %s, tested %q; want candidate %s", step.Status, step.Evidence, seen.all(), source.Landing.Candidate)
 	}

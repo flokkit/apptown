@@ -38,6 +38,7 @@ func (a *commands) now() time.Time { return clock.Or(a.clock)() }
 
 type CommandConfig struct {
 	DataDir, Image string
+	AppTownVersion string
 }
 type CommandDependencies struct {
 	Runner    execution.Runner
@@ -62,6 +63,9 @@ type CommandDependencies struct {
 }
 
 func NewCommands(db *database.DB, deps CommandDependencies, cfg CommandConfig) *commands {
+	if cfg.AppTownVersion == "" {
+		cfg.AppTownVersion = "unknown"
+	}
 	c := &commands{db: db, cfg: cfg, runner: deps.Runner, progress: deps.Progress, publisher: deps.Publisher, branches: deps.Branches, tasks: deps.Tasks, panics: deps.Panics, docker: deps.Docker, checks: deps.Checks, catalog: deps.Catalog, clock: deps.Now}
 	if deps.Tasks != nil {
 		deps.Tasks.commands = c

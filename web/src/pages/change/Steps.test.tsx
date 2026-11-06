@@ -102,6 +102,17 @@ describe('step cards say what the record holds', () => {
   }
   const tests = (evidence: object) => ({ id: STEP, runId: RUN, stage: 'check', name: 'tests', type: 'tests', status: 'pass', statusLabel:'passed', attempt: 1, overrideBy: '', config: {},
     evidence: { command: 'go test -json ./...', durationMs: 1200, logTail: 'ok', ...evidence } }) as unknown as Step
+  it('shows the recorded test inputs in the opened evidence', () => {
+    const step = tests({ inputs: { tree: 'actual-tree', declarations: [{ part: 'web', folder: '.', command: 'go test ./...' }], apptownVersion: 'dev-recorded', executions: [{ part: 'web', folder: '.', command: 'go test ./...', imageDigest: 'sha256:observed', toolchain: 'unknown', services: { postgres: 'unknown' } }] } })
+    const { el, done } = render(step)
+    expect(el.textContent).toContain('Test inputs')
+    expect(el.textContent).toContain('actual-tree')
+    expect(el.textContent).toContain('sha256:observed')
+    expect(el.textContent).toContain('dev-recorded')
+    expect(el.textContent).toContain('unknown')
+    expect(el.querySelector('.step-head')?.textContent).not.toContain('actual-tree')
+    done()
+  })
   it('shows skips and unknown counts on the folded card', () => {
     for (const [evidence, note] of [
       [{ testCounts: { passed: 41, failed: 0, skipped: 3 } }, '41 passed, 3 skipped'],

@@ -38,6 +38,16 @@ agent's work. Whatever the route, the landing asks the same things: a
 summary that matches the diff, passing checks, and the approvals the
 workflow names.
 
+Before a code change reaches review or approval, AppTown runs its declared
+tests against the agent’s committed work in a fresh checkout. The run uses
+declared toolchains and services, throwaway secrets and no Docker access.
+A failed test sends its output back to the agent in the same change, up to
+three automatic rounds since the last person’s retry. A further failure stops
+for a person. The change’s checks and the accept dialog show AppTown’s result.
+An app without declared tests follows the same rule as landing: a part using
+a listed toolchain requires tests; otherwise the step is not applicable.
+Landing runs its tests again before merging.
+
 ## The shape
 
 Each change has a branch and a **folder**: a full git clone of the project

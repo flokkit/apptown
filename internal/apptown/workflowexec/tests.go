@@ -20,6 +20,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/strs"
 	"github.com/flokkit/apptown/internal/testreport"
 	"github.com/flokkit/apptown/internal/trust"
@@ -49,7 +50,9 @@ func (a *commands) RunTests(task *workflow.Execution) {
 	var cfg testsConfig
 	cfgErr := workflow.DecodeStepConfig(step.Config, &cfg)
 
+	inputs := map[string]any{"tree": "unknown", "declarations": "unknown", "imageDigest": "unknown", "toolchain": "unknown", "services": "unknown", "apptownVersion": a.cfg.AppTownVersion}
 	finish := func(status workflow.StepState, evidence map[string]any) {
+		evidence["inputs"] = inputs
 		task.Settle(workflow.EncodeOutcome(status, evidence, nil))
 	}
 	if _, err := task.Claim(); err != nil {
@@ -75,6 +78,9 @@ func (a *commands) RunTests(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": "selecting the commit to test: " + err.Error()})
 		return
 	}
+	if hash, err := gitexec.Output(task.Context(), sel.Repo, "rev-parse", "--verify", sel.Commit+"^{tree}"); err == nil && hash != "" {
+		inputs["tree"] = strings.TrimSpace(hash)
+	}
 	report := finish
 	finish = func(status workflow.StepState, evidence map[string]any) {
 		evidence["commit"] = sel.Commit
@@ -93,6 +99,9 @@ func (a *commands) RunTests(task *workflow.Execution) {
 	tree := strs.ShortSHA(sel.Commit)
 
 	declarations, status, reason := declaredTests(cfg, staged)
+	if status != workflow.StatusError {
+		inputs["declarations"] = append([]testDeclaration{}, declarations...)
+	}
 	if status == workflow.StatusError || len(declarations) == 0 {
 		finish(status, map[string]any{"reason": reason, "tree": tree})
 		return
@@ -126,6 +135,14 @@ func (a *commands) RunTests(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error(), "tree": tree})
 		return
 	}
+	serviceInputs := map[string]string{}
+	for _, svc := range services {
+		serviceInputs[svc.Name] = "unknown"
+	}
+	for _, name := range unfulfilled {
+		serviceInputs[name] = "unknown"
+	}
+	inputs["services"] = serviceInputs
 	env = append(env, needEnv...)
 	// The app's declared secrets: a generated one (a framework's signing
 	// key) gets a throwaway value minted for this run, so settings that
@@ -154,24 +171,44 @@ func (a *commands) RunTests(task *workflow.Execution) {
 			// mise couldn't install shadows the image-baked toolchain and re-fails
 			// at exec time: a tests gate can say "continuing with image
 			// toolchains" while a node shim blocks the image's node from running.
-			Argv:     []string{"sh", "-c", testsScript("cd " + shellQuote(declaration.Folder) + " && sh -c " + shellQuote(declaration.Command))},
-			Image:    checks.Image,
-			Timeout:  timeout,
-			Name:     execution.UniqueName(execution.StepContainer(stepID, "tests")),
-			Files:    amb.Files,
-			Env:      append(env[:len(env):len(env)], testReportEnv+"="+testReportPath),
-			Services: services,
-			Report:   testReportFile,
+			Argv:          []string{"sh", "-c", testsScript("cd " + shellQuote(declaration.Folder) + " && sh -c " + shellQuote(declaration.Command))},
+			Image:         checks.Image,
+			Timeout:       timeout,
+			Name:          execution.UniqueName(execution.StepContainer(stepID, "tests")),
+			Files:         amb.Files,
+			Env:           append(env[:len(env):len(env)], testReportEnv+"="+testReportPath),
+			Services:      services,
+			Report:        testReportFile,
+			CaptureInputs: true,
 		})
 	}
 	evidence := map[string]any{"tree": tree}
 	var results []map[string]any
+	var executions []map[string]any
 	var logs []string
 	var summary map[string]any
 	rank := map[workflow.StepState]int{workflow.StatusPass: 0, workflow.StatusFail: 1, workflow.StatusError: 2}
 	for _, declaration := range declarations {
 		start := a.now()
 		outcome := runIn(declaration)
+		observed := map[string]any{"part": declaration.Part, "folder": declaration.Folder, "command": declaration.Command, "imageDigest": "unknown", "toolchain": "unknown", "services": serviceInputs}
+		if o := outcome.Inputs; o != nil {
+			if o.ImageDigest != "" {
+				observed["imageDigest"] = o.ImageDigest
+			}
+			if o.Toolchain != nil {
+				observed["toolchain"] = o.Toolchain
+			}
+			digests := map[string]string{}
+			for name := range serviceInputs {
+				digests[name] = "unknown"
+				if digest := o.Services[name]; digest != "" {
+					digests[name] = digest
+				}
+			}
+			observed["services"] = digests
+		}
+		executions = append(executions, observed)
 		result := map[string]any{
 			"part": declaration.Part, "folder": declaration.Folder,
 			"command": declaration.Command, "exitCode": outcome.ExitCode,
@@ -238,6 +275,12 @@ func (a *commands) RunTests(task *workflow.Execution) {
 		}
 		evidence["testReport"] = "reports are recorded per command; combined test counts are not known"
 	}
+	// Each command installs and runs in its own container: keep each observation,
+	// since a tag or a toolchain range can resolve differently between them.
+	delete(inputs, "imageDigest")
+	delete(inputs, "toolchain")
+	delete(inputs, "services")
+	inputs["executions"] = executions
 	evidence["commands"] = results
 	evidence["logTail"] = strings.Join(logs, "\n")
 
@@ -348,8 +391,9 @@ const toolchainUnavailableMark = "apptown: the toolchain this project declares c
 // toolchain's, not the tests': the script says so and exits
 // toolchainUnavailableExit.
 func testsScript(command string) string {
-	return trust.Run + `; mise trust -q 2>/dev/null; forge_toolchain=ok; ` +
+	return trust.Run + `; rm -f ` + execution.ToolchainSnapshot + `; mise trust -q 2>/dev/null; forge_toolchain=ok; ` +
 		`if mise install -y -q; then export PATH="$MISE_DATA_DIR/shims:$PATH"; ` + trust.Run + `; else forge_toolchain=failed; echo "apptown: mise install failed (continuing with image toolchains)" >&2; fi; ` +
+		`mise ls --current --installed --json > ` + execution.ToolchainSnapshot + ` 2>/dev/null || rm -f ` + execution.ToolchainSnapshot + `; ` +
 		`(` + command + `) 2>&1; rc=$?; ` +
 		// A command that wrote no report leaves an empty one, so "no report"
 		// reads the same from a worker as from here (a missing file's error
@@ -405,7 +449,11 @@ type testsConfig struct {
 	AppliesTo []string `json:"appliesTo"`
 }
 
-type testDeclaration struct{ Part, Folder, Command string }
+type testDeclaration struct {
+	Part    string `json:"part"`
+	Folder  string `json:"folder"`
+	Command string `json:"command"`
+}
 
 // declaredTests keeps the obligation per part, even where parts share a folder.
 // Missing declarations do not prevent other parts' commands from running.
