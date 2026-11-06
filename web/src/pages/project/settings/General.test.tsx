@@ -252,6 +252,7 @@ describe('deleting a project', () => {
     expect(button(el, 'Restore project').disabled).toBe(true)
     expect(el.textContent).toContain('purge has started; restoring is no longer available')
     expect(el.textContent).toContain('purge incomplete: set 3 of main')
+    expect(el.querySelector('a[href="/deployments/backups"]')?.textContent).toBe('kept')
     act(() => root.unmount())
   })
 })

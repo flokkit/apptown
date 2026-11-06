@@ -63,7 +63,7 @@ export function DangerZone({ slug }: { slug: string }) {
           <tbody>
             {row('Deleted', <>{st.deletedAt ? fmtDay(st.deletedAt) : ''} by {st.requestedBy}</>)}
             {row('Kept until', st.keptUntil ? fmtDay(st.keptUntil) : 'unknown')}
-            {row('Backups', <Link className="tap" to="/backups">kept</Link>)}
+            {row('Backups', <Link className="tap" to="/deployments/backups">kept</Link>)}
             {st.purge && row('Purge', <><Link className="tap" to={`/operations/${st.purge.id}`}>{st.purge.state}</Link>{st.purge.detail && <div className="muted small">{st.purge.detail}</div>}</>)}
             {st.bindingRevoked && row('Authority', 'withdrawn: no scheduled purge', 'error')}
           </tbody>

@@ -13,7 +13,7 @@ import { DisplayLabelEdit } from '../../../DisplayLabel'
 import { PRODUCT } from '../../../brand'
 import { AppAddress } from '../../../runtime'
 import { useEffect, useLayoutEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { del, post, put, type ChangeView } from '../../../api'
 import { QuietConfirm } from '../../../QuietConfirm'
 import { useAction, useGet, useRefresh } from '../../../data'
@@ -126,6 +126,7 @@ export function DeploymentPage() {
 }
 
 export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: DeploymentView; onChanged: () => void }) {
+  const { pathname } = useLocation()
   const [technical] = useTechnicalDetail()
   const nav = useNavigate()
   const { run, busy, err } = useAction()
@@ -265,7 +266,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
         <div className="row deploy-more">
           {action}
           <DisplayLabelEdit value={e.displayLabel || e.name} machineKey={e.name} path={`/projects/${slug}/deployments/${e.id}/label`} onChanged={onChanged} />
-          <Link to={`/projects/${slug}/releases`}>Releases →</Link>
+          {pathname !== base && <Link to={base}>Deployment history →</Link>}
           {e.feed !== 'main' && !torn && (
             <QuietConfirm key={known ? 'known' : 'unknown'} label="Tear down" disabled={!known}
               title={known ? undefined : 'reading what a take-down would do to its data…'}
