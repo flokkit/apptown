@@ -488,3 +488,11 @@ func lastLine(s string) string {
 	lines := strings.Split(strings.TrimSpace(s), "\n")
 	return strings.TrimSpace(lines[len(lines)-1])
 }
+
+// DiskCategories reads daemon-wide use for the worker's existing disk observation.
+func (d DockerTasks) DiskCategories(ctx context.Context) []diskspace.Category {
+	return diskspace.DockerCategories(ctx, func(ctx context.Context, args ...string) ([]byte, error) {
+		s, err := d.run(ctx, args...)
+		return []byte(s), err
+	}, clock.Or(d.Now)())
+}

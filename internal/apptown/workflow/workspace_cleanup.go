@@ -1,4 +1,4 @@
-package maintenance
+package workflow
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
-	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
 // --- workspaces ------------------------------------------------------------------
@@ -28,19 +27,23 @@ import (
 // something to learn from. The sweep moves them under
 // <data>/transcripts/<entry>/ and removes the rest, after a day's grace.
 // An agent step's transcript is also kept by digest
-// (<data>/transcripts/<sha256>.jsonl, workflow.StoreTranscript) and read by
+// (<data>/transcripts/<sha256>.jsonl, StoreTranscript) and read by
 // its attempt's receipt; the folder's copies moved here are the record of
 // everything else (reviews, older runs), not what a continuation resumes.
+
+type workspaceOwnership interface {
+	UsesWorkspace(context.Context, string) bool
+}
 
 const workspaceGrace = 24 * time.Hour
 
 // reapWorkspaceDecision says whether one workspaces/ entry is reapable.
 // Pure, so it is tested without a filesystem. closedAt is when the change
 // closed or the run last moved; zero means unknown, which is never reaped.
-func reapWorkspaceDecision(entry string, now time.Time, changeState func(ids.ID) (workflow.ChangeState, time.Time), runStatus func(ids.ID) (workflow.RunState, time.Time)) (bool, string) {
+func reapWorkspaceDecision(entry string, now time.Time, changeState func(ids.ID) (ChangeState, time.Time), runStatus func(ids.ID) (RunState, time.Time)) (bool, string) {
 	switch {
 	case strings.HasPrefix(entry, "change-"):
-		id := parseTrailingID(entry)
+		id := parseWorkspaceID(entry)
 		if id.IsZero() {
 			return false, ""
 		}
@@ -53,12 +56,12 @@ func reapWorkspaceDecision(entry string, now time.Time, changeState func(ids.ID)
 		}
 		return true, "its change " + st.String() + " " + humanAgo(now.Sub(closed))
 	case strings.HasPrefix(entry, "run-"):
-		id := parseTrailingID(entry)
+		id := parseWorkspaceID(entry)
 		if id.IsZero() {
 			return false, ""
 		}
 		st, moved := runStatus(id)
-		if st == 0 || st == workflow.RunRunning {
+		if st == 0 || st == RunRunning {
 			return false, ""
 		}
 		if moved.IsZero() || now.Sub(moved) < workspaceGrace {
@@ -83,7 +86,7 @@ func humanAgo(d time.Duration) string {
 // keepTranscripts moves a workspace's agent session transcripts to
 // <data>/transcripts/<entry>/ (merging with any kept earlier) before the
 // workspace goes. Returns how many files it kept.
-func (r *Reaper) keepTranscripts(entry, ws string) (int, error) {
+func (s *Service) keepTranscripts(entry, ws string) (int, error) {
 	src := filepath.Join(ws, ".apptown", "sessions")
 	files, err := os.ReadDir(src)
 	if os.IsNotExist(err) {
@@ -95,7 +98,7 @@ func (r *Reaper) keepTranscripts(entry, ws string) (int, error) {
 	if len(files) == 0 {
 		return 0, nil
 	}
-	dst := filepath.Join(r.dataDir, "transcripts", entry)
+	dst := filepath.Join(s.dataDir, "transcripts", entry)
 	if err := os.MkdirAll(dst, 0o755); err != nil {
 		return 0, err
 	}
@@ -121,15 +124,15 @@ func (r *Reaper) keepTranscripts(entry, ws string) (int, error) {
 // shipped or was abandoned, and the workspace of a run that finished,
 // after the grace period, keeping the transcripts first. Saved conversations
 // retain ownership until explicitly ended.
-func (r *Reaper) Workspaces(ctx context.Context, logOnly bool) []string {
-	root := filepath.Join(r.dataDir, "workspaces")
+func (s *Service) Workspaces(ctx context.Context, logOnly bool) []string {
+	root := filepath.Join(s.dataDir, "workspaces")
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		return nil
 	}
-	now := r.now()
-	changeState := func(id ids.ID) (workflow.ChangeState, time.Time) {
-		c, err := workflow.ReadChangeIn(ctx, r.db, id)
+	now := s.now()
+	changeState := func(id ids.ID) (ChangeState, time.Time) {
+		c, err := ReadChangeIn(ctx, s.db, id)
 		if err != nil || c == nil {
 			return 0, time.Time{}
 		}
@@ -138,13 +141,13 @@ func (r *Reaper) Workspaces(ctx context.Context, logOnly bool) []string {
 		}
 		return c.State, c.ClosedAt.Time
 	}
-	runStatus := func(id ids.ID) (workflow.RunState, time.Time) {
-		r, err := workflow.ReadRunIn(ctx, r.db, id)
-		if err != nil || r == nil {
+	runStatus := func(id ids.ID) (RunState, time.Time) {
+		run, err := ReadRunIn(ctx, s.db, id)
+		if err != nil || run == nil {
 			return 0, time.Time{}
 		}
-		t, _ := time.Parse(time.RFC3339, r.UpdatedAt)
-		return r.Status, t
+		t, _ := time.Parse(time.RFC3339, run.UpdatedAt)
+		return run.Status, t
 	}
 	var reaped []string
 	for _, e := range entries {
@@ -152,7 +155,7 @@ func (r *Reaper) Workspaces(ctx context.Context, logOnly bool) []string {
 			continue
 		}
 		ws := filepath.Join(root, e.Name())
-		if r.sessions.UsesWorkspace(ctx, ws) {
+		if s.workspaceChats != nil && s.workspaceChats.UsesWorkspace(ctx, ws) {
 			continue
 		}
 		ok, why := reapWorkspaceDecision(e.Name(), now, changeState, runStatus)
@@ -164,7 +167,7 @@ func (r *Reaper) Workspaces(ctx context.Context, logOnly bool) []string {
 			log.Printf("reaper: WOULD remove workspace %s (%s)", e.Name(), why)
 			continue
 		}
-		kept, err := r.keepTranscripts(e.Name(), ws)
+		kept, err := s.keepTranscripts(e.Name(), ws)
 		if err != nil {
 			log.Printf("reaper: retaining workspace %s: preserving transcripts: %v", e.Name(), err)
 			continue
@@ -177,4 +180,12 @@ func (r *Reaper) Workspaces(ctx context.Context, logOnly bool) []string {
 		}
 	}
 	return reaped
+}
+
+func parseWorkspaceID(name string) ids.ID {
+	if len(name) < 37 || name[len(name)-37] != '-' {
+		return ids.Nil
+	}
+	id, _ := ids.Parse(name[len(name)-36:])
+	return id
 }

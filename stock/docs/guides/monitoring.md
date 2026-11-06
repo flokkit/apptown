@@ -41,3 +41,20 @@ and unconfigured says not set up. Ask an administrator to set it up when needed,
 or to repair and test a failed connection. Security reports that cannot be read
 leave checks incomplete; open a change to re-run the scan, or ask someone with
 permission to open one. Parser diagnostics are under Technical details.
+
+## Disk
+
+Usage shows used and total space for each AppTown disk, alongside measured
+workspace, database, local backup, Docker volume, image and build cache sizes.
+A coloured capacity bar and an Attention item warn above 80% full.
+An unknown reading has an empty bar. Old readings show when they were last seen;
+a failed check keeps the last measured values visible.
+
+Folder sizes count file contents. Docker sizes cover the whole Docker service
+and are rounded. Categories can overlap and do not add up to disk use.
+Database size includes an external database if one is configured.
+
+Finished evaluations remove their disposable build caches. Workspace cleanup
+keeps saved conversations and preserves transcripts before removal.
+The fixed cache retention default is 14 days; automatic cache expiry and
+pressure eviction are not built. There are no tunable disk budgets.

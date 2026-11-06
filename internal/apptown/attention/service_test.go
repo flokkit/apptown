@@ -186,7 +186,7 @@ func TestDiskSourcePreservesEvidenceAndHidesReadErrors(t *testing.T) {
 		t.Fatalf("condition meaning lost: %+v", got)
 	}
 	for _, item := range got.Items {
-		if strings.Contains(item.Detail, "secret") || item.Href != "/targets" {
+		if strings.Contains(item.Detail, "secret") || item.Href != "/usage" {
 			t.Fatalf("unsafe detail/link: %+v", item)
 		}
 	}
@@ -610,5 +610,47 @@ func TestDefaultNextStepNamesAnActionForAnyReader(t *testing.T) {
 	}
 	if got := view.Sources[0].NextStep; got != "Open the resource to check its settings." {
 		t.Fatalf("next step: %q", got)
+	}
+}
+
+func TestDiskAttentionStartsAboveEightyPercentAndRetainsUnknownAndStale(t *testing.T) {
+	t.Parallel()
+	at := time.Now()
+	for _, free := range []int64{21, 20, 19} {
+		evidence := &diskEvidence{maintenance.DiskSnapshot{ObservedAt: at, Disks: []maintenance.DiskObservation{{Reading: diskspace.Reading{What: "worker", TotalBytes: 100, FreeBytes: free, ReadAt: at, Categories: []diskspace.Category{{Name: "Images", Bytes: 3 << 30}}}}}}}
+		source := Disks{Observer: evidence}
+		got, err := source.Snapshot(t.Context())
+		if err != nil || (len(got.Items) > 0) != (free < 20) {
+			t.Fatalf("free=%d: %+v %v", free, got, err)
+		}
+		if free == 19 {
+			if !strings.Contains(got.Items[0].Title, "81% full") || !strings.Contains(got.Items[0].Detail, "Images 3.0 GiB") {
+				t.Fatalf("missing pressure detail: %+v", got)
+			}
+			evidence.value.Disks[0].Stale = true
+			evidence.value.Disks[0].FailedAt = at
+			got, _ = source.Snapshot(t.Context())
+			if !got.Items[0].Stale || !strings.Contains(got.Items[0].Title, "failed") {
+				t.Fatalf("lost failed reading: %+v", got)
+			}
+			evidence.value.Disks[0].Unknown = true
+			got, _ = source.Snapshot(t.Context())
+			if got.Known || !got.Items[0].Unknown || strings.Contains(got.Items[0].Title, "81%") {
+				t.Fatalf("unknown reported current: %+v", got)
+			}
+		}
+	}
+}
+
+func TestBlockedWorkerDiskKeepsFullnessAndLargestCategory(t *testing.T) {
+	t.Parallel()
+	at := time.Now()
+	source := Disks{Observer: &diskEvidence{maintenance.DiskSnapshot{ObservedAt: at, Disks: []maintenance.DiskObservation{{Reading: diskspace.Reading{What: "worker apps", TotalBytes: 100 << 30, FreeBytes: 1 << 30, Refuses: true, Low: true, ReadAt: at, Categories: []diskspace.Category{{Name: "Volumes", Bytes: 80 << 30}}}}}}}}
+	got, err := source.Snapshot(t.Context())
+	if err != nil || len(got.Items) != 1 {
+		t.Fatalf("conditions: %+v %v", got, err)
+	}
+	if !strings.Contains(got.Items[0].Title, "99% full") || !strings.Contains(got.Items[0].Title, "blocked") || !strings.Contains(got.Items[0].Detail, "Volumes 80.0 GiB") || !strings.Contains(got.Items[0].Detail, "admission threshold") {
+		t.Fatalf("blocked disk lost its pressure evidence: %+v", got.Items[0])
 	}
 }

@@ -418,8 +418,9 @@ func buildEvalWorld(t *testing.T, changes int, ledger func(*database.DB) spend) 
 		w.sources = append(w.sources, ch.ID)
 	}
 	w.service = New(db, Dependencies{
-		Authority: access.Checked{Authority: identity.Scoped(accounts, "evals"), Projects: projects},
-		Projects:  projects, Work: w.work, Copier: fakeCopier{db: db, before: &w.beforeCopy, adoption: w.adoption, made: &w.copiesMade, revisions: &w.revisions}, Models: fakeModels{}, Spend: spendOf(w, ledger), Adoption: w.adoption, AdoptionJobs: w.jobs,
+		RemoveCache: func(context.Context, ids.ID) error { return nil },
+		Authority:   access.Checked{Authority: identity.Scoped(accounts, "evals"), Projects: projects},
+		Projects:    projects, Work: w.work, Copier: fakeCopier{db: db, before: &w.beforeCopy, adoption: w.adoption, made: &w.copiesMade, revisions: &w.revisions}, Models: fakeModels{}, Spend: spendOf(w, ledger), Adoption: w.adoption, AdoptionJobs: w.jobs,
 		Complaints: noComplaints{}, Deployments: noDeployments{}, Deleter: w.deleter,
 		InCopy:      func(ctx context.Context, evalID, projectID ids.ID) context.Context { return ctx },
 		RequestPass: func(context.Context) error { w.passes.Add(1); return nil },
@@ -1361,5 +1362,50 @@ func TestAnAdoptionArmIsScoredOnceItsCopyMoved(t *testing.T) {
 	}
 	if got.State != stateFinished {
 		t.Fatalf("the eval is %s with every arm ended", got.State)
+	}
+}
+
+// Completion retires every copy's cache, including failed/stopped arms. A
+// refusal (for example an in-use volume) leaves completion retryable.
+func TestFinishedEvalRetiresEveryArmCacheAndRetriesRefusals(t *testing.T) {
+	t.Parallel()
+	w := newEvalWorld(t, 2)
+	e := w.start(t, "alice")
+	if err := w.service.pass(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got := w.eval(t, e.ID)
+	var want []ids.ID
+	for _, a := range got.Arms {
+		if !a.ProjectID.IsZero() {
+			want = append(want, a.ProjectID)
+		}
+	}
+	if len(want) != 2 {
+		t.Fatalf("copy setup: %v", want)
+	}
+	var removed []ids.ID
+	refused := true
+	w.service.deps.RemoveCache = func(_ context.Context, id ids.ID) error {
+		removed = append(removed, id)
+		if refused && id == want[0] {
+			return errors.New("volume is in use")
+		}
+		return nil
+	}
+	w.spend.set(usage.Totals{CostMicros: 5_000_000})
+	if err := w.service.pass(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(removed, want) || w.eval(t, e.ID).State == stateFinished {
+		t.Fatalf("lost cleanup or refusal: %v", removed)
+	}
+	refused = false
+	removed = nil
+	if err := w.service.pass(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(removed, want) || w.eval(t, e.ID).State != stateFinished {
+		t.Fatalf("not retired: %v", removed)
 	}
 }

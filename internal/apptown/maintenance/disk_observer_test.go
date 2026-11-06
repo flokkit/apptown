@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -142,7 +143,7 @@ func TestDiskUnreadStatePreservesEachFilesystemAndRecovers(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got.Unknown || got.Disks[failed].Unknown || got.Disks[failed].Stale || got.Disks[failed].FailedAt != now || got.Disks[failed].Reading != first.Disks[failed].Reading {
+			if got.Unknown || got.Disks[failed].Unknown || got.Disks[failed].Stale || got.Disks[failed].FailedAt != now || !reflect.DeepEqual(got.Disks[failed].Reading, first.Disks[failed].Reading) {
 				t.Fatalf("failed read lost its state or previous evidence: %+v", got)
 			}
 			for i, d := range got.Disks {

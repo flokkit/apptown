@@ -1,6 +1,7 @@
 # Container and workspace cleanup
 
-Maintenance owns periodic cleanup policy; Docker implements the commands.
+Maintenance owns periodic container and toolchain-cache cleanup policy; Work owns
+change and run workspace cleanup. Docker implements the container commands.
 Normal operation cleanup handles completed work. The periodic reaper provides
 a fallback for resources left behind by missed cleanup or process interruption.
 
@@ -96,8 +97,10 @@ wrong steps. That arrangement is not supported.
 
 An idle console may stop or lose its disposable container while retaining the
 conversation and checkout ownership. An ended session has different cleanup rules.
-A saved conversation can retain a closed Change's workspace. Workspace cleanup
-preserves transcripts before removal and retains the source if preservation fails.
+Work removes a closed change's or ended run's workspace after a day's grace.
+A saved conversation retains its checkout until it ends. Before removal, Work
+preserves `.apptown/sessions` under the data directory's `transcripts` folder.
+Preservation failure retains the workspace; change and run records remain.
 
 The reaper acts on the AppTown host's own Docker only; it never reaches a worker.
 On a worker, cleanup has other owners. The
@@ -169,7 +172,7 @@ bounded in size.
 ## Implementation references
 
 - [internal/apptown/maintenance/containers.go](../../internal/apptown/maintenance/containers.go)
-- [internal/apptown/maintenance/workspaces.go](../../internal/apptown/maintenance/workspaces.go)
+- [internal/apptown/workflow/workspace_cleanup.go](../../internal/apptown/workflow/workspace_cleanup.go)
 - [internal/apptown/triggers.go](../../internal/apptown/triggers.go)
 - [internal/apptown/maintenance/README.md](../../internal/apptown/maintenance/README.md)
 - [internal/apptown/preview/worker.go](../../internal/apptown/preview/worker.go)

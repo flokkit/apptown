@@ -1,0 +1,8 @@
+@layer components {
+.capacity-strip-label { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-2); }
+.capacity-strip-label h3 { margin: 0; }
+.capacity-strip-label > span { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.capacity-strip-track { height: var(--space-1); background: var(--rule); border-radius: var(--radius-bar); overflow: hidden; }
+.capacity-strip-fill { display: block; fill: var(--accent); }
+.capacity-strip-high .capacity-strip-fill { fill: var(--warn); }
+}

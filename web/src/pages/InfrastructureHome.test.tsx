@@ -25,9 +25,9 @@ describe("this AppTown's disks", () => {
       { what: "the worker's Docker data (tasks, images, private Docker)", path: '', refuses: true, low: false, unknown: 'where Docker keeps its data: exit status 1', readAt: at },
     ] })
     expect(html).toContain('/var/lib/apptown')
-    expect(html).toContain('60.00 GB free of 100.00 GB')
+    expect(html).toContain('60 GB free of 100 GB')
     expect(html).toContain('working</span>')
-    expect(html).toContain('New work stops below 5.00 GB free.')
+    expect(html).toContain('New work stops below 5 GB free.')
     expect(html).toContain('where Docker keeps its data: exit status 1')
     expect(html).toContain('New work is blocked. Check the disk and free space.')
     expect(html).toContain('ago')
@@ -38,7 +38,7 @@ describe("this AppTown's disks", () => {
   })
   it('shows the owner warning threshold without claiming controller refusal', () => {
     const html = render({ disks: [{ what: "this AppTown's data folder", totalBytes: 4096 * 2 ** 30, freeBytes: 30 * 2 ** 30, warningBytes: 40 * 2 ** 30, refuses: false, low: true, readAt: '2026-10-10T01:00:00Z' }] })
-    expect(html).toContain('Free some space when less than 40.00 GB is free.')
+    expect(html).toContain('Free some space when less than 40 GB is free.')
     expect(html).not.toContain('refused')
     expect(html).not.toContain('tenth')
   })

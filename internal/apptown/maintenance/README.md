@@ -1,7 +1,7 @@
 # Host maintenance
 
 `Reaper` owns periodic cleanup policy. AppTown constructs it once and schedules its
-four operations; Docker owns the command mechanisms. It receives the database,
+three operations; Docker owns the command mechanisms. It receives the database,
 Docker scope, Console service/runtime, Deployment preview records and data directory.
 It cannot reach App or unrelated application operations.
 
@@ -27,9 +27,7 @@ It cannot reach App or unrelated application operations.
   the volumes again only once a change has closed or a run has stopped
   running since that sweep began (`workflow.SettledSince`), so an idle
   AppTown starts no container on this schedule.
-- `Workspaces` checks recorded closure and saved conversation ownership, preserves
-  transcripts, then removes the workspace after its grace period. Preservation
-  failure leaves the source for a later sweep.
+
 
 These are best-effort backstops. Normal execution cleanup is still the fast path.
 Project deletion remains a separate authorized operation: it may remove selected
@@ -58,3 +56,19 @@ Free disk is fresh for fifteen minutes, then last seen with its age, and unknown
 after six hours; disk size remains valid for seven days. Attention raises an age
 item before six hours only when the latest check failed. These display readings
 do not change worker or Docker admission, which read disk independently.
+
+Work owns workspace cleanup (`workflow.Service.Workspaces`), on the existing
+maintenance schedule. It skips saved conversations, waits a day after closure,
+and preserves workspace-only session transcripts before removing a checkout.
+A failed preservation retains the checkout. Change and run records remain.
+
+Disk observations also record category sizes. Folder measurements count regular
+file contents without following symlinks. Docker reports daemon-wide volumes,
+images and build cache, including resources without AppTown tags; measuring
+these resources does not authorize their deletion. Docker sizes are rounded.
+Database size comes from PostgreSQL, including when the database is external.
+Categories can overlap and are never summed as a filesystem's used space.
+Usage shows these measurements and their times, including unknown categories.
+Attention warns strictly above 80% full as well as the existing admission
+conditions. Its existing failed, stale and unknown observation rules still apply.
+Cache expiry after 14 days and pressure eviction are not implemented.

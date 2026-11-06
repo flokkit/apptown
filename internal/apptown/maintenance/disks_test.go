@@ -3,6 +3,9 @@ package maintenance
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -36,7 +39,7 @@ func TestAppTownsDisksAreEachTheirOwnReading(t *testing.T) {
 		return observer.Read(t.Context())
 	}
 	got := read(Disks{DataDir: dir, Worker: workerDisks{readings: []diskspace.Reading{full}}, Now: func() time.Time { return at }})
-	if len(got) != 2 || got[0].Path != dir || got[0].TotalBytes <= 0 || got[0].Refuses || got[0].FloorBytes != 0 || got[0].WarningBytes <= 0 || !got[0].ReadAt.Equal(at) || got[1] != full {
+	if len(got) != 2 || got[0].Path != dir || got[0].TotalBytes <= 0 || got[0].Refuses || got[0].FloorBytes != 0 || got[0].WarningBytes <= 0 || !got[0].ReadAt.Equal(at) || !reflect.DeepEqual(got[1], full) {
 		t.Fatalf("readings: %+v", got)
 	}
 	down := read(Disks{DataDir: dir, Worker: workerDisks{err: errors.New("the worker could not be reached")}})
@@ -68,5 +71,39 @@ func TestTheDataFolderIsReadByTheSuppliedReader(t *testing.T) {
 	}}.read(t.Context())
 	if own.Unknown == "" || own.FreeBytes != 0 {
 		t.Fatalf("a failed read: %+v", own)
+	}
+}
+
+func TestDiskObservationIncludesMeasuredCategoriesAcrossRestart(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	for name, contents := range map[string]string{"workspaces/change-x/file": "workspace contents", "backups/copy": "local copy"} {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	at := time.Now()
+	db := databaseSuite.New(t)
+	disks := Disks{DataDir: dir, Now: func() time.Time { return at }}
+	owner := NewDiskObserver(db, disks, disks.Now)
+	if err := owner.Run(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := NewDiskObserver(db, disks, disks.Now).Snapshot(t.Context())
+	if err != nil || len(got.Disks) != 1 {
+		t.Fatalf("snapshot: %+v %v", got, err)
+	}
+	cats := got.Disks[0].Reading.Categories
+	if len(cats) != 3 || cats[0].Bytes != 18 || cats[1].Bytes != 10 || cats[2].Bytes <= 0 {
+		t.Fatalf("measurements: %+v", cats)
+	}
+	for _, c := range cats {
+		if c.Unknown != "" || !c.ReadAt.Equal(at) {
+			t.Fatalf("measurement: %+v", c)
+		}
 	}
 }

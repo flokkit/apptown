@@ -80,4 +80,7 @@
 // until it ends. An incomplete spend observation holds the next arm until
 // [Service.Continue]. Accepted overspend is the steps already running when
 // the budget runs out, one per running arm.
+// Before recording completion, Evals retires each arm copy's disposable
+// project cache through Execution. In-use or unavailable volumes keep completion
+// retryable; every arm is attempted on each pass. Records and copies remain.
 package evals
