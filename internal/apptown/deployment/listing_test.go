@@ -533,3 +533,52 @@ func TestRunningProjectsUsesProductionEvidenceAndVisibility(t *testing.T) {
 		t.Fatal("authority failure became an empty selection")
 	}
 }
+
+// A placement's release remains available after other placements fill the
+// bounded project history. Unknown runtime evidence does not erase its record.
+func TestListKeepsOwnReleaseBeyondProjectHistory(t *testing.T) {
+	t.Parallel()
+	w := newDigestWorld(t, "", nil)
+	bundle := w.publish(t)
+	want, err := w.promote(t, bundle.ID, "production", w.lab2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	empty, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "empty", w.lab2.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 50 {
+		if _, err := w.promote(t, bundle.ID, "staging", w.lab); err != nil {
+			t.Fatal(err)
+		}
+	}
+	history, err := w.s.Releases.ForProject(t.Context(), w.project, 50)
+	if err != nil || len(history) != 50 {
+		t.Fatalf("history: %d entries, %v", len(history), err)
+	}
+	for _, release := range history {
+		if release.ID == want.ID {
+			t.Fatal("fixture did not truncate the successful release")
+		}
+	}
+	rows, err := w.s.List(t.Context(), w.project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, row := range rows {
+		if row.ID == want.DeploymentID {
+			found = true
+			if row.ServingRelease == nil || row.ServingRelease.ID != want.ID || row.ServingRelease.Number != want.Number {
+				t.Fatalf("own release lost: %+v", row.ServingRelease)
+			}
+		}
+		if row.ID == empty.ID && row.ServingRelease != nil {
+			t.Fatalf("source release leaked to production: %+v", row.ServingRelease)
+		}
+	}
+	if !found {
+		t.Fatal("source missing from listing")
+	}
+}

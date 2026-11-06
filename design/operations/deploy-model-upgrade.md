@@ -19,7 +19,8 @@ apptown deployment confirm-feed --all
 Protected deployments also require protected-release permission. The command
 confirms only settings the caller may authorize. A single setting can be
 confirmed with `apptown deployment confirm-feed <project> <deployment>` or
-**Confirm follows main** on its deployment card.
+by saving **Follows main** in the deployment’s **Release feed** setting,
+even when that value is unchanged.
 
 Until confirmed, automatic releases fail with “follows main is not confirmed
 for this deployment”. Landings still finish. Confirmation records the person,

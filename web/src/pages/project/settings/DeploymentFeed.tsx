@@ -31,7 +31,7 @@ export function DeploymentFeed({ slug, name }: { slug: string; name: string }) {
   const moved = !!draft && e.feedRevision !== draft.revision
   const edit = (change: Partial<Draft>) => setDraft({ ...value, ...change })
   return <Section title="Settings" action={<HelpButton about="Deployment feed" guide="container-lifecycle">
-    <p>Follows main deploys each change after it lands. Saving it records your permission to deploy here, which {PRODUCT} checks again for each release.</p>
+    <p>Follows main deploys each change after it lands. Saving this setting, including its unchanged value, records your permission to deploy here, which {PRODUCT} checks again for each release.</p>
     <p>Promotion deploys the release the source last deployed successfully. It refuses a source taken down, never deployed, or currently observed stopped. Unknown or stale health does not block promotion. By hand deploys the latest bundle when you choose.</p>
   </HelpButton>}>
     <StaleNote q={current} />
@@ -65,7 +65,7 @@ export function DeploymentFeed({ slug, name }: { slug: string; name: string }) {
         <button type="button" onClick={() => setDraft({ ...value, revision: e.feedRevision })}>Keep my edits on the current settings</button>
       </div>}
       <div className="row row-2">
-        <button className="primary" disabled={busy || !current.current || !draft || moved || (value.feed === 'promotion' && !value.from)} type="submit">Save settings</button>
+        <button className="primary" disabled={busy || !current.current || (!draft && !(e.feed === 'main' && !e.feedConfirmed)) || moved || (value.feed === 'promotion' && !value.from)} type="submit">Save settings</button>
         {draft && <button type="button" disabled={busy} onClick={() => setDraft(null)}>Discard changes</button>}
       </div>
       {err && <div className="error" role="alert">{err}</div>}

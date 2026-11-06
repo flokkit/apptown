@@ -93,6 +93,9 @@ type NeedSummary struct {
 	Status                                needState
 }
 type Summary struct {
+	// ServingRelease is this placement's latest successful release, independent
+	// of bounded project history. Observation determines whether it runs now.
+	ServingRelease    *Release
 	PromotedFromID    ids.ID
 	PromotionBundleID ids.ID
 	PromotionRelease  int64
@@ -143,6 +146,12 @@ func (s *Service) List(ctx context.Context, projectID ids.ID) ([]Summary, error)
 	}
 	out := make([]Summary, len(records))
 	for i, r := range records {
+		release, err := s.Releases.LastReleasedForDeployment(ctx, r.deployment.ID)
+		if found, err := database.Lookup(err); err != nil {
+			return nil, err
+		} else if found {
+			r.summary.ServingRelease = release
+		}
 		r.summary.Observation = s.observations.read(r, s.now())
 		reach := s.reachedAt(ctx, r.project, r.deployment, r.target, r.summary.Observation.url)
 		r.summary.URL, r.summary.HostOnly = reach.URL, reach.HostOnly

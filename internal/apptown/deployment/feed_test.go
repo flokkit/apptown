@@ -144,3 +144,29 @@ func TestConfirmFeedKeepsTheApprovalRuleOnTheSameRevision(t *testing.T) {
 		t.Fatalf("stale edit removed approval rule: %v", err)
 	}
 }
+
+func TestSavingUnchangedUnconfirmedMainFeedRecordsSetter(t *testing.T) {
+	s, in, _, _ := requestFixture(t)
+	prior, err := s.Deployments.ByName(t.Context(), in.ProjectID, in.DeploymentName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, prior.Name, prior.TargetID, Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dep.FeedConfirmed {
+		t.Fatal("fixture must start unconfirmed")
+	}
+	if _, err := s.SetFeed(t.Context(), in.ProjectID, dep.Name, FeedSettings{Revision: dep.FeedRevision, Feed: "main"}); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := s.Deployments.ByID(t.Context(), dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	principal, err := releasePrincipal(saved.feedAuthority)
+	if err != nil || !saved.FeedConfirmed || saved.FeedRevision != dep.FeedRevision+1 || principal.Name != "alice" || principal.Credential != "header:alice" {
+		t.Fatalf("unchanged save must persist fresh human authority: deployment=%+v principal=%+v err=%v", saved, principal, err)
+	}
+}
