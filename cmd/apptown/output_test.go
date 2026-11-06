@@ -504,7 +504,7 @@ func TestTheJSONTablesCoverTheCoreLoop(t *testing.T) {
 }
 
 // coreLoop is the compatibility guide's list of stable commands.
-var coreLoop = []string{"new", "fix", "quick", "plan", "build", "land", "show", "changes", "wait", "approve", "release", "complain", "version"}
+var coreLoop = []string{"new", "fix", "quick", "plan", "build", "land", "show", "changes", "wait", "approve", "release", "rollback", "complain", "version"}
 
 var updateCLIJSON = flag.Bool("update-cli-json", false, "rewrite the field tables in stock/docs/guides/cli-json.md")
 

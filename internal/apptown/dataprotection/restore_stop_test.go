@@ -68,7 +68,7 @@ func TestARestoreWritesNothingUnlessEveryPartIsStopped(t *testing.T) {
 	// The worker will not stop: nothing is written and the app, already
 	// stopped, is started again.
 	failStop, lifecycle = worker, nil
-	if _, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls"); err == nil || !strings.Contains(err.Error(), "nothing was restored") {
+	if _, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls", false); err == nil || !strings.Contains(err.Error(), "nothing was restored") {
 		t.Fatalf("a part that will not stop refuses the restore: %v", err)
 	}
 	lc := strings.Join(lifecycle, "\n")
@@ -81,7 +81,7 @@ func TestARestoreWritesNothingUnlessEveryPartIsStopped(t *testing.T) {
 	// running, and so it is here.)
 	client.SetRunning(worker, true)
 	failStop, lifecycle = "", nil
-	res, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
+	res, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls", false)
 	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestARestoreWritesNothingUnlessEveryPartIsStopped(t *testing.T) {
 	// The worker will not start again: the data is back and says so, and
 	// the result names the part that is not running.
 	failStart = worker
-	res, err = s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
+	res, err = s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls", false)
 	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestARestoreNamesAPartThatIsNotThere(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
+	res, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls", false)
 	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestARestoreStartsAgainOnlyWhatItStopped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
+	res, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls", false)
 	if err != nil {
 		t.Fatal(err)
 	}

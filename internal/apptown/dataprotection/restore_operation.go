@@ -34,7 +34,7 @@ const operationRestoreSet = "deployment.restore"
 
 // errRestoreSetNotStopped refuses to stop a restore part way: stopping
 // between items would leave the data half old and half new.
-var errRestoreSetNotStopped = fault.New(fault.Conflict, "a restore that has started runs to its end and starts the app again after its last item; it can be cancelled only while it waits to start")
+var errRestoreSetNotStopped = fault.New(fault.Conflict, "a restore that has started runs to its end; it can be cancelled only while it waits to start")
 
 // restorable is what a restore of a set into a deployment needs before
 // anything changes, asked at the door and again by the operation: an
@@ -107,7 +107,16 @@ func (s *Service) RequestRestore(ctx context.Context, projectID ids.ID, name str
 // verified when every item it put back was verified.
 func (s *Service) runRestoreSet(ctx context.Context, t *tracker) (runEnd, string, map[string]any) {
 	rec := &restoreLog{t: t}
-	res, err := s.restoreBackup(ctx, rec, t.op.ProjectID, t.op.Deployment, inputID(t.op.Input, "backup"), t.op.AskedBy)
+	if release := inputID(t.op.Input, "release"); !release.IsZero() {
+		rec.releaseCheck = func(ctx context.Context) error {
+			if s.releaseAuthority == nil {
+				return access.ErrAuthorityUnavailable
+			}
+			return s.releaseAuthority.CheckRelease(ctx, release)
+		}
+	}
+	keepStopped, _ := t.op.Input["keepStopped"].(bool)
+	res, err := s.restoreBackup(ctx, rec, t.op.ProjectID, t.op.Deployment, inputID(t.op.Input, "backup"), t.op.AskedBy, keepStopped)
 	if res == nil {
 		why := err.Error()
 		if left := mayBeStoppedWords(t.facts()); left != "" {
@@ -118,7 +127,7 @@ func (s *Service) runRestoreSet(ctx context.Context, t *tracker) (runEnd, string
 	result := map[string]any{"restore": res}
 	detail := restoreWords(res) + rec.lostWords()
 	whole := len(res.NotStarted) == 0
-	if left := mayBeStoppedWords(t.facts()); left != "" {
+	if left := mayBeStoppedWords(t.facts()); left != "" && !res.LeftStopped {
 		detail += " " + left
 		whole = false
 	}
@@ -144,6 +153,8 @@ func restoreWords(r *RestoreResult) string {
 		out += fmt.Sprintf(" The safety set %d holds what was there before.", r.SafetyBackup)
 	}
 	switch {
+	case r.LeftStopped:
+		out += " The app stays stopped until the selected release starts."
 	case len(r.NotStarted) > 0:
 		out += " These are not running again, so the app may not be serving: " + strings.Join(r.NotStarted, "; ") + "."
 	case r.Started == nil || !r.Stopped:
@@ -235,7 +246,7 @@ func (s *Service) settleRestore(ctx context.Context, tx *database.Tx, op operati
 	} else {
 		return nil
 	}
-	if left := mayBeStopped(facts); len(left) > 0 {
+	if left := mayBeStopped(facts); len(left) > 0 && !res.LeftStopped {
 		payload["mayBeStopped"] = left
 	}
 	name, _ := op.Input["deployment"].(string)
@@ -251,7 +262,8 @@ type restoreLog struct {
 	stopped, startedIDs []string
 	// lost is the first fact that could not be written: the record may be
 	// behind what happened, and the restore's end says so.
-	lost error
+	lost         error
+	releaseCheck func(context.Context) error
 }
 
 func (l *restoreLog) begin(ctx context.Context, name string) {
@@ -286,6 +298,11 @@ func (l *restoreLog) record(ctx context.Context, key string, v any) {
 func (l *restoreLog) allowed(ctx context.Context) error {
 	if l == nil {
 		return nil
+	}
+	if l.releaseCheck != nil {
+		if err := l.releaseCheck(ctx); err != nil {
+			return err
+		}
 	}
 	return l.t.allowed(ctx)
 }
@@ -359,4 +376,52 @@ func decode(v, into any) error {
 		return err
 	}
 	return json.Unmarshal(raw, into)
+}
+
+// ReleaseBefore resolves only recorded backup-time release evidence. History is
+// not reconstructed from adjacent release numbers or matching commits.
+func (s *Service) ReleaseBefore(ctx context.Context, projectID ids.ID, name string, backupID ids.ID) (int64, error) {
+	b, dep, err := s.restorable(ctx, projectID, name, backupID)
+	if err != nil {
+		return 0, err
+	}
+	if b.Status != BackupOK || b.Deployment != name || b.Trigger != TriggerPreRelease || b.RunningReleaseID.IsZero() {
+		return 0, fault.New(fault.Invalid, "this backup has no recorded running release for this deployment")
+	}
+	r, err := s.releases.ByID(ctx, b.RunningReleaseID)
+	if err != nil {
+		return 0, err
+	}
+	if r.ProjectID == projectID && r.DeploymentID == dep.ID && r.State == deployment.Released && !r.BundleID.IsZero() {
+		return r.Number, nil
+	}
+	return 0, fault.New(fault.Invalid, "the backup's recorded release is unavailable")
+}
+
+// RestoreForRelease is invoked only by the authorized, approved release job.
+// The ordinary restore operation owns its safety copy, holds and receipt; this
+// mode hands the stopped app to Deployment instead of restarting current code.
+func (s *Service) RestoreForRelease(ctx context.Context, projectID ids.ID, name string, backupID, releaseID ids.ID, principal access.Principal) error {
+	if releaseID.IsZero() {
+		return fault.New(fault.Invalid, "a rollback restore needs its approved release")
+	}
+	if _, err := s.ReleaseBefore(ctx, projectID, name, backupID); err != nil {
+		return err
+	}
+	_, dep, err := s.restorable(ctx, projectID, name, backupID)
+	if err != nil {
+		return err
+	}
+	op, err := s.admit(ctx, dep, operationRestoreSet, principal, []string{deployment.DataHold(dep)}, map[string]any{"backup": backupID, "keepStopped": true, "release": releaseID}, nil)
+	if err != nil {
+		return err
+	}
+	op, err = s.ops.RunHere(ctx, op.ID)
+	if err != nil {
+		return err
+	}
+	if op.State != operations.Succeeded {
+		return fmt.Errorf("rollback restore: %s", op.Detail)
+	}
+	return nil
 }

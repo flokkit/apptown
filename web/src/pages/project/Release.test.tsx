@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BundleFacts, NewReleasePage, ReleasePermalinkPage } from './Release'
+import { BundleFacts, OpenThisVersion, ReleasePermalinkPage } from './Release'
 import { QueryClientProvider, focusManager } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { getKey, newQueryClient } from '../../data'
@@ -115,81 +115,6 @@ it('starts reading the new permalink after a historical release stopped polling'
 })
 
 
-it.each([true, false])('uses the explicit customer environment and its displayed revision (configured=%s)', async (configured) => {
-  vi.useFakeTimers()
-  const client = newQueryClient()
-  const el = document.createElement('div')
-  const root = createRoot(el)
-  let submitted: unknown
-  vi.stubGlobal('fetch', vi.fn(async (_url, init?: RequestInit) => {
-    if (init?.method === 'POST') {
-      submitted = JSON.parse(String(init.body))
-      return new Response(JSON.stringify({ number: 22 }))
-    }
-    return new Response(JSON.stringify({ configured, deployment: configured ? 'customer' : '', deploymentLabel: 'Office tools', defaultRevision: 7, published: false, head: { sha: 'abcdef', subject: 'Current software' }, changesSinceLast: [], configError: configured ? '' : 'Choose a release environment in project settings.' }))
-  }))
-  try {
-    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><NewReleasePage slug="shop" /></MemoryRouter></QueryClientProvider>) })
-    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
-    const button = el.querySelector('button.primary') as HTMLButtonElement | null
-    if (configured) {
-      expect(el.textContent).toContain('Release to Office tools')
-      expect(button).not.toBeNull()
-      await act(async () => { button!.click() })
-      expect(submitted).toEqual({ defaultRevision: 7 })
-    } else {
-      expect(button).toBeNull()
-      expect(el.textContent).toContain('Choose a release environment')
-      expect(submitted).toBeUndefined()
-    }
-  } finally {
-    act(() => root.unmount())
-    client.clear()
-    vi.unstubAllGlobals()
-    vi.useRealTimers()
-  }
-})
-
-it('keeps choosing a preference separate from a refused release', async () => {
-  const client = newQueryClient(); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el)
-  let saved = false
-  const writes: { method: string; path: string; body: unknown }[] = []
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-    const path = String(url).replace('/api/v1', '')
-    if (init?.method === 'PUT' || init?.method === 'POST') {
-      writes.push({ method: init.method, path, body: JSON.parse(String(init.body)) })
-      if (path.endsWith('/release/default')) { saved = true; return new Response('{"deploymentId":"chosen","revision":10}') }
-      return new Response('{"error":"deployment permission withdrawn"}', { status: 403 })
-    }
-    if (path.endsWith('/release/plan')) return new Response(JSON.stringify({ configured: saved, defaultRevision: saved ? 10 : 9, deployment: saved ? 'customer-test' : '', deploymentLabel: saved ? 'Customer office' : '', head: { sha: 'abc', subject: 'Software' }, changesSinceLast: [] }))
-    if (path.endsWith('/release/default')) return new Response(JSON.stringify(saved ? { deploymentId: 'chosen', revision: 10 } : { revision: 9 }))
-    if (path.endsWith('/deployments')) return new Response('[{"id":"chosen","name":"customer-test","displayLabel":"Customer office","kind":"standing","feed":"promotion"}]')
-    throw new Error(`unexpected read ${path}`)
-  }))
-  const settle = async () => { await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) }) }
-  try {
-    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><NewReleasePage slug="shop" /></MemoryRouter></QueryClientProvider>) })
-    await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('Choose release preference') })
-    expect(writes).toEqual([])
-    await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Choose release preference')!.click() })
-    await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('No default selected') })
-    expect(writes).toEqual([])
-    await act(async () => {
-      const select = el.querySelector('select')!
-      select.value = 'chosen'
-      select.dispatchEvent(new Event('change', { bubbles: true }))
-    })
-    await act(async () => { el.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) })
-    await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('Release to Customer office') })
-    expect(writes).toEqual([{ method: 'PUT', path: '/projects/shop/release/default', body: { deploymentId: 'chosen', expectedRevision: 9 } }])
-    expect(el.textContent).toContain('No release has started')
-    await act(async () => { (el.querySelector('button.primary') as HTMLButtonElement).click() })
-    await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('deployment permission withdrawn') })
-    expect(writes[1]).toEqual({ method: 'POST', path: '/projects/shop/release', body: { defaultRevision: 10 } })
-    expect(el.textContent).toContain('Release preference saved')
-  } finally { act(() => root.unmount()); client.clear(); el.remove(); vi.unstubAllGlobals() }
-})
-
 it.each([
   ['ok', 'Backed up before this release →'],
   ['partial', 'Backup before this release was incomplete →'],
@@ -219,21 +144,6 @@ it('shows an unlinked reason for a copy that could not be assessed', async () =>
   } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
 
-it('shows the release host without the scheme and keeps the full link', async () => {
-  const url = 'https://shop.apps.example.test'
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ configured: true, deployment: 'main', url, changesSinceLast: [] }))))
-  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
-  try {
-    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><NewReleasePage slug="shop" /></MemoryRouter></QueryClientProvider>))
-    await vi.waitFor(() => expect(el.querySelector('a.app-address')?.textContent).toBe('shop.apps.example.test'))
-    const address = el.querySelector('a.app-address') as HTMLAnchorElement
-    expect(address.getAttribute('href')).toBe(url)
-    expect(address.target).toBe('_blank')
-    expect(address.rel.split(' ')).toContain('noopener')
-  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
-})
-
-// Landing assent is provenance; the setting is the authority for the release.
 it('shows the follows-main setter separately from landing approvers', async () => {
   vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})))
   const client = newQueryClient()
@@ -247,4 +157,31 @@ it('shows the follows-main setter separately from landing approvers', async () =
     expect(view.el.textContent).toContain('Follows main, set by Sam · settings revision 3')
     expect(view.el.textContent).toContain('Landing approved byPriya')
   } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+// The preview door never implies replacing a standing deployment's code.
+it.each([true, false])('labels the exact-version preview as a preview (live=%s)', isLive => {
+  const client = newQueryClient()
+  const h = render(<QueryClientProvider client={client}><MemoryRouter><OpenThisVersion slug="shop" number={7} isLive={isLive} /></MemoryRouter></QueryClientProvider>)
+  expect(h.el.querySelector('button')?.textContent).toBe('▶ Preview this version')
+  act(() => h.root.unmount()); client.clear()
+})
+
+it('links the release record to each deployment where its bundle ran', async () => {
+  const history = [
+    { bundleId: B14, deployment: 'production', state: 'released', serving: true },
+    { bundleId: B14, deployment: 'staging', state: 'released', serving: false },
+    { bundleId: B15, deployment: 'other', state: 'released', serving: true },
+  ]
+  const detail = { release: { number: 14, bundleId: B14, state: 'released', createdAt: '2026-11-06T01:00:00Z' }, changes: [], events: [] }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/releases') ? history : detail))))
+  const client = newQueryClient()
+  const h = render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="14" /></MemoryRouter></QueryClientProvider>)
+  try {
+    await vi.waitFor(() => expect(h.el.querySelector('a[href="/projects/shop/deployments/production"]')).not.toBeNull())
+    expect(h.el.querySelector('a[href="/projects/shop/deployments/staging"]')).not.toBeNull()
+    expect(h.el.querySelector('a[href="/projects/shop/deployments/other"]')).toBeNull()
+    await vi.waitFor(() => expect(h.el.textContent).toContain('Running here'))
+    expect(h.el.textContent).toContain('Has run here')
+  } finally { act(() => h.root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

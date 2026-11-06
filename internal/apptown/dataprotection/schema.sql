@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS backups (
   data_class   TEXT NOT NULL DEFAULT '',
   -- Where a set in the store was written: it is read and pruned there.
   store_endpoint TEXT NOT NULL DEFAULT '',
-  store_bucket   TEXT NOT NULL DEFAULT ''
+  store_bucket   TEXT NOT NULL DEFAULT '',
+  running_release_id UUID
 );
 -- The one backup store an administrator attached: a private bucket in an
 -- S3-compatible store, reached with the key pair the named secrets hold.

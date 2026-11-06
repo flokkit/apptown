@@ -41,9 +41,9 @@ it('offers to build the first version only when the project has no app yet', asy
 })
 
 // Release is offered only when a current destination is configured.
-it('offers Release only where a destination is configured', async () => {
+it('links to Deployments for each project', async () => {
   expect(await doors('static site', false)).not.toContain('Release')
-  expect(await doors('static site', true)).toContain('Release')
+  expect(await doors('static site', true)).toContain('Deployments →')
 })
 
 const selectedID = '00000000-0001-7000-8000-000000000002'

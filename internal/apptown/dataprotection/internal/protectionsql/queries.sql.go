@@ -16,7 +16,7 @@ import (
 
 const backupByID = `-- name: BackupByID :one
 
-SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket FROM backups WHERE project_id=$1 AND deployment=$2 AND id=$3
+SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket, running_release_id FROM backups WHERE project_id=$1 AND deployment=$2 AND id=$3
 `
 
 type BackupByIDParams struct {
@@ -48,12 +48,13 @@ func (q *Queries) BackupByID(ctx context.Context, arg BackupByIDParams) (Backup,
 		&i.DataClass,
 		&i.StoreEndpoint,
 		&i.StoreBucket,
+		&i.RunningReleaseID,
 	)
 	return i, err
 }
 
 const backupByIDAnywhere = `-- name: BackupByIDAnywhere :one
-SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket FROM backups WHERE id=$1
+SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket, running_release_id FROM backups WHERE id=$1
 `
 
 func (q *Queries) BackupByIDAnywhere(ctx context.Context, id ids.ID) (Backup, error) {
@@ -77,12 +78,13 @@ func (q *Queries) BackupByIDAnywhere(ctx context.Context, id ids.ID) (Backup, er
 		&i.DataClass,
 		&i.StoreEndpoint,
 		&i.StoreBucket,
+		&i.RunningReleaseID,
 	)
 	return i, err
 }
 
 const backupInProject = `-- name: BackupInProject :one
-SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket FROM backups WHERE project_id=$1 AND id=$2
+SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket, running_release_id FROM backups WHERE project_id=$1 AND id=$2
 `
 
 type BackupInProjectParams struct {
@@ -111,6 +113,7 @@ func (q *Queries) BackupInProject(ctx context.Context, arg BackupInProjectParams
 		&i.DataClass,
 		&i.StoreEndpoint,
 		&i.StoreBucket,
+		&i.RunningReleaseID,
 	)
 	return i, err
 }
@@ -139,7 +142,7 @@ func (q *Queries) BackupStore(ctx context.Context) (BackupStore, error) {
 }
 
 const backupsForDeployment = `-- name: BackupsForDeployment :many
-SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket FROM backups WHERE project_id=$1 AND deployment=$2 ORDER BY id DESC LIMIT $3::bigint
+SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket, running_release_id FROM backups WHERE project_id=$1 AND deployment=$2 ORDER BY id DESC LIMIT $3::bigint
 `
 
 type BackupsForDeploymentParams struct {
@@ -175,6 +178,7 @@ func (q *Queries) BackupsForDeployment(ctx context.Context, arg BackupsForDeploy
 			&i.DataClass,
 			&i.StoreEndpoint,
 			&i.StoreBucket,
+			&i.RunningReleaseID,
 		); err != nil {
 			return nil, err
 		}
@@ -208,7 +212,7 @@ func (q *Queries) EndRestoredCopy(ctx context.Context, arg EndRestoredCopyParams
 }
 
 const finalStoreSets = `-- name: FinalStoreSets :many
-SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket FROM backups WHERE project_id=$1 AND store=$2 AND trigger=$3 AND status=$4 ORDER BY id DESC
+SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket, running_release_id FROM backups WHERE project_id=$1 AND store=$2 AND trigger=$3 AND status=$4 ORDER BY id DESC
 `
 
 type FinalStoreSetsParams struct {
@@ -250,6 +254,7 @@ func (q *Queries) FinalStoreSets(ctx context.Context, arg FinalStoreSetsParams) 
 			&i.DataClass,
 			&i.StoreEndpoint,
 			&i.StoreBucket,
+			&i.RunningReleaseID,
 		); err != nil {
 			return nil, err
 		}
@@ -265,31 +270,33 @@ func (q *Queries) FinalStoreSets(ctx context.Context, arg FinalStoreSetsParams) 
 }
 
 const insertBackup = `-- name: InsertBackup :one
-INSERT INTO backups (id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket) VALUES ($1, $2,$3,$4::text::timestamptz,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket
+INSERT INTO backups (running_release_id, id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket) VALUES ($1, $2, $3,$4,$5::text::timestamptz,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket, running_release_id
 `
 
 type InsertBackupParams struct {
-	ID             ids.ID
-	ProjectID      ids.ID
-	Deployment     string
-	TakenAt        string
-	Trigger        string
-	Actor          string
-	ActorPrincipal ids.ID
-	ActorVia       string
-	Path           string
-	Bytes          int64
-	ItemsJson      json.RawMessage
-	Status         string
-	Error          string
-	Store          string
-	DataClass      string
-	StoreEndpoint  string
-	StoreBucket    string
+	RunningReleaseID ids.ID
+	ID               ids.ID
+	ProjectID        ids.ID
+	Deployment       string
+	TakenAt          string
+	Trigger          string
+	Actor            string
+	ActorPrincipal   ids.ID
+	ActorVia         string
+	Path             string
+	Bytes            int64
+	ItemsJson        json.RawMessage
+	Status           string
+	Error            string
+	Store            string
+	DataClass        string
+	StoreEndpoint    string
+	StoreBucket      string
 }
 
 func (q *Queries) InsertBackup(ctx context.Context, arg InsertBackupParams) (Backup, error) {
 	row := q.db.QueryRowContext(ctx, insertBackup,
+		arg.RunningReleaseID,
 		arg.ID,
 		arg.ProjectID,
 		arg.Deployment,
@@ -327,6 +334,7 @@ func (q *Queries) InsertBackup(ctx context.Context, arg InsertBackupParams) (Bac
 		&i.DataClass,
 		&i.StoreEndpoint,
 		&i.StoreBucket,
+		&i.RunningReleaseID,
 	)
 	return i, err
 }
@@ -732,7 +740,7 @@ func (q *Queries) MoveBackupToStore(ctx context.Context, arg MoveBackupToStorePa
 }
 
 const newestWholeBackup = `-- name: NewestWholeBackup :one
-SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket FROM backups WHERE project_id=$1 AND deployment=$2 AND status=$3 ORDER BY id DESC LIMIT 1
+SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket, running_release_id FROM backups WHERE project_id=$1 AND deployment=$2 AND status=$3 ORDER BY id DESC LIMIT 1
 `
 
 type NewestWholeBackupParams struct {
@@ -763,6 +771,7 @@ func (q *Queries) NewestWholeBackup(ctx context.Context, arg NewestWholeBackupPa
 		&i.DataClass,
 		&i.StoreEndpoint,
 		&i.StoreBucket,
+		&i.RunningReleaseID,
 	)
 	return i, err
 }
@@ -857,7 +866,7 @@ func (q *Queries) OpenRestoredCopies(ctx context.Context) ([]RestoredCopy, error
 }
 
 const orphanBackupsDue = `-- name: OrphanBackupsDue :many
-SELECT b.id, b.project_id, b.deployment, b.taken_at, b.trigger, b.actor, b.actor_principal, b.actor_via, b.path, b.bytes, b.items_json, b.status, b.error, b.store, b.data_class, b.store_endpoint, b.store_bucket FROM backups b LEFT JOIN project_deletions d ON d.project_id = b.project_id
+SELECT b.id, b.project_id, b.deployment, b.taken_at, b.trigger, b.actor, b.actor_principal, b.actor_via, b.path, b.bytes, b.items_json, b.status, b.error, b.store, b.data_class, b.store_endpoint, b.store_bucket, b.running_release_id FROM backups b LEFT JOIN project_deletions d ON d.project_id = b.project_id
 WHERE NOT EXISTS (SELECT 1 FROM projects p WHERE p.id = b.project_id) AND b.status <> $1
   AND COALESCE(d.requested_at, b.taken_at) + interval '30 days' <= $2
 ORDER BY b.id
@@ -898,6 +907,7 @@ func (q *Queries) OrphanBackupsDue(ctx context.Context, arg OrphanBackupsDuePara
 			&i.DataClass,
 			&i.StoreEndpoint,
 			&i.StoreBucket,
+			&i.RunningReleaseID,
 		); err != nil {
 			return nil, err
 		}
@@ -943,7 +953,7 @@ func (q *Queries) PlaceRestoredCopy(ctx context.Context, arg PlaceRestoredCopyPa
 }
 
 const projectBackups = `-- name: ProjectBackups :many
-SELECT b.id, b.project_id, b.deployment, b.taken_at, b.trigger, b.actor, b.actor_principal, b.actor_via, b.path, b.bytes, b.items_json, b.status, b.error, b.store, b.data_class, b.store_endpoint, b.store_bucket,p.slug FROM backups b JOIN projects p ON p.id=b.project_id ORDER BY b.id DESC LIMIT $1::bigint
+SELECT b.id, b.project_id, b.deployment, b.taken_at, b.trigger, b.actor, b.actor_principal, b.actor_via, b.path, b.bytes, b.items_json, b.status, b.error, b.store, b.data_class, b.store_endpoint, b.store_bucket, b.running_release_id,p.slug FROM backups b JOIN projects p ON p.id=b.project_id ORDER BY b.id DESC LIMIT $1::bigint
 `
 
 type ProjectBackupsRow struct {
@@ -978,6 +988,7 @@ func (q *Queries) ProjectBackups(ctx context.Context, dollar_1 int64) ([]Project
 			&i.Backup.DataClass,
 			&i.Backup.StoreEndpoint,
 			&i.Backup.StoreBucket,
+			&i.Backup.RunningReleaseID,
 			&i.Slug,
 		); err != nil {
 			return nil, err
@@ -994,7 +1005,7 @@ func (q *Queries) ProjectBackups(ctx context.Context, dollar_1 int64) ([]Project
 }
 
 const projectBackupsToPurge = `-- name: ProjectBackupsToPurge :many
-SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket FROM backups WHERE project_id = $1 AND status <> $2 ORDER BY id
+SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket, running_release_id FROM backups WHERE project_id = $1 AND status <> $2 ORDER BY id
 `
 
 type ProjectBackupsToPurgeParams struct {
@@ -1031,6 +1042,7 @@ func (q *Queries) ProjectBackupsToPurge(ctx context.Context, arg ProjectBackupsT
 			&i.DataClass,
 			&i.StoreEndpoint,
 			&i.StoreBucket,
+			&i.RunningReleaseID,
 		); err != nil {
 			return nil, err
 		}
@@ -1046,9 +1058,9 @@ func (q *Queries) ProjectBackupsToPurge(ctx context.Context, arg ProjectBackupsT
 }
 
 const prunableBackups = `-- name: PrunableBackups :many
-(SELECT b.id, b.project_id, b.deployment, b.taken_at, b.trigger, b.actor, b.actor_principal, b.actor_via, b.path, b.bytes, b.items_json, b.status, b.error, b.store, b.data_class, b.store_endpoint, b.store_bucket FROM backups b WHERE b.project_id=$1 AND b.deployment=$2 AND b.status IN ($3,$4) AND b.trigger<>$5 AND b.trigger<>'pre-release' ORDER BY b.id DESC OFFSET $6::bigint
+(SELECT b.id, b.project_id, b.deployment, b.taken_at, b.trigger, b.actor, b.actor_principal, b.actor_via, b.path, b.bytes, b.items_json, b.status, b.error, b.store, b.data_class, b.store_endpoint, b.store_bucket, b.running_release_id FROM backups b WHERE b.project_id=$1 AND b.deployment=$2 AND b.status IN ($3,$4) AND b.trigger<>$5 AND b.trigger<>'pre-release' ORDER BY b.id DESC OFFSET $6::bigint
 ) UNION ALL (
-SELECT b.id, b.project_id, b.deployment, b.taken_at, b.trigger, b.actor, b.actor_principal, b.actor_via, b.path, b.bytes, b.items_json, b.status, b.error, b.store, b.data_class, b.store_endpoint, b.store_bucket FROM backups b WHERE b.project_id=$1 AND b.deployment=$2 AND b.status IN ($3,$4) AND b.trigger='pre-release' ORDER BY b.id DESC OFFSET 3)
+SELECT b.id, b.project_id, b.deployment, b.taken_at, b.trigger, b.actor, b.actor_principal, b.actor_via, b.path, b.bytes, b.items_json, b.status, b.error, b.store, b.data_class, b.store_endpoint, b.store_bucket, b.running_release_id FROM backups b WHERE b.project_id=$1 AND b.deployment=$2 AND b.status IN ($3,$4) AND b.trigger='pre-release' ORDER BY b.id DESC OFFSET 3)
 `
 
 type PrunableBackupsParams struct {
@@ -1096,6 +1108,7 @@ func (q *Queries) PrunableBackups(ctx context.Context, arg PrunableBackupsParams
 			&i.DataClass,
 			&i.StoreEndpoint,
 			&i.StoreBucket,
+			&i.RunningReleaseID,
 		); err != nil {
 			return nil, err
 		}
@@ -1111,7 +1124,7 @@ func (q *Queries) PrunableBackups(ctx context.Context, arg PrunableBackupsParams
 }
 
 const pruneBackup = `-- name: PruneBackup :one
-UPDATE backups SET status=$1 WHERE id=$2 AND path=$3 AND status IN ($4,$5,$6) RETURNING id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket
+UPDATE backups SET status=$1 WHERE id=$2 AND path=$3 AND status IN ($4,$5,$6) RETURNING id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket, running_release_id
 `
 
 type PruneBackupParams struct {
@@ -1151,6 +1164,7 @@ func (q *Queries) PruneBackup(ctx context.Context, arg PruneBackupParams) (Backu
 		&i.DataClass,
 		&i.StoreEndpoint,
 		&i.StoreBucket,
+		&i.RunningReleaseID,
 	)
 	return i, err
 }
@@ -1675,7 +1689,7 @@ func (q *Queries) RestoredCopyByOperation(ctx context.Context, operationID ids.I
 }
 
 const setsOnDisk = `-- name: SetsOnDisk :many
-SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket FROM backups WHERE store=$1 AND status IN ($2,$3) ORDER BY id
+SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket, running_release_id FROM backups WHERE store=$1 AND status IN ($2,$3) ORDER BY id
 `
 
 type SetsOnDiskParams struct {
@@ -1711,6 +1725,7 @@ func (q *Queries) SetsOnDisk(ctx context.Context, arg SetsOnDiskParams) ([]Backu
 			&i.DataClass,
 			&i.StoreEndpoint,
 			&i.StoreBucket,
+			&i.RunningReleaseID,
 		); err != nil {
 			return nil, err
 		}

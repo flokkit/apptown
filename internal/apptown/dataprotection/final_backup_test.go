@@ -395,7 +395,7 @@ func TestAFinalSetRestoresIntoAnotherDeploymentByRole(t *testing.T) {
 				}
 				return nil, nil, false
 			})
-			res, err := s.restoreBackup(context.Background(), nil, dep.ProjectID, "main", result.FinalBackup.ID, "alice")
+			res, err := s.restoreBackup(context.Background(), nil, dep.ProjectID, "main", result.FinalBackup.ID, "alice", false)
 			if scenario == "no postgres" {
 				if !errors.Is(err, errRestoreMismatch) || !strings.Contains(err.Error(), "postgres") {
 					t.Fatalf("restore into a deployment without postgres: %v %v", res, err)

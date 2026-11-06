@@ -128,7 +128,7 @@ func (h Deployments) DeployDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{optional: true, strict: true}, func(in DeployRequest) {
-		accepted, err := h.deployment.RequestRelease(r.Context(), deployment.DeploySelection{ProjectID: p.ID, DeploymentName: r.PathValue("name"), BundleID: in.BundleID, ExpectedSourceBundleID: in.ExpectedSourceBundleID, AcceptUncopiedData: in.AcceptUncopiedData, AcceptUncheckedCopy: in.AcceptUncheckedCopy})
+		accepted, err := h.deployment.RequestRelease(r.Context(), deployment.DeploySelection{ProjectID: p.ID, DeploymentName: r.PathValue("name"), ReleaseNumber: in.ReleaseNumber, BeforeRelease: in.BeforeRelease, BundleID: in.BundleID, ExpectedSourceBundleID: in.ExpectedSourceBundleID, AcceptUncopiedData: in.AcceptUncopiedData, AcceptUncheckedCopy: in.AcceptUncheckedCopy})
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -173,6 +173,8 @@ func (h Deployments) AIModels(w http.ResponseWriter, r *http.Request) {
 // bundle to release, or none for request-time feed selection. A web promotion
 // sends the displayed source bundle as an expectation.
 type DeployRequest struct {
+	ReleaseNumber          int64  `json:"releaseNumber"`
+	BeforeRelease          int64  `json:"beforeRelease"`
 	BundleID               ids.ID `json:"bundleId"`
 	ExpectedSourceBundleID ids.ID `json:"expectedSourceBundleId"`
 	// AcceptUncopiedData is a person's choice to release onto a deployment

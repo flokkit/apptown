@@ -4,6 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/ids/idstest"
+	"io"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -246,5 +251,162 @@ func requireReleaseState(t *testing.T, a *App, projectID ids.ID, number int64, w
 	}
 	if release.State != want {
 		t.Fatalf("release %d: %s, want %s", number, release.State, want)
+	}
+}
+
+// The real release and data owners hand restored data directly to the selected
+// code. The rejected code corrupts a sentinel whenever it starts; restarting it
+// even briefly during the handoff therefore makes this test fail.
+func TestPairedRollbackNeverStartsRejectedCodeOnRestoredData(t *testing.T) {
+	for _, failBeforeStart := range []bool{false, true} {
+		t.Run(fmt.Sprintf("fail-before-start=%t", failBeforeStart), func(t *testing.T) {
+			t.Parallel()
+			w := newReleaseWorld(t, nil)
+			w.lab2.Capabilities.PersistentVolumes = true
+			var targetErr error
+			w.lab2, targetErr = w.a.Deployment.Targets.Put(t.Context(), w.lab2)
+			if targetErr != nil {
+				t.Fatal(targetErr)
+			}
+			w.appYAML = "app:\n  web:\n    build: worker\n    public: true\n    ports: [\"8080\"]\n    dataDir: /data\n"
+			w.mainOn(t, w.lab)
+			w.landingRun(t)
+			revision, err := gitexec.Run(t.Context(), w.a.projectRepoPath("p"), "rev-parse", "HEAD")
+			if err != nil {
+				t.Fatal(err)
+			}
+			earlierImage := "sha256:" + strings.Repeat("a", 64)
+			rejectedImage := "sha256:" + strings.Repeat("b", 64)
+			cut := func(image string) ids.ID {
+				b, err := w.a.Deployment.Bundles.Cut(t.Context(), idstest.N(1), strings.TrimSpace(revision), map[string]string{"web": image}, nil, []byte(w.appYAML), deployment.BundleOrigin{TargetID: w.lab2.ID})
+				if err != nil {
+					t.Fatal(err)
+				}
+				return b
+			}
+			earlierBundle, rejectedBundle := cut(earlierImage), cut(rejectedImage)
+			dep, err := w.a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "staging", w.lab2.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			names, err := dep.HostNames()
+			if err != nil {
+				t.Fatal(err)
+			}
+			daemon := w.hosts.daemon("lab2")
+			sentinel, currentImage, earlierSaw := "initial", "", ""
+			restored, rejectedStartsAfterRestore := false, 0
+			daemon.command = func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
+				args := req.Args
+				if len(args) >= 2 && args[0] == "--config" {
+					args = args[2:]
+				}
+				if req.Stdout != nil {
+					if restored && failBeforeStart {
+						return nil, fmt.Errorf("copy failed before selected code starts")
+					}
+					_, err := containerresulttest.WriteString(req.Stdout, sentinel)
+					return nil, err
+				}
+				if req.Stdin != nil {
+					raw, err := io.ReadAll(req.Stdin)
+					if err != nil {
+						return nil, err
+					}
+					sentinel = string(raw)
+					restored = true
+					return nil, nil
+				}
+				if len(args) == 4 && args[0] == "inspect" && args[2] == "{{.State.Running}}" {
+					daemon.mu.Lock()
+					running := daemon.started[args[3]]
+					daemon.mu.Unlock()
+					return []byte(fmt.Sprintf("%t\n", running)), nil
+				}
+				if len(args) == 2 && (args[0] == "stop" || args[0] == "start") {
+					daemon.mu.Lock()
+					daemon.started[args[1]] = args[0] == "start"
+					daemon.mu.Unlock()
+				}
+				starts := len(args) > 0 && ((args[0] == "run" && containerNameOf(strings.Join(args, " ")) == names.App()) || (args[0] == "start" && args[len(args)-1] == names.App()))
+				if starts {
+					for _, arg := range args {
+						if arg == earlierImage || arg == rejectedImage {
+							currentImage = arg
+						}
+					}
+					if currentImage == rejectedImage {
+						if restored {
+							rejectedStartsAfterRestore++
+						}
+						sentinel = "corrupted by rejected code"
+					} else if restored {
+						earlierSaw = sentinel
+					}
+				}
+				return daemon.run(args...)
+			}
+			first, err := w.promote(t, earlierBundle, "staging", w.lab2)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sentinel = "before"
+			second, err := w.promote(t, rejectedBundle, "staging", w.lab2)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if second.BackupID.IsZero() || sentinel != "corrupted by rejected code" {
+				t.Fatalf("fixture: %+v sentinel=%q", second, sentinel)
+			}
+			backup, err := w.a.backupRecords.ForDeployment(t.Context(), idstest.N(1), "staging", 50)
+			if err != nil {
+				t.Fatal(err)
+			}
+			recorded := false
+			for _, b := range backup {
+				if b.ID == second.BackupID {
+					recorded = b.RunningReleaseID == first.ID
+				}
+			}
+			if !recorded {
+				t.Fatal("pre-deploy backup did not record the earlier running release")
+			}
+			response := authzCall(w.a.Handler(), "boss", "POST", "/api/v1/projects/p/deployments/staging/deploy", fmt.Sprintf(`{"beforeRelease":%d}`, second.Number))
+			var accepted struct {
+				Number int64 `json:"number"`
+			}
+			if response.Code != 202 || json.Unmarshal(response.Body.Bytes(), &accepted) != nil {
+				t.Fatalf("rollback admission: %d %s", response.Code, response.Body.String())
+			}
+			latest, err := w.a.Deployment.Releases.ByNumber(t.Context(), idstest.N(1), accepted.Number)
+			if err != nil {
+				t.Fatal(err)
+			}
+			runQueuedJobForTest(t, w.a, deployment.ReleaseJob, latest.ID.String())
+			latest, err = w.a.Deployment.Releases.ByNumber(t.Context(), idstest.N(1), accepted.Number)
+			if err != nil || rejectedStartsAfterRestore != 0 || latest.RollbackOf != first.ID || latest.RestoreBackupID != second.BackupID {
+				t.Fatalf("rollback: %+v %v rejected starts=%d", latest, err, rejectedStartsAfterRestore)
+			}
+			if failBeforeStart {
+				events, err := w.a.Deployment.Releases.Events(t.Context(), latest.ID)
+				if err != nil || latest.State != deployment.ReleaseFailed || sentinel != "before" || earlierSaw != "" || !strings.Contains(events[len(events)-1].Text, "app remains stopped") {
+					t.Fatalf("failed rollback: %+v sentinel=%q earlier saw=%q events=%v err=%v", latest, sentinel, earlierSaw, events, err)
+				}
+				daemon.mu.Lock()
+				running := daemon.started[names.App()]
+				daemon.mu.Unlock()
+				if running {
+					t.Fatal("failed rollback restarted an app")
+				}
+				for _, path := range []string{fmt.Sprintf("/api/v1/projects/p/releases/%d", latest.Number), "/api/v1/projects/p/releases"} {
+					response := authzCall(w.a.Handler(), "boss", "GET", path, "")
+					if response.Code != 200 || !strings.Contains(response.Body.String(), "app remains stopped") {
+						t.Fatalf("stopped failure missing from %s: %d %s", path, response.Code, response.Body.String())
+					}
+				}
+			} else if latest.State != deployment.Released || earlierSaw != "before" {
+				t.Fatalf("selected code did not start on restored data: %+v sentinel=%q earlier saw=%q", latest, sentinel, earlierSaw)
+			}
+		})
 	}
 }

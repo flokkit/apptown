@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -19,4 +20,10 @@ type ReleaseWitness interface {
 	BackupID() ids.ID
 	CopyWords() string
 	After(context.Context, []string) ([]string, []string)
+}
+
+// releaseRollbacks uses data protection's stopped restore after release approval.
+type releaseRollbacks interface {
+	ReleaseBefore(context.Context, ids.ID, string, ids.ID) (int64, error)
+	RestoreForRelease(context.Context, ids.ID, string, ids.ID, ids.ID, access.Principal) error
 }

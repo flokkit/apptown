@@ -25,6 +25,8 @@ import (
 
 // Release is one row of the release ledger.
 type Release struct {
+	RollbackOf       ids.ID           `json:"rollbackOf,omitzero"`
+	RestoreBackupID  ids.ID           `json:"restoreBackupId,omitzero"`
 	ApprovalRole     string           `json:"approvalRole"`
 	Approval         *ReleaseApproval `json:"approval,omitempty"`
 	SupersededBy     ids.ID           `json:"supersededBy,omitzero"`
@@ -84,6 +86,7 @@ func releaseRecord(r deploymentsql.Release, err error) (*Release, error) {
 		return nil, err
 	}
 	v := &Release{
+		RollbackOf: r.RollbackOf, RestoreBackupID: r.RestoreBackupID,
 		ApprovalRole: r.ApprovalRole, SupersededBy: r.SupersededBy,
 		BackupID:         r.BackupID,
 		FromDeploymentID: r.FromDeploymentID,
@@ -142,7 +145,22 @@ func (s *Releases) byNumber(ctx context.Context, projectID ids.ID, number int64)
 
 // ForProject is a project's releases, newest first.
 func (s *Releases) ForProject(ctx context.Context, projectID ids.ID, limit int) ([]*Release, error) {
-	return releaseRecords(deploymentsql.New(s.db.SQL()).ReleasesForProject(ctx, deploymentsql.ReleasesForProjectParams{ProjectID: projectID, RowLimit: int64(limit)}))
+	rows, err := releaseRecords(deploymentsql.New(s.db.SQL()).ReleasesForProject(ctx, deploymentsql.ReleasesForProjectParams{ProjectID: projectID, RowLimit: int64(limit)}))
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		if r.State == ReleaseFailed {
+			events, err := s.Events(ctx, r.ID)
+			if err != nil {
+				return nil, err
+			}
+			if len(events) > 0 {
+				r.Failure = events[len(events)-1].Text
+			}
+		}
+	}
+	return rows, nil
 }
 
 // Recent is the listed projects' latest releases, newest first. The caller
@@ -345,4 +363,9 @@ func (s *Releases) NewChanges(ctx context.Context, projectID ids.ID, releaseIDs 
 		out[row.ReleaseID][row.ChangeID] = true
 	}
 	return out, nil
+}
+
+// ByID reads an immutable release identity.
+func (s *Releases) ByID(ctx context.Context, id ids.ID) (*Release, error) {
+	return releaseRecord(deploymentsql.New(s.db.SQL()).ReleaseByID(ctx, id))
 }

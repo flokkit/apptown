@@ -1,7 +1,7 @@
 # The command line's JSON
 
 The core-loop commands (`new`, `fix`, `quick`, `plan`, `build`, `land`,
-`show`, `changes`, `wait`, `approve`, `release`, `complain` and `version`)
+`show`, `changes`, `wait`, `approve`, `release`, `rollback`, `complain` and `version`)
 take `--json`. A script reads these fields; they are stable through 1.x, as
 [What 1.0 promises](compatibility.md) says. A field may be added;
 none is renamed or removed. A field whose values are listed below (a
@@ -111,7 +111,7 @@ it refuses before starting anything.
 | `decision` | string | approve |
 | `status` | string | the step's state after the decision |
 
-### release → `ReleaseRequested`
+### release, rollback → `ReleaseRequested`
 
 | Field | Type | Meaning |
 |---|---|---|

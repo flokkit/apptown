@@ -108,15 +108,12 @@ func (e *Deployment) deployableByHand() error {
 	return nil
 }
 
-// deployableByHandAt is DeployableByHand for a deploy of bundle, given the
-// bundle the deployment is known to run (0: not known, see runningBundle). A
-// landing-fed deployment takes by hand only that bundle: deploying what runs
-// again changes nothing a landing would choose. The caller may also supply the
-// explicitly recorded recovery bundle selected by handBundle after a restore.
-// Historical software without either provenance remains unknown.
+// deployableByHandAt permits an explicit project-owned bundle on follows-main.
+// A request for latest still belongs to the automatic feed. Previews never
+// accept a release by hand.
 func (e *Deployment) deployableByHandAt(bundle, running ids.ID) error {
 	err := e.deployableByHand()
-	if errors.Is(err, errFedByLanding) && !running.IsZero() && bundle == running {
+	if errors.Is(err, errFedByLanding) && !bundle.IsZero() {
 		return nil
 	}
 	return err

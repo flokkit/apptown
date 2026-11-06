@@ -592,6 +592,10 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		`ALTER TABLE deployments ADD COLUMN approval_role TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE releases ADD COLUMN approval_role TEXT NOT NULL DEFAULT '', ADD COLUMN approval_json JSONB, ADD COLUMN superseded_by UUID`,
 	}},
+	{n: 214, note: "record rollback selection and backup-time release evidence", stmts: []string{
+		`ALTER TABLE releases ADD COLUMN rollback_of UUID, ADD COLUMN restore_backup_id UUID`,
+		`ALTER TABLE backups ADD COLUMN running_release_id UUID`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

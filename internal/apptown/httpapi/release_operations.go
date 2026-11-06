@@ -76,7 +76,7 @@ type ShippedChange struct {
 
 // ReleasePlan: GET /projects/{slug}/release/plan — what WOULD ship if
 // you pressed the button: current head, the changes shipped since the last
-// release, the target. The release page shows this before asking.
+// release, the target. The CLI reads this before asking.
 func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
 	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {

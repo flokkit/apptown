@@ -276,7 +276,7 @@ func TestTheRecordedReleaseCanBeDeployedAgainAfterAnAdoption(t *testing.T) {
 	}
 	other := in
 	other.BundleID = cutBundleFixture(t, s.db, in.ProjectID, "selected", BundleOrigin{})
-	if _, err := s.RequestRelease(ctx, other); !errors.Is(err, errFedByLanding) {
-		t.Fatalf("another bundle was taken by hand on a landing-fed deployment: %v", err)
+	if _, err := s.RequestRelease(ctx, other); !errors.Is(err, errReleaseInFlight) {
+		t.Fatalf("a second release was admitted while recovery is on its way: %v", err)
 	}
 }

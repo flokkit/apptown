@@ -48,7 +48,7 @@ func starterDependenciesFor(a *App) dataprotection.StarterDependencies {
 // dataProtectionDependencies are Deployment's records (the same instances
 // Deployment uses), the operations ledger and restored copies' gate.
 func dataProtectionDependencies(a *App) dataprotection.Dependencies {
-	return dataprotection.Dependencies{Deployments: a.Deployment.Deployments, Releases: a.Deployment.Releases, Bundles: a.Deployment.Bundles,
+	return dataprotection.Dependencies{ReleaseAuthority: a.Deployment, Deployments: a.Deployment.Deployments, Releases: a.Deployment.Releases, Bundles: a.Deployment.Bundles,
 		Retained: a.Deployment.Retained, Outcomes: a.Deployment.Outcomes, Projects: a.Projects, Integrations: a.Integrations,
 		Operations: a.operations, Applied: a.infrastructure.Applied,
 		RestoredCopies: dataprotection.RestoredCopyDependencies{GateImage: a.cfg.restoreGateImage, AppTown: a.cfg.publicOrigin(),

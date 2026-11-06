@@ -57,7 +57,7 @@ it.each(['row', 'card'])('binds the Promote %s request to the displayed bundle a
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>))
     await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Promote release 17')!.click() })
     expect(sent).toEqual([{ expectedSourceBundleId: bundle }])
-    expect(el.textContent).toContain('staging now runs release 18; promote again')
+    await vi.waitFor(() => expect(el.textContent).toContain('staging now runs release 18; promote again'))
   } finally {
     await act(async () => root.unmount())
     client.clear(); vi.unstubAllGlobals()
@@ -100,7 +100,7 @@ it('keeps the draft and starting revision through refresh and failed saves', asy
     await vi.waitFor(() => expect(sent).toEqual([{ revision: 5, feed: 'promotion', from: 'staging', approvalRole: '' }]))
     expect(el.querySelector<HTMLSelectElement>('[aria-label="Source deployment"]')!.value).toBe('staging')
     await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Discard changes')!.click() })
-    expect(el.querySelector<HTMLSelectElement>('[aria-label="Release feed"]')!.value).toBe('main')
+    await vi.waitFor(() => expect(el.querySelector<HTMLSelectElement>('[aria-label="Release feed"]')!.value).toBe('main'))
   } finally {
     await act(async () => root.unmount())
     client.clear(); el.remove(); vi.unstubAllGlobals()

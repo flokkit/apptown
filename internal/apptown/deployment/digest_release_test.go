@@ -280,7 +280,7 @@ func TestAReleaseTagsItsDigestsAndATagFailureNeverFailsIt(t *testing.T) {
 // A landing-fed deployment without recorded inputs cannot establish which
 // bundle it runs. Historical release metadata does not authorize a manual
 // redeploy, even when the requested bundle matches that metadata.
-func TestALegacyLandingFedDeploymentCannotInferItsRunningBundle(t *testing.T) {
+func TestChoosingABundleDoesNotInferTheHistoricalRunningBundle(t *testing.T) {
 	t.Parallel()
 	w := newDigestWorld(t, "", nil)
 	b := w.publish(t)
@@ -300,12 +300,12 @@ func TestALegacyLandingFedDeploymentCannotInferItsRunningBundle(t *testing.T) {
 	mutateStoredDeployment(t, w.db, w.project, "staging", func(r *deploymentsql.Deployment) { r.Feed = "main" })
 
 	_, err = w.s.RequestRelease(t.Context(), DeploySelection{ProjectID: w.project, DeploymentName: "staging", BundleID: b.ID})
-	if !errors.Is(err, errFedByLanding) {
-		t.Fatalf("unknown running bundle must refuse manual release: %v", err)
+	if err != nil {
+		t.Fatalf("chosen bundle must not require inferring running history: %v", err)
 	}
 	last, err := w.s.Releases.Last(t.Context(), w.project, "staging")
-	if err != nil || last.ID != first.ID || last.State != Released || last.Generation != 0 {
-		t.Fatalf("refusal must preserve historical release: %+v %v", last, err)
+	if err != nil || last.ID == first.ID || last.State != Releasing || last.Generation != 0 {
+		t.Fatalf("chosen bundle gets a separate release: %+v %v", last, err)
 	}
 	after, err := w.s.Deployments.ByName(t.Context(), w.project, "staging")
 	if err != nil || after.ObservedGeneration != dep.ObservedGeneration || after.DesiredGeneration != dep.DesiredGeneration {

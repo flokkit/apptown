@@ -7,7 +7,7 @@ import { ReadStatus, StaleNote } from '../ReadGate'
 import { ProjectDeployments } from './project/ProjectDeployments'
 import { ApplicationOverview, ProjectChanges } from './project/ApplicationOverview'
 import { UsageView } from './Usage'
-import { NewReleasePage, ReleasePermalinkPage } from './project/Release'
+import { ReleasePermalinkPage } from './project/Release'
 import { FindingsTab, SuppressionsTab } from './project/Security'
 import { ModelsTab } from './project/settings/Models'
 import { GeneralTab, LifecycleNote } from './project/settings/General'
@@ -77,7 +77,6 @@ export default function Project() {
       {tab !== 'overview' && <ProjectHeader project={project} />}
       {tab === 'changes' && <h1>Changes</h1>}
       {tab === 'deployments' && <h1>Deployments</h1>}
-      {tab === 'release' && <h1>Release</h1>}
       {tab === 'releases' && <h1>Release #{rawStab}</h1>}
       <LifecycleNote slug={project.slug} lifecycle={project.lifecycle} />
       <IntegrityBanner slug={project.slug} files={project.outOfBandEdits} onResolved={load} />
@@ -93,7 +92,6 @@ export default function Project() {
           {secTab === 'suppressions' && <SuppressionsTab slug={slug!} />}
         </>
       )}
-      {tab === 'release' && <NewReleasePage slug={slug!} />}
       {tab === 'releases' && <ReleasePermalinkPage slug={slug!} number={rawStab} />}
       {tab === 'memory' && <>
         <PageHead key={memTab} page="projectMemory" sub={memTab === 'notes' ? 'Notes' : 'Decisions'} />

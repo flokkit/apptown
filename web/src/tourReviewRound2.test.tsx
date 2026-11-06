@@ -33,7 +33,8 @@ it.each([false, true])('marks the held release configuration stale after a faile
     root.render(<QueryClientProvider client={client}><MemoryRouter><BigChangeBox slug="p" /></MemoryRouter></QueryClientProvider>)
   })
   await settled(client)
-  expect(el.textContent?.includes('Release')).toBe(configured)
+  expect(el.textContent).not.toContain('publish the latest')
+  expect(el.querySelector('a[href="/projects/p/deployments"]')).not.toBeNull()
   expect(el.querySelector('.chip.unknown')).toBeNull()
   failed = true
   await act(async () => { await client.refetchQueries({ queryKey: getKey('/projects/p/release/plan') }) })

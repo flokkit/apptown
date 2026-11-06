@@ -68,7 +68,9 @@
 // RequestRelease promotes the bundle the source last deployed successfully,
 // refusing a changed source or a feed that is no longer promotion when
 // ExpectedSourceBundleID names the displayed bundle. Without that expectation,
-// a manual feed selects the latest bundle. It resolves the contract and checks deployment and
+// a manual feed selects the latest bundle. ReleaseNumber or BundleID selects
+// explicit code on any standing feed; BeforeRelease selects a recorded pre-deploy
+// backup and its running release. All use the same approval and backup path. It resolves the contract and checks deployment and
 // protected-target authority, then rechecks placement inside the transaction that
 // commits the release and required queue intent. Acceptance means queued work,
 // not a deployed application.

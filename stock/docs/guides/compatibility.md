@@ -62,7 +62,7 @@ never an error, listed on the change), are promised with the shapes.
 
 **The command line's core loop.** The command names and their arguments for
 `new`, `fix`, `quick`, `plan`, `build`, `land`, `show`, `changes`, `wait`,
-`approve`, `deployment`, `release`, `complain`, `executing` and `version`, and their exit codes:
+`approve`, `deployment`, `release`, `rollback`, `complain`, `executing` and `version`, and their exit codes:
 
 | Command | Exit codes |
 | --- | --- |
@@ -72,7 +72,9 @@ never an error, listed on the change), are promised with the shapes.
 | any command that sends a change | 4 the change was sent but the answer was lost: look before trying again |
 | any command | 64 the command line was wrong (an unknown command or flag, a missing argument, an argument of the wrong shape), and no change was sent; 69 AppTown could not be reached; 1 any other error |
 
-`release` is promised in the form `release <slug> <deployment>`. Bare
+`release` is promised in the form `release <slug> <deployment>`. It also accepts `--release N` to choose a successful release.
+`rollback <slug> <deployment> --before N` restores the pre-deploy backup and
+deploys the release recorded as running when that backup was taken. Bare
 `release <slug>` and its `-domain` release to the intranet, which is
 Portainer, an experimental target: they are experimental too.
 

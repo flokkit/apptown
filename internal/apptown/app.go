@@ -371,6 +371,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	deploymentDeps.CopyCheck = starter
 	deploymentDeps.RestoreFiller = starter
 	deploymentDeps.HostMemory = input.HostMemory
+	deploymentDeps.Releases.Rollbacks = deploymentDeps.Releases.Data.(*releaseData)
 	a.Deployment = deployment.New(ctx, db, deploymentDeps)
 	a.lifecycle = projectlifecycle.New(db, projectlifecycle.Dependencies{Deployments: a.Deployment, Jobs: jobQueue{}, Identity: a.Access, Adoption: a.Adoption, Projects: a.Projects, Ways: a.Ways, Repositories: &a.repositories, Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: db, now: cfg.clock.Now}, Changes: changes, Superseded: workflow.NewAbandonments(db, abandonmentEffects{now: cfg.clock.Now}, &a.repositories).WithClock(cfg.clock.Now), Secrets: a.Secrets}, projectlifecycle.Config{DataDir: cfg.dataDir, Extensions: extensionNames, Seeding: cfg.seeding, Now: cfg.clock.Now})
 	a.HostReaders = deployment.HostReaders{Snapshots: a.hostSnapshots, Targets: a.targets, Hosts: a.hosts, Providers: a.targetProviders, Inventory: a.Deployment.Inventory}

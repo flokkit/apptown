@@ -173,6 +173,8 @@ type Release struct {
 	ApprovalRole     string
 	ApprovalJson     *json.RawMessage
 	SupersededBy     ids.ID
+	RollbackOf       ids.ID
+	RestoreBackupID  ids.ID
 }
 
 type ReleaseBundle struct {

@@ -12,12 +12,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/ids"
@@ -428,5 +430,151 @@ func TestAnInterruptedRestoreOfAStoppedAppKeepsItsConfirmedItems(t *testing.T) {
 	}})
 	if !strings.Contains(words, "app-data copied") || strings.Contains(words, "No item was confirmed restored") || !strings.Contains(words, "It stopped no container.") {
 		t.Fatalf("an interrupted restore must keep its confirmed item: %q", words)
+	}
+}
+
+// A rollback restore never starts the rejected code on recovered data. The
+// rejected app corrupts a sentinel on every start, so a restart cannot pass
+// unnoticed even when the final app would later start successfully.
+func TestRollbackRestoreLeavesTheSentinelAndAppStopped(t *testing.T) {
+	t.Parallel()
+	s, db, client, daemon, pid, b := restoreWorld(t, "rollback-sentinel")
+	app := deployedNames(t, s, pid, "main", "rollback-sentinel").App()
+	sentinel, starts := "current", 0
+	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
+		line := strings.Join(req.Args, " ")
+		if req.Stdin != nil && strings.Contains(line, "pg_restore") {
+			sentinel = "before"
+		}
+		if strings.HasPrefix(line, "start ") && strings.Contains(line, app) {
+			starts++
+			sentinel = "corrupted by rejected code"
+		}
+		return daemon.answer(req)
+	})
+	dep, err := s.Deployments.ByName(t.Context(), pid, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	principal, err := s.Service.requireAuthority(t.Context(), access.CapDeploymentDeploy, pid, operationRestoreSet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	op, err := s.Service.admit(t.Context(), dep, operationRestoreSet, principal, []string{deployment.DataHold(dep)}, map[string]any{"backup": b.ID, "keepStopped": true}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Service.ops.Run(t.Context(), op.ID); err != nil {
+		t.Fatal(err)
+	}
+	ended, res := endedRestore(t, s, op.ID)
+	if ended.State != operations.Succeeded || res == nil || !res.LeftStopped || res.Started == nil || *res.Started || starts != 0 || sentinel != "before" {
+		t.Fatalf("rollback restore: %+v %+v starts=%d sentinel=%q", ended, res, starts, sentinel)
+	}
+	if (docker.Scope{Client: client}).Running(t.Context(), app) || !strings.Contains(ended.Detail, "stays stopped") || strings.Contains(ended.Detail, "may be stopped") {
+		t.Fatalf("stopped outcome: %s", ended.Detail)
+	}
+	if len(restoredReceipts(t, db, pid)) != 1 {
+		t.Fatal("missing restore receipt")
+	}
+}
+
+// Backups carry only recorded running-release evidence. Missing historical
+// evidence, stopped apps and failed or in-flight replacements cannot establish
+// a rollback pair. Ordinary Restore still accepts copies without that evidence.
+func TestBackupsRecordTheRunningReleaseAndPairOnlyRecordedEvidence(t *testing.T) {
+	t.Parallel()
+	s, _, client, _, pid, historical := restoreWorld(t, "backup-release")
+	dep, err := s.Deployments.ByName(t.Context(), pid, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := s.sources.(*releasedContracts)
+	src.mu.Lock()
+	yaml := src.by[dep.ReleaseSHA]
+	src.mu.Unlock()
+	bundle, err := s.Bundles.Cut(t.Context(), pid, dep.ReleaseSHA, map[string]string{"web": "image-one"}, nil, []byte(yaml), deployment.BundleOrigin{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rel, err := s.releases.Start(t.Context(), deployment.ReleaseDraft{Source: deployment.ReleaseFromBundle, ProjectID: pid, DeploymentID: dep.ID, Deployment: "main", BundleID: bundle, Revision: dep.ReleaseSHA, Actor: "bls"}, "release for backup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	attempt, _, err := s.Outcomes.Admit(t.Context(), deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "recorded-release", Inputs: deployment.Inputs{ReleaseID: rel.ID, BundleID: bundle, Revision: dep.ReleaseSHA}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Outcomes.Complete(t.Context(), deployment.Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active", Health: "healthy"}}); err != nil {
+		t.Fatal(err)
+	}
+	witness, err := s.BeforeRelease(t.Context(), pid, "main", true)
+	if err != nil || witness.copy == nil || witness.copy.RunningReleaseID != rel.ID {
+		t.Fatalf("backup release: %+v %v", witness, err)
+	}
+	stored, err := s.backups.inProject(t.Context(), pid, witness.copy.ID)
+	if err != nil || stored.RunningReleaseID != rel.ID {
+		t.Fatalf("stored backup: %+v %v", stored, err)
+	}
+	number, err := s.ReleaseBefore(t.Context(), pid, "main", stored.ID)
+	if err != nil || number != rel.Number {
+		t.Fatalf("recorded pair: %d %v", number, err)
+	}
+	if _, err := s.ReleaseBefore(t.Context(), pid, "main", historical.ID); err == nil {
+		t.Fatal("historical backup inferred a pair")
+	}
+	// A later boot can start replacement code and then fail its readiness
+	// probe. Failure preserves the previous observed generation, although
+	// the container name now runs the replacement. A running bit cannot
+	// establish which successful release produced the data being copied.
+	replacement, err := s.Bundles.Cut(t.Context(), pid, dep.ReleaseSHA, map[string]string{"web": "image-two"}, nil, []byte(yaml), deployment.BundleOrigin{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	failedRelease, err := s.releases.Start(t.Context(), deployment.ReleaseDraft{Source: deployment.ReleaseFromBundle, ProjectID: pid, DeploymentID: dep.ID, Deployment: "main", BundleID: replacement, Revision: dep.ReleaseSHA, Actor: "bls"}, "replacement release")
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, _, err := s.Outcomes.Admit(t.Context(), deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "failed-replacement", Inputs: deployment.Inputs{ReleaseID: failedRelease.ID, BundleID: replacement, Revision: dep.ReleaseSHA}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dk := docker.Scope{Client: client}
+	app := deployedNames(t, s, pid, "main", "backup-release").App()
+	if _, err := dk.Run(t.Context(), "rm", "-f", app); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := dk.Run(t.Context(), "run", "-d", "--name", app, "image-two"); err != nil {
+		t.Fatal(err)
+	}
+	inFlight, err := s.BeforeRelease(t.Context(), pid, "main", true)
+	if err != nil || inFlight.copy == nil || !inFlight.copy.RunningReleaseID.IsZero() {
+		t.Fatalf("in-flight replacement claimed a running release: %+v %v", inFlight, err)
+	}
+	if _, err := s.Outcomes.Fail(t.Context(), next, errors.New("replacement started but failed its readiness probe")); err != nil {
+		t.Fatal(err)
+	}
+	unproven, err := s.BeforeRelease(t.Context(), pid, "main", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !unproven.copy.RunningReleaseID.IsZero() {
+		t.Fatalf("backup after failed replacement claims old successful release %s; running code is not established", unproven.copy.RunningReleaseID)
+	}
+	stored, err = s.backups.inProject(t.Context(), pid, unproven.copy.ID)
+	if err != nil || !stored.RunningReleaseID.IsZero() {
+		t.Fatalf("stored unproven backup: %+v %v", stored, err)
+	}
+	if _, err := s.ReleaseBefore(t.Context(), pid, "main", stored.ID); err == nil {
+		t.Fatal("backup after failed replacement offered a rollback pair")
+	}
+	ended, res := restoreThroughOperation(t, s, pid, "main", stored.ID)
+	if ended.State != operations.Succeeded || res == nil || res.Started == nil || !*res.Started {
+		t.Fatalf("ordinary restore without running-release evidence: %+v %+v", ended, res)
+	}
+	client.SetRunning(deployedNames(t, s, pid, "main", "backup-release").App(), false)
+	stopped, err := s.TakeBackup(t.Context(), pid, "main", "bls")
+	if err != nil || !stopped.RunningReleaseID.IsZero() {
+		t.Fatalf("a stopped app claimed a running release: %+v %v", stopped, err)
 	}
 }

@@ -120,6 +120,7 @@ func restoreStatus(items []RestoredItem) RestoreStatus {
 // RestoreResult is a restore's receipt, as the API returns it and the audit
 // record keeps it.
 type RestoreResult struct {
+	LeftStopped  bool   `json:"leftStopped,omitempty"`
 	Backup       ids.ID `json:"backup"`
 	From         string `json:"from"`
 	SafetyBackup ids.ID `json:"safetyBackup"`

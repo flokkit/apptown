@@ -25,7 +25,8 @@ import (
 const BackupKeep = 7
 
 type Backup struct {
-	StatusLabel BackupLabel `json:"statusLabel"`
+	RunningReleaseID ids.ID      `json:"runningReleaseId,omitzero"`
+	StatusLabel      BackupLabel `json:"statusLabel"`
 
 	ID ids.ID `json:"id"`
 	// AppTown is the AppTown that took the set, named in its manifest so a set
@@ -144,22 +145,23 @@ func (s *Backups) Record(ctx context.Context, b *Backup, who string) (ids.ID, er
 			return err
 		}
 		r, err := protectionsql.New(tx.SQL()).InsertBackup(ctx, protectionsql.InsertBackupParams{ID: ids.New(taken),
-			ProjectID:      b.ProjectID,
-			Deployment:     b.Deployment,
-			TakenAt:        b.TakenAt,
-			Trigger:        b.Trigger,
-			Actor:          b.Actor,
-			ActorPrincipal: taker.Principal,
-			ActorVia:       taker.Via,
-			Path:           b.Path,
-			Bytes:          b.Bytes,
-			ItemsJson:      items,
-			Status:         b.Status.String(),
-			Error:          b.Error,
-			Store:          b.storeName(),
-			DataClass:      b.DataClass,
-			StoreEndpoint:  b.StoreEndpoint,
-			StoreBucket:    b.StoreBucket,
+			ProjectID:        b.ProjectID,
+			RunningReleaseID: b.RunningReleaseID,
+			Deployment:       b.Deployment,
+			TakenAt:          b.TakenAt,
+			Trigger:          b.Trigger,
+			Actor:            b.Actor,
+			ActorPrincipal:   taker.Principal,
+			ActorVia:         taker.Via,
+			Path:             b.Path,
+			Bytes:            b.Bytes,
+			ItemsJson:        items,
+			Status:           b.Status.String(),
+			Error:            b.Error,
+			Store:            b.storeName(),
+			DataClass:        b.DataClass,
+			StoreEndpoint:    b.StoreEndpoint,
+			StoreBucket:      b.StoreBucket,
 		})
 		id = r.ID
 		if err != nil {
@@ -188,7 +190,7 @@ func backupRecord(r protectionsql.Backup, err error) (Backup, error) {
 	if err != nil {
 		return Backup{}, err
 	}
-	b := Backup{ID: r.ID, ProjectID: r.ProjectID, Deployment: r.Deployment, TakenAt: r.TakenAt.UTC().Format(time.RFC3339Nano), Trigger: r.Trigger, Actor: r.Actor, ActorPrincipal: r.ActorPrincipal, Path: r.Path, Bytes: r.Bytes, Error: r.Error,
+	b := Backup{RunningReleaseID: r.RunningReleaseID, ID: r.ID, ProjectID: r.ProjectID, Deployment: r.Deployment, TakenAt: r.TakenAt.UTC().Format(time.RFC3339Nano), Trigger: r.Trigger, Actor: r.Actor, ActorPrincipal: r.ActorPrincipal, Path: r.Path, Bytes: r.Bytes, Error: r.Error,
 		Store: r.Store, DataClass: r.DataClass, StoreEndpoint: r.StoreEndpoint, StoreBucket: r.StoreBucket}
 	if err := b.Status.Scan(r.Status); err != nil {
 		return Backup{}, err

@@ -43,16 +43,20 @@ func TestDeployableByHand(t *testing.T) {
 
 // A landing-fed deployment takes by hand only the bundle it is known to run:
 // another bundle, or software without recorded provenance, remains landing's.
-func TestDeployableByHandAtTheBundleItRuns(t *testing.T) {
+func TestFollowsMainAcceptsExplicitBundles(t *testing.T) {
 	main := &Deployment{Kind: Standing, Name: "main", Feed: "main"}
 	if err := main.deployableByHandAt(idstest.N(5), idstest.N(5)); err != nil {
 		t.Fatalf("what runs may be deployed again: %v", err)
 	}
-	for _, c := range [][2]ids.ID{{idstest.N(6), idstest.N(5)}, {idstest.N(5), ids.Nil}, {ids.Nil, ids.Nil}} {
-		if err := main.deployableByHandAt(c[0], c[1]); !errors.Is(err, errFedByLanding) {
-			t.Fatalf("bundle %s with %s running is landing's: %v", c[0], c[1], err)
+	for _, pair := range [][2]ids.ID{{idstest.N(6), idstest.N(5)}, {idstest.N(5), ids.Nil}} {
+		if err := main.deployableByHandAt(pair[0], pair[1]); err != nil {
+			t.Fatalf("explicit bundle refused: %v", err)
 		}
 	}
+	if err := main.deployableByHandAt(ids.Nil, ids.Nil); !errors.Is(err, errFedByLanding) {
+		t.Fatalf("latest remains automatic: %v", err)
+	}
+
 	if err := (&Deployment{Kind: preview, Feed: "main"}).deployableByHandAt(idstest.N(5), idstest.N(5)); !errors.Is(err, errPreviewNotDeployed) {
 		t.Fatalf("a preview follows its change, whatever it runs: %v", err)
 	}
