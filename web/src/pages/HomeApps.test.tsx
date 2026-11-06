@@ -57,7 +57,8 @@ it('shows the recent projects in the order given, with All projects for the rest
     expect(action.getAttribute('aria-label')).toBe(`Open app: app-${i} (opens in a new tab)`)
     expect(action.getAttribute('target')).toBe('_blank')
   }
-  // New project looks as it does on the Projects page.
+  // Create project looks as it does on the Projects page.
+  expect(el.querySelector('a[href="/projects/_new"]')?.textContent).toBe('+ Create project')
   expect(el.querySelector('.dash-head button')?.classList.contains('primary')).toBe(true)
 })
 
@@ -81,7 +82,7 @@ it('keeps identity, state and action in three fixed row cells regardless of desc
 
 it('makes creation primary only for a confirmed empty Home', () => {
   const el = home([])
-  const buttons = [...el.querySelectorAll('button')].filter(b => b.textContent === '+ New project')
+  const buttons = [...el.querySelectorAll('button')].filter(b => b.textContent === '+ Create project')
   expect(buttons).toHaveLength(1)
   expect(buttons[0].classList.contains('primary')).toBe(true)
   expect(buttons[0].classList.contains('btn-big')).toBe(true)

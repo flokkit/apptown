@@ -31,7 +31,7 @@ const INSTANCE: [RegExp, string][] = [
   [/^\/evals/, 'Evals'],
   [/^\/complaints/, 'Complaints'],
   [/^\/docs/, 'Docs'],
-  [/^\/projects\/_new/, 'New project'],
+  [/^\/projects\/_new/, 'Create project'],
 ]
 const PROJECT_PAGE: Record<string, string> = {
   '': 'Overview', changes: 'Changes', deployments: 'Deployments', console: 'Chat', security: 'Security', settings: 'Settings', memory: 'Memory',

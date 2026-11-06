@@ -139,7 +139,7 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
 
   return (
     <div className="new-project-project-setup-div-2">
-      <h1 className="new-project-project-setup-h1">New project</h1>
+      <h1 className="new-project-project-setup-h1">Create a project</h1>
       <fieldset disabled={busy} className="new-project-fieldset">
       <StepChips step={d.step} />
       {d.step === 1 && <NameStep d={d} act={act} />}

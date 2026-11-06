@@ -1,6 +1,6 @@
-# New project
+# Create project
 
-Open **Projects → + New project**, name the app and describe what you want to
+Open **Projects → + Create project**, name the app and describe what you want to
 build. Keep the details in your request: AppTown keeps your full request in the
 project's history. You can read it under **Application details → Original
 request**. **Build the first version** uses that request as its brief. If there

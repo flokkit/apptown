@@ -73,6 +73,7 @@ describe('new project from existing code', () => {
   it('uploads the chosen bundle instead of starting empty', async () => {
     const calls = stubAppTown(false)
     const { el, root } = await mount()
+    expect(el.querySelector('h1')?.textContent).toBe('Create a project')
     await toStep3(el)
     await act(async () => { radio(el, 'Existing code').click() })
     expect(button(el, 'Create project')!.disabled).toBe(true)
