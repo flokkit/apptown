@@ -5,6 +5,9 @@
 .deployments-departures-board-button { margin-top: calc(var(--space-1) * 2.5); }
 .deployments-fleet-table-div { margin: 0 0 calc(var(--space-1) * 2.5); gap: var(--space-2); flex-wrap: wrap; }
 .deployments-fleet-table-input { width: 280px; max-width: 100%; }
+@media (width > 800px) {
+  .departure-row { grid-template-columns: minmax(0, 1fr) max-content auto; }
+}
 .deployments-card { display: flex; }
 .deployments-link { display: flex; min-width: 0; }
 }

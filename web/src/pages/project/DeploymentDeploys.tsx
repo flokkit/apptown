@@ -39,7 +39,7 @@ function DeploymentHistory({ slug, name, url, displayLabel }: DeployHistoryProps
         {r.state === 'waiting for approval' ? <p>Waiting for approval from {r.approvalRole}.</p> : <ReleaseAssent approval={r.approval} />}
         {r.state === 'released' && r.number !== history.find(h => h.state === 'released')?.number && r.bundleId && <button disabled={!releases.current} onClick={() => setChoice({ release: r })}>Deploy this again</button>}
         {r.changes.map(c => <div key={c.id}><Link to={`/changes/${c.id}`}>Change {c.number}: {c.title}</Link></div>)}
-        {r.backupId && <><Link to={`/deployments/backups#backup-${r.backupId}`}>Backup →</Link> <RollbackBefore slug={slug} name={name} release={r} current={releases.current} onChoose={() => setChoice({ before: r })} /></>}
+        {r.backupId && <><Link to={`/backups#backup-${r.backupId}`}>Backup →</Link> <RollbackBefore slug={slug} name={name} release={r} current={releases.current} onChoose={() => setChoice({ before: r })} /></>}
       </div>)}
       {history.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
       {releases.data && history.length === 0 && <p className="muted">No deploys yet.</p>}
@@ -57,7 +57,7 @@ function ReleaseDeploy({ slug, release: r, url, current }: { slug: string; relea
     <div className="ch-deploy-result-facts">
       {r.failure && <p>{r.failure}</p>}
       {passed && url && <><p>{new URL(url).host}</p><a className="btn primary" href={url}>Open the app</a></>}
-      {r.backupId && <p><Link to={`/deployments/backups#backup-${r.backupId}`}>Backed up before this deploy →</Link></p>}
+      {r.backupId && <p><Link to={`/backups#backup-${r.backupId}`}>Backed up before this deploy →</Link></p>}
       {duration != null && duration >= 0 && <p className="small muted">Deploy took {fmtDuration(duration / 1000)}</p>}
       <Link to={`/projects/${slug}/releases/${r.number}`}>Release details →</Link>
     </div>

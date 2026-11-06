@@ -74,6 +74,7 @@ export type AllBackups = {
   backups: ProjectBackup[]
   keep: number
   where: string
+  retention: string
 }
 
 export type ApprovalBrief = {
@@ -548,6 +549,13 @@ export type DeploymentBackups = {
 export type DeploymentChecked = {
   deployment: string
   checked: RecoveryResult[]
+  observation: RuntimeState
+  observationIssue?: string
+  observedAt?: string
+  observationAttemptedAt?: string
+  targetName: string
+  unreachableSince?: string
+  observationStale: boolean
 }
 
 export type DeploymentDiagnostics = {
@@ -1223,6 +1231,7 @@ export type ProjectAdoptionRecord = {
 }
 
 export type ProjectBackup = {
+  deploymentLabel: string
   runningReleaseId?: string | null
   statusLabel: BackupLabel
   id: string | null
@@ -1502,6 +1511,7 @@ export type ReleaseDefault = {
 }
 
 export type ReleaseDetail = {
+  deploymentLabel: string
   rollbackNumber?: number
   decision: ReleaseDecision
   request?: RequestMetadata | null
@@ -1517,6 +1527,7 @@ export type ReleaseDetail = {
 }
 
 export type ReleaseListed = {
+  deploymentLabel: string
   decision: ReleaseDecision
   statusLabel: ReleaseLabel
   rollbackOf?: string | null
@@ -3011,6 +3022,8 @@ export type RecoveryResult = {
   reason?: string
 }
 
+export type RuntimeState = "unknown" | "running" | "stopped" | "unreachable"
+
 export type DetailReading = {
   identity?: string
   waiting: boolean
@@ -3214,8 +3227,6 @@ export type DeploymentTargetView = {
   family: string
   region: string
 }
-
-export type RuntimeState = "unknown" | "running" | "stopped" | "unreachable"
 
 export type DeploymentNeedView = {
   statusLabel: ProgressLabel
@@ -4145,6 +4156,7 @@ export type AttachmentRequest = {
 }
 
 export type ResourceHost = {
+  deploymentLabel?: string
   projectId?: string | null
   deploymentId?: string | null
   project: string
@@ -5176,6 +5188,7 @@ export type TargetReading = {
 }
 
 export type TargetDeployment = {
+  displayLabel: string
   statusLabel: ProgressLabel
   project: string
   name: string

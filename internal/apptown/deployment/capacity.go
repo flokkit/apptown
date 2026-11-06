@@ -473,7 +473,7 @@ func (s *Service) elasticCapacity(ctx context.Context, t *Target) (TargetCapacit
 			if p.Need {
 				continue // its size is the cluster's, below
 			}
-			ep := ElasticPart{Deployment: d.Project + "/" + d.Name, Part: n, RunsOn: p.RunsOn}
+			ep := ElasticPart{Deployment: d.Project + "/" + d.DisplayLabel, Part: n, RunsOn: p.RunsOn}
 			slug := ""
 			if f := strings.Fields(p.RunsOn); len(f) > 0 {
 				slug = f[0]
@@ -493,7 +493,7 @@ func (s *Service) elasticCapacity(ctx context.Context, t *Target) (TargetCapacit
 			out.Parts = append(out.Parts, ep)
 		}
 		if !applied.Recorded() {
-			out.Parts = append(out.Parts, ElasticPart{Deployment: d.Project + "/" + d.Name, RunsOn: "not recorded", USDPerMonth: unknown("released before sizes were recorded; release it again")})
+			out.Parts = append(out.Parts, ElasticPart{Deployment: d.Project + "/" + d.DisplayLabel, RunsOn: "not recorded", USDPerMonth: unknown("released before sizes were recorded; release it again")})
 		}
 	}
 	if len(standing) > 0 {
@@ -503,7 +503,7 @@ func (s *Service) elasticCapacity(ctx context.Context, t *Target) (TargetCapacit
 		}
 		depName := map[ids.ID]string{}
 		for _, d := range deps {
-			depName[d.ID] = d.Project + "/" + d.Name
+			depName[d.ID] = d.Project + "/" + d.DisplayLabel
 		}
 		for _, r := range rows {
 			var h struct {

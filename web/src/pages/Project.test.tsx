@@ -165,7 +165,6 @@ it.each([
   ['settings/models', 'Models', 'Settings', 'architecture'],
   ['settings/working', 'Way of working', 'Settings', 'packs-and-what-if'],
   ['settings/services', 'Services', 'Settings', 'services-and-data'],
-  ['settings/deployments', 'Deployments', 'Settings', 'container-lifecycle'],
   ['settings/secrets', 'Secrets', 'Settings', 'secrets'],
   ['settings/members', 'Members', 'Settings', 'people-and-roles'],
   ['memory/notes', 'Notes', 'Memory', 'project-notes'],
@@ -301,5 +300,15 @@ it.each([['notes', 'Notes'], ['decisions', 'Decisions']])('loaded Memory %s has 
     // The page's own list loads after its heading; wait for it rather than
     // reading it on the heading's frame.
     await vi.waitFor(() => expect(el.textContent).toContain(tab === 'notes' ? 'No notes yet' : 'No decisions recorded yet.'))
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+it('does not keep the removed Settings Deployments page as a second door', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(project(1, 'a', 'Alpha')))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/a/settings/deployments']}><Routes><Route path="/projects/:slug/:tab/:stab" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
+    expect(el.querySelector('h1')?.textContent).toBe('Page not found')
+    expect(el.textContent).not.toContain('New deployment')
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

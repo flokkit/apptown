@@ -183,7 +183,7 @@ describe('the copy runner line', () => {
   it('names the copy runner when one is chosen', async () => {
     const { el, done } = await render({ name: 'do-syd', kind: 'do-app', address: { copyRunner: 'lan' }, copies: { available: true } } as unknown as TargetView)
     expect(el.textContent).toBe('Copy runner: lan')
-    expect(el.querySelector('a[href="/infrastructure/lan"]')).not.toBeNull()
+    expect(el.querySelector('a[href="/targets/lan"]')).not.toBeNull()
     done()
   })
 })

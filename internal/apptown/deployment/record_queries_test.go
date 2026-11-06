@@ -42,3 +42,16 @@ func TestRecordReportsKeepExplicitEmptyScopes(t *testing.T) {
 		t.Fatalf("all retained: %+v %v", got, err)
 	}
 }
+
+func TestInventoryKeepsPreviewAddressesOutOfDisplayedOwnership(t *testing.T) {
+	for _, label := range []string{"preview-change-id", "Try lunch"} {
+		dep := &Deployment{Name: "preview-change-id", DisplayLabel: label, Kind: preview}
+		want := label
+		if label == dep.Name {
+			want = "Preview"
+		}
+		if got := inventoryDeploymentLabel(dep); got != want {
+			t.Fatalf("displayed ownership %q, want %q", got, want)
+		}
+	}
+}

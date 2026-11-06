@@ -36,7 +36,7 @@ func TestHostDownFoldsUnknownsAndKeepsConfirmedConditions(t *testing.T) {
 		t.Fatalf("host items: %+v %v", got, err)
 	}
 	outage := got.Items[0]
-	if outage.Title != "office is not reachable" || outage.Unknown || outage.Href != "/infrastructure/office" || !strings.Contains(outage.Detail, "50 deployments can't be checked") || !strings.Contains(outage.Detail, "connection refused") || !strings.Contains(outage.Detail, "3 Nov, 01:02 UTC") || !strings.Contains(outage.Detail, "check its connection") {
+	if outage.Title != "office is not reachable" || outage.Unknown || outage.Href != "/targets/office" || !strings.Contains(outage.Detail, "50 deployments can't be checked") || !strings.Contains(outage.Detail, "connection refused") || !strings.Contains(outage.Detail, "3 Nov, 01:02 UTC") || !strings.Contains(outage.Detail, "check its connection") {
 		t.Fatalf("outage: %+v", outage)
 	}
 	// Confirmed missing-resource evidence survives the outage too.

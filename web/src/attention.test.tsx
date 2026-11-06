@@ -170,7 +170,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     // on Home; it still keeps Home from saying All quiet.
     expect(lead).toBe('Apps live1')
     expect(v.el.querySelector('.dash-lead a[href="/attention"]')).toBeNull()
-    expect(v.el.querySelector('.dash-lead a[href="/deployments/table"]')?.textContent).toBe('Apps live1')
+    expect(v.el.querySelector('.dash-lead a[href="/deployments"]')?.textContent).toBe('Apps live1')
     expect(v.el.textContent).not.toContain('All quiet')
     // A check that could not run lights nothing in the top bar.
     expect(badge(v.el)).toBeNull()

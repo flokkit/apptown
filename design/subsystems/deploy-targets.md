@@ -22,7 +22,7 @@ attaching another target under that name is refused with a 409 that says the
 target was retired and a new name is needed.
 
 Retired targets read `stopped` on their target pages. They count as neither
-failing, unknown nor working in the Integrations overview and raise no target
+failing, unknown nor working in the Targets list and raise no target
 conditions in Attention.
 
 Attaching a Docker host, Portainer target or bucket website creates a new record;
@@ -528,7 +528,7 @@ sentence.
   assets, then HTML and `env.js` (`no-store`), then the marker, each
   public-read. It is released when the website address, asked past caches,
   answers exactly that identity. Not answering within the witness budget
-  leaves the attempt uncertain; recovery and **Check again** only witness,
+  leaves the attempt uncertain; recovery and **Refresh status** only witness,
   never upload. An upload refused before the marker fails the release as an
   incomplete publication: the address still answers the previous one.
   After a witnessed release, objects in neither this nor the previous

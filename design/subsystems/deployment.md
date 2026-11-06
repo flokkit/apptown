@@ -355,9 +355,11 @@ uncertain and is queued for observation, and the ledger records
 `deployment.needs-attention` once. Other deployments and the rest of startup
 go on. Only a failure to read the records, or to record the mark, stops it.
 
-**Check again** (`POST /api/v1/projects/{slug}/deployments/{name}/check`, the
-button on an uncertain deployment's card; `deployment:operate`) is the
-person's repair. It observes; it never deploys. An uncertain attempt is
+**Refresh status** (`POST /api/v1/projects/{slug}/deployments/{name}/check`, the
+button on the deployment page; `deployment:operate`) takes a fresh runtime
+reading of that deployment and returns it, including on a settled deployment.
+The page reloads after success. It never deploys. When records need repair,
+it repairs them before taking the reading. An uncertain attempt is
 observed as recovery observes it (`Resume` on the recorded boot proof): the
 container it booted running with the recorded image settles it applied; no
 record of a healthy start, or that container gone, replaced or stopped,

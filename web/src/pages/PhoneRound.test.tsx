@@ -99,7 +99,7 @@ it('shows the backup store, its endpoint and keys, with Attach another as its ac
 it('shows the project release number in the phone departure fact', () => {
   vi.stubGlobal('matchMedia', () => ({ matches: true }))
   try {
-    const el = page(<Deployments />, { '/tiers/departures': { departures: [{ slug: 'shop', name: 'Shop', releaseNumber: 6, state: 'deployed', at: '2026-10-31T01:00:00Z', tier: 'main', label: 'Live app', url: 'https://shop.example.test' }] } })
+    const el = page(<Deployments page="releases" />, { '/tiers/departures': { departures: [{ slug: 'shop', name: 'Shop', releaseNumber: 6, state: 'deployed', at: '2026-10-31T01:00:00Z', tier: 'main', label: 'Live app', url: 'https://shop.example.test' }] } })
     expect(firstView(el)).toContain('release #6')
     expect(el.querySelector('.list-action a[href$="/releases/6"]')?.getAttribute('href')).toBe('/projects/shop/releases/6')
   } finally { vi.unstubAllGlobals() }

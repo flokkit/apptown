@@ -68,7 +68,7 @@ function ConfirmRelease({ slug, name, label, deployment, choice, running, curren
         <p>This deploys {code}'s code to {label}. Your data stays as it is now; {PRODUCT} does not undo data changes or migrations.</p>
         <p>{PRODUCT} can't tell whether the older code works with today's data. It may run its own start-up steps.</p>
         {running ? <><ReadStatus q={detail} what="the current release's backup" /><StaleNote q={detail} />
-          {detail.data?.backup ? <p>Backup taken before release {running.number}: <Link to={`/deployments/backups#backup-${detail.data.backup.id}`}>{detail.data.backup.id} · {detail.data.backup.status}</Link></p> : detail.data && <p>No backup was taken before release {running.number}: {noBackupReason(detail.data.backupReason)}.</p>}</> : <p>No earlier successful release is recorded on {label}, so there is no backup from one.</p>}
+          {detail.data?.backup ? <p>Backup taken before release {running.number}: <Link to={`/backups#backup-${detail.data.backup.id}`}>{detail.data.backup.id} · {detail.data.backup.status}</Link></p> : detail.data && <p>No backup was taken before release {running.number}: {noBackupReason(detail.data.backupReason)}.</p>}</> : <p>No earlier successful release is recorded on {label}, so there is no backup from one.</p>}
       </>}
       {deployment?.approvalRole && <p>Needs approval from {deployment.approvalRole}.</p>}
       {!paired && takesBackup && <p>A backup is taken first.</p>}

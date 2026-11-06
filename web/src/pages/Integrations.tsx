@@ -1,7 +1,6 @@
 import { useTechnicalDetail } from './change/TechnicalDetail'
 import { Section, Group } from '../Section'
 import { PageHead } from '../PageHead'
-import { useHostStates } from '../hostState'
 import { ListRow } from '../ListRow'
 import { Status } from '../Status'
 import { DisplayLabelEdit } from '../DisplayLabel'
@@ -14,13 +13,12 @@ import { QuietConfirm } from '../QuietConfirm'
 import { fmtWhen, relTime, lastSeen, fmtStamp } from '../format'
 import { useAction, useGet, useRefresh } from '../data'
 import { ReadStatus, StaleNote, type Gated } from '../ReadGate'
-import type { TargetList, ConnectorCatalog, ConnectorEntry, ConnectorPreset, IntegrationEntry, IntegrationHealth, IntegrationList, IntegrationUse } from '../wire.gen'
+import type { ConnectorCatalog, ConnectorEntry, ConnectorPreset, IntegrationEntry, IntegrationHealth, IntegrationList, IntegrationUse } from '../wire.gen'
 import { CatalogPicker, DocsModal } from './integrations/Catalog'
 import { ConnectorForm, asNumber } from './integrations/ConnectorForm'
 import { InstanceSecretsPanel } from './integrations/InstanceSecrets'
 import { ModelProfiles } from './integrations/ModelSlots'
 import { ServiceKindsPanel } from './integrations/ServiceKinds'
-import { TargetRows } from './integrations/Targets'
 import { useNow } from '../hooks'
 import {
   type Area, HealthState, INTEGRATION_MENU, MENU_KINDS, PAGE_KEYS, areaOf, builtInModel, kindPath, pageKinds, capabilityMeta, credentialKeys, fmtVal, healthState, specFor, usedFor,
@@ -193,9 +191,13 @@ export const KIND_HELP: Record<string, { body: ReactNode; guide: string }> = {
     <p>Describe services your organisation already runs, such as a sign-in system, so apps can be connected to them. A project attaches one under Settings › Services.</p>
     <p>Optional.</p>
   </> },
-  targets: { guide: 'deployment-targets', body: <>
+  deploy: { guide: 'deployment-targets', body: <>
     <p>Set up the places apps are deployed to, such as a Docker host or a cloud provider, and choose which groups may use each one.</p>
-    <p>Optional: without one, apps run on {PRODUCT}'s own server. What runs on each target is under <Link to="/deployments/infrastructure">Deployments › Infrastructure</Link>.</p>
+    <p>Optional: without one, apps run on {PRODUCT}'s own server. What runs on each target is under <Link to="/targets">Deployments › Targets</Link>.</p>
+  </> },
+  'cloud-account': { guide: 'deployment-targets', body: <>
+    <p>Set up the places apps are deployed to, such as a Docker host or a cloud provider, and choose which groups may use each one.</p>
+    <p>Optional: without one, apps run on {PRODUCT}'s own server. What runs on each target is under <Link to="/targets">Deployments › Targets</Link>.</p>
   </> },
 }
 
@@ -267,14 +269,6 @@ const judged = (b: IntegrationEntry) => {
 
 function Overview({ area, bindings, offered: all, catalogErr, reading, onNew }: PageProps) {
   const navigate = useNavigate()
-  // Deployment targets are judged on the targets themselves as well as their connections.
-  const targetsQ = useGet<TargetList>(area === 'integrations' ? '/targets' : null)
-  // A target's state as its own page shows it: its connection and its Attention conditions together.
-  const hostState = useHostStates()
-  const targets = (targetsQ.data?.targets ?? []).map((t) => {
-    const word = hostState(t.name, t.statusLabel).word
-    return { failed: word === 'failed', notKnown: word === 'unknown', passed: word === 'working' }
-  })
   const one = INTEGRATION_MENU.find((g) => g.key === area)!
   // Connect offers only this area's kinds.
   const caps = one.items.flatMap((it) => kindsOf(it.key, bindings, all))
@@ -291,9 +285,9 @@ function Overview({ area, bindings, offered: all, catalogErr, reading, onNew }: 
             {g.items.map((it) => {
               const caps = kindsOf(it.key, bindings, offered)
               const rows = bindings.filter((b) => caps.includes(b.capability))
-              const failing = rows.filter((b) => healthState(b.health) === 'failed').length + (it.key === 'targets' ? targets.filter((t) => t.failed).length : 0)
-              const marks = [...rows.map(judged), ...(it.key === 'targets' ? targets : [])]
-              const counted = rowState(marks, rows.filter((b) => judged(b).configured).length + (it.key === 'targets' ? targets.length : 0))
+              const failing = rows.filter((b) => healthState(b.health) === 'failed').length
+              const marks = rows.map(judged)
+              const counted = rowState(marks, rows.filter((b) => judged(b).configured).length)
               // A list whose refresh failed is not known now; a working row
               // built on an old reading says how old.
               const state = counted === 'working' && reading.q.refreshFailed ? 'not known' : counted
@@ -345,12 +339,9 @@ function KindPage({ which, area, bindings, catalog, offered, catalogErr, reading
 
   return (
     <div>
-      <PageHead page={area} sub={meta.title} help={KIND_HELP[which]} line={meta.blurb || undefined} actions={which === 'targets'
-        ? <Link className="btn primary" to="/integrations/targets/new">Add a deployment target</Link>
-        : <button className="primary" onClick={() => onNew(caps)}>Connect</button>} />
+      <PageHead page={area} sub={meta.title} help={KIND_HELP[which]} line={meta.blurb || undefined} actions={<button className="primary" onClick={() => onNew(caps)}>Connect</button>} />
       {catalogErr && <div className="error small">The connector catalogue could not be read, so connecting and editing are unavailable: {catalogErr}</div>}
       <StaleNote q={reading.q} />
-      {which === 'targets' && <Section title="Targets"><TargetRows /></Section>}
       {/* A neutral name: each row says whether it is set up and working, so the heading never claims it. */}
       {(groups.length > 0 || which !== 'shared') && (
         <Section title="Connections"
@@ -510,7 +501,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
         </div>
         {remove.err && <div className="error small">{remove.err}</div>}
         {b.capability === 'cloud-account' && (
-          <div className="muted int-note">Its deployment targets are under <Link to="/integrations/targets">Deployment targets</Link>.</div>
+          <div className="muted int-note">Its deployment targets are under <Link to="/targets">Deployment targets</Link>.</div>
         )}
         {b.capability === 'model' && (
           <div className="muted int-note">Which workflows use which model is set in <Link to="/integrations/profiles">Model profiles</Link>.</div>
@@ -566,8 +557,8 @@ function UsedBy({ use, capability }: { use: IntegrationUse; capability: string }
     ))}
     {use.deployments.map((d) => (
       <div key={`${d.project}/${d.name}`} className="card row int-related-row">
-        <Link className="int-name" to={`/projects/${d.project}/settings/deployments`}>{d.project}/{d.name}</Link>
-        <span className="muted small">deployment on <Link to={`/infrastructure/${d.target}`}>{d.target}</Link></span>
+        <Link className="int-name" to={`/projects/${d.project}/deployments/${d.name}`}>{d.project}/{d.name}</Link>
+        <span className="muted small">deployment on <Link to={`/targets/${d.target}`}>{d.target}</Link></span>
       </div>
     ))}
   </>

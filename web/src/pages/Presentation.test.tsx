@@ -75,8 +75,8 @@ it.each([true, false])('links to the pack and leaves only Copy in its row menu (
 // meta line, never folded inside the row; the app's page lists each one.
 it.each([false, true])('counts an app\'s deployments in one line without a fold (phone=%s)', async narrow => {
   const app = { slug: 'calendar', name: 'Calendar', deploymentId: 'main', deploymentLabel: 'Main', observation: 'running', observationStale: false, running: true, url: 'https://calendar.example' }
-  const el = await show(<Routes><Route path="/deployments/:gtab" element={<Deployments />} /></Routes>, { '/tiers': { tiers: [{ name: 'main', title: 'Main', apps: [app] }] }, '/projects': [app], '/projects/calendar/deployments': [{ id: 'main', name: 'main', generation: 1, observation: 'running' }], '/projects/calendar/deployments/main/diagnostics': { parts: [] }, '/projects/calendar/releases': [] }, narrow, '/deployments/table')
-  expect(el.textContent).toContain('1 deployment · 1 working')
+  const el = await show(<Routes><Route path="/deployments" element={<Deployments />} /></Routes>, { '/tiers': { tiers: [{ name: 'main', title: 'Main', apps: [app] }] }, '/projects': [app], '/projects/calendar/deployments': [{ id: 'main', name: 'main', generation: 1, observation: 'running' }], '/projects/calendar/deployments/main/diagnostics': { parts: [] }, '/projects/calendar/releases': [] }, narrow, '/deployments')
+  expect(el.textContent).toContain('View deployment')
   expect(el.querySelector('.card.row details:not(.status-help)')).toBeNull()
 })
 it.each([false, true])('expands resource evidence by row and preserves remove confirmation (phone=%s)', async narrow => {
@@ -100,10 +100,10 @@ it('explains development updates instead of an empty release channel', async () 
 
 it('counts a long list of placements without folding them into the row', async () => {
   const apps = Array.from({ length: 5 }, (_, n) => ({ slug: 'calendar', name: 'Calendar', deploymentId: `placement-${n}`, deploymentLabel: `Office ${n}`, observation: 'running', observationStale: false, running: true, url: `https://office-${n}.example` }))
-  const el = await show(<Routes><Route path="/deployments/:gtab" element={<Deployments />} /></Routes>, { '/tiers': { tiers: [{ name: 'main', title: 'Main', apps }] }, '/projects': [apps[0]], '/projects/calendar/deployments': [{ id: 'placement-0', name: 'main', generation: 1, observation: 'running' }], '/projects/calendar/deployments/main/diagnostics': { parts: [] }, '/projects/calendar/releases': [] }, false, '/deployments/table')
-  expect(el.textContent).toContain('5 deployments · 5 working')
+  const el = await show(<Routes><Route path="/deployments" element={<Deployments />} /></Routes>, { '/tiers': { tiers: [{ name: 'main', title: 'Main', apps }] }, '/projects': [apps[0]], '/projects/calendar/deployments': apps.map((a, i) => ({ id: a.deploymentId, name: `office-${i}`, displayLabel: a.deploymentLabel, generation: 1, observation: 'running' })), ...Object.fromEntries(apps.map((_, i) => [`/projects/calendar/deployments/office-${i}/diagnostics`, { parts: [] }])), '/projects/calendar/releases': [] }, false, '/deployments')
+  expect(el.querySelectorAll('[role=listitem]')).toHaveLength(5)
   expect(el.textContent).not.toContain('more deployments')
-  expect(el.querySelectorAll('.card.row')).toHaveLength(1)
+  expect(el.querySelectorAll('[role=listitem]')).toHaveLength(5)
 })
 
 it('keeps a broken check red beside amber findings', async () => {

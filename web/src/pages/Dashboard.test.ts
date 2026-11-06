@@ -36,13 +36,13 @@ describe('the home status strip', () => {
       dep('d', { running: null, observation: 'unknown' }),
       dep('e', { running: false, observation: 'stopped' }),
     ] })).toEqual([
-      { label: 'Apps live', value: 2, to: '/deployments/table' },
-      { label: 'Apps not checked', value: 2, to: '/deployments/table' },
+      { label: 'Apps live', value: 2, to: '/deployments' },
+      { label: 'Apps not checked', value: 2, to: '/deployments' },
     ])
   })
   it('shows zero apps live when deployments exist but none were seen running', () => {
     expect(homeStatusParts({ ...empty, deployments: [dep('a', { running: false })] })).toEqual([
-      { label: 'Apps live', value: 0, to: '/deployments/table' },
+      { label: 'Apps live', value: 0, to: '/deployments' },
     ])
   })
 })
@@ -60,8 +60,8 @@ it('renders every label above its value inside the matching link', () => {
   }))).toEqual([
     { label: 'Waiting on you', value: '3', to: '#waiting-on-you' },
     { label: 'Other work', value: '2', to: '#other-work' },
-    { label: 'Apps live', value: '1', to: '/deployments/table' },
-    { label: 'Apps not checked', value: '1', to: '/deployments/table' },
+    { label: 'Apps live', value: '1', to: '/deployments' },
+    { label: 'Apps not checked', value: '1', to: '/deployments' },
     { label: 'Problems', value: '8', to: '/attention' },
   ])
 })

@@ -39,9 +39,10 @@ type (
 	}
 	// AllBackups is every backup set AppTown holds and where they live.
 	AllBackups struct {
-		Backups []dataprotection.ProjectBackup `json:"backups"`
-		Keep    int                            `json:"keep"`
-		Where   string                         `json:"where"`
+		Backups   []dataprotection.ProjectBackup `json:"backups"`
+		Keep      int                            `json:"keep"`
+		Where     string                         `json:"where"`
+		Retention string                         `json:"retention"`
 	}
 )
 
@@ -143,5 +144,5 @@ func (h Backups) AllBackups(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	WriteJSON(w, 200, AllBackups{Backups: out, Keep: dataprotection.BackupKeep, Where: h.data.BackupDirectory()})
+	WriteJSON(w, 200, AllBackups{Backups: out, Keep: dataprotection.BackupKeep, Retention: dataprotection.BackupRetention(), Where: h.data.BackupDirectory()})
 }

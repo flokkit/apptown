@@ -25,7 +25,7 @@ target is the built-in Docker host. Agent-created projects need a person to
 save **Follows main** in the deployment’s **Release feed** setting before
 automatic releases run. Without a
 default target or deploy permission, nothing deploys yet; add a deployment
-under **Settings › Deployments** with **New deployment**.
+under **Deployments** with **New deployment**.
 
 ## Recommended setup
 
@@ -105,7 +105,7 @@ ports stay on loopback. If you use a certificate-on-demand proxy for
 previews, keep `/tls/ask` on loopback: it answers only callers on the same
 machine, never on the tailnet or public address.
 
-Attach the production Docker host in **Infrastructure** and offer it to
+Attach the production Docker host under **Deployments › Targets** and offer it to
 the project. Configure its domain and Traefik for `main`: the adapter uses
 the `traefik` network, the `websecure` entrypoint and the `letsencrypt`
 certificate resolver. Before attaching the host, create the network

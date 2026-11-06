@@ -26,6 +26,7 @@ type ConfigureDeployment struct {
 	ProjectID ids.ID
 	Name      string
 	Target    string
+	From      string // promotion source when creating a deployment
 	Attributes
 	// StartFrom is a set in the backup store a new deployment's first
 	// release fills its data from (0: it starts empty).
@@ -139,14 +140,41 @@ func (s *Service) Configure(ctx context.Context, in ConfigureDeployment) (config
 		} else if found && existing.Deployment.Feed != attrs.Feed {
 			return configurationResult{}, fault.New(fault.Conflict, "change the feed through the deployment's revisioned settings")
 		}
-		if attrs.Feed == "promotion" && (err != nil || existing.Deployment.PromotedFromID.IsZero()) {
-			return configurationResult{}, fault.New(fault.Invalid, "create a manual deployment, then choose its promotion source in Settings")
+		if attrs.Feed == "promotion" && in.From == "" && (err != nil || existing.Deployment.PromotedFromID.IsZero()) {
+			return configurationResult{}, fault.New(fault.Invalid, "choose a source deployment for promotion")
 		}
 		creating := errors.Is(err, sql.ErrNoRows)
+		if in.From != "" && (attrs.Feed != "promotion" || !creating) {
+			return configurationResult{}, fault.New(fault.Invalid, "choose a promotion source when creating a promotion deployment; change existing feeds through deployment settings")
+		}
 		dep, err := ensureStandingIn(ctx, tx, in.ProjectID, in.Name, target.ID, attrs, at)
 		if err != nil {
 			return configurationResult{}, err
 		}
+		if attrs.Feed == "promotion" && creating {
+			if _, err := s.requireDeploy(ctx, in.ProjectID, dep.Name, dep.Protected(), "deployment.configure-feed"); err != nil {
+				return configurationResult{}, err
+			}
+			source, err := deploymentByNameRecord(q.DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: in.ProjectID, Name: in.From}))
+			if err != nil {
+				return configurationResult{}, err
+			}
+			if !source.Standing() || source.ID == dep.ID {
+				return configurationResult{}, fault.New(fault.Invalid, "choose another standing source deployment in this project")
+			}
+			// A new deployment cannot be in an existing source chain. The
+			// project lock serializes its creation with all feed edits.
+			n, err := q.SetDeploymentFeed(ctx, deploymentsql.SetDeploymentFeedParams{ID: dep.ID, Revision: dep.FeedRevision, Feed: "promotion", PromotedFromID: source.ID})
+			if err != nil {
+				return configurationResult{}, err
+			}
+			if n != 1 {
+				return configurationResult{}, errFeedMoved
+			}
+			dep.PromotedFromID = source.ID
+			dep.FeedRevision++
+		}
+
 		if attrs.Feed == "main" && creating {
 			setter, err := s.requireDeploy(ctx, in.ProjectID, dep.Name, dep.Protected(), "deployment.configure-feed")
 			if err != nil {

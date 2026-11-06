@@ -66,14 +66,14 @@ describe('the data operations on a deployment card', () => {
     const { el } = await card(protection(all(no)), true)
     for (const label of doors) expect(button(el, label)?.disabled, label).toBe(true)
     expect(el.textContent).toContain(why)
-    await vi.waitFor(() => expect(el.querySelector('a[href="/infrastructure/do-syd"]')).not.toBeNull())
+    await vi.waitFor(() => expect(el.querySelector('a[href="/targets/do-syd"]')).not.toBeNull())
   })
   it('offers the target settings only to those who can edit targets', async () => {
     const { el, client } = await card(protection(all(no)), false)
     expect(el.textContent).toContain(why)
     // Let the holdings answer arrive before saying the link is absent.
     await settled(client)
-    expect(el.querySelector('a[href="/infrastructure/do-syd"]')).toBeNull()
+    expect(el.querySelector('a[href="/targets/do-syd"]')).toBeNull()
   })
   it('leaves them usable, with no reason, when they can start', async () => {
     const { el } = await card(protection(all(yes)), true)

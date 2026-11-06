@@ -45,11 +45,26 @@ export const PAGE_HELP = {
   deployments: {
     title: 'Deployments',
     line: 'Where your apps run.',
-    help: <p>A deployed project has a deployment of its <code>main</code> branch, which every change that lands updates. A change can have a preview while it is worked on, and a project can be released to more deployments.</p>,
+    help: <p>A deployment chooses its release feed: follows main, promotion from another deployment, or by hand. A change can have a preview while it is worked on, and a project can be released to more deployments.</p>,
+    guide: 'container-lifecycle',
+  },
+  projectDeployments: {
+    title: 'Deployments',
+    guide: 'container-lifecycle',
+    help: <><p>A deployment is a named copy of this app on a target. Choose New deployment to select its target and release feed: Follows main, promotion from another deployment, or By hand.</p><p>The release preference is here. Open a deployment to change its settings and review its releases. Old resources link to their target, where they are settled.</p></>,
+  },
+  releases: {
+    title: 'Releases',
+    help: <p>Recent releases across projects, including those waiting for approval. Open a release to read its outcome and approval record.</p>,
+    guide: 'container-lifecycle',
+  },
+  backups: {
+    title: 'Backups',
+    help: <p>Saved data across all deployments, newest first. Each copy records when it was taken, its contents and where it is kept.</p>,
     guide: 'container-lifecycle',
   },
   infrastructure: {
-    title: 'Infrastructure',
+    title: 'Targets',
     line: `The deployment targets apps run on, and ${PRODUCT}'s own background jobs.`,
     help: <>
       <p>A deployment target is a place deployments run, such as a Docker host, a Portainer environment or a DigitalOcean account. Each target's page shows what runs there and how full it is.</p>
@@ -171,11 +186,6 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
       <p>Services are the systems this app uses, such as a database, AI models or error reporting.</p>
       <p>Changing a declared service opens a change to update the app's contract for approval. Connections attach outside services to the project. Each deployment and preview gets its own credentials.</p>
     </> },
-    Deployments: { guide: 'container-lifecycle', body: <>
-      <p>A deployment is a named copy of this app on a deployment target.</p>
-      <p>See where the app runs, add a deployment on a target offered to this project, and choose where Release sends it. Open a deployment for its resources, backups and actions.</p>
-      <p>Old resources lists data without a final copy and resources that could not be deleted. Delete them at the provider, then confirm here to free the deployment name.</p>
-    </> },
     Secrets: { guide: 'secrets', body: <>
       <p>Secrets are values your app needs but should not be part of the code: passwords, API keys, signing keys. {PRODUCT} keeps them and gives them to the app when it runs.</p>
       <p>Project secrets are declared in <code>secretspec.toml</code>.</p>
@@ -189,24 +199,6 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
     Usage: { guide: 'monitoring', body: <>
       <p>Usage is this project's AI model use and estimated cost.</p>
       <p>Choose a period to see tokens and cost by model, daily use and time spent in workflow steps. Workflow use comes from runs; interactive use comes from chats. Unpriced use is shown separately.</p>
-    </> },
-  },
-  deployments: {
-    Departures: { guide: 'container-lifecycle', body: <>
-      <p>See every deploy, newest first: which app went where, when, and whether it came up.</p>
-      <p>A deploy happens when a change lands, or when a project is released to another deployment.</p>
-    </> },
-    Apps: { guide: 'how-apps-run', body: <>
-      <p>See each app and where it runs: its deployments, whether each is up, and its address.</p>
-      <p>A project that has never been deployed is listed as not deployed.</p>
-    </> },
-    Infrastructure: { guide: 'deployment-targets', body: <>
-      <p>See what runs on each deployment target and how full it is, and anything on a target that {PRODUCT} did not expect.</p>
-      <p>Setting targets up, and who may use each, is under Integrations › Deployment targets.</p>
-    </> },
-    Backups: { guide: 'deployment-backups', body: <>
-      <p>See each deployment's latest backups, and restore from them. A backup copies an app's data, such as its database.</p>
-      <p>With a backup store attached, copies are kept off this machine; without one they stay on {PRODUCT}'s own disk, and losing that disk loses them.</p>
     </> },
   },
   waysOfWorking: {
@@ -228,7 +220,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
 }
 
 // sub names the page inside an area the menu opens as a drawer: the title is
-// the page ("Departures") with its area above it ("Deployments"). A sub-page
+// the page ("Releases") with its area above it ("Deployments"). A sub-page
 // that is about one thing of its own (a kind of integration) passes its own
 // help in place of the area's.
 // line is the page's one-sentence subtitle, kept with its title.

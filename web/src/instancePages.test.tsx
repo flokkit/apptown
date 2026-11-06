@@ -95,8 +95,8 @@ describe('pages about the whole AppTown', () => {
     expect(links()).toEqual(['Home', 'Projects', 'Deployments', 'Ways of working', 'Usage', 'Docs'])
     // Inside the Deployments drawer, a member sees only their own pages.
     await act(async () => { (el.querySelector('button[aria-label="Open Deployments"]') as HTMLButtonElement).click() })
-    expect(links().slice(2, 5)).toEqual(['Deployments', 'Departures', 'Apps'])
-    expect(links()).not.toContain('Infrastructure')
+    expect(links().slice(2, 5)).toEqual(['Deployments', 'Releases', 'Deployments'])
+    expect(links()).not.toContain('Targets')
     expect(links()).not.toContain('Backups')
     unmount()
     answer(admin)
@@ -105,7 +105,7 @@ describe('pages about the whole AppTown', () => {
     await vi.waitFor(() => expect(all()).toContain('People'))
     expect(all()).toEqual(['Home', 'Projects', 'Deployments', 'Conformance', 'Ways of working', 'Integrations', 'Services', 'Evals', 'People', 'Usage', 'Docs', 'Complaints'])
     await act(async () => { (again.el.querySelector('button[aria-label="Open Deployments"]') as HTMLButtonElement).click() })
-    expect(all()).toContain('Infrastructure')
+    expect(all()).toContain('Targets')
     expect(all()).toContain('Backups')
   })
 
@@ -113,7 +113,7 @@ describe('pages about the whole AppTown', () => {
     ['/', []],
     ['/integrations/scm', ['Integrations']],
     ['/workflows', ['Ways of working']],
-    ['/deployments/table', ['Deployments']],
+    ['/deployments', ['Deployments']],
   ])('starts only the current group expanded at %s', async (path, expanded) => {
     answer(admin)
     const { el } = await render(<SidebarNav />, path)
@@ -144,7 +144,7 @@ describe('pages about the whole AppTown', () => {
   // and every deployment's backups are infrastructure.
   it('leaves infrastructure out of Deployments for a project member', async () => {
     answer(member)
-    const { el } = await render(<Routes><Route path="/deployments/:gtab" element={<Deployments />} /></Routes>, '/deployments/backups')
+    const { el } = await render(<Routes><Route path="/backups" element={<InstanceGate page="infrastructure"><Deployments page="backups" /></InstanceGate>} /></Routes>, '/backups')
     // The menu's drawer leaves the pages out (above); a direct address says so.
     await vi.waitFor(() => expect(el.textContent).toContain('Not available to you'))
   })

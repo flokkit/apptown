@@ -2132,6 +2132,9 @@
           "feed": {
             "type": "string"
           },
+          "from": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -4471,6 +4474,9 @@
           "decision": {
             "$ref": "#/components/schemas/ReleaseDecision"
           },
+          "deploymentLabel": {
+            "type": "string"
+          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/ReleaseEvent"
@@ -4515,6 +4521,7 @@
           }
         },
         "required": [
+          "deploymentLabel",
           "decision",
           "statusLabel",
           "release",

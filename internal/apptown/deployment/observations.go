@@ -109,12 +109,46 @@ func (s *Service) ObserveRuntime(ctx context.Context) error {
 		return nil
 	}
 	defer s.observations.sweep.Unlock()
+	return s.observeRuntimeSelection(ctx, nil, ids.ID{})
+}
+
+// refreshRuntime waits for any sweep rather than skipping an explicit request.
+// Only this deployment is sampled; publication uses the same identity checks
+// and failure handling as the background sweep.
+func (s *Service) refreshRuntime(ctx context.Context, dep *Deployment) (RuntimeObservation, error) {
+	s.observations.sweep.Lock()
+	defer s.observations.sweep.Unlock()
+	if err := s.observeRuntimeSelection(ctx, []ids.ID{dep.ProjectID}, dep.ID); err != nil {
+		return RuntimeObservation{}, err
+	}
+	records, err := s.listRecords(ctx, []ids.ID{dep.ProjectID})
+	if err != nil {
+		return RuntimeObservation{}, err
+	}
+	for _, r := range records {
+		if r.deployment.ID == dep.ID {
+			return s.observations.read(r, s.now()), nil
+		}
+	}
+	return RuntimeObservation{}, errors.New("deployment disappeared during status refresh")
+}
+
+func (s *Service) observeRuntimeSelection(ctx context.Context, projects []ids.ID, selected ids.ID) error {
 	parent := ctx
 	ctx, cancel := context.WithTimeout(ctx, observationSweepTimeout)
 	defer cancel()
-	records, err := s.listRecords(ctx, nil)
+	records, err := s.listRecords(ctx, projects)
 	if err != nil {
 		return err
+	}
+	if !selected.IsZero() {
+		filtered := records[:0]
+		for _, r := range records {
+			if r.deployment.ID == selected {
+				filtered = append(filtered, r)
+			}
+		}
+		records = filtered
 	}
 	// Oldest/unattempted placements go first, so a deadline cannot repeatedly
 	// starve the tail of a large fleet.

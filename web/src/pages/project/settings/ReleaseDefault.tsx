@@ -32,7 +32,7 @@ function ReleaseDefaultForm({ slug, deployments, onConfigured }: ReleaseDefaultP
     }}>
       <label className="row" style={{ gap: 8 }}>Preferred deployment <select disabled={busy} value={selected} onChange={(event) => setDraft({ revision: draft?.revision ?? settings.revision, selected: event.target.value })}>
         <option value="">No default selected</option>
-        {eligible.map((entry) => <option key={entry.id} value={entry.id ?? ''} disabled={!entry.id}>{entry.displayLabel || entry.name} ({entry.name})</option>)}
+        {eligible.map((entry) => <option key={entry.id} value={entry.id ?? ''} disabled={!entry.id}>{entry.displayLabel || entry.name}</option>)}
         {settings.deploymentId && !eligible.some((entry) => entry.id === settings.deploymentId) && <option value={settings.deploymentId}>Current choice is unavailable</option>}
       </select></label>
       <button className="primary" disabled={busy || !draft} type="submit">Save</button>

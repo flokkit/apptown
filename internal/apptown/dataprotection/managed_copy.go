@@ -731,3 +731,8 @@ func checkPlace(database string, op ids.ID) string {
 	}
 	return database + suffix
 }
+
+// BackupRetention describes the fleet's retention using the same counts as pruning.
+func BackupRetention() string {
+	return fmt.Sprintf("Keeps the last %d copies (%d for production data), plus the newest 3 pre-release copies", keepFor("non-production"), keepFor("production"))
+}

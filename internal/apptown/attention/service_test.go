@@ -186,7 +186,7 @@ func TestDiskSourcePreservesEvidenceAndHidesReadErrors(t *testing.T) {
 		t.Fatalf("condition meaning lost: %+v", got)
 	}
 	for _, item := range got.Items {
-		if strings.Contains(item.Detail, "secret") || item.Href != "/infrastructure" {
+		if strings.Contains(item.Detail, "secret") || item.Href != "/targets" {
 			t.Fatalf("unsafe detail/link: %+v", item)
 		}
 	}
@@ -245,7 +245,7 @@ func TestCapacitySourceKeepsEachDiskTimeAndDoesNotReadElasticTargets(t *testing.
 	if err != nil || got.Known || !got.Stale || len(got.Items) != 3 || len(evidence.calls) != 2 {
 		t.Fatalf("coverage: %+v %v calls%v", got, err, evidence.calls)
 	}
-	if got.Items[1].ObservedAt != old || !got.Items[1].Stale || got.Items[1].Href != "/infrastructure/team%20host" || !strings.Contains(got.Items[1].Detail, "Office: 1.0 GiB free of 100.0 GiB") {
+	if got.Items[1].ObservedAt != old || !got.Items[1].Stale || got.Items[1].Href != "/targets/team%20host" || !strings.Contains(got.Items[1].Detail, "Office: 1.0 GiB free of 100.0 GiB") {
 		t.Fatalf("disk evidence changed: %+v", got.Items[1])
 	}
 	if got.Items[2].Title != "second: disk space is unknown" {

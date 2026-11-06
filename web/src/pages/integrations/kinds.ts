@@ -10,7 +10,7 @@ const CAP_META: Record<string, { title: string; blurb: string }> = {
   executor: { title: 'Executors', blurb: 'Where workflow steps run' },
   model: { title: 'Model providers', blurb: 'The models agents call' },
   deploy: { title: 'Deploy connectors', blurb: `How ${PRODUCT} reaches the machines it deploys to` },
-  'cloud-account': { title: 'Cloud accounts', blurb: 'Accounts whose deployment targets are managed under Infrastructure' },
+  'cloud-account': { title: 'Cloud accounts', blurb: 'Accounts whose deployment targets are managed under Targets' },
   scanner: { title: 'Scanners', blurb: 'Checks run against a project’s code' },
   registry: { title: 'Package registries', blurb: 'Local mirrors of packages and toolchains' },
   errors: { title: 'Error reporting', blurb: 'Error reports from apps, Sentry-compatible' },
@@ -32,7 +32,7 @@ export const INTEGRATION_MENU: { key: Area; heading: string; items: MenuItem[] }
   { key: 'integrations', heading: 'Integrations', items: [
     ...['scm', 'executor', 'model'].map(menuKind),
     { key: 'profiles', title: 'Model profiles', blurb: 'Which AI model does each task, for each kind of project' },
-    { key: 'targets', title: 'Deployment targets', blurb: 'Where apps are deployed, and who may use each', kinds: ['deploy', 'cloud-account'] },
+    ...['deploy', 'cloud-account'].map(menuKind),
     ...['registry', 'scanner', 'secrets'].map(menuKind),
   ] },
   { key: 'services', heading: 'Services', items: [

@@ -74,7 +74,7 @@ func TestProtectionSourceDistinguishesMissingFailedAndUnknownRecovery(t *testing
 				if !strings.Contains(item.Title, "Office: ") {
 					t.Fatalf("unnamed condition: %+v", item)
 				}
-				if item.Severity != tc.severity || item.ObservedAt != at || item.Href != "/projects/team-app/settings/deployments" {
+				if item.Severity != tc.severity || item.ObservedAt != at || item.Href != "/projects/team-app/deployments" {
 					t.Fatalf("evidence %+v", item)
 				}
 				if tc.name == "interrupted" && strings.Contains(item.Title, "failed") {

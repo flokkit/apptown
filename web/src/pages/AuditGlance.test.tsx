@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient, getKey } from '../data'
-import { InfrastructureView } from './Infrastructure'
+import { ResourceTables } from './Infrastructure'
 import { BackupsView } from './Backups'
 import { groupJobs } from './InfrastructureHome'
 import { Evidence } from './change/Evidence'
@@ -101,10 +101,8 @@ it('starts a secret request as a prepared change without asking for its value', 
 it('shows target facts beside the inventory while resource ids stay in detail', () => {
   const client = newQueryClient()
   client.setQueryData(getKey('/infrastructure'), { targets: [{ target: 'Kitchen', statusLabel: 'working', live: true, facts: 'ssh root@internal-host TOKEN_NAME', resources: [{ kind: 'container', name: 'apptown-dep-raw-id', id: 'raw-provider-id', status: 'running', statusLabel: 'running', record: 'recorded', hosts: [{ project: 'Diary', deployment: 'main' }] }] }] })
-  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><InfrastructureView /></QueryClientProvider></MemoryRouter>)
-  expect(firstView(html)).toContain('Kitchen')
+  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ResourceTables t={client.getQueryData<{ targets: import('../wire.gen').InfrastructureView[] }>(getKey('/infrastructure'))!.targets[0]} onChanged={() => {}} /></QueryClientProvider></MemoryRouter>)
   expect(firstView(html)).toContain('working')
-  expect(firstView(html)).toContain('ssh root@internal-host TOKEN_NAME')
   expect(firstView(html)).not.toContain('raw-provider-id')
   expect(firstView(html)).toContain('Diary')
   expect(html).toContain('Diary')

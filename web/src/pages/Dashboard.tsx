@@ -124,8 +124,8 @@ export function homeStatusParts({ needsYou, running, deployments, operations }: 
   for (const d of deployments) {
     if (!live.has(d.project) && (d.observationStale || d.running === null)) unknown.add(d.project)
   }
-  if (deployments.length > 0) parts.push({ label: 'Apps live', value: live.size, to: '/deployments/table' })
-  if (unknown.size > 0) parts.push({ label: 'Apps not checked', value: unknown.size, to: '/deployments/table' })
+  if (deployments.length > 0) parts.push({ label: 'Apps live', value: live.size, to: '/deployments' })
+  if (unknown.size > 0) parts.push({ label: 'Apps not checked', value: unknown.size, to: '/deployments' })
   if (operations.count) parts.push({ label: 'Problems', value: operations.count, to: '/attention' })
   // Conditions AppTown could not read are listed with their reasons on
   // Attention; a bare count of them on Home tells a person nothing to do.

@@ -119,8 +119,8 @@ func TestARefusedSettlementIsFlaggedAndCheckAgainSettlesIt(t *testing.T) {
 	if got := receiptsOf(t, a, env.ProjectID, "deployment.checked-again"); len(got) != 1 || got[0].Actor != "alice" {
 		t.Fatalf("check receipts: %+v", got)
 	}
-	if _, err := a.Deployment.CheckAgain(asPerson("alice"), env.ProjectID, env.Name); err == nil {
-		t.Fatal("a deployment with nothing in doubt was checked again")
+	if result, err := a.Deployment.CheckAgain(asPerson("alice"), env.ProjectID, env.Name); err != nil || len(result.Checked) != 0 {
+		t.Fatalf("settled refresh: %+v %v", result, err)
 	}
 }
 
@@ -158,9 +158,18 @@ func TestCheckAgainSettlesWhatItObserves(t *testing.T) {
 				}
 				return "", nil, false
 			}
-			result, err := a.Deployment.CheckAgain(asPerson("alice"), env.ProjectID, env.Name)
-			if err != nil || len(result.Checked) != 1 {
-				t.Fatalf("check again: %+v %v", result, err)
+			path := "/api/v1/projects/p/deployments/main/check"
+			response := authzCall(a.Handler(), "alice", "POST", path, "{}")
+			var result struct {
+				Checked     []deployment.RecoveryResult `json:"checked"`
+				Observation deployment.RuntimeState     `json:"observation"`
+				ObservedAt  string                      `json:"observedAt"`
+			}
+			if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &result) != nil || len(result.Checked) != 1 {
+				t.Fatalf("status refresh: %d %s", response.Code, response.Body.String())
+			}
+			if observed == "running" && (result.Observation != deployment.RuntimeRunning || result.ObservedAt == "") {
+				t.Fatalf("repaired runtime was not refreshed: %+v", result)
 			}
 			attempt := result.Checked[0].Attempt
 			_, status, _, err := a.Deployment.Outcomes.RecoveryAttempt(context.Background(), attempt)
@@ -184,6 +193,21 @@ func TestCheckAgainSettlesWhatItObserves(t *testing.T) {
 			}
 			if observed == "gone" && !strings.Contains(payload.Checked[0].Reason, "gone") {
 				t.Fatalf("the receipt does not say the container was gone: %+v", payload.Checked[0])
+			}
+			if observed == "running" {
+				// The same endpoint must also read an already settled deployment.
+				// Change the runtime so a cached answer cannot pass this check.
+				fake.reply = func(args []string) (string, error, bool) {
+					if len(args) > 2 && args[0] == "inspect" && args[2] == dockerhost.RuntimeFormat {
+						return "Error response from daemon: No such object: " + args[len(args)-1], errFakeExit, true
+					}
+					return "", nil, false
+				}
+				response = authzCall(a.Handler(), "alice", "POST", path, "{}")
+				result.Checked = nil
+				if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &result) != nil || len(result.Checked) != 0 || result.Observation != deployment.RuntimeStopped || result.ObservedAt == "" {
+					t.Fatalf("settled endpoint did not take a fresh reading: %d %s", response.Code, response.Body.String())
+				}
 			}
 		})
 	}
@@ -213,8 +237,8 @@ func TestAReleaseWhoseMigrationFailsEndsFailed(t *testing.T) {
 	if env.Readiness == deployment.ReadinessUncertain || len(openAttempts(t, a)) != 0 {
 		t.Fatalf("a failed migration left the deployment in doubt: readiness %s, open %v", env.Readiness, openAttempts(t, a))
 	}
-	if _, err := a.Deployment.CheckAgain(asPerson("alice"), env.ProjectID, env.Name); err == nil {
-		t.Fatal("Check again found something in doubt after a failed release")
+	if result, err := a.Deployment.CheckAgain(asPerson("alice"), env.ProjectID, env.Name); err != nil || len(result.Checked) != 0 {
+		t.Fatalf("failed deployment refresh: %+v %v", result, err)
 	}
 	step, err := workflow.ReadStepIn(t.Context(), a.DB, stepID)
 	if err != nil {

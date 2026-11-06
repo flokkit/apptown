@@ -52,7 +52,7 @@ it('warns before deploying history code and shows the current backup availabilit
   expect(h.el.querySelector('[role=dialog]')?.textContent).toContain("This deploys release 1's code to Customer office. Your data stays as it is now; AppTown does not undo data changes or migrations.")
   expect(h.el.textContent).toContain("AppTown can't tell whether the older code works with today's data. It may run its own start-up steps.")
   expect(h.el.textContent).toContain('Backup taken before release 3: copy · pruned')
-  expect(h.el.querySelector('[role=dialog] a')?.getAttribute('href')).toBe('/deployments/backups#backup-copy')
+  expect(h.el.querySelector('[role=dialog] a')?.getAttribute('href')).toBe('/backups#backup-copy')
   expect(h.el.querySelector('[role=dialog]')?.textContent).not.toMatch(/Needs approval|A backup is taken first|next change that lands|production/)
   expect(h.sent).toEqual([])
   await h.click('Deploy release 1 to Customer office')

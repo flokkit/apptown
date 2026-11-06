@@ -39,7 +39,7 @@ function RemovalNotice({ slug, onDismiss }: { slug: string; onDismiss: () => voi
     return (
       <div className="card tone-bad" style={{ maxWidth: 760 }}>
         <strong>{slug}</strong> was deleted, but cleaning up after it stopped: {c.detail}.{' '}
-        <Link to="/infrastructure">Try again on Infrastructure</Link>.
+        <Link to="/targets">Try again on Infrastructure</Link>.
       </div>
     )
   }

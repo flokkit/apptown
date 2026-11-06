@@ -136,8 +136,8 @@ export function Capacity({ name }: { name: string }) {
         <table className="small mt-1" >
           <thead><tr><th>deployment</th><th>part</th><th>runs on</th><th>listed per month</th></tr></thead>
           <tbody>
-            {(c.parts ?? []).map((p) => (
-              <GlanceRow name={0} fact={3} labels={["App", "Part", "Size", "Monthly price"]} key={`${p.deployment}/${p.part}`}>
+            {(c.parts ?? []).map((p, i) => (
+              <GlanceRow name={0} fact={3} labels={["App", "Part", "Size", "Monthly price"]} key={`${p.deployment}/${p.part}/${i}`}>
                 <td>{p.deployment}</td>
                 <td>{p.part || 'app'}{p.need ? <span className="muted"> (service)</span> : null}</td>
                 <td>{p.runsOn}</td>
@@ -238,7 +238,7 @@ function Bars({ c }: { c: TargetCapacity }) {
           rows={[
             ...tenants.map((t) => ({
               name: t.name, kind: t.kind,
-              to: t.project && t.deployment ? `/projects/${t.project}/settings/deployments` : undefined,
+              to: t.project && t.deployment ? `/projects/${t.project}/deployments/${t.deployment}` : undefined,
               cells: [t.unknown ? 'unknown' : String(t.containers), `${f(t.used, fmtBytes)}${t.used.reason ? ` · ${t.used.reason}` : ''}`, limitWords(t.promised, t.unlimited, t.containers, fmtBytes), t.unknown ? 'unknown' : String(t.unlimited),
                 cpuCell(t)],
             })),

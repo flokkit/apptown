@@ -1,7 +1,7 @@
 # Deployment targets
 
 A deployment target is a place deployments run. Add one under
-**Infrastructure → add a deployment target**. Each credential is the name of
+**Deployments › Targets → Add a deployment target**. Each credential is the name of
 an AppTown secret; set it there, or with `apptown secret set <NAME> < file`.
 
 | Kind | What you give it |
@@ -36,7 +36,7 @@ endpoint. The intranet target configured for AppTown verifies its endpoint
 when AppTown starts; until it has, releases to it are refused and the target
 page says the endpoint is not observed.
 
-A project's deployments are made on the project's **Settings → Deployments**.
+A project's deployments are made on the project's **Deployments**.
 What each kind runs, and what a deployment owns and deletes when taken
 down, is in [Previews and deployments](container-lifecycle.md).
 
@@ -98,7 +98,7 @@ disk is read again when the work starts, not taken from the page's reading:
 
 Stopping, taking down and removing are never refused. This keeps room for
 the next piece of work; it does not reserve it, so two at once or one
-larger than its free space can still fill a disk. Infrastructure lists this
+larger than its free space can still fill a disk. Targets lists this
 AppTown's data folder and its worker's state folder and Docker data, each
 with what is free and when it was read; a target's own disk is on its page.
 

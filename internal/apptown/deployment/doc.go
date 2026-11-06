@@ -102,8 +102,8 @@
 // [PrepareRecovery] checks settlement consistency and queues interrupted attempts
 // before new execution; it makes no provider calls. A deployment whose records
 // contradict each other is marked as needing attention ([Outcomes.NeedsAttention])
-// and startup goes on; [Service.CheckAgain] is a person's repair, observing and
-// settling it through the usual settlement. [Recoverer] receives an observation-only
+// and startup goes on; [Service.CheckAgain] refreshes its runtime reading and
+// repairs uncertainty through the usual settlement. [Recoverer] receives an observation-only
 // interface: it calls Resume for the admitted identity and cannot reapply a missing
 // deployment. Jobs own retry budgets; exhaustion does not prove provider failure.
 //

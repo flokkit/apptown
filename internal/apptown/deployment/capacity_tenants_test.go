@@ -35,7 +35,7 @@ func TestEveryRunningContainerIsCountedOnceUnderWhoHoldsIt(t *testing.T) {
 	t.Parallel()
 	shop, pv := ids.New(time.Unix(1, 0)), ids.New(time.Unix(2, 0))
 	deps := map[ids.ID]ProjectDeployment{
-		shop: {Deployment: Deployment{ID: shop, Name: "main", Kind: Standing}, Project: "shop"},
+		shop: {Deployment: Deployment{ID: shop, Name: "main", DisplayLabel: "main", Kind: Standing}, Project: "shop"},
 		pv:   {Deployment: Deployment{ID: pv, Name: "preview-7", Kind: preview}, Project: "shop"},
 	}
 	owners := containerOwners{
@@ -199,5 +199,28 @@ func TestTheGivenHostMemoryReaderIsTheOneCapacityUses(t *testing.T) {
 	}})
 	if host := s.hostUse(&Target{Origin: OriginBuiltIn}, 8<<30); !host.Known || host.Value != 2<<30 {
 		t.Fatalf("host use: %+v", host)
+	}
+}
+
+func TestCapacityNamesADeploymentByItsDisplayLabel(t *testing.T) {
+	id := ids.New(time.Unix(702, 0))
+	owners := containerOwners{exact: map[string]partOf{"app": {deployment: id}}}
+	deps := map[ids.ID]ProjectDeployment{id: {Deployment: Deployment{ID: id, Name: "main", DisplayLabel: "Production", Kind: Standing}, Project: "shop"}}
+	kind, name, dep := tenantOf(docker.ContainerLimit{Name: "app"}, owners, deps)
+	if kind != tenantDeployment || name != "shop/Production" || dep.Name != "main" {
+		t.Fatalf("tenant identity changed or name is not displayed: %s %s %+v", kind, name, dep)
+	}
+}
+
+func TestCapacityKeepsDeploymentsWithTheSameDisplayNameSeparate(t *testing.T) {
+	a, b := ids.New(time.Unix(703, 0)), ids.New(time.Unix(704, 0))
+	owners := containerOwners{exact: map[string]partOf{"a": {deployment: a}, "b": {deployment: b}}}
+	deps := map[ids.ID]ProjectDeployment{
+		a: {Deployment: Deployment{ID: a, Name: "east", DisplayLabel: "Office", Kind: Standing}, Project: "shop"},
+		b: {Deployment: Deployment{ID: b, Name: "west", DisplayLabel: "Office", Kind: Standing}, Project: "shop"},
+	}
+	tenants := tenantsOf([]docker.ContainerLimit{{Name: "a"}, {Name: "b"}}, map[string]int64{"a": 1, "b": 2}, nil, owners, deps)
+	if len(tenants) != 2 || tenants[0].Name != "shop/Office" || tenants[1].Name != "shop/Office" || tenants[0].Deployment == tenants[1].Deployment {
+		t.Fatalf("display names merged identities: %+v", tenants)
 	}
 }

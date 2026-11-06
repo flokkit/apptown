@@ -21,10 +21,10 @@ const card = (readiness: string) => renderToStaticMarkup(
     </MemoryRouter>
   </QueryClientProvider>)
 
-describe('a deployment that needs attention offers Check again', () => {
-  it('offers Check again, and says what it does, when AppTown does not know whether it stands', () => {
+describe('a deployment status refresh owns uncertain state', () => {
+  it('keeps uncertainty visible without a separate Check again door', () => {
     const html = card('uncertain')
-    expect(html).toContain('Check again')
+    expect(html).not.toContain('Check again')
     expect(html).toContain('deploys nothing')
   })
   it('offers nothing of the kind for a settled deployment', () => {
@@ -74,8 +74,8 @@ describe('what a take-down left says why, and closes only as deleted', () => {
   it('shows why it was left', () => {
     expect(html).toContain('AppTown takes no backups on Portainer')
   })
-  it('offers I deleted it, and no longer Keep it', () => {
-    expect(html).toContain('I deleted it')
+  it('leaves settlement on the target page', () => {
+    expect(html).not.toContain('I deleted it')
     expect(html).not.toContain('Keep it')
   })
 })

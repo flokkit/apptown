@@ -15,7 +15,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/fault"
 )
 
 // A deployment needs attention when its own records contradict each other:
@@ -24,7 +23,7 @@ import (
 // settlement commit together, so neither arises from AppTown's own
 // writes; neither is reconstructed at startup either. Startup marks the
 // deployment (readiness uncertain, with a ledger line) and goes on; a
-// person presses Check again, which observes the deployment and settles it
+// person presses Refresh status, which observes the deployment and settles it
 // through the usual settlement (Service.CheckAgain).
 
 // contradiction is a release still releasing after its attempt ended.
@@ -161,18 +160,16 @@ func (s *Outcomes) settleStranded(ctx context.Context, c contradiction, outcome 
 	})
 }
 
-// CheckResult is what Check again observed and settled, one line per
+// CheckResult records repairs made during a status refresh, one line per
 // attempt or release it looked at.
 type CheckResult struct {
-	Deployment string           `json:"deployment"`
-	Checked    []RecoveryResult `json:"checked"`
+	Deployment  string             `json:"deployment"`
+	Checked     []RecoveryResult   `json:"checked"`
+	Observation RuntimeObservation `json:"-"`
 }
 
-var errNothingInDoubt = fault.New(fault.Conflict, "nothing about this deployment is in doubt: it has no uncertain attempt and no release left releasing")
-
-// CheckAgain is a person's repair of a deployment that needs attention. It
-// observes the deployment on its target, never deploying anything, and
-// settles what it observes through the usual settlement:
+// CheckAgain refreshes a deployment's runtime reading, never deploying anything.
+// When its records need repair, it first uses the usual settlement:
 //   - an uncertain attempt is observed as recovery observes it: running with
 //     the image its boot recorded settles it applied, its container gone
 //     settles it failed, and a host that cannot be asked leaves it uncertain;
@@ -180,7 +177,8 @@ var errNothingInDoubt = fault.New(fault.Conflict, "nothing about this deployment
 //     failed or superseded fails it, and done is observed the same way
 //     (an attempt of an older generation is superseded by the newer one).
 //
-// The receipt names who pressed it and what was observed.
+// Settled deployments also get a fresh reading. The receipt names who pressed
+// it and any repairs. Provider failures remain unknown in the runtime reading.
 func (s *Service) CheckAgain(ctx context.Context, projectID ids.ID, name string) (CheckResult, error) {
 	result := CheckResult{Deployment: name}
 	if s.authority == nil {
@@ -218,8 +216,9 @@ func (s *Service) CheckAgain(ctx context.Context, projectID ids.ID, name string)
 		}
 		result.Checked = append(result.Checked, r)
 	}
-	if len(result.Checked) == 0 {
-		return result, errNothingInDoubt
+	result.Observation, err = s.refreshRuntime(ctx, dep)
+	if err != nil {
+		return result, err
 	}
 	if err := audit.Append(ctx, s.db, audit.At(s.now()).String(), actor.Principal.Name, projectID, "deployment.checked-again", dep.Name, jsonText(map[string]any{"checked": result.Checked})); err != nil {
 		return result, fmt.Errorf("recording the check: %w", err)

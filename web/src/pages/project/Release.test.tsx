@@ -128,7 +128,7 @@ it.each([
   try {
     await vi.waitFor(() => expect(view.el.textContent).toContain(label))
     const link = [...view.el.querySelectorAll('a')].find(a => a.textContent === label)
-    expect(link?.getAttribute('href')).toBe(`/deployments/backups#backup-${B3}`)
+    expect(link?.getAttribute('href')).toBe(`/backups#backup-${B3}`)
     if (status !== 'ok') expect(view.el.textContent).not.toContain('Backed up before')
   } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

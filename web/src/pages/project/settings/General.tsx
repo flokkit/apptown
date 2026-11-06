@@ -63,7 +63,7 @@ export function DangerZone({ slug }: { slug: string }) {
           <tbody>
             {row('Deleted', <>{st.deletedAt ? fmtDay(st.deletedAt) : ''} by {st.requestedBy}</>)}
             {row('Kept until', st.keptUntil ? fmtDay(st.keptUntil) : 'unknown')}
-            {row('Backups', <Link className="tap" to="/deployments/backups">kept</Link>)}
+            {row('Backups', <Link className="tap" to="/backups">kept</Link>)}
             {st.purge && row('Purge', <><Link className="tap" to={`/operations/${st.purge.id}`}>{st.purge.state}</Link>{st.purge.detail && <div className="muted small">{st.purge.detail}</div>}</>)}
             {st.bindingRevoked && row('Authority', 'withdrawn: no scheduled purge', 'error')}
           </tbody>
@@ -71,7 +71,7 @@ export function DangerZone({ slug }: { slug: string }) {
         <div className="row general-danger-zone-div">
           <button className="subtle" disabled={busy || purging} onClick={() => run(() => post(`/projects/${slug}/restore`, {}))}>Restore project</button>
           {purging && <span className="muted small">purge has started; restoring is no longer available</span>}
-          <QuietConfirm label="Purge now" ask={`Purge ${slug} now? Its backups, repository and records go for good; its GitLab copy is archived.`}
+          <QuietConfirm label="Purge now" ask={`Purge ${slug} now? Its backups, repository and records go for good; its remote repository is archived.`}
             onYes={() => run(() => post(`/projects/${slug}/purge`, {}))} yes="Purge now" className="subtle danger" title="administrators only" />
           {err && <span className="error small">{err}</span>}
         </div>
@@ -95,7 +95,7 @@ export function DangerZone({ slug }: { slug: string }) {
             <tbody>
               {row('New work', 'stops at once')}
               {row('Can be cancelled', 'for 10 minutes')}
-              {row('Taken down', envs === null ? (envsQ.reason ? `unknown: ${envsQ.reason}` : 'reading…') : envs.length > 0 ? [...envs.filter((n) => n !== 'main'), ...envs.filter((n) => n === 'main')].join(', then ') : 'no deployments', envs === null && envsQ.reason ? 'error' : '')}
+              {row('Taken down', envs === null ? (envsQ.reason ? `unknown: ${envsQ.reason}` : 'reading…') : envs.length > 0 ? envs.join(', then ') : 'no deployments', envs === null && envsQ.reason ? 'error' : '')}
               {row('Kept, restorable', 'for 30 days')}
               {row('Then purged', 'backups, repository, records')}
             </tbody>
@@ -285,7 +285,7 @@ export function RepoCard({ slug }: { slug: string }) {
         <span className="muted small">{repo.commits} commits</span>
         <span className="muted small repo-head">{repo.head.sha} {repo.head.subject.slice(0, 60)} · {repo.head.when}</span>
         <span className="grow" />
-        {repo.webUrl && <a href={repo.webUrl} target="_blank" rel="noreferrer">GitLab ↗</a>}
+        {repo.webUrl && <a href={repo.webUrl} target="_blank" rel="noreferrer">Repository ↗</a>}
       </div>
       {repo.cloneCmd && (
         <div className="card row general-general-tab-card">

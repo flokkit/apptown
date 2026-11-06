@@ -44,5 +44,5 @@ Each deployment and each preview has its own key. The app's parts receive:
 - HTTP 402 means the allowance is used up: show the person that AI is
   unavailable until it resets. Set a timeout on every call.
 
-The deployment's card under Settings › Deployments shows what the key may
+The deployment's card under Deployments shows what the key may
 still spend.

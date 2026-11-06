@@ -74,7 +74,7 @@ function holders(tenants: Tenant[], fig: (t: Tenant) => Figure | number) {
       continue
     }
     if (v.value <= 0) continue
-    segs.push({ key: `${t.kind}:${t.name}`, kind: tenantKind(t.kind), name: t.name, value: v.value, project: t.project, deployment: t.deployment })
+    segs.push({ key: `${t.kind}:${t.project && t.deployment ? `${t.project}/${t.deployment}` : t.name}`, kind: tenantKind(t.kind), name: t.name, value: v.value, project: t.project, deployment: t.deployment })
   }
   return { segs, unknown }
 }

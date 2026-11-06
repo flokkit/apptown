@@ -1,6 +1,5 @@
 import './infrastructure.css'
-import { Section, Group } from '../Section'
-import { useHostStates } from '../hostState'
+import { Group } from '../Section'
 import { useId, useState } from 'react'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
@@ -22,45 +21,12 @@ import { lastSeen, fmtWhen, fmtStamp } from '../format'
 
 // The server's shapes, generated from its Go types (wire.gen.ts).
 export type { Resource, InfrastructureView as TargetInfra } from '../wire.gen'
-import type { InfrastructureTargets, InfrastructureView as TargetInfra, ProjectCleanupList, Resource } from '../wire.gen'
+import type { InfrastructureView as TargetInfra, ProjectCleanupList, Resource } from '../wire.gen'
 import { useHolds } from '../instancePages'
-import { familyRank } from '../targets'
 
 
 export const KIND_TITLE: Record<string, string> = { app: 'Apps', database: 'Databases', registry: 'Registry', container: 'Containers', volume: 'Data volumes', stack: 'Stacks' }
 export const KIND_ORDER = ['app', 'container', 'stack', 'database', 'volume', 'registry']
-
-export function InfrastructureView() {
-  const q = useGet<InfrastructureTargets>('/infrastructure', { poll: 20000 })
-  const hostState = useHostStates()
-  const { data, reload } = q
-  if (!data) return <ReadStatus q={q} what="each deployment target's inventory" />
-  const targets = [...data.targets].sort((a, b) => familyRank(a.family) - familyRank(b.family) || a.target.localeCompare(b.target))
-  return (
-    <div>
-      <StaleNote q={q} />
-      <Section title="Deployment targets" count={targets.length} action={<Link to="/integrations/targets">Set up targets →</Link>}>
-        {targets.map((t) => {
-          // The same word as the target's own page: its connection, unless
-          // something about the host (capacity, disk) needs attention.
-          const state = hostState(t.target, t.statusLabel)
-          const help = state.help.startsWith('Host connection') ? (t.status ? `Target check: ${t.status}` : undefined) : state.help
-          return (
-            <div key={t.target} className="card row infrastructure-card">
-              <Link to={`/infrastructure/${t.target}`} className="row grow infrastructure-link">
-                <span className="row-status"><Status observation word={state.word} help={help} /></span>
-                <strong>{t.target}</strong>
-                <span className="muted small">{[t.place, state.summary, t.kind === 'docker-host' ? (t.asOf ? `read ${Math.max(0, Math.floor((Date.now() - Date.parse(t.asOf)) / 1000))} s ago, took ${Math.round(t.tookSeconds)} s` : 'never read') : t.asOf && !t.live && !state.summary.startsWith('last seen') ? lastSeen(t.asOf) : '', t.invalidated ? 'before the latest change' : ''].filter(Boolean).join(' · ')}</span>
-              </Link>
-              <span className="row-action"><Link className="btn" to={`/infrastructure/${t.target}`}>Manage</Link></span>
-            </div>
-          )
-        })}
-      </Section>
-      {targets.map((t) => <TargetSection key={t.target} t={t} onChanged={reload} />)}
-    </div>
-  )
-}
 
 // A deleted project's containers, volumes and workspaces are removed after
 // its records, by a queued cleanup that holds the project's address until it
@@ -97,29 +63,6 @@ export function DeletedProjects() {
     </div>
   )
 }
-
-function TargetSection({ t: tIn, onChanged }: { t: TargetInfra; onChanged: () => void }) {
-  const t = { ...tIn, resources: tIn.resources ?? [] }
-  const unrecorded = t.resources.filter((r) => r.record === 'unrecorded').length
-  const missing = t.resources.filter((r) => r.record === 'missing').length
-  const note = [
-    t.domain ? `*.${t.domain}` : '', t.facts,
-    unrecorded > 0 ? `${unrecorded} unrecorded` : '', missing > 0 ? `${missing} missing` : '',
-    t.unreported ? UNREPORTED : t.unknown && !t.error ? 'Pending first check' : '',
-    t.invalidated ? 'Inventory predates the latest change.' : '',
-  ].filter(Boolean).join(' · ')
-  return (
-    <Section title={`Resources on ${t.target}`} label={`${t.target} resources`} count={t.resources.length || undefined} note={note || undefined}>
-      {t.error && !t.live && <p className="error small">{t.error}{t.asOf ? ` · showing the inventory ${lastSeen(t.asOf)}.` : ` · showing ${PRODUCT}'s records only.`}</p>}
-      <ResourceTables t={t} onChanged={onChanged} />
-      {t.shared && <p className="muted small">{t.shared}</p>}
-    </Section>
-  )
-}
-
-// UNREPORTED: a target whose kind has no inventory reader. What it holds
-// is unknown, which is neither a failure nor empty.
-const UNREPORTED = "This kind of target doesn't report what it holds"
 
 // ResourceTables: what is at a target, by kind, one row each, with the
 // remove control on anything AppTown does not claim. The fleet view and a
@@ -162,7 +105,7 @@ function ResourceRow({ r, target, onChanged, confirmed, invalidated, seenAt }: {
     : r.record === 'missing' ? <Status observation word="failed" help="The provider did not find this recorded resource. Check the target and restore or release the app." />
       : HEALTH_KINDS.includes(r.kind) ? <Status observation word={r.statusLabel} help={r.status && !['working', 'running'].includes(r.statusLabel) && r.status.toLowerCase() !== r.statusLabel ? r.status : undefined} />
         : <span className="muted">present</span>
-  const holders = (r.hosts ?? []).map((h) => h.project.startsWith('(') ? h.project : `${h.project}/${h.deployment}${h.need ? ` (its ${h.need})` : ''}`)
+  const holders = (r.hosts ?? []).map((h) => h.project.startsWith('(') ? h.project : `${h.project}/${h.deploymentLabel || h.deployment}${h.need ? ` (its ${h.need})` : ''}`)
   const meta = [
     holders.join(', ') || (r.retained ? `kept from ${r.retained.project}/${r.retained.deployment}` : ''),
     r.record === 'unrecorded' ? 'unrecorded' : r.record === 'missing' ? 'missing at the target' : '',
@@ -181,10 +124,10 @@ function ResourceRow({ r, target, onChanged, confirmed, invalidated, seenAt }: {
         {r.detail && <div className="muted">{r.detail}</div>}
         {!confirmed && <div className="muted">{unknownReason}</div>}
         {(r.hosts ?? []).filter((h) => !h.project.startsWith('(')).map((h, i) => (
-          <div key={i}>Used by <Link to={`/projects/${h.project}/settings/deployments`}>{h.project}/{h.deployment}</Link>{h.need ? <span className="muted"> — its {h.need}</span> : h.generation ? <span className="muted"> gen {h.generation}</span> : null}</div>
+          <div key={i}>Used by <Link to={`/projects/${h.project}/deployments/${h.deployment}`}>{h.project}/{h.deploymentLabel || h.deployment}</Link>{h.need ? <span className="muted"> — its {h.need}</span> : h.generation ? <span className="muted"> gen {h.generation}</span> : null}</div>
         ))}
         {r.retained && (
-          <div>Kept by <Link to={`/projects/${r.retained.project}/settings/deployments`}>{r.retained.project}/{r.retained.deployment}</Link><span className="muted">{r.retained.reason ? ` · ${r.retained.reason}` : `, taken down ${fmtWhen(r.retained.retainedAt)} by ${r.retained.retainedBy}`}</span></div>
+          <div>Kept by <Link to={`/projects/${r.retained.project}/deployments`}>{r.retained.project}/{r.retained.deployment}</Link><span className="muted">{r.retained.reason ? ` · ${r.retained.reason}` : `, taken down ${fmtWhen(r.retained.retainedAt)} by ${r.retained.retainedBy}`}</span></div>
         )}
         <div className="muted">{r.record === 'unrecorded' ? `At the provider, not in ${PRODUCT}'s records: made outside ${PRODUCT}, or before ${PRODUCT} lost its record.` : `${PRODUCT} records ownership of this resource.`}</div>
         {r.tags && r.tags.length > 0 && <div className="muted" title="the provider's tags">Tags: {r.tags.join(', ')}</div>}
