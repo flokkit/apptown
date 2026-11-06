@@ -1,4 +1,4 @@
-package deployment_test
+package deployment
 
 import (
 	"context"
@@ -7,23 +7,22 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
-type executionStore struct {
-	settlement
-	start                   deployment.Start
-	admitted                deployment.Attempt
+type executionFixtureStore struct {
+	executionSettlement
+	start                   Start
+	admitted                Attempt
 	created                 bool
 	admitErr, checkpointErr error
 	onAdmit                 func()
 	checkpoint              map[string]any
 }
 
-func (s *executionStore) Admit(ctx context.Context, in deployment.Start) (deployment.Attempt, bool, error) {
+func (s *executionFixtureStore) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 	s.calls = append(s.calls, "admit")
 	s.start = in
 	if s.onAdmit != nil {
@@ -31,7 +30,7 @@ func (s *executionStore) Admit(ctx context.Context, in deployment.Start) (deploy
 	}
 	return s.admitted, s.created, s.admitErr
 }
-func (s *executionStore) Checkpoint(ctx context.Context, at deployment.Attempt) deploy.Checkpoint {
+func (s *executionFixtureStore) Checkpoint(ctx context.Context, at Attempt) deploy.Checkpoint {
 	return func(values map[string]any) error {
 		s.calls = append(s.calls, "checkpoint")
 		if at != s.admitted {
@@ -41,15 +40,15 @@ func (s *executionStore) Checkpoint(ctx context.Context, at deployment.Attempt) 
 		return s.checkpointErr
 	}
 }
-func executionFixture() (deployment.Runner, *executionStore, deployment.Start, *int) {
-	s := &executionStore{settlement: settlement{outcome: deployment.Applied}, admitted: deployment.Attempt{ID: idstest.N(7), DeploymentID: idstest.N(3), Generation: 2}, created: true}
+func executionFixture() (Runner, *executionFixtureStore, Start, *int) {
+	s := &executionFixtureStore{executionSettlement: executionSettlement{outcome: Applied}, admitted: Attempt{ID: idstest.N(7), DeploymentID: idstest.N(3), Generation: 2}, created: true}
 	count := new(int)
 	base := int64(1)
-	in := deployment.Start{DeploymentID: idstest.N(3), TargetID: idstest.N(5), Key: "release-11", BaseGeneration: &base,
-		Inputs: deployment.Inputs{ReleaseID: idstest.N(11), Revision: "selected-revision", ImageDigest: "selected-image", ArtifactHash: "selected-artifact"}}
-	return deployment.Runner{Store: s, Applied: func(_ ids.ID) { *count++ }}, s, in, count
+	in := Start{DeploymentID: idstest.N(3), TargetID: idstest.N(5), Key: "release-11", BaseGeneration: &base,
+		Inputs: Inputs{ReleaseID: idstest.N(11), Revision: "selected-revision", ImageDigest: "selected-image", ArtifactHash: "selected-artifact"}}
+	return Runner{Store: s, Applied: func(_ ids.ID) { *count++ }}, s, in, count
 }
-func activeExecution(_ context.Context, at deployment.Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
+func activeExecution(_ context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 	if err := checkpoint(map[string]any{"providerID": "original"}); err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
@@ -64,7 +63,7 @@ func TestExecutionAdmissionAndReplayNeverInvokeProvider(t *testing.T) {
 			if !replay {
 				s.admitErr = errWrite
 			}
-			got, err := r.Run(context.Background(), in, func(context.Context, deployment.Attempt, deploy.Checkpoint) (deploy.Observation, error) {
+			got, err := r.Run(context.Background(), in, func(context.Context, Attempt, deploy.Checkpoint) (deploy.Observation, error) {
 				t.Fatal("unadmitted execution")
 				return deploy.Observation{}, nil
 			})
@@ -75,8 +74,8 @@ func TestExecutionAdmissionAndReplayNeverInvokeProvider(t *testing.T) {
 				t.Fatal("changed admission request")
 			}
 			if !replay {
-				var failure *deployment.RunError
-				if !errors.As(err, &failure) || failure.Stage != deployment.Admission || !errors.Is(err, errWrite) {
+				var failure *runError
+				if !errors.As(err, &failure) || failure.Stage != admission || !errors.Is(err, errWrite) {
 					t.Fatalf("admission cause: %v", err)
 				}
 			}
@@ -88,16 +87,16 @@ func TestExecutionSettlesProviderResultAndNotifiesOnlyCommittedSuccess(t *testin
 		name  string
 		cause error
 		write string
-		out   deployment.Outcome
+		out   Outcome
 	}{
-		{"active", nil, "complete", deployment.Applied},
-		{"rejected", fmt.Errorf("provider: %w", deploy.Terminal(errors.New("rejected"))), "fail", deployment.Applied},
-		{"lost response", errors.New("lost response"), "uncertain", deployment.Uncertain},
-		{"timeout", context.DeadlineExceeded, "uncertain", deployment.Uncertain},
+		{"active", nil, "complete", Applied},
+		{"rejected", fmt.Errorf("provider: %w", deploy.Terminal(errors.New("rejected"))), "fail", Applied},
+		{"lost response", errors.New("lost response"), "uncertain", Uncertain},
+		{"timeout", context.DeadlineExceeded, "uncertain", Uncertain},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, s, in, applied := executionFixture()
-			got, err := r.Run(context.Background(), in, func(ctx context.Context, at deployment.Attempt, cp deploy.Checkpoint) (deploy.Observation, error) {
+			got, err := r.Run(context.Background(), in, func(ctx context.Context, at Attempt, cp deploy.Checkpoint) (deploy.Observation, error) {
 				if _, set := ctx.Deadline(); set {
 					t.Fatal("runner imposed a deadline")
 				}
@@ -133,14 +132,14 @@ func TestExecutionCheckpointFailureStopsProviderEffect(t *testing.T) {
 	r, s, in, applied := executionFixture()
 	s.checkpointErr = errWrite
 	effect := false
-	got, err := r.Run(context.Background(), in, func(ctx context.Context, at deployment.Attempt, cp deploy.Checkpoint) (deploy.Observation, error) {
+	got, err := r.Run(context.Background(), in, func(ctx context.Context, at Attempt, cp deploy.Checkpoint) (deploy.Observation, error) {
 		if _, err := activeExecution(ctx, at, cp); err != nil {
 			return deploy.Observation{}, err
 		}
 		effect = true
 		return deploy.Observation{}, nil
 	})
-	if err == nil || !deploy.IsTerminal(err) || effect || *applied != 0 || got.Outcome != deployment.Applied || !reflect.DeepEqual(s.calls, []string{"admit", "checkpoint", "fail"}) {
+	if err == nil || !deploy.IsTerminal(err) || effect || *applied != 0 || got.Outcome != Applied || !reflect.DeepEqual(s.calls, []string{"admit", "checkpoint", "fail"}) {
 		t.Fatalf("%+v %v calls=%v", got, err, s.calls)
 	}
 }
@@ -158,7 +157,7 @@ func TestExecutionCancellationDistinguishesUnstartedAndUnknownEffects(t *testing
 					s.onAdmit = cancel
 				}
 				calls := 0
-				got, err := r.Run(ctx, in, func(ctx context.Context, at deployment.Attempt, cp deploy.Checkpoint) (deploy.Observation, error) {
+				got, err := r.Run(ctx, in, func(ctx context.Context, at Attempt, cp deploy.Checkpoint) (deploy.Observation, error) {
 					calls++
 					o, _ := activeExecution(ctx, at, cp)
 					cancel()
@@ -176,7 +175,7 @@ func TestExecutionCancellationDistinguishesUnstartedAndUnknownEffects(t *testing
 				if !errors.Is(err, context.Canceled) || calls != wantExecution || *applied != 0 || !reflect.DeepEqual(s.calls, want) {
 					t.Fatalf("%+v %v effects=%d writes=%v", got, err, calls, s.calls)
 				}
-				if when == "after execution" && got.Outcome != deployment.Uncertain {
+				if when == "after execution" && got.Outcome != Uncertain {
 					t.Fatal("published cancelled execution")
 				}
 			})
@@ -184,7 +183,7 @@ func TestExecutionCancellationDistinguishesUnstartedAndUnknownEffects(t *testing
 	}
 }
 func TestExecutionLateSettlementCannotNotifySuccess(t *testing.T) {
-	for _, out := range []deployment.Outcome{deployment.Superseded, deployment.AlreadyApplied} {
+	for _, out := range []Outcome{Superseded, AlreadyApplied} {
 		r, s, in, applied := executionFixture()
 		s.outcome = out
 		got, err := r.Run(context.Background(), in, activeExecution)
@@ -199,12 +198,12 @@ func TestExecutionLostReceiptQueuesRecoveryAndRemainsRetryable(t *testing.T) {
 			t.Run(fmt.Sprintf("terminal=%v/queueFails=%v", terminal, queueFails), func(t *testing.T) {
 				r, s, in, applied := executionFixture()
 				var cause error
-				wantStage := deployment.Settlement
+				wantStage := settlement
 				write := "complete"
 				if terminal {
 					cause = deploy.Terminal(errors.New("rejected"))
 					s.failErr = errWrite
-					wantStage = deployment.Execution
+					wantStage = Execution
 					write = "fail"
 				} else {
 					s.completeErr = errWrite
@@ -213,11 +212,11 @@ func TestExecutionLostReceiptQueuesRecoveryAndRemainsRetryable(t *testing.T) {
 				if queueFails {
 					s.uncertainErr = queueErr
 				}
-				got, err := r.Run(context.Background(), in, func(ctx context.Context, at deployment.Attempt, cp deploy.Checkpoint) (deploy.Observation, error) {
+				got, err := r.Run(context.Background(), in, func(ctx context.Context, at Attempt, cp deploy.Checkpoint) (deploy.Observation, error) {
 					o, _ := activeExecution(ctx, at, cp)
 					return o, cause
 				})
-				var failure *deployment.RunError
+				var failure *runError
 				if !errors.As(err, &failure) || failure.Stage != wantStage || deploy.IsTerminal(err) || *applied != 0 || !reflect.DeepEqual(s.calls, []string{"admit", "checkpoint", write, "uncertain"}) {
 					t.Fatalf("%+v %v calls=%v", got, err, s.calls)
 				}
@@ -225,8 +224,8 @@ func TestExecutionLostReceiptQueuesRecoveryAndRemainsRetryable(t *testing.T) {
 					if !errors.Is(err, queueErr) {
 						t.Fatalf("lost queue failure: %v", err)
 					}
-				} else if !errors.Is(err, errWrite) || got.Outcome != deployment.Uncertain {
-					t.Fatalf("lost settlement failure: %+v %v", got, err)
+				} else if !errors.Is(err, errWrite) || got.Outcome != Uncertain {
+					t.Fatalf("lost executionSettlement failure: %+v %v", got, err)
 				}
 			})
 		}
@@ -235,7 +234,7 @@ func TestExecutionLostReceiptQueuesRecoveryAndRemainsRetryable(t *testing.T) {
 func TestExecutionLostUncertaintyWriteIsNotReportedAsSuccess(t *testing.T) {
 	r, s, in, applied := executionFixture()
 	s.uncertainErr = errWrite
-	_, err := r.Run(context.Background(), in, func(context.Context, deployment.Attempt, deploy.Checkpoint) (deploy.Observation, error) {
+	_, err := r.Run(context.Background(), in, func(context.Context, Attempt, deploy.Checkpoint) (deploy.Observation, error) {
 		return deploy.Observation{}, errors.New("lost provider response")
 	})
 	if !errors.Is(err, errWrite) || deploy.IsTerminal(err) || *applied != 0 || !reflect.DeepEqual(s.calls, []string{"admit", "uncertain"}) {
@@ -258,7 +257,7 @@ func TestExecutionRecordsActBeforeEvenAFailedEffect(t *testing.T) {
 				}
 				return nil
 			}
-			_, err := r.Run(t.Context(), in, func(context.Context, deployment.Attempt, deploy.Checkpoint) (deploy.Observation, error) {
+			_, err := r.Run(t.Context(), in, func(context.Context, Attempt, deploy.Checkpoint) (deploy.Observation, error) {
 				if !marked {
 					t.Error("effect preceded act counter")
 				}

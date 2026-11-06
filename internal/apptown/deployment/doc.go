@@ -73,7 +73,7 @@
 // conflicting terminal outcomes return an error.
 //
 // [Runner.Run] distinguishes provider failure from settlement failure through
-// [RunError]. An unknown provider result or failure to record an outcome requires
+// [runError]. An unknown provider result or failure to record an outcome requires
 // observation. [Outcomes.Uncertain] records that state and recovery-job intent in
 // one transaction, blocking fresh attempt admission until resolved. These database
 // guards do not cancel external effects or stop an uncooperative old provider call.
@@ -103,11 +103,12 @@
 // recording the failure separately. A first partial check takes its read time
 // from successfully read figures. Inventory owns its stale/unknown classification;
 // transports render that decision.
-// DeployHistory reads landing invocations from Work's scoped evidence port,
-// including failures before provider admission and separate retries. The read
-// never reserves a release number; successful landings create releases through
-// completion. Work retains each finished deploy's evidence in its immutable
-// finish event so a retry cannot erase the earlier backup outcome.
+// Landing builds are separate from execution. RequestLandingReleases runs after
+// Work commits completion and creates one request per follows-main destination,
+// under its recorded feed revision and setter credential. Landing approvers
+// remain provenance. ExecuteRelease rechecks the setting and current grants,
+// takes the pre-release copy, and retains copy and continuity evidence apart
+// from the running-code fact. Deployment history reads these release requests.
 // Deployment reads expose LastApplied from the completed attempt of the observed
 // generation. Detail readings keep prior payloads and their identity and age
 // after a change, marked unknown and old for display only. Post-act detail,

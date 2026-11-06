@@ -238,13 +238,17 @@ takes what already landed and puts it on the intranet at the project's
 address, recording release number, who, and what shipped. *Project →
 Release; release page.*
 
-**B9 Deploy a release bundle to another deployment.** A release manager
+**B9 Deploy a release bundle.** A release manager
 (or maintainer, for an unprotected deployment) deploys the latest bundle
-to a standing deployment on a cloud target; the release page is the
+to a standing deployment; follows-main deployments request each landing’s
+bundle after the change has landed. Every release takes its pre-deploy backup,
+and a failed release leaves the change landed. The release page is the
 receipt, with the deploy's log as it is written. *Project → Settings
 → Deployments → Deploy latest.*
 
-**B10 Roll back.** Deploy an earlier bundle to the same deployment.
+**B10 Roll back.** Deploy an earlier bundle to the same deployment. AppTown
+does not restore data or reverse migrations. Compatibility with current data
+is unknown; the earlier code may run init steps and write data.
 *Release page → bundles.*
 
 **B31 Back up a deployment's state.** An owner takes a backup of a

@@ -32,7 +32,7 @@ The agent can also **do governed work in your name**: open a Change,
 put AppTown's own agent on it, run its checks, boot its preview, hand it
 off for approval, send it back with a note, or abandon it. It can ask for
 a landing, but it cannot approve one or administer AppTown: a merge into
-main or a deploy waits for a person's approval, or for a landing started by
+main waits for a person's approval, or for a landing started by
 someone allowed to land. It can also work in a checkout on your computer and
 push the result to the Change.
 

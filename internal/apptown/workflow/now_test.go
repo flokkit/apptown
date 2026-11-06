@@ -12,7 +12,7 @@ import (
 // child's position rather than the parent's workflow/call position.
 func TestWaitingOnNamesRunningWork(t *testing.T) {
 	for _, tc := range []struct{ role, kind, want string }{
-		{"landing", "deploy", "Landing: deploying — step 3 of 4"},
+		{"landing", "build", "Landing: building — step 3 of 4"},
 		{"working", "agent/pi", "Work: agent working"},
 		{"working", "preview", "Work: starting the preview"},
 		{"working", "tests", "Work: running tests"},

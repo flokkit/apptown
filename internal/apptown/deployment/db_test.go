@@ -105,7 +105,7 @@ func storedDeploymentFixture(t *testing.T, db *database.DB, p deploymentsql.Ensu
 		p.Kind = Standing.String()
 	}
 	if p.Feed == "" {
-		p.Feed = "landing"
+		p.Feed = "main"
 	}
 	if p.Audience == "" {
 		p.Audience = "team"

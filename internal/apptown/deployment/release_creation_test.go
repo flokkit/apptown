@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/deploy"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -120,13 +121,16 @@ func TestAReleaseCarriesTheChangesClosedBeforeItByAppTownsClock(t *testing.T) {
 		now := steppingClock()
 		store.clock = now
 		shipped := shippedChangeAt(t, db, draft.ProjectID, now())
-		if err := db.InTx(context.Background(), func(tx *database.Tx) error {
-			if err := lockReleaseProjectIn(tx, draft.ProjectID); err != nil {
-				return err
-			}
-			_, err := CreateReleaseIn(context.Background(), tx, ReleaseDraft{At: now(), Source: ReleaseFromWorkflow, ProjectID: draft.ProjectID, ChangeID: shipped, Deployment: "main"})
-			return err
-		}); err != nil {
+		previous, err := store.Start(t.Context(), draft, "previous release")
+		if err != nil {
+			t.Fatal(err)
+		}
+		outcomes := NewOutcomes(db, nil)
+		attempt, _, err := outcomes.Admit(t.Context(), Start{DeploymentID: draft.DeploymentID, Key: "previous", Inputs: Inputs{ReleaseID: previous.ID, Revision: draft.Revision}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := outcomes.Complete(t.Context(), Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active"}}); err != nil {
 			t.Fatal(err)
 		}
 		after := shippedChangeAt(t, db, draft.ProjectID, now())

@@ -32,7 +32,9 @@ type Application struct {
 
 // preparedRelease is one deploy, ready to admit.
 type preparedRelease struct {
-	bundle *ReleaseBundle // the bundle the source was cut from, for the record; nil for a staged tree
+	backup     ids.ID
+	releaseRun ids.ID
+	bundle     *ReleaseBundle // the bundle the source was cut from, for the record; nil for a staged tree
 	// source.Contract is the effective contract: Committed under the
 	// deployment's profile and overrides, as Applied records it.
 	source    deploy.Source
@@ -139,12 +141,13 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	art.Source = &src
 	logf("rendered the %s artifact (%s)", art.Kind, art.Hash)
 	key := fmt.Sprintf("release-%d", rel.ID)
-	inputs := Inputs{ReleaseID: rel.ID, Revision: req.source.Revision, ArtifactHash: art.Hash, Applied: applied}
+	inputs := Inputs{Backup: req.backup, ReleaseID: rel.ID, ReleaseRun: req.releaseRun, Revision: req.source.Revision, ArtifactHash: art.Hash, Applied: applied}
 	if req.address != nil {
 		address := req.address.clone()
 		inputs.Address = &address
 	}
 	if req.bundle != nil && req.source.Contract != nil {
+		inputs.BundleID = req.bundle.ID
 		inputs.ImageDigest = req.bundle.Parts[req.source.Contract.PublicPart().Name]
 	}
 	if art.Kind == "docker-source" {
@@ -165,8 +168,8 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 			return o, err
 		})
 	if err != nil {
-		var failure *RunError
-		if errors.As(err, &failure) && failure.Stage == Admission {
+		var failure *runError
+		if errors.As(err, &failure) && failure.Stage == admission {
 			_ = fail("minting the deployment generation: %v", failure.Cause)
 		} else {
 			logf("deployment outcome %s: %v", result.Outcome, err)

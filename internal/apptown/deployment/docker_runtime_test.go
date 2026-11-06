@@ -21,7 +21,7 @@ func TestALandingRefusesUnclaimedWorkWithoutSideEffects(t *testing.T) {
 func TestDockerScopeRejectsMissingTargetBeforeUsingLocalDaemon(t *testing.T) {
 	t.Parallel()
 	calls := 0
-	s := New(context.Background(), nil, assembled(nil, testRuntime{Scope: docker.Scope{Client: dockerClientFunc(func(context.Context, string, docker.Command) ([]byte, error) { calls++; return nil, nil })}}, Dependencies{}))
+	s := New(context.Background(), nil, assembled(nil, testRuntime{Scope: docker.Scope{Client: sshDockerFake(func(context.Context, string, docker.Command) ([]byte, error) { calls++; return nil, nil })}}, Dependencies{}))
 	for _, target := range []*Target{nil, {Kind: KindPortainer}, {Kind: KindDockerHost, Origin: OriginAttached, Name: "remote"}} {
 		if _, err := s.hosts.DockerScope(context.Background(), target); err == nil {
 			t.Fatal("invalid target accepted")

@@ -10,7 +10,7 @@ import (
 // A task runner can return with its step still running when Finish fails.
 // Its dependent entry steps must wait for durable settlement.
 func TestAStepLeftRunningByItsRunnerHoldsTheStepsAfterIt(t *testing.T) {
-	d, s := testDispatcher([]ReadyStep{{idstest.N(1), "script", true, "build"}, {idstest.N(2), "deploy", true, "deploy"}})
+	d, s := testDispatcher([]ReadyStep{{idstest.N(1), "script", true, "build"}, {idstest.N(2), "build", true, "build"}})
 	d.runners["script"] = func(id ids.ID) { s.ran(id, StatusRunning) }
 	d.dispatch(s.p, false)
 	d.wait()

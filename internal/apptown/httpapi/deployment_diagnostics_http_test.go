@@ -21,7 +21,7 @@ func TestDeploymentDiagnosticsHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.service.Deployments.EnsureStanding(t.Context(), a.project, "main", builtin.ID, deployment.Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := a.service.Deployments.EnsureStanding(t.Context(), a.project, "main", builtin.ID, deployment.Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, cap := range []access.Capability{access.CapDeploymentRead, access.CapProjectRead} {

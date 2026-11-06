@@ -11,7 +11,7 @@ import (
 )
 
 // Inputs are immutable receipt inputs, never resolved credentials or rendered
-// secret data. Admission persists them before deployment execution begins.
+// secret data. admission persists them before deployment execution begins.
 type Inputs struct {
 	Address    *AddressSnapshot
 	ReleaseID  ids.ID
@@ -51,7 +51,7 @@ func (in Inputs) same(other Inputs) bool {
 
 type Start struct {
 	DeploymentID   ids.ID
-	TargetID       ids.ID // Admission rejects a changed target binding.
+	TargetID       ids.ID // admission rejects a changed target binding.
 	Key            string
 	Inputs         Inputs
 	BaseGeneration *int64 // Requests and rebuilds must still replace the generation they selected.
@@ -78,27 +78,27 @@ type ExecutionResult struct {
 type stage string
 
 const (
-	Admission  stage = "admission"
+	admission  stage = "admission"
 	Execution  stage = "execution"
-	Settlement stage = "settlement"
+	settlement stage = "settlement"
 )
 
-// RunError keeps execution failure separate from failure to persist its outcome.
+// runError keeps execution failure separate from failure to persist its outcome.
 // When persistence fails, retry classification follows that error: even a
 // confirmed provider rejection needs a durable receipt before retries can stop.
-type RunError struct {
+type runError struct {
 	Stage       stage
 	Cause       error
 	Persistence error
 }
 
-func (e *RunError) Error() string {
+func (e *runError) Error() string {
 	if e.Persistence != nil {
 		return fmt.Sprintf("deployment %s: %v; recording outcome: %v", e.Stage, e.Cause, e.Persistence)
 	}
 	return fmt.Sprintf("deployment %s: %v", e.Stage, e.Cause)
 }
-func (e *RunError) Unwrap() error {
+func (e *runError) Unwrap() error {
 	if e.Persistence != nil {
 		return e.Persistence
 	}
@@ -118,17 +118,17 @@ type Runner struct {
 // its outcome. A replay returns Created=false without calling execute or loading
 // its previous outcome. After admission, cancellation observed before execute
 // records failure; cancellation observed on its return records uncertainty for
-// later observation. RunError keeps execution and persistence failures separate.
+// later observation. runError keeps execution and persistence failures separate.
 // The caller supplies the deadline.
 func (r Runner) Run(ctx context.Context, in Start, execute execute) (ExecutionResult, error) {
 	var result ExecutionResult
 	if err := ctx.Err(); err != nil {
-		return result, &RunError{Stage: Admission, Cause: err}
+		return result, &runError{Stage: admission, Cause: err}
 	}
 	at, created, err := r.Store.Admit(ctx, in)
 	result.Attempt, result.Created = at, created
 	if err != nil {
-		return result, &RunError{Stage: Admission, Cause: err}
+		return result, &runError{Stage: admission, Cause: err}
 	}
 	if !created {
 		return result, nil
@@ -141,7 +141,7 @@ func (r Runner) Run(ctx context.Context, in Start, execute execute) (ExecutionRe
 		if recordErr == nil {
 			result.Outcome = out
 		}
-		return result, &RunError{Stage: stage, Cause: cause, Persistence: recordErr}
+		return result, &runError{Stage: stage, Cause: cause, Persistence: recordErr}
 	}
 	failure := func(cause error, confirmed bool) (ExecutionResult, error) {
 		if !confirmed {
@@ -157,10 +157,10 @@ func (r Runner) Run(ctx context.Context, in Start, execute execute) (ExecutionRe
 			}
 			recordErr = errors.Join(recordErr, recoveryErr)
 		}
-		return result, &RunError{Stage: Execution, Cause: cause, Persistence: recordErr}
+		return result, &runError{Stage: Execution, Cause: cause, Persistence: recordErr}
 	}
 	if err := ctx.Err(); err != nil {
-		// Admission committed, but this executor has not run: no provider effect
+		// admission committed, but this executor has not run: no provider effect
 		// needs guessing or observation. Settle the cancelled attempt as failed.
 		return failure(err, true)
 	}
@@ -180,7 +180,7 @@ func (r Runner) Run(ctx context.Context, in Start, execute execute) (ExecutionRe
 
 	out, err := r.Store.Complete(ctx, Completion{Attempt: at, Observed: o})
 	if err != nil {
-		return uncertain(Settlement, err)
+		return uncertain(settlement, err)
 	}
 	result.Outcome = out
 	if out == Applied && r.Applied != nil {

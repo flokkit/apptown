@@ -38,7 +38,7 @@ below use the first word in each row.
 | **provider** | cloud provider (A6), the provider (B28) | two senses: a cloud account's vendor (DigitalOcean) and an integration's vendor (one error tracker) |
 | **token** | credential, key | two senses: an API token minted for a person (C21) and a provider's secret held in a store (A6, B26) |
 | **exception** | suppression | two records: an exception accepts a conformance finding with an expiry and a second approver (B22); a suppression accepts a scanner finding with a reason (C17); see [finding](#finding) |
-| **release** | release record (C13), release number | a numbered promotion; the record cut at landing is a [bundle](#bundle), not yet a release; see [release](#release) |
+| **release** | release record (C13), release number | a numbered deployment of a bundle; the record cut at landing is a [bundle](#bundle), not yet a release; see [release](#release) |
 | **receipt** | record, ledger, evidence, audit log, trace | related but distinct; see [evidence](#evidence) and [receipt](#receipt) |
 | **stock** | shipped with AppTown, vendor | what the binary carries; opposite of institution-authored; see [library](#library) |
 
@@ -157,7 +157,7 @@ lane *is* a workflow — one in the "working" role, offered on this project.
 *Mental model:* lanes on a road; the change is the vehicle; the lane sets
 how much scrutiny the work gets before the person is asked to accept;
 every lane ends at the same acceptance and the same landing. AppTown's
-own workflows (landing, shipping, wiring a service in or out) are
+own workflows (landing, wiring a service in or out) are
 [system workflows](#system-workflow): nobody picks them, so they are not
 lanes. *Lifecycle:* authored or shipped as stock, versioned on every
 edit, offered by a project under its way of working, invoked on a change,
@@ -203,7 +203,7 @@ rules, C22, D.
 ### Stage, step, gate
 A **stage** is an ordered section of a run; a **step** is one act inside
 it (agent task, review, scan, tests, boot, conformance, approval,
-deploy); the **gate** is the condition for leaving the stage, by default
+build); the **gate** is the condition for leaving the stage, by default
 every step passed. *Rules:* when a gate fails, the producing step is
 reworked with the gate's evidence as feedback, up to three times, then a
 person is asked; a step may be overridden with a reason, recorded
@@ -272,22 +272,24 @@ and read by the helper. *Appears:* C8.
 ### Landing
 The only path from a change's branch to `main`: catch up with `main`,
 tests, source scanners, the way of working's checks, the image scan, the
-approval, the current-rules check, the merge, the deploy
-to the `main` deployment, the release record. *Mental model:* the
+approval, the current-rules check, the merge and a build of the merged tree.
+A runtime declaration requires a runtime bundle. With no runtime declaration,
+a successful clean-tree build completes the landing. Releases happen afterwards. *Mental model:* the
 customs post; everything passes through it and nothing else opens the
 border. *Rules:* if the rules change while a landing waits, it pauses and
 must be restarted, never grandfathered; interrupted landings are
 recovered at startup. *Appears:* C7, C13, B13, B21, C15, D.
 
 ### Bundle
-The record cut at every landing of exactly what landed: the commit, the
-contract, the built parts and their digests. *Mental model:* the sealed
+The record built by a landing that declares a runtime: the commit, contract
+and built images. A project without a runtime produces no bundle. *Mental model:* the sealed
 box a release ships; a release is a bundle put somewhere. *Appears:* B9,
 B10, D.
 
 ### Release
-A numbered promotion of something already on `main` to a wider tier or
-another deployment, with its log, who did it and what shipped. *Rules:*
+A numbered deployment of a bundle, with its log, authority and what shipped.
+Follows-main requests name the setting’s setter; landing approvers remain
+separate provenance. *Rules:*
 a release to a protected deployment takes the release grant; refused
 while another to the same deployment is on its way; the release page is
 the receipt; an old release can be looked at, never restored (C14).
@@ -303,9 +305,8 @@ adopts a deployment on a guess. *Appears:* B9, B10, the rules under B Deployment
 ## Where things run
 
 ### Deployment
-A project's app standing on one target under a name: the `main`
-deployment every repo-backed project has, the intranet, or a **standing
-deployment** on a cloud target with an audience and a data class. A
+A project's app standing on one target under a name: a follows-main
+deployment, the intranet, or a **standing deployment** on a cloud target with an audience and a data class. A
 **protected deployment** (partners, public, production data) takes the
 release grant. The interface, API paths, CLI and database all say
 deployment. A deployment is not a [tier](#tier): its

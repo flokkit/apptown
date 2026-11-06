@@ -124,7 +124,7 @@ func (s *Service) SetReleaseDefault(ctx context.Context, projectID, deploymentID
 }
 
 func (s *Service) defaultEligible(ctx context.Context, q *deploymentsql.Queries, projectID ids.ID, dep *Deployment, target *Target) error {
-	if dep.Name == "main" {
+	if dep.Feed == "main" {
 		return fault.New(fault.Invalid, "main follows landing; choose a separately released deployment")
 	}
 	if err := dep.deployableByHand(); err != nil {
@@ -164,7 +164,7 @@ func preserveDefaultConfiguration(ctx context.Context, tx *database.Tx, dep *Dep
 	if settings.DefaultDeploymentID != dep.ID {
 		return nil
 	}
-	if dep.Name == "main" || dep.deployableByHand() != nil {
+	if dep.Feed == "main" || dep.deployableByHand() != nil {
 		return fault.New(fault.Conflict, "clear or replace the release default before making this deployment ineligible")
 	}
 	target, err := targetRecord(q.TargetByID(ctx, dep.TargetID))

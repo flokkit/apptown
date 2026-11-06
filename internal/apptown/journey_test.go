@@ -25,6 +25,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
@@ -260,8 +261,7 @@ spec:
     - name: ship
       onEnter:
         - name: deploy
-          uses: deploy
-          with: { deployment: main }
+          uses: build
 `
 
 type jChangeView struct {
@@ -412,6 +412,7 @@ func TestJourneyKidStory(t *testing.T) {
 	h := newJourney(t)
 	slug := fmt.Sprintf("kid-%d", os.Getpid())
 	h.newProject(slug, journeyQuickChange)
+	h.followMain(slug)
 	h.removeMainAppAtCleanup(slug)
 
 	page := `<!doctype html><html><body><h1>the cat is blue</h1><script>console.log("hi")</script></body></html>`
@@ -473,7 +474,7 @@ func TestJourneyKidStory(t *testing.T) {
 		lastView = v
 		if v.Detail != nil {
 			for _, step := range v.Detail.Steps {
-				if step.Name == "deploy" && (step.Status == workflow.StatusError.String() || step.Status == workflow.StatusFail.String()) {
+				if step.Name == "build" && (step.Status == workflow.StatusError.String() || step.Status == workflow.StatusFail.String()) {
 					t.Fatalf("landing failed at %s: %s", step.Name, step.Evidence)
 				}
 			}
@@ -490,24 +491,7 @@ func TestJourneyKidStory(t *testing.T) {
 	}
 
 	// The standing deployment serves the project's page over real HTTP.
-	var envs []struct {
-		Name string `json:"name"`
-		URL  string `json:"url"`
-	}
-	h.mustCall("GET", "/projects/"+slug+"/deployments", nil, &envs)
-	var mainURL string
-	for _, e := range envs {
-		if e.Name == "main" {
-			mainURL = e.URL
-		}
-	}
-	if mainURL == "" {
-		v := h.changeView(chID)
-		for _, st := range v.Detail.Steps {
-			t.Logf("land step %s (%s) %s: %s", st.Name, st.Type, st.Status, strs.Truncate(string(st.Evidence), 300))
-		}
-		t.Fatalf("no main deployment recorded: %+v (land run %s/%s)", envs, v.Detail.Run.WorkflowName, v.Detail.Run.Status)
-	}
+	mainURL := h.waitMainURL(slug)
 	h.until("the main deployment to serve the page", 60*time.Second, func() bool {
 		res, err := http.Get(mainURL)
 		if err != nil {
@@ -680,7 +664,7 @@ func TestJourneyLawMidFlight(t *testing.T) {
 	// The amendment lands while the run waits.
 	h.mustCall("POST", "/projects/"+slug+"/policies", map[string]any{
 		"name": "scan-first", "rule": "requireStepBefore",
-		"with": map[string]any{"uses": "deploy", "requires": "scan"}}, nil)
+		"with": map[string]any{"uses": "build", "requires": "scan"}}, nil)
 
 	// The parked approval is granted; the merge must pause, not slip.
 	h.approveStep(approveID)
@@ -836,7 +820,7 @@ func TestJourneyLedgerComplete(t *testing.T) {
 		"adr/require":      "unit:TestADRTransitions + gate machinery",
 		"agent/pi":         "journey:TestJourneyKidStory (fake pi)",
 		"scm/mr":           "unit:TestTheMergeRequestStepSaysWhoOpenedTheChange (fake GitLab)", "preview": "integration:TestIntegrationStaticPreviewBoot",
-		"deploy": "journey:TestJourneyKidStory", "workflow/call": "unit:TestPackPullKeepsCalledWorkflows (reference scan); run-path gap tracked",
+		"build": "journey:TestJourneyKidStory", "workflow/call": "unit:TestPackPullKeepsCalledWorkflows (reference scan); run-path gap tracked",
 		"scan": "backing:scanner binaries", "agent/review": "unit:autoRework path w/ fake verdicts; fake-pi review supported",
 		"guidance/conformance": "unit:guidance_conformance_test",
 		"tests":                "unit:TestDetectTestCommand; proven live both directions (pass receipt + sabotaged tree blocked landing)",
@@ -1014,6 +998,7 @@ func TestJourneyStackMigration(t *testing.T) {
 	h.mustCall("POST", "/projects", map[string]string{"slug": slug}, nil)
 	h.mustCall("POST", "/projects/"+slug+"/repo", map[string]string{}, nil)
 	h.mustCall("POST", "/projects/"+slug+"/pack", map[string][]string{"names": {"stack-a"}}, nil)
+	h.followMain(slug)
 
 	ship := func(marker string) {
 		page := `<!doctype html><html><body><h1>` + marker + `</h1><script>1</script></body></html>`
@@ -1051,20 +1036,7 @@ func TestJourneyStackMigration(t *testing.T) {
 	}
 	ship("stack a page")
 
-	var envs []struct {
-		Name string `json:"name"`
-		URL  string `json:"url"`
-	}
-	h.mustCall("GET", "/projects/"+slug+"/deployments", nil, &envs)
-	var url string
-	for _, e := range envs {
-		if e.Name == "main" {
-			url = e.URL
-		}
-	}
-	if url == "" {
-		t.Fatal("no main env")
-	}
+	url := h.waitMainURL(slug)
 
 	// The standing probe: the app must serve throughout the migration,
 	// allowing only a bounded blip for the deploy's own container swap.
@@ -1145,7 +1117,15 @@ func TestJourneyStackMigration(t *testing.T) {
 		t.Fatal("re-pack dropped the library research workflow from runnable lanes")
 	}
 	ship("stack b page")
-
+	h.until("the migrated release to serve the new stack", 120*time.Second, func() bool {
+		res, err := http.Get(url)
+		if err != nil {
+			return false
+		}
+		defer res.Body.Close()
+		body, err := io.ReadAll(res.Body)
+		return err == nil && res.StatusCode == 200 && strings.Contains(string(body), "stack b page")
+	})
 	close(stop)
 	<-probeDone
 	// Serving throughout: the only tolerated gap is the container swap.
@@ -1274,4 +1254,26 @@ func TestJourneyServerPacksDeliver(t *testing.T) {
 			t.Fatalf("%s: the pack must not seed %s; the generator writes it", c.pack, c.generated)
 		}
 	}
+}
+
+// Automatic releases require an explicitly authorized follows-main setting.
+func (h *jHarness) followMain(slug string) {
+	h.mustCall("POST", "/projects/"+slug+"/deployments", map[string]string{"name": "main", "target": deployment.BuiltInTargetName, "feed": "main", "audience": "team", "data": "synthetic"}, nil)
+}
+
+// Landing completes before the release worker boots the deployment.
+func (h *jHarness) waitMainURL(slug string) string {
+	h.t.Helper()
+	var url string
+	h.until("the follows-main release to record its address", 120*time.Second, func() bool {
+		var envs []struct{ Name, URL string }
+		h.mustCall("GET", "/projects/"+slug+"/deployments", nil, &envs)
+		for _, e := range envs {
+			if e.Name == "main" {
+				url = e.URL
+			}
+		}
+		return url != ""
+	})
+	return url
 }

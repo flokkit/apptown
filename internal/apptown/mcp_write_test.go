@@ -257,7 +257,7 @@ func TestPeopleCannotPickSystemWorkflows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"land", "ship", "adopt-integration", "retire-integration", "custom-system"} {
+	for _, name := range []string{"land", "adopt-integration", "retire-integration", "custom-system"} {
 		t.Run(name, func(t *testing.T) {
 			res := mcp_call(t, a, boss, "create_change", map[string]any{"slug": "app", "title": "System work", "lane": name})
 			if res["isError"] != true || !strings.Contains(fmt.Sprint(res), "run by AppTown") {

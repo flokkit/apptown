@@ -77,8 +77,8 @@ deployment's own and emptied when the project's last App Platform deployment
 on that connector is taken down. A bucket website reads the site's files out
 of the release image. AppTown never deletes from the project's own registry; its
 retention decides how long a release can be redeployed. Without a worker, a
-landing's deploy builds on the Docker host. When the project has a container
-registry, AppTown saves each image the host booted and publishes it as above,
+landing builds images on its build host without booting them. When the project has a container
+registry, AppTown saves each built image and publishes it as above,
 so the bundle is by digest. With no registry attached it records image IDs.
 Portainer and a bucket website take only a bundle by digest, through either
 door to Portainer (`apptown release <project>` or a deployment released by

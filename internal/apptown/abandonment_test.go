@@ -225,7 +225,7 @@ func TestAbandonmentRacesCompletion(t *testing.T) {
 	t.Parallel()
 	for _, target := range []string{"run", "change"} {
 		t.Run(target, func(t *testing.T) {
-			a, root := abandonmentScenario(t, "landing", []schema.Step{{Name: "deploy", Uses: "deploy", With: map[string]any{"deployment": "main"}}})
+			a, root := abandonmentScenario(t, "landing", []schema.Step{{Name: "build", Uses: "build"}})
 			w := a.DB
 			snapshot, err := a.Work.Snapshot(asPerson("alice"), root.ID, workflow.DetailView)
 			if err != nil || len(snapshot.Steps) != 1 {

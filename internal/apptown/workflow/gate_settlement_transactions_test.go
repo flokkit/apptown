@@ -36,9 +36,9 @@ func (policyAdvanceChecks) Merge(context.Context, *Run) (MergeResult, error) {
 func policyEngine(db *database.DB, completionCalls *int) *advancer {
 	return newAdvancer(db, advanceRuntime{
 		stages: NewStages(nil, func(string) bool { return false }), checks: policyAdvanceChecks{db},
-		completion: completionRecorderFunc(func(context.Context, *database.Tx, CompletedRun) (ReleaseReceipt, error) {
+		completion: completionRecorderFunc(func(context.Context, *database.Tx, CompletedRun) error {
 			*completionCalls++
-			return ReleaseReceipt{}, nil
+			return nil
 		}),
 	})
 }

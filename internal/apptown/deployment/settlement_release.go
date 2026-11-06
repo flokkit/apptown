@@ -193,7 +193,7 @@ func (s *Outcomes) FailUnstartedRelease(ctx context.Context, releaseID ids.ID, c
 	}
 	now := s.now()
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (deploymentOutcome, error) {
-		// Admission locks deployment before release. Respect that order even for
+		// admission locks deployment before release. Respect that order even for
 		// preparation failure, so concurrent admission cannot slip past the test.
 		queries := releasesql.New(tx.SQL())
 		envID, err := queries.ReleaseDeploymentID(ctx, releaseID)

@@ -105,7 +105,7 @@ running celebrates once on completion; a later visit shows the finished frame.
 The running card counts elapsed time and, when the previous successful release retains its landing trace,
 shows that landing’s duration for the same deployment.
 During backing up, a box moves from the lit house to a shed that stays in later frames.
-Results read the deploy step’s backup evidence: only a complete set says “Backed up”,
+Release results read the release request’s backup evidence: only a complete set says “Backed up”,
 with its size and a link to the recorded copy. Incomplete or absent copies keep
 the reason and any person who accepted proceeding; no data says so.
 Reduced motion keeps the scene still. The
@@ -296,15 +296,12 @@ Running called workflows include their current stages. Consecutive scans, tests
 and conformance checks share a Checks row with their names; a running or failed
 check expands that group automatically. Each row keeps its status, plain title,
 short fact and duration or start time visible. Now is absent while idle.
-Accepting a change with a landing deployment opens that deployment's page.
-The decision screen does not show its deploy progress or result. A landing deploy
-result names its recorded failure stage and reason once, followed by its recovery
-choices. The change retains its recovery choices and omits Now while a landing deploy is active. Windows light only once
-starting has completed. A visit to an already completed deploy does not replay
-celebration. The change Overview keeps a Release row after acceptance or while
-landing: Not released yet, Deploying… with a watch link, Deploy stopped at the
-recorded stage with a see why link, or Release N · live with Open the app and
-the backup outcome. Running and stopped landing deploys have no release number.
+Acceptance completes the landing after its build. The change Overview's Release
+row reads the follows-main release requests associated with that landing.
+Each request keeps its deployment, release number, current state and failure
+reason: queued or deploying with a watch link, failed with a see why link,
+or a successful release with its app link. A failed release leaves the change
+landed. Projects without a runtime produce no release requests.
 Details retains the landing record and the release link.
 
 Overview has two bordered cards: The change and an action card. The change uses

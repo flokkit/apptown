@@ -58,7 +58,7 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 	out := make([]DeploymentView, 0, len(summaries))
 	for _, e := range summaries {
 		v := DeploymentView{LastApplied: e.LastApplied, ID: e.ID, TargetID: e.TargetID, DisplayLabel: e.DisplayLabel, Name: e.Name, Kind: e.Kind.String(), URL: e.URL, HostOnly: e.HostOnly, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt, Static: isStatic,
-			Feed: e.Feed, Audience: e.Audience, Data: e.DataClass, Protected: e.Protected, Generation: e.Generation,
+			Feed: e.Feed, FeedRevision: e.FeedRevision, FeedConfirmed: e.FeedConfirmed, Audience: e.Audience, Data: e.DataClass, Protected: e.Protected, Generation: e.Generation,
 			Readiness: e.Readiness.String(), ReadinessLabel: e.Readiness.Display(), RestoreLabel: e.RestoreCheck.Display(), ChangeID: e.ChangeID, AIModels: e.AIModelsKeys, Running: e.Observation.State.Running(), RuntimeObservationView: runtimeObservationView(e.Observation)}
 		if e.Observation.Err != nil {
 			v.ObservationIssue = "Runtime status is unavailable"
@@ -82,6 +82,8 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 // DeploymentView is one row of GET /projects/{slug}/deployments: a
 // deployment as the project's pages show it.
 type DeploymentView struct {
+	FeedRevision   int64                      `json:"feedRevision"`
+	FeedConfirmed  bool                       `json:"feedConfirmed"`
 	LastApplied    *deployment.AppliedAttempt `json:"lastApplied,omitempty"`
 	ReadinessLabel deployment.ProgressLabel   `json:"readinessLabel"`
 	RestoreLabel   deployment.ProgressLabel   `json:"restoreLabel"`
@@ -141,18 +143,4 @@ type DeploymentTargetView struct {
 	Vendor       string `json:"vendor"`
 	Family       string `json:"family"`
 	Region       string `json:"region"`
-}
-
-// Deploys reads landing invocations independently of runtime observation.
-func (h DeploymentListing) Deploys(w http.ResponseWriter, r *http.Request) {
-	p, ok := projectFromPath(h.projects, w, r)
-	if !ok {
-		return
-	}
-	attempts, err := h.deployment.DeployHistory(r.Context(), p.ID, r.PathValue("name"))
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
-	WriteJSON(w, 200, attempts)
 }

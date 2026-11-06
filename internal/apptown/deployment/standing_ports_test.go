@@ -65,7 +65,7 @@ func TestAReleasedDeploymentKeepsItsPortWhenDockerStartsItAgain(t *testing.T) {
 
 // A release whose recorded port something else holds fails with that
 // reason, and the deployment is given a fresh port for its next boot, as a
-// landing is (Deployments.ForgetTakenPort); otherwise every release would
+// landing is (Deployments.forgetTakenPort); otherwise every release would
 // fail the same way.
 func TestAReleaseWhosePortIsTakenGetsAFreshOneNextTime(t *testing.T) {
 	t.Parallel()

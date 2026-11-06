@@ -47,28 +47,19 @@ VALUES (sqlc.arg(id), sqlc.arg(project_id),
   (SELECT COALESCE(MAX(r.number),0)+1 FROM releases r WHERE r.project_id=sqlc.arg(project_id)),
   sqlc.arg(state),
   sqlc.arg(deployment),sqlc.arg(actor),sqlc.arg(run_id),sqlc.arg(at)::timestamptz,
-  CASE WHEN sqlc.arg(from_workflow)::boolean THEN sqlc.arg(at)::timestamptz ELSE NULL END,
+  NULL,
   sqlc.arg(notes),sqlc.arg(revision),sqlc.arg(revision),
-  CASE
-    WHEN sqlc.arg(from_workflow)::boolean THEN (SELECT CASE WHEN (b.built_from_json->>'runId')::uuid=sqlc.arg(run_id)::uuid THEN b.id END
-      FROM release_bundles b WHERE b.project_id=sqlc.arg(project_id) ORDER BY b.id DESC LIMIT 1)
-    WHEN sqlc.arg(from_branch)::boolean THEN (SELECT b.id FROM release_bundles b WHERE b.project_id=sqlc.arg(project_id)
-      AND b.contract_revision=sqlc.arg(revision) ORDER BY b.id DESC LIMIT 1)
+  CASE WHEN sqlc.arg(from_branch)::boolean THEN (SELECT b.id FROM release_bundles b WHERE b.project_id=sqlc.arg(project_id)
+    AND b.contract_revision=sqlc.arg(revision) ORDER BY b.id DESC LIMIT 1)
     ELSE sqlc.arg(bundle_id)::uuid END,
-  CASE WHEN sqlc.arg(from_workflow)::boolean THEN (SELECT d.id FROM deployments d
-    WHERE d.project_id=sqlc.arg(project_id) AND d.name='main') ELSE sqlc.arg(deployment_id)::uuid END,
-  CASE WHEN sqlc.arg(from_workflow)::boolean THEN (SELECT i.backup_id
-    FROM deployment_attempt_inputs i JOIN deployment_attempts a ON a.id=i.attempt_id
-    WHERE i.release_run=sqlc.arg(run_id) AND a.status='done'
-    ORDER BY a.id DESC LIMIT 1) ELSE NULL END)
+  sqlc.arg(deployment_id)::uuid, NULL)
 RETURNING id,number;
 
 -- name: LinkReleaseChanges :one
 WITH selected AS MATERIALIZED (
   SELECT c.id FROM changes c WHERE c.project_id=sqlc.arg(project_id) AND c.state='shipped' AND
   CASE
-    WHEN sqlc.arg(from_workflow)::boolean THEN c.id=sqlc.arg(change_id)::uuid
-    WHEN sqlc.arg(from_bundle)::boolean THEN c.closed_at<=(SELECT b.created_at FROM release_bundles b WHERE b.id=sqlc.arg(bundle_id)::uuid)
+    WHEN sqlc.arg(from_bundle)::boolean THEN EXISTS (SELECT 1 FROM release_bundles b WHERE b.id=sqlc.arg(bundle_id)::uuid AND (c.closed_at<=b.created_at OR c.id::text=b.built_from_json->>'changeId'))
     WHEN sqlc.arg(from_branch)::boolean THEN c.closed_at>COALESCE((SELECT MAX(r.created_at) FROM releases r
       WHERE r.project_id=sqlc.arg(project_id) AND r.deployment=sqlc.arg(deployment)::text AND r.state=sqlc.arg(released_state)),'epoch'::timestamptz)
     ELSE false END

@@ -14,7 +14,7 @@ import (
 
 var errAttemptLost = errors.New("the attempt no longer owns its step")
 
-// claimedAttempt stands in for Work's claimed deploy step attempt: it
+// claimedAttempt stands in for Work's claimed build step attempt: it
 // fences a write in a transaction, as Work does, while it is current, and
 // refuses once lost. failAfter makes the fence's own transaction fail after
 // the write, as Work's commit can.
@@ -29,14 +29,14 @@ type claimedAttempt struct {
 }
 
 func (c *claimedAttempt) ClaimedStep(kind string) (ids.ID, ids.ID, ids.ID, error) {
-	if kind != "deploy" {
+	if kind != "build" {
 		return ids.Nil, ids.Nil, ids.Nil, errAttemptLost
 	}
 	return c.project, c.run, c.step, nil
 }
 
 func (c *claimedAttempt) InAttempt(kind string, write func(*database.Tx, int64) error) error {
-	if c.lost || kind != "deploy" || (c.lostAfter > 0 && c.fenced >= c.lostAfter) {
+	if c.lost || kind != "build" || (c.lostAfter > 0 && c.fenced >= c.lostAfter) {
 		return errAttemptLost
 	}
 	c.fenced++
@@ -62,7 +62,7 @@ func digestOrigin(by AttemptClaim) BundleOrigin {
 		Profile: execution.WorkerProfile{Name: "worker-vm", OS: "linux Debian GNU/Linux 13 (trixie)", Architecture: "x86_64", Docker: "26.1.5", DindDigest: "docker@sha256:d1", Privileged: "yes", Exclusive: true}}, By: by}
 }
 
-// A bundle committed by a claimed deploy step attempt is committed only
+// A bundle committed by a claimed build step attempt is committed only
 // while that attempt owns its step, in the fence's own transaction, and
 // once per attempt; it names the attempt that committed it.
 func TestABundleIsCommittedOnlyByTheAttemptThatOwnsTheStep(t *testing.T) {
@@ -123,7 +123,7 @@ func TestADigestBundleNamesItsRegistryPlatformAndBuild(t *testing.T) {
 		from        BundleOrigin
 		says        string
 	}{
-		"no claim":                 {parts, init, digestOrigin(nil), "only by a claimed deploy step attempt"},
+		"no claim":                 {parts, init, digestOrigin(nil), "only by a claimed build step attempt"},
 		"no platform":              {parts, init, func() BundleOrigin { o := digestOrigin(claim); o.Platform = ""; return o }(), "names its platform"},
 		"no build":                 {parts, init, func() BundleOrigin { o := digestOrigin(claim); o.Build = BundleBuild{}; return o }(), "where it was built"},
 		"a target":                 {parts, init, func() BundleOrigin { o := digestOrigin(claim); o.TargetID = idstest.N(3); return o }(), "not on a target"},

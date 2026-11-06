@@ -74,7 +74,7 @@ func completeEvidenceRelease(t *testing.T, a *App, ctx context.Context, changeID
 	var deployStep, approvalStep ids.ID
 	for _, step := range snapshot.Steps {
 		switch step.Name {
-		case "deploy":
+		case "build":
 			deployStep = step.ID
 		case "accept":
 			approvalStep = step.ID
@@ -94,6 +94,16 @@ func completeEvidenceRelease(t *testing.T, a *App, ctx context.Context, changeID
 	}
 	if out, err := a.Work.AdvanceFrom(ctx, run); err != nil || !out.Advanced {
 		t.Fatalf("complete landing: %+v %v", out, err)
+	}
+
+	a.SeedTargets(t.Context())
+	testAdministrator(t, a, "release-fixture")
+	principal := access.Principal{ID: testPrincipalOf(t, a.DB, "release-fixture"), Kind: "user", Name: "release-fixture", Via: "header", Credential: identity.HeaderCredential("release-fixture")}
+	if _, err := a.Deployment.Configure(verifiedContext(t.Context(), principal), deployment.ConfigureDeployment{ProjectID: run.ProjectID, Name: "main", Target: deployment.BuiltInTargetName, Attributes: deployment.Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Deployment.RequestLandingReleases(t.Context(), run.ProjectID, run.ID, run.ChangeID, "test"); err != nil {
+		t.Fatal(err)
 	}
 	return run
 }
@@ -116,13 +126,13 @@ func TestChangeEvidenceRequiresRecordedMergeAndReleaseMembership(t *testing.T) {
 	}
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{
 		Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "checks", Steps: []schema.Step{
-			{Name: "deploy", Uses: "deploy", With: map[string]any{"deployment": "main"}},
+			{Name: "build", Uses: "build"},
 			{Name: "accept", Uses: "approval", With: map[string]any{"approvers": []string{"test"}, "means": "the release evidence is ready"}},
 		}}},
 	}})
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
 		deps.Git = fakeGit{}
-		deps.Runners = map[string]workflow.Runner{"deploy": func(task *workflow.Execution) {
+		deps.Runners = map[string]workflow.Runner{"build": func(task *workflow.Execution) {
 			if _, err := task.Claim(); err != nil {
 				t.Error(err)
 				return
@@ -144,7 +154,7 @@ func TestChangeEvidenceRequiresRecordedMergeAndReleaseMembership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if proof.Merged || len(proof.Releases) != 1 || proof.Releases[0].Number != 1 || proof.Releases[0].Serving {
+	if proof.Merged || len(proof.Releases) != 2 || proof.Releases[0].Number != 2 || proof.Releases[1].Number != 1 || proof.Releases[0].Serving || len(proof.LandingReleases) != 1 || proof.LandingReleases[0].Number != 1 {
 		t.Fatalf("completion/release history overstated evidence: %+v", proof)
 	}
 	if err := workflow.RecordNotice(ctx, a.DB, workflow.Notice{RunID: run.ID, Kind: "merge.completed", Payload: json.RawMessage(`{"sha":"abc123"}`), At: time.Now()}); err != nil {
@@ -157,9 +167,10 @@ func TestChangeEvidenceRequiresRecordedMergeAndReleaseMembership(t *testing.T) {
 }
 
 type evidenceWire struct {
-	Targets  []workflow.AcceptanceCheck
-	Merged   bool
-	Releases []struct {
+	LandingReleases []struct{ Number int64 }
+	Targets         []workflow.AcceptanceCheck
+	Merged          bool
+	Releases        []struct {
 		Number  int64
 		Serving bool
 	}

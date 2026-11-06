@@ -27,8 +27,8 @@ func (h *Host) prepareImages(ctx context.Context, t BootRequest, c *appcontract.
 	prepare := func(name, build, static string, sb *appcontract.StaticBuild, image string, port int, recorded string) (string, error) {
 		if t.Recorded != nil {
 			t.logf("Preparing recorded image %s on the Docker host", name)
-			if IsDigestReference(recorded) && t.Stage != nil {
-				t.Stage(deploy.Building)
+			if IsDigestReference(recorded) && t.stage != nil {
+				t.stage(deploy.Building)
 			}
 			id, err := t.Recorded.onDaemon(ctx, t.Docker, name, recorded)
 			if err == nil && IsDigestReference(recorded) {
@@ -47,15 +47,15 @@ func (h *Host) prepareImages(ctx context.Context, t BootRequest, c *appcontract.
 			return id, nil
 		}
 		t.logf("Preparing image %s on the Docker host", name)
-		if t.Stage != nil && (sb != nil || build != "" || static != "" || (!isLocalBuildTag(image) && !strings.HasPrefix(image, "sha256:"))) {
-			t.Stage(deploy.Building)
+		if t.stage != nil && (sb != nil || build != "" || static != "" || (!isLocalBuildTag(image) && !strings.HasPrefix(image, "sha256:"))) {
+			t.stage(deploy.Building)
 		}
 		if sb != nil {
 			root, err := SelectedPath(t.Workspace, sb.Context)
 			if err != nil {
 				return "", err
 			}
-			image = Current.BuildTag(fmt.Sprintf("%s-g%d-%s", t.Name, t.Identity.Generation, name))
+			image = Current.BuildTag(fmt.Sprintf("%s-g%d-%s", t.Name, t.identity.Generation, name))
 			server, err := h.staticServer()
 			if err != nil {
 				return "", err
@@ -75,7 +75,7 @@ func (h *Host) prepareImages(ctx context.Context, t BootRequest, c *appcontract.
 			if err != nil {
 				return "", err
 			}
-			tag := Current.BuildTag(fmt.Sprintf("%s-g%d-%s", t.Name, t.Identity.Generation, name))
+			tag := Current.BuildTag(fmt.Sprintf("%s-g%d-%s", t.Name, t.identity.Generation, name))
 			args := []string{"-t", tag}
 			if static != "" {
 				server, err := h.staticServer()
@@ -253,4 +253,21 @@ func onDaemon(ctx context.Context, dk Scope, name, id string) (string, error) {
 		return "", fmt.Errorf("%w: %s (%s) answers as %q", ErrRecordedImageMissing, id, name, strs.Truncate(got, 100))
 	}
 	return id, nil
+}
+
+// BuildImages prepares all images without starting containers or init steps.
+// The supplied name is a unique build identity, independent of a deployment.
+func (h *Host) BuildImages(ctx context.Context, dk Scope, name, workspace string, c *appcontract.Contract) (map[string]string, map[string]string, error) {
+	plan, err := h.prepareImages(ctx, BootRequest{Docker: dk, Name: name, Workspace: workspace, identity: &deploy.DockerIdentity{Generation: 1}}, appcontract.Prepare(c, nil))
+	if err != nil {
+		return nil, nil, err
+	}
+	parts, init := map[string]string{}, map[string]string{}
+	for _, p := range plan.Parts {
+		parts[p.Name] = p.Image
+	}
+	for _, i := range plan.Init {
+		init[i.Name] = i.Image
+	}
+	return parts, init, nil
 }

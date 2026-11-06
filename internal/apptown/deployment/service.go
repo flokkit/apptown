@@ -21,7 +21,6 @@ import (
 // execution operations with their configured drivers and collaborators. Its
 // exposed record owners are not independently authenticated user entry points.
 type Service struct {
-	landings landingDeployReader
 	// healthParts is the public part read at each release revision the
 	// health controller has asked about; a revision's contract never changes.
 	healthMu    sync.Mutex
@@ -78,8 +77,6 @@ type Service struct {
 // Docker, providers or registered needs (a standalone tool or a test):
 // New builds empty ones over the same records.
 type Dependencies struct {
-	// Landings supplies the workflow outcomes shown in deployment history.
-	Landings      landingDeployReader
 	Targets       *Targets
 	Deployments   *Deployments
 	Hosts         *Hosts
@@ -140,7 +137,6 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		providers = NewProviders(ctx, db, ProviderRecords{Targets: targets, Deployments: deployments}, hosts, env, ProviderDependencies{Projects: deps.Projects, Now: deps.Now})
 	}
 	s := &Service{
-		landings:           deps.Landings,
 		hostMemory:         deps.HostMemory,
 		records:            context.WithoutCancel(ctx),
 		hosts:              hosts,

@@ -3,8 +3,10 @@ package deployment
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -136,13 +138,40 @@ func (s *Service) Configure(ctx context.Context, in ConfigureDeployment) (config
 		if err != nil {
 			return configurationResult{}, err
 		}
+		if attrs.Feed == "main" {
+			setter, err := s.requireDeploy(ctx, in.ProjectID, dep.Name, dep.Protected(), "deployment.configure-feed")
+			if err != nil {
+				return configurationResult{}, err
+			}
+			if !setter.Verified {
+				return configurationResult{}, errReleaseAuthority
+			}
+			raw, err := json.Marshal(operations.AuthorityOf(setter.Principal))
+			if err != nil {
+				return configurationResult{}, err
+			}
+			if _, err := releasePrincipal(raw); err != nil {
+				return configurationResult{}, err
+			}
+			captured := json.RawMessage(raw)
+			n, err := q.ConfirmMainFeed(ctx, deploymentsql.ConfirmMainFeedParams{ID: dep.ID, Revision: dep.FeedRevision, Authority: &captured})
+			if err != nil {
+				return configurationResult{}, err
+			}
+			if n != 1 {
+				return configurationResult{}, errFeedMoved
+			}
+			dep.FeedRevision++
+			dep.FeedConfirmed = true
+			dep.feedAuthority = raw
+		}
 		if !in.StartFrom.IsZero() {
 			if err := s.chooseStartFrom(ctx, tx, dep, target, in.StartFrom, actor.Principal.Name); err != nil {
 				return configurationResult{}, err
 			}
 		}
 		// A start still to be filled is filled by a person's deploy.
-		if !dep.StartFrom.IsZero() && !dep.StartedFrom.Valid && dep.Feed == "landing" {
+		if !dep.StartFrom.IsZero() && !dep.StartedFrom.Valid && dep.Feed == "main" {
 			return configurationResult{}, fmt.Errorf("%w: %s starts from a copy, so it is fed by a person's deploy, not by every landing", ErrStartFrom, dep.Name)
 		}
 		if err := audit.At(at).RecordIn(ctx, tx, actor.Principal.Name, in.ProjectID, "deployment.bound", in.Name, map[string]any{"target": target.Name, "kind": target.Kind, "feed": dep.Feed, "audience": dep.Audience, "data": dep.DataClass, "protected": dep.Protected(), "startFrom": dep.StartFrom}); err != nil {

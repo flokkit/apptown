@@ -18,7 +18,7 @@ import (
 func TestAFencedWriteRunsOnlyWhileItsAttemptOwnsTheStep(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	q, run, stepID := admitSingleStep(t, schema.Step{Name: "deploy", Uses: "deploy"})
+	q, run, stepID := admitSingleStep(t, schema.Step{Name: "build", Uses: "build"})
 	attempts := newStepAttempts(q.db, func(string) bool { return true })
 	claim := func() *Execution {
 		t.Helper()
@@ -36,7 +36,7 @@ func TestAFencedWriteRunsOnlyWhileItsAttemptOwnsTheStep(t *testing.T) {
 	write := func(_ *database.Tx, attempt int64) error { wrote = append(wrote, attempt); return nil }
 
 	first := claim()
-	if err := first.InAttempt("deploy", write); err != nil || len(wrote) != 1 || wrote[0] != 1 {
+	if err := first.InAttempt("build", write); err != nil || len(wrote) != 1 || wrote[0] != 1 {
 		t.Fatalf("the current attempt: %v, wrote %v", err, wrote)
 	}
 	if err := first.InAttempt("tests", write); !errors.Is(err, ErrStepAttemptLost) || len(wrote) != 1 {
@@ -45,21 +45,21 @@ func TestAFencedWriteRunsOnlyWhileItsAttemptOwnsTheStep(t *testing.T) {
 	if err := q.db.InTx(ctx, func(tx *database.Tx) error { _, err := InterruptStepsIn(ctx, tx, nil, nil, time.Now()); return err }); err != nil {
 		t.Fatal(err)
 	}
-	if err := first.InAttempt("deploy", write); !errors.Is(err, ErrStepAttemptLost) || len(wrote) != 1 {
+	if err := first.InAttempt("build", write); !errors.Is(err, ErrStepAttemptLost) || len(wrote) != 1 {
 		t.Fatalf("an interrupted attempt: %v, wrote %v", err, wrote)
 	}
-	if n, err := invalidateAndRetryForTest(ctx, q.db, run, "deploy"); err != nil || n != 1 {
+	if n, err := invalidateAndRetryForTest(ctx, q.db, run, "build"); err != nil || n != 1 {
 		t.Fatalf("retrying the step: %d %v", n, err)
 	}
 	second := claim()
-	if err := first.InAttempt("deploy", write); !errors.Is(err, ErrStepAttemptLost) || len(wrote) != 1 {
+	if err := first.InAttempt("build", write); !errors.Is(err, ErrStepAttemptLost) || len(wrote) != 1 {
 		t.Fatalf("a superseded attempt: %v, wrote %v", err, wrote)
 	}
-	if err := second.InAttempt("deploy", write); err != nil || len(wrote) != 2 || wrote[1] != 2 {
+	if err := second.InAttempt("build", write); err != nil || len(wrote) != 2 || wrote[1] != 2 {
 		t.Fatalf("the later attempt: %v, wrote %v", err, wrote)
 	}
 	refused := errors.New("the participant's own refusal")
-	if err := second.InAttempt("deploy", func(*database.Tx, int64) error { return refused }); !errors.Is(err, refused) {
+	if err := second.InAttempt("build", func(*database.Tx, int64) error { return refused }); !errors.Is(err, refused) {
 		t.Fatalf("a write's own failure: %v", err)
 	}
 }

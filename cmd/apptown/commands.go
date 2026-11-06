@@ -55,6 +55,8 @@ var sections = []section{
                                         a run id that names no run but a change waits on the change;
                                         a run that ended without finishing is named with why and what next`, cmdWait},
 			{[]string{"approve"}, `  approve <step-id> [-m comment] [-y]   show what approving means, then approve`, func(args []string) error { return cmdDecide(args, "approve") }},
+			{[]string{"deployment"}, `  deployment confirm-feed <project> <deployment> | --all
+                                        authorize automatic releases after each landing`, cmdDeployment},
 			{[]string{"release"}, `  release <project-slug> <deployment>   release what landed on main to that deployment and follow its log` + "\n" +
 				`                                        (--accept-uncopied-data: release though AppTown cannot copy the data it holds now;` + "\n" +
 				`                                        --accept-unchecked-copy: fill a deployment that starts from a copy not shown to come back whole)` + "\n" +
@@ -80,8 +82,7 @@ var sections = []section{
 			{[]string{"follow"}, `  follow <change-id> [-y]               re-attach the loop to a change in flight`, cmdFollow},
 			{[]string{"retry"}, `  retry  <change-id> [-y]               blocked change: another round (fresh agent + feedback)
     retry -c / --continue               …same agent resumes its session, memory intact
-    retry --restart                     …wind the work back to the run's base and start over
-    retry --accept-uncopied-data        …a deploy refused over data AppTown could not copy: release anyway (recorded)`, cmdRetry},
+    retry --restart                     …wind the work back to the run's base and start over`, cmdRetry},
 			{[]string{"sendback", "send-back"}, `  sendback <change-id> "<note>"         blocked change: close the landing; its agent reworks from your note
                                         (a change with no agent is back in progress for you to push a fix)`, cmdSendBack},
 			{[]string{"override"}, `  override <change-id> "<why>"          blocked change: overrule the machine verdict (recorded)`, cmdOverride},

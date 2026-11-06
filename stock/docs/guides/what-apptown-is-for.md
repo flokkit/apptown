@@ -21,7 +21,7 @@ gives every app the habits of a careful engineering team:
 - the change boots on a **preview** from its declared contract, so you can
   try it before it goes live;
 - a person approves it where the way of working says a person must;
-- AppTown merges it into the app's `main` branch and deploys it.
+- AppTown merges it into the app's `main` branch and builds it. Deployments that follow main then release its runtime bundle.
 
 Every change keeps its record: who asked, which rules applied and at which
 version, what each check found, who approved and what their approval meant,

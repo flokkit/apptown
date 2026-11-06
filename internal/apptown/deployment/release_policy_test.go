@@ -25,7 +25,7 @@ func (a *policyAuthority) RequireStill(ctx context.Context, _ access.Principal, 
 	return err
 }
 
-// Promotion permission follows classification. Admission records whether the
+// Promotion permission follows classification. admission records whether the
 // locked deployment was protected, and execution requires promotion when
 // either the admitted record or the current classification asks for it.
 func TestReleaseAdmissionCapturesLockedProtectionAndExecutionKeepsBothGates(t *testing.T) {

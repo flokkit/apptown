@@ -69,7 +69,7 @@ func TestNarrativePublicationRequiresEveryWriteAndReceipt(t *testing.T) {
 				completionExec(t, s.db, `CREATE FUNCTION veto_narrative() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN `+body+` END $$`)
 				completionExec(t, s.db, trigger+" FOR EACH ROW EXECUTE FUNCTION veto_narrative()")
 			}
-			if err := s.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "New title", Note: "New note"}, Slot: "fast", Model: "openrouter/test"}); err == nil {
+			if err := s.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{title: "New title", Note: "New note"}, Slot: "fast", Model: "openrouter/test"}); err == nil {
 				t.Fatal("partial narrative published")
 			}
 			assertNarrative(t, s, source.Change.ID, "automatic", "previous")
@@ -82,7 +82,7 @@ func TestNarrativePublicationsDoNotOverwriteAnotherCompletedObservation(t *testi
 	t.Parallel()
 	s, source := narrativeFixture(t)
 	results := race(8, func(i int) int {
-		err := s.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: fmt.Sprintf("title-%d", i), Note: fmt.Sprintf("note-%d", i)}, Slot: "fast", Model: "test"})
+		err := s.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{title: fmt.Sprintf("title-%d", i), Note: fmt.Sprintf("note-%d", i)}, Slot: "fast", Model: "test"})
 		if errors.Is(err, ErrNarrativeChanged) {
 			return 0
 		}
@@ -150,12 +150,12 @@ func TestNarrativeTitleObservesCurrentOwnership(t *testing.T) {
 				}
 				want = title
 			case "different automatic title":
-				if err := s.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "different", Note: "previous"}}); err != nil {
+				if err := s.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{title: "different", Note: "previous"}}); err != nil {
 					t.Fatal(err)
 				}
 				want = "different"
 			}
-			if err := s.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "generated", Note: "note"}, Slot: "fast", Model: "test"}); err != nil {
+			if err := s.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{title: "generated", Note: "note"}, Slot: "fast", Model: "test"}); err != nil {
 				t.Fatal(err)
 			}
 			assertNarrative(t, s, source.Change.ID, want, "note")
@@ -171,7 +171,7 @@ func TestNarrativePublicationPreservesConcurrentHumanTitle(t *testing.T) {
 	// publication never overwrites it (it does not advance the edit revision).
 	codes := race(8, func(i int) int {
 		if i == 0 {
-			if err := owner.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{Title: "Model title", Note: "Generated note"}, Slot: "fast", Model: "openrouter/test"}); err != nil {
+			if err := owner.publish(context.Background(), NarrativePublication{Source: source, Draft: NarrativeDraft{title: "Model title", Note: "Generated note"}, Slot: "fast", Model: "openrouter/test"}); err != nil {
 				t.Error(err)
 			}
 			return 0

@@ -29,22 +29,23 @@ not be recorded; if even that fails, it stays running for startup repair.
 Scan/guidance policy remains in Verification; sharing an execution contract
 does not make every runner one owner.
 
-`Shipping` claims deploy/preview steps, selects their source, invokes Deployment,
-and translates the result into evidence and settlement. Deployment owns provider
-execution and generation guards; a narrow backup requester admits the existing
-durable follow-up. Dataprotection supplies the pre-release copy outcome and set reference for deploy
-evidence. Deployment stores the reference with the attempt and links it to the
-numbered workflow release on completion. No model service or App is available to
-these runners.
-On an AppTown with a worker (`ReleaseBuilds`, `release_build.go`) a landing's
-deploy step first refuses what would stop the release (no container
-registry, `-private-docker=false`, `main` not on a Docker host, an unknown or
-mismatched platform), then runs one `release-build` task through
-`TaskRunner` (private Docker, the commit as source, generated build files,
-no environment or credential), has Deployment publish its images and commit
-the digest bundle under the step's ownership, settles and releases the task,
-and only then deploys that bundle, pinned on the generation. A restart ends
-a deploy step instead of continuing it.
+`Shipping` claims build and preview steps. A build stages the committed tree,
+builds runtime images without booting a deployment or executing init steps, and
+records a runtime bundle under the step's attempt fence. Projects without a
+runtime record a clean-tree build. Previews boot separately through Preview.
+
+With a worker (`ReleaseBuilds`, `release_build.go`), the build runs one task in
+private Docker with source and generated build files, no deployment data,
+environment, services or registry credentials. Deployment publishes the images
+and commits the digest bundle under the build attempt. Without a worker,
+Deployment builds images on its selected Docker build host and records those
+image IDs, publishing them when the project has a registry. A restart ends a
+build step instead of continuing it.
+
+Work commits landing completion before Deployment requests the bundle for each
+follows-main destination. Deployment's release execution owns authorization,
+pre-release copying, provider effects and continuity checks. Build runners
+receive no backup requester or release executor.
 
 `Repositories` runs reconciliation and SCM merge-request steps. It resolves
 Workflow source, invokes SCM/provider operations, then records evidence. The

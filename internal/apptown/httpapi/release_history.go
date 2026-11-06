@@ -163,6 +163,12 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	events := append([]deployment.ReleaseEvent{}, logged...)
 	out := ReleaseDetail{Release: rel, StatusLabel: rel.State.Display(), Changes: changes, IsLive: live, Events: events}
+	out.Request, err = h.deployment.Releases.RequestMetadata(r.Context(), rel.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+
 	if !rel.BackupID.IsZero() {
 		out.Backup, err = h.backups.Reference(r.Context(), p.ID, rel.BackupID)
 		if err != nil {
@@ -170,33 +176,17 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if rel.BackupID.IsZero() && !rel.RunID.IsZero() {
-		snapshot, err := h.work.Snapshot(r.Context(), rel.RunID, workflow.DetailView)
-		if err != nil {
+	if out.Request != nil && len(out.Request.BackupEvidence) > 0 {
+		var evidence struct {
+			Copy struct {
+				Reason string `json:"reason"`
+			} `json:"copy"`
+		}
+		if err := json.Unmarshal(out.Request.BackupEvidence, &evidence); err != nil {
 			WriteFault(w, err)
 			return
 		}
-		for _, step := range snapshot.Steps {
-			if step.Type != "deploy" || step.Status != workflow.StatusPass {
-				continue
-			}
-			var evidence struct {
-				Backup *struct {
-					Reason   string                           `json:"reason"`
-					Accepted *workflow.UncopiedDataAcceptance `json:"accepted"`
-				} `json:"backup"`
-			}
-			if err := json.Unmarshal(step.Evidence, &evidence); err != nil {
-				WriteFault(w, err)
-				return
-			}
-			if evidence.Backup != nil {
-				out.BackupReason = evidence.Backup.Reason
-				if evidence.Backup.Accepted != nil {
-					out.BackupReason += "; went ahead: accepted by " + evidence.Backup.Accepted.By
-				}
-			}
-		}
+		out.BackupReason = evidence.Copy.Reason
 	}
 	// The bundle's form and images, so a person can see before promoting
 	// whether the release can go where only images by digest go.
@@ -223,6 +213,7 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 // ReleaseDetail is one release: what it is, the changes it carried, whether
 // it is what the deployment serves now, and its log.
 type ReleaseDetail struct {
+	Request      *deployment.RequestMetadata     `json:"request,omitempty"`
 	BackupReason string                          `json:"backupReason,omitempty"`
 	Backup       *dataprotection.BackupReference `json:"backup,omitempty"`
 	StatusLabel  deployment.ReleaseLabel         `json:"statusLabel"`

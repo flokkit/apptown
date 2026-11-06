@@ -24,7 +24,7 @@ import (
 func TestIntegrationListSaysWhatUsesEachIntegration(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
-	for _, b := range []struct{ name, capability, provider string }{{"store", "objectstore", "minio"}, {"lan", "deploy", "portainer"}} {
+	for _, b := range []struct{ name, capability, provider string }{{"store", "objectstore", "minio"}, {"lan", "build", "portainer"}} {
 		if _, err := a.Integrations.Bindings.Save(context.Background(), b.name, b.capability, b.provider, `{}`, "fixture"); err != nil {
 			t.Fatal(err)
 		}

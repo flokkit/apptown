@@ -136,9 +136,9 @@ stage must pass.
 
 **Approval** — a step that waits for people to decide yes or no. It names
 its approvers — people or groups — and can require more than one OK
-(quorum). One rejection stops it; every vote is kept. A merge into main
-or a deploy needs a person's approval, or a landing started by someone
-allowed to land.
+(quorum). One rejection stops it; every vote is kept. A merge into main needs a person's approval or a landing started by someone
+allowed to land. An automatic release acts under its follows-main setting's
+recorded deploy authority.
 
 **This change adds** — the list an approval of a commit shows first: the
 secrets, services and app parts the commit declares that the point where
@@ -158,11 +158,12 @@ parameters. AppTown ships them with each release.
 ## Shipping
 
 **Landing** — the only path from a change's branch to main: landing gates,
-merge, deploy, release record. "Land" is the verb.
+merge and build. Runtime projects produce a release bundle; projects without a
+runtime complete a clean-tree build. Deployment runs separately after landing. "Land" is the verb.
 
-**Release** — a promotion of something already proven on main to a wider
-tier. Numbered per project; each release keeps a timestamped log, the
-commit, and the image digest it shipped.
+**Release** — a deployment taking a release bundle. Numbered per project;
+each release records who authorized it, its log, commit and images. A failed
+release does not undo the landing.
 
 **Runtime contract** — the file `.apptown/app.yaml`: `app:`, the app's own
 containers, each `build:`/`image:`/`static:`, one `public: true`; and
@@ -196,11 +197,13 @@ one row per app, tiers as columns.
 
 ## Where things run
 
-**Tier** — a rung of the promotion ladder: preview, main, intranet.
+**Tier** — a deployment’s place in the release process. Preview, main and
+intranet are common names; a deployment’s feed determines how it updates.
 Moving right is a release, and each rung reaches more people.
 
 **Deployment** — a named, standing copy of a project's app on a deployment
-target. `main` is fed by every landing. It stays until a new release
+target. A deployment with the follows-main setting takes each landing’s
+runtime bundle automatically under its setter’s authority. It stays until a new release
 replaces it or someone takes it down.
 
 **Deployment target** — a place deployments run: the built-in Docker host,

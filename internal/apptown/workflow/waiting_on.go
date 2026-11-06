@@ -182,8 +182,8 @@ func checkTitle(s workflowActivityStep) string {
 		return "Ways of working"
 	case "preview":
 		return "Preview"
-	case "deploy":
-		return "Deploy"
+	case "build":
+		return "Build"
 	case "reconcile":
 		return "Up to date with main"
 	case "adr/require":

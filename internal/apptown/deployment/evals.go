@@ -59,11 +59,11 @@ func (s *Service) refusesPlacement(ctx context.Context, projectID ids.ID, t *Tar
 	return nil
 }
 
-// evalLandingTarget is the target an eval copy's landing creates its
+// evallandingTarget is the target an eval copy's landing creates its
 // missing deployment on: the one Docker host attached for evals, else this
 // AppTown's own host when it has local Docker and an eval domain. With none,
 // or several attached for evals, the refusal names the choice.
-func (s *Service) evalLandingTarget(ctx context.Context, name string) (*Target, error) {
+func (s *Service) evallandingTarget(ctx context.Context, name string) (*Target, error) {
 	targets, err := s.Targets.All(ctx)
 	if err != nil {
 		return nil, err

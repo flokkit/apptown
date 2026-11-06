@@ -53,7 +53,7 @@ func TestDeploymentUncertaintyBlocksLandingAndBackgroundRebuild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "main", targetForLanding.ID, deployment.Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"})
+	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "main", targetForLanding.ID, deployment.Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,8 +65,8 @@ func TestDeploymentUncertaintyBlocksLandingAndBackgroundRebuild(t *testing.T) {
 	if _, err := s.Uncertain(context.Background(), at, errors.New("lost provider response")); err != nil {
 		t.Fatal(err)
 	}
-	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
-	if step := readStep(t, a, stepID); step.Status != workflow.StatusError || !strings.Contains(stepReason(t, step), "uncertain") {
+	releaseErr := executeBootFixture(t, a, a.asEngine(context.Background()), stepID)
+	if step := readStep(t, a, stepID); step.Status != workflow.StatusPass || releaseErr == nil || !strings.Contains(releaseErr.Error(), "uncertain") {
 		t.Fatalf("landing deploy beside an uncertain one: %s %s", step.Status, step.Evidence)
 	}
 	if len(containersRun(docker)) != 0 {
@@ -109,14 +109,14 @@ func TestLandingDeploymentObservesRunningImageInsteadOfContractPin(t *testing.T)
 				}
 				return "", nil, false
 			}
-			a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+			executeBootFixture(t, a, a.asEngine(context.Background()), stepID)
 			if lookupFailed {
 				if n := deploymentsMatching(t, a, func(d deployment.ProjectDeployment) bool {
 					return d.ObservedGeneration == 0 && d.Readiness == deployment.ReadinessUncertain
 				}); n != 1 {
 					t.Fatalf("%d unobserved uncertain deployments", n)
 				}
-				if step := readStep(t, a, stepID); step.Status != workflow.StatusError {
+				if step := readStep(t, a, stepID); step.Status != workflow.StatusPass {
 					t.Fatalf("deploy step: %s", step.Status)
 				}
 			} else {

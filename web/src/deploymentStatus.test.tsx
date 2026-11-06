@@ -28,7 +28,7 @@ it.each([
   ['unknown', 'missing', {}, 'unknown', 'failed'],
 ] as const)('agrees across all deployment views for %s / %s / %j', (observation, presence, reading, word, releaseState = undefined) => {
   const client = newQueryClient()
-  const env = { id: 'deployment', name: 'main', observation, generation: 1, kind: 'standing', feed: 'landing', observationIssue: 'Runtime status is unavailable', observationStale: word === 'deploying', observedAt: '2026-11-01T00:00:00Z' } as DeploymentView
+  const env = { id: 'deployment', name: 'main', observation, generation: 1, kind: 'standing', feed: 'main', observationIssue: 'Runtime status is unavailable', observationStale: word === 'deploying', observedAt: '2026-11-01T00:00:00Z' } as DeploymentView
   const values = {
     '/projects/lunch/deployments': [env],
     '/projects/lunch/overview': { active: [], open: [], history: [] },

@@ -276,6 +276,7 @@ export type ChangePreview = {
 
 export type ChangeRelease = {
   statusLabel: ReleaseLabel
+  failure?: string
   number: number
   deployment: string
   state: ReleaseState
@@ -322,6 +323,7 @@ export type CockpitEvidence = {
   mergeLabel: DisplayStatus
   targets: AcceptanceCheck[]
   merged: boolean
+  landingReleases: ChangeRelease[]
   releases: ChangeRelease[]
   inAdvance?: AdvanceYes | null
 }
@@ -604,6 +606,8 @@ export type DeploymentResources = {
 }
 
 export type DeploymentView = {
+  feedRevision: number
+  feedConfirmed: boolean
   lastApplied?: AppliedAttempt | null
   readinessLabel: ProgressLabel
   restoreLabel: ProgressLabel
@@ -995,16 +999,6 @@ export type Item = {
 
 export type JobList = {
   jobs: Job[]
-}
-
-export type LandingDeployAttempt = {
-  outcomeKnown: boolean
-  step: LandingDeployStep
-  attempt: number
-  changeId: string | null
-  changeNumber: number
-  changeTitle: string
-  runStartedAt: string
 }
 
 export type LandingStarted = {
@@ -1473,6 +1467,7 @@ export type ReleaseDefault = {
 }
 
 export type ReleaseDetail = {
+  request?: RequestMetadata | null
   backupReason?: string
   backup?: BackupReference | null
   statusLabel: ReleaseLabel
@@ -3514,17 +3509,6 @@ export type Job = {
   runAfter?: string
 }
 
-export type LandingDeployStep = {
-  id: string | null
-  runId: string | null
-  type: string
-  status: string
-  config: unknown
-  evidence: unknown
-  startedAt: string
-  finishedAt: string
-}
-
 export type PackVersion = {
   pack: string
   version: number
@@ -3949,6 +3933,17 @@ export type workflowSummary = {
   trigger?: string
   flow: string
   stages: workflowStageSummary[]
+}
+
+export type RequestMetadata = {
+  feed: string
+  settingsRevision: number
+  setBy: string
+  setter?: string | null
+  credential: string
+  approvers: string
+  backupEvidence?: unknown
+  uncopiedAcceptance?: unknown
 }
 
 export type BackupReference = {

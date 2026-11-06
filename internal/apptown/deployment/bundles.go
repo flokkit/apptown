@@ -58,12 +58,12 @@ type BundleOrigin struct {
 	Registry string      `json:"registry,omitempty"`
 	Platform string      `json:"platform,omitempty"`
 	Build    BundleBuild `json:"build,omitzero"`
-	// StepID and Attempt are the deploy step attempt that committed the
+	// StepID and Attempt are the build step attempt that committed the
 	// bundle; 0 for a bundle recorded outside one. Kept in their own
 	// columns.
 	StepID  ids.ID `json:"stepId,omitzero"`
 	Attempt int64  `json:"attempt,omitempty"`
-	// By is the claimed deploy step attempt committing the bundle (Cut).
+	// By is the claimed build step attempt committing the bundle (Cut).
 	// Never stored or read back.
 	By AttemptClaim `json:"-"`
 }
@@ -103,7 +103,7 @@ var digestImage = regexp.MustCompile(`@sha256:[a-f0-9]{64}$`)
 
 // Cut records a bundle: the image each part and init step runs, and the
 // contract's hash. With from.By, the bundle is committed in one
-// transaction with Work's check that the claimed deploy step attempt still
+// transaction with Work's check that the claimed build step attempt still
 // owns its step, and names that attempt: a stale or superseded attempt
 // commits nothing, and an attempt commits at most one bundle. A digest
 // bundle is only ever committed so, and every image it names must be in its
@@ -135,7 +135,7 @@ func (s *Bundles) Cut(ctx context.Context, projectID ids.ID, tree string, parts,
 		r, err := deploymentsql.New(s.db.SQL()).InsertBundle(ctx, row)
 		return r.ID, err
 	}
-	claimedProject, runID, stepID, err := columns.By.ClaimedStep("deploy")
+	claimedProject, runID, stepID, err := columns.By.ClaimedStep("build")
 	if err != nil {
 		return ids.Nil, err
 	}
@@ -145,7 +145,7 @@ func (s *Bundles) Cut(ctx context.Context, projectID ids.ID, tree string, parts,
 	from.RunID = runID
 	row.BuiltFromJson = json.RawMessage(jsonText(from))
 	var id ids.ID
-	err = columns.By.InAttempt("deploy", func(tx *database.Tx, attempt int64) error {
+	err = columns.By.InAttempt("build", func(tx *database.Tx, attempt int64) error {
 		row.RunID, row.StepID, row.Attempt = runID, stepID, attempt
 		r, err := deploymentsql.New(tx.SQL()).InsertBundle(ctx, row)
 		id = r.ID
@@ -170,7 +170,7 @@ func (o BundleOrigin) check(parts, init map[string]string) error {
 	}
 	switch {
 	case o.By == nil:
-		return fmt.Errorf("a digest bundle is committed only by a claimed deploy step attempt")
+		return fmt.Errorf("a digest bundle is committed only by a claimed build step attempt")
 	case o.Platform == "" || o.Build.Worker == "":
 		return fmt.Errorf("a digest bundle names its platform and where it was built")
 	case !o.TargetID.IsZero():
@@ -258,36 +258,4 @@ func (s *Bundles) DigestImages(ctx context.Context, projectID ids.ID) ([]string,
 // OfRun is the newest bundle a landing run cut for a project, or nil.
 func (s *Bundles) OfRun(ctx context.Context, projectID, runID ids.ID) (*ReleaseBundle, error) {
 	return lookupBundle(bundleRecord(deploymentsql.New(s.db.SQL()).BundleOfRun(ctx, deploymentsql.BundleOfRunParams{ProjectID: projectID, RunID: runID})))
-}
-
-// Images names the image each part and init step runs as the landing
-// booted it, read from the daemon it booted on: a part with its own pushed
-// image keeps that reference; a part built from the tree is the built
-// image's ID.
-func (r LandingResult) Images(ctx context.Context) (parts, init map[string]string) {
-	parts, init = map[string]string{}, map[string]string{}
-	c := r.Boot.Boot.Stack.Plan
-	if c == nil {
-		return parts, init
-	}
-	id := func(ref string) string {
-		if ref == "" {
-			return ""
-		}
-		if d := r.Docker.Text(ctx, "image", "inspect", "-f", "{{.Id}}", ref); d != "" {
-			return d
-		}
-		return ref
-	}
-	for _, p := range c.Parts {
-		if p.Image != "" {
-			parts[p.Name] = id(p.Image)
-		}
-	}
-	for _, s := range c.Init {
-		if s.Image != "" {
-			init[s.Name] = id(s.Image)
-		}
-	}
-	return parts, init
 }

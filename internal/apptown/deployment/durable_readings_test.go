@@ -68,7 +68,7 @@ func TestCapacitySurvivesRestartAndExpiresEachFigureByWhatItMeasures(t *testing.
 	}
 }
 
-// Retaining a display value must not turn it into admission evidence. Admission
+// Retaining a display value must not turn it into admission evidence. admission
 // asks the daemon again and refuses a failure even with an old healthy reading.
 func TestOldCapacityDiskCannotAdmitWorkWhenTheCurrentDiskIsFull(t *testing.T) {
 	t.Parallel()

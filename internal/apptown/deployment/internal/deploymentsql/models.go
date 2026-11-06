@@ -38,6 +38,9 @@ type Deployment struct {
 	StartedFromAt      sql.NullTime
 	RestoreCheck       string
 	DisplayLabel       string
+	FeedRevision       int64
+	FeedAuthorityJson  *json.RawMessage
+	PromotedFromID     ids.ID
 }
 
 type DeploymentAddressSetting struct {
@@ -193,16 +196,20 @@ type ReleaseEvent struct {
 }
 
 type ReleaseRequest struct {
-	ReleaseID           ids.ID
-	TargetID            ids.ID
-	BaseGeneration      int64
-	AttributesJson      json.RawMessage
-	ClaimedAt           sql.NullTime
-	StartFromBackup     ids.ID
-	ProviderBindingJson *json.RawMessage
-	IngressJson         *json.RawMessage
-	AuthorityJson       *json.RawMessage
-	RequirePromotion    bool
+	ReleaseID              ids.ID
+	TargetID               ids.ID
+	BaseGeneration         int64
+	AttributesJson         json.RawMessage
+	ClaimedAt              sql.NullTime
+	StartFromBackup        ids.ID
+	ProviderBindingJson    *json.RawMessage
+	IngressJson            *json.RawMessage
+	AuthorityJson          *json.RawMessage
+	RequirePromotion       bool
+	FeedRevision           sql.NullInt64
+	LandingApprovers       string
+	BackupEvidenceJson     *json.RawMessage
+	UncopiedAcceptanceJson *json.RawMessage
 }
 
 type RetainedResource struct {

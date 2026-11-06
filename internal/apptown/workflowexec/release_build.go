@@ -20,16 +20,10 @@ import (
 	"github.com/flokkit/apptown/internal/trust"
 )
 
-// Release builds on the worker (design/operations/workers.md, "Releases
-// built on the worker"). On an AppTown with a worker, a landing's deploy step has the worker
-// build every image of the release once, from the landed commit, in one
-// release-build task: private Docker, the commit as its source, the
-// generated build files, and no environment, inputs, services or registry
-// credential. AppTown publishes what the task left through the
-// deployment owner (PublishRelease), which commits the bundle in the step
-// attempt's fence. Only then does the step deploy, to a Docker host, which
-// pulls the bundle's digests. What would stop it is refused before
-// anything is built.
+// Landing builds every runtime image from the committed tree in one worker
+// task. The task receives source and build files, with no deployment data,
+// environment, runtime services or registry credentials. Publication commits
+// the attempt-bound bundle; releases consume it after landing completes.
 
 // ReleaseBuilds is where an AppTown with a worker builds its releases.
 type ReleaseBuilds struct {
@@ -68,10 +62,9 @@ const (
 )
 
 // releaseTarget is what a release build is checked against before it
-// starts: the deployment it lands on, the commit, the repository holding it
+// starts: the commit, the repository holding it
 // and the tree staged from it, and the contract read from that tree.
 type releaseTarget struct {
-	deployment *deployment.Deployment
 	repository string
 	commit     string
 	tree       string
@@ -83,14 +76,13 @@ type releaseTarget struct {
 // answers its bundle. When it answers false the step is finished (refused,
 // failed or errored) or no longer this attempt's, and nothing was
 // deployed.
-func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget, backup *backupEvidence, finish func(workflow.StepState, any)) (*deployment.ReleaseBundle, bool) {
+func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget, finish func(workflow.StepState, any)) (*deployment.ReleaseBundle, bool) {
 	finishError := func(reason string) { finish(workflow.StatusError, a.deployFailure(task, reason)) }
 	releaseRefused := func(reason string) { finishError("release refused: " + reason) }
 	// The task lives by its durable record, not a context: what a stopped
 	// AppTown leaves running is collected on restart.
 	ctx := context.WithoutCancel(task.Context())
 	runner := *a.builds.Tasks
-	runner.failureBackup = backup
 	driver, ok := runner.Driver.(releaseTaskDriver)
 	if !ok {
 		releaseRefused("AppTown's task backend (" + runner.backend() + ") cannot build releases: it reports no images")
@@ -100,16 +92,6 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget, back
 	logf := func(format string, args ...any) { a.progress.Append(step.ID, fmt.Sprintf(format, args...)) }
 	logf("Validating the release build and deployment target")
 	// Refused before anything is built, each with its next action.
-	t, err := a.deployment.Targets.ByID(ctx, in.deployment.TargetID)
-	if err != nil {
-		finishError("reading the deployment's target: " + err.Error())
-		return nil, false
-	}
-	if t.Kind != deployment.KindDockerHost {
-		releaseRefused(fmt.Sprintf("a landing deploys to a Docker host, and %s is on %s (%s); deploy %s on a Docker host and promote to %s", in.deployment.Name, t.Name, t.Kind, in.deployment.Name, t.Kind))
-		return nil, false
-	}
-	logf("Deployment target: %s (Docker host)", t.Name)
 	if _, err := a.deployment.LandingRegistry(ctx, run.ProjectID, "apptown-system", map[string]any{"run": run.ID, "step": step.ID}); errors.Is(err, deployment.ErrReleaseRefused) {
 		releaseRefused(strings.TrimPrefix(err.Error(), deployment.ErrReleaseRefused.Error()+": "))
 		return nil, false
@@ -129,15 +111,6 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget, back
 	platform, err := oci.Platform("linux", profile.Architecture)
 	if err != nil {
 		releaseRefused("the worker's platform is unknown: " + err.Error())
-		return nil, false
-	}
-	targetPlatform, err := a.deployment.TargetPlatform(ctx, t)
-	if err != nil {
-		releaseRefused("the target's platform is unknown: " + err.Error())
-		return nil, false
-	}
-	if targetPlatform != platform {
-		releaseRefused(fmt.Sprintf("the worker builds for %s and %s runs %s", platform, t.Name, targetPlatform))
 		return nil, false
 	}
 	plan := deployment.PlanRelease(in.contract)

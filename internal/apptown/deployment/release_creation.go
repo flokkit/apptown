@@ -16,33 +16,22 @@ import (
 )
 
 // releaseSource determines which work a release contains: a bundle's
-// selected changes, a branch's changes shipped since the last release, or a
-// workflow receipt describing a deployment already performed.
+// selected changes, or a branch's changes shipped since the last release.
 type releaseSource string
 
 const (
-	ReleaseFromBundle   releaseSource = "bundle"
-	ReleaseFromBranch   releaseSource = "branch"
-	ReleaseFromWorkflow releaseSource = "workflow"
+	ReleaseFromBundle releaseSource = "bundle"
+	ReleaseFromBranch releaseSource = "branch"
 )
-
-// initialState is the state a release is cut in: a workflow receipt
-// describes a deployment already performed, so it is released; the others
-// start releasing and settle with their deployment attempt.
-func (src releaseSource) initialState() ReleaseState {
-	if src == ReleaseFromWorkflow {
-		return Released
-	}
-	return Releasing
-}
 
 // ReleaseDraft is what a release is cut from.
 type ReleaseDraft struct {
+	Automatic                                          bool
 	Source                                             releaseSource
 	ProjectID, DeploymentID, BundleID, RunID, ChangeID ids.ID
 	Deployment, Revision, Actor, Notes                 string
 	// At is AppTown's time of the release, which release membership
-	// compares with when Changes closed. Start stamps it; CreateReleaseIn
+	// compares with when Changes closed. Start stamps it; createReleaseIn
 	// requires it.
 	At time.Time
 }
@@ -82,7 +71,7 @@ func startReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft, descri
 	if busy {
 		return NumberedRelease{}, errReleaseInFlight
 	}
-	r, err := CreateReleaseIn(ctx, tx, d)
+	r, err := createReleaseIn(ctx, tx, d)
 	if err != nil {
 		return NumberedRelease{}, err
 	}
@@ -92,11 +81,10 @@ func startReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft, descri
 	return r, nil
 }
 
-// CreateReleaseIn mints a release and links the changes it carries inside
-// the caller's transaction, which holds the project lock. Workflow
-// completion uses its own transaction so release creation, run outcome and
-// follow-up intent stay atomic.
-func CreateReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft) (NumberedRelease, error) {
+// createReleaseIn mints a release and links the changes it carries inside
+// the caller's transaction, which holds the project lock. Landing follow-ups
+// create requests only after Work has committed completion.
+func createReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft) (NumberedRelease, error) {
 	if d.At.IsZero() {
 		return NumberedRelease{}, fmt.Errorf("a release needs AppTown's time it was made")
 	}
@@ -106,7 +94,7 @@ func CreateReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft) (Numb
 		return NumberedRelease{}, err
 	}
 	switch d.Source {
-	case ReleaseFromBundle, ReleaseFromBranch, ReleaseFromWorkflow:
+	case ReleaseFromBundle, ReleaseFromBranch:
 	default:
 		return NumberedRelease{}, fmt.Errorf("unknown release source %q", d.Source)
 	}
@@ -122,16 +110,18 @@ func CreateReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft) (Numb
 			deploymentID = dep.Deployment.ID
 		}
 	}
-	if err := takeDownHeldIn(ctx, tx, d.ProjectID, deploymentID); err != nil {
-		return NumberedRelease{}, err
-	}
-	if err := heldAfterRestoreIn(ctx, tx, deploymentID); err != nil {
-		return NumberedRelease{}, err
+	if !d.Automatic {
+		if err := takeDownHeldIn(ctx, tx, d.ProjectID, deploymentID); err != nil {
+			return NumberedRelease{}, err
+		}
+		if err := heldAfterRestoreIn(ctx, tx, deploymentID); err != nil {
+			return NumberedRelease{}, err
+		}
 	}
 	q := releasesql.New(tx.SQL())
 	r, err := q.CreateRelease(ctx, releasesql.CreateReleaseParams{ID: ids.New(d.At),
-		FromWorkflow: d.Source == ReleaseFromWorkflow, FromBranch: d.Source == ReleaseFromBranch,
-		State: d.Source.initialState().String(), ProjectID: d.ProjectID, DeploymentID: d.DeploymentID,
+		FromBranch: d.Source == ReleaseFromBranch,
+		State:      Releasing.String(), ProjectID: d.ProjectID, DeploymentID: d.DeploymentID,
 		Deployment: d.Deployment, BundleID: d.BundleID, RunID: d.RunID,
 		Revision: d.Revision, Actor: d.Actor, Notes: d.Notes, At: d.At,
 	})
@@ -139,14 +129,14 @@ func CreateReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft) (Numb
 		return NumberedRelease{}, err
 	}
 	links, err := q.LinkReleaseChanges(ctx, releasesql.LinkReleaseChangesParams{
-		FromWorkflow: d.Source == ReleaseFromWorkflow, FromBundle: d.Source == ReleaseFromBundle, FromBranch: d.Source == ReleaseFromBranch,
-		ProjectID: d.ProjectID, ReleaseID: r.ID, ChangeID: d.ChangeID,
+		FromBundle: d.Source == ReleaseFromBundle, FromBranch: d.Source == ReleaseFromBranch,
+		ProjectID: d.ProjectID, ReleaseID: r.ID,
 		BundleID: d.BundleID, Deployment: d.Deployment, ReleasedState: Released.String(),
 	})
 	if err != nil {
 		return NumberedRelease{}, err
 	}
-	if links.SelectedCount != links.InsertedCount || (d.Source == ReleaseFromWorkflow && links.InsertedCount != 1) {
+	if links.SelectedCount != links.InsertedCount {
 		return NumberedRelease{}, fmt.Errorf("release %d did not record its selected changes", r.ID)
 	}
 	return NumberedRelease{ID: r.ID, Number: r.Number}, nil

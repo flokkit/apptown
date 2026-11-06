@@ -10,7 +10,7 @@
   "callbacks": 0,
   "handwritten": 0,
   "testwrites": 0,
-  "testreads": 316,
+  "testreads": 314,
   "agentpolicy": 0,
   "harnesswork": 0,
   "testhomes": 0,
@@ -27,6 +27,6 @@
   "testexecwrites": 0,
   "testexecfixtures": 66,
   "droppederrors": 32,
-  "workflowexports": 354,
+  "workflowexports": 351,
   "unusedexports": 588
 }

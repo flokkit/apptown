@@ -41,12 +41,12 @@ func refused(format string, args ...any) error {
 	return fmt.Errorf("%w: "+format, append([]any{ErrReleaseRefused}, args...)...)
 }
 
-// RefusesLanding says why a landing of projectID cannot deploy to t: an
+// refusesLanding says why a landing of projectID cannot deploy to t: an
 // eval copy anywhere but an eval target, or any other project on one
 // (refusesPlacement); and, in an AppTown with no local Docker, anything but an
 // attached Docker host, since a landing deploys to a Docker host and the
 // built-in host is unavailable.
-func (s *Service) RefusesLanding(ctx context.Context, projectID ids.ID, t *Target) error {
+func (s *Service) refusesLanding(ctx context.Context, projectID ids.ID, t *Target) error {
 	if t == nil {
 		return nil
 	}
@@ -84,18 +84,18 @@ func refusesBuiltPlatform(built, target, platform string, asked error) error {
 	return nil
 }
 
-// LandingTarget is the target a landing creates its missing deployment
+// landingTarget is the target a landing creates its missing deployment
 // name on, with attrs. Outside the mode it is the built-in host. In an AppTown
 // with no local Docker it is the one attached Docker host offered to the
 // project for attrs: with none or several there is no choice AppTown can
 // make, and the refusal names the one a person makes.
-func (s *Service) LandingTarget(ctx context.Context, projectID ids.ID, name string, attrs Attributes) (*Target, error) {
+func (s *Service) landingTarget(ctx context.Context, projectID ids.ID, name string, attrs Attributes) (*Target, error) {
 	purpose, err := s.env.Purpose(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
 	if purpose.EvalDomainOnly() {
-		return s.evalLandingTarget(ctx, name)
+		return s.evallandingTarget(ctx, name)
 	}
 	if !s.hosts.settings.NoLocalDocker {
 		t, err := s.Targets.ByName(ctx, s.hosts.settings.BuiltInTarget)
@@ -156,12 +156,15 @@ func (s *Service) LandingTarget(ctx context.Context, projectID ids.ID, name stri
 func (s *Service) bundleImages(ctx context.Context, b *ReleaseBundle, t *Target) (parts, init map[string]string, err error) {
 	switch {
 	case b != nil && b.ByDigest():
-		platform, asked := s.TargetPlatform(ctx, t)
+		platform, asked := s.targetPlatform(ctx, t)
 		if err := refusesPlatform(b, t.Name, platform, asked); err != nil {
 			return nil, nil, err
 		}
 		return b.Parts, b.Init, nil
-	case s.hosts.settings.NoLocalDocker:
+	case b != nil:
+		if b.BuiltFrom.TargetID != t.ID {
+			return nil, nil, refused("this release has image IDs on a different build host; attach a container registry and build again")
+		}
 		images, err := s.recordedImages(ctx, b, t)
 		if err != nil {
 			return nil, nil, err

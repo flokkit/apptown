@@ -4,10 +4,10 @@
 # pattern as guidance blocks and workflows. Stock entries re-sync with the
 # release; clone to customize.
 policies:
-  - name: deploy-requires-scan
-    description: Cannot deploy without a security check first
+  - name: build-requires-scan
+    description: Build the landing after its security check
     rule: requireStepBefore
-    with: { uses: deploy, requires: scan }
+    with: { uses: build, requires: scan }
   - name: scanner-bound
     description: AppTown must have a working security scanner
     rule: requireCapabilityBound

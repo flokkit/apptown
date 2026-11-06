@@ -1,7 +1,11 @@
 package deployment
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/ids"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,7 +78,7 @@ func TestPreflightJudgesTheReleaseWithoutEffects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	main, err := s.Deployments.EnsureStanding(t.Context(), projectID, "main", local.ID, Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"})
+	main, err := s.Deployments.EnsureStanding(t.Context(), projectID, "main", local.ID, Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,12 +111,12 @@ func TestPreflightJudgesTheReleaseWithoutEffects(t *testing.T) {
 			t.Errorf("%s: preflight generated AUTH_KEY: %v", when, err)
 		}
 	}
-	in := PreflightInput{ProjectID: projectID, DeploymentID: main.ID, Commit: "c0ffee", Workspace: ws, Contract: c}
+	in := preflightInput{ProjectID: projectID, DeploymentID: main.ID, Commit: "c0ffee", Workspace: ws, Contract: c}
 
 	bind("preview", secret.StoreInternal, "https://preview.example")
-	_, err = s.Preflight(t.Context(), in)
-	var refused *PreflightError
-	if !errors.As(err, &refused) || refused.Category != PreflightMissingSettings || strings.Join(refused.Missing, ",") != "WP_HOME" || strings.Join(refused.Consumers, ",") != "worker" {
+	_, err = s.preflightSelected(t.Context(), in)
+	var refused *preflightError
+	if !errors.As(err, &refused) || refused.Category != preflightMissingSettings || strings.Join(refused.Missing, ",") != "WP_HOME" || strings.Join(refused.Consumers, ",") != "worker" {
 		t.Fatalf("main without WP_HOME: %#v", err)
 	}
 	if refused.Check.Deployment != "main" || refused.Check.DeploymentID != main.ID || refused.Check.TargetID != local.ID || refused.Check.Commit != "c0ffee" || refused.Check.CheckedAt.IsZero() {
@@ -124,7 +128,7 @@ func TestPreflightJudgesTheReleaseWithoutEffects(t *testing.T) {
 	noEffects("refused")
 
 	bind("main", secret.StoreInternal, "https://main.example")
-	check, err := s.Preflight(t.Context(), in)
+	check, err := s.preflightSelected(t.Context(), in)
 	if err != nil || check.Deployment != "main" {
 		t.Fatalf("main with WP_HOME: %+v %v", check, err)
 	}
@@ -132,9 +136,40 @@ func TestPreflightJudgesTheReleaseWithoutEffects(t *testing.T) {
 
 	// This AppTown has no Infisical: a binding there cannot be read.
 	bind("main", secret.StoreInfisical, "")
-	_, err = s.Preflight(t.Context(), in)
+	_, err = s.preflightSelected(t.Context(), in)
 	if !errors.As(err, &refused) || refused.Category != preflightUnassessable || len(refused.Missing) != 0 || strings.Contains(err.Error(), "no value") {
 		t.Fatalf("an unreadable store: %#v", err)
 	}
 	noEffects("unassessable")
+}
+
+// Tests stage the effective contract just as release execution does.
+type preflightInput struct {
+	ProjectID    ids.ID
+	DeploymentID ids.ID
+	Commit       string
+	Workspace    string
+	Contract     *appcontract.Contract
+}
+
+func (s *Service) preflightSelected(ctx context.Context, in preflightInput) (preflightCheck, error) {
+	check := preflightCheck{DeploymentID: in.DeploymentID, Commit: in.Commit, CheckedAt: s.now()}
+	dep, err := s.Deployments.ByID(ctx, in.DeploymentID)
+	if err != nil {
+		return check, err
+	}
+	check.Deployment, check.TargetID = dep.Name, dep.TargetID
+	target, err := s.Targets.ByID(ctx, dep.TargetID)
+	if err != nil {
+		return check, err
+	}
+	project, err := s.projects.ByID(ctx, in.ProjectID)
+	if err != nil {
+		return check, err
+	}
+	effective, _, err := s.effectiveContract(ctx, dep, in.Workspace, in.Contract)
+	if err != nil {
+		return check, preflightRefusal(check, err, fmt.Sprintf("the %s deployment's profile and overrides could not be read", dep.Name))
+	}
+	return check, s.preflight(ctx, check, in.ProjectID, target, project.Slug, in.Workspace, effective)
 }

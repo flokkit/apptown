@@ -29,7 +29,7 @@ func TestDockerRebuildReplayQueuesObservationWithoutBoot(t *testing.T) {
 	t.Parallel()
 	a, f := bootWorld(t)
 	_, step := deployRun(t, a)
-	a.Work.ExecuteStep(a.asEngine(context.Background()), step)
+	executeBootFixture(t, a, a.asEngine(context.Background()), step)
 	env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
 	if err != nil || env.ObservedGeneration != 1 {
 		t.Fatalf("initial deploy %+v %v", env, err)
@@ -51,7 +51,7 @@ func TestDockerRebuildReplayQueuesObservationWithoutBoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	env.HostPort, err = a.Deployment.Deployments.StablePort(t.Context(), env.ProjectID, env.Name, names.App())
+	env.HostPort, err = a.Deployment.Deployments.ReserveHostPort(t.Context(), env.ProjectID, env.Name, names.App(), f.port)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestDockerSelectedDeploymentKeepsResolvedSecretsOutOfInputsAndProof(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "main", targetForLanding.ID, deployment.Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"})
+	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "main", targetForLanding.ID, deployment.Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestDockerSelectedDeploymentKeepsResolvedSecretsOutOfInputsAndProof(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	env.HostPort, err = a.Deployment.Deployments.StablePort(t.Context(), env.ProjectID, env.Name, names.App())
+	env.HostPort, err = a.Deployment.Deployments.ReserveHostPort(t.Context(), env.ProjectID, env.Name, names.App(), f.port)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +199,7 @@ func TestDockerRebuildInspectionFailureDoesNotAdmitReplacement(t *testing.T) {
 	if _, err := gitexec.Run(t.Context(), ws, "clone", "--no-hardlinks", ws, a.projectRepoPath("p")); err != nil {
 		t.Fatal(err)
 	}
-	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+	executeBootFixture(t, a, a.asEngine(context.Background()), stepID)
 	env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
 	if err != nil || env.ObservedGeneration != 1 {
 		t.Fatalf("initial deployment %+v %v", env, err)
@@ -256,7 +256,7 @@ func TestLandingContractDecisionUsesSelectedCommit(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+			executeBootFixture(t, a, a.asEngine(context.Background()), stepID)
 			if step := readStep(t, a, stepID); step.Status != workflow.StatusPass {
 				t.Fatalf("deploy step: %s", step.Status)
 			}
@@ -371,7 +371,7 @@ func TestRestoredDatabaseBindsNewStorageBeforeEngineAndImport(t *testing.T) {
 			if _, err := gitexec.Run(t.Context(), ws, "clone", "--no-hardlinks", ws, a.projectRepoPath("p")); err != nil {
 				t.Fatal(err)
 			}
-			a.Work.ExecuteStep(a.asEngine(t.Context()), stepID)
+			executeBootFixture(t, a, a.asEngine(t.Context()), stepID)
 			dep, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
 			if err != nil || dep.ObservedGeneration != 1 {
 				step, _ := workflow.ReadStepIn(t.Context(), a.DB, stepID)
@@ -483,7 +483,7 @@ func releasedVolumeApp(t *testing.T) (*App, *fakeDocker, *deployment.Deployment)
 	if _, err := gitexec.Run(t.Context(), ws, "clone", "--no-hardlinks", ws, a.projectRepoPath("p")); err != nil {
 		t.Fatal(err)
 	}
-	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+	executeBootFixture(t, a, a.asEngine(context.Background()), stepID)
 	dep, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
 	if err != nil || dep.ObservedGeneration != 1 {
 		t.Fatalf("initial deployment %+v %v", dep, err)

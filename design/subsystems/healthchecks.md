@@ -18,7 +18,7 @@ front-door request context. Probe durations require explicit units.
 
 Readiness is not the front page. A readiness path is often exempt from what
 refuses visitors (Rails skips host authorization for `/up`), so a gate's boot
-(the preview step and the deploy step, `BootRequest.PageCheck`) also opens the
+(the preview step and release execution, `BootRequest.PageCheck`) also opens the
 app's root as a visitor does: the visitor's host name and the front-door signal,
 same-origin redirects followed. A 400 or 403 (a host allow-list refusing the
 visitor's host) or a server error fails the boot in the `page` phase; a 404 is an

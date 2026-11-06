@@ -25,7 +25,7 @@ func TestSourceArtifactUsesTheAlreadySelectedDeclaration(t *testing.T) {
 	if err := os.WriteFile(path, []byte("invalid: newer-declaration\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	art, err := SourceArtifact(deploy.Source{Workspace: ws, Revision: "selected", Slug: "demo", Contract: c}, nil)
+	art, err := sourceArtifact(deploy.Source{Workspace: ws, Revision: "selected", Slug: "demo", Contract: c}, nil)
 	if err != nil || art.Source.Contract.PublicPart().Image != "selected:v1" || art.Source.Revision != "selected" {
 		t.Fatalf("selected inputs changed: %+v %v", art, err)
 	}

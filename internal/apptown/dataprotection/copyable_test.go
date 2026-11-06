@@ -14,11 +14,11 @@ import (
 // copy now (an App Platform database with no copy runner or backup store)
 // is refused whatever the code changes; a person may release anyway, and the
 // release records the choice. The first release, onto a deployment that
-// holds nothing yet, a release of the bundle it already runs, and a release
-// once the data can be copied, are not asked.
+// holds nothing yet, and a release once the data can be copied, are not asked.
 func TestAReleaseOverDataAppTownCannotCopyIsAPersonsChoice(t *testing.T) {
 	t.Parallel()
 	w := newDataWorld(t)
+	w.auth.via = "session"
 	ctx := context.Background()
 	if _, err := w.bind(w.project, "prod", "production", ids.Nil); err != nil {
 		t.Fatal(err)
@@ -26,8 +26,11 @@ func TestAReleaseOverDataAppTownCannotCopyIsAPersonsChoice(t *testing.T) {
 	if rel, log := w.release("prod"); rel.State != deployment.Released {
 		t.Fatalf("the first release %s:\n%s", rel.State, log)
 	}
-	// The bundle prod runs, again (an override's redeploy): no new code.
-	if rel, log := w.release("prod"); rel.State != deployment.Released {
+	// The same bundle may run init steps again, so redeploying needs the same choice.
+	if _, err := w.s.RequestRelease(ctx, deployment.DeploySelection{ProjectID: w.project, DeploymentName: "prod", BundleID: w.bundle.ID}); err == nil {
+		t.Fatal("same-bundle redeploy bypassed uncopied-data consent")
+	}
+	if rel, log := w.releaseAs(deployment.DeploySelection{ProjectID: w.project, DeploymentName: "prod", BundleID: w.bundle.ID, AcceptUncopiedData: true}); rel.State != deployment.Released {
 		t.Fatalf("the running bundle again %s:\n%s", rel.State, log)
 	}
 	newer, err := w.s.Bundles.Cut(ctx, w.project, w.bundle.ContractRevision, map[string]string{"web": "sha256:newer"}, nil, w.contract, deployment.BundleOrigin{})

@@ -86,7 +86,7 @@ func TestWorkflowEngineGatesBeforeEffects(t *testing.T) {
 	t.Parallel()
 	for _, status := range []StepState{StatusPending, StatusRunning, StatusFail, StatusError, StatusNeedsHuman, StatusPass, StatusSkipped} {
 		t.Run(status.String(), func(t *testing.T) {
-			w, s := testWorkflowEngine(t, schema.Spec{Role: "landing", Stages: []schema.Stage{{Name: "check"}, {Name: "deploy"}}}, "check")
+			w, s := testWorkflowEngine(t, schema.Spec{Role: "landing", Stages: []schema.Stage{{Name: "check"}, {Name: "build"}}}, "check")
 			s.steps = []*Step{{Name: "review", Status: status}}
 			res, err := w.advance(context.Background(), idstest.N(7), "alice")
 			if err != nil {
@@ -99,7 +99,7 @@ func TestWorkflowEngineGatesBeforeEffects(t *testing.T) {
 			want := []string{"refresh law", "read checks", "advance.blocked"}
 			if passes {
 				want = []string{"refresh law", "read checks", "merge before deploy", "commit stage"}
-				if s.transitionBy != "alice" || res.Stage != "deploy" || len(res.Ready) != 1 || res.Ready[0].ID != idstest.N(42) || res.Ready[0].Type != "script" {
+				if s.transitionBy != "alice" || res.Stage != "build" || len(res.Ready) != 1 || res.Ready[0].ID != idstest.N(42) || res.Ready[0].Type != "script" {
 					t.Fatalf("transition: %+v, by %s", res, s.transitionBy)
 				}
 			} else if len(res.Blocking) != 1 || res.Blocking[0] != s.steps[0] {
@@ -140,17 +140,17 @@ func TestWorkflowEngineMergeBoundaries(t *testing.T) {
 		name, role, stage, merge string
 		parent                   ids.ID
 	}{
-		{"working completion", "working", "deploy", "", ids.Nil},
-		{"child completion", "landing", "deploy", "", idstest.N(99)},
+		{"working completion", "working", "build", "", ids.Nil},
+		{"child completion", "landing", "build", "", idstest.N(99)},
 		{"child deployment", "landing", "check", "", idstest.N(99)},
 		{"landing deployment", "landing", "check", "merge before deploy", ids.Nil},
-		{"landing completion", "landing", "deploy", "merge at completion", ids.Nil},
-		{"legacy completion", "fused", "deploy", "merge at completion", ids.Nil},
+		{"landing completion", "landing", "build", "merge at completion", ids.Nil},
+		{"legacy completion", "fused", "build", "merge at completion", ids.Nil},
 		// A record run keeps records, not commits: nothing merges.
-		{"record completion", "record", "deploy", "", ids.Nil},
+		{"record completion", "record", "build", "", ids.Nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			w, s := testWorkflowEngine(t, schema.Spec{Role: tc.role, Stages: []schema.Stage{{Name: "check"}, {Name: "deploy"}}}, tc.stage)
+			w, s := testWorkflowEngine(t, schema.Spec{Role: tc.role, Stages: []schema.Stage{{Name: "check"}, {Name: "build"}}}, tc.stage)
 			s.run.ParentRunID = tc.parent
 			res, err := w.advance(context.Background(), idstest.N(7), "system")
 			if err != nil || !res.Advanced {
@@ -160,7 +160,7 @@ func TestWorkflowEngineMergeBoundaries(t *testing.T) {
 			if tc.merge != "" {
 				want = append(want, tc.merge)
 			}
-			if tc.stage == "deploy" {
+			if tc.stage == "build" {
 				want = append(want, "commit done")
 			} else {
 				want = append(want, "commit stage")
@@ -174,9 +174,9 @@ func TestWorkflowEngineMergeBoundaries(t *testing.T) {
 
 func TestWorkflowEngineMergeRefusalCannotAdvance(t *testing.T) {
 	t.Parallel()
-	for _, stage := range []string{"check", "deploy"} {
+	for _, stage := range []string{"check", "build"} {
 		for _, block := range []*Step{nil, {Name: "merge", Status: StatusNeedsHuman}} {
-			w, s := testWorkflowEngine(t, schema.Spec{Role: "landing", Stages: []schema.Stage{{Name: "check"}, {Name: "deploy"}}}, stage)
+			w, s := testWorkflowEngine(t, schema.Spec{Role: "landing", Stages: []schema.Stage{{Name: "check"}, {Name: "build"}}}, stage)
 			w.merge = func(context.Context, *Run) (MergeResult, error) {
 				return MergeResult{Blocking: block}, nil
 			}
@@ -196,8 +196,8 @@ func TestWorkflowEngineMergeRefusalCannotAdvance(t *testing.T) {
 
 func TestWorkflowEngineStopsOnFailedWrites(t *testing.T) {
 	t.Parallel()
-	for _, stage := range []string{"check", "deploy"} {
-		w, s := testWorkflowEngine(t, schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "check"}, {Name: "deploy"}}}, stage)
+	for _, stage := range []string{"check", "build"} {
+		w, s := testWorkflowEngine(t, schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "check"}, {Name: "build"}}}, stage)
 		s.writeErr = errors.New("database unavailable")
 		res, err := w.advance(context.Background(), idstest.N(7), "alice")
 		if !errors.Is(err, s.writeErr) || res != nil {
@@ -207,7 +207,7 @@ func TestWorkflowEngineStopsOnFailedWrites(t *testing.T) {
 			t.Fatalf("state changed after failed write: %+v", s.run)
 		}
 		want := []string{"refresh law", "read checks", "commit stage"}
-		if stage == "deploy" {
+		if stage == "build" {
 			want[2] = "commit done"
 		}
 		if !reflect.DeepEqual(s.trace, want) {
@@ -280,7 +280,7 @@ func TestWorkflowEngineRequiresEveryDeclaredReceipt(t *testing.T) {
 		if explicit {
 			stage.Gate = &schema.Gate{Require: []string{"review"}}
 		}
-		w, s := testWorkflowEngine(t, schema.Spec{Role: "landing", Stages: []schema.Stage{stage, {Name: "deploy"}}}, "check")
+		w, s := testWorkflowEngine(t, schema.Spec{Role: "landing", Stages: []schema.Stage{stage, {Name: "build"}}}, "check")
 		res, err := w.advance(context.Background(), idstest.N(7), "alice")
 		if err != nil {
 			t.Fatal(err)
@@ -294,7 +294,7 @@ func TestWorkflowEngineRequiresEveryDeclaredReceipt(t *testing.T) {
 func TestWorkflowEngineExpandedScanCannotDisappearFromGate(t *testing.T) {
 	t.Parallel()
 	stage := schema.Stage{Name: "check", Steps: []schema.Step{{Name: "security", Uses: "scan", With: map[string]any{"on": "source"}}}, Gate: &schema.Gate{Require: []string{"security"}}}
-	w, s := testWorkflowEngine(t, schema.Spec{Role: "landing", Stages: []schema.Stage{stage, {Name: "deploy"}}}, "check")
+	w, s := testWorkflowEngine(t, schema.Spec{Role: "landing", Stages: []schema.Stage{stage, {Name: "build"}}}, "check")
 	s.steps = []*Step{{Name: "security:trivy", Type: "scan", Status: StatusPass}, {Name: "security:semgrep", Type: "scan", Status: StatusFail}}
 	s.checks = []Check{{Declaration: "security", Name: "security:trivy", Type: "scan"}, {Declaration: "security", Name: "security:semgrep", Type: "scan"}}
 	res, err := w.advance(context.Background(), idstest.N(7), "alice")

@@ -102,7 +102,7 @@ func verifyIdentity(id deploy.DockerIdentity, runtime Runtime, image string) err
 	return nil
 }
 
-func RecordBoot(ctx context.Context, dk Scope, id deploy.DockerIdentity, name, image, url string, port int, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
+func recordBoot(ctx context.Context, dk Scope, id deploy.DockerIdentity, name, image, url string, port int, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 	runtime, err := Inspect(ctx, dk, name)
 	if err != nil {
 		return deploy.Observation{}, err

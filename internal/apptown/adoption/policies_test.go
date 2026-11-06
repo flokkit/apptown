@@ -66,7 +66,7 @@ func policyExec(t *testing.T, db *database.DB, q string) {
 func TestCheckPolicyRules(t *testing.T) {
 	t.Parallel()
 	bad := []Policy{
-		{Name: "a", Rule: "requireStepBefore", With: map[string]any{"uses": "deploy"}},
+		{Name: "a", Rule: "requireStepBefore", With: map[string]any{"uses": "build"}},
 		{Name: "b", Rule: "requireCapabilityBound", With: map[string]any{"capability": " scanner"}},
 		{Name: "c", Rule: "scanFailOnCeiling", With: map[string]any{"max": "severe"}},
 		{Name: "d", Rule: "requireTests"},
@@ -94,7 +94,7 @@ func TestPoliciesInstallAndLibraryWithReceipts(t *testing.T) {
 	if err := ps.install(t.Context(), pid, "bad", "", "requireTests", nil, "", "alice"); !errors.Is(err, wow.ErrPolicyDeclaration) {
 		t.Fatalf("a malformed policy was installed: %v", err)
 	}
-	if err := ps.install(t.Context(), pid, "scan-first", "scan before deploy", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "scan"}, "", "alice"); err != nil {
+	if err := ps.install(t.Context(), pid, "scan-first", "scan before deploy", "requireStepBefore", map[string]any{"uses": "build", "requires": "scan"}, "", "alice"); err != nil {
 		t.Fatal(err)
 	}
 	if n := countOf(policiesOf(t, db, pid), func(p Policy) bool { return p.Name == "scan-first" }); n != 1 {
@@ -148,7 +148,7 @@ func TestPolicyReadsPreserveOpaqueExactNumbers(t *testing.T) {
 	// A stored definition may carry options its rule does not read (one
 	// saved before options were checked); its values come back exactly. It
 	// is written as adoption copies a definition, which takes it as stored.
-	options := map[string]any{"uses": "deploy", "requires": "scan", "identifier": int64(9007199254740993)}
+	options := map[string]any{"uses": "build", "requires": "scan", "identifier": int64(9007199254740993)}
 	if err := db.InTx(t.Context(), func(tx *database.Tx) error {
 		return InstallPolicyIn(t.Context(), tx, pid, "exact", "", "requireStepBefore", options, "", time.Now())
 	}); err != nil {
@@ -175,7 +175,7 @@ func TestPolicyInstallationValidatesBeforeWritingAndChecksSuppression(t *testing
 	if p := policiesOf(t, db, pid); len(p) != 0 { // pid is the only project
 		t.Fatalf("no-op policy installed: %+v", p)
 	}
-	options := map[string]any{"uses": "deploy", "requires": "scan"}
+	options := map[string]any{"uses": "build", "requires": "scan"}
 	if err := ps.install(t.Context(), pid, "valid", "", "requireStepBefore", options, "", "apptown-system"); err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ func TestPolicyDeclarationReadErrorsDoNotBecomeEmptyViolations(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	pid := policyProject(t, db, "policy-read-error")
-	if err := newPolicies(db).install(t.Context(), pid, "scan-first", "", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "scan"}, "", "alice"); err != nil {
+	if err := newPolicies(db).install(t.Context(), pid, "scan-first", "", "requireStepBefore", map[string]any{"uses": "build", "requires": "scan"}, "", "alice"); err != nil {
 		t.Fatal(err)
 	}
 	dbtest.FailNextStatement(t, db, "FROM policies")
@@ -211,14 +211,14 @@ func TestPolicyReportChecksEveryLibraryWorkflowAndBatchesCapabilityFacts(t *test
 	db := testDB(t)
 	pid := policyProject(t, db, "policy-report")
 	s := New(db, Dependencies{Ways: wow.New(db, wow.Dependencies{})})
-	if err := newPolicies(db).install(t.Context(), pid, "scan-first", "", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "scan"}, "", "alice"); err != nil {
+	if err := newPolicies(db).install(t.Context(), pid, "scan-first", "", "requireStepBefore", map[string]any{"uses": "build", "requires": "scan"}, "", "alice"); err != nil {
 		t.Fatal(err)
 	}
 	wf := wow.NewWorkflows(db)
 	for i := range 20 {
 		name := fmt.Sprintf("workflow-%02d", i)
 		system := i == 19
-		source := fmt.Sprintf("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: %s, system: %t}\nspec:\n  kind: pipeline\n  stages:\n    - name: ship\n      steps: [{name: deploy, uses: deploy}]\n", name, system)
+		source := fmt.Sprintf("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: %s, system: %t}\nspec:\n  kind: pipeline\n  stages:\n    - name: ship\n      steps: [{name: deploy, uses: build}]\n", name, system)
 		if _, _, err := wf.Put(t.Context(), source, "alice"); err != nil {
 			t.Fatal(err)
 		}
@@ -306,7 +306,7 @@ spec:
     - name: gates
       steps: [{name: s, uses: scan}]
     - name: ship
-      steps: [{name: d, uses: deploy}]
+      steps: [{name: d, uses: build}]
 `)
 	deployNoScan := specOf(`
 apiVersion: apptown.dev/v1
@@ -316,9 +316,9 @@ spec:
   kind: pipeline
   stages:
     - name: ship
-      steps: [{name: d, uses: deploy}]
+      steps: [{name: d, uses: build}]
 `)
-	pol := &Policy{Rule: "requireStepBefore", With: map[string]any{"uses": "deploy", "requires": "scan"}}
+	pol := &Policy{Rule: "requireStepBefore", With: map[string]any{"uses": "build", "requires": "scan"}}
 	if v, err := evaluate(pol, deployAfterScan); err != nil || v != "" {
 		t.Fatalf("conforming workflow flagged: %s", v)
 	}

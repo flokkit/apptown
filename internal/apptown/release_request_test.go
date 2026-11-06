@@ -23,9 +23,9 @@ import (
 
 // Provider fixtures exercise the real checked request and its real queued worker.
 // Keep their provider assertions while avoiding detached goroutine timing.
-func requestBundleForTest(t *testing.T, a *App, p *project.Project, env *deployment.Deployment, b *deployment.ReleaseBundle, who string) (map[string]any, int, error) {
+func requestBundleForTest(t *testing.T, a *App, p *project.Project, env *deployment.Deployment, b *deployment.ReleaseBundle, who string, acceptUncopied ...bool) (map[string]any, int, error) {
 	t.Helper()
-	accepted, err := acceptBundleForTest(t, a, p, env, b, who)
+	accepted, err := acceptBundleForTest(t, a, p, env, b, who, acceptUncopied...)
 	if err != nil {
 		return nil, 500, err
 	}
@@ -33,7 +33,7 @@ func requestBundleForTest(t *testing.T, a *App, p *project.Project, env *deploym
 	return map[string]any{"number": accepted.Number, "deployment": accepted.Deployment, "state": accepted.State}, 202, nil
 }
 
-func acceptBundleForTest(t *testing.T, a *App, p *project.Project, env *deployment.Deployment, b *deployment.ReleaseBundle, who string) (deployment.AcceptedRelease, error) {
+func acceptBundleForTest(t *testing.T, a *App, p *project.Project, env *deployment.Deployment, b *deployment.ReleaseBundle, who string, acceptUncopied ...bool) (deployment.AcceptedRelease, error) {
 	t.Helper()
 	if _, err := a.Access.EnsureUser(context.Background(), who); err != nil {
 		t.Fatal(err)
@@ -47,7 +47,7 @@ func acceptBundleForTest(t *testing.T, a *App, p *project.Project, env *deployme
 		}
 	}
 	ctx := verifiedContext(context.Background(), access.Principal{ID: testPrincipalOf(t, a.DB, who), Kind: "user", Name: who, Via: "header", Credential: identity.HeaderCredential(who)})
-	accepted, err := a.Deployment.RequestRelease(ctx, deployment.DeploySelection{ProjectID: p.ID, DeploymentName: env.Name, BundleID: b.ID})
+	accepted, err := a.Deployment.RequestRelease(ctx, deployment.DeploySelection{ProjectID: p.ID, DeploymentName: env.Name, BundleID: b.ID, AcceptUncopiedData: len(acceptUncopied) > 0 && acceptUncopied[0]})
 	if err != nil {
 		return deployment.AcceptedRelease{}, err
 	}

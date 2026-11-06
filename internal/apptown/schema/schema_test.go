@@ -32,7 +32,7 @@ spec:
     - name: ship
       steps:
         - name: deploy
-          uses: deploy
+          uses: build
       gate:
         require: [deploy]
 `
@@ -70,7 +70,7 @@ func TestParseWorkflowRejections(t *testing.T) {
 		{"stage needs steps", "", "at least one step"},
 		{"duplicate stage", "", "duplicate stage"},
 		{"duplicate step", "", "duplicate step"},
-		{"unsupported uses", "uses: deploy\n", "unsupported uses"},
+		{"unsupported uses", "uses: build\n", "unsupported uses"},
 		{"gate unknown step", "require: [deploy]\n", "gate requires unknown step"},
 	}
 	// Each case builds its own bad document explicitly — clearer than
@@ -82,13 +82,13 @@ func TestParseWorkflowRejections(t *testing.T) {
 		"workspace vocabulary":   strings.Replace(validWorkflow, "kind: lifecycle", "kind: lifecycle\n  workspace: shared", 1),
 		"at least one stage":     validWorkflow[:strings.Index(validWorkflow, "  stages:")] + "  stages: []\n",
 		"stage needs steps": strings.Replace(validWorkflow,
-			"    - name: ship\n      steps:\n        - name: deploy\n          uses: deploy\n      gate:\n        require: [deploy]",
+			"    - name: ship\n      steps:\n        - name: deploy\n          uses: build\n      gate:\n        require: [deploy]",
 			"    - name: ship", 1),
 		"duplicate stage": strings.Replace(validWorkflow, "- name: ship", "- name: build", 1),
 		"duplicate step": strings.Replace(validWorkflow,
 			"- name: accept\n          uses: approval",
 			"- name: build-app\n          uses: approval", 1),
-		"unsupported uses": strings.Replace(validWorkflow, "uses: deploy", "uses: teleport", 1),
+		"unsupported uses": strings.Replace(validWorkflow, "uses: build", "uses: teleport", 1),
 		"gate unknown step": strings.Replace(validWorkflow,
 			"require: [deploy]", "require: [ghost]", 1),
 	}

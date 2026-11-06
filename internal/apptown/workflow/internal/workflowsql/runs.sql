@@ -123,10 +123,6 @@ SELECT (SELECT id FROM runs
 -- name: ActiveChangeRunMeta :one
 SELECT (SELECT id FROM runs WHERE change_id IS NOT DISTINCT FROM $1 AND parent_run_id IS NULL AND status=$2 LIMIT 1)::uuid AS run_id;
 
--- name: CompletionHasProductionDeploy :one
-WITH RECURSIVE tree(id) AS (SELECT sqlc.arg(run_id)::uuid UNION ALL SELECT r.id FROM runs r JOIN tree t ON r.parent_run_id=t.id WHERE r.project_id=sqlc.arg(project_id))
-SELECT EXISTS(SELECT 1 FROM steps s WHERE s.run_id IN (SELECT id FROM tree) AND s.type='deploy' AND s.status=sqlc.arg(status) AND COALESCE(s.config_json->>'deployment','main') IN ('prod','main'));
-
 -- name: DispatchRestartCandidates :many
 SELECT r.id FROM runs r JOIN steps s ON s.run_id=r.id AND s.stage=r.current_stage
 WHERE r.status='running' AND s.type=ANY($1::text[])
@@ -137,7 +133,7 @@ WHERE r.status='running' AND (st.run_id IS NULL OR NOT st.ready OR (r.parent_run
 ORDER BY id;
 
 -- A landing whose merge SCM has recorded can no longer move main: what is
--- left of it is deploying a commit main already contains, so it no longer
+-- left of it is building a commit main already contains, so it no longer
 -- holds the project's one landing slot (a fix-forward may land beside it).
 -- name: HasActiveLanding :one
 SELECT EXISTS(SELECT 1 FROM runs WHERE project_id=$1 AND parent_run_id IS NULL AND status=$2 AND definition_json @> '{"role":"landing"}'

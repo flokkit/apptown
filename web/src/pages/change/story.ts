@@ -42,7 +42,7 @@ export function stepSentence(s: Step): string {
     if (s.status === 'pending') return `Approval: waiting for ${approversOf(s)}`
     return `Approval: ${s.evidence.decision === 'approve' ? 'accepted' : s.evidence.decision === 'reject' ? 'rejected' : 'not decided'}${s.evidence.approver ? ` by ${s.evidence.approver}` : ''}${s.evidence.comment ? `: “${s.evidence.comment}”` : ''}`
   }
-  return `${['reconcile', 'policy/current', 'scm/merged', 'deploy'].includes(s.type) ? 'Landing' : 'Checks'}: ${stepTitle(s)} ${checkResult(s)}`
+  return `${['reconcile', 'policy/current', 'scm/merged', 'build'].includes(s.type) ? 'Landing' : 'Checks'}: ${stepTitle(s)} ${checkResult(s)}`
 }
 
 // Start receipts define attempts. A later reset receipt preserves that attempt's

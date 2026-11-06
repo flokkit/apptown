@@ -265,8 +265,8 @@ func runningStepWords(step workflowActivityStep, position, total int) string {
 		return "agent working"
 	case "preview":
 		return "starting the preview"
-	case "deploy":
-		return fmt.Sprintf("deploying — step %d of %d", position, total)
+	case "build":
+		return fmt.Sprintf("building — step %d of %d", position, total)
 	case "agent/review":
 		return "reviewing the work"
 	case "scan":

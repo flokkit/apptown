@@ -260,11 +260,11 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 		t.Fatal(err)
 	}
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "itest-deploy", Version: 1}, Spec: schema.Spec{
-		Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "boot", Steps: []schema.Step{{Name: "deploy", Uses: "deploy"}}}},
+		Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "boot", Steps: []schema.Step{{Name: "build", Uses: "build"}}}},
 	}})
 	a.Work.Stop()
 	ctx := a.asAppTown(context.Background(), p.ID, "integration")
-	change, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: p.ID, Type: "feature", Title: "deploy"})
+	change, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: p.ID, Type: "feature", Title: "build"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +280,7 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 	}
 	var stepID ids.ID
 	for _, candidate := range snapshot.Steps {
-		if candidate.Name == "deploy" {
+		if candidate.Name == "build" {
 			stepID = candidate.ID
 			break
 		}

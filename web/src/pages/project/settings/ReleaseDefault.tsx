@@ -19,7 +19,7 @@ function ReleaseDefaultForm({ slug, deployments, onConfigured }: ReleaseDefaultP
   if (!current.data) return <ReadStatus q={current} what="the release preference" />
   const settings = current.data
   const selected = draft?.selected ?? settings.deploymentId ?? ''
-  const eligible = deployments.filter((entry) => entry.kind === 'standing' && entry.name !== 'main' && entry.feed !== 'landing')
+  const eligible = deployments.filter((entry) => entry.kind === 'standing' && entry.feed !== 'main')
   if (!eligible.length && !settings.deploymentId) return <StaleNote q={current} />
   return <Section title="Release preference">
     <StaleNote q={current} />

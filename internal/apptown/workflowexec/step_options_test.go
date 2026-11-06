@@ -18,7 +18,7 @@ func TestTheRunnersReadExactlyTheirKindsOptions(t *testing.T) {
 		ScriptKind:  scriptConfig{},
 		TestsKind:   testsConfig{},
 		PreviewKind: previewConfig{},
-		DeployKind:  deployConfig{},
+		BuildKind:   struct{}{},
 		CallKind:    callConfig{},
 	} {
 		if err := schematest.OptionsDecodedBy(kind, decoded); err != nil {

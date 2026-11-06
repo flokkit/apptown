@@ -25,7 +25,7 @@ func (d *releaseQueryCounter) QueryRowContext(ctx context.Context, q string, arg
 }
 
 // The metadata selection and insertion stay one database statement.
-func TestWorkflowCompletionMetadataStatements(t *testing.T) {
+func TestReleaseMetadataAndInsertionUseOneStatement(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	project := createTestProject(t, db, "metadata", "Metadata")
@@ -39,7 +39,7 @@ func TestWorkflowCompletionMetadataStatements(t *testing.T) {
 		t.Fatal(err)
 	}
 	counted := &releaseQueryCounter{Handle: tx.SQL()}
-	release, err := releasesql.New(dbtest.WithExecutor(counted.Handle, counted)).CreateRelease(context.Background(), releasesql.CreateReleaseParams{ID: ids.New(time.Now()), FromWorkflow: true, State: ReleaseFromWorkflow.initialState().String(), Deployment: "main", ProjectID: project, RunID: run, At: time.Now()})
+	release, err := releasesql.New(dbtest.WithExecutor(counted.Handle, counted)).CreateRelease(context.Background(), releasesql.CreateReleaseParams{ID: ids.New(time.Now()), State: Releasing.String(), Deployment: "main", ProjectID: project, RunID: run, At: time.Now()})
 	if err != nil || counted.reads != 1 || release.ID.IsZero() || release.Number != 1 {
 		t.Fatalf("release metadata and insertion: %+v statements=%d error=%v", release, counted.reads, err)
 	}

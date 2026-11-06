@@ -189,22 +189,6 @@ leaves the running application alone. A configuration-only change is
 lightweight but shows what will change and uses the deployment's normal
 deployment authority.
 
-**N22. Tell the truth about partial success; keep rollback modest.**
-*Now:* when the deploy fails after the merge, the landing run blocks on
-the step with the change still in landing; the page offers step-level
-doors and does not say the change is on main and the previous version is
-still running; abandoning that landing sends a merged change back to in
-progress. Rollback is deploying an earlier bundle with no data
-compatibility check. Re-running a failed step does not re-dispatch the
-steps skipped because of it, so each has to be re-run by hand, in order.
-*Should be:* three separate facts on the page: your change is on main;
-deployment failed and the previous version is still running; retry the
-deployment (one act, which re-runs what was skipped) or open a fix, with no
-trip back through acceptance to retry the same accepted artifact. Rollback
-described as reverting application code with a compatibility check for its
-data; when compatibility is unknown, say so and offer a deliberate recovery
-choice.
-
 **N23. Exceptions have one understandable set of rules.** One human
 explanation ("we know this check failed, and we are choosing to
 proceed") with the finding or failed check, a reason, who decided, and

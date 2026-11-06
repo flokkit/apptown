@@ -13,10 +13,11 @@ import (
 
 // A compact read model made from receipts, separate from the generated narrative.
 type changeEvidence struct {
-	MergeLabel status.DisplayStatus       `json:"mergeLabel"`
-	Targets    []workflow.AcceptanceCheck `json:"targets"`
-	Merged     bool                       `json:"merged"`
-	Releases   []changeRelease            `json:"releases"`
+	MergeLabel      status.DisplayStatus       `json:"mergeLabel"`
+	Targets         []workflow.AcceptanceCheck `json:"targets"`
+	Merged          bool                       `json:"merged"`
+	LandingReleases []changeRelease            `json:"landingReleases"`
+	Releases        []changeRelease            `json:"releases"`
 	// InAdvance is the opener's yes given in advance on an adoption, when
 	// they gave one: who, when, and the sentences they said yes to.
 	InAdvance *workflow.AdvanceYes `json:"inAdvance,omitempty"`
@@ -24,6 +25,7 @@ type changeEvidence struct {
 
 type changeRelease struct {
 	StatusLabel deployment.ReleaseLabel `json:"statusLabel"`
+	Failure     string                  `json:"failure,omitempty"`
 	Number      int64                   `json:"number"`
 	Deployment  string                  `json:"deployment"`
 	State       deployment.ReleaseState `json:"state"`
@@ -58,6 +60,14 @@ func (h ChangeDetail) evidenceForChange(ctx context.Context, ch *workflow.Change
 		return out, err
 	}
 	out.MergeLabel = status.MergeDisplay(out.Merged)
+	requested, err := h.deployment.Releases.LandingRequests(ctx, ch.ProjectID, ch.ID)
+	if err != nil {
+		return out, err
+	}
+	out.LandingReleases = make([]changeRelease, 0, len(requested))
+	for _, r := range requested {
+		out.LandingReleases = append(out.LandingReleases, changeRelease{Number: r.Number, Deployment: r.Deployment, State: r.State, StatusLabel: r.State.Display(), Failure: r.Failure})
+	}
 	carried, err := h.deployment.Releases.ForChange(ctx, ch.ProjectID, ch.ID)
 	if err != nil {
 		return out, err

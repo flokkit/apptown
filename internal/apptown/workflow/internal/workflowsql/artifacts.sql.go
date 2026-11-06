@@ -84,9 +84,22 @@ func (q *Queries) ArtifactRunScopeMeta(ctx context.Context, id ids.ID) (Artifact
 
 const assertionArtifact = `-- name: AssertionArtifact :one
 
-SELECT id,kind,name,ref FROM artifacts
-WHERE run_id=$1 AND kind<>'agent-reported' AND ($2::text='' OR kind=$2) AND ($3::text='' OR name=$3)
-ORDER BY id DESC LIMIT 1 FOR SHARE
+WITH RECURSIVE built_runs AS (
+  SELECT id FROM runs WHERE id=$1
+  UNION ALL
+  SELECT child.id FROM runs child JOIN built_runs parent ON child.parent_run_id=parent.id WHERE child.status='done'
+)
+SELECT a.id,a.kind,a.name,a.ref FROM artifacts a
+WHERE a.run_id=$1 AND a.kind<>'agent-reported'
+  AND ($2::text='' OR a.kind=$2) AND ($3::text='' OR a.name=$3)
+  AND (a.kind<>'build' OR EXISTS (
+    SELECT 1 FROM steps s WHERE s.run_id IN (SELECT id FROM built_runs) AND s.type='build' AND s.status='pass' AND s.override_by=''
+    AND a.ref<>'' AND (
+      (s.evidence_json->'runtime'='true'::jsonb AND a.name='runtime-bundle' AND s.evidence_json->>'bundle'=a.ref)
+      OR (s.evidence_json->'runtime'='false'::jsonb AND s.evidence_json->>'cleanTreeBuild'='pass' AND a.name='no-runtime' AND s.evidence_json->>'commit'=a.ref)
+    )
+  ))
+ORDER BY a.id DESC LIMIT 1 FOR SHARE OF a
 `
 
 type AssertionArtifactParams struct {
@@ -116,7 +129,7 @@ func (q *Queries) AssertionArtifact(ctx context.Context, arg AssertionArtifactPa
 }
 
 const completionChildArtifactCount = `-- name: CompletionChildArtifactCount :one
-SELECT count(*) FROM artifacts WHERE run_id=$1 AND kind IN ('release','preview','mr','sbom')
+SELECT count(*) FROM artifacts WHERE run_id=$1 AND kind IN ('build','preview','mr','sbom')
 `
 
 func (q *Queries) CompletionChildArtifactCount(ctx context.Context, runID ids.ID) (int64, error) {
@@ -127,7 +140,7 @@ func (q *Queries) CompletionChildArtifactCount(ctx context.Context, runID ids.ID
 }
 
 const completionCopyChildArtifacts = `-- name: CompletionCopyChildArtifacts :execrows
-WITH src AS (SELECT a.kind,a.name,a.ref,a.body,a.body_bytes,row_number() OVER (ORDER BY a.id) AS n FROM artifacts a WHERE a.run_id=$4 AND a.kind IN ('release','preview','mr','sbom'))
+WITH src AS (SELECT a.kind,a.name,a.ref,a.body,a.body_bytes,row_number() OVER (ORDER BY a.id) AS n FROM artifacts a WHERE a.run_id=$4 AND a.kind IN ('build','preview','mr','sbom'))
 INSERT INTO artifacts (id,run_id,kind,name,ref,body,body_bytes,created_at)
 SELECT ($1::uuid[])[src.n],$2,src.kind,src.name,src.ref,src.body,src.body_bytes,$3 FROM src ORDER BY src.n
 `

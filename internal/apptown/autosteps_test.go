@@ -10,7 +10,7 @@ import (
 // present, as is the one "try again" refused.
 func TestAutoStepTableIsComplete(t *testing.T) {
 	t.Parallel()
-	for _, typ := range []string{"script", "agent/pi", "scm/mr", "preview", "deploy", "workflow/call", "scan", "tests", "reconcile", "agent/review", "guidance/conformance"} {
+	for _, typ := range []string{"script", "agent/pi", "scm/mr", "preview", "build", "workflow/call", "scan", "tests", "reconcile", "agent/review", "guidance/conformance"} {
 		if !isAutoStep(typ) {
 			t.Errorf("%s must be an auto step", typ)
 		}

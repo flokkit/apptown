@@ -15,10 +15,8 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// Merging into the default branch and deploying are acts a person must
-// answer for. The engine performs either only when the run carries one of
-// two facts, checked at the effect itself (the merge admission and a deploy
-// step's claim), whichever door started the run and whenever it resumes:
+// Merging into the default branch requires one of two recorded facts,
+// checked at merge admission whichever door started the run and whenever it resumes:
 //
 //   - a person's approval recorded in this run or a run that called it: a
 //     passing approval step whose recorded approver (or overrider) is a
@@ -29,19 +27,19 @@ import (
 //     (runs.landing_authority).
 //
 // Agents, chats, step runs and AppTown's own triggers hold no landing
-// authority and cannot approve, so their runs merge or deploy only after a
+// authority and cannot approve, so their runs merge only after a
 // person approves. A run with neither fact stops at the effect with a plain
-// reason; nothing merges or deploys.
+// reason; nothing merges.
 //
 // Starting a run also reads its definition and refuses early, with the same
 // reason, when the starter lacks landing authority and the definition would
 // reach an effect before any required approval. That is a courtesy; the
 // effect check is the rule.
 
-// errNoAssent is a merge or deploy refused for want of either fact.
+// errNoAssent is a merge refused for want of either fact.
 var errNoAssent = errors.New("no person has approved this run, and it was not started by someone who may land this change; a person must approve it, or start the landing themselves")
 
-// assentEvidenceIn answers whether run, in projectID, may merge or deploy
+// assentEvidenceIn answers whether run, in projectID, may merge
 // now: nil when it carries either fact, errNoAssent when it does not. An
 // eval's authority is a fact only where projectID is a copy of that eval
 // (eval_authority.go); anywhere else it is none.
@@ -162,8 +160,6 @@ func unassentedEffect(spec *schema.Spec, child bool, callee calleeSpec, depth in
 				break
 			}
 			switch step.Uses {
-			case "deploy":
-				return fmt.Sprintf("deploy (step %q)", step.Name), nil
 			case "workflow/call":
 				name, _ := step.With["workflow"].(string)
 				if depth >= maxCallDepth || callee == nil || name == "" {

@@ -36,7 +36,7 @@ const (
 	actionOpenUplift
 	actionStartRun
 	actionRequestLanding
-	// actionLandUnassented starts a run whose definition would merge, deploy
+	// actionLandUnassented starts a run whose definition would merge
 	// or call another workflow before any person's approval (assent.go).
 	actionLandUnassented
 	actionStopRun

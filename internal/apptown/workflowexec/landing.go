@@ -2,7 +2,6 @@ package workflowexec
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,83 +10,8 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
-	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/trust"
 )
-
-type landingDeploymentFailure struct {
-	status   workflow.StepState
-	evidence map[string]any
-}
-
-// Decision maps execution outcomes to workflow evidence without writing a step.
-func landingDeploymentDecision(result deployment.ExecutionResult, err error, boot deployment.LandingBoot) *landingDeploymentFailure {
-	failure := func(status workflow.StepState, reason string) *landingDeploymentFailure {
-		return &landingDeploymentFailure{status: status, evidence: map[string]any{"reason": reason}}
-	}
-	if err != nil {
-		var runErr *deployment.RunError
-		if !errors.As(err, &runErr) {
-			return failure(workflow.StatusError, err.Error())
-		}
-		switch {
-		case runErr.Stage == deployment.Admission:
-			return failure(workflow.StatusError, "admitting the deployment: "+runErr.Cause.Error())
-		case runErr.Stage == deployment.Settlement:
-			d := failure(workflow.StatusError, "recording the deployed deployment: "+runErr.Cause.Error())
-			d.evidence["url"] = boot.URL
-			return d
-		case errors.Is(runErr.Cause, context.Canceled), errors.Is(runErr.Cause, context.DeadlineExceeded):
-			return failure(workflow.StatusError, runErr.Cause.Error())
-		case boot.Err != nil:
-			be := docker.AsBootError(boot.Err)
-			d := failure(workflow.StatusFail, be.Error())
-			switch be.Phase {
-			case docker.PhaseResolve, docker.PhaseSecrets, docker.PhaseConfig:
-				d.evidence["failedStage"] = deploy.Preparing
-			case docker.PhaseImages:
-				d.evidence["failedStage"] = deploy.Building
-			case docker.PhaseNeeds, docker.PhaseFill, docker.PhaseParts, docker.PhaseApp:
-				d.evidence["failedStage"] = deploy.Starting
-			case docker.PhaseProbe, docker.PhasePage:
-				d.evidence["failedStage"] = deploy.Checking
-			}
-			switch be.Phase {
-			case docker.PhaseParts:
-				d.evidence["reason"] = "bringing up the app: " + be.Error()
-			case docker.PhaseProbe:
-				d.evidence["url"], d.evidence["logTail"] = boot.URL, be.LogTail
-			case docker.PhasePage:
-				d.evidence["url"] = boot.URL
-				if boot.Boot.Page != nil {
-					d.evidence["frontPage"] = boot.Boot.Page
-				}
-				if be.LogTail != "" {
-					d.evidence["logTail"] = be.LogTail
-				}
-			}
-			return d
-		default:
-			d := failure(workflow.StatusError, runErr.Cause.Error())
-			d.evidence["url"] = boot.URL
-			return d
-		}
-	}
-	if !result.Created {
-		d := failure(workflow.StatusError, "deployment already admitted; observation owns its unfinished outcome")
-		d.evidence["attempt"] = result.Attempt.ID
-		return d
-	}
-	if result.Outcome != deployment.Applied {
-		d := failure(workflow.StatusError, "deployment outcome "+string(result.Outcome))
-		d.evidence["generation"] = result.Attempt.Generation
-		return d
-	}
-	return nil
-}
 
 // cleanTreeBuilds compiles the already-selected committed tree in the agent
 // image, where checks run (a worker's executor when one is configured), with

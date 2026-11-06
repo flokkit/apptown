@@ -70,7 +70,7 @@ func TestAGateBootFailsAnAppThatRefusesItsFrontPage(t *testing.T) {
 	// The check is witnessed whichever way it goes: the path that
 	// answered, the host it asked as, the status and the verdict.
 	refused, err := boot(true, "")
-	if be := AsBootError(err); err == nil || be.Phase != PhasePage || !strings.Contains(be.Error(), "403") {
+	if be := AsBootError(err); err == nil || be.Phase != phasePage || !strings.Contains(be.Error(), "403") {
 		t.Fatalf("a refused front page passed the gate's boot: %v", err)
 	}
 	if p := refused.Page; p == nil || p.Passed || p.Status != http.StatusForbidden || p.Path != "/" || p.Host != u.Host || !strings.Contains(p.Verdict, "refused") {
@@ -172,7 +172,7 @@ func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 			var asked []renderedProbe
 			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: witnessProbe{serves: tc.serves, asked: &asked}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client},
 				Name: "apptown-env-site-main", StackID: "env-site-main", Workspace: t.TempDir(), Slug: "site", Deployment: "main", Probe: time.Second, Scratch: t.TempDir(),
-				Revision: tc.revision, Recorded: tc.recorded}, c)
+				revision: tc.revision, Recorded: tc.recorded}, c)
 			if be := AsBootError(err); tc.wantErr != (err != nil) || (tc.wantErr && (be.Phase != PhaseProbe || !strings.Contains(be.Error(), appcontract.ReleasePath))) {
 				t.Fatalf("boot: %v", err)
 			}

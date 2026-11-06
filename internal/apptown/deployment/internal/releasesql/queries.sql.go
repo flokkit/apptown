@@ -55,20 +55,12 @@ VALUES ($1, $2,
   (SELECT COALESCE(MAX(r.number),0)+1 FROM releases r WHERE r.project_id=$2),
   $3,
   $4,$5,$6,$7::timestamptz,
-  CASE WHEN $8::boolean THEN $7::timestamptz ELSE NULL END,
-  $9,$10,$10,
-  CASE
-    WHEN $8::boolean THEN (SELECT CASE WHEN (b.built_from_json->>'runId')::uuid=$6::uuid THEN b.id END
-      FROM release_bundles b WHERE b.project_id=$2 ORDER BY b.id DESC LIMIT 1)
-    WHEN $11::boolean THEN (SELECT b.id FROM release_bundles b WHERE b.project_id=$2
-      AND b.contract_revision=$10 ORDER BY b.id DESC LIMIT 1)
-    ELSE $12::uuid END,
-  CASE WHEN $8::boolean THEN (SELECT d.id FROM deployments d
-    WHERE d.project_id=$2 AND d.name='main') ELSE $13::uuid END,
-  CASE WHEN $8::boolean THEN (SELECT i.backup_id
-    FROM deployment_attempt_inputs i JOIN deployment_attempts a ON a.id=i.attempt_id
-    WHERE i.release_run=$6 AND a.status='done'
-    ORDER BY a.id DESC LIMIT 1) ELSE NULL END)
+  NULL,
+  $8,$9,$9,
+  CASE WHEN $10::boolean THEN (SELECT b.id FROM release_bundles b WHERE b.project_id=$2
+    AND b.contract_revision=$9 ORDER BY b.id DESC LIMIT 1)
+    ELSE $11::uuid END,
+  $12::uuid, NULL)
 RETURNING id,number
 `
 
@@ -80,7 +72,6 @@ type CreateReleaseParams struct {
 	Actor        string
 	RunID        ids.ID
 	At           time.Time
-	FromWorkflow bool
 	Notes        string
 	Revision     string
 	FromBranch   bool
@@ -102,7 +93,6 @@ func (q *Queries) CreateRelease(ctx context.Context, arg CreateReleaseParams) (C
 		arg.Actor,
 		arg.RunID,
 		arg.At,
-		arg.FromWorkflow,
 		arg.Notes,
 		arg.Revision,
 		arg.FromBranch,
@@ -272,21 +262,18 @@ const linkReleaseChanges = `-- name: LinkReleaseChanges :one
 WITH selected AS MATERIALIZED (
   SELECT c.id FROM changes c WHERE c.project_id=$1 AND c.state='shipped' AND
   CASE
-    WHEN $2::boolean THEN c.id=$3::uuid
-    WHEN $4::boolean THEN c.closed_at<=(SELECT b.created_at FROM release_bundles b WHERE b.id=$5::uuid)
-    WHEN $6::boolean THEN c.closed_at>COALESCE((SELECT MAX(r.created_at) FROM releases r
-      WHERE r.project_id=$1 AND r.deployment=$7::text AND r.state=$8),'epoch'::timestamptz)
+    WHEN $2::boolean THEN EXISTS (SELECT 1 FROM release_bundles b WHERE b.id=$3::uuid AND (c.closed_at<=b.created_at OR c.id::text=b.built_from_json->>'changeId'))
+    WHEN $4::boolean THEN c.closed_at>COALESCE((SELECT MAX(r.created_at) FROM releases r
+      WHERE r.project_id=$1 AND r.deployment=$5::text AND r.state=$6),'epoch'::timestamptz)
     ELSE false END
 ), inserted AS (
-  INSERT INTO release_changes (release_id,change_id) SELECT $9::uuid,id FROM selected RETURNING change_id
+  INSERT INTO release_changes (release_id,change_id) SELECT $7::uuid,id FROM selected RETURNING change_id
 )
 SELECT (SELECT COUNT(*) FROM selected) AS selected_count, (SELECT COUNT(*) FROM inserted) AS inserted_count
 `
 
 type LinkReleaseChangesParams struct {
 	ProjectID     ids.ID
-	FromWorkflow  bool
-	ChangeID      ids.ID
 	FromBundle    bool
 	BundleID      ids.ID
 	FromBranch    bool
@@ -303,8 +290,6 @@ type LinkReleaseChangesRow struct {
 func (q *Queries) LinkReleaseChanges(ctx context.Context, arg LinkReleaseChangesParams) (LinkReleaseChangesRow, error) {
 	row := q.db.QueryRowContext(ctx, linkReleaseChanges,
 		arg.ProjectID,
-		arg.FromWorkflow,
-		arg.ChangeID,
 		arg.FromBundle,
 		arg.BundleID,
 		arg.FromBranch,

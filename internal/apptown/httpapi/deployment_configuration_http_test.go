@@ -168,7 +168,7 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	if reconfigured.Code != 200 {
 		t.Fatalf("reconfiguration: %d %s", reconfigured.Code, reconfigured.Body.String())
 	}
-	if _, err := a.service.Deployments.EnsureStanding(t.Context(), a.project, "main", builtin.ID, deployment.Attributes{Feed: "landing", Audience: "team", DataClass: "non-production"}); err != nil {
+	if _, err := a.service.Deployments.EnsureStanding(t.Context(), a.project, "main", builtin.ID, deployment.Attributes{Feed: "main", Audience: "team", DataClass: "non-production"}); err != nil {
 		t.Fatal(err)
 	}
 	denied = deploymentRequest(deployments.DeployDeployment, "outsider", http.MethodPost, "/api/v1/projects/game/deployments/main/deploy", map[string]string{"slug": "game", "name": "main"})
@@ -212,6 +212,30 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	releases, err = a.service.Releases.ForProject(context.Background(), a.project, 100)
 	if w.Code != 202 || err != nil || len(releases) != 1 || len(queue.ids) != 1 || releases[0].ID != queue.ids[0] || releases[0].State != deployment.Releasing {
 		t.Fatalf("release admission: %d %s, %+v %v", w.Code, w.Body.String(), releases, err)
+	}
+
+	// Confirmation is a revision-checked settings write under deploy authority.
+	auto, err := a.service.Deployments.EnsureStanding(t.Context(), a.project, "automatic", builtin.ID, deployment.Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	values = map[string]string{"slug": "game", "name": auto.Name}
+	confirmBody := fmt.Sprintf(`{"revision":%d}`, auto.FeedRevision)
+	denied = authenticatedRequest(deployments.ConfirmFeed, "outsider", "POST", "/", confirmBody, values)
+	if denied.Code != 403 {
+		t.Fatalf("unauthorized confirmation: %d %s", denied.Code, denied.Body.String())
+	}
+	confirmed := authenticatedRequest(deployments.ConfirmFeed, "owner", "POST", "/", confirmBody, values)
+	if confirmed.Code != 200 {
+		t.Fatalf("confirmation: %d %s", confirmed.Code, confirmed.Body.String())
+	}
+	stale := authenticatedRequest(deployments.ConfirmFeed, "owner", "POST", "/", confirmBody, values)
+	if stale.Code != 409 {
+		t.Fatalf("stale confirmation: %d %s", stale.Code, stale.Body.String())
+	}
+	bulk := authenticatedRequest(deployments.ConfirmAllFeeds, "owner", "POST", "/", `{}`, nil)
+	if bulk.Code != 200 {
+		t.Fatalf("bulk confirmation: %d %s", bulk.Code, bulk.Body.String())
 	}
 
 }

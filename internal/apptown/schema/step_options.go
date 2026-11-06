@@ -21,7 +21,7 @@ var stepOptions = map[string][]string{
 	"artifact/require":     {"kind", "name"},
 	"adr/require":          {"status", "tags"},
 	"preview":              {"services"},
-	"deploy":               {"deployment", "services"},
+	"build":                {},
 	"tests":                {"require", "timeoutMinutes", "appliesTo"},
 	"scan":                 {"on", "scanner", "failOn", "timeoutMinutes"},
 	"guidance/conformance": {"failOn"},
@@ -37,7 +37,6 @@ var stepOptions = map[string][]string{
 var writtenByAppTown = map[string][]string{
 	"agent/pi": {"retryMode", "continueSession", "sendback"},
 	"scan":     {"none"},
-	"deploy":   {"acceptUncopiedData"}, // a person's acceptance on retrying it
 }
 
 // StepOptions is the options a saved workflow may give a step of kind, and

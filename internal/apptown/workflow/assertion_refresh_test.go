@@ -121,7 +121,7 @@ func TestAssertionWaitsForItsStageWorkBeforeFailing(t *testing.T) {
 			storedReadyStart(t, q.db, run.ID)
 			transitionStoredStepForTest(t, q.db, approval, StatusPass)
 			s := newServiceWithAuthority(q.db, Dependencies{}, allowProject(run.ProjectID))
-			insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "deploy", Type: "deploy", Status: sibling.String()})
+			insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "build", Type: "build", Status: sibling.String()})
 			release := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "release-exists", Type: "artifact/require", ConfigJson: []byte(`{"kind":"release"}`), Status: StatusPending.String()})
 			if err := s.RefreshAssertions(context.Background(), run.ID); err != nil {
 				t.Fatal(err)

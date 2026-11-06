@@ -276,24 +276,6 @@ func (q *Queries) ChangeRuns(ctx context.Context, arg ChangeRunsParams) ([]Run, 
 	return items, nil
 }
 
-const completionHasProductionDeploy = `-- name: CompletionHasProductionDeploy :one
-WITH RECURSIVE tree(id) AS (SELECT $2::uuid UNION ALL SELECT r.id FROM runs r JOIN tree t ON r.parent_run_id=t.id WHERE r.project_id=$3)
-SELECT EXISTS(SELECT 1 FROM steps s WHERE s.run_id IN (SELECT id FROM tree) AND s.type='deploy' AND s.status=$1 AND COALESCE(s.config_json->>'deployment','main') IN ('prod','main'))
-`
-
-type CompletionHasProductionDeployParams struct {
-	Status    string
-	RunID     ids.ID
-	ProjectID ids.ID
-}
-
-func (q *Queries) CompletionHasProductionDeploy(ctx context.Context, arg CompletionHasProductionDeployParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, completionHasProductionDeploy, arg.Status, arg.RunID, arg.ProjectID)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const continuationInsertRun = `-- name: ContinuationInsertRun :one
 INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,workflow_origin,kind,status,current_stage,definition_json,change_id,inputs_json,adoption_id,base_sha,created_at,updated_at)
 SELECT $1,$2,src.project_id,src.workflow_name,src.workflow_version,src.workflow_origin,src.kind,$3,$4,src.definition_json,src.change_id,src.inputs_json,src.adoption_id,'',$5::timestamptz,$5::timestamptz FROM runs src WHERE src.id=$6 RETURNING id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via
@@ -449,7 +431,7 @@ type HasActiveLandingParams struct {
 }
 
 // A landing whose merge SCM has recorded can no longer move main: what is
-// left of it is deploying a commit main already contains, so it no longer
+// left of it is building a commit main already contains, so it no longer
 // holds the project's one landing slot (a fix-forward may land beside it).
 func (q *Queries) HasActiveLanding(ctx context.Context, arg HasActiveLandingParams) (bool, error) {
 	row := q.db.QueryRowContext(ctx, hasActiveLanding, arg.ProjectID, arg.Status)

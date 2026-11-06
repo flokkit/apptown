@@ -89,7 +89,7 @@ var errMainNotRemoved = fault.New(fault.Conflict, "main is the deployment every 
 // removable says whether a deployment may be torn down on purpose: main is
 // the deployment every landing feeds, so it is never removed by hand.
 func (e *Deployment) removable() error {
-	if e.Name == "main" {
+	if e.Feed == "main" {
 		return errMainNotRemoved
 	}
 	return nil
@@ -102,7 +102,7 @@ func (e *Deployment) deployableByHand() error {
 	if !e.Standing() {
 		return errPreviewNotDeployed
 	}
-	if e.Feed == "landing" {
+	if e.Feed == "main" {
 		return fmt.Errorf("%s is %w", e.Name, errFedByLanding)
 	}
 	return nil

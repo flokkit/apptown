@@ -50,10 +50,10 @@ func TestStockWorkflowsAreJudgedByTheirDeclaredEffects(t *testing.T) {
 // a later stage (or a merge after its own stage).
 func TestUnassentedEffectReadsStageOrder(t *testing.T) {
 	approval := schema.Step{Name: "accept", Uses: "approval"}
-	deploy := schema.Step{Name: "deploy", Uses: "deploy"}
+	deploy := schema.Step{Name: "build", Uses: "build"}
 	call := schema.Step{Name: "call", Uses: "workflow/call", With: map[string]any{"workflow": "callee"}}
 	spec := func(s schema.Spec) calleeSpec { return func(string) (*schema.Spec, error) { return &s, nil } }
-	deploys := spec(schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "x", Steps: []schema.Step{{Name: "deploy", Uses: "deploy"}}}}})
+	deploys := spec(schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "x", Steps: []schema.Step{{Name: "build", Uses: "build"}}}}})
 	quiet := spec(schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "x", Steps: []schema.Step{{Name: "work", Uses: "script"}}}}})
 	childLanding := spec(schema.Spec{Role: "landing", Stages: []schema.Stage{{Name: "x", Steps: []schema.Step{{Name: "work", Uses: "script"}}}, {Name: "y", Steps: []schema.Step{{Name: "work", Uses: "script"}}}}})
 	missing := func(string) (*schema.Spec, error) { return nil, fs.ErrNotExist }
@@ -71,10 +71,10 @@ func TestUnassentedEffectReadsStageOrder(t *testing.T) {
 		{"an approval the gate does not require does not count", schema.Spec{Role: "landing", Stages: []schema.Stage{{Name: "a", Steps: []schema.Step{work, approval}, Gate: &schema.Gate{Require: []string{"work"}}}}}, "merge", nil},
 		{"an approval the gate requires counts", schema.Spec{Role: "landing", Stages: []schema.Stage{{Name: "a", Steps: []schema.Step{work, approval}, Gate: &schema.Gate{Require: []string{"work", "accept"}}}}}, "", nil},
 		{"approval after the merge does not count", schema.Spec{Role: "landing", Stages: []schema.Stage{{Name: "a", Steps: []schema.Step{work}}, {Name: "b", Steps: []schema.Step{approval}}}}, "merge", nil},
-		{"a working lane that deploys", schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "a", OnEnter: []schema.Step{deploy}, Steps: []schema.Step{work}}}}, "deploy", nil},
-		{"a deploy in the approval's own stage", schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "a", Steps: []schema.Step{approval, deploy}}}}, "deploy", nil},
+		{"a working lane that deploys", schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "a", OnEnter: []schema.Step{deploy}, Steps: []schema.Step{work}}}}, "", nil},
+		{"a deploy in the approval's own stage", schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "a", Steps: []schema.Step{approval, deploy}}}}, "", nil},
 		{"a deploy after approval", schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "a", Steps: []schema.Step{approval}}, {Name: "b", Steps: []schema.Step{deploy}}}}, "", nil},
-		{"a call is judged by its callee: one that deploys", schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "a", Steps: []schema.Step{call}}}}, "deploy", deploys},
+		{"a call is judged by its callee: one that deploys", schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "a", Steps: []schema.Step{call}}}}, "", deploys},
 		{"a call to a callee with no effect", schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "a", Steps: []schema.Step{call}}}}, "", quiet},
 		{"a callee that cannot be read is an effect", schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "a", Steps: []schema.Step{call}}}}, "could not be read", missing},
 		{"a call after approval", schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "a", Steps: []schema.Step{approval}}, {Name: "b", Steps: []schema.Step{call}}}}, "", deploys},

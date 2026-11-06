@@ -98,11 +98,11 @@ func TestBrowserValuesAreReadBeforeTheStackChanges(t *testing.T) {
 					{Name: "web", Public: true, Static: ".", Port: 8080},
 					{Name: "worker", Image: "worker:1"},
 				}, Init: []appcontract.InitContainer{{Name: "migrate", Image: "migration:1"}}}
-				req := BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), Persistent: true}
+				req := BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), persistent: true}
 				if releaseImage == "" {
-					req.Identity = &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "review"}
+					req.identity = &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "review"}
 				} else {
-					req.Persistent, req.ReleaseImage, req.StackID = false, releaseImage, "release-preview-review"
+					req.persistent, req.ReleaseImage, req.StackID = false, releaseImage, "release-preview-review"
 					c.Parts, c.Init = c.Parts[:1], nil
 				}
 				var browser contributions = unreadableBrowser{}
@@ -182,8 +182,8 @@ func TestIntegrationVariablesAreReadBeforeTheStackChanges(t *testing.T) {
 		{Name: "web", Public: true, Image: "web:1", Port: 8080},
 		{Name: "worker", Image: "worker:1"},
 	}, Init: []appcontract.InitContainer{{Name: "migrate", Image: "migration:1"}}}
-	req := BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), Persistent: true,
-		Identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "review"}}
+	req := BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), persistent: true,
+		identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "review"}}
 	host := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Integrations: unreadableIntegrations{}, Probe: reviewUp{}})
 	_, err := host.Boot(context.Background(), req, c)
 	if AsBootError(err) == nil || AsBootError(err).Phase != PhaseConfig || !strings.Contains(err.Error(), "attached integrations") {

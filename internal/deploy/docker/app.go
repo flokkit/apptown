@@ -57,14 +57,14 @@ func stagedBuildContext(ctx context.Context, ws, buildContext string) (string, f
 // requireServingLabel applies at both complete boot and direct app replacement
 // boundaries, before either can change resources on the attached host.
 func (t BootRequest) requireServingLabel() error {
-	if t.Docker.remote() && t.Docker.routesDeployment(t.Deployment) && t.ServingLabel == "" && t.Sealed == nil {
+	if t.Docker.remote() && t.Docker.routesDeployment(t.Deployment) && t.servingLabel == "" && t.Sealed == nil {
 		return errors.New("a deployment routed by the host's ingress has no serving label")
 	}
 	return nil
 }
 
 func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontract.Part, network string, secretEnv map[string]string) (int, error) {
-	dk, name, ws, hostPort, persistent := t.Docker, t.Name, t.Workspace, t.HostPort, t.Persistent
+	dk, name, ws, hostPort, persistent := t.Docker, t.Name, t.Workspace, t.hostPort, t.persistent
 	if err := t.validateOrigins(); err != nil {
 		return 0, err
 	}
@@ -98,7 +98,7 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	dk.Remove(ctx, name)
 	// Build only an explicit build declaration. An image remains the selected
 	// recipe even when unrelated Dockerfiles exist in the source tree.
-	if t.Identity == nil && c.Build != "" && c.Image == "" {
+	if t.identity == nil && c.Build != "" && c.Image == "" {
 		tag := Current.BuildTag(name)
 		buildDir, cleanup, err := stagedBuildContext(ctx, ws, c.Build)
 		if err != nil {
@@ -113,7 +113,7 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// A declared static build is built and packed here for a change's
 	// preview, as a build: part is just above; a standing deployment's was
 	// packed by PrepareImages. Either way it then runs as an image.
-	if t.Identity == nil && c.StaticBuild != nil && c.Image == "" {
+	if t.identity == nil && c.StaticBuild != nil && c.Image == "" {
 		tag := Current.BuildTag(name)
 		buildDir, cleanup, err := stagedBuildContext(ctx, ws, c.StaticBuild.Context)
 		if err != nil {
@@ -173,8 +173,8 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	if !persistent && t.StackID != "" {
 		args = append(args, "--label", StackLabel+"="+t.StackID)
 	}
-	if t.Identity != nil {
-		for label, value := range t.Identity.Labels() {
+	if t.identity != nil {
+		for label, value := range t.identity.Labels() {
 			args = append(args, "--label", label+"="+value)
 		}
 	}
@@ -203,7 +203,7 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		// builds (<prefix>preview-build-*) exist only on this daemon — never
 		// pulled — and a release's recorded images were prepared already
 		// (PrepareImages).
-		if t.Identity == nil && t.Recorded == nil && !isLocalBuildTag(c.Image) {
+		if t.identity == nil && t.Recorded == nil && !isLocalBuildTag(c.Image) {
 			if err := h.login(ctx, dk, c.Image); err != nil {
 				return 0, fmt.Errorf("docker pull %s: %w", c.Image, err)
 			}
@@ -246,7 +246,7 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		args = append(args,
 			"-l", "traefik.enable=true",
 			"-l", "traefik.docker.network=traefik",
-			"-l", fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", router, t.ServingLabel, dk.Domain),
+			"-l", fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", router, t.servingLabel, dk.Domain),
 			"-l", fmt.Sprintf("traefik.http.routers.%s.entrypoints=websecure", router),
 			"-l", fmt.Sprintf("traefik.http.routers.%s.tls.certresolver=letsencrypt", router),
 			"-l", fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port=%d", router, c.Port),
@@ -255,8 +255,8 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// New standing boots carry their owner's exact route. Prepared previews
 	// and sealed rehearsals retain the route context captured by their owner.
 	origins := h.origins(ctx)
-	if t.ExactOrigins != nil {
-		origins = *t.ExactOrigins
+	if t.exactOrigins != nil {
+		origins = *t.exactOrigins
 	}
 	if o := origins; o != "" {
 		args = append(args, "-e", "APPTOWN_ORIGINS="+o)
@@ -567,9 +567,9 @@ func ExactOrigin(raw string) (string, error) {
 }
 
 func (t BootRequest) validateOrigins() error {
-	if t.ExactOrigins == nil {
+	if t.exactOrigins == nil {
 		return nil
 	}
-	_, err := ExactOrigin(*t.ExactOrigins)
+	_, err := ExactOrigin(*t.exactOrigins)
 	return err
 }

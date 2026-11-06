@@ -18,7 +18,7 @@ func TestDeploymentSourceImageSettlesReleaseAndDeploymentTogether(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Source builds have no image digest at admission. Settlement records the
+	// Source builds have no image digest at admission. settlement records the
 	// exact image that Docker built without changing the admitted inputs.
 	at, _, err := f.outcomes.Admit(context.Background(), Start{DeploymentID: dep.ID, TargetID: dep.TargetID,
 		Key: fmt.Sprintf("release-%d", release.ID), Inputs: Inputs{ReleaseID: release.ID, Revision: "selected-revision"}})

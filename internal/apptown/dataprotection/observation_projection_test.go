@@ -387,6 +387,7 @@ func TestChangedProtectionKeepsDisplayWithoutReusingEvidence(t *testing.T) {
 func TestOldProtectionPayloadCannotOfferOperationsForTheNewGeneration(t *testing.T) {
 	t.Parallel()
 	w := newDataWorld(t)
+	w.auth.via = "session"
 	dep, err := w.bind(w.project, "prod", "production", ids.Nil)
 	if err != nil {
 		t.Fatal(err)
@@ -399,7 +400,7 @@ func TestOldProtectionPayloadCannotOfferOperationsForTheNewGeneration(t *testing
 	if err != nil || old.Operations == nil {
 		t.Fatalf("initial protection: %+v %v", old, err)
 	}
-	if rel, _ := w.release("prod"); rel.State != deployment.Released {
+	if rel, _ := w.releaseAs(deployment.DeploySelection{ProjectID: w.project, DeploymentName: "prod", BundleID: w.bundle.ID, AcceptUncopiedData: true}); rel.State != deployment.Released {
 		t.Fatal(rel.State)
 	}
 	got, err := w.s.DeploymentProtection(t.Context(), w.project, "prod")

@@ -671,9 +671,6 @@ func TestARehearsalIsRefusedWithoutAuthorityOrAPlace(t *testing.T) {
 	if _, err := w.s.Targets.EditSettings(ctx, "do-syd", deployment.TargetSettingsEdit{ExpectedRevision: &w.dataWorld.target.SettingsRevision, Rehearsals: &yes}, "admin"); !errors.Is(err, deployment.ErrTargetRehearsals) {
 		t.Fatalf("a provider target kept for rehearsals: %v", err)
 	}
-	if err := w.s.RefusesLanding(ctx, w.project, w.target); err == nil {
-		t.Fatal("an ordinary deployment was placed on the host kept for rehearsals")
-	}
 
 	// A second kept host: which one is not guessed.
 	second, err := w.s.Targets.Put(ctx, &deployment.Target{Name: "rehearse-2", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Status: deployment.TargetReady,

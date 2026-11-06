@@ -21,7 +21,7 @@ packs:
       - repo/project-notes
       - repo/no-build-artifacts
       - repo/contract-matches-code
-    workflows: [land, ship, adopt-integration, retire-integration]
+    workflows: [land, adopt-integration, retire-integration]
   - name: dependency-updates
     suggested: true
     description: |-
@@ -44,7 +44,7 @@ packs:
       - build/toolchain-mise
       - prose/no-claude-speak
     workflows: [land, implement, quick-change, fix-bug, research, excavate]
-    policies: [deploy-requires-scan, scanner-bound]
+    policies: [build-requires-scan, scanner-bound]
   # A server project takes server-base, one backend pack, the postgres
   # pack when it keeps records, and a UI pack when it has a browser UI.
   # It gets the union; packs that disagree on a tool's line, the
@@ -71,7 +71,7 @@ packs:
       - api/rest-pragmatist
       - api/sse-over-websockets
     workflows: [land, implement, fix-bug, quick-change, plan-execute, adopt-integration, retire-integration, product-spec, research, excavate]
-    policies: [deploy-requires-scan, scanner-bound]
+    policies: [build-requires-scan, scanner-bound]
   - name: go
     description: |-
       Go services using standard HTTP and gofmt.
@@ -214,8 +214,8 @@ packs:
       - game/playable-everywhere
       - prose/readme-plain
       - prose/no-claude-speak
-    workflows: [land, ship, implement, quick-change, fix-bug]
-    policies: [deploy-requires-scan, scanner-bound]
+    workflows: [land, implement, quick-change, fix-bug]
+    policies: [build-requires-scan, scanner-bound]
   - name: godot-3d
     description: |-
       Experimental Godot 3D games for the browser.
@@ -232,8 +232,8 @@ packs:
       - build/container-image
       - prose/readme-plain
       - prose/no-claude-speak
-    workflows: [land, ship, implement, quick-change, fix-bug]
-    policies: [deploy-requires-scan, scanner-bound]
+    workflows: [land, implement, quick-change, fix-bug]
+    policies: [build-requires-scan, scanner-bound]
   - name: video-game
     description: |-
       Experimental browser games using npm libraries.
@@ -251,8 +251,8 @@ packs:
       - build/container-image
       - prose/readme-plain
       - prose/no-claude-speak
-    workflows: [land, ship, implement, quick-change, fix-bug]
-    policies: [deploy-requires-scan, scanner-bound]
+    workflows: [land, implement, quick-change, fix-bug]
+    policies: [build-requires-scan, scanner-bound]
   - name: frontend-only
     description: |-
       Browser apps with local data and offline support.
@@ -275,5 +275,5 @@ packs:
       - prose/terse-style
       - prose/readme-plain
       - prose/no-claude-speak
-    workflows: [land, ship, implement, quick-change, fix-bug, research]
-    policies: [deploy-requires-scan, scanner-bound]
+    workflows: [land, implement, quick-change, fix-bug, research]
+    policies: [build-requires-scan, scanner-bound]

@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { BundleFacts, NewReleasePage, ReleasePermalinkPage } from './Release'
 import { QueryClientProvider, focusManager } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
-import { newQueryClient } from '../../data'
+import { getKey, newQueryClient } from '../../data'
 
 // Record ids are UUIDv7 strings.
 const B14 = '00000000-0014-7000-8000-000000000000'
@@ -231,4 +231,20 @@ it('shows the release host without the scheme and keeps the full link', async ()
     expect(address.target).toBe('_blank')
     expect(address.rel.split(' ')).toContain('noopener')
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+// Landing assent is provenance; the setting is the authority for the release.
+it('shows the follows-main setter separately from landing approvers', async () => {
+  vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})))
+  const client = newQueryClient()
+  client.setQueryData(getKey('/projects/shop/releases/14'), {
+    release: { id: B14, number: 14, state: 'released', createdAt: '2026-11-06T00:00:00Z' },
+    request: { feed: 'main', setBy: 'Sam', settingsRevision: 3, approvers: 'Priya' },
+    events: [], changes: [],
+  })
+  const view = render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="14" /></MemoryRouter></QueryClientProvider>)
+  try {
+    expect(view.el.textContent).toContain('Follows main, set by Sam · settings revision 3')
+    expect(view.el.textContent).toContain('Landing approved byPriya')
+  } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

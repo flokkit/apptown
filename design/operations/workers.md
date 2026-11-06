@@ -1055,25 +1055,20 @@ project's first landing:
    the worker](#releases-built-on-the-worker)). Every landing publishes
    there.
 
-A project's first landing then creates its `main` deployment (feed
-`landing`, audience `team`, synthetic data) on the one attached Docker
-host offered to the project for those settings, as it creates `main` on
-the built-in host outside the mode. With no such host the landing stops
-and says to offer one. With several it stops, names them, and says to
-create `main` on the one it should run on:
+Create a deployment on the target that should run the app:
 `POST /api/v1/projects/<slug>/deployments` with
-`{"name":"main","target":<name>,"feed":"landing"}`, then land again. A
-`main` that exists already is used wherever it is.
+`{"name":"main","target":<name>,"feed":"main"}`. The setting records the
+creator's deploy authority. A landing builds and publishes its bundle on the
+worker without needing a running deployment. After it completes, each
+follows-main deployment requests that bundle under its recorded setting.
 
-`main` must be on a Docker host. App Platform and Portainer receive a
-release only by promotion:
-- a Docker host or App Platform deployment: `POST /api/v1/projects/<slug>/deployments/<name>/deploy`,
-  with `{"bundleId":…}` or nothing for the latest bundle. The answer
-  names the release's number; `apptown wait -p <slug> -r <number>` follows
-  its log until it is released (exit 0) or failed (exit 1);
-- Portainer: the intranet release, `POST /api/v1/projects/<slug>/release`,
-  which ships the project's latest published bundle (it takes no
-  `bundleId`).
+Other deployments take releases by hand through
+`POST /api/v1/projects/<slug>/deployments/<name>/deploy`, with
+`{"bundleId":…}` or nothing for the latest bundle. The answer names the
+release's number; `apptown wait -p <slug> -r <number>` follows its log until
+it is released (exit 0) or failed (exit 1). Portainer's default release,
+`POST /api/v1/projects/<slug>/release`, ships the project's latest published
+bundle to its chosen release deployment.
 
 Refused in the mode, each with its reason:
 - the built-in Docker host;
@@ -1107,7 +1102,7 @@ The main tier, `get_project` and the conformance runtime check observe a
 
 
 On an AppTown with a worker, in the no-local-Docker mode or not, **every
-landing builds its release on the worker**. The deploy step fixes the
+landing builds its release on the worker**. The build step fixes the
 commit and runs one `release-build` task on the worker in private
 Docker (`buildx`, one platform, no provenance or SBOM attestations). The
 task carries the commit and the generated build files only: no secrets,
@@ -1120,8 +1115,8 @@ container registry with the attachment's credential, and reads it back
 by digest. Only the registry's answer is recorded. The bundle names every
 part and init image as `<repository>@sha256:<digest>`, with the
 platform, the worker that built it and the profile that worker measured. It is
-committed once, by the step attempt that still owns the step. The step
-then deploys to `main`, a Docker host, which pulls those digests.
+committed once, by the step attempt that still owns the step. Landing completes after the build. Each follows-main deployment requests
+that bundle separately and pulls its digests.
 
 Readable tags are added for people, never used as evidence:
 `change-<change>-<image>` (or `run-<run>-<image>`) at landing, and
@@ -1130,10 +1125,9 @@ bundle goes live. The landing's own release carries only the change tag;
 DOCR copies carry a commit-based tag. Images are named `part-<part>` and
 `init-<step>`.
 
-On an AppTown without a worker the landing builds on its Docker host. When
-the project has a container registry, AppTown saves each image the host
-booted (`docker save`) and publishes it through the same publication, after
-the boot. The bundle names the Docker host where the worker would be. A
+On an AppTown without a worker the landing builds images on its build host without booting a deployment
+or running init steps. When the project has a container registry, AppTown
+saves each built image (`docker save`) and publishes it through the same publication. The bundle names the Docker host where the worker would be. A
 worker changes where a release is built, not what it produces.
 
 **What it needs.**
@@ -1155,9 +1149,8 @@ registry attached and no single connector to attach ("this project has no
 container registry for its releases, and no container-registry connector
 is offered …" or "… several container-registry connectors are offered (a,
 b); attach the one <slug> publishes to …"), a connector credential the
-secrets store does not hold, `-private-docker=false`, `main` not on a Docker host
-("a landing deploys to a Docker host … promote to <kind>"), and an
-unknown or mismatched platform.
+secrets store does not hold, `-private-docker=false`, and an unknown build platform. Destination compatibility
+is checked when each release executes.
 
 **Consumers.** Promotion to another Docker host, recovery after a host
 lost its images or container (the rebuild a apptown start asks for), App
@@ -1167,7 +1160,7 @@ app spec), Portainer (the stack names every digest) and release previews
 registry that refuses or cannot be reached is an error; a digest the
 registry confirms missing is refused: land the change again.
 
-**Accepted failures.** An AppTown restart during a deploy step leaves the
+**Accepted failures.** An AppTown restart during a build step leaves the
 step in error: restart only while `apptown executing` lists nothing, or
 retry the step, which builds again. An interrupted publication can leave an unused tagged image;
 AppTown never deletes from a registry, and the registry's retention
@@ -1256,7 +1249,7 @@ worker:
 4. Upgrade or start AppTown with the worker (and private Docker not
    turned off). The
    first landing of each project is its check: a missing connector, an
-   unheld secret or an unreachable registry fails the deploy step before
+   unheld secret or an unreachable registry fails the build step before
    any effect on `main`.
 
 Releases recorded before the upgrade keep their image IDs and their old

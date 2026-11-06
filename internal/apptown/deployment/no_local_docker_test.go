@@ -300,28 +300,40 @@ func (w *noLocalWorld) land(t *testing.T, s *Service, dep *Deployment, runID ids
 	if err != nil {
 		t.Fatal(err)
 	}
-	port, err := s.Deployments.StablePort(t.Context(), w.project, dep.Name, names.App())
+	port, err := s.Deployments.stablePort(t.Context(), w.project, dep.Name, names.App())
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := docker.NewHost(docker.Dependencies{StaticServer: s.ToolVersions().Images.StaticServer})
+	buildTarget, err := s.Targets.ByID(ctx, dep.TargetID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buildDocker, err := s.hosts.DockerScope(ctx, buildTarget)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts, init, err := host.BuildImages(ctx, buildDocker, fmt.Sprintf("fixture-%s", runID), art.Source.Workspace, art.Source.Contract)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundleID, err := s.Bundles.Cut(ctx, w.project, w.revision, parts, init, []byte(multipartApp), BundleOrigin{RunID: runID, TargetID: dep.TargetID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := s.Bundles.ByID(ctx, bundleID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	out, err := s.RunLanding(ctx, landingClaim{w.project, runID}, LandingInput{
 		Start:  Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: fmt.Sprintf("run-%d", runID), Inputs: Inputs{ReleaseRun: runID, Revision: w.revision, ArtifactHash: art.Hash, DockerSource: string(art.Body)}},
-		Source: *art.Source, HostPort: port, DataClass: "synthetic",
+		Source: *art.Source, HostPort: port, DataClass: "synthetic", Bundle: b,
 	})
 	if err != nil || out.Boot.Err != nil || out.Execution.Outcome != Applied {
 		t.Fatalf("landing: %+v %v %v", out.Execution, err, out.Boot.Err)
 	}
 	if told := " -e " + appcontract.ReleaseEnvVar + "=" + appcontract.ReleaseIdentity("web", w.revision) + " "; !strings.Contains(strings.Join(w.daemon.verbs("run"), "\n"), told) {
 		t.Fatalf("the landing did not tell the static part its release (%s): %v", told, w.daemon.verbs("run"))
-	}
-	parts, init := out.Images(ctx)
-	id, err := s.Bundles.Cut(ctx, w.project, w.revision, parts, init, []byte(multipartApp), BundleOrigin{RunID: runID, TargetID: out.TargetID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	b, err := s.Bundles.OfRun(ctx, w.project, runID)
-	if err != nil || b == nil || b.ID != id {
-		t.Fatalf("the landing's bundle: %+v %v", b, err)
 	}
 	return out, b
 }
@@ -529,8 +541,7 @@ func TestNoLocalDockerRefusesOtherTargetsBeforeAnyBuild(t *testing.T) {
 			Start:  Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "run-3", Inputs: Inputs{ReleaseRun: idstest.N(3), Revision: w.revision}},
 			Source: deploy.Source{Workspace: w.repo, Revision: w.revision, Slug: "game", Contract: &appcontract.Contract{}},
 		})
-		var runErr *RunError
-		if !errors.As(err, &runErr) || runErr.Stage != Admission || !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), landing[name]) {
+		if !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), landing[name]) {
 			t.Fatalf("a landing on %s: %v", name, err)
 		}
 	}
@@ -547,60 +558,21 @@ func TestNoLocalDockerRefusesOtherTargetsBeforeAnyBuild(t *testing.T) {
 // the next action, nothing is built or run, and the records stay. Outside
 // the mode the same recovery builds from source, as before. A fresh landing
 // then releases on the same target by reuse.
-func TestNoLocalDockerRefusesReleasesRecordedBeforeTargets(t *testing.T) {
+func TestImageIDBundleWithoutBuildHostIsRefusedInEveryMode(t *testing.T) {
 	t.Parallel()
 	w := noLocalDockerWorld(t, multipartApp)
-	before := w.service(false)
-	staging := w.deployment(t, before, "staging", w.remote)
 	legacy := cutBundleFixture(t, w.db, w.project, w.revision, BundleOrigin{})
-	first, err := w.release(t, before, legacy, "staging")
-	if err != nil {
-		t.Fatal(err)
+	for _, mode := range []bool{false, true} {
+		s := w.service(mode)
+		w.deployment(t, s, "staging", w.remote)
+		w.daemon.ResetCommands()
+		if _, err := w.release(t, s, legacy, "staging"); !errors.Is(err, ErrReleaseRefused) {
+			t.Fatalf("unrecorded build host (no local Docker %t): %v", mode, err)
+		}
+		if len(w.daemon.verbs("build")) != 0 || len(w.daemon.verbs("run")) != 0 {
+			t.Fatal("release rebuilt or ran a bundle without a build host")
+		}
 	}
-	queued, err := before.RequestRelease(context.Background(), DeploySelection{ProjectID: w.project, DeploymentName: "staging", BundleID: legacy})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	const message = "this release does not say which Docker host its images are on; land the change again to release it in this mode"
-	s := w.service(true)
-	w.daemon.remove(hostNamesOf(t, s, w.project, "game", "staging").App())
-	w.daemon.ResetCommands()
-	if _, err := s.RequestRelease(context.Background(), DeploySelection{ProjectID: w.project, DeploymentName: "staging", BundleID: legacy}); !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), message) {
-		t.Fatalf("promoting a legacy bundle: %v", err)
-	}
-	if err := s.ExecuteRelease(context.Background(), queued.ID); !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), message) {
-		t.Fatalf("a legacy release queued before the mode: %v", err)
-	}
-	if _, err := w.rebuild(t, s, staging); !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), message) {
-		t.Fatalf("recovering a legacy release: %v", err)
-	}
-	if len(w.daemon.verbs("build")) != 0 || len(w.daemon.verbs("run")) != 0 {
-		t.Fatalf("a refused legacy release built or ran: %v", w.daemon.Commands())
-	}
-	if b, err := s.Bundles.ByID(context.Background(), legacy); err != nil || !b.BuiltFrom.TargetID.IsZero() {
-		t.Fatalf("the legacy bundle is kept as it was: %+v %v", b, err)
-	}
-	if rel, err := s.Releases.ByNumber(context.Background(), w.project, first.Number); err != nil || rel.State != Released {
-		t.Fatalf("the legacy release's history is kept: %+v %v", rel, err)
-	}
-	if dep, _ := s.Deployments.ByID(context.Background(), staging.ID); dep.ObservedGeneration != 1 {
-		t.Fatalf("the legacy deployment is kept: %+v", dep)
-	}
-
-	// Outside the mode, the same recovery builds from source, as before.
-	if got, err := w.rebuild(t, before, staging); err != nil || got["outcome"] != Applied || len(w.daemon.verbs("build")) == 0 {
-		t.Fatalf("recovery outside the mode: %v %v", got, err)
-	}
-
-	// A fresh landing names its target, and its bundle is reused there.
-	main := w.deployment(t, s, "main", w.remote)
-	_, bundle := w.land(t, s, main, idstest.N(9))
-	w.daemon.ResetCommands()
-	if _, err := w.release(t, s, bundle.ID, "staging"); err != nil {
-		t.Fatal(err)
-	}
-	expectRecordedBoot(t, w, bundle, hostNamesOf(t, s, w.project, "game", "staging").App())
 }
 
 // Observing a deployment's container on its own target tells running,
@@ -724,19 +696,19 @@ func TestAppPlatformRefusesADigestBundleOfAnotherPlatform(t *testing.T) {
 // built-in host outside the mode; in the mode the one attached Docker host
 // offered to the project, and with none or several a refusal naming the
 // choice to make.
-func TestNoLocalDockerLandingTargetIsTheOneOfferedAttachedHost(t *testing.T) {
+func TestNoLocalDockerlandingTargetIsTheOneOfferedAttachedHost(t *testing.T) {
 	w := noLocalDockerWorld(t, multipartApp)
 	ctx := context.Background()
-	attrs := Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"}
+	attrs := Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"}
 	mode := w.service(true)
 
-	if _, err := mode.LandingTarget(ctx, w.project, "main", attrs); !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), "no attached Docker host is offered to game") {
+	if _, err := mode.landingTarget(ctx, w.project, "main", attrs); !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), "no attached Docker host is offered to game") {
 		t.Fatalf("no host offered: %v", err)
 	}
 	if err := mode.Targets.Offer(ctx, w.remote, "*", OfferCaps{}, "boss"); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := mode.LandingTarget(ctx, w.project, "main", attrs); err != nil || got.ID != w.remote.ID {
+	if got, err := mode.landingTarget(ctx, w.project, "main", attrs); err != nil || got.ID != w.remote.ID {
 		t.Fatalf("one host offered: %+v %v", got, err)
 	}
 	// An offer whose caps refuse the landing's deployment is no offer for it.
@@ -747,13 +719,13 @@ func TestNoLocalDockerLandingTargetIsTheOneOfferedAttachedHost(t *testing.T) {
 	if err := mode.Targets.Offer(ctx, spare, "*", OfferCaps{Data: []string{"production"}}, "boss"); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := mode.LandingTarget(ctx, w.project, "main", attrs); err != nil || got.ID != w.remote.ID {
+	if got, err := mode.landingTarget(ctx, w.project, "main", attrs); err != nil || got.ID != w.remote.ID {
 		t.Fatalf("a capped offer counted: %+v %v", got, err)
 	}
 	if err := mode.Targets.Offer(ctx, spare, "*", OfferCaps{}, "boss"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := mode.LandingTarget(ctx, w.project, "main", attrs); !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), "several attached Docker hosts are offered to game (remote, spare); create main on the one it should run on") {
+	if _, err := mode.landingTarget(ctx, w.project, "main", attrs); !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), "several attached Docker hosts are offered to game (remote, spare); create main on the one it should run on") {
 		t.Fatalf("two hosts offered: %v", err)
 	}
 
@@ -763,7 +735,7 @@ func TestNoLocalDockerLandingTargetIsTheOneOfferedAttachedHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, err := outside.LandingTarget(ctx, w.project, "main", attrs); err != nil || got.ID != builtIn.ID {
+	if got, err := outside.landingTarget(ctx, w.project, "main", attrs); err != nil || got.ID != builtIn.ID {
 		t.Fatalf("outside the mode: %+v %v", got, err)
 	}
 }

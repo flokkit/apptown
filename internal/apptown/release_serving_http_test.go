@@ -25,15 +25,11 @@ func TestReleaseServingFollowsTheRunningDeployment(t *testing.T) {
 	t.Parallel()
 	a, f := bootWorld(t)
 	runID, stepID := deployRun(t, a)
-	if err := a.Work.ExecuteStep(a.asEngine(context.Background()), stepID); err != nil {
+	if err := executeBootFixture(t, a, a.asEngine(context.Background()), stepID); err != nil {
 		t.Fatal(err)
 	}
 	w := authzCall(a.Handler(), "bls", "POST", fmt.Sprintf("/api/v1/runs/%d/advance", runID), "")
 	var result workflow.AdvanceResult
-	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil || w.Code != 200 || !result.Advanced || result.RunStatus != workflow.RunDone {
-		t.Fatalf("complete landing response: %d %s %v", w.Code, w.Body.String(), err)
-	}
-	w = authzCall(a.Handler(), "bls", "POST", fmt.Sprintf("/api/v1/runs/%d/advance", runID), "")
 	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil || w.Code != 200 || result.Advanced || result.RunStatus != workflow.RunDone {
 		t.Fatalf("completed run response: %d %s %v", w.Code, w.Body.String(), err)
 	}
@@ -118,12 +114,10 @@ func TestChangeReadDoesNotAskTheHost(t *testing.T) {
 	t.Parallel()
 	a, f := bootWorld(t)
 	runID, stepID := deployRun(t, a)
-	if err := a.Work.ExecuteStep(a.asEngine(context.Background()), stepID); err != nil {
+	if err := executeBootFixture(t, a, a.asEngine(context.Background()), stepID); err != nil {
 		t.Fatal(err)
 	}
-	if w := authzCall(a.Handler(), "bls", "POST", fmt.Sprintf("/api/v1/runs/%d/advance", runID), ""); w.Code != 200 {
-		t.Fatalf("complete landing: %d %s", w.Code, w.Body.String())
-	}
+
 	changeID := runRecord(t, a, runID).ChangeID
 	// The host stops answering: every Docker call waits until it is given up.
 	var asked atomic.Int64

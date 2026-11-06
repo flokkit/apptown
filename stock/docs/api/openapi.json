@@ -1890,6 +1890,12 @@
           "feed": {
             "type": "string"
           },
+          "feedConfirmed": {
+            "type": "boolean"
+          },
+          "feedRevision": {
+            "type": "integer"
+          },
           "handle": {
             "additionalProperties": {},
             "type": "object"
@@ -1989,6 +1995,8 @@
           "desiredGeneration",
           "observedGeneration",
           "readiness",
+          "feedRevision",
+          "feedConfirmed",
           "feed",
           "audience",
           "data",
@@ -2136,6 +2144,12 @@
           "feed": {
             "type": "string"
           },
+          "feedConfirmed": {
+            "type": "boolean"
+          },
+          "feedRevision": {
+            "type": "integer"
+          },
           "generation": {
             "type": "integer"
           },
@@ -2252,6 +2266,8 @@
           }
         },
         "required": [
+          "feedRevision",
+          "feedConfirmed",
           "readinessLabel",
           "restoreLabel",
           "targetId",
@@ -2532,6 +2548,36 @@
         },
         "type": "object"
       },
+      "FeedConfirmationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FeedsConfirmed": {
+        "properties": {
+          "confirmed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "refused": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "confirmed",
+          "refused"
+        ],
+        "type": "object"
+      },
       "InstanceActivity": {
         "properties": {
           "active": {
@@ -2702,104 +2748,6 @@
           "number",
           "url",
           "state"
-        ],
-        "type": "object"
-      },
-      "LandingDeployAttempt": {
-        "properties": {
-          "attempt": {
-            "type": "integer"
-          },
-          "changeId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "changeNumber": {
-            "type": "integer"
-          },
-          "changeTitle": {
-            "type": "string"
-          },
-          "outcomeKnown": {
-            "type": "boolean"
-          },
-          "runStartedAt": {
-            "type": "string"
-          },
-          "step": {
-            "$ref": "#/components/schemas/LandingDeployStep"
-          }
-        },
-        "required": [
-          "outcomeKnown",
-          "step",
-          "attempt",
-          "changeId",
-          "changeNumber",
-          "changeTitle",
-          "runStartedAt"
-        ],
-        "type": "object"
-      },
-      "LandingDeployStep": {
-        "properties": {
-          "config": {},
-          "evidence": {},
-          "finishedAt": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "const": ""
-              }
-            ]
-          },
-          "id": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "runId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "startedAt": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "const": ""
-              }
-            ]
-          },
-          "status": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "runId",
-          "type",
-          "status",
-          "config",
-          "evidence",
-          "startedAt",
-          "finishedAt"
         ],
         "type": "object"
       },
@@ -4260,6 +4208,16 @@
               }
             ]
           },
+          "request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RequestMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sbomArtifact": {
             "format": "uuid",
             "type": [
@@ -4569,6 +4527,42 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "RequestMetadata": {
+        "properties": {
+          "approvers": {
+            "type": "string"
+          },
+          "backupEvidence": {},
+          "credential": {
+            "type": "string"
+          },
+          "feed": {
+            "type": "string"
+          },
+          "setBy": {
+            "type": "string"
+          },
+          "setter": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "settingsRevision": {
+            "type": "integer"
+          },
+          "uncopiedAcceptance": {}
+        },
+        "required": [
+          "feed",
+          "settingsRevision",
+          "setBy",
+          "credential",
+          "approvers"
+        ],
         "type": "object"
       },
       "Resources": {
@@ -6119,6 +6113,12 @@
               }
             ]
           },
+          "landingReleases": {
+            "items": {
+              "$ref": "#/components/schemas/changeRelease"
+            },
+            "type": "array"
+          },
           "mergeLabel": {
             "$ref": "#/components/schemas/DisplayStatus"
           },
@@ -6142,6 +6142,7 @@
           "mergeLabel",
           "targets",
           "merged",
+          "landingReleases",
           "releases"
         ],
         "type": "object"
@@ -6149,6 +6150,9 @@
       "changeRelease": {
         "properties": {
           "deployment": {
+            "type": "string"
+          },
+          "failure": {
             "type": "string"
           },
           "number": {
@@ -9484,6 +9488,35 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/deployments/confirm-feed": {
+      "post": {
+        "operationId": "postDeploymentsConfirmFeed",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedsConfirmed"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "deployments"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.ConfirmAllFeeds",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
     "/api/v1/dev-compose": {
       "post": {
         "operationId": "postDevCompose",
@@ -11740,7 +11773,8 @@
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-apptown-stability": "experimental"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       },
       "post": {
         "operationId": "postProjectsSlugDeployments",
@@ -12159,6 +12193,63 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/projects/{slug}/deployments/{name}/confirm-feed": {
+      "post": {
+        "operationId": "postProjectsSlugDeploymentsNameConfirmFeed",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedConfirmationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.ConfirmFeed",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
     "/api/v1/projects/{slug}/deployments/{name}/copies": {
       "post": {
         "operationId": "postProjectsSlugDeploymentsNameCopies",
@@ -12254,56 +12345,6 @@
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
-      }
-    },
-    "/api/v1/projects/{slug}/deployments/{name}/deploys": {
-      "get": {
-        "operationId": "getProjectsSlugDeploymentsNameDeploys",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/LandingDeployAttempt"
-                  },
-                  "type": "array"
-                }
-              }
-            },
-            "description": "the operation's result"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "capability": "deployment:read",
-          "kind": "capability",
-          "scope": "project-slug"
-        },
-        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/diagnostics": {

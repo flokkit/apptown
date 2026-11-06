@@ -151,7 +151,7 @@ export function EvalStartPage() {
           {!confirming && <button disabled={!ready} onClick={() => setConfirming(true)}>Review and start…</button>}
           {confirming && (
             <section className="card evals-warning">
-              <p className="mt-0">Each of the {picked.length} Change{picked.length === 1 ? '' : 's'} is re-run twice in throwaway copies: as its project runs now, and with <strong>{varies === 'model' ? `model profile ${profile}` : `pack version ${subject}`}</strong>. Copies land and deploy with no one approving them, on the eval domain only, and are deleted with the eval. Budget ${budgetDollars.toFixed(2)}, checked before each arm and step.</p>
+              <p className="mt-0">Each of the {picked.length} Change{picked.length === 1 ? '' : 's'} is re-run twice in throwaway copies: as its project runs now, and with <strong>{varies === 'model' ? `model profile ${profile}` : `pack version ${subject}`}</strong>. Copies run landing builds with no one approving them. Configured releases use the eval domain only. Copies are deleted with the eval. Budget ${budgetDollars.toFixed(2)}, checked before each arm and step.</p>
               <p><strong>Starting means: “{form.meaning}”</strong></p>
               {actErr && <div className="error">{actErr}</div>}
               <div className="row evals-actions">

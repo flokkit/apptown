@@ -222,7 +222,7 @@ func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 		t.Parallel()
 		a := testApp(t)
 		calls := onWorkerWithATripwire(t, a)
-		run, _ := reviewLanding(t, a, []schema.Step{{Name: "deploy", Uses: "deploy"}}, map[string]string{"go.mod": "module example\n"}, nil)
+		run, _ := reviewLanding(t, a, []schema.Step{{Name: "build", Uses: "build"}}, map[string]string{"go.mod": "module example\n"}, nil)
 		// A merge-only release compiles main as merged: the landing's work is
 		// put on main here (raw Git: the test has no merge to run).
 		repo := a.projectRepoPath("review-landing")
@@ -231,7 +231,7 @@ func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 		}
 		gittest.Run(t, repo, "add", "go.mod")
 		gittest.Run(t, repo, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "merged")
-		step := reviewExecute(t, a, run, "deploy")
+		step := reviewExecute(t, a, run, "build")
 		if step.Status != workflow.StatusPass {
 			t.Fatalf("the merge-only release on the worker: %s %s", step.Status, step.Evidence)
 		}

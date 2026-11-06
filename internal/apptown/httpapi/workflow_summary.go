@@ -110,11 +110,8 @@ func stepSummary(s schema.Step) workflowStepSummary {
 		out.Icon, out.Gloss = "🔀", "pushes the branch and opens a merge request"
 	case "preview":
 		out.Icon, out.Gloss = "▶", "starts the app so it can be tried"
-	case "deploy":
-		out.Icon, out.Gloss = "🚀", "updates the running app (main deployment)"
-		if e := w("deployment"); e != "" && e != "main" {
-			out.Gloss = "updates the running app (" + e + " deployment)"
-		}
+	case "build":
+		out.Icon, out.Gloss = "🏗", "builds the committed tree and records its runtime bundle, when declared"
 	case "scan":
 		out.Icon, out.Gloss = "🛡", "security scan of the code"
 	case "tests":

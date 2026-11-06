@@ -316,7 +316,14 @@ type noComplaints struct{}
 
 func (noComplaints) OfEval(context.Context, ids.ID) ([]complaint.Complaint, error) { return nil, nil }
 
-type noDeployments struct{}
+type noDeployments struct {
+	releases []LandingRelease
+	err      error
+}
+
+func (d noDeployments) LandingRequests(context.Context, ids.ID, ids.ID) ([]LandingRelease, error) {
+	return d.releases, d.err
+}
 
 func (noDeployments) StandingNames(context.Context, ids.ID) ([]string, error) { return nil, nil }
 func (noDeployments) TakeDownWithProject(context.Context, ids.ID, string) error {

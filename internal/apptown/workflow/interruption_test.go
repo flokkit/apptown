@@ -135,14 +135,14 @@ func TestARestartEndsAStepItDoesNotContinue(t *testing.T) {
 	t.Parallel()
 	db, run, _ := completionFixture(t, "working")
 	storedReadyStart(t, db, run.ID)
-	deploy := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "ship", Type: "deploy", Status: StatusRunning.String()})
+	deploy := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "ship", Type: "build", Status: StatusRunning.String()})
 	script := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "make", Type: "script", Status: StatusRunning.String()})
 	if _, err := database.Transact(context.Background(), db, func(tx *database.Tx) (InterruptedSteps, error) {
-		return InterruptStepsIn(context.Background(), tx, nil, []string{"deploy"}, time.Now())
+		return InterruptStepsIn(context.Background(), tx, nil, []string{"build"}, time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}
-	plans := newDispatchPlans(db, []string{"deploy", "script"})
+	plans := newDispatchPlans(db, []string{"build", "script"})
 	for id, orphan := range map[ids.ID]bool{deploy: false, script: true} {
 		state, err := plans.State(context.Background(), run.ID, id)
 		if err != nil || state.Status != StatusError || state.Orphaned != orphan {

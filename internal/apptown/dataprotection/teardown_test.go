@@ -81,7 +81,7 @@ func TestRemoveRetainsManagedNeedsAndRecordsTogether(t *testing.T) {
 	wantN(t, "torn-down receipts", receipts(t, s.db, "deployment.torn-down", byActor("alice"), bySubject(dep.Name)), 1)
 }
 func TestRemoveRefusesBeforeProviderWork(t *testing.T) {
-	for _, scenario := range []string{"denied", "missing caller", "missing deployment", "main", "attempt", "release", "cancelled"} {
+	for _, scenario := range []string{"denied", "missing caller", "missing deployment", "follows main", "attempt", "release", "cancelled"} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
 			s, w, driver, dep := removalFixture(t)
@@ -94,9 +94,11 @@ func TestRemoveRefusesBeforeProviderWork(t *testing.T) {
 				w.actor.Name = ""
 			case "missing deployment":
 				in.Name = "missing"
-			case "main":
-				in.Name = "main"
-				configureForTest(t, s, deployment.ConfigureDeployment{ProjectID: dep.ProjectID, Name: "main", Target: "cloud"})
+			case "follows main":
+				in.Name = "automatic"
+				if _, err := s.Deployments.EnsureStanding(t.Context(), dep.ProjectID, in.Name, dep.TargetID, deployment.Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"}); err != nil {
+					t.Fatal(err)
+				}
 			case "attempt":
 				if _, _, err := s.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "running"}); err != nil {
 					t.Fatal(err)

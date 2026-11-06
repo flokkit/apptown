@@ -541,11 +541,14 @@ credentials. Record recovery objectives and measured results.
 ### TM-17 — editable workflows and checks become a confused deputy
 
 **Status: partly mitigated.** Merging into the default
-branch and deploying need a person's approval or a run admitted by someone
+branch needs a person's approval or a run admitted by someone
 holding `change:land`, checked at the effect itself; agents, consoles, step
 runs and AppTown's triggers cannot approve or land
 ([authorization decisions](../subsystems/authorization-capabilities.md);
-`internal/apptown/workflow/assent.go`). A tests step answers only from a
+`internal/apptown/workflow/assent.go`). Automatic releases act under the
+follows-main setting's recorded setter, credential and revision; execution
+rechecks current deploy authority. Landing approvers supply provenance only.
+A tests step answers only from a
 witnessed exit, and its result records the machine it ran on, which agents
 may share ([agent isolation limits](../subsystems/agent-sandbox.md);
 [workers](../operations/workers.md)). Remaining: project-controlled tests and

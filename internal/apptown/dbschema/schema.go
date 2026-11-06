@@ -577,6 +577,14 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		`ALTER TABLE conformance_verdicts ADD COLUMN agent_evidence JSONB`,
 		`ALTER TABLE conformance_reviews ADD COLUMN recheck BOOLEAN NOT NULL DEFAULT false`,
 	}},
+	{n: 211, note: "separate landing builds from authorized follows-main releases", stmts: []string{
+		`ALTER TABLE deployments ADD COLUMN feed_revision BIGINT NOT NULL DEFAULT 1 CHECK (feed_revision > 0), ADD COLUMN feed_authority_json JSONB, ADD COLUMN promoted_from_id UUID REFERENCES deployments(id)`,
+		`UPDATE deployments d SET feed = 'main' WHERE name = 'main' OR (name = 'prod' AND NOT EXISTS (SELECT 1 FROM deployments m WHERE m.project_id=d.project_id AND m.name='main')) OR feed='landing'`,
+		`UPDATE deployments d SET feed = CASE WHEN EXISTS (SELECT 1 FROM deployments m WHERE m.project_id=d.project_id AND m.feed='main') THEN 'promotion' ELSE 'manual' END, promoted_from_id = (SELECT m.id FROM deployments m WHERE m.project_id=d.project_id AND m.feed='main' ORDER BY (m.name='main') DESC, (m.name='prod') DESC, m.id LIMIT 1) WHERE feed IN ('promotion','schedule')`,
+		`ALTER TABLE deployments ALTER COLUMN feed SET DEFAULT 'main', ADD CONSTRAINT deployments_feed_check CHECK (feed IN ('main','promotion','manual'))`,
+		`ALTER TABLE release_requests ADD COLUMN feed_revision BIGINT, ADD COLUMN landing_approvers TEXT NOT NULL DEFAULT '', ADD COLUMN backup_evidence_json JSONB`,
+		`ALTER TABLE release_requests ADD COLUMN uncopied_acceptance_json JSONB`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

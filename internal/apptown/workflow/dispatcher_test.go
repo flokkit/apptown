@@ -74,7 +74,7 @@ func TestWorkflowDispatchRecoveryPreservesEntryFailures(t *testing.T) {
 	t.Parallel()
 	for _, recovery := range []bool{false, true} {
 		t.Run(map[bool]string{false: "fresh", true: "recovered"}[recovery], func(t *testing.T) {
-			steps := []ReadyStep{{idstest.N(1), "script", true, "prepare"}, {idstest.N(2), "scan", true, "image:scanner"}, {idstest.N(3), "deploy", true, "deploy"}, {idstest.N(4), "tests", false, "independent"}}
+			steps := []ReadyStep{{idstest.N(1), "script", true, "prepare"}, {idstest.N(2), "scan", true, "image:scanner"}, {idstest.N(3), "build", true, "build"}, {idstest.N(4), "tests", false, "independent"}}
 			d, s := testDispatcher(steps)
 			d.runners["scan"] = func(id ids.ID) { s.ran(id, StatusFail) }
 			wantCalls := []ids.ID{idstest.N(1), idstest.N(2)}
@@ -212,7 +212,7 @@ func TestWorkflowDispatchStopDrainsRunningAndLeavesQueuedSteps(t *testing.T) {
 func TestWorkflowDispatchStopsOnReadFailureOrInactiveStage(t *testing.T) {
 	t.Parallel()
 	for _, readFailure := range []bool{false, true} {
-		d, s := testDispatcher([]ReadyStep{{idstest.N(1), "script", true, "first"}, {idstest.N(2), "deploy", true, "deploy"}})
+		d, s := testDispatcher([]ReadyStep{{idstest.N(1), "script", true, "first"}, {idstest.N(2), "build", true, "build"}})
 		if readFailure {
 			s.readErr = errors.New("database unavailable")
 		} else {
@@ -300,7 +300,7 @@ func TestScanPointGroup(t *testing.T) {
 		{idstest.N(5), "scan", false, "scan-source:semgrep"},
 		{idstest.N(6), "guidance/conformance", false, "guidance-conformance"},
 		{idstest.N(7), "scan", true, "scan-image:trivy"},
-		{idstest.N(8), "deploy", true, "deploy"},
+		{idstest.N(8), "build", true, "build"},
 	}
 	if g := scanPointGroup(auto, 0); g != nil {
 		t.Fatalf("a reconcile is not a scan point: %v", g)

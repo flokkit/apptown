@@ -109,7 +109,7 @@ func TestARestartInTheNoLocalDockerModeIsNotACutover(t *testing.T) {
 	if err := a.RecoverInterruptedWork(t.Context()); err != nil {
 		t.Fatalf("the first start in the mode: %v", err)
 	}
-	_, stepID := admittedRunnerStep(t, a, "deploying", "deploy", "deploy", false)
+	_, stepID := admittedRunnerStep(t, a, "deploying", "build", "build", false)
 	if step, err := workflow.ReadStepIn(context.Background(), a.DB, stepID); err != nil || step.Status != workflow.StatusRunning {
 		t.Fatalf("the claimed step: %+v %v", step, err)
 	}

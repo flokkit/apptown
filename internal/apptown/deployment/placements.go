@@ -123,7 +123,7 @@ func (s *Deployments) ReserveHostPort(ctx context.Context, projectID ids.ID, nam
 	return int(r.HostPort), err
 }
 
-// StablePort is the deployment's host port on a Docker host, picked and
+// stablePort is the deployment's host port on a Docker host, picked and
 // recorded before its first start when it has none. Every standing
 // deployment is published at this one port, so Docker keeps it at every
 // start of the container and the port AppTown probes and shows is the
@@ -131,8 +131,8 @@ func (s *Deployments) ReserveHostPort(ctx context.Context, projectID ids.ID, nam
 // again at each start). Two boots racing for an unallocated port both pick
 // a free one; the first reservation wins and the other reads it. Nothing
 // here can hold an OS port: if Docker then finds it taken, the boot fails
-// with that reason and ForgetTakenPort gives the next boot a fresh one.
-func (s *Deployments) StablePort(ctx context.Context, projectID ids.ID, name, container string) (int, error) {
+// with that reason and forgetTakenPort gives the next boot a fresh one.
+func (s *Deployments) stablePort(ctx context.Context, projectID ids.ID, name, container string) (int, error) {
 	e, err := s.ByName(ctx, projectID, name)
 	if err != nil || e.TargetID.IsZero() {
 		return 0, fmt.Errorf("reserving a port requires an explicitly bound deployment: %w", err)
@@ -147,10 +147,10 @@ func (s *Deployments) StablePort(ctx context.Context, projectID ids.ID, name, co
 	return s.ReserveHostPort(ctx, projectID, name, container, candidate)
 }
 
-// ForgetTakenPort: when a boot failed because the deployment's port was in
+// forgetTakenPort: when a boot failed because the deployment's port was in
 // use by something else, record a fresh one so the next boot does not fail
 // the same way.
-func (s *Deployments) ForgetTakenPort(ctx context.Context, projectID ids.ID, name string, bootErr error) {
+func (s *Deployments) forgetTakenPort(ctx context.Context, projectID ids.ID, name string, bootErr error) {
 	if bootErr == nil || !strings.Contains(bootErr.Error(), "address already in use") {
 		return
 	}
@@ -221,19 +221,7 @@ func (s *Service) StandingByProvider(ctx context.Context) (map[string][]Provider
 // cannot be read is of unknown class, "", which protects its data: only a
 // declared "synthetic" lets a standing service be replaced when its
 // parameters move.
-func (s *Deployments) DataClassOf(ctx context.Context, projectID ids.ID, name string) string {
-	if projectID.IsZero() || name == "" {
-		return ""
-	}
-	e, err := s.ByName(ctx, projectID, name)
-	if err != nil {
-		return ""
-	}
-	return e.DataClass
-}
 
-// ProductionOnTargetKind are the standing deployments holding production
-// data on targets of a kind.
 func (s *Deployments) ProductionOnTargetKind(ctx context.Context, kind string) ([]*Deployment, error) {
 	rows, err := deploymentsql.New(s.db.SQL()).ProductionOnTargetKind(ctx, deploymentsql.ProductionOnTargetKindParams{StandingKind: Standing.String(), TargetKind: kind})
 	if err != nil {

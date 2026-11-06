@@ -200,7 +200,7 @@ by name, in any casing.
 | `scan` | a **scan point**: run every attached scanner for a target, each as its own check | `on: source \| image`, or `scanner` for one scanner; `failOn` (bounded by policy), `timeoutMinutes` |
 | `guidance/conformance` | run the project's guidance checks against the tree, classified against the change's base | `failOn` (default `high`) |
 | `reconcile` | bring `main` into the change branch before the other gates | — |
-| `deploy` | deploy the landed contract to a deployment | `deployment` (default `main`), `services` |
+| `build` | build the committed tree; record a runtime bundle or a clean-tree build without a runtime | none |
 | `scm/mr` | open a merge request on the attached mirror for people who review there | — |
 | `scm/merged` | the landing merge into `main` (engine-judged) | — |
 | `workflow/call` | run another library workflow as a child run in the same workspace | `workflow`, `with` (its inputs) |
@@ -216,7 +216,7 @@ trigger.
 `artifact/require` and `adr/require` are judged from state each time the
 stage's evidence changes. While another working step of the same stage is
 still pending or running, a missing fact leaves them pending rather than
-failed, because that step (a `deploy` attaching its release) may supply it.
+failed, because that step (a `build` recording its build artifact) may supply it.
 They fail only once the stage's work has finished; approvals do not hold them.
 
 ## 3. Policies
@@ -232,9 +232,9 @@ Rules come in two kinds:
 
   ```yaml
   policies:
-    - name: deploy-requires-scan
+    - name: build-requires-scan
       rule: requireStepBefore
-      with: { uses: deploy, requires: scan }
+      with: { uses: build, requires: scan }
     - name: scanner-bound
       rule: requireCapabilityBound
       with: { capability: scanner }
@@ -300,7 +300,8 @@ who approves on its Members tab.
 Accepting the change hands it to the system landing workflow, which is a
 pipeline: `reconcile`, `tests`, `scan` on source, `guidance/conformance` and
 `scan` on the image, then the landing approval in a stage of its own, then
-the merge, `deploy` to main and the release record. The acceptance shows the
+the merge and `build` of the merged tree. Deployment follows completion through
+follows-main release requests. The acceptance shows the
 landing approval's sentence and counts for it where the accepter could
 approve that step themselves and the checks raised nothing new; otherwise
 the landing asks again. What enforcement buys: the agent's work

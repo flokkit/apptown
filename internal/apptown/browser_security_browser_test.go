@@ -1631,7 +1631,7 @@ func (s *tourScene) approve(runID ids.ID, who string) {
 	if s.refuseRun.Load() {
 		want = "fail"
 	}
-	if d := s.steps(runID)["deploy"]; d.Status != want {
+	if d := s.steps(runID)["build"]; d.Status != want {
 		s.t.Fatalf("run %s: deploy is %q, want %q: %s (%+v)", runID, d.Status, want, d.Evidence, s.steps(runID))
 	}
 }
@@ -1771,8 +1771,8 @@ var tourWorkflow = workflow.PreparedRun{
 		{Name: "scan-source", Uses: "scan", With: map[string]any{"on": "source"}},
 		{Name: "accept", Uses: "approval", With: map[string]any{"means": "I have read what changed and the checks, and it does what the change says."}},
 	}}, {Name: "ship",
-		OnEnter: []schema.Step{{Name: "deploy", Uses: "deploy", With: map[string]any{"deployment": "main"}}},
-		Steps:   []schema.Step{{Name: "release-exists", Uses: "artifact/require", With: map[string]any{"kind": "release"}}},
+		OnEnter: []schema.Step{{Name: "build", Uses: "build"}},
+		Steps:   []schema.Step{{Name: "build-exists", Uses: "artifact/require", With: map[string]any{"kind": "build"}}},
 	}}},
 }
 
@@ -3631,8 +3631,13 @@ app:
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	draft, err := workflow.ParseNarrative("TITLE: Publish the winter ride times\nTo satisfy it: provide the independent review report for this change.")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := a.Work.PublishNarrative(asPerson("sam"), workflow.NarrativePublication{Source: source,
-		Draft: workflow.NarrativeDraft{Title: "Publish the winter ride times", Note: "To satisfy it: provide the independent review report for this change."},
+		Draft: draft,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -4252,7 +4257,7 @@ func assertGarageProgress(t *testing.T, s *tourScene) {
 		if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/changes/"+changes[0].ID, nil), &page); err != nil {
 			t.Fatal(err)
 		}
-		want := map[string]string{"tests": "pass", "style": "pass", "accept": "pass", "deploy": "running", "release-exists": "pending"}
+		want := map[string]string{"tests": "pass", "style": "pass", "accept": "pass", "build": "running", "build-exists": "pending"}
 		if slug == "garage-work" {
 			want = map[string]string{"apply-change": "running"}
 			if page.State != "agent working" {
@@ -4322,7 +4327,7 @@ func (s *tourScene) progress(freeze chan struct{}, frozen <-chan struct{}, daemo
 	working := workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "garage-work", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "apply-change", Uses: "agent/pi", With: map[string]any{"prompt": "Write the next club notice."}}}}}}}
 	defineWorkflows(t, a, tourWorkflow, working)
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
-		for _, kind := range []string{"agent/pi", "deploy"} {
+		for _, kind := range []string{"agent/pi", "build"} {
 			original := deps.Runners[kind]
 			deps.Runners[kind] = func(e *workflow.Execution) {
 				id := e.Run().ChangeID
@@ -4343,7 +4348,7 @@ func (s *tourScene) progress(freeze chan struct{}, frozen <-chan struct{}, daemo
 					t.Error(err)
 					return
 				}
-				if sceneSlug != "" && e.Step().Type == "deploy" {
+				if sceneSlug != "" && e.Step().Type == "build" {
 					stage := sceneStages[sceneSlug]
 					switch sceneSlug {
 					case "garage-deploy-live":
@@ -4391,7 +4396,7 @@ func (s *tourScene) progress(freeze chan struct{}, frozen <-chan struct{}, daemo
 	}
 	a.Work.Wait()
 	for slug, stage := range sceneStages {
-		step := s.steps(runs[slug])["deploy"]
+		step := s.steps(runs[slug])["build"]
 		want := "running"
 		if slug == "garage-deploy-live" {
 			want = "pass"

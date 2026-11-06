@@ -2,7 +2,6 @@ package workflowexec
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -11,47 +10,9 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execution"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
-	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/deploy/docker"
 )
-
-func TestLandingDecisionNeverPassesReplayOrUnrecordedOutcome(t *testing.T) {
-	t.Parallel()
-	at := deployment.Attempt{ID: idstest.N(7), Generation: 2}
-	for _, tc := range []struct {
-		name   string
-		result deployment.ExecutionResult
-		err    error
-		reason string
-	}{
-		{"replay", deployment.ExecutionResult{Attempt: at}, nil, "already admitted"},
-		{"superseded", deployment.ExecutionResult{Attempt: at, Created: true, Outcome: deployment.Superseded}, nil, "superseded"},
-		{"settlement failed", deployment.ExecutionResult{Attempt: at, Created: true}, &deployment.RunError{Stage: deployment.Settlement, Cause: errors.New("receipt lost")}, "recording the deployed deployment"},
-		{"admission failed", deployment.ExecutionResult{}, &deployment.RunError{Stage: deployment.Admission, Cause: errors.New("target changed")}, "admitting the deployment"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			d := landingDeploymentDecision(tc.result, tc.err, deployment.LandingBoot{})
-			if d == nil || d.status != workflow.StatusError || !strings.Contains(d.evidence["reason"].(string), tc.reason) {
-				t.Fatalf("%+v", d)
-			}
-		})
-	}
-	for _, cause := range []error{context.Canceled, context.DeadlineExceeded} {
-		d := landingDeploymentDecision(deployment.ExecutionResult{Created: true}, &deployment.RunError{Stage: deployment.Execution, Cause: cause},
-			deployment.LandingBoot{Err: &docker.BootError{Phase: docker.PhasePage, Err: errors.New("late boot result")}})
-		if d == nil || d.status != workflow.StatusError {
-			t.Fatalf("cancelled landing requested rework: %+v", d)
-		}
-	}
-	if d := landingDeploymentDecision(deployment.ExecutionResult{Created: true, Outcome: deployment.Applied}, nil, deployment.LandingBoot{}); d != nil {
-		t.Fatalf("successful settlement refused: %+v", d)
-	}
-}
 
 func TestCleanTreeBuildUsesSelectedWorkspaceAndBoundedExecutor(t *testing.T) {
 	t.Parallel()
@@ -165,33 +126,5 @@ func TestAStoppedCleanBuildIsNotAFailedOne(t *testing.T) {
 	}}
 	if reason, ok, wasStopped := cleanTreeBuilds(stopped, dir, checks, agentenv.Ambient{}); ok || !wasStopped || reason != "" {
 		t.Fatalf("a stopped build: ok %v stopped %v %q, want stopped", ok, wasStopped, reason)
-	}
-}
-
-func TestLandingBootFailureEvidence(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		phase string
-		stage deploy.DeployStage
-	}{{docker.PhaseResolve, deploy.Preparing}, {docker.PhaseSecrets, deploy.Preparing}, {docker.PhaseConfig, deploy.Preparing}, {docker.PhaseImages, deploy.Building}, {docker.PhaseNeeds, deploy.Starting}, {docker.PhaseFill, deploy.Starting}, {docker.PhaseParts, deploy.Starting}, {docker.PhaseApp, deploy.Starting}, {docker.PhaseProbe, deploy.Checking}, {docker.PhasePage, deploy.Checking}} {
-		t.Run(tc.phase, func(t *testing.T) {
-			at := deployment.Attempt{ID: idstest.N(7), DeploymentID: idstest.N(3), Generation: 2}
-			err := &docker.BootError{Phase: tc.phase, Err: errors.New("boot failed"), LogTail: "last lines"}
-			boot := deployment.LandingBoot{Err: err, URL: "http://app:8080"}
-
-			decision := landingDeploymentDecision(deployment.ExecutionResult{Attempt: at, Created: true}, &deployment.RunError{Stage: deployment.Execution, Cause: err}, boot)
-			if decision == nil || decision.status != workflow.StatusFail {
-				t.Fatalf("lost workflow decision: %+v", decision)
-			}
-			if decision.evidence["failedStage"] != tc.stage {
-				t.Fatalf("failed stage: %v, want %s", decision.evidence, tc.stage)
-			}
-			if tc.phase == docker.PhaseProbe && (decision.evidence["url"] != "http://app:8080" || decision.evidence["logTail"] != "last lines") {
-				t.Fatalf("lost probe evidence: %v", decision.evidence)
-			}
-			if tc.phase == docker.PhaseParts && decision.evidence["reason"] != "bringing up the app: boot failed" {
-				t.Fatalf("lost parts failure: %v", decision.evidence)
-			}
-		})
 	}
 }

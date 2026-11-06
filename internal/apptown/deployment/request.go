@@ -96,6 +96,9 @@ func (e *Deployment) matchesRelease(target ids.ID, generation int64, attrs Attri
 // deploy grant on its project, and for a protected deployment the release
 // grant on it too. Route names the act in the decision's receipt.
 func (s *Service) requireDeploy(ctx context.Context, projectID ids.ID, deployment string, protected bool, route string) (access.Caller, error) {
+	if s.release.Authority == nil {
+		return access.Caller{}, access.ErrAuthorityUnavailable
+	}
 	actor, err := s.release.Authority.Require(ctx, access.Permission{Capability: access.CapDeploymentDeploy, Resource: access.Resource{Type: "project", ID: projectID.String(), ProjectID: projectID}, Context: access.Context{Consequential: true, Route: route}})
 	if err != nil {
 		return access.Caller{}, err
@@ -251,12 +254,23 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	if why, err := s.env.RefusesBrowserValues(ctx, t.Kind, in.ProjectID, contract); err != nil || why != "" {
 		return AcceptedRelease{}, errors.Join(err, refusal(why))
 	}
-	refused, accepted, err := s.uncopiedData(ctx, dep, t, bundle.ID, in.AcceptUncopiedData, actor.Principal.Name)
+	refused, accepted, err := s.uncopiedData(ctx, dep, t, in.AcceptUncopiedData, actor.Principal.Name)
 	if err != nil {
 		return AcceptedRelease{}, err
 	}
 	if refused != "" {
 		return AcceptedRelease{}, refusal(refused)
+	}
+	var uncopied *json.RawMessage
+	if accepted != "" {
+		if !actor.Verified || !actor.Principal.Actor().Assents() {
+			return AcceptedRelease{}, refusal("accepting uncopied data requires a person's own action")
+		}
+		raw, err := json.Marshal(uncopiedAcceptance{Actor: actor.Principal.Actor(), At: s.now(), Deployment: dep.ID, Reason: s.copyCheck.CannotCopy(ctx, dep, t)})
+		if err != nil {
+			return AcceptedRelease{}, err
+		}
+		uncopied = rawJSON(raw)
 	}
 	binding, err := providerBindingOf(t)
 	if err != nil {
@@ -350,6 +364,11 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 		}
 		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom, ProviderBindingJson: binding, IngressJson: ingress, AuthorityJson: &captured, RequirePromotion: current.Protected()}); err != nil {
 			return err
+		}
+		if uncopied != nil {
+			if _, err := q.RecordUncopiedAcceptance(ctx, deploymentsql.RecordUncopiedAcceptanceParams{ReleaseID: rel.ID, UncopiedAcceptanceJson: uncopied}); err != nil {
+				return err
+			}
 		}
 		if err := s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID); err != nil {
 			return err
