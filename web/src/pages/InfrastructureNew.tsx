@@ -36,7 +36,7 @@ export function InfrastructureNew() {
   return (
     <div className="infrastructure-new-div">
       <div className="row infrastructure-new-div-2">
-        <Link to="/integrations/targets" className="small">Deployment targets</Link><span className="muted small">/</span>
+        <Link to="/targets" className="small">Deployment targets</Link><span className="muted small">/</span>
         <h1 className="infrastructure-new-h1">Add a deployment target</h1>
       </div>
       <ol className="wiz-steps">
@@ -46,7 +46,7 @@ export function InfrastructureNew() {
       </ol>
       {step === 1 && <KindStep kind={kind} onPick={(k) => { setKind(k); setStep(2) }} />}
       {step === 2 && kind && <ConnectionStep kind={kind} onBack={() => setStep(1)} onSaved={(t) => { setSaved(t); setStep(3) }} />}
-      {step === 3 && saved && <OfferStep target={saved} onDone={() => nav(`/integrations/targets/${saved.name}`)} />}
+      {step === 3 && saved && <OfferStep target={saved} onDone={() => nav(`/targets/${saved.name}`)} />}
     </div>
   )
 }
@@ -279,7 +279,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
       </div>}
       <div className="row mt-3 infrastructure-new-offer-step-div">
         <button className="primary" onClick={finish} disabled={busy || conflict}>{busy ? 'saving…' : 'Finish'}</button>
-        <Link to={`/integrations/targets/${target.name}`} className="small">skip for now</Link>
+        <Link to={`/targets/${target.name}`} className="small">skip for now</Link>
         {err && <span className="error small">{err}</span>}
       </div>
     </div>

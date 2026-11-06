@@ -33,7 +33,7 @@ func TestWorkerAttentionRetainsUnavailableUntilObservedRecovery(t *testing.T) {
 			if err != nil || v.Known != tc.known || len(v.Items) != tc.count {
 				t.Fatal(v, err)
 			}
-			if tc.count > 0 && (v.Items[0].Key != "worker-a" || v.Items[0].ObservedAt != at || v.Items[0].Stale != tc.value.Stale || v.Items[0].Href != "/infrastructure") {
+			if tc.count > 0 && (v.Items[0].Key != "worker-a" || v.Items[0].ObservedAt != at || v.Items[0].Stale != tc.value.Stale || v.Items[0].Href != "/targets") {
 				t.Fatal(v)
 			}
 		})

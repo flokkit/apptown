@@ -37,8 +37,12 @@ type (
 		FinalBackup *dataprotection.FinalSet `json:"finalBackup,omitempty"`
 		Orphans     []string                 `json:"orphans"`
 	}
-	// deploymentChecked is what Check again observed and settled.
-	deploymentChecked = deployment.CheckResult
+	// deploymentChecked records repairs made during a status refresh.
+	deploymentChecked struct {
+		Deployment string                      `json:"deployment"`
+		Checked    []deployment.RecoveryResult `json:"checked"`
+		RuntimeObservationView
+	}
 	// DeploymentAIModels is each AI models key a deployment owns, with its
 	// allowance and spend at OpenRouter now, or why that is unknown.
 	DeploymentAIModels struct {
@@ -58,6 +62,7 @@ type (
 type DeploymentConfigurationRequest struct {
 	Name   string `json:"name"`
 	Target string `json:"target"`
+	From   string `json:"from"`
 	deployment.Attributes
 	StartFrom ids.ID `json:"startFrom"`
 }
@@ -72,7 +77,7 @@ func (h Deployments) CreateDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{strict: true}, func(in DeploymentConfigurationRequest) {
-		result, err := h.deployment.Configure(r.Context(), deployment.ConfigureDeployment{ProjectID: p.ID, Name: in.Name, Target: in.Target, Attributes: in.Attributes, StartFrom: in.StartFrom})
+		result, err := h.deployment.Configure(r.Context(), deployment.ConfigureDeployment{ProjectID: p.ID, Name: in.Name, Target: in.Target, From: in.From, Attributes: in.Attributes, StartFrom: in.StartFrom})
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -138,9 +143,8 @@ func (h Deployments) DeployDeployment(w http.ResponseWriter, r *http.Request) {
 }
 
 // CheckAgain: POST /projects/{slug}/deployments/{name}/check — a person's
-// repair of a deployment that needs attention: AppTown observes it on its
-// target and settles what it observes (deployment.Service.CheckAgain). It
-// never deploys anything.
+// status refresh: AppTown repairs uncertain or contradictory records and refreshes
+// its runtime reading (deployment.Service.CheckAgain). It never deploys anything.
 func (h Deployments) CheckAgain(w http.ResponseWriter, r *http.Request) {
 	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
@@ -151,7 +155,7 @@ func (h Deployments) CheckAgain(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, deploymentChecked(result))
+	WriteJSON(w, 200, deploymentChecked{Deployment: result.Deployment, Checked: result.Checked, RuntimeObservationView: runtimeObservationView(result.Observation)})
 }
 
 // AIModels: GET /api/v1/projects/{slug}/deployments/{name}/ai-models — the

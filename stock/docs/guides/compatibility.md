@@ -228,3 +228,8 @@ beyond those above; agent harnesses other than pi.
 Apache License 2.0 (`LICENSE`): use, change and run AppTown, including
 commercially, under its terms. The name "Flokkit" is not licensed with the code
 (`NOTICE`): a fork may use the code but not present itself as Flokkit.
+
+The Deployments navigation group has four pages: Releases, Deployments,
+Targets and Backups. Targets owns each target's inventory, settings, offers
+and connection check. A project's Deployments page owns New deployment and
+its release preference; each deployment's page owns its feed and approval rule.

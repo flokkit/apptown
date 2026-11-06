@@ -21,7 +21,7 @@ function fixtures({ backup = 'none', lowDisk = false, readiness = 'reconciled' }
   return {
     '/projects/lunch': { slug: 'lunch', name: 'Lunch' },
     [base]: [{ ...env, readiness }, { ...env, name: 'preview-1', displayLabel: 'Fix lunch', kind: 'preview', changeId: 'change-1', generation: 0, target: undefined }],
-    '/projects/lunch/targets': { targets: [{ name: 'local', kind: 'docker-host' }] },
+    '/projects/lunch/targets': { targets: [{ name: 'local', kind: 'docker-host', kindInfo: { title: 'Docker host' }, address: {}, capabilities: {} }] },
     '/changes/change-1': { change: { number: 12, title: 'Fix lunch' } },
     '/authz/roles': { roles: [{ name: 'release-manager', title: 'Release manager', scope: 'project' }], capabilities: {} },
     '/projects/lunch/secrets': { deployments: [], choosable: [] },
@@ -103,10 +103,86 @@ it.each(['reconciled', 'uncertain'])('keeps %s deployment actions in the card fo
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="lunch" env={{ ...env, name: 'staging', generation: 0, feed: 'promotion', readiness, target: { ...env.target!, kind: 's3-bucket' } }} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>)
   const footer = el.querySelector('.deploy-more')!
-  expect(footer.textContent).toContain(readiness === 'uncertain' ? 'Check again' : 'Promote')
+  expect(footer.textContent).not.toContain('Check again')
+  expect(footer.textContent).toContain('Promote')
   expect(footer.textContent).toContain('Tear down')
   expect(footer.textContent).toContain('Edit display name')
   expect(footer.querySelector('a')?.getAttribute('href')).toBe(`${base}/staging`)
   expect(footer.querySelector('a')?.textContent).toBe('Deployment history →')
   client.clear()
+})
+
+it('creates a follows-main deployment on the project Deployments page', async () => {
+  const { ProjectDeployments } = await import('../ProjectDeployments')
+  const client = newQueryClient()
+  for (const [path, value] of Object.entries(fixtures())) client.setQueryData(getKey(path), value)
+  client.setQueryData(getKey('/projects/lunch/targets'), { targets: [{ name: 'local', displayLabel: 'Local host', kind: 'docker-host', kindInfo: { title: 'Docker host' }, address: {}, capabilities: {} }] })
+  client.setQueryData(getKey('/projects/lunch/final-copies'), { copies: [] })
+  client.setQueryData(getKey('/projects/lunch/release-preference'), {})
+  const requests: unknown[] = []
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    if (init?.method === 'POST' && url.endsWith('/deployments')) { requests.push(JSON.parse(String(init.body))); return new Response('{}') }
+    return new Response(JSON.stringify(fixtures()[url.replace('/api/v1', '')] || {}))
+  }))
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectDeployments slug="lunch" /></MemoryRouter></QueryClientProvider>))
+    await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'New deployment')!.click())
+    const input = el.querySelector<HTMLInputElement>('[aria-label="Deployment name"]')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'office')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      const feed = el.querySelector<HTMLSelectElement>('[aria-label="Release feed"]')!
+      feed.value = 'main'; feed.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Create')!.click())
+    expect(requests).toEqual([expect.objectContaining({ name: 'office', feed: 'main', target: 'local' })])
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+it.each(['uncertain', 'reconciled'])('refreshes status on the deployment page in state %s', readiness => {
+  const client = newQueryClient()
+  for (const [path, value] of Object.entries(fixtures({ readiness }))) client.setQueryData(getKey(path), value)
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`${base}/main`]}><Routes><Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} /></Routes></MemoryRouter></QueryClientProvider>)
+  expect(html).toContain('Refresh status')
+  expect(html).not.toContain('>Check again<')
+  client.clear()
+})
+
+// Based on the settled-refresh reproduction: click the real control and wait
+// for the refreshed deployment query, rather than only checking its markup.
+it.each(['reconciled', 'uncertain'])('reloads the resulting state after refreshing a %s deployment', async readiness => {
+  let refreshed = false
+  let readsAfterRefresh = 0
+  const data = fixtures({ readiness })
+  const posts: string[] = []
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    if (init?.method === 'POST' && url.endsWith('/check')) {
+      posts.push(url)
+      refreshed = true
+      return new Response(JSON.stringify({ deployment: 'main', checked: [], observation: 'stopped' }))
+    }
+    const path = url.replace(/^\/api\/v1/, '')
+    if (path === base && refreshed) {
+      readsAfterRefresh++
+      return new Response(JSON.stringify([{ ...env, readiness: 'reconciled', observation: 'stopped', observedAt: '2026-11-07T10:00:00Z' }]))
+    }
+    return new Response(JSON.stringify(data[path] ?? (url.endsWith('/deploys') ? [] : {})))
+  }))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`${base}/main`]}><Routes><Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect([...el.querySelectorAll('button')].find(b => b.textContent === 'Refresh status')).toBeDefined())
+    await act(async () => {
+      [...el.querySelectorAll('button')].find(b => b.textContent === 'Refresh status')!.click()
+      await new Promise(resolve => setTimeout(resolve, 30))
+    })
+    await vi.waitFor(() => {
+      expect(readsAfterRefresh).toBeGreaterThan(0)
+      expect(el.querySelector('.deployment-page-heading')?.textContent).toContain('stopped')
+      expect(el.textContent).not.toContain('nothing about this deployment is in doubt')
+    })
+    expect(posts).toEqual([`/api/v1${base}/main/check`])
+    expect(client.getQueryData<DeploymentView[]>(getKey(base))?.[0]).toMatchObject({ readiness: 'reconciled', observation: 'stopped', observedAt: '2026-11-07T10:00:00Z' })
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

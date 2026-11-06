@@ -1,13 +1,12 @@
 import './InfrastructureHome.css'
 import { ListRow } from '../ListRow'
-import { Tabs } from '../Tabs'
 import { useState } from 'react'
 import { useHostStates } from '../hostState'
 import { useAttention } from '../attention'
 import { GlanceRow } from '../GlanceRow'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { fmtBytes, relTime, readingAge, lastSeen } from '../format'
@@ -45,7 +44,6 @@ const jobReceipt = (j: Job) => {
 export function InfrastructureHome() {
   const attention = useAttention()
   const hostState = useHostStates()
-  const tab = useLocation().pathname.endsWith('/jobs') ? 'jobs' : 'targets'
   const infra = useGet<InfrastructureTargets>('/infrastructure', { poll: 30000 })
   const targets = useGet<TargetList>('/targets', { poll: 30000 })
   if (!infra.data || !targets.data) return <ReadStatus q={[infra, targets]} what="each deployment target's inventory" />
@@ -55,13 +53,10 @@ export function InfrastructureHome() {
     <div>
       <StaleNote q={[infra, targets, attention]} />
       <PageHead page="infrastructure" />
-      <Tabs className="tabs infrastructure-home-tabs">
-        <NavLink to="/infrastructure" end className={() => 'tab' + (tab === 'targets' ? ' active' : '')}>Deployment targets</NavLink>
-        <NavLink to="/infrastructure/jobs" className={() => 'tab' + (tab === 'jobs' ? ' active' : '')}>Job queue</NavLink>
-      </Tabs>
-      {tab === 'targets' && <OwnDisks />}
-      {tab === 'targets' && <div className="mt-4"><DeletedProjects /></div>}
-      {tab === 'jobs' ? <JobQueue /> : <div className="project-rows mt-4" role="list" >
+      <div className="row row-2"><Link className="btn primary" to="/targets/new">Add a deployment target</Link></div>
+      <OwnDisks />
+      <div className="mt-4"><DeletedProjects /></div>
+      <div className="project-rows mt-4" role="list">
         {live.map((t) => {
           const v = byName.get(t.target)
           const res = t.resources ?? []
@@ -73,11 +68,15 @@ export function InfrastructureHome() {
             <ListRow listItem key={t.target} identity={<><strong>{v?.displayLabel || t.target}</strong><div className="muted small">{t.place}</div></>}
               state={<><Status observation word={state.word} help={state.help} />
                 <div className="muted small">{state.summary || (t.asOf && !t.live ? lastSeen(t.asOf) : missing > 0 ? 'Check missing resources' : unrecorded > 0 ? 'Review resources' : `${envs.length} ${envs.length === 1 ? 'app' : 'apps'}`)}</div></>}
-              action={<Link className="btn" to={`/infrastructure/${t.target}`}>View target</Link>} />
+              action={<Link className="btn" to={`/targets/${t.target}`}>View target</Link>} />
           )
         })}
-        <Link to="/integrations/targets" className="small">Set up targets →</Link>
-      </div>}
+        {targets.data.targets.filter(t => !live.some(i => i.target === t.name)).map(t => <ListRow listItem key={t.name}
+          identity={<strong>{t.displayLabel || t.name}</strong>}
+          state={<><Status observation word={t.statusLabel} /><div className="muted small">{t.status === 'retired' ? 'Retired' : 'Inventory not known'}</div></>}
+          action={<Link className="btn" to={`/targets/${t.name}`}>View target</Link>} />)}
+      </div>
+      <h2>Job queue</h2><JobQueue />
     </div>
   )
 }

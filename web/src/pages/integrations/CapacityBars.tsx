@@ -44,7 +44,7 @@ function Seg({ s, width, share, format }: { s: Segment; width: string; share: nu
   // between them, so the bar never runs past its track.
   const style = { flex: `0 1 ${width}` }
   if (s.project && s.deployment) {
-    return <Link className={cls} style={style} title={title} aria-label={title} to={`/projects/${s.project}/settings/deployments`} />
+    return <Link className={cls} style={style} title={title} aria-label={title} to={`/projects/${s.project}/deployments/${s.deployment}`} />
   }
   const words = labelled.has(s.kind) && share >= 0.18 ? `${format(s.value)} ${s.name}` : null
   return <span className={cls} style={style} title={title} aria-label={title} tabIndex={0}>{words && <span className="cap-in">{words}</span>}</span>
@@ -58,7 +58,7 @@ export function CapacityTable({ rows, heads }: { rows: { name: string; kind: str
       <thead><tr><th>App or system</th>{heads.map((h) => <th key={h}>{h}</th>)}</tr></thead>
       <tbody>
         {rows.map((r) => (
-          <GlanceRow name={0} fact={2} labels={["App", ...heads]} key={r.kind + r.name}>
+          <GlanceRow name={0} fact={2} labels={["App", ...heads]} key={r.to || r.kind + r.name}>
             <td><span className={`cap-swatch cap-${r.kind}`} />{r.to ? <Link to={r.to}>{r.name}</Link> : r.name}</td>
             {r.cells.map((c, i) => <td key={i}>{c}</td>)}
           </GlanceRow>

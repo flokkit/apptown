@@ -269,7 +269,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
       {!p.running && whyNot.length > 0 && (
         <div className="muted mt-1" role="note" >
           {whyNot.map((w) => <div key={w}>{w}</div>)}
-          {runnerMissing && canEditTargets && <Link to={`/infrastructure/${p.target}`}>Open {p.target}'s settings</Link>}
+          {runnerMissing && canEditTargets && <Link to={`/targets/${p.target}`}>Open {p.target}'s settings</Link>}
         </div>
       )}
       {p.takeDown && !ops?.finalCopy.available && <div className="error mt-1" >{p.takeDown}</div>}

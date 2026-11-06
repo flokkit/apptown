@@ -27,7 +27,7 @@ import PackPage from './pages/PackPage'
 import WhatIfPage from './pages/WhatIfPage'
 import NewProject from './pages/NewProject'
 import Integrations from './pages/Integrations'
-import { TargetPage, TargetSettingsPage } from './pages/integrations/TargetPage'
+import { TargetPage } from './pages/integrations/TargetPage'
 import { INTEGRATION_MENU } from './pages/integrations/kinds'
 import { ModelProfilePage } from './pages/integrations/ModelSlots'
 import { InfrastructureHome } from './pages/InfrastructureHome'
@@ -108,18 +108,18 @@ export function SidebarNav() {
       </>
     )
   }
-  const dep = /^\/(deployments|infrastructure)(\/|$)/.test(pathname)
+  const dep = /^\/(releases|deployments|targets|backups)(\/|$)/.test(pathname)
   const infra = mayOpen('infrastructure')
   return (
     <>
       <NavLink to="/" end className={cls}><House aria-hidden size={16} />Home</NavLink>
       <NavLink to="/projects" end className={cls}><FolderKanban aria-hidden size={16} />Projects</NavLink>
       <Drawer label="Deployments" icon={<Rocket aria-hidden size={16} />} to="/deployments" active={dep} items={[
-        { to: '/deployments/departures', label: 'Departures', active: dep && (pathname === '/deployments' || pathname.startsWith('/deployments/departures')) },
-        { to: '/deployments/table', label: 'Apps', active: pathname.startsWith('/deployments/table') },
+        { to: '/releases', label: 'Releases', active: pathname === '/releases' },
+        { to: '/deployments', label: 'Deployments', active: pathname === '/deployments' },
         ...(infra ? [
-          { to: '/deployments/infrastructure', label: 'Infrastructure', active: pathname.startsWith('/deployments/infrastructure') || pathname.startsWith('/infrastructure') },
-          { to: '/deployments/backups', label: 'Backups', active: pathname.startsWith('/deployments/backups') },
+          { to: '/targets', label: 'Targets', active: pathname.startsWith('/targets') },
+          { to: '/backups', label: 'Backups', active: pathname === '/backups' },
         ] : []),
       ]} />
       {mayOpen('conformance') && <NavLink to="/conformance" className={cls}><ShieldCheck aria-hidden size={16} />Conformance</NavLink>}
@@ -257,7 +257,8 @@ export default function App() {
  <Route path="/updates" element={<UpdatesPage />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/deployments" element={<Deployments />} />
-          <Route path="/deployments/:gtab" element={<Deployments />} />
+          <Route path="/releases" element={<Deployments page="releases" />} />
+          <Route path="/backups" element={<InstanceGate page="infrastructure"><Deployments page="backups" /></InstanceGate>} />
           <Route path="/complaints" element={<InstanceGate page="complaints"><Complaints tab="new" /></InstanceGate>} />
           <Route path="/complaints/answered" element={<InstanceGate page="complaints"><Complaints tab="answered" /></InstanceGate>} />
           <Route path="/complaints/archive" element={<InstanceGate page="complaints"><Complaints tab="archived" /></InstanceGate>} />
@@ -288,13 +289,10 @@ export default function App() {
           <Route path="/projects/:slug/workflows/*" element={<ToProjectWorking />} />
           <Route path="/projects/:slug/console" element={<Console />} />
           <Route path="/integrations" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
-          <Route path="/infrastructure" element={<InstanceGate page="infrastructure"><InfrastructureHome /></InstanceGate>} />
-          <Route path="/infrastructure/jobs" element={<InstanceGate page="infrastructure"><InfrastructureHome /></InstanceGate>} />
-          <Route path="/infrastructure/new" element={<Navigate to="/integrations/targets/new" replace />} />
           <Route path="/integrations/profiles/:profile" element={<InstanceGate page="integrations"><ModelProfilePage /></InstanceGate>} />
-          <Route path="/integrations/targets/new" element={<InstanceGate page="infrastructure"><InfrastructureNew /></InstanceGate>} />
-          <Route path="/infrastructure/:name" element={<InstanceGate page="infrastructure"><TargetPage /></InstanceGate>} />
-          <Route path="/integrations/targets/:name" element={<InstanceGate page="infrastructure"><TargetSettingsPage /></InstanceGate>} />
+          <Route path="/targets" element={<InstanceGate page="infrastructure"><InfrastructureHome /></InstanceGate>} />
+          <Route path="/targets/new" element={<InstanceGate page="infrastructure"><InfrastructureNew /></InstanceGate>} />
+          <Route path="/targets/:name" element={<InstanceGate page="infrastructure"><TargetPage /></InstanceGate>} />
           <Route path="/integrations/:name" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
           <Route path="/services" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
           <Route path="/services/:name" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />

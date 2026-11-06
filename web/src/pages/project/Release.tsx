@@ -36,7 +36,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
       <div className="card release-summary">
         <div className="row">
           <h2 className="release-title">Release #{r.number}</h2>
-          {r.deployment && <span className="badge">{r.deployment}</span>}
+          {r.deployment && <span className="badge">{data.deploymentLabel || r.deployment}</span>}
           <Status word={data.statusLabel} />
           {data.isLive && <span className="badge">current release</span>}
           {r.origin === 'observed-after-restore' && <span className="badge" title={`found running after ${PRODUCT} was restored; ${PRODUCT} did not ship it`}>found after restore</span>}
@@ -48,7 +48,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
               ? <>This release attempt{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null} failed. See the log for the failed step.</>
               : <>Released {fmtStamp(when)}{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null}.</>}
           {r.deployment && r.state !== 'releasing' && (r.state === 'failed' || data.isLive) && (
-            <> <Link to={`/projects/${slug}/settings/deployments#diagnostics-${r.deployment}`}>Check this deployment</Link></>
+            <> <Link to={`/projects/${slug}/deployments/${r.deployment}`}>Check this deployment</Link></>
           )}
           {r.origin === 'observed-after-restore' && r.notes && <> {r.notes}. Deploying the release {PRODUCT} last shipped here puts that back.</>}
           {r.state === 'released' && r.notes && r.notes.startsWith('http') && (
@@ -59,7 +59,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
         {data.rollbackNumber && <p>Rollback of <Link to={`/projects/${slug}/releases/${data.rollbackNumber}`}>release {data.rollbackNumber}</Link>{r.restoreBackupId && ' with data restored from the selected backup'}.</p>}
         <ReleaseAssent approval={r.approval} />
         {!data.backup && data.backupReason && <p>{data.backupReason}</p>}
-        {data.backup && <p><Link to={`/deployments/backups#backup-${data.backup.id}`}>{data.backup.status === 'ok' ? 'Backed up before this release →' : data.backup.status === 'pruned' ? 'Backup before this release was removed →' : 'Backup before this release was incomplete →'}</Link></p>}
+        {data.backup && <p><Link to={`/backups#backup-${data.backup.id}`}>{data.backup.status === 'ok' ? 'Backed up before this release →' : data.backup.status === 'pruned' ? 'Backup before this release was removed →' : 'Backup before this release was incomplete →'}</Link></p>}
         {r.bundleId && <ReleaseDeployments slug={slug} bundleId={r.bundleId} />}
         {data.changes.length > 0 && (
           <div className="release-record">
@@ -169,7 +169,7 @@ function ReleaseDeployments({ slug, bundleId }: { slug: string; bundleId: string
   return <div className="release-record">
     <h3 className="release-heading">Deployments</h3>
     <ReadStatus q={q} what="where this release has run" /><StaleNote q={q} />
-    {names.map(name => <p key={name}><Link to={`/projects/${slug}/deployments/${name}`}>{name}</Link> · {q.current && ran.some(r => r.deployment === name && r.serving) ? 'Running here' : 'Has run here'}</p>)}
+    {names.map(name => <p key={name}><Link to={`/projects/${slug}/deployments/${name}`}>{ran.find(r => r.deployment === name)?.deploymentLabel || name}</Link> · {q.current && ran.some(r => r.deployment === name && r.serving) ? 'Running here' : 'Has run here'}</p>)}
     {q.current && names.length === 0 && <p>No successful deployments are recorded for this bundle.</p>}
   </div>
 }

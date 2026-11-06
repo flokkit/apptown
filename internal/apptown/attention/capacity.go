@@ -64,7 +64,7 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 		if label == "" {
 			label = target.Name
 		}
-		href := "/infrastructure/" + url.PathEscape(target.Name)
+		href := "/targets/" + url.PathEscape(target.Name)
 		if !down {
 			out.Coverage = append(out.Coverage, Coverage{Key: target.ID.String(), Name: label, Href: href, Unknown: !down && (reading.Unknown || readErr != nil), Stale: reading.Stale, ObservedAt: reading.ObservedAt, Reason: reading.Reason, NextStep: "Open host diagnostics. An administrator can check its connection and supported measurements."})
 		}

@@ -128,7 +128,7 @@ target.*
 **A7 Offer a target.** An administrator offers a target to a group, or
 to everyone, with caps (deployments per project, audiences, data
 classes). Built-in targets are offered by construction. *Infrastructure →
-target → Offers; Integrations → Deploy targets.*
+target → Offers; Deployments → Targets.*
 
 **A15 See the infrastructure.** An administrator sees every deployment
 target as a card: its kind, status, how many deployments stand on it,
@@ -226,7 +226,7 @@ first (B7). *Settings → General → Delete.*
 **B6 Create a deployment.** An owner creates a standing deployment
 bound to a target the project was offered, with its audience and data
 class; AppTown refuses what the offer does not allow and what the
-contract cannot run there. *Project → Settings → Deployments.*
+contract cannot run there. *Project → Deployments.*
 
 **B7 Tear a deployment down.** An owner removes it; what
 holds data stays at the provider and is listed as retained, with owner

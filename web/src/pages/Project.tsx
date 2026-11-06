@@ -1,6 +1,6 @@
 import { PageHead } from '../PageHead'
 import { PRODUCT } from '../brand'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
@@ -15,10 +15,9 @@ import { GuidanceTab } from './project/settings/Working'
 import { ServicesTab, ProjectIntegrationsTab } from './project/settings/Services'
 import { MembersTab } from './project/settings/Members'
 import { SecretsTab } from './project/settings/Secrets'
-import { DeploymentsTab } from './project/settings/Deployments'
 import { AdrsTab } from './project/Decisions'
 import { NotesTab } from './project/ProjectNotes'
-import { SETTINGS_LABEL, resolveProjectTabs } from './project/tabs'
+import { OLD_SETTINGS, SETTINGS_LABEL, resolveProjectTabs } from './project/tabs'
 import type { ProjectDetail as ProjectT, MainStanding } from '../wire.gen'
 
 // Where main stands against AppTown's record. A plain note, not an alarm:
@@ -69,6 +68,7 @@ export default function Project() {
 
   // A failed refresh keeps the page, and the settings form's draft, mounted
   // under a stale note; only a project never read shows the error instead.
+  if (rawTab === 'settings' && rawStab && !(rawStab in SETTINGS_LABEL) && !(rawStab in OLD_SETTINGS)) return <><h1>Page not found</h1><Link to={`/projects/${slug}/deployments`}>Deployments</Link></>
   if (!project) return <ReadStatus q={q} what="the project" />
 
   return (
@@ -76,7 +76,7 @@ export default function Project() {
       <StaleNote q={q} />
       {tab !== 'overview' && <ProjectHeader project={project} />}
       {tab === 'changes' && <h1>Changes</h1>}
-      {tab === 'deployments' && <h1>Deployments</h1>}
+      {tab === 'deployments' && <PageHead page="projectDeployments" />}
       {tab === 'releases' && <h1>Release #{rawStab}</h1>}
       <LifecycleNote slug={project.slug} lifecycle={project.lifecycle} />
       <IntegrityBanner slug={project.slug} files={project.outOfBandEdits} onResolved={load} />
@@ -111,7 +111,6 @@ export default function Project() {
               <ProjectIntegrationsTab slug={slug!} />
             </>
           )}
-          {setTab === 'deployments' && <DeploymentsTab slug={slug!} />}
           {setTab === 'secrets' && <SecretsTab slug={slug!} />}
           {setTab === 'members' && <MembersTab slug={slug!} />}
           {setTab === 'usage' && <UsageView project={slug!} />}

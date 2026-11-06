@@ -344,3 +344,30 @@ func TestConfigureFailedUpdateKeepsPriorSettings(t *testing.T) {
 	}
 	wantN(t, "bound receipts", receipts(t, s.db, "deployment.bound"), 1)
 }
+
+func TestConfigurePromotionRecordsItsSourceAtCreation(t *testing.T) {
+	s, _, in, _ := configurationFixture(t)
+	source := configureForTest(t, s, in)
+	in.Name, in.Feed, in.From = "staging", "promotion", source.Name
+	created := configureForTest(t, s, in)
+	stored, err := s.Deployments.ByID(t.Context(), created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Feed != "promotion" || stored.PromotedFromID != source.ID {
+		t.Fatalf("promotion source not recorded: %+v", stored)
+	}
+	in.Name, in.From = "self", "self"
+	if _, err := s.Configure(t.Context(), in); err == nil {
+		t.Fatal("self promotion source accepted")
+	}
+	deps, err := s.Deployments.ForProject(t.Context(), in.ProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, dep := range deps {
+		if dep.Name == "self" {
+			t.Fatal("refused creation left a deployment")
+		}
+	}
+}

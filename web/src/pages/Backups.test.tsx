@@ -125,7 +125,7 @@ it('labels only an explicitly associated set before its numbered release', async
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/backups') ? body : {}))))
   const el = document.createElement('div'), root = createRoot(el)
   try {
-    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/deployments/backups#backup-${SET}`]}><BackupsView /></MemoryRouter></QueryClientProvider>) })
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/backups#backup-${SET}`]}><BackupsView /></MemoryRouter></QueryClientProvider>) })
     await vi.waitFor(() => expect(el.textContent).toContain('before release 3'))
     expect(el.querySelector(`a[href="/projects/shop/releases/3"]`)).not.toBeNull()
     expect(el.querySelector(`[id="backup-${SET}"]`)).not.toBeNull()

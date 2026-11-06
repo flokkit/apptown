@@ -20,7 +20,7 @@ describe('resolveProjectTabs', () => {
     expect(resolveProjectTabs('settings', old).setTab).toBe(now)
   })
 
-  it.each(['general', 'working', 'models', 'services', 'deployments', 'secrets', 'members', 'usage'])('keeps the settings tab %s', (t) => {
+  it.each(['general', 'working', 'models', 'services', 'secrets', 'members', 'usage'])('keeps the settings tab %s', (t) => {
     expect(resolveProjectTabs('settings', t)).toMatchObject({ tab: 'settings', setTab: t })
   })
 

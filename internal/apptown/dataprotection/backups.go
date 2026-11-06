@@ -109,8 +109,9 @@ type BackupItem struct {
 // ProjectBackup is a set with its project's name, for the fleet list.
 type ProjectBackup struct {
 	Backup
-	Project       string `json:"project"`
-	BeforeRelease int64  `json:"beforeRelease,omitempty"`
+	Project         string `json:"project"`
+	DeploymentLabel string `json:"deploymentLabel"`
+	BeforeRelease   int64  `json:"beforeRelease,omitempty"`
 }
 
 type Backups struct {
@@ -298,7 +299,29 @@ func (s *Service) DeploymentSets(ctx context.Context, projectID ids.ID, deployme
 // AllSets are every set AppTown holds, newest first, with each one's
 // project.
 func (s *Service) AllSets(ctx context.Context, limit int) ([]ProjectBackup, error) {
-	return s.backups.all(ctx, limit)
+	out, err := s.backups.all(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	labels := map[ids.ID]map[string]string{}
+	for i := range out {
+		projectID := out[i].ProjectID
+		if labels[projectID] == nil {
+			deps, err := s.deployments.ForProject(ctx, projectID)
+			if err != nil {
+				return nil, err
+			}
+			labels[projectID] = map[string]string{}
+			for _, d := range deps {
+				labels[projectID][d.Name] = d.DisplayLabel
+			}
+		}
+		out[i].DeploymentLabel = labels[projectID][out[i].Deployment]
+		if out[i].DeploymentLabel == "" {
+			out[i].DeploymentLabel = out[i].Deployment
+		}
+	}
+	return out, nil
 }
 
 // backupFields avoids promoting JSON methods into embedding records.
@@ -320,9 +343,10 @@ func (b ProjectBackup) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(struct {
 		backupFields
-		Project       string `json:"project"`
-		BeforeRelease int64  `json:"beforeRelease,omitempty"`
-	}{out, b.Project, b.BeforeRelease})
+		Project         string `json:"project"`
+		BeforeRelease   int64  `json:"beforeRelease,omitempty"`
+		DeploymentLabel string `json:"deploymentLabel"`
+	}{out, b.Project, b.BeforeRelease, b.DeploymentLabel})
 }
 
 // Reference reads the set in its owning project, including pruned records.

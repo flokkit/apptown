@@ -83,10 +83,6 @@
     "styles": 2,
     "numericPx": 1
   },
-  "web/src/pages/Deployments.tsx": {
-    "styles": 1,
-    "numericPx": 0
-  },
   "web/src/pages/ExternalSignIn.tsx": {
     "styles": 3,
     "numericPx": 0
@@ -240,7 +236,7 @@
     "numericPx": 0
   },
   "web/src/pages/integrations/Targets.tsx": {
-    "styles": 4,
+    "styles": 3,
     "numericPx": 2
   },
   "web/src/pages/newProject/NameStep.tsx": {

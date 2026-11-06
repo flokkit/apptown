@@ -67,7 +67,7 @@ func tenantOf(l docker.ContainerLimit, owners containerOwners, deps map[ids.ID]P
 			if d.Kind == preview {
 				return tenantPreviews, "previews", nil
 			}
-			return tenantDeployment, d.Project + "/" + d.Name, &d
+			return tenantDeployment, d.Project + "/" + d.DisplayLabel, &d
 		}
 	}
 	switch {
@@ -98,6 +98,9 @@ func tenantsOf(limits []docker.ContainerLimit, used map[string]int64, usedErr er
 		inspected[l.Name] = true
 		kind, name, dep := tenantOf(l, owners, deps)
 		key := kind + "\x00" + name
+		if dep != nil {
+			key = kind + "\x00" + dep.ID.String()
+		}
 		t, ok := byKey[key]
 		if !ok {
 			t = &Tenant{Kind: kind, Name: name, Used: known(0), Promised: known(0)}

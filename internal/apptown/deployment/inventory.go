@@ -57,7 +57,7 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 		return nil, fmt.Errorf("reading the deployments on %s: %w", t.Name, err)
 	}
 	for _, e := range envs {
-		host := deploy.ResourceHost{ProjectID: e.ProjectID, DeploymentID: e.ID, Project: e.Project, Deployment: e.Name, Generation: e.ObservedGeneration}
+		host := deploy.ResourceHost{ProjectID: e.ProjectID, DeploymentID: e.ID, Project: e.Project, Deployment: e.Name, DeploymentLabel: inventoryDeploymentLabel(&e.Deployment), Generation: e.ObservedGeneration}
 		switch t.Kind {
 		case KindDockerHost:
 			if e.Kind == preview {
@@ -131,7 +131,7 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 			}
 			r := databaseResource(n.Handle)
 			r.Status = n.Status.String()
-			r.Hosts = []deploy.ResourceHost{{ProjectID: e.ProjectID, DeploymentID: e.ID, Project: e.Project, Deployment: e.Name, Need: n.Need}}
+			r.Hosts = []deploy.ResourceHost{{ProjectID: e.ProjectID, DeploymentID: e.ID, Project: e.Project, Deployment: e.Name, DeploymentLabel: inventoryDeploymentLabel(&e.Deployment), Need: n.Need}}
 			out = append(out, r)
 		}
 		// An object store's key, which the account lists; its bucket, which
@@ -151,7 +151,7 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 				}
 			}
 			out = append(out, deploy.Resource{Kind: digitalocean.KindSpacesKey, Name: o.Name, ID: o.ID, Detail: detail, Record: deploy.RecordRecorded,
-				Hosts: []deploy.ResourceHost{{ProjectID: e.ProjectID, DeploymentID: e.ID, Project: e.Project, Deployment: e.Name, Need: o.Need}}})
+				Hosts: []deploy.ResourceHost{{ProjectID: e.ProjectID, DeploymentID: e.ID, Project: e.Project, Deployment: e.Name, DeploymentLabel: inventoryDeploymentLabel(&e.Deployment), Need: o.Need}}})
 		}
 	}
 	retained, err := inv.retained.openForTarget(ctx, t.ID)
@@ -189,4 +189,12 @@ func databaseResource(h map[string]any) deploy.Resource {
 	size, _ := h["size"].(string)
 	version, _ := h["version"].(string)
 	return deploy.Resource{Kind: "database", Name: name, ID: id, Region: region, Size: size, Version: version, Record: deploy.RecordRecorded}
+}
+
+// Resource ownership is displayed separately from its machine address.
+func inventoryDeploymentLabel(d *Deployment) string {
+	if d.Kind == preview && d.DisplayLabel == d.Name {
+		return "Preview"
+	}
+	return d.DisplayLabel
 }

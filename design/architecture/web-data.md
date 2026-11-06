@@ -265,13 +265,13 @@ The serving release comes from the deployment listing’s own release record,
 independently of bounded project history. Unknown or stale runtime observations
 keep serving status unknown; a stopped deployment retains its recorded release.
 “No serving release recorded” requires a known observation and no release record.
-Settings › Deployments keeps configuration. The deployment page leads with the
+Deployments keeps configuration. The deployment page leads with the
 latest deploy card, then invocation history with outcome, time, source change,
 backup outcome and links to releases that were created. The deployment owner's
 `deploys` read includes invocations before provider admission; the scene reads
 the same step progress feed as Work.
 
-Project Settings › Deployments lists each deployment with its status, display
+Project Deployments lists each deployment with its status, display
 name, address, backup warning when needed, and serving release or preview change.
 Disk warnings and uncertain readiness stay visible in the summary. Rows place
 status first, then name and address, summary facts and the action. Each row opens

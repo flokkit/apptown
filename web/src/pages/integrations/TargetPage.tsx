@@ -25,6 +25,7 @@ const resourceWord = (r: Resource) => {
 import { fmtStamp, lastSeen, readingAge } from '../../format'
 import type { InfrastructureTargets, RegistryReading, TargetList, TargetPage } from '../../wire.gen'
 import { OfferForm } from './Targets'
+import { TargetRetained } from './TargetRetained'
 import { shownActor } from '../../systemActors'
 
 // One deploy target (design/subsystems/deployment.md §2.2): what it is, what
@@ -77,9 +78,7 @@ function targetFacts(t: TargetView) {
   return { facts, addr, concrete }
 }
 
-// TargetPage: what runs on a target and how it is doing. Setting it up —
-// its connection, settings and who it is offered to — is its page under
-// Integrations › Deployment targets.
+// TargetPage owns the target: inventory, settings, offers and checks.
 export function TargetPage() {
   const { name } = useParams()
   const hostState = useHostStates()
@@ -104,34 +103,33 @@ export function TargetPage() {
   // is about, except a failed connection, which is about the whole host.
   return (
     <div>
-      <div className="muted small mb-2" ><Link to="/deployments/infrastructure">Infrastructure</Link> › {t.name}</div>
+      <div className="muted small mb-2" ><Link to="/targets">Targets</Link> › {t.displayLabel || t.name}</div>
       <StaleNote q={pageQ} />
       <div className="row target-page-div">
         <h1 className="grow target-page-h1">{t.displayLabel || t.name}</h1>
         <Status observation word={state.word} help={state.help.startsWith('Host connection') ? undefined : state.help} />
         {!retired && <button className="primary" disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await load() })}>Check target</button>}
-        <Link className="btn" to={`/integrations/targets/${t.name}`}>Settings</Link>
       </div>
       <div className="muted small mt-1" >{[domain ? `*.${domain}` : '', t.kind === 'do-app' ? 'Cloud hosting: apps update without downtime' : '', state.word === 'unknown' || t.statusLabel === 'failed' ? state.summary : ''].filter(Boolean).join(' · ')}</div>
       {actErr && <div className="error small">{actErr}</div>}
-      {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href="#target-resources">Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
+      {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href="#target-retained">Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
       {resources.some(r => r.record === 'missing') && <p>Check missing resources below.</p>}
 
       {!retired && <CapacitySection name={t.name} />}
 
-      <Section title="Deployments" count={t.deployments.length}>
+      <Section title="What runs here" count={t.deployments.length}>
         {t.deployments.length === 0 && <p className="muted small">No deployments on this target.</p>}
         {t.deployments.map((e) => {
           const mine = resources.filter((r) => (r.hosts ?? []).some((h) => h.project === e.project && h.deployment === e.name))
           const meta = [e.url ? e.url.replace(/^https?:\/\//, '') : '', e.audience, e.data, mine.map(resourceWord).join(', ')].filter(Boolean).join(' · ')
           return (
             <div key={e.project + '/' + e.name} className="card row target-page-card">
-              <Link to={`/projects/${e.project}/settings/deployments`} className="row grow target-page-link">
+              <Link to={`/projects/${e.project}/deployments/${e.name}`} className="row grow target-page-link">
                 <span className="row-status"><Status observation word={e.statusLabel} /></span>
-                <strong>{e.project}/{e.name}{e.generation ? <span className="muted target-page-span"> gen {e.generation}</span> : null}</strong>
+                <strong>{e.project}/{e.displayLabel || e.name}{e.generation ? <span className="muted target-page-span"> gen {e.generation}</span> : null}</strong>
                 <span className="muted small">{meta}</span>
               </Link>
-              <span className="row-action"><Link className="btn" to={`/projects/${e.project}/settings/deployments`}>View deployment</Link></span>
+              <span className="row-action"><Link className="btn" to={`/projects/${e.project}/deployments/${e.name}`}>View deployment</Link></span>
             </div>
           )
         })}
@@ -144,10 +142,12 @@ export function TargetPage() {
             : infra.err ? <p className="error small">The target's inventory could not be read: {infra.reason}</p>
               : <p className="muted small">Checking…</p>}
       </Section>
-      {here && resources.length > 0 && <div id="target-resources"><Section title="All resources" count={resources.length}>
-        <ResourceTables t={here} onChanged={reloadAll} />
+      {here && resources.length > 0 && <div id="target-resources"><Section title="Recorded resources" count={resources.filter(r => r.record === 'recorded').length}>
+        <ResourceTables t={here} onChanged={reloadAll} only={r => r.record === 'recorded'} />
       </Section></div>}
 
+      <TargetRetained name={t.name} />
+      <TargetSettings />
       <Section title="History" count={data.history.length}>
         {data.history.length === 0
           ? <p className="muted small">No history yet.</p>
@@ -168,9 +168,8 @@ export function TargetPage() {
 
 // TargetSettingsPage: setting up one deployment target — how it is reached,
 // its settings, and which groups may deploy to it.
-export function TargetSettingsPage() {
+function TargetSettings() {
   const { name } = useParams()
-  const hostState = useHostStates()
   const nav = useNavigate()
   const pageQ = useGet<TargetPage>(`/targets/${name}`)
   const listQ = useGet<TargetList>('/targets')
@@ -181,24 +180,18 @@ export function TargetSettingsPage() {
 
   if (!data || !data.target) return <ReadStatus q={pageQ} what="the deployment target" />
   const t = data.target
-  const state = hostState(t.name, t.statusLabel)
+
   const retired = t.status === 'retired'
   const { facts, addr, concrete } = targetFacts(t)
   const retire = async () => {
     const r = await run(() => post(`/targets/${t.name}/retire`, { confirm: t.name }))
-    if (r) nav('/integrations/targets')
+    if (r) nav('/targets')
   }
   const withdraw = (id: string) => run(() => del(`/targets/${t.name}/offers/${id}`)).then(load)
 
   return (
     <div>
-      <div className="muted small int-crumb"><Link to="/integrations">Integrations</Link> › <Link to="/integrations/targets">Deployment targets</Link></div>
       <StaleNote q={pageQ} />
-      <div className="row target-page-div">
-        <h1 className="grow target-page-h1">{t.displayLabel || t.name}</h1>
-        <Status observation word={state.word} help={state.help} />
-        <Link className="btn" to={`/infrastructure/${t.name}`}>What runs here</Link>
-      </div>
       {actErr && <div className="error small">{actErr}</div>}
 
       <div className="target-settings"><Section title="Settings">
@@ -256,7 +249,7 @@ export const copyRunnerMeaning = 'A copy runner is a Docker host that runs the c
 // here cannot start without one.
 export function CopyRunnerLine({ t }: { t: TargetView }) {
   const runner = typeof t.address?.copyRunner === 'string' ? t.address.copyRunner : ''
-  if (t.copies?.available) return <div className="small target-page-registry-line-div">Copy runner: <Link to={`/infrastructure/${runner}`}>{runner}</Link></div>
+  if (t.copies?.available) return <div className="small target-page-registry-line-div">Copy runner: <Link to={`/targets/${runner}`}>{runner}</Link></div>
   return (
     <div className="card tone-warn small mt-2" role="note" >
       <b>No copy runner chosen: backups and restore tests of deployments on this target are unavailable.</b> {t.copies?.why}

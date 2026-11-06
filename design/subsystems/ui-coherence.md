@@ -33,6 +33,14 @@ there. A convenience door from the other side appears only in a “…” menu
 and opens the same action on the owning page. This keeps one implementation,
 one set of checks and fewer buttons.
 
+The global Deployments group has Releases (`/releases`), Deployments
+(`/deployments`), Targets (`/targets`) and Backups (`/backups`). Each target
+has one page at `/targets/:name` for its inventory, settings, offers and check.
+Targets also contains the job queue, disks and deleted-project cleanup.
+The project's Deployments page owns New deployment and release preference.
+Settings has no Deployments item. Old-resource rows link to their target;
+Refresh status on a deployment observes and settles its status.
+
 ## Activity and release summaries
 
 Home's Recently finished shows landed and failed changes. The history response
@@ -100,7 +108,7 @@ not known are separate. Zero parts are omitted; when both are zero it says
 All quiet. Pending and failed readings remain visible. The account control
 truncates long names; its menu shows the full identity.
 
-Home, Projects, Deployments, Infrastructure inventories, Integrations, People
+Home, Projects, Deployments, Targets, Integrations, People
 accounts and Conformance projects share `ListRow`: identity and purpose, state
 and freshness, then the next action. Actions size to their contents; identity
 text wraps in the remaining space. Lists supply a container query so cells

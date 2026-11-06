@@ -1,4 +1,5 @@
 import './deployments.css'
+import { deploymentName } from '../../../deploymentName'
 import { DeploymentFeed, feedWords } from './DeploymentFeed'
 import '../../../overview-line.css'
 import { DeploymentDeploys } from '../DeploymentDeploys'
@@ -24,7 +25,7 @@ import { AUDIENCES, DATA_CLASSES, OfferedTarget, Retained, capsWords, placeOf, p
 import { ProtectionLines } from '../../DataProtection'
 import { DiagnosticsLines } from './Diagnostics'
 import { Section } from '../../../Section'
-import type { AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentResources, DeploymentDiagnostics, OverrideResult, ProjectSecrets, DeploymentView, DeploymentChecked, DeploymentRemoved, FinalCopies, OperationAdmitted, ProjectTargets, ReleaseRequested, RetainedList } from '../../../wire.gen'
+import type { AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentResources, DeploymentDiagnostics, OverrideResult, ProjectSecrets, DeploymentView, DeploymentChecked, DeploymentRemoved, FinalCopies, OperationAdmitted, ProjectTargets, ReleaseListed, ReleaseRequested, RetainedList } from '../../../wire.gen'
 
 // Project deployments (design/subsystems/deployment.md §2.3, §2.7, §15.7): the
 // deployments of this project, each bound to a target the
@@ -36,7 +37,7 @@ import type { AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentR
 // deletes it and says so.
 
 export function DeploymentsTab({ slug }: { slug: string }) {
-  const envsQ = useGet<DeploymentView[]>(`/projects/${slug}/deployments`)
+  const envsQ = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
   const offeredQ = useGet<ProjectTargets>(`/projects/${slug}/targets`)
   const retainedQ = useGet<RetainedList>(`/projects/${slug}/retained`)
   const [adding, setAdding] = useState(false)
@@ -50,15 +51,14 @@ export function DeploymentsTab({ slug }: { slug: string }) {
   const open = retained.filter((r) => r.disposition === 'retained')
   const settled = retained.filter((r) => r.disposition !== 'retained')
 
-  // The settings drawer's heading already says "Deployments"; this section
-  // is the list itself, with its count and the one way to add another.
+  // The project’s Deployments page owns the list and its creation form.
   return (
     <div className="deployments-settings">
       <StaleNote q={[envsQ, offeredQ, retainedQ]} />
       <Section title="Where it runs" count={envs.length || undefined}
         note={choices.length === 0 ? 'No deployment target has been offered to this project.' : undefined}
         action={!adding && choices.length > 0 ? <button onClick={() => setAdding(true)}>New deployment</button> : undefined}>
-        {adding && <AddDeployment slug={slug} choices={choices} existing={envs.map((e) => e.name)} onDone={(added) => { setAdding(false); if (added) load() }} />}
+        {adding && <AddDeployment slug={slug} choices={choices} existing={envs} onDone={(added) => { setAdding(false); if (added) load() }} />}
         {envs.length === 0 && !adding && <p className="muted">Nothing deploys yet. {choices.length === 0 ? 'Ask an administrator to offer a deployment target, then choose New deployment.' : 'Choose New deployment to add one.'}</p>}
         <div role="list">{envs.map((e) => <DeploymentRow key={e.name} slug={slug} current={envsQ.current} env={envsQ.refreshFailed ? { ...e, observation: 'unknown' } : e} />)}</div>
       </Section>
@@ -113,6 +113,8 @@ export function DeploymentRow({ slug, env: e, current = true }: { slug: string; 
   const hasProtection = e.target?.kind === 'do-app' || e.target?.kind === 'docker-host'
   const protection = useGet<DeploymentProtection>(hasProtection ? `${base}/protection` : null, { poll: 5000 })
   const change = useGet<ChangeView>(e.kind === 'preview' && e.changeId ? `/changes/${e.changeId}` : null)
+  const releases = useGet<ReleaseListed[]>(e.kind !== 'preview' ? `/projects/${slug}/releases` : null)
+  const waitingRelease = releases.data?.find(r => r.deployment === e.name && r.state === 'waiting for approval')
   const status = useDeploymentStatus(slug, e)
   const p = protection.data
   const backup = !hasProtection || protection.denied ? ''
@@ -125,10 +127,11 @@ export function DeploymentRow({ slug, env: e, current = true }: { slug: string; 
     : share?.diskRefuses ? 'disk full' : share?.lowDisk ? 'low disk'
     : resources.refreshFailed || resources.data?.reading?.unknown || resources.data?.reading?.stale ? 'resources unknown' : ''
   return <ListRow listItem className="deployment-row"
-    identity={<><Link to={base}><strong>{e.displayLabel || e.name}</strong></Link><div><DeploymentFact env={e} /></div></>}
+    identity={<><Link to={base}><strong>{deploymentName(e)}</strong></Link><div><DeploymentFact env={e} /></div></>}
     state={<Status observation {...status} />}
     detail={<>
       {e.kind === 'standing' && <div>{feedWords(e)} · {e.approvalRole ? `Needs approval from ${e.approvalRole}` : 'No approval required'}</div>}
+      {waitingRelease && <div>Release {waitingRelease.number} is waiting for approval.</div>}
       <FeedPause env={e} />
       {e.promotionBlocked && <div className="muted small">{e.promotionBlocked}</div>}
       <div className="muted small">{e.kind === 'preview'
@@ -136,7 +139,7 @@ export function DeploymentRow({ slug, env: e, current = true }: { slug: string; 
         : <ServingRelease slug={slug} env={e} />}{e.kind === 'preview' && <StaleNote q={change} inline />}</div>
       {backup && <span className={backup === 'no backup yet' ? 'error small' : 'deploy-warning small'}> {backup}</span>}
       {warning && <span className={share?.diskRefuses ? 'error small' : 'deploy-warning small'}> {warning}</span>}</>}
-    action={e.kind === 'standing' && e.feed !== 'main' ? <div className="stack stack-1">
+    action={waitingRelease?.decision?.canApprove ? <Link className="btn" to={base}>Review release {waitingRelease.number}</Link> : e.kind === 'standing' && e.feed !== 'main' ? <div className="stack stack-1">
       <button title={promotionHelp(e)} disabled={busy || !current || !e.target || !!e.promotionBlocked} onClick={async () => {
           const result = await run(() => post<ReleaseRequested>(`${base}/deploy`, e.feed === 'promotion' ? { expectedSourceBundleId: e.promotionBundleId } : {}))
           if (result) nav(`/projects/${slug}/releases/${result.number}`)
@@ -149,12 +152,15 @@ export function DeploymentPage() {
   const { slug, name } = useParams()
   const q = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
   const e = q.data?.find(e => e.name === name)
+  const label = e ? deploymentName(e) : 'Deployment'
+  const { run, busy, err } = useAction()
   useLayoutEffect(() => {
-    setPageContext({ crumbs: [{ label: 'Deployments', to: `/projects/${slug}/deployments` }, { label: e?.displayLabel || name! }] })
+    setPageContext({ crumbs: [{ label: 'Deployments', to: `/projects/${slug}/deployments` }, { label }] })
     return () => setPageContext({})
-  }, [slug, name, e?.displayLabel])
+  }, [slug, label])
   return <><ReadStatus q={q} what="the deployment" /><StaleNote q={q} />
-    <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} displayLabel={e?.displayLabel} url={e?.url} />
+    {e && <div className="row row-2"><button disabled={busy} onClick={() => run(async () => { await post<DeploymentChecked>(`/projects/${slug}/deployments/${name}/check`, {}); await q.reload() })}>Refresh status</button>{err && <span className="error">{err}</span>}</div>}
+    <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} displayLabel={e ? deploymentName(e) : undefined} url={e?.url} />
     {e && <DeploymentFeed key={`${slug}/${name}/feed`} slug={slug!} name={name!} />}
     {e && <EnvCard slug={slug!} env={q.refreshFailed ? { ...e, observation: 'unknown' } : e} onChanged={q.reload} />}
   </>
@@ -168,11 +174,6 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
   // A take-down is done now (DeploymentRemoved), or admitted as an
   // operation to follow (202, OperationAdmitted).
   const [torn, setTorn] = useState<DeploymentRemoved | OperationAdmitted | null>(null)
-  const [checked, setChecked] = useState<DeploymentChecked | null>(null)
-  const checkAgain = async () => {
-    const r = await run(() => post<DeploymentChecked>(`/projects/${slug}/deployments/${e.name}/check`, {}))
-    if (r) { setChecked(r); onChanged() }
-  }
   const deploy = async () => {
     const r = await run(() => post<ReleaseRequested>(`/projects/${slug}/deployments/${e.name}/deploy`, e.feed === 'promotion' ? { expectedSourceBundleId: e.promotionBundleId } : {}))
     if (r) nav(`/projects/${slug}/releases/${r.number}`)
@@ -206,11 +207,8 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
     e.audience === 'team' ? 'team only' : e.audience,
     `${e.data === 'synthetic' ? 'test' : e.data} data`,
   ].filter(Boolean).join(' · ')
-  // The row's one action: settle an uncertain deployment first; otherwise
-  // ship to one fed by promotion. One fed by landing needs neither.
-  const action = e.readiness === 'uncertain'
-    ? <button disabled={busy} onClick={checkAgain} title="ask the host what runs and settle the deployment from that">Check again</button>
-    : e.feed === 'main'
+  // Follows main deploys on landing; other feeds can release here.
+  const action = e.feed === 'main'
     ? null
     : e.target
     ? <div className="stack stack-1"><button title={promotionHelp(e)} disabled={busy || !!e.promotionBlocked} onClick={deploy}>{deployLabel(e)}</button>{e.promotionBlocked && <span className="muted small">{e.promotionBlocked}</span>}</div>
@@ -220,7 +218,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
     <div className="card deploy-entry">
       <header className="deploy-head">
         <div className="row">
-          <h2>{e.displayLabel || e.name}</h2>
+          <h2>{deploymentName(e)}</h2>
           <div className="deploy-status">
           <Status observation {...status} help={status.word === 'deploying' || e.observation === 'unreachable' || e.observationIssue ? status.help : undefined} />
           {e.protected && <span className="badge" title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span>}
@@ -243,7 +241,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
                 {n.status !== 'ready' && <Status word={n.statusLabel} help={`Service: ${n.status}.`} />}
               </span>
             ))}
-            <Link to="/deployments/infrastructure">see the infrastructure</Link>
+            <Link to="/targets">see the infrastructure</Link>
           </div>
         )}
         {e.target?.kind === 'portainer' && e.id && <DeploymentAddressEdit slug={slug} id={e.id} />}
@@ -270,14 +268,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
           <DeploymentLine label="Readiness">
             <Status word={e.readinessLabel} />{' '}
             {PRODUCT} does not know whether this deployment stands: its last attempt was cut off, or its
-            records disagree. Check again asks its host and settles what it finds; it deploys nothing.
-          </DeploymentLine>
-        )}
-        {checked && (
-          <DeploymentLine label="Check results">
-            {checked.checked.map((c) => (
-              <div key={c.attempt}>attempt {c.attempt}: {c.outcome}{c.reason ? ` · ${c.reason}` : ''}</div>
-            ))}
+            records disagree. Refresh status asks its host and settles what it finds; it deploys nothing.
           </DeploymentLine>
         )}
         {torn && 'operationId' in torn && (
@@ -303,7 +294,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
             <QuietConfirm key={known ? 'known' : 'unknown'} label="Tear down" disabled={!known}
               title={known ? undefined : 'reading what a take-down would do to its data…'}
               prepare={holdsData ? async () => { await prot.reload() } : undefined}
-              ask={<>Take down <b>{e.name}</b>? {prot.data?.takeDown || tearDownWords(e.target?.kind)}{e.aiModels?.length ? ' Its AI models key is revoked.' : ''}</>}
+              ask={<>Take down <b>{e.displayLabel || e.name}</b>? {prot.data?.takeDown || tearDownWords(e.target?.kind)}{e.aiModels?.length ? ' Its AI models key is revoked.' : ''}</>}
               onYes={tearDown} yes={noFinalCopy ? 'Take it down without a final copy' : 'Take it down'} />
           )}
           {err && <span className="error small">{err}</span>}
@@ -318,9 +309,11 @@ function DeploymentFact({ env }: { env: DeploymentView }) {
   return <span className="muted">{env.url ? <AppAddress url={env.url} hostOnly={env.hostOnly} /> : 'no address yet'}</span>
 }
 
-function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choices: OfferedTarget[]; existing: string[]; onDone: (added: boolean) => void }) {
+function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choices: OfferedTarget[]; existing: DeploymentView[]; onDone: (added: boolean) => void }) {
   const [name, setName] = useState('')
   const [target, setTarget] = useState('')
+  const [feed, setFeed] = useState('manual')
+  const [source, setSource] = useState('')
   const [audience, setAudience] = useState<string>('team')
   const [data, setData] = useState<string>('non-production')
   const [startFrom, setStartFrom] = useState('')
@@ -330,9 +323,9 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
   useEffect(() => { if (!target && choices[0]) setTarget(choices[0].name) }, [choices, target])
   const add = async () => {
     if (!name.trim()) { setErr('give it a name · lower-case letters, digits and dashes'); return }
-    if (existing.includes(name.trim())) { setErr(`there is already a deployment called ${name.trim()}`); return }
+    if (existing.some(e => e.name === name.trim())) { setErr(`there is already a deployment called ${name.trim()}`); return }
     const from = picked?.kind === 'do-app' ? startFrom : ''
-    const r = await run(() => post(`/projects/${slug}/deployments`, { name: name.trim(), target: picked?.name, feed: 'manual', audience, data, ...(from ? { startFrom: from } : {}) }))
+    const r = await run(() => post(`/projects/${slug}/deployments`, { name: name.trim(), target: picked?.name, feed, ...(feed === 'promotion' ? { from: source } : {}), audience, data, ...(from ? { startFrom: from } : {}) }))
     if (r) { setName(''); onDone(true) }
   }
   const protectedPick = audience === 'partners' || audience === 'public' || data === 'production'
@@ -345,7 +338,7 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
         <label>Deployment target</label>
         <div>
           <select aria-label="Target" value={picked?.name ?? ''} onChange={(e) => setTarget(e.target.value)} disabled={choices.length === 0}>
-            {choices.map((t) => <option key={t.name} value={t.name}>{t.name} — {placeOf(t.kindInfo, t.address)}</option>)}
+            {choices.map((t) => <option key={t.name} value={t.name}>{t.displayLabel || t.name} — {placeOf(t.kindInfo, t.address)}</option>)}
           </select>
           {picked?.offer && (
             <div className="muted small mt-1" >
@@ -356,6 +349,13 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
             </div>
           )}
         </div>
+        <label>Release feed</label>
+        <select aria-label="Release feed" value={feed} onChange={e => setFeed(e.target.value)}>
+          <option value="manual">By hand</option><option value="main">Follows main</option><option value="promotion">Promoted from a deployment</option>
+        </select>
+        {feed === 'promotion' && <><label>Source deployment</label><select aria-label="Source deployment" value={source} onChange={e => setSource(e.target.value)}>
+          <option value="">Choose a source</option>{existing.filter(e => e.kind === 'standing').map(e => <option key={e.id} value={e.name}>{e.displayLabel || e.name}</option>)}
+        </select></>}
         <label title="who can reach it">Audience</label>
         <select aria-label="Audience" value={audience} onChange={(e) => setAudience(e.target.value)}>
           {AUDIENCES.map((x) => <option key={x} value={x}>{x}</option>)}
@@ -389,7 +389,7 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
         </div>
       )}
       <div className="row deployments-add-deployment-div">
-        <button className="primary" disabled={busy || !picked} onClick={add}>Create</button>
+        <button className="primary" disabled={busy || !picked || (feed === 'promotion' && !source)} onClick={add}>Create</button>
         <button className="subtle" disabled={busy} onClick={() => { setErr(''); onDone(false) }}>Cancel</button>
         {err && <span className="error small">{err}</span>}
       </div>
@@ -397,10 +397,7 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
   )
 }
 
-export function RetainedRow({ slug, r, onChanged }: { slug: string; r: Retained; onChanged: () => void }) {
-  const { run, busy, err } = useAction()
-  const [note, setNote] = useState('')
-  const settle = () => run(() => post(`/projects/${slug}/retained/${r.id}`, { disposition: 'released', note })).then((ok) => { if (ok) onChanged() })
+export function RetainedRow({ r }: { slug: string; r: Retained; onChanged: () => void }) {
   const name = String(r.handle?.name ?? (r.handle?.requested as { name?: string } | undefined)?.name ?? '')
   const id = r.handle?.id ? String(r.handle.id) : ''
   // A size in words the driver wrote (an image repository's), or "unknown (why)".
@@ -420,15 +417,7 @@ export function RetainedRow({ slug, r, onChanged }: { slug: string; r: Retained;
           ? <span className="badge">still at the provider</span>
           : <span className="badge">{r.disposition === 'released' ? 'deleted at the provider' : 'kept on purpose'}{r.settledBy ? ` · ${r.settledBy}` : ''}{r.note ? `: ${r.note}` : ''}</span>}
       </td>
-      <td>
-        {r.disposition === 'retained' && (
-          <span className="row deployments-retained-row-span">
-            <input aria-label="Deployment note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="note (optional)" className="deployments-retained-row-input" />
-            <button className="subtle" disabled={busy} onClick={settle} title="you deleted it at the provider">I deleted it</button>
-            {err && <span className="error small">{err}</span>}
-          </span>
-        )}
-      </td>
+      <td>{r.disposition === 'retained' && r.target && <Link to={`/targets/${r.target}`}>Review on target →</Link>}</td>
     </tr>
   )
 }
@@ -614,7 +603,7 @@ export function ShareLine({ share, old }: { share?: DeploymentResources['share']
     {!share.readAt && !share.error && <div className="muted small">Waiting for the first host check.</div>}
     {share.readAt && <TechnicalWords shown={technical}>Host read {fmtStamp(share.readAt)}{old ? ' (old)' : ''}</TechnicalWords>}
     {(share.error || (share.stale && share.readAt)) && <p className={old ? "muted small" : "error small"}>{share.error || "The host reading is out of date."}</p>}
-    {share.overcommitted && share.requested?.known && share.hostMemory.known && <p className="capacity-warning">{fmtBytes(share.requested.value)} requested; host total {fmtBytes(share.hostMemory.value)}. <Link to={`/infrastructure/${share.target}`}>Review server</Link></p>}
+    {share.overcommitted && share.requested?.known && share.hostMemory.known && <p className="capacity-warning">{fmtBytes(share.requested.value)} requested; host total {fmtBytes(share.hostMemory.value)}. <Link to={`/targets/${share.target}`}>Review server</Link></p>}
     {share.diskRefuses ? <p className={old ? "muted" : "error"}>Server is short on disk space. New deployments are blocked.</p>
       : share.lowDisk && <p className={old ? "muted" : "error"}>Server is low on disk space.</p>}
   </div>

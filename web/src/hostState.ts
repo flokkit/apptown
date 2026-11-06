@@ -10,7 +10,7 @@ export function useHostStates() {
   const attention = useAttention()
   const infra = useGet<InfrastructureTargets>('/infrastructure', { poll: 30000 })
   return (name: string, connection: TargetLabel) => {
-    const issue = attention.data?.items.find(item => decodeURIComponent(item.href) === `/infrastructure/${name}`)
+    const issue = attention.data?.items.find(item => decodeURIComponent(item.href) === `/targets/${name}`)
     const reading = infra.data?.targets.find(t => t.target === name)
     const error = reading?.error
     const word: keyof typeof STATUS_WORD = connection === 'failed' || connection === 'stopped' ? connection

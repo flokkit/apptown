@@ -81,7 +81,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
     {/* Every deployment, named, with its state and address: what used to be
         an unlabelled strip under the title. */}
     <Section title="Deployments" count={deployments.length || undefined}
-      action={<Link to={`/projects/${slug}/settings/deployments`}>Manage →</Link>}>
+      action={<Link to={`/projects/${slug}/deployments`}>Manage →</Link>}>
       <ReadStatus q={deploymentsQ} what="deployments" /><StaleNote q={deploymentsQ} />
       {deploymentsQ.data && !deployments.length && <p className="muted">Not deployed yet.</p>}
       {deployments.map(d => (

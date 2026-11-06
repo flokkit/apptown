@@ -174,14 +174,27 @@ func (h Tiers) Departures(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
+	ctx := r.Context()
 	out := []Departure{}
 	for _, r := range recent {
 		p := projects[r.ProjectID]
 		if p == nil {
 			continue
 		}
+		deps, err := h.deployment.Deployments.ForProject(ctx, p.ID)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		labels := map[string]string{}
+		for _, d := range deps {
+			labels[d.Name] = d.DisplayLabel
+		}
+		if labels[r.Deployment] == "" {
+			labels[r.Deployment] = r.Deployment
+		}
 		d := Departure{At: r.At(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, Who: r.ApprovedBy, State: r.State.DepartureLabel(),
-			Tier: r.Deployment + " deployment", Label: fmt.Sprintf("release #%d", r.Number), ReleaseNumber: r.Number}
+			Tier: labels[r.Deployment] + " deployment", Label: fmt.Sprintf("release #%d", r.Number), ReleaseNumber: r.Number}
 		if r.State == deployment.ReleaseFailed {
 			d.Reason = r.Failure
 		}

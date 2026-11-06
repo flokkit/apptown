@@ -51,7 +51,7 @@ describe("a deployment's resources", () => {
     const fig = (value: number) => ({ known: true, value })
     const html = render({ share: { target: 'lab', elastic: false, hostMemory: fig(8 * 2 ** 30), requested: fig(10 * 2 ** 30), declared: fig(1.5 * 2 ** 30), used: fig(640 * 2 ** 20), overcommitted: true, lowDisk: true, diskRefuses: false } })
     expect(html).not.toContain('(19%) declared')
-    expect(html).toContain('href="/infrastructure/lab"')
+    expect(html).toContain('href="/targets/lab"')
     expect(html).toContain('10.00 GB requested; host total 8.00 GB')
     expect(html).toContain('Server is low on disk space.')
     const refused = render({ share: { target: 'lab', elastic: false, hostMemory: fig(8 * 2 ** 30), declared: fig(2 ** 30), used: fig(2 ** 20), overcommitted: false, lowDisk: true, diskRefuses: true } })

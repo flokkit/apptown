@@ -43,7 +43,7 @@ credential leaves it unconfirmed: a person saves **Follows main** in the
 deployment’s **Release feed** setting before automatic releases run. Without a default target or deploy permission,
 nothing deploys yet.
 
-A project adds deployments under **Settings › Deployments**, choosing a name,
+A project adds deployments under **Deployments**, choosing a name,
 a target offered to the project, an audience and a data class. A follows-main
 deployment requests the runtime bundle from every completed landing. Its
 setting records who authorized those automatic releases and with which
@@ -156,7 +156,7 @@ and says which choice to make.
 ## Taking a deployment down
 
 A deployment that does not follow main has **Tear down** on its card under
-**Settings › Deployments**. Follows-main deployments go when their project is deleted.
+**Deployments**. Follows-main deployments go when their project is deleted.
 A take-down removes exactly what AppTown recorded creating for the
 deployment. What it does depends on the target:
 
@@ -171,7 +171,7 @@ A deployment of an app that needs AI models also has its key revoked. The
 result names what was deleted, the final backup, and anything left at the
 target, with why. Data left at the target (a Portainer
 volume, an App Platform database) is listed as retained on the
-Infrastructure page, and while it is, a new deployment of that name on that
+target page under Deployments › Targets, and while it is, a new deployment of that name on that
 target is refused.
 
 Deleting a project stops its new work at once. For ten minutes the

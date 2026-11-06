@@ -198,9 +198,10 @@ a gap is possible: an empty list is never proof that nothing happened.
 **Preview** — a temporary deployment serving a change's working tree. One
 per change; removed when the change closes. Boots on the worker when AppTown has one.
 
-**Departures** — the log of movement through the tiers, newest first: the
-first tab of the Deployments page. The second tab is the fleet as a table,
-one row per app, tiers as columns.
+**Releases** — the page under Deployments listing recent releases across
+projects, including those waiting for approval. Deployments lists every
+deployment and its state. Targets lists the places they run and their settings.
+Backups is the fleet view of saved data.
 
 ## Where things run
 
@@ -231,7 +232,7 @@ AppTown's own built-in host needs no offer.
 
 **Deploy connector** — the connection a deployment target is built on: how
 AppTown reaches the machines it deploys to, such as its own Docker or a
-Portainer server. Listed under Integrations › Deployment targets.
+Portainer server. Listed under Deployments › Targets.
 
 **Cloud account** — a connection to an account at a cloud provider (a
 DigitalOcean team): the name of the secret holding its API token, its
@@ -258,8 +259,8 @@ means a complete answer from the provider did not include a recorded
 resource.
 
 **Job** — a piece of AppTown's background work, such as a backup, an
-inventory check or a workflow follow-up. Jobs are listed on the **Job
-queue** tab under Deployments › Infrastructure. A job that is safe to
+inventory check or a workflow follow-up. Jobs are listed in the **Job
+queue** section under Deployments › Targets. A job that is safe to
 repeat retries by itself; a stopped or failed one may need someone to run
 it again.
 

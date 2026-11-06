@@ -94,7 +94,7 @@ export function ReleaseRows({ slug, releases }: { slug: string; releases: Releas
         <div className="card">
           <div className="row">
             <strong>Releases</strong>
-            {live && <span className="badge">{live.deployment === 'lan' ? '🏢 ' : ''}live: #{live.number}</span>}
+            {live && <span className="badge">live: #{live.number}</span>}
             <span className="row" style={{ gap: 6 }}>
               {releases.slice(0, 5).map((r) => (
                 <Link key={r.number} to={`/projects/${slug}/releases/${r.number}`}>#{r.number} <span className="muted small">{fmtWhen(r.releasedAt || r.createdAt)}{r.origin === 'observed-after-restore' ? ' · observed after restore' : ''}</span></Link>

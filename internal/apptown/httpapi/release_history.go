@@ -32,8 +32,9 @@ func NewReleaseHistory(projects *project.Projects, work *workflow.Service, deplo
 // ReleaseListed is one release in a project's list, with the titles of the
 // Changes new since its deployment's previous successful release.
 type ReleaseListed struct {
-	Decision    deployment.ReleaseDecision `json:"decision"`
-	StatusLabel deployment.ReleaseLabel    `json:"statusLabel"`
+	DeploymentLabel string                     `json:"deploymentLabel"`
+	Decision        deployment.ReleaseDecision `json:"decision"`
+	StatusLabel     deployment.ReleaseLabel    `json:"statusLabel"`
 	deployment.Release
 	Changes []ReleaseChangeTitle `json:"changes"`
 	// Serving: the release is its deployment's live one (Releases.Live)
@@ -71,6 +72,15 @@ func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
+	deployments, err := h.deployment.Deployments.ForProject(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	labels := map[string]string{}
+	for _, d := range deployments {
+		labels[d.Name] = d.DisplayLabel
+	}
 	out := []ReleaseListed{}
 	for _, rel := range releases {
 		decision, err := h.deployment.ReleaseDecision(r.Context(), rel)
@@ -78,7 +88,7 @@ func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
 			WriteFault(w, err)
 			return
 		}
-		out = append(out, ReleaseListed{Release: *rel, Decision: decision, StatusLabel: rel.State.Display()})
+		out = append(out, ReleaseListed{DeploymentLabel: labels[rel.Deployment], Release: *rel, Decision: decision, StatusLabel: rel.State.Display()})
 	}
 	idList := make([]ids.ID, 0, len(out))
 	for _, release := range out {
@@ -179,7 +189,18 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	if rel.State == deployment.ReleaseFailed && len(events) > 0 {
 		rel.Failure = events[len(events)-1].Text
 	}
-	out := ReleaseDetail{Release: rel, StatusLabel: rel.State.Display(), Changes: changes, IsLive: live, Events: events}
+	deployments, err := h.deployment.Deployments.ForProject(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	label := rel.Deployment
+	for _, d := range deployments {
+		if d.Name == rel.Deployment {
+			label = d.DisplayLabel
+		}
+	}
+	out := ReleaseDetail{DeploymentLabel: label, Release: rel, StatusLabel: rel.State.Display(), Changes: changes, IsLive: live, Events: events}
 	if !rel.RollbackOf.IsZero() {
 		previous, e := h.deployment.Releases.ByID(r.Context(), rel.RollbackOf)
 		if e != nil {
@@ -243,18 +264,19 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 // ReleaseDetail is one release: what it is, the changes it carried, whether
 // it is what the deployment serves now, and its log.
 type ReleaseDetail struct {
-	RollbackNumber int64                           `json:"rollbackNumber,omitempty"`
-	Decision       deployment.ReleaseDecision      `json:"decision"`
-	Request        *deployment.RequestMetadata     `json:"request,omitempty"`
-	BackupReason   string                          `json:"backupReason,omitempty"`
-	Backup         *dataprotection.BackupReference `json:"backup,omitempty"`
-	StatusLabel    deployment.ReleaseLabel         `json:"statusLabel"`
-	Release        *deployment.Release             `json:"release"`
-	Changes        []ReleaseChange                 `json:"changes"`
-	IsLive         bool                            `json:"isLive"`
-	Events         []deployment.ReleaseEvent       `json:"events"`
-	SBOMArtifact   ids.ID                          `json:"sbomArtifact,omitzero"`
-	Bundle         *ReleaseBundleView              `json:"bundle,omitempty"`
+	DeploymentLabel string                          `json:"deploymentLabel"`
+	RollbackNumber  int64                           `json:"rollbackNumber,omitempty"`
+	Decision        deployment.ReleaseDecision      `json:"decision"`
+	Request         *deployment.RequestMetadata     `json:"request,omitempty"`
+	BackupReason    string                          `json:"backupReason,omitempty"`
+	Backup          *dataprotection.BackupReference `json:"backup,omitempty"`
+	StatusLabel     deployment.ReleaseLabel         `json:"statusLabel"`
+	Release         *deployment.Release             `json:"release"`
+	Changes         []ReleaseChange                 `json:"changes"`
+	IsLive          bool                            `json:"isLive"`
+	Events          []deployment.ReleaseEvent       `json:"events"`
+	SBOMArtifact    ids.ID                          `json:"sbomArtifact,omitzero"`
+	Bundle          *ReleaseBundleView              `json:"bundle,omitempty"`
 }
 
 // ReleaseBundleView is the bundle a release ships, by its form. By digest,

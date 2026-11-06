@@ -92,13 +92,13 @@ try {
   }, !!process.env.DESIGN_AUDIT);
   if (process.env.DESIGN_AUDIT) await page.goto(base + '/?cameraPrepare=1', { waitUntil: 'networkidle' });
   const routes = {
-    'infrastructure-expanded': '/infrastructure', 'target-settings': '/integrations/targets/design-preview', 'target-resources': '/infrastructure/built-in-docker',
-    'backup-store-details': '/deployments/backups', 'release-invalid': '/releases/6', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-agents-expanded': '/people?tab=agents',
+    'infrastructure-expanded': '/targets', 'target-settings': '/targets/design-preview', 'target-resources': '/targets/built-in-docker',
+    'backup-store-details': '/backups', 'release-invalid': '/releases/6', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-agents-expanded': '/people?tab=agents',
     'guidance-block': '/guidance/' + seeded.guidance, 'guidance-missing': '/guidance/lang%2Fselection%2Fdjango-fullstack', 'release-record': '/projects/club-newsletter/releases/1',
-    home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', deployments: '/deployments', backups: '/deployments/backups',
-    fleet: '/deployments/table', 'deployment-infrastructure': '/deployments/infrastructure', attention: '/attention', updates: '/updates',
-    'target-offers': '/integrations/targets', 'release-detail': '/projects/club-newsletter/releases/' + facts.releases.find(r => r.serving).number,
-    'memory-decisions-empty': '/projects/shared-notes/memory/decisions', 'target-cloud': '/infrastructure/design-cloud', infrastructure: '/infrastructure', jobs: '/infrastructure/jobs', 'infrastructure-new': '/infrastructure/new',
+    home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', releases: '/releases', deployments: '/deployments', backups: '/backups',
+    'project-deployments': '/projects/club-newsletter/deployments', fleet: '/deployments', 'deployment-infrastructure': '/targets', attention: '/attention', updates: '/updates',
+    'target-offers': '/targets', 'release-detail': '/projects/club-newsletter/releases/' + facts.releases.find(r => r.serving).number,
+    'memory-decisions-empty': '/projects/shared-notes/memory/decisions', 'target-cloud': '/targets/design-cloud', infrastructure: '/targets', jobs: '/targets', 'infrastructure-new': '/targets/new',
     conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews',
     'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations', 'fleet-ways': '/conformance/ways',
     integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets',
@@ -106,7 +106,7 @@ try {
     'people-groups': '/people?tab=groups', 'people-signin': '/people?tab=signin', 'people-agents': '/people?tab=agents',
     evals: '/evals', 'eval-new': '/evals/new', people: '/people', account: '/account', usage: '/usage',
     complaints: '/complaints', 'complaints-answered': '/complaints/answered', 'complaints-archive': '/complaints/archive',
-    'model-profile': '/integrations/profiles/standard', 'target-new': '/integrations/targets/new',
+    'model-profile': '/integrations/profiles/standard', 'target-new': '/targets/new',
     services: '/services', 'services-shared': '/services/shared', 'deployment': '/projects/club-newsletter/deployments/main',
     'camera-not-found': '/camera-missing-page',
     'new-project': '/projects/_new', docs: '/docs', invite: '/invite',
@@ -125,18 +125,18 @@ try {
     'invite-pending': seeded.invite,
     'conformance-project': '/conformance/projects/club-newsletter',
     'conformance-project-mixed': '/conformance/projects/lunch-orders',
-    'deployment-infrastructure-help': '/deployments/infrastructure',
+    'deployment-infrastructure-help': '/targets',
     'people-actions': '/people',
     'review': `/conformance/reviews/${seeded.review}`,
     'review-checks': `/conformance/reviews/${seeded.review}/checks`,
     'review-project': `/conformance/reviews/${seeded.review}/projects/club-newsletter`,
 
   };
-  for (const tab of ['general', 'working', 'models', 'services', 'deployments', 'secrets', 'members', 'usage']) routes['settings-' + tab] = '/projects/club-newsletter/settings/' + tab;
+  for (const tab of ['general', 'working', 'models', 'services', 'secrets', 'members', 'usage']) routes['settings-' + tab] = '/projects/club-newsletter/settings/' + tab;
   // Detail links come from the actual seeded records.
   for (const [screen, path, pattern] of [
     ['pack', '/packs', /^\/packs\/[^/]+$/],
-    ['target', '/infrastructure', /^\/infrastructure\/(?!new|jobs)[^/]+$/],
+    ['target', '/targets', /^\/targets\/(?!new)[^/]+$/],
     ['integration', '/integrations', /^\/integrations\/(?!slots|services|secrets|targets)[^/]+$/],
     ['adr', '/projects/club-newsletter/memory/decisions', /^\/adrs\/[^/]+$/],
     ['doc', '/docs', /^\/docs\/[^/]+\/[^/]+$/],
@@ -150,8 +150,8 @@ try {
     }
     const links = await page.locator('main a[href]').evaluateAll(els => els.map(el => el.getAttribute('href')));
     const detail = links.find(href => pattern.test(href));
-    if (detail) routes[screen] = screen === 'target' ? '/infrastructure/built-in-docker' : detail;
-    if (screen === 'target') routes['target-unknown'] = '/infrastructure/design-preview';
+    if (detail) routes[screen] = screen === 'target' ? '/targets/built-in-docker' : detail;
+    if (screen === 'target') routes['target-unknown'] = '/targets/design-preview';
     if (!detail) throw new Error(`No detail link for ${screen}`);
   }
   await page.goto(`${base}/changes/${process.env.DESIGN_CHANGE}?tab=conversation`, { waitUntil: 'networkidle' });
@@ -161,7 +161,7 @@ try {
   routes['change-code'] = `/changes/${process.env.DESIGN_CHANGE}?tab=changes`;
   routes['change-findings'] = `/changes/${process.env.DESIGN_CHANGE}?tab=details#checks`;
   for (const tab of ['overview', 'conversation', 'details']) routes['change-' + tab] = `/changes/${process.env.DESIGN_CHANGE}?tab=${tab}`;
-  Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies', 'workflow-new': '/workflows', 'infrastructure-connection': '/infrastructure/new' });
+  Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies', 'workflow-new': '/workflows', 'infrastructure-connection': '/targets/new' });
   if (process.env.DESIGN_AUDIT) routes['change-advisory'] = `/changes/${seeded.advisory}`;
   if (process.env.DESIGN_AUDIT) routes['reviews-running'] = '/conformance/reviews?cameraRunning=1';
   const selected = new Set((process.env.DESIGN_PAGES || '').split(',').filter(Boolean));
@@ -496,10 +496,19 @@ try {
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-receipt.png`, fullPage: true });
         }
         if (!process.env.DESIGN_BASELINE && screen === 'target-cloud') {
-          await page.locator('a[href="#target-resources"]').click();
-          if (!await page.locator('#target-resources').isVisible()) throw new Error('retained resource review is hidden');
+          await page.locator('a[href="#target-retained"]').click();
+          if (!await page.locator('#target-retained').isVisible()) throw new Error('retained resource review is hidden');
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-resources.png`, fullPage: true });
           if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('retained resources overflow');
+        }
+        if (screen === 'project-deployments') {
+          await page.getByRole('button', { name: 'New deployment', exact: true }).click();
+          await page.getByLabel('Release feed', { exact: true }).selectOption('main');
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-new-follows-main.png`, fullPage: true });
+          await page.getByLabel('Release feed', { exact: true }).selectOption('promotion');
+          await page.getByLabel('Source deployment', { exact: true }).waitFor();
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-new-promotion.png`, fullPage: true });
+          if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('new deployment form overflows');
         }
         if (!process.env.DESIGN_BASELINE && screen === 'backups') {
           // Phone rows mount their secondary controls only when expanded.
@@ -508,7 +517,7 @@ try {
           }
           await page.locator('main details:not(.status-help)').evaluateAll(els => els.forEach(el => { el.open = true; }));
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-history.png`, fullPage: true });
-          await page.getByRole('button', { name: 'Restore main from this copy', exact: true }).first().click();
+          await page.getByRole('button', { name: 'Restore Production from this copy', exact: true }).first().click();
           await page.getByRole('button', { name: 'Restore', exact: true }).waitFor();
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-restore-question.png`, fullPage: true });
         }

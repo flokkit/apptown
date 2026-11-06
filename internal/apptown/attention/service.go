@@ -298,7 +298,7 @@ func (v *View) add(key, name string, snapshot Snapshot, err error) {
 		coverage.NextStep = "Open the resource to check its settings."
 	}
 	if coverage.Href == "" {
-		coverage.Href = "/infrastructure"
+		coverage.Href = "/targets"
 	}
 	if snapshot.Folded && snapshot.Known && err == nil && len(snapshot.Coverage) == 0 {
 		return

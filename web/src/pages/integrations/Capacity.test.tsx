@@ -86,7 +86,7 @@ describe("a target's capacity", () => {
     expect(html).toContain('role="img"')
     expect(html).toContain('aria-label="memory used:')
     // The deployment's own segment links to it, not only its table row.
-    expect(html).toMatch(/<a class="cap-seg cap-deployment"[^>]*href="\/projects\/shop\/settings\/deployments"/)
+    expect(html).toMatch(/<a class="cap-seg cap-deployment"[^>]*href="\/projects\/shop\/deployments\/main"/)
     expect(html).toContain('1 without a set limit')
     expect(html).toContain('free not known')
     expect(html).toContain('not one machine')

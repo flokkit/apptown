@@ -65,18 +65,18 @@ export function BackupsView() {
       <StoreSection canAttach />
       {note && <p>{note.text}{note.operation && <> <Link to={`/operations/${note.operation}`}>Follow it</Link></>}</p>}
       {actErr && <p className="error">{actErr}</p>}
-      <Section title="Latest backups" count={latest.size || undefined} note={store.data?.store ? `Keeps the last ${data.keep} copies (14 for live apps), plus the newest 3 pre-release copies` : undefined}>
+      <Section title="Latest backups" count={latest.size || undefined} note={store.data?.store ? data.retention : undefined}>
       {latest.size === 0 ? <p className="muted small">No backups yet.</p> : <>
       <table className="stack small">
         <thead><tr><th>App</th><th>State</th><th>Taken</th><th></th></tr></thead>
         <tbody>{[...latest.values()].map(b => <GlanceRow key={b.id} name={0} state={1} fact={2} labels={['App', 'State', 'Taken', 'Actions']}>
-          <td><Link to={`/projects/${b.project}`}>{b.project} · {b.deployment}</Link></td>
+          <td><Link to={`/projects/${b.project}`}>{b.project} · {b.deploymentLabel || b.deployment}</Link></td>
           <td><Status word={b.statusLabel} help={b.error || undefined} /></td>
           <td>{fmtWhen(b.takenAt)}</td>
           <td><details><summary>Actions and details</summary>
-            <p>{b.deployment} · <KeptOn b={b} /> · {fmtBytes(b.bytes)}</p>
+            <p>{b.deploymentLabel || b.deployment} · <KeptOn b={b} /> · {fmtBytes(b.bytes)}</p>
             <Contents items={b.items} />
-            {managed(b) ? b.trigger === 'take-down' && <Link to={`/projects/${b.project}/settings/deployments`}>Start a new deployment from this</Link>
+            {managed(b) ? b.trigger === 'take-down' && <Link to={`/projects/${b.project}/deployments`}>Start a new deployment from this</Link>
               : b.trigger === 'take-down' ? <RestoreInto b={b} busy={busy} onRestore={into => restore(b, into)} /> : <>
                 <button className="subtle" disabled={busy} onClick={() => takeNow(b.project, b.deployment)}>Back up now</button>
                 <RestoreOver b={b} onYes={() => restore(b)} />
@@ -89,10 +89,10 @@ export function BackupsView() {
       {data.backups.length > 0 && <Section title="All backups" count={data.backups.length}>
         <table className="stack small"><thead><tr><th>App</th><th>State</th><th>Taken</th><th>Details</th></tr></thead>
           <tbody>{data.backups.slice(0, shown).map(b => <GlanceRow id={`backup-${b.id}`} key={b.id} name={0} state={1} fact={2} labels={['App', 'State', 'Taken', 'Details']}>
-            <td>{b.project} · {b.deployment}</td>
+            <td>{b.project} · {b.deploymentLabel || b.deployment}</td>
             <td><Status word={b.statusLabel} help={b.error || (b.status === 'pruned' ? 'This old copy has been removed.' : undefined)} /></td>
             <td>{fmtWhen(b.takenAt)}</td>
-            <td>{b.deployment} · {b.beforeRelease ? <Link to={`/projects/${b.project}/releases/${b.beforeRelease}`}>before release {b.beforeRelease}</Link> : b.trigger} · {b.actor}{b.status === 'pruned' ? <p>Copy removed</p> : <>
+            <td>{b.deploymentLabel || b.deployment} · {b.beforeRelease ? <Link to={`/projects/${b.project}/releases/${b.beforeRelease}`}>before release {b.beforeRelease}</Link> : b.trigger} · {b.actor}{b.status === 'pruned' ? <p>Copy removed</p> : <>
               <KeptOn b={b} /><details><summary>Location</summary><code>{setPlace(b, data.where)}</code></details>
               {(b.status === 'ok' || b.status === 'partial') && !managed(b) && (b.trigger === 'take-down'
                 ? <RestoreInto b={b} busy={busy} onRestore={into => restore(b, into)} />
@@ -141,7 +141,7 @@ function KeptOn({ b }: { b: ProjectBackup }) {
 
 // RestoreOver puts a set back over its own deployment, after a safety set.
 function RestoreOver({ b, onYes }: { b: ProjectBackup; onYes: () => void }) {
-  return <QuietConfirm label={`Restore ${b.deployment} from this copy`} ask={`Restore ${b.project}/${b.deployment} from the set taken ${fmtWhen(b.takenAt)}? A safety set is taken first; the app is stopped while it is replaced.${caveatNote(b.items)}`}
+  return <QuietConfirm label={`Restore ${b.deploymentLabel || b.deployment} from this copy`} ask={`Restore ${b.project}/${b.deploymentLabel || b.deployment} from the set taken ${fmtWhen(b.takenAt)}? A safety set is taken first; the app is stopped while it is replaced.${caveatNote(b.items)}`}
     onYes={onYes} yes="Restore" className="subtle" />
 }
 

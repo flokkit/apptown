@@ -64,7 +64,7 @@ settings turn this on:
    only from the bucket they were written to, so another bucket can be
    attached only when none are left in the current one; do it when no copy,
    check or take-down is running.
-2. **Name a copy runner** on the App Platform target (Infrastructure →
+2. **Name a copy runner** on the App Platform target (Deployments › Targets →
    the target → Edit target → copy runner): a Docker host AppTown reaches.
    Copies run there in a throwaway `postgres:<version>-alpine` container,
    as the app's own database user over TLS. The database cluster must let

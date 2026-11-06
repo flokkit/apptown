@@ -103,12 +103,12 @@ while it is set, apptownd resets and exits instead of serving.
 ## A deployment needs attention
 
 A deployment whose last attempt was cut off, or whose records disagree, reads
-**uncertain** on the project's Settings → Deployments page; a disagreement found
+**uncertain** on the project's Deployments page; a disagreement found
 at startup is also in the ledger as `deployment.needs-attention`. AppTown
 starts anyway; only that deployment waits, and no new deploy to it is admitted
 while its attempt is uncertain.
 
-Press **Check again** on its card (a project maintainer or owner, or an
+Open its deployment page and press **Refresh status** (a project maintainer or owner, or an
 administrator). AppTown asks the deployment's host what runs and settles it:
 running as recorded → deployed; gone, replaced, stopped, or never recorded
 as started → failed; host unreachable → still uncertain, so make the host

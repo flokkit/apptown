@@ -81,3 +81,19 @@ func TestRestoreBackupHTTPRequiresDeploymentName(t *testing.T) {
 		t.Fatalf("confirm must equal the deployment name: %d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestFleetBackupsReadRetentionAndDeploymentNamesFromServer(t *testing.T) {
+	h, pid, backups := backupHTTPFixture(t, "fleet")
+	if _, err := backups.Record(t.Context(), &dataprotection.Backup{ProjectID: pid, Deployment: "main", TakenAt: time.Now().UTC().Format(time.RFC3339), Trigger: "manual", Actor: "test", Status: dataprotection.BackupOK}, "test"); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.AllBackups(w, httptest.NewRequest("GET", "/api/v1/backups", nil))
+	var out AllBackups
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != 200 || out.Retention != dataprotection.BackupRetention() || len(out.Backups) != 1 || out.Backups[0].DeploymentLabel != "main" {
+		t.Fatalf("fleet: %d %s", w.Code, w.Body.String())
+	}
+}

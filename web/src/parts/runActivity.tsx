@@ -126,7 +126,7 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
             {showProject && <td className="muted small" />}
             <td className="stack-lead">
               <Link className="tap-open" to={`/projects/${slug}/releases/${e.r.number}`}>
-                {e.r.deployment === 'lan' ? '🏢 ' : '📦 '}Release #{e.r.number}
+                Release #{e.r.number}
               </Link>
               {(e.r.changes ?? []).length > 0 && (
                 <span className="muted small"> · {(e.r.changes ?? []).length} change{(e.r.changes ?? []).length === 1 ? '' : 's'}</span>
