@@ -73,12 +73,13 @@ func checkJudgeFor(a *App) *verification.CheckJudge {
 	return j
 }
 
-// Provisional limits based on synthetic provider measurements. The token cap
-// counts cumulative full prompts, including cache reads, across all turns.
-// Replace these with measured limits from a real-model fleet review on the demo
-// after landing.
+// Limits measured on a real-model fleet review of the demo (41 agent-judged
+// checks): the largest session used about 93,000 tokens and 43 seconds. The
+// caps leave room for larger repositories while stopping a session that loops.
+// The token cap counts cumulative full prompts, including cache reads, across
+// all turns.
 const defaultCheckTimeCap = 3 * time.Minute
-const defaultCheckTokenCap int64 = 400000
+const defaultCheckTokenCap int64 = 250000
 
 func checkEvaluatorFor(a *App) *verification.Evaluator {
 	return verification.NewEvaluator(a.evaluator, a.cfg.clock.Now, a.cfg.stock.Tools).WithCheckJudge(a.checkJudge)
