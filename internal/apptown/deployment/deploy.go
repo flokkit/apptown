@@ -186,7 +186,11 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	case alreadyApplied:
 		logf("deployment generation %d was already recorded", result.Attempt.Generation)
 	case Applied:
-		logf("live — %s serves release #%d", result.Observed.URL, rel.Number)
+		if dep.RuntimeState == "stopped" {
+			logf("stopped · will run release %d when started", rel.Number)
+		} else {
+			logf("live — %s serves release #%d", result.Observed.URL, rel.Number)
+		}
 		s.tagRelease(ctx, rel.Number, req.bundle, logf)
 		s.clearCommittedOverrides(ctx, dep, committed, applied, req.source.Revision, logf)
 	}

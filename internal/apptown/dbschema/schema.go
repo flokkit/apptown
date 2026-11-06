@@ -682,6 +682,9 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		`DELETE FROM lib_workflows WHERE origin='stock' AND name IN (SELECT name FROM retired_workflows215)`,
 		`UPDATE lib_workflows l SET latest_version=(SELECT max(v.version) FROM lib_workflow_versions v WHERE v.lib_id=l.id) WHERE EXISTS(SELECT 1 FROM retired_publications215 r WHERE r.name=l.name AND r.version=l.latest_version)`,
 	}},
+	{n: 216, note: "retain deployment runtime intent and attribution", stmts: []string{
+		`ALTER TABLE deployments ADD COLUMN runtime_state TEXT NOT NULL DEFAULT 'running' CHECK (runtime_state IN ('running','stopped','starting','stopping','restarting')), ADD COLUMN runtime_actor TEXT NOT NULL DEFAULT '', ADD COLUMN runtime_at TIMESTAMPTZ, ADD COLUMN runtime_error TEXT NOT NULL DEFAULT ''`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

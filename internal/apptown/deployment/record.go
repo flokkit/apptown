@@ -35,6 +35,10 @@ type AppliedAttempt struct {
 
 // Deployment includes the last successful attempt of its observed generation.
 type Deployment struct {
+	RuntimeState       string          `json:"runtimeState"`
+	RuntimeActor       string          `json:"runtimeActor"`
+	RuntimeAt          stamp.Time      `json:"runtimeAt,omitzero"`
+	RuntimeError       string          `json:"runtimeError,omitempty"`
 	LastApplied        *AppliedAttempt `json:"lastApplied,omitempty"`
 	DisplayLabel       string          `json:"displayLabel"`
 	ID                 ids.ID          `json:"id"`
@@ -80,6 +84,8 @@ type Deployment struct {
 func (e *Deployment) ReadingBasis() any {
 	return struct {
 		ID, ProjectID, TargetID            ids.ID
+		RuntimeState                       string
+		RuntimeAt                          stamp.Time
 		Name                               string
 		Kind                               Kind
 		Generation                         int64
@@ -88,7 +94,7 @@ func (e *Deployment) ReadingBasis() any {
 		HostPort                           int
 		ReleaseRun                         ids.ID
 		ReleaseSHA, ImageDigest, DataClass string
-	}{e.ID, e.ProjectID, e.TargetID, e.Name, e.Kind, e.ObservedGeneration, e.Handle, e.Container, e.HostLabel, e.HostPort, e.ReleaseRun, e.ReleaseSHA, e.ImageDigest, e.DataClass}
+	}{e.ID, e.ProjectID, e.TargetID, e.RuntimeState, e.RuntimeAt, e.Name, e.Kind, e.ObservedGeneration, e.Handle, e.Container, e.HostLabel, e.HostPort, e.ReleaseRun, e.ReleaseSHA, e.ImageDigest, e.DataClass}
 }
 
 // Placement is the record as a driver is handed it.
@@ -106,7 +112,7 @@ func (e *Deployment) label() deploy.HostLabel {
 }
 
 func (e *Deployment) Placement() deploy.Placement {
-	p := deploy.Placement{ID: e.ID, Label: e.label(), Name: e.Name, Generation: e.ObservedGeneration,
+	p := deploy.Placement{Stopped: e.RuntimeState == "stopped", ID: e.ID, Label: e.label(), Name: e.Name, Generation: e.ObservedGeneration,
 		URL: e.URL, Handle: e.Handle, Container: e.Container, HostPort: e.HostPort}
 	if e.Kind == Restored {
 		p.Gate = &deploy.Gate{}
@@ -188,6 +194,7 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		return nil, err
 	}
 	e := &Deployment{
+		RuntimeState: r.RuntimeState, RuntimeActor: r.RuntimeActor, RuntimeAt: stamp.Time{NullTime: r.RuntimeAt}, RuntimeError: r.RuntimeError,
 		ID:                 r.ID,
 		ProjectID:          r.ProjectID,
 		Name:               r.Name,

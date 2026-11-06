@@ -111,7 +111,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
 	req := BootRequest{
-		log: logf, exactOrigins: &origin, URL: originURL,
+		stopped: p.Stopped, log: logf, exactOrigins: &origin, URL: originURL,
 		Name: name, StackID: names.Stack(), Slug: slug, servingLabel: d.ServingLabel, Workspace: ws,
 		Deployment: p.Name, DataClass: d.DataClass, hostPort: p.HostPort, persistent: true, Probe: 90 * time.Second, Docker: dk,
 		identity: &id, Services: SourceServices(art), revision: source.Revision, fill: d.Fill, Allowed: d.Allowed, storage: d.Storage, restoreStorage: d.RestoreStorage,
@@ -149,7 +149,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
-	o, err := recordBoot(ctx, dk, id, name, res.Image(), url, res.HostPort, checkpoint)
+	o, err := recordBoot(ctx, dk, id, name, res.Image(), url, res.HostPort, p.Stopped, checkpoint)
 	if err != nil {
 		return deploy.Observation{}, err
 	}
@@ -179,6 +179,9 @@ func (d *Driver) Observe(ctx context.Context, p deploy.Placement) (deploy.Observ
 		o.Rollout, o.Health = "active", "healthy"
 	} else {
 		o.Health = "unhealthy"
+		if p.Stopped {
+			o.Rollout, o.Health = "stopped", "unknown"
+		}
 	}
 	return o, nil
 }

@@ -101,6 +101,7 @@ func startServices(ctx context.Context, dk Scope, id string, svcs []deploy.Servi
 type serviceRunOptions struct {
 	class      string
 	persistent bool
+	stopped    bool
 }
 
 // runServiceContainers launches each service on an EXISTING network (aliased by
@@ -116,6 +117,9 @@ func runServiceContainersWith(ctx context.Context, dk Scope, id, network string,
 		dk.Remove(ctx, cname)
 		args := []string{"run", "-d", "--init", "--name", cname,
 			"--network", network, "--network-alias", svc.Name}
+		if opts.stopped {
+			args = append([]string{"create"}, args[2:]...)
+		}
 		if opts.persistent {
 			args = append(args, "--restart", "unless-stopped")
 		} else {
@@ -375,7 +379,7 @@ func runInitContainers(ctx context.Context, dk Scope, id, network string, c *app
 // It ensures a network exists when there is init/extra-part work but no needs
 // stack created one. Returns the prepared execution plan and
 // the network to run the public app on.
-func bringUpParts(ctx context.Context, dk Scope, id, name, ws, network string, c *appcontract.Plan, secrets Delivery, own Ownership, url string) (*appcontract.Plan, string, error) {
+func bringUpParts(ctx context.Context, dk Scope, id, name, ws, network string, c *appcontract.Plan, secrets Delivery, own Ownership, url string, stopped bool) (*appcontract.Plan, string, error) {
 	hasExtra := len(c.Init) > 0
 	for _, p := range c.Parts {
 		if !p.Public {
@@ -403,7 +407,7 @@ func bringUpParts(ctx context.Context, dk Scope, id, name, ws, network string, c
 		// and run stacks stay throwaway.
 		opts := serviceRunOptions{class: "service"}
 		if own.persistent {
-			opts = serviceRunOptions{class: "env", persistent: true}
+			opts = serviceRunOptions{class: "env", persistent: true, stopped: stopped}
 		}
 		if err := runServiceContainersWith(ctx, dk, id, network, extra, opts, own); err != nil {
 			return nil, "", err

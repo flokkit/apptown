@@ -101,6 +101,9 @@ func SelectRemovalIn(ctx context.Context, tx *database.Tx, projectID ids.ID, nam
 	if err != nil {
 		return nil, err
 	}
+	if dep.runtimeBusy() {
+		return nil, errRuntimeBusy
+	}
 	// Feed edits hold the same project lock. Check both before effects and
 	// when settlement selects again, before any retention or deletion writes.
 	rows, err := q.LockFeedSettings(ctx, projectID)

@@ -21,6 +21,7 @@ import (
 // execution operations with their configured drivers and collaborators. Its
 // exposed record owners are not independently authenticated user entry points.
 type Service struct {
+	runtimeActs       sync.Map // Local executors and status repair exclude each other per deployment.
 	creationAuthority creationAuthority
 	// healthParts is the public part read at each release revision the
 	// health controller has asked about; a revision's contract never changes.

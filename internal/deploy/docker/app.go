@@ -157,7 +157,7 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// reach. Only main is routed there (RoutesDeployment).
 	routed := dk.remote() && dk.routesDeployment(t.Deployment) && !sealed
 	args := []string{"run", "-d", "--name", name}
-	if routed {
+	if routed || t.stopped {
 		args = []string{"create", "--name", name}
 	}
 	// class: a preview is ephemeral and reapable; a deployed env is
@@ -343,9 +343,14 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		// Best effort: the host's Traefik network is the owner's to make;
 		// without it the container is still reachable by address and port.
 		_, _ = dk.Run(ctx, "network", "connect", "traefik", name)
-		if out, err := dk.Run(ctx, "start", name); err != nil {
-			return 0, fmt.Errorf("docker start: %s", strs.Tail(strings.TrimSpace(dk.redacted(out)), startFailureTail))
+		if !t.stopped {
+			if out, err := dk.Run(ctx, "start", name); err != nil {
+				return 0, fmt.Errorf("docker start: %s", strs.Tail(strings.TrimSpace(dk.redacted(out)), startFailureTail))
+			}
 		}
+	}
+	if t.stopped {
+		return hostPort, nil
 	}
 	if sealed {
 		return 0, nil // no host port: reached on its own network only

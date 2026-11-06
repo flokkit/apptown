@@ -667,3 +667,6 @@ SELECT * FROM release_bundles WHERE project_id=sqlc.arg(project_id) ORDER BY id 
 SELECT r.* FROM releases r WHERE r.deployment_id=sqlc.arg(deployment_id) AND r.bundle_id=sqlc.arg(bundle_id) AND r.state='released'
 AND r.number < (SELECT max(latest.number) FROM releases latest WHERE latest.deployment_id=r.deployment_id AND latest.state='released')
 ORDER BY r.number DESC LIMIT 1;
+
+-- name: SetRuntimeState :execrows
+UPDATE deployments SET runtime_state=sqlc.arg(state), runtime_actor=sqlc.arg(actor), runtime_at=sqlc.narg(at), runtime_error=sqlc.arg(error) WHERE id=sqlc.arg(id);

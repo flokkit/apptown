@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -167,5 +168,54 @@ func TestDeploymentAddressHTTPChecksCurrentAuthorityAndRevision(t *testing.T) {
 	var reading deployment.AddressReading
 	if err := json.Unmarshal(w.Body.Bytes(), &reading); err != nil || w.Code != http.StatusOK || reading.CustomHostname != "customer.example" || reading.Revision != 1 {
 		t.Fatalf("address read: %d %s %v", w.Code, w.Body, err)
+	}
+}
+
+// These requests also run against the old server: missing action routes are
+// failures, rather than a test double supplying runtime behavior.
+func TestRuntimeHTTPUsesOperateAuthorityAndRefusesBucketActions(t *testing.T) {
+	a := testApp(t)
+	pid := plainTestProject(t, a.DB, "runtime", "Runtime")
+	testAdministrator(t, a, "boss")
+	if err := a.EnsureAuthorization(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if id := a.addGrant("user", "reader", access.RoleProjectViewer, "", access.ScopeProject, pid.String(), "boss", ""); id.IsZero() {
+		t.Fatal("reader grant failed")
+	}
+	if id := a.addGrant("user", "operator", "", string(access.CapDeploymentOperate), access.ScopeProject, pid.String(), "boss", ""); id.IsZero() {
+		t.Fatal("operate grant failed")
+	}
+	target, err := a.Deployment.Targets.Put(t.Context(), &deployment.Target{Name: "bucket", Kind: deployment.KindS3Bucket, Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = a.Deployment.Deployments.EnsureStanding(t.Context(), pid, "production", target.ID, deployment.Attributes{Feed: "manual", Audience: "public", DataClass: "production"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := a.Handler()
+	for _, action := range []string{"start", "stop", "restart"} {
+		path := "/api/v1/projects/runtime/deployments/production/" + action
+		t.Run(action+"/authority", func(t *testing.T) {
+			if w := authzCall(h, "reader", "POST", path, `{}`); w.Code != 403 {
+				t.Fatalf("reader %s: %d %s", action, w.Code, w.Body.String())
+			}
+		})
+		t.Run(action+"/bucket", func(t *testing.T) {
+			if w := authzCall(h, "operator", "POST", path, `{}`); w.Code != 422 || !strings.Contains(w.Body.String(), "Bucket websites cannot be started, stopped or restarted") {
+				t.Fatalf("operator %s: %d %s", action, w.Code, w.Body.String())
+			}
+		})
+	}
+
+	acts, err := audit.Recent(t.Context(), a.DB, audit.Filter{ProjectID: pid, KindPrefix: "deployment.", Subject: "production"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, act := range acts {
+		if strings.HasSuffix(act.Kind, "-requested") {
+			t.Fatalf("refused runtime action recorded intent: %+v", act)
+		}
 	}
 }

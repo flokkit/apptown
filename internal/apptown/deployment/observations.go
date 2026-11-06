@@ -69,6 +69,9 @@ func reachabilityKey(r listingRecord) [32]byte {
 	return sha256.Sum256(raw)
 }
 func (o *observations) read(r listingRecord, now time.Time) RuntimeObservation {
+	if r.deployment.RuntimeState == "stopped" {
+		return RuntimeObservation{State: RuntimeStopped, TargetName: runtimeTargetName(r), ObservedAt: r.deployment.RuntimeAt.Time}
+	}
 	o.mu.RLock()
 	entry, ok := o.entries[r.deployment.ID]
 	health := o.readiness[r.deployment.ID]

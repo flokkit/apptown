@@ -81,10 +81,10 @@ func (at Attempt) unsettled(dep *Deployment, status AttemptState) (verdict, erro
 }
 
 // completes says whether an observation completes the attempt: it must be
-// an active observation of the attempt's own generation.
+// a running or explicitly stopped observation of the attempt's own generation.
 func (at Attempt) completes(o deploy.Observation) error {
-	if o.Generation != at.Generation || o.Rollout != "active" {
-		return errors.New("deployment completion requires an active observation of the requested generation")
+	if o.Generation != at.Generation || (o.Rollout != "active" && o.Rollout != "stopped") {
+		return errors.New("deployment completion requires a confirmed observation of the requested generation")
 	}
 	return nil
 }

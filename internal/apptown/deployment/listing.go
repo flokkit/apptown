@@ -10,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/stamp"
 
 	"github.com/flokkit/apptown/internal/access"
 
@@ -93,6 +94,9 @@ type NeedSummary struct {
 	Status                                needState
 }
 type Summary struct {
+	RuntimeState, RuntimeActor, RuntimeError string
+	RuntimeAt                                stamp.Time
+	RuntimeControls                          map[string]string
 	// ServingRelease is this placement's latest successful release, independent
 	// of bounded project history. Observation determines whether it runs now.
 	ServingRelease    *Release
@@ -210,7 +214,7 @@ func runtimeState(o deploy.Observation) RuntimeState {
 	switch o.Rollout {
 	case "active":
 		return RuntimeRunning
-	case "absent":
+	case "absent", "stopped":
 		return RuntimeStopped
 	default:
 		return RuntimeUnknown
@@ -289,7 +293,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 				needs = append(needs, NeedSummary{Need: o.Need, Name: o.Name, ID: o.ID, Status: NeedReady})
 			}
 		}
-		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{ApprovalRole: e.ApprovalRole, FeedRevision: e.FeedRevision, FeedConfirmed: e.FeedConfirmed, LastApplied: e.LastApplied, DisplayLabel: e.DisplayLabel,
+		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{RuntimeState: e.RuntimeState, RuntimeActor: e.RuntimeActor, RuntimeAt: e.RuntimeAt, RuntimeError: e.RuntimeError, RuntimeControls: runtimeControls(byTarget[e.TargetID], e), ApprovalRole: e.ApprovalRole, FeedRevision: e.FeedRevision, FeedConfirmed: e.FeedConfirmed, LastApplied: e.LastApplied, DisplayLabel: e.DisplayLabel,
 			ID: e.ID, TargetID: e.TargetID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
 			Attributes: e.releaseAttributes(), Protected: e.Protected(), Generation: e.ObservedGeneration, Readiness: e.Readiness,
 			ChangeID: e.ChangeID, Target: summaries[e.TargetID], Needs: needs, AIModelsKeys: keys,

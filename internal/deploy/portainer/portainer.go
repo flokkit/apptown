@@ -318,6 +318,10 @@ func (d *Driver) Resume(ctx context.Context, p deploy.Placement, generation int6
 	if err != nil {
 		return out, err
 	}
+	if expected.Stopped {
+		p.Handle, p.Generation, p.URL = noted, generation, expected.Readiness.URL
+		return observeStopped(ctx, cfg, p, expected)
+	}
 	diagnostic, close, err := d.diagnostic(ctx, cfg)
 	if err != nil {
 		return out, err
@@ -369,19 +373,21 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 			return out, deploy.Terminal(errors.New("Portainer artifact differs from its admitted identity"))
 		}
 		d.ExpectedArtifact = art.Hash
-		opened, closeDiagnostic, openErr := d.diagnostic(ctx, cfg)
-		if openErr != nil {
-			return out, deploy.Terminal(openErr)
-		}
-		diagnostic = &opened
-		defer func() {
-			if cleanupErr := closeDiagnostic(); cleanupErr != nil {
-				invalidateHealth(&out)
-				err = errors.Join(err, cleanupErr)
+		if !p.Stopped {
+			opened, closeDiagnostic, openErr := d.diagnostic(ctx, cfg)
+			if openErr != nil {
+				return out, deploy.Terminal(openErr)
 			}
-		}()
+			diagnostic = &opened
+			defer func() {
+				if cleanupErr := closeDiagnostic(); cleanupErr != nil {
+					invalidateHealth(&out)
+					err = errors.Join(err, cleanupErr)
+				}
+			}()
+		}
 	}
-	out, err = (execution{config: *cfg, targetID: d.TargetID, deploymentID: p.ID, endpointID: endpointID, stack: stack, prefix: prefix, compose: string(art.Body), url: p.URL, handle: p.Handle, log: logf, owner: d.Owner, diagnostic: diagnostic, allowed: d.Allowed}).execute(ctx, generation, checkpoint)
+	out, err = (execution{stopped: p.Stopped, config: *cfg, targetID: d.TargetID, deploymentID: p.ID, endpointID: endpointID, stack: stack, prefix: prefix, compose: string(art.Body), url: p.URL, handle: p.Handle, log: logf, owner: d.Owner, diagnostic: diagnostic, allowed: d.Allowed}).execute(ctx, generation, checkpoint)
 	if err != nil || ready == nil {
 		return out, err
 	}
@@ -396,6 +402,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	p.Handle = handle
 	p.Generation = generation
 	p.URL = ready.URL
+	if p.Stopped {
+		return observeStopped(ctx, cfg, p, expected)
+	}
 	return d.awaitReadiness(ctx, cfg, p, expected, *diagnostic)
 }
 
@@ -405,6 +414,16 @@ func (d *Driver) Observe(ctx context.Context, p deploy.Placement) (deploy.Observ
 	cfg, err := d.Config(ctx, d.TargetID)
 	if err != nil {
 		return deploy.Observation{}, err
+	}
+	if p.Stopped {
+		expected, err := savedRelease(p.Handle)
+		if err != nil {
+			return deploy.Observation{}, err
+		}
+		if expected == nil {
+			return deploy.Observation{}, errors.New("stopped runtime has no recorded components")
+		}
+		return observeStopped(ctx, cfg, p, expected)
 	}
 	out, err := observeStacks(ctx, cfg, []deploy.Placement{p})
 	if err != nil {
@@ -697,6 +716,7 @@ func (d *Driver) Controls() deploy.Controls {
 // Both bundle and intranet releases execute this prepared request. Config is
 // execution-only; checkpoints contain provider identity, never credentials.
 type execution struct {
+	stopped             bool
 	diagnostic          *Diagnostic
 	allowed             func(context.Context) error
 	targetID            ids.ID
@@ -737,6 +757,17 @@ func (p execution) execute(ctx context.Context, generation int64, checkpoint dep
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
 	p.compose = stamped
+	if p.stopped {
+		if expected == nil {
+			return deploy.Observation{}, deploy.Terminal(errors.New("stopped releases require component identities"))
+		}
+		expected.Stopped = true
+		p.compose, err = scaleAppParts(p.compose, expected.Readiness, 0)
+		if err != nil {
+			return deploy.Observation{}, deploy.Terminal(err)
+		}
+		expected.SubmittedHash = deploy.ConfigHash(strings.TrimSpace(p.compose))
+	}
 	identity := map[string]any{"stack": p.stack, "endpoint": p.config.EnvName, "endpointId": p.endpointID, "providerScope": p.config.Scope, "deploymentId": p.deploymentID}
 	if expected != nil {
 		identity["releaseReadiness"] = expected
@@ -747,8 +778,11 @@ func (p execution) execute(ctx context.Context, generation int64, checkpoint dep
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
 	}
-	if expected != nil {
-		if p.diagnostic == nil || p.allowed == nil {
+	if expected != nil && p.allowed == nil {
+		return deploy.Observation{}, deploy.Terminal(errors.New("Portainer release has no admitted authority"))
+	}
+	if expected != nil && !p.stopped {
+		if p.diagnostic == nil {
 			return deploy.Observation{}, deploy.Terminal(errors.New("Portainer release has no admitted diagnostic authority"))
 		}
 		if err := p.diagnostic.preflight(ctx, expected.Readiness.Public.ToolImage); err != nil {
@@ -767,7 +801,7 @@ func (p execution) execute(ctx context.Context, generation int64, checkpoint dep
 		}
 	}
 	allowed := p.allowed
-	if expected != nil {
+	if p.diagnostic != nil {
 		allowed = p.diagnostic.allowed
 	}
 	if allowed != nil {
@@ -808,6 +842,7 @@ func (p execution) execute(ctx context.Context, generation int64, checkpoint dep
 	handle["stack"], handle["endpoint"] = p.stack, p.config.EnvName
 	handle["providerScope"] = *p.config.Scope
 	handle["stackId"] = applied.ID
+	handle["stackApplied"] = true
 	if expected != nil {
 		handle["releaseReadiness"] = expected
 	}

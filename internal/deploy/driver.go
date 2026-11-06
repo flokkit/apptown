@@ -116,7 +116,8 @@ type Logf = func(string, ...any)
 // and implement it directly; AppTown registers them by kind.
 type Driver interface {
 	// Reconcile brings the deployment to the artifact as the given
-	// generation. The same idempotency key is the same attempt; checkpoint
+	// generation. When Placement.Stopped is true, application parts must stay
+	// stopped while needs and code are updated. The same idempotency key is the same attempt; checkpoint
 	// records the provider's identifiers on the attempt as soon as they
 	// exist, so recovery can use them.
 	Reconcile(ctx context.Context, p Placement, generation int64, art Artifact, key string, log Logf, checkpoint Checkpoint) (Observation, error)
@@ -197,6 +198,16 @@ type TakeDown struct {
 type TakenDown struct {
 	Deleted []string
 	Left    []Left
+}
+
+// RuntimeController changes only the application's runtime, preserving its needs,
+// data and configuration. Restart stops then starts the selected release.
+type RuntimeController interface {
+	Runtime(context.Context, Placement, string) error
+	// ObserveRuntime confirms every application part controlled by Runtime,
+	// excluding needs. Stopped requires all parts stopped; active requires all
+	// parts running. An unassessable part is an error, never confirmation.
+	ObserveRuntime(context.Context, Placement) (Observation, error)
 }
 
 // Inventorier is a driver that can say what its target holds.

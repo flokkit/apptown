@@ -195,6 +195,13 @@ func (s *Service) CheckAgain(ctx context.Context, projectID ids.ID, name string)
 	if err != nil {
 		return result, err
 	}
+	if err := s.checkRuntimeControl(ctx, dep); err != nil {
+		return result, err
+	}
+	dep, err = s.Deployments.ByID(ctx, dep.ID)
+	if err != nil {
+		return result, err
+	}
 	stranded, err := s.Outcomes.ContradictorySettlements(ctx)
 	if err != nil {
 		return result, err

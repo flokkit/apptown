@@ -7,6 +7,7 @@ selection, uncertain outcomes and stale dashboard observations.
 
 | Change you are making | Start here |
 | --- | --- |
+| Start, stop and restart | [runtime_control.go](runtime_control.go); provider runtime operations live beside their drivers |
 | Manual release request | [request.go](request.go) → [request_execution.go](request_execution.go) |
 | Preparation, attempt admission and execution | [deploy.go](deploy.go) → [execution.go](execution.go) → [settlement.go](settlement.go) |
 | Release settlement | [settlement_release.go](settlement_release.go), [settlement_inputs.go](settlement_inputs.go) |

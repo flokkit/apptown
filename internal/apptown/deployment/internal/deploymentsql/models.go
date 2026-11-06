@@ -42,6 +42,10 @@ type Deployment struct {
 	FeedAuthorityJson  *json.RawMessage
 	PromotedFromID     ids.ID
 	ApprovalRole       string
+	RuntimeState       string
+	RuntimeActor       string
+	RuntimeAt          sql.NullTime
+	RuntimeError       string
 }
 
 type DeploymentAddressSetting struct {

@@ -127,7 +127,7 @@ func settleDeploymentReleaseIn(ctx context.Context, tx *database.Tx, at Attempt,
 		if err != nil {
 			return err
 		}
-		if o.Rollout != "active" || o.Generation != at.Generation {
+		if (o.Rollout != "active" && !(dep.RuntimeState == "stopped" && o.Rollout == "stopped")) || o.Generation != at.Generation {
 			return fmt.Errorf("attempt %d has no confirmed observation of generation %d", at.ID, at.Generation)
 		}
 		kind = "release.deployed"

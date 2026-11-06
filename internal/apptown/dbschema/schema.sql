@@ -1437,6 +1437,10 @@ CREATE TABLE IF NOT EXISTS deployments (
   feed_authority_json JSONB,
   promoted_from_id UUID REFERENCES deployments(id),
   approval_role TEXT NOT NULL DEFAULT '',
+  runtime_state TEXT NOT NULL DEFAULT 'running' CHECK (runtime_state IN ('running','stopped','starting','stopping','restarting')),
+  runtime_actor TEXT NOT NULL DEFAULT '',
+  runtime_at TIMESTAMPTZ,
+  runtime_error TEXT NOT NULL DEFAULT '',
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
   UNIQUE(project_id, name)
 );

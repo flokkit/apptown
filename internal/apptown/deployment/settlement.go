@@ -67,6 +67,9 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 	if err != nil {
 		return Attempt{}, false, err
 	}
+	if dep.runtimeBusy() {
+		return Attempt{}, false, errRuntimeBusy
+	}
 	if err := dep.bound(in.TargetID); err != nil {
 		return Attempt{}, false, err
 	}
@@ -256,6 +259,9 @@ func (s *Outcomes) finish(ctx context.Context, in Completion, cause error) (depl
 				return "", err
 			}
 			return alreadyApplied, nil
+		}
+		if cause == nil && (in.Observed.Rollout == "stopped") != (dep.RuntimeState == "stopped") {
+			return "", errors.New("observed runtime differs from deployment intent")
 		}
 		next, readiness := verdict.Next, verdict.Readiness
 		data, err := json.Marshal(in.Observed)

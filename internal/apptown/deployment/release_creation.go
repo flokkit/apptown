@@ -110,6 +110,15 @@ func createReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft) (Numb
 			deploymentID = dep.Deployment.ID
 		}
 	}
+	if !deploymentID.IsZero() {
+		dep, err := lockDeploymentRecordIn(ctx, tx, deploymentID)
+		if err != nil {
+			return NumberedRelease{}, err
+		}
+		if dep.runtimeBusy() {
+			return NumberedRelease{}, errRuntimeBusy
+		}
+	}
 	if !d.Automatic {
 		if err := takeDownHeldIn(ctx, tx, d.ProjectID, deploymentID); err != nil {
 			return NumberedRelease{}, err

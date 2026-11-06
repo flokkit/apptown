@@ -105,9 +105,7 @@ function deployLabel(e: DeploymentView) {
 }
 
 // Summary reads share the detail card's resource keys and freshness rules.
-export function DeploymentRow({ slug, env: e, current = true }: { slug: string; env: DeploymentView; current?: boolean }) {
-  const nav = useNavigate()
-  const { run, busy, err } = useAction()
+export function DeploymentRow({ slug, env: e }: { slug: string; env: DeploymentView; current?: boolean }) {
   const base = `/projects/${slug}/deployments/${e.name}`
   const resources = useGet<DeploymentResources>(e.generation ? `${base}/resources` : null, { poll: 5000 })
   const hasProtection = e.target?.kind === 'do-app' || e.target?.kind === 'docker-host'
@@ -139,13 +137,7 @@ export function DeploymentRow({ slug, env: e, current = true }: { slug: string; 
         : <ServingRelease slug={slug} env={e} />}{e.kind === 'preview' && <StaleNote q={change} inline />}</div>
       {backup && <span className={backup === 'no backup yet' ? 'error small' : 'deploy-warning small'}> {backup}</span>}
       {warning && <span className={share?.diskRefuses ? 'error small' : 'deploy-warning small'}> {warning}</span>}</>}
-    action={waitingRelease?.decision?.canApprove ? <Link className="btn" to={base}>Review release {waitingRelease.number}</Link> : e.kind === 'standing' && e.feed !== 'main' ? <div className="stack stack-1">
-      <button title={promotionHelp(e)} disabled={busy || !current || !e.target || !!e.promotionBlocked} onClick={async () => {
-          const result = await run(() => post<ReleaseRequested>(`${base}/deploy`, e.feed === 'promotion' ? { expectedSourceBundleId: e.promotionBundleId } : {}))
-          if (result) nav(`/projects/${slug}/releases/${result.number}`)
-        }}>{deployLabel(e)}</button>
-      {err && <span className="error small">{err}</span>}
-    </div> : e.kind === 'preview' ? <Link className="btn" to={base}>Open</Link> : undefined} />
+    />
 }
 
 export function DeploymentPage() {
@@ -160,7 +152,7 @@ export function DeploymentPage() {
   }, [slug, label])
   return <><ReadStatus q={q} what="the deployment" /><StaleNote q={q} />
     {e && <div className="row row-2"><button disabled={busy} onClick={() => run(async () => { await post<DeploymentChecked>(`/projects/${slug}/deployments/${name}/check`, {}); await q.reload() })}>Refresh status</button>{err && <span className="error">{err}</span>}</div>}
-    <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} displayLabel={e ? deploymentName(e) : undefined} url={e?.url} />
+    {e && <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} displayLabel={e ? deploymentName(e) : undefined} url={e?.url} env={q.refreshFailed ? { ...e, observation: 'unknown' } : e} current={q.current} reload={q.reload} />}
     {e && <DeploymentFeed key={`${slug}/${name}/feed`} slug={slug!} name={name!} />}
     {e && <EnvCard slug={slug!} env={q.refreshFailed ? { ...e, observation: 'unknown' } : e} onChanged={q.reload} />}
   </>

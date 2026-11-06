@@ -388,6 +388,9 @@ func (h *Hosts) Watched(ctx context.Context, deployments *Deployments) []docker.
 		log.Printf("read failed: %v", err)
 	}
 	for _, e := range records {
+		if e.RuntimeState != "running" {
+			continue
+		}
 		target, err := h.targets.ByID(ctx, e.TargetID)
 		if err != nil {
 			log.Printf("health controller: %s/%s: resolving Docker target %d: %v", e.Project, e.Name, e.TargetID, err)

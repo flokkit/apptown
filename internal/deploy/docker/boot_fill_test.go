@@ -73,3 +73,38 @@ func TestAFillRunsAfterTheNeedsAndBeforeAnythingOfTheApp(t *testing.T) {
 		}
 	}
 }
+
+func TestStoppedBootCreatesAppPartsWithoutStartingThem(t *testing.T) {
+	c, err := appcontract.Parse([]byte(strings.Split(preparedContract, "needs:")[0]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws := t.TempDir()
+	if err := os.WriteFile(ws+"/Dockerfile", []byte("FROM scratch\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	client := &recordingClient{}
+	host := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}})
+	_, err = host.Boot(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, stopped: true, Docker: Scope{Client: client}, Name: "apptown-preview-change-1", StackID: "pvsnap-change-1", Workspace: ws, Slug: "app", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir(), persistent: true, hostPort: 43210}, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, worker := false, false
+	for _, call := range client.calls {
+		if strings.HasPrefix(call, "run") && (strings.Contains(call, "--name apptown-preview-change-1 ") || strings.Contains(call, "--name "+Current.Service("pvsnap-change-1", "worker")+" ")) {
+			t.Fatalf("stopped boot started app: %s", call)
+		}
+		if strings.HasPrefix(call, "start ") {
+			t.Fatalf("stopped boot started container: %s", call)
+		}
+		if strings.HasPrefix(call, "create ") && strings.Contains(call, "--name apptown-preview-change-1 ") {
+			app = true
+		}
+		if strings.HasPrefix(call, "create ") && strings.Contains(call, "--name "+Current.Service("pvsnap-change-1", "worker")+" ") {
+			worker = true
+		}
+	}
+	if !app || !worker {
+		t.Fatalf("did not prepare both app parts: app=%v worker=%v calls=%v", app, worker, client.calls)
+	}
+}

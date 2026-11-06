@@ -4,11 +4,23 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { expect, it } from 'vitest'
 import { getKey, newQueryClient } from '../../data'
-import { DeploymentDeploys } from './DeploymentDeploys'
+import { DeploymentDeploys as ActualDeploymentDeploys } from './DeploymentDeploys'
+import type { ComponentProps } from 'react'
+import type { DeploymentView } from '../../wire.gen'
 import css from './deployment-deploys.css?inline'
+function runtimeClient() {
+  const client = newQueryClient()
+  for (const name of ['main', 'production']) client.setQueryData(getKey(`/projects/lunch/deployments/${name}/diagnostics`), { parts: [], reading: { unknown: false, stale: false } })
+  return client
+}
+function DeploymentDeploys(props: Omit<ComponentProps<typeof ActualDeploymentDeploys>, 'env' | 'current' | 'reload'>) {
+  const env = { id: 'deployment', name: props.name, generation: 1, kind: 'standing', runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { start: '', stop: '', restart: '' }, observation: 'running', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', promotionBlocked: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, displayLabel: 'Lunch Orders', url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView
+  return <ActualDeploymentDeploys {...props} env={env} current reload={async () => {}} />
+}
+
 
 it.each(['releasing', 'released', 'failed'])('shows automatic and manual releases through the same history for %s', state => {
-  const client = newQueryClient()
+  const client = runtimeClient()
   client.setQueryData(getKey('/projects/lunch/releases'), [
     { number: 9, deployment: 'main', runId: 'landing', state, createdAt: '2026-11-05T01:01:00Z', failure: state === 'failed' ? 'follows main is not confirmed for this deployment' : '', changes: [{ id: 'change', number: 12, title: 'Fix lunch' }] },
     { number: 8, deployment: 'main', state: 'released', createdAt: '2026-11-05T01:00:00Z', changes: [] },
@@ -19,7 +31,7 @@ it.each(['releasing', 'released', 'failed'])('shows automatic and manual release
   expect(el.querySelectorAll('.deployment-deploy-card')).toHaveLength(1)
   expect(css).toMatch(/\.deployment-deploy-card\s*\{[^}]*height: 660px;[^}]*overflow: auto;/)
   expect(el.querySelector('h1')?.textContent).toContain('Lunch Orders')
-  expect(el.querySelector('h1 .chip')?.textContent).toContain(state === 'released' ? 'live' : state === 'releasing' ? 'deploying' : 'stopped')
+  expect(el.querySelector('h1 .chip')?.textContent).toContain(state === 'releasing' ? 'deploying' : 'running')
   const history = el.querySelector('section:last-child')!
   expect(history.querySelectorAll('a[href="/projects/lunch/releases/9"]')).toHaveLength(1)
   expect(history.querySelectorAll('a[href="/projects/lunch/releases/8"]')).toHaveLength(1)
@@ -30,7 +42,7 @@ it.each(['releasing', 'released', 'failed'])('shows automatic and manual release
 })
 
 it('shows an empty release history without manufacturing a deploy', () => {
-  const client = newQueryClient()
+  const client = runtimeClient()
   client.setQueryData(getKey('/projects/lunch/releases'), [])
   const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="main" /></QueryClientProvider></MemoryRouter>)
   expect(html).toContain('No deploys yet.')
@@ -39,7 +51,7 @@ it('shows an empty release history without manufacturing a deploy', () => {
 })
 
 it.each([true, false])('shows waiting release doors only when offered to this viewer: %s', eligible => {
-  const client = newQueryClient()
+  const client = runtimeClient()
   client.setQueryData(getKey('/projects/lunch/releases'), [{ number: 12, deployment: 'production', state: 'waiting for approval', approvalRole: 'release-manager', createdAt: '2026-11-05T01:00:00Z', changes: [], decision: { meaning: 'I accept release 12 running on production', canApprove: eligible, canCancel: eligible } }])
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="production" /></QueryClientProvider></MemoryRouter>)
@@ -57,7 +69,7 @@ it.each([true, false])('shows waiting release doors only when offered to this vi
 })
 
 it('retains human assent on the deployment card and its history', () => {
-  const client = newQueryClient()
+  const client = runtimeClient()
   client.setQueryData(getKey('/projects/lunch/releases'), [{ number: 12, deployment: 'production', state: 'released', createdAt: '2026-11-05T01:00:00Z', changes: [], approval: { actor: { name: 'Priya', via: 'token-cli:laptop' }, at: '2026-11-05T01:02:00Z', meaning: 'I accept release 12 running on production' } }])
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="production" /></QueryClientProvider></MemoryRouter>)

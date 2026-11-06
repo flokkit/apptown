@@ -24,6 +24,13 @@ import (
 func (s *Service) HealthController() *docker.HealthController {
 	return docker.NewHealthController(docker.HealthDependencies{
 		BeforeAct: func(ctx context.Context, w docker.Watched) error {
+			dep, err := s.Deployments.ByID(ctx, w.DeploymentID)
+			if err != nil {
+				return err
+			}
+			if dep.RuntimeState != "running" {
+				return errRuntimeBusy
+			}
 			return NewHostSnapshots(s.db, s.now).BeforeAct(ctx, w.TargetID)
 		},
 		Watch:      func(ctx context.Context) []docker.Watched { return s.hosts.Watched(ctx, s.Deployments) },

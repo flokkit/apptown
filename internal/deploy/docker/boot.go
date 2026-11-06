@@ -38,6 +38,7 @@ func AuthorisedWhenRequested(context.Context) error { return nil }
 // BootRequest names what a boot is for. Everything the sequence needs beyond
 // the contract itself.
 type BootRequest struct {
+	stopped bool // Prepare application containers without starting them.
 	// Allowed is required: a current permission check repeated before effects,
 	// or AuthorisedWhenRequested for an owner that authorizes at request time.
 	Allowed func(context.Context) error
@@ -545,7 +546,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	if err := allowed(ctx); err != nil {
 		return res, &BootError{Phase: PhaseParts, Err: err}
 	}
-	plan, network, err = bringUpParts(ctx, t.Docker, t.StackID, t.Name, t.Workspace, network, plan, rs.Secrets, t.own, t.URL)
+	plan, network, err = bringUpParts(ctx, t.Docker, t.StackID, t.Name, t.Workspace, network, plan, rs.Secrets, t.own, t.URL, t.stopped)
 	if err != nil {
 		return res, &BootError{Phase: PhaseParts, Err: err}
 	}
@@ -561,6 +562,9 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		return res, &BootError{Phase: PhaseApp, Err: err}
 	}
 	res.HostPort = hostPort
+	if t.stopped {
+		return res, nil
+	}
 	if t.stage != nil {
 		t.stage(deploy.Checking)
 	}
