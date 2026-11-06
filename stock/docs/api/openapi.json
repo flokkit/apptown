@@ -10282,6 +10282,84 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/groups/{name}/members/{user}": {
+      "delete": {
+        "operationId": "deleteGroupsNameMembersUser",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "groups"
+        ],
+        "x-apptown-access": {
+          "capability": "identity:manage-groups",
+          "kind": "capability",
+          "scope": "instance"
+        },
+        "x-apptown-stability": "experimental"
+      },
+      "post": {
+        "operationId": "postGroupsNameMembersUser",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "groups"
+        ],
+        "x-apptown-access": {
+          "capability": "identity:manage-groups",
+          "kind": "capability",
+          "scope": "instance"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/api/v1/guidance/blocks": {
       "get": {
         "operationId": "getGuidanceBlocks",

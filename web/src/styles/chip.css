@@ -73,4 +73,7 @@
 }
 
 .finding-count { color: var(--warn); font-size: var(--fs-xs); }
+.list-status { display: inline-flex; gap: var(--space-1); align-items: center; }
+.list-status > span { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.list-status.active > span { background: var(--ok); }
 }

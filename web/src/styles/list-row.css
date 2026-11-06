@@ -23,14 +23,10 @@
 .list-detail dl { display: grid; gap: 8px; }
 .list-detail dt { color: var(--muted); font-size: var(--fs-sm); }
 .list-detail dd { margin: 0; }
-.list-table { width: 100%; }
-.list-table > thead { display: none; }
-.list-table-row > td { padding: 0; border: 0; }
 @media (max-width: 800px) {
   .list-row { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px 0; }
   .list-action { justify-self: start; }
   .list-action:empty, .list-state:empty { display: none; }
-  .list-table, .list-table tbody, .list-table-row, .list-table-row > td { display: block; width: 100%; }
 }
 
 /* Lists of work line up: the state and the action take fixed columns, so
@@ -77,13 +73,11 @@
 }
 .pack-title { display: inline-flex; align-items: center; gap: 8px; }
 @media (max-width: 800px) { .pack-row .list-identity { grid-template-columns: minmax(0, 1fr); row-gap: 2px; } }
-.section-group .list-table { margin: 0; }
-.section-group .list-table td, .section-group .list-table th { padding-left: 0; padding-right: 0; }
 .section-body > .card, .section-body .project-rows > .list-row, .section-body > .section-group { background: transparent; }
 /* Inside a section's surface, the surface's edge is the last line: no row
    draws its own divider against it, and a table runs to the edges. */
 .section-body > .card:last-child, .section-body > :last-child > .card:last-child, .section-body .project-rows > .list-row:last-child,
-.section-body tr:last-child > td, .section-body .list-table-row:last-child td { border-bottom: 0; }
+.section-body tr:last-child > td { border-bottom: 0; }
 
 /* Credentials stay visible in compact shared rows, including on phones. */
 .credential-list .credential-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; padding: 6px 0; }

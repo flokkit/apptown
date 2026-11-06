@@ -151,3 +151,21 @@ func (h Accounts) DeleteGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	WriteJSON(w, 200, Done{OK: true})
 }
+
+// AddGroupMember: POST /api/v1/groups/{name}/members/{user}.
+func (h Accounts) AddGroupMember(w http.ResponseWriter, r *http.Request) {
+	if err := h.access.AddGroupMember(r.Context(), r.PathValue("name"), r.PathValue("user"), Principal(r)); err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, Done{OK: true})
+}
+
+// RemoveGroupMember: DELETE /api/v1/groups/{name}/members/{user}.
+func (h Accounts) RemoveGroupMember(w http.ResponseWriter, r *http.Request) {
+	if err := h.access.RemoveGroupMember(r.Context(), r.PathValue("name"), r.PathValue("user"), Principal(r)); err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, Done{OK: true})
+}

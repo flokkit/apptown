@@ -606,3 +606,14 @@ SELECT * FROM external_signin_bindings WHERE principal_id=$1 ORDER BY created_at
 
 -- name: LiveAuthTokensForPrincipal :many
 SELECT * FROM auth_tokens_named WHERE principal_id = $1 AND revoked_at IS NULL ORDER BY created_at DESC;
+
+-- name: GroupByNameForUpdate :one
+SELECT * FROM groups WHERE name = $1 FOR UPDATE;
+
+-- name: AddGroupMember :execrows
+INSERT INTO group_members (group_name, principal_id, created_by, created_by_principal, created_by_via, created_at)
+VALUES (sqlc.arg(group_name), sqlc.arg(principal_id), sqlc.arg(created_by), sqlc.arg(created_by_principal), sqlc.arg(created_by_via), sqlc.arg(created_at))
+ON CONFLICT (group_name, principal_id) DO NOTHING;
+
+-- name: RemoveGroupMember :execrows
+DELETE FROM group_members WHERE group_name = sqlc.arg(group_name) AND principal_id = sqlc.arg(principal_id);

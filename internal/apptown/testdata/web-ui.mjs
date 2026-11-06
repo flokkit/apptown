@@ -58,6 +58,21 @@ try {
       await request('/users', { username, password: 'local-disabled-password', role: 'member' });
       await request('/users', { username, disabled: true });
     }
+    for (let n = 1; n <= 32; n++) {
+      const username = `colleague-${String(n).padStart(2, '0')}`;
+      await request('/users', { username, password: 'disposable-account-password', role: 'member' });
+      if (n <= 30) {
+        // Exercise real token authentication without replacing the administrator's cookie.
+        const name = `camera-${username}`;
+        const issued = await request('/tokens', { name, user: username, purpose: 'cli' });
+        const seen = await fetch('/api/v1/auth/me', { credentials: 'omit', headers: { Authorization: `Bearer ${issued.token}` } });
+        if (!seen.ok) throw new Error('colleague activity: ' + seen.status);
+        const revoked = await fetch(`/api/v1/tokens/${name}`, { method: 'DELETE' });
+        if (!revoked.ok) throw new Error('camera token revoke: ' + revoked.status);
+      }
+    }
+    await request('/groups', { name: 'reviewers', description: 'Reviews team changes', members: ['sam', 'priya', 'colleague-01', 'colleague-02', 'never-signed-in'] });
+    for (const name of ['support', 'editors', 'operations', 'readers']) await request('/groups', { name, members: ['sam', 'colleague-01'] });
     for (let n = 1; n <= 21; n++) {
       await request('/complaints', { text: `Could not open the household calendar (${n})`, why: 'The link did not open.', wish: 'Show a way back.' });
     }
@@ -93,7 +108,7 @@ try {
   if (process.env.DESIGN_AUDIT) await page.goto(base + '/?cameraPrepare=1', { waitUntil: 'networkidle' });
   const routes = {
     'infrastructure-expanded': '/targets', 'target-settings': '/targets/design-preview', 'target-resources': '/targets/built-in-docker',
-    'backup-store-details': '/backups', 'release-invalid': '/releases/6', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-agents-expanded': '/people?tab=agents',
+    'backup-store-details': '/backups', 'release-invalid': '/releases/6', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-agents-expanded': '/people/agents-and-tokens', 'people-revoke': '/people/agents-and-tokens', 'people-disconnect': '/people/agents-and-tokens',
     'guidance-block': '/guidance/' + seeded.guidance, 'guidance-missing': '/guidance/lang%2Fselection%2Fdjango-fullstack', 'release-record': '/projects/club-newsletter/releases/1',
     home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', releases: '/releases', deployments: '/deployments', backups: '/backups',
     'project-deployments': '/projects/club-newsletter/deployments', fleet: '/deployments', 'deployment-infrastructure': '/targets', attention: '/attention', updates: '/updates',
@@ -103,8 +118,8 @@ try {
     'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations', 'fleet-ways': '/conformance/ways',
     integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets',
     packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
-    'people-groups': '/people?tab=groups', 'people-signin': '/people?tab=signin', 'people-agents': '/people?tab=agents',
-    evals: '/evals', 'eval-new': '/evals/new', people: '/people', account: '/account', usage: '/usage',
+    'people-groups': '/people/groups', 'people-group': '/people/groups/reviewers', 'people-account': '/people/accounts/sam', 'people-roles': '/people/roles', 'people-signin': '/people/sign-in', 'people-agents': '/people/agents-and-tokens',
+    evals: '/evals', 'eval-new': '/evals/new', people: '/people/accounts', account: '/account', usage: '/usage',
     complaints: '/complaints', 'complaints-answered': '/complaints/answered', 'complaints-archive': '/complaints/archive',
     'model-profile': '/integrations/profiles/standard', 'target-new': '/targets/new',
     services: '/services', 'services-shared': '/services/shared', 'deployment': '/projects/club-newsletter/deployments/main',
@@ -126,7 +141,7 @@ try {
     'conformance-project': '/conformance/projects/club-newsletter',
     'conformance-project-mixed': '/conformance/projects/lunch-orders',
     'deployment-infrastructure-help': '/targets',
-    'people-actions': '/people',
+    'people-actions': '/people/accounts',
     'review': `/conformance/reviews/${seeded.review}`,
     'review-checks': `/conformance/reviews/${seeded.review}/checks`,
     'review-project': `/conformance/reviews/${seeded.review}/projects/club-newsletter`,
@@ -247,6 +262,7 @@ try {
         if (screen === 'usage-timing') await page.getByRole('button', { name: 'Time spent', exact: true }).click();
         if (screen === 'backup-store-details') await page.getByRole('region', { name: 'Backup store', exact: true }).getByText('household-copies', { exact: true }).waitFor();
         if (screen === 'people-agents-expanded') await page.locator('main details').evaluateAll(els => els.forEach(el => { el.open = true; }));
+        if (screen === 'people-revoke' || screen === 'people-disconnect') await page.getByRole('button', { name: screen === 'people-revoke' ? 'revoke' : 'disconnect', exact: true }).first().click();
         if (screen === 'people-actions') await page.getByRole('button', { name: 'Actions for sam', exact: true }).click();
         if (screen.startsWith('new-project-')) {
           await page.locator('#project-description').fill('A calendar for the household');
@@ -383,8 +399,27 @@ try {
           const capacity = page.getByRole('region', { name: 'Capacity', exact: true });
           if (!cameraContentExclusions[screen] && !/memory/i.test(await capacity.innerText())) throw new Error(screen + ': capacity reading missing');
         }
+        if (screen.startsWith('people')) {
+          if (await page.locator('main details').count()) throw new Error('People has a fold-down');
+          if (await page.locator('main h1').count() !== 1) throw new Error('People needs one page heading');
+          const heading = (await page.locator('main h1').innerText()).replace(/\s+\d+$/, '').trim();
+          if ((await page.locator('main h2').allTextContents()).some(text => text.replace(/\s*\d+$/, '').trim() === heading)) throw new Error('People repeats its page heading');
+          for (const action of await page.locator('main .record-table .record-action').all()) {
+            if (await action.evaluate(el => el.nextElementSibling !== null || getComputedStyle(el).textAlign !== 'right')) throw new Error('row action must be last and aligned right');
+          }
+          for (const table of await page.locator('main .record-table').all()) {
+            if (size.startsWith('desktop') && !await table.locator('thead').isVisible()) throw new Error('list column headers are hidden');
+            const rows = await table.locator('tbody tr').evaluateAll(els => els.map(el => ({ height: el.getBoundingClientRect().height, line: parseFloat(getComputedStyle(el.querySelector('td')).lineHeight), tracks: getComputedStyle(el).gridTemplateRows.split(' ').length })));
+            if (rows.some(r => size.startsWith('phone') ? r.tracks > 2 : r.height > r.line + 54)) throw new Error(`${screen} ${size}: People table rows wrap beyond their layout`);
+          }
+        }
         if (!process.env.DESIGN_BASELINE && screen === 'people') {
-          if (await page.locator('.people-accounts').first().getByText('retired', { exact: true }).count()) throw new Error('disabled account in first list');
+          if (!(await page.locator('.people-accounts tbody tr').filter({ hasText: 'retired' }).innerText()).includes('disabled')) throw new Error('disabled account missing from table');
+          if (await page.locator('.people-accounts tbody tr').count() < 30 || !words.includes('never signed in')) throw new Error('account states missing');
+          const unused = page.locator('.people-accounts tbody tr').filter({ hasText: 'never-signed-in' });
+          if ((await unused.locator('.phone-time').innerText()).trim() !== '—') throw new Error('unused name has a last activity time');
+          const provisioned = page.locator('.people-accounts tbody tr').filter({ hasText: 'colleague-32' });
+          if (!(await provisioned.innerText()).includes('never signed in') || (await provisioned.locator('.phone-time').innerText()).trim() !== '—') throw new Error('password provisioning counted as activity');
           if (words.includes('Where administrators may sign in') || words.includes('Connected coding agents')) throw new Error('People still includes other settings');
         }
         if (!process.env.DESIGN_BASELINE && screen === 'account' && (!words.includes('sam-laptop') || words.includes('tom-laptop'))) throw new Error('personal token list crossed account boundary');
@@ -435,6 +470,7 @@ try {
         }
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
         const clipped = await page.locator('main *').evaluateAll(els => els.filter(el => {
+          if (el.matches('.record-table td') && getComputedStyle(el).textOverflow === 'ellipsis' && el.querySelector('a[href], [title]')) return false;
           if (!el.getClientRects().length || el.closest('pre, .xterm, .diff, .log') || el.matches('.tabs') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return false;
           const style = getComputedStyle(el);
           return ['auto', 'scroll', 'hidden'].includes(style.overflowX) && el.clientWidth > 4 && el.scrollWidth > el.clientWidth + 2;
@@ -479,14 +515,9 @@ try {
           await page.getByRole('button', { name: 'set password', exact: true }).waitFor();
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-actions.png`, fullPage: true });
           await page.getByLabel('Actions for sam', { exact: true }).click();
-          await page.getByText(/^Other accounts and names \(/).click();
           await page.getByLabel('Actions for retired', { exact: true }).click();
           await page.getByRole('button', { name: 'enable', exact: true }).waitFor();
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-other.png`, fullPage: true });
-        }
-        if (!process.env.DESIGN_BASELINE && screen === 'people-groups') {
-          await page.getByText('What each role can do', { exact: true }).click();
-          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-permissions.png`, fullPage: true });
         }
         if (!process.env.DESIGN_BASELINE && screen === 'change') {
           await page.goto(`${base}/changes/${process.env.DESIGN_CHANGE}?tab=details&theme=${theme}&size=${size.endsWith('-large') ? 'large' : 'medium'}`, { waitUntil: 'networkidle' });

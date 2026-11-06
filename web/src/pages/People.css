@@ -1,48 +1,23 @@
 @layer pages {
-/* Accounts: name | role | last seen | Manage on a wide screen; on a phone,
-   name and role on one line, last seen and Manage on the next. */
-.people-accounts .list-row { grid-template-columns: minmax(0, 1fr) 11em auto; padding: 10px 0; }
-.people-accounts .list-identity { display: grid; grid-template-columns: minmax(0, 10em) auto 1fr; gap: 8px; align-items: baseline; }
-.people-accounts .list-identity .badge { justify-self: start; }
-.people-accounts .list-identity:not(:has(.badge)) { grid-template-columns: minmax(0, 10em) 1fr; }
-.people-role { color: var(--text); }
-.people-accounts .list-action { min-height: 0; }
-.people-accounts .account-actions > summary { min-height: 36px; }
-@media (max-width: 800px) {
-  .people-accounts .list-row { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 10px 0; }
-  .people-accounts .list-identity { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
-  .people-accounts .list-state { grid-column: 1; align-self: center; }
-  .people-accounts .list-action { grid-column: 2; grid-row: 2; justify-self: end; }
-}
-
 /* One control height across a form's inputs, select and button. */
-.people-form { min-width: 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch; }
-.people-form > input, .people-form > select, .people-form > button { height: 40px; min-height: 40px; box-sizing: border-box; margin: 0; }
+.people-form { min-width: 0; display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: stretch; }
+.people-form > input, .people-form > select, .people-form > button { height: calc(var(--space-2) * 5); min-height: calc(var(--space-2) * 5); box-sizing: border-box; margin: 0; }
 .people-form > select { min-width: 0; max-width: 100%; }
 .people-form > input { flex: 1 1 10em; min-width: 0; }
-.people-invite { display: grid; gap: 10px; padding: 12px 0; }
-.people-by-password { display: grid; gap: 8px; }
+.people-invite { display: grid; gap: calc(var(--space-1) * 2.5); padding: var(--space-3) 0; }
+.people-by-password { display: grid; gap: var(--space-2); }
 button.link.people-quiet { justify-self: start; padding: 0; min-height: 0; color: var(--muted); font-size: var(--fs-sm); text-decoration: none; }
 button.link.people-quiet:hover { color: var(--accent); }
 
-.people-accounts > .list-row:last-child { border-bottom: 0; }
-@media (max-width: 800px) {
-  .people-accounts .account-actions > summary, .people-form > input, .people-form > select, .people-form > button, button.link.people-quiet { min-height: 44px; }
-}
-
-.people-div { display: grid; grid-template-columns: minmax(0, 1fr); gap: calc(var(--space-1) * 5); max-width: 860px; }
+.people-div { display: grid; grid-template-columns: minmax(0, 1fr); gap: calc(var(--space-1) * 5); max-width: 100%; }
+.people-div > .page-section { margin-top: 0; }
 .people-agents-card-div { display: grid; gap: calc(var(--space-1) * 2.5); }
 .people-div-2 { gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .people-admin-networks-card-div { gap: var(--space-2); flex-wrap: wrap; align-items: center; }
 .people-admin-networks-card-input { width: 220px; }
 .people-tokens-card-code { user-select: all; word-break: break-all; }
 .people-tokens-card-div { display: flex; gap: var(--space-2); flex-wrap: wrap; }
-.people-users-card-div { margin: calc(var(--space-1) * 1.5) 0; }
-.people-div-3 { padding: calc(var(--space-1) * 0.5) 0; }
 .people-invite-person-div { display: grid; gap: var(--space-1); }
 .people-one-time-link-card-tone-ok { display: grid; gap: calc(var(--space-1) * 1.5); }
 .people-one-time-link-div { gap: var(--space-2); }
-.people-div-4 { gap: calc(var(--space-1) * 2.5); align-items: center; flex-wrap: wrap; }
-.people-div-5 { display: flex; gap: calc(var(--space-1) * 2.5); align-items: center; flex-wrap: wrap; }
-.people-label { display: flex; gap: var(--space-1); align-items: center; }
 }

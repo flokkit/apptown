@@ -49,7 +49,7 @@ func externalReturn(path string) (string, error) {
 	switch path {
 	case "", "/":
 		return "/", nil
-	case "/people", "/account":
+	case "/account":
 		return path, nil
 	default:
 		return "", oidclogin.ErrRejected

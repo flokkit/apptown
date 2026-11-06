@@ -511,3 +511,20 @@ func TestExternalRecoveryRequiresPersistentLocalGroupAuthority(t *testing.T) {
 		})
 	}
 }
+
+// External sign-in returns only to current destinations; removed People tabs
+// must not remain an accepted destination after the route is removed.
+func TestExternalReturnRejectsRemovedPeopleRoutes(t *testing.T) {
+	t.Parallel()
+	for _, path := range []string{"/people", "/people?tab=groups", "/people?tab=signin", "/people?tab=agents"} {
+		if _, err := externalReturn(path); !errors.Is(err, oidclogin.ErrRejected) {
+			t.Errorf("removed route %q accepted: %v", path, err)
+		}
+	}
+	for _, path := range []string{"/", "/account"} {
+		got, err := externalReturn(path)
+		if err != nil || got != path {
+			t.Errorf("current destination %q: %q %v", path, got, err)
+		}
+	}
+}

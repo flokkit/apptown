@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
@@ -122,12 +122,12 @@ describe('disabling an account', () => {
     const root = createRoot(el)
     await act(async () => {
       root.render(<QueryClientProvider client={newQueryClient()}>
-        <UsersCard users={[account('bls', false, 'admin'), account('kim', false, 'admin'), account('probe', true)]} act={act$} canEdit invites={false} me="bls" />
+        <MemoryRouter><UsersCard users={[account('bls', false, 'admin'), account('kim', false, 'admin'), account('probe', true)]} act={act$} canEdit invites={false} me="bls" /></MemoryRouter>
       </QueryClientProvider>)
     })
     await manage(el, 'kim')
     expect(buttons(el).filter((b) => b.textContent === 'disable')).toHaveLength(1)
-    expect(el.textContent).toContain('Disabled')
+    expect(el.textContent).toContain('disabled')
     await press(el, 'disable')
     expect(sent).toHaveLength(0)
     expect(panelText(el)).toContain('Disable kim? They are signed out at once')
@@ -151,13 +151,14 @@ describe('disabling an account', () => {
     const typo: Account = { principalId: '00000000-0001-7000-8000-000000000000', username: 'typo', role: 'member', hasPassword: false, acted: false, lastSeen: '', disabled: false, groups: [] }
     await act(async () => {
       root.render(<QueryClientProvider client={newQueryClient()}>
-        <UsersCard users={[sso, typo]} act={() => {}} canEdit invites={false} me="bls" />
+        <MemoryRouter><UsersCard users={[sso, typo]} act={() => {}} canEdit invites={false} me="bls" /></MemoryRouter>
       </QueryClientProvider>)
     })
-    const ssoRow = [...el.querySelectorAll('.list-row')].find((r) => r.textContent?.includes('sso'))
+    const ssoRow = [...el.querySelectorAll('tbody tr')].find((r) => r.textContent?.includes('sso'))
     await act(async () => (ssoRow?.querySelector('button') as HTMLButtonElement).click())
     expect(buttons(el).map(b => b.textContent)).toContain('disable')
-    expect(el.textContent).toContain('Names without an account (1)')
+    expect(el.textContent).toContain('never signed in')
+    await manage(el, 'typo')
     expect(buttons(el).filter((b) => b.textContent === 'remove')).toHaveLength(1)
     act(() => root.unmount())
   })
@@ -168,7 +169,7 @@ describe('disabling an account', () => {
     const root = createRoot(el)
     await act(async () => {
       root.render(<QueryClientProvider client={newQueryClient()}>
-        <UsersCard users={[account('kim', false), account('probe', true)]} act={() => {}} canEdit={false} invites={false} />
+        <MemoryRouter><UsersCard users={[account('kim', false), account('probe', true)]} act={() => {}} canEdit={false} invites={false} /></MemoryRouter>
       </QueryClientProvider>)
     })
     expect(buttons(el).map((b) => b.textContent)).not.toContain('disable')
@@ -190,7 +191,7 @@ describe('disabling an account', () => {
     const root = createRoot(el)
     await act(async () => {
       root.render(<QueryClientProvider client={newQueryClient()}>
-        <UsersCard users={[account('kim', false, 'admin'), seen]} act={(fn) => { void fn() }} canEdit invites={invites} me="bls" />
+        <MemoryRouter><UsersCard users={[account('kim', false, 'admin'), seen]} act={(fn) => { void fn() }} canEdit invites={invites} me="bls" /></MemoryRouter>
       </QueryClientProvider>)
     })
     await manage(el, 'kim')
@@ -204,6 +205,7 @@ describe('disabling an account', () => {
     await typePassword()
     await press(el, 'Set')
     await vi.waitFor(() => expect(sent).toEqual([{ username: 'kim', password: 'new-password-1' }]))
+    await manage(el, 'ghost')
     await press(el, 'claim')
     await typePassword()
     await press(el, 'Claim')
@@ -237,7 +239,7 @@ describe('a password reset link', () => {
     const root = createRoot(el)
     await act(async () => {
       root.render(<QueryClientProvider client={newQueryClient()}>
-        <UsersCard users={[account('kim', false), account('probe', true)]} act={() => {}} canEdit invites me="bls" />
+        <MemoryRouter><UsersCard users={[account('kim', false), account('probe', true)]} act={() => {}} canEdit invites me="bls" /></MemoryRouter>
       </QueryClientProvider>)
     })
     await manage(el, 'kim')
@@ -272,7 +274,7 @@ describe('a password reset link', () => {
     const root = createRoot(el)
     await act(async () => {
       root.render(<QueryClientProvider client={newQueryClient()}>
-        <UsersCard users={[account('kim', false), account('lee', false)]} act={() => {}} canEdit invites me="bls" />
+        <MemoryRouter><UsersCard users={[account('kim', false), account('lee', false)]} act={() => {}} canEdit invites me="bls" /></MemoryRouter>
       </QueryClientProvider>)
     })
     const resetFor = async (name: string) => {
@@ -299,7 +301,7 @@ describe('a password reset link', () => {
     const root = createRoot(el)
     await act(async () => {
       root.render(<QueryClientProvider client={newQueryClient()}>
-        <UsersCard users={[account('kim', false)]} act={() => {}} canEdit invites={invites} sso me="bls" />
+        <MemoryRouter><UsersCard users={[account('kim', false)]} act={() => {}} canEdit invites={invites} sso me="bls" /></MemoryRouter>
       </QueryClientProvider>)
     })
     expect(buttons(el).map((b) => b.textContent)).not.toContain('reset password')
@@ -346,31 +348,40 @@ describe('minting a token', () => {
   })
 })
 
-// Accounts are the first view, while every administration area remains reachable.
-it('splits People into tabs and keeps account actions and inactive names folded', async () => {
+// All account states share one table, with inactive rows after active accounts.
+it('shows active, disabled and never-signed-in accounts without fold-downs', async () => {
  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
   url.endsWith('/users') ? { users: [
-   { username: 'kim', role: 'member', hasPassword: true, acted: true, lastSeen: '', groups: [] },
    { username: 'old', role: 'member', hasPassword: true, acted: true, disabled: true, groups: [] },
-  ] } : url.includes('/authz/roles') ? { roles: [{ name: 'reader', title: 'Reader', capabilities: ['project:read'] }] } : url.includes('/authz/grants') ? { grants: [{ id: 'read-grant', role: 'reader', roleTitle: 'Reader', subject: 'kim', subjectType: 'user', scopeType: 'instance' }] } : url.endsWith('/authz/me') ? { instance: { 'identity:manage-users': true } } : { mode: 'internal', user: 'boss' }
+   { username: 'unused', role: 'member', hasPassword: false, acted: false, groups: [] },
+   { username: 'new-password', role: 'member', hasPassword: true, acted: false, groups: [] },
+   { username: 'kim', role: 'member', hasPassword: true, acted: true, lastSeen: '', groups: ['team'] },
+  ] } : url.endsWith('/authz/me') ? { instance: { 'identity:manage-users': true } } : { mode: 'internal', user: 'boss' }
  ))))
  const el = document.createElement('div'), root = createRoot(el)
  await act(async () => root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><People /></MemoryRouter></QueryClientProvider>))
- await vi.waitFor(() => expect(el.querySelector('.people-accounts')).not.toBeNull())
- expect(el.querySelector('.tabs [aria-current="page"]')?.textContent).toBe('Accounts')
- expect(el.textContent).not.toContain('Where administrators may sign in')
- expect(el.querySelector('.people-accounts')?.textContent).not.toContain('old')
- expect(el.querySelector('.account-actions')?.hasAttribute('open')).toBe(false)
- await act(async () => (el.querySelector('.account-actions > button') as HTMLButtonElement).click())
- expect(panelText(el)).toContain('set password')
- const groups = el.querySelector('a[href="/people?tab=groups"]') as HTMLAnchorElement
- await act(async () => groups.click())
- await vi.waitFor(() => expect(el.textContent).toContain('Roles in'))
- expect(el.querySelector('.people-accounts')).toBeNull()
- const permissions = [...el.querySelectorAll('details')].find(d => d.querySelector('summary')?.textContent === 'What each role can do')!
- expect(permissions.open).toBe(false)
- expect(permissions.textContent).toContain('project:read')
- act(() => root.unmount()); vi.unstubAllGlobals()
+ await vi.waitFor(() => expect(el.querySelectorAll('tbody tr')).toHaveLength(4))
+ expect([...el.querySelectorAll('tbody tr')].map(r => r.querySelector('a')?.textContent)).toEqual(['kim', 'old', 'new-password', 'unused'])
+ expect([...el.querySelectorAll('tbody tr')].map(r => r.querySelector('.list-status')?.textContent)).toEqual(['active', 'disabled', 'never signed in', 'never signed in'])
+ const newcomer = [...el.querySelectorAll('tbody tr')].find(r => r.textContent?.includes('new-password'))!
+ expect(newcomer.querySelector('td:nth-last-child(2)')?.textContent).toBe('—')
+ expect(el.querySelector('a[href="/people/accounts/kim"]')).not.toBeNull()
+ expect(el.querySelector('details')).toBeNull()
+ expect(el.querySelector('.page-head button.primary')?.textContent).toBe('Invite')
+ expect([...el.querySelectorAll('th')].map(c => c.textContent)).toEqual(['Name', 'Role', 'Groups', 'Status', 'Last seen', ''])
+ expect(el.querySelectorAll('h1')).toHaveLength(1)
+ expect(el.querySelector('h1')?.textContent).toBe('Accounts 4')
+ expect(el.querySelector('h2')).toBeNull()
+ expect(el.querySelector('tbody tr td:last-child button')?.textContent).toBe('Manage')
+ expect(el.textContent).not.toContain('Names that never signed in or acted')
+ await act(async () => root.unmount()); vi.unstubAllGlobals()
+})
+
+it('removes the old query-tab routes', async () => {
+ const el = document.createElement('div'), root = createRoot(el)
+ await act(async () => root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter initialEntries={['/people?tab=groups']}><People /></MemoryRouter></QueryClientProvider>))
+ expect(el.textContent).toContain('Page not found')
+ await act(async () => root.unmount())
 })
 
 it('links personal access to Account and leaves People with administrator inventories', async () => {
@@ -379,7 +390,7 @@ it('links personal access to Account and leaves People with administrator invent
  ))))
  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
  try {
-  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/people?tab=agents']}><People /></MemoryRouter></QueryClientProvider>))
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/people/agents-and-tokens']}><People view="agents-and-tokens" /></MemoryRouter></QueryClientProvider>))
   await vi.waitFor(() => expect(el.textContent).toContain('Access tokens'))
   expect(el.querySelector('a[href="/account"]')).not.toBeNull()
   expect([...el.querySelectorAll('button')].some(b => b.textContent === 'Mint token')).toBe(false)
@@ -394,9 +405,76 @@ it('does not embed personal sign-in linking in People', async () => {
  ))))
  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
  try {
-  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/people?tab=signin']}><People /></MemoryRouter></QueryClientProvider>))
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/people/sign-in']}><People view="sign-in" /></MemoryRouter></QueryClientProvider>))
   await vi.waitFor(() => expect(el.textContent).toContain('Where administrators may sign in'))
   expect(el.querySelector('input[aria-label="Your password"]')).toBeNull()
   expect(el.textContent).not.toContain('Link your sign-in')
  } finally { await act(async () => root.unmount()); client.clear() }
+})
+
+it('opens a group record and changes only the selected membership', async () => {
+ const writes: { method: string; url: string; body?: unknown }[] = []
+ const group = { name: 'reviewers', kind: 'team', description: 'Reviews changes', members: ['kim'] }
+ const users = ['kim', 'lee'].map(username => ({ username, role: 'member', groups: [], hasPassword: true, acted: true }))
+ vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+  if (init?.method) {
+   writes.push({ method: init.method, url, body: init.body ? JSON.parse(String(init.body)) : undefined })
+   if (init.method === 'POST' && writes.length === 1) return new Response('{"error":"Could not add this member. Try again."}', { status: 409 })
+   return new Response('{"ok":true}')
+  }
+  return new Response(JSON.stringify(url.endsWith('/groups') ? { groups: [group] } : url.endsWith('/users') ? { users } : url.endsWith('/authz/me') ? { instance: { 'identity:manage-groups': true } } : { grants: [], roles: [] }))
+ }))
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/people/groups/reviewers']}><Routes><Route path="/people/groups/:name" element={<People view="groups" />} /></Routes></MemoryRouter></QueryClientProvider>))
+  await vi.waitFor(() => expect(el.querySelector('a[href="/people/accounts/kim"]')).not.toBeNull())
+  expect(el.querySelector('.page-head-line')?.textContent).toBe('team group. Reviews changes')
+  expect(el.querySelector('.section-note')).toBeNull()
+  expect(el.querySelector('.section-action a[href="/people/roles"]')?.textContent).toBe('Manage roles')
+  expect([...el.querySelectorAll('th')].map(c => c.textContent)).toEqual(['Name', 'Status', 'Last seen', ''])
+  expect(el.querySelector('tbody tr td:last-child button')?.getAttribute('aria-label')).toBe('More actions for kim')
+  expect(el.textContent).toContain('Roles granted')
+  expect(el.querySelector('details')).toBeNull()
+  await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Add member')!.click())
+  const picker = el.querySelector('select[aria-label="Account to add"]') as HTMLSelectElement
+  expect([...picker.options].map(o => o.value)).toEqual(['', 'lee'])
+  await act(async () => { picker.value = 'lee'; picker.dispatchEvent(new Event('change', { bubbles: true })) })
+  await act(async () => el.querySelector<HTMLButtonElement>('.modal-body button')!.click())
+  await vi.waitFor(() => expect(writes).toEqual([{ method: 'POST', url: '/api/v1/groups/reviewers/members/lee', body: {} }]))
+  await vi.waitFor(() => expect(el.querySelector('.modal-body .error')?.textContent).toContain('Could not add this member'))
+  expect(el.querySelector<HTMLSelectElement>('[aria-label="Account to add"]')?.value).toBe('lee')
+  await act(async () => el.querySelector<HTMLButtonElement>('.modal-body button')!.click())
+  await vi.waitFor(() => expect(el.querySelector('[role="dialog"]')).toBeNull())
+  expect(writes[1]).toEqual(writes[0])
+  await act(async () => el.querySelector<HTMLButtonElement>('[aria-label="More actions for kim"]')!.click())
+  await act(async () => panels(el).flatMap(p => [...p.querySelectorAll('button')]).find(b => b.textContent === 'Remove member')!.click())
+  await vi.waitFor(() => expect(writes[2]).toEqual({ method: 'DELETE', url: '/api/v1/groups/reviewers/members/kim' }))
+ } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+
+it.each([['groups', 'Groups', 'New group'], ['roles', 'Roles', 'Grant role']] as const)('gives %s one heading with its count and primary action', async (view, title, action) => {
+ vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+  url.endsWith('/authz/me') ? { instance: { 'identity:manage-groups': true, 'authorization:manage-grants': true } } : { users: [], groups: [], roles: [], grants: [] }
+ ))))
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><People view={view} /></MemoryRouter></QueryClientProvider>))
+  await vi.waitFor(() => expect(el.querySelector('.page-head .primary')?.textContent).toBe(action))
+  expect(el.querySelectorAll('h1')).toHaveLength(1)
+  expect(el.querySelector('h1')?.textContent).toBe(`${title} 0`)
+  expect(el.querySelector('h2')).toBeNull()
+ } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+
+it.each([['accounts', 'Accounts'], ['groups', 'Groups'], ['roles', 'Roles']] as const)('keeps the %s page title when its records cannot be read', async (view, title) => {
+ vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":"Unavailable"}', { status: 500 })))
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><People view={view} /></MemoryRouter></QueryClientProvider>))
+  expect(el.querySelectorAll('h1')).toHaveLength(1)
+  expect(el.querySelector('h1')?.textContent).toBe(title)
+  expect(el.querySelector('.record-table')).toBeNull()
+ } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

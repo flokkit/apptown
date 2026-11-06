@@ -24,9 +24,6 @@
   "web/src/pages/NewProject.css": {
     "apptown/pixel-spacing": 6
   },
-  "web/src/pages/People.css": {
-    "apptown/pixel-spacing": 9
-  },
   "web/src/pages/Usage.css": {
     "apptown/pixel-spacing": 9
   },

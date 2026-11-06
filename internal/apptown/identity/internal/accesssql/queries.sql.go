@@ -153,6 +153,36 @@ func (q *Queries) ActiveGrantsOfPrincipal(ctx context.Context, arg ActiveGrantsO
 	return items, nil
 }
 
+const addGroupMember = `-- name: AddGroupMember :execrows
+INSERT INTO group_members (group_name, principal_id, created_by, created_by_principal, created_by_via, created_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (group_name, principal_id) DO NOTHING
+`
+
+type AddGroupMemberParams struct {
+	GroupName          string
+	PrincipalID        ids.ID
+	CreatedBy          string
+	CreatedByPrincipal ids.ID
+	CreatedByVia       string
+	CreatedAt          time.Time
+}
+
+func (q *Queries) AddGroupMember(ctx context.Context, arg AddGroupMemberParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, addGroupMember,
+		arg.GroupName,
+		arg.PrincipalID,
+		arg.CreatedBy,
+		arg.CreatedByPrincipal,
+		arg.CreatedByVia,
+		arg.CreatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const adminUsers = `-- name: AdminUsers :many
 SELECT u.username, u.principal_id, u.password_hash, u.created_at, u.last_seen, u.disabled_at, u.default_group FROM users u WHERE EXISTS (
  SELECT 1 FROM grants g WHERE g.role_name='instance-administrator' AND g.capability='' AND g.scope_type='instance'
@@ -1242,6 +1272,26 @@ SELECT name, description, kind, created_by, created_by_principal, created_by_via
 
 func (q *Queries) GroupByNameForShare(ctx context.Context, name string) (Group, error) {
 	row := q.db.QueryRowContext(ctx, groupByNameForShare, name)
+	var i Group
+	err := row.Scan(
+		&i.Name,
+		&i.Description,
+		&i.Kind,
+		&i.CreatedBy,
+		&i.CreatedByPrincipal,
+		&i.CreatedByVia,
+		&i.RetiredAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const groupByNameForUpdate = `-- name: GroupByNameForUpdate :one
+SELECT name, description, kind, created_by, created_by_principal, created_by_via, retired_at, created_at FROM groups WHERE name = $1 FOR UPDATE
+`
+
+func (q *Queries) GroupByNameForUpdate(ctx context.Context, name string) (Group, error) {
+	row := q.db.QueryRowContext(ctx, groupByNameForUpdate, name)
 	var i Group
 	err := row.Scan(
 		&i.Name,
@@ -2596,6 +2646,23 @@ func (q *Queries) RefreshTokenForUpdate(ctx context.Context, tokenHash string) (
 		&i.RevokedAt,
 	)
 	return i, err
+}
+
+const removeGroupMember = `-- name: RemoveGroupMember :execrows
+DELETE FROM group_members WHERE group_name = $1 AND principal_id = $2
+`
+
+type RemoveGroupMemberParams struct {
+	GroupName   string
+	PrincipalID ids.ID
+}
+
+func (q *Queries) RemoveGroupMember(ctx context.Context, arg RemoveGroupMemberParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, removeGroupMember, arg.GroupName, arg.PrincipalID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const removePrincipal = `-- name: RemovePrincipal :execrows

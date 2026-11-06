@@ -18,7 +18,7 @@ export function ExternalProviderSettings() {
   const stale = !!draft && draft.revision !== (q.data?.revision ?? 0)
   const edit = () => { setTested(false); setDraft({ revision: q.data?.revision ?? 0, issuer: q.data?.issuer ?? '', displayName: q.data?.displayName ?? '', clientId: q.data?.clientId ?? '', secretRef: q.data?.secretRef ?? '', allowSignup: q.data?.allowSignup ?? false, initialGroup: q.data?.initialGroup ?? '' }) }
   return <section className="card"><h2>External sign-in</h2>
-    <details><summary>Sign-in limits</summary><p>Keep a local-password administrator for recovery. External sessions last at most one hour. Disabling this provider ends its sessions; local passwords and CLI tokens remain independent.</p></details>
+    <section><h3>Sign-in limits</h3><p>Keep a local-password administrator for recovery. External sessions last at most one hour. Disabling this provider ends its sessions; local passwords and CLI tokens remain independent.</p></section>
     {err && <p className="error">{err}</p>}
     <ReadGate q={q} what="external sign-in settings">
       <p>{q.data ? `${q.data.displayName}: ${q.data.enabled ? 'enabled' : 'disabled'}` : 'No provider configured.'}</p>
