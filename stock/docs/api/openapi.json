@@ -2592,6 +2592,94 @@
         ],
         "type": "object"
       },
+      "ExecutorPreview": {
+        "properties": {
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project": {
+            "type": "string"
+          },
+          "release": {
+            "type": "integer"
+          },
+          "runId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "project"
+        ],
+        "type": "object"
+      },
+      "ExecutorView": {
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "appTownVersion": {
+            "type": "string"
+          },
+          "checkedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "const": ""
+              }
+            ]
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "failure": {
+            "type": "string"
+          },
+          "previews": {
+            "items": {
+              "$ref": "#/components/schemas/ExecutorPreview"
+            },
+            "type": "array"
+          },
+          "previewsUnknown": {
+            "type": "boolean"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "versionMismatch": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "previews",
+          "previewsUnknown",
+          "configured",
+          "address",
+          "state",
+          "version",
+          "appTownVersion",
+          "versionMismatch",
+          "stale"
+        ],
+        "type": "object"
+      },
       "ExternalBindRequest": {
         "properties": {
           "principalId": {
@@ -6316,9 +6404,6 @@
           "persistentVolumes": {
             "type": "boolean"
           },
-          "previews": {
-            "type": "boolean"
-          },
           "rollout": {
             "items": {
               "type": "string"
@@ -6328,7 +6413,6 @@
         },
         "required": [
           "persistentVolumes",
-          "previews",
           "ownLiveness",
           "rollout",
           "needs"
@@ -10255,6 +10339,35 @@
         "x-apptown-access": {
           "contract": "evals.Continue: the starter, still a standards manager",
           "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/executor": {
+      "get": {
+        "operationId": "getExecutor",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutorView"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "executor"
+        ],
+        "x-apptown-access": {
+          "capability": "run:read",
+          "kind": "capability",
+          "scope": "instance"
         },
         "x-apptown-stability": "experimental"
       }

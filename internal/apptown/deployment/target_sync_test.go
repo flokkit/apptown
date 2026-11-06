@@ -158,13 +158,13 @@ func TestAStartRefreshesTheBuiltInHostOnlyWhenItsFactsChange(t *testing.T) {
 	}
 	// A record from an older AppTown whose own defaults differed.
 	stale := *first
-	stale.NeedsMode, stale.Capabilities.Previews = "register", false
+	stale.NeedsMode, stale.Capabilities.PersistentVolumes = "register", false
 	if _, err := w.s.Targets.Put(context.Background(), &stale); err != nil {
 		t.Fatal(err)
 	}
 	w.s.SeedTargets(t.Context(), []string{"team=apps.example.net"})
 	moved := w.target(t, "local")
-	if moved.NeedsMode != "emulators" || !moved.Capabilities.Previews {
+	if moved.NeedsMode != "emulators" || !moved.Capabilities.PersistentVolumes {
 		t.Fatalf("the built-in host kept stale settings as though an administrator had set them: %+v", moved)
 	}
 	if domains, _ := moved.Ingress["domains"].([]any); len(domains) != 1 || domains[0] != "team=apps.example.net" || moved.SettingsRevision != first.SettingsRevision+2 {
@@ -199,11 +199,6 @@ func TestASyncKeepsEverySettingAnEditWrites(t *testing.T) {
 			proposed: &Target{Kind: KindDockerHost, Capabilities: TargetCapabilities{PersistentVolumes: true}},
 			edit:     TargetSettingsEdit{PersistentVolumes: &off},
 			kept:     func(t *Target) bool { return !t.Capabilities.PersistentVolumes },
-		},
-		"Previews": {
-			proposed: &Target{Kind: KindDockerHost},
-			edit:     TargetSettingsEdit{Previews: &on},
-			kept:     func(t *Target) bool { return t.Capabilities.Previews },
 		},
 		"NeedsMode": {
 			proposed: &Target{Kind: KindDockerHost, NeedsMode: "emulators"},
@@ -288,19 +283,19 @@ func TestSyncAndASettingsEditQueueInsteadOfDeadlocking(t *testing.T) {
 		current := w.target(t, "do-syd")
 		proposed := *current
 		proposed.Address = withKeysOf(current.Address, map[string]any{"region": regions[round%2]}, []string{"region"})
-		previews := round%2 == 0
+		disks := round%2 == 0
 		var syncErr, editErr error
 		var wg sync.WaitGroup
 		wg.Go(func() { _, syncErr = w.s.Targets.sync(ctx, &proposed, "apptown-system") })
 		wg.Go(func() {
-			_, editErr = w.s.Targets.EditSettings(ctx, "do-syd", TargetSettingsEdit{ExpectedRevision: &current.SettingsRevision, Previews: &previews}, "alice")
+			_, editErr = w.s.Targets.EditSettings(ctx, "do-syd", TargetSettingsEdit{ExpectedRevision: &current.SettingsRevision, PersistentVolumes: &disks}, "alice")
 		})
 		wg.Wait()
 		if syncErr != nil || editErr != nil && !errors.Is(editErr, errTargetSettingsMoved) {
 			t.Fatalf("round %d: sync %v, edit %v", round, syncErr, editErr)
 		}
 		after := w.target(t, "do-syd")
-		if after.Address["region"] != regions[round%2] || editErr == nil && after.Capabilities.Previews != previews {
+		if after.Address["region"] != regions[round%2] || editErr == nil && after.Capabilities.PersistentVolumes != disks {
 			t.Fatalf("round %d: a change was lost: %+v (edit %v)", round, after, editErr)
 		}
 	}

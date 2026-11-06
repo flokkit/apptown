@@ -15,6 +15,8 @@ func (f workerProbeFunc) Availability(ctx context.Context) (execution.WorkerAvai
 	return f(ctx)
 }
 
+func (f workerProbeFunc) Version(context.Context) (string, error) { return "test-version", nil }
+
 type workerObservationQueue struct {
 	calls int
 	err   error
@@ -122,5 +124,41 @@ func TestNoWorkerIsNotApplicableAndNeverQueues(t *testing.T) {
 	v, err := o.Snapshot(t.Context())
 	if err != nil || v.Configured || v.Unknown || v.Stale || q.calls != 0 {
 		t.Fatal(v, err, q.calls)
+	}
+}
+
+type versionProbe struct {
+	version string
+	err     error
+	calls   int
+}
+
+func (p *versionProbe) Availability(context.Context) (execution.WorkerAvailability, error) {
+	return execution.WorkerAvailable, nil
+}
+func (p *versionProbe) Version(context.Context) (string, error) { p.calls++; return p.version, p.err }
+
+func TestWorkerVersionBelongsToTheObservationAndFailedReadClearsIt(t *testing.T) {
+	now := time.Now()
+	probe := &versionProbe{version: "v2"}
+	o := NewWorkerObserver(databaseSuite.New(t), "worker", probe, &workerObservationQueue{}, func() time.Time { return now })
+	if err := o.Run(t.Context(), "worker"); err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := o.Snapshot(t.Context())
+	if err != nil || fresh.Version != "v2" || probe.calls != 1 {
+		t.Fatal(fresh, err, probe.calls)
+	}
+	probe.err = errors.New("cannot read version")
+	now = now.Add(time.Minute)
+	if err := o.Run(t.Context(), "worker"); err != nil {
+		t.Fatal(err)
+	}
+	failed, err := o.Snapshot(t.Context())
+	if err != nil || failed.Version != "" || failed.Unknown || !failed.ObservedAt.Equal(now) || !failed.AttemptedAt.Equal(now) {
+		t.Fatal(failed, err)
+	}
+	if probe.calls != 2 {
+		t.Fatal("snapshot contacted worker", probe.calls)
 	}
 }

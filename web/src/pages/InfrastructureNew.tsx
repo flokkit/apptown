@@ -167,11 +167,11 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
 // OfferStep: who may bind here and with what caps, and the facts only the
 // owner can state. The target is already recorded; skipping leaves it
 // offered to nobody, which the target page can change later.
-type OfferFacts = Pick<TargetSettings, 'domain' | 'persistentVolumes' | 'previews' | 'needsMode'>
+type OfferFacts = Pick<TargetSettings, 'domain' | 'persistentVolumes' | 'needsMode'>
 const factsOf = (target: Target): OfferFacts => ({
   domain: typeof target.ingress?.domain === 'string' ? target.ingress.domain : '',
   persistentVolumes: target.capabilities.persistentVolumes,
-  previews: target.capabilities.previews, needsMode: target.needsMode,
+  needsMode: target.needsMode,
 })
 
 export function OfferStep({ target, onDone }: { target: Target; onDone: () => void }) {
@@ -261,7 +261,6 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
         <label>Disks</label>
         <span><label className="small"><input type="checkbox" checked={draft.persistentVolumes} onChange={(e) => set('persistentVolumes', e.target.checked)} /> keeps disks (a dataDir may bind)</label></span>
         <label>Previews</label>
-        <span><label className="small"><input type="checkbox" checked={draft.previews} onChange={(e) => set('previews', e.target.checked)} /> previews may bind</label></span>
         <label>Needs</label>
         <span><select aria-label="Needs" value={draft.needsMode} onChange={(e) => set('needsMode', e.target.value)}>
           {NEEDS_MODES.map(({ value, title }) => <option key={value} value={value}>{title}</option>)}
@@ -270,7 +269,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
       </fieldset>
       {conflict && <div role="alert">
         <p>The target settings changed. Your edits are kept.</p>
-        {current ? <p>Current facts: domain {factsOf(current).domain || '(none)'}, disks {String(current.capabilities.persistentVolumes)}, previews {String(current.capabilities.previews)}, needs {current.needsMode}.</p>
+        {current ? <p>Current facts: domain {factsOf(current).domain || '(none)'}, disks {String(current.capabilities.persistentVolumes)}, needs {current.needsMode}.</p>
           : <p>Read the current settings before choosing.</p>}
         <button disabled={!current || busy} onClick={() => resolve(true)}>Keep my edits on current settings</button>
         <button disabled={!current || busy} onClick={() => resolve(false)}>Discard my fact edits</button>

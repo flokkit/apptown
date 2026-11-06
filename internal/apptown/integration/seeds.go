@@ -75,7 +75,8 @@ func Seeds(cfg SeedConfig) []Seed {
 			"image": cfg.AgentImage, "cacheVolume": "apptown-cache",
 		}),
 		mk("docker-deploy", CapDeploy, "docker", map[string]any{
-			"target": "docker", "appcontract.Contract": ".apptown/app.yaml",
+			"description": "Deploys apps to AppTown’s own Docker host.",
+			"target":      "docker", "appcontract.Contract": ".apptown/app.yaml",
 		}),
 		// The intranet (design/subsystems/lan-release.md): the second deploy target.
 		// Same shape as every seam — provider named, secrets referenced by
@@ -83,7 +84,8 @@ func Seeds(cfg SeedConfig) []Seed {
 		// stack conventions stated where an operator can see them. The
 		// Portainer environment is the intranet target's own setting.
 		mk("portainer-deploy", CapDeploy, "portainer", map[string]any{
-			"urlFrom": "PORTAINER_URL", "apiKeyFrom": "PORTAINER_API_KEY",
+			"description": "Deploys app stacks through Portainer.",
+			"urlFrom":     "PORTAINER_URL", "apiKeyFrom": "PORTAINER_API_KEY",
 			"appsDomainFrom": "APPTOWN_APPS_DOMAIN",
 			// releaseDeployment: the tier name release rows carry and the
 			// DEFAULT target of the big Release button (the button's face is

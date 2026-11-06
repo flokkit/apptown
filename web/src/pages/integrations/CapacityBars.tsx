@@ -1,4 +1,3 @@
-import { GlanceRow } from '../../GlanceRow'
 import { Link } from 'react-router-dom'
 import type { Bar, Segment } from './capacitySegments'
 
@@ -58,10 +57,10 @@ export function CapacityTable({ rows, heads }: { rows: { name: string; kind: str
       <thead><tr><th>App or system</th>{heads.map((h) => <th key={h}>{h}</th>)}</tr></thead>
       <tbody>
         {rows.map((r) => (
-          <GlanceRow labels={["App", ...heads]} key={r.to || r.kind + r.name}>
+          <tr key={r.to || r.kind + r.name}>
             <td><span className={`cap-swatch cap-${r.kind}`} />{r.to ? <Link to={r.to}>{r.name}</Link> : r.name}</td>
             {r.cells.map((c, i) => <td key={i}>{c}</td>)}
-          </GlanceRow>
+          </tr>
         ))}
       </tbody>
     </table>

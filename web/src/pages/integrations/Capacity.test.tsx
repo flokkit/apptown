@@ -68,7 +68,8 @@ describe("a target's capacity", () => {
     })
     expect(html).toContain('Grows on demand')
     expect(html).toContain('$10.00')
-    expect(html).toContain('Estimate details')
+    expect(html).toContain('an estimate of the app components')
+    expect(html).not.toContain('<details')
     expect(html).toContain('managed databases are not included')
     expect(html).toContain('db-s-1vcpu-1gb')
   })
@@ -138,7 +139,7 @@ it('draws a Docker host as bars in view, with app details inline', () => {
   expect(html).not.toContain('<summary>Details</summary>')
   expect(html).toContain('over by 2 GB')
   // A reading that could not be made says why, in the card.
-  expect(render({ ...c, memory: { ...memory, total: none('host unavailable') } })).toContain('Part of the capacity check failed: Memory total: host unavailable')
+  expect(render({ ...c, memory: { ...memory, total: none('host unavailable') } })).toContain('Some capacity readings could not be read: Memory total: host unavailable')
 })
 
 
@@ -153,7 +154,7 @@ it('keeps a retained live figure distinct from unknown and shows its own age aft
     expect(html).toContain('90 GB free of 100 GB')
     expect(html).toContain('last seen 40m ago')
     // The failure says why, in the card: no extra click for one line.
-    expect(html).toContain('Part of the capacity check failed: The host disk check failed.')
+    expect(html).toContain('Some capacity readings could not be read: The host disk check failed.')
     const expired = render({ disk: { total: fig(100 * 2 ** 30), free: { ...old, known: false, reason: 'The last successful reading is too old.' }, low: false, refuses: false, readAt } })
     expect(expired).toContain('unknown free of 100 GB')
     expect(expired).not.toContain('90 GB free')
@@ -172,7 +173,7 @@ it('shows an old reading quietly and marks only a failed check red', () => {
   const html = render(old)
   expect(html).toContain('last seen 40m ago')
   expect(html).not.toContain('class="error small"')
-  expect(render({ ...old, error: 'The host capacity check failed.' })).toContain('class="error small">Part of the capacity check failed: The host capacity check failed.')
+  expect(render({ ...old, error: 'The host capacity check failed.' })).toContain('class="error small">Some capacity readings could not be read: The host capacity check failed.')
   expect(render({ ...old, error: 'The host capacity check failed.' })).toContain('The host capacity check failed.')
 })
 
@@ -180,7 +181,7 @@ it('puts requested and available memory beside a warning, and explains unreadabl
  const memory = {total:fig(2*2**30), hostUsed:none('The attached daemon does not report whole-host memory use.'),promised:{sum:{apptown:fig(4*2**30),other:fig(0)},limited:count(9,0),unlimited:count(19,0),unread:count(0,0)},overcommitted:true}
  const html=render({memory})
  expect(html).toMatch(/capacity-warning[^>]*>[^<]*4 GB requested[^<]*2 GB/)
- expect(html).toContain('Part of the capacity check failed: Memory use: The attached daemon does not report whole-host memory use.')
+ expect(html).toContain('Some capacity readings could not be read: Memory use: The attached daemon does not report whole-host memory use.')
  expect(html).toContain('Memory use could not be read')
  expect(render({memory})).toContain('Memory use: The attached daemon does not report whole-host memory use.')
  expect(render({memory:{...memory,total:none('Host size unavailable')}})).not.toContain('capacity-warning')

@@ -42,7 +42,7 @@ the target is declared: AppTown itself for the built-in host, the
 cloud-account connector for an App Platform target (region, registry, sizes),
 AppTown configuration for the intranet's Portainer. Its settings are what an
 administrator states with `PATCH /api/v1/targets/<name>`: the domain, the
-evals and rehearsals marks, persistent volumes, previews, the needs mode and
+evals and rehearsals marks, persistent volumes, the needs mode and
 the copy runner. AppTown records the targets it derives from configuration
 at every start, and an App Platform target again whenever its connector is
 saved (`Targets.Sync`). That sync supplies a setting's first value when it

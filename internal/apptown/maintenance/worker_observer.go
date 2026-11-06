@@ -18,12 +18,14 @@ import (
 // WorkerProbe observes the authenticated worker protocol, not image readiness.
 type WorkerProbe interface {
 	Availability(context.Context) (execution.WorkerAvailability, error)
+	Version(context.Context) (string, error)
 }
 type workerQueue interface {
 	RequestWorkerObservation(context.Context, string) error
 }
 
 type WorkerSnapshot struct {
+	Version                                  string `json:"version"`
 	Identity                                 string
 	Configured                               bool
 	Availability                             execution.WorkerAvailability
@@ -99,6 +101,10 @@ func (o *WorkerObserver) Run(ctx context.Context, identity string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	state, checkErr := o.worker.Availability(ctx)
+	prior.Version = ""
+	if v, err := o.worker.Version(ctx); err == nil {
+		prior.Version = v
+	}
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return ctx.Err()
 	}

@@ -354,3 +354,41 @@ func TestLocalPreviewRemovalMarksHostBeforeFailedEffect(t *testing.T) {
 		t.Fatalf("failed removal: called=%v err=%v", called, err)
 	}
 }
+
+func TestExecutorPreviewListUsesObservedPresenceAndKeepsReleaseIdentity(t *testing.T) {
+	t.Parallel()
+	daemon := newDockerFake()
+	s := observationService(t, daemon)
+	name := docker.PreviewLabelName(docker.ReleasePreviewLabel("shop", 4))
+	seedObservedPreview(t, daemon, name)
+	s.recordServedSince(name, s.discardsSoFar(name), servedRecord{execution: &ExecutionPreview{Project: "shop", Release: 4}, incarnation: "release-4", at: s.now()})
+	if _, err := s.ExecutionPreviews(t.Context(), false); err == nil {
+		t.Fatal("unobserved list was known")
+	}
+	if err := s.ObservePreviews(t.Context(), nil, s.now()); err != nil {
+		t.Fatal(err)
+	}
+	before := len(daemon.Commands())
+	list, err := s.ExecutionPreviews(t.Context(), false)
+	if err != nil || len(list) != 1 || list[0].Project != "shop" || list[0].Release != 4 {
+		t.Fatal(list, err)
+	}
+	if len(daemon.Commands()) != before {
+		t.Fatal("executor read contacted provider")
+	}
+	fresh := New(s.db, Dependencies{Hosts: s.hosts, Environment: s.env})
+	if err := fresh.ObservePreviews(t.Context(), nil, fresh.now()); err != nil {
+		t.Fatal(err)
+	}
+	afterRestart, err := fresh.ExecutionPreviews(t.Context(), false)
+	if err != nil || len(afterRestart) != 1 || afterRestart[0].Release != 4 {
+		t.Fatal("restart lost a running release preview", afterRestart, err)
+	}
+	workerList, err := s.ExecutionPreviews(t.Context(), true)
+	if err != nil || len(workerList) != 0 {
+		t.Fatal("local preview listed on worker", workerList, err)
+	}
+	if s.servedOnWorker(name) {
+		t.Fatal("local release routed to worker")
+	}
+}

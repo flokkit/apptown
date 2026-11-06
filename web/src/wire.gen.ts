@@ -749,6 +749,25 @@ export type EvalStartForm = {
   maxChanges: number
 }
 
+export type ExecutingStepsView = {
+  executing: ExecutingStepView[]
+  operations: ExecutingOperationView[]
+}
+
+export type ExecutorView = {
+  previews: ExecutorPreview[]
+  previewsUnknown: boolean
+  configured: boolean
+  address: string
+  state: string
+  checkedAt?: string
+  version: string
+  appTownVersion: string
+  versionMismatch: boolean
+  stale: boolean
+  failure?: string
+}
+
 export type ExternalBindRequest = {
   providerId: string | null
   principalId: string | null
@@ -3368,6 +3387,35 @@ export type PackChoice = {
   recommended: number
 }
 
+export type ExecutingStepView = {
+  project: string
+  runId: string | null
+  changeId: string | null
+  title: string
+  stepId: string | null
+  step: string
+  type: string
+  startedAt?: string
+  elapsedS: number
+}
+
+export type ExecutingOperationView = {
+  number: number
+  kind: string
+  deployment?: string
+  step?: string
+  askedBy: string
+  startedAt?: string
+  elapsedS: number
+}
+
+export type ExecutorPreview = {
+  project: string
+  release?: number
+  runId?: string | null
+  changeId?: string | null
+}
+
 export type FinalCopy = {
   backup: string | null
   deployment: string
@@ -4734,7 +4782,6 @@ export type ShippedComparison = {
 
 export type TargetCapabilities = {
   persistentVolumes: boolean
-  previews: boolean
   ownLiveness: boolean
   rollout: string[]
   needs: string[]

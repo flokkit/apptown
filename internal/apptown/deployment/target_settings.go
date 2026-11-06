@@ -23,8 +23,8 @@ type TargetSettingsEdit struct {
 	ExpectedRevision  *int64
 	Domain            *string
 	PersistentVolumes *bool
-	Previews          *bool
-	NeedsMode         *string
+
+	NeedsMode *string
 	// Evals marks an attached Docker host for evals: its domain is then the
 	// eval domain, and it takes eval copies only (evals.go).
 	Evals *bool
@@ -44,7 +44,7 @@ type TargetSettingsEdit struct {
 
 var (
 	errTargetSettingsRevisionRequired = fault.New(fault.Invalid, "send the settings revision the edit started from (expectedRevision)")
-	errTargetEditEmpty                = fault.New(fault.Invalid, "nothing to change: send domain, persistentVolumes, previews, needsMode, evals, rehearsals, copyRunner or environment")
+	errTargetEditEmpty                = fault.New(fault.Invalid, "nothing to change: send domain, persistentVolumes, needsMode, evals, rehearsals, copyRunner or environment")
 	errTargetEnvironment              = fault.New(fault.Invalid, "only a Portainer target has a Portainer environment, and it needs a name, such as local")
 	ErrTargetRehearsals               = fault.New(fault.Invalid, "only an attached Docker host can be kept for restore rehearsals, and not one kept for evals")
 	errTargetCopyRunner               = fault.New(fault.Invalid, "a copy runner is a Docker host target AppTown reaches, named on an App Platform target")
@@ -75,7 +75,7 @@ func (t *Target) CopyRunner() string {
 // connector for an App Platform account, AppTown configuration for the
 // intranet's Portainer — and Targets.Sync refreshes it. Its settings are what
 // an administrator states through EditSettings, and only these: the domain,
-// evals and rehearsals marks in ingress, persistentVolumes and previews in
+// evals and rehearsals marks in ingress, persistentVolumes in
 // capabilities, the needs mode, and the copy runner and Portainer
 // environment in address. A sync
 // supplies a setting's first value when it creates the target; after that
@@ -100,7 +100,7 @@ func (t *Target) keepSettings(stored *Target) {
 	}
 	t.Address = withKeysOf(t.Address, stored.Address, settingAddressKeys)
 	t.Ingress = withKeysOf(t.Ingress, stored.Ingress, settingIngressKeys)
-	t.Capabilities.PersistentVolumes, t.Capabilities.Previews = stored.Capabilities.PersistentVolumes, stored.Capabilities.Previews
+	t.Capabilities.PersistentVolumes = stored.Capabilities.PersistentVolumes
 	t.NeedsMode = stored.NeedsMode
 }
 
@@ -182,10 +182,6 @@ func (s *Targets) EditSettings(ctx context.Context, name string, in TargetSettin
 		if in.PersistentVolumes != nil {
 			before["persistentVolumes"], after["persistentVolumes"] = t.Capabilities.PersistentVolumes, *in.PersistentVolumes
 			t.Capabilities.PersistentVolumes = *in.PersistentVolumes
-		}
-		if in.Previews != nil {
-			before["previews"], after["previews"] = t.Capabilities.Previews, *in.Previews
-			t.Capabilities.Previews = *in.Previews
 		}
 		if in.NeedsMode != nil {
 			m := strings.TrimSpace(*in.NeedsMode)

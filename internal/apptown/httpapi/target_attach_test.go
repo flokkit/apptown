@@ -166,23 +166,23 @@ func TestAttachPortainerTargetAndEdit(t *testing.T) {
 	}
 	// The status check above did not move the settings revision, so an edit
 	// read before it still saves.
-	if code, out := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"expectedRevision":0,"domain":"*.apps2.home.example","previews":true}`, "home"); code != 200 {
+	if code, out := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"expectedRevision":0,"domain":"*.apps2.home.example"}`, "home"); code != 200 {
 		t.Fatalf("edit: %d %v", code, out)
 	}
-	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"expectedRevision":0,"previews":false}`, "home"); code != 409 {
+	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"expectedRevision":0,"persistentVolumes":false}`, "home"); code != 409 {
 		t.Fatalf("stale edit: %d", code)
 	}
-	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"previews":false}`, "home"); code != 400 {
+	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"persistentVolumes":false}`, "home"); code != 400 {
 		t.Fatalf("edit without a revision: %d", code)
 	}
 	target, _ = w.deployment.Targets.ByName(t.Context(), "home")
-	if target.Ingress["domain"] != "apps2.home.example" || !target.Capabilities.Previews || !target.Capabilities.PersistentVolumes {
+	if target.Ingress["domain"] != "apps2.home.example" || !target.Capabilities.PersistentVolumes {
 		t.Fatalf("edited: %+v", target)
 	}
 	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"expectedRevision":1,"needsMode":"sideways"}`, "home"); code != 400 {
 		t.Fatalf("bad mode: %d", code)
 	}
-	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/"+targetTestBuiltin, `{"expectedRevision":0,"previews":false}`, targetTestBuiltin); code != 409 {
+	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/"+targetTestBuiltin, `{"expectedRevision":0,"persistentVolumes":false}`, targetTestBuiltin); code != 409 {
 		t.Fatalf("built-in edited: %d", code)
 	}
 	code, out = call(w.targets.TargetPage, "GET", "/api/v1/targets/home", "", "home")
@@ -617,5 +617,23 @@ func TestBucketTargetCountsMarkedBucketsAndMarksRecordedOnes(t *testing.T) {
 	}
 	if receipts := receiptsOfKind(t, w.db, "deployment.resources-marked"); len(receipts) != 1 {
 		t.Fatalf("marking receipts: %d", len(receipts))
+	}
+}
+
+func TestTargetEditRejectsRemovedPreviewField(t *testing.T) {
+	w := newTargetHTTPWorld(t)
+	if _, err := w.deployment.Targets.Put(t.Context(), &deployment.Target{Name: "unused", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Status: deployment.TargetReady}); err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest("PATCH", "/api/v1/targets/unused", strings.NewReader(`{"expectedRevision":0,"previews":true,"domain":"must-not-save.example"}`))
+	r.SetPathValue("name", "unused")
+	response := httptest.NewRecorder()
+	w.targets.EditTarget(response, r)
+	if response.Code != 400 {
+		t.Fatalf("removed preview field accepted: %d %s", response.Code, response.Body.String())
+	}
+	saved, err := w.deployment.Targets.ByName(t.Context(), "unused")
+	if err != nil || saved.Ingress["domain"] != nil || saved.SettingsRevision != 0 {
+		t.Fatal("refused edit changed settings", saved, err)
 	}
 }

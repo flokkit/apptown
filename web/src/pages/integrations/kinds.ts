@@ -7,7 +7,7 @@ import type { ConnectorEntry, IntegrationEntry, IntegrationHealth, IntegrationUs
 const CAP_META: Record<string, { title: string; blurb: string }> = {
   scm: { title: 'Source control', blurb: 'Repositories, branches and merge requests' },
   secrets: { title: 'Secrets', blurb: `Where ${PRODUCT} reads credentials from` },
-  executor: { title: 'Executors', blurb: 'Where workflow steps run' },
+  executor: { title: 'Executor', blurb: 'Where workflow steps run' },
   model: { title: 'Model providers', blurb: 'The models agents call' },
   deploy: { title: 'Deploy connectors', blurb: `How ${PRODUCT} reaches the machines it deploys to` },
   'cloud-account': { title: 'Cloud accounts', blurb: 'Accounts whose deployment targets are managed under Targets' },

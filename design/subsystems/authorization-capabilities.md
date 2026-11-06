@@ -91,6 +91,9 @@ is reached by its address. That report is presentation, never the boundary.
 A refusal on a project says "this project" and never its name, so guessing a
 project's address reveals nothing about it.
 
+The executor inventory requires instance `run:read`. It includes activity across
+projects, so a project-bound run or console cannot read it.
+
 ## Rules every owner keeps
 
 - Only a current instance-administrator grant confers root, and root reaches

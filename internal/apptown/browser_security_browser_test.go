@@ -68,6 +68,8 @@ import (
 	"github.com/flokkit/apptown/internal/hostmem"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 	"github.com/flokkit/apptown/stock"
 	"github.com/riverqueue/river/riverdriver"
 	"github.com/riverqueue/river/riverdriver/riverdatabasesql"
@@ -4588,5 +4590,111 @@ try {
 	}
 	if run.ExitCode != 0 {
 		t.Fatalf("browser exit %d", run.ExitCode)
+	}
+}
+
+// A real worker connection and the production page over disposable records.
+// Its worker filesystem and older build are test service responses.
+func TestExecutorUICapture(t *testing.T) {
+	out := os.Getenv("APPTOWN_EXECUTOR_CAPTURE")
+	if out == "" {
+		t.Skip("set APPTOWN_EXECUTOR_CAPTURE for executor screenshots")
+	}
+	ca := workertest.NewCA(t)
+	var unknown atomic.Bool
+	srv := workertest.StartServerWith(t, ca, &worker.Server{State: t.TempDir(), Profile: execution.WorkerProfile{Name: execution.ProfileWorkerVM}, StateDisk: func(string) (diskspace.Space, error) {
+		return diskspace.Space{TotalBytes: 100 << 30, FreeBytes: 10 << 30}, nil
+	}}, func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if unknown.Load() {
+				http.Error(w, "worker unavailable", 503)
+				return
+			}
+			if r.URL.Path == "/v1/version" {
+				_ = json.NewEncoder(w).Encode(map[string]string{"version": "v1.0.0"})
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+	a := authzActors(t, Config{NoLocalDocker: true, Worker: workerClientConfig(t, ca, srv.URL), DockerClient: newFakeDocker()})
+	observe := func() error {
+		snapshot, err := a.workerObserver.Snapshot(t.Context())
+		if err != nil {
+			return err
+		}
+		if err := a.workerObserver.Run(t.Context(), snapshot.Identity); err != nil {
+			return err
+		}
+		return a.diskObserver.Run(t.Context())
+	}
+	if err := observe(); err != nil {
+		t.Fatal(err)
+	}
+
+	app := a.Handler()
+	dist, err := filepath.Abs("../../web/dist")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := http.FileServer(http.Dir(dist))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/camera/unknown" {
+			unknown.Store(true)
+			if err := observe(); err != nil {
+				t.Error(err)
+				http.Error(w, "observation failed", 500)
+				return
+			}
+			w.WriteHeader(204)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			r.Header.Set("X-AppTown-Actor", "boss")
+			app.ServeHTTP(w, r)
+			return
+		}
+		if !strings.HasPrefix(r.URL.Path, "/assets/") {
+			r.URL.Path = "/"
+		}
+		files.ServeHTTP(w, r)
+	}))
+	defer server.Close()
+	script := filepath.Join(t.TempDir(), "executor.mjs")
+	if err := os.MkdirAll(out, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(script, []byte(`
+const {chromium}=await import(process.env.APPTOWN_PLAYWRIGHT_MODULE);
+const browser=await chromium.launch({headless:true});
+try {
+ const page=await browser.newPage();
+ const errors=[]; page.on('pageerror',err=>errors.push(String(err)));
+ for(const state of ['reachable','unknown']) {
+  if(state==='unknown') await page.request.get(process.env.CAPTURE_URL+'/camera/unknown');
+  for(const [size,width,height] of [['desktop',1440,1000],['phone',390,844]]) for(const theme of ['light','dark']) {
+   await page.setViewportSize({width,height});
+   await page.goto(process.env.CAPTURE_URL+'/integrations/executor?theme='+theme,{waitUntil:'networkidle'});
+   await page.getByText('Worker address',{exact:true}).waitFor();
+   const facts=await page.locator('section[aria-label="Where work runs"]').innerText();
+   const connection=await page.locator('dt').filter({hasText:'Connection'}).locator('xpath=following-sibling::dd[1]').innerText();
+   if(!connection.includes(state)) throw new Error('worker state missing: '+facts);
+   if(state==='reachable'&&!facts.includes('differs from AppTown')) throw new Error('version mismatch missing');
+   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)) throw new Error('executor overflows');
+   await page.screenshot({path:process.env.CAPTURE_OUT+'/'+size+'-'+theme+'-'+state+'.png',fullPage:true});
+  }
+ }
+ if(errors.length) throw new Error(errors.join('\n'));
+} finally {await browser.close();}
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	run := (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{Argv: []string{"node", script}, Env: []string{"APPTOWN_PLAYWRIGHT_MODULE=" + os.Getenv("APPTOWN_PLAYWRIGHT_MODULE"), "CAPTURE_URL=" + server.URL, "CAPTURE_OUT=" + out, "PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")}, Timeout: 2 * time.Minute})
+	t.Log(string(run.Output))
+	if run.RunErr != nil {
+		t.Fatal(run.RunErr)
+	}
+	if run.ExitCode != 0 {
+		t.Fatalf("executor browser exited %d", run.ExitCode)
 	}
 }

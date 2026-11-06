@@ -117,7 +117,7 @@ func (s *Service) AttachTarget(ctx context.Context, in TargetAttachment) (target
 		t = &Target{
 			Name: in.Name, Kind: KindDockerHost, Provider: "", Origin: OriginAttached,
 			Address:      map[string]any{"host": in.Host, "keyFrom": in.KeyFrom, "user": addr.User, "hostname": addr.Host, "port": addr.Port},
-			Capabilities: TargetCapabilities{PersistentVolumes: true, Previews: false, OwnLiveness: false, Rollout: []string{"replace"}, Needs: needs},
+			Capabilities: TargetCapabilities{PersistentVolumes: true, OwnLiveness: false, Rollout: []string{"replace"}, Needs: needs},
 			Ingress:      map[string]any{},
 			NeedsMode:    "emulators", Status: TargetReady,
 		}
@@ -193,7 +193,7 @@ func (s *Service) AttachTarget(ctx context.Context, in TargetAttachment) (target
 		t = &Target{
 			Name: in.Name, Kind: KindS3Bucket, Provider: "", Origin: OriginAttached,
 			Address:      address,
-			Capabilities: TargetCapabilities{PersistentVolumes: false, Previews: false, OwnLiveness: true, Rollout: []string{"replace"}},
+			Capabilities: TargetCapabilities{PersistentVolumes: false, OwnLiveness: true, Rollout: []string{"replace"}},
 			Ingress:      map[string]any{"binding": "provider-issued"},
 			NeedsMode:    "managed", Status: TargetReady,
 		}

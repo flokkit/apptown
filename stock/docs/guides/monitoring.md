@@ -58,3 +58,9 @@ Finished evaluations remove their disposable build caches. Workspace cleanup
 keeps saved conversations and preserves transcripts before removal.
 The fixed cache retention default is 14 days; automatic cache expiry and
 pressure eviction are not built. There are no tunable disk budgets.
+
+## Background jobs
+
+Open **Usage → Background jobs** to see queued and recent work, including
+backups, resource checks and workflow follow-ups. Each row shows its state,
+when it ran, and its outcome. Job kinds and keys appear inline.
