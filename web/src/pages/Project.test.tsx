@@ -281,6 +281,8 @@ it.each([['notes', 'Notes'], ['decisions', 'Decisions']])('loaded Memory %s has 
     expect(el.querySelector('.topbar-crumb.last')?.textContent).toBe('›Memory')
     expect([...el.querySelectorAll('main h1')].map(h => h.textContent)).toEqual([title])
     expect(el.querySelector('main h2')?.textContent).toBe('Alpha')
-    expect(el.textContent).toContain(tab === 'notes' ? 'No notes yet' : 'No decisions recorded yet.')
+    // The page's own list loads after its heading; wait for it rather than
+    // reading it on the heading's frame.
+    await vi.waitFor(() => expect(el.textContent).toContain(tab === 'notes' ? 'No notes yet' : 'No decisions recorded yet.'))
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
