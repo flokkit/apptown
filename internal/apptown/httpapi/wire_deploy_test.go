@@ -47,6 +47,7 @@ func init() {
 		wiregen.Named{Name: "TargetRetired", Value: TargetRetired{}},
 		wiregen.Named{Name: "TargetList", Value: TargetList{}},
 		wiregen.Named{Name: "TargetOffers", Value: TargetOffers{}},
+		wiregen.Named{Name: "CreationTarget", Value: deployment.CreationTarget{}},
 		wiregen.Named{Name: "ProjectTargets", Value: ProjectTargets{}},
 		wiregen.Named{Name: "TierMap", Value: TierMap{}},
 		wiregen.Named{Name: "Departures", Value: Departures{}},

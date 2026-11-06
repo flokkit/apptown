@@ -24,6 +24,15 @@ func checkCreationPolicy(t *testing.T) {
 	t.Parallel()
 	a := workAuthorityFixture(t)
 	h := a.Handler()
+	// Listing placements uses the same current project-create authority.
+	for _, tc := range []struct {
+		actor  string
+		status int
+	}{{"outsider", 403}, {"boss", 200}} {
+		if w := authzCall(h, tc.actor, "GET", "/api/v1/project-creation-targets", ""); w.Code != tc.status {
+			t.Fatalf("%s creation targets: %d %s", tc.actor, w.Code, w.Body.String())
+		}
+	}
 	body := `{"slug":"policy-created","name":"Policy created"}`
 	if w := authzCall(h, "outsider", "POST", "/api/v1/projects", body); w.Code != 403 {
 		t.Fatalf("denial: %d %s", w.Code, w.Body.String())

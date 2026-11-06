@@ -15,7 +15,7 @@ export function creationRequest(saved: RetainedCreation): ProjectDraft {
   if (remote && (!Number.isSafeInteger(namespace) || namespace <= 0)) throw new Error('Choose a GitLab group before creating the project.')
   return {
     requestId: d.creationRequestId, automaticAddress: d.address === null,
-    slug: slugOf(d), name: d.name || slugOf(d), namespace: '', group: '', blurb: d.description.trim(), icon: d.icon, packs: d.packs ?? [],
+    slug: slugOf(d), name: d.name || slugOf(d), namespace: '', group: '', blurb: d.description.trim(), icon: d.icon, target: d.target, packs: d.packs ?? [],
     setup: {
       origin: d.origin, sourceURL: d.sourceURL.trim(), sourceBranch: d.sourceBranch.trim(), credentialSecret: d.gitSecret,
       bundleSHA256: saved.bundleDigest ?? '', services: d.services.map((s) => ({ capability: s.capability, params: { ...s.params } })),
@@ -65,7 +65,7 @@ export async function continueCreation(ctx: CreationContext, say: (line: Progres
       ctx.assertActive()
       // A refusal of an initial request confirms no creation. A refusal
       // during replay does not resolve an earlier unknown outcome.
-      if (firstAttempt && e instanceof HttpError && [400, 409, 422].includes(e.status)) checkpoint('rejected')
+      if (firstAttempt && e instanceof HttpError && [400, 403, 404, 409, 422].includes(e.status)) checkpoint('rejected')
       throw e
     }
     ctx.assertActive()

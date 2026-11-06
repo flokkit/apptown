@@ -38,6 +38,7 @@ export type Draft = {
   // step 3 — a GitLab copy (null until someone picks: the default follows
   // whether this AppTown has a connection), its group ('' = the first listed),
   // and where the code starts from.
+  target: string
   remoteChoice: boolean | null
   namespaceId: string
   repositoryName: string | null
@@ -52,7 +53,7 @@ export type Draft = {
 export const newDraft = (): Draft => ({
   step: 1, name: '', nameEdited: false, address: null, creationRequestId: crypto.randomUUID(), interviewRevision: 0,
   description: '', questions: [], answers: {}, packs: null, packWhy: '', icon: '', choosing: false, services: [], servicesEdited: false,
-  remoteChoice: null, namespaceId: '', repositoryName: null, attachmentRequestId: crypto.randomUUID(), origin: 'empty', bundleFile: null, sourceURL: '', sourceBranch: '', gitSecret: '',
+  target: '', remoteChoice: null, namespaceId: '', repositoryName: null, attachmentRequestId: crypto.randomUUID(), origin: 'empty', bundleFile: null, sourceURL: '', sourceBranch: '', gitSecret: '',
 })
 
 // slugify is the address a name gets when nobody types one.
@@ -84,7 +85,7 @@ export function servicesFor(chosen: string[], packs: PackView[], catalog: Depend
     })
 }
 
-type RepoField = 'repositoryName' | 'remoteChoice' | 'namespaceId' | 'origin' | 'bundleFile' | 'sourceURL' | 'sourceBranch' | 'gitSecret'
+type RepoField = 'target' | 'repositoryName' | 'remoteChoice' | 'namespaceId' | 'origin' | 'bundleFile' | 'sourceURL' | 'sourceBranch' | 'gitSecret'
 
 export type DraftAct =
   | { type: 'restore'; draft: Draft }

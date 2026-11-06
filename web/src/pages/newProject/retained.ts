@@ -25,7 +25,7 @@ function key(actorId: string): string {
 
 function validDraft(value: unknown): value is RetainedCreation['draft'] {
   if (!record(value)) return false
-  const strings = ['name', 'description', 'packWhy', 'icon', 'namespaceId', 'sourceURL', 'sourceBranch', 'gitSecret']
+  const strings = ['name', 'description', 'packWhy', 'icon', 'target', 'namespaceId', 'sourceURL', 'sourceBranch', 'gitSecret']
   return strings.every((field) => typeof value[field] === 'string')
     && ['nameEdited', 'choosing', 'servicesEdited'].every((field) => typeof value[field] === 'boolean')
     && [1, 2, 3].includes(Number(value.step)) && typeof value.step === 'number'

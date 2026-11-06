@@ -219,7 +219,8 @@ func creationHash(in Draft, group string) (string, error) {
 		Packs                                                         []string
 		AutomaticAddress                                              bool
 		Setup                                                         *CreationSetup
-	}{in.Slug, in.Name, in.Namespace, in.Blurb, in.Icon, in.Group, group, in.Packs, in.AutomaticAddress, in.Setup})
+		Target                                                        string `json:",omitempty"`
+	}{in.Slug, in.Name, in.Namespace, in.Blurb, in.Icon, in.Group, group, in.Packs, in.AutomaticAddress, in.Setup, in.Target})
 	if err != nil {
 		return "", fmt.Errorf("encode project creation intent: %w", err)
 	}
