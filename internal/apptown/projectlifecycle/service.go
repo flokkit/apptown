@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -49,6 +51,8 @@ type Draft struct {
 	// ID is the id the caller chose (project.Spec.ID); Nil mints one.
 	ID                                               ids.ID
 	Slug, Name, Namespace, Blurb, Icon, Group, Actor string
+	// Target is main's deployment target: empty for the default, none to deploy nothing.
+	Target string
 	// Packs are the packs the caller will apply next, when it names any.
 	// They are not applied here; Create refuses one the instance does not
 	// offer, or packs that cannot be taken together, before making
@@ -67,7 +71,8 @@ type publisher interface {
 	PushBranch(ctx context.Context, projectID ids.ID, repoDir, branch string)
 }
 type initialDeployment interface {
-	InitializeProjectIn(context.Context, *database.Tx, ids.ID) error
+	InitializeProjectIn(context.Context, *database.Tx, ids.ID, deployment.CreationPlacement) error
+	CreationTargets(context.Context, string, []*appcontract.Contract) ([]deployment.CreationTarget, error)
 }
 
 type Dependencies struct {
@@ -219,7 +224,11 @@ func (s *Service) createIn(ctx context.Context, tx *database.Tx, in Draft, group
 		return out, err
 	}
 	if s.deployments != nil {
-		if err := s.deployments.InitializeProjectIn(ctx, tx, id); err != nil {
+		contracts, err := s.creationContracts(in.Packs)
+		if err != nil {
+			return out, err
+		}
+		if err := s.deployments.InitializeProjectIn(ctx, tx, id, deployment.CreationPlacement{Target: in.Target, Contracts: contracts}); err != nil {
 			return out, err
 		}
 	}

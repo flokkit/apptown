@@ -211,6 +211,7 @@ func cmdNew(args []string) error {
 	fs := newFlags("new")
 	name := fs.String("name", "", "display name (default: slug)")
 	ns := fs.String("ns", "", "namespace (display grouping on the Projects page)")
+	target := fs.String("target", "", "deployment target for main (default: this AppTown’s default target; none: deploy nothing)")
 	pack := fs.String("pack", "", "packs to apply together, comma-separated (e.g. server-base,go,postgres,vite-react or html-game); without them the project has no way of working until apptown pack applies some")
 	toolchain := fs.String("toolchain", "", "stock toolchain to declare in mise.toml (java, go, node, python, rust)")
 	remote := fs.Bool("remote", false, "create + push a GitLab remote in the first available namespace")
@@ -220,7 +221,7 @@ func cmdNew(args []string) error {
 	asJSON := fs.Bool("json", false, "print the project as JSON; what is said along the way goes to stderr")
 	args = parseArgs(fs, args)
 	if len(args) < 1 || args[0] == "" {
-		return usagef("usage: apptown new <slug> [--from <https-url|bundle-file> [--secret-for-git NAME] [--branch B]] [--name N] [--pack P,Q,...] [--toolchain T] [--remote]")
+		return usagef("usage: apptown new <slug> [--from <https-url|bundle-file> [--secret-for-git NAME] [--branch B]] [--name N] [--pack P,Q,...] [--toolchain T] [--target NAME|none] [--remote]")
 	}
 	slug := args[0]
 	if *gitSecret != "" && !strings.HasPrefix(*from, "https://") {
@@ -247,7 +248,7 @@ func cmdNew(args []string) error {
 	}
 	// The pack goes with the creation so a pack AppTown does not offer
 	// refuses it before any project is made.
-	if err := api.post("/projects", map[string]any{"slug": slug, "name": *name, "namespace": *ns, "packs": splitPacks(*pack)}, &proj); err != nil {
+	if err := api.post("/projects", map[string]any{"slug": slug, "name": *name, "namespace": *ns, "packs": splitPacks(*pack), "target": *target}, &proj); err != nil {
 		return fmt.Errorf("create project: %w", err)
 	}
 	fmt.Printf("project %s created\n", proj.Slug)

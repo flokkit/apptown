@@ -115,6 +115,11 @@ func TestDescriptionFirstCreationRequestReplaysThroughHTTP(t *testing.T) {
 	if w := authzCall(h, "bls", "GET", "/api/v1/projects/"+replay.Slug, ""); w.Code != 404 {
 		t.Fatalf("old address read: %d %s", w.Code, w.Body.String())
 	}
+	changedTarget := input
+	changedTarget.Target = "none"
+	if w := postJSON(h, "/api/v1/projects", changedTarget); w.Code != 409 {
+		t.Fatalf("same request changed deployment target: %d %s", w.Code, w.Body.String())
+	}
 	changed := input
 	changed.Blurb = "A different software request"
 	if w := postJSON(h, "/api/v1/projects", changed); w.Code != 409 {

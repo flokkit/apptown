@@ -25,10 +25,12 @@
 // decode these commands and render their results without constructing target policy.
 //
 // [Service.InitializeProjectIn] joins project creation after ownership is
-// recorded. It creates main on the default target only with current deploy
+// recorded. It creates main on the chosen target (empty chooses the default,
+// none chooses no deployment), checking offers and known starter contracts.
+// A named target must be offered to the owning group. It requires current deploy
 // authority; agent credentials create it unconfirmed. A person and their
 // credential are the setter, using the same validation as ConfirmFeed. Missing
-// defaults and denied authority leave no placement; storage failures abort
+// defaults and denied authority with the default choice leave no placement; storage failures abort
 // project creation.
 //
 // Three concrete collaborators hold the implementation releases share with

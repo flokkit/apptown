@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"os"
 	"path/filepath"
 	"strings"
@@ -99,7 +100,7 @@ func (s *Service) CreateCopy(ctx context.Context, in CopyDraft) (*project.Projec
 			return err
 		}
 		if s.deployments != nil {
-			if err := s.deployments.InitializeProjectIn(ctx, tx, id); err != nil {
+			if err := s.deployments.InitializeProjectIn(ctx, tx, id, deployment.CreationPlacement{}); err != nil {
 				return err
 			}
 		}

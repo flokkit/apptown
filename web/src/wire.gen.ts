@@ -470,6 +470,13 @@ export type CreatedChange = {
   run: Run | null
 }
 
+export type CreationTarget = {
+  name: string
+  description: string
+  default: boolean
+  reason: string
+}
+
 export type DashboardView = {
   recentAdrs: ADRRecord[]
   endedOperations: Operation[]
@@ -1306,6 +1313,7 @@ export type ProjectDraft = {
   blurb: string
   icon: string
   group: string
+  target?: string
   packs?: string[]
 }
 

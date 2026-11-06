@@ -184,7 +184,7 @@ func nextFixtureProject(t *testing.T, db *database.DB) ids.ID {
 // Every public creation path shares this owner command. The replayable wizard
 // and the CLI/MCP command both retain the actual creating credential.
 func TestNewProjectGetsDefaultFollowsMain(t *testing.T) {
-	for _, scenario := range []string{"person", "wizard", "agent token", "no default target", "attached default", "write failure"} {
+	for _, scenario := range []string{"person", "wizard", "agent token", "no default target", "attached default", "chosen target", "nowhere", "wizard nowhere", "write failure"} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
 			var a *App
@@ -200,7 +200,7 @@ func TestNewProjectGetsDefaultFollowsMain(t *testing.T) {
 				pr.Credential = "token:creator-agent"
 			}
 			targetName := deployment.BuiltInTargetName
-			if scenario == "attached default" {
+			if scenario == "attached default" || scenario == "chosen target" {
 				targetName = "apps"
 				target, err := a.Deployment.Targets.Put(t.Context(), &deployment.Target{Name: targetName, Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Status: deployment.TargetReady})
 				if err != nil {
@@ -211,7 +211,13 @@ func TestNewProjectGetsDefaultFollowsMain(t *testing.T) {
 				}
 			}
 			in := projectlifecycle.Draft{Slug: "new-app", Name: "New app", Actor: "creator"}
-			if scenario == "wizard" {
+			if scenario == "chosen target" {
+				in.Target = targetName
+			}
+			if scenario == "nowhere" || scenario == "wizard nowhere" {
+				in.Target = "none"
+			}
+			if scenario == "wizard" || scenario == "wizard nowhere" {
 				in.RequestID = ids.New(a.cfg.clock.Now())
 			}
 			if scenario == "write failure" {
@@ -231,7 +237,7 @@ func TestNewProjectGetsDefaultFollowsMain(t *testing.T) {
 				t.Fatal(err)
 			}
 			dep, err := a.Deployment.Deployments.ByName(t.Context(), p.ID, "main")
-			if scenario == "no default target" {
+			if scenario == "no default target" || scenario == "nowhere" || scenario == "wizard nowhere" {
 				if !errors.Is(err, sql.ErrNoRows) {
 					t.Fatalf("deployment without a default target: %+v %v", dep, err)
 				}

@@ -95,7 +95,17 @@ describe('the retained local creation request', () => {
   })
 })
 
-describe('unknown external setup outcomes', () => {
+it.each([403, 404])('allows editing an initially refused target after HTTP %s', async (status) => {
+  const h = harness(c => c.path === '/projects' ? json({ error: 'Target is no longer offered' }, status) : undefined)
+  h.draft.target = 'apps'
+  await expect(h.run()).rejects.toThrow('Target is no longer offered')
+  expect(readCreation(h.ctx.storage, actor)?.pending).toBe('rejected')
+  expect(readCreation(h.ctx.storage, actor)?.draft.target).toBe('apps')
+  await leaveSubmittedCreation(h.ctx)
+  expect(readCreation(h.ctx.storage, actor)).toBeNull()
+})
+
+describe('unknown external setup outcomes' , () => {
   it.each(['repository', 'pack', 'upstream'] as const)('does not repeat an uncertain %s effect', async (step) => {
     const path = { repository: '/repo/from-url', pack: '/pack', upstream: '/repo/remote' }[step]
     const h = harness((c) => c.path.endsWith(path) ? json({ error: 'outcome unavailable' }, 503) : undefined)

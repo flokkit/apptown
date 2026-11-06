@@ -1789,6 +1789,29 @@
         ],
         "type": "object"
       },
+      "CreationTarget": {
+        "properties": {
+          "default": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "default",
+          "reason"
+        ],
+        "type": "object"
+      },
       "Decider": {
         "properties": {
           "displayName": {
@@ -3668,6 +3691,9 @@
             ]
           },
           "slug": {
+            "type": "string"
+          },
+          "target": {
             "type": "string"
           }
         },
@@ -11099,6 +11125,47 @@
           "kind": "administrator"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/project-creation-targets": {
+      "get": {
+        "operationId": "getProjectCreationTargets",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "packs",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CreationTarget"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "project-creation-targets"
+        ],
+        "x-apptown-access": {
+          "contract": "creation.CreationTargets",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects": {

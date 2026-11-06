@@ -1618,3 +1618,29 @@ func TestShowRendersChangeAndRunRecoveryActsTogether(t *testing.T) {
 		t.Fatalf("show recovery choices: %s", out)
 	}
 }
+
+func TestNewCarriesDeploymentTargetChoice(t *testing.T) {
+	for _, target := range []string{"", "apps", "none"} {
+		t.Run(target, func(t *testing.T) {
+			seen := fakeAppTown(t, func(_, path string) (int, string) {
+				switch path {
+				case "/projects":
+					return 201, `{"slug":"shop"}`
+				case "/projects/shop/repo":
+					return 200, `{"defaultBranch":"main"}`
+				}
+				return 404, `{"error":"no route"}`
+			})
+			args := []string{"new", "shop"}
+			if target != "" {
+				args = append(args, "--target", target)
+			}
+			if _, err := run(t, args...); err != nil {
+				t.Fatal(err)
+			}
+			if got := (*seen)[0].Body["target"]; got != target {
+				t.Fatalf("target: %v, want %q", got, target)
+			}
+		})
+	}
+}

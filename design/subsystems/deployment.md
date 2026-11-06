@@ -100,6 +100,26 @@ not freeze upstream image tags, package downloads, secret values or target
 configuration. An earlier revision can still fail on unavailable dependencies or
 its own bugs. See the [contract reference](../../stock/docs/guides/contract-reference.md).
 
+## Choosing a new project's target
+
+The Create project wizard chooses where `main` runs. The instance's default
+is preselected; the other choices are targets offered to the creator's owning
+group and **Nowhere yet**. Each target shows its kind and location. Known
+starter contracts determine compatibility: an incompatible target remains visible
+with a reason and cannot be selected. A pack without a starter contract leaves
+compatibility unknown until the project's code declares it.
+
+`apptown new --target <name>` makes the same choice. `--target none` creates no
+deployment: changes can land without deploying. Omitting the flag keeps the
+default. MCP `create_project` uses the default.
+
+Deployment checks the selected target's current offer, limits, availability and
+known contract requirements inside project creation. Refusal rolls back creation.
+A person with deploy authority is recorded as the follows-main setter; agent
+credentials leave that feed unconfirmed. With the default choice, missing default
+placement or denied deploy authority leaves no deployment, as with ordinary
+project creation. Later landings release only existing follows-main deployments.
+
 ## Landing builds and follows-main releases
 
 The landing workflow’s `build` step builds the merged commit without booting a

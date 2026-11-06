@@ -244,6 +244,7 @@ func appRoutes(a *App) []routeSpec {
 		filteredRoute("GET /api/v1/attention", attention.Read, "attention.Read"),
 
 		filteredRoute("GET /api/v1/projects", projectViews.ListProjects, "projectViews.ListProjects"),
+		ownerRoute("GET /api/v1/project-creation-targets", creation.CreationTargets, "creation.CreationTargets"),
 		ownerRoute("POST /api/v1/projects", creation.Create, "creation.Create"), // decides inside: project:create at the owning group
 		requireRoute("GET /api/v1/projects/{slug}", projectViews.GetProject, access.CapProjectRead, "project-slug"),
 		adminRoute("PATCH /api/v1/projects/{slug}", projectSettings.PatchProject),

@@ -65,6 +65,7 @@ var policyEvidence = map[string]func(*testing.T){
 	"authorization.AuthzExplain":  checkMemberScopedReads,
 
 	"adrs.GetADR":                                              checkFilteredHTTPPolicies,
+	"creation.CreationTargets":                                 checkCreationPolicy,
 	"creation.Create":                                          checkCreationPolicy,
 	"conformance.Conformance":                                  checkConformancePolicies,
 	"conformance.ReviewDetail":                                 checkConformancePolicies,

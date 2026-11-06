@@ -19,7 +19,7 @@ import './NewProject.css'
 //   2. Way of working — "pick for me" leads; the card wall only appears if
 //      someone asks to choose themselves.
 //   3. Repository — every project GETS a repo (not a question); the only
-//      real choice is whether a GitLab copy is created too (default: yes).
+//      choices include a GitLab copy, starting code and where main runs.
 // Then Create runs the whole assembly with a progress log and lands on the
 // manifest — the receipt of what was wired.
 //
