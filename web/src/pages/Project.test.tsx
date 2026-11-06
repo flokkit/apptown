@@ -160,6 +160,7 @@ it.each([
   ['', 'Overview', null, 'changes-and-main'],
   ['security', 'Findings', 'Security', 'monitoring'],
   ['security/suppressions', 'Suppressions', 'Security', 'glossary'],
+  ['settings/general', 'General', 'Settings', 'project-settings'],
   ['settings', 'General', 'Settings', 'project-settings'],
   ['settings/working', 'Way of working', 'Settings', 'packs-and-what-if'],
   ['settings/services', 'Services', 'Settings', 'services-and-data'],
@@ -182,7 +183,7 @@ it.each([
       expect(b).not.toBeNull()
       return b!
     })
-    expect(button.closest('.page-head-row')?.querySelector('h1')?.textContent).toBe(area ? title : 'Alpha')
+    expect([...el.querySelectorAll('h1')].map(h => h.textContent)).toEqual([area ? title : 'Alpha'])
     expect(el.querySelector('.page-area')?.textContent ?? null).toBe(area)
     expect(el.querySelector('.page-help-pop')).toBeNull()
     act(() => button.click())
@@ -193,7 +194,6 @@ it.each([
       expect(popover.textContent).toContain('Open Changes')
       expect(popover.textContent).not.toContain('notes')
     }
-    if (area === 'Memory') expect(el.querySelectorAll('h1')).toHaveLength(1)
     if (title === 'Notes') {
       expect(popover.textContent).toContain('PROJECT-NOTES.md')
       expect(popover.textContent).toContain('every session')
@@ -242,6 +242,21 @@ it('shows secret bindings and warnings without the introduction or secret count'
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
 
+// These sub-pages share the project context but do not use PageHead.
+it.each([
+  ['changes', 'Changes'], ['deployments', 'Deployments'],
+  ['release', 'Release'], ['releases/2', 'Release #2'],
+])('has one page heading at /projects/a/%s', async (path, title) => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/projects/a')
+    ? new Response(JSON.stringify(project(1, 'a', 'Alpha')))
+    : new Response(JSON.stringify({ error: 'Unavailable' }), { status: 503 })))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/projects/a/${path}`]}><Routes><Route path="/projects/:slug/:tab/:stab?" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect([...el.querySelectorAll('h1')].map(h => h.textContent)).toEqual([title]))
+    expect(el.querySelector('.project-heading')?.textContent).toBe('Alpha')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
 
 it.each([false, true])('Memory Notes keeps attributed notes and governed actions (present=%s)', async present => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
@@ -280,7 +295,7 @@ it.each([['notes', 'Notes'], ['decisions', 'Decisions']])('loaded Memory %s has 
     await vi.waitFor(() => expect(el.querySelector('main h1')?.textContent).toBe(title))
     expect(el.querySelector('.topbar-crumb.last')?.textContent).toBe('›Memory')
     expect([...el.querySelectorAll('main h1')].map(h => h.textContent)).toEqual([title])
-    expect(el.querySelector('main h2')?.textContent).toBe('Alpha')
+    expect(el.querySelector('main .project-heading')?.textContent).toBe('Alpha')
     // The page's own list loads after its heading; wait for it rather than
     // reading it on the heading's frame.
     await vi.waitFor(() => expect(el.textContent).toContain(tab === 'notes' ? 'No notes yet' : 'No decisions recorded yet.'))
