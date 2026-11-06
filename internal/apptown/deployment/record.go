@@ -47,6 +47,7 @@ type Deployment struct {
 	DesiredGeneration  int64           `json:"desiredGeneration"`
 	ObservedGeneration int64           `json:"observedGeneration"`
 	Readiness          Readiness       `json:"readiness"`
+	PromotedFromID     ids.ID          `json:"promotedFromId,omitzero"`
 	FeedRevision       int64           `json:"feedRevision"`
 	FeedConfirmed      bool            `json:"feedConfirmed"`
 	feedAuthority      json.RawMessage
@@ -126,11 +127,11 @@ type Attributes struct {
 }
 
 // WithDefaults fills what a request left unsaid: a deployment is fed by
-// promotion, for the team, holding non-production data, until told
+// hand, for the team, holding non-production data, until told
 // otherwise.
 func (at Attributes) WithDefaults() Attributes {
 	if at.Feed == "" {
-		at.Feed = "promotion"
+		at.Feed = "manual"
 	}
 	if at.Audience == "" {
 		at.Audience = "team"
@@ -196,6 +197,7 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		DesiredGeneration:  r.DesiredGeneration,
 		ObservedGeneration: r.ObservedGeneration,
 		Feed:               r.Feed,
+		PromotedFromID:     r.PromotedFromID,
 		FeedRevision:       r.FeedRevision,
 		FeedConfirmed:      r.FeedAuthorityJson != nil,
 		feedAuthority:      feedAuthority(r.FeedAuthorityJson),

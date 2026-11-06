@@ -25,18 +25,19 @@ import (
 
 // Release is one row of the release ledger.
 type Release struct {
-	BackupID    ids.ID       `json:"backupId,omitzero"`
-	ID          ids.ID       `json:"id"`
-	ProjectID   ids.ID       `json:"projectId"`
-	Number      int64        `json:"number"`
-	State       ReleaseState `json:"state"`
-	Deployment  string       `json:"deployment"`
-	ExternalRef string       `json:"externalRef,omitempty"`
-	ApprovedBy  string       `json:"approvedBy,omitempty"`
-	RunID       ids.ID       `json:"runId,omitzero"`
-	CreatedAt   string       `json:"createdAt"`
-	ReleasedAt  stamp.Time   `json:"releasedAt,omitzero"`
-	Notes       string       `json:"notes,omitempty"`
+	FromDeploymentID ids.ID       `json:"fromDeploymentId,omitzero"`
+	BackupID         ids.ID       `json:"backupId,omitzero"`
+	ID               ids.ID       `json:"id"`
+	ProjectID        ids.ID       `json:"projectId"`
+	Number           int64        `json:"number"`
+	State            ReleaseState `json:"state"`
+	Deployment       string       `json:"deployment"`
+	ExternalRef      string       `json:"externalRef,omitempty"`
+	ApprovedBy       string       `json:"approvedBy,omitempty"`
+	RunID            ids.ID       `json:"runId,omitzero"`
+	CreatedAt        string       `json:"createdAt"`
+	ReleasedAt       stamp.Time   `json:"releasedAt,omitzero"`
+	Notes            string       `json:"notes,omitempty"`
 	// Failure is the recorded failure event, separate from release notes.
 	Failure   string `json:"failure,omitempty"`
 	CommitSHA string `json:"commitSha,omitempty"`
@@ -80,24 +81,25 @@ func releaseRecord(r deploymentsql.Release, err error) (*Release, error) {
 		return nil, err
 	}
 	v := &Release{
-		BackupID:     r.BackupID,
-		ID:           r.ID,
-		ProjectID:    r.ProjectID,
-		Number:       r.Number,
-		Deployment:   r.Deployment,
-		ExternalRef:  r.ExternalRef,
-		ApprovedBy:   r.ApprovedBy,
-		RunID:        r.RunID,
-		CreatedAt:    r.CreatedAt.UTC().Format(time.RFC3339Nano),
-		ReleasedAt:   stamp.Time{NullTime: r.ReleasedAt},
-		Notes:        r.Notes,
-		CommitSHA:    r.CommitSha,
-		SourceSHA:    r.SourceSha,
-		BundleID:     r.BundleID,
-		DeploymentID: r.DeploymentID,
-		Generation:   r.Generation,
-		ArtifactHash: r.ArtifactHash,
-		Origin:       r.Origin,
+		BackupID:         r.BackupID,
+		FromDeploymentID: r.FromDeploymentID,
+		ID:               r.ID,
+		ProjectID:        r.ProjectID,
+		Number:           r.Number,
+		Deployment:       r.Deployment,
+		ExternalRef:      r.ExternalRef,
+		ApprovedBy:       r.ApprovedBy,
+		RunID:            r.RunID,
+		CreatedAt:        r.CreatedAt.UTC().Format(time.RFC3339Nano),
+		ReleasedAt:       stamp.Time{NullTime: r.ReleasedAt},
+		Notes:            r.Notes,
+		CommitSHA:        r.CommitSha,
+		SourceSHA:        r.SourceSha,
+		BundleID:         r.BundleID,
+		DeploymentID:     r.DeploymentID,
+		Generation:       r.Generation,
+		ArtifactHash:     r.ArtifactHash,
+		Origin:           r.Origin,
 	}
 	if err := v.State.Scan(r.State); err != nil {
 		return nil, err

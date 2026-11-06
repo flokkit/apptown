@@ -133,11 +133,21 @@ func (s *Service) Configure(ctx context.Context, in ConfigureDeployment) (config
 		if why := offer.permits(target, proj.Slug, attrs, int(standing)); why != "" {
 			return configurationResult{}, &offerDeniedError{why}
 		}
+		existing, err := q.DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: in.ProjectID, Name: in.Name})
+		if found, e := database.Lookup(err); e != nil {
+			return configurationResult{}, e
+		} else if found && existing.Deployment.Feed != attrs.Feed {
+			return configurationResult{}, fault.New(fault.Conflict, "change the feed through the deployment's revisioned settings")
+		}
+		if attrs.Feed == "promotion" && (err != nil || existing.Deployment.PromotedFromID.IsZero()) {
+			return configurationResult{}, fault.New(fault.Invalid, "create a manual deployment, then choose its promotion source in Settings")
+		}
+		creating := errors.Is(err, sql.ErrNoRows)
 		dep, err := ensureStandingIn(ctx, tx, in.ProjectID, in.Name, target.ID, attrs, at)
 		if err != nil {
 			return configurationResult{}, err
 		}
-		if attrs.Feed == "main" {
+		if attrs.Feed == "main" && creating {
 			setter, err := s.requireDeploy(ctx, in.ProjectID, dep.Name, dep.Protected(), "deployment.configure-feed")
 			if err != nil {
 				return configurationResult{}, err

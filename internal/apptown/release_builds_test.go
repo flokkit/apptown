@@ -666,7 +666,7 @@ func (w *releaseWorld) step(t *testing.T, id ids.ID) *workflow.Step {
 // owner, and answers the release as recorded.
 func (w *releaseWorld) promote(t *testing.T, bundleID ids.ID, name string, target *deployment.Target) (*deployment.Release, error) {
 	t.Helper()
-	env, err := w.a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), name, target.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+	env, err := w.a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), name, target.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}

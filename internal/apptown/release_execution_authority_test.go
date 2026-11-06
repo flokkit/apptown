@@ -25,7 +25,7 @@ func TestQueuedReleaseRechecksTheRequestersCurrentAuthority(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", target.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+			dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", target.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 			if err != nil {
 				t.Fatal(err)
 			}

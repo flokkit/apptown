@@ -29,3 +29,29 @@ func TestConfirmAllFeedsReportsRefusals(t *testing.T) {
 		t.Fatalf("bulk confirm: %s %v %+v", out, err, *seen)
 	}
 }
+
+func TestSetFeedUsesDisplayedRevisionAndNamedSource(t *testing.T) {
+	seen := jsonAppTown(t, func(method, path string) (int, string) {
+		if method == "GET" {
+			return 200, `[{"name":"production","feedRevision":7}]`
+		}
+		return 200, `{}`
+	})
+	_, err := run(t, "deployment", "set-feed", "shop", "production", "promotion", "--from", "staging")
+	if err != nil || len(*seen) != 2 {
+		t.Fatalf("set-feed: %v %+v", err, *seen)
+	}
+	got := (*seen)[1]
+	if got.Method != "PUT" || got.Path != "/projects/shop/deployments/production/feed" || got.Body["revision"] != float64(7) || got.Body["feed"] != "promotion" || got.Body["from"] != "staging" {
+		t.Fatalf("settings write: %+v", got)
+	}
+}
+
+func TestSetFeedRefusesMissingOrUnrelatedSourceBeforeWriting(t *testing.T) {
+	for _, args := range [][]string{{"promotion"}, {"main", "--from", "staging"}, {"unknown"}} {
+		seen := jsonAppTown(t, func(_, _ string) (int, string) { return 200, `{}` })
+		if _, err := run(t, append([]string{"deployment", "set-feed", "shop", "production"}, args...)...); err == nil || len(*seen) != 0 {
+			t.Fatalf("invalid feed reached API: %v %+v", err, *seen)
+		}
+	}
+}

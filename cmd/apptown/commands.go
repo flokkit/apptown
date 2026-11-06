@@ -56,8 +56,15 @@ var sections = []section{
                                         a run that ended without finishing is named with why and what next`, cmdWait},
 			{[]string{"approve"}, `  approve <step-id> [-m comment] [-y]   show what approving means, then approve`, func(args []string) error { return cmdDecide(args, "approve") }},
 			{[]string{"deployment"}, `  deployment confirm-feed <project> <deployment> | --all
-                                        authorize automatic releases after each landing`, cmdDeployment},
-			{[]string{"release"}, `  release <project-slug> <deployment>   release what landed on main to that deployment and follow its log` + "\n" +
+  deployment set-feed <project> <deployment> main|manual|promotion [--from <deployment>]
+                                        choose how a deployment updates; main authorizes automatic releases
+                                        promotion deploys the release its source last deployed successfully
+                                        refuses a source taken down, never deployed or currently observed stopped;
+                                        unknown or stale health does not block promotion`, cmdDeployment},
+			{[]string{"release"}, `  release <project-slug> <deployment>   deploy, then follow the release log
+                                        promotion deploys the release its source last deployed successfully;
+                                        by hand deploys latest. Promotion refuses a source taken down, never
+                                        deployed or currently observed stopped; unknown or stale health does not block it` + "\n" +
 				`                                        (--accept-uncopied-data: release though AppTown cannot copy the data it holds now;` + "\n" +
 				`                                        --accept-unchecked-copy: fill a deployment that starts from a copy not shown to come back whole)` + "\n" +
 				`  release <project-slug> [-domain host] release to the default chosen in project settings and follow its log`, cmdRelease},

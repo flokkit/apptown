@@ -63,8 +63,8 @@ func TestExplicitReleaseDefaultKeepsIdentityAndRequiresCurrentRevision(t *testin
 	if err != nil || !cleared.DeploymentID.IsZero() || cleared.Revision != 2 {
 		t.Fatalf("clear: %+v %v", cleared, err)
 	}
-	if _, err := s.Configure(t.Context(), in); err != nil {
-		t.Fatalf("cleared choice blocked normal configuration: %v", err)
+	if _, err := s.SetFeed(t.Context(), in.ProjectID, dep.Name, FeedSettings{Revision: dep.FeedRevision, Feed: "main"}); err != nil {
+		t.Fatalf("cleared choice blocked feed settings: %v", err)
 	}
 }
 
@@ -115,7 +115,7 @@ func TestDefaultReleasePinsItsSelectedEnvironment(t *testing.T) {
 			}
 			// The generic request fixture names main; a default deliberately
 			// selects a separately released standing environment.
-			dep, err = s.Deployments.EnsureStanding(t.Context(), in.ProjectID, "chosen", target.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+			dep, err = s.Deployments.EnsureStanding(t.Context(), in.ProjectID, "chosen", target.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 			if err != nil {
 				t.Fatal(err)
 			}

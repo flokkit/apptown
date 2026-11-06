@@ -1,4 +1,5 @@
 import './deployments.css'
+import { DeploymentFeed, feedWords } from './DeploymentFeed'
 import '../../../overview-line.css'
 import { DeploymentDeploys } from '../DeploymentDeploys'
 import { useDeploymentStatus } from '../../../deploymentStatus'
@@ -59,7 +60,7 @@ export function DeploymentsTab({ slug }: { slug: string }) {
         action={!adding && choices.length > 0 ? <button onClick={() => setAdding(true)}>New deployment</button> : undefined}>
         {adding && <AddDeployment slug={slug} choices={choices} existing={envs.map((e) => e.name)} onDone={(added) => { setAdding(false); if (added) load() }} />}
         {envs.length === 0 && !adding && <p className="muted">Nothing deploys yet. {choices.length === 0 ? 'Ask an administrator to offer a deployment target, then choose New deployment.' : 'Choose New deployment to add one.'}</p>}
-        <div role="list">{envs.map((e) => <DeploymentRow key={e.name} slug={slug} env={envsQ.refreshFailed ? { ...e, observation: 'unknown' } : e} />)}</div>
+        <div role="list">{envs.map((e) => <DeploymentRow key={e.name} slug={slug} current={envsQ.current} env={envsQ.refreshFailed ? { ...e, observation: 'unknown' } : e} />)}</div>
       </Section>
 
       <ReleaseDefaultPicker slug={slug} deployments={envs.filter(e => e.kind !== 'preview')} />
@@ -78,8 +79,20 @@ export function DeploymentsTab({ slug }: { slug: string }) {
   )
 }
 
+function promotionHelp(e: DeploymentView) {
+  return e.feed === 'promotion'
+    ? e.promotionBlocked || `Deploys release ${e.promotionRelease}, the release ${e.promotionSource} last deployed successfully.`
+    : undefined
+}
+
+function deployLabel(e: DeploymentView) {
+  return e.feed === 'promotion' ? e.promotionRelease ? `Promote release ${e.promotionRelease}` : 'Promote' : 'Deploy latest'
+}
+
 // Summary reads share the detail card's resource keys and freshness rules.
-export function DeploymentRow({ slug, env: e }: { slug: string; env: DeploymentView }) {
+export function DeploymentRow({ slug, env: e, current = true }: { slug: string; env: DeploymentView; current?: boolean }) {
+  const nav = useNavigate()
+  const { run, busy, err } = useAction()
   const base = `/projects/${slug}/deployments/${e.name}`
   const resources = useGet<DeploymentResources>(e.generation ? `${base}/resources` : null, { poll: 5000 })
   const hasProtection = e.target?.kind === 'do-app' || e.target?.kind === 'docker-host'
@@ -102,13 +115,23 @@ export function DeploymentRow({ slug, env: e }: { slug: string; env: DeploymentV
     identity={<><Link to={base}><strong>{e.displayLabel || e.name}</strong></Link><div><DeploymentFact env={e} /></div></>}
     state={<Status observation {...status} />}
     detail={<>
+      {e.kind === 'standing' && <div>{feedWords(e)}</div>}
+      {e.promotionBlocked && <div className="muted small">{e.promotionBlocked}</div>}
       <div className="muted small">{e.kind === 'preview'
         ? e.changeId ? <Link to={`/changes/${e.changeId}`}>Preview of {change.data ? `change #${change.data.change.number}: ${change.data.change.title}` : 'change'}</Link> : 'Change not recorded'
         : release ? <><Link to={`/projects/${slug}/releases/${release.number}`}>Release #{release.number}</Link> · {fmtStamp(release.releasedAt || release.createdAt)}</>
         : releases.loading ? 'Reading release…' : releases.err ? 'Release unknown' : 'No serving release recorded'}<StaleNote q={e.kind === 'preview' ? change : releases} inline /></div>
       {backup && <span className={backup === 'no backup yet' ? 'error small' : 'deploy-warning small'}> {backup}</span>}
       {warning && <span className={share?.diskRefuses ? 'error small' : 'deploy-warning small'}> {warning}</span>}</>}
-    action={<Link className="btn" to={base}>Open</Link>} />
+    action={e.kind === 'standing' ? <div className="stack stack-1">
+      {e.feed === 'main'
+        ? <button disabled={busy || !current} onClick={() => run(() => post(`${base}/confirm-feed`, { revision: e.feedRevision }))}>Confirm follows main</button>
+        : <button title={promotionHelp(e)} disabled={busy || !current || !e.target || !!e.promotionBlocked} onClick={async () => {
+          const result = await run(() => post<ReleaseRequested>(`${base}/deploy`, e.feed === 'promotion' ? { expectedSourceBundleId: e.promotionBundleId } : {}))
+          if (result) nav(`/projects/${slug}/releases/${result.number}`)
+        }}>{deployLabel(e)}</button>}
+      {err && <span className="error small">{err}</span>}
+    </div> : <Link className="btn" to={base}>Open</Link>} />
 }
 
 export function DeploymentPage() {
@@ -121,6 +144,7 @@ export function DeploymentPage() {
   }, [slug, name, e?.displayLabel])
   return <><ReadStatus q={q} what="the deployment" /><StaleNote q={q} />
     <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} displayLabel={e?.displayLabel} url={e?.url} />
+    {e && <DeploymentFeed key={`${slug}/${name}/feed`} slug={slug!} name={name!} />}
     {e && <EnvCard slug={slug!} env={q.refreshFailed ? { ...e, observation: 'unknown' } : e} onChanged={q.reload} />}
   </>
 }
@@ -139,7 +163,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
     if (r) { setChecked(r); onChanged() }
   }
   const deploy = async () => {
-    const r = await run(() => post<ReleaseRequested>(`/projects/${slug}/deployments/${e.name}/deploy`, {}))
+    const r = await run(() => post<ReleaseRequested>(`/projects/${slug}/deployments/${e.name}/deploy`, e.feed === 'promotion' ? { expectedSourceBundleId: e.promotionBundleId } : {}))
     if (r) nav(`/projects/${slug}/releases/${r.number}`)
   }
   // What a take-down would do to a cloud deployment's data is AppTown's
@@ -167,7 +191,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
   const place = e.target ? placeWords(e.target.title, e.target.vendor, e.target.region) : 'not bound'
   const meta = [
     `${place}${e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}`,
-    e.feed === 'main' ? 'updates on every change' : 'updates when released',
+    feedWords(e),
     e.audience === 'team' ? 'team only' : e.audience,
     `${e.data === 'synthetic' ? 'test' : e.data} data`,
   ].filter(Boolean).join(' · ')
@@ -182,7 +206,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
     : e.feed === 'main'
     ? <button disabled={busy} onClick={confirmFeed}>Confirm follows main</button>
     : e.target
-    ? <button disabled={busy} onClick={deploy} title="ship the latest bundle here and open the release">Deploy latest</button>
+    ? <div className="stack stack-1"><button title={promotionHelp(e)} disabled={busy || !!e.promotionBlocked} onClick={deploy}>{deployLabel(e)}</button>{e.promotionBlocked && <span className="muted small">{e.promotionBlocked}</span>}</div>
     : null
 
   return (
@@ -300,7 +324,7 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
     if (!name.trim()) { setErr('give it a name · lower-case letters, digits and dashes'); return }
     if (existing.includes(name.trim())) { setErr(`there is already a deployment called ${name.trim()}`); return }
     const from = picked?.kind === 'do-app' ? startFrom : ''
-    const r = await run(() => post(`/projects/${slug}/deployments`, { name: name.trim(), target: picked?.name, feed: 'promotion', audience, data, ...(from ? { startFrom: from } : {}) }))
+    const r = await run(() => post(`/projects/${slug}/deployments`, { name: name.trim(), target: picked?.name, feed: 'manual', audience, data, ...(from ? { startFrom: from } : {}) }))
     if (r) { setName(''); onDone(true) }
   }
   const protectedPick = audience === 'partners' || audience === 'public' || data === 'production'

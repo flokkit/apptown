@@ -104,7 +104,7 @@ func configurationFixtureWith(t *testing.T, rt testRuntime) (*both, *configurati
 	// Project is an external prerequisite; this suite owns only Deployment setup.
 	project := createTestProject(t, db, "config", "Configuration")
 	w := &configurationWorld{actor: configurationIdentity{Name: "alice", ProjectSlug: "config", OwnerGroup: "team"}, contract: &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true}}}}
-	s := assembled(db, rt, deployment.Dependencies{Authority: w, Configuration: deployment.ConfigurationDependencies{Authority: w, Projects: w, Contracts: w}})
+	s := assembled(db, rt, deployment.Dependencies{Authority: w, Releases: deployment.ReleaseDependencies{Authority: w}, Configuration: deployment.ConfigurationDependencies{Authority: w, Projects: w, Contracts: w}})
 	target, err := s.Targets.Put(context.Background(), &deployment.Target{Name: "cloud", Kind: deployment.KindDOApp, Origin: deployment.OriginAttached, Status: deployment.TargetReady, NeedsMode: "managed", Capabilities: deployment.TargetCapabilities{Needs: []string{"postgres"}}})
 	if err != nil {
 		t.Fatal(err)

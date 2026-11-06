@@ -82,7 +82,7 @@ func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing
 	if err := a.Deployment.Targets.Offer(t.Context(), local, "*", deployment.OfferCaps{}, "boss"); err != nil {
 		t.Fatal(err)
 	}
-	localDep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), game.ID, "office", local.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+	localDep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), game.ID, "office", local.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing
 	if err := a.Deployment.Targets.Offer(t.Context(), target, "*", deployment.OfferCaps{}, "boss"); err != nil {
 		t.Fatal(err)
 	}
-	dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), game.ID, "lan", target.ID, deployment.Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
+	dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), game.ID, "lan", target.ID, deployment.Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"})
 	if err != nil {
 		t.Fatal(err)
 	}

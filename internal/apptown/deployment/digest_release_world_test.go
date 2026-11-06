@@ -527,7 +527,7 @@ func (w *digestWorld) publish(t *testing.T) *ReleaseBundle {
 // person promoting it does, and answers the release as recorded.
 func (w *digestWorld) promote(t *testing.T, bundleID ids.ID, name string, target *Target) (*Release, error) {
 	t.Helper()
-	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, name, target.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, name, target.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	accepted, err := w.s.RequestRelease(context.Background(), DeploySelection{ProjectID: w.project, DeploymentName: name, BundleID: bundleID})

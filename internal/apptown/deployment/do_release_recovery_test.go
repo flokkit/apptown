@@ -110,7 +110,7 @@ func doReleaseWorldNeeding(t *testing.T, more string) (*Service, *dofake.API, *d
 	if err != nil {
 		t.Fatal(err)
 	}
-	dep, err := service.Deployments.EnsureStanding(t.Context(), pid, "cloud", target.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "non-production"})
+	dep, err := service.Deployments.EnsureStanding(t.Context(), pid, "cloud", target.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "non-production"})
 	if err != nil {
 		t.Fatal(err)
 	}

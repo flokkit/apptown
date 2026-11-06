@@ -149,25 +149,26 @@ type ProjectReleaseSetting struct {
 }
 
 type Release struct {
-	ID           ids.ID
-	ProjectID    ids.ID
-	Number       int64
-	State        string
-	Deployment   string
-	ExternalRef  string
-	ApprovedBy   string
-	RunID        ids.ID
-	CreatedAt    time.Time
-	ReleasedAt   sql.NullTime
-	Notes        string
-	CommitSha    string
-	SourceSha    string
-	BundleID     ids.ID
-	DeploymentID ids.ID
-	Generation   int64
-	ArtifactHash string
-	Origin       string
-	BackupID     ids.ID
+	ID               ids.ID
+	ProjectID        ids.ID
+	Number           int64
+	State            string
+	Deployment       string
+	ExternalRef      string
+	ApprovedBy       string
+	RunID            ids.ID
+	CreatedAt        time.Time
+	ReleasedAt       sql.NullTime
+	Notes            string
+	CommitSha        string
+	SourceSha        string
+	BundleID         ids.ID
+	DeploymentID     ids.ID
+	Generation       int64
+	ArtifactHash     string
+	Origin           string
+	BackupID         ids.ID
+	FromDeploymentID ids.ID
 }
 
 type ReleaseBundle struct {

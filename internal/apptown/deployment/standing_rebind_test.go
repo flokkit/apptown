@@ -22,7 +22,7 @@ func TestDeployedDeploymentIsNotSilentlyRebound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	attrs := Attributes{Feed: "promotion", Audience: "team", DataClass: "non-production"}
+	attrs := Attributes{Feed: "manual", Audience: "team", DataClass: "non-production"}
 	if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, in.Name, other.ID, attrs); err == nil || !strings.Contains(err.Error(), "migration") {
 		t.Fatalf("moving a deployed environment is a migration: %v", err)
 	}

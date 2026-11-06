@@ -622,3 +622,14 @@ SELECT authority_json,feed_revision,landing_approvers,backup_evidence_json,uncop
 
 -- name: RecordUncopiedAcceptance :execrows
 UPDATE release_requests SET uncopied_acceptance_json=$2 WHERE release_id=$1;
+
+-- name: LockFeedSettings :many
+SELECT * FROM deployments WHERE project_id=$1 ORDER BY id FOR UPDATE;
+
+-- name: SetDeploymentFeed :execrows
+UPDATE deployments SET feed=sqlc.arg(feed), promoted_from_id=sqlc.narg(promoted_from_id),
+ feed_authority_json=sqlc.narg(authority), feed_revision=feed_revision+1
+WHERE id=sqlc.arg(id) AND feed_revision=sqlc.arg(revision);
+
+-- name: RecordPromotionSource :execrows
+UPDATE releases SET from_deployment_id=$2 WHERE id=$1;

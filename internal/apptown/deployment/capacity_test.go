@@ -600,7 +600,7 @@ func TestAPortainerTargetsCapacityIsWhatItHasAndWhatAppTownDeclares(t *testing.T
 func TestAFirstReleasesKillIsRecordedBeforeAnythingSettles(t *testing.T) {
 	t.Parallel()
 	w := newDigestWorldWith(t, "", sizedNeedYAML, nil)
-	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "first", w.lab2.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "first", w.lab2.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	first := mustDeployment(t, w, "first")
@@ -677,7 +677,7 @@ func TestAnOpenFirstReleaseMakesTheDeclaredSumUnknown(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargetsWith(t, false, "app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n    resources: { memory: 256M }\n")
 	intranet := p.target(t, IntranetTargetName)
-	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "office", intranet.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "office", intranet.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	c, err := backgroundCapacity(t, p.s, IntranetTargetName)

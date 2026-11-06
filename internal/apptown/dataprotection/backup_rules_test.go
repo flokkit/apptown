@@ -46,7 +46,7 @@ func TestTargetHoldsBackups(t *testing.T) {
 
 func TestAttributesWithDefaults(t *testing.T) {
 	got := deployment.Attributes{}.WithDefaults()
-	if got.Feed != "promotion" || got.Audience != "team" || got.DataClass != "non-production" {
+	if got.Feed != "manual" || got.Audience != "team" || got.DataClass != "non-production" {
 		t.Fatalf("defaults: %+v", got)
 	}
 	kept := deployment.Attributes{Feed: "landing", Audience: "public", DataClass: "production"}.WithDefaults()

@@ -93,7 +93,7 @@ func requestFixture(t *testing.T) (*Service, DeploySelection, *requestAuthority,
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewDeployments(db).EnsureStanding(t.Context(), draft.ProjectID, draft.Deployment, target.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := NewDeployments(db).EnsureStanding(t.Context(), draft.ProjectID, draft.Deployment, target.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	mustExec(t, db, `CREATE TABLE test_release_queue(release_id UUID PRIMARY KEY REFERENCES releases(id))`)
@@ -118,7 +118,7 @@ func TestRequestReleaseAtomicQueue(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					chosen, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, "chosen", target.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+					chosen, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, "chosen", target.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 					if err != nil {
 						t.Fatal(err)
 					}

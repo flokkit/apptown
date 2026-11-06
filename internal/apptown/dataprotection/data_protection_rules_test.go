@@ -1234,3 +1234,48 @@ func TestProtectionPageShowsOperationProgressWithoutCollectingProviderStatus(t *
 	}
 	_ = dep
 }
+
+// Referenced managed sources never start a final copy or reach teardown.
+func TestPromotionSourceTakeDownRefusesBeforeDataProtectionEffects(t *testing.T) {
+	for _, withProject := range []bool{false, true} {
+		t.Run(fmt.Sprint(withProject), func(t *testing.T) {
+			t.Parallel()
+			w := newDataWorld(t)
+			w.protect()
+			if _, err := w.bind(w.project, "prod", "production", ids.Nil); err != nil {
+				t.Fatal(err)
+			}
+			if rel, log := w.release("prod"); rel.State != deployment.Released {
+				t.Fatalf("source: %s %s", rel.State, log)
+			}
+			source, err := w.s.Deployments.ByName(t.Context(), w.project, "prod")
+			if err != nil {
+				t.Fatal(err)
+			}
+			dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "downstream", source.TargetID, deployment.Attributes{}.WithDefaults())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := w.s.SetFeed(t.Context(), w.project, dep.Name, deployment.FeedSettings{Revision: dep.FeedRevision, Feed: "promotion", From: source.Name}); err != nil {
+				t.Fatal(err)
+			}
+			before := w.api.Snapshot()
+			if withProject {
+				_, err = w.s.TakeDownWithProject(t.Context(), w.project, source.Name)
+			} else {
+				_, err = w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: source.Name})
+			}
+			if err == nil || !strings.Contains(err.Error(), "downstream") || !strings.Contains(err.Error(), "change their feeds first") {
+				t.Errorf("take-down refusal: %v", err)
+			}
+			ops, err := w.opsOn(source.Name)
+			if err != nil || len(ops) != 0 {
+				t.Fatalf("refusal created data operations: %+v %v", ops, err)
+			}
+			after := w.api.Snapshot()
+			if len(after.Apps) != len(before.Apps) || len(after.DeletedClusters) != len(before.DeletedClusters) || after.DeleteRequests != before.DeleteRequests {
+				t.Fatalf("refusal changed provider: before %+v after %+v", before, after)
+			}
+		})
+	}
+}

@@ -57,7 +57,7 @@ func newSharedRehearsalWorld(t *testing.T) *sharedRehearsalWorld {
 		t.Fatal(err)
 	}
 	w.remote = remote
-	if _, err := w.s.Deployments.EnsureStanding(ctx, w.project, "main", w.remote.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := w.s.Deployments.EnsureStanding(ctx, w.project, "main", w.remote.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	// The release's image is on the host by ID, as a landing built it

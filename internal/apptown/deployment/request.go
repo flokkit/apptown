@@ -29,6 +29,10 @@ type DeploySelection struct {
 	addressRevision *int64
 	customHostname  *string
 	BundleID        ids.ID
+	// ExpectedSourceBundleID binds a promotion to the bundle shown to the caller.
+	// A non-promotion feed refuses a nonzero expectation.
+	// Zero keeps request-time source selection.
+	ExpectedSourceBundleID ids.ID
 	// AcceptUncopiedData is a person's choice to release onto a deployment
 	// holding data AppTown cannot copy now (DataCopyCheck); the release
 	// records it with who and why.
@@ -112,8 +116,10 @@ func (s *Service) requireDeploy(ctx context.Context, projectID ids.ID, deploymen
 }
 
 // RequestRelease authorizes manual deployment and atomically records a release,
-// its selected placement and durable job intent. A zero BundleID selects the
-// project's latest bundle; a bundle from another project is refused.
+// its selected placement and durable job intent. Promotion selects its source
+// deployment's last successful bundle, checking ExpectedSourceBundleID when set.
+// A nonzero expectation refuses a non-promotion feed. Manual feeds with zero
+// BundleID select the project's latest bundle. A bundle from another project is refused.
 // Contract resolution happens before the transaction, which rechecks placement
 // and generation. ErrPlacementChanged requires a new request. Success means the
 // request was accepted; provider execution happens later through ExecuteRelease.
@@ -163,6 +169,9 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 			return AcceptedRelease{}, err
 		}
 	}
+	if !in.ExpectedSourceBundleID.IsZero() && dep.Feed != "promotion" {
+		return AcceptedRelease{}, fault.New(fault.Conflict, fmt.Sprintf("%s is no longer promoted from another deployment; reload", dep.Name))
+	}
 	// A landing-fed deployment may still take the bundle it runs, named
 	// explicitly; that is decided once the bundle is known
 	// (DeployableByHandAt). Asking it for the latest bundle is landing's.
@@ -195,6 +204,20 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 		if uncheckedNote, err = s.uncheckedStart(ctx, dep, in.AcceptUncheckedCopy, actor.Principal.Name); err != nil {
 			return AcceptedRelease{}, err
 		}
+	}
+	// Promotion always resolves the source's last settled bundle. Naming another
+	// bundle cannot turn a promotion into a latest-bundle release.
+	var fromDeployment ids.ID
+	if dep.Feed == "promotion" {
+		selected, _, e := s.promotionBundle(ctx, dep, in.ExpectedSourceBundleID)
+		if e != nil {
+			return AcceptedRelease{}, e
+		}
+		if !in.BundleID.IsZero() && in.BundleID != selected {
+			return AcceptedRelease{}, fault.New(fault.Invalid, "promotion must use the bundle the source deployment last deployed successfully")
+		}
+		in.BundleID = selected
+		fromDeployment = dep.PromotedFromID
 	}
 	var bundle *ReleaseBundle
 	if in.BundleID.IsZero() {
@@ -322,6 +345,9 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 		if err != nil {
 			return err
 		}
+		if !in.ExpectedSourceBundleID.IsZero() && current.Feed != "promotion" {
+			return fault.New(fault.Conflict, fmt.Sprintf("%s is no longer promoted from another deployment; reload", current.Name))
+		}
 		if selectedDefault != nil {
 			if err := s.defaultEligible(ctx, q, in.ProjectID, current, lockedTarget); err != nil {
 				return err
@@ -336,6 +362,25 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 		}
 		if err := current.matchesRelease(dep.TargetID, dep.DesiredGeneration, dep.releaseAttributes(), bundle.ID, running); err != nil {
 			return err
+		}
+		if current.FeedRevision != dep.FeedRevision || current.PromotedFromID != dep.PromotedFromID {
+			return errFeedMoved
+		}
+		if !fromDeployment.IsZero() {
+			// A source that changed during contract resolution needs a fresh request.
+			selected, note, err := s.promotionBundle(ctx, current, in.ExpectedSourceBundleID)
+			if err != nil {
+				return err
+			}
+			if selected != bundle.ID {
+				return errPlacementChanged
+			}
+			if _, err := q.RecordPromotionSource(ctx, deploymentsql.RecordPromotionSourceParams{ID: rel.ID, FromDeploymentID: fromDeployment}); err != nil {
+				return err
+			}
+			if err := appendReleaseEvent(ctx, tx, rel.ID, note, s.now()); err != nil {
+				return err
+			}
 		}
 		// The start this caller was authorised for above is the one the
 		// release records and fills.

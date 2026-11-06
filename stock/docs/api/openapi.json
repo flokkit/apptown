@@ -1885,6 +1885,13 @@
               "string",
               "null"
             ]
+          },
+          "expectedSourceBundleId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "type": "object"
@@ -1953,6 +1960,13 @@
             "type": "integer"
           },
           "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "promotedFromId": {
             "format": "uuid",
             "type": [
               "string",
@@ -2223,6 +2237,29 @@
           "observedAt": {
             "type": "string"
           },
+          "promotedFromId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "promotionBlocked": {
+            "type": "string"
+          },
+          "promotionBundleId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "promotionRelease": {
+            "type": "integer"
+          },
+          "promotionSource": {
+            "type": "string"
+          },
           "protected": {
             "type": "boolean"
           },
@@ -2289,6 +2326,10 @@
           }
         },
         "required": [
+          "promotionBundleId",
+          "promotionRelease",
+          "promotionSource",
+          "promotionBlocked",
           "feedRevision",
           "feedConfirmed",
           "readinessLabel",
@@ -2574,6 +2615,21 @@
       "FeedConfirmationRequest": {
         "additionalProperties": false,
         "properties": {
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FeedSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "feed": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
           "revision": {
             "type": "integer"
           }
@@ -4033,6 +4089,13 @@
           },
           "failure": {
             "type": "string"
+          },
+          "fromDeploymentId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "generation": {
             "type": "integer"
@@ -12491,6 +12554,63 @@
           "scope": "project-slug"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/deployments/{name}/feed": {
+      "put": {
+        "operationId": "putProjectsSlugDeploymentsNameFeed",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.SetFeed",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/logs": {

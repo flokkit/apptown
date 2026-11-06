@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 )
 
@@ -92,19 +93,24 @@ type NeedSummary struct {
 	Status                                needState
 }
 type Summary struct {
-	FeedRevision  int64
-	FeedConfirmed bool
-	LastApplied   *AppliedAttempt
-	TargetID      ids.ID
-	DisplayLabel  string
-	ID            ids.ID
-	Name          string
-	Kind          Kind
-	URL           string
-	HostOnly      bool // URL answers on the AppTown host only (Reach)
-	HostPort      int
-	ReleaseRun    ids.ID
-	UpdatedAt     string
+	PromotedFromID    ids.ID
+	PromotionBundleID ids.ID
+	PromotionRelease  int64
+	PromotionSource   string
+	PromotionBlocked  string
+	FeedRevision      int64
+	FeedConfirmed     bool
+	LastApplied       *AppliedAttempt
+	TargetID          ids.ID
+	DisplayLabel      string
+	ID                ids.ID
+	Name              string
+	Kind              Kind
+	URL               string
+	HostOnly          bool // URL answers on the AppTown host only (Reach)
+	HostPort          int
+	ReleaseRun        ids.ID
+	UpdatedAt         string
 	Attributes
 	Protected  bool
 	Generation int64
@@ -139,6 +145,32 @@ func (s *Service) List(ctx context.Context, projectID ids.ID) ([]Summary, error)
 		r.summary.Observation = s.observations.read(r, s.now())
 		reach := s.reachedAt(ctx, r.project, r.deployment, r.target, r.summary.Observation.url)
 		r.summary.URL, r.summary.HostOnly = reach.URL, reach.HostOnly
+		if r.deployment.Feed == "promotion" {
+			r.summary.PromotedFromID = r.deployment.PromotedFromID
+			if !r.deployment.PromotedFromID.IsZero() {
+				source, err := s.Deployments.ByID(ctx, r.deployment.PromotedFromID)
+				if err != nil {
+					return nil, err
+				}
+				release, err := s.Releases.LastReleasedForDeployment(ctx, source.ID)
+				if found, err := database.Lookup(err); err != nil {
+					return nil, err
+				} else if found {
+					r.summary.PromotionRelease = release.Number
+					r.summary.PromotionBundleID = release.BundleID
+				}
+				r.summary.PromotionSource = source.DisplayLabel
+				if r.summary.PromotionSource == "" {
+					r.summary.PromotionSource = source.Name
+				}
+			}
+			if _, _, err := s.promotionBundle(ctx, r.deployment, ids.Nil); err != nil {
+				if !errors.Is(err, errPromotionEmpty) && !errors.Is(err, errPromotionSource) && !errors.Is(err, errPromotionStopped) {
+					return nil, err
+				}
+				r.summary.PromotionBlocked = err.Error()
+			}
+		}
 		out[i] = r.summary
 	}
 	return out, ctx.Err()

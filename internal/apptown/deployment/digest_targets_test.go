@@ -258,7 +258,7 @@ func (p *promotionTargets) chooseDefault(t *testing.T) ReleaseDefault {
 		return selected
 	}
 	target := p.target(t, IntranetTargetName)
-	dep, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", target.ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
+	dep, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", target.ID, Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,7 +364,7 @@ func TestAMultipartBundleOfDistinctImagesIsRefusedBeforeTheAppPlatformApp(t *tes
 	t.Parallel()
 	p := newPromotionTargets(t, false)
 	b := p.land(t)
-	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "cloud", p.target(t, "do-syd").ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "cloud", p.target(t, "do-syd").ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	before := len(p.do.Snapshot().Requests)
@@ -631,7 +631,7 @@ func TestInTheNoLocalDockerModeADigestBundleGoesToAppPlatformAndPortainer(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	dep, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "old", builtIn.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+	dep, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "old", builtIn.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}

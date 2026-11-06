@@ -69,7 +69,7 @@ func heldFixture(t *testing.T) (*Service, DeploySelection, *Deployment, *heldDri
 	if err != nil {
 		t.Fatal(err)
 	}
-	dep, err := NewDeployments(db).EnsureStanding(t.Context(), draft.ProjectID, draft.Deployment, target.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+	dep, err := NewDeployments(db).EnsureStanding(t.Context(), draft.ProjectID, draft.Deployment, target.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -58,7 +58,7 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 	out := make([]DeploymentView, 0, len(summaries))
 	for _, e := range summaries {
 		v := DeploymentView{LastApplied: e.LastApplied, ID: e.ID, TargetID: e.TargetID, DisplayLabel: e.DisplayLabel, Name: e.Name, Kind: e.Kind.String(), URL: e.URL, HostOnly: e.HostOnly, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt, Static: isStatic,
-			Feed: e.Feed, FeedRevision: e.FeedRevision, FeedConfirmed: e.FeedConfirmed, Audience: e.Audience, Data: e.DataClass, Protected: e.Protected, Generation: e.Generation,
+			PromotedFromID: e.PromotedFromID, PromotionSource: e.PromotionSource, PromotionRelease: e.PromotionRelease, PromotionBundleID: e.PromotionBundleID, PromotionBlocked: e.PromotionBlocked, Feed: e.Feed, FeedRevision: e.FeedRevision, FeedConfirmed: e.FeedConfirmed, Audience: e.Audience, Data: e.DataClass, Protected: e.Protected, Generation: e.Generation,
 			Readiness: e.Readiness.String(), ReadinessLabel: e.Readiness.Display(), RestoreLabel: e.RestoreCheck.Display(), ChangeID: e.ChangeID, AIModels: e.AIModelsKeys, Running: e.Observation.State.Running(), RuntimeObservationView: runtimeObservationView(e.Observation)}
 		if e.Observation.Err != nil {
 			v.ObservationIssue = "Runtime status is unavailable"
@@ -82,23 +82,28 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 // DeploymentView is one row of GET /projects/{slug}/deployments: a
 // deployment as the project's pages show it.
 type DeploymentView struct {
-	FeedRevision   int64                      `json:"feedRevision"`
-	FeedConfirmed  bool                       `json:"feedConfirmed"`
-	LastApplied    *deployment.AppliedAttempt `json:"lastApplied,omitempty"`
-	ReadinessLabel deployment.ProgressLabel   `json:"readinessLabel"`
-	RestoreLabel   deployment.ProgressLabel   `json:"restoreLabel"`
-	TargetID       ids.ID                     `json:"targetId"`
-	ID             ids.ID                     `json:"id"`
-	DisplayLabel   string                     `json:"displayLabel"`
-	Name           string                     `json:"name"`
-	Kind           string                     `json:"kind"`
-	URL            string                     `json:"url"`
-	HostOnly       bool                       `json:"hostOnly,omitempty"` // URL answers on the AppTown host only
-	Running        *bool                      `json:"running"`
-	ReleaseRun     ids.ID                     `json:"releaseRun"`
-	UpdatedAt      string                     `json:"updatedAt"`
-	Static         bool                       `json:"static,omitempty"`
-	Target         *DeploymentTargetView      `json:"target,omitempty"`
+	PromotedFromID    ids.ID                     `json:"promotedFromId,omitzero"`
+	PromotionBundleID ids.ID                     `json:"promotionBundleId"`
+	PromotionRelease  int64                      `json:"promotionRelease"`
+	PromotionSource   string                     `json:"promotionSource"`
+	PromotionBlocked  string                     `json:"promotionBlocked"`
+	FeedRevision      int64                      `json:"feedRevision"`
+	FeedConfirmed     bool                       `json:"feedConfirmed"`
+	LastApplied       *deployment.AppliedAttempt `json:"lastApplied,omitempty"`
+	ReadinessLabel    deployment.ProgressLabel   `json:"readinessLabel"`
+	RestoreLabel      deployment.ProgressLabel   `json:"restoreLabel"`
+	TargetID          ids.ID                     `json:"targetId"`
+	ID                ids.ID                     `json:"id"`
+	DisplayLabel      string                     `json:"displayLabel"`
+	Name              string                     `json:"name"`
+	Kind              string                     `json:"kind"`
+	URL               string                     `json:"url"`
+	HostOnly          bool                       `json:"hostOnly,omitempty"` // URL answers on the AppTown host only
+	Running           *bool                      `json:"running"`
+	ReleaseRun        ids.ID                     `json:"releaseRun"`
+	UpdatedAt         string                     `json:"updatedAt"`
+	Static            bool                       `json:"static,omitempty"`
+	Target            *DeploymentTargetView      `json:"target,omitempty"`
 	RuntimeObservationView
 	Feed       string               `json:"feed,omitempty"`
 	Audience   string               `json:"audience,omitempty"`

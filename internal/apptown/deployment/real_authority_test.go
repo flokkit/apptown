@@ -112,7 +112,7 @@ func TestReleaseRequestChecksInternalAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dep, err := s.Deployments.EnsureStanding(t.Context(), pid, "cloud", target.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "non-production"})
+	dep, err := s.Deployments.EnsureStanding(t.Context(), pid, "cloud", target.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "non-production"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestReleaseRequestChecksInternalAuthority(t *testing.T) {
 	if _, err := s.RequestRelease(owner, in); !errors.Is(err, errNoBundle) {
 		t.Fatalf("permitted caller: %v", err)
 	}
-	dep, err = s.Deployments.EnsureStanding(owner, pid, "cloud", target.ID, Attributes{Feed: "promotion", Audience: "public", DataClass: "non-production"})
+	dep, err = s.Deployments.EnsureStanding(owner, pid, "cloud", target.ID, Attributes{Feed: "manual", Audience: "public", DataClass: "non-production"})
 	if err != nil {
 		t.Fatal(err)
 	}

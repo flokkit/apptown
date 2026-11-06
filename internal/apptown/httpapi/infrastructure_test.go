@@ -48,7 +48,7 @@ func TestLeftoversAreAttributedByLabel(t *testing.T) {
 	}
 	host, _ := d.Targets.ByName(t.Context(), "forge")
 	cloud, _ := d.Targets.ByName(t.Context(), "do-syd")
-	cloudDep, err := d.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", cloud.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+	cloudDep, err := d.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", cloud.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestALeftoverIsAttributedToTheDeploymentItsOwnerLabelNames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dep, err := d.Deployments.EnsureStanding(t.Context(), id, "eu-main", host.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+	dep, err := d.Deployments.EnsureStanding(t.Context(), id, "eu-main", host.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}

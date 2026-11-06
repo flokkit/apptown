@@ -60,7 +60,15 @@
 //
 // # Request, execution and settlement
 //
-// RequestRelease resolves the selected bundle and contract, checks deployment and
+// SetFeed saves a deployment's feed with the revision the caller read, refusing
+// promotion cycles and sources outside its project. Follows-main settings capture
+// a verified person's principal and credential; agent credentials cannot supply
+// this standing authority. ConfirmFeed uses the same write.
+//
+// RequestRelease promotes the bundle the source last deployed successfully,
+// refusing a changed source or a feed that is no longer promotion when
+// ExpectedSourceBundleID names the displayed bundle. Without that expectation,
+// a manual feed selects the latest bundle. It resolves the contract and checks deployment and
 // protected-target authority, then rechecks placement inside the transaction that
 // commits the release and required queue intent. Acceptance means queued work,
 // not a deployed application.
@@ -97,12 +105,14 @@
 // interface: it calls Resume for the admitted identity and cannot reapply a missing
 // deployment. Jobs own retry budgets; exhaustion does not prove provider failure.
 //
-// [Service.RunObservations] refreshes display-only samples, separately from recovery
+// [Service.RunObservations] refreshes runtime samples, separately from recovery
 // and Docker health enforcement. Placement and generation are rechecked after I/O.
 // [Service.ProjectRuntime] reads authorized cached observations without contacting
 // providers, showing the most urgent deployment state and a separate production
 // address. [Service.ObserveContainer] reads them for one deployment: a page
-// never waits on a host that does not answer. Missing, replaced or stale observations cannot authorize an action.
+// never waits on a host that does not answer. Missing, replaced or stale observations cannot prove that a workload runs.
+// Promotion refuses a fresh stopped source; otherwise it can select the source's
+// last settled bundle, recording that meaning in the release log.
 // The subsystem operating guide documents freshness, source limits and shutdown.
 // Capacity and inventory readings live in Deployment's database, bound to the
 // target settings revision. New services read stored evidence after restart.

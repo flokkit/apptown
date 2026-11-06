@@ -469,6 +469,7 @@ var cliOperations = map[string]described{
 	"POST /api/v1/steps/{id}/approve":                              {request: httpapi.StepDecision{}, status: 200, response: workflow.Step{}},
 	"POST /api/v1/projects/{slug}/release":                         {request: httpapi.ReleaseRequest{}, status: 202, response: deployment.LANReleaseStarted{}},
 	"GET /api/v1/projects/{slug}/deployments":                      {status: 200, response: []httpapi.DeploymentView{}},
+	"PUT /api/v1/projects/{slug}/deployments/{name}/feed":          {request: deployment.FeedSettings{}, strict: true, status: 200, response: deployment.Deployment{}},
 	"POST /api/v1/projects/{slug}/deployments/{name}/confirm-feed": {request: httpapi.FeedConfirmationRequest{}, strict: true, status: 200, response: deployment.Deployment{}},
 	"POST /api/v1/deployments/confirm-feed":                        {status: 200, response: httpapi.FeedsConfirmed{}},
 	"POST /api/v1/projects/{slug}/deployments/{name}/deploy":       {request: httpapi.DeployRequest{}, strict: true, status: 202, response: httpapi.ReleaseRequested{}},

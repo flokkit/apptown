@@ -70,7 +70,7 @@ func TestReleaseServingFollowsTheRunningDeployment(t *testing.T) {
 	if err != nil || landed.RunID.IsZero() {
 		t.Fatalf("main's release: %+v %v", landed, err)
 	}
-	cloud, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "cloud", main.TargetID, (deployment.Attributes{Feed: "promotion"}).WithDefaults())
+	cloud, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "cloud", main.TargetID, (deployment.Attributes{Feed: "manual"}).WithDefaults())
 	if err != nil {
 		t.Fatal(err)
 	}

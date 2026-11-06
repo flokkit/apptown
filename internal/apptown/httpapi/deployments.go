@@ -119,7 +119,7 @@ func (h Deployments) DeleteDeployment(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleDeployDeployment: POST /projects/{slug}/deployments/{name}/deploy
-// {bundleId?} — ship a bundle to a standing deployment whose feed is
+// {bundleId?, expectedSourceBundleId?} — ship a bundle to a standing deployment whose feed is
 // promotion or manual (§4.2). A protected deployment takes the release
 // grant. Returns the release number; the release page is the record.
 func (h Deployments) DeployDeployment(w http.ResponseWriter, r *http.Request) {
@@ -128,7 +128,7 @@ func (h Deployments) DeployDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{optional: true, strict: true}, func(in DeployRequest) {
-		accepted, err := h.deployment.RequestRelease(r.Context(), deployment.DeploySelection{ProjectID: p.ID, DeploymentName: r.PathValue("name"), BundleID: in.BundleID, AcceptUncopiedData: in.AcceptUncopiedData, AcceptUncheckedCopy: in.AcceptUncheckedCopy})
+		accepted, err := h.deployment.RequestRelease(r.Context(), deployment.DeploySelection{ProjectID: p.ID, DeploymentName: r.PathValue("name"), BundleID: in.BundleID, ExpectedSourceBundleID: in.ExpectedSourceBundleID, AcceptUncopiedData: in.AcceptUncopiedData, AcceptUncheckedCopy: in.AcceptUncheckedCopy})
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -170,9 +170,11 @@ func (h Deployments) AIModels(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeployRequest is POST /projects/{slug}/deployments/{name}/deploy: the
-// bundle to release, or none for the latest landing's.
+// bundle to release, or none for request-time feed selection. A web promotion
+// sends the displayed source bundle as an expectation.
 type DeployRequest struct {
-	BundleID ids.ID `json:"bundleId"`
+	BundleID               ids.ID `json:"bundleId"`
+	ExpectedSourceBundleID ids.ID `json:"expectedSourceBundleId"`
 	// AcceptUncopiedData is a person's choice to release onto a deployment
 	// holding data AppTown cannot copy now; the release records it.
 	AcceptUncopiedData bool `json:"acceptUncopiedData,omitempty"`
@@ -327,4 +329,20 @@ func (h Deployments) ConfirmAllFeeds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, 200, FeedsConfirmed{Confirmed: confirmed, Refused: refused})
+}
+
+// SetFeed saves one revision of a deployment's feed settings.
+func (h Deployments) SetFeed(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	jsonCommand(w, r, jsonBody{strict: true}, func(in deployment.FeedSettings) {
+		dep, err := h.deployment.SetFeed(r.Context(), p.ID, r.PathValue("name"), in)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		WriteJSON(w, 200, dep)
+	})
 }

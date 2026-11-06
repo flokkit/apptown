@@ -134,7 +134,7 @@ func TestRebuildJobGuardsTheTarget(t *testing.T) {
 	t.Parallel()
 	a, _, p, _ := doWorld(t)
 	cloud, _ := a.Deployment.Targets.ByName(t.Context(), "do-syd")
-	_, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", cloud.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+	_, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", cloud.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
 		t.Fatal(err)
 	}

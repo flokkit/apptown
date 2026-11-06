@@ -54,7 +54,7 @@ it('summarises each deployment, including previews, and opens its page', () => {
   expect(rows[0].textContent).toContain(`Release #8 · ${fmtStamp(at)}`)
   expect(rows[0].textContent).not.toContain('Release #9')
   expect(rows[0].querySelector('a[href="https://lunch.example"]')).not.toBeNull()
-  expect(rows[0].querySelector('.list-action a')?.getAttribute('href')).toBe(`${base}/main`)
+  expect(rows[0].querySelector('.list-action button')?.textContent).toBe('Confirm follows main')
   expect(rows[1].querySelector('a[href="/changes/change-1"]')?.textContent).toBe('Preview of change #12: Fix lunch')
   expect(el.textContent).toContain('New deployment')
   expect(el.querySelector('.deploy-entry')).toBeNull()
@@ -101,7 +101,7 @@ it.each(['reconciled', 'uncertain'])('keeps %s deployment actions in the card fo
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="lunch" env={{ ...env, name: 'staging', generation: 0, feed: 'promotion', readiness, target: { ...env.target!, kind: 's3-bucket' } }} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>)
   const footer = el.querySelector('.deploy-more')!
-  expect(footer.textContent).toContain(readiness === 'uncertain' ? 'Check again' : 'Deploy latest')
+  expect(footer.textContent).toContain(readiness === 'uncertain' ? 'Check again' : 'Promote')
   expect(footer.textContent).toContain('Tear down')
   expect(footer.textContent).toContain('Edit display name')
   expect(footer.querySelector('a')?.getAttribute('href')).toBe(`${base}/staging`)

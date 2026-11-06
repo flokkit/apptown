@@ -161,7 +161,10 @@ parameters. AppTown ships them with each release.
 merge and build. Runtime projects produce a release bundle; projects without a
 runtime complete a clean-tree build. Deployment runs separately after landing. "Land" is the verb.
 
-**Release** — a deployment taking a release bundle. Numbered per project;
+**Release** — a deployment taking a release bundle. A promotion takes the
+release its source last deployed successfully and records “promoted release N
+from <source>”. Promotion refuses a source taken down, never deployed, or
+currently observed stopped. Unknown or stale health does not block it. Numbered per project;
 each release records who authorized it, its log, commit and images. A failed
 release does not undo the landing.
 
@@ -204,7 +207,10 @@ Moving right is a release, and each rung reaches more people.
 **Deployment** — a named, standing copy of a project's app on a deployment
 target. A deployment with the follows-main setting takes each landing’s
 runtime bundle automatically under its setter’s authority. It stays until a new release
-replaces it or someone takes it down.
+replaces it or someone takes it down. Its feed is **Follows main**,
+**Promoted from** a named deployment in the same project, or **By hand**.
+Promotion deploys the release the source last deployed successfully; by-hand
+releases take the latest bundle. The feed's revision prevents one person's settings edit overwriting another's.
 
 **Deployment target** — a place deployments run: the built-in Docker host,
 a Docker host attached over SSH, a Portainer environment, DigitalOcean App

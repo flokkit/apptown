@@ -68,7 +68,7 @@ func TestAppPlatformMaintainedHealthUsesCompletedOwnerReceipt(t *testing.T) {
 			}}
 			pid := createTestProject(t, s.db, "health-app", "Health app")
 			target := w.target(t, "do-syd")
-			dep, err := s.Deployments.EnsureStanding(t.Context(), pid, "cloud", target.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "non-production"})
+			dep, err := s.Deployments.EnsureStanding(t.Context(), pid, "cloud", target.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "non-production"})
 			if err != nil {
 				t.Fatal(err)
 			}
