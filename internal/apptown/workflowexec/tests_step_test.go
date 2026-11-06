@@ -220,6 +220,10 @@ func TestATestsStepWithoutItsSourceIsAnError(t *testing.T) {
 			if step.Status != workflow.StatusError || len(seen.all()) != 0 {
 				t.Fatalf("unreadable source: %s %s, ran %d", step.Status, step.Evidence, len(seen.all()))
 			}
+			inputs, ok := stepEvidence(t, step)["inputs"].(map[string]any)
+			if !ok || inputs["tree"] != "unknown" || inputs["declarations"] != "unknown" || inputs["imageDigest"] != "unknown" || inputs["toolchain"] != "unknown" || inputs["services"] != "unknown" {
+				t.Fatalf("unreadable inputs were not recorded as unknown: %s", step.Evidence)
+			}
 		})
 	}
 }

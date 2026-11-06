@@ -132,7 +132,7 @@ func startTaskAppTown(t *testing.T, db *database.DB, dir, image string, definiti
 			}
 			return f.checks(req)
 		}, Image: "apptown-agent:test"},
-	}, CommandConfig{DataDir: dir, Image: image})
+	}, CommandConfig{DataDir: dir, Image: image, AppTownVersion: "1.2.3-test"})
 	f.agents = f.agentExecutor(t)
 	f.work = workflow.New(context.Background(), db, workflow.Dependencies{
 		Authority: access.Checked{Authority: directory, Projects: project.New(db, directory)},

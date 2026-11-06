@@ -88,6 +88,12 @@ export type ScriptEvidence = EvidenceBase & { log?: string; exitCode?: number; c
 // why the counts are not known, and testReportUnreadable is the reason a
 // report that was written could not be read.
 export type TestsEvidence = ScriptEvidence & {
+  inputs?: {
+    tree: string; apptownVersion: string
+    declarations: { part: string; folder: string; command: string }[] | 'unknown'
+    imageDigest?: string; toolchain?: 'unknown'; services?: Record<string, string> | 'unknown'
+    executions?: { part: string; folder: string; command: string; imageDigest: string; toolchain: Record<string, string[]> | 'unknown'; services: Record<string, string> }[]
+  }
   testCounts?: { passed: number; failed: number; skipped: number }
   skippedTests?: string[]; testReport?: string; testReportUnreadable?: string; testReportFormat?: string
 }

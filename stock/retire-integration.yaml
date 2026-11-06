@@ -70,6 +70,10 @@ spec:
               --- CHANGE ---
 
               ${{change.body}}
+        - name: tests
+          uses: tests
+          with:
+            appliesTo: [tool:go, tool:node, tool:python, tool:ruby, tool:java, tool:dotnet, tool:rust]
         - name: boot
           uses: preview
       steps:

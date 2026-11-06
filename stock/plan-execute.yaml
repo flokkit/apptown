@@ -124,6 +124,10 @@ spec:
               accounted for by naming their directory (`app/`, `config`,
               `bin`); a file at the top level, a dotfile included, is named
               itself.
+        - name: tests
+          uses: tests
+          with:
+            appliesTo: [tool:go, tool:node, tool:python, tool:ruby, tool:java, tool:dotnet, tool:rust]
         - name: boot
           uses: preview
       steps:

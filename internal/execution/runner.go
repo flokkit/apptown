@@ -46,6 +46,8 @@ type Request struct {
 	// the answer carries back (Outcome.Report): a caller never reads it off
 	// the disk itself, so a check reads the same whichever machine ran it.
 	Report string
+	// CaptureInputs records container images and the installed mise snapshot.
+	CaptureInputs bool
 	// History is a repository presented read-only at /history: the commits
 	// a check reads beyond its tree (a landing's history scan).
 	History *History
@@ -110,6 +112,7 @@ type Outcome struct {
 	// one as an error, never as a clean answer.
 	Report    []byte
 	ReportErr error
+	Inputs    *RunInputs
 }
 
 // Answered reports a run whose exit code is its answer: a normal exit, with
@@ -189,6 +192,27 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 		}
 		req.Mounts = append(append([]string{}, req.Mounts...), mounts...)
 	}
+	freshInputs := false
+	if req.CaptureInputs {
+		// A snapshot left by the source or an earlier run is never observed.
+		// If it cannot be removed, the toolchain stays unknown and the command
+		// still runs: inability to read an input is not a test failure.
+		if root, err := os.OpenRoot(req.Workspace); err == nil {
+			err := root.Remove(ToolchainSnapshot)
+			freshInputs = err == nil || errors.Is(err, os.ErrNotExist)
+			root.Close()
+		}
+		defer func() {
+			if out.Inputs == nil {
+				out.Inputs = &RunInputs{ImageDigest: "unknown", Services: map[string]string{}}
+			}
+			for _, svc := range req.Services {
+				if _, ok := out.Inputs.Services[svc.Name]; !ok {
+					out.Inputs.Services[svc.Name] = "unknown"
+				}
+			}
+		}()
+	}
 	if len(req.Services) > 0 {
 		if backend != Docker {
 			return launchError(errors.New("services run only beside a Docker run"))
@@ -197,6 +221,9 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 		// Removed after the run, whatever became of it, with a lifetime of
 		// its own: what is left behind makes the run no answer.
 		defer func() {
+			if req.CaptureInputs {
+				out.Inputs = r.captureServiceInputs(ctx, req, out.Inputs)
+			}
 			if cerr := remove(); cerr != nil {
 				out.CleanupErr = errors.Join(out.CleanupErr, cerr)
 			}
@@ -259,6 +286,12 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 					break
 				}
 				out.CleanupErr = fmt.Errorf("reading how container %s ended: %v: %s", req.Name, err, strings.TrimSpace(string(answer)))
+			}
+		}
+		if req.CaptureInputs {
+			out.Inputs = &RunInputs{ImageDigest: r.containerImage(cleanupCtx, req.Name), Services: map[string]string{}}
+			if freshInputs {
+				out.Inputs.Toolchain = readInstalledToolchain(req.Workspace)
 			}
 		}
 		cleanup := exec.CommandContext(cleanupCtx, r.dockerBinary(), "rm", "-f", "-v", req.Name)

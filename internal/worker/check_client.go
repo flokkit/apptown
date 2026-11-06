@@ -55,7 +55,7 @@ func (c Checks) Run(ctx context.Context, req execution.Request) execution.Outcom
 	spec := CheckSpec{
 		Image: req.Image, Argv: req.Argv, Env: req.Env, NoEntrypoint: req.NoEntrypoint,
 		Egress: req.Network == "", TimeoutSeconds: int(req.Timeout.Seconds() + 0.5),
-		Writable: !req.WorkspaceRO, Report: req.Report, History: req.History != nil,
+		CaptureInputs: req.CaptureInputs, Writable: !req.WorkspaceRO, Report: req.Report, History: req.History != nil,
 		ExportImage: req.ExportImage, NoTree: req.Workspace == "", Files: req.Files,
 		Services: req.Services, Limits: c.Limits,
 	}
@@ -85,7 +85,7 @@ func (c Checks) Run(ctx context.Context, req execution.Request) execution.Outcom
 		return notRun(fmt.Errorf("the worker's answer to the check: %w", err))
 	}
 	out := execution.Outcome{Termination: answer.Termination, ExitCode: -1, Output: answer.Output,
-		TimedOut: answer.Termination == execution.TimedOut, Report: answer.Report}
+		TimedOut: answer.Termination == execution.TimedOut, Report: answer.Report, Inputs: answer.Inputs}
 	if answer.Termination == execution.Exited {
 		out.ExitCode = *answer.ExitCode
 		if answer.RunErr != "" {
