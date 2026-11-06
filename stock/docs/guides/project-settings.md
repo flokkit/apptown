@@ -22,3 +22,12 @@ Manage the project's [packs and adopted versions](packs-and-what-if.md) under
 
 Project notes and decision records are under **Memory → Notes** and
 **Memory → Decisions**.
+
+**Settings → Models** shows the project's model profile and the model used for
+each task. Choose a profile and select **Use profile** to change it. Changing
+it requires the project's model-profile permission. The page also shows the
+selected profile's task choices before you apply it.
+
+Edit the profiles' task choices under **Integrations → Model profiles**.
+Each profile lists its projects; another project's **… → Move project here**
+opens that project's Models settings with the profile selected.

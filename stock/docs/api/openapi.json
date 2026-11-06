@@ -6615,6 +6615,58 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/account/tokens": {
+      "post": {
+        "operationId": "postAccountTokens",
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "account"
+        ],
+        "x-apptown-access": {
+          "contract": "accounts.CreateOwnToken",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/account/tokens/{name}": {
+      "delete": {
+        "operationId": "deleteAccountTokensName",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "account"
+        ],
+        "x-apptown-access": {
+          "contract": "accounts.RevokeOwnToken",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/api/v1/activity": {
       "get": {
         "operationId": "getActivity",
@@ -13446,6 +13498,36 @@
       }
     },
     "/api/v1/projects/{slug}/model-profile": {
+      "get": {
+        "operationId": "getProjectsSlugModelProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "project:read",
+          "kind": "capability",
+          "scope": "project-slug"
+        },
+        "x-apptown-stability": "experimental"
+      },
       "put": {
         "operationId": "putProjectsSlugModelProfile",
         "parameters": [

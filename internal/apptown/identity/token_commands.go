@@ -68,32 +68,38 @@ func (t *Token) revoke(at time.Time) bool {
 func (s *Service) IssueToken(ctx context.Context, in NewToken, pr access.Principal) (issuedToken, error) {
 	var issued issuedToken
 	err := s.administer(ctx, pr, access.CapIdentityAuth, func(tx *database.Tx, now time.Time) error {
-		prepared, err := in.prepare(pr)
-		if err != nil {
-			return err
-		}
-		if prepared.Role == "" {
-			// The ceiling is the person's role now: a member promoted later
-			// keeps a member token, and root still needs their current grant
-			// at each use (administratorFor, access.Decide).
-			prepared.Role = "member"
-			if prepared.Purpose == access.TokenCLI {
-				root, err := rootIn(ctx, tx, prepared.User, now)
-				if err != nil {
-					return err
-				}
-				if root {
-					prepared.Role = "admin"
-				}
-			}
-		}
-		issued, err = issueTokenIn(ctx, tx, prepared, pr.Name, now)
+		var err error
+		issued, err = s.issuePreparedToken(ctx, tx, in, pr, now)
 		return err
 	})
 	if err != nil {
 		return issuedToken{}, err
 	}
 	return issued, nil
+}
+
+// issuePreparedToken is shared by personal and administrator issuance.
+func (s *Service) issuePreparedToken(ctx context.Context, tx *database.Tx, in NewToken, pr access.Principal, now time.Time) (issuedToken, error) {
+	prepared, err := in.prepare(pr)
+	if err != nil {
+		return issuedToken{}, err
+	}
+	if prepared.Role == "" {
+		// The ceiling is the person's role now: a member promoted later
+		// keeps a member token, and root still needs their current grant
+		// at each use (administratorFor, access.Decide).
+		prepared.Role = "member"
+		if prepared.Purpose == access.TokenCLI {
+			root, err := rootIn(ctx, tx, prepared.User, now)
+			if err != nil {
+				return issuedToken{}, err
+			}
+			if root {
+				prepared.Role = "admin"
+			}
+		}
+	}
+	return issueTokenIn(ctx, tx, prepared, pr.Name, now)
 }
 
 func issueTokenIn(ctx context.Context, tx *database.Tx, in NewToken, by string, now time.Time) (issuedToken, error) {
@@ -189,4 +195,61 @@ func (s *Service) OwnTokens(ctx context.Context, pr access.Principal) ([]Token, 
 		out = append(out, token(accesssql.AuthTokensNamed(row)))
 	}
 	return out, nil
+}
+
+// IssueOwnToken creates a credential for the current person only. A personal
+// command cannot choose another identity or widen its credential's role.
+func (s *Service) IssueOwnToken(ctx context.Context, in NewToken, pr access.Principal) (issuedToken, error) {
+	var issued issuedToken
+	err := s.personalTokens(ctx, pr, func(tx *database.Tx, current access.Principal, now time.Time) error {
+		if (in.User != "" && in.User != current.Name) || in.Role == "admin" && current.Role != "admin" {
+			return access.ErrPrincipalRequired
+		}
+		in.User = current.Name
+		if in.Role == "" && (current.Role != "admin" || in.Purpose == access.TokenAgent) {
+			in.Role = "member"
+		}
+		var err error
+		issued, err = s.issuePreparedToken(ctx, tx, in, current, now)
+		return err
+	})
+	if err != nil {
+		return issuedToken{}, err
+	}
+	return issued, nil
+}
+
+// RevokeOwnToken refuses credentials belonging to any other principal.
+func (s *Service) RevokeOwnToken(ctx context.Context, name string, pr access.Principal) (bool, error) {
+	var revoked bool
+	err := s.personalTokens(ctx, pr, func(tx *database.Tx, current access.Principal, now time.Time) error {
+		row, err := queries(tx).AuthTokenByNameForUpdate(ctx, name)
+		found, err := database.Lookup(err)
+		if err != nil || !found {
+			return err
+		}
+		if row.PrincipalID != current.ID {
+			return access.ErrPrincipalRequired
+		}
+		revoked, err = revokeTokenIn(ctx, tx, name, current.Name, now)
+		return err
+	})
+	return err == nil && revoked, err
+}
+
+func (s *Service) personalTokens(ctx context.Context, pr access.Principal, apply func(*database.Tx, access.Principal, time.Time) error) error {
+	channel := access.DelegationOf(pr)
+	if pr.Kind != "user" || pr.ID.IsZero() || (channel.Kind != "full-breadth" && channel.Kind != "cli-token") {
+		return access.ErrPrincipalRequired
+	}
+	now := s.now()
+	return s.db.InTx(ctx, func(tx *database.Tx) error {
+		return preserveRoot(ctx, tx, now, func() error {
+			current, err := s.stillPrincipal(ctx, pr)
+			if err != nil {
+				return err
+			}
+			return apply(tx, current, now)
+		})
+	})
 }

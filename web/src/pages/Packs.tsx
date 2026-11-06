@@ -4,7 +4,7 @@ import { Section } from '../Section'
 import { MoreMenu } from '../MoreMenu'
 import { useState } from 'react'
 import { renderMd } from '../md'
-import { GuidanceBlock, del, post } from '../api'
+import { GuidanceBlock, post } from '../api'
 import { fmtSize, sizeTitle } from '../format'
 import { Status } from '../Status'
 import { OriginChip } from '../OriginChip'
@@ -109,18 +109,10 @@ export default function Packs() {
   const packsQ = useGet<PackView[]>('/packs', { kind: 'config' })
   const packs = packsQ.data ?? []
   const [editing, setEditing] = useState<{ draft: Draft; existing: boolean } | null>(null)
-  const [deleting, setDeleting] = useState<string | null>(null)
-  const { run, busy, err: actErr } = useAction()
   const [msg, setMsg] = useState('')
 
   const blank = (): Draft => draftFrom('', '', { guidance: [], workflows: [], policies: [] })
   const copyOf = (p: PackView): Draft => draftFrom(`${p.name}-ours`, '', p.declaration)
-  const declared = (p: PackView): Draft => draftFrom(p.name, p.description, p.declaration)
-
-  // The instance's switch: an off pack stays here but is not offered when
-  // a project is made. Stock packs cannot be deleted; they can be turned off.
-  const setOn = (p: PackView, enabled: boolean) => run(() => post(`/packs/${p.name}/enabled`, { enabled }))
-  const remove = (p: PackView) => run(() => del(`/packs/${p.name}`))
 
   // The packs read failed or is on its way: say so, never an empty grid.
   if (!packsQ.data) return <ReadStatus q={packsQ} what="the packs" />
@@ -136,7 +128,6 @@ export default function Packs() {
     <div>
       {msg && <div className="muted small mb-2" >{msg}</div>}
       <StaleNote q={packsQ} />
-      {actErr && <div className="error">{actErr}</div>}
 
       <Section title="Packs" count={packs.length} action={<button className="primary" onClick={() => setEditing({ draft: blank(), existing: false })}>New pack</button>}>
       <LibraryRows>
@@ -144,7 +135,7 @@ export default function Packs() {
           const missing = p.requires.filter(r => !r.bound).map(r => r.capability)
           return (
           // A pack is too large to open in place: the row goes to its page,
-          // which holds everything. The less common acts sit behind ⋯.
+          // which holds its actions. Copy starts a new pack from this list.
           <LibraryRow key={p.name} name={p.name} to={`/packs/${p.name}`}
             // What is unusual about a pack sits with its name; the normal case says nothing.
             badges={<>
@@ -156,20 +147,8 @@ export default function Packs() {
             state={missing.length > 0 && <Status word="not set up" help={`Missing: ${missing.join(', ')}`} />}
             menu={<MoreMenu label={p.name} items={[
                 { label: 'Copy', hint: 'Make a pack of your own from this one.', onClick: () => setEditing({ draft: copyOf(p), existing: false }) },
-              p.enabled === false
-                ? { label: 'Make available', hint: 'Offer this pack to new projects.', disabled: busy, onClick: () => void setOn(p, true) }
-                : { label: 'Hide', hint: 'Stop offering this pack to new projects. Existing projects keep it.', disabled: busy, onClick: () => void setOn(p, false) },
-              ...(p.origin !== 'stock' ? [
-                { label: 'Edit', onClick: () => setEditing({ draft: declared(p), existing: true }) },
-                { label: 'Delete…', danger: true, onClick: () => setDeleting(p.name) },
-              ] : []),
             ]} />}
             >
-            {deleting === p.name && <div className="row small" onClick={(e) => e.stopPropagation()}>
-              Delete pack “{p.name}”? Projects that applied it keep the versions they applied.
-              <button className="danger" disabled={busy} onClick={() => { setDeleting(null); void remove(p) }}>Delete</button>
-              <button className="subtle" onClick={() => setDeleting(null)}>Keep it</button>
-            </div>}
           </LibraryRow>
           )
         })}
@@ -179,7 +158,7 @@ export default function Packs() {
   )
 }
 
-function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boolean; onDone: (savedName?: string) => void }) {
+export function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boolean; onDone: (savedName?: string) => void }) {
   const [p, setP] = useState<Draft>(draft)
   const guidanceQ = useGet<GuidanceBlock[]>('/guidance/blocks', { kind: 'config' })
   const workflowsQ = useGet<LibraryWorkflow[]>('/workflows/library', { kind: 'config' })

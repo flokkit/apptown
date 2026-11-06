@@ -446,7 +446,9 @@ and quick lookups (`scout`) fall back to `fast`. Reviews fall back to
 Unset secondary choices use the main choice of the same speed. An unset
 `main-fast` uses `main-strong`, the end of every chain.
 
-Each project chooses a profile, such as `standard` or `high`. AppTown walks
+Each project chooses a profile, such as `standard` or `high`, under
+**Settings → Models**. The page shows which model does each task. Edit the
+profiles themselves under **Integrations → Model profiles**. AppTown walks
 all the requested task's fallbacks in that profile, ending at `main-strong`.
 Only if none is set does it walk the same chain in `standard`. For `standard`,
 one walk is enough. A basic choice in the project's profile takes priority

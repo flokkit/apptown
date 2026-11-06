@@ -1,4 +1,5 @@
 import './Secrets.css'
+import { Link } from 'react-router-dom'
 import { Status } from '../../../Status'
 import { NewChangeButton } from '../NewChange'
 import { PRODUCT } from '../../../brand'
@@ -66,8 +67,7 @@ export function SecretsTab({ slug }: { slug: string }) {
       {err && <div className="error">{err}</div>}
 
       {data.deployments.map((env) => (
-        <DeploymentSection key={env.name} env={env} profiles={data.choosable ?? data.profiles ?? []} declared={data}
-          onProfile={(p) => run(() => put(`/projects/${slug}/secrets/${env.name}`, { profile: p }))}
+        <DeploymentSection key={env.name} env={env} slug={slug} declared={data}
           onEdit={(name) => setEditing({ env: env.name, name })}
           onUnbind={(name) => run(() => del(`/projects/${slug}/secrets/${env.name}/${name}`))}
           canReveal={canReveal} canBind={canBind} revealed={revealed}
@@ -89,9 +89,9 @@ export function SecretsTab({ slug }: { slug: string }) {
 
 // One section per deployment; each secret one row: its name, then where it
 // goes and where its value comes from on a muted line, its acts on the right.
-function DeploymentSection({ env, profiles, declared, onProfile, onEdit, onUnbind, canReveal, canBind, onAgentVisible, onSeparate, revealed, onReveal, onHide }: {
-  env: SecretDeployment; profiles: string[]; declared: ProjectSecrets
-  onProfile: (p: string) => void; onEdit: (name: string) => void; onUnbind: (name: string) => void
+function DeploymentSection({ env, slug, declared, onEdit, onUnbind, canReveal, canBind, onAgentVisible, onSeparate, revealed, onReveal, onHide }: {
+  env: SecretDeployment; slug: string; declared: ProjectSecrets
+  onEdit: (name: string) => void; onUnbind: (name: string) => void
   canBind: boolean; onAgentVisible: (name: string, visible: boolean) => void; onSeparate: (name: string) => void
   canReveal: boolean; revealed: Record<string, string>; onReveal: (name: string) => void; onHide: (name: string) => void
 }) {
@@ -104,12 +104,7 @@ function DeploymentSection({ env, profiles, declared, onProfile, onEdit, onUnbin
   return (
     <Section label={`Secrets for ${env.name}`}
       title={<>{env.name}{missing && <Status word="failed" help={`${env.missing.length} required secrets are missing. Set them below before deploying.`} />}</>}
-      action={<label className="secrets-profile small"><span className="muted">profile</span>
-        <select aria-label={`Secrets profile for ${env.name}`} value={env.chosen || env.profile} onChange={(e) => onProfile(e.target.value)}>
-          {profiles.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-        {env.chosen && env.chosen !== env.profile && <span className="muted" title="secretspec.toml does not declare this profile, so its secrets come from the one named">secrets: {env.profile}</span>}
-      </label>}
+      action={<Link to={`/projects/${slug}/deployments/${env.name}`}>Profile: {env.chosen || env.profile} · Deployment →</Link>}
       note={missing ? <>Nothing provides {env.missing.join(', ')} here. The {env.name === 'preview' ? 'preview' : 'deploy'} stops until it is set.</> : undefined}>
       {env.secrets.map((s) => {
         const shown = revealed[`${env.name}/${s.name}`]

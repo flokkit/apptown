@@ -27,6 +27,8 @@ export default function AdrPage() {
   const supersededBy = adrQ.data?.supersededById ?? null
   const options = adrQ.data?.options ?? null
   const load = adrQ.reload
+  const changesQ = useGet<import('../api').Change[]>(adr ? `/projects/${adr.projectSlug}/changes` : null)
+  const [pick, setPick] = useState('')
   const [editing, setEditing] = useState(false)
   const [body, setBody] = useState('')
   const [title, setTitle] = useState('')
@@ -108,6 +110,14 @@ export default function AdrPage() {
         {!locked && !editing && <button disabled={!current} title={current ? undefined : 'Reading the current text first'} onClick={startEditing}>Edit</button>}
         {locked && <span className="muted small">a decision that is {adr.status} cannot be edited; supersede it instead</span>}
       </div>
+      <div className="row mb-3">
+        <label>Change <select aria-label="Change to link" value={pick} onChange={e => setPick(e.target.value)}>
+          <option value="">Choose a change…</option>
+          {(changesQ.data ?? []).map(c => <option key={c.id} value={c.id ?? ''}>#{c.number} {c.title}</option>)}
+        </select></label>
+        <button disabled={!pick || busy || !current || !changesQ.current} onClick={() => void run(() => patch(`/adrs/${adr.id}`, { changeId: pick }))}>Link change</button>
+      </div>
+      <ReadStatus q={changesQ} what="the changes" className="small" />
       <StaleNote q={adrQ} />
       {actErr && !moved && <div className="error">{actErr}</div>}
       {editing && moved && (

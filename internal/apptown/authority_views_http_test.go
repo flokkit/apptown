@@ -76,7 +76,7 @@ func TestPrivateProjectHTTPReadRoutesEnforceDeclaredCapabilities(t *testing.T) {
 	for _, path := range []string{
 		"/api/v1/projects/game", "/api/v1/projects/game/workflows", "/api/v1/projects/game/lanes",
 		"/api/v1/projects/game/manifest", "/api/v1/projects/game/pack/pull-plan?pack=readable", "/api/v1/projects/game/adoption",
-		"/api/v1/projects/game/policies", "/api/v1/projects/game/services",
+		"/api/v1/projects/game/policies", "/api/v1/projects/game/services", "/api/v1/projects/game/model-profile",
 		"/api/v1/projects/game/guidance", "/api/v1/projects/game/integrations", "/api/v1/projects/game/targets",
 		"/api/v1/projects/game/deployments/main/backups", "/api/v1/changes/" + fx.Change.String() + "/preview", "/api/v1/changes/" + fx.Change.String() + "/transcript",
 	} {
@@ -404,5 +404,33 @@ func TestAuthorizationCurrentActorUsesVerifiedIdentity(t *testing.T) {
 	}
 	if out.Code != 200 || json.Unmarshal(out.Body.Bytes(), &current) != nil || current.ActorID != owner {
 		t.Fatalf("admitted actor identity: %d %s", out.Code, out.Body.String())
+	}
+}
+
+// The project model selector reports the same capability the mutation checks.
+func TestProjectModelProfileHoldingsMatchTheOperation(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t)
+	h := a.Handler()
+	for _, tc := range []struct {
+		who string
+		can bool
+	}{{"boss", true}, {"owner", false}, {"outsider", false}} {
+		w := authzCall(h, tc.who, "GET", "/api/v1/authz/me?project=game", "")
+		var out httpapi.AuthzHoldings
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != http.StatusOK {
+			t.Fatalf("capability view: %d %s %v", w.Code, w.Body.String(), err)
+		}
+		if allowed, present := out.Project[string(access.CapProjectModelProfile)]; !present || allowed != tc.can {
+			t.Fatalf("%s model-profile capability = %v (present %v), want %v", tc.who, allowed, present, tc.can)
+		}
+		moved := authzCall(h, tc.who, "PUT", "/api/v1/projects/game/model-profile", `{"profile":"standard"}`)
+		want := http.StatusForbidden
+		if tc.can {
+			want = http.StatusOK
+		}
+		if moved.Code != want {
+			t.Fatalf("%s model-profile operation: %d %s, want %d", tc.who, moved.Code, moved.Body.String(), want)
+		}
 	}
 }

@@ -157,7 +157,11 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
   projectSettings: {
     General: { guide: 'project-settings', body: <>
       <p>General holds the project's name, address, icon, group and description.</p>
-      <p>Edit these details here. You can also download the code, import a branch as a change, or delete the project. The code download includes the default branch and tags; import it to start another project.</p>
+      <p>Edit these details here. You can also download the code or delete the project. The code download includes the default branch and tags; import it to start another project.</p>
+    </> },
+    Models: { guide: 'architecture', body: <>
+      <p>A model profile chooses which AI model does each task for this project.</p>
+      <p>Read the model choices and select another profile here. An unset task follows the profile’s basic choices, then standard’s models. Changing a profile’s task choices is under Integrations → Model profiles.</p>
     </> },
     'Way of working': { guide: 'packs-and-what-if', body: <>
       <p>A way of working is the set of packs this project has adopted, with their workflows, guidance, policies and checks.</p>

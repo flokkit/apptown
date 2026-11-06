@@ -8,8 +8,8 @@ and the person who enabled it. Changes create new revisions; history is retained
 Automatic processing is not available. Saving consent does not update, accept,
 land or deploy software. No existing approval or imported rule enables it.
 
-The Janitor page shows Coming soon and offers no new consent form. Saved consent
-can be disabled, revised or read with its history under Details. A revision
+The CLI and API manage saved consent and its history. There is no Janitor web page. Consent
+can be disabled, revised or read with its history. A revision
 previews the exact consent before saving. Full delivery
 requires explicit environments for every selected project, deployment authority
 and promotion consent where required. Nothing selects a default environment on

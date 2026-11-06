@@ -44,9 +44,10 @@ const peopleFixture = await build({
     import { MemoryRouter } from 'react-router-dom'
     import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
     import People from './pages/People'
+    import { TokensCard } from './pages/AccountAccess'
     window.fetch = async path => new Response(JSON.stringify(String(path).includes('/authz/me')
       ? {instance:{'identity:manage-auth':true}} : {users:[{username:'sam'}],tokens:[],delegations:[],groups:[],roles:[],grants:[]}), {headers:{'Content-Type':'application/json'}})
-    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={['/people?tab=agents']}><main style={{padding:12}}><People /></main></MemoryRouter></QueryClientProvider>)
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={['/people?tab=agents']}><main style={{padding:12}}><People /><TokensCard personal /></main></MemoryRouter></QueryClientProvider>)
   ` },
 })
 const conformanceFixture = await build({
@@ -160,7 +161,7 @@ try {
         return item.left >= box.left - 1 && item.right <= box.right + 1
       })
       assert.equal(await page.locator('.people-tabs').evaluate(strip => new Set([...strip.children].map(tab => Math.round(tab.getBoundingClientRect().top))).size), 1, `People tabs stay on one row at ${width}, ${size}`)
-      assert.ok(await page.getByRole('region', { name: 'Access tokens' }).locator('input, select, button').evaluateAll(controls => controls.length === 5 && controls.every(control => {
+      assert.ok(await page.getByRole('region', { name: 'Access tokens' }).locator('input, select, button').evaluateAll(controls => controls.length === 3 && controls.every(control => {
         const r = control.getBoundingClientRect()
         return r.left >= 0 && r.right <= innerWidth && r.width > 0
       })), `all token controls fit at ${width}, ${size}`)

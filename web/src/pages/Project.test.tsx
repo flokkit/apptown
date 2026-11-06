@@ -162,6 +162,7 @@ it.each([
   ['security/suppressions', 'Suppressions', 'Security', 'glossary'],
   ['settings/general', 'General', 'Settings', 'project-settings'],
   ['settings', 'General', 'Settings', 'project-settings'],
+  ['settings/models', 'Models', 'Settings', 'architecture'],
   ['settings/working', 'Way of working', 'Settings', 'packs-and-what-if'],
   ['settings/services', 'Services', 'Settings', 'services-and-data'],
   ['settings/deployments', 'Deployments', 'Settings', 'container-lifecycle'],
@@ -236,7 +237,8 @@ it('shows secret bindings and warnings without the introduction or secret count'
     expect(el.querySelector('.section-count')).toBeNull()
     expect(el.textContent).toContain('does not use these parts of the declaration: providers')
     expect(el.textContent).toContain('Nothing provides API_KEY here.')
-    expect(el.querySelector('select[aria-label="Secrets profile for main"]')).not.toBeNull()
+    expect(el.querySelector('select[aria-label="Secrets profile for main"]')).toBeNull()
+    expect(el.querySelector('a[href="/projects/a/deployments/main"]')).not.toBeNull()
     act(() => [...el.querySelectorAll('button')].find(b => b.textContent === 'Set…')!.click())
     expect(el.querySelector('textarea')).not.toBeNull()
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }

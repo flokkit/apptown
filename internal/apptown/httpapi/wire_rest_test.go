@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/instanceupdate"
+	"github.com/flokkit/apptown/internal/apptown/model"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/evals"
@@ -66,6 +67,7 @@ func init() {
 		wiregen.Named{Name: "ModelCatalogList", Value: ModelCatalogList{}},
 		wiregen.Named{Name: "DiscoveredModels", Value: DiscoveredModels{}},
 		wiregen.Named{Name: "ModelSlotMatrix", Value: ModelSlotMatrix{}},
+		wiregen.Named{Name: "ProjectModels", Value: model.ProjectModels{}},
 		wiregen.Named{Name: "RemediationOpened", Value: RemediationOpened{}},
 		wiregen.Named{Name: "RemediationList", Value: RemediationList{}},
 		wiregen.Named{Name: "RemediationDetail", Value: RemediationDetail{}},

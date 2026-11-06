@@ -64,6 +64,7 @@ describe('two editors on one decision', () => {
         for (const k of ['title', 'bodyMd', 'tags'] as const) if (k in body) rec[k] = body[k]
         return new Response(JSON.stringify(rec))
       }
+      if (url.endsWith('/changes')) return new Response('[]')
       return new Response(JSON.stringify({ ...held, adr: { ...rec } }))
     }))
     return sent
@@ -112,4 +113,21 @@ describe('two editors on one decision', () => {
     expect(rec.bodyMd).toBe('A saved again meanwhile')
     a.done(); b.done()
   })
+})
+
+it('links a decision to a chosen project change from the decision page', async () => {
+ const sent: unknown[] = []
+ vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+   if (init?.method === 'PATCH') { sent.push(JSON.parse(String(init.body))); return new Response(JSON.stringify(held.adr)) }
+   return new Response(JSON.stringify(url.endsWith('/changes') ? [{ id: 'change-1', number: 12, title: 'Improve the shop' }] : held))
+ }))
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ try {
+   await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/adrs/${ADR}`]}><Routes><Route path="/adrs/:id" element={<AdrPage />} /></Routes></MemoryRouter></QueryClientProvider>))
+   await vi.waitFor(() => expect(el.querySelector('option[value="change-1"]')).not.toBeNull())
+   const select = el.querySelector<HTMLSelectElement>('[aria-label="Change to link"]')!
+   await act(async () => { select.value = 'change-1'; select.dispatchEvent(new Event('change', { bubbles: true })) })
+   await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Link change')!.click())
+   expect(sent).toEqual([{ changeId: 'change-1' }])
+ } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

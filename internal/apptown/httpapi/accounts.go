@@ -36,9 +36,15 @@ func NewAccounts(access *identity.Service) Accounts { return Accounts{access: ac
 
 // CreateToken: POST /api/v1/tokens {name, user, role, purpose} (admin) — the
 // plaintext is returned ONCE; only the hash is stored.
-func (h Accounts) CreateToken(w http.ResponseWriter, r *http.Request) {
+func (h Accounts) CreateToken(w http.ResponseWriter, r *http.Request)    { h.createToken(w, r, false) }
+func (h Accounts) CreateOwnToken(w http.ResponseWriter, r *http.Request) { h.createToken(w, r, true) }
+func (h Accounts) createToken(w http.ResponseWriter, r *http.Request, own bool) {
 	jsonCommand(w, r, jsonBody{errorText: "name required"}, func(in identity.NewToken) {
-		issued, err := h.access.IssueToken(r.Context(), in, Principal(r))
+		issue := h.access.IssueToken
+		if own {
+			issue = h.access.IssueOwnToken
+		}
+		issued, err := issue(r.Context(), in, Principal(r))
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -59,8 +65,14 @@ func (h Accounts) ListTokens(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, TokenList{Tokens: tokens})
 }
 
-func (h Accounts) RevokeToken(w http.ResponseWriter, r *http.Request) {
-	revoked, err := h.access.RevokeToken(r.Context(), r.PathValue("name"), Principal(r))
+func (h Accounts) RevokeToken(w http.ResponseWriter, r *http.Request)    { h.revokeToken(w, r, false) }
+func (h Accounts) RevokeOwnToken(w http.ResponseWriter, r *http.Request) { h.revokeToken(w, r, true) }
+func (h Accounts) revokeToken(w http.ResponseWriter, r *http.Request, own bool) {
+	revoke := h.access.RevokeToken
+	if own {
+		revoke = h.access.RevokeOwnToken
+	}
+	revoked, err := revoke(r.Context(), r.PathValue("name"), Principal(r))
 	if err != nil {
 		WriteFault(w, err)
 		return

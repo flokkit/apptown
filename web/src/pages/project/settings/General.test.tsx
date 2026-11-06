@@ -256,3 +256,12 @@ describe('deleting a project', () => {
     act(() => root.unmount())
   })
 })
+
+it('has no web branch import door', async () => {
+  const f = mount(() => new Response('{}'))
+  try {
+    await f.render(project('Shop'))
+    expect(f.el.querySelector('[aria-label="Branch name"]')).toBeNull()
+    expect(f.el.textContent).not.toContain('Import a branch')
+  } finally { act(() => f.root.unmount()); vi.unstubAllGlobals() }
+})

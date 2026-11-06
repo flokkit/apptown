@@ -123,7 +123,7 @@ func TestDecideTable(t *testing.T) {
 		// A token made without administrator authority does not carry its
 		// administrator's root; the refusal says so and how to get one,
 		// never "ask an administrator" (one-server test, 22 Oct).
-		{"an administrator's member cli token is told the token is the limit", memberCLIToken, access.Channel{Kind: "cli-token"}, access.CapReleasePromote, change, access.Context{}, rootFacts, false, access.DenyMissingCapability, "the token was made without administrator authority, which alice holds; sign in on the web and make a command-line token on People"},
+		{"an administrator's member cli token is told the token is the limit", memberCLIToken, access.Channel{Kind: "cli-token"}, access.CapReleasePromote, change, access.Context{}, rootFacts, false, access.DenyMissingCapability, "the token was made without administrator authority, which alice holds; sign in on the web and make a command-line token on Account"},
 		{"an administrator's member cli token on a root-only act", memberCLIToken, access.Channel{Kind: "cli-token"}, access.CapIdentityAuth, inst, access.Context{}, rootFacts, false, access.DenyMissingCapability, "the token was made without administrator authority"},
 		{"anonymous with nothing", nobody, access.Channel{Kind: "anonymous"}, access.CapProjectRead, project, access.Context{}, &fakeFacts{}, false, access.DenyMissingCapability, "Someone who is not signed in"},
 	}

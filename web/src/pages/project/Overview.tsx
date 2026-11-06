@@ -1,14 +1,14 @@
 import { PRODUCT } from '../../brand'
 import { runtimeDescription } from '../../runtime'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Release, openAfter, post } from '../../api'
+import { Link, useNavigate } from 'react-router-dom'
+import { Release, post } from '../../api'
 import { SplitButton } from '../../SplitButton'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { ChangeButton } from './ChangeButton'
 import { fmtWhen } from '../../format'
-import type { DeploymentView, ReleasePlan, ReleasePreviewStarted, CreatedChange, ProjectDetail as ProjectT } from '../../wire.gen'
+import type { DeploymentView, ReleasePlan, CreatedChange, ProjectDetail as ProjectT } from '../../wire.gen'
 
 // The project overview's top: the two big doors and the catalog of prepared
 // changes behind one of them.
@@ -98,9 +98,8 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
   )
 }
 
-// Release previews retain the same action as the overview's release history.
+// Release records own their preview action.
 export function ReleaseRows({ slug, releases }: { slug: string; releases: Release[] }) {
-  const nav = useNavigate()
   const live = releases.find(r => r.serving)
   return <>
       {releases.length > 0 && (
@@ -110,12 +109,7 @@ export function ReleaseRows({ slug, releases }: { slug: string; releases: Releas
             {live && <span className="badge">{live.deployment === 'lan' ? '🏢 ' : ''}live: #{live.number}</span>}
             <span className="row" style={{ gap: 6 }}>
               {releases.slice(0, 5).map((r) => (
-                <button key={r.number} className="subtle" title="Open this release"
-                  onClick={async () => {
-                    try {
-                      await openAfter(async () => (await post<ReleasePreviewStarted>(`/projects/${slug}/releases/${r.number}/preview`, {})).url)
-                    } catch { nav(`/projects/${slug}/releases/${r.number}`) }
-                  }}>▶ #{r.number} <span className="muted small">{fmtWhen(r.releasedAt || r.createdAt)}{r.origin === 'observed-after-restore' ? ' · observed after restore' : ''}</span></button>
+                <Link key={r.number} to={`/projects/${slug}/releases/${r.number}`}>#{r.number} <span className="muted small">{fmtWhen(r.releasedAt || r.createdAt)}{r.origin === 'observed-after-restore' ? ' · observed after restore' : ''}</span></Link>
               ))}
             </span>
           </div>

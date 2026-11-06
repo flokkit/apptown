@@ -9,6 +9,7 @@ import { ApplicationOverview, ProjectChanges } from './project/ApplicationOvervi
 import { UsageView } from './Usage'
 import { NewReleasePage, ReleasePermalinkPage } from './project/Release'
 import { FindingsTab, SuppressionsTab } from './project/Security'
+import { ModelsTab } from './project/settings/Models'
 import { GeneralTab, LifecycleNote } from './project/settings/General'
 import { GuidanceTab } from './project/settings/Working'
 import { ServicesTab, ProjectIntegrationsTab } from './project/settings/Services'
@@ -104,6 +105,7 @@ export default function Project() {
           {/* The menu's Settings drawer holds these pages; the heading says which. */}
           <PageHead key={setTab} page="projectSettings" sub={SETTINGS_LABEL[setTab]} />
           {setTab === 'general' && <GeneralTab project={project} current={projectCurrent} onChanged={load} />}
+          {setTab === 'models' && <ModelsTab key={slug} slug={slug!} />}
           {setTab === 'working' && <GuidanceTab slug={slug!} />}
           {setTab === 'services' && (
             <>

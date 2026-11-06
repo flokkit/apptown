@@ -1,12 +1,10 @@
-import { fmtWhen } from '../format'
 import { useState } from 'react'
 import { PRODUCT } from '../brand'
 import { del, post, put } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadGate } from '../ReadGate'
-import { Link } from 'react-router-dom'
 import { Section } from '../Section'
-import { useHolds } from '../instancePages'
+import { AgentsCard, TokensCard } from './AccountAccess'
 import './ExternalSignIn.css'
 import type { AuthMe, ExternalProvider, ExternalProviderChange, ExternalBindingList, ExternalBindRequest, ExternalEnableRequest, ExternalRedirect, ExternalStartRequest } from '../wire.gen'
 
@@ -46,23 +44,6 @@ export function ExternalProviderSettings() {
   </section>
 }
 
-// Your own tokens: who holds them and when they were last used. Making one
-// is on People → Agents and tokens, for those who may.
-function YourTokens() {
- const q = useGet<AuthMe>('/auth/me')
- const canMint = useHolds('identity:manage-auth')
- const tokens = q.data?.ownTokens ?? []
- return <Section title="Access tokens" count={q.data ? tokens.length : undefined} action={canMint && <Link to="/people?tab=agents">New token →</Link>}>
-   <ReadGate q={q} what="your access tokens">
-     {!tokens.length && <p className="muted">No access tokens. A token lets the apptown command line or a coding agent act for you.</p>}
-     {tokens.map(t => <div key={t.Name} className="card row" style={{ display: 'flex' }}>
-       <strong>{t.Name}</strong>
-       <span className="muted small">{t.Purpose === 'agent' ? 'Coding agent' : 'Command line'} · last used {t.LastUsed ? fmtWhen(t.LastUsed) : 'never'}</span>
-     </div>)}
-   </ReadGate>
- </Section>
-}
-
 export function MyExternalSignIn({ embedded = false }: { embedded?: boolean }) {
   const me = useGet<AuthMe>('/auth/me')
   const q = useGet<ExternalBindingList>('/auth/external/bindings')
@@ -71,7 +52,7 @@ export function MyExternalSignIn({ embedded = false }: { embedded?: boolean }) {
   const provider = me.data?.external?.displayName
   const linked = q.data?.bindings.filter(b => !b.revoked) ?? []
   const passwordField = <input type="password" aria-label="Your password" placeholder="Your password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
-  return <>{!embedded && <><h1>Your account</h1><ReadGate q={me} what="your account"><p><strong>{me.data?.user}</strong>{me.data?.role === 'admin' && ' · Admin'}</p></ReadGate><YourTokens /></>}
+  return <>{!embedded && <><h1>Your account</h1><ReadGate q={me} what="your account"><p><strong>{me.data?.user}</strong>{me.data?.role === 'admin' && ' · Admin'}</p></ReadGate><TokensCard personal /><AgentsCard canEdit={false} /></>}
   <Section title={embedded ? 'Link your sign-in' : 'External sign-in'} count={q.data ? linked.length : undefined}>
     <div className="account-signin">
     {me.data && !provider && <p className="muted">No external sign-in is turned on here.</p>}

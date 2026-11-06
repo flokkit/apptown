@@ -4,7 +4,6 @@ import { MEMORY_TABS, SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL } from './pag
 import { projectHue } from './ProjectListRow'
 import { Blocks, BookOpen, BookText, ChartColumn, ChevronDown, ChevronRight, FlaskConical, FolderKanban, GitPullRequest, House, LayoutDashboard, MessageSquare, MessageSquareWarning, Plug, RefreshCw, Rocket, Settings, Shield, ShieldCheck, Users } from 'lucide-react'
 import { createChatChange } from './pages/project/ChangeButton'
-import Janitor from './pages/Janitor'
 import { PRODUCT } from './brand'
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -275,8 +274,6 @@ export default function App() {
           <Route path="/conformance/ways" element={<InstanceGate page="conformance"><Conformance tab="ways" /></InstanceGate>} />
           <Route path="/conformance/remediations/:remId" element={<InstanceGate page="conformance"><Conformance tab="remediation" /></InstanceGate>} />
           <Route path="/projects/_new" element={<NewProject />} />
-          <Route path="/janitor" element={<Janitor />} />
-          <Route path="/projects/:slug/janitor" element={<Janitor />} />
           <Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} />
           <Route path="/projects/:slug" element={<Project />} />
           <Route path="/operations/:id" element={<OperationPage />} />

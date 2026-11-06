@@ -31,3 +31,11 @@ describe("a run's findings on the change page", () => {
     expect(page([])).toContain('no findings')
   })
 })
+
+it('links findings to project Security with a count and no local actions', () => {
+  const html = page([])
+  expect(html).toContain('href="/projects/game/security/findings"')
+  expect(html).toContain('Findings (0)')
+  expect(html).not.toContain('Fix…')
+  expect(html).not.toContain('Suppress…')
+})

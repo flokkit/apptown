@@ -1,14 +1,13 @@
 import './ChangeButton.css'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { get, post } from '../../api'
+import { Link, useNavigate } from 'react-router-dom'
+import { post } from '../../api'
 import { Modal } from '../../Modal'
-import { QuietConfirm } from '../../QuietConfirm'
 import { SplitButton } from '../../SplitButton'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { NewChangeButton } from './NewChange'
-import type { PullPlan, CatalogApplied, CreatedChange, CatalogChangeDetail, CatalogDef, CatalogEntry as GeneratedCatalogEntry, CatalogList } from '../../wire.gen'
+import type { CatalogApplied, CreatedChange, CatalogChangeDetail, CatalogDef, CatalogEntry as GeneratedCatalogEntry, CatalogList } from '../../wire.gen'
 
 export function ChangeButton({ slug, chatAvailable, compact = false, primary = false }: {
   slug: string; chatAvailable: boolean; compact?: boolean; primary?: boolean
@@ -58,20 +57,6 @@ export function CatalogPicker({ slug, onClose }: { slug: string; onClose: () => 
       { project: slug, params }))
     if (r) nav(`/changes/${r.change.id}`)
   }
-  // What pulling the latest pack would change, then the pull itself.
-  const pullPlan = async (pack: string) => {
-    const plan = await get<PullPlan>(`/projects/${slug}/pack/pull-plan?pack=${pack}`)
-    const lines = [
-      plan.additions.length ? `adds: ${plan.additions.join(', ')}` : '',
-      plan.removals.length ? `removes: ${plan.removals.join(', ')}` : '',
-      plan.guidance.length ? `guidance to add under Guidance: ${plan.guidance.join(', ')}` : '',
-      plan.conflicting.length ? `not adopted (your choice): ${plan.conflicting.join('; ')}` : '',
-    ].filter(Boolean).join('\n')
-    return lines || 'no changes'
-  }
-  // The action re-reads the catalog when the pull lands.
-  const pull = (pack: string) => run(() => post(`/projects/${slug}/pack/pull`, { pack }))
-
   return (
     <Modal onClose={onClose} maxWidth={640}
       title={<><h2 className="change-button-catalog-picker-h2">Catalog change</h2><span className="muted small">prepared changes, run the same way every time</span></>}>
@@ -88,10 +73,7 @@ export function CatalogPicker({ slug, onClose }: { slug: string; onClose: () => 
             <div className="small change-button-div">
               needs the <code>{e.missingWorkflow}</code> workflow
               {e.fromPack ? <> — it comes with the latest <code>{e.fromPack}</code> pack.{' '}
-                <QuietConfirm label="Pull latest pack…" className="subtle" yes="Pull it"
-                  ask={`Pull the latest ${e.fromPack} pack?`}
-                  prepare={() => pullPlan(e.fromPack!)}
-                  onYes={() => pull(e.fromPack!)} />
+                <Link to={`/projects/${slug}/settings/working`}>Settings › Way of working →</Link>
               </> : " · not part of this project's pack; an amender can install it from the workflow library."}
             </div>
           </div>

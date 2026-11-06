@@ -18,6 +18,8 @@ import (
 // TestRegisteredPolicyEvidence.
 var policyEvidence = map[string]func(*testing.T){
 	"catalogChanges.CatalogApply":       TestCatalogApplyHTTPKeepsProjectMembershipAndCaller,
+	"accounts.CreateOwnToken":           TestPersonalTokenHTTPKeepsAccountBoundary,
+	"accounts.RevokeOwnToken":           TestPersonalTokenHTTPKeepsAccountBoundary,
 	"accounts.CreateToken":              TestTokenHTTPKeepsMetadataAndRoleBounds,
 	"accounts.ListTokens":               TestTokenHTTPKeepsMetadataAndRoleBounds,
 	"accounts.RevokeToken":              TestTokenHTTPKeepsMetadataAndRoleBounds,

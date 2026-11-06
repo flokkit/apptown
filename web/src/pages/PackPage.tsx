@@ -1,12 +1,15 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { post } from '../api'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { del, post } from '../api'
 import { Section } from '../Section'
 import { QuietConfirm } from '../QuietConfirm'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
-import type { PackHistory, Publication } from '../wire.gen'
+import type { PackHistory, Publication, PackView, WhatIf } from '../wire.gen'
+import { PackEditor } from './Packs'
+import { draftFrom } from './packDraft'
+import { useHolds } from '../instancePages'
 import { WhatIfPanel } from './PackWhatIf'
 
 // One pack: what its author
@@ -17,13 +20,22 @@ import { WhatIfPanel } from './PackWhatIf'
 
 export default function PackPage() {
   const { name = '' } = useParams()
+  const nav = useNavigate()
+  const [params] = useSearchParams()
+  const whatIfId = params.get('whatIf')
+  const whatIfQ = useGet<WhatIf>(whatIfId ? `/conformance/what-if/${whatIfId}` : null)
+  const packsQ = useGet<PackView[]>('/packs', { kind: 'config' })
+  const canManage = useHolds('standards:manage-packs')
+  const [editing, setEditing] = useState(false)
   const q = useGet<PackHistory>(`/packs/${name}`, { kind: 'config' })
   const { run, busy, err: actErr } = useAction(q.reload)
   const [open, setOpen] = useState<number | null>(null)
   const h = q.data
   if (!h) return <ReadStatus q={q} what="the pack" />
-  const recommend = (version: number) => run(() => post(`/packs/${name}/recommended`, { version }))
+  const recommend = (version: number) => run(() => post(`/packs/${name}/recommended`, { version, ...(whatIfQ.data?.pack === name && whatIfQ.data.version === version ? { whatIf: whatIfQ.data.id } : {}) }))
+  const enabled = packsQ.data?.find(p => p.name === name)?.enabled
   const d = h.declaration
+  if (editing) return <PackEditor draft={draftFrom(h.name, h.description, d)} existing onDone={() => { setEditing(false); void q.reload() }} />
 
   return (
     <div>
@@ -38,9 +50,19 @@ export default function PackPage() {
       </div>
       {h.description && <p className="muted">{h.description}</p>}
       {d.toolchain && <p className="small">Toolchain: <code>{d.toolchain}</code></p>}
-      <StaleNote q={q} />
+      <StaleNote q={[q, packsQ]} />
+      <ReadStatus q={packsQ} what="pack availability" className="small" />
+      {whatIfId && <ReadStatus q={whatIfQ} what="the assessed what-if" className="small" />}
       {actErr && <div className="error">{actErr}</div>}
 
+      {canManage && <div className="row mb-3">
+        <button disabled={busy || !packsQ.current || enabled === undefined} onClick={() => void run(() => post(`/packs/${name}/enabled`, { enabled: enabled === false }))}>{enabled === false ? 'Make available' : 'Hide'}</button>
+        {h.origin !== 'stock' && <>
+          <button disabled={busy || !q.current} onClick={() => setEditing(true)}>Edit</button>
+          <QuietConfirm label="Delete…" disabled={busy || !q.current} ask={`Delete pack “${name}”? Projects keep the versions they applied.`}
+            onYes={() => run(async () => { await del(`/packs/${name}`); nav('/packs') })} />
+        </>}
+      </div>}
       {/* An empty part says nothing: the count line above the parts is enough. */}
       {d.guidance.length > 0 && <Section title="Rules" count={d.guidance.length}>
         {d.guidance.map((g) => (
@@ -72,8 +94,8 @@ export default function PackPage() {
               <span className="grow" />
               <span className="muted small" title={v.at}>{relTime(v.at)}</span>
               <button className="subtle" aria-expanded={open === v.version} onClick={() => setOpen(open === v.version ? null : v.version)}>{open === v.version ? 'Hide contents' : 'Contents'}</button>
-              {v.version !== h.recommended && (
-                <QuietConfirm label="Recommend" className="subtle" yes="Recommend it" disabled={busy}
+              {canManage && v.version !== h.recommended && (
+                <QuietConfirm label={`Recommend v${v.version}`} className="subtle" yes="Recommend it" disabled={busy || !q.current || !!whatIfId && (!whatIfQ.current || whatIfQ.data?.pack !== name)}
                   ask={`New projects will get v${v.version}, and projects on other versions will be offered it. No project moves.`}
                   onYes={() => recommend(v.version)} />
               )}

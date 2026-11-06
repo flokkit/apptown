@@ -5,6 +5,8 @@ import { fmtTokens as fmtTokensShared } from '../../format'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { Section } from '../../Section'
+import { MoreMenu } from '../../MoreMenu'
+import { effective, jobName } from '../../parts/modelProfiles'
 import { ListRow } from '../../ListRow'
 import { PageHead } from '../../PageHead'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -15,27 +17,6 @@ import type { ModelCatalogList, ModelSlotMatrix, ModelSlotView } from '../../wir
 // within the project's profile before trying the chain in standard.
 
 const fmtTokens = (n?: number) => fmtTokensShared(n ?? 0)
-// The four basic choices are named as the glossary names them; tasks by their own name.
-const BASIC: Record<string, string> = { 'main-strong': 'Main · strong', 'main-fast': 'Main · fast', 'secondary-strong': 'Second opinion · strong', 'secondary-fast': 'Second opinion · fast' }
-const jobName = (slot: string) => BASIC[slot] ?? slot.charAt(0).toUpperCase() + slot.slice(1)
-
-// Follow the server's profile-first resolution, including its deciding profile.
-function effective(rows: ModelSlotView[], slot: string, profile: string): { model: string; from: string; profile: string } {
-  const bySlot = new Map(rows.map((r) => [r.slot, r]))
-  for (const p of profile === 'standard' ? [profile] : [profile, 'standard']) {
-    const seen = new Set<string>()
-    let name = slot
-    while (name && !seen.has(name)) {
-      seen.add(name)
-      const r = bySlot.get(name)
-      const m = r?.patterns[p]
-      if (m) return { model: m, from: name, profile: p }
-      name = r?.fallback || (name === 'main-strong' ? '' : 'main-strong')
-    }
-  }
-  return { model: '', from: '', profile: '' }
-}
-
 // The page's help, passed by Integrations so every menu page's help lives in one place.
 type Help = { body: ReactNode; guide: string }
 
@@ -103,9 +84,8 @@ export function ModelProfilePage() {
   const models = modelsQ.data?.models ?? []
   const [custom, setCustom] = useState<string | null>(null) // the job being given a model by hand
   const [customVal, setCustomVal] = useState('')
-  const [moving, setMoving] = useState('')
-  // A project's profile is shown in the matrix, so its write refreshes it too.
-  const { run, err: actErr } = useAction(undefined, { affects: ['/model-slots'] })
+  const nav = useNavigate()
+  const { run, err: actErr } = useAction()
 
   const crumb = <div className="muted small int-crumb"><Link to="/integrations">Integrations</Link> › <Link to="/integrations/profiles">Model profiles</Link></div>
   if (!data) return <div>{crumb}<h1>{profile}</h1><ReadStatus q={slotsQ} what="the model profiles" /></div>
@@ -117,8 +97,6 @@ export function ModelProfilePage() {
 
   const set = (slot: string, pattern: string) =>
     run(async () => { await put('/model-slots', { slot, profile, pattern }); setCustom(null) })
-  const moveProject = () =>
-    run(async () => { await put(`/projects/${moving}/model-profile`, { profile }); setMoving('') })
 
   const cell = (row: ModelSlotView) => {
     const mapped = row.patterns[profile] ?? ''
@@ -213,17 +191,16 @@ export function ModelProfilePage() {
       {!isNew && <Section title="Projects" count={on.length}>
         {on.length === 0 ? <p className="muted small">No projects use it.</p>
           : <p>{on.map((x, i) => <span key={x.slug}>{i > 0 && ', '}<Link to={`/projects/${x.slug}`}>{x.name || x.slug}</Link></span>)}</p>}
-        {others.length > 0 && (
-          <p className="row model-slots-model-profile-page-p">
-            <span className="small">Move</span>
-            <select aria-label="project" value={moving} onChange={(e) => setMoving(e.target.value)}>
-              <option value="">a project…</option>
-              {others.map((x) => <option key={x.slug} value={x.slug}>{x.name || x.slug} (now {x.profile || 'standard'})</option>)}
-            </select>
-            <span className="small">here</span>
-            <button disabled={!moving} onClick={() => void moveProject()}>Move</button>
-          </p>
-        )}
+        {others.length > 0 && <><h3>Other projects</h3><div role="list">
+          {others.map(x => <div key={x.slug} role="listitem">
+            <ListRow identity={<Link to={`/projects/${x.slug}`}>{x.name || x.slug}</Link>}
+              state={<span className="muted small">Uses {x.profile || 'standard'}</span>}
+              action={<MoreMenu label={x.name || x.slug} items={[{
+                label: 'Move project here', hint: `Choose ${profile} in this project's Models settings`,
+                onClick: () => nav(`/projects/${x.slug}/settings/models?profile=${encodeURIComponent(profile)}`),
+              }]} />} />
+          </div>)}
+        </div></>}
       </Section>}
     </div>
   )

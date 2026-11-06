@@ -128,3 +128,63 @@ func TestTokenHTTPSkippedRevocationIsPersistenceFailure(t *testing.T) {
 		t.Fatalf("retry: %d", w.Code)
 	}
 }
+
+// A member manages only their own credentials, and agents cannot create a
+// personal command-line credential to escape their bounds.
+func TestPersonalTokenHTTPKeepsAccountBoundary(t *testing.T) {
+	t.Parallel()
+	_, accounts := accountHTTPFixture(t)
+	h := NewAccounts(accounts)
+	call := func(who, method, name, body string, agent bool) *httptest.ResponseRecorder {
+		t.Helper()
+		pr := testAdmittedPrincipal(t, accounts, who)
+		pr.Credential = identity.HeaderCredential(who)
+		if agent {
+			pr.Via = "token"
+			pr.Purpose = access.TokenAgent
+		}
+		r := httptest.NewRequest(method, "/api/v1/account/tokens", strings.NewReader(body)).WithContext(access.WithCaller(context.Background(), access.Caller{Principal: pr, Verified: true}))
+		r.SetPathValue("name", name)
+		w := httptest.NewRecorder()
+		if method == "POST" {
+			h.CreateOwnToken(w, r)
+		} else {
+			h.RevokeOwnToken(w, r)
+		}
+		return w
+	}
+	w := call("kid", "POST", "", `{"name":"laptop","purpose":"cli"}`, false)
+	if w.Code != 201 {
+		t.Fatalf("member creation: %d %s", w.Code, w.Body.String())
+	}
+	var issued IssuedToken
+	if err := json.Unmarshal(w.Body.Bytes(), &issued); err != nil {
+		t.Fatal(err)
+	}
+	if issued.User != "kid" || issued.Role != "member" || issued.Token == "" {
+		t.Fatal("incorrect personal token")
+	}
+	for _, body := range []string{`{"name":"escape","purpose":"cli","user":"boss"}`, `{"name":"escape","purpose":"cli","role":"admin"}`} {
+		if w := call("kid", "POST", "", body, false); w.Code < 400 {
+			t.Fatal("personal command widened authority")
+		}
+	}
+	if w := call("boss", "DELETE", "laptop", "", false); w.Code < 400 {
+		t.Fatal("personal command revoked another person's token")
+	}
+	if w := call("kid", "POST", "", `{"name":"escape","purpose":"cli"}`, true); w.Code < 400 {
+		t.Fatal("agent minted personal token")
+	}
+	if w := call("kid", "DELETE", "laptop", "", true); w.Code < 400 {
+		t.Fatal("agent revoked personal token")
+	}
+	if w := call("kid", "DELETE", "laptop", "", false); w.Code != 200 {
+		t.Fatalf("own revocation: %d %s", w.Code, w.Body.String())
+	}
+	pr := testAdmittedPrincipal(t, accounts, "kid")
+	pr.Credential = identity.HeaderCredential("kid")
+	tokens, err := accounts.OwnTokens(context.Background(), pr)
+	if err != nil || len(tokens) != 0 {
+		t.Fatalf("revocation did not persist: %v %v", tokens, err)
+	}
+}

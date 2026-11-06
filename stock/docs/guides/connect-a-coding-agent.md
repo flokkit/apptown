@@ -203,7 +203,7 @@ the release archive for your computer
 ([downloading a release](server-setup.md)). It needs AppTown's
 address and a **command-line token**, which acts as you, with everything
 you yourself may do: it carries your role as it is when the token is made.
-An admin makes one, on **People → Access tokens** or with:
+You make one, on **Account → Access tokens** or with:
 
 ```
 apptown token create laptop-cli --purpose cli -u <your username>

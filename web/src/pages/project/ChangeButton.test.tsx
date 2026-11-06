@@ -39,3 +39,13 @@ it('names the detailed change fields independently of placeholders', async () =>
   expect(document.activeElement).toBe(el.querySelector('[aria-label="Title"]'))
   client.clear()
 })
+
+it('links missing pack workflows to Way of working without pulling from the catalog', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ catalog: [{ name: 'Upgrade', description: 'Upgrade', missingWorkflow: 'upgrade', fromPack: 'team' }] }))))
+  document.body.append(el); root = createRoot(el)
+  const client = newQueryClient()
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><CatalogPicker slug="library" onClose={() => {}} /></MemoryRouter></QueryClientProvider>))
+  await vi.waitFor(() => expect(el.querySelector('a[href="/projects/library/settings/working"]')).not.toBeNull())
+  expect(el.textContent).not.toContain('Pull latest pack')
+  client.clear()
+})

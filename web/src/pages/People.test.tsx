@@ -5,7 +5,8 @@ import { MemoryRouter } from 'react-router-dom'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
-import People, { AdminNetworksCard, InvitePerson, TokensCard, UsersCard } from './People'
+import People, { AdminNetworksCard, InvitePerson, UsersCard } from './People'
+import { TokensCard } from './AccountAccess'
 import type { Account } from '../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -327,7 +328,7 @@ describe('minting a token', () => {
     }))
     const el = document.createElement('div')
     const root = createRoot(el)
-    await act(async () => { root.render(<QueryClientProvider client={newQueryClient()}><TokensCard /></QueryClientProvider>) })
+    await act(async () => { root.render(<QueryClientProvider client={newQueryClient()}><TokensCard personal /></QueryClientProvider>) })
     const input = el.querySelector('input') as HTMLInputElement
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'laptop-cli')
@@ -339,7 +340,7 @@ describe('minting a token', () => {
       purpose.dispatchEvent(new Event('change', { bubbles: true }))
     })
     await act(async () => { [...el.querySelectorAll('button')].find((b) => b.textContent === 'Mint token')!.click() })
-    expect(sent.find((s) => s.method === 'POST')).toEqual({ method: 'POST', url: '/api/v1/tokens', body: { name: 'laptop-cli', purpose: 'cli' } })
+    expect(sent.find((s) => s.method === 'POST')).toEqual({ method: 'POST', url: '/api/v1/account/tokens', body: { name: 'laptop-cli', purpose: 'cli' } })
     await vi.waitFor(() => expect(el.textContent).toContain('apptown_t'))
     act(() => root.unmount())
   })
@@ -370,4 +371,32 @@ it('splits People into tabs and keeps account actions and inactive names folded'
  expect(permissions.open).toBe(false)
  expect(permissions.textContent).toContain('project:read')
  act(() => root.unmount()); vi.unstubAllGlobals()
+})
+
+it('links personal access to Account and leaves People with administrator inventories', async () => {
+ vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+  url.includes('/authz/me') ? { instance: { 'identity:manage-auth': true } } : url.endsWith('/auth/me') ? { mode: 'internal', user: 'sam' } : { users: [], groups: [], roles: [], grants: [], tokens: [], delegations: [] }
+ ))))
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/people?tab=agents']}><People /></MemoryRouter></QueryClientProvider>))
+  await vi.waitFor(() => expect(el.textContent).toContain('Access tokens'))
+  expect(el.querySelector('a[href="/account"]')).not.toBeNull()
+  expect([...el.querySelectorAll('button')].some(b => b.textContent === 'Mint token')).toBe(false)
+  expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith('/auth/delegations?all=1'))).toBe(true)
+ } finally { await act(async () => root.unmount()); client.clear() }
+})
+
+it('does not embed personal sign-in linking in People', async () => {
+ vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+  url.endsWith('/auth/me') ? { mode: 'internal', user: 'sam', external: { displayName: 'Work sign-in' } }
+   : url.endsWith('/auth/external/bindings') ? { bindings: [] } : { users: [], groups: [], roles: [], grants: [], networks: [], instance: {} }
+ ))))
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/people?tab=signin']}><People /></MemoryRouter></QueryClientProvider>))
+  await vi.waitFor(() => expect(el.textContent).toContain('Where administrators may sign in'))
+  expect(el.querySelector('input[aria-label="Your password"]')).toBeNull()
+  expect(el.textContent).not.toContain('Link your sign-in')
+ } finally { await act(async () => root.unmount()); client.clear() }
 })
