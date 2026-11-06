@@ -189,7 +189,7 @@ var cliJSONCommands = []struct {
 	{"changes", ChangeList{}},
 	{"wait", WaitOutcome{}},
 	{"approve", Decided{}},
-	{"release", ReleaseRequested{}},
+	{"release, rollback", ReleaseRequested{}},
 	{"complain", ComplaintFiled{}},
 	{"version", Versions{}},
 }

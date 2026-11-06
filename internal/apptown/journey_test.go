@@ -502,6 +502,43 @@ func TestJourneyKidStory(t *testing.T) {
 		return res.StatusCode == 200 && strings.Contains(string(b), "the cat is blue")
 	})
 
+	// A chosen earlier release uses this deployment's release door, including
+	// on follows-main. Both requests settle through the worker and the second
+	// records the selected earlier release rather than choosing latest again.
+	var first deployment.Release
+	h.until("the first release to settle", 60*time.Second, func() bool {
+		var history []deployment.Release
+		h.mustCall("GET", "/projects/"+slug+"/releases", nil, &history)
+		for _, r := range history {
+			if r.Deployment == "main" && r.State == deployment.Released {
+				first = r
+				return true
+			}
+		}
+		return false
+	})
+	var again struct{ Number int64 }
+	h.mustCall("POST", "/projects/"+slug+"/deployments/main/deploy", map[string]any{"bundleId": first.BundleID}, &again)
+	waitChosen := func(number int64, rollback bool) {
+		h.until("the chosen release to settle", 60*time.Second, func() bool {
+			var detail struct{ Release deployment.Release }
+			h.mustCall("GET", fmt.Sprintf("/projects/%s/releases/%d", slug, number), nil, &detail)
+			if detail.Release.State == deployment.ReleaseFailed {
+				t.Fatalf("chosen release failed: %+v", detail.Release)
+			}
+			if detail.Release.State != deployment.Released {
+				return false
+			}
+			if detail.Release.BundleID != first.BundleID || (rollback && detail.Release.RollbackOf != first.ID) {
+				t.Fatalf("chosen release: %+v", detail.Release)
+			}
+			return true
+		})
+	}
+	waitChosen(again.Number, false)
+	h.mustCall("POST", "/projects/"+slug+"/deployments/main/deploy", map[string]any{"releaseNumber": first.Number}, &again)
+	waitChosen(again.Number, true)
+
 	// The record: landed branch, audited acts, evidence on every done step.
 	repo := h.app.projectRepoPath(slug)
 	if out, _ := gitexec.Run(t.Context(), repo, "log", "--oneline", "-5"); !strings.Contains(out, "apptown: complete") {

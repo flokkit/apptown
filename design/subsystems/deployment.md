@@ -241,6 +241,33 @@ page) shows its bundle's form: by digest with the registry, platform and each
 part and init image's `<repository>@sha256:…`, or by image ID. A person can
 tell from it before promoting whether the release can go to App Platform.
 
+The deployment page owns release selection. Its history offers **Deploy this
+again** on earlier successful releases; **Deploy a release…** lists the project's
+bundles newest first and where they ran. Overview links to Deployments. There
+is no separate project release form. `apptown release <project> <deployment>
+--release N` selects a successful release's immutable bundle. Explicit selection
+also works on follows-main and promotion feeds; the next landing or promotion
+can replace it. A release of earlier code records the earlier release's identity.
+Authority, the deployment's approval role and pre-deploy backup apply to every
+selection. The confirmation explains that code-only deployment keeps current
+data, reverses no migrations, may run init steps and may write data; compatibility
+with older code is unknown. It shows the current release's backup availability
+or the recorded reason no backup exists.
+
+**Roll back to before release N**, also `apptown rollback <project> <deployment>
+--before N`, restores N's pre-deploy backup and deploys the release recorded as
+running when that backup was taken. Backups record the running release only
+when the current desired generation has completed successfully and the app is
+running. After a failed replacement or during an in-flight replacement, the
+running release is unknown. Missing release evidence offers no pair; ordinary
+Restore remains available. Release authority and approval
+precede destructive effects. Data protection takes its safety copy, stops the
+application writers, restores the data and leaves the app stopped. Deployment
+then starts the selected release through the normal release path. A failure
+before start leaves the restored data and the stopped app, with that outcome
+in the release log and on the deployment page. Standalone Restore still keeps
+the current code and restarts it after restoring.
+
 A landing builds a bundle; App Platform and Portainer are
 promotion targets. A registry that refuses or cannot be reached is an
 error. A digest the registry confirms missing is refused, never rebuilt:

@@ -291,7 +291,11 @@ func (s *Service) takeStoreCopy(ctx context.Context, t *tracker, dep *deployment
 	defer cleanup()
 	now := s.now().UTC()
 	prefix := fmt.Sprintf("%s/%s/%s-%06d", p.Slug, dep.Name, now.Format("2006-01-02T15-04-05Z"), now.Nanosecond()/1000)
-	b := &Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: now.Format(time.RFC3339), Trigger: trigger, Actor: t.op.AskedBy,
+	runningRelease, err := s.backupRelease(ctx, dep, docker.Scope{})
+	if err != nil {
+		return nil, err
+	}
+	b := &Backup{RunningReleaseID: runningRelease, ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: now.Format(time.RFC3339), Trigger: trigger, Actor: t.op.AskedBy,
 		Path: prefix, Store: StoreBackupStore, DataClass: dep.DataClass, Status: BackupOK, StoreEndpoint: store.Endpoint, StoreBucket: store.Bucket}
 	for i, it := range items {
 		// Authority withdrawn ends the set here with what was copied.

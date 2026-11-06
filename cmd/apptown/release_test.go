@@ -91,3 +91,28 @@ func TestReleaseCancelAndWaitingRequestDoNotFollowADeploy(t *testing.T) {
 		t.Fatalf("waiting request: %q %v %+v", out, err, *seen)
 	}
 }
+
+func TestReleaseSelectsNumberAndRollbackSelectsBeforeNumber(t *testing.T) {
+	for _, scenario := range []struct {
+		args  []string
+		field string
+	}{
+		{[]string{"release", "shop", "production", "--release", "7", "--json"}, "releaseNumber"},
+		{[]string{"rollback", "shop", "production", "--before", "8", "--json"}, "beforeRelease"},
+	} {
+		t.Run(scenario.field, func(t *testing.T) {
+			seen := jsonAppTown(t, func(method, path string) (int, string) { return 202, `{"number":10,"state":"waiting for approval"}` })
+			out, err := run(t, scenario.args...)
+			if err != nil || !strings.Contains(out, "waiting for approval") || len(*seen) != 1 || (*seen)[0].Path != "/projects/shop/deployments/production/deploy" {
+				t.Fatalf("selected request: %q %v %+v", out, err, *seen)
+			}
+			want := float64(7)
+			if scenario.field == "beforeRelease" {
+				want = 8
+			}
+			if (*seen)[0].Body[scenario.field] != want {
+				t.Fatalf("selection lost: %+v", *seen)
+			}
+		})
+	}
+}

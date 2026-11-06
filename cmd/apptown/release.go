@@ -16,6 +16,8 @@ func cmdRelease(args []string) error {
 		return cmdReleaseDecision(args)
 	}
 	fs := newFlags("release")
+	chosen := fs.Int64("release", 0, "deploy this successful release instead of the feed selection")
+	before := fs.Int64("before", 0, "restore the pre-deploy backup and its recorded running release")
 	domain := fs.String("domain", "", "default deployment: an extra hostname to serve on (kept for later releases)")
 	asJSON := fs.Bool("json", false, "print the release as JSON once AppTown accepts it (no following)")
 	acceptUncopied := fs.Bool("accept-uncopied-data", false, "release though AppTown cannot copy the data the deployment holds now (the release records your choice): a change this release makes to that data has no copy to go back to")
@@ -23,6 +25,9 @@ func cmdRelease(args []string) error {
 	args = parseArgs(fs, args)
 	if len(args) < 1 || len(args) > 2 {
 		return usagef("usage: apptown release <project-slug> [<deployment>] [-domain host] [--json]")
+	}
+	if *chosen < 0 || *before < 0 || (*chosen != 0 && *before != 0) || (len(args) != 2 && (*chosen != 0 || *before != 0)) {
+		return usagef("name a deployment and choose one positive release number")
 	}
 	slug := args[0]
 	var number int64
@@ -37,6 +42,12 @@ func cmdRelease(args []string) error {
 			State  string `json:"state"`
 		}
 		body := map[string]any{}
+		if *chosen != 0 {
+			body["releaseNumber"] = *chosen
+		}
+		if *before != 0 {
+			body["beforeRelease"] = *before
+		}
 		if *acceptUncopied {
 			body["acceptUncopiedData"] = true
 		}
@@ -200,4 +211,19 @@ func cmdReleaseDecision(args []string) error {
 	}
 	fmt.Printf("Release %d %s.\n", number, map[string]string{"approve": "approved", "cancel": "cancelled"}[action])
 	return nil
+}
+
+func cmdRollback(args []string) error {
+	fs := newFlags("rollback")
+	before := fs.Int64("before", 0, "roll back code and data to before this release")
+	asJSON := fs.Bool("json", false, "print the admitted rollback")
+	args = parseArgs(fs, args)
+	if len(args) != 2 || *before <= 0 {
+		return usagef("usage: apptown rollback <project> <deployment> --before N [--json]")
+	}
+	forwarded := append(args, "--before", strconv.FormatInt(*before, 10))
+	if *asJSON {
+		forwarded = append(forwarded, "--json")
+	}
+	return cmdRelease(forwarded)
 }

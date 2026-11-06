@@ -1,105 +1,18 @@
 import './Release.css'
 import { ReleaseAssent } from './ReleaseApproval'
-import { AppAddress } from '../../runtime'
 import { Status } from '../../Status'
 import { Fragment, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { openAfter, post } from '../../api'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 
-// The release subpage: pressing Release opens a page, not a trigger —
-// you see what would ship before anything ships, and the act lands on a
-// PERMALINK. A release is an institutional event; the page is its record.
+// The permalink records a release. Deployment actions live on its deployment.
 // The server's shapes, generated from its Go types (wire.gen.ts).
 export type { ReleasePlan } from '../../wire.gen'
-import type { ReleaseBundleView, ReleaseDetail, ReleasePlan, ReleasePreviewStarted } from '../../wire.gen'
+import type { ReleaseBundleView, ReleaseDetail, ReleaseListed, ReleasePreviewStarted } from '../../wire.gen'
 import { fmtStamp } from '../../format'
 import { PRODUCT } from '../../brand'
-import { ReleaseDefaultPicker } from './settings/ReleaseDefault'
-import type { DeploymentView } from '../../wire.gen'
-
-export function NewReleasePage({ slug }: { slug: string }) {
-  return <ReleasePage key={slug} slug={slug} />
-}
-
-function ReleasePage({ slug }: { slug: string }) {
-  const nav = useNavigate()
-  const planQ = useGet<ReleasePlan>(`/projects/${slug}/release/plan`)
-  const plan = planQ.data
-  const [choiceOpen, setChoiceOpen] = useState(false)
-  const [choiceSaved, setChoiceSaved] = useState(false)
-  const { run, busy, err } = useAction()
-
-  const fire = async () => {
-    const r = await run(() => post<{ number: number }>(`/projects/${slug}/release`, { defaultRevision: plan?.defaultRevision }))
-    if (r) nav(`/projects/${slug}/releases/${r.number}`)
-  }
-
-  // Without a plan there is nothing to offer: never a release button.
-  if (!plan) return <ReadStatus q={planQ} what="the release plan" />
-  const blocker = !plan.head ? 'Nothing has landed yet.' : ''
-
-  return (
-    <div className="release-page">
-      <StaleNote q={planQ} />
-      {choiceSaved && <p role="status">Release preference saved. No release has started; review the plan before releasing.</p>}
-      {choiceOpen && <ReleaseChoice slug={slug} onConfigured={() => { setChoiceSaved(true); setChoiceOpen(false) }} />}
-      <div className="card release-summary">
-        <h2 className="mt-0">{plan.configured ? `Release to ${plan.deploymentLabel || plan.deployment}` : 'Choose where to release'}</h2>
-        <p className="muted mt-1" >
-          Release checks run before deployment.
-        </p>
-        {plan?.url && (
-          <div className="release-block">
-            <div className="muted small mb-1" >It will live at</div>
-            <AppAddress url={plan.url} />
-          </div>
-        )}
-        {plan?.head && (
-          <details className="muted small release-disclosure"><summary>Build details</summary>
-            Shipping main as of: “{plan.head.subject}” <code className="release-reference">{plan.head.sha.slice(0, 10)}</code>
-          </details>
-        )}
-        {plan && plan.changesSinceLast.length > 0 && (
-          <div className="release-section">
-            <div className="muted small mb-1" >
-              New since the last release:
-            </div>
-            {plan.changesSinceLast.slice(0, 3).map((c) => (
-              <div key={c.id}>• <Link to={`/changes/${c.id}`}>{c.title}</Link></div>
-            ))}
-            {plan.changesSinceLast.length > 3 && <details><summary>More changes ({plan.changesSinceLast.length - 3})</summary>{plan.changesSinceLast.slice(3).map(c => <p key={c.id}><Link to={`/changes/${c.id}`}>{c.title}</Link></p>)}</details>}
-          </div>
-        )}
-        {plan && plan.lastRelease && plan.changesSinceLast.length === 0 && (
-          <div className="muted small release-facts">
-            Nothing new has shipped since release #{plan.lastRelease.number}; releasing again ships the same commit.
-          </div>
-        )}
-        {!plan.configured && !choiceOpen && <button onClick={() => setChoiceOpen(true)}>Choose release preference</button>}
-        {!plan.configured ? <details><summary>Release setup</summary>{plan.configError && <p>{plan.configError}</p>}<Link to={`/projects/${slug}/settings/deployments`}>Deployment settings</Link></details> : blocker
-          ? <div className="error mt-3" >{blocker}</div>
-          : (
-            <button className="primary btn-door mt-3" disabled={busy} onClick={fire} >
-              {busy ? 'Releasing…' : '🏢 Release it'}
-            </button>
-          )}
-        {err && <div className="error release-error">{err}</div>}
-        <div className="release-next">
-          <Link className="muted small" to={`/projects/${slug}`}>← back to the project</Link>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ReleaseChoice({ slug, onConfigured }: { slug: string; onConfigured: () => void }) {
-  const deployments = useGet<DeploymentView[]>(`/projects/${slug}/deployments`)
-  if (!deployments.data) return <ReadStatus q={deployments} what="the project's deployments" />
-  if (!deployments.data.some(d => d.kind === 'standing' && d.feed !== 'main')) return <><StaleNote q={deployments} /><p>No environment is available for a manual release. <Link to={`/projects/${slug}/settings/deployments`}>Add a release environment in deployment settings</Link>.</p></>
-  return <><StaleNote q={deployments} /><ReleaseDefaultPicker slug={slug} deployments={deployments.data} onConfigured={onConfigured} /></>
-}
 
 export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: string }) {
   // The log can gain health-controller notes after release. Keep reading
@@ -142,9 +55,12 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
             <> Open it at <a href={r.notes} target="_blank" rel="noreferrer"><strong>{r.notes}</strong></a></>
           )}
         </div>
+        {r.failure && <p role="status">{r.failure}</p>}
+        {data.rollbackNumber && <p>Rollback of <Link to={`/projects/${slug}/releases/${data.rollbackNumber}`}>release {data.rollbackNumber}</Link>{r.restoreBackupId && ' with data restored from the selected backup'}.</p>}
         <ReleaseAssent approval={r.approval} />
         {!data.backup && data.backupReason && <p>{data.backupReason}</p>}
         {data.backup && <p><Link to={`/deployments/backups#backup-${data.backup.id}`}>{data.backup.status === 'ok' ? 'Backed up before this release →' : data.backup.status === 'pruned' ? 'Backup before this release was removed →' : 'Backup before this release was incomplete →'}</Link></p>}
+        {r.bundleId && <ReleaseDeployments slug={slug} bundleId={r.bundleId} />}
         {data.changes.length > 0 && (
           <div className="release-record">
             <h3 className="release-heading">Changes</h3>
@@ -196,7 +112,7 @@ export function OpenThisVersion({ slug, number, isLive }: { slug: string; number
     <span className="row release-preview-action">
       <button disabled={busy} onClick={() => run(() =>
         openAfter(async () => (await post<ReleasePreviewStarted>(`/projects/${slug}/releases/${number}/preview`, {})).url))}>
-        {busy ? 'starting…' : isLive ? '▶ open this version' : '▶ open this old version'}</button>
+        {busy ? 'Starting preview…' : '▶ Preview this version'}</button>
       {!isLive && <span className="muted small">the released image with empty data; today's data is not included</span>}
       {err && <span className="error small">{err}</span>}
     </span>
@@ -242,4 +158,18 @@ function ImageReference({ value }: { value: string }) {
     <button className="subtle" onClick={async () => { try { await navigator.clipboard.writeText(value); setCopied(true); setError('') } catch { setError('Could not copy; select the reference instead.') } }}>{copied ? 'Copied' : 'Copy'}</button>
     {error && <span className="error small">{error}</span>}
   </span>
+}
+
+// These are links into the deployments that own deploy actions. Serving is a
+// fresh runtime fact; past successful runs remain history during a failed read.
+function ReleaseDeployments({ slug, bundleId }: { slug: string; bundleId: string }) {
+  const q = useGet<ReleaseListed[]>(`/projects/${slug}/releases`, { poll: 5000 })
+  const ran = q.data?.filter(r => r.bundleId === bundleId && r.state === 'released') ?? []
+  const names = [...new Set(ran.map(r => r.deployment))]
+  return <div className="release-record">
+    <h3 className="release-heading">Deployments</h3>
+    <ReadStatus q={q} what="where this release has run" /><StaleNote q={q} />
+    {names.map(name => <p key={name}><Link to={`/projects/${slug}/deployments/${name}`}>{name}</Link> · {q.current && ran.some(r => r.deployment === name && r.serving) ? 'Running here' : 'Has run here'}</p>)}
+    {q.current && names.length === 0 && <p>No successful deployments are recorded for this bundle.</p>}
+  </div>
 }

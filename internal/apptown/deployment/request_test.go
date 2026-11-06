@@ -189,6 +189,7 @@ func TestRequestReleaseCheckedSelection(t *testing.T) {
 				in.BundleID = ids.Nil
 				want = errNoBundle
 			case "landing":
+				in.BundleID = ids.Nil
 				mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.Feed = "main" })
 				want = errFedByLanding
 			case "preview":
@@ -250,12 +251,12 @@ func TestRequestReleaseCheckedSelection(t *testing.T) {
 // run, and that release runs; another bundle at the same revision (whose
 // images can differ), a bundle while a newer deploy is under way, and a
 // bundle whose deployment's running bundle is not known are refused. A
-// historical release without generation inputs cannot establish what runs.
+// historical software still requires uncopied-data acceptance.
 //
 // Kills: a landing-fed deployment refusing every known-bundle redeploy;
 // matching by revision alone
 // (RD-01); matching a last-success revision while a landing runs (RD-02).
-func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
+func TestFollowsMainTakesChosenBundlesWithoutInferringWhatRuns(t *testing.T) {
 	type world struct {
 		s       *Service
 		in      DeploySelection
@@ -307,8 +308,8 @@ func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 		w := setup(t, true)
 		other := w.in
 		other.BundleID = cutBundleFixture(t, w.s.db, w.in.ProjectID, w.running.ContractRevision, BundleOrigin{})
-		if got, err := w.s.RequestRelease(t.Context(), other); !errors.Is(err, errFedByLanding) || !got.ID.IsZero() {
-			t.Fatalf("a same-revision bundle can carry other images: %+v %v", got, err)
+		if got, err := w.s.RequestRelease(t.Context(), other); err != nil || got.ID.IsZero() {
+			t.Fatalf("a chosen same-revision bundle was refused: %+v %v", got, err)
 		}
 	})
 	t.Run("a newer deploy under way", func(t *testing.T) {
@@ -317,15 +318,15 @@ func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 		if _, _, err := w.s.Outcomes.Admit(t.Context(), Start{DeploymentID: w.dep.ID, TargetID: w.dep.TargetID, Key: "landing", Inputs: Inputs{Revision: "newer"}}); err != nil {
 			t.Fatal(err)
 		}
-		if got, err := w.s.RequestRelease(t.Context(), w.in); !errors.Is(err, errFedByLanding) || !got.ID.IsZero() {
-			t.Fatalf("a landing under way decides what runs next: %+v %v", got, err)
+		if got, err := w.s.RequestRelease(t.Context(), w.in); err != nil || got.ID.IsZero() {
+			t.Fatalf("a chosen bundle was refused while an older attempt runs: %+v %v", got, err)
 		}
 	})
 	t.Run("what runs is not known", func(t *testing.T) {
 		t.Parallel()
 		w := setup(t, false) // the attempt names no bundle, release or run
-		if got, err := w.s.RequestRelease(t.Context(), w.in); !errors.Is(err, errFedByLanding) || !got.ID.IsZero() {
-			t.Fatalf("an unknown running bundle is not a match: %+v %v", got, err)
+		if got, err := w.s.RequestRelease(t.Context(), w.in); err != nil || got.ID.IsZero() {
+			t.Fatalf("a chosen bundle required known running provenance: %+v %v", got, err)
 		}
 	})
 	t.Run("an unreadable generation is not an unknown success", func(t *testing.T) {
@@ -355,8 +356,8 @@ func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 		if why, note, err := w.s.uncopiedData(t.Context(), w.dep, nil, true, "alice"); err != nil || why != "" || note == "" {
 			t.Fatalf("explicit uncopied data acceptance: why=%q note=%q err=%v", why, note, err)
 		}
-		if got, err := w.s.RequestRelease(t.Context(), w.in); !errors.Is(err, errFedByLanding) || !got.ID.IsZero() {
-			t.Fatalf("historical release without generation inputs cannot establish what runs: %+v %v", got, err)
+		if got, err := w.s.RequestRelease(t.Context(), w.in); err == nil || !got.ID.IsZero() {
+			t.Fatalf("historical software still requires uncopied-data acceptance: %+v %v", got, err)
 		}
 	})
 }

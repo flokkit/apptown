@@ -34,6 +34,7 @@ type ReleaseDependencies struct {
 	Secrets   ReleaseSecrets
 	Queue     releaseQueue
 	Data      releaseData
+	Rollbacks releaseRollbacks
 }
 
 // ExecuteRelease executes previously authorized queued work. It commits a claim
@@ -78,7 +79,11 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err != nil || !claimed {
 		return err
 	}
+	restored := false
 	fail := func(cause error) error {
+		if restored {
+			cause = fmt.Errorf("%w; the restored data stays in place and the app remains stopped", cause)
+		}
 		_, err := s.Outcomes.FailUnstartedRelease(ctx, id, cause)
 		return errors.Join(cause, err)
 	}
@@ -93,27 +98,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err != nil {
 		return fail(err)
 	}
-	allowed := func(ctx context.Context) error {
-		if err := s.checkReleaseApproval(ctx, rel); err != nil {
-			return err
-		}
-		if placement.FeedRevision.Valid {
-			current, err := s.Deployments.ByID(ctx, rel.DeploymentID)
-			if err != nil {
-				return err
-			}
-			if current.Feed != "main" || current.FeedRevision != placement.FeedRevision.Int64 {
-				return errFeedMoved
-			}
-		}
-		if err := s.requireReleaseAuthority(ctx, captured, rel.DeploymentID, placement.RequirePromotion); err != nil {
-			if placement.FeedRevision.Valid {
-				return fmt.Errorf("%w; confirm follows main again with current deploy authority", err)
-			}
-			return err
-		}
-		return nil
-	}
+	allowed := func(ctx context.Context) error { return releaseAllowed(ctx, s, rel, placement, captured) }
 	if err := allowed(ctx); err != nil {
 		return fail(err)
 	}
@@ -264,6 +249,19 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err := allowed(ctx); err != nil {
 		return fail(err)
 	}
+	if !rel.RestoreBackupID.IsZero() {
+		if err := allowed(ctx); err != nil {
+			return fail(err)
+		}
+		if s.release.Rollbacks == nil {
+			return fail(errors.New("rollback restore is not configured"))
+		}
+		if err := s.release.Rollbacks.RestoreForRelease(ctx, rel.ProjectID, dep.Name, rel.RestoreBackupID, rel.ID, captured); err != nil {
+			return fail(err)
+		}
+		restored = true
+		s.log(rel.ID, "Data restored from backup %s; the app is stopped until the selected release starts", rel.RestoreBackupID)
+	}
 	var witness ReleaseWitness
 	acceptUncopied := s.acceptsUncopied(ctx, placement.UncopiedAcceptanceJson, dep, t, captured, placement.FeedRevision.Valid)
 	if s.release.Data != nil {
@@ -356,6 +354,14 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		}
 	}
 	result, err := s.execute(ctx, NumberedRelease{ID: rel.ID, Number: rel.Number}, dep, t, req)
+	if err != nil && restored {
+		observed := s.ObserveContainerNow(ctx, dep)
+		if observed.State == ContainerStopped {
+			s.log(rel.ID, "The restored data stays in place and the app remains stopped. Release failed: %v", err)
+		} else {
+			s.log(rel.ID, "The rollback restored the data. Release failed: %v; application state after the attempt: %s", err, observed.State)
+		}
+	}
 	if docked {
 		s.Deployments.forgetTakenPort(ctx, rel.ProjectID, dep.Name, err)
 	}

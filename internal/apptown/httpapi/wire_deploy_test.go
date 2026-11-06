@@ -31,6 +31,7 @@ func init() {
 		wiregen.Named{Name: "InfrastructureTargets", Value: InfrastructureTargets{}},
 		wiregen.Named{Name: "DiskReadings", Value: DiskReadings{}},
 		wiregen.Named{Name: "ReleaseDetail", Value: ReleaseDetail{}},
+		wiregen.Named{Name: "ReleaseBundle", Value: deployment.ReleaseBundle{}},
 		wiregen.Named{Name: "ReleaseListed", Value: ReleaseListed{}},
 		wiregen.Named{Name: "ReleasePlan", Value: ReleasePlan{}},
 		wiregen.Named{Name: "ReleasePreviewStarted", Value: ReleasePreviewStarted{}},

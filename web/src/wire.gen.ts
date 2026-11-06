@@ -177,6 +177,7 @@ export type AuthzHoldings = {
 }
 
 export type Backup = {
+  runningReleaseId?: string | null
   statusLabel: BackupLabel
   id: string | null
   apptown?: string | null
@@ -1221,6 +1222,7 @@ export type ProjectAdoptionRecord = {
 }
 
 export type ProjectBackup = {
+  runningReleaseId?: string | null
   statusLabel: BackupLabel
   id: string | null
   apptown?: string | null
@@ -1480,6 +1482,17 @@ export type RecheckStarted = {
   message: string
 }
 
+export type ReleaseBundle = {
+  id: string | null
+  projectId: string | null
+  contractRevision: string
+  contractHash: string
+  parts: Record<string, string>
+  init: Record<string, string>
+  builtFrom: BundleOrigin
+  createdAt: string
+}
+
 export type ReleaseDefault = {
   eligibilityIssue?: string
   projectId: string | null
@@ -1488,6 +1501,7 @@ export type ReleaseDefault = {
 }
 
 export type ReleaseDetail = {
+  rollbackNumber?: number
   decision: ReleaseDecision
   request?: RequestMetadata | null
   backupReason?: string
@@ -1504,6 +1518,8 @@ export type ReleaseDetail = {
 export type ReleaseListed = {
   decision: ReleaseDecision
   statusLabel: ReleaseLabel
+  rollbackOf?: string | null
+  restoreBackupId?: string | null
   approvalRole: string
   approval?: ReleaseApproval | null
   supersededBy?: string | null
@@ -1655,6 +1671,7 @@ export type RestartedLanding = {
 }
 
 export type RestoreResult = {
+  leftStopped?: boolean
   backup: string | null
   from: string
   safetyBackup: string | null
@@ -3975,6 +3992,18 @@ export type workflowSummary = {
   stages: workflowStageSummary[]
 }
 
+export type BundleOrigin = {
+  changeId?: string | null
+  runId?: string | null
+  tree: string
+  targetId?: string | null
+  registry?: string
+  platform?: string
+  build?: BundleBuild
+  stepId?: string | null
+  attempt?: number
+}
+
 export type ReleaseDecision = {
   meaning: string
   canApprove: boolean
@@ -4000,6 +4029,8 @@ export type BackupReference = {
 }
 
 export type Release = {
+  rollbackOf?: string | null
+  restoreBackupId?: string | null
   approvalRole: string
   approval?: ReleaseApproval | null
   supersededBy?: string | null
@@ -5001,6 +5032,12 @@ export type workflowStageSummary = {
   gateText: string
 }
 
+export type BundleBuild = {
+  worker?: string
+  role?: string
+  profile?: WorkerProfile
+}
+
 export type Authority = {
   principal?: string | null
   kind: string
@@ -5237,6 +5274,24 @@ export type workflowStepSummary = {
   gloss: string
   human?: boolean
   means?: string
+}
+
+export type WorkerProfile = {
+  name: string
+  os: string
+  architecture: string
+  kernel: string
+  cgroup: string
+  docker: string
+  storageDriver: string
+  dindImage: string
+  dindImageId: string
+  dindDigest: string
+  dindVersion: string
+  privileged: string
+  exclusive: boolean
+  egress: string
+  measured: string
 }
 
 export type On = {

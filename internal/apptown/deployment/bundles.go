@@ -259,3 +259,20 @@ func (s *Bundles) DigestImages(ctx context.Context, projectID ids.ID) ([]string,
 func (s *Bundles) OfRun(ctx context.Context, projectID, runID ids.ID) (*ReleaseBundle, error) {
 	return lookupBundle(bundleRecord(deploymentsql.New(s.db.SQL()).BundleOfRun(ctx, deploymentsql.BundleOfRunParams{ProjectID: projectID, RunID: runID})))
 }
+
+// ForProject lists immutable bundles newest first, including those never deployed.
+func (s *Bundles) ForProject(ctx context.Context, projectID ids.ID) ([]*ReleaseBundle, error) {
+	rows, err := deploymentsql.New(s.db.SQL()).BundlesForProject(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	out := []*ReleaseBundle{}
+	for _, row := range rows {
+		b, err := bundleRecord(row, nil)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, nil
+}

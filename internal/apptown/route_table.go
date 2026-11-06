@@ -411,6 +411,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/members", members.ListMembers, access.CapProjectRead, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/members", members.Add, access.CapProjectManageMembers, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/changes", changeAdmission.CreateChange, access.CapChangeCreate, "project-slug"),
+		requireRoute("GET /api/v1/projects/{slug}/release-bundles", releaseHistory.ListReleaseBundles, access.CapReleaseRead, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/releases", releaseHistory.ListReleases, access.CapReleaseRead, "project-slug"),
 		ownerRoute("POST /api/v1/projects/{slug}/release", releaseOperations.LANRelease, "deployment.RequestDefaultRelease"),
 		requireRoute("GET /api/v1/projects/{slug}/release/plan", releaseOperations.ReleasePlan, access.CapReleaseRead, "project-slug"),

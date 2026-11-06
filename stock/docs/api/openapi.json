@@ -775,6 +775,13 @@
               "null"
             ]
           },
+          "runningReleaseId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "status": {
             "$ref": "#/components/schemas/BackupState"
           },
@@ -1940,6 +1947,9 @@
           "acceptUncopiedData": {
             "type": "boolean"
           },
+          "beforeRelease": {
+            "type": "integer"
+          },
           "bundleId": {
             "format": "uuid",
             "type": [
@@ -1953,6 +1963,9 @@
               "string",
               "null"
             ]
+          },
+          "releaseNumber": {
+            "type": "integer"
           }
         },
         "type": "object"
@@ -4226,6 +4239,20 @@
               }
             ]
           },
+          "restoreBackupId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rollbackOf": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "runId": {
             "format": "uuid",
             "type": [
@@ -4461,6 +4488,9 @@
                 "type": "null"
               }
             ]
+          },
+          "rollbackNumber": {
+            "type": "integer"
           },
           "sbomArtifact": {
             "format": "uuid",
@@ -14030,6 +14060,38 @@
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/projects/{slug}/release-bundles": {
+      "get": {
+        "operationId": "getProjectsSlugReleaseBundles",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "release:read",
+          "kind": "capability",
+          "scope": "project-slug"
+        },
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/release/default": {

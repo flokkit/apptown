@@ -364,7 +364,7 @@ func TestRestoreBackup(t *testing.T) {
 	}
 	// Tampered file: refused by digest.
 	_ = os.WriteFile(filepath.Join(b.Path, deployedNames(t, s, pid, "main", "rs").NeedVolume("postgres")+".dump"), []byte("changed"), 0o600)
-	res, err = s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
+	res, err = s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls", false)
 	if err == nil || res.Status != restorePartial {
 		t.Fatalf("a file that does not match its digest is not restored: %v %v", err, res)
 	}
@@ -409,7 +409,7 @@ func TestARestoreWhoseSafetySetIsIncompleteWritesNothing(t *testing.T) {
 			if err != nil || b.Status != BackupOK {
 				t.Fatalf("the set to restore: %+v %v", b, err)
 			}
-			res, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls")
+			res, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls", false)
 			if err == nil || !strings.Contains(err.Error(), "nothing was restored") {
 				t.Fatalf("a restore over an incomplete safety set: %v %v", res, err)
 			}

@@ -130,13 +130,9 @@ func TestPromotionHonorsDisplayedBundle(t *testing.T) {
 	}
 }
 
-func TestPromotionRefusesEmptySourceAndExplicitDifferentBundle(t *testing.T) {
+func TestPromotionRefusesEmptySource(t *testing.T) {
 	t.Parallel()
 	w, dep, _ := promotionFeedFixture(t)
-	different := cutBundleFixture(t, w.db, w.project, w.revision, BundleOrigin{})
-	if _, err := w.s.RequestRelease(t.Context(), DeploySelection{ProjectID: w.project, DeploymentName: dep.Name, BundleID: different}); err == nil {
-		t.Fatal("explicit bundle bypassed promotion source")
-	}
 	empty, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "empty", w.lab.ID, Attributes{}.WithDefaults())
 	if err != nil {
 		t.Fatal(err)

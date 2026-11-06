@@ -62,7 +62,7 @@ SELECT * FROM need_instances WHERE deployment_id=ANY(sqlc.arg(deployment_ids)::u
 SELECT * FROM releases WHERE project_id=$1 AND number=$2;
 
 -- name: ReleasesForProject :many
-SELECT * FROM releases WHERE project_id=sqlc.arg(project_id) ORDER BY number DESC LIMIT sqlc.arg(row_limit)::bigint;
+SELECT * FROM releases WHERE project_id=sqlc.arg(project_id) ORDER BY number DESC LIMIT NULLIF(sqlc.arg(row_limit)::bigint,0);
 
 -- The newest releases of the listed projects; the selection comes before the
 -- limit, so other projects' releases never crowd these out.
@@ -653,3 +653,17 @@ SELECT * FROM releases WHERE state='waiting for approval' ORDER BY created_at;
 UPDATE releases SET state='cancelled'
 WHERE deployment_id=$1 AND state='waiting for approval'
 RETURNING id;
+
+-- name: RecordRollback :execrows
+UPDATE releases SET rollback_of=sqlc.arg(rollback_of), restore_backup_id=sqlc.arg(restore_backup_id) WHERE id=sqlc.arg(id);
+
+-- name: ReleaseByID :one
+SELECT * FROM releases WHERE id=sqlc.arg(id);
+
+-- name: BundlesForProject :many
+SELECT * FROM release_bundles WHERE project_id=sqlc.arg(project_id) ORDER BY id DESC;
+
+-- name: EarlierReleaseForBundle :one
+SELECT r.* FROM releases r WHERE r.deployment_id=sqlc.arg(deployment_id) AND r.bundle_id=sqlc.arg(bundle_id) AND r.state='released'
+AND r.number < (SELECT max(latest.number) FROM releases latest WHERE latest.deployment_id=r.deployment_id AND latest.state='released')
+ORDER BY r.number DESC LIMIT 1;

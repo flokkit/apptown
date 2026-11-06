@@ -31,7 +31,7 @@ describe('resolveProjectTabs', () => {
 
   it('treats a release number as the releases tab, not a settings tab', () => {
     expect(resolveProjectTabs('releases', '12')).toEqual({ tab: 'releases', secTab: 'findings', setTab: 'general', memTab: 'notes' })
-    expect(resolveProjectTabs('release', undefined).tab).toBe('release')
+    expect(resolveProjectTabs('release', undefined).tab).toBe('overview')
   })
 })
 

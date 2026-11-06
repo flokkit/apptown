@@ -1,4 +1,5 @@
 import { ReleaseApprovalActions, ReleaseAssent } from './ReleaseApproval'
+import { ChooseRelease, RollbackBefore, type ReleaseChoice } from './ChooseRelease'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
@@ -12,8 +13,13 @@ import { Section } from '../../Section'
 import './deployment-deploys.css'
 
 // Every deploy is a release request, including requests from a landing.
-export function DeploymentDeploys({ slug, name, url, displayLabel }: { slug: string; name: string; url?: string; displayLabel?: string }) {
+type DeployHistoryProps = { slug: string; name: string; url?: string; displayLabel?: string }
+export function DeploymentDeploys(props: DeployHistoryProps) {
+  return <DeploymentHistory key={`${props.slug}/${props.name}`} {...props} />
+}
+function DeploymentHistory({ slug, name, url, displayLabel }: DeployHistoryProps) {
   const releases = useGet<ReleaseListed[]>(`/projects/${slug}/releases`, { poll: 3000 })
+  const [choice, setChoice] = useState<ReleaseChoice | 'list' | null>(null)
   const [count, setCount] = useState(10)
   const history = releases.data?.filter(r => r.deployment === name) ?? []
   const latest = history[0]
@@ -25,13 +31,15 @@ export function DeploymentDeploys({ slug, name, url, displayLabel }: { slug: str
       <ReadStatus q={releases} what="latest deploy" /><StaleNote q={releases} />
       {latest ? <ReleaseDeploy key={latest.number} slug={slug} release={latest} url={url} current={releases.current} /> : releases.data && <div className="ch-deploy-result"><div className="ch-deploy-heading"><strong>No deploys yet.</strong></div><DeployScene outcome="paused" compactStages /></div>}
     </section>
+    <ChooseRelease key={`${slug}/${name}`} slug={slug} name={name} displayLabel={displayLabel} releases={releases.data ?? []} current={releases.current} choice={choice} onChoose={setChoice} />
     <Section title="Deploy history">
       <ReadStatus q={releases} what="releases" />
       {history.slice(0, count).map(r => <div className="card" key={r.number}>
         <Link to={`/projects/${slug}/releases/${r.number}`}>Release {r.number}</Link> · {r.statusLabel || r.state} · {fmtStamp(r.releasedAt || r.createdAt)}
         {r.state === 'waiting for approval' ? <p>Waiting for approval from {r.approvalRole}.</p> : <ReleaseAssent approval={r.approval} />}
+        {r.state === 'released' && r.number !== history.find(h => h.state === 'released')?.number && r.bundleId && <button disabled={!releases.current} onClick={() => setChoice({ release: r })}>Deploy this again</button>}
         {r.changes.map(c => <div key={c.id}><Link to={`/changes/${c.id}`}>Change {c.number}: {c.title}</Link></div>)}
-        {r.backupId && <Link to={`/deployments/backups#backup-${r.backupId}`}>Backup →</Link>}
+        {r.backupId && <><Link to={`/deployments/backups#backup-${r.backupId}`}>Backup →</Link> <RollbackBefore slug={slug} name={name} release={r} current={releases.current} onChoose={() => setChoice({ before: r })} /></>}
       </div>)}
       {history.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
       {releases.data && history.length === 0 && <p className="muted">No deploys yet.</p>}

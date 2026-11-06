@@ -288,3 +288,10 @@ func (w dataReleaseWitness) BackupID() ids.ID {
 	return ids.Nil
 }
 func (r releaseData) AfterRelease(projectID ids.ID, name string) { r.after(projectID, name) }
+
+func (r releaseData) ReleaseBefore(ctx context.Context, projectID ids.ID, name string, backup ids.ID) (int64, error) {
+	return r.data.ReleaseBefore(ctx, projectID, name, backup)
+}
+func (r releaseData) RestoreForRelease(ctx context.Context, projectID ids.ID, name string, backup, release ids.ID, principal access.Principal) error {
+	return r.data.RestoreForRelease(ctx, projectID, name, backup, release, principal)
+}

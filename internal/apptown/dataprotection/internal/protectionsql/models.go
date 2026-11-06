@@ -13,23 +13,24 @@ import (
 )
 
 type Backup struct {
-	ID             ids.ID
-	ProjectID      ids.ID
-	Deployment     string
-	TakenAt        time.Time
-	Trigger        string
-	Actor          string
-	ActorPrincipal ids.ID
-	ActorVia       string
-	Path           string
-	Bytes          int64
-	ItemsJson      json.RawMessage
-	Status         string
-	Error          string
-	Store          string
-	DataClass      string
-	StoreEndpoint  string
-	StoreBucket    string
+	ID               ids.ID
+	ProjectID        ids.ID
+	Deployment       string
+	TakenAt          time.Time
+	Trigger          string
+	Actor            string
+	ActorPrincipal   ids.ID
+	ActorVia         string
+	Path             string
+	Bytes            int64
+	ItemsJson        json.RawMessage
+	Status           string
+	Error            string
+	Store            string
+	DataClass        string
+	StoreEndpoint    string
+	StoreBucket      string
+	RunningReleaseID ids.ID
 }
 
 type BackupDrill struct {

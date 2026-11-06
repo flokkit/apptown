@@ -268,7 +268,7 @@ func TestADockerSetInTheStoreRestoresInPlace(t *testing.T) {
 	w := newOffhostWorld(t, "ohr", 40101)
 	w.attach()
 	b := w.take("manual")
-	res, err := w.s.restoreBackup(context.Background(), nil, w.pid, "main", b.ID, "alice")
+	res, err := w.s.restoreBackup(context.Background(), nil, w.pid, "main", b.ID, "alice", false)
 	if err != nil || res.Status != restoreNotVerified || len(res.Items) != 2 {
 		t.Fatalf("restore: %+v %v", res, err)
 	}
@@ -279,7 +279,7 @@ func TestADockerSetInTheStoreRestoresInPlace(t *testing.T) {
 	o, _ := w.store.Get("forge-copies", b.Path+"/"+w.names.NeedVolume("postgres")+".dump")
 	o.Body = []byte("changed")
 	w.store.Put("forge-copies", b.Path+"/"+w.names.NeedVolume("postgres")+".dump", o)
-	if _, err := w.s.restoreBackup(context.Background(), nil, w.pid, "main", b.ID, "alice"); err == nil || !strings.Contains(err.Error(), "nothing was restored") {
+	if _, err := w.s.restoreBackup(context.Background(), nil, w.pid, "main", b.ID, "alice", false); err == nil || !strings.Contains(err.Error(), "nothing was restored") {
 		t.Fatalf("a tampered copy: %v", err)
 	}
 	if len(w.sets()) != before || w.stops != stops {
@@ -416,7 +416,7 @@ func TestDiskSetsMoveToTheStore(t *testing.T) {
 		t.Fatalf("a failed move is retried: %+v", b)
 	}
 	// A moved set restores from the store.
-	if res, err := w.s.restoreBackup(ctx, nil, w.pid, "main", first.ID, "alice"); err != nil || res.Status != restoreNotVerified {
+	if res, err := w.s.restoreBackup(ctx, nil, w.pid, "main", first.ID, "alice", false); err != nil || res.Status != restoreNotVerified {
 		t.Fatalf("restoring a moved set: %+v %v", res, err)
 	}
 }

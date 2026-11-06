@@ -32,7 +32,7 @@ var sections = []section{
 	{
 		heading: "promised through 1.x (stock/docs/guides/compatibility.md); the loop stays with the work (-y auto-approves, --no-follow fires and returns):",
 		footer: "  (project defaults: -p, else $APPTOWN_PROJECT, else cwd basename)\n" +
-			"  (--json on new, fix, quick, plan, build, land, show, changes, wait, approve, release, complain and\n" +
+			"  (--json on new, fix, quick, plan, build, land, show, changes, wait, approve, release, rollback, complain and\n" +
 			"   version prints one JSON document and never follows or asks; stock/docs/guides/cli-json.md)",
 		commands: []command{
 			{[]string{"new"}, `  new <slug> [--name N] [--pack P,Q,...] [--toolchain T] [--remote]
@@ -62,9 +62,10 @@ var sections = []section{
                                         promotion deploys the release its source last deployed successfully
                                         refuses a source taken down, never deployed or currently observed stopped;
                                         unknown or stale health does not block promotion`, cmdDeployment},
+			{[]string{"rollback"}, `  rollback <project> <deployment> --before N restore data and deploy its recorded release`, cmdRollback},
 			{[]string{"release"}, `  release approve <project> <number> [-y]  accept the displayed release approval meaning
   release cancel <project> <number>    cancel a waiting release
-  release <project-slug> <deployment>   request a release; follow it unless approval is needed
+  release <project-slug> <deployment> [--release N] request a release; follow it unless approval is needed
                                         promotion deploys the release its source last deployed successfully;
                                         by hand deploys latest. Promotion refuses a source taken down, never
                                         deployed or currently observed stopped; unknown or stale health does not block it` + "\n" +

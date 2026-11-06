@@ -66,7 +66,7 @@ func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	releases, err := h.deployment.Releases.ForProject(r.Context(), p.ID, 50)
+	releases, err := h.deployment.Releases.ForProject(r.Context(), p.ID, 0)
 	if err != nil {
 		WriteFault(w, err)
 		return
@@ -176,7 +176,18 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	events := append([]deployment.ReleaseEvent{}, logged...)
+	if rel.State == deployment.ReleaseFailed && len(events) > 0 {
+		rel.Failure = events[len(events)-1].Text
+	}
 	out := ReleaseDetail{Release: rel, StatusLabel: rel.State.Display(), Changes: changes, IsLive: live, Events: events}
+	if !rel.RollbackOf.IsZero() {
+		previous, e := h.deployment.Releases.ByID(r.Context(), rel.RollbackOf)
+		if e != nil {
+			WriteFault(w, e)
+			return
+		}
+		out.RollbackNumber = previous.Number
+	}
 	out.Decision, err = h.deployment.ReleaseDecision(r.Context(), rel)
 	if err != nil {
 		WriteFault(w, err)
@@ -232,17 +243,18 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 // ReleaseDetail is one release: what it is, the changes it carried, whether
 // it is what the deployment serves now, and its log.
 type ReleaseDetail struct {
-	Decision     deployment.ReleaseDecision      `json:"decision"`
-	Request      *deployment.RequestMetadata     `json:"request,omitempty"`
-	BackupReason string                          `json:"backupReason,omitempty"`
-	Backup       *dataprotection.BackupReference `json:"backup,omitempty"`
-	StatusLabel  deployment.ReleaseLabel         `json:"statusLabel"`
-	Release      *deployment.Release             `json:"release"`
-	Changes      []ReleaseChange                 `json:"changes"`
-	IsLive       bool                            `json:"isLive"`
-	Events       []deployment.ReleaseEvent       `json:"events"`
-	SBOMArtifact ids.ID                          `json:"sbomArtifact,omitzero"`
-	Bundle       *ReleaseBundleView              `json:"bundle,omitempty"`
+	RollbackNumber int64                           `json:"rollbackNumber,omitempty"`
+	Decision       deployment.ReleaseDecision      `json:"decision"`
+	Request        *deployment.RequestMetadata     `json:"request,omitempty"`
+	BackupReason   string                          `json:"backupReason,omitempty"`
+	Backup         *dataprotection.BackupReference `json:"backup,omitempty"`
+	StatusLabel    deployment.ReleaseLabel         `json:"statusLabel"`
+	Release        *deployment.Release             `json:"release"`
+	Changes        []ReleaseChange                 `json:"changes"`
+	IsLive         bool                            `json:"isLive"`
+	Events         []deployment.ReleaseEvent       `json:"events"`
+	SBOMArtifact   ids.ID                          `json:"sbomArtifact,omitzero"`
+	Bundle         *ReleaseBundleView              `json:"bundle,omitempty"`
 }
 
 // ReleaseBundleView is the bundle a release ships, by its form. By digest,
@@ -299,4 +311,18 @@ func (h ReleaseHistory) sbomBefore(ctx context.Context, projectID ids.ID, at str
 		return ids.Nil, fmt.Errorf("reading the release time %q: %w", at, err)
 	}
 	return workflow.LatestSBOMBeforeIn(ctx, h.db, projectID, before)
+}
+
+// ListReleaseBundles supplies the deployment's chosen-release picker.
+func (h ReleaseHistory) ListReleaseBundles(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	bundles, err := h.deployment.Bundles.ForProject(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, bundles)
 }

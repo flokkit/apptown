@@ -383,7 +383,7 @@ needs:
 	psql("delete from notes")
 	s3("-X", "PUT", "-H", "Content-Type: text/plain", "--data-binary", "changed", "http://s3:9000/app/logo.png")
 	_ = dockertest.Run("exec", app, "rm", "/data/notes.txt")
-	res, err := s.restoreBackup(ctx, nil, pid, "customer-a", b.ID, "bls")
+	res, err := s.restoreBackup(ctx, nil, pid, "customer-a", b.ID, "bls", false)
 	if err != nil || res.Status != restoreNotVerified {
 		t.Fatalf("restore: %+v %v", res, err)
 	}
@@ -597,7 +597,7 @@ func portainerSiblingRecovery(t *testing.T, s *both, pid ids.ID, target *deploym
 		if restore {
 			// sql-guarantee: disposable second application's data proves backup ownership.
 			sql("delete from notes")
-			restored, err := s.restoreBackup(ctx, nil, pid, dep.Name, backup.ID, "alice")
+			restored, err := s.restoreBackup(ctx, nil, pid, dep.Name, backup.ID, "alice", false)
 			if err != nil || restored.Status != restoreNotVerified {
 				t.Fatalf("second own backup restore: %+v %v", restored, err)
 			}

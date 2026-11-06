@@ -364,7 +364,7 @@ func TestABackupNamesDeclaredNeedsItCannotRead(t *testing.T) {
 	if len(plan) != 3 || notCopied != 2 {
 		t.Fatalf("the plan says what it cannot copy: %+v", plan)
 	}
-	if _, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls"); !errors.Is(err, errRestoreMismatch) || !strings.Contains(err.Error(), "kv") || len(writes) != 0 {
+	if _, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls", false); !errors.Is(err, errRestoreMismatch) || !strings.Contains(err.Error(), "kv") || len(writes) != 0 {
 		t.Fatalf("a restore into a deployment with an unread need is refused before any write: %v %v", err, writes)
 	}
 }

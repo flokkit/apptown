@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS releases (
   approval_role TEXT NOT NULL DEFAULT '',
   approval_json JSONB,
   superseded_by UUID,
+  rollback_of UUID,
+  restore_backup_id UUID,
   UNIQUE(project_id, number)
 );
 CREATE TABLE IF NOT EXISTS release_changes (

@@ -142,6 +142,7 @@ func NewStarter(db *database.DB, deps StarterDependencies) *starter {
 // orchestration. Deployment settles the placements and retained resources
 // these touch, through its participants.
 type Service struct {
+	releaseAuthority releaseAuthority
 	*core
 	starter      *starter
 	deployments  *deployment.Deployments
@@ -164,14 +165,20 @@ type Service struct {
 // Starter's: Deployment's records (the same instances Deployment uses),
 // the release sources a restored copy reads its release from, the
 // operations ledger, and restored copies' gate and secrets.
+// releaseAuthority is Deployment's current authority and approval check.
+type releaseAuthority interface {
+	CheckRelease(context.Context, ids.ID) error
+}
+
 type Dependencies struct {
-	Deployments  *deployment.Deployments
-	Releases     *deployment.Releases
-	Bundles      *deployment.Bundles
-	Retained     *deployment.Retained
-	Outcomes     *deployment.Outcomes
-	Projects     *project.Projects
-	Integrations *integration.Service
+	ReleaseAuthority releaseAuthority
+	Deployments      *deployment.Deployments
+	Releases         *deployment.Releases
+	Bundles          *deployment.Bundles
+	Retained         *deployment.Retained
+	Outcomes         *deployment.Outcomes
+	Projects         *project.Projects
+	Integrations     *integration.Service
 	// Operations is the ledger copies, drills, take-downs, rehearsals and
 	// restored copies run through; nil: none can start.
 	Operations *operations.Service
@@ -187,7 +194,7 @@ type Dependencies struct {
 func New(starter *starter, deps Dependencies) *Service {
 	s := &Service{core: starter.core, starter: starter, deployments: deps.Deployments, releases: deps.Releases, bundles: deps.Bundles,
 		retained: deps.Retained, outcomes: deps.Outcomes, backups: NewBackups(starter.db, starter.clock), projects: deps.Projects, integrations: deps.Integrations,
-		ops: deps.Operations, restored: deps.RestoredCopies, applied: deps.Applied, nativeFresh: nativeReadFor}
+		releaseAuthority: deps.ReleaseAuthority, ops: deps.Operations, restored: deps.RestoredCopies, applied: deps.Applied, nativeFresh: nativeReadFor}
 	s.registerKinds()
 	return s
 }

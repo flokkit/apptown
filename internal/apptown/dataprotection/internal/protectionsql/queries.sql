@@ -83,7 +83,7 @@ SELECT * FROM rehearsal_places WHERE cleared_at IS NULL ORDER BY operation_id;
 UPDATE rehearsal_places SET cleared_at=sqlc.arg(at)::timestamptz WHERE operation_id=sqlc.arg(operation_id) AND cleared_at IS NULL;
 
 -- name: InsertBackup :one
-INSERT INTO backups (id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket) VALUES (sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(deployment),sqlc.arg(taken_at)::text::timestamptz,sqlc.arg(trigger),sqlc.arg(actor),sqlc.arg(actor_principal),sqlc.arg(actor_via),sqlc.arg(path),sqlc.arg(bytes),sqlc.arg(items_json),sqlc.arg(status),sqlc.arg(error),sqlc.arg(store),sqlc.arg(data_class),sqlc.arg(store_endpoint),sqlc.arg(store_bucket)) RETURNING *;
+INSERT INTO backups (running_release_id, id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket) VALUES (sqlc.arg(running_release_id), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(deployment),sqlc.arg(taken_at)::text::timestamptz,sqlc.arg(trigger),sqlc.arg(actor),sqlc.arg(actor_principal),sqlc.arg(actor_via),sqlc.arg(path),sqlc.arg(bytes),sqlc.arg(items_json),sqlc.arg(status),sqlc.arg(error),sqlc.arg(store),sqlc.arg(data_class),sqlc.arg(store_endpoint),sqlc.arg(store_bucket)) RETURNING *;
 
 -- name: NoteBackupError :execrows
 UPDATE backups SET error=btrim(error || ' ' || sqlc.arg(note)::text) WHERE id=sqlc.arg(id);

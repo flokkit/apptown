@@ -1,5 +1,5 @@
 // Project pages and the pages within each sidebar group.
-export const PROJECT_TABS = ['overview', 'changes', 'deployments', 'security', 'settings', 'memory', 'release', 'releases'] as const
+export const PROJECT_TABS = ['overview', 'changes', 'deployments', 'security', 'settings', 'memory', 'releases'] as const
 export const SECURITY_TABS = ['findings', 'suppressions'] as const
 export const SETTINGS_TABS = ['general', 'working', 'models', 'services', 'deployments', 'secrets', 'members', 'usage'] as const
 export const SETTINGS_LABEL: Record<string, string> = {

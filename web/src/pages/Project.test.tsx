@@ -247,7 +247,7 @@ it('shows secret bindings and warnings without the introduction or secret count'
 // These sub-pages share the project context but do not use PageHead.
 it.each([
   ['changes', 'Changes'], ['deployments', 'Deployments'],
-  ['release', 'Release'], ['releases/2', 'Release #2'],
+  ['releases/2', 'Release #2'],
 ])('has one page heading at /projects/a/%s', async (path, title) => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/projects/a')
     ? new Response(JSON.stringify(project(1, 'a', 'Alpha')))

@@ -23,6 +23,8 @@ import (
 const ReleaseJob = "deployment-release"
 
 type DeploySelection struct {
+	ReleaseNumber  int64
+	BeforeRelease  int64
 	ProjectID      ids.ID
 	DeploymentName string
 	// Address edits require bind authority and the revision the caller saw.
@@ -172,10 +174,9 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	if !in.ExpectedSourceBundleID.IsZero() && dep.Feed != "promotion" {
 		return AcceptedRelease{}, fault.New(fault.Conflict, fmt.Sprintf("%s is no longer promoted from another deployment; reload", dep.Name))
 	}
-	// A landing-fed deployment may still take the bundle it runs, named
-	// explicitly; that is decided once the bundle is known
-	// (DeployableByHandAt). Asking it for the latest bundle is landing's.
-	if err := dep.deployableByHand(); err != nil && (!errors.Is(err, errFedByLanding) || in.BundleID.IsZero()) {
+	// Follows-main accepts explicitly selected code. Its latest-bundle
+	// selection remains the automatic feed's responsibility.
+	if err := dep.deployableByHand(); err != nil && (!errors.Is(err, errFedByLanding) || (in.BundleID.IsZero() && in.ReleaseNumber == 0 && in.BeforeRelease == 0)) {
 		return AcceptedRelease{}, err
 	}
 	// A project being deleted, or deleted, takes no release; while a
@@ -205,10 +206,14 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 			return AcceptedRelease{}, err
 		}
 	}
-	// Promotion always resolves the source's last settled bundle. Naming another
-	// bundle cannot turn a promotion into a latest-bundle release.
+	in, rollbackOf, restoreBackup, err := selectRelease(ctx, s, dep, in)
+	if err != nil {
+		return AcceptedRelease{}, err
+	}
+	// Feed-driven promotion binds the source's settled bundle. A chosen release
+	// or bundle is an explicit deployment, independent of the feed.
 	var fromDeployment ids.ID
-	if dep.Feed == "promotion" {
+	if dep.Feed == "promotion" && (in.BundleID.IsZero() || !in.ExpectedSourceBundleID.IsZero()) {
 		selected, _, e := s.promotionBundle(ctx, dep, in.ExpectedSourceBundleID)
 		if e != nil {
 			return AcceptedRelease{}, e
@@ -235,6 +240,15 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	}
 	if bundle.ProjectID != in.ProjectID {
 		return AcceptedRelease{}, errBundleMissing
+	}
+	if rollbackOf.IsZero() && fromDeployment.IsZero() {
+		earlier, e := deploymentsql.New(s.db.SQL()).EarlierReleaseForBundle(ctx, deploymentsql.EarlierReleaseForBundleParams{DeploymentID: dep.ID, BundleID: bundle.ID})
+		if found, e := database.Lookup(e); e != nil {
+			return AcceptedRelease{}, e
+		} else if found {
+			rollbackOf = earlier.ID
+			in.ReleaseNumber = earlier.Number
+		}
 	}
 	running, err := s.handBundle(ctx, dep)
 	if err != nil {
@@ -322,6 +336,14 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 			return err
 		}
 		q := deploymentsql.New(tx.SQL())
+		if !rollbackOf.IsZero() || !restoreBackup.IsZero() {
+			if _, err := q.RecordRollback(ctx, deploymentsql.RecordRollbackParams{ID: rel.ID, RollbackOf: rollbackOf, RestoreBackupID: restoreBackup}); err != nil {
+				return err
+			}
+			if err := appendReleaseEvent(ctx, tx, rel.ID, fmt.Sprintf("rollback of release %d", in.ReleaseNumber), s.now()); err != nil {
+				return err
+			}
+		}
 		if selectedDefault != nil {
 			settings, err := q.LockProjectReleaseSettings(ctx, in.ProjectID)
 			if errors.Is(err, sql.ErrNoRows) {

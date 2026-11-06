@@ -26,6 +26,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket"
@@ -193,7 +194,15 @@ func (s *Service) takeSetWhere(ctx context.Context, dk docker.Scope, projectID i
 	t0 := s.now().UTC()
 	stamp := fmt.Sprintf("%s-%06d", t0.Format("2006-01-02T15-04-05Z"), t0.Nanosecond()/1000)
 	dir := filepath.Join(DiskDirectory(s.dataDir), slug, deploymentName, stamp)
-	b := &Backup{ProjectID: projectID, Deployment: deploymentName, TakenAt: t0.Format(time.RFC3339), Trigger: trigger, Actor: actor, Path: dir, Status: BackupOK, Store: StoreAppTownDisk}
+	dep, err := s.deployments.ByName(ctx, projectID, deploymentName)
+	if _, err := database.Lookup(err); err != nil {
+		return nil, err
+	}
+	runningRelease, err := s.backupRelease(ctx, dep, dk)
+	if err != nil {
+		return nil, err
+	}
+	b := &Backup{RunningReleaseID: runningRelease, ProjectID: projectID, Deployment: deploymentName, TakenAt: t0.Format(time.RFC3339), Trigger: trigger, Actor: actor, Path: dir, Status: BackupOK, Store: StoreAppTownDisk}
 	if store != nil {
 		dir = filepath.Join(DiskDirectory(s.dataDir), ".staging", "take-"+slug+"-"+deploymentName+"-"+stamp)
 		b.Path, b.Store, b.StoreEndpoint, b.StoreBucket = slug+"/"+deploymentName+"/"+stamp, StoreBackupStore, store.Endpoint, store.Bucket
@@ -420,6 +429,8 @@ func containerConnection(ctx context.Context, dk docker.Scope, kind *dependency.
 // restored, and the app is started again. The safety set and the outcome
 // are on the record; each item says what witnessed it (RestoreOutcome), so
 // files put in place are never reported as data a service loaded.
+// keepStopped hands the stopped app to an approved release instead of
+// restarting the current code; ordinary Restore passes false.
 //
 // It is the body of a restore operation (RequestRestore, restore_operation.go):
 // rec writes each step and each fact as it happens, a container's id
@@ -427,7 +438,7 @@ func containerConnection(ctx context.Context, dk docker.Scope, kind *dependency.
 // part way leaves what was done on the record, and what it stopped and did
 // not start again is named. It asks the admitting authority again before
 // the safety set and before each item.
-func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID ids.ID, deploymentName string, backupID ids.ID, actor string) (*RestoreResult, error) {
+func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID ids.ID, deploymentName string, backupID ids.ID, actor string, keepStopped bool) (*RestoreResult, error) {
 	// The restore's volume writes run in one snapshot's shell image.
 	sh := s.env.ToolVersions().Images.Sh
 	now := s.now()
@@ -553,6 +564,9 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 		}
 		owned = nil
 	}
+	if err := rec.allowed(ctx); err != nil {
+		return nil, fmt.Errorf("%w; nothing was restored", err)
+	}
 	rec.begin(ctx, "stopping the app, so nothing writes while the data goes back")
 	recordStop := func(id string) error { return rec.stopping(ctx, id) }
 	recordStart := func(id string) { rec.started(ctx, id) }
@@ -603,15 +617,17 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 		result.Items = append(result.Items, RestoredItem{Kind: p.Kind, Name: p.Name, Outcome: restoreSkipped, Detail: "the set holds no good copy of this item; it is left as it is"})
 	}
 	rec.record(ctx, "items", result.Items)
-	if result.Stopped {
+	if result.Stopped && !keepStopped {
 		rec.begin(ctx, "starting the app again")
 		result.NotStarted = parts.restartEach(ctx, recordStart)
 		if len(result.NotStarted) > 0 {
 			rec.fail(ctx, strings.Join(result.NotStarted, "; "))
 		}
 	}
-	result.NotStarted = append(result.NotStarted, absent...)
-	started := result.Stopped && len(result.NotStarted) == 0
+	if !keepStopped {
+		result.NotStarted = append(result.NotStarted, absent...)
+	}
+	started := !keepStopped && result.Stopped && len(result.NotStarted) == 0
 	result.Started = &started
 	if started {
 		// An app can take a while to come back (greeting-api boots in 17 s):
@@ -629,6 +645,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 			}
 		}
 	}
+	result.LeftStopped = keepStopped
 	result.Status = restoreStatus(result.Items)
 	// The restored receipt is written when the operation settles
 	// (settleRestore), in the same transaction, also when a restart

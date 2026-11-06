@@ -13,11 +13,7 @@ import type { DeploymentView, ReleasePlan, CreatedChange, ProjectDetail as Proje
 // The project overview's top: the two big doors and the catalog of prepared
 // changes behind one of them.
 
-// The two doors: CHANGE and RELEASE — the whole loop in two big
-// verbs. Each is a split button: the face is the house default (chat change /
-// release to the selected environment), the chevron holds the advanced paths
-// (catalog change, detailed form, branch import / other targets). Advanced
-// never crowds default; default never hides advanced.
+// Change begins governed work; Deployments opens the places that run it.
 export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: boolean }) {
   const nav = useNavigate()
   const [busy, setBusy] = useState(false)
@@ -26,11 +22,8 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
   const envs = envsQ.data ?? []
   const p = projectQ.data
   const request = p?.originalRequest ?? ''
-  // The current plan identifies the configured release destination.
   const planQ = useGet<ReleasePlan>(`/projects/${slug}/release/plan`)
   const plan = planQ.current ? planQ.data : undefined
-  const canRelease = plan?.configured === true
-  const releaseLabel = plan?.deploymentLabel || plan?.deployment || 'the selected environment'
   // The project's own read is shown by the page around this box.
   const [err, setErr] = useState('')
 
@@ -83,12 +76,7 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
             busy={busy} onMain={buildV0} items={[]} />
         )}
         <ChangeButton slug={slug} chatAvailable primary={!buildFirst} />
-        {canRelease && (
-          <SplitButton icon="↑" label="Release"
-            sub={'publish the latest finished version to ' + releaseLabel}
-            onMain={() => nav(`/projects/${slug}/release`)}
-            items={[]} />
-        )}
+        <Link className="btn" to={`/projects/${slug}/deployments`}>Deployments →</Link>
       </div>
       <ReadStatus q={envsQ} what="the deployments" className="small" />
       <ReadStatus q={planQ} what={`the ${PRODUCT} release destination`} className="small" />

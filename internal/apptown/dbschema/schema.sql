@@ -1375,6 +1375,8 @@ CREATE TABLE IF NOT EXISTS releases (
   approval_role TEXT NOT NULL DEFAULT '',
   approval_json JSONB,
   superseded_by UUID,
+  rollback_of UUID,
+  restore_backup_id UUID,
   UNIQUE(project_id, number)
 );
 CREATE TABLE IF NOT EXISTS release_changes (
@@ -1791,7 +1793,8 @@ CREATE TABLE IF NOT EXISTS backups (
   data_class   TEXT NOT NULL DEFAULT '',
   -- Where a set in the store was written: it is read and pruned there.
   store_endpoint TEXT NOT NULL DEFAULT '',
-  store_bucket   TEXT NOT NULL DEFAULT ''
+  store_bucket   TEXT NOT NULL DEFAULT '',
+  running_release_id UUID
 );
 -- The one backup store an administrator attached: a private bucket in an
 -- S3-compatible store, reached with the key pair the named secrets hold.
