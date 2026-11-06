@@ -51,7 +51,7 @@ catalog:
         declarations, and existing AGENTS.md or CLAUDE.md for project-specific facts;
         leave AGENTS.md and CLAUDE.md untouched. Read this project's change history
         using APPTOWN_URL (the read-only HTTP API) and your step credential, never
-        /mcp/user. GET /api/v1/projects/${{project.slug}}/changes lists changes;
+        /mcp/user. GET /api/v1/projects/$APPTOWN_PROJECT/changes lists changes;
         GET /api/v1/changes/<id> includes requests and runs; GET /api/v1/runs/<id>/trace
         includes step evidence, send-back records and report artifacts. Use
         Authorization: Bearer $APPTOWN_SESSION_TOKEN with those reads. Follow

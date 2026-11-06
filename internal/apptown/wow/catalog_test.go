@@ -27,6 +27,19 @@ func TestTheShippedCatalogReadsAndEachEntryValidates(t *testing.T) {
 		if !workflows[e.Definition.Workflow] {
 			t.Errorf("%s runs %q, which the release does not ship", e.Name, e.Definition.Workflow)
 		}
+		// Applying renders the prompt and title with the person's params; an
+		// entry with a placeholder no param fills could never be applied.
+		given := map[string]string{}
+		for _, p := range e.Definition.Params {
+			if p.Required {
+				given[p.Name] = "x"
+			}
+		}
+		for _, tmpl := range []string{e.Definition.Prompt, e.Definition.Title} {
+			if _, err := e.Definition.Render(tmpl, given); err != nil {
+				t.Errorf("%s does not render: %v", e.Name, err)
+			}
+		}
 	}
 }
 
