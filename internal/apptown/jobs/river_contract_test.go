@@ -289,12 +289,18 @@ func TestRiverUniqueKeyPreservesInputs(t *testing.T) {
 		})
 	}
 	wg.Wait()
-	finished := time.Now()
-	if _, err := riverdatabasesql.New(db).GetExecutor().JobUpdateFull(context.Background(), &riverdriver.JobUpdateFullParams{ID: id, StateDoUpdate: true, State: rivertype.JobStateCompleted, FinalizedAtDoUpdate: true, FinalizedAt: &finished}); err != nil {
-		t.Fatal(err)
-	}
-	if next := probeInsert(t, c, probeOperation{Key: "same"}, &river.InsertOpts{UniqueOpts: unique}); next == id {
-		t.Fatal("completed job prevented an explicit new run")
+	for _, state := range []rivertype.JobState{rivertype.JobStateCompleted, rivertype.JobStateDiscarded} {
+		finished := time.Now()
+		// Set River's terminal state directly: the guarantee here is admission
+		// after completion or failure, independently of worker execution.
+		if _, err := riverdatabasesql.New(db).GetExecutor().JobUpdateFull(context.Background(), &riverdriver.JobUpdateFullParams{ID: id, StateDoUpdate: true, State: state, FinalizedAtDoUpdate: true, FinalizedAt: &finished}); err != nil {
+			t.Fatal(err)
+		}
+		next := probeInsert(t, c, probeOperation{Key: "same"}, &river.InsertOpts{UniqueOpts: unique})
+		if next == id {
+			t.Fatalf("%s job prevented an explicit new run", state)
+		}
+		id = next
 	}
 }
 

@@ -165,10 +165,16 @@ func TestDescriptionNoModelAndInvalidAnswersKeepCurrentText(t *testing.T) {
 	if err := f.lifecycle.projects.PublishDescription(ctx, p.ID, "Current description"); err != nil {
 		t.Fatal(err)
 	}
-	for _, out := range []string{"", "One two three four five six seven eight nine", "Sentence..", "Two\nlines"} {
+	for _, tc := range []struct{ out, failure string }{
+		{"", `model's description had 0 words (need 1–8): ""`},
+		{"Description: One two three four five six seven eight nine.", `model's description had 9 words (need 1–8): "One two three four five six seven eight nine"`},
+		{"Sentence..", `model's description must have no trailing full stop: "Sentence."`},
+		{strings.Repeat("word ", 60), `model's description had 60 words (need 1–8): "` + strings.Repeat("word ", 48) + `…"`},
+	} {
+		out := tc.out
 		d := Descriptions{Service: f.lifecycle, Models: descriptionModel("fixture/fast"), Completion: descriptionAnswer(func(context.Context, modelcall.Call) (string, *modelcall.Usage, error) { return out, nil, nil })}
-		if err := d.Refresh(ctx, p.ID); err == nil {
-			t.Fatalf("accepted %q", out)
+		if _, err := d.Run(ctx, p.ID.String()+"/settings/1", nil); err == nil || err.Error() != tc.failure {
+			t.Errorf("rejected %q: got %v, want %s", out, err, tc.failure)
 		}
 	}
 	d := Descriptions{Service: f.lifecycle, Models: descriptionModel(""), Completion: descriptionAnswer(func(context.Context, modelcall.Call) (string, *modelcall.Usage, error) {
@@ -216,14 +222,32 @@ func TestSeedQueuesDescriptionFromCommittedReadme(t *testing.T) {
 }
 
 // Model punctuation is normalised before the phrase's limits are checked.
-func TestDescriptionNormalisesModelPunctuation(t *testing.T) {
+func TestDescriptionNormalisesModelPresentation(t *testing.T) {
 	t.Parallel()
 	f, ctx := requestedOwner(t)
 	p, err := f.lifecycle.Create(ctx, Draft{Slug: "trucks", Actor: "boss"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, out := range []string{"Truck assignments and servicing.", `"Truck assignments and servicing"`, `  "Truck assignments and servicing."  `, "'Truck assignments and servicing.'", "“Truck assignments and servicing.”"} {
+	for _, out := range []string{
+		"Truck assignments and servicing.",
+		`"Truck assignments and servicing"`,
+		`  "Truck assignments and servicing."  `,
+		"'Truck assignments and servicing.'",
+		"“Truck assignments and servicing.”",
+		"\n \r\nTruck assignments and servicing.\r\nThis phrase describes the application.",
+		"Description: Truck assignments and servicing.",
+		"Phrase: Truck assignments and servicing",
+		"**Truck assignments and servicing**",
+		"_Truck assignments and servicing._",
+		"- Truck assignments and servicing.",
+		"* Truck assignments and servicing",
+		"+ Truck assignments and servicing",
+		"• Truck assignments and servicing",
+		"### Truck assignments and servicing",
+		"### Truck assignments and servicing. ###",
+		`### **Description:** “_Truck assignments and servicing._”`,
+	} {
 		t.Run(out, func(t *testing.T) {
 			d := Descriptions{Service: f.lifecycle, Models: descriptionModel("fixture/fast"), Completion: descriptionAnswer(func(context.Context, modelcall.Call) (string, *modelcall.Usage, error) { return out, nil, nil })}
 			if err := d.Refresh(ctx, p.ID); err != nil {
@@ -280,5 +304,36 @@ func TestDescriptionJobReportsStorageFaultsButNotModelUnavailability(t *testing.
 				t.Fatalf("unavailable model changed description: %+v %v", held, err)
 			}
 		})
+	}
+}
+
+// Sending an empty description explicitly requests generation, even when a
+// failed generation has left it empty and the settings revision is unchanged.
+func TestSavingAnAlreadyEmptyDescriptionQueuesGeneration(t *testing.T) {
+	t.Parallel()
+	f, ctx := requestedOwner(t)
+	q := new(descriptionQueue)
+	f.lifecycle.jobs = q
+	p, err := f.lifecycle.Create(ctx, Draft{Slug: "trucks", Actor: "boss"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	empty := ""
+	for range 2 {
+		after, err := f.lifecycle.UpdateSettings(ctx, p.ID, project.SettingsPatch{ExpectedRevision: &p.SettingsRevision, Blurb: &empty}, "boss")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if after.Blurb != "" || after.BlurbSource != "generated" || after.SettingsRevision != p.SettingsRevision {
+			t.Fatalf("saving empty changed settings: %+v", after)
+		}
+	}
+	if len(q.requests) != 3 {
+		t.Fatalf("saving empty did not enqueue: %+v", q.requests)
+	}
+	for _, r := range q.requests[1:] {
+		if r.Operation != project.DescriptionJob || r.Key != p.ID.String()+"/settings/0" {
+			t.Fatalf("unexpected generation request: %+v", r)
+		}
 	}
 }

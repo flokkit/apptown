@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 func (s *Service) queueDescriptionIn(ctx context.Context, tx *database.Tx, id ids.ID, trigger string) error {
@@ -30,6 +31,9 @@ type descriptionChanges interface {
 
 // Descriptions refreshes display text from current project evidence. Calls go
 // through the gateway, which retains usage independently of publication.
+// The first nonempty reply line is stripped of labels and presentation, then
+// checked for 1–8 words on one line without a trailing full stop. Rejections
+// report the broken rule and up to 240 bytes of the normalised text.
 type Descriptions struct {
 	Service    *Service
 	Models     descriptionModels
@@ -108,13 +112,60 @@ func (d Descriptions) Refresh(ctx context.Context, id ids.ID) error {
 		// The gateway retains the call and its usage independently.
 		return nil
 	}
-	text := strings.TrimSpace(out)
-	text = strings.Trim(text, `"'“”‘’`)
-	text = strings.TrimSpace(strings.TrimSuffix(text, "."))
-	if len(strings.Fields(text)) == 0 || len(strings.Fields(text)) > 8 || strings.ContainsAny(text, "\r\n") || strings.HasSuffix(text, ".") {
-		return fmt.Errorf("model returned an invalid project description")
+	text := normaliseDescription(out)
+	rejected := strs.Truncate(text, 240)
+	if words := len(strings.Fields(text)); words == 0 || words > 8 {
+		return fmt.Errorf("model's description had %d words (need 1–8): %q", words, rejected)
+	}
+	if strings.ContainsAny(text, "\r\n") {
+		return fmt.Errorf("model's description must be one line: %q", rejected)
+	}
+	if strings.HasSuffix(text, ".") {
+		return fmt.Errorf("model's description must have no trailing full stop: %q", rejected)
 	}
 	return s.projects.PublishDescription(ctx, id, text)
+}
+
+// Ignore explanations after the phrase and remove presentation before checking
+// the description's limits. Repeat because labels and wrappers can be nested.
+func normaliseDescription(reply string) string {
+	text := ""
+	for _, line := range strings.FieldsFunc(reply, func(r rune) bool { return r == '\r' || r == '\n' }) {
+		if text = strings.TrimSpace(line); text != "" {
+			break
+		}
+	}
+	for {
+		before := text
+		for _, pair := range [][2]string{{`"`, `"`}, {"'", "'"}, {"“", "”"}, {"‘", "’"}, {"**", "**"}, {"__", "__"}, {"*", "*"}, {"_", "_"}, {"`", "`"}} {
+			if len(text) >= len(pair[0])+len(pair[1]) && strings.HasPrefix(text, pair[0]) && strings.HasSuffix(text, pair[1]) {
+				text = strings.TrimSpace(text[len(pair[0]) : len(text)-len(pair[1])])
+			}
+		}
+		// Heading hashes require whitespace. Hashes attached to a word (C#,
+		// #1) are literal, including at the end of a heading's content.
+		if rest := strings.TrimLeft(text, "#"); len(text)-len(rest) >= 1 && len(text)-len(rest) <= 6 && strings.HasPrefix(rest, " ") {
+			text = strings.TrimSpace(rest)
+			if rest := strings.TrimRight(text, "#"); strings.HasSuffix(rest, " ") {
+				text = strings.TrimSpace(rest)
+			}
+		}
+		for _, bullet := range []string{"- ", "* ", "+ ", "• "} {
+			text = strings.TrimSpace(strings.TrimPrefix(text, bullet))
+		}
+		for _, label := range []string{"description:", "phrase:"} {
+			for _, marker := range []string{"", "**", "__", "*", "_", "`"} {
+				prefix := marker + label + marker
+				if strings.HasPrefix(strings.ToLower(text), prefix) {
+					text = strings.TrimSpace(text[len(prefix):])
+				}
+			}
+		}
+		if text == before {
+			break
+		}
+	}
+	return strings.TrimSpace(strings.TrimSuffix(text, "."))
 }
 
 // Consume the blob while retaining only the evidence budget.
