@@ -86,7 +86,7 @@ it('routes to the full card with footer controls and the TopBar breadcrumb', asy
     expect(el.querySelector('.deployment-address a')?.getAttribute('href')).toBe('https://lunch.example')
     expect(el.querySelector('.deploy-head .deploy-trailer')).toBeNull()
     expect(el.querySelector('.deploy-more')?.textContent).toContain('Edit display name')
-    expect(el.querySelector('.deploy-more a')?.getAttribute('href')).toBe('/projects/lunch/releases')
+    expect(el.querySelector('.deploy-more a')).toBeNull()
     expect(el.textContent).toContain('Resources')
     // The application's route must take precedence over the generic project tab.
     expect(appSource).toContain('path="/projects/:slug/deployments/:name" element={<DeploymentPage />}')
@@ -104,6 +104,7 @@ it.each(['reconciled', 'uncertain'])('keeps %s deployment actions in the card fo
   expect(footer.textContent).toContain(readiness === 'uncertain' ? 'Check again' : 'Deploy latest')
   expect(footer.textContent).toContain('Tear down')
   expect(footer.textContent).toContain('Edit display name')
-  expect(footer.querySelector('a')?.getAttribute('href')).toBe('/projects/lunch/releases')
+  expect(footer.querySelector('a')?.getAttribute('href')).toBe(`${base}/staging`)
+  expect(footer.querySelector('a')?.textContent).toBe('Deployment history →')
   client.clear()
 })
