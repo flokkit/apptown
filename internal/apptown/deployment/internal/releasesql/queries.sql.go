@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/lib/pq"
 )
 
 const appendReleaseEvent = `-- name: AppendReleaseEvent :execrows
@@ -320,6 +321,45 @@ func (q *Queries) LockReleaseProject(ctx context.Context, id ids.ID) (ids.ID, er
 	row := q.db.QueryRowContext(ctx, lockReleaseProject, id)
 	err := row.Scan(&id)
 	return id, err
+}
+
+const newReleaseChanges = `-- name: NewReleaseChanges :many
+SELECT rc.release_id, rc.change_id FROM release_changes rc
+JOIN releases r ON r.id=rc.release_id
+WHERE r.project_id=$1 AND r.id=ANY($2::uuid[])
+AND NOT EXISTS (
+  SELECT 1 FROM release_changes prior JOIN releases p ON p.id=prior.release_id
+  WHERE prior.change_id=rc.change_id AND p.deployment_id=r.deployment_id
+    AND p.project_id=r.project_id AND p.number<r.number AND p.state='released'
+)
+`
+
+type NewReleaseChangesParams struct {
+	ProjectID  ids.ID
+	ReleaseIds []ids.ID
+}
+
+func (q *Queries) NewReleaseChanges(ctx context.Context, arg NewReleaseChangesParams) ([]ReleaseChange, error) {
+	rows, err := q.db.QueryContext(ctx, newReleaseChanges, arg.ProjectID, pq.Array(arg.ReleaseIds))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReleaseChange
+	for rows.Next() {
+		var i ReleaseChange
+		if err := rows.Scan(&i.ReleaseID, &i.ChangeID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const newestReleasedOrigin = `-- name: NewestReleasedOrigin :one

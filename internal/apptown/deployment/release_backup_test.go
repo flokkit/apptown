@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"strings"
 	"testing"
 
@@ -160,5 +163,74 @@ func TestAutomaticReleaseNeverAcceptsUncopiedData(t *testing.T) {
 	metadata, err := p.s.Releases.RequestMetadata(t.Context(), rel.ID)
 	if err != nil || metadata == nil || len(metadata.UncopiedAcceptance) != 0 || len(metadata.BackupEvidence) == 0 {
 		t.Fatalf("evidence: %+v %v", metadata, err)
+	}
+}
+
+// Promotion keeps the source bundle while approval waits. Revoking the role
+// after assent stops execution before even the pre-release backup is taken.
+func TestPromotionApprovalRechecksRoleBeforeBackup(t *testing.T) {
+	for _, revoked := range []bool{false, true} {
+		t.Run(fmt.Sprint(revoked), func(t *testing.T) {
+			t.Parallel()
+			w, dep, bundle := promotionFeedFixture(t)
+			accounts := identity.New(w.db, identity.Config{Projects: project.NewCatalogue(w.db)})
+			if err := accounts.SeedAdministrator(t.Context(), "alice"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := accounts.EnsureUser(t.Context(), "manager"); err != nil {
+				t.Fatal(err)
+			}
+			role, err := accounts.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "manager", Role: access.RoleReleaseManager, Scope: access.ScopeProject, ScopeID: w.project.String(), By: "fixture"}, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			w.s.release.Authority = access.Checked{Authority: accounts, Projects: project.New(w.db, nil)}
+			w.s.release.Still = accounts
+			w.s.release.Grants = accounts
+			caller := func(name string) context.Context {
+				actor, err := identity.ActorIn(t.Context(), w.db, name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{ID: actor.Principal, Kind: "user", Name: name, Via: "header", Credential: identity.HeaderCredential(name)}})
+			}
+			dep, err = w.s.SetFeed(caller("alice"), w.project, dep.Name, FeedSettings{Revision: dep.FeedRevision, Feed: "promotion", From: "staging", ApprovalRole: access.RoleReleaseManager})
+			if err != nil {
+				t.Fatal(err)
+			}
+			backup := &backupBeforeRelease{complete: true}
+			w.s.release.Data = backup
+			accepted, err := w.s.RequestRelease(caller("alice"), DeploySelection{ProjectID: w.project, DeploymentName: dep.Name})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if accepted.State != releaseWaiting {
+				t.Fatalf("promotion bypassed approval: %+v", accepted)
+			}
+			if err := w.s.ExecuteRelease(t.Context(), accepted.ID); err != nil || len(backup.calls) != 0 {
+				t.Fatalf("waiting release took backup: %v %v", err, backup.calls)
+			}
+			meaning := fmt.Sprintf("I accept release %d running on production", accepted.Number)
+			if err := w.s.ApproveRelease(caller("manager"), w.project, accepted.Number, meaning); err != nil {
+				t.Fatal(err)
+			}
+			if revoked {
+				if _, err := accounts.Revoke(t.Context(), role, "fixture"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			err = w.s.ExecuteRelease(t.Context(), accepted.ID)
+			rel, readErr := w.s.Releases.ByNumber(t.Context(), w.project, accepted.Number)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if revoked {
+				if err == nil || rel.State != ReleaseFailed || len(backup.calls) != 0 {
+					t.Fatalf("revoked approver reached backup: %+v %v %v", rel, err, backup.calls)
+				}
+			} else if err != nil || rel.State != Released || rel.BundleID != bundle.ID || len(backup.calls) == 0 {
+				t.Fatalf("approved promotion: %+v %v %v", rel, err, backup.calls)
+			}
+		})
 	}
 }

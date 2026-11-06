@@ -239,3 +239,45 @@ type ReleaseRequest struct {
 	// records it.
 	AcceptUncopiedData bool `json:"acceptUncopiedData,omitempty"`
 }
+
+// ApproveRelease records the release's stated meaning as human assent.
+func (h ReleaseOperations) ApproveRelease(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	number, err := pathNumber(r, "number")
+	if err != nil {
+		WriteError(w, 400, "bad release number")
+		return
+	}
+	jsonCommand(w, r, jsonBody{strict: true}, func(in ReleaseApprovalRequest) {
+		if err := h.deployment.ApproveRelease(r.Context(), p.ID, number, in.Meaning); err != nil {
+			WriteFault(w, err)
+			return
+		}
+		WriteJSON(w, http.StatusAccepted, map[string]bool{"ok": true})
+	})
+}
+
+type ReleaseApprovalRequest struct {
+	Meaning string `json:"meaning"`
+}
+
+// CancelRelease cancels a waiting request for its requester or an approver.
+func (h ReleaseOperations) CancelRelease(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	number, err := pathNumber(r, "number")
+	if err != nil {
+		WriteError(w, 400, "bad release number")
+		return
+	}
+	if err := h.deployment.CancelRelease(r.Context(), p.ID, number); err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}

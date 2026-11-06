@@ -63,7 +63,8 @@ Each deployment's **Settings** section chooses how it updates:
 **Follows main**, **Promoted from** another deployment of the same project,
 or **By hand**. Promotion sources cannot form a cycle. Saving a feed requires
 deploy permission, plus protected-release permission for a protected deployment.
-Settings refuse an edit if someone has changed the feed since it was read.
+The same settings edit chooses **Needs approval**: none or a project role.
+Settings refuse an edit if someone has changed the feed or approval rule since it was read.
 
 **Promote release N** deploys the release the source last deployed successfully,
 even when a newer bundle exists. It is disabled with a reason when the source
@@ -89,6 +90,33 @@ New deployments default to **By hand**. Choosing **Follows main** records you
 and your credential as its standing authorization. AppTown checks your current
 permissions again before each automatic release. `apptown release <project>` uses the project's chosen release
 preference. Each release has its own log and outcome.
+
+A release with an approval rule waits for a person holding that role on the
+project and `release:approve` on the deployment. The requester cannot approve
+their own release, including through another credential. Agent tokens cannot
+approve. On the deployment page, **Approve** accepts the displayed sentence:
+“I accept release N running on <deployment>”. The release and deployment
+history retain the person's principal, how they assented, the time and meaning.
+Home's **Waiting on you** and Attention link eligible approvers to that page.
+The requester or an approver can **Cancel** a waiting release. A newer request
+to the same deployment supersedes a waiting one and records that fact.
+
+Follows-main releases wait in the same way. The landing is complete while its
+release waits. Before any provider effect or backup, AppTown checks the
+requester's authority and the approver's current role, permission and credential
+again. Losing that authority stops the release. Changing the approval rule
+requires a new request.
+
+```sh
+apptown deployment set-feed <project> production promotion --from staging --approval-role release-manager
+apptown release approve <project> <release-number> -y
+apptown release cancel <project> <release-number>
+```
+
+The approve command displays the meaning before submitting it. Without `-y`, it
+shows the question and asks you to run it again to accept. Use
+`--approval-role none` to remove an approval rule. A feed edit without that flag
+keeps the current rule. MCP has no release approval tool.
 
 A release checks its pre-release copy before starting services, running init
 steps and starting app parts. It then checks readiness and records the outcome.

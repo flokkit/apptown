@@ -57,11 +57,14 @@ var sections = []section{
 			{[]string{"approve"}, `  approve <step-id> [-m comment] [-y]   show what approving means, then approve`, func(args []string) error { return cmdDecide(args, "approve") }},
 			{[]string{"deployment"}, `  deployment confirm-feed <project> <deployment> | --all
   deployment set-feed <project> <deployment> main|manual|promotion [--from <deployment>]
-                                        choose how a deployment updates; main authorizes automatic releases
+                                        choose how a deployment updates; --approval-role <role>|none sets approval
+                                        main authorizes automatic releases
                                         promotion deploys the release its source last deployed successfully
                                         refuses a source taken down, never deployed or currently observed stopped;
                                         unknown or stale health does not block promotion`, cmdDeployment},
-			{[]string{"release"}, `  release <project-slug> <deployment>   deploy, then follow the release log
+			{[]string{"release"}, `  release approve <project> <number> [-y]  accept the displayed release approval meaning
+  release cancel <project> <number>    cancel a waiting release
+  release <project-slug> <deployment>   request a release; follow it unless approval is needed
                                         promotion deploys the release its source last deployed successfully;
                                         by hand deploys latest. Promotion refuses a source taken down, never
                                         deployed or currently observed stopped; unknown or stale health does not block it` + "\n" +

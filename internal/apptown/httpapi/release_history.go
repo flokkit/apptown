@@ -30,9 +30,10 @@ func NewReleaseHistory(projects *project.Projects, work *workflow.Service, deplo
 }
 
 // ReleaseListed is one release in a project's list, with the titles of the
-// Changes it carries.
+// Changes new since its deployment's previous successful release.
 type ReleaseListed struct {
-	StatusLabel deployment.ReleaseLabel `json:"statusLabel"`
+	Decision    deployment.ReleaseDecision `json:"decision"`
+	StatusLabel deployment.ReleaseLabel    `json:"statusLabel"`
 	deployment.Release
 	Changes []ReleaseChangeTitle `json:"changes"`
 	// Serving: the release is its deployment's live one (Releases.Live)
@@ -59,7 +60,7 @@ type ReleaseChangeTitle struct {
 }
 
 // ListReleases: GET /api/v1/projects/{slug}/releases — newest first,
-// with the titles of the Changes each release carries.
+// with the titles of the new Changes in each release.
 func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
 	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
@@ -71,14 +72,24 @@ func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := []ReleaseListed{}
-	for _, r := range releases {
-		out = append(out, ReleaseListed{Release: *r, StatusLabel: r.State.Display()})
+	for _, rel := range releases {
+		decision, err := h.deployment.ReleaseDecision(r.Context(), rel)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		out = append(out, ReleaseListed{Release: *rel, Decision: decision, StatusLabel: rel.State.Display()})
 	}
 	idList := make([]ids.ID, 0, len(out))
 	for _, release := range out {
 		idList = append(idList, release.ID)
 	}
 	contents, err := h.work.ReleaseChanges(r.Context(), p.ID, idList)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	newChanges, err := h.deployment.Releases.NewChanges(r.Context(), p.ID, idList)
 	if err != nil {
 		WriteFault(w, err)
 		return
@@ -114,6 +125,9 @@ func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
 		// the Overview after the first intranet release.
 		out[i].Changes = []ReleaseChangeTitle{}
 		for _, change := range contents[out[i].ID] {
+			if !newChanges[out[i].ID][change.ID] {
+				continue
+			}
 			out[i].Changes = append(out[i].Changes, ReleaseChangeTitle{Number: change.Number, ID: change.ID, Title: change.Title})
 		}
 	}
@@ -163,6 +177,11 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	events := append([]deployment.ReleaseEvent{}, logged...)
 	out := ReleaseDetail{Release: rel, StatusLabel: rel.State.Display(), Changes: changes, IsLive: live, Events: events}
+	out.Decision, err = h.deployment.ReleaseDecision(r.Context(), rel)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	out.Request, err = h.deployment.Releases.RequestMetadata(r.Context(), rel.ID)
 	if err != nil {
 		WriteFault(w, err)
@@ -213,6 +232,7 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 // ReleaseDetail is one release: what it is, the changes it carried, whether
 // it is what the deployment serves now, and its log.
 type ReleaseDetail struct {
+	Decision     deployment.ReleaseDecision      `json:"decision"`
 	Request      *deployment.RequestMetadata     `json:"request,omitempty"`
 	BackupReason string                          `json:"backupReason,omitempty"`
 	Backup       *dataprotection.BackupReference `json:"backup,omitempty"`

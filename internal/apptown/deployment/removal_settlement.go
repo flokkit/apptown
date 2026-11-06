@@ -144,6 +144,24 @@ func SelectRemovalIn(ctx context.Context, tx *database.Tx, projectID ids.ID, nam
 	return dep, nil
 }
 
+// CancelWaitingForRemovalIn settles waiting approvals in the transaction that
+// admits a take-down, after SelectRemovalIn and before any provider effect.
+// The caller holds the project's release lock. A failed admission rolls back
+// both cancellation and its attributed explanation.
+func CancelWaitingForRemovalIn(ctx context.Context, tx *database.Tx, deploymentID ids.ID, by access.Principal, at time.Time) error {
+	waiting, err := deploymentsql.New(tx.SQL()).CancelWaitingReleasesForRemoval(ctx, deploymentID)
+	if err != nil {
+		return err
+	}
+	for _, id := range waiting {
+		event := fmt.Sprintf("cancelled: the deployment was taken down; removed by %s (principal %s) via %s", by.Name, by.ID, by.Actor().Via)
+		if err := appendReleaseEvent(ctx, tx, id, event, at); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // RemovalSettlement is what a take-down did, as its settlement records it.
 type RemovalSettlement struct {
 	// Target is the target's name; By who took it down, with the authority

@@ -1,6 +1,6 @@
 import { Status } from '../Status'
 import { Link } from 'react-router-dom'
-import { ATTENTION_GROUPS, attentionGroup, attentionRows, attentionState, attentionSummary, useAttention } from '../attention'
+import { ATTENTION_GROUPS, attentionGroup, attentionRows, attentionState, attentionSummary, attentionItemWord as word, useAttention } from '../attention'
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { ReadStatus, StaleNote } from '../ReadGate'
@@ -38,7 +38,6 @@ export function detailLines(detail: string) {
   return parts.length > 1 && parts.every(p => /^[\w.-]+: /.test(p)) ? parts : [detail]
 }
 
-const word = (item: AttentionItem) => item.unknown ? 'unknown' : item.statusLabel === 'low' ? 'low' : item.severity === 'advisory' ? 'not checked yet' : 'failed'
 
 // Identical conditions (the same title, words and state) are one row with a
 // count; the row expands to each one's link.

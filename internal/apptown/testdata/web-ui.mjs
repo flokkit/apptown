@@ -199,6 +199,9 @@ try {
           if (screen === 'overview-help' && await page.locator('main').getByText('What agents know about this project', { exact: true }).count()) throw new Error('notes remain on Overview');
           if (screen === 'overview-help' && await page.locator('main').getByText('Changes →', { exact: true }).count()) throw new Error('Changes link remains on Overview');
         }
+        if (screen === 'deployment') {
+          if (await page.getByRole('button', { name: 'Approve', exact: true }).count() !== 1 || !(await page.locator('main').innerText()).includes('running on Production')) throw new Error('waiting release is missing its approval meaning or doors');
+        }
         if (screen === 'infrastructure-expanded') {
           const summary = page.locator('.host-disk > summary').first();
           const before = await summary.locator('strong').boundingBox();

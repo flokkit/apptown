@@ -125,3 +125,22 @@ func TestAgentCannotRecordFollowsMainSetter(t *testing.T) {
 		})
 	}
 }
+
+func TestConfirmFeedKeepsTheApprovalRuleOnTheSameRevision(t *testing.T) {
+	s, in, _, _ := requestFixture(t)
+	dep, err := s.Deployments.ByName(t.Context(), in.ProjectID, in.DeploymentName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err = s.SetFeed(t.Context(), in.ProjectID, dep.Name, FeedSettings{Revision: dep.FeedRevision, Feed: "main", ApprovalRole: access.RoleReleaseManager})
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirmed, err := s.ConfirmFeed(t.Context(), in.ProjectID, dep.Name, dep.FeedRevision)
+	if err != nil || confirmed.ApprovalRole != access.RoleReleaseManager || confirmed.FeedRevision != dep.FeedRevision+1 {
+		t.Fatalf("confirmation erased approval: %+v %v", confirmed, err)
+	}
+	if _, err := s.SetFeed(t.Context(), in.ProjectID, dep.Name, FeedSettings{Revision: dep.FeedRevision, Feed: "main"}); !errors.Is(err, errFeedMoved) {
+		t.Fatalf("stale edit removed approval rule: %v", err)
+	}
+}

@@ -121,7 +121,16 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 		return nil
 	}
 	actor := access.Caller{Principal: principal}
-	selected, err := database.Transact(ctx, s.db, func(tx *database.Tx) (*deployment.Deployment, error) { return selectRemovalIn(ctx, tx, in) })
+	selected, err := database.Transact(ctx, s.db, func(tx *database.Tx) (*deployment.Deployment, error) {
+		dep, err := selectRemovalIn(ctx, tx, in)
+		if err != nil {
+			return nil, err
+		}
+		if err := deployment.CancelWaitingForRemovalIn(ctx, tx, dep.ID, principal, s.now()); err != nil {
+			return nil, err
+		}
+		return dep, nil
+	})
 	if err != nil {
 		return removalResult{}, err
 	}

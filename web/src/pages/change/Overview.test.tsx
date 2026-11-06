@@ -938,3 +938,15 @@ it('keeps acceptance on the change while deployment runs separately', async () =
   expect(el.querySelector('dialog[open]')).not.toBeNull()
  } finally {act(()=>root.unmount());client.clear()}
 })
+
+
+it.each(['waiting for approval', 'cancelled', 'superseded'] as const)('keeps a landed change release truthful while %s', state => {
+ const v = landingResult('pass')
+ v.evidence!.landingReleases![0].state = state
+ v.evidence!.landingReleases![0].deployment = 'production'
+ const el = document.createElement('div'); el.innerHTML = render(v)
+ const row = [...el.querySelectorAll('.ch-overview-line')].find(row => row.querySelector('.ch-row-label')?.textContent === 'Release')!
+ expect(row.textContent?.toLowerCase()).toContain(state)
+ expect(row.textContent).not.toContain('live')
+ if (state === 'waiting for approval') expect(row.querySelector('a')?.getAttribute('href')).toBe('/projects/club/deployments/production')
+})

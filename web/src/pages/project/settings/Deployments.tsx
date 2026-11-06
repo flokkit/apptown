@@ -115,7 +115,7 @@ export function DeploymentRow({ slug, env: e, current = true }: { slug: string; 
     identity={<><Link to={base}><strong>{e.displayLabel || e.name}</strong></Link><div><DeploymentFact env={e} /></div></>}
     state={<Status observation {...status} />}
     detail={<>
-      {e.kind === 'standing' && <div>{feedWords(e)}</div>}
+      {e.kind === 'standing' && <div>{feedWords(e)} · {e.approvalRole ? `Needs approval from ${e.approvalRole}` : 'No approval required'}</div>}
       {e.promotionBlocked && <div className="muted small">{e.promotionBlocked}</div>}
       <div className="muted small">{e.kind === 'preview'
         ? e.changeId ? <Link to={`/changes/${e.changeId}`}>Preview of {change.data ? `change #${change.data.change.number}: ${change.data.change.title}` : 'change'}</Link> : 'Change not recorded'

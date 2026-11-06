@@ -8,8 +8,9 @@ import (
 	"github.com/flokkit/apptown/internal/enum"
 )
 
-// ReleaseState is a release's lifecycle: releasing while its attempt runs,
-// then released or failed. A release settles once; a repeated settlement
+// ReleaseState is a release's lifecycle: waiting for approval, then releasing
+// while its attempt runs, then released or failed. A waiting request may be
+// cancelled or superseded. A release settles once; a repeated settlement
 // with the same outcome is acknowledged by the caller, never rewritten.
 type ReleaseState uint8
 
@@ -17,11 +18,14 @@ const (
 	Releasing ReleaseState = iota + 1
 	Released
 	ReleaseFailed
+	releaseWaiting
+	releaseCancelled
+	releaseSuperseded
 )
 
 // releaseStateCodec spells each ReleaseState in storage and JSON.
 var releaseStateCodec = enum.Set[ReleaseState]{
-	Names:     []string{"releasing", "released", "failed"},
+	Names:     []string{"releasing", "released", "failed", "waiting for approval", "cancelled", "superseded"},
 	Invalid:   "invalid-release-state",
 	Err:       errReleaseState,
 	ScanLabel: "value",

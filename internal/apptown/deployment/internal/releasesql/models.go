@@ -3,3 +3,12 @@
 //   sqlc v1.28.0
 
 package releasesql
+
+import (
+	"github.com/flokkit/apptown/internal/ids"
+)
+
+type ReleaseChange struct {
+	ReleaseID ids.ID
+	ChangeID  ids.ID
+}

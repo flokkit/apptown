@@ -28,7 +28,7 @@ func (a *App) deploymentDependencies() deployment.Dependencies {
 		Providers:         a.targetProviders,
 		Projects:          a.Projects,
 		Configuration:     deployment.ConfigurationDependencies{Authority: authority, Projects: sources, Contracts: sources},
-		Releases:          deployment.ReleaseDependencies{Authority: authority, Still: a.Access, Sources: sources, Secrets: releaseSecrets{secrets: a.Secrets}, Queue: releaseJobs{}, Data: &releaseData{data: a.DataProtection, after: (backupRequests{db: a.DB, life: a.life}).AfterRelease}},
+		Releases:          deployment.ReleaseDependencies{Grants: a.Access, Authority: authority, Still: a.Access, Sources: sources, Secrets: releaseSecrets{secrets: a.Secrets}, Queue: releaseJobs{}, Data: &releaseData{data: a.DataProtection, after: (backupRequests{db: a.DB, life: a.life}).AfterRelease}},
 		Followups:         jobQueue{},
 		Declared:          sources,
 		Applied:           a.infrastructure.Applied,

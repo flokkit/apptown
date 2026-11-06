@@ -48,6 +48,7 @@ type Deployment struct {
 	ObservedGeneration int64           `json:"observedGeneration"`
 	Readiness          Readiness       `json:"readiness"`
 	PromotedFromID     ids.ID          `json:"promotedFromId,omitzero"`
+	ApprovalRole       string          `json:"approvalRole"`
 	FeedRevision       int64           `json:"feedRevision"`
 	FeedConfirmed      bool            `json:"feedConfirmed"`
 	feedAuthority      json.RawMessage
@@ -199,6 +200,7 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		Feed:               r.Feed,
 		PromotedFromID:     r.PromotedFromID,
 		FeedRevision:       r.FeedRevision,
+		ApprovalRole:       r.ApprovalRole,
 		FeedConfirmed:      r.FeedAuthorityJson != nil,
 		feedAuthority:      feedAuthority(r.FeedAuthorityJson),
 		Audience:           r.Audience,

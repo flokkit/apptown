@@ -23,6 +23,7 @@ function fixtures({ backup = 'none', lowDisk = false, readiness = 'reconciled' }
     [base]: [{ ...env, readiness }, { ...env, name: 'preview-1', displayLabel: 'Fix lunch', kind: 'preview', changeId: 'change-1', generation: 0, target: undefined }],
     '/projects/lunch/targets': { targets: [{ name: 'local', kind: 'docker-host' }] },
     '/changes/change-1': { change: { number: 12, title: 'Fix lunch' } },
+    '/authz/roles': { roles: [{ name: 'release-manager', title: 'Release manager', scope: 'project' }], capabilities: {} },
     '/projects/lunch/secrets': { deployments: [], choosable: [] },
     '/projects/lunch/retained': { retained: [] },
     '/projects/lunch/releases': [{ deployment: 'main', number: 9, changes: [], serving: false, state: 'failed', createdAt: at }, { deployment: 'main', number: 8, changes: [], serving: true, releasedAt: at }],

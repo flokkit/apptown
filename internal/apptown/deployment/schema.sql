@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS releases (
   origin TEXT NOT NULL DEFAULT 'shipped' CONSTRAINT release_origin CHECK (origin IN ('shipped', 'observed-after-restore')),
   backup_id UUID,
   from_deployment_id UUID,
+  approval_role TEXT NOT NULL DEFAULT '',
+  approval_json JSONB,
+  superseded_by UUID,
   UNIQUE(project_id, number)
 );
 CREATE TABLE IF NOT EXISTS release_changes (
@@ -81,6 +84,7 @@ CREATE TABLE IF NOT EXISTS deployments (
   feed_revision BIGINT NOT NULL DEFAULT 1 CHECK (feed_revision > 0),
   feed_authority_json JSONB,
   promoted_from_id UUID REFERENCES deployments(id),
+  approval_role TEXT NOT NULL DEFAULT '',
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
   UNIQUE(project_id, name)
 );

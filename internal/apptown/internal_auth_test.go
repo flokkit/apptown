@@ -203,7 +203,7 @@ func TestPrivilegesRequireExplicitCapabilityGrants(t *testing.T) {
 	if grantedCapability(t, a, "ana", "member", access.CapReleasePromote, access.Resource{Type: "release-target", ID: "customer-production"}) {
 		t.Fatal("standards authority granted release access")
 	}
-	a.addGrant("user", "ana", access.RoleReleaseManager, "", access.ScopeTarget, "customer-production", "fixture", "")
+	a.addGrant("user", "ana", "", string(access.CapReleasePromote), access.ScopeTarget, "customer-production", "fixture", "")
 	if !grantedCapability(t, a, "ana", "member", access.CapReleasePromote, access.Resource{Type: "release-target", ID: "customer-production"}) {
 		t.Fatal("explicit release grant ignored")
 	}

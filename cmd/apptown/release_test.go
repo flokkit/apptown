@@ -51,3 +51,43 @@ func TestNamedReleaseSelectsAtRequestTimeAndPrintsPromotedSource(t *testing.T) {
 		t.Fatalf("request-time selection: %+v", *seen)
 	}
 }
+
+func TestReleaseApprovalDisplaysAndSendsTheExactMeaning(t *testing.T) {
+	for _, yes := range []bool{false, true} {
+		t.Run(map[bool]string{false: "question", true: "assent"}[yes], func(t *testing.T) {
+			seen := jsonAppTown(t, func(method, path string) (int, string) {
+				if method == "GET" {
+					return 200, `{"decision":{"meaning":"I accept release 7 running on production","canApprove":true}}`
+				}
+				return 202, `{"ok":true}`
+			})
+			args := []string{"release", "approve", "shop", "7"}
+			if yes {
+				args = append(args, "-y")
+			}
+			out, err := run(t, args...)
+			if !strings.Contains(out, "I accept release 7 running on production") {
+				t.Fatalf("meaning not shown: %q %v", out, err)
+			}
+			if yes {
+				if err != nil || len(*seen) != 2 || (*seen)[1].Path != "/projects/shop/releases/7/approve" || (*seen)[1].Body["meaning"] != "I accept release 7 running on production" {
+					t.Fatalf("assent: %v %+v", err, *seen)
+				}
+			} else if err == nil || len(*seen) != 1 {
+				t.Fatalf("approval sent without acceptance: %v %+v", err, *seen)
+			}
+		})
+	}
+}
+
+func TestReleaseCancelAndWaitingRequestDoNotFollowADeploy(t *testing.T) {
+	seen := jsonAppTown(t, func(method, path string) (int, string) { return 202, `{"number":7,"state":"waiting for approval"}` })
+	if _, err := run(t, "release", "cancel", "shop", "7"); err != nil || len(*seen) != 1 || (*seen)[0].Path != "/projects/shop/releases/7/cancel" {
+		t.Fatalf("cancel: %v %+v", err, *seen)
+	}
+	*seen = nil
+	out, err := run(t, "release", "shop", "production")
+	if err != nil || len(*seen) != 1 || !strings.Contains(out, "waiting for approval") {
+		t.Fatalf("waiting request: %q %v %+v", out, err, *seen)
+	}
+}

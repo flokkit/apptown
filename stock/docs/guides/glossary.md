@@ -166,7 +166,11 @@ release its source last deployed successfully and records “promoted release N
 from <source>”. Promotion refuses a source taken down, never deployed, or
 currently observed stopped. Unknown or stale health does not block it. Numbered per project;
 each release records who authorized it, its log, commit and images. A failed
-release does not undo the landing.
+release does not undo the landing. A deployment can require approval from a
+project role. Its release waits for a person other than the requester to accept
+“I accept release N running on <deployment>”. The record preserves who
+assented, how, when and what they accepted. Agent tokens cannot approve.
+Cancellation and supersession remain in the release history.
 
 **Runtime contract** — the file `.apptown/app.yaml`: `app:`, the app's own
 containers, each `build:`/`image:`/`static:`, one `public: true`; and

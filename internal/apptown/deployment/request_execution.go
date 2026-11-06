@@ -25,6 +25,9 @@ type ReleaseSecrets interface {
 	ResolveRelease(context.Context, Application, string, string, *appcontract.Contract) (deploy.ConsumerSecrets, []string, error)
 }
 type ReleaseDependencies struct {
+	Grants interface {
+		ActiveGrants(context.Context, access.Principal) ([]access.Grant, error)
+	}
 	Authority access.Authorizer
 	Still     operations.Authorities
 	Sources   ReleaseSources
@@ -91,6 +94,9 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		return fail(err)
 	}
 	allowed := func(ctx context.Context) error {
+		if err := s.checkReleaseApproval(ctx, rel); err != nil {
+			return err
+		}
 		if placement.FeedRevision.Valid {
 			current, err := s.Deployments.ByID(ctx, rel.DeploymentID)
 			if err != nil {

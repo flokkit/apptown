@@ -16,5 +16,5 @@ export function ProjectDeployments({ slug }: { slug: string }) {
 function LastDeploy({ slug, name }: { slug: string; name: string }) {
   const releases = useGet<ReleaseListed[]>(`/projects/${slug}/releases`, { poll: 5000 })
   const release = releases.data?.find(r => r.deployment === name)
-  return <div className="small muted"><ReadStatus q={releases} what="last deploy" /><StaleNote q={releases} />{release ? `Last deploy ${release.state === 'released' ? 'passed' : release.state === 'releasing' ? 'is running' : 'stopped'}` : releases.data && 'No releases yet.'}</div>
+  return <div className="small muted"><ReadStatus q={releases} what="last deploy" /><StaleNote q={releases} />{release ? `Last deploy ${release.state === 'released' ? 'passed' : release.state === 'releasing' ? 'is running' : release.state === 'waiting for approval' ? 'is waiting for approval' : release.state === 'failed' ? 'stopped' : release.state}` : releases.data && 'No releases yet.'}{release?.decision?.canApprove && <Link to={`/projects/${slug}/deployments/${name}`}> · Review release {release.number} →</Link>}</div>
 }

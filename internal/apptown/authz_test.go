@@ -87,7 +87,7 @@ func fixtureWork(t *testing.T, a *App) authzRecords {
 // administrator; owner, outsider, amy and kid; project game (1), where
 // owner alone maintains and approves, and project open (2), where everyone
 // signed in does; amy's instance amender capabilities; and everyone's
-// release-manager role on every target.
+// release:promote capability on every target.
 func authzActors(t *testing.T, configs ...Config) *App {
 	t.Helper()
 	a := testApp(t, configs...)
@@ -132,7 +132,7 @@ func authzActors(t *testing.T, configs ...Config) *App {
 	for _, capability := range access.AmenderCaps {
 		a.addGrant("user", "amy", "", string(capability), access.ScopeInstance, "", "boss", "")
 	}
-	a.addGrant("group", identity.GroupAllUsers, access.RoleReleaseManager, "", access.ScopeTarget, "*", "boss", "")
+	a.addGrant("group", identity.GroupAllUsers, "", string(access.CapReleasePromote), access.ScopeTarget, "*", "boss", "")
 	return a
 }
 

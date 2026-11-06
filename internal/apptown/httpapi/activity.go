@@ -76,20 +76,26 @@ func (h Activity) Activity(w http.ResponseWriter, r *http.Request) {
 		envs = append(envs, e)
 	}
 
-	WriteJSON(w, 200, InstanceActivity{WaitingOnYou: waiting, Open: open, OpenTotal: openTotal, Agents: agents, Active: active, History: history, Deployments: envs})
+	releaseApprovals, err := h.deployment.WaitingReleases(ctx)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, InstanceActivity{ReleaseApprovals: releaseApprovals, WaitingOnYou: waiting, Open: open, OpenTotal: openTotal, Agents: agents, Active: active, History: history, Deployments: envs})
 }
 
 // InstanceActivity is what the whole instance is doing: agents at work, runs
 // under way, recent Changes, the reader's open Changes and every deployment.
 type (
 	InstanceActivity struct {
-		WaitingOnYou []runRowView                  `json:"waitingOnYou"`
-		Open         []workflow.PersonalOpenChange `json:"open"`
-		OpenTotal    int64                         `json:"openTotal"`
-		Agents       []ActiveAgent                 `json:"agents"`
-		Active       []runRowView                  `json:"active"`
-		History      []workflow.ChangeHistory      `json:"history"`
-		Deployments  []ActivityDeployment          `json:"deployments"`
+		ReleaseApprovals []deployment.WaitingRelease   `json:"releaseApprovals"`
+		WaitingOnYou     []runRowView                  `json:"waitingOnYou"`
+		Open             []workflow.PersonalOpenChange `json:"open"`
+		OpenTotal        int64                         `json:"openTotal"`
+		Agents           []ActiveAgent                 `json:"agents"`
+		Active           []runRowView                  `json:"active"`
+		History          []workflow.ChangeHistory      `json:"history"`
+		Deployments      []ActivityDeployment          `json:"deployments"`
 	}
 	// ActiveAgent is a running step and how long it has run.
 	ActiveAgent struct {

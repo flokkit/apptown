@@ -232,11 +232,12 @@ export function ReleaseRow({ view }: { view: ChangeView;  }) {
     {requests.length === 0 ? 'No release requested' : requests.map(release => {
       const running = release.state === 'releasing'
       const failed = release.state === 'failed'
-      const to = `/projects/${view.projectSlug}/releases/${release.number}`
+      const waiting = release.state === 'waiting for approval'
+      const to = waiting ? `/projects/${view.projectSlug}/deployments/${release.deployment}` : `/projects/${view.projectSlug}/releases/${release.number}`
       return <div key={release.number}>
         {requests.length > 1 && <>{release.deployment}: </>}
-        {running ? 'Deploying…' : failed ? <>Deploy stopped{release.failure && <>: {release.failure}</>}</> : <>Release {release.number} · live</>}
-        {' · '}<Link to={to}>{running ? 'watch →' : failed ? 'see why →' : 'view →'}</Link>
+        {waiting ? 'Waiting for approval' : running ? 'Deploying…' : release.state === 'cancelled' || release.state === 'superseded' ? `Release ${release.number} · ${release.state}` : failed ? <>Deploy stopped{release.failure && <>: {release.failure}</>}</> : <>Release {release.number} · live</>}
+        {' · '}<Link to={to}>{waiting ? 'review →' : running ? 'watch →' : failed ? 'see why →' : 'view →'}</Link>
       </div>
     })}
   </div><span /></div>

@@ -40,6 +40,7 @@ func cmdConfirmFeed(args []string) error {
 	}
 	var deps []struct {
 		Name         string `json:"name"`
+		ApprovalRole string `json:"approvalRole"`
 		FeedRevision int64  `json:"feedRevision"`
 	}
 	if err := api.get("/projects/"+args[0]+"/deployments", &deps); err != nil {
@@ -59,6 +60,7 @@ func cmdConfirmFeed(args []string) error {
 
 func cmdSetFeed(args []string) error {
 	fs := newFlags("deployment set-feed")
+	approvalRole := fs.String("approval-role", "", "role required to approve each release; none removes approval")
 	from := fs.String("from", "", "deployment whose last successful release is promoted")
 	args = parseArgs(fs, args)
 	if len(args) != 3 {
@@ -72,6 +74,7 @@ func cmdSetFeed(args []string) error {
 	}
 	var deps []struct {
 		Name         string `json:"name"`
+		ApprovalRole string `json:"approvalRole"`
 		FeedRevision int64  `json:"feedRevision"`
 	}
 	if err := api.get("/projects/"+args[0]+"/deployments", &deps); err != nil {
@@ -81,7 +84,14 @@ func cmdSetFeed(args []string) error {
 		if dep.Name != args[1] {
 			continue
 		}
-		if _, err := api.request("PUT", "/projects/"+args[0]+"/deployments/"+args[1]+"/feed", map[string]any{"revision": dep.FeedRevision, "feed": args[2], "from": *from}); err != nil {
+		role := dep.ApprovalRole
+		if *approvalRole != "" {
+			role = *approvalRole
+		}
+		if role == "none" {
+			role = ""
+		}
+		if _, err := api.request("PUT", "/projects/"+args[0]+"/deployments/"+args[1]+"/feed", map[string]any{"revision": dep.FeedRevision, "feed": args[2], "from": *from, "approvalRole": role}); err != nil {
 			return err
 		}
 		fmt.Printf("Updated deployment feed: %s/%s\n", args[0], args[1])

@@ -98,6 +98,7 @@ type Summary struct {
 	PromotionRelease  int64
 	PromotionSource   string
 	PromotionBlocked  string
+	ApprovalRole      string
 	FeedRevision      int64
 	FeedConfirmed     bool
 	LastApplied       *AppliedAttempt
@@ -279,7 +280,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 				needs = append(needs, NeedSummary{Need: o.Need, Name: o.Name, ID: o.ID, Status: NeedReady})
 			}
 		}
-		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{FeedRevision: e.FeedRevision, FeedConfirmed: e.FeedConfirmed, LastApplied: e.LastApplied, DisplayLabel: e.DisplayLabel,
+		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{ApprovalRole: e.ApprovalRole, FeedRevision: e.FeedRevision, FeedConfirmed: e.FeedConfirmed, LastApplied: e.LastApplied, DisplayLabel: e.DisplayLabel,
 			ID: e.ID, TargetID: e.TargetID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
 			Attributes: e.releaseAttributes(), Protected: e.Protected(), Generation: e.ObservedGeneration, Readiness: e.Readiness,
 			ChangeID: e.ChangeID, Target: summaries[e.TargetID], Needs: needs, AIModelsKeys: keys,

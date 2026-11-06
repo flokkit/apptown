@@ -104,3 +104,13 @@ ORDER BY number DESC LIMIT 1;
 SELECT bundle_id FROM releases WHERE deployment_id=sqlc.arg(deployment_id) AND state=sqlc.arg(released)
   AND origin=sqlc.arg(shipped) AND bundle_id IS NOT NULL
 ORDER BY number DESC LIMIT 1;
+
+-- name: NewReleaseChanges :many
+SELECT rc.release_id, rc.change_id FROM release_changes rc
+JOIN releases r ON r.id=rc.release_id
+WHERE r.project_id=sqlc.arg(project_id) AND r.id=ANY(sqlc.arg(release_ids)::uuid[])
+AND NOT EXISTS (
+  SELECT 1 FROM release_changes prior JOIN releases p ON p.id=prior.release_id
+  WHERE prior.change_id=rc.change_id AND p.deployment_id=r.deployment_id
+    AND p.project_id=r.project_id AND p.number<r.number AND p.state='released'
+);
