@@ -140,6 +140,21 @@ func (h ModelSlots) PutModelSlot(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ProjectModels: GET /api/v1/projects/{slug}/model-profile.
+// The route authorizes project read; model owns the scoped projection.
+func (h ModelSlots) ProjectModels(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	view, err := h.models.ForProject(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, view)
+}
+
 // PutProjectModelProfile: PUT /api/v1/projects/{slug}/model-profile
 // {profile} — one visible act assigns a project its demand level.
 func (h ModelSlots) PutProjectModelProfile(w http.ResponseWriter, r *http.Request) {

@@ -88,7 +88,7 @@
     "numericPx": 0
   },
   "web/src/pages/ExternalSignIn.tsx": {
-    "styles": 4,
+    "styles": 3,
     "numericPx": 0
   },
   "web/src/pages/GuidanceLibrary.tsx": {
@@ -110,10 +110,6 @@
   "web/src/pages/Invite.tsx": {
     "styles": 6,
     "numericPx": 5
-  },
-  "web/src/pages/Janitor.tsx": {
-    "styles": 6,
-    "numericPx": 1
   },
   "web/src/pages/Login.tsx": {
     "styles": 6,

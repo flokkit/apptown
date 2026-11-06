@@ -1,9 +1,9 @@
 // Project pages and the pages within each sidebar group.
 export const PROJECT_TABS = ['overview', 'changes', 'deployments', 'security', 'settings', 'memory', 'release', 'releases'] as const
 export const SECURITY_TABS = ['findings', 'suppressions'] as const
-export const SETTINGS_TABS = ['general', 'working', 'services', 'deployments', 'secrets', 'members', 'usage'] as const
+export const SETTINGS_TABS = ['general', 'working', 'models', 'services', 'deployments', 'secrets', 'members', 'usage'] as const
 export const SETTINGS_LABEL: Record<string, string> = {
-  general: 'General', working: 'Way of working', services: 'Services', deployments: 'Deployments', secrets: 'Secrets',
+  general: 'General', working: 'Way of working', models: 'Models', services: 'Services', deployments: 'Deployments', secrets: 'Secrets',
   members: 'Members', usage: 'Usage',
 }
 // Old settings sub-tabs → where they live now.

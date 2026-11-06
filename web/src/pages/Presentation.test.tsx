@@ -65,17 +65,11 @@ it.each([false, true])('gives each project identity, a live address and the last
   expect(el.textContent).not.toContain('0 in progress')
   expect(el.querySelector('.project-row')).not.toBeNull()
 })
-// A pack row opens its contents; the other acts sit behind ⋯, each saying
-// what it does, and Delete still asks first.
-it.each([true, false])('keeps every pack action behind its row menu and preserves delete confirmation (enabled=%s)', async enabled => {
+it.each([true, false])('links to the pack and leaves only Copy in its row menu (enabled=%s)', async enabled => {
   const el = await show(<Packs />, { '/packs': [{ name: 'household', origin: 'custom', enabled, requires: [], guidance: [], workflows: [], policies: [], declaration: { guidance: [], workflows: [], policies: [] } }] })
-  expect(el.querySelector('.pack-actions')).toBeNull()
+  expect(el.querySelector('a[href="/packs/household"]')).not.toBeNull()
   await act(async () => { (el.querySelector('button[aria-label="More actions for household"]') as HTMLButtonElement).click() })
-  const items = [...document.querySelectorAll('.popover button')].map(b => b.firstChild?.textContent)
-  expect(items).toEqual(['Copy', enabled ? 'Hide' : 'Make available', 'Edit', 'Delete…'])
-  await act(async () => { ([...document.querySelectorAll('.popover button')].find(b => b.firstChild?.textContent === 'Delete…') as HTMLButtonElement).click() })
-  expect(el.textContent).toContain('Projects that applied it keep the versions they applied.')
-  expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false)
+  expect([...document.querySelectorAll('.popover button')].map(b => b.firstChild?.textContent)).toEqual(['Copy'])
 })
 // The fleet table is one row per app: its placements are counted in one
 // meta line, never folded inside the row; the app's page lists each one.

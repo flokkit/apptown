@@ -488,7 +488,7 @@ person. A **command-line token** is for the `apptown` command-line tool and
 acts as its person, with their role as it was when the token was made. An
 **agent token** is for a coding agent that cannot sign in through a
 browser; it cannot approve or administer. An administrator makes either
-under People › Access tokens; it is shown once and can be revoked.
+under Account › Access tokens; it is shown once and can be revoked.
 
 **Connected coding agent** — a coding agent, such as Claude Code or Codex,
 that a person signed in to AppTown through the browser. It acts as that

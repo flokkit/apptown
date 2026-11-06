@@ -8,7 +8,7 @@ import { QuietConfirm } from '../QuietConfirm'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
-import type { AdoptionUpliftOpened, AuthzHoldings, InAdvanceQuestion, PackHistory, WhatIf, WhatIfCheck, WhatIfFleetGap, WhatIfMove, WhatIfRow, WhatIfScore } from '../wire.gen'
+import type { AdoptionUpliftOpened, InAdvanceQuestion, WhatIf, WhatIfCheck, WhatIfFleetGap, WhatIfMove, WhatIfRow, WhatIfScore } from '../wire.gen'
 
 // One what-if on a pack version (design/subsystems/conformance.md):
 // one row per project saying what taking the version would change, worst
@@ -81,33 +81,11 @@ function State({ w }: { w: WhatIf }) {
   return <><Status word={w.statusLabel} help={w.detail || w.state} /> <span>{w.projectsDone} of {w.projectsTotal}</span></>
 }
 
-// Decide: recommend the version (the pack page's own act) or try it in an
-// eval. The button says why it cannot be pressed rather than vanishing, and
-// says so only from answers it has: a pack or holdings read that failed or
-// is on its way is said as such, never as "recommended" or "not allowed".
 function Decide({ w }: { w: WhatIf }) {
-  const packQ = useGet<PackHistory>(`/packs/${w.pack}`, { kind: 'config' })
-  const meQ = useGet<AuthzHoldings>('/authz/me', { kind: 'config' })
-  const { run, busy, err } = useAction(packQ.reload, { affects: [`/packs/${w.pack}`] })
-  const recommended = packQ.data?.recommended
-  const holds = meQ.data ? meQ.data.instance?.['standards:manage-packs'] === true : undefined
-  const why = recommended === undefined ? 'the pack has not been read'
-    : recommended === w.version ? `v${w.version} is recommended`
-      : holds === undefined ? (meQ.err ? `what you may do could not be read: ${meQ.reason || meQ.err}` : 'reading what you may do…')
-        : !holds ? 'Ask an administrator to recommend this version' : ''
-  return (
-    <div className="row what-if-page-decide-div">
-      {why
-        ? <button className="subtle" disabled title={why}>Recommend v{w.version}</button>
-        : <QuietConfirm label={`Recommend v${w.version}`} className="subtle" yes="Recommend it" disabled={busy}
-            ask={`Recommend v${w.version}, as assessed in this what-if? New projects get it; projects on other versions are offered it. No project moves.`}
-            onYes={() => run(() => post(`/packs/${w.pack}/recommended`, { version: w.version, whatIf: w.id }))} />}
-      {recommended === undefined ? <ReadStatus q={packQ} what="the pack" className="small" /> : why && <span className="muted small">{why}</span>}
-      <StaleNote q={[packQ, meQ]} inline />
-      <Link className="button subtle" to={`/evals/new?pack=${encodeURIComponent(w.pack)}&version=${w.version}`}>Try in an eval</Link>
-      {err && <span className="error">{err}</span>}
-    </div>
-  )
+  return <div className="row what-if-page-decide-div">
+    <Link to={`/packs/${w.pack}?whatIf=${w.id}`}>Recommend v{w.version} on the pack page →</Link>
+    <Link className="button subtle" to={`/evals/new?pack=${encodeURIComponent(w.pack)}&version=${w.version}`}>Try in an eval</Link>
+  </div>
 }
 
 function Summary({ w }: { w: WhatIf }) {

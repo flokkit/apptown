@@ -44,3 +44,25 @@ it('shows personal access tokens on Your account', async () => {
  expect(el.querySelector('section[aria-label="Access tokens"] .section-count')?.textContent).toBe('1')
  act(() => root.unmount())
 })
+
+it('lets a member revoke their token and disconnect their agent on Account', async () => {
+ const sent: string[] = []
+ vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+   if (init?.method === 'DELETE') { sent.push(url); return new Response('{}') }
+   return new Response(JSON.stringify(url.endsWith('/auth/me') ? { mode: 'internal', user: 'kim', role: 'member', ownTokens: [{ Name: 'laptop', User: 'kim', Purpose: 'cli', LastUsed: '' }] }
+    : url.endsWith('/auth/delegations') ? { delegations: [{ id: 'connection', user: 'kim', clientName: 'Editor', createdAt: '2026-11-01', scopes: [] }] } : { bindings: [] }))
+ }))
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ const button = (text: string) => [...el.querySelectorAll('button')].find(b => b.textContent === text)!
+ try {
+  await act(async () => root.render(<QueryClientProvider client={client}><MyExternalSignIn /></QueryClientProvider>))
+  await vi.waitFor(() => expect(el.textContent).toContain('Editor'))
+  expect(button('Mint token')).toBeDefined()
+  expect(el.querySelector('[aria-label="Record actions as"]')).toBeNull()
+  await act(async () => button('revoke').click())
+  await act(async () => button('Yes').click())
+  await act(async () => button('disconnect').click())
+  await act(async () => button('Yes').click())
+  expect(sent).toEqual(['/api/v1/account/tokens/laptop', '/api/v1/auth/delegations/connection'])
+ } finally { await act(async () => root.unmount()); client.clear() }
+})

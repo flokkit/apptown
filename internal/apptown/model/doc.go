@@ -24,6 +24,11 @@
 // error, never answered with a less specific mapping or "no model". Changing
 // mappings affects later resolutions, not old receipts.
 //
+// [Slots.ForProject] supplies project settings with its assignment, offered
+// profiles and resolved task models. Its caller authorizes project read; it
+// exposes neither other project assignments nor instance spend. Profile changes
+// retain the separate project model-profile configuration authority.
+//
 // [Slots.Set] commits a mapping change and its audit receipt together. These APIs
 // do not authorize a caller; the application adapter must check permission first.
 // The actor passed to Set supplies receipt attribution only.

@@ -10,7 +10,8 @@ it('keeps release notes and change narratives out of the overview release list',
     notes: 'To satisfy it: provide the independent review report', changes: [{ title: 'A check narrative' }] } as Release
   const html = renderToStaticMarkup(<MemoryRouter><ReleaseRows slug="club" releases={[release]} /></MemoryRouter>)
   expect(html).toContain('live: #5')
-  expect(html).toContain('▶ #5')
+  expect(html).toContain('href="/projects/club/releases/5"')
+  expect(html).not.toContain('<button')
   expect(html).not.toContain('To satisfy it')
   expect(html).not.toContain('A check narrative')
 })

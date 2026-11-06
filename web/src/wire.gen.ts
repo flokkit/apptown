@@ -1360,6 +1360,12 @@ export type ProjectMemberList = {
   open: boolean
 }
 
+export type ProjectModels = {
+  profile: string
+  profiles: string[]
+  tasks: ProjectModelTask[]
+}
+
 export type ProjectOverviewView = {
   notes: ProjectNotesView | null
   repo: OverviewRepo | null
@@ -3869,6 +3875,12 @@ export type Policy = {
   createdAt: string
 }
 
+export type ProjectModelTask = {
+  slot: string
+  gloss: string
+  models: Record<string, ResolvedModel>
+}
+
 export type ProjectNotesView = {
   present: boolean
   commit: string
@@ -4914,6 +4926,12 @@ export type PackageRef = {
 export type Location = {
   file: string
   line?: number
+}
+
+export type ResolvedModel = {
+  pattern: string
+  slot: string
+  profile: string
 }
 
 export type ProjectNoteView = {

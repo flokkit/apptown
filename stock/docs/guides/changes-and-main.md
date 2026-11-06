@@ -29,7 +29,7 @@ change's branch and ends at a person; only the landing merges.
   by a dependency scan.
 - **Adopt or retire an integration** (`apptown adopt`, `apptown retire`): wire
   an attached service into the app, or prove it fully unwired.
-- **Adopt a branch** (`apptown import <branch>`, or Settings › General): bring
+- **Adopt a branch** (`apptown import <branch>`): bring
   in work done outside AppTown as a change. Its history is marked as
   reconstructed, not witnessed, and it lands like any other.
 

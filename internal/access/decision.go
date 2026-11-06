@@ -356,7 +356,7 @@ func containsCap(xs []Capability, c Capability) bool {
 // one (identity administration refuses it too), so they sign in as
 // themselves and make one on the People page.
 func tokenCeilingFix(pr Principal) string {
-	return fmt.Sprintf("the token was made without administrator authority, which %s holds; sign in on the web and make a command-line token on People → API tokens (its role defaults to yours)", pr.Name)
+	return fmt.Sprintf("the token was made without administrator authority, which %s holds; sign in on the web and make a command-line token on Account → Access tokens (its role defaults to yours)", pr.Name)
 }
 
 // A refusal never names the project: the caller may not be able to read it,

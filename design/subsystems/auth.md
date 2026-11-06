@@ -21,6 +21,11 @@ transport verification. Identity administration reads the admitted person by
 immutable principal ID and refuses a name-only caller; names remain available
 for directory queries and historical attribution.
 
+Every signed-in person creates and revokes their own tokens on Account and
+disconnects their own connected coding agents there. Personal token commands
+act only as the current person and cannot widen their credential’s role. People
+lists everyone’s tokens and connected agents for administrators.
+
 Personal bearer tokens work alongside these modes. On `/api/`, a
 present but invalid bearer token is refused; it does not fall back to a cookie or
 open identity. Otherwise authentication checks the mode's identity source. In

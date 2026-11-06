@@ -327,6 +327,7 @@ func appRoutes(a *App) []routeSpec {
 		publicRoute("GET /api/v1/model-catalog", modelDiscovery.ModelCatalog, "modelDiscovery.ModelCatalog: shared credential-free model catalogue"),
 		requireRoute("POST /api/v1/integrations/discover", modelDiscovery.DiscoverModels, access.CapModelsBindings, "instance"),
 		requireRoute("PUT /api/v1/model-slots", modelSlots.PutModelSlot, access.CapModelsSlots, "instance"),
+		requireRoute("GET /api/v1/projects/{slug}/model-profile", modelSlots.ProjectModels, access.CapProjectRead, "project-slug"),
 		requireRoute("PUT /api/v1/projects/{slug}/model-profile", modelSlots.PutProjectModelProfile, access.CapProjectModelProfile, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/manifest", projectManifest.ProjectManifest, access.CapProjectRead, "project-slug"),
 		publicRoute("GET /api/v1/workflows/schema", workflowCatalog.WorkflowSchema, "workflowCatalog.WorkflowSchema: shared workflow format schema"),
@@ -528,6 +529,8 @@ func appRoutes(a *App) []routeSpec {
 		ownerRoute("DELETE /api/v1/authz/grants/{id}", authorization.AuthzRevoke, "authorization.AuthzRevoke"),
 		ownerRoute("GET /api/v1/authz/explain", authorization.AuthzExplain, "authorization.AuthzExplain"), // decides inside: self on a readable project, else institution:read-structure
 		publicRoute("GET /api/v1/authz/me", authorization.AuthzMe, "authorization.AuthzMe: current caller capability self-view"),
+		ownerRoute("POST /api/v1/account/tokens", accounts.CreateOwnToken, "accounts.CreateOwnToken"),
+		ownerRoute("DELETE /api/v1/account/tokens/{name}", accounts.RevokeOwnToken, "accounts.RevokeOwnToken"),
 		ownerRoute("POST /api/v1/tokens", accounts.CreateToken, "accounts.CreateToken"),
 		ownerRoute("GET /api/v1/tokens", accounts.ListTokens, "accounts.ListTokens"),
 		ownerRoute("DELETE /api/v1/tokens/{name}", accounts.RevokeToken, "accounts.RevokeToken"),

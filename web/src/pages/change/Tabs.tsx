@@ -2,7 +2,7 @@ import { FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Status } from '../../Status'
 import { renderMd } from '../../md'
-import { Adr, Artifact, ChangeView, RunDetail, Step, patch, post } from '../../api'
+import { Artifact, ChangeView, RunDetail, Step, post } from '../../api'
 import { useAction, useGet } from '../../data'
 import type { RunTrace } from '../../wire.gen'
 
@@ -40,41 +40,15 @@ export function ArtifactBody({ artifact }: { artifact: Artifact }) {
   )
 }
 
-export function AdrLinks({ view, onChange }: { view: ChangeView; onChange: () => void }) {
-  const { data: all } = useGet<Adr[]>(`/projects/${view.projectSlug}/adrs`)
-  const [pick, setPick] = useState('')
-  const [title, setTitle] = useState('')
-  const { run, err } = useAction(onChange)
-  const unlinked = (all ?? []).filter((a) => a.changeId !== view.change.id)
-  const link = () => { if (pick) run(() => patch(`/adrs/${pick}`, { changeId: view.change.id })) }
-  const createLinked = async (e: FormEvent) => {
-    e.preventDefault()
-    await run(() => post(`/projects/${view.projectSlug}/adrs`, { title, changeId: view.change.id }))
-    setTitle('')
-  }
-  return (
-    <div>
-      {view.adrs.map((a) => (
-        <div className="card row" key={a.id}>
-          <Status word={a.statusLabel} />
-          <Link to={`/adrs/${a.id}`}>ADR-{String(a.number).padStart(3, '0')} {a.title}</Link>
-          <span className="muted small">{a.tags}</span>
-        </div>
-      ))}
-      <div className="row mt-1" >
-        <select aria-label="Decision to link" value={pick} onChange={(e) => setPick(e.target.value)}>
-          <option value="">link existing ADR…</option>
-          {unlinked.map((a) => <option key={a.id} value={a.id ?? ''}>ADR-{String(a.number).padStart(3, '0')} {a.title} ({a.status})</option>)}
-        </select>
-        <button onClick={link} disabled={!pick}>Link</button>
-        <form onSubmit={createLinked} className="row">
-          <input aria-label="New ADR title" placeholder="…or new ADR title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <button type="submit" disabled={!title.trim()}>Create draft</button>
-        </form>
-      </div>
-      {err && <div className="error">{err}</div>}
-    </div>
-  )
+export function AdrLinks({ view }: { view: ChangeView; onChange: () => void }) {
+  return <div>
+    {view.adrs.map(a => <div className="card row" key={a.id}>
+      <Status word={a.statusLabel} />
+      <Link to={`/adrs/${a.id}`}>ADR-{String(a.number).padStart(3, '0')} {a.title}</Link>
+      <span className="muted small">{a.tags}</span>
+    </div>)}
+    <Link to={`/projects/${view.projectSlug}/memory/decisions`}>Create or link a decision in Memory › Decisions →</Link>
+  </div>
 }
 
 export function AddArtifact({ runId, onChange }: { runId: string; onChange: () => void }) {

@@ -26,6 +26,13 @@ the Security, Settings and Memory groups. Memory holds Notes and Decisions.
 Overview shows the project's work and deployments; the notes agents read are
 under Memory › Notes.
 
+## Action ownership
+
+An action’s door is on the page of the thing it changes. Other pages link
+there. A convenience door from the other side appears only in a “…” menu
+and opens the same action on the owning page. This keeps one implementation,
+one set of checks and fewer buttons.
+
 ## Activity and release summaries
 
 Home's Recently finished shows landed and failed changes. The history response
@@ -115,8 +122,7 @@ Home and Projects offer Change only where current authority permits
 creation. It opens the ordinary change form. Project navigation offers Chat
 only with creation and invocation authority and conversation availability; it
 creates an ordinary change before opening that change's chat. Unavailable
-maintenance destinations are absent from navigation. Saved consent remains
-accessible by its address.
+maintenance destinations are absent from navigation. Saved Janitor consent is managed through the CLI and API.
 
 Other wide tables scroll in their own box with a shaded edge. Dialogs take the whole screen. On the change page the approval's
 comment and decisions are a bar held at the foot of the screen while the

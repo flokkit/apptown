@@ -173,3 +173,17 @@ it('holds a child decision while its checks are running', async () => {
   expect(el.querySelector('.decision-form')).toBeNull()
   act(() => root.unmount()); client.clear()
 })
+
+// A completed scan keeps the route to its owning Security page even when
+// there are no findings to act on in this run.
+it('opens Security from a scan’s details with its zero findings count', () => {
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  client.setQueryData(getKey(`/runs/${RUN}/findings`), { projectSlug: 'game', findings: [], unread: [] })
+  const step = { id: STEP, runId: RUN, name: 'secret-scan', stage: 'check', type: 'scan', status: 'pass', overrideBy: '', config: {}, evidence: { binding: 'gitleaks', findings: { total: 0, actionable: 0, dispositioned: 0 } } } as unknown as Step
+  try {
+    act(() => root.render(<QueryClientProvider client={client}><MemoryRouter><StepCard evidenceOnly step={step} onChange={() => {}} /></MemoryRouter></QueryClientProvider>))
+    expect(el.querySelector('a[href="/projects/game/security/findings"]')?.textContent).toBe('Security › Findings (0) →')
+    expect(el.textContent).not.toContain('Fix…')
+    expect(el.textContent).not.toContain('Suppress…')
+  } finally { act(() => root.unmount()); client.clear() }
+})

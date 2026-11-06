@@ -195,7 +195,7 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
                 {step.evidence.findings.dispositioned > 0 && <> ({step.evidence.findings.dispositioned} suppressed)</>}</>
             )}
           </div>
-          {step.evidence.findings != null && step.evidence.findings.total > 0 && (
+          {step.evidence.findings != null && (
             <section className="mt-1">
               <h4>Findings</h4>
               <RunFindings runId={runId} onChange={onChange} />

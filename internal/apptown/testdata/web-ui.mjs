@@ -115,7 +115,7 @@ try {
     'memory-decisions': '/projects/club-newsletter/memory/decisions',
     'overview-help': '/projects/club-newsletter',
     security: '/projects/club-newsletter/security', suppressions: '/projects/club-newsletter/security/suppressions',
-    janitor: '/projects/club-newsletter/janitor', release: '/projects/club-newsletter/release',
+    release: '/projects/club-newsletter/release',
     'change-delivery': `/changes/${seeded.delivered}`,
     change: `/changes/${process.env.DESIGN_CHANGE}`,
     'change-non-approver': `/changes/${process.env.DESIGN_CHANGE}`,
@@ -126,14 +126,13 @@ try {
     'conformance-project': '/conformance/projects/club-newsletter',
     'conformance-project-mixed': '/conformance/projects/lunch-orders',
     'deployment-infrastructure-help': '/deployments/infrastructure',
-    'janitor-all': '/janitor',
     'people-actions': '/people',
     'review': `/conformance/reviews/${seeded.review}`,
     'review-checks': `/conformance/reviews/${seeded.review}/checks`,
     'review-project': `/conformance/reviews/${seeded.review}/projects/club-newsletter`,
 
   };
-  for (const tab of ['general', 'working', 'services', 'deployments', 'secrets', 'members', 'usage']) routes['settings-' + tab] = '/projects/club-newsletter/settings/' + tab;
+  for (const tab of ['general', 'working', 'models', 'services', 'deployments', 'secrets', 'members', 'usage']) routes['settings-' + tab] = '/projects/club-newsletter/settings/' + tab;
   // Detail links come from the actual seeded records.
   for (const [screen, path, pattern] of [
     ['pack', '/packs', /^\/packs\/[^/]+$/],
@@ -160,9 +159,9 @@ try {
   await workRecord.waitFor();
   routes['work-record'] = await workRecord.getAttribute('href');
   routes['change-code'] = `/changes/${process.env.DESIGN_CHANGE}?tab=changes`;
+  routes['change-findings'] = `/changes/${process.env.DESIGN_CHANGE}?tab=details#checks`;
   for (const tab of ['overview', 'conversation', 'details']) routes['change-' + tab] = `/changes/${process.env.DESIGN_CHANGE}?tab=${tab}`;
   Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies', 'workflow-new': '/workflows', 'infrastructure-connection': '/infrastructure/new' });
-  if (process.env.DESIGN_AUDIT) routes['janitor-saved'] = '/projects/club-newsletter/janitor';
   if (process.env.DESIGN_AUDIT) routes['change-advisory'] = `/changes/${seeded.advisory}`;
   if (process.env.DESIGN_AUDIT) routes['reviews-running'] = '/conformance/reviews?cameraRunning=1';
   const selected = new Set((process.env.DESIGN_PAGES || '').split(',').filter(Boolean));
@@ -187,7 +186,10 @@ try {
     for (const [size, viewport] of Object.entries(variants)) {
       await page.setViewportSize(viewport);
       for (const theme of (process.env.DESIGN_AUDIT ? [size.startsWith('phone') ? 'dark' : 'light'] : ['light', 'dark'])) {
-        await page.goto(`${base}${path}${path.includes('?') ? '&' : '?'}theme=${theme}&size=${size.endsWith('-large') ? 'large' : 'medium'}`, { waitUntil: 'networkidle' });
+        const captureURL = new URL(path, base);
+        captureURL.searchParams.set('theme', theme);
+        captureURL.searchParams.set('size', size.endsWith('-large') ? 'large' : 'medium');
+        await page.goto(captureURL.href, { waitUntil: 'networkidle' });
         await page.locator('#root > *').first().waitFor({ state: 'visible' });
         await page.waitForFunction(() => ![...document.querySelectorAll('main .muted')].some(el => el.textContent === 'Loading…'));
         if (['overview-help', 'memory-notes', 'memory-decisions'].includes(screen)) {
@@ -242,13 +244,6 @@ try {
         if (screen === 'usage-timing') await page.getByRole('button', { name: 'Time spent', exact: true }).click();
         if (screen === 'backup-store-details') await page.getByRole('region', { name: 'Backup store', exact: true }).getByText('household-copies', { exact: true }).waitFor();
         if (screen === 'people-agents-expanded') await page.locator('main details').evaluateAll(els => els.forEach(el => { el.open = true; }));
-        if (screen === 'janitor-saved') {
-          const saved = page.locator('main summary').filter({ hasText: /^Saved consent/ });
-          await saved.click();
-          await page.locator('main summary').filter({ hasText: /^Details$/ }).first().click();
-          const history = page.getByRole('button', { name: 'History', exact: true });
-          if (await history.count()) { await history.click(); await page.getByText(/Revision 1:/).waitFor(); }
-        }
         if (screen === 'people-actions') await page.getByRole('button', { name: 'Actions for sam', exact: true }).click();
         if (screen.startsWith('new-project-')) {
           await page.locator('#project-description').fill('A calendar for the household');
@@ -297,6 +292,25 @@ try {
         if (screen === 'policy-new') await page.getByRole('button', { name: 'New policy', exact: true }).click();
         if (screen === 'workflow-new') await page.getByRole('link', { name: 'New workflow', exact: true }).click();
         if (screen === 'infrastructure-connection') await page.getByRole('button', { name: /Docker host/ }).click();
+        if (screen === 'change-findings') {
+          await page.getByRole('link', { name: /^Security › Findings \(/ }).first().waitFor();
+          if (await page.getByRole('button', { name: /^(Fix…|Suppress…)$/ }).count()) throw new Error('finding actions remain on the change');
+        }
+        if (screen === 'settings-models') {
+          await page.getByText('This project uses', { exact: false }).waitFor();
+          const chat = page.getByRole('row').filter({ has: page.getByText('Chat', { exact: true }) });
+          await chat.waitFor();
+          const modelCell = await chat.locator('td').nth(1).innerText();
+          if (modelCell !== 'fake/model') throw new Error(`unexpected Chat model: ${modelCell}`);
+          const plan = page.getByRole('row').filter({ has: page.getByText('Plan', { exact: true }) });
+          const inherited = await plan.locator('td').nth(1).innerText();
+          if (inherited !== 'fake/model · from Main · strong') throw new Error(`unexpected Plan model: ${inherited}`);
+          for (const row of await page.locator('tbody tr').all()) {
+            const name = await row.locator('strong').innerText();
+            if ((await row.locator('.muted').innerText()).startsWith(name + ':')) throw new Error(`repeated task description: ${name}`);
+          }
+          if (await page.getByRole('combobox', { name: 'Model profile', exact: true }).isDisabled()) throw new Error('administrator cannot select a model profile');
+        }
         await page.waitForLoadState('networkidle');
         await page.waitForFunction(() => ![...document.querySelectorAll('main .muted')].some(el => el.textContent === 'Loading…'));
         if (!process.env.DESIGN_BASELINE) await page.getByRole('heading', { level: 1 }).first().waitFor();

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
@@ -129,5 +130,71 @@ func TestConnectorAndModelCapabilitiesManageWhatTheyName(t *testing.T) {
 		if w := authzCall(h, tc.who, tc.method, tc.path, tc.body); w.Code != tc.code {
 			t.Errorf("%s %s %s: %d %s, want %d", tc.who, tc.method, tc.path, w.Code, w.Body.String(), tc.code)
 		}
+	}
+}
+
+// A project-only owner can read and move; a project viewer can read only.
+func TestProjectModelsReadUsesProjectAuthority(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t)
+	revokeReadingForAll(t, a)
+	a.addGrant("user", "proprietor", access.RoleProjectOwner, "", access.ScopeProject, idstest.N(1).String(), "boss", "")
+	a.addGrant("user", "reader", "", string(access.CapProjectRead), access.ScopeProject, idstest.N(1).String(), "boss", "")
+	if err := a.Models.Set(t.Context(), "main-strong", "high", "vendor/high", "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Models.Set(t.Context(), "custom", "standard", "vendor/custom", "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	h := a.Handler()
+	for _, who := range []string{"proprietor", "reader"} {
+		w := authzCall(h, who, "GET", "/api/v1/projects/game/model-profile", "")
+		var out model.ProjectModels
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &out) != nil {
+			t.Fatalf("%s project read: %d %s", who, w.Code, w.Body.String())
+		}
+		if out.Profile != "standard" {
+			t.Fatalf("assignment: %+v", out)
+		}
+		found := map[string]bool{}
+		for _, task := range out.Tasks {
+			if task.Slot == "chat" && task.Models["high"].Pattern == "vendor/high" && task.Models["high"].Slot == "main-strong" {
+				found["chat"] = true
+			}
+			if task.Slot == "custom" && task.Models["standard"].Pattern == "vendor/custom" {
+				found["custom"] = true
+			}
+		}
+		if !found["chat"] || !found["custom"] {
+			t.Fatalf("resolved tasks: %+v", out)
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(w.Body.Bytes(), &fields); err != nil {
+			t.Fatal(err)
+		}
+		if len(fields) != 3 || fields["profile"] == nil || fields["profiles"] == nil || fields["tasks"] == nil {
+			t.Fatalf("unscoped fields: %s", w.Body.String())
+		}
+		for _, path := range []string{"/api/v1/model-slots"} {
+			if w := authzCall(h, who, "GET", path, ""); w.Code != 403 {
+				t.Fatalf("%s unscoped %s: %d %s", who, path, w.Code, w.Body.String())
+			}
+		}
+	}
+	for _, tc := range []struct {
+		who  string
+		code int
+	}{{"proprietor", 200}, {"reader", 403}} {
+		if w := authzCall(h, tc.who, "PUT", "/api/v1/projects/game/model-profile", `{"profile":"high"}`); w.Code != tc.code {
+			t.Fatalf("%s move: %d %s", tc.who, w.Code, w.Body.String())
+		}
+	}
+	w := authzCall(h, "reader", "GET", "/api/v1/projects/game/model-profile", "")
+	var moved model.ProjectModels
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &moved) != nil || moved.Profile != "high" {
+		t.Fatalf("assignment after switch: %d %s", w.Code, w.Body.String())
+	}
+	if w := authzCall(h, "outsider", "GET", "/api/v1/projects/game/model-profile", ""); w.Code != 403 {
+		t.Fatalf("outsider read: %d %s", w.Code, w.Body.String())
 	}
 }

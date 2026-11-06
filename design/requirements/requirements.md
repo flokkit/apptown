@@ -521,7 +521,7 @@ a coding agent.*
 **C21 Mint an API token.** A person mints a named token for the CLI or a
 script; its actions are recorded under their name; they revoke it from
 the same list. Connected coding agents' grants are listed and revoked
-beside it. *People → API tokens; Connected coding agents; `apptown token`.*
+beside it. *Account → Access tokens; Connected coding agents; `apptown token`.*
 
 **C22 Read the ledger.** Every run's steps, evidence and events; every
 change's diff, report and receipts; the audit log of who did what.

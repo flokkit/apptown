@@ -4,7 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { newQueryClient, retryDelay } from '../data'
+import { newQueryClient } from '../data'
 import { settled } from '../settled'
 import WhatIfPage from './WhatIfPage'
 
@@ -42,9 +42,6 @@ const whatIf = {
     { projectId: MAIL, projectSlug: 'mail', statusLabel: 'unknown', outcome: 'not-evaluated', fixed: 0, newFailures: [], notAssessed: [], notAssessedBy: [], score: { checks: 0, judged: 0, passed: 0, failing: 0, couldNotAssess: 0, noLongerRequired: 0, newFailures: 0, fixed: 0, movesBack: 0, ruleChanges: 0 }, moves: [] },
   ],
 }
-
-// fail is a server error answer: render sends it with status 503.
-const fail = (error: string) => ({ __status: 503, error })
 
 async function render(answer: (url: string, init?: RequestInit) => unknown) {
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
@@ -115,8 +112,8 @@ describe('the what-if page', () => {
     expect(projectRows(el)[1].querySelector('[title="no image of the app at this commit could be used. To assess: the app must ship an image"]')).not.toBeNull()
     expect(rows[2]).toContain('shopwould join● passedno new failuresno checks')
     expect(rows[3]).toContain('mail● unknownnot evaluated')
-    expect(button(el, 'Recommend v2').disabled).toBe(true)
-    expect(text).toContain('Ask an administrator to recommend this version')
+    expect(button(el, 'Recommend v2')).toBeUndefined()
+    expect(el.querySelector(`a[href="/packs/team?whatIf=${WHAT_IF}"]`)).not.toBeNull()
     expect(el.querySelector('a[href="/evals/new?pack=team&version=2"]')).not.toBeNull()
     await act(async () => { button(el, 'details').click() })
     expect(el.textContent).toContain('would fail')
@@ -129,61 +126,10 @@ describe('the what-if page', () => {
     done()
   })
 
-  it('recommends the version for someone who manages packs', async () => {
-    const posted: [string, unknown][] = []
-    const { el, client, done } = await render((url, init) => {
-      if (init?.method === 'POST') { posted.push([url, JSON.parse(String(init.body))]); return {} }
-      return url.includes('/authz/me') ? { instance: { 'standards:manage-packs': true } } : url.includes('/packs/team') ? { recommended: 1 } : whatIf
-    })
-    await act(async () => { button(el, 'Recommend v2').click() })
-    await act(async () => { button(el, 'Recommend it').click() })
-    await settled(client)
-    expect(posted).toEqual([['/api/v1/packs/team/recommended', { version: 2, whatIf: WHAT_IF }]])
-    done()
-  })
-
-  // A read the controls depend on that failed is said as such: never as
-  // "recommended" from an old answer, never as a missing grant when what the
-  // caller holds is unknown (review WR-C01). Server errors are retried
-  // twice; the fake clock runs that schedule out.
-  const retried = async (client: { isFetching: () => number }) => {
-    await act(async () => { await vi.advanceTimersByTimeAsync(retryDelay(0) + retryDelay(1)) })
-    await vi.waitFor(() => expect(client.isFetching()).toBe(0))
-  }
-
-  it('says the pack could not be read, not that a version is recommended', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    const { el, client, done } = await render((url) => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? fail('pack storage unavailable') : whatIf)
-    await retried(client)
-    expect(el.querySelector('.error .chip')?.getAttribute('title')).toContain('pack storage unavailable')
-    expect(el.textContent).not.toContain('is recommended')
-    expect(el.textContent).not.toContain('Ask an administrator to recommend this version')
-    expect(button(el, 'Recommend v2').disabled).toBe(true)
-    vi.useRealTimers()
-    done()
-  })
-
-  it('marks a pack answer whose refresh failed as out of date', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    let down = false
-    const { el, client, done } = await render((url) => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? (down ? fail('pack storage unavailable') : { recommended: 2 }) : whatIf)
-    expect(el.textContent).toContain('v2 is recommended')
-    down = true
-    await act(async () => { void client.refetchQueries({ queryKey: ['get', 'packs', 'team'] }) })
-    await retried(client)
-    expect(el.querySelector('.chip.unknown')).not.toBeNull()
-    vi.useRealTimers()
-    done()
-  })
-
-  it('does not say a grant is missing when what the caller holds is unknown', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    const { el, client, done } = await render((url) => url.includes('/authz/me') ? fail('identity unavailable') : url.includes('/packs/team') ? { recommended: 1 } : whatIf)
-    await retried(client)
-    expect(el.textContent).not.toContain('Ask an administrator to recommend this version')
-    expect(el.textContent).toContain('identity unavailable')
-    expect(button(el, 'Recommend v2').disabled).toBe(true)
-    vi.useRealTimers()
+  it('links to the pack recommendation with the assessed what-if', async () => {
+    const { el, done } = await render(() => whatIf)
+    expect(el.querySelector(`a[href="/packs/team?whatIf=${WHAT_IF}"]`)?.textContent).toContain('Recommend v2')
+    expect(button(el, 'Recommend')).toBeUndefined()
     done()
   })
 
@@ -345,10 +291,5 @@ describe('the what-if page', () => {
     done()
   })
 
-  it('does not offer to recommend the recommended version', async () => {
-    const { el, done } = await render((url) => url.includes('/authz/me') ? { instance: { 'standards:manage-packs': true } } : url.includes('/packs/team') ? { recommended: 2 } : whatIf)
-    expect(button(el, 'Recommend v2').disabled).toBe(true)
-    expect(el.textContent).toContain('v2 is recommended')
-    done()
-  })
+
 })

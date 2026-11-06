@@ -5,11 +5,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { HttpError, Project as ProjectT, del, patch, post } from '../../../api'
 import { FieldRow } from '../../../FieldRow'
-import { firstErr, getKey, useAction, useGet } from '../../../data'
+import { getKey, useAction, useGet } from '../../../data'
 import { ReadStatus, StaleNote } from '../../../ReadGate'
 import type { OverviewData } from '../../../parts/runActivity'
 import type { DeploymentView } from '../../../wire.gen'
-import type { ChangeEnvelope, Lifecycle, ProjectDeletionState, ProjectRow } from '../../../wire.gen'
+import type { Lifecycle, ProjectDeletionState, ProjectRow } from '../../../wire.gen'
 import { fmtDay, fmtStamp } from '../../../format'
 import { QuietConfirm } from '../../../QuietConfirm'
 import { Section } from '../../../Section'
@@ -129,8 +129,8 @@ export function LifecycleNote({ slug, lifecycle }: { slug: string; lifecycle?: L
   )
 }
 
-// Settings › General: the project's name and face, its repository, adopting
-// a branch, and deleting it. Everything about the project AS a thing, in
+// Settings › General: the project's name and face, its repository,
+// and deleting it. Everything about the project AS a thing, in
 // one place — the header stays a header.
 
 type Face = { slug: string; name: string; namespace: string; icon: string; blurb: string }
@@ -167,12 +167,9 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
   }
   const changed = base && draft ? (Object.keys(draft) as (keyof Face)[]).filter((k) => draft[k] !== base.face[k]) : []
 
-  const [branch, setBranch] = useState('')
   const { run: runSave, busy: saving, err: saveErr, failure, setErr: setSaveErr } = useAction(undefined, { affects: ['/projects'] })
-  const { run, err: actErr } = useAction()
   const projectsQ = useGet<ProjectRow[]>('/projects', { kind: 'config' })
   const namespaces = [...new Set((projectsQ.data ?? []).map((p) => p.namespace ?? '').filter(Boolean))]
-  const err = firstErr(actErr, projectsQ.err)
 
   const save = async () => {
     if (!base || !draft || changed.length === 0) return
@@ -216,12 +213,6 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
     setConflict(false); setSaveErr('')
   }
   const discard = () => { setDraft(null); setBase({ face: faceOf(project), revision: project.settingsRevision }); setConflict(false); setSaveErr('') }
-
-  const importBranch = async () => {
-    if (!branch.trim()) return
-    const r = await run(() => post<ChangeEnvelope>(`/projects/${project.slug}/import`, { branch: branch.trim() }))
-    if (r) nav(`/changes/${r.change.id}`)
-  }
 
   return (
     <div className="settings-general general-general-tab-settings-general">
@@ -269,15 +260,6 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
       </Section>
 
       <RepoCard slug={project.slug} />
-
-      <Section title="Import a branch">
-        <div className="card row general-general-tab-card">
-          <input aria-label="Branch name" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="branch name"
-            onKeyDown={(e) => e.key === 'Enter' && importBranch()} className="general-danger-zone-input" />
-          <button disabled={!branch.trim()} onClick={importBranch}>Adopt as a change</button>
-        </div>
-        {err && <div className="error">{err}</div>}
-      </Section>
 
       <Section title="Delete project">
         <DangerZone slug={project.slug} />

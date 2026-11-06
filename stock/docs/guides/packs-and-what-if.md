@@ -57,8 +57,8 @@ Every run records the version it used.
   before you run it and recorded with the what-if, and they apply only to
   projects already on those packs. Eligible projects then include those
   current on this pack but behind on their own.
-  Every what-if is listed under **Conformance → What-ifs**. Recommend the
-  version from there, or tick projects and
+  Every what-if is listed under **Conformance → What-ifs**. Its recommendation
+  link opens the pack page. Recommend the version there, or tick projects and
   **Adopt** to open one adoption Change per project with exactly what was
   assessed (or `apptown whatif adopt <id> -p <project>[,<project>…]`). Each
   Change starts its working run (quick-change, or implement) at once: the
@@ -73,8 +73,8 @@ Every run records the version it used.
   person. A project whose quick-change or landing does not say what such a
   yes means offers none.
   Adopting takes the right to choose a project's way of working, which
-  maintainers and owners hold. Recommending from the what-if
-  page, or with `apptown pack recommend <pack> <version> --what-if <id>`,
+  maintainers and owners hold. Following the what-if’s link and recommending on the pack
+  page, or using `apptown pack recommend <pack> <version> --what-if <id>`,
   records the what-if on the recommendation it makes; naming a what-if for
   the version already recommended is refused, as nothing would change. Model
   rubrics cost money, so they run only if you include them with a spend

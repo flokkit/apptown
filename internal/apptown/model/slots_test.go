@@ -231,3 +231,17 @@ func TestTasksUseBasicChoicesUntilIndividuallySet(t *testing.T) {
 		t.Fatalf("unset secondary fast: %q %v", got, err)
 	}
 }
+
+func TestBaseGlossDescribesPurposeWithoutRepeatingName(t *testing.T) {
+	t.Parallel()
+	for slot, want := range map[string]string{
+		"main-strong":      "the main model; the end of every fallback chain",
+		"main-fast":        "quick everyday jobs",
+		"secondary-strong": "a second opinion on finished work",
+		"secondary-fast":   "quick independent checks",
+	} {
+		if got := Gloss[slot]; got != want {
+			t.Errorf("%s description = %q, want %q", slot, got, want)
+		}
+	}
+}
