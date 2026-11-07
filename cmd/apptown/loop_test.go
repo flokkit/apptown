@@ -112,33 +112,51 @@ func TestEveryLoopVerbUsesACurrentStockWorkflow(t *testing.T) {
 	}
 }
 
-// The shipped line names the deployment the landing released to with its
-// address whatever was observed there, and says what was observed: the
-// address once appeared only when the app was seen running (sweep 7, A2).
-func TestTheShippedLineNamesTheFedDeploymentAndWhatWasObserved(t *testing.T) {
+// The shipped line keeps the landing's deployment selection and addresses,
+// and renders Deployment's answer for every selected deployment.
+func TestTheShippedLineNamesTheFedDeploymentAndServerStatus(t *testing.T) {
+	t.Parallel()
 	deps := []shippedDeployment{
-		{Name: "main", URL: "https://shop.example", Observation: "unknown", ObservedAt: "2026-10-03T07:51:12Z", ReleaseRun: idstest.N(70)},
-		{Name: "lan", URL: "http://shop.lan", Observation: "running", ObservedAt: "2026-10-03T07:51:12Z", ReleaseRun: idstest.N(12)},
+		{Name: "main", URL: "https://shop.example", Status: shippedDeploymentStatus{Word: "unknown", Reason: "s3 did not answer in time"}, ReleaseRun: idstest.N(70)},
+		{Name: "lan", URL: "http://shop.lan", Status: shippedDeploymentStatus{Word: "working"}, ReleaseRun: idstest.N(12)},
 	}
 	line := deploymentsLine(deps, idstest.N(70))
-	if !strings.Contains(line, "main https://shop.example (its state is not known)") || strings.Contains(line, "lan") {
+	if !strings.Contains(line, "main https://shop.example (unknown — s3 did not answer in time)") || strings.Contains(line, "lan") {
 		t.Fatalf("fed by run 70: %q", line)
 	}
-	// No deployment names the landing: every deployment, each with its state.
-	deps[1].ObservationStale = true
 	line = deploymentsLine(deps, idstest.N(99))
-	if !strings.Contains(line, "main https://shop.example (its state is not known)") || !strings.Contains(line, "lan http://shop.lan (running when last observed)") {
+	if !strings.Contains(line, "main https://shop.example (unknown — s3 did not answer in time)") || !strings.Contains(line, "lan http://shop.lan (working)") {
 		t.Fatalf("no deployment names the landing: %q", line)
 	}
-	deps[0].Observation = "stopped"
-	if line := deploymentsLine(deps[:1], idstest.N(70)); !strings.Contains(line, "(stopped)") {
-		t.Fatalf("stopped: %q", line)
+	for _, answer := range []shippedDeploymentStatus{
+		{Word: "stopped", Reason: "stopped by sam"},
+		{Word: "deploying", Reason: "Release 2 is releasing"},
+		{Word: "deploying", Reason: "starting"},
+		{Word: "deploying", Reason: "stopping"},
+		{Word: "failed", Reason: "mariadb is unhealthy"},
+		{Word: "unknown", Reason: "not checked yet", Stale: true},
+	} {
+		deps[0].Status = answer
+		want := answer.Word + " — " + answer.Reason
+		if answer.Stale {
+			want += " · old reading"
+		}
+		if line := deploymentsLine(deps[:1], idstest.N(70)); !strings.Contains(line, "("+want+")") {
+			t.Errorf("server answer %+v: %q", answer, line)
+		}
 	}
-	// Right after a landing nothing has been observed yet: not an unknown
-	// state, and the words say so.
-	fresh := []shippedDeployment{{Name: "main", URL: "https://shop.example", Observation: "unknown", ObservationStale: true, ReleaseRun: idstest.N(70)}}
-	if line := deploymentsLine(fresh, idstest.N(70)); !strings.Contains(line, "main https://shop.example (not observed yet)") {
-		t.Fatalf("before the first observation: %q", line)
+}
+
+func TestTheShippedLineShowsServerCheckTimes(t *testing.T) {
+	t.Parallel()
+	checked := time.Date(2026, 11, 7, 0, 12, 37, 0, time.UTC)
+	retry := checked.Add(20 * time.Second)
+	deps := []shippedDeployment{{Name: "main", Status: shippedDeploymentStatus{
+		Word: "unknown", Reason: "s3 did not answer in time", Stale: true, CheckedAt: checked, RetryAt: retry,
+	}}}
+	want := "main (unknown — s3 did not answer in time · old reading · checked " + checked.Local().Format("15:04") + " · next check " + retry.Local().Format("15:04") + ")"
+	if line := deploymentsLine(deps, ids.Nil); !strings.Contains(line, want) {
+		t.Fatalf("want %q in %q", want, line)
 	}
 }
 

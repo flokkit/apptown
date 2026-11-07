@@ -670,3 +670,6 @@ ORDER BY r.number DESC LIMIT 1;
 
 -- name: SetRuntimeState :execrows
 UPDATE deployments SET runtime_state=sqlc.arg(state), runtime_actor=sqlc.arg(actor), runtime_at=sqlc.narg(at), runtime_error=sqlc.arg(error) WHERE id=sqlc.arg(id);
+
+-- name: ReleasingDeployment :one
+SELECT number, created_at FROM releases WHERE deployment_id=$1 AND state='releasing' ORDER BY number DESC LIMIT 1;

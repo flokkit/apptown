@@ -9,73 +9,39 @@ import { ApplicationOverview } from './pages/project/ApplicationOverview'
 import { DeploymentRow, EnvCard } from './pages/project/settings/Deployments'
 import type { DeploymentView, ProjectDetail } from './wire.gen'
 
-// Every deployment view must qualify the same runtime reading with the same
-// diagnostics, including unknown parts and stale or missing readings.
-it.each([
-  ['running', 'ready', {}, 'working'],
-  ['running', 'unknown', {}, 'unknown'],
-  ['running', 'ready', { unknown: true }, 'unknown'],
-  ['running', 'ready', { stale: true }, 'unknown'],
-  ['running', 'missing', {}, 'unknown'],
-  ['unknown', 'missing', {}, 'unknown'],
-  ['stopped', 'unknown', {}, 'stopped'],
-  ['unreachable', 'unknown', {}, 'unreachable'],
-  ['unknown', 'missing', {}, 'deploying', 'releasing'],
-  ['running', 'ready', { stale: true }, 'deploying', 'releasing'],
-  ['unreachable', 'unknown', {}, 'deploying', 'releasing'],
-  ['unknown', 'missing', {}, 'unknown', 'released'],
-  ['running', 'ready', {}, 'working', 'released'],
-  ['unknown', 'missing', {}, 'unknown', 'failed'],
-] as const)('agrees across all deployment views for %s / %s / %j', (observation, presence, reading, word, releaseState = undefined) => {
+import { ProjectListRow } from './ProjectListRow'
+import type { ProjectRow } from './wire.gen'
+
+// The server answer is authoritative even when the raw public-part reading
+// says running and diagnostics have not been fetched by this page.
+it.each(['working', 'unknown', 'failed', 'stopped', 'deploying'] as const)('renders the server answer %s across project and deployment views', word => {
   const client = newQueryClient()
-  const env = { id: 'deployment', name: 'main', observation, generation: 1, kind: 'standing', feed: 'main', observationIssue: 'Runtime status is unavailable', observationStale: word === 'deploying', observedAt: '2026-11-01T00:00:00Z' } as DeploymentView
+  const reason = 'storage (s3) did not answer in time'
+  const status = { word, reason, checkedAt: '2026-11-01T00:00:00Z', stale: word === 'unknown' }
+  const env = { id: 'deployment', name: 'main', observation: 'running', generation: 1, kind: 'standing', feed: 'main', observationStale: false, observedAt: '2026-11-01T00:00:00Z', status } as DeploymentView
   const values = {
     '/projects/lunch/deployments': [env],
     '/projects/lunch/overview': { active: [], open: [], history: [] },
-    '/projects/lunch/releases': [
-      { number: 8, state: 'releasing', statusLabel: 'deploying', deployment: 'other', createdAt: '2026-11-01T00:00:00Z' },
-      ...(releaseState ? [{ number: 7, state: releaseState, statusLabel: releaseState === 'releasing' ? 'deploying' : releaseState === 'released' ? 'deployed' : 'failed', deployment: env.name, createdAt: '2026-11-01T00:00:00Z' }] : []),
-    ],
+    '/projects/lunch/releases': [],
     '/projects/lunch/deployments/main/resources': { parts: [], limits: [], limitsKnown: true },
     '/projects/lunch/deployments/main/backups': { backups: [], plan: [] },
-    ...(presence === 'missing' ? {} : { '/projects/lunch/deployments/main/diagnostics': { reading, parts: [{ part: 'web', presence }], events: [], eventsKnown: true } }),
   }
   for (const [path, value] of Object.entries(values)) client.setQueryData(getKey(path), value)
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>
+    <div id="projects"><ProjectListRow project={{ ...env, slug: 'lunch', name: 'Lunch' } as unknown as ProjectRow} /></div>
     <div id="overview"><ApplicationOverview project={{ slug: 'lunch', name: 'Lunch' } as ProjectDetail} /></div>
     <div id="list"><DeploymentRow slug="lunch" env={env} /></div>
     <div id="page"><EnvCard slug="lunch" env={env} onChanged={() => {}} /></div>
     <div id="fleet"><FleetDeploymentStatus slug="lunch" id={env.id} /></div>
   </MemoryRouter></QueryClientProvider>)
-  for (const selector of ['#overview .card.row > .row-status .chip', '#list .list-state .chip', '#page .deploy-head .chip', '#fleet .chip']) {
-    const chip = el.querySelector(selector)
-    expect(chip?.textContent?.replace(/^●\s*/, '').trim(), selector).toBe(word)
-    if (word === 'deploying') {
-      expect(chip?.classList.contains('running'), selector).toBe(true)
-      expect(chip?.getAttribute('title'), selector).toBe('Release 7')
-    } else if (observation === 'unknown') {
-      expect(chip?.classList.contains('unknown'), selector).toBe(true)
-      expect(chip?.getAttribute('title'), selector).toBe('Runtime status is unavailable')
-    }
+  for (const selector of ['#projects .project-state', '#overview .row-status', '#list .list-state', '#page .deploy-head', '#fleet']) {
+    const state = el.querySelector(selector)
+    expect(state?.querySelector('.chip')?.textContent?.replace(/^●\s*/, '').trim(), selector).toBe(word)
+    expect(state?.textContent, selector).toContain(reason)
+    expect(state?.textContent, selector).toContain('checked ')
+    expect(state?.querySelector('.status-help-stack > .small.muted'), selector).not.toBeNull()
   }
+  expect(deploymentStatus(env).word).toBe(word)
   client.clear()
-})
-
-it('keeps observations without generation diagnostics and downgrades a failed diagnostics refresh', async () => {
-  const { deploymentStatus } = await import('./deploymentStatus')
-  const env = { observation: 'running', generation: 0 } as DeploymentView
-  expect(deploymentStatus(env).word).toBe('running')
-  expect(deploymentStatus({ ...env, generation: 1 }, { parts: [] } as never, true).word).toBe('unknown')
-})
-
-// A bucket website runs no containers, so its parts are never reported; the
-// witnessed answer from its address decides, and a stale reading still does not.
-it.each([
-  [{}, 'running'],
-  [{ stale: true }, 'unknown'],
-] as const)('a target without containers reads its observation (%j)', (reading, word) => {
-  const env = { id: 'd', name: 'site', observation: 'running', generation: 1, kind: 'standing' } as DeploymentView
-  const diagnostics = { reading, containers: false, parts: [{ part: 'catalog', presence: 'unknown' }], events: [], eventsKnown: false } as never
-  expect(deploymentStatus(env, diagnostics).word).toBe(word)
 })

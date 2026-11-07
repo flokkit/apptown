@@ -123,8 +123,11 @@
 // [Service.RunObservations] refreshes runtime samples, separately from recovery
 // and Docker health enforcement. Placement and generation are rechecked after I/O.
 // [Service.ProjectRuntime] reads authorized cached observations without contacting
-// providers, showing the most urgent deployment state and a separate production
-// address. [Service.ObserveContainer] reads them for one deployment: a page
+// providers, showing the most urgent standing deployment status and a separate production
+// address. [Service.Status] computes the one display answer from runtime intent,
+// release progress and matching stored part diagnostics, with its reason, check
+// time, staleness and next retry. All deployment views consume that answer.
+// [Service.ObserveContainer] reads them for one deployment: a page
 // never waits on a host that does not answer. Missing, replaced or stale observations cannot prove that a workload runs.
 // Promotion refuses a fresh stopped source; otherwise it can select the source's
 // last settled bundle, recording that meaning in the release log.
@@ -156,7 +159,9 @@
 // unread section stays unknown. BeforeAct increments the act counter before an
 // effect. Only a complete lap begun after that act clears the whole-reading
 // mark; passive reads compare with the current counter. Docker inventory
-// derives from the stored facts. Missing-resource claims compare records
+// and deployment diagnostics derive from the stored facts. Diagnostics never
+// inspect parts individually; a failed section exposes the next ordinary lap.
+// Missing-resource claims compare records
 // and facts during the same complete collection; newer records cannot establish
 // absence against older facts. Placement verification runs during collection
 // so reading pages does not contact providers.

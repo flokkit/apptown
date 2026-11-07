@@ -25,7 +25,7 @@ export type Activity = {
   waitingOnYou: RunRow[]
   active: RunRow[]
   history: ChangeRow[]
-  deployments: (RuntimeObservation & { project: string; name: string; url: string; hostOnly?: boolean; running: boolean | null })[]
+  deployments: (RuntimeObservation & { project: string; name: string; url: string; hostOnly?: boolean; kind: string; projectStatus: import('../wire.gen').DeploymentStatus; running: boolean | null })[]
 }
 type Setup = SetupState
 
@@ -115,15 +115,13 @@ export function homeStatusParts({ needsYou, running, deployments, operations }: 
   const parts: HomeStatusPart[] = []
   if (needsYou === null || needsYou > 0) parts.push({ label: 'Waiting on you', value: needsYou ?? "couldn't read", to: '#waiting-on-you' })
   if (running > 0) parts.push({ label: 'Other work', value: running, to: '#other-work' })
-  // An app is live when one of its deployments was seen running on the
-  // latest check. One whose status is not current (stale or unknown) and
-  // has no live deployment is counted apart, so unknown never reads as down.
+  // Deployment owns the project roll-up; Home only counts its answers.
   const live = new Set<string>(), unknown = new Set<string>()
   for (const d of deployments) {
-    if (d.running === true && !d.observationStale) live.add(d.project)
+    if (d.kind === 'standing' && d.projectStatus.word === 'working') live.add(d.project)
   }
   for (const d of deployments) {
-    if (!live.has(d.project) && (d.observationStale || d.running === null)) unknown.add(d.project)
+    if (d.kind === 'standing' && d.projectStatus.word === 'unknown') unknown.add(d.project)
   }
   if (deployments.length > 0) parts.push({ label: 'Apps live', value: live.size, to: '/deployments' })
   if (unknown.size > 0) parts.push({ label: 'Apps not checked', value: unknown.size, to: '/deployments' })

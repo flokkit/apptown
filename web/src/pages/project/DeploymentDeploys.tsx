@@ -1,6 +1,6 @@
 import { DeploymentRuntimeActions } from './DeploymentRuntimeActions'
 import { deploymentStatus } from '../../deploymentStatus'
-import type { DeploymentDiagnostics, DeploymentView } from '../../wire.gen'
+import type { DeploymentView } from '../../wire.gen'
 import { ReleaseApprovalActions, ReleaseAssent } from './ReleaseApproval'
 import { ChooseRelease, RollbackBefore, type ReleaseChoice } from './ChooseRelease'
 import { useState } from 'react'
@@ -22,16 +22,15 @@ export function DeploymentDeploys(props: DeployHistoryProps) {
 }
 function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload }: DeployHistoryProps) {
   const releases = useGet<ReleaseListed[]>(`/projects/${slug}/releases`, { poll: 3000 })
-  const diagnostics = useGet<DeploymentDiagnostics>(env.generation ? `/projects/${slug}/deployments/${name}/diagnostics` : null, { poll: 5000 })
   const [pending, setPending] = useState<string>()
   const shown = pending ? { ...env, runtimeState: pending } : env
-  const status = deploymentStatus(shown, diagnostics.data, diagnostics.refreshFailed, releases.data ?? [])
+  const status = deploymentStatus(env)
   const [choice, setChoice] = useState<ReleaseChoice | 'list' | null>(null)
   const [count, setCount] = useState(10)
   const history = releases.data?.filter(r => r.deployment === name) ?? []
   const latest = history[0]
   return <>
-    <div className="deployment-page-heading"><h1>{displayLabel || name} <Status observation {...status} reason={status.word === 'running' ? 'running' : status.reason} /></h1>
+    <div className="deployment-page-heading"><h1>{displayLabel || name} <Status observation {...status} /></h1>
       <DeploymentRuntimeActions key={env.id} slug={slug} env={shown} current={current} reload={reload} onPending={setPending} />
     </div>
     {env.runtimeState === 'stopped' && env.servingRelease && <p>stopped · will run release {env.servingRelease.number} when started</p>}

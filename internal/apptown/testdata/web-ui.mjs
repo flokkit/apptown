@@ -571,6 +571,24 @@ try {
             await page.evaluate(value => { if (value) document.documentElement.dataset.size = value; else delete document.documentElement.dataset.size; }, original);
           }
         }
+        if (['home', 'projects', 'project-deployments', 'deployments', 'deployment', 'target', 'target-cloud'].includes(screen)) {
+          const misplaced = await page.locator('.status-help-stack').evaluateAll(statuses => statuses.some(status => {
+            const chip = status.querySelector('.chip'), reason = status.querySelector('.muted');
+            if (!chip || !reason) return true;
+            const c = chip.getBoundingClientRect(), r = reason.getBoundingClientRect();
+            return r.top < c.bottom || Math.abs(r.left - c.left) > 1 || reason.scrollWidth > reason.clientWidth + 1;
+          }));
+          if (misplaced) throw new Error(screen + ': status reasons must wrap below their chip');
+        }
+        if (screen === 'project-deployments' && size.startsWith('desktop')) {
+          const squeezed = await page.locator('.deployment-row').evaluateAll(rows => rows.some(row => {
+            const state = row.querySelector('.list-state').getBoundingClientRect();
+            const identity = row.querySelector('.list-identity').getBoundingClientRect();
+            const detail = row.querySelector('.list-detail').getBoundingClientRect();
+            return state.width > 300 || identity.width < 150 || detail.width < 150;
+          }));
+          if (squeezed) throw new Error('deployment reasons must leave room for name, address and details');
+        }
         if (screen === 'target' && size.startsWith('phone')) {
           const namesFit = await page.locator('.target-deployments-table .phone-name').evaluateAll(cells => cells.every(cell => cell.scrollWidth <= cell.clientWidth + 1));
           if (!namesFit) throw new Error('deployment names must remain readable on phones');

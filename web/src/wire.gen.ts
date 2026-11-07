@@ -550,6 +550,7 @@ export type DeploymentBackups = {
 export type DeploymentChecked = {
   deployment: string
   checked: RecoveryResult[]
+  status: DeploymentStatus
   observation: RuntimeState
   observationIssue?: string
   observedAt?: string
@@ -652,6 +653,7 @@ export type DeploymentView = {
   updatedAt: string
   static?: boolean
   target?: DeploymentTargetView | null
+  status: DeploymentStatus
   observation: RuntimeState
   observationIssue?: string
   observedAt?: string
@@ -1457,6 +1459,7 @@ export type ProjectRow = {
   productionUrl: string
   deployed: boolean
   hasDeployments: boolean
+  status: DeploymentStatus
   observation: RuntimeState
   observationIssue?: string
   observedAt?: string
@@ -3058,6 +3061,14 @@ export type RecoveryResult = {
   reason?: string
 }
 
+export type DeploymentStatus = {
+  word: ProgressLabel
+  reason: string
+  checkedAt?: string
+  stale: boolean
+  retryAt?: string
+}
+
 export type RuntimeState = "unknown" | "running" | "stopped" | "unreachable"
 
 export type DetailReading = {
@@ -3065,6 +3076,7 @@ export type DetailReading = {
   waiting: boolean
   observedAt?: string
   attemptedAt?: string
+  retryAt?: string
   failure?: string
   stale: boolean
   unknown: boolean
@@ -3251,7 +3263,7 @@ export type AppliedAttempt = {
   generation: number
 }
 
-export type ProgressLabel = "unknown" | "deployed" | "deploying" | "failed" | "passed" | "working" | "stopped" | "waiting" | "excepted"
+export type ProgressLabel = "unknown" | "deployed" | "deploying" | "failed" | "passed" | "working" | "stopped" | "waiting" | "excepted" | "unreachable"
 
 export type DeploymentTargetView = {
   displayLabel: string
@@ -3596,11 +3608,14 @@ export type ChangeHistory = {
 }
 
 export type ActivityDeployment = {
+  kind: string
+  projectStatus: DeploymentStatus
   project: string
   name: string
   url: string
   hostOnly?: boolean
   running: boolean | null
+  status: DeploymentStatus
   observation: RuntimeState
   observationIssue?: string
   observedAt?: string
@@ -5249,6 +5264,7 @@ export type TargetReading = {
   waiting: boolean
   observedAt?: string
   attemptedAt?: string
+  retryAt?: string
   failure?: string
   stale: boolean
   unknown: boolean
@@ -5260,6 +5276,7 @@ export type TargetReading = {
 }
 
 export type TargetDeployment = {
+  status: DeploymentStatus
   displayLabel: string
   statusLabel: ProgressLabel
   project: string
@@ -5278,6 +5295,7 @@ export type OfferCaps = {
 }
 
 export type TierApp = {
+  status: DeploymentStatus
   observation: RuntimeState
   observationIssue?: string
   observedAt?: string

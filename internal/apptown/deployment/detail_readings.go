@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
@@ -26,6 +27,7 @@ type DetailReading struct {
 	Waiting     bool      `json:"waiting"`
 	ObservedAt  time.Time `json:"observedAt,omitzero"`
 	AttemptedAt time.Time `json:"attemptedAt,omitzero"`
+	RetryAt     time.Time `json:"retryAt,omitzero"`
 	Failure     string    `json:"failure,omitempty"`
 	Stale       bool      `json:"stale"`
 	Unknown     bool      `json:"unknown"`
@@ -115,22 +117,6 @@ func readDeploymentDetail[T any](ctx context.Context, s *Service, project ids.ID
 	}
 
 	switch v := any(&stored.Value).(type) {
-	case *Diagnostics:
-		v.Reading = reading
-		if reading.Unknown && !reading.Waiting {
-			v.Deployment = dep.Name
-			v.Generation = dep.ObservedGeneration
-			v.Desired = dep.DesiredGeneration
-			for i := range v.Parts {
-				v.Parts[i].Presence = presenceUnknown
-				v.Parts[i].Stale = true
-				v.Parts[i].Reason = reading.Failure
-			}
-			if len(v.Parts) == 0 {
-				v.Parts = []PartDiagnosis{}
-				v.Unsupported = reading.Failure
-			}
-		}
 	case *DeploymentResources:
 		v.Reading = reading
 		if !reading.Waiting && (reading.Unknown || reading.Failure != "") {
@@ -182,24 +168,9 @@ func collectDeploymentDetail[T any](ctx context.Context, s *Service, dep *Deploy
 	if err != nil || currentIdentity != identity {
 		return err
 	}
-	if d, ok := any(&value).(*Diagnostics); ok && checkErr == nil {
-		last := any(prior.Value).(Diagnostics)
-		for i := range d.Parts {
-			p := &d.Parts[i]
-			if p.Presence != presenceUnknown {
-				continue
-			}
-			for _, old := range last.Parts {
-				if prior.Reading.Identity == identity && old.Part == p.Part {
-					p.Facts, p.ObservedAt, p.Generation = old.Facts, old.ObservedAt, old.Generation
-					break
-				}
-			}
-		}
-		prior.Value = value
-	}
 	prior.Reading.AttemptedAt = s.now()
 	prior.Reading.Failure = reason
+	prior.Reading.RetryAt = time.Time{}
 	if prior.Reading.ObservedAt.IsZero() {
 		prior.Value = value
 	}
@@ -215,11 +186,14 @@ func collectDeploymentDetail[T any](ctx context.Context, s *Service, dep *Deploy
 		return err
 	}
 	err = deploymentsql.New(s.db.SQL()).StoreReading(finish, deploymentsql.StoreReadingParams{ID: ids.New(s.now()), Subject: dep.ID.String(), Kind: "detail-" + kind, Identity: identity, Payload: raw})
-	return errors.Join(checkErr, err)
+	if err != nil || checkErr != nil {
+		return errors.Join(checkErr, err)
+	}
+	return nil
 }
 
-// observeDetails collects the three page readings independently. A failed host
-// sample cannot erase a good allowance or the previous diagnostics.
+// observeDetails collects resource and allowance readings independently.
+// Diagnostics derives from the host observer's stored container section.
 func (s *Service) observeDetails(ctx context.Context, id ids.ID) error {
 	dep, err := s.Deployments.ByID(ctx, id)
 	if err != nil {
@@ -229,38 +203,36 @@ func (s *Service) observeDetails(ctx context.Context, id ids.ID) error {
 	if err != nil {
 		return err
 	}
-	var errs []error
-	errs = append(errs, collectDeploymentDetail(ctx, s, dep, identity, "Diagnostics", s.collectDiagnostics, func(d Diagnostics) string {
-		if !d.Containers {
+	var errs [2]error
+	var workers sync.WaitGroup
+	workers.Add(2)
+	go func() {
+		defer workers.Done()
+		errs[0] = collectDeploymentDetail(ctx, s, dep, identity, "Resources", s.collectResources, func(r DeploymentResources) string {
+			if dep.Container == "" {
+				return ""
+			}
+			for _, p := range r.Parts {
+				if !p.Observed.Known {
+					return p.Observed.Reason
+				}
+			}
 			return ""
-		}
-		for _, p := range d.Parts {
-			if p.Presence == presenceUnknown {
-				return p.Reason
+		})
+	}()
+	go func() {
+		defer workers.Done()
+		errs[1] = collectDeploymentDetail(ctx, s, dep, identity, "AIModels", s.collectAIModels, func(keys []AIModelsKey) string {
+			for _, k := range keys {
+				if k.Unknown != "" {
+					return k.Unknown
+				}
 			}
-		}
-		return ""
-	}))
-	errs = append(errs, collectDeploymentDetail(ctx, s, dep, identity, "Resources", s.collectResources, func(r DeploymentResources) string {
-		if dep.Container == "" {
 			return ""
-		}
-		for _, p := range r.Parts {
-			if !p.Observed.Known {
-				return p.Observed.Reason
-			}
-		}
-		return ""
-	}))
-	errs = append(errs, collectDeploymentDetail(ctx, s, dep, identity, "AIModels", s.collectAIModels, func(keys []AIModelsKey) string {
-		for _, k := range keys {
-			if k.Unknown != "" {
-				return k.Unknown
-			}
-		}
-		return ""
-	}))
-	return errors.Join(errs...)
+		})
+	}()
+	workers.Wait()
+	return errors.Join(errs[:]...)
 }
 
 func (s *Service) RunDetailObservation(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
@@ -283,7 +255,10 @@ func (s *Service) RunDetailObservation(ctx context.Context, key string, _ map[st
 	if current != key {
 		return nil, nil
 	}
-	return nil, s.observeDetails(ctx, id)
+	if err := s.observeDetails(ctx, id); err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
 
 // DetailObservationKey binds admission to a local configuration revision.

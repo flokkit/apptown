@@ -135,6 +135,7 @@ func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
 		observed, ok := runtime[out[i].ID]
 		if !ok {
 			observed.Stale = true
+			observed.Status = deployment.UnobservedStatus()
 		}
 		out[i].Deployed = observed.HasProduction
 		out[i].HasDeployments = ok

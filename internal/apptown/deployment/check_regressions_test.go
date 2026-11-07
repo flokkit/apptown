@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
 	"testing"
 	"time"
 
@@ -119,7 +120,7 @@ func TestChangedDetailKeepsOldValuesWithoutClaimingCurrentEvidence(t *testing.T)
 	if err := w.s.observeDetails(ctx, w.main.ID); err != nil {
 		t.Fatal(err)
 	}
-	old, err := w.s.Diagnostics(ctx, w.project, "main")
+	old, err := w.s.Resources(ctx, w.project, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,11 +132,18 @@ func TestChangedDetailKeepsOldValuesWithoutClaimingCurrentEvidence(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := loadDeploymentDetail[Diagnostics](ctx, w.s, dep, identity+"changed", "Diagnostics")
+	if err := collectDeploymentDetail(ctx, w.s, dep, identity, "Resources", func(context.Context, ids.ID, string) (DeploymentResources, error) { return old, nil }, func(DeploymentResources) string { return "" }); err != nil {
+		t.Fatal(err)
+	}
+	old, err = w.s.Resources(ctx, w.project, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadDeploymentDetail[DeploymentResources](ctx, w.s, dep, identity+"changed", "Resources")
 	if err != nil || !got.Reading.Waiting || !got.Reading.Unknown || !got.Reading.Stale || got.Reading.Failure != "" || len(got.Value.Parts) != len(old.Parts) || !got.Reading.ObservedAt.Equal(old.Reading.ObservedAt) || got.Reading.Identity != identity {
 		t.Fatalf("old display lost or current: %+v %v", got, err)
 	}
-	if got.Value.Generation != old.Generation || got.Value.Parts[0].Facts == nil {
+	if len(got.Value.Parts) == 0 {
 		t.Fatalf("old identity and facts lost: %+v", got)
 	}
 }

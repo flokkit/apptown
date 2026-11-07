@@ -13,7 +13,7 @@ import { EnvCard } from './Deployments'
 
 const refused = 'A take-down now could take no final copy of its data, so it is refused unless you choose to take it down without one.'
 const withCopy = 'Taking it down deletes the app, takes a final copy of its data to the backup store and checks it comes back, then deletes its database cluster.'
-const env = { name: 'prod', kind: 'standing', url: '', feed: 'promotion', audience: 'team', data: 'production', protected: true, readiness: 'reconciled',
+const env = { status: { word: 'working', reason: '', stale: false }, name: 'prod', kind: 'standing', url: '', feed: 'promotion', audience: 'team', data: 'production', protected: true, readiness: 'reconciled',
   target: { name: 'do-syd', kind: 'do-app', title: 'App Platform' }, needs: [{ need: 'postgres', name: 'forge-shop-prod', status: 'ready' }] } as unknown as DeploymentView
 const protection = (takeDown: string, finalCopy: boolean) => ({
   deployment: 'prod', dataClass: 'production', offHost: finalCopy, target: 'do-syd', recent: [], running: null, restoredCopies: [], items: [], coverage: { assessed: [], notAssessed: [] },

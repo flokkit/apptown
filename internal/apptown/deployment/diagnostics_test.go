@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // diagnosticsWorld is a multipart app landed on an attached Docker host,
@@ -31,15 +33,24 @@ type diagnosticsWorld struct {
 
 func newDiagnosticsWorld(t *testing.T) *diagnosticsWorld {
 	t.Helper()
-	w := &diagnosticsWorld{noLocalWorld: noLocalDockerWorld(t, multipartApp)}
+	return newDiagnosticsWorldFor(t, multipartApp)
+}
+
+func newDiagnosticsWorldFor(t *testing.T, contract string) *diagnosticsWorld {
+	t.Helper()
+	w := &diagnosticsWorld{noLocalWorld: noLocalDockerWorld(t, contract)}
 	w.s = w.service(true)
+	if _, _, err := w.s.env.needs.SyncStock(t.Context(), stock.FS, "dependencies"); err != nil {
+		t.Fatal(err)
+	}
 	dep := w.deployment(t, w.s, "main", w.remote)
 	w.land(t, w.s, dep, idstest.N(7))
 	w.main = w.reread(t)
 	w.worker = hostNamesOf(t, w.s, w.project, "game", "main").Service("worker")
 	w.at = time.Now().UTC().Truncate(time.Microsecond)
-	w.s.clock = func() time.Time { w.mu.Lock(); defer w.mu.Unlock(); return w.at }
+	w.s.setClock(func() time.Time { w.mu.Lock(); defer w.mu.Unlock(); return w.at })
 	w.s.authority = &requestAuthority{}
+	w.s.readHostContainersForTest(t, w.main.TargetID)
 	return w
 }
 
@@ -61,6 +72,7 @@ func (w *diagnosticsWorld) advance(d time.Duration) time.Time {
 
 func (w *diagnosticsWorld) read(t *testing.T) Diagnostics {
 	t.Helper()
+	w.s.readHostContainersForTest(t, w.main.TargetID)
 	_ = w.s.observeDetails(t.Context(), w.main.ID)
 	d, err := w.s.Diagnostics(t.Context(), w.project, "main")
 	if err != nil {
@@ -80,12 +92,10 @@ func partNamed(t *testing.T, d Diagnostics, name string) PartDiagnosis {
 	return PartDiagnosis{}
 }
 
-// failInspect makes the daemon fail to answer an inspection of one
-// container, as a host that times out does, with words that name its
-// address.
-func (w *diagnosticsWorld) failInspect(container string, err error) {
+// failContainerListing makes the shared host listing time out.
+func (w *diagnosticsWorld) failContainerListing(err error) {
 	w.daemon.SetReply(func(args []string) ([]byte, error, bool) {
-		if len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat && args[3] == container {
+		if len(args) > 0 && args[0] == "ps" {
 			return []byte("error during connect: ssh://deploy:hunter2@10.0.0.7"), err, true
 		}
 		return nil, nil, false
@@ -104,7 +114,9 @@ func (w *diagnosticsWorld) failInspect(container string, err error) {
 func TestDiagnosticsShowAPartsFailureWhileThePublicPartRuns(t *testing.T) {
 	t.Parallel()
 	w := newDiagnosticsWorld(t)
-	w.daemon.SetRunning(w.worker, false)
+	if _, err := w.s.hosts.settings.Scope.Run(t.Context(), "stop", w.worker); err != nil {
+		t.Fatal(err)
+	}
 	w.daemon.SetExitCode(w.worker, 137)
 	w.daemon.SetOOMKilled(w.worker, true)
 	w.daemon.SetRestartCount(w.worker, 3)
@@ -154,7 +166,9 @@ func TestDiagnosticsShowAPartsFailureWhileThePublicPartRuns(t *testing.T) {
 func TestAFailedDiagnosticReadKeepsAgedFactsAndIsNeverStopped(t *testing.T) {
 	t.Parallel()
 	w := newDiagnosticsWorld(t)
-	w.daemon.SetRunning(w.worker, false)
+	if _, err := w.s.hosts.settings.Scope.Run(t.Context(), "stop", w.worker); err != nil {
+		t.Fatal(err)
+	}
 	w.daemon.SetExitCode(w.worker, 137)
 	w.daemon.SetOOMKilled(w.worker, true)
 	first := w.at
@@ -163,7 +177,7 @@ func TestAFailedDiagnosticReadKeepsAgedFactsAndIsNeverStopped(t *testing.T) {
 	}
 
 	tried := w.advance(2 * time.Minute)
-	w.failInspect(w.worker, context.DeadlineExceeded)
+	w.failContainerListing(context.DeadlineExceeded)
 	p := partNamed(t, w.read(t), "worker")
 	if p.Presence != presenceUnknown || !p.Stale || !strings.Contains(p.Reason, "did not answer in time") {
 		t.Fatalf("a timed-out read: %+v", p)
@@ -175,7 +189,7 @@ func TestAFailedDiagnosticReadKeepsAgedFactsAndIsNeverStopped(t *testing.T) {
 		t.Fatalf("the host's words reached the reason: %q", p.Reason)
 	}
 	// A failure whose own words name the host's address and login.
-	w.failInspect(w.worker, errors.New("error during connect: ssh://deploy:hunter2@10.0.0.7: permission denied"))
+	w.failContainerListing(errors.New("error during connect: ssh://deploy:hunter2@10.0.0.7: permission denied"))
 	if p := partNamed(t, w.read(t), "worker"); p.Presence != presenceUnknown || strings.Contains(p.Reason, "hunter2") || strings.Contains(p.Reason, "10.0.0.7") {
 		t.Fatalf("the host's words reached the reason: %+v", p)
 	}
@@ -193,12 +207,41 @@ func TestAFailedDiagnosticReadKeepsAgedFactsAndIsNeverStopped(t *testing.T) {
 	w.daemon.SetReply(nil)
 
 	// The public part's name holding another generation's container.
-	w.daemon.SetReply(func(args []string) ([]byte, error, bool) {
-		if len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat && args[3] == w.main.Container {
-			out, err := json.Marshal(docker.Runtime{ID: "old", Running: true, Labels: map[string]string{dockerlabel.Deployment: string(w.main.label()), dockerlabel.Generation: "99"}, State: &docker.ContainerState{Status: "running"}})
-			return out, err, true
+	original := fresh.hosts.settings.Scope.Client
+	fresh.hosts.settings.Scope.Client = statusInspectClient(func(ctx context.Context, host string, cmd docker.Command) ([]byte, error) {
+		var captured bytes.Buffer
+		stdout := cmd.Stdout
+		cmd.Stdout = &captured
+		out, err := original.Run(ctx, host, cmd)
+		if captured.Len() > 0 {
+			out = captured.Bytes()
 		}
-		return nil, nil, false
+		if err == nil && len(cmd.Args) >= 5 && cmd.Args[0] == "inspect" && cmd.Args[1] == "--type" {
+			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+			for i, line := range lines {
+				var c docker.HostContainer
+				if err := json.Unmarshal([]byte(line), &c); err != nil {
+					t.Fatal(err)
+				}
+				if strings.TrimPrefix(c.Name, "/") == w.main.Container {
+					c.ID = "old"
+					c.Config.Labels[dockerlabel.Generation] = "99"
+				}
+				raw, err := json.Marshal(c)
+				if err != nil {
+					t.Fatal(err)
+				}
+				lines[i] = string(raw)
+			}
+			out = []byte(strings.Join(lines, "\n"))
+		}
+		if stdout != nil {
+			if _, writeErr := stdout.Write(out); writeErr != nil {
+				t.Fatal(writeErr)
+			}
+			return nil, err
+		}
+		return out, err
 	})
 	if p := partNamed(t, fresh.mustDiagnose(t, w.project), "web"); p.Presence != presenceRunning || p.Generation == nil || *p.Generation != 99 || p.Facts == nil || p.Facts.ID != "old" {
 		t.Fatalf("another generation's container: %+v", p)
@@ -211,6 +254,7 @@ func (s *Service) mustDiagnose(t *testing.T, project ids.ID) Diagnostics {
 	if err != nil {
 		t.Fatal(err)
 	}
+	s.readHostContainersForTest(t, dep.TargetID)
 	_ = s.observeDetails(t.Context(), dep.ID)
 	d, err := s.Diagnostics(t.Context(), project, "main")
 	if err != nil {
@@ -235,7 +279,7 @@ func TestANewGenerationDropsTheOldOnesFacts(t *testing.T) {
 	if next.ObservedGeneration == w.main.ObservedGeneration {
 		t.Fatalf("the second landing settled no new generation: %d", next.ObservedGeneration)
 	}
-	w.failInspect(w.worker, errors.New("exit status 1"))
+	w.failContainerListing(errors.New("exit status 1"))
 	d := w.read(t)
 	if p := partNamed(t, d, "worker"); d.Generation != next.ObservedGeneration || p.Presence != presenceUnknown || p.Facts != nil {
 		t.Fatalf("the old generation's facts survived: generation %d %+v", d.Generation, p)
@@ -510,5 +554,52 @@ func TestDeploymentStatusPagesReadStoredResultsWithoutAskingTheHost(t *testing.T
 	d, err := fresh.Diagnostics(t.Context(), w.project, "main")
 	if err != nil || d.Reading.ObservedAt.IsZero() || len(d.Parts) == 0 || len(w.daemon.Commands()) != before {
 		t.Fatalf("restart lost stored diagnostics: %+v %v", d, err)
+	}
+}
+
+// A host sweep supplies every deployment's parts from the same inventory.
+func (s *Service) readHostContainersForTest(t *testing.T, id ids.ID) {
+	t.Helper()
+	target, err := s.Targets.ByID(t.Context(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dk, err := s.hosts.DockerScope(t.Context(), target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dk.Now = s.now
+	if err := NewHostSnapshots(s.db, s.now).collect(t.Context(), target, dk, docker.HostQuery{Containers: true}, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A lap begun before settlement cannot prove the newly settled generation,
+// even when its successful write reaches storage after settlement.
+func TestDiagnosticsRejectHostReadingBegunBeforeDeploymentSettled(t *testing.T) {
+	t.Parallel()
+	w := newDiagnosticsWorld(t)
+	settled := w.main.LastApplied.At
+	w.advance(settled.Add(-time.Second).Sub(w.at))
+	w.s.readHostContainersForTest(t, w.main.TargetID)
+	w.advance(2 * time.Second)
+	d, err := w.s.Diagnostics(t.Context(), w.project, "main")
+	if err != nil || !d.Reading.Unknown {
+		t.Fatalf("old lap claimed current: %+v %v", d, err)
+	}
+	for _, p := range d.Parts {
+		if p.Presence != presenceUnknown || p.Facts != nil {
+			t.Fatalf("old generation facts: %+v", p)
+		}
+	}
+	w.s.readHostContainersForTest(t, w.main.TargetID)
+	d, err = w.s.Diagnostics(t.Context(), w.project, "main")
+	if err != nil || d.Reading.Unknown {
+		t.Fatalf("new lap did not recover: %+v %v", d, err)
+	}
+	w.advance(observationStaleAfter + time.Second)
+	d, err = w.s.Diagnostics(t.Context(), w.project, "main")
+	if err != nil || !d.Reading.Stale {
+		t.Fatalf("old host reading stayed current: %+v %v", d, err)
 	}
 }

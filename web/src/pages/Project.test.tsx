@@ -133,7 +133,7 @@ it('shows the public app address on Overview without notes or a Changes link', a
   vi.stubGlobal('fetch', vi.fn(async (path: string) => new Response(JSON.stringify(
     path.endsWith('/projects/a') ? { ...project(1, 'a', 'Alpha'), blurb: 'Our app' }
       : path.endsWith('/overview') ? { active: [], history: [], open: [], notes: { present: true, commit: 'abc', notes: [{ text: 'Credit photos.', author: 'Sam', change: 4, line: '- Credit photos. (Sam · change 4)', changeId: 'source-change', acceptedBy: ['Priya'] }] } }
-      : path.endsWith('/deployments') ? [{ id: 'main', name: 'main', url, running: true, observation: 'running' }]
+      : path.endsWith('/deployments') ? [{ id: 'main', name: 'main', url, running: true, status: { word: 'working', reason: '', stale: false }, observation: 'running' }]
       : path.endsWith('/schedules') ? { schedules: [] } : []
   ))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)

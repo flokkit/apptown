@@ -18,7 +18,7 @@
 .deploy-head { margin-bottom: 20px; }
 .deploy-head h2 { margin: 0; }
 .deployment-address { margin-top: 6px; overflow-wrap: anywhere; }
-.deployment-row.list-row { grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto; }
+.deployment-row.list-row { grid-template-columns: 16rem minmax(0, 1fr) minmax(0, 1fr) auto; }
 .deployment-row > .list-state { grid-column: 1; grid-row: 1; }
 .deployment-row > .list-identity { grid-column: 2; grid-row: 1; }
 .deployment-row > .list-detail { grid-column: 3; grid-row: 1; min-width: 0; overflow-wrap: anywhere; }

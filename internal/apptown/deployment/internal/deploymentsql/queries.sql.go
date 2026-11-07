@@ -4434,6 +4434,22 @@ func (q *Queries) ReleasingCount(ctx context.Context, state string) (int64, erro
 	return count, err
 }
 
+const releasingDeployment = `-- name: ReleasingDeployment :one
+SELECT number, created_at FROM releases WHERE deployment_id=$1 AND state='releasing' ORDER BY number DESC LIMIT 1
+`
+
+type ReleasingDeploymentRow struct {
+	Number    int64
+	CreatedAt time.Time
+}
+
+func (q *Queries) ReleasingDeployment(ctx context.Context, deploymentID ids.ID) (ReleasingDeploymentRow, error) {
+	row := q.db.QueryRowContext(ctx, releasingDeployment, deploymentID)
+	var i ReleasingDeploymentRow
+	err := row.Scan(&i.Number, &i.CreatedAt)
+	return i, err
+}
+
 const removeDeploymentHostnameClaims = `-- name: RemoveDeploymentHostnameClaims :exec
 DELETE FROM deployment_hostname_claimants WHERE deployment_id=$1
 `

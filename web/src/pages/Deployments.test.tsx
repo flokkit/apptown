@@ -13,8 +13,8 @@ it('lists every deployment separately by display name, including stopped copies'
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
     url.endsWith('/projects') ? [{ slug: 'ledger', name: 'Ledger' }]
       : url.endsWith('/deployments') ? [
-        { id: 'internal-east', name: 'east', displayLabel: 'East office', generation: 1, observation: 'stopped' },
-        { id: 'internal-west', name: 'west', displayLabel: 'West office', generation: 1, observation: 'running' },
+        { id: 'internal-east', name: 'east', displayLabel: 'East office', generation: 1, status: { word: 'stopped', reason: '', stale: false }, observation: 'stopped' },
+        { id: 'internal-west', name: 'west', displayLabel: 'West office', generation: 1, status: { word: 'working', reason: '', stale: false }, observation: 'running' },
       ] : url.endsWith('/releases') ? [] : { parts: [] },
   ))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)

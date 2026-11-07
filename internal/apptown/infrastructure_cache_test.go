@@ -717,7 +717,7 @@ func TestDockerActQueuesReadingsWithoutWritingHostSnapshot(t *testing.T) {
 	testAccounts(t, a.DB, "reading-admin")
 	testAdministrator(t, a, "reading-admin")
 	person := access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, a.DB, "reading-admin"), Kind: "user", Name: "reading-admin", Via: "session"}})
-	detail, err := a.Deployment.Diagnostics(person, projectID, "main")
+	detail, err := a.Deployment.Resources(person, projectID, "main")
 	if err != nil || detail.Reading.AttemptedAt.IsZero() || detail.Reading.Waiting {
 		t.Fatalf("detail not checked: %+v %v", detail, err)
 	}

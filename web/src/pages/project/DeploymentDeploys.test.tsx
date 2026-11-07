@@ -14,7 +14,7 @@ function runtimeClient() {
   return client
 }
 function DeploymentDeploys(props: Omit<ComponentProps<typeof ActualDeploymentDeploys>, 'env' | 'current' | 'reload'>) {
-  const env = { id: 'deployment', name: props.name, generation: 1, kind: 'standing', runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { start: '', stop: '', restart: '' }, observation: 'running', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', promotionBlocked: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, displayLabel: 'Lunch Orders', url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView
+  const env = { status: { word: 'working', reason: '', stale: false }, id: 'deployment', name: props.name, generation: 1, kind: 'standing', runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { start: '', stop: '', restart: '' }, observation: 'running', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', promotionBlocked: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, displayLabel: 'Lunch Orders', url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView
   return <ActualDeploymentDeploys {...props} env={env} current reload={async () => {}} />
 }
 
@@ -31,7 +31,7 @@ it.each(['releasing', 'released', 'failed'])('shows automatic and manual release
   expect(el.querySelectorAll('.deployment-deploy-card')).toHaveLength(1)
   expect(css).toMatch(/\.deployment-deploy-card\s*\{[^}]*height: 660px;[^}]*overflow: auto;/)
   expect(el.querySelector('h1')?.textContent).toContain('Lunch Orders')
-  expect(el.querySelector('h1 .chip')?.textContent).toContain(state === 'releasing' ? 'deploying' : 'running')
+  expect(el.querySelector('h1 .chip')?.textContent).toContain('working')
   const history = el.querySelector('section:last-child')!
   expect(history.querySelectorAll('a[href="/projects/lunch/releases/9"]')).toHaveLength(1)
   expect(history.querySelectorAll('a[href="/projects/lunch/releases/8"]')).toHaveLength(1)

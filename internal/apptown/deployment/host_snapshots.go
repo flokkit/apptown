@@ -22,10 +22,12 @@ const hostReadingKind = "host-snapshot"
 // Invalidated means the evidence predates an act; deriving a view never renews it.
 type hostReading struct {
 	docker.HostFacts
+	ContainerFailure string
 	HostFailures     int
 	UnreachableSince time.Time
 	UnreachableError string
 	HostDown         bool
+	NextAt           time.Time
 	AttemptedAt      time.Time
 	Outcome          string
 	LastError        string
@@ -131,6 +133,11 @@ func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope,
 	if mergeHostSection(&prior.Use, facts.Use) {
 		successes++
 	}
+	prior.ContainerFailure = ""
+	if facts.Containers.Reason != "" {
+		prior.ContainerFailure = safeReason(readErr)
+	}
+	prior.NextAt = s.now().Add(hostReadInterval)
 	prior.LastError = ""
 	prior.Outcome = "read"
 	if readErr != nil {

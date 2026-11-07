@@ -54,7 +54,7 @@ it('keeps a deployment resource count unknown until its inventory can be read', 
   client.setQueryData(getKey('/attention'), { sources: [], items: [] })
   client.setQueryData(getKey('/targets/kitchen'), {
     target: { id: 'host', name: 'kitchen', status: 'ready', statusLabel: 'working', kind: 'docker-host', kindInfo: { title: 'Docker host' }, check: {}, ingress: {}, address: {}, capabilities: { persistentVolumes: true }, needsMode: 'emulators', offers: [], retained: 0,
-      deployments: [{ project: 'shop', name: 'main', statusLabel: 'working' }] }, history: [], builtIn: true,
+      deployments: [{ project: 'shop', name: 'main', status: { word: 'working', reason: '', stale: false }, statusLabel: 'working' }] }, history: [], builtIn: true,
   })
   const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/kitchen']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name" element={<TargetPage />} /></Routes></QueryClientProvider></MemoryRouter>)
   expect(html).toContain('<td class="number phone-extra">unknown</td>')
@@ -80,7 +80,7 @@ it('shows recorded deployment resources, generation and address without a curren
   client.setQueryData(getKey('/attention'), { sources: [], items: [] })
   client.setQueryData(getKey('/targets/kitchen'), {
     target: { id: 'host', name: 'kitchen', status: 'ready', statusLabel: 'working', kind: 'docker-host', kindInfo: {}, check: {}, ingress: {}, address: {}, capabilities: {}, offers: [], retained: 0,
-      deployments: [{ project: 'shop', name: 'main', displayLabel: 'Production', statusLabel: 'working', url: 'https://shop.example.test', generation: 16 }] }, history: [], builtIn: true,
+      deployments: [{ project: 'shop', name: 'main', displayLabel: 'Production', status: { word: 'working', reason: '', stale: false }, statusLabel: 'working', url: 'https://shop.example.test', generation: 16 }] }, history: [], builtIn: true,
   })
   client.setQueryData(getKey('/infrastructure'), { targets: [{ target: 'kitchen', live: false, unknown: true, invalidated: true, error: 'SSH did not answer', resources: [
     { kind: 'container', name: 'shop-main', record: 'recorded', hosts: [{ project: 'shop', deployment: 'main', generation: 16 }] },

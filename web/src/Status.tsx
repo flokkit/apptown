@@ -35,7 +35,7 @@ export const STATUS_LIGHT: Record<keyof typeof STATUS_WORD, string> = {
 // owner's labels. Freshness classification is supplied by the owner.
 // reason, for work waiting on a person, replaces the word with why it is
 // waiting ("a check failed"); the light still says which state it is.
-export function Status({ word, help, staleAt, observation = false, old = false, reason }: { word: keyof typeof STATUS_WORD; help?: string; staleAt?: string; observation?: boolean; old?: boolean; reason?: string }) {
+export function Status({ word, help, staleAt, observation = false, old = false, reason, stacked = false }: { word: keyof typeof STATUS_WORD; help?: string; staleAt?: string; observation?: boolean; old?: boolean; reason?: string; stacked?: boolean }) {
   const inlineHelp = useContext(InlineHelp)
   const operational = observation && ['running', 'working', 'passed', 'current', 'fresh'].includes(word) ? 'working' : STATUS_WORD[word]
   const label = staleAt && !['failed', 'unreachable', 'unknown', 'not set up', 'not applicable', 'not checked yet', 'none'].includes(word) ? lastSeen(staleAt) : old ? `old · ${operational}` : operational
@@ -43,7 +43,7 @@ export function Status({ word, help, staleAt, observation = false, old = false, 
   const tone = STATUS_LIGHT[word] === 'fail' ? 'fail' : old || staleAt && label.startsWith('last seen') ? 'pending' : observation && ['working', 'running'].includes(word) ? 'pass' : STATUS_LIGHT[word]
   const chip = <span className={`chip ${tone}`} title={help} aria-label={help ? `${label}: ${help}` : undefined}>{/* Every state has its dot; a neutral one is grey, so it sits in line with the rest. */}<span aria-hidden="true">● </span>{reason ?? label}</span>
   if (!help) return chip
-  return <span className={inlineHelp ? 'status-inline' : 'status-help-inline'}>{chip}<span className="small muted">{help}</span></span>
+  return <span className={stacked ? 'status-help-stack' : inlineHelp ? 'status-inline' : 'status-help-inline'}>{chip}<span className="small muted">{help}</span></span>
 }
 
 // Change wording and tone are supplied by Workflow together.

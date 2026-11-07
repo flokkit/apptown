@@ -1207,18 +1207,32 @@ bounded wait; remote operations may outlive it.
 
 ## Runtime diagnostics
 
-Home project rows, project pages and deployment lists and pages share one
-status function. While a release for the deployment is releasing, its status
-shows `deploying` with the running tone and `Release N` as help. When the release
-finishes, runtime observation and diagnostics decide the status again. Without
-a release in progress, an unknown runtime observation stays unknown.
+Deployment owns a deployment's display status: word, reason, check time,
+staleness and next retry. Projects, project and fleet Deployments, the deployment
+header, target placements and Home render that answer. An explicit stop takes
+precedence over start/stop transitions and release progress. Otherwise a running
+public part is working only with a current parts reading: an unread part is
+unknown, an absent or stopped part or an unhealthy container is failed. Targets
+without containers use their witnessed runtime reading. A project is working
+only when all its standing deployments are working; its roll-up names the
+deployment and reason that need attention. Previews do not qualify that roll-up.
+
+The host observer collects all containers together once per host sweep, with one
+listing and one batch read of the listed containers. Diagnostics and deployment
+status derive part presence and process facts from that stored container section;
+reading pages or collecting deployment details makes no per-part Docker calls.
+A failed container section keeps its last facts as old and records the failed
+attempt separately. Its reason gives the next ordinary host sweep, twenty
+seconds after the lap finishes. There is no separate diagnostics retry loop.
+A host container reading more than forty-five seconds old is stale. Resources
+and model allowances collect independently of diagnostics.
 
 A deployment's card has a Diagnostics line (`GET
 /projects/{slug}/deployments/{name}/diagnostics`, the deployment read grant). It
 is about the generation the deployment settled on: its parts and needs are the
 ones that generation's applied record names, never the project's newest
-declaration. Each part's container on a Docker host is inspected by the background detail
-job (five seconds each): running, stopped or absent, its last exit code (only when
+declaration. Each part's container is selected by name from the stored host
+container reading: running, stopped or absent, its last exit code (only when
 not running), whether the kernel killed it out of memory, Docker's restart
 counter for that container (a deploy starts a new one), its start and finish
 times, and its Docker health check, "not configured" when it has none. A read
