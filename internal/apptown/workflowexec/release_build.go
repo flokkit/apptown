@@ -77,7 +77,7 @@ type releaseTarget struct {
 // failed or errored) or no longer this attempt's, and nothing was
 // deployed.
 func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget, finish func(workflow.StepState, any)) (*deployment.ReleaseBundle, bool) {
-	finishError := func(reason string) { finish(workflow.StatusError, a.deployFailure(task, reason)) }
+	finishError := func(reason string) { finish(workflow.StatusError, map[string]any{"reason": reason}) }
 	releaseRefused := func(reason string) { finishError("release refused: " + reason) }
 	// The task lives by its durable record, not a context: what a stopped
 	// AppTown leaves running is collected on restart.
@@ -152,7 +152,6 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget, fini
 		finishError("recording the release build: " + err.Error())
 		return nil, false
 	}
-	a.progress.SetStage(step.ID, deploy.Building.String())
 	logf("Building %d release images on the worker (%s)", len(images), platform)
 	attempt, code, timedOut, _, ok := runner.execute(task, a.db, attempt, spec, taskKind{})
 	if !ok {
@@ -201,7 +200,7 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget, fini
 // publishBuilt publishes what the worker built; a failed publication or
 // commit errors the step, before any target effect.
 func (a *shipping) publishBuilt(task *workflow.Execution, in deployment.ReleasePublication, finish func(workflow.StepState, any)) (*deployment.ReleaseBundle, bool) {
-	finishError := func(reason string) { finish(workflow.StatusError, a.deployFailure(task, reason)) }
+	finishError := func(reason string) { finish(workflow.StatusError, map[string]any{"reason": reason}) }
 	bundle, err := a.publishRelease(task, func(ctx context.Context) (*deployment.ReleaseBundle, error) {
 		return a.deployment.PublishRelease(ctx, in)
 	})
@@ -333,14 +332,4 @@ func outputTail(out []byte) string {
 		out = out[len(out)-keep:]
 	}
 	return strings.ToValidUTF8(string(out), "")
-}
-
-func (a *shipping) deployFailure(task *workflow.Execution, reason string) map[string]any {
-	stage := deploy.Preparing
-	if feed, ok := a.progress.Read(task.Step().ID, 0); ok {
-		if reported, err := deploy.ParseDeployStage(feed.Stage); err == nil {
-			stage = reported
-		}
-	}
-	return map[string]any{"reason": reason, "failedStage": stage}
 }

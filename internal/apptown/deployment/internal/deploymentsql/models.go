@@ -179,6 +179,10 @@ type Release struct {
 	SupersededBy     ids.ID
 	RollbackOf       ids.ID
 	RestoreBackupID  ids.ID
+	Stage            string
+	StageEnteredAt   sql.NullTime
+	FailedStage      string
+	StageFinishedAt  sql.NullTime
 }
 
 type ReleaseBundle struct {

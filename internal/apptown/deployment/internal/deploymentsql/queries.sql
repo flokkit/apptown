@@ -300,7 +300,7 @@ DELETE FROM deployments WHERE project_id=$1;
 -- name: RepairInterruptedReleases :many
 -- The caller appends each repaired release's event (the database never
 -- mints an id).
-UPDATE releases r SET state=sqlc.arg(failed_state) WHERE state=sqlc.arg(open_state)
+UPDATE releases r SET state=sqlc.arg(failed_state), failed_stage=stage, stage_finished_at=sqlc.arg(at)::timestamptz WHERE state=sqlc.arg(open_state)
   AND NOT EXISTS(SELECT 1 FROM release_requests q WHERE q.release_id=r.id AND q.claimed_at IS NULL
     AND r.id=ANY(sqlc.arg(queued_release_ids)::uuid[]))
   AND NOT EXISTS(SELECT 1 FROM deployment_attempts a LEFT JOIN deployment_attempt_inputs i ON i.attempt_id=a.id
@@ -643,7 +643,8 @@ WHERE deployment_id=sqlc.arg(deployment_id) AND state='waiting for approval' AND
 RETURNING id;
 
 -- name: DecideWaitingRelease :execrows
-UPDATE releases SET state=sqlc.arg(state), approval_json=sqlc.narg(approval)
+UPDATE releases SET state=sqlc.arg(state), approval_json=sqlc.narg(approval),
+ stage_entered_at=CASE WHEN sqlc.arg(state)::text='releasing' THEN sqlc.arg(at)::timestamptz ELSE stage_entered_at END
 WHERE id=sqlc.arg(id) AND state='waiting for approval';
 
 -- name: WaitingReleases :many
@@ -670,6 +671,14 @@ ORDER BY r.number DESC LIMIT 1;
 
 -- name: SetRuntimeState :execrows
 UPDATE deployments SET runtime_state=sqlc.arg(state), runtime_actor=sqlc.arg(actor), runtime_at=sqlc.narg(at), runtime_error=sqlc.arg(error) WHERE id=sqlc.arg(id);
+
+-- name: ReleaseProgressUncertain :one
+-- Recovery observes an existing effect; its old execution milestone is history.
+SELECT EXISTS (
+ SELECT 1 FROM deployment_attempts a
+ JOIN deployment_attempt_inputs i ON i.attempt_id=a.id
+ WHERE i.release_id=$1 AND (a.status <> 'running' OR jsonb_exists(a.observed_json, '_recovery'))
+)::boolean;
 
 -- name: ReleasingDeployment :one
 SELECT number, created_at FROM releases WHERE deployment_id=$1 AND state='releasing' ORDER BY number DESC LIMIT 1;

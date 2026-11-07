@@ -58,7 +58,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		if err != nil {
 			return err
 		}
-		rel, err = releaseRecord(row.Release, nil)
+		rel, err = s.Releases.record(row.Release, nil)
 		if err != nil {
 			return err
 		}
@@ -79,6 +79,9 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err != nil || !claimed {
 		return err
 	}
+	ctx = deploy.WithStageReporter(ctx, func(stage deploy.DeployStage) error {
+		return s.recordReleaseStage(ctx, id, stage)
+	})
 	restored := false
 	fail := func(cause error) error {
 		if restored {
@@ -86,6 +89,9 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		}
 		_, err := s.Outcomes.FailUnstartedRelease(ctx, id, cause)
 		return errors.Join(cause, err)
+	}
+	if err := deploy.ReportStage(ctx, deploy.Preparing); err != nil {
+		return fail(err)
 	}
 	var rawAuthority json.RawMessage
 	if placement.AuthorityJson != nil {
@@ -247,6 +253,9 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	}
 	req.source.Contract = effective
 	if err := allowed(ctx); err != nil {
+		return fail(err)
+	}
+	if err := deploy.ReportStage(ctx, deploy.BackingUp); err != nil {
 		return fail(err)
 	}
 	if !rel.RestoreBackupID.IsZero() {

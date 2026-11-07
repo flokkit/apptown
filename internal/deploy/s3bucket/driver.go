@@ -203,6 +203,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err := checkpoint(map[string]any{"bucket": bucket, "address": address, "identity": set.Identity, "keys": set.Keys()}); err != nil {
 		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("recording the publication before uploading: %w", err))
 	}
+	if err := deploy.ReportStage(ctx, deploy.Starting); err != nil {
+		return deploy.Observation{}, err
+	}
 	if err := c.putWebsite(ctx, bucket); err != nil {
 		return deploy.Observation{}, refused("setting the website configuration of "+bucket, err)
 	}
@@ -228,6 +231,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 			n++
 		}
 		logf("uploaded %d %s to %s", n, passWords[pass], bucket)
+	}
+	if err := deploy.ReportStage(ctx, deploy.Checking); err != nil {
+		return deploy.Observation{}, err
 	}
 	if err := staticsite.Witness(ctx, address, set.Identity, d.options.witnessTries, d.options.witnessInterval, logf); err != nil {
 		return deploy.Observation{}, err

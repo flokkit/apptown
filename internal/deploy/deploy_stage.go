@@ -6,7 +6,7 @@ import (
 	"github.com/flokkit/apptown/internal/enum"
 )
 
-// DeployStage names milestones reported by a workflow's deploy step. Providers
+// DeployStage names milestones reported by a release's execution. Providers
 // report entry to real work; elapsed time and log wording never select a stage.
 type DeployStage uint8
 

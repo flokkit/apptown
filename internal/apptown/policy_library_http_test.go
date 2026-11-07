@@ -116,6 +116,10 @@ func policyLibraryUpgradeFixture(t *testing.T) *App {
 	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE deployments DROP COLUMN runtime_state, DROP COLUMN runtime_actor, DROP COLUMN runtime_at, DROP COLUMN runtime_error`); err != nil {
 		t.Fatal(err)
 	}
+	// sql-guarantee: recreate releases before deployment progress was recorded.
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE releases DROP COLUMN stage, DROP COLUMN stage_entered_at, DROP COLUMN failed_stage, DROP COLUMN stage_finished_at`); err != nil {
+		t.Fatal(err)
+	}
 	// sql-guarantee: this data-only migration needs the pre-upgrade schema stamp.
 	if _, err := a.DB.SQL().ExecContext(t.Context(), `UPDATE schema_version SET version=214`); err != nil {
 		t.Fatal(err)

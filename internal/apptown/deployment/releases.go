@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/releasesql"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/stamp"
 )
 
@@ -25,24 +26,31 @@ import (
 
 // Release is one row of the release ledger.
 type Release struct {
-	RollbackOf       ids.ID           `json:"rollbackOf,omitzero"`
-	RestoreBackupID  ids.ID           `json:"restoreBackupId,omitzero"`
-	ApprovalRole     string           `json:"approvalRole"`
-	Approval         *ReleaseApproval `json:"approval,omitempty"`
-	SupersededBy     ids.ID           `json:"supersededBy,omitzero"`
-	FromDeploymentID ids.ID           `json:"fromDeploymentId,omitzero"`
-	BackupID         ids.ID           `json:"backupId,omitzero"`
-	ID               ids.ID           `json:"id"`
-	ProjectID        ids.ID           `json:"projectId"`
-	Number           int64            `json:"number"`
-	State            ReleaseState     `json:"state"`
-	Deployment       string           `json:"deployment"`
-	ExternalRef      string           `json:"externalRef,omitempty"`
-	ApprovedBy       string           `json:"approvedBy,omitempty"`
-	RunID            ids.ID           `json:"runId,omitzero"`
-	CreatedAt        string           `json:"createdAt"`
-	ReleasedAt       stamp.Time       `json:"releasedAt,omitzero"`
-	Notes            string           `json:"notes,omitempty"`
+	// LastStage is historical when recovery cannot confirm current execution.
+	LastStage         deploy.DeployStage `json:"lastStage,omitempty"`
+	ProgressUncertain bool               `json:"progressUncertain,omitempty"`
+	Stage             deploy.DeployStage `json:"stage,omitempty"`
+	StageEnteredAt    stamp.Time         `json:"stageEnteredAt,omitzero"`
+	StageElapsedMs    *int64             `json:"stageElapsedMs,omitempty"`
+	FailedStage       deploy.DeployStage `json:"failedStage,omitempty"`
+	RollbackOf        ids.ID             `json:"rollbackOf,omitzero"`
+	RestoreBackupID   ids.ID             `json:"restoreBackupId,omitzero"`
+	ApprovalRole      string             `json:"approvalRole"`
+	Approval          *ReleaseApproval   `json:"approval,omitempty"`
+	SupersededBy      ids.ID             `json:"supersededBy,omitzero"`
+	FromDeploymentID  ids.ID             `json:"fromDeploymentId,omitzero"`
+	BackupID          ids.ID             `json:"backupId,omitzero"`
+	ID                ids.ID             `json:"id"`
+	ProjectID         ids.ID             `json:"projectId"`
+	Number            int64              `json:"number"`
+	State             ReleaseState       `json:"state"`
+	Deployment        string             `json:"deployment"`
+	ExternalRef       string             `json:"externalRef,omitempty"`
+	ApprovedBy        string             `json:"approvedBy,omitempty"`
+	RunID             ids.ID             `json:"runId,omitzero"`
+	CreatedAt         string             `json:"createdAt"`
+	ReleasedAt        stamp.Time         `json:"releasedAt,omitzero"`
+	Notes             string             `json:"notes,omitempty"`
 	// Failure is the recorded failure event, separate from release notes.
 	Failure   string `json:"failure,omitempty"`
 	CommitSHA string `json:"commitSha,omitempty"`
@@ -81,12 +89,13 @@ func NewReleases(db *database.DB) *Releases { return &Releases{db: db} }
 
 func (s *Releases) now() time.Time { return clock.Or(s.clock)() }
 
-func releaseRecord(r deploymentsql.Release, err error) (*Release, error) {
+func (s *Releases) record(r deploymentsql.Release, err error) (*Release, error) {
 	if err != nil {
 		return nil, err
 	}
 	v := &Release{
-		RollbackOf: r.RollbackOf, RestoreBackupID: r.RestoreBackupID,
+		StageEnteredAt: stamp.Time{NullTime: r.StageEnteredAt},
+		RollbackOf:     r.RollbackOf, RestoreBackupID: r.RestoreBackupID,
 		ApprovalRole: r.ApprovalRole, SupersededBy: r.SupersededBy,
 		BackupID:         r.BackupID,
 		FromDeploymentID: r.FromDeploymentID,
@@ -108,6 +117,26 @@ func releaseRecord(r deploymentsql.Release, err error) (*Release, error) {
 		ArtifactHash:     r.ArtifactHash,
 		Origin:           r.Origin,
 	}
+	if r.Stage != "" {
+		v.Stage, err = deploy.ParseDeployStage(r.Stage)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.FailedStage != "" {
+		v.FailedStage, err = deploy.ParseDeployStage(r.FailedStage)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.StageEnteredAt.Valid {
+		end := s.now()
+		if r.StageFinishedAt.Valid {
+			end = r.StageFinishedAt.Time
+		}
+		elapsed := max(int64(0), end.Sub(r.StageEnteredAt.Time).Milliseconds())
+		v.StageElapsedMs = &elapsed
+	}
 	if r.ApprovalJson != nil {
 		v.Approval = &ReleaseApproval{}
 		if err := json.Unmarshal(*r.ApprovalJson, v.Approval); err != nil {
@@ -119,13 +148,34 @@ func releaseRecord(r deploymentsql.Release, err error) (*Release, error) {
 	}
 	return v, nil
 }
-func releaseRecords(rows []deploymentsql.Release, err error) ([]*Release, error) {
+
+// read decorates a ledger row with recovery facts from the recorded attempt.
+func (s *Releases) read(ctx context.Context, r deploymentsql.Release, err error) (*Release, error) {
+	v, err := s.record(r, err)
+	if err != nil {
+		return nil, err
+	}
+	if v.State == Releasing {
+		v.ProgressUncertain, err = deploymentsql.New(s.db.SQL()).ReleaseProgressUncertain(ctx, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		if v.ProgressUncertain {
+			v.LastStage, v.Stage = v.Stage, 0
+			v.StageElapsedMs = nil
+		}
+	}
+
+	return v, nil
+}
+
+func (s *Releases) records(ctx context.Context, rows []deploymentsql.Release, err error) ([]*Release, error) {
 	if err != nil {
 		return nil, err
 	}
 	var out []*Release
 	for _, r := range rows {
-		v, err := releaseRecord(r, nil)
+		v, err := s.read(ctx, r, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -140,12 +190,14 @@ func (s *Releases) ByNumber(ctx context.Context, projectID ids.ID, number int64)
 }
 
 func (s *Releases) byNumber(ctx context.Context, projectID ids.ID, number int64) (*Release, error) {
-	return releaseRecord(deploymentsql.New(s.db.SQL()).ReleaseByNumber(ctx, deploymentsql.ReleaseByNumberParams{ProjectID: projectID, Number: number}))
+	row, err := deploymentsql.New(s.db.SQL()).ReleaseByNumber(ctx, deploymentsql.ReleaseByNumberParams{ProjectID: projectID, Number: number})
+	return s.read(ctx, row, err)
 }
 
 // ForProject is a project's releases, newest first.
 func (s *Releases) ForProject(ctx context.Context, projectID ids.ID, limit int) ([]*Release, error) {
-	rows, err := releaseRecords(deploymentsql.New(s.db.SQL()).ReleasesForProject(ctx, deploymentsql.ReleasesForProjectParams{ProjectID: projectID, RowLimit: int64(limit)}))
+	raw, err := deploymentsql.New(s.db.SQL()).ReleasesForProject(ctx, deploymentsql.ReleasesForProjectParams{ProjectID: projectID, RowLimit: int64(limit)})
+	rows, err := s.records(ctx, raw, err)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +221,8 @@ func (s *Releases) Recent(ctx context.Context, projectIDs []ids.ID, limit int) (
 	if len(projectIDs) == 0 {
 		return []*Release{}, nil
 	}
-	rows, err := releaseRecords(deploymentsql.New(s.db.SQL()).RecentReleases(ctx, deploymentsql.RecentReleasesParams{ProjectIds: projectIDs, RowLimit: int64(limit)}))
+	raw, err := deploymentsql.New(s.db.SQL()).RecentReleases(ctx, deploymentsql.RecentReleasesParams{ProjectIds: projectIDs, RowLimit: int64(limit)})
+	rows, err := s.records(ctx, raw, err)
 	if err != nil {
 		return nil, err
 	}
@@ -190,13 +243,15 @@ func (s *Releases) Recent(ctx context.Context, projectIDs []ids.ID, limit int) (
 
 // Last is a project's newest release on a deployment, whatever its state.
 func (s *Releases) Last(ctx context.Context, projectID ids.ID, deployment string) (*Release, error) {
-	return releaseRecord(deploymentsql.New(s.db.SQL()).LastRelease(ctx, deploymentsql.LastReleaseParams{ProjectID: projectID, Deployment: deployment}))
+	row, err := deploymentsql.New(s.db.SQL()).LastRelease(ctx, deploymentsql.LastReleaseParams{ProjectID: projectID, Deployment: deployment})
+	return s.read(ctx, row, err)
 }
 
 // LastReleasedForDeployment reads successful history for this immutable
 // placement. A replacement using its old name does not inherit that history.
 func (s *Releases) LastReleasedForDeployment(ctx context.Context, deploymentID ids.ID) (*Release, error) {
-	return releaseRecord(deploymentsql.New(s.db.SQL()).LatestReleasedForDeployment(ctx, deploymentsql.LatestReleasedForDeploymentParams{DeploymentID: deploymentID, State: Released.String()}))
+	row, err := deploymentsql.New(s.db.SQL()).LatestReleasedForDeployment(ctx, deploymentsql.LatestReleasedForDeploymentParams{DeploymentID: deploymentID, State: Released.String()})
+	return s.read(ctx, row, err)
 }
 
 // Live reports whether a release is the newest released on its recorded
@@ -228,7 +283,8 @@ func (s *Releases) LatestReleasedNumber(ctx context.Context, projectID ids.ID, d
 
 // ForChange is the releases that carried a change, newest first.
 func (s *Releases) ForChange(ctx context.Context, projectID, changeID ids.ID) ([]*Release, error) {
-	return releaseRecords(deploymentsql.New(s.db.SQL()).ReleasesForChange(ctx, deploymentsql.ReleasesForChangeParams{ChangeID: changeID, ProjectID: projectID}))
+	rows, err := deploymentsql.New(s.db.SQL()).ReleasesForChange(ctx, deploymentsql.ReleasesForChangeParams{ChangeID: changeID, ProjectID: projectID})
+	return s.records(ctx, rows, err)
 }
 
 // Events is a release's log in the order it was written.
@@ -254,7 +310,7 @@ func (s *Releases) Events(ctx context.Context, releaseID ids.ID) ([]ReleaseEvent
 // at is the caller's clock: when the dead releases' log lines are written.
 func RepairInterruptedReleasesIn(ctx context.Context, tx *database.Tx, queuedReleaseIDs []ids.ID, at time.Time) (failed, durable int64, err error) {
 	q := deploymentsql.New(tx.SQL())
-	repaired, err := q.RepairInterruptedReleases(ctx, deploymentsql.RepairInterruptedReleasesParams{FailedState: ReleaseFailed.String(), OpenState: Releasing.String(), QueuedReleaseIds: queuedReleaseIDs})
+	repaired, err := q.RepairInterruptedReleases(ctx, deploymentsql.RepairInterruptedReleasesParams{FailedState: ReleaseFailed.String(), OpenState: Releasing.String(), QueuedReleaseIds: queuedReleaseIDs, At: at})
 	if err != nil {
 		return 0, 0, fmt.Errorf("repairing interrupted releases and their history: %w", err)
 	}
@@ -289,7 +345,8 @@ func (s *Releases) BeforeBackups(ctx context.Context, projectID ids.ID, backups 
 // LandingRequests is the follows-main work requested by this change's landings,
 // rather than every later release that also happens to contain the change.
 func (s *Releases) LandingRequests(ctx context.Context, projectID, changeID ids.ID) ([]*Release, error) {
-	rows, err := releaseRecords(deploymentsql.New(s.db.SQL()).LandingRequestsForChange(ctx, deploymentsql.LandingRequestsForChangeParams{ProjectID: projectID, ChangeID: changeID}))
+	raw, err := deploymentsql.New(s.db.SQL()).LandingRequestsForChange(ctx, deploymentsql.LandingRequestsForChangeParams{ProjectID: projectID, ChangeID: changeID})
+	rows, err := s.records(ctx, raw, err)
 	if err != nil {
 		return nil, err
 	}
@@ -367,5 +424,6 @@ func (s *Releases) NewChanges(ctx context.Context, projectID ids.ID, releaseIDs 
 
 // ByID reads an immutable release identity.
 func (s *Releases) ByID(ctx context.Context, id ids.ID) (*Release, error) {
-	return releaseRecord(deploymentsql.New(s.db.SQL()).ReleaseByID(ctx, id))
+	row, err := deploymentsql.New(s.db.SQL()).ReleaseByID(ctx, id)
+	return s.read(ctx, row, err)
 }

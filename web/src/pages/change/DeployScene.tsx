@@ -31,7 +31,7 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
   // Re-anchor only on a new server reading. The local clock fills the gaps
   // between reads; a paused or failed feed keeps its last witnessed frame.
   const build = useRef({ reading: buildElapsedMs, at: Date.now(), elapsed: buildElapsedMs ?? 0, frame: buildElapsedMs ?? 0, seen: false })
-  const finish = useRef<{ at: number; placed: number }>()
+  const finish = useRef<{ at: number; placed: number; frame: number; paused: boolean }>()
   const [, tick] = useState(0)
   const now = Date.now()
   const placedDuringBuild = (elapsed: number) => Math.min(5, Math.max(0, Math.floor((elapsed - 600) / interval) + 1))
@@ -44,12 +44,17 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
       build.current.seen = true
     }
   } else if (index >= 3 && build.current.seen && !finish.current) {
-    finish.current = { at: now, placed: placedDuringBuild(build.current.frame) }
+    finish.current = { at: now, placed: placedDuringBuild(build.current.frame), frame: 0, paused: outcome === 'paused' }
   }
-  const finishing = finish.current ? Math.max(0, now - finish.current.at) : 0
+  if (finish.current) {
+    if (outcome !== 'paused' && !finish.current.paused) finish.current.frame += Math.max(0, now - finish.current.at)
+    finish.current.at = now
+    finish.current.paused = outcome === 'paused'
+  }
+  const finishing = finish.current?.frame ?? 0
   const catchingUp = finish.current !== undefined && finishing < (7 - finish.current.placed) * 180
   useEffect(() => {
-    if (!(current === 'building' && outcome === 'running') && !catchingUp) return
+    if (outcome === 'paused' || !(current === 'building' && outcome === 'running') && !catchingUp) return
     const timer = window.setInterval(() => tick(n => n + 1), 50)
     return () => window.clearInterval(timer)
   }, [current, outcome, catchingUp])
@@ -65,7 +70,7 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
   }
   const celebrate = (outcome === 'passed' || outcome === 'running' && stage === 'live') && sawRunning.current && !celebrated
   const label = outcome === 'failed' ? `Stopped while ${current ? deployWords[current] : 'deploying'}`
-    : current === 'live' ? 'The app is live' : current ? `Deploying: ${deployWords[current]}` : 'Waiting for deployment progress'
+    : outcome === 'paused' && current ? `Last seen: ${deployWords[current]}` : current === 'live' ? 'The app is live' : current ? `Deploying: ${deployWords[current]}` : 'Waiting for deployment progress'
   const classes = ['deploy-scene', ...frames.slice(0, index).map((_, i) => `g${i + 1}`),
     (outcome === 'running' || outcome === 'paused') && current !== 'backing-up' && index < 5 ? `n${index}` : '', outcome === 'failed' ? 'fail' : '',
     outcome === 'paused' ? 'paused' : '', current === 'backing-up' ? 'backing-up' : '',

@@ -54,7 +54,6 @@ func (a *shipping) RunBuild(task *workflow.Execution) {
 	}
 	defer cleanup()
 	contract, err := docker.ReadSelectedContract(tree.Directory)
-	a.progress.SetStage(step.ID, deploy.Building.String())
 	if errors.Is(err, docker.ErrNoContract) {
 		bound, err := integration.RegistryBindings(task.Context(), a.db)
 		if err != nil {

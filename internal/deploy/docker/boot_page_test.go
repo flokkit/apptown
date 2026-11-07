@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
@@ -63,7 +64,14 @@ func TestAGateBootFailsAnAppThatRefusesItsFrontPage(t *testing.T) {
 		t.Fatal(err)
 	}
 	boot := func(pageCheck bool, host string) (BootResult, error) {
-		return NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: pageClient{port: u.Port(), disk: &diskDaemon{}}},
+		var stages []deploy.DeployStage
+		ctx := deploy.WithStageReporter(context.Background(), func(stage deploy.DeployStage) error { stages = append(stages, stage); return nil })
+		defer func() {
+			if !slices.Equal(stages, []deploy.DeployStage{deploy.Starting, deploy.Checking}) {
+				t.Errorf("boot milestones: %v", stages)
+			}
+		}()
+		return NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}).Boot(ctx, BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: pageClient{port: u.Port(), disk: &diskDaemon{}}},
 			Name: "apptown-preview-run-4", StackID: "pv4", Workspace: t.TempDir(), Slug: "shop", Deployment: "preview", Probe: time.Second,
 			Scratch: t.TempDir(), PageCheck: pageCheck, VisitorHost: host}, c)
 	}

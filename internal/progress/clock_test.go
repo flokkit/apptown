@@ -53,26 +53,3 @@ func TestAHeartbeatCountsOnTheFeedsClock(t *testing.T) {
 		}
 	})
 }
-
-// Stage clocks begin at the milestone, not at feed creation or a repeated report.
-func TestStageElapsedStartsAtTheMilestone(t *testing.T) {
-	t.Parallel()
-	c := &skewed{at: time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)}
-	feeds := &Feeds{Now: c.now}
-	id := idstest.N(1)
-	feeds.Start(id)
-	c.move(20 * time.Second)
-	feeds.SetStage(id, "building")
-	c.move(15 * time.Second)
-	feeds.SetStage(id, "building")
-	snap, _ := feeds.Read(id, 0)
-	if snap.StageElapsedMs != 15000 || snap.ElapsedMs != 35000 {
-		t.Fatalf("stage and step elapsed: %+v", snap)
-	}
-	feeds.SetStage(id, "starting")
-	c.move(time.Second)
-	snap, _ = feeds.Finish(id)
-	if snap.StageElapsedMs != 1000 {
-		t.Fatalf("new stage elapsed: %+v", snap)
-	}
-}

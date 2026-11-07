@@ -2,7 +2,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
+import { act } from 'react'
+import { createRoot } from 'react-dom/client'
+import { deployWords } from '../change/DeployScene'
 import { getKey, newQueryClient } from '../../data'
 import { DeploymentDeploys as ActualDeploymentDeploys } from './DeploymentDeploys'
 import type { ComponentProps } from 'react'
@@ -75,5 +78,102 @@ it('retains human assent on the deployment card and its history', () => {
   el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="production" /></QueryClientProvider></MemoryRouter>)
   expect(el.textContent?.match(/Approved by Priya via token-cli:laptop/g)).toHaveLength(2)
   expect(el.textContent?.match(/I accept release 12 running on production/g)).toHaveLength(2)
+  client.clear()
+})
+
+it.each(['preparing', 'backing-up', 'building', 'starting', 'checking', 'live'] as const)('renders live progress and failure at %s', stage => {
+  const client = runtimeClient()
+  const draw = (state: string) => {
+    client.setQueryData(getKey('/projects/lunch/releases'), [{ number: 9, deployment: 'main', state, stage, failedStage: state === 'failed' ? stage : undefined, stageElapsedMs: 15042, createdAt: '', changes: [] }])
+    const el = document.createElement('div')
+    el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="main" /></QueryClientProvider></MemoryRouter>)
+    return el.querySelector('.deployment-deploy-card')!
+  }
+  const running = draw('releasing')
+  expect(running.querySelector('.deploy-scene.paused')).toBeNull()
+  expect(running.querySelector('li[aria-current="step"] .busy')).not.toBeNull()
+  expect(running.querySelector('svg')?.getAttribute('aria-label')).toBe(stage === 'live' ? 'The app is live' : `Deploying: ${deployWords[stage]}`)
+  expect(running.querySelector('.ch-deploy-progress')?.textContent).toBe(`${deployWords[stage]} · 15s`)
+  const failed = draw('failed')
+  expect(failed.querySelector('.deploy-scene.fail li[aria-current="step"] .bad')).not.toBeNull()
+  expect(failed.querySelector('svg')?.getAttribute('aria-label')).toBe(`Stopped while ${deployWords[stage]}`)
+  client.clear()
+})
+
+it('polls and updates elapsed time without changing stages', async () => {
+  vi.useFakeTimers()
+  const client = runtimeClient()
+  let elapsed = 15000
+  const releases = () => [{ number: 9, deployment: 'main', state: 'releasing', stage: 'checking', stageElapsedMs: elapsed, createdAt: '', changes: [] }]
+  client.setQueryData(getKey('/projects/lunch/releases'), releases())
+  const fetcher = vi.fn(async (path: string) => new Response(JSON.stringify(path.endsWith('/releases') ? releases() : path.endsWith('/diagnostics') ? { parts: [], reading: { unknown: false, stale: false } } : []), { headers: { 'Content-Type': 'application/json' } }))
+  vi.stubGlobal('fetch', fetcher)
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  try {
+    await act(async () => { root.render(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="main" /></QueryClientProvider></MemoryRouter>) })
+    expect(el.querySelector('.ch-deploy-progress')?.textContent).toContain('15s')
+    elapsed = 18000
+    await act(async () => { await vi.advanceTimersByTimeAsync(3100) })
+    expect(el.querySelector('.ch-deploy-progress')?.textContent).toContain('18s')
+    expect(fetcher.mock.calls.filter(([path]) => path.endsWith('/releases')).length).toBeGreaterThanOrEqual(2)
+  } finally {
+    await act(async () => root.unmount())
+    client.clear()
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  }
+})
+
+it.each(['releasing', 'released', 'failed'])('freezes stale deployment progress and shows a fresh %s read', async state => {
+  const client = runtimeClient()
+  const releases = [{ number: 9, deployment: 'main', state: 'releasing', stage: 'building', stageElapsedMs: 15000, createdAt: '', changes: [] }]
+  let fail = false
+  vi.stubGlobal('fetch', vi.fn(async (path: string) => {
+    if (path.endsWith('/releases') && fail) return new Response('unavailable', { status: 503 })
+    return new Response(JSON.stringify(path.endsWith('/releases') ? releases : path.endsWith('/diagnostics') ? { parts: [], reading: { unknown: false, stale: false } } : []), { headers: { 'Content-Type': 'application/json' } })
+  }))
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  try {
+    await act(async () => { root.render(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="main" /></QueryClientProvider></MemoryRouter>) })
+    await vi.waitFor(() => expect(el.querySelector('.deployment-deploy-card .busy')).not.toBeNull())
+    fail = true
+    await act(async () => { await client.refetchQueries({ queryKey: getKey('/projects/lunch/releases'), exact: true }) })
+    await vi.waitFor(() => expect(el.querySelector('.deployment-deploy-card .stale-note')).not.toBeNull())
+    expect(el.querySelector('.deployment-deploy-card .busy')).toBeNull()
+    expect(el.querySelector('.deployment-deploy-card .deploy-scene.paused')).not.toBeNull()
+    expect(el.querySelector('.deployment-deploy-card .deploy-stages')?.textContent).not.toContain('now')
+    expect(el.querySelector('.ch-deploy-progress')?.textContent).toContain('Last seen: building')
+    expect(el.querySelector('.ch-deploy-progress')?.textContent).toContain('Current progress is unknown')
+    expect(el.querySelector('.ch-deploy-progress')?.textContent).not.toContain('15s')
+    fail = false
+    Object.assign(releases[0], { state, failedStage: state === 'failed' ? 'building' : undefined })
+    await act(async () => { await client.refetchQueries({ queryKey: getKey('/projects/lunch/releases'), exact: true }) })
+    await vi.waitFor(() => expect(el.querySelector('.deployment-deploy-card .stale-note')).toBeNull())
+    expect(el.querySelector('.deployment-deploy-card .deploy-scene.paused')).toBeNull()
+    expect(el.querySelector('.deployment-deploy-card .busy') !== null).toBe(state === 'releasing')
+    if (state === 'released') expect(el.querySelector('.deployment-deploy-card')?.textContent).toContain("It's live!")
+    if (state === 'failed') expect(el.querySelector('.deployment-deploy-card .bad')).not.toBeNull()
+  } finally {
+    await act(async () => root.unmount())
+    client.clear()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('shows an interrupted stage as history without active time or animation', () => {
+  const client = runtimeClient()
+  client.setQueryData(getKey('/projects/lunch/releases'), [{ number: 9, deployment: 'main', state: 'releasing', lastStage: 'starting', progressUncertain: true, createdAt: '', changes: [] }])
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="main" /></QueryClientProvider></MemoryRouter>)
+  const card = el.querySelector('.deployment-deploy-card')!
+  expect(card.querySelector('.deploy-scene.paused')).not.toBeNull()
+  expect(card.querySelector('.busy')).toBeNull()
+  expect(card.querySelector('.deploy-stages')?.textContent).not.toContain('now')
+  expect(card.querySelector('.ch-deploy-progress')?.textContent).toBe('Last seen: starting the app · Deployment interrupted; being checked.')
+  expect(card.querySelector('.ch-deploy-heading')?.textContent).toBe('Deployment progress uncertain')
   client.clear()
 })

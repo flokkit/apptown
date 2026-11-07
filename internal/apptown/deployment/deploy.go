@@ -113,6 +113,9 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	if err := allowed(ctx); err != nil {
 		return ExecutionResult{}, fail("%v", err)
 	}
+	if err := deploy.ReportStage(ctx, deploy.Building); err != nil {
+		return ExecutionResult{}, fail("%v", err)
+	}
 	bindings, err := s.providers.PrepareNeeds(ctx, d, t, dep, req.source.Contract, logf)
 	if err != nil {
 		return ExecutionResult{}, fail("%v", err)

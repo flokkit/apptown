@@ -10,7 +10,7 @@ import { ReadStatus, StaleNote } from '../../ReadGate'
 import type { ReleaseListed } from '../../wire.gen'
 import { fmtDuration, fmtStamp } from '../../format'
 import '../change/deploy-scene.css'
-import { DeployScene } from '../change/DeployScene'
+import { DeployScene, deployWords } from '../change/DeployScene'
 import { Status } from '../../Status'
 import { Section } from '../../Section'
 import './deployment-deploys.css'
@@ -36,7 +36,7 @@ function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload
     {env.runtimeState === 'stopped' && env.servingRelease && <p>stopped · will run release {env.servingRelease.number} when started</p>}
     <section className="card deployment-deploy-card" aria-label="Latest deploy">
       <ReadStatus q={releases} what="latest deploy" /><StaleNote q={releases} />
-      {latest ? <ReleaseDeploy key={latest.number} slug={slug} release={latest} url={url} current={current && releases.current} stopped={env.runtimeState === 'stopped'} /> : releases.data && <div className="ch-deploy-result"><div className="ch-deploy-heading"><strong>No deploys yet.</strong></div><DeployScene outcome="paused" compactStages /></div>}
+      {latest ? <ReleaseDeploy key={latest.number} slug={slug} release={latest} url={url} current={current && releases.current} progressCurrent={!releases.refreshFailed} stopped={env.runtimeState === 'stopped'} /> : releases.data && <div className="ch-deploy-result"><div className="ch-deploy-heading"><strong>No deploys yet.</strong></div><DeployScene outcome="paused" compactStages /></div>}
     </section>
     <ChooseRelease key={`${slug}/${name}`} slug={slug} name={name} displayLabel={displayLabel} releases={releases.data ?? []} current={current && releases.current} choice={choice} onChoose={setChoice} />
     <Section title="Deploy history">
@@ -54,15 +54,19 @@ function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload
   </>
 }
 
-function ReleaseDeploy({ slug, release: r, url, current, stopped }: { slug: string; release: ReleaseListed; url?: string; current: boolean; stopped?: boolean }) {
+function ReleaseDeploy({ slug, release: r, url, current, progressCurrent, stopped }: { slug: string; release: ReleaseListed; url?: string; current: boolean; progressCurrent: boolean; stopped?: boolean }) {
   const ready = stopped && r.state === 'released'
-  const running = r.state === 'releasing', passed = !stopped && r.state === 'released'
+  const releasing = r.state === 'releasing'
+  const uncertain = releasing && (!progressCurrent || r.progressUncertain)
+  const running = releasing && !uncertain, passed = !stopped && r.state === 'released'
   const duration = r.releasedAt ? Date.parse(r.releasedAt) - Date.parse(r.createdAt) : undefined
   return <div className="ch-deploy-result">
-    <div className="ch-deploy-heading"><strong className={passed ? 'ok' : undefined}>{ready ? `Release ${r.number} is ready to start` : passed ? "It's live!" : running ? 'Deploying' : r.state === 'waiting for approval' ? 'Waiting for approval' : r.state === 'cancelled' ? 'Release cancelled' : r.state === 'superseded' ? 'Release superseded' : 'Deploy stopped'}</strong>{passed && <span> Release {r.number}</span>}</div>
-    <DeployScene outcome={ready || running || r.state === 'waiting for approval' || r.state === 'cancelled' || r.state === 'superseded' ? 'paused' : passed ? 'passed' : 'failed'} compactStages />
+    <div className="ch-deploy-heading"><strong className={passed ? 'ok' : undefined}>{ready ? `Release ${r.number} is ready to start` : passed ? "It's live!" : uncertain ? 'Deployment progress uncertain' : running ? 'Deploying' : r.state === 'waiting for approval' ? 'Waiting for approval' : r.state === 'cancelled' ? 'Release cancelled' : r.state === 'superseded' ? 'Release superseded' : 'Deploy stopped'}</strong>{passed && <span> Release {r.number}</span>}</div>
+    <DeployScene stage={r.stage ?? r.lastStage} failedStage={r.failedStage} buildElapsedMs={r.stage === 'building' ? r.stageElapsedMs ?? undefined : undefined} outcome={running ? 'running' : uncertain || ready || r.state === 'waiting for approval' || r.state === 'cancelled' || r.state === 'superseded' ? 'paused' : passed ? 'passed' : 'failed'} compactStages />
     <ReleaseApprovalActions slug={slug} release={r} decision={r.decision} current={current} />
     <div className="ch-deploy-result-facts">
+      {uncertain && <p className="ch-deploy-progress">{(r.stage ?? r.lastStage) ? `Last seen: ${deployWords[(r.stage ?? r.lastStage)!]} · ` : ''}{r.progressUncertain ? 'Deployment interrupted; being checked.' : 'Current progress is unknown until releases can be read again.'}</p>}
+      {running && <p className="ch-deploy-progress">{r.stage ? deployWords[r.stage] : 'Waiting for deployment progress'}{r.stageElapsedMs != null && ` · ${fmtDuration(Math.floor(r.stageElapsedMs / 1000))}`}</p>}
       {r.failure && <p>{r.failure}</p>}
       {passed && url && <><p>{new URL(url).host}</p><a className="btn primary" href={url}>Open the app</a></>}
       {r.backupId && <p><Link to={`/backups#backup-${r.backupId}`}>Backed up before this deploy →</Link></p>}

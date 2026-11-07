@@ -268,7 +268,8 @@ Deployments keeps configuration. The deployment page leads with the
 latest deploy card, then invocation history with outcome, time, source change,
 backup outcome and links to releases that were created. The deployment owner's
 `deploys` read includes invocations before provider admission; the scene reads
-the same step progress feed as Work.
+the release's recorded stage and time in that stage. Recovery stages are last-seen
+history. A stale release read freezes the scene and marks current progress unknown.
 
 Project Deployments lists each deployment with its status, display
 name, address, backup warning when needed, and serving release or preview change.

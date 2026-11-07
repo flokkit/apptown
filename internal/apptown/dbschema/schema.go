@@ -701,6 +701,9 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		`INSERT INTO instance_settings (key, value) SELECT 'feature.mcp', 'true' WHERE EXISTS (SELECT 1 FROM audit_log WHERE kind LIKE 'mcp.%') OR EXISTS (SELECT 1 FROM oauth_consents) OR EXISTS (SELECT 1 FROM oauth_clients) ON CONFLICT (key) DO NOTHING`,
 		`INSERT INTO instance_settings (key, value) SELECT 'feature.memory', 'true' WHERE EXISTS (SELECT 1 FROM projects) ON CONFLICT (key) DO NOTHING`,
 	}},
+	{n: 219, note: "record release deployment progress", stmts: []string{
+		`ALTER TABLE releases ADD COLUMN stage TEXT NOT NULL DEFAULT '', ADD COLUMN stage_entered_at TIMESTAMPTZ, ADD COLUMN failed_stage TEXT NOT NULL DEFAULT '', ADD COLUMN stage_finished_at TIMESTAMPTZ`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

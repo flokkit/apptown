@@ -229,6 +229,12 @@ try {
     'past-chats': '/projects/club-newsletter/chats', 'past-chat': `/projects/club-newsletter/chats/${seeded.projectChat}`,
     'release-log': '/projects/club-newsletter/releases/1/log',
   });
+  const deployScenes = {
+    preparing: ['Code', 'getting the code ready'], 'backing-up': ['Backup', 'backing up the data'],
+    building: ['Build', 'building the app'], starting: ['Start', 'starting the app'],
+    checking: ['Check', 'checking the app answers'], live: ['Live', 'live'], failed: ['Start', 'starting the app'],
+  };
+  Object.keys(deployScenes).forEach((stage, i) => { routes['deployment-' + stage] = '/projects/club-newsletter/deployments/app-' + (i + 1); });
   routes['automatic-guidance'] = '/guidance/generated';
   if (linked.generated) routes['generated-guidance'] = `/guidance/generated/${encodeURIComponent(linked.generated)}`;
   await page.goto(`${base}/changes/${seeded.delivered}?tab=details`, {waitUntil:'networkidle'});
@@ -315,6 +321,20 @@ try {
             return rows.every(row => [...row.children].every((cell, i) => Math.abs(cell.getBoundingClientRect().left - reference[i]) <= 1));
           }));
           if (!aligned) throw new Error('connection column headers and rows are misaligned');
+        }
+        if (screen.startsWith('deployment-') && screen.slice('deployment-'.length) in deployScenes) {
+          const stage = screen.slice('deployment-'.length);
+          const [word, description] = deployScenes[stage];
+          const scene = page.locator('.deployment-deploy-card .deploy-scene');
+          const active = scene.locator('li[aria-current="step"]');
+          if (await scene.count() !== 1 || await scene.evaluate(el => el.classList.contains('paused')) ||
+              await active.count() !== 1 || !(await active.innerText()).includes(word)) throw new Error('deployment scene has no active ' + stage + ' stage');
+          if (stage === 'failed') {
+            if (await scene.locator('.bad').count() !== 1 || await scene.locator('svg').getAttribute('aria-label') !== 'Stopped while ' + description) throw new Error('deployment failure did not light its failed stage');
+          } else if (stage !== 'live') {
+            if (await active.locator('.busy').count() !== 1 || await scene.locator('svg').getAttribute('aria-label') !== 'Deploying: ' + description ||
+                !(await page.locator('.ch-deploy-progress').innerText()).match(new RegExp(description + ' · \\d'))) throw new Error('deployment scene is not running at ' + stage + ' with time in stage');
+          } else if (await scene.locator('svg').getAttribute('aria-label') !== 'The app is live') throw new Error('released deployment is not live');
         }
         if (screen === 'deployment') {
           if (await page.getByRole('button', { name: 'Approve', exact: true }).count() !== 1 || !(await page.locator('main').innerText()).includes('running on Production')) throw new Error('waiting release is missing its approval meaning or doors');

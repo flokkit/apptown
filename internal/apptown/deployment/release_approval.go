@@ -178,7 +178,7 @@ func (s *Service) decideRelease(ctx context.Context, projectID ids.ID, number in
 		if err != nil {
 			return err
 		}
-		rel, err = releaseRecord(row.Release, nil)
+		rel, err = s.Releases.record(row.Release, nil)
 		if err != nil {
 			return err
 		}
@@ -226,7 +226,7 @@ func (s *Service) decideRelease(ctx context.Context, projectID ids.ID, number in
 		if rel.State != releaseWaiting {
 			return fault.New(fault.Conflict, "this release is no longer waiting for approval; reload its deployment")
 		}
-		n, err := q.DecideWaitingRelease(ctx, deploymentsql.DecideWaitingReleaseParams{ID: rel.ID, State: state.String(), Approval: raw})
+		n, err := q.DecideWaitingRelease(ctx, deploymentsql.DecideWaitingReleaseParams{ID: rel.ID, State: state.String(), Approval: raw, At: s.now()})
 		if err != nil {
 			return err
 		}
@@ -288,7 +288,7 @@ func (s *Service) WaitingReleases(ctx context.Context) ([]WaitingRelease, error)
 		return nil, err
 	}
 	for _, row := range rows {
-		rel, err := releaseRecord(row, nil)
+		rel, err := s.Releases.record(row, nil)
 		if err != nil {
 			return nil, err
 		}

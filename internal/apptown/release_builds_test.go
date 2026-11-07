@@ -1647,8 +1647,8 @@ func TestAReleaseDetailShowsItsBundlesFormAndDigests(t *testing.T) {
 
 // The live endpoint names the image being transferred before the transfer
 // reads its bytes, and retains progress after either a successful or failed
-// deploy. Nothing from the registry credential may reach that public log.
-func TestDeploymentProgressIsLiveBeforeTransferAndReadableAfterSettlement(t *testing.T) {
+// build. Nothing from the registry credential may reach that public log.
+func TestLandingBuildLogIsLiveBeforeTransferAndReadableAfterSettlement(t *testing.T) {
 	t.Parallel()
 	for _, failed := range []bool{false, true} {
 		t.Run(fmt.Sprintf("buildFailed=%v", failed), func(t *testing.T) {
@@ -1660,15 +1660,11 @@ func TestDeploymentProgressIsLiveBeforeTransferAndReadableAfterSettlement(t *tes
 				t.Helper()
 				out := authzCall(h, "boss", "GET", fmt.Sprintf("/api/v1/steps/%d/live", stepID), "")
 				var live struct {
-					Stage   deploy.DeployStage `json:"stage"`
-					Running bool               `json:"running"`
-					Lines   []string           `json:"lines"`
+					Running bool     `json:"running"`
+					Lines   []string `json:"lines"`
 				}
 				if err := json.Unmarshal(out.Body.Bytes(), &live); err != nil || out.Code != 200 {
 					t.Fatalf("live endpoint: %d %s (%v)", out.Code, out.Body.String(), err)
-				}
-				if live.Running && live.Stage != deploy.Building {
-					t.Errorf("image transfer stage = %s, want building", live.Stage)
 				}
 				text := strings.Join(live.Lines, "\n")
 				if strings.Contains(text, registryToken) {

@@ -86,6 +86,15 @@ were; any other adapter refuses. Intranet releases refuse the need. The
 card reads a key's allowance from OpenRouter on its own route
 (`GET …/deployments/{name}/ai-models`); unknown is never zero.
 
+Releases record their current deploy stage and its entry time as the job works.
+The release read supplies stage elapsed time, refreshed by the deployment page
+every three seconds while releasing, alongside the live drawing. Settlement
+records live or the stage that failed and freezes the elapsed time. During recovery the last stage is history, with no current elapsed time.
+A failed release refresh pauses the retained scene and labels progress unknown;
+a successful read resumes progress or shows its outcome. Landing
+build output remains step output; deployment progress comes from the release.
+
+
 ## Selected source and reproducibility
 
 The application declaration is native `.apptown/app.yaml`. Contract parsing and

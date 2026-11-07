@@ -287,3 +287,23 @@ it('finishes an unexpectedly short build within a moment and freezes unreadable 
     expect(el.querySelector('.roof.placed')).not.toBeNull()
   } finally { act(() => root.unmount()); vi.useRealTimers() }
 })
+
+it('freezes build catch-up when progress becomes stale and resumes after a fresh read', () => {
+  vi.useFakeTimers()
+  const el = document.createElement('div'), root = createRoot(el)
+  const draw = (stage: DeployStage, outcome: 'running' | 'paused') => act(() => root.render(<DeployScene stage={stage} outcome={outcome} buildElapsedMs={15000} />))
+  try {
+    draw('building', 'running')
+    draw('starting', 'running')
+    act(() => vi.advanceTimersByTime(180))
+    draw('starting', 'paused')
+    const frozen = el.innerHTML
+    act(() => vi.advanceTimersByTime(60000))
+    draw('starting', 'paused')
+    expect(el.innerHTML).toBe(frozen)
+    expect(el.querySelector('.roof.placed')).toBeNull()
+    draw('starting', 'running')
+    act(() => vi.advanceTimersByTime(1000))
+    expect(el.querySelector('.roof.placed')).not.toBeNull()
+  } finally { act(() => root.unmount()); vi.useRealTimers() }
+})
