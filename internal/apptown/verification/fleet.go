@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -109,6 +110,10 @@ const AdoptionTrigger = "adoption"
 // grant is needed or used). Its options are the remediation check's: one
 // project, the one-project build allowance.
 func (f Fleet) RequestAdoptionReviewIn(ctx context.Context, tx *database.Tx, recorded conformance.AdoptionScope) error {
+	on, err := identity.FeatureEnabledIn(ctx, tx, "conformance")
+	if err != nil || !on {
+		return err
+	}
 	opts := conformance.ReviewOptions{Projects: []ids.ID{recorded.ProjectID()}, Build: true, BuildBudget: 1}
 	rev, err := f.checks.AdmitReviewIn(conformance.WithAdoption(ctx, recorded), tx, reviewRequest(AdoptionTrigger, opts))
 	if err != nil {

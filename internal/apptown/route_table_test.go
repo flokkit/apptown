@@ -47,8 +47,9 @@ import (
 func TestRouteTableRejectsInvalidDeclarations(t *testing.T) {
 	t.Parallel()
 	handler := func(http.ResponseWriter, *http.Request) { t.Fatal("construction invoked a handler") }
-	valid := publicRoute("GET /valid", handler, "test")
+	valid := publicRoute("GET /valid", handler, "test").inArea("record")
 	cases := map[string][]routeSpec{
+		"missing feature area":       {publicRoute("GET /bad", handler, "test")},
 		"missing pattern":            {publicRoute("", handler, "test")},
 		"missing handler":            {publicRoute("GET /bad", nil, "test")},
 		"missing policy":             {{pattern: "GET /bad", handler: handler}},
@@ -65,6 +66,11 @@ func TestRouteTableRejectsInvalidDeclarations(t *testing.T) {
 
 	for name, routes := range cases {
 		t.Run(name, func(t *testing.T) {
+			if name != "missing feature area" {
+				for i := range routes {
+					routes[i] = routes[i].inArea("record")
+				}
+			}
 			mux, err := newRouteMux(nil, append([]routeSpec{valid}, routes...))
 			if err == nil || mux != nil {
 				t.Fatalf("invalid table exposed mux=%v, err=%v", mux, err)
@@ -76,8 +82,8 @@ func TestRouteTableRejectsInvalidDeclarations(t *testing.T) {
 func TestRouteTableCapturesEachDeclaration(t *testing.T) {
 	t.Parallel()
 	routes := []routeSpec{
-		publicRoute("GET /things/{id}", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(r.PathValue("id"))) }, "test"),
-		publicRoute("GET /things/special", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) }, "test"),
+		publicRoute("GET /things/{id}", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(r.PathValue("id"))) }, "test").inArea("record"),
+		publicRoute("GET /things/special", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) }, "test").inArea("record"),
 	}
 	first, err := newRouteMux(nil, routes)
 	if err != nil {
@@ -142,6 +148,7 @@ func TestRouteTableConcurrentHandlerConstruction(t *testing.T) {
 func TestRouteTablePreservesOuterAndProtocolAuthentication(t *testing.T) {
 	t.Parallel()
 	a := testApp(t, Config{AuthMode: "internal", AuthHeader: "", AuthProxySecret: ""})
+	setTestFeature(t, a, "mcp", true)
 
 	h := a.Handler()
 	for _, tc := range []struct {
@@ -425,6 +432,8 @@ type described struct {
 // check every request its --json commands send is one of these (jsonAppTown
 // in cmd/apptown/output_test.go).
 var cliOperations = map[string]described{
+	"GET /api/v1/features":                       {status: 200, response: []identity.Feature{}},
+	"PUT /api/v1/features/{area}":                {status: 200, strict: true, request: httpapi.FeatureChange{}, response: identity.Feature{}},
 	"GET /api/v1/attention":                      {status: 200, response: attention.View{}},
 	"GET /api/v1/auth/external/provider":         {status: 200, response: identity.ExternalProvider{}},
 	"PUT /api/v1/auth/external/provider":         {status: 200, request: identity.ExternalProviderChange{}, response: identity.ExternalProvider{}},
@@ -702,6 +711,7 @@ func apiDescription() (map[string]any, error) {
 			"operationId":         operationID(method, path),
 			"tags":                []string{tagOf(path)},
 			"x-apptown-access":    access,
+			"x-apptown-feature":   map[string]any{"area": route.area, "tier": featureTier(route.area)},
 			"x-apptown-stability": "experimental",
 		}
 		if len(params) > 0 {
@@ -1088,3 +1098,163 @@ type apiStep workflow.Step
 type apiOperation operations.Operation
 
 type apiBackup dataprotection.Backup
+
+func setTestFeature(t *testing.T, a *App, area string, enabled bool) {
+	t.Helper()
+	setTestFeatureAs(t, a, area, enabled, "feature-admin")
+}
+func setTestFeatureAs(t *testing.T, a *App, area string, enabled bool, who string) {
+	t.Helper()
+	testAdministrator(t, a, who)
+	f, err := a.Access.FeatureState(context.Background(), area)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = a.Access.SetFeature(context.Background(), access.Principal{Kind: "user", Name: who, ID: testPrincipalOf(t, a.DB, who), Via: "session"}, area, f.Enabled, enabled)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Every registered route, web page and MCP tool has an explicit catalogue area.
+// A new declaration without a tier cannot silently ship as core.
+func TestEveryRouteAndToolDeclaresItsFeatureTier(t *testing.T) {
+	t.Parallel()
+	catalogue := map[string]string{}
+	for _, f := range identity.FeatureCatalogue() {
+		if catalogue[f.Area] != "" {
+			t.Fatalf("duplicate area %s", f.Area)
+		}
+		if f.Tier != "always" && f.Tier != "standard" && f.Tier != "beta" {
+			t.Fatalf("unknown tier: %+v", f)
+		}
+		catalogue[f.Area] = f.Tier
+		if !strings.HasPrefix(f.Docs, "/docs/guides/") {
+			t.Errorf("%s has no guide", f.Area)
+		} else if _, err := os.Stat("../../stock/docs/guides/" + strings.TrimPrefix(f.Docs, "/docs/guides/") + ".md"); err != nil {
+			t.Errorf("%s guide: %v", f.Area, err)
+		}
+	}
+	for _, kind := range deployment.Kinds() {
+		if catalogue[deployment.TargetFeatureArea(kind.Kind)] == "" {
+			t.Errorf("target kind %s has no tier", kind.Kind)
+		}
+	}
+	for _, r := range appRoutes(nil) {
+		if (r.pattern == "POST /api/v1/changes/{id}/check" || r.pattern == "POST /api/v1/steps/{id}/run" || r.pattern == "POST /api/v1/standing-approvals/preview" || r.pattern == "POST /api/v1/routine-publications/preview") && catalogue[r.area] != "always" {
+			t.Errorf("workflow boundary %s became switchable", r.pattern)
+		}
+		if catalogue[r.area] == "" {
+			t.Errorf("%s has no tier", r.pattern)
+		}
+	}
+	a := testApp(t)
+	entries, err := a.Ways.CatalogChanges()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if catalogue[entry.Area] == "" {
+			t.Errorf("catalogue %s has no tier", entry.Name)
+		}
+	}
+	guide, err := os.ReadFile("../../stock/docs/guides/features.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for area, tier := range catalogue {
+		label := map[string]string{"always": "Always on", "standard": "On by default", "beta": "Beta, off by default"}[tier]
+		if !strings.Contains(string(guide), "| "+area+" | "+label+" |") {
+			t.Errorf("%s has no documented tier", area)
+		}
+	}
+	for _, tool := range mcpToolsFor(a) {
+		if catalogue[tool.FeatureArea()] == "" {
+			t.Errorf("MCP %s has no tier", tool.Name)
+		}
+	}
+	source, err := os.ReadFile("../../web/src/App.tsx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(string(source), "\n") {
+		if !strings.Contains(line, "<Route path=") {
+			continue
+		}
+		if strings.Contains(line, "<ProjectFeatureGate>") {
+			continue
+		}
+		area := regexp.MustCompile(`(FeatureGate|CoreArea) area="([^"]+)"`).FindStringSubmatch(line)
+		if len(area) != 3 || catalogue[area[2]] == "" {
+			t.Errorf("page has no tier: %s", line)
+		} else if (area[1] == "CoreArea") != (catalogue[area[2]] == "always") {
+			t.Errorf("page tier does not match its area: %s", line)
+		}
+	}
+}
+
+// A new install refuses beta areas before any optional owner performs work;
+// the next request observes an administrator's change without a restart.
+func TestFeatureSwitchRefusesHTTPAndMCPUntilAnAdministratorEnablesIt(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	get := func(path string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("GET", path, nil)
+		w := httptest.NewRecorder()
+		a.Handler().ServeHTTP(w, r)
+		return w
+	}
+	for _, path := range []string{"/api/v1/evals", "/mcp/user", "/.well-known/oauth-authorization-server", "/api/v1/conformance"} {
+		w := get(path)
+		if w.Code != 403 || !strings.Contains(w.Body.String(), "is turned off; an administrator can turn it on in Features") {
+			t.Fatalf("%s: %d %s", path, w.Code, w.Body.String())
+		}
+	}
+	setTestFeature(t, a, "mcp", true)
+	edit := httptest.NewRequest("PUT", "/api/v1/features/evals", strings.NewReader(`{"expected":false,"enabled":true}`))
+	edit.Header.Set("Content-Type", "application/json")
+	edit.Header.Set("X-AppTown-Actor", "feature-admin")
+	changed := httptest.NewRecorder()
+	a.Handler().ServeHTTP(changed, edit)
+	if changed.Code != 200 {
+		t.Fatalf("administrator API switch: %d %s", changed.Code, changed.Body.String())
+	}
+	effective, err := a.Access.FeatureState(t.Context(), "evals")
+	if err != nil || !effective.Enabled {
+		t.Fatalf("API switch did not persist: %+v %v", effective, err)
+	}
+	if w := get("/mcp/user"); w.Code != 401 {
+		t.Fatalf("enabled MCP lost authentication: %d %s", w.Code, w.Body.String())
+	}
+	setTestFeature(t, a, "models", false)
+	for _, path := range []string{"/api/v1/integrations/test", "/api/v1/integrations/discover"} {
+		probe := httptest.NewRequest("POST", path, strings.NewReader(`{"capability":"model","provider":"unconfigured","config":{}}`))
+		probe.Header.Set("Content-Type", "application/json")
+		probe.Header.Set("X-AppTown-Actor", "feature-admin")
+		refused := httptest.NewRecorder()
+		a.Handler().ServeHTTP(refused, probe)
+		if refused.Code != 403 || !strings.Contains(refused.Body.String(), "Models is turned off") {
+			t.Fatalf("shared connector bypass: %d %s", refused.Code, refused.Body.String())
+		}
+	}
+	setTestFeature(t, a, "worker", false)
+	if w := get("/api/v1/executor"); w.Code != 403 || !strings.Contains(w.Body.String(), "is turned off") {
+		t.Fatalf("disabled executor: %d %s", w.Code, w.Body.String())
+	}
+	setTestFeature(t, a, "usage", false)
+	if w := get("/api/v1/usage"); w.Code != 403 {
+		t.Fatalf("disabled standard area: %d %s", w.Code, w.Body.String())
+	}
+	if w := get("/api/v1/features"); w.Code != 200 {
+		t.Fatalf("features locked out: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func featureTier(area string) string {
+	for _, f := range identity.FeatureCatalogue() {
+		if f.Area == area {
+			return f.Tier
+		}
+	}
+	panic("unclassified feature area: " + area)
+}

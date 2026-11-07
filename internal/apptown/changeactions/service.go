@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
@@ -35,6 +36,9 @@ func New(work *workflow.Service, db *database.DB) *Service {
 // the console actuator (project chats kick off catalog changes as one of
 // their sanctioned mutations).
 func (s *Service) ApplyCatalog(ctx context.Context, p *project.Project, c *wow.CatalogChange, params map[string]string, who string) (*workflow.Change, *workflow.Run, error) {
+	if err := identity.RequireFeatureIn(ctx, s.db, c.Area); err != nil {
+		return nil, nil, err
+	}
 	def := c.Definition
 	body, err := def.Render(def.Prompt, params)
 	if err != nil {

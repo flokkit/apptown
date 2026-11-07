@@ -1,3 +1,5 @@
+import { settled } from '../settled'
+import { withFeatures } from '../features.fixture'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -33,12 +35,12 @@ describe('a protection reading whose refresh failed', () => {
   afterEach(() => vi.unstubAllGlobals())
   const mount = async (path: string, ui: React.ReactNode, body: unknown) => {
     const client = newQueryClient()
-    vi.stubGlobal('fetch', answer(body))
+    vi.stubGlobal('fetch', withFeatures(answer(body)))
     const el = document.createElement('div')
     const root = createRoot(el)
     await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/operations/${OPERATION}`]}>{ui}</MemoryRouter></QueryClientProvider>) })
-    await vi.waitFor(() => expect(el.textContent).not.toContain('Reading'))
-    vi.stubGlobal('fetch', down)
+    await settled(client)
+    vi.stubGlobal('fetch', withFeatures(down))
     await act(async () => { await client.refetchQueries({ queryKey: getKey(path) }).catch(() => {}) })
     return { el, done: () => { act(() => root.unmount()); client.clear() } }
   }

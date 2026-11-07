@@ -49,10 +49,11 @@ func TestABrokenCatalogFileIsAnError(t *testing.T) {
 	t.Parallel()
 	for name, body := range map[string]string{
 		"missing":      "",
+		"no area":      "catalog:\n  - name: uplift/x\n    definition: {workflow: quick-change}\n",
 		"unknown key":  "catalog:\n  - name: uplift/x\n    definition: {workflow: quick-change}\n    colour: red\n",
 		"bad name":     "catalog:\n  - name: Bad Name\n    definition: {workflow: quick-change}\n",
-		"no workflow":  "catalog:\n  - name: uplift/x\n    definition: {prompt: p}\n",
-		"listed twice": "catalog:\n  - name: uplift/x\n    definition: {workflow: quick-change}\n  - name: uplift/x\n    definition: {workflow: quick-change}\n",
+		"no workflow":  "catalog:\n  - name: uplift/x\n    area: changes\n    definition: {prompt: p}\n",
+		"listed twice": "catalog:\n  - name: uplift/x\n    area: changes\n    definition: {workflow: quick-change}\n  - name: uplift/x\n    area: changes\n    definition: {workflow: quick-change}\n",
 	} {
 		fsys := fstest.MapFS{}
 		if body != "" {

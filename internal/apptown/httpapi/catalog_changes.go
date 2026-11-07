@@ -40,6 +40,14 @@ func (h CatalogChanges) CatalogList(w http.ResponseWriter, r *http.Request) {
 	}
 	out := []CatalogEntry{}
 	for _, c := range changes {
+		f, err := h.access.FeatureState(r.Context(), c.Area)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		if !f.Enabled {
+			continue
+		}
 		out = append(out, CatalogEntry{CatalogChange: c})
 	}
 	if proj != nil {
@@ -103,6 +111,10 @@ func (h CatalogChanges) CatalogGet(w http.ResponseWriter, r *http.Request) {
 		writeCatalogFault(w, err)
 		return
 	}
+	if err := h.access.RequireFeature(r.Context(), c.Area); err != nil {
+		WriteFault(w, err)
+		return
+	}
 	WriteJSON(w, 200, CatalogChangeDetail{Change: *c, Definition: c.Definition})
 }
 
@@ -112,6 +124,10 @@ func (h CatalogChanges) CatalogApply(w http.ResponseWriter, r *http.Request) {
 	c, err := h.ways.CatalogChange(r.PathValue("name"))
 	if err != nil {
 		writeCatalogFault(w, err)
+		return
+	}
+	if err := h.access.RequireFeature(r.Context(), c.Area); err != nil {
+		WriteFault(w, err)
 		return
 	}
 	jsonCommand(w, r, jsonBody{}, func(in struct {

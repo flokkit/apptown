@@ -17,7 +17,7 @@ type EvalReadsDependencies struct {
 func NewEvalReads(deps EvalReadsDependencies) []toolEntry {
 	h := evalReads{evals: deps.Evals}
 	return []toolEntry{{
-		Name:  "get_eval",
+		Name: "get_eval", area: "evals",
 		order: 23,
 		Description: "Experimental. Returns an eval's scorecard: landed Changes re-run in throwaway copies as their projects run now and with one thing varied (a model profile or a pack version), " +
 			"each arm's checks compared with the Change's base finding by finding (new, fixed, already there, or not comparable with why), and the variant against the baseline measure by measure. " +

@@ -39,7 +39,7 @@ func TestDeploymentRemovalChecksAuthorityAndHTTPOutcome(t *testing.T) {
 	if _, err := a.data.Remove(context.Background(), in); !errors.Is(err, access.ErrPrincipalRequired) {
 		t.Fatalf("missing principal: %v", err)
 	}
-	h := NewDeployments(a.service, a.data, a.projects)
+	h := NewDeployments(a.service, a.data, a.projects, a.identity)
 	path := "/api/v1/projects/game/deployments/staging"
 	values := map[string]string{"slug": "game", "name": "staging"}
 	if w := deploymentRequest(h.DeleteDeployment, "outsider", http.MethodDelete, path, values); w.Code != 403 {

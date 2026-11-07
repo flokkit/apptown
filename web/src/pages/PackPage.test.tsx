@@ -5,15 +5,17 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
+import { enabledFeatures } from '../features.fixture'
 import { settled } from '../settled'
 import PackPage from './PackPage'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 afterEach(() => vi.unstubAllGlobals())
-it.each([true, false])('owns visibility, edit, delete and recommendation (enabled=%s)', async enabled => {
+it.each([{enabled:true,beta:true}, {enabled:false,beta:true}, {enabled:true,beta:false}])('owns visibility, edit, delete and recommendation (%j)', async ({enabled, beta}) => {
   const sent: [string, unknown][] = []
   const declaration = { guidance: ['team/code-review'], workflows: [], policies: [] }
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.endsWith('/features')) return new Response(JSON.stringify(enabledFeatures.map(f => f.area === 'what-ifs' ? { ...f, enabled: beta } : f)))
     if (init?.method === 'POST') { sent.push([url, JSON.parse(String(init.body))]); return new Response('{}') }
     const data = url.endsWith('/authz/me') ? { instance: { 'standards:manage-packs': true } }
       : url.endsWith('/workflows/library') ? [{ name: 'review', description: 'Review the work' }]
@@ -27,7 +29,7 @@ it.each([true, false])('owns visibility, edit, delete and recommendation (enable
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   const button = (text: string) => [...el.querySelectorAll('button')].find(b => b.textContent === text)!
   try {
-    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/packs/team?whatIf=assessment']}><Routes><Route path="/packs/:name" element={<PackPage />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[beta ? '/packs/team?whatIf=assessment' : '/packs/team']}><Routes><Route path="/packs/:name" element={<PackPage />} /></Routes></MemoryRouter></QueryClientProvider>))
     await settled(client)
     expect([...el.querySelectorAll('h2')].map(h => h.textContent)).toContain('Guidance1')
     expect(button('Edit')).toBeDefined()
@@ -36,7 +38,11 @@ it.each([true, false])('owns visibility, edit, delete and recommendation (enable
     expect(sent).toContainEqual(['/api/v1/packs/team/enabled', { enabled: !enabled }])
     await act(async () => button('Recommend v2').click())
     await act(async () => button('Recommend it').click())
-    expect(sent).toContainEqual(['/api/v1/packs/team/recommended', { version: 2, whatIf: 'assessment' }])
+    expect(sent).toContainEqual(['/api/v1/packs/team/recommended', { version: 2, ...(beta ? { whatIf: 'assessment' } : {}) }])
+    if (!beta) {
+      expect(el.querySelector('a[href="/packs/team/versions/2"]')).not.toBeNull()
+      expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).includes('/conformance/what-if'))).toBe(false)
+    }
     await act(async () => button('Delete…').click())
     expect(el.textContent).toContain('Projects keep the versions they applied.')
     expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false)
@@ -45,5 +51,23 @@ it.each([true, false])('owns visibility, edit, delete and recommendation (enable
     expect(el.textContent).toContain('Edit pack: team')
     expect(el.textContent).toContain('review')
     expect(el.querySelector('input[aria-label="Name"]')).not.toBeNull()
+  } finally { await act(async () => root.unmount()); client.clear() }
+})
+
+it.each([false, true])('version page starts what-ifs only when enabled (%s)', async beta => {
+  const spec = { guidance: [], workflows: [], policies: [] }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.endsWith('/features') ? enabledFeatures.map(f => f.area === 'what-ifs' ? { ...f, enabled: beta } : f)
+      : url.endsWith('/authz/me') ? { instance: { 'standards:manage-packs': true } }
+      : url.endsWith('/packs') ? []
+      : { name: 'team', versions: [{ version: 2, spec, pins: { blocks: {}, workflows: {} } }] }
+  ))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/packs/team/versions/2']}><Routes><Route path="/packs/:name/versions/:version" element={<PackPage />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await settled(client)
+    expect(el.textContent).toContain('Version 2')
+    expect(el.textContent?.includes('beta')).toBe(beta)
+    expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).includes('/conformance/what-if?'))).toBe(beta)
   } finally { await act(async () => root.unmount()); client.clear() }
 })

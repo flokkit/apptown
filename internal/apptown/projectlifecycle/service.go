@@ -137,6 +137,9 @@ func New(db *database.DB, deps Dependencies, cfg Config) *Service {
 // is the full creation request, kept in the project.created record. The
 // display description starts empty and a queued job generates it.
 func (s *Service) Create(ctx context.Context, in Draft) (*project.Project, error) {
+	if err := s.requireCreationFeature(ctx, in); err != nil {
+		return nil, err
+	}
 	if !in.RequestID.IsZero() {
 		return s.createRequested(ctx, in)
 	}

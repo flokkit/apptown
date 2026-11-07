@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 )
 
 // Call contains transport-established identity and attribution, never services.
@@ -28,6 +29,7 @@ func (r Refusal) Error() string { return string(r) }
 type toolEntry struct {
 	order             int // stable descriptor order, declared with the tool rather than a second catalog
 	Name, Description string
+	area              string
 	InputSchema       map[string]any
 	command           toolCommand
 }
@@ -49,6 +51,16 @@ func publicCommand(contract string, run func(*Call, map[string]any) (any, error)
 	return toolCommand{"public", contract, run}
 }
 func (t toolEntry) validate() error {
+	known := false
+	for _, f := range identity.FeatureCatalogue() {
+		if f.Area == t.area {
+			known = true
+			break
+		}
+	}
+	if !known {
+		return fmt.Errorf("tool %q requires a feature area", t.Name)
+	}
 	if t.Name == "" || t.command.run == nil || strings.TrimSpace(t.command.contract) == "" {
 		return fmt.Errorf("tool %q requires a name, command and policy contract", t.Name)
 	}
@@ -58,6 +70,8 @@ func (t toolEntry) validate() error {
 	}
 	return fmt.Errorf("tool %q has no explicit policy", t.Name)
 }
+func (t toolEntry) FeatureArea() string { return t.area }
+
 func (t toolEntry) Run(c *Call, args map[string]any) (any, error) {
 	if err := t.validate(); err != nil {
 		return nil, err

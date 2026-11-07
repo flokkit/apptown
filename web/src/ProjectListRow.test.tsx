@@ -1,3 +1,4 @@
+import { withFeatures } from './features.fixture'
 // @vitest-environment jsdom
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -14,15 +15,16 @@ const cleanup: (() => void)[] = []
 afterEach(() => { cleanup.splice(0).forEach(f => f()); vi.unstubAllGlobals() })
 function Location() { const loc = useLocation(); return <output>{loc.pathname}{loc.search}</output> }
 async function row(chatAvailable = true, post?: () => Promise<Response>) {
-  const fetch = vi.fn(async (_url: string, init?: RequestInit) => init?.method === 'POST'
+  const fetch = vi.fn(withFeatures(async (_url: string, init?: RequestInit) => init?.method === 'POST'
     ? post ? post() : new Response(JSON.stringify({ change: { id: 'chat-one' } }))
-    : new Response('[]'))
+    : new Response('[]')))
   vi.stubGlobal('fetch', fetch)
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   document.body.append(el)
   cleanup.push(() => { act(() => root.unmount()); el.remove(); client.clear() })
   const project = { slug: 'library', name: 'Library', canChange: true, chatAvailable, hasDeployments: false } as ProjectRow
   await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectListRow project={project} /><Location /></MemoryRouter></QueryClientProvider>))
+  await settled(client)
   const click = async (selector: string) => {
     await act(async () => (el.querySelector(selector) as HTMLButtonElement).click())
     await settled(client)

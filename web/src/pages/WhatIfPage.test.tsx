@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { newQueryClient } from '../data'
+import { withFeatures } from '../features.fixture'
 import { settled } from '../settled'
 import WhatIfPage from './WhatIfPage'
 
@@ -44,10 +45,10 @@ const whatIf = {
 }
 
 async function render(answer: (url: string, init?: RequestInit) => unknown) {
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
     const a = answer(String(url), init) as { __status?: number }
     return new Response(JSON.stringify(a), { status: a?.__status ?? 200 })
-  }))
+  })))
   const client = newQueryClient()
   const el = document.createElement('div')
   const root = createRoot(el)
@@ -236,7 +237,7 @@ describe('the what-if page', () => {
     const posted: string[] = []
     let release: () => void = () => {}
     const held = new Promise<void>((r) => { release = r })
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
       if (init?.method === 'POST') {
         posted.push(String(url))
         await held
@@ -244,7 +245,7 @@ describe('the what-if page', () => {
       }
       const body = String(url).includes('/authz/me') ? { instance: {} } : String(url).includes('/packs/team') ? { recommended: 1 } : whatIf
       return new Response(JSON.stringify(body))
-    }))
+    })))
     const client = newQueryClient()
     const el = document.createElement('div')
     const root = createRoot(el)

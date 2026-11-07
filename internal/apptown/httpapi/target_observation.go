@@ -126,6 +126,13 @@ func (h Targets) targetViews(ctx context.Context) ([]TargetView, error) {
 	}
 	out := []TargetView{}
 	for _, t := range ts {
+		f, err := h.access.FeatureState(ctx, deployment.TargetFeatureArea(t.Kind))
+		if err != nil {
+			return nil, err
+		}
+		if !f.Enabled {
+			continue
+		}
 		check, err := h.deployment.Targets.RecordedCheck(ctx, t)
 		if err != nil {
 			return nil, err

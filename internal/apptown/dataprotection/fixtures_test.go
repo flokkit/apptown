@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -322,4 +323,29 @@ func shortHostDataDir(t *testing.T) string {
 		}
 	})
 	return dir
+}
+
+func setDataFeature(t *testing.T, db *database.DB, area string, enabled bool) {
+	t.Helper()
+	accounts := identity.New(db, identity.Config{})
+	if err := accounts.SeedAdministrator(t.Context(), "feature-admin"); err != nil {
+		t.Fatal(err)
+	}
+	users, err := accounts.Users(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pr := access.Principal{Kind: "user", Name: "feature-admin", Via: "session"}
+	for _, u := range users {
+		if u.Username == pr.Name {
+			pr.ID = u.PrincipalID
+		}
+	}
+	f, err := accounts.FeatureState(t.Context(), area)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := accounts.SetFeature(t.Context(), pr, area, f.Enabled, enabled); err != nil {
+		t.Fatal(err)
+	}
 }

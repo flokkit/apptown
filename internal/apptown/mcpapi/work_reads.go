@@ -24,32 +24,32 @@ type workReads struct {
 
 func NewWorkReads(deps WorkReadsDependencies) []toolEntry {
 	h := workReads{scope: deps.Scope, work: deps.Work, db: deps.DB, contributions: deps.Contributions}
-	return []toolEntry{{Name: "list_changes",
-		order: 4, Description: "Returns the project's Changes, newest first, optionally only those in one state (in_progress, landing, shipped, abandoned).", InputSchema: schemaObject(map[string]any{"slug": slugArg, "state": schemaString("Only Changes in this state: in_progress, landing, shipped or abandoned. Omit for all.")}, "slug"), command: ownerCommand("work_reads.listChanges", h.listChanges)}, {Name: "get_change",
+	return []toolEntry{{Name: "list_changes", area: "record",
+		order: 4, Description: "Returns the project's Changes, newest first, optionally only those in one state (in_progress, landing, shipped, abandoned).", InputSchema: schemaObject(map[string]any{"slug": slugArg, "state": schemaString("Only Changes in this state: in_progress, landing, shipped or abandoned. Omit for all.")}, "slug"), command: ownerCommand("work_reads.listChanges", h.listChanges)}, {Name: "get_change", area: "record",
 		order: 5, Description: "Returns one Change with its current run (steps and their status), every run it has had, and what it is waiting on and on whom. When a person's approval of a commit is waiting, waiting.adds is what that commit brings into the app (secrets, services, app parts, and ways of working for an uplift), read from its declarations; addsError says why it could not be read.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"), command: ownerCommand("work_reads.getChange", h.getChange)},
 		{
-			Name:        "get_change_diff",
+			Name: "get_change_diff", area: "record",
 			order:       6,
 			Description: "Returns the Change's whole diff against the commit it forked from, as unified diff text (cut at 200 KB with truncated: true).",
 			InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"),
 			command:     ownerCommand("work_reads.getChangeDiff", h.getChangeDiff),
 		},
 		{
-			Name:        "get_change_evidence",
+			Name: "get_change_evidence", area: "record",
 			order:       7,
 			Description: "Returns what the Change's current run recorded: each step with a bounded summary of its evidence, and the run's artifacts (kind, name, reference) without their bodies. reportedByAgent is the agent's own report from request_change_landing, not checked by AppTown. summaryReadsRequestAs is the summary's reading of whether the request is met, with what falls short and what would satisfy it.",
 			InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"),
 			command:     ownerCommand("work_reads.getChangeEvidence", h.getChangeEvidence),
 		},
 		{
-			Name:        "get_run",
+			Name: "get_run", area: "record",
 			order:       8,
 			Description: "Returns one workflow run: its status, its honest state (working, waiting on you, blocked), and every step with its status.",
 			InputSchema: schemaObject(map[string]any{"id": schemaID("The run's id.")}, "id"),
 			command:     ownerCommand("work_reads.getRun", h.getRun),
 		},
 		{
-			Name:        "get_waiting_on_you",
+			Name: "get_waiting_on_you", area: "record",
 			order:       9,
 			Description: "Returns the approvals waiting on a person right now — each with its Change, the step, and what saying OK would mean — across every project you can see, or one project.",
 			InputSchema: schemaObject(map[string]any{"slug": schemaString("Only this project's approvals. Omit for every project you can see.")}),

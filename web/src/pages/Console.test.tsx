@@ -1,3 +1,4 @@
+import { withFeatures } from '../features.fixture'
 // @vitest-environment jsdom
 // @ts-expect-error -- this package has no Node types; only this read is used.
 import { readFileSync } from 'node:fs'
@@ -123,7 +124,7 @@ describe('what the chat is about folds to one line on a phone', () => {
       Element.prototype.scrollIntoView = () => {}
       vi.stubGlobal('WebSocket', class { send() {} close() {} })
       vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
-      vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
         const u = String(url)
         if (u === '/api/v1/projects/p/console') {
           return new Response(JSON.stringify({ sessions: [{ id: 's1', projectSlug: 'p', model: 'm', createdAt: '', state: 'unavailable',
@@ -133,7 +134,7 @@ describe('what the chat is about folds to one line on a phone', () => {
         if (u.includes('/messages')) return new Response(JSON.stringify({ messages: [{ i: 0, role: 'helper', text: 'Done.' }] }))
         if (u.endsWith('/changes')) return new Response(JSON.stringify({ changes: [] }))
         return new Response('{}')
-      }))
+      })))
       window.history.replaceState(null, '', `/projects/p/console${ON_CHANGE}`)
       const client = newQueryClient()
       const el = document.createElement('div')
@@ -192,7 +193,7 @@ describe('phone change controls', () => {
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === NARROW_QUERY, media: q, addEventListener() {}, removeEventListener() {} }))
     vi.stubGlobal('WebSocket', class { send() {} close() {} })
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
       const u = String(url)
       if (u.includes('/messages')) await messagesReady
       const data = u.endsWith('/projects/p/console')
@@ -203,7 +204,7 @@ describe('phone change controls', () => {
             : u.includes('/messages') ? { messages: Array.from({ length: messageCount }, (_, i) => ({ i, role: 'you', text: 'Hello' })), turn: 'handed-back' }
               : { changes: [] }
       return new Response(JSON.stringify(data))
-    }))
+    })))
   })
   afterEach(() => vi.unstubAllGlobals())
 
@@ -283,7 +284,7 @@ describe('writing while the helper starts', () => {
       onopen?: () => void
       onclose?: () => void
     })
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
       const u = String(url)
       if (u.endsWith('/projects/p/console')) {
         if (init?.method === 'POST') return new Promise<Response>(resolve => { opened = resolve })
@@ -292,7 +293,7 @@ describe('writing while the helper starts', () => {
       if (u.endsWith('/say')) { said.push(JSON.parse(String(init?.body)).text); return sayFails ? new Response('{"error":"Could not send"}', { status: 400 }) : new Response('{}') }
       if (u.includes('/messages')) return new Response('{"messages":[]}')
       return new Response('{"changes":[]}')
-    }))
+    })))
     const client = newQueryClient()
     const el = document.createElement('div')
     const root = createRoot(el)

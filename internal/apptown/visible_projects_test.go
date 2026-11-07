@@ -314,6 +314,7 @@ func TestEvalCopiesAreLeftOutOfProjectListsAndSpendOnTheEvalsLine(t *testing.T) 
 func TestEvalRoutesAskTheEvalsOwner(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	h := a.Handler()
 	for _, r := range []struct{ method, path, body string }{
 		{"GET", "/api/v1/evals/start", ""}, {"POST", "/api/v1/evals", `{"changes":["00000000-0001-7000-8000-000000000000"],"profile":"standard","budgetDollars":1,"shown":"x"}`},

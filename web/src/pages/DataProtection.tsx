@@ -1,3 +1,4 @@
+import { FeatureOnly } from '../features'
 import './DataProtection.css'
 import { TechnicalWords, useTechnicalDetail } from './change/TechnicalDetail'
 import { DeploymentLine } from './project/settings/DeploymentLine'
@@ -179,7 +180,7 @@ const rehearseTitle = "boot the release it serves on its newest backup, on the h
 
 // ProtectionLines is a cloud deployment's protection on its card: each
 // item, the running operation, and the doors to copy and check now.
-export function ProtectionLines({ slug, name }: { slug: string; name: string }) {
+function EnabledProtectionLines({ slug, name }: { slug: string; name: string }) {
   const [technical] = useTechnicalDetail()
   const q = useGet<DeploymentProtection>(`/projects/${slug}/deployments/${name}/protection`, { poll: 5000 })
   const { run, busy, err } = useAction()
@@ -258,10 +259,10 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
           {applies(ops.copy) && <button className="subtle" disabled={busy || !ops.copy.available} onClick={() => start('copies')} title={ops.copy.why || 'copy its data to the backup store now'}>Copy now</button>}
           {applies(ops.check) && <button className="subtle" disabled={busy || !ops.check.available} onClick={() => start('drills')} title={ops.check.why || 'fill the newest copy into a new database, check it, and remove it'}>Check it comes back</button>}
           {(p.rehearsalNote !== 'never rehearsed: no rehearsal place' || missingBackup) && (
-            <button className="subtle" disabled={busy || !ops.rehearsal.available} aria-describedby={missingBackup ? p.items.filter(it => it.copy === 'none').map(it => `backup-${name}-${it.need}-${it.volume || 'data'}`).join(' ') : undefined} onClick={() => start('rehearsals')} title={ops.rehearsal.why || rehearseTitle}>Test a restore</button>
+            <FeatureOnly area="restore-rehearsals"><button className="subtle" disabled={busy || !ops.rehearsal.available} aria-describedby={missingBackup ? p.items.filter(it => it.copy === 'none').map(it => `backup-${name}-${it.need}-${it.volume || 'data'}`).join(' ') : undefined} onClick={() => start('rehearsals')} title={ops.rehearsal.why || rehearseTitle}>Test a restore</button></FeatureOnly>
           )}
           {p.dataClass === 'production' && applies(ops.restore) && (
-            <button className="subtle" disabled={busy || !ops.restore.available} onClick={() => run(() => post<OperationAdmitted>(`/projects/${slug}/deployments/${name}/restored-copies`, {}))} title={ops.restore.why || restoreTestTitle}>Test a restore here</button>
+            <FeatureOnly area="restore-rehearsals"><button className="subtle" disabled={busy || !ops.restore.available} onClick={() => run(() => post<OperationAdmitted>(`/projects/${slug}/deployments/${name}/restored-copies`, {}))} title={ops.restore.why || restoreTestTitle}>Test a restore here</button></FeatureOnly>
           )}
           {err && <span className="error small">{err}</span>}
         </div>
@@ -293,7 +294,7 @@ function RestoredCopyLines({ slug, source, copy: c, asRead }: { slug: string; so
       <div className="muted">{c.boundary}</div>
       {c.endDetail && <div className="error">{c.endDetail}</div>}
       <div className="row mt-1 data-protection-protection-lines-div">
-        {c.checkedAt && <button className="subtle" disabled={busy} onClick={() => run(() => del(`/projects/${slug}/restored-copies/${c.id}`))} title="take it down now; no final copy is taken">Take down</button>}
+        {c.checkedAt && <FeatureOnly area="restore-rehearsals"><button className="subtle" disabled={busy} onClick={() => run(() => del(`/projects/${slug}/restored-copies/${c.id}`))} title="take it down now; no final copy is taken">Take down</button></FeatureOnly>}
         {err && <span className="error small">{err}</span>}
       </div>
     </div>
@@ -404,4 +405,8 @@ export function StoreSection({ canAttach }: { canAttach: boolean }) {
 // endedWords is an ended operation in the waiting-on-you list.
 export function endedWords(op: Operation): string {
   return `${kindWords[op.kind] ?? op.kind} of ${deploymentOf(op)}: ${stateWords(op)}`
+}
+
+export function ProtectionLines(props: Parameters<typeof EnabledProtectionLines>[0]) {
+ return <FeatureOnly area="backups"><EnabledProtectionLines {...props} /></FeatureOnly>
 }

@@ -57,5 +57,42 @@ func (s *Service) CreationTargets(ctx context.Context, packs []string) ([]deploy
 	if err != nil {
 		return nil, err
 	}
-	return s.deployments.CreationTargets(ctx, group, contracts)
+	choices, err := s.deployments.CreationTargets(ctx, group, contracts)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]deployment.CreationTarget, 0, len(choices))
+	for _, choice := range choices {
+		f, err := s.identity.FeatureState(ctx, choice.Area)
+		if err != nil {
+			return nil, err
+		}
+		if f.Enabled {
+			out = append(out, choice)
+		}
+	}
+	return out, nil
+}
+
+// A new project cannot select a disabled beta provider, including an implicit
+// default. Existing workflow executions keep their declared deployment steps.
+func (s *Service) requireCreationFeature(ctx context.Context, in Draft) error {
+	caller, ok := access.CallerFrom(ctx)
+	if s.deployments == nil || !ok || !caller.Verified || in.Target == "none" {
+		return nil
+	}
+	group, err := s.identity.OwningGroupFor(ctx, caller.Principal, in.Group)
+	if err != nil {
+		return err
+	}
+	choices, err := s.deployments.CreationTargets(ctx, group, nil)
+	if err != nil {
+		return err
+	}
+	for _, choice := range choices {
+		if choice.Name == in.Target || (in.Target == "" && choice.Default) {
+			return s.identity.RequireFeature(ctx, choice.Area)
+		}
+	}
+	return nil
 }

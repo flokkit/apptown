@@ -51,6 +51,7 @@ func checkCreationPolicy(t *testing.T) {
 func checkFilteredHTTPPolicies(t *testing.T) {
 	t.Parallel()
 	a := workAuthorityFixture(t)
+	setTestFeatureAs(t, a, "conformance-estate", true, "boss")
 	ch, err := a.Work.Create(asPerson("boss"), workflow.ChangeDraft{ProjectID: idstest.N(2), Title: "public-work"})
 	if err != nil {
 		t.Fatal(err)
@@ -144,6 +145,7 @@ func checkFilteredHTTPPolicies(t *testing.T) {
 func checkConformancePolicies(t *testing.T) {
 	t.Parallel()
 	a := workAuthorityFixture(t)
+	setTestFeatureAs(t, a, "conformance-estate", true, "boss")
 	pid, _, _ := fleetRepo(t, a, "private-evidence", map[string]string{"README.md": "private source"})
 	adopt(t, a, pid, "policy-check", 1, checksJSON(llmCheck("private-check")))
 	ctx := asPerson("boss")

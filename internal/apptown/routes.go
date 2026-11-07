@@ -15,7 +15,9 @@ import (
 	"github.com/flokkit/apptown/internal/numbered"
 
 	"github.com/flokkit/apptown/internal/apptown/conversation"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -33,23 +35,36 @@ type routeSpec struct {
 	pattern string
 	handler http.HandlerFunc
 	policy  routePolicy
+	area    string
 }
 
+func (route routeSpec) inArea(area string) routeSpec { route.area = area; return route }
+
 func (route routeSpec) validate() error {
+	validArea := false
+	for _, f := range identity.FeatureCatalogue() {
+		if f.Area == route.area {
+			validArea = true
+			break
+		}
+	}
+	if !validArea {
+		return fmt.Errorf("route %q requires a declared feature area", route.pattern)
+	}
 	if route.pattern == "" || route.handler == nil || route.policy == nil {
 		return fmt.Errorf("route %q requires a pattern, handler and explicit policy", route.pattern)
 	}
 	return route.policy.validate()
 }
 func requireRoute(pattern string, handler http.HandlerFunc, capability access.Capability, resolver string) routeSpec {
-	return routeSpec{pattern, handler, requiredPolicy{capability: capability, resolver: resolver}}
+	return routeSpec{pattern: pattern, handler: handler, policy: requiredPolicy{capability: capability, resolver: resolver}}
 }
 
 // chatRoute is requireRoute for a chat: opened and driven by people and
 // their own chats, never by a step, whose token is refused here whatever
 // its table holds.
 func chatRoute(pattern string, handler http.HandlerFunc, capability access.Capability, resolver string) routeSpec {
-	return routeSpec{pattern, handler, requiredPolicy{capability: capability, resolver: resolver, chat: true}}
+	return routeSpec{pattern: pattern, handler: handler, policy: requiredPolicy{capability: capability, resolver: resolver, chat: true}}
 }
 
 // chatActRoute is a route acting on a chat. Its owner (conversation.Chats)
@@ -57,25 +72,25 @@ func chatRoute(pattern string, handler http.HandlerFunc, capability access.Capab
 // the chat's own words ("Viewing only: ..."): the route's door is reading
 // the project, its contract names the owner's rule, and no step acts on a chat.
 func chatActRoute(pattern string, handler http.HandlerFunc, resolver, contract string) routeSpec {
-	return routeSpec{pattern, handler, requiredPolicy{capability: access.CapProjectRead, resolver: resolver, chat: true, decidedBy: contract}}
+	return routeSpec{pattern: pattern, handler: handler, policy: requiredPolicy{capability: access.CapProjectRead, resolver: resolver, chat: true, decidedBy: contract}}
 }
 func memberRoute(pattern string, handler http.HandlerFunc, resolver string) routeSpec {
-	return routeSpec{pattern, handler, memberPolicy{resolver}}
+	return routeSpec{pattern: pattern, handler: handler, policy: memberPolicy{resolver}}
 }
 func adminRoute(pattern string, handler http.HandlerFunc) routeSpec {
-	return routeSpec{pattern, handler, administratorPolicy{}}
+	return routeSpec{pattern: pattern, handler: handler, policy: administratorPolicy{}}
 }
 func publicRoute(pattern string, handler http.HandlerFunc, reason string) routeSpec {
-	return routeSpec{pattern, handler, exceptionalPolicy{"public", reason}}
+	return routeSpec{pattern: pattern, handler: handler, policy: exceptionalPolicy{"public", reason}}
 }
 func protocolRoute(pattern string, handler http.HandlerFunc, verifier string) routeSpec {
-	return routeSpec{pattern, handler, exceptionalPolicy{"protocol", verifier}}
+	return routeSpec{pattern: pattern, handler: handler, policy: exceptionalPolicy{"protocol", verifier}}
 }
 func ownerRoute(pattern string, handler http.HandlerFunc, contract string) routeSpec {
-	return routeSpec{pattern, handler, exceptionalPolicy{"owner", contract}}
+	return routeSpec{pattern: pattern, handler: handler, policy: exceptionalPolicy{"owner", contract}}
 }
 func filteredRoute(pattern string, handler http.HandlerFunc, contract string) routeSpec {
-	return routeSpec{pattern, handler, exceptionalPolicy{"filtered", contract}}
+	return routeSpec{pattern: pattern, handler: handler, policy: exceptionalPolicy{"filtered", contract}}
 }
 
 type requiredPolicy struct {
@@ -186,6 +201,10 @@ func newRouteMux(a *App, routes []routeSpec) (mux *http.ServeMux, err error) {
 		mux.HandleFunc(route.pattern, func(w http.ResponseWriter, r *http.Request) {
 			r = r.WithContext(callerContext(r))
 			if route.policy.allows(a, w, r, route.pattern) {
+				if err := requireRequestFeatures(a, r, route); err != nil {
+					httpapi.WriteFault(w, err)
+					return
+				}
 				route.handler(w, r)
 			}
 		})
@@ -354,4 +373,54 @@ func byNumber(lookup func(context.Context, int64) (ids.ID, error), handler http.
 		}
 		handler(w, r)
 	}
+}
+
+func requireRouteFeature(a *App, ctx context.Context, area string) error {
+	for _, f := range identity.FeatureCatalogue() {
+		if f.Area == area && f.Tier == "always" {
+			return nil
+		}
+	}
+	return a.Access.RequireFeature(ctx, area)
+}
+
+func requireRequestFeatures(a *App, r *http.Request, route routeSpec) error {
+	area := route.area
+	// An exact review is retained evidence. The unqualified query is the
+	// optional estate view; both use the existing view reader.
+	if route.pattern == "GET /api/v1/conformance" && r.URL.Query().Get("review") != "" {
+		area = "conformance"
+	}
+	if err := requireRouteFeature(a, r.Context(), area); err != nil {
+		return err
+	}
+	if route.pattern == "POST /api/v1/console/{sid}/preview" {
+		return a.Access.RequireFeature(r.Context(), "previews")
+	}
+	if strings.Contains(route.pattern, "/targets/{id}") {
+		id, err := ids.Parse(r.PathValue("id"))
+		if err != nil {
+			return errRouteID
+		}
+		t, err := a.Deployment.Targets.ByID(r.Context(), id)
+		if err != nil {
+			return err
+		}
+		return a.Access.RequireFeature(r.Context(), deployment.TargetFeatureArea(t.Kind))
+	}
+	if strings.Contains(route.pattern, "/infrastructure/{target}") {
+		t, err := a.Deployment.Targets.ByName(r.Context(), r.PathValue("target"))
+		if err != nil {
+			return err
+		}
+		return a.Access.RequireFeature(r.Context(), deployment.TargetFeatureArea(t.Kind))
+	}
+	if strings.Contains(route.pattern, "/targets/{name}") {
+		t, err := a.Deployment.Targets.ByName(r.Context(), r.PathValue("name"))
+		if err != nil {
+			return err
+		}
+		return a.Access.RequireFeature(r.Context(), deployment.TargetFeatureArea(t.Kind))
+	}
+	return nil
 }

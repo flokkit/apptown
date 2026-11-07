@@ -39,7 +39,7 @@ type previews struct {
 
 func NewPreviews(deps PreviewsDependencies) []toolEntry {
 	h := previews{scope: deps.Scope, work: deps.Work, previews: deps.Previews, preview: deps.Preview, db: deps.DB, now: deps.Now}
-	return []toolEntry{{Name: "preview_change",
+	return []toolEntry{{Name: "preview_change", area: "previews",
 		order: 13, Description: "Boots the Change as it is now and returns the URL to open it at, so you can try the app before handing it off.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"), command: ownerCommand("previews.previewChange", h.previewChange)}}
 }
 func (h previews) previewChange(c *Call, args map[string]any) (any, error) {

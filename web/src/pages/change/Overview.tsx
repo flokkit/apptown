@@ -1,3 +1,4 @@
+import { useFeature } from '../../features'
 import { renderMd } from '../../md'
 import { NotesDiff } from './NotesDiff'
 import { Now, nowRunning } from './Now'
@@ -88,6 +89,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
   view: ChangeView; onChange: () => void; workTab: (step?: string | null, run?: string | null) => string
   steps: Step[]; extraErr?: string; current: boolean; shown?: boolean
 }) {
+  const enabled = useFeature()
   const nav = useNavigate()
   const { run: act, busy: actionBusy, err: actionErr } = useAction(onChange)
   const turn = viewerTurn(view) && current && !extraErr && nextStep(view).primary !== 'open-decision'
@@ -182,7 +184,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
       {!approval && !turn && !deciding && !['shipped', 'abandoned'].includes(ch.state) && <DecisionChoices showConversation note={note} setNote={setNote} busy={actionBusy || !current}
         accept={d && offered(view.next, 'land') ? { label: 'Check and land', run: () => act(() => post(`/changes/${ch.id}/land`, {})) } : undefined}
         conversation={{ href: `/changes/${ch.id}?tab=conversation`, run: () => nav(`/changes/${ch.id}?tab=conversation`) }}
-        chat={!d ? { label: 'Continue chat', run: () => nav(`/projects/${view.projectSlug}/console?change=${ch.id}`) } : undefined}
+        chat={!d && enabled('chats') ? { label: 'Continue chat', run: () => nav(`/projects/${view.projectSlug}/console?change=${ch.id}`) } : undefined}
         rework={offered(view.next, 'send-back') ? { label: 'Rework with comment', run: () => act(() => post(`/changes/${ch.id}/sendback`, { note })) } : undefined}
         abandon={offered(view.next, 'abandon') ? { label: 'Abandon change', run: () => act(() => post(`/changes/${ch.id}/abandon`, {})) } : undefined} />}
       {question.err && <p className="error">Changes to the app contract could not be read: {question.err}</p>}

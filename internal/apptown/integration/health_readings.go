@@ -138,8 +138,8 @@ func (s *Service) RecordedHealth(ctx context.Context, name string) (Health, erro
 	return h, nil
 }
 
-// HealthObservationKey coalesces work only for the same binding settings.
-func (b Binding) HealthObservationKey() string { return b.Name + "/" + strconv.Itoa(b.Version) }
+// healthObservationKey coalesces work only for the same binding settings.
+func (b Binding) healthObservationKey() string { return b.Name + "/" + strconv.Itoa(b.Version) }
 
 func (s *Service) RunHealthObservation(ctx context.Context, key string, checker HealthChecker) error {
 	name, version, ok := strings.Cut(key, "/")

@@ -18,7 +18,7 @@ type WhatIfReadsDependencies struct {
 func NewWhatIfReads(deps WhatIfReadsDependencies) []toolEntry {
 	h := whatIfReads{conformance: deps.Conformance}
 	return []toolEntry{{
-		Name:  "get_what_if",
+		Name: "get_what_if", area: "what-ifs",
 		order: 22,
 		Description: "Experimental. Returns a what-if: what a pack version's checks would say about projects' committed main beside the checks they adopted, for projects on the pack or joining it. " +
 			"Each check row is would-fail, would-pass, unchanged, not-assessed (with the reason it was not judged) or no-longer-required, with the brief a fix would start from and, when at least three past fixes exist, what they cost; " +

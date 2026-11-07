@@ -1,3 +1,4 @@
+import { withFeatures } from '../features.fixture'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -13,7 +14,7 @@ type Call = { method: string; path: string; body: unknown }
 
 function stubAppTown(admin: boolean) {
   const calls: Call[] = []
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
     const path = url.replace(/^\/api\/v1/, '')
     const method = init?.method ?? 'GET'
     calls.push({ method, path, body: init?.body })
@@ -30,7 +31,7 @@ function stubAppTown(admin: boolean) {
     if (path === '/projects/moved/secrets') return json({ declared: true, secrets: [{ name: 'STRIPE_KEY' }, { name: 'SESSION_SECRET', generate: true }] })
     if (path === '/projects/moved/manifest') return json({ project: { slug: 'moved' } })
     return new Response(JSON.stringify({ error: 'no route ' + path }), { status: 404 })
-  }))
+  })))
   return calls
 }
 
@@ -59,9 +60,11 @@ async function toStep3(el: HTMLElement) {
   await type(el.querySelector('textarea') as HTMLTextAreaElement, 'Move existing software')
   await type(el.querySelector('input') as HTMLInputElement, 'moved')
   await act(async () => { button(el, 'Next →')!.click() })
+  await settle()
   await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
   await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('none (bare)')) as HTMLElement).click() })
   await act(async () => { button(el, 'Next →')!.click() })
+  await settle()
   await settle()
 }
 
@@ -137,19 +140,20 @@ describe('a pack picked before the service catalog arrives', () => {
     const postgres = { capability: 'postgres', title: 'PostgreSQL', local: { image: 'postgres:16-alpine' }, defaults: { version: '16' } }
     let deliver: (r: Response) => void = () => {}
     const catalog = new Promise<Response>((r) => { deliver = r })
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
       const path = url.replace(/^\/api\/v1/, '')
       if (path === '/projects/moved' || path === '/projects/shop') return new Response(JSON.stringify({ id: '00000000-0002-7000-8000-000000000000', slug: path.split('/').at(-1), lifecycle: { state: 'active' } }))
     if (path === '/authz/me') return new Response(JSON.stringify({ user: 'u', actorId: '00000000-0001-7000-8000-000000000000', instance: {} }))
       if (path === '/packs') return new Response(JSON.stringify([server]))
       if (path === '/dependencies') return catalog
       return new Response(JSON.stringify({ error: 'no route ' + path }), { status: 404 })
-    }))
+    })))
     const { el, root } = await mount()
     try {
       await type(el.querySelector('textarea') as HTMLTextAreaElement, 'a shop')
       await type(el.querySelector('input') as HTMLInputElement, 'shop')
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
       await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
       await settle()
       await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('web-server')) as HTMLElement).click() })
@@ -173,7 +177,7 @@ describe('choosing several packs', () => {
   it('creates the project with every ticked pack', async () => {
     const pack = (name: string, services: unknown[] = []) => ({ name, description: name + ' things', guidance: [], workflows: [], policies: [], services, origin: 'stock', enabled: true, requires: [], guidanceBytes: 0, generatedBytes: 0, declaration: {} })
     const calls: Call[] = []
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
       const path = url.replace(/^\/api\/v1/, '')
       const method = init?.method ?? 'GET'
       calls.push({ method, path, body: init?.body })
@@ -191,12 +195,13 @@ describe('choosing several packs', () => {
       if (method === 'POST' && path === '/projects/shop/services') return json({})
       if (path === '/projects/shop/manifest') return json({ project: { slug: 'shop' } })
       return new Response(JSON.stringify({ error: 'no route ' + path }), { status: 404 })
-    }))
+    })))
     const { el, root } = await mount()
     try {
       await type(el.querySelector('textarea') as HTMLTextAreaElement, 'a shop')
       await type(el.querySelector('input') as HTMLInputElement, 'shop')
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
       await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
       await settle()
       for (const name of ['server-base', 'go', 'postgres']) {
@@ -205,6 +210,7 @@ describe('choosing several packs', () => {
       await act(async () => { button(el, 'Take server-base + go + postgres')!.click() })
       await settle()
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
       await settle()
       await act(async () => { button(el, 'Create project')!.click() })
       await settle()
@@ -230,7 +236,7 @@ describe('pack suggestions wait for the offered packs', () => {
     let deliver: (r: Response) => void = () => {}
     const packList = new Promise<Response>((r) => { deliver = r })
     const calls: Call[] = []
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
       const path = url.replace(/^\/api\/v1/, '')
       const method = init?.method ?? 'GET'
       calls.push({ method, path, body: init?.body })
@@ -249,18 +255,20 @@ describe('pack suggestions wait for the offered packs', () => {
       if (method === 'POST' && path === '/projects/shop/services') return json({})
       if (path === '/projects/shop/manifest') return json({ project: { slug: 'shop' } })
       return new Response(JSON.stringify({ error: 'no route ' + path }), { status: 404 })
-    }))
+    })))
     const { el, root } = await mount()
     try {
       await type(el.querySelector('textarea') as HTMLTextAreaElement, 'a shop')
       await type(el.querySelector('input') as HTMLInputElement, 'shop')
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
       await act(async () => {
         const area = el.querySelector('textarea') as HTMLTextAreaElement
         Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(area, 'a shop with a database')
         area.dispatchEvent(new Event('input', { bubbles: true }))
       })
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
       await settle()
       expect(calls.some(c => c.path === '/packs/interview')).toBe(false)
       expect(button(el, 'Next →')!.disabled).toBe(true)
@@ -269,9 +277,11 @@ describe('pack suggestions wait for the offered packs', () => {
       expect(button(el, 'Next →')!.disabled).toBe(false)
       await act(async () => { button(el, 'Next →')!.click() })
       await settle()
+      await settle()
       expect(el.textContent).toContain('web-server')
       expect(el.textContent).toContain('dependency-updates')
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
       await settle()
       await act(async () => { button(el, 'Create project')!.click() })
       await settle()
@@ -317,7 +327,7 @@ describe('an interview that cannot decide', () => {
   afterEach(() => { vi.unstubAllGlobals(); sessionStorage.clear() })
   it('shows why and opens the chooser', async () => {
     const pack = { name: 'go-small', description: 'a small Go app', guidance: [], workflows: [], policies: [], services: [], origin: 'stock', enabled: true, requires: [], guidanceBytes: 0, generatedBytes: 0, declaration: {} }
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
       const path = url.replace(/^\/api\/v1/, '')
       const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status })
       if (path === '/projects/moved' || path === '/projects/shop') return new Response(JSON.stringify({ id: '00000000-0002-7000-8000-000000000000', slug: path.split('/').at(-1), lifecycle: { state: 'active' } }))
@@ -328,12 +338,13 @@ describe('an interview that cannot decide', () => {
       if (path === '/scm/namespaces') return json({ configured: false, namespaces: [] })
       if (path === '/packs/interview') return json({ error: 'no model is set up to suggest a way of working; choose one yourself' }, 422)
       return json({ error: 'no route ' + path }, 404)
-    }))
+    })))
     const { el, root } = await mount()
     try {
       await type(el.querySelector('textarea') as HTMLTextAreaElement, 'a shop')
       await type(el.querySelector('input') as HTMLInputElement, 'shop')
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
       await act(async () => {
         const area = el.querySelector('textarea') as HTMLTextAreaElement
         Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(area, 'a shop')
@@ -341,6 +352,7 @@ describe('an interview that cannot decide', () => {
       })
       await settle()
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
       await settle()
       expect(el.textContent).toContain('no model is set up to suggest a way of working')
       expect(el.querySelector('.pack-grid')).not.toBeNull()
@@ -365,13 +377,17 @@ describe('description-first creation', () => {
       expect((el.querySelector('input') as HTMLInputElement).value).toBe('Lunch orders')
       expect(el.textContent).toContain('/lunch-orders')
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
       await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
       await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('none (bare)')) as HTMLElement).click() })
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
       expect(el.textContent).toContain('Creating: Lunch orders')
       expect(calls.filter((c) => c.path === '/packs/interview')).toEqual([])
       await act(async () => { button(el, '← back')!.click() })
+      await vi.waitFor(() => expect(button(el, '← back')).toBeDefined())
       await act(async () => { button(el, '← back')!.click() })
+      await settle()
       expect((el.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Lunch orders')
     } finally { act(() => root.unmount()) }
   })
@@ -385,13 +401,15 @@ describe('a late way-of-working suggestion', () => {
     const ordinary = globalThis.fetch
     let deliver!: (r: Response) => void
     const answer = new Promise<Response>((resolve) => { deliver = resolve })
-    vi.stubGlobal('fetch', vi.fn((...args: Parameters<typeof fetch>) =>
-      String(args[0]).endsWith('/packs/interview') ? answer : ordinary(...args)))
+    vi.stubGlobal('fetch', vi.fn(withFeatures((...args: Parameters<typeof fetch>) =>
+      String(args[0]).endsWith('/packs/interview') ? answer : ordinary(...args))))
     const { el, root } = await mount()
     try {
       await type(el.querySelector('textarea') as HTMLTextAreaElement, 'Lunch orders')
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
       await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
       if (edit === 'description') {
         await type(el.querySelector('textarea') as HTMLTextAreaElement, 'Dinner orders')
       } else {
@@ -416,13 +434,13 @@ describe('retained creation on navigation', () => {
     const normal = globalThis.fetch
     let lose = true
     const requests: unknown[] = []
-    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (...args: Parameters<typeof fetch>) => {
       if (String(args[0]).endsWith('/projects') && args[1]?.method === 'POST') {
         requests.push(JSON.parse(String(args[1]?.body)))
         if (lose) { lose = false; throw new Error('creation response lost') }
       }
       return normal(...args)
-    }))
+    })))
     let m = await mount()
     await toStep3(m.el)
     await act(async () => { button(m.el, 'Create project')!.click() })
@@ -445,11 +463,11 @@ describe('retained creation on navigation', () => {
     const normal = globalThis.fetch
     let actorId = '00000000-0001-7000-8000-000000000000'
     let creates = 0
-    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (...args: Parameters<typeof fetch>) => {
       if (String(args[0]).endsWith('/authz/me')) return new Response(JSON.stringify({ actorId, user: 'u', instance: {} }))
       if (String(args[0]).endsWith('/projects') && args[1]?.method === 'POST') { creates++; throw new Error('response lost') }
       return normal(...args)
-    }))
+    })))
     let m = await mount()
     await toStep3(m.el)
     await act(async () => { button(m.el, 'Create project')!.click() })

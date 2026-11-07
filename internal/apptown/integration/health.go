@@ -72,3 +72,23 @@ func (b Binding) HealthCheckTimeout() time.Duration {
 	}
 	return 25 * time.Second
 }
+
+// FeatureArea is the area controlling connector setup and optional health checks.
+func FeatureArea(capability, provider string) string {
+	switch capability {
+	case "model", "llm":
+		return "models"
+	case "scanner":
+		return "conformance"
+	case "executor":
+		return "worker"
+	case "cloud-account":
+		if provider == "digitalocean" {
+			return "app-platform"
+		}
+	}
+	if provider == "portainer" {
+		return "portainer"
+	}
+	return "setup"
+}

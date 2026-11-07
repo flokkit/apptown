@@ -473,6 +473,7 @@ func TestAChatsCredentialReadsNoEval(t *testing.T) {
 	agent := consoletest.NewAgent()
 	a := authzFixture(t, Config{AuthMode: "internal", DockerClient: newFakeDocker(), ConsoleCLI: fixtureCLI(t), ConsoleAgent: agent,
 		InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	configureConsoleModel(t, a)
 	meta := consoleMetaFor("", idstest.N(1), ids.Nil)
 	s, err := a.Console.Open(t.Context(), console.OpenRequest{Scope: meta.Scope, Labels: meta.Labels, Actor: "owner", Model: "fake/model",

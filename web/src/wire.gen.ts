@@ -473,6 +473,7 @@ export type CreatedChange = {
 }
 
 export type CreationTarget = {
+  area: string
   name: string
   description: string
   default: boolean
@@ -834,6 +835,15 @@ export type ExternalStartRequest = {
 export type FailureAdvice = {
   text: string
   recommend: string
+}
+
+export type Feature = {
+  area: string
+  name: string
+  tier: string
+  enabled: boolean
+  covers: string
+  docs: string
 }
 
 export type FinalCopies = {
@@ -2543,6 +2553,7 @@ export type Run = {
 }
 
 export type CatalogChange = {
+  area: string
   name: string
   description: string
 }
@@ -2559,6 +2570,7 @@ export type CatalogDef = {
 }
 
 export type CatalogEntry = {
+  area: string
   name: string
   description: string
   missingWorkflow?: string

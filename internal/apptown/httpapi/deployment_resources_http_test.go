@@ -39,7 +39,7 @@ func TestDeploymentResourcesHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := NewDeployments(a.service, a.data, a.projects)
+	h := NewDeployments(a.service, a.data, a.projects, a.identity)
 	values := map[string]string{"slug": "game", "name": "main"}
 	path := "/api/v1/projects/game/deployments/main/resources"
 

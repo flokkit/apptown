@@ -1,3 +1,4 @@
+import { withFeatures } from './features.fixture'
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
 import { act, type ReactNode } from 'react'
@@ -30,24 +31,24 @@ async function render(child: ReactNode) {
 }
 
 it('R1: distinguishes an unreadable release plan from no configured intranet', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
     if (url.endsWith('/release/plan')) return new Response(JSON.stringify({ error: 'release plan unavailable' }), { status: 500 })
     if (url.endsWith('/projects/p')) return new Response(JSON.stringify({ slug: 'p', name: 'P', runtimeForm: 'runs from source', intranetReady: false }))
     return new Response('[]')
-  }))
+  })))
   const el = await render(<BigChangeBox slug="p" />)
   expect(el.textContent).toContain('release plan unavailable')
 })
 
 it('R2: retains global finding on the narrow projects page', async () => {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener() {}, removeEventListener() {} })))
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
     if (url.endsWith('/auth/me')) return new Response(JSON.stringify({ mode: 'open' }))
     if (url.includes('/authz/me')) return new Response(JSON.stringify({ instance: {} }))
     if (url.endsWith('/attention')) return new Response(JSON.stringify({ items: [], sources: [] }))
     if (url.includes('/project-cleanups')) return new Response(JSON.stringify({ cleanups: [] }))
     return new Response(JSON.stringify({ projects: [], total: 0 }))
-  }))
+  })))
   const el = await render(<App />)
   const menu = el.querySelector<HTMLButtonElement>('[aria-label="open the menu"]')!
   await act(async () => menu.click())

@@ -1,3 +1,4 @@
+import { enabledFeatures } from '../../../features.fixture'
 // @vitest-environment jsdom
 import { expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -11,6 +12,7 @@ import { EnvCard } from './Deployments'
 // per-part observation is unknown. Missing backups get one actionable account.
 function card() {
   const client = newQueryClient()
+ client.setQueryData(getKey('/features'), enabledFeatures)
   const base = '/projects/lunch/deployments/main'
   const at = '2026-11-03T08:00:00Z'
   const reading = { observedAt: at, attemptedAt: at, waiting: false, stale: false, unknown: false }

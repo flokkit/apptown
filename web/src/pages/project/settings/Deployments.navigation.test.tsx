@@ -1,3 +1,4 @@
+import { withFeatures } from '../../../features.fixture'
 // @vitest-environment jsdom
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -73,7 +74,7 @@ it('omits healthy backups and keeps disk and readiness warnings short', () => {
 
 it('routes to the full card with footer controls and the TopBar breadcrumb', async () => {
   const data = fixtures()
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(data[String(url).replace(/^\/api\/v1/, '')] ?? (String(url).endsWith('/deploys') ? [] : {})))))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(data[String(url).replace(/^\/api\/v1/, '')] ?? (String(url).endsWith('/deploys') ? [] : {}))))))
   const client = newQueryClient()
   const el = document.createElement('div')
   const root = createRoot(el)
@@ -91,7 +92,7 @@ it('routes to the full card with footer controls and the TopBar breadcrumb', asy
     expect(el.querySelector('.deploy-more a')).toBeNull()
     expect(el.textContent).toContain('Resources')
     // The application's route must take precedence over the generic project tab.
-    expect(appSource).toContain('path="/projects/:slug/deployments/:name" element={<DeploymentPage />}')
+    expect(appSource).toContain('path="/projects/:slug/deployments/:name" element={<CoreArea area="projects"><DeploymentPage /></CoreArea>}')
   } finally {
     act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
   }
@@ -120,10 +121,10 @@ it('creates a follows-main deployment on the project Deployments page', async ()
   client.setQueryData(getKey('/projects/lunch/final-copies'), { copies: [] })
   client.setQueryData(getKey('/projects/lunch/release-preference'), {})
   const requests: unknown[] = []
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST' && url.endsWith('/deployments')) { requests.push(JSON.parse(String(init.body))); return new Response('{}') }
     return new Response(JSON.stringify(fixtures()[url.replace('/api/v1', '')] || {}))
-  }))
+  })))
   const el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectDeployments slug="lunch" /></MemoryRouter></QueryClientProvider>))
@@ -156,7 +157,7 @@ it.each(['reconciled', 'uncertain'])('reloads the resulting state after refreshi
   let readsAfterRefresh = 0
   const data = fixtures({ readiness })
   const posts: string[] = []
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST' && url.endsWith('/check')) {
       posts.push(url)
       refreshed = true
@@ -168,7 +169,7 @@ it.each(['reconciled', 'uncertain'])('reloads the resulting state after refreshi
       return new Response(JSON.stringify([{ ...env, readiness: 'reconciled', observation: 'stopped', observedAt: '2026-11-07T10:00:00Z' }]))
     }
     return new Response(JSON.stringify(data[path] ?? (url.endsWith('/deploys') ? [] : {})))
-  }))
+  })))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`${base}/main`]}><Routes><Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} /></Routes></MemoryRouter></QueryClientProvider>))

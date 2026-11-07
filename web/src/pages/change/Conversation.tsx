@@ -1,3 +1,4 @@
+import { FeatureOnly } from '../../features'
 import './Conversation.css'
 import { AgentActionsSwitch, ToolFold, foldTools, useAgentActions } from '../../AgentActions'
 import { Section } from '../../Section'
@@ -25,7 +26,7 @@ export function ConversationLog({ changeId, chatHref, request, report, rounds = 
   const none = sessions?.length === 0 && !data?.unreadable
   // chatHref: where this change's chat opens, given only where a chat can
   // start on it.
-  const action = chatHref ? <Link to={chatHref}>{none ? 'Start a chat' : 'Open the chat'}</Link> : undefined
+  const action = chatHref ? <FeatureOnly area="chats"><Link to={chatHref}>{none ? 'Start a chat' : 'Open the chat'}</Link></FeatureOnly> : undefined
   return (
     <Section title="Conversation" count={sessions?.length || undefined} action={action}>
       <ReadStatus q={q} what="the conversation" className="small" />

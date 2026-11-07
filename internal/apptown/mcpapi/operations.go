@@ -16,7 +16,7 @@ type OperationReadsDependencies struct {
 func NewOperationReads(deps OperationReadsDependencies) []toolEntry {
 	h := operationReads{ops: deps.Operations}
 	return []toolEntry{{
-		Name:  "get_operation",
+		Name: "get_operation", area: "record",
 		order: 24,
 		Description: "Returns an operation: a long action someone asked for, such as a data copy, a restore check or a take-down. " +
 			"Its state is queued, running, succeeded, failed, unknown or cancelled; verification (verified or not-verified) is a separate fact from success. " +

@@ -1,3 +1,4 @@
+import { useFeature, targetFeatureArea } from '../features'
 import './InfrastructureNew.css'
 import { changedTargetSettings, editTarget, offerTarget, targetOffer, NEEDS_MODES, type TargetSettings } from '../targetCommands'
 import { PRODUCT } from '../brand'
@@ -28,6 +29,7 @@ const KINDS: { kind: Kind; title: string; vendor: string; blurb: string }[] = [
 ]
 
 export function InfrastructureNew() {
+
   const nav = useNavigate()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [kind, setKind] = useState<Kind | null>(null)
@@ -51,11 +53,12 @@ export function InfrastructureNew() {
 }
 
 function KindStep({ kind, onPick }: { kind: Kind | null; onPick: (k: Kind) => void }) {
+ const enabled = useFeature()
   return (
     <div>
       <p className="muted small mt-0" >Target kind</p>
       <div className="infra-grid">
-        {KINDS.map((k) => (
+        {KINDS.filter(k => enabled(targetFeatureArea(k.kind))).map((k) => (
           <button key={k.kind} className={'card infra-card wiz-kind' + (kind === k.kind ? ' active' : '')} onClick={() => onPick(k.kind)}>
             <div className="infra-head">
               <span className="infra-glyph"><Glyph kind={k.kind} /></span>

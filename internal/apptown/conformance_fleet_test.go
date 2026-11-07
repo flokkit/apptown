@@ -362,6 +362,8 @@ func TestReviewExecutesInferredDeclarationsAtTheirSavedSource(t *testing.T) {
 func TestAWhatIfComparesAVersionAndLeavesStandingAlone(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "what-ifs", true, "boss")
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	tgLocalSh(t, a)
 	ctx := testConformanceContext("boss")
 
@@ -452,6 +454,8 @@ func TestAWhatIfComparesAVersionAndLeavesStandingAlone(t *testing.T) {
 func TestWhatIfAuthority(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "what-ifs", true, "boss")
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	h := a.Handler()
 	if _, err := a.Ways.PublishPack(t.Context(), "team", "Team", `{}`, ""); err != nil {
 		t.Fatal(err)
@@ -504,6 +508,8 @@ func TestWhatIfAuthority(t *testing.T) {
 func TestAWhatIfWithNoProjectsNamedRunsOnTheEligibleOnes(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "what-ifs", true, "boss")
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	tgLocalSh(t, a)
 	ctx := testConformanceContext("boss")
 	h := a.Handler()
@@ -581,6 +587,8 @@ func TestAWhatIfWithNoProjectsNamedRunsOnTheEligibleOnes(t *testing.T) {
 func TestAWhatIfSaysWhichExceptionsTheVersionLeavesUncovered(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "what-ifs", true, "boss")
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	tgLocalSh(t, a)
 	ctx := testConformanceContext("boss")
 
@@ -640,6 +648,8 @@ func TestAWhatIfSaysWhichExceptionsTheVersionLeavesUncovered(t *testing.T) {
 func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "what-ifs", true, "boss")
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	tgLocalSh(t, a)
 	ctx := testConformanceContext("boss")
 	h := a.Handler()
@@ -798,6 +808,8 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 func TestAWhatIfMovesAProjectsOwnPackWithTheNamedOne(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "what-ifs", true, "boss")
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	tgLocalSh(t, a)
 	ctx := testConformanceContext("boss")
 	h := a.Handler()
@@ -889,6 +901,8 @@ func TestAWhatIfMovesAProjectsOwnPackWithTheNamedOne(t *testing.T) {
 func TestARecommendationNamesTheWhatIfItWasDecidedOn(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "what-ifs", true, "boss")
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	tgLocalSh(t, a)
 	ctx := testConformanceContext("boss")
 	h := a.Handler()
@@ -974,6 +988,8 @@ func runWhatIf(t *testing.T, a *App, ctx context.Context, id ids.ID) *conformanc
 func TestAWhatIfSpendsOnModelRubricsOnlyUnderItsLimit(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "what-ifs", true, "boss")
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	installGatewayChecks(t, a)
 	tgLocalSh(t, a)
 	ctx := testConformanceContext("boss")
@@ -1071,6 +1087,8 @@ func TestAWhatIfSpendsOnModelRubricsOnlyUnderItsLimit(t *testing.T) {
 func TestAnEvalComparisonJudgesBothArmsChecksOnTheArmAndItsBase(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "what-ifs", true, "boss")
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	tgLocalSh(t, a)
 	id, base, git := fleetRepo(t, a, "copy", map[string]string{"a.txt": "FIXME old"})
 	if err := os.WriteFile(filepath.Join(a.projectRepoPath("copy"), "b.txt"), []byte("FIXME new"), 0o644); err != nil {
@@ -1121,6 +1139,8 @@ func TestAnEvalComparisonJudgesBothArmsChecksOnTheArmAndItsBase(t *testing.T) {
 func TestEvalReadsTakeTheScorecardsAuthority(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "what-ifs", true, "boss")
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	admin := mcp_token(t, a, "boss-agent", "boss", "admin")
 	if res := mcp_call(t, a, admin, "get_eval", map[string]any{"pack": "team", "version": 1}); res["isError"] == true {
 		t.Fatalf("an administrator's agent reads evals: %v", res)
@@ -1171,6 +1191,8 @@ func TestFleetReviewSkipsAProjectBeingDeleted(t *testing.T) {
 func TestAWhatIfStoppedWhileItRunsEndsInterrupted(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "what-ifs", true, "boss")
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	installGatewayChecks(t, a)
 	tgLocalSh(t, a)
 	ctx := testConformanceContext("boss")
@@ -1226,6 +1248,8 @@ func TestAWhatIfStoppedWhileItRunsEndsInterrupted(t *testing.T) {
 func TestAWhatIfRecordsTheRulesItMovesBack(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "what-ifs", true, "boss")
+	setTestFeatureAs(t, a, "evals", true, "boss")
 	tgLocalSh(t, a)
 	ctx := testConformanceContext("boss")
 	h := a.Handler()

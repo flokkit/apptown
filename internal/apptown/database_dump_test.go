@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/identity"
+
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
@@ -369,6 +371,12 @@ func TestDatabaseBackupJobFailureDoesNotClaimTodaysDump(t *testing.T) {
 	})
 	data := builtinDataDir(t)
 	backup := databaseBackup{db: testDB(t), dump: builtinDump(t, place, data), dataDir: data, enabled: true}
+	a := &App{DB: backup.db, Access: identity.New(backup.db, identity.Config{})}
+	setTestFeature(t, a, "backups", false)
+	if receipt, err := backup.Run(t.Context(), "daily", nil); err != nil || receipt["skipped"] == nil || calls != 0 {
+		t.Fatalf("disabled backup: %v %v, calls %d", receipt, err, calls)
+	}
+	setTestFeature(t, a, "backups", true)
 	if receipt, err := backup.Run(t.Context(), "daily", nil); err == nil || !strings.Contains(err.Error(), "dump interrupted") || receipt != nil {
 		t.Fatalf("failed backup reported success: %v %v", receipt, err)
 	}

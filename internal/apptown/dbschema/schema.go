@@ -688,6 +688,19 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 	{n: 217, note: "remove unused target preview setting", stmts: []string{
 		`UPDATE targets SET capabilities_json=capabilities_json - 'previews' WHERE capabilities_json ? 'previews'`,
 	}},
+	// Memory lives in imported repositories too; every existing project keeps
+	// its memory pages. An empty new database receives only catalogue defaults.
+	{n: 218, note: "preserve beta areas used by existing installations", stmts: []string{
+		`INSERT INTO instance_settings (key, value) SELECT 'feature.evals', 'true' WHERE EXISTS (SELECT 1 FROM evals) OR EXISTS (SELECT 1 FROM audit_log WHERE kind LIKE 'eval.%') ON CONFLICT (key) DO NOTHING`,
+		`INSERT INTO instance_settings (key, value) SELECT 'feature.what-ifs', 'true' WHERE EXISTS (SELECT 1 FROM what_if_reviews) ON CONFLICT (key) DO NOTHING`,
+		`INSERT INTO instance_settings (key, value) SELECT 'feature.restore-rehearsals', 'true' WHERE EXISTS (SELECT 1 FROM restore_rehearsals) OR EXISTS (SELECT 1 FROM restored_copies) OR EXISTS (SELECT 1 FROM rehearsal_places) OR EXISTS (SELECT 1 FROM operations WHERE kind IN ('deployment.rehearsal', 'deployment.restored-copy', 'deployment.restored-copy-end')) ON CONFLICT (key) DO NOTHING`,
+		`INSERT INTO instance_settings (key, value) SELECT 'feature.conformance-estate', 'true' WHERE EXISTS (SELECT 1 FROM projects) OR EXISTS (SELECT 1 FROM conformance_reviews) ON CONFLICT (key) DO NOTHING`,
+		`INSERT INTO instance_settings (key, value) SELECT 'feature.app-platform', 'true' WHERE EXISTS (SELECT 1 FROM targets WHERE kind = 'do-app') OR EXISTS (SELECT 1 FROM audit_log WHERE kind IN ('target.attached', 'target.retired') AND payload_json->>'kind' = 'do-app') OR EXISTS (SELECT 1 FROM integrations WHERE capability = 'cloud-account' AND provider = 'digitalocean') ON CONFLICT (key) DO NOTHING`,
+		`INSERT INTO instance_settings (key, value) SELECT 'feature.portainer', 'true' WHERE EXISTS (SELECT 1 FROM targets WHERE kind = 'portainer') OR EXISTS (SELECT 1 FROM audit_log WHERE kind IN ('target.attached', 'target.retired') AND payload_json->>'kind' = 'portainer') OR EXISTS (SELECT 1 FROM integrations WHERE provider = 'portainer') ON CONFLICT (key) DO NOTHING`,
+		`INSERT INTO instance_settings (key, value) SELECT 'feature.bucket-site', 'true' WHERE EXISTS (SELECT 1 FROM targets WHERE kind = 's3-bucket') OR EXISTS (SELECT 1 FROM audit_log WHERE kind IN ('target.attached', 'target.retired') AND payload_json->>'kind' = 's3-bucket') ON CONFLICT (key) DO NOTHING`,
+		`INSERT INTO instance_settings (key, value) SELECT 'feature.mcp', 'true' WHERE EXISTS (SELECT 1 FROM audit_log WHERE kind LIKE 'mcp.%') OR EXISTS (SELECT 1 FROM oauth_consents) OR EXISTS (SELECT 1 FROM oauth_clients) ON CONFLICT (key) DO NOTHING`,
+		`INSERT INTO instance_settings (key, value) SELECT 'feature.memory', 'true' WHERE EXISTS (SELECT 1 FROM projects) ON CONFLICT (key) DO NOTHING`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

@@ -3,6 +3,7 @@ package deployment
 // KindInfo is the catalog of kinds, as data: a new provider is one entry
 // here plus its driver. The UI reads this; it never hard-codes a provider.
 type KindInfo struct {
+	featureArea string
 	// creationDescription is the one-line placement choice, owned by the kind catalog.
 	creationDescription string
 	// ContainerMemoryLimits permits direct caps/defaults and explicit unlimited overrides.
@@ -19,10 +20,10 @@ type KindInfo struct {
 }
 
 var kindCatalog = []KindInfo{
-	{ContainerMemoryLimits: true, creationDescription: "Built-in Docker host · this AppTown", Kind: KindDockerHost, Title: "Built-in Docker host", Family: "built-in", Vendor: "this AppTown"},
-	{ContainerMemoryLimits: true, creationDescription: "Portainer environment · Portainer", Kind: KindPortainer, Title: "Portainer environment", Provider: "portainer", Family: "intranet", Vendor: "Portainer", Environment: true},
-	{creationDescription: "App Platform · DigitalOcean", Kind: KindDOApp, Title: "App Platform", Provider: "digitalocean", Family: "cloud", Vendor: "DigitalOcean", Region: "region"},
-	{creationDescription: "Bucket website · static sites only", Kind: KindS3Bucket, Title: "Bucket website", Family: "cloud", Vendor: "S3-compatible storage", Region: "region"},
+	{ContainerMemoryLimits: true, creationDescription: "Built-in Docker host · this AppTown", Kind: KindDockerHost, featureArea: "deployments", Title: "Built-in Docker host", Family: "built-in", Vendor: "this AppTown"},
+	{ContainerMemoryLimits: true, creationDescription: "Portainer environment · Portainer", Kind: KindPortainer, featureArea: "portainer", Title: "Portainer environment", Provider: "portainer", Family: "intranet", Vendor: "Portainer", Environment: true},
+	{creationDescription: "App Platform · DigitalOcean", Kind: KindDOApp, featureArea: "app-platform", Title: "App Platform", Provider: "digitalocean", Family: "cloud", Vendor: "DigitalOcean", Region: "region"},
+	{creationDescription: "Bucket website · static sites only", Kind: KindS3Bucket, featureArea: "bucket-site", Title: "Bucket website", Family: "cloud", Vendor: "S3-compatible storage", Region: "region"},
 	// AWS (ECS) and Google Cloud (Cloud Run) land here as one line each
 	// with their drivers; nothing in the UI changes.
 }

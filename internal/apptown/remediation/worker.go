@@ -20,6 +20,8 @@ import (
 	"context"
 	"log"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/identity"
 )
 
 // PassJob is the job queue's kind for one pass. Passes run on their own
@@ -90,6 +92,14 @@ func (s *Service) ReconcileItem(ctx context.Context, item Item) {
 // --- (2) start queued items ----------------------------------------------------------------
 
 func (s *Service) startQueuedItems(ctx context.Context) {
+	on, err := identity.FeatureEnabledIn(ctx, s.db, "conformance")
+	if err != nil {
+		log.Printf("remediation: checking Features: %v", err)
+		return
+	}
+	if !on {
+		return
+	}
 	if err := s.scheduler.fill(ctx); err != nil {
 		log.Printf("remediation: filling workers: %v", err)
 	}

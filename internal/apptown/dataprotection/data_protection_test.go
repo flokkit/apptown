@@ -597,6 +597,7 @@ func TestATakenDownDeploymentComesBackFromItsFinalCopy(t *testing.T) {
 	// The app writes its records.
 	w.clusters.put(oldID+".fake", "app", "ledger: 41, 42")
 
+	setDataFeature(t, w.db, "backups", false)
 	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
 	if err != nil || res.Operation == nil || res.Removed != nil {
 		t.Fatalf("take-down door: %+v %v", res, err)
@@ -770,4 +771,39 @@ func (w *dataWorld) cloudClient(ctx context.Context) (*digitalocean.Client, erro
 		return nil, err
 	}
 	return w.s.providers.DigitalOceanClient(ctx, cfg)
+}
+
+func TestBackupsOffSweepStartsNoCloudCopy(t *testing.T) {
+	t.Parallel()
+	w := newDataWorld(t)
+	w.protect()
+	if _, err := w.bind(w.project, "prod", "production", ids.Nil); err != nil {
+		t.Fatal(err)
+	}
+	if release, log := w.release("prod"); release.State != deployment.Released {
+		t.Fatalf("release: %+v %s", release, log)
+	}
+	setDataFeature(t, w.db, "backups", false)
+	worker := JobWorker{Service: w.s.Service}
+	receipt, err := worker.Sweep(t.Context(), "daily", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt["copies"] != 0 {
+		t.Fatalf("off sweep copied: %+v", receipt)
+	}
+	ops, err := w.opsOn("prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, op := range ops {
+		if op.Kind == operationCopy {
+			t.Fatalf("off sweep admitted copy: %+v", op)
+		}
+	}
+	setDataFeature(t, w.db, "backups", true)
+	receipt, err = worker.Sweep(t.Context(), "daily", nil)
+	if err != nil || receipt["copies"] != 1 {
+		t.Fatalf("enabled sweep: %+v %v", receipt, err)
+	}
 }

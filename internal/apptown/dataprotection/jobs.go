@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/apptown/identity"
+
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -70,35 +72,42 @@ func (w JobWorker) Backup(ctx context.Context, key string, args map[string]any) 
 // host or in a Portainer environment; each is its own job with its own
 // receipt.
 func (w JobWorker) Sweep(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
-	asked := 0
-	for _, e := range w.Service.hosts.Watched(ctx, w.Service.deployments) {
-		if e.Container == "" {
-			continue
-		}
-		if err := w.Backups.RequestBackup(ctx, e.ProjectID.String()+"/"+e.Name, "scheduled"); err != nil {
-			return nil, err
-		}
-		asked++
-	}
-	standing, err := w.Service.deployments.StandingWithoutOpenAttempt(ctx)
+	enabled, err := identity.FeatureEnabledIn(ctx, w.Service.db, "backups")
 	if err != nil {
-		return nil, fmt.Errorf("reading the standing deployments: %w", err)
+		return nil, err
 	}
-	for _, e := range standing {
-		t, err := w.Service.targets.ByID(ctx, e.TargetID)
-		if err != nil || t.DataAccess() != deployment.DataThroughPortainer {
-			continue
+	asked, copies := 0, 0
+	var skipped []string
+	if enabled {
+		for _, e := range w.Service.hosts.Watched(ctx, w.Service.deployments) {
+			if e.Container == "" {
+				continue
+			}
+			if err := w.Backups.RequestBackup(ctx, e.ProjectID.String()+"/"+e.Name, "scheduled"); err != nil {
+				return nil, err
+			}
+			asked++
 		}
-		if err := w.Backups.RequestBackup(ctx, e.ProjectID.String()+"/"+e.Name, "scheduled"); err != nil {
-			return nil, err
+		standing, err := w.Service.deployments.StandingWithoutOpenAttempt(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("reading the standing deployments: %w", err)
 		}
-		asked++
-	}
-	// Production data on a cloud target is copied to the backup store by
-	// operations of its own.
-	copies, skipped, err := w.Service.scheduledCopies(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("starting the daily copies: %w", err)
+		for _, e := range standing {
+			t, err := w.Service.targets.ByID(ctx, e.TargetID)
+			if err != nil || t.DataAccess() != deployment.DataThroughPortainer {
+				continue
+			}
+			if err := w.Backups.RequestBackup(ctx, e.ProjectID.String()+"/"+e.Name, "scheduled"); err != nil {
+				return nil, err
+			}
+			asked++
+		}
+		// Production data on a cloud target is copied to the backup store by
+		// operations of its own.
+		copies, skipped, err = w.Service.scheduledCopies(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("starting the daily copies: %w", err)
+		}
 	}
 	// With a store attached every set is kept there: sets still on the
 	// AppTown's disk move, and what a stopped take left staged goes.

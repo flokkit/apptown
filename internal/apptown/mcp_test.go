@@ -32,6 +32,11 @@ import (
 func mcp_token(t *testing.T, a *App, name, user, role string) string {
 	t.Helper()
 	testAdministrator(t, a, "boss")
+	// These protocol fixtures exercise enabled tools. Disabled-area tests use
+	// a fresh App without this token fixture.
+	for _, area := range []string{"mcp", "what-ifs", "evals"} {
+		setTestFeatureAs(t, a, area, true, "boss")
+	}
 	if _, err := a.Access.EnsureUser(context.Background(), user); err != nil {
 		t.Fatal(err)
 	}
@@ -128,6 +133,7 @@ func mcp_call(t *testing.T, a *App, token, tool string, args map[string]any) map
 func TestMCPRequiresPersonalToken(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 
 	// No token: 401 with the realm, even in open mode (the actor header is
 	// not a credential here).
@@ -155,6 +161,7 @@ func TestMCPRequiresPersonalToken(t *testing.T) {
 func TestMCPInitialize(t *testing.T) {
 	t.Parallel()
 	a := testApp(t, Config{AuthMode: "internal", AuthHeader: "", AuthProxySecret: ""})
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 
 	tok := mcp_token(t, a, "laptop", "bls", "member")
 	w := mcp_raw(a, tok, "", mcp_rpc(1, "initialize", map[string]any{
@@ -235,6 +242,7 @@ func TestMCPInitialize(t *testing.T) {
 func TestMCPToolsList(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	tok := mcp_token(t, a, "laptop", "bls", "member")
 	w := mcp_post(a, tok, "", mcp_rpc(1, "tools/list", nil))
 	if w.Code != 200 {
@@ -301,6 +309,7 @@ var wantRequired = map[string]string{
 func TestMCPListProjectsAndGetProject(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	pid := createReadTestProject(t, a, "shop")
 	createReadTestChange(t, a, pid, "add the cart")
 	tok := mcp_token(t, a, "laptop", "bls", "member")
@@ -357,6 +366,7 @@ func TestMCPListProjectsAndGetProject(t *testing.T) {
 func TestMCPChangesAndRuns(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	pid := createReadTestProject(t, a, "shop")
 	chID := createReadTestChange(t, a, pid, "add the cart")
 	if _, err := a.Access.PutGrant(context.Background(), identity.Spec{SubjectType: "user", Subject: "bls", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(pid), By: "bls"}); err != nil {
@@ -480,6 +490,7 @@ func TestMCPChangesAndRuns(t *testing.T) {
 func TestMCPProtocolErrors(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	tok := mcp_token(t, a, "laptop", "bls", "member")
 	// Unknown method → -32601.
 	// An unknown method is refused by the transport before it reaches a session.
@@ -526,6 +537,7 @@ func TestMCPProtocolErrors(t *testing.T) {
 func TestMCPBatch(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	createReadTestProject(t, a, "shop")
 	tok := mcp_token(t, a, "laptop", "bls", "member")
 	// Batching is part of the 2025-03-26 protocol; later versions dropped it.
@@ -556,6 +568,7 @@ func TestMCPBatch(t *testing.T) {
 func TestMCPDeleteEndsSession(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	tok := mcp_token(t, a, "laptop", "bls", "member")
 	sid := mcp_session(a, tok)
 	if sid == "" {
@@ -598,6 +611,7 @@ func TestMCPDeleteEndsSession(t *testing.T) {
 func TestMCPOfficialClientConnectsAndCallsATool(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	createReadTestProject(t, a, "shop")
 	tok := mcp_token(t, a, "laptop", "bls", "member")
 	server := httptest.NewServer(a.Handler())
@@ -664,6 +678,7 @@ func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
 func TestTheMCPServerIsBuiltOnceByItsFirstRequest(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	door := a.mcpDoor.(*mcpDoor)
 	tok := mcp_token(t, a, "laptop", "bls", "member")
 	req := httptest.NewRequest("GET", "/api/v1/projects", nil)
@@ -702,6 +717,7 @@ func TestTheMCPServerIsBuiltOnceByItsFirstRequest(t *testing.T) {
 func TestAnMCPServerThatCannotBeBuiltAnswersWithItsFailure(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	tok := mcp_token(t, a, "laptop", "bls", "member")
 	door := &mcpDoor{a: a}
 	door.once.Do(func() { door.err = errors.New("a tool's schema was refused") })
@@ -748,6 +764,7 @@ func mcp_modern(a *App, token, sid, client, method string, params map[string]any
 func TestMCPDiscoveryAndCallsUseCurrentIdentityWithoutSessions(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	projectID := createReadTestProject(t, a, "shop")
 	tok := mcp_token(t, a, "modern", "bls", "member")
 	other := mcp_token(t, a, "other-modern", "kid", "member")
@@ -798,6 +815,7 @@ func TestMCPDiscoveryAndCallsUseCurrentIdentityWithoutSessions(t *testing.T) {
 func TestMCPModernHeaderCannotBypassLegacySessionOwnership(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	tok := mcp_token(t, a, "legacy", "bls", "member")
 	other := mcp_token(t, a, "modern", "kid", "member")
 	sid := mcp_session(a, tok)
@@ -818,6 +836,7 @@ func TestMCPModernHeaderCannotBypassLegacySessionOwnership(t *testing.T) {
 func TestMCPRefusesAnOversizedContract(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	fleetRepo(t, a, "big", map[string]string{".apptown/app.yaml": "# " + strings.Repeat("x", docker.MaxContractBytes) + "\n"})
 	tok := mcp_token(t, a, "laptop", "bls", "member")
 	res := mcp_call(t, a, tok, "get_application_contract", map[string]any{"slug": "big"})

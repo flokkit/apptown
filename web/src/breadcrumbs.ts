@@ -6,6 +6,7 @@ import { INTEGRATION_MENU } from './pages/integrations/kinds'
 export const PAGE_ROUTES = [
   "/invite",
   "/invite/:token",
+  "/features",
   "/",
   "/attention/checks",
   "/attention/checks/:checkKey",

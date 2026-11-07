@@ -67,6 +67,11 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	for _, account := range accounts {
 		principals[account.Username] = access.Principal{ID: account.PrincipalID, Kind: "user", Name: account.Username, Via: "header", Credential: identity.HeaderCredential(account.Username)}
 	}
+	admin := principals["boss"]
+	admin.Via, admin.Credential = "session", ""
+	if _, err := a.identity.SetFeature(t.Context(), admin, "app-platform", false, true); err != nil {
+		t.Fatal(err)
+	}
 	// This adapter test starts after authentication, with the same stable
 	// account and credential identity that release admission records.
 	authenticatedRequest := func(handler http.HandlerFunc, who, method, path, body string, values map[string]string) *httptest.ResponseRecorder {
@@ -99,7 +104,7 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	deployments := NewDeployments(a.service, a.data, a.projects)
+	deployments := NewDeployments(a.service, a.data, a.projects, a.identity)
 	targets := NewTargets(a.service, a.shared.Providers, a.projects, a.identity, a.db, nil)
 	listing := NewDeploymentListing(a.projects, a.service, t.TempDir(), nil)
 	projectValues := map[string]string{"slug": "game"}

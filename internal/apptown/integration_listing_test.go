@@ -10,12 +10,13 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"time"
+
 	"github.com/flokkit/apptown/internal/apptown/attention"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/ids/idstest"
-	"time"
 )
 
 // The integrations list says what names each integration: the projects that
@@ -24,6 +25,7 @@ import (
 func TestIntegrationListSaysWhatUsesEachIntegration(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "portainer", true, "boss")
 	for _, b := range []struct{ name, capability, provider string }{{"store", "objectstore", "minio"}, {"lan", "build", "portainer"}} {
 		if _, err := a.Integrations.Bindings.Save(context.Background(), b.name, b.capability, b.provider, `{}`, "fixture"); err != nil {
 			t.Fatal(err)
@@ -108,7 +110,7 @@ func TestPackageRegistryIsCheckedByTheJobAndNeverByThePage(t *testing.T) {
 		t.Fatal(err)
 	}
 	kind := apptownJobKinds(a)[integration.HealthObservationJob]
-	if _, err := kind.Run(t.Context(), binding.HealthObservationKey(), nil); err != nil {
+	if _, err := kind.Run(t.Context(), fmt.Sprintf("%s/%d", binding.Name, binding.Version), nil); err != nil {
 		t.Fatal(err)
 	}
 	result, err := a.Integrations.RecordedHealth(t.Context(), binding.Name)

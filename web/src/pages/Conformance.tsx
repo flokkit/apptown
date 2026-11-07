@@ -1,4 +1,6 @@
+import { FeatureOnly, useFeature } from '../features'
 import { usePageName } from '../chrome'
+
 import { Tabs } from '../Tabs'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -33,6 +35,7 @@ import './conformance.css'
 export default function Conformance({ tab }: { tab: 'projects' | 'project' | 'reviews' | 'checks' | 'remediations' | 'remediation' | 'ways' | 'what-ifs' }) {
   const { reviewId, slug, remId, checkKey } = useParams()
   const rid = reviewId ?? ''
+ const enabled = useFeature()
   const base = rid ? `/conformance/reviews/${rid}` : '/conformance'
   const { run: act, busy: starting, err: actErr } = useAction()
   const remediation = useStartRemediation()
@@ -40,7 +43,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
   // project rows refresh every few seconds, so the list itself shows the
   // review walking. A review someone else started is followed too.
   const [following, setFollowing] = useState('')
-  const viewQ = useGet<ConformanceView>(rid ? `/conformance?review=${rid}` : '/conformance', { poll: following ? 2800 : 0 })
+  const viewQ = useGet<ConformanceView>(rid ? `/conformance?review=${rid}` : enabled('conformance-estate') ? '/conformance' : null, { poll: following ? 2800 : 0 })
   // An AppTown with nothing adopted answers projects: null; the lists below
   // treat that as none (it once crashed the page on a fresh AppTown).
   const view = useMemo(() => viewQ.data ? { ...viewQ.data, projects: viewQ.data.projects ?? [] } : undefined, [viewQ.data])
@@ -111,12 +114,12 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
 
       {/* A loaded count changes tab widths; remount to reveal the active tab again. */}
       <Tabs key={fleetReviews} className="tabs conformance-tabs">
-        <Link to={base} className={tabClass(active === 'projects')}>Projects</Link>
+        <FeatureOnly area="conformance-estate"><Link to={base} className={tabClass(active === 'projects')}>Projects</Link></FeatureOnly>
         <Link to="/conformance/reviews" className={tabClass(active === 'reviews')}>Fleet reviews{fleetReviews ? ` (${fleetReviews})` : ''}</Link>
-        <Link to={`${base}/checks`} className={tabClass(active === 'checks')}>Checks</Link>
+        {(rid || enabled('conformance-estate')) && <Link to={`${base}/checks`} className={tabClass(active === 'checks')}>Checks</Link>}
         {!readOnly && <Link to="/conformance/remediations" className={tabClass(active === 'remediations')}>Remediations</Link>}
-        {!readOnly && <Link to="/conformance/ways" className={tabClass(active === 'ways')}>Ways of working</Link>}
-        {!readOnly && <Link to="/conformance/what-ifs" className={tabClass(active === 'what-ifs')}>What-ifs</Link>}
+        {!readOnly && enabled('conformance-estate') && <Link to="/conformance/ways" className={tabClass(active === 'ways')}>Ways of working</Link>}
+        {!readOnly && <FeatureOnly area="what-ifs"><Link to="/conformance/what-ifs" className={tabClass(active === 'what-ifs')}>What-ifs</Link></FeatureOnly>}
       </Tabs>
 
       {!view && <ReadStatus q={viewQ} what="the conformance record" className="small" />}

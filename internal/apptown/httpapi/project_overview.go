@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/projectnotes"
 	"net/http"
 	"strings"
@@ -19,10 +20,11 @@ type ProjectOverview struct {
 	projects *project.Projects
 	work     *workflow.Service
 	dataDir  string
+	features *identity.Service
 }
 
-func NewProjectOverview(projects *project.Projects, work *workflow.Service, dataDir string) ProjectOverview {
-	return ProjectOverview{projects: projects, work: work, dataDir: dataDir}
+func NewProjectOverview(projects *project.Projects, work *workflow.Service, dataDir string, features *identity.Service) ProjectOverview {
+	return ProjectOverview{projects: projects, work: work, dataDir: dataDir, features: features}
 }
 
 // ProjectOverview: GET /projects/{slug}/overview
@@ -33,6 +35,11 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 	}
 
 	work, ctx := h.work, r.Context()
+	memory, err := h.features.FeatureState(ctx, "memory")
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 
 	// repo card
 	var repo *OverviewRepo
@@ -43,30 +50,32 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 			WriteFault(w, err)
 			return
 		}
-		notes = &ProjectNotesView{Notes: []ProjectNoteView{}}
-		commit, readErr := gitexec.Run(ctx, dir, "rev-parse", "--verify", "refs/heads/"+p.DefaultBranch+"^{commit}")
-		if readErr != nil {
-			notes.Error = "Could not read project notes: " + readErr.Error()
-		} else {
-			notes.Commit = commit
-			parsed, present, readErr := projectnotes.Read(ctx, dir, commit)
-			notes.Present = present
+		if memory.Enabled {
+			notes = &ProjectNotesView{Notes: []ProjectNoteView{}}
+			commit, readErr := gitexec.Run(ctx, dir, "rev-parse", "--verify", "refs/heads/"+p.DefaultBranch+"^{commit}")
 			if readErr != nil {
-				notes.Error = readErr.Error()
+				notes.Error = "Could not read project notes: " + readErr.Error()
 			} else {
-				sources := map[int64]ProjectNoteView{}
-				for _, n := range parsed {
-					source, ok := sources[n.Change]
-					if !ok {
-						acceptance, e := work.AcceptanceByNumber(ctx, p.ID, p.Slug, n.Change)
-						source = ProjectNoteView{ChangeID: acceptance.ChangeID, AcceptedBy: acceptance.AcceptedBy}
-						if e != nil {
-							source.SourceError = "Source acceptance unavailable"
+				notes.Commit = commit
+				parsed, present, readErr := projectnotes.Read(ctx, dir, commit)
+				notes.Present = present
+				if readErr != nil {
+					notes.Error = readErr.Error()
+				} else {
+					sources := map[int64]ProjectNoteView{}
+					for _, n := range parsed {
+						source, ok := sources[n.Change]
+						if !ok {
+							acceptance, e := work.AcceptanceByNumber(ctx, p.ID, p.Slug, n.Change)
+							source = ProjectNoteView{ChangeID: acceptance.ChangeID, AcceptedBy: acceptance.AcceptedBy}
+							if e != nil {
+								source.SourceError = "Source acceptance unavailable"
+							}
+							sources[n.Change] = source
 						}
-						sources[n.Change] = source
+						source.Note = n
+						notes.Notes = append(notes.Notes, source)
 					}
-					source.Note = n
-					notes.Notes = append(notes.Notes, source)
 				}
 			}
 		}

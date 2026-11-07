@@ -10,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/maintenance"
@@ -43,7 +44,11 @@ type backupRequests struct {
 
 func (b backupRequests) RequestBackup(ctx context.Context, key, trigger string) error {
 	_, err := database.Transact(ctx, b.db, func(tx *database.Tx) (bool, error) {
-		err := jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: "backup", Key: key, Values: map[string]any{"trigger": trigger}})
+		on, err := identity.FeatureEnabledIn(ctx, tx, "backups")
+		if err != nil || !on {
+			return false, err
+		}
+		err = jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: "backup", Key: key, Values: map[string]any{"trigger": trigger}})
 		return err == nil, err
 	})
 	return err
@@ -196,9 +201,7 @@ func (c infrastructureChecks) RunHourly(ctx context.Context, _ string, _ map[str
 		if !b.HasAutomaticCheck() {
 			continue
 		}
-		if _, err := database.Transact(ctx, c.db, func(tx *database.Tx) (struct{}, error) {
-			return struct{}{}, jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: integration.HealthObservationJob, Key: b.HealthObservationKey()})
-		}); err != nil {
+		if err := c.integrations.Bindings.RequestHealthObservation(ctx, b.Name); err != nil {
 			errs = append(errs, err)
 		}
 	}

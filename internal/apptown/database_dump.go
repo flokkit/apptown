@@ -18,6 +18,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/execution"
@@ -289,6 +290,13 @@ type databaseBackup struct {
 func (b databaseBackup) Run(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
 	if !b.enabled {
 		return map[string]any{"skipped": "AppTown's database is not the built-in one"}, nil
+	}
+	on, err := identity.FeatureEnabledIn(ctx, b.db, "backups")
+	if err != nil {
+		return nil, err
+	}
+	if !on {
+		return map[string]any{"skipped": "Backups is turned off"}, nil
 	}
 	if err := b.take(ctx); err != nil {
 		return nil, err

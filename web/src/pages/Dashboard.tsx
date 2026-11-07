@@ -1,3 +1,4 @@
+import { FeatureOnly } from '../features'
 import './Dashboard.css'
 import { Status } from '../Status'
 import { useAttention, attentionState, useOperator } from '../attention'
@@ -49,7 +50,7 @@ function SetupCard() {
         </div>
       )}
       {setup.needsModel && (
-        <div className="card tone-accent mb-3 dashboard-setup-card-card-tone-accent">
+        <FeatureOnly area="models"><div className="card tone-accent mb-3 dashboard-setup-card-card-tone-accent">
           <strong className="dashboard-setup-card-strong">Add a model API key to start building</strong>
           <div className="muted small dashboard-setup-card-div">
             It is kept in {PRODUCT}'s secrets file, is not shown again, and is sent only to steps
@@ -67,7 +68,7 @@ function SetupCard() {
           </div>
           {err && <div className="error small dashboard-setup-card-error">{err}</div>}
           <div className="dashboard-setup-card-div-2"><LocalTrialNote /></div>
-        </div>
+        </div></FeatureOnly>
       )}
       {setup.agentImage === 'building' && (
         <div className="card dashboard-setup-card-card-tone-warn">

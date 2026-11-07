@@ -1,3 +1,4 @@
+import { withFeatures } from '../../features.fixture'
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -45,7 +46,7 @@ describe("the change a chat works on", () => {
     Element.prototype.scrollIntoView = () => {}
     vi.stubGlobal('WebSocket', class { send() {} close() {} })
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
       const u = String(url)
       if (u === '/api/v1/projects/p/console') {
         return new Response(JSON.stringify({ sessions: [{ id: 's1', projectSlug: 'p', model: 'm', createdAt: '', state: 'detached', changeId: CHANGE, openedBy: 'bls', mayAct: true }] }))
@@ -54,7 +55,7 @@ describe("the change a chat works on", () => {
       if (u.includes('/messages')) return new Response(JSON.stringify({ messages: [] }))
       if (u.endsWith('/changes')) return new Response(JSON.stringify({ changes: [] }))
       return new Response('{}')
-    }))
+    })))
   })
   afterEach(() => vi.unstubAllGlobals())
   const down = () => new Response(JSON.stringify({ error: 'database unavailable' }), { status: 400 })
@@ -110,7 +111,7 @@ describe("the change a chat works on", () => {
 describe('the changes a chat started', () => {
   afterEach(() => vi.unstubAllGlobals())
   const mount = async (reply: () => Response, seed?: unknown) => {
-    vi.stubGlobal('fetch', vi.fn(async () => reply()))
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async () => reply())))
     const client = newQueryClient()
     if (seed) client.setQueryData(getKey('/console/s1/changes'), seed)
     const el = document.createElement('div')

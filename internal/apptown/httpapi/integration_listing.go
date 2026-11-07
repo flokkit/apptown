@@ -7,18 +7,20 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/deploy"
 )
 
 type IntegrationListing struct {
+	features     *identity.Service
 	integrations *integration.Service
 	deployment   *deployment.Service
 	health       connectorHealth
 }
 
-func NewIntegrationListing(integrations *integration.Service, deployment *deployment.Service, health connectorHealth) IntegrationListing {
-	return IntegrationListing{integrations: integrations, deployment: deployment, health: health}
+func NewIntegrationListing(integrations *integration.Service, deployment *deployment.Service, health connectorHealth, features *identity.Service) IntegrationListing {
+	return IntegrationListing{integrations: integrations, deployment: deployment, health: health, features: features}
 }
 
 // ListIntegrations: GET /api/v1/integrations — bindings, what uses each,
@@ -41,6 +43,14 @@ func (h IntegrationListing) ListIntegrations(w http.ResponseWriter, r *http.Requ
 	}
 	var list []IntegrationEntry
 	for _, b := range bindings {
+		f, err := h.features.FeatureState(r.Context(), integration.FeatureArea(b.Capability, b.Provider))
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		if !f.Enabled {
+			continue
+		}
 		e := IntegrationEntry{IntegrationView: IntegrationView{ID: b.ID, Name: b.Name, DisplayLabel: b.DisplayLabel, Capability: b.Capability, Provider: b.Provider, Version: b.Version, UpdatedAt: b.UpdatedAt}, Managed: b.Managed,
 			UsedBy: IntegrationUse{Projects: projects[b.Name], Deployments: deployments[b.Name]}}
 		if e.UsedBy.Projects == nil {

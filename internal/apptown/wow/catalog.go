@@ -41,6 +41,7 @@ type CatalogDef struct {
 
 // CatalogChange is one entry of stock/catalog.yaml.
 type CatalogChange struct {
+	Area        string     `json:"area" yaml:"area"`
 	Name        string     `json:"name" yaml:"name"`
 	Description string     `json:"description" yaml:"description"`
 	Definition  CatalogDef `json:"-" yaml:"definition"`
@@ -75,6 +76,9 @@ func readStockCatalog(fsys fs.FS) ([]CatalogChange, error) {
 			return nil, fmt.Errorf("catalog.yaml: %q is listed twice", c.Name)
 		}
 		seen[c.Name] = true
+		if c.Area == "" {
+			return nil, fmt.Errorf("catalog.yaml: %s needs a feature area", c.Name)
+		}
 		if err := c.Definition.validate(); err != nil {
 			return nil, fmt.Errorf("catalog.yaml: %s: %w", c.Name, err)
 		}

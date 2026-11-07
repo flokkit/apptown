@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/evals/internal/evalssql"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -130,7 +131,9 @@ func (s *Service) advance(ctx context.Context, e evalssql.Eval) error {
 				s.saveArm(ctx, arms[i])
 			}
 		}
-	} else {
+	} else if enabled, err := identity.FeatureEnabledIn(ctx, s.db, "evals"); err != nil {
+		return err
+	} else if enabled {
 		running := 0
 		for _, a := range arms {
 			if a.busy() {

@@ -3,23 +3,27 @@ package httpapi
 import (
 	"net/http"
 
+	"github.com/flokkit/apptown/internal/access"
+
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 )
 
 type Deployments struct {
+	features   *identity.Service
 	deployment *deployment.Service
 	data       *dataprotection.Service
 	projects   *project.Projects
 }
 
-func NewDeployments(deployment *deployment.Service, data *dataprotection.Service, projects *project.Projects) Deployments {
-	return Deployments{deployment: deployment, data: data, projects: projects}
+func NewDeployments(deployment *deployment.Service, data *dataprotection.Service, projects *project.Projects, features *identity.Service) Deployments {
+	return Deployments{deployment: deployment, data: data, projects: projects, features: features}
 }
 
 // The deployment routes' responses.
@@ -76,7 +80,19 @@ func (h Deployments) CreateDeployment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if _, ok := AuthorizeRequest(h.features, w, r, access.CapDeploymentBind, access.Resource{Type: "project", ID: p.ID.String(), ProjectID: p.ID}, access.Context{Consequential: true}); !ok {
+		return
+	}
 	jsonCommand(w, r, jsonBody{strict: true}, func(in DeploymentConfigurationRequest) {
+		target, err := h.deployment.Targets.ByName(r.Context(), in.Target)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		if err := h.features.RequireFeature(r.Context(), deployment.TargetFeatureArea(target.Kind)); err != nil {
+			WriteFault(w, err)
+			return
+		}
 		result, err := h.deployment.Configure(r.Context(), deployment.ConfigureDeployment{ProjectID: p.ID, Name: in.Name, Target: in.Target, From: in.From, Attributes: in.Attributes, StartFrom: in.StartFrom})
 		if err != nil {
 			WriteFault(w, err)

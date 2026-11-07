@@ -1,4 +1,6 @@
+import { FeatureOnly, FeatureGate, useFeature } from '../features'
 import { usePageName } from '../chrome'
+
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { del, post } from '../api'
@@ -23,8 +25,9 @@ export default function PackPage() {
   const { name = '', version } = useParams()
   const nav = useNavigate()
   const [params] = useSearchParams()
+  const feature = useFeature()
   const whatIfId = params.get('whatIf')
-  const whatIfQ = useGet<WhatIf>(whatIfId ? `/conformance/what-if/${whatIfId}` : null)
+  const whatIfQ = useGet<WhatIf>(whatIfId && feature('what-ifs') ? `/conformance/what-if/${whatIfId}` : null)
   const packsQ = useGet<PackView[]>('/packs', { kind: 'config' })
   const canManage = useHolds('standards:manage-packs')
   const [editing, setEditing] = useState(false)
@@ -42,7 +45,7 @@ export default function PackPage() {
     const v = h.versions.find(v => String(v.version) === version)
     return <><h1>Version {version}</h1><StaleNote q={q} />{v ? <>
       <Contents v={v} /><Limits v={v} base={h.versions.find(b => b.version === v.basedOn)} />
-      <WhatIfPanel pack={h.name} version={v.version} />
+      <FeatureOnly area="what-ifs"><span className="badge">beta</span><WhatIfPanel pack={h.name} version={v.version} /></FeatureOnly>
     </> : <p>This version does not exist.</p>}</>
   }
   return (
@@ -59,7 +62,7 @@ export default function PackPage() {
       {d.toolchain && <p className="small">Toolchain: <code>{d.toolchain}</code></p>}
       <StaleNote q={[q, packsQ]} />
       <ReadStatus q={packsQ} what="pack availability" className="small" />
-      {whatIfId && <ReadStatus q={whatIfQ} what="the assessed what-if" className="small" />}
+      {whatIfId && <FeatureGate area="what-ifs"><ReadStatus q={whatIfQ} what="the assessed what-if" className="small" /></FeatureGate>}
       {actErr && <div className="error">{actErr}</div>}
 
       {canManage && <div className="row mb-3">
@@ -108,6 +111,7 @@ export default function PackPage() {
               )}
             </div>
             {v.note && v.note !== 'published contents' && v.note !== v.name && <div className="small mt-1" >{v.note}</div>}
+
           </div>
         ))}
       </Section>

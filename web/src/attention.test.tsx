@@ -1,3 +1,4 @@
+import { withFeatures } from './features.fixture'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, type ReactNode } from 'react'
@@ -34,7 +35,7 @@ function mount(ui: ReactNode, path = '/attention') {
 }
 function responses(read: (init?: RequestInit) => Response | Promise<Response>, extra: Record<string, unknown> = {}) {
   const calls: string[] = []
-  vi.stubGlobal('fetch', vi.fn(async (url: unknown, init?: RequestInit) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: unknown, init?: RequestInit) => {
     const path = pathOf(url); calls.push(path)
     if (path === '/attention') return read(init)
     if (path === '/auth/me') return json({ mode: 'internal', user: 'alice' })
@@ -42,7 +43,7 @@ function responses(read: (init?: RequestInit) => Response | Promise<Response>, e
     if (path in extra) return json(extra[path])
     if (path === '/setup') return json({ modelConfigured: true })
     return json({})
-  }))
+  })))
   return calls
 }
 // The lit lights: present only while something is confirmed broken; their label is the count to fix.
@@ -117,7 +118,7 @@ describe('Attention surfaces share authorized current evidence', () => {
   })
   it('actual shell identity changes cancel old reads, discard late old-scope answers and remove sign-out count', async () => {
     let who = 'alice'; let hold = false; let release: (r: Response) => void = () => {}; let signal: AbortSignal | null | undefined
-    vi.stubGlobal('fetch', vi.fn(async (url: unknown, init?: RequestInit) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: unknown, init?: RequestInit) => {
       const path = pathOf(url)
       if (path === '/auth/me') return json({ mode: 'internal', user: who || undefined })
       if (path === '/authz/me') return json({ instance: { 'instance:updates': false, 'platform:manage-deploy-targets': true } })
@@ -126,7 +127,7 @@ describe('Attention surfaces share authorized current evidence', () => {
         return json(who === 'alice' ? warning : known)
       }
       return json({})
-    }))
+    })))
     const v = mount(<App />); await settled(v.client)
     expect(badge(v.el).getAttribute('aria-label')).toBe('2 to fix')
     hold = true
@@ -259,8 +260,8 @@ it.each([false, true])('search has its own visible control (narrow=%s)', async n
 })
 it('identifies sidebar links while the project name loads and after a failed read', async () => {
  let release!: (r: Response) => void
- vi.stubGlobal('fetch', vi.fn(async (url: unknown) => pathOf(url) === '/projects/club-newsletter'
-  ? new Promise<Response>(resolve => { release = resolve }) : json({ instance: {} })))
+ vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: unknown) => pathOf(url) === '/projects/club-newsletter'
+  ? new Promise<Response>(resolve => { release = resolve }) : json({ instance: {} }))))
  const v = mount(<SidebarNav />, '/projects/club-newsletter')
  expect(v.el.querySelector('.sidebar-project strong')?.textContent).toBe('club-newsletter')
  await act(async () => { release(json({ error: 'forbidden' }, 403)) }); await settled(v.client)
@@ -365,13 +366,13 @@ it('shows the lights to operators only, one per kind of condition, linking to it
  expect(lights[0].getAttribute('title')).toBe('Hosts and deployments: 1 to fix')
  vi.unstubAllGlobals()
  responses(() => json(warning))
- vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
+ vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: unknown) => {
   const path = pathOf(url)
   if (path === '/attention') return json(warning)
   if (path === '/auth/me') return json({ mode: 'internal', user: 'kid' })
   if (path === '/authz/me') return json({ instance: { 'project:read': true } })
   return json({})
- }))
+ })))
  const member = mount(<AttentionLights />); await settled(member.client)
  expect(member.el.querySelector('.attention-lights')).toBeNull()
 })

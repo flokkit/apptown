@@ -29,6 +29,8 @@ type Options struct {
 	Authority access.Authorizer
 	Now       func() time.Time
 	Transport http.RoundTripper
+	// Enabled checks the instance switch before automatic discovery.
+	Enabled func(context.Context) (bool, error)
 }
 
 type Service struct {
@@ -149,6 +151,12 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 }
 
 func (s *Service) check(ctx context.Context, manual bool) (Status, error) {
+	if !manual && s.options.Enabled != nil {
+		on, err := s.options.Enabled(ctx)
+		if err != nil || !on {
+			return Status{}, err
+		}
+	}
 	s.mu.Lock()
 	if s.checking {
 		s.mu.Unlock()

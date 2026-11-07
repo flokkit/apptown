@@ -31,6 +31,12 @@ func (h ChangeAdmission) CreateChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{strict: true}, func(in ChangeRequest) {
+		if in.TitleFromChat {
+			if err := h.access.RequireFeature(r.Context(), "chats"); err != nil {
+				WriteFault(w, err)
+				return
+			}
+		}
 		if in.TitleFromChat && in.Workflow != "" {
 			WriteError(w, 400, "first-message naming requires a chat Change without a workflow")
 			return

@@ -5,13 +5,15 @@ import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
-import { newQueryClient } from '../../data'
+import { getKey, newQueryClient } from '../../data'
+import { enabledFeatures, withFeatures } from '../../features.fixture'
 import type { ChangeView, Step } from '../../api'
 import { StatePanel, recoveryNote } from './StatePanel'
 import { HeldDecision, heldLabels } from './HeldDecision'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 beforeEach(() => vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} }))
 const CHANGE = '00000000-0004-7000-8000-000000000000'
+const featureClient = (chats = true) => { const client = newQueryClient(); client.setQueryData(getKey('/features'), enabledFeatures.map(f => f.area === 'chats' ? { ...f, enabled: chats } : f)); return client }
 describe('held runs offer recovery rather than an approval', () => {
   const held = (rounds = 3): ChangeView => ({
     waitingOn: { kind: 'check', says: 'review-change failed', tone: 'bad', run: 'run', step: 'review', checks: 1, who: [], you: 'yes' }, change: { id: CHANGE, number: 4, title: 'Fix the menu', state: 'in_progress' }, projectSlug: 'fieldnotes', state: 'waiting on you', statusLabel: 'waiting for you',
@@ -29,9 +31,9 @@ describe('held runs offer recovery rather than an approval', () => {
       events: Array.from({ length: rounds }, (_, i) => ({ kind: 'step.rework', payload: { step: 'review-change', reason: `Earlier attempt ${i + 1}` } })),
     },
   } as unknown as ChangeView)
-  const markup = (v: ChangeView) => {
+  const markup = (v: ChangeView, chats = true) => {
     const el = document.createElement('div')
-    el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}>
+    el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={featureClient(chats)}>
       <StatePanel view={v} /><HeldDecision view={v} onChange={() => {}} />
     </QueryClientProvider></MemoryRouter>)
     return el
@@ -56,10 +58,16 @@ describe('held runs offer recovery rather than an approval', () => {
     expect(el.textContent).not.toContain('Stop this attempt')
     expect(el.querySelector('a')?.textContent).toBe('Open the conversation →')
   })
+  it('keeps workflow recovery while hiding the chat continuation when chats are off', () => {
+    const el = markup(held(), false)
+    expect(el.textContent).toContain('Accept anyway')
+    expect(el.textContent).toContain('Send back…')
+    expect(el.textContent).not.toContain('Open the conversation')
+  })
   it.each(['send-back', 'retry', 'override'])('leads with advice and highlights only its offered %s act', async recommend => {
     const v = held()
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ text: 'The reviewer found a bug. Ask the agent to fix it.', recommend }))))
-    const el = document.createElement('div'), root = createRoot(el), client = newQueryClient()
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response(JSON.stringify({ text: 'The reviewer found a bug. Ask the agent to fix it.', recommend })))))
+    const el = document.createElement('div'), root = createRoot(el), client = featureClient()
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><HeldDecision view={v} onChange={() => {}} /></QueryClientProvider></MemoryRouter>))
     await act(async () => { for (let i = 0; i < 20; i++) await new Promise(r => setTimeout(r, 0)) })
     expect(el.textContent).toContain("AppTown's summary")
@@ -97,11 +105,11 @@ describe('held runs offer recovery rather than an approval', () => {
   })
   it('prefills recovery, cancels exactly, sends feedback and keeps stuck-agent continuation behind the link', async () => {
     const sent: { url: string; body: unknown }[] = []
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
       if (init?.method === 'POST') sent.push({ url, body: init.body ? JSON.parse(String(init.body)) : undefined })
       return new Response(JSON.stringify({ session: { id: 'chat' } }))
-    }))
-    const el = document.createElement('div'), root = createRoot(el), client = newQueryClient()
+    })))
+    const el = document.createElement('div'), root = createRoot(el), client = featureClient()
     document.body.append(el)
     const v = held()
     const draw = async () => act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><HeldDecision view={v} onChange={() => {}} /></QueryClientProvider></MemoryRouter>))
@@ -155,7 +163,7 @@ it.each([false, true])('retains the complete reviewer text and leads with struct
     ] },
   } as unknown as ChangeView
   const el = document.createElement('div')
-  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><HeldDecision view={v} onChange={() => {}} /></QueryClientProvider></MemoryRouter>)
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={featureClient()}><HeldDecision view={v} onChange={() => {}} /></QueryClientProvider></MemoryRouter>)
   expect(el.querySelector('p')?.textContent).toBe('review-change failed')
   const reason = el.querySelector('.ch-review-text')!.textContent!
   expect(reason).toBe(findings ? 'Two projects lack the rule.\n\n' + text : text)
@@ -168,6 +176,6 @@ it.each(['landing', 'finished'])('omits Stop this attempt when it is not an act 
       { type: 'agent/review', name: 'review-change', stage: 'apply', status: 'fail', evidence: { reason: 'An objection.' } },
     ],
   } } as unknown as ChangeView
-  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><HeldDecision view={v} onChange={() => {}} /></QueryClientProvider></MemoryRouter>)
+  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={featureClient()}><HeldDecision view={v} onChange={() => {}} /></QueryClientProvider></MemoryRouter>)
   expect(html).not.toContain('Stop this attempt')
 })

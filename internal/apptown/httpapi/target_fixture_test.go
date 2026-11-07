@@ -74,6 +74,15 @@ func newTargetHTTPWorld(t *testing.T, options ...digitalocean.Options) *targetHT
 	if err := identity.SeedAdministrator(t.Context(), "bls"); err != nil {
 		t.Fatal(err)
 	}
+	accounts, err := identity.Users(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, area := range []string{"app-platform", "portainer", "bucket-site"} {
+		if _, err := identity.SetFeature(t.Context(), access.Principal{Kind: "user", Name: "bls", ID: accounts[0].PrincipalID, Via: "session"}, area, false, true); err != nil {
+			t.Fatal(err)
+		}
+	}
 	daemon := newDockerFake()
 	var cloud digitalocean.Options
 	if len(options) > 0 {
@@ -123,7 +132,7 @@ func (w *targetHTTPWorld) setDockerClient(client docker.Client) {
 	w.deployment = deployment.New(context.Background(), w.db, deployment.Dependencies{Groups: w.identity, Authority: access.Checked{Authority: w.identity, Projects: w.projects}, Targets: targets, Deployments: deployments, Hosts: w.hosts, Environment: environment, Providers: w.providers,
 		Projects: w.projects, Declared: targetTestDeclarations{}})
 	w.targets = NewTargets(w.deployment, w.providers, w.projects, w.identity, w.db, nil)
-	w.infra = NewInfrastructure(w.deployment, w.hosts, w.providers, w.projects, w.db, &targetTestInventoryCache{}, false, "", "", nil)
+	w.infra = NewInfrastructure(w.deployment, w.hosts, w.providers, w.projects, w.db, w.identity, &targetTestInventoryCache{}, false, "", "", nil)
 }
 
 type targetTestInventoryCache struct{}

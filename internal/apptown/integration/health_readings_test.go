@@ -242,7 +242,7 @@ func TestScannerChecksAllowFirstPullForBackgroundAndTestConnection(t *testing.T)
 		calls++
 		return Health{OK: true}.At(s.now())
 	})
-	if err := s.RunHealthObservation(t.Context(), b.HealthObservationKey(), checker); err != nil {
+	if err := s.RunHealthObservation(t.Context(), b.healthObservationKey(), checker); err != nil {
 		t.Fatal(err)
 	}
 	if h, err := s.TestSaved(t.Context(), b.Name, checker); err != nil || !h.OK || calls != 2 {

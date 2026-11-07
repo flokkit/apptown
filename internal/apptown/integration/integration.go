@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration/internal/integrationsql"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/clock"
@@ -616,6 +617,12 @@ func LinkWireIn(ctx context.Context, tx *database.Tx, projectID ids.ID, capabili
 	return nil
 }
 
+// RequestHealthObservation queues a fresh optional connection check. The saved
+// binding and current feature choice are read in the enqueue transaction.
+func (s *Bindings) RequestHealthObservation(ctx context.Context, name string) error {
+	return s.db.InTx(ctx, func(tx *database.Tx) error { return s.requestHealthIn(ctx, tx, name) })
+}
+
 // requestHealthIn admits the saved version with its configuration and receipt.
 func (s *Bindings) requestHealthIn(ctx context.Context, tx *database.Tx, name string) error {
 	if s.jobs == nil {
@@ -629,5 +636,9 @@ func (s *Bindings) requestHealthIn(ctx context.Context, tx *database.Tx, name st
 	if !b.HasAutomaticCheck() {
 		return nil
 	}
-	return s.jobs.EnqueueIn(ctx, tx, jobs.Request{Operation: HealthObservationJob, Key: b.HealthObservationKey()})
+	on, err := identity.FeatureEnabledIn(ctx, tx, FeatureArea(b.Capability, b.Provider))
+	if err != nil || !on {
+		return err
+	}
+	return s.jobs.EnqueueIn(ctx, tx, jobs.Request{Operation: HealthObservationJob, Key: b.healthObservationKey()})
 }

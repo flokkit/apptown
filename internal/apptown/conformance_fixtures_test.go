@@ -72,5 +72,7 @@ func conformanceTestApp(t *testing.T, configs ...Config) *App {
 	t.Helper()
 	a := testApp(t, configs...)
 	testAdministrator(t, a, "t")
+	setTestFeatureAs(t, a, "conformance-estate", true, "t")
+	setTestFeatureAs(t, a, "what-ifs", true, "t")
 	return a
 }

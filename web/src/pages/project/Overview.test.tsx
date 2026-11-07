@@ -1,3 +1,4 @@
+import { withFeatures } from '../../features.fixture'
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -13,11 +14,11 @@ import { BigChangeBox } from './Overview'
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 async function doors(runtimeForm: string, intranet = false): Promise<string> {
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
     if (url.endsWith('/projects/p')) return new Response(JSON.stringify({ id: '00000000-0001-7000-8000-000000000000', slug: 'p', name: 'P', blurb: '', runtimeForm, intranetReady: true }))
     if (url.endsWith('/projects/p/release/plan')) return new Response(JSON.stringify({ configured: intranet, deployment: 'lan', published: true, changesSinceLast: [] }))
     return new Response('[]') // no deployments
-  }))
+  })))
   const client = newQueryClient()
   const el = document.createElement('div')
   const root = createRoot(el)
@@ -54,7 +55,7 @@ async function releaseDoors(options: { hostOnly?: boolean; url?: string; configu
   let failed = false
   let releaseRead: (() => void) | undefined
   const held = options.cached ? new Promise<void>((resolve) => { releaseRead = resolve }) : Promise.resolve()
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
     if (url.endsWith(planPath)) {
       await held
       return failed ? new Response(JSON.stringify({ error: 'plan unavailable' }), { status: 403 }) : new Response(JSON.stringify(plan))
@@ -64,7 +65,7 @@ async function releaseDoors(options: { hostOnly?: boolean; url?: string; configu
       { id: selectedID, name: 'customer', displayLabel: 'Customer office', url: options.url ?? 'https://customer.example', hostOnly: options.hostOnly, running: true },
     ]))
     return new Response(JSON.stringify({ slug: 'p', runtimeForm: 'static site' }))
-  }))
+  })))
   const client = newQueryClient()
   if (options.cached) client.setQueryData(getKey(planPath), plan)
   const el = document.createElement('div')
@@ -134,7 +135,7 @@ it.each([
 ])('keeps the first-build brief for %j', async ({ blurb, hasRequest }) => {
   const originalRequest = hasRequest ? 'Track each truck, driver assignments, servicing dates and overdue inspections. Notify the dispatcher each morning.' : ''
   let body = ''
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
     if (url.endsWith('/projects/p')) return new Response(JSON.stringify({ slug: 'p', blurb, originalRequest, runtimeForm: 'no app yet' }))
     if (url.endsWith('/changes') && init?.method === 'POST') {
       body = JSON.parse(init.body as string).body
@@ -142,7 +143,7 @@ it.each([
     }
     if (url.endsWith('/release/plan')) return new Response(JSON.stringify({ configured: false }))
     return new Response('[]')
-  }))
+  })))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><BigChangeBox slug="p" /></MemoryRouter></QueryClientProvider>))

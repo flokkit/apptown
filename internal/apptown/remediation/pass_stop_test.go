@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/dbtest"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
@@ -82,5 +84,49 @@ func TestACoolingPoolStartsNothing(t *testing.T) {
 	service.Pass(context.Background())
 	if current := f.item(t, queued.ID); current.State != ItemQueued || current.Attempt != 0 {
 		t.Fatalf("queued work started while cooling: %+v", current)
+	}
+}
+
+func TestOffConformancePassStartsNoQueuedItems(t *testing.T) {
+	t.Parallel()
+	f, _, _, _ := outcomeFixture(t)
+	queued := f.job(t, 0, f.project(t, "queued"))[0]
+	accounts := identity.New(f.db, identity.Config{})
+	if err := accounts.SeedAdministrator(t.Context(), "boss"); err != nil {
+		t.Fatal(err)
+	}
+	users, err := accounts.Users(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pr := access.Principal{Kind: "user", Name: "boss", Via: "session"}
+	for _, u := range users {
+		if u.Username == "boss" {
+			pr.ID = u.PrincipalID
+		}
+	}
+	if _, err := accounts.SetFeature(t.Context(), pr, "conformance", true, false); err != nil {
+		t.Fatal(err)
+	}
+	offered := 0
+	service := New(f.db, Dependencies{Work: f.work, Caller: f.ctx, Checks: conformance.New(f.db, reconcileActor{}, attemptChecks{}, nil, nil),
+		Resolve: func(context.Context, Item, VerificationScope) (StartDefinition, error) {
+			offered++
+			return StartDefinition{}, dbtest.ErrInjectedFailure
+		},
+	})
+	service.Pass(t.Context())
+	if offered != 0 {
+		t.Fatalf("off pass offered %d queued items", offered)
+	}
+	if current := f.item(t, queued.ID); current.State != ItemQueued || current.Attempt != 0 {
+		t.Fatalf("off pass started queued item: %+v", current)
+	}
+	if _, err := accounts.SetFeature(t.Context(), pr, "conformance", false, true); err != nil {
+		t.Fatal(err)
+	}
+	service.Pass(t.Context())
+	if offered == 0 {
+		t.Fatal("enabled pass offered no work")
 	}
 }
