@@ -27,12 +27,14 @@ export function SecretsTab({ slug }: { slug: string }) {
   const [editing, setEditing] = useState<{ env: string; name: string } | null>(null)
   const canReveal = useHolds('secret:reveal')
   const canBind = useHolds('secret:bind', slug)
+  const [revealError, setRevealError] = useState('')
   const [revealed, setRevealed] = useState<Record<string, string>>({})
   const reveal = async (env: string, name: string) => {
+    setRevealError('')
     try {
       const r = await get<SecretRevealed>(`/projects/${slug}/secrets/${env}/${name}/reveal`)
       setRevealed((m) => ({ ...m, [`${env}/${name}`]: r.value }))
-    } catch (e) { alert((e as Error).message) }
+    } catch (e) { setRevealError((e as Error).message) }
   }
 
   if (!data) return <ReadStatus q={q} what="the project's secrets" />
@@ -65,6 +67,7 @@ export function SecretsTab({ slug }: { slug: string }) {
       {(data.ignored?.length ?? 0) > 0 && <p className="muted small">{PRODUCT} does not use these parts of the declaration: {data.ignored!.join('; ')}.</p>}
       <StaleNote q={q} />
       {err && <div className="error">{err}</div>}
+      {revealError && <div role="alert" className="error">{revealError}</div>}
 
       {data.deployments.map((env) => (
         <DeploymentSection key={env.name} env={env} slug={slug} declared={data}

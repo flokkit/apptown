@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/evals"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/preview"
@@ -554,8 +555,8 @@ func TestAgentTokenCannotEnableFeature(t *testing.T) {
 
 func TestOffAreasAdmitNoBackgroundObservations(t *testing.T) {
 	for _, tc := range []struct{ area, kind string }{
-		{"worker", workerObservationJob}, {"previews", preview.ObservationJob},
-		{"usage", diskObservationJob}, {"backups", dataprotection.StoreObservationJob},
+		{"worker", workerObservationJob},
+		{"backups", dataprotection.StoreObservationJob},
 		{"backups", dataprotection.ProtectionObservationJob},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
@@ -636,5 +637,25 @@ func TestOffAreasAdmitNoConnectionChecks(t *testing.T) {
 			}
 			requireJobs(t, a, 1, matches)
 		})
+	}
+}
+
+// Preview and disk readings are core observations even with every optional
+// area disabled. They must still reach the durable queue.
+func TestCoreObservationsAreAlwaysQueued(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	for _, f := range identity.FeatureCatalogue() {
+		if f.Tier != "always" {
+			setTestFeature(t, a, f.Area, false)
+		}
+	}
+	for _, kind := range []string{preview.ObservationJob, diskObservationJob} {
+		if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+			return jobQueue{}.EnqueueIn(t.Context(), tx, jobs.Request{Operation: kind, Key: "instance"})
+		}); err != nil {
+			t.Fatal(err)
+		}
+		requireJobs(t, a, 1, func(_ *rivertype.JobRow, r jobs.Request) bool { return r.Operation == kind })
 	}
 }

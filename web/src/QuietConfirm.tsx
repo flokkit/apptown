@@ -49,7 +49,7 @@ export function QuietConfirm({ label, ask, onYes, prepare, className = 'subtle d
 
 // QuietPrompt: the same treatment for an act that needs words recorded
 // with it (a justification, a workflow name, a password) — the button turns
-// into a small form, in place. Never window.prompt: that shows a password
+// into a small form, in place. A browser prompt shows a password
 // in clear text on a shared screen and has no keyboard path.
 export type PromptField = {
   key: string; placeholder?: string; label?: string

@@ -18,7 +18,7 @@ it('keeps an undecided AI reason with Re-check and an explicit recorded-risk dec
   const view = { projects: [{ slug: 'shop', name: 'Shop', standing: 'review-broken', sentence: 'Review incomplete', lanes }], byProject: { shop: [v] }, exceptions: {}, adjudications: {}, priorConfirmations: {}, checkDefs: {}, openRemediations: [] } as unknown as ConformanceView
   const fetch = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response('{}'))
   vi.stubGlobal('fetch', fetch)
-  const prompt = vi.spyOn(window, 'prompt').mockReturnValue('This app does not need a declared toolchain')
+  const prompt = vi.spyOn(window, 'prompt').mockImplementation(() => { throw new Error('native dialog') })
   const recheck = vi.fn()
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
@@ -27,11 +27,44 @@ it('keeps an undecided AI reason with Re-check and an explicit recorded-risk dec
     const button = (text: string) => [...el.querySelectorAll('button')].find(b => b.textContent === text)!
     act(() => button('Re-check').click())
     expect(recheck).toHaveBeenCalledWith('shop')
-    await act(async () => button('Record a decision').click())
-    expect(prompt.mock.calls[0][0]).toContain('An undecided result stays undecided')
+    await act(async () => button('Accept risk').click())
+    expect(el.textContent).toContain('root-toolchain may not be met for tools version 2')
+    expect(el.textContent).toContain('this check version, until revoked')
+    expect(el.textContent).toContain('An undecided result stays undecided')
+    expect(button('Accept risk').disabled).toBe(true)
+    expect(fetch.mock.calls.some(args => String(args[0]).endsWith('/dispositions'))).toBe(false)
+    const input = el.querySelector<HTMLInputElement>('[aria-label="Reason for accepting this risk"]')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'This app does not need a declared toolchain')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => button('Accept risk').click())
+    expect(prompt).not.toHaveBeenCalled()
     const decision = fetch.mock.calls.find(args => String(args[0]).endsWith('/projects/shop/dispositions'))
     expect(decision).toBeDefined()
     const body = JSON.parse((decision![1] as RequestInit).body as string)
     expect(body).toEqual({ fingerprint: 'guidance|tools@2|root-toolchain|', status: 'accepted', justification: 'This app does not need a declared toolchain' })
+  } finally { act(() => root.unmount()); client.clear() }
+})
+
+it('confirms a finding in place with an optional note, and cancellation records nothing', async () => {
+  const v = { id: 'flag', projectSlug: 'shop', evaluator: 'llm', lane: 'flagged', state: 'flagged', statusLabel: 'possible problem', severity: 'medium', block: 'tools', version: 2, check: 'root-toolchain', detail: 'Missing toolchain' }
+  const view = { projects: [{ slug: 'shop', name: 'Shop', standing: 'conforms', sentence: 'One possible problem', lanes: {} }], byProject: { shop: [v] }, exceptions: {}, adjudications: {}, priorConfirmations: {}, checkDefs: {}, openRemediations: [] } as unknown as ConformanceView
+  const fetch = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response('{}'))
+  vi.stubGlobal('fetch', fetch)
+  const prompt = vi.spyOn(window, 'prompt').mockImplementation(() => { throw new Error('native dialog') })
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  const button = (text: string) => [...el.querySelectorAll('button')].find(b => b.textContent === text)!
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectPage view={view} slug="shop" readOnly={false} onRunOne={() => {}} /></MemoryRouter></QueryClientProvider>))
+    await act(async () => button('Confirm finding').click())
+    expect(el.querySelector('[aria-label="Finding note (optional)"]')).not.toBeNull()
+    await act(async () => button('Cancel').click())
+    expect(fetch.mock.calls.some(args => String(args[0]).endsWith('/confirm'))).toBe(false)
+    await act(async () => button('Confirm finding').click())
+    await act(async () => button('Confirm finding').click())
+    const call = fetch.mock.calls.find(args => String(args[0]).endsWith('/verdicts/flag/confirm'))!
+    expect(JSON.parse(String(call[1]?.body))).toEqual({ note: '' })
+    expect(prompt).not.toHaveBeenCalled()
   } finally { act(() => root.unmount()); client.clear() }
 })

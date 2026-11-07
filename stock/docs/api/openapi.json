@@ -8922,7 +8922,7 @@
         },
         "x-apptown-feature": {
           "area": "previews",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -8956,7 +8956,7 @@
         },
         "x-apptown-feature": {
           "area": "previews",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8992,7 +8992,7 @@
         },
         "x-apptown-feature": {
           "area": "previews",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9302,7 +9302,7 @@
         },
         "x-apptown-feature": {
           "area": "complaints",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -9342,7 +9342,7 @@
         },
         "x-apptown-feature": {
           "area": "complaints",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -9367,7 +9367,7 @@
         },
         "x-apptown-feature": {
           "area": "complaints",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9393,7 +9393,7 @@
         },
         "x-apptown-feature": {
           "area": "complaints",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9418,7 +9418,7 @@
         },
         "x-apptown-feature": {
           "area": "complaints",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9452,7 +9452,7 @@
         },
         "x-apptown-feature": {
           "area": "complaints",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9486,7 +9486,7 @@
         },
         "x-apptown-feature": {
           "area": "complaints",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9520,7 +9520,7 @@
         },
         "x-apptown-feature": {
           "area": "complaints",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11341,7 +11341,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -11365,7 +11365,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11400,7 +11400,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -11434,7 +11434,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11459,7 +11459,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11511,7 +11511,7 @@
         },
         "x-apptown-feature": {
           "area": "usage",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12262,7 +12262,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -12287,7 +12287,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12312,7 +12312,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12348,7 +12348,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -12381,7 +12381,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12417,7 +12417,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12453,7 +12453,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12515,7 +12515,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12540,7 +12540,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -12564,7 +12564,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12600,7 +12600,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12635,7 +12635,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14910,7 +14910,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -14944,7 +14944,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -15592,7 +15592,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -15626,7 +15626,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -16114,7 +16114,7 @@
         },
         "x-apptown-feature": {
           "area": "previews",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -18845,7 +18845,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -18869,7 +18869,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -19395,7 +19395,7 @@
         },
         "x-apptown-feature": {
           "area": "usage",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -19554,7 +19554,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -19578,7 +19578,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -19614,7 +19614,7 @@
         },
         "x-apptown-feature": {
           "area": "ways",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }

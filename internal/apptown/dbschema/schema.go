@@ -704,6 +704,9 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 	{n: 219, note: "record release deployment progress", stmts: []string{
 		`ALTER TABLE releases ADD COLUMN stage TEXT NOT NULL DEFAULT '', ADD COLUMN stage_entered_at TIMESTAMPTZ, ADD COLUMN failed_stage TEXT NOT NULL DEFAULT '', ADD COLUMN stage_finished_at TIMESTAMPTZ`,
 	}},
+	{n: 220, note: "make core working areas always on", stmts: []string{
+		`INSERT INTO instance_settings (key, value) VALUES ('feature.ways','true'), ('feature.previews','true'), ('feature.complaints','true'), ('feature.usage','true') ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

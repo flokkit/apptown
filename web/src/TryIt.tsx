@@ -1,4 +1,3 @@
-import { FeatureOnly } from './features'
 import { fmtStamp } from './format'
 import { Status } from './Status'
 import { PRODUCT } from './brand'
@@ -29,7 +28,7 @@ export function builtWords(st?: PreviewState): string {
   return st.commit ? `built from commit ${st.commit.slice(0, 7)} at ${when}` : `built from the change's working files at ${when}`
 }
 
-function EnabledTryIt({ changeId, label, style, className, hideRestart = false }: {
+export function TryIt({ changeId, label, style, className, hideRestart = false }: {
   changeId: string; label?: string; style?: CSSProperties; className?: string; hideRestart?: boolean
 }) {
   const { data: st, reload: load } = useGet<PreviewState>(`/changes/${changeId}/preview`, { poll: 5000 })
@@ -99,8 +98,4 @@ function EnabledTryIt({ changeId, label, style, className, hideRestart = false }
       {err && <span className="error small">{err}</span>}
     </span>
   )
-}
-
-export function TryIt(props: Parameters<typeof EnabledTryIt>[0]) {
- return <FeatureOnly area="previews"><EnabledTryIt {...props} /></FeatureOnly>
 }

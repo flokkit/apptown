@@ -1241,9 +1241,10 @@ func TestFeatureSwitchRefusesHTTPAndMCPUntilAnAdministratorEnablesIt(t *testing.
 	if w := get("/api/v1/executor"); w.Code != 403 || !strings.Contains(w.Body.String(), "is turned off") {
 		t.Fatalf("disabled executor: %d %s", w.Code, w.Body.String())
 	}
-	setTestFeature(t, a, "usage", false)
-	if w := get("/api/v1/usage"); w.Code != 403 {
-		t.Fatalf("disabled standard area: %d %s", w.Code, w.Body.String())
+	for _, path := range []string{"/api/v1/usage", "/api/v1/packs", "/api/v1/complaints/steering"} {
+		if w := get(path); w.Code != 200 {
+			t.Fatalf("core area unavailable: %s: %d %s", path, w.Code, w.Body.String())
+		}
 	}
 	if w := get("/api/v1/features"); w.Code != 200 {
 		t.Fatalf("features locked out: %d %s", w.Code, w.Body.String())

@@ -88,7 +88,7 @@ export function SidebarNav() {
   // them; the menu is otherwise the same for everyone.
   const permission = useInstancePages()
  const feature = useFeature()
- const mayOpen = (page: Parameters<typeof permission>[0]) => permission(page) && (page === 'infrastructure' || page === 'integrations' || page === 'people' || feature(page))
+ const mayOpen = (page: Parameters<typeof permission>[0]) => permission(page) && (page === 'infrastructure' || page === 'integrations' || page === 'people' || page === 'complaints' || feature(page))
   const me = useGet<AuthMe>('/auth/me').data
  const mayUpdate = useHolds("instance:updates")
   const wow = /^\/(packs|workflows|guidance|policies)(\/|$)/.test(pathname)
@@ -113,7 +113,7 @@ export function SidebarNav() {
         {chat.err && <p className="error small">{chat.err}</p>}
         <Drawer label="Security" icon={<Shield aria-hidden size={16} />} to={`${base}/security`} active={pathname.startsWith(`${base}/security`)} items={SECURITY_TABS.map(t => (
           { to: `${base}/security/${t}`, label: t[0].toUpperCase() + t.slice(1), active: pathname === `${base}/security/${t}` || (t === 'findings' && pathname === `${base}/security`) }))} />
-        <Drawer label="Settings" icon={<Settings aria-hidden size={16} />} to={`${base}/settings`} active={pathname.startsWith(`${base}/settings`)} items={SETTINGS_TABS.filter(t => ['projects', 'people'].includes(settingsAreas[t]) || feature(settingsAreas[t])).map(t => (
+        <Drawer label="Settings" icon={<Settings aria-hidden size={16} />} to={`${base}/settings`} active={pathname.startsWith(`${base}/settings`)} items={SETTINGS_TABS.filter(t => ['projects', 'people', 'ways', 'usage'].includes(settingsAreas[t]) || feature(settingsAreas[t])).map(t => (
           { to: `${base}/settings/${t}`, label: SETTINGS_LABEL[t], active: pathname === `${base}/settings/${t}` || (t === 'general' && pathname === `${base}/settings`) }))} />
         {!feature('memory') && <NavLink to={`${base}/memory/decisions`} className={cls}><BookOpen aria-hidden size={16} />Decisions</NavLink>}
         {feature('memory') && <Drawer label="Memory" icon={<BookOpen aria-hidden size={16} />} to={`${base}/memory`} active={pathname.startsWith(`${base}/memory`)} items={MEMORY_TABS.map(t => (
@@ -140,19 +140,19 @@ export function SidebarNav() {
       {mayOpen('conformance') && <NavLink to={feature('conformance-estate') ? '/conformance' : '/conformance/reviews'} className={cls}><ShieldCheck aria-hidden size={16} />Conformance</NavLink>}
       <div className="nav-group">Setup</div>
  <NavLink to="/features" className={cls}><Settings aria-hidden size={16} />Features</NavLink>
-      {feature('ways') && <Drawer label="Ways of working" icon={<BookOpen aria-hidden size={16} />} to="/packs" active={wow} items={[
+      <Drawer label="Ways of working" icon={<BookOpen aria-hidden size={16} />} to="/packs" active={wow} items={[
         { to: '/packs', label: 'Packs', active: pathname.startsWith('/packs') },
         { to: '/workflows', label: 'Workflows', active: pathname.startsWith('/workflows') },
         { to: '/guidance', label: 'Guidance', active: pathname.startsWith('/guidance') },
         { to: '/policies', label: 'Policies', active: pathname.startsWith('/policies') },
-      ]} />}
+      ]} />
       {mayOpen('integrations') && INTEGRATION_MENU.map((g) => (
         <Drawer key={g.key} label={g.heading} icon={g.key === 'services' ? <Blocks aria-hidden size={16} /> : <Plug aria-hidden size={16} />} to={`/${g.key}`}
           active={new RegExp(`^/${g.key}(/|$)`).test(pathname)}
           items={g.items.filter(i => !['model', 'profiles'].includes(i.key) || feature('models')).filter(i => i.key !== 'executor' || feature('worker')).filter(i => i.key !== 'cloud-account' || feature('app-platform')).map((i) => ({ to: `/${g.key}/${i.key}`, label: i.title, active: pathname === `/${g.key}/${i.key}` }))} />))}
       {mayOpen('evals') && <NavLink to="/evals" className={cls}><FlaskConical aria-hidden size={16} />Evals</NavLink>}
       {mayOpen('people') && <Drawer label="People" icon={<Users aria-hidden size={16} />} to="/people/accounts" active={pathname.startsWith('/people')} items={PEOPLE_PAGES.map(([key, label]) => ({ to: `/people/${key}`, label, active: pathname.startsWith(`/people/${key}`) }))} />}
-      {feature('usage') && <NavLink to="/usage" className={cls}><ChartColumn aria-hidden size={16} />Usage</NavLink>}
+      <NavLink to="/usage" className={cls}><ChartColumn aria-hidden size={16} />Usage</NavLink>
       {mayUpdate && feature('updates') && <NavLink to="/updates" className={cls}><RefreshCw aria-hidden size={16} />Updates</NavLink>}
       <div className="spacer" />
       <NavBottom cls={cls} complaints={mayOpen('complaints')} me={me ?? null} />
@@ -284,9 +284,9 @@ export default function App() {
           <Route path="/deployments" element={<CoreArea area="deployments"><Deployments /></CoreArea>} />
           <Route path="/releases" element={<CoreArea area="releases"><Deployments page="releases" /></CoreArea>} />
           <Route path="/backups" element={<FeatureGate area="backups"><InstanceGate page="infrastructure"><Deployments page="backups" /></InstanceGate></FeatureGate>} />
-          <Route path="/complaints" element={<FeatureGate area="complaints"><InstanceGate page="complaints"><Complaints tab="new" /></InstanceGate></FeatureGate>} />
-          <Route path="/complaints/answered" element={<FeatureGate area="complaints"><InstanceGate page="complaints"><Complaints tab="answered" /></InstanceGate></FeatureGate>} />
-          <Route path="/complaints/archive" element={<FeatureGate area="complaints"><InstanceGate page="complaints"><Complaints tab="archived" /></InstanceGate></FeatureGate>} />
+          <Route path="/complaints" element={<CoreArea area="complaints"><InstanceGate page="complaints"><Complaints tab="new" /></InstanceGate></CoreArea>} />
+          <Route path="/complaints/answered" element={<CoreArea area="complaints"><InstanceGate page="complaints"><Complaints tab="answered" /></InstanceGate></CoreArea>} />
+          <Route path="/complaints/archive" element={<CoreArea area="complaints"><InstanceGate page="complaints"><Complaints tab="archived" /></InstanceGate></CoreArea>} />
           <Route path="/conformance" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="projects" /></InstanceGate></FeatureGate>} />
           <Route path="/conformance/checks/:checkKey/projects" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><CheckProjects /></InstanceGate></FeatureGate>} />
           <Route path="/conformance/reviews/:reviewId/checks/:checkKey/projects" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><CheckProjects /></InstanceGate></FeatureGate>} />
@@ -321,20 +321,20 @@ export default function App() {
           <Route path="/adrs/:id" element={<CoreArea area="record"><AdrPage /></CoreArea>} />
           <Route path="/projects/:slug/chats" element={<CoreArea area="record"><PastChatsPage /></CoreArea>} />
           <Route path="/projects/:slug/chats/:sessionId" element={<CoreArea area="record"><PastChatsPage /></CoreArea>} />
-          <Route path="/guidance/generated" element={<FeatureGate area="ways"><GeneratedGuidance page /></FeatureGate>} />
-          <Route path="/guidance/generated/:name" element={<FeatureGate area="ways"><GeneratedGuidance page /></FeatureGate>} />
-          <Route path="/workflows/:name" element={<FeatureGate area="ways"><WorkflowLibrary page /></FeatureGate>} />
-          <Route path="/policies/:name" element={<FeatureGate area="ways"><PoliciesPage page /></FeatureGate>} />
-          <Route path="/packs/:name/versions/:version" element={<FeatureGate area="ways"><PackPage /></FeatureGate>} />
-          <Route path="/guidance/:id/projects" element={<FeatureGate area="ways"><GuidanceProjects /></FeatureGate>} />
-          <Route path="/policies/:name/projects" element={<FeatureGate area="ways"><PolicyProjects /></FeatureGate>} />
-          <Route path="/packs/:name/projects" element={<FeatureGate area="ways"><PackProjects /></FeatureGate>} />
+          <Route path="/guidance/generated" element={<CoreArea area="ways"><GeneratedGuidance page /></CoreArea>} />
+          <Route path="/guidance/generated/:name" element={<CoreArea area="ways"><GeneratedGuidance page /></CoreArea>} />
+          <Route path="/workflows/:name" element={<CoreArea area="ways"><WorkflowLibrary page /></CoreArea>} />
+          <Route path="/policies/:name" element={<CoreArea area="ways"><PoliciesPage page /></CoreArea>} />
+          <Route path="/packs/:name/versions/:version" element={<CoreArea area="ways"><PackPage /></CoreArea>} />
+          <Route path="/guidance/:id/projects" element={<CoreArea area="ways"><GuidanceProjects /></CoreArea>} />
+          <Route path="/policies/:name/projects" element={<CoreArea area="ways"><PolicyProjects /></CoreArea>} />
+          <Route path="/packs/:name/projects" element={<CoreArea area="ways"><PackProjects /></CoreArea>} />
           <Route path="/integrations/profiles/:profile/projects" element={<FeatureGate area="models"><InstanceGate page="integrations"><ModelProfilePage projects /></InstanceGate></FeatureGate>} />
           <Route path="/integrations/:name/projects" element={<CoreArea area="setup"><InstanceGate page="integrations"><IntegrationProjects /></InstanceGate></CoreArea>} />
           <Route path="/services/:name/projects" element={<CoreArea area="setup"><InstanceGate page="integrations"><IntegrationProjects /></InstanceGate></CoreArea>} />
-          <Route path="/guidance" element={<FeatureGate area="ways"><WaysOfWorking tab="guidance" /></FeatureGate>} />
-          <Route path="/guidance/:id" element={<FeatureGate area="ways"><GuidanceBlockPage /></FeatureGate>} />
-          <Route path="/workflows" element={<FeatureGate area="ways"><WaysOfWorking tab="workflows" /></FeatureGate>} />
+          <Route path="/guidance" element={<CoreArea area="ways"><WaysOfWorking tab="guidance" /></CoreArea>} />
+          <Route path="/guidance/:id" element={<CoreArea area="ways"><GuidanceBlockPage /></CoreArea>} />
+          <Route path="/workflows" element={<CoreArea area="ways"><WaysOfWorking tab="workflows" /></CoreArea>} />
           <Route path="/projects/:slug/workflows/*" element={<CoreArea area="projects"><ToProjectWorking /></CoreArea>} />
           <Route path="/projects/:slug/console" element={<FeatureGate area="chats"><Console /></FeatureGate>} />
           <Route path="/integrations" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
@@ -350,9 +350,9 @@ export default function App() {
           <Route path="/integrations/:name" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
           <Route path="/services" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
           <Route path="/services/:name" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
-          <Route path="/policies" element={<FeatureGate area="ways"><WaysOfWorking tab="policies" /></FeatureGate>} />
-          <Route path="/packs" element={<FeatureGate area="ways"><WaysOfWorking tab="packs" /></FeatureGate>} />
-          <Route path="/packs/:name" element={<FeatureGate area="ways"><PackPage /></FeatureGate>} />
+          <Route path="/policies" element={<CoreArea area="ways"><WaysOfWorking tab="policies" /></CoreArea>} />
+          <Route path="/packs" element={<CoreArea area="ways"><WaysOfWorking tab="packs" /></CoreArea>} />
+          <Route path="/packs/:name" element={<CoreArea area="ways"><PackPage /></CoreArea>} />
           <Route path="/account" element={<CoreArea area="people"><MyExternalSignIn /></CoreArea>} />
           <Route path="/people/accounts" element={<CoreArea area="people"><InstanceGate page="people"><People view="accounts" /></InstanceGate></CoreArea>} />
           <Route path="/people/accounts/:name" element={<CoreArea area="people"><InstanceGate page="people"><People view="accounts" /></InstanceGate></CoreArea>} />
@@ -361,7 +361,7 @@ export default function App() {
           <Route path="/people/roles" element={<CoreArea area="people"><InstanceGate page="people"><People view="roles" /></InstanceGate></CoreArea>} />
           <Route path="/people/sign-in" element={<CoreArea area="people"><InstanceGate page="people"><People view="sign-in" /></InstanceGate></CoreArea>} />
           <Route path="/people/agents-and-tokens" element={<CoreArea area="people"><InstanceGate page="people"><People view="agents-and-tokens" /></InstanceGate></CoreArea>} />
-          <Route path="/usage" element={<FeatureGate area="usage"><UsagePage /></FeatureGate>} />
+          <Route path="/usage" element={<CoreArea area="usage"><UsagePage /></CoreArea>} />
           <Route path="/evals" element={<FeatureGate area="evals"><InstanceGate page="evals"><EvalsPage /></InstanceGate></FeatureGate>} />
           <Route path="/evals/new" element={<FeatureGate area="evals"><InstanceGate page="evals"><EvalStartPage /></InstanceGate></FeatureGate>} />
           <Route path="/evals/:id" element={<FeatureGate area="evals"><InstanceGate page="evals"><EvalScorecardPage /></InstanceGate></FeatureGate>} />

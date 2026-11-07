@@ -34,7 +34,7 @@ export function ProjectFeatureGate({ children }: { children: ReactNode }) {
   const { tab: rawTab, stab: rawStab } = useParams()
   const { tab, setTab, secTab, memTab } = resolveProjectTabs(rawTab, rawStab)
   const area = tab === 'settings' ? settingsAreas[setTab] : tab === 'memory' ? memoryAreas[memTab] : tab === 'security' ? securityAreas[secTab] : projectAreas[tab]
-  return ['projects', 'changes', 'deployments', 'releases', 'record', 'people'].includes(area) ? <CoreArea area={area}>{children}</CoreArea> : <FeatureGate area={area}>{children}</FeatureGate>
+  return ['projects', 'changes', 'deployments', 'releases', 'record', 'people', 'ways', 'usage'].includes(area) ? <CoreArea area={area}>{children}</CoreArea> : <FeatureGate area={area}>{children}</FeatureGate>
 }
 
 export function FeatureOnly({ area, children }: { area: string; children: ReactNode }) {

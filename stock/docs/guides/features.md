@@ -1,7 +1,7 @@
 # Features
 
-Setup → Features lists every area, its tier, its current switch, what it covers
-and its guide. An administrator changes a switch for the whole AppTown. Every
+Setup → Features lists switchable areas in On by default and Beta groups,
+with their current choices and what they cover. The Features guide lists all areas. An administrator changes a switch for the whole AppTown. Every
 change records the administrator and the before and after choices together.
 
 The command line uses the same API:
@@ -28,14 +28,14 @@ reload before saving again. Always-on areas have no off switch.
 | setup | Always on | Instance settings, credentials and Features |
 | conformance | On by default | Reviews, verdicts and remediation |
 | backups | On by default | Copies and restoration |
-| ways | On by default | Packs, workflows, guidance and policy pages |
+| ways | Always on | Packs, workflows, guidance and policy pages |
 | chats | On by default | Interactive change chats |
-| usage | On by default | Usage and disk pages |
+| usage | Always on | Usage and disk pages |
 | worker | On by default | Worker settings |
-| previews | On by default | Change previews |
+| previews | Always on | Change previews |
 | models | On by default | Model setup pages |
 | updates | On by default | Update checks and settings |
-| complaints | On by default | Reports about AppTown |
+| complaints | Always on | Reports about AppTown |
 | evals | Beta, off by default | Evaluations |
 | what-ifs | Beta, off by default | Proposed guidance comparisons |
 | restore-rehearsals | Beta, off by default | Rehearsal and restored-copy environments |
@@ -69,8 +69,8 @@ start with beta areas off.
 Off areas start no fresh optional background work. Backups off stops daily
 backup requests, scheduled cloud copies, after-release backups and the daily
 built-in database dump. Conformance off stops adoption-triggered reviews and
-new remediation items. Evals off stops new arms. Previews, Worker, Usage and
-Backups off stop their optional background observations. Updates off stops
+new remediation items. Evals off stops new arms. Worker and Backups off stop their optional background observations.
+Preview and disk observations always run. Updates off stops
 automatic release discovery. Connection checks for models, workers, scanners
 and cloud accounts follow their setup area's switch.
 

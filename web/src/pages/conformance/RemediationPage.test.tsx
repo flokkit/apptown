@@ -51,3 +51,30 @@ it('shows the owner’s waiting counts on the remediation list', async () => {
   const { el, done } = await render({ remediations: [remediation], occupancy }, true)
   try { expect(el.textContent).toContain('2 waiting on project work') } finally { done() }
 })
+
+it.each(['Retry', 'Skip'])('records %s in place, with a required reason only for Skip', async label => {
+  const { el, done } = await render({ remediation, occupancy, attempts: {}, items: [{ id: 'stuck', projectSlug: 'notes', state: 'stuck', statusLabel: 'failed', check: 'dockerfile-lint', attempt: 1, reason: 'The build failed.' }] })
+  const calls: { url: string; body: unknown }[] = []
+  const fetch = globalThis.fetch
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') { calls.push({ url, body: JSON.parse(String(init.body)) }); return new Response('{}') }
+    return fetch(url, init)
+  }))
+  const button = (text: string) => [...el.querySelectorAll('button')].reverse().find(b => b.textContent === text)!
+  try {
+    await act(async () => button(label).click())
+    expect(el.querySelector('input')).not.toBeNull()
+    expect(button(label).disabled).toBe(label === 'Skip')
+    expect(calls).toEqual([])
+    await act(async () => button('Cancel').click())
+    expect(calls).toEqual([])
+    await act(async () => button(label).click())
+    const input = el.querySelector('input')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'The project has moved')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => button(label).click())
+    expect(calls).toEqual([{ url: `/api/v1/conformance/remediations/job/items/stuck/${label.toLowerCase()}`, body: { [label === 'Retry' ? 'note' : 'reason']: 'The project has moved' } }])
+  } finally { done() }
+})

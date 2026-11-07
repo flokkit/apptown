@@ -62,3 +62,24 @@ it('explains shared storage and offers an independent generated preview value wi
     expect(f.sent[0]).toMatchObject({ method: 'POST', url: '/api/v1/projects/demo/secrets/preview/NEXTUP_PASSWORD/separate-preview' })
   } finally { f.cleanup() }
 })
+
+it('shows a reveal failure in the page and clears it when a later reveal succeeds', async () => {
+  const f = fixture()
+  const fetch = globalThis.fetch
+  let fail = true
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => url.endsWith('/reveal')
+    ? new Response(JSON.stringify(fail ? { error: 'The secret store is unavailable' } : { value: 'revealed' }), { status: fail ? 503 : 200 })
+    : fetch(url, init)))
+  const button = (text: string) => [...f.el.querySelectorAll('button')].find(b => b.textContent === text)!
+  try {
+    await vi.waitFor(() => expect(button('Reveal…')).toBeDefined())
+    await act(async () => button('Reveal…').click())
+    await act(async () => button('Yes').click())
+    expect(f.el.querySelector('[role=alert]')?.textContent).toBe('The secret store is unavailable')
+    fail = false
+    await act(async () => button('Reveal…').click())
+    await act(async () => button('Yes').click())
+    expect(f.el.querySelector('[role=alert]')).toBeNull()
+    expect(f.el.textContent).toContain('revealed')
+  } finally { f.cleanup() }
+})
