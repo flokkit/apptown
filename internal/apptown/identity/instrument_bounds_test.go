@@ -22,7 +22,7 @@ func TestAuthzInstrumentsAreBounded(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"owner", "outsider"} {
-		if _, err := service.EnsureUser(context.Background(), name); err != nil {
+		if _, err := service.EnsurePerson(context.Background(), name); err != nil {
 			t.Fatal(err)
 		}
 	}

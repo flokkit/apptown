@@ -30,7 +30,7 @@ func vetoGroupWrite(t *testing.T, db *database.DB, table, operation string) func
 func TestGroupSaveRollsBackEveryRequiredWrite(t *testing.T) {
 	t.Parallel()
 	cases := []struct{ name, marker, table, operation string }{
-		{name: "name observation fails", marker: "-- name: TouchUser"},
+		{name: "name recording fails", marker: "-- name: RecordUser"},
 		{name: "receipt fails", marker: "INSERT INTO audit_log"},
 		{name: "name skipped", table: "users", operation: "INSERT"},
 		{name: "group update skipped", table: "groups", operation: "UPDATE"},

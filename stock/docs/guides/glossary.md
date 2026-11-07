@@ -306,6 +306,8 @@ These deferrals raise no Attention row.
 versioned blocks. Some blocks carry checks; some carry a skill, a how-to an
 agent loads only when it needs it.
 
+**Standards check** — the workflow step that checks a change against the project’s adopted guidance. Its step type is `guidance/conformance`.
+
 **Conformance** — whether a project meets the ways of working it has adopted.
 Checked two ways: as a step when a change lands, and by a read-only
 **review** of projects' committed main (**Check now** on the Conformance page).

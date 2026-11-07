@@ -49,7 +49,8 @@ it('leads with the preview, separates request from report and links every eviden
   const facts = ['The change', 'Preview', 'Open it and try it', 'You asked', 'What was made', 'Checks', 'Reviewer', 'Your decision']
   for (let i = 1; i < facts.length; i++) expect(html.indexOf(facts[i])).toBeGreaterThan(html.indexOf(facts[i - 1]))
   for (const fact of ['/records/preview', '/records/checks', '/records/review', '?tab=changes', 'How it was done']) expect(html).toContain(fact)
-  expect(html).toContain('Keep the dinner invitation.')
+  expect(html).not.toContain('Keep the dinner invitation.')
+  expect(html).toContain('full request →')
   expect(html).not.toContain('No review recorded')
 })
 
@@ -126,7 +127,7 @@ it('opens Overview by default and keeps code, conversation, full records and edi
   for (const absent of ['No release is recorded', 'No attachments.', 'No merge is recorded', 'Runs and steps', 'Requirements and delivery', 'Try preview']) expect(el.querySelector('.ch-details')?.textContent).not.toContain(absent)
   expect(el.querySelector('details, summary')).toBeNull()
   expect(el.textContent).not.toContain('Other actions')
-  for (const fact of ['by sam', 'Keep the dinner invitation.', 'Branch', 'change-9', 'Started from', 'abc', 'Kind', 'Cost', 'Attachments', 'sam']) expect(el.textContent).toContain(fact)
+  for (const fact of ['by sam', 'Show all the winter ride times.', 'full request →', 'Branch', 'change-9', 'Started from', 'abc', 'Kind', 'Cost', 'Attachments', 'sam']) expect(el.textContent).toContain(fact)
   expect(el.querySelector('button.link')?.textContent).toBeTruthy()
   expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith('/artifacts/record'))).toBe(false)
   const session = [...el.querySelectorAll('a')].find(a => a.textContent === 'session')!
@@ -136,7 +137,7 @@ it('opens Overview by default and keeps code, conversation, full records and edi
   await click('Overview')
   await click('Conversation')
   expect(el.textContent).toContain('Show all the winter ride times.')
-  expect(el.textContent).toContain('Keep the dinner invitation.')
+  expect(el.textContent).not.toContain('Keep the dinner invitation.')
   expect(el.textContent).not.toContain('No chat yet.')
   await click('Code')
   expect(el.querySelector('.ch-tabs [aria-current]')?.textContent).toBe('Code')
@@ -766,7 +767,7 @@ it('keeps advisory details separate from a gating failure', () => {
     { check: 'privacy', gates: true, verdict: 'fail', detail: 'Remove the exposed password.' },
   ] } })]
   const el = document.createElement('div'); el.innerHTML = renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={steps} />)
-  expect(el.querySelector('.ch-check-exception')?.textContent).toBe('Ways of working failed: Remove the exposed password.')
+  expect(el.querySelector('.ch-check-exception')?.textContent).toBe('Standards check failed: Remove the exposed password.')
   expect(el.querySelector('p:last-child')?.textContent).toBe('Note: Shorten the introduction.')
 })
 
@@ -783,7 +784,7 @@ it.each(['empty', 'failed'])('shows the original ask when the approval brief is 
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
     await act(async () => { for (let i = 0; i < 12; i++) await new Promise(r => setTimeout(r, 0)) })
-    expect(el.querySelector('#decision')?.textContent).toContain(`You asked${v.change.body || v.change.title}`)
+    expect(el.querySelector('#decision')?.textContent).toContain(`You asked${v.change.requestSummary || (v.change.body || v.change.title).split("\n")[0]}`)
   } finally {
     await act(async () => root.unmount()); client.clear()
   }
@@ -866,7 +867,8 @@ it('labels every approval fact, omits the internal step and keeps its meaning an
       if (label === 'You asked') expect(value(dialog)).toContain(value(card))
       else expect(value(card), label).toBe(value(dialog))
     }
-    expect(dialog.querySelector('.ch-accept-rows')?.textContent).toContain(v.change.body)
+    expect(dialog.querySelector('.ch-accept-rows')?.textContent).not.toContain(v.change.body)
+    expect(dialog.querySelector('a[href$="/records/request"]')?.textContent).toBe('full request →')
     expect(dialog.textContent).toContain('Landing puts the change on main. Deployments update separately.')
     expect(dialog.textContent).toContain('You or another approver')
     expect(dialog.textContent).not.toContain('· accept')

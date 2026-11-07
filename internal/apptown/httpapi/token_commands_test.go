@@ -19,7 +19,7 @@ func accountHTTPFixture(t *testing.T) (*database.DB, *identity.Service) {
 	if err := s.SeedAdministrator(context.Background(), "boss"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.EnsureUser(context.Background(), "kid"); err != nil {
+	if _, err := s.EnsurePerson(context.Background(), "kid"); err != nil {
 		t.Fatal(err)
 	}
 	return db, s

@@ -27,7 +27,7 @@ func TestProjectMemberWriteFailureSemantics(t *testing.T) {
 			t.Parallel()
 			db := testDB(t)
 			s := New(db, Config{})
-			if _, err := s.EnsureUser(context.Background(), "new-member"); err != nil {
+			if _, err := s.EnsurePerson(context.Background(), "new-member"); err != nil {
 				t.Fatal(err)
 			}
 			restore := dbtest.NextStatementFailure(db, tc.marker)

@@ -94,7 +94,7 @@ Reports omit the field when there are no blockers. Bullets saying only `None`,
 blockers, as does `Blockers: none` on one line.
 
 Every stock stage that boots an app runs the landing `tests` step against the
-agent’s committed work before boot, guidance conformance and review. The `build`
+agent’s committed work before boot, Standards check and review. The `build`
 command uses the `implement` workflow. The reproduction stage of `fix-bug`
 commits an intentionally failing test and is judged before the fix stage runs
 the declared tests. Test failures use the bounded rework loop above. The tests
@@ -114,7 +114,7 @@ because toolchain ranges and image tags can resolve differently between
 commands. Work-phase and landing tests both run afresh; inputs do not enable
 result reuse.
 
-Every stock stage that boots an app checks guidance conformance before review.
+Every stock stage that boots an app checks Standards check before review.
 Its agents are instructed to commit, run `apptown check`, run `apptown dev up`,
 open affected pages, and report what ran and what came back. AppTown's own
 checks still judge the committed work.

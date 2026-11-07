@@ -1,3 +1,4 @@
+import { Switch } from './Switch'
 import { useSyncExternalStore } from 'react'
 import { useGet } from './data'
 import type { AuthMe, Message } from './wire.gen'
@@ -28,7 +29,7 @@ export function useAgentActions(): [boolean, (shown: boolean) => void] {
 
 export function AgentActionsSwitch({ shown, onChange }: { shown: boolean; onChange: (shown: boolean) => void }) {
   return <label className="agent-actions-switch small muted">
-    <input type="checkbox" role="switch" checked={shown} onChange={e => onChange(e.target.checked)} />
+    <Switch label="Show agent actions" checked={shown} onChange={onChange} />
     Show agent actions
   </label>
 }

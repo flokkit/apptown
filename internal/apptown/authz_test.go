@@ -93,7 +93,7 @@ func authzActors(t *testing.T, configs ...Config) *App {
 	a := testApp(t, configs...)
 	testAdministrator(t, a, "boss")
 	for _, u := range []string{"owner", "outsider", "amy", "kid"} {
-		if _, err := a.Access.EnsureUser(context.Background(), u); err != nil {
+		if _, err := a.Access.EnsurePerson(context.Background(), u); err != nil {
 			t.Fatal(err)
 		}
 	}

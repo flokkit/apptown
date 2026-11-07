@@ -34,7 +34,7 @@ it.each([{enabled:true,beta:true}, {enabled:false,beta:true}, {enabled:true,beta
     expect([...el.querySelectorAll('h2')].map(h => h.textContent)).toContain('Guidance1')
     expect(button('Edit')).toBeDefined()
     expect(button('Delete…')).toBeDefined()
-    await act(async () => button(enabled ? 'Hide' : 'Make available').click())
+    await act(async () => el.querySelector<HTMLButtonElement>('[role="switch"][aria-label="team"]')!.click())
     expect(sent).toContainEqual(['/api/v1/packs/team/enabled', { enabled: !enabled }])
     await act(async () => button('Recommend v2').click())
     await act(async () => button('Recommend it').click())

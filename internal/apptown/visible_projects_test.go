@@ -39,7 +39,7 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 		}
 	}
 	for _, who := range []string{"project-reader", "run-reader", "no-projects"} {
-		if _, err := a.Access.EnsureUser(context.Background(), who); err != nil {
+		if _, err := a.Access.EnsurePerson(context.Background(), who); err != nil {
 			t.Fatal(err)
 		}
 	}

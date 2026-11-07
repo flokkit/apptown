@@ -187,7 +187,7 @@ func TestPrivilegesRequireExplicitCapabilityGrants(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	testAdministrator(t, a, "boss")
-	if _, err := a.Access.EnsureUser(context.Background(), "ana"); err != nil {
+	if _, err := a.Access.EnsurePerson(context.Background(), "ana"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "leads", Members: []string{"ana"}}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}); err != nil {
@@ -307,7 +307,7 @@ func TestProjectRosterGate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Access.EnsureUser(context.Background(), "dad"); err != nil {
+	if _, err := a.Access.EnsurePerson(context.Background(), "dad"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "parents", Members: []string{"dad"}}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}); err != nil {
@@ -430,7 +430,7 @@ func TestBearerTokenLifecycle(t *testing.T) {
 	t.Parallel()
 	a, h := internalApp(t)
 	testAdministrator(t, a, "boss")
-	if _, err := a.Access.EnsureUser(context.Background(), "cli-bls"); err != nil {
+	if _, err := a.Access.EnsurePerson(context.Background(), "cli-bls"); err != nil {
 		t.Fatal(err)
 	}
 	issued, err := a.Access.IssueToken(context.Background(), identity.NewToken{Purpose: "cli", Name: "cli", User: "cli-bls", Role: "admin"}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"})
@@ -756,7 +756,7 @@ func TestTheFirstAccountNeedsTheSetupToken(t *testing.T) {
 func TestTheSetupTokenFollowsTheSetupMarker(t *testing.T) {
 	t.Parallel()
 	a, h := internalApp(t)
-	if _, err := a.Access.EnsureUser(t.Context(), "visitor"); err != nil {
+	if _, err := a.Access.EnsurePerson(t.Context(), "visitor"); err != nil {
 		t.Fatal(err)
 	}
 	if w := postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "bls", "correct-horse")); w.Code != 200 {

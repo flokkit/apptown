@@ -159,7 +159,7 @@ func TestMCPRefusesACommandLineToken(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	setTestFeatureAs(t, a, "mcp", true, "boss")
-	if _, err := a.Access.EnsureUser(context.Background(), "bls"); err != nil {
+	if _, err := a.Access.EnsurePerson(context.Background(), "bls"); err != nil {
 		t.Fatal(err)
 	}
 	cli := tokenFor(t, a, "bls-cli", "bls", "member", access.TokenCLI)

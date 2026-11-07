@@ -16,7 +16,7 @@ func TestReviewPasswordCreationIsNotLastSeen(t *testing.T) {
 				t.Fatal(err)
 			}
 			if claim {
-				if _, err := s.EnsureUser(ctx, "newcomer"); err != nil {
+				if _, err := s.EnsurePerson(ctx, "newcomer"); err != nil {
 					t.Fatal(err)
 				}
 			}

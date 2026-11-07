@@ -1,3 +1,4 @@
+import { Switch } from '../../../Switch'
 import './Secrets.css'
 import { Link } from 'react-router-dom'
 import { Status } from '../../../Status'
@@ -120,7 +121,7 @@ function DeploymentSection({ env, slug, declared, onEdit, onUnbind, canReveal, c
               {env.name === 'preview' && s.bound && (
                 <div className="secret-agent-access small">
                   {s.agentEligible ? <>
-                    <label><input type="checkbox" checked={s.agentVisible} disabled={!canBind} onChange={(e) => onAgentVisible(s.name, e.target.checked)} /> Agents working on changes can see this</label>
+                    <label><Switch label={`${s.name}: agents working on changes can see this`} checked={s.agentVisible} disabled={!canBind} onChange={checked => onAgentVisible(s.name, checked)} /> Agents working on changes can see this</label>
                     {s.agentVisible && <><div>agents can see this</div><p className="muted">{agentWarning}</p></>}
                   </> : <>
                     <p className="muted">This value is shared with main. Give previews their own value to let agents see it</p>

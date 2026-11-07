@@ -383,7 +383,7 @@ func buildEvalWorld(t *testing.T, changes int, ledger func(*database.DB) spend) 
 	}
 	setEvalFeature(t, accounts, true)
 	for _, who := range []string{"alice", "carol"} {
-		if _, err := accounts.EnsureUser(context.Background(), who); err != nil {
+		if _, err := accounts.EnsurePerson(context.Background(), who); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := accounts.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: who, Role: access.RoleStandardsAdmin, Scope: access.ScopeInstance, By: "root"}, ""); err != nil {
@@ -495,7 +495,7 @@ func countArms(e *Eval, state string) int {
 func TestStartingAnEvalIsAStandardsManagersShownAct(t *testing.T) {
 	t.Parallel()
 	w := newEvalWorld(t, 2)
-	if _, err := w.ids.EnsureUser(context.Background(), "bob"); err != nil {
+	if _, err := w.ids.EnsurePerson(context.Background(), "bob"); err != nil {
 		t.Fatal(err)
 	}
 	var denied *access.Denied
@@ -1053,7 +1053,7 @@ func TestAnArmsDiffIsFoundWithinItsEval(t *testing.T) {
 	if _, err := w.service.ArmDiff(as("alice"), first.ID, second.Arms[0].ID); fault.KindOf(err) != fault.NotFound {
 		t.Fatalf("an arm of another eval: %v", err)
 	}
-	if _, err := w.ids.EnsureUser(context.Background(), "bob"); err != nil {
+	if _, err := w.ids.EnsurePerson(context.Background(), "bob"); err != nil {
 		t.Fatal(err)
 	}
 	var denied *access.Denied
@@ -1061,7 +1061,7 @@ func TestAnArmsDiffIsFoundWithinItsEval(t *testing.T) {
 		t.Fatalf("someone who does not manage packs: %v", err)
 	}
 	// Dave reads evals but not the source project, whose code a diff is.
-	if _, err := w.ids.EnsureUser(context.Background(), "dave"); err != nil {
+	if _, err := w.ids.EnsurePerson(context.Background(), "dave"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.ids.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "dave", Role: access.RoleStandardsAdmin, Scope: access.ScopeInstance, By: "root"}, ""); err != nil {

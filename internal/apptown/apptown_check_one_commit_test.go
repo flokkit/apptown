@@ -135,7 +135,7 @@ func TestAppTownCheckOverHTTPChecksTheNamedCommitOrRefuses(t *testing.T) {
 	if err := a.EnsureAuthorization(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Access.EnsureUser(ctx, "owner"); err != nil {
+	if _, err := a.Access.EnsurePerson(ctx, "owner"); err != nil {
 		t.Fatal(err)
 	}
 	for _, cap := range []access.Capability{access.CapProjectRead, access.CapChangeRunChecks} {
@@ -197,7 +197,7 @@ func TestAppTownCheckPublishedChecksTheBranchTipNotTheFolder(t *testing.T) {
 	if err := a.EnsureAuthorization(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Access.EnsureUser(ctx, "owner"); err != nil {
+	if _, err := a.Access.EnsurePerson(ctx, "owner"); err != nil {
 		t.Fatal(err)
 	}
 	for _, cap := range []access.Capability{access.CapProjectRead, access.CapChangeRunChecks} {

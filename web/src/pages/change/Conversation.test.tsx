@@ -87,3 +87,12 @@ it('keeps the conversation record while hiding the chat entry when chats are off
   expect(html).not.toContain('/projects/app/console')
   client.clear()
 })
+
+it('quotes a generated request briefly and links to the complete request', () => {
+ const client = newQueryClient()
+ client.setQueryData(getKey(`/changes/${CHANGE}/transcript`), { sessions: [] })
+ const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ConversationLog changeId={CHANGE} request={'Fix Egg Catch.\nWHAT CONFORMANCE LOOKS LIKE: a long rubric.'} /></QueryClientProvider></MemoryRouter>)
+ expect(html).toContain('Fix Egg Catch.')
+ expect(html).not.toContain('WHAT CONFORMANCE LOOKS LIKE')
+ expect(html).toContain(`/changes/${CHANGE}/records/request`)
+})

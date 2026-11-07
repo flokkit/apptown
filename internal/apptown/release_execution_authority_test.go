@@ -26,7 +26,7 @@ func TestQueuedReleaseRechecksTheRequestersCurrentAuthority(t *testing.T) {
 			t.Parallel()
 			a, provider, p, bundle := doWorld(t)
 			testAdministrator(t, a, "admin")
-			if _, err := a.Access.EnsureUser(t.Context(), "alice"); err != nil {
+			if _, err := a.Access.EnsurePerson(t.Context(), "alice"); err != nil {
 				t.Fatal(err)
 			}
 			target, err := a.Deployment.Targets.ByName(t.Context(), "do-syd")
@@ -96,7 +96,7 @@ func TestQueuedReleaseRechecksTheRequestersCurrentAuthority(t *testing.T) {
 				// sql-guarantee: keep the principal's display name consistent
 				// sql-guarantee: previously admitted authority retains its UUID.
 				completionExec(t, a.DB, `UPDATE principals SET name='alice-renamed' WHERE id=$1`, captured.ID)
-				if _, err := a.Access.EnsureUser(t.Context(), "alice"); err != nil {
+				if _, err := a.Access.EnsurePerson(t.Context(), "alice"); err != nil {
 					t.Fatal(err)
 				}
 				if testPrincipalOf(t, a.DB, "alice") == captured.ID {
@@ -175,7 +175,7 @@ func TestReleaseApprovalRequiresCurrentIndependentHumanAssent(t *testing.T) {
 			testAdministrator(t, a, "admin")
 			admin := access.Principal{ID: testPrincipalOf(t, a.DB, "admin"), Kind: "user", Name: "admin", Via: "header", Credential: identity.HeaderCredential("admin")}
 			for _, name := range []string{"requester", "manager", "outsider"} {
-				if _, err := a.Access.EnsureUser(t.Context(), name); err != nil {
+				if _, err := a.Access.EnsurePerson(t.Context(), name); err != nil {
 					t.Fatal(err)
 				}
 			}

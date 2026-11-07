@@ -70,11 +70,7 @@ func (s *Service) SaveGroup(ctx context.Context, in GroupChange, pr access.Princ
 	return s.administer(ctx, pr, access.CapIdentityGroups, func(tx *database.Tx, now time.Time) error {
 		q := queries(tx)
 		for _, name := range names {
-			person, err := personIn(ctx, tx, name, now)
-			if err != nil {
-				return err
-			}
-			if _, err := q.TouchUser(ctx, accesssql.TouchUserParams{Username: name, PrincipalID: person, At: now.UTC()}); err != nil {
+			if err := recordPersonIn(ctx, tx, name, now); err != nil {
 				return err
 			}
 		}

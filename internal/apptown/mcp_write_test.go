@@ -27,7 +27,7 @@ func mcpWriteFixture(t *testing.T, configs ...Config) (*App, string) {
 	a := testApp(t, configs...)
 
 	testAdministrator(t, a, "boss")
-	if _, err := a.Access.EnsureUser(context.Background(), "viewer"); err != nil {
+	if _, err := a.Access.EnsurePerson(context.Background(), "viewer"); err != nil {
 		t.Fatal(err)
 	}
 	fleetRepo(t, a, "app", map[string]string{"README.md": "# app\n"})

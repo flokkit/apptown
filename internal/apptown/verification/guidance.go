@@ -251,7 +251,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 		return
 	}
 	if failing > 0 {
-		evidence["summary"] = fmt.Sprintf("guidance conformance: %d deterministic check(s) failed", failing)
+		evidence["summary"] = fmt.Sprintf("Standards check: %d deterministic check(s) failed", failing)
 		evidence["findings"] = failingTitles
 		evidence["reason"] = fmt.Sprintf("%d guidance finding(s) this change introduced at/above %s — fix, or disposition each with a justification", failing, cfg.FailOn)
 		if n := len(already) + len(undecided); n > 0 {
@@ -267,7 +267,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	// candidate's preview for these, and holds the same way when it cannot
 	// judge them; a lane with no preview to probe records them unjudged.
 	if len(unjudged) > 0 {
-		evidence["summary"] = fmt.Sprintf("guidance conformance: AppTown could not judge %d required runtime check(s)", len(unjudged))
+		evidence["summary"] = fmt.Sprintf("Standards check: AppTown could not judge %d required runtime check(s)", len(unjudged))
 		evidence["findings"] = unjudged
 		evidence["reason"] = "AppTown could not judge the running preview (" + strings.Join(unjudged, "; ") + ") — not the change's fault; run this step again, or ask AppTown's operator"
 		finish(workflow.StatusError, evidence)
@@ -275,9 +275,9 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	}
 	switch {
 	case len(undecided) > 0:
-		evidence["summary"] = fmt.Sprintf("guidance conformance: nothing this change is known to have introduced; %d finding(s) could not be decided against main (each says why) — the reviewer judges the diff", len(undecided))
+		evidence["summary"] = fmt.Sprintf("Standards check: nothing this change is known to have introduced; %d finding(s) could not be decided against main (each says why) — the reviewer judges the diff", len(undecided))
 	case len(already) > 0:
-		evidence["summary"] = fmt.Sprintf("guidance conformance: nothing this change introduced; %d finding(s) already on main, left for the fleet review", len(already))
+		evidence["summary"] = fmt.Sprintf("Standards check: nothing this change introduced; %d finding(s) already on main, left for the fleet review", len(already))
 	}
 	finish(workflow.StatusPass, evidence)
 }

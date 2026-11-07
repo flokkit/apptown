@@ -35,7 +35,7 @@ it('groups consecutive checks and expands the whole group on failure or running'
  v.detail!.steps = [step('secret scan', 'scan', 'pass'), step('dependencies', 'scan', 'pass'), step('unit tests', 'tests', 'pass'), step('conformance', 'guidance/conformance', 'pending'), step('build', 'build', 'running')]
  const draw = () => { const el = document.createElement('div'); el.innerHTML = html(v); return el }
  expect(draw().querySelectorAll('.ch-now-steps li')).toHaveLength(2)
- expect(draw().querySelector('li')!.textContent).toContain('secret scan, dependencies, unit tests, conformance')
+ expect(draw().querySelector('li')!.textContent).toContain('Security scan, Security scan, Tests, Standards check')
  for (const status of ['fail', 'running'] as const) {
   v.detail!.steps[1].status = status
   expect(draw().querySelectorAll('.ch-now-steps li')).toHaveLength(5)
@@ -117,4 +117,32 @@ it.each([
   expect(text).toContain('Building the accepted work')
   expect(text).toContain('Landing — step 3 of 4')
  } finally { client.clear() }
+})
+
+// Applicability and missing evidence must never look like a passing execution.
+it.each(['not_applicable', 'skipped'] as const)('shows %s checks neutrally without a zero duration', status => {
+ const v = view()
+ v.detail!.steps = [{ ...step('scan-source:sbom', 'scan', status), evidence: { notApplicable: 'No declared dependencies.' }, finishedAt: at } as Step]
+ const el = document.createElement('div'); el.innerHTML = html(v)
+ expect(el.textContent).toContain('Software inventory')
+ expect(el.textContent).toContain(status === 'skipped' ? 'Skipped:' : 'Not applicable:')
+ expect(el.querySelector('.ok')).toBeNull()
+ expect(el.textContent).not.toContain('0s')
+ expect(el.textContent).not.toContain('source:sbom')
+})
+it('does not turn an unreported test count into a passed tick', () => {
+ const v = view(); v.detail!.steps = [step('tests', 'tests', 'pass')]
+ expect(html(v)).toContain('aria-label="number of tests unknown"')
+ expect(html(v)).not.toContain('aria-label="passed"')
+})
+it('uses a neutral mark for pending work', () => {
+ const el = document.createElement('div'); el.innerHTML = html(view())
+ expect(el.querySelector('[aria-label="pending"]')?.textContent).toBe('·')
+})
+
+it('uses the owner’s failed verdict when a standards gate allowed existing failures', () => {
+ const v = view(); v.detail!.steps = [{ ...step('guidance-conformance', 'guidance/conformance', 'pass'), statusLabel: 'failed' }]
+ const el = document.createElement('div'); el.innerHTML = html(v)
+ expect(el.querySelector('[aria-label="failed"]')?.textContent).toBe('✗')
+ expect(el.querySelector('.ok')).toBeNull()
 })

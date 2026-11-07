@@ -54,7 +54,7 @@ func TestAppTownsClockDecidesWhatExpires(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("delegation: %v %v", found, err)
 	}
-	if _, err := s.EnsureUser(ctx, "lee"); err != nil {
+	if _, err := s.EnsurePerson(ctx, "lee"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := newGrants(s.db).add(ctx, Spec{SubjectType: "user", Subject: "lee", Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, By: "ops"}, time.Now().Add(time.Hour).UTC().Format(time.RFC3339)); err != nil {
@@ -311,7 +311,7 @@ func TestTheLastAdministratorIsJudgedByAppTownsClock(t *testing.T) {
 	clk := &movableClock{at: time.Now().Add(-90 * 24 * time.Hour).UTC().Truncate(time.Second)}
 	s := New(testDB(t), Config{Now: clk.now})
 	testGrantRoot(t, s, "ops")
-	if _, err := s.EnsureUser(context.Background(), "may"); err != nil {
+	if _, err := s.EnsurePerson(context.Background(), "may"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.Grant(context.Background(), Spec{SubjectType: "user", Subject: "may", Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, By: "ops"}, clk.now().Add(time.Hour).Format(time.RFC3339)); err != nil {

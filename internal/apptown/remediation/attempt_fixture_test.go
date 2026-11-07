@@ -34,7 +34,7 @@ func attemptFixture(t *testing.T, previous bool) (*attemptScenario, Attempts, It
 	t.Helper()
 	f := &attemptScenario{db: testDB(t), ctx: access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "alice", Via: "session"}, Verified: true, Receipt: "system"})}
 	// Work decides only for a person with an enabled account.
-	if _, err := identity.New(f.db, identity.Config{}).EnsureUser(context.Background(), "alice"); err != nil {
+	if _, err := identity.New(f.db, identity.Config{}).EnsurePerson(context.Background(), "alice"); err != nil {
 		t.Fatal(err)
 	}
 	f.work = workflow.New(context.Background(), f.db, workflow.Dependencies{Repositories: &scm.RepositoryLocks{}, Authority: reconcileActor{}, Abandonment: attemptEffects{}, Automatic: []string{"script"}, Runners: map[string]workflow.Runner{"script": func(e *workflow.Execution) {

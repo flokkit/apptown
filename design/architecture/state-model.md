@@ -139,7 +139,7 @@ it:
   steps, the same workspace and branch, version pinned at invocation,
   approvals bubbling up (`design/subsystems/composition.md`).
 - **Landing** is the one path to `main`: catch up with main, tests, scans,
-  guidance conformance, the approval, the current-rules check, the merge,
+  Standards check, the approval, the current-rules check, the merge,
   the runtime bundle or clean-tree build, the landing record. Failed and
   abandoned changes leave their branches unmerged.
 

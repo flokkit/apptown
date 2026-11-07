@@ -213,7 +213,7 @@ func landingCandidateRefusal(ctx context.Context, q database.Queryer, runID ids.
 			if step.Type == "workflow/call" {
 				return fmt.Sprintf("step %s ran another workflow before the merge; its checks are not bound to the landing's candidate, so checked landings call workflows only after the merge", step.Name), nil
 			}
-			return fmt.Sprintf("step %s (%s) read the change's source but cannot be bound to the landing's candidate; checked landings support tests, scans, guidance conformance and scripts", step.Name, step.Type), nil
+			return fmt.Sprintf("step %s (%s) read the change's source but cannot be bound to the landing's candidate; checked landings support tests, scans, Standards checks and scripts", step.Name, step.Type), nil
 		}
 		earlier := stageIndex[step.Stage] < stageIndex[run.CurrentStage]
 		if earlier && slices.Contains(candidateGates, step.Type) && !step.Status.judged() && step.Status != StatusSkipped {

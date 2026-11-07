@@ -41,7 +41,7 @@ func TestVisibleProjectsIncludeIdleProjectsAndFenceEmptySets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := auth.EnsureUser(context.Background(), "reader"); err != nil {
+	if _, err := auth.EnsurePerson(context.Background(), "reader"); err != nil {
 		t.Fatal(err)
 	}
 	grant, err := auth.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "reader", Capability: string(access.CapProjectRead), Scope: access.ScopeProject, ScopeID: fmt.Sprint(id)}, "")

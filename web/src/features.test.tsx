@@ -46,13 +46,13 @@ it('shows the beta tag and uses the settings API for an administrator switch', a
  expect(el.querySelectorAll('a')).toHaveLength(1)
  expect(el.querySelector('a')?.getAttribute('href')).toBe('/docs/guides/features')
  for (const area of ['ways', 'usage', 'previews', 'complaints']) expect(el.querySelector(`[aria-label^="${area}:"]`)).toBeNull()
- const button = el.querySelector<HTMLButtonElement>('[aria-label="Evals: turn on"]')!
+ const button = el.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Evals"]')!
  expect(button.disabled).toBe(false)
- expect(button.textContent).toBe('Turn on')
- expect(button.parentElement?.querySelector('span')?.textContent).toBe('Off')
- const onButton = el.querySelector<HTMLButtonElement>('[aria-label="backups: turn off"]')!
- expect(onButton.textContent).toBe('Turn off')
- expect(onButton.parentElement?.querySelector('span')?.textContent).toBe('On')
+ expect(button.getAttribute('aria-checked')).toBe('false')
+ expect(button.textContent).toBe('')
+ const onButton = el.querySelector<HTMLButtonElement>('[role="switch"][aria-label="backups"]')!
+ expect(onButton.getAttribute('aria-checked')).toBe('true')
+ expect(onButton.textContent).toBe('✓')
  await act(async () => button.click())
  await settled(client)
  expect(calls).toEqual([{ path: '/api/v1/features/evals', body: { expected: false, enabled: true } }])

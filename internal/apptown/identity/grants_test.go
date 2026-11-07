@@ -22,7 +22,7 @@ func addUser(t *testing.T, db *database.DB, name, role string) {
 		}
 		return
 	}
-	if _, err := svc.EnsureUser(context.Background(), name); err != nil {
+	if _, err := svc.EnsurePerson(context.Background(), name); err != nil {
 		t.Fatal(err)
 	}
 }

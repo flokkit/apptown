@@ -44,7 +44,7 @@ func TestEveryNameDoorRefusesAnUnusableName(t *testing.T) {
 	s := New(testDB(t), Config{})
 	testGrantRoot(t, s, "ops")
 	bad := "bob via console/x"
-	if _, err := s.EnsureUser(ctx, bad); fault.KindOf(err) != fault.Invalid {
+	if _, err := s.EnsurePerson(ctx, bad); fault.KindOf(err) != fault.Invalid {
 		t.Fatalf("a sighting records an unusable name: %v", err)
 	}
 	if err := s.SeedAdministrator(ctx, "run/1"); fault.KindOf(err) != fault.Invalid {
@@ -129,7 +129,7 @@ func TestAnExistingAccountIsDisabledWhateverItsName(t *testing.T) {
 	yes := true
 	// A proxy-style name, seen on the wire and acting.
 	sso := "Alice.Smith@example.com"
-	if _, err := s.EnsureUser(ctx, sso); err != nil {
+	if _, err := s.EnsurePerson(ctx, sso); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.db.InTx(ctx, func(tx *database.Tx) error {
@@ -143,7 +143,7 @@ func TestAnExistingAccountIsDisabledWhateverItsName(t *testing.T) {
 	if err := s.SaveUser(ctx, AccountChange{Username: sso, Disabled: &yes}, ops); err != nil {
 		t.Fatalf("disabling a single sign-on account: %v", err)
 	}
-	if _, err := s.EnsureUser(ctx, sso); err != nil {
+	if _, err := s.EnsurePerson(ctx, sso); err != nil {
 		t.Fatal(err)
 	}
 	if disabled, err := disabledIn(ctx, s.db, sso); err != nil || !disabled {

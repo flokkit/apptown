@@ -475,7 +475,7 @@ func TestPasswordLinkRefusals(t *testing.T) {
 	if _, err := s.PasswordLink(ctx, NewPasswordLink{Username: "nobody"}, ops); !errors.Is(err, errNoPassword) {
 		t.Fatalf("a link for a name with no account: %v", err)
 	}
-	if _, err := s.EnsureUser(ctx, "seen"); err != nil {
+	if _, err := s.EnsurePerson(ctx, "seen"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.PasswordLink(ctx, NewPasswordLink{Username: "seen"}, ops); !errors.Is(err, errNoPassword) {

@@ -221,12 +221,12 @@ export const uncheckedWords = (testable: boolean) => testable
   : `${PRODUCT} has no live check for this kind of service, so whether it works is unknown. Ask an administrator to verify its configuration.`
 
 function StatusChip({ state, stale, health, plain = false }: { state: HealthState; stale: boolean; health?: IntegrationHealth; plain?: boolean }) {
-  const word = stale ? 'unknown' : !health?.checked && !health?.automatic && state !== 'not set up' ? 'no automatic check' : state === 'unknown' && !health?.checked ? 'not checked yet' : state
+  const word = stale ? 'unknown' : state
   // Help only where it says more than the word: why it is unknown, or what
-  // a check answered. "not set up" and "no automatic check" say it already.
+  // a check answered. The integration owner supplies the state word.
   const help = stale ? `Refresh failed. Last answer shown. ${health?.freshnessHelp ?? ''}`
     : state === 'unknown' && health?.lastResult ? `Last result: ${health.lastResult}. ${health.detail}`
-      : plain || word === 'no automatic check' || word === 'not set up' || word === 'not checked yet' ? undefined : health?.detail || undefined
+      : plain || word === 'not set up' ? undefined : health?.detail || undefined
   // A failure keeps the failure colour when it is old; its age is on the checked line.
   return <Status observation word={word} old={!!health?.stale && word !== 'unknown' && word !== 'failed'} help={help} />
 }

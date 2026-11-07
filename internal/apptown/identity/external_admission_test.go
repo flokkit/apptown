@@ -84,7 +84,7 @@ func newExternalFixture(t *testing.T) *externalFixture {
 		t.Fatal(e)
 	}
 	f.admin = admittedPrincipal(t, f.s, "boss")
-	if _, e := f.s.EnsureUser(context.Background(), "alice"); e != nil {
+	if _, e := f.s.EnsurePerson(context.Background(), "alice"); e != nil {
 		t.Fatal(e)
 	}
 	p, e := f.s.SaveExternalProvider(context.Background(), ExternalProviderChange{Issuer: issuer, DisplayName: "Example", ClientID: "client", SecretRef: "OIDC_SECRET"}, f.admin)

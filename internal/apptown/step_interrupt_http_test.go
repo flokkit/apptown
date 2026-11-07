@@ -40,7 +40,7 @@ func TestStepInterruptStopsTheStepsContainers(t *testing.T) {
 		t.Fatal(err)
 	}
 	for who, role := range map[string]string{"outsider": "", "vic": access.RoleProjectViewer, "jenny": access.RoleProjectContrib} {
-		if _, err := a.Access.EnsureUser(context.Background(), who); err != nil {
+		if _, err := a.Access.EnsurePerson(context.Background(), who); err != nil {
 			t.Fatal(err)
 		}
 		if role != "" && a.addGrant("user", who, role, "", access.ScopeProject, fmt.Sprint(p.ID), "bls", "").IsZero() {

@@ -20,7 +20,7 @@ func TestTransparentReadRevocationSurvivesStartup(t *testing.T) {
 	if err := a.EnsureAuthorization(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Access.EnsureUser(context.Background(), "reader"); err != nil {
+	if _, err := a.Access.EnsurePerson(context.Background(), "reader"); err != nil {
 		t.Fatal(err)
 	}
 	reader := access.Principal{Kind: "user", Name: "reader"}

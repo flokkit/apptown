@@ -493,7 +493,7 @@ throwaway services and a blank data volume: a look, never a restore.
 **C15 Judge a change fairly.** The gate splits findings into introduced,
 preexisting (already on `main`, reported not blamed) and undecided (a
 boolean check failing on both trees, handed to the reviewer). *Change
-page → guidance-conformance step; `apptown check`.*
+page → Standards check step; `apptown check`.*
 
 **C16 See one project's standing.** Anyone who may read it sees the
 checks it passes, fails, or could not be judged on, and what a person

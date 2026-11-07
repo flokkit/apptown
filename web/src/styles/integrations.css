@@ -90,7 +90,7 @@ a.int-name:hover { color: var(--accent-hover); }
 .status-strip, .int-summary { border-block: 1px solid var(--border-strong); padding: 8px 0; margin: 12px 0; font-size: var(--fs-sm); }
 
 @media (max-width: 800px) {
-  .slots-table td { width: auto !important; max-width: 100% !important; }
+  .slots-table td { max-width: 100%; }
   .slots-table td[data-label] { display: flex; align-items: center; gap: 8px; }
   .slots-table td select { max-width: 100%; }
 }

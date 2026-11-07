@@ -45,7 +45,7 @@ func TestTokenCommandsCheckCurrentAdministrator(t *testing.T) {
 				case "proxy":
 					pr.Via = "proxy"
 				case "member":
-					if _, err := s.EnsureUser(context.Background(), "member"); err != nil {
+					if _, err := s.EnsurePerson(context.Background(), "member"); err != nil {
 						t.Fatal(err)
 					}
 					if _, err := s.Grant(context.Background(), Spec{SubjectType: "user", Subject: "member", Capability: string(access.CapIdentityUsers), Scope: access.ScopeInstance, By: "setup"}, ""); err != nil {
@@ -363,7 +363,7 @@ func TestOwnTokensKeepAccountBoundary(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s, boss := tokenCommandFixture(t)
-	if _, err := s.EnsureUser(ctx, "member"); err != nil {
+	if _, err := s.EnsurePerson(ctx, "member"); err != nil {
 		t.Fatal(err)
 	}
 	for _, in := range []NewToken{{Name: "boss-cli", Purpose: "cli"}, {Name: "member-cli", User: "member", Purpose: "cli"}, {Name: "old", User: "member", Purpose: "agent"}} {

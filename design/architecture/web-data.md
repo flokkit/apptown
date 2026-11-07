@@ -57,7 +57,7 @@ old and unknown; the browser formats ages without duplicating expiry thresholds.
 Low disk is an amber warning. An exception remains excepted.
 The word stays visible. Outside change pages, reasons and check times use a
 disclosure that opens with a tap, click or keyboard. Help opens beside its chip, stays within the viewport and does not resize the table. Only one status help is open at a time; tapping outside or pressing Escape closes it. Static chips are not live regions. A completed backup remains finished when its old
-stored copy is pruned. A guidance/conformance step with unmet blocking rules displays failed even when
+stored copy is pruned. A Standards check (`guidance/conformance`) with unmet blocking rules displays failed even when
 the gate permits existing failures; its recorded gate outcome stays unchanged.
 Checks marked non-gating remain advisory and do not change a passing step’s
 state. A tests step with no reported test count shows an explicit unknown marker
@@ -126,8 +126,7 @@ record in place. Attach a record ends the Work card. About this change contains
 only valued Branch, Started from, Kind, Cost and Attachments rows, with an attach
 a file link when allowed. Workflow names and versions appear as technical detail
 inside the event facts. Empty rows and sections are omitted. Overview shows the short conversation request summary when available, otherwise the
-request's first line. Chat requests link to the person's full conversation; other requests link to their full text in Details. Details shows the
-first four request lines once, with a full request link for longer text.
+request's first line. Chat requests link to the person's full conversation; other requests link to their full text in Details. Details and request quotes show the same short summary with a full request link.
 Rejected reviews show a red failure mark and Rejected before the complete recorded
 explanation. Structured findings lead when present; sentences are not selected
 as inferred rejection reasons. Step names stay in Techno Goggles. Long reports and
@@ -176,6 +175,8 @@ transaction (see `internal/apptown/project/settings.go`). A write that names no
 revision is refused, so no client can save over changes it never saw.
 
 ## Acts
+
+Immediate, reversible on/off settings use the shared `Switch` with the area’s name as its label. A flip saves through `useAction`; flipping back saves the previous value. Checkboxes belong to settings saved together with a form.
 
 `useAction(onDone, { affects })` runs one act at a time: a second run while
 one is under way is ignored, so a double click cannot send an act twice.

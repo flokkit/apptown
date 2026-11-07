@@ -18,7 +18,7 @@ func testConformanceContext(who string) context.Context {
 // savedReader is the fixture reader "t" with the account reads are decided
 // for.
 func savedReader(a *App) (context.Context, error) {
-	_, err := a.Access.EnsureUser(context.Background(), "t")
+	_, err := a.Access.EnsurePerson(context.Background(), "t")
 	return testConformanceContext("t"), err
 }
 func savedReview(a *App, id ids.ID) (*conformance.Review, error) {

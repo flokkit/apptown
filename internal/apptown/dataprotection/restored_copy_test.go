@@ -284,7 +284,7 @@ func newRestoredWorldWith(t *testing.T, opts dataWorldOptions) *restoredWorld {
 	// a principal.
 	people := identity.New(w.db, identity.Config{})
 	for _, name := range []string{"alice", "bob", "ops"} {
-		if _, err := people.EnsureUser(t.Context(), name); err != nil {
+		if _, err := people.EnsurePerson(t.Context(), name); err != nil {
 			t.Fatal(err)
 		}
 	}

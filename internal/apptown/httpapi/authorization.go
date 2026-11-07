@@ -141,9 +141,6 @@ func (h Authorization) AuthzGrant(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		st, subj := identity.ParseSubject(in.Subject)
-		if st == "user" {
-			optionalUser(r.Context(), h.access, subj)
-		}
 		id, err := h.access.Grant(r.Context(), identity.Spec{SubjectType: st, Subject: subj, Role: in.Role, Capability: in.Capability,
 			Scope: scope, ScopeID: in.ScopeID, By: actor(r), Reason: in.Reason}, in.ExpiresAt)
 		if err != nil {

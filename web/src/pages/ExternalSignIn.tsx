@@ -1,3 +1,4 @@
+import { Switch } from '../Switch'
 import { useState } from 'react'
 import { PRODUCT } from '../brand'
 import { del, post, put } from '../api'
@@ -13,7 +14,7 @@ export function ExternalProviderSettings() {
   const bindings = useGet<ExternalBindingList>('/auth/external/bindings?all=true')
   const [draft, setDraft] = useState<ExternalProviderChange | null>(null)
   const [subject, setSubject] = useState(''), [principal, setPrincipal] = useState('')
-  const { run, err } = useAction()
+  const { run, busy, err } = useAction()
   const [tested, setTested] = useState(false)
   const stale = !!draft && draft.revision !== (q.data?.revision ?? 0)
   const edit = () => { setTested(false); setDraft({ revision: q.data?.revision ?? 0, issuer: q.data?.issuer ?? '', displayName: q.data?.displayName ?? '', clientId: q.data?.clientId ?? '', secretRef: q.data?.secretRef ?? '', allowSignup: q.data?.allowSignup ?? false, initialGroup: q.data?.initialGroup ?? '' }) }
@@ -34,7 +35,7 @@ export function ExternalProviderSettings() {
       </form>}
       {q.data && !draft && <>
         <button onClick={() => { void run(async () => { await post('/auth/external/test', {}); setTested(true) }) }}>Test discovery</button>
-        <button onClick={() => { const input: ExternalEnableRequest = { revision: q.data!.revision, enabled: !q.data!.enabled }; void run(() => post('/auth/external/enabled', input)) }}>{q.data.enabled ? 'Disable provider' : 'Enable provider'}</button>
+        <label className="row">Provider enabled <Switch label={q.data.displayName} checked={q.data.enabled} disabled={busy || !q.current} onChange={enabled => { const input: ExternalEnableRequest = { revision: q.data!.revision, enabled }; void run(() => post('/auth/external/enabled', input)) }} /></label>
         {tested && <p>Discovery succeeded. This does not prove a user can sign in.</p>}
         <h3>Explicit account binding</h3><label>Local principal UUID<input value={principal} onChange={e => setPrincipal(e.target.value)} /></label><label>Exact provider subject<input value={subject} onChange={e => setSubject(e.target.value)} /></label>
         <button disabled={!principal || !subject} onClick={() => { const input: ExternalBindRequest = { providerId: q.data!.id, principalId: principal, subject }; void run(async () => { await post('/auth/external/bindings', input); setSubject('') }) }}>Bind identity</button>

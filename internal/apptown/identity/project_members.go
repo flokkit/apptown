@@ -54,9 +54,6 @@ func (s *Service) AddProjectMember(ctx context.Context, projectID ids.ID, grante
 		if err := ValidName(subj); err != nil {
 			return err
 		}
-		if _, err := s.EnsureUser(ctx, subj); err != nil {
-			log.Printf("recording user %s: %v", subj, err)
-		}
 	}
 	id, err := s.PutGrant(ctx, Spec{SubjectType: st, Subject: subj, Role: role, Scope: access.ScopeProject, ScopeID: projectID.String(), By: by, Reason: "added on the Members tab"})
 	if err != nil {

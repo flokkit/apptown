@@ -1,3 +1,4 @@
+import { Switch } from '../Switch'
 import { Link } from 'react-router-dom'
 import { put } from '../api'
 import { useAction } from '../data'
@@ -24,7 +25,7 @@ export default function Features() {
       return <Section key={tier} title={title}>
         <ListTable<Feature> label={title} className="features-table" rows={rows.filter(f => f.tier === tier)} rowKey={f => f.area} columns={[
           { key: 'area', label: 'Area', phone: 'name', render: f => <strong>{f.name}</strong> },
-          { key: 'enabled', label: 'On / off', phone: 'action', render: f => <div className="feature-control"><span>{f.enabled ? 'On' : 'Off'}</span><button aria-label={`${f.name}: turn ${f.enabled ? 'off' : 'on'}`} disabled={!may || !q.current || action.busy} onClick={() => void action.run(() => put(`/features/${f.area}`, { expected: f.enabled, enabled: !f.enabled }))}>{f.enabled ? 'Turn off' : 'Turn on'}</button></div> },
+          { key: 'enabled', label: 'On / off', phone: 'action', render: f => <Switch label={f.name} checked={f.enabled} disabled={!may || !q.current || action.busy} onChange={enabled => void action.run(() => put(`/features/${f.area}`, { expected: f.enabled, enabled }))} /> },
           { key: 'covers', label: 'What it covers', phone: 'detail', render: f => <span>{f.covers}</span> },
         ]} />
       </Section>

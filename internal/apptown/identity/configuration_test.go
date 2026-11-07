@@ -18,7 +18,7 @@ import (
 func configurationFixture(t *testing.T) (*Service, access.Principal) {
 	t.Helper()
 	s := New(testDB(t), Config{})
-	if _, err := s.EnsureUser(context.Background(), "operator"); err != nil {
+	if _, err := s.EnsurePerson(context.Background(), "operator"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.Grant(context.Background(), Spec{SubjectType: "user", Subject: "operator", Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, By: "setup"}, ""); err != nil {
@@ -36,7 +36,7 @@ func TestConfigurationCommandsRequireCapability(t *testing.T) {
 				s, pr := configurationFixture(t)
 				switch caller {
 				case "role only":
-					if _, err := s.EnsureUser(context.Background(), "bare"); err != nil {
+					if _, err := s.EnsurePerson(context.Background(), "bare"); err != nil {
 						t.Fatal(err)
 					}
 					pr.Name, pr.Role = "bare", "admin"

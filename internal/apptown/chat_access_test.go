@@ -343,7 +343,7 @@ func TestAnyProjectReaderLooksAtItsChats(t *testing.T) {
 	t.Parallel()
 	w := newChatAccessWorld(t)
 	closeTransparentReads(t, w.a)
-	if _, err := w.a.Access.EnsureUser(context.Background(), "auditor"); err != nil {
+	if _, err := w.a.Access.EnsurePerson(context.Background(), "auditor"); err != nil {
 		t.Fatal(err)
 	}
 	if w.a.addGrant("user", "auditor", access.RoleAuditor, "", access.ScopeInstance, "", "boss", "").IsZero() {

@@ -44,7 +44,7 @@ func realAuthorityFixture(t *testing.T) (*Service, *identity.Service, *database.
 		t.Fatal(err)
 	}
 	for _, name := range []string{"owner", "outsider"} {
-		if _, err := accessStore.EnsureUser(context.Background(), name); err != nil {
+		if _, err := accessStore.EnsurePerson(context.Background(), name); err != nil {
 			t.Fatal(err)
 		}
 	}
