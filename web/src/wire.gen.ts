@@ -1570,6 +1570,7 @@ export type ReleaseListed = {
   decision: ReleaseDecision
   statusLabel: ReleaseLabel
   lastStage?: DeployStage
+  interruptedByRestart?: boolean
   progressUncertain?: boolean
   stage?: DeployStage
   stageEnteredAt?: string
@@ -3248,6 +3249,7 @@ export type LimitCount = {
 
 export type Release = {
   lastStage?: DeployStage
+  interruptedByRestart?: boolean
   progressUncertain?: boolean
   stage?: DeployStage
   stageEnteredAt?: string

@@ -62,7 +62,11 @@ func (d *Driver) Resume(ctx context.Context, p deploy.Placement, generation int6
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	return resume(ctx, dk, p, generation, noted)
+	o, err := resume(ctx, dk, p, generation, noted)
+	if err == nil && o.URL == "" {
+		o.URL, err = d.URL(d.ServingLabel, p.Name, p.HostPort)
+	}
+	return o, err
 }
 
 func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation int64, art deploy.Artifact, key string, logf func(string, ...any), checkpoint deploy.Checkpoint) (deploy.Observation, error) {

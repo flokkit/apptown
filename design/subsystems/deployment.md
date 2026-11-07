@@ -177,7 +177,14 @@ The selected bundle is pinned at request time, and `releases.from_deployment_id`
 preserves the source identity. The request uses the same admission, execution,
 backup and current-authority checks as a manual release.
 `apptown release <project> <deployment>` chooses promotion or latest according to
-that deployment's feed at request time, without a displayed-bundle expectation.
+that deployment's feed at request time, without a displayed-bundle expectation. For a
+follows-main deployment, an unqualified request retries its latest failed release
+with a recorded bundle; otherwise it requires an explicit release selection.
+The deployment page offers **Try again** for failed releases with a bundle and
+shows the failure in **Deploy a release…**. `--release N` also selects failed
+releases. Each manual retry creates a new numbered release linked to the selected
+release, with the same bundle and fresh authority and approval checks; the failed
+record remains unchanged.
 Its log prints which source release it promoted.
 
 Removal and take-down refuse a deployment while another deployment in the
@@ -298,9 +305,15 @@ results replacing current records, but cannot undo an external effect or stop an
 old call already in flight. A failed provider-identity checkpoint stops execution.
 
 An unknown result remains uncertain and queues observation atomically. Recovery
-uses `Resume` on the recorded identity; it cannot recreate or reapply a missing
-deployment. [Job retry limits](jobs.md) bound automatic observation attempts.
-Exhausting them does not prove the provider failed.
+uses `Resume` on the recorded identity first. If that version is up, recovery
+finishes the original release. If the provider confirms it was not applied, recovery retries the same
+release and generation once, using its recorded bundle and applied configuration.
+The retry rechecks the original requester's current authority and approval; it
+does not restore data or repeat a pre-deploy backup. Its durable claim prevents
+another delivery or restart from repeating it. Only a confirmed provider failure
+fails the attempt. An unavailable provider or an unassessable retry remains
+uncertain. [Job retry limits](jobs.md) bound later observation attempts;
+exhausting them does not prove the provider failed.
 
 On a Docker host, a release whose boot fails in any step ends failed: a
 service that never gets healthy, a migration that exits non-zero, an app
@@ -312,16 +325,25 @@ again, reusing standing services and their data. A take-down removes the
 container under the deployment's name whichever generation started it, and
 handles everything else on the deployment's list under its usual rules.
 
-A Docker attempt becomes uncertain only when AppTown lost track of it: it
-stopped mid-boot, the host stopped answering, or the outcome could not be
-written. `Resume` then settles it from the boot record and what the host
-says. The container the attempt recorded starting healthy, running as
-recorded, settles it applied. No record of a healthy start, or that
-container gone, replaced or stopped, settles it failed. Only a host that
-cannot be asked (or whose answer cannot be read) leaves it uncertain for a
-later look. One case reads wrong: if AppTown stops after a healthy boot but
-before writing its record, the attempt settles failed while the new
-container runs. The next release replaces it.
+A Docker attempt becomes uncertain when AppTown stops mid-boot, the host stops
+answering or the outcome cannot be written. `Resume` inspects the admitted
+container, checking its deployment, generation and artifact labels. A matching
+running container finishes the release even if the ready record was interrupted;
+its current health remains unknown until a readiness sample. An absent container
+or an older generation permits the single retry. A container that cannot be
+inspected remains uncertain. A confirmed failure of the selected version fails
+the attempt.
+
+App Platform stamps each submitted app spec with the release generation and
+its observation inputs. If an apply response or its provider IDs were lost,
+recovery finds the app by its stable deployment name and lists its deployments,
+matching the generation in each deployment's spec. It finishes only that
+matching deployment, or records its confirmed failure. A complete app listing
+that confirms the app is absent permits the restart retry. An existing app
+without a uniquely matching deployment stays uncertain with the reason recorded;
+an unrelated active deployment never establishes success. Docker and Portainer
+record their admitted identity before provider effects. Missing identity remains
+uncertain and never authorizes another apply.
 
 A new App Platform app's provider-issued name (`*.ondigitalocean.app`) can be
 missing from DNS for minutes after the app goes active, and a resolver that
@@ -370,11 +392,12 @@ button on the deployment page; `deployment:operate`) takes a fresh runtime
 reading of that deployment and returns it, including on a settled deployment.
 The page reloads after success. It never deploys. When records need repair,
 it repairs them before taking the reading. An uncertain attempt is
-observed as recovery observes it (`Resume` on the recorded boot proof): the
-container it booted running with the recorded image settles it applied; no
-record of a healthy start, or that container gone, replaced or stopped,
-settles it failed; and a host that cannot be asked leaves it uncertain,
-still needing attention. A release left releasing follows its
+observed through `Resume` on its admitted identity. A matching running Docker
+generation finishes even when AppTown stopped before recording readiness; its
+current health remains unknown. A missing container or an unavailable host
+leaves the attempt uncertain. The queued startup recovery job owns the single
+apply retry. A confirmed failure of the selected version fails the attempt.
+A release left releasing follows its
 attempt: failed or superseded fails it, an attempt a newer generation
 replaced is superseded, and a done attempt of the current generation is
 observed the same way. Settlement is the usual one, with its release receipts;
@@ -1195,8 +1218,8 @@ claim external DNS, TLS or routed reachability. Public liveness intent is refuse
 Portainer does not silently turn it into readiness. Init completion and declared
 worker health also belong to the expected generation. Successful API apply or a
 running container alone cannot complete a release. Recovery observes the retained
-expectation without applying again and rechecks the original requester's current
-authority.
+expectation and rechecks the original requester's current authority. An interrupted
+apply with no retained expectation remains uncertain; it does not authorize a retry.
 
 A separate Portainer maintenance loop samples only settled standing generations.
 Its narrow diagnostic permit rechecks the current project lifecycle, placement,

@@ -3,13 +3,17 @@ package apptown
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/execution"
+	testinputs "github.com/flokkit/apptown/internal/execution/executiontest"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"io"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -408,5 +412,72 @@ func TestPairedRollbackNeverStartsRejectedCodeOnRestoredData(t *testing.T) {
 				t.Fatalf("selected code did not start on restored data: %+v sentinel=%q earlier saw=%q", latest, sentinel, earlierSaw)
 			}
 		})
+	}
+}
+
+// Web selection and the real CLI both retry a failed follows-main release
+// through the checked HTTP door, preserving its bundle and failed history.
+func TestFailedReleaseRetryThroughWebAndCLI(t *testing.T) {
+	a, _, p, bundle := doWorld(t)
+	testAdministrator(t, a, "alice")
+	target, err := a.Deployment.Targets.ByName(t.Context(), "do-syd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "main", target.ID, deployment.Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, err := acceptBundleForTest(t, a, p, dep, bundle, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.Outcomes.FailUnstartedRelease(t.Context(), original.ID, errors.New("provider refused")); err != nil {
+		t.Fatal(err)
+	}
+	web := authzCall(a.Handler(), "alice", "POST", "/api/v1/projects/"+p.Slug+"/deployments/main/deploy", fmt.Sprintf(`{"releaseNumber":%d}`, original.Number))
+	if web.Code != 202 {
+		t.Fatalf("web retry: %d %s", web.Code, web.Body.String())
+	}
+	var accepted struct {
+		Number int64 `json:"number"`
+	}
+	if err := json.Unmarshal(web.Body.Bytes(), &accepted); err != nil {
+		t.Fatal(err)
+	}
+	retried, err := a.Deployment.Releases.ByNumber(t.Context(), p.ID, accepted.Number)
+	if err != nil || retried.BundleID != bundle.ID || retried.RollbackOf != original.ID {
+		t.Fatalf("web retry receipt: %+v %v", retried, err)
+	}
+	if _, err := a.Deployment.Outcomes.FailUnstartedRelease(t.Context(), retried.ID, errors.New("provider refused again")); err != nil {
+		t.Fatal(err)
+	}
+	caller := access.Principal{ID: testPrincipalOf(t, a.DB, "alice"), Kind: "user", Name: "alice", Via: "session"}
+	token, err := a.Access.IssueToken(t.Context(), identity.NewToken{Name: "retry-cli", User: "alice", Purpose: "cli", Role: "member"}, caller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cli := filepath.Join(t.TempDir(), "apptown")
+	testinputs.GoBuild(t, "", nil, "../../cmd/apptown")
+	runner := execution.Runner{}
+	if out := runner.Run(t.Context(), execution.Local, execution.Request{Argv: []string{"go", "build", "-o", cli, "../../cmd/apptown"}, Timeout: time.Minute}); !out.Exited0() {
+		t.Fatalf("build CLI: %s", out.Output)
+	}
+	srv := httptest.NewServer(a.Handler())
+	defer srv.Close()
+	out := runner.Run(t.Context(), execution.Local, execution.Request{Argv: []string{cli, "release", p.Slug, "main", "--json"}, Env: []string{"APPTOWN_URL=" + srv.URL, "APPTOWN_TOKEN=" + token.Plaintext}, Timeout: time.Minute})
+	if !out.Exited0() {
+		t.Fatalf("CLI retry: %s", out.Output)
+	}
+	if err := json.Unmarshal(out.Output, &accepted); err != nil {
+		t.Fatal(err)
+	}
+	last, err := a.Deployment.Releases.ByNumber(t.Context(), p.ID, accepted.Number)
+	if err != nil || last.BundleID != bundle.ID || last.RollbackOf != retried.ID || last.ID == retried.ID {
+		t.Fatalf("CLI retry receipt: %+v %v", last, err)
+	}
+	failed, err := a.Deployment.Releases.ByID(t.Context(), original.ID)
+	if err != nil || failed.State != deployment.ReleaseFailed {
+		t.Fatalf("retry rewrote failed history: %+v %v", failed, err)
 	}
 }

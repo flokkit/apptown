@@ -16,7 +16,7 @@ func cmdRelease(args []string) error {
 		return cmdReleaseDecision(args)
 	}
 	fs := newFlags("release")
-	chosen := fs.Int64("release", 0, "deploy this successful release instead of the feed selection")
+	chosen := fs.Int64("release", 0, "deploy this successful or failed release instead of the feed selection")
 	before := fs.Int64("before", 0, "restore the pre-deploy backup and its recorded running release")
 	domain := fs.String("domain", "", "default deployment: an extra hostname to serve on (kept for later releases)")
 	asJSON := fs.Bool("json", false, "print the release as JSON once AppTown accepts it (no following)")

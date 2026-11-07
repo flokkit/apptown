@@ -170,3 +170,68 @@ func TestChosenBundleOverridesPromotionFeedWithoutChangingItsSource(t *testing.T
 		t.Fatalf("source changed: %+v %v", source, err)
 	}
 }
+
+// A retry is a separately authorized, numbered attempt of the pinned bundle.
+// The failed receipt stays failed, including when a newer bundle has landed.
+func TestFailedReleaseCanBeRetriedWithCurrentAuthorityAndApproval(t *testing.T) {
+	for _, selection := range []string{"number", "follows main latest"} {
+		for _, gate := range []string{"allowed", "denied", "approval"} {
+			t.Run(selection+"/"+gate, func(t *testing.T) {
+				t.Parallel()
+				s, in, authority, _ := requestFixture(t)
+				dep := chosenDeployment(t, s, in.ProjectID, in.DeploymentName)
+				original, err := s.RequestRelease(t.Context(), in)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := s.Outcomes.FailUnstartedRelease(t.Context(), original.ID, errors.New("provider refused")); err != nil {
+					t.Fatal(err)
+				}
+				cutBundleFixture(t, s.db, in.ProjectID, "newer", BundleOrigin{})
+				attrs := dep.releaseAttributes()
+				if selection == "follows main latest" {
+					attrs.Feed = "main"
+				}
+				if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, dep.Name, dep.TargetID, attrs); err != nil {
+					t.Fatal(err)
+				}
+				if gate == "approval" {
+					// The rule changes after the failed release; the retry needs fresh assent.
+					current := chosenDeployment(t, s, in.ProjectID, dep.Name)
+					s.configuration.Authority = authority
+					if _, err := s.SetFeed(t.Context(), in.ProjectID, dep.Name, FeedSettings{Revision: current.FeedRevision, Feed: attrs.Feed, ApprovalRole: "release-manager"}); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if gate == "denied" {
+					authority.deny = errors.New("deploy permission withdrawn")
+				}
+				retry := DeploySelection{ProjectID: in.ProjectID, DeploymentName: dep.Name}
+				if selection == "number" {
+					retry.ReleaseNumber = original.Number
+				}
+				accepted, err := s.RequestRelease(t.Context(), retry)
+				if gate == "denied" {
+					if !errors.Is(err, authority.deny) {
+						t.Fatalf("retry bypassed authority: %v", err)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				got, err := s.Releases.ByID(t.Context(), accepted.ID)
+				if err != nil || got.BundleID != in.BundleID || got.ID == original.ID || got.RollbackOf != original.ID {
+					t.Fatalf("retry lost provenance: %+v %v", got, err)
+				}
+				if gate == "approval" && got.State != releaseWaiting {
+					t.Fatalf("retry bypassed approval: %s", got.State)
+				}
+				failed, err := s.Releases.ByID(t.Context(), original.ID)
+				if err != nil || failed.State != ReleaseFailed {
+					t.Fatalf("failed history rewritten: %+v %v", failed, err)
+				}
+			})
+		}
+	}
+}

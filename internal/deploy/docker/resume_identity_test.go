@@ -10,15 +10,11 @@ import (
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
-// Recovery accepts only the container the attempt recorded booting, running
-// as recorded. Anything else the host answers, and an attempt with no record
-// of a healthy boot, is a known failure.
-//
-// Kills: a mismatch or a missing record left unknown (the attempt stuck).
-func TestDockerRecoveryRequiresMatchingBootAndRuntimeProof(t *testing.T) {
+// Recovery checks the admitted identity even if readiness was not recorded.
+func TestDockerRecoveryReobservesTheAdmittedVersionWithoutReadyProof(t *testing.T) {
 	t.Parallel()
 	id := deploy.DockerIdentity{Deployment: "4", Generation: 7, Artifact: "selected-artifact"}
-	for _, scenario := range []string{"match", "wrong-generation", "wrong-environment", "wrong-artifact", "wrong-image", "not-running", "no-boot-proof", "cancelled", "gone"} {
+	for _, scenario := range []string{"match", "wrong-generation", "wrong-environment", "wrong-artifact", "wrong-image", "not-running", "no-boot-proof", "no-boot-proof-stopped", "cancelled", "gone"} {
 		t.Run(scenario, func(t *testing.T) {
 			runtime := Runtime{Image: "sha256:selected", Running: true, Labels: id.Labels()}
 			noted := id.Checkpoint("selected-container")
@@ -34,6 +30,9 @@ func TestDockerRecoveryRequiresMatchingBootAndRuntimeProof(t *testing.T) {
 				runtime.Image = "sha256:different"
 			case "not-running":
 				runtime.Running = false
+			case "no-boot-proof-stopped":
+				runtime.Running = false
+				delete(noted, "dockerReady")
 			case "no-boot-proof":
 				delete(noted, "dockerReady")
 			}
@@ -55,9 +54,13 @@ func TestDockerRecoveryRequiresMatchingBootAndRuntimeProof(t *testing.T) {
 			}
 			o, err := resume(ctx, dk, deploy.Placement{ID: idstest.N(4), Label: "4"}, 7, noted)
 			switch {
-			case scenario == "match":
+			case scenario == "match" || scenario == "no-boot-proof":
 				if err != nil || o.Health != "unknown" || o.ImageDigest != "sha256:selected" {
 					t.Fatalf("valid recovery %+v %v", o, err)
+				}
+			case scenario == "gone" || scenario == "no-boot-proof-stopped":
+				if !errors.Is(err, deploy.ErrNotApplied) {
+					t.Fatalf("missing version cannot retry: %v", err)
 				}
 			case scenario == "cancelled":
 				// Nothing was asked: still unknown.
@@ -65,15 +68,23 @@ func TestDockerRecoveryRequiresMatchingBootAndRuntimeProof(t *testing.T) {
 					t.Fatalf("a cancelled look settled the attempt: %+v %v", o, err)
 				}
 			default:
-				// The host answered, or there is no record of a healthy
-				// boot: the attempt failed, and settles.
+				// The host confirmed that the selected runtime failed or differs.
 				if !deploy.IsTerminal(err) {
 					t.Fatalf("%s is not a known failure: %+v %v", scenario, o, err)
 				}
 			}
-			if scenario == "no-boot-proof" && calls != 0 {
-				t.Fatal("missing boot proof must not inspect a guessed container")
+			if scenario == "no-boot-proof" && calls != 1 {
+				t.Fatal("missing boot proof must still inspect the admitted container")
 			}
 		})
+	}
+}
+
+// Without a saved pre-apply identity, absence has not been established.
+func TestDockerMissingApplyIdentityIsUncertain(t *testing.T) {
+	t.Parallel()
+	_, err := resume(t.Context(), Scope{}, deploy.Placement{}, 1, nil)
+	if err == nil || errors.Is(err, deploy.ErrNotApplied) || deploy.IsTerminal(err) {
+		t.Fatalf("missing identity permitted retry or settlement: %v", err)
 	}
 }

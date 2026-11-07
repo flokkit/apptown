@@ -93,7 +93,7 @@ func recoveryFixture(t *testing.T) (Recoverer, *recoveryFixtureSource, *executio
 	})}
 	store := &executionSettlement{outcome: Applied}
 	report := &recoveryFixtureReporter{}
-	return Recoverer{Source: s, Store: store, Reporter: report}, s, store, report, calls
+	return Recoverer{source: s, store: store, reporter: report}, s, store, report, calls
 }
 
 func TestRecoverySettlesOnlyConfirmedEffects(t *testing.T) {
@@ -265,5 +265,59 @@ func TestRecoveryFailureWriteAndConcurrentUncertaintySettlement(t *testing.T) {
 		if err != nil || got.Outcome != string(out) || len(report.logs) != 0 || report.applied != 0 {
 			t.Fatalf("concurrent executionSettlement: %+v %v", got, err)
 		}
+	}
+}
+
+func TestRecoveryRetriesOnlyAnUnappliedVersionAndPreservesFailureClassification(t *testing.T) {
+	for _, scenario := range []string{"already up", "provider failed", "unreachable", "retry succeeds", "retry fails", "retry unknown"} {
+		t.Run(scenario, func(t *testing.T) {
+			r, source, store, _, _ := recoveryFixture(t)
+			source.snapshot.Checkpoint["_restart"] = true
+			observation := deploy.Observation{Generation: 2, Rollout: "active"}
+			source.target.Observer = recoveryFixtureObserver(func(context.Context, Attempt, map[string]any, func(string, ...any)) (deploy.Observation, error) {
+				switch scenario {
+				case "already up":
+					return observation, nil
+				case "provider failed":
+					return deploy.Observation{}, deploy.Terminal(errors.New("provider rejected"))
+				case "unreachable":
+					return deploy.Observation{}, errors.New("host unavailable")
+				default:
+					return deploy.Observation{}, deploy.ErrNotApplied
+				}
+			})
+			retries := 0
+			r.retry = func(_ context.Context, at Attempt) (deploy.Observation, error) {
+				retries++
+				if at != source.snapshot.Attempt {
+					t.Fatal("retry changed attempt or generation")
+				}
+				switch scenario {
+				case "retry fails":
+					return deploy.Observation{}, deploy.Terminal(errors.New("provider rejected"))
+				case "retry unknown":
+					return deploy.Observation{}, errors.New("host unavailable")
+				default:
+					return observation, nil
+				}
+			}
+			result, err := r.Run(t.Context(), source.snapshot.Attempt.ID)
+			want, calls := "recovered", 0
+			switch scenario {
+			case "provider failed":
+				want = "failed"
+			case "unreachable":
+				want = "uncertain"
+			case "retry succeeds":
+				calls = 1
+			case "retry fails":
+				want, calls = "failed", 1
+			case "retry unknown":
+				want, calls = "uncertain", 1
+			}
+			if result.Outcome != want || retries != calls || (err != nil) != (want == "uncertain") {
+				t.Fatalf("%s: %+v %v retries=%d store=%v", scenario, result, err, retries, store.calls)
+			}
+		})
 	}
 }

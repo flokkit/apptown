@@ -333,7 +333,7 @@ func (d *Driver) Resume(ctx context.Context, _ deploy.Placement, generation int6
 	address, _ := noted["address"].(string)
 	identity, _ := noted["identity"].(string)
 	if bucket == "" || address == "" || identity == "" {
-		return deploy.Observation{}, errors.New("AppTown restarted before it recorded which publication it was making; release again")
+		return deploy.Observation{}, deploy.ErrNotApplied
 	}
 	if err := staticsite.Witness(ctx, address, identity, d.options.witnessTries, d.options.witnessInterval, logf); err != nil {
 		return deploy.Observation{}, err

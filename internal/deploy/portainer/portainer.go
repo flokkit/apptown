@@ -306,7 +306,7 @@ func (d *Driver) Resume(ctx context.Context, p deploy.Placement, generation int6
 		return out, err
 	}
 	if expected == nil {
-		return out, errors.New("AppTown restarted while Portainer was applying the stack; its generation has no retained readiness expectation, so inspect the stack before resolving the attempt")
+		return out, errors.New("Portainer apply identity is missing; its outcome is uncertain — inspect the provider before trying again")
 	}
 	if d.ExpectedArtifact == "" || expected.ArtifactHash != d.ExpectedArtifact {
 		return out, errors.New("Portainer recovery artifact differs from admitted inputs")

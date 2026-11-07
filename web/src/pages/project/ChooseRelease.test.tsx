@@ -19,7 +19,7 @@ const releases = [
   { id: 'r2', number: 2, deployment: 'staging', state: 'released', bundleId: 'b1', createdAt: stamp, changes: [], serving: true },
   { id: 'r1', number: 1, deployment: 'production', state: 'released', bundleId: 'b1', createdAt: stamp, changes: [{ id: 'c1', number: 1, title: 'Show delivery times' }], serving: false },
 ]
-async function fixture(recorded = true, options: { backup?: boolean; reason?: string; approvalRole?: string; data?: boolean; feed?: string; unknown?: boolean } = {}) {
+async function fixture(recorded = true, options: { backup?: boolean; reason?: string; approvalRole?: string; data?: boolean; feed?: string; unknown?: boolean; failed?: boolean } = {}) {
   const sent: { path: string; body: unknown }[] = []
   const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST') { sent.push({ path: url, body: JSON.parse(String(init.body)) }); return new Response('{"number":4,"state":"waiting for approval"}', { status: 202 }) }
@@ -33,7 +33,7 @@ async function fixture(recorded = true, options: { backup?: boolean; reason?: st
     if (url.endsWith('/changes/c1')) return new Response(JSON.stringify({ change: { id: 'c1', title: 'Show delivery times' } }))
     if (url.endsWith('/backups')) return new Response(JSON.stringify({ backups: [{ id: 'copy', status: 'ok', runningReleaseId: recorded ? 'r1' : undefined }] }))
     if (url.endsWith('/releases/3')) return new Response(JSON.stringify({ release: releases[0], backup: options.backup === false ? undefined : { id: 'copy', status: 'pruned' }, backupReason: options.reason }))
-    if (url.endsWith('/releases')) return new Response(JSON.stringify(options.unknown ? releases.map(r => ({ ...r, serving: false, observed: 'unknown' })) : releases))
+    if (url.endsWith('/releases')) return new Response(JSON.stringify(options.failed ? [{ id: 'r8', number: 8, deployment: 'production', state: 'failed', bundleId: 'b4', createdAt: stamp, changes: [], failure: 'Provider refused the update' }, ...releases] : options.unknown ? releases.map(r => ({ ...r, serving: false, observed: 'unknown' })) : releases))
     return new Response('{}')
   })
   vi.stubGlobal('fetch', fetcher)
@@ -124,4 +124,18 @@ it('keeps an unobserved current deployment distinct from a past deployment', asy
   expect(dialog.textContent).toContain('Last deployed on Customer office; current state unknown.')
   const currentBundle = [...dialog.querySelectorAll('.card')].find(card => card.textContent?.includes('Release 3'))!
   expect(currentBundle.textContent).not.toContain('Previously ran on Customer office')
+})
+
+
+it('retries failed bundle code through the normal confirmation and shows its failure in the bundle picker', async () => {
+  const h = await fixture(true, { failed: true, approvalRole: 'release-manager', feed: 'main' })
+  await h.click('Try again')
+  expect(h.el.querySelector('[role=dialog]')?.textContent).toContain('Needs approval from release-manager.')
+  await h.click('Deploy release 8 to Customer office')
+  expect(h.sent[0]).toEqual({ path: '/api/v1/projects/shop/deployments/production/deploy', body: { releaseNumber: 8 } })
+  expect(h.el.textContent).toContain('Release 4 requested')
+  await act(async () => { h.el.querySelector<HTMLButtonElement>('[role=dialog] button')!.click() })
+  await h.click('Deploy a release…')
+  expect(h.el.querySelector('[role=dialog]')?.textContent).toContain('Release 8 failed: Provider refused the update')
+  expect(h.el.querySelector('[role=dialog]')?.textContent).toContain('Release 8')
 })

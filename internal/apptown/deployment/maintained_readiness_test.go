@@ -199,7 +199,7 @@ func TestPortainerRecoveryUsesCapturedReleaseAuthorityBeforeDiagnostic(t *testin
 	at := Attempt{ID: row.ID, DeploymentID: row.DeploymentID, Generation: row.Generation}
 	// Preparing an observer is read-only; exercise the same binding shared by
 	// ordinary and stranded recovery without changing a completed settlement.
-	target, err := p.s.Recoverer().Source.PrepareObservation(t.Context(), at)
+	target, err := p.s.Recoverer().source.PrepareObservation(t.Context(), at)
 	if err != nil {
 		t.Fatal(err)
 	}

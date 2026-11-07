@@ -206,7 +206,7 @@ func TestDeploymentUncertaintyRacesAdmissionWithoutSplitOwnership(t *testing.T) 
 func TestDeploymentRecoveryMissingAttemptDiffersFromFailedRead(t *testing.T) {
 	t.Parallel()
 	f, _ := deploymentOutcomeFixture(t)
-	r := recoverer{Source: recoverySourceForTest(f.outcomes, nil)}
+	r := recoverer{source: recoverySourceForTest(f.outcomes, nil)}
 	result, err := r.Run(context.Background(), idstest.N(999))
 	if err != nil || result.Outcome != "absent" {
 		t.Fatalf("missing attempt: %+v %v", result, err)
@@ -303,7 +303,7 @@ func TestDeploymentRecoveryClassifiesObservationAndReplaysWithoutProvider(t *tes
 				t.Fatal(err)
 			}
 			calls := 0
-			r := recoverer{Store: s, Source: recoverySourceForTest(s, func(context.Context, *Deployment) (deploy.Driver, error) {
+			r := recoverer{store: s, source: recoverySourceForTest(s, func(context.Context, *Deployment) (deploy.Driver, error) {
 				return storedRecoveryDriver{resume: func(ctx context.Context, placement deploy.Placement, generation int64, checkpoint map[string]any) (deploy.Observation, error) {
 					calls++
 					if generation != at.Generation || checkpoint["providerId"] != "original" {
@@ -345,7 +345,7 @@ func TestDeploymentRecoveryCancellationDoesNotPublishSuccess(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := recoverer{Store: s, Source: recoverySourceForTest(s, func(context.Context, *Deployment) (deploy.Driver, error) {
+	r := recoverer{store: s, source: recoverySourceForTest(s, func(context.Context, *Deployment) (deploy.Driver, error) {
 		return storedRecoveryDriver{resume: func(context.Context, deploy.Placement, int64, map[string]any) (deploy.Observation, error) {
 			cancel()
 			return deploymentCompletionFor(at, "late").Observed, nil

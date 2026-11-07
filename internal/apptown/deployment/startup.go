@@ -11,6 +11,8 @@ import (
 // now need a person (each logged and in the ledger).
 type recoveryReport struct{ Queued, NeedsAttention int }
 
+var errRestartInterrupted = errors.New("interrupted by a restart — checking the recorded provider identity before retrying")
+
 type startupStore interface {
 	InterruptedAttempts(ctx context.Context) ([]Attempt, error)
 	ContradictorySettlements(ctx context.Context) ([]contradiction, error)
@@ -42,7 +44,7 @@ func PrepareRecovery(ctx context.Context, store startupStore) (recoveryReport, e
 		report.NeedsAttention++
 	}
 	for _, at := range attempts {
-		out, err := store.Uncertain(ctx, at, errors.New("execution interrupted; observing the recorded provider identity before admitting another deployment"))
+		out, err := store.Uncertain(ctx, at, errRestartInterrupted)
 		if contradicted(err) {
 			if markErr := store.NeedsAttention(ctx, at, err); markErr != nil {
 				return report, fmt.Errorf("marking deployment %d as needing attention (%v): %w", at.DeploymentID, err, markErr)

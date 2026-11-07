@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -62,9 +63,10 @@ type doApp struct {
 }
 
 type doDeployment struct {
-	ID       string `json:"id"`
-	Phase    string `json:"phase"`
-	Cause    string `json:"cause"`
+	ID       string  `json:"id"`
+	Phase    string  `json:"phase"`
+	Cause    string  `json:"cause"`
+	Spec     AppSpec `json:"spec"`
 	Progress struct {
 		Steps []doStep `json:"steps"`
 	} `json:"progress"`
@@ -96,8 +98,8 @@ func (d *Driver) findApp(ctx context.Context, c *Client, name string) (*doApp, e
 }
 
 // reconcile creates or updates the app with the spec and waits for the
-// deployment to be ACTIVE. Admission permits one execution for the key;
-// subsequent recovery uses Resume with the recorded provider identifiers.
+// deployment to be ACTIVE. The owner admits execution and its one restart
+// retry; observation uses Resume with the recorded provider identifiers.
 func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation int64, art deploy.Artifact, key string, logf func(string, ...any), checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 	decoded, err := decodeAppArtifact(art)
 	if err != nil {
@@ -111,7 +113,12 @@ func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
-	spec := decoded.Wire
+	spec := decoded.Spec
+	marker, err := json.Marshal(recoveryMark{HealthReceipt: receipt, Generation: generation, Readiness: decoded.Readiness, Release: expectedRelease(art.Source), ArtifactKind: art.Kind})
+	if err != nil {
+		return deploy.Observation{}, err
+	}
+	spec.Envs = append(spec.Envs, doEnv{Key: recoveryEnv, Value: string(marker), Scope: "RUN_TIME", Type: "GENERAL"})
 	name := decoded.Spec.Name
 	app, err := d.findApp(ctx, c, name)
 	if err != nil {
@@ -274,17 +281,21 @@ func (d *Driver) finish(ctx context.Context, c *Client, appID, name string, dep 
 		Handle: map[string]any{"appId": app.ID, "appName": name, "deploymentId": dep.ID}}, nil
 }
 
-// Resume only observes the exact app and deployment checkpointed by the
-// original response. An app name or whichever deployment is pending is not proof.
+// Resume observes the recorded deployment, or rediscovers its stamped generation
+// when the apply response was lost. An unrelated active deployment is never proof.
 func (d *Driver) resume(ctx context.Context, p deploy.Placement, generation int64, noted map[string]any, logf func(string, ...any)) (deploy.Observation, error) {
 	appID, _ := noted["appId"].(string)
 	name, _ := noted["appName"].(string)
 	depID, _ := noted["deploymentId"].(string)
-	if appID == "" {
-		return deploy.Observation{}, errors.New("AppTown restarted before the platform named the app; inspect the provider before resolving this attempt")
-	}
-	if depID == "" {
-		return deploy.Observation{}, errors.New("AppTown has no recorded deployment identity; cannot adopt the app's current or pending deployment")
+	if appID == "" || depID == "" {
+		recovered, err := d.rediscover(ctx, p, generation, name, appID)
+		if err != nil {
+			return deploy.Observation{}, err
+		}
+		noted = recovered
+		appID, _ = noted["appId"].(string)
+		depID, _ = noted["deploymentId"].(string)
+		name, _ = noted["appName"].(string)
 	}
 	question, err := checkpointReadiness(noted)
 	if err != nil {

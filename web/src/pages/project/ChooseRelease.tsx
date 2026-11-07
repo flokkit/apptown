@@ -27,7 +27,8 @@ export function ChooseRelease({ slug, name, displayLabel, releases, current, cho
         const ran = releases.filter(r => r.bundleId === bundle.id && r.state === 'released')
         // The first release records the changes new in this bundle; a later
         // redeploy can have no new changes on its destination.
-        const selected = ran.at(-1)
+        const selected = ran.at(-1) ?? releases.find(r => r.bundleId === bundle.id && r.state === 'failed')
+        const failed = releases.find(r => r.bundleId === bundle.id && r.deployment === name)?.state === 'failed' ? releases.find(r => r.bundleId === bundle.id && r.deployment === name) : undefined
         const now = [...new Set(ran.filter(r => r.serving).map(r => r.deployment))]
         const uncertain = [...new Set(ran.filter(r => r.observed && releases.find(latest => latest.deployment === r.deployment && latest.state === 'released')?.id === r.id).map(r => r.deployment))]
         const before = [...new Set(ran.filter(r => !r.serving && !now.includes(r.deployment) && !uncertain.includes(r.deployment)).map(r => r.deployment))]
@@ -37,6 +38,7 @@ export function ChooseRelease({ slug, name, displayLabel, releases, current, cho
           {now.length > 0 && <div>Runs on {now.map(deploymentLabel).join(', ')}.</div>}
           {uncertain.length > 0 && <div>Last deployed on {uncertain.map(deploymentLabel).join(', ')}; current state unknown.</div>}
           {before.length > 0 && <div>Previously ran on {before.map(deploymentLabel).join(', ')}.</div>}
+          {failed && <p>Release {failed.number} failed{failed.failure ? `: ${failed.failure}` : '.'}</p>}
           {ran.length === 0 && <div>Has not run on a deployment.</div>}
           <code className="small muted">{bundle.contractRevision.slice(0, 12)}</code>
           <div><button disabled={!current || !bundles.current || !deployments.current} onClick={() => onChoose(selected ? { release: selected } : { bundle })}>Deploy</button></div>

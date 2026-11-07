@@ -68,6 +68,7 @@ type State struct {
 	// running now, "" when none is.
 	Collection             string
 	Databases, Apps, Specs []map[string]any
+	Deployments            map[string][]map[string]any
 	// FrontDoor makes each app's live URL a path on this fake
 	// (/apps/<name>), where it answers as the public service's image would:
 	// ReleasePath answers the identity its spec gives that service
@@ -248,6 +249,14 @@ func (f *API) SeedDatabase(database map[string]any) {
 }
 
 // SeedApp selects provider state independently of AppTown's persisted placement.
+// RemoveApp simulates a provider-confirmed absence before recovery.
+func (f *API) RemoveApp(id string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.state.Apps = slices.DeleteFunc(f.state.Apps, func(app map[string]any) bool { return app["id"] == id })
+	delete(f.state.Deployments, id)
+}
+
 func (f *API) SeedApp(id, active, pending string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -675,6 +684,12 @@ func (f *API) Handler() http.Handler {
 	newDeployment := func(r *http.Request, app map[string]any) {
 		f.state.DeploymentGeneration++
 		dep := map[string]any{"id": "dep-" + strconv.Itoa(f.state.DeploymentGeneration), "phase": "ACTIVE"}
+		dep["spec"] = app["spec"]
+		if f.state.Deployments == nil {
+			f.state.Deployments = map[string][]map[string]any{}
+		}
+		id := app["id"].(string)
+		f.state.Deployments[id] = append(f.state.Deployments[id], dep)
 		app["pending_deployment"] = dep // the response names the deployment this spec caused
 		app["active_deployment"] = dep
 		name := app["spec"].(map[string]any)["name"].(string)
@@ -766,6 +781,11 @@ func (f *API) Handler() http.Handler {
 			}
 		}
 		j(w, 404, map[string]any{"id": "not_found"})
+	})
+	mux.HandleFunc("GET /v2/apps/{id}/deployments", func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		j(w, 200, page(r, "deployments", f.state.Deployments[r.PathValue("id")]))
 	})
 	mux.HandleFunc("GET /v2/apps/{id}/deployments/{dep}", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()

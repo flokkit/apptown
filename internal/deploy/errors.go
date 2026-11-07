@@ -7,6 +7,10 @@ import (
 	"net/url"
 )
 
+// ErrNotApplied means observation found no completed version for this generation.
+// It permits one restart retry; it is not a confirmed provider rejection.
+var ErrNotApplied = errors.New("the interrupted deployment has not come up")
+
 // terminalError marks confirmed rejection by a deployment provider.
 type terminalError struct{ error }
 

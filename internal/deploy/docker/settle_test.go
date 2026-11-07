@@ -10,16 +10,10 @@ import (
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
-// Every way a release on a Docker host can end without a known outcome
-// leaves a record that a later look can settle: whatever the host answers
-// about the attempt's container, Resume says applied or failed. Only a host
-// that cannot be asked leaves it unknown, for the next look. An attempt
-// nothing can ever settle blocks every release and take-down of its
-// deployment.
-//
-// Kills: Resume leaving any answered case unknown (a missing boot record,
-// a container replaced or stopped).
-func TestEveryUnsettledDockerAttemptCanBeSettled(t *testing.T) {
+// Every interrupted Docker attempt can be observed as applied, confirmed failed,
+// or not applied yet (permitting the owner's single retry). An unavailable host
+// stays unknown; it never proves failure.
+func TestEveryUnsettledDockerAttemptCanBeObservedOrRetried(t *testing.T) {
 	t.Parallel()
 	c, err := appcontract.Parse([]byte("app:\n  game:\n    static: .\n    public: true\n"))
 	if err != nil {
@@ -93,7 +87,7 @@ func TestEveryUnsettledDockerAttemptCanBeSettled(t *testing.T) {
 			}
 			for answer, host := range answers {
 				o, err := resume(context.Background(), Scope{Client: host}, place, generation, noted)
-				if err != nil && !deploy.IsTerminal(err) {
+				if err != nil && !deploy.IsTerminal(err) && !errors.Is(err, deploy.ErrNotApplied) {
 					t.Fatalf("%s: nothing can settle it: %v", answer, err)
 				}
 				if err == nil && (answer != "running as booted" || o.Generation != generation) {

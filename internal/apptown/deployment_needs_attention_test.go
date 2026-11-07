@@ -126,8 +126,8 @@ func TestARefusedSettlementIsFlaggedAndCheckAgainSettlesIt(t *testing.T) {
 
 // Check again observes an uncertain attempt on its target and settles what
 // it sees: the container its boot recorded running with that image settles
-// it applied; the container gone settles it failed; a host that cannot be
-// asked leaves it uncertain, still needing attention. Each check is in the
+// it applied; a missing container or an unavailable host leaves it uncertain
+// for the recovery job. Each check is in the
 // ledger with who pressed it and what was observed.
 func TestCheckAgainSettlesWhatItObserves(t *testing.T) {
 	t.Parallel()
@@ -176,8 +176,8 @@ func TestCheckAgainSettlesWhatItObserves(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := map[string]deployment.AttemptState{"running": deployment.AttemptDone, "gone": deployment.AttemptFailed, "unreachable": deployment.AttemptUncertain}[observed]
-			wantReadiness := map[string]deployment.Readiness{"running": deployment.Reconciled, "gone": deployment.ReadinessFailed, "unreachable": deployment.ReadinessUncertain}[observed]
+			want := map[string]deployment.AttemptState{"running": deployment.AttemptDone, "gone": deployment.AttemptUncertain, "unreachable": deployment.AttemptUncertain}[observed]
+			wantReadiness := map[string]deployment.Readiness{"running": deployment.Reconciled, "gone": deployment.ReadinessUncertain, "unreachable": deployment.ReadinessUncertain}[observed]
 			if status != want || readinessOf(t, a, env) != wantReadiness {
 				t.Fatalf("observed %s: attempt %s readiness %s; result %+v", observed, status, readinessOf(t, a, env), result)
 			}
@@ -261,13 +261,9 @@ func TestAReleaseWhoseMigrationFailsEndsFailed(t *testing.T) {
 
 }
 
-// An attempt left uncertain with no record that its new version came up
-// (the host stopped answering right after the boot, as when AppTown stops
-// mid-boot) is settled failed by Check again once the host answers, and
-// the deployment takes a new release.
-//
-// Kills: Resume leaving an attempt without a boot record uncertain forever.
-func TestCheckAgainFailsAnAttemptWithNoRecordOfItsBoot(t *testing.T) {
+// A matching running generation finishes an interrupted release even if the
+// host stopped answering before AppTown could record its ready proof.
+func TestCheckAgainFinishesAMatchingVersionWithoutAReadyRecord(t *testing.T) {
 	t.Parallel()
 	a, fake := bootWorld(t)
 	testAdministrator(t, a, "alice")
@@ -289,8 +285,8 @@ func TestCheckAgainFailsAnAttemptWithNoRecordOfItsBoot(t *testing.T) {
 	if err != nil || len(result.Checked) != 1 {
 		t.Fatalf("check again: %+v %v", result, err)
 	}
-	if status := attemptStatus(t, a, result.Checked[0].Attempt); status != deployment.AttemptFailed {
-		t.Fatalf("an attempt with no boot record: %s (%+v)", status, result.Checked[0])
+	if status := attemptStatus(t, a, result.Checked[0].Attempt); status != deployment.AttemptDone {
+		t.Fatalf("a running attempt with no ready record: %s (%+v)", status, result.Checked[0])
 	}
 	if r := readinessOf(t, a, env); r == deployment.ReadinessUncertain {
 		t.Fatalf("readiness still %s", r)
