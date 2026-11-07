@@ -5,7 +5,8 @@ checks: [{"name": "admin-ships-whole", "expects": "a routed Django admin has col
 ---
 The application is Django: the ORM and migrations, the framework's forms and
 auth, Postgres underneath; its pages come from the project's UI pack. The pack seeds the Dockerfile, ignore rules, contract,
-`secretspec.toml`, `app/deploy_settings.py` and `app/health.py` with its test;
+`secretspec.toml`, `requirements-test.txt`, `app/test_settings.py`,
+`app/deploy_settings.py` and `app/health.py` with its test;
 the app comes from uv and Django's own generator. A project adopted without
 those seeded files writes the same ones.
 
@@ -13,6 +14,7 @@ those seeded files writes the same ones.
 
     uv init --bare --name app
     uv add django gunicorn whitenoise psycopg
+    uv add --dev -r requirements-test.txt
     uv run django-admin startproject app .
 
 Commit `pyproject.toml` and `uv.lock` (the image installs from the lockfile).
@@ -22,12 +24,37 @@ scan). Then: end `app/settings.py` with
 settings below with `app.health.healthz` first in `MIDDLEWARE`; whitenoise's
 middleware right after `SecurityMiddleware` and
 `STATIC_ROOT = BASE_DIR / "staticfiles"`; one test. `make test` runs
-`uv run python manage.py test`: keep it running the whole suite. The
+`uv run python manage.py test --settings=app.test_settings`: keep it running the whole suite. The
 starter's Makefile ships its `make test` target commented out until the app
 exists; the change that writes the app uncomments it and declares
 `test: ["make test"]` on the part in `.apptown/app.yaml` (the landing's tests
 step fails for a part built with python while it declares no tests).
-Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
+Each command must work in a clean checkout: landing uses a fresh folder, so
+`make test` starts with `uv sync --frozen`, including the test dependencies.
+
+**Record test counts.** Write one JUnit XML file to `$APPTOWN_TEST_REPORT`
+and keep readable output in the log. Use Django's `manage.py test` with
+[`unittest-xml-reporting`'s runner](https://github.com/xmlrunner/unittest-xml-reporting#django-support)
+to keep Django discovery and database setup. `requirements-test.txt` pins
+`unittest-xml-reporting==4.0.0`. Without the seed, add that dev dependency and
+write `app/test_settings.py`:
+
+    import os
+    from app.settings import *  # noqa: F401,F403
+
+    TEST_RUNNER = "xmlrunner.extra.djangotestrunner.XMLTestRunner"
+    TEST_OUTPUT_DIR = os.path.dirname(os.environ["APPTOWN_TEST_REPORT"]) or "."
+    TEST_OUTPUT_FILE_NAME = os.path.basename(os.environ["APPTOWN_TEST_REPORT"])
+    TEST_OUTPUT_VERBOSE = 2
+
+Adapt `app.settings` to the project's module. Keep report settings out of
+deployment settings: the running app has no report path. AppTown supplies it
+for tests; locally use `APPTOWN_TEST_REPORT=/tmp/django-tests.xml make test`.
+If pytest already runs the suite, keep its discovery and declare
+`uv sync --frozen && uv run pytest --junitxml="$APPTOWN_TEST_REPORT"` instead.
+Never redirect readable output into the XML file. Missing counts leave passing
+tests “passed with notes”.
+
 The image migrates at start and serves with gunicorn (`runserver` is development only);
 both stages are `python:3.12-slim`, never the full `python` image. The seeded
 `.apptown/app.yaml` declares the web part, `/healthz` and the Postgres need.

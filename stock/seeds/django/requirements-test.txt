@@ -1,0 +1,2 @@
+# Import into the project's dev dependencies with uv add --dev -r requirements-test.txt.
+unittest-xml-reporting==4.0.0

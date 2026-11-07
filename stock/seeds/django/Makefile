@@ -4,10 +4,13 @@
 # on the part in .apptown/app.yaml. An empty starter declares neither, so
 # the landing's tests step is not applicable.
 # Keep the target running the whole suite as the app grows.
+# Install the committed dependencies in a fresh tests-step checkout.
+# AppTown sets APPTOWN_TEST_REPORT; locally, set it to an output file too.
 # Settings refuse to load without DJANGO_SECRET_KEY. AppTown gives the
 # tests a generated one; where none is set (your own workspace), the
 # target generates a throwaway for this run, so no key is ever written down.
 # .PHONY: without it, a folder named test makes make skip the target.
 #.PHONY: test
 #test:
-#	DJANGO_SECRET_KEY="$${DJANGO_SECRET_KEY:-$$(uv run python -c 'import secrets; print(secrets.token_urlsafe(50))')}" uv run python manage.py test
+#	uv sync --frozen
+#	DJANGO_SECRET_KEY="$${DJANGO_SECRET_KEY:-$$(uv run python -c 'import secrets; print(secrets.token_urlsafe(50))')}" uv run python manage.py test --settings=app.test_settings
