@@ -158,12 +158,11 @@ func (s *Service) List(ctx context.Context, projectID ids.ID) ([]Summary, error)
 	}
 	out := make([]Summary, len(records))
 	for i, r := range records {
-		release, err := s.Releases.LastReleasedForDeployment(ctx, r.deployment.ID)
-		if found, err := database.Lookup(err); err != nil {
+		release, err := s.releaseForGeneration(ctx, r.deployment)
+		if err != nil {
 			return nil, err
-		} else if found {
-			r.summary.ServingRelease = release
 		}
+		r.summary.ServingRelease = release
 		r.summary.Observation, err = s.displayObservation(ctx, r)
 		if err != nil {
 			return nil, err

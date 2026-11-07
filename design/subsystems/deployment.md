@@ -1249,6 +1249,18 @@ without containers use their witnessed runtime reading. A project is working
 only when all its standing deployments are working; its roll-up names the
 deployment and reason that need attention. Previews do not qualify that roll-up.
 
+While a release attempt is open, its recorded stage and release number are the
+status, or its recorded failure reason. Runtime readings do not qualify that
+answer. Its serving-release text names the attempt's release. After settlement,
+the latest reading supplies status. If it predates the completed apply, status
+says “waiting” with “release N live — first check pending” until a reading arrives. Advancing
+the clock alone cannot end that wait. Readiness stays in the attempt's check
+stage and the app's health declaration.
+
+The server composes reasons and freshness words once; an unread deployment is
+not an old reading. Browsers format times and render this answer without
+classifying the runtime again.
+
 The host observer collects all containers together once per host sweep, with one
 listing and one batch read of the listed containers. Diagnostics and deployment
 status derive part presence and process facts from that stored container section;

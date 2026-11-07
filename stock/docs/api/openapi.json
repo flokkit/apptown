@@ -2232,6 +2232,10 @@
       },
       "DeploymentStatus": {
         "properties": {
+          "appliedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
           "checkedAt": {
             "format": "date-time",
             "type": "string"
@@ -2242,6 +2246,12 @@
           "retryAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "servingRelease": {
+            "type": "string"
+          },
+          "servingReleaseNumber": {
+            "type": "integer"
           },
           "stale": {
             "type": "boolean"

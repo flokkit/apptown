@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../../data'
 import type { DeploymentView } from '../../../wire.gen'
-import { DeploymentsTab, EnvCard, RetainedRow, allowanceWords, tearDownWords } from './Deployments'
+import { DeploymentRow, DeploymentsTab, EnvCard, RetainedRow, allowanceWords, tearDownWords } from './Deployments'
 import type { Retained } from '../../../targets'
 
 // Record ids are UUIDv7 strings.
@@ -160,5 +160,22 @@ it('says nothing deploys and how to add a deployment when there is no default ta
  expect(html).toContain('Nothing deploys yet.')
  expect(html).toContain('New deployment')
  expect(html).toContain('No deployment target has been offered to this project.')
+ client.clear()
+})
+
+it.each(['row', 'card'].flatMap(view => ['release 18 starting', 'release 18 checking', 'release 18 live — first check pending'].map(reason => [view, reason])))('uses the server answer in the %s: %s', (view, reason) => {
+ const client = newQueryClient()
+ const word = reason.includes('pending') ? 'waiting' : 'deploying'
+ const env = {name:'main', kind:'standing', feed:'main', feedConfirmed:true, observation:'unknown', observationStale:true, status:{word, reason, appliedAt:reason.includes('pending') ? '2026-11-07T06:32:39Z' : undefined, stale:false, servingReleaseNumber:18, servingRelease:'Serving release 18'}, servingRelease:{number:17}, lastApplied:{at:'2026-11-07T06:32:39Z', generation:16}} as DeploymentView
+ const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="game" env={env} /> : <EnvCard slug="game" env={env} onChanged={()=>{}} />}</MemoryRouter></QueryClientProvider>)
+ const text = html.replace(/<[^>]*>/g, '')
+ expect(text).toContain(word)
+ if (word === 'waiting') expect(text).not.toContain('deploying')
+ expect(text).toContain(reason)
+ expect(text).toContain('Serving release 18')
+ expect(text.split(reason)).toHaveLength(2)
+ expect(text).not.toMatch(/unknown|not checked yet|Not checked yet|old reading/)
+ expect(html).toContain('/projects/game/releases/18')
+ expect(html).not.toContain('/projects/game/releases/17')
  client.clear()
 })

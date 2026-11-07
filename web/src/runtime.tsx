@@ -23,9 +23,10 @@ export function failedRuntimeRefresh<T extends RuntimeObservation>(answer: T, re
 
 // The browser formats the owner's answer; it never qualifies runtime evidence.
 export function statusProps(status: DeploymentStatus) {
-  const checked = status.checkedAt ? `checked ${fmtLastRead(Date.parse(status.checkedAt))}` : 'not checked yet'
+  const checked = status.checkedAt ? `checked ${fmtLastRead(Date.parse(status.checkedAt))}` : ''
+  const applied = status.appliedAt ? `applied ${fmtStamp(status.appliedAt)}` : ''
   const retry = status.retryAt ? ` · next check ${new Date(status.retryAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''
-  return { word: status.word, stacked: true, help: `${status.reason ? `${status.reason} · ` : ''}${checked}${status.stale ? ' · old reading' : ''}${retry}` }
+  return { word: status.word, stacked: true, help: [status.reason, applied, checked].filter(Boolean).join(' · ') + retry }
 }
 
 export function RuntimeStatus({ observation }: { observation: RuntimeObservation }) {

@@ -3079,6 +3079,9 @@ export type RecoveryResult = {
 }
 
 export type DeploymentStatus = {
+  appliedAt?: string
+  servingReleaseNumber?: number
+  servingRelease?: string
   word: ProgressLabel
   reason: string
   checkedAt?: string
