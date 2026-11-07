@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/progress"
 )
 
@@ -54,18 +53,15 @@ func (h RunProgress) StepLive(w http.ResponseWriter, r *http.Request) {
 		WriteJSON(w, 200, StepProgress{Running: false, Status: &observed.Step.Status, Lines: lines, Total: len(lines)})
 		return
 	}
-	stage, _ := deploy.ParseDeployStage(feed.Stage)
-	WriteJSON(w, 200, StepProgress{Stage: stage, Running: true, Lines: feed.Lines, Total: feed.Total, ElapsedMs: &feed.ElapsedMs, StageElapsedMs: &feed.StageElapsedMs})
+	WriteJSON(w, 200, StepProgress{Running: true, Lines: feed.Lines, Total: feed.Total, ElapsedMs: &feed.ElapsedMs})
 }
 
 // StepProgress is a step's live output. A finished step carries its status;
-// a running one how long it and its current named stage have run.
+// a running one how long it has run.
 type StepProgress struct {
-	StageElapsedMs *int64              `json:"stageElapsedMs,omitempty"`
-	Stage          deploy.DeployStage  `json:"stage,omitempty"`
-	Running        bool                `json:"running"`
-	Status         *workflow.StepState `json:"status,omitempty"`
-	Lines          []string            `json:"lines"`
-	Total          int                 `json:"total"`
-	ElapsedMs      *int64              `json:"elapsedMs,omitempty"`
+	Running   bool                `json:"running"`
+	Status    *workflow.StepState `json:"status,omitempty"`
+	Lines     []string            `json:"lines"`
+	Total     int                 `json:"total"`
+	ElapsedMs *int64              `json:"elapsedMs,omitempty"`
 }

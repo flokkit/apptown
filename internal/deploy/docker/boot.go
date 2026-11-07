@@ -42,8 +42,6 @@ type BootRequest struct {
 	// Allowed is required: a current permission check repeated before effects,
 	// or AuthorisedWhenRequested for an owner that authorizes at request time.
 	Allowed func(context.Context) error
-	// Stage reports deploy milestones when the boot enters that work. Nil disables it.
-	stage func(deploy.DeployStage)
 	// Log reports phase entry. It receives no environment values or command output.
 	// Nil disables progress reporting without changing boot behavior.
 	log          deploy.Logf
@@ -478,8 +476,8 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		}
 	}
 
-	if t.stage != nil {
-		t.stage(deploy.Starting)
+	if err := deploy.ReportStage(ctx, deploy.Starting); err != nil {
+		return res, &BootError{Phase: PhaseNeeds, Err: err}
 	}
 	if err := allowed(ctx); err != nil {
 		return res, &BootError{Phase: PhaseNeeds, Err: err}
@@ -565,8 +563,8 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	if t.stopped {
 		return res, nil
 	}
-	if t.stage != nil {
-		t.stage(deploy.Checking)
+	if err := deploy.ReportStage(ctx, deploy.Checking); err != nil {
+		return res, &BootError{Phase: PhaseApp, Err: err}
 	}
 	t.logf("Checking application readiness")
 	if t.Sealed != nil {

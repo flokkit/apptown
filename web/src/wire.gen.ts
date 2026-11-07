@@ -1567,6 +1567,12 @@ export type ReleaseListed = {
   deploymentLabel: string
   decision: ReleaseDecision
   statusLabel: ReleaseLabel
+  lastStage?: DeployStage
+  progressUncertain?: boolean
+  stage?: DeployStage
+  stageEnteredAt?: string
+  stageElapsedMs?: number | null
+  failedStage?: DeployStage
   rollbackOf?: string | null
   restoreBackupId?: string | null
   approvalRole: string
@@ -2117,8 +2123,6 @@ export type StepInterrupted = {
 }
 
 export type StepProgress = {
-  stageElapsedMs?: number | null
-  stage?: DeployStage
   running: boolean
   status?: StepState | null
   lines: string[]
@@ -3231,6 +3235,12 @@ export type LimitCount = {
 }
 
 export type Release = {
+  lastStage?: DeployStage
+  progressUncertain?: boolean
+  stage?: DeployStage
+  stageEnteredAt?: string
+  stageElapsedMs?: number | null
+  failedStage?: DeployStage
   rollbackOf?: string | null
   restoreBackupId?: string | null
   approvalRole: string
@@ -4169,6 +4179,8 @@ export type ReleaseBundleView = {
   init: Record<string, string>
 }
 
+export type DeployStage = "preparing" | "backing-up" | "building" | "starting" | "checking" | "live"
+
 export type ReleaseApproval = {
   actor: StandingActor
   at: string
@@ -4380,8 +4392,6 @@ export type CheckReading = {
   checks?: checkReceiptView[]
   unreadable?: string
 }
-
-export type DeployStage = "preparing" | "backing-up" | "building" | "starting" | "checking" | "live"
 
 export type SystemWorkflowBinding = {
   stock: string

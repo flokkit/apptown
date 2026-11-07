@@ -222,7 +222,7 @@ func (s *Outcomes) FailUnstartedRelease(ctx context.Context, releaseID ids.ID, c
 		if admitted {
 			return "", fmt.Errorf("release %d has a durable deployment attempt; settle its outcome", releaseID)
 		}
-		changed, err := queries.FailUnstartedRelease(ctx, releasesql.FailUnstartedReleaseParams{State: ReleaseFailed.String(), ID: releaseID})
+		changed, err := queries.FailUnstartedRelease(ctx, releasesql.FailUnstartedReleaseParams{State: ReleaseFailed.String(), ID: releaseID, At: now})
 		if err != nil {
 			return "", err
 		}

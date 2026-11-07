@@ -14,7 +14,11 @@ INSERT INTO deployment_attempt_inputs(attempt_id, release_id, release_run, revis
   image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied, ingress_json, backup_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: SettleReleaseAttempt :execrows
-UPDATE releases SET state = sqlc.arg(state), deployment_id = sqlc.arg(deployment_id), generation = sqlc.arg(generation),
+UPDATE releases SET state = sqlc.arg(state),
+  failed_stage = CASE WHEN sqlc.arg(released)::boolean THEN '' ELSE stage END,
+  stage = CASE WHEN sqlc.arg(released)::boolean THEN 'live' ELSE stage END,
+  stage_entered_at = CASE WHEN sqlc.arg(released)::boolean THEN sqlc.arg(at)::timestamptz ELSE stage_entered_at END,
+  stage_finished_at = sqlc.arg(at)::timestamptz, deployment_id = sqlc.arg(deployment_id), generation = sqlc.arg(generation),
   released_at = CASE WHEN sqlc.arg(released)::boolean THEN COALESCE(released_at,sqlc.arg(at)::timestamptz) ELSE released_at END,
   notes = CASE WHEN sqlc.arg(released)::boolean THEN sqlc.arg(notes)::text ELSE notes END,
   artifact_hash = CASE WHEN sqlc.arg(released)::boolean THEN sqlc.arg(artifact_hash)::text ELSE artifact_hash END,
@@ -31,7 +35,7 @@ SELECT id FROM deployments WHERE id = $1 FOR UPDATE;
 SELECT EXISTS(SELECT 1 FROM deployment_attempt_inputs WHERE release_id = $1);
 
 -- name: FailUnstartedRelease :execrows
-UPDATE releases SET state = sqlc.arg(state) WHERE id=sqlc.arg(id);
+UPDATE releases SET state = sqlc.arg(state), failed_stage = stage, stage_finished_at = sqlc.arg(at)::timestamptz WHERE id=sqlc.arg(id);
 
 -- name: LockReleaseProject :one
 SELECT id FROM projects WHERE id=$1 FOR UPDATE;
@@ -42,7 +46,7 @@ SELECT EXISTS(SELECT 1 FROM releases WHERE project_id=sqlc.arg(project_id) AND s
 
 -- name: CreateRelease :one
 INSERT INTO releases(id, project_id,number,state,deployment,approved_by,run_id,created_at,released_at,
-  notes,commit_sha,source_sha,bundle_id,deployment_id,backup_id)
+  notes,commit_sha,source_sha,bundle_id,deployment_id,backup_id,stage,stage_entered_at)
 VALUES (sqlc.arg(id), sqlc.arg(project_id),
   (SELECT COALESCE(MAX(r.number),0)+1 FROM releases r WHERE r.project_id=sqlc.arg(project_id)),
   sqlc.arg(state),
@@ -52,7 +56,7 @@ VALUES (sqlc.arg(id), sqlc.arg(project_id),
   CASE WHEN sqlc.arg(from_branch)::boolean THEN (SELECT b.id FROM release_bundles b WHERE b.project_id=sqlc.arg(project_id)
     AND b.contract_revision=sqlc.arg(revision) ORDER BY b.id DESC LIMIT 1)
     ELSE sqlc.arg(bundle_id)::uuid END,
-  sqlc.arg(deployment_id)::uuid, NULL)
+  sqlc.arg(deployment_id)::uuid, NULL, 'preparing', sqlc.arg(at)::timestamptz)
 RETURNING id,number;
 
 -- name: LinkReleaseChanges :one
@@ -114,3 +118,7 @@ AND NOT EXISTS (
   WHERE prior.change_id=rc.change_id AND p.deployment_id=r.deployment_id
     AND p.project_id=r.project_id AND p.number<r.number AND p.state='released'
 );
+
+-- name: RecordReleaseStage :execrows
+UPDATE releases SET stage = sqlc.arg(stage), stage_entered_at = sqlc.arg(at)::timestamptz
+WHERE id = sqlc.arg(id) AND state = 'releasing' AND stage <> sqlc.arg(stage);

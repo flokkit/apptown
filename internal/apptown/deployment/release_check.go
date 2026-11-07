@@ -17,7 +17,7 @@ func (s *Service) CheckRelease(ctx context.Context, id ids.ID) error {
 	if err != nil {
 		return err
 	}
-	rel, err := releaseRecord(row.Release, nil)
+	rel, err := s.Releases.record(row.Release, nil)
 	if err != nil {
 		return err
 	}

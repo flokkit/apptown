@@ -3828,6 +3828,35 @@ app:
 		t.Fatalf("camera approval request: %+v %v", waitingRelease, err)
 	}
 	moveClock(a, -a.cfg.clock.ahead)
+	// Seed held release jobs on the existing disposable apps. There is no
+	// owner operation to pause a real job at an arbitrary provider milestone.
+	// sql-guarantee: only this camera fixture supplies the persisted milestone;
+	// all browser reads and outcome settlement use the production owners.
+	for i, stage := range []deploy.DeployStage{deploy.Preparing, deploy.BackingUp, deploy.Building, deploy.Starting, deploy.Checking, deploy.Live, deploy.Starting} {
+		dep := captureDeps[i+1]
+		rel, err := a.Deployment.Releases.Start(ctx, deployment.ReleaseDraft{Source: deployment.ReleaseFromBundle, BundleID: last.BundleID, ProjectID: project.ID, DeploymentID: dep.ID, Deployment: dep.Name, Revision: strings.TrimSpace(string(head)), Actor: "sam"}, "Local deployment progress capture")
+		if err != nil {
+			t.Fatal(err)
+		}
+		// sql-guarantee: hold the release at a provider milestone; no owner operation pauses jobs.
+		if _, err := a.DB.SQL().ExecContext(ctx, `UPDATE releases SET stage=$1, stage_entered_at=$2 WHERE id=$3`, stage.String(), a.cfg.clock.Now().Add(-15*time.Second), rel.ID); err != nil {
+			t.Fatal(err)
+		}
+		if i == 5 {
+			attempt, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "camera-progress-live", Inputs: deployment.Inputs{ReleaseID: rel.ID, Revision: strings.TrimSpace(string(head))}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active"}}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if i == 6 {
+			if _, err := a.Deployment.Outcomes.FailUnstartedRelease(ctx, rel.ID, errors.New("The app container exited during startup.")); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
 	if err := a.Deployment.ObserveRuntime(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -4369,22 +4398,11 @@ func assertGarageProgress(t *testing.T, s *tourScene) {
 func (s *tourScene) progress(freeze chan struct{}, frozen <-chan struct{}, daemon *fakeDocker) {
 	t, a := s.t, s.a
 	changes := map[string]*tourChange{}
-	sceneStages := map[string]deploy.DeployStage{
-		"garage-deploy-preparing": deploy.Preparing, "garage-deploy-building": deploy.Building,
-		"garage-deploy-starting": deploy.Starting, "garage-deploy-checking": deploy.Checking,
-		"garage-deploy-live": deploy.Live, "garage-deploy-failed": deploy.Starting,
-	}
-	landingSlugs := []string{"garage-landing", "garage-release", "garage-deploy-preparing", "garage-deploy-building", "garage-deploy-starting", "garage-deploy-checking", "garage-deploy-live", "garage-deploy-failed"}
+	landingSlugs := []string{"garage-landing", "garage-release"}
 	for _, item := range []struct{ slug, title string }{
 		{"garage-landing", "Publish the club notice"},
 		{"garage-work", "Write the next club notice"},
 		{"garage-release", "Release the new club notice"},
-		{"garage-deploy-preparing", "Deployment scene: getting the code ready"},
-		{"garage-deploy-building", "Deployment scene: building the app"},
-		{"garage-deploy-starting", "Deployment scene: starting the app"},
-		{"garage-deploy-checking", "Deployment scene: checking the app answers"},
-		{"garage-deploy-live", "Deployment scene: live"},
-		{"garage-deploy-failed", "Deployment scene: stopped"},
 	} {
 		s.call("sam", "POST", "/api/v1/projects", map[string]string{"slug": item.slug, "name": item.slug})
 		s.call("sam", "POST", "/api/v1/projects/"+item.slug+"/repo", map[string]string{"defaultBranch": "main"})
@@ -4400,14 +4418,7 @@ func (s *tourScene) progress(freeze chan struct{}, frozen <-chan struct{}, daemo
 			original := deps.Runners[kind]
 			deps.Runners[kind] = func(e *workflow.Execution) {
 				id := e.Run().ChangeID
-				sceneSlug := ""
-				for slug := range sceneStages {
-					if changes[slug].ID == id {
-						sceneSlug = slug
-						break
-					}
-				}
-				if sceneSlug == "" && id != changes["garage-work"].ID && id != changes["garage-landing"].ID && id != changes["garage-release"].ID {
+				if id != changes["garage-work"].ID && id != changes["garage-landing"].ID && id != changes["garage-release"].ID {
 					original(e)
 					return
 				}
@@ -4417,29 +4428,7 @@ func (s *tourScene) progress(freeze chan struct{}, frozen <-chan struct{}, daemo
 					t.Error(err)
 					return
 				}
-				if sceneSlug != "" && e.Step().Type == "build" {
-					stage := sceneStages[sceneSlug]
-					switch sceneSlug {
-					case "garage-deploy-live":
-						outcome, err := workflow.EncodeOutcome(workflow.StatusPass, map[string]any{"url": "https://club.example.test", "deployment": "main"}, nil)
-						if err != nil {
-							t.Error(err)
-							return
-						}
-						outcome.Artifacts = []workflow.StepArtifact{{ArtifactDraft: workflow.ArtifactDraft{Kind: "release", Name: "main", Ref: "https://club.example.test"}}}
-						if err := e.Settle(outcome, nil); err != nil {
-							t.Error(err)
-						}
-					case "garage-deploy-failed":
-						if err := e.Settle(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{"failedStage": stage, "reason": "The app container exited during startup. Garage example."}, nil)); err != nil {
-							t.Error(err)
-						}
-					default:
-						a.progress.Start(e.Step().ID)
-						a.progress.SetStage(e.Step().ID, stage.String())
-						a.progress.Append(e.Step().ID, "Garage example: deployment held at "+stage.String())
-					}
-				}
+
 			}
 		}
 	})
@@ -4464,25 +4453,6 @@ func (s *tourScene) progress(freeze chan struct{}, frozen <-chan struct{}, daemo
 		s.call("sam", "POST", fmt.Sprintf("/api/v1/steps/%s/approve", step.ID), map[string]string{"decision": "approve", "adds": shownAdds(t, a, asPerson("sam"), step.ID)})
 	}
 	a.Work.Wait()
-	for slug, stage := range sceneStages {
-		step := s.steps(runs[slug])["build"]
-		want := "running"
-		if slug == "garage-deploy-live" {
-			want = "pass"
-		}
-		if slug == "garage-deploy-failed" {
-			want = "fail"
-		}
-		if step.Status != want {
-			t.Fatalf("%s: deploy %s, want %s", slug, step.Status, want)
-		}
-		if want == "running" {
-			var live httpapi.StepProgress
-			if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/steps/"+step.ID.String()+"/live", nil), &live); err != nil || live.Stage != stage || !live.Running {
-				t.Fatalf("%s: live stage %+v (%v)", slug, live, err)
-			}
-		}
-	}
 
 	previewDone = make(chan struct{})
 	go func() {

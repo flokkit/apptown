@@ -51,7 +51,7 @@ func (q *Queries) AppliedByRelease(ctx context.Context, releaseID ids.ID) (json.
 
 const createRelease = `-- name: CreateRelease :one
 INSERT INTO releases(id, project_id,number,state,deployment,approved_by,run_id,created_at,released_at,
-  notes,commit_sha,source_sha,bundle_id,deployment_id,backup_id)
+  notes,commit_sha,source_sha,bundle_id,deployment_id,backup_id,stage,stage_entered_at)
 VALUES ($1, $2,
   (SELECT COALESCE(MAX(r.number),0)+1 FROM releases r WHERE r.project_id=$2),
   $3,
@@ -61,7 +61,7 @@ VALUES ($1, $2,
   CASE WHEN $10::boolean THEN (SELECT b.id FROM release_bundles b WHERE b.project_id=$2
     AND b.contract_revision=$9 ORDER BY b.id DESC LIMIT 1)
     ELSE $11::uuid END,
-  $12::uuid, NULL)
+  $12::uuid, NULL, 'preparing', $7::timestamptz)
 RETURNING id,number
 `
 
@@ -144,16 +144,17 @@ func (q *Queries) DeploymentInputs(ctx context.Context, attemptID ids.ID) (Deplo
 }
 
 const failUnstartedRelease = `-- name: FailUnstartedRelease :execrows
-UPDATE releases SET state = $1 WHERE id=$2
+UPDATE releases SET state = $1, failed_stage = stage, stage_finished_at = $2::timestamptz WHERE id=$3
 `
 
 type FailUnstartedReleaseParams struct {
 	State string
+	At    time.Time
 	ID    ids.ID
 }
 
 func (q *Queries) FailUnstartedRelease(ctx context.Context, arg FailUnstartedReleaseParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, failUnstartedRelease, arg.State, arg.ID)
+	result, err := q.db.ExecContext(ctx, failUnstartedRelease, arg.State, arg.At, arg.ID)
 	if err != nil {
 		return 0, err
 	}
@@ -440,6 +441,25 @@ func (q *Queries) RecordObservedRelease(ctx context.Context, arg RecordObservedR
 	return number, err
 }
 
+const recordReleaseStage = `-- name: RecordReleaseStage :execrows
+UPDATE releases SET stage = $1, stage_entered_at = $2::timestamptz
+WHERE id = $3 AND state = 'releasing' AND stage <> $1
+`
+
+type RecordReleaseStageParams struct {
+	Stage string
+	At    time.Time
+	ID    ids.ID
+}
+
+func (q *Queries) RecordReleaseStage(ctx context.Context, arg RecordReleaseStageParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, recordReleaseStage, arg.Stage, arg.At, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const releaseDeploymentID = `-- name: ReleaseDeploymentID :one
 SELECT deployment_id FROM releases WHERE id = $1
 `
@@ -516,20 +536,24 @@ func (q *Queries) ReleaseInFlight(ctx context.Context, arg ReleaseInFlightParams
 }
 
 const settleReleaseAttempt = `-- name: SettleReleaseAttempt :execrows
-UPDATE releases SET state = $1, deployment_id = $2, generation = $3,
-  released_at = CASE WHEN $4::boolean THEN COALESCE(released_at,$5::timestamptz) ELSE released_at END,
-  notes = CASE WHEN $4::boolean THEN $6::text ELSE notes END,
-  artifact_hash = CASE WHEN $4::boolean THEN $7::text ELSE artifact_hash END,
-  external_ref = CASE WHEN $4::boolean THEN $8::text ELSE external_ref END
+UPDATE releases SET state = $1,
+  failed_stage = CASE WHEN $2::boolean THEN '' ELSE stage END,
+  stage = CASE WHEN $2::boolean THEN 'live' ELSE stage END,
+  stage_entered_at = CASE WHEN $2::boolean THEN $3::timestamptz ELSE stage_entered_at END,
+  stage_finished_at = $3::timestamptz, deployment_id = $4, generation = $5,
+  released_at = CASE WHEN $2::boolean THEN COALESCE(released_at,$3::timestamptz) ELSE released_at END,
+  notes = CASE WHEN $2::boolean THEN $6::text ELSE notes END,
+  artifact_hash = CASE WHEN $2::boolean THEN $7::text ELSE artifact_hash END,
+  external_ref = CASE WHEN $2::boolean THEN $8::text ELSE external_ref END
 WHERE id=$9 AND state=$10
 `
 
 type SettleReleaseAttemptParams struct {
 	State        string
-	DeploymentID ids.ID
-	Generation   int64
 	Released     bool
 	At           time.Time
+	DeploymentID ids.ID
+	Generation   int64
 	Notes        string
 	ArtifactHash string
 	ExternalRef  string
@@ -540,10 +564,10 @@ type SettleReleaseAttemptParams struct {
 func (q *Queries) SettleReleaseAttempt(ctx context.Context, arg SettleReleaseAttemptParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, settleReleaseAttempt,
 		arg.State,
-		arg.DeploymentID,
-		arg.Generation,
 		arg.Released,
 		arg.At,
+		arg.DeploymentID,
+		arg.Generation,
 		arg.Notes,
 		arg.ArtifactHash,
 		arg.ExternalRef,

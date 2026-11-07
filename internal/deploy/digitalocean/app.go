@@ -117,6 +117,9 @@ func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err != nil {
 		return deploy.Observation{}, err
 	}
+	if err := deploy.ReportStage(ctx, deploy.Starting); err != nil {
+		return deploy.Observation{}, err
+	}
 	var got struct {
 		App doApp `json:"app"`
 	}
@@ -174,6 +177,9 @@ func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation i
 	logf("the platform's deployment for this generation is %s", strs.ShortSHA(depID))
 	dep, err := d.waitDeployment(ctx, c, app.ID, depID, p.Gate == nil, logf)
 	if err != nil {
+		return deploy.Observation{}, err
+	}
+	if err := deploy.ReportStage(ctx, deploy.Checking); err != nil {
 		return deploy.Observation{}, err
 	}
 	observed, err := d.finish(ctx, c, app.ID, name, dep, generation, question, release, p.Gate != nil, logf)

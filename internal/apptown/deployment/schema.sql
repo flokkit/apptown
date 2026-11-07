@@ -27,6 +27,10 @@ CREATE TABLE IF NOT EXISTS releases (
   superseded_by UUID,
   rollback_of UUID,
   restore_backup_id UUID,
+  stage TEXT NOT NULL DEFAULT '',
+  stage_entered_at TIMESTAMPTZ,
+  failed_stage TEXT NOT NULL DEFAULT '',
+  stage_finished_at TIMESTAMPTZ,
   UNIQUE(project_id, number)
 );
 CREATE TABLE IF NOT EXISTS release_changes (

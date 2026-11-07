@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -63,14 +64,14 @@ func TestEveryReleaseTakesBackupAndKeepsContinuitySeparate(t *testing.T) {
 				t.Fatal(readErr)
 			}
 			if scenario == "backup fails" {
-				if err == nil || rel.State != ReleaseFailed || len(backup.calls) != 1 {
+				if err == nil || rel.State != ReleaseFailed || rel.FailedStage != deploy.BackingUp || len(backup.calls) != 1 {
 					t.Fatalf("backup failure did not stop release: %+v %v %v", rel, backup.calls, err)
 				}
 				if _, n := p.lastStack(t); n != 0 {
 					t.Fatal("backup failure reached provider")
 				}
 			} else {
-				if rel.State != Released || strings.Join(backup.calls, ",") != "before,scheduled backup,continuity" {
+				if rel.State != Released || rel.Stage != deploy.Live || strings.Join(backup.calls, ",") != "before,scheduled backup,continuity" {
 					t.Fatalf("release ordering: %+v %v %v", rel, backup.calls, err)
 				}
 				if (err != nil) != (scenario == "continuity fails") {

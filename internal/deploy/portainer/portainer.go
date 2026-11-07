@@ -387,6 +387,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 			}()
 		}
 	}
+	if err := deploy.ReportStage(ctx, deploy.Starting); err != nil {
+		return out, deploy.Terminal(err)
+	}
 	out, err = (execution{stopped: p.Stopped, config: *cfg, targetID: d.TargetID, deploymentID: p.ID, endpointID: endpointID, stack: stack, prefix: prefix, compose: string(art.Body), url: p.URL, handle: p.Handle, log: logf, owner: d.Owner, diagnostic: diagnostic, allowed: d.Allowed}).execute(ctx, generation, checkpoint)
 	if err != nil || ready == nil {
 		return out, err
@@ -404,6 +407,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	p.URL = ready.URL
 	if p.Stopped {
 		return observeStopped(ctx, cfg, p, expected)
+	}
+	if err := deploy.ReportStage(ctx, deploy.Checking); err != nil {
+		return out, err
 	}
 	return d.awaitReadiness(ctx, cfg, p, expected, *diagnostic)
 }

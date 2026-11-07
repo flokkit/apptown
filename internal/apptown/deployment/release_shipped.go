@@ -46,7 +46,7 @@ func (s *Releases) ShippedBy(ctx context.Context, projectID, changeID ids.ID) (*
 	if out.Commit, err = shippedCommit(ctx, q, rel); err != nil {
 		return nil, err
 	}
-	before, err := releaseRecord(q.ReleasedBefore(ctx, deploymentsql.ReleasedBeforeParams{ProjectID: projectID, Deployment: rel.Deployment, State: Released.String(), Number: rel.Number}))
+	before, err := s.record(q.ReleasedBefore(ctx, deploymentsql.ReleasedBeforeParams{ProjectID: projectID, Deployment: rel.Deployment, State: Released.String(), Number: rel.Number}))
 	if errors.Is(err, sql.ErrNoRows) {
 		return out, nil
 	}
