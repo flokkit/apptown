@@ -81,6 +81,22 @@ const conformanceFixture = await build({
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main style={{padding:18}}><Conformance tab="what-ifs" /></main></MemoryRouter></QueryClientProvider>)
   ` },
 })
+// Real current-state rows: status words must stay whole beside wrapping names.
+const conformanceProjectFixture = await build({
+  absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
+  stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
+    import { createRoot } from 'react-dom/client'
+    import { MemoryRouter } from 'react-router-dom'
+    import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+    import { ProjectPage } from './pages/conformance/ProjectPage'
+    const checks = ['short', 'root-toolchain', 'long-unbroken-check-identifier-abcdefghijklmnopqrstuvwxyz0123456789']
+    const view = {projects:[{slug:'shop',name:'Shop',sentence:'Review incomplete',lanes:{broken:3}}],
+      byProject:{shop:checks.map(check=>({id:check,projectSlug:'shop',evaluator:'llm',lane:'broken',state:'error',statusLabel:'unknown',severity:'medium',block:'tools',version:2,check,detail:'check did not finish: token limit reached'}))},
+      exceptions:{},adjudications:{},priorConfirmations:{},checkDefs:{},openRemediations:[],reviews:[]}
+    window.fetch = async () => new Response('{}')
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main style={{padding:18}}><ProjectPage view={view} slug="shop" readOnly={false} onRunOne={()=>{}} /></main></MemoryRouter></QueryClientProvider>)
+  ` },
+})
 const targetFixture = await build({
   absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
   stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
@@ -213,6 +229,28 @@ try {
       })), `all token controls fit at ${width}, ${size}`)
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `People page fits at ${width}, ${size}`)
       if (out) await page.screenshot({ path: `${out}/people-${width}-${size}.png`, fullPage: true })
+    }
+  }
+  for (const width of [390, 800, 1440]) {
+    for (const size of ['small', 'medium', 'large']) {
+      await page.setViewportSize({ width, height: 844 })
+      await page.goto('http://layout.test/')
+      await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
+      await page.addScriptTag({ content: conformanceProjectFixture.outputFiles[0].text })
+      await page.getByRole('button', { name: 'Re-check', exact: true }).last().waitFor()
+      assert.equal(await page.locator('.chip.unknown').count(), 3)
+      assert.ok(await page.locator('.chip.unknown').evaluateAll(chips => chips.every(chip => {
+        const box = chip.getBoundingClientRect()
+        return box.left >= 0 && box.right <= innerWidth && chip.scrollWidth <= chip.clientWidth + 2
+      })), `current check chips stay whole at ${width}, ${size}`)
+      assert.ok(await page.locator('.project-page-check-row-div').evaluateAll(details => details.every(detail =>
+        detail.scrollWidth <= detail.clientWidth + 1
+      )), `current check evidence wraps at ${width}, ${size}`)
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `current checks fit at ${width}, ${size}`)
+      if (out) for (const theme of ['light', 'dark']) {
+        await page.evaluate(theme => { document.documentElement.dataset.theme = theme }, theme)
+        await page.screenshot({ path: `${out}/conformance-project-${width}-${size}-${theme}.png`, fullPage: true })
+      }
     }
   }
   for (const size of ['medium', 'large']) {
