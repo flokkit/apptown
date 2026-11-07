@@ -312,8 +312,8 @@ func (s *Service) SyncStockPacks(ctx context.Context) SyncCounts {
 }
 
 // waitingStockVersions names each stock pack whose latest version is not
-// the recommended one: a release publishes, and a person recommends after
-// a what-if. The boot log says what waits and the command that moves it.
+// the recommended one: a release publishes, and the version is recommended
+// after a what-if. The boot log says what waits and the command that moves it.
 func (s *Service) waitingStockVersions(ctx context.Context) []string {
 	packs, err := s.packs.published(ctx)
 	if err != nil {
