@@ -10,10 +10,16 @@ Clearing it lets AppTown suggest a new description in the background. Without
 a model, it stays empty. A failed model call keeps the current description. Repeating an unchanged nonempty description keeps its
 current ownership.
 
+If generation leaves the description empty, request another suggestion by
+saving a short description, then clearing it and saving again. The form only
+saves changed fields. Generation does not retry automatically.
+
 API settings edits follow the same rules. They must send the
 `expectedRevision` they read as `settingsRevision`. Generation advances that
 revision when the text changes, so an older draft cannot overwrite it. If the
 settings change while you edit, read the current values before saving again.
+Sending `blurb: ""` explicitly requests generation even if it is already empty.
+An active description job is kept; a finished or failed job allows a new one.
 
 Eval copies keep their fixed description and do not generate suggestions.
 
