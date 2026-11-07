@@ -20,7 +20,6 @@ export function UpdateNote() {
     <div className="card tone-warn small update-note" role="status" style={{ marginBottom: 10 }}>
       {PRODUCT} was updated since this page opened.{' '}
       <button className="subtle" onClick={() => window.location.reload()}>Reload to get the new version</button>
-      <span className="muted"> (it reloads by itself when you go to another page)</span>
     </div>
   )
 }
