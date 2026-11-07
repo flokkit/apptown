@@ -9,6 +9,7 @@ import type { ConformanceFixList, ConformanceHistory, ConformanceView, CheckDefi
 import { fmtWhen } from '../../format'
 import { type Verdict, coveringChange, fixableFindings, BeingFixed, laneOf, shortSha, StateChip, HowJudged, Evidence, useStartRemediation } from './parts'
 import { Section } from '../../Section'
+import { ListRow } from '../../ListRow'
 
 // --- one project ---------------------------------------------------------------------------------
 
@@ -21,24 +22,25 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
   const decision = exceptions.find(d => d.fingerprint === `guidance|${v.block}@${v.version}|${v.check}|`)
   return (
     <>
-      <div className="card row check-row project-page-check-row-card-check-row">
-        <div className="row check-open">
+      <ListRow identity={<>
+        <div className="row row-3">
           {/* A check that has not judged anything is neither a pass nor a problem: it says why instead. */}
-          <span className="row-status">{lane === 'unassessed' && v.state !== 'stale' ? <span className="muted small">not judged yet</span> : <StateChip finding={v.lane === 'findings'} label={v.statusLabel} />}</span>
+          {lane === 'unassessed' && v.state !== 'stale' ? <span className="muted small">not judged yet</span> : <StateChip finding={v.lane === 'findings'} label={v.statusLabel} />}
           <strong>{def?.title || v.check}</strong>
-          <span className="muted small">{v.state === 'stale' ? 'No judgement on the current commit' : lane === 'unassessed' || undecidedAI
-            ? (v.detail ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : 'Not run yet')
-            : [`from ${v.block}`, lane === 'flagged' && prior ? `confirmed before at ${shortSha(prior.sha)} by ${prior.by}` : ''].filter(Boolean).join(' · ')}</span>
         </div>
-        {covered && <BeingFixed change={covered} />}
-        {!readOnly && undecidedAI && <div className="row project-page-check-row-div-2">
+        <span className="muted small">{v.state === 'stale' ? 'No judgement on the current commit' : lane === 'unassessed' || undecidedAI
+          ? (v.detail ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : 'Not run yet')
+          : [`from ${v.block}`, lane === 'flagged' && prior ? `confirmed before at ${shortSha(prior.sha)} by ${prior.by}` : ''].filter(Boolean).join(' · ')}</span>
+      </>}
+        state={covered && <BeingFixed change={covered} />}
+        action={!readOnly && undecidedAI && <>
           <button onClick={onRecheck}>Re-check</button>
           {!decision && <QuietPrompt label="Accept risk" yes="Accept risk"
             ask={<>Accept the risk that {def?.title || v.check} may not be met for {v.block} version {v.version} on this project. This decision covers this check version, until revoked. An undecided result stays undecided.</>}
             fields={[{ key: 'reason', label: 'Reason for accepting this risk', placeholder: 'Reason (required)', required: true }]}
             onYes={({ reason }) => onDecision?.(v, reason.trim())} />}
-        </div>}
-      </div>
+        </>}
+      />
       {(
         <div className="check-results">
           <div className="project-page-check-row-div">
