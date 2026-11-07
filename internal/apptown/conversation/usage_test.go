@@ -127,7 +127,7 @@ func TestHarvestedChatSpendIsTheOpeners(t *testing.T) {
 	ctx := context.Background()
 	people := identity.New(db, identity.Config{})
 	for _, name := range []string{"ops", "alice"} {
-		if _, err := people.EnsureUser(ctx, name); err != nil {
+		if _, err := people.EnsurePerson(ctx, name); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -141,7 +141,7 @@ func TestHarvestedChatSpendIsTheOpeners(t *testing.T) {
 	if err := people.RemoveName(ctx, "alice", testAdmittedPrincipal(t, people, "ops")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := people.EnsureUser(ctx, "alice"); err != nil {
+	if _, err := people.EnsurePerson(ctx, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := recordSession(t, fixtureLines(t))

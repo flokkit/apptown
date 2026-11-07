@@ -47,7 +47,7 @@ func newDeploymentAuthorityWorld(t *testing.T, drivers map[string]deployment.Dri
 		t.Fatal(err)
 	}
 	for _, name := range []string{"owner", "outsider"} {
-		if _, err := identity.EnsureUser(context.Background(), name); err != nil {
+		if _, err := identity.EnsurePerson(context.Background(), name); err != nil {
 			t.Fatal(err)
 		}
 	}

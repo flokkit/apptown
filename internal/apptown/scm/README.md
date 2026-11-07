@@ -162,10 +162,10 @@ reruns anything, and reruns the reconcile step whenever it reruns anything.
 A workflow a landing calls checks the landing's candidate.
 
 A new candidate resets, anywhere in the run, every result that named the old
-one: source gates (tests, scans, guidance conformance, scripts), overrides of
+one: source gates (tests, scans, Standards check, scripts), overrides of
 them, and approvals that were decided or had votes. Each gate names the
 candidate in every outcome, including rework. Scripts in a checked landing run
-on a staged copy of the candidate and commit nothing. Guidance conformance
+on a staged copy of the candidate and commit nothing. Standards check
 stages the candidate from the project's repository, reads its diff and its own
 `.gitignore` files, and does not probe a preview it cannot prove runs the
 candidate (runtime checks are then not judged). Every vote records the

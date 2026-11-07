@@ -21,7 +21,7 @@ func TestAggregateVisibilityPrecedesLimitsAndCallerFilters(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, who := range []string{"reader", "outsider"} {
-		if _, err := accounts.EnsureUser(context.Background(), who); err != nil {
+		if _, err := accounts.EnsurePerson(context.Background(), who); err != nil {
 			t.Fatal(err)
 		}
 	}

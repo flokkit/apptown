@@ -152,7 +152,7 @@ func adoptionPolicyFixture(t *testing.T) (*Service, *identity.Service) {
 		t.Fatal(err)
 	}
 	for _, user := range []string{"owner", "outsider", "boss"} {
-		if _, err := auth.EnsureUser(context.Background(), user); err != nil {
+		if _, err := auth.EnsurePerson(context.Background(), user); err != nil {
 			t.Fatal(err)
 		}
 	}

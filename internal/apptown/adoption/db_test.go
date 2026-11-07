@@ -29,7 +29,7 @@ func testAccounts(t *testing.T, db *database.DB, names ...string) {
 	t.Helper()
 	ids := identity.New(db, identity.Config{})
 	for _, name := range names {
-		if _, err := ids.EnsureUser(context.Background(), name); err != nil {
+		if _, err := ids.EnsurePerson(context.Background(), name); err != nil {
 			t.Fatal(err)
 		}
 	}

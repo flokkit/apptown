@@ -25,12 +25,12 @@ func TestCheckedPolicyAcrossSetupStates(t *testing.T) {
 				if err := s.SeedAdministrator(context.Background(), "boss"); err != nil {
 					t.Fatal(err)
 				}
-			} else if _, err := s.EnsureUser(context.Background(), "boss"); err != nil {
+			} else if _, err := s.EnsurePerson(context.Background(), "boss"); err != nil {
 				// boss has an account but no grant: its role claim alone is refused.
 				t.Fatal(err)
 			}
 			for _, user := range []string{"owner", "outsider", "disabled"} {
-				if _, err := s.EnsureUser(context.Background(), user); err != nil {
+				if _, err := s.EnsurePerson(context.Background(), user); err != nil {
 					t.Fatal(err)
 				}
 			}

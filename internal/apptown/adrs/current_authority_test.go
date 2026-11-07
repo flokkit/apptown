@@ -24,7 +24,7 @@ func TestADRAuthorityAppliesWithoutRouteGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"owner", "outsider"} {
-		if _, err := accounts.EnsureUser(context.Background(), name); err != nil {
+		if _, err := accounts.EnsurePerson(context.Background(), name); err != nil {
 			t.Fatal(err)
 		}
 	}

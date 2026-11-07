@@ -91,7 +91,7 @@ func testIssueToken(s *Service, name, user, role, by string) (string, error) {
 // setup, for tests of ordinary group/account commands.
 func testGrantRoot(t *testing.T, s *Service, name string) {
 	t.Helper()
-	if _, err := s.EnsureUser(context.Background(), name); err != nil {
+	if _, err := s.EnsurePerson(context.Background(), name); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.PutGrant(context.Background(), Spec{SubjectType: "user", Subject: name, Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, By: "test-fixture"}); err != nil {

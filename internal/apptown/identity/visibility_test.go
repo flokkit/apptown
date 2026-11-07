@@ -26,7 +26,7 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 		t.Fatal(err)
 	}
 	for _, name := range []string{"reader", "group-reader", "outsider"} {
-		if _, err := s.EnsureUser(context.Background(), name); err != nil {
+		if _, err := s.EnsurePerson(context.Background(), name); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -145,7 +145,7 @@ func BenchmarkVisibleProjects(b *testing.B) {
 		b.Run(fmt.Sprint(n), func(b *testing.B) {
 			db := databaseSuite.New(b)
 			s := New(db, Config{Projects: project.NewCatalogue(db)})
-			if _, err := s.EnsureUser(context.Background(), "reader"); err != nil {
+			if _, err := s.EnsurePerson(context.Background(), "reader"); err != nil {
 				b.Fatal(err)
 			}
 			if _, err := s.Grant(context.Background(), Spec{SubjectType: "user", Subject: "reader", Capability: string(access.CapProjectRead), Scope: access.ScopeInstance}, ""); err != nil {
@@ -192,7 +192,7 @@ func TestVisibilityFactReadsDoNotGrowWithProjectCount(t *testing.T) {
 			db := testDB(t)
 			catalogue := &countedCatalogue{projectCatalogue: project.NewCatalogue(db)}
 			s := New(db, Config{Projects: catalogue})
-			if _, err := s.EnsureUser(context.Background(), "reader"); err != nil {
+			if _, err := s.EnsurePerson(context.Background(), "reader"); err != nil {
 				t.Fatal(err)
 			}
 			id, err := s.Grant(context.Background(), Spec{SubjectType: "user", Subject: "reader", Capability: string(access.CapProjectRead), Scope: access.ScopeInstance}, "")

@@ -48,12 +48,15 @@ func TestTargetCheckAndRetire(t *testing.T) {
 		t.Fatalf("unreachable: %d %v", code, out)
 	}
 
-	target, err := w.deployment.Targets.Put(context.Background(), &deployment.Target{Name: "spare-box", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, NeedsMode: "emulators", Status: deployment.TargetReady})
+	target, err := w.deployment.Targets.Put(context.Background(), &deployment.Target{Name: "spare-box", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Address: map[string]any{"host": "ssh://tester@127.0.0.1", "keyFrom": "TEST_KEY"}, NeedsMode: "emulators", Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)
 	}
 	pid := w.createProject(t, "tp")
 	if _, err := w.deployment.Deployments.EnsureStanding(t.Context(), pid, "main", target.ID, (deployment.Attributes{}).WithDefaults()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.deployment.Deployments.ReserveHostPort(t.Context(), pid, "main", "target-reader-app", 43210); err != nil {
 		t.Fatal(err)
 	}
 	if err := w.deployment.Targets.Offer(context.Background(), target, "*", deployment.OfferCaps{}, "t"); err != nil {
@@ -64,6 +67,10 @@ func TestTargetCheckAndRetire(t *testing.T) {
 		t.Fatalf("bound target read: %d %v", code, out)
 	}
 	placements := out["target"].(map[string]any)["deployments"].([]any)
+	if len(placements) != 1 || placements[0].(map[string]any)["url"] != "http://127.0.0.1:43210" {
+		t.Fatalf("target reader lost the deployment's published address: %v", placements)
+	}
+
 	if len(placements) != 1 {
 		t.Fatalf("target deployments: %+v", placements)
 	}

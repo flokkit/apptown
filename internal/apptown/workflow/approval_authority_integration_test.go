@@ -84,7 +84,7 @@ func stepAuthorityProjectRunnerFixture(t *testing.T, spec schema.Spec, runners m
 		t.Fatal(err)
 	}
 	for _, user := range []string{"owner", "outsider"} {
-		if _, err := directory.EnsureUser(context.Background(), user); err != nil {
+		if _, err := directory.EnsurePerson(context.Background(), user); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -151,7 +151,7 @@ func stepRollbackFixture(t *testing.T) (*stepAuthorityTestRig, context.Context, 
 	if err := directory.SeedAdministrator(context.Background(), "boss"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := directory.EnsureUser(context.Background(), "owner"); err != nil {
+	if _, err := directory.EnsurePerson(context.Background(), "owner"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := directory.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "owner", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: fmt.Sprint(run.ProjectID), By: "boss"}, ""); err != nil {

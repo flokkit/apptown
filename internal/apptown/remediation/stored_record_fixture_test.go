@@ -75,7 +75,7 @@ func requireStoredWrite(t *testing.T) func(int64, error) {
 func admitPageRun(t *testing.T, db *database.DB, projectID ids.ID, name string, steps []schema.Step, outcomes map[string]workflow.StepState) ids.ID {
 	t.Helper()
 	ctx := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "alice", Via: "session"}, Verified: true, Receipt: "system"})
-	if _, err := identity.New(db, identity.Config{}).EnsureUser(ctx, "alice"); err != nil {
+	if _, err := identity.New(db, identity.Config{}).EnsurePerson(ctx, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	var status workflow.StepState

@@ -178,7 +178,7 @@ func TestPromotionApprovalRechecksRoleBeforeBackup(t *testing.T) {
 			if err := accounts.SeedAdministrator(t.Context(), "alice"); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := accounts.EnsureUser(t.Context(), "manager"); err != nil {
+			if _, err := accounts.EnsurePerson(t.Context(), "manager"); err != nil {
 				t.Fatal(err)
 			}
 			role, err := accounts.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "manager", Role: access.RoleReleaseManager, Scope: access.ScopeProject, ScopeID: w.project.String(), By: "fixture"}, "")

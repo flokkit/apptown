@@ -25,11 +25,11 @@ func TestAccounts(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	d := &directoryStore{db: db}
-	if role, err := d.ensureRole(context.Background(), "drifter"); err != nil || role != "member" {
-		t.Fatalf("ensure: %v %q", err, role)
+	if role, err := d.ensure(context.Background(), "drifter"); err != nil || role.Role != "member" {
+		t.Fatalf("ensure: %v %q", err, role.Role)
 	}
-	if role, err := d.ensureRole(context.Background(), "drifter"); err != nil || role != "member" {
-		t.Fatalf("ensure again: %v %q", err, role)
+	if role, err := d.ensure(context.Background(), "drifter"); err != nil || role.Role != "member" {
+		t.Fatalf("ensure again: %v %q", err, role.Role)
 	}
 	if _, err := New(db, Config{}).Bootstrap(context.Background(), NewAccount{Username: "root", Password: "first-password"}); err != nil {
 		t.Fatal(err)
@@ -37,8 +37,8 @@ func TestAccounts(t *testing.T) {
 	if _, err := New(db, Config{}).Bootstrap(context.Background(), NewAccount{Username: "again", Password: "other-password"}); !errors.Is(err, ErrAlreadyBootstrapped) {
 		t.Fatalf("second bootstrap: %v", err)
 	}
-	if role, _ := d.ensureRole(context.Background(), "root"); role != "admin" {
-		t.Fatalf("bootstrap makes an administrator: %q", role)
+	if role, _ := d.ensure(context.Background(), "root"); role.Role != "admin" {
+		t.Fatalf("bootstrap makes an administrator: %q", role.Role)
 	}
 	grants, _ := ActiveGrantsIn(context.Background(), db, access.Principal{Kind: "user", Name: "root"}, time.Now())
 	if !HasRole(grants, access.RoleInstanceAdmin, access.ScopeInstance, "") {
@@ -183,7 +183,7 @@ func TestRemovingANameRevokesWhatItHeld(t *testing.T) {
 	s := New(testDB(t), Config{})
 	testGrantRoot(t, s, "ops")
 	ops := admittedPrincipal(t, s, "ops")
-	if _, err := s.EnsureUser(ctx, "carol"); err != nil {
+	if _, err := s.EnsurePerson(ctx, "carol"); err != nil {
 		t.Fatal(err)
 	}
 	grant, err := s.Grant(ctx, Spec{SubjectType: "user", Subject: "carol", Role: access.RoleProjectOwner, Scope: access.ScopeProject, ScopeID: idstest.N(7).String(), By: "ops"}, "")
@@ -228,7 +228,7 @@ func TestRemovingANameRevokesWhatItHeld(t *testing.T) {
 		t.Fatalf("the removed name's invite is withdrawn: %v %+v", err, got)
 	}
 	// The name is seen again: a new account, holding nothing of the old one.
-	if _, err := s.EnsureUser(ctx, "carol"); err != nil {
+	if _, err := s.EnsurePerson(ctx, "carol"); err != nil {
 		t.Fatal(err)
 	}
 	grants, err := ActiveGrantsIn(ctx, s.db, access.Principal{Kind: "user", Name: "carol"}, time.Now())
@@ -265,7 +265,7 @@ func TestAnAccountThatActedIsDisabledNotRemoved(t *testing.T) {
 	testGrantRoot(t, s, "ops")
 	ops := admittedPrincipal(t, s, "ops")
 	for _, name := range []string{"sso", "agent", "browser", "typo"} {
-		if _, err := s.EnsureUser(ctx, name); err != nil {
+		if _, err := s.EnsurePerson(ctx, name); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -306,7 +306,7 @@ func TestAnAccountThatActedIsDisabledNotRemoved(t *testing.T) {
 	if err := s.SaveUser(ctx, AccountChange{Username: "sso", Disabled: &yes}, ops); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.EnsureUser(ctx, "sso"); err != nil {
+	if _, err := s.EnsurePerson(ctx, "sso"); err != nil {
 		t.Fatal(err)
 	}
 	if disabled, err := disabledIn(ctx, s.db, "sso"); err != nil || !disabled {
@@ -325,7 +325,7 @@ func TestAnUnknownNameIsRefused(t *testing.T) {
 	ctx := context.Background()
 	s := New(testDB(t), Config{})
 	testGrantRoot(t, s, "ops")
-	if _, err := s.EnsureUser(ctx, "ghost"); err != nil {
+	if _, err := s.EnsurePerson(ctx, "ghost"); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.RemoveName(ctx, "ghost", admittedPrincipal(t, s, "ops")); err != nil {
@@ -387,7 +387,7 @@ func TestNeverUsedNameHasNoLastSeen(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := New(testDB(t), Config{})
-	if _, err := s.EnsureUser(ctx, "unused"); err != nil {
+	if _, err := s.EnsurePerson(ctx, "unused"); err != nil {
 		t.Fatal(err)
 	}
 	stored, err := queries(s.db).UserByName(ctx, "unused")

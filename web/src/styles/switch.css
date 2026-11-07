@@ -1,0 +1,7 @@
+@layer components {
+  .setting-switch { display: inline-flex; align-items: center; width: 3.25rem; min-width: 3.25rem; height: 2rem; padding: var(--space-1); border: 1px solid var(--muted); border-radius: 999px; background: var(--muted); }
+  .setting-switch[aria-checked="true"] { background: var(--ok); border-color: var(--ok); }
+  .setting-switch-knob { display: grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--bg); color: var(--text); transform: translateX(0); transition: transform 150ms; }
+  .setting-switch[aria-checked="true"] .setting-switch-knob { transform: translateX(1.1rem); }
+  @media (prefers-reduced-motion: reduce) { .setting-switch-knob { transition: none; } }
+}

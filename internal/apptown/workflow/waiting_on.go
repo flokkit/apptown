@@ -179,7 +179,7 @@ func checkTitle(s workflowActivityStep) string {
 	case "tests":
 		return "Tests"
 	case "guidance/conformance":
-		return "Ways of working"
+		return "Standards check"
 	case "preview":
 		return "Preview"
 	case "build":
@@ -200,6 +200,8 @@ func checkTitle(s workflowActivityStep) string {
 		return "Required file recorded"
 	case "scan":
 		switch {
+		case strings.Contains(s.name, "sbom"):
+			return "Software inventory"
 		case strings.Contains(s.name, "license"):
 			return "Licence scan"
 		case strings.Contains(s.name, "osv"):

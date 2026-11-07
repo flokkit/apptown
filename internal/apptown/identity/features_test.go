@@ -17,7 +17,7 @@ func TestFeatureChoicesRequireAnAdministratorAndKeepTheirReceipt(t *testing.T) {
 	if err := s.SeedAdministrator(ctx, "boss"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.EnsureUser(ctx, "reader"); err != nil {
+	if _, err := s.EnsurePerson(ctx, "reader"); err != nil {
 		t.Fatal(err)
 	}
 	boss := admittedPrincipal(t, s, "boss")

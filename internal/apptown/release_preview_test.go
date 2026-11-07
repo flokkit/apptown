@@ -51,7 +51,7 @@ func TestReleasePreviewUsesSelectedTreeAndOriginalImage(t *testing.T) {
 	// just that field; lifecycle creation and settlement use Deployment operations.
 	// sql-guarantee: Poison only the immutable release source while preserving the original image receipt; release admission fixes commit_sha and settlement cannot rewrite that historical identity.
 	completionExec(t, a.DB, `UPDATE releases SET commit_sha='original-unavailable' WHERE id=$1`, cut.ID)
-	if _, err := a.Access.EnsureUser(context.Background(), "preview-owner"); err != nil {
+	if _, err := a.Access.EnsurePerson(context.Background(), "preview-owner"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "preview-owner", Capability: string(access.CapDeploymentOperate), Scope: access.ScopeProject, ScopeID: idstest.N(1).String(), By: "setup"}, ""); err != nil {
@@ -190,7 +190,7 @@ func TestReleasePreviewChecksCurrentAuthorityAndHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, who := range []string{"preview-owner", "outsider"} {
-		if _, err := a.Access.EnsureUser(ctx, who); err != nil {
+		if _, err := a.Access.EnsurePerson(ctx, who); err != nil {
 			t.Fatal(err)
 		}
 	}

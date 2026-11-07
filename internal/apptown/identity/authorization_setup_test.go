@@ -256,7 +256,7 @@ func TestUserSaveRequiresPromotionAndSessionRemoval(t *testing.T) {
 			if err := s.SeedAdministrator(context.Background(), "boss"); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.EnsureUser(context.Background(), "kid"); err != nil {
+			if _, err := s.EnsurePerson(context.Background(), "kid"); err != nil {
 				t.Fatal(err)
 			}
 			if err := s.SaveUser(context.Background(), AccountChange{Username: "kid", Password: "initial-password"}, admittedPrincipal(t, s, "boss")); err != nil {
@@ -324,7 +324,7 @@ func TestPersonalGroupPreservesRecordedChoices(t *testing.T) {
 	for _, fallback := range []bool{false, true} {
 		t.Run(fmt.Sprint(fallback), func(t *testing.T) {
 			s := New(testDB(t), Config{})
-			if _, err := s.EnsureUser(context.Background(), "alice"); err != nil {
+			if _, err := s.EnsurePerson(context.Background(), "alice"); err != nil {
 				t.Fatal(err)
 			}
 			if fallback {
@@ -376,7 +376,7 @@ func TestPersonalGroupPreservesRecordedChoices(t *testing.T) {
 	}
 	t.Run("both ordinary names occupied", func(t *testing.T) {
 		s := New(testDB(t), Config{})
-		if _, err := s.EnsureUser(context.Background(), "alice"); err != nil {
+		if _, err := s.EnsurePerson(context.Background(), "alice"); err != nil {
 			t.Fatal(err)
 		}
 		storeOrdinaryGroup(t, s.db, "alice")
@@ -390,7 +390,7 @@ func TestPersonalGroupPreservesRecordedChoices(t *testing.T) {
 	t.Run("another person's suffix", func(t *testing.T) {
 		s := New(testDB(t), Config{})
 		for _, user := range []string{"alice", "alice-personal"} {
-			if _, err := s.EnsureUser(context.Background(), user); err != nil {
+			if _, err := s.EnsurePerson(context.Background(), user); err != nil {
 				t.Fatal(err)
 			}
 		}

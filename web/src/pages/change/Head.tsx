@@ -88,7 +88,6 @@ export function changeReport(view: ChangeView, plainFirst = false): string | und
 export function RequestEntry({ view, current = true, reload, full = false }: { view: ChangeView; current?: boolean; reload: () => void; full?: boolean }) {
   const ch = view.change
   const request = ch.body || ch.title
-  const lines = request.split('\n')
   // The request is fixed once work starts: it is what the work was asked to do. Only the ticket link stays editable.
   const started = !!view.detail
   const [editing, setEditing] = useState(false)
@@ -130,7 +129,7 @@ export function RequestEntry({ view, current = true, reload, full = false }: { v
         <span>{ch.openedBy ? `by ${ch.openedBy}` : 'Requested'}</span><button className="link" disabled={!editing && !current} onClick={() => (editing ? discard() : open())}>{editing ? 'Cancel' : started ? (ch.externalRef ? 'Edit ticket link' : 'Add ticket link') : 'Edit'}</button>
         <time dateTime={ch.createdAt}>{fmtStamp(ch.createdAt)}</time>
       </div>
-      {!editing && <div id={full ? 'request-text' : undefined} className="ch-request">{full ? request : lines.slice(0, 4).join('\n')}{!full && lines.length > 4 && <><br /><Link to={`/changes/${ch.id}/records/request`}>full request</Link></>}</div>}
+      {!editing && <div id={full ? 'request-text' : undefined} className="ch-request">{full ? request : ch.requestSummary || firstLine(request)}{!full && <><br /><Link to={`/changes/${ch.id}/records/request`}>full request →</Link></>}</div>}
       {!editing && ch.externalRef && <p className="muted small">Ticket: {ch.externalRef}</p>}
         {editing && (
           <div className="head-request-entry-div">

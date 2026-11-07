@@ -4028,6 +4028,30 @@ spec:
 	scene.call("sam", "PUT", "/api/v1/backup-store", map[string]string{"endpoint": bucket.API.URL, "region": "syd1", "bucket": "household-copies", "accessKeyFrom": "CAMERA_STORE_KEY", "secretKeyFrom": "CAMERA_STORE_SECRET"})
 
 	scene.call("sam", "GET", "/api/v1/packs", nil)
+	// Hold one executor attempt for the camera, as the tour's progress scene
+	// does. Completed script checks above it still execute the project's scripts.
+	progressWorkflow := workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "camera-progress", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{
+		{Name: "tests", Uses: "script", With: map[string]any{"run": "sh checks/tests.sh", "env": map[string]any{tourCheckEnv: "checks/tests.sh"}}},
+		{Name: "style", Uses: "script", With: map[string]any{"run": "sh checks/style.sh", "env": map[string]any{tourCheckEnv: "checks/style.sh"}}},
+		{Name: "check-layout", Uses: "script", With: map[string]any{"run": "sh checks/style.sh"}},
+		{Name: "guidance-conformance", Uses: "guidance/conformance"},
+	}}}}}
+	defineWorkflows(t, a, tourWorkflow, reviewWorkflow, evalWorkflow, progressWorkflow)
+	rebuildWork(t, a, func(deps *workflow.Dependencies) {
+		original := deps.Runners["script"]
+		deps.Runners["script"] = func(e *workflow.Execution) {
+			if e.Step().Name != "check-layout" {
+				original(e)
+				return
+			}
+			if _, err := e.Claim(); err != nil {
+				t.Error(err)
+			}
+		}
+	})
+	progressChange := scene.open("sam", "club-newsletter", "Check the club notice", "Check the notice against the club’s standards.")
+	scene.call("sam", "POST", "/api/v1/changes/"+progressChange.ID.String()+"/runs", map[string]string{"workflow": "camera-progress"})
+	a.Work.Wait()
 	api := a.Handler()
 	proxy := httputil.NewSingleHostReverseProxy(frontend)
 	var prepareCamera sync.Once
@@ -4099,7 +4123,7 @@ spec:
 	run := (execution.Runner{}).Run(ctx, execution.Local, execution.Request{
 		Argv: []string{"node", "testdata/web-ui.mjs"},
 		Env: []string{"APPTOWN_PLAYWRIGHT_MODULE=" + module, "DESIGN_URL=https://" + a.cfg.publicHost,
-			"DESIGN_AUDIT=" + os.Getenv("APPTOWN_DESIGN_AUDIT"), "DESIGN_PAGES=" + os.Getenv("APPTOWN_DESIGN_PAGES"), "DESIGN_BASELINE=" + os.Getenv("APPTOWN_DESIGN_BASELINE"), "DESIGN_PASSWORD=" + password, "DESIGN_CHANGE=" + approvalChange, "DESIGN_OUT=" + out,
+			"DESIGN_AUDIT=" + os.Getenv("APPTOWN_DESIGN_AUDIT"), "DESIGN_PAGES=" + os.Getenv("APPTOWN_DESIGN_PAGES"), "DESIGN_BASELINE=" + os.Getenv("APPTOWN_DESIGN_BASELINE"), "DESIGN_PASSWORD=" + password, "DESIGN_PROGRESS=" + progressChange.ID.String(), "DESIGN_CHANGE=" + approvalChange, "DESIGN_OUT=" + out,
 			"TMPDIR=" + t.TempDir(), "PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")},
 		Timeout: 45 * time.Minute,
 	})

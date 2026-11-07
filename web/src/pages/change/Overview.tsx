@@ -125,7 +125,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
     {(ch.state === 'landing' || ch.state === 'shipped' || steps.some(s => s.type === 'approval' && s.status === 'pass')) && <ReleaseRow view={view} />}
     </section>
     <TurnDecision progress={nowRunning(view) ? <Now view={view} /> : undefined} progressTitle={nowRunning(view) ? progressTitle(view, steps) : undefined} approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={approval && turn ? <div className="ch-accept-rows">
-      <div className="ch-overview-line"><div className="ch-row-label">You asked</div><div className="ch-value">{ch.body || ch.title}</div></div>
+      <div className="ch-overview-line"><div className="ch-row-label">You asked</div><div className="ch-value">{ch.requestSummary || firstLine(ch.body || ch.title)}</div>{trailer(ch.chatRequest ? `/changes/${ch.id}?tab=conversation` : record('request'), 'full request →')}</div>
       {!!briefParts?.length && <div className="ch-overview-line"><div className="ch-row-label">What it does</div><div className="ch-value">{briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}</div></div>}
       <NotesDiff diff={view.notesDiff} />
       <div className="ch-overview-line"><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary checks={view.checks} steps={steps} contractNeedsAttention={contractUnread(adds)} /></div></div>

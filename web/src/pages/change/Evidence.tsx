@@ -29,7 +29,7 @@ export type Receipt = {
 
 const TITLE: Record<string, string> = {
   'agent/pi': 'Implementation', 'agent/review': 'Review', tests: 'Tests', scan: 'Scan',
-  'guidance/conformance': 'Ways of working', approval: 'Approval', preview: 'Preview', build: 'Build',
+  'guidance/conformance': 'Standards check', approval: 'Approval', preview: 'Preview', build: 'Build',
   reconcile: 'Up to date with main', 'artifact/require': 'Required record', 'adr/require': 'Decision record',
   'scm/merged': 'Merged', 'policy/current': 'Rules still current', 'workflow/call': 'Called workflow', script: 'Script',
 }
@@ -37,6 +37,7 @@ const TITLE: Record<string, string> = {
 export function stepTitle(s: Step): string {
   if (s.type === 'script' && s.name) return s.name.replace(/[-_]+/g, ' ').replace(/^./, c => c.toUpperCase())
   if (s.type === 'scan') {
+    if (s.name?.includes('sbom')) return 'Software inventory'
     if (s.name?.includes('license')) return 'Licence scan'
     if (s.name?.includes('osv')) return 'Dependency scan'
     if (s.name?.includes('gitleaks')) return 'Secret scan'

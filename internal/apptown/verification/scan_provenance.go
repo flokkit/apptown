@@ -105,7 +105,7 @@ func scanFailReason(failing []conformance.Finding, base scanBase) string {
 	const remedy = " — fix, or suppress each with a justification; blanket override is the wrong tool here"
 	listed := ": " + findingsList(failing)
 	if base.OK {
-		return fmt.Sprintf("%d finding(s) introduced by this change%s%s", len(failing), remedy, listed)
+		return fmt.Sprintf("%d finding(s) absent from the baseline scan (these may include newly published advisories on unchanged dependencies)%s%s", len(failing), remedy, listed)
 	}
 	return fmt.Sprintf("%d actionable finding(s) (%s)%s%s", len(failing), strs.FirstNonBlank(base.Note, "no base to compare with"), remedy, listed)
 }

@@ -152,12 +152,9 @@ func (s *Service) RevokeChangeTickets(ctx context.Context, changeID ids.ID) erro
 	return s.tickets.revokeForChange(ctx, changeID)
 }
 
-func (s *Service) EnsureUser(ctx context.Context, username string) (string, error) {
-	return s.directory.ensureRole(ctx, username)
-}
-
-// EnsurePerson is EnsureUser's account: its derived role and the principal
-// it belongs to.
+// EnsurePerson records a person observed on an authenticated request and returns
+// their account, principal and grant-derived role. Naming someone in a grant or
+// membership uses recordPersonIn instead; that is not the person's activity.
 func (s *Service) EnsurePerson(ctx context.Context, username string) (Account, error) {
 	return s.directory.ensure(ctx, username)
 }

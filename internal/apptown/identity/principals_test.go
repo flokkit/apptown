@@ -31,7 +31,7 @@ func TestARemovedNameTakenAgainInheritsNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A trusted header names carol again: a new account, a new principal.
-	if _, err := s.EnsureUser(ctx, "carol"); err != nil {
+	if _, err := s.EnsurePerson(ctx, "carol"); err != nil {
 		t.Fatal(err)
 	}
 	now, err := queries(s.db).UserByName(ctx, "carol")

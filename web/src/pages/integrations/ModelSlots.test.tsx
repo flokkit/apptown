@@ -41,6 +41,7 @@ it('says what an unset task gets, on each profile', async () => {
   await at('/integrations/profiles/standard')
   await vi.waitFor(() => expect(el.querySelector('select')).not.toBeNull())
   expect(unset('Plan')).toBe('Same as Main · strong (m/base)')
+  expect(el.querySelector('select[aria-label="Plan model"]')!.nextElementSibling?.textContent).toBe('Same as Main · strong (m/base)')
   expect(unset('Worker')).toBe('Same as Review (m/review)')
   expect(unset('Main · strong')).toBe('Not set')
   for (const label of ['Main · fast', 'Second opinion · strong']) {

@@ -44,7 +44,7 @@ func requestBundleForTest(t *testing.T, a *App, p *project.Project, env *deploym
 
 func acceptBundleForTest(t *testing.T, a *App, p *project.Project, env *deployment.Deployment, b *deployment.ReleaseBundle, who string, acceptUncopied ...bool) (deployment.AcceptedRelease, error) {
 	t.Helper()
-	if _, err := a.Access.EnsureUser(context.Background(), who); err != nil {
+	if _, err := a.Access.EnsurePerson(context.Background(), who); err != nil {
 		t.Fatal(err)
 	}
 	for _, grant := range []identity.Spec{

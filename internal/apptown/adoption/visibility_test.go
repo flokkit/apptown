@@ -23,7 +23,7 @@ func TestFleetProjectReadsEnforceVisibilityAndEmptySQLScopes(t *testing.T) {
 	if err := auth.SeedAdministrator(context.Background(), "boss"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := auth.EnsureUser(context.Background(), "reader"); err != nil {
+	if _, err := auth.EnsurePerson(context.Background(), "reader"); err != nil {
 		t.Fatal(err)
 	}
 	ways := wow.New(db, wow.Dependencies{})
@@ -125,7 +125,7 @@ func TestTheProjectsANewPackVersionIsTriedOn(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	auth := identity.New(db, identity.Config{Projects: project.NewCatalogue(db)})
-	if _, err := auth.EnsureUser(context.Background(), "reader"); err != nil {
+	if _, err := auth.EnsurePerson(context.Background(), "reader"); err != nil {
 		t.Fatal(err)
 	}
 	ways := wow.New(db, wow.Dependencies{})

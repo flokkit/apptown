@@ -1,3 +1,4 @@
+import { Switch } from '../../../Switch'
 import { useState } from 'react'
 import { del, post, put } from '../../../api'
 import { grantTitle, subjectLabel, groupLabel } from '../../../parts/grants'
@@ -33,7 +34,7 @@ export function MembersTab({ slug }: { slug: string }) {
   const canConfigure = useHolds('project:configure', slug)
   const [subject, setSubject] = useState('')
   const [role, setRole] = useState('project-contributor')
-  const { run, err: actErr } = useAction()
+  const { run, busy, err: actErr } = useAction()
   const directoryHidden = directory === false || usersQ.denied || groupsQ.denied
   const err = firstErr(actErr, projectQ.err, membersQ.err, rolesQ.err, usersQ.denied ? '' : usersQ.err, groupsQ.denied ? '' : groupsQ.err)
   const names = (q: { data: { whoCan: string[] } | null; err: string }) =>
@@ -82,8 +83,8 @@ export function MembersTab({ slug }: { slug: string }) {
       <Section title="Approval">
         <div className="members-policy">
           <label className="small">
-            <input type="checkbox" checked={independent ?? false} disabled={!canConfigure || independent === null}
-              onChange={e => act(() => put(`/projects/${slug}/approval-policy`, { requireIndependentApproval: e.target.checked }))} />
+            <Switch label="Require another person to approve the author's change" checked={independent ?? false} disabled={!canConfigure || busy || independent === null || !projectQ.current}
+              onChange={requireIndependentApproval => act(() => put(`/projects/${slug}/approval-policy`, { requireIndependentApproval }))} />
             {' '}Require another person to approve the author's change
           </label>
           <div className="muted small">Admins may approve their own work, with one vote each.</div>

@@ -65,7 +65,7 @@ func TestPreviewCommandChecksCurrentAuthorityAndTransports(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"owner", "outsider"} {
-		if _, err := a.Access.EnsureUser(ctx, name); err != nil {
+		if _, err := a.Access.EnsurePerson(ctx, name); err != nil {
 			t.Fatal(err)
 		}
 	}

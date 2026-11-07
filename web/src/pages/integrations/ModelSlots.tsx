@@ -140,6 +140,7 @@ export function ModelProfilePage({ projects = false }: { projects?: boolean }) {
           {mapped && !models.some((m) => m.pattern === mapped) && <option value="__custom_current__">{mapped}</option>}
           <option value="__custom__">Another model…</option>
         </select>
+        <div className="muted small">{mapped || unset}</div>
         {notEnabled && <div className="error small">not enabled on {binding}</div>}
       </div>
     )

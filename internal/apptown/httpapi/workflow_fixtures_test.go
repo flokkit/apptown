@@ -131,7 +131,7 @@ func grantWorkflowHTTPAuthority(t *testing.T, f workflowHTTPFixture) {
 		t.Fatal(err)
 	}
 	for _, user := range []string{"owner", "outsider"} {
-		if _, err := f.Access.EnsureUser(context.Background(), user); err != nil {
+		if _, err := f.Access.EnsurePerson(context.Background(), user); err != nil {
 			t.Fatal(err)
 		}
 	}

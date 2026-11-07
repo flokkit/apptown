@@ -37,9 +37,9 @@ async function mount(live = false, viewer = 'sam') {
 for (const live of [false, true]) {
   it(`${live ? 'live chat' : 'Conversation'} folds actions by default, keeps replies and obeys the action switch`, async () => {
     const el = await mount(live, `fold-${live}`)
-    const toggle = el.querySelector<HTMLInputElement>('[role="switch"]')!
+    const toggle = el.querySelector<HTMLButtonElement>('[role="switch"]')!
     expect(toggle).not.toBeNull()
-    expect(toggle.checked).toBe(false)
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(el.textContent).toContain('Make it blue.')
     expect(el.textContent).toContain('I will read the page.')
     expect(el.textContent).toContain('The page is blue. Tests passed.')
@@ -54,7 +54,7 @@ for (const live of [false, true]) {
     expect(el.querySelector('details')).toBeNull()
     expect(el.querySelectorAll('.tool-line')).toHaveLength(0)
     await act(async () => toggle.click())
-    expect(toggle.checked).toBe(true)
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
     // Restores individual entries, in record order, with all command/file details reachable.
     expect([...el.querySelectorAll('.tool-line')].map(n => n.textContent)).toEqual(['read index.html', 'ran git diff', 'read screen.png', 'wrote notes.md'])
     expect([...el.querySelectorAll('details')].every(f => f.open)).toBe(true)
@@ -64,28 +64,28 @@ for (const live of [false, true]) {
 }
 it('remembers the switch across chat views for each viewer', async () => {
   const sam = await mount(false, 'remember-sam')
-  await act(async () => sam.querySelector<HTMLInputElement>('[role="switch"]')!.click())
+  await act(async () => sam.querySelector<HTMLButtonElement>('[role="switch"]')!.click())
   const sameViewer = await mount(true, 'remember-sam')
-  expect(sameViewer.querySelector<HTMLInputElement>('[role="switch"]')!.checked).toBe(true)
+  expect(sameViewer.querySelector<HTMLButtonElement>('[role="switch"]')!.getAttribute('aria-checked')).toBe('true')
   const otherViewer = await mount(false, 'remember-priya')
-  expect(otherViewer.querySelector<HTMLInputElement>('[role="switch"]')!.checked).toBe(false)
+  expect(otherViewer.querySelector<HTMLButtonElement>('[role="switch"]')!.getAttribute('aria-checked')).toBe('false')
   expect(Object.keys(localStorage).some(k => k.includes('remember-sam'))).toBe(true)
 })
 it('works when localStorage refuses reads and writes', async () => {
   vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
   vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
   const el = await mount(false, 'no-storage')
-  const toggle = el.querySelector<HTMLInputElement>('[role="switch"]')!
-  expect(toggle.checked).toBe(false)
+  const toggle = el.querySelector<HTMLButtonElement>('[role="switch"]')!
+  expect(toggle.getAttribute('aria-checked')).toBe('false')
   await act(async () => toggle.click())
-  expect(toggle.checked).toBe(true)
+  expect(toggle.getAttribute('aria-checked')).toBe('true')
   expect([...el.querySelectorAll('details')].every(f => f.open)).toBe(true)
 })
 
 it('reads a viewer preference already saved in localStorage', async () => {
   localStorage.setItem('apptown.show-agent-actions.saved-viewer', '1')
   const el = await mount(false, 'saved-viewer')
-  expect(el.querySelector<HTMLInputElement>('[role="switch"]')!.checked).toBe(true)
+  expect(el.querySelector<HTMLButtonElement>('[role="switch"]')!.getAttribute('aria-checked')).toBe('true')
   expect([...el.querySelectorAll('details')].every(f => f.open)).toBe(true)
 })
 
@@ -100,7 +100,7 @@ it('keeps a long agent session reachable in order behind one action run', async 
     expect(el.querySelector('details')).toBeNull()
     expect(el.textContent).toContain('Final report: done.')
     expect(el.querySelectorAll('.tool-line')).toHaveLength(0)
-    await act(async () => el.querySelector<HTMLInputElement>('[role="switch"]')!.click())
+    await act(async () => el.querySelector<HTMLButtonElement>('[role="switch"]')!.click())
     expect([...el.querySelectorAll('.tool-line')].map(n => n.textContent)).toEqual(actions.map((_, i) => `${i % 2 ? 'read' : 'ran'} action-${i}`))
   } finally { messages.splice(0, messages.length, ...original) }
 })

@@ -55,7 +55,7 @@ func (confirmationHTTPSource) Head(context.Context, conformance.ProjectSource) (
 // recorded first, since conformance decides only for an enabled account.
 func confirmationHTTPContext(t *testing.T, db *database.DB) context.Context {
 	t.Helper()
-	if _, err := identity.New(db, identity.Config{}).EnsureUser(context.Background(), "bls"); err != nil {
+	if _, err := identity.New(db, identity.Config{}).EnsurePerson(context.Background(), "bls"); err != nil {
 		t.Fatal(err)
 	}
 	return access.WithCaller(context.Background(), access.Caller{

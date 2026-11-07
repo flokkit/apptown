@@ -164,7 +164,7 @@ func TestAgentVisibilityChecksCurrentSecretAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	accounts := identity.New(db, identity.Config{OpenInstance: true})
-	if _, err := accounts.EnsureUser(ctx, "member"); err != nil {
+	if _, err := accounts.EnsurePerson(ctx, "member"); err != nil {
 		t.Fatal(err)
 	}
 	s := NewService(db, Config{Projects: testSecretProjectScope{db}, Authority: access.Checked{Authority: accounts, Projects: project.New(db, accounts)}})

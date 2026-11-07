@@ -38,9 +38,9 @@ function fixture(shared = false) {
 it('offers an off-by-default toggle only for preview and warns when on and when changing its value', async () => {
   const f = fixture()
   try {
-    await vi.waitFor(() => expect(f.el.querySelectorAll('input[type=checkbox]')).toHaveLength(1))
-    const toggle = f.el.querySelector('input[type=checkbox]') as HTMLInputElement
-    expect(toggle.checked).toBe(false)
+    await vi.waitFor(() => expect(f.el.querySelectorAll('[role=switch]')).toHaveLength(1))
+    const toggle = f.el.querySelector('[role=switch]') as HTMLButtonElement
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(toggle.parentElement?.textContent).toContain('Agents working on changes can see this')
     await act(async () => toggle.click())
     expect(f.sent[0]).toMatchObject({ method: 'PUT', url: '/api/v1/projects/demo/secrets/preview/NEXTUP_PASSWORD/agent-visibility', body: { agentVisible: true } })
@@ -56,7 +56,7 @@ it('explains shared storage and offers an independent generated preview value wi
   const f = fixture(true)
   try {
     await vi.waitFor(() => expect(f.el.textContent).toContain('This value is shared with main. Give previews their own value to let agents see it'))
-    expect(f.el.querySelectorAll('input[type=checkbox]')).toHaveLength(0)
+    expect(f.el.querySelectorAll('[role=switch]')).toHaveLength(0)
     const separate = [...f.el.querySelectorAll('button')].find((b) => b.textContent === 'Give previews their own value')!
     await act(async () => separate.click())
     expect(f.sent[0]).toMatchObject({ method: 'POST', url: '/api/v1/projects/demo/secrets/preview/NEXTUP_PASSWORD/separate-preview' })

@@ -193,7 +193,7 @@ func TestPromotionRechecksDeployAuthorityAtEffectForAnApproverOnlyPerson(t *test
 	t.Parallel()
 	w, dep, _ := promotionFeedFixture(t)
 	people := identity.New(w.db, identity.Config{Projects: project.NewCatalogue(w.db)})
-	if _, err := people.EnsureUser(t.Context(), "owner"); err != nil {
+	if _, err := people.EnsurePerson(t.Context(), "owner"); err != nil {
 		t.Fatal(err)
 	}
 	grantReal(t, people, "owner", access.RoleProjectApprover, "", access.ScopeProject, w.project.String())

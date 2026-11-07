@@ -1,3 +1,4 @@
+import { firstLine } from './Head'
 import { FeatureOnly } from '../../features'
 import './Conversation.css'
 import { AgentActionsSwitch, ToolFold, foldTools, useAgentActions } from '../../AgentActions'
@@ -33,7 +34,7 @@ export function ConversationLog({ changeId, chatHref, request, report, rounds = 
       <StaleNote q={q} />
       {data && <UnreadableNote view={data} />}
       {none && (request ? <>
-        <div className="bubble-row you"><div className="bubble you conversation-conversation-log-bubble-you">{request}</div></div>
+        <div className="bubble-row you"><div className="bubble you conversation-conversation-log-bubble-you">{firstLine(request)} <Link to={`/changes/${changeId}/records/request`}>full request →</Link></div></div>
         {report && <div className="bubble-row"><div className="bubble"><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(report) }} /></div></div>}
       </> : <p className="muted">No chat yet.</p>)}
       {earlierRuns.map(id => <RunRounds key={id} id={id} changeId={changeId} />)}

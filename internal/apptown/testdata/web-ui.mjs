@@ -125,6 +125,7 @@ try {
     'people-groups': '/people/groups', 'people-group': '/people/groups/reviewers', 'people-account': '/people/accounts/sam', 'people-roles': '/people/roles', 'people-signin': '/people/sign-in', 'people-agents': '/people/agents-and-tokens',
     evals: '/evals', 'eval-new': '/evals/new', people: '/people/accounts', account: '/account', usage: '/usage',
     complaints: '/complaints', 'complaints-answered': '/complaints/answered', 'complaints-archive': '/complaints/archive',
+    glossary: '/docs/guides/glossary', 'setups-guide': '/docs/guides/setups',
     'model-profile': '/integrations/profiles/standard', 'target-new': '/targets/new',
     services: '/services', 'services-shared': '/services/shared', 'deployment': '/projects/club-newsletter/deployments/main',
     'camera-not-found': '/camera-missing-page',
@@ -137,6 +138,7 @@ try {
     release: '/projects/club-newsletter/release',
     'change-delivery': `/changes/${seeded.delivered}`,
     change: `/changes/${process.env.DESIGN_CHANGE}`,
+    'change-progress': `/changes/${process.env.DESIGN_PROGRESS}`,
     'change-non-approver': `/changes/${process.env.DESIGN_CHANGE}`,
     'change-failed': `/changes/${seeded.failed}`, 'overview-empty': '/projects/shared-notes',
     'eval-scorecard': `/evals/${seeded.evaluation}`, 'what-if': `/conformance/what-ifs/${seeded.whatif}`,
@@ -281,6 +283,17 @@ try {
         await page.goto(captureURL.href, { waitUntil: 'networkidle' });
         await page.locator('#root > *').first().waitFor({ state: 'visible' });
         await page.waitForFunction(() => ![...document.querySelectorAll('main .muted')].some(el => el.textContent === 'Loading…'));
+        if (screen === 'change-progress') {
+          const panel = page.locator('.ch-now');
+          await panel.waitFor();
+          if (!(await panel.innerText()).includes('Standards check')) throw new Error('progress must use the standards step label');
+          const passed = await panel.locator('.ok').evaluateAll(els => {
+            const probe = document.createElement('span'); probe.style.color = 'var(--ok)'; document.body.append(probe);
+            const green = getComputedStyle(probe).color; probe.remove();
+            return els.length > 0 && els.every(el => getComputedStyle(el).color === green);
+          });
+          if (!passed || !await panel.locator('[aria-label="pending"]').count()) throw new Error('progress needs shared passed colours and a pending mark');
+        }
         if (screen === 'features') {
           const clipped = await page.locator('main tbody td').evaluateAll(cells => cells.filter(el => {
             const style = getComputedStyle(el);
@@ -288,7 +301,7 @@ try {
           }).map(el => el.textContent));
           if (clipped.length) throw new Error('Features facts must wrap without clipping: ' + clipped.join(', '));
           for (const button of await page.locator('main tbody button').all()) {
-            if (!['Turn on', 'Turn off'].includes(await button.textContent())) throw new Error('Features buttons must name the action');
+            if (await button.getAttribute('role') !== 'switch' || !['true', 'false'].includes(await button.getAttribute('aria-checked'))) throw new Error('Features must use accessible switches');
           }
         }
         if (screen === 'feature-off' && await page.locator('main a[href="/features"]').count() !== 1) throw new Error('administrator refusal must link Features');

@@ -18,7 +18,7 @@ func TestWorkloadAccountsFailClosed(t *testing.T) {
 	db := databaseSuite.New(t)
 	dir := identity.New(db, identity.Config{})
 	for _, name := range []string{"ops", "alice", "bob"} {
-		if _, err := dir.EnsureUser(context.Background(), name); err != nil {
+		if _, err := dir.EnsurePerson(context.Background(), name); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -67,7 +67,7 @@ func TestAWorkloadStaysThePersonItWasStartedBy(t *testing.T) {
 	dir := identity.New(db, identity.Config{})
 	ctx := context.Background()
 	for _, name := range []string{"ops", "alice"} {
-		if _, err := dir.EnsureUser(ctx, name); err != nil {
+		if _, err := dir.EnsurePerson(ctx, name); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -92,7 +92,7 @@ func TestAWorkloadStaysThePersonItWasStartedBy(t *testing.T) {
 	if err := dir.RemoveName(ctx, "alice", ops); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := dir.EnsureUser(ctx, "alice"); err != nil {
+	if _, err := dir.EnsurePerson(ctx, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	started := identity.Workload{Kind: "step", Actor: "alice", Principal: alice.Principal}

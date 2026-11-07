@@ -21,10 +21,10 @@ func TestAdministrationRequiresAuthorityInsideEveryCommand(t *testing.T) {
 			if err := s.SeedAdministrator(context.Background(), "boss"); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.EnsureUser(context.Background(), "member"); err != nil {
+			if _, err := s.EnsurePerson(context.Background(), "member"); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.EnsureUser(context.Background(), "bare"); err != nil {
+			if _, err := s.EnsurePerson(context.Background(), "bare"); err != nil {
 				t.Fatal(err)
 			}
 			if err := s.SaveGroup(context.Background(), GroupChange{Name: "kids"}, admittedPrincipal(t, s, "boss")); err != nil {

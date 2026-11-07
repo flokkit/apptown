@@ -18,7 +18,7 @@ import (
 func viewerAndContributor(t *testing.T, a *App) {
 	t.Helper()
 	for who, role := range map[string]string{"vic": access.RoleProjectViewer, "jenny": access.RoleProjectContrib} {
-		if _, err := a.Access.EnsureUser(context.Background(), who); err != nil {
+		if _, err := a.Access.EnsurePerson(context.Background(), who); err != nil {
 			t.Fatal(err)
 		}
 		if a.addGrant("user", who, role, "", access.ScopeProject, idstest.N(1).String(), "boss", "").IsZero() {

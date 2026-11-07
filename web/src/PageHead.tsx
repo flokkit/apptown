@@ -78,7 +78,7 @@ export const PAGE_HELP = {
       <p>An <strong>integration</strong> is a named connection to an outside service, such as GitLab, Infisical or a model provider. Its settings hold the names of secrets, never their values.</p>
       <ul>
         <li><strong>Source control:</strong> where project code lives.</li>
-        <li><strong>Executors:</strong> where workflow steps run.</li>
+        <li><strong>Executor:</strong> where workflow steps run.</li>
         <li><strong>Model providers and profiles:</strong> the models agents use.</li>
         <li><strong>Deploy connectors and cloud accounts:</strong> how {PRODUCT} reaches where apps run.</li>
         <li><strong>Scanners:</strong> checks run against a project's code.</li>

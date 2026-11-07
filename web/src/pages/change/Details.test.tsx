@@ -35,7 +35,7 @@ async function mount(v: ChangeView, answers: Record<string, unknown> = {}, initi
 it('shows only the story and valued facts, with plain evidence links and actions on their entries', async () => {
   const v = view(), f = await mount(v)
   const timeline = f.el.querySelector('ol')!
-  for (const text of ['by sam', 'Keep the invitation.', '2 min · 2 files changed', 'Checks', '✗', 'A start time is missing.', 'Add a time to every ride.', 'accept · The text is clear.', 'waiting for priya']) expect(timeline.textContent).toContain(text)
+  for (const text of ['by sam', 'Show the times.', '2 min · 2 files changed', 'Checks', '✗', 'A start time is missing.', 'Add a time to every ride.', 'accept · The text is clear.', 'waiting for priya']) expect(timeline.textContent).toContain(text)
   expect(f.el.querySelector('details, summary, h1')).toBeNull()
   expect(timeline.textContent!.indexOf('waiting for priya')).toBeGreaterThan(timeline.textContent!.indexOf('accept ·'))
   for (const text of ['No release', 'No attachments', 'No merge', 'version 2', 'run 4', 'not configured', 'Try preview']) expect(timeline.textContent).not.toContain(text)
@@ -332,16 +332,16 @@ it('keeps the landing merge and its later checks in Landing using the recorded r
   } finally { f.close() }
 })
 
-it('shows a few request lines once and links to the complete request without a disclosure', async () => {
+it('shows a short request quote once and links to the complete request without a disclosure', async () => {
   const v = view()
   v.change.body = Array.from({ length: 40 }, (_, i) => `Request line ${i + 1}.`).join('\n')
   const f = await mount(v)
   try {
     const asked = f.el.querySelector('.ch-request-row')!
     expect(asked.textContent?.match(/Request line 1\./g)).toHaveLength(1)
-    expect(asked.textContent).toContain('Request line 4.')
+    expect(asked.textContent).not.toContain('Request line 4.')
     expect(asked.textContent).not.toContain('Request line 5.')
-    const link = [...asked.querySelectorAll('a')].find(a => a.textContent === 'full request')!
+    const link = [...asked.querySelectorAll('a')].find(a => a.textContent === 'full request →')!
     expect(link.getAttribute('href')).toBe('/changes/change/records/request')
     await f.click(link)
     expect(f.el.querySelector('#request-text')?.textContent).toBe(v.change.body)

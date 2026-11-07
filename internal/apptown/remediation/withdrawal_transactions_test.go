@@ -94,7 +94,7 @@ func TestRemediationWithdrawalScopeAndInvalidEvidenceCannotProduceSkip(t *testin
 				moveRemediationRun(t, f, run.ID, workflow.RunRunning, "later")
 			case "complete quorum":
 				bob := access.WithCaller(f.ctx, access.Caller{Principal: access.Principal{Kind: "user", Name: "bob", Via: "session"}, Verified: true, Receipt: "bob"})
-				if _, err := identity.New(db, identity.Config{}).EnsureUser(bob, "bob"); err != nil {
+				if _, err := identity.New(db, identity.Config{}).EnsurePerson(bob, "bob"); err != nil {
 					t.Fatal(err)
 				}
 				if _, err := f.work.Approve(bob, workflow.Approval{StepID: approval, Decision: workflow.VoteApprove}); err != nil {

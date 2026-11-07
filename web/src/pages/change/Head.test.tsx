@@ -4,7 +4,7 @@ import type { ChangeView } from '../../api'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../../data'
 import { MemoryRouter } from 'react-router-dom'
-import { ChangeHeader, ChangesTab } from './Head'
+import { ChangeHeader, ChangesTab, RequestEntry } from './Head'
 
 // Record ids are UUIDv7 strings.
 const CHANGE = '00000000-0001-7000-8000-000000000000'
@@ -69,4 +69,13 @@ it('keeps identifier underscores and removes self-reported verification lines', 
   const report = agentReport('Set WP_HOME for HTTPS.\nVerified with curl and npm test.\n- Verified with the preview.\nKept WP_SITEURL unchanged.')
   expect(report).toBe('Set WP_HOME for HTTPS.\nKept WP_SITEURL unchanged.')
   expect(firstLine(report)).toBe('Set WP_HOME for HTTPS.')
+})
+
+it('quotes only the short request and keeps its full record and ticket reachable', () => {
+ const v = view('landing'); v.change.body = 'Fix Egg Catch.\nWHAT CONFORMANCE LOOKS LIKE: long rubric.'; v.change.externalRef = 'EGG-4'
+ const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><RequestEntry view={v} reload={() => {}} /></QueryClientProvider></MemoryRouter>)
+ expect(html).toContain('Fix Egg Catch.')
+ expect(html).not.toContain('WHAT CONFORMANCE LOOKS LIKE')
+ expect(html).toContain(`/changes/${CHANGE}/records/request`)
+ expect(html).toContain('EGG-4')
 })

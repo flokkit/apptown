@@ -46,7 +46,8 @@ type Account struct {
 	// Acted: the name has signed in or appears as an actor on the ledger.
 	// With a password, that makes it an account, which is disabled and
 	// never removed.
-	Acted        bool       `json:"acted"`
+	Acted bool `json:"acted"`
+	// LastSeen records observation of this person, never an administrator naming them.
 	LastSeen     stamp.Time `json:"lastSeen"`
 	Disabled     bool       `json:"disabled"`
 	Groups       []string   `json:"groups"`
@@ -88,15 +89,7 @@ type directoryStore struct {
 
 func (d *directoryStore) now() time.Time { return clock.Or(d.clock)() }
 
-// ensureRole records a name seen on the wire and returns its grant-derived role;
-// an unknown name becomes a member with no password. A name AppTown would
-// read as something else (ValidName) is refused and not recorded.
-func (d *directoryStore) ensureRole(ctx context.Context, username string) (string, error) {
-	a, err := d.ensure(ctx, username)
-	return a.Role, err
-}
-
-// ensure is Ensure's account, its principal with it.
+// ensure records an observed person and returns the account and its role.
 func (d *directoryStore) ensure(ctx context.Context, username string) (Account, error) {
 	if err := ValidName(username); err != nil {
 		return Account{}, err

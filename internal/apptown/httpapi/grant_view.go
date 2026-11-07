@@ -2,12 +2,10 @@ package httpapi
 
 import (
 	"context"
-	"log"
 
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/stamp"
 )
@@ -79,12 +77,4 @@ func optionalProject(ctx context.Context, projects *project.Projects, id ids.ID)
 		return nil
 	}
 	return &p
-}
-func optionalUser(ctx context.Context, authority *identity.Service, name string) string {
-	role, err := authority.EnsureUser(ctx, name)
-	if err != nil {
-		log.Printf("recording user %s: %v", name, err)
-		return "member"
-	}
-	return role
 }

@@ -1,3 +1,4 @@
+import { Switch } from '../Switch'
 import { FeatureOnly, FeatureGate, useFeature } from '../features'
 import { usePageName } from '../chrome'
 
@@ -65,7 +66,7 @@ export default function PackPage() {
       {actErr && <div className="error">{actErr}</div>}
 
       {canManage && <div className="row mb-3">
-        <button disabled={busy || !packsQ.current || enabled === undefined} onClick={() => void run(() => post(`/packs/${name}/enabled`, { enabled: enabled === false }))}>{enabled === false ? 'Make available' : 'Hide'}</button>
+        <label className="row">Available <Switch label={h.name} checked={enabled === true} disabled={busy || !packsQ.current || enabled === undefined} onChange={enabled => void run(() => post(`/packs/${name}/enabled`, { enabled }))} /></label>
         {h.origin !== 'stock' && <>
           <button disabled={busy || !q.current} onClick={() => setEditing(true)}>Edit</button>
           <QuietConfirm label="Delete…" disabled={busy || !q.current} ask={`Delete pack “${name}”? Projects keep the versions they applied.`}

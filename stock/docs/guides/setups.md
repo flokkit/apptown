@@ -94,7 +94,7 @@ in front of AppTown.
 Previews require their own private hostname routing. A landing's runtime
 checks reach the change's preview at its preview address. Without a preview
 domain and proxy in this setup, every landing stops at the
-guidance-conformance gate. Point
+Standards check gate. Point
 `*.preview.example.com` at AppTown's Tailscale IP in private DNS. Configure
 your preview proxy with a wildcard certificate obtained through DNS
 validation, bind it only to that IP on port 443, and send requests to `127.0.0.1:7777`, preserving
