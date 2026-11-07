@@ -32,7 +32,7 @@ export function attentionSummary(count: number | null, unknown: number): string 
 }
 
 // Release approval is a person's pending decision, identified by its source key.
-export const attentionItemWord = (item: AttentionItem) => item.unknown ? 'unknown' : item.key.startsWith('release-approval/') ? 'waiting for approval' : item.statusLabel === 'low' ? 'low' : item.severity === 'advisory' ? 'not checked yet' : 'failed'
+export const attentionItemWord = (item: AttentionItem) => item.statusLabel
 
 // The four kinds of condition Attention groups, each with the icon its area
 // uses in the menu. A key's prefix says which kind it is.

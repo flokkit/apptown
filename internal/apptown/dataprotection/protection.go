@@ -501,7 +501,7 @@ func (s *Service) nativeOf(ctx context.Context, md deploy.ManagedData, it backup
 // nativeBackupAt separates the latest attempt from the successful observation.
 // A failed attempt consumes the same read budget without erasing known evidence.
 func nativeBackupAt(n *NativeBackups, now time.Time) *NativeBackups {
-	n.Stale = !n.ObservedAt.IsZero() && now.Sub(n.ObservedAt) > 15*time.Minute
+	n.Stale = !n.ObservedAt.IsZero() && now.Sub(n.ObservedAt) > nativeStaleAfter
 	n.Unknown = ""
 	if n.ObservedAt.IsZero() {
 		n.Unknown = "The provider backup check has never succeeded."
@@ -514,6 +514,9 @@ func nativeBackupAt(n *NativeBackups, now time.Time) *NativeBackups {
 // nativeReadFor is how long a provider's answer about its own backups is
 // shown before it is asked again.
 const nativeReadFor = 5 * time.Minute
+
+// Provider backup readings have one freshness budget in detail and coverage.
+const nativeStaleAfter = 15 * time.Minute
 
 // Words for a Docker host's deployment's operations that run elsewhere,
 // and for the operations only App Platform has so far.

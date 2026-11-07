@@ -74,6 +74,12 @@ func TestProtectionSourceDistinguishesMissingFailedAndUnknownRecovery(t *testing
 				if !strings.Contains(item.Title, "Office: ") {
 					t.Fatalf("unnamed condition: %+v", item)
 				}
+				if tc.name == "never" && strings.HasSuffix(item.Key, "/rehearsal") && item.StatusLabel != labelRecoveryNotRehearsed {
+					t.Fatalf("recovery word: %+v", item)
+				}
+				if strings.HasSuffix(item.Key, "/restore-test") && item.Severity == severityAdvisory && item.StatusLabel != labelRecoveryNotTested {
+					t.Fatalf("platform recovery word: %+v", item)
+				}
 				if item.Severity != tc.severity || item.ObservedAt != at || item.Href != "/projects/team-app/deployments" {
 					t.Fatalf("evidence %+v", item)
 				}

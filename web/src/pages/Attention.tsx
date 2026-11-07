@@ -53,7 +53,7 @@ function bunch(items: AttentionItem[]) {
 function ItemRow({ items, full = false }: { items: AttentionItem[]; full?: boolean }) {
   const item = items[0]
   return <article className="card row attention-row">
-    <span className="row-status"><Status word={word(item)} staleAt={item.stale && !item.unknown ? item.observedAt : undefined} /></span>
+    <span className="row-status"><Status word={word(item)} old={item.stale && !item.unknown} /></span>
     <span className="attention-what">
       <Link to={item.href}>{item.title}</Link>{items.length > 1 && <span className="muted"> · {items.length}</span>}
       <Detail text={withoutRepeatedName(item.title, item.detail)} />
@@ -62,8 +62,7 @@ function ItemRow({ items, full = false }: { items: AttentionItem[]; full?: boole
         <ul className="attention-lines">{items.map((i, n) => <li key={i.key}><Link to={i.href}>{i.title} ({n + 1})</Link> <span className="muted">{i.key}</span></li>)}</ul>
       </section>}
     </span>
-    {/* The chip already says "last seen" for a stale low or advisory reading. */}
-    {!(item.stale && !item.unknown && word(item) === 'low') && <small className="muted attention-seen">{observed(item.observedAt, item.stale, item.attemptedAt)}</small>}
+    <small className="muted attention-seen">{observed(item.observedAt, item.stale, item.attemptedAt)}</small>
     <span className="row-action"><Link className="btn" to={item.href}>Open</Link></span>
   </article>
 }

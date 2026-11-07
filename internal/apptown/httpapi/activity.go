@@ -72,7 +72,7 @@ func (h Activity) Activity(w http.ResponseWriter, r *http.Request) {
 	for _, d := range runtime {
 		e := ActivityDeployment{Project: d.Project, Name: d.Name, Kind: d.Kind.String(), ProjectStatus: d.ProjectStatus, URL: d.URL, HostOnly: d.HostOnly}
 		e.RuntimeObservationView = runtimeObservationView(d.Observation)
-		e.Running = d.Observation.State.Running()
+		e.Running = d.Observation.Running()
 		envs = append(envs, e)
 	}
 

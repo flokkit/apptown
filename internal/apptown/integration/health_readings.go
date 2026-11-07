@@ -16,6 +16,8 @@ import (
 
 const HealthObservationJob = "integration-health"
 
+const healthStaleAfter = 75 * time.Minute
+
 // HealthChecker runs only in a collection job, never while a page reads.
 // Binding configuration and version are captured before the check starts.
 type HealthChecker interface {
@@ -128,7 +130,7 @@ func (s *Service) RecordedHealth(ctx context.Context, name string) (Health, erro
 	at, err := time.Parse(time.RFC3339, h.CheckedAt)
 	if err == nil {
 		age := s.now().Sub(at)
-		h.Stale = age > 75*time.Minute
+		h.Stale = age > healthStaleAfter
 		if automatic && age > 6*time.Hour {
 			h.StateLabel = HealthUnknown
 			h.Expired = true

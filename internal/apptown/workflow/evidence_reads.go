@@ -68,7 +68,8 @@ const (
 // is available for composition without adding another field to the detail payload.
 // A read never gives its returned Steps authority to finish a runner attempt.
 type RunSnapshot struct {
-	WaitingOn   WaitingOn `json:"waitingOn"`
+	Checks      ChecksSummary `json:"checks"`
+	WaitingOn   WaitingOn     `json:"waitingOn"`
 	activity    Activity
 	held        bool          // the shared activity classifier found a dispatch hold
 	Run         *Run          `json:"run"`
@@ -136,7 +137,7 @@ func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, v
 			step.CheckReading = readingOf(step.Evidence)
 		}
 	}
-	out := &RunSnapshot{Run: run, Definition: spec, Stages: spec.StageNames(), Steps: steps, Artifacts: []Artifact{}, Next: []NextAct{}}
+	out := &RunSnapshot{Checks: summarizeChecks(steps), Run: run, Definition: spec, Stages: spec.StageNames(), Steps: steps, Artifacts: []Artifact{}, Next: []NextAct{}}
 	if view != TraceView && (run.Status == RunRunning || run.Status == RunAbandoned) {
 		activity, err := readWorkflowSnapshotActivity(ctx, db, run, steps, wait)
 		if err != nil {

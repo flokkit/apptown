@@ -1,11 +1,12 @@
 import { useContext } from 'react'
 import { lastSeen } from './format'
-import type { DisplayStatus, RuntimeState, HealthStatus, CheckLabel, ReleaseLabel, UpdateLabel, CopyLabel, JobLabel, TargetLabel, DepartureLabel, ResourceLabel, ProgressLabel, ADRLabel } from './wire.gen'
+import type { DisplayStatus, RuntimeState, HealthStatus, CheckLabel, ReleaseLabel, UpdateLabel, CopyLabel, JobLabel, TargetLabel, DepartureLabel, ResourceLabel, ProgressLabel, ADRLabel, AttentionLabel } from './wire.gen'
 
 import { InlineHelp } from './InlineHelp'
 
 // Recorded owner labels are inputs, never page-local chip wording.
 export const STATUS_WORD = {
+  'recovery not rehearsed': 'recovery not rehearsed', 'recovery not tested on its platform': 'recovery not tested on its platform',
   'not set up': 'not configured', low: 'low', blocked: 'blocked', running: 'in progress', working: 'in progress', deploying: 'deploying',
   'waiting for you': 'waiting for you', 'waiting for checks': 'waiting for checks', stopped: 'stopped', unknown: 'unknown', unreachable: 'unreachable',
   'waiting for approval': 'waiting for approval', cancelled: 'cancelled', superseded: 'superseded', waiting: 'waiting', failed: 'failed', landed: 'landed', finished: 'finished', deployed: 'deployed', passed: 'passed', excepted: 'excepted',
@@ -14,9 +15,10 @@ export const STATUS_WORD = {
   incomplete: 'incomplete', 'nothing connected': 'nothing connected', 'needs review': 'needs review',
   // A change worked in a chat that has no run yet: nobody is blocked on it.
   'chat open': 'chat open',
-} as const satisfies Record<'chat open' | 'no automatic check' | 'in progress' | 'abandoned' | 'not checked yet' | 'low' | 'blocked' | 'incomplete' | 'nothing connected' | DisplayStatus | RuntimeState | HealthStatus | CheckLabel | ReleaseLabel | UpdateLabel | CopyLabel | JobLabel | TargetLabel | DepartureLabel | ResourceLabel | ProgressLabel | ADRLabel, string>
+} as const satisfies Record<'chat open' | 'no automatic check' | 'in progress' | 'abandoned' | 'not checked yet' | 'low' | 'blocked' | 'incomplete' | 'nothing connected' | DisplayStatus | RuntimeState | HealthStatus | CheckLabel | ReleaseLabel | UpdateLabel | CopyLabel | JobLabel | TargetLabel | DepartureLabel | ResourceLabel | ProgressLabel | ADRLabel | AttentionLabel, string>
 
 export const STATUS_LIGHT: Record<keyof typeof STATUS_WORD, string> = {
+  'recovery not rehearsed': '', 'recovery not tested on its platform': '',
   'not set up': '', low: 'pending', blocked: 'pending', running: 'running', working: 'running', deploying: 'running',
   'waiting for you': 'pending', 'waiting for checks': 'pending', stopped: '', unknown: 'unknown', unreachable: 'fail',
   'waiting for approval': 'pending', cancelled: 'pending', superseded: 'pending', waiting: 'pending', failed: 'fail', landed: 'pass', finished: 'pass', deployed: 'pass', passed: 'pass', excepted: 'overridden',

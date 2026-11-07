@@ -9,7 +9,10 @@ import { newQueryClient, getKey } from './data'
 import { settled } from './settled'
 import { attentionState, AttentionLights } from './attention'
 import AttentionPage from './pages/Attention'
-import Dashboard from './pages/Dashboard'
+import Dashboard, { homeStatusParts } from './pages/Dashboard'
+import { ProjectListRow } from './ProjectListRow'
+import { renderToStaticMarkup } from 'react-dom/server'
+import type { ProjectRow, InstanceActivity } from './wire.gen'
 import TopBar from './TopBar'
 import App, { SidebarNav } from './App'
 import type { AttentionView } from './wire.gen'
@@ -18,8 +21,8 @@ import type { AttentionView } from './wire.gen'
 const at = '2026-10-26T00:00:00Z'
 const known: AttentionView = { items: [], sources: [{ href: '/infrastructure', nextStep: 'An administrator can check this worker.', key: 'workers', name: 'Worker availability', observedAt: at, unknown: false, stale: false }] }
 const warning: AttentionView = { ...known, items: [
-  { key: 'workers/a', title: 'Worker unavailable', detail: 'Work is waiting.', href: '/infrastructure', statusLabel: 'waiting', severity: 'warning', observedAt: at, stale: false },
-  { key: 'protection/a', title: 'Recovery is untested', detail: 'No recovery evidence yet.', href: '/projects/game/settings/data', statusLabel: 'waiting', severity: 'advisory', observedAt: at, stale: false },
+  { key: 'workers/a', title: 'Worker unavailable', detail: 'Work is waiting.', href: '/infrastructure', statusLabel: 'failed', severity: 'warning', observedAt: at, stale: false },
+  { key: 'protection/a', title: 'Recovery is untested', detail: 'No recovery evidence yet.', href: '/projects/game/settings/data', statusLabel: 'recovery not rehearsed', severity: 'advisory', observedAt: at, stale: false },
 ] }
 const emptyDashboard = { recentAdrs: [], endedOperations: [] }
 const emptyActivity = { waitingOnYou: [], agents: [], active: [], history: [], deployments: [] }
@@ -62,7 +65,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     expect(v.el.querySelector('a[href="/projects/game/settings/data"]')?.textContent).toBe('Recovery is untested')
     // Not checked yet is neutral: a fact about AppTown, not a warning.
     expect(v.el.querySelectorAll('article .chip.pending')).toHaveLength(0)
-    expect(v.el.querySelectorAll('article')[1].textContent).toContain('not checked yet')
+    expect(v.el.querySelectorAll('article')[1].textContent).toContain('recovery not rehearsed')
   })
   it.each(['unknown', 'failed'] as const)('does not report all-clear for %s empty observations', async mode => {
     responses(() => mode === 'failed' ? json({ error: 'observation read failed' }, 503) : json({ ...known, sources: [{ ...known.sources[0], unknown: mode === 'unknown', stale: false }] }))
@@ -453,7 +456,7 @@ it('Find keeps focus while typing, follows the first match on Enter and returns 
 it('shows a pending release on Home and Attention with its deployment as the action door', async () => {
  const href = '/projects/game/deployments/production'
  const task = { project: 'game', href, deploymentLabel: 'Production service', release: { id: 'release-12', number: 12, deployment: 'production', state: 'waiting for approval' } }
- responses(() => json({ ...known, items: [{ key: 'release-approval/release-12', title: 'Release 12 to Production service needs your approval', detail: 'game', href, statusLabel: 'waiting', severity: 'warning', observedAt: at, stale: false }] }), {
+ responses(() => json({ ...known, items: [{ key: 'release-approval/release-12', title: 'Release 12 to Production service needs your approval', detail: 'game', href, statusLabel: 'waiting for approval', severity: 'warning', observedAt: at, stale: false }] }), {
   '/activity': { ...emptyActivity, releaseApprovals: [task] },
   '/dashboard': emptyDashboard,
   '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game', hasDeployments: false }], total: 1 }, '/projects/game/deployments': [],
@@ -468,4 +471,23 @@ it('shows a pending release on Home and Attention with its deployment as the act
  expect(personal.querySelector('.section-count')?.textContent).toBe('1')
  expect(personal.querySelector('a')?.getAttribute('href')).toBe(href)
  expect(personal.textContent).toContain('Release 12 to Production service needs your approval')
+})
+
+it('Home and Projects use the standing roll-up when a preview runs beside a stopped app', () => {
+ const status = { word: 'stopped', reason: 'main: the application is stopped', stale: false } as const
+ const deployments = [{project:'game',kind:'standing',name:'main',running:false,projectStatus:status}, {project:'game',kind:'preview',name:'preview-1',running:true,projectStatus:status}] as InstanceActivity['deployments']
+ const parts = homeStatusParts({needsYou:0,running:0,deployments,operations:{known:true,count:0}})
+ expect(parts.find(p=>p.label==='Apps live')?.value).toBe(0)
+ const p = {slug:'game',name:'Game',hasDeployments:true,productionUrl:'https://game.example.test',prodRunning:false,status,observation:'stopped',stale:false} as unknown as ProjectRow
+ const html = renderToStaticMarkup(<MemoryRouter><ProjectListRow project={p}/></MemoryRouter>)
+ expect(html).toContain('stopped')
+ expect(html).not.toContain('Open app')
+})
+
+it.each(['stopped', 'recovery not rehearsed', 'recovery not tested on its platform'] as const)('keeps the server word %s visible when the reading is old', async statusLabel => {
+ responses(()=>json({...warning,items:[{...warning.items[1],statusLabel,stale:true}]}))
+ const v=mount(<AttentionPage/>);await settled(v.client)
+ expect(v.el.querySelector('article .chip')?.textContent).toContain(statusLabel)
+ expect(v.el.querySelector('article .chip')?.textContent).not.toContain('not checked yet')
+ expect(v.el.querySelector('article .attention-seen')?.textContent).toContain('last seen')
 })

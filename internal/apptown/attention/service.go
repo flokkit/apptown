@@ -152,7 +152,7 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 			if err != nil {
 				return empty, err
 			}
-			out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: "release-approval/" + task.Release.ID.String(), Title: fmt.Sprintf("Release %d to %s needs your approval", task.Release.Number, task.DeploymentLabel), Detail: task.Project, Href: task.Href, ObservedAt: at})
+			out.Items = append(out.Items, Item{StatusLabel: labelApproval, Severity: SeverityWarning, Key: "release-approval/" + task.Release.ID.String(), Title: fmt.Sprintf("Release %d to %s needs your approval", task.Release.Number, task.DeploymentLabel), Detail: task.Project, Href: task.Href, ObservedAt: at})
 		}
 	}
 	if instanceErr == nil {
@@ -323,7 +323,7 @@ func (v Item) MarshalJSON() ([]byte, error) {
 	type view Item
 	out := view(v)
 	if out.StatusLabel == 0 {
-		out.StatusLabel = labelWaiting
+		out.StatusLabel = labelFailed
 	}
 	if v.Unknown {
 		out.StatusLabel = labelUnknown

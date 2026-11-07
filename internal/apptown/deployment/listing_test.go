@@ -102,7 +102,7 @@ func TestListReturnsOrderedTypedFactsAndIndependentObservations(t *testing.T) {
 	if got[0].Observation.State != RuntimeRunning || got[0].URL != "https://observed/app-0" || got[0].Needs[0].Name != "actual" || got[0].Needs[0].Status != NeedReady || got[0].Needs[0].Version != "16" {
 		t.Fatalf("observed: %+v", got[0])
 	}
-	if got[1].Observation.State != RuntimeUnknown || got[1].Observation.State.Running() != nil || got[1].Observation.Err == nil || got[1].URL != "https://recorded" || got[1].Needs[0].Name != "requested-1" {
+	if got[1].Observation.State != RuntimeUnknown || got[1].Observation.Running() != nil || got[1].Observation.Err == nil || got[1].URL != "https://recorded" || got[1].Needs[0].Name != "requested-1" {
 		t.Fatalf("unknown: %+v", got[1])
 	}
 	runtime, err := s.Runtime(context.Background())
@@ -267,11 +267,11 @@ func TestObservationSweepReleasesSnapshotAndRejectsChangedPlacement(t *testing.T
 func TestRuntimeObservationDoesNotInferLivenessFromRolloutFailure(t *testing.T) {
 	t.Parallel()
 	for _, rollout := range []string{"failed", "rolling", "unknown", ""} {
-		if state := runtimeState(deploy.Observation{Rollout: rollout}); state != RuntimeUnknown || state.Running() != nil {
+		if state := runtimeState(deploy.Observation{Rollout: rollout}); state != RuntimeUnknown || (RuntimeObservation{State: state}).Running() != nil {
 			t.Fatalf("%q became %v", rollout, state)
 		}
 	}
-	stopped := RuntimeStopped.Running()
+	stopped := (RuntimeObservation{State: RuntimeStopped}).Running()
 	if stopped == nil || *stopped {
 		t.Fatal("confirmed stop was lost")
 	}

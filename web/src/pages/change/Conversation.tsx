@@ -52,7 +52,7 @@ export function ConversationLog({ changeId, chatHref, request, report, rounds = 
 function RunRounds({ id, changeId }: { id: string; changeId: string }) {
   const q = useGet<RunTrace>(`/runs/${id}/trace`)
   const t = q.data
-  const d: RunDetail | undefined = t?.run ? { run: t.run, steps: t.steps.filter(Boolean) as RunDetail['steps'], events: t.events as RunDetail['events'], artifacts: t.artifacts, stages: t.stages, next: [], landingMeans: [] } : undefined
+  const d: RunDetail | undefined = t?.run ? { checks: t.checks, run: t.run, steps: t.steps.filter(Boolean) as RunDetail['steps'], events: t.events as RunDetail['events'], artifacts: t.artifacts, stages: t.stages, next: [], landingMeans: [] } : undefined
   return <><ReadStatus q={q} what="agent rounds" /><StaleNote q={q} />{d && runStory(d).filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-')).map(e => <p key={e.key}><Link to={workRecordHref(changeId, e)}>Run {d.run.number} · {e.step?.name || 'work'} · {fmtWhen(e.at)} · work record</Link></p>)}</>
 }
 

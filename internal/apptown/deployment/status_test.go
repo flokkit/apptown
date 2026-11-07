@@ -170,3 +170,35 @@ func TestUnreachableStatusNamesAnUnnamedHost(t *testing.T) {
 		t.Fatalf("%+v", a)
 	}
 }
+
+// Runtime readers agree at the freshness boundary, including the observation
+// used for release serving, change evidence and MCP's container answer.
+func TestStaleRuntimeIsUnknownToEveryReader(t *testing.T) {
+	t.Parallel()
+	w := newDiagnosticsWorld(t)
+	w.s.authority = &listingWorld{projects: []ids.ID{w.project}}
+	if err := w.s.ObserveRuntime(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	w.advance(50 * time.Second)
+	container := w.s.ObserveContainer(t.Context(), w.main)
+	rows, err := w.s.List(t.Context(), w.project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projects, err := w.s.ProjectRuntime(t.Context(), []ids.ID{w.project})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fleet, err := w.s.Runtime(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if container.State != ContainerUnknown || !container.Stale || len(rows) != 1 || rows[0].Observation.Running() != nil || projects[w.project].ProductionRunning != nil || len(fleet) != 1 || fleet[0].Observation.Running() != nil {
+		t.Fatalf("container %+v / listing %+v / projects %+v / fleet %+v", container, rows, projects, fleet)
+	}
+	// Even a detached stale sample cannot bypass the owner's decision.
+	if (RuntimeObservation{State: RuntimeRunning, Stale: true}).Running() != nil {
+		t.Fatal("stale sample claims running")
+	}
+}

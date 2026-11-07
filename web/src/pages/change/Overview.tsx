@@ -16,10 +16,10 @@ import { DecisionForm, landingMeansFor } from '../../DecisionForm'
 import { useAction, useGet } from '../../data'
 import { fmtPrice } from '../../format'
 import { TechnicalWords, useTechnicalDetail } from './TechnicalDetail'
-import type { ChatHistoryView, ApprovalQuestion } from '../../wire.gen'
+import type { ChatHistoryView, ApprovalQuestion, ChecksSummary } from '../../wire.gen'
 import { AddsSection, contractUnread, contractChanged } from '../../DecisionForm'
 import { shortDiffstat, agentReport, changeReport, firstLine } from './Head'
-import { checkTypes, stepTitle, testsNote } from './Evidence'
+import { stepTitle, testsNote } from './Evidence'
 import { latestBoot, requestShortfall, requestUnchecked } from './StatePanel'
 import { DecisionChoices } from '../../DecisionChoices'
 import { useState } from 'react'
@@ -30,40 +30,18 @@ const checkNotes = (steps: Step[]) => steps.filter(s => s.type !== 'approval' &&
 
 // Non-applicable checks count as fine here; advisory problems remain notes.
 export function checkAttention(steps: Step[]) {
-  return steps.filter(s => s.type !== 'approval' && s.status !== 'not_applicable' && (
-    s.overrideBy || ['unknown', 'excepted'].includes(s.statusLabel) || s.checkReading?.unreadable || s.checkReading?.undecided?.length || s.checkReading?.checkErrors
-    || checkProblems(s).some(c => c.gates !== false)
-    || (s.type === 'tests' && s.status === 'pass' && !testsNote(s.evidence).plain)
-    || (checkTypes.has(s.type) && s.status !== 'pass')
-    || ['fail', 'error', 'needs_human', 'skipped'].includes(s.status)
-  ))
+  return steps.filter(s => s.checkAttention)
 }
 
-const failedStep = (s: Step) => !s.overrideBy && (['fail', 'error', 'needs_human'].includes(s.status) || !!s.checkReading?.checks?.some(c => c.verdict === 'fail' && c.gates !== false))
-
-// One verdict for the whole change: clear green when every check passed,
-// clear red when one failed. Running and unknown stay distinct from both.
-export function checksVerdict(steps: Step[]): { tone: 'ok' | 'bad' | 'unknown' | 'neutral'; text: string } | undefined {
-  if (!steps.some(s => checkTypes.has(s.type) && !['pending', 'skipped'].includes(s.status))) return undefined
+export function CheckSummary({ steps, checks: verdict, contractNeedsAttention = false, technical = false }: { steps: Step[]; checks: ChecksSummary; contractNeedsAttention?: boolean; technical?: boolean }) {
   const attention = checkAttention(steps)
-  const failed = attention.filter(failedStep)
-  if (failed.length) return { tone: 'bad', text: failed.length === 1 ? `${stepTitle(failed[0])} failed` : `${failed.length} checks failed` }
-  if (attention.some(s => !s.overrideBy && !['running', 'pending'].includes(s.status))) return { tone: 'unknown', text: 'Checks not all known' }
-  if (attention.some(s => !s.overrideBy && ['running', 'pending'].includes(s.status))) return { tone: 'neutral', text: 'Checks running' }
-  const notes = checkNotes(steps).length
-  return { tone: 'ok', text: `All checks passed${notes ? ` · ${notes} ${notes === 1 ? 'note' : 'notes'}` : ''}` }
-}
-
-export function CheckSummary({ steps, contractNeedsAttention = false, technical = false }: { steps: Step[]; contractNeedsAttention?: boolean; technical?: boolean }) {
-  const checks = steps.filter(s => s.type !== 'approval' && (checkTypes.has(s.type) || s.status === 'not_applicable'))
-  const attention = checkAttention(steps)
-  if (!steps.some(s => checkTypes.has(s.type) && !['pending', 'skipped'].includes(s.status))) return <span>Not checked yet. Checks run when you press Check and land in the chat.</span>
-  const running = attention.filter(s => !s.overrideBy && ['running', 'pending'].includes(s.status))
+  if (!verdict.started) return <span>{verdict.text}</span>
+  const running = attention.filter(s => !s.overrideBy && s.statusLabel !== 'stopped' && ['running', 'pending'].includes(s.status))
   const unfinished = running.map(stepTitle)
   const notes = checkNotes(steps)
   return <div className="ch-check-summary">
     {!!unfinished.length && <p>Still running: {unfinished.join(', ')}</p>}
-    {!attention.length && !unfinished.length && !contractNeedsAttention && <span>{checks.length ? <><span className="ch-mark ok">✓</span> All checks passed</> : 'No verification checks recorded.'}</span>}
+    {verdict.tone === 'ok' && !contractNeedsAttention && <span><span className="ch-mark ok">✓</span> {verdict.text}</span>}
     {attention.filter(s => !running.includes(s)).map((s, i) => {
       const problems = checkProblems(s).filter(c => c.gates !== false).map(c => c.detail || `${c.check}: ${c.verdict}`)
       const recorded = s.overrideBy ? `An exception was recorded by ${s.overrideBy}: ${s.overrideReason}` : s.checkReading?.unreadable ? `The result could not be read: ${s.checkReading.unreadable}` : ['unknown', 'excepted'].includes(s.statusLabel) ? `The result is ${s.statusLabel}: ${s.evidence.reason || 'The recorded result needs review.'}` : s.evidence.reason
@@ -73,7 +51,7 @@ export function CheckSummary({ steps, contractNeedsAttention = false, technical 
       const excerpt = review.length > 240 ? review.slice(0, 239) + '…' : review
       const reason = (recorded || problems[0] || log || '').split(/(?<=[.!?])\s+/)[0]
       const countUnknown = s.type === 'tests' && s.status === 'pass' && !s.overrideBy && !s.checkReading?.unreadable && !['unknown', 'excepted'].includes(s.statusLabel) && !s.evidence.testCounts && !s.evidence.testReportUnreadable
-      return <p className="ch-check-exception" key={s.id ?? i}>{rejected ? <><strong className="ch-bad-text"><span className="ch-mark bad">✗</span> Review failed</strong> {excerpt}</> : <>{stepTitle(s)}{countUnknown ? <>: number unknown{reason && ` · ${reason}`}</> : <> {s.overrideBy ? 'excepted' : ['fail', 'error', 'needs_human'].includes(s.status) || s.checkReading?.checks?.some(c => c.verdict === 'fail' && c.gates !== false) ? 'failed' : s.status === 'skipped' ? 'not run' : 'unknown'}{reason && `: ${reason}`}</>}</>}
+      return <p className="ch-check-exception" key={s.id ?? i}>{rejected ? <><strong className="ch-bad-text"><span className="ch-mark bad">✗</span> Review failed</strong> {excerpt}</> : <>{stepTitle(s)}{countUnknown ? <>: number unknown{reason && ` · ${reason}`}</> : <> {s.overrideBy ? 'excepted' : ['fail', 'error', 'needs_human'].includes(s.status) || s.checkReading?.checks?.some(c => c.verdict === 'fail' && c.gates !== false) ? 'failed' : s.status === 'skipped' ? 'not run' : s.statusLabel === 'stopped' ? 'stopped' : 'unknown'}{reason && `: ${reason}`}</>}</>}
         {s.type === 'tests' && !countUnknown && !testsNote(s.evidence).plain && <> {testsNote(s.evidence).note}</>}
         {!!s.checkReading?.undecided?.length && <> {s.checkReading.undecided.join(', ')}: unknown.</>}
         {!!s.checkReading?.checkErrors && <> {s.checkReading.checkErrors} checks could not run.</>}
@@ -118,7 +96,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
   const unchecked = requestUnchecked(ch)
   const [technical] = useTechnicalDetail()
   const report = summary?.split(/\n+/).map(s => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '').trim()).filter(s => s && !s.startsWith('#')).flatMap(s => s.split(/(?<=[.!?])\s+/)).slice(0, 4).map(line => firstLine(line))
-  const checks = steps.filter(s => checkTypes.has(s.type))
+  const checks = steps.filter(s => s.isCheck)
   const checked = checks.some(s => !['pending', 'skipped'].includes(s.status))
   const detail = _workTab()
   const record = (key: string, run?: string | null) => `/changes/${ch.id}/records/${key}${run ? `?run=${encodeURIComponent(run)}` : ''}`
@@ -137,7 +115,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
     <div className="ch-overview-line"><div className="ch-row-label">{summary ? 'What was made' : 'The agent says'}</div><div className="ch-value">{report?.length ? <ul>{report.map((line, i) => <li key={i}>{line}</li>)}</ul> : (agent || reply) ? <div className="ch-chat-excerpt md" dangerouslySetInnerHTML={{ __html: renderMd((agent || reply || '').trim().split(/\n\s*\n/)[0]) }} /> : <p className="muted">{transcript.err ? `The conversation could not be read: ${transcript.err}` : transcript.data?.unreadable ? 'Some of the conversation could not be read.' : !transcript.data ? 'Reading the conversation…' : 'No report from the agent'}</p>}
       {!summary && <StaleNote q={transcript} />}<TechnicalWords shown={technical}>{d && `${d.run.workflowName} v${d.run.workflowVersion} · run ${d.run.number}`} · {ch.branch} · {view.head}{steps.flatMap(s => s.type === 'agent/pi' && s.evidence.model ? [` · ${s.evidence.model}`] : []).join('')}{view.usage && ` · ${fmtPrice(view.usage.costMicros, view.usage.unpriced)}`}</TechnicalWords>
     </div>{!summary && reply ? trailer(`/changes/${ch.id}?tab=conversation`, 'full conversation →') : trailer(`/changes/${ch.id}?tab=changes`, `${shortDiffstat(view.diffstat).replace(/^(.*) in (\d+ files?)$/, '$2 $1') || 'Code'}${view.head ? ` · ${view.head.slice(0, 7)}` : ''} →`)}</div>
-    <div className={`ch-overview-line${checksVerdict(steps)?.tone === 'bad' ? ' ch-line-bad' : ''}`}><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary technical={technical} steps={steps} contractNeedsAttention={contractUnread(adds)} /><TechnicalWords shown={technical}>{checks.filter(s => s.status !== 'not_applicable').map(s => s.name).join(' · ')}</TechnicalWords></div>{checked && trailer(record('checks'), 'details →')}</div>
+    <div className={`ch-overview-line${view.checks.tone === 'bad' ? ' ch-line-bad' : ''}`}><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary checks={view.checks} technical={technical} steps={steps} contractNeedsAttention={contractUnread(adds)} /><TechnicalWords shown={technical}>{checks.filter(s => s.status !== 'not_applicable').map(s => s.name).join(' · ')}</TechnicalWords></div>{checked && trailer(record('checks'), 'details →')}</div>
     {approval && <>
       <div className="ch-overview-line"><div className="ch-row-label">Goes live</div><div className="ch-value">Landing puts the change on main. Deployments update separately.</div><span /></div>
       <div className="ch-overview-line"><div className="ch-row-label">Who decides</div><div className="ch-value">You or another approver</div><span /></div>
@@ -150,10 +128,10 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
       <div className="ch-overview-line"><div className="ch-row-label">You asked</div><div className="ch-value">{ch.body || ch.title}</div></div>
       {!!briefParts?.length && <div className="ch-overview-line"><div className="ch-row-label">What it does</div><div className="ch-value">{briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}</div></div>}
       <NotesDiff diff={view.notesDiff} />
-      <div className="ch-overview-line"><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary steps={steps} contractNeedsAttention={contractUnread(adds)} /></div></div>
+      <div className="ch-overview-line"><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary checks={view.checks} steps={steps} contractNeedsAttention={contractUnread(adds)} /></div></div>
       <div className="ch-overview-line"><div className="ch-row-label">Goes live</div><div className="ch-value">Landing puts the change on main. Deployments update separately.</div></div>
       <div className="ch-overview-line"><div className="ch-row-label">Who decides</div><div className="ch-value">You or another approver</div></div>
-    </div> : turn && !next.recovery ? <CheckSummary steps={steps} contractNeedsAttention={contractUnread(adds)} /> : undefined} actions={approval ? ['Accept', ...(offered(view.next, 'send-back') || offered(d?.next, 'rework') ? ['Send back…'] : []), ...(offered(view.next, 'abandon') ? ['Abandon change'] : [])] : heldLabels(view)}>
+    </div> : turn && !next.recovery ? <CheckSummary checks={view.checks} steps={steps} contractNeedsAttention={contractUnread(adds)} /> : undefined} actions={approval ? ['Accept', ...(offered(view.next, 'send-back') || offered(d?.next, 'rework') ? ['Send back…'] : []), ...(offered(view.next, 'abandon') ? ['Abandon change'] : [])] : heldLabels(view)}>
       {next.sentBack && <p>{next.sentBack.by} sent it back: “{next.sentBack.note}”</p>}
       {view.mainConflict && <p>{view.mainConflict.mainBranch} conflicts with this change: {view.mainConflict.files.join(', ')}. <Link to={detail} onClick={e => e.currentTarget.closest('dialog')?.close()}>Open Details for the catch-up command</Link>.</p>}
       {extraErr && <p className="error">The work this landing carries could not be read: {extraErr}</p>}
@@ -197,7 +175,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
 // decisions are visible on Overview as well as reachable in the run record.
 function ChildOverview({ step, onChange }: { step: Step; onChange: () => void }) {
   const childId = step.type === 'workflow/call' ? step.evidence.childRunId : undefined
-  const trace = useGet<{ run: { currentStage: string; status: string }; steps: Step[] }>(childId ? `/runs/${childId}/trace` : null, { poll: 3000 })
+  const trace = useGet<{ run: { currentStage: string; status: string }; steps: Step[]; checks: ChecksSummary }>(childId ? `/runs/${childId}/trace` : null, { poll: 3000 })
   const steps = trace.data?.steps ?? []
   const waiting = steps.find(s => s.type === 'approval' && s.status === 'pending' && s.stage === trace.data?.run?.currentStage)
   const question = useGet<ApprovalQuestion>(waiting ? `/steps/${waiting.id}/question` : null)
@@ -205,12 +183,12 @@ function ChildOverview({ step, onChange }: { step: Step; onChange: () => void })
   const adds = waiting ? (question.current ? question.data?.adds ?? undefined : undefined) : saved?.adds
   if (!childId) return null
   const busy = checksRunning(steps, trace.data?.run?.currentStage)
-  const failed = steps.some(s => s.stage === trace.data?.run?.currentStage && checkTypes.has(s.type) && ['fail', 'error', 'needs_human'].includes(s.status) && !s.overrideBy)
+  const failed = steps.some(s => s.stage === trace.data?.run?.currentStage && s.isCheck && ['fail', 'error', 'needs_human'].includes(s.status) && !s.overrideBy)
   return <div className="ch-child-overview">
     <h3>{step.name.replace(/[-_]/g, ' ')}</h3>
     {trace.err && <p className="error">The called workflow’s checks could not be read: {trace.err}</p>}
     {!trace.data && !trace.err && <p>Reading the called workflow’s checks…</p>}
-    {trace.data && <><CheckSummary steps={steps} contractNeedsAttention={contractUnread(adds)} /></>}
+    {trace.data && <><CheckSummary checks={trace.data.checks} steps={steps} contractNeedsAttention={contractUnread(adds)} /></>}
     {busy && !steps.some(s => s.type === 'workflow/call' && s.status === 'running') && <p>Checks are running; you can accept when they finish.</p>}
     {failed && <p>Checks need attention before you can accept.</p>}
     {trace.current && !busy && !failed && trace.data?.run?.status === 'running' && steps.filter(s => s.type === 'approval' && s.status === 'pending' && s.stage === trace.data?.run?.currentStage).map(s => s.type === 'approval' && <DecisionForm key={s.id} stepId={s.id!} means={s.config.means} instructions={s.config.instructions} onDone={onChange} approveLabel="Accept" rejectLabel="Send back with a note" />)}

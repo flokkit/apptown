@@ -54,12 +54,13 @@ func (s *Service) ObserveContainer(ctx context.Context, d *Deployment) Container
 			c.ObservedAt, c.Stale = o.ObservedAt, o.Stale
 			return c
 		}
+		running := o.Running()
 		switch {
 		case errors.Is(o.Err, ErrNoLocalDocker):
 			return seen(ContainerObservation{State: ContainerUnavailable, Reason: o.Err.Error()})
-		case !o.Stale && o.State == RuntimeRunning:
+		case running != nil && *running:
 			return seen(ContainerObservation{State: ContainerRunning})
-		case !o.Stale && o.State == RuntimeStopped:
+		case running != nil && !*running:
 			return seen(ContainerObservation{State: ContainerStopped})
 		case o.Err != nil:
 			return seen(ContainerObservation{State: ContainerUnknown, Reason: "its host's or platform's status could not be read"})

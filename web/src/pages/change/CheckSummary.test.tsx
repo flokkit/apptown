@@ -6,11 +6,11 @@ import { InlineHelp } from '../../InlineHelp'
 import { CheckSummary } from './Overview'
 import { AddsSection, ContractAttention, contractUnread } from '../../DecisionForm'
 import type { ChangeAdds } from '../../wire.gen'
-const step = (status: string, extra = {}) => ({ id: status, type: 'script', name: 'Build app', status, statusLabel: status, evidence: {}, ...extra } as Step)
+const step = (status: string, extra = {}) => ({ id: status, isCheck: true, checkAttention: !['pass','not_applicable'].includes(status), type: 'script', name: 'Build app', status, statusLabel: status, evidence: {}, ...extra } as Step)
 const dom = (html: string) => { const el = document.createElement('div'); el.innerHTML = html; return el }
 it('summarizes successful checks in one plain line', () => {
   const steps = [step('pass', { evidence: { command: 'npm test', log: 'All done' } })]
-  const el = dom(renderToStaticMarkup(<CheckSummary steps={steps} />))
+  const el = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'ok', text: 'All checks passed', started: true }} steps={steps} />))
   expect(el.textContent).toBe('✓ All checks passed')
   expect(el.querySelector('a')).toBeNull()
   expect(el.querySelector('details')).toBeNull()
@@ -18,7 +18,7 @@ it('summarizes successful checks in one plain line', () => {
 
 })
 it.each(['fail', 'running', 'pending', 'skipped', 'needs_human', 'error'])('shows problems and omits non-applicability (%s)', status => {
-  const el = dom(renderToStaticMarkup(<CheckSummary steps={[step(status, { evidence: { reason: 'The build needs work.' } }), step('not_applicable', { evidence: { reason: 'No dependencies.' } }), step('pass')]} />))
+  const el = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[step(status, { evidence: { reason: 'The build needs work.' } }), step('not_applicable', { evidence: { reason: 'No dependencies.' } }), step('pass')]} />))
   if (['running', 'pending'].includes(status)) {
     expect(el.textContent).toBe('Still running: Build app')
   } else {
@@ -53,15 +53,15 @@ it('keeps unread contract changes with attention, never a declaration of none', 
   expect(renderToStaticMarkup(<ContractAttention adds={adds([])} />)).toBe('')
 })
 it('never treats exceptions or unread results as green', () => {
-  for (const extra of [{ statusLabel: 'unknown' }, { statusLabel: 'excepted' }, { overrideBy: 'sam', overrideReason: 'Temporary exception' }, { checkReading: { unreadable: 'No report' } }, { checkReading: { checks: [{ check: 'Privacy', verdict: 'excepted', detail: 'Temporary exception' }] } }]) {
-    const el = dom(renderToStaticMarkup(<CheckSummary steps={[step('pass', extra)]} />))
+  for (const extra of [{ checkAttention: true, statusLabel: 'unknown' }, { checkAttention: true, statusLabel: 'excepted' }, { checkAttention: true, overrideBy: 'sam', overrideReason: 'Temporary exception' }, { checkAttention: true, checkReading: { unreadable: 'No report' } }, { checkAttention: true, checkReading: { checks: [{ check: 'Privacy', verdict: 'excepted', detail: 'Temporary exception' }] } }]) {
+    const el = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[step('pass', extra)]} />))
     expect(el.querySelector('.ch-check-exception')).not.toBeNull()
     expect(el.textContent).not.toContain('All checks passed')
   }
 })
 
 it('counts not-applicable rules as fine without showing them', () => {
-  const el = dom(renderToStaticMarkup(<CheckSummary steps={[step('pass', { type: 'guidance/conformance', checkReading: { checks: [{ check: 'Privacy', verdict: 'not-applicable', detail: 'No personal data.' }] } })]} />))
+  const el = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'ok', text: 'All checks passed', started: true }} steps={[step('pass', { type: 'guidance/conformance', checkReading: { checks: [{ check: 'Privacy', verdict: 'not-applicable', detail: 'No personal data.' }] } })]} />))
   expect(el.textContent).not.toContain('Privacy')
   expect(el.textContent).toContain('✓ All checks passed')
   expect(el.querySelector('details')).toBeNull()
@@ -76,17 +76,17 @@ it('shows app-contract help openly on the change page', () => {
 })
 
 it('treats a skipped standing-deployment rule like Details and says the result once', () => {
-  const el = dom(renderToStaticMarkup(<CheckSummary steps={[step('pass', { type: 'guidance/conformance', checkReading: { checks: [{ check: 'memory-within', verdict: 'skipped', detail: 'judged on the standing deployment in reviews, not on a preview' }] } })]} />))
+  const el = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'ok', text: 'All checks passed', started: true }} steps={[step('pass', { type: 'guidance/conformance', checkReading: { checks: [{ check: 'memory-within', verdict: 'skipped', detail: 'judged on the standing deployment in reviews, not on a preview' }] } })]} />))
   expect(el.textContent).toBe('✓ All checks passed')
   expect(el.textContent).not.toContain('failed')
 })
 it('states an unknown test count in one clear phrase', () => {
-  const el = dom(renderToStaticMarkup(<CheckSummary steps={[step('pass', { type: 'tests' })]} />))
+  const el = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[step('pass', { type: 'tests', checkAttention: true })]} />))
   expect(el.textContent).toBe('Tests: number unknown')
 })
 
 it.each(['fail', 'error', 'needs_human'])('labels a rejected review and leads with structured findings (%s)', status => {
-  const el = dom(renderToStaticMarkup(<CheckSummary steps={[step(status, { type: 'agent/review', name: 'Review', evidence: {
+  const el = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[step(status, { type: 'agent/review', name: 'Review', evidence: {
     reason: 'reviewer rejected: The preview looked styled. The requested adoption is incomplete.',
     findings: ['Two projects lack the required rule.'],
   } })]} />))
@@ -94,17 +94,24 @@ it.each(['fail', 'error', 'needs_human'])('labels a rejected review and leads wi
 })
 
 it('keeps the review conclusion beyond its positive opening and removes the redundant prefix', () => {
-  const el = dom(renderToStaticMarkup(<CheckSummary steps={[step('fail', { type: 'agent/review', name: 'Review', evidence: {
+  const el = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[step('fail', { type: 'agent/review', name: 'Review', evidence: {
     reason: 'reviewer rejected: The preview looked styled. The requested adoption is incomplete.',
   } })]} />))
   expect(el.textContent).toBe('✗ Review failed The preview looked styled. The requested adoption is incomplete.')
 })
 
 it('bounds a long rejected review excerpt without selecting a sentence', () => {
-  const el = dom(renderToStaticMarkup(<CheckSummary steps={[step('fail', { type: 'agent/review', name: 'Review', evidence: {
+  const el = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[step('fail', { type: 'agent/review', name: 'Review', evidence: {
     summary: 'The preview looked styled. ' + 'The adoption is incomplete. '.repeat(40),
   } })]} />))
   expect(el.textContent).toContain('✗ Review failed The preview looked styled. The adoption is incomplete.')
   expect(el.textContent?.endsWith('…')).toBe(true)
   expect(el.textContent!.length).toBeLessThanOrEqual(260)
+})
+
+it('keeps unfinished execution unknown after the owner says its run stopped', () => {
+ const el = dom(renderToStaticMarkup(<CheckSummary checks={{tone:'unknown',text:'Checks not all known',started:true}} steps={[step('running',{statusLabel:'stopped',checkAttention:true})]}/>))
+ expect(el.textContent).toContain('Build app stopped')
+ expect(el.textContent).not.toContain('Still running')
+ expect(el.textContent).not.toContain('All checks passed')
 })

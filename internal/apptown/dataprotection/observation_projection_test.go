@@ -413,14 +413,28 @@ func TestOldProtectionPayloadCannotOfferOperationsForTheNewGeneration(t *testing
 	}
 }
 
-func TestHourlyProtectionAndNativeReadingsStayCurrentWithSlack(t *testing.T) {
+func TestHourlyProtectionReadingStaysCurrentWithSlack(t *testing.T) {
 	t.Parallel()
 	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
-	reading := ProtectionSnapshot{ObservedAt: at, Items: []ProtectionItemObservation{{Native: true, NativeAt: at}}}
+	reading := ProtectionSnapshot{ObservedAt: at}
 	for _, age := range []time.Duration{50 * time.Minute, 65 * time.Minute, 76 * time.Minute, 6*time.Hour + time.Second} {
 		got := protectionSnapshotAt(reading, at.Add(age))
 		if got.Stale != (age > 75*time.Minute) || got.Unknown != (age > 6*time.Hour) {
 			t.Fatalf("age %s: %+v", age, got)
+		}
+	}
+}
+
+// Detail and protection coverage read the same provider timestamp.
+func TestProviderBackupFreshnessAgreesWithProtectionCoverage(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	for _, age := range []time.Duration{15 * time.Minute, 15*time.Minute + time.Second, 50 * time.Minute, 76 * time.Minute, 6*time.Hour + time.Second} {
+		now := at.Add(age)
+		native := nativeBackupAt(&NativeBackups{ObservedAt: at}, now)
+		snapshot := protectionSnapshotAt(ProtectionSnapshot{ObservedAt: now, Items: []ProtectionItemObservation{{Native: true, NativeAt: at}}}, now)
+		if native.Stale != snapshot.Stale || (native.Unknown != "") != snapshot.Unknown {
+			t.Fatalf("age %s: native %+v / coverage %+v", age, native, snapshot)
 		}
 	}
 }

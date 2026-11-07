@@ -62,11 +62,11 @@ it('shows the recent projects in the order given, with All projects for the rest
   expect(el.querySelector('.dash-head button')?.classList.contains('primary')).toBe(true)
 })
 
-// An app not yet read (just after a restart) keeps its link; only one seen stopped loses it.
-it('offers Open app unless the app was seen stopped', () => {
+// Unknown runtime cannot offer a currently running app.
+it('offers Open app only for known running production', () => {
   const el = home([project('unread', { prodRunning: null }), project('stopped', { prodRunning: false })])
   const opens = [...el.querySelectorAll('a')].filter(a => a.textContent === 'Open app ↗').map(a => a.getAttribute('aria-label'))
-  expect(opens).toEqual(['Open app: unread (opens in a new tab)'])
+  expect(opens).toEqual([])
 })
 
 it('keeps identity, state and action in three fixed row cells regardless of description', () => {

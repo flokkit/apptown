@@ -167,7 +167,7 @@ func protectionSnapshotAt(s ProtectionSnapshot, now time.Time) ProtectionSnapsho
 	s.Unknown = s.Unknown || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 6*time.Hour
 	for _, item := range s.Items {
 		if item.Native {
-			s.Stale = s.Stale || item.NativeAt.IsZero() || now.Sub(item.NativeAt) > 75*time.Minute
+			s.Stale = s.Stale || item.NativeAt.IsZero() || now.Sub(item.NativeAt) > nativeStaleAfter
 			s.Unknown = s.Unknown || item.NativeAt.IsZero() || now.Sub(item.NativeAt) > 6*time.Hour
 		}
 	}

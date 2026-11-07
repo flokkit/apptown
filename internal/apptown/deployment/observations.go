@@ -455,7 +455,7 @@ func projectRuntimeSummaries(rows []runtimeDeployment) map[ids.ID]projectRuntime
 		if r.Name == "main" || (r.Name == "prod" && !main[r.ProjectID]) {
 			summary.HasProduction = true
 			summary.ProductionURL = r.URL
-			summary.ProductionRunning = r.Observation.State.Running()
+			summary.ProductionRunning = r.Observation.Running()
 			main[r.ProjectID] = r.Name == "main"
 		}
 		out[r.ProjectID] = summary

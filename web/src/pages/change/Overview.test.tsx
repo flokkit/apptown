@@ -13,7 +13,8 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { getKey, newQueryClient } from '../../data'
 import type { ChangeView, Step } from '../../api'
 import ChangePage from '../ChangePage'
-import { CheckSummary, ChangeOverview, approvalBrief, checkAttention, checksVerdict, progressTitle } from './Overview'
+import { CheckSummary, ChangeOverview, approvalBrief, checkAttention, progressTitle } from './Overview'
+import { Evidence } from './Evidence'
 import { nextStep, checksRunning } from './next'
 import { TurnDecision, viewerTurn } from './Turn'
 import { DecisionChoices } from '../../DecisionChoices'
@@ -27,11 +28,11 @@ vi.stubGlobal('ResizeObserver', Observer)
 HTMLDialogElement.prototype.showModal = function () { this.open = true }
 HTMLDialogElement.prototype.close = function () { if (this.open) { this.open = false; this.dispatchEvent(new Event('close')) } }
 const id = '00000000-0009-7000-8000-000000000000'
-const step = (type: Step['type'], status = 'pass', evidence = {}, extra = {}) => ({ id: type, runId: 'run', stage: 'check', name: type, type, status, statusLabel: status === 'pass' ? 'passed' : status, config: {}, evidence, overrideBy: '', overrideReason: '', ...extra } as Step)
+const step = (type: Step['type'], status = 'pass', evidence = {}, extra = {}) => ({ id: type, runId: 'run', stage: 'check', name: type, type, status, statusLabel: status === 'pass' ? 'passed' : status, isCheck: ['script','tests','scan','guidance/conformance','agent/review','scm/merged'].includes(type), checkAttention: type !== 'approval' && (!['pass','not_applicable'].includes(status) || type === 'tests'), config: {}, evidence, overrideBy: '', overrideReason: '', ...extra } as Step)
 const approval = step('approval', 'pending', {}, { config: { means: 'I accept this work in full.', instructions: 'Read every check.' } })
 const view = (): ChangeView => ({
   waitingOn: { kind: 'approval', says: 'ready for your approval', tone: 'warn', run: 'run', step: 'approval', checks: 0, who: [], you: 'yes' }, change: { id, number: 9, title: 'Winter rides', body: 'Show all the winter ride times.\nKeep the dinner invitation.', summary: 'Adds the winter ride calendar.', state: 'landing', createdAt: '2026-11-01T10:00:00Z', branch: 'change-9', baseSha: 'abc', editRevision: 0, openedBy: 'sam', type: 'feature' },
-  projectSlug: 'club', state: 'waiting on you', statusLabel: 'waiting for you',
+  checks: { tone: 'ok', text: 'All checks passed', started: true }, projectSlug: 'club', state: 'waiting on you', statusLabel: 'waiting for you',
   detail: { run: { id: 'run', number: 2, currentStage: 'check', status: 'running', statusLabel: 'working', workflowName: 'work', workflowVersion: 1, createdAt: '' },
     stages: ['check'], steps: [step('script'), step('agent/review', 'pass', { verdict: 'approve', summary: 'The calendar matches the request.' }), approval],
     next: [{ act: 'approve', stepId: approval.id }, { act: 'rework', stepId: 'agent' }], landingMeans: ['Merge and release the accepted work.'], events: [],
@@ -65,11 +66,11 @@ it('holds acceptance during a check, while keeping pending later-stage work sepa
 })
 
 it('keeps unknown evidence, exceptions, skips, non-applicability and required approvals visible', () => {
-  const steps = [step('scan', 'pass', {}, { checkReading: { unreadable: 'The scan could not be decoded.' } }), step('tests', 'pass'),
+  const steps = [step('scan', 'pass', {}, { checkAttention: true, checkReading: { unreadable: 'The scan could not be decoded.' } }), step('tests', 'pass'),
     step('script', 'fail', { reason: 'Exit 2' }), step('preview', 'not_applicable', { reason: 'No web part.' }),
-    step('guidance/conformance', 'pass', {}, { checkReading: { checks: [{ check: 'privacy', verdict: 'not-applicable', detail: 'No personal data.' }], undecided: ['performance'] } }),
+    step('guidance/conformance', 'pass', {}, { checkAttention: true, checkReading: { checks: [{ check: 'privacy', verdict: 'not-applicable', detail: 'No personal data.' }], undecided: ['performance'] } }),
     step('scan', 'fail', {}, { id: 'exception', overrideBy: 'sam', overrideReason: 'Documented exception' }), approval]
-  const html = renderToStaticMarkup(<CheckSummary steps={steps} />)
+  const html = renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={steps} />)
   for (const fact of ['The scan could not be decoded.', 'Tests: number unknown', 'Exit 2', 'performance: unknown', 'Documented exception']) expect(html).toContain(fact)
   expect(html).not.toContain('All checks passed')
 })
@@ -189,7 +190,7 @@ it('lets a called workflow describe its own waiting decision without saying the 
 
 
 it('omits technical check names and non-applicability and keeps approvals out of Checks', () => {
-  const html = renderToStaticMarkup(<CheckSummary steps={[
+  const html = renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[
     step('scan', 'fail', {}, { name: 'scan-source:osv' }),
     step('scan', 'not_applicable', { reason: 'No dependencies.' }, { id: 'na', name: 'scan-source:osv' }), approval,
   ]} />)
@@ -214,7 +215,7 @@ it('shows the change report when the summary is Project work', () => {
 })
 
 it('omits non-applicable checks without hiding failed or unknown checks', () => {
-  const html = renderToStaticMarkup(<CheckSummary steps={[step('guidance/conformance', 'fail', {}, { checkReading: { checks: [
+  const html = renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[step('guidance/conformance', 'fail', {}, { checkAttention: true, checkReading: { checks: [
     { check: 'Privacy', verdict: 'not-applicable', detail: 'No personal data.' },
     { check: 'Accessibility', verdict: 'fail', detail: 'Missing labels.' },
   ], undecided: ['Performance'] } })]} />)
@@ -226,7 +227,7 @@ it('omits non-applicable checks without hiding failed or unknown checks', () => 
 })
 
 it('shows a missing report honestly and uses the request once', () => {
-  const v = view(); v.change.summary = ''; v.report = ''
+  const v = view(); v.checks = { tone: 'neutral', text: 'Not checked yet. Checks run when you press Check and land in the chat.', started: false }; v.change.summary = ''; v.report = ''
   const el = document.createElement('div'); el.innerHTML = render(v)
   expect(el.querySelector('.ch-request')?.textContent).toContain('Show all the winter ride times.')
   expect(el.textContent).toContain('Reading the conversation…')
@@ -239,7 +240,7 @@ it('shows a missing report honestly and uses the request once', () => {
   expect(el.querySelector('details')).toBeNull()
 })
 it('shows a long request excerpt with a link to the complete request', () => {
-  const v = view(); v.change.summary = ''; v.report = ''; v.change.body = 'First line.\nSecond line.\nThird line.\nFourth line.\nLast request line.'
+  const v = view(); v.checks = { tone: 'neutral', text: 'Not checked yet. Checks run when you press Check and land in the chat.', started: false }; v.change.summary = ''; v.report = ''; v.change.body = 'First line.\nSecond line.\nThird line.\nFourth line.\nLast request line.'
   const el = document.createElement('div'); el.innerHTML = render(v)
   expect(el.textContent).toContain('First line.')
   expect(el.querySelector('.ch-change-card')?.textContent).not.toContain('Last request line.')
@@ -437,7 +438,7 @@ it('keeps one decision screen measured to the content column and closes without 
 })
 
 it('shows the latest chat reply and Continue chat as the only action before any run', async () => {
-  const v = view(); v.change.summary = ''; v.change.state = 'in_progress'; v.state = ''; v.detail = null; v.approval = undefined; v.waitingOn = { ...v.waitingOn, kind: 'chat', says: 'chat open', tone: 'neutral', you: 'no' }
+  const v = view(); v.checks = { tone: 'neutral', text: 'Not checked yet. Checks run when you press Check and land in the chat.', started: false }; v.change.summary = ''; v.change.state = 'in_progress'; v.state = ''; v.detail = null; v.approval = undefined; v.waitingOn = { ...v.waitingOn, kind: 'chat', says: 'chat open', tone: 'neutral', you: 'no' }
   v.next = [{ act: 'land' }] as ChangeView['next']
   vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/transcript') ? { sessions: [{ messages: [{ role: 'helper', text: 'Old answer.' }, { role: 'helper', text: 'The menu can be edited.\nOrders keep their names.' }] }], unreadable: 0 } : [])))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
@@ -460,7 +461,7 @@ it('groups unfinished checks and app contract, showing findings without evaluato
   const steps = [step('script', 'fail', { command: 'sh checks/style.sh', reason: 'Missing a label. Add it before shipping.', actions: ['Resolve the reported issue.'] }, { name: 'style' }),
     ...['osv', 'gitleaks', 'security'].map(name => step('scan', 'running', {}, { id: name, name }))]
   const el = document.createElement('div')
-  el.innerHTML = renderToStaticMarkup(<CheckSummary steps={steps} contractNeedsAttention />)
+  el.innerHTML = renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={steps} contractNeedsAttention />)
   expect(el.querySelector('.ch-check-summary > p')?.textContent).toBe('Still running: Dependency scan, Secret scan, Security scan')
   expect([...el.querySelectorAll('.ch-check-exception')].map(e => e.firstChild?.textContent)).toEqual(['Style failed: Missing a label.', 'Changes to the app contract need checking.'])
   for (const text of ['Resolve the reported issue', 'Let the check finish', 'No passing result', 'Add it before shipping']) expect(el.textContent).not.toContain(text)
@@ -471,7 +472,7 @@ it('groups unfinished checks and app contract, showing findings without evaluato
 
 it('summarizes a script finding from its recorded output when it has no reason', () => {
   const el = document.createElement('div')
-  el.innerHTML = renderToStaticMarkup(<CheckSummary steps={[step('script', 'fail', { log: 'orders/views.py:24: print("order total", total)\nstyle: remove the print() calls above', command: 'sh checks/style.sh' }, { name: 'style' })]} />)
+  el.innerHTML = renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[step('script', 'fail', { log: 'orders/views.py:24: print("order total", total)\nstyle: remove the print() calls above', command: 'sh checks/style.sh' }, { name: 'style' })]} />)
   expect(el.querySelector('.ch-check-exception')?.firstChild?.textContent).toBe('Style failed: orders/views.py:24: print("order total", total)')
 })
 
@@ -643,6 +644,7 @@ it.each([
   ['running', {}, 'neutral', 'Checks running'],
 ] as const)('shows the checks shield for %s / %s', (status, evidence, tone, text) => {
   const v = view()
+  v.checks = { tone, text, started: true }
   v.detail!.steps = [step('script', status, evidence, { name: 'Build', ...(tone === 'unknown' ? { statusLabel: 'unknown' } : {}) })]
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><StatePanel view={v} /><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
@@ -669,7 +671,7 @@ it('keeps a called approval on the approval path without parent recovery control
 })
 
 it('labels an unsummarized agent report and excludes verification claims while keeping identifiers', () => {
-  const v = view(); v.change.summary = ''; v.report = 'Set WP_HOME for HTTPS.\nVerified with curl.\nKept WP_SITEURL unchanged.'
+  const v = view(); v.checks = { tone: 'neutral', text: 'Not checked yet. Checks run when you press Check and land in the chat.', started: false }; v.change.summary = ''; v.report = 'Set WP_HOME for HTTPS.\nVerified with curl.\nKept WP_SITEURL unchanged.'
   const el = document.createElement('div'); el.innerHTML = render(v)
   const row = [...el.querySelectorAll('.ch-change-card .ch-overview-line')].find(r => r.querySelector('.ch-row-label')?.textContent === 'The agent says')!
   expect(row.textContent).toContain('WP_HOME')
@@ -728,7 +730,8 @@ it.each([
   [null, 'fail', 'bad', 'Ways of working failed'],
 ] as const)('uses gates=%s for a %s check in the shield and Checks row', (gates, verdict, tone, text) => {
   const v = view()
-  v.detail!.steps = [step('guidance/conformance', 'pass', {}, { checkReading: { checks: [
+  v.checks = { tone, text, started: true }
+  v.detail!.steps = [step('guidance/conformance', 'pass', {}, { checkAttention: gates !== false, checkReading: { checks: [
     { check: 'arbitrary-rule', gates, verdict, detail: 'Use shorter sentences in the README.' },
     { check: 'another-rule', gates: true, verdict: 'pass' },
   ] } })]
@@ -740,7 +743,7 @@ it.each([
   expect(summary.textContent).toContain('Use shorter sentences in the README.')
   if (gates === false) {
     expect(checkAttention(v.detail!.steps)).toEqual([])
-    const passed = document.createElement('div'); passed.innerHTML = renderToStaticMarkup(<CheckSummary steps={v.detail!.steps} />)
+    const passed = document.createElement('div'); passed.innerHTML = renderToStaticMarkup(<CheckSummary checks={v.checks} steps={v.detail!.steps} />)
     expect(passed.textContent).toContain('All checks passed')
     expect(passed.querySelector('.ch-mark.ok')).not.toBeNull()
     expect(passed.querySelector('p')?.textContent).toBe('Note: Use shorter sentences in the README.')
@@ -748,28 +751,21 @@ it.each([
 })
 
 it('counts advisory problems as notes and omits passing and non-applicable results', () => {
-  const steps = [step('guidance/conformance', 'pass', {}, { checkReading: { checks: [
+  const steps = [step('guidance/conformance', 'pass', {}, { checkAttention: false, checkReading: { checks: [
     { check: 'a', gates: false, verdict: 'fail', detail: 'Shorten the introduction.' },
     { check: 'b', gates: false, verdict: 'unknown', detail: 'The examples need a review.' },
     ...['pass', 'not-applicable', 'skipped'].map(verdict => ({ check: verdict, gates: false, verdict })),
   ] } })]
-  expect(checksVerdict(steps)).toEqual({ tone: 'ok', text: 'All checks passed · 2 notes' })
-  const el = document.createElement('div'); el.innerHTML = renderToStaticMarkup(<CheckSummary steps={steps} />)
+  const el = document.createElement('div'); el.innerHTML = renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={steps} />)
   expect([...el.querySelectorAll('p')].map(p => p.textContent)).toEqual(['Note: Shorten the introduction.', 'Note: The examples need a review.'])
 })
 
-it('keeps gating uncertainty amber while another check runs', () => {
-  const steps = [step('guidance/conformance', 'pass', {}, { checkReading: { undecided: ['Performance'] } }), step('script', 'running')]
-  expect(checksVerdict(steps)).toEqual({ tone: 'unknown', text: 'Checks not all known' })
-})
-
 it('keeps advisory details separate from a gating failure', () => {
-  const steps = [step('guidance/conformance', 'pass', {}, { checkReading: { checks: [
+  const steps = [step('guidance/conformance', 'pass', {}, { checkAttention: true, checkReading: { checks: [
     { check: 'tone', gates: false, verdict: 'fail', detail: 'Shorten the introduction.' },
     { check: 'privacy', gates: true, verdict: 'fail', detail: 'Remove the exposed password.' },
   ] } })]
-  expect(checksVerdict(steps)?.tone).toBe('bad')
-  const el = document.createElement('div'); el.innerHTML = renderToStaticMarkup(<CheckSummary steps={steps} />)
+  const el = document.createElement('div'); el.innerHTML = renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={steps} />)
   expect(el.querySelector('.ch-check-exception')?.textContent).toBe('Ways of working failed: Remove the exposed password.')
   expect(el.querySelector('p:last-child')?.textContent).toBe('Note: Shorten the introduction.')
 })
@@ -882,7 +878,7 @@ it('labels every approval fact, omits the internal step and keeps its meaning an
 
 
 it('keeps project notes beside the short conversation request and first Markdown report paragraph', async () => {
-  const v = view(); v.change.summary = ''; v.report = ''
+  const v = view(); v.checks = { tone: 'neutral', text: 'Not checked yet. Checks run when you press Check and land in the chat.', started: false }; v.change.summary = ''; v.report = ''
   v.change.chatRequest = true
   v.change.requestSummary = 'Make distant cards easy to reach.'
   v.notesDiff = { added: ['- Keep cards reachable. (Sam · change 9)'], removed: ['- Use fixed cards. (Sam · change 4)'] }
@@ -974,4 +970,18 @@ it('retains the preview run in the logs link', () => {
   v.detail!.steps.push(step('preview', 'pass', {screenshots:{shots:[],unavailable:'No capture was recorded.'}}, {id:'boot',runId:'preview-run'}))
   const el = document.createElement('div'); el.innerHTML = render(v)
   expect([...el.querySelectorAll('a')].find(a=>a.textContent==='logs →')?.getAttribute('href')).toBe(`/changes/${v.change.id}/records/preview?run=preview-run`)
+})
+
+// The execution status alone would pass in Evidence and fail in Overview.
+it('shows the server verdict in Overview and Evidence for a passed step with a blocking failure', () => {
+ const v = view()
+ v.checks = { tone: 'bad', text: 'Ways of working failed', started: true }
+ const s = step('guidance/conformance', 'pass', {}, { isCheck: true, checkAttention: true, statusLabel: 'failed', checkReading: { checks: [{ check: 'privacy', verdict: 'fail', gates: true, detail: 'Remove personal data.' }] } })
+ v.detail!.steps = [s]
+ const el = document.createElement('div')
+ el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={featureClient()}><StatePanel view={v} /><CheckSummary checks={v.checks} steps={[s]} /><Evidence view={v} runs={[{run: {...v.detail!.run, status: 'done'}, steps: [s]}]} workTab={() => '#'} /></QueryClientProvider></MemoryRouter>)
+ expect(el.querySelector('.ch-shield')?.textContent).toBe(v.checks.text)
+ expect(el.textContent?.split(v.checks.text).length).toBeGreaterThan(2)
+ expect(el.textContent).not.toContain('All checks passed')
+ expect(el.textContent).toContain('Remove personal data.')
 })

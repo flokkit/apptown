@@ -2,32 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import type { ChangeView, Run, RunDetail, Step } from '../../api'
-import { Evidence, checkPurpose, receiptOf, verificationSummary } from './Evidence'
-import { claimOf, disputeOf } from './Disagreement'
-
 const step = (status: Step['status'], overrideBy = '') => ({ type: 'tests', status, overrideBy } as Step)
 
-describe('recorded verification', () => {
- it('distinguishes passing checks from overrides, skipped checks, and unfinished work', () => {
-  expect(verificationSummary([step('pass'), step('pass', 'reviewer'), step('skipped'), step('pending'), step('error')]))
-   .toBe('1 overridden · 1 need attention · 1 unfinished · 1 skipped')
- })
- it('does not present agent execution as a verification check', () => {
-  expect(verificationSummary([{ type: 'agent/pi', status: 'pass' } as Step])).toContain('No verification checks')
- })
-})
-
-// "All checks passed" is a claim that something passed and nothing else went wrong.
-it('never says all checks passed when none passed', () => {
- expect(verificationSummary([step('skipped'), step('skipped')])).toBe('2 skipped')
- expect(verificationSummary([step('not_applicable')])).toBe('1 not applicable')
- expect(verificationSummary([step('pass'), step('skipped')])).toBe('All checks passed · 1 skipped')
-})
+import { Evidence, checkPurpose, receiptOf } from './Evidence'
+import { claimOf, disputeOf } from './Disagreement'
 
 describe('not applicable', () => {
- it('counts a not-applicable step apart from passes', () => {
-  expect(verificationSummary([step('pass'), step('not_applicable')])).toBe('All checks passed · 1 not applicable')
- })
  it('names every not-applicable check and never counts it among the rules met', () => {
   const checks = [
    { block: 'b', version: 1, check: 'builds', evaluator: 'sh', verdict: 'pass' },
@@ -164,12 +144,11 @@ describe('a finished run with unreadable check evidence', () => {
   const step = { id: '00000000-0006-7000-8000-000000000000', runId: '00000000-0002-7000-8000-000000000000', stage: 'check', name: 'guidance', type: 'guidance/conformance', status: 'pass', attempt: 1, config: {}, overrideBy: '',
    evidence: { checks: [{ check: 'tone', verdict: '' }] }, checkReading: { unreadable: 'unreadable check evidence: invalid check verdict: ""' } } as unknown as Step
   const run = { id: '00000000-0002-7000-8000-000000000000', number: 2, status: 'done', workflowName: 'checks', workflowVersion: 1 } as Run
-  const view = { detail: { steps: [step] }, projectSlug: 'p' } as unknown as ChangeView
+  const view = { checks: { tone: 'unknown', text: 'Checks not all known', started: true }, detail: { steps: [step] }, projectSlug: 'p' } as unknown as ChangeView
   const html = renderToStaticMarkup(<MemoryRouter><Evidence view={view} runs={[{ run, steps: [step] }]} workTab={() => '#'} /></MemoryRouter>)
   expect(html).not.toContain('ch-line-title">All checks passed')
   expect(html).toContain('evidence unreadable')
   expect(html).toContain('Its check evidence could not be read.')
-  expect(verificationSummary([step])).toBe('1 passed with unreadable evidence')
  })
 })
 
@@ -181,10 +160,10 @@ describe('a finished run with a tests receipt', () => {
  const run = { id: '00000000-0002-7000-8000-000000000000', number: 2, status: 'done', workflowName: 'land', workflowVersion: 1 } as Run
  const tests = (evidence: object) => ({ id: '00000000-0008-7000-8000-000000000000', runId: run.id, stage: 'check', name: 'tests', type: 'tests', status: 'pass', statusLabel: 'passed', attempt: 1, config: {}, overrideBy: '',
   evidence: { command: 'go test -json ./... > "$APPTOWN_TEST_REPORT"', ...evidence } }) as unknown as Step
- const rendered = (s: Step) => renderToStaticMarkup(<MemoryRouter><Evidence view={{ detail: { steps: [s] }, projectSlug: 'p' } as unknown as ChangeView} runs={[{ run, steps: [s] }]} workTab={() => '#'} /></MemoryRouter>)
+ const rendered = (s: Step) => renderToStaticMarkup(<MemoryRouter><Evidence view={{ checks: { tone: 'unknown', text: 'Checks not all known', started: true }, detail: { steps: [s] }, projectSlug: 'p' } as unknown as ChangeView} runs={[{ run, steps: [s] }]} workTab={() => '#'} /></MemoryRouter>)
  it('folds when the report counted no skips', () => {
   const html = rendered(tests({ testCounts: { passed: 44, failed: 0, skipped: 0 } }))
-  expect(html).toContain('All checks passed')
+  expect(html).toContain('All steps passed')
   expect(receiptOf(tests({ testCounts: { passed: 44, failed: 0, skipped: 0 } })).sentence).toContain('44 passed')
  })
  it('presents a witnessed zero as no tests, without notes or uncertainty', () => {
@@ -242,7 +221,7 @@ it('shows an offered approval as waiting for you, independently of check labels'
 })
 
  it.each(['in_progress', 'landing', 'shipped', 'abandoned'] as const)('records absent delivery for a closed change: %s', state => {
-  const view = { change: { state }, evidence: { targets: [], merged: false, releases: [] } } as unknown as ChangeView
+  const view = { checks: { tone: 'unknown', text: 'Checks not all known', started: true }, change: { state }, evidence: { targets: [], merged: false, releases: [] } } as unknown as ChangeView
   const html = renderToStaticMarkup(<MemoryRouter><Evidence view={view} runs={[]} workTab={() => '#'} /></MemoryRouter>)
   expect(html.includes('Not merged and not released.')).toBe(state === 'shipped' || state === 'abandoned')
  })
@@ -250,7 +229,7 @@ it('shows an offered approval as waiting for you, independently of check labels'
 it('names script checks individually and links each receipt to its full record', () => {
  const steps = ['tests', 'style'].map((name, i) => ({ id: String(i), name, type: 'script', status: 'fail', statusLabel: 'failed', evidence: { command: 'private-command' }, config: {} } as unknown as Step))
  expect(steps.map(s => receiptOf(s).title)).toEqual(['Tests', 'Style'])
- const view = { change: { state: 'in_progress' } } as ChangeView
+ const view = { checks: { tone: 'unknown', text: 'Checks not all known', started: true }, change: { state: 'in_progress' } } as ChangeView
  const html = renderToStaticMarkup(<MemoryRouter><Evidence view={view} runs={[{ run: { id: 'run', status: 'running' } as Run, steps }]} workTab={() => '#record'} /></MemoryRouter>)
  expect(html).toMatch(/<section[^>]*id="step-0"[^>]*><h3/)
  expect(html).not.toContain('<summary>Details</summary>')

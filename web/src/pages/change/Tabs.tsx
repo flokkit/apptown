@@ -17,7 +17,7 @@ export function useRunDetail(view: ChangeView, runId?: string): { detail: RunDet
   if (!t || !t.run) return { detail: null, err: trace.err }
   return {
     // A trace is the record, not the run's current offer: it carries no acts.
-    detail: { run: t.run, stages: t.stages, steps: t.steps.filter(Boolean) as Step[], events: t.events as RunDetail['events'], artifacts: t.artifacts, landingMeans: [], next: [] },
+    detail: { checks: t.checks, run: t.run, stages: t.stages, steps: t.steps.filter(Boolean) as Step[], events: t.events as RunDetail['events'], artifacts: t.artifacts, landingMeans: [], next: [] },
     err: trace.err,
   }
 }

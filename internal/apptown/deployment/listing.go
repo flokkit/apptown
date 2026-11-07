@@ -62,7 +62,13 @@ func (s RuntimeState) Value() (driver.Value, error) {
 	}
 	return s.String(), nil
 }
-func (s RuntimeState) Running() *bool {
+
+// Running is the current runtime answer. Stale evidence cannot establish running or stopped.
+func (o RuntimeObservation) Running() *bool {
+	if o.Stale {
+		return nil
+	}
+	s := o.State
 	if s != RuntimeRunning && s != RuntimeStopped {
 		return nil
 	}

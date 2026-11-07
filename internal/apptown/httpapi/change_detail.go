@@ -197,7 +197,12 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, ChangeCockpit{NotesDiff: notesDiff, WaitingOn: h.work.ChangeWaitingOn(r.Context(), item, detail), Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
+	checks, err := h.work.ChangeChecks(r.Context(), detail)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, ChangeCockpit{Checks: checks, NotesDiff: notesDiff, WaitingOn: h.work.ChangeWaitingOn(r.Context(), item, detail), Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
 		Runs: runs, Commits: commits, Head: head, Diffstat: diffstat, CommittedDiff: comparison, Report: report, Editing: editing,
 		StatusLabel: item.Display(detail), State: state, StateDetail: stateDetail, Approval: h.approvalStanding(r, detail), MainConflict: mainConflict,
 		Usage: ChangeUsage{Total: spend.Total, CostMicros: spend.CostMicros, Unpriced: spend.Unpriced}, Next: workflow.ChangeActs(item, detail, evidence.Merged, h.work.MayAbandon(r.Context(), id) == nil)})
@@ -238,15 +243,16 @@ func (h ChangeDetail) approvalStanding(r *http.Request, detail *workflow.RunSnap
 // the branch's commits, a diff stat, and the latest change report.
 type (
 	ChangeCockpit struct {
-		WaitingOn   workflow.WaitingOn    `json:"waitingOn"`
-		NotesDiff   *projectnotes.Diff    `json:"notesDiff,omitempty"`
-		Change      workflow.Change       `json:"change"`
-		ProjectSlug string                `json:"projectSlug"`
-		Detail      *workflow.RunSnapshot `json:"detail"`
-		ADRs        []adrs.ChangeSummary  `json:"adrs"`
-		Evidence    changeEvidence        `json:"evidence"`
-		Runs        []ChangeRunSummary    `json:"runs"`
-		Commits     []ChangeCommit        `json:"commits"`
+		Checks      workflow.ChecksSummary `json:"checks"`
+		WaitingOn   workflow.WaitingOn     `json:"waitingOn"`
+		NotesDiff   *projectnotes.Diff     `json:"notesDiff,omitempty"`
+		Change      workflow.Change        `json:"change"`
+		ProjectSlug string                 `json:"projectSlug"`
+		Detail      *workflow.RunSnapshot  `json:"detail"`
+		ADRs        []adrs.ChangeSummary   `json:"adrs"`
+		Evidence    changeEvidence         `json:"evidence"`
+		Runs        []ChangeRunSummary     `json:"runs"`
+		Commits     []ChangeCommit         `json:"commits"`
 		// Head is the change's current commit, the one its diff and
 		// commits read (full); empty when it could not be read. A
 		// preview's or a screenshot's commit is compared with it.

@@ -34,7 +34,7 @@ func TestRuntimeReachabilityRetainsFirstFailureUntilSuccessOrPlacementChange(t *
 	failure = deploy.Unreachable(errors.New("connection refused"))
 	now = now.Add(time.Second)
 	first := read()
-	if first.State != runtimeUnreachable || !first.UnreachableSince.Equal(now) || first.TargetName == "" || first.State.Running() != nil {
+	if first.State != runtimeUnreachable || !first.UnreachableSince.Equal(now) || first.TargetName == "" || first.Running() != nil {
 		t.Fatalf("first failure: %+v", first)
 	}
 	now = now.Add(time.Minute)
