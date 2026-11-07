@@ -13,7 +13,7 @@ import { DeploymentAddressEdit } from './DeploymentAddress'
 import { ReleaseDefaultPicker } from './ReleaseDefault'
 import { DisplayLabelEdit } from '../../../DisplayLabel'
 import { PRODUCT } from '../../../brand'
-import { AppAddress, statusProps, failedRuntimeRefresh } from '../../../runtime'
+import { AppAddress, failedRuntimeRefresh } from '../../../runtime'
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { del, post, put, type ChangeView } from '../../../api'
@@ -86,12 +86,9 @@ function FeedPause({ env: e }: { env: DeploymentView }) {
 }
 
 function ServingRelease({ slug, env: e }: { slug: string; env: DeploymentView }) {
-  if (e.observationStale || (e.observation !== 'running' && e.observation !== 'stopped')) {
-    return <Status word="unknown" help={`Serving release unknown. ${statusProps(e.status).help}`} />
-  }
+  const number = e.status.servingReleaseNumber
   const release = e.servingRelease
-  if (!release) return <>No serving release recorded</>
-  return <><Link to={`/projects/${slug}/releases/${release.number}`}>{e.observation === 'running' ? 'Running' : 'Recorded'} release {release.number}</Link> · {fmtStamp(release.releasedAt || release.createdAt)}</>
+  return <>{number ? <Link to={`/projects/${slug}/releases/${number}`}>{e.status.servingRelease}</Link> : e.status.servingRelease}{release && release.number === number && e.status.word !== 'deploying' && <> · {fmtStamp(release.releasedAt || release.createdAt)}</>}</>
 }
 
 function promotionHelp(e: DeploymentView) {
@@ -278,7 +275,6 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
             {torn.orphans.length > 0 ? <> Left at the target: {torn.orphans.join('; ')}.</> : ' Nothing was left behind.'}
           </DeploymentLine>
         )}
-        <DeploymentLine label="Checked">{(diagnostics.data?.reading?.observedAt || e.observedAt) ? <>{fmtStamp(diagnostics.data?.reading?.observedAt || e.observedAt!)}{diagnostics.data?.reading?.stale || e.observationStale ? ' (old)' : ''}</> : 'Not checked yet.'}</DeploymentLine>
         <div className="row deploy-more">
           {action}
           <DisplayLabelEdit value={e.displayLabel || e.name} machineKey={e.name} path={`/projects/${slug}/deployments/${e.id}/label`} onChanged={onChanged} />

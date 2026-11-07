@@ -32,7 +32,7 @@ function card() {
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="lunch" env={{
     name: 'main', displayLabel: 'Lunch Orders', generation: 1, kind: 'standing', feed: 'main', audience: 'team', data: 'production',
-    status: { word: 'unknown', reason: 'web did not answer in time', stale: true }, observation: 'running', observedAt: at, readiness: 'reconciled', url: 'https://lunch.example', target: { kind: 'docker-host', name: 'local' },
+    status: { word: 'unknown', reason: 'web did not answer in time · old reading', checkedAt: at, stale: true }, observation: 'running', observedAt: at, readiness: 'reconciled', url: 'https://lunch.example', target: { kind: 'docker-host', name: 'local' },
   } as DeploymentView} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>)
   client.clear()
   return el
@@ -47,7 +47,7 @@ it('shows deployment facts without fold-downs', () => {
 })
 
 it('shows one deployment check timestamp', () => {
-  expect(card().textContent?.match(/Last checked|Checked/g)).toHaveLength(1)
+  expect(card().textContent?.match(/checked /g)).toHaveLength(1)
 })
 
 it('says the missing backup once, with a disabled restore test and its reason', () => {

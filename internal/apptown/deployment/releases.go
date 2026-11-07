@@ -256,6 +256,15 @@ func (s *Releases) LastReleasedForDeployment(ctx context.Context, deploymentID i
 	return s.read(ctx, row, err)
 }
 
+// releaseForGeneration reads the release applied to this exact placement.
+func (s *Service) releaseForGeneration(ctx context.Context, dep *Deployment) (*Release, error) {
+	row, err := deploymentsql.New(s.db.SQL()).ReleaseForGeneration(ctx, deploymentsql.ReleaseForGenerationParams{DeploymentID: dep.ID, Generation: dep.ObservedGeneration})
+	if found, err := database.Lookup(err); err != nil || !found {
+		return nil, err
+	}
+	return s.Releases.read(ctx, row, nil)
+}
+
 // Live reports whether a release is the newest released on its recorded
 // deployment identity while that deployment still stands. Historical releases
 // without a recorded identity remain history; a name cannot establish liveness.

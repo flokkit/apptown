@@ -449,6 +449,9 @@ DELETE FROM deployment_storage_bindings WHERE deployment_id=sqlc.arg(deployment_
 -- name: LatestReleasedForDeployment :one
 SELECT * FROM releases WHERE deployment_id=sqlc.arg(deployment_id) AND state=sqlc.arg(state) ORDER BY number DESC LIMIT 1;
 
+-- name: ReleaseForGeneration :one
+SELECT * FROM releases WHERE deployment_id=sqlc.arg(deployment_id) AND generation=sqlc.arg(generation) AND state='released' ORDER BY number DESC LIMIT 1;
+
 -- name: AssociateTargetProvider :one
 UPDATE targets SET connection_id=sqlc.arg(connection_id), provider=sqlc.arg(provider), provider_scope_json=sqlc.arg(provider_scope_json),
   settings_revision=settings_revision+1, updated_at=sqlc.arg(at)
@@ -684,8 +687,10 @@ SELECT EXISTS (
  WHERE i.release_id=$1 AND jsonb_exists(a.observed_json, '_restart')
 )::boolean AS interrupted_by_restart;
 
--- name: ReleasingDeployment :one
-SELECT number, created_at FROM releases WHERE deployment_id=$1 AND state='releasing' ORDER BY number DESC LIMIT 1;
+-- name: LatestDeploymentRelease :one
+SELECT r.number, r.stage, r.state, r.stage_finished_at,
+ COALESCE((SELECT e.text FROM release_events e WHERE e.release_id=r.id ORDER BY e.at DESC, e.id DESC LIMIT 1), '')::text AS failure
+FROM releases r WHERE r.deployment_id=$1 ORDER BY (r.state='releasing') DESC, r.number DESC LIMIT 1;
 
 -- name: ClaimRestartRetry :execrows
 UPDATE deployment_attempts

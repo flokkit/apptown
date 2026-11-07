@@ -55,7 +55,7 @@ async function listing(): Promise<HTMLElement> {
     if (url.includes('/project-cleanups')) return new Response(JSON.stringify({ cleanups: [] }))
     return new Response(JSON.stringify({ projects: [
       { id: '00000000-0001-7000-8000-000000000000', slug: 'plain', name: 'Plain', blurb: '', icon: '', deployed: false, hasDeployments: false, status: { word: 'unknown', reason: '', stale: false }, observation: 'unknown', observationStale: true },
-      { id: '00000000-0002-7000-8000-000000000000', slug: 'boat', name: 'Boat', blurb: 'A long description that must stay on one line in both the desktop list and phone cards', icon: '⛵', deployed: false, hasDeployments: true, status: { word: 'unknown', reason: '', stale: false }, observation: 'unknown', observationStale: true },
+      { id: '00000000-0002-7000-8000-000000000000', slug: 'boat', name: 'Boat', blurb: 'A long description that must stay on one line in both the desktop list and phone cards', icon: '⛵', deployed: false, hasDeployments: true, status: { word: 'unknown', reason: 'not checked yet', stale: false }, observation: 'unknown', observationStale: true },
     ], total: 2 }))
   }))
   const client = newQueryClient()

@@ -2381,6 +2381,33 @@ func (q *Queries) LatestBundle(ctx context.Context, projectID ids.ID) (ReleaseBu
 	return i, err
 }
 
+const latestDeploymentRelease = `-- name: LatestDeploymentRelease :one
+SELECT r.number, r.stage, r.state, r.stage_finished_at,
+ COALESCE((SELECT e.text FROM release_events e WHERE e.release_id=r.id ORDER BY e.at DESC, e.id DESC LIMIT 1), '')::text AS failure
+FROM releases r WHERE r.deployment_id=$1 ORDER BY (r.state='releasing') DESC, r.number DESC LIMIT 1
+`
+
+type LatestDeploymentReleaseRow struct {
+	Number          int64
+	Stage           string
+	State           string
+	StageFinishedAt sql.NullTime
+	Failure         string
+}
+
+func (q *Queries) LatestDeploymentRelease(ctx context.Context, deploymentID ids.ID) (LatestDeploymentReleaseRow, error) {
+	row := q.db.QueryRowContext(ctx, latestDeploymentRelease, deploymentID)
+	var i LatestDeploymentReleaseRow
+	err := row.Scan(
+		&i.Number,
+		&i.Stage,
+		&i.State,
+		&i.StageFinishedAt,
+		&i.Failure,
+	)
+	return i, err
+}
+
 const latestLimitEventOnTarget = `-- name: LatestLimitEventOnTarget :one
 SELECT COALESCE(MAX(e.at), '0001-01-01T00:00:00Z'::timestamptz)::timestamptz AS at
 FROM deployment_limit_events e JOIN deployments d ON d.id = e.deployment_id
@@ -4187,6 +4214,52 @@ func (q *Queries) ReleaseEvents(ctx context.Context, releaseID ids.ID) ([]Releas
 	return items, nil
 }
 
+const releaseForGeneration = `-- name: ReleaseForGeneration :one
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at FROM releases WHERE deployment_id=$1 AND generation=$2 AND state='released' ORDER BY number DESC LIMIT 1
+`
+
+type ReleaseForGenerationParams struct {
+	DeploymentID ids.ID
+	Generation   int64
+}
+
+func (q *Queries) ReleaseForGeneration(ctx context.Context, arg ReleaseForGenerationParams) (Release, error) {
+	row := q.db.QueryRowContext(ctx, releaseForGeneration, arg.DeploymentID, arg.Generation)
+	var i Release
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Number,
+		&i.State,
+		&i.Deployment,
+		&i.ExternalRef,
+		&i.ApprovedBy,
+		&i.RunID,
+		&i.CreatedAt,
+		&i.ReleasedAt,
+		&i.Notes,
+		&i.CommitSha,
+		&i.SourceSha,
+		&i.BundleID,
+		&i.DeploymentID,
+		&i.Generation,
+		&i.ArtifactHash,
+		&i.Origin,
+		&i.BackupID,
+		&i.FromDeploymentID,
+		&i.ApprovalRole,
+		&i.ApprovalJson,
+		&i.SupersededBy,
+		&i.RollbackOf,
+		&i.RestoreBackupID,
+		&i.Stage,
+		&i.StageEnteredAt,
+		&i.FailedStage,
+		&i.StageFinishedAt,
+	)
+	return i, err
+}
+
 const releaseNumbersForProject = `-- name: ReleaseNumbersForProject :many
 SELECT number FROM releases WHERE project_id=$1 ORDER BY number
 `
@@ -4527,22 +4600,6 @@ func (q *Queries) ReleasingCount(ctx context.Context, state string) (int64, erro
 	var count int64
 	err := row.Scan(&count)
 	return count, err
-}
-
-const releasingDeployment = `-- name: ReleasingDeployment :one
-SELECT number, created_at FROM releases WHERE deployment_id=$1 AND state='releasing' ORDER BY number DESC LIMIT 1
-`
-
-type ReleasingDeploymentRow struct {
-	Number    int64
-	CreatedAt time.Time
-}
-
-func (q *Queries) ReleasingDeployment(ctx context.Context, deploymentID ids.ID) (ReleasingDeploymentRow, error) {
-	row := q.db.QueryRowContext(ctx, releasingDeployment, deploymentID)
-	var i ReleasingDeploymentRow
-	err := row.Scan(&i.Number, &i.CreatedAt)
-	return i, err
 }
 
 const removeDeploymentHostnameClaims = `-- name: RemoveDeploymentHostnameClaims :exec

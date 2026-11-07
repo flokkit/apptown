@@ -14,21 +14,31 @@ import (
 // DeploymentStatus is Deployment's single display answer. Runtime evidence and
 // desired intent remain separate; this answer never authorizes an operation.
 type DeploymentStatus struct {
-	Word      ProgressLabel `json:"word"`
-	Reason    string        `json:"reason"`
-	CheckedAt time.Time     `json:"checkedAt,omitzero"`
-	Stale     bool          `json:"stale"`
-	RetryAt   time.Time     `json:"retryAt,omitzero"`
+	AppliedAt            time.Time     `json:"appliedAt,omitzero"`
+	ServingReleaseNumber int64         `json:"servingReleaseNumber,omitempty"`
+	ServingRelease       string        `json:"servingRelease,omitempty"`
+	Word                 ProgressLabel `json:"word"`
+	Reason               string        `json:"reason"`
+	CheckedAt            time.Time     `json:"checkedAt,omitzero"`
+	Stale                bool          `json:"stale"`
+	RetryAt              time.Time     `json:"retryAt,omitzero"`
 }
 
 func (s *Service) displayObservation(ctx context.Context, r listingRecord) (RuntimeObservation, error) {
 	o := s.observations.read(r, s.now())
-	release, err := deploymentsql.New(s.db.SQL()).ReleasingDeployment(ctx, r.deployment.ID)
+	release, err := deploymentsql.New(s.db.SQL()).LatestDeploymentRelease(ctx, r.deployment.ID)
 	var releasing *releaseProgress
 	if found, err := database.Lookup(err); err != nil {
 		return o, err
-	} else if found {
-		releasing = &releaseProgress{Number: release.Number, At: release.CreatedAt}
+	} else if found && (release.State == "releasing" || release.State == "failed" && o.AttemptedAt.Before(release.StageFinishedAt.Time)) {
+		releasing = &releaseProgress{Number: release.Number, Stage: release.Stage}
+		if release.State == "failed" {
+			releasing.Failure = release.Failure
+		}
+	}
+	if releasing != nil {
+		o.Status = deploymentAnswer(r.deployment, o, Diagnostics{}, releasing, nil)
+		return o, nil
 	}
 	var d Diagnostics
 	if r.deployment.Container != "" && r.deployment.ObservedGeneration > 0 {
@@ -37,17 +47,43 @@ func (s *Service) displayObservation(ctx context.Context, r listingRecord) (Runt
 			return o, err
 		}
 	}
-	o.Status = deploymentAnswer(r.deployment, o, d, releasing)
+	applied, err := s.releaseForGeneration(ctx, r.deployment)
+	if err != nil {
+		return o, err
+	}
+	o.Status = deploymentAnswer(r.deployment, o, d, releasing, applied)
 	return o, nil
 }
 
 type releaseProgress struct {
-	Number int64
-	At     time.Time
+	Number  int64
+	Stage   string
+	Failure string
 }
 
-func deploymentAnswer(dep *Deployment, o RuntimeObservation, d Diagnostics, releasing *releaseProgress) DeploymentStatus {
-	a := DeploymentStatus{Word: progressLabelUnknown, CheckedAt: o.AttemptedAt, Stale: o.Stale}
+func deploymentAnswer(dep *Deployment, o RuntimeObservation, d Diagnostics, releasing *releaseProgress, applied *Release) (a DeploymentStatus) {
+	// An open release owns the answer. Runtime evidence cannot change its stage.
+	if releasing != nil {
+		a = DeploymentStatus{Word: progressLabelDeploying, Reason: fmt.Sprintf("release %d %s", releasing.Number, releasing.Stage), ServingRelease: fmt.Sprintf("Serving release %d", releasing.Number), ServingReleaseNumber: releasing.Number}
+		if releasing.Failure != "" {
+			a.Word, a.Reason = progressLabelFailed, releasing.Failure
+		}
+		return a
+	}
+	defer func() {
+		a.ServingRelease = servingReleaseWords(o, applied, a.AppliedAt)
+		if applied != nil && (!a.AppliedAt.IsZero() || !o.Stale && (o.State == RuntimeRunning || o.State == RuntimeStopped)) {
+			a.ServingReleaseNumber = applied.Number
+		}
+		if a.Stale && !o.ObservedAt.IsZero() {
+			if a.Reason == "" {
+				a.Reason = "old reading"
+			} else {
+				a.Reason += " · old reading"
+			}
+		}
+	}()
+	a = DeploymentStatus{Word: progressLabelUnknown, CheckedAt: o.AttemptedAt, Stale: o.Stale && !o.ObservedAt.IsZero()}
 	if a.CheckedAt.IsZero() {
 		a.CheckedAt = o.ObservedAt
 	}
@@ -57,14 +93,19 @@ func deploymentAnswer(dep *Deployment, o RuntimeObservation, d Diagnostics, rele
 	case "starting", "stopping", "restarting":
 		return DeploymentStatus{Word: progressLabelDeploying, Reason: strings.TrimSpace(dep.RuntimeState + " " + dep.RuntimeError), CheckedAt: dep.RuntimeAt.Time}
 	}
-	if releasing != nil || dep.Readiness == reconciling {
+	if dep.Readiness == reconciling {
 		a.Word, a.Reason, a.Stale = progressLabelDeploying, "releasing", false
-		if releasing != nil {
-			a.Reason = fmt.Sprintf("Release %d is releasing", releasing.Number)
-			a.CheckedAt = releasing.At
+		return a
+	}
+	// A completed apply waits for evidence, without a clock-based grace period.
+	if dep.LastApplied != nil && o.AttemptedAt.Before(dep.LastApplied.At) && o.ObservedAt.Before(dep.LastApplied.At) {
+		a = DeploymentStatus{Word: progressLabelWaiting, Reason: "live — first check pending", AppliedAt: dep.LastApplied.At}
+		if applied != nil {
+			a.Reason = fmt.Sprintf("release %d live — first check pending", applied.Number)
 		}
 		return a
 	}
+
 	switch o.State {
 	case RuntimeRunning:
 		a.Word = progressLabelWorking
@@ -83,8 +124,6 @@ func deploymentAnswer(dep *Deployment, o RuntimeObservation, d Diagnostics, rele
 	}
 	if o.ObservedAt.IsZero() && a.Reason == "" {
 		a.Reason = "not checked yet"
-	} else if o.Stale && a.Reason == "" {
-		a.Reason = "the runtime reading is out of date"
 	}
 	if o.Stale && o.State != runtimeUnreachable {
 		a.Word = progressLabelUnknown
@@ -129,6 +168,22 @@ func deploymentAnswer(dep *Deployment, o RuntimeObservation, d Diagnostics, rele
 	return a
 }
 
+func servingReleaseWords(o RuntimeObservation, release *Release, appliedAt time.Time) string {
+	if !appliedAt.IsZero() && release != nil {
+		return fmt.Sprintf("Serving release %d", release.Number)
+	}
+	if o.Stale || (o.State != RuntimeRunning && o.State != RuntimeStopped) {
+		return "Serving release unknown"
+	}
+	if release == nil {
+		return "No serving release recorded"
+	}
+	if o.State == RuntimeRunning {
+		return fmt.Sprintf("Running release %d", release.Number)
+	}
+	return fmt.Sprintf("Recorded release %d", release.Number)
+}
+
 // Status reads the display answer for a known deployment. Its caller owns the
 // visibility fence, like Deployments.OnTarget; no provider is contacted.
 func (s *Service) Status(ctx context.Context, id ids.ID) (DeploymentStatus, error) {
@@ -151,5 +206,5 @@ func (s *Service) Status(ctx context.Context, id ids.ID) (DeploymentStatus, erro
 
 // UnobservedStatus is the answer when no deployment observation exists.
 func UnobservedStatus() DeploymentStatus {
-	return DeploymentStatus{Word: progressLabelUnknown, Reason: "not checked yet", Stale: true}
+	return DeploymentStatus{Word: progressLabelUnknown, Reason: "not checked yet"}
 }

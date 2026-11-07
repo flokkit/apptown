@@ -154,7 +154,7 @@ it.each(['main', 'manual', 'promotion'].flatMap(feed => ['row', 'card'].map(view
     { deployment: 'staging', number: 17, serving: true },
     { deployment: 'production', number: 7, serving: true },
   ])
-  const e = { id: 'prod', name: 'production', kind: 'standing', feed, status: { word: 'working', reason: '', stale: false }, observation: 'running', servingRelease: { number: 7, releasedAt: '2026-11-06T12:00:00Z' }, feedConfirmed: true, readiness: 'reconciled', promotionSource: 'Staging', promotionRelease: 17 } as DeploymentView
+  const e = { id: 'prod', name: 'production', kind: 'standing', feed, status: { word: 'working', reason: '', stale: false, servingReleaseNumber: 7, servingRelease: 'Running release 7' }, observation: 'running', servingRelease: { number: 7, releasedAt: '2026-11-06T12:00:00Z' }, feedConfirmed: true, readiness: 'reconciled', promotionSource: 'Staging', promotionRelease: 17 } as DeploymentView
   {
     const el = document.createElement('div')
     el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
@@ -200,7 +200,7 @@ it('allows saving an unchanged unconfirmed follows-main setting and applies its 
 it.each(['row', 'card'])('reports no serving release only for this deployment in the %s', view => {
   const client = newQueryClient()
   client.setQueryData(getKey('/projects/shop/releases'), [{ deployment: 'staging', number: 17, serving: true }, { deployment: 'production', number: 8, serving: false }])
-  const e = { name: 'production', kind: 'standing', feed: 'main', feedConfirmed: true, status: { word: 'stopped', reason: '', stale: false }, observation: 'stopped', servingRelease: null } as DeploymentView
+  const e = { name: 'production', kind: 'standing', feed: 'main', feedConfirmed: true, status: { word: 'stopped', reason: '', stale: false, servingRelease: 'No serving release recorded' }, observation: 'stopped', servingRelease: null } as DeploymentView
   const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
   expect(html).toContain('No serving release recorded')
   expect(html).not.toContain('Running release')
@@ -214,7 +214,7 @@ it.each(['row', 'card'])('preserves unknown serving evidence in the %s', view =>
   client.setQueryData(getKey('/projects/shop/releases'), [
     { deployment: 'production', number: 7, state: 'released', serving: false, observed: 'unknown', reason: 'host observation unavailable' },
   ])
-  const e = { name: 'production', kind: 'standing', feed: 'main', feedConfirmed: true, status: { word: 'unknown', reason: 'host observation unavailable', stale: false }, observation: 'unknown', observationIssue: 'host observation unavailable', servingRelease: { number: 7 } } as DeploymentView
+  const e = { name: 'production', kind: 'standing', feed: 'main', feedConfirmed: true, status: { word: 'unknown', reason: 'host observation unavailable', stale: false, servingRelease: 'Serving release unknown' }, observation: 'unknown', observationIssue: 'host observation unavailable', servingRelease: { number: 7 } } as DeploymentView
   const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
   client.clear()
   expect(html).not.toContain('No serving release recorded')
@@ -229,7 +229,7 @@ it.each(['row', 'card'])('does not infer absence from truncated history in the %
   client.setQueryData(getKey('/projects/shop/releases'), Array.from({ length: 50 }, (_, i) => (
     { deployment: 'staging', number: 57 - i, state: 'released', serving: i === 0 }
   )))
-  const e = { name: 'production', kind: 'standing', feed: 'promotion', feedConfirmed: false, status: { word: 'working', reason: '', stale: false }, observation: 'running', servingRelease: { number: 7, releasedAt: '2026-11-06T12:00:00Z' } } as DeploymentView
+  const e = { name: 'production', kind: 'standing', feed: 'promotion', feedConfirmed: false, status: { word: 'working', reason: '', stale: false, servingReleaseNumber: 7, servingRelease: 'Running release 7' }, observation: 'running', servingRelease: { number: 7, releasedAt: '2026-11-06T12:00:00Z' } } as DeploymentView
   const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
   client.clear()
   expect(html).not.toContain('No serving release recorded')
@@ -240,7 +240,7 @@ it.each(['row', 'card'])('does not infer absence from truncated history in the %
 
 it.each(['row', 'card'].flatMap(view => ['unknown', 'unreachable', 'stale'].map(state => [view, state])))('keeps %s serving evidence unknown when runtime is %s', (view, state) => {
   const client = newQueryClient()
-  const e = { name: 'production', kind: 'standing', status: { word: 'unknown', reason: '', stale: true }, observation: state === 'stale' ? 'running' : state, observationStale: state === 'stale', servingRelease: null } as DeploymentView
+  const e = { name: 'production', kind: 'standing', status: { word: 'unknown', reason: '', stale: true, servingRelease: 'Serving release unknown' }, observation: state === 'stale' ? 'running' : state, observationStale: state === 'stale', servingRelease: null } as DeploymentView
   const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
   expect(html).toContain('Serving release unknown')
   expect(html).not.toContain('No serving release recorded')
@@ -249,7 +249,7 @@ it.each(['row', 'card'].flatMap(view => ['unknown', 'unreachable', 'stale'].map(
 
 it.each(['row', 'card'])('keeps the recorded release when stopped in the %s', view => {
   const client = newQueryClient()
-  const e = { name: 'production', kind: 'standing', status: { word: 'stopped', reason: '', stale: false }, observation: 'stopped', servingRelease: { number: 7, releasedAt: '2026-11-06T12:00:00Z' } } as DeploymentView
+  const e = { name: 'production', kind: 'standing', status: { word: 'stopped', reason: '', stale: false, servingRelease: 'Recorded release 7' }, observation: 'stopped', servingRelease: { number: 7, releasedAt: '2026-11-06T12:00:00Z' } } as DeploymentView
   const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
   expect(html).toContain('Recorded release 7')
   expect(html).not.toContain('Running release')
