@@ -65,7 +65,7 @@ func TestReleaseProgressRecoveryCompletionRestoresLiveReading(t *testing.T) {
 		}
 		return rows[0]
 	}
-	if r := read(); !r.ProgressUncertain || r.LastStage != deploy.Checking || r.Stage != 0 || r.StageElapsedMs != nil {
+	if r := read(); !r.ProgressUncertain || !r.InterruptedByRestart || r.LastStage != deploy.Checking || r.Stage != 0 || r.StageElapsedMs != nil {
 		t.Fatalf("interrupted progress: %+v", r)
 	}
 	if _, err := f.outcomes.Complete(t.Context(), Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active", ImageDigest: "selected-image"}}); err != nil {

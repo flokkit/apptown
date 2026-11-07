@@ -634,6 +634,25 @@ func (q *Queries) ClaimReleaseRequest(ctx context.Context, arg ClaimReleaseReque
 	return result.RowsAffected()
 }
 
+const claimRestartRetry = `-- name: ClaimRestartRetry :execrows
+UPDATE deployment_attempts
+SET observed_json = observed_json || jsonb_build_object('_restartRetry', $1::timestamptz)
+WHERE id=$2 AND NOT jsonb_exists(observed_json, '_restartRetry')
+`
+
+type ClaimRestartRetryParams struct {
+	At time.Time
+	ID ids.ID
+}
+
+func (q *Queries) ClaimRestartRetry(ctx context.Context, arg ClaimRestartRetryParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, claimRestartRetry, arg.At, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const clearRemovedDefault = `-- name: ClearRemovedDefault :exec
 UPDATE project_release_settings SET default_deployment_id=NULL, revision=revision+1 WHERE default_deployment_id=$1
 `
@@ -4195,20 +4214,29 @@ func (q *Queries) ReleaseNumbersForProject(ctx context.Context, projectID ids.ID
 	return items, nil
 }
 
-const releaseProgressUncertain = `-- name: ReleaseProgressUncertain :one
+const releaseRecoveryProgress = `-- name: ReleaseRecoveryProgress :one
 SELECT EXISTS (
  SELECT 1 FROM deployment_attempts a
  JOIN deployment_attempt_inputs i ON i.attempt_id=a.id
  WHERE i.release_id=$1 AND (a.status <> 'running' OR jsonb_exists(a.observed_json, '_recovery'))
-)::boolean
+)::boolean AS uncertain, EXISTS (
+ SELECT 1 FROM deployment_attempts a
+ JOIN deployment_attempt_inputs i ON i.attempt_id=a.id
+ WHERE i.release_id=$1 AND jsonb_exists(a.observed_json, '_restart')
+)::boolean AS interrupted_by_restart
 `
 
+type ReleaseRecoveryProgressRow struct {
+	Uncertain            bool
+	InterruptedByRestart bool
+}
+
 // Recovery observes an existing effect; its old execution milestone is history.
-func (q *Queries) ReleaseProgressUncertain(ctx context.Context, releaseID ids.ID) (bool, error) {
-	row := q.db.QueryRowContext(ctx, releaseProgressUncertain, releaseID)
-	var column_1 bool
-	err := row.Scan(&column_1)
-	return column_1, err
+func (q *Queries) ReleaseRecoveryProgress(ctx context.Context, releaseID ids.ID) (ReleaseRecoveryProgressRow, error) {
+	row := q.db.QueryRowContext(ctx, releaseRecoveryProgress, releaseID)
+	var i ReleaseRecoveryProgressRow
+	err := row.Scan(&i.Uncertain, &i.InterruptedByRestart)
+	return i, err
 }
 
 const releaseRequestMetadata = `-- name: ReleaseRequestMetadata :one

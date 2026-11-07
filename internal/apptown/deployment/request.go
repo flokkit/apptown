@@ -174,9 +174,19 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	if !in.ExpectedSourceBundleID.IsZero() && dep.Feed != "promotion" {
 		return AcceptedRelease{}, fault.New(fault.Conflict, fmt.Sprintf("%s is no longer promoted from another deployment; reload", dep.Name))
 	}
-	// Follows-main accepts explicitly selected code. Its latest-bundle
-	// selection remains the automatic feed's responsibility.
-	if err := dep.deployableByHand(); err != nil && (!errors.Is(err, errFedByLanding) || (in.BundleID.IsZero() && in.ReleaseNumber == 0 && in.BeforeRelease == 0)) {
+	// An unqualified manual request on follows-main only retries its failed
+	// latest release. Pin that release before the usual selection and gates.
+	if dep.Feed == "main" && in.BundleID.IsZero() && in.ReleaseNumber == 0 && in.BeforeRelease == 0 {
+		last, err := s.Releases.Last(ctx, in.ProjectID, dep.Name)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return AcceptedRelease{}, err
+		}
+		if last == nil || last.State != ReleaseFailed || last.BundleID.IsZero() {
+			return AcceptedRelease{}, fmt.Errorf("%s is %w; choose a release explicitly", dep.Name, errFedByLanding)
+		}
+		in.ReleaseNumber = last.Number
+	}
+	if err := dep.deployableByHand(); err != nil && !errors.Is(err, errFedByLanding) {
 		return AcceptedRelease{}, err
 	}
 	// A project being deleted, or deleted, takes no release; while a

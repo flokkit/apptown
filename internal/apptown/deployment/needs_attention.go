@@ -171,8 +171,8 @@ type CheckResult struct {
 // CheckAgain refreshes a deployment's runtime reading, never deploying anything.
 // When its records need repair, it first uses the usual settlement:
 //   - an uncertain attempt is observed as recovery observes it: running with
-//     the image its boot recorded settles it applied, its container gone
-//     settles it failed, and a host that cannot be asked leaves it uncertain;
+//     its admitted identity settles it applied; an absent container or a
+//     host that cannot be asked stays uncertain for the recovery job;
 //   - a release left releasing after its attempt ended follows that attempt:
 //     failed or superseded fails it, and done is observed the same way
 //     (an attempt of an older generation is superseded by the newer one).
@@ -217,7 +217,10 @@ func (s *Service) CheckAgain(ctx context.Context, projectID ids.ID, name string)
 		return result, err
 	}
 	if !uncertain.IsZero() {
-		r, err := s.recover(ctx, uncertain)
+		// Checking runtime does not apply the startup job's retry.
+		observer := s.Recoverer()
+		observer.retry = nil
+		r, err := observer.Run(ctx, uncertain)
 		if err != nil && r.Outcome == "" {
 			r.Outcome, r.Reason = string(outcomeUncertain), err.Error()
 		}

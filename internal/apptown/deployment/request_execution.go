@@ -79,6 +79,25 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err != nil || !claimed {
 		return err
 	}
+	_, err = s.executeRequestedRelease(ctx, rel, placement, nil)
+	return err
+}
+
+// executeRequestedRelease shares preparation and current-authority checks with
+// the single restart retry. A retry keeps its generation and backup, and never
+// restores data or takes another pre-deploy copy.
+func (s *Service) executeRequestedRelease(ctx context.Context, rel *Release, placement deploymentsql.ReleaseRequest, retry *Attempt) (ExecutionResult, error) {
+	id := rel.ID
+	var result ExecutionResult
+	var original Inputs
+	if retry != nil {
+		var err error
+		original, err = s.Outcomes.InputsFor(ctx, *retry)
+		if err != nil {
+			return result, err
+		}
+		placement.BaseGeneration = retry.Generation
+	}
 	ctx = deploy.WithStageReporter(ctx, func(stage deploy.DeployStage) error {
 		return s.recordReleaseStage(ctx, id, stage)
 	})
@@ -87,48 +106,51 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		if restored {
 			cause = fmt.Errorf("%w; the restored data stays in place and the app remains stopped", cause)
 		}
+		if retry != nil {
+			return cause
+		}
 		_, err := s.Outcomes.FailUnstartedRelease(ctx, id, cause)
 		return errors.Join(cause, err)
 	}
 	if err := deploy.ReportStage(ctx, deploy.Preparing); err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	var rawAuthority json.RawMessage
 	if placement.AuthorityJson != nil {
 		rawAuthority = *placement.AuthorityJson
 	}
 	if placement.FeedRevision.Valid && len(rawAuthority) == 0 {
-		return fail(errFeedUnconfirmed)
+		return result, fail(errFeedUnconfirmed)
 	}
 	captured, err := releasePrincipal(rawAuthority)
 	if err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	allowed := func(ctx context.Context) error { return releaseAllowed(ctx, s, rel, placement, captured) }
 	if err := allowed(ctx); err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	var attrs Attributes
 	if err := json.Unmarshal(placement.AttributesJson, &attrs); err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	dep, err := s.Deployments.ByID(ctx, rel.DeploymentID)
 	if err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	if op, err := s.runningOperation(ctx, dep); err != nil {
-		return fail(err)
+		return result, fail(err)
 	} else if op != nil && slices.Contains(op.Holds, SubjectOf(dep)) {
-		return fail(&operations.HeldError{Holder: op})
+		return result, fail(&operations.HeldError{Holder: op})
 	}
 	// Before any preparation: App Platform's needs and rendering reach the
 	// provider before an attempt is admitted.
 	if err := dep.HeldAfterRestore(); err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	running, err := s.handBundle(ctx, dep)
 	if err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	checkDep := *dep
 	if placement.FeedRevision.Valid {
@@ -136,64 +158,65 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		attrs.Feed = "manual"
 	}
 	if err := checkDep.matchesRelease(placement.TargetID, placement.BaseGeneration, attrs, rel.BundleID, running); err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 
 	t, err := s.Targets.ByID(ctx, placement.TargetID)
 	if err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	if err := matchesProviderBinding(t, placement.ProviderBindingJson); err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	var address *AddressSnapshot
 	if placement.IngressJson != nil {
 		address, err = addressSnapshotFrom(*placement.IngressJson)
 		if err != nil {
-			return fail(err)
+			return result, fail(err)
 		}
 	}
 	if err := s.checkAddressSnapshot(ctx, dep, t, address); err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	bundle, err := s.Bundles.ByID(ctx, rel.BundleID)
 	if err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	if bundle.ProjectID != rel.ProjectID {
-		return fail(errBundleMissing)
+		return result, fail(errBundleMissing)
 	}
 	if err := s.refusesPlacement(ctx, rel.ProjectID, t); err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	if err := s.providers.RefusesBundle(ctx, bundle, t); err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	if d, err := s.providers.Driver(ctx, t, dep); err != nil {
-		return fail(err)
+		return result, fail(err)
 	} else if r, ok := d.(releaseRefuser); ok {
 		if err := r.refusesRelease(bundle); err != nil {
-			return fail(err)
+			return result, fail(err)
 		}
 	}
 	project, err := s.release.Sources.Project(ctx, rel.ProjectID)
 	if err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	c, revision, err := s.release.Sources.Contract(ctx, project, rel.CommitSHA)
 	if err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	if c == nil || revision != rel.CommitSHA {
-		return fail(errors.New("accepted source revision changed"))
+		return result, fail(errors.New("accepted source revision changed"))
 	}
 	if why, err := s.env.RefusesContract(ctx, t, c); err != nil || why != "" {
-		return fail(errors.Join(err, refusal(why)))
+		return result, fail(errors.Join(err, refusal(why)))
 	}
 	if why, err := s.env.RefusesBrowserValues(ctx, t.Kind, rel.ProjectID, c); err != nil || why != "" {
-		return fail(errors.Join(err, refusal(why)))
+		return result, fail(errors.Join(err, refusal(why)))
 	}
 	req := preparedRelease{releaseRun: rel.RunID, allowed: allowed, bundle: bundle, source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, actor: rel.ApprovedBy, baseGeneration: &placement.BaseGeneration}
+	req.retry, req.original = retry, original
 	req.address = address
 	if address != nil {
 		ingress := address.Ingress.Clone()
@@ -209,7 +232,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		// them; otherwise the host builds the source, as before.
 		req.source.Images, req.source.Init, err = s.bundleImages(ctx, bundle, t)
 		if err != nil {
-			return fail(err)
+			return result, fail(err)
 		}
 		var art deploy.Artifact
 		art, cleanup, err = docker.PrepareSource(ctx, project.Repository, revision, project.Slug, nil)
@@ -223,7 +246,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		staged = tree.Directory
 	}
 	if err != nil {
-		return fail(fmt.Errorf("staging the committed tree: %w", err))
+		return result, fail(fmt.Errorf("staging the committed tree: %w", err))
 	}
 	defer cleanup()
 	req.source.Workspace = staged
@@ -235,99 +258,114 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	// rendered.
 	d, err := s.providers.Driver(ctx, t, dep)
 	if err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	req.committed = req.source.Contract
-	effective, applied, err := s.effectiveContract(ctx, dep, staged, req.committed)
+	var effective *appcontract.Contract
+	var applied AppliedProfile
+	if retry != nil {
+		applied = original.Applied
+		effective = applied.On(req.committed)
+	} else {
+		effective, applied, err = s.effectiveContract(ctx, dep, staged, req.committed)
+	}
 	if err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	// The same early check a landing makes before its build, before any
 	// secret is generated, need registered or target changed (Preflight).
 	check := preflightCheck{DeploymentID: dep.ID, Deployment: dep.Name, TargetID: t.ID, Commit: revision, CheckedAt: s.now()}
 	if err := s.preflight(ctx, check, rel.ProjectID, t, project.Slug, staged, effective); err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
-	if req.applied, err = applied.Fitted(ctx, d, effective); err != nil {
-		return fail(err)
+	req.applied = applied
+	if retry == nil {
+		req.applied, err = applied.Fitted(ctx, d, effective)
+	}
+	if err != nil {
+		return result, fail(err)
 	}
 	req.source.Contract = effective
 	if err := allowed(ctx); err != nil {
-		return fail(err)
-	}
-	if err := deploy.ReportStage(ctx, deploy.BackingUp); err != nil {
-		return fail(err)
-	}
-	if !rel.RestoreBackupID.IsZero() {
-		if err := allowed(ctx); err != nil {
-			return fail(err)
-		}
-		if s.release.Rollbacks == nil {
-			return fail(errors.New("rollback restore is not configured"))
-		}
-		if err := s.release.Rollbacks.RestoreForRelease(ctx, rel.ProjectID, dep.Name, rel.RestoreBackupID, rel.ID, captured); err != nil {
-			return fail(err)
-		}
-		restored = true
-		s.log(rel.ID, "Data restored from backup %s; the app is stopped until the selected release starts", rel.RestoreBackupID)
+		return result, fail(err)
 	}
 	var witness ReleaseWitness
-	acceptUncopied := s.acceptsUncopied(ctx, placement.UncopiedAcceptanceJson, dep, t, captured, placement.FeedRevision.Valid)
-	if s.release.Data != nil {
-		witness, err = s.release.Data.BeforeRelease(ctx, rel.ProjectID, dep.Name, dep.DataClass == "synthetic")
-		if err != nil || witness == nil {
-			cause := err
-			if cause == nil {
-				cause = errors.New("copy before release could not be assessed")
-			}
-			raw, e := json.Marshal(map[string]any{"copy": map[string]string{"outcome": "unavailable", "reason": cause.Error()}})
-			if e != nil {
-				return fail(e)
-			}
-			if _, e := deploymentsql.New(s.db.SQL()).RecordReleaseBackup(context.WithoutCancel(ctx), deploymentsql.RecordReleaseBackupParams{ReleaseID: rel.ID, BackupEvidenceJson: rawJSON(raw)}); e != nil {
-				return fail(errors.Join(cause, e))
-			}
-			if !acceptUncopied {
-				return fail(fmt.Errorf("copy before release failed: %w", cause))
-			}
-			s.log(rel.ID, "Released with recorded acceptance of uncopied data: %s", cause)
+	if retry == nil {
+		if err := deploy.ReportStage(ctx, deploy.BackingUp); err != nil {
+			return result, fail(err)
 		}
-		if witness != nil {
-			q := deploymentsql.New(s.db.SQL())
-			evidence, err := json.Marshal(map[string]json.RawMessage{"copy": witness.CopyEvidence()})
-			if err != nil {
-				return fail(err)
+		if !rel.RestoreBackupID.IsZero() {
+			if err := allowed(ctx); err != nil {
+				return result, fail(err)
 			}
-			if _, err := q.RecordReleaseBackup(ctx, deploymentsql.RecordReleaseBackupParams{ReleaseID: rel.ID, BackupEvidenceJson: rawJSON(evidence)}); err != nil {
-				return fail(err)
+			if s.release.Rollbacks == nil {
+				return result, fail(errors.New("rollback restore is not configured"))
 			}
-			if _, err := q.AttachReleaseBackup(ctx, deploymentsql.AttachReleaseBackupParams{ID: rel.ID, BackupID: witness.BackupID()}); err != nil {
-				return fail(err)
+			if err := s.release.Rollbacks.RestoreForRelease(ctx, rel.ProjectID, dep.Name, rel.RestoreBackupID, rel.ID, captured); err != nil {
+				return result, fail(err)
 			}
-			req.backup = witness.BackupID()
-			s.log(rel.ID, "%s: %s", deploy.BackingUp, witness.CopyWords())
-			if !witness.Complete() && !acceptUncopied {
-				return fail(fmt.Errorf("release refused: %s; make the data copyable before releasing", witness.CopyWords()))
+			restored = true
+			s.log(rel.ID, "Data restored from backup %s; the app is stopped until the selected release starts", rel.RestoreBackupID)
+		}
+		acceptUncopied := s.acceptsUncopied(ctx, placement.UncopiedAcceptanceJson, dep, t, captured, placement.FeedRevision.Valid)
+		if s.release.Data != nil {
+			witness, err = s.release.Data.BeforeRelease(ctx, rel.ProjectID, dep.Name, dep.DataClass == "synthetic")
+			if err != nil || witness == nil {
+				cause := err
+				if cause == nil {
+					cause = errors.New("copy before release could not be assessed")
+				}
+				raw, e := json.Marshal(map[string]any{"copy": map[string]string{"outcome": "unavailable", "reason": cause.Error()}})
+				if e != nil {
+					return result, fail(e)
+				}
+				if _, e := deploymentsql.New(s.db.SQL()).RecordReleaseBackup(context.WithoutCancel(ctx), deploymentsql.RecordReleaseBackupParams{ReleaseID: rel.ID, BackupEvidenceJson: rawJSON(raw)}); e != nil {
+					return result, fail(errors.Join(cause, e))
+				}
+				if !acceptUncopied {
+					return result, fail(fmt.Errorf("copy before release failed: %w", cause))
+				}
+				s.log(rel.ID, "Released with recorded acceptance of uncopied data: %s", cause)
 			}
-			if !witness.Complete() {
-				s.log(rel.ID, "Released with recorded acceptance of uncopied data: %s", witness.CopyWords())
+			if witness != nil {
+				q := deploymentsql.New(s.db.SQL())
+				evidence, err := json.Marshal(map[string]json.RawMessage{"copy": witness.CopyEvidence()})
+				if err != nil {
+					return result, fail(err)
+				}
+				if _, err := q.RecordReleaseBackup(ctx, deploymentsql.RecordReleaseBackupParams{ReleaseID: rel.ID, BackupEvidenceJson: rawJSON(evidence)}); err != nil {
+					return result, fail(err)
+				}
+				if _, err := q.AttachReleaseBackup(ctx, deploymentsql.AttachReleaseBackupParams{ID: rel.ID, BackupID: witness.BackupID()}); err != nil {
+					return result, fail(err)
+				}
+				req.backup = witness.BackupID()
+				s.log(rel.ID, "%s: %s", deploy.BackingUp, witness.CopyWords())
+				if !witness.Complete() && !acceptUncopied {
+					return result, fail(fmt.Errorf("release refused: %s; make the data copyable before releasing", witness.CopyWords()))
+				}
+				if !witness.Complete() {
+					s.log(rel.ID, "Released with recorded acceptance of uncopied data: %s", witness.CopyWords())
+				}
 			}
 		}
+	} else {
+		req.backup = original.Backup
 	}
 	req.secrets, req.secretNames, err = s.release.Secrets.ResolveRelease(ctx, project.Application, dep.Name, staged, req.source.Contract)
 	if err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	// Needs fulfilled by registering (an AI models key): a Docker host
 	// registers them as its boot reads the app's values; any other target
 	// is given them with the app's secrets.
 	if t.Kind != KindDockerHost {
 		if err := s.env.refuseRegisteredSecretCollisions(ctx, req.source.Contract, req.secrets); err != nil {
-			return fail(err)
+			return result, fail(err)
 		}
 		registered, err := s.env.registerNeedsChecked(ctx, req.source.Contract, deploymentKeys(s.db, s.clock, dep, project.Slug), allowed)
 		if err != nil {
-			return fail(err)
+			return result, fail(err)
 		}
 		if len(registered) > 0 {
 			req.secrets = registeredSecrets{inner: req.secrets, env: registered}
@@ -338,16 +376,16 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		// site is given them as browser values where it can be at all
 		// (RefusesBrowserValues).
 		if err := allowed(ctx); err != nil {
-			return fail(err)
+			return result, fail(err)
 		}
 		if _, gives := d.(integrationsGiver); !gives && !staticOnly(req.source.Contract) {
 			if err := s.noteUndeliveredIntegrations(ctx, rel.ID, rel.ProjectID, t); err != nil {
-				return fail(err)
+				return result, fail(err)
 			}
 		}
 	}
 	if err := ctx.Err(); err != nil {
-		return fail(err)
+		return result, fail(err)
 	}
 	// A standing deployment on a Docker host boots at its one recorded
 	// port, picked now if this is its first boot, as a landing's is: Docker
@@ -356,13 +394,13 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if docked {
 		names, err := dep.HostNames()
 		if err != nil {
-			return fail(err)
+			return result, fail(err)
 		}
 		if dep.HostPort, err = s.Deployments.stablePort(ctx, rel.ProjectID, dep.Name, names.App()); err != nil {
-			return fail(fmt.Errorf("reserving the deployment's host port: %w", err))
+			return result, fail(fmt.Errorf("reserving the deployment's host port: %w", err))
 		}
 	}
-	result, err := s.execute(ctx, NumberedRelease{ID: rel.ID, Number: rel.Number}, dep, t, req)
+	result, err = s.execute(ctx, NumberedRelease{ID: rel.ID, Number: rel.Number}, dep, t, req)
 	if err != nil && restored {
 		observed := s.ObserveContainerNow(ctx, dep)
 		if observed.State == ContainerStopped {
@@ -388,10 +426,10 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 			}{witness.CopyEvidence(), problems, notes}
 			raw, e := json.Marshal(evidence)
 			if e != nil {
-				return e
+				return result, e
 			}
 			if _, e := deploymentsql.New(s.db.SQL()).RecordReleaseBackup(ctx, deploymentsql.RecordReleaseBackupParams{ReleaseID: rel.ID, BackupEvidenceJson: rawJSON(raw)}); e != nil {
-				return e
+				return result, e
 			}
 			for _, note := range notes {
 				s.log(rel.ID, "Not compared: %s", note)
@@ -400,12 +438,12 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 				cause := fmt.Errorf("release is running, but its data continuity check failed: %s; this check restored nothing and changed no data", strings.Join(problems, "; "))
 				s.log(rel.ID, "%s", cause)
 				// Released remains the running-code fact. Continuity is recorded separately.
-				return cause
+				return result, cause
 			}
 		}
 	}
 
-	return err
+	return result, err
 }
 
 // noteUndeliveredIntegrations says in the release's record which values

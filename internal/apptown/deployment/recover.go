@@ -13,7 +13,7 @@ import (
 )
 
 // Recovery (deployment.md §14.7): an attempt AppTown was interrupted in
-// is observed, never re-run. Startup queues the observation of every
+// is observed before its single retry. Startup queues recovery of every
 // interrupted attempt before anything is dispatched; the job resumes
 // through the target's driver with what the attempt had noted.
 
@@ -36,9 +36,10 @@ func (s *Service) recover(ctx context.Context, attemptID ids.ID) (RecoveryResult
 // Recoverer is the package's recoverer over its own stores and drivers.
 func (s *Service) Recoverer() recoverer {
 	return recoverer{
-		Store:    s.Outcomes,
-		Source:   s.recoverySource(),
-		Reporter: recoveryReporter{log: s.log, applied: s.applied},
+		store:    s.Outcomes,
+		retry:    s.retryInterrupted,
+		source:   s.recoverySource(),
+		reporter: recoveryReporter{log: s.log, applied: s.applied},
 	}
 }
 

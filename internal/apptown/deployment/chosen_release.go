@@ -32,8 +32,8 @@ func selectRelease(ctx context.Context, s *Service, dep *Deployment, in DeploySe
 		if e != nil {
 			return in, ids.Nil, ids.Nil, e
 		}
-		if selected.State != Released || selected.BundleID.IsZero() {
-			return in, ids.Nil, ids.Nil, fault.New(fault.Invalid, "choose a successful release with a recorded bundle")
+		if (selected.State != Released && selected.State != ReleaseFailed) || selected.BundleID.IsZero() {
+			return in, ids.Nil, ids.Nil, fault.New(fault.Invalid, "choose a successful or failed release with a recorded bundle")
 		}
 		in.BundleID = selected.BundleID
 		if selected.DeploymentID == dep.ID {

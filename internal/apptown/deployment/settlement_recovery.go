@@ -26,6 +26,12 @@ func (s *Outcomes) Checkpoint(ctx context.Context, at Attempt) deploy.Checkpoint
 		if len(values) == 0 {
 			return errors.New("empty deployment checkpoint")
 		}
+		if _, reserved := values["_restart"]; reserved {
+			return errors.New("checkpoint uses reserved restart key")
+		}
+		if _, reserved := values["_restartRetry"]; reserved {
+			return errors.New("checkpoint uses reserved restart retry key")
+		}
 		if _, reserved := values["_recovery"]; reserved {
 			return errors.New("checkpoint uses reserved recovery key")
 		}
@@ -38,7 +44,12 @@ func (s *Outcomes) Checkpoint(ctx context.Context, at Attempt) deploy.Checkpoint
 		if err != nil {
 			return err
 		}
-		if dep.DesiredGeneration != at.Generation || status != AttemptRunning {
+		var noted map[string]any
+		if err := json.Unmarshal([]byte(previous), &noted); err != nil {
+			return err
+		}
+		_, retrying := noted["_restartRetry"]
+		if dep.DesiredGeneration != at.Generation || (status != AttemptRunning && !(status == AttemptUncertain && retrying)) {
 			return fmt.Errorf("attempt %d no longer owns provider execution (%s)", at.ID, status)
 		}
 		if value, ok := values["docker"]; ok {
@@ -119,10 +130,14 @@ func (s *Outcomes) Uncertain(ctx context.Context, at Attempt, cause error) (depl
 		// Uncertainty is recorded once: an attempt already uncertain keeps its
 		// state and gains the new observation note.
 		next := verdict.Next
+		noted := map[string]any{"_recovery": map[string]any{"reason": cause.Error(), "at": now}}
+		if errors.Is(cause, errRestartInterrupted) {
+			noted["_restart"] = now
+		}
 		if _, err := deploymentsql.New(tx.SQL()).UncertainAttempt(ctx, deploymentsql.UncertainAttemptParams{
 			Status:       next.String(),
 			Terminal:     next.terminal(),
-			ObservedJson: json.RawMessage(jsonText(map[string]any{"_recovery": map[string]any{"reason": cause.Error(), "at": now}})),
+			ObservedJson: json.RawMessage(jsonText(noted)),
 			ID:           at.ID,
 		}); err != nil {
 			return "", err

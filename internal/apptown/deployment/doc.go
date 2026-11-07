@@ -116,9 +116,11 @@
 // before new execution; it makes no provider calls. A deployment whose records
 // contradict each other is marked as needing attention ([Outcomes.NeedsAttention])
 // and startup goes on; [Service.CheckAgain] refreshes its runtime reading and
-// repairs uncertainty through the usual settlement. [Recoverer] receives an observation-only
-// interface: it calls Resume for the admitted identity and cannot reapply a missing
-// deployment. Jobs own retry budgets; exhaustion does not prove provider failure.
+// repairs uncertainty through the usual settlement. Recovery calls Resume for the
+// admitted identity first. A version that has not come up permits one durable
+// retry of the original release and generation, with current authority and
+// approval checks. Later deliveries only observe. Jobs own observation budgets;
+// exhaustion does not prove provider failure.
 //
 // [Service.RunObservations] refreshes runtime samples, separately from recovery
 // and Docker health enforcement. Placement and generation are rechecked after I/O.

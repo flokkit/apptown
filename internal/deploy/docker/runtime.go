@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 )
 
 // What the host says about a container: identity and liveness, never
@@ -130,15 +132,9 @@ func recordBoot(ctx context.Context, dk Scope, id deploy.DockerIdentity, name, i
 	return o, nil
 }
 
-// resume settles an attempt AppTown lost track of from what it recorded and
-// what the host says now. Whenever the host answers, the outcome is known:
-// the container the attempt recorded booting healthy, running as recorded,
-// is the deployment; anything else (no record of a healthy boot, the
-// container gone, replaced or stopped) is a failed attempt, whose leftovers
-// the next release or a take-down removes. Only a host that cannot be asked
-// leaves it unknown, for a later look. An attempt with no record whose boot
-// did come up (AppTown stopped between the boot and writing its record)
-// reads failed while its container runs: an accepted cost.
+// resume observes the admitted container identity even when AppTown stopped
+// before recording readiness. An absent container or older generation permits a retry;
+// a matching running generation is up, with current health left unknown.
 func resume(ctx context.Context, dk Scope, p deploy.Placement, generation int64, noted map[string]any) (deploy.Observation, error) {
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
@@ -155,27 +151,48 @@ func resume(ctx context.Context, dk Scope, p deploy.Placement, generation int64,
 	if err != nil {
 		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("the attempt's record cannot be read: %w", err))
 	}
-	if proof.Container == "" || proof.Identity.Deployment != p.Label || proof.Identity.Generation != generation || proof.Ready.Generation != generation || (proof.Ready.Rollout != "active" && !(p.Stopped && proof.Ready.Rollout == "stopped")) {
-		return deploy.Observation{}, deploy.Terminal(errors.New("this attempt never recorded that its new version came up, so it did not finish"))
+	if proof.Container == "" || proof.Identity.Deployment != p.Label || proof.Identity.Generation != generation || proof.Identity.Artifact == "" {
+		return deploy.Observation{}, errors.New("Docker apply identity is missing or differs; its outcome is uncertain — inspect the host before trying again")
 	}
-	handle, ok := proof.Ready.Handle.(map[string]any)
-	if !ok || handle["container"] != proof.Container {
-		return deploy.Observation{}, deploy.Terminal(errors.New("the attempt's record names a different container than the one it started"))
+	if proof.Ready.Generation != 0 {
+		handle, ok := proof.Ready.Handle.(map[string]any)
+		if !ok || handle["container"] != proof.Container || proof.Ready.Generation != generation {
+			return deploy.Observation{}, errors.New("the attempt's boot record differs from its admitted container")
+		}
 	}
 	runtime, err := Inspect(ctx, dk, proof.Container)
 	if errors.Is(err, ErrContainerAbsent) {
 		// The daemon answered: the container the attempt booted is gone,
 		// so the deployment does not stand. That is a known outcome.
-		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("the container %s the attempt booted is gone", proof.Container))
+		return deploy.Observation{}, fmt.Errorf("the container %s is gone: %w", proof.Container, deploy.ErrNotApplied)
 	}
 	if err != nil {
 		return deploy.Observation{}, err // the host could not be asked
 	}
+	if runtime.Labels[dockerlabel.Deployment] == string(proof.Identity.Deployment) && runtime.Labels[dockerlabel.Generation] != fmt.Sprint(generation) {
+		if seen, err := strconv.ParseInt(runtime.Labels[dockerlabel.Generation], 10, 64); err == nil && seen < generation {
+			return deploy.Observation{}, deploy.ErrNotApplied
+		}
+		return deploy.Observation{}, deploy.Terminal(errors.New("the provider holds a different generation"))
+	}
 	if runtime.Running == p.Stopped {
+		if proof.Ready.Generation == 0 {
+			return deploy.Observation{}, deploy.ErrNotApplied
+		}
 		return deploy.Observation{}, deploy.Terminal(errors.New("application runtime differs from the recorded boot"))
 	}
-	if err := verifyContainerIdentity(proof.Identity, runtime, proof.Ready.ImageDigest); err != nil {
+	image := proof.Ready.ImageDigest
+	if image == "" {
+		image = runtime.Image
+	}
+	if err := verifyContainerIdentity(proof.Identity, runtime, image); err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
+	}
+	if proof.Ready.Generation == 0 {
+		proof.Ready = deploy.Observation{Generation: generation, ImageDigest: runtime.Image, Rollout: "active", URL: p.URL, Handle: map[string]any{"container": proof.Container, "hostPort": p.HostPort}}
+		if p.Stopped {
+			proof.Ready.Rollout = "stopped"
+		}
 	}
 	// Successful cold boot is recorded evidence; current health belongs to the
 	// health controller. Running alone must not invent a fresh healthy probe.

@@ -27,30 +27,31 @@ import (
 // Release is one row of the release ledger.
 type Release struct {
 	// LastStage is historical when recovery cannot confirm current execution.
-	LastStage         deploy.DeployStage `json:"lastStage,omitempty"`
-	ProgressUncertain bool               `json:"progressUncertain,omitempty"`
-	Stage             deploy.DeployStage `json:"stage,omitempty"`
-	StageEnteredAt    stamp.Time         `json:"stageEnteredAt,omitzero"`
-	StageElapsedMs    *int64             `json:"stageElapsedMs,omitempty"`
-	FailedStage       deploy.DeployStage `json:"failedStage,omitempty"`
-	RollbackOf        ids.ID             `json:"rollbackOf,omitzero"`
-	RestoreBackupID   ids.ID             `json:"restoreBackupId,omitzero"`
-	ApprovalRole      string             `json:"approvalRole"`
-	Approval          *ReleaseApproval   `json:"approval,omitempty"`
-	SupersededBy      ids.ID             `json:"supersededBy,omitzero"`
-	FromDeploymentID  ids.ID             `json:"fromDeploymentId,omitzero"`
-	BackupID          ids.ID             `json:"backupId,omitzero"`
-	ID                ids.ID             `json:"id"`
-	ProjectID         ids.ID             `json:"projectId"`
-	Number            int64              `json:"number"`
-	State             ReleaseState       `json:"state"`
-	Deployment        string             `json:"deployment"`
-	ExternalRef       string             `json:"externalRef,omitempty"`
-	ApprovedBy        string             `json:"approvedBy,omitempty"`
-	RunID             ids.ID             `json:"runId,omitzero"`
-	CreatedAt         string             `json:"createdAt"`
-	ReleasedAt        stamp.Time         `json:"releasedAt,omitzero"`
-	Notes             string             `json:"notes,omitempty"`
+	LastStage            deploy.DeployStage `json:"lastStage,omitempty"`
+	InterruptedByRestart bool               `json:"interruptedByRestart,omitempty"`
+	ProgressUncertain    bool               `json:"progressUncertain,omitempty"`
+	Stage                deploy.DeployStage `json:"stage,omitempty"`
+	StageEnteredAt       stamp.Time         `json:"stageEnteredAt,omitzero"`
+	StageElapsedMs       *int64             `json:"stageElapsedMs,omitempty"`
+	FailedStage          deploy.DeployStage `json:"failedStage,omitempty"`
+	RollbackOf           ids.ID             `json:"rollbackOf,omitzero"`
+	RestoreBackupID      ids.ID             `json:"restoreBackupId,omitzero"`
+	ApprovalRole         string             `json:"approvalRole"`
+	Approval             *ReleaseApproval   `json:"approval,omitempty"`
+	SupersededBy         ids.ID             `json:"supersededBy,omitzero"`
+	FromDeploymentID     ids.ID             `json:"fromDeploymentId,omitzero"`
+	BackupID             ids.ID             `json:"backupId,omitzero"`
+	ID                   ids.ID             `json:"id"`
+	ProjectID            ids.ID             `json:"projectId"`
+	Number               int64              `json:"number"`
+	State                ReleaseState       `json:"state"`
+	Deployment           string             `json:"deployment"`
+	ExternalRef          string             `json:"externalRef,omitempty"`
+	ApprovedBy           string             `json:"approvedBy,omitempty"`
+	RunID                ids.ID             `json:"runId,omitzero"`
+	CreatedAt            string             `json:"createdAt"`
+	ReleasedAt           stamp.Time         `json:"releasedAt,omitzero"`
+	Notes                string             `json:"notes,omitempty"`
 	// Failure is the recorded failure event, separate from release notes.
 	Failure   string `json:"failure,omitempty"`
 	CommitSHA string `json:"commitSha,omitempty"`
@@ -156,10 +157,11 @@ func (s *Releases) read(ctx context.Context, r deploymentsql.Release, err error)
 		return nil, err
 	}
 	if v.State == Releasing {
-		v.ProgressUncertain, err = deploymentsql.New(s.db.SQL()).ReleaseProgressUncertain(ctx, r.ID)
+		progress, err := deploymentsql.New(s.db.SQL()).ReleaseRecoveryProgress(ctx, r.ID)
 		if err != nil {
 			return nil, err
 		}
+		v.ProgressUncertain, v.InterruptedByRestart = progress.Uncertain, progress.InterruptedByRestart
 		if v.ProgressUncertain {
 			v.LastStage, v.Stage = v.Stage, 0
 			v.StageElapsedMs = nil

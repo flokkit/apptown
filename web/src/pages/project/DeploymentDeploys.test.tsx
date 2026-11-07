@@ -166,14 +166,14 @@ it.each(['releasing', 'released', 'failed'])('freezes stale deployment progress 
 
 it('shows an interrupted stage as history without active time or animation', () => {
   const client = runtimeClient()
-  client.setQueryData(getKey('/projects/lunch/releases'), [{ number: 9, deployment: 'main', state: 'releasing', lastStage: 'starting', progressUncertain: true, createdAt: '', changes: [] }])
+  client.setQueryData(getKey('/projects/lunch/releases'), [{ number: 9, deployment: 'main', state: 'releasing', lastStage: 'starting', progressUncertain: true, interruptedByRestart: true, createdAt: '', changes: [] }])
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="main" /></QueryClientProvider></MemoryRouter>)
   const card = el.querySelector('.deployment-deploy-card')!
   expect(card.querySelector('.deploy-scene.paused')).not.toBeNull()
   expect(card.querySelector('.busy')).toBeNull()
   expect(card.querySelector('.deploy-stages')?.textContent).not.toContain('now')
-  expect(card.querySelector('.ch-deploy-progress')?.textContent).toBe('Last seen: starting the app · Deployment interrupted; being checked.')
+  expect(card.querySelector('.ch-deploy-progress')?.textContent).toBe('Last seen: starting the app · Interrupted by a restart — checking.')
   expect(card.querySelector('.ch-deploy-heading')?.textContent).toBe('Deployment progress uncertain')
   client.clear()
 })

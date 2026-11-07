@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -32,6 +31,8 @@ type Application struct {
 
 // preparedRelease is one deploy, ready to admit.
 type preparedRelease struct {
+	retry      *Attempt
+	original   Inputs
 	backup     ids.ID
 	releaseRun ids.ID
 	bundle     *ReleaseBundle // the bundle the source was cut from, for the record; nil for a staged tree
@@ -70,6 +71,9 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	logf := func(format string, args ...any) { s.log(rel.ID, format, args...) }
 	fail := func(format string, args ...any) error {
 		cause := fmt.Errorf(format, args...)
+		if req.retry != nil {
+			return cause
+		}
 		if _, err := s.Outcomes.FailUnstartedRelease(ctx, rel.ID, cause); err != nil {
 			logf("could not record the preparation failure: %v (preparation: %v)", err, cause)
 		}
@@ -122,11 +126,13 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	}
 	// A deployment that starts from a copy has its data filled and checked
 	// before its app first starts.
-	if err := s.startFromCopy(ctx, rel, dep, t, req.actor, logf, req.allowed); err != nil {
-		return ExecutionResult{}, fail("starting from the copy: %v", err)
-	}
-	if err := allowed(ctx); err != nil {
-		return ExecutionResult{}, fail("%v", err)
+	if req.retry == nil {
+		if err := s.startFromCopy(ctx, rel, dep, t, req.actor, logf, req.allowed); err != nil {
+			return ExecutionResult{}, fail("starting from the copy: %v", err)
+		}
+		if err := allowed(ctx); err != nil {
+			return ExecutionResult{}, fail("%v", err)
+		}
 	}
 	var art deploy.Artifact
 	if req.artifact != nil {
@@ -156,20 +162,26 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	if art.Kind == "docker-source" {
 		inputs.ImageDigest, inputs.DockerSource = "", string(art.Body)
 	}
+	act := func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
+		if err := allowed(ctx); err != nil {
+			return deploy.Observation{}, err
+		}
+		logf("deploying as generation %d of %s", at.Generation, dep.Name)
+		return d.Reconcile(ctx, dep.Placement(), at.Generation, art, key, logf, checkpoint)
+	}
+	if req.retry != nil {
+		if !inputs.same(req.original) {
+			return ExecutionResult{}, errors.New("restart retry inputs differ from the admitted release")
+		}
+		if err := NewHostSnapshots(s.db, s.now).BeforeAct(ctx, t.ID); err != nil {
+			return ExecutionResult{}, err
+		}
+		o, err := act(ctx, *req.retry, s.Outcomes.Checkpoint(ctx, *req.retry))
+		return ExecutionResult{Attempt: *req.retry, Observed: o}, err
+	}
 	result, err := (Runner{Store: s.Outcomes, Applied: s.applied, BeforeAct: NewHostSnapshots(s.db, s.now).BeforeAct}).Run(ctx,
-		Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: key, Inputs: inputs, BaseGeneration: req.baseGeneration},
-		func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
-			if err := allowed(ctx); err != nil {
-				return deploy.Observation{}, deploy.Terminal(err)
-			}
-			logf("deploying as generation %d of %s", at.Generation, dep.Name)
-			start := s.now()
-			o, err := d.Reconcile(ctx, dep.Placement(), at.Generation, art, key, logf, checkpoint)
-			if err == nil {
-				logf("the target reports the deployment %s after %s", o.Rollout, s.now().Sub(start).Round(time.Second))
-			}
-			return o, err
-		})
+		Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: key, Inputs: inputs, BaseGeneration: req.baseGeneration}, act)
+
 	if err != nil {
 		var failure *runError
 		if errors.As(err, &failure) && failure.Stage == admission {

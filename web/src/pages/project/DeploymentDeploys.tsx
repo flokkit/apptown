@@ -44,6 +44,7 @@ function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload
       {history.slice(0, count).map(r => <div className="card" key={r.number}>
         <Link to={`/projects/${slug}/releases/${r.number}`}>Release {r.number}</Link> · {r.statusLabel || r.state} · {fmtStamp(r.releasedAt || r.createdAt)}
         {r.state === 'waiting for approval' ? <p>Waiting for approval from {r.approvalRole}.</p> : <ReleaseAssent approval={r.approval} />}
+        {r.state === 'failed' && r.bundleId && <button disabled={!current || !releases.current} onClick={() => setChoice({ release: r })}>Try again</button>}
         {r.state === 'released' && r.number !== history.find(h => h.state === 'released')?.number && r.bundleId && <button disabled={!releases.current} onClick={() => setChoice({ release: r })}>Deploy this again</button>}
         {r.changes.map(c => <div key={c.id}><Link to={`/changes/${c.id}`}>Change {c.number}: {c.title}</Link></div>)}
         {r.backupId && <><Link to={`/backups#backup-${r.backupId}`}>Backup →</Link> <RollbackBefore slug={slug} name={name} release={r} current={current && releases.current} onChoose={() => setChoice({ before: r })} /></>}
@@ -65,7 +66,7 @@ function ReleaseDeploy({ slug, release: r, url, current, progressCurrent, stoppe
     <DeployScene stage={r.stage ?? r.lastStage} failedStage={r.failedStage} buildElapsedMs={r.stage === 'building' ? r.stageElapsedMs ?? undefined : undefined} outcome={running ? 'running' : uncertain || ready || r.state === 'waiting for approval' || r.state === 'cancelled' || r.state === 'superseded' ? 'paused' : passed ? 'passed' : 'failed'} compactStages />
     <ReleaseApprovalActions slug={slug} release={r} decision={r.decision} current={current} />
     <div className="ch-deploy-result-facts">
-      {uncertain && <p className="ch-deploy-progress">{(r.stage ?? r.lastStage) ? `Last seen: ${deployWords[(r.stage ?? r.lastStage)!]} · ` : ''}{r.progressUncertain ? 'Deployment interrupted; being checked.' : 'Current progress is unknown until releases can be read again.'}</p>}
+      {uncertain && <p className="ch-deploy-progress">{(r.stage ?? r.lastStage) ? `Last seen: ${deployWords[(r.stage ?? r.lastStage)!]} · ` : ''}{r.progressUncertain ? r.interruptedByRestart ? 'Interrupted by a restart — checking.' : 'Deployment interrupted; being checked.' : 'Current progress is unknown until releases can be read again.'}</p>}
       {running && <p className="ch-deploy-progress">{r.stage ? deployWords[r.stage] : 'Waiting for deployment progress'}{r.stageElapsedMs != null && ` · ${fmtDuration(Math.floor(r.stageElapsedMs / 1000))}`}</p>}
       {r.failure && <p>{r.failure}</p>}
       {passed && url && <><p>{new URL(url).host}</p><a className="btn primary" href={url}>Open the app</a></>}
