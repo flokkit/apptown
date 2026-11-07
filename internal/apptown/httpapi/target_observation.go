@@ -158,7 +158,11 @@ func (h Targets) targetViews(ctx context.Context) ([]TargetView, error) {
 			if !e.Standing() {
 				continue
 			}
-			v.Deployments = append(v.Deployments, TargetDeployment{Project: e.Project, Name: e.Name, DisplayLabel: e.DisplayLabel, URL: e.URL, Generation: e.ObservedGeneration,
+			answer, err := h.deployment.Status(ctx, e.ID)
+			if err != nil {
+				return nil, err
+			}
+			v.Deployments = append(v.Deployments, TargetDeployment{Status: answer, Project: e.Project, Name: e.Name, DisplayLabel: e.DisplayLabel, URL: e.URL, Generation: e.ObservedGeneration,
 				Readiness: e.Readiness.String(), StatusLabel: e.Readiness.Display(), Audience: e.Audience, Data: e.DataClass})
 		}
 		if v.Retained, err = h.deployment.Retained.CountOpen(ctx, t.ID); err != nil {
@@ -212,15 +216,16 @@ type TargetRetired struct {
 
 // TargetDeployment is a standing deployment on a target.
 type TargetDeployment struct {
-	DisplayLabel string                   `json:"displayLabel"`
-	StatusLabel  deployment.ProgressLabel `json:"statusLabel"`
-	Project      string                   `json:"project"`
-	Name         string                   `json:"name"`
-	URL          string                   `json:"url"`
-	Generation   int64                    `json:"generation"`
-	Readiness    string                   `json:"readiness"`
-	Audience     string                   `json:"audience"`
-	Data         string                   `json:"data"`
+	Status       deployment.DeploymentStatus `json:"status"`
+	DisplayLabel string                      `json:"displayLabel"`
+	StatusLabel  deployment.ProgressLabel    `json:"statusLabel"`
+	Project      string                      `json:"project"`
+	Name         string                      `json:"name"`
+	URL          string                      `json:"url"`
+	Generation   int64                       `json:"generation"`
+	Readiness    string                      `json:"readiness"`
+	Audience     string                      `json:"audience"`
+	Data         string                      `json:"data"`
 }
 
 type TargetView struct {

@@ -36,7 +36,7 @@ func TestDeploymentDiagnosticsHTTP(t *testing.T) {
 			t.Errorf("%s read the diagnostics: %d %s", who, w.Code, w.Body.String())
 		}
 	}
-	if w := deploymentRequest(h.DeploymentDiagnostics, "owner", http.MethodGet, diagnostics, values); w.Code != 200 || !strings.Contains(w.Body.String(), `"waiting":true`) {
+	if w := deploymentRequest(h.DeploymentDiagnostics, "owner", http.MethodGet, diagnostics, values); w.Code != 200 || !strings.Contains(w.Body.String(), `"unsupported":"nothing has been deployed here yet"`) {
 		t.Errorf("a reader's diagnostics: %d %s", w.Code, w.Body.String())
 	}
 	for _, who := range []string{"outsider", "owner"} {

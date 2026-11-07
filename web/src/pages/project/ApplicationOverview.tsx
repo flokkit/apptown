@@ -1,3 +1,4 @@
+import { failedRuntimeRefresh } from '../../runtime'
 import './ApplicationOverview.css'
 import { PageHead } from '../../PageHead'
 import { useState } from 'react'
@@ -49,7 +50,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
   const activityQ = useGet<OverviewData>(`/projects/${slug}/overview`, { poll: 5000 })
   const deploymentsQ = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
   const releasesQ = useGet<Release[]>(`/projects/${slug}/releases`)
-  const deployments = (deploymentsQ.data ?? []).map(d => deploymentsQ.refreshFailed ? { ...d, observation: 'unknown' as const, observationIssue: deploymentsQ.reason, observationStale: true } : d)
+  const deployments = (deploymentsQ.data ?? []).map(d => deploymentsQ.refreshFailed ? failedRuntimeRefresh(d, deploymentsQ.reason) : d)
   const backupDeployment = deployments.find(d => d.running) ?? deployments[0]
   const backupQ = useGet<DeploymentBackups>(backupDeployment ? `/projects/${slug}/deployments/${backupDeployment.name}/backups` : null, { poll: 30000 })
   const backups = (backupQ.data?.backups ?? []).map(b => backupQ.refreshFailed ? { ...b, statusLabel: 'unknown' as const } : b)

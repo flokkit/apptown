@@ -67,6 +67,8 @@
 .finding-count { color: var(--warn); font-size: var(--fs-xs); }
 .status-help-inline > .muted { min-width: 0; max-width: 100%; }
 .status-help-inline { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.status-help-stack { display: inline-flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.status-help-stack > .muted { min-width: 0; max-width: 100%; }
 
 .list-status { display: inline-flex; gap: var(--space-1); align-items: center; }
 .list-status > span { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--muted); flex-shrink: 0; }

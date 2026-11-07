@@ -17,7 +17,7 @@ const TARGET2 = '00000000-0002-7000-8000-000000000000'
 const card = (readiness: string) => renderToStaticMarkup(
   <QueryClientProvider client={newQueryClient()}>
     <MemoryRouter>
-      <EnvCard slug="game" env={{ name: 'main', kind: 'standing', url: '', feed: 'main', audience: 'team', data: 'synthetic', protected: false, readiness } as unknown as DeploymentView} onChanged={() => {}} />
+      <EnvCard slug="game" env={{ status: { word: 'unknown', reason: '', stale: false }, name: 'main', kind: 'standing', url: '', feed: 'main', audience: 'team', data: 'synthetic', protected: false, readiness } as unknown as DeploymentView} onChanged={() => {}} />
     </MemoryRouter>
   </QueryClientProvider>)
 
@@ -99,7 +99,7 @@ describe('an AI models key says what it may still spend', () => {
     const html = renderToStaticMarkup(
       <QueryClientProvider client={newQueryClient()}>
         <MemoryRouter>
-          <EnvCard slug="game" env={{ name: 'prod', kind: 'standing', url: '', feed: 'promotion', audience: 'team', data: 'synthetic', protected: false, readiness: 'reconciled', aiModels: ['forge-game-prod-3'] } as unknown as DeploymentView} onChanged={() => {}} />
+          <EnvCard slug="game" env={{ status: { word: 'unknown', reason: '', stale: false }, name: 'prod', kind: 'standing', url: '', feed: 'promotion', audience: 'team', data: 'synthetic', protected: false, readiness: 'reconciled', aiModels: ['forge-game-prod-3'] } as unknown as DeploymentView} onChanged={() => {}} />
         </MemoryRouter>
       </QueryClientProvider>)
     expect(html).toContain('AI models')
@@ -118,7 +118,7 @@ it('says checking once and keeps old readings and the address on the card', () =
  client.setQueryData(getKey(`${base}/diagnostics`),{reading,deployment:'main',generation:1,desired:1,containers:true,parts:[{part:'web',presence:'running',facts:{status:'running',restarts:0,running:true},observedAt:reading.observedAt}],events:[],eventsKnown:true})
  client.setQueryData(getKey(`${base}/protection`),{reading,deployment:'main',items:[],recent:[],restoredCopies:[],coverage:{assessed:[],notAssessed:[]}})
  client.setQueryData(getKey(`${base}/ai-models`),{keys:[{reading,name:'models',allowance:{limit:5,remaining:4,lifetimeSpend:1}}]})
- const html=renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="game" env={{name:'main',kind:'standing',feed:'main',audience:'team',data:'synthetic',generation:2,readiness:'reconciled',url:'https://game.example',aiModels:['models'],target:{kind:'docker-host',name:'local'},lastApplied:{at:'2026-11-03T08:01:00Z',generation:2}} as DeploymentView} onChanged={()=>{}} /></MemoryRouter></QueryClientProvider>)
+ const html=renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="game" env={{status:{word:'unknown',reason:'',stale:true},name:'main',kind:'standing',feed:'main',audience:'team',data:'synthetic',generation:2,readiness:'reconciled',url:'https://game.example',aiModels:['models'],target:{kind:'docker-host',name:'local'},lastApplied:{at:'2026-11-03T08:01:00Z',generation:2}} as DeploymentView} onChanged={()=>{}} /></MemoryRouter></QueryClientProvider>)
  expect(html.match(/Checking after the release/g)).toHaveLength(1)
  expect(html.match(/10 GB requested; host total 8 GB/g)).toHaveLength(1)
  expect(html).toContain('game.example')
@@ -133,7 +133,7 @@ it('says checking once and keeps old readings and the address on the card', () =
 it('shows the deployment host and path without the scheme and keeps the full link', () => {
   const client = newQueryClient()
   const url = 'https://game.apps.example.test/path'
-  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="game" env={{ name: 'main', kind: 'standing', url, feed: 'main', readiness: 'reconciled' } as DeploymentView} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>)
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="game" env={{ status: { word: 'unknown', reason: '', stale: false }, name: 'main', kind: 'standing', url, feed: 'main', readiness: 'reconciled' } as DeploymentView} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>)
   expect(html).toContain(`href="${url}" target="_blank" rel="noopener noreferrer" class="app-address"`)
   expect(html.replace(/<[^>]*>/g, '')).toContain('game.apps.example.test/path')
   expect(html.replace(/<[^>]*>/g, '')).not.toContain('https://')
@@ -143,7 +143,7 @@ it('shows the deployment host and path without the scheme and keeps the full lin
 
 it.each(['main', 'staging'])('explains paused automatic deploys for %s by feed', name => {
   const client = newQueryClient()
-  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="game" env={{ name, kind: 'standing', feed: 'main', feedConfirmed: false, feedRevision: 1, readiness: 'reconciled' } as DeploymentView} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>)
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="game" env={{ status: { word: 'unknown', reason: '', stale: false }, name, kind: 'standing', feed: 'main', feedConfirmed: false, feedRevision: 1, readiness: 'reconciled' } as DeploymentView} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>)
   expect(html).not.toContain('Confirm follows main')
   expect(html).toContain('Automatic deploys are paused until a person saves the Release feed setting.')
   expect(html).not.toContain('Deploy latest')

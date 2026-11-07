@@ -54,8 +54,8 @@ async function listing(): Promise<HTMLElement> {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     if (url.includes('/project-cleanups')) return new Response(JSON.stringify({ cleanups: [] }))
     return new Response(JSON.stringify({ projects: [
-      { id: '00000000-0001-7000-8000-000000000000', slug: 'plain', name: 'Plain', blurb: '', icon: '', deployed: false, hasDeployments: false, observation: 'unknown', observationStale: true },
-      { id: '00000000-0002-7000-8000-000000000000', slug: 'boat', name: 'Boat', blurb: 'A long description that must stay on one line in both the desktop list and phone cards', icon: '⛵', deployed: false, hasDeployments: true, observation: 'unknown', observationStale: true },
+      { id: '00000000-0001-7000-8000-000000000000', slug: 'plain', name: 'Plain', blurb: '', icon: '', deployed: false, hasDeployments: false, status: { word: 'unknown', reason: '', stale: false }, observation: 'unknown', observationStale: true },
+      { id: '00000000-0002-7000-8000-000000000000', slug: 'boat', name: 'Boat', blurb: 'A long description that must stay on one line in both the desktop list and phone cards', icon: '⛵', deployed: false, hasDeployments: true, status: { word: 'unknown', reason: '', stale: false }, observation: 'unknown', observationStale: true },
     ], total: 2 }))
   }))
   const client = newQueryClient()
@@ -86,11 +86,11 @@ it('stamps only the projects that have a deployment', async () => {
   const card = (slug: string) => el.querySelector(`a[href="/projects/${slug}"]`)!.closest('.project-row')!
   expect(card('plain').textContent).toContain('Not deployed')
   expect(card('plain').querySelector('.chip')).toBeNull()
-  expect(card('boat').textContent).toContain('Not checked yet')
+  expect(card('boat').textContent).toContain('not checked yet')
   expect(card('boat').textContent).not.toContain('not set up')
   const stamp = card('boat').querySelector('.chip.unknown')
   expect(stamp?.textContent).toBe('● unknown')
-  expect(stamp?.getAttribute('title')).toBe('Not checked yet.')
+  expect(stamp?.getAttribute('title')).toBe('not checked yet')
 })
 
 

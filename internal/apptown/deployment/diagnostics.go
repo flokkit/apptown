@@ -20,7 +20,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// Runtime diagnostics: why a deployment's app is failing, read on request
+// Runtime diagnostics: why a deployment's app is failing, from stored host facts
 // (design/subsystems/deployment.md, "Runtime diagnostics"). They bring
 // together what AppTown already observes: the background observer's
 // state, each part's and need's container as its Docker daemon reports it
@@ -78,9 +78,7 @@ type DiagnosedRuntime struct {
 	Reason      string    `json:"reason,omitempty"`
 }
 
-// diagnosisReadWithin bounds each part's read, as the observer bounds its
-// provider calls, so one silent host keeps a page waiting seconds, not
-// minutes.
+// diagnosisReadWithin bounds the container inspection for an explicit log read.
 const diagnosisReadWithin = 5 * time.Second
 
 // Part presences. Unknown is a read that did not answer: never stopped or
@@ -202,8 +200,8 @@ func (s *Service) diagnosedRuntime(ctx context.Context, dep *Deployment) (Diagno
 	return DiagnosedRuntime{State: RuntimeUnknown.String(), Stale: true, Reason: "not observed yet"}, nil
 }
 
-// diagnoseParts reads each part's and need's container of the settled
-// generation from the deployment's own Docker host.
+// diagnoseParts derives the settled parts from the host observer's one stored
+// container section. Neither page reads nor detail jobs contact Docker.
 func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagnostics) error {
 	applied, err := s.SettledApplied(ctx, dep)
 	if err != nil {
@@ -229,25 +227,70 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 	out.Containers = true
 	containers := partContainers(dep, proj.Slug, applied)
 
-	dk, hostErr := s.hosts.DockerScopeFor(ctx, dep.TargetID)
-	read := map[string]bool{}
-	for _, p := range diagnosedParts(applied) {
-		p.AttemptedAt = s.now()
-		var why string
-		if hostErr != nil {
-			why = "its host cannot be asked: " + safeReason(hostErr)
-		} else {
-			why = s.readPart(ctx, dk, dep, containers[p.Part], &p)
+	target, err := s.Targets.ByID(ctx, dep.TargetID)
+	if err != nil {
+		return err
+	}
+	reading, err := NewHostSnapshots(s.db, s.now).reading(ctx, target)
+	if err != nil {
+		return err
+	}
+	section := reading.Containers
+	out.Reading = DetailReading{ObservedAt: section.ObservedAt, AttemptedAt: reading.AttemptedAt}
+	predatesDeployment := dep.LastApplied != nil && reading.AttemptedAt.Before(dep.LastApplied.At)
+	whyRead := ""
+	switch {
+	case section.Reason != "":
+		whyRead = "its host's container listing could not be read: " + reading.ContainerFailure
+	case section.Value == nil:
+		whyRead = "waiting for the first host container reading"
+	case reading.Invalidated || predatesDeployment:
+		whyRead = "waiting for a host container reading after the latest change"
+	case s.now().Sub(section.ObservedAt) > observationStaleAfter:
+		whyRead = "its host's container reading is out of date"
+	}
+	if whyRead != "" {
+		out.Reading.Failure = whyRead
+		out.Reading.Stale, out.Reading.Unknown = true, true
+		out.Reading.RetryAt = reading.NextAt
+	}
+	byName := map[string]docker.HostContainer{}
+	if section.Value != nil {
+		for _, c := range *section.Value {
+			byName[c.Name] = c
 		}
-		if why == "" {
-			read[p.Part] = true
+	}
+	out.Parts = diagnosedParts(applied)
+	for i := range out.Parts {
+		p := &out.Parts[i]
+		p.AttemptedAt = reading.AttemptedAt
+		c, present := byName[containers[p.Part]]
+		if present && !reading.Invalidated && !predatesDeployment {
+			health := "not configured"
+			if c.State.Health != nil {
+				health = c.State.Health.Status
+			}
+			f := &ContainerFacts{ID: c.ID, Status: c.State.Status, Running: c.State.Running,
+				OOMKilled: c.State.OOMKilled, Restarts: c.RestartCount, StartedAt: c.State.StartedAt,
+				FinishedAt: c.State.FinishedAt, Health: health}
+			if !f.Running {
+				code := c.State.ExitCode
+				f.ExitCode = &code
+			}
+			p.Facts, p.ObservedAt = f, section.ObservedAt
+			p.Presence = presenceStopped
+			if f.Running {
+				p.Presence = presenceRunning
+			}
+			if p.Public {
+				p.Generation = labelledGeneration(dep, docker.Runtime{Labels: c.Config.Labels})
+			}
 		} else {
-			// The read did not answer: unknown now, with the last facts
-			// read and their age.
-			p.Presence, p.Reason, p.Stale = presenceUnknown, why, true
-
+			p.Presence, p.ObservedAt = presenceAbsent, section.ObservedAt
 		}
-		out.Parts = append(out.Parts, p)
+		if whyRead != "" {
+			p.Presence, p.Reason, p.Stale = presenceUnknown, whyRead, true
+		}
 	}
 	// Read after the containers were: a deployment still settled on its
 	// recorded generation, with no attempt open, was settled while they
@@ -259,7 +302,7 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 	out.Unsettled = why
 	for i := range out.Parts {
 		p := &out.Parts[i]
-		if !read[p.Part] {
+		if p.Presence == presenceUnknown {
 			continue
 		}
 		if why == "" && !p.Public {
@@ -269,41 +312,6 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 
 	}
 	return nil
-}
-
-// readPart asks the daemon for the container under one part's name and
-// fills p, or says why it could not. The public part's container names its
-// generation; no other part's does (labelledGeneration).
-func (s *Service) readPart(ctx context.Context, dk docker.Scope, dep *Deployment, container string, p *PartDiagnosis) string {
-	ctx, cancel := context.WithTimeout(ctx, diagnosisReadWithin)
-	defer cancel()
-	rt, err := docker.Inspect(ctx, dk, container)
-	switch {
-	case errors.Is(err, docker.ErrContainerAbsent):
-		p.Presence, p.ObservedAt = presenceAbsent, s.now()
-		return ""
-	case err != nil:
-		return "its container could not be read: " + safeReason(err)
-	case rt.State == nil:
-		return "its host did not report the container's state"
-	}
-	if p.Public {
-		p.Generation = labelledGeneration(dep, rt)
-	}
-	f := ContainerFacts{ID: rt.ID, Status: rt.State.Status, Running: rt.Running, OOMKilled: rt.State.OOMKilled, Restarts: rt.State.RestartCount,
-		StartedAt: rt.State.StartedAt, FinishedAt: rt.State.FinishedAt, Health: rt.State.Health}
-	if !rt.Running {
-		code := rt.State.ExitCode
-		f.ExitCode = &code
-	}
-	if f.Health == "" {
-		f.Health = "not configured"
-	}
-	p.Presence, p.Facts, p.ObservedAt = presenceStopped, &f, s.now()
-	if rt.Running {
-		p.Presence = presenceRunning
-	}
-	return ""
 }
 
 // labelledGeneration is the generation a container's identity labels name
@@ -489,23 +497,7 @@ func (s *Service) Diagnostics(ctx context.Context, projectID ids.ID, name string
 	if _, err := s.authority.Require(ctx, access.Permission{Capability: access.CapDeploymentRead, Resource: access.Resource{Type: "project", ID: projectID.String(), ProjectID: projectID}, Context: access.Context{Route: "deployment.diagnostics"}}); err != nil {
 		return Diagnostics{}, err
 	}
-	stored, err := readDeploymentDetail[Diagnostics](ctx, s, projectID, name, "Diagnostics")
-	if err != nil {
-		return Diagnostics{}, err
-	}
-	out, err := s.diagnostics(ctx, projectID, name, func(_ context.Context, _ *Deployment, out *Diagnostics) error {
-		out.Parts = stored.Parts
-		out.Containers = stored.Containers
-		out.Unsupported = stored.Unsupported
-		out.Unsettled = stored.Unsettled
-		return nil
-	})
-	if stored.Reading.Waiting && !stored.Reading.ObservedAt.IsZero() {
-		stored.Runtime, stored.Hold = out.Runtime, out.Hold
-		return stored, err
-	}
-	out.Reading = stored.Reading
-	return out, err
+	return s.collectDiagnostics(ctx, projectID, name)
 }
 
 func (s *Service) collectDiagnostics(ctx context.Context, projectID ids.ID, name string) (Diagnostics, error) {

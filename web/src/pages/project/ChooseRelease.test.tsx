@@ -15,7 +15,7 @@ const cleanups: (() => void)[] = []
 afterEach(() => { for (const clean of cleanups.splice(0)) clean(); vi.unstubAllGlobals() })
 const stamp = '2026-11-06T01:00:00Z'
 const releases = [
-  { id: 'r3', number: 3, deployment: 'production', state: 'released', bundleId: 'b3', backupId: 'copy', createdAt: stamp, changes: [], serving: true },
+  { status: { word: 'working', reason: '', stale: false }, id: 'r3', number: 3, deployment: 'production', state: 'released', bundleId: 'b3', backupId: 'copy', createdAt: stamp, changes: [], serving: true },
   { id: 'r2', number: 2, deployment: 'staging', state: 'released', bundleId: 'b1', createdAt: stamp, changes: [], serving: true },
   { id: 'r1', number: 1, deployment: 'production', state: 'released', bundleId: 'b1', createdAt: stamp, changes: [{ id: 'c1', number: 1, title: 'Show delivery times' }], serving: false },
 ]
@@ -40,7 +40,7 @@ async function fixture(recorded = true, options: { backup?: boolean; reason?: st
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   document.body.appendChild(el)
   cleanups.push(() => { act(() => root.unmount()); client.clear(); el.remove() })
-  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><DeploymentDeploys slug="shop" name="production" displayLabel="Customer office" env={{ id: 'production', name: 'production', runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { start: '', stop: '', restart: '' }, observation: 'running', generation: 0, kind: 'standing', displayLabel: 'Customer office', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', promotionBlocked: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView} current reload={async () => {}} /></MemoryRouter></QueryClientProvider>))
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><DeploymentDeploys slug="shop" name="production" displayLabel="Customer office" env={{ id: 'production', name: 'production', status: { word: 'working', reason: '', stale: false }, runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { start: '', stop: '', restart: '' }, observation: 'running', generation: 0, kind: 'standing', displayLabel: 'Customer office', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', promotionBlocked: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView} current reload={async () => {}} /></MemoryRouter></QueryClientProvider>))
   await settled(client)
   const click = async (text: string) => { await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === text)!.click() }); await settled(client) }
   return { el, sent, click, fetcher, client }

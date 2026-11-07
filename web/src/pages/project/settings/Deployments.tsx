@@ -3,7 +3,7 @@ import { deploymentName } from '../../../deploymentName'
 import { DeploymentFeed, feedWords } from './DeploymentFeed'
 import '../../../overview-line.css'
 import { DeploymentDeploys } from '../DeploymentDeploys'
-import { useDeploymentStatus } from '../../../deploymentStatus'
+import { deploymentStatus } from '../../../deploymentStatus'
 import { ListRow } from '../../../ListRow'
 import { setPageContext } from '../../../chrome'
 import { TechnicalWords, useTechnicalDetail } from '../../change/TechnicalDetail'
@@ -13,7 +13,7 @@ import { DeploymentAddressEdit } from './DeploymentAddress'
 import { ReleaseDefaultPicker } from './ReleaseDefault'
 import { DisplayLabelEdit } from '../../../DisplayLabel'
 import { PRODUCT } from '../../../brand'
-import { AppAddress, runtimeDescription } from '../../../runtime'
+import { AppAddress, statusProps, failedRuntimeRefresh } from '../../../runtime'
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { del, post, put, type ChangeView } from '../../../api'
@@ -60,7 +60,7 @@ export function DeploymentsTab({ slug }: { slug: string }) {
         action={!adding && choices.length > 0 ? <button onClick={() => setAdding(true)}>New deployment</button> : undefined}>
         {adding && <AddDeployment slug={slug} choices={choices} existing={envs} onDone={(added) => { setAdding(false); if (added) load() }} />}
         {envs.length === 0 && !adding && <p className="muted">Nothing deploys yet. {choices.length === 0 ? 'Ask an administrator to offer a deployment target, then choose New deployment.' : 'Choose New deployment to add one.'}</p>}
-        <div role="list">{envs.map((e) => <DeploymentRow key={e.name} slug={slug} current={envsQ.current} env={envsQ.refreshFailed ? { ...e, observation: 'unknown' } : e} />)}</div>
+        <div role="list">{envs.map((e) => <DeploymentRow key={e.name} slug={slug} current={envsQ.current} env={envsQ.refreshFailed ? failedRuntimeRefresh(e, envsQ.reason) : e} />)}</div>
       </Section>
 
       <ReleaseDefaultPicker slug={slug} deployments={envs.filter(e => e.kind !== 'preview')} />
@@ -87,7 +87,7 @@ function FeedPause({ env: e }: { env: DeploymentView }) {
 
 function ServingRelease({ slug, env: e }: { slug: string; env: DeploymentView }) {
   if (e.observationStale || (e.observation !== 'running' && e.observation !== 'stopped')) {
-    return <Status word="unknown" help={`Serving release unknown. ${runtimeDescription(e)}`} />
+    return <Status word="unknown" help={`Serving release unknown. ${statusProps(e.status).help}`} />
   }
   const release = e.servingRelease
   if (!release) return <>No serving release recorded</>
@@ -113,7 +113,7 @@ export function DeploymentRow({ slug, env: e }: { slug: string; env: DeploymentV
   const change = useGet<ChangeView>(e.kind === 'preview' && e.changeId ? `/changes/${e.changeId}` : null)
   const releases = useGet<ReleaseListed[]>(e.kind !== 'preview' ? `/projects/${slug}/releases` : null)
   const waitingRelease = releases.data?.find(r => r.deployment === e.name && r.state === 'waiting for approval')
-  const status = useDeploymentStatus(slug, e)
+  const status = deploymentStatus(e)
   const p = protection.data
   const backup = !hasProtection || protection.denied ? ''
     : !p || protection.refreshFailed || p.unknown || p.reading?.unknown || p.reading?.stale ? 'backup unknown'
@@ -152,9 +152,9 @@ export function DeploymentPage() {
   }, [slug, name, label])
   return <><ReadStatus q={q} what="the deployment" /><StaleNote q={q} />
     {e && <div className="row row-2"><button disabled={busy} onClick={() => run(async () => { await post<DeploymentChecked>(`/projects/${slug}/deployments/${name}/check`, {}); await q.reload() })}>Refresh status</button>{err && <span className="error">{err}</span>}</div>}
-    {e && <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} displayLabel={e ? deploymentName(e) : undefined} url={e?.url} env={q.refreshFailed ? { ...e, observation: 'unknown' } : e} current={q.current} reload={q.reload} />}
+    {e && <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} displayLabel={e ? deploymentName(e) : undefined} url={e?.url} env={q.refreshFailed ? failedRuntimeRefresh(e, q.reason) : e} current={q.current} reload={q.reload} />}
     {e && <DeploymentFeed key={`${slug}/${name}/feed`} slug={slug!} name={name!} />}
-    {e && <EnvCard slug={slug!} env={q.refreshFailed ? { ...e, observation: 'unknown' } : e} onChanged={q.reload} />}
+    {e && <EnvCard slug={slug!} env={q.refreshFailed ? failedRuntimeRefresh(e, q.reason) : e} onChanged={q.reload} />}
   </>
 }
 
@@ -191,7 +191,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
   const protection = useGet<DeploymentProtection>(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host' ? `${base}/protection` : null, { poll: 5000 })
   const models = useGet<DeploymentAIModels>(e.aiModels?.length ? `${base}/ai-models` : null, { poll: 5000 })
   const waiting = [resources.data?.reading, diagnostics.data?.reading, protection.data?.reading, ...(models.data?.keys.map(k => k.reading) ?? [])].some(r => r?.waiting)
-  const status = useDeploymentStatus(slug, e)
+  const status = deploymentStatus(e)
   const place = e.target ? placeWords(e.target.title, e.target.vendor, e.target.region) : 'not bound'
   const meta = [
     `${place}${e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}`,
@@ -212,7 +212,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
         <div className="row">
           <h2>{deploymentName(e)}</h2>
           <div className="deploy-status">
-          <Status observation {...status} help={status.word === 'deploying' || e.observation === 'unreachable' || e.observationIssue ? status.help : undefined} />
+          <Status observation {...status} />
           {e.protected && <span className="badge" title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span>}
         </div>
         </div>

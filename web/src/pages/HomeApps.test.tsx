@@ -16,7 +16,7 @@ const css = ['list-row', 'projects'].map(name =>
 
 const project = (slug: string, over: Partial<ProjectRow> = {}): ProjectRow => ({
   id: slug, slug, name: slug, icon: '', blurb: '', lastRunAt: '',
-  hasDeployments: true, prodRunning: true, observation: 'running', observationStale: false,
+  hasDeployments: true, prodRunning: true, status: { word: 'working', reason: '', stale: false }, observation: 'running', observationStale: false,
   productionUrl: `https://${slug}.example.test`, ...over,
 }) as ProjectRow
 
@@ -89,7 +89,7 @@ it('makes creation primary only for a confirmed empty Home', () => {
 })
 
 it('opens running production even when a preview has an urgent aggregate status', () => {
-  const el = home([project('production', { observation: 'unreachable', observationStale: true })])
+  const el = home([project('production', { status: { word: 'unreachable', reason: '', stale: false }, observation: 'unreachable', observationStale: true })])
   expect(el.querySelector('.project-action a')?.getAttribute('href')).toBe('https://production.example.test')
   expect(el.querySelector('.project-state')?.textContent).toContain('unreachable')
 })
@@ -138,10 +138,10 @@ it('keeps phone actions and purpose visible in compact rows with tap-sized actio
 
 it('shows a checked age only for stale project observations, without an empty spacer', () => {
   const observedAt = new Date().toISOString()
-  const el = home([project('fresh', { observedAt }), project('stale', { observedAt, observationStale: true })])
+  const el = home([project('fresh', { observedAt }), project('stale', { status: { word: 'unknown', reason: '', checkedAt: '2026-10-03T00:00:00Z', stale: true }, observedAt, observationStale: true })])
   const [fresh, stale] = [...el.querySelectorAll('.project-state')]
   expect(fresh.textContent).toContain('working')
-  expect([...fresh.children].filter(c => !c.classList.contains('status-help-inline')).map(c => c.textContent).join('')).not.toContain('Checked')
+  expect([...fresh.children].filter(c => !c.classList.contains('status-help-stack')).map(c => c.textContent).join('')).not.toContain('checked')
   expect(fresh.querySelector(':scope > .muted.small')).toBeNull()
-  expect(stale.textContent).toContain('Checked')
+  expect(stale.textContent).toContain('checked')
 })

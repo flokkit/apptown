@@ -130,7 +130,7 @@ func (s *Service) refreshRuntime(ctx context.Context, dep *Deployment) (RuntimeO
 	}
 	for _, r := range records {
 		if r.deployment.ID == dep.ID {
-			return s.observations.read(r, s.now()), nil
+			return s.displayObservation(ctx, r)
 		}
 	}
 	return RuntimeObservation{}, errors.New("deployment disappeared during status refresh")
@@ -374,16 +374,29 @@ func (s *Service) observed(ctx context.Context, v RuntimeObservation, r listingR
 
 // runtimeDeployment is a display observation with its recorded routing facts.
 type runtimeDeployment struct {
+	ProjectStatus      DeploymentStatus
 	ProjectID          ids.ID
 	Project, Name, URL string
 	HostOnly           bool // URL answers on the AppTown host only (Reach)
 	HostPort           int
+	Kind               Kind
 	Observation        RuntimeObservation
 }
 
 // Runtime is the checked cross-project deployment display for activity readers.
 func (s *Service) Runtime(ctx context.Context) ([]runtimeDeployment, error) {
-	return s.runtimeProjects(ctx, access.CapDeploymentRead, nil)
+	rows, err := s.runtimeProjects(ctx, access.CapDeploymentRead, nil)
+	if err != nil {
+		return nil, err
+	}
+	summaries := projectRuntimeSummaries(rows)
+	for i := range rows {
+		rows[i].ProjectStatus = UnobservedStatus()
+		if summary, ok := summaries[rows[i].ProjectID]; ok {
+			rows[i].ProjectStatus = summary.Status
+		}
+	}
+	return rows, nil
 }
 
 // projectRuntimeSummary keeps the most urgent deployment observation separate
@@ -395,8 +408,8 @@ type projectRuntimeSummary struct {
 	HasProduction     bool
 }
 
-// ProjectRuntime exposes the most urgent observation across each readable
-// project's deployments. An unreachable preview cannot hide behind healthy main.
+// ProjectRuntime exposes the most urgent server answer across each readable
+// project's standing deployments, naming the placement that needs attention.
 func (s *Service) ProjectRuntime(ctx context.Context, idList []ids.ID) (map[ids.ID]projectRuntimeSummary, error) {
 	out := make(map[ids.ID]projectRuntimeSummary)
 	if len(idList) == 0 {
@@ -429,9 +442,15 @@ func projectRuntimeSummaries(rows []runtimeDeployment) map[ids.ID]projectRuntime
 	out := make(map[ids.ID]projectRuntimeSummary)
 	main := make(map[ids.ID]bool)
 	for _, r := range rows {
+		if r.Kind != Standing {
+			continue
+		}
 		summary, exists := out[r.ProjectID]
 		if !exists || runtimeUrgency(r.Observation) > runtimeUrgency(summary.RuntimeObservation) {
 			summary.RuntimeObservation = r.Observation
+			if summary.Status.Word != progressLabelWorking {
+				summary.Status.Reason = r.Name + ": " + summary.Status.Reason
+			}
 		}
 		if r.Name == "main" || (r.Name == "prod" && !main[r.ProjectID]) {
 			summary.HasProduction = true
@@ -445,6 +464,18 @@ func projectRuntimeSummaries(rows []runtimeDeployment) map[ids.ID]projectRuntime
 }
 
 func runtimeUrgency(o RuntimeObservation) int {
+	if o.Status.Word == progressLabelStopped {
+		return 3
+	}
+	if o.Status.Word == progressLabelDeploying {
+		return 3
+	}
+	if o.Status.Word == progressLabelUnknown {
+		return 5
+	}
+	if o.Status.Word == progressLabelFailed {
+		return 6
+	}
 	switch o.State {
 	case runtimeUnreachable:
 		return 4
@@ -522,9 +553,12 @@ func (s *Service) runtimeProjects(ctx context.Context, cap access.Capability, re
 	}
 	for _, r := range rows {
 		e := r.deployment
-		observed := s.observations.read(r, s.now())
+		observed, err := s.displayObservation(ctx, r)
+		if err != nil {
+			return nil, err
+		}
 		reach := s.reachedAt(ctx, r.project, e, r.target, observed.url)
-		out = append(out, runtimeDeployment{ProjectID: e.ProjectID, Project: r.project, Name: e.Name, URL: reach.URL, HostOnly: reach.HostOnly, HostPort: e.HostPort, Observation: observed})
+		out = append(out, runtimeDeployment{Kind: e.Kind, ProjectID: e.ProjectID, Project: r.project, Name: e.Name, URL: reach.URL, HostOnly: reach.HostOnly, HostPort: e.HostPort, Observation: observed})
 	}
 	return out, ctx.Err()
 }

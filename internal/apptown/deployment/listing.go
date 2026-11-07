@@ -71,6 +71,8 @@ func (s RuntimeState) Running() *bool {
 }
 
 type RuntimeObservation struct {
+	Status DeploymentStatus
+
 	// running is provider identity retained only for the internal health overlay.
 	running          string
 	State            RuntimeState
@@ -156,7 +158,10 @@ func (s *Service) List(ctx context.Context, projectID ids.ID) ([]Summary, error)
 		} else if found {
 			r.summary.ServingRelease = release
 		}
-		r.summary.Observation = s.observations.read(r, s.now())
+		r.summary.Observation, err = s.displayObservation(ctx, r)
+		if err != nil {
+			return nil, err
+		}
 		reach := s.reachedAt(ctx, r.project, r.deployment, r.target, r.summary.Observation.url)
 		r.summary.URL, r.summary.HostOnly = reach.URL, reach.HostOnly
 		if r.deployment.Feed == "promotion" {

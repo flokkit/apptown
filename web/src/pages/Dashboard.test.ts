@@ -8,7 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 
 type Dep = Activity['deployments'][number]
 const dep = (project: string, over: Partial<Dep> = {}): Dep => ({
-  project, name: 'main', url: 'http://x', running: true,
+  status: { word: 'working', reason: '', stale: false }, projectStatus: { word: 'working', reason: '', stale: false }, kind: 'standing', project, name: 'main', url: 'http://x', running: true,
   observation: 'running', targetName: 'Club host', observedAt: '2026-10-03T00:00:00Z', observationStale: false, ...over,
 })
 const empty = { needsYou: 0, running: 0, deployments: [], operations: { count: 0, known: true } }
@@ -31,17 +31,17 @@ describe('the home status strip', () => {
   })
   it('counts each live or unchecked project once and lets live take precedence', () => {
     expect(homeStatusParts({ ...empty, deployments: [
-      dep('a'), dep('a', { name: 'staging' }), dep('b'), dep('b', { running: null }),
-      dep('c', { observationStale: true }), dep('c', { name: 'staging', running: null }),
-      dep('d', { running: null, observation: 'unknown' }),
-      dep('e', { running: false, observation: 'stopped' }),
+      dep('a'), dep('a', { name: 'staging' }), dep('b'), dep('b'),
+      dep('c', { projectStatus: { word: 'unknown', reason: 'old reading', stale: true } }), dep('c', { name: 'staging', projectStatus: { word: 'unknown', reason: 'storage did not answer in time', stale: true } }),
+      dep('d', { projectStatus: { word: 'unknown', reason: 'storage did not answer in time', stale: true } }),
+      dep('e', { projectStatus: { word: 'stopped', reason: '', stale: false } }),
     ] })).toEqual([
       { label: 'Apps live', value: 2, to: '/deployments' },
       { label: 'Apps not checked', value: 2, to: '/deployments' },
     ])
   })
   it('shows zero apps live when deployments exist but none were seen running', () => {
-    expect(homeStatusParts({ ...empty, deployments: [dep('a', { running: false })] })).toEqual([
+    expect(homeStatusParts({ ...empty, deployments: [dep('a', { projectStatus: { word: 'stopped', reason: '', stale: false } })] })).toEqual([
       { label: 'Apps live', value: 0, to: '/deployments' },
     ])
   })
@@ -54,7 +54,7 @@ function strip(input: Parameters<typeof HomeStatus>[0]) {
 }
 
 it('renders every label above its value inside the matching link', () => {
-  const el = strip({ ...empty, needsYou: 3, running: 2, deployments: [dep('live'), dep('unknown', { running: null })], operations: { count: 8, unknown: 4, known: false } })
+  const el = strip({ ...empty, needsYou: 3, running: 2, deployments: [dep('live'), dep('unknown', { projectStatus: { word: 'unknown', reason: 'storage did not answer in time', stale: true } })], operations: { count: 8, unknown: 4, known: false } })
   expect([...el.querySelectorAll('.home-stat')].map(a => ({
     label: a.children[0]?.textContent, value: a.children[1]?.textContent, to: a.getAttribute('href'),
   }))).toEqual([
@@ -84,7 +84,7 @@ it('replaces empty labelled counts with All quiet only when every read is known 
     { ...empty, operations: { count: null, known: false } },
     { ...empty, operations: { count: 0, known: false } },
     { ...empty, operations: { count: 0, unknown: 1, known: false } },
-    { ...empty, deployments: [dep('unknown', { running: null })] },
+    { ...empty, deployments: [dep('unknown', { projectStatus: { word: 'unknown', reason: 'storage did not answer in time', stale: true } })] },
   ]) expect(strip(input).textContent).not.toContain('All quiet')
 })
 

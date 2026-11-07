@@ -280,16 +280,21 @@ func followChange(changeID, runID ids.ID, slug string, yes bool) error {
 
 // shippedDeployment is the part of a deployment the shipped line names.
 type shippedDeployment struct {
-	Name, URL, Observation string
-	ObservationStale       bool
-	ObservedAt             string // "" until AppTown's first look
-	ReleaseRun             ids.ID
+	Name, URL  string
+	ReleaseRun ids.ID
+	Status     shippedDeploymentStatus
+}
+
+// shippedDeploymentStatus mirrors Deployment's display answer, without deriving
+// a second state from the runtime evidence.
+type shippedDeploymentStatus struct {
+	Word, Reason       string
+	CheckedAt, RetryAt time.Time
+	Stale              bool
 }
 
 // printShipped ends the loop: the release, and the deployment the landing
-// fed with its observed state. The address is printed whatever was observed
-// (it once appeared only when the app was observed running, sweep 7, A2),
-// and the observation says what AppTown last saw there.
+// fed with the server's status. The address is printed whatever the status.
 func printShipped(name, slug string, landingRun ids.ID) {
 	type release struct {
 		Number int
@@ -316,7 +321,7 @@ func printShipped(name, slug string, landingRun ids.ID) {
 
 // deploymentsLine names the deployments the landing released to (all the
 // project's deployments when none names that run), each with its address
-// and what AppTown last observed there.
+// and the server's status, reason and check times.
 func deploymentsLine(deps []shippedDeployment, landingRun ids.ID) string {
 	var fed []shippedDeployment
 	for _, d := range deps {
@@ -332,18 +337,18 @@ func deploymentsLine(deps []shippedDeployment, landingRun ids.ID) string {
 		if d.Name == "" {
 			continue
 		}
-		// Right after a landing AppTown has not looked yet: that is not
-		// an unknown state, and it reads as the web's "awaiting
-		// observation" does.
-		seen := "its state is not known"
-		switch {
-		case d.ObservedAt == "":
-			seen = "not observed yet"
-		case d.Observation == "running", d.Observation == "stopped":
-			seen = d.Observation
-			if d.ObservationStale {
-				seen += " when last observed"
-			}
+		seen := d.Status.Word
+		if d.Status.Reason != "" {
+			seen += " — " + d.Status.Reason
+		}
+		if d.Status.Stale {
+			seen += " · old reading"
+		}
+		if !d.Status.CheckedAt.IsZero() {
+			seen += " · checked " + d.Status.CheckedAt.Local().Format("15:04")
+		}
+		if !d.Status.RetryAt.IsZero() {
+			seen += " · next check " + d.Status.RetryAt.Local().Format("15:04")
 		}
 		line += strings.TrimRight(fmt.Sprintf(" · %s %s", d.Name, d.URL), " ") + " " + dim("("+seen+")")
 	}

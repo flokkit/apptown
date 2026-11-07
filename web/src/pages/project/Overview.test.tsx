@@ -61,8 +61,8 @@ async function releaseDoors(options: { hostOnly?: boolean; url?: string; configu
       return failed ? new Response(JSON.stringify({ error: 'plan unavailable' }), { status: 403 }) : new Response(JSON.stringify(plan))
     }
     if (url.endsWith('/deployments')) return new Response(JSON.stringify([
-      { id: legacyID, name: 'lan', displayLabel: 'Old lab', url: 'https://old.example', running: true },
-      { id: selectedID, name: 'customer', displayLabel: 'Customer office', url: options.url ?? 'https://customer.example', hostOnly: options.hostOnly, running: true },
+      { id: legacyID, name: 'lan', displayLabel: 'Old lab', url: 'https://old.example', status: { word: 'working', reason: '', stale: false }, running: true },
+      { id: selectedID, name: 'customer', displayLabel: 'Customer office', url: options.url ?? 'https://customer.example', hostOnly: options.hostOnly, status: { word: 'working', reason: '', stale: false }, running: true },
     ]))
     return new Response(JSON.stringify({ slug: 'p', runtimeForm: 'static site' }))
   })))

@@ -10,4 +10,8 @@
 }
 .deployments-card { display: flex; }
 .deployments-link { display: flex; min-width: 0; }
+.fleet-deployment-row { grid-template-columns: minmax(0, 1fr) 16rem auto; }
+@container rows (max-width: 48rem) {
+  .fleet-deployment-row { grid-template-columns: minmax(0, 1fr); }
+}
 }

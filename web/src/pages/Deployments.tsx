@@ -79,7 +79,7 @@ function ProjectFleet({ project: p, search }: { project: ProjectRow; search: str
   const q = useGet<DeploymentView[]>(`/projects/${p.slug}/deployments`, { poll: 8000 })
   if (!q.data) return <ReadStatus q={q} what={`${p.name}'s deployments`} />
   return <><StaleNote q={q} />{q.data.filter(e => `${p.name} ${deploymentName(e)}`.toLowerCase().includes(search))
-    .sort((a, b) => deploymentName(a).localeCompare(deploymentName(b))).map(e => <ListRow listItem key={e.id || e.name}
+    .sort((a, b) => deploymentName(a).localeCompare(deploymentName(b))).map(e => <ListRow listItem className="fleet-deployment-row" key={e.id || e.name}
       identity={<><Link to={`/projects/${p.slug}/deployments/${e.name}`}><strong>{deploymentName(e)}</strong></Link><div className="muted small">{p.name}</div></>}
       state={<FleetDeploymentStatus slug={p.slug} id={e.id} />}
       action={<Link className="btn" to={`/projects/${p.slug}/deployments/${e.name}`}>View deployment</Link>} />)}</>

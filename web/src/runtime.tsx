@@ -1,36 +1,35 @@
 import { PRODUCT } from './brand'
 import { Fragment, type CSSProperties, type ReactNode } from 'react'
-import { fmtStamp } from './format'
+import { fmtStamp, fmtLastRead } from './format'
 
-import type { ActivityDeployment, RuntimeState } from './wire.gen'
-import { Status, STATUS_LIGHT } from './Status'
+import type { ActivityDeployment, DeploymentStatus } from './wire.gen'
+import { Status } from './Status'
 
-export type RuntimeObservation = Pick<ActivityDeployment, 'observation' | 'observationIssue' | 'observedAt' | 'observationAttemptedAt' | 'observationStale' | 'targetName' | 'unreachableSince'>
-
-// Exhaustive against the generated server vocabulary. Classification belongs
-// to the deployment owner, including expired samples and reachability.
-export const RUNTIME_LIGHT: Record<RuntimeState, string> = { ...STATUS_LIGHT, running: 'pass' }
-
-export function runtimeDescription(o: RuntimeObservation): string {
-  if (o.observation === 'unreachable') return `${PRODUCT} can't reach ${o.targetName || 'the deployment host'}${o.unreachableSince ? ` since ${fmtStamp(o.unreachableSince)}` : ''}. The app may still be running.`
-  if (o.observationIssue) return o.observationIssue
-  return o.observedAt ? `Checked ${fmtStamp(o.observedAt)}.` : 'Not checked yet.'
-}
-
-export function runtimeChip(o: Pick<RuntimeObservation, 'observation'>): string {
-  return RUNTIME_LIGHT[o.observation]
-}
-
-export function runtimeLabel(o: Pick<RuntimeObservation, 'observation'>): string {
-  return o.observation
-}
+export type RuntimeObservation = Pick<ActivityDeployment, 'observation' | 'observationIssue' | 'observedAt' | 'observationAttemptedAt' | 'observationStale' | 'targetName' | 'unreachableSince' | 'status'>
 
 export function checkedWords(o: Pick<RuntimeObservation, 'observedAt' | 'observationStale'>): string {
   return o.observedAt ? `Checked ${fmtStamp(o.observedAt)}` : 'Not checked yet'
 }
 
+// A failed browser refresh qualifies the displayed read, not the host. The
+// owner's answer remains intact in the cache and is shown again on recovery.
+export function failedStatusRefresh(status: DeploymentStatus, reason: string): DeploymentStatus {
+  return { ...status, word: 'unknown', reason: `The status could not be refreshed: ${reason}`, stale: true }
+}
+
+export function failedRuntimeRefresh<T extends RuntimeObservation>(answer: T, reason: string): T {
+  return { ...answer, observation: 'unknown', observationStale: true, observationIssue: reason, status: failedStatusRefresh(answer.status, reason) }
+}
+
+// The browser formats the owner's answer; it never qualifies runtime evidence.
+export function statusProps(status: DeploymentStatus) {
+  const checked = status.checkedAt ? `checked ${fmtLastRead(Date.parse(status.checkedAt))}` : 'not checked yet'
+  const retry = status.retryAt ? ` · next check ${new Date(status.retryAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''
+  return { word: status.word, stacked: true, help: `${status.reason ? `${status.reason} · ` : ''}${checked}${status.stale ? ' · old reading' : ''}${retry}` }
+}
+
 export function RuntimeStatus({ observation }: { observation: RuntimeObservation }) {
-  return <Status observation word={observation.observation} staleAt={observation.observationStale && observation.observation !== 'unknown' ? observation.observedAt : undefined} help={runtimeDescription(observation)} />
+  return <Status observation {...statusProps(observation.status)} />
 }
 
 // Without a label, show the public host and path with shared styling and wrap

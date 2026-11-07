@@ -16,7 +16,7 @@ import type { DeploymentView } from '../../../wire.gen'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const base = '/projects/lunch/deployments'
 const at = '2026-11-03T08:00:00Z'
-const env = { name: 'main', displayLabel: 'Lunch Orders', generation: 1, kind: 'standing', feed: 'main', audience: 'team', data: 'production', observation: 'running', servingRelease: { number: 8, releasedAt: at }, observedAt: at, readiness: 'reconciled', url: 'https://lunch.example', target: { kind: 'docker-host', name: 'local' } } as DeploymentView
+const env = { name: 'main', displayLabel: 'Lunch Orders', generation: 1, kind: 'standing', feed: 'main', audience: 'team', data: 'production', status: { word: 'working', reason: '', stale: false }, observation: 'running', servingRelease: { number: 8, releasedAt: at }, observedAt: at, readiness: 'reconciled', url: 'https://lunch.example', target: { kind: 'docker-host', name: 'local' } } as DeploymentView
 const reading = { waiting: false, stale: false, unknown: false, observedAt: at }
 function fixtures({ backup = 'none', lowDisk = false, readiness = 'reconciled' } = {}): Record<string, unknown> {
   return {
@@ -161,12 +161,12 @@ it.each(['reconciled', 'uncertain'])('reloads the resulting state after refreshi
     if (init?.method === 'POST' && url.endsWith('/check')) {
       posts.push(url)
       refreshed = true
-      return new Response(JSON.stringify({ deployment: 'main', checked: [], observation: 'stopped' }))
+      return new Response(JSON.stringify({ deployment: 'main', checked: [], status: { word: 'stopped', reason: '', stale: false }, observation: 'stopped' }))
     }
     const path = url.replace(/^\/api\/v1/, '')
     if (path === base && refreshed) {
       readsAfterRefresh++
-      return new Response(JSON.stringify([{ ...env, readiness: 'reconciled', observation: 'stopped', observedAt: '2026-11-07T10:00:00Z' }]))
+      return new Response(JSON.stringify([{ ...env, readiness: 'reconciled', status: { word: 'stopped', reason: '', stale: false }, observation: 'stopped', observedAt: '2026-11-07T10:00:00Z' }]))
     }
     return new Response(JSON.stringify(data[path] ?? (url.endsWith('/deploys') ? [] : {})))
   })))
@@ -184,6 +184,6 @@ it.each(['reconciled', 'uncertain'])('reloads the resulting state after refreshi
       expect(el.textContent).not.toContain('nothing about this deployment is in doubt')
     })
     expect(posts).toEqual([`/api/v1${base}/main/check`])
-    expect(client.getQueryData<DeploymentView[]>(getKey(base))?.[0]).toMatchObject({ readiness: 'reconciled', observation: 'stopped', observedAt: '2026-11-07T10:00:00Z' })
+    expect(client.getQueryData<DeploymentView[]>(getKey(base))?.[0]).toMatchObject({ readiness: 'reconciled', status: { word: 'stopped', reason: '', stale: false }, observation: 'stopped', observedAt: '2026-11-07T10:00:00Z' })
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

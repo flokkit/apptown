@@ -338,5 +338,5 @@ func (h Tiers) visible(ctx context.Context) (map[ids.ID]*project.Project, error)
 
 // Preview discovery establishes existence, not the app's runtime health.
 func previewTierApp(p *project.Project, change *workflow.Change) TierApp {
-	return TierApp{RuntimeObservationView: runtimeObservationView(deployment.RuntimeObservation{State: deployment.RuntimeUnknown}), Detail: fmt.Sprintf("change %d: %s", change.Number, strs.Truncate(change.Title, 50)), Slug: p.Slug, Name: p.Name, Icon: p.Icon, ChangeID: change.ID, ChangeNumber: change.Number}
+	return TierApp{RuntimeObservationView: runtimeObservationView(deployment.RuntimeObservation{State: deployment.RuntimeUnknown, Status: deployment.UnobservedStatus()}), Detail: fmt.Sprintf("change %d: %s", change.Number, strs.Truncate(change.Title, 50)), Slug: p.Slug, Name: p.Name, Icon: p.Icon, ChangeID: change.ID, ChangeNumber: change.Number}
 }

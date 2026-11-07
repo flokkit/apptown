@@ -148,7 +148,7 @@ describe('Attention surfaces share authorized current evidence', () => {
   it.each(['failed', 'unknown', 'stale', 'known'] as const)('Home quietness includes %s operational coverage even when all other groups are empty', async mode => {
     responses(() => mode === 'failed' ? json({ error: 'no observation' }, 503) : json({ ...known, sources: [{ ...known.sources[0], unknown: mode === 'unknown', stale: mode === 'stale' }] }), {
       '/activity': emptyActivity, '/dashboard': emptyDashboard,
-      '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game', productionUrl: 'https://game.example.test', deployed: true, hasDeployments: true, observation: 'unreachable', targetName: 'Club host', observationStale: false }], total: 1 },
+      '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game', productionUrl: 'https://game.example.test', deployed: true, hasDeployments: true, status: { word: 'unreachable', reason: '', stale: false }, observation: 'unreachable', targetName: 'Club host', observationStale: false }], total: 1 },
       '/projects/game/deployments': [],
     })
     const v = mount(<Dashboard />, '/'); await settled(v.client)
@@ -161,8 +161,8 @@ describe('Attention surfaces share authorized current evidence', () => {
       { key: 'disks', name: 'AppTown and worker disks', unknown: false, stale: false },
       { key: 'capacity', name: 'Deployment host capacity', unknown: true, stale: false },
     ] }), {
-      '/activity': { ...emptyActivity, deployments: [{ project: 'game', name: 'main', url: 'https://game.example.test', running: true, observationStale: false }] },
-      '/dashboard': emptyDashboard, '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game', hasDeployments: true }], total: 1 },
+      '/activity': { ...emptyActivity, deployments: [{ kind: 'standing', projectStatus: { word: 'working', reason: '', stale: false }, project: 'game', name: 'main', url: 'https://game.example.test', running: true, observationStale: false }] },
+      '/dashboard': emptyDashboard, '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game', hasDeployments: true, status: { word: 'working', reason: '', stale: false } }], total: 1 },
       '/projects/game/deployments': [],
     })
     const v = mount(<><AttentionLights /><Dashboard /></>, '/'); await settled(v.client)
@@ -181,7 +181,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     responses(() => json(known), {
       '/activity': { ...emptyActivity, active: [row('Another check', 'check', 'review failed', 'no'), row('Another approval', 'approval', 'waiting for Priya', 'no')], waitingOnYou: [row('My check', 'check', 'review failed', 'yes')] },
       '/dashboard': emptyDashboard,
-      '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game' }], total: 1 }, '/projects/game/deployments': [],
+      '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game', hasDeployments: false }], total: 1 }, '/projects/game/deployments': [],
     })
     const v = mount(<Dashboard />, '/'); await settled(v.client)
     const personal = v.el.querySelector('section[aria-label="Waiting on you"]')!
@@ -203,8 +203,8 @@ it.each([[true, true], [true, false], [false, true], [false, false]])('Home keep
  vi.stubGlobal('matchMedia', () => ({ matches: narrow, addEventListener() {}, removeEventListener() {} }))
  responses(() => json(known), {
   '/activity': emptyActivity, '/dashboard': emptyDashboard,
-  '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game', productionUrl: production ? 'https://game.example.test' : '', deployed: production, hasDeployments: true, observation: 'unreachable', targetName: 'Club host', observationStale: false }], total: 1 },
-  '/projects/game/deployments': [{ id: 'preview-id', name: 'preview-machine-id', displayLabel: 'Preview', url: 'https://preview.example.test', kind: 'preview', running: null, observation: 'unreachable', targetName: 'Club host', observationStale: false }],
+  '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game', productionUrl: production ? 'https://game.example.test' : '', deployed: production, hasDeployments: true, status: { word: 'unreachable', reason: '', stale: false }, observation: 'unreachable', targetName: 'Club host', observationStale: false }], total: 1 },
+  '/projects/game/deployments': [{ id: 'preview-id', name: 'preview-machine-id', displayLabel: 'Preview', url: 'https://preview.example.test', kind: 'preview', running: null, status: { word: 'unreachable', reason: '', stale: false }, observation: 'unreachable', targetName: 'Club host', observationStale: false }],
  })
  const v = mount(<Dashboard />, '/'); await settled(v.client)
  expect(v.el.querySelector('.project-action a')).toBeNull()
@@ -456,7 +456,7 @@ it('shows a pending release on Home and Attention with its deployment as the act
  responses(() => json({ ...known, items: [{ key: 'release-approval/release-12', title: 'Release 12 to Production service needs your approval', detail: 'game', href, statusLabel: 'waiting', severity: 'warning', observedAt: at, stale: false }] }), {
   '/activity': { ...emptyActivity, releaseApprovals: [task] },
   '/dashboard': emptyDashboard,
-  '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game' }], total: 1 }, '/projects/game/deployments': [],
+  '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game', hasDeployments: false }], total: 1 }, '/projects/game/deployments': [],
  })
  const v = mount(<><AttentionLights /><AttentionPage /><Dashboard /></>); await settled(v.client)
  const article = v.el.querySelector('article')!

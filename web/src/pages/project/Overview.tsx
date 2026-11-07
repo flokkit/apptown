@@ -1,5 +1,5 @@
 import { PRODUCT } from '../../brand'
-import { runtimeDescription } from '../../runtime'
+import { statusProps } from '../../runtime'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Release, post } from '../../api'
@@ -64,7 +64,7 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
             items={[
               ...envs.map((e) => ({
                 label: (e.displayLabel || e.name) + (e.url ? ' · ' + e.url.replace(/^https?:\/\//, '') : ''),
-                hint: !e.url ? 'no address yet · nothing has been released here' : runtimeDescription(e),
+                hint: !e.url ? 'no address yet · nothing has been released here' : statusProps(e.status).help,
                 onClick: () => { if (e.url) window.open(e.url, '_blank'); else nav('/deployments') },
               })),
               { label: 'All deployments', onClick: () => nav('/deployments') },

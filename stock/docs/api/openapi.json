@@ -236,6 +236,9 @@
           "hostOnly": {
             "type": "boolean"
           },
+          "kind": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -257,6 +260,9 @@
           "project": {
             "type": "string"
           },
+          "projectStatus": {
+            "$ref": "#/components/schemas/DeploymentStatus"
+          },
           "running": {
             "anyOf": [
               {
@@ -266,6 +272,9 @@
                 "type": "null"
               }
             ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/DeploymentStatus"
           },
           "targetName": {
             "type": "string"
@@ -278,10 +287,13 @@
           }
         },
         "required": [
+          "kind",
+          "projectStatus",
           "project",
           "name",
           "url",
           "running",
+          "status",
           "observation",
           "targetName",
           "observationStale"
@@ -2212,6 +2224,33 @@
         ],
         "type": "object"
       },
+      "DeploymentStatus": {
+        "properties": {
+          "checkedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "retryAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "word": {
+            "$ref": "#/components/schemas/ProgressLabel"
+          }
+        },
+        "required": [
+          "word",
+          "reason",
+          "stale"
+        ],
+        "type": "object"
+      },
       "DeploymentTargetView": {
         "properties": {
           "displayLabel": {
@@ -2441,6 +2480,9 @@
           "static": {
             "type": "boolean"
           },
+          "status": {
+            "$ref": "#/components/schemas/DeploymentStatus"
+          },
           "target": {
             "anyOf": [
               {
@@ -2494,6 +2536,7 @@
           "running",
           "releaseRun",
           "updatedAt",
+          "status",
           "observation",
           "targetName",
           "observationStale",
@@ -3886,7 +3929,8 @@
           "working",
           "stopped",
           "waiting",
-          "excepted"
+          "excepted",
+          "unreachable"
         ],
         "type": "string"
       },
@@ -4192,6 +4236,9 @@
           "slug": {
             "type": "string"
           },
+          "status": {
+            "$ref": "#/components/schemas/DeploymentStatus"
+          },
           "targetName": {
             "type": "string"
           },
@@ -4230,6 +4277,7 @@
           "productionUrl",
           "deployed",
           "hasDeployments",
+          "status",
           "observation",
           "targetName",
           "observationStale"

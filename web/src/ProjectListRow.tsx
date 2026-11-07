@@ -2,7 +2,7 @@ import { type CSSProperties, type ReactNode } from 'react'
 import { ListRow } from './ListRow'
 import { ChangeButton } from './pages/project/ChangeButton'
 import { Link } from 'react-router-dom'
-import { RuntimeStatus } from './runtime'
+import { RuntimeStatus, failedRuntimeRefresh } from './runtime'
 import { relTime } from './format'
 import type { ProjectRow } from './wire.gen'
 
@@ -27,13 +27,7 @@ export function projectHue(slug: string): number {
 export function ProjectListRow({ project: p, refreshFailed = false, reason, children }: {
   project: ProjectRow; refreshFailed?: boolean; reason?: string; children?: ReactNode
 }) {
-  const observation = refreshFailed ? { ...p, observation: 'unknown' as const, observationStale: true, observationIssue: reason } : p
-  const age = p.hasDeployments === false
-    ? p.lastRunAt ? `Work updated ${relTime(p.lastRunAt)}` : 'No changes yet'
-    : p.observedAt ? (observation.observationStale || p.observation === 'unreachable' ? `Checked ${relTime(p.observedAt)}` : '')
-      // An attempt that got no answer has been checked; say what went wrong.
-      : p.observation === 'unreachable' ? `Can't reach ${p.targetName || 'its host'}`
-      : p.observation === 'unknown' ? 'Not checked yet' : ''
+  const observation = refreshFailed ? failedRuntimeRefresh(p, reason || 'The project list could not be read') : p
   return <ListRow listItem className="project-row" identity={<div className="project-identity">
       {/* The icon opens the project too; the name stays the one keyboard stop. */}
       <Link to={`/projects/${p.slug}`} tabIndex={-1} aria-hidden="true" className={`project-avatar${p.icon ? '' : ' project-letter'}`}
@@ -45,7 +39,7 @@ export function ProjectListRow({ project: p, refreshFailed = false, reason, chil
       </div>
     </div>} state={<div className="project-state">
       {p.hasDeployments === false ? <strong className="small" style={{ color: 'var(--muted)' }}>Not deployed</strong> : <RuntimeStatus observation={observation} />}
-      {age && <div className="muted small">{age}</div>}
+      {p.hasDeployments === false && <div className="muted small">{p.lastRunAt ? `Work updated ${relTime(p.lastRunAt)}` : 'No changes yet'}</div>}
     </div>} action={<div className="project-action">
       {mayOpenApp(p, refreshFailed) && p.productionUrl && <a className="btn primary" href={p.productionUrl} target="_blank" rel="noreferrer" aria-label={`Open app: ${p.name || p.slug} (opens in a new tab)`}>Open app <span aria-hidden="true">↗</span></a>}
       {!refreshFailed && p.canChange && <ChangeButton slug={p.slug} chatAvailable={p.chatAvailable} compact />}

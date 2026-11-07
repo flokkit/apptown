@@ -70,7 +70,7 @@ func (h Activity) Activity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, d := range runtime {
-		e := ActivityDeployment{Project: d.Project, Name: d.Name, URL: d.URL, HostOnly: d.HostOnly}
+		e := ActivityDeployment{Project: d.Project, Name: d.Name, Kind: d.Kind.String(), ProjectStatus: d.ProjectStatus, URL: d.URL, HostOnly: d.HostOnly}
 		e.RuntimeObservationView = runtimeObservationView(d.Observation)
 		e.Running = d.Observation.State.Running()
 		envs = append(envs, e)
@@ -109,9 +109,11 @@ type (
 	}
 	// ActivityDeployment is one deployment and its last observed runtime.
 	ActivityDeployment struct {
-		Project string `json:"project"`
-		Name    string `json:"name"`
-		URL     string `json:"url"`
+		Kind          string                      `json:"kind"`
+		ProjectStatus deployment.DeploymentStatus `json:"projectStatus"`
+		Project       string                      `json:"project"`
+		Name          string                      `json:"name"`
+		URL           string                      `json:"url"`
 		// HostOnly: URL answers on the AppTown host only (deployment.Reach).
 		HostOnly bool  `json:"hostOnly,omitempty"`
 		Running  *bool `json:"running"`
