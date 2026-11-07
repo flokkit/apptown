@@ -26,6 +26,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
 )
@@ -332,7 +333,7 @@ func TestALandingDoesNotJudgeTheChangesFolderPreview(t *testing.T) {
 // Standing must use the landing's saved judgement of the checked tree, including
 // old findings and exceptions, without asking any evaluator to judge it again.
 func TestALandingsChecksBecomeItsStanding(t *testing.T) {
-	for _, scenario := range []string{"pass", "preexisting", "exception", "main-moved", "missing-receipt", "AI"} {
+	for _, scenario := range []string{"pass", "preexisting", "exception", "main-moved", "missing-receipt", "record-failure", "AI"} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
 			a := testApp(t)
@@ -410,6 +411,9 @@ func TestALandingsChecksBecomeItsStanding(t *testing.T) {
 				gittest.Run(t, repo, "add", "other.txt")
 				gittest.Run(t, repo, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "another landing")
 			}
+			if scenario == "record-failure" {
+				dbtest.FailNextStatement(t, a.DB, "-- name: CompleteLandingReview :execrows")
+			}
 			result, err := mergeEffectForTest(t, a, source)
 			ctx := testConformanceContext("reviewer")
 			history, readErr := a.conformance.ProjectHistory(ctx, run.ProjectID, 40)
@@ -424,6 +428,18 @@ func TestALandingsChecksBecomeItsStanding(t *testing.T) {
 			}
 			if err != nil || !result.Merged {
 				t.Fatalf("landing: %+v %v", result, err)
+			}
+			if scenario == "record-failure" {
+				snapshot, err := a.Work.Snapshot(testConformanceContext("reviewer"), run.ID, workflow.DetailView)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, event := range snapshot.Events {
+					if event.Kind == "conformance.recording-failed" && strings.Contains(string(event.Payload), "Run a conformance review") && len(history) == 0 {
+						return
+					}
+				}
+				t.Fatalf("recording failure missing from change evidence: %+v", snapshot.Events)
 			}
 			if scenario == "missing-receipt" {
 				reviews, readErr := a.conformance.Reviews(ctx, 40)
@@ -517,4 +533,42 @@ func TestALandingsChecksBecomeItsStanding(t *testing.T) {
 			}
 		})
 	}
+}
+
+// fixingLandingFixture runs a real check on main, then the same check on a
+// changed candidate and observes its real merge. The page capture uses it too.
+func fixingLandingFixture(t *testing.T) (*App, *workflow.Run) {
+	t.Helper()
+	a := testApp(t)
+	testAdministrator(t, a, "reviewer")
+	installCheckEffects(t, a, checkOverrides{run: func(req execRequest) execOutcome {
+		return agentenv.Execute(a.processRunner, context.Background(), execution.Local, req, a.cfg.clock.Now())
+	}})
+	run, source := reviewLanding(t, a, []schema.Step{{Name: "guidance", Uses: "guidance/conformance"}}, map[string]string{"work.txt": "fixed\n"}, func(pid ids.ID) {
+		adopt(t, a, pid, "standing-check", 1, checksJSON(shCheck("rule", "test -f work.txt", "high")))
+		_, vs, err := fleetReviewsFor(a).RunFleetReviewWith(testConformanceContext("reviewer"), "finding", conformance.ReviewOptions{Projects: []ids.ID{pid}})
+		if err != nil || len(vs) != 1 || vs[0].State != conformance.DoesNotConform {
+			t.Fatalf("initial finding: %+v %v", vs, err)
+		}
+	})
+	if checked := reviewExecute(t, a, run, "guidance"); checked.Status != workflow.StatusPass {
+		t.Fatalf("fixing check: %s", checked.Evidence)
+	}
+	result, err := mergeEffectForTest(t, a, source)
+	if err != nil || !result.Merged {
+		t.Fatalf("fixing landing: %+v %v", result, err)
+	}
+	fixes, err := a.conformance.ProjectFixes(testConformanceContext("reviewer"), run.ProjectID, 40)
+	if err != nil || len(fixes) != 1 {
+		t.Fatalf("immediate Fixed section: %+v %v", fixes, err)
+	}
+	if len(fixes[0].ChangeIDs) != 1 || fixes[0].ChangeIDs[0] != run.ChangeID || fixes[0].ChangeNumbers[0] <= 0 || fixes[0].AfterSHA != strings.TrimSpace(gittest.Run(t, requireLocation(t)(source.Repository(a.cfg.dataDir)), "rev-parse", "HEAD")) {
+		t.Fatalf("fixed change link: %+v", fixes[0])
+	}
+	return a, run
+}
+
+func TestAFixingLandingRecordsItsFixedChangeImmediately(t *testing.T) {
+	t.Parallel()
+	fixingLandingFixture(t)
 }

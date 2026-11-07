@@ -28,14 +28,19 @@ check and evaluator version, in `gate` mode. The checked candidate already
 contains main, and SCM publishes that checked tree. Recording never evaluates
 checks again. A repeated observation of the same landing keeps the same record.
 
-Every adopted check must have a result before any landing review is saved.
-Skipped and unknown results remain unassessed. Findings already on main remain
-findings. Active whole-check exceptions apply to failures; the saved exception
-reference, snapshot and failure detail keep history intact and let the current
-view show the failure when an exception expires or is removed. Missing results
-leave the project unassessed until a review. If recording fails after merging,
-AppTown logs the failure and the completed landing stands. The project remains
-unassessed until a review.
+Each check the landing ran is recorded independently of missing checks. Checks
+without results retain their previous verdict and date. Skipped and unknown
+results remain unassessed. Findings already on main remain findings. Active
+whole-check exceptions apply to failures; the saved exception reference,
+snapshot and failure detail keep history intact and let the current view show
+the failure when an exception expires or is removed.
+
+Landing verdicts use review admission: a confirmed finding that now passes
+records a fix with the landed change and commit immediately. Remediation uses
+the landing's saved verdict for its check; a check without a landing result
+needs a review. If recording fails after merging, AppTown records the failure
+in the run's evidence with a request to run a project conformance review. The
+completed landing stands.
 
 Reviews assess adopted declarations against committed source. Publishing a new
 block does not change earlier verdicts or silently replace a project's adoption.

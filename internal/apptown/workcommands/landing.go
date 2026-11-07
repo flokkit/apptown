@@ -2,7 +2,7 @@ package workcommands
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -17,7 +17,7 @@ import (
 
 // LandingEffects supplies a per-operation driver and records observed effects.
 // Workflow retains admission/settlement; SCM retains the external merge protocol.
-// A failure to record conformance is logged; the completed landing stands.
+// A failure to record conformance is saved in the run evidence; the merge stands.
 type LandingEffects struct {
 	DB          *database.DB
 	Contracts   *project.Contracts
@@ -41,7 +41,9 @@ func (m LandingEffects) Observed(ctx context.Context, result scm.Result) {
 	if result.Merged && result.SHA != "" {
 		m.Contracts.RecordCommit(ctx, m.DataDir, result.Source.ProjectID, result.SHA)
 		if err := m.recordLandingResults(ctx, result); err != nil {
-			log.Printf("recording landing conformance for run %s: %v", result.Source.RunID, err)
+			workflow.RecordNoticeOrLog(context.WithoutCancel(ctx), m.DB, result.Source.RunID, "conformance.recording-failed", map[string]string{
+				"reason": fmt.Sprintf("The change landed, but its check results could not be saved: %v. Run a conformance review for this project.", err),
+			}, clock.Or(m.Now)())
 		}
 		if result.Source.MR.IID == 0 {
 			m.Publisher.PushBranch(ctx, result.Source.ProjectID, result.Source.Repository, result.Source.DefaultBranch)
@@ -76,5 +78,9 @@ func (m LandingEffects) recordLandingResults(ctx context.Context, result scm.Res
 	if !found {
 		return nil
 	}
-	return m.Conformance.RecordLandingResults(ctx, result.Source.ProjectID, result.SHA, result.Source.RunID, result.Source.Candidate, receipts)
+	run, err := workflow.ReadRunIn(ctx, m.DB, result.Source.RunID)
+	if err != nil {
+		return err
+	}
+	return m.Conformance.RecordLandingResults(ctx, result.Source.ProjectID, run.ChangeID, result.SHA, result.Source.RunID, result.Source.Candidate, receipts)
 }

@@ -15,8 +15,8 @@ import (
 )
 
 // Recording receipts must preserve unknowns and tool exceptions, use the owner's
-// clock, and leave no partial review on either missing evidence or write failure.
-func TestLandingResultsAreCompleteAtomicAndClocked(t *testing.T) {
+// clock, and keep available receipts atomic even when other evidence is missing.
+func TestLandingResultsArePartialAtomicAndClocked(t *testing.T) {
 	for _, scenario := range []string{"complete", "missing", "write-failure"} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
@@ -31,7 +31,7 @@ func TestLandingResultsAreCompleteAtomicAndClocked(t *testing.T) {
 			if scenario == "write-failure" {
 				dbtest.FailNextStatement(t, f.db, "-- name: CompleteLandingReview :execrows")
 			}
-			err := f.service.RecordLandingResults(caller("reviewer"), id, "landed", idstest.N(12), "checked", receipts)
+			err := f.service.RecordLandingResults(caller("reviewer"), id, idstest.N(7), "landed", idstest.N(12), "checked", receipts)
 			if (err != nil) != (scenario == "write-failure") {
 				t.Fatalf("record: %v", err)
 			}
@@ -39,7 +39,7 @@ func TestLandingResultsAreCompleteAtomicAndClocked(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if scenario != "complete" {
+			if scenario == "write-failure" {
 				all, err := f.service.Reviews(caller("reviewer"), 40)
 				if err != nil || len(all) != 0 || len(history) != 0 {
 					t.Fatalf("partial records: %+v %+v %v", all, history, err)
@@ -78,7 +78,7 @@ func TestLandingResultsPreserveEveryReceiptOutcome(t *testing.T) {
 			if tc.receipt == "excepted" {
 				receipt.ExceptedBy = `{"id":"` + idstest.N(33).String() + `","status":"accepted-risk","by":"decider"}`
 			}
-			if err := f.service.RecordLandingResults(caller("reviewer"), id, "landed", idstest.N(12), "checked", []LandingReceipt{receipt}); err != nil {
+			if err := f.service.RecordLandingResults(caller("reviewer"), id, idstest.N(7), "landed", idstest.N(12), "checked", []LandingReceipt{receipt}); err != nil {
 				t.Fatal(err)
 			}
 			f.source.move(id, "landed")
@@ -109,5 +109,48 @@ func TestLandingReviewJSONUsesTrigger(t *testing.T) {
 	}
 	if string(fields["trigger"]) != `"landing"` || string(fields["sourceRun"]) != `"`+idstest.N(12).String()+`"` || string(fields["candidate"]) != `"checked"` {
 		t.Fatalf("landing provenance: %s", body)
+	}
+}
+
+// A partial landing fixes the check it ran and leaves the other finding's
+// exact verdict and assessment date available in the current projection.
+func TestLandingFixIsImmediateAndMissingChecksKeepTheirVerdict(t *testing.T) {
+	t.Parallel()
+	f := newProjectionFixture(t)
+	id := f.project(t, "landing", "rules", 1, noFixme+","+strings.Replace(noFixme, "no-fixme", "second", 1))
+	ctx := caller("reviewer")
+	_, before := f.review(t, ctx, "finding", []ids.ID{id}, outcomes(map[string]Outcome{"landing": DoesNotConform}))
+	if err := f.service.RecordLandingResults(ctx, id, idstest.N(7), "landed", idstest.N(12), "checked", []LandingReceipt{{Block: "rules", Version: 1, Check: "no-fixme", Verdict: "pass"}}); err != nil {
+		t.Fatal(err)
+	}
+	f.source.move(id, "landed")
+	fixes, err := f.service.ProjectFixes(ctx, id, 40)
+	if err != nil || len(fixes) != 1 {
+		t.Fatalf("immediate fix: %+v %v", fixes, err)
+	}
+	fix := fixes[0]
+	if len(fix.ChangeIDs) != 1 || fix.ChangeIDs[0] != idstest.N(7) || fix.Commits != "landed" || fix.AfterSHA != "landed" || fix.BeforeState != DoesNotConform {
+		t.Fatalf("fix attribution: %+v", fix)
+	}
+	view := f.view(t, ids.Nil)
+	if len(view.ByProject["landing"]) != 2 {
+		t.Fatalf("current checks: %+v", view.ByProject["landing"])
+	}
+	for _, row := range view.ByProject["landing"] {
+		if row.Check == "second" {
+			for _, old := range before {
+				if old.Check == "second" && (row.Record.ID != old.ID || row.Record.At != old.At) {
+					t.Fatalf("missing check changed: %+v, previous %+v", row, old)
+				}
+			}
+		}
+	}
+	v, err := f.service.LandingVerdict(ctx, id, idstest.N(12), CheckIdentity{Block: "rules", Version: 1, Check: "no-fixme"})
+	if err != nil || v == nil || v.State != Conforms || v.ReviewID != fix.ReviewID {
+		t.Fatalf("landing check: %+v %v", v, err)
+	}
+	missing, err := f.service.LandingVerdict(ctx, id, idstest.N(12), CheckIdentity{Block: "rules", Version: 1, Check: "second"})
+	if err != nil || missing != nil {
+		t.Fatalf("missing landing check: %+v %v", missing, err)
 	}
 }

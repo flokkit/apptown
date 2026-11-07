@@ -38,7 +38,8 @@ Remediation composes Conformance and Workflow. `Start` resolves the requested
 scope and creates items tied to the findings being addressed. A worker resolves
 and prepares a workflow, admits work through Workflow's transaction participants,
 and dispatches after commit. Outcome recording checks the matching item/attempt;
-a subsequent review supplies evidence that the problem was fixed.
+the landing verdict, or a review for a check the landing did not run, supplies
+evidence that the problem was fixed.
 
 Pause prevents new items starting; current runs finish. Cancel skips queued work
 and lets in-flight work finish, leaving its Change attended. Retry and skip name

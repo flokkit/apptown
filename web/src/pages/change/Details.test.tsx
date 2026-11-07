@@ -416,3 +416,17 @@ it('does not claim that a review is absent before its run has been read', async 
     expect(f.el.textContent).not.toContain('No review was recorded.')
   } finally {f.close()}
 })
+
+
+it('shows a landing result recording failure with its remedy in the change evidence', async () => {
+  const v = view()
+  const reason = 'The change landed, but its check results could not be saved. Run a conformance review for this project.'
+  v.detail!.events = [{ runId: 'work', id: 'recording', kind: 'conformance.recording-failed', at: '2026-11-01T10:02:00Z', payload: { reason } }] as RunDetail['events']
+  const f = await mount(v)
+  try {
+    const row = f.el.querySelector('#entry-event-recording')!
+    expect(row.querySelector('.ch-event-label')?.textContent).toBe('Check results')
+    expect(row.querySelector('.ch-story-line')?.textContent).toBe(reason)
+    expect([...f.el.querySelectorAll('.ch-event-label')].filter(e => e.textContent === 'Check results')).toHaveLength(1)
+  } finally { f.close() }
+})

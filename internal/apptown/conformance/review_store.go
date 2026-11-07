@@ -186,44 +186,49 @@ func RepairInterruptedReviews(ctx context.Context, tx *database.Tx, at time.Time
 }
 
 func (s reviewStore) recordVerdict(ctx context.Context, req verdictAdmission) (Verdict, error) {
-	v := req.Verdict
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (Verdict, error) {
-		if err := lockConformanceProject(ctx, tx, v.ProjectID); err != nil {
-			return Verdict{}, err
-		}
-		if err := lockRunningReview(ctx, tx, v.ReviewID); err != nil {
-			return Verdict{}, err
-		}
-		prev, err := readLatestVerdict(ctx, tx, v.ProjectID, v.Block, v.Version, v.Check)
-		if _, err := database.Lookup(err); err != nil {
-			return Verdict{}, err
-		}
-		if prev.ID != req.PreviousID {
-			return Verdict{}, errVerdictChanged
-		}
-		needed, err := fixRequired(ctx, tx, prev, v)
-		if err != nil {
-			return Verdict{}, err
-		}
-		if needed != (req.Fix != nil) {
-			return Verdict{}, errVerdictChanged
-		}
-		at := stamp.Parse(v.At)
-		row, err := queries(tx).InsertVerdict(ctx, conformancesql.InsertVerdictParams{ID: ids.New(at.Time),
-			ReviewID: v.ReviewID, ProjectID: v.ProjectID, ProjectSlug: v.ProjectSlug, Sha: v.SHA,
-			Block: v.Block, Version: int64(v.Version), CheckName: v.Check, Evaluator: v.Evaluator,
-			EvaluatorVer: v.EvaluatorVer, Mode: v.Mode, State: v.State.String(), Severity: v.Severity,
-			Detail: v.Detail, CreatedAt: at.Time, ExceptedBy: v.ExceptedBy, EvidenceHash: v.EvidenceHash, AgentEvidence: agentEvidenceJSON(v.AgentEvidence),
-		})
-		if err != nil {
-			return Verdict{}, err
-		}
-		v.ID = row.ID
-		if err := recordFixIn(ctx, tx, req, v, s.now()); err != nil {
-			return Verdict{}, err
-		}
-		return v, nil
+		return s.recordVerdictIn(ctx, tx, req)
 	})
+}
+
+// recordVerdictIn shares review admission with landed check results.
+func (s reviewStore) recordVerdictIn(ctx context.Context, tx *database.Tx, req verdictAdmission) (Verdict, error) {
+	v := req.Verdict
+	if err := lockConformanceProject(ctx, tx, v.ProjectID); err != nil {
+		return Verdict{}, err
+	}
+	if err := lockRunningReview(ctx, tx, v.ReviewID); err != nil {
+		return Verdict{}, err
+	}
+	prev, err := readLatestVerdict(ctx, tx, v.ProjectID, v.Block, v.Version, v.Check)
+	if _, err := database.Lookup(err); err != nil {
+		return Verdict{}, err
+	}
+	if prev.ID != req.PreviousID {
+		return Verdict{}, errVerdictChanged
+	}
+	needed, err := fixRequired(ctx, tx, prev, v)
+	if err != nil {
+		return Verdict{}, err
+	}
+	if needed != (req.Fix != nil) {
+		return Verdict{}, errVerdictChanged
+	}
+	at := stamp.Parse(v.At)
+	row, err := queries(tx).InsertVerdict(ctx, conformancesql.InsertVerdictParams{ID: ids.New(at.Time),
+		ReviewID: v.ReviewID, ProjectID: v.ProjectID, ProjectSlug: v.ProjectSlug, Sha: v.SHA,
+		Block: v.Block, Version: int64(v.Version), CheckName: v.Check, Evaluator: v.Evaluator,
+		EvaluatorVer: v.EvaluatorVer, Mode: v.Mode, State: v.State.String(), Severity: v.Severity,
+		Detail: v.Detail, CreatedAt: at.Time, ExceptedBy: v.ExceptedBy, EvidenceHash: v.EvidenceHash, AgentEvidence: agentEvidenceJSON(v.AgentEvidence),
+	})
+	if err != nil {
+		return Verdict{}, err
+	}
+	v.ID = row.ID
+	if err := recordFixIn(ctx, tx, req, v, s.now()); err != nil {
+		return Verdict{}, err
+	}
+	return v, nil
 }
 
 // Snapshot all active exceptions or none. Required read/write errors abort the

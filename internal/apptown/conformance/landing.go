@@ -2,7 +2,9 @@ package conformance
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -27,10 +29,10 @@ type LandingReceipt struct {
 // RecordLandingResults records witnessed guidance receipts after SCM has recorded
 // a successful landing. Its caller supplies that settled result's commit, run and
 // checked candidate; this operation never evaluates or merges. Missing receipts
-// record nothing. All conformance records commit together in our own transaction.
-func (s *Service) RecordLandingResults(ctx context.Context, projectID ids.ID, landed string, runID ids.ID, candidate string, receipts []LandingReceipt) error {
-	if projectID.IsZero() || runID.IsZero() || landed == "" || candidate == "" {
-		return fmt.Errorf("landing results require a project, landed commit, run and candidate")
+// leave the previous verdict unchanged. All records commit together in our transaction.
+func (s *Service) RecordLandingResults(ctx context.Context, projectID, changeID ids.ID, landed string, runID ids.ID, candidate string, receipts []LandingReceipt) error {
+	if projectID.IsZero() || changeID.IsZero() || runID.IsZero() || landed == "" || candidate == "" {
+		return fmt.Errorf("landing results require a project, change, landed commit, run and candidate")
 	}
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		if err := lockConformanceProject(ctx, tx, projectID); err != nil {
@@ -56,15 +58,17 @@ func (s *Service) RecordLandingResults(ctx context.Context, projectID ids.ID, la
 			}
 			byCheck[key] = r
 		}
-		// Check completeness before creating even a review: partial evidence must
-		// not make the landed tree look assessed.
+		adopted := map[string]bool{}
 		for _, c := range p.Checks {
-			if _, ok := byCheck[CheckKey(c.Block, c.Version, c.Check.Name)]; !ok {
-				return nil
+			adopted[CheckKey(c.Block, c.Version, c.Check.Name)] = true
+		}
+		for key := range byCheck {
+			if !adopted[key] {
+				return fmt.Errorf("landing receipt is not an adopted check: %s", key)
 			}
 		}
-		if len(byCheck) != len(p.Checks) {
-			return fmt.Errorf("landing receipts differ from adopted checks")
+		if len(byCheck) == 0 {
+			return nil
 		}
 		review, err := s.records.create(ctx, tx, ReviewRequest{Trigger: "landing", Projects: []ids.ID{projectID}}, "apptown-system", ReviewRunning)
 		if err != nil {
@@ -76,7 +80,10 @@ func (s *Service) RecordLandingResults(ctx context.Context, projectID ids.ID, la
 		}
 		at := stamp.Of(s.records.now())
 		for _, c := range p.Checks {
-			r := byCheck[CheckKey(c.Block, c.Version, c.Check.Name)]
+			r, ran := byCheck[CheckKey(c.Block, c.Version, c.Check.Name)]
+			if !ran {
+				continue
+			}
 			state, err := landingOutcome(r.Verdict)
 			if err != nil {
 				return err
@@ -96,17 +103,28 @@ func (s *Service) RecordLandingResults(ctx context.Context, projectID ids.ID, la
 			if severity == "" {
 				severity = "note"
 			}
-			if _, err := queries(tx).InsertVerdict(ctx, conformancesql.InsertVerdictParams{
-				ID: ids.New(at.Time), ReviewID: review.ID, ProjectID: projectID, ProjectSlug: p.Slug, Sha: landed,
-				Block: c.Block, Version: int64(c.Version), CheckName: c.Check.Name, Evaluator: check.Evaluator(c.Check),
-				EvaluatorVer: r.EvaluatorVer, Mode: "gate", State: state.String(), Severity: severity,
-				Detail: detail, CreatedAt: at.Time, ExceptedBy: ref, EvidenceHash: r.EvidenceHash, AgentEvidence: agentEvidenceJSON(r.AgentEvidence),
-			}); err != nil {
+			v := Verdict{ReviewID: review.ID, ProjectID: projectID, ProjectSlug: p.Slug, SHA: landed,
+				Block: c.Block, Version: c.Version, Check: c.Check.Name, Evaluator: check.Evaluator(c.Check),
+				EvaluatorVer: r.EvaluatorVer, Mode: "gate", State: state, Severity: severity,
+				Detail: detail, At: at.String(), ExceptedBy: ref, EvidenceHash: r.EvidenceHash, AgentEvidence: r.AgentEvidence}
+			prev, err := readLatestVerdict(ctx, tx, projectID, c.Block, c.Version, c.Check.Name)
+			if _, err := database.Lookup(err); err != nil {
+				return err
+			}
+			needed, err := fixRequired(ctx, tx, prev, v)
+			if err != nil {
+				return err
+			}
+			req := verdictAdmission{Verdict: v, PreviousID: prev.ID}
+			if needed {
+				req.Fix = &FixAttribution{Changes: []ids.ID{changeID}, Commits: landed}
+			}
+			if _, err := s.records.recordVerdictIn(ctx, tx, req); err != nil {
 				return err
 			}
 		}
 		n, err := queries(tx).CompleteLandingReview(ctx, conformancesql.CompleteLandingReviewParams{
-			ID: review.ID, SourceRun: runID, Candidate: candidate, At: at.NullTime, Verdicts: int64(len(p.Checks)),
+			ID: review.ID, SourceRun: runID, Candidate: candidate, At: at.NullTime, Verdicts: int64(len(byCheck)),
 		})
 		return reviewRowsWritten(n, err)
 	})
@@ -129,4 +147,21 @@ func landingOutcome(v string) (Outcome, error) {
 	default:
 		return 0, fmt.Errorf("invalid landing check verdict: %s", v)
 	}
+}
+
+// LandingVerdict reads one check actually recorded for a landing run. Absence
+// means that check still needs a review; other checks' receipts prove nothing.
+func (s *Service) LandingVerdict(ctx context.Context, projectID, runID ids.ID, c CheckIdentity) (*Verdict, error) {
+	if _, err := s.require(ctx, permission{Action: readProject, ProjectID: projectID}); err != nil {
+		return nil, err
+	}
+	row, err := queries(s.db).LandingVerdict(ctx, conformancesql.LandingVerdictParams{SourceRun: runID, ProjectID: projectID, Block: c.Block, Version: int64(c.Version), CheckName: c.Check})
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	v, err := verdict(row)
+	return &v, err
 }

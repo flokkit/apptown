@@ -12,8 +12,8 @@ import { Section } from '../../Section'
 
 // --- one project ---------------------------------------------------------------------------------
 
-function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, onRecheck, onDecision, covered }: {
-  covered?: ConformanceView['openRemediations'][number]; v: Verdict; def?: CheckDefinition; exceptions: Disposition[]; adj?: Adjudication; prior?: PriorConfirmation; readOnly: boolean
+function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, onRecheck, onDecision, covered, reviews }: {
+  reviews: ConformanceView['reviews']; covered?: ConformanceView['openRemediations'][number]; v: Verdict; def?: CheckDefinition; exceptions: Disposition[]; adj?: Adjudication; prior?: PriorConfirmation; readOnly: boolean
   onConfirm?: (v: Verdict, note: string) => unknown; onFix?: (v: Verdict) => void; onRecheck?: () => void; onDecision?: (v: Verdict, reason: string) => unknown
 }) {
   const lane = laneOf(v)
@@ -24,9 +24,9 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
       <div className="card row check-row project-page-check-row-card-check-row">
         <div className="row check-open">
           {/* A check that has not judged anything is neither a pass nor a problem: it says why instead. */}
-          <span className="row-status">{lane === 'unassessed' ? <span className="muted small">not judged yet</span> : <StateChip finding={v.lane === 'findings'} label={v.statusLabel} />}</span>
+          <span className="row-status">{lane === 'unassessed' && v.state !== 'stale' ? <span className="muted small">not judged yet</span> : <StateChip finding={v.lane === 'findings'} label={v.statusLabel} />}</span>
           <strong>{def?.title || v.check}</strong>
-          <span className="muted small">{lane === 'unassessed' || undecidedAI
+          <span className="muted small">{v.state === 'stale' ? 'No judgement on the current commit' : lane === 'unassessed' || undecidedAI
             ? (v.detail ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : 'Not run yet')
             : [`from ${v.block}`, lane === 'flagged' && prior ? `confirmed before at ${shortSha(prior.sha)} by ${prior.by}` : ''].filter(Boolean).join(' · ')}</span>
         </div>
@@ -43,7 +43,7 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
         <div className="check-results">
           <div className="project-page-check-row-div">
             <div className="small muted">{v.block} version {v.version} · {v.check}</div>
-            <Evidence v={v} exceptions={exceptions} adj={adj} />
+            <Evidence v={v} exceptions={exceptions} adj={adj} reviews={reviews} />
             {undecidedAI && decision && <p className="small">Recorded decision: {decision.status === 'accepted' ? 'accepted risk' : 'false positive'} — {decision.justification} · {decision.by}. This check remains undecided.</p>}
             {!readOnly && (lane === 'findings' || lane === 'flagged') && (
               <div className="row mt-3 project-page-check-row-div-2">
@@ -63,29 +63,18 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
   )
 }
 
-function HistoryStrip({ slug }: { slug: string }) {
+function ProjectReviews({ slug }: { slug: string }) {
   const q = useGet<ConformanceHistory>(`/conformance/projects/${slug}/history`)
-  // A strip never read says so; a held one stays (it changes only when a
-  // review finishes).
   if (!q.data) return <ReadStatus q={q} what="the review history" className="small" />
   const hist = q.data.history ?? []
-  if (hist.length < 2) return <StaleNote q={q} />
-  const max = Math.max(1, ...hist.map((h) => h.findings + h.flagged))
   return (
-    <Section title="Reviews" count={hist.length} note="Oldest to newest. Red: findings. Amber: possible problems. Select a bar to open that review.">
+    <Section title="Reviews" count={hist.length} note="Dated snapshots of this project. Open a report to see the evidence recorded then.">
       <StaleNote q={q} />
-      <div className="project-page-history-strip-div">
-        {hist.map((h) => {
-          const tot = h.findings + h.flagged
-          const hgt = tot === 0 ? 3 : Math.max(6, (tot / max) * 36)
-          const color = h.findings ? 'var(--bad)' : h.flagged ? 'var(--warn)' : h.unassessed ? 'var(--border-strong)' : 'var(--ok)'
-          return (
-            <Link key={h.reviewId} to={`/conformance/reviews/${h.reviewId}/projects/${slug}`}
-              title={`review of ${fmtWhen(h.at)} · ${h.findings} findings · ${h.flagged} flagged · ${h.unassessed} not judged`}
-              style={{ height: hgt, background: color }} className="project-page-link" />
-          )
-        })}
-      </div>
+      {hist.length === 0 && <p className="muted small">No reviews yet.</p>}
+      {[...hist].reverse().map(h => <div className="card small" key={h.reviewId}>
+        <Link to={`/conformance/reviews/${h.reviewId}/projects/${slug}`}>Review · {fmtWhen(h.at)}</Link>
+        <span className="muted"> · {h.findings} findings · {h.flagged} possible problems · {h.unassessed} not judged</span>
+      </div>)}
     </Section>
   )
 }
@@ -107,7 +96,7 @@ function LaneSection({ lane, title, hint, groups, view, exceptions, readOnly, on
     <Section title={title} count={list.length} note={hint}>
       {list.map((v) => (
         <CheckRow key={v.id || `${v.block}${v.check}`} v={v} def={view.checkDefs[`${v.block}@${v.version}·${v.check}`]} exceptions={exceptions}
-          covered={coveringChange(view, v)} adj={view.adjudications[String(v.id)]} prior={view.priorConfirmations[String(v.id)]} readOnly={readOnly}
+          covered={coveringChange(view, v)} adj={view.adjudications[String(v.id)]} prior={view.priorConfirmations[String(v.id)]} readOnly={readOnly} reviews={view.reviews ?? []}
           onConfirm={onConfirm} onFix={onFix} onRecheck={onRecheck} onDecision={onDecision} />
       ))}
     </Section>
@@ -165,15 +154,15 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
         {' · '}<Link to={`/projects/${slug}`}>Open project →</Link>
       </div>
       {err && <div className="error small mb-3">{err}</div>}
-      <HistoryStrip slug={slug} />
-      <FixedSection slug={slug} />
+      {!readOnly && <h2 className="mt-3">Current state</h2>}
       <LaneSection {...sectionProps} lane="findings" title="Findings" hint="the app does not meet these" />
       <LaneSection {...sectionProps} lane="broken" title="Couldn't run" hint="the check itself failed to run; the app is not judged" />
       <LaneSection {...sectionProps} lane="flagged" title="Needs your review" hint="Confirm whether these are problems" />
       <LaneSection {...sectionProps} lane="excepted" title="Approved exceptions" hint="fails, but accepted on the record" />
-      <LaneSection {...sectionProps} lane="unassessed" title="Not judged yet" hint="Waiting for something before they can judge, or not run yet" />
+      <LaneSection {...sectionProps} lane="unassessed" title="No current judgement" hint="Checks not run yet, waiting for something, or judged on an older commit" />
       <LaneSection {...sectionProps} lane="na" title="Not applicable" hint="checks that apply to nothing this app declares, or that judge one change and run when a change lands; each says why" />
       <LaneSection {...sectionProps} lane="conforms" title="Conforms" />
+      {!readOnly && <><FixedSection slug={slug} /><ProjectReviews slug={slug} /></>}
     </div>
   )
 }

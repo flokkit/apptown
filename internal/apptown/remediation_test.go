@@ -243,11 +243,23 @@ func TestARemediationPassRunsAsAQueueJob(t *testing.T) {
 
 func TestRemediationItemFollowsWorkAndLanding(t *testing.T) {
 	t.Parallel()
+	remediationFollowsLanding(t, false)
+}
+
+func TestRemediationCompletesFromTheLandingVerdict(t *testing.T) {
+	t.Parallel()
+	remediationFollowsLanding(t, true)
+}
+
+func remediationFollowsLanding(t *testing.T, useLanding bool) {
+	t.Helper()
 	a := testApp(t)
 	failingFixture(t, a)
 	enableImplementLane(t, a)
 	stubRemediationStartWithSpec(t, a, nil, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "build", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}})
-	stubVerify(t, a, conformance.Conforms)
+	if !useLanding {
+		stubVerify(t, a, conformance.Conforms)
+	}
 	m, _, err := a.Fixes.Start(testConformanceContext("t"), "project", "beta", "bls", 0)
 	if err != nil {
 		t.Fatal(err)
@@ -269,8 +281,8 @@ func TestRemediationItemFollowsWorkAndLanding(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.Work.Wait()
-	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "remediation-land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "land", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}})
-	landing, err := a.Work.StartRun(asPerson("t"), workflow.StartChangeRun{ChangeID: it.ChangeID, Workflow: "remediation-land"})
+	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "land", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}})
+	landing, err := a.Work.StartRun(asPerson("t"), workflow.StartChangeRun{ChangeID: it.ChangeID, Workflow: "land"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,9 +298,20 @@ func TestRemediationItemFollowsWorkAndLanding(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.Work.Wait()
+	wantReview := idstest.N(99)
+	if useLanding {
+		if err := a.conformance.RecordLandingResults(testConformanceContext("t"), it.ProjectID, it.ChangeID, "fixed-sha", landing.ID, "checked", []conformance.LandingReceipt{{Block: it.Block, Version: it.Version, Check: it.Check, Verdict: "pass"}}); err != nil {
+			t.Fatal(err)
+		}
+		v, err := a.conformance.LandingVerdict(testConformanceContext("t"), it.ProjectID, landing.ID, conformance.CheckIdentity{Block: it.Block, Version: it.Version, Check: it.Check})
+		if err != nil || v == nil {
+			t.Fatalf("landing verdict: %+v %v", v, err)
+		}
+		wantReview = v.ReviewID
+	}
 	a.Fixes.Pass(context.Background())
 	it = remediationItemsForTest(t, a, m.ID)[0]
-	if it.State != remediation.ItemDone || it.VerifiedReviewID != idstest.N(99) {
+	if it.State != remediation.ItemDone || it.VerifiedReviewID != wantReview {
 		t.Fatalf("shipped → verified by the review → done: %+v", it)
 	}
 	rem, _ := a.Fixes.Remediation(context.Background(), m.ID)

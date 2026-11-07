@@ -11,6 +11,10 @@ it('distinguishes a clean assessment from incomplete checks, evaluator errors an
     { ...record, id: 'clean' }, { ...record, id: 'incomplete', judged: 0 },
     { ...record, id: 'broken', errors: 1 }, { ...record, id: 'flagged', flagged: 1 })
   const html = renderToStaticMarkup(<MemoryRouter><ReviewsList /></MemoryRouter>)
+  expect(html).toContain('Fleet review · 31 Oct')
+  expect(html).toContain('Dated snapshot reports')
+  expect(html).toContain('href="/conformance/reviews/clean"')
+  expect(html).toContain('View current state')
   expect(html).toContain('Not fully checked')
   expect(html).toContain('Checks could not run')
   expect(html).toContain('1 possible problem to review')
