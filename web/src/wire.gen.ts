@@ -243,6 +243,7 @@ export type ChangeBoard = {
 }
 
 export type ChangeCockpit = {
+  checks: ChecksSummary
   waitingOn: WaitingOn
   notesDiff?: Diff | null
   change: Change
@@ -960,6 +961,7 @@ export type IntegrationField = {
 }
 
 export type IntegrationHealth = {
+  freshnessHelp: string
   lastGood?: IntegrationHealth | null
   failedAt?: string
   failure?: string
@@ -1833,6 +1835,7 @@ export type RunTimeline = {
 }
 
 export type RunTrace = {
+  checks: ChecksSummary
   run: Run | null
   projectSlug: string
   change: Change | null
@@ -2101,6 +2104,8 @@ export type StandingValidation = {
 }
 
 export type Step = {
+  isCheck: boolean
+  checkAttention: boolean
   statusLabel: DisplayStatus
   id: string | null
   runId: string | null
@@ -2114,7 +2119,7 @@ export type Step = {
   overrideReason: string
   startedAt: string
   finishedAt: string
-  checkReading?: CheckReading | null
+  checkReading?: checkReading | null
 }
 
 export type StepInterrupted = {
@@ -2447,7 +2452,7 @@ export type AttachmentView = {
   wire?: IntegrationWire | null
 }
 
-export type AttentionLabel = "unknown" | "waiting" | "low"
+export type AttentionLabel = "unknown" | "waiting" | "low" | "failed" | "stopped" | "recovery not rehearsed" | "recovery not tested on its platform" | "waiting for approval"
 
 export type Token = {
   Name: string
@@ -2590,6 +2595,12 @@ export type BoardColumn = {
   items: ChangeSummary[]
 }
 
+export type ChecksSummary = {
+  tone: string
+  text: string
+  started: boolean
+}
+
 export type WaitingOn = {
   kind: string
   run: string | null
@@ -2608,6 +2619,7 @@ export type Diff = {
 }
 
 export type RunSnapshot = {
+  checks: ChecksSummary
   waitingOn: WaitingOn
   run: Run | null
   stages: string[]
@@ -4385,7 +4397,7 @@ export type NeedSelection = {
 
 export type StepState = "pending" | "running" | "pass" | "fail" | "needs_human" | "error" | "skipped" | "not_applicable"
 
-export type CheckReading = {
+export type checkReading = {
   checkErrors?: number
   undecided?: string[]
   placement?: Placement | null

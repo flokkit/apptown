@@ -4,7 +4,6 @@ import { StaleNote, type Gated } from '../../ReadGate'
 import type { MainConflict } from '../../wire.gen'
 import { ChangeHeader } from './Head'
 import { nextStep } from './next'
-import { checksVerdict } from './Overview'
 import { ShieldAlert, ShieldCheck, ShieldQuestion, Shield } from 'lucide-react'
 
 // The state names the viewer's next action when it is their turn.
@@ -128,8 +127,8 @@ export function StateRecord({ view }: { view: ChangeView }) {
 
 // The checks shield sits in the same place on every change. It is a mark, not a link.
 function ChecksShield({ view }: { view: ChangeView }) {
-  const v = checksVerdict(view.detail?.steps ?? [])
-  if (!v) return null
+  const v = view.checks
+  if (!v.started) return null
   const Icon = v.tone === 'ok' ? ShieldCheck : v.tone === 'bad' ? ShieldAlert : v.tone === 'unknown' ? ShieldQuestion : Shield
   return <span className={`ch-shield ${v.tone}`}><Icon aria-hidden size={18} />{v.text}</span>
 }

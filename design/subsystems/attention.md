@@ -130,8 +130,8 @@ reading. Each failed reading records its own cause and next step; the
 background schedule is named only where trying again can help.
 
 Inventory retains witnessed missing claims with the stored observation, filtered
-against the currently recorded subject identity. Native backup evidence retains
-its own reading time; a newer protection wrapper cannot renew it. A failed
+against the currently recorded subject identity. Native backup evidence is stale after fifteen minutes in both deployment detail
+and protection coverage. It retains its own reading time; a newer protection wrapper cannot renew it. A failed
 held-data assessment fails its collection job and retains the diagnostic in the
 authorized Jobs view. Attention reads owner evidence directly, with no process
 memory fallback when an owner read fails.

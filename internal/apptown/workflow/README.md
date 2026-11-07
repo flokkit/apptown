@@ -89,6 +89,15 @@ receipts, check errors, undecided findings and placement are typed in
 `CheckEvidence.Outcome`, every reader uses `ReadCheckEvidence`, and evidence
 it cannot read is reported as unreadable, never as nothing. The run snapshot
 gives the page that reading as `Step.CheckReading`.
+Workflow supplies `isCheck` and `checkAttention` on each step. Tests, scans,
+scripts, conformance, agent reviews and merge checks are verification checks;
+implementation, preview, build and called-workflow execution are work.
+`ChangeChecks` supplies the change verdict, including the preceding working run
+when the current run is a landing. Overview, the checks shield and Evidence show
+that verdict. A passing step with a failed blocking check is a failed check;
+unreadable results, exceptions, undecided findings and unknown test counts keep
+the verdict unknown. Advisory findings remain notes. Failures take precedence
+over unknown, running and passing checks, in that order.
 
 `Service.OpenChanges` returns the reader's own unclosed changes in currently
 readable projects, with one state and reason per row. Running workflows use the

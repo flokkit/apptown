@@ -668,7 +668,12 @@
         "enum": [
           "unknown",
           "waiting",
-          "low"
+          "low",
+          "failed",
+          "stopped",
+          "recovery not rehearsed",
+          "recovery not tested on its platform",
+          "waiting for approval"
         ],
         "type": "string"
       },
@@ -1207,6 +1212,9 @@
           "change": {
             "$ref": "#/components/schemas/Change"
           },
+          "checks": {
+            "$ref": "#/components/schemas/ChecksSummary"
+          },
           "commits": {
             "items": {
               "$ref": "#/components/schemas/ChangeCommit"
@@ -1293,6 +1301,7 @@
           }
         },
         "required": [
+          "checks",
           "waitingOn",
           "change",
           "projectSlug",
@@ -1680,39 +1689,6 @@
         ],
         "type": "object"
       },
-      "CheckReading": {
-        "properties": {
-          "checkErrors": {
-            "type": "integer"
-          },
-          "checks": {
-            "items": {
-              "$ref": "#/components/schemas/checkReceiptView"
-            },
-            "type": "array"
-          },
-          "placement": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Placement"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "undecided": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "unreadable": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
       "CheckVerdict": {
         "enum": [
           "pass",
@@ -1725,6 +1701,25 @@
           "not-applicable"
         ],
         "type": "string"
+      },
+      "ChecksSummary": {
+        "properties": {
+          "started": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string"
+          },
+          "tone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tone",
+          "text",
+          "started"
+        ],
+        "type": "object"
       },
       "CommittedComparison": {
         "properties": {
@@ -5482,6 +5477,9 @@
             },
             "type": "array"
           },
+          "checks": {
+            "$ref": "#/components/schemas/ChecksSummary"
+          },
           "ending": {
             "type": "string"
           },
@@ -5563,6 +5561,7 @@
           }
         },
         "required": [
+          "checks",
           "waitingOn",
           "run",
           "stages",
@@ -6397,10 +6396,13 @@
       },
       "Step": {
         "properties": {
+          "checkAttention": {
+            "type": "boolean"
+          },
           "checkReading": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/CheckReading"
+                "$ref": "#/components/schemas/checkReading"
               },
               {
                 "type": "null"
@@ -6426,6 +6428,9 @@
               "string",
               "null"
             ]
+          },
+          "isCheck": {
+            "type": "boolean"
           },
           "name": {
             "type": "string"
@@ -6468,6 +6473,8 @@
           }
         },
         "required": [
+          "isCheck",
+          "checkAttention",
           "statusLabel",
           "id",
           "runId",
@@ -6798,6 +6805,39 @@
           "serving",
           "observationStale"
         ],
+        "type": "object"
+      },
+      "checkReading": {
+        "properties": {
+          "checkErrors": {
+            "type": "integer"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/checkReceiptView"
+            },
+            "type": "array"
+          },
+          "placement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Placement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "undecided": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unreadable": {
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "checkReceiptView": {

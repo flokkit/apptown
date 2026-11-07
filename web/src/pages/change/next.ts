@@ -110,7 +110,9 @@ export function decisionStatus(step: Step, awaitingDecision = false): Step['stat
 
 // Pending work in a later stage does not hold an earlier decision. Running
 // work anywhere does: accepting must wait for the result being produced.
+// Non-check execution (implementation, preview and called workflows) also
+// needs to finish; the server alone identifies verification checks.
 export function checksRunning(steps: Step[], stage?: string): boolean {
   return steps.some(s => s.type !== 'approval' && (s.status === 'running' || (s.status === 'pending' && (!stage || s.stage === stage)
-    && ['tests', 'scan', 'script', 'agent/pi', 'agent/review', 'guidance/conformance', 'preview', 'workflow/call'].includes(s.type))))
+    && (s.isCheck || ['agent/pi', 'preview', 'workflow/call'].includes(s.type)))))
 }

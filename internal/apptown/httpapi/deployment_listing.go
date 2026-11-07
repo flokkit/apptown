@@ -60,7 +60,7 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 	for _, e := range summaries {
 		v := DeploymentView{RuntimeState: e.RuntimeState, RuntimeActor: e.RuntimeActor, RuntimeAt: e.RuntimeAt, RuntimeError: e.RuntimeError, RuntimeControls: e.RuntimeControls, ServingRelease: e.ServingRelease, LastApplied: e.LastApplied, ID: e.ID, TargetID: e.TargetID, DisplayLabel: e.DisplayLabel, Name: e.Name, Kind: e.Kind.String(), URL: e.URL, HostOnly: e.HostOnly, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt, Static: isStatic,
 			PromotedFromID: e.PromotedFromID, PromotionSource: e.PromotionSource, PromotionRelease: e.PromotionRelease, PromotionBundleID: e.PromotionBundleID, PromotionBlocked: e.PromotionBlocked, Feed: e.Feed, FeedRevision: e.FeedRevision, ApprovalRole: e.ApprovalRole, FeedConfirmed: e.FeedConfirmed, Audience: e.Audience, Data: e.DataClass, Protected: e.Protected, Generation: e.Generation,
-			Readiness: e.Readiness.String(), ReadinessLabel: e.Readiness.Display(), RestoreLabel: e.RestoreCheck.Display(), ChangeID: e.ChangeID, AIModels: e.AIModelsKeys, Running: e.Observation.State.Running(), RuntimeObservationView: runtimeObservationView(e.Observation)}
+			Readiness: e.Readiness.String(), ReadinessLabel: e.Readiness.Display(), RestoreLabel: e.RestoreCheck.Display(), ChangeID: e.ChangeID, AIModels: e.AIModelsKeys, Running: e.Observation.Running(), RuntimeObservationView: runtimeObservationView(e.Observation)}
 		if e.Observation.Err != nil {
 			v.ObservationIssue = "Runtime status is unavailable"
 		}

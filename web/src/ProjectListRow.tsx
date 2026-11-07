@@ -6,14 +6,9 @@ import { RuntimeStatus, failedRuntimeRefresh } from './runtime'
 import { relTime } from './format'
 import type { ProjectRow } from './wire.gen'
 
-// Production liveness is separate from the aggregate status, which may
-// describe a preview that needs attention while the app is still running.
-// Only an app seen stopped or unreachable, or a list that failed to
-// refresh, loses its link: not knowing yet (just after a restart, or while
-// a reading is late) is not stopped, and the address still works.
+// Only the owner's current production-runtime answer offers Open app.
 export function mayOpenApp(project: ProjectRow, refreshFailed = false): boolean {
-  // A running app keeps its link even when a preview is what is unreachable.
-  return !refreshFailed && (project.prodRunning ?? project.observation !== 'unreachable')
+  return !refreshFailed && project.prodRunning === true
 }
 
 export function projectHue(slug: string): number {

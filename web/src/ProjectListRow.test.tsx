@@ -7,7 +7,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from './data'
 import { settled } from './settled'
-import { ProjectListRow } from './ProjectListRow'
+import { ProjectListRow, mayOpenApp } from './ProjectListRow'
 import type { ProjectRow } from './wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -22,7 +22,7 @@ async function row(chatAvailable = true, post?: () => Promise<Response>) {
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   document.body.append(el)
   cleanup.push(() => { act(() => root.unmount()); el.remove(); client.clear() })
-  const project = { slug: 'library', name: 'Library', canChange: true, chatAvailable, hasDeployments: false } as ProjectRow
+  const project = { slug: 'library', name: 'Library', canChange: true, chatAvailable, hasDeployments: false } as unknown as ProjectRow
   await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectListRow project={project} /><Location /></MemoryRouter></QueryClientProvider>))
   await settled(client)
   const click = async (selector: string) => {
@@ -84,4 +84,12 @@ it('shows busy while creating, prevents duplicate creation and shows failure bes
   expect(h.main().disabled).toBe(false)
   expect(h.main().textContent).toBe('Change')
   expect(h.el.querySelector('output')?.textContent).toBe('/')
+})
+
+it('offers Open app only for the server known-running answer', () => {
+ for (const prodRunning of [true, false, null, undefined]) {
+ const project = {prodRunning,observation:'running',stale:prodRunning == null} as unknown as ProjectRow
+ expect(mayOpenApp(project)).toBe(prodRunning === true)
+ expect(mayOpenApp(project,true)).toBe(false)
+ }
 })

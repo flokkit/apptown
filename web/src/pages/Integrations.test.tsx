@@ -50,7 +50,7 @@ describe('connector form', () => {
 
 // Readings AppTown took five minutes ago, by its own clock.
 const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString()
-const checked = (ok: boolean, detail: string): IntegrationHealth => ({ automatic:true,stateLabel: ok ? 'passed' : 'failed', ok, detail, checked: true, checkedAt: fiveMinutesAgo })
+const checked = (ok: boolean, detail: string): IntegrationHealth => ({ freshnessHelp: 'Connection readings are marked old after 75 minutes.', automatic:true,stateLabel: ok ? 'passed' : 'failed', ok, detail, checked: true, checkedAt: fiveMinutesAgo })
 const binding = (name: string, capability: string, provider: string, health: IntegrationHealth, extra: Partial<IntegrationEntry> = {}): IntegrationEntry => ({
   id: `00000000-${String(name.length).padStart(4, '0')}-7000-8000-000000000000`, name, displayLabel: name, capability, provider, config: {}, version: 1, updatedAt: '2026-10-01T00:00:00Z', managed: false, configHash: 'abc123def456', usedBy: { projects: [], deployments: [] }, health, testable: false, ...extra,
 })
@@ -59,7 +59,7 @@ const scanner = binding('django-check', 'scanner', 'tool', checked(false, 'no im
   config: { description: 'Django deploy checks', image: '' },
   usedBy: { projects: [{ slug: 'shop', name: 'Shop', capability: 'scanner' }, { slug: 'blog', name: 'Blog', capability: 'scanner' }], deployments: [{ project: 'shop', name: 'prod', target: 'lan-host' }] },
 })
-const sso = binding('authentik', 'sso', 'service', { ok: false, detail: '', checked: false, automatic:false,stateLabel: 'unknown' }, { config: { url: 'https://auth.example' } })
+const sso = binding('authentik', 'sso', 'service', { freshnessHelp: 'Connection readings are marked old after 75 minutes.', ok: false, detail: '', checked: false, automatic:false,stateLabel: 'unknown' }, { config: { url: 'https://auth.example' } })
 // Checked, with nothing to add: working, whatever the detail says.
 const quiet = binding('cache', 'registry', 'npm', checked(true, ''))
 const spec = (capability: string, provider: string, title: string, extra: Partial<ConnectorEntry> = {}): ConnectorEntry => ({
@@ -267,6 +267,8 @@ describe('the integrations list', () => {
     await vi.waitFor(() => expect(page.text()).toContain('unknown'))
     expect(page.el.querySelector('[role=listitem].int-row .chip')!.className).toContain('unknown')
     expect(page.text()).toContain('unknown')
+    expect(page.text()).toContain(gitlab.health.freshnessHelp)
+    expect(page.text()).not.toContain('every five minutes')
     expect(page.el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(AppTown unreachable)')
     page.done()
   })
@@ -325,7 +327,7 @@ describe('one integration', () => {
   // checked on every reading, but Test connection asks them; a kind with
   // neither says it cannot be checked.
   it('says an unchecked kind that Test connection asks can be asked', async () => {
-    const llm = binding('openrouter', 'llm', 'openrouter', { ok: false, detail: '', checked: false, automatic:false,stateLabel: 'unknown' }, { testable: true })
+    const llm = binding('openrouter', 'llm', 'openrouter', { freshnessHelp: 'Connection readings are marked old after 75 minutes.', ok: false, detail: '', checked: false, automatic:false,stateLabel: 'unknown' }, { testable: true })
     stubAppTown({ 'GET /integrations': json({ integrations: [llm, sso] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations/openrouter')
     await vi.waitFor(() => expect(page.text()).toContain('Test connection asks it now'))
@@ -394,21 +396,21 @@ it.each([false, true])('keeps an unconfigured integration neutral and out of con
 it('keeps a last check age and result visible even when it failed or became old', async () => {
  const {lastChecked}=await import('./Integrations')
  const now=Date.parse('2026-11-01T00:00:00Z')
- expect(lastChecked({automatic:true,stateLabel:'passed',ok:true,checked:true,checkedAt:'2026-10-31T23:55:00Z',detail:''},now)).toBe('checked 5m ago')
- expect(lastChecked({automatic:true,stateLabel:'failed',ok:false,checked:true,stale:true,checkedAt:'2026-10-31T23:30:00Z',detail:'credentials refused'},now)).toBe('last seen 30m ago')
+ expect(lastChecked({ freshnessHelp: 'Connection readings are marked old after 75 minutes.',automatic:true,stateLabel:'passed',ok:true,checked:true,checkedAt:'2026-10-31T23:55:00Z',detail:''},now)).toBe('checked 5m ago')
+ expect(lastChecked({ freshnessHelp: 'Connection readings are marked old after 75 minutes.',automatic:true,stateLabel:'failed',ok:false,checked:true,stale:true,checkedAt:'2026-10-31T23:30:00Z',detail:'credentials refused'},now)).toBe('last seen 30m ago')
 })
 
 
 it('formats the age of an expired reading from the owner classification', async () => {
  const {lastChecked}=await import('./Integrations')
- expect(lastChecked({automatic:true,stateLabel:'unknown',stale:true,lastResult:'failed',ok:false,checked:true,checkedAt:'2026-10-31T12:00:00Z',detail:'Reading expired.'},Date.parse('2026-11-01T00:00:00Z'))).toBe('last seen 12h ago')
+ expect(lastChecked({ freshnessHelp: 'Connection readings are marked old after 75 minutes.',automatic:true,stateLabel:'unknown',stale:true,lastResult:'failed',ok:false,checked:true,checkedAt:'2026-10-31T12:00:00Z',detail:'Reading expired.'},Date.parse('2026-11-01T00:00:00Z'))).toBe('last seen 12h ago')
 })
 
 
 it('shows an event time when a server check is slightly ahead of the reader clock', async () => {
  const {lastChecked}=await import('./Integrations')
  const when=new Date(2026,9,30,17,26).toISOString()
- expect(lastChecked({automatic:true,stateLabel:'passed',ok:true,checked:true,checkedAt:when,detail:''},Date.parse(when)-1000)).toBe('checked just now')
+ expect(lastChecked({ freshnessHelp: 'Connection readings are marked old after 75 minutes.',automatic:true,stateLabel:'passed',ok:true,checked:true,checkedAt:when,detail:''},Date.parse(when)-1000)).toBe('checked just now')
 })
 
 it('uses owner freshness even when the browser clock is far ahead', async () => {

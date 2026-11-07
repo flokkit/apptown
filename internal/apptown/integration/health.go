@@ -2,6 +2,7 @@ package integration
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -11,19 +12,20 @@ import (
 // it did. A kind with no check has empty OK and Detail; NotSetUp can name
 // what is missing. Neither state is evidence that a connection works.
 type Health struct {
-	LastGood   *Health      `json:"lastGood,omitempty"`
-	FailedAt   string       `json:"failedAt,omitempty"`
-	Failure    string       `json:"failure,omitempty"`
-	Automatic  bool         `json:"automatic"`
-	LastResult HealthStatus `json:"lastResult,omitempty"`
-	Expired    bool         `json:"expired,omitempty"`
-	Stale      bool         `json:"stale,omitempty"`
-	NotSetUp   bool         `json:"-"`
-	StateLabel HealthStatus `json:"stateLabel"`
-	OK         bool         `json:"ok"`
-	Detail     string       `json:"detail"`
-	Checked    bool         `json:"checked"`
-	CheckedAt  string       `json:"checkedAt,omitempty"`
+	FreshnessHelp string       `json:"freshnessHelp"`
+	LastGood      *Health      `json:"lastGood,omitempty"`
+	FailedAt      string       `json:"failedAt,omitempty"`
+	Failure       string       `json:"failure,omitempty"`
+	Automatic     bool         `json:"automatic"`
+	LastResult    HealthStatus `json:"lastResult,omitempty"`
+	Expired       bool         `json:"expired,omitempty"`
+	Stale         bool         `json:"stale,omitempty"`
+	NotSetUp      bool         `json:"-"`
+	StateLabel    HealthStatus `json:"stateLabel"`
+	OK            bool         `json:"ok"`
+	Detail        string       `json:"detail"`
+	Checked       bool         `json:"checked"`
+	CheckedAt     string       `json:"checkedAt,omitempty"`
 }
 
 // At is the reading as one AppTown took at the given time.
@@ -91,4 +93,12 @@ func FeatureArea(capability, provider string) string {
 		return "portainer"
 	}
 	return "setup"
+}
+
+// MarshalJSON supplies the freshness rule with every reading, including unknown ones.
+func (h Health) MarshalJSON() ([]byte, error) {
+	type reading Health
+	out := reading(h)
+	out.FreshnessHelp = fmt.Sprintf("Connection readings are marked old after %d minutes.", int(healthStaleAfter/time.Minute))
+	return json.Marshal(out)
 }

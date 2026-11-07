@@ -8,7 +8,7 @@ import { ReadStatus, StaleNote } from '../../ReadGate'
 import { useAction, useGet } from '../../data'
 import { RunFindings } from './Findings'
 import type { StepProgress } from '../../wire.gen'
-import { checkMethod, checkPurpose, checkTypes, stepTitle, testsNote } from './Evidence'
+import { checkMethod, checkPurpose, stepTitle, testsNote } from './Evidence'
 import { decisionStatus, checksRunning } from './next'
 import { closingVia, voterWords } from './through'
 import { fmtStamp } from '../../format'
@@ -54,7 +54,7 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
           {c.instructions && <><dt>Asked to check</dt><dd>{c.instructions}</dd></>}
         </dl>
       })()}
-      {evidenceOnly && checkTypes.has(step.type) && <dl className="ch-check-about">
+      {evidenceOnly && step.isCheck && <dl className="ch-check-about">
         <dt>What it checks</dt><dd>{checkPurpose(step) ?? <span className="muted">— this workflow’s own check; it has no description yet</span>}</dd>
         {checkMethod(step) && <><dt>How</dt><dd><code>{checkMethod(step)!.replace(/^Ran /, '')}</code></dd></>}
       </dl>}
@@ -302,7 +302,7 @@ export function ChildRunSteps({ childId, childNumber, workflow, live, onChange }
   const read = useGet<{ run: Run | null; steps: Step[] }>(`/runs/${childId}/trace`, { poll: live ? 3000 : 0 })
   const trace = read.data
   const steps = trace?.steps ?? []
-  const failed = steps.some(s => s.stage === trace?.run?.currentStage && checkTypes.has(s.type) && ['fail', 'error', 'needs_human'].includes(s.status) && !s.overrideBy)
+  const failed = steps.some(s => s.stage === trace?.run?.currentStage && s.isCheck && ['fail', 'error', 'needs_human'].includes(s.status) && !s.overrideBy)
   const { run: act, err } = useAction(onChange)
 
   return (

@@ -540,7 +540,7 @@ func TestRetainedKnownFailureIsStaleWithoutSerializingAsUnknown(t *testing.T) {
 		if err := json.Unmarshal(raw, &got); err != nil {
 			t.Fatal(err)
 		}
-		want := "waiting"
+		want := "failed"
 		if unknown {
 			want = "unknown"
 		}

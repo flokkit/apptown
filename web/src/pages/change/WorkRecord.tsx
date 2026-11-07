@@ -73,7 +73,7 @@ export default function WorkRecordPage({ section }: { section?: RecordSection })
   useEffect(() => { if (change.data) setProjectScope(change.data.projectSlug) }, [change.data])
   useEffect(() => { if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({ block: 'start' }) }, [location.hash, trace.data])
   const v = change.data, t = trace.data
-  const detail: RunDetail | undefined = t?.run ? { run: t.run, steps: t.steps.filter(Boolean) as RunDetail['steps'], events: t.events as RunDetail['events'], artifacts: t.artifacts, stages: t.stages, next: [], landingMeans: [] } : undefined
+  const detail: RunDetail | undefined = t?.run ? { checks: t.checks, run: t.run, steps: t.steps.filter(Boolean) as RunDetail['steps'], events: t.events as RunDetail['events'], artifacts: t.artifacts, stages: t.stages, next: [], landingMeans: [] } : undefined
   const entry = detail && runStory(detail).find(e => e.key === params.get('attempt') && (e.step?.id || 'run') === stepId)
   if (!v || !t) return <div className="ch-page"><ReadStatus q={change} what="the change" /><ReadStatus q={trace} what="the work record" />{!run && <p>This address does not name a run.</p>}</div>
   if (t.change?.id !== v.change.id || !entry) return <div className="ch-page"><p>This session is not in this change’s work record.</p><Link to={`/changes/${v.change.id}?tab=details`}>Back to the change</Link></div>

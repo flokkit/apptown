@@ -151,7 +151,7 @@ func (h Tiers) runtimeApp(ctx context.Context, p *project.Project, d *deployment
 			continue
 		}
 		app := TierApp{RuntimeObservationView: runtimeObservationView(row.Observation), DeploymentID: row.ID, DeploymentLabel: row.DisplayLabel, Slug: p.Slug, Name: p.Name, Icon: p.Icon, URL: row.URL, HostOnly: row.HostOnly}
-		if running := row.Observation.State.Running(); running != nil {
+		if running := row.Observation.Running(); running != nil {
 			app.Running = *running
 		}
 		return app, nil

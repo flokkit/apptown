@@ -21,7 +21,7 @@ function TraceRead({ id, receive }: { id: string; receive: (id: string, detail: 
   const q = useGet<RunTrace>(`/runs/${id}/trace`, { poll: 3000 })
   useEffect(() => {
     const t = q.data
-    if (t?.run) receive(id, { run: t.run, steps: t.steps.filter(Boolean) as RunDetail['steps'], stages: t.stages, events: t.events as RunDetail['events'], artifacts: t.artifacts, next: [], landingMeans: [] })
+    if (t?.run) receive(id, { checks: t.checks, run: t.run, steps: t.steps.filter(Boolean) as RunDetail['steps'], stages: t.stages, events: t.events as RunDetail['events'], artifacts: t.artifacts, next: [], landingMeans: [] })
   }, [id, q.data, receive])
   return <><ReadStatus q={q} what="earlier work" /><StaleNote q={q} /></>
 }

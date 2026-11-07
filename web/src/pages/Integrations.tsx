@@ -224,7 +224,7 @@ function StatusChip({ state, stale, health, plain = false }: { state: HealthStat
   const word = stale ? 'unknown' : !health?.checked && !health?.automatic && state !== 'not set up' ? 'no automatic check' : state === 'unknown' && !health?.checked ? 'not checked yet' : state
   // Help only where it says more than the word: why it is unknown, or what
   // a check answered. "not set up" and "no automatic check" say it already.
-  const help = stale ? 'Refresh failed. Last answer shown. The background check renews connection readings every five minutes.'
+  const help = stale ? `Refresh failed. Last answer shown. ${health?.freshnessHelp ?? ''}`
     : state === 'unknown' && health?.lastResult ? `Last result: ${health.lastResult}. ${health.detail}`
       : plain || word === 'no automatic check' || word === 'not set up' || word === 'not checked yet' ? undefined : health?.detail || undefined
   // A failure keeps the failure colour when it is old; its age is on the checked line.

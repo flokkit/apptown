@@ -10,12 +10,17 @@ import (
 type AttentionLabel uint8
 
 const (
-	labelUnknown AttentionLabel = 1
-	labelWaiting AttentionLabel = 2
-	labelLow     AttentionLabel = 3
+	labelUnknown              AttentionLabel = 1
+	labelWaiting              AttentionLabel = 2
+	labelLow                  AttentionLabel = 3
+	labelFailed               AttentionLabel = 4
+	labelStopped              AttentionLabel = 5
+	labelRecoveryNotRehearsed AttentionLabel = 6
+	labelRecoveryNotTested    AttentionLabel = 7
+	labelApproval             AttentionLabel = 8
 )
 
-var labelCodec = enum.Set[AttentionLabel]{Names: []string{"unknown", "waiting", "low"}, Invalid: "invalid-status-label", Err: errors.New("invalid status label"), ScanLabel: "value"}
+var labelCodec = enum.Set[AttentionLabel]{Names: []string{"unknown", "waiting", "low", "failed", "stopped", "recovery not rehearsed", "recovery not tested on its platform", "waiting for approval"}, Invalid: "invalid-status-label", Err: errors.New("invalid status label"), ScanLabel: "value"}
 
 func (s AttentionLabel) String() string                { return labelCodec.String(s) }
 func (s AttentionLabel) Value() (driver.Value, error)  { return labelCodec.Value(s) }

@@ -13,32 +13,6 @@ import { closingVia, voterWords } from './through'
 // record in the Work tab. These lines come from records; the summary at the
 // top of the page is an AI's narrative, and the two never mix.
 
-export const checkTypes = new Set(['tests', 'scan', 'script', 'guidance/conformance', 'agent/review', 'scm/merged'])
-
-export function verificationSummary(steps: Step[]): string {
-  const checks = steps.filter(s => checkTypes.has(s.type))
-  if (!checks.length) return 'No verification checks recorded in this run.'
-  // A pass whose check evidence could not be read is not counted as a pass.
-  const unread = (s: Step) => !s.overrideBy && s.status === 'pass' && !!s.checkReading?.unreadable
-  const count = (status: string) => checks.filter(s => !s.overrideBy && s.status === status && !unread(s)).length
-  // People care that the checks passed, or what did not: the number that
-  // passed is one click away, not part of the sentence.
-  const passed = count('pass')
-  const parts: [number, string][] = [
-    [checks.filter(unread).length, 'passed with unreadable evidence'],
-    [checks.filter(s => !!s.overrideBy).length, 'overridden'],
-    [count('fail') + count('error') + count('needs_human'), 'need attention'],
-    [count('pending') + count('running'), 'unfinished'],
-    [count('skipped'), 'skipped'],
-    [count('not_applicable'), 'not applicable'],
-  ]
-  const rest = parts.filter(([n]) => n > 0).map(([n, label]) => `${n} ${label}`)
-  // "All checks passed" needs at least one pass and nothing but passes,
-  // skips and not-applicables; skipped and not-applicable ones are still said.
-  const fine = passed > 0 && parts.every(([n, label]) => n === 0 || label === 'skipped' || label === 'not applicable')
-  return fine ? ['All checks passed', ...rest].join(' · ') : rest.length ? rest.join(' · ') : 'No check passed.'
-}
-
 export type Receipt = {
   key: string
   statusLabel: Step['statusLabel']
@@ -275,9 +249,8 @@ export function Evidence({ view, runs, workTab, extraErr }: {
   extraErr?: string
 }) {
   const proof = view.evidence
-  const latest = view.detail
   return (
-    <Section title="Evidence" label="Recorded evidence" note={latest ? `Checks in the latest run: ${verificationSummary(latest.steps)}` : 'No run recorded yet.'}>
+    <Section title="Evidence" label="Recorded evidence" note={view.checks.text}>
       {proof?.inAdvance && <p className="small" data-testid="in-advance">
         <strong>Accepted in advance</strong> by {proof.inAdvance.approver}, {fmtStamp(proof.inAdvance.at)}: {proof.inAdvance.shown.join(' ')}
       </p>}
@@ -293,10 +266,10 @@ export function Evidence({ view, runs, workTab, extraErr }: {
         {runs.map(({ run, role, steps }) => {
           const live = run.status === 'running'
           const receipts = steps.map((s) => receiptOf(s, live, view.approval?.viewer === 'yes' && view.approval.stepId === s.id))
-          const quietScans = new Set(steps.filter(s => s.type === 'scan' && s.status === 'pass' && !s.overrideBy && !s.checkReading?.unreadable).map(s => s.id))
+          const quietScans = new Set(steps.filter(s => s.type === 'scan' && s.status === 'pass' && !s.checkAttention).map(s => s.id))
           // A finished run whose every receipt is a pass reads as one line
           // until asked; anything else shows every receipt.
-          const clean = !live && receipts.length > 0 && receipts.every((r) => r.statusLabel === 'passed' && r.result !== 'passed with notes')
+          const clean = !live && receipts.length > 0 && !steps.some(s => s.checkAttention) && receipts.every((r) => r.statusLabel === 'passed' && r.result !== 'passed with notes')
           return (
             <div key={run.id} className="ch-ledger-group">
               <div className="ch-ledger-head">
@@ -307,7 +280,7 @@ export function Evidence({ view, runs, workTab, extraErr }: {
               {clean
                 ? <>
                   {/* An approval is a person's decision, not a check: it keeps its own line. */}
-                  <CleanRun receipts={receipts.filter((_, i) => steps[i].type !== 'approval')} to={(id) => workTab(id, run.id)} />
+                  <CleanRun noun="steps" receipts={receipts.filter((_, i) => steps[i].type !== 'approval')} to={(id) => workTab(id, run.id)} />
                   {receipts.filter((_, i) => steps[i].type === 'approval').map(r => <Line key={r.key} r={r} to={workTab(r.stepId, run.id)} />)}
                 </>
                 : <>

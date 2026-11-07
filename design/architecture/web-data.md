@@ -133,7 +133,9 @@ explanation. Structured findings lead when present; sentences are not selected
 as inferred rejection reasons. Step names stay in Techno Goggles. Long reports and
 reviewer conclusions also link to their full evidence.
 Overview counts not-applicable checks and skipped rules within a passing check
-as fine and omits them; their reasons stay in Details. The checks shield uses
+as fine and omits them; their reasons stay in Details. Overview, the checks shield and Evidence use Workflow’s change verdict, including
+the working run carried by a landing. Workflow also identifies verification
+steps; readers do not classify step types. The checks shield uses
 gating results: failed is red, unknown is amber, running is grey and passed is
 green, in that order. Only a check reading with `gates: false` is advisory.
 Advisory problems appear as plain notes below the Checks row’s pass and add a
@@ -240,7 +242,7 @@ Apps live when deployments exist. Unread waiting counts say “couldn't read”.
 All quiet replaces the strip only when its counts are empty and all reads are known.
 
 Home and Projects share app rows: identity and optional one-line purpose, state
-and age when stale, then Open app for running production. Fresh observations omit
+and age when stale, then Open app only for production the server currently knows is running. Fresh observations omit
 the age line; unreachable, unchecked and undeployed rows retain their context. Phones keep the name and state
 beside a compact Open app action, with purpose
 and age beneath. Home reads at most 50 projects, selecting running production

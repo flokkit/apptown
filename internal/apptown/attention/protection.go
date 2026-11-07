@@ -124,7 +124,16 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 			if down && (key == "unassessed" || unknown && (key == "off-host" || key == "restore-unavailable" || key == "rehearsal" && !reading.Rehearsed || key == "restore-test" && !reading.RestoreTested)) {
 				return
 			}
-			out.Items = append(out.Items, Item{Key: base + "/" + key, Unknown: unknown, Title: projectName + " · " + label + ": " + title, Detail: label + ": " + detail, Severity: severity, Href: href, ObservedAt: at, AttemptedAt: attemptedAt, Stale: reading.Stale || unknown})
+			word := labelFailed
+			if severity == severityAdvisory {
+				switch key {
+				case "rehearsal":
+					word = labelRecoveryNotRehearsed
+				case "restore-test":
+					word = labelRecoveryNotTested
+				}
+			}
+			out.Items = append(out.Items, Item{StatusLabel: word, Key: base + "/" + key, Unknown: unknown, Title: projectName + " · " + label + ": " + title, Detail: label + ": " + detail, Severity: severity, Href: href, ObservedAt: at, AttemptedAt: attemptedAt, Stale: reading.Stale || unknown})
 		}
 		// A queued first check is incomplete coverage, not an actionable failure.
 		if (unknown || reading.Stale && !reading.FailedAt.IsZero()) && !pending && dep.DataClass == "production" {

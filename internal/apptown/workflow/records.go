@@ -35,8 +35,10 @@ type Run struct {
 }
 
 type Step struct {
-	runEnded    bool
-	StatusLabel status.DisplayStatus `json:"statusLabel"`
+	IsCheck        bool `json:"isCheck"`
+	CheckAttention bool `json:"checkAttention"`
+	runEnded       bool
+	StatusLabel    status.DisplayStatus `json:"statusLabel"`
 
 	Attempt                                 int64 `json:"-"`
 	ownedStepID, ownedRunID, ownedProjectID ids.ID
@@ -57,7 +59,7 @@ type Step struct {
 	// CheckReading is set only by the run snapshot, for the page: nil means
 	// no reading was made, not that the evidence was empty or readable. Go
 	// readers call ReadCheckEvidence on Evidence.
-	CheckReading *CheckReading `json:"checkReading,omitempty"`
+	CheckReading *checkReading `json:"checkReading,omitempty"`
 }
 
 // OwnedAttempt is observation only: reading a Step never grants this marker.
@@ -81,5 +83,7 @@ func (s Step) MarshalJSON() ([]byte, error) {
 	type view Step
 	out := view(s)
 	out.StatusLabel = s.displayLabel()
+	out.IsCheck = isCheck(s.Type)
+	out.CheckAttention = s.checkAttention()
 	return json.Marshal(out)
 }

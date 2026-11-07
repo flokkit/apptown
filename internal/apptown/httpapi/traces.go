@@ -58,7 +58,7 @@ func (h Traces) Trace(w http.ResponseWriter, r *http.Request) {
 		workflowYAML = y
 	}
 
-	WriteJSON(w, 200, RunTrace{
+	WriteJSON(w, 200, RunTrace{Checks: snapshot.Checks,
 		Run:         run,
 		ProjectSlug: projectSlug,
 		Change:      item,
@@ -77,15 +77,16 @@ func (h Traces) Trace(w http.ResponseWriter, r *http.Request) {
 // RunTrace is a run's full record: the workflow it ran under, every stage,
 // step, event and artifact, and the guidance pinned for it.
 type RunTrace struct {
-	Run         *workflow.Run       `json:"run"`
-	ProjectSlug string              `json:"projectSlug"`
-	Change      *workflow.Change    `json:"change"`
-	Workflow    TraceWorkflow       `json:"workflow"`
-	Stages      []string            `json:"stages"`
-	Steps       []*workflow.Step    `json:"steps"`
-	Events      []workflow.Event    `json:"events"`
-	Artifacts   []workflow.Artifact `json:"artifacts"`
-	Guidance    json.RawMessage     `json:"guidance"`
+	Checks      workflow.ChecksSummary `json:"checks"`
+	Run         *workflow.Run          `json:"run"`
+	ProjectSlug string                 `json:"projectSlug"`
+	Change      *workflow.Change       `json:"change"`
+	Workflow    TraceWorkflow          `json:"workflow"`
+	Stages      []string               `json:"stages"`
+	Steps       []*workflow.Step       `json:"steps"`
+	Events      []workflow.Event       `json:"events"`
+	Artifacts   []workflow.Artifact    `json:"artifacts"`
+	Guidance    json.RawMessage        `json:"guidance"`
 }
 
 // TraceWorkflow is the definition a run executed, and its library YAML.

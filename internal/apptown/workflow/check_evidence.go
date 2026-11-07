@@ -195,21 +195,21 @@ func (v *checkReceiptView) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// CheckReading is ReadCheckEvidence's answer for readers outside Go: the
+// checkReading is ReadCheckEvidence's answer for readers outside Go: the
 // facts, or why they could not be read. The run snapshot attaches it to each
 // step that carries check evidence, so the page judges nothing from raw JSON.
-type CheckReading struct {
+type checkReading struct {
 	CheckEvidence
 	Checks     []checkReceiptView `json:"checks,omitempty"`
 	Unreadable string             `json:"unreadable,omitempty"`
 }
 
-func readingOf(raw json.RawMessage) *CheckReading {
+func readingOf(raw json.RawMessage) *checkReading {
 	facts, err := ReadCheckEvidence(raw)
 	if err != nil {
-		return &CheckReading{Unreadable: err.Error()}
+		return &checkReading{Unreadable: err.Error()}
 	}
-	out := &CheckReading{CheckEvidence: facts}
+	out := &checkReading{CheckEvidence: facts}
 	for _, c := range facts.Checks {
 		out.Checks = append(out.Checks, checkReceiptView{CheckReceipt: c, StatusLabel: c.display()})
 	}

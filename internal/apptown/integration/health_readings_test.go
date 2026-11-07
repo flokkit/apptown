@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -276,5 +277,20 @@ func TestAScannerInsideTheAppImageHasNoAutomaticCheck(t *testing.T) {
 	own, err := s.Bindings.ByName(t.Context(), "own")
 	if err != nil || !own.HasAutomaticCheck() {
 		t.Fatalf("a scanner with its own image lost its check (err=%v)", err)
+	}
+}
+
+func TestHealthHelpUsesItsFreshnessOwner(t *testing.T) {
+	t.Parallel()
+	raw, err := json.Marshal(Health{StateLabel: HealthUnknown})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var h Health
+	if err := json.Unmarshal(raw, &h); err != nil {
+		t.Fatal(err)
+	}
+	if h.FreshnessHelp != "Connection readings are marked old after 75 minutes." {
+		t.Fatalf("help: %s", raw)
 	}
 }

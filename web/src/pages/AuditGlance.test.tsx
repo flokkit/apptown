@@ -57,7 +57,7 @@ it('keeps commands, approval credentials, comments and step identifiers behind D
     { id: 'approval-id', type: 'approval', name: 'accept-landing', status: 'pass', statusLabel: 'passed', overrideBy: '', evidence: { approver: 'Sam', comment: 'accepted run raw-uuid', decisions: [{ approver: 'Sam', via: 'token-cli:secret-token' }] } },
   ] as unknown as Step[]
   const run = { id: 'run-id', status: 'done', statusLabel: 'finished', workflowName: 'internal-workflow', workflowVersion: 12 } as Run
-  const view = { change: { state: 'open' }, detail: { run, steps } } as unknown as ChangeView
+  const view = { checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, change: { state: 'open' }, detail: { run, steps } } as unknown as ChangeView
   const html = renderToStaticMarkup(<MemoryRouter><Evidence view={view} runs={[{ run, steps }]} workTab={() => '/work'} /></MemoryRouter>)
   const visible = firstView(html)
   expect(visible).toContain('Approved by Sam')
@@ -113,7 +113,7 @@ it('shows target facts beside the inventory while resource ids stay in detail', 
 it('keeps a withdrawn approval distinct from an approved person in the first view', () => {
   const step = { id: 'approval', type: 'approval', name: 'accept', config: {}, status: 'pending', statusLabel: 'waiting for checks', overrideBy: '', evidence: { approver: 'Sam', withdrawal: { by: 'Mei', reason: 'The code changed' } } } as unknown as Step
   const run = { id: 'run', status: 'running' } as Run
-  const view = { change: { state: 'open' }, detail: { run, steps: [step] } } as unknown as ChangeView
+  const view = { checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, change: { state: 'open' }, detail: { run, steps: [step] } } as unknown as ChangeView
   const html = renderToStaticMarkup(<MemoryRouter><Evidence view={view} runs={[{ run, steps: [step] }]} workTab={() => '/work'} /></MemoryRouter>)
   expect(firstView(html)).toContain('Approval withdrawn by Mei')
   expect(firstView(html)).not.toContain('Approved by Sam')

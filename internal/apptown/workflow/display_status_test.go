@@ -75,7 +75,7 @@ func TestStepLabelsPreserveUnreadEvidenceExceptionsAndEndedRuns(t *testing.T) {
 		{Step{Status: StatusPass}, status.DisplayPassed},
 		{Step{Status: StatusFail}, status.DisplayFailed},
 		{Step{Status: StatusError}, status.DisplayUnknown},
-		{Step{Status: StatusPass, CheckReading: &CheckReading{Unreadable: "missing"}}, status.DisplayUnknown},
+		{Step{Status: StatusPass, CheckReading: &checkReading{Unreadable: "missing"}}, status.DisplayUnknown},
 		{Step{Status: StatusFail, OverrideBy: "alice"}, status.DisplayExcepted},
 		{Step{Status: StatusRunning}, status.DisplayWorking},
 		{Step{Status: StatusRunning, runEnded: true}, status.DisplayStopped},
@@ -133,7 +133,7 @@ func TestCheckReadingRoundTripPreservesDisplayLabelsAndFacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var got CheckReading
+	var got checkReading
 	if err := json.Unmarshal(body, &got); err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestCheckReadingRoundTripPreservesDisplayLabelsAndFacts(t *testing.T) {
 }
 
 func TestGatePassDoesNotHideUnmetRules(t *testing.T) {
-	s := Step{Type: "guidance/conformance", Status: StatusPass, CheckReading: &CheckReading{Checks: []checkReceiptView{{CheckReceipt: CheckReceipt{Check: "keep-data", Verdict: VerdictFail, Preexisting: true}}}}}
+	s := Step{Type: "guidance/conformance", Status: StatusPass, CheckReading: &checkReading{Checks: []checkReceiptView{{CheckReceipt: CheckReceipt{Check: "keep-data", Verdict: VerdictFail, Preexisting: true}}}}}
 	if got := s.displayLabel(); got != status.DisplayFailed {
 		t.Fatalf("unmet rule: %s", got)
 	}
@@ -170,7 +170,7 @@ func TestPassingStepOnlyDisplaysUnmetBlockingRules(t *testing.T) {
 		{"scan baseline", "scan", nil, status.DisplayPassed},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			s := Step{Type: tc.kind, Status: StatusPass, CheckReading: &CheckReading{Checks: []checkReceiptView{{CheckReceipt: CheckReceipt{Check: "rule", Verdict: VerdictFail, Gates: tc.gates, Preexisting: true}}}}}
+			s := Step{Type: tc.kind, Status: StatusPass, CheckReading: &checkReading{Checks: []checkReceiptView{{CheckReceipt: CheckReceipt{Check: "rule", Verdict: VerdictFail, Gates: tc.gates, Preexisting: true}}}}}
 			if got := s.displayLabel(); got != tc.want {
 				t.Fatalf("got %s, want %s", got, tc.want)
 			}
