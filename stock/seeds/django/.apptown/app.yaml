@@ -1,6 +1,8 @@
 version: 2
 app:
   web:
+    # Enable when the first change creates the app and enables make test:
+    # test: ["make test"]
     build: .
     ports: ["8080"]
     public: true

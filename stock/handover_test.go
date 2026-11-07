@@ -107,7 +107,11 @@ func TestDeclaredTestsExplainCleanCheckout(t *testing.T) {
 				t.Fatal(err)
 			}
 			text := strings.Join(strings.Fields(string(raw)), " ")
-			if !strings.Contains(text, "Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).") {
+			install := "install dependencies first (`npm ci && npm test`)."
+			if path == "guidance/lang/selection/django-fullstack.md" {
+				install = "`make test` starts with `uv sync --frozen`, including the test dependencies."
+			}
+			if !strings.Contains(text, "Each command must work in a clean checkout: landing uses a fresh folder, so "+install) {
 				t.Error("test declaration must explain the clean checkout and installing dependencies first")
 			}
 		})
