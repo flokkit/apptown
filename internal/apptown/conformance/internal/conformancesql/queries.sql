@@ -301,3 +301,10 @@ WHERE id=sqlc.arg(id) AND status='running';
 
 -- name: LandingResultsRecorded :one
 SELECT EXISTS(SELECT 1 FROM conformance_reviews WHERE source_run=$1 AND trigger='landing');
+
+-- name: LandingVerdict :one
+SELECT v.* FROM conformance_verdicts v
+JOIN conformance_reviews r ON r.id=v.review_id
+WHERE r.source_run=sqlc.arg(source_run) AND r.trigger='landing' AND r.status='done'
+AND v.project_id=sqlc.arg(project_id) AND v.block=sqlc.arg(block)
+AND v.version=sqlc.arg(version) AND v.check_name=sqlc.arg(check_name);

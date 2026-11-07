@@ -4,6 +4,17 @@ Use the shared patterns before adding page-specific CSS. Preserve every field,
 link and action, and keep loading, empty, failed, stale and unknown distinct.
 The [web data contract](../design/architecture/web-data.md) owns reads and editor guards.
 
+## Now and history
+
+Every page leads with now — the newest evidence for each thing, with its age and
+its source — and keeps history as a dated list underneath; a past snapshot never
+stands in for now. Unknown and old are never shown as current.
+
+Existing examples are deployment status + deploy history, backups, conformance
+current + reviews, and change state + timeline. Conformance shows the newest
+verdict per adopted check, with its commit, date and source. Older commits are
+labelled as such. Reviews open dated snapshot reports.
+
 ## Component map
 
 | Need | Use |

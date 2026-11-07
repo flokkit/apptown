@@ -21,10 +21,11 @@
 // expiry timer: a long evaluation may finish, but a closed review rejects writes.
 //
 // RecordLandingResults is called by the landing observer after SCM records a
-// successful merge. It saves the complete guidance receipt set, its source run
+// successful merge. It saves the available guidance receipts, their source run
 // and candidate, exception snapshot and landed-commit verdicts atomically. It
-// never evaluates; missing receipts save nothing. The observer logs a recording
-// failure without changing the already completed merge.
+// never evaluates; checks without receipts retain their previous verdict and date.
+// Review admission records fixes with the landed change and commit. The observer
+// saves recording failures in the run evidence without changing the merge.
 //
 // ReviewState and Outcome are distinct owned types. ReviewState.Transition is
 // the lifecycle rule; projections may report unassessed or stale observations

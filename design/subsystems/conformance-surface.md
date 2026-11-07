@@ -34,6 +34,19 @@ checks that cannot give an answer still refuse the gate with their reason.
 Use [conformance](conformance.md) for record ownership and [remediation](remediation.md)
 for acting on findings.
 
+## Current state and reviews
+
+The project page and fleet roll-up lead with current state: the newest verdict
+per adopted project/check from any review, including landings and remediation.
+Each check shows its judged commit, date and numbered evaluation source. A result
+from an older commit says “judged on an older commit”; missing evidence stays
+not judged. A landing source names its numbered landing evaluation report.
+
+Reviews are dated snapshot reports. Opening one shows only the evidence recorded
+in that review, labelled as of its time, with a link back to current state.
+Project review history follows the current checks and fixes. Current fixes are
+not added to a historical snapshot.
+
 ## Implementation references
 
 - [internal/apptown/conformance/fix.go](../../internal/apptown/conformance/fix.go)

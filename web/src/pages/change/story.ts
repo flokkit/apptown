@@ -86,5 +86,8 @@ export function runStory(detail: RunDetail): StoryEntry[] {
   for (const e of events.filter(e => ['run.abandoned', 'main.merged', 'main.conflict'].includes(e.kind))) {
     entries.push({ key: `event-${e.id}`, at: e.at, text: e.kind === 'run.abandoned' ? `Abandoned${e.payload.by ? ` by ${e.payload.by}` : ''}: ${words(e.payload.reason)}` : e.kind === 'main.merged' ? 'Landing: up to date with main ✓' : `Landing: conflicts with main${Array.isArray(e.payload.conflicts) ? ` · ${e.payload.conflicts.join(', ')}` : ''}`, detail, records: [], events: [e] })
   }
+  for (const e of events.filter(e => e.kind === 'conformance.recording-failed')) {
+    entries.push({ key: `event-${e.id}`, at: e.at, text: words(e.payload.reason), detail, records: [], events: [e] })
+  }
   return entries
 }

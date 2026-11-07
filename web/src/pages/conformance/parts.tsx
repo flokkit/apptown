@@ -103,14 +103,14 @@ export function LaneBar({ lanes, total, width = 160 }: { lanes: Lanes; total: nu
 // record is for reading.
 export function LensBanner({ view }: { view: ConformanceView }) {
   const r = view.lens.review
-  if (!r) return null
+  if (!r) return <p className="muted small">Current state · newest evidence for each check, from landings, remediation and reviews.</p>
   const d = view.lens.delta
   return (
     <div className="card tone-accent mb-4 conformance-lens">
       <div className="row conformance-lens-heading">
         <div>
-          <strong>As of review #{r.number}</strong>
-          <span className="muted small"> · {fmtWhen(r.finishedAt || r.startedAt)} · {r.actor} · {r.trigger} · {r.projects} project{r.projects === 1 ? '' : 's'}</span>
+          <strong>Snapshot as of {fmtWhen(r.finishedAt || r.startedAt)} · review #{r.number}</strong>
+          <span className="muted small"> · {r.actor} · {r.trigger} · {r.projects} project{r.projects === 1 ? '' : 's'}</span>
           {d && d.comparedProjects > 0 && (
             <div className="small conformance-lens-note">
               Since the review before it, over {d.comparedProjects} project{d.comparedProjects === 1 ? '' : 's'} in both:{' '}
@@ -226,18 +226,30 @@ export function HowJudged({ def }: { def?: CheckDefinition }) {
   )
 }
 
+// The source is the numbered evaluation record, including landing evaluations.
+export function JudgedAt({ v, reviews }: { v: Verdict; reviews: Review[] }) {
+  if (!v.sha) return <span className="muted small">Not judged yet</span>
+  const review = reviews.find(r => r.id === v.reviewId)
+  const source = review?.trigger === 'landing' ? 'landing' : review?.trigger === 'remediation' ? 'remediation' : 'review'
+  return <div className="muted small">
+    judged at <span className="mono">{shortSha(v.sha)}</span> · {fmtWhen(v.at)} · via{' '}
+    {review ? <Link to={`/conformance/reviews/${review.id}`}>{source} #{review.number}</Link> : 'unknown source'}
+    {v.state === 'stale' && <span> · judged on an older commit</span>}
+  </div>
+}
+
 // One verdict's evidence: the commit, the check's own words, the exception
 // behind an excepted verdict, the adjudication on an AI flag.
-export function Evidence({ v, exceptions, adj }: { v: Verdict; exceptions: Disposition[]; adj?: Adjudication }) {
+export function Evidence({ v, exceptions, adj, reviews }: { v: Verdict; exceptions: Disposition[]; adj?: Adjudication; reviews: Review[] }) {
   let exc: { id: string; status: string; by: string } | null = null
   try { exc = v.exceptedBy ? JSON.parse(v.exceptedBy) : null } catch { exc = null }
   const covering = exc ? exceptions.find((d) => d.id === exc!.id) : undefined
   return (
     <div className="stack conformance-evidence">
+      <JudgedAt v={v} reviews={reviews} />
       {v.sha && (
         <div className="muted small">
-          judged <span className="mono">{shortSha(v.sha)}</span> · {fmtWhen(v.at)} · {EVAL[v.evaluator] ?? v.evaluator}
-          {v.reviewId ? <> · <Link to={`/conformance/reviews/${v.reviewId}`} className="subtle">its review</Link></> : null}
+          {EVAL[v.evaluator] ?? v.evaluator}
           {v.evidenceHash && <> · evidence <span className="mono">{v.evidenceHash}</span></>}
         </div>
       )}

@@ -105,7 +105,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
           </span>) : undefined} />}
       {(tab === 'project' || tab === 'remediation') && live && isUnfinished(live.review.status) && <ReviewProgress d={live} />}
 
-      {view && <LensBanner view={view} />}
+      {view && (readOnly || tab === 'projects' || tab === 'project' || tab === 'checks') && <LensBanner view={view} />}
       {!readOnly && tab === 'projects' && s && <p className="muted small" style={{ margin: '4px 0 0' }}>{s.findings} confirmed problem{s.findings === 1 ? '' : 's'} to fix now. {s.flagged > 0 && `${s.flagged} possible problem${s.flagged === 1 ? '' : 's'} to review. `}{s.incompleteProjects} app{s.incompleteProjects === 1 ? '' : 's'} not fully checked.</p>}
       {readOnly && live && live.review.id === rid && <ReviewFeed d={live} />}
       {shownErr && <div className="error small mb-3">{shownErr}</div>}

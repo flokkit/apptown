@@ -4675,3 +4675,82 @@ try {
 		t.Fatalf("executor browser exited %d", run.ExitCode)
 	}
 }
+
+// This capture uses the real fixing landing, with no seeded fix or verdict.
+func TestLandingConformanceBrowser(t *testing.T) {
+	out := os.Getenv("APPTOWN_LANDING_CAPTURE")
+	if out == "" {
+		t.Skip("set APPTOWN_LANDING_CAPTURE to capture the fixing landing")
+	}
+	a, run := fixingLandingFixture(t)
+	// A real fleet report for two other projects leaves the fixing landing's
+	// judgement as this project's newest evidence.
+	var selected []ids.ID
+	for _, slug := range []string{"library", "bookings"} {
+		id, _, _ := fleetRepo(t, a, slug, map[string]string{"readme.txt": "clean"})
+		adopt(t, a, id, "fleet-check", 1, checksJSON(shCheck("rule", "exit 0", "high")))
+		selected = append(selected, id)
+	}
+	if _, _, err := fleetReviewsFor(a).RunFleetReviewWith(testConformanceContext("reviewer"), "manual", conformance.ReviewOptions{Projects: selected}); err != nil {
+		t.Fatal(err)
+	}
+	// Main moves after the fixing landing; the view must retain its evidence
+	// and say that it was judged on an older commit.
+	gittest.RunAsTester(t, a.projectRepoPath("review-landing"), "commit", "--allow-empty", "-m", "subsequent work")
+	setTestFeatureAs(t, a, "conformance-estate", true, "reviewer")
+	app := a.Handler()
+	dist, err := filepath.Abs("../../web/dist")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := http.FileServer(http.Dir(dist))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			r.Header.Set("X-AppTown-Actor", "reviewer")
+			app.ServeHTTP(w, r)
+			return
+		}
+		if !strings.Contains(filepath.Base(r.URL.Path), ".") {
+			r.URL.Path = "/"
+		}
+		files.ServeHTTP(w, r)
+	}))
+	defer server.Close()
+	script := filepath.Join(t.TempDir(), "capture.mjs")
+	if err := os.WriteFile(script, []byte(`
+const {chromium}=await import(process.env.APPTOWN_PLAYWRIGHT_MODULE);
+const browser=await chromium.launch({headless:true});
+try {
+
+ const errors=[];
+ for(const width of [1440,390]) {
+  const page=await browser.newPage({viewport:{width,height:1050}});
+  page.on('pageerror',e=>errors.push(String(e)));
+  await page.goto(process.env.CAPTURE_URL+'/conformance/projects/review-landing');
+  await page.getByRole('heading',{name:'Fixed',exact:false}).waitFor();
+  await page.locator('a[href="'+process.env.CHANGE_PATH+'"]').first().waitFor();
+  await page.getByText('judged on an older commit',{exact:false}).last().waitFor();
+  await page.getByText('via',{exact:false}).first().waitFor();
+  await page.screenshot({path:process.env.CAPTURE_OUT+'/landing-conformance-'+width+'.png',fullPage:true});
+  await page.goto(process.env.CAPTURE_URL+'/conformance/reviews');
+  const report=page.getByRole('link',{name:/Fleet review ·/}).first();
+  await report.waitFor();
+  await page.screenshot({path:process.env.CAPTURE_OUT+'/conformance-reviews-'+width+'.png',fullPage:true});
+  await report.click();
+  await page.getByText(/Snapshot as of/).waitFor();
+  await page.screenshot({path:process.env.CAPTURE_OUT+'/conformance-snapshot-'+width+'.png',fullPage:true});
+  await page.goto(process.env.CAPTURE_URL+'/conformance');
+  await page.getByText('judged on an older commit',{exact:false}).last().waitFor();
+  await page.screenshot({path:process.env.CAPTURE_OUT+'/conformance-current-'+width+'.png',fullPage:true});
+  await page.close();
+ }
+ if(errors.length)throw new Error(errors.join('\n'));
+} finally {await browser.close();}
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	result := (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{Argv: []string{"node", script}, Env: []string{"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME"), "APPTOWN_PLAYWRIGHT_MODULE=" + os.Getenv("APPTOWN_PLAYWRIGHT_MODULE"), "CAPTURE_URL=" + server.URL, "CAPTURE_OUT=" + out, "CHANGE_PATH=" + fmt.Sprintf("/changes/%s", run.ChangeID)}, Timeout: time.Minute})
+	if result.RunErr != nil || result.ExitCode != 0 {
+		t.Fatalf("capture: %v (%d) %s", result.RunErr, result.ExitCode, result.Output)
+	}
+}

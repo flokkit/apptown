@@ -33,6 +33,7 @@ export function ReviewsList() {
   return (
     <div>
       <StaleNote q={q} />
+      <p className="muted small">Dated snapshot reports. <Link to="/conformance">View current state →</Link></p>
       <PhoneDetails>{trend.length > 1 && (
         <div className="card mb-4" style={{ padding: '10px 14px' }}>
           <div className="muted small mb-2">Findings per fleet review, oldest → newest (red findings, amber AI flags; grey = no recorded problems).</div>
@@ -52,7 +53,7 @@ export function ReviewsList() {
         {rows.slice(0, limit).map((r) => (
           <div key={r.id} className={(`card${r.status === 'queued' || r.status === 'running' ? ' tone-busy' : ''}`) + " mb-0"} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
             <div className="host-row">
-              <Link to={`/conformance/reviews/${r.id}`}><strong>{fmtWhen(r.finishedAt || r.startedAt)}</strong></Link>
+              <Link to={`/conformance/reviews/${r.id}`}><strong>Fleet review · {fmtWhen(r.finishedAt || r.startedAt)}</strong></Link>
               {/* A review that finished with checks that could not run is incomplete, never a green finish. */}
               <Status word={r.status === 'done' && r.errors > 0 ? 'incomplete' : r.statusLabel} help={r.status === 'error' ? 'This review could not finish. Open the review for details.' : undefined} />
               <span className="small">{r.status === 'running' ? `${r.projectsDone} of ${r.projectsTotal} apps checked` : [r.status === 'done' ? `${r.findings} confirmed problem${r.findings === 1 ? '' : 's'} at this review` : '', r.errors > 0 ? 'Checks could not run' : r.judged < r.total ? 'Not fully checked' : '', r.flagged > 0 ? `${r.flagged} possible problem${r.flagged === 1 ? '' : 's'} to review` : ''].filter(Boolean).join(' · ')}</span>

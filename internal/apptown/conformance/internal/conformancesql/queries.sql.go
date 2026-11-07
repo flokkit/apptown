@@ -1200,6 +1200,54 @@ func (q *Queries) LandingResultsRecorded(ctx context.Context, sourceRun ids.ID) 
 	return exists, err
 }
 
+const landingVerdict = `-- name: LandingVerdict :one
+SELECT v.id, v.review_id, v.project_id, v.project_slug, v.sha, v.block, v.version, v.check_name, v.evaluator, v.evaluator_ver, v.mode, v.state, v.severity, v.detail, v.created_at, v.excepted_by, v.evidence_hash, v.agent_evidence FROM conformance_verdicts v
+JOIN conformance_reviews r ON r.id=v.review_id
+WHERE r.source_run=$1 AND r.trigger='landing' AND r.status='done'
+AND v.project_id=$2 AND v.block=$3
+AND v.version=$4 AND v.check_name=$5
+`
+
+type LandingVerdictParams struct {
+	SourceRun ids.ID
+	ProjectID ids.ID
+	Block     string
+	Version   int64
+	CheckName string
+}
+
+func (q *Queries) LandingVerdict(ctx context.Context, arg LandingVerdictParams) (ConformanceVerdict, error) {
+	row := q.db.QueryRowContext(ctx, landingVerdict,
+		arg.SourceRun,
+		arg.ProjectID,
+		arg.Block,
+		arg.Version,
+		arg.CheckName,
+	)
+	var i ConformanceVerdict
+	err := row.Scan(
+		&i.ID,
+		&i.ReviewID,
+		&i.ProjectID,
+		&i.ProjectSlug,
+		&i.Sha,
+		&i.Block,
+		&i.Version,
+		&i.CheckName,
+		&i.Evaluator,
+		&i.EvaluatorVer,
+		&i.Mode,
+		&i.State,
+		&i.Severity,
+		&i.Detail,
+		&i.CreatedAt,
+		&i.ExceptedBy,
+		&i.EvidenceHash,
+		&i.AgentEvidence,
+	)
+	return i, err
+}
+
 const latestVerdictForCheck = `-- name: LatestVerdictForCheck :one
 SELECT id, review_id, project_id, project_slug, sha, block, version, check_name, evaluator, evaluator_ver, mode, state, severity, detail, created_at, excepted_by, evidence_hash, agent_evidence FROM conformance_verdicts
 WHERE project_id = $1 AND block = $2 AND version = $3 AND check_name = $4

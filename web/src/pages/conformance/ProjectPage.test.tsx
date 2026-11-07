@@ -68,3 +68,27 @@ it('confirms a finding in place with an optional note, and cancellation records 
     expect(prompt).not.toHaveBeenCalled()
   } finally { act(() => root.unmount()); client.clear() }
 })
+
+it('leads with per-check current evidence and keeps dated reviews underneath, outside snapshots', async () => {
+  const v = { id: 'v', reviewId: 'r', sha: 'abcdef123456', at: '2026-11-07T03:02:00Z', projectSlug: 'shop', evaluator: 'sh', lane: 'unassessed', state: 'stale', statusLabel: 'old', severity: 'medium', block: 'tools', version: 2, check: 'clean' }
+  const view = { projects: [{ slug: 'shop', name: 'Shop', standing: 'conforms-so-far', sentence: 'Not checked', lanes: {} }], byProject: { shop: [v] }, exceptions: {}, adjudications: {}, priorConfirmations: {}, checkDefs: {}, openRemediations: [], reviews: [{ id: 'r', number: 12, trigger: 'landing' }] } as unknown as ConformanceView
+  const fetch = vi.fn(async (url: RequestInfo | URL) => new Response(JSON.stringify(String(url).endsWith('/history') ? { history: [{ reviewId: 'r', at: v.at, findings: 0, flagged: 0, unassessed: 0 }] } : { fixes: [] })))
+  vi.stubGlobal('fetch', fetch)
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  const render = (readOnly: boolean) => <QueryClientProvider client={client}><MemoryRouter><ProjectPage view={view} slug="shop" readOnly={readOnly} onRunOne={() => {}} /></MemoryRouter></QueryClientProvider>
+  try {
+    await act(async () => root.render(render(false)))
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 25)) })
+    expect(el.textContent).toContain('Current state')
+    expect(el.textContent).toContain('landing #12')
+    expect(el.textContent).toContain('judged on an older commit')
+    expect(el.textContent).not.toContain('Not run yet')
+    expect(el.textContent).toContain('No current judgement')
+    expect(el.textContent).toContain('Review · 7 Nov')
+    expect(el.textContent!.indexOf('judged at')).toBeLessThan(el.textContent!.indexOf('Dated snapshots'))
+    expect(el.querySelector('a[href="/conformance/reviews/r/projects/shop"]')).not.toBeNull()
+    await act(async () => root.render(render(true)))
+    expect(el.textContent).not.toContain('Current state')
+    expect(el.textContent).not.toContain('Dated snapshots')
+  } finally { act(() => root.unmount()); client.clear() }
+})
