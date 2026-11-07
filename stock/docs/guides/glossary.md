@@ -387,7 +387,8 @@ turned off. To change a stock pack, copy it into a pack of your own.
 
 **Recommended version** — the version of a pack that new projects get and
 that projects on another version are offered. Saving a pack makes a new
-version without recommending it; a person recommends it on the pack's page.
+version without recommending it; it is recommended on the pack's page or with
+`apptown pack recommend`.
 An AppTown release's new stock versions wait the same way. No project moves
 until its owner adopts the version.
 

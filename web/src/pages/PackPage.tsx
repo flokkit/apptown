@@ -18,8 +18,7 @@ import { WhatIfPanel } from './PackWhatIf'
 // One pack: what its author
 // wrote, every version with where it came from, and which version is
 // recommended — what new projects get and what projects on other versions
-// are offered. Moving the recommendation is a person's act; it moves no
-// project.
+// are offered. Moving the recommendation moves no project.
 
 export default function PackPage() {
   const { name = '', version } = useParams()

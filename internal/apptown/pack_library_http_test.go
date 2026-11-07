@@ -60,7 +60,7 @@ func TestPackLibraryHTTPWarningsProtectionAndManifest(t *testing.T) {
 		t.Fatalf("update pack: %d %s", w.Code, w.Body.String())
 	}
 	// Saving never moves the recommendation: new projects still get v1
-	// until a person recommends the usable version.
+	// until the usable version is recommended.
 	if w := authzCall(h, "boss", "POST", "/api/v1/packs/custom-pack/recommended", `{"version":2}`); w.Code != 200 {
 		t.Fatalf("recommend: %d %s", w.Code, w.Body.String())
 	}
@@ -259,11 +259,11 @@ func TestAPackOfYourOwnIsTakenBesideAStockPack(t *testing.T) {
 	}
 }
 
-// Recommending a version is a person's act: an administrator's agent token
-// is refused by authorization, their command-line token is not. It moves
+// An administrator's agent token is refused a recommendation by
+// authorization; their command-line token is not. It moves
 // no project; new projects get the recommended version's contents,
 // toolchain and services included.
-func TestRecommendingIsAPersonsActAndMovesNoProject(t *testing.T) {
+func TestRecommendingRefusesAgentTokensAndMovesNoProject(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
 	h := a.Handler()
