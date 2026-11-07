@@ -49,6 +49,20 @@ try {
 
   await checkResources(page, { apptown, other: origins[1], consoleID, reporting: process.env.APPTOWN_REPORTING_URL });
 
+  // New installs refuse MCP with a useful message until an administrator opts in.
+  const refused = await page.evaluate(async callback => {
+    const r = await fetch('/oauth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_name: 'Browser fixture', redirect_uris: [callback] }) });
+    return { status: r.status, body: await r.json() };
+  }, callback);
+  assert.deepEqual(refused, { status: 403, body: { error: 'MCP for outside agents is turned off; an administrator can turn it on in Features' } });
+  const enabled = await page.evaluate(async () => {
+    const r = await fetch('/api/v1/features/mcp', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expected: false, enabled: true }) });
+    return r.status;
+  });
+  assert.equal(enabled, 200);
+
   const client = await page.evaluate(async callback => {
     const r = await fetch('/oauth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ client_name: 'Browser fixture', redirect_uris: [callback] }) });
