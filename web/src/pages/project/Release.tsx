@@ -1,4 +1,6 @@
+import { FeatureOnly } from '../../features'
 import { usePageName } from '../../chrome'
+
 import './Release.css'
 import { ReleaseAssent } from './ReleaseApproval'
 import { Status } from '../../Status'
@@ -99,13 +101,13 @@ export function ReleasePermalinkPage({ slug, number, log = false }: { slug: stri
 export function OpenThisVersion({ slug, number, isLive }: { slug: string; number: number; isLive: boolean }) {
   const { run, busy, err } = useAction()
   return (
-    <span className="row release-preview-action">
+    <FeatureOnly area="previews"><span className="row release-preview-action">
       <button disabled={busy} onClick={() => run(() =>
         openAfter(async () => (await post<ReleasePreviewStarted>(`/projects/${slug}/releases/${number}/preview`, {})).url))}>
         {busy ? 'Starting preview…' : '▶ Preview this version'}</button>
       {!isLive && <span className="muted small">the released image with empty data; today's data is not included</span>}
       {err && <span className="error small">{err}</span>}
-    </span>
+    </span></FeatureOnly>
   )
 }
 

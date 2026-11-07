@@ -1836,6 +1836,13 @@ func (s *tourScene) endChat(who, session string) {
 // when AppTown's clock reads day d at hh:mm UTC (the camera shoots in UTC),
 // and the clock only moves forward.
 func (s *tourScene) play(start time.Time) tourIDs {
+	// This fixture shows existing use across every area. Its administrator
+	// enables beta through the same API an existing installation uses.
+	for _, f := range identity.FeatureCatalogue() {
+		if f.Tier == "beta" {
+			s.call("sam", "PUT", "/api/v1/features/"+f.Area, map[string]bool{"expected": false, "enabled": true})
+		}
+	}
 	t := s.t
 	at := func(day int, clock string) {
 		t.Helper()

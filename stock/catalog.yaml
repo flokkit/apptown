@@ -5,6 +5,7 @@
 # started from an entry records its name and this release.
 catalog:
   - name: package/containerize
+    area: changes
     description: "Package the app for the intranet: write a production Dockerfile so releases can build it. No contract change."
     definition:
       workflow: quick-change
@@ -13,6 +14,7 @@ catalog:
       prompt: ""
 
   - name: uplift/deps
+    area: changes
     description: Bring dependencies to current patch/minor levels, verify, report
     definition:
       workflow: dependency-uplift
@@ -21,6 +23,7 @@ catalog:
       prompt: ""
 
   - name: uplift/go-version
+    area: changes
     description: Move a Go project to a target Go toolchain version, verify build and tests
     definition:
       workflow: quick-change
@@ -41,6 +44,7 @@ catalog:
         This is a toolchain move, not a refactor, and it must not change what the program IS: a CLI stays a CLI — do not add servers, serve modes, new entry points, or runtime-contract (.apptown/app.yaml) changes. Never edit AppTown-written files (.apptown/steering.md, .apptown/REPORT.md). If the target toolchain is not installable or tests fail for reasons unrelated to the bump, STOP and report the blocker rather than working around it.
 
   - name: notes/start
+    area: memory
     description: Propose this project's starting notes from its code and change history
     definition:
       workflow: quick-change
@@ -67,6 +71,7 @@ catalog:
         valid notes. Only edit PROJECT-NOTES.md.
 
   - name: notes/add
+    area: memory
     description: Propose one project note for review
     definition:
       workflow: quick-change
@@ -86,6 +91,7 @@ catalog:
         and CLAUDE.md untouched. Keep within 40 notes and 6144 bytes.
 
   - name: notes/remove
+    area: memory
     description: Propose removing one project note for review
     definition:
       workflow: quick-change

@@ -79,6 +79,7 @@ spec:
 func TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
+	setTestFeatureAs(t, a, "portainer", true, "boss")
 	target, err := a.Deployment.Targets.Put(t.Context(), &deployment.Target{Name: "customer-host", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)

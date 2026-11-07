@@ -17,6 +17,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/mcpapi"
 	"github.com/flokkit/apptown/internal/fault"
@@ -76,6 +77,10 @@ func newMCPDoor(a *App) *mcpDoor { return &mcpDoor{a: a} }
 
 func (d *mcpDoor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a := d.a
+	if err := a.Access.RequireFeature(r.Context(), "mcp"); err != nil {
+		httpapi.WriteFault(w, err)
+		return
+	}
 	id := a.mcpIdentity(w, r)
 	if id == nil {
 		return
@@ -276,6 +281,12 @@ func mcpToolHandler(a *App, name string) mcp.ToolHandler {
 		}
 		if msg := tool.CheckArgs(args); msg != "" {
 			return nil, &jsonrpc.Error{Code: jsonrpc.CodeInvalidParams, Message: fmt.Sprintf("%s: %s", name, msg)}
+		}
+		if err := a.Access.RequireFeature(ctx, "mcp"); err != nil {
+			return mcpRefusal(err.Error()), nil
+		}
+		if err := a.Access.RequireFeature(ctx, tool.FeatureArea()); err != nil {
+			return mcpRefusal(err.Error()), nil
 		}
 		actor := mcpActor(ctx, a, call.id, req.ClientInfo())
 		result, err := tool.Run(&mcpapi.Call{Context: callerMCPContext(ctx, call.id, actor), BaseURL: call.baseURL}, args)

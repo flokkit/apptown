@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,13 +65,20 @@ func TestImmediateAdmissionCallersUseAtomicWorkAndPreserveInputs(t *testing.T) {
 			})
 			t.Cleanup(work.Stop)
 			s := New(work, db)
-			c := &wow.CatalogChange{Name: "test/admit", Description: "test", Definition: wow.CatalogDef{Workflow: "test", Title: "Fix {{part}}", Prompt: "Repair {{part}}", Model: "provider/model", Params: []wow.CatalogParam{{Name: "part", Required: true}}}}
+			c := &wow.CatalogChange{Area: "changes", Name: "test/admit", Description: "test", Definition: wow.CatalogDef{Workflow: "test", Title: "Fix {{part}}", Prompt: "Repair {{part}}", Model: "provider/model", Params: []wow.CatalogParam{{Name: "part", Required: true}}}}
 			ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{Kind: "user", Name: "operator", Via: "session"}, Receipt: "operator", Verified: true})
 			call := func() (*workflow.Change, *workflow.Run, error) {
 				if catalog {
 					return s.ApplyCatalog(ctx, &p, c, map[string]string{"part": "engine"}, "operator")
 				}
 				return s.CreateAndStart(ctx, &p, "scheduled", "Repair engine", "brief", "test")
+			}
+			if catalog {
+				c.Area = "memory"
+				if ch, run, err := s.ApplyCatalog(ctx, &p, c, map[string]string{"part": "engine"}, "operator"); err == nil || ch != nil || run != nil || !strings.Contains(err.Error(), "Project memory is turned off") {
+					t.Fatalf("catalogue area bypassed through a shared caller: %+v %+v %v", ch, run, err)
+				}
+				c.Area = "changes"
 			}
 			clear := dbtest.NextStatementFailure(db, "INSERT INTO steps")
 			ch, run, err := call()

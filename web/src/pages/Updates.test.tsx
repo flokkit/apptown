@@ -1,3 +1,4 @@
+import { withFeatures } from '../features.fixture'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -20,11 +21,11 @@ describe('authenticated update notifications', () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
   async function mount(allowed: boolean, state = 'available', holdingsFailure = false, build = status.build) {
     const calls: { path: string; method: string }[] = []
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
       calls.push({ path: String(url), method: init?.method ?? 'GET' })
       if (String(url).includes('/authz/me')) return new Response(JSON.stringify(holdingsFailure ? { error: 'unavailable' } : { instance: { 'instance:updates': allowed } }), { status: holdingsFailure ? 503 : 200 })
       return new Response(JSON.stringify({ ...status, build, state, statusLabel: state === 'stale' ? 'unknown' : state }))
-    }))
+    })))
     const client = newQueryClient()
     const el = document.createElement('div'); const root = createRoot(el)
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ReleaseAvailabilityNote /><UpdatesPage /></MemoryRouter></QueryClientProvider>))
@@ -86,11 +87,11 @@ describe('authenticated update notifications', () => {
     vi.useFakeTimers()
     let phase = 'checking'
     const methods: string[] = []
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
       methods.push(init?.method ?? 'GET')
       if (String(url).includes('/authz/me')) return new Response(JSON.stringify({ instance: { 'instance:updates': true } }))
       return new Response(JSON.stringify(phase === 'failed' ? { error: 'retained evidence unreadable' } : { ...status, state: phase, statusLabel: phase === 'checking' ? 'waiting' : phase }), { status: phase === 'failed' ? 503 : 200 })
-    }))
+    })))
     const client = newQueryClient()
     const el = document.createElement('div'); const root = createRoot(el)
     const advance = async (ms: number) => { await act(async () => { await vi.advanceTimersByTimeAsync(ms) }) }

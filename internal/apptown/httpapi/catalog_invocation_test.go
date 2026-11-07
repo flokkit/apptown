@@ -27,6 +27,7 @@ func TestCatalogInvocationHTTPUsesTheNamedEntryAndParameters(t *testing.T) {
 			f.Context = access.WithCaller(f.Context, caller)
 			ways := wow.New(f.DB, wow.Dependencies{Stock: catalogStock(`catalog:
   - name: repair/controls
+    area: changes
     description: Repair input
     definition:
       workflow: repair
@@ -145,6 +146,7 @@ func TestCatalogApplyHTTPKeepsProjectMembershipAndCaller(t *testing.T) {
 	f := newWorkflowHTTPAuthorityFixture(t)
 	ways := wow.New(f.DB, wow.Dependencies{Stock: catalogStock(`catalog:
   - name: repair
+    area: changes
     description: Repair
     definition: {workflow: test, title: Repair controls, prompt: Keep existing behavior.}
 `)})

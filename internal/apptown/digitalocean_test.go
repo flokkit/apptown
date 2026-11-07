@@ -166,7 +166,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	if _, err := (inventoryRefresh{targets: a.targets, providers: a.targetProviders, inventory: a.Deployment.Inventory, cache: a.inventory}).Run(t.Context(), "do-syd", nil); err != nil {
 		t.Fatal(err)
 	}
-	w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.Access, a.inventory, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
 	var infra struct {
 		Targets []infrastructureResponse `json:"targets"`
 	}
@@ -232,11 +232,11 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	}
 	// With no backup store no final copy can be taken, so the take-down is
 	// refused until the person chooses to go without one, naming it.
-	w = tgReq(httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects).DeleteDeployment, "DELETE", "/api/v1/projects/expense/deployments/cloud", "", map[string]string{"slug": "expense", "name": "cloud"})
+	w = tgReq(httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects, a.Access).DeleteDeployment, "DELETE", "/api/v1/projects/expense/deployments/cloud", "", map[string]string{"slug": "expense", "name": "cloud"})
 	if w.Code != 409 || w.Header().Get("X-AppTown-Deny-Code") != "no-final-copy" || len(f.Snapshot().Apps) != 1 {
 		t.Fatalf("a take-down with no final copy possible, unchosen: %d %s", w.Code, w.Body.String())
 	}
-	w = tgReq(httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects).DeleteDeployment, "DELETE", "/api/v1/projects/expense/deployments/cloud", `{"withoutFinalCopy":"cloud"}`, map[string]string{"slug": "expense", "name": "cloud"})
+	w = tgReq(httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects, a.Access).DeleteDeployment, "DELETE", "/api/v1/projects/expense/deployments/cloud", `{"withoutFinalCopy":"cloud"}`, map[string]string{"slug": "expense", "name": "cloud"})
 	state = f.Snapshot()
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "apptown-db-"+deploy.HostKey(env.ID)) || len(state.Apps) != 0 || len(state.Databases) != 3 {
 		t.Fatalf("teardown: %d %s apps %d dbs %d", w.Code, w.Body.String(), len(state.Apps), len(state.Databases))
@@ -276,7 +276,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	// After the teardown the cluster is still at the provider, marked retained.
-	w = tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	w = tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.Access, a.inventory, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
 	infra.Targets = nil
 	_ = json.Unmarshal(w.Body.Bytes(), &infra)
 	byName = map[string]deploy.Resource{}
@@ -313,7 +313,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	if got := f.Snapshot().RepositoryManifests["expense"]; len(got) != 1 {
 		t.Fatalf("a repository another deployment still runs from was emptied: %v", got)
 	}
-	w = tgReq(httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects).DeleteDeployment, "DELETE", "/api/v1/projects/expense/deployments/staging", "", map[string]string{"slug": "expense", "name": "staging"})
+	w = tgReq(httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects, a.Access).DeleteDeployment, "DELETE", "/api/v1/projects/expense/deployments/staging", "", map[string]string{"slug": "expense", "name": "staging"})
 	state = f.Snapshot()
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "1 images in the image repository forge-test/expense") || len(state.RepositoryManifests["expense"]) != 0 || state.GarbageCollections != 0 {
 		t.Fatalf("staging teardown: %d %s manifests %v gc %d", w.Code, w.Body.String(), state.RepositoryManifests["expense"], state.GarbageCollections)

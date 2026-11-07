@@ -1,4 +1,6 @@
+import { FeatureGate } from '../features'
 import { ProjectCount } from './DependentProjects'
+
 import { useTechnicalDetail } from './change/TechnicalDetail'
 import { Section, Group } from '../Section'
 import { PageHead } from '../PageHead'
@@ -45,6 +47,11 @@ const SECTIONS = ['profiles']
 // Mounted at /integrations and /services: the two menu areas share the
 // list, the kind pages and each connection's own page.
 export default function Integrations() {
+ const { name } = useParams()
+ const feature = name && ({ model: 'models', profiles: 'models', slots: 'models', executor: 'worker', 'cloud-account': 'app-platform' } as Record<string, string>)[name]
+ return feature ? <FeatureGate area={feature}><EnabledIntegrations /></FeatureGate> : <EnabledIntegrations />
+}
+function EnabledIntegrations() {
   const { name } = useParams()
   const area: Area = useLocation().pathname.startsWith('/services') ? 'services' : 'integrations'
   // The shared services page was /integrations/services before Services had a menu of its own.

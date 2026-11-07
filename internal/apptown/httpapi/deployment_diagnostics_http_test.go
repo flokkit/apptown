@@ -27,7 +27,7 @@ func TestDeploymentDiagnosticsHTTP(t *testing.T) {
 	for _, cap := range []access.Capability{access.CapDeploymentRead, access.CapProjectRead} {
 		a.grant(t, "owner", cap)
 	}
-	h := NewDeployments(a.service, a.data, a.projects)
+	h := NewDeployments(a.service, a.data, a.projects, a.identity)
 	values := map[string]string{"slug": "game", "name": "main"}
 	diagnostics, logs := "/api/v1/projects/game/deployments/main/diagnostics", "/api/v1/projects/game/deployments/main/logs?part=web"
 

@@ -1,3 +1,4 @@
+import { enabledFeatures } from '../../features.fixture'
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -162,6 +163,7 @@ it('shows the follows-main setter separately from landing approvers', async () =
 // The preview door never implies replacing a standing deployment's code.
 it.each([true, false])('labels the exact-version preview as a preview (live=%s)', isLive => {
   const client = newQueryClient()
+  client.setQueryData(getKey('/features'), enabledFeatures)
   const h = render(<QueryClientProvider client={client}><MemoryRouter><OpenThisVersion slug="shop" number={7} isLive={isLive} /></MemoryRouter></QueryClientProvider>)
   expect(h.el.querySelector('button')?.textContent).toBe('▶ Preview this version')
   act(() => h.root.unmount()); client.clear()

@@ -1,3 +1,5 @@
+import Features from './pages/Features'
+import { CoreArea, FeatureGate, ProjectFeatureGate, settingsAreas, useFeature } from './features'
 import { ReleaseLogPage } from './pages/project/Release'
 import { ChangeRecordPage } from './pages/change/Details'
 import { GeneratedGuidance } from './pages/GuidanceLibrary'
@@ -5,6 +7,7 @@ import { PastChatsPage } from './pages/change/Conversation'
 import WorkflowLibrary from './pages/WorkflowLibrary'
 import PoliciesPage from './pages/PoliciesPage'
 import { CheckProjects, GuidanceProjects, PolicyProjects, PackProjects, IntegrationProjects } from './pages/DependentProjects'
+
 import { DeploymentPage } from './pages/project/settings/Deployments'
 import WorkRecordPage from './pages/change/WorkRecord'
 import { MEMORY_TABS, SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL } from './pages/project/tabs'
@@ -83,7 +86,9 @@ export function SidebarNav() {
   const cls = ({ isActive }: { isActive: boolean }) => 'nav' + (isActive ? ' active' : '')
   // Pages about the whole AppTown are left out for someone who cannot read
   // them; the menu is otherwise the same for everyone.
-  const mayOpen = useInstancePages()
+  const permission = useInstancePages()
+ const feature = useFeature()
+ const mayOpen = (page: Parameters<typeof permission>[0]) => permission(page) && (page === 'infrastructure' || page === 'integrations' || page === 'people' || feature(page))
   const me = useGet<AuthMe>('/auth/me').data
  const mayUpdate = useHolds("instance:updates")
   const wow = /^\/(packs|workflows|guidance|policies)(\/|$)/.test(pathname)
@@ -101,17 +106,18 @@ export function SidebarNav() {
         <NavLink to={base} end className={cls}><LayoutDashboard aria-hidden size={16} />Overview</NavLink>
         <NavLink to={`${base}/changes`} className={cls}><GitPullRequest aria-hidden size={16} />Changes</NavLink>
         <NavLink to={`${base}/deployments`} className={cls}><Rocket aria-hidden size={16} />Deployments</NavLink>
-        {project?.chatAvailable && canCreate && canChat && <button className="nav" disabled={chat.busy} onClick={() => void chat.run(async () => {
+        {feature('chats') && project?.chatAvailable && canCreate && canChat && <button className="nav" disabled={chat.busy} onClick={() => void chat.run(async () => {
           const r = await createChatChange(slug)
           nav(`${base}/console?change=${r.change.id}`)
         })}><MessageSquare aria-hidden size={16} />Chat</button>}
         {chat.err && <p className="error small">{chat.err}</p>}
         <Drawer label="Security" icon={<Shield aria-hidden size={16} />} to={`${base}/security`} active={pathname.startsWith(`${base}/security`)} items={SECURITY_TABS.map(t => (
           { to: `${base}/security/${t}`, label: t[0].toUpperCase() + t.slice(1), active: pathname === `${base}/security/${t}` || (t === 'findings' && pathname === `${base}/security`) }))} />
-        <Drawer label="Settings" icon={<Settings aria-hidden size={16} />} to={`${base}/settings`} active={pathname.startsWith(`${base}/settings`)} items={SETTINGS_TABS.map(t => (
+        <Drawer label="Settings" icon={<Settings aria-hidden size={16} />} to={`${base}/settings`} active={pathname.startsWith(`${base}/settings`)} items={SETTINGS_TABS.filter(t => ['projects', 'people'].includes(settingsAreas[t]) || feature(settingsAreas[t])).map(t => (
           { to: `${base}/settings/${t}`, label: SETTINGS_LABEL[t], active: pathname === `${base}/settings/${t}` || (t === 'general' && pathname === `${base}/settings`) }))} />
-        <Drawer label="Memory" icon={<BookOpen aria-hidden size={16} />} to={`${base}/memory`} active={pathname.startsWith(`${base}/memory`)} items={MEMORY_TABS.map(t => (
-          { to: `${base}/memory/${t}`, label: t[0].toUpperCase() + t.slice(1), active: pathname === `${base}/memory/${t}` || (t === 'notes' && pathname === `${base}/memory`) }))} />
+        {!feature('memory') && <NavLink to={`${base}/memory/decisions`} className={cls}><BookOpen aria-hidden size={16} />Decisions</NavLink>}
+        {feature('memory') && <Drawer label="Memory" icon={<BookOpen aria-hidden size={16} />} to={`${base}/memory`} active={pathname.startsWith(`${base}/memory`)} items={MEMORY_TABS.map(t => (
+          { to: `${base}/memory/${t}`, label: t[0].toUpperCase() + t.slice(1), active: pathname === `${base}/memory/${t}` || (t === 'notes' && pathname === `${base}/memory`) }))} />}
         <div className="spacer" />
         <NavBottom cls={cls} complaints={mayOpen('complaints')} me={me ?? null} />
       </>
@@ -128,25 +134,26 @@ export function SidebarNav() {
         { to: '/deployments', label: 'Deployments', active: pathname === '/deployments' },
         ...(infra ? [
           { to: '/targets', label: 'Targets', active: pathname.startsWith('/targets') },
-          { to: '/backups', label: 'Backups', active: pathname === '/backups' },
+          ...(feature('backups') ? [{ to: '/backups', label: 'Backups', active: pathname === '/backups' }] : []),
         ] : []),
       ]} />
-      {mayOpen('conformance') && <NavLink to="/conformance" className={cls}><ShieldCheck aria-hidden size={16} />Conformance</NavLink>}
+      {mayOpen('conformance') && <NavLink to={feature('conformance-estate') ? '/conformance' : '/conformance/reviews'} className={cls}><ShieldCheck aria-hidden size={16} />Conformance</NavLink>}
       <div className="nav-group">Setup</div>
-      <Drawer label="Ways of working" icon={<BookOpen aria-hidden size={16} />} to="/packs" active={wow} items={[
+ <NavLink to="/features" className={cls}><Settings aria-hidden size={16} />Features</NavLink>
+      {feature('ways') && <Drawer label="Ways of working" icon={<BookOpen aria-hidden size={16} />} to="/packs" active={wow} items={[
         { to: '/packs', label: 'Packs', active: pathname.startsWith('/packs') },
         { to: '/workflows', label: 'Workflows', active: pathname.startsWith('/workflows') },
         { to: '/guidance', label: 'Guidance', active: pathname.startsWith('/guidance') },
         { to: '/policies', label: 'Policies', active: pathname.startsWith('/policies') },
-      ]} />
+      ]} />}
       {mayOpen('integrations') && INTEGRATION_MENU.map((g) => (
         <Drawer key={g.key} label={g.heading} icon={g.key === 'services' ? <Blocks aria-hidden size={16} /> : <Plug aria-hidden size={16} />} to={`/${g.key}`}
           active={new RegExp(`^/${g.key}(/|$)`).test(pathname)}
-          items={g.items.map((i) => ({ to: `/${g.key}/${i.key}`, label: i.title, active: pathname === `/${g.key}/${i.key}` }))} />))}
+          items={g.items.filter(i => !['model', 'profiles'].includes(i.key) || feature('models')).filter(i => i.key !== 'executor' || feature('worker')).filter(i => i.key !== 'cloud-account' || feature('app-platform')).map((i) => ({ to: `/${g.key}/${i.key}`, label: i.title, active: pathname === `/${g.key}/${i.key}` }))} />))}
       {mayOpen('evals') && <NavLink to="/evals" className={cls}><FlaskConical aria-hidden size={16} />Evals</NavLink>}
       {mayOpen('people') && <Drawer label="People" icon={<Users aria-hidden size={16} />} to="/people/accounts" active={pathname.startsWith('/people')} items={PEOPLE_PAGES.map(([key, label]) => ({ to: `/people/${key}`, label, active: pathname.startsWith(`/people/${key}`) }))} />}
-      <NavLink to="/usage" className={cls}><ChartColumn aria-hidden size={16} />Usage</NavLink>
-      {mayUpdate && <NavLink to="/updates" className={cls}><RefreshCw aria-hidden size={16} />Updates</NavLink>}
+      {feature('usage') && <NavLink to="/usage" className={cls}><ChartColumn aria-hidden size={16} />Usage</NavLink>}
+      {mayUpdate && feature('updates') && <NavLink to="/updates" className={cls}><RefreshCw aria-hidden size={16} />Updates</NavLink>}
       <div className="spacer" />
       <NavBottom cls={cls} complaints={mayOpen('complaints')} me={me ?? null} />
     </>
@@ -229,8 +236,8 @@ export default function App() {
   if (invite) {
     const page = <InvitePage token={invite[1] ? decodeURIComponent(invite[1]) : ''} />
     return <><TopBar me={null} standalone narrow={narrow} /><main className="standalone-page"><Routes>
-      <Route path="/invite" element={page} />
-      <Route path="/invite/:token" element={page} />
+      <Route path="/invite" element={<CoreArea area="people">{page}</CoreArea>} />
+      <Route path="/invite/:token" element={<CoreArea area="people">{page}</CoreArea>} />
     </Routes></main></>
   }
   if (me && me.mode === 'internal' && !me.user) {
@@ -267,99 +274,101 @@ export default function App() {
         <StaleScope>
         <Suspense fallback={<div className="muted">Loading…</div>}>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/attention/checks" element={<AttentionPage checks />} />
-          <Route path="/attention/checks/:checkKey" element={<AttentionPage checks />} />
-          <Route path="/attention" element={<AttentionPage />} />
- <Route path="/updates" element={<UpdatesPage />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/deployments" element={<Deployments />} />
-          <Route path="/releases" element={<Deployments page="releases" />} />
-          <Route path="/backups" element={<InstanceGate page="infrastructure"><Deployments page="backups" /></InstanceGate>} />
-          <Route path="/complaints" element={<InstanceGate page="complaints"><Complaints tab="new" /></InstanceGate>} />
-          <Route path="/complaints/answered" element={<InstanceGate page="complaints"><Complaints tab="answered" /></InstanceGate>} />
-          <Route path="/complaints/archive" element={<InstanceGate page="complaints"><Complaints tab="archived" /></InstanceGate>} />
-          <Route path="/conformance" element={<InstanceGate page="conformance"><Conformance tab="projects" /></InstanceGate>} />
-          <Route path="/conformance/checks/:checkKey/projects" element={<InstanceGate page="conformance"><CheckProjects /></InstanceGate>} />
-          <Route path="/conformance/reviews/:reviewId/checks/:checkKey/projects" element={<InstanceGate page="conformance"><CheckProjects /></InstanceGate>} />
-          <Route path="/conformance/checks/:checkKey" element={<InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate>} />
-          <Route path="/conformance/reviews/:reviewId/checks/:checkKey" element={<InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate>} />
-          <Route path="/conformance/checks" element={<InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate>} />
-          <Route path="/conformance/reviews" element={<InstanceGate page="conformance"><Conformance tab="reviews" /></InstanceGate>} />
-          <Route path="/conformance/reviews/:reviewId" element={<InstanceGate page="conformance"><Conformance tab="projects" /></InstanceGate>} />
-          <Route path="/conformance/reviews/:reviewId/checks" element={<InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate>} />
-          <Route path="/conformance/reviews/:reviewId/projects/:slug" element={<InstanceGate page="conformance"><Conformance tab="project" /></InstanceGate>} />
-          <Route path="/conformance/projects/:slug" element={<InstanceGate page="conformance"><Conformance tab="project" /></InstanceGate>} />
-          <Route path="/conformance/what-ifs" element={<InstanceGate page="conformance"><Conformance tab="what-ifs" /></InstanceGate>} />
-          <Route path="/conformance/what-ifs/:id/projects/:slug" element={<InstanceGate page="conformance"><WhatIfPage /></InstanceGate>} />
-          <Route path="/conformance/what-ifs/:id" element={<InstanceGate page="conformance"><WhatIfPage /></InstanceGate>} />
-          <Route path="/conformance/remediations" element={<InstanceGate page="conformance"><Conformance tab="remediations" /></InstanceGate>} />
-          <Route path="/conformance/ways" element={<InstanceGate page="conformance"><Conformance tab="ways" /></InstanceGate>} />
-          <Route path="/conformance/remediations/:remId" element={<InstanceGate page="conformance"><Conformance tab="remediation" /></InstanceGate>} />
-          <Route path="/projects/_new" element={<NewProject />} />
-          <Route path="/projects/:slug/releases/:number/log" element={<ReleaseLogPage />} />
-          <Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} />
-          <Route path="/projects/:slug" element={<Project />} />
-          <Route path="/operations/:id" element={<OperationPage />} />
-          <Route path="/projects/:slug/:tab" element={<Project />} />
-          <Route path="/projects/:slug/:tab/:stab" element={<Project />} />
-          <Route path="/changes/:id/records/:recordId" element={<ChangeRecordPage />} />
-          <Route path="/changes/:id/work/:stepId/request" element={<WorkRecordPage section="request" />} />
-          <Route path="/changes/:id/work/:stepId/workflow" element={<WorkRecordPage section="workflow" />} />
-          <Route path="/changes/:id/work/:stepId/report" element={<WorkRecordPage section="report" />} />
-          <Route path="/changes/:id/work/:stepId/records/:artifactId" element={<WorkRecordPage section="record" />} />
-          <Route path="/changes/:id/work/:stepId" element={<WorkRecordPage />} />
-          <Route path="/changes/:id" element={<ChangePage />} />
-          <Route path="/adrs/:id" element={<AdrPage />} />
-          <Route path="/projects/:slug/chats" element={<PastChatsPage />} />
-          <Route path="/projects/:slug/chats/:sessionId" element={<PastChatsPage />} />
-          <Route path="/guidance/generated" element={<GeneratedGuidance page />} />
-          <Route path="/guidance/generated/:name" element={<GeneratedGuidance page />} />
-          <Route path="/workflows/:name" element={<WorkflowLibrary page />} />
-          <Route path="/policies/:name" element={<PoliciesPage page />} />
-          <Route path="/packs/:name/versions/:version" element={<PackPage />} />
-          <Route path="/guidance/:id/projects" element={<GuidanceProjects />} />
-          <Route path="/policies/:name/projects" element={<PolicyProjects />} />
-          <Route path="/packs/:name/projects" element={<PackProjects />} />
-          <Route path="/integrations/profiles/:profile/projects" element={<InstanceGate page="integrations"><ModelProfilePage projects /></InstanceGate>} />
-          <Route path="/integrations/:name/projects" element={<InstanceGate page="integrations"><IntegrationProjects /></InstanceGate>} />
-          <Route path="/services/:name/projects" element={<InstanceGate page="integrations"><IntegrationProjects /></InstanceGate>} />
-          <Route path="/guidance" element={<WaysOfWorking tab="guidance" />} />
-          <Route path="/guidance/:id" element={<GuidanceBlockPage />} />
-          <Route path="/workflows" element={<WaysOfWorking tab="workflows" />} />
-          <Route path="/projects/:slug/workflows/*" element={<ToProjectWorking />} />
-          <Route path="/projects/:slug/console" element={<Console />} />
-          <Route path="/integrations" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
-          <Route path="/integrations/profiles/:profile" element={<InstanceGate page="integrations"><ModelProfilePage /></InstanceGate>} />
-          <Route path="/jobs" element={<InstanceGate page="infrastructure"><JobsPage /></InstanceGate>} />
-          <Route path="/targets" element={<InstanceGate page="infrastructure"><InfrastructureHome /></InstanceGate>} />
-          <Route path="/targets/new" element={<InstanceGate page="infrastructure"><InfrastructureNew /></InstanceGate>} />
-          <Route path="/targets/:name/resources" element={<InstanceGate page="infrastructure"><TargetResourcesPage /></InstanceGate>} />
-          <Route path="/targets/:name/resources/:id" element={<InstanceGate page="infrastructure"><TargetResourcesPage detail /></InstanceGate>} />
-          <Route path="/targets/:name/capacity" element={<InstanceGate page="infrastructure"><TargetPage tab="capacity" /></InstanceGate>} />
-          <Route path="/targets/:name/history" element={<InstanceGate page="infrastructure"><TargetPage tab="history" /></InstanceGate>} />
-          <Route path="/targets/:name" element={<InstanceGate page="infrastructure"><TargetPage /></InstanceGate>} />
-          <Route path="/integrations/:name" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
-          <Route path="/services" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
-          <Route path="/services/:name" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
-          <Route path="/policies" element={<WaysOfWorking tab="policies" />} />
-          <Route path="/packs" element={<WaysOfWorking tab="packs" />} />
-          <Route path="/packs/:name" element={<PackPage />} />
-          <Route path="/account" element={<MyExternalSignIn />} />
-          <Route path="/people/accounts" element={<InstanceGate page="people"><People view="accounts" /></InstanceGate>} />
-          <Route path="/people/accounts/:name" element={<InstanceGate page="people"><People view="accounts" /></InstanceGate>} />
-          <Route path="/people/groups" element={<InstanceGate page="people"><People view="groups" /></InstanceGate>} />
-          <Route path="/people/groups/:name" element={<InstanceGate page="people"><People view="groups" /></InstanceGate>} />
-          <Route path="/people/roles" element={<InstanceGate page="people"><People view="roles" /></InstanceGate>} />
-          <Route path="/people/sign-in" element={<InstanceGate page="people"><People view="sign-in" /></InstanceGate>} />
-          <Route path="/people/agents-and-tokens" element={<InstanceGate page="people"><People view="agents-and-tokens" /></InstanceGate>} />
-          <Route path="/usage" element={<UsagePage />} />
-          <Route path="/evals" element={<InstanceGate page="evals"><EvalsPage /></InstanceGate>} />
-          <Route path="/evals/new" element={<InstanceGate page="evals"><EvalStartPage /></InstanceGate>} />
-          <Route path="/evals/:id" element={<InstanceGate page="evals"><EvalScorecardPage /></InstanceGate>} />
-          <Route path="/docs" element={<DocsPage />} />
-          <Route path="/docs/:section/:slug" element={<DocsPage />} />
-          <Route path="*" element={<div><h1>Page not found</h1><p>This address does not identify a page. Release links include the project name.</p><Link to="/projects">Find your project</Link></div>} />
+ <Route path="/features" element={<CoreArea area="setup"><Features /></CoreArea>} />
+          <Route path="/" element={<CoreArea area="setup"><Dashboard /></CoreArea>} />
+          <Route path="/attention/checks" element={<CoreArea area="setup"><AttentionPage checks /></CoreArea>} />
+          <Route path="/attention/checks/:checkKey" element={<CoreArea area="setup"><AttentionPage checks /></CoreArea>} />
+          <Route path="/attention" element={<CoreArea area="setup"><AttentionPage /></CoreArea>} />
+ <Route path="/updates" element={<FeatureGate area="updates"><UpdatesPage /></FeatureGate>} />
+          <Route path="/projects" element={<CoreArea area="projects"><Projects /></CoreArea>} />
+          <Route path="/deployments" element={<CoreArea area="deployments"><Deployments /></CoreArea>} />
+          <Route path="/releases" element={<CoreArea area="releases"><Deployments page="releases" /></CoreArea>} />
+          <Route path="/backups" element={<FeatureGate area="backups"><InstanceGate page="infrastructure"><Deployments page="backups" /></InstanceGate></FeatureGate>} />
+          <Route path="/complaints" element={<FeatureGate area="complaints"><InstanceGate page="complaints"><Complaints tab="new" /></InstanceGate></FeatureGate>} />
+          <Route path="/complaints/answered" element={<FeatureGate area="complaints"><InstanceGate page="complaints"><Complaints tab="answered" /></InstanceGate></FeatureGate>} />
+          <Route path="/complaints/archive" element={<FeatureGate area="complaints"><InstanceGate page="complaints"><Complaints tab="archived" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="projects" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/checks/:checkKey/projects" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><CheckProjects /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/reviews/:reviewId/checks/:checkKey/projects" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><CheckProjects /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/checks/:checkKey" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/reviews/:reviewId/checks/:checkKey" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/checks" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/reviews" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="reviews" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/reviews/:reviewId" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="projects" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/reviews/:reviewId/checks" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/reviews/:reviewId/projects/:slug" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="project" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/projects/:slug" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="project" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/what-ifs" element={<FeatureGate area="what-ifs"><InstanceGate page="conformance"><Conformance tab="what-ifs" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/what-ifs/:id/projects/:slug" element={<FeatureGate area="what-ifs"><InstanceGate page="conformance"><WhatIfPage /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/what-ifs/:id" element={<FeatureGate area="what-ifs"><InstanceGate page="conformance"><WhatIfPage /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/remediations" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="remediations" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/ways" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="ways" /></InstanceGate></FeatureGate>} />
+          <Route path="/conformance/remediations/:remId" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="remediation" /></InstanceGate></FeatureGate>} />
+          <Route path="/projects/_new" element={<CoreArea area="projects"><NewProject /></CoreArea>} />
+          <Route path="/projects/:slug/releases/:number/log" element={<CoreArea area="releases"><ReleaseLogPage /></CoreArea>} />
+          <Route path="/projects/:slug/deployments/:name" element={<CoreArea area="projects"><DeploymentPage /></CoreArea>} />
+          <Route path="/projects/:slug" element={<CoreArea area="projects"><Project /></CoreArea>} />
+          <Route path="/operations/:id" element={<CoreArea area="record"><OperationPage /></CoreArea>} />
+          <Route path="/projects/:slug/:tab" element={<ProjectFeatureGate><Project /></ProjectFeatureGate>} />
+          <Route path="/projects/:slug/:tab/:stab" element={<ProjectFeatureGate><Project /></ProjectFeatureGate>} />
+          <Route path="/changes/:id/records/:recordId" element={<CoreArea area="record"><ChangeRecordPage /></CoreArea>} />
+          <Route path="/changes/:id/work/:stepId/request" element={<CoreArea area="record"><WorkRecordPage section="request" /></CoreArea>} />
+          <Route path="/changes/:id/work/:stepId/workflow" element={<CoreArea area="record"><WorkRecordPage section="workflow" /></CoreArea>} />
+          <Route path="/changes/:id/work/:stepId/report" element={<CoreArea area="record"><WorkRecordPage section="report" /></CoreArea>} />
+          <Route path="/changes/:id/work/:stepId/records/:artifactId" element={<CoreArea area="record"><WorkRecordPage section="record" /></CoreArea>} />
+          <Route path="/changes/:id/work/:stepId" element={<CoreArea area="record"><WorkRecordPage /></CoreArea>} />
+          <Route path="/changes/:id" element={<CoreArea area="record"><ChangePage /></CoreArea>} />
+          <Route path="/adrs/:id" element={<CoreArea area="record"><AdrPage /></CoreArea>} />
+          <Route path="/projects/:slug/chats" element={<CoreArea area="record"><PastChatsPage /></CoreArea>} />
+          <Route path="/projects/:slug/chats/:sessionId" element={<CoreArea area="record"><PastChatsPage /></CoreArea>} />
+          <Route path="/guidance/generated" element={<FeatureGate area="ways"><GeneratedGuidance page /></FeatureGate>} />
+          <Route path="/guidance/generated/:name" element={<FeatureGate area="ways"><GeneratedGuidance page /></FeatureGate>} />
+          <Route path="/workflows/:name" element={<FeatureGate area="ways"><WorkflowLibrary page /></FeatureGate>} />
+          <Route path="/policies/:name" element={<FeatureGate area="ways"><PoliciesPage page /></FeatureGate>} />
+          <Route path="/packs/:name/versions/:version" element={<FeatureGate area="ways"><PackPage /></FeatureGate>} />
+          <Route path="/guidance/:id/projects" element={<FeatureGate area="ways"><GuidanceProjects /></FeatureGate>} />
+          <Route path="/policies/:name/projects" element={<FeatureGate area="ways"><PolicyProjects /></FeatureGate>} />
+          <Route path="/packs/:name/projects" element={<FeatureGate area="ways"><PackProjects /></FeatureGate>} />
+          <Route path="/integrations/profiles/:profile/projects" element={<FeatureGate area="models"><InstanceGate page="integrations"><ModelProfilePage projects /></InstanceGate></FeatureGate>} />
+          <Route path="/integrations/:name/projects" element={<CoreArea area="setup"><InstanceGate page="integrations"><IntegrationProjects /></InstanceGate></CoreArea>} />
+          <Route path="/services/:name/projects" element={<CoreArea area="setup"><InstanceGate page="integrations"><IntegrationProjects /></InstanceGate></CoreArea>} />
+          <Route path="/guidance" element={<FeatureGate area="ways"><WaysOfWorking tab="guidance" /></FeatureGate>} />
+          <Route path="/guidance/:id" element={<FeatureGate area="ways"><GuidanceBlockPage /></FeatureGate>} />
+          <Route path="/workflows" element={<FeatureGate area="ways"><WaysOfWorking tab="workflows" /></FeatureGate>} />
+          <Route path="/projects/:slug/workflows/*" element={<CoreArea area="projects"><ToProjectWorking /></CoreArea>} />
+          <Route path="/projects/:slug/console" element={<FeatureGate area="chats"><Console /></FeatureGate>} />
+          <Route path="/integrations" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
+          <Route path="/integrations/profiles/:profile" element={<FeatureGate area="models"><InstanceGate page="integrations"><ModelProfilePage /></InstanceGate></FeatureGate>} />
+          <Route path="/jobs" element={<CoreArea area="record"><InstanceGate page="infrastructure"><JobsPage /></InstanceGate></CoreArea>} />
+          <Route path="/targets" element={<CoreArea area="deployments"><InstanceGate page="infrastructure"><InfrastructureHome /></InstanceGate></CoreArea>} />
+          <Route path="/targets/new" element={<CoreArea area="deployments"><InstanceGate page="infrastructure"><InfrastructureNew /></InstanceGate></CoreArea>} />
+          <Route path="/targets/:name/resources" element={<CoreArea area="deployments"><InstanceGate page="infrastructure"><TargetResourcesPage /></InstanceGate></CoreArea>} />
+          <Route path="/targets/:name/resources/:id" element={<CoreArea area="deployments"><InstanceGate page="infrastructure"><TargetResourcesPage detail /></InstanceGate></CoreArea>} />
+          <Route path="/targets/:name/capacity" element={<CoreArea area="deployments"><InstanceGate page="infrastructure"><TargetPage tab="capacity" /></InstanceGate></CoreArea>} />
+          <Route path="/targets/:name/history" element={<CoreArea area="deployments"><InstanceGate page="infrastructure"><TargetPage tab="history" /></InstanceGate></CoreArea>} />
+          <Route path="/targets/:name" element={<CoreArea area="deployments"><InstanceGate page="infrastructure"><TargetPage /></InstanceGate></CoreArea>} />
+          <Route path="/integrations/:name" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
+          <Route path="/services" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
+          <Route path="/services/:name" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
+          <Route path="/policies" element={<FeatureGate area="ways"><WaysOfWorking tab="policies" /></FeatureGate>} />
+          <Route path="/packs" element={<FeatureGate area="ways"><WaysOfWorking tab="packs" /></FeatureGate>} />
+          <Route path="/packs/:name" element={<FeatureGate area="ways"><PackPage /></FeatureGate>} />
+          <Route path="/account" element={<CoreArea area="people"><MyExternalSignIn /></CoreArea>} />
+          <Route path="/people/accounts" element={<CoreArea area="people"><InstanceGate page="people"><People view="accounts" /></InstanceGate></CoreArea>} />
+          <Route path="/people/accounts/:name" element={<CoreArea area="people"><InstanceGate page="people"><People view="accounts" /></InstanceGate></CoreArea>} />
+          <Route path="/people/groups" element={<CoreArea area="people"><InstanceGate page="people"><People view="groups" /></InstanceGate></CoreArea>} />
+          <Route path="/people/groups/:name" element={<CoreArea area="people"><InstanceGate page="people"><People view="groups" /></InstanceGate></CoreArea>} />
+          <Route path="/people/roles" element={<CoreArea area="people"><InstanceGate page="people"><People view="roles" /></InstanceGate></CoreArea>} />
+          <Route path="/people/sign-in" element={<CoreArea area="people"><InstanceGate page="people"><People view="sign-in" /></InstanceGate></CoreArea>} />
+          <Route path="/people/agents-and-tokens" element={<CoreArea area="people"><InstanceGate page="people"><People view="agents-and-tokens" /></InstanceGate></CoreArea>} />
+          <Route path="/usage" element={<FeatureGate area="usage"><UsagePage /></FeatureGate>} />
+          <Route path="/evals" element={<FeatureGate area="evals"><InstanceGate page="evals"><EvalsPage /></InstanceGate></FeatureGate>} />
+          <Route path="/evals/new" element={<FeatureGate area="evals"><InstanceGate page="evals"><EvalStartPage /></InstanceGate></FeatureGate>} />
+          <Route path="/evals/:id" element={<FeatureGate area="evals"><InstanceGate page="evals"><EvalScorecardPage /></InstanceGate></FeatureGate>} />
+          <Route path="/docs" element={<CoreArea area="setup"><DocsPage /></CoreArea>} />
+          <Route path="/docs/:section/:slug" element={<CoreArea area="setup"><DocsPage /></CoreArea>} />
+          <Route path="*" element={<CoreArea area="setup"><div><h1>Page not found</h1><p>This address does not identify a page. Release links include the project name.</p><Link to="/projects">Find your project</Link></div></CoreArea>} />
+
         </Routes>
         </Suspense>
         </StaleScope>

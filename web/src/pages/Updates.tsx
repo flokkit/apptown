@@ -1,3 +1,4 @@
+import { useFeature } from '../features'
 import { Section, Group } from '../Section'
 import { Status } from '../Status'
 import { useState } from 'react'
@@ -19,8 +20,9 @@ export function UpdatesPage() {
 }
 
 export function ReleaseAvailabilityNote() {
+ const enabled = useFeature()
   const may = useHolds('instance:updates')
-  return may ? <AvailabilityRead /> : null
+  return may && enabled('updates') ? <AvailabilityRead /> : null
 }
 function AvailabilityRead() {
   const { data, err, refreshFailed, paused } = useGet<InstanceUpdateStatus>('/instance-updates', { kind: 'config', poll: 30_000 })

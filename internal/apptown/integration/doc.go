@@ -22,6 +22,8 @@
 // without deprovisioning the provider resource.
 //
 // Saved connections queue a health check with their configuration and receipt.
+// Fresh optional checks, including hourly refreshes, require the connector's
+// feature area to be enabled; adopted runtime use keeps its own contract.
 // TestSaved records the same check immediately. Automatic checks also run hourly;
 // results stay current for seventy-five minutes and expire after six hours.
 //

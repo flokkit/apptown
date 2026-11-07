@@ -1,3 +1,4 @@
+import { withFeatures } from '../../features.fixture'
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -29,7 +30,7 @@ const chat = (id: string, changeId: string | null = null) => ({ id, projectSlug:
 // recorded and answered with a new chat, and the other reads answer empty.
 function fakeAppTown(list: () => Reply, openReply: (body: { changeId?: string; placement?: string }) => { status?: number; body: unknown; code?: string } = (b) => ({ status: 201, body: { session: chat('new-' + (b.changeId ?? 'desk'), b.changeId ?? null) } })) {
   const opens: { changeId?: string; placement?: string }[] = []
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
     const u = String(url)
     const json = (r: { status?: number; body: unknown; code?: string }) =>
       new Response(JSON.stringify(r.body), { status: r.status ?? 200, headers: r.code ? { 'X-AppTown-Deny-Code': r.code } : {} })
@@ -43,7 +44,7 @@ function fakeAppTown(list: () => Reply, openReply: (body: { changeId?: string; p
     if (u.endsWith('/changes')) return json({ body: { changes: [] } })
     if (u.startsWith('/api/v1/changes/')) return json({ body: { change: { id: C1, number: 1, title: 'a change', state: 'in progress' }, state: '' } })
     return json({ body: {} })
-  }))
+  })))
   return opens
 }
 
@@ -195,13 +196,13 @@ describe('ending a chat', () => {
     const opens = fakeAppTown(() => ({ body: { sessions: [chat('mine', C1)] } }))
     const answered = globalThis.fetch
     const deletes: string[] = []
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
       if (init?.method === 'DELETE') {
         deletes.push(String(url))
         return new Response(JSON.stringify(status === 200 ? { ok: true } : { error: status === 404 ? 'no such session' : 'the database is unavailable' }), { status })
       }
       return answered(url, init)
-    }))
+    })))
     const { el, done } = await page(`?change=${C1}`)
     await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
     await vi.waitFor(() => expect(document.querySelector('[title="mine"]')).not.toBeNull())

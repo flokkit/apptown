@@ -194,6 +194,7 @@ try {
   Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies', 'workflow-new': '/workflows', 'infrastructure-connection': '/targets/new' });
   if (process.env.DESIGN_AUDIT) routes['change-advisory'] = `/changes/${seeded.advisory}`;
   if (process.env.DESIGN_AUDIT) routes['reviews-running'] = '/conformance/reviews?cameraRunning=1';
+  Object.assign(routes, { features: '/features', 'feature-off': '/evals' });
   const resource = await page.evaluate(async () => {
     const data = await (await fetch('/api/v1/infrastructure')).json();
     return data.targets.find(t => t.target === 'built-in-docker').resources.find(r => r.id);
@@ -234,6 +235,7 @@ try {
   routes['change-review-record'] = `/changes/${seeded.delivered}/records/review`;
   routes['change-record'] = await page.locator('a[href*="/records/"]').first().getAttribute('href');
   routes['change-artifact'] = await page.locator('a[href*="/records/record-"]').first().getAttribute('href');
+
   const selected = new Set((process.env.DESIGN_PAGES || '').split(',').filter(Boolean));
   for (const name of selected) if (name !== 'login' && !(name in routes)) throw new Error('unknown camera page: ' + name);
   const captures = [];
@@ -254,6 +256,15 @@ try {
       }, { username, password: process.env.DESIGN_PASSWORD });
       cameraUser = username;
     }
+    if (screen === 'features' || screen === 'feature-off') await page.evaluate(async screen => {
+      const response = await fetch('/api/v1/features');
+      if (!response.ok) throw new Error('read Features: ' + response.status);
+      const features = await response.json();
+      for (const feature of features.filter(f => f.enabled && (screen === 'features' ? f.tier === 'beta' : f.area === 'evals'))) {
+        const r = await fetch('/api/v1/features/' + feature.area, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expected: true, enabled: false }) });
+        if (!r.ok) throw new Error('turn area off: ' + feature.area + ' ' + r.status);
+      }
+    }, screen);
     await mkdir(`${out}/${screen}`, { recursive: true });
     for (const [size, viewport] of Object.entries(variants)) {
       await page.setViewportSize(viewport);
@@ -264,6 +275,17 @@ try {
         await page.goto(captureURL.href, { waitUntil: 'networkidle' });
         await page.locator('#root > *').first().waitFor({ state: 'visible' });
         await page.waitForFunction(() => ![...document.querySelectorAll('main .muted')].some(el => el.textContent === 'Loading…'));
+        if (screen === 'features') {
+          const clipped = await page.locator('main tbody td').evaluateAll(cells => cells.filter(el => {
+            const style = getComputedStyle(el);
+            return style.whiteSpace === 'nowrap' || el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+          }).map(el => el.textContent));
+          if (clipped.length) throw new Error('Features facts must wrap without clipping: ' + clipped.join(', '));
+          for (const button of await page.locator('main tbody button').all()) {
+            if (!['Turn on', 'Turn off'].includes(await button.textContent())) throw new Error('Features buttons must name the action');
+          }
+        }
+        if (screen === 'feature-off' && await page.locator('main a[href="/features"]').count() !== 1) throw new Error('administrator refusal must link Features');
         if (['overview-help', 'memory-notes', 'memory-decisions'].includes(screen)) {
           const title = screen === 'overview-help' ? 'Overview' : screen === 'memory-notes' ? 'Notes' : 'Decisions';
           await page.getByRole('button', { name: 'About ' + title, exact: true }).click();

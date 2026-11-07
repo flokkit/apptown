@@ -1,4 +1,6 @@
+import { targetFeatureArea } from '../../features'
 import { usePageName } from '../../chrome'
+
 import './TargetPage.css'
 import { useHostStates } from '../../hostState'
 import { BackgroundReading } from '../../BackgroundReading'
@@ -107,6 +109,8 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
       <StaleNote q={infra} />
       <div className="row target-page-div">
         <h1 className="grow target-page-h1">{tab === 'overview' ? t.displayLabel || t.name : tab === 'capacity' ? 'Capacity' : 'History'}</h1>
+ {targetFeatureArea(t.kind) !== 'deployments' && <span className="badge">beta</span>}
+
         <Status observation word={state.word} help={state.help.startsWith('Host connection') ? undefined : state.help} />
         {!retired && <button className="primary" disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await load() })}>Check target</button>}
       </div>

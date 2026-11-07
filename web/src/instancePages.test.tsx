@@ -1,3 +1,4 @@
+import { withFeatures } from './features.fixture'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -18,12 +19,12 @@ const member = { user: 'member', instance: { 'project:create': true, 'institutio
 const admin = { user: 'bls', instance: { 'project:create': true, 'institution:read-structure': true, 'project:read': true, 'deployment:read': true, 'conformance:read': true, 'standards:manage-packs': true } }
 
 function answer(me: unknown | null) {
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
     if (String(url).includes('/authz/me')) {
       return me === null ? new Response(JSON.stringify({ error: 'down' }), { status: 503 }) : new Response(JSON.stringify(me))
     }
     return new Response(JSON.stringify({}))
-  }))
+  })))
 }
 
 // render mounts a node with its own client; unmount() ends it early, and
@@ -91,8 +92,9 @@ describe('pages about the whole AppTown', () => {
     answer(member)
     const { el, unmount } = await render(<SidebarNav />)
     const links = () => [...el.querySelectorAll('a.nav')].map((a) => a.textContent)
-    await vi.waitFor(() => expect(links()).not.toContain('People'))
-    expect(links()).toEqual(['Home', 'Projects', 'Deployments', 'Ways of working', 'Usage', 'Docs'])
+    await vi.waitFor(() => expect(links()).toContain('Usage'))
+    expect(links()).not.toContain('People')
+    expect(links()).toEqual(['Home', 'Projects', 'Deployments', 'Features', 'Ways of working', 'Usage', 'Docs'])
     // Inside the Deployments drawer, a member sees only their own pages.
     await act(async () => { (el.querySelector('button[aria-label="Open Deployments"]') as HTMLButtonElement).click() })
     expect(links().slice(2, 5)).toEqual(['Deployments', 'Releases', 'Deployments'])
@@ -103,7 +105,7 @@ describe('pages about the whole AppTown', () => {
     const again = await render(<SidebarNav />)
     const all = () => [...again.el.querySelectorAll('a.nav')].map((a) => a.textContent)
     await vi.waitFor(() => expect(all()).toContain('People'))
-    expect(all()).toEqual(['Home', 'Projects', 'Deployments', 'Conformance', 'Ways of working', 'Integrations', 'Services', 'Evals', 'People', 'Usage', 'Docs', 'Complaints'])
+    expect(all()).toEqual(['Home', 'Projects', 'Deployments', 'Conformance', 'Features', 'Ways of working', 'Integrations', 'Services', 'Evals', 'People', 'Usage', 'Docs', 'Complaints'])
     await act(async () => { (again.el.querySelector('button[aria-label="Open Deployments"]') as HTMLButtonElement).click() })
     expect(all()).toContain('Targets')
     expect(all()).toContain('Backups')
@@ -162,7 +164,7 @@ describe('useHolds', () => {
   }
 
   it('is false while AppTown has not answered', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})))
+    vi.stubGlobal('fetch', vi.fn(withFeatures(() => new Promise<Response>(() => {}))))
     const { el } = await render(<Probe cap="identity:manage-auth" />)
     expect(el.textContent).toBe('no')
   })

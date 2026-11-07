@@ -25,6 +25,7 @@ func oauthFixture(t *testing.T, configs ...Config) (*App, http.Handler, *http.Co
 	t.Helper()
 	a, h := internalApp(t, configs...)
 	admin := sessionFrom(t, postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "boss", "boss-password")))
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	if w := postJSON(h, "/api/v1/projects", map[string]string{"slug": "p", "name": "P"}, admin); w.Code != 201 {
 		t.Fatal(w.Body.String())
 	}

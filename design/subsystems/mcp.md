@@ -1,5 +1,10 @@
 # MCP interface
 
+MCP access for outside agents is beta and starts turned off. An administrator
+turns it on in Setup → Features, or with `apptown features on mcp`.
+See the [Features guide](../../stock/docs/guides/features.md) for the switches.
+
+
 The user MCP endpoint is `/mcp/user`. The official MCP Go SDK
 (`github.com/modelcontextprotocol/go-sdk`) handles JSON-RPC framing, the
 streamable HTTP transport, protocol-version negotiation and sessions. Root AppTown

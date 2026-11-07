@@ -25,13 +25,13 @@ type workCommands struct {
 
 func NewWorkCommands(deps WorkCommandsDependencies) []toolEntry {
 	h := workCommands{scope: deps.Scope, work: deps.Work, actions: deps.Actions, db: deps.DB}
-	return []toolEntry{{Name: "request_change_landing",
-		order: 14, Description: "Hands an in-progress Change off for approval: freezes its current revision and starts the landing attempt (gates, then the project's approvers). " + "You cannot approve or land it yourself; the person does that in AppTown. " + "Optionally pass report: your own account of the work, such as your review findings. AppTown shows it as reported by the agent, separate from what it checked; it never passes a gate, and the summary treats it as a claim.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id."), "report": schemaString("Optional. Your own report on the work (for example review findings). Shown as reported by the agent, not as checked; cut at about 120 kB.")}, "id"), command: ownerCommand("work_commands.requestChangeLanding", h.requestChangeLanding)}, {Name: "send_change_back",
+	return []toolEntry{{Name: "request_change_landing", area: "changes",
+		order: 14, Description: "Hands an in-progress Change off for approval: freezes its current revision and starts the landing attempt (gates, then the project's approvers). " + "You cannot approve or land it yourself; the person does that in AppTown. " + "Optionally pass report: your own account of the work, such as your review findings. AppTown shows it as reported by the agent, separate from what it checked; it never passes a gate, and the summary treats it as a claim.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id."), "report": schemaString("Optional. Your own report on the work (for example review findings). Shown as reported by the agent, not as checked; cut at about 120 kB.")}, "id"), command: ownerCommand("work_commands.requestChangeLanding", h.requestChangeLanding)}, {Name: "send_change_back", area: "changes",
 		order: 15, Description: "Sends a Change back to the agent that worked on it with a note saying what to change. The agent continues from where it was.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id."), "note": schemaString("What to change, in plain words — this is what the agent works from.")}, "id", "note"),
 		command: ownerCommand("work_commands.sendChangeBack", h.sendChangeBack),
 	},
 		{
-			Name:        "abandon_change",
+			Name: "abandon_change", area: "changes",
 			order:       16,
 			Description: "Closes a Change that will not continue. Nothing is deleted: the branch and the record stay; its workspace goes.",
 			InputSchema: schemaObject(map[string]any{

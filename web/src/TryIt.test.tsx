@@ -1,3 +1,5 @@
+import { settled } from './settled'
+import { withFeatures } from './features.fixture'
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -10,13 +12,14 @@ import { TryIt } from './TryIt'
 const CHANGE = '00000000-0007-7000-8000-000000000000'
 
 async function render(state: object) {
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(state))))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response(JSON.stringify(state)))))
   const el = document.createElement('div')
   const root = createRoot(el)
+ const client = newQueryClient()
   await act(async () => {
-    root.render(<QueryClientProvider client={newQueryClient()}><TryIt changeId={CHANGE} /></QueryClientProvider>)
+    root.render(<QueryClientProvider client={client}><TryIt changeId={CHANGE} /></QueryClientProvider>)
   })
-  await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+  await settled(client)
   const text = el.textContent ?? ''
   act(() => root.unmount())
   vi.unstubAllGlobals()
@@ -63,17 +66,18 @@ describe('the try-it button', () => {
   // they are now, never an older build at the same address.
   it('asks AppTown before opening a running preview', async () => {
     const calls: string[] = []
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
       calls.push(`${init?.method ?? 'GET'} ${url}`)
       return new Response(JSON.stringify({ state: 'live', url: 'https://change-1.preview.example.com', built: '2026-10-21T09:00:00Z' }))
-    }))
+    })))
     vi.stubGlobal('open', vi.fn(() => ({ document: { write() {} }, location: { href: '' }, close() {} })))
     const el = document.createElement('div')
     const root = createRoot(el)
+ const client = newQueryClient()
     await act(async () => {
-      root.render(<QueryClientProvider client={newQueryClient()}><TryIt changeId={CHANGE} /></QueryClientProvider>)
+      root.render(<QueryClientProvider client={client}><TryIt changeId={CHANGE} /></QueryClientProvider>)
     })
-    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    await settled(client)
     const open = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Open'))
     await act(async () => { open?.click(); await new Promise((r) => setTimeout(r, 0)) })
     act(() => root.unmount())

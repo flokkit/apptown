@@ -1,3 +1,4 @@
+import { withFeatures } from '../../../features.fixture'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -28,12 +29,12 @@ describe('taking down a deployment that holds data', () => {
   const mount = async (prot: unknown) => {
     const deletes: (string | undefined)[] = []
     const reads = { protection: prot as unknown, failing: false }
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
       if (init?.method === 'DELETE') { deletes.push(init.body as string | undefined); return new Response(JSON.stringify({ ok: true, deleted: [], orphans: [] })) }
       if (String(url).includes('/protection') && reads.failing) return new Response(JSON.stringify({ error: 'AppTown is restarting' }), { status: 503 })
       if (String(url).endsWith('/releases')) return new Response(JSON.stringify([]))
       return new Response(JSON.stringify(String(url).includes('/protection') ? reads.protection : { user: 'bls', instance: {} }))
-    }))
+    })))
     const client = newQueryClient()
     const el = document.createElement('div')
     const root = createRoot(el)

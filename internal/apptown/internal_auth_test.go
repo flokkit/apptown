@@ -680,6 +680,7 @@ func TestAppTownAddressConsumersAgree(t *testing.T) {
 					t.Errorf("%s: %d %s, want a link on %s", path, w.Code, w.Body, tc.origin)
 				}
 			}
+			setTestFeatureAs(t, a, "mcp", true, "boss")
 			// OAuth discovery.
 			var meta struct {
 				Issuer        string `json:"issuer"`
@@ -809,7 +810,8 @@ func TestCredentialDoorsSlowAClientsGuesses(t *testing.T) {
 	}
 
 	// Through the router: the doors share the budget and say when to retry.
-	_, h := internalApp(t)
+	a, h := internalApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	send := func(path string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("POST", path, strings.NewReader(`{"username":"x","password":"wrong-password"}`))
 		req.RemoteAddr = "192.0.2.7:5555"

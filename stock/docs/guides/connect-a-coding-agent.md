@@ -1,5 +1,9 @@
 # Connect a coding agent or the CLI
 
+MCP for outside agents starts turned off. An administrator turns it on in
+Setup → Features, or runs `apptown features on mcp`. See [Features](features.md).
+
+
 <!-- A word like apptown:mcp in braces is a live link: the Docs page of an
 AppTown shows that AppTown's own address there. Read apptown:origin as
 https://<your AppTown host>, apptown:mcp as https://<your AppTown host>/mcp/user

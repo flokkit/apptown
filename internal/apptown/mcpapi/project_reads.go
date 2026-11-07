@@ -40,21 +40,21 @@ type projectReads struct {
 func NewProjectReads(deps ProjectReadsDependencies) []toolEntry {
 	h := projectReads{scope: deps.Scope, work: deps.Work, adoption: deps.Adoption, ways: deps.Ways, conformance: deps.Conformance, deployments: deps.Deployments, db: deps.DB, dataDir: deps.DataDir}
 	return []toolEntry{{
-		Name:        "list_projects",
+		Name: "list_projects", area: "projects",
 		order:       0,
 		Description: "Returns the projects you can see, each with its slug, name, way of working, default branch, the URL of its main deployment if one is deployed, and how many Changes are open.",
 		InputSchema: schemaObject(nil),
 		command:     filteredCommand("project_reads.listProjects", h.listProjects),
 	},
 		{
-			Name:        "get_project",
+			Name: "get_project", area: "projects",
 			order:       1,
 			Description: "Returns one project: its lanes (the workflows it can run), the guidance it has adopted, its latest conformance standing, and its deployments.",
 			InputSchema: schemaObject(map[string]any{"slug": slugArg}, "slug"),
 			command:     ownerCommand("project_reads.getProject", h.getProject),
 		},
 		{
-			Name:  "get_project_guidance",
+			Name: "get_project_guidance", area: "projects",
 			order: 2,
 			Description: "Returns the project's adopted ways of working as one text: the exact guidance, at the exact pinned versions, that AppTown's own agents are steered by and that the landing checks hold every Change to. " +
 				"Strongly recommended before you write code on a project; AppTown does not push it into your context, so read it when you choose. get_project reports its size first so you can decide. " +
@@ -63,7 +63,7 @@ func NewProjectReads(deps ProjectReadsDependencies) []toolEntry {
 			command:     ownerCommand("project_reads.getProjectGuidance", h.getProjectGuidance),
 		},
 		{
-			Name:        "get_application_contract",
+			Name: "get_application_contract", area: "projects",
 			order:       3,
 			Description: "Returns the project's committed application contract (.apptown/app.yaml on its default branch) as text, plus the parsed form when it is valid.",
 			InputSchema: schemaObject(map[string]any{"slug": slugArg}, "slug"),

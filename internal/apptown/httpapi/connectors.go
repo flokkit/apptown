@@ -57,7 +57,15 @@ func (h Connectors) ConnectorCatalog(w http.ResponseWriter, r *http.Request) {
 	out := make([]ConnectorEntry, 0, len(integration.ConnectorCatalog()))
 	defaults := h.integrations.CatalogDefaults(r.Context())
 	for _, c := range integration.ConnectorCatalog() {
-		_, err := docs.FS.ReadFile("integrations/" + c.Capability + "-" + c.Provider + ".admin.md")
+		f, err := h.access.FeatureState(r.Context(), integration.FeatureArea(c.Capability, c.Provider))
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		if !f.Enabled {
+			continue
+		}
+		_, err = docs.FS.ReadFile("integrations/" + c.Capability + "-" + c.Provider + ".admin.md")
 		out = append(out, ConnectorEntry{integration.InstancePresets(c, defaults), err == nil})
 	}
 	kinds, err := h.integrations.Definitions(r.Context())
@@ -85,12 +93,19 @@ func (h Connectors) TestIntegration(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if err := h.access.RequireFeature(r.Context(), integration.FeatureArea(in.Capability, in.Provider)); err != nil {
+			WriteFault(w, err)
+			return
+		}
 		WriteJSON(w, 200, h.health.Test(r.Context(), in.Capability, in.Provider, in.Config).ForDisplay())
 	})
 }
 
 // TestSavedIntegration checks the current saved version and retains its result.
 func (h Connectors) TestSavedIntegration(w http.ResponseWriter, r *http.Request) {
+	if !h.requireSavedFeature(w, r) {
+		return
+	}
 	jsonCommand(w, r, jsonBody{optional: true}, func(_ struct{}) {
 		result, err := h.integrations.TestSaved(r.Context(), r.PathValue("name"), h.health)
 		if err != nil {
@@ -118,6 +133,10 @@ func (h Connectors) SaveIntegration(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if err := h.access.RequireFeature(r.Context(), integration.FeatureArea(in.Capability, in.Provider)); err != nil {
+			WriteFault(w, err)
+			return
+		}
 		spec := integration.FindConnector(in.Capability, in.Provider)
 		if spec == nil && in.Provider == "service" {
 			// Runtime-defined service kind: derive the spec live.
@@ -191,6 +210,9 @@ func (h Connectors) SaveIntegration(w http.ResponseWriter, r *http.Request) {
 // DeleteIntegration: DELETE /api/v1/integrations/{name} — user bindings only.
 func (h Connectors) DeleteIntegration(w http.ResponseWriter, r *http.Request) {
 	if _, ok := AuthorizeRequest(h.access, w, r, access.CapIntegrationConnector, access.Resource{Type: "instance"}, access.Context{}); !ok {
+		return
+	}
+	if !h.requireSavedFeature(w, r) {
 		return
 	}
 	name := r.PathValue("name")

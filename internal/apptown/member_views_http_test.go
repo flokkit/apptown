@@ -28,6 +28,7 @@ import (
 func checkMemberScopedReads(t *testing.T) {
 	t.Parallel()
 	a := workAuthorityFixture(t)
+	setTestFeatureAs(t, a, "conformance-estate", true, "boss")
 	for _, c := range []struct {
 		who     string
 		project ids.ID

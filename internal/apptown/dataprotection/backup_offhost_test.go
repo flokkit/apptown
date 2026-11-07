@@ -611,3 +611,22 @@ func TestBackupMarksHostBeforeFailedCopy(t *testing.T) {
 		t.Fatalf("failed copy: called=%v backup=%+v", called, b)
 	}
 }
+
+func TestBackupsOffSweepFinishesMovingExistingSets(t *testing.T) {
+	t.Parallel()
+	w := newOffhostWorld(t, "off-cleanup", 40173)
+	b := w.take("scheduled")
+	w.attach()
+	setDataFeature(t, w.s.db, "backups", false)
+	receipt, err := (JobWorker{Service: w.s.Service}).Sweep(t.Context(), "daily", nil)
+	if err != nil || receipt["movedToStore"] != 1 {
+		t.Fatalf("off sweep cleanup: %+v %v", receipt, err)
+	}
+	got, err := w.s.backups.ByID(t.Context(), w.pid, "main", b.ID)
+	if err != nil || got.Store != StoreBackupStore {
+		t.Fatalf("existing backup not moved: %+v %v", got, err)
+	}
+	if _, err := os.Stat(b.Path); !os.IsNotExist(err) {
+		t.Fatalf("moved backup left on disk: %v", err)
+	}
+}

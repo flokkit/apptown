@@ -1,3 +1,4 @@
+import { FeatureOnly } from '../features'
 import './WhatIfPage.css'
 import { GlanceRow } from '../GlanceRow'
 import { Status } from '../Status'
@@ -87,7 +88,7 @@ function State({ w }: { w: WhatIf }) {
 function Decide({ w }: { w: WhatIf }) {
   return <div className="row what-if-page-decide-div">
     <Link to={`/packs/${w.pack}?whatIf=${w.id}`}>Recommend v{w.version} on the pack page →</Link>
-    <Link className="button subtle" to={`/evals/new?pack=${encodeURIComponent(w.pack)}&version=${w.version}`}>Try in an eval</Link>
+    <FeatureOnly area="evals"><Link className="button subtle" to={`/evals/new?pack=${encodeURIComponent(w.pack)}&version=${w.version}`}>Try in an eval</Link></FeatureOnly>
   </div>
 }
 

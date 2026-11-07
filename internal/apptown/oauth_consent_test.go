@@ -115,6 +115,7 @@ func TestOAuthProxyConsentBoundToBrowserAndPerson(t *testing.T) {
 	t.Parallel()
 	a := testApp(t, Config{AuthMode: "trusted-header", AuthHeader: "X-Test-User", AuthProxySecret: "test-proxy-secret"})
 	a.SeedAdministrators(context.Background(), []string{"boss"})
+	setTestFeatureAs(t, a, "mcp", true, "boss")
 	h := a.Handler()
 	q := consentRequest(registerClient(t, h))
 	call := func(method string, who string, cookie *http.Cookie) *httptest.ResponseRecorder {

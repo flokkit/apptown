@@ -1,3 +1,4 @@
+import { withFeatures } from '../features.fixture'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -25,7 +26,7 @@ async function setup(options: { conflict?: boolean; failOffer?: boolean; failRea
   const client = newQueryClient()
   client.setDefaultOptions({ queries: { retry: false } })
   client.setQueryData(getKey('/targets/test-host'), { target: { ...current, kindInfo: { environment: false } }, history: [], builtIn: false })
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
     const method = init?.method || 'GET'
     if (method === 'GET') {
       if (url === '/api/v1/targets') return json({ targets: [], groups: ['team'] })
@@ -45,7 +46,7 @@ async function setup(options: { conflict?: boolean; failOffer?: boolean; failRea
     }
     if (failOffer) return json({ error: 'offer unavailable' }, 503)
     return json({ ok: true })
-  }))
+  })))
   const el = document.createElement('div'); document.body.append(el)
   const root = createRoot(el), done = vi.fn()
   disposals.push(() => { act(() => root.unmount()); client.clear(); el.remove() })

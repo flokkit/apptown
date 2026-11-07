@@ -55,7 +55,7 @@ func workflowOverviewCall(t *testing.T, f workflowHTTPFixture) *httptest.Respons
 	r := httptest.NewRequest("GET", "/api/v1/projects/shop/overview", nil).WithContext(f.Context)
 	r.SetPathValue("slug", "shop")
 	w := httptest.NewRecorder()
-	NewProjectOverview(f.Projects, f.Work, t.TempDir()).ProjectOverview(w, r)
+	NewProjectOverview(f.Projects, f.Work, t.TempDir(), f.Access).ProjectOverview(w, r)
 	return w
 }
 

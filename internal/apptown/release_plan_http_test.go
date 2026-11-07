@@ -20,6 +20,7 @@ import (
 func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "portainer", true, "boss")
 	h := a.Handler()
 	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/repo", `{}`); w.Code != 200 {
 		t.Fatalf("init: %d %s", w.Code, w.Body.String())

@@ -16,6 +16,10 @@ import (
 // apart. Every kind must answer before it is saved.
 func (h Targets) AttachTarget(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{}, func(in deployment.TargetAttachment) {
+		if err := h.access.RequireFeature(r.Context(), deployment.TargetFeatureArea(in.Kind)); err != nil {
+			WriteFault(w, err)
+			return
+		}
 		result, err := h.deployment.AttachTarget(r.Context(), in)
 		if err != nil {
 			WriteFault(w, err)

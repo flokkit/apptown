@@ -311,3 +311,32 @@ func TestAFormatOneCacheDoesNotBlockChecks(t *testing.T) {
 		t.Fatalf("check after a format-1 cache: %+v %v", got, err)
 	}
 }
+
+func TestOffUpdatesStartNoAutomaticDiscovery(t *testing.T) {
+	t.Parallel()
+	calls := 0
+	enabled := false
+	s, err := New(Options{DataDir: t.TempDir(), Build: "v1.0.0", Platform: "linux/amd64", Authority: authorityFunc(permitted),
+		Enabled:   func(context.Context) (bool, error) { return enabled, nil },
+		Transport: transportFunc(func(r *http.Request) (*http.Response, error) { calls++; return response(200, `[]`), nil }),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.check(t.Context(), false); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatalf("off updates made %d requests", calls)
+	}
+	if _, err := os.Stat(s.cache.dir); !os.IsNotExist(err) {
+		t.Fatalf("off updates wrote cache: %v", err)
+	}
+	enabled = true
+	if _, err := s.check(t.Context(), false); err != nil {
+		t.Fatal(err)
+	}
+	if calls == 0 {
+		t.Fatal("enabled updates made no request")
+	}
+}

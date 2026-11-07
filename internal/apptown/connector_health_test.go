@@ -349,7 +349,7 @@ func TestFeedbackBackgroundAndTestConnectionUseTheRealCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	checker := connectorHealthFor(a)
-	if err := a.Integrations.RunHealthObservation(t.Context(), b.HealthObservationKey(), checker); err != nil {
+	if err := a.Integrations.RunHealthObservation(t.Context(), fmt.Sprintf("%s/%d", b.Name, b.Version), checker); err != nil {
 		t.Fatal(err)
 	}
 	h, err := a.Integrations.RecordedHealth(t.Context(), b.Name)

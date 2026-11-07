@@ -1,3 +1,4 @@
+import { withFeatures } from '../features.fixture'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -29,8 +30,8 @@ const protection = (operations: unknown) => ({
 let done = () => {}
 afterEach(() => { done(); done = () => {}; vi.unstubAllGlobals() })
 async function mount(body: unknown, instance: Record<string, boolean> = {}, deployment = { slug: 'ledger', name: 'prod' }) {
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
-    String(url).includes('/authz/me') ? { user: 'bls', instance } : body), { status: 200 })))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(
+    String(url).includes('/authz/me') ? { user: 'bls', instance } : body), { status: 200 }))))
   const client = newQueryClient()
   const el = document.createElement('div')
   const root = createRoot(el)

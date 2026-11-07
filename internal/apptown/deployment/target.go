@@ -594,3 +594,16 @@ func (s *Targets) activeDocker(ctx context.Context) ([]*Target, error) {
 	}
 	return out, nil
 }
+
+// TargetFeatureArea identifies the access switch for a provider. Docker targets
+// are part of core deployments. This classification never changes a workflow.
+func TargetFeatureArea(kind string) string {
+	for _, info := range Kinds() {
+		if info.Kind == kind {
+			return info.featureArea
+		}
+	}
+	// Unsupported kinds can still have retained records. Their metadata stays
+	// readable; provider admission refuses them before execution.
+	return "record"
+}

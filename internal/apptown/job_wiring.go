@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 
@@ -271,12 +272,34 @@ func (jobQueue) EnqueueIn(ctx context.Context, tx *database.Tx, r jobs.Request) 
 // queue, with the attempt budget for its key, due after (zero: now). Only
 // the deletion pass asks for a later start.
 func insertJobIn(ctx context.Context, tx *database.Tx, r jobs.Request, after time.Time) error {
+	// Observation work is optional. Deployment reconciliation, workflow effects
+	// and cleanup deliberately do not pass through this availability filter.
+	if area := optionalObservationArea(r.Operation); area != "" {
+		on, err := identity.FeatureEnabledIn(ctx, tx, area)
+		if err != nil || !on {
+			return err
+		}
+	}
 	max, err := jobAttempts(r.Operation, r.Key)
 	if err != nil {
 		return err
 	}
 	_, err = jobs.InsertOnTx(ctx, tx.Native(), jobQueues[r.Operation], jobs.Request{Operation: r.Operation, Key: r.Key, Values: r.Values}, max, after)
 	return err
+}
+
+func optionalObservationArea(kind string) string {
+	switch kind {
+	case workerObservationJob:
+		return "worker"
+	case preview.ObservationJob:
+		return "previews"
+	case diskObservationJob:
+		return "usage"
+	case dataprotection.StoreObservationJob, dataprotection.ProtectionObservationJob:
+		return "backups"
+	}
+	return ""
 }
 
 // passRequests queues a pass a person's action asks for, of a kind that

@@ -31,6 +31,7 @@ type CreationPlacement struct {
 
 // CreationTarget is a target offered for a new project's main deployment.
 type CreationTarget struct {
+	Area        string `json:"area"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Default     bool   `json:"default"`
@@ -75,7 +76,7 @@ func (s *Service) CreationTargets(ctx context.Context, group string, contracts [
 		if place := TargetPlace(t); place != "" {
 			description += " · " + place
 		}
-		out = append(out, CreationTarget{Name: t.Name, Description: description, Default: def != nil && t.ID == def.ID, Reason: why})
+		out = append(out, CreationTarget{Area: TargetFeatureArea(t.Kind), Name: t.Name, Description: description, Default: def != nil && t.ID == def.ID, Reason: why})
 	}
 	return out, nil
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
@@ -25,6 +26,7 @@ import (
 )
 
 type Infrastructure struct {
+	features    *identity.Service
 	deployment  *deployment.Service
 	hosts       *deployment.Hosts
 	providers   *deployment.Providers
@@ -37,8 +39,8 @@ type Infrastructure struct {
 	now         func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
-func NewInfrastructure(deployment *deployment.Service, hosts *deployment.Hosts, providers *deployment.Providers, projects *project.Projects, db *database.DB, cache inventoryCache, builtinDB bool, dbContainer string, dbVolume string, now func() time.Time) Infrastructure {
-	return Infrastructure{deployment: deployment, hosts: hosts, providers: providers, projects: projects, db: db, cache: cache, builtinDB: builtinDB, dbContainer: dbContainer, dbVolume: dbVolume, now: now}
+func NewInfrastructure(deployment *deployment.Service, hosts *deployment.Hosts, providers *deployment.Providers, projects *project.Projects, db *database.DB, features *identity.Service, cache inventoryCache, builtinDB bool, dbContainer string, dbVolume string, now func() time.Time) Infrastructure {
+	return Infrastructure{deployment: deployment, hosts: hosts, providers: providers, projects: projects, db: db, features: features, cache: cache, builtinDB: builtinDB, dbContainer: dbContainer, dbVolume: dbVolume, now: now}
 }
 
 // Disks serves the filesystems this AppTown and its worker write to
@@ -82,6 +84,14 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 	}
 	out := []InfrastructureView{}
 	for _, t := range ts {
+		f, err := h.features.FeatureState(r.Context(), deployment.TargetFeatureArea(t.Kind))
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		if !f.Enabled {
+			continue
+		}
 		if t.Status == deployment.TargetRetired {
 			continue // out of service: its page still exists, the fleet view does not list it
 		}

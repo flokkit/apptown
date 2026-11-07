@@ -1,9 +1,10 @@
+import { enabledFeatures } from '../features.fixture'
 import { expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import Conformance from './Conformance'
 vi.mock('../data', () => ({
-  useGet: (path: string) => ({ data: path === '/conformance' ? {
+  useGet: (path: string) => ({ data: path === '/features' ? enabledFeatures : path === '/conformance' ? {
     openRemediations: [], byProject: {}, lens: { kind: 'current' }, reviews: [], projects: [],
     summary: { findings: 0, flagged: 0, incompleteProjects: 1, byStanding: { 'review-broken': 1 } },
   } : null, reload: () => {}, current: true }),

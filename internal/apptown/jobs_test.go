@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/evals"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
+	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/remediation"
 	"github.com/flokkit/apptown/internal/apptown/usage"
@@ -503,5 +504,137 @@ func TestWorkerObservationUsesTheDurableQueueBeforeContactingWorker(t *testing.T
 	}
 	if len(operationJobs(t, a, workerObservationJob)) != 1 {
 		t.Fatal("warm read admitted more work")
+	}
+}
+
+func TestBackupsOffPreventsNewScheduledBackups(t *testing.T) {
+	t.Parallel()
+	a, _ := bootWorld(t)
+	a.SeedTargets(t.Context())
+	target, err := a.Deployment.Targets.ByName(context.Background(), deployment.BuiltInTargetName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	main, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "main", target.ID, deployment.Attributes{}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", docker.ByKey(main.ID).App(), 45678); err != nil {
+		t.Fatal(err)
+	}
+	setTestFeature(t, a, "backups", false)
+	if _, err := dataJobsForTest(a).Sweep(context.Background(), "daily", nil); err != nil {
+		t.Fatal(err)
+	}
+	(backupRequests{db: a.DB, life: a.life}).AfterRelease(idstest.N(1), "main")
+	requireJobs(t, a, 0, func(row *rivertype.JobRow, r jobs.Request) bool { return r.Operation == "backup" })
+	setTestFeature(t, a, "backups", true)
+	(backupRequests{db: a.DB, life: a.life}).AfterRelease(idstest.N(1), "main")
+	requireJobs(t, a, 1, func(row *rivertype.JobRow, r jobs.Request) bool {
+		return r.Operation == "backup" && r.Values["trigger"] == "release"
+	})
+
+}
+
+func TestAgentTokenCannotEnableFeature(t *testing.T) {
+	a, agent := mcpWriteFixture(t)
+	before, err := a.Access.FeatureState(t.Context(), "evals")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := bearerCall(a, agent, "PUT", "/api/v1/features/evals", `{"expected":false,"enabled":true}`)
+	if w.Code != 403 {
+		t.Fatalf("agent switch: %d %s", w.Code, w.Body.String())
+	}
+	f, err := a.Access.FeatureState(t.Context(), "evals")
+	if err != nil || f.Enabled != before.Enabled {
+		t.Fatalf("agent changed feature: %+v %v", f, err)
+	}
+}
+
+func TestOffAreasAdmitNoBackgroundObservations(t *testing.T) {
+	for _, tc := range []struct{ area, kind string }{
+		{"worker", workerObservationJob}, {"previews", preview.ObservationJob},
+		{"usage", diskObservationJob}, {"backups", dataprotection.StoreObservationJob},
+		{"backups", dataprotection.ProtectionObservationJob},
+	} {
+		t.Run(tc.kind, func(t *testing.T) {
+			t.Parallel()
+			a := testApp(t)
+			setTestFeature(t, a, tc.area, false)
+			request := func() {
+				t.Helper()
+				if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+					return jobQueue{}.EnqueueIn(t.Context(), tx, jobs.Request{Operation: tc.kind, Key: "instance"})
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			request()
+			if _, err := infrastructureChecksFor(a).Run(t.Context(), "scheduled", nil); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := infrastructureChecksFor(a).RunHourly(t.Context(), "scheduled", nil); err != nil {
+				t.Fatal(err)
+			}
+			requireJobs(t, a, 0, func(_ *rivertype.JobRow, r jobs.Request) bool { return r.Operation == tc.kind })
+			setTestFeature(t, a, tc.area, true)
+			request()
+			requireJobs(t, a, 1, func(_ *rivertype.JobRow, r jobs.Request) bool { return r.Operation == tc.kind })
+		})
+	}
+}
+
+func TestConformanceOffAdmitsNoAdoptionReview(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	testAdministrator(t, a, "t")
+	tgLocalSh(t, a)
+	alpha, _, _ := fleetRepo(t, a, "alpha", map[string]string{"a.txt": "// FIXME"})
+	setTestFeature(t, a, "conformance", false)
+	adopt(t, a, alpha, "hygiene", 1, checksJSON(shCheck("no-fixme", noFixmeSh, "high")))
+	if got := adoptionReviewsOf(t, a); len(got) != 0 {
+		t.Fatalf("off conformance queued reviews: %+v", got)
+	}
+	setTestFeature(t, a, "conformance", true)
+	adopt(t, a, alpha, "hygiene", 2, checksJSON(shCheck("no-fixme", noFixmeSh, "high")))
+	if got := adoptionReviewsOf(t, a); len(got) != 1 {
+		t.Fatalf("on conformance did not queue a review: %+v", got)
+	}
+}
+
+func TestOffAreasAdmitNoConnectionChecks(t *testing.T) {
+	for _, tc := range []struct{ area, capability, provider, config string }{
+		{"models", "model", "pi", `{"model":"openrouter/test/model"}`},
+		{"models", "llm", "openrouter", `{}`},
+		{"worker", "executor", "docker", `{}`},
+		{"conformance", "scanner", "test", `{"image":"test"}`},
+		{"app-platform", "cloud-account", "digitalocean", `{}`},
+	} {
+		t.Run(tc.area+"/"+tc.capability, func(t *testing.T) {
+			t.Parallel()
+			a := testApp(t)
+			setTestFeature(t, a, tc.area, false)
+			_, err := a.Integrations.Bindings.Upsert(t.Context(), "optional-check", tc.capability, tc.provider, tc.config, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := infrastructureChecksFor(a).RunHourly(t.Context(), "scheduled", nil); err != nil {
+				t.Fatal(err)
+			}
+			binding, err := a.Integrations.Bindings.ByName(t.Context(), "optional-check")
+			if err != nil {
+				t.Fatal(err)
+			}
+			matches := func(_ *rivertype.JobRow, r jobs.Request) bool {
+				return r.Operation == integration.HealthObservationJob && r.Key == fmt.Sprintf("%s/%d", binding.Name, binding.Version)
+			}
+			requireJobs(t, a, 0, matches)
+			setTestFeature(t, a, tc.area, true)
+			if _, err := infrastructureChecksFor(a).RunHourly(t.Context(), "scheduled", nil); err != nil {
+				t.Fatal(err)
+			}
+			requireJobs(t, a, 1, matches)
+		})
 	}
 }

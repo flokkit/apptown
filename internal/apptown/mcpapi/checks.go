@@ -25,7 +25,7 @@ type checks struct {
 
 func NewChecks(deps ChecksDependencies) []toolEntry {
 	h := checks{scope: deps.Scope, work: deps.Work, verification: deps.Verification}
-	return []toolEntry{{Name: "run_change_checks",
+	return []toolEntry{{Name: "run_change_checks", area: "landing",
 		order: 12, Description: "Runs a Change's checks now — the same guidance checks, tool checks and source scans its landing will apply — and returns each result. Slow (a minute or more); the checks build and scan the committed tree.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"), command: ownerCommand("checks.runChangeChecks", h.runChangeChecks)}}
 }
 func (h checks) runChangeChecks(c *Call, args map[string]any) (any, error) {

@@ -16,6 +16,7 @@ import type { ProjectDetail, ProjectPage } from './wire.gen'
 // One trail links the route's ancestor pages, ending at the parent.
 // The current page is named by its heading in main.
 
+
 type Me = { user?: string; role?: string; mode: string }
 
 // On a narrow screen (chrome.ts useNarrow) the bar is the menu button, the

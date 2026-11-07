@@ -22,15 +22,15 @@ type contributions struct {
 
 func NewContributions(deps ContributionsDependencies) []toolEntry {
 	h := contributions{scope: deps.Scope, work: deps.Work, contributions: deps.Contributions, adoption: deps.Adoption}
-	return []toolEntry{{Name: "checkout_change",
-		order: 17, Description: "Returns what a local Git checkout needs to work on a Change: the repository URL, the Change's ref and current tip, and a short-lived credential that can fetch main and this Change and push only this Change's ref. " + "Use the returned git commands as arguments, not as a shell string.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"), command: ownerCommand("contributions.checkoutChange", h.checkoutChange)}, {Name: "renew_change_grant",
+	return []toolEntry{{Name: "checkout_change", area: "changes",
+		order: 17, Description: "Returns what a local Git checkout needs to work on a Change: the repository URL, the Change's ref and current tip, and a short-lived credential that can fetch main and this Change and push only this Change's ref. " + "Use the returned git commands as arguments, not as a shell string.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"), command: ownerCommand("contributions.checkoutChange", h.checkoutChange)}, {Name: "renew_change_grant", area: "changes",
 		order:       18,
 		Description: "Mints a fresh push credential for a Change whose earlier one expired or was consumed by a push. Same bounds as checkout_change.",
 		InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"),
 		command:     ownerCommand("contributions.renewChangeGrant", h.renewChangeGrant),
 	},
 		{
-			Name:  "sync_change",
+			Name: "sync_change", area: "changes",
 			order: 19,
 			Description: "Tells AppTown you pushed a revision to a Change's ref: the Change's workspace adopts that tip, earlier check results no longer answer for it, and the valid next actions are returned. " +
 				"Pass the SHA you pushed and the tip you expected before you pushed; a mismatch is reported with facts, never resolved silently.",

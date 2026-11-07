@@ -95,6 +95,7 @@ func TestConformanceCallerMustBeExplicitEvenOnAnOpenInstance(t *testing.T) {
 func TestConformanceHTTPUsesServiceAuthority(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	setTestFeatureAs(t, a, "conformance-estate", true, "boss")
 	revokeConformanceDefaultRead(t, a)
 	h := a.Handler()
 	for _, path := range []string{"/api/v1/conformance", "/api/v1/conformance/reviews", "/api/v1/conformance/reviews/0000000f-423f-7000-8000-000000000000"} {

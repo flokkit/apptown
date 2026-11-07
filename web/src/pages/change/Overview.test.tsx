@@ -1,3 +1,4 @@
+import { withFeatures, enabledFeatures } from '../../features.fixture'
 // @vitest-environment jsdom
 import DiffView from '../../DiffView'
 import { Screenshots } from '../../Screenshots'
@@ -38,7 +39,8 @@ const view = (): ChangeView => ({
   evidence: { targets: [{ title: 'Every ride has a start time', block: 'calendar', check: 'ride-times', expects: 'All times are shown.' }], merged: false, releases: [], mergeLabel: 'not merged', inAdvance: { approver: 'sam', at: '', shown: ['Acceptance recorded in advance.'] } },
   approval: { stepId: approval.id, viewer: 'yes' }, next: [{ act: 'abandon' }], runs: [], adrs: [], editing: 0, commits: [], diffstat: '5 files changed, 35 insertions(+), 15 deletions(-)', usage: { total: 1200, costMicros: 1000 }, committedDiff: { status: 'changed' },
 } as unknown as ChangeView)
-const render = (v: ChangeView) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
+const featureClient = () => { const client = newQueryClient(); client.setQueryData(getKey('/features'), enabledFeatures); return client }
+const render = (v: ChangeView) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={featureClient()}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
 afterEach(() => { vi.unstubAllGlobals(); vi.stubGlobal('IntersectionObserver', Observer); vi.stubGlobal('ResizeObserver', Observer) })
 
 it('leads with the preview, separates request from report and links every evidence row', () => {
@@ -79,12 +81,12 @@ it('opens Overview by default and keeps code, conversation, full records and edi
   v.mainConflict = { mainBranch: 'main', step: 'implement', files: ['calendar.ts'], catchUp: 'git merge origin/main' } as ChangeView['mainConflict']
   v.detail!.artifacts[0].body = 'Report start.'
   v.detail!.artifacts[0].bodyBytes = 8000
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
     const path = String(url)
     const data = path.endsWith('/artifacts/record') ? { ...v.detail!.artifacts[0], body: 'The complete report is retained.' } : path.endsWith(`/changes/${id}`) ? v : path.endsWith('/worker-chats') ? { chats: [] } : path.endsWith('/transcript') ? { sessions: [], unreadable: 0 }
       : path.endsWith('/question') ? { adds: null } : path.endsWith('/preview') ? {} : path.endsWith('/auth/me') ? { user: 'sam' } : []
     return new Response(JSON.stringify(data))
-  }))
+  })))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   document.body.append(el)
   const settle = () => vi.waitFor(async () => {
@@ -163,7 +165,7 @@ it('never puts terminal output or the acceptance form in the top card', async ()
   const v = view()
   v.detail!.steps[0] = step('agent/pi', 'running')
   v.waitingOn = { ...v.waitingOn, kind: 'work', says: 'working', tone: 'neutral', you: 'no' }; v.state = 'agent working'; v.statusLabel = 'working'; v.change.state = 'in_progress'
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/console') ? { sessions: [] } : String(url).endsWith('/deployments') ? [] : String(url).endsWith('/auth/me') ? { user: 'sam' } : v))))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/console') ? { sessions: [] } : String(url).endsWith('/deployments') ? [] : String(url).endsWith('/auth/me') ? { user: 'sam' } : v)))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/changes/${id}`]}><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></MemoryRouter></QueryClientProvider>))
   await act(async () => { for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 0)) })
@@ -260,7 +262,7 @@ it('keeps large code files, screenshot failures and status help open on a change
 it('links a long reviewer conclusion to the run that recorded it', () => {
   const v = view()
   v.detail!.steps[1] = step('agent/review', 'pass', { summary: 'Review finding. '.repeat(80) }, { id: 'review', runId: 'working-run' })
-  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={(step, run) => `?tab=details&run=${run}&step=${step}`} /></QueryClientProvider></MemoryRouter>)
+  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={featureClient()}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={(step, run) => `?tab=details&run=${run}&step=${step}`} /></QueryClientProvider></MemoryRouter>)
   const el = document.createElement('div'); el.innerHTML = html
   const link = [...el.querySelectorAll('a')].find(a => a.textContent === 'full review →')!
   expect(link.getAttribute('href')).toBe(`/changes/${v.change.id}/records/review?run=working-run`)
@@ -269,10 +271,10 @@ it('links a long reviewer conclusion to the run that recorded it', () => {
 it.each([[true, true], [true, false], [false, true], [false, false]])('states acceptance consequences and only offered decisions (deploys=%s, abandon=%s)', async (deploys, abandon) => {
   const v = view()
   if (!abandon) v.next = []
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(
     String(url).endsWith('/deployments') ? deploys ? [{ feed: 'main', url: 'https://school.example.test' }] : []
       : String(url).endsWith('/question') ? { adds: null } : String(url).endsWith('/auth/me') ? { user: `consequence-${deploys}` } : {}
-  ))))
+  )))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
   for (let j = 0; j < 3; j++) await act(async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)) })
@@ -316,9 +318,9 @@ it('keeps recorded desktop and phone pictures in the hero with desktop first', (
 
 it('keeps acceptance independent of deployment reads', async () => {
   const v = view()
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => String(url).endsWith('/deployments')
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => String(url).endsWith('/deployments')
     ? new Response(JSON.stringify({ error: 'Not permitted' }), { status: 403 })
-    : new Response(JSON.stringify(String(url).endsWith('/question') ? { adds: null } : {}))))
+    : new Response(JSON.stringify(String(url).endsWith('/question') ? { adds: null } : {})))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
   for (let j = 0; j < 3; j++) await act(async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)) })
@@ -437,7 +439,7 @@ it('keeps one decision screen measured to the content column and closes without 
 it('shows the latest chat reply and Continue chat as the only action before any run', async () => {
   const v = view(); v.change.summary = ''; v.change.state = 'in_progress'; v.state = ''; v.detail = null; v.approval = undefined; v.waitingOn = { ...v.waitingOn, kind: 'chat', says: 'chat open', tone: 'neutral', you: 'no' }
   v.next = [{ act: 'land' }] as ChangeView['next']
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/transcript') ? { sessions: [{ messages: [{ role: 'helper', text: 'Old answer.' }, { role: 'helper', text: 'The menu can be edited.\nOrders keep their names.' }] }], unreadable: 0 } : []))))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/transcript') ? { sessions: [{ messages: [{ role: 'helper', text: 'Old answer.' }, { role: 'helper', text: 'The menu can be edited.\nOrders keep their names.' }] }], unreadable: 0 } : [])))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={[]} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
   await act(async () => { for (let i = 0; i < 12; i++) await new Promise(r => setTimeout(r, 0)) })
@@ -482,7 +484,7 @@ it('keeps plain approval paragraphs without labels', () => {
 
 it('shows both approval paragraphs in the decision screen', async () => {
   const v = view()
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/brief') ? { brief: 'Adds water that ripples where you tap.\n\nRequires WebGL.' } : []))))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/brief') ? { brief: 'Adds water that ripples where you tap.\n\nRequires WebGL.' } : [])))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
   await act(async () => { for (let i = 0; i < 12; i++) await new Promise(r => setTimeout(r, 0)) })
@@ -499,7 +501,7 @@ it('opens held recovery buttons only in Decide and shows the complete reason onc
   v.waitingOn = { ...v.waitingOn, kind: 'check', step: 'preview', says: 'preview failed', tone: 'bad', you: 'yes' }; v.detail!.steps = [step('agent/pi'), step('preview', 'fail', { reason: 'The page never loaded. The screen stayed blank.' }), approval]
   v.detail!.next = [{ act: 'rework', stepId: 'agent/pi' }, { act: 'retry', stepId: 'preview' }, { act: 'override', stepId: 'preview' }, { act: 'override', stepId: 'approval' }] as NonNullable<ChangeView['detail']>['next']
   v.next = [{ act: 'send-back' }, { act: 'abandon' }] as ChangeView['next']
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/deployments') ? [] : { sessions: [] }))))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/deployments') ? [] : { sessions: [] })))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
@@ -527,10 +529,10 @@ it.each([undefined, 'Malformed app declaration', 'Starting app declaration unrea
     { name: 'services', added: [], removed: [], unknown: unread === 'Malformed app declaration' ? unread : undefined, baseUnread: unread === 'Starting app declaration unread' ? unread : undefined },
     { name: 'app parts', added: [], removed: [] },
   ], lines: [{ kind: 'added', text: 'Secrets: PAYMENT_KEY' }] }
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(
     String(url).endsWith('/question') ? { adds } : String(url).endsWith('/deployments') ? []
       : String(url).endsWith('/steps/build/live?from=0') ? { running: true, lines: ['Building the accepted image'], total: 1 } : {}
-  ))))
+  )))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
@@ -559,10 +561,10 @@ it.each(['send-back', 'rework'])('records the approver’s rejection and note wh
     v.detail!.next = v.detail!.next.filter(a => a.act !== 'rework')
   }
   const sent: { url: string; body: unknown }[] = []
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST') sent.push({ url: String(url), body: JSON.parse(String(init.body)) })
     return new Response(JSON.stringify(String(url).endsWith('/deployments') ? [] : {}))
-  }))
+  })))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   const settle = () => act(async () => { for (let i = 0; i < 12; i++) await new Promise(r => setTimeout(r, 0)) })
   const click = async (label: string) => act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === label)!.click())
@@ -598,8 +600,8 @@ it.each([
   const v = view(); v.change.state = 'in_progress'; v.state = 'ready to advance'; v.waitingOn = { ...v.waitingOn, kind: 'ready', says: 'ready to continue', tone: 'warn', step: null, you: 'yes' }
   v.detail!.steps = [step('script')]
   v.detail!.next = [{ act: 'advance' }] as NonNullable<ChangeView['detail']>['next']
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
-    String(url).endsWith('/advance') ? result : []))))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(
+    String(url).endsWith('/advance') ? result : [])))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
@@ -775,12 +777,12 @@ it('keeps advisory details separate from a gating failure', () => {
 
 it.each(['empty', 'failed'])('shows the original ask when the approval brief is %s', async (result) => {
   const v = view()
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
     if (String(url).endsWith('/brief')) return result === 'failed'
       ? new Response(JSON.stringify({ error: 'Model unavailable' }), { status: 500 })
       : new Response(JSON.stringify({ brief: '' }))
     return new Response(JSON.stringify([]))
-  }))
+  })))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
@@ -848,9 +850,9 @@ it('links the running Release row to its deployment without displaying a number 
 
 it('labels every approval fact, omits the internal step and keeps its meaning and actions', async () => {
   const v = view()
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/brief') ? { brief: 'Adds the November newsletter.' }
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/brief') ? { brief: 'Adds the November newsletter.' }
     : String(url).endsWith('/deployments') ? [{ feed: 'main', url: 'https://club.example.test' }]
-    : String(url).endsWith('/question') ? { adds: { rows: ['secrets', 'services', 'app parts'].map(name => ({ name, added: [], removed: [] })), digest: 'current' } } : []))))
+    : String(url).endsWith('/question') ? { adds: { rows: ['secrets', 'services', 'app parts'].map(name => ({ name, added: [], removed: [] })), digest: 'current' } } : [])))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
@@ -884,9 +886,9 @@ it('keeps project notes beside the short conversation request and first Markdown
   v.change.chatRequest = true
   v.change.requestSummary = 'Make distant cards easy to reach.'
   v.notesDiff = { added: ['- Keep cards reachable. (Sam · change 9)'], removed: ['- Use fixed cards. (Sam · change 4)'] }
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/transcript')
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/transcript')
     ? { sessions: [{ messages: [{ role: 'helper', text: 'All checks passed. [Review the approval](https://example.test/review).\n\nMore implementation detail.' }] }], unreadable: 0 }
-    : String(url).endsWith('/brief') ? { brief: 'Brings distant cards into view.' } : []))))
+    : String(url).endsWith('/brief') ? { brief: 'Brings distant cards into view.' } : [])))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
@@ -921,7 +923,7 @@ it('keeps acceptance on the change while deployment runs separately', async () =
  const v=view()
  v.change.chatRequest = true
  v.change.requestSummary = 'Keep cards reachable.'
- vi.stubGlobal('fetch',vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/deployments') ? [{name:'staff',feed:'landing',url:'https://staff.example'}] : {}))))
+ vi.stubGlobal('fetch',vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/deployments') ? [{name:'staff',feed:'landing',url:'https://staff.example'}] : {})))))
  const client=newQueryClient(),el=document.createElement('div'),root=createRoot(el)
  try {
   await act(async()=>root.render(<MemoryRouter initialEntries={['/changes/change']}><QueryClientProvider client={client}><Routes>

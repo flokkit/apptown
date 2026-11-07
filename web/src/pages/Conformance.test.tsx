@@ -1,3 +1,4 @@
+import { withFeatures } from '../features.fixture'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -31,7 +32,7 @@ describe('following a conformance review', () => {
     // stale list is what the page sees for as long as the test looks.
     let reads = 0
     const held: (() => void)[] = []
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
       if (url.endsWith('/conformance')) {
         reads++
         if (reads > 12) throw new Error('review repeatedly restarted')
@@ -40,7 +41,7 @@ describe('following a conformance review', () => {
       }
       if (url.endsWith(`/conformance/reviews/${REVIEW}`)) return new Response(JSON.stringify({ review: done, verdicts: [] }))
       return new Response('{}')
-    }))
+    })))
     const original = console.error
     vi.spyOn(console, 'error').mockImplementation((...args) => {
       if (String(args[0]).includes('Maximum update depth exceeded')) throw new Error('review completion entered an infinite update loop')
@@ -83,11 +84,11 @@ describe('a queued conformance review', () => {
     const client = newQueryClient()
     const review = { id: REVIEW, status: 'queued', trigger: 'manual', projects: 0, projectsTotal: 0, projectsDone: 0, verdicts: 0, errors: 0, cost: 0, startedAt: '2026-10-10T00:00:00Z', finishedAt: '', actor: 'reviewer', currentProject: '' }
     const view = { openRemediations: [], byProject: {}, lens: { kind: 'current', review }, projects: [], reviews: [review], summary: { projects: 0, byStanding: {}, findings: 0, flagged: 0, high: 0, checks: 0 } }
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
       if (url.endsWith('/conformance')) return new Response(JSON.stringify(view))
       if (url.endsWith(`/conformance/reviews/${REVIEW}`)) return new Response(JSON.stringify({ review, verdicts: [] }))
       return new Response('{}')
-    }))
+    })))
     const el = document.createElement('div')
     const root = createRoot(el)
     const offered: string[] = []
@@ -142,11 +143,11 @@ describe('a project page while its review refreshes', () => {
   it('keeps an opened check open across a refresh and resets it for another review', async () => {
     const client = newQueryClient()
     let judged = 2
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
       const m = /\/conformance\?review=00000000-(\d{4})-/.exec(url)
       if (m) return new Response(JSON.stringify(viewOf(Number(m[1]), judged)))
       return new Response('{}')
-    }))
+    })))
     const router = createMemoryRouter([
       { path: '/conformance/reviews/:reviewId/projects/:slug', element: <Conformance tab="project" /> },
     ], { initialEntries: [`/conformance/reviews/${uuid(1)}/projects/shop`] })
@@ -187,9 +188,9 @@ describe('a project page while its review refreshes', () => {
 // Starting a fleet check or fix must remain reachable away from Projects.
 it.each(['projects', 'reviews', 'checks', 'remediations', 'ways', 'what-ifs'] as const)('keeps fleet actions available on %s', async tab => {
   const client = newQueryClient()
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/conformance') ? {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(url.endsWith('/conformance') ? {
     openRemediations: [], byProject: { shop: [{ lane: 'findings' }, { lane: 'findings' }] }, lens: { kind: 'current' }, projects: [], reviews: [], summary: { findings: 2, flagged: 0, incompleteProjects: 0 }, byCheck: {}, checkDefs: {}, adjudications: {}, checks: [],
-  } : url.endsWith('/wow') ? { packs: [], blocks: [] } : url.endsWith('/remediations') ? { remediations: [], occupancy: { workers: 2, busy: 0 } } : url.endsWith('/what-ifs') ? { whatIfs: [] } : {}))))
+  } : url.endsWith('/wow') ? { packs: [], blocks: [] } : url.endsWith('/remediations') ? { remediations: [], occupancy: { workers: 2, busy: 0 } } : url.endsWith('/what-ifs') ? { whatIfs: [] } : {})))))
   const el = document.createElement('div'); const root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><Conformance tab={tab} /></MemoryRouter></QueryClientProvider>))

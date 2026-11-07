@@ -28,12 +28,12 @@ type laneCommands struct {
 
 func NewLaneCommands(deps LaneCommandsDependencies) []toolEntry {
 	h := laneCommands{scope: deps.Scope, work: deps.Work, db: deps.DB, now: deps.Now}
-	return []toolEntry{{Name: "create_change",
+	return []toolEntry{{Name: "create_change", area: "changes",
 		order: 10, Description: "Opens a Change on a project in your name: a title and, in `intent`, what should be done and why. " + "With `lane` (a workflow the project can run, e.g. \"implement\"), AppTown's own agent starts on it at once; without, the Change is open and waiting for work.", InputSchema: schemaObject(map[string]any{"slug": slugArg, "title": schemaString("A short title for the Change, in plain words."), "intent": schemaString("What should be done and why — the brief the agent (or a person) works from."), "lane": schemaString("Optional: a lane to start on it now, e.g. \"implement\" or \"quick-change\" (get_project lists them)."), "type": schemaString("Optional: feature (default), fix, chore.")}, "slug", "title"),
 		command: ownerCommand("lane_commands.createChange", h.createChange),
 	},
 		{
-			Name:        "start_change_lane",
+			Name: "start_change_lane", area: "changes",
 			order:       11,
 			Description: "Starts a lane (a workflow the project can run, e.g. \"implement\") on an open Change: AppTown's own agent works from the Change's brief.",
 			InputSchema: schemaObject(map[string]any{

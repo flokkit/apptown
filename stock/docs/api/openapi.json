@@ -1859,6 +1859,9 @@
       },
       "CreationTarget": {
         "properties": {
+          "area": {
+            "type": "string"
+          },
           "default": {
             "type": "boolean"
           },
@@ -1873,6 +1876,7 @@
           }
         },
         "required": [
+          "area",
           "name",
           "description",
           "default",
@@ -2843,6 +2847,63 @@
           },
           "secretRef": {
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Feature": {
+        "properties": {
+          "area": {
+            "type": "string"
+          },
+          "covers": {
+            "type": "string"
+          },
+          "docs": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "area",
+          "name",
+          "tier",
+          "enabled",
+          "covers",
+          "docs"
+        ],
+        "type": "object"
+      },
+      "FeatureChange": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object"
@@ -6917,6 +6978,10 @@
           "contract": "webHandler(): SPA assets and fallback; API authentication is independent",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -6937,6 +7002,10 @@
         "x-apptown-access": {
           "contract": "a.handleOAuthServerMetadata: OAuth public authorization-server discovery",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "mcp",
+          "tier": "beta"
         },
         "x-apptown-stability": "experimental"
       }
@@ -6959,6 +7028,10 @@
           "contract": "a.handleOAuthProtectedResource: OAuth public resource discovery",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "mcp",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -6980,6 +7053,10 @@
           "contract": "missingAPI: unknown API path response",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7000,6 +7077,10 @@
         "x-apptown-access": {
           "contract": "accounts.CreateOwnToken",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7032,6 +7113,10 @@
           "contract": "accounts.RevokeOwnToken",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7060,6 +7145,10 @@
           "contract": "activity.Activity",
           "kind": "filtered"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7080,6 +7169,10 @@
         "x-apptown-access": {
           "contract": "adrs.ADRLibrary",
           "kind": "filtered"
+        },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7112,6 +7205,10 @@
           "contract": "adrs.GetADR",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "patch": {
@@ -7141,6 +7238,10 @@
           "capability": "change:attach-evidence",
           "kind": "capability",
           "scope": "adr"
+        },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7174,6 +7275,10 @@
           "kind": "capability",
           "scope": "adr"
         },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7205,6 +7310,10 @@
           "contract": "runs.GetArtifact",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7225,6 +7334,10 @@
         "x-apptown-access": {
           "contract": "projectAttachments.ListAttachables: shared integration capability catalogue",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7254,6 +7367,10 @@
           "contract": "attention.Read",
           "kind": "filtered"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -7277,6 +7394,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7299,6 +7420,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "put": {
@@ -7319,6 +7444,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7336,6 +7465,10 @@
         "x-apptown-access": {
           "contract": "a.handleAuthBootstrap: credential verification",
           "kind": "protocol"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7357,6 +7490,10 @@
         "x-apptown-access": {
           "contract": "accounts.ListDelegations",
           "kind": "filtered"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7388,6 +7525,10 @@
         "x-apptown-access": {
           "contract": "accounts.RevokeDelegation",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7426,6 +7567,10 @@
           "contract": "external.Bindings",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       },
@@ -7462,6 +7607,10 @@
         "x-apptown-access": {
           "contract": "external.Bind",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -7502,6 +7651,10 @@
           "contract": "external.Revoke",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -7534,6 +7687,10 @@
           "contract": "a.handleExternalUnlink",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7551,6 +7708,10 @@
         "x-apptown-access": {
           "contract": "a.handleExternalCallback: one-use external authentication evidence",
           "kind": "protocol"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7590,6 +7751,10 @@
           "contract": "external.Enabled",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -7619,6 +7784,10 @@
           "capability": "identity:manage-users",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -7657,6 +7826,10 @@
           "contract": "external.Save",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -7675,6 +7848,10 @@
         "x-apptown-access": {
           "contract": "a.handleExternalStart: browser-bound external authentication",
           "kind": "protocol"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7707,6 +7884,10 @@
           "contract": "external.Test",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -7726,6 +7907,10 @@
           "contract": "invites.ShowInvite: the invite token in the body is the credential",
           "kind": "protocol"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7743,6 +7928,10 @@
         "x-apptown-access": {
           "contract": "invites.AcceptInvite: the invite token in the body is the credential",
           "kind": "protocol"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7762,6 +7951,10 @@
           "contract": "a.handleAuthLogin: credential verification",
           "kind": "protocol"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7779,6 +7972,10 @@
         "x-apptown-access": {
           "contract": "a.handleAuthLogout: credential verification",
           "kind": "protocol"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7801,6 +7998,10 @@
           "contract": "a.handleAuthMe: current authentication self-view",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7821,6 +8022,10 @@
         "x-apptown-access": {
           "contract": "authorization.AuthzExplain",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7844,6 +8049,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -7862,6 +8071,10 @@
         "x-apptown-access": {
           "contract": "authorization.AuthzGrant",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7894,6 +8107,10 @@
           "contract": "authorization.AuthzRevoke",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7915,6 +8132,10 @@
           "contract": "authorization.AuthzMe: current caller capability self-view",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -7935,6 +8156,10 @@
         "x-apptown-access": {
           "contract": "authorization.AuthzRoles: compiled stock role and capability catalogue, no grants",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -7958,6 +8183,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "backups",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "put": {
@@ -7977,6 +8206,10 @@
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "backups",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8000,6 +8233,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "backups",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -8020,6 +8257,10 @@
         "x-apptown-access": {
           "contract": "catalogChanges.CatalogList: shared published change templates",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8053,6 +8294,10 @@
           "contract": "catalogChanges.CatalogApply",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -8084,6 +8329,10 @@
         "x-apptown-access": {
           "contract": "catalogChanges.CatalogGet: shared change-template definition",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8124,6 +8373,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       },
@@ -8154,6 +8407,10 @@
           "capability": "change:update-brief",
           "kind": "capability",
           "scope": "change"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8187,6 +8444,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -8219,6 +8480,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -8248,6 +8513,10 @@
           "capability": "change:attach-evidence",
           "kind": "capability",
           "scope": "change"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8289,6 +8558,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "get": {
@@ -8327,6 +8600,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -8358,6 +8635,10 @@
           "capability": "change:run-checks",
           "kind": "capability",
           "scope": "change"
+        },
+        "x-apptown-feature": {
+          "area": "landing",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8391,6 +8672,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -8422,6 +8707,10 @@
           "capability": "change:write-narrative",
           "kind": "capability",
           "scope": "change"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8462,6 +8751,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "landing",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -8495,6 +8788,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "previews",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -8524,6 +8821,10 @@
           "capability": "change:preview",
           "kind": "capability",
           "scope": "change"
+        },
+        "x-apptown-feature": {
+          "area": "previews",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8556,6 +8857,10 @@
           "capability": "change:preview",
           "kind": "capability",
           "scope": "change"
+        },
+        "x-apptown-feature": {
+          "area": "previews",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8596,6 +8901,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -8629,6 +8938,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -8661,6 +8974,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -8692,6 +9009,10 @@
           "capability": "evidence:read",
           "kind": "capability",
           "scope": "change"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8741,6 +9062,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -8772,6 +9097,10 @@
           "capability": "change:read",
           "kind": "capability",
           "scope": "change"
+        },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8813,6 +9142,10 @@
           "kind": "capability",
           "scope": "change"
         },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -8834,6 +9167,10 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "complaints",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       },
@@ -8871,6 +9208,10 @@
           "contract": "complaintIntake.Complain: complaint intake with its existing optional scope validation",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "complaints",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -8891,6 +9232,10 @@
         ],
         "x-apptown-access": {
           "kind": "administrator"
+        },
+        "x-apptown-feature": {
+          "area": "complaints",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8914,6 +9259,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "complaints",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -8934,6 +9283,10 @@
         "x-apptown-access": {
           "contract": "complaints.ComplaintSteering: shared complaint submission instructions",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "complaints",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -8965,6 +9318,10 @@
         "x-apptown-access": {
           "kind": "administrator"
         },
+        "x-apptown-feature": {
+          "area": "complaints",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -8994,6 +9351,10 @@
         ],
         "x-apptown-access": {
           "kind": "administrator"
+        },
+        "x-apptown-feature": {
+          "area": "complaints",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9025,6 +9386,10 @@
         "x-apptown-access": {
           "kind": "administrator"
         },
+        "x-apptown-feature": {
+          "area": "complaints",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9045,6 +9410,10 @@
         "x-apptown-access": {
           "contract": "configuration.ConfigSchema: shared contract schema",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9067,6 +9436,10 @@
           "contract": "configuration.ConfigValidate: validate caller-supplied configuration without persisting it",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9087,6 +9460,10 @@
         "x-apptown-access": {
           "contract": "conformance.Conformance",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "conformance-estate",
+          "tier": "beta"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9119,6 +9496,10 @@
           "kind": "member",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "conformance",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9150,6 +9531,10 @@
           "kind": "member",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "conformance",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9170,6 +9555,10 @@
         "x-apptown-access": {
           "contract": "remediationChanges.OpenRemediation",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "conformance",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9193,6 +9582,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "conformance",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -9212,6 +9605,10 @@
           "capability": "conformance:remediate",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "conformance",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9244,6 +9641,10 @@
           "capability": "conformance:read",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "conformance",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9293,6 +9694,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "conformance",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9333,6 +9738,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "conformance",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9352,6 +9761,10 @@
         ],
         "x-apptown-access": {
           "kind": "administrator"
+        },
+        "x-apptown-feature": {
+          "area": "conformance",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9373,6 +9786,10 @@
         "x-apptown-access": {
           "contract": "conformance.ListReviews",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "conformance",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9405,6 +9822,10 @@
           "contract": "conformance.ReviewDetail",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "conformance",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9436,6 +9857,10 @@
           "contract": "conformance.ConfirmVerdict",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "conformance",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9457,6 +9882,10 @@
           "contract": "conformance.LatestWhatIf: conformance read",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "what-ifs",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -9475,6 +9904,10 @@
         "x-apptown-access": {
           "contract": "conformance.BeginWhatIf: the authority of a fleet review",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "what-ifs",
+          "tier": "beta"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9507,6 +9940,10 @@
           "contract": "conformance.WhatIf: conformance read",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "what-ifs",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9527,6 +9964,10 @@
         "x-apptown-access": {
           "contract": "conformance.RecentWhatIfs: conformance read",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "what-ifs",
+          "tier": "beta"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9562,6 +10003,10 @@
           "kind": "capability",
           "scope": "console-session"
         },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9593,6 +10038,10 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "console-session"
+        },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9628,6 +10077,10 @@
           "kind": "capability",
           "scope": "console-session"
         },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9660,6 +10113,10 @@
           "chat": true,
           "kind": "capability",
           "scope": "console-session"
+        },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9694,6 +10151,10 @@
           "kind": "capability",
           "scope": "console-session"
         },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9725,6 +10186,10 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "console-session"
+        },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9759,6 +10224,10 @@
           "kind": "capability",
           "scope": "console-session"
         },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9790,6 +10259,10 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "console-session"
+        },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9823,6 +10296,10 @@
           "chat": true,
           "kind": "capability",
           "scope": "console-session"
+        },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9858,6 +10335,10 @@
           "kind": "capability",
           "scope": "console-session"
         },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9891,6 +10372,10 @@
           "decidedBy": "conversation.Chats.Act: change:invoke-lane on the chat's project, by a person or this chat only, refused in the chat's own words",
           "kind": "capability",
           "scope": "console-session"
+        },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9932,6 +10417,10 @@
           "kind": "capability",
           "scope": "console-session"
         },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -9952,6 +10441,10 @@
         "x-apptown-access": {
           "contract": "dashboard.Dashboard",
           "kind": "filtered"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -9974,6 +10467,10 @@
           "contract": "dependencies.ListDependencies: shared dependency catalogue",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -9993,6 +10490,10 @@
           "capability": "integration:manage-dependency-kinds",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10022,6 +10523,10 @@
           "contract": "deployments.ConfirmAllFeeds",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -10043,6 +10548,10 @@
         "x-apptown-access": {
           "contract": "configuration.DevCompose: render caller-supplied local compose configuration",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10076,6 +10585,10 @@
           "kind": "capability",
           "scope": "disposition"
         },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -10096,6 +10609,10 @@
         "x-apptown-access": {
           "contract": "docs.ListDocs: shared AppTown documentation",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10128,6 +10645,10 @@
           "contract": "docs.GuideDoc: shared AppTown documentation",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -10148,6 +10669,10 @@
         "x-apptown-access": {
           "contract": "browserErrors.BrowserErrors: shared browser diagnostic configuration",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10170,6 +10695,10 @@
           "contract": "evals.List: standards:read-evals",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "evals",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -10188,6 +10717,10 @@
         "x-apptown-access": {
           "contract": "evals.Start: standards:manage-packs and project:read on every source project",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "evals",
+          "tier": "beta"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10209,6 +10742,10 @@
         "x-apptown-access": {
           "contract": "evals.StartForm: standards:manage-packs",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "evals",
+          "tier": "beta"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10241,6 +10778,10 @@
           "contract": "evals.Delete: an administrator, or the starter still a standards manager",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "evals",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       },
       "get": {
@@ -10269,6 +10810,10 @@
         "x-apptown-access": {
           "contract": "evals.Scorecard: standards:read-evals",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "evals",
+          "tier": "beta"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10309,6 +10854,10 @@
           "contract": "evals.ArmDiff: standards:read-evals and project:read on the source project, the arm found within its eval",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "evals",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -10340,6 +10889,10 @@
           "contract": "evals.Continue: the starter, still a standards manager",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "evals",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -10369,7 +10922,99 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "worker",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/features": {
+      "get": {
+        "operationId": "getFeatures",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Feature"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "features"
+        ],
+        "x-apptown-access": {
+          "contract": "features.List: area names and current switches, no secrets",
+          "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/features/{area}": {
+      "put": {
+        "operationId": "putFeaturesArea",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "area",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeatureChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Feature"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "features"
+        ],
+        "x-apptown-access": {
+          "kind": "administrator"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/groups": {
@@ -10391,6 +11036,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -10410,6 +11059,10 @@
           "capability": "identity:manage-groups",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10442,6 +11095,10 @@
           "capability": "identity:manage-groups",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10483,6 +11140,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -10521,6 +11182,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -10542,6 +11207,10 @@
           "contract": "guidanceBlocks.ListBlocks: shared guidance library",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -10561,6 +11230,10 @@
           "capability": "standards:manage-guidance",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10593,6 +11266,10 @@
           "contract": "guidanceBlocks.GetBlock: shared guidance definition",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "patch": {
@@ -10623,6 +11300,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -10643,6 +11324,10 @@
         "x-apptown-access": {
           "contract": "guidance.GeneratedGuidance",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10666,6 +11351,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -10687,6 +11376,10 @@
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "usage",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10720,6 +11413,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -10741,6 +11438,10 @@
           "capability": "instance:updates",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "updates",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10764,6 +11465,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "updates",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -10786,6 +11491,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -10805,6 +11514,10 @@
           "capability": "integration:manage-connectors",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10827,6 +11540,10 @@
           "contract": "connectors.ConnectorCatalog: shared connector catalogue",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -10848,6 +11565,10 @@
           "capability": "models:manage-bindings",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "models",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10888,6 +11609,10 @@
           "contract": "integrationDocuments.IntegrationDocs: shared connector usage documentation",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -10909,6 +11634,10 @@
           "capability": "integration:manage-connectors",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10942,6 +11671,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -10973,6 +11706,10 @@
           "capability": "integration:manage-connectors",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11006,6 +11743,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -11028,6 +11769,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -11047,6 +11792,10 @@
           "capability": "identity:manage-users",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11080,6 +11829,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -11102,6 +11855,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -11123,6 +11880,10 @@
           "contract": "a.handleMe: current verified caller self-view",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -11143,6 +11904,10 @@
         "x-apptown-access": {
           "contract": "modelDiscovery.ModelCatalog: shared credential-free model catalogue",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "models",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11166,6 +11931,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "models",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "put": {
@@ -11185,6 +11954,10 @@
           "capability": "models:manage-slots",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "models",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11206,6 +11979,10 @@
         "x-apptown-access": {
           "contract": "apiDescription.Serve: the build's shipped API description, the same for every caller",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11245,6 +12022,10 @@
           "contract": "operations.Get",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -11277,6 +12058,10 @@
           "contract": "operations.Cancel",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -11307,6 +12092,10 @@
         "x-apptown-access": {
           "contract": "operations.Dismiss",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11339,6 +12128,10 @@
           "contract": "packs.Packs: shared published pack library",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       },
@@ -11360,6 +12153,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -11380,6 +12177,10 @@
         "x-apptown-access": {
           "contract": "packAssistance.PackInterview: authenticated pack-selection assistance",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11413,6 +12214,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "get": {
@@ -11441,6 +12246,10 @@
         "x-apptown-access": {
           "contract": "packs.PackHistory: a pack's declaration, versions and recommendation, like the shared pack library",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11474,6 +12283,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -11506,6 +12319,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -11527,6 +12344,10 @@
           "capability": "identity:manage-users",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11560,6 +12381,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -11581,6 +12406,10 @@
           "contract": "policyLibrary.PolicyLibrary",
           "kind": "filtered"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -11600,6 +12429,10 @@
           "capability": "standards:manage-policies",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11633,6 +12466,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -11664,6 +12501,10 @@
           "contract": "policyLibrary.PolicyUsage",
           "kind": "filtered"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -11683,6 +12524,10 @@
         ],
         "x-apptown-access": {
           "kind": "administrator"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11713,6 +12558,10 @@
         ],
         "x-apptown-access": {
           "kind": "administrator"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11754,6 +12603,10 @@
           "contract": "creation.CreationTargets",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -11793,6 +12646,10 @@
           "contract": "projectViews.ListProjects",
           "kind": "filtered"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       },
@@ -11830,6 +12687,10 @@
           "contract": "creation.Create",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -11862,6 +12723,10 @@
           "contract": "projectlifecycle.Request",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "get": {
@@ -11892,6 +12757,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "patch": {
@@ -11919,6 +12788,10 @@
         ],
         "x-apptown-access": {
           "kind": "administrator"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11952,6 +12825,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -11983,6 +12860,10 @@
           "capability": "project:select-way-of-working",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12016,6 +12897,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -12047,6 +12932,10 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12080,6 +12969,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -12109,6 +13002,10 @@
           "capability": "change:attach-evidence",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12141,6 +13038,10 @@
           "capability": "project:configure",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12181,6 +13082,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -12213,6 +13118,10 @@
           "capability": "change:list",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -12261,6 +13170,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -12294,6 +13207,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -12324,6 +13241,10 @@
           "chat": true,
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12357,6 +13278,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -12387,6 +13312,10 @@
         "x-apptown-access": {
           "contract": "projectlifecycle.Cancel",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12429,6 +13358,10 @@
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -12477,6 +13410,10 @@
           "contract": "deployments.CreateDeployment",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -12516,6 +13453,10 @@
           "contract": "deployments.DeploymentAddress",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "put": {
@@ -12552,6 +13493,10 @@
         "x-apptown-access": {
           "contract": "deployments.EditDeploymentAddress",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12592,6 +13537,10 @@
           "contract": "deployments.EditDeploymentLabel",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -12630,6 +13579,10 @@
         "x-apptown-access": {
           "contract": "deployments.DeleteDeployment",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12671,6 +13624,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -12710,6 +13667,10 @@
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "backups",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       },
@@ -12759,6 +13720,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "backups",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -12807,6 +13772,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "backups",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -12846,6 +13815,10 @@
           "capability": "deployment:operate",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12903,6 +13876,10 @@
           "contract": "deployments.ConfirmFeed",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -12943,6 +13920,10 @@
           "capability": "deployment:deploy",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "backups",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -13000,6 +13981,10 @@
           "contract": "deployments.DeployDeployment",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -13040,6 +14025,10 @@
           "contract": "deployments.DeploymentDiagnostics",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -13079,6 +14068,10 @@
           "capability": "deployment:restore",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "backups",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -13136,6 +14129,10 @@
           "contract": "deployments.SetFeed",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -13175,6 +14172,10 @@
         "x-apptown-access": {
           "contract": "deployments.DeploymentLog",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -13216,6 +14217,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -13256,6 +14261,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "restore-rehearsals",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -13295,6 +14304,10 @@
           "contract": "deployments.ClearResourceOverride",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "get": {
@@ -13332,6 +14345,10 @@
           "contract": "deployments.DeploymentResources",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "put": {
@@ -13368,6 +14385,10 @@
         "x-apptown-access": {
           "contract": "deployments.SetResourceOverride",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -13409,6 +14430,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -13448,6 +14473,10 @@
           "capability": "deployment:restore",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "restore-rehearsals",
+          "tier": "beta"
         },
         "x-apptown-stability": "experimental"
       }
@@ -13489,6 +14518,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -13529,6 +14562,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -13561,6 +14598,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -13590,6 +14631,10 @@
           "capability": "exception:approve",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -13623,6 +14668,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -13654,6 +14703,10 @@
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "backups",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -13687,6 +14740,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -13719,6 +14776,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "put": {
@@ -13748,6 +14809,10 @@
           "capability": "project:configure-guidance",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -13781,6 +14846,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -13813,6 +14882,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -13842,6 +14915,10 @@
           "capability": "project:configure-integrations",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -13883,6 +14960,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -13922,6 +15003,10 @@
           "capability": "project:configure-integrations",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -13963,6 +15048,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -13994,6 +15083,10 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14027,6 +15120,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -14059,6 +15156,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -14088,6 +15189,10 @@
           "capability": "project:manage-members",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14121,6 +15226,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "models",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "put": {
@@ -14150,6 +15259,10 @@
           "capability": "project:configure-model-profile",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "models",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14182,6 +15295,10 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14232,6 +15349,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -14265,6 +15386,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -14296,6 +15421,10 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14329,6 +15458,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -14358,6 +15491,10 @@
           "capability": "project:select-way-of-working",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14389,6 +15526,10 @@
         "x-apptown-access": {
           "contract": "projectlifecycle.PurgeNow",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14438,6 +15579,10 @@
           "contract": "deployment.RequestDefaultRelease",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "releases",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -14470,6 +15615,10 @@
           "capability": "release:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "releases",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14509,6 +15658,10 @@
           "contract": "deployments.ReleaseDefault",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "releases",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       },
@@ -14538,6 +15691,10 @@
         "x-apptown-access": {
           "contract": "deployments.SetReleaseDefault",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "releases",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14578,6 +15735,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "releases",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -14610,6 +15771,10 @@
           "capability": "release:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "releases",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14657,6 +15822,10 @@
           "capability": "release:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "releases",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -14715,6 +15884,10 @@
           "contract": "deployment.ApproveRelease",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "releases",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -14762,6 +15935,10 @@
           "contract": "deployment.CancelRelease",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "releases",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -14802,6 +15979,10 @@
           "capability": "deployment:operate",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "previews",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14852,6 +16033,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -14884,6 +16069,10 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -14937,6 +16126,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -14987,6 +16180,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -15017,6 +16214,10 @@
         ],
         "x-apptown-access": {
           "kind": "administrator"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -15049,6 +16250,10 @@
           "capability": "project:configure-integrations",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -15097,6 +16302,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -15128,6 +16337,10 @@
         "x-apptown-access": {
           "contract": "projectlifecycle.Restore",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -15169,6 +16382,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "restore-rehearsals",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -15200,6 +16417,10 @@
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -15240,6 +16461,10 @@
           "contract": "retention.SettleRetained",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -15271,6 +16496,10 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -15310,6 +16539,10 @@
           "capability": "secret:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -15351,6 +16584,10 @@
           "capability": "secret:bind",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -15400,6 +16637,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "put": {
@@ -15445,6 +16686,10 @@
           "capability": "secret:bind",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -15494,6 +16739,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -15539,6 +16788,10 @@
         ],
         "x-apptown-access": {
           "kind": "administrator"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -15588,6 +16841,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -15620,6 +16877,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -15649,6 +16910,10 @@
           "capability": "project:configure-services",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -15688,6 +16953,10 @@
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -15739,6 +17008,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -15771,6 +17044,10 @@
           "capability": "evidence:read",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -15820,6 +17097,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -15852,6 +17133,10 @@
           "kind": "capability",
           "scope": "project-slug"
         },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -15873,6 +17158,10 @@
           "capability": "deployment:read",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -15911,6 +17200,10 @@
         "x-apptown-access": {
           "contract": "routinePublications.Classify",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -15951,6 +17244,10 @@
           "contract": "routinePublications.Preview",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "record",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -15989,6 +17286,10 @@
         "x-apptown-access": {
           "contract": "routinePublications.Revoke",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -16040,6 +17341,10 @@
           "contract": "routinePublications.History",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -16062,6 +17367,10 @@
           "contract": "runs.ListRuns",
           "kind": "filtered"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -16083,6 +17392,10 @@
           "capability": "run:read",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -16123,6 +17436,10 @@
           "kind": "capability",
           "scope": "run"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -16156,6 +17473,10 @@
           "kind": "capability",
           "scope": "run"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -16187,6 +17508,10 @@
           "capability": "run:operate",
           "kind": "capability",
           "scope": "run"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -16220,6 +17545,10 @@
           "kind": "capability",
           "scope": "run"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -16251,6 +17580,10 @@
           "capability": "run:read",
           "kind": "capability",
           "scope": "run"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -16284,6 +17617,10 @@
           "kind": "capability",
           "scope": "run"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -16315,6 +17652,10 @@
           "capability": "change:land",
           "kind": "capability",
           "scope": "run"
+        },
+        "x-apptown-feature": {
+          "area": "landing",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -16364,6 +17705,10 @@
           "kind": "capability",
           "scope": "run"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -16396,6 +17741,10 @@
           "kind": "capability",
           "scope": "run"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -16427,6 +17776,10 @@
           "capability": "evidence:read",
           "kind": "capability",
           "scope": "run"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -16469,6 +17822,10 @@
           "kind": "capability",
           "scope": "run"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -16497,6 +17854,10 @@
           "contract": "scmRemotes.SCMNamespaces: shared SCM namespace discovery",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -16519,6 +17880,10 @@
           "capability": "project:read",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -16550,6 +17915,10 @@
         "x-apptown-access": {
           "kind": "administrator"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "put": {
@@ -16578,6 +17947,10 @@
         "x-apptown-access": {
           "kind": "administrator"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -16599,6 +17972,10 @@
           "contract": "serviceKinds.ListServiceKinds: shared service-kind catalogue",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -16618,6 +17995,10 @@
           "capability": "integration:manage-service-kinds",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -16651,6 +18032,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -16679,6 +18064,10 @@
           "contract": "setupStatus.Setup: shared setup readiness projection",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -16701,6 +18090,10 @@
           "capability": "models:manage-bindings",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "models",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -16742,6 +18135,10 @@
           "contract": "standingApprovals.List",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       },
@@ -16778,6 +18175,10 @@
         "x-apptown-access": {
           "contract": "standingApprovals.Enable",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -16817,6 +18218,10 @@
         "x-apptown-access": {
           "contract": "standingApprovals.Preview",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "landing",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -16867,6 +18272,10 @@
           "contract": "standingApprovals.Assess",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -16916,6 +18325,10 @@
           "contract": "standingApprovals.Disable",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -16958,6 +18371,10 @@
           "contract": "standingApprovals.History",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -16990,6 +18407,10 @@
           "capability": "run:read",
           "kind": "capability",
           "scope": "step"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17040,6 +18461,10 @@
           "kind": "capability",
           "scope": "step"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -17073,6 +18498,10 @@
           "kind": "capability",
           "scope": "step"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -17104,6 +18533,10 @@
           "capability": "change:invoke-lane",
           "kind": "capability",
           "scope": "step"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17137,6 +18570,10 @@
           "kind": "capability",
           "scope": "step"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -17168,6 +18605,10 @@
           "capability": "change:override",
           "kind": "capability",
           "scope": "step"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17208,6 +18649,10 @@
           "kind": "capability",
           "scope": "step"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
       }
@@ -17241,6 +18686,10 @@
           "kind": "capability",
           "scope": "step"
         },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -17262,6 +18711,10 @@
           "contract": "systemWorkflows.SystemWorkflows: shared system workflow declarations",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "put": {
@@ -17281,6 +18734,10 @@
           "capability": "execution:manage-workflows",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17304,6 +18761,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -17323,6 +18784,10 @@
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17354,6 +18819,10 @@
         "x-apptown-access": {
           "contract": "targets.EditTargetLabel",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17387,6 +18856,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "patch": {
@@ -17416,6 +18889,10 @@
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17449,6 +18926,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -17481,6 +18962,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -17512,6 +18997,10 @@
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17553,6 +19042,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -17585,6 +19078,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -17605,6 +19102,10 @@
         "x-apptown-access": {
           "contract": "tiers.Tiers",
           "kind": "filtered"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17627,6 +19128,10 @@
           "contract": "tiers.Departures",
           "kind": "filtered"
         },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -17647,6 +19152,10 @@
         "x-apptown-access": {
           "contract": "timing.Timing",
           "kind": "filtered"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17669,6 +19178,10 @@
           "contract": "accounts.ListTokens",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -17687,6 +19200,10 @@
         "x-apptown-access": {
           "contract": "accounts.CreateToken",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17719,6 +19236,10 @@
           "contract": "accounts.RevokeToken",
           "kind": "owner"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -17739,6 +19260,10 @@
         "x-apptown-access": {
           "contract": "usage.Usage",
           "kind": "filtered"
+        },
+        "x-apptown-feature": {
+          "area": "usage",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17762,6 +19287,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -17781,6 +19310,10 @@
           "capability": "identity:manage-users",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17814,6 +19347,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "people",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -17836,6 +19373,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "worker",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "put": {
@@ -17853,6 +19394,10 @@
         ],
         "x-apptown-access": {
           "kind": "administrator"
+        },
+        "x-apptown-feature": {
+          "area": "worker",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17875,6 +19420,10 @@
           "contract": "workflowCatalog.LibraryList: shared published workflow library",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -17894,6 +19443,10 @@
           "capability": "execution:manage-workflows",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17927,6 +19480,10 @@
           "kind": "capability",
           "scope": "instance"
         },
+        "x-apptown-feature": {
+          "area": "ways",
+          "tier": "standard"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -17947,6 +19504,10 @@
         "x-apptown-access": {
           "contract": "workflowCatalog.WorkflowSchema: shared workflow format schema",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -17969,6 +19530,10 @@
           "contract": "workflowCatalog.ValidateWorkflow: validate caller-supplied workflow without publication",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -17990,6 +19555,10 @@
           "contract": "fleet.Fleet",
           "kind": "filtered"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -18007,6 +19576,10 @@
         "x-apptown-access": {
           "contract": "dataProtection.RedeemGateTicket: credential verification (a restored copy's gate secret)",
           "kind": "protocol"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -18045,6 +19618,10 @@
           "contract": "a.handleGitHTTP: credential verification",
           "kind": "protocol"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -18066,6 +19643,10 @@
           "contract": "httpapi.Health: up or down for a load balancer, nothing else",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -18083,6 +19664,10 @@
         "x-apptown-access": {
           "contract": "a.serveMCP: credential verification",
           "kind": "protocol"
+        },
+        "x-apptown-feature": {
+          "area": "mcp",
+          "tier": "beta"
         },
         "x-apptown-stability": "experimental"
       }
@@ -18102,6 +19687,10 @@
           "contract": "a.handleOAuthAuthorize: credential verification",
           "kind": "protocol"
         },
+        "x-apptown-feature": {
+          "area": "mcp",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       },
       "post": {
@@ -18117,6 +19706,10 @@
         "x-apptown-access": {
           "contract": "a.handleOAuthAuthorize: credential verification",
           "kind": "protocol"
+        },
+        "x-apptown-feature": {
+          "area": "mcp",
+          "tier": "beta"
         },
         "x-apptown-stability": "experimental"
       }
@@ -18139,6 +19732,10 @@
           "contract": "handleOAuthLoginScript: fixed login page script",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "mcp",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -18160,6 +19757,10 @@
           "contract": "a.handleOAuthRegister: OAuth dynamic public-client registration",
           "kind": "public"
         },
+        "x-apptown-feature": {
+          "area": "mcp",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -18178,6 +19779,10 @@
           "contract": "a.handleOAuthRevoke: credential verification",
           "kind": "protocol"
         },
+        "x-apptown-feature": {
+          "area": "mcp",
+          "tier": "beta"
+        },
         "x-apptown-stability": "experimental"
       }
     },
@@ -18195,6 +19800,10 @@
         "x-apptown-access": {
           "contract": "a.handleOAuthToken: credential verification",
           "kind": "protocol"
+        },
+        "x-apptown-feature": {
+          "area": "mcp",
+          "tier": "beta"
         },
         "x-apptown-stability": "experimental"
       }
@@ -18216,6 +19825,10 @@
         "x-apptown-access": {
           "contract": "certificateNames.ask: a TLS proxy on this machine asks whether a name may have a certificate; answers loopback callers only, names bounded by AppTown's records; outside /api/ so no sign-in mode stands in front of it, as /healthz",
           "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }

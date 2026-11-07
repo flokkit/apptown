@@ -35,6 +35,7 @@ var sections = []section{
 			"  (--json on new, fix, quick, plan, build, land, show, changes, wait, approve, release, rollback, complain and\n" +
 			"   version prints one JSON document and never follows or asks; stock/docs/guides/cli-json.md)",
 		commands: []command{
+			{[]string{"features"}, `  features [list|on <area>|off <area>]   list areas or change an instance switch (admin)`, cmdFeatures},
 			{[]string{"new"}, `  new <slug> [--name N] [--pack P,Q,...] [--toolchain T] [--remote]
                                         create project: repo + toolchain + remote + pack
   new <slug> --from <https-url|bundle> [--secret-for-git NAME] [--branch B]

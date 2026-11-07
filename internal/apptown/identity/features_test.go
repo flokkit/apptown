@@ -1,0 +1,69 @@
+package identity
+
+import (
+	"context"
+	"strings"
+	"testing"
+
+	"github.com/flokkit/apptown/internal/dbtest"
+)
+
+// Guarantee: defaults, live administrator authority, concurrent editor protection
+// and atomic receipts are the same for every caller of instance settings.
+func TestFeatureChoicesRequireAnAdministratorAndKeepTheirReceipt(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := New(testDB(t), Config{})
+	if err := s.SeedAdministrator(ctx, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.EnsureUser(ctx, "reader"); err != nil {
+		t.Fatal(err)
+	}
+	boss := admittedPrincipal(t, s, "boss")
+	features, err := s.Features(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range features {
+		if f.Enabled != (f.Tier != "beta") {
+			t.Fatalf("wrong new-install default: %+v", f)
+		}
+	}
+	if err := s.RequireFeature(ctx, "evals"); err == nil || !strings.Contains(err.Error(), "is turned off; an administrator can turn it on in Features") {
+		t.Fatalf("beta admitted: %v", err)
+	}
+	if _, err := s.SetFeature(ctx, admittedPrincipal(t, s, "reader"), "evals", false, true); err == nil {
+		t.Fatal("member changed a feature")
+	}
+	if _, err := s.SetFeature(ctx, boss, "projects", true, false); err == nil {
+		t.Fatal("core disabled")
+	}
+	if _, err := s.SetFeature(ctx, boss, "evals", false, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequireFeature(ctx, "evals"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SetFeature(ctx, boss, "evals", false, false); err == nil {
+		t.Fatal("stale editor overwrote a choice")
+	}
+	receipts := ledger(t, s.db, "feature.changed")
+	if len(receipts) != 1 || receipts[0].Actor != "boss" || receipts[0].Subject != "evals" {
+		t.Fatalf("receipts: %+v", receipts)
+	}
+	restore := dbtest.NextStatementFailure(s.db, "INSERT INTO audit_log")
+	if _, err := s.SetFeature(ctx, boss, "evals", true, false); err == nil {
+		t.Fatal("receipt failure was ignored")
+	}
+	restore()
+	if err := s.RequireFeature(ctx, "evals"); err != nil {
+		t.Fatalf("receipt failure changed the setting: %v", err)
+	}
+	if _, err := s.SetFeature(ctx, boss, "evals", true, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequireFeature(ctx, "evals"); err == nil {
+		t.Fatal("off choice did not refuse access")
+	}
+}

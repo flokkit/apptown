@@ -381,6 +381,7 @@ func buildEvalWorld(t *testing.T, changes int, ledger func(*database.DB) spend) 
 	if err := accounts.SeedAdministrator(context.Background(), "root"); err != nil {
 		t.Fatal(err)
 	}
+	setEvalFeature(t, accounts, true)
 	for _, who := range []string{"alice", "carol"} {
 		if _, err := accounts.EnsureUser(context.Background(), who); err != nil {
 			t.Fatal(err)
@@ -1393,6 +1394,7 @@ func TestFinishedEvalRetiresEveryArmCacheAndRetriesRefusals(t *testing.T) {
 		}
 		return nil
 	}
+	setEvalFeature(t, w.ids, false) // Existing arms still settle and retire their caches.
 	w.spend.set(usage.Totals{CostMicros: 5_000_000})
 	if err := w.service.pass(t.Context()); err != nil {
 		t.Fatal(err)
@@ -1407,5 +1409,46 @@ func TestFinishedEvalRetiresEveryArmCacheAndRetriesRefusals(t *testing.T) {
 	}
 	if !slices.Equal(removed, want) || w.eval(t, e.ID).State != stateFinished {
 		t.Fatalf("not retired: %v", removed)
+	}
+}
+
+func setEvalFeature(t *testing.T, accounts *identity.Service, enabled bool) {
+	t.Helper()
+	users, err := accounts.Users(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pr := access.Principal{Kind: "user", Name: "root", Via: "session"}
+	for _, u := range users {
+		if u.Username == "root" {
+			pr.ID = u.PrincipalID
+		}
+	}
+	f, err := accounts.FeatureState(t.Context(), "evals")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := accounts.SetFeature(t.Context(), pr, "evals", f.Enabled, enabled); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOffEvalsPassStartsNoArms(t *testing.T) {
+	t.Parallel()
+	w := newEvalWorld(t, 2)
+	e := w.start(t, "alice")
+	setEvalFeature(t, w.ids, false)
+	if _, err := w.service.RunPassJob(t.Context(), "scheduled", nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := w.eval(t, e.ID); countArms(got, armQueued) != 4 || len(w.work.started) != 0 {
+		t.Fatalf("off eval started arms: %+v, starts %+v", got.Arms, w.work.started)
+	}
+	setEvalFeature(t, w.ids, true)
+	if _, err := w.service.RunPassJob(t.Context(), "scheduled", nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.work.started) != maxRunning {
+		t.Fatalf("enabled starts: %v", w.work.started)
 	}
 }

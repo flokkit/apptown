@@ -1,3 +1,4 @@
+import { useFeature } from '../../features'
 import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -31,6 +32,7 @@ export function heldLabels(view: ChangeView): string[] {
   ]
 }
 export function HeldDecision({ view, onChange, resultShown = false }: { view: ChangeView; onChange: () => void; resultShown?: boolean }) {
+  const enabled = useFeature()
   const advice = useFailureAdvice(view)
   const [technical] = useTechnicalDetail()
   const [note, setNote] = useState(view.detail ? recoveryNote(view.detail) : '')
@@ -55,7 +57,7 @@ export function HeldDecision({ view, onChange, resultShown = false }: { view: Ch
   return <>
     {adviceText && <div><small>{PRODUCT}'s summary</small><p>{adviceText}</p></div>}
     {next.recovery && !resultShown && <><p>{next.headline}</p>{next.sentence && <p className="ch-review-text">{next.sentence}</p>}<TechnicalWords shown={technical}>{next.step?.name}</TechnicalWords></>}
-    <DecisionChoices showConversation={!resultShown} note={note} setNote={setNote} busy={busy} accept={accept} highlight={['send-back', 'rework'].includes(advice.recommend) && heldLabels(view).includes('Send back…') ? 'rework' : undefined}
+    <DecisionChoices showConversation={!resultShown && (!agent || enabled('chats'))} note={note} setNote={setNote} busy={busy} accept={accept} highlight={['send-back', 'rework'].includes(advice.recommend) && heldLabels(view).includes('Send back…') ? 'rework' : undefined}
       conversation={{ href: `/changes/${view.change.id}?tab=conversation`, ...(agent ? { run: takeToChat } : { run: () => nav(`/changes/${view.change.id}?tab=conversation`) }) }}
       rework={heldLabels(view).includes('Send back…') ? { label: 'Send back…', run: () => run(() => post(offered(view.next, 'send-back') ? `/changes/${view.change.id}/sendback` : `/steps/${agent!.stepId}/run`, offered(view.next, 'send-back') ? { note } : { feedback: note })) } : undefined}
       abandon={offered(view.next, 'abandon') ? { label: 'Abandon change', run: () => run(() => post(`/changes/${view.change.id}/abandon`, {})) } : undefined} />

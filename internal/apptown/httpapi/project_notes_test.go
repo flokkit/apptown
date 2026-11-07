@@ -20,6 +20,13 @@ func TestProjectNotesReadMainAndChangeShowsProposedLines(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	f := newWorkflowHTTPFixtureAt(t, dir)
+	who, err := identity.ActorIn(f.Context, f.DB, "bls")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Access.SetFeature(f.Context, access.Principal{Kind: "user", Name: "bls", ID: who.Principal, Via: "session"}, "memory", false, true); err != nil {
+		t.Fatal(err)
+	}
 	p, err := f.Projects.BySlug(f.Context, "shop")
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +58,7 @@ func TestProjectNotesReadMainAndChangeShowsProposedLines(t *testing.T) {
 		r := httptest.NewRequest("GET", "/", nil).WithContext(f.Context)
 		r.SetPathValue("slug", "shop")
 		w := httptest.NewRecorder()
-		NewProjectOverview(f.Projects, f.Work, dir).ProjectOverview(w, r)
+		NewProjectOverview(f.Projects, f.Work, dir, f.Access).ProjectOverview(w, r)
 		var got ProjectOverviewView
 		if w.Code != 200 {
 			t.Fatalf("overview: %d %s", w.Code, w.Body.String())

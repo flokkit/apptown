@@ -1,3 +1,4 @@
+import { FeatureGate } from '../features'
 import { PRODUCT } from '../brand'
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -144,7 +145,7 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
       <fieldset disabled={busy} className="new-project-fieldset">
       <StepChips step={d.step} />
       {d.step === 1 && <NameStep d={d} act={act} />}
-      {d.step === 2 && <WayOfWorkingStep d={d} act={act} />}
+      {d.step === 2 && <FeatureGate area="ways"><WayOfWorkingStep d={d} act={act} /></FeatureGate>}
       {d.step === 3 && (
         <RepositoryStep d={d} act={act} busy={busy} onCreate={create}>
           {progress.length > 0 && (

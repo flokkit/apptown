@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -19,6 +20,15 @@ func (h Connectors) EditConnectionLabel(w http.ResponseWriter, r *http.Request) 
 	id, err := pathID(r, "id")
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid connection identity")
+		return
+	}
+	binding, err := h.integrations.Bindings.ByID(r.Context(), id)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	if err := h.access.RequireFeature(r.Context(), integration.FeatureArea(binding.Capability, binding.Provider)); err != nil {
+		WriteFault(w, err)
 		return
 	}
 	jsonCommand(w, r, jsonBody{strict: true}, func(in displayLabelRequest) {

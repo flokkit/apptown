@@ -62,7 +62,7 @@ never an error, listed on the change), are promised with the shapes.
 
 **The command line's core loop.** The command names and their arguments for
 `new`, `fix`, `quick`, `plan`, `build`, `land`, `show`, `changes`, `wait`,
-`approve`, `deployment`, `release`, `rollback`, `complain`, `executing` and `version`, and their exit codes:
+`approve`, `deployment`, `release`, `rollback`, `complain`, `executing`, `features` and `version`, and their exit codes:
 
 | Command | Exit codes |
 | --- | --- |

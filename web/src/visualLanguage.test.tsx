@@ -1,3 +1,4 @@
+import { withFeatures } from './features.fixture'
 // @vitest-environment jsdom
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -27,7 +28,7 @@ async function mount(node: ReactNode, path = '/projects/app') {
 }
 
 it('offers the ordinary change form only with project creation authority and a current reading', async () => {
-  vi.stubGlobal('fetch', vi.fn(async () => new Response('[]')))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response('[]'))))
   const p = { slug: 'app', name: 'Library', hasDeployments: false, canChange: true } as ProjectRow
   const el = await mount(<><ProjectListRow project={p} /><ProjectListRow project={{ ...p, canChange: false }} /><ProjectListRow project={p} refreshFailed /></>)
   const buttons = [...el.querySelectorAll<HTMLButtonElement>('.project-action button')]
@@ -39,11 +40,11 @@ it('offers the ordinary change form only with project creation authority and a c
 
 it.each([false, true])('omits unavailable project destinations (Chat ready: %s)', async ready => {
   const calls: string[] = []
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
     calls.push(`${init?.method || 'GET'} ${url}`)
     return new Response(JSON.stringify(url.includes('/authz/me') ? { instance: {}, project: { 'change:create': true, 'change:invoke-lane': true } }
       : init?.method === 'POST' ? { change: { id: 'change-one' } } : { name: 'Library', chatAvailable: ready }))
-  }))
+  })))
   const el = await mount(<SidebarNav />)
   expect(el.textContent).not.toContain('Janitor')
   expect(el.querySelector('a[href$="/janitor"]')).toBeNull()
@@ -55,7 +56,7 @@ it.each([false, true])('omits unavailable project destinations (Chat ready: %s)'
 
 it('leads pack rows with the name and one purpose line, and says nothing about the normal case', async () => {
   const description = 'Shared rules for teams with an existing app. A longer explanation follows.'
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([{ name: 'conventions-only', description, origin: 'stock', version: 2, requires: [], declaration: { guidance: [], workflows: [], policies: [] } }]))))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response(JSON.stringify([{ name: 'conventions-only', description, origin: 'stock', version: 2, requires: [], declaration: { guidance: [], workflows: [], policies: [] } }])))))
   const el = await mount(<Packs />, '/packs')
   expect(el.querySelector('.list-identity')?.firstElementChild?.textContent).toBe('conventions-only')
   expect(el.querySelector('.list-identity')?.textContent).toContain('Shared rules for teams with an existing app.')
@@ -80,7 +81,7 @@ it('marks both overflowing tab edges as the person scrolls', async () => {
 
 it('keeps workflow purpose and suitability visible before maintenance', async () => {
   const description = 'Review an ordinary change. For teams that approve their work.'
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.includes('system-workflows') ? { bindings: [], candidates: [] } : [{ name: 'stock/review', description, tier: 'core', latestVersion: 2, usedBy: [], stages: [], yaml: 'name: stock/review', origin: 'stock' }]))))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(url.includes('system-workflows') ? { bindings: [], candidates: [] } : [{ name: 'stock/review', description, tier: 'core', latestVersion: 2, usedBy: [], stages: [], yaml: 'name: stock/review', origin: 'stock' }])))))
   const el = await mount(<WorkflowLibrary />, '/workflows')
   // The name leads, with its purpose under it; the rest of the description
   // and the copy action wait until the row is opened or its ⋯ menu.
@@ -95,7 +96,7 @@ it('keeps workflow purpose and suitability visible before maintenance', async ()
 
 
 it('distinguishes the project overview, changes and deployments with their icons', async () => {
-  vi.stubGlobal('fetch', vi.fn(async () => new Response('{}')))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response('{}'))))
   const el = await mount(<SidebarNav />)
   expect(el.querySelector('a[href="/projects/app"] svg')?.classList.contains('lucide-layout-dashboard')).toBe(true)
   expect(el.querySelector('a[href="/projects/app/changes"] svg')?.classList.contains('lucide-git-pull-request')).toBe(true)

@@ -41,7 +41,7 @@ func TestInfrastructurePagesOnlyReadBackgroundEvidence(t *testing.T) {
 		t.Helper()
 		before := f.Snapshot().ListRequests
 		queued := len(operationJobs(t, a, "inventory"))
-		response := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure"+query, "", nil)
+		response := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.Access, a.inventory, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure"+query, "", nil)
 		if response.Code != 200 {
 			t.Fatal(response.Body.String())
 		}
@@ -338,7 +338,7 @@ func TestInfrastructureScheduleChecksAllTargetsWithoutReaders(t *testing.T) {
 		}
 		found := false
 		for _, row := range operationJobs(t, a, integration.HealthObservationJob) {
-			if row.Key == b.HealthObservationKey() && row.State == "available" {
+			if row.Key == fmt.Sprintf("%s/%d", b.Name, b.Version) && row.State == "available" {
 				found = true
 			}
 		}

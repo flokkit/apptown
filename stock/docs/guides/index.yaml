@@ -9,6 +9,7 @@ groups:
   - title: Start here
     guides:
       - quickstart
+      - features
       - what-apptown-is-for
   - title: Building on AppTown
     guides:

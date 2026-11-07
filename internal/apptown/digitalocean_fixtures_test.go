@@ -48,6 +48,7 @@ func doWorld(t *testing.T) (*App, *digitalOceanWorld, *project.Project, *deploym
 		return "sha256:" + strings.Repeat("a", 64), nil
 	}
 	a := testApp(t, Config{DockerClient: newFakeDocker(), DigitalOcean: options})
+	setTestFeature(t, a, "app-platform", true)
 	a.SyncStockDependencies(context.Background())
 
 	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("DIGITALOCEAN_ACCESS_TOKEN=dop_v1_test\n"), 0o600); err != nil {
