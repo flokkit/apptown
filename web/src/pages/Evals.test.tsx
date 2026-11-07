@@ -323,3 +323,24 @@ describe('the side-by-side scorecard', () => {
     }
   })
 })
+
+it('deletes an eval only after in-page confirmation, with a cancellation path', async () => {
+  const calls: string[] = []
+  vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+    if (init?.method === 'DELETE') calls.push(_url)
+    return new Response(JSON.stringify(scorecard))
+  }))
+  const r = await render(`/evals/${EVAL}`, <EvalScorecardPage />, '/evals/:id')
+  const button = (text: string) => [...r.el.querySelectorAll('button')].find(b => b.textContent === text)!
+  try {
+    await r.settle(() => !!button('Delete this eval'))
+    await act(async () => button('Delete this eval').click())
+    expect(r.el.textContent).toContain('Its arms stop and its copies are deleted')
+    expect(calls).toEqual([])
+    await act(async () => button('Cancel').click())
+    expect(calls).toEqual([])
+    await act(async () => button('Delete this eval').click())
+    await act(async () => button('Delete eval').click())
+    expect(calls).toEqual([`/api/v1/evals/${EVAL}`])
+  } finally { r.done(); vi.unstubAllGlobals() }
+})

@@ -26,6 +26,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
@@ -409,8 +410,28 @@ func recordJourneyWorkflows(t *testing.T, a *App, slug string, names ...string) 
 // everything else for real: run, gates, auto-landing, merge, deploy,
 // container, HTTP.
 func TestJourneyKidStory(t *testing.T) {
-	h := newJourney(t)
-	slug := fmt.Sprintf("kid-%d", os.Getpid())
+	kidStory(t, newJourney(t), fmt.Sprintf("kid-%d", os.Getpid()), true)
+}
+
+// Each switch is tested independently against real creation, agent work,
+// acceptance, landing and a deployment serving HTTP. Serial cases bound the
+// real containers and image builds on the shared Docker host.
+func TestJourneyCoreFlowsWithEachSwitchOff(t *testing.T) {
+	for _, f := range identity.FeatureCatalogue() {
+		if f.Tier == "always" {
+			continue
+		}
+		t.Run(f.Area, func(t *testing.T) {
+			h := newJourney(t)
+			h.mustCall("PUT", "/features/"+f.Area, map[string]bool{"expected": f.Enabled, "enabled": false}, nil)
+			// The wizard reads these before creating the project.
+			h.mustCall("GET", "/packs", nil, nil)
+			kidStory(t, h, "off-"+f.Area, false)
+		})
+	}
+}
+
+func kidStory(t *testing.T, h *jHarness, slug string, chosenReleases bool) {
 	h.newProject(slug, journeyQuickChange)
 	h.followMain(slug)
 	h.removeMainAppAtCleanup(slug)
@@ -501,6 +522,10 @@ func TestJourneyKidStory(t *testing.T) {
 		b, _ := io.ReadAll(res.Body)
 		return res.StatusCode == 200 && strings.Contains(string(b), "the cat is blue")
 	})
+
+	if !chosenReleases {
+		return
+	}
 
 	// A chosen earlier release uses this deployment's release door, including
 	// on follows-main. Both requests settle through the worker and the second

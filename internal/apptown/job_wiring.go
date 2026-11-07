@@ -292,10 +292,6 @@ func optionalObservationArea(kind string) string {
 	switch kind {
 	case workerObservationJob:
 		return "worker"
-	case preview.ObservationJob:
-		return "previews"
-	case diskObservationJob:
-		return "usage"
 	case dataprotection.StoreObservationJob, dataprotection.ProtectionObservationJob:
 		return "backups"
 	}

@@ -13,6 +13,9 @@ export default tseslint.config(
     files: ['src/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: {
+      'no-restricted-globals': ['error', 'prompt', 'confirm', 'alert'],
+      'no-restricted-properties': ['error', ...['window', 'globalThis', 'self'].flatMap(object =>
+        ['prompt', 'confirm', 'alert'].map(property => ({ object, property, message: 'Use an in-page form, QuietConfirm, or inline error.' })))],
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
       'react-hooks/static-components': 'error',

@@ -1,3 +1,4 @@
+import { QuietConfirm } from '../QuietConfirm'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
@@ -206,11 +207,9 @@ export function EvalScorecardPage() {
           ))}
           <ComplaintsByAbout complaints={e.complaints} arms={e.arms} />
           <div className="mt-4">
-            <button className="subtle" disabled={busy} onClick={() => {
-              if (window.confirm(`Delete eval ${e.number}? Its arms stop and its copies are deleted; what it cost and what was said in it are kept.`)) {
-                run(async () => { await del(`/evals/${e.id}`); nav('/evals') })
-              }
-            }}>Delete this eval</button>
+            <QuietConfirm label="Delete this eval" yes="Delete eval" no="Cancel" disabled={busy}
+              ask={`Delete eval ${e.number}? Its arms stop and its copies are deleted; what it cost and what was said in it are kept.`}
+              onYes={() => run(async () => { await del(`/evals/${e.id}`); nav('/evals') })} />
             <span className="muted small evals-aside">its starter, while managing packs, or an administrator</span>
           </div>
         </>

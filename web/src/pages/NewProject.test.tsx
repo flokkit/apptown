@@ -12,9 +12,9 @@ import NewProject from './NewProject'
 
 type Call = { method: string; path: string; body: unknown }
 
-function stubAppTown(admin: boolean) {
+function stubAppTown(admin: boolean, featuresUnavailable = false) {
   const calls: Call[] = []
-  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
+  const fetch = withFeatures(async (url: string, init?: RequestInit) => {
     const path = url.replace(/^\/api\/v1/, '')
     const method = init?.method ?? 'GET'
     calls.push({ method, path, body: init?.body })
@@ -31,7 +31,8 @@ function stubAppTown(admin: boolean) {
     if (path === '/projects/moved/secrets') return json({ declared: true, secrets: [{ name: 'STRIPE_KEY' }, { name: 'SESSION_SECRET', generate: true }] })
     if (path === '/projects/moved/manifest') return json({ project: { slug: 'moved' } })
     return new Response(JSON.stringify({ error: 'no route ' + path }), { status: 404 })
-  })))
+  })
+  vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => featuresUnavailable && url.endsWith('/features') ? Promise.resolve(new Response('{}', { status: 503 })) : fetch(url, init)))
   return calls
 }
 
@@ -503,4 +504,12 @@ describe('new project deployment choice', () => {
     expect(saved.draft.target).toBe(target)
     act(() => root.unmount())
   })
+})
+
+// Project creation cannot depend on availability settings for a core area.
+it('lets a person choose a way of working without reading feature switches', async () => {
+  stubAppTown(false, true)
+  const { el, root } = await mount()
+  try { await toStep3(el); expect(el.textContent).toContain('Where does the code live?') }
+  finally { act(() => root.unmount()); el.remove(); sessionStorage.clear() }
 })

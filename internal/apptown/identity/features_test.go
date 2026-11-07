@@ -67,3 +67,25 @@ func TestFeatureChoicesRequireAnAdministratorAndKeepTheirReceipt(t *testing.T) {
 		t.Fatal("off choice did not refuse access")
 	}
 }
+
+// Core areas cannot be disabled through any caller's settings API.
+func TestCoreWorkingAreasAreAlwaysOn(t *testing.T) {
+	t.Parallel()
+	s := New(testDB(t), Config{})
+	if err := s.SeedAdministrator(t.Context(), "boss"); err != nil {
+		t.Fatal(err)
+	}
+	boss := admittedPrincipal(t, s, "boss")
+	for _, area := range []string{"ways", "previews", "complaints", "usage"} {
+		f, err := s.FeatureState(t.Context(), area)
+		if err != nil || f.Tier != "always" || !f.Enabled {
+			t.Fatalf("%s: %+v %v", area, f, err)
+		}
+		if _, err := s.SetFeature(t.Context(), boss, area, true, false); err == nil {
+			t.Errorf("disabled %s", area)
+		}
+		if err := s.RequireFeature(t.Context(), area); err != nil {
+			t.Errorf("%s: %v", area, err)
+		}
+	}
+}

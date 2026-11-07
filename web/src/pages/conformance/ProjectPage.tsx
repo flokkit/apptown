@@ -1,3 +1,4 @@
+import { QuietPrompt } from '../../QuietConfirm'
 import './ProjectPage.css'
 import { Fragment } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -13,7 +14,7 @@ import { Section } from '../../Section'
 
 function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, onRecheck, onDecision, covered }: {
   covered?: ConformanceView['openRemediations'][number]; v: Verdict; def?: CheckDefinition; exceptions: Disposition[]; adj?: Adjudication; prior?: PriorConfirmation; readOnly: boolean
-  onConfirm?: (v: Verdict) => void; onFix?: (v: Verdict) => void; onRecheck?: () => void; onDecision?: (v: Verdict) => void
+  onConfirm?: (v: Verdict, note: string) => unknown; onFix?: (v: Verdict) => void; onRecheck?: () => void; onDecision?: (v: Verdict, reason: string) => unknown
 }) {
   const lane = laneOf(v)
   const undecidedAI = v.evaluator === 'llm' && (lane === 'broken' || lane === 'unassessed')
@@ -32,7 +33,10 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
         {covered && <BeingFixed change={covered} />}
         {!readOnly && undecidedAI && <div className="row project-page-check-row-div-2">
           <button onClick={onRecheck}>Re-check</button>
-          {!decision && <button onClick={() => onDecision?.(v)}>Record a decision</button>}
+          {!decision && <QuietPrompt label="Accept risk" yes="Accept risk"
+            ask={<>Accept the risk that {def?.title || v.check} may not be met for {v.block} version {v.version} on this project. This decision covers this check version, until revoked. An undecided result stays undecided.</>}
+            fields={[{ key: 'reason', label: 'Reason for accepting this risk', placeholder: 'Reason (required)', required: true }]}
+            onYes={({ reason }) => onDecision?.(v, reason.trim())} />}
         </div>}
       </div>
       {(
@@ -43,7 +47,10 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
             {undecidedAI && decision && <p className="small">Recorded decision: {decision.status === 'accepted' ? 'accepted risk' : 'false positive'} — {decision.justification} · {decision.by}. This check remains undecided.</p>}
             {!readOnly && (lane === 'findings' || lane === 'flagged') && (
               <div className="row mt-3 project-page-check-row-div-2">
-                {lane === 'flagged' && onConfirm && <button onClick={() => onConfirm(v)}>Confirm finding</button>}
+                {lane === 'flagged' && onConfirm && <QuietPrompt label="Confirm finding" yes="Confirm finding"
+                  ask="Confirm this possible problem is a real finding."
+                  fields={[{ key: 'note', label: 'Finding note (optional)', placeholder: 'Note (optional)' }]}
+                  onYes={({ note }) => onConfirm(v, note)} />}
                 {onFix && !covered && <button className={lane === 'findings' ? 'primary' : ''} onClick={() => onFix(v)}>Open a change to fix</button>}
                 <span className="muted small">{covered ? '' : lane === 'flagged' ? 'A possible problem counts as a finding only after a person confirms it.' : 'Opens a change with this check as its acceptance test.'}</span>
               </div>
@@ -92,7 +99,7 @@ const bySev = (a: Verdict, b: Verdict) => (['high', 'medium', 'low', 'note'].ind
 function LaneSection({ lane, title, hint, groups, view, exceptions, readOnly, onConfirm, onFix, onRecheck, onDecision }: {
   lane: keyof Lanes; title: string; hint?: string
   groups: Record<keyof Lanes, Verdict[]>; view: ConformanceView; exceptions: Disposition[]; readOnly: boolean
-  onConfirm: (v: Verdict) => void; onFix: (v: Verdict) => void; onRecheck: () => void; onDecision: (v: Verdict) => void
+  onConfirm: (v: Verdict, note: string) => unknown; onFix: (v: Verdict) => void; onRecheck: () => void; onDecision: (v: Verdict, reason: string) => unknown
 }) {
   const list = [...groups[lane]].sort(bySev)
   if (list.length === 0) return null
@@ -123,23 +130,21 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
   const groups: Record<keyof Lanes, Verdict[]> = { findings: [], flagged: [], broken: [], excepted: [], unassessed: [], na: [], conforms: [] }
   for (const v of vs) groups[laneOf(v)].push(v)
 
-  const confirm = async (v: Verdict) => {
-    const note = window.prompt('Confirm this possible problem is a real finding. A short note (optional):', '') ?? null
-    if (note === null) return
-    await run(() => post(`/conformance/verdicts/${v.id}/confirm`, { note }))
+  const confirm = async (v: Verdict, note: string) => {
+    const saved = await run(async () => { await post(`/conformance/verdicts/${v.id}/confirm`, { note }); return true })
+    if (!saved) throw new Error('The finding could not be confirmed. Your note is kept here; try again.')
   }
   const fix = async (v: Verdict) => {
     const r = await run(() => post<RemediationOpened>('/conformance/remediate', { project: slug, block: v.block, version: v.version, check: v.check, reviewId: v.reviewId, detail: v.detail }))
     if (r) nav(`/changes/${r.change.id}`)
   }
 
-  const recordDecision = async (v: Verdict) => {
-    const justification = window.prompt(`Accept the risk that ${v.check} may not be met for ${v.block} version ${v.version}. This decision covers this check version until revoked. An undecided result stays undecided. Reason:`, '')
-    if (!justification?.trim()) return
-    await run(() => post(`/projects/${slug}/dispositions`, { fingerprint: `guidance|${v.block}@${v.version}|${v.check}|`, status: 'accepted', justification }))
+  const recordDecision = async (v: Verdict, justification: string) => {
+    const saved = await run(async () => { await post(`/projects/${slug}/dispositions`, { fingerprint: `guidance|${v.block}@${v.version}|${v.check}|`, status: 'accepted', justification }); return true })
+    if (!saved) throw new Error('The risk acceptance could not be saved. Your reason is kept here; try again.')
   }
   const fixable = fixableFindings(view, vs)
-  const sectionProps = { groups, view, exceptions, readOnly: readOnly || busy, onConfirm: confirm, onFix: fix, onRecheck: () => onRunOne(slug), onDecision: recordDecision }
+  const sectionProps = { groups, view, exceptions, readOnly, onConfirm: confirm, onFix: fix, onRecheck: () => onRunOne(slug), onDecision: recordDecision }
 
   return (
     <div>

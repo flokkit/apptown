@@ -394,9 +394,6 @@ func requireRequestFeatures(a *App, r *http.Request, route routeSpec) error {
 	if err := requireRouteFeature(a, r.Context(), area); err != nil {
 		return err
 	}
-	if route.pattern == "POST /api/v1/console/{sid}/preview" {
-		return a.Access.RequireFeature(r.Context(), "previews")
-	}
 	if strings.Contains(route.pattern, "/targets/{id}") {
 		id, err := ids.Parse(r.PathValue("id"))
 		if err != nil {

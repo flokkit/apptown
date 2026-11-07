@@ -1,3 +1,4 @@
+import { QuietPrompt } from '../../QuietConfirm'
 import './RemediationPage.css'
 import { Status } from '../../Status'
 import { Link } from 'react-router-dom'
@@ -24,6 +25,10 @@ export function RemediationPage({ id }: { id: string }) {
   const data = q.data
   const { run, busy, err } = useAction()
   const act = (path: string, body?: unknown) => run(() => post(path, body ?? {}))
+  const record = async (path: string, body: unknown) => {
+    const saved = await run(async () => { await post(path, body); return true })
+    if (!saved) throw new Error('The action could not be saved. Your words are kept here; try again.')
+  }
   if (!data) return <ReadStatus q={q} what="the remediation" className="small" />
   const m = data.remediation
   const byProject: Record<string, Item[]> = {}
@@ -65,8 +70,14 @@ export function RemediationPage({ id }: { id: string }) {
                     {it.doing && <span className="muted small">· on {it.doing}</span>}
                   </span>
                   <span className="row remediation-page-span">
-                    {it.state === 'stuck' && <button disabled={busy} onClick={() => { const n = window.prompt('Retry with a note for the agent (optional):', ''); if (n !== null) act(`/conformance/remediations/${m.id}/items/${it.id}/retry`, { note: n }) }}>Retry</button>}
-                    {(it.state === 'stuck' || it.state === 'queued') && <button className="subtle" disabled={busy} onClick={() => { const r = window.prompt('Skip it · why?', ''); if (r) act(`/conformance/remediations/${m.id}/items/${it.id}/skip`, { reason: r }) }}>Skip</button>}
+                    {it.state === 'stuck' && <QuietPrompt label="Retry" yes="Retry" disabled={busy}
+                      ask={`Retry ${it.check} on ${slug}. Add a note for the agent if needed.`}
+                      fields={[{ key: 'note', label: 'Retry note (optional)', placeholder: 'Note (optional)' }]}
+                      onYes={({ note }) => record(`/conformance/remediations/${m.id}/items/${it.id}/retry`, { note })} />}
+                    {(it.state === 'stuck' || it.state === 'queued') && <QuietPrompt label="Skip" yes="Skip" disabled={busy}
+                      ask={`Skip ${it.check} on ${slug}. Why should this item be skipped?`}
+                      fields={[{ key: 'reason', label: 'Reason for skipping', placeholder: 'Reason (required)', required: true }]}
+                      onYes={({ reason }) => record(`/conformance/remediations/${m.id}/items/${it.id}/skip`, { reason: reason.trim() })} />}
                   </span>
                 </div>
                 <ItemReason item={it} />

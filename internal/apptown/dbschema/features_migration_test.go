@@ -54,3 +54,34 @@ func TestFeatureMigrationPreservesConfiguredBetaAreas(t *testing.T) {
 		t.Fatalf("unused beta enabled: %d %v", unused, err)
 	}
 }
+
+// Explicit off choices and missing choices both become stored on choices.
+func TestCoreWorkingAreasMigrationEnablesEveryInstallation(t *testing.T) {
+	t.Parallel()
+	db := releaseDB(t)
+	index := 0
+	for index < len(migrations) && migrations[index].n < 220 {
+		index++
+	}
+	if _, err := applyMigrations(t.Context(), db, migrations[:index]); err != nil {
+		t.Fatal(err)
+	}
+	// Historical off choices cannot be produced by the current owner API.
+	if _, err := db.SQL().ExecContext(t.Context(), `INSERT INTO instance_settings(key,value) VALUES ('feature.ways','false'),('feature.previews','false'),('feature.usage','false'),('feature.evals','false') ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := applyMigrations(t.Context(), db, migrations); err != nil {
+		t.Fatal(err)
+	}
+	for _, area := range []string{"ways", "previews", "complaints", "usage", "evals"} {
+		var value string
+		err := db.SQL().QueryRowContext(t.Context(), `SELECT value FROM instance_settings WHERE key=$1`, "feature."+area).Scan(&value)
+		want := "true"
+		if area == "evals" {
+			want = "false"
+		}
+		if err != nil || value != want {
+			t.Errorf("%s: got %q, want %q: %v", area, value, want, err)
+		}
+	}
+}
