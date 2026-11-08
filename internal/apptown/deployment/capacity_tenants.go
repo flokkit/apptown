@@ -8,7 +8,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/diskspace"
-	"github.com/flokkit/apptown/internal/hostmem"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -168,31 +167,6 @@ func tenantsOf(limits []docker.ContainerLimit, used map[string]docker.Usage, use
 		return out[i].Used.Value > out[j].Used.Value
 	})
 	return out
-}
-
-// hostUse reads this host's own memory, for the built-in target only and
-// only when apptownd's /proc/meminfo and the daemon report the same memory
-// total. apptownd's figures are then taken as the daemon machine's: an
-// AppTown in a container reads the kernel's figures (unless they are
-// virtualised, when the totals differ), and Docker Desktop's VM has a total
-// of its own. A remote daemon whose machine has the same total as
-// apptownd's is not told apart. Otherwise unknown with the reason.
-func (s *Service) hostUse(t *Target, daemonTotal int64) Figure {
-	if t.Origin != OriginBuiltIn {
-		return unknown("the host's own use is not read on an attached host in 1.0")
-	}
-	read := s.hostMemory
-	if read == nil {
-		read = hostmem.Read
-	}
-	m, err := read()
-	if err != nil {
-		return unknownErr(err)
-	}
-	if m.TotalBytes != daemonTotal {
-		return unknown(fmt.Sprintf("this AppTown sees %d bytes of memory and the daemon %d", m.TotalBytes, daemonTotal))
-	}
-	return known(float64(m.UsedBytes()))
 }
 
 // dockerTenants is who holds a Docker host, from the readings capacity

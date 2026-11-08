@@ -420,15 +420,15 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 		t.Errorf("the disk's folder, time and floor: %+v", c.Disk)
 	}
 	// Who holds it, from the same readings: the two env containers no
-	// record here names, and the two AppTown did not start; an attached
-	// host's own use is not read.
+	// record here names, and the two AppTown did not start. The host's own
+	// use includes processes outside those containers.
 	if o, u := tenantNamed(c.Tenants, "other containers"), tenantNamed(c.Tenants, "AppTown containers not on record"); o == nil || u == nil ||
 		o.Containers != 2 || o.Promised.Value != 256<<20 || o.Unlimited != 1 || o.Used.Value != 21<<20 ||
 		u.Containers != 2 || u.Promised.Value != 512<<20 || u.Used.Value != 130<<20 {
 		t.Errorf("tenants: %+v", c.Tenants)
 	}
-	if m.HostUsed != nil {
-		t.Errorf("an attached host's own use: %+v", m.HostUsed)
+	if m.HostUsed == nil || !m.HostUsed.Known || m.HostUsed.Value != 2<<30 || cpu.HostUsed == nil || !cpu.HostUsed.Known || cpu.HostUsed.Value != 3.2 {
+		t.Errorf("the attached host's own use: memory %+v, CPU %+v", m.HostUsed, cpu.HostUsed)
 	}
 
 	// Page reads reuse the last background sample; they never execute df.

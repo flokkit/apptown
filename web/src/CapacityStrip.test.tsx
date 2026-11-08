@@ -55,3 +55,15 @@ it("prefers the host's own use and then names no basis", () => {
   expect(memory).toMatchObject({ used: 80 })
   expect(memory.basis).toBeUndefined()
 })
+
+
+it('shows whole-host memory and CPU figures on the target strips', () => {
+  const known = (value: number) => ({ known: true, value })
+  const c = { cpu: { total: known(1), hostUsed: known(0.4) }, memory: { total: known(2072321720), hostUsed: known(1600000000), inUse: { apptown: known(100), other: known(200) } } } as TargetCapacity
+  const [cpu, memory] = targetCapacityReadings(c)
+  expect(cpu.used).toBe(0.4)
+  expect(cpu.total).toBe(1)
+  expect(memory.used).toBe(1600000000)
+  expect(memory.total).toBe(2072321720)
+  for (const r of [cpu, memory]) expect(renderToStaticMarkup(<CapacityStrip name={r.label} used={r.used} total={r.total} format={r.format} />)).not.toContain('unknown')
+})

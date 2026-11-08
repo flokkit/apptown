@@ -8,7 +8,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/diskspace"
-	"github.com/flokkit/apptown/internal/hostmem"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -140,34 +139,6 @@ func TestATenantsUseIsUnknownWhenAnyOfItIsUnread(t *testing.T) {
 	}
 }
 
-// The host's own use is known only on the built-in host, and only when
-// apptownd and the daemon see the same memory total. Unequal totals (a
-// virtualised view, Docker Desktop's VM), an attached host and an
-// unreadable /proc each leave it unknown with the reason.
-//
-// Kills: host use with unequal totals; host use on an attached host.
-func TestTheHostsOwnUseIsKnownOnlyWhereTheTotalsAgree(t *testing.T) {
-	t.Parallel()
-	s := &Service{}
-	s.hostMemory = func() (hostmem.Memory, error) {
-		return hostmem.Memory{TotalBytes: 8 << 30, AvailableBytes: 5 << 30}, nil
-	}
-	builtin := &Target{Origin: OriginBuiltIn}
-	if host := s.hostUse(builtin, 8<<30); !host.Known || host.Value != 3<<30 {
-		t.Errorf("equal totals: %+v", host)
-	}
-	if host := s.hostUse(builtin, 16<<30); host.Known || !strings.Contains(host.Reason, "bytes of memory") {
-		t.Errorf("unequal totals: %+v", host)
-	}
-	if host := s.hostUse(&Target{Origin: OriginAttached}, 8<<30); host.Known {
-		t.Errorf("attached host: %+v", host)
-	}
-	s.hostMemory = func() (hostmem.Memory, error) { return hostmem.Memory{}, errors.New("no /proc/meminfo") }
-	if host := s.hostUse(builtin, 8<<30); host.Known {
-		t.Errorf("unreadable: %+v", host)
-	}
-}
-
 // apptownd's own memory is counted once wherever it runs (CV-C01): no tenant
 // adds it, so on the host it is part of the host's own use and in a
 // container it is that container's. AppTown's tenant is its own containers.
@@ -185,20 +156,6 @@ func TestApptowndsMemoryIsCountedOnceWhereverItRuns(t *testing.T) {
 	}
 	if f := tenantNamed(ts, "AppTown"); f == nil || f.Used.Value != 100<<20 || sum != 500<<20 {
 		t.Errorf("apptownd counted twice or lost: %+v (sum %v)", ts, sum)
-	}
-}
-
-// The host memory reader a deployment service is given is the one its
-// capacity reads the built-in host's own use with.
-//
-// Kills: Dependencies.HostMemory not reaching the capacity reading.
-func TestTheGivenHostMemoryReaderIsTheOneCapacityUses(t *testing.T) {
-	t.Parallel()
-	s := New(t.Context(), testDB(t), Dependencies{HostMemory: func() (hostmem.Memory, error) {
-		return hostmem.Memory{TotalBytes: 8 << 30, AvailableBytes: 6 << 30}, nil
-	}})
-	if host := s.hostUse(&Target{Origin: OriginBuiltIn}, 8<<30); !host.Known || host.Value != 2<<30 {
-		t.Fatalf("host use: %+v", host)
 	}
 }
 

@@ -41,6 +41,10 @@ promises](compatibility.md)).
 
 ## System requirements
 
+A Docker host needs cgroup v2 for AppTown to read its whole-host CPU and memory
+use. This is the default on current Linux distributions and Docker Desktop.
+On cgroup v1, those readings are unknown.
+
 Measured with one agent at work:
 
 - AppTown itself uses about 1.9 GB of memory.

@@ -34,8 +34,8 @@ than inferring them from their text.
   advisory and do not protect release admission. A deployment-host disk condition
   uses only the disk’s known free and total figures and its own reading time.
   Failed memory or CPU checks leave capacity coverage unknown without adding
-  a disk condition. Optional figures that the host cannot supply are absent,
-  including whole-host memory use on attached Docker hosts. Coverage includes
+  a disk condition. Whole-host memory and CPU readings on Docker hosts are
+  unknown with a reason when the reader cannot supply them. Coverage includes
   a safe reason naming the failed check; provider errors remain on the owning
   resource's authorized detail view. Background disk checks run every five minutes. A failed check retains successful values. Live evidence is fresh for fifteen
   minutes and remains known for six hours; machine totals remain valid for seven

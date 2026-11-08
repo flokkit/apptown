@@ -374,12 +374,12 @@ func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Native installs may not see the daemon's machine (/proc is absent on
-	// macOS). That unsupported read is still a failed check, not a success.
-	wantOldItems := 0
+	// Every Docker host reads its kernel through the daemon, including when
+	// apptownd runs on macOS. A recovered reader clears failed coverage.
 	if recovered.Error != "" {
-		wantOldItems = 1
+		t.Fatalf("recovered host use is unknown: %s", recovered.Error)
 	}
+	wantOldItems := 0
 	a.cfg.clock.mu.Lock()
 	a.cfg.clock.ahead += 30 * time.Minute
 	a.cfg.clock.mu.Unlock()

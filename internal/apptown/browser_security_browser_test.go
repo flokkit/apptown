@@ -68,7 +68,6 @@ import (
 	testinputs "github.com/flokkit/apptown/internal/execution/executiontest"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
-	"github.com/flokkit/apptown/internal/hostmem"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/worker"
@@ -1092,6 +1091,9 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(dataDir) })
 	daemon, appPort, onHost, refuseRun := newSceneDocker(t, garage)
+	if garage {
+		daemon.disk.Kernel = func(string) (int, []byte, string) { return 1, nil, "the host's /proc could not be read" }
+	}
 	// The garage has its own host name: browsers share cookies across ports
 	// on one host, so a tour session would otherwise reach the garage.
 	host := "apptown.localhost"
@@ -1102,21 +1104,14 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 	if hold != "" {
 		publicHost = "http://" + publicHost
 	}
-	// The data folder and the host's memory read the same on every machine:
-	// roomy and readable in the tour, low and unreadable in the garage.
+	// The data folder reads the same on every machine: roomy in the tour
+	// and low in the garage. Host use comes from the fake daemon's reader.
 	dataDisk := func(string) (diskspace.Space, error) {
 		return diskspace.Space{TotalBytes: 500 << 30, FreeBytes: 312 << 30}, nil
-	}
-	hostMemory := func() (hostmem.Memory, error) {
-		// The fake daemon's total (dockerfake_test.go), so the two agree.
-		return hostmem.Memory{TotalBytes: 8 << 30, AvailableBytes: 6 << 30}, nil
 	}
 	if garage {
 		dataDisk = func(string) (diskspace.Space, error) {
 			return diskspace.Space{TotalBytes: 500 << 30, FreeBytes: 30 << 30}, nil
-		}
-		hostMemory = func() (hostmem.Memory, error) {
-			return hostmem.Memory{}, errors.New("the host's memory could not be read")
 		}
 	}
 	// The working preview waits before the fake host starts its container.
@@ -1137,8 +1132,8 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 	})
 	a, h := internalApp(t, Config{DataDir: dataDir, PublicHost: publicHost, TierDomains: []string{"preview=preview.localhost", fmt.Sprintf("main=http://apps.localhost:%d", appPort)},
 		DockerClient: client, ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t), AgentImage: tourAgentImage,
-		DataDiskSpace: dataDisk, HostMemory: hostMemory,
-		InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
+		DataDiskSpace: dataDisk,
+		InferenceURL:  "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
 	// The scene's two weeks end yesterday: AppTown's clock starts at
 	// midnight UTC fourteen days back, the scene moves it forward act by
 	// act, and it is set right before the camera comes.
@@ -3463,9 +3458,6 @@ func TestWebUICapture(t *testing.T) {
 		SSHConfigPath: filepath.Join(t.TempDir(), "ssh-config"),
 		TierDomains:   []string{"preview=preview.localhost", fmt.Sprintf("main=http://apps.localhost:%d", appPort)}, DockerClient: daemon,
 		DigitalOcean: digitalocean.Options{APIBase: cloudAPI.URL},
-		HostMemory: func() (hostmem.Memory, error) {
-			return hostmem.Memory{TotalBytes: 2072321720, AvailableBytes: 1 << 30}, nil
-		},
 		ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t), InferenceURL: "http://worker.test:7779",
 		InferenceNetworks: []string{"127.0.0.1/32"}})
 	y, m, d := a.cfg.clock.Now().UTC().Date()
@@ -3688,13 +3680,22 @@ app:
 		captureDeps = append(captureDeps, dep)
 		daemon.markStarted(docker.ByKey(dep.ID).App())
 	}
+	// The kernel reader and daemon describe the same 1.93 GiB, one-core VM.
+	kernelSamples := 0
+	daemon.disk.Kernel = func(script string) (int, []byte, string) {
+		if script == "cat /proc/meminfo" {
+			return 0, []byte("MemTotal: 2023751 kB\nMemAvailable: 1048576 kB\n"), ""
+		}
+		kernelSamples++
+		return 0, []byte(fmt.Sprintf("cpu %d 0 0 %d 0 0 0 0\ncpu0 0 0 0 0 0 0 0 0\n", kernelSamples*40, kernelSamples*60)), ""
+	}
 	sceneDockerCommand := daemon.command
 	daemon.command = func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
 		if host != "" {
 			return nil, deploy.Unreachable(errors.New("SSH connection refused by the local test transport"))
 		}
 		if len(req.Args) == 3 && req.Args[0] == "info" && strings.Contains(req.Args[2], "MemTotal") {
-			return []byte("2072321720\t1\t/var/lib/docker\n"), nil // 1.93 GiB host, independent of container usage.
+			return []byte("2072321024\t1\t/var/lib/docker\n"), nil // 1.93 GiB host, independent of container usage.
 		}
 		if len(req.Args) == 3 && req.Args[0] == "ps" && req.Args[2] == "--no-trunc" {
 			var names []string

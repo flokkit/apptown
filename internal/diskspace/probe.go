@@ -25,7 +25,31 @@ func ReadThroughDocker(ctx context.Context, dk docker, image, root string, now f
 		return Space{}, fmt.Errorf("no df image: the tool versions name it")
 	}
 	var space Space
-	_, err := containerresult.RunStanding(ctx, func(ctx context.Context, _ []string, args ...string) ([]byte, error) {
+	_, err := readStanding(ctx, dk, image, root, "df -Pk /d", now, func(answer []byte) error { var err error; space, err = parseDF(answer); return err })
+	return space, err
+}
+
+// ReadKernel reads host counters through the same standing reader as disk.
+// scope identifies a cgroup v2 slice, a whole-machine root, or unsupported v1.
+// Only the capacity files below are admitted; the data root and options keep
+// the reader's identity identical to disk's, so there is one per daemon.
+func ReadKernel(ctx context.Context, dk docker, image, root, file string, now func() time.Time) ([]byte, error) {
+	var script string
+	switch file {
+	case "scope":
+		script = "if [ -f /sys/fs/cgroup/memory.current ]; then echo cgroup; elif [ -f /sys/fs/cgroup/cgroup.controllers ]; then echo proc; else echo v1; fi"
+	case "meminfo", "stat":
+		script = "cat /proc/" + file
+	case "memory.current", "memory.stat", "memory.max", "cpu.stat":
+		script = "cat /sys/fs/cgroup/" + file
+	default:
+		return nil, fmt.Errorf("unsupported kernel reading %q", file)
+	}
+	return readStanding(ctx, dk, image, root, script, now, nil)
+}
+
+func readStanding(ctx context.Context, dk docker, image, root, script string, now func() time.Time, validate func([]byte) error) ([]byte, error) {
+	return containerresult.RunStanding(ctx, func(ctx context.Context, _ []string, args ...string) ([]byte, error) {
 		out, stderr, err := dk(ctx, args...)
 		if err != nil {
 			return []byte(out + stderr), err
@@ -35,12 +59,8 @@ func ReadThroughDocker(ctx context.Context, dk docker, image, root string, now f
 		}
 		return []byte(out), nil
 	}, ReaderClass, containerresult.Spec{
-		Image: image, Options: []string{"--network", "none", "-v", root + ":/d:ro"},
-		Script: "df -Pk /d", Now: now,
-		Validate: func(answer []byte) error { var err error; space, err = parseDF(answer); return err },
+		Image: image, Options: []string{"--network", "none", "--cgroupns", "host", "-v", root + ":/d:ro"},
+		Script: script, Now: now,
+		Validate: validate,
 	})
-	if err != nil {
-		return Space{}, err
-	}
-	return space, nil
 }
