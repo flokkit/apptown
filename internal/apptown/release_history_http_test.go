@@ -145,7 +145,7 @@ func TestReleaseTierObservesCurrentDeploymentInsteadOfReleaseHistory(t *testing.
 					case "unknown":
 						return "", errors.New("daemon unavailable"), true
 					default:
-						return fmt.Sprintf(`{"running":%t}`, tc.running), nil, true
+						return fmt.Sprintf(`{"id":"tier-app","running":%t,"labels":{"apptown.generation":"1"}}`, tc.running), nil, true
 					}
 				}
 				return "", nil, false
@@ -255,7 +255,7 @@ func TestTierDeploymentInventoryFailureIsNotAnEmptyRuntimeMap(t *testing.T) {
 func TestTierMapObservesBothCustomerPlacementsIndependently(t *testing.T) {
 	t.Parallel()
 	fake := newFakeDocker()
-	// The observer reads both placements concurrently.
+	// One invalid container identity must not hide the other placement.
 	var inspectedMu sync.Mutex
 	inspected := map[string]int{}
 	fake.reply = func(args []string) (string, error, bool) {
@@ -264,9 +264,9 @@ func TestTierMapObservesBothCustomerPlacementsIndependently(t *testing.T) {
 			inspected[args[3]]++
 			inspectedMu.Unlock()
 			if args[3] == "customer-b" {
-				return "", errors.New("provider unavailable"), true
+				return `{"id":"customer-b","running":true,"labels":{}}`, nil, true
 			}
-			return `{"running":true}`, nil, true
+			return `{"id":"customer-a","running":true,"labels":{"apptown.generation":"1"}}`, nil, true
 		}
 		return "", nil, false
 	}

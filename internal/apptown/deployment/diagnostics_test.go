@@ -179,7 +179,7 @@ func TestAFailedDiagnosticReadKeepsAgedFactsAndIsNeverStopped(t *testing.T) {
 	tried := w.advance(2 * time.Minute)
 	w.failContainerListing(context.DeadlineExceeded)
 	p := partNamed(t, w.read(t), "worker")
-	if p.Presence != presenceUnknown || !p.Stale || !strings.Contains(p.Reason, "did not answer in time") {
+	if p.Presence != presenceUnknown || !p.Stale || !strings.Contains(p.Reason, "the host reading timed out") {
 		t.Fatalf("a timed-out read: %+v", p)
 	}
 	if p.Facts == nil || p.Facts.ExitCode == nil || *p.Facts.ExitCode != 137 || !p.Facts.OOMKilled || !p.ObservedAt.Equal(first) || !p.AttemptedAt.Equal(tried) {

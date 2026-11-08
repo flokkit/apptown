@@ -478,7 +478,7 @@ func (s *Service) RecentLog(ctx context.Context, projectID ids.ID, name, part st
 func safeReason(err error) string {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
-		return "it did not answer in time"
+		return "the host reading timed out"
 	case errors.Is(err, context.Canceled):
 		return "the read was cancelled"
 	case errors.Is(err, docker.ErrLogUnreadable):

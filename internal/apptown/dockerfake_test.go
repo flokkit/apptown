@@ -68,6 +68,23 @@ func (f *fakeDocker) Run(ctx context.Context, host string, req docker.Command) (
 	if f.command != nil {
 		return f.command(ctx, host, req)
 	}
+	// Render every requested name, while using the same scripted runtime
+	// answers as a single inspect. Docker keeps successful rows on stdout
+	// and reports absent containers on stderr with a failing exit status.
+	if len(req.Args) >= 4 && req.Args[0] == "inspect" && req.Args[1] == "--format" && req.Args[2] == `{{json .Name}}`+"\t"+docker.RuntimeFormat {
+		var result error
+		for _, name := range req.Args[3:] {
+			out, err := f.run("inspect", "--format", docker.RuntimeFormat, name)
+			if err != nil {
+				_, writeErr := fmt.Fprintln(req.Stderr, strings.TrimSpace(string(out)))
+				result = errors.Join(result, err, writeErr)
+				continue
+			}
+			_, err = fmt.Fprintf(req.Stdout, "%q\t%s\n", "/"+name, out)
+			result = errors.Join(result, err)
+		}
+		return nil, result
+	}
 	if len(req.Args) >= 6 && slices.Equal(req.Args[:5], []string{"inspect", "--type", "container", "--format", "{{json .}}"}) {
 		out, err := f.run(req.Args...)
 		if req.Stdout != nil {

@@ -246,7 +246,7 @@ func TestObserveDistinguishesUnavailableFromStopped(t *testing.T) {
 			t.Parallel()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			daemon := &fakeDaemon{exists: scenario != "absent", running: scenario == "running"}
+			daemon := &fakeDaemon{exists: scenario != "absent", running: scenario == "running", labels: deploy.DockerIdentity{Generation: 3}.Labels()}
 			var client Client = daemon
 			if scenario == "unavailable" {
 				client = &removalDaemon{inspectErr: errors.New("daemon unavailable")}

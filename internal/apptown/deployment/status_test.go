@@ -38,7 +38,7 @@ func TestDeploymentAndProjectShareQualifiedStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := rows[0].Observation.Status
-	if want.Word != progressLabelUnknown || !strings.Contains(want.Reason, "container listing") || !strings.Contains(want.Reason, "did not answer in time") || want.CheckedAt.IsZero() || !want.RetryAt.Equal(w.at.Add(hostReadInterval)) {
+	if want.Word != progressLabelUnknown || !strings.Contains(want.Reason, "container listing") || !strings.Contains(want.Reason, "the host reading timed out") || want.CheckedAt.IsZero() || !want.RetryAt.Equal(w.at.Add(hostReadInterval)) {
 		t.Fatalf("qualified answer: %+v", want)
 	}
 	projects, err := w.s.ProjectRuntime(t.Context(), []ids.ID{w.project})
