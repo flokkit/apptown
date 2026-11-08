@@ -14,6 +14,12 @@ the evidence supports that distinction. An unavailable base must not make findin
 disappear. Exceptions and human confirmation are applied as decisions over the
 recorded evidence.
 
+The Standards check writes each candidate check’s position, name and start to
+the step’s live feed, then its verdict and elapsed duration when it finishes.
+The total includes reused and not-applicable checks. Baseline comparisons are
+separate from this count. Now and `apptown wait` read the same feed; Workflow
+captures it as the step’s agent-log record when the step finishes.
+
 ## Tree rubric evidence
 
 A model check with `scope: "tree"` declares `files` (repository-relative paths

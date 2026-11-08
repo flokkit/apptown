@@ -26,10 +26,12 @@ func (a *Guidance) runLLMChecklist(ctx context.Context, source workflow.Source, 
 	// An unavailable check is AppTown's inability to execute, not a fault
 	// in the candidate. Preserve that distinction for carried acceptance.
 	skipped := func(it check.Item, why string) workflow.CheckReceipt {
+		finish := startCheck(ctx, it.Declared)
 		res := resultOf(check.Evaluation{Declared: it.Declared, Mode: check.Gate,
 			Outcome: check.CannotAssess, Detail: why, Fault: true})
 		res.AgentEvidence = &check.AgentEvidence{AppTownFault: true}
 		res.Scope, res.Verdict, res.Note, res.Gates = it.Scope, workflow.VerdictCannotAssess, why, new(false)
+		finish(res)
 		return res
 	}
 	skipAll := func(why string) {

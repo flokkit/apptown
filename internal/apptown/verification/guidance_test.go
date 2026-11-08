@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/progress"
 	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
@@ -152,9 +153,24 @@ func TestEveryEvaluatorKindIsJudgedAtTheGate(t *testing.T) {
 	run := &workflow.Run{ID: idstest.N(1), ProjectID: f.ProjectID, ChangeID: created.Change.ID}
 	source := workflow.Source{RunID: run.ID, ProjectID: f.ProjectID}
 	at := checked{Src: src, Commit: "0123456789abcdef0123456789abcdef01234567"}
-	got, err := a.judgeDeclared(t.Context(), projectScope(f.ProjectID), stock.Versions().Current(), run, source, checks, at, "high", "test")
+	var feeds progress.Feeds
+	stepID := idstest.N(99)
+	feeds.Start(stepID)
+	ctx := withCheckProgress(t.Context(), len(checks), time.Now, func(line string) { feeds.Append(stepID, line) })
+	got, err := a.judgeDeclared(ctx, projectScope(f.ProjectID), stock.Versions().Current(), run, source, checks, at, "high", "test")
 	if err != nil {
 		t.Fatalf("the gate refused a kind declarations may name: %v", err)
+	}
+	feed, _ := feeds.Read(stepID, 0)
+	if len(feed.Lines) != 2*len(checks) {
+		t.Fatalf("expected start and finish for every check: %v", feed.Lines)
+	}
+	// Evaluation order is sh, applicability, runtime, tools, then models.
+	for i, name := range []string{"script", "ready", "sast", "readme"} {
+		prefix := fmt.Sprintf("%d of %d · %s (kinds) · ", i+1, len(checks), name)
+		if feed.Lines[2*i] != prefix+"checking" || !strings.HasPrefix(feed.Lines[2*i+1], prefix) || !strings.HasSuffix(feed.Lines[2*i+1], "s") {
+			t.Errorf("check %d: %v", i+1, feed.Lines[2*i:2*i+2])
+		}
 	}
 	for _, c := range checks {
 		kind := c.Check.Evaluator

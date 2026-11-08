@@ -141,6 +141,7 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 		if !check.IsRuntime(sc.Check) {
 			continue
 		}
+		finish := startCheck(ctx, sc.Declared())
 		start := a.now()
 		ps, perr := check.ParseProbe(sc.Check.Probe)
 		if perr == nil && ps.Standing() {
@@ -153,6 +154,7 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 			res.Detail = "judged on the standing deployment in reviews, not on a preview"
 			res.DurationMs = new(a.now().Sub(start).Milliseconds())
 			results = append(results, res)
+			finish(res)
 			continue
 		}
 		contractOnly := perr == nil && !ps.NeedsApp()
@@ -206,6 +208,7 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 			res.Verdict = workflow.VerdictCannotAssess
 		}
 		results = append(results, res)
+		finish(res)
 	}
 	return results, findings, unjudged
 }

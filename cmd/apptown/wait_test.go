@@ -435,3 +435,25 @@ func TestWaitTextOmitsAbsentHoldingStep(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
+
+func TestWaitIncludesTheRunningStandardsFeed(t *testing.T) {
+	const step = "00000000-0004-7000-8000-000000000000"
+	polls := 0
+	fakeAppTown(t, func(_, path string) (int, string) {
+		switch path {
+		case "/runs/00000000-0001-7000-8000-000000000000":
+			polls++
+			if polls > 1 {
+				return 200, `{"run":{"status":"done"}}`
+			}
+			return 200, `{"run":{"status":"running"},"waitingOn":{"kind":"work","step":"` + step + `","says":"Standards check"}}`
+		case "/steps/" + step + "/live":
+			return 200, `{"running":true,"lines":["4 of 14 · lockfile-in-step (django) · checking"],"total":7}`
+		}
+		return 404, `{}`
+	})
+	out, err := run(t, "wait", "00000000-0001-7000-8000-000000000000", "-i", "0")
+	if err != nil || !strings.Contains(out, "Standards check — 4 of 14 · lockfile-in-step (django) · checking") {
+		t.Fatalf("%v\n%s", err, out)
+	}
+}

@@ -147,6 +147,14 @@ func TestAGuidanceStepKeepsTheToolVersionsItStartedWith(t *testing.T) {
 		return execOutcome{}
 	}})
 	result := reviewExecute(t, a, step1ReviewRun(t, a, ch), "guidance")
+	artifacts, err := workflow.ReadRunArtifactsIn(t.Context(), a.DB, workflow.RunRef{ID: result.RunID, ProjectID: ch.ProjectID}, workflow.ArtifactSelection{Kinds: []string{"agent-log"}, Name: fmt.Sprintf("step-%d", result.ID), Latest: true})
+	if err != nil || len(artifacts) != 1 {
+		t.Fatalf("captured standards feed: %v %v", artifacts, err)
+	}
+	lines := strings.Split(artifacts[0].Body, "\n")
+	if len(lines) != 4 || !strings.HasPrefix(lines[0], "1 of 2 · one (step1-review) · checking") || !strings.Contains(lines[1], " · error · ") || !strings.HasPrefix(lines[2], "2 of 2 · two (step1-review) · checking") || !strings.Contains(lines[3], " · error · ") {
+		t.Fatalf("candidate checks captured once, excluding baseline: %v", lines)
+	}
 	// Two checks on the change's tree, and its base judged alike.
 	if len(images) < 2 || slices.ContainsFunc(images, func(i string) bool { return i != started.Images.Sh }) {
 		t.Fatalf("the step's checks ran in %v, not the %q it started with", images, started.Images.Sh)
@@ -160,5 +168,27 @@ func TestAGuidanceStepKeepsTheToolVersionsItStartedWith(t *testing.T) {
 	}
 	if evidence.Image != started.Images.Sh || evidence.ToolVersions.Name != started.Name || evidence.ToolVersions.Digest != started.Digest {
 		t.Fatalf("evidence %+v, want the started snapshot %s %s", evidence, started.Name, started.Digest)
+	}
+}
+
+func TestStandardsFeedRecordsWhenNothingApplies(t *testing.T) {
+	for _, tc := range []struct{ name, checks, want string }{
+		{"no declarations", `[]`, "No applicable checks"},
+		{"no matching parts", `[{"appliesTo":["container"],"name":"container-rule","evaluator":"llm","rubric":"a rule","scope":"tree"}]`, "1 of 1 · container-rule (step1-review) · not applicable · "},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			a, ch := step1ReviewGuidance(t, true, tc.checks)
+			ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID)
+			commitFolder(t, ws)
+			result := reviewExecute(t, a, step1ReviewRun(t, a, ch), "guidance")
+			if result.Status != workflow.StatusPass {
+				t.Fatalf("nothing applies: %s %s", result.Status, result.Evidence)
+			}
+			artifacts, err := workflow.ReadRunArtifactsIn(t.Context(), a.DB, workflow.RunRef{ID: result.RunID, ProjectID: ch.ProjectID}, workflow.ArtifactSelection{Kinds: []string{"agent-log"}, Name: fmt.Sprintf("step-%d", result.ID), Latest: true})
+			if err != nil || len(artifacts) != 1 || !strings.Contains(artifacts[0].Body, tc.want) {
+				t.Fatalf("empty standards record: %+v %v", artifacts, err)
+			}
+		})
 	}
 }

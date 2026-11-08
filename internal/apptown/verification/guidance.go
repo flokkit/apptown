@@ -57,6 +57,8 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	if _, err := task.Claim(); err != nil {
 		return
 	}
+	a.progress.Start(stepID)
+	defer workflow.CaptureProgress(task.Context(), a.db, a.progress, stepID, a.clock)
 	if cfgErr != nil {
 		finish(workflow.StatusError, map[string]any{"reason": cfgErr.Error()})
 		return
@@ -81,6 +83,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 		return
 	}
 	if len(checks) == 0 {
+		a.progress.Append(stepID, "No applicable checks")
 		finish(workflow.StatusPass, map[string]any{"note": "no imported guidance declares checks — nothing to verify"})
 		return
 	}
@@ -107,7 +110,8 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	if adoption != nil {
 		evidence["adoption"] = map[string]any{"revision": adoption.Revision, "digest": adoption.Digest}
 	}
-	said, err := a.judgeDeclared(task.Context(), task.RunScope(), tools, run, source, checks, checkedAt, cfg.FailOn, execution.StepContainer(stepID, "conform"))
+	progressCtx := withCheckProgress(task.Context(), len(checks), a.now, func(line string) { a.progress.Append(stepID, line) })
+	said, err := a.judgeDeclared(progressCtx, task.RunScope(), tools, run, source, checks, checkedAt, cfg.FailOn, execution.StepContainer(stepID, "conform"))
 	results, findings, shErrors, unjudged := said.results, said.findings, said.errors, said.unjudged
 	if said.llm != nil {
 		evidence["llm"] = said.llm
@@ -304,6 +308,10 @@ func (a *Guidance) judgeDeclared(ctx context.Context, scope conformance.RunScope
 	once, rtSettled := splitApplicable(checks, "runtime", src, check.Gate)
 	once, llmSettled := splitApplicable(once, "llm", src, check.Gate)
 	settled, settledErrors := receipts(append(rtSettled, llmSettled...))
+	for _, r := range settled {
+		finish := startCheck(ctx, check.Declared{Namespace: r.Block, Version: r.Version, Declaration: check.Declaration{Name: r.Check}})
+		finish(r)
+	}
 	j.results = append(j.results, settled...)
 	j.errors += settledErrors
 

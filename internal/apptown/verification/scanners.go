@@ -127,6 +127,7 @@ func (s *Scanners) runToolChecks(ctx context.Context, checks []conformance.Decla
 		if check.Evaluator(sc.Check) != "tool" {
 			continue
 		}
+		finish := startCheck(ctx, sc.Declared())
 		start := s.now()
 		ev, verdict, exceptedBy := s.evalToolCheck(ctx, sc, tc, namePrefix)
 		res := resultOf(ev)
@@ -154,6 +155,7 @@ func (s *Scanners) runToolChecks(ctx context.Context, checks []conformance.Decla
 			toolErrors++
 		}
 		results = append(results, res)
+		finish(res)
 	}
 	return results, findings, toolErrors
 }

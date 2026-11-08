@@ -28,7 +28,7 @@ func changesFor(a *App) *verification.Changes {
 	return verification.NewChanges(verification.ChangeDependencies{Now: a.cfg.clock.Now, DB: a.DB, Adoption: a.Adoption, Scanners: a.scanners, Evaluator: checkEvaluatorFor(a), DataDir: a.cfg.dataDir, WorkerChats: a.chatSaves})
 }
 func guidanceFor(a *App) *verification.Guidance {
-	return verification.NewGuidance(verification.GuidanceDependencies{DB: a.DB, DataDir: a.cfg.dataDir, Adoption: a.Adoption, Conformance: a.conformance, Scanners: a.scanners, Evaluator: checkEvaluatorFor(a), Changes: a.verification, Runtime: runtimeFor(a), Docker: &a.docker, Previews: a.Preview, Routing: a.cfg.routing(), Selection: a.modelSelection, Ledger: a.Usage.Ledger, Now: a.cfg.clock.Now})
+	return verification.NewGuidance(verification.GuidanceDependencies{Progress: &a.progress, DB: a.DB, DataDir: a.cfg.dataDir, Adoption: a.Adoption, Conformance: a.conformance, Scanners: a.scanners, Evaluator: checkEvaluatorFor(a), Changes: a.verification, Runtime: runtimeFor(a), Docker: &a.docker, Previews: a.Preview, Routing: a.cfg.routing(), Selection: a.modelSelection, Ledger: a.Usage.Ledger, Now: a.cfg.clock.Now})
 }
 
 // checksFor is AppTown's check executor: the worker's when one is

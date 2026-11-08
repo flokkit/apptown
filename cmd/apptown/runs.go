@@ -204,7 +204,7 @@ func cmdWait(args []string) error {
 			case v.Detail != nil && v.Detail.Run.Status == "running":
 				d := *v.Detail
 				d.WaitingOn = v.WaitingOn
-				note(v.WaitingOn.Says)
+				note(waitLiveLine(v.WaitingOn))
 				switch kind, sid, name := waitVerdict(d); kind {
 				case "decision":
 					return stop(WaitOutcome{Outcome: "needs_decision", ExitCode: 2, Detail: name}, &d, sid, fmt.Sprintf("⏸ change %s: %s", id, waitAction(d)))
@@ -234,7 +234,7 @@ func cmdWait(args []string) error {
 			case "done":
 				return stop(WaitOutcome{Outcome: "done", Detail: "done"}, &d, ids.Nil, fmt.Sprintf("✓ run %s done (%s)", id, d.Run.WorkflowName))
 			case "running":
-				note(d.WaitingOn.Says)
+				note(waitLiveLine(d.WaitingOn))
 				switch kind, sid, name := waitVerdict(d); kind {
 				case "decision":
 					return stop(WaitOutcome{Outcome: "needs_decision", ExitCode: 2, Detail: name}, &d, sid, fmt.Sprintf("⏸ run %s: %s", id, waitAction(d)))
@@ -1100,4 +1100,16 @@ func nextActsText(acts []nextAct) string {
 		choices = append(choices, choice)
 	}
 	return strings.Join(choices, " · ")
+}
+
+// waitLiveLine uses the same step feed as watch and the change page.
+func waitLiveLine(w Waiting) string {
+	if w.Step.IsZero() || w.Kind != "work" {
+		return w.Says
+	}
+	var live struct{ Lines []string }
+	if err := api.get(fmt.Sprintf("/steps/%d/live?from=0", w.Step), &live); err == nil && len(live.Lines) > 0 {
+		return w.Says + " — " + live.Lines[len(live.Lines)-1]
+	}
+	return w.Says
 }
