@@ -11,7 +11,9 @@ import { CheckProjects, GuidanceProjects, IntegrationProjects, PackProjects, Pol
 import { ModelProfiles, ModelProfilePage } from './integrations/ModelSlots'
 import GuidanceBlockPage from './GuidanceBlockPage'
 import PoliciesPage from './PoliciesPage'
-import { FleetVersionsTab } from './conformance/FleetVersions'
+
+// A status's details ride in its title, not in the page text.
+const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const cleanups: (() => void)[] = []
@@ -71,16 +73,22 @@ it('links guidance usage to a page retaining each version and turned-off state',
   expect(el.textContent).toContain('app-0 · v1 · turned off')
 })
 
-it('counts pack versions and filters their projects without losing adoption settings links', async () => {
-  const fleet = {packs:[{pack:'house',recommended:2,versions:[{version:1,projects:['older']},{version:2,projects:['current']}]}]}
-  const {el,click} = await mount('/conformance/ways', <>
-    <Route path="/conformance/ways" element={<FleetVersionsTab />} />
-    <Route path="/packs/:name/projects" element={<PackProjects />} />
-  </>, {'/wow':fleet})
-  expect(el.textContent).not.toContain('older')
-  await click('a[href="/packs/house/projects?version=1"]')
+// A pack's projects say which version each is on and whether it is behind;
+// each opens the project's Way of working settings, where it is updated.
+it("lists a pack's projects with their version and opens their adoption settings", async () => {
+  const fleet = {packs:[{pack:'house',recommended:2,versions:[{version:1,projects:['older']},{version:2,projects:['newer']}]}]}
+  const {el} = await mount('/packs/house/projects', <Route path="/packs/:name/projects" element={<PackProjects />} />, {'/wow':fleet})
+  const row = (slug: string) => el.querySelector(`a[href="/projects/${slug}/settings/working"]`)!.closest('tr')!
+  expect(row('older').textContent).toContain('v1')
+  expect(row('older').textContent).toContain('update available')
+  expect(row('newer').textContent).toContain('current')
+})
+
+it("filters a pack's projects to one version", async () => {
+  const fleet = {packs:[{pack:'house',recommended:2,versions:[{version:1,projects:['older']},{version:2,projects:['newer']}]}]}
+  const {el} = await mount('/packs/house/projects?version=1', <Route path="/packs/:name/projects" element={<PackProjects />} />, {'/wow':fleet})
   expect(el.querySelector('a[href="/projects/older/settings/working"]')).not.toBeNull()
-  expect(el.textContent).not.toContain('current')
+  expect(el.querySelector('a[href="/projects/newer/settings/working"]')).toBeNull()
 })
 
 it('keeps service project and deployment links on the dependent page and reports an unreadable list', async () => {
@@ -91,7 +99,7 @@ it('keeps service project and deployment links on the dependent page and reports
   expect(el.querySelector('a[href="/projects/club/deployments/main"]')).not.toBeNull()
   expect(el.querySelector('a[href="/targets/host"]')).not.toBeNull()
   const failed = await mount('/services/errors/projects', <Route path="/services/:name/projects" element={<IntegrationProjects />} />, {})
-  expect(failed.el.textContent).toContain('could not be read')
+  expect(details(failed.el)).toContain('could not be read')
   expect(failed.el.textContent).not.toContain('No project names it directly')
 })
 

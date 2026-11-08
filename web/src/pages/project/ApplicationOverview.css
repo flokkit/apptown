@@ -4,4 +4,12 @@
 .application-overview-span { font-weight: 400; }
 .application-overview-p { white-space: pre-wrap; margin: var(--space-3) 0; }
 .application-overview-span-2 { display: block; }
+.application-overview-card > .list-identity { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); flex: 1; }
+.application-overview-card > .list-state { order: -1; }
+.application-overview-card > .list-state:empty, .application-overview-card > .list-action:empty, .application-finished > .list-state, .application-finished > .list-action { display: none; }
+.application-finished { display: block; }
+.application-overview-card { gap: var(--space-2); padding-block: var(--space-3); }
+.application-overview-card > .list-identity { overflow-wrap: normal; min-width: min-content; max-width: 100%; gap: var(--space-2); }
+.application-overview-card > .list-state:not(:empty) { flex: 0 0 13em; }
+@media (width <= 800px) { .application-overview-card > .list-state:not(:empty) { flex: 0 0 auto; } }
 }

@@ -119,7 +119,7 @@ try {
     'target-offers': '/targets', 'release-detail': '/projects/club-newsletter/releases/' + facts.releases.find(r => r.serving).number,
     'memory-decisions-empty': '/projects/shared-notes/memory/decisions', 'target-cloud': '/targets/design-cloud', infrastructure: '/targets', jobs: '/jobs', 'infrastructure-new': '/targets/new',
     conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews',
-    'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations', 'fleet-ways': '/conformance/ways',
+    'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations',
     integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets',
     packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
     'people-groups': '/people/groups', 'people-group': '/people/groups/reviewers', 'people-account': '/people/accounts/sam', 'people-roles': '/people/roles', 'people-signin': '/people/sign-in', 'people-agents': '/people/agents-and-tokens',
@@ -130,7 +130,7 @@ try {
     services: '/services', 'services-shared': '/services/shared', 'deployment': '/projects/club-newsletter/deployments/main',
     'camera-not-found': '/camera-missing-page',
     'new-project': '/projects/_new', docs: '/docs', invite: '/invite',
-    overview: '/projects/club-newsletter', console: '/projects/club-newsletter/console',
+    overview: '/projects/club-newsletter', 'project-changes': '/projects/club-newsletter/changes', console: '/projects/club-newsletter/console',
     'memory-notes': '/projects/club-newsletter/memory/notes',
     'memory-decisions': '/projects/club-newsletter/memory/decisions',
     'overview-help': '/projects/club-newsletter',
@@ -561,7 +561,7 @@ try {
         if (!process.env.DESIGN_BASELINE && screen === 'account' && (!words.includes('sam-laptop') || words.includes('tom-laptop'))) throw new Error('personal token list crossed account boundary');
         if (!process.env.DESIGN_BASELINE && screen === 'home' && size.startsWith('phone') && await page.locator('.dash-projects').getByText('Details', { exact: true }).count()) throw new Error('phone project row has Details');
         if (!process.env.DESIGN_BASELINE && screen === 'home') {
-          const finished = await page.getByRole('region', { name: 'Recently landed', exact: true }).locator('a.card').evaluateAll(rows => rows.map(row => ({ title: row.querySelector('strong')?.textContent, detail: row.querySelector('.small')?.textContent })));
+          const finished = await page.getByRole('region', { name: 'Recently landed', exact: true }).locator('.list-row').evaluateAll(rows => rows.map(row => ({ title: row.querySelector('strong')?.textContent, detail: row.querySelector('.small')?.textContent })));
           if (finished.length < 2 || finished.some(row => !row.title || !row.detail?.includes(' · ')) || new Set(finished.map(row => row.title)).size < 2) throw new Error('recently landed rows need distinct titles, projects and ages');
         }
         if (!process.env.DESIGN_BASELINE && screen === 'infrastructure' && size.startsWith('phone') && /\/var\/|\/mnt\//.test(words)) throw new Error('raw path on the infrastructure phone list');

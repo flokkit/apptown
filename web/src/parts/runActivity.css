@@ -1,0 +1,25 @@
+@layer pages {
+/* A plain grid: the status (when the row has one of its own), the change,
+   which wraps, then its button. Columns are placed explicitly so the shared
+   row's narrow-list stacking does not apply above phone width; nothing sizes
+   to min-content, so a long title wraps instead of pushing the button out of
+   the panel. */
+.run-list-row { display: grid; grid-template-columns: minmax(0, 1fr) max-content; align-items: center; gap: var(--space-2); padding-block: var(--space-3); }
+.run-list-row > .list-identity { grid-column: 1; grid-row: 1; display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); min-width: 0; }
+.run-list-row > .list-action { grid-column: 2; grid-row: 1; justify-self: end; }
+.run-list-row:has(> .list-state:not(:empty)) { grid-template-columns: 13em minmax(0, 1fr) max-content; }
+.run-list-row:has(> .list-state:not(:empty)) > .list-state { grid-column: 1; grid-row: 1; }
+.run-list-row:has(> .list-state:not(:empty)) > .list-identity { grid-column: 2; }
+.run-list-row:has(> .list-state:not(:empty)) > .list-action { grid-column: 3; }
+.run-list-row > .list-state:empty, .run-list-row > .list-action:empty { display: none; }
+.run-link { color: inherit; text-decoration: none; }
+.run-link:hover { text-decoration: underline; }
+.run-number { font-weight: 400; }
+.run-stop { gap: calc(var(--space-1) * 1.5); }
+@media (width <= 600px) {
+  .run-list-row:has(> .list-state:not(:empty)) { grid-template-columns: minmax(0, 1fr) max-content; }
+  .run-list-row:has(> .list-state:not(:empty)) > .list-state { grid-column: 1; grid-row: 1; }
+  .run-list-row:has(> .list-state:not(:empty)) > .list-identity { grid-column: 1; grid-row: 2; }
+  .run-list-row:has(> .list-state:not(:empty)) > .list-action { grid-column: 2; grid-row: 1 / span 2; }
+}
+}

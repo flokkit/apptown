@@ -34,7 +34,6 @@ export const PAGE_ROUTES = [
   "/conformance/what-ifs/:id/projects/:slug",
   "/conformance/what-ifs/:id",
   "/conformance/remediations",
-  "/conformance/ways",
   "/conformance/remediations/:remId",
   "/projects/_new",
   "/projects/:slug/releases/:number/log",
@@ -102,7 +101,7 @@ export const PAGE_ROUTES = [
 
 const LABELS: Record<string, string> = {
   ...Object.fromEntries(['projects','changes','deployments','releases','targets','backups','packs','workflows','guidance','policies','conformance','checks','reviews','remediations','services','integrations','memory','security','settings','general','models','secrets','members','usage','notes','decisions','chats'].map(s => [s, s.charAt(0).toUpperCase() + s.slice(1)])),
-  accounts: 'Accounts', groups: 'Groups', roles: 'Roles', 'sign-in': 'Sign-in', 'agents-and-tokens': 'Agents and tokens', chats: 'Past chats', generated: 'Automatic guidance', _new: 'New project', scm: 'Source control', 'what-ifs': 'What-ifs',
+  accounts: 'Accounts', groups: 'Groups', roles: 'Roles', 'sign-in': 'Sign-in', 'agents-and-tokens': 'Agents and tokens', chats: 'Past chats', generated: 'Automatic guidance', _new: 'New project', scm: 'Source control', 'what-ifs': 'Pack upgrades',
   working: 'Way of working', llm: 'AI models', adrs: 'Decisions',
   ...Object.fromEntries(INTEGRATION_MENU.flatMap(g => g.items.map(i => [i.key, i.title]))),
 }

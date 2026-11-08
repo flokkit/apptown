@@ -430,7 +430,7 @@ func (q *Queries) StepCosts(ctx context.Context, stepIds []ids.ID) ([]StepCostsR
 
 const usageDaysByKind = `-- name: UsageDaysByKind :many
 SELECT to_char(at AT TIME ZONE 'UTC','YYYY-MM-DD')::text AS day, kind,
-SUM(total)::bigint AS total, SUM(cost_micros)::bigint AS cost_micros, SUM(provider_reported)::bigint AS provider_reported, SUM(catalog)::bigint AS catalog, SUM(unpriced)::bigint AS unpriced
+SUM(total)::bigint AS total, SUM(cache_read + cache_write)::bigint AS cached, SUM(cost_micros)::bigint AS cost_micros, SUM(provider_reported)::bigint AS provider_reported, SUM(catalog)::bigint AS catalog, SUM(unpriced)::bigint AS unpriced
 FROM token_usage
 WHERE at>=$1 AND ($2::boolean OR project_id=ANY($3::uuid[]))
 AND ($4::text='' OR workflow_name=$4)
@@ -448,6 +448,7 @@ type UsageDaysByKindRow struct {
 	Day              string
 	Kind             string
 	Total            int64
+	Cached           int64
 	CostMicros       int64
 	ProviderReported int64
 	Catalog          int64
@@ -472,6 +473,7 @@ func (q *Queries) UsageDaysByKind(ctx context.Context, arg UsageDaysByKindParams
 			&i.Day,
 			&i.Kind,
 			&i.Total,
+			&i.Cached,
 			&i.CostMicros,
 			&i.ProviderReported,
 			&i.Catalog,

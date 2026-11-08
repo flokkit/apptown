@@ -5,9 +5,9 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { newQueryClient } from '../../../data'
+import { getKey, newQueryClient } from '../../../data'
 import type { DeploymentView } from '../../../wire.gen'
-import { EnvCard } from './Deployments'
+import { TakeDown } from '../TakeDown'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -26,28 +26,27 @@ const protection = (takeDown: string, finalCopy: boolean) => ({
 // does the request carry that choice, naming the deployment.
 describe('taking down a deployment that holds data', () => {
   afterEach(() => vi.unstubAllGlobals())
-  const mount = async (prot: unknown) => {
+  // cached: an earlier answer already read, which opening must not trust.
+  const mount = async (prot: unknown, cached?: unknown) => {
     const deletes: (string | undefined)[] = []
     const reads = { protection: prot as unknown, failing: false }
     vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
       if (init?.method === 'DELETE') { deletes.push(init.body as string | undefined); return new Response(JSON.stringify({ ok: true, deleted: [], orphans: [] })) }
       if (String(url).includes('/protection') && reads.failing) return new Response(JSON.stringify({ error: 'AppTown is restarting' }), { status: 503 })
-      if (String(url).endsWith('/releases')) return new Response(JSON.stringify([]))
       return new Response(JSON.stringify(String(url).includes('/protection') ? reads.protection : { user: 'bls', instance: {} }))
     })))
     const client = newQueryClient()
-    const el = document.createElement('div')
+    if (cached) client.setQueryData(getKey('/projects/shop/deployments/prod/protection'), cached)
+    const el = document.body.appendChild(document.createElement('div'))
     const root = createRoot(el)
-    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="shop" env={env} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>) })
-    await vi.waitFor(() => expect(el.textContent).toContain('Copy now'))
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><TakeDown slug="shop" env={env} onClose={() => {}} /></MemoryRouter></QueryClientProvider>) })
+    await vi.waitFor(() => expect(el.textContent).not.toContain('Reading what a take-down'))
     const button = (label: string) => Array.from(el.querySelectorAll('button')).find((b) => b.textContent === label)
-    return { el, deletes, button, reads, client, done: () => { act(() => root.unmount()); client.clear() } }
+    return { el, deletes, button, reads, client, done: () => { act(() => root.unmount()); client.clear(); el.remove() } }
   }
 
   it('asks for the choice to go without a final copy, and sends it, when none can be taken', async () => {
     const { el, deletes, button, done } = await mount({ ...protection(refused, false), reading: { unknown: true, waiting: true } })
-    expect(button('Tear down')?.disabled).toBe(false)
-    await act(async () => { button('Tear down')!.click() })
     expect(el.textContent).toContain(refused)
     await act(async () => { button('Take it down without a final copy')!.click() })
     await vi.waitFor(() => expect(deletes).toHaveLength(1))
@@ -55,10 +54,9 @@ describe('taking down a deployment that holds data', () => {
     done()
   })
   it('re-reads on open, and asks what confirming means now', async () => {
-    const { el, deletes, button, reads, done } = await mount(protection(refused, false))
-    reads.protection = protection(withCopy, true) // a copy runner was named meanwhile
-    await act(async () => { button('Tear down')!.click() })
-    await vi.waitFor(() => expect(el.textContent).toContain(withCopy))
+    // A copy runner was named since the cached answer was read.
+    const { el, deletes, button, done } = await mount(protection(withCopy, true), protection(refused, false))
+    expect(el.textContent).toContain(withCopy)
     expect(button('Take it down without a final copy')).toBeUndefined()
     await act(async () => { button('Take it down')!.click() })
     await vi.waitFor(() => expect(deletes).toHaveLength(1))
@@ -67,17 +65,15 @@ describe('taking down a deployment that holds data', () => {
   })
   it('offers no choice to keep the data on an answer whose refresh failed', async () => {
     const { button, reads, client, done } = await mount(protection(refused, false))
-    await act(async () => { button('Tear down')!.click() })
     expect(button('Take it down without a final copy')).toBeDefined()
     reads.failing = true
     await act(async () => { await client.refetchQueries().catch(() => {}) })
     await vi.waitFor(() => expect(button('Take it down without a final copy')).toBeUndefined())
-    expect(button('Tear down')?.disabled).toBe(true)
+    expect(button('Take it down')?.disabled).toBe(true)
     done()
   })
   it('says the final copy comes first, and sends no choice, when one can be taken', async () => {
     const { el, deletes, button, done } = await mount(protection(withCopy, true))
-    await act(async () => { button('Tear down')!.click() })
     expect(el.textContent).toContain(withCopy)
     expect(button('Take it down without a final copy')).toBeUndefined()
     await act(async () => { button('Take it down')!.click() })

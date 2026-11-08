@@ -1,4 +1,3 @@
-import { useFeature } from '../../features'
 import './ChangeButton.css'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -13,8 +12,6 @@ import type { CatalogApplied, CreatedChange, CatalogChangeDetail, CatalogDef, Ca
 export function ChangeButton({ slug, chatAvailable, compact = false, primary = false }: {
   slug: string; chatAvailable: boolean; compact?: boolean; primary?: boolean
 }) {
-  const enabled = useFeature()
-  chatAvailable = chatAvailable && enabled('chats')
   const nav = useNavigate()
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [detailedOpen, setDetailedOpen] = useState(false)

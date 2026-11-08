@@ -156,14 +156,14 @@ func cpusetSize(set string) (int, bool) {
 	return n, true
 }
 
-// RunningMemoryUsage is what every running container uses now, by name
-// (docker stats, one sample).
-func RunningMemoryUsage(ctx context.Context, dk Scope) (map[string]int64, error) {
-	out, err := dk.Run(ctx, "stats", "--no-stream", "--format", "{{.Name}}\t{{.MemUsage}}")
+// RunningUsage is what every running container uses now, memory and CPU,
+// by name (docker stats, one sample).
+func RunningUsage(ctx context.Context, dk Scope) (map[string]Usage, error) {
+	out, err := dk.Run(ctx, "stats", "--no-stream", "--format", "{{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}")
 	if err != nil {
 		return nil, fmt.Errorf("docker stats: %v: %s", err, strings.TrimSpace(string(out)))
 	}
-	return parseMemoryUsage(out)
+	return parseUsage(out)
 }
 
 // ReadDisk reads the filesystem holding the daemon's data folder in the

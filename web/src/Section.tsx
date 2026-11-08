@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { forwardRef, type ReactNode } from 'react'
 
 // The page's hierarchy, the same on every page: Page → Section → Group →
 // Row. A section is a heading, its count as a quiet number, an optional
@@ -30,3 +30,10 @@ export function Group({ label, children }: { label: ReactNode; children: ReactNo
     </div>
   )
 }
+
+// SectionFilter is a list's filter, on its section's heading line: it narrows
+// the rows as the person types. Every filtered list uses this one box.
+export const SectionFilter = forwardRef<HTMLInputElement, { value: string; onChange: (value: string) => void; placeholder: string; className?: string }>(
+  function SectionFilter({ value, onChange, placeholder, className = '' }, ref) {
+    return <input ref={ref} className={`section-filter ${className}`} aria-label={placeholder} placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} />
+  })

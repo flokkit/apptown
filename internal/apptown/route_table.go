@@ -498,6 +498,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/steps/{id}/run", runs.StepRun, access.CapRunOperate, "step").inArea("changes"),
 		requireRoute("POST /api/v1/steps/{id}/interrupt", stepInterruption.StepInterrupt, access.CapChangeInvokeLane, "step").inArea("changes"),
 		requireRoute("GET /api/v1/steps/{id}/live", runProgress.StepLive, access.CapRunRead, "step").inArea("changes"),
+		requireRoute("GET /api/v1/steps/{id}/approvers", runProgress.StepApprovers, access.CapRunRead, "step").inArea("changes"),
 		requireRoute("POST /api/v1/steps/{id}/approve", runs.Approve, access.CapChangeApprove, "step").inArea("changes"),
 		requireRoute("GET /api/v1/steps/{id}/advice", approvalBriefs.FailureAdvice, access.CapRunRead, "step").inArea("changes"),
 		requireRoute("GET /api/v1/steps/{id}/brief", approvalBriefs.ApprovalBrief, access.CapRunRead, "step").inArea("changes"),

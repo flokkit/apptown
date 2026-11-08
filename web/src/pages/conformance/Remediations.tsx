@@ -1,3 +1,6 @@
+import { ListRow } from '../../ListRow'
+import { ListTable } from '../../ListTable'
+import './list-migrations.css'
 import { Section } from '../../Section'
 import { Status } from '../../Status'
 import { Link } from 'react-router-dom'
@@ -45,13 +48,11 @@ export function OccupancyCard({ occ }: { occ: Occupancy }) {
           queue on its own is said by each item's own "waiting". */}
       {(holding.length > 0 || cooling) && <Section title="In progress" count={occ.busy || undefined} note={occ.queued > 0 ? `${occ.queued} queued` : undefined}>
         {cooling && <p className="small" style={{ color: 'var(--warn)' }}>Paused until {fmtWhen(occ.cooldownUntil!)}: {occ.cooldownWhy}</p>}
-        {holding.map((h) => (
-          <div key={h.id} className="card row small" style={{ display: 'flex' }}>
-            <span className="row-status muted">{h.doing ? `on ${h.doing}` : (ITEM[h.state]?.label ?? h.state)}</span>
-            <strong>{h.projectSlug}</strong>
-            <span className="muted">{h.check}</span>
-          </div>
-        ))}
+        {holding.length > 0 && <ListTable className="small" label="Worker occupancy" rows={holding} rowKey={h => h.id ?? `${h.projectSlug}/${h.check}`} columns={[
+          { key: 'project', label: 'Project', phone: 'name', render: h => <strong>{h.projectSlug}</strong> },
+          { key: 'state', label: 'Working on', phone: 'state', className: 'muted', render: h => h.doing ? `on ${h.doing}` : (ITEM[h.state]?.label ?? h.state) },
+          { key: 'check', label: 'Check', phone: 'detail', className: 'muted', render: h => h.check },
+        ]} />}
       </Section>}
       {mayConfigure && <Section title="Processing" note="How many remediations work at once.">
         <div className="row" style={{ gap: 'var(--space-2)', alignItems: 'center', padding: '10px 0' }}>
@@ -80,12 +81,10 @@ export function RemediationsList() {
       <Section title="Remediations" count={data.remediations.length || undefined}>
         {data.remediations.length === 0 && <p className="muted small">No remediations yet. Start one with Fix on a check or a project.</p>}
         {data.remediations.map((m) => (
-          <Link key={m.id} to={`/conformance/remediations/${m.id}`} className="card row" style={{ display: 'flex' }}>
-            <span className="row-status"><Status word={m.statusLabel} /></span>
-            <strong><span className="muted" style={{ fontWeight: 400 }}>#{m.number} </span>{m.sentence}</strong>
+          <ListRow key={m.id} to={`/conformance/remediations/${m.id}`} className="card row conformance-list-row" state={<span className="row-status"><Status word={m.statusLabel} /></span>} identity={<>
+            <Link to={`/conformance/remediations/${m.id}`} className="run-link"><strong><span className="muted remediation-number">#{m.number} </span>{m.sentence}</strong></Link>
             <span className="muted small grow" >{m.actor} · {fmtWhen(m.createdAt)} · {m.mode}{m.cost ? ` · $${m.cost.toFixed(3)}` : ''}</span>
-            <span className="row-action phone-secondary"><JobBar counts={m.counts} /></span>
-          </Link>
+            </>} action={<span className="row-action phone-secondary"><JobBar counts={m.counts} /></span>} />
         ))}
       </Section>
     </div>

@@ -1,5 +1,7 @@
+import { ListRow } from '../ListRow'
+import './PackPage.css'
 import { Switch } from '../Switch'
-import { FeatureOnly, FeatureGate, useFeature } from '../features'
+import { BetaChip, FeatureOnly, FeatureGate, useFeature } from '../features'
 import { usePageName } from '../chrome'
 
 import { useState } from 'react'
@@ -45,7 +47,7 @@ export default function PackPage() {
     const v = h.versions.find(v => String(v.version) === version)
     return <><h1>Version {version}</h1><StaleNote q={q} />{v ? <>
       <Contents v={v} /><Limits v={v} base={h.versions.find(b => b.version === v.basedOn)} />
-      <FeatureOnly area="what-ifs"><span className="badge">beta</span><WhatIfPanel pack={h.name} version={v.version} /></FeatureOnly>
+      <FeatureOnly area="what-ifs"><BetaChip /><WhatIfPanel pack={h.name} version={v.version} /></FeatureOnly>
     </> : <p>This version does not exist.</p>}</>
   }
   return (
@@ -76,43 +78,37 @@ export default function PackPage() {
       {/* An empty part says nothing: the count line above the parts is enough. */}
       {d.guidance.length > 0 && <Section title="Guidance" count={d.guidance.length}>
         {d.guidance.map((g) => (
-          <div key={g} className="card row"><span>{g.split('/').at(-1)!.replaceAll('-', ' ')}</span><span className="muted small">{g}</span></div>
+          <ListRow key={g} className="card row pack-content-row" identity={<><span>{g.split('/').at(-1)!.replaceAll('-', ' ')}</span><span className="muted small">{g}</span></>} />
         ))}
       </Section>}
       {d.workflows.length > 0 && <Section title="Workflows" count={d.workflows.length}>
         {d.workflows.map((w) => (
-          <div key={w} className="card row"><span>{w}</span></div>
+          <ListRow key={w} className="card row pack-content-row" identity={<span>{w}</span>} />
         ))}
       </Section>}
       {d.policies.length > 0 && <Section title="Policies" count={d.policies.length}>
         {d.policies.map((pp) => (
-          <div key={pp.name} className="card row" style={{ flexWrap: 'wrap' }}>
+          <ListRow key={pp.name} className="card row pack-content-row" identity={<>
             <span>{pp.description || pp.name}</span>
-            {pp.description && <span className="muted small">{pp.name}</span>}
-          </div>
+            {pp.description && <span className="muted small">{pp.name}</span>}</>} />
         ))}
       </Section>}
 
       <Section title="Versions" count={h.versions.length} note="The recommended version is what new projects get. Existing projects adopt separately.">
         {h.versions.map((v) => (
-          <div key={v.version} className="card">
-            <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+          <ListRow key={v.version} className="card pack-version-row" identity={<div className="row row-2">
               <strong>v{v.version}</strong>
               {v.name && <span>“{v.name}”</span>}
               {v.version === h.recommended && <span className="badge">recommended</span>}
               <span className="muted small">{lineage(v)}</span>
-              <span className="grow" />
-              <span className="muted small" title={v.at}>{relTime(v.at)}</span>
+              <span className="muted small" title={v.at}>{relTime(v.at)}</span></div>} action={<>
               <Link to={`/packs/${encodeURIComponent(name)}/versions/${v.version}`}>Contents</Link>
               {canManage && v.version !== h.recommended && (
                 <QuietConfirm label={`Recommend v${v.version}`} className="subtle" yes="Recommend it" disabled={busy || !q.current || !!whatIfId && (!whatIfQ.current || whatIfQ.data?.pack !== name)}
                   ask={`New projects will get v${v.version}, and projects on other versions will be offered it. No project moves.`}
                   onYes={() => recommend(v.version)} />
               )}
-            </div>
-            {v.note && v.note !== 'published contents' && v.note !== v.name && <div className="small mt-1" >{v.note}</div>}
-
-          </div>
+            </>} detail={v.note && v.note !== 'published contents' && v.note !== v.name && <div className="small mt-1">{v.note}</div>} />
         ))}
       </Section>
     </div>

@@ -169,7 +169,8 @@ try {
       assert.deepEqual(await page.evaluate(wrappedRowActions), [], `one-line action labels at ${width}, ${size}`)
       assert.ok(await page.locator('.int-list-row button').isVisible(), 'integration action remains visible')
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `page fits at ${width}, ${size}`)
-      assert.ok(await page.getByText('No runtime reading.', {exact:true}).isVisible(), 'status explanation stays inline')
+      // A status shows its word; its explanation is its details, opened on hover or tap.
+      assert.ok(await page.locator('[data-help="No runtime reading."]').isVisible(), `status word with its explanation as details at ${width}, ${size}`)
       assert.ok(await page.locator('.project-description').evaluateAll(els => els.every(el => el.scrollWidth <= el.clientWidth + 1)), `free text wraps at ${width}, ${size}`)
       assert.deepEqual(await page.evaluate(rowFontDifferences), [], `same text sizes between rows at ${width}, ${size}`)
       assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).webkitTextSizeAdjust), '100%', 'iOS does not inflate individual rows')
@@ -259,19 +260,10 @@ try {
     await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
     await page.addScriptTag({ content: conformanceFixture.outputFiles[0].text })
     await page.waitForFunction(() => !!window.finishConformance)
-    await page.waitForFunction(() => {
-      const strip = document.querySelector('.conformance-tabs'), active = strip?.querySelector('.active')
-      if (!active) return false
-      const box = strip.getBoundingClientRect(), item = active.getBoundingClientRect()
-      return item.left >= box.left - 1 && item.right <= box.right + 1
-    })
+    // Conformance's pages are in the sidebar; the page must still fit a
+    // phone once its counts load.
     await page.evaluate(() => window.finishConformance())
-    await page.getByRole('link', { name: 'Fleet reviews (2)', exact: true }).waitFor()
-    await page.waitForFunction(() => {
-      const strip = document.querySelector('.conformance-tabs'), active = strip.querySelector('.active')
-      const box = strip.getBoundingClientRect(), item = active.getBoundingClientRect()
-      return item.left >= box.left - 1 && item.right <= box.right + 1
-    }, null, { timeout: 2000 })
+    await page.locator('.page-head h1').first().waitFor()
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Conformance fits after count loads at 390, ${size}`)
     if (out) await page.screenshot({ path: `${out}/conformance-390-${size}.png`, fullPage: true })
   }

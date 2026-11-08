@@ -1,3 +1,4 @@
+import { StatusDot } from '../../Status'
 import './ConnectorForm.css'
 import { HelpButton } from '../../PageHead'
 import { useState } from 'react'
@@ -28,8 +29,8 @@ function SecretRefPicker({ value, onChange, help }: {
     <span>
       {value.map((n) => (
         <div className="row connector-form-div" key={n}>
-          <span className={`dot ${unknown ? '' : available.includes(n) ? 'ok' : 'bad'}`}
-            title={unknown ? 'unknown · the secret store could not be read' : available.includes(n) ? `held in ${storeWords(namesQ.data?.stores?.[n])}` : 'not in the secret store yet · add this key to it'} />
+          <StatusDot word={unknown ? 'unknown' : available.includes(n) ? 'current' : 'missing'}
+            help={unknown ? 'the secret store could not be read' : available.includes(n) ? `held in ${storeWords(namesQ.data?.stores?.[n])}` : 'not in the secret store yet · add this key to it'} />
           <code>{n}</code>
           {!unknown && !available.includes(n) && <span className="muted small">not resolved yet</span>}
           <button className="subtle danger" onClick={() => onChange(value.filter((v) => v !== n))}>remove</button>
@@ -267,7 +268,7 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
 
       {test && (test.checked ? (
         <div className="card row" style={{ borderColor: test.ok ? 'var(--ok)' : 'var(--bad)' }}>
-          <span className={`dot ${test.ok ? 'ok' : 'bad'}`} aria-hidden />
+          <StatusDot word={test.ok ? 'passed' : 'failed'} />
           <span className="small"><strong>{test.ok ? 'Test passed' : 'Test failed'}</strong> — {test.detail}</span>
         </div>
       ) : (

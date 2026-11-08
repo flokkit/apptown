@@ -6,6 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { getKey, newQueryClient } from '../../data'
 import { ChatMessages } from './Conversation'
 import { Bubbles } from '../console/Bubbles'
+import { AgentActionsSwitch, useAgentActions } from '../../AgentActions'
 import type { ChatHistoryEntry } from '../../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -21,6 +22,10 @@ const messages = [
 ] as ChatHistoryEntry['messages']
 const cleanups: (() => void)[] = []
 afterEach(() => { cleanups.splice(0).forEach(f => f()); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+function LiveSwitch() {
+  const [shown, setShown] = useAgentActions()
+  return <AgentActionsSwitch shown={shown} onChange={setShown} />
+}
 async function mount(live = false, viewer = 'sam') {
   Element.prototype.scrollIntoView = () => {}
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/auth/me') ? { mode: 'internal', user: viewer } : { messages, turn: 'handed-back' }))))
@@ -28,7 +33,8 @@ async function mount(live = false, viewer = 'sam') {
   client.setQueryData(getKey('/auth/me'), { mode: 'internal', user: viewer })
   const el = document.createElement('div'), root = createRoot(el)
   await act(async () => root.render(<QueryClientProvider client={client}>{live
-    ? <Bubbles sessionId="test" />
+    // The live chat's switch is in its page's menu; it shares the viewer's choice.
+    ? <><LiveSwitch /><Bubbles sessionId="test" /></>
     : <ChatMessages chat={{ messages } as ChatHistoryEntry} pictures="/pictures/" />}</QueryClientProvider>))
   cleanups.push(() => { act(() => root.unmount()); client.clear() })
   if (live) await vi.waitFor(() => expect(el.textContent).toContain('Tests passed.'))

@@ -18,7 +18,6 @@ export function ChooseRelease({ slug, name, displayLabel, releases, current, cho
   const deploymentLabel = (key: string) => deployments.data?.find(d => d.name === key)?.displayLabel || key
   const running = releases.find(r => r.deployment === name && r.state === 'released')
   return <>
-    <button onClick={() => onChoose('list')} disabled={!current}>Deploy a release…</button>
     {choice === 'list' && <Modal title="Deploy a release…" onClose={() => onChoose(null)}>
       <p>Choose the code to run on {label}. Each deployment has its own release and approval.</p>
       <ReadStatus q={bundles} what="release bundles" /><StaleNote q={bundles} />

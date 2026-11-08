@@ -1,8 +1,11 @@
-import { useState, type ReactNode } from 'react'
-import { Section, Group } from '../../Section'
+import { useHolds } from '../../instancePages'
+import { ListTable } from '../../ListTable'
+import './list-migrations.css'
+import { Fragment, useState } from 'react'
+import { Section } from '../../Section'
 import { Status } from '../../Status'
 import { Link, useParams } from 'react-router-dom'
-import type { ConformanceView, CheckDefinition } from '../../wire.gen'
+import type { ConformanceView } from '../../wire.gen'
 import { type Verdict, coveringChange, BeingFixed, fixableFindings, stateOf, laneOf, StateChip, HowJudged, useStartRemediation } from './parts'
 
 // --- Checks (the catalog) -------------------------------------------------------------------------
@@ -22,59 +25,48 @@ const worst = (vs: Verdict[]) => {
   return (['failed', 'unknown', 'excepted', 'passed', 'not applicable'] as const).find(s => labels.has(s)) ?? 'unknown'
 }
 
-// CheckRow: one row per check — status, title, tally, and Fix everywhere
-// when it has findings. Selecting the row opens each project's result.
-function CheckRow({ title, vs, view, base, fixKey, recordKey, children }: { title: string; vs: Verdict[]; view: ConformanceView; base: string; fixKey?: string; recordKey?: string; children?: ReactNode }) {
+// FixEverywhere starts a remediation over one check version's findings.
+function FixEverywhere({ fixKey }: { fixKey: string }) {
   const remediation = useStartRemediation()
-  const findings = vs.filter((v) => laneOf(v) === 'findings').length
-  const { checkKey } = useParams()
-  return (
-    <>
-      <div className="card row check-row" style={{ display: 'flex' }}>
-        <Link className="row check-open" to={`${base}/checks/${encodeURIComponent(recordKey || fixKey || '')}`}>
-          <span className="row-status">{findings > 0 ? <span className="finding-count">{findings} {findings === 1 ? 'finding' : 'findings'}</span> : <Status word={worst(vs)} />}</span>
-          <strong>{title}</strong>
-          <span className="muted small">{tally(vs)}</span>
-        </Link>
-        {view.lens.kind === 'current' && fixableFindings(view, vs) > 0 && fixKey && (
-          <span className="row-action"><button disabled={remediation.busy} title="One change per project, each waiting for approval" onClick={() => remediation.start('check', fixKey)}>Fix everywhere</button></span>
-        )}
-      </div>
-      {remediation.err && <p className="error small">{remediation.err}</p>}
-      {checkKey && <div className="check-results">{children ?? <Results vs={vs} base={base} view={view} />}</div>}
-    </>
-  )
-}
-
-function Results({ vs, base, def, view }: { vs: Verdict[]; base: string; view: ConformanceView; def?: CheckDefinition }) {
-  const sorted = [...vs].sort((a, b) => stateOf(a.state).rank - stateOf(b.state).rank || a.projectSlug.localeCompare(b.projectSlug))
+  if (!useHolds('conformance:remediate')) return null
   return <>
-    {sorted.map((v) => (
-      <div key={v.projectSlug}><Link to={`${base}/projects/${v.projectSlug}`} className="row small" style={{ display: 'flex', gap: 'var(--space-3)', padding: '6px 0 6px 16px' }}>
-        <span className="row-status"><StateChip finding={v.lane === 'findings'} label={v.statusLabel} /></span>
-        <strong>{v.projectSlug}</strong>
-        {v.detail && <span className="muted">{v.detail}</span>}
-      </Link>{coveringChange(view, v) && <BeingFixed change={coveringChange(view, v)!} />}</div>
-    ))}
-    {def && <section className="small" style={{ padding: '4px 0 8px 16px' }}><h3>How this check judges</h3><HowJudged def={def} /></section>}
+    <button disabled={remediation.busy} title="One change per project, each waiting for approval" onClick={() => remediation.start('check', fixKey)}>Fix everywhere</button>
+    {remediation.err && <span className="error small">{remediation.err}</span>}
   </>
 }
 
-function CheckCard({ def, vs, view, base }: { def?: CheckDefinition; vs: Verdict[]; view: ConformanceView; base: string }) {
-  return <CheckRow title={def?.title || def?.check || vs[0]?.check || 'Check'} vs={vs} view={view} base={base} fixKey={def?.key}>
-    <Results vs={vs} base={base} view={view} def={def} />
-  </CheckRow>
+const checkStatus = (vs: Verdict[]) => {
+  const findings = vs.filter((v) => laneOf(v) === 'findings').length
+  return findings > 0 ? <Status word="needs review" reason={`${findings} ${findings === 1 ? 'finding' : 'findings'}`} /> : <Status word={worst(vs)} />
 }
 
-// A check with several versions is one row; opening it lists each version's
-// results, each with its own Fix everywhere.
-function CheckVersions({ versions, view, base }: { versions: [string, Verdict[]][]; view: ConformanceView; base: string }) {
-  const verdicts = versions.flatMap(v => v[1])
-  return <CheckRow title={view.checkDefs[versions[0][0]]?.title || 'Check'} vs={verdicts} view={view} base={base} recordKey={versions[0][0]}>
-    {versions.map(([key, vs]) => <Group key={key} label={`Version ${view.checkDefs[key]?.version ?? ''}`}>
-      <CheckCard def={view.checkDefs[key]} vs={vs} view={view} base={base} />
-    </Group>)}
-  </CheckRow>
+// Results: one row per project's result for one check version; the row
+// opens the project's conformance page.
+function Results({ vs, base, view }: { vs: Verdict[]; base: string; view: ConformanceView }) {
+  const sorted = [...vs].sort((a, b) => stateOf(a.state).rank - stateOf(b.state).rank || a.projectSlug.localeCompare(b.projectSlug))
+  return <ListTable label="Results by project" rows={sorted} rowKey={v => v.projectSlug} rowTo={v => `${base}/projects/${v.projectSlug}`} columns={[
+    { key: 'project', label: 'Project', phone: 'name', render: v => <Link to={`${base}/projects/${v.projectSlug}`}>{v.projectSlug}</Link> },
+    { key: 'detail', label: 'Result', phone: 'detail', render: v => <>{v.detail && <span className="muted">{v.detail}</span>}{coveringChange(view, v) && <BeingFixed change={coveringChange(view, v)!} />}</> },
+    { key: 'status', label: 'Status', phone: 'state', render: v => <StateChip finding={v.lane === 'findings'} label={v.statusLabel} /> },
+  ]} />
+}
+
+// One check's page: each version's results, each with its own Fix everywhere,
+// then how the check judges.
+function CheckPage({ versions, view, base }: { versions: [string, Verdict[]][]; view: ConformanceView; base: string }) {
+  const current = view.lens.kind === 'current'
+  return <>
+    {versions.map(([key, vs]) => {
+      const def = view.checkDefs[key]
+      return <Fragment key={key}>
+        <Section title={versions.length > 1 ? `Version ${def?.version ?? ''}` : 'Results'} count={vs.length}
+          action={current && fixableFindings(view, vs) > 0 && def?.key && <FixEverywhere fixKey={def.key} />}>
+          <Results vs={vs} base={base} view={view} />
+        </Section>
+        {def && <Section title={versions.length > 1 ? `How version ${def.version} judges` : 'How this check judges'}><div className="small check-judging"><HowJudged def={def} /></div></Section>}
+      </Fragment>
+    })}
+  </>
 }
 
 export function ChecksList({ view, base }: { view: ConformanceView; base: string }) {
@@ -89,12 +81,25 @@ export function ChecksList({ view, base }: { view: ConformanceView; base: string
   const checks = [...grouped.entries()]
   const act = (vs: Verdict[]) => vs.filter((v) => ['findings', 'flagged', 'broken'].includes(laneOf(v))).length
   checks.sort((a, b) => act(b[1].flatMap(x => x[1])) - act(a[1].flatMap(x => x[1])) || a[0].localeCompare(b[0]))
+  if (checkKey) {
+    const one = checks.find(([, versions]) => versions.some(([key]) => key === checkKey))
+    return one ? <CheckPage versions={one[1]} view={view} base={base} /> : <p className="muted small">This check has no results here.</p>
+  }
+  type Row = { id: string; title: string; vs: Verdict[]; fixKey?: string; key: string }
+  const rows: Row[] = checks.slice(0, limit).map(([id, versions]) => ({
+    id, key: versions[0][0], vs: versions.flatMap(v => v[1]),
+    title: view.checkDefs[versions[0][0]]?.title || view.checkDefs[versions[0][0]]?.check || versions[0][1][0]?.check || 'Check',
+    fixKey: versions.length === 1 ? view.checkDefs[versions[0][0]]?.key : undefined,
+  }))
   return (
     <Section title="Checks" count={checks.length || undefined}>
       {checks.length === 0 && <p className="muted small">No checks recorded.</p>}
-      {checks.filter(([, versions]) => !checkKey || versions.some(([key]) => key === checkKey)).slice(0, checkKey ? checks.length : limit).map(([key, versions]) => versions.length === 1
-        ? <CheckCard key={key} def={view.checkDefs[versions[0][0]]} vs={versions[0][1]} view={view} base={base} />
-        : <CheckVersions key={key} versions={versions} view={view} base={base} />)}
+      {rows.length > 0 && <ListTable label="Checks" rows={rows} rowKey={r => r.id} rowTo={r => `${base}/checks/${encodeURIComponent(r.key)}`} columns={[
+        { key: 'check', label: 'Check', phone: 'name', render: r => <Link to={`${base}/checks/${encodeURIComponent(r.key)}`}>{r.title}</Link> },
+        { key: 'results', label: 'Results', phone: 'detail', render: r => <span className="muted">{tally(r.vs)}</span> },
+        { key: 'status', label: 'Status', phone: 'state', render: r => checkStatus(r.vs) },
+        { key: 'fix', label: '', phone: 'action', render: r => view.lens.kind === 'current' && r.fixKey && fixableFindings(view, r.vs) > 0 && <FixEverywhere fixKey={r.fixKey} /> },
+      ]} />}
       {checks.length > limit && <p><button onClick={() => setLimit(n => n + 10)}>Show more checks</button></p>}
     </Section>
   )

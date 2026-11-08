@@ -77,7 +77,7 @@ describe("the change a chat works on", () => {
   it('offers no Check and land on a change it could not read, and says so', async () => {
     change = down
     const { el, done } = await mount()
-    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('title')).toContain('database unavailable'))
+    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('data-help')).toContain('database unavailable'))
     expect(el.textContent).not.toContain('Check and land')
     done()
   })
@@ -124,7 +124,7 @@ describe('the changes a chat started', () => {
   const down = () => new Response(JSON.stringify({ error: 'database unavailable' }), { status: 400 })
   it('says a failed read failed, never shows it as none', async () => {
     const { el, done } = await mount(down)
-    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('title')).toContain('database unavailable'))
+    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('data-help')).toContain('database unavailable'))
     done()
   })
   it('shows nothing for an answer of none', async () => {

@@ -60,6 +60,8 @@ async function render(answer: (url: string, init?: RequestInit) => unknown) {
 }
 
 // projectRows is the per-project table's rows.
+// Each status as its word and its details (which open on hover or tap).
+const chips = (root: Element) => [...root.querySelectorAll('.chip')].map((c) => `${c.textContent?.replace(/^●\s*/, '')}: ${c.getAttribute('data-help') ?? c.getAttribute('title') ?? ''}`)
 const projectRows = (el: HTMLElement) => [...el.querySelectorAll('tbody tr')]
 
 const button = (el: HTMLElement, text: string) => [...el.querySelectorAll('button')].find((b) => b.textContent?.startsWith(text)) as HTMLButtonElement
@@ -81,14 +83,15 @@ describe('the what-if page', () => {
       const rows = projectRows(el)
       expect(rows).toHaveLength(4)
       expect(rows[0].textContent).toContain('failed')
-      expect(rows[3].textContent).toContain('not evaluated')
+      expect(chips(rows[3])).toEqual(['unknown: not evaluated'])
       expect(rows[0].textContent).not.toContain('0123456789')
       const link = rows[0].querySelector<HTMLAnchorElement>(`a[href="/conformance/what-ifs/${WHAT_IF}/projects/ledger"]`)!
       expect(link.textContent).toBe('Check details')
       await act(async () => link.click())
       expect(el.querySelector('h1')?.textContent).toBe('ledger')
       expect(el.textContent).toContain('0123456789')
-      expect(el.querySelector('details, [aria-expanded]')).toBeNull()
+      // Nothing folds away; a status's own details opening on tap is not a fold-down.
+      expect(el.querySelector('details, [aria-expanded]:not(.chip-button)')).toBeNull()
     } finally { done() }
   })
 
@@ -98,17 +101,22 @@ describe('the what-if page', () => {
     expect(text).toContain('What-if: team v2')
     expect(text).toContain('stopped')
     expect(text).toContain('at least $0.80 of $0.50')
-    expect(text).toContain('4 projects1 ● failednew failures1 ● unknowncould not assess1 ● passedno new failures1 ● unknownnot evaluated1 move rules back')
+    expect(text).toContain('4 projects1 ● failed1 ● unknown1 ● passed1 ● unknown1 move rules back')
+    expect(chips(el).join(' | ')).toContain('failed: new failures | unknown: could not assess | passed: no new failures | unknown: not evaluated')
     expect(text).toContain("moves each project's other workflows to the newest version")
     // Across projects: the check, how many it is missing from, why, and what would make it assessable.
     expect(text).toContain('img · scan 1 of 4 — no image of the app at this commit could be usedTo assess: the app must ship an image')
     const rows = projectRows(el).map((r) => r.textContent)
-    expect(rows[0]).toContain('ledger● failednew failures3 checks · 1 pass · 2 failCheck details')
+    expect(rows[0]).toContain('ledger● failed3 checks · 1 pass · 2 failCheck details')
+    expect(chips(projectRows(el)[0])).toEqual(['failed: new failures'])
     expect(rows[0]).not.toContain('0123456789')
-    expect(rows[1]).toContain('till● unknowncould not assess2 checks · 1 pass · 1 could not be checked1 fixed')
+    expect(rows[1]).toContain('till● unknown2 checks · 1 pass · 1 could not be checked1 fixed')
+    expect(chips(projectRows(el)[1])).toEqual(['unknown: could not assess'])
     expect(projectRows(el)[1].querySelector('a[href$="/projects/till"]')).not.toBeNull()
-    expect(rows[2]).toContain('shopwould join● passedno new failuresno checks')
-    expect(rows[3]).toContain('mail● unknownnot evaluated')
+    expect(rows[2]).toContain('shopwould join● passedno checks')
+    expect(chips(projectRows(el)[2])).toEqual(['passed: no new failures'])
+    expect(rows[3]).toContain('mail● unknown')
+    expect(chips(projectRows(el)[3])).toEqual(['unknown: not evaluated'])
     expect(button(el, 'Recommend v2')).toBeUndefined()
     expect(el.querySelector(`a[href="/packs/team?whatIf=${WHAT_IF}"]`)).not.toBeNull()
     expect(el.querySelector('a[href="/evals/new?pack=team&version=2"]')).not.toBeNull()
@@ -117,7 +125,7 @@ describe('the what-if page', () => {
     expect(el.textContent).toContain('0123456789')
     expect(el.textContent).toContain('docs · readme')
     expect(el.textContent).toContain('deps · audit (exception approved)')
-    expect(el.textContent).toContain('would fail')
+    expect(chips(el)).toContain('failed: would fail')
     expect(el.textContent).toContain('no README')
     expect(el.textContent).not.toContain('hygiene · fixme')
     // A rule move is its own line, the one going back first and marked; it is never shown as a check.
@@ -286,9 +294,12 @@ describe('the what-if page', () => {
     const running = { ...whatIf, statusLabel: 'working', state: 'running', projectsDone: 1, projectsTotal: 4,
       projects: whatIf.projects.map((p, i) => i === 0 ? p : { ...p, statusLabel: 'unknown', outcome: 'not-yet-judged', candidateDigest: undefined, newFailures: [], notAssessed: [], notAssessedBy: [] }) }
     const { el, done } = await render((url) => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : running)
-    expect(el.textContent).toContain('in progressAppTown restarted 1 of 4')
-    expect(el.textContent).toContain('3 ● unknownnot yet judged')
+    expect(el.textContent).toContain('● in progress 1 of 4')
+    expect(chips(el)[0]).toBe('in progress: AppTown restarted')
+    expect(el.textContent).toContain('3 ● unknown')
+    expect(chips(el)).toContain('unknown: not yet judged')
     expect(el.textContent).not.toContain('not evaluated')
+    expect(chips(el).join(' | ')).not.toContain('not evaluated')
     done()
   })
 

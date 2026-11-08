@@ -52,6 +52,9 @@ function responses(read: (init?: RequestInit) => Response | Promise<Response>, e
 // The lit lights: present only while something is confirmed broken; their label is the count to fix.
 const badge = (el: HTMLElement) => el.querySelector('.attention-light:not(.off)') ? el.querySelector('.attention-lights')! : null!
 
+// A status's details ride in its title, not in the page text.
+const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
+
 describe('Attention surfaces share authorized current evidence', () => {
   it('shares one answer and request between narrow topbar and actual page, with actionable severity and links', async () => {
     const calls = responses(() => json(warning))
@@ -60,19 +63,20 @@ describe('Attention surfaces share authorized current evidence', () => {
     expect(calls.filter(p => p === '/attention')).toHaveLength(1)
     expect(v.el.querySelector('.topbar')?.contains(badge(v.el))).toBe(true)
     expect(badge(v.el).getAttribute('aria-label')).toBe('2 to fix')
-        expect(v.el.querySelectorAll('article')).toHaveLength(2)
+        expect(v.el.querySelectorAll('[role=listitem]')).toHaveLength(2)
     expect(v.el.querySelector('a[href="/infrastructure"]')?.textContent).toBe('Worker unavailable')
     expect(v.el.querySelector('a[href="/projects/game/settings/data"]')?.textContent).toBe('Recovery is untested')
     // Not checked yet is neutral: a fact about AppTown, not a warning.
-    expect(v.el.querySelectorAll('article .chip.pending')).toHaveLength(0)
-    expect(v.el.querySelectorAll('article')[1].textContent).toContain('recovery not rehearsed')
+    expect(v.el.querySelectorAll('[role=listitem] .chip.pending')).toHaveLength(0)
+    expect(v.el.querySelectorAll('[role=listitem]')[1].textContent).toContain('recovery not rehearsed')
   })
   it.each(['unknown', 'failed'] as const)('does not report all-clear for %s empty observations', async mode => {
     responses(() => mode === 'failed' ? json({ error: 'observation read failed' }, 503) : json({ ...known, sources: [{ ...known.sources[0], unknown: mode === 'unknown', stale: false }] }))
     const v = mount(<><AttentionLights /><AttentionPage /></>); await settled(v.client)
     expect(badge(v.el)).toBeNull()
     expect(v.el.textContent).not.toContain('No current conditions need attention')
-    expect(v.el.textContent).toContain(mode === 'failed' ? 'failed' : 'not known')
+    expect(details(v.el)).not.toContain('No current conditions need attention')
+    expect(mode === 'failed' ? details(v.el) : v.el.textContent).toContain(mode === 'failed' ? 'failed' : 'not known')
   })
   it('retains conditions across a failed refresh and clears them only after successful recovery', async () => {
     let answer = () => json(warning)
@@ -80,12 +84,12 @@ describe('Attention surfaces share authorized current evidence', () => {
     const v = mount(<><AttentionLights /><AttentionPage /></>); await settled(v.client)
     answer = () => json({ error: 'offline' }, 503)
     await act(async () => { await v.client.refetchQueries({ queryKey: getKey('/attention') }) }); await settled(v.client)
-    expect(v.el.querySelectorAll('article')).toHaveLength(2)
+    expect(v.el.querySelectorAll('[role=listitem]')).toHaveLength(2)
     expect(badge(v.el).getAttribute('aria-label')).toBe('2 to fix')
     expect(v.el.textContent).toContain('unknown')
     answer = () => json(known)
     await act(async () => { await v.client.refetchQueries({ queryKey: getKey('/attention') }) }); await settled(v.client)
-    expect(v.el.querySelectorAll('article')).toHaveLength(0)
+    expect(v.el.querySelectorAll('[role=listitem]')).toHaveLength(0)
     expect(badge(v.el)).toBeNull()
     expect(v.el.textContent).not.toContain('Coverage incomplete')
   })
@@ -233,12 +237,13 @@ it.each([false, true])('Home lists landed changes by title, project and age, wit
  const v = mount(<Dashboard />, '/'); await settled(v.client)
  // The feed shows landed changes only.
  expect(v.el.querySelector('a[href="/changes/photos"]')).toBeNull()
- const row = v.el.querySelector('a[href="/changes/calendar"]')!
+ // The row opens the change; its title is the row's link.
+ const row = v.el.querySelector('a[href="/changes/calendar"]')!.closest('.list-row-link')!
  expect(row?.querySelector('strong')?.textContent).toBe('Add a shared calendar')
  // Every row here landed, so no row repeats it as a status.
  expect(row?.querySelector('.row-status')).toBeNull()
  expect(row?.querySelector('.small')?.textContent).toMatch(/^Household · .+ago$/)
- expect([...row!.children].map(c => c.tagName)).toEqual(['STRONG', 'SPAN'])
+ expect(row!.querySelector('strong')!.compareDocumentPosition(row!.querySelector('.small')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 })
 
 it('keeps pending attention distinct from a failed read', async () => {
@@ -290,7 +295,7 @@ it('shows retained known failed readings with their age without unknown chips', 
  expect(badge(v.el).getAttribute('aria-label')).toBe('1 to fix')
  expect(v.el.textContent).toContain('last seen 30m ago')
  expect(v.el.textContent).not.toContain('not known')
- expect(v.el.querySelector('article .chip.unknown')).toBeNull()
+ expect(v.el.querySelector('[role=listitem] .chip.unknown')).toBeNull()
 })
 it('raises no unknown badge for an old successful reading', async () => {
  responses(() => json({...known,sources:[{...known.sources[0],stale:true}]}))
@@ -315,7 +320,7 @@ it('does not count an unknown item as a confirmed problem or duplicate its unkno
  responses(()=>json({items:[{...warning.items[0],key:'capacity/host/read',unknown:true,title:'Host capacity',detail:'The host did not answer. Check its connection.'}],sources:[{...known.sources[0],key:'capacity/host',unknown:true}]}))
  const v=mount(<><AttentionLights/><AttentionPage/></>);await settled(v.client)
  expect(badge(v.el)).toBeNull()
- expect(v.el.querySelectorAll('article')).toHaveLength(1)
+ expect(v.el.querySelectorAll('[role=listitem]')).toHaveLength(1)
  expect(v.el.textContent).toContain('Check its connection.')
 })
 
@@ -324,21 +329,21 @@ it('counts the rows shown consistently in the header, Attention and Home', async
  responses(() => json(answer), {'/dashboard':emptyDashboard,'/activity':emptyActivity,'/projects?limit=5&order=mine':{ projects: [{ id: 'project', slug: 'game', name: 'Game', hasDeployments: false }], total: 1 }})
  const v = mount(<><AttentionLights/><AttentionPage/><Dashboard/></>); await settled(v.client)
  expect(badge(v.el).getAttribute('aria-label')).toBe('2 to fix')
- expect(v.el.querySelectorAll('article')).toHaveLength(3)
+ expect(v.el.querySelectorAll('.attention-group [role=listitem]')).toHaveLength(3)
  expect(v.el.textContent).not.toContain('host issues')
  // Home keeps the same row counts as Attention's summary.
  expect(v.el.textContent).toContain('2 to fix · 1 not known')
  expect([...v.el.querySelectorAll('.dash-lead a[href="/attention"]')].map(a => [a.children[0]?.textContent, a.children[1]?.textContent])).toEqual([
    ['Problems', '2'],
  ])
- expect(v.el.querySelector('article small')?.textContent).toContain('checked ')
+ expect(v.el.querySelector('[role=listitem] small')?.textContent).toContain('checked ')
 })
 
 it('keeps low disk amber in Attention', async () => {
  responses(()=>json({...warning,items:[{...warning.items[0],statusLabel:'low'}]}))
  const v=mount(<AttentionPage/>);await settled(v.client)
- expect(v.el.querySelector('article .chip.pending')?.textContent).toContain('low')
- expect(v.el.querySelector('article .chip.fail')).toBeNull()
+ expect(v.el.querySelector('[role=listitem] .chip.pending')?.textContent).toContain('low')
+ expect(v.el.querySelector('[role=listitem] .chip.fail')).toBeNull()
 })
 
 it('counts an expired item once when its owner coverage has the same key', () => {
@@ -386,7 +391,7 @@ it('shows a failed backup attempt as last tried, while a first check remains pen
   { ...known.sources[0], key: 'protection/failed', name: 'Orders · backups', unknown: true, observedAt: '', attemptedAt: at, reason: "Office: The deployment's data could not be read because its platform's data inventory is unavailable.", nextStep: 'AppTown schedules a background check every five minutes.' }, // gitleaks:allow (a test fixture's reading key)
  ]}))
  const v = mount(<AttentionPage />); await settled(v.client)
- const rows = v.el.querySelectorAll('article')
+ const rows = v.el.querySelectorAll('[role=listitem]')
  expect(rows).toHaveLength(2)
  expect(rows[0].textContent).toContain('not checked yet')
  expect(rows[0].textContent).toContain('every five minutes')
@@ -462,7 +467,7 @@ it('shows a pending release on Home and Attention with its deployment as the act
   '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'game', name: 'Game', hasDeployments: false }], total: 1 }, '/projects/game/deployments': [],
  })
  const v = mount(<><AttentionLights /><AttentionPage /><Dashboard /></>); await settled(v.client)
- const article = v.el.querySelector('article')!
+ const article = v.el.querySelector('[role=listitem]')!
  expect(article.querySelector('.chip.pending')?.textContent).toContain('waiting for approval')
  expect(article.querySelector('.chip.fail')).toBeNull()
  expect(article.querySelector('a')?.getAttribute('href')).toBe(href)
@@ -487,7 +492,7 @@ it('Home and Projects use the standing roll-up when a preview runs beside a stop
 it.each(['stopped', 'recovery not rehearsed', 'recovery not tested on its platform'] as const)('keeps the server word %s visible when the reading is old', async statusLabel => {
  responses(()=>json({...warning,items:[{...warning.items[1],statusLabel,stale:true}]}))
  const v=mount(<AttentionPage/>);await settled(v.client)
- expect(v.el.querySelector('article .chip')?.textContent).toContain(statusLabel)
- expect(v.el.querySelector('article .chip')?.textContent).not.toContain('not checked yet')
- expect(v.el.querySelector('article .attention-seen')?.textContent).toContain('last seen')
+ expect(v.el.querySelector('[role=listitem] .chip')?.textContent).toContain(statusLabel)
+ expect(v.el.querySelector('[role=listitem] .chip')?.textContent).not.toContain('not checked yet')
+ expect(v.el.querySelector('[role=listitem] .attention-seen')?.textContent).toContain('last seen')
 })

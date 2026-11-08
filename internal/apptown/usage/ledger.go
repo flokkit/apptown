@@ -252,6 +252,10 @@ type dayKind struct {
 
 	Day, Kind         string
 	Total, CostMicros int64
+	// Cached is the part of Total read from or written to the provider's
+	// prompt cache: each turn re-reads the conversation so far, so it can
+	// dwarf the new input and output.
+	Cached int64 `json:"cached"`
 }
 
 // report is the usage page: totals and the rollups over a window.
@@ -329,7 +333,7 @@ func (l *Ledger) summary(ctx context.Context, windowDays int, scope usageScope, 
 	}
 	rep.ByDayKind = make([]dayKind, 0, len(days))
 	for _, d := range days {
-		rep.ByDayKind = append(rep.ByDayKind, dayKind{Day: d.Day, Kind: d.Kind, Total: d.Total, CostMicros: d.CostMicros, ProviderReported: d.ProviderReported, Catalog: d.Catalog, Unpriced: d.Unpriced})
+		rep.ByDayKind = append(rep.ByDayKind, dayKind{Day: d.Day, Kind: d.Kind, Total: d.Total, Cached: d.Cached, CostMicros: d.CostMicros, ProviderReported: d.ProviderReported, Catalog: d.Catalog, Unpriced: d.Unpriced})
 	}
 	if byWorkflow {
 		rep.ByWorkflow, err = group("workflow")

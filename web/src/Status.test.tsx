@@ -20,13 +20,16 @@ describe('server display vocabulary', () => {
       }
     })
   }
-  it('keeps the state readable and its reason in help', () => {
+  // The word is on the page; its reason opens on hover or tap, never
+  // written beside it.
+  it('keeps the state readable and its reason in its details', () => {
     const html = renderToStaticMarkup(<Status word="failed" help="Tests did not pass." />)
-    expect(html).toContain('aria-hidden="true">● </span>failed')
+    expect(html).toContain('aria-hidden="true">● </span><span class="chip-word">failed</span>')
     expect(html).not.toContain('<details')
-    expect(html).toContain('status-help-inline')
+    expect(html).not.toContain('>Tests did not pass.<')
+    expect(html).toContain('chip-button')
     expect(html).not.toContain('role="status"')
-    expect(html).toContain('title="Tests did not pass."')
+    expect(html).toContain('data-help="Tests did not pass."')
     expect(html).toContain('aria-label="failed: Tests did not pass."')
   })
 })
@@ -72,7 +75,7 @@ it('keeps an old known reading distinct from unknown and from failure', () => {
 it('renders every status chip through the shared component', () => {
  const files = readdirSync('src', {recursive:true}) as string[]
  for (const file of files.filter(f=>f.endsWith('.tsx')&&!f.includes('.test.')&&f!=='Status.tsx')) {
-  expect(readFileSync(`src/${file}`,'utf8'),file).not.toMatch(/className=(?:"chip(?:\s|")|\{`chip(?:\s|`))/)
+  expect(readFileSync(`src/${file}`,'utf8'),file).not.toMatch(/className=(?:"(?:chip|dot)(?:\s|")|\{`(?:chip|dot)(?:\s|`))/)
  }
 })
 

@@ -291,7 +291,7 @@ func (b databaseBackup) Run(ctx context.Context, _ string, _ map[string]any) (ma
 	if !b.enabled {
 		return map[string]any{"skipped": "AppTown's database is not the built-in one"}, nil
 	}
-	on, err := identity.FeatureEnabledIn(ctx, b.db, "backups")
+	on, err := identity.FeatureEnabledIn(ctx, b.db, "apptown-backup")
 	if err != nil {
 		return nil, err
 	}

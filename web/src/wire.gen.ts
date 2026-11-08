@@ -94,6 +94,15 @@ export type ApprovalQuestion = {
   adds?: ChangeAdds | null
 }
 
+export type Approver = {
+  kind: string
+  name: string
+  label: string
+  people: string[]
+  groups?: Approver[]
+  everyone?: boolean
+}
+
 export type ArtifactAttached = {
   id: string | null
 }
@@ -847,6 +856,8 @@ export type Feature = {
   enabled: boolean
   covers: string
   docs: string
+  off?: string
+  needs?: string
 }
 
 export type FinalCopies = {
@@ -2121,6 +2132,11 @@ export type Step = {
   startedAt: string
   finishedAt: string
   checkReading?: checkReading | null
+}
+
+export type StepApprovers = {
+  approvers: Approver[]
+  opener?: string
 }
 
 export type StepInterrupted = {
@@ -4446,6 +4462,7 @@ export type Tenant = {
   deployment?: string
   containers: number
   used: Figure
+  cpuUsed: Figure
   promised: Figure
   unlimited: number
   cpus: number
@@ -4600,6 +4617,7 @@ export type UsageDayKind = {
   day: string
   kind: string
   total: number
+  cached: number
   costMicros: number
 }
 
@@ -5007,6 +5025,9 @@ export type PartMemory = {
   need?: boolean
   usedBytes: number
   limitBytes: number
+  cpuCores: number
+  cpuLimit: number
+  image?: string
   known: boolean
   reason?: string
 }
@@ -5332,6 +5353,7 @@ export type TierApp = {
   observationStale: boolean
   deploymentId?: string | null
   deploymentLabel?: string
+  deployment?: string
   slug: string
   name: string
   icon?: string

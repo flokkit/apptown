@@ -151,9 +151,7 @@ it('opens Overview by default and keeps code, conversation, full records and edi
   expect(el.querySelector('dialog[open] del')?.textContent).toBe(v.notesDiff!.removed[0])
   expect([...el.querySelectorAll('dialog .ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept', 'Send back…', 'Abandon change'])
   expect(el.querySelector('#decision button')).toBeNull()
-  await act(async () => el.querySelector<HTMLAnchorElement>('dialog a[href$="tab=conversation"]')!.click())
-  expect(el.querySelector('dialog[open]')).toBeNull()
-  expect(el.querySelector('.ch-tabs [aria-current]')?.textContent).toBe('Conversation')
+  expect(el.querySelector('dialog a[href$="tab=conversation"]')).toBeNull()
   expect(vi.mocked(fetch).mock.calls.some(([url, init]) => init?.method === 'POST' && /approve|abandon|console/.test(String(url)))).toBe(false)
   for (const name of ['Overview', 'Conversation', 'Details', 'Code']) {
     await click(name)
@@ -249,7 +247,7 @@ it('shows a long request excerpt with a link to the complete request', () => {
   expect(link.getAttribute('href')).toBe(`/changes/${v.change.id}/records/request`)
 })
 
-it('keeps large code files, screenshot failures and status help open on a change', () => {
+it('keeps large code files and screenshot failures open, and status details on the status, on a change', () => {
   const raw = 'diff --git a/site.txt b/site.txt\n--- a/site.txt\n+++ b/site.txt\n@@ -1 +1,450 @@\n' + Array.from({ length: 450 }, (_, i) => `+line ${i}`).join('\n')
   const html = renderToStaticMarkup(<InlineHelp.Provider value>
     <Status word="unknown" help="The checks could not be read." />
@@ -258,7 +256,9 @@ it('keeps large code files, screenshot failures and status help open on a change
   </InlineHelp.Provider>)
   const el = document.createElement('div'); el.innerHTML = html
   expect(el.querySelector('details, summary')).toBeNull()
-  for (const text of ['line 449', 'The checks could not be read.', '/missing.png', '404']) expect(el.textContent).toContain(text)
+  for (const text of ['line 449', '/missing.png', '404']) expect(el.textContent).toContain(text)
+  // A status shows its word; its details open on hover or tap, not folded into a summary.
+  expect(el.querySelector('.chip-button')?.getAttribute('data-help')).toBe('The checks could not be read.')
 })
 
 it('links a long reviewer conclusion to the run that recorded it', () => {
@@ -349,7 +349,7 @@ it('uses two named cards and separates the fixed label, value and evidence colum
   const el = document.createElement('div'); el.innerHTML = render(view())
   expect(el.querySelector('.ch-change-card')?.getAttribute('aria-label')).toBe('The change')
   expect([...el.querySelectorAll('.ch-overview > section > h2')].map(e => e.textContent)).toEqual(['Your decision'])
-  expect([...el.querySelectorAll('.ch-change-card .ch-row-label')].map(e => e.textContent)).toEqual(['Preview', 'You asked', 'What was made', 'Checks', 'Goes live', 'Who decides', 'Reviewer', 'Release'])
+  expect([...el.querySelectorAll('.ch-change-card .ch-row-label')].map(e => e.textContent)).toEqual(['Preview', 'You asked', 'What was made', 'Checks', 'Goes live', 'Reviewer', 'Release'])
   for (const row of el.querySelectorAll('.ch-change-card .ch-overview-line')) {
     expect(row.children).toHaveLength(3)
     expect(row.children[1].classList.contains('ch-value')).toBe(true)
@@ -856,9 +856,9 @@ it('labels every approval fact, omits the internal step and keeps its meaning an
     await vi.waitFor(async () => { await act(async () => {}); expect(el.textContent).toContain('Adds the November newsletter.') })
     await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
     const dialog = el.querySelector('dialog')!
-    expect([...dialog.querySelectorAll('.ch-row-label')].map(row => row.textContent)).toEqual(['You asked', 'What it does', 'Checks', 'Goes live', 'Who decides'])
+    expect([...dialog.querySelectorAll('.ch-row-label')].map(row => row.textContent)).toEqual(['You asked', 'What it does', 'Checks', 'Goes live'])
     const card = el.querySelector('.ch-change-card')!
-    for (const label of ['You asked', 'What it does', 'Checks', 'Goes live', 'Who decides']) {
+    for (const label of ['You asked', 'What it does', 'Checks', 'Goes live']) {
       const value = (parent: Element) => {
         const cell = [...parent.querySelectorAll('.ch-overview-line')].find(row => row.querySelector('.ch-row-label')?.textContent === label)?.querySelector('.ch-value')?.cloneNode(true) as Element | undefined
         cell?.querySelectorAll('.ch-technical').forEach(e => e.remove())
@@ -870,11 +870,10 @@ it('labels every approval fact, omits the internal step and keeps its meaning an
     expect(dialog.querySelector('.ch-accept-rows')?.textContent).not.toContain(v.change.body)
     expect(dialog.querySelector('a[href$="/records/request"]')?.textContent).toBe('full request →')
     expect(dialog.textContent).toContain('Landing puts the change on main. Deployments update separately.')
-    expect(dialog.textContent).toContain('You or another approver')
     expect(dialog.textContent).not.toContain('· accept')
     expect(dialog.textContent).toContain('By accepting, you confirm: “I accept this work in full.”')
     expect([...dialog.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept', 'Send back…', 'Abandon change'])
-    expect(dialog.querySelector('a[href$="tab=conversation"]')).not.toBeNull()
+    expect(dialog.querySelector('a[href$="tab=conversation"]')).toBeNull()
   } finally { await act(async () => root.unmount()); client.clear() }
 })
 

@@ -70,14 +70,14 @@ it('labels current state and dated snapshots distinctly', () => {
   expect(render(snapshot)).not.toContain('newest evidence')
 })
 
-it('keeps each check’s evidence date and source in the current fleet roll-up', () => {
+// The roll-up is one line per project; each check's evidence (its date and
+// source) is on the project's own page, which the row opens.
+it('keeps the fleet roll-up to one line per project and leaves check evidence to its page', () => {
   const view = { lens: { kind: 'current' }, projects: [{ slug: 'shop', standing: 'conforms-so-far', sentence: 'Old evidence', lanes: { unassessed: 1 }, notKnown: [], adopted: [] }],
     byProject: { shop: [{ check: 'clean', sha: 'abcdef123456', at: '2026-11-07T03:02:00Z', reviewId: 'r', state: 'stale', lane: 'unassessed' }] },
     reviews: [{ id: 'r', number: 12, trigger: 'landing' }], checkDefs: {} } as unknown as ConformanceView
   const html = renderToStaticMarkup(<MemoryRouter><ProjectsList view={view} base="/conformance" /></MemoryRouter>)
   expect(html).toContain('Current state')
-  expect(html).toContain('clean')
-  expect(html).toContain('judged at')
-  expect(html).toContain('landing #12')
-  expect(html).toContain('judged on an older commit')
+  expect(html).not.toContain('judged at')
+  expect(html).toContain('href="/conformance/projects/shop"')
 })

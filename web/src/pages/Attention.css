@@ -14,4 +14,9 @@
 }
 
 .attention-group { scroll-margin-top: calc(var(--topbar-h, 56px) + 12px); }
+.attention-row > .list-state { order: -1; flex: 0 0 13em; }
+.attention-row > .list-identity { display: contents; }
+.attention-row > .list-action { margin-left: auto; }
+.attention-row > .list-action:empty { display: none; }
+@media (width <= 800px) { .attention-row > .list-state { order: 0; flex: 0 0 auto; } }
 }

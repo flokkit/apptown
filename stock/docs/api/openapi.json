@@ -2927,6 +2927,12 @@
           "name": {
             "type": "string"
           },
+          "needs": {
+            "type": "string"
+          },
+          "off": {
+            "type": "string"
+          },
           "tier": {
             "type": "string"
           }
@@ -10150,7 +10156,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10186,7 +10192,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10224,7 +10230,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10261,7 +10267,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10298,7 +10304,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10334,7 +10340,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10371,7 +10377,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10407,7 +10413,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10444,7 +10450,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10482,7 +10488,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10520,7 +10526,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -10564,7 +10570,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11069,7 +11075,7 @@
         },
         "x-apptown-feature": {
           "area": "worker",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -11713,7 +11719,7 @@
         },
         "x-apptown-feature": {
           "area": "models",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12052,7 +12058,7 @@
         },
         "x-apptown-feature": {
           "area": "models",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -12078,7 +12084,7 @@
         },
         "x-apptown-feature": {
           "area": "models",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -12102,7 +12108,7 @@
         },
         "x-apptown-feature": {
           "area": "models",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -13354,7 +13360,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -13389,7 +13395,7 @@
         },
         "x-apptown-feature": {
           "area": "chats",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -15373,7 +15379,7 @@
         },
         "x-apptown-feature": {
           "area": "models",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -15407,7 +15413,7 @@
         },
         "x-apptown-feature": {
           "area": "models",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -18238,7 +18244,7 @@
         },
         "x-apptown-feature": {
           "area": "models",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }
@@ -18612,6 +18618,42 @@
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/steps/{id}/approvers": {
+      "get": {
+        "operationId": "getStepsIdApprovers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "steps"
+        ],
+        "x-apptown-access": {
+          "capability": "run:read",
+          "kind": "capability",
+          "scope": "step"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/steps/{id}/brief": {
@@ -19520,7 +19562,7 @@
         },
         "x-apptown-feature": {
           "area": "worker",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       },
@@ -19542,7 +19584,7 @@
         },
         "x-apptown-feature": {
           "area": "worker",
-          "tier": "standard"
+          "tier": "always"
         },
         "x-apptown-stability": "experimental"
       }

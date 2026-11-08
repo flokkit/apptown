@@ -1,12 +1,8 @@
 import { TechnicalWords, useTechnicalDetail } from '../../change/TechnicalDetail'
-import { DeploymentLine } from './DeploymentLine'
+import { ListTable } from '../../../ListTable'
 import { Status } from '../../../Status'
 import { PRODUCT } from '../../../brand'
-import { useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { get } from '../../../api'
-import { useGet } from '../../../data'
-import { ReadStatus, StaleNote } from '../../../ReadGate'
+import { Link } from 'react-router-dom'
 import { fmtBytes, fmtStamp, fmtWhen } from '../../../format'
 import type { DeploymentDiagnostics, PartLog } from '../../../wire.gen'
 
@@ -16,6 +12,7 @@ import type { DeploymentDiagnostics, PartLog } from '../../../wire.gen'
 // per-part facts and limit events stay in technical detail. A read that did
 // not answer is unknown, with the last facts read and their age, never
 // stopped. A part's log is read only when someone asks, and kept nowhere.
+// The containers table on the deployment page shows them.
 
 type Diag = DeploymentDiagnostics
 type Part = Diag['parts'][number]
@@ -39,7 +36,7 @@ const partName = (p: { part: string }) => p.part || 'app'
 const at = (iso?: string) => (iso ? fmtWhen(iso) : '')
 
 // nextStep is the one thing to do first about a part's trouble.
-function nextStep(p: Part): string {
+export function nextStep(p: Part): string {
   const f = p.facts
   if (p.presence === 'unknown') return 'its host did not answer; it is asked again shortly'
   if (f?.oomKilled) return 'raise its memory (Override memory…) or read its log'
@@ -47,68 +44,20 @@ function nextStep(p: Part): string {
   return 'read its log to see why'
 }
 
-export function DiagnosticsLines({ slug, name }: { slug: string; name: string }) {
+// HoldLine says AppTown stopped a part that kept restarting, or tried to.
+export function HoldLine({ slug, d }: { slug: string; d: Diag }) {
   const [technical] = useTechnicalDetail()
-  const q = useGet<Diag>(`/projects/${slug}/deployments/${name}/diagnostics`, { poll: 15000 })
-  const anchor = `diagnostics-${name}`
-  const linked = useLocation().hash === `#${anchor}`
-  // The log lives in this component's state alone: not in the read cache,
-  // and not through useAction, whose mutation cache would keep its text.
-  const [log, setLog] = useState<PartLog | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const hasData = !!q.data
-  useEffect(() => {
-    if (linked) document.getElementById(anchor)?.scrollIntoView({ block: 'center' })
-  }, [linked, anchor, hasData])
-  if (q.denied) return null
-  if (!q.data) return <DeploymentLine label="Parts"><div id={anchor}><ReadStatus q={q} what="its diagnostics" /></div></DeploymentLine>
-  const d = q.data
-  const readLog = async (part: string) => {
-    if (busy) return
-    setBusy(true)
-    setErr('')
-    setLog(null)
-    try {
-      setLog(await get<PartLog>(`/projects/${slug}/deployments/${name}/logs?part=${encodeURIComponent(part)}`))
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-  const unknown = d.parts.some(p => p.presence === 'unknown')
-  return (
-    <DeploymentLine label="Parts" trailer={d.containers ? <a href={`#${anchor}-logs`}>logs →</a> : undefined}><div id={anchor}>
-      {d.reading?.waiting && <div className="muted">Last values (old)</div>}
-      {d.unsupported && <div className="muted">{d.unsupported}</div>}
-      {d.parts.map(p => <div key={p.part}>
-        {partName(p)}: <Status observation word={p.presence === 'unknown' || d.reading?.unknown || q.refreshFailed ? 'unknown' : trouble(p) ? 'failed' : 'running'} help={p.presence === 'unknown' ? p.reason : undefined} />
-        {p.presence !== 'unknown' && trouble(p) && !d.reading?.waiting && <span> {nextStep(p)}<TechnicalWords shown={technical}> · {trouble(p)}</TechnicalWords></span>}
-      </div>)}
-      {unknown && !d.reading?.waiting && <div>Its host did not report the state of every part. It is asked again shortly.</div>}
-      <TechnicalWords shown={technical}>{d.unsettled}</TechnicalWords>
-      <StaleNote q={q} inline />{d.reading?.failure && <div className="muted">{d.reading.failure}</div>}
-      {d.hold && (
-        <div>
-          {d.hold.confirmed
-            ? <>{PRODUCT} stopped it {at(d.hold.at)} after {d.hold.restarts} restarts in {d.hold.window}; the next deploy replaces it.</>
-            : <>{PRODUCT} tried to stop it {at(d.hold.at)} after {d.hold.restarts} restarts in {d.hold.window}, but the stop was not confirmed{d.hold.detail ? `: ${d.hold.detail}` : ''}.</>}
-          {' '}<TechnicalWords shown={technical}>receipt {d.hold.receipt}</TechnicalWords>
-          {d.releaseNumber ? <> · <Link to={`/projects/${slug}/releases/${d.releaseNumber}`}>release #{d.releaseNumber}</Link></> : null}
-        </div>
-      )}
-      {technical && <DiagnosticsDetail d={d} busy={busy} onLog={readLog} />}
-      {d.containers && <div id={`${anchor}-logs`} className="row">
-        {d.parts.filter(p => p.presence !== 'absent').map(p => <button key={p.part} className="link" disabled={busy} onClick={() => readLog(p.part)}>Read {partName(p)} log</button>)}
-      </div>}
-      {err && <div className="error">{err}</div>}
-      {log && <LogView log={log} onClose={() => setLog(null)} />}
-    </div></DeploymentLine>
-  )
+  if (!d.hold) return null
+  return <div>
+      {d.hold.confirmed
+        ? <>{PRODUCT} stopped it {at(d.hold.at)} after {d.hold.restarts} restarts in {d.hold.window}; the next deploy replaces it.</>
+        : <>{PRODUCT} tried to stop it {at(d.hold.at)} after {d.hold.restarts} restarts in {d.hold.window}, but the stop was not confirmed{d.hold.detail ? `: ${d.hold.detail}` : ''}.</>}
+      {' '}<TechnicalWords shown={technical}>receipt {d.hold.receipt}</TechnicalWords>
+      {d.releaseNumber ? <> · <Link to={`/projects/${slug}/releases/${d.releaseNumber}`}>release #{d.releaseNumber}</Link></> : null}
+  </div>
 }
 
-function DiagnosticsDetail({ d, busy, onLog }: { d: Diag; busy: boolean; onLog: (part: string) => void }) {
+export function DiagnosticsDetail({ d, busy, onLog }: { d: Diag; busy: boolean; onLog: (part: string) => void }) {
   return (
     <div className="mt-1">
       <div className="muted">
@@ -116,38 +65,32 @@ function DiagnosticsDetail({ d, busy, onLog }: { d: Diag; busy: boolean; onLog: 
         {' · '}observed {d.runtime.state}{d.runtime.observedAt ? ` ${at(d.runtime.observedAt)}` : ''}{d.runtime.reason ? ` (${d.runtime.reason})` : ''}
       </div>
       {d.parts.length > 0 && (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="small" style={{ marginTop: 2 }}>
-            <thead><tr><th>part</th><th>state</th><th title="Docker's count for this container; a deploy starts a new one">restarts</th><th>health check</th><th></th></tr></thead>
-            <tbody>
-              {d.parts.map((p) => {
-                const f = p.facts
-                const old = (p.stale || d.reading?.waiting) && f
-                return (
-                  <tr key={p.part || 'app'} title={p.observedAt ? `read ${p.observedAt}${p.attemptedAt && p.attemptedAt !== p.observedAt ? `, last asked ${p.attemptedAt}` : ''}` : 'never read'}>
-                    <td>
-                      {partName(p)}{p.public && p.part ? <span className="muted"> (front door)</span> : null}{p.need ? <span className="muted"> (service)</span> : null}
-                      {p.generation == null
-                        ? f && <div className="muted">generation not known</div>
-                        : p.generation !== d.generation && <div><span className="badge">generation {p.generation}</span></div>}
-                    </td>
-                    <td>
-                      {p.presence === 'unknown' ? <Status word={"unknown"} /> : p.presence}
-                      {!old && f?.exitCode != null ? ` · exit ${f.exitCode}` : ''}
-                      {!old && f?.oomKilled ? <Status word="failed" help="The app ran out of memory. Raise its memory limit or fix its memory use, then deploy again." /> : null}
-                      {!old && f && <span className="muted"> · {f.running ? `started ${at(f.startedAt)}` : `finished ${at(f.finishedAt)}`}</span>}
-                      {p.reason && !d.reading?.waiting && <div className="muted">{p.reason}</div>}
-                      {old && <div className="muted">last read {at(p.observedAt)}: {f.status}{f.exitCode != null ? `, exit ${f.exitCode}` : ''}{f.oomKilled ? ', out of memory' : ''}</div>}
-                    </td>
-                    <td style={old ? { opacity: 0.6 } : undefined}>{f ? f.restarts : ''}</td>
-                    <td style={old ? { opacity: 0.6 } : undefined}>{f?.health ?? ''}</td>
-                    <td>{d.containers && p.presence !== 'absent' && <button className="link small" disabled={busy} onClick={() => onLog(p.part)}>log</button>}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ListTable label="Containers" className="small diagnostics-parts" rows={d.parts} rowKey={p => p.part || 'app'} columns={[
+          { key: 'part', label: 'part', phone: 'name', render: p => {
+            const f = p.facts
+            return <span title={p.observedAt ? `read ${p.observedAt}${p.attemptedAt && p.attemptedAt !== p.observedAt ? `, last asked ${p.attemptedAt}` : ''}` : 'never read'}>
+              {partName(p)}{p.public && p.part ? <span className="muted"> (front door)</span> : null}{p.need ? <span className="muted"> (service)</span> : null}
+              {p.generation == null
+                ? f && <div className="muted">generation not known</div>
+                : p.generation !== d.generation && <div><span className="badge">generation {p.generation}</span></div>}
+            </span>
+          } },
+          { key: 'state', label: 'state', phone: 'state', render: p => {
+            const f = p.facts
+            const old = (p.stale || d.reading?.waiting) && f
+            return <>
+              {p.presence === 'unknown' ? <Status word={"unknown"} /> : p.presence}
+              {!old && f?.exitCode != null ? ` · exit ${f.exitCode}` : ''}
+              {!old && f?.oomKilled ? <Status word="failed" help="The app ran out of memory. Raise its memory limit or fix its memory use, then deploy again." /> : null}
+              {!old && f && <span className="muted"> · {f.running ? `started ${at(f.startedAt)}` : `finished ${at(f.finishedAt)}`}</span>}
+              {p.reason && !d.reading?.waiting && <div className="muted">{p.reason}</div>}
+              {old && <div className="muted">last read {at(p.observedAt)}: {f.status}{f.exitCode != null ? `, exit ${f.exitCode}` : ''}{f.oomKilled ? ', out of memory' : ''}</div>}
+            </>
+          } },
+          { key: 'restarts', label: 'restarts', phone: 'extra', kind: 'number', render: p => <span className={(p.stale || d.reading?.waiting) && p.facts ? 'diagnostics-old' : undefined} title="Docker's count for this container; a deploy starts a new one">{p.facts ? p.facts.restarts : ''}</span> },
+          { key: 'health', label: 'health check', phone: 'extra', render: p => <span className={(p.stale || d.reading?.waiting) && p.facts ? 'diagnostics-old' : undefined}>{p.facts?.health ?? ''}</span> },
+          { key: 'log', label: '', phone: 'action', render: p => d.containers && p.presence !== 'absent' && <button className="link small" disabled={busy} onClick={() => onLog(p.part)}>log</button> },
+        ]} />
       )}
       <EventLines d={d} />
     </div>
@@ -178,7 +121,7 @@ function EventLines({ d }: { d: Diag }) {
 
 // LogView shows one log read as it came: its part, when it was read, and
 // its bounds; it is not refreshed and not kept.
-function LogView({ log, onClose }: { log: PartLog; onClose: () => void }) {
+export function LogView({ log, onClose }: { log: PartLog; onClose: () => void }) {
   return (
     <div className="mt-1">
       <div className="row" style={{ gap: 6 }}>

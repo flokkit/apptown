@@ -142,26 +142,11 @@ func sayWaitingOn(w WaitingOn, a Activity, ch *Change) WaitingOn {
 		w.Says, w.Tone = "ready to continue", "warn"
 	case "approval":
 		w.Tone = "warn"
-		switch {
-		case w.You == "yes" && len(w.Who) == 1 && w.Who[0].Kind == "person":
+		// Short enough for a list row; who can decide is listed beside it
+		// (WaitingOn.Who) for clients to show on hover.
+		w.Says = "waiting for approval"
+		if w.You == "yes" && len(w.Who) == 1 && w.Who[0].Kind == "person" {
 			w.Says = "waiting for you"
-		case w.You == "yes":
-			w.Says = "waiting for you or another approver"
-		case len(w.Who) > 0:
-			first := w.Who[0].Name
-			if w.Who[0].Kind == "role" {
-				first = w.Who[0].DisplayName
-			}
-			w.Says = "waiting for " + first
-			if len(w.Who) > 1 {
-				others := "others"
-				if len(w.Who) == 2 {
-					others = "other"
-				}
-				w.Says += fmt.Sprintf(" and %d %s", len(w.Who)-1, others)
-			}
-		default:
-			w.Says = "waiting for approval"
 		}
 	}
 	return w

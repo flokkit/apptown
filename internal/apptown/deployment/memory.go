@@ -48,16 +48,20 @@ func (s *Service) settled(ctx context.Context, d *Deployment) (AppliedProfile, t
 	return applied, since, err
 }
 
-// PartMemory is one part's memory use now, or why it is unknown. A known
-// use is one container's, sampled while that container stayed the same, with
-// the limit that container is held to (LimitBytes; 0 is no limit).
+// PartMemory is one part's memory and CPU use now, or why it is unknown. A
+// known use is one container's, sampled while that container stayed the
+// same, with the limits that container is held to (LimitBytes, CPULimit; 0
+// is no limit) and the image it was created from.
 type PartMemory struct {
-	Part       string `json:"part"`
-	Need       bool   `json:"need,omitempty"` // a need's service, not an app part
-	UsedBytes  int64  `json:"usedBytes"`
-	LimitBytes int64  `json:"limitBytes"`
-	Known      bool   `json:"known"`
-	Reason     string `json:"reason,omitempty"` // why it is unknown
+	Part       string  `json:"part"`
+	Need       bool    `json:"need,omitempty"` // a need's service, not an app part
+	UsedBytes  int64   `json:"usedBytes"`
+	LimitBytes int64   `json:"limitBytes"`
+	CPUCores   float64 `json:"cpuCores"`
+	CPULimit   float64 `json:"cpuLimit"`
+	Image      string  `json:"image,omitempty"`
+	Known      bool    `json:"known"`
+	Reason     string  `json:"reason,omitempty"` // why it is unknown
 }
 
 // observedMemory is each part's memory use now, asked of the deployment's
@@ -118,7 +122,7 @@ func (s *Service) observedMemory(ctx context.Context, d *Deployment) ([]PartMemo
 			before[c] = rt
 		}
 	}
-	used, err := docker.MemoryUsage(ctx, dk, containers)
+	used, err := docker.ContainerUsage(ctx, dk, containers)
 	if err != nil {
 		return unknown(err.Error()), nil
 	}
@@ -136,7 +140,7 @@ func (s *Service) observedMemory(ctx context.Context, d *Deployment) ([]PartMemo
 		case first.ID != after.ID:
 			out = append(out, PartMemory{Part: p, Reason: "its container was replaced while it was being observed"})
 		default:
-			out = append(out, PartMemory{Part: p, UsedBytes: b, LimitBytes: first.MemoryLimit, Known: true})
+			out = append(out, PartMemory{Part: p, UsedBytes: b.MemoryBytes, LimitBytes: first.MemoryLimit, CPUCores: b.CPUCores, CPULimit: float64(first.NanoCPUs) / 1e9, Image: first.ImageName, Known: true})
 		}
 		out[len(out)-1].Need = applied.Parts[p].Need
 	}

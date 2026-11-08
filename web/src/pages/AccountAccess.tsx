@@ -1,3 +1,4 @@
+import { ListRow } from '../ListRow'
 import { useState } from 'react'
 import { del, post } from '../api'
 import { useAction, useGet } from '../data'
@@ -52,17 +53,13 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
             { key: 'used', label: 'Last used', phone: 'time', kind: 'time', render: d => <span title={fmtStamp(d.lastUsed ?? '')}>{relTime(d.lastUsed ?? '') || 'never'}</span> },
             { key: 'action', label: '', phone: 'action', render: d => <CredentialConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },
           ]} /> : <section><h3>Connections and permissions</h3>
-      {connections.map(d => (
-        <div key={d.id} className="row small people-div-2">
-          <span className="badge">{d.clientName}</span>
-          <span>as <b>{d.user}</b></span>
-          <span className="muted">· {d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span>
-          <span className="muted">Connected {fmtStamp(d.createdAt)}{d.lastUsed ? `, last used ${fmtStamp(d.lastUsed)}` : ''}</span><span>Permissions: {d.scopes.join(', ')}</span>
-          <span className="grow" />
-          <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`}
-            onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} />
-        </div>
-      ))}</section>}
+      <ListTable className="small" label={`${newest.clientName} connections and permissions for ${newest.user}`} rows={connections} rowKey={d => String(d.id)} columns={[
+        { key: 'client', label: 'Agent', phone: 'name', render: d => <><span className="badge">{d.clientName}</span> as <b>{d.user}</b></> },
+        { key: 'permissions', label: 'Permissions', phone: 'detail', render: d => <><span>{d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span><div>Permissions: {d.scopes.join(', ')}</div></> },
+        { key: 'connected', label: 'Connected', phone: 'extra', render: d => fmtStamp(d.createdAt) },
+        { key: 'used', label: 'Last used', phone: 'time', kind: 'time', render: d => d.lastUsed ? fmtStamp(d.lastUsed) : '' },
+        { key: 'action', label: '', phone: 'action', render: d => <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },
+      ]} /></section>}
         </div>
       })}
       {selected && <Modal title={`${selected.clientName} as ${selected.user}`} onClose={() => setSelected(null)}>
@@ -115,13 +112,11 @@ export function TokensCard({ personal = false }: { personal?: boolean }) {
         { key: 'action', label: '', phone: 'action', render: t => <CredentialConfirm label="revoke" ask={`Revoke token ${t.Name}? Anything using it stops working.`} onYes={() => { void run(() => del(`${personal ? '/account/tokens' : '/tokens'}/${t.Name}`)) }} /> },
       ]} />}
       {personal && activeTokens.map(t => (
-        <div key={t.Name} className="row small">
+        <ListRow key={t.Name} className="row small personal-token-row" identity={<>
           <span className="badge">{t.Name}</span>
           <span className="muted">{t.User} · {t.Role} · {tokenPurposes[t.Purpose] ?? 'no purpose'} · last used {t.LastUsed ? fmtWhen(t.LastUsed) : 'never'}</span>
-          <span className="grow" />
-          <QuietConfirm label="revoke" ask={`Revoke token ${t.Name}? Anything using it stops working.`}
-            onYes={() => { void run(() => del(`${personal ? '/account/tokens' : '/tokens'}/${t.Name}`)) }} />
-        </div>
+          </>} action={<QuietConfirm label="revoke" ask={`Revoke token ${t.Name}? Anything using it stops working.`}
+            onYes={() => { void run(() => del(`${personal ? '/account/tokens' : '/tokens'}/${t.Name}`)) }} />} />
       ))}
       {personal && <div className="people-form">
         <input aria-label="Token name" placeholder="token name (e.g. laptop-cli)" value={name} onChange={e => setName(e.target.value)} />

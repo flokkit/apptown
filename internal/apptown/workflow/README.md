@@ -136,9 +136,9 @@ act and report `no`. Effective deciders retain their person, group or role kind 
 project defaults when the step names none. Role deciders retain the role ID
 in `name` and carry the catalog title in `displayName`; shared wording uses
 that title. Approval summaries say “waiting for you” for a sole named
-person who can decide, or “waiting for you or another approver” for broader
-decider lists. For other readers they name the first decider and count any
-others; `who` retains the complete list. Failed checks use the change page’s
+person who can decide, and “waiting for approval” otherwise; `who` retains
+the complete list, which clients show on hover (people, groups and roles by
+name, groups not expanded). Failed checks use the change page’s
 plain step titles instead of step IDs.
 `Service.Dashboard` partitions readable current work once by this answer, with
 each change appearing once. Home includes every visible running root waiting

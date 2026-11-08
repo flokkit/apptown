@@ -35,7 +35,8 @@ const press = async (el: HTMLElement, text: string) => act(async () => { [...el.
 
 it('uses amber finding counts and reserves failed for checks that could not run', async () => {
   const el = await show(<><StandingChip label="failed" findings={2} help="Does not conform" /><StateChip label="failed" finding help="warning" /><StateChip label="failed" help="could not execute" /></>)
-  expect(el.querySelectorAll('.finding-count')).toHaveLength(2)
+  // A finding count is a status in the amber tone; red is a check that could not run.
+  expect(el.querySelectorAll('.chip.pending')).toHaveLength(2)
   expect(el.textContent).toContain('2 findings')
   expect(el.textContent).toContain('1 finding')
   expect(el.querySelectorAll('.chip.fail')).toHaveLength(1)
@@ -75,10 +76,10 @@ it.each([true, false])('links to the pack and leaves only Copy in its row menu (
 // The fleet table is one row per app: its placements are counted in one
 // meta line, never folded inside the row; the app's page lists each one.
 it.each([false, true])('counts an app\'s deployments in one line without a fold (phone=%s)', async narrow => {
-  const app = { slug: 'calendar', name: 'Calendar', deploymentId: 'main', deploymentLabel: 'Main', status: { word: 'working', reason: '', stale: false }, observation: 'running', observationStale: false, running: true, url: 'https://calendar.example' }
+  const app = { slug: 'calendar', name: 'Calendar', deploymentId: 'main', deployment: 'main', deploymentLabel: 'Main', status: { word: 'working', reason: '', stale: false }, observation: 'running', observationStale: false, running: true, url: 'https://calendar.example' }
   const el = await show(<Routes><Route path="/deployments" element={<Deployments />} /></Routes>, { '/tiers': { tiers: [{ name: 'main', title: 'Main', apps: [app] }] }, '/projects': [app], '/projects/calendar/deployments': [{ id: 'main', name: 'main', generation: 1, status: { word: 'working', reason: '', stale: false }, observation: 'running' }], '/projects/calendar/deployments/main/diagnostics': { parts: [] }, '/projects/calendar/releases': [] }, narrow, '/deployments')
-  expect(el.textContent).toContain('View deployment')
-  expect(el.querySelector('.card.row details:not(.status-help)')).toBeNull()
+  expect(el.querySelector('tbody tr a[href="/projects/calendar/deployments/main"]')).not.toBeNull()
+  expect(el.querySelector('tbody details:not(.status-help)')).toBeNull()
 })
 it.each([false, true])('expands resource evidence by row and preserves remove confirmation (phone=%s)', async narrow => {
   const target = { target: 'kitchen', live: true, resources: [{ kind: 'container', name: 'old-calendar', id: 'container-id', record: 'unrecorded', status: 'running', statusLabel: 'running', detail: 'provider evidence' }] } as InfrastructureView
@@ -96,16 +97,15 @@ it('explains development updates instead of an empty release channel', async () 
 })
 
 it('counts a long list of placements without folding them into the row', async () => {
-  const apps = Array.from({ length: 5 }, (_, n) => ({ slug: 'calendar', name: 'Calendar', deploymentId: `placement-${n}`, deploymentLabel: `Office ${n}`, status: { word: 'working', reason: '', stale: false }, observation: 'running', observationStale: false, running: true, url: `https://office-${n}.example` }))
+  const apps = Array.from({ length: 5 }, (_, n) => ({ slug: 'calendar', name: 'Calendar', deploymentId: `placement-${n}`, deployment: `office-${n}`, deploymentLabel: `Office ${n}`, status: { word: 'working', reason: '', stale: false }, observation: 'running', observationStale: false, running: true, url: `https://office-${n}.example` }))
   const el = await show(<Routes><Route path="/deployments" element={<Deployments />} /></Routes>, { '/tiers': { tiers: [{ name: 'main', title: 'Main', apps }] }, '/projects': [apps[0]], '/projects/calendar/deployments': apps.map((a, i) => ({ id: a.deploymentId, name: `office-${i}`, displayLabel: a.deploymentLabel, generation: 1, status: { word: 'working', reason: '', stale: false }, observation: 'running' })), ...Object.fromEntries(apps.map((_, i) => [`/projects/calendar/deployments/office-${i}/diagnostics`, { parts: [] }])), '/projects/calendar/releases': [] }, false, '/deployments')
-  expect(el.querySelectorAll('[role=listitem]')).toHaveLength(5)
+  expect(el.querySelectorAll('tbody tr')).toHaveLength(5)
   expect(el.textContent).not.toContain('more deployments')
-  expect(el.querySelectorAll('[role=listitem]')).toHaveLength(5)
 })
 
 it('keeps a broken check red beside amber findings', async () => {
   const el = await show(<StandingChip label="failed" findings={2} broken={1} help="Mixed results" />)
-  expect(el.querySelector('.finding-count')?.textContent).toContain('2 findings')
+  expect(el.querySelector('.chip.pending')?.textContent).toContain('2 findings')
   expect(el.querySelector('.conformance-broken')?.textContent).toContain("· 1 not known")
 })
 
@@ -152,4 +152,15 @@ it('names project creation in the top bar', async () => {
   const el = await show(<TopBar me={null} />, {}, false, '/projects/_new')
   expect(el.querySelector('.topbar-crumb.last a')?.textContent).toBe('Projects')
   expect(el.querySelector('.topbar-here')).toBeNull()
+})
+
+// Each pack says who uses it and how many are behind its recommended version;
+// both link to the pack's projects, where each is updated.
+it('says on each pack how many projects use it and how many are behind', async () => {
+  const el = await show(<Packs />, {
+    '/packs': [{ name: 'household', origin: 'custom', enabled: true, requires: [], guidance: [], workflows: [], policies: [], declaration: { guidance: [], workflows: [], policies: [] } }],
+    '/wow': { packs: [{ pack: 'household', enabled: true, recommended: 2, versions: [{ version: 1, projects: ['old'] }, { version: 2, projects: ['new', 'newer'] }] }] },
+  })
+  expect(el.textContent).toContain('recommended v2 · 3 projects · 1 behind')
+  expect(el.querySelector('a[href="/packs/household/projects"]')).not.toBeNull()
 })

@@ -1,3 +1,5 @@
+import { ListRow } from '../../ListRow'
+import './list-records.css'
 import { FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Status } from '../../Status'
@@ -42,11 +44,9 @@ export function ArtifactBody({ artifact }: { artifact: Artifact }) {
 
 export function AdrLinks({ view }: { view: ChangeView; onChange: () => void }) {
   return <div>
-    {view.adrs.map(a => <div className="card row" key={a.id}>
-      <Status word={a.statusLabel} />
+    {view.adrs.map(a => <ListRow className="card row change-decision-row" key={a.id} state={<Status word={a.statusLabel} />} identity={<>
       <Link to={`/adrs/${a.id}`}>ADR-{String(a.number).padStart(3, '0')} {a.title}</Link>
-      <span className="muted small">{a.tags}</span>
-    </div>)}
+      <span className="muted small">{a.tags}</span></>} />)}
     <Link to={`/projects/${view.projectSlug}/memory/decisions`}>Create or link a decision in Memory › Decisions →</Link>
   </div>
 }

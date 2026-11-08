@@ -41,14 +41,8 @@
 /* A line in a log that went partly wrong: a step skipped, the rest fine. */
 .warn-line { color: var(--warn); background: var(--warn-bg); border-left: 3px solid var(--warn-mark); padding: 2px 8px; margin: 2px 0; }
 
-/* Status dots and key–value tables (integration settings, model slots) */
-.dot {
-  width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0;
-}
-.dot.ok { background: var(--ok); }
-.dot.bad { background: var(--bad); }
-.dot.warn { background: var(--warn-mark); }
-.dot.unknown { background: transparent; border: 1.5px dashed var(--unknown); }
+/* A status light without its word (StatusDot): the chip's own marker. */
+.status-dot { padding: 0; line-height: 1; }
 @media (max-width: 800px), (pointer: coarse) {
   /* A chip that is a link keeps its stamp size; its tap area reaches past
      its edge to a fingertip's 44px. */
@@ -56,7 +50,10 @@
   a.chip::after { content: ""; position: absolute; inset: -11px -4px; }
 }
 
-.chip:is(.unknown,.stale) > span[aria-hidden] { font-size: 0; display: inline-block; width: 8px; height: 8px; border: 1px dashed currentColor; border-radius: 50%; margin-right: 6px; }
+/* Unknown is an empty circle the size of the other states' dot, centred on the word. */
+.chip:is(.unknown,.stale) > span[aria-hidden] { font-size: 0; display: inline-block; box-sizing: border-box; width: 0.7rem; height: 0.7rem; border: 1.5px solid currentColor; border-radius: 50%; margin-right: 0.4rem; vertical-align: middle; position: relative; top: -0.05rem; }
+/* A dot on its own has no gap after it; after the unknown rule, so it wins. */
+.chip.status-dot > span[aria-hidden] { margin-right: 0; }
 
 /* Metadata labels do not classify health. Status alone owns status colours. */
 .badge {
@@ -64,7 +61,9 @@
   font-weight: var(--fw-regular); line-height: 1.5; overflow-wrap: anywhere;
 }
 
-.finding-count { color: var(--warn); font-size: var(--fs-xs); }
+/* Beta: a small yellow chip beside what it marks (a page title, after its ?). */
+.beta-chip { display: inline-block; font-size: var(--fs-xs); font-weight: var(--fw-strong); line-height: 1.6; padding: 0 var(--space-2); border-radius: 999px; color: var(--warn); background: var(--warn-bg); border: 1px solid var(--warn-mark); vertical-align: middle; }
+
 .status-help-inline > .muted { min-width: 0; max-width: 100%; }
 .status-help-inline { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .status-help-stack { display: inline-flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); min-width: 0; max-width: 100%; overflow-wrap: anywhere; }

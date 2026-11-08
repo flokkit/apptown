@@ -10,4 +10,7 @@
 .packs-editor-label { margin-bottom: calc(var(--space-1) * 1.5); }
 .packs-add { margin-top: calc(var(--space-1) * 1.5); }
 .packs-block-body { border-top: 1px solid var(--border); padding-top: var(--space-2); }
+.pack-inspect-row { grid-template-columns: minmax(0, 1fr) auto; }
+.pack-inspect-row > .list-state, .pack-inspect-row > .list-action:empty { display: none; }
+@media (width <= 800px) { .pack-inspect-row { grid-template-columns: minmax(0, 1fr); } }
 }

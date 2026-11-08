@@ -9,6 +9,9 @@ import { settled } from '../../settled'
 import { cadenceWords, ScheduleRows } from './Schedules'
 import type { ScheduleList } from '../../wire.gen'
 
+// A status's details ride in its title, not in the page text.
+const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
+
 // Record ids are UUIDv7 strings.
 const CHANGE = '00000000-0041-7000-8000-000000000000'
 
@@ -41,7 +44,7 @@ it('says a cron in plain words at the reader\'s own time, and anything else as t
   } finally { env.TZ = 'Australia/Melbourne' }
 })
 
-async function rows(answer: Response, then?: Response): Promise<{ text: string; html: string }> {
+async function rows(answer: Response, then?: Response): Promise<{ text: string; html: string; details: string }> {
   let current = answer
   vi.stubGlobal('fetch', vi.fn(async () => current.clone()))
   const client = newQueryClient()
@@ -56,7 +59,7 @@ async function rows(answer: Response, then?: Response): Promise<{ text: string; 
     await act(async () => { await client.refetchQueries() })
     await settled(client)
   }
-  const out = { text: el.textContent ?? '', html: el.innerHTML }
+  const out = { text: el.textContent ?? '', html: el.innerHTML, details: details(el) }
   act(() => root.unmount())
   client.clear()
   return out
@@ -77,7 +80,7 @@ it('shows each schedule\'s cadence, next firing and last firing, and no last fir
   const skipped = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z', last: { at: '2026-10-01T06:00:00Z', outcome: 'skipped', changeNumber: 0 } }] }))
   expect(skipped.text).toContain('skipped: previous run still active')
   const failed = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z', last: { at: '2026-10-01T06:00:00Z', outcome: 'failed', changeNumber: 0 } }] }))
-  expect(failed.text).toContain('could not start')
+  expect(failed.details).toContain('could not start')
   const never = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z' }] }))
   expect(never.text).not.toContain('last')
   expect(never.text).toContain('next 1 Nov, 17:00')
@@ -89,10 +92,10 @@ it('says unknown when a schedule or the whole read failed, never none', async ()
   const problem = await rows(list({ evalCopy: false, schedules: [{ ...schedule, source: { workflow: 'dependency-uplift', version: 0 }, problem: 'its workflow could not be read: boom' }] }))
   expect(problem.text).toContain('next unknown')
   expect(problem.text).toContain('last: unknown')
-  expect(problem.text).toContain('could not be read')
+  expect(problem.details).toContain('could not be read')
   const failed = await rows(new Response(JSON.stringify({ error: 'database down' }), { status: 500 }))
   expect(failed.text).toContain('unknown')
-  expect(await rows(list({ evalCopy: false, schedules: [] }))).toEqual({ text: '', html: '' })
+  expect(await rows(list({ evalCopy: false, schedules: [] }))).toEqual({ text: '', html: '', details: '' })
   expect((await rows(list({ evalCopy: true, schedules: [] }))).text).toBe('Eval copy: runs no schedules.')
 })
 

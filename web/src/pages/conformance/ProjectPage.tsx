@@ -1,14 +1,17 @@
+import { ListTable } from '../../ListTable'
+import './list-migrations.css'
 import { QuietPrompt } from '../../QuietConfirm'
 import './ProjectPage.css'
 import { Fragment } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { post } from '../../api'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import type { ConformanceFixList, ConformanceHistory, ConformanceView, CheckDefinition, Adjudication, Disposition, Lanes, PriorConfirmation, RemediationOpened } from '../../wire.gen'
 import { fmtWhen } from '../../format'
-import { type Verdict, coveringChange, fixableFindings, BeingFixed, laneOf, shortSha, StateChip, HowJudged, Evidence, useStartRemediation } from './parts'
+import { type Verdict, coveringChange, fixableFindings, BeingFixed, laneOf, shortSha, StateChip, HowJudged, Evidence, JudgedAt, useStartRemediation } from './parts'
 import { Section } from '../../Section'
+import { PageHead } from '../../PageHead'
 import { ListRow } from '../../ListRow'
 
 // --- one project ---------------------------------------------------------------------------------
@@ -58,7 +61,7 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
               </div>
             )}
           </div>
-          <HowJudged def={def} />
+          <HowJudged def={def} brief />
         </div>
       )}
     </>
@@ -73,10 +76,12 @@ function ProjectReviews({ slug }: { slug: string }) {
     <Section title="Reviews" count={hist.length} note="Dated snapshots of this project. Open a report to see the evidence recorded then.">
       <StaleNote q={q} />
       {hist.length === 0 && <p className="muted small">No reviews yet.</p>}
-      {[...hist].reverse().map(h => <div className="card small" key={h.reviewId}>
-        <Link to={`/conformance/reviews/${h.reviewId}/projects/${slug}`}>Review · {fmtWhen(h.at)}</Link>
-        <span className="muted"> · {h.findings} findings · {h.flagged} possible problems · {h.unassessed} not judged</span>
-      </div>)}
+      {hist.length > 0 && <ListTable className="small" label="Review history" rows={[...hist].reverse()} rowKey={h => String(h.reviewId)} columns={[
+        { key: 'review', label: 'Review', phone: 'name', render: h => <Link to={`/conformance/reviews/${h.reviewId}/projects/${slug}`}>Review · {fmtWhen(h.at)}</Link> },
+        { key: 'findings', label: 'Findings', phone: 'state', kind: 'number', render: h => <><span className="record-phone">Findings: </span>{h.findings}</> },
+        { key: 'flagged', label: 'Possible problems', phone: 'detail', kind: 'number', render: h => <><span className="record-phone">Possible problems: </span>{h.flagged}</> },
+        { key: 'unassessed', label: 'Not judged', phone: 'extra', kind: 'number', render: h => <><span className="record-phone">Not judged: </span>{h.unassessed}</> },
+      ]} />}
     </Section>
   )
 }
@@ -92,8 +97,23 @@ function LaneSection({ lane, title, hint, groups, view, exceptions, readOnly, on
   groups: Record<keyof Lanes, Verdict[]>; view: ConformanceView; exceptions: Disposition[]; readOnly: boolean
   onConfirm: (v: Verdict, note: string) => unknown; onFix: (v: Verdict) => void; onRecheck: () => void; onDecision: (v: Verdict, reason: string) => unknown
 }) {
+  const { reviewId } = useParams()
   const list = [...groups[lane]].sort(bySev)
   if (list.length === 0) return null
+  // Lanes with nothing to do here are a table of checks; each row opens the
+  // check's page, which holds its evidence across projects and how it judges.
+  if (!['findings', 'broken', 'flagged'].includes(lane)) {
+    const base = reviewId ? `/conformance/reviews/${reviewId}` : '/conformance'
+    const key = (v: Verdict) => `${v.block}@${v.version}·${v.check}`
+    return <Section title={title} count={list.length} note={hint}>
+      <ListTable label={title} rows={list} rowKey={v => String(v.id || key(v))} rowTo={v => `${base}/checks/${encodeURIComponent(key(v))}`} columns={[
+        { key: 'check', label: 'Check', phone: 'name', render: v => <Link to={`${base}/checks/${encodeURIComponent(key(v))}`}>{view.checkDefs[key(v)]?.title || v.check}</Link> },
+        { key: 'why', label: 'Result', phone: 'detail', render: v => <span className="muted">{v.state === 'stale' ? 'No judgement on the current commit' : v.detail ? (laneOf(v) === 'unassessed' ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : v.detail) : `from ${v.block}`}</span> },
+        { key: 'judged', label: 'Judged', phone: 'extra', render: v => <JudgedAt v={v} reviews={view.reviews ?? []} /> },
+        { key: 'status', label: 'Status', phone: 'state', render: v => laneOf(v) === 'unassessed' && v.state !== 'stale' ? <span className="muted">—</span> : <StateChip label={v.statusLabel} /> },
+      ]} />
+    </Section>
+  }
   return (
     <Section title={title} count={list.length} note={hint}>
       {list.map((v) => (
@@ -139,16 +159,11 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
 
   return (
     <div>
-      <div className="row mt-3 project-page-div-2">
-        <h1 className="grow project-page-h2">{p.name || slug}</h1>
-        {!readOnly && (
-          <span className="row project-page-check-row-div-2">
-            {fixable > 0 && <button disabled={busy} onClick={() => remediation.start('project', slug)}>Fix {fixable} {fixable === 1 ? 'problem' : 'problems'}</button>}
-            <button disabled={busy} onClick={() => onRunOne(slug)}>Check this project</button>
-          </span>
-        )}
-      </div>
-      <div className="muted small mt-1">
+      <PageHead page="conformance" title={p.name || slug} actions={!readOnly && <span className="row project-page-check-row-div-2">
+        {fixable > 0 && <button disabled={busy} onClick={() => remediation.start('project', slug)}>Fix {fixable} {fixable === 1 ? 'problem' : 'problems'}</button>}
+        <button className="primary" disabled={busy} onClick={() => onRunOne(slug)}>Check this project</button>
+      </span>} />
+      <div className="muted small">
         {/* The owner's sentence already says what could not run; the findings count alone does not. */}
         {[p.standing === 'does-not-conform' && p.lanes.findings > 0 ? `${p.lanes.findings} ${p.lanes.findings === 1 ? 'finding' : 'findings'}` : p.sentence.replace(/\.$/, ''),
           p.standing === 'does-not-conform' && p.lanes.findings > 0 && p.lanes.broken > 0 ? `${p.lanes.broken} couldn't run` : '',
@@ -156,7 +171,6 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
         {' · '}<Link to={`/projects/${slug}`}>Open project →</Link>
       </div>
       {err && <div className="error small mb-3">{err}</div>}
-      {!readOnly && <h2 className="mt-3">Current state</h2>}
       <LaneSection {...sectionProps} lane="findings" title="Findings" hint="the app does not meet these" />
       <LaneSection {...sectionProps} lane="broken" title="Couldn't run" hint="the check itself failed to run; the app is not judged" />
       <LaneSection {...sectionProps} lane="flagged" title="Needs your review" hint="Confirm whether these are problems" />
@@ -179,11 +193,10 @@ function FixedSection({ slug }: { slug: string }) {
     <Section title="Fixed" count={rows.length}>
       <StaleNote q={q} className="mt-2" />
       {rows.map((r) => (
-        <div key={r.fix.id} className="card small">
+        <ListRow key={r.fix.id} className="card small fixed-list-row" identity={<>
           <span className="mono">{r.fix.check}</span> — fixed {r.fix.changeIds.length === 1 ? <>by <Link to={`/changes/${r.fix.changeIds[0]}`}>{r.fix.changeNumbers[0] ? `change ${r.fix.changeNumbers[0]}` : 'a change'}</Link></> : r.fix.changeIds.length > 1 ? <>by one of changes {r.fix.changeIds.map((id, i) => <Fragment key={id ?? i}>{i > 0 ? ', ' : ''}<Link to={`/changes/${id}`}>{r.fix.changeNumbers[i] || 'a change'}</Link></Fragment>)}</> : `by commits ${r.fix.commits}`}
           , verified by <Link to={`/conformance/reviews/${r.fix.reviewId}/projects/${slug}`}>{r.fix.reviewNumber ? `review #${r.fix.reviewNumber}` : 'a review'}</Link>{r.fix.acceptedBy ? `, accepted by ${r.fix.acceptedBy}` : ''} <span className="muted">· {fmtWhen(r.fix.at)}</span>
-          {r.fix.also && r.fix.also.length > 0 && <span className="muted"> · also fixed: {r.fix.also.join(', ')}</span>}
-        </div>
+          {r.fix.also && r.fix.also.length > 0 && <span className="muted"> · also fixed: {r.fix.also.join(', ')}</span>}</>} />
       ))}
     </Section>
   )

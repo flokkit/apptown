@@ -22,7 +22,7 @@ vi.mock('@xterm/xterm', () => ({
 vi.mock('@xterm/addon-fit', () => ({ FitAddon: class { fit() {} } }))
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 import { NARROW_QUERY } from '../chrome'
-import { ChangeContext } from './console/ChangeBar'
+import { ChangeFacts } from './console/ChangeBar'
 import type { ChangeView } from '../api'
 
 // Record ids are UUIDv7 strings; a change is named by its number, which the
@@ -50,7 +50,7 @@ describe('a chat says which kind it is from its first paint', () => {
     const html = firstPaint(ON_CHANGE)
     expect(html).not.toContain('connecting…')
     expect(html).toContain('Loading…')
-    expect(html).toContain('Change chat')
+    expect(html).toContain('class="console-chat-page-h1 console-chat-title"')
     expect(html).toContain('Starting your helper…')
     expect(html).toContain('aria-label="your message"')
     // A change chat carries no intro card: its box says what to do.
@@ -97,84 +97,62 @@ describe('the chat keeps its input when the intro steps aside', () => {
   })
 })
 
-// On a phone the conversation keeps the room: what the chat is about folds
-// to one line that says where the change stands, and opens on a tap. On a
-// desk the fold is open (its line hidden by styles/console.css), as the cards
-// always were.
-describe('what the chat is about folds to one line on a phone', () => {
+// The chat's room is the conversation's: a change chat's head is the change
+// (number, title, state, once), one strip carries its facts and actions, and
+// the agent-actions switch sits on the line above the input.
+describe('a change chat keeps its head to two lines', () => {
   const parse = (html: string) => { const el = document.createElement('div'); el.innerHTML = html; return el }
-  describe('on a phone', () => {
-    const had = window.matchMedia
-    beforeEach(() => {
-      window.matchMedia = ((q: string) => ({ matches: q === NARROW_QUERY, media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia
-    })
-    afterEach(() => { window.matchMedia = had })
-    // The head names the change once; the fold line says where it stands.
-    it('a change chat starts folded: the head names the change, the fold line says where it stands', () => {
-      const page = parse(firstPaint(ON_CHANGE))
-      const about = page.querySelector('section.console-about')!
-      expect(about.hasAttribute('open')).toBe(false)
-      expect(about.querySelector('h3')!.textContent).toBe('About this change · ● waiting for you')
-      expect(page.querySelector('.console-head h1')!.textContent).toBe('Change 49')
-    })
-    // A worker that cannot be reached qualifies the conversation itself:
-    // that line stays in view with the fold closed, for someone who may
-    // only look as much as for the chat's owner.
-    it('says the conversation is the last copy when the worker cannot be reached, outside the fold', async () => {
-      Element.prototype.scrollIntoView = () => {}
-      vi.stubGlobal('WebSocket', class { send() {} close() {} })
-      vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
-      vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
-        const u = String(url)
-        if (u === '/api/v1/projects/p/console') {
-          return new Response(JSON.stringify({ sessions: [{ id: 's1', projectSlug: 'p', model: 'm', createdAt: '', state: 'unavailable',
-            changeId: CHANGE, openedBy: 'ana', mayAct: false, placement: 'worker', recordAsOf: '2026-10-16T01:00:00Z' }] }))
-        }
-        if (u === `/api/v1/changes/${CHANGE}`) return new Response(JSON.stringify({ change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }))
-        if (u.includes('/messages')) return new Response(JSON.stringify({ messages: [{ i: 0, role: 'helper', text: 'Done.' }] }))
-        if (u.endsWith('/changes')) return new Response(JSON.stringify({ changes: [] }))
-        return new Response('{}')
-      })))
-      window.history.replaceState(null, '', `/projects/p/console${ON_CHANGE}`)
-      const client = newQueryClient()
-      const el = document.createElement('div')
-      const root = createRoot(el)
-      await act(async () => {
-        root.render(<MemoryRouter initialEntries={[`/projects/p/console${ON_CHANGE}`]}>
-          <QueryClientProvider client={client}>
-            <Routes><Route path="/projects/:slug/console" element={<Console />} /></Routes>
-          </QueryClientProvider>
-        </MemoryRouter>)
-      })
-      try {
-        await vi.waitFor(() => expect(el.textContent).toContain('The worker cannot be reached'))
-        expect(el.querySelector('section.console-about')!.hasAttribute('open')).toBe(false)
-        // The switch shares the About line and stays outside its disclosure.
-        const aboutLine = el.querySelector('.console-about-line')!
-        expect(aboutLine.querySelector('h3')?.textContent).toContain('About this change')
-        expect(aboutLine.querySelector('[role="switch"]')).not.toBeNull()
-        expect(el.querySelectorAll('[role="switch"]')).toHaveLength(1)
-        expect(aboutLine.querySelector('[role="switch"]')!.closest('details')).toBeNull()
-        await act(async () => { (aboutLine.querySelector('[role="switch"]') as HTMLInputElement).click() })
-        expect(el.querySelector('section.console-about')!.hasAttribute('open')).toBe(false)
-        const line = Array.from(el.querySelectorAll('strong')).find((n) => n.textContent?.startsWith('The worker cannot be reached'))!
-        expect(line.closest('details')).toBeNull()
-      } finally {
-        act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
+  it('names the change, and its state once a workflow has started', () => {
+    const view = { statusLabel: 'waiting for you', change: { id: CHANGE, number: 49, title: 'Let an admin edit the menu', state: 'in_progress' }, commits: [{}] }
+    const page = parse(firstPaint(ON_CHANGE, view))
+    expect(page.querySelector('.console-head h1')!.textContent).toBe('#49 Let an admin edit the menu')
+    expect(page.querySelector('.console-head h1 a')!.getAttribute('href')).toBe(`/changes/${CHANGE}`)
+    // Before a workflow, the helper's turn says where things stand: the
+    // change's state is not shown beside it as a second status.
+    expect([...page.querySelectorAll('.console-head .chip')].filter(c => c.textContent?.includes('waiting for you'))).toHaveLength(0)
+    const started = parse(firstPaint(ON_CHANGE, { ...view, detail: { run: { status: 'running' } } }))
+    expect([...started.querySelectorAll('.console-head .chip')].filter(c => c.textContent?.includes('waiting for you'))).toHaveLength(1)
+    expect(page.querySelector('section.console-about')).toBeNull()
+    expect(renderToStaticMarkup(<ChangeFacts view={view as unknown as ChangeView} />)).toContain('1 commit')
+  })
+  // A worker that cannot be reached qualifies the conversation itself, for
+  // someone who may only look as much as for the chat's owner.
+  it('says the conversation is the last copy when the worker cannot be reached', async () => {
+    Element.prototype.scrollIntoView = () => {}
+    vi.stubGlobal('WebSocket', class { send() {} close() {} })
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
+      const u = String(url)
+      if (u === '/api/v1/projects/p/console') {
+        return new Response(JSON.stringify({ sessions: [{ id: 's1', projectSlug: 'p', model: 'm', createdAt: '', state: 'unavailable',
+          changeId: CHANGE, openedBy: 'ana', mayAct: false, placement: 'worker', recordAsOf: '2026-10-16T01:00:00Z' }] }))
       }
+      if (u === `/api/v1/changes/${CHANGE}`) return new Response(JSON.stringify({ change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }))
+      if (u.includes('/messages')) return new Response(JSON.stringify({ messages: [{ i: 0, role: 'helper', text: 'Done.' }] }))
+      if (u.endsWith('/changes')) return new Response(JSON.stringify({ changes: [] }))
+      return new Response('{}')
+    })))
+    window.history.replaceState(null, '', `/projects/p/console${ON_CHANGE}`)
+    const client = newQueryClient()
+    const el = document.createElement('div')
+    const root = createRoot(el)
+    await act(async () => {
+      root.render(<MemoryRouter initialEntries={[`/projects/p/console${ON_CHANGE}`]}>
+        <QueryClientProvider client={client}>
+          <Routes><Route path="/projects/:slug/console" element={<Console />} /></Routes>
+        </QueryClientProvider>
+      </MemoryRouter>)
     })
-    it('the fold line and the change card say the same words', () => {
-      const view = { statusLabel: 'waiting for you', change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' }, commits: [{}] }
-      const line = parse(firstPaint(ON_CHANGE, view)).querySelector('section.console-about > h3')!.textContent
-      expect(line).toBe('About this change · ● waiting for you')
-      expect(renderToStaticMarkup(<ChangeContext view={view as unknown as ChangeView} />)).toContain('waiting for you')
-    })
+    try {
+      await vi.waitFor(() => expect(el.textContent).toContain('The worker cannot be reached'))
+      // The agent-actions switch is in the chat's menu, not a row of the conversation.
+      expect(el.querySelector('.chat-pane [role="switch"]')).toBeNull()
+    } finally {
+      act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
+    }
   })
-  it('on a desk the fold is open', () => {
-    expect(parse(firstPaint(ON_CHANGE)).querySelector('section.console-about')!.hasAttribute('open')).toBe(false)
-  })
-  // A project chat whose intro was dismissed has nothing to fold.
-  it('a project chat with its intro dismissed shows no empty fold', () => {
+  // A project chat whose intro was dismissed has nothing above the conversation.
+  it('a project chat with its intro dismissed shows no empty about card', () => {
     localStorage.setItem('chat-intro-seen-p', '1')
     try {
       expect(parse(firstPaint('')).querySelector('section.console-about')).toBeNull()
@@ -235,8 +213,7 @@ describe('phone change controls', () => {
     for (const selector of ['.tryit-restart', '.head-menu', '.console-secondary']) {
       expect((el.querySelector(selector) as HTMLElement).hidden).toBe(hidden)
     }
-    expect(el.querySelector('.console-secondary h3')?.textContent).toBe('About this change')
-    expect(el.querySelector('.console-secondary [role="switch"]')).not.toBeNull()
+    expect(el.querySelector('.chat-pane [role="switch"]')).toBeNull()
   }
   it('keeps context and actions inline while messages arrive and the composer has focus', async () => {
     messageCount = 1
@@ -263,7 +240,7 @@ describe('phone change controls', () => {
     try {
       expect(el.querySelector('.change-controls-toggle')).toBeNull()
       expect(el.querySelector<HTMLDetailsElement>('.head-menu')!.hidden).toBe(false)
-      expect(el.querySelector('.console-about h3')?.textContent).toContain('change 49')
+      expect(el.querySelector('.console-chat-title')?.textContent).toContain('#49')
       mainActions(el)
     } finally { done() }
   })

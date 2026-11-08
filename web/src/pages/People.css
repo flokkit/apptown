@@ -25,4 +25,7 @@ button.link.people-quiet:hover { color: var(--accent); }
 .people-invite-person-div { display: grid; gap: var(--space-1); }
 .people-one-time-link-card-tone-ok { display: grid; gap: calc(var(--space-1) * 1.5); }
 .people-one-time-link-div { gap: var(--space-2); }
+.personal-token-row, .pending-invite-row { display: flex; padding: 0; border: 0; }
+.personal-token-row > .list-identity, .pending-invite-row > .list-identity { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; flex: 1; }
+.personal-token-row > .list-state, .pending-invite-row > .list-state { display: none; }
 }

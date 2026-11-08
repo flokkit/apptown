@@ -43,8 +43,10 @@ type Tenant struct {
 	Project    string `json:"project,omitempty"`
 	Deployment string `json:"deployment,omitempty"`
 	Containers int    `json:"containers"`
-	// Used is its containers' memory use now.
-	Used Figure `json:"used"`
+	// Used is its containers' memory use now, CPUUsed their CPU use in
+	// cores; both come from one read, so they are known or unknown together.
+	Used    Figure `json:"used"`
+	CPUUsed Figure `json:"cpuUsed"`
 	// Promised is the sum of its containers' memory limits; Unlimited
 	// counts those with none.
 	Promised  Figure `json:"promised"`
@@ -89,7 +91,7 @@ func tenantOf(l docker.ContainerLimit, owners containerOwners, deps map[ids.ID]P
 // the readings) leaves every tenant's use unknown, as AppTown/other split
 // does. apptownd's own memory is in no tenant: on the host it is part of the
 // host's own use, in a container it is that container's (CV-C01).
-func tenantsOf(limits []docker.ContainerLimit, used map[string]int64, usedErr error, owners containerOwners, deps map[ids.ID]ProjectDeployment) []Tenant {
+func tenantsOf(limits []docker.ContainerLimit, used map[string]docker.Usage, usedErr error, owners containerOwners, deps map[ids.ID]ProjectDeployment) []Tenant {
 	byKey := map[string]*Tenant{}
 	var order []string
 	missing := map[string]string{} // tenant key → a container of it the daemon did not report
@@ -103,7 +105,7 @@ func tenantsOf(limits []docker.ContainerLimit, used map[string]int64, usedErr er
 		}
 		t, ok := byKey[key]
 		if !ok {
-			t = &Tenant{Kind: kind, Name: name, Used: known(0), Promised: known(0)}
+			t = &Tenant{Kind: kind, Name: name, Used: known(0), CPUUsed: known(0), Promised: known(0)}
 			if dep != nil {
 				t.Project, t.Deployment = dep.Project, dep.Name
 			}
@@ -126,7 +128,8 @@ func tenantsOf(limits []docker.ContainerLimit, used map[string]int64, usedErr er
 		}
 		if usedErr == nil {
 			if b, ok := used[l.Name]; ok {
-				t.Used.Value += float64(b)
+				t.Used.Value += float64(b.MemoryBytes)
+				t.CPUUsed.Value += b.CPUCores
 			} else if _, seen := missing[key]; !seen {
 				missing[key] = l.Name
 			}
@@ -151,6 +154,9 @@ func tenantsOf(limits []docker.ContainerLimit, used map[string]int64, usedErr er
 			t.Used = unknown(fmt.Sprintf("%s started after the containers were read", late))
 		case missing[key] != "":
 			t.Used = unknown(fmt.Sprintf("the daemon did not report %s", missing[key]))
+		}
+		if !t.Used.Known {
+			t.CPUUsed = t.Used
 		}
 		out = append(out, *t)
 	}
@@ -191,7 +197,7 @@ func (s *Service) hostUse(t *Target, daemonTotal int64) Figure {
 
 // dockerTenants is who holds a Docker host, from the readings capacity
 // already made.
-func (s *Service) dockerTenants(ctx context.Context, t *Target, limits []docker.ContainerLimit, used map[string]int64, usedErr error) ([]Tenant, error) {
+func (s *Service) dockerTenants(ctx context.Context, t *Target, limits []docker.ContainerLimit, used map[string]docker.Usage, usedErr error) ([]Tenant, error) {
 	deps, err := s.Deployments.OnTarget(ctx, t.ID)
 	if err != nil {
 		return nil, err

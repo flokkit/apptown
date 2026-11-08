@@ -139,7 +139,9 @@ export function TimingView({ days }: { days: number }) {
   )
 }
 
-type DayTotals = { step: number; console: number; other: number; cost: number }
+// Each lane counts new tokens (input and output); cached is what the day read
+// from or wrote to the provider's prompt cache, said beside the chart.
+type DayTotals = { step: number; console: number; other: number; cached: number; cost: number }
 
 // The daily chart. Its numbers are readable without a mouse: one day is
 // always selected and spelled out under the chart (the latest day with use,
@@ -156,7 +158,7 @@ export function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay
   const maxDay = Math.max(0, ...[...perDay.values()].map((x) => x.step + x.console + x.other))
   const label = new Date(day + 'T00:00:00Z').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'UTC' })
   const detail = !e ? `${label}: no use`
-    : `${label}: ${total === 0 && e.cost > 0 ? 'tokens not recorded' : `${fmtTokens(total)} tokens · ${LANE_LABEL.step} ${fmtTokens(e.step)}, ${LANE_LABEL.console} ${fmtTokens(e.console)}${e.other > 0 ? `, Other work ${fmtTokens(e.other)}` : ''}`}`
+    : `${label}: ${total === 0 && e.cached === 0 && e.cost > 0 ? 'tokens not recorded' : `${fmtTokens(total)} new tokens (${LANE_LABEL.step} ${fmtTokens(e.step)}, ${LANE_LABEL.console} ${fmtTokens(e.console)}${e.other > 0 ? `, Other work ${fmtTokens(e.other)}` : ''})${e.cached > 0 ? ` · ${fmtTokens(e.cached)} from the cache` : ''}`}`
       + (e.cost > 0 ? ` · ${fmtCost(e.cost)}` : '')
   const pickAt = (el: HTMLElement, clientX: number) => {
     const r = el.getBoundingClientRect()
@@ -173,7 +175,7 @@ export function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay
   // The legend names only the kinds of use the window has.
   const lanes = (['step', 'console', 'other'] as const).filter(k => [...perDay.values()].some(x => x[k] > 0))
   return (
-    <Section title="Daily tokens" action={<span className="muted">{maxDay > 0 ? `tallest day ${fmtTokens(maxDay)}` : 'No tokens recorded'}</span>}>
+    <Section title="New tokens per day" action={<span className="muted">{maxDay > 0 ? `tallest day ${fmtTokens(maxDay)}` : 'No tokens recorded'}</span>}>
       <div className="usage-chart-panel">
       {lanes.length > 0 && <div className="muted small usage-legend">
         {lanes.map(k => <span key={k}><span style={{ color: LANE_COLOR[k] }}>■</span> {LANE_LABEL[k] ?? 'Other work'}</span>)}
@@ -235,9 +237,11 @@ export function UsageView({ project }: { project?: string }) {
   }
   const perDay = new Map<string, DayTotals>()
   for (const r of data.byDayKind ?? []) {
-    const e = perDay.get(r.day) ?? { step: 0, console: 0, other: 0, cost: 0 }
-    if (r.kind === 'step' || r.kind === 'console') e[r.kind] += r.total
-    else e.other += r.total
+    const e = perDay.get(r.day) ?? { step: 0, console: 0, other: 0, cached: 0, cost: 0 }
+    const fresh = r.total - (r.cached ?? 0)
+    if (r.kind === 'step' || r.kind === 'console') e[r.kind] += fresh
+    else e.other += fresh
+    e.cached += r.cached ?? 0
     e.cost += r.costMicros
     perDay.set(r.day, e)
   }
@@ -253,11 +257,12 @@ export function UsageView({ project }: { project?: string }) {
       </div>}>
         <div className="usage-totals">
           <StatCard label={`Cost, ${window} days`} value={price(data.totals.costMicros, data.totals.unpriced)}
-            sub={data.totals.incomplete > 0 ? `${data.totals.incomplete} activity records have unknown or partial cost.` : undefined} />
+            // A record's cost may be partly known or not known at all, and its
+            // tokens may not be either, so the line counts records, not tokens.
+            sub={data.totals.incomplete > 0 ? `${data.totals.incomplete} record${data.totals.incomplete === 1 ? ' has' : 's have'} unknown or partial cost` : undefined} />
           <StatCard label="Automated work" value={price(workCost, workUnpriced)} />
           <StatCard label="Chat" value={price(chatCost, chatUnpriced)} />
         </div>
-        <p className="muted small">{sources(data.totals.providerReported, data.totals.catalog, data.totals.unpriced)}</p>
       </Section>
 
       <Tabs className="tabs" aria-label="Usage views">
@@ -265,7 +270,7 @@ export function UsageView({ project }: { project?: string }) {
       </Tabs>
       {tab === 'summary' && <DailyChart days={days} perDay={perDay} shownFrom={shownDays[0]} />}
       {tab === 'details' && <>
-      <p className="muted small">{fmtTokens(data.totals.total)} tokens · {fmtTokens(data.totals.cacheRead)} from saved responses</p>
+      <p className="muted small">{fmtTokens(data.totals.total)} tokens · {fmtTokens(data.totals.cacheRead)} from saved responses{sources(data.totals.providerReported, data.totals.catalog, data.totals.unpriced) && ` · priced: ${sources(data.totals.providerReported, data.totals.catalog, data.totals.unpriced)}`}</p>
       <DailyChart days={days} perDay={perDay} shownFrom={shownDays[0]} />
 
       <div className="row usage-usage-view-div">

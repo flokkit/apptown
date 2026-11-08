@@ -4,6 +4,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/adrs"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
@@ -68,6 +69,8 @@ func init() {
 		wiregen.Named{Name: "JobList", Value: JobList{}},
 		wiregen.Named{Name: "RestartedLanding", Value: RestartedLanding{}},
 		wiregen.Named{Name: "StepProgress", Value: StepProgress{}},
+		wiregen.Named{Name: "StepApprovers", Value: workflow.StepApprovers{}},
+		wiregen.Named{Name: "Approver", Value: identity.Approver{}},
 		wiregen.Named{Name: "RunsAbandoned", Value: RunsAbandoned{}},
 		wiregen.Named{Name: "ArtifactAttached", Value: ArtifactAttached{}},
 		wiregen.Named{Name: "StepInterrupted", Value: StepInterrupted{}},

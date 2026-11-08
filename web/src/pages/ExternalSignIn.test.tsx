@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router-dom'
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
 import { act } from 'react'
@@ -14,7 +15,7 @@ it('retains an edit and refuses saving it after another provider revision replac
   const fetch = vi.fn(async (url: string) => new Response(JSON.stringify(url.includes('bindings') ? { bindings: [] } : provider)))
   vi.stubGlobal('fetch', fetch)
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
-  await act(async () => { root.render(<QueryClientProvider client={client}><ExternalProviderSettings /></QueryClientProvider>) })
+  await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><ExternalProviderSettings /></MemoryRouter></QueryClientProvider>) })
   await vi.waitFor(() => expect(el.textContent).toContain('Original: disabled'))
   await act(async () => { Array.from(el.querySelectorAll('button')).find(b => b.textContent === 'Configure provider')!.click() })
   const before = Array.from(el.querySelectorAll('input')).map(i => i.value)
@@ -30,7 +31,7 @@ it('leads Your account with the signed-in name rather than only linking controls
  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/auth/me') ? { user: 'sam', role: 'admin', mode: 'internal' } : { bindings: [] }))))
  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
  try {
-  await act(async () => root.render(<QueryClientProvider client={client}><MyExternalSignIn /></QueryClientProvider>))
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><MyExternalSignIn /></MemoryRouter></QueryClientProvider>))
   await vi.waitFor(() => expect(el.querySelector('strong')?.textContent).toBe('sam'))
   expect(el.textContent).toContain('sam · Admin')
  } finally { await act(async () => root.unmount()); client.clear() }
@@ -39,7 +40,7 @@ it('leads Your account with the signed-in name rather than only linking controls
 it('shows personal access tokens on Your account', async () => {
  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/auth/me') ? { mode: 'internal', user: 'kim', ownTokens: [{ Name: 'my-laptop', Purpose: 'cli', LastUsed: '' }] } : { bindings: [] }))))
  const el = document.createElement('div'), root = createRoot(el)
- await act(async () => root.render(<QueryClientProvider client={newQueryClient()}><MyExternalSignIn /></QueryClientProvider>))
+ await act(async () => root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><MyExternalSignIn /></MemoryRouter></QueryClientProvider>))
  await vi.waitFor(() => expect(el.textContent).toContain('my-laptop'))
  expect(el.querySelector('section[aria-label="Access tokens"] .section-count')?.textContent).toBe('1')
  act(() => root.unmount())
@@ -55,7 +56,7 @@ it('lets a member revoke their token and disconnect their agent on Account', asy
  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
  const button = (text: string) => [...el.querySelectorAll('button')].find(b => b.textContent === text)!
  try {
-  await act(async () => root.render(<QueryClientProvider client={client}><MyExternalSignIn /></QueryClientProvider>))
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><MyExternalSignIn /></MemoryRouter></QueryClientProvider>))
   await vi.waitFor(() => expect(el.textContent).toContain('Editor'))
   expect(button('Mint token')).toBeDefined()
   expect(el.querySelector('[aria-label="Record actions as"]')).toBeNull()

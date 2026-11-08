@@ -12,6 +12,9 @@ import Integrations from './Integrations'
 import { TechnicalDetailSwitch } from './change/TechnicalDetail'
 import { ConnectorForm } from './integrations/ConnectorForm'
 
+// A status's details ride in its title, not in the page text.
+const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
+
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 describe('connector form', () => {
@@ -205,18 +208,18 @@ describe('the integrations list', () => {
     expect(row('gitlab').querySelector('.chip')!.className).toContain('pass')
     expect(row('gitlab').textContent).toContain('working')
     expect(row('gitlab').textContent).toContain('GitLab.')
-    // Every group shows its rows; a failure is never folded away, and only it carries Fix.
+    // Every group shows its rows; a failure is never folded away. Its row
+    // opens it like any other, so it has no Fix button of its own.
     expect(sc.el.querySelector('button.group-toggle')).toBeNull()
     expect(row('django-check').querySelector('.chip')!.className).toContain('fail')
-    expect(row('django-check').querySelector('.list-action')!.textContent).toBe('Fix')
-    expect(row('gitlab').querySelector('.list-action')!.textContent).toBe('')
+    expect(row('django-check').querySelector('.list-action')!.textContent).toBe('')
     expect(row('django-check').textContent).toContain('Django deploy checks')
     expect(row('authentik').querySelector('.chip')!.className).toBe('chip unknown')
     expect(row('authentik').textContent).toContain('unknown')
     expect(row('authentik').textContent).not.toContain('working')
     expect(row('authentik').textContent).toContain('unknown')
     expect(row('cache').textContent).toContain('working')
-    expect(row('gitlab').textContent).toContain('5m ago')
+    expect(row('gitlab').querySelector('[data-help]')?.getAttribute('data-help')).toContain('5m ago')
     // What names each one, counted; nothing named reads as a dash, not zero.
     expect(row('django-check').querySelector('.int-usedby')).toBeNull()
     expect(row('gitlab').querySelector('.int-usedby')).toBeNull()
@@ -238,7 +241,7 @@ describe('the integrations list', () => {
   it('shows a failed read as a failure, not as an empty list', async () => {
     stubAppTown({ 'GET /integrations': json({ error: 'bad request' }, 400), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations')
-    await vi.waitFor(() => expect(page.text()).toContain('The integrations could not be read: bad request'))
+    await vi.waitFor(() => expect(details(page.el)).toContain('The integrations could not be read: bad request'))
     expect(page.text()).not.toContain('Nothing connected yet')
     page.done()
   })
@@ -267,8 +270,9 @@ describe('the integrations list', () => {
     await vi.waitFor(() => expect(page.text()).toContain('unknown'))
     expect(page.el.querySelector('[role=listitem].int-row .chip')!.className).toContain('unknown')
     expect(page.text()).toContain('unknown')
-    expect(page.text()).toContain(gitlab.health.freshnessHelp)
+    expect(details(page.el)).toContain(gitlab.health.freshnessHelp)
     expect(page.text()).not.toContain('every five minutes')
+    expect(details(page.el)).not.toContain('every five minutes')
     expect(page.el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(AppTown unreachable)')
     page.done()
   })
@@ -278,7 +282,7 @@ describe('the integrations list', () => {
     const page = await mount('/integrations/scm')
     await vi.waitFor(() => expect(page.text()).toContain('gitlab'))
     // The row itself opens it, not only its name.
-    await act(async () => { ([...page.el.querySelectorAll('[role=listitem].int-row')].find((r) => r.textContent!.includes('gitlab')) as HTMLElement).querySelector<HTMLElement>('.int-when')!.click() })
+    await act(async () => { ([...page.el.querySelectorAll('[role=listitem].int-row')].find((r) => r.textContent!.includes('gitlab')) as HTMLElement).querySelector<HTMLElement>('.int-who .muted')!.click() })
     expect(page.where()).toBe('/integrations/gitlab')
     expect(page.el.querySelector('h1')!.textContent).toBe('gitlab')
     page.done()
@@ -294,7 +298,8 @@ describe('one integration', () => {
     stubAppTown({ 'GET /integrations': json({ integrations: [gitlab] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations/gitlab')
     await vi.waitFor(() => expect(page.text()).toContain('authenticated as forge-bot'))
-    expect(page.text()).toContain('checked 5m ago')
+    // When it was checked is the status's detail, on hover or tap.
+    expect(page.el.querySelector('[data-help*="checked 5m ago"]')).not.toBeNull()
     const connection = page.el.querySelector('section[aria-label="Connection"]')!
     const fact = (k: string) => [...connection.querySelectorAll('dt')].find((d) => d.textContent === k)?.nextElementSibling?.textContent
     expect(fact('tokenFrom')).toBe('GITLAB_TOKEN')
@@ -432,7 +437,9 @@ it('shows a manual-only integration neutrally and shows an old test age once', a
   expect(rows[0].querySelector('.chip')?.textContent).toBe('● unknown')
   expect(rows[0].querySelector('.chip')?.className).toBe('chip unknown')
   expect(rows[1].querySelector('.chip')?.textContent).toContain('old · working')
-  expect(rows[1].textContent?.match(/last seen/g)).toHaveLength(1)
+  // The row says the reading is old; how old is in the status's details, on hover or tap.
+  expect(rows[1].textContent?.match(/last seen/g) ?? []).toHaveLength(0)
+  expect(rows[1].querySelector('[data-help*="last seen"]')).not.toBeNull()
  } finally {page.done()}
 })
 

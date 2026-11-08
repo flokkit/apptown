@@ -8,6 +8,9 @@ import { getKey, newQueryClient } from '../../data'
 import type { Step } from '../../api'
 import { ChildRunSteps, StepCard } from './Steps'
 
+// A status's details ride in its title, not in the page text.
+const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
+
 // Record ids are UUIDv7 strings.
 const RUN = '00000000-0001-7000-8000-000000000000'
 const CHILD = '00000000-0002-7000-8000-000000000000'
@@ -68,7 +71,7 @@ describe('a conformance step', () => {
 })
 
 // A called workflow's child steps say when their check evidence could not be
-// read, beside the recorded status.
+// read, in the recorded status's details.
 describe('a child run', () => {
   it('marks a step whose check evidence could not be read', () => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -83,7 +86,7 @@ describe('a child run', () => {
     act(() => root.render(<QueryClientProvider client={client}><MemoryRouter>
       <ChildRunSteps childId={CHILD} workflow="checks v1" live={false} onChange={() => {}} />
     </MemoryRouter></QueryClientProvider>))
-    expect(el.textContent).toContain('unreadable check evidence')
+    expect(details(el)).toContain('unreadable check evidence')
     act(() => root.unmount())
   })
 })

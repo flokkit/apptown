@@ -86,7 +86,7 @@
     "apptown/pixel-spacing": 25
   },
   "web/src/styles/chip.css": {
-    "apptown/pixel-spacing": 8,
+    "apptown/pixel-spacing": 7,
     "declaration-no-important": 2
   },
   "web/src/styles/code.css": {

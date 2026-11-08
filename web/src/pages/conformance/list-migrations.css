@@ -1,0 +1,28 @@
+@layer pages {
+.conformance-list-row { display: flex; flex-wrap: wrap; padding: var(--space-3) 0; }
+.conformance-list-row > .list-state { order: -1; flex: 0 0 13em; }
+.conformance-list-row > .list-identity { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); flex: 1; }
+.conformance-list-row > .list-state:empty, .conformance-list-row > .list-action:empty { display: none; }
+.check-project-result { padding: calc(var(--space-1) * 1.5) 0 calc(var(--space-1) * 1.5) var(--space-4); border: 0; }
+.check-result-link { display: flex; min-width: 0; }
+.check-judging { padding-block: var(--space-3); }
+/* In its own section the panel is the box; the judging block adds none. */
+.check-judging .conformance-how-judged { padding: 0; background: none; }
+.remediation-list-link { display: block; }
+.remediation-number { font-weight: 400; }
+.review-list-row, .fixed-list-row { display: block; }
+.review-list-row > .list-state, .review-list-row > .list-action, .fixed-list-row > .list-state, .fixed-list-row > .list-action, .remediation-item-row > .list-state { display: none; }
+.review-fixed { color: var(--ok); }
+.review-new, .remediation-stuck { color: var(--bad); }
+.remediation-item-row { grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-1) var(--space-3); }
+.remediation-item-row > .list-detail { color: var(--text); font-size: inherit; }
+@media (width <= 800px) {
+  .conformance-list-row > .list-state { flex: 0 0 auto; }
+  .remediation-item-row { grid-template-columns: minmax(0, 1fr); }
+}
+/* The box holds its tallest bar (40px, ten spacing units) plus its padding. */
+.review-trend { display: flex; gap: calc(var(--space-1) * 0.75); align-items: flex-end; min-height: calc(var(--space-1) * 10 + 2 * var(--space-3)); padding-block: var(--space-3); }
+.review-trend-bar { display: block; width: var(--space-3); border-radius: var(--radius-xs); background: var(--border-strong); }
+.review-trend-bar.bad { background: var(--bad); }
+.review-trend-bar.warn { background: var(--warn); }
+}

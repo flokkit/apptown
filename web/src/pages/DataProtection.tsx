@@ -4,7 +4,7 @@ import { TechnicalWords, useTechnicalDetail } from './change/TechnicalDetail'
 import { DeploymentLine } from './project/settings/DeploymentLine'
 import { Section } from '../Section'
 import { BackgroundReading } from '../BackgroundReading'
-import { GlanceRow } from '../GlanceRow'
+import { ListTable } from '../ListTable'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { useState, type ReactNode } from 'react'
@@ -323,20 +323,13 @@ export function OperationPage() {
         {writesStopped(op) && <span className="muted">writes stopped{asRead}</span>}
       </div>
       {op.detail && <p className="data-protection-operation-page-p">{op.detail}</p>}
-      <table className="small data-protection-operation-page-p">
-        <thead><tr><th>Step</th><th>Started</th><th>Took</th><th></th></tr></thead>
-        <tbody>
-          {op.steps.map((st, i) => (
-            <GlanceRow labels={["Step", "Started", "Took", "Details"]} key={i}>
-              <td>{st.name}{st.detail && <div className={st.failed ? 'error' : 'muted'}>{st.detail}</div>}</td>
-              <td className="muted data-protection-td">{fmtWhen(st.started)}</td>
-              <td className="muted">{st.ended ? elapsed(st.started, new Date(st.ended).getTime()) : elapsed(st.started)}{st.bytes ? ` · ${fmtBytes(st.bytes)}` : ''}</td>
-              <td>{!st.ended ? <Status word="working" staleAt={old ? st.started : undefined} /> : st.unknown ? <Status word="unknown" help="The operation did not record an outcome. Open its details before starting another restore." /> : st.failed ? <Status word={"failed"} /> : <Status word="finished" />}</td>
-            </GlanceRow>
-          ))}
-          {op.steps.length === 0 && <tr><td colSpan={4} className="muted">no step has started yet</td></tr>}
-        </tbody>
-      </table>
+      {op.steps.length === 0 ? <p className="muted small data-protection-operation-page-p">no step has started yet</p>
+        : <ListTable label="Steps" className="small data-protection-operation-page-p" rows={op.steps} rowKey={st => `${st.name}-${st.started}`} columns={[
+          { key: 'step', label: 'Step', phone: 'name', render: st => <>{st.name}{st.detail && <div className={st.failed ? 'error' : 'muted'}>{st.detail}</div>}</> },
+          { key: 'started', label: 'Started', phone: 'time', kind: 'time', render: st => <span className="muted">{fmtWhen(st.started)}</span> },
+          { key: 'took', label: 'Took', phone: 'extra', render: st => <span className="muted">{st.ended ? elapsed(st.started, new Date(st.ended).getTime()) : elapsed(st.started)}{st.bytes ? ` · ${fmtBytes(st.bytes)}` : ''}</span> },
+          { key: 'state', label: 'State', phone: 'state', render: st => !st.ended ? <Status word="working" staleAt={old ? st.started : undefined} /> : st.unknown ? <Status word="unknown" help="The operation did not record an outcome. Open its details before starting another restore." /> : st.failed ? <Status word="failed" /> : <Status word="finished" /> },
+        ]} />}
       {op.cancellable && !op.cancelRequested && (
         <div className="row data-protection-operation-page-p">
           <button className="subtle" disabled={busy} onClick={() => run(() => post(`/operations/${op.id}/cancel`, {}))} title="stop before the next step; a step under way finishes">{op.state === 'queued' ? 'Cancel' : 'Stop before the next step'}</button>

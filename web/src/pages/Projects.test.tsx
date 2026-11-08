@@ -86,11 +86,11 @@ it('stamps only the projects that have a deployment', async () => {
   const card = (slug: string) => el.querySelector(`a[href="/projects/${slug}"]`)!.closest('.project-row')!
   expect(card('plain').textContent).toContain('Not deployed')
   expect(card('plain').querySelector('.chip')).toBeNull()
-  expect(card('boat').textContent).toContain('not checked yet')
   expect(card('boat').textContent).not.toContain('not set up')
   const stamp = card('boat').querySelector('.chip.unknown')
   expect(stamp?.textContent).toBe('● unknown')
-  expect(stamp?.getAttribute('title')).toBe('not checked yet')
+  // Why it is unknown is the status's detail, on hover or tap.
+  expect(card('boat').querySelector('button.chip-button')?.getAttribute('data-help')).toBe('not checked yet')
 })
 
 
@@ -102,4 +102,40 @@ it('keeps list descriptions on one line with an ellipsis', async () => {
   expect(rule).toMatch(/overflow:\s*hidden/)
   expect(rule).toMatch(/text-overflow:\s*ellipsis/)
   expect(el.querySelectorAll('.project-row')).toHaveLength(2)
+})
+
+// The filter takes the cursor once, as the list first appears, without
+// scrolling; the page crossing the phone width later must not send a reader
+// who scrolled down back to the top.
+it('focuses the filter once on arrival, never again while the page is read', async () => {
+  let matches = false
+  const listeners: (() => void)[] = []
+  vi.stubGlobal('matchMedia', () => ({ get matches() { return matches }, addEventListener: (_: string, f: () => void) => listeners.push(f), removeEventListener: () => {} }))
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ projects: [], total: 0 }))))
+  const client = newQueryClient(), el = document.body.appendChild(document.createElement('div')), root = createRoot(el)
+  const focus = vi.spyOn(HTMLInputElement.prototype, 'focus')
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><Projects /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(focus).toHaveBeenCalledTimes(1))
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true })
+    ;(document.activeElement as HTMLElement).blur()
+    for (const next of [true, false]) { matches = next; act(() => listeners.forEach(f => f())) }
+    expect(focus).toHaveBeenCalledTimes(1)
+  } finally { focus.mockRestore(); act(() => root.unmount()); el.remove(); client.clear() }
+})
+
+// A refresh updates the rows in place. Rebuilding them each poll flickered
+// the row highlight in Chrome and threw Safari readers back to the top.
+it('keeps the same rows across a refresh', async () => {
+  let doneRuns = 0
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.includes('/project-cleanups') ? { cleanups: [] } : { projects: [{ id: 'p', slug: 'game', name: 'Game', namespace: '', doneRuns: ++doneRuns, hasDeployments: true, status: { word: 'working', reason: '', stale: false } }], total: 1 }))))
+  const client = newQueryClient(), el = document.body.appendChild(document.createElement('div')), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><Projects /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('.project-summary')?.textContent).toContain('1 shipped'))
+    const row = el.querySelector('.project-summary')
+    await act(async () => { await client.refetchQueries() })
+    await vi.waitFor(() => expect(el.querySelector('.project-summary')?.textContent).toContain('2 shipped'))
+    expect(el.querySelector('.project-summary')).toBe(row)
+  } finally { act(() => root.unmount()); el.remove(); client.clear() }
 })

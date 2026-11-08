@@ -1,4 +1,4 @@
-import { FeatureOnly } from '../features'
+import { ListRow } from '../ListRow'
 import './Dashboard.css'
 import { Status } from '../Status'
 import { useAttention, attentionState, useOperator } from '../attention'
@@ -50,7 +50,7 @@ function SetupCard() {
         </div>
       )}
       {setup.needsModel && (
-        <FeatureOnly area="models"><div className="card tone-accent mb-3 dashboard-setup-card-card-tone-accent">
+        <div className="card tone-accent mb-3 dashboard-setup-card-card-tone-accent">
           <strong className="dashboard-setup-card-strong">Add a model API key to start building</strong>
           <div className="muted small dashboard-setup-card-div">
             It is kept in {PRODUCT}'s secrets file, is not shown again, and is sent only to steps
@@ -68,7 +68,7 @@ function SetupCard() {
           </div>
           {err && <div className="error small dashboard-setup-card-error">{err}</div>}
           <div className="dashboard-setup-card-div-2"><LocalTrialNote /></div>
-        </div></FeatureOnly>
+        </div>
       )}
       {setup.agentImage === 'building' && (
         <div className="card dashboard-setup-card-card-tone-warn">
@@ -192,7 +192,7 @@ export default function Dashboard() {
       {!act && <ReadStatus q={actQ} what="activity" />}
       {!dash && <ReadStatus q={dashQ} what="what is waiting on you" />}
       <div id="waiting-on-you" className="dashboard-work-group">{(needsYouCount > 0) && <Section title={ended.length > 0 || releaseApprovals.length > 0 ? "Waiting on you" : "Changes waiting on you"} label="Waiting on you" count={needsYouCount}>
-        {releaseApprovals.map(task => <Link key={task.release.id} to={task.href} className="card row dashboard-card"><strong>Release {task.release.number} to {task.deploymentLabel} needs your approval</strong><span>{projectNames[task.project] || task.project}</span></Link>)}
+        {releaseApprovals.map(task => <ListRow key={task.release.id} to={task.href} className="card row dashboard-card" identity={<><Link to={task.href} className="run-link"><strong>Release {task.release.number} to {task.deploymentLabel} needs your approval</strong></Link><span>{projectNames[task.project] || task.project}</span></>} />)}
         {ended.map((op) => <EndedOperation key={op.id} op={op} />)}
         <ActiveRunList runs={waiting} showProject names={projectNames} />
       </Section>}</div>
@@ -213,10 +213,8 @@ export default function Dashboard() {
           status chip would say nothing. */}
       {finished.length > 0 && <Section title="Recently landed" label="Recently landed">
         {finished.slice(0, 5).map(c => (
-          <Link key={c.changeId} to={`/changes/${c.changeId}`} className="card row dashboard-card">
-            <strong>{c.changeNumber ? <span className="muted dashboard-span">#{c.changeNumber} </span> : null}{c.title}</strong>
-            <span className="muted small">{projectNames[c.project ?? ''] ?? c.project} · {relTime(c.when)}</span>
-          </Link>
+          <ListRow key={c.changeId} to={`/changes/${c.changeId}`} className="card row dashboard-card" identity={<><Link to={`/changes/${c.changeId}`} className="run-link"><strong>{c.changeNumber ? <span className="muted dashboard-span">#{c.changeNumber} </span> : null}{c.title}</strong></Link>
+            <span className="muted small">{projectNames[c.project ?? ''] ?? c.project} · {relTime(c.when)}</span></>} />
         ))}
       </Section>}
       </>}
@@ -229,12 +227,9 @@ export default function Dashboard() {
 function EndedOperation({ op }: { op: Operation }) {
   const { run, busy } = useAction(undefined, { affects: ['/dashboard'] })
   return (
-    <div className="card row dashboard-card">
-      <Status word={op.statusLabel} help={op.detail} />
-      <Link to={`/operations/${op.id}`}><strong>{endedWords(op)}</strong></Link>
+    <ListRow to={`/operations/${op.id}`} className="card row dashboard-card" state={<Status word={op.statusLabel} help={op.detail} />} identity={<>
+      <Link to={`/operations/${op.id}`} className="run-link"><strong>{endedWords(op)}</strong></Link>
       {op.detail && <span className="muted small">{op.detail}</span>}
-      <span className="grow" />
-      <button className="subtle" disabled={busy} onClick={() => run(() => post(`/operations/${op.id}/dismiss`, {}))}>Put away</button>
-    </div>
+      </>} action={<button className="subtle" disabled={busy} onClick={() => run(() => post(`/operations/${op.id}/dismiss`, {}))}>Put away</button>} />
   )
 }

@@ -58,7 +58,7 @@ func TestEveryRunningContainerIsCountedOnceUnderWhoHoldsIt(t *testing.T) {
 	for i, l := range limits {
 		used[l.Name] = int64(i+1) << 20
 	}
-	ts := tenantsOf(limits, used, nil, owners, deps)
+	ts := tenantsOf(limits, memoryUse(used), nil, owners, deps)
 
 	want := map[string]struct {
 		kind               string
@@ -119,7 +119,7 @@ func TestATenantsUseIsUnknownWhenAnyOfItIsUnread(t *testing.T) {
 		{Name: "traefik"}, {Name: "forge-db", AppTown: true, Class: "infra"},
 	}
 	none := containerOwners{exact: map[string]partOf{}, services: map[string]ids.ID{}}
-	ts := tenantsOf(limits, map[string]int64{"a": 1, "traefik": 1, "forge-db": 1}, nil, none, nil)
+	ts := tenantsOf(limits, memoryUse(map[string]int64{"a": 1, "traefik": 1, "forge-db": 1}), nil, none, nil)
 	if w := tenantNamed(ts, "agent work"); w.Used.Known || !strings.Contains(w.Used.Reason, "did not report b") {
 		t.Errorf("agent work: %+v", w.Used)
 	}
@@ -128,7 +128,7 @@ func TestATenantsUseIsUnknownWhenAnyOfItIsUnread(t *testing.T) {
 	}
 
 	all := map[string]int64{"a": 1, "b": 1, "traefik": 1, "forge-db": 1, "late": 5}
-	for _, tn := range tenantsOf(limits, all, nil, none, nil) {
+	for _, tn := range tenantsOf(limits, memoryUse(all), nil, none, nil) {
 		if tn.Used.Known || !strings.Contains(tn.Used.Reason, "late started after") {
 			t.Errorf("%s with a late container: %+v", tn.Name, tn.Used)
 		}
@@ -178,7 +178,7 @@ func TestApptowndsMemoryIsCountedOnceWhereverItRuns(t *testing.T) {
 	t.Parallel()
 	none := containerOwners{exact: map[string]partOf{}, services: map[string]ids.ID{}}
 	limits := []docker.ContainerLimit{{Name: "apptownd-in-a-container"}, {Name: "forge-db", AppTown: true, Class: "infra"}}
-	ts := tenantsOf(limits, map[string]int64{"apptownd-in-a-container": 400 << 20, "forge-db": 100 << 20}, nil, none, nil)
+	ts := tenantsOf(limits, memoryUse(map[string]int64{"apptownd-in-a-container": 400 << 20, "forge-db": 100 << 20}), nil, none, nil)
 	var sum float64
 	for _, tn := range ts {
 		sum += tn.Used.Value
@@ -219,8 +219,32 @@ func TestCapacityKeepsDeploymentsWithTheSameDisplayNameSeparate(t *testing.T) {
 		a: {Deployment: Deployment{ID: a, Name: "east", DisplayLabel: "Office", Kind: Standing}, Project: "shop"},
 		b: {Deployment: Deployment{ID: b, Name: "west", DisplayLabel: "Office", Kind: Standing}, Project: "shop"},
 	}
-	tenants := tenantsOf([]docker.ContainerLimit{{Name: "a"}, {Name: "b"}}, map[string]int64{"a": 1, "b": 2}, nil, owners, deps)
+	tenants := tenantsOf([]docker.ContainerLimit{{Name: "a"}, {Name: "b"}}, memoryUse(map[string]int64{"a": 1, "b": 2}), nil, owners, deps)
 	if len(tenants) != 2 || tenants[0].Name != "shop/Office" || tenants[1].Name != "shop/Office" || tenants[0].Deployment == tenants[1].Deployment {
 		t.Fatalf("display names merged identities: %+v", tenants)
+	}
+}
+
+// memoryUse is a reading of containers' memory alone, each using no CPU.
+func memoryUse(bytes map[string]int64) map[string]docker.Usage {
+	out := make(map[string]docker.Usage, len(bytes))
+	for name, b := range bytes {
+		out[name] = docker.Usage{MemoryBytes: b}
+	}
+	return out
+}
+
+// A deployment's CPU use is its containers' together, read with their memory;
+// when the memory reading is unknown so is the CPU, never zero.
+func TestATenantsCPUUseIsItsContainersTogether(t *testing.T) {
+	t.Parallel()
+	limits := []docker.ContainerLimit{{Name: "web"}, {Name: "worker"}}
+	ts := tenantsOf(limits, map[string]docker.Usage{"web": {MemoryBytes: 1, CPUCores: 0.25}, "worker": {MemoryBytes: 1, CPUCores: 0.5}}, nil, containerOwners{}, nil)
+	if len(ts) != 1 || !ts[0].CPUUsed.Known || ts[0].CPUUsed.Value != 0.75 {
+		t.Fatalf("tenants: %+v", ts)
+	}
+	ts = tenantsOf(limits, map[string]docker.Usage{"web": {MemoryBytes: 1, CPUCores: 0.25}}, nil, containerOwners{}, nil)
+	if ts[0].CPUUsed.Known || ts[0].CPUUsed.Reason == "" {
+		t.Fatalf("a container the daemon did not report left CPU known: %+v", ts[0].CPUUsed)
 	}
 }

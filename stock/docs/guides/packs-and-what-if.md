@@ -57,7 +57,8 @@ Every run records the version it used.
   before you run it and recorded with the what-if, and they apply only to
   projects already on those packs. Eligible projects then include those
   current on this pack but behind on their own.
-  Every what-if is listed under **Conformance → What-ifs**. Its recommendation
+  Every what-if is listed under **Conformance → Pack upgrades**, which also
+  lists the projects behind on a pack and can start a what-if itself. Its recommendation
   link opens the pack page. Recommend the version there, or tick projects and
   **Adopt** to open one adoption Change per project with exactly what was
   assessed (or `apptown whatif adopt <id> -p <project>[,<project>…]`). Each

@@ -79,7 +79,8 @@ it('leads with per-check current evidence and keeps dated reviews underneath, ou
   try {
     await act(async () => root.render(render(false)))
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 25)) })
-    expect(el.textContent).toContain('Current state')
+    // The current view acts on the project; a snapshot only shows it.
+    expect(el.textContent).toContain('Check this project')
     expect(el.textContent).toContain('landing #12')
     expect(el.textContent).toContain('judged on an older commit')
     expect(el.textContent).not.toContain('Not run yet')
@@ -88,7 +89,7 @@ it('leads with per-check current evidence and keeps dated reviews underneath, ou
     expect(el.textContent!.indexOf('judged at')).toBeLessThan(el.textContent!.indexOf('Dated snapshots'))
     expect(el.querySelector('a[href="/conformance/reviews/r/projects/shop"]')).not.toBeNull()
     await act(async () => root.render(render(true)))
-    expect(el.textContent).not.toContain('Current state')
+    expect(el.textContent).not.toContain('Check this project')
     expect(el.textContent).not.toContain('Dated snapshots')
   } finally { act(() => root.unmount()); client.clear() }
 })

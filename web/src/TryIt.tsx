@@ -28,8 +28,10 @@ export function builtWords(st?: PreviewState): string {
   return st.commit ? `built from commit ${st.commit.slice(0, 7)} at ${when}` : `built from the change's working files at ${when}`
 }
 
-export function TryIt({ changeId, label, style, className, hideRestart = false }: {
-  changeId: string; label?: string; style?: CSSProperties; className?: string; hideRestart?: boolean
+// hideBuilt leaves out when the preview was built, for the chat's strip:
+// Open always serves the change's files as they are now.
+export function TryIt({ changeId, label, style, className, hideRestart = false, hideBuilt = false }: {
+  changeId: string; label?: string; style?: CSSProperties; className?: string; hideRestart?: boolean; hideBuilt?: boolean
 }) {
   const { data: st, reload: load } = useGet<PreviewState>(`/changes/${changeId}/preview`, { poll: 5000 })
   const { run, busy, err } = useAction()
@@ -74,7 +76,7 @@ export function TryIt({ changeId, label, style, className, hideRestart = false }
       <span className="row tryit" style={{ gap: 6 }}>
         <button className={cls} style={style} title="Opens the preview of the change's files as they are now (built again if they changed)"
           onClick={() => boot(`/changes/${changeId}/preview`)}>{label ?? '▶ Open'}</button>
-        {builtWords(st) && <span className="muted small tryit-built">{builtWords(st)}</span>}
+        {!hideBuilt && builtWords(st) && <span className="muted small tryit-built">{builtWords(st)}</span>}
         <button hidden={hideRestart} className="subtle tryit-restart" title="Stop the preview and start it again from the current files"
           onClick={() => boot(`/changes/${changeId}/preview/restart`)}>restart</button>
         {err && <span className="error small">{err}</span>}

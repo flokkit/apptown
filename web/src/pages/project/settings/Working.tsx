@@ -1,3 +1,4 @@
+import { ListRow } from '../../../ListRow'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ProjectGuidance, post } from '../../../api'
@@ -28,8 +29,8 @@ export function AdoptionFacts({ v }: { v: AdoptionView }) {
       ))}
       {own > 0 && (
         <Group label="This project's own changes">
-          {v.additions.map(b => <div key={b.name} className="card row wow-row small"><span>Added <code>{b.name}@{b.version}</code></span></div>)}
-          {v.exclusions.map(b => <div key={b.name} className="card row wow-row small"><span>Excluded <code>{b.name}</code></span></div>)}
+          {v.additions.map(b => <ListRow key={b.name} className="card row wow-row small wow-list-row" identity={<span>Added <code>{b.name}@{b.version}</code></span>} />)}
+          {v.exclusions.map(b => <ListRow key={b.name} className="card row wow-row small wow-list-row" identity={<span>Excluded <code>{b.name}</code></span>} />)}
         </Group>
       )}
     </>
@@ -106,18 +107,16 @@ export function AdoptPanel({ slug, packs, onChanged }: { slug: string; packs: Pr
       {packs.map((p) => {
         const update = p.recommended > 0 && p.recommended !== p.version
         return (
-          <div key={p.pack} className="card row wow-row">
+          <ListRow key={p.pack} className="card row wow-row wow-list-row" identity={<>
             <strong>{p.pack}</strong>
             <span className="muted small">version {p.version}{update ? ` · version ${p.recommended} recommended` : ''}</span>
-            <span className="grow" />
-            {update && !cand && (
+            </>} action={update && !cand && (
               <span className="row-action">
                 <button className="subtle" disabled={busy} onClick={() => setVersion(p.pack, p.recommended)} title="see what moving would change; nothing moves yet">
                   Review {p.pack} v{p.version} → v{p.recommended}
                 </button>
               </span>
-            )}
-          </div>
+            )} />
         )
       })}
       {notOn.length > 0 && !cand && (
@@ -202,11 +201,10 @@ export function GuidanceTab({ slug }: { slug: string }) {
           <GivesRow title="Rules" q={policiesQ} what="the rules"
             summary={policies.length === 0 ? 'No rules' : `${policies.length} polic${policies.length === 1 ? 'y' : 'ies'}${warnings.length ? ` · ${warnings.length} warning${warnings.length === 1 ? '' : 's'}` : ''}`}
             items={[...policies.map((p) => ({ key: p.id ?? p.name, label: p.name, note: p.description || p.rule })), ...warnings.map((v, i) => ({ key: `w${i}`, label: `⚠ ${v.workflow}`, note: v.detail }))]} />
-          <div role="listitem" className="card row wow-gives">
+          <ListRow listItem className="card row wow-gives wow-list-row" identity={<>
             <strong>Checks</strong>
             <span className="muted small">Judged when a change lands and in reviews</span>
-            <span className="row-action"><Link to={`/conformance/projects/${slug}`}>Does it meet them? →</Link></span>
-          </div>
+            </>} action={<span className="row-action"><Link to={`/conformance/projects/${slug}`}>Does it meet them? →</Link></span>} />
           <GivesRow title="Workflows" q={lanesQ} what="the workflows"
             summary={workflows.length <= 3 ? workflows.map((l) => l.name).join(', ') : `${workflows.slice(0, 3).map((l) => l.name).join(', ')} and ${workflows.length - 3} more`}
             items={workflows.map((l) => ({ key: l.name, label: l.name, note: l.summary?.description || l.description, to: `/workflows?open=${encodeURIComponent(l.name)}` }))} />
@@ -223,18 +221,17 @@ function GivesRow({ title, summary, items, q, what }: {
   q: Gated & { data?: unknown }; what: string
 }) {
   return (
-    <div role="listitem" className="card wow-gives-item">
+    <ListRow listItem className="card wow-gives-item wow-list-row" identity={<>
       <div className="row wow-gives">
         <strong>{title}</strong>
         <span className="muted small">{q.data ? summary : <ReadStatus q={q} what={what} className="small" />}</span>
       </div>
-      {items.length > 0 && <ul className="wow-gives-list">
+      </>} detail={items.length > 0 && <ul className="wow-gives-list">
         {items.map((it) => <li key={it.key}>
           {it.to ? <Link to={it.to}>{it.label}</Link> : <span>{it.label}</span>}
           {it.note && <span className="muted small"> · {it.note}</span>}
         </li>)}
-      </ul>}
-    </div>
+      </ul>} />
   )
 }
 
@@ -246,5 +243,5 @@ export function PoliciesCard({ slug }: { slug: string }) {
   // An empty answer that may be old says so too: someone may have adopted
   // rules since.
   if (data.policies.length === 0) return <><StaleNote q={q} /><p className="muted">No rules adopted · a pack usually brings some.</p></>
-  return <><StaleNote q={q} />{data.policies.map((p) => <div className="card row wow-row" key={p.id}><strong className="small">{p.name}</strong><span className="muted small wow-note">{p.description || p.rule}</span></div>)}</>
+  return <><StaleNote q={q} />{data.policies.map((p) => <ListRow className="card row wow-row wow-list-row" key={p.id} identity={<><strong className="small">{p.name}</strong><span className="muted small wow-note">{p.description || p.rule}</span></>} />)}</>
 }

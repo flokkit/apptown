@@ -11,10 +11,8 @@ it('distinguishes a clean assessment from incomplete checks, evaluator errors an
     { ...record, id: 'clean' }, { ...record, id: 'incomplete', judged: 0 },
     { ...record, id: 'broken', errors: 1 }, { ...record, id: 'flagged', flagged: 1 })
   const html = renderToStaticMarkup(<MemoryRouter><ReviewsList /></MemoryRouter>)
-  expect(html).toContain('Fleet review · 31 Oct')
-  expect(html).toContain('Dated snapshot reports')
+  expect(html).toContain('31 Oct')
   expect(html).toContain('href="/conformance/reviews/clean"')
-  expect(html).toContain('View current state')
   expect(html).toContain('Not fully checked')
   expect(html).toContain('Checks could not run')
   expect(html).toContain('1 possible problem to review')
@@ -25,12 +23,12 @@ it('distinguishes a clean assessment from incomplete checks, evaluator errors an
   const record = { projects: 2, projectsTotal: 3, projectsDone: 1, startedAt: '2026-10-31T01:00:00Z', findings: 0, judged: 0, total: 0, errors: 0, flagged: 0, actor: 'Alice' }
   reviews.splice(0, reviews.length, { ...record, id: 'failed', status: 'error', statusLabel: 'failed' }, { ...record, id: 'quiet', status: 'done', statusLabel: 'finished' }, { ...record, id: 'running', status: 'running', statusLabel: 'working' })
   const html = renderToStaticMarkup(<MemoryRouter><ReviewsList /></MemoryRouter>)
-  expect(html).toMatch(/chip fail[^>]*[\s\S]*?failed/)
+  expect(html).toMatch(/class="chip[^"]*\bfail\b[^>]*>[\s\S]*?failed/)
   expect(html).toContain('in progress')
   expect(html).toContain('1 of 3 apps checked')
   expect(html).toContain('finished')
-  expect(html).toContain('Started by Alice')
-  expect(html).not.toContain('<summary>Details</summary>Started by')
+  expect(html).toContain('Started by')
+  expect(html).toContain('>Alice<')
  })
 
 // A finished review whose checks could not all run is incomplete (amber), never a green finish.

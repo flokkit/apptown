@@ -1,10 +1,12 @@
-import { Section, Group } from '../../Section'
+import { ListTable } from '../../ListTable'
+import './list-migrations.css'
+import { Section, Group, SectionFilter } from '../../Section'
 import { Status } from '../../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ConformanceView, ProjectStanding } from '../../wire.gen'
 import { relTime } from '../../format'
-import { JudgedAt, laneOf } from './parts'
+import { laneOf } from './parts'
 
 // --- Projects (the front page) ---------------------------------------------------------------
 
@@ -30,29 +32,19 @@ export function projectFact(p: ProjectStanding, view: ConformanceView): string {
   return p.standing === 'conforms-with-exceptions' ? 'Exceptions are approved.' : 'Checks are up to date.'
 }
 
-// One row per project: its standing in the status column, its name, and one
-// meta line, followed by each check’s evidence date and source.
-function ProjectRow({ p, fact, base, view }: { p: ProjectStanding; fact: string; base: string; view: ConformanceView }) {
-  const findings = p.standing === 'does-not-conform' ? p.lanes.findings : 0
-  const meta = [fact.replace(/\.$/, ''), p.lanes.broken > 0 ? `${p.lanes.broken} couldn't run` : '', p.judgedAt ? `checked ${relTime(p.judgedAt)}` : 'not checked yet'].filter(Boolean).join(' · ')
-  return (
-    <div className="card row" style={{ display: 'flex' }}>
-      <div className="grow">
-        <Link to={`${base}/projects/${p.slug}`} className="row grow" style={{ display: 'flex', minWidth: 0 }}>
-          <span className="row-status">{findings > 0
-            ? <span className="finding-count" title={p.sentence}>{findings} {findings === 1 ? 'finding' : 'findings'}</span>
-            : <Status word={p.statusLabel} help={p.sentence} />}</span>
-          <strong>{p.name || p.slug}</strong>
-          <span className="muted small">{meta}</span>
-        </Link>
-        {(view.byProject[p.slug] ?? []).map(v => <div key={`${v.block}@${v.version}:${v.check}`} className="small mt-1">
-          <span>{view.checkDefs[`${v.block}@${v.version}·${v.check}`]?.title || v.check}</span>
-          <JudgedAt v={v} reviews={view.reviews ?? []} />
-        </div>)}
-      </div>
-      <span className="row-action"><Link className="btn" to={`${base}/projects/${p.slug}`}>View checks</Link></span>
-    </div>
-  )
+// One table per group of projects: name, what to do next, its standing, and
+// when it was checked. Each check's evidence is on the project's page; the row
+// opens it. A finding count is the status, in the failed tone.
+function ProjectTable({ rows, view, base, label }: { rows: ProjectStanding[]; view: ConformanceView; base: string; label: string }) {
+  return <ListTable label={label} rows={rows} rowKey={p => p.slug} rowTo={p => `${base}/projects/${p.slug}`} columns={[
+    { key: 'project', label: 'Project', phone: 'name', render: p => <Link to={`${base}/projects/${p.slug}`}>{p.name || p.slug}</Link> },
+    { key: 'next', label: 'What to do', phone: 'detail', render: p => <span className="muted">{[projectFact(p, view).replace(/\.$/, ''), p.lanes.broken > 0 ? `${p.lanes.broken} couldn't run` : ''].filter(Boolean).join(' · ')}</span> },
+    { key: 'status', label: 'Status', phone: 'state', render: p => {
+      const findings = p.standing === 'does-not-conform' ? p.lanes.findings : 0
+      return findings > 0 ? <Status word="needs review" reason={`${findings} ${findings === 1 ? 'finding' : 'findings'}`} help={p.sentence} /> : <Status word={p.statusLabel} help={p.sentence} />
+    } },
+    { key: 'checked', label: 'Checked', phone: 'time', kind: 'time', render: p => p.judgedAt ? relTime(p.judgedAt) : 'not yet' },
+  ]} />
 }
 
 export function ProjectsList({ view, base }: { view: ConformanceView; base: string }) {
@@ -64,16 +56,13 @@ export function ProjectsList({ view, base }: { view: ConformanceView; base: stri
   const quiet = all.filter((p) => p.standing === 'conforms')
   const none = all.filter((p) => p.standing === 'nothing-adopted')
   return (
-    <Section title={view.lens.kind === 'current' ? 'Current state' : 'Projects in this snapshot'} count={view.projects.length || undefined}>
+    <Section title={view.lens.kind === 'current' ? 'Current state' : 'Projects in this snapshot'} count={view.projects.length || undefined}
+      action={view.projects.length > 8 && <SectionFilter value={q} onChange={setQ} placeholder="Filter projects" />}>
       {view.projects.length === 0 && <p className="muted small">No repo-backed projects yet.</p>}
-      {view.projects.length > 8 && (
-        <input aria-label="Find a project" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a project by name, slug, standing or way of working…"
-          style={{ maxWidth: 420, width: '100%', margin: '12px 0 4px' }} />
-      )}
       {needle && all.length === 0 && <p className="muted small">Nothing matches "{q}".</p>}
-      {loud.map((p) => <ProjectRow key={p.slug} p={p} fact={projectFact(p, view)} base={base} view={view} />)}
+      {loud.length > 0 && <ProjectTable label="Projects to look at" rows={loud} view={view} base={base} />}
       {quiet.length > 0 && <Group label={`Meet everything they adopted · ${quiet.length}`}>
-        {quiet.map((p) => <ProjectRow key={p.slug} p={p} fact={projectFact(p, view)} base={base} view={view} />)}
+        <ProjectTable label="Projects that meet everything they adopted" rows={quiet} view={view} base={base} />
       </Group>}
       {none.length > 0 && <p className="muted small">Nothing adopted: {none.map((p) => p.name || p.slug).join(', ')}.</p>}
     </Section>

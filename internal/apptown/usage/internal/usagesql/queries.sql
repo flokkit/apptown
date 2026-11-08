@@ -48,7 +48,7 @@ GROUP BY key ORDER BY SUM(u.total) DESC LIMIT 50;
 
 -- name: UsageDaysByKind :many
 SELECT to_char(at AT TIME ZONE 'UTC','YYYY-MM-DD')::text AS day, kind,
-SUM(total)::bigint AS total, SUM(cost_micros)::bigint AS cost_micros, SUM(provider_reported)::bigint AS provider_reported, SUM(catalog)::bigint AS catalog, SUM(unpriced)::bigint AS unpriced
+SUM(total)::bigint AS total, SUM(cache_read + cache_write)::bigint AS cached, SUM(cost_micros)::bigint AS cost_micros, SUM(provider_reported)::bigint AS provider_reported, SUM(catalog)::bigint AS catalog, SUM(unpriced)::bigint AS unpriced
 FROM token_usage
 WHERE at>=sqlc.arg(since) AND (sqlc.arg(whole_instance)::boolean OR project_id=ANY(sqlc.arg(project_ids)::uuid[]))
 AND (sqlc.arg(workflow)::text='' OR workflow_name=sqlc.arg(workflow))

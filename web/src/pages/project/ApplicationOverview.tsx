@@ -1,12 +1,14 @@
+import { useNotOff } from '../../features'
+import { ListRow } from '../../ListRow'
 import { failedRuntimeRefresh } from '../../runtime'
 import './ApplicationOverview.css'
 import { PageHead } from '../../PageHead'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
+import { DeploymentTable } from '../DeploymentTable'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { ChangeStatus, Status, STATUS_LIGHT } from '../../Status'
-import { DeploymentStatus } from '../../deploymentStatus'
 import { AppAddress } from '../../runtime'
 import { fmtWhen } from '../../format'
 import type { Backup, DeploymentBackups, DeploymentView, ProjectDetail } from '../../wire.gen'
@@ -51,7 +53,8 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
   const deploymentsQ = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
   const releasesQ = useGet<Release[]>(`/projects/${slug}/releases`)
   const deployments = (deploymentsQ.data ?? []).map(d => deploymentsQ.refreshFailed ? failedRuntimeRefresh(d, deploymentsQ.reason) : d)
-  const backupDeployment = deployments.find(d => d.running) ?? deployments[0]
+  const backupsOn = useNotOff('backups')
+  const backupDeployment = !backupsOn ? undefined : deployments.find(d => d.running) ?? deployments[0]
   const backupQ = useGet<DeploymentBackups>(backupDeployment ? `/projects/${slug}/deployments/${backupDeployment.name}/backups` : null, { poll: 30000 })
   const backups = (backupQ.data?.backups ?? []).map(b => backupQ.refreshFailed ? { ...b, statusLabel: 'unknown' as const } : b)
   const data = activityQ.data
@@ -65,16 +68,15 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
     </header>
     <ScheduleRows slug={slug} />
     <Section title="Activity">
+      <ReadStatus q={activityQ} what="activity" /><StaleNote q={activityQ} />
       <ReadStatus q={releasesQ} what="releases" /><StaleNote q={releasesQ} />
       {events.slice(0, activityCount).map(e => (
-        <div key={e.id} className="card row application-overview-card">
+        <ListRow key={e.id} to={e.to} className="card row application-overview-card" state={<span className="row-status">{e.waitingOn ? <ChangeStatus waiting={e.waitingOn} /> : <Status word={e.word} help={e.help} />}</span>} identity={<>
           <Link to={e.to} className="row grow application-overview-card">
-            <span className="row-status">{e.waitingOn ? <ChangeStatus waiting={e.waitingOn} /> : <Status word={e.word} help={e.help} />}</span>
             <strong>{e.number !== undefined && <span className="muted application-overview-span">#{e.number} </span>}{e.title}</strong>
             <span className="muted small">{fmtWhen(e.when)}</span>
           </Link>
-          <span className="muted small">{e.release && <><Link to={e.release.to}>{e.release.label}</Link>{e.source ? ' · ' : ''}</>}{e.source}</span>
-        </div>
+          <span className="muted small">{e.release && <><Link to={e.release.to}>{e.release.label}</Link>{e.source ? ' · ' : ''}</>}{e.source}</span></>} />
       ))}
       {events.length > activityCount && <div className="card"><button className="link" onClick={() => setActivityCount(n => n + 10)}>Show 10 more</button></div>}
       {data && !events.length && <p className="muted">No activity yet.</p>}
@@ -85,29 +87,17 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       action={<Link to={`/projects/${slug}/deployments`}>Manage →</Link>}>
       <ReadStatus q={deploymentsQ} what="deployments" /><StaleNote q={deploymentsQ} />
       {deploymentsQ.data && !deployments.length && <p className="muted">Not deployed yet.</p>}
-      {deployments.map(d => (
-        <div key={d.id} className="card row application-overview-card">
-          <span className="row-status"><DeploymentStatus slug={slug} env={d} /></span>
-          <strong>{d.displayLabel || d.name}</strong>
-          <span className="muted small">
-            {d.url ? <AppAddress url={d.url} hostOnly={d.hostOnly} /> : 'no address yet'}
-            {d.targetName && ` · ${d.targetName}`}
-          </span>
-        </div>
-      ))}
+      {deployments.length > 0 && <DeploymentTable rows={deployments.map(d => ({ ...d, slug, app: project.name, deployment: d.name, label: d.displayLabel || d.name, static: d.static, url: d.url, hostOnly: d.hostOnly }))} />}
       <ReleaseRows slug={slug} releases={releasesQ.data ?? []} />
     </Section>
     {/* Omitted while there is nothing to back up: no deployment, or one
         whose backup plan is empty and which has no copies. A failed read
         still shows, so unknown never reads as none. */}
-    {backupDeployment && (backups.length > 0 || (backupQ.data?.plan?.length ?? 0) > 0 || !backupQ.data) && <Section title="Backups">
+    {backupsOn && backupDeployment && (backups.length > 0 || (backupQ.data?.plan?.length ?? 0) > 0 || !backupQ.data) && <Section title="Backups">
       <ReadStatus q={backupQ} what="backups" /><StaleNote q={backupQ} />
       {backupQ.data && !backups.length && <p className="muted">No backups yet.</p>}
       {backups.slice(0, 1).map(b => (
-        <div key={b.id} className="card row application-overview-card">
-          <span className="row-status"><Status word={b.statusLabel} help={b.error} /></span>
-          <span>{b.deployment} · {fmtWhen(b.takenAt)}</span>
-        </div>
+        <ListRow key={b.id} className="card row application-overview-card" state={<span className="row-status"><Status word={b.statusLabel} help={b.error} /></span>} identity={<span>{b.deployment} · {fmtWhen(b.takenAt)}</span>} />
       ))}
     </Section>}
     <Section title="About" action={<><Link to={`/projects/${slug}/settings/working`}>Way of working →</Link><Link to={`/projects/${slug}/settings`}>Settings →</Link></>}>
@@ -126,24 +116,25 @@ export function ProjectChanges({ project }: { project: ProjectDetail }) {
  const data = activityQ.data
  const open = data ? data.active.length + (data.open?.length ?? 0) : null
  return <><StaleNote q={activityQ} />
-    <Section title="Changes" count={open ?? undefined} action={(project.lifecycle?.state ?? 'active') === 'active' ? <BigChangeBox slug={slug} inline /> : undefined}>
+    <Section title="Open changes" count={open ?? undefined} action={(project.lifecycle?.state ?? 'active') === 'active' ? <BigChangeBox slug={slug} inline /> : undefined}>
       <ReadStatus q={activityQ} what="activity" />
       {data && !open && <p className="muted">No open changes.</p>}
       {data && <ActiveRunList runs={data.active} />}
       {/* An open change with no run yet: the same row as a run, its number
           before its title, its one action on the right. */}
       {data?.open?.map(c => (
-        <div key={c.changeId} className="card row application-overview-card">
+        <ListRow key={c.changeId} to={`/changes/${c.changeId}`} className="card row application-overview-card" state={<span className="row-status"><ChangeStatus waiting={c.waitingOn} /></span>} identity={
           <Link to={`/changes/${c.changeId}`} className="row grow application-overview-card">
-            <span className="row-status"><ChangeStatus waiting={c.waitingOn} /></span>
             <strong><span className="muted application-overview-span">#{c.changeNumber} </span>{c.title}</strong>
             {c.editing > 0 && <span className="muted small">{c.editing} file{c.editing === 1 ? '' : 's'} being edited</span>}
-          </Link>
-          <span className="row-action">{c.waitingOn.kind === 'chat' ? <Link to={`/projects/${slug}/console?change=${c.changeId}`} className="btn">Continue chat</Link> : <Link to={`/changes/${c.changeId}`} className="btn">Open</Link>}</span>
-        </div>
+          </Link>} action={c.waitingOn.kind === 'chat' && <span className="row-action"><Link to={`/projects/${slug}/console?change=${c.changeId}`} className="btn">Continue chat</Link></span>} />
       ))}
     </Section>
 <Section title="Finished changes">
- {data?.history.map(c => <div className="card" key={c.changeId}><Link to={`/changes/${c.changeId}`}>#{c.changeNumber} {c.title}</Link> · {c.statusLabel} · {fmtWhen(c.when)}</div>)}
+ {/* The same row as an open change: number and title, then how it ended and when. */}
+ {data?.history.map(c => <ListRow to={`/changes/${c.changeId}`} className="card row application-overview-card" key={c.changeId} identity={<>
+   <Link to={`/changes/${c.changeId}`} className="run-link"><strong><span className="muted application-overview-span">#{c.changeNumber} </span>{c.title}</strong></Link>
+   <span className="muted small">{c.statusLabel} · {fmtWhen(c.when)}</span>
+ </>} />)}
  </Section></>
 }

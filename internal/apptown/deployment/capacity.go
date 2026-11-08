@@ -195,7 +195,7 @@ func (s *Service) dockerCapacity(ctx context.Context, t *Target) (TargetCapacity
 	} else {
 		out.Memory.Promised, out.CPU.Promised = promisedOf(limits)
 	}
-	used, usedErr := docker.RunningMemoryUsage(ctx, dk)
+	used, usedErr := docker.RunningUsage(ctx, dk)
 	out.Memory.InUse = inUseOf(limits, limitsErr, used, usedErr)
 	// Whole-host memory has no probe on attached hosts. Leave that optional
 	// figure absent instead of reporting a check that can never succeed.
@@ -232,7 +232,7 @@ func (s *Service) dockerCapacity(ctx context.Context, t *Target) (TargetCapacity
 // known only when every container's owner was read. Use read without that
 // (the inspection failed, or a container started between the readings) is
 // not split by a guess.
-func inUseOf(limits []docker.ContainerLimit, limitsErr error, used map[string]int64, err error) *Split {
+func inUseOf(limits []docker.ContainerLimit, limitsErr error, used map[string]docker.Usage, err error) *Split {
 	if limitsErr != nil {
 		why := unknown("whose containers they are cannot be read: " + limitsErr.Error())
 		return &Split{AppTown: why, Other: why}
@@ -252,9 +252,9 @@ func inUseOf(limits []docker.ContainerLimit, limitsErr error, used map[string]in
 			return &Split{AppTown: why, Other: why}
 		}
 		if mine {
-			f += float64(b)
+			f += float64(b.MemoryBytes)
 		} else {
-			o += float64(b)
+			o += float64(b.MemoryBytes)
 		}
 	}
 	return &Split{AppTown: known(f), Other: known(o)}

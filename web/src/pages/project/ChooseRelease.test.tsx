@@ -25,6 +25,7 @@ async function fixture(recorded = true, options: { backup?: boolean; reason?: st
     if (init?.method === 'POST') { sent.push({ path: url, body: JSON.parse(String(init.body)) }); return new Response('{"number":4,"state":"waiting for approval"}', { status: 202 }) }
     if (url.endsWith('/deployments')) return new Response(JSON.stringify([{ name: 'production', displayLabel: 'Customer office', approvalRole: options.approvalRole || '', feed: options.feed || 'manual', target: { kind: 'docker-host' } }, { name: 'staging', displayLabel: 'Team trial' }]))
     if (url.endsWith('/protection')) return new Response(JSON.stringify({ items: options.data ? [{ need: 'postgres' }] : [], operations: { copy: { available: true } } }))
+    if (url.includes('/authz/me')) return new Response(JSON.stringify({ instance: {}, project: { 'deployment:deploy': true, 'deployment:operate': true } }))
     if (url.endsWith('/release-bundles')) return new Response(JSON.stringify([
       { id: 'b4', contractRevision: 'newest', createdAt: '2026-10-28T01:00:00Z', builtFrom: { changeId: 'c1' } },
       { id: 'b3', contractRevision: 'current', createdAt: stamp },
@@ -40,9 +41,15 @@ async function fixture(recorded = true, options: { backup?: boolean; reason?: st
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   document.body.appendChild(el)
   cleanups.push(() => { act(() => root.unmount()); client.clear(); el.remove() })
-  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><DeploymentDeploys slug="shop" name="production" displayLabel="Customer office" env={{ id: 'production', name: 'production', status: { word: 'working', reason: '', stale: false }, runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { start: '', stop: '', restart: '' }, observation: 'running', generation: 0, kind: 'standing', displayLabel: 'Customer office', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', promotionBlocked: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView} current reload={async () => {}} /></MemoryRouter></QueryClientProvider>))
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><DeploymentDeploys slug="shop" name="production" displayLabel="Customer office" env={{ id: 'production', name: 'production', status: { word: 'working', reason: '', stale: false }, runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { start: '', stop: '', restart: '' }, observation: 'running', generation: 0, kind: 'standing', displayLabel: 'Customer office', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', promotionBlocked: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView} current reload={async () => {}} tab="history" /></MemoryRouter></QueryClientProvider>))
   await settled(client)
-  const click = async (text: string) => { await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === text)!.click() }); await settled(client) }
+  // A deployment's less common acts sit behind its ⋯ menu, which opens in a
+  // popover: a label not on the page is looked for there.
+  const find = (text: string) => [...document.body.querySelectorAll('button')].find(b => b.textContent === text || (!!b.closest('.more-menu-list') && b.firstChild?.textContent === text))
+  const click = async (text: string) => {
+    if (!find(text)) await act(async () => { el.querySelector<HTMLButtonElement>('button[aria-label^="More actions"]')!.click() })
+    await act(async () => { find(text)!.click() }); await settled(client)
+  }
   return { el, sent, click, fetcher, client }
 }
 

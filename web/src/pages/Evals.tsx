@@ -1,4 +1,5 @@
 import { QuietConfirm } from '../QuietConfirm'
+import { ListTable } from '../ListTable'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
@@ -229,12 +230,13 @@ function Tallies({ e, variant }: { e: EvalScorecard; variant: string }) {
     <section className="card evals-tally">
       <h3 className="mt-0">{variant} against as it runs now</h3>
       <div className="muted small">Over {e.comparable} Change{e.comparable === 1 ? '' : 's'}{e.notComparable > 0 ? ` (${e.notComparable} not comparable, left out)` : ''}. Observed in this run: a small sample, and a flaky check can move it.</div>
-      <table className="small evals-note">
-        <thead><tr><th className="evals-tally-heading">Measure</th><th>better</th><th>same</th><th>worse</th><th>unknown</th></tr></thead>
-        <tbody>{e.tallies.map((t: Tally) => (
-          <tr key={t.measure}><td>{t.measure}</td><td className="evals-tally-cell">{t.better}</td><td className="evals-tally-cell">{t.same}</td><td className="evals-tally-cell">{t.worse}</td><td className="muted evals-tally-cell">{t.unknown}</td></tr>
-        ))}</tbody>
-      </table>
+      <ListTable label="Measures" className="small evals-note" rows={e.tallies} rowKey={(t: Tally) => t.measure} columns={[
+        { key: 'measure', label: 'Measure', phone: 'name', render: (t: Tally) => t.measure },
+        { key: 'better', label: 'better', phone: 'extra', kind: 'number', render: (t: Tally) => t.better },
+        { key: 'same', label: 'same', phone: 'extra', kind: 'number', render: (t: Tally) => t.same },
+        { key: 'worse', label: 'worse', phone: 'extra', kind: 'number', render: (t: Tally) => t.worse },
+        { key: 'unknown', label: 'unknown', phone: 'extra', kind: 'number', render: (t: Tally) => <span className="muted">{t.unknown}</span> },
+      ]} />
     </section>
   )
 }
@@ -347,22 +349,17 @@ function CheckTable({ baseline, variant, variantWords }: { baseline: Arm; varian
   return (
     <section className="mt-2">
       <h3 className="small">Checks, finding by finding, against the Change's base ({keys.length})</h3>
-      <table className="small evals-checks">
-        <thead><tr><th className="evals-tally-heading">Check</th><th className="evals-tally-heading">Base</th><th className="evals-tally-heading">As it runs now</th><th className="evals-tally-heading">{variantWords}</th></tr></thead>
-        <tbody>{keys.map((k) => {
+      <ListTable label="Checks" className="small evals-checks" rows={keys} rowKey={k => k} columns={[
+        { key: 'check', label: 'Check', phone: 'name', render: k => {
           const any = (b.get(k) ?? v.get(k))!
           const only = declares(baseline, any.block, any.version) === declares(variant, any.block, any.version) ? ''
             : declares(variant, any.block, any.version) ? 'only the varied setup declares this' : 'only today\'s setup declares this'
-          return (
-            <tr key={k}>
-              <td><code>{any.block} · {any.check}</code> <span className="muted">v{any.version}</span>{only && <div className="muted">{only}</div>}</td>
-              <td>{any.base}</td>
-              <td><Cell r={b.get(k)} /></td>
-              <td><Cell r={v.get(k)} /></td>
-            </tr>
-          )
-        })}</tbody>
-      </table>
+          return <><code>{any.block} · {any.check}</code> <span className="muted">v{any.version}</span>{only && <div className="muted">{only}</div>}</>
+        } },
+        { key: 'base', label: 'Base', phone: 'extra', render: k => (b.get(k) ?? v.get(k))!.base },
+        { key: 'now', label: 'As it runs now', phone: 'detail', render: k => <Cell r={b.get(k)} /> },
+        { key: 'variant', label: variantWords, phone: 'detail', render: k => <Cell r={v.get(k)} /> },
+      ]} />
     </section>
   )
 }

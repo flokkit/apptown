@@ -3,7 +3,8 @@ import { deploymentStatus } from '../../deploymentStatus'
 import type { DeploymentView } from '../../wire.gen'
 import { ReleaseApprovalActions, ReleaseAssent } from './ReleaseApproval'
 import { ChooseRelease, RollbackBefore, type ReleaseChoice } from './ChooseRelease'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
+import { DeploymentMenu } from './DeploymentMenu'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -15,31 +16,67 @@ import { Status } from '../../Status'
 import { Section } from '../../Section'
 import './deployment-deploys.css'
 
+// NotDeployed is a deployment nothing has run on yet: it says so and what
+// will put it live, in place of an empty deploy scene.
+function NotDeployed({ env, current, onDeploy }: { env: DeploymentView; current: boolean; onDeploy: () => void }) {
+  const how = env.feed === 'main'
+    ? env.feedConfirmed ? 'It deploys when a change lands on main.' : 'It will deploy when a change lands on main, once someone saves its release feed in Settings.'
+    : env.feed === 'promotion' ? `It deploys the release ${env.promotionSource || 'its source deployment'} last ran, when someone promotes it.`
+    : 'Deploy a release to put it live.'
+  return <section className="deployment-not-deployed" aria-label="Latest deploy">
+    <p><strong>Not deployed yet.</strong> {how}</p>
+    {env.feed !== 'main' && <button className="primary" disabled={!current} onClick={onDeploy}>Deploy a release…</button>}
+  </section>
+}
+
+// DeploymentTitle is a deployment's name with its status, as the page heads it.
+export function DeploymentTitle({ name, env }: { name: string; env: DeploymentView }) {
+  return <h1>{name} <Status observation {...deploymentStatus(env)} /></h1>
+}
+
 // Every deploy is a release request, including requests from a landing.
-type DeployHistoryProps = { slug: string; name: string; url?: string; displayLabel?: string; env: DeploymentView; current: boolean; reload: () => Promise<void> }
+// tab picks what shows under the heading: the deployment now (status, with
+// body above the latest deploy and below under it), its deploy history, or
+// its settings; tabs is the strip that switches them.
+export type DeploymentTab = 'status' | 'history' | 'settings'
+type DeployHistoryProps = { slug: string; name: string; url?: string; displayLabel?: string; env: DeploymentView; current: boolean; reload: () => Promise<void>; facts?: ReactNode; body?: ReactNode; below?: ReactNode; settings?: ReactNode; tabs?: ReactNode; tab?: DeploymentTab }
 export function DeploymentDeploys(props: DeployHistoryProps) {
   return <DeploymentHistory key={`${props.slug}/${props.name}/${props.env.id}`} {...props} />
 }
-function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload }: DeployHistoryProps) {
+function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload, facts, body, below, settings, tabs, tab = 'status' }: DeployHistoryProps) {
   const releases = useGet<ReleaseListed[]>(`/projects/${slug}/releases`, { poll: 3000 })
   const [pending, setPending] = useState<string>()
   const shown = pending ? { ...env, runtimeState: pending } : env
-  const status = deploymentStatus(env)
   const [choice, setChoice] = useState<ReleaseChoice | 'list' | null>(null)
   const [count, setCount] = useState(10)
   const history = releases.data?.filter(r => r.deployment === name) ?? []
   const latest = history[0]
   return <>
-    <div className="deployment-page-heading"><h1>{displayLabel || name} <Status observation {...status} /></h1>
-      <DeploymentRuntimeActions key={env.id} slug={slug} env={shown} current={current} reload={reload} onPending={setPending} />
+    <div className="deployment-page-heading">
+      <div className="deployment-page-title"><DeploymentTitle name={displayLabel || name} env={env} />{facts}</div>
+      <div className="deployment-page-actions">
+        {/* Nothing has run yet, so there is nothing to start, stop or restart. */}
+        {!!env.generation && <DeploymentRuntimeActions key={env.id} slug={slug} env={shown} current={current} reload={reload} onPending={setPending} />}
+        <DeploymentMenu slug={slug} env={env} current={current} reload={reload} onDeployRelease={() => setChoice('list')} />
+      </div>
     </div>
+    {tabs}
+    {tab === 'status' && <>
     {env.runtimeState === 'stopped' && env.servingRelease && <p>stopped · will run release {env.servingRelease.number} when started</p>}
-    <section className="card deployment-deploy-card" aria-label="Latest deploy">
+    {body}
+    {!env.generation && releases.data && history.length === 0
+      ? <NotDeployed env={env} current={current} onDeploy={() => setChoice('list')} />
+      : latest && releases.current && settledRelease(latest) && !(env.runtimeState === 'stopped' && latest.state === 'released')
+      ? <LatestDeployLine slug={slug} release={latest} />
+      : <section className="card deployment-deploy-card" aria-label="Latest deploy">
       <ReadStatus q={releases} what="latest deploy" /><StaleNote q={releases} />
       {latest ? <ReleaseDeploy key={latest.number} slug={slug} release={latest} url={url} current={current && releases.current} progressCurrent={!releases.refreshFailed} stopped={env.runtimeState === 'stopped'} /> : releases.data && <div className="ch-deploy-result"><div className="ch-deploy-heading"><strong>No deploys yet.</strong></div><DeployScene outcome="paused" compactStages /></div>}
-    </section>
+    </section>}
+    {below}
+    </>}
+    {tab === 'settings' && settings}
     <ChooseRelease key={`${slug}/${name}`} slug={slug} name={name} displayLabel={displayLabel} releases={releases.data ?? []} current={current && releases.current} choice={choice} onChoose={setChoice} />
-    <Section title="Deploy history">
+    {tab === 'history' && <Section title="Deploy history">
       <ReadStatus q={releases} what="releases" />
       {history.slice(0, count).map(r => <div className="card" key={r.number}>
         <Link to={`/projects/${slug}/releases/${r.number}`}>Release {r.number}</Link> · {r.statusLabel || r.state} · {fmtStamp(r.releasedAt || r.createdAt)}
@@ -51,8 +88,26 @@ function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload
       </div>)}
       {history.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
       {releases.data && history.length === 0 && <p className="muted">No deploys yet.</p>}
-    </Section>
+    </Section>}
   </>
+}
+
+// A release that finished a while ago needs no scene: one line says how it
+// ended. The scene is for a deploy under way, waiting or unsure, and stays
+// for a few minutes after it ends so the outcome is seen.
+const sceneAfterMs = 10 * 60 * 1000
+const settledRelease = (r: ReleaseListed, now = Date.now()) =>
+  ['released', 'failed', 'cancelled', 'superseded'].includes(r.state) && !r.progressUncertain &&
+  now - Date.parse(r.releasedAt || r.stageEnteredAt || r.createdAt) > sceneAfterMs
+
+function LatestDeployLine({ slug, release: r }: { slug: string; release: ReleaseListed }) {
+  const duration = r.releasedAt ? Date.parse(r.releasedAt) - Date.parse(r.createdAt) : undefined
+  return <section className="deployment-latest-line" aria-label="Latest deploy">
+    <span>Latest deploy: <Link to={`/projects/${slug}/releases/${r.number}`}>release {r.number}</Link> <Status word={r.statusLabel || (r.state === 'released' ? 'deployed' : r.state === 'failed' ? 'failed' : 'stopped')} />{r.failedStage && <> while {deployWords[r.failedStage]}</>} <span className="muted">{fmtStamp(r.releasedAt || r.createdAt)}{duration != null && duration >= 0 && r.state === 'released' ? ` · took ${fmtDuration(duration / 1000)}` : ''}</span></span>
+    {r.failure && <span className="deployment-latest-failure">{r.failure}</span>}
+    <ReleaseAssent approval={r.approval} />
+    {r.backupId && <Link to={`/backups#backup-${r.backupId}`}>Backed up before this deploy →</Link>}
+  </section>
 }
 
 function ReleaseDeploy({ slug, release: r, url, current, progressCurrent, stopped }: { slug: string; release: ReleaseListed; url?: string; current: boolean; progressCurrent: boolean; stopped?: boolean }) {

@@ -186,7 +186,7 @@ describe('a project page while its review refreshes', () => {
 })
 
 // Starting a fleet check or fix must remain reachable away from Projects.
-it.each(['projects', 'reviews', 'checks', 'remediations', 'ways', 'what-ifs'] as const)('keeps fleet actions available on %s', async tab => {
+it.each(['projects', 'reviews', 'checks', 'remediations'] as const)('keeps fleet actions available on %s', async tab => {
   const client = newQueryClient()
   vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(url.endsWith('/conformance') ? {
     openRemediations: [], byProject: { shop: [{ lane: 'findings' }, { lane: 'findings' }] }, lens: { kind: 'current' }, projects: [], reviews: [], summary: { findings: 2, flagged: 0, incompleteProjects: 0 }, byCheck: {}, checkDefs: {}, adjudications: {}, checks: [],

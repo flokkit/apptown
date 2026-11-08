@@ -1,0 +1,10 @@
+@layer pages {
+.change-decision-row { display: flex; }
+.change-decision-row > .list-state { order: -1; }
+.change-decision-row > .list-identity { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.change-decision-row > .list-action, .approval-target-row > .list-state, .approval-target-row > .list-action, .conversation-record-row > .list-state, .conversation-record-row > .list-action { display: none; }
+.approval-target-row { display: block; padding: var(--space-2); }
+.approval-target-row > .list-identity { display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-2); }
+.conversation-record-row { display: block; padding: 0; border: 0; margin: var(--space-3) 0; }
+@media (width <= 800px) { .approval-target-row > .list-identity { grid-template-columns: minmax(0, 1fr); } }
+}

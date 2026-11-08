@@ -35,4 +35,5 @@
 .conformance-fixed { color: var(--ok); font-weight: 600; }
 .conformance-new { color: var(--bad); font-weight: 600; }
 .conformance-no-delta { font-weight: 400; }
+.what-if-answers { flex-wrap: wrap; gap: var(--space-1); }
 }

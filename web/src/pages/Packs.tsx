@@ -1,3 +1,4 @@
+import { ListRow } from '../ListRow'
 import { Link } from 'react-router-dom'
 import './Packs.css'
 import { LibraryRow, LibraryRows, firstSentence } from '../LibraryRow'
@@ -11,7 +12,7 @@ import { OriginChip } from '../OriginChip'
 import { Modal } from '../Modal'
 import { firstErr, useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import type { LibraryWorkflow, PackPolicy, PackSaved, PolicyLibraryList, PackView } from '../wire.gen'
+import type { FleetPack, FleetView, LibraryWorkflow, PackPolicy, PackSaved, PolicyLibraryList, PackView } from '../wire.gen'
 import { type Draft, draftFrom, keptAsWritten } from './packDraft'
 
 // Ways of working: the pack store. Stock packs are read-only; a pack of
@@ -52,42 +53,34 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
         {pack.guidance.map((name) => {
           const b = blocks.find((x) => x.name === name)
           return (
-            <div key={name} className="card packs-entry">
-              <div className="row">
+            <ListRow key={name} className="card packs-entry pack-inspect-row" identity={<div className="row">
                 <code>{name}</code>
                 {b ? <span className="muted small">v{b.latestVersion} · <span title={sizeTitle(b.bytes)}>{fmtSize(b.bytes)}</span> · {b.tags}</span>
                    : <Status word="failed" help="This adopted pack is missing from the library. Ask an administrator to restore the pack or change the project’s adoption." />}
-                <span className="grow" />
-                {b && <Link to={`/guidance/${b.id}`}>Read</Link>}
-              </div>
-            </div>
+              </div>} action={b && <Link to={`/guidance/${b.id}`}>Read</Link>} />
           )
         })}
 
         <div className="conn-section-head mt-4" ><h2>Workflows</h2><span className="muted small">{pack.workflows.length}</span></div>
         {packWf.map((w) => (
-          <div key={w.name} className="card packs-entry">
-            <div className="row packs-entry-action">
+          <ListRow key={w.name} className="card packs-entry pack-inspect-row" identity={<><div className="row packs-entry-action">
               <strong>{w.name}</strong>
               <span className="badge">{w.kind}</span>
               <span className="muted small">{w.stages.join(' → ')}</span>
-              <span className="grow" />
-              <Link to={`/workflows/${encodeURIComponent(w.name)}`}>Definition</Link>
+
             </div>
-            <div className="muted small packs-entry-note">{w.description}</div>
-          </div>
+            <div className="muted small packs-entry-note">{w.description}</div></>} action={<Link to={`/workflows/${encodeURIComponent(w.name)}`}>Definition</Link>} />
         ))}
 
         <div className="conn-section-head mt-4" ><h2>Policies</h2><span className="muted small">{(pack.policies ?? []).length}</span></div>
         {packPol.map((pp) => (
-          <div key={pp.name} className="card packs-entry">
+          <ListRow key={pp.name} className="card packs-entry pack-inspect-row" identity={<>
             <div className="row">
               <strong>{pp.name}</strong>
               <span className="badge">{pp.rule}</span>
               <span className="muted small">{Object.entries(pp.with ?? {}).map(([k, v]) => `${k}=${String(v)}`).join(' · ')}</span>
             </div>
-            <div className="muted small packs-entry-note">{pp.description}</div>
-          </div>
+            <div className="muted small packs-entry-note">{pp.description}</div></>} />
         ))}
       </div>
   )
@@ -98,6 +91,7 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
 
 export default function Packs() {
   const packsQ = useGet<PackView[]>('/packs', { kind: 'config' })
+  const fleetQ = useGet<FleetView>('/wow')
   const packs = packsQ.data ?? []
   const [editing, setEditing] = useState<{ draft: Draft; existing: boolean } | null>(null)
   const [msg, setMsg] = useState('')
@@ -135,7 +129,7 @@ export default function Packs() {
               {p.enabled === false && <span className="badge">hidden</span>}
             </>}
             purpose={purpose(p)}
-            state={missing.length > 0 && <Status word="not set up" help={`Missing: ${missing.join(', ')}`} />}
+            state={<>{missing.length > 0 && <Status word="not set up" help={`Missing: ${missing.join(', ')}`} />}<PackInUse fleet={fleetQ.data?.packs?.find(f => f.pack === p.name)} name={p.name} unread={!fleetQ.data?.packs} /></>}
             menu={<MoreMenu label={p.name} items={[
                 { label: 'Copy', hint: 'Make a pack of your own from this one.', onClick: () => setEditing({ draft: copyOf(p), existing: false }) },
             ]} />}
@@ -252,4 +246,15 @@ const experimental = (p: { description?: string }) => /^experimental\b/i.test((p
 function purpose(p: { description?: string }): string {
   const first = firstSentence(p.description)
   return experimental(p) ? first.replace(/^experimental[:\s]+/i, '').replace(/^./, (c) => c.toUpperCase()) : first
+}
+
+// Who uses a pack, and who is behind its recommended version: a project
+// moves on from its own Way of working settings, which the pack's projects
+// page opens.
+function PackInUse({ fleet, name, unread }: { fleet?: FleetPack; name: string; unread: boolean }) {
+  if (unread) return null
+  const using = fleet?.versions.flatMap(v => v.projects) ?? []
+  if (!fleet || using.length === 0) return <span className="muted small">not in use</span>
+  const behind = fleet.versions.filter(v => v.version !== fleet.recommended).flatMap(v => v.projects).length
+  return <span className="small">recommended v{fleet.recommended} · <Link to={`/packs/${encodeURIComponent(name)}/projects`}>{using.length} {using.length === 1 ? 'project' : 'projects'}</Link>{behind > 0 && <> · <Link to="/conformance/what-ifs">{behind} behind</Link></>}</span>
 }

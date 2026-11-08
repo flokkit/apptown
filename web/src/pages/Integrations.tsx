@@ -220,14 +220,15 @@ export const uncheckedWords = (testable: boolean) => testable
   ? `${PRODUCT} does not check this kind of service on its own; Test connection asks it now.`
   : `${PRODUCT} has no live check for this kind of service, so whether it works is unknown. Ask an administrator to verify its configuration.`
 
-function StatusChip({ state, stale, health, plain = false }: { state: HealthState; stale: boolean; health?: IntegrationHealth; plain?: boolean }) {
+function StatusChip({ state, stale, health, plain = false, checked = '' }: { state: HealthState; stale: boolean; health?: IntegrationHealth; plain?: boolean; checked?: string }) {
   const word = stale ? 'unknown' : state
-  // Help only where it says more than the word: why it is unknown, or what
-  // a check answered. The integration owner supplies the state word.
-  const help = stale ? `Refresh failed. Last answer shown. ${health?.freshnessHelp ?? ''}`
+  // Help says more than the word: why it is unknown, or what a check
+  // answered, and when it was checked. The integration owner supplies the
+  // state word. A page that writes the detail out keeps only the time.
+  const why = stale ? `Refresh failed. Last answer shown. ${health?.freshnessHelp ?? ''}`
     : state === 'unknown' && health?.lastResult ? `Last result: ${health.lastResult}. ${health.detail}`
-      : plain || word === 'not set up' ? undefined : health?.detail || undefined
-  // A failure keeps the failure colour when it is old; its age is on the checked line.
+      : plain || word === 'not set up' ? '' : health?.detail || ''
+  const help = [why.trim(), checked].filter(Boolean).join(' · ') || undefined
   return <Status observation word={word} old={!!health?.stale && word !== 'unknown' && word !== 'failed'} help={help} />
 }
 
@@ -378,7 +379,6 @@ function KindPage({ which, area, bindings, catalog, offered, catalogErr, reading
 function KindRows({ area, rows, catalog, reading }: {
   area: Area; rows: IntegrationEntry[]; catalog: ConnectorEntry[]; reading: Reading
 }) {
-  const navigate = useNavigate()
   // A failure leads, so it is never below the fold of a long list.
   const sorted = [...rows].sort((a, b) => Number(healthState(b.health) === 'failed') - Number(healthState(a.health) === 'failed'))
   return (
@@ -387,21 +387,17 @@ function KindRows({ area, rows, catalog, reading }: {
         const state = healthState(b.health)
         const to = `/${area}/${b.name}`
         return (
-          // The whole row opens the service; Fix is shown only where it differs from looking.
-          <div key={b.id} role="listitem" className="list-row-open int-row" onClick={() => navigate(to)}>
-            <ListRow className="int-list-row"
+          // The whole row opens the service; its status says when it was checked.
+          <div key={b.id} role="listitem" className="int-row">
+            <ListRow className="int-list-row" to={to}
               identity={<div className="int-who">
                 <ConnIcon name={iconForBinding(b)} size={13} />
                 <div style={{ minWidth: 0 }}>
-                  <Link to={to} className="int-name" onClick={(e) => e.stopPropagation()}>{b.displayLabel || b.name}</Link>
+                  <Link to={to} className="int-name">{b.displayLabel || b.name}</Link>
                   <div className="muted small">{usedFor(b, specFor(catalog, b))}</div>
                 </div>
               </div>}
-              state={<>
-                <StatusChip state={state} stale={reading.q.refreshFailed} health={b.health} />
-                <div className="int-when">{lastChecked(b.health, reading.now)}</div>
-              </>}
-              action={state === 'failed' ? <Link className="btn" to={to} onClick={(e) => e.stopPropagation()}>Fix</Link> : undefined} />
+              state={<StatusChip state={state} stale={reading.q.refreshFailed} health={b.health} checked={lastChecked(b.health, reading.now)} />} />
           </div>
         )
       })}
@@ -470,9 +466,8 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
 
       <div className="int-state">
         <div className="row">
-          {/* The detail is written out below, so the chip carries no help. */}
-          {needsModels ? <Status word="waiting for you" reason="Enable at least one model" /> : <StatusChip plain state={state} stale={reading.q.refreshFailed} health={b.health} />}
-          {at > 0 && <span className="muted small">{lastChecked(b.health, reading.now)}</span>}
+          {/* The detail is written out below, so the chip carries only when it was checked. */}
+          {needsModels ? <Status word="waiting for you" reason="Enable at least one model" /> : <StatusChip plain state={state} stale={reading.q.refreshFailed} health={b.health} checked={at > 0 ? lastChecked(b.health, reading.now) : ''} />}
         </div>
         {message && <p className="int-message">{message}</p>}
         {/* A connector AppTown sets up reads its credentials from its secrets; say where to set them. */}

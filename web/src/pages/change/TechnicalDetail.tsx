@@ -36,5 +36,6 @@ export function TechnicalDetailMark() {
 
 // Hidden words retain their space, so toggling detail never rearranges the page.
 export function TechnicalWords({ shown, children }: { shown: boolean; children: ReactNode }) {
-  return <span className="ch-technical small muted" aria-hidden={!shown} style={{ visibility: shown ? 'visible' : 'hidden' }}>{children}</span>
+  // Hidden, it takes no room: an empty line is not left where it would be.
+  return <span className="ch-technical small muted" aria-hidden={!shown} hidden={!shown}>{children}</span>
 }

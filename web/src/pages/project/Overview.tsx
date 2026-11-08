@@ -76,7 +76,9 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
             busy={busy} onMain={buildV0} items={[]} />
         )}
         <ChangeButton slug={slug} chatAvailable primary={!buildFirst} />
-        <Link className="btn" to={`/projects/${slug}/deployments`}>Deployments →</Link>
+        {/* Inline on the Changes page, the box is the section's action: the
+            project's Deployments page is in its sidebar. */}
+        {!inline && <Link className="btn" to={`/projects/${slug}/deployments`}>Deployments →</Link>}
       </div>
       <ReadStatus q={envsQ} what="the deployments" className="small" />
       <ReadStatus q={planQ} what={`the ${PRODUCT} release destination`} className="small" />

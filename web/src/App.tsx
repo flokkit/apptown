@@ -106,7 +106,7 @@ export function SidebarNav() {
         <NavLink to={base} end className={cls}><LayoutDashboard aria-hidden size={16} />Overview</NavLink>
         <NavLink to={`${base}/changes`} className={cls}><GitPullRequest aria-hidden size={16} />Changes</NavLink>
         <NavLink to={`${base}/deployments`} className={cls}><Rocket aria-hidden size={16} />Deployments</NavLink>
-        {feature('chats') && project?.chatAvailable && canCreate && canChat && <button className="nav" disabled={chat.busy} onClick={() => void chat.run(async () => {
+        {project?.chatAvailable && canCreate && canChat && <button className="nav" disabled={chat.busy} onClick={() => void chat.run(async () => {
           const r = await createChatChange(slug)
           nav(`${base}/console?change=${r.change.id}`)
         })}><MessageSquare aria-hidden size={16} />Chat</button>}
@@ -137,7 +137,13 @@ export function SidebarNav() {
           ...(feature('backups') ? [{ to: '/backups', label: 'Backups', active: pathname === '/backups' }] : []),
         ] : []),
       ]} />
-      {mayOpen('conformance') && <NavLink to={feature('conformance-estate') ? '/conformance' : '/conformance/reviews'} className={cls}><ShieldCheck aria-hidden size={16} />Conformance</NavLink>}
+      {mayOpen('conformance') && <Drawer label="Conformance" icon={<ShieldCheck aria-hidden size={16} />} to={feature('conformance-estate') ? '/conformance' : '/conformance/reviews'} active={pathname.startsWith('/conformance')} items={[
+        ...(feature('conformance-estate') ? [{ to: '/conformance', label: 'Projects', active: pathname === '/conformance' || pathname.startsWith('/conformance/projects') }] : []),
+        { to: '/conformance/reviews', label: 'Reviews', active: pathname.startsWith('/conformance/reviews') },
+        ...(feature('conformance-estate') ? [{ to: '/conformance/checks', label: 'Checks', active: pathname.startsWith('/conformance/checks') }] : []),
+        { to: '/conformance/remediations', label: 'Remediations', active: pathname.startsWith('/conformance/remediations') },
+        ...(feature('what-ifs') ? [{ to: '/conformance/what-ifs', label: 'Pack upgrades', active: pathname.startsWith('/conformance/what-ifs') }] : []),
+      ]} />}
       <div className="nav-group">Setup</div>
  <NavLink to="/features" className={cls}><Settings aria-hidden size={16} />Features</NavLink>
       <Drawer label="Ways of working" icon={<BookOpen aria-hidden size={16} />} to="/packs" active={wow} items={[
@@ -149,7 +155,7 @@ export function SidebarNav() {
       {mayOpen('integrations') && INTEGRATION_MENU.map((g) => (
         <Drawer key={g.key} label={g.heading} icon={g.key === 'services' ? <Blocks aria-hidden size={16} /> : <Plug aria-hidden size={16} />} to={`/${g.key}`}
           active={new RegExp(`^/${g.key}(/|$)`).test(pathname)}
-          items={g.items.filter(i => !['model', 'profiles'].includes(i.key) || feature('models')).filter(i => i.key !== 'executor' || feature('worker')).filter(i => i.key !== 'cloud-account' || feature('app-platform')).map((i) => ({ to: `/${g.key}/${i.key}`, label: i.title, active: pathname === `/${g.key}/${i.key}` }))} />))}
+          items={g.items.filter(i => i.key !== 'cloud-account' || feature('app-platform')).map((i) => ({ to: `/${g.key}/${i.key}`, label: i.title, active: pathname === `/${g.key}/${i.key}` }))} />))}
       {mayOpen('evals') && <NavLink to="/evals" className={cls}><FlaskConical aria-hidden size={16} />Evals</NavLink>}
       {mayOpen('people') && <Drawer label="People" icon={<Users aria-hidden size={16} />} to="/people/accounts" active={pathname.startsWith('/people')} items={PEOPLE_PAGES.map(([key, label]) => ({ to: `/people/${key}`, label, active: pathname.startsWith(`/people/${key}`) }))} />}
       <NavLink to="/usage" className={cls}><ChartColumn aria-hidden size={16} />Usage</NavLink>
@@ -302,7 +308,6 @@ export default function App() {
           <Route path="/conformance/what-ifs/:id/projects/:slug" element={<FeatureGate area="what-ifs"><InstanceGate page="conformance"><WhatIfPage /></InstanceGate></FeatureGate>} />
           <Route path="/conformance/what-ifs/:id" element={<FeatureGate area="what-ifs"><InstanceGate page="conformance"><WhatIfPage /></InstanceGate></FeatureGate>} />
           <Route path="/conformance/remediations" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="remediations" /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/ways" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="ways" /></InstanceGate></FeatureGate>} />
           <Route path="/conformance/remediations/:remId" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="remediation" /></InstanceGate></FeatureGate>} />
           <Route path="/projects/_new" element={<CoreArea area="projects"><NewProject /></CoreArea>} />
           <Route path="/projects/:slug/releases/:number/log" element={<CoreArea area="releases"><ReleaseLogPage /></CoreArea>} />
@@ -329,16 +334,16 @@ export default function App() {
           <Route path="/guidance/:id/projects" element={<CoreArea area="ways"><GuidanceProjects /></CoreArea>} />
           <Route path="/policies/:name/projects" element={<CoreArea area="ways"><PolicyProjects /></CoreArea>} />
           <Route path="/packs/:name/projects" element={<CoreArea area="ways"><PackProjects /></CoreArea>} />
-          <Route path="/integrations/profiles/:profile/projects" element={<FeatureGate area="models"><InstanceGate page="integrations"><ModelProfilePage projects /></InstanceGate></FeatureGate>} />
+          <Route path="/integrations/profiles/:profile/projects" element={<CoreArea area="models"><InstanceGate page="integrations"><ModelProfilePage projects /></InstanceGate></CoreArea>} />
           <Route path="/integrations/:name/projects" element={<CoreArea area="setup"><InstanceGate page="integrations"><IntegrationProjects /></InstanceGate></CoreArea>} />
           <Route path="/services/:name/projects" element={<CoreArea area="setup"><InstanceGate page="integrations"><IntegrationProjects /></InstanceGate></CoreArea>} />
           <Route path="/guidance" element={<CoreArea area="ways"><WaysOfWorking tab="guidance" /></CoreArea>} />
           <Route path="/guidance/:id" element={<CoreArea area="ways"><GuidanceBlockPage /></CoreArea>} />
           <Route path="/workflows" element={<CoreArea area="ways"><WaysOfWorking tab="workflows" /></CoreArea>} />
           <Route path="/projects/:slug/workflows/*" element={<CoreArea area="projects"><ToProjectWorking /></CoreArea>} />
-          <Route path="/projects/:slug/console" element={<FeatureGate area="chats"><Console /></FeatureGate>} />
+          <Route path="/projects/:slug/console" element={<CoreArea area="chats"><Console /></CoreArea>} />
           <Route path="/integrations" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
-          <Route path="/integrations/profiles/:profile" element={<FeatureGate area="models"><InstanceGate page="integrations"><ModelProfilePage /></InstanceGate></FeatureGate>} />
+          <Route path="/integrations/profiles/:profile" element={<CoreArea area="models"><InstanceGate page="integrations"><ModelProfilePage /></InstanceGate></CoreArea>} />
           <Route path="/jobs" element={<CoreArea area="record"><InstanceGate page="infrastructure"><JobsPage /></InstanceGate></CoreArea>} />
           <Route path="/targets" element={<CoreArea area="deployments"><InstanceGate page="infrastructure"><InfrastructureHome /></InstanceGate></CoreArea>} />
           <Route path="/targets/new" element={<CoreArea area="deployments"><InstanceGate page="infrastructure"><InfrastructureNew /></InstanceGate></CoreArea>} />

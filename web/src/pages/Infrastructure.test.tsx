@@ -47,5 +47,6 @@ it('does not confirm presence from inventory that predates a provider change', (
  const html=show([target('host',{live:false,invalidated:true,unknown:false,asOf:new Date(Date.now()-60000).toISOString(),resources:[{kind:'volume',name:'new-data',record:'recorded',statusLabel:'unknown'}]})])
  expect(html).not.toContain('>present</span>')
  expect(html).toContain('Inventory predates the latest change.')
- expect(html).toContain('chip unknown')
+ // The unknown status is shown, its reason in its details.
+ expect(html).toMatch(/class="chip[^"]*\bunknown\b/)
 })

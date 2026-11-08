@@ -150,7 +150,7 @@ func (h Tiers) runtimeApp(ctx context.Context, p *project.Project, d *deployment
 		if row.ID != d.ID {
 			continue
 		}
-		app := TierApp{RuntimeObservationView: runtimeObservationView(row.Observation), DeploymentID: row.ID, DeploymentLabel: row.DisplayLabel, Slug: p.Slug, Name: p.Name, Icon: p.Icon, URL: row.URL, HostOnly: row.HostOnly}
+		app := TierApp{RuntimeObservationView: runtimeObservationView(row.Observation), DeploymentID: row.ID, DeploymentLabel: row.DisplayLabel, Deployment: row.Name, Slug: p.Slug, Name: p.Name, Icon: p.Icon, URL: row.URL, HostOnly: row.HostOnly}
 		if running := row.Observation.Running(); running != nil {
 			app.Running = *running
 		}
@@ -235,11 +235,13 @@ type TierApp struct {
 	RuntimeObservationView
 	DeploymentID    ids.ID `json:"deploymentId,omitzero"`
 	DeploymentLabel string `json:"deploymentLabel,omitempty"`
-	Slug            string `json:"slug"`
-	Name            string `json:"name"`
-	Icon            string `json:"icon,omitempty"`
-	Detail          string `json:"detail,omitempty"`
-	URL             string `json:"url,omitempty"`
+	// Deployment is the deployment's own name, the one its page is under.
+	Deployment string `json:"deployment,omitempty"`
+	Slug       string `json:"slug"`
+	Name       string `json:"name"`
+	Icon       string `json:"icon,omitempty"`
+	Detail     string `json:"detail,omitempty"`
+	URL        string `json:"url,omitempty"`
 	// HostOnly: URL answers on the AppTown host only (deployment.Reach).
 	HostOnly bool `json:"hostOnly,omitempty"`
 	Running  bool `json:"running"`

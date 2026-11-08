@@ -7,7 +7,7 @@ const none = (reason: string): Figure => ({ known: false, value: 0, reason })
 const GiB = 2 ** 30
 const MiB = 2 ** 20
 const tenant = (name: string, kind: string, used: Figure, prom: number, extra: Partial<Tenant> = {}): Tenant =>
-  ({ kind, name, containers: 1, used, promised: fig(prom), unlimited: 0, cpus: 0, cpuUnlimited: 0, cpuUnread: 0, ...extra })
+  ({ kind, name, containers: 1, used, promised: fig(prom), unlimited: 0, cpus: 0, cpuUnlimited: 0, cpuUsed: { known: false, value: 0 }, cpuUnread: 0, ...extra })
 const cap = (tenants: Tenant[], hostUsed: Figure | null, total = 8 * GiB): TargetCapacity => ({
   target: 'ct', kind: 'docker-host', elastic: false, stale: false, words: '', readAt: '2026-10-13T00:00:00Z', tenants,
   memory: { total: fig(total), promised: { sum: { apptown: fig(0), other: fig(0) }, limited: { apptown: 0, other: 0 }, unlimited: { apptown: 0, other: 0 }, unread: { apptown: 0, other: 0 } }, hostUsed, overcommitted: false },
@@ -85,10 +85,10 @@ describe('the capacity bars', () => {
   // "not read", never "without a set limit", and the sum says "at least" (CV-C02).
   // Kills: an unread limit drawn as unpromised capacity.
   it('never calls the rest unpromised when a CPU limit was not read', () => {
-    const allUnread = promised(cap([tenant('a/main', 'deployment', fig(0), 0, { cpuUnread: 1 })], fig(GiB)), 'cpu')!
+    const allUnread = promised(cap([tenant('a/main', 'deployment', fig(0), 0, { cpuUsed: { known: false, value: 0 }, cpuUnread: 1 })], fig(GiB)), 'cpu')!
     expect(allUnread.segments.map((s) => s.kind)).toEqual(['unread'])
     expect(allUnread.partial).toBe(1)
-    const mixed = promised(cap([tenant('a/main', 'deployment', fig(0), 0, { cpus: 2 }), tenant('b/main', 'deployment', fig(0), 0, { cpuUnread: 2 })], fig(GiB)), 'cpu')!
+    const mixed = promised(cap([tenant('a/main', 'deployment', fig(0), 0, { cpus: 2 }), tenant('b/main', 'deployment', fig(0), 0, { cpuUsed: { known: false, value: 0 }, cpuUnread: 2 })], fig(GiB)), 'cpu')!
     expect(mixed.sum).toBe(2)
     expect(mixed.segments.some((s) => s.kind === 'free')).toBe(false)
     expect(mixed.segments.find((s) => s.kind === 'unread')!.value).toBe(6)

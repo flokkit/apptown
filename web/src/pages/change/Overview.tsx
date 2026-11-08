@@ -1,4 +1,3 @@
-import { useFeature } from '../../features'
 import { renderMd } from '../../md'
 import { NotesDiff } from './NotesDiff'
 import { Now, nowRunning } from './Now'
@@ -18,6 +17,7 @@ import { fmtPrice } from '../../format'
 import { TechnicalWords, useTechnicalDetail } from './TechnicalDetail'
 import type { ChatHistoryView, ApprovalQuestion, ChecksSummary } from '../../wire.gen'
 import { AddsSection, contractUnread, contractChanged } from '../../DecisionForm'
+import { ApproversCard } from '../../Approvers'
 import { shortDiffstat, agentReport, changeReport, firstLine } from './Head'
 import { stepTitle, testsNote } from './Evidence'
 import { latestBoot, requestShortfall, requestUnchecked } from './StatePanel'
@@ -67,7 +67,6 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
   view: ChangeView; onChange: () => void; workTab: (step?: string | null, run?: string | null) => string
   steps: Step[]; extraErr?: string; current: boolean; shown?: boolean
 }) {
-  const enabled = useFeature()
   const nav = useNavigate()
   const { run: act, busy: actionBusy, err: actionErr } = useAction(onChange)
   const turn = viewerTurn(view) && current && !extraErr && nextStep(view).primary !== 'open-decision'
@@ -118,19 +117,18 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
     <div className={`ch-overview-line${view.checks.tone === 'bad' ? ' ch-line-bad' : ''}`}><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary checks={view.checks} technical={technical} steps={steps} contractNeedsAttention={contractUnread(adds)} /><TechnicalWords shown={technical}>{checks.filter(s => s.status !== 'not_applicable').map(s => s.name).join(' · ')}</TechnicalWords></div>{checked && trailer(record('checks'), 'details →')}</div>
     {approval && <>
       <div className="ch-overview-line"><div className="ch-row-label">Goes live</div><div className="ch-value">Landing puts the change on main. Deployments update separately.</div><span /></div>
-      <div className="ch-overview-line"><div className="ch-row-label">Who decides</div><div className="ch-value">You or another approver</div><span /></div>
     </>}
+    {!approval && view.waitingOn.kind === 'approval' && view.waitingOn.step && <div className="ch-overview-line"><div className="ch-row-label">Who decides</div><div className="ch-value"><ApproversCard stepId={view.waitingOn.step} inline /></div><span /></div>}
     {review?.type === 'agent/review' && <div className="ch-overview-line"><div className="ch-row-label">Reviewer</div><p className="ch-value">{review.status === 'running' || review.status === 'pending' ? 'working' : review.checkReading?.unreadable ? 'could not be read' : review.evidence.verdict === 'approve' ? 'approves' : ['fail', 'error', 'needs_human'].includes(review.status) && !review.overrideBy ? <strong className="ch-bad-text"><span className="ch-mark bad">✗</span> Rejected</strong> : review.evidence.verdict || review.status} — {firstLine(review.evidence.reviewerSummary || review.evidence.summary || review.evidence.reason || 'No review conclusion recorded.').split(/(?<=[.!?])\s+/)[0]}</p>{trailer(record('review', review.runId), 'full review →')}</div>}
     {checked && contractChanged(adds) && adds && <div className="ch-overview-line"><div className="ch-row-label">App contract</div><div className="ch-value"><InlineHelp.Provider value={false}><AddsSection adds={adds} /></InlineHelp.Provider></div><span /></div>}
     {(ch.state === 'landing' || ch.state === 'shipped' || steps.some(s => s.type === 'approval' && s.status === 'pass')) && <ReleaseRow view={view} />}
     </section>
     <TurnDecision progress={nowRunning(view) ? <Now view={view} /> : undefined} progressTitle={nowRunning(view) ? progressTitle(view, steps) : undefined} approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={approval && turn ? <div className="ch-accept-rows">
-      <div className="ch-overview-line"><div className="ch-row-label">You asked</div><div className="ch-value">{ch.requestSummary || firstLine(ch.body || ch.title)}</div>{trailer(ch.chatRequest ? `/changes/${ch.id}?tab=conversation` : record('request'), 'full request →')}</div>
+      <div className="ch-overview-line"><div className="ch-row-label">You asked</div><div className="ch-value">{ch.requestSummary || firstLine(ch.body || ch.title)} <Link className="ch-inline-link" to={ch.chatRequest ? `/changes/${ch.id}?tab=conversation` : record('request')}>full request →</Link></div></div>
       {!!briefParts?.length && <div className="ch-overview-line"><div className="ch-row-label">What it does</div><div className="ch-value">{briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}</div></div>}
       <NotesDiff diff={view.notesDiff} />
       <div className="ch-overview-line"><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary checks={view.checks} steps={steps} contractNeedsAttention={contractUnread(adds)} /></div></div>
       <div className="ch-overview-line"><div className="ch-row-label">Goes live</div><div className="ch-value">Landing puts the change on main. Deployments update separately.</div></div>
-      <div className="ch-overview-line"><div className="ch-row-label">Who decides</div><div className="ch-value">You or another approver</div></div>
     </div> : turn && !next.recovery ? <CheckSummary checks={view.checks} steps={steps} contractNeedsAttention={contractUnread(adds)} /> : undefined} actions={approval ? ['Accept', ...(offered(view.next, 'send-back') || offered(d?.next, 'rework') ? ['Send back…'] : []), ...(offered(view.next, 'abandon') ? ['Abandon change'] : [])] : heldLabels(view)}>
       {next.sentBack && <p>{next.sentBack.by} sent it back: “{next.sentBack.note}”</p>}
       {view.mainConflict && <p>{view.mainConflict.mainBranch} conflicts with this change: {view.mainConflict.files.join(', ')}. <Link to={detail} onClick={e => e.currentTarget.closest('dialog')?.close()}>Open Details for the catch-up command</Link>.</p>}
@@ -143,7 +141,6 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
 
       {deciding && d && <>
         <DecisionForm overview externalBusy={actionBusy}
-          conversation={{ href: `/changes/${ch.id}?tab=conversation`, run: () => nav(`/changes/${ch.id}?tab=conversation`) }}
           canSendBack={!!(offered(view.next, 'send-back') || offered(d.next, 'rework'))}
           abandon={offered(view.next, 'abandon') ? { label: 'Abandon change', run: () => act(() => post(`/changes/${ch.id}/abandon`, {})) } : undefined} stepId={approval.id!} means={approval.config.means} alsoMeans={landingMeansFor(d, approval)} instructions={approval.config.instructions} onDone={onChange}
           approveLabel={'Accept'} />
@@ -159,15 +156,14 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
           onYes={() => act(() => post(`/runs/${d.run.id}/abandon`, { reason: 'stopped from the change page' }))} />}
       </div>}</DecisionContextOnly.Consumer>
       {actionErr && <p className="error">{actionErr}</p>}
-      {!approval && !turn && !deciding && !['shipped', 'abandoned'].includes(ch.state) && <DecisionChoices showConversation note={note} setNote={setNote} busy={actionBusy || !current}
+      {!approval && !turn && !deciding && !['shipped', 'abandoned'].includes(ch.state) && <DecisionChoices note={note} setNote={setNote} busy={actionBusy || !current}
         accept={d && offered(view.next, 'land') ? { label: 'Check and land', run: () => act(() => post(`/changes/${ch.id}/land`, {})) } : undefined}
-        conversation={{ href: `/changes/${ch.id}?tab=conversation`, run: () => nav(`/changes/${ch.id}?tab=conversation`) }}
-        chat={!d && enabled('chats') ? { label: 'Continue chat', run: () => nav(`/projects/${view.projectSlug}/console?change=${ch.id}`) } : undefined}
+        chat={!d ? { label: 'Continue chat', run: () => nav(`/projects/${view.projectSlug}/console?change=${ch.id}`) } : undefined}
         rework={offered(view.next, 'send-back') ? { label: 'Rework with comment', run: () => act(() => post(`/changes/${ch.id}/sendback`, { note })) } : undefined}
         abandon={offered(view.next, 'abandon') ? { label: 'Abandon change', run: () => act(() => post(`/changes/${ch.id}/abandon`, {})) } : undefined} />}
       {question.err && <p className="error">Changes to the app contract could not be read: {question.err}</p>}
     </TurnDecision>
-    <footer hidden={!shown} className="small muted"><Link to={`/changes/${ch.id}?tab=changes`}>{view.diffstat?.match(/\d+ files? changed/)?.[0] || 'Code'} → Code</Link> · <Link to={detail}>How it was done → Details</Link></footer>
+    <footer hidden={!shown} className="small muted"><Link to={`/changes/${ch.id}?tab=changes`}>{view.diffstat?.match(/\d+ files? changed/)?.[0] ? `${view.diffstat.match(/\d+ files? changed/)![0]} → Code` : 'Code →'}</Link> · <Link to={detail}>How it was done → Details</Link></footer>
   </div>
 }
 

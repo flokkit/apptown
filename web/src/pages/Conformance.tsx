@@ -1,4 +1,4 @@
-import { FeatureOnly, useFeature } from '../features'
+import { useFeature } from '../features'
 import { usePageName } from '../chrome'
 
 import { Tabs } from '../Tabs'
@@ -11,12 +11,11 @@ import type { ConformanceReviewDetail, ConformanceView, Review } from '../wire.g
 import { type LiveReview, fixableFindings, isUnfinished, LensBanner, ReviewFeed, ReviewProgress, tabClass, useStartRemediation } from './conformance/parts'
 import { ProjectsList } from './conformance/Projects'
 import { ProjectPage } from './conformance/ProjectPage'
-import { ReviewsList, isFleetReview } from './conformance/Reviews'
+import { ReviewsList } from './conformance/Reviews'
 import { ChecksList } from './conformance/Checks'
 import { RemediationsList } from './conformance/Remediations'
 import { RemediationPage } from './conformance/RemediationPage'
-import { FleetVersionsTab } from './conformance/FleetVersions'
-import { WhatIfsList } from './conformance/WhatIfs'
+import { PackUpgrades } from './conformance/WhatIfs'
 import { PageHead } from '../PageHead'
 import './conformance.css'
 
@@ -32,7 +31,7 @@ import './conformance.css'
 
 // --- the page ---------------------------------------------------------------------------------------
 
-export default function Conformance({ tab }: { tab: 'projects' | 'project' | 'reviews' | 'checks' | 'remediations' | 'remediation' | 'ways' | 'what-ifs' }) {
+export default function Conformance({ tab }: { tab: 'projects' | 'project' | 'reviews' | 'checks' | 'remediations' | 'remediation' | 'what-ifs' }) {
   const { reviewId, slug, remId, checkKey } = useParams()
   const rid = reviewId ?? ''
  const enabled = useFeature()
@@ -84,20 +83,22 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
 
   const s = view?.summary
   const fixable = view ? fixableFindings(view, Object.values(view.byProject).flat()) : 0
-  const fleetReviews = view?.reviews?.filter(isFleetReview).length ?? 0
-  const readOnly = rid !== ''
+    const readOnly = rid !== ''
   const active = tab === 'project' ? 'projects' : tab === 'remediation' ? 'remediations' : tab
 
+  const project = tab === 'project' && slug ? view?.projects.find(x => x.slug === slug) : undefined
   const title = checkKey ? view?.checkDefs[checkKey]?.title || 'Check'
-    : rid && tab === 'projects' ? `Review #${view?.lens.review?.number ?? ''}`
-    : { projects: 'Conformance', project: 'Project', checks: 'Checks', reviews: 'Reviews', remediations: 'Remediations', remediation: 'Remediation', ways: 'Ways of working', 'what-ifs': 'What-ifs' }[tab]
+    : rid && tab !== 'project' ? `Review #${view?.lens.review?.number ?? ''}`
+    : tab === 'project' ? project?.name || slug
+    : { projects: 'Conformance', project: 'Project', checks: 'Checks', reviews: 'Reviews', remediations: 'Remediations', remediation: 'Remediation', 'what-ifs': 'Pack upgrades' }[tab]
 
   return (
     <div>
       {/* The page's actions sit on the title's line: one primary, Check now;
           fixing every finding is a plain button beside it. While a review
           runs, its progress takes their place. */}
-      {tab !== 'project' && tab !== 'remediation' && <PageHead page="conformance" title={title} actions={!readOnly ? (live && isUnfinished(live.review.status)
+      {tab === 'what-ifs' && <PageHead page="packUpgrades" />}
+      {tab !== 'project' && tab !== 'remediation' && tab !== 'what-ifs' && <PageHead page="conformance" title={title} actions={!readOnly && !checkKey ? (live && isUnfinished(live.review.status)
         ? <ReviewProgress d={live} />
         : <span className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             {fixable > 0 && <button disabled={busy} title="Start a remediation over every finding: one change per project at a time, each waiting for your approval" onClick={() => remediation.start('all', '')}>Fix {fixable} {fixable === 1 ? 'problem' : 'problems'}</button>}
@@ -105,22 +106,19 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
           </span>) : undefined} />}
       {(tab === 'project' || tab === 'remediation') && live && isUnfinished(live.review.status) && <ReviewProgress d={live} />}
 
-      {view && (readOnly || tab === 'projects' || tab === 'project' || tab === 'checks') && <LensBanner view={view} />}
+      {view && readOnly && <LensBanner view={view} />}
       {!readOnly && tab === 'projects' && s && <p className="muted small" style={{ margin: '4px 0 0' }}>{s.findings} confirmed problem{s.findings === 1 ? '' : 's'} to fix now. {s.flagged > 0 && `${s.flagged} possible problem${s.flagged === 1 ? '' : 's'} to review. `}{s.incompleteProjects} app{s.incompleteProjects === 1 ? '' : 's'} not fully checked.</p>}
       {readOnly && live && live.review.id === rid && <ReviewFeed d={live} />}
       {shownErr && <div className="error small mb-3">{shownErr}</div>}
       <StaleNote q={[viewQ, liveQ]} />
       {following !== '' && <ReadStatus q={liveQ} what="the running review" className="small" />}
 
-      {/* A loaded count changes tab widths; remount to reveal the active tab again. */}
-      <Tabs key={fleetReviews} className="tabs conformance-tabs">
-        <FeatureOnly area="conformance-estate"><Link to={base} className={tabClass(active === 'projects')}>Projects</Link></FeatureOnly>
-        <Link to="/conformance/reviews" className={tabClass(active === 'reviews')}>Fleet reviews{fleetReviews ? ` (${fleetReviews})` : ''}</Link>
-        {(rid || enabled('conformance-estate')) && <Link to={`${base}/checks`} className={tabClass(active === 'checks')}>Checks</Link>}
-        {!readOnly && <Link to="/conformance/remediations" className={tabClass(active === 'remediations')}>Remediations</Link>}
-        {!readOnly && enabled('conformance-estate') && <Link to="/conformance/ways" className={tabClass(active === 'ways')}>Ways of working</Link>}
-        {!readOnly && <FeatureOnly area="what-ifs"><Link to="/conformance/what-ifs" className={tabClass(active === 'what-ifs')}>What-ifs</Link></FeatureOnly>}
-      </Tabs>
+      {/* A past review's own pages are its projects and its checks; the
+          area's pages are in the sidebar. */}
+      {readOnly && tab !== 'project' && <Tabs className="tabs conformance-tabs">
+        <Link to={base} className={tabClass(active === 'projects')}>Projects</Link>
+        <Link to={`${base}/checks`} className={tabClass(active === 'checks')}>Checks</Link>
+      </Tabs>}
 
       {!view && <ReadStatus q={viewQ} what="the conformance record" className="small" />}
       {/* Keyed by what they show: a refresh keeps the person's open folds,
@@ -130,8 +128,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
       {tab === 'reviews' && <ReviewsList />}
       {view && tab === 'checks' && <ChecksList key={base} view={view} base={base} />}
       {tab === 'remediations' && <RemediationsList />}
-      {tab === 'ways' && <FleetVersionsTab />}
-      {tab === 'what-ifs' && <WhatIfsList />}
+      {tab === 'what-ifs' && <PackUpgrades />}
       {tab === 'remediation' && remId && <RemediationPage id={remId} />}
     </div>
   )

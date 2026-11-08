@@ -1,5 +1,5 @@
 import { Section } from '../Section'
-import { GlanceRow } from '../GlanceRow'
+import { ListTable } from '../ListTable'
 import { Status } from '../Status'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
@@ -67,39 +67,34 @@ export function BackupsView() {
       {actErr && <p className="error">{actErr}</p>}
       <Section title="Latest backups" count={latest.size || undefined} note={store.data?.store ? data.retention : undefined}>
       {latest.size === 0 ? <p className="muted small">No backups yet.</p> : <>
-      <table className="stack small">
-        <thead><tr><th>App</th><th>State</th><th>Taken</th><th></th></tr></thead>
-        <tbody>{[...latest.values()].map(b => <GlanceRow key={b.id} labels={['App', 'State', 'Taken', 'Actions']}>
-          <td><Link to={`/projects/${b.project}`}>{b.project} · {b.deploymentLabel || b.deployment}</Link></td>
-          <td><Status word={b.statusLabel} help={b.error || undefined} /></td>
-          <td>{fmtWhen(b.takenAt)}</td>
-          <td><section><h3>Actions and details</h3>
-            <p>{b.deploymentLabel || b.deployment} · <KeptOn b={b} /> · {fmtBytes(b.bytes)}</p>
-            <Contents items={b.items} />
-            {managed(b) ? b.trigger === 'take-down' && <Link to={`/projects/${b.project}/deployments`}>Start a new deployment from this</Link>
-              : b.trigger === 'take-down' ? <RestoreInto b={b} busy={busy} onRestore={into => restore(b, into)} /> : <>
-                <button className="subtle" disabled={busy} onClick={() => takeNow(b.project, b.deployment)}>Back up now</button>
-                <RestoreOver b={b} onYes={() => restore(b)} />
-              </>}
-          </section></td>
-        </GlanceRow>)}</tbody>
-      </table>
+      <ListTable label="Latest backups" className="small" rows={[...latest.values()]} rowKey={b => b.id ?? `${b.project}/${b.deployment}/${b.takenAt}`} columns={[
+        { key: 'app', label: 'App', phone: 'name', render: b => <Link to={`/projects/${b.project}`}>{b.project} · {b.deploymentLabel || b.deployment}</Link> },
+        { key: 'state', label: 'State', phone: 'state', render: b => <Status word={b.statusLabel} help={b.error || undefined} /> },
+        { key: 'taken', label: 'Taken', phone: 'time', kind: 'time', render: b => fmtWhen(b.takenAt) },
+        { key: 'actions', label: 'Actions and details', phone: 'detail', render: b => <>
+          <p>{b.deploymentLabel || b.deployment} · <KeptOn b={b} /> · {fmtBytes(b.bytes)}</p>
+          <Contents items={b.items} />
+          {managed(b) ? b.trigger === 'take-down' && <Link to={`/projects/${b.project}/deployments`}>Start a new deployment from this</Link>
+            : b.trigger === 'take-down' ? <RestoreInto b={b} busy={busy} onRestore={into => restore(b, into)} /> : <>
+              <button className="subtle" disabled={busy} onClick={() => takeNow(b.project, b.deployment)}>Back up now</button>
+              <RestoreOver b={b} onYes={() => restore(b)} />
+            </>}
+        </> },
+      ]} />
       </>}
       </Section>
       {data.backups.length > 0 && <Section title="All backups" count={data.backups.length}>
-        <table className="stack small"><thead><tr><th>App</th><th>State</th><th>Taken</th><th>Details</th></tr></thead>
-          <tbody>{data.backups.slice(0, shown).map(b => <GlanceRow id={`backup-${b.id}`} key={b.id} labels={['App', 'State', 'Taken', 'Details']}>
-            <td>{b.project} · {b.deploymentLabel || b.deployment}</td>
-            <td><Status word={b.statusLabel} help={b.error || (b.status === 'pruned' ? 'This old copy has been removed.' : undefined)} /></td>
-            <td>{fmtWhen(b.takenAt)}</td>
-            <td>{b.deploymentLabel || b.deployment} · {b.beforeRelease ? <Link to={`/projects/${b.project}/releases/${b.beforeRelease}`}>before release {b.beforeRelease}</Link> : b.trigger} · {b.actor}{b.status === 'pruned' ? <p>Copy removed</p> : <>
-              <KeptOn b={b} /><section><h3>Location</h3><code>{setPlace(b, data.where)}</code></section>
-              {(b.status === 'ok' || b.status === 'partial') && !managed(b) && (b.trigger === 'take-down'
-                ? <RestoreInto b={b} busy={busy} onRestore={into => restore(b, into)} />
-                : <RestoreOver b={b} onYes={() => restore(b)} />)}
-            </>}</td>
-          </GlanceRow>)}</tbody>
-        </table>
+        <ListTable label="All backups" className="small" rows={data.backups.slice(0, shown)} rowKey={b => b.id ?? `${b.project}/${b.deployment}/${b.takenAt}`} rowId={b => `backup-${b.id}`} columns={[
+          { key: 'app', label: 'App', phone: 'name', render: b => <>{b.project} · {b.deploymentLabel || b.deployment}</> },
+          { key: 'state', label: 'State', phone: 'state', render: b => <Status word={b.statusLabel} help={b.error || (b.status === 'pruned' ? 'This old copy has been removed.' : undefined)} /> },
+          { key: 'taken', label: 'Taken', phone: 'time', kind: 'time', render: b => fmtWhen(b.takenAt) },
+          { key: 'details', label: 'Details', phone: 'detail', render: b => <>{b.deploymentLabel || b.deployment} · {b.beforeRelease ? <Link to={`/projects/${b.project}/releases/${b.beforeRelease}`}>before release {b.beforeRelease}</Link> : b.trigger} · {b.actor}{b.status === 'pruned' ? <p>Copy removed</p> : <>
+            {' · '}<KeptOn b={b} /><section><h3>Location</h3><code>{setPlace(b, data.where)}</code></section>
+            {(b.status === 'ok' || b.status === 'partial') && !managed(b) && (b.trigger === 'take-down'
+              ? <RestoreInto b={b} busy={busy} onRestore={into => restore(b, into)} />
+              : <RestoreOver b={b} onYes={() => restore(b)} />)}
+          </>}</> },
+        ]} />
       </Section>}
       {data.backups.length > shown && <button style={{ marginTop: 10 }} onClick={() => setHistoryCount(shown + 10)}>Show 10 more</button>}
 

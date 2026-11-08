@@ -9,4 +9,9 @@
 .dashboard-setup-card-div-2 { margin-top: calc(var(--space-1) * 2.5); }
 .dashboard-card { display: flex; }
 .dashboard-span { font-weight: 400; }
+.dashboard-card > .list-identity { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); flex: 1; }
+.dashboard-card > .list-state { order: -1; }
+.dashboard-card > .list-state:empty, .dashboard-card > .list-action:empty { display: none; }
+.dashboard-card { gap: var(--space-2); padding-block: var(--space-3); }
+.dashboard-card > .list-identity { overflow-wrap: normal; min-width: min-content; max-width: 100%; gap: var(--space-2); }
 }

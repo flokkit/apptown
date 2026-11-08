@@ -30,7 +30,7 @@ export function DeploymentFeed({ slug, name }: { slug: string; name: string }) {
   const value = draft || base
   const moved = !!draft && e.feedRevision !== draft.revision
   const edit = (change: Partial<Draft>) => setDraft({ ...value, ...change })
-  return <Section title="Settings" action={<HelpButton about="Deployment feed" guide="container-lifecycle">
+  return <Section title="Releases" action={<HelpButton about="Deployment feed" guide="container-lifecycle">
     <p>Follows main deploys each change after it lands. Saving this setting, including its unchanged value, records your permission to deploy here, which {PRODUCT} checks again for each release.</p>
     <p>Promotion deploys the release the source last deployed successfully. It refuses a source taken down, never deployed, or currently observed stopped. Unknown or stale health does not block promotion. By hand deploys the latest bundle when you choose.</p>
   </HelpButton>}>

@@ -1,6 +1,6 @@
 import { FeatureOnly } from '../features'
 import './WhatIfPage.css'
-import { GlanceRow } from '../GlanceRow'
+import { ListTable } from '../ListTable'
 import { Status } from '../Status'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -218,30 +218,20 @@ function Table({ w }: { w: WhatIf }) {
         {asking && <span className="muted small">asking each project in turn…</span>}
       </div>
       <div className="what-if-page-table-div-2">
-      <table className="small stack whatif-table what-if-page-table-whatif-table">
-        <thead>
-          <tr><th /><th>Project</th><th>Answer</th><th>Score</th><th>Details</th><th>Adoption</th><th /></tr>
-        </thead>
-        <tbody>
-          {w.projects.map((p) => {
-            const pid = p.projectId ?? ''
-            const done = adopted[pid]
-            const cannot = !p.candidateDigest ? (p.outcome === 'not-evaluated' || p.outcome === 'not-yet-judged' ? OUTCOME_WORDS[p.outcome] : 'no candidate was assessed') : done && 'changeId' in done ? 'its Change is open' : ''
-            return (
-              <GlanceRow key={pid} labels={["Select", "Project", "Answer", "Score", "Details", "Adoption", "Actions"]}>
-                  <td><input type="checkbox" aria-label={`adopt on ${p.projectSlug}`} title={cannot || undefined} disabled={!!cannot || asking}
-                    checked={ticked.includes(pid)} onChange={(e) => setTicked(e.target.checked ? [...ticked, pid] : ticked.filter((x) => x !== pid))} /></td>
-                  <td><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="badge what-if-page-badge">would join</span>}</td>
-                  <td><Status word={p.statusLabel} help={OUTCOME_WORDS[p.outcome]} /></td>
-                  <td><ScoreLine s={p.score} />{p.fixed > 0 && <div className="muted">{p.fixed} fixed</div>}</td>
-                  <td><Link to={`/conformance/what-ifs/${w.id}/projects/${p.projectSlug}`}>Check details</Link></td>
-                  <td><AdoptedCell a={done} /></td>
-                  <td />
-                </GlanceRow>
-            )
-          })}
-        </tbody>
-      </table>
+      <ListTable label="Projects in this what-if" className="small whatif-table what-if-page-table-whatif-table" rows={w.projects} rowKey={p => p.projectId ?? p.projectSlug} columns={[
+        { key: 'select', label: '', phone: 'action', render: p => {
+          const pid = p.projectId ?? ''
+          const done = adopted[pid]
+          const cannot = !p.candidateDigest ? (p.outcome === 'not-evaluated' || p.outcome === 'not-yet-judged' ? OUTCOME_WORDS[p.outcome] : 'no candidate was assessed') : done && 'changeId' in done ? 'its Change is open' : ''
+          return <input type="checkbox" aria-label={`adopt on ${p.projectSlug}`} title={cannot || undefined} disabled={!!cannot || asking}
+            checked={ticked.includes(pid)} onChange={(e) => setTicked(e.target.checked ? [...ticked, pid] : ticked.filter((x) => x !== pid))} />
+        } },
+        { key: 'project', label: 'Project', phone: 'name', render: p => <><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="badge what-if-page-badge">would join</span>}</> },
+        { key: 'answer', label: 'Answer', phone: 'state', render: p => <Status word={p.statusLabel} help={OUTCOME_WORDS[p.outcome]} /> },
+        { key: 'score', label: 'Score', phone: 'extra', render: p => <><ScoreLine s={p.score} />{p.fixed > 0 && <div className="muted">{p.fixed} fixed</div>}</> },
+        { key: 'details', label: 'Details', phone: 'detail', render: p => <Link to={`/conformance/what-ifs/${w.id}/projects/${p.projectSlug}`}>Check details</Link> },
+        { key: 'adoption', label: 'Adoption', phone: 'detail', render: p => <AdoptedCell a={adopted[p.projectId ?? '']} /> },
+      ]} />
       </div>
     </>
   )

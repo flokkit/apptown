@@ -31,11 +31,10 @@ it('keeps a supplied service visible but offers overrides only for app parts and
   const root = createRoot(el)
   try {
     await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><ResourceLines slug="game" name="cloud" /></MemoryRouter></QueryClientProvider>) })
-    expect(el.textContent).toContain('sidecar (workflow service)')
+    expect(el.textContent).toContain('sidecar workflow service')
     expect(el.textContent).toContain('Workflow service limits are set in the workflow service declaration.')
-    const sidecar = Array.from(el.querySelectorAll('.deploy-resource-part')).find((r) => r.textContent?.includes('sidecar'))!
+    const sidecar = Array.from(el.querySelectorAll('tbody tr')).find((r) => r.textContent?.includes('sidecar'))!
     expect(sidecar.textContent).toContain('512Mi')
-    expect(sidecar.textContent).toContain('16')
     const button = (label: string) => Array.from(el.querySelectorAll('button')).find((b) => b.textContent === label)!
     await act(async () => { button('Override memory…').click() })
     expect(Array.from(el.querySelectorAll('select option')).map((o) => o.getAttribute('value'))).toEqual(['web', 'postgres'])
