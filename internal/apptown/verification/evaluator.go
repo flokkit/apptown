@@ -77,7 +77,12 @@ func (e *evaluator) judge(ctx context.Context, sh string) *check.Judge {
 	return &check.Judge{Run: func(req execution.Request) execution.Outcome { return e.effects.Run(ctx, req) }, Now: e.clock, ShImage: sh}
 }
 func (e *evaluator) runShChecks(ctx context.Context, sh string, checks []conformance.DeclaredCheck, src, namePrefix string) (results Results, findings []conformance.Finding, shErrors int) {
-	for _, ev := range e.judge(ctx, sh).EvaluateSh(declaredAll(checks), CheckSource(src), check.Gate, namePrefix) {
+	for _, d := range declaredAll(checks) {
+		if check.Evaluator(d.Declaration) != "sh" {
+			continue
+		}
+		finish := startCheck(ctx, d)
+		ev := e.judge(ctx, sh).EvaluateSh([]check.Declared{d}, CheckSource(src), check.Gate, namePrefix)[0]
 		res := resultOf(ev)
 		res.DurationMs = new(ev.Evidence.Duration.Milliseconds())
 		res.EvaluatorVer = evaluatorVersion(ev.Declaration, sh)
@@ -87,6 +92,7 @@ func (e *evaluator) runShChecks(ctx context.Context, sh string, checks []conform
 		}
 		findings = append(findings, conformance.WrapFindings(ev.Findings)...)
 		results = append(results, res)
+		finish(res)
 	}
 	return results, findings, shErrors
 }
@@ -99,6 +105,7 @@ func (e *evaluator) judgeChecks(ctx context.Context, call modelcall.Call, items 
 	meta := &llmMetadata{Pattern: call.Model, Items: len(items), PromptHash: checkTemplateHash(), Results: map[int]CheckResult{}, Usage: &modelcall.Usage{}}
 	by := map[int]check.Verdict{}
 	for i, it := range items {
+		finish := startCheck(ctx, it.Declared)
 		var r CheckResult
 		if call.Model == "" {
 			r.Reason = "no checks model is set up. An administrator must select a checks model"
@@ -109,6 +116,9 @@ func (e *evaluator) judgeChecks(ctx context.Context, call modelcall.Call, items 
 		} else {
 			r = e.agent.JudgeCheck(ctx, it, call, diff)
 		}
+		receipt := resultOf(check.Judgement(it, r.Verdict, r.assessed(), check.Gate))
+		receipt.AgentEvidence = &r.Evidence
+		finish(receipt)
 		meta.Results[i+1] = r
 		meta.Usage.Add(&r.Usage)
 		if r.Evidence.ServedModel != "" {

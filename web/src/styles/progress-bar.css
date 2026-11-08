@@ -1,0 +1,6 @@
+@layer components {
+.progress-bar { display: block; width: 100%; height: var(--space-1); margin-top: var(--space-2); border: 0; border-radius: var(--radius-bar); overflow: hidden; background: var(--rule); color: var(--accent); accent-color: var(--accent); }
+.progress-bar::-webkit-progress-bar { background: var(--rule); }
+.progress-bar::-webkit-progress-value { background: var(--accent); }
+.progress-bar::-moz-progress-bar { background: var(--accent); }
+}

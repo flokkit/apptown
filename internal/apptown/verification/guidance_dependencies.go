@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/progress"
 
 	"github.com/flokkit/apptown/internal/apptown/preview"
 
@@ -21,6 +22,7 @@ import (
 const GuidanceKind = "guidance/conformance"
 
 type Guidance struct {
+	progress     *progress.Feeds
 	db           *database.DB
 	dataDir      string
 	adoption     *adoption.Service
@@ -46,6 +48,7 @@ type previewOpener interface {
 	RehearseChange(ctx context.Context, ch preview.Change, restart bool) (preview.Result, error)
 }
 type GuidanceDependencies struct {
+	Progress    *progress.Feeds
 	DB          *database.DB
 	DataDir     string
 	Adoption    *adoption.Service
@@ -66,7 +69,7 @@ type GuidanceDependencies struct {
 func (a *Guidance) now() time.Time { return clock.Or(a.clock)() }
 
 func NewGuidance(d GuidanceDependencies) *Guidance {
-	return &Guidance{db: d.DB, dataDir: d.DataDir, adoption: d.Adoption, conformance: d.Conformance, scanners: d.Scanners, evaluator: d.Evaluator, verification: d.Changes, runtime: d.Runtime, docker: d.Docker, previews: d.Previews, routing: d.Routing, selection: d.Selection, ledger: d.Ledger, clock: d.Now}
+	return &Guidance{progress: d.Progress, db: d.DB, dataDir: d.DataDir, adoption: d.Adoption, conformance: d.Conformance, scanners: d.Scanners, evaluator: d.Evaluator, verification: d.Changes, runtime: d.Runtime, docker: d.Docker, previews: d.Previews, routing: d.Routing, selection: d.Selection, ledger: d.Ledger, clock: d.Now}
 }
 
 type ChangeDependencies struct {

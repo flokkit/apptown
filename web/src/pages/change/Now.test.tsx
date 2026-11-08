@@ -78,6 +78,14 @@ it('polls called work and deploy facts inside the same block', async () => {
   vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ running: true, lines: ['building the image for main'], total: 1 })))
   await act(async () => root.render(<QueryClientProvider client={client}><Now view={{ ...v }} /></QueryClientProvider>))
   await vi.waitFor(async () => { await act(async () => {}); expect(el.textContent).toContain('building the image for main') })
+  v.detail!.steps = [step('standards', 'guidance/conformance', 'running')]
+  vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ running: true, lines: ['4 of 14 · lockfile-in-step (django) · checking'], total: 7 })))
+  await act(async () => root.render(<QueryClientProvider client={client}><Now view={{ ...v }} /></QueryClientProvider>))
+  await vi.waitFor(async () => { await act(async () => {}); expect(el.textContent).toContain('4 of 14'); expect(el.querySelector('progress')?.value).toBe(3) })
+  vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ running: true, lines: ['14 of 14 · readme (django) · reused · 0.0s'], total: 28 })))
+  await act(async () => { await client.invalidateQueries({ queryKey: getKey('/steps/standards/live?from=0') }) })
+  await vi.waitFor(async () => { await act(async () => {}); expect(el.textContent).toContain('14 of 14'); expect(el.querySelector('progress')?.value).toBe(14) })
+
  } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
 
@@ -116,6 +124,26 @@ it.each([
   const text = renderToStaticMarkup(<QueryClientProvider client={client}><Now view={view()} /></QueryClientProvider>)
   expect(text).toContain('Building the accepted work')
   expect(text).toContain('Landing — step 3 of 4')
+ } finally { client.clear() }
+})
+
+it.each([
+ ['4 of 14 · lockfile-in-step (lang/selection/django-fullstack) · checking', 3, '14'],
+ ['14 of 14 · lockfile-in-step (lang/selection/django-fullstack) · reused · 0.0s', 14, '14'],
+ ['check 4 · lockfile-in-step (lang/selection/django-fullstack) · checking', null, null],
+])('shows Standards check position and completed progress from the feed: %s', (line, value, total) => {
+ const v = view(), client = newQueryClient()
+ v.detail!.steps = [step('standards', 'guidance/conformance', 'running')]
+ client.setQueryData(getKey('/steps/standards/live?from=0'), { running: true, lines: [line], total: 8 })
+ try {
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><Now view={v} /></QueryClientProvider>)
+  expect(el.textContent).toContain('Standards check')
+  expect(el.textContent).toContain(line)
+  const bar = el.querySelector('progress')!
+  expect(bar).not.toBeNull()
+  expect(bar.getAttribute('value')).toBe(value === null ? null : String(value))
+  expect(bar.getAttribute('max')).toBe(total)
  } finally { client.clear() }
 })
 

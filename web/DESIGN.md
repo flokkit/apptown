@@ -23,6 +23,7 @@ labelled as such. Reviews open dated snapshot reports.
 | Inventory row: identity, state, action, optional detail | `ListRow`; `ProjectListRow` for projects and `LibraryRow` for ways of working |
 | Compact tabular facts | `GlanceRow`; every cell stays visible at both widths |
 | Disk name, used / total and capacity bar | `CapacityStrip` |
+| Completed work out of a known total, or unknown progress | `ProgressBar` |
 | Page section | `Section` |
 | Action menu or popover | `MoreMenu`, `SplitButton`, `FormMenu` for menus with form controls |
 | Dialog | `Modal`; change decisions use the native dialog in `pages/change/Turn.tsx` |
