@@ -264,7 +264,7 @@ func TestInTheNoLocalDockerModeALandedProjectIsDeletedAndItsMainTornDown(t *test
 
 // releaseOn records release #1 of game's main on target, settled as
 // running in container apptown-env-game-main at port.
-func releaseOn(t *testing.T, a *App, target *deployment.Target, port int) {
+func releaseOn(t *testing.T, a *App, remote *fakeDocker, target *deployment.Target, port int) {
 	t.Helper()
 	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "main", target.ID, (deployment.Attributes{}).WithDefaults())
 	if err != nil {
@@ -285,6 +285,10 @@ func releaseOn(t *testing.T, a *App, target *deployment.Target, port int) {
 	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", "apptown-env-game-main", port); err != nil {
 		t.Fatal(err)
 	}
+	// A settled release runs the admitted generation, as a real boot labels it.
+	if _, err := remote.Run(t.Context(), "", docker.Command{Args: []string{"run", "-d", "--name", "apptown-env-game-main", "--label", fmt.Sprintf("apptown.generation=%d", at.Generation), "--label", "apptown.deployment=" + env.ID.String(), "app"}}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // The release list and the deployment view agree about a release on an
@@ -295,8 +299,7 @@ func TestInTheNoLocalDockerModeAReleaseOnAnAttachedHostIsServingWhereItsDeployme
 	t.Parallel()
 	remote, client := attachedHost(t, "lab")
 	a := infrastructureModeAppWith(t, client)
-	releaseOn(t, a, attachTarget(t, a, "lab", "192.0.2.10"), 40001)
-	remote.markStarted("apptown-env-game-main")
+	releaseOn(t, a, remote, attachTarget(t, a, "lab", "192.0.2.10"), 40001)
 	if err := a.Deployment.ObserveRuntime(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -323,8 +326,7 @@ func TestAnAttachedDockerHostIsNamedAndReachedAsThatHost(t *testing.T) {
 	t.Parallel()
 	remote, client := attachedHost(t, "lab")
 	a := infrastructureModeAppWith(t, client)
-	releaseOn(t, a, attachTarget(t, a, "lab", "192.0.2.10"), 40001)
-	remote.markStarted("apptown-env-game-main")
+	releaseOn(t, a, remote, attachTarget(t, a, "lab", "192.0.2.10"), 40001)
 	h := a.Handler()
 
 	w := authzCall(h, "boss", "GET", "/api/v1/projects/game/deployments", "")
@@ -411,8 +413,7 @@ func TestAMainOnAnAttachedHostIsObservedAndProbedThere(t *testing.T) {
 				remote, client = attachedHostBeside(t, "lab", newFakeDocker())
 				a = authzFixture(t, Config{DockerClient: client})
 			}
-			releaseOn(t, a, attachTarget(t, a, "lab", "localhost"), port)
-			remote.markStarted("apptown-env-game-main")
+			releaseOn(t, a, remote, attachTarget(t, a, "lab", "localhost"), port)
 
 			// Reads show the background observer's last look.
 			if err := a.Deployment.ObserveRuntime(t.Context()); err != nil {

@@ -164,30 +164,21 @@ func (d *Driver) Observe(ctx context.Context, p deploy.Placement) (deploy.Observ
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
 	}
-	o := deploy.Observation{Generation: p.Generation, URL: p.URL, Rollout: "absent", Health: "unknown"}
 	if p.Container == "" {
-		return o, nil
+		return containerObservation(p, nil)
 	}
 	dk, err := d.Scope(ctx)
 	if err != nil {
-		return o, err
+		return deploy.Observation{}, err
 	}
 	runtime, err := Inspect(ctx, dk, p.Container)
 	if errors.Is(err, ErrContainerAbsent) {
-		return o, nil
+		return containerObservation(p, nil)
 	}
 	if err != nil {
-		return o, err
+		return deploy.Observation{}, err
 	}
-	if runtime.Running {
-		o.Rollout, o.Health = "active", "healthy"
-	} else {
-		o.Health = "unhealthy"
-		if p.Stopped {
-			o.Rollout, o.Health = "stopped", "unknown"
-		}
-	}
-	return o, nil
+	return containerObservation(p, &runtime)
 }
 
 // Teardown removes the recorded generation's container, verified by its

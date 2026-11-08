@@ -518,6 +518,22 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 			}
 			return nil, fmt.Errorf("fixture container %s has no engine/mount evidence", name)
 		}
+		if strings.HasPrefix(args[2], `{{json .Name}}`+"\t") {
+			var failed bool
+			for _, name := range args[3:] {
+				if !d.running[name] && !d.stopped[name] {
+					fmt.Fprintln(req.Stderr, "Error: No such object: "+name)
+					failed = true
+					continue
+				}
+				raw, _ := json.Marshal(docker.Runtime{ID: name, Image: "sha256:built", Running: d.running[name], Labels: d.labels[name]})
+				fmt.Fprintf(req.Stdout, "%q\t%s\n", "/"+name, raw)
+			}
+			if failed {
+				return nil, fmt.Errorf("exit status 1")
+			}
+			return nil, nil
+		}
 		name := args[len(args)-1]
 		status := "exited"
 		if d.running[name] {

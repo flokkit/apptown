@@ -1195,7 +1195,13 @@ the reading's dates and show that a new check is pending; they do not describe a
 previously checked deployment as awaiting its first check.
 
 A target whose inventory can observe its whole fleet (`deploy.FleetObserver`)
-is one job per sweep, not one per deployment. Portainer is one: one list of
+is one job per sweep, not one per deployment. Docker hosts inspect all recorded
+containers in one command, reading their generation labels and runtime state.
+A missing container is absent. A missing or invalid generation label makes only
+that container's deployment unknown; other containers keep their readings. A
+failed host reading leaves every deployment unknown. A timeout says “the host reading timed out” and retains any last known
+reading as old. Single-container observations use the same classification.
+Portainer is another: one list of
 the environment's app containers, through its Docker proxy, says for each
 stack whether its `app` container runs. Running is running; a stopped or
 missing app container is stopped; a failed list is unknown for every
