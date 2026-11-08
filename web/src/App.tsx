@@ -11,7 +11,7 @@ import { CheckProjects, GuidanceProjects, PolicyProjects, PackProjects, Integrat
 import { DeploymentPage } from './pages/project/settings/Deployments'
 import WorkRecordPage from './pages/change/WorkRecord'
 import { MEMORY_TABS, SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL } from './pages/project/tabs'
-import { projectHue } from './ProjectListRow'
+import { ProjectMark } from './ProjectListRow'
 import { Blocks, BookOpen, BookText, ChartColumn, ChevronDown, ChevronRight, FlaskConical, FolderKanban, GitPullRequest, House, LayoutDashboard, MessageSquare, MessageSquareWarning, Plug, RefreshCw, Rocket, Settings, Shield, ShieldCheck, Users } from 'lucide-react'
 import { createChatChange } from './pages/project/ChangeButton'
 import { PRODUCT } from './brand'
@@ -20,7 +20,7 @@ import { ErrorBoundary } from './ErrorBoundary'
 import { UpdateNote } from './UpdateNote'
 import { UpdatesPage, ReleaseAvailabilityNote } from './pages/Updates'
 import { StaleScope } from './ReadGate'
-import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { currentUser, setCurrentUser } from './api'
 import Dashboard from './pages/Dashboard'
@@ -100,7 +100,7 @@ export function SidebarNav() {
       <>
         {/* The project, as the app rows show it: its colour and its name. */}
         <div className="sidebar-project" title={name}>
-          <span className="project-avatar project-letter" aria-hidden style={{ '--project-hue': projectHue(slug) } as CSSProperties}>{name.slice(0, 1).toUpperCase()}</span>
+          <ProjectMark name={name} slug={slug} icon={project?.icon} />
           <strong>{name}</strong>
         </div>
         <NavLink to={base} end className={cls}><LayoutDashboard aria-hidden size={16} />Overview</NavLink>

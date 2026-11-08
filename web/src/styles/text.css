@@ -9,8 +9,7 @@
 .app-address:hover { color: var(--link-hover); text-decoration: underline; }
 
 .small { font-size: var(--fs-xs); }
-.muted { color: var(--muted); font-size: var(--fs-xs); }
-@media (max-width: 800px) {
-  .muted { font-size: var(--fs-sm); }
-}
+/* Muted is a colour, not a size: supporting facts keep the size of the text
+   around them; a place that wants them smaller says small too. */
+.muted { color: var(--muted); }
 }

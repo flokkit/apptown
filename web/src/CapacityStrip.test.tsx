@@ -24,10 +24,34 @@ describe('disk capacity strip', () => {
 })
 
 
-it('does not present container use, promises, or stale readings as whole-host use', () => {
+// Without the host's own figure, a strip shows what the containers use and
+// says so, to the eye and to a screen reader; it never presents that, or a
+// promise, as the whole host's use. The tenants say whether every container
+// was read: a missing or stale one leaves the total unknown, even when the
+// in-use split looks known.
+it('shows container use as container use, never as whole-host use, and keeps partial or stale readings unknown', () => {
   const known = (value: number) => ({ known: true, value })
-  const c = { memory: { total: known(100), inUse: { apptown: known(60), other: known(5) } }, disk: { total: known(100), free: { ...known(20), stale: true } } } as TargetCapacity
-  const readings = targetCapacityReadings(c)
-  expect(readings.map(r => r.used)).toEqual([undefined, undefined, undefined])
-  for (const r of readings) expect(renderToStaticMarkup(<CapacityStrip name={r.label} used={r.used} total={r.total} />)).toContain('unknown')
+  const tenant = (used: { known: boolean; value: number }, cpuUsed = known(0.5)) => ({ used, cpuUsed })
+  const base = { memory: { total: known(100), inUse: { apptown: known(60), other: known(5) }, promised: { sum: { apptown: known(90), other: known(0) } } }, cpu: { total: known(4) },
+    disk: { total: known(100), free: { ...known(20), stale: true } }, tenants: [tenant(known(60)), tenant(known(5))] }
+  const [cpu, memory, disk] = targetCapacityReadings(base as unknown as TargetCapacity)
+  expect(memory).toMatchObject({ used: 65, basis: 'by containers' })
+  expect(cpu).toMatchObject({ used: 1, basis: 'by containers' })
+  const markup = renderToStaticMarkup(<CapacityStrip name={memory.label} used={memory.used} total={memory.total} basis={memory.basis} />)
+  expect(markup).toContain('65 B / 100 B by containers')
+  expect(markup).toContain('aria-valuetext="65 B used of 100 B by containers"')
+  expect(disk.used).toBeUndefined()
+  // A container missing from the readings: the split is known, the total is not.
+  const missing = targetCapacityReadings({ ...base, tenants: [tenant(known(60)), tenant({ known: false, value: 0 })] } as unknown as TargetCapacity)
+  expect(missing[1].used).toBeUndefined()
+  // No tenants read, or a stale one: unknown too.
+  expect(targetCapacityReadings({ ...base, tenants: undefined } as unknown as TargetCapacity)[1].used).toBeUndefined()
+  expect(targetCapacityReadings({ ...base, tenants: [tenant(known(60)), { ...tenant(known(5)), stale: true }] } as unknown as TargetCapacity)[0].used).toBeUndefined()
+})
+
+it("prefers the host's own use and then names no basis", () => {
+  const known = (value: number) => ({ known: true, value })
+  const [, memory] = targetCapacityReadings({ memory: { total: known(100), hostUsed: known(80), inUse: { apptown: known(60), other: known(5) } } } as unknown as TargetCapacity)
+  expect(memory).toMatchObject({ used: 80 })
+  expect(memory.basis).toBeUndefined()
 })

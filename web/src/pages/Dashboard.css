@@ -2,7 +2,7 @@
 
 .dashboard-setup-card-card-tone-warn { margin-bottom: calc(var(--space-1) * 2.5); }
 .dashboard-setup-card-card-tone-accent { padding: calc(var(--space-1) * 4.5); }
-.dashboard-setup-card-strong { font-size: var(--fs-md); }
+.dashboard-setup-card-strong { font-size: var(--fs-lg); }
 .dashboard-setup-card-div { margin: var(--space-1) 0 calc(var(--space-1) * 2.5); }
 .dashboard-setup-card-input { max-width: 420px; }
 .dashboard-setup-card-error { margin-top: calc(var(--space-1) * 1.5); }

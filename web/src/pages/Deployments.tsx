@@ -1,3 +1,4 @@
+import { ProjectMark } from '../ProjectListRow'
 import './Deployments.css'
 import { ListTable } from '../ListTable'
 import { Section, SectionFilter } from '../Section'
@@ -39,7 +40,7 @@ function DeparturesBoard() {
       return <Section title="" label="Deploys">
         <ListTable label="Releases" rows={shown} rowKey={d => `${d.slug}/${d.tier}/${d.releaseNumber}/${d.at}`}
           rowTo={d => `/projects/${d.slug}/releases/${d.releaseNumber}`} columns={[
-            { key: 'project', label: 'Project', phone: 'name', render: d => <>{d.icon && <span aria-hidden className="deployments-span">{d.icon}</span>}<Link className="int-name" to={`/projects/${d.slug}`}>{d.name || d.slug}</Link></> },
+            { key: 'project', label: 'Project', phone: 'name', render: d => <><ProjectMark small name={d.name || d.slug} slug={d.slug} icon={d.icon} /><Link className="int-name" to={`/projects/${d.slug}`}>{d.name || d.slug}</Link></> },
             { key: 'release', label: 'Release', phone: 'detail', render: d => <Link to={`/projects/${d.slug}/releases/${d.releaseNumber}`}>#{d.releaseNumber}</Link> },
             { key: 'deployment', label: 'Deployment', phone: 'detail', render: d => <>{d.tier.replace(/ deployment$/, '')}{d.url && <> <a href={d.url} target="_blank" rel="noreferrer" title={d.url} aria-label={`open ${d.name || d.slug} ${d.tier}`}>↗</a></>}</> },
             { key: 'by', label: 'By', phone: 'extra', render: d => <span className="muted">{d.who || '—'}</span> },

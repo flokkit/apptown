@@ -85,7 +85,6 @@ it('makes creation primary only for a confirmed empty Home', () => {
   const buttons = [...el.querySelectorAll('button')].filter(b => b.textContent === '+ Create project')
   expect(buttons).toHaveLength(1)
   expect(buttons[0].classList.contains('primary')).toBe(true)
-  expect(buttons[0].classList.contains('btn-big')).toBe(true)
 })
 
 it('opens running production even when a preview has an urgent aggregate status', () => {

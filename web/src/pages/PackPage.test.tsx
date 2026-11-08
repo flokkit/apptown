@@ -36,9 +36,9 @@ it.each([{enabled:true,beta:true}, {enabled:false,beta:true}, {enabled:true,beta
     expect(button('Delete…')).toBeDefined()
     await act(async () => el.querySelector<HTMLButtonElement>('[role="switch"][aria-label="team"]')!.click())
     expect(sent).toContainEqual(['/api/v1/packs/team/enabled', { enabled: !enabled }])
-    // Flipping the switch re-reads the pack; Recommend comes back once that
-    // read is current, so wait for it rather than click mid-read.
-    await vi.waitFor(() => expect(button('Recommend v2')).toBeDefined())
+    // Flipping the switch re-reads the pack; Recommend is disabled until that
+    // read is current, so wait for it to be enabled rather than click mid-read.
+    await vi.waitFor(() => expect(button('Recommend v2')?.disabled).toBe(false))
     await act(async () => button('Recommend v2').click())
     await act(async () => button('Recommend it').click())
     expect(sent).toContainEqual(['/api/v1/packs/team/recommended', { version: 2, ...(beta ? { whatIf: 'assessment' } : {}) }])

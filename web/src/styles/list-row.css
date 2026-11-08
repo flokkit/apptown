@@ -103,7 +103,7 @@
 /* Each row's action cell is lifted above the row's full-row link; while its
    menu is open it also sits above the rows after it. */
 .project-row .list-action:has([aria-expanded="true"]) { z-index: var(--z-popover-row); }
-.project-row .list-action, .project-row a.project-avatar, .project-row .status-help { position: relative; z-index: var(--z-base); }
+.project-row .list-action, .project-row a.project-mark-link, .project-row .status-help { position: relative; z-index: var(--z-base); }
 
 .inline-detail { display: inline-block; padding: 0; border: 0; margin: 0; background: none; }
 .inline-detail summary { padding: 0; }

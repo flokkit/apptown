@@ -18,7 +18,8 @@ try {
     <div class="ch-page">
       <div class="ch-overview"><section class="ch-decision"><h2>Your decision</h2></section></div>
       <section class="ch-phase"><h2>Work</h2></section>
-    </div>`)
+    </div>
+    <table class="record-table"><tbody><tr><td class="phone-name">shop</td><td class="phone-detail record-wide">main</td><td class="phone-detail">details</td></tr></tbody></table>`)
   for (const width of [1440, 390]) for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width, height: 844 })
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme }, theme)
@@ -36,6 +37,7 @@ try {
         rootSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
         buttonHeight: document.querySelector('.people-form button').getBoundingClientRect().height,
         headingMargins: [...document.querySelectorAll('.ch-page h2')].map(h => getComputedStyle(h).marginBottom),
+        wideOnlyCell: getComputedStyle(document.querySelector('td.record-wide')).display,
       }
     })
     const phone = width === 390
@@ -50,8 +52,10 @@ try {
     assert.ok(Math.abs(actual.buttonHeight - actual.rootSize * 40 / 14) < 1, `${label}: invite controls follow text size`)
     assert.ok(actual.controlHeights.every(height => height === actual.buttonHeight), `${label}: invite controls have equal heights`)
     assert.deepEqual(actual.headingMargins, ['0px', '0px'], `${label}: change heading margins`)
+    // A wide-only column would otherwise share its phone cell with the details.
+    assert.equal(actual.wideOnlyCell, phone ? 'none' : 'table-cell', `${label}: wide-only table cell`)
   }
-  console.log('CSS cascade: project lists, invite controls and change headings match at both widths and themes')
+  console.log('CSS cascade: project lists, invite controls, change headings and wide-only cells match at both widths and themes')
 } finally {
   await browser.close()
 }

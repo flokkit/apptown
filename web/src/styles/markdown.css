@@ -4,7 +4,7 @@
 
 .md { line-height: 1.6; font-size: var(--fs-base); }
 .md h1, .md h2, .md h3 { color: var(--text); letter-spacing: 0; }
-.md h1 { font-size: var(--fs-title-sm); } .md h2 { font-size: var(--fs-subheading); } .md h3 { font-size: var(--fs-button); }
+.md h1 { font-size: var(--fs-xl); } .md h2 { font-size: var(--fs-lg); } .md h3 { font-size: var(--fs-base); }
 .md pre { background: var(--code-bg); border: 1px solid var(--rule); padding: 10px; border-radius: var(--radius-sm); overflow-x: auto; }
 .md code { background: var(--panel2); padding: 1px 4px; border-radius: var(--radius-xs); }
 .md pre code { background: none; padding: 0; }
@@ -44,7 +44,7 @@
 
 /* Rendered integration docs */
 .md-doc { font-size: var(--fs-sm); line-height: 1.55; }
-.md-doc h1 { font-size: var(--fs-md); } .md-doc h2 { font-size: var(--fs-button); margin-top: 18px; }
+.md-doc h1 { font-size: var(--fs-lg); } .md-doc h2 { font-size: var(--fs-base); margin-top: 18px; }
 .md-doc table { border-collapse: collapse; margin: 8px 0; }
 .md-doc th, .md-doc td { border: 1px solid var(--border); padding: 4px 10px; font-size: var(--fs-xs); }
 .md-doc code { background: var(--panel2); padding: 1px 4px; border-radius: var(--radius-xs); }

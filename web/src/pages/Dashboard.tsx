@@ -184,7 +184,7 @@ export default function Dashboard() {
 
       {noProjects && (
         <div className="dash-start">
-          <Link to="/projects/_new"><button className="primary btn-big">+ Create project</button></Link>
+          <Link to="/projects/_new"><button className="primary">+ Create project</button></Link>
         </div>
       )}
 

@@ -51,7 +51,11 @@
 }
 
 /* Unknown is an empty circle the size of the other states' dot, centred on the word. */
-.chip:is(.unknown,.stale) > span[aria-hidden] { font-size: 0; display: inline-block; box-sizing: border-box; width: 0.7rem; height: 0.7rem; border: 1.5px solid currentColor; border-radius: 50%; margin-right: 0.4rem; vertical-align: middle; position: relative; top: -0.05rem; }
+/* Every status marker is drawn the same way, a circle of one size and
+   position: filled for a state, hollow for unknown or stale. The text dot
+   stays in the markup for copied text; it is not what is seen. */
+.chip > span[aria-hidden] { font-size: 0; display: inline-block; box-sizing: border-box; width: 0.7rem; height: 0.7rem; border: 1.5px solid currentColor; background: currentColor; border-radius: 50%; margin-right: 0.4rem; vertical-align: middle; position: relative; top: -0.05rem; }
+.chip:is(.unknown,.stale) > span[aria-hidden] { background: transparent; }
 /* A dot on its own has no gap after it; after the unknown rule, so it wins. */
 .chip.status-dot > span[aria-hidden] { margin-right: 0; }
 

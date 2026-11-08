@@ -36,7 +36,7 @@
 .ch-dot.unknown { background: transparent; border: 1.5px dashed var(--unknown); }
 .ch-state-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .ch-state-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.ch-headline { font-size: var(--fs-md); font-weight: var(--fw-strong); overflow-wrap: anywhere; }
+.ch-headline { font-size: var(--fs-lg); font-weight: var(--fw-strong); overflow-wrap: anywhere; }
 .ch-sentence { color: var(--muted); overflow-wrap: anywhere; white-space: pre-wrap; }
 .ch-quote { color: var(--text); }
 .ch-waiting { font-size: var(--fs-base); color: var(--muted); }
@@ -79,7 +79,7 @@
   display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 9px 18px;
   background: var(--chrome); border-bottom: 1px solid var(--rule); font-size: var(--fs-sm); color: var(--subtle);
 }
-.ch-ledger-head strong { color: var(--text); font-family: var(--font-heading); font-size: var(--fs-button); }
+.ch-ledger-head strong { color: var(--text); font-family: var(--font-heading); font-size: var(--fs-base); }
 .ch-line {
   display: grid; grid-template-columns: 116px minmax(0, 1fr) minmax(0, 210px) minmax(0, max-content) max-content; gap: 14px; align-items: baseline; border-bottom: 1px solid var(--rule-faint); padding: 10px 12px;
 }
@@ -160,7 +160,7 @@
 
 .event-log { overflow-wrap: anywhere; }
 .event-log .ch-line { grid-template-columns: minmax(0, 1fr) auto 12px; }
-.event-payload { max-height: 320px; overflow: auto; white-space: pre; font-size: var(--fs-2xs); }
+.event-payload { max-height: 320px; overflow: auto; white-space: pre; font-size: var(--fs-xs); }
 .check-title { flex-wrap: nowrap; }
 .check-title > span:last-child { min-width: 0; }
 
