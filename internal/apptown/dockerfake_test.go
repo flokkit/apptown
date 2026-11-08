@@ -56,7 +56,7 @@ type fakeDocker struct {
 }
 
 func newFakeDocker() *fakeDocker {
-	return &fakeDocker{port: 43210, started: map[string]bool{}, objects: map[string]bool{}}
+	return &fakeDocker{port: 43210, started: map[string]bool{}, objects: map[string]bool{}, labels: map[string]map[string]string{}}
 }
 
 func (f *fakeDocker) Run(ctx context.Context, host string, req docker.Command) ([]byte, error) {
@@ -178,9 +178,6 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 				f.storageContainers[n] = dockerfake.StorageContainer(args)
 				// Real docker keeps a container's labels; so does the fake,
 				// for the source label the preview reuse check asks about.
-				if f.labels == nil {
-					f.labels = map[string]map[string]string{}
-				}
 				f.labels[n] = map[string]string{}
 				if f.limits == nil {
 					f.limits = map[string]string{}
