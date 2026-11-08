@@ -42,17 +42,26 @@ func TestRunningContainerWithoutStatsLeavesHostMemoryKnown(t *testing.T) {
 	}
 }
 
-// Attached hosts have no whole-host memory probe. Its absence must not turn
-// successful container and disk checks into an unknown capacity reading.
-func TestAttachedCapacityOmitsUnsupportedHostMemory(t *testing.T) {
+// Both whole-host figures survive the attached daemon's background reading and
+// the stored capacity returned to the target page. Container sums cannot pass.
+func TestAttachedCapacityCarriesWholeHostMemoryAndCPU(t *testing.T) {
 	t.Parallel()
 	w := newDigestWorldWith(t, "", sizedNeedYAML, nil)
 	c, err := backgroundCapacity(t, w.s, "lab")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Memory.HostUsed != nil || capacityFailure(c) != "" {
-		t.Fatalf("unsupported probe made capacity unknown: %+v", c.Memory)
+	if w.lab.Origin != OriginAttached {
+		t.Fatalf("not an attached host: %+v", w.lab)
+	}
+	if c.Memory.HostUsed == nil || !c.Memory.HostUsed.Known || c.Memory.HostUsed.Value != 2<<30 {
+		t.Fatalf("host memory missing: %+v", c.Memory)
+	}
+	if c.CPU.HostUsed == nil || !c.CPU.HostUsed.Known || c.CPU.HostUsed.Value != 3.2 {
+		t.Fatalf("host CPU missing: %+v", c.CPU)
+	}
+	if capacityFailure(c) != "" {
+		t.Fatal(capacityFailure(c))
 	}
 }
 

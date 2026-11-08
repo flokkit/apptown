@@ -176,7 +176,7 @@ capabilities (`StockCapabilities`), and fails if a cell here differs.
 | Declared resources | exact: each part's container gets its memory (swap included) and cpus | exact: each part's service gets mem_limit, memswap_limit and cpus | rounded up to the cheapest current instance size that covers each part; one no size covers is refused before any effect | none: a site has no runtime |
 | A need's declared resources | exact on the need's service; a standing need takes a new size in place, or is remade on its volume when a limit is lifted | exact: the need's service gets mem_limit, memswap_limit and cpus | refused: the managed Postgres is made at the integration's database size | refused: static-only |
 | A part or need larger than the host | refused before any effect, previews included; the sum of limits may exceed the host | not checked: Portainer's endpoint is read for the capacity view only | rounds to a size, or is refused | none: a site has no runtime |
-| Capacity shown | fixed: memory and CPUs it has, the limits Docker enforces, the containers' use, and the disk holding Docker's data (its folder, when it was read, and whether new releases are refused) | fixed: what the endpoint has, and AppTown's own deployments' limits; use and disk not read | elastic: each part's size and listed price, and an estimated monthly cost | none: a site has no runtime |
+| Capacity shown | fixed: memory and CPUs it has, the limits Docker enforces, whole-host memory and CPU use, the containers' use, and the disk holding Docker's data (its folder, when it was read, and whether new releases are refused) | fixed: what the endpoint has, and AppTown's own deployments' limits; use and disk not read | elastic: each part's size and listed price, and an estimated monthly cost | none: a site has no runtime |
 | A host short of disk | a release or preview is refused before anything is pulled or started while Docker's data folder has less than 5% free (at least 1 GiB, at most 20 GiB) or cannot be read, read when it starts; what runs is not touched | not checked: disk is not read through Portainer | not applicable: the platform's disks | not applicable |
 | Container logs | every container AppTown starts from this release on logs through `json-file`, rotated at 10 MiB, three files kept; one started earlier keeps its own until it is made again | the endpoint daemon's default; not set by AppTown in 1.0 | the platform's | none: a site has no runtime |
 | Limit events | out-of-memory kills and exits of every standing deployment's parts and needs, from the daemon's events | not read | not reported to AppTown | none: a site has no runtime |
@@ -301,6 +301,28 @@ named generated queries. Data protection stores protection and provider-backup
 readings; maintenance stores controller and worker filesystem readings. A new
 service reads the same evidence after restart, bound to the same target settings
 or deployment identity. There is no process-memory reading fallback.
+
+Every Docker host, built-in or attached, reads whole-host memory and CPU through
+its standing disk reader container, with `--cgroupns host`, no network and a
+read-only data mount. A Docker host needs cgroup v2 for these readings. If the
+reader's cgroup root has `memory.current`, the host is a slice of a larger
+machine: memory use is `memory.current - inactive_file` from `memory.stat`, and
+CPU use is the change in `cpu.stat`'s `usage_usec` divided by elapsed time,
+expressed in cores. A numeric `memory.max` that differs from Docker's memory
+total makes memory use unknown with the differing totals in the reason.
+
+Otherwise, the cgroup v2 root describes a whole machine. Memory use is
+`MemTotal - MemAvailable` from `/proc/meminfo`. CPU use is the busy fraction
+between two `/proc/stat` samples, multiplied by online CPUs; idle and iowait
+are excluded, and guest time is not counted twice. Only this route checks the
+reader's memory and CPU totals against Docker's totals. A mismatch names the
+possibility that `/proc` describes a virtualised host or VM.
+
+Both routes sample CPU about one second apart, with the wait cancelled by the
+caller's context. Totals always come from Docker. An unreadable or malformed
+counter stays unknown with its reason; cgroup v1 readings are unknown with a
+reason naming the cgroup v2 requirement. Container sums never replace whole-host
+use.
 
 Each successful capacity figure retains its own time. Machine totals (memory,
 CPU count and disk size) stay valid for seven days. Live use, free disk, tenant

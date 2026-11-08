@@ -1,7 +1,8 @@
-// Package diskspacetest provides an owned fake daemon for disk probes.
+// Package diskspacetest provides an owned fake daemon for the disk and kernel reader.
 package diskspacetest
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -13,9 +14,15 @@ import (
 	"github.com/flokkit/apptown/internal/dockerlabel"
 )
 
-// Daemon answers only disk commands using the shared result fake. Each test
+// Daemon answers disk and kernel commands using the shared result fake. Each test
 // daemon owns an instance; unrelated result consumers remain unclaimed.
 type Daemon struct {
+	// Cgroup scripts cgroup answers by file name (scope selects cgroup, proc or v1).
+	// Nil describes a whole machine with a cgroup v2 root.
+	Cgroup func(string) (int, []byte, string)
+	// Kernel scripts /proc answers; nil reports 8 GiB, 8 cores and 40% busy.
+	Kernel  func(string) (int, []byte, string)
+	samples int
 	Answer  func() (int, []byte, string)
 	once    sync.Once
 	results containerresulttest.Daemon
@@ -49,6 +56,35 @@ func (d *Daemon) Run(args []string) ([]byte, error, bool) {
 	}
 	d.once.Do(func() {
 		d.results.Configure(func(image, container, script string, args, env []string) (int, []byte, string, bool) {
+			if strings.HasPrefix(script, "if [ -f /sys/fs/cgroup/memory.current ]") || strings.HasPrefix(script, "cat /sys/fs/cgroup/") {
+				file := strings.TrimPrefix(script, "cat /sys/fs/cgroup/")
+				if strings.HasPrefix(script, "if ") {
+					file = "scope"
+				}
+				if d.Cgroup != nil {
+					code, data, said := d.Cgroup(file)
+					return code, data, said, true
+				}
+				if file == "scope" {
+					return 0, []byte("proc\n"), "", true
+				}
+				return 1, nil, "no cgroup counter", true
+			}
+			if script == "cat /proc/meminfo" || script == "cat /proc/stat" {
+				if d.Kernel != nil {
+					code, data, said := d.Kernel(script)
+					return code, data, said, true
+				}
+				if script == "cat /proc/meminfo" {
+					return 0, []byte("MemTotal: 8388608 kB\nMemAvailable: 6291456 kB\n"), "", true
+				}
+				d.samples++
+				data := fmt.Sprintf("cpu %d 0 0 %d 0 0 0 0 0 0\n", d.samples*40, d.samples*60)
+				for i := 0; i < 8; i++ {
+					data += fmt.Sprintf("cpu%d 0 0 0 0 0 0 0 0\n", i)
+				}
+				return 0, []byte(data), "", true
+			}
 			if script != "df -Pk /d" {
 				return 0, nil, "", false
 			}

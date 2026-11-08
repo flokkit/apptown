@@ -75,9 +75,9 @@ type ResourceCapacity struct {
 	Total    Figure   `json:"total"`
 	Promised Promised `json:"promised"`
 	InUse    *Split   `json:"inUse,omitempty"` // memory only: the containers' use, not the host's
-	// HostUsed, memory only, is the whole host's use (the OS, caches and
-	// processes outside containers included): known on the built-in host
-	// when this AppTown sees the daemon's own total (hostUse).
+	// HostUsed is the whole host's memory or CPU use, including the OS
+	// and processes outside containers: known on any Docker host
+	// when the reader and daemon report the same total (hostUse).
 	HostUsed      *Figure `json:"hostUsed,omitempty"`
 	Overcommitted bool    `json:"overcommitted"`
 }
@@ -153,7 +153,6 @@ func (s *Service) Capacity(ctx context.Context, name string) (TargetCapacity, er
 }
 
 func (s *Service) targetCapacity(ctx context.Context, t *Target) (TargetCapacity, error) {
-	now := s.now()
 	var out TargetCapacity
 	var err error
 	switch t.Kind {
@@ -169,7 +168,9 @@ func (s *Service) targetCapacity(ctx context.Context, t *Target) (TargetCapacity
 	if err != nil {
 		return TargetCapacity{}, err
 	}
-	out.Target, out.Kind, out.ReadAt = t.Name, t.Kind, now
+	// A CPU reading spans a sampling interval. Stamp the completed check,
+	// so retaining its figures cannot advance its age by that interval later.
+	out.Target, out.Kind, out.ReadAt = t.Name, t.Kind, s.now()
 	return out, nil
 }
 
@@ -197,17 +198,7 @@ func (s *Service) dockerCapacity(ctx context.Context, t *Target) (TargetCapacity
 	}
 	used, usedErr := docker.RunningUsage(ctx, dk)
 	out.Memory.InUse = inUseOf(limits, limitsErr, used, usedErr)
-	// Whole-host memory has no probe on attached hosts. Leave that optional
-	// figure absent instead of reporting a check that can never succeed.
-	if t.Origin == OriginBuiltIn {
-		if out.Memory.Total.Known {
-			host := s.hostUse(t, info.MemoryBytes)
-			out.Memory.HostUsed = &host
-		} else {
-			why := unknown("the daemon's total is not known, so this host's own use is not comparable")
-			out.Memory.HostUsed = &why
-		}
-	}
+	out.Memory.HostUsed, out.CPU.HostUsed = s.hostUse(ctx, dk, info.MemoryBytes, info.CPUs, info.DataRoot)
 
 	if limitsErr == nil {
 		tenants, err := s.dockerTenants(ctx, t, limits, used, usedErr)
@@ -261,7 +252,8 @@ func inUseOf(limits []docker.ContainerLimit, limitsErr error, used map[string]do
 }
 
 func unknownResource(reason string, memory bool) ResourceCapacity {
-	r := ResourceCapacity{Total: unknown(reason), Promised: unknownPromised(fmt.Errorf("%s", reason))}
+	why := unknown(reason)
+	r := ResourceCapacity{Total: why, HostUsed: &why, Promised: unknownPromised(fmt.Errorf("%s", reason))}
 	if memory {
 		r.InUse = &Split{AppTown: unknown(reason), Other: unknown(reason)}
 	}

@@ -13,7 +13,6 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/hostmem"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -29,10 +28,8 @@ type Service struct {
 	healthParts map[string]*appcontract.Part
 	// limitsPruned is when the limit events were last pruned; the sweep
 	// prunes at most hourly.
-	limitsMu     sync.Mutex
-	limitsPruned time.Time
-	// hostMemory reads the built-in host; nil uses /proc/meminfo.
-	hostMemory       func() (hostmem.Memory, error)
+	limitsMu         sync.Mutex
+	limitsPruned     time.Time
 	hosts            *Hosts
 	env              *Environment
 	providers        *Providers
@@ -108,8 +105,6 @@ type Dependencies struct {
 	CopyCheck dataCopyCheck
 	// Now is AppTown's clock; nil is the real one.
 	Now func() time.Time
-	// HostMemory reads the built-in host's memory; nil reads /proc/meminfo.
-	HostMemory func() (hostmem.Memory, error)
 }
 
 func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
@@ -140,7 +135,6 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		providers = NewProviders(ctx, db, ProviderRecords{Targets: targets, Deployments: deployments}, hosts, env, ProviderDependencies{Projects: deps.Projects, Now: deps.Now})
 	}
 	s := &Service{
-		hostMemory:         deps.HostMemory,
 		records:            context.WithoutCancel(ctx),
 		hosts:              hosts,
 		creationAuthority:  deps.CreationAuthority,

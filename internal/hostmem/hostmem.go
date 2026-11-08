@@ -1,51 +1,37 @@
-// Package hostmem reads the memory of the machine this process runs on, as
-// the kernel reports it to this process: its total and what is available.
-// It reads /proc/meminfo only; on a system without it every read is an
-// error, never zero.
+// Package hostmem parses whole-host kernel memory and CPU readings.
+// Missing or malformed readings are errors, never zero.
 package hostmem
 
 import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"os"
+	"math"
 	"strconv"
 	"strings"
 )
 
-// Memory is the machine's memory as /proc/meminfo reports it, in bytes.
-type Memory struct {
+// memory is the machine's memory as /proc/meminfo reports it, in bytes.
+type memory struct {
 	TotalBytes     int64
 	AvailableBytes int64
 }
 
 // UsedBytes is what is not available: the processes', the kernel's and the
 // caches the kernel will not give back.
-func (m Memory) UsedBytes() int64 { return m.TotalBytes - m.AvailableBytes }
+func (m memory) UsedBytes() int64 { return m.TotalBytes - m.AvailableBytes }
 
-// Reader reads the host's memory; Read is the real one.
-type Reader func() (Memory, error)
-
-// Read reads /proc/meminfo.
-func Read() (Memory, error) {
-	b, err := os.ReadFile("/proc/meminfo")
-	if err != nil {
-		return Memory{}, fmt.Errorf("reading the host's memory: %w", err)
-	}
-	return parseMeminfo(b)
-}
-
-// parseMeminfo reads MemTotal and MemAvailable from a meminfo listing. Both
+// ParseMeminfo reads MemTotal and MemAvailable from a meminfo listing. Both
 // must be present: a kernel without MemAvailable (older than 3.14) gives no
 // honest figure for what is free.
-func parseMeminfo(b []byte) (Memory, error) {
+func ParseMeminfo(b []byte) (memory, error) {
 	fields := kib(b, "MemTotal:", "MemAvailable:")
 	total, okT := fields["MemTotal:"]
 	avail, okA := fields["MemAvailable:"]
 	if !okT || !okA || total <= 0 || avail < 0 || avail > total {
-		return Memory{}, fmt.Errorf("the host's meminfo has no readable MemTotal and MemAvailable")
+		return memory{}, fmt.Errorf("the host's meminfo has no readable MemTotal and MemAvailable")
 	}
-	return Memory{TotalBytes: total, AvailableBytes: avail}, nil
+	return memory{TotalBytes: total, AvailableBytes: avail}, nil
 }
 
 // kib reads the named "Key:  123 kB" lines, in bytes.
@@ -58,14 +44,23 @@ func kib(b []byte, keys ...string) map[string]int64 {
 	sc := bufio.NewScanner(bytes.NewReader(b))
 	for sc.Scan() {
 		f := strings.Fields(sc.Text())
-		if len(f) != 3 || !want[f[0]] || f[2] != "kB" {
+		if len(f) == 0 || !want[f[0]] {
 			continue
+		}
+		if len(f) != 3 || f[2] != "kB" {
+			return nil
+		}
+		if _, duplicate := out[f[0]]; duplicate {
+			return nil
 		}
 		n, err := strconv.ParseInt(f[1], 10, 64)
-		if err != nil {
-			continue
+		if err != nil || n < 0 || n > math.MaxInt64/1024 {
+			return nil
 		}
 		out[f[0]] = n * 1024
+	}
+	if sc.Err() != nil {
+		return nil
 	}
 	return out
 }
