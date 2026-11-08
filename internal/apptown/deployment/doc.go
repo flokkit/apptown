@@ -136,6 +136,9 @@
 // The subsystem operating guide documents freshness, source limits and shutdown.
 // Capacity and inventory readings live in Deployment's database, bound to the
 // target settings revision. New services read stored evidence after restart.
+// Whole-host CPU and memory use are read in one standing-reader command,
+// with two CPU samples a second apart. Cgroup CPU rates use the host uptime
+// interval so remote Docker transport time does not dilute the reading.
 // Each capacity figure keeps its last successful time: machine totals last seven
 // days, live use and free disk are fresh for fifteen minutes and unknown after
 // six hours. A failed check retains values and the prior overall read time,

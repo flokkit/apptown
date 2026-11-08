@@ -3,6 +3,8 @@ package diskspace
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/containerresult"
@@ -29,23 +31,85 @@ func ReadThroughDocker(ctx context.Context, dk docker, image, root string, now f
 	return space, err
 }
 
-// ReadKernel reads host counters through the same standing reader as disk.
-// scope identifies a cgroup v2 slice, a whole-machine root, or unsupported v1.
-// Only the capacity files below are admitted; the data root and options keep
-// the reader's identity identical to disk's, so there is one per daemon.
-func ReadKernel(ctx context.Context, dk docker, image, root, file string, now func() time.Time) ([]byte, error) {
-	var script string
-	switch file {
-	case "scope":
-		script = "if [ -f /sys/fs/cgroup/memory.current ]; then echo cgroup; elif [ -f /sys/fs/cgroup/cgroup.controllers ]; then echo proc; else echo v1; fi"
-	case "meminfo", "stat":
-		script = "cat /proc/" + file
-	case "memory.current", "memory.stat", "memory.max", "cpu.stat":
-		script = "cat /sys/fs/cgroup/" + file
-	default:
-		return nil, fmt.Errorf("unsupported kernel reading %q", file)
+// ReadKernel reads both host CPU samples and memory in one standing-reader exec.
+// Uptime is sampled on the Docker host so transport latency cannot change the
+// cgroup CPU rate. The reader identity and options are shared with disk reads.
+func ReadKernel(ctx context.Context, dk docker, image, root string, now func() time.Time) (map[string][]byte, error) {
+	answer, err := readStanding(ctx, dk, image, root, kernelScript, now, nil)
+	if err != nil {
+		return nil, err
 	}
-	return readStanding(ctx, dk, image, root, script, now, nil)
+	return parseKernel(answer)
+}
+
+// A failed counter read leaves an empty section for its resource parser; the
+// other resource can still be known. A failed sampling wait fails the command.
+const kernelScript = `section() { echo "== $1"; cat "$2"; }
+echo '== scope'
+if [ -f /sys/fs/cgroup/memory.current ]; then scope=cgroup
+elif [ -f /sys/fs/cgroup/cgroup.controllers ]; then scope=proc
+else scope=v1
+fi
+echo "$scope"
+section uptime.first /proc/uptime
+case "$scope" in
+cgroup)
+ section memory.current /sys/fs/cgroup/memory.current
+ section memory.stat /sys/fs/cgroup/memory.stat
+ section memory.max /sys/fs/cgroup/memory.max
+ section cpu.first /sys/fs/cgroup/cpu.stat
+ ;;
+proc)
+ section meminfo /proc/meminfo
+ section cpu.first /proc/stat
+ ;;
+esac
+sleep 1 || exit 1
+section uptime.second /proc/uptime
+case "$scope" in
+cgroup) section cpu.second /sys/fs/cgroup/cpu.stat ;;
+proc) section cpu.second /proc/stat ;;
+esac
+exit 0`
+
+func parseKernel(answer []byte) (map[string][]byte, error) {
+	parts := map[string][]byte{}
+	name := ""
+	for _, line := range strings.Split(strings.TrimSuffix(string(answer), "\n"), "\n") {
+		if strings.HasPrefix(line, "== ") {
+			name = strings.TrimPrefix(line, "== ")
+			if _, exists := parts[name]; exists {
+				return nil, fmt.Errorf("duplicate kernel section %q", name)
+			}
+			parts[name] = nil
+		} else {
+			if name == "" {
+				return nil, fmt.Errorf("kernel reading has data outside a section")
+			}
+			parts[name] = append(parts[name], []byte(line+"\n")...)
+		}
+	}
+	expected := []string{"scope", "uptime.first", "uptime.second"}
+	switch strings.TrimSpace(string(parts["scope"])) {
+	case "cgroup":
+		expected = append(expected, "memory.current", "memory.stat", "memory.max", "cpu.first", "cpu.second")
+	case "proc":
+		expected = append(expected, "meminfo", "cpu.first", "cpu.second")
+	case "v1":
+	default:
+		return nil, fmt.Errorf("the reader's cgroup scope is not readable")
+	}
+	for _, name := range expected {
+		if _, exists := parts[name]; !exists {
+			return nil, fmt.Errorf("missing kernel section %q", name)
+		}
+	}
+	for name := range parts {
+		if !slices.Contains(expected, name) {
+			return nil, fmt.Errorf("unknown kernel section %q", name)
+		}
+	}
+	return parts, nil
 }
 
 func readStanding(ctx context.Context, dk docker, image, root, script string, now func() time.Time, validate func([]byte) error) ([]byte, error) {

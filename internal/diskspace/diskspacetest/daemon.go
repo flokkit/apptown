@@ -20,7 +20,9 @@ type Daemon struct {
 	// Cgroup scripts cgroup answers by file name (scope selects cgroup, proc or v1).
 	// Nil describes a whole machine with a cgroup v2 root.
 	Cgroup func(string) (int, []byte, string)
-	// Kernel scripts /proc answers; nil reports 8 GiB, 8 cores and 40% busy.
+	// Kernel scripts /proc counter answers; nil reports 8 GiB, 8 cores and 40% busy.
+	// Uptime scripts the two host uptime readings; nil advances by one second.
+	Uptime  func() string
 	Kernel  func(string) (int, []byte, string)
 	samples int
 	Answer  func() (int, []byte, string)
@@ -56,34 +58,8 @@ func (d *Daemon) Run(args []string) ([]byte, error, bool) {
 	}
 	d.once.Do(func() {
 		d.results.Configure(func(image, container, script string, args, env []string) (int, []byte, string, bool) {
-			if strings.HasPrefix(script, "if [ -f /sys/fs/cgroup/memory.current ]") || strings.HasPrefix(script, "cat /sys/fs/cgroup/") {
-				file := strings.TrimPrefix(script, "cat /sys/fs/cgroup/")
-				if strings.HasPrefix(script, "if ") {
-					file = "scope"
-				}
-				if d.Cgroup != nil {
-					code, data, said := d.Cgroup(file)
-					return code, data, said, true
-				}
-				if file == "scope" {
-					return 0, []byte("proc\n"), "", true
-				}
-				return 1, nil, "no cgroup counter", true
-			}
-			if script == "cat /proc/meminfo" || script == "cat /proc/stat" {
-				if d.Kernel != nil {
-					code, data, said := d.Kernel(script)
-					return code, data, said, true
-				}
-				if script == "cat /proc/meminfo" {
-					return 0, []byte("MemTotal: 8388608 kB\nMemAvailable: 6291456 kB\n"), "", true
-				}
-				d.samples++
-				data := fmt.Sprintf("cpu %d 0 0 %d 0 0 0 0 0 0\n", d.samples*40, d.samples*60)
-				for i := 0; i < 8; i++ {
-					data += fmt.Sprintf("cpu%d 0 0 0 0 0 0 0 0\n", i)
-				}
-				return 0, []byte(data), "", true
+			if strings.HasPrefix(script, "section() {") {
+				return d.kernelAnswer()
 			}
 			if script != "df -Pk /d" {
 				return 0, nil, "", false
@@ -155,3 +131,65 @@ func (d *Daemon) IsRead(args []string) bool {
 }
 
 func (d *Daemon) SetAnswer(answer func() (int, []byte, string)) { d.Answer = answer }
+
+// kernelAnswer produces one labelled response, without waiting in the fake.
+func (d *Daemon) kernelAnswer() (int, []byte, string, bool) {
+	var answer strings.Builder
+	section := func(name string, data []byte) {
+		fmt.Fprintf(&answer, "== %s\n%s\n", name, strings.TrimSuffix(string(data), "\n"))
+	}
+	scope := "proc"
+	if d.Cgroup != nil {
+		code, data, said := d.Cgroup("scope")
+		if code != 0 {
+			return code, nil, said, true
+		}
+		scope = strings.TrimSpace(string(data))
+	}
+	section("scope", []byte(scope))
+	for i := range 2 {
+		suffix := "first"
+		if i == 1 {
+			suffix = "second"
+		}
+		uptime := fmt.Sprintf("%d.00 0.00", 100+i)
+		if d.Uptime != nil {
+			uptime = d.Uptime()
+		}
+		section("uptime."+suffix, []byte(uptime))
+		files := []string{}
+		if scope == "cgroup" {
+			if i == 0 {
+				files = append(files, "memory.current", "memory.stat", "memory.max")
+			}
+			files = append(files, "cpu.stat")
+		} else if scope == "proc" {
+			if i == 0 {
+				files = append(files, "meminfo")
+			}
+			files = append(files, "stat")
+		}
+		for _, file := range files {
+			var data []byte
+			if scope == "cgroup" {
+				_, data, _ = d.Cgroup(file)
+			} else if d.Kernel != nil {
+				_, data, _ = d.Kernel("cat /proc/" + file)
+			} else if file == "meminfo" {
+				data = []byte("MemTotal: 8388608 kB\nMemAvailable: 6291456 kB\n")
+			} else {
+				d.samples++
+				data = fmt.Appendf(nil, "cpu %d 0 0 %d 0 0 0 0 0 0\n", d.samples*40, d.samples*60)
+				for core := range 8 {
+					data = fmt.Appendf(data, "cpu%d 0 0 0 0 0 0 0 0\n", core)
+				}
+			}
+			name := file
+			if file == "stat" || file == "cpu.stat" {
+				name = "cpu." + suffix
+			}
+			section(name, data)
+		}
+	}
+	return 0, []byte(answer.String()), "", true
+}

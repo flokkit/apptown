@@ -443,7 +443,7 @@ func TestCapacityObservationJobsKeepTheTargetRevision(t *testing.T) {
 		t.Fatalf("revision lost: %+v", rows)
 	}
 	kind := apptownJobKinds(a)[deployment.CapacityObservationJob]
-	if kind.Timeout != 30*time.Second || kind.MaxAttempts != 1 {
+	if kind.Timeout != 60*time.Second || kind.MaxAttempts != 1 {
 		t.Fatalf("unbounded observation: %+v", kind)
 	}
 }

@@ -47,10 +47,23 @@ func TestRunningContainerWithoutStatsLeavesHostMemoryKnown(t *testing.T) {
 func TestAttachedCapacityCarriesWholeHostMemoryAndCPU(t *testing.T) {
 	t.Parallel()
 	w := newDigestWorldWith(t, "", sizedNeedYAML, nil)
+	before := len(w.hosts.commands("lab"))
 	c, err := backgroundCapacity(t, w.s, "lab")
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Exactly one kernel script runs for the whole capacity reading. Disk's
+	// separate df command and result-file cleanup are not kernel samples.
+	kernelExecs := 0
+	for _, command := range w.hosts.commands("lab")[before:] {
+		if strings.HasPrefix(command, "exec ") && strings.Contains(command, "sh -c") && !strings.Contains(command, "df -Pk /d") {
+			kernelExecs++
+		}
+	}
+	if kernelExecs != 1 {
+		t.Fatalf("capacity reading made %d kernel execs, want one", kernelExecs)
+	}
+
 	if w.lab.Origin != OriginAttached {
 		t.Fatalf("not an attached host: %+v", w.lab)
 	}
