@@ -131,3 +131,23 @@ it('labels only an explicitly associated set before its numbered release', async
     expect(el.querySelector(`[id="backup-${SET}"]`)).not.toBeNull()
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+// On a phone the details cell already names the deployment and shares its
+// place, so the Deployment column is a desktop column only; on a phone the
+// two would paint over each other.
+it('shows the Deployment column on wide screens only', async () => {
+  const client = newQueryClient()
+  const body = { keep: 7, where: '/b', backups: [set] }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/backups') ? body : {}))))
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><BackupsView /></MemoryRouter></QueryClientProvider>) })
+    await vi.waitFor(() => expect(el.querySelectorAll('table').length).toBe(2))
+    for (const table of el.querySelectorAll('table')) {
+      const heads = [...table.querySelectorAll('th')]
+      const deployment = heads.findIndex(th => th.textContent === 'Deployment')
+      expect(heads[deployment].classList.contains('record-wide')).toBe(true)
+      for (const row of table.querySelectorAll('tbody tr')) expect(row.children[deployment].classList.contains('record-wide')).toBe(true)
+    }
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

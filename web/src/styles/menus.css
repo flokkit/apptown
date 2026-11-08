@@ -9,7 +9,7 @@
 .popover button { white-space: normal; overflow-wrap: anywhere; text-align: left; }
 .popover :is(.more-menu-list, .split-menu) > button { display: flex; flex-direction: column; align-items: start; padding: 10px 12px; }
 .popover .btn-sub { white-space: normal; }
-.more-menu-button { font-size: var(--fs-symbol); line-height: 1; padding: 4px 12px; }
+.more-menu-button { font-size: var(--fs-lg); line-height: 1; padding: 4px 12px; }
 .split-button > div { display: flex; align-items: stretch; }
 .action-label, :is(.list-action, .project-action, .row-action) :is(button, .btn, a) { white-space: nowrap; }
 :is(.list-action, .project-action, .row-action) .popover button { white-space: normal; }

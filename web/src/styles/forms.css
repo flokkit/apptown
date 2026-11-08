@@ -10,19 +10,18 @@ button {
 button:hover { border-color: var(--text); }
 button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: var(--fw-strong); }
 button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-button.danger { border-color: var(--bad); color: var(--bad); background: var(--panel); }
+/* Four kinds, one size: primary, normal, quiet (subtle) and link. Danger is
+   not a kind: it is red words on a normal or quiet button. Decide on a change
+   keeps its own look, being the one place a person gives assent. */
+button.danger { color: var(--bad); }
 button.danger:hover { background: var(--bad-bg); }
 button.subtle { border-color: transparent; color: var(--muted); background: transparent; }
 button.subtle:hover { color: var(--text); border-color: var(--border); }
 button:disabled { opacity: 0.5; cursor: default; }
 /* A greyed box reads as greyed in both themes: the native dimming is too faint in dark. */
 input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: 0.35; cursor: not-allowed; }
-/* The two sizes above default: btn-big for a page's verbs (try it, finish
-   up), btn-door for the doors that start the whole loop (Change, Release,
-   New integration). */
-button.btn-big { font-size: var(--fs-button); padding: 11px 22px; font-weight: var(--fw-strong); }
-button.btn-door { font-size: var(--fs-md); padding: 14px 24px; font-weight: var(--fw-strong); text-align: left; }
-button.btn-door .btn-sub { font-size: var(--fs-xs); font-weight: 400; margin-top: 4px; opacity: 0.85; }
+/* A button with a second line (a split button's sub-label) says it small. */
+button .btn-sub { font-size: var(--fs-xs); font-weight: 400; margin-top: var(--space-1); opacity: 0.85; }
 
 /* Pick tiles: a big tappable choice with a check in the corner (the
    services a project runs against, the presets a new project starts from). */
@@ -34,9 +33,9 @@ button.btn-door .btn-sub { font-size: var(--fs-xs); font-weight: 400; margin-top
   border: 2px solid var(--border); background: transparent; display: grid; grid-template-columns: 24px 180px minmax(0,1fr); gap: 4px 16px; text-align: left; padding: 12px 28px 12px 0; border-width: 0 0 1px; border-color: var(--border);
 }
 .pick-tile.on { background: var(--accent-bg); border-color: var(--border-strong); }
-.pick-tile .pick-mark { position: absolute; font-weight: 700; color: var(--border); font-size: var(--fs-button); top: 12px; right: 8px; }
+.pick-tile .pick-mark { position: absolute; font-weight: 700; color: var(--border); font-size: var(--fs-base); top: 12px; right: 8px; }
 .pick-tile.on .pick-mark { color: var(--accent); }
-.pick-tile .pick-icon { line-height: 1; grid-column: 1; grid-row: 1 / span 3; font-size: var(--fs-symbol); }
+.pick-tile .pick-icon { line-height: 1; grid-column: 1; grid-row: 1 / span 3; font-size: var(--fs-lg); }
 .pick-tile .pick-title { font-weight: var(--fw-strong); margin-top: 8px; grid-column: 2; margin: 0; }
 
 input, textarea, select {

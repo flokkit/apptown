@@ -31,7 +31,7 @@
 .int-table thead th:nth-child(6) { width: 70px; }
 .int-group th {
   padding-top: 18px; padding-bottom: 8px; background: var(--chrome);
-  font-family: var(--font-heading); font-size: var(--fs-md); font-weight: var(--fw-strong); color: var(--text);
+  font-family: var(--font-heading); font-size: var(--fs-lg); font-weight: var(--fw-strong); color: var(--text);
   border-bottom-color: var(--rule);
 }
 .int-group-blurb { font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: var(--fw-regular); color: var(--subtle); margin-left: 10px; }
@@ -60,7 +60,7 @@ a.int-name:hover { color: var(--accent-hover); }
 .int-detail-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
 .int-detail-head h1 { margin: 0 0 2px; overflow-wrap: anywhere; }
 .int-state { padding: 16px 18px; }
-.int-lead { font-size: var(--fs-md); }
+.int-lead { font-size: var(--fs-lg); }
 .int-checked { font-size: var(--fs-sm); margin-top: 6px; }
 .int-test { font-size: var(--fs-sm); margin-top: 10px; }
 .int-test.bad { color: var(--bad); }

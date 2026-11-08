@@ -104,7 +104,7 @@
     "apptown/pixel-spacing": 5
   },
   "web/src/styles/forms.css": {
-    "apptown/pixel-spacing": 39,
+    "apptown/pixel-spacing": 36,
     "declaration-no-important": 2
   },
   "web/src/styles/infrastructure.css": {
@@ -132,11 +132,11 @@
     "apptown/pixel-spacing": 11
   },
   "web/src/styles/projects.css": {
-    "apptown/pixel-spacing": 50,
+    "apptown/pixel-spacing": 49,
     "declaration-no-important": 1
   },
   "web/src/styles/sections.css": {
-    "apptown/pixel-spacing": 21
+    "apptown/pixel-spacing": 18
   },
   "web/src/styles/shell.css": {
     "apptown/pixel-spacing": 45

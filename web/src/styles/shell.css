@@ -66,7 +66,7 @@
 /* min-width: 0 lets the page column shrink below its widest child, so a wide
    table or a long line scrolls in its own box instead of the whole page. */
 .main { flex: 1; min-width: 0; max-width: none; padding: 16px 28px 48px; }
-.topbar-menu { font-size: var(--fs-md); padding: 2px 8px; line-height: 1; color: var(--text); }
+.topbar-menu { font-size: var(--fs-lg); padding: 2px 8px; line-height: 1; color: var(--text); }
 .topbar-chip { margin-left: 6px; }
 .sidebar-backdrop { display: none; }
 @media (max-width: 800px) {
@@ -94,7 +94,7 @@
   font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--subtle);
 }
 @media (max-width: 800px), (pointer: coarse) {
-  .topbar-menu { min-width: 44px; min-height: 44px; font-size: var(--fs-title-sm); }
+  .topbar-menu { min-width: 44px; min-height: 44px; font-size: var(--fs-xl); }
   .sidebar :is(a, button).nav { padding: 11px 12px; }
   .theme-switch button, .topbar-user button { min-height: 44px; min-width: 44px; padding: 6px 12px; font-size: var(--fs-sm); white-space: nowrap; }
   .sidebar .topbar-find input { min-height: 44px; }
@@ -116,7 +116,10 @@
 @media (max-width: 800px) {
   /* The four lights stay one row beside the logo on a phone. */
   .attention-lights { gap: 0; }
-  .attention-light { width: 26px; height: 26px; }
+  .attention-light { width: 26px; height: 26px; position: relative; }
+  /* A finger gets a 44-pixel-tall target without the light growing; the
+     lights sit side by side, so the target grows only up and down. */
+  .attention-light::before { content: ""; position: absolute; inset: calc(var(--space-2) * -1 - 1px) 0; }
   .topbar .topbar-user-name { white-space: normal; overflow-wrap: anywhere; }
 }
 
@@ -131,6 +134,11 @@
 .nav-drawer-head > a.nav { flex: 1; min-width: 0; }
 .nav-drawer-toggle { background: none; border: 0; color: var(--muted); padding: 6px; min-height: 0; cursor: pointer; border-radius: var(--radius-control); }
 .nav-drawer-toggle:hover { color: var(--text); background: var(--panel2); }
+@media (max-width: 800px) {
+  /* The sidebar's arrows keep their size; a finger gets the whole row height. */
+  .nav-drawer-toggle { position: relative; }
+  .nav-drawer-toggle::before { content: ""; position: absolute; inset: calc(var(--space-2) * -1) 0; }
+}
 .nav-drawer-items { display: flex; flex-direction: column; margin: 2px 0 6px 19px; padding-left: 8px; border-left: 1px solid var(--border); }
 .sidebar a.nav.nav-sub { padding-top: 6px; padding-bottom: 6px; font-size: var(--fs-sm); }
 .nav-group { margin-top: 18px; }

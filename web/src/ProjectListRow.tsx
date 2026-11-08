@@ -18,6 +18,14 @@ export function projectHue(slug: string): number {
   return ((hash ^ (hash >>> 16)) >>> 0) % 360
 }
 
+// ProjectMark is a project's mark wherever its name is listed: its icon, or
+// the first letter of its name on its own tint. Every name then starts at the
+// same place, with or without an icon. small is the size used in tables.
+export function ProjectMark({ name, slug, icon, small = false }: { name: string; slug: string; icon?: string | null; small?: boolean }) {
+  return <span aria-hidden="true" className={`project-avatar${icon ? '' : ' project-letter'}${small ? ' project-mark-small' : ''}`}
+    style={{ '--project-hue': projectHue(slug) } as CSSProperties}>{icon || name.slice(0, 1).toUpperCase()}</span>
+}
+
 // Identity yields space to actions; narrow lists stack the cells in reading order.
 export function ProjectListRow({ project: p, refreshFailed = false, reason, children }: {
   project: ProjectRow; refreshFailed?: boolean; reason?: string; children?: ReactNode
@@ -25,8 +33,7 @@ export function ProjectListRow({ project: p, refreshFailed = false, reason, chil
   const observation = refreshFailed ? failedRuntimeRefresh(p, reason || 'The project list could not be read') : p
   return <ListRow listItem className="project-row" identity={<div className="project-identity">
       {/* The icon opens the project too; the name stays the one keyboard stop. */}
-      <Link to={`/projects/${p.slug}`} tabIndex={-1} aria-hidden="true" className={`project-avatar${p.icon ? '' : ' project-letter'}`}
-        style={{ '--project-hue': projectHue(p.slug) } as CSSProperties}>{p.icon || p.name.slice(0, 1).toUpperCase()}</Link>
+      <Link to={`/projects/${p.slug}`} tabIndex={-1} aria-hidden="true" className="project-mark-link"><ProjectMark name={p.name} slug={p.slug} icon={p.icon} /></Link>
       <div className="project-copy">
         <Link to={`/projects/${p.slug}`} className="project-name"><strong>{p.name}</strong></Link>
         {p.blurb && <div className="muted small project-description">{p.blurb}</div>}

@@ -38,7 +38,6 @@ span.application-open { color: var(--text); border: 1px solid var(--border-stron
 .overview-actions > .row { gap: 8px !important; justify-content: flex-start; }
 .overview-actions .split-button { flex: 0 1 auto; }
 /* Beside the page's other actions the door is a standard button, not a big one. */
-.overview-actions .btn-door { font-size: var(--fs-base); padding: 8px 14px; text-align: left; }
 .overview-actions .btn-sub { display: none; }
 .application-request { display: grid; grid-template-columns: 140px minmax(0,1fr) auto auto; gap: 8px 16px; padding: 12px 0; border-bottom: 1px solid var(--border); color: var(--text); }
 .application-details { margin-top: 28px; border-top: 1px solid var(--border-strong); display: grid; grid-template-columns: 1.5fr 1fr 1fr; column-gap: 24px; }
@@ -106,11 +105,14 @@ span.application-open { color: var(--text); border: 1px solid var(--border-stron
 .project-avatar { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--radius-section); background: var(--panel); border: 1px solid var(--border); flex-shrink: 0; }
 .project-letter { background: var(--project-letter-bg); color: var(--project-letter-ink); border-color: transparent; }
 @media (max-width: 800px) {
-  .project-avatar { width: 28px; height: 28px; align-self: start; }
+  .project-avatar:not(.project-mark-small) { width: 28px; height: 28px; }
+  .project-mark-link { align-self: start; }
   .project-name { overflow-wrap: anywhere; }
   .project-action .btn { padding: 8px 10px; font-size: var(--fs-sm); }
 }
-a.project-avatar, a.project-avatar:hover { text-decoration: none; color: inherit; }
+a.project-mark-link, a.project-mark-link:hover { display: inline-flex; flex-shrink: 0; text-decoration: none; color: inherit; }
+/* In a table the mark sits before the name on its line, sized to the text. */
+.project-mark-small { width: 1.75em; height: 1.75em; font-size: var(--fs-xs); border-radius: var(--radius-control); margin-right: var(--space-2); vertical-align: middle; }
 /* A project row opens its project from anywhere on it: the name's link
    stretches over the row; the icon link and actions sit above it. */
 .project-row .project-name::after { content: ''; position: absolute; inset: 0; }

@@ -49,12 +49,12 @@ try {
     })))) assert.ok(Math.abs(gap.gap - [4, 8, 12, 16, 24, 32][gap.step - 1] * root / 14) < 0.001, `${size}: gap step ${gap.step}`)
     results.push({ size, ...measured })
   }
-  // Small keeps the desktop reference, including steps between the original named tokens.
+  // Small keeps the desktop reference; document headings use the five-size scale.
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.evaluate(() => { document.documentElement.dataset.size = 'small' })
   const desktop = await page.evaluate(() => [...document.querySelectorAll('.md h1, .md h2, .md h3')]
     .map(element => parseFloat(getComputedStyle(element).fontSize)))
-  assert.deepEqual(desktop, [22, 19, 15])
+  assert.deepEqual(desktop, [26, 18, 14])
   const layouts = await page.evaluate(() => ({
     table: getComputedStyle(document.querySelector('table.stack')).display,
     stack: getComputedStyle(document.querySelector('#column-stack')).display,

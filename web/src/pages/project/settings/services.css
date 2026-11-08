@@ -19,7 +19,7 @@
 .services-div { align-items: flex-start; gap: var(--space-3); }
 .services-div-2 { min-width: 0; }
 .services-div-3 { gap: var(--space-2); }
-.services-strong { font-size: var(--fs-md); }
+.services-strong { font-size: var(--fs-lg); }
 .services-div-4 { margin: var(--space-3) 0 var(--space-1); }
 .services-div-5 { margin: calc(var(--space-1) * 0.5) 0 var(--space-2); }
 .services-facts { overflow-wrap: anywhere; }

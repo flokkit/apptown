@@ -18,7 +18,7 @@
   .work-event { grid-template-columns: 24px 56px minmax(0,1fr); gap: 6px; }
 }
 @media (max-width: 600px) {
-  .work-event > :last-child { grid-column: 3; font-size: var(--fs-2xs); }
+  .work-event > :last-child { grid-column: 3; font-size: var(--fs-xs); }
 }
 @media (max-width: 600px) {
   .work-page .ch-facts-table th { width: 100px; }

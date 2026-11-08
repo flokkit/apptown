@@ -21,8 +21,8 @@
 .tool-fold code { font-size: var(--fs-xs); }
 .chat-scroll { padding: 4px 2px; }
 .bubble.working .md { font-size: var(--fs-sm); }
-.chat-input textarea { flex: 1; font-family: inherit; font-size: var(--fs-input); padding: 10px 12px; resize: none; }
-.chat-input button { font-size: var(--fs-input); padding: 10px 22px; }
+.chat-input textarea { flex: 1; font-family: inherit; font-size: var(--fs-field); padding: 10px 12px; resize: none; }
+.chat-input button { font-size: var(--fs-field); padding: 10px 22px; }
 button.chat-starter { border: 1px solid var(--border); padding: 6px 14px; border-radius: var(--radius-sm); }
 
 /* The layout bounds the chat at every width; padding participates in its
@@ -91,7 +91,7 @@ details.console-about { margin: 0; }
   .main:has(.console) { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; overflow: clip; }
   .console > :not(.chat-pane):not(.console-term) { flex-shrink: 0; }
   /* The head is one line: the chip gives way first. */
-  .console-head h1 { font-size: var(--fs-symbol); overflow-wrap: anywhere; }
+  .console-head h1 { font-size: var(--fs-lg); overflow-wrap: anywhere; }
   .console-head { gap: 6px; flex-wrap: wrap; }
   .console-head .chip { min-width: 0; white-space: nowrap; }
   .console-head button { white-space: nowrap; padding-left: 8px; padding-right: 8px; }
@@ -117,7 +117,7 @@ details.console-about { margin: 0; }
   .workshop-actions { gap: 8px; padding: 0; margin: 0 0 8px; border: 0; background: none; flex-wrap: nowrap; }
   /* What the preview was built from is on the change page; the row keeps its verbs. */
   .workshop-actions .tryit-built { display: none; }
-  .workshop-actions button, .workshop-actions button.btn-big { font-size: var(--fs-sm); padding: 6px 10px; }
+  .workshop-actions button { font-size: var(--fs-sm); padding: 6px 10px; }
   .workshop-actions .finish { margin-left: auto; }
   /* The head's change chip is the same door to the change page. */
   .workshop-actions .go-change { display: none; }
@@ -131,7 +131,7 @@ details.console-about { margin: 0; }
 @media(max-width:800px) {
   /* Wrap the header before shortening its activity label or menu. */
   .console-head { flex-wrap: wrap; min-width: 0; }
-  .console-head h1 { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-md); }
+  .console-head h1 { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-lg); }
   .console-head h1 a { color: inherit; text-decoration: none; }
   .console-head > .chip, .console-head > .agent-activity { flex: none; }
 }

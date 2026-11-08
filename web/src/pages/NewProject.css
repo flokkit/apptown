@@ -17,5 +17,5 @@
 .new-project-project-setup-h1 { margin: 0; }
 .new-project-manifest-view-div { gap: var(--space-1); }
 .new-project-manifest-view-div-2 { line-height: 1.5; }
-.new-project-manifest-view-primary { font-size: var(--fs-md); padding: var(--space-3) calc(var(--space-1) * 7.5); }
+.new-project-manifest-view-primary { font-size: var(--fs-lg); padding: var(--space-3) calc(var(--space-1) * 7.5); }
 }

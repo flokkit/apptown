@@ -32,7 +32,6 @@ export const LAND_REQUEST =
 // compact is the chat's strip: ordinary-size buttons, and no Go to change,
 // since the chat's title links to the change.
 export function WorkshopActions({ changeId, view, robotBusy, sessionId, hideRestart = false, compact = false }: { changeId: string; view: ChangeView; robotBusy: boolean; sessionId?: string; hideRestart?: boolean; compact?: boolean }) {
-  const big = compact ? '' : ' btn-big'
   const [confirming, setConfirming] = useState(false)
   const [landed, setLanded] = useState(false)
   const [handed, setHanded] = useState(false)
@@ -61,7 +60,7 @@ export function WorkshopActions({ changeId, view, robotBusy, sessionId, hideRest
     return (
       <div className="workshop-actions">
         <span className="small"><strong>Shipped to main.</strong></span>
-        <Link to={`/changes/${changeId}`}><button className={big.trim()}>See the record</button></Link>
+        <Link to={`/changes/${changeId}`}><button>See the record</button></Link>
       </div>
     )
   }
@@ -69,7 +68,7 @@ export function WorkshopActions({ changeId, view, robotBusy, sessionId, hideRest
     return (
       <div className="workshop-actions">
         <Link to={`/changes/${changeId}`}>
-          <button className={`finish robot-busy${big}`} style={{ fontWeight: 700 }}>Review and approve →</button>
+          <button className="finish robot-busy" style={{ fontWeight: 700 }}>Review and approve →</button>
         </Link>
         <span className="small">waiting for a person to approve</span>
       </div>
@@ -93,9 +92,9 @@ export function WorkshopActions({ changeId, view, robotBusy, sessionId, hideRest
     <div className="workshop-actions">
       {!confirming ? (
         <>
-          <TryIt changeId={changeId} hideRestart={hideRestart} hideBuilt={compact} className={`primary${big}`} />
-          {!compact && <Link className="go-change" to={`/changes/${changeId}`}><button className="btn-big">Go to change</button></Link>}
-          <button className={`finish${big}`} disabled={robotBusy}
+          <TryIt changeId={changeId} hideRestart={hideRestart} hideBuilt={compact} className="primary" />
+          {!compact && <Link className="go-change" to={`/changes/${changeId}`}><button>Go to change</button></Link>}
+          <button className="finish" disabled={robotBusy}
             title={robotBusy ? 'the helper is still working · check and land when it hands back' : `your helper runs ${PRODUCT}'s checks and starts the landing; nothing goes live until it is approved`}
             onClick={() => setConfirming(true)}>✓ Check and land</button>
         </>

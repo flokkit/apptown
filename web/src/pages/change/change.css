@@ -68,7 +68,7 @@
 .ch-page .ch-head { margin: 0; }
 .ch-page .ch-title-row h1 { font-size: var(--fs-xl); line-height: 1.2; overflow-wrap: anywhere; }
 .ch-page .ch-state { margin-top: 0; }
-.ch-page .ch-headline { font-size: var(--fs-md); line-height: 1.45; }
+.ch-page .ch-headline { font-size: var(--fs-lg); line-height: 1.45; }
 .ch-page .ch-state-words .ch-sentence { margin-top: 8px; }
 .ch-page .ch-detail-link { font-size: var(--fs-sm); color: var(--muted); }
 .ch-page .ch-tabs { margin-top: 20px; }
@@ -87,7 +87,7 @@
 .ch-page .ch-record-group > h4 { padding: 8px 0; }
 @media (max-width: 600px) {
   .ch-page section.ch-state { padding: 14px; gap: 12px; }
-  .ch-page .ch-title-row h1 { font-size: var(--fs-title-md); }
+  .ch-page .ch-title-row h1 { font-size: var(--fs-xl); }
   .ch-page .ch-tabs { flex-wrap: nowrap; }
   .ch-page .ch-tabs a.tab { font-size: var(--fs-base); padding: 12px 8px; }
   .ch-page .ch-tabs-sheet { margin-top: 0; }
@@ -126,7 +126,7 @@
 .ch-facts-table .card { border: 0; padding: 4px 0; margin: 0; }
 @container change-details (max-width: 48rem) {
   .ch-story-line { gap: 10px; }
-  .ch-story-line time { font-size: var(--fs-2xs); }
+  .ch-story-line time { font-size: var(--fs-xs); }
   .ch-story-line .step-acts { margin-left: 0; }
   .ch-facts-table th { width: 110px; }
   .ch-story-evidence { padding-left: 10px; }
@@ -163,7 +163,7 @@
 
 /* Shared columns keep values and their evidence links aligned across rows. */
 .ch-change-card, .ch-page .ch-decision { border: 1px solid var(--border); border-radius: var(--radius-section); background: var(--panel); padding: 20px; margin: 0 0 20px; min-width: 0; }
-.ch-overview h2 { font-size: var(--fs-md); }
+.ch-overview h2 { font-size: var(--fs-lg); }
 
 .ch-row-label { color: var(--muted); }
 .ch-value { min-width: 0; overflow-wrap: anywhere; }
@@ -293,7 +293,7 @@
 .ch-preview-switches .ch-technical-switch { margin: 0; }
 .ch-overview [hidden] { display: none; }
 .ch-turn-floater { position: fixed; bottom: 0; z-index: var(--z-sticky-action); box-sizing: border-box; padding: 16px; display: flex; justify-content: flex-end; pointer-events: none; }
-.ch-turn-floater button { pointer-events: auto; font-size: var(--fs-md); padding: 14px 28px; box-shadow: var(--shadow-pop); }
+.ch-turn-floater button { pointer-events: auto; font-size: var(--fs-lg); padding: 14px 28px; box-shadow: var(--shadow-pop); }
 /* The turn colour: the same amber as "Your turn", so the button reads as the thing to do now. */
 .ch-turn-floater .ch-decide { background: var(--warn-mark); border-color: var(--warn-mark); color: var(--on-warn); font-weight: var(--fw-strong); }
 .ch-turn-floater .ch-decide:hover { background: var(--warn); border-color: var(--warn); }

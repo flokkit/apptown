@@ -1,3 +1,4 @@
+import { ProjectMark } from '../ProjectListRow'
 import { useHolds } from '../instancePages'
 import { useNotOff } from '../features'
 import type { ReactNode } from 'react'
@@ -30,7 +31,7 @@ export function DeploymentTable({ rows, withApp = false, release }: { rows: Depl
   // While deployment backups are off, nothing here offers or reports them.
   const backups = useNotOff('backups')
   const columns: ListColumn<DeploymentTableRow>[] = [
-    ...(withApp ? [{ key: 'project', label: 'Project', phone: 'name' as const, render: (r: DeploymentTableRow) => <Link to={`/projects/${r.slug}`}><strong>{r.icon && <span aria-hidden className="deployments-span">{r.icon}</span>}{r.app}</strong></Link> }] : []),
+    ...(withApp ? [{ key: 'project', label: 'Project', phone: 'name' as const, render: (r: DeploymentTableRow) => <><ProjectMark small name={r.app} slug={r.slug} icon={r.icon} /><Link to={`/projects/${r.slug}`}><strong>{r.app}</strong></Link></> }] : []),
     { key: 'deployment', label: 'Deployment', phone: withApp ? 'detail' : 'name', render: r => <><Link to={deploymentHref(r)}>{withApp ? r.label : <strong>{r.label}</strong>}</Link>{r.url && <> <OpenApp url={r.url} hostOnly={r.hostOnly} label={r.label} /></>}{r.targetName && <span className="record-phone muted"> · {r.targetName}</span>}</> },
     ...(release ? [{ key: 'release', label: 'Release', phone: 'extra' as const, className: 'fleet-wraps', render: release }] : []),
     { key: 'target', label: 'Target', kind: 'technical', phone: 'detail', wideOnly: true, className: 'fleet-roomy', render: r => r.targetName ? <Link to={`/targets/${encodeURIComponent(r.targetName)}`}>{r.targetName}</Link> : <span className="muted">—</span> },
