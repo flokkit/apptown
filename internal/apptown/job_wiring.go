@@ -27,6 +27,9 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
+// capacityObservationTimeout allows for Docker hosts reached over SSH.
+const capacityObservationTimeout = 60 * time.Second
+
 // Jobs is the application's single queue. The registry is bound once here;
 // the jobs package receives operations, never App or deployment error types.
 func (a *App) Jobs() *jobs.Queue { return a.jobs }
@@ -118,7 +121,7 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 		integration.HealthObservationJob: {Run: func(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
 			return nil, integrationService.RunHealthObservation(ctx, key, connectionHealth)
 		}, Timeout: 100 * time.Second},
-		deployment.CapacityObservationJob:       {Run: a.capacityObserver.RunJob, Timeout: 30 * time.Second},
+		deployment.CapacityObservationJob:       {Run: a.capacityObserver.RunJob, Timeout: capacityObservationTimeout},
 		dataprotection.ProtectionObservationJob: {Run: a.protectionObserver.RunJob, Timeout: 30 * time.Second},
 		workerObservationJob: {Run: func(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
 			return nil, workers.Run(ctx, key)

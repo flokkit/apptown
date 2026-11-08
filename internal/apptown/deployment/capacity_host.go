@@ -19,21 +19,18 @@ func (s *Service) hostUse(ctx context.Context, dk docker.Scope, memory int64, cp
 		return &mem, &cpu
 	}
 	image := s.env.ToolVersions().Images.DF
-	read := func(file string) ([]byte, error) {
-		return diskspace.ReadKernel(ctx, func(ctx context.Context, args ...string) (string, string, error) {
-			b, err := dk.Run(ctx, args...)
-			return string(b), "", err
-		}, image, root, file, s.now)
-	}
-	scope, err := read("scope")
+	parts, err := diskspace.ReadKernel(ctx, func(ctx context.Context, args ...string) (string, string, error) {
+		b, err := dk.Run(ctx, args...)
+		return string(b), "", err
+	}, image, root, s.now)
 	if err != nil {
 		m := unknownErr(err)
 		c := unknownErr(err)
 		return &m, &c
 	}
-	switch strings.TrimSpace(string(scope)) {
+	switch strings.TrimSpace(string(parts["scope"])) {
 	case "cgroup":
-		return s.cgroupUse(ctx, read, memory)
+		return cgroupUse(parts, memory)
 	case "proc": // The cgroup v2 root has no slice counters; /proc describes the machine.
 	case "v1":
 		m := unknown("whole-host CPU and memory readings require cgroup v2; this host has no cgroup v2 root")
@@ -44,30 +41,17 @@ func (s *Service) hostUse(ctx context.Context, dk docker.Scope, memory int64, cp
 		c := m
 		return &m, &c
 	}
-	b, err := read("meminfo")
-	if err != nil {
-		mem = unknownErr(err)
-	} else if m, e := hostmem.ParseMeminfo(b); e != nil {
+	if m, e := hostmem.ParseMeminfo(parts["meminfo"]); e != nil {
 		mem = unknownErr(e)
 	} else if m.TotalBytes != memory {
 		mem = unknown(fmt.Sprintf("the reader sees %d bytes of memory and the daemon %d; /proc may describe a virtualised host or VM", m.TotalBytes, memory))
 	} else {
 		mem = known(float64(m.UsedBytes()))
 	}
-	sample := func() (hostmem.CPU, error) {
-		b, err := read("stat")
-		if err != nil {
-			return hostmem.CPU{}, err
-		}
-		return hostmem.ParseStat(b)
-	}
-	first, err := sample()
-	if err == nil {
-		err = waitHostSample(ctx)
-	}
+	first, err := hostmem.ParseStat(parts["cpu.first"])
 	if err == nil {
 		var second hostmem.CPU
-		second, err = sample()
+		second, err = hostmem.ParseStat(parts["cpu.second"])
 		if err == nil {
 			if first.Cores != cpus || second.Cores != cpus {
 				err = fmt.Errorf("the reader sees %d then %d online CPUs and the daemon %d; /proc may describe a virtualised host or VM", first.Cores, second.Cores, cpus)
@@ -88,47 +72,28 @@ func (s *Service) hostUse(ctx context.Context, dk docker.Scope, memory int64, cp
 
 // A cgroup slice's counters belong to the daemon's own machine, so /proc's
 // totals are irrelevant. Failures in memory and CPU remain independent.
-func (s *Service) cgroupUse(ctx context.Context, read func(string) ([]byte, error), total int64) (*Figure, *Figure) {
+func cgroupUse(parts map[string][]byte, total int64) (*Figure, *Figure) {
 	mem := unknown("the host's cgroup memory could not be read")
-	current, err := read("memory.current")
-	if err == nil {
-		var stat, limit []byte
-		stat, err = read("memory.stat")
-		if err == nil {
-			limit, err = read("memory.max")
-		}
-		if err == nil {
-			var used int64
-			used, err = hostmem.CgroupMemory(current, stat, limit, total)
-			if err == nil {
-				mem = known(float64(used))
-			}
-		}
-	}
+	used, err := hostmem.CgroupMemory(parts["memory.current"], parts["memory.stat"], parts["memory.max"], total)
 	if err != nil {
 		mem = unknownErr(err)
-	}
-	sample := func() (int64, error) {
-		b, err := read("cpu.stat")
-		if err != nil {
-			return 0, err
-		}
-		return hostmem.ParseCgroupCPU(b)
+	} else {
+		mem = known(float64(used))
 	}
 	cpu := unknown("the host's cgroup CPU could not be read")
-	first, err := sample()
-	at := s.now()
-	if err == nil {
-		err = waitHostSample(ctx)
-	}
+	first, err := hostmem.ParseCgroupCPU(parts["cpu.first"])
 	if err == nil {
 		var second int64
-		second, err = sample()
+		second, err = hostmem.ParseCgroupCPU(parts["cpu.second"])
 		if err == nil {
-			var used float64
-			used, err = hostmem.CgroupUsedCores(first, second, s.now().Sub(at))
+			var elapsed time.Duration
+			elapsed, err = kernelElapsed(parts)
 			if err == nil {
-				cpu = known(used)
+				var cores float64
+				cores, err = hostmem.CgroupUsedCores(first, second, elapsed)
+				if err == nil {
+					cpu = known(cores)
+				}
 			}
 		}
 	}
@@ -138,13 +103,18 @@ func (s *Service) cgroupUse(ctx context.Context, read func(string) ([]byte, erro
 	return &mem, &cpu
 }
 
-func waitHostSample(ctx context.Context) error {
-	timer := time.NewTimer(time.Second)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
+func kernelElapsed(parts map[string][]byte) (time.Duration, error) {
+	var uptime [2]time.Duration
+	for i, name := range []string{"uptime.first", "uptime.second"} {
+		fields := strings.Fields(string(parts[name]))
+		if len(fields) != 2 {
+			return 0, fmt.Errorf("the host's /proc/uptime is not readable")
+		}
+		value, err := time.ParseDuration(fields[0] + "s")
+		if err != nil || value < 0 {
+			return 0, fmt.Errorf("the host's /proc/uptime is not readable")
+		}
+		uptime[i] = value
 	}
+	return uptime[1] - uptime[0], nil
 }

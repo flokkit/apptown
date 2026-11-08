@@ -15,7 +15,7 @@ import (
 )
 
 // Each failure remains an unknown figure with a reason, independently of the
-// other resource. synctest advances the one-second timer without sleeping.
+// other resource. The fake supplies both samples without sleeping.
 func TestHostUseReadsKernelAndPreservesUnknownReasons(t *testing.T) {
 	for _, tc := range []struct {
 		name, mem, stat    string
@@ -100,17 +100,20 @@ func TestHostUseReadsKernelAndPreservesUnknownReasons(t *testing.T) {
 	}
 }
 
-func TestCPUWaitIsCancelledBeforeSecondSample(t *testing.T) {
+// Cancellation reaches the single kernel exec, including its sampling wait.
+func TestKernelExecIsCancelled(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		d := &diskspacetest.Daemon{}
-		sampled := make(chan struct{}, 1)
+		sampled := make(chan struct{})
 		dk := docker.Scope{Client: sshDockerFake(func(ctx context.Context, _ string, c docker.Command) ([]byte, error) {
+			if c.Args[0] == "exec" && strings.Contains(strings.Join(c.Args, " "), "section() {") {
+				close(sampled)
+				<-ctx.Done()
+				return nil, ctx.Err()
+			}
 			out, err, ok := d.Run(c.Args)
 			if !ok {
 				t.Fatalf("unexpected command %v", c.Args)
-			}
-			if c.Args[0] == "exec" && strings.Contains(strings.Join(c.Args, " "), "cat /proc/stat") {
-				sampled <- struct{}{}
 			}
 			return out, err
 		})}
@@ -120,7 +123,6 @@ func TestCPUWaitIsCancelledBeforeSecondSample(t *testing.T) {
 		done := make(chan *Figure, 1)
 		go func() { _, c := s.hostUse(ctx, dk, 8<<30, 8, "/var/lib/docker"); done <- c }()
 		<-sampled
-		synctest.Wait()
 		cancel()
 		c := <-done
 		if c.Known || !strings.Contains(c.Reason, "canceled") {
@@ -148,7 +150,7 @@ func TestHostUseChoosesCgroupCounters(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				samples := 0
-				d := &diskspacetest.Daemon{Cgroup: func(file string) (int, []byte, string) {
+				d := &diskspacetest.Daemon{Kernel: func(string) (int, []byte, string) { t.Fatal("cgroup route read /proc counters"); return 1, nil, "" }, Cgroup: func(file string) (int, []byte, string) {
 					value := ""
 					switch file {
 					case "scope":
@@ -175,9 +177,6 @@ func TestHostUseChoosesCgroupCounters(t *testing.T) {
 					if !ok {
 						t.Fatalf("unexpected command %v", c.Args)
 					}
-					if tc.scope == "cgroup" && c.Args[0] == "exec" && strings.Contains(strings.Join(c.Args, " "), "cat /proc/") {
-						t.Fatal("cgroup route read /proc")
-					}
 					return out, err
 				})}
 				s := &Service{env: NewEnvironment(EnvironmentDependencies{ToolVersions: stock.Versions()}), clock: time.Now}
@@ -201,6 +200,68 @@ func TestHostUseChoosesCgroupCounters(t *testing.T) {
 					t.Fatalf("shared disk reader: %d, %v", d.Started(), err)
 				}
 			})
+		})
+	}
+}
+
+// The daemon clock can stand still or include SSH latency. Only the sampled
+// host uptime determines the cgroup CPU interval; bad time leaves memory known.
+func TestCgroupCPUUsesHostUptime(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, second, reason string
+		known                bool
+		cores                float64
+	}{
+		{"two seconds", "102.00 0.00", "", true, 0.75},
+		{"fractional seconds", "100.50 0.00", "", true, 3},
+		{"stopped", "100.00 0.00", "did not advance", false, 0},
+		{"backwards", "99.00 0.00", "did not advance", false, 0},
+		{"malformed", "bad 0.00", "uptime", false, 0},
+		{"missing value", "", "uptime", false, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			samples, times := 0, 0
+			d := &diskspacetest.Daemon{
+				Cgroup: func(file string) (int, []byte, string) {
+					value := ""
+					switch file {
+					case "scope":
+						value = "cgroup"
+					case "memory.current":
+						value = "5000"
+					case "memory.stat":
+						value = "inactive_file 500"
+					case "memory.max":
+						value = "max"
+					case "cpu.stat":
+						samples++
+						value = fmt.Sprintf("usage_usec %d", samples*1500000)
+					default:
+						t.Fatalf("unexpected counter %s", file)
+					}
+					return 0, []byte(value), ""
+				},
+				Uptime: func() string {
+					times++
+					if times == 1 {
+						return "100.00 0.00"
+					}
+					return tc.second
+				},
+			}
+			dk := docker.Scope{Client: sshDockerFake(func(ctx context.Context, _ string, c docker.Command) ([]byte, error) {
+				out, err, ok := d.Run(c.Args)
+				if !ok {
+					t.Fatalf("unexpected command %v", c.Args)
+				}
+				return out, err
+			})}
+			s := &Service{env: NewEnvironment(EnvironmentDependencies{ToolVersions: stock.Versions()}), clock: func() time.Time { return time.Unix(123, 0) }}
+			m, c := s.hostUse(t.Context(), dk, 10000, 2, "/var/lib/docker")
+			if !m.Known || m.Value != 4500 || c.Known != tc.known || c.Value != tc.cores || !strings.Contains(c.Reason, tc.reason) {
+				t.Fatalf("memory %+v CPU %+v", m, c)
+			}
 		})
 	}
 }

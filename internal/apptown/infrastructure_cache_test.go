@@ -469,7 +469,11 @@ func TestOutboundChecksHaveTheirOwnBoundedQueue(t *testing.T) {
 		if k.Queue != "observations" || k.Timeout <= 0 || k.Timeout > 100*time.Second {
 			t.Errorf("unbounded or shared check %s: %+v", name, k)
 		}
-		if name != "integration-health" && k.Timeout > 30*time.Second {
+		limit := 30 * time.Second
+		if name == deployment.CapacityObservationJob {
+			limit = 60 * time.Second
+		}
+		if name != "integration-health" && k.Timeout > limit {
 			t.Errorf("slow host check %s: %s", name, k.Timeout)
 		}
 	}
