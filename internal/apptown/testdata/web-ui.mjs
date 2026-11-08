@@ -300,8 +300,10 @@ try {
             return style.whiteSpace === 'nowrap' || el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
           }).map(el => el.textContent));
           if (clipped.length) throw new Error('Features facts must wrap without clipping: ' + clipped.join(', '));
-          for (const button of await page.locator('main tbody button').all()) {
-            if (await button.getAttribute('role') !== 'switch' || !['true', 'false'].includes(await button.getAttribute('aria-checked'))) throw new Error('Features must use accessible switches');
+          // Each feature has one switch; the ? beside it is a help button, not a switch.
+          for (const row of await page.locator('main tbody tr').all()) {
+            const switches = await row.locator('button[role="switch"]').evaluateAll(buttons => buttons.map(b => b.getAttribute('aria-checked')));
+            if (switches.length !== 1 || !['true', 'false'].includes(switches[0])) throw new Error('Features must use accessible switches');
           }
         }
         if (screen === 'feature-off' && await page.locator('main a[href="/features"]').count() !== 1) throw new Error('administrator refusal must link Features');
