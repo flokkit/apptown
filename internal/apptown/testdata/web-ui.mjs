@@ -253,7 +253,12 @@ try {
   await writeFile(`${out}/content-exclusions.json`, JSON.stringify(cameraContentExclusions, null, 2));
   let cameraUser = 'sam';
   const changedFirst = name => /projects$|^work-record|^change-(record|artifact|review-record)|^policy$|^workflow$|^pack-version$|guidance/.test(name)
-  const orderedRoutes = Object.entries(routes).sort(([a], [b]) => Number(changedFirst(b)) - Number(changedFirst(a)))
+  // A finished deploy keeps its scene for ten minutes (DeploymentDeploys'
+  // sceneAfterMs), so the live and failed scenes, seeded before the camera
+  // starts, go first: a full run takes longer than that.
+  const timed = name => /^deployment-(live|failed)$/.test(name)
+  const rank = name => timed(name) ? 2 : Number(changedFirst(name))
+  const orderedRoutes = Object.entries(routes).sort(([a], [b]) => rank(b) - rank(a))
   for (const [screen, path] of orderedRoutes) {
     if (selected.size && !selected.has(screen)) continue;
     const username = screen === 'change-non-approver' ? 'tom' : 'sam';

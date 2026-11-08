@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../../data'
 import type { DeploymentResources, ProjectSecrets } from '../../../wire.gen'
-import { ResourceLines, ShareLine } from './Deployments'
+import { ResourceLines, HostLine } from './Deployments'
 
 // A deployment's card says what each part may use as the target holds it,
 // what it uses now, and which profile it runs and will run: no limit only
@@ -17,9 +17,8 @@ const render = (res: Partial<DeploymentResources>, choice?: Partial<ProjectSecre
   return renderToStaticMarkup(
     <QueryClientProvider client={client}><MemoryRouter><ResourceLines slug="game" name="cloud" /></MemoryRouter></QueryClientProvider>)
 }
-// What the host says about the deployment's share: the Status tab shows it
-// under the containers, from the same resources read.
-const share = (s: NonNullable<DeploymentResources['share']>) => renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}><MemoryRouter><ShareLine share={s} /></MemoryRouter></QueryClientProvider>)
+// The deployment's Host line: always present, so the page keeps its shape.
+const share = (s?: NonNullable<DeploymentResources['share']>) => renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}><MemoryRouter><HostLine share={s} target="lab" /></MemoryRouter></QueryClientProvider>)
 
 describe("a deployment's resources", () => {
   it('shows App Platform declarations with the size they run on, never as no limit', () => {
@@ -48,21 +47,16 @@ describe("a deployment's resources", () => {
     expect(html).toContain('size small')
     expect(html).toContain('256M')
   })
-  it('says what it holds of a fixed host, and when the host is overcommitted or short of disk', () => {
+  it('says whether the host takes new deploys and its memory against what is asked of it', () => {
     const fig = (value: number) => ({ known: true, value })
-    const html = share({ target: 'lab', elastic: false, hostMemory: fig(8 * 2 ** 30), requested: fig(10 * 2 ** 30), declared: fig(1.5 * 2 ** 30), used: fig(640 * 2 ** 20), overcommitted: true, lowDisk: true, diskRefuses: false })
-    expect(html).not.toContain('(19%) declared')
+    const read = { readAt: '2026-11-09T01:00:00Z', target: 'lab', elastic: false, declared: fig(2 ** 30), used: fig(2 ** 20) }
+    const html = share({ ...read, hostMemory: fig(8 * 2 ** 30), requested: fig(10 * 2 ** 30), overcommitted: true, lowDisk: true, diskRefuses: false })
     expect(html).toContain('href="/targets/lab"')
-    expect(html).toContain('10 GB requested; host total 8 GB')
-    expect(html).toContain('Server is low on disk space.')
-    const refused = share({ target: 'lab', elastic: false, hostMemory: fig(8 * 2 ** 30), declared: fig(2 ** 30), used: fig(2 ** 20), overcommitted: false, lowDisk: true, diskRefuses: true })
-    expect(refused).toContain('New deployments are blocked.')
-    expect(refused).not.toContain('Server is low on disk space.')
-  })
-  it('never makes up a share it cannot know, and says an elastic target grows', () => {
-    const unknownShare = share({ target: 'lab', elastic: false, hostMemory: { known: true, value: 2 ** 30 }, declared: { known: false, value: 0, reason: 'a part or need has no limit' }, used: { known: false, value: 0 }, overcommitted: false, lowDisk: false, diskRefuses: false })
-    expect(unknownShare).not.toContain('an unknown share')
-    expect(unknownShare).not.toContain('(0%)')
+    expect(html).toContain('ready for deploys · low on disk')
+    expect(html).toContain('memory 10 GB requested of 8 GB')
+    const refused = share({ ...read, hostMemory: fig(8 * 2 ** 30), overcommitted: false, lowDisk: true, diskRefuses: true })
+    expect(refused).toContain('new deploys blocked: low on disk')
+    expect(share({ ...read, hostMemory: fig(8 * 2 ** 30), overcommitted: false, lowDisk: false, diskRefuses: false })).toContain('lab · ready for deploys')
     expect(share({ target: 'do-syd', elastic: true, hostMemory: { known: false, value: 0 }, declared: { known: false, value: 0 }, used: { known: false, value: 0 }, overcommitted: false, lowDisk: false, diskRefuses: false })).toContain('grows on demand')
   })
   it('shows the recorded default source and explicit unlimited act separately', () => {
@@ -85,11 +79,16 @@ it('names the product that supplied the memory default', () => {
   expect(html).toContain('AppTown default')
 })
 
-it('keeps a host pending until its first reading and reports later staleness', () => {
-  const host = { target: 'lab', elastic: false, hostMemory: { known: false, value: 0 }, declared: { known: false, value: 0 }, used: { known: false, value: 0 }, overcommitted: false, lowDisk: false, diskRefuses: false, stale: true }
-  const pending = share(host)
-  expect(pending).not.toContain('The host reading is out of date.')
-  expect(pending).toContain('Waiting for the first host check.')
-  expect(share({ ...host, readAt: '2026-10-10T01:00:00Z' })).toContain('The host reading is out of date.')
-  expect(share({ ...host, error: 'Host unavailable' })).toContain('Host unavailable')
+// A host check that failed, went stale or has not run yet is the host's own
+// problem, shown on its page: the line keeps its place and says unknown,
+// never ready.
+it('says unknown, not ready and not the host check error, when the host reading is missing, stale or failed', () => {
+  const host = { target: 'lab', elastic: false, hostMemory: { known: true, value: 2 ** 30 }, requested: { known: true, value: 2 ** 29 }, declared: { known: false, value: 0 }, used: { known: false, value: 0 }, overcommitted: false, lowDisk: false, diskRefuses: false }
+  for (const html of [share(undefined), share(host), share({ ...host, readAt: '2026-10-10T01:00:00Z', stale: true }), share({ ...host, readAt: '2026-10-10T01:00:00Z', error: 'The host capacity check failed.' })]) {
+    expect(html).toContain('Host')
+    expect(html).toContain('unknown')
+    expect(html).not.toContain('ready for deploys')
+    expect(html).not.toContain('capacity check failed')
+    expect(html).not.toContain('requested of')
+  }
 })

@@ -8,7 +8,7 @@ import { ListTable, type ListColumn } from '../../ListTable'
 import { MoreMenu } from '../../MoreMenu'
 import { fmtBytes, fmtWhen } from '../../format'
 import { DiagnosticsDetail, HoldLine, LogView, nextStep, trouble } from './settings/Diagnostics'
-import { LimitEventLines, ShareLine } from './settings/Deployments'
+import { LimitEventLines } from './settings/Deployments'
 import { TechnicalWords, useTechnicalDetail } from '../change/TechnicalDetail'
 import type { DeploymentDiagnostics, DeploymentResources, PartLog, PartMemory } from '../../wire.gen'
 import './deployment-containers.css'
@@ -103,7 +103,6 @@ export function DeploymentContainers({ slug, name, stopped = false }: { slug: st
       <p key={r.part} className="small"><strong>{r.label}</strong>: {nextStep(r.diag!)}</p>)}
     {diagnostics.data && <HoldLine slug={slug} d={diagnostics.data} />}
     {diagnostics.data?.unsupported && <p className="muted small">{diagnostics.data.unsupported}</p>}
-    {resources.data?.share && <ShareLine share={resources.data.share} old={resources.data.reading?.waiting} />}
     {resources.data && <div className="small"><LimitEventLines r={resources.data} /></div>}
     {technical && diagnostics.data && <DiagnosticsDetail d={diagnostics.data} busy={reading !== null} onLog={readLog} />}
     {diagnostics.data?.unsettled && <TechnicalWords shown={technical}>{diagnostics.data.unsettled}</TechnicalWords>}
