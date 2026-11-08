@@ -3,6 +3,7 @@
 .deploy-entry .deploy-head { border-top: 0; padding-top: 0; }
 .deploy-entry .deploy-status { display: flex; flex-wrap: wrap; gap: 6px; }
 .deploy-entry .deploy-value, .deploy-entry .deploy-trailer { min-width: 0; overflow-wrap: anywhere; }
+.deploy-entry .deploy-trailer { font-size: var(--fs-sm); }
 .deploy-entry .deploy-value > .small, .deploy-entry table.small { font-size: inherit; }
 .deploy-entry .deploy-value p { margin: 0; }
 .deploy-entry .deploy-more { border-top: 1px solid var(--border); padding-top: 16px; gap: 4px 14px; flex-wrap: wrap; }
@@ -41,4 +42,9 @@
 .deployments-resource-lines-div { gap: calc(var(--space-1) * 1.5); flex-wrap: wrap; }
 .deployments-resource-lines-input { width: 120px; }
 .deployments-resource-lines-input-2 { min-width: 220px; }
+.deployment-limits { display: grid; gap: var(--space-2); }
+.deployment-limits-table { margin: 0; }
+.deployment-name-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-3); }
+.deployment-name-line > .display-label-edit { margin-top: 0; }
+.retained-settled { opacity: 0.6; }
 }

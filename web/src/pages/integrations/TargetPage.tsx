@@ -1,5 +1,5 @@
 import { statusProps, failedStatusRefresh } from '../../runtime'
-import { targetFeatureArea } from '../../features'
+import { BetaChip, targetFeatureArea } from '../../features'
 import { usePageName } from '../../chrome'
 
 import './TargetPage.css'
@@ -110,7 +110,7 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
       <StaleNote q={infra} />
       <div className="row target-page-div">
         <h1 className="grow target-page-h1">{tab === 'overview' ? t.displayLabel || t.name : tab === 'capacity' ? 'Capacity' : 'History'}</h1>
- {targetFeatureArea(t.kind) !== 'deployments' && <span className="badge">beta</span>}
+ {targetFeatureArea(t.kind) !== 'deployments' && <BetaChip />}
 
         <Status observation word={state.word} help={state.help.startsWith('Host connection') ? undefined : state.help} />
         {!retired && <button className="primary" disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await load() })}>Check target</button>}
@@ -130,16 +130,15 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
       {tab === 'capacity' ? <Capacity name={t.name} /> : tab === 'history' ? <>      <Section title="History" count={data.history.length}>
         {data.history.length === 0
           ? <p className="muted small">No history yet.</p>
-          : data.history.map((e, i) => (
-            <div key={i} className="card row small target-page-card">
-              <span className="muted target-page-span-2">{fmtStamp(e.at)}</span>
-              <span>{EVENT_WORDS[e.kind] ?? e.kind} by {shownActor(e.actor)}
-                {e.kind === 'target.checked' && <> — {(e.payload as Record<string, unknown>).ok ? '✓' : '✗'} {String((e.payload as Record<string, unknown>).detail ?? '')}</>}
-                {e.kind === 'target.offered' && <> — to {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
-                {e.kind === 'target.offer-withdrawn' && <> — from {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
-              </span>
-            </div>
-          ))}
+          : <ListTable className="small" label="Target history" rows={data.history.map((event, index) => ({ ...event, index }))} rowKey={e => String(e.index)} columns={[
+            { key: 'event', label: 'Event', phone: 'name', render: e => <>{EVENT_WORDS[e.kind] ?? e.kind} by {shownActor(e.actor)}</> },
+            { key: 'detail', label: 'Detail', phone: 'detail', render: e => <>
+              {e.kind === 'target.checked' && <> — {(e.payload as Record<string, unknown>).ok ? '✓' : '✗'} {String((e.payload as Record<string, unknown>).detail ?? '')}</>}
+              {e.kind === 'target.offered' && <> — to {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
+              {e.kind === 'target.offer-withdrawn' && <> — from {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
+            </> },
+            { key: 'at', label: 'When', phone: 'time', kind: 'time', render: e => fmtStamp(e.at) },
+          ]} />}
       </Section></> : <>
       {!retired && <><div className="stack stack-3 mt-3">{targetCapacityReadings(capacity.refreshFailed ? undefined : capacity.data ?? undefined).map(r => <CapacityStrip key={r.label} name={r.label} used={r.used} total={r.total} format={r.format} />)}</div><StaleNote q={capacity} /></>}
 
@@ -226,15 +225,12 @@ function TargetSettings() {
         {offering && <OfferForm target={t.name} groups={listQ.data?.groups ?? []} onDone={(saved) => { setOffering(false); if (saved) load() }} />}
         {t.offers.length === 0
           ? <p className="muted small">Not offered to anyone, so projects cannot deploy here.</p>
-          : t.offers.map((o) => (
-            <div key={o.id || 'implicit'} className="card row small target-page-card">
-              <span className="badge accent">{o.group === '*' ? 'everyone' : o.group}</span>
-              <span>{capsWords(o.caps) || <span className="muted">no limits</span>}</span>
-              <span className="muted grow" >{o.implicit ? 'by construction' : `by ${o.createdBy}`}</span>
-              {!o.implicit && <QuietConfirm label="Withdraw" ask={`Withdraw the offer to ${o.group === '*' ? 'everyone' : o.group}? Deployments already here stay.`}
-                onYes={() => void withdraw(o.id!)} yes="Withdraw" className="subtle" />}
-            </div>
-          ))}
+          : <ListTable className="small" label="Target offers" rows={t.offers} rowKey={o => o.id || 'implicit'} columns={[
+            { key: 'group', label: 'Group', phone: 'name', render: o => <span className="badge accent">{o.group === '*' ? 'everyone' : o.group}</span> },
+            { key: 'limits', label: 'Limits', phone: 'detail', render: o => capsWords(o.caps) || <span className="muted">no limits</span> },
+            { key: 'by', label: 'Offered by', phone: 'extra', className: 'muted', render: o => o.implicit ? 'by construction' : `by ${o.createdBy}` },
+            { key: 'action', label: '', phone: 'action', render: o => !o.implicit && <QuietConfirm label="Withdraw" ask={`Withdraw the offer to ${o.group === '*' ? 'everyone' : o.group}? Deployments already here stay.`} onYes={() => void withdraw(o.id!)} yes="Withdraw" className="subtle" /> },
+          ]} />}
       </Section>
 
     </div>

@@ -11,6 +11,9 @@ import { getKey, newQueryClient } from '../../../data'
 import { fmtStamp } from '../../../format'
 import TopBar from '../../../TopBar'
 import { DeploymentPage, DeploymentsTab, EnvCard } from './Deployments'
+
+// The person may deploy and operate the project's deployments.
+const HOLDS = { instance: {}, project: { 'deployment:deploy': true, 'deployment:operate': true } }
 import type { DeploymentView } from '../../../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -36,6 +39,7 @@ function fixtures({ backup = 'none', lowDisk = false, readiness = 'reconciled' }
 function list(options?: Parameters<typeof fixtures>[0]) {
   const client = newQueryClient()
   for (const [path, value] of Object.entries(fixtures(options))) client.setQueryData(getKey(path), value)
+  client.setQueryData(getKey('/authz/me?project=lunch'), HOLDS)
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><DeploymentsTab slug="lunch" /></MemoryRouter></QueryClientProvider>)
   client.clear()
@@ -45,18 +49,17 @@ function list(options?: Parameters<typeof fixtures>[0]) {
 // The list keeps the operational summary and links, with full controls on the page.
 it('summarises each deployment, including previews, and opens its page', () => {
   const el = list()
-  const rows = el.querySelectorAll('.list-row')
+  const rows = el.querySelectorAll('tbody tr')
   expect(rows).toHaveLength(2)
   expect(rows[0].textContent).toContain('Lunch Orders')
-  expect(rows[0].classList.contains('deployment-row')).toBe(true)
-  expect(rows[0].querySelector('.list-identity')?.textContent).not.toContain('Running release 8')
-  expect(rows[0].querySelector('.list-detail')?.textContent).toContain('Running release 8')
+  expect(rows[0].querySelector('.phone-name')?.textContent).not.toContain('Running release 8')
+  expect(rows[0].querySelector('.deployment-release-cell')?.textContent).toContain('Running release 8')
   expect(rows[0].textContent).toContain('working')
   expect(rows[0].textContent).toContain('no backup yet')
   expect(rows[0].textContent).toContain(`Running release 8 · ${fmtStamp(at)}`)
   expect(rows[0].textContent).not.toContain('Running release 9')
   expect(rows[0].querySelector('a[href="https://lunch.example"]')).not.toBeNull()
-  expect(rows[0].querySelector('.list-action button')).toBeNull()
+  expect([...rows[0].querySelectorAll('button')].map(b => b.getAttribute('aria-label') ?? b.textContent)).toEqual([expect.stringContaining('More actions')])
   expect(rows[0].textContent).toContain('Automatic deploys are paused until a person saves the Release feed setting.')
   expect(rows[1].querySelector('a[href="/changes/change-1"]')?.textContent).toBe('Preview of change #12: Fix lunch')
   expect(el.textContent).toContain('New deployment')
@@ -66,15 +69,15 @@ it('summarises each deployment, including previews, and opens its page', () => {
 
 it('omits healthy backups and keeps disk and readiness warnings short', () => {
   const healthy = list({ backup: 'fresh' })
-  expect(healthy.querySelector('.list-state')?.textContent).toContain('working')
-  expect(healthy.querySelector('.list-detail .error, .list-detail .deploy-warning')).toBeNull()
-  expect(list({ lowDisk: true }).querySelector('.deploy-warning')?.textContent).toBe(' low disk')
-  expect(list({ readiness: 'uncertain' }).querySelector('.deploy-warning')?.textContent).toBe(' uncertain')
+  expect(healthy.querySelector('.phone-state')?.textContent).toContain('working')
+  expect(healthy.querySelector('.deployment-release-cell .error, .deployment-release-cell .deploy-warning')).toBeNull()
+  expect(list({ lowDisk: true }).querySelector('.deploy-warning')?.textContent).toBe('low disk')
+  expect(list({ readiness: 'uncertain' }).querySelector('.deploy-warning')?.textContent).toBe('uncertain')
 })
 
 it('routes to the full card with footer controls and the TopBar breadcrumb', async () => {
   const data = fixtures()
-  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(data[String(url).replace(/^\/api\/v1/, '')] ?? (String(url).endsWith('/deploys') ? [] : {}))))))
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).includes('/authz/me') ? HOLDS : data[String(url).replace(/^\/api\/v1/, '')] ?? (String(url).endsWith('/deploys') ? [] : {}))))))
   const client = newQueryClient()
   const el = document.createElement('div')
   const root = createRoot(el)
@@ -87,10 +90,10 @@ it('routes to the full card with footer controls and the TopBar breadcrumb', asy
     expect(el.querySelector('.deployment-page-heading')?.textContent).toContain('Lunch Orders')
     expect(el.querySelectorAll('h1')).toHaveLength(1)
     expect(el.querySelector('.deployment-address a')?.getAttribute('href')).toBe('https://lunch.example')
-    expect(el.querySelector('.deploy-head .deploy-trailer')).toBeNull()
-    expect(el.querySelector('.deploy-more')?.textContent).toContain('Edit display name')
-    expect(el.querySelector('.deploy-more a')).toBeNull()
-    expect(el.textContent).toContain('Resources')
+    // Status, History and Settings are tabs of the page; Status shows first.
+    expect([...el.querySelectorAll('.deployment-tabs a')].map(a => [a.textContent, a.getAttribute('href'), a.getAttribute('aria-current')])).toEqual([['Status', '/projects/lunch/deployments/main', 'page'], ['History', '/projects/lunch/deployments/main?tab=history', null], ['Settings', '/projects/lunch/deployments/main?tab=settings', null]])
+    expect(el.textContent).not.toContain('Edit display name')
+    expect(el.textContent).toContain('resources →')
     // The application's route must take precedence over the generic project tab.
     expect(appSource).toContain('path="/projects/:slug/deployments/:name" element={<CoreArea area="projects"><DeploymentPage /></CoreArea>}')
   } finally {
@@ -98,7 +101,7 @@ it('routes to the full card with footer controls and the TopBar breadcrumb', asy
   }
 })
 
-// All operational acts stay with the full card after the list becomes a summary.
+// The card keeps its own acts after the list becomes a summary.
 it.each(['reconciled', 'uncertain'])('keeps %s deployment actions in the card footer', readiness => {
   const client = newQueryClient()
   const el = document.createElement('div')
@@ -106,10 +109,11 @@ it.each(['reconciled', 'uncertain'])('keeps %s deployment actions in the card fo
   const footer = el.querySelector('.deploy-more')!
   expect(footer.textContent).not.toContain('Check again')
   expect(footer.textContent).toContain('Promote')
-  expect(footer.textContent).toContain('Tear down')
-  expect(footer.textContent).toContain('Edit display name')
-  expect(footer.querySelector('a')?.getAttribute('href')).toBe(`${base}/staging`)
-  expect(footer.querySelector('a')?.textContent).toBe('Deployment history →')
+  // Take down is in the deployment's ⋯ menu, not the card.
+  expect(footer.textContent).not.toContain('Tear down')
+  // The name and the history are the page's Settings and History tabs.
+  expect(footer.textContent).not.toContain('Edit display name')
+  expect(footer.querySelector('a')).toBeNull()
   client.clear()
 })
 
@@ -122,6 +126,7 @@ it('creates a follows-main deployment on the project Deployments page', async ()
   client.setQueryData(getKey('/projects/lunch/release-preference'), {})
   const requests: unknown[] = []
   vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
+    if (String(url).includes('/authz/me')) return new Response(JSON.stringify(HOLDS))
     if (init?.method === 'POST' && url.endsWith('/deployments')) { requests.push(JSON.parse(String(init.body))); return new Response('{}') }
     return new Response(JSON.stringify(fixtures()[url.replace('/api/v1', '')] || {}))
   })))
@@ -145,7 +150,7 @@ it.each(['uncertain', 'reconciled'])('refreshes status on the deployment page in
   const client = newQueryClient()
   for (const [path, value] of Object.entries(fixtures({ readiness }))) client.setQueryData(getKey(path), value)
   const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`${base}/main`]}><Routes><Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} /></Routes></MemoryRouter></QueryClientProvider>)
-  expect(html).toContain('Refresh status')
+  expect(html).toContain('aria-label="More actions for')
   expect(html).not.toContain('>Check again<')
   client.clear()
 })
@@ -158,6 +163,7 @@ it.each(['reconciled', 'uncertain'])('reloads the resulting state after refreshi
   const data = fixtures({ readiness })
   const posts: string[] = []
   vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
+    if (String(url).includes('/authz/me')) return new Response(JSON.stringify(HOLDS))
     if (init?.method === 'POST' && url.endsWith('/check')) {
       posts.push(url)
       refreshed = true
@@ -173,9 +179,12 @@ it.each(['reconciled', 'uncertain'])('reloads the resulting state after refreshi
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`${base}/main`]}><Routes><Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} /></Routes></MemoryRouter></QueryClientProvider>))
-    await vi.waitFor(() => expect([...el.querySelectorAll('button')].find(b => b.textContent === 'Refresh status')).toBeDefined())
+    // Refresh status is in the deployment's ⋯ menu, which opens in a popover.
+    const refresh = () => [...document.body.querySelectorAll('.more-menu-list button')].find(b => b.firstChild?.textContent === 'Refresh status') as HTMLButtonElement | undefined
+    await vi.waitFor(() => expect(el.querySelector('button[aria-label^="More actions"]')).not.toBeNull())
+    await act(async () => { el.querySelector<HTMLButtonElement>('button[aria-label^="More actions"]')!.click() })
     await act(async () => {
-      [...el.querySelectorAll('button')].find(b => b.textContent === 'Refresh status')!.click()
+      refresh()!.click()
       await new Promise(resolve => setTimeout(resolve, 30))
     })
     await vi.waitFor(() => {

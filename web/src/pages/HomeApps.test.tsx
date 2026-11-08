@@ -99,7 +99,7 @@ it('marks a failed project refresh unknown and removes the app action', () => {
   el.innerHTML = renderToStaticMarkup(<MemoryRouter><ProjectListRow project={project('app')} refreshFailed reason="Connection lost" /></MemoryRouter>)
   expect(el.querySelector('.project-action a')).toBeNull()
   expect(el.querySelector('.project-state')?.textContent).toContain('unknown')
-  expect(el.textContent).toContain('Connection lost')
+  expect(el.querySelector('button.chip-button')?.getAttribute('data-help')).toContain('Connection lost')
 })
 
 it('gives letter avatars a stable slug colour in the shared row', () => {
@@ -143,5 +143,5 @@ it('shows a checked age only for stale project observations, without an empty sp
   expect(fresh.textContent).toContain('working')
   expect([...fresh.children].filter(c => !c.classList.contains('status-help-stack')).map(c => c.textContent).join('')).not.toContain('checked')
   expect(fresh.querySelector(':scope > .muted.small')).toBeNull()
-  expect(stale.textContent).toContain('checked')
+  expect(stale.querySelector('button.chip-button')?.getAttribute('data-help')).toContain('checked')
 })

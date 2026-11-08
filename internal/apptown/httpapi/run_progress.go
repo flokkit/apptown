@@ -56,6 +56,22 @@ func (h RunProgress) StepLive(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, StepProgress{Running: true, Lines: feed.Lines, Total: feed.Total, ElapsedMs: &feed.ElapsedMs})
 }
 
+// StepApprovers is who could decide an approval step now, people resolved
+// from its roles and groups.
+func (h RunProgress) StepApprovers(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r, "id")
+	if err != nil {
+		WriteError(w, 400, "bad id")
+		return
+	}
+	out, err := h.work.Approvers(r.Context(), id)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, out)
+}
+
 // StepProgress is a step's live output. A finished step carries its status;
 // a running one how long it has run.
 type StepProgress struct {

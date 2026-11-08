@@ -1,3 +1,5 @@
+import { ListRow } from '../../ListRow'
+import './change-lists.css'
 import { Status } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { Link } from 'react-router-dom'
@@ -27,7 +29,10 @@ export const LAND_REQUEST =
   'anything with a clear fix, then land it and follow it through. If something needs a ' +
   'decision only I can make, stop and ask me.'
 
-export function WorkshopActions({ changeId, view, robotBusy, sessionId, hideRestart = false }: { changeId: string; view: ChangeView; robotBusy: boolean; sessionId?: string; hideRestart?: boolean }) {
+// compact is the chat's strip: ordinary-size buttons, and no Go to change,
+// since the chat's title links to the change.
+export function WorkshopActions({ changeId, view, robotBusy, sessionId, hideRestart = false, compact = false }: { changeId: string; view: ChangeView; robotBusy: boolean; sessionId?: string; hideRestart?: boolean; compact?: boolean }) {
+  const big = compact ? '' : ' btn-big'
   const [confirming, setConfirming] = useState(false)
   const [landed, setLanded] = useState(false)
   const [handed, setHanded] = useState(false)
@@ -56,7 +61,7 @@ export function WorkshopActions({ changeId, view, robotBusy, sessionId, hideRest
     return (
       <div className="workshop-actions">
         <span className="small"><strong>Shipped to main.</strong></span>
-        <Link to={`/changes/${changeId}`}><button className="btn-big">See the record</button></Link>
+        <Link to={`/changes/${changeId}`}><button className={big.trim()}>See the record</button></Link>
       </div>
     )
   }
@@ -64,7 +69,7 @@ export function WorkshopActions({ changeId, view, robotBusy, sessionId, hideRest
     return (
       <div className="workshop-actions">
         <Link to={`/changes/${changeId}`}>
-          <button className="finish robot-busy btn-big" style={{ fontWeight: 700 }}>Review and approve →</button>
+          <button className={`finish robot-busy${big}`} style={{ fontWeight: 700 }}>Review and approve →</button>
         </Link>
         <span className="small">waiting for a person to approve</span>
       </div>
@@ -88,9 +93,9 @@ export function WorkshopActions({ changeId, view, robotBusy, sessionId, hideRest
     <div className="workshop-actions">
       {!confirming ? (
         <>
-          <TryIt changeId={changeId} hideRestart={hideRestart} className="primary btn-big" />
-          <Link className="go-change" to={`/changes/${changeId}`}><button className="btn-big">Go to change</button></Link>
-          <button className="finish btn-big" disabled={robotBusy}
+          <TryIt changeId={changeId} hideRestart={hideRestart} hideBuilt={compact} className={`primary${big}`} />
+          {!compact && <Link className="go-change" to={`/changes/${changeId}`}><button className="btn-big">Go to change</button></Link>}
+          <button className={`finish${big}`} disabled={robotBusy}
             title={robotBusy ? 'the helper is still working · check and land when it hands back' : `your helper runs ${PRODUCT}'s checks and starts the landing; nothing goes live until it is approved`}
             onClick={() => setConfirming(true)}>✓ Check and land</button>
         </>
@@ -133,6 +138,19 @@ export function ChangeContext({ view: v }: { view: ChangeView }) {
   )
 }
 
+// ChangeFacts is what the change holds so far, for the chat's ⋯ menu: the
+// conversation's page keeps its room for the conversation.
+export function ChangeFacts({ view: v }: { view: ChangeView }) {
+  const run = v.detail?.run
+  return <span className="muted small console-facts">
+    {(v.editing ?? 0) > 0
+      ? `${v.editing} file${v.editing === 1 ? '' : 's'} being edited`
+      : (v.diffstat || 'no edits yet')}
+    {(v.commits?.length ?? 0) > 0 && ` · ${v.commits!.length} commit${v.commits!.length === 1 ? '' : 's'}`}
+    {run?.status === 'running' && v.stateDetail ? ` · ${v.stateDetail}` : ''}
+  </span>
+}
+
 // Where the change stands, as one chip: the status card and the chat's
 // folded line (Console.tsx) say it in the same words.
 export function changeChip(v: ChangeView) {
@@ -156,14 +174,10 @@ export function StartedChanges({ sessionId }: { sessionId: string }) {
     <div className="mb-2">
       <StaleNote q={q} />
       {changes.map((c) => (
-        <Link key={c.changeId} to={`/changes/${c.changeId}`} className="card row mb-1"
-          style={{ display: 'flex', padding: '8px 12px' }}>
-          {chip(c)}
-          <strong className="small">{c.title}</strong>
+        <ListRow key={c.changeId} to={`/changes/${c.changeId}`} className="card row mb-1 started-change-row" state={chip(c)} identity={<>
+          <Link to={`/changes/${c.changeId}`} className="run-link"><strong className="small">{c.title}</strong></Link>
           <span className="muted small">started from this chat{c.detail ? ` · ${c.detail}` : ''}</span>
-          <span className="grow" />
-          <span className="muted small">open →</span>
-        </Link>
+          </>} />
       ))}
     </div>
   )

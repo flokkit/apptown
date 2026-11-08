@@ -263,7 +263,7 @@ func TestMemoryUseIsWhatTheHostReportsOrUnknown(t *testing.T) {
 	replaced := "" // a container whose second inspection finds another container
 	w.hosts.daemon("lab").SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 0 && args[0] == "stats" {
-			return []byte(web + "\t11.5MiB / 128MiB\n" + worker + "\t200MiB / 256MiB\n"), nil, true
+			return []byte(web + "\t11.5MiB / 128MiB\t0.20%\n" + worker + "\t200MiB / 256MiB\t35.00%\n"), nil, true
 		}
 		if len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat {
 			mu.Lock()
@@ -783,7 +783,7 @@ func TestMemoryIsObservedOnlyWhileTheRecordedGenerationRuns(t *testing.T) {
 			return []byte("no room on the host"), errors.New("exit status 125"), true
 		}
 		if len(args) > 0 && args[0] == "stats" {
-			return []byte(web + "\t100MiB / 128MiB\n"), nil, true
+			return []byte(web + "\t100MiB / 128MiB\t1.00%\n"), nil, true
 		}
 		if len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat {
 			mu.Lock()

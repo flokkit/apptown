@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { newQueryClient } from '../data'
+import { getKey, newQueryClient } from '../data'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { settled } from '../settled'
 import { TimingView, UsageView } from './Usage'
 
@@ -22,7 +23,7 @@ describe('the daily usage chart', () => {
     const report = {
       windowDays: 30, totals, byKind: [], byModel: [], byDay: [], byProject: [], byWorkflow: [],
       byDayKind: [
-        { day: day(3), kind: 'step', total: 1000, costMicros: 0 },
+        { day: day(3), kind: 'step', total: 5000, cached: 4000, costMicros: 0 },
         { day: day(1), kind: 'step', total: 400, costMicros: 0 },
         { day: day(1), kind: 'console', total: 100, costMicros: 0 },
       ],
@@ -37,18 +38,18 @@ describe('the daily usage chart', () => {
       })
       await settled(client)
       expect(el.querySelector('[role=slider]')).not.toBeNull()
-      expect(el.querySelector('section[aria-label="Daily tokens"] [role=slider]')).not.toBeNull()
-      expect(el.querySelector('.usage-chart')?.getAttribute('aria-valuetext')).toContain('500 tokens')
+      expect(el.querySelector('section[aria-label="New tokens per day"] [role=slider]')).not.toBeNull()
+      expect(el.querySelector('.usage-chart')?.getAttribute('aria-valuetext')).toContain('500 new tokens')
       await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Details')!.click() })
       const shown = () => el.querySelector('.usage-day')?.textContent ?? ''
       const chart = el.querySelector<HTMLElement>('[role="slider"]')!
       expect(shown()).toBe('')
-      expect(chart.getAttribute('aria-valuetext')).toBe(`${label(1)}: 500 tokens · Automated work 400, Chat 100`)
+      expect(chart.getAttribute('aria-valuetext')).toBe(`${label(1)}: 500 new tokens (Automated work 400, Chat 100)`)
 
       await act(async () => { chart.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })) })
       expect(shown()).toBe(`${label(2)}: no use`)
       await act(async () => { chart.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })) })
-      expect(shown()).toBe(`${label(3)}: 1.0k tokens · Automated work 1.0k, Chat 0`)
+      expect(shown()).toBe(`${label(3)}: 1.0k new tokens (Automated work 1.0k, Chat 0) · 4.0k from the cache`)
     } finally {
       act(() => root.unmount())
       client.clear()
@@ -67,7 +68,7 @@ describe('the daily usage chart', () => {
     try {
       await act(async () => { root.render(<QueryClientProvider client={client}><UsageView /></QueryClientProvider>) })
       await settled(client)
-      expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).toContain('700 tokens')
+      expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).toContain('700 new tokens')
       expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).toContain('Other work 700')
       report.byDayKind[0].total = 0
       report.totals.total = 0
@@ -97,7 +98,11 @@ describe('the daily usage chart', () => {
       })
       await settled(client)
       expect(el.querySelector('.usage-figure')?.textContent).toContain('Cost, 30 days$0.00')
-      expect(el.textContent).toContain('2 activity records have unknown or partial cost.')
+      // One line under the cost: how many records have unknown or partial
+      // cost. Their tokens are not counted as unpriced: a record may hold
+      // priced calls, or no known tokens at all.
+      expect(el.querySelector('.usage-figure')?.textContent).toContain('2 records have unknown or partial cost')
+      expect(el.querySelector('.usage-figure')?.textContent).not.toContain('with no price')
       // A window with no use names no kinds of use in the legend.
       expect(el.querySelector('.usage-legend')).toBeNull()
     } finally {
@@ -122,6 +127,9 @@ describe('model prices', () => {
       await act(async () => { root.render(<QueryClientProvider client={client}><UsageView project="demo" /></QueryClientProvider>) })
       await settled(client)
       expect(el.querySelector('.usage-figure')?.textContent).toContain('not priced')
+      // Where prices came from is a detail, on the Details tab.
+      expect(el.textContent).not.toContain('without a price source')
+      await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Details')!.click() })
       expect(el.textContent).toContain('4 spend records without a price source')
       report.totals.costMicros = 3000
       report.totals.providerReported = 2
@@ -167,4 +175,20 @@ describe('where the time goes', () => {
       client.clear()
     }
   })
+})
+
+// A record with unknown or partial cost is counted as a record: neither its
+// surviving priced tokens nor a missing usage reading become "tokens with no
+// price" (review R3, 8 Nov).
+it.each([0, 100])('does not call incomplete usage an exact unpriced token count: %s surviving tokens', total => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/usage?window=30&project=shop'), {
+    totals: { total, costMicros: total ? 1000000 : 0, incomplete: 1, unpriced: 0 },
+    byKind: [], byModel: [], byProject: [], byWorkflow: [], byDayKind: [],
+  })
+  try {
+    const html = renderToStaticMarkup(<QueryClientProvider client={client}><UsageView project="shop" /></QueryClientProvider>)
+    expect(html).not.toContain('with no price')
+    expect(html).toContain('1 record has unknown or partial cost')
+  } finally { client.clear() }
 })

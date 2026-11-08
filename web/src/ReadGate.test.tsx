@@ -46,7 +46,7 @@ const rows: Row[] = [
     hides: ['showing the last answer read'],
     error: null },
   { name: 'shows a failed first read as an error, never as an empty answer',
-    first: () => reply(404, { error: 'no such list' }), error: '● unknownThe names could not be read: no such list', failure: 'The names could not be read: no such list', mark: '● unknown', hides: ['No names yet'] },
+    first: () => reply(404, { error: 'no such list' }), error: '● unknown', failure: 'The names could not be read: no such list', mark: '● unknown', hides: ['No names yet'] },
   { name: 'says reading while the first answer is on its way', first: never, text: 'Loading…' },
   { name: 'says a refused read is not available, which is not an error',
     first: () => reply(403, { error: 'forbidden' }), text: 'Not available to you: the names.', error: null },
@@ -58,12 +58,12 @@ function expectShown(el: HTMLElement, row: Row) {
   for (const s of row.hides ?? []) expect(el.textContent).not.toContain(s)
   if (row.error === null) expect(el.querySelector('.error')).toBeNull()
   else if (row.error !== undefined) expect(el.querySelector('.error')?.textContent).toBe(row.error)
-  if (row.failure) expect(el.querySelector('.error .chip')?.getAttribute('title')).toBe(row.failure)
+  if (row.failure) expect(el.querySelector('.error .chip')?.getAttribute('data-help')).toBe(row.failure)
   const mark = el.querySelector('.chip.unknown')
   if (row.mark === undefined) expect(mark).toBeNull()
   else expect(mark?.textContent).toBe(row.mark)
   for (const s of row.label ?? []) expect(mark?.getAttribute('aria-label')).toContain(s)
-  for (const s of row.label ?? []) expect(mark?.getAttribute('title')).toContain(s)
+  for (const s of row.label ?? []) expect(mark?.getAttribute('data-help') ?? mark?.getAttribute('title')).toContain(s)
 }
 
 const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms) })
@@ -136,7 +136,7 @@ describe('StaleScope', () => {
     })
     done = () => { act(() => root.unmount()); client.clear() }
     await vi.waitFor(() => expect(el.textContent).toContain('Wellington'))
-    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('title')).toContain('no such list'))
+    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('data-help')).toContain('no such list'))
     // Nothing is old yet, so the page says nothing about it.
     expect(el.querySelector('.stale-notice')).toBeNull()
 
@@ -157,9 +157,12 @@ describe('StaleScope', () => {
     // The notice stands above the sections, and the reason is not repeated
     // as text in each one.
     expect(el.firstElementChild).toBe(notices[0])
-    expect(el.querySelectorAll('.status-help-inline')).toHaveLength(3)
+    // Each section's mark carries its details; none is written on the page.
+    expect(el.querySelectorAll('.chip[data-help], .chip[title]')).toHaveLength(3)
+    expect(el.textContent).not.toContain('AppTown is restarting')
     // The section that never had an answer is still an error, not old.
-    expect(el.querySelector('.error')?.textContent).toBe('● unknownThe broken list could not be read: no such list')
+    expect(el.querySelector('.error')?.textContent).toBe('● unknown')
+    expect(el.querySelector('.error .chip')?.getAttribute('data-help')).toBe('The broken list could not be read: no such list')
     expect(el.textContent).toContain('grace')
 
     down = false

@@ -14,7 +14,7 @@ export function DisplayLabelEdit(props: DisplayLabelProps) {
 function DisplayLabelForm({ keyLabel, value, machineKey, path, onChanged }: DisplayLabelProps) {
   const [draft, setDraft] = useState<{ expected: string; label: string } | null>(null)
   const { run, busy, err } = useAction(onChanged)
-  return <div className="small" style={{ marginTop: 6 }}>
+  return <div className="small display-label-edit">
     <span className="muted">{keyLabel || 'ID'}: <code>{machineKey}</code></span>{' '}
     {!draft ? <button className="link" onClick={() => setDraft({ expected: value, label: value })}>Edit display name</button> :
       <form className="row" onSubmit={async (event) => {

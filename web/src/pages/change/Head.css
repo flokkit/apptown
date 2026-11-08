@@ -10,4 +10,7 @@
 .head-run-diff-div { margin-bottom: calc(var(--space-1) * 1.5); }
 .head-diff-block-log { max-height: 200px; }
 .head-diff-block-div { max-height: 560px; overflow-y: auto; }
+.attachment-list-row { display: flex; }
+.attachment-list-row > .list-identity { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); flex: 1; }
+.attachment-list-row > .list-state, .attachment-list-row > .list-action:empty { display: none; }
 }

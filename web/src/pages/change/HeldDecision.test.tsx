@@ -58,12 +58,6 @@ describe('held runs offer recovery rather than an approval', () => {
     expect(el.textContent).not.toContain('Stop this attempt')
     expect(el.querySelector('a')?.textContent).toBe('Open the conversation →')
   })
-  it('keeps workflow recovery while hiding the chat continuation when chats are off', () => {
-    const el = markup(held(), false)
-    expect(el.textContent).toContain('Accept anyway')
-    expect(el.textContent).toContain('Send back…')
-    expect(el.textContent).not.toContain('Open the conversation')
-  })
   it.each(['send-back', 'retry', 'override'])('leads with advice and highlights only its offered %s act', async recommend => {
     const v = held()
     vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response(JSON.stringify({ text: 'The reviewer found a bug. Ask the agent to fix it.', recommend })))))

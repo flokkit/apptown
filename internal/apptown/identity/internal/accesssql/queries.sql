@@ -617,3 +617,21 @@ ON CONFLICT (group_name, principal_id) DO NOTHING;
 
 -- name: RemoveGroupMember :execrows
 DELETE FROM group_members WHERE group_name = sqlc.arg(group_name) AND principal_id = sqlc.arg(principal_id);
+
+-- RoleHoldersAt is who holds a role at one scope now: the subjects of its
+-- live, unexpired role grants (people and groups), as approval eligibility
+-- reads them.
+-- name: RoleHoldersAt :many
+SELECT g.subject_type, g.subject FROM grants_named g
+WHERE g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at > sqlc.arg(at)::timestamptz)
+AND g.scope_type = sqlc.arg(scope_type)::text AND g.scope_id = sqlc.arg(scope_id)::text
+AND g.role_name = sqlc.arg(role)::text AND g.capability = ''
+ORDER BY g.subject_type DESC, g.subject;
+
+-- LiveGroupMembers is a live group's live members by name, as approval
+-- eligibility reads membership.
+-- name: LiveGroupMembers :many
+SELECT u.username FROM group_members m JOIN groups g ON g.name = m.group_name JOIN users u ON u.principal_id = m.principal_id
+WHERE m.group_name = sqlc.arg(group_name)::text AND m.revoked_at IS NULL
+AND (m.expires_at IS NULL OR m.expires_at > sqlc.arg(at)::timestamptz) AND g.retired_at IS NULL
+ORDER BY u.username;

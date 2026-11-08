@@ -18,13 +18,19 @@ import (
 // resume, so a restart never invents a fresh healthy probe.
 
 type Runtime struct {
-	ID      string            `json:"id"`
-	Image   string            `json:"image"`
-	Running bool              `json:"running"`
-	Labels  map[string]string `json:"labels"`
+	ID    string `json:"id"`
+	Image string `json:"image"`
+	// ImageName is the image as the container was created from it
+	// (Config.Image), e.g. registry/app:tag; Image is its ID.
+	ImageName string            `json:"imageName"`
+	Running   bool              `json:"running"`
+	Labels    map[string]string `json:"labels"`
 	// MemoryLimit is the memory the container is held to, in bytes; 0 is no
 	// limit.
 	MemoryLimit int64 `json:"memoryLimit"`
+	// NanoCPUs is the CPU the container is held to, in billionths of a
+	// core; 0 is no limit.
+	NanoCPUs int64 `json:"nanoCpus"`
 	// State is what the daemon says of the container's process: nil when
 	// the answer carried none, which is "not reported", never a clean exit.
 	State *ContainerState `json:"state,omitempty"`
@@ -51,7 +57,7 @@ type ContainerState struct {
 // keeps State.Health only for a container with a health check, so Health is
 // read with index, which answers nothing for a missing key. The process
 // runner cancels the CLI and its children within a bounded deadline.
-const RuntimeFormat = `{"id":{{json .Id}},"image":{{json .Image}},"running":{{json .State.Running}},"labels":{{json .Config.Labels}},"memoryLimit":{{json .HostConfig.Memory}},` +
+const RuntimeFormat = `{"id":{{json .Id}},"image":{{json .Image}},"imageName":{{json .Config.Image}},"nanoCpus":{{json .HostConfig.NanoCpus}},"running":{{json .State.Running}},"labels":{{json .Config.Labels}},"memoryLimit":{{json .HostConfig.Memory}},` +
 	`"state":{"status":{{json .State.Status}},"exitCode":{{json .State.ExitCode}},"oomKilled":{{json .State.OOMKilled}},"restartCount":{{json .RestartCount}},` +
 	`"startedAt":{{json .State.StartedAt}},"finishedAt":{{json .State.FinishedAt}},"health":{{with index .State "Health"}}{{json .Status}}{{else}}""{{end}}}}`
 

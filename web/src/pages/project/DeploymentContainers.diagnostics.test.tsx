@@ -4,10 +4,10 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { getKey, newQueryClient } from '../../../data'
-import { TechnicalDetailSwitch } from '../../change/TechnicalDetail'
-import { DiagnosticsLines } from './Diagnostics'
-import type { DeploymentDiagnostics } from '../../../wire.gen'
+import { getKey, newQueryClient } from '../../data'
+import { TechnicalDetailSwitch } from '../change/TechnicalDetail'
+import { DeploymentContainers } from './DeploymentContainers'
+import type { DeploymentDiagnostics } from '../../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -27,11 +27,16 @@ const diagnostics: DeploymentDiagnostics = {
   logMaxLines: 200, logMaxBytes: 65536,
 }
 
+// What each part uses, as the resources read answers it beside diagnostics.
+const resources = { reading: { stale: false }, limits: [], limitsKnown: true, limitsSource: 'the Docker daemon',
+  parts: ['web', 'worker'].map((part) => ({ part, observed: { part, usedBytes: 1 << 20, limitBytes: 0, cpuCores: 0, cpuLimit: 0, known: true } })) }
+
 type Reply = { status: number; body: unknown }
 const serve = (replies: (url: string) => Reply) => {
   const calls: string[] = []
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     calls.push(String(url))
+    if (String(url).endsWith('/resources')) return new Response(JSON.stringify(resources))
     const r = replies(String(url))
     return new Response(JSON.stringify(r.body), { status: r.status })
   }))
@@ -43,13 +48,20 @@ const mount = async () => {
   const el = document.createElement('div')
   document.body.appendChild(el)
   const root = createRoot(el)
-  await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><TechnicalDetailSwitch /><DiagnosticsLines slug="game" name="main" /></MemoryRouter></QueryClientProvider>) })
-  await vi.waitFor(() => expect(el.textContent).toContain('worker:'))
+  await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><TechnicalDetailSwitch /><DeploymentContainers slug="game" name="main" /></MemoryRouter></QueryClientProvider>) })
+  await vi.waitFor(() => expect(el.textContent).toContain('worker'))
   await vi.waitFor(() => expect(el.textContent).not.toContain('Reading'))
   return { el, client, done: () => { act(() => root.unmount()); client.clear(); el.remove() } }
 }
 
-const button = (el: HTMLElement, text: string) => Array.from(el.querySelectorAll('button')).find((b) => b.textContent === text)!
+// A part's row in the containers table, and the words in its status cell.
+const row = (el: HTMLElement, part: string) => Array.from(el.querySelectorAll('tbody tr')).find((r) => r.querySelector('td')?.textContent?.startsWith(part))!
+const status = (el: HTMLElement, part: string) => row(el, part).querySelector('.phone-state')!.textContent
+// Logs is in the row's ⋯ menu, which opens in a popover.
+const readLog = async (el: HTMLElement, part: string) => {
+  await act(async () => { row(el, part).querySelector<HTMLButtonElement>('.phone-action button')!.click() })
+  await act(async () => { [...document.body.querySelectorAll<HTMLButtonElement>('.more-menu-list button')].find(b => b.firstChild?.textContent === 'Logs')!.click() })
+}
 
 describe('a deployment’s diagnostics', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -57,9 +69,9 @@ describe('a deployment’s diagnostics', () => {
   it('lead with the failing part and what to do, and mark an earlier generation’s event', async () => {
     serve(() => ({ status: 200, body: diagnostics }))
     const { el, done } = await mount()
-    expect(el.textContent).toContain('worker: ● failed raise its memory')
-    expect(el.textContent).toContain('raise its memory')
-    expect(el.textContent).toContain('web: ● working')
+    expect(status(el, 'worker')).toContain('failed')
+    expect(el.textContent).toContain('worker: raise its memory')
+    expect(status(el, 'web')).toContain('working')
     expect(el.textContent).not.toContain('generation 2, earlier')
     await act(async () => { el.querySelector<HTMLButtonElement>('[aria-label="Techno Goggles"]')!.click() })
     expect(el.textContent).toContain('generation 2, earlier')
@@ -74,7 +86,7 @@ describe('a deployment’s diagnostics', () => {
       : { status: 200, body: diagnostics })
     const { el, client, done } = await mount()
     expect(calls.some((c) => c.includes('/logs'))).toBe(false)
-    await act(async () => { button(el, 'Read worker log').click() })
+    await readLog(el, 'worker')
     await vi.waitFor(() => expect(el.textContent).toContain('worker: killed'))
     expect(calls.filter((c) => c.includes('/logs'))).toEqual(['/api/v1/projects/game/deployments/main/logs?part=worker'])
     expect(el.textContent).toContain('newest 200 lines')
@@ -89,7 +101,7 @@ describe('a deployment’s diagnostics', () => {
   it('say a refused log read is refused, not empty', async () => {
     serve((url) => url.includes('/logs') ? { status: 403, body: { error: 'needs deployment:operate' } } : { status: 200, body: diagnostics })
     const { el, done } = await mount()
-    await act(async () => { button(el, 'Read worker log').click() })
+    await readLog(el, 'worker')
     await vi.waitFor(() => expect(el.querySelector('.error')?.textContent).toContain('deployment:operate'))
     expect(el.querySelector('pre')).toBeNull()
     done()
@@ -100,8 +112,8 @@ describe('a deployment’s diagnostics', () => {
     const { el, client, done } = await mount()
     serve(() => ({ status: 502, body: { error: 'AppTown is restarting' } }))
     await act(async () => { await client.refetchQueries({ queryKey: getKey(PATH) }).catch(() => {}) })
-    await vi.waitFor(() => expect(el.textContent).toContain('unknown'))
-    expect(el.textContent).toContain('worker: ● unknown raise its memory')
+    await vi.waitFor(() => expect(status(el, 'worker')).toContain('unknown'))
+    expect(el.textContent).toContain('worker: raise its memory')
     done()
   })
 
@@ -109,8 +121,8 @@ describe('a deployment’s diagnostics', () => {
     const unknown = { ...diagnostics, parts: [diagnostics.parts[0], { ...diagnostics.parts[1], presence: 'unknown', stale: true, reason: 'its container could not be read: it did not answer in time' }] }
     serve(() => ({ status: 200, body: unknown }))
     const { el, done } = await mount()
-    expect(el.textContent).toContain('worker: ● unknown')
-    expect(el.textContent).not.toContain('worker: ● unknown raise its memory')
+    expect(status(el, 'worker')).toContain('unknown')
+    expect(el.textContent).not.toContain('worker: raise its memory')
     await act(async () => { el.querySelector<HTMLButtonElement>('[aria-label="Techno Goggles"]')!.click() })
     expect(el.textContent).toContain('exited, exit 137, out of memory')
     await act(async () => { el.querySelector<HTMLButtonElement>('[aria-label="Techno Goggles"]')!.click() })

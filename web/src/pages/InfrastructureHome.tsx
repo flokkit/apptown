@@ -1,4 +1,5 @@
 import './InfrastructureHome.css'
+import { Section } from '../Section'
 import { ListTable } from '../ListTable'
 import { useHostStates } from '../hostState'
 import { useAttention } from '../attention'
@@ -27,7 +28,8 @@ export function InfrastructureHome() {
   return (
     <div>
       <StaleNote q={[infra, targets, attention]} />
-      <PageHead page="infrastructure" title={<>Targets <span className="section-count">{targets.data.targets.length}</span></>} actions={<Link className="btn primary" to="/targets/new">Add a deployment target</Link>} />
+      <PageHead page="infrastructure" title="Targets" actions={<Link className="btn primary" to="/targets/new">Add a deployment target</Link>} />
+      <Section title="All targets" count={targets.data.targets.length} label="Targets">
       <ListTable className="target-list" label="Targets" rows={[
         ...live.map(t => ({ t, v: byName.get(t.target)! })),
         ...targets.data.targets.filter(v => !live.some(t => t.target === v.name)).map(v => ({ t: undefined, v })),
@@ -41,6 +43,7 @@ export function InfrastructureHome() {
           return state.summary || (t?.asOf && !t.live ? lastSeen(t.asOf) : v?.status === 'retired' ? 'Retired' : !t ? 'Inventory not known' : t.resources?.some(r => r.record === 'missing') ? 'Check missing resources' : t.resources?.some(r => r.record === 'unrecorded') ? 'Review resources' : '')
         } },
       ]} />
+      </Section>
       <div className="mt-4"><DeletedProjects /></div>
       <TargetConnections targets={targets.data.targets} />
     </div>

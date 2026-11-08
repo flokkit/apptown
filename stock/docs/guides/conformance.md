@@ -8,34 +8,35 @@ bring one back when it does not.
 Every project adopts some ways of working. Some of those carry **checks**: a
 shell script, a maintained scanner, a probe of the running app, or a rubric a
 model judges. The **Conformance** page answers one question for every
-project: *does it meet what it adopted?* It has six tabs:
+project: *does it meet what it adopted?* Its pages are in the sidebar under
+**Conformance**:
 
-- **Projects**: one row per app, those needing attention first. Each row
-  shows a finding count or a status, and one line saying what to do next
-  ("Fix: *the check*", "Not known: *why*"), how many checks couldn't run and
-  when it was checked. Apps that meet everything are folded under **Meet
-  everything they adopted**.
-- **Fleet reviews**: every review of more than one project, newest first,
-  with what it found and how it moved since the one before ("2 fixed · 0
-  new"). Reviews of one project are on that project's page.
+- **Projects**: one row per app, those needing attention first: what to do
+  next ("Fix: *the check*", "Not known: *why*"), how many checks couldn't
+  run, its finding count or status, and when it was checked. Apps that meet
+  everything are grouped under **Meet everything they adopted**.
+- **Reviews**: every review of more than one project, newest first, with
+  what it found and how it moved since the one before ("1 fixed · 0 new").
+  Reviews of one project are on that project's page.
 - **Checks**: one row per adopted check with a tally of its results ("1
-  finding · 2 passed · 1 not applicable"). Open one for each project's
-  result and how the check judges: the actual script, rubric, scanner or
-  probe, and where it runs.
+  finding · 2 passed · 1 not applicable"). A check's page lists each
+  project's result and how the check judges: the actual script, rubric,
+  scanner or probe, and where it runs.
 - **Remediations**: jobs that fix findings across many projects (below).
-- **Ways of working**: each pack, its recommended version, and which projects
-  are on which version.
-- **What-ifs**: recent trials of a pack version against the projects.
+- **Pack upgrades**: projects on an older version of a pack they adopted,
+  trying a newer version on them first (a what-if), and the what-ifs run so
+  far (below).
 
 There is no percentage on purpose: a number would hide whether the missing
 part failed or was never judged.
 
 ## A project's page
 
-**View checks** on a row opens the project's page. It shows its past reviews
-as bars (red for findings, amber for possible problems; select one to open
-that review), a **Fixed** history (what got fixed, by which change, verified
-by which review), and every check it adopted, grouped by result:
+A project's row opens its page. It lists every check the project adopted,
+grouped by result: checks to act on show their evidence and the way to fix
+them; the rest are a table of check, result, where it was judged and status.
+Below them are a **Fixed** history (what got fixed, by which change, verified
+by which review) and the project's past reviews.
 
 | Group | Meaning | What to do |
 |---|---|---|
@@ -95,7 +96,7 @@ verifying (a fresh review of that project), done. An item AppTown cannot
 finish is **stuck** with a reason: **Retry** it with a note for the agent or
 **Skip** it. A remediation can be paused, resumed or cancelled from its page.
 
-The **Remediations** tab shows what is in progress and how many fixes run at
+The **Remediations** page shows what is in progress and how many fixes run at
 once (two by default; people allowed to configure AppTown can change it).
 More at once costs more per hour and hits provider rate limits sooner; when a
 provider refuses, work pauses for a few minutes and the item is queued again.

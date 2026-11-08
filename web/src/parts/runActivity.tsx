@@ -1,10 +1,12 @@
-import { GlanceRow } from '../GlanceRow'
-import { ChangeStatus, Status } from '../Status'
+import { ListRow } from '../ListRow'
+import './runActivity.css'
+import { ChangeStatus } from '../Status'
+import { WaitingStatus, hasDetails } from '../Approvers'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChangeState, Doing, Release, RunStatus, post } from '../api'
+import { ChangeState, Doing, RunStatus, post } from '../api'
 import { useAction } from '../data'
-import { fmtDuration, fmtWhen, relTime } from '../format'
+import { relTime } from '../format'
 import type { NextAct, ProjectOverviewView } from '../wire.gen'
 
 // Shared presentation pieces for run activity and change history, used by
@@ -40,40 +42,30 @@ export function ActiveRunList({ runs, showProject, names = {} }: { runs: RunRow[
   return (
     <div>
       {runs.map((r) => {
-        const body = (
-          <>
-            <span className="row-status"><ChangeStatus waiting={r.waitingOn} /></span>
-            <strong>{r.changeNumber ? <span className="muted" style={{ fontWeight: 400 }}>#{r.changeNumber} </span> : null}{r.title || `run ${r.runNumber}`}</strong>
-            <span className="muted small">{showProject ? `${names[r.project ?? ''] ?? r.project} · ` : ''}{relTime(r.startedAt)}</span>
-          </>
-        )
+        // An approval's status opens who can approve, so it sits outside
+        // the row's link.
+        // A status that opens its details (who can approve, what went wrong)
+        // sits outside the row's link.
+        const approval = hasDetails(r.waitingOn) && !!r.changeId
+        const status = approval ? <WaitingStatus waiting={r.waitingOn} changeId={r.changeId} /> : <ChangeStatus waiting={r.waitingOn} />
+        const title = <strong>{r.changeNumber ? <span className="muted run-number">#{r.changeNumber} </span> : null}{r.title || `run ${r.runNumber}`}</strong>
+        const meta = <span className="muted small">{showProject ? `${names[r.project ?? ''] ?? r.project} · ` : ''}{relTime(r.startedAt)}</span>
         // A run with no change (a scheduled uplift, a system run) has no
         // page of its own — its one door is here: stop it.
         if (!r.changeId) {
-          return (
-            <div key={r.runId} className="card row" style={{ display: 'flex' }}>
-              {body}
-              <span className="grow" />
-              <StopRun runId={r.runId!} />
-            </div>
-          )
+          return <ListRow key={r.runId} className="card row run-list-row" state={<span className="row-status">{status}</span>} identity={<>{title}{meta}</>} action={<StopRun runId={r.runId!} />} />
         }
-        // A stuck change offers its next step, the same button every list
-        // row uses; closing it is a considered act on the change's own page.
-        // A failed change always has a next step, whether or not this list
-        // was sent the change's offered acts.
-        const stuck = r.waitingOn.kind === 'check' || r.waitingOn.you === 'yes' || (r.next ?? []).some((a) => a.act === 'abandon')
-        const link = (
-          <Link key={r.runId} to={`/changes/${r.changeId}`} className={stuck ? 'row' : 'card row'} style={{ display: 'flex', flex: stuck ? 1 : undefined }}>
-            {body}
-          </Link>
-        )
-        if (!stuck) return link
+        // The row opens the change; the title stays a real link. A stuck
+        // change also offers its next step, the same button every list row
+        // uses; closing it is a considered act on the change's own page. A
+        // failed change always has a next step, whether or not this list was
+        // sent the change's offered acts.
+        const stuck = approval || r.waitingOn.kind === 'check' || r.waitingOn.you === 'yes' || (r.next ?? []).some((a) => a.act === 'abandon')
+        const to = `/changes/${r.changeId}`
         return (
-          <div key={r.runId} className="card row" style={{ display: 'flex' }}>
-            {link}
-            <span className="row-action"><Link to={`/changes/${r.changeId}`} className="btn">{r.waitingOn.kind === 'check' && r.waitingOn.you === 'yes' ? 'Fix it' : r.waitingOn.kind === 'approval' && r.waitingOn.you === 'yes' ? 'Review' : 'Open'}</Link></span>
-          </div>
+          <ListRow key={r.runId} to={to} className="card row run-list-row" state={<span className="row-status">{status}</span>}
+            identity={<><Link to={to} className="run-link">{title}</Link>{meta}</>}
+            action={stuck && <span className="row-action"><Link to={to} className="btn">{r.waitingOn.kind === 'check' && r.waitingOn.you === 'yes' ? 'Fix it' : r.waitingOn.kind === 'approval' && r.waitingOn.you === 'yes' ? 'Review' : 'Open'}</Link></span>} />
         )
       })}
     </div>
@@ -85,7 +77,7 @@ function StopRun({ runId }: { runId: string }) {
   const { run, busy, err } = useAction(() => setAsk(false))
   if (!ask) return <button className="subtle" onClick={() => setAsk(true)}>stop</button>
   return (
-    <span className="row" style={{ gap: 6 }}>
+    <span className="row run-stop">
       <span className="small">Stop this run? Nothing is deleted.</span>
       <button className="danger" disabled={busy} onClick={() => void run(() => post(`/runs/${runId}/abandon`, { reason: 'stopped from the web UI' }))}>{busy ? '…' : 'Stop run'}</button>
       <button className="subtle" onClick={() => setAsk(false)}>Cancel</button>
@@ -95,48 +87,3 @@ function StopRun({ runId }: { runId: string }) {
 }
 
 
-// History interleaves BOTH event kinds: changes are the work, releases
-// are the work reaching people — one timeline, each release row a permalink.
-export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
-  changes: ChangeRow[]; showProject?: boolean; releases?: Release[]; slug?: string
-}) {
-  type Ev = { kind: 'change'; when: string; c: ChangeRow } | { kind: 'release'; when: string; r: Release }
-  const events: Ev[] = [
-    ...changes.map((c): Ev => ({ kind: 'change', when: c.when, c })),
-    ...(slug ? (releases ?? []).map((r): Ev => ({ kind: 'release', when: r.releasedAt || r.createdAt, r })) : []),
-  ].sort((a, b) => (a.when < b.when ? 1 : -1))
-  if (events.length === 0) return <div className="muted small">No finished changes yet.</div>
-  return (
-    <table className="stack">
-      <thead><tr><th>When</th>{showProject && <th>Project</th>}<th>What happened</th><th>Outcome</th><th>Took</th></tr></thead>
-      <tbody>
-        {events.map((e) => e.kind === 'change' ? (
-          <GlanceRow labels={["When", ...(showProject ? ["Project"] : []), "Change", "State", "Duration"]} key={`c${e.c.changeId}`}>
-            <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(e.when)}</td>
-            {showProject && <td className="muted small">{e.c.project}</td>}
-            <td className="stack-lead"><Link className="tap-open" to={`/changes/${e.c.changeId}`}><span className="muted small">#{e.c.changeNumber}</span> {e.c.title}</Link></td>
-            <td><ChangeStatus waiting={e.c.waitingOn} /></td>
-            {e.c.statusLabel === 'landed'
-              ? <td className="muted small" data-label="took">{fmtDuration(e.c.tookS)}</td>
-              : <td className="muted small stack-hide" />}
-          </GlanceRow>
-        ) : (
-          <GlanceRow labels={["When", ...(showProject ? ["Project"] : []), "Change", "State", "Duration"]} key={`r${e.r.number}`} style={{ background: 'var(--ok-bg)' }}>
-            <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(e.when)}</td>
-            {showProject && <td className="muted small" />}
-            <td className="stack-lead">
-              <Link className="tap-open" to={`/projects/${slug}/releases/${e.r.number}`}>
-                Release #{e.r.number}
-              </Link>
-              {(e.r.changes ?? []).length > 0 && (
-                <span className="muted small"> · {(e.r.changes ?? []).length} change{(e.r.changes ?? []).length === 1 ? '' : 's'}</span>
-              )}
-            </td>
-            <td><Status word={e.r.statusLabel} /></td>
-            <td className="muted small stack-hide">—</td>
-          </GlanceRow>
-        ))}
-      </tbody>
-    </table>
-  )
-}

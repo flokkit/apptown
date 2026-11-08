@@ -57,7 +57,7 @@ function Mark({ steps }: { steps: Step[] }) {
   if (steps.every(s => ['not_applicable', 'skipped'].includes(s.status))) return <span className="muted" aria-label="not applicable or skipped">−</span>
   if (steps.some(s => s.type === 'tests' && s.status === 'pass' && !s.evidence.testCounts)) return <span className="muted" aria-label="number of tests unknown">?</span>
   if (steps.every(done)) return <span className="ok" aria-label="passed">✓</span>
-  return <span className="muted" aria-label="pending">·</span>
+  return <span className="muted" aria-label="pending">○</span>
 }
 
 // Consecutive checks stay compact until a result needs attention or is in flight.

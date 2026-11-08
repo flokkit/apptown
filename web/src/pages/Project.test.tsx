@@ -150,7 +150,10 @@ it('shows the public app address on Overview without notes or a Changes link', a
     expect(address.target).toBe('_blank')
     expect(address.rel.split(' ')).toContain('noopener')
     expect(address.previousElementSibling?.textContent).toBe('Our app')
-    expect([...el.querySelectorAll('.app-address')].map(a => a.textContent)).toEqual([label, label])
+    expect([...el.querySelectorAll('.app-address')].map(a => a.textContent)).toEqual([label])
+    // The deployment row opens the same address; it is the link's title.
+    expect(el.querySelector('a.fleet-open')?.getAttribute('href')).toBe(url)
+    expect(el.querySelector('a.fleet-open')?.getAttribute('title')).toBe(url)
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
 

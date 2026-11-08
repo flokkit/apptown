@@ -1,3 +1,6 @@
+import { ListRow } from '../../ListRow'
+import { PageHead } from '../../PageHead'
+import './list-migrations.css'
 import { QuietPrompt } from '../../QuietConfirm'
 import './RemediationPage.css'
 import { Status } from '../../Status'
@@ -13,7 +16,7 @@ function ItemReason({ item }: { item: Item }) {
   const waiting = item.state === 'queued' ? item.waiting : undefined
   const reason = item.state === 'queued' ? waiting?.reason : item.reason
   if (!reason) return null
-  return <div className="small mt-1 remediation-page-item-reason-div" style={{ color: item.state === 'stuck' ? 'var(--bad)' : 'var(--muted)' }}>
+  return <div className={`small mt-1 remediation-page-item-reason-div ${item.state === 'stuck' ? 'remediation-stuck' : 'muted'}`}>
     {reason}
     {waiting?.changes?.map((change) => <span key={change.id}> · <Link to={`/changes/${change.id}`}>change {change.number}</Link></span>)}
     {waiting?.remediationId && <span> · <Link to={`/conformance/remediations/${waiting.remediationId}`}>remediation {waiting.remediationNumber}</Link></span>}
@@ -36,21 +39,12 @@ export function RemediationPage({ id }: { id: string }) {
   return (
     <div>
       <StaleNote q={q} />
-      <div className="row remediation-page-div">
-        <div>
-          <div className="row remediation-page-div-2">
-            <h1 className="remediation-page-h2">Remediation #{m.number}</h1>
-            <Status word={m.statusLabel} help={m.status.replaceAll('_', ' ')} />
-            <JobBar counts={m.counts} />
-          </div>
-          <div className="muted small mt-1">{m.sentence} · {m.actor} · {fmtWhen(m.createdAt)} · {m.mode}{m.cost ? ` · $${m.cost.toFixed(3)} so far` : ''}</div>
-        </div>
-        <span className="row remediation-page-span">
-          {m.status === 'running' && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/pause`)}>Pause</button>}
-          {m.status === 'paused' && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/resume`)}>Resume</button>}
-          {(m.status === 'running' || m.status === 'paused') && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/cancel`)}>Cancel</button>}
-        </span>
-      </div>
+      <PageHead page="conformance" title={<>Remediation #{m.number} <Status word={m.statusLabel} help={m.status.replaceAll('_', ' ')} /></>} actions={<span className="row remediation-page-span">
+        {m.status === 'running' && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/pause`)}>Pause</button>}
+        {m.status === 'paused' && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/resume`)}>Resume</button>}
+        {(m.status === 'running' || m.status === 'paused') && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/cancel`)}>Cancel</button>}
+      </span>} />
+      <div className="row remediation-page-div-2"><JobBar counts={m.counts} /><span className="muted small">{m.sentence} · {m.actor} · {fmtWhen(m.createdAt)} · {m.mode}{m.cost ? ` · $${m.cost.toFixed(3)} so far` : ''}</span></div>
       {err && <div className="error small mb-3">{err}</div>}
       {Object.entries(byProject).map(([slug, items]) => (
         <div key={slug} className="card mb-3 remediation-page-card">
@@ -60,8 +54,7 @@ export function RemediationPage({ id }: { id: string }) {
           {items.map((it) => {
             const tries = data.attempts[it.id ?? ''] ?? []
             return (
-              <div key={it.id} className="remediation-page-div-4">
-                <div className="row remediation-page-div-5">
+              <ListRow key={it.id} className="remediation-page-div-4 remediation-item-row" identity={
                   <span className="row remediation-page-span-2">
                     <Status word={it.statusLabel} help={it.state === 'queued' ? it.waiting?.reason : (it.reason || it.state)} />
                     <span className="mono remediation-page-mono">{it.check}</span>
@@ -69,7 +62,7 @@ export function RemediationPage({ id }: { id: string }) {
                     {it.attempt > 1 && <span className="muted small">attempt {it.attempt}</span>}
                     {it.doing && <span className="muted small">· on {it.doing}</span>}
                   </span>
-                  <span className="row remediation-page-span">
+                  } action={<span className="row remediation-page-span">
                     {it.state === 'stuck' && <QuietPrompt label="Retry" yes="Retry" disabled={busy}
                       ask={`Retry ${it.check} on ${slug}. Add a note for the agent if needed.`}
                       fields={[{ key: 'note', label: 'Retry note (optional)', placeholder: 'Note (optional)' }]}
@@ -78,12 +71,9 @@ export function RemediationPage({ id }: { id: string }) {
                       ask={`Skip ${it.check} on ${slug}. Why should this item be skipped?`}
                       fields={[{ key: 'reason', label: 'Reason for skipping', placeholder: 'Reason (required)', required: true }]}
                       onYes={({ reason }) => record(`/conformance/remediations/${m.id}/items/${it.id}/skip`, { reason: reason.trim() })} />}
-                  </span>
-                </div>
-                <ItemReason item={it} />
+                  </span>} detail={<><ItemReason item={it} />
                 {it.state === 'accepting' && it.changeId ? <div className="small mt-1">The fix is ready: <Link to={`/changes/${it.changeId}`}>accept it on the change page</Link> and it lands itself.</div> : null}
-                {tries.length > 1 && <div className="muted small mt-1">{tries.map((t) => `#${t.n}: ${t.outcome || 'in progress'}${t.reason ? ` (${t.reason.slice(0, 80)})` : ''}`).join(' · ')}</div>}
-              </div>
+                {tries.length > 1 && <div className="muted small mt-1">{tries.map((t) => `#${t.n}: ${t.outcome || 'in progress'}${t.reason ? ` (${t.reason.slice(0, 80)})` : ''}`).join(' · ')}</div>}</>} />
             )
           })}
         </div>

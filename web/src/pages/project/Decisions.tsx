@@ -1,3 +1,4 @@
+import { ListTable } from '../../ListTable'
 import { Status } from '../../Status'
 import { FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -23,14 +24,12 @@ export function AdrsTab({ slug }: { slug: string }) {
     <>
       <Section title="Recorded" count={q.data?.length || undefined}>
         <ReadGate q={q} what="this project's decisions">{(adrs) => adrs.length === 0 ? <p className="muted">No decisions recorded yet.</p> : <>
-          {adrs.map((a) => (
-            <Link key={a.id} to={`/adrs/${a.id}`} className="card row adr-row" style={{ display: 'flex' }}>
-              <span className="row-status"><Status word={a.statusLabel} help={`Decision: ${a.status}.`} /></span>
-              <span className="adr-num muted small">ADR-{String(a.number).padStart(3, '0')}</span>
-              <strong style={{ minWidth: 0 }} className="grow">{a.title}</strong>
-              {a.tags && <span className="muted small">{a.tags}</span>}
-            </Link>
-          ))}
+          <ListTable label="Decisions" rows={adrs} rowKey={a => String(a.id)} rowTo={a => `/adrs/${a.id}`} columns={[
+            { key: 'title', label: 'Decision', phone: 'name', render: a => <Link to={`/adrs/${a.id}`}><strong>{a.title}</strong></Link> },
+            { key: 'state', label: 'State', phone: 'state', render: a => <Status word={a.statusLabel} help={`Decision: ${a.status}.`} /> },
+            { key: 'number', label: 'Number', phone: 'detail', className: 'muted small', render: a => `ADR-${String(a.number).padStart(3, '0')}` },
+            { key: 'tags', label: 'Tags', phone: 'extra', className: 'muted small', render: a => a.tags },
+          ]} />
         </>}</ReadGate>
       </Section>
       <Section title="New decision">

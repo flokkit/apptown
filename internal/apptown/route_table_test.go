@@ -1168,6 +1168,21 @@ func TestEveryRouteAndToolDeclaresItsFeatureTier(t *testing.T) {
 			t.Errorf("%s has no documented tier", area)
 		}
 	}
+	// Every switch says what turning it off does, and the guide says the
+	// same words the Features page shows beside it.
+	for _, f := range identity.FeatureCatalogue() {
+		if f.Tier == "always" {
+			if f.Off != "" {
+				t.Errorf("always-on %s has an off explanation", f.Area)
+			}
+			continue
+		}
+		if f.Off == "" {
+			t.Errorf("switchable %s does not say what turning it off does", f.Area)
+		} else if !strings.Contains(string(guide), f.Off) {
+			t.Errorf("the Features guide does not carry %s's off explanation", f.Area)
+		}
+	}
 	for _, tool := range mcpToolsFor(a) {
 		if catalogue[tool.FeatureArea()] == "" {
 			t.Errorf("MCP %s has no tier", tool.Name)
@@ -1226,20 +1241,19 @@ func TestFeatureSwitchRefusesHTTPAndMCPUntilAnAdministratorEnablesIt(t *testing.
 	if w := get("/mcp/user"); w.Code != 401 {
 		t.Fatalf("enabled MCP lost authentication: %d %s", w.Code, w.Body.String())
 	}
-	setTestFeature(t, a, "models", false)
-	for _, path := range []string{"/api/v1/integrations/test", "/api/v1/integrations/discover"} {
-		probe := httptest.NewRequest("POST", path, strings.NewReader(`{"capability":"model","provider":"unconfigured","config":{}}`))
-		probe.Header.Set("Content-Type", "application/json")
-		probe.Header.Set("X-AppTown-Actor", "feature-admin")
-		refused := httptest.NewRecorder()
-		a.Handler().ServeHTTP(refused, probe)
-		if refused.Code != 403 || !strings.Contains(refused.Body.String(), "Models is turned off") {
-			t.Fatalf("shared connector bypass: %d %s", refused.Code, refused.Body.String())
+	// Models and the worker are core: they cannot be switched off, so their
+	// routes stay open.
+	for _, area := range []string{"models", "worker"} {
+		f, err := a.Access.FeatureState(context.Background(), area)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Access.SetFeature(context.Background(), access.Principal{Kind: "user", Name: "feature-admin", ID: testPrincipalOf(t, a.DB, "feature-admin"), Via: "session"}, area, f.Enabled, false); err == nil {
+			t.Fatalf("%s switched off; it is always on", area)
 		}
 	}
-	setTestFeature(t, a, "worker", false)
-	if w := get("/api/v1/executor"); w.Code != 403 || !strings.Contains(w.Body.String(), "is turned off") {
-		t.Fatalf("disabled executor: %d %s", w.Code, w.Body.String())
+	if w := get("/api/v1/executor"); w.Code == 403 {
+		t.Fatalf("always-on executor refused: %d %s", w.Code, w.Body.String())
 	}
 	for _, path := range []string{"/api/v1/usage", "/api/v1/packs", "/api/v1/complaints/steering"} {
 		if w := get(path); w.Code != 200 {

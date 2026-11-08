@@ -1,13 +1,22 @@
 import './InfrastructureHome.css'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { GlanceRow } from '../GlanceRow'
+import { ListTable, type ListColumn } from '../ListTable'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
 import type { Job, JobList } from '../wire.gen'
+
+type JobGroup = { job: Job; count: number }
+
+const jobColumns: ListColumn<JobGroup>[] = [
+  { key: 'job', label: 'Job', phone: 'name', render: ({ job: j, count: repeats }) => <>{JOB_WORDS[j.kind] ?? j.kind.replaceAll('-', ' ')}{repeats === 1 && typeof j.receipt?.target === 'string' && <> on {j.receipt.target}</>}{repeats > 1 && <span className="muted"> · {repeats} done</span>}</> },
+  { key: 'state', label: 'State', phone: 'state', render: ({ job: j }) => <><Status word={j.statusLabel} /> <span className="muted">{j.state}</span>{j.error && <> <span className="error">{j.error}</span></>}{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</> },
+  { key: 'when', label: 'When', phone: 'time', kind: 'time', render: ({ job: j }) => <span className="muted">{j.finishedAt ? 'Finished ' : j.startedAt ? 'Started ' : 'Queued '}{relTime(j.finishedAt || j.startedAt || j.createdAt)}</span> },
+  { key: 'outcome', label: 'Outcome', phone: 'detail', render: ({ job: j }) => <>{jobReceipt(j)}<div className="muted small">{j.kind} · <code className="job-key">{j.key}</code></div></> },
+]
 
 export function JobsPage() {
   return <div><h1>Background jobs</h1><p>Backups, resource checks and workflow follow-ups run here. Safe jobs retry by themselves.</p><p><Link to="/usage">Usage</Link></p><JobQueue /></div>
@@ -21,6 +30,9 @@ const JOB_WORDS: Record<string, string> = {
   'workflow-abandonment': 'Stop a workflow', 'conformance-review': 'Review projects',
   'deployment-release': 'Release an app', 'deployment-recovery': 'Restore an app', 'restore-check': 'Check restored apps', 'restored-copy-sweep': 'Remove expired test copies',
   'installation-marks': 'Record installed resources', 'project-cleanup': 'Clean up project files',
+  'infrastructure-check': 'Check servers and deployments', 'hourly-infrastructure-check': 'Check backups and connections',
+  'integration-health': 'Check a connection', 'error-report-observation': 'Check error reports', 'backup-store-observation': 'Check the backup store',
+  'target-observation': 'Check a target', 'preview-observation': 'Check previews', 'deployment-detail-observation': 'Check a deployment',
   'project-deletion-pass': 'Remove deleted apps', 'project-purge-pass': 'Remove expired projects',
 }
 const jobReceipt = (j: Job) => {
@@ -66,19 +78,7 @@ export function JobQueue() {
         ? <div className="muted small">No jobs yet.</div>
         : (
           <div className="infrastructure-home-job-queue-div-2">
-            <table className="small stack job-table infrastructure-home-job-queue-job-table">
-              <thead><tr><th>Job</th><th>State</th><th>When</th><th>Outcome</th></tr></thead>
-              <tbody>
-                {groups.slice(0, count).map(({ job: j, count: repeats }) => (
-                  <GlanceRow labels={["Job", "State", "When", "Outcome"]} key={j.id}>
-                    <td className="stack-lead">{JOB_WORDS[j.kind] ?? j.kind.replaceAll('-', ' ')}{repeats === 1 && typeof j.receipt?.target === 'string' && <> on {j.receipt.target}</>}{repeats > 1 && <span className="muted"> · {repeats} done</span>}</td>
-                    <td className="stack-end"><Status word={j.statusLabel} /> <span className="muted">{j.state}</span>{j.error && <> <span className="error">{j.error}</span></>}{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
-                    <td className="muted">{j.finishedAt ? 'Finished ' : j.startedAt ? 'Started ' : 'Queued '}{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
-                    <td data-label="outcome">{jobReceipt(j)}<div className="muted small">{j.kind} · <code className="job-key">{j.key}</code></div></td>
-                  </GlanceRow>
-                ))}
-              </tbody>
-            </table>
+            <ListTable label="Background jobs" className="small infrastructure-home-job-queue-job-table" rows={groups.slice(0, count)} rowKey={g => String(g.job.id)} columns={jobColumns} />
             {groups.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
           </div>
         )}

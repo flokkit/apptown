@@ -3,6 +3,8 @@ package apptown
 import (
 	"context"
 	"fmt"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -555,7 +557,7 @@ func TestAgentTokenCannotEnableFeature(t *testing.T) {
 
 func TestOffAreasAdmitNoBackgroundObservations(t *testing.T) {
 	for _, tc := range []struct{ area, kind string }{
-		{"worker", workerObservationJob},
+		// The worker and models are always on; the areas that can be off are tested.
 		{"backups", dataprotection.StoreObservationJob},
 		{"backups", dataprotection.ProtectionObservationJob},
 	} {
@@ -606,9 +608,7 @@ func TestConformanceOffAdmitsNoAdoptionReview(t *testing.T) {
 
 func TestOffAreasAdmitNoConnectionChecks(t *testing.T) {
 	for _, tc := range []struct{ area, capability, provider, config string }{
-		{"models", "model", "pi", `{"model":"openrouter/test/model"}`},
-		{"models", "llm", "openrouter", `{}`},
-		{"worker", "executor", "docker", `{}`},
+		// Models and the worker are always on; only switchable areas are tested.
 		{"conformance", "scanner", "test", `{"image":"test"}`},
 		{"app-platform", "cloud-account", "digitalocean", `{}`},
 	} {
@@ -657,5 +657,27 @@ func TestCoreObservationsAreAlwaysQueued(t *testing.T) {
 			t.Fatal(err)
 		}
 		requireJobs(t, a, 1, func(_ *rivertype.JobRow, r jobs.Request) bool { return r.Operation == kind })
+	}
+}
+
+// Every job kind has a plain name on the Background jobs page; a kind
+// without one shows as its internal identifier.
+func TestEveryJobKindHasAPlainName(t *testing.T) {
+	source, err := os.ReadFile("../../web/src/pages/Jobs.tsx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := regexp.MustCompile(`(?s)const JOB_WORDS[^{]*\{(.*?)\n\}`).FindSubmatch(source)
+	if block == nil {
+		t.Fatal("JOB_WORDS not found in Jobs.tsx")
+	}
+	named := map[string]bool{}
+	for _, m := range regexp.MustCompile(`'?([a-z][a-z-]*)'?\s*:`).FindAllSubmatch(block[1], -1) {
+		named[string(m[1])] = true
+	}
+	for kind := range jobBudgets {
+		if !named[kind] {
+			t.Errorf("job kind %q has no plain name in web/src/pages/Jobs.tsx JOB_WORDS", kind)
+		}
 	}
 }

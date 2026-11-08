@@ -1,5 +1,6 @@
+import { ListRow } from '../../ListRow'
+import './list-records.css'
 import { firstLine } from './Head'
-import { FeatureOnly } from '../../features'
 import './Conversation.css'
 import { AgentActionsSwitch, ToolFold, foldTools, useAgentActions } from '../../AgentActions'
 import { Section } from '../../Section'
@@ -27,7 +28,7 @@ export function ConversationLog({ changeId, chatHref, request, report, rounds = 
   const none = sessions?.length === 0 && !data?.unreadable
   // chatHref: where this change's chat opens, given only where a chat can
   // start on it.
-  const action = chatHref ? <FeatureOnly area="chats"><Link to={chatHref}>{none ? 'Start a chat' : 'Open the chat'}</Link></FeatureOnly> : undefined
+  const action = chatHref ? <Link to={chatHref}>{none ? 'Start a chat' : 'Open the chat'}</Link> : undefined
   return (
     <Section title="Conversation" count={sessions?.length || undefined} action={action}>
       <ReadStatus q={q} what="the conversation" className="small" />
@@ -38,7 +39,7 @@ export function ConversationLog({ changeId, chatHref, request, report, rounds = 
         {report && <div className="bubble-row"><div className="bubble"><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(report) }} /></div></div>}
       </> : <p className="muted">No chat yet.</p>)}
       {earlierRuns.map(id => <RunRounds key={id} id={id} changeId={changeId} />)}
-      {rounds.map((e, i) => <p key={e.key}><Link to={workRecordHref(changeId, e)}>Agent round {i + 1} · work record</Link></p>)}
+      {rounds.map((e, i) => <ListRow to={workRecordHref(changeId, e)} className="conversation-record-row" key={e.key} identity={<Link to={workRecordHref(changeId, e)}>Agent round {i + 1} · work record</Link>} />)}
       {sessions?.map((se) => (
         <div key={se.id} className="conversation-div">
           <div className="muted small conversation-div-2">{chatByline(se)}</div>
@@ -54,7 +55,7 @@ function RunRounds({ id, changeId }: { id: string; changeId: string }) {
   const q = useGet<RunTrace>(`/runs/${id}/trace`)
   const t = q.data
   const d: RunDetail | undefined = t?.run ? { checks: t.checks, run: t.run, steps: t.steps.filter(Boolean) as RunDetail['steps'], events: t.events as RunDetail['events'], artifacts: t.artifacts, stages: t.stages, next: [], landingMeans: [] } : undefined
-  return <><ReadStatus q={q} what="agent rounds" /><StaleNote q={q} />{d && runStory(d).filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-')).map(e => <p key={e.key}><Link to={workRecordHref(changeId, e)}>Run {d.run.number} · {e.step?.name || 'work'} · {fmtWhen(e.at)} · work record</Link></p>)}</>
+  return <><ReadStatus q={q} what="agent rounds" /><StaleNote q={q} />{d && runStory(d).filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-')).map(e => <ListRow to={workRecordHref(changeId, e)} className="conversation-record-row" key={e.key} identity={<Link to={workRecordHref(changeId, e)}>Run {d.run.number} · {e.step?.name || 'work'} · {fmtWhen(e.at)} · work record</Link>} />)}</>
 }
 
 // Who opened a chat and when; a chat moved from another AppTown says so.
@@ -112,7 +113,7 @@ export function PastChatsPage() {
       <p className="muted small">{chatByline(selected)}</p>
       <ChatMessages chat={selected} pictures={`/api/v1/projects/${slug}/transcript/${selected.id}/pictures/`} />
     </> : <p>This chat is not recorded.</p> : <Section title="Chats" count={sessions.length}>
-      {sessions.map(se => <p key={se.id}><Link to={`/projects/${slug}/chats/${se.id}`}>{chatOpening(se)}</Link> · {chatByline(se)}</p>)}
+      {sessions.map(se => <ListRow to={`/projects/${slug}/chats/${se.id}`} className="conversation-record-row" key={se.id} identity={<><Link to={`/projects/${slug}/chats/${se.id}`}>{chatOpening(se)}</Link> · {chatByline(se)}</>} />)}
       {sessions.length === 0 && !q.data.unreadable && <p>No ended chats on this project.</p>}
     </Section>)}
   </>

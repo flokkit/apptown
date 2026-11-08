@@ -7,42 +7,51 @@ import (
 	"strings"
 )
 
-// MemoryUsage is what each named container uses now, as the daemon reports
-// it (docker stats, one sample). A container the daemon does not report is
-// absent from the answer, including an explicit "-- / --" no-stats row;
-// other answers that cannot be read are errors, never
-// zero.
-func MemoryUsage(ctx context.Context, dk Scope, names []string) (map[string]int64, error) {
+// Usage is what one container uses now: its memory in bytes and its CPU in
+// cores (docker stats' CPU percentage is of one core, so 150% is 1.5).
+type Usage struct {
+	MemoryBytes int64
+	CPUCores    float64
+}
+
+// ContainerUsage is what each named container uses now, as the daemon
+// reports it (docker stats, one sample). A container the daemon does not
+// report is absent from the answer, including an explicit "-- / --"
+// no-stats row; other answers that cannot be read are errors, never zero.
+func ContainerUsage(ctx context.Context, dk Scope, names []string) (map[string]Usage, error) {
 	if len(names) == 0 {
-		return map[string]int64{}, nil
+		return map[string]Usage{}, nil
 	}
-	args := append([]string{"stats", "--no-stream", "--format", "{{.Name}}\t{{.MemUsage}}"}, names...)
+	args := append([]string{"stats", "--no-stream", "--format", "{{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}"}, names...)
 	out, err := dk.Run(ctx, args...)
 	if err != nil {
 		return nil, fmt.Errorf("docker stats: %v: %s", err, strings.TrimSpace(string(out)))
 	}
-	return parseMemoryUsage(out)
+	return parseUsage(out)
 }
 
-// parseMemoryUsage reads docker stats' name and usage lines.
-func parseMemoryUsage(out []byte) (map[string]int64, error) {
-	used := map[string]int64{}
+// parseUsage reads docker stats' name, memory and CPU lines.
+func parseUsage(out []byte) (map[string]Usage, error) {
+	used := map[string]Usage{}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		name, usage, ok := strings.Cut(line, "\t")
+		name, rest, ok := strings.Cut(line, "\t")
 		if !ok {
 			continue
 		}
-		// Docker can emit this placeholder when a container has no stats.
-		// Omit it so callers retain unknown use for that container.
-		if strings.TrimSpace(usage) == "-- / --" {
+		memory, cpu, _ := strings.Cut(rest, "\t")
+		if strings.TrimSpace(memory) == "-- / --" {
 			continue
 		}
-		current, _, _ := strings.Cut(usage, "/")
+		current, _, _ := strings.Cut(memory, "/")
 		b, err := parseDockerBytes(strings.TrimSpace(current))
 		if err != nil {
-			return nil, fmt.Errorf("docker stats reported %q for %s: %w", usage, name, err)
+			return nil, fmt.Errorf("docker stats reported %q for %s: %w", memory, name, err)
 		}
-		used[strings.TrimPrefix(strings.TrimSpace(name), "/")] = b
+		percent, err := strconv.ParseFloat(strings.TrimSuffix(strings.TrimSpace(cpu), "%"), 64)
+		if err != nil || percent < 0 {
+			return nil, fmt.Errorf("docker stats reported CPU %q for %s", cpu, name)
+		}
+		used[strings.TrimPrefix(strings.TrimSpace(name), "/")] = Usage{MemoryBytes: b, CPUCores: percent / 100}
 	}
 	return used, nil
 }

@@ -3,6 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import type { ConformanceView } from '../../wire.gen'
 import { ChecksList } from './Checks'
+// The person may start a remediation; the button follows conformance:remediate.
+vi.mock('../../instancePages', async (original) => ({ ...await original<typeof import('../../instancePages')>(), useHolds: () => true }))
 vi.mock('./parts', async (original) => ({ ...await original<typeof import('./parts')>(), useStartRemediation: () => ({ start: vi.fn(), busy: false, err: '' }) }))
 
 it('shows findings and their Fix action on the row while results stay closed', () => {
@@ -21,7 +23,7 @@ it('shows findings on a closed group of versions of the same check', () => {
  const view = { openRemediations: [], lens: { kind: 'current' }, adjudications: {}, checkDefs: { v1: { key: 'v1', title: 'Lint', adopters: [], block: 'style', check: 'lint', version: 1 }, v2: { key: 'v2', title: 'Lint', adopters: [], block: 'style', check: 'lint', version: 2 } }, byCheck: { v1: [passed], v2: [failed] } } as unknown as ConformanceView
  const html = renderToStaticMarkup(<MemoryRouter><ChecksList view={view} base="/conformance" /></MemoryRouter>)
  // The row itself, before it is opened, says there is a finding.
- const row = html.slice(html.indexOf('check-row'), html.indexOf('</div>', html.indexOf('check-row')))
+ const row = html.slice(html.indexOf('<tbody>'), html.indexOf('</tr>', html.indexOf('<tbody>')))
  expect(row).toContain('1 finding')
  expect(row).toContain('1 passed')
  expect(html).not.toContain('Version 1')

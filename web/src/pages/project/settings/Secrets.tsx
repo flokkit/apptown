@@ -1,3 +1,4 @@
+import { ListRow } from '../../../ListRow'
 import { Switch } from '../../../Switch'
 import './Secrets.css'
 import { Link } from 'react-router-dom'
@@ -39,12 +40,10 @@ export function SecretsTab({ slug }: { slug: string }) {
   }
 
   if (!data) return <ReadStatus q={q} what="the project's secrets" />
-  const internal = data.stores.find((s) => s.name === 'internal')
-  const infisical = data.stores.find((s) => s.name === 'infisical')
 
   if (data.problem) {
     return (
-      <Section title="Secrets">
+      <Section title="" label="Secrets">
         <StaleNote q={q} />
         <p className="error">{data.problem}</p>
       </Section>
@@ -53,12 +52,11 @@ export function SecretsTab({ slug }: { slug: string }) {
   if (!data.declared) {
     return (
       <>
-        <Section title="Secrets" action={<button className="link" onClick={() => setAdding(true)}>Add secret</button>}>
+        <Section title="" label="Secrets" action={<button className="link" onClick={() => setAdding(true)}>Add secret</button>}>
           <StaleNote q={q} />
           <p className="muted">This app declares no secrets.</p>
         </Section>
         {adding && <NewChangeButton slug={slug} request={{ title: 'Add a secret', body: 'Declare the secret this app needs and explain where the app uses it. Ask me for its name and purpose before editing. Keep its value out of the code and this change; I will set the value in Settings after the change lands.' }} external={{ open: true, onClose: () => setAdding(false) }} />}
-        <StoresNote internal={internal} infisical={infisical} />
       </>
     )
   }
@@ -80,8 +78,6 @@ export function SecretsTab({ slug }: { slug: string }) {
           onReveal={(name) => reveal(env.name, name)}
           onHide={(name) => setRevealed((m) => { const c = { ...m }; delete c[`${env.name}/${name}`]; return c })} />
       ))}
-
-      <StoresNote internal={internal} infisical={infisical} />
 
       {editing && (
         <BindModal slug={slug} env={editing.env} name={editing.name} stores={data.stores} agentVisible={editing.env === 'preview' && !!data.deployments.find((e) => e.name === editing.env)?.secrets.find((s) => s.name === editing.name)?.agentVisible}
@@ -114,7 +110,7 @@ function DeploymentSection({ env, slug, declared, onEdit, onUnbind, canReveal, c
         const shown = revealed[`${env.name}/${s.name}`]
         const goes = consumersOf(s.name)
         return (
-          <div key={s.name} className="card row secret-row secrets-card-secret-row">
+          <ListRow key={s.name} className="card row secret-row secrets-card-secret-row" identity={
             <div className="secret-what">
               <code>{s.name}</code>{!s.required && <span className="muted small"> optional</span>}
               <div className="muted small">{goes}{goes && ' · '}<Source s={s} /></div>
@@ -131,7 +127,7 @@ function DeploymentSection({ env, slug, declared, onEdit, onUnbind, canReveal, c
               )}
               {shown !== undefined && <div className="small"><code>{shown}</code> <button className="link" onClick={() => onHide(s.name)}>Hide</button></div>}
             </div>
-            <span className="row-action secret-acts">
+            } action={<span className="row-action secret-acts">
               {canReveal && s.bound && s.store === 'internal' && shown === undefined && (
                 <QuietConfirm label="Reveal…" className="subtle" ask={`Show the value of ${s.name} for ${env.name}? This read is recorded in the audit log under your name.`} onYes={() => onReveal(s.name)} />
               )}
@@ -140,8 +136,7 @@ function DeploymentSection({ env, slug, declared, onEdit, onUnbind, canReveal, c
                   onYes={() => onUnbind(s.name)} />
               )}
               <button onClick={() => onEdit(s.name)}>{s.bound && !s.generated ? 'Change…' : 'Set…'}</button>
-            </span>
-          </div>
+            </span>} />
         )
       })}
     </Section>
@@ -204,15 +199,5 @@ function BindModal({ slug, env, name, stores, agentVisible, onClose, onDone }: {
         <button onClick={onClose}>Cancel</button>
       </div>
     </Modal>
-  )
-}
-
-function StoresNote({ internal, infisical }: { internal?: SecretStore; infisical?: SecretStore }) {
-  if (!internal && !infisical) return null
-  return (
-    <Section title="Secret stores">
-      {internal && <div className="card row secrets-card-secret-row"><div><strong>{internal.title}</strong><div className="muted small">{internal.note}</div></div></div>}
-      {infisical && <div className="card row secrets-card-secret-row"><div><strong>{infisical.title}</strong>{!infisical.available && <span className="muted small"> not configured</span>}<div className="muted small">{infisical.note}</div></div></div>}
-    </Section>
   )
 }

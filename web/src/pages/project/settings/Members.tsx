@@ -1,3 +1,4 @@
+import { ListRow } from '../../../ListRow'
 import { Switch } from '../../../Switch'
 import { useState } from 'react'
 import { del, post, put } from '../../../api'
@@ -101,11 +102,9 @@ export function MembersTab({ slug }: { slug: string }) {
 function MemberRow({ held, canEdit, onRemove }: { held: ProjectMemberList['roles']; canEdit: boolean; onRemove: (id: string) => void }) {
   const [manage, setManage] = useState(false)
   return (
-    <div className="card row member-row" style={{ display: 'flex' }}>
+    <ListRow className="card row member-row" identity={<>
       <strong className="member-who">{subjectLabel(held[0])}</strong>
-      <span className="member-roles muted small">{held.map(g => grantTitle(g).replace(/^Project /, '')).join(', ')}</span>
-      {canEdit && <span className="row-action"><button aria-expanded={manage} onClick={() => setManage(m => !m)}>{manage ? 'Done' : 'Manage'}</button></span>}
-      {manage && <div className="member-manage small">{held.map(g => <span key={g.id}>{grantTitle(g)} <button className="link danger" aria-label={`remove ${grantTitle(g)} from ${subjectLabel(g)}`} onClick={() => g.id && onRemove(g.id)}>Remove</button></span>)}</div>}
-    </div>
+      <span className="member-roles muted small">{held.map(g => grantTitle(g).replace(/^Project /, '')).join(', ')}</span></>} action={
+      canEdit && <span className="row-action"><button aria-expanded={manage} onClick={() => setManage(m => !m)}>{manage ? 'Done' : 'Manage'}</button></span>} detail={manage && <div className="member-manage small">{held.map(g => <span key={g.id}>{grantTitle(g)} <button className="link danger" aria-label={`remove ${grantTitle(g)} from ${subjectLabel(g)}`} onClick={() => g.id && onRemove(g.id)}>Remove</button></span>)}</div>} />
   )
 }

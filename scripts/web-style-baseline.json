@@ -19,10 +19,6 @@
     "styles": 4,
     "numericPx": 6
   },
-  "web/src/FindingsTable.tsx": {
-    "styles": 2,
-    "numericPx": 2
-  },
   "web/src/Modal.tsx": {
     "styles": 2,
     "numericPx": 1
@@ -84,16 +80,12 @@
     "numericPx": 1
   },
   "web/src/pages/ExternalSignIn.tsx": {
-    "styles": 3,
+    "styles": 1,
     "numericPx": 0
   },
   "web/src/pages/GuidanceLibrary.tsx": {
     "styles": 4,
     "numericPx": 2
-  },
-  "web/src/pages/Infrastructure.tsx": {
-    "styles": 1,
-    "numericPx": 0
   },
   "web/src/pages/InfrastructureNew.tsx": {
     "styles": 1,
@@ -112,12 +104,8 @@
     "numericPx": 3
   },
   "web/src/pages/PackPage.tsx": {
-    "styles": 6,
-    "numericPx": 6
-  },
-  "web/src/pages/Packs.tsx": {
-    "styles": 0,
-    "numericPx": 0
+    "styles": 4,
+    "numericPx": 5
   },
   "web/src/pages/Project.tsx": {
     "styles": 4,
@@ -171,32 +159,20 @@
     "styles": 1,
     "numericPx": 0
   },
-  "web/src/pages/conformance/Checks.tsx": {
-    "styles": 3,
-    "numericPx": 6
-  },
   "web/src/pages/conformance/FleetVersions.tsx": {
     "styles": 3,
     "numericPx": 2
   },
-  "web/src/pages/conformance/ProjectPage.tsx": {
-    "styles": 1,
-    "numericPx": 0
-  },
   "web/src/pages/conformance/Projects.tsx": {
-    "styles": 3,
+    "styles": 1,
     "numericPx": 3
   },
-  "web/src/pages/conformance/RemediationPage.tsx": {
-    "styles": 1,
-    "numericPx": 0
-  },
   "web/src/pages/conformance/Remediations.tsx": {
-    "styles": 7,
+    "styles": 4,
     "numericPx": 4
   },
   "web/src/pages/conformance/Reviews.tsx": {
-    "styles": 8,
+    "styles": 5,
     "numericPx": 7
   },
   "web/src/pages/conformance/WhatIfs.tsx": {
@@ -208,8 +184,8 @@
     "numericPx": 0
   },
   "web/src/pages/console/ChangeBar.tsx": {
-    "styles": 3,
-    "numericPx": 4
+    "styles": 2,
+    "numericPx": 2
   },
   "web/src/pages/integrations/Capacity.tsx": {
     "styles": 1,
@@ -259,15 +235,7 @@
     "styles": 0,
     "numericPx": 0
   },
-  "web/src/pages/project/Schedules.tsx": {
-    "styles": 1,
-    "numericPx": 0
-  },
   "web/src/pages/project/Security.tsx": {
-    "styles": 6,
-    "numericPx": 0
-  },
-  "web/src/pages/project/Decisions.tsx": {
     "styles": 2,
     "numericPx": 0
   },
@@ -280,7 +248,7 @@
     "numericPx": 7
   },
   "web/src/pages/project/settings/Members.tsx": {
-    "styles": 5,
+    "styles": 4,
     "numericPx": 0
   },
   "web/src/pages/project/settings/ReleaseDefault.tsx": {
@@ -290,9 +258,5 @@
   "web/src/parts/Glyph.tsx": {
     "styles": 2,
     "numericPx": 0
-  },
-  "web/src/parts/runActivity.tsx": {
-    "styles": 8,
-    "numericPx": 1
   }
 }

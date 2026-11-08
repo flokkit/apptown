@@ -155,7 +155,7 @@ it('brings the recorded acceptance meaning on screen before casting an overview 
   const sent: unknown[] = []
   vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => { if (init?.body) sent.push(init.body); return new Response('{}') }))
   const el = document.createElement('div'), root = createRoot(el), client = newQueryClient()
-  await act(async () => root.render(<QueryClientProvider client={client}><DecisionForm overview conversation={{ href: '?tab=conversation' }} stepId={STEP} means="I read it" onDone={() => {}} approveLabel="Accept and put live" /></QueryClientProvider>))
+  await act(async () => root.render(<QueryClientProvider client={client}><DecisionForm overview stepId={STEP} means="I read it" onDone={() => {}} approveLabel="Accept and put live" /></QueryClientProvider>))
   await settle()
   const meaning = el.querySelector<HTMLElement>('.decision-meaning')!
   const scroll = vi.fn(); meaning.scrollIntoView = scroll

@@ -1,3 +1,4 @@
+import { ListTable } from '../ListTable'
 import { Switch } from '../Switch'
 import { useState } from 'react'
 import { PRODUCT } from '../brand'
@@ -41,7 +42,12 @@ export function ExternalProviderSettings() {
         <button disabled={!principal || !subject} onClick={() => { const input: ExternalBindRequest = { providerId: q.data!.id, principalId: principal, subject }; void run(async () => { await post('/auth/external/bindings', input); setSubject('') }) }}>Bind identity</button>
       </>}
     </ReadGate>
-    <ReadGate q={bindings} what="external identity bindings">{bindings.data?.bindings.map(b => <p key={b.id}>{b.principalId}: {b.issuer} / {b.subject} — {b.revoked ? 'revoked' : <button onClick={() => { void run(() => del(`/auth/external/bindings/${b.id}`)) }}>Revoke</button>}</p>)}</ReadGate>
+    <ReadGate q={bindings} what="external identity bindings">{(bindings.data?.bindings.length ?? 0) > 0 && <ListTable label="External identity bindings" rows={bindings.data?.bindings ?? []} rowKey={b => String(b.id)} columns={[
+      { key: 'principal', label: 'Principal', phone: 'name', render: b => b.principalId },
+      { key: 'identity', label: 'Issuer / subject', phone: 'detail', render: b => <>{b.issuer} / {b.subject}</> },
+      { key: 'revoked', label: 'Revocation', phone: 'state', render: b => b.revoked ? 'revoked' : null },
+      { key: 'action', label: '', phone: 'action', render: b => !b.revoked && <button onClick={() => { void run(() => del(`/auth/external/bindings/${b.id}`)) }}>Revoke</button> },
+    ]} />}</ReadGate>
   </section>
 }
 
@@ -64,10 +70,12 @@ export function MyExternalSignIn({ embedded = false }: { embedded?: boolean }) {
     </div>}
     {err && <p className="error">{err}</p>}
     </div>
-    <ReadGate q={q} what="your external identities">{q.data?.bindings.map(b => <div key={b.id} className="card row" style={{ display: 'flex' }}>
-      <span style={{ overflowWrap: 'anywhere' }} className="grow">{b.issuer} / {b.subject}</span>
-      <span className="row-action">{b.revoked ? <span className="muted small">revoked</span> : <button className="subtle" disabled={!password} title={password ? undefined : 'Enter your password above first'} onClick={() => { void run(async () => { await post(`/auth/external/bindings/${b.id}/unlink`, { password }); setPassword('') }) }}>Unlink</button>}</span>
-    </div>)}</ReadGate>
+    <ReadGate q={q} what="your external identities">{(q.data?.bindings.length ?? 0) > 0 && <ListTable label="Your external identities" rows={q.data?.bindings ?? []} rowKey={b => String(b.id)} columns={[
+      { key: 'issuer', label: 'Issuer', phone: 'name', render: b => b.issuer },
+      { key: 'subject', label: 'Subject', phone: 'detail', render: b => b.subject },
+      { key: 'state', label: 'Revocation', phone: 'state', render: b => b.revoked ? <span className="muted small">revoked</span> : null },
+      { key: 'action', label: '', phone: 'action', render: b => !b.revoked && <button className="subtle" disabled={!password} title={password ? undefined : 'Enter your password above first'} onClick={() => { void run(async () => { await post(`/auth/external/bindings/${b.id}/unlink`, { password }); setPassword('') }) }}>Unlink</button> },
+    ]} />}</ReadGate>
   </Section></>
 }
 

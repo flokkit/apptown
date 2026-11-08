@@ -387,7 +387,7 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 			if statsFail {
 				return []byte("cannot connect"), fmt.Errorf("exit 1"), true
 			}
-			return []byte("apptown-env-p-prod\t100MiB / 512MiB\napptown-svc-env-p-prod-postgres\t30MiB / 8GiB\ntraefik\t20MiB / 256MiB\nodd\t1MiB / 8GiB\n"), nil, true
+			return []byte("apptown-env-p-prod\t100MiB / 512MiB\t1.00%\napptown-svc-env-p-prod-postgres\t30MiB / 8GiB\t1.00%\ntraefik\t20MiB / 256MiB\t1.00%\nodd\t1MiB / 8GiB\t1.00%\n"), nil, true
 		}
 		return nil, nil, false
 	})
@@ -471,9 +471,9 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 			}
 			return []byte("/apptown-env-p-prod\t0\t0\t0\t0\t\tenv\t\n"), nil, true
 		case len(args) > 0 && args[0] == "stats":
-			out := "apptown-env-p-prod\t100MiB / 8GiB\n"
+			out := "apptown-env-p-prod\t100MiB / 8GiB\t1.00%\n"
 			if newcomer {
-				out += "apptown-preview-01a1\t50MiB / 8GiB\n"
+				out += "apptown-preview-01a1\t50MiB / 8GiB\t1.00%\n"
 			}
 			return []byte(out), nil, true
 		}

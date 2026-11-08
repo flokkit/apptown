@@ -1106,3 +1106,31 @@ func TestExecutorInventoryRequiresInstanceExecutionRead(t *testing.T) {
 		t.Fatalf("authorized instance reader lost the executor inventory: %d %s", w.Code, w.Body.String())
 	}
 }
+
+// The web hides an act unless the person's holdings say true, so every
+// capability a control asks for is reported: an administrator holds the
+// deployment and conformance acts; someone outside the project holds none of
+// them (review round 2, 8 Nov).
+func TestHoldingsReportTheActsTheWebOffers(t *testing.T) {
+	a := authzActors(t)
+	read := func(who string) httpapi.AuthzHoldings {
+		t.Helper()
+		w := authzCall(a.Handler(), who, "GET", "/api/v1/authz/me?project=game", "")
+		var out httpapi.AuthzHoldings
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != http.StatusOK {
+			t.Fatalf("%s holdings: %d %s %v", who, w.Code, w.Body.String(), err)
+		}
+		return out
+	}
+	boss, outsider := read("boss"), read("outsider")
+	for _, cap := range []string{"deployment:operate", "deployment:deploy"} {
+		if !boss.Project[cap] || outsider.Project[cap] {
+			t.Errorf("project %s: administrator %v, outsider %v", cap, boss.Project[cap], outsider.Project[cap])
+		}
+	}
+	for _, cap := range []string{"conformance:review", "conformance:remediate"} {
+		if !boss.Instance[cap] || outsider.Instance[cap] {
+			t.Errorf("instance %s: administrator %v, outsider %v", cap, boss.Instance[cap], outsider.Instance[cap])
+		}
+	}
+}

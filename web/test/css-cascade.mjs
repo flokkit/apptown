@@ -29,6 +29,9 @@ try {
         gap: row.rowGap,
         padding: row.paddingTop,
         actionWidth: document.querySelector('.list-action').getBoundingClientRect().width,
+        actionRight: document.querySelector('.list-action').getBoundingClientRect().right,
+        rowRight: document.querySelector('.project-row').getBoundingClientRect().right,
+        rowPaddingRight: parseFloat(getComputedStyle(document.querySelector('.project-row')).paddingRight),
         controlHeights: [...document.querySelectorAll('.people-form > *')].map(el => el.getBoundingClientRect().height),
         rootSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
         buttonHeight: document.querySelector('.people-form button').getBoundingClientRect().height,
@@ -38,7 +41,10 @@ try {
     const phone = width === 390
     const label = `${width} ${theme}`
     assert.equal(actual.columns.length, phone ? 1 : 3, `${label}: shared list columns`)
-    if (!phone) assert.ok(Math.abs(parseFloat(actual.columns[2]) - actual.actionWidth) < 1, `${label}: action track fits its content`)
+    // Project rows keep one fixed action column, so Open app and Change line
+    // up whether or not a project has an app; the buttons sit at its end.
+    if (!phone) assert.ok(parseFloat(actual.columns[2]) >= actual.actionWidth, `${label}: action track holds its content`)
+    if (!phone) assert.ok(Math.abs(actual.actionRight - actual.rowRight + actual.rowPaddingRight) < 1, `${label}: actions end at the row's end`)
     assert.equal(actual.gap, phone ? '8px' : '12px', `${label}: shared list gap`)
     assert.equal(actual.padding, phone ? '12px' : '16px', `${label}: shared list padding`)
     assert.ok(Math.abs(actual.buttonHeight - actual.rootSize * 40 / 14) < 1, `${label}: invite controls follow text size`)

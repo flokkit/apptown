@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ListTable } from '../../ListTable'
 import type { Bar, Segment } from './capacitySegments'
 
 // One stacked bar: its segments in proportion, a mark where the total falls
@@ -53,16 +54,9 @@ function Seg({ s, width, share, format }: { s: Segment; width: string; share: nu
 // per bar.
 export function CapacityTable({ rows, heads }: { rows: { name: string; kind: string; cells: string[]; to?: string }[]; heads: string[] }) {
   return (
-    <table className="small cap-table">
-      <thead><tr><th>App or system</th>{heads.map((h) => <th key={h}>{h}</th>)}</tr></thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.to || r.kind + r.name}>
-            <td><span className={`cap-swatch cap-${r.kind}`} />{r.to ? <Link to={r.to}>{r.name}</Link> : r.name}</td>
-            {r.cells.map((c, i) => <td key={i}>{c}</td>)}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <ListTable label="Use by app or system" className="small cap-table" rows={rows} rowKey={r => r.to || r.kind + r.name} columns={[
+      { key: 'name', label: 'App or system', phone: 'name', render: r => <><span className={`cap-swatch cap-${r.kind}`} />{r.to ? <Link to={r.to}>{r.name}</Link> : r.name}</> },
+      ...heads.map((h, i) => ({ key: `c${i}`, label: h, phone: 'extra' as const, kind: 'number' as const, render: (r: typeof rows[number]) => r.cells[i] })),
+    ]} />
   )
 }

@@ -1,4 +1,5 @@
 import { PRODUCT } from '../../brand'
+import { ListTable } from '../../ListTable'
 import { useGet } from '../../data'
 import { StaleNote } from '../../ReadGate'
 import { fmtBytes, readingAge, lastSeen } from '../../format'
@@ -136,19 +137,12 @@ export function Capacity({ name }: { name: string }) {
       )}
       {c.disk && <DiskLine d={c.disk} />}
       {c.elastic && (
-        <table className="small mt-1" >
-          <thead><tr><th>deployment</th><th>part</th><th>runs on</th><th>listed per month</th></tr></thead>
-          <tbody>
-            {(c.parts ?? []).map((p, i) => (
-              <tr key={`${p.deployment}/${p.part}/${i}`}>
-                <td>{p.deployment}</td>
-                <td>{p.part || 'app'}{p.need ? <span className="muted"> (service)</span> : null}</td>
-                <td>{p.runsOn}</td>
-                <td><FigureWords f={p.usdPerMonth} format={usd} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ListTable label="Parts and what they cost" className="small mt-1" rows={c.parts ?? []} rowKey={p => `${p.deployment}/${p.part}/${p.runsOn}`} columns={[
+          { key: 'deployment', label: 'deployment', phone: 'name', render: p => p.deployment },
+          { key: 'part', label: 'part', phone: 'detail', render: p => <>{p.part || 'app'}{p.need ? <span className="muted"> (service)</span> : null}</> },
+          { key: 'runs', label: 'runs on', phone: 'extra', render: p => p.runsOn },
+          { key: 'cost', label: 'listed per month', phone: 'extra', kind: 'number', render: p => <FigureWords f={p.usdPerMonth} format={usd} /> },
+        ]} />
       )}
       </div>}
       {c.estimate && (

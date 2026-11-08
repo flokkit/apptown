@@ -82,7 +82,7 @@ describe("a target's capacity", () => {
     const html = render({
       memory, cpu: { ...memory, total: fig(8), hostUsed: undefined },
       disk: { total: fig(400e9), free: fig(300e9), low: false, refuses: false },
-      tenants: [{ kind: 'deployment', name: 'shop/main', project: 'shop', deployment: 'main', containers: 2, used: fig(2 ** 28), promised: fig(2 ** 29), unlimited: 1, cpus: 1, cpuUnlimited: 1, cpuUnread: 0 }],
+      tenants: [{ kind: 'deployment', name: 'shop/main', project: 'shop', deployment: 'main', containers: 2, used: fig(2 ** 28), promised: fig(2 ** 29), unlimited: 1, cpus: 1, cpuUnlimited: 1, cpuUsed: { known: false, value: 0 }, cpuUnread: 0 }],
     })
     expect(html).toContain('role="img"')
     expect(html).toContain('aria-label="memory used:')
@@ -98,7 +98,7 @@ describe("a target's capacity", () => {
     // A holder none of whose containers has a limit says so, never "0 B".
     const noLimit = render({
       memory, cpu: { ...memory, total: fig(8), hostUsed: undefined },
-      tenants: [{ kind: 'other', name: 'other containers', containers: 3, used: fig(2 ** 20), promised: fig(0), unlimited: 3, cpus: 0, cpuUnlimited: 3, cpuUnread: 0 }],
+      tenants: [{ kind: 'other', name: 'other containers', containers: 3, used: fig(2 ** 20), promised: fig(0), unlimited: 3, cpus: 0, cpuUnlimited: 3, cpuUsed: { known: false, value: 0 }, cpuUnread: 0 }],
     })
     expect(noLimit).toMatch(/other containers<\/td><td[^>]*>3<\/td><td[^>]*>[^<]+<\/td><td[^>]*>without a set limit<\/td>/)
   })
@@ -108,8 +108,8 @@ describe("a target's capacity", () => {
     const html = render({
       memory, cpu: { ...memory, total: fig(8), hostUsed: undefined },
       tenants: [
-        { kind: 'deployment', name: 'a/main', project: 'a', deployment: 'main', containers: 1, used: fig(2 ** 20), promised: fig(2 ** 28), unlimited: 0, cpus: 0, cpuUnlimited: 0, cpuUnread: 1 },
-        { kind: 'deployment', name: 'b/main', project: 'b', deployment: 'main', containers: 1, used: fig(2 ** 20), promised: fig(2 ** 28), unlimited: 0, cpus: 2, cpuUnlimited: 0, cpuUnread: 1 },
+        { kind: 'deployment', name: 'a/main', project: 'a', deployment: 'main', containers: 1, used: fig(2 ** 20), promised: fig(2 ** 28), unlimited: 0, cpus: 0, cpuUnlimited: 0, cpuUsed: { known: false, value: 0 }, cpuUnread: 1 },
+        { kind: 'deployment', name: 'b/main', project: 'b', deployment: 'main', containers: 1, used: fig(2 ** 20), promised: fig(2 ** 28), unlimited: 0, cpus: 2, cpuUnlimited: 0, cpuUsed: { known: false, value: 0 }, cpuUnread: 1 },
       ],
     })
     expect(html).toContain('at least 2 CPUs of 8 CPUs · could not read 2 limits')
@@ -126,7 +126,7 @@ describe("a target's capacity", () => {
 // details stay inline.
 it('draws a Docker host as bars in view, with app details inline', () => {
   const memory = { total: fig(8 * 2 ** 30), hostUsed: fig(2 * 2 ** 30), promised: { sum: { apptown: fig(10 * 2 ** 30), other: fig(0) }, limited: count(1, 0), unlimited: count(19, 0), unread: count(0, 0) }, overcommitted: true }
-  const c = { memory, disk: { total: fig(49 * 2 ** 30), free: fig(23 * 2 ** 30), path: '/var/lib/docker', low: false, refuses: false }, tenants: Array.from({ length: 9 }, (_, i) => ({ name: `app-${i}`, kind: 'deployment', containers: 1, used: fig(0), promised: fig(i === 0 ? 10 * 2 ** 30 : 0), unlimited: 1, cpus: 0, cpuUnlimited: 1, cpuUnread: 0 })) }
+  const c = { memory, disk: { total: fig(49 * 2 ** 30), free: fig(23 * 2 ** 30), path: '/var/lib/docker', low: false, refuses: false }, tenants: Array.from({ length: 9 }, (_, i) => ({ name: `app-${i}`, kind: 'deployment', containers: 1, used: fig(0), promised: fig(i === 0 ? 10 * 2 ** 30 : 0), unlimited: 1, cpus: 0, cpuUnlimited: 1, cpuUsed: { known: false, value: 0 }, cpuUnread: 0 })) }
   const html = render(c)
   const front = html.split('<details')[0]
   expect(front).toContain('6 GB free of 8 GB')
@@ -196,7 +196,7 @@ it('does not renew old requested memory with a newer capacity wrapper', () => {
 
 it('describes attached container readings and names failed tenants, including retained readings', () => {
   const memory = { total: fig(2 ** 30), promised: { sum: { apptown: fig(0), other: fig(0) }, limited: count(0, 0), unlimited: count(0, 0), unread: count(0, 0) }, inUse: { apptown: fig(20 * 2 ** 20), other: fig(0) }, overcommitted: false }
-  const tenant = { kind: 'deployment', name: 'shop/main', containers: 1, used: fig(20 * 2 ** 20), promised: fig(0), unlimited: 1, cpus: 0, cpuUnlimited: 1, cpuUnread: 0 }
+  const tenant = { kind: 'deployment', name: 'shop/main', containers: 1, used: fig(20 * 2 ** 20), promised: fig(0), unlimited: 1, cpus: 0, cpuUnlimited: 1, cpuUsed: { known: false, value: 0 }, cpuUnread: 0 }
   const html = render({ memory, tenants: [tenant] })
   expect(html).toContain('20 MB used by containers; whole-host use is not measured')
   expect(html).not.toContain('Not measured on attached hosts')

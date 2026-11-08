@@ -3,10 +3,10 @@
    the action on their own lines, never squeezed into a narrow column. */
 @media (max-width: 800px) {
   .resource-row { row-gap: 8px; }
-  .resource-row > strong { flex: 1 1 60%; min-width: 0; }
-  .resource-row > .muted { flex: 1 1 100% !important; order: 3; }
+  .resource-row > .list-identity > strong { flex: 1 1 60%; min-width: 0; }
+  .resource-row > .list-identity > .muted { flex: 1 1 100% !important; order: 3; }
   .resource-row > .row-action { order: 4; }
-  .resource-row > .resource-evidence { order: 5; }
+  .resource-row > .list-detail { order: 5; }
 }
 
 .infrastructure-card { display: flex; }
@@ -17,4 +17,11 @@
 .infrastructure-resource-row-strong { overflow-wrap: anywhere; }
 .infrastructure-resource-row-span { min-width: 0; }
 .infrastructure-resource-row-resource-evidence { flex-basis: 100%; margin: var(--space-1) 0 var(--space-2); }
+.resource-list-row { display: flex; flex-wrap: wrap; }
+.resource-list-row > .list-state { order: -1; flex: 0 0 13em; }
+.resource-list-row > .list-identity { display: contents; }
+.resource-list-row > .list-action { display: none; }
+.resource-list-row > .list-detail { flex: 1 1 100%; color: var(--text); }
+.resource-missing { opacity: 0.7; }
+@media (width <= 800px) { .resource-list-row > .list-state { flex: 0 0 auto; } }
 }

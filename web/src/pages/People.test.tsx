@@ -370,9 +370,9 @@ it('shows active, disabled and never-signed-in accounts without fold-downs', asy
  expect(el.querySelector('.page-head button.primary')?.textContent).toBe('Invite')
  expect([...el.querySelectorAll('th')].map(c => c.textContent)).toEqual(['Name', 'Role', 'Groups', 'Status', 'Last seen', ''])
  expect(el.querySelectorAll('h1')).toHaveLength(1)
- expect(el.querySelector('h1')?.textContent).toBe('Accounts 4')
- expect(el.querySelector('h2')).toBeNull()
- expect(el.querySelector('tbody tr td:last-child button')?.textContent).toBe('Manage')
+ expect(el.querySelector('h1')?.textContent).toBe('Accounts')
+ expect(el.querySelector('h2')?.textContent).toBe('All accounts4')
+ expect(el.querySelector('tbody tr td:last-child button')?.textContent).toBe('⋯')
  expect(el.textContent).not.toContain('Names that never signed in or acted')
  await act(async () => root.unmount()); vi.unstubAllGlobals()
 })
@@ -453,7 +453,7 @@ it('opens a group record and changes only the selected membership', async () => 
 })
 
 
-it.each([['groups', 'Groups', 'New group'], ['roles', 'Roles', 'Grant role']] as const)('gives %s one heading with its count and primary action', async (view, title, action) => {
+it.each([['groups', 'Groups', 'New group'], ['roles', 'Roles', 'Grant role']] as const)('gives %s its title and primary action, and the list its count, as on Projects', async (view, title, action) => {
  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
   url.endsWith('/authz/me') ? { instance: { 'identity:manage-groups': true, 'authorization:manage-grants': true } } : { users: [], groups: [], roles: [], grants: [] }
  ))))
@@ -462,8 +462,8 @@ it.each([['groups', 'Groups', 'New group'], ['roles', 'Roles', 'Grant role']] as
   await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><People view={view} /></MemoryRouter></QueryClientProvider>))
   await vi.waitFor(() => expect(el.querySelector('.page-head .primary')?.textContent).toBe(action))
   expect(el.querySelectorAll('h1')).toHaveLength(1)
-  expect(el.querySelector('h1')?.textContent).toBe(`${title} 0`)
-  expect(el.querySelector('h2')).toBeNull()
+  expect(el.querySelector('h1')?.textContent).toBe(title)
+  expect(el.querySelector('h2')?.textContent).toBe(`All ${title.toLowerCase()}0`)
  } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
 

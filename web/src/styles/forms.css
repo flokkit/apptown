@@ -163,4 +163,5 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
 }
 .service-pick details { width: 100%; }
 .pick-tile > .chip { grid-column: 2; }
+.display-label-edit { margin-top: calc(var(--space-1) * 1.5); }
 }

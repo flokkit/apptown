@@ -1,3 +1,4 @@
+import { ListRow } from '../ListRow'
 import { FormMenu } from '../MoreMenu'
 import { ListTable } from '../ListTable'
 import { AccountStatus } from '../Status'
@@ -59,7 +60,7 @@ export default function People({ view = 'accounts' }: { view?: typeof PEOPLE_PAG
   if (new URLSearchParams(location.search).has('tab')) return <h1>Page not found</h1>
   return (
     <div className="people-div">
-      {(!pageReady || view === 'sign-in' || view === 'agents-and-tokens') && <PageHead page="people" title={name ?? PEOPLE_PAGES.find(([key]) => key === view)?.[1]} />}
+      {(!pageReady || view === 'sign-in' || view === 'agents-and-tokens') && <PageHead page="people" sub={PEOPLE_PAGES.find(([key]) => key === view)?.[1]} title={name ?? PEOPLE_PAGES.find(([key]) => key === view)?.[1]} />}
       {err && <div className="card error">{err}</div>}
 
       {!canEdit && !canUsers && !canGroups && !canGrants && (
@@ -152,14 +153,13 @@ function RolesCard({ roles, grants, users, groups, act, canEdit, actionError }: 
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   return (
     <>
-    <PageHead page="people" title={<>Roles <span className="section-count">{instance.length}</span></>} actions={canEdit && <button className="primary" onClick={() => setGranting(true)}>Grant role</button>} />
-    <Section title="" label="Roles" note="Roles grant permissions. Project roles are under Settings › Members.">
-      <p className="muted small">Instance administrators act in every project and may approve their own changes. Each project can require other people to get an independent approval.</p>
+    <PageHead page="people" sub="Roles" title="Roles" actions={canEdit && <button className="primary" onClick={() => setGranting(true)}>Grant role</button>} />
+    <Section title="All roles" count={instance.length} label="Roles">
       {!instance.length && <p>No roles assigned.</p>}
       <ListTable label="Roles granted" rows={instance} rowKey={g => String(g.id)} columns={[
         { key: 'role', label: 'Role', phone: 'name', render: g => {
           const role = roles.find(r => r.name === g.role)
-          return role ? <button className="link" title={grantTitle(g)} onClick={() => setSelectedRole(role)}>{grantTitle(g)}</button> : grantTitle(g) || 'Additional access'
+          return role ? <button className="record-name" title={grantTitle(g)} onClick={() => setSelectedRole(role)}>{grantTitle(g)}</button> : grantTitle(g) || 'Additional access'
         } },
         { key: 'subject', label: 'Granted to', phone: 'state', render: g => <span title={subjectLabel(g)}>{subjectLabel(g)}</span> },
         { key: 'scope', label: 'Scope', phone: 'detail', render: g => <span title={`${g.scopeType} ${g.scopeId}`}>{g.scopeId || g.scopeType}</span> },
@@ -210,8 +210,8 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
   const [resetLink, setResetLink] = useState<InviteLink | null>(null)
   const reset = useAction(undefined, { affects: ['/invites'] })
   // One row per account: name and role, then when they were last seen and
-  // the one Manage control. On a phone it is two lines.
-  const manage = (u: Account) => canEdit && <FormMenu className="account-actions" closeOnAction={false} trigger={<button className="subtle" aria-label={`Actions for ${u.username}`}>Manage</button>}>
+  // the one ⋯ control, as on every row. On a phone it is two lines.
+  const manage = (u: Account) => canEdit && <FormMenu className="account-actions" closeOnAction={false} trigger={<button className="subtle more-menu-button" aria-label={`Actions for ${u.username}`}>⋯</button>}>
 
         <div className="account-action-list">
         <label>Role                 {canEdit ? (
@@ -261,7 +261,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
             onYes={() => act(() => del(`/users/${encodeURIComponent(u.username)}`))} />
         </>}
       </FormMenu>
-  const accountRows = <ListTable label="Accounts" className="people-accounts" rows={accounts} rowKey={u => u.username} columns={[
+  const accountRows = <ListTable label="Accounts" className="people-accounts" rows={accounts} rowKey={u => u.username} rowTo={detail ? undefined : u => `/people/accounts/${encodeURIComponent(u.username)}`} columns={[
     { key: 'name', label: 'Name', phone: 'name', render: u => <Link to={`/people/accounts/${encodeURIComponent(u.username)}`}>{u.username}</Link> },
     { key: 'role', label: 'Role', phone: 'detail', render: u => u.role === 'admin' ? 'Admin' : 'Member' },
     { key: 'groups', label: 'Groups', phone: 'extra', render: u => <span title={u.groups.join(', ')}>{u.groups.join(', ') || 'None'}</span> },
@@ -281,8 +281,8 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
   )
   return (
     <>
-    <PageHead page="people" title={detail ? users[0]?.username ?? 'Account' : <>Accounts <span className="section-count">{accounts.length}</span></>} actions={!detail && canEdit && <button className="primary" onClick={() => setInviting(true)}>{invites ? 'Invite' : 'Add person'}</button>} />
-    <Section title="" label="Accounts" note={canEdit && sso ? 'Reset passwords through your sign-in provider.' : undefined}>
+    <PageHead page="people" sub="Accounts" title={detail ? users[0]?.username ?? 'Account' : 'Accounts'} actions={!detail && canEdit && <button className="primary" onClick={() => setInviting(true)}>{invites ? 'Invite' : 'Add person'}</button>} />
+    <Section title={detail ? '' : 'All accounts'} count={detail ? undefined : accounts.length} label="Accounts" note={canEdit && sso ? 'Reset passwords through your sign-in provider.' : undefined}>
       {reset.err && <div className="error small">{reset.err}</div>}
       {resetLink && (
         <OneTimeLink made={resetLink} onDone={() => setResetLink(null)}>
@@ -348,16 +348,14 @@ export function InvitePerson({ children }: { children?: React.ReactNode }) {
         <div className="people-invite-person-div">
           <div className="muted small">Waiting to be used</div>
           {pending.map(i => (
-            <div key={i.id} className="row small people-admin-networks-card-div">
+            <ListRow key={i.id} className="row small people-admin-networks-card-div pending-invite-row" identity={<>
               <span className="badge">{i.username}</span>
               {i.label && <span>{i.label}</span>}
               <span className="muted">
                 {i.purpose === 'password' ? `password reset · made by ${i.invitedBy}` : `${i.role} · invited by ${i.invitedBy}`} · expires {fmtWhen(i.expiresAt)}
               </span>
-              <span className="grow" />
-              <QuietConfirm label="withdraw" ask={`Withdraw the ${i.purpose === 'password' ? 'password reset link' : 'invite'} for ${i.username}? The link stops working.`}
-                onYes={() => { void run(() => del(`/invites/${i.id}`)) }} />
-            </div>
+              </>} action={<QuietConfirm label="withdraw" ask={`Withdraw the ${i.purpose === 'password' ? 'password reset link' : 'invite'} for ${i.username}? The link stops working.`}
+                onYes={() => { void run(() => del(`/invites/${i.id}`)) }} />} />
           ))}
         </div>
       )}
@@ -406,7 +404,7 @@ function GroupsCard({ groups, users, grants, act, canEdit, name, actionError }: 
     const editable = canEdit && kind(g) === 'team'
     const members = g.kind === 'built-in' ? users.filter(u => !u.disabled && (u.hasPassword || u.acted)).map(u => u.username) : g.members
     return <>
-      <PageHead page="people" title={g.name} line={<>{kind(g)} group. {g.description}{g.kind === 'built-in' && ' Everyone who is signed in; grant this group a role to give everyone that access.'}</>} actions={editable && <FormMenu className="more-menu" closeOnAction={false} trigger={<button aria-label={`More actions for ${g.name}`}>⋯</button>}><QuietConfirm label="Delete group" ask={`Delete group ${g.name}? Approval steps naming group:${g.name} will stop matching anyone.`}
+      <PageHead page="people" sub="Groups" title={g.name} line={<>{kind(g)} group. {g.description}{g.kind === 'built-in' && ' Everyone who is signed in; grant this group a role to give everyone that access.'}</>} actions={editable && <FormMenu className="more-menu" closeOnAction={false} trigger={<button aria-label={`More actions for ${g.name}`}>⋯</button>}><QuietConfirm label="Delete group" ask={`Delete group ${g.name}? Approval steps naming group:${g.name} will stop matching anyone.`}
           onYes={() => act(() => del(`/groups/${encodeURIComponent(g.name)}`).then(() => navigate('/people/groups')))} /></FormMenu>} />
       <Section title="Members" count={members.length} action={<div className="row">
         {editable && <button className="primary" onClick={() => setAdding(true)}>Add member</button>}
@@ -419,7 +417,12 @@ function GroupsCard({ groups, users, grants, act, canEdit, name, actionError }: 
           { key: 'action', label: '', phone: 'action', render: m => editable && <FormMenu className="more-menu" trigger={<button aria-label={`More actions for ${m}`}>⋯</button>}><button onClick={() => act(() => del(`/groups/${encodeURIComponent(g.name)}/members/${encodeURIComponent(m)}`))}>Remove member</button></FormMenu> },
         ]} />
       </Section>
-      <Section title="Roles granted" action={<Link to="/people/roles">Manage roles</Link>}>{rolesFor(g).length ? rolesFor(g).map(r => <p key={r.id}>{grantTitle(r)} · {r.scopeType}{r.scopeId && `: ${r.scopeId}`} · granted by {r.grantedBy}{r.reason && ` · ${r.reason}`}</p>) : <p>No roles granted.</p>}</Section>
+      <Section title="Roles granted" action={<Link to="/people/roles">Manage roles</Link>}>{rolesFor(g).length ? <ListTable label="Roles granted" rows={rolesFor(g)} rowKey={r => String(r.id)} columns={[
+        { key: 'role', label: 'Role', phone: 'name', render: grantTitle },
+        { key: 'scope', label: 'Scope', phone: 'state', render: r => <>{r.scopeType}{r.scopeId && `: ${r.scopeId}`}</> },
+        { key: 'grantor', label: 'Granted by', phone: 'extra', render: r => r.grantedBy },
+        { key: 'reason', label: 'Reason', phone: 'detail', render: r => r.reason },
+      ]} /> : <p>No roles granted.</p>}</Section>
       {adding && <Modal title="Add member" onClose={() => setAdding(false)}>{actionError && <p className="error">{actionError}</p>}<div className="people-form">
         <select aria-label="Account to add" value={member} onChange={e => setMember(e.target.value)}><option value="">Choose account…</option>{users.filter(u => !members.includes(u.username)).map(u => <option key={u.username}>{u.username}</option>)}</select>
         <button disabled={!member} onClick={() => act(() => post(`/groups/${encodeURIComponent(g.name)}/members/${encodeURIComponent(member)}`, {}).then(() => { setMember(''); setAdding(false) }))}>Add member</button>
@@ -427,10 +430,10 @@ function GroupsCard({ groups, users, grants, act, canEdit, name, actionError }: 
     </>
   }
   return <>
-    <PageHead page="people" title={<>Groups <span className="section-count">{groups.length}</span></>} actions={canEdit && <button className="primary" onClick={() => setCreating(true)}>New group</button>} />
-    <Section title="" label="Groups">
+    <PageHead page="people" sub="Groups" title="Groups" actions={canEdit && <button className="primary" onClick={() => setCreating(true)}>New group</button>} />
+    <Section title="All groups" count={groups.length} label="Groups">
       {!groups.length && <p>No groups yet.</p>}
-      <ListTable label="Groups" rows={groups} rowKey={g => g.name} columns={[
+      <ListTable label="Groups" rows={groups} rowKey={g => g.name} rowTo={g => `/people/groups/${encodeURIComponent(g.name)}`} columns={[
         { key: 'name', label: 'Name', phone: 'name', render: g => <Link to={`/people/groups/${encodeURIComponent(g.name)}`}>{groupLabel(g.name)}</Link> },
         { key: 'kind', label: 'Kind', phone: 'state', render: kind },
         { key: 'members', label: 'Members', kind: 'number', phone: 'time', render: g => g.kind === 'built-in' ? users.filter(u => !u.disabled && (u.hasPassword || u.acted)).length : g.members.length },

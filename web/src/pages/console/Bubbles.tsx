@@ -6,7 +6,7 @@ import { useGet } from '../../data'
 import { renderMd } from '../../md'
 import { pastedPictures } from '../../pictures'
 import { ReadStatus, StaleNote } from '../../ReadGate'
-import { AgentActionsSwitch, ToolFold, foldTools, useAgentActions } from '../../AgentActions'
+import { ToolFold, foldTools, useAgentActions } from '../../AgentActions'
 export { foldTools, toolSummary } from '../../AgentActions'
 import type { ChatUpload } from '../../wire.gen'
 
@@ -31,7 +31,7 @@ export function retired(sent: { at: number } | null, msgs: Bubble[]): boolean {
 
 // readOnly names whose chat it is when the reader may look but not act:
 // the conversation shows, the ways to act on it do not.
-export function Bubbles({ sessionId, attached = true, starting, hidden = false, onBusy, onHasMessages, footer, starters, readOnly, actionsSwitch = true }: { sessionId: string | null; attached?: boolean; starting?: React.ReactNode; hidden?: boolean; onHasMessages?: (hasMessages: boolean) => void; actionsSwitch?: boolean; onBusy?: (b: boolean) => void; footer?: React.ReactNode; starters?: string[]; readOnly?: string }) {
+export function Bubbles({ sessionId, attached = true, starting, hidden = false, onBusy, onHasMessages, footer, starters, readOnly }: { sessionId: string | null; attached?: boolean; starting?: React.ReactNode; hidden?: boolean; onHasMessages?: (hasMessages: boolean) => void; onBusy?: (b: boolean) => void; footer?: React.ReactNode; starters?: string[]; readOnly?: string }) {
   // The conversation is the record's answer; the only local message is the
   // queued message and the one just sent, until the record holds it.
   const [sent, setSent] = useState<{ text: string; at: number } | null>(null)
@@ -136,7 +136,7 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
     } else void deliver(t, images)
   }
 
-  const [showActions, setShowActions] = useAgentActions()
+  const [showActions] = useAgentActions()
   const shown = showActions ? msgs : foldTools(msgs)
   // Whose turn it is is the server's reading of the record: the helper has
   // handed back only when its last message is words with no tool call (or
@@ -151,9 +151,15 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
     if (box && stick.current) box.scrollTop = box.scrollHeight
   }, [record.data?.messages, pending, queued, showActions, hidden])
 
+  const working = <>
+    <span className="small robot-busy bubbles-robot-busy">Working…</span>
+    {readOnly === undefined && <button className="subtle" title="Stop what it's doing right now · then tell it what you'd rather have"
+      onClick={() => { setStopErr(''); post(`/console/${sessionId}/interrupt`, {}).catch((e) => setStopErr(`It could not be stopped: ${(e as Error).message}`)) }}>
+      ⏹ stop
+    </button>}
+  </>
   return (
     <div className="chat-pane" hidden={hidden}>
-      {actionsSwitch && <AgentActionsSwitch shown={showActions} onChange={setShowActions} />}
       <div
         ref={scrollRef}
         onScroll={(e) => {
@@ -261,13 +267,9 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
       </div>
       {/* Keep this slot for the session, including pauses between tool calls.
           Visibility preserves its height without offering an idle stop button. */}
-      <div className="row chat-working bubbles-chat-working" style={{ visibility: helperBusy && !starting ? 'visible' : 'hidden' }} aria-hidden={!helperBusy || !!starting}>
-        <span className="small robot-busy bubbles-robot-busy">Working…</span>
-        {readOnly === undefined && <button className="subtle" title="Stop what it's doing right now · then tell it what you'd rather have"
-          onClick={() => { setStopErr(''); post(`/console/${sessionId}/interrupt`, {}).catch((e) => setStopErr(`It could not be stopped: ${(e as Error).message}`)) }}>
-          ⏹ stop
-        </button>}
-      </div>
+      {/* While the helper works, Working… and stop sit in the input's own
+          row (or alone, for a viewer), so they take no row of their own. */}
+      {readOnly !== undefined && <div className="row chat-working" hidden={!helperBusy || !!starting}>{working}</div>}
       {footer}
       {sendErr && <div className="error">{sendErr}</div>}
       {images.length > 0 && (
@@ -292,7 +294,6 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
         onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}
         onDrop={(e) => { e.preventDefault(); addFiles(Array.from(e.dataTransfer.files)) }}>
         <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = '' }} />
-        <button type="button" onClick={() => fileInput.current?.click()}>Attach</button>
         <textarea
           ref={inputRef}
           rows={narrow ? 2 : 1}
@@ -303,6 +304,8 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
           placeholder="Say what to change. Attach, drop or paste files."
           aria-label="your message"
         />
+        <span className="row chat-working" hidden={!helperBusy || !!starting}>{working}</span>
+        <button type="button" className="subtle chat-attach" aria-label="Attach files" title="Attach files" onClick={() => fileInput.current?.click()}>📎</button>
         <button className="primary" onClick={send} disabled={!text.trim() && images.length === 0}>Send</button>
       </div>}
     </div>

@@ -6,7 +6,17 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../../data'
 import type { DeploymentView } from '../../../wire.gen'
-import { EnvCard } from './Deployments'
+import { DeploymentFacts, EnvCard } from './Deployments'
+import { DeploymentTitle } from '../DeploymentDeploys'
+
+// A status's details ride in its title, not in the page text.
+const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
+
+// The deployment page's head (title, status, facts) above its details card.
+function PageCard({ slug, env }: { slug: string; env: DeploymentView }) {
+  return <><div className="deploy-head"><DeploymentTitle name={env.displayLabel || env.name} env={env} /><DeploymentFacts slug={slug} env={env} /></div><EnvCard slug={slug} env={env} onChanged={() => {}} /></>
+}
+
 
 // A running deployment observation must not claim working while the host's
 // per-part observation is unknown. Missing backups get one actionable account.
@@ -30,10 +40,10 @@ function card() {
     operations: { copy: { available: false, reason: 'backups-page' }, check: elsewhere, restore: elsewhere, finalCopy: elsewhere, rehearsal: { available: false, reason: 'no-copy', why } },
   })
   const el = document.createElement('div')
-  el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="lunch" env={{
+  el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><PageCard slug="lunch" env={{
     name: 'main', displayLabel: 'Lunch Orders', generation: 1, kind: 'standing', feed: 'main', audience: 'team', data: 'production',
     status: { word: 'unknown', reason: 'web did not answer in time · old reading', checkedAt: at, stale: true }, observation: 'running', observedAt: at, readiness: 'reconciled', url: 'https://lunch.example', target: { kind: 'docker-host', name: 'local' },
-  } as DeploymentView} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>)
+  } as DeploymentView} /></MemoryRouter></QueryClientProvider>)
   client.clear()
   return el
 }
@@ -47,7 +57,9 @@ it('shows deployment facts without fold-downs', () => {
 })
 
 it('shows one deployment check timestamp', () => {
-  expect(card().textContent?.match(/checked /g)).toHaveLength(1)
+  // Said once across the page and the statuses' details.
+  const el = card()
+  expect(`${el.textContent} | ${details(el)}`.match(/checked /g)).toHaveLength(1)
 })
 
 it('says the missing backup once, with a disabled restore test and its reason', () => {

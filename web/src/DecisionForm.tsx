@@ -51,7 +51,7 @@ export function landingMeansFor(detail: { stages: string[]; landingMeans: string
   return step.type === 'approval' && step.stage === last && detail.landingMeans.length > 0 ? detail.landingMeans : undefined
 }
 
-export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, approveLabel = 'Approve', rejectLabel = 'Reject', placeholder = 'comment (optional)', compact, overview, conversation, canSendBack, abandon, externalBusy = false, onAccepted }: {
+export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, approveLabel = 'Approve', rejectLabel = 'Reject', placeholder = 'comment (optional)', compact, overview, canSendBack, abandon, externalBusy = false, onAccepted }: {
   onAccepted?: () => void
   stepId: string
   means?: string; instructions?: string
@@ -63,7 +63,6 @@ export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, a
   rejectLabel?: string
   placeholder?: string
   // compact: inline in a list row — subtle buttons, no headline.
-  conversation?: { href: string; run?: () => unknown }
   canSendBack?: boolean
   abandon?: DecisionChoice
   externalBusy?: boolean
@@ -120,7 +119,7 @@ export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, a
           }
           decide('approve')
         }, disabled: unread }}
-        conversation={conversation!} rework={canSendBack ? { label: 'Send back…', run: () => decide('reject') } : undefined} abandon={abandon} /> : <div className={compact ? 'row' : 'row decision-bar'} style={compact ? { gap: 4 } : { marginTop: 8 }}>
+        rework={canSendBack ? { label: 'Send back…', run: () => decide('reject') } : undefined} abandon={abandon} /> : <div className={compact ? 'row' : 'row decision-bar'} style={compact ? { gap: 4 } : { marginTop: 8 }}>
         <input placeholder={placeholder} value={comment} onChange={(e) => setComment(e.target.value)}
           style={compact ? { width: 180 } : undefined} aria-label="comment" />
         <button className={compact ? 'subtle' : 'primary'} disabled={busy || unread} onClick={() => decide('approve')}

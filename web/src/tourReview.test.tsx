@@ -30,6 +30,9 @@ async function render(child: ReactNode) {
   return el
 }
 
+// A status's details ride in its title, not in the page text.
+const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
+
 it('R1: distinguishes an unreadable release plan from no configured intranet', async () => {
   vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
     if (url.endsWith('/release/plan')) return new Response(JSON.stringify({ error: 'release plan unavailable' }), { status: 500 })
@@ -37,7 +40,8 @@ it('R1: distinguishes an unreadable release plan from no configured intranet', a
     return new Response('[]')
   })))
   const el = await render(<BigChangeBox slug="p" />)
-  expect(el.textContent).toContain('release plan unavailable')
+  // The reason is the unknown status's details, which open on hover or tap.
+  expect(details(el)).toContain('release plan unavailable')
 })
 
 it('R2: retains global finding on the narrow projects page', async () => {

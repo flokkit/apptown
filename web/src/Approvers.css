@@ -1,0 +1,10 @@
+@layer components {
+.approvers-card { display: grid; gap: var(--space-2); min-width: min(20rem, 80vw); max-width: 26rem; padding: var(--space-2); }
+.approvers-card h3 { margin: 0; font-size: var(--fs-md); }
+.approvers-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.approvers-card ul ul { padding-left: var(--space-3); margin-top: var(--space-1); gap: var(--space-1); border-left: 1px solid var(--border); }
+.approvers-card p { margin: 0; }
+.chip-button { cursor: pointer; font: inherit; font-size: var(--fs-xs); font-weight: var(--fw-strong); text-decoration: none; }
+/* Only the word is underlined; the status's dot or circle never is. */
+.chip-button .chip-word { text-decoration: underline dotted; text-underline-offset: calc(var(--space-1) * 0.75); }
+}

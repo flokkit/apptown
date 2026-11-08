@@ -68,14 +68,14 @@ export const shortSha = (s?: string) => (s ? s.slice(0, 8) : '')
 // --- small parts ---------------------------------------------------------------------------
 
 export function StandingChip({ label, help, findings, broken = 0 }: { label: import('../../wire.gen').CheckLabel; help: string; findings?: number; broken?: number }) {
-  if (findings !== undefined) return <span className="row conformance-findings"><span className="finding-count" title={help}>{findings} {findings === 1 ? 'finding' : 'findings'}</span><BrokenNote broken={broken} /></span>
+  if (findings !== undefined) return <span className="row conformance-findings"><Status word="needs review" reason={`${findings} ${findings === 1 ? 'finding' : 'findings'}`} help={help} /><BrokenNote broken={broken} /></span>
   return <Status word={label} help={help} />
 }
 export function BrokenNote({ broken }: { broken: number }) {
   return broken > 0 ? <span className="conformance-broken">· {broken} not known</span> : null
 }
 export function StateChip({ label, help, finding = false, findings = 1 }: { label: import('../../wire.gen').CheckLabel; help?: string; finding?: boolean; findings?: number }) {
-  if (finding) return <span className="finding-count" title={help}>{findings} {findings === 1 ? 'finding' : 'findings'}</span>
+  if (finding) return <Status word="needs review" reason={`${findings} ${findings === 1 ? 'finding' : 'findings'}`} help={help} />
   return <Status word={label} help={help} />
 }
 
@@ -206,10 +206,13 @@ export function ReviewProgress({ d }: { d: LiveReview }) {
 }
 
 // "How it's judged": the actual sh/rubric/tool/probe, where it runs, adopters.
-export function HowJudged({ def }: { def?: CheckDefinition }) {
+// brief is the one line a project's page shows; the script or rubric itself
+// is on the check's own page, which the line links to.
+export function HowJudged({ def, brief = false }: { def?: CheckDefinition; brief?: boolean }) {
   const { reviewId } = useParams()
   const base = reviewId ? `/conformance/reviews/${reviewId}` : '/conformance'
   if (!def) return null
+  if (brief) return <div className="muted small conformance-how-brief">Judged by <strong>{EVAL[def.evaluator] ?? def.evaluator}</strong> · {def.judgedWhere} · severity {def.severity} · <Link to={`${base}/checks/${encodeURIComponent(def.key)}`}>how this check judges →</Link></div>
   const how = def.evaluator === 'sh' ? def.sh : def.evaluator === 'llm' ? def.rubric : def.evaluator === 'tool' ? def.tool : def.probe
   return (
     <div className="stack conformance-how-judged">

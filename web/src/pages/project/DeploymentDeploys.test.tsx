@@ -18,7 +18,8 @@ function runtimeClient() {
 }
 function DeploymentDeploys(props: Omit<ComponentProps<typeof ActualDeploymentDeploys>, 'env' | 'current' | 'reload'>) {
   const env = { status: { word: 'working', reason: '', stale: false }, id: 'deployment', name: props.name, generation: 1, kind: 'standing', runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { start: '', stop: '', restart: '' }, observation: 'running', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', promotionBlocked: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, displayLabel: 'Lunch Orders', url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView
-  return <ActualDeploymentDeploys {...props} env={env} current reload={async () => {}} />
+  // The status tab, then the history tab: the page shows them one at a time.
+  return <><ActualDeploymentDeploys {...props} env={env} current reload={async () => {}} tab="status" /><ActualDeploymentDeploys {...props} env={env} current reload={async () => {}} tab="history" /></>
 }
 
 
@@ -175,5 +176,49 @@ it('shows an interrupted stage as history without active time or animation', () 
   expect(card.querySelector('.deploy-stages')?.textContent).not.toContain('now')
   expect(card.querySelector('.ch-deploy-progress')?.textContent).toBe('Last seen: starting the app · Interrupted by a restart — checking.')
   expect(card.querySelector('.ch-deploy-heading')?.textContent).toBe('Deployment progress uncertain')
+  client.clear()
+})
+
+// A deploy that ended a while ago is one line, keeping how it ended (the
+// stage it stopped at, its failure, who approved it); a recent one keeps
+// the scene so its outcome is seen.
+it.each([[true, 'failed'], [true, 'released'], [false, 'released']] as const)('shows a deploy that ended long ago (%s) as one line: %s', async (old, state) => {
+  const client = runtimeClient()
+  const at = new Date(Date.now() - (old ? 60 : 1) * 60 * 1000).toISOString()
+  const releases = [{ number: 9, deployment: 'main', state, statusLabel: state === 'failed' ? 'failed' : 'deployed', failedStage: state === 'failed' ? 'building' : undefined, failure: state === 'failed' ? 'the build ran out of disk' : '', createdAt: at, releasedAt: state === 'released' ? at : undefined, changes: [], approval: { actor: { name: 'Priya', via: 'web' }, at, meaning: 'I accept release 9 running on main' } }]
+  vi.stubGlobal('fetch', vi.fn(async (path: string) => new Response(JSON.stringify(path.endsWith('/releases') ? releases : []), { headers: { 'Content-Type': 'application/json' } })))
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  try {
+    await act(async () => { root.render(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="main" /></QueryClientProvider></MemoryRouter>) })
+    await vi.waitFor(() => expect(el.querySelector('[aria-label="Latest deploy"]')?.textContent).toContain('Approved by Priya'))
+    const latest = el.querySelector('[aria-label="Latest deploy"]')!
+    expect(latest.classList.contains('deployment-latest-line')).toBe(old)
+    expect(latest.querySelector('.deploy-scene') === null).toBe(old)
+    expect(latest.textContent).toContain('Approved by Priya')
+    if (state === 'failed') {
+      expect(latest.textContent).toContain(`while ${deployWords.building}`)
+      expect(latest.textContent).toContain('the build ran out of disk')
+    }
+  } finally {
+    await act(async () => root.unmount())
+    client.clear()
+    vi.unstubAllGlobals()
+  }
+})
+
+// A deployment nothing has run on says so and how it will go live, with no
+// empty deploy scene and no start, stop or restart.
+it.each([['main', true, 'It deploys when a change lands on main.'], ['manual', false, 'Deploy a release to put it live.']] as const)('says a never-deployed %s deployment is not deployed yet', (feed, confirmed, how) => {
+  const client = runtimeClient()
+  client.setQueryData(getKey('/projects/lunch/releases'), [])
+  const env = { status: { word: 'stopped', reason: '', stale: false }, id: 'd', name: 'main', generation: 0, kind: 'standing', feed, feedConfirmed: confirmed, runtimeState: 'stopped', runtimeControls: {}, observation: 'stopped' } as unknown as DeploymentView
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ActualDeploymentDeploys slug="lunch" name="main" env={env} current reload={async () => {}} /></QueryClientProvider></MemoryRouter>)
+  expect(el.textContent).toContain(`Not deployed yet. ${how}`)
+  expect(el.querySelector('.deploy-scene')).toBeNull()
+  expect(el.textContent).not.toMatch(/Stop|Restart/)
+  expect([...el.querySelectorAll('button')].some(b => b.textContent === 'Deploy a release…')).toBe(feed !== 'main')
   client.clear()
 })

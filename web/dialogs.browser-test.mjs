@@ -84,7 +84,9 @@ try {
       }
       if (scene === 'features') {
         await page.getByRole('heading', { name: 'Beta', exact: true }).waitFor()
-        assert.equal(await page.locator('main a').count(), 1)
+        // The guide is behind the page's ? help, not a link written on the page.
+        assert.equal(await page.locator('main a').count(), 0)
+        assert.equal(await page.getByRole('button', { name: 'About Features', exact: true }).count(), 1)
         assert.equal(await page.getByRole('button', { name: /Ways of working: turn/ }).count(), 0)
       }
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Page overflow: ${scene} at ${width}, ${size}`)

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ListTable } from '../../../ListTable'
 import { useSearchParams } from 'react-router-dom'
 import { put } from '../../../api'
 import { useAction, useGet } from '../../../data'
@@ -49,16 +50,13 @@ export function ModelsTab({ slug }: { slug: string }) {
       {err && <p className="error">{err}</p>}
     </Section>
     {known && <Section title={`Models for ${selected}`}>
-      <table className="stack">
-        <thead><tr><th>Task</th><th>Model</th></tr></thead>
-        <tbody>{data.tasks.map(row => {
+      <ListTable label={`Models for ${selected}`} rows={data.tasks} rowKey={row => row.slot} columns={[
+        { key: 'task', label: 'Task', phone: 'name', render: row => <><strong>{jobName(row.slot)}</strong><div className="muted small">{row.gloss}</div></> },
+        { key: 'model', label: 'Model', phone: 'detail', render: row => {
           const { pattern: model, slot: from } = row.models[selected]
-          return <tr key={row.slot}>
-            <td className="stack-lead"><strong>{jobName(row.slot)}</strong><div className="muted small">{row.gloss}</div></td>
-            <td>{model ? `${model}${from !== row.slot ? ` · from ${jobName(from)}` : ''}` : 'No model set'}</td>
-          </tr>
-        })}</tbody>
-      </table>
+          return model ? `${model}${from !== row.slot ? ` · from ${jobName(from)}` : ''}` : 'No model set'
+        } },
+      ]} />
     </Section>}
   </>
 }

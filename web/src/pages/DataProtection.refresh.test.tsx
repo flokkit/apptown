@@ -31,6 +31,9 @@ const down = vi.fn(async () => new Response(JSON.stringify({ error: 'AppTown is 
 // DPB-05: an answer that could not be refreshed is shown as what was last
 // read, with its age; it never goes on claiming fresh copies or stopped
 // writes as they are now.
+// A status's details ride in its title, not in the page text.
+const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
+
 describe('a protection reading whose refresh failed', () => {
   afterEach(() => vi.unstubAllGlobals())
   const mount = async (path: string, ui: React.ReactNode, body: unknown) => {
@@ -47,7 +50,8 @@ describe('a protection reading whose refresh failed', () => {
   it('says the copies were fresh when last read, not that they are', async () => {
     const { el, done } = await mount('/projects/ledger/deployments/prod/protection', <ProtectionLines slug="ledger" name="prod" />, protection)
     await vi.waitFor(() => expect(el.textContent).toContain('unknown'))
-    expect(el.textContent).toContain('as read')
+    // How old the answer is rides in the unknown status's details.
+    expect(details(el)).toContain('as read')
     expect(el.querySelector('.chip.pass')).toBeNull()
     done()
   })

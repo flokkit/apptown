@@ -1,4 +1,5 @@
 import { usePageName } from '../../chrome'
+import { ListTable } from '../../ListTable'
 import { ProjectCount } from '../DependentProjects'
 import './ModelSlots.css'
 import { useState } from 'react'
@@ -165,30 +166,15 @@ export function ModelProfilePage({ projects = false }: { projects?: boolean }) {
       {actErr && <div className="error">{actErr}</div>}
 
       {!projects && <Section title="Tasks" count={data.slots.length}>
-        <table className="stack slots-table model-slots-model-profile-page-slots-table">
-          <thead>
-            <tr>
-              <th className="small muted model-slots-model-profile-page-th">Task</th>
-              <th className="small muted model-slots-model-profile-page-th">Model</th>
-              {spent && <th className="small muted model-slots-model-profile-page-th"  title={data.spendNote}>Spent (7 days)</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {data.slots.map((row) => (
-              <tr key={row.slot}>
-                <td className="stack-lead model-slots-stack-lead">
-                  <strong>{jobName(row.slot)}</strong>
-                  <div className="muted small">{jobName(row.gloss)}</div>
-                  <div className="muted small">Used by: {row.consumers?.length ? row.consumers.join(', ') : 'no jobs request it directly'}</div>
-                </td>
-                <td className="model-slots-td">{cell(row)}</td>
-                {spent && <td className="small muted model-slots-td-2">
-                  {row.spend7d ? `${fmtTokens(row.spend7d.input)} in · ${fmtTokens(row.spend7d.output)} out` : ''}
-                </td>}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ListTable label="Tasks" className="slots-table model-slots-model-profile-page-slots-table" rows={data.slots} rowKey={row => row.slot} columns={[
+          { key: 'task', label: 'Task', phone: 'name', className: 'model-slots-stack-lead', render: row => <>
+            <strong>{jobName(row.slot)}</strong>
+            <div className="muted small">{jobName(row.gloss)}</div>
+            <div className="muted small">Used by: {row.consumers?.length ? row.consumers.join(', ') : 'no jobs request it directly'}</div>
+          </> },
+          { key: 'model', label: 'Model', phone: 'detail', className: 'model-slots-td', render: row => cell(row) },
+          ...(spent ? [{ key: 'spent', label: 'Spent (7 days)', phone: 'extra' as const, className: 'small muted model-slots-td-2', render: (row: typeof data.slots[number]) => row.spend7d ? `${fmtTokens(row.spend7d.input)} in · ${fmtTokens(row.spend7d.output)} out` : '' }] : []),
+        ]} />
       </Section>}
 
       {!isNew && !projects && <p><ProjectCount to={`/integrations/profiles/${profile}/projects`} count={on.length} /></p>}
@@ -197,7 +183,7 @@ export function ModelProfilePage({ projects = false }: { projects?: boolean }) {
           : <p>{on.map((x, i) => <span key={x.slug}>{i > 0 && ', '}<Link to={`/projects/${x.slug}`}>{x.name || x.slug}</Link></span>)}</p>}
         {others.length > 0 && <><h3>Other projects</h3><div role="list">
           {others.map(x => <div key={x.slug} role="listitem">
-            <ListRow identity={<Link to={`/projects/${x.slug}`}>{x.name || x.slug}</Link>}
+            <ListRow to={`/projects/${x.slug}`} identity={<Link to={`/projects/${x.slug}`}>{x.name || x.slug}</Link>}
               state={<span className="muted small">Uses {x.profile || 'standard'}</span>}
               action={<MoreMenu label={x.name || x.slug} items={[{
                 label: 'Move project here', hint: `Choose ${profile} in this project's Models settings`,

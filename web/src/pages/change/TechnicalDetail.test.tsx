@@ -39,13 +39,15 @@ it('reads the saved preference for this viewer', async () => {
   await act(async () => root.unmount()); client.clear()
 })
 
-it('reserves the same inline words when hidden so toggling cannot reflow the page', () => {
+// Hidden technical words take no room, so a page never shows an empty line
+// where they would be; switching them on adds them in place.
+it('takes no room when hidden and shows the same words in place when on', () => {
   const element = (shown: boolean) => { const el = document.createElement('div'); el.innerHTML = renderToStaticMarkup(<TechnicalWords shown={shown}>quick-change v17 · run 3</TechnicalWords>); return el.firstElementChild as HTMLElement }
   const off = element(false), on = element(true)
   expect(off.tagName).toBe(on.tagName)
   expect(off.className).toBe(on.className)
   expect(off.textContent).toBe(on.textContent)
-  expect(off.style.visibility).toBe('hidden')
+  expect(off.hidden).toBe(true)
   expect(off.getAttribute('aria-hidden')).toBe('true')
-  expect(on.style.visibility).toBe('visible')
+  expect(on.hidden).toBe(false)
 })

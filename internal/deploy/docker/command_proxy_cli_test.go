@@ -67,7 +67,7 @@ func TestCLIStatsQueuesConnectionsWithoutLosingContainers(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
 	dk := Scope{Client: CLI{Binary: binary}, Host: "ssh://unused"}
-	out, err := dk.Command(ctx, Command{Args: []string{"stats", "--no-stream", "--format", "{{.Name}}\t{{.MemUsage}}"}, Dial: func(ctx context.Context) (net.Conn, error) {
+	out, err := dk.Command(ctx, Command{Args: []string{"stats", "--no-stream", "--format", "{{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}"}, Dial: func(ctx context.Context) (net.Conn, error) {
 		select {
 		case slots <- struct{}{}:
 		case <-ctx.Done():
@@ -90,14 +90,14 @@ func TestCLIStatsQueuesConnectionsWithoutLosingContainers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stats: %v: %s", err, out)
 	}
-	used, err := parseMemoryUsage(out)
+	used, err := parseUsage(out)
 	if err != nil || len(used) != containers {
 		t.Fatalf("read %d/%d containers: %v: %s", len(used), containers, err, out)
 	}
 	for i := range containers {
 		name := fmt.Sprintf("tenant-%d", i)
-		if got, ok := used[name]; !ok || got != 1048576 {
-			t.Errorf("memory for %s: got %d, present %t; want 1048576", name, got, ok)
+		if got, ok := used[name]; !ok || got.MemoryBytes != 1048576 {
+			t.Errorf("memory for %s: got %d, present %t; want 1048576", name, got.MemoryBytes, ok)
 		}
 	}
 	if peak.Load() > 10 || active.Load() != 0 {

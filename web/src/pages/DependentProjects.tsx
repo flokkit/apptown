@@ -1,4 +1,6 @@
 import { useEffect } from 'react'
+import { Status } from '../Status'
+import { ListTable } from '../ListTable'
 import { setPageContext } from '../chrome'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { useGet } from '../data'
@@ -41,10 +43,17 @@ export function PackProjects() {
   const q = useGet<FleetView>('/wow')
   usePageName(`/packs/${name}`, name)
   const versions = q.data?.packs.find(p => p.pack === name)?.versions.filter(v => !version || String(v.version) === version) ?? []
+  const recommended = q.data?.packs.find(p => p.pack === name)?.recommended
+  const rows = versions.flatMap(v => v.projects.map(slug => ({ slug, version: v.version })))
   return <><h1>Projects{version ? ` on v${version}` : ''}</h1><ReadStatus q={q} what="the pack's projects" /><StaleNote q={q} />
-    {q.data && <Section title="Projects" count={new Set(versions.flatMap(v => v.projects)).size}>
-      {versions.flatMap(v => v.projects.map(slug => <p key={`${v.version}/${slug}`}><Link to={`/projects/${slug}/settings/working`}>{slug}</Link> · v{v.version}</p>))}
-      {versions.every(v => v.projects.length === 0) && <p>No project uses it.</p>}
+    {q.data && <Section title="Projects" count={new Set(rows.map(r => r.slug)).size}>
+      {rows.length === 0 ? <p className="muted">No project uses it.</p>
+        // A project moves to the recommended version from its own Way of working settings; the row opens them.
+        : <ListTable label="Projects using this pack" rows={rows} rowKey={r => `${r.version}/${r.slug}`} rowTo={r => `/projects/${r.slug}/settings/working`} columns={[
+          { key: 'project', label: 'Project', phone: 'name', render: r => <Link to={`/projects/${r.slug}/settings/working`}>{r.slug}</Link> },
+          { key: 'version', label: 'Version', phone: 'detail', render: r => `v${r.version}` },
+          { key: 'status', label: 'Status', phone: 'state', render: r => r.version === recommended ? <Status word="current" /> : <Status word="available" reason="update available" help={`v${recommended} is recommended; update it from the project's Way of working settings.`} /> },
+        ]} />}
     </Section>}</>
 }
 

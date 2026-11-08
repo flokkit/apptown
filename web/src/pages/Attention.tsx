@@ -1,3 +1,4 @@
+import { ListRow } from '../ListRow'
 import { Status } from '../Status'
 import { Link } from 'react-router-dom'
 import { ATTENTION_GROUPS, attentionGroup, attentionRows, attentionState, attentionSummary, attentionItemWord as word, useAttention } from '../attention'
@@ -52,9 +53,8 @@ function bunch(items: AttentionItem[]) {
 
 function ItemRow({ items, full = false }: { items: AttentionItem[]; full?: boolean }) {
   const item = items[0]
-  return <article className="card row attention-row">
-    <span className="row-status"><Status word={word(item)} old={item.stale && !item.unknown} /></span>
-    <span className="attention-what">
+  return <ListRow listItem to={item.href} className="card row attention-row" state={
+    <span className="row-status"><Status word={word(item)} old={item.stale && !item.unknown} /></span>} identity={<><span className="attention-what">
       <Link to={item.href}>{item.title}</Link>{items.length > 1 && <span className="muted"> · {items.length}</span>}
       <Detail text={withoutRepeatedName(item.title, item.detail)} />
       {items.length > 1 && !full && <p><Link to={`/attention/checks/${encodeURIComponent(item.key)}`}>{items.length} recorded conditions</Link></p>}
@@ -63,21 +63,18 @@ function ItemRow({ items, full = false }: { items: AttentionItem[]; full?: boole
       </section>}
     </span>
     <small className="muted attention-seen">{observed(item.observedAt, item.stale, item.attemptedAt)}</small>
-    <span className="row-action"><Link className="btn" to={item.href}>Open</Link></span>
-  </article>
+    </>} />
 }
 
 function SourceRow({ source }: { source: AttentionCoverage }) {
-  return <article className="card row attention-row">
-    <span className="row-status"><Status word="unknown" /></span>
-    <span className="attention-what">
+  return <ListRow listItem to={source.href} className="card row attention-row" state={
+    <span className="row-status"><Status word="unknown" /></span>} identity={<><span className="attention-what">
       <Link to={source.href}>{source.name}</Link>
       <Detail text={source.reason || 'No usable reading has been recorded yet.'} />
       <div className="muted small">{source.nextStep}</div>
     </span>
     <small className="muted attention-seen">{observed(source.observedAt, source.stale, source.attemptedAt)}</small>
-    <span className="row-action"><Link className="btn" to={source.href}>Open</Link></span>
-  </article>
+    </>} />
 }
 
 export default function AttentionPage({ checks = false }: { checks?: boolean }) {
@@ -89,7 +86,7 @@ export default function AttentionPage({ checks = false }: { checks?: boolean }) 
   useEffect(() => { if (ready && hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' }) }, [ready, hash])
   if (q.data && checkKey) {
     const group = bunch(attentionRows(q.data).items).find(items => items.some(item => item.key === checkKey))
-    return <><h1>{group?.[0].title || 'Recorded conditions'}</h1><StaleNote q={q} />{group ? <ItemRow full items={group} /> : <p>This condition is no longer recorded.</p>}</>
+    return <><h1>{group?.[0].title || 'Recorded conditions'}</h1><StaleNote q={q} />{group ? <div role="list"><ItemRow full items={group} /></div> : <p>This condition is no longer recorded.</p>}</>
   }
   return <div>
     <div className="row"><h1 style={{ margin: 0 }} className="grow">{checks ? 'All checks' : 'Attention'}</h1></div>
@@ -103,8 +100,10 @@ export default function AttentionPage({ checks = false }: { checks?: boolean }) 
         if (!items.length && !unknown.length) return null
         // A top-bar light opens the page at its group.
         return <div key={g.key} id={g.key} className="attention-group"><Section title={g.title} count={items.length + unknown.length}>
-          {bunch(items).map(same => <ItemRow key={same[0].key} items={same} />)}
-          {unknown.map(source => <SourceRow key={source.key} source={source} />)}
+          <div role="list">
+            {bunch(items).map(same => <ItemRow key={same[0].key} items={same} />)}
+            {unknown.map(source => <SourceRow key={source.key} source={source} />)}
+          </div>
         </Section></div>
       })}
       {(() => {
@@ -112,11 +111,10 @@ export default function AttentionPage({ checks = false }: { checks?: boolean }) 
         // into one line, open for anyone asking whether a thing is watched.
         // The rest (unknown, old, not checked yet) stay in view.
         const working = (s: AttentionCoverage) => !s.unknown && !s.stale && !neverChecked(s.observedAt)
-        const row = (source: AttentionCoverage) => <div key={source.key} className="card row attention-row">
-          <span className="row-status"><Status word={source.unknown ? 'unknown' : neverChecked(source.observedAt) ? 'not checked yet' : 'fresh'} observation staleAt={source.stale && !source.unknown ? source.observedAt : undefined} /></span>
-          <span className="attention-what"><Link to={source.href}>{source.name}</Link></span>
+        const row = (source: AttentionCoverage) => <ListRow key={source.key} className="card row attention-row" state={
+          <span className="row-status"><Status word={source.unknown ? 'unknown' : neverChecked(source.observedAt) ? 'not checked yet' : 'fresh'} observation staleAt={source.stale && !source.unknown ? source.observedAt : undefined} /></span>} identity={<><span className="attention-what"><Link to={source.href}>{source.name}</Link></span>
           {(!source.stale || source.unknown) && (!neverChecked(source.observedAt) || !neverChecked(source.attemptedAt)) && <small className="muted attention-seen">{observed(source.observedAt, source.stale, source.attemptedAt)}</small>}
-        </div>
+        </>} />
         const others = q.data!.sources.filter(s => !working(s))
         const fine = q.data!.sources.filter(working)
         if (!checks) return <p><Link to="/attention/checks">All {q.data!.sources.length} checks</Link></p>

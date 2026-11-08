@@ -89,3 +89,38 @@ func TestCoreWorkingAreasAreAlwaysOn(t *testing.T) {
 		}
 	}
 }
+
+// An area that works within another is off while that area is off, whatever
+// its own switch says, and its own choice comes back with that area.
+func TestAnAreaIsOffWhileTheAreaItNeedsIsOff(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := New(testDB(t), Config{})
+	if err := s.SeedAdministrator(ctx, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	boss := admittedPrincipal(t, s, "boss")
+	for _, f := range FeatureCatalogue() {
+		if f.Needs == "" {
+			continue
+		}
+		if _, err := s.SetFeature(ctx, boss, f.Area, false, true); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.SetFeature(ctx, boss, f.Needs, true, false); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.RequireFeature(ctx, f.Area); err == nil {
+			t.Errorf("%s admitted while %s is off", f.Area, f.Needs)
+		}
+		if on, err := FeatureEnabledIn(ctx, s.db, f.Area); err != nil || on {
+			t.Errorf("%s background work on while %s is off: %v %v", f.Area, f.Needs, on, err)
+		}
+		if _, err := s.SetFeature(ctx, boss, f.Needs, false, true); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.RequireFeature(ctx, f.Area); err != nil {
+			t.Errorf("%s's own choice was not kept: %v", f.Area, err)
+		}
+	}
+}

@@ -1,3 +1,4 @@
+import { ListRow } from '../ListRow'
 import './infrastructure.css'
 import { Group } from '../Section'
 import { useId } from 'react'
@@ -119,11 +120,10 @@ function ResourceRow({ r, target, onChanged, confirmed, invalidated, seenAt }: {
     seenAt ? lastSeen(seenAt) : '',
   ].filter(Boolean).join(' · ')
   return (
-    <div className="card row resource-row infrastructure-resource-row-card-resource-row" style={{ opacity: r.record === 'missing' ? 0.7 : undefined }}>
-      <span className="row-status"><ResourceStatus r={r} confirmed={confirmed} invalidated={invalidated} /></span>
+    <ListRow className={`card row resource-row infrastructure-resource-row-card-resource-row resource-list-row ${r.record === 'missing' ? 'resource-missing' : ''}`} state={<span className="row-status"><ResourceStatus r={r} confirmed={confirmed} invalidated={invalidated} /></span>} identity={<>
       <strong className="infrastructure-resource-row-strong">{r.name || `Unlinked ${r.kind}`}</strong>
       <span className="muted small grow infrastructure-resource-row-span">{meta}</span>
-      {<div id={detailId} className="resource-evidence small infrastructure-resource-row-resource-evidence">
+      </>} detail={<div id={detailId} className="resource-evidence small infrastructure-resource-row-resource-evidence">
         {r.url && <div><a href={r.url} target="_blank" rel="noreferrer">{host}</a></div>}
         {r.id && <div className="muted" title="the provider's id">{r.id}</div>}
         {r.detail && <div className="muted">{r.detail}</div>}
@@ -143,7 +143,6 @@ function ResourceRow({ r, target, onChanged, confirmed, invalidated, seenAt }: {
             {err && <div className="error small">{err}</div>}
           </div>
         )}
-      </div>}
-    </div>
+      </div>} />
   )
 }

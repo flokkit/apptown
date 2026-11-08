@@ -1,7 +1,14 @@
 @layer pages {
 /* Reserve the same space through every state; long recovery reasons scroll. */
-.deployment-page-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.deployment-page-heading { display: flex; align-items: flex-start; flex-wrap: wrap; gap: var(--space-3); justify-content: space-between; }
 .deployment-page-heading h1 { margin: 0; }
+.deployment-page-title { min-width: 0; }
+.deployment-page-facts { margin-top: var(--space-1); }
+.deployment-page-actions { display: flex; align-items: flex-start; gap: var(--space-2); margin-left: auto; }
+.deployment-not-deployed { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding-block: var(--space-3); }
+.deployment-not-deployed p { margin: 0; }
+.deployment-latest-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); padding-block: var(--space-2); }
+.deployment-latest-failure { flex-basis: 100%; color: var(--muted); font-size: var(--fs-sm); }
 .deployment-runtime-actions { font-size: var(--fs-base); font-weight: normal; max-width: 100%; }
 .deployment-deploy-card { --deploy-scene-width: 300px; height: 660px; overflow: auto; position: relative; padding: var(--space-5); }
 .deployment-deploy-card .ch-deploy-result { max-width: none; min-height: 380px; margin: 0; }

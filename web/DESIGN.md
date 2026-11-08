@@ -19,23 +19,45 @@ labelled as such. Reviews open dated snapshot reports.
 
 | Need | Use |
 | --- | --- |
-| Table of records | `ListTable` beside `ListRow`; column headers, one desktop row and two groups of cells on phones; free text wraps within each phone cell. Status keeps its dot and word, technical values use monospace, numbers align right and relative time comes before the final, unlabelled action column. Put the primary action in the section or page header. |
-| Inventory row: identity, state, action, optional detail | `ListRow`; `ProjectListRow` for projects and `LibraryRow` for ways of working |
-| Compact tabular facts | `GlanceRow`; every cell stays visible at both widths |
+| Records compared on the same facts | `ListTable`: column headers, one desktop row, two groups of cells on phones; free text wraps within each phone cell. Status keeps its dot and word, technical values use monospace, numbers align right, relative time comes before the final, unlabelled action column. `rowTo` opens the record. |
+| Items read and acted on one at a time: identity, state, action, optional detail | `ListRow`; `ProjectListRow` for projects and `LibraryRow` for ways of working. `to` opens the record. |
+| A list's filter | `SectionFilter` in its `Section`'s action: on the heading line, narrowing as the person types; on phones it takes its own line |
 | Disk name, used / total and capacity bar | `CapacityStrip` |
 | Completed work out of a known total, or unknown progress | `ProgressBar` |
-| Page section | `Section` |
+| Page section | `Section`; a page's beta mark is `BetaChip` after the title's help button |
 | Action menu or popover | `MoreMenu`, `SplitButton`, `FormMenu` for menus with form controls |
 | Dialog | `Modal`; change decisions use the native dialog in `pages/change/Turn.tsx` |
 | Labelled field in a form grid | `FieldRow` with native input, select or textarea |
-| State and its explanation | Components in `Status.tsx`; domain status owners supply meaning and freshness |
+| State and its explanation | `Status` and `StatusDot` in `Status.tsx`; domain status owners supply meaning and freshness |
 | Wrapping horizontal group or vertical stack | `.row` or `.stack`, with `.row-1`–`.row-6` or `.stack-1`–`.stack-6` for gaps |
 
-Rows have two contracts: `ListRow` aligns inventory cells; `GlanceRow` keeps
-compact facts in reading order. Page facts are inline; long records have their own
-page and a link. Only menus and popovers disclose content. Choose by content rather than inventing a universal row.
-`.stack` on a table retains the responsive table contract; gap utilities apply
-to non-table stacks. Use native links and buttons for actions.
+Choose a list by its content: if column headers would help, it is a table
+(`ListTable`); if each item reads as a sentence with its own act, it is a row
+card (`ListRow`). Label-and-value facts about one thing are not a list.
+A diff, a change's story timeline, forms laid out as rows, pickers and banners
+stay their own components; a list that needs behaviour neither list component
+has stays hand-built, with the reason beside it, rather than gaining a prop
+only it uses. Page facts are inline; long records have their own page and a
+link. Only menus and popovers disclose content. Use native links and buttons
+for actions.
+
+## Lists and statuses
+
+- **Open by clicking.** The way into a list item is to click its row
+  (`rowTo`, `to`), never a View or Open button. The row's name stays a real
+  link for the keyboard and for opening in a new tab; links and buttons inside
+  the row keep their own act. A button on a row is for an act (Fix it,
+  Review, Restart), not for going to the item.
+- **Status is a word, its details behind it.** A status shows its dot and word
+  only; why, and when it was checked, open from the word on hover (after the
+  mouse rests a second) or tap, in the same panel either way. Never write a
+  checked time or reason under or beside a status word. Dates that are facts of
+  the record (when a release went out, when a backup was taken) have their own
+  column or place in the row's sentence.
+- **Unknown is not empty.** Unknown, old and failed readings stay visibly
+  different from none, stopped or passed; a refresh that fails marks the shown
+  answer as an old reading.
+- **One filter per list,** the `SectionFilter` on the list's heading line.
 
 ## Tokens and CSS
 

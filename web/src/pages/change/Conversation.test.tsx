@@ -1,5 +1,4 @@
 import { MemoryRouter } from 'react-router-dom'
-import { enabledFeatures } from '../../features.fixture'
 import { fmtWhen } from '../../format'
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -78,15 +77,6 @@ it('retains named file downloads with their sizes in ended chat history', () => 
   expect(chatOpening(entry)).toBe('report.pdf')
 })
 
-it('keeps the conversation record while hiding the chat entry when chats are off', () => {
-  const client = newQueryClient()
-  client.setQueryData(getKey('/features'), enabledFeatures.map(f => f.area === 'chats' ? { ...f, enabled: false } : f))
-  client.setQueryData(getKey(`/changes/${CHANGE}/transcript`), { sessions: [chat({ messages: [{ i: 0, role: 'you', text: 'Make the duck faster' }] })] })
-  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ConversationLog changeId={CHANGE} chatHref="/projects/app/console" /></QueryClientProvider></MemoryRouter>)
-  expect(html).toContain('Make the duck faster')
-  expect(html).not.toContain('/projects/app/console')
-  client.clear()
-})
 
 it('quotes a generated request briefly and links to the complete request', () => {
  const client = newQueryClient()

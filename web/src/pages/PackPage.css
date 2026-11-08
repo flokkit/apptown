@@ -1,0 +1,9 @@
+@layer pages {
+.pack-content-row { display: flex; flex-wrap: wrap; }
+.pack-content-row > .list-identity { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.pack-content-row > .list-state, .pack-content-row > .list-action { display: none; }
+.pack-version-row { grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-1) var(--space-2); }
+.pack-version-row > .list-state { display: none; }
+.pack-version-row > .list-detail { color: var(--text); }
+@media (width <= 800px) { .pack-version-row { grid-template-columns: minmax(0, 1fr); } }
+}

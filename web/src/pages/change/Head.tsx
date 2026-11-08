@@ -1,8 +1,11 @@
+import { ListRow } from '../../ListRow'
+import { ListTable } from '../../ListTable'
+import { WaitingStatus } from '../../Approvers'
 import './Head.css'
 import { Link } from 'react-router-dom'
 import { shortName } from '../newProject/draft'
 import { useFailureAdvice, recommendationWords } from './advice'
-import { ChangeStatus } from '../../Status'
+
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeAttachment } from '../../wire.gen'
 import { renderMd } from '../../md'
@@ -54,7 +57,7 @@ export function ChangeHeader({ view, compact }: { view: ChangeView; compact?: bo
     <header className="ch-head">
       <div className="ch-title-row">
         <h1><span className="ch-number">Change #{ch.number}:</span> {changeTitle(ch)}</h1>
-        {!compact && <><ChangeStatus waiting={view.waitingOn} />{advice.text && advice.recommend && <span>{recommendationWords(advice.recommend)}</span>}</>}
+        {!compact && <><WaitingStatus waiting={view.waitingOn} changeId={view.change.id} />{advice.text && advice.recommend && <span>{recommendationWords(advice.recommend)}</span>}</>}
         {ch.provenance && <span className="badge" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
       </div>
       {!compact && <div className="ch-byline">
@@ -186,11 +189,10 @@ export function Attachments({ changeId, readOnly }: { changeId: string; readOnly
       <ReadStatus q={itemsQ} what="the attachments" className="small" />
       <StaleNote q={itemsQ} />
       {items.map((i) => (
-        <div key={i.name} className="card row head-card">
+        <ListRow key={i.name} className="card row head-card attachment-list-row" identity={<>
           <a  href={`/api/v1/changes/${changeId}/attachments/${encodeURIComponent(i.name)}`} target="_blank" rel="noreferrer" className="grow head-a">{i.name}</a>
           <span className="muted small">{(i.bytes / 1024).toFixed(1)} KB</span>
-          {!readOnly && <span className="row-action"><button className="subtle" aria-label={`remove ${i.name}`} disabled={busy} onClick={() => remove(i.name)}>Remove</button></span>}
-        </div>
+          </>} action={!readOnly && <span className="row-action"><button className="subtle" aria-label={`remove ${i.name}`} disabled={busy} onClick={() => remove(i.name)}>Remove</button></span>} />
       ))}
       {err && <p className="error small">{err}</p>}
     </td></tr>
@@ -217,17 +219,11 @@ export function ChangesTab({ view, run }: { view: ChangeView; run?: Run }) {
       {commits.length > 0 && (
         <>
           <h3>Commits ({commits.length})</h3>
-          <table className="stack">
-            <tbody>
-              {commits.map((c) => (
-                <tr key={c.sha}>
-                  <td className="muted small"><code>{c.sha}</code></td>
-                  <td className="small stack-lead">{c.subject}</td>
-                  <td className="muted small">{c.when}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <ListTable className="small" label="Commits" rows={commits} rowKey={c => c.sha} columns={[
+            { key: 'sha', label: 'Commit', phone: 'name', kind: 'technical', render: c => c.sha },
+            { key: 'subject', label: 'Subject', phone: 'detail', render: c => c.subject },
+            { key: 'when', label: 'When', phone: 'time', kind: 'time', render: c => c.when },
+          ]} />
         </>
       )}
       {run?.id && <RunDiff runId={run.id} number={run.number} />}

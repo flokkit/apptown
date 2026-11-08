@@ -1,3 +1,4 @@
+import { ListTable } from '../../ListTable'
 import { fmtDay, fmtWhen } from '../../format'
 import { useHolds } from '../../instancePages'
 import { Status } from '../../Status'
@@ -43,11 +44,12 @@ export function FindingsTab({ slug }: { slug: string }) {
         </div>
         {(unread.length > 0 || data.repo?.stale || !data.sources.length) && <div className="security-next">{nextScan}</div>}
         {data.sources.length === 0 && <p className="muted small">No scans yet.</p>}
-        {data.sources.map(s => <div key={s.binding} className="card row small security-source" style={{ display: 'flex' }}>
-          <code>{s.binding}</code>
-          <span className={(s.unreadable ? 'error' : 'muted') + " grow"} style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{s.unreadable || `${s.findings} problems`} · {fmtWhen(s.at)}</span>
-          {s.changeId && <Link to={`/changes/${s.changeId}`}>{s.changeNumber ? `change ${s.changeNumber}` : 'its change'}</Link>}
-        </div>)}
+        {data.sources.length > 0 && <ListTable className="small" label="Scan sources" rows={data.sources} rowKey={s => s.binding} columns={[
+          { key: 'binding', label: 'Source', phone: 'name', kind: 'technical', render: s => s.binding },
+          { key: 'result', label: 'Result', phone: 'detail', render: s => <span className={s.unreadable ? 'error' : 'muted'}>{s.unreadable || `${s.findings} problems`}</span> },
+          { key: 'at', label: 'When', phone: 'time', kind: 'time', render: s => fmtWhen(s.at) },
+          { key: 'change', label: '', phone: 'action', render: s => s.changeId && <Link to={`/changes/${s.changeId}`}>{s.changeNumber ? `change ${s.changeNumber}` : 'its change'}</Link> },
+        ]} />}
       </Section>
       {unread.length > 0 && data.sources.length > unread.length && <p className="muted small">No findings in the scans that could be read; the unread reports may have some.</p>}
       {problems && (
@@ -106,16 +108,12 @@ export function SuppressionsTab({ slug }: { slug: string }) {
       <Section title="Recorded" count={list.length || undefined}
         action={<a href={`/api/v1/projects/${slug}/dispositions/openvex`} target="_blank" rel="noreferrer">OpenVEX export ↗</a>}>
         {list.length === 0 && <p className="muted">No suppressions.</p>}
-        {list.map((d) => (
-          <div className="card row security-suppression" key={d.id} style={{ display: 'flex' }}>
-            <span className="row-status"><Status observation word={d.statusLabel} help={`${d.status}${d.expiresAt ? ` · until ${fmtDay(d.expiresAt)}` : ''}`} /></span>
-            <div style={{ minWidth: 0, overflowWrap: 'anywhere' }} className="grow">
-              <span>{d.identifier || d.fingerprint}</span>{d.package && <span className="muted small"> · {d.package}</span>}
-              <div className="muted small" title={d.justification}>“{d.justification.length > 70 ? `${d.justification.slice(0, 70)}…` : d.justification}” · {d.by}{d.expiresAt ? `, until ${fmtDay(d.expiresAt)}` : ''}</div>
-            </div>
-            <span className="row-action"><QuietConfirm label="Revoke" ask="Revoke this suppression? The finding becomes actionable again immediately." onYes={() => revoke(d.id!)} /></span>
-          </div>
-        ))}
+        <ListTable label="Suppressions" rows={list} rowKey={d => String(d.id)} columns={[
+          { key: 'finding', label: 'Finding', phone: 'name', render: d => <>{d.identifier || d.fingerprint}{d.package && <span className="muted small"> · {d.package}</span>}</> },
+          { key: 'state', label: 'State', phone: 'state', render: d => <Status observation word={d.statusLabel} help={`${d.status}${d.expiresAt ? ` · until ${fmtDay(d.expiresAt)}` : ''}`} /> },
+          { key: 'reason', label: 'Reason', phone: 'detail', render: d => <span className="muted small" title={d.justification}>“{d.justification.length > 70 ? `${d.justification.slice(0, 70)}…` : d.justification}” · {d.by}{d.expiresAt ? `, until ${fmtDay(d.expiresAt)}` : ''}</span> },
+          { key: 'action', label: '', phone: 'action', render: d => <QuietConfirm label="Revoke" ask="Revoke this suppression? The finding becomes actionable again immediately." onYes={() => revoke(d.id!)} /> },
+        ]} />
       </Section>
     </div>
   )

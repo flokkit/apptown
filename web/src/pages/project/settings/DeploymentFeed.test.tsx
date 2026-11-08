@@ -7,8 +7,23 @@ import { expect, it, vi } from 'vitest'
 import { getKey, newQueryClient } from '../../../data'
 import type { DeploymentView } from '../../../wire.gen'
 import { DeploymentFeed, feedWords } from './DeploymentFeed'
-import { DeploymentRow, EnvCard } from './Deployments'
+import { DeploymentFacts, EnvCard, DeploymentReleaseCell } from './Deployments'
+import { DeploymentTable } from '../../DeploymentTable'
+import { DeploymentTitle } from '../DeploymentDeploys'
 import { renderToStaticMarkup } from 'react-dom/server'
+
+// One deployment as the project's Deployments page lists it: a table row
+// with its release facts.
+function DeploymentRow({ slug, env }: { slug: string; env: DeploymentView; current?: boolean }) {
+  return <DeploymentTable release={() => <DeploymentReleaseCell slug={slug} env={env} />} rows={[{ ...env, slug, app: slug, deployment: env.name, label: env.displayLabel || env.name, static: env.static, url: env.url, hostOnly: env.hostOnly }]} />
+}
+
+
+// The deployment page's head (title, status, facts) above its details card.
+function PageCard({ slug, env }: { slug: string; env: DeploymentView }) {
+  return <><div className="deploy-head"><DeploymentTitle name={env.displayLabel || env.name} env={env} /><DeploymentFacts slug={slug} env={env} /></div><EnvCard slug={slug} env={env} onChanged={() => {}} /></>
+}
+
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -22,7 +37,8 @@ it('words each feed and keeps promotion actions off list rows', () => {
   el.innerHTML = html
   expect(el.textContent).toContain('Promoted from Staging')
   expect(el.textContent).toContain(e.promotionBlocked)
-  expect(el.querySelectorAll('button')).toHaveLength(0)
+  // The row's only control is its ⋯ menu; promoting is on the deployment's page.
+  expect([...el.querySelectorAll('button')].map(b => b.textContent).filter(t => /Promote|Deploy/.test(t ?? ''))).toEqual([])
   expect(el.textContent).not.toContain('Deploy latest')
   client.clear()
 })
@@ -31,7 +47,7 @@ it.each(['card'])('names the source last successful release on the Promote %s co
   const client = newQueryClient()
   const e = { status: { word: 'unknown', reason: '', stale: false }, id: 'prod', name: 'production', kind: 'standing', feed: 'promotion', promotionSource: 'Staging', promotionRelease: 17, target: { kind: 'docker-host' } } as DeploymentView
   const el = document.createElement('div')
-  el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
+  el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <PageCard slug="shop" env={e} />}</MemoryRouter></QueryClientProvider>)
   const button = [...el.querySelectorAll('button')].find(b => b.textContent === 'Promote release 17')
   expect(button).toBeDefined()
   expect(button?.title).toBe('Deploys release 17, the release Staging last deployed successfully.')
@@ -54,7 +70,7 @@ it.each(['card'])('binds the Promote %s request to the displayed bundle and show
   const root = createRoot(el)
   const client = newQueryClient()
   try {
-    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>))
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <PageCard slug="shop" env={e} />}</MemoryRouter></QueryClientProvider>))
     await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Promote release 17')!.click() })
     expect(sent).toEqual([{ expectedSourceBundleId: bundle }])
     await vi.waitFor(() => expect(el.textContent).toContain('staging now runs release 18; promote again'))
@@ -157,7 +173,7 @@ it.each(['main', 'manual', 'promotion'].flatMap(feed => ['row', 'card'].map(view
   const e = { id: 'prod', name: 'production', kind: 'standing', feed, status: { word: 'working', reason: '', stale: false, servingReleaseNumber: 7, servingRelease: 'Running release 7' }, observation: 'running', servingRelease: { number: 7, releasedAt: '2026-11-06T12:00:00Z' }, feedConfirmed: true, readiness: 'reconciled', promotionSource: 'Staging', promotionRelease: 17 } as DeploymentView
   {
     const el = document.createElement('div')
-    el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
+    el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <PageCard slug="shop" env={e} />}</MemoryRouter></QueryClientProvider>)
     expect(el.textContent).toContain('Running release 7')
     expect(el.textContent).not.toContain('No serving release recorded')
     expect(el.textContent).not.toContain('Confirm follows main')
@@ -201,7 +217,7 @@ it.each(['row', 'card'])('reports no serving release only for this deployment in
   const client = newQueryClient()
   client.setQueryData(getKey('/projects/shop/releases'), [{ deployment: 'staging', number: 17, serving: true }, { deployment: 'production', number: 8, serving: false }])
   const e = { name: 'production', kind: 'standing', feed: 'main', feedConfirmed: true, status: { word: 'stopped', reason: '', stale: false, servingRelease: 'No serving release recorded' }, observation: 'stopped', servingRelease: null } as DeploymentView
-  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <PageCard slug="shop" env={e} />}</MemoryRouter></QueryClientProvider>)
   expect(html).toContain('No serving release recorded')
   expect(html).not.toContain('Running release')
   client.clear()
@@ -215,7 +231,7 @@ it.each(['row', 'card'])('preserves unknown serving evidence in the %s', view =>
     { deployment: 'production', number: 7, state: 'released', serving: false, observed: 'unknown', reason: 'host observation unavailable' },
   ])
   const e = { name: 'production', kind: 'standing', feed: 'main', feedConfirmed: true, status: { word: 'unknown', reason: 'host observation unavailable', stale: false, servingRelease: 'Serving release unknown' }, observation: 'unknown', observationIssue: 'host observation unavailable', servingRelease: { number: 7 } } as DeploymentView
-  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <PageCard slug="shop" env={e} />}</MemoryRouter></QueryClientProvider>)
   client.clear()
   expect(html).not.toContain('No serving release recorded')
   expect(html).toContain('unknown')
@@ -230,7 +246,7 @@ it.each(['row', 'card'])('does not infer absence from truncated history in the %
     { deployment: 'staging', number: 57 - i, state: 'released', serving: i === 0 }
   )))
   const e = { name: 'production', kind: 'standing', feed: 'promotion', feedConfirmed: false, status: { word: 'working', reason: '', stale: false, servingReleaseNumber: 7, servingRelease: 'Running release 7' }, observation: 'running', servingRelease: { number: 7, releasedAt: '2026-11-06T12:00:00Z' } } as DeploymentView
-  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <PageCard slug="shop" env={e} />}</MemoryRouter></QueryClientProvider>)
   client.clear()
   expect(html).not.toContain('No serving release recorded')
   expect(html).toContain('Running release 7')
@@ -241,7 +257,7 @@ it.each(['row', 'card'])('does not infer absence from truncated history in the %
 it.each(['row', 'card'].flatMap(view => ['unknown', 'unreachable', 'stale'].map(state => [view, state])))('keeps %s serving evidence unknown when runtime is %s', (view, state) => {
   const client = newQueryClient()
   const e = { name: 'production', kind: 'standing', status: { word: 'unknown', reason: '', stale: true, servingRelease: 'Serving release unknown' }, observation: state === 'stale' ? 'running' : state, observationStale: state === 'stale', servingRelease: null } as DeploymentView
-  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <PageCard slug="shop" env={e} />}</MemoryRouter></QueryClientProvider>)
   expect(html).toContain('Serving release unknown')
   expect(html).not.toContain('No serving release recorded')
   client.clear()
@@ -250,7 +266,7 @@ it.each(['row', 'card'].flatMap(view => ['unknown', 'unreachable', 'stale'].map(
 it.each(['row', 'card'])('keeps the recorded release when stopped in the %s', view => {
   const client = newQueryClient()
   const e = { name: 'production', kind: 'standing', status: { word: 'stopped', reason: '', stale: false, servingRelease: 'Recorded release 7' }, observation: 'stopped', servingRelease: { number: 7, releasedAt: '2026-11-06T12:00:00Z' } } as DeploymentView
-  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <EnvCard slug="shop" env={e} onChanged={() => {}} />}</MemoryRouter></QueryClientProvider>)
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <PageCard slug="shop" env={e} />}</MemoryRouter></QueryClientProvider>)
   expect(html).toContain('Recorded release 7')
   expect(html).not.toContain('Running release')
   expect(html).not.toContain('No serving release recorded')

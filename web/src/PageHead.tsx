@@ -1,4 +1,5 @@
-import { ReactNode, useCallback, useId, useRef, useState } from 'react'
+import { BetaChip, BetaPage } from './features'
+import { ReactNode, useCallback, useContext, useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PRODUCT } from './brand'
 import { useDismiss } from './Modal'
@@ -41,6 +42,12 @@ export const PAGE_HELP = {
     line: 'Check whether each project still follows the ways of working it adopted, and fix what it doesn\'t.',
     help: <p>A review reads each project's accepted code, its <code>main</code> branch, and changes nothing. A project's standing says what a person needs to do about it. A fix is made as a change in each project, reviewed like any other.</p>,
     guide: 'conformance',
+  },
+  packUpgrades: {
+    title: 'Pack upgrades',
+    line: 'Move projects onto newer versions of the packs they adopted, after trying each version first.',
+    help: <p>A what-if runs a pack version's checks against projects as they stand, without changing them, and says per project what would newly fail, newly pass or stay the same. From its report you open adoption changes for the projects you choose; each is reviewed like any other change.</p>,
+    guide: 'packs-and-what-if',
   },
   deployments: {
     title: 'Deployments',
@@ -101,6 +108,12 @@ export const PAGE_HELP = {
     help: <p>A group can be named as an approver. Write <code>group:name</code> in a workflow's approver list. Any member's approval counts. The record keeps the name of the person who approved.</p>,
     guide: 'people-and-roles',
   },
+  features: {
+    title: 'Features',
+    line: `Turn parts of ${PRODUCT} on or off for everyone.`,
+    help: <p>The ? beside each switch says what turning it off changes. A greyed switch needs another one on first.</p>,
+    guide: 'features',
+  },
   usage: {
     title: 'Usage',
     line: 'AI model use and cost, by model and project.',
@@ -149,6 +162,22 @@ export type HelpPage = keyof typeof PAGE_HELP
 // Pages inside an area say what they themselves are for; the area's help
 // would only repeat the area. Keyed by area and page title.
 export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode; guide: string }>>> = {
+  people: {
+    Accounts: { guide: 'people-and-roles', body: <>
+      <p>Everyone who can sign in to {PRODUCT}.</p>
+      <p>Invite someone to add them. The ⋯ on a row resets a password or turns the account off.</p>
+    </> },
+    Groups: { guide: 'people-and-roles', body: <>
+      <p>A group is a named set of people. Give a group a role and everyone in it gets that access.</p>
+      <p>A workflow can ask any member of a group to approve: put <code>group:name</code> in its approvers. The record keeps the name of whoever approved.</p>
+    </> },
+    Roles: { guide: 'people-and-roles', body: <>
+      <p>A role is what someone may do across {PRODUCT}. Click a role to see what it allows.</p>
+      <p>Administrators can act in every project and can approve their own changes, unless a project asks for someone else's approval. Roles inside one project are in that project's Settings › Members.</p>
+    </> },
+    'Sign-in': { guide: 'people-and-roles', body: <p>How people sign in, and the networks administrators may sign in from.</p> },
+    'Agents and tokens': { guide: 'people-and-roles', body: <p>Coding agents connected to {PRODUCT}, and the tokens they use. Disconnecting one stops it at once.</p> },
+  },
   projectSecurity: {
     Findings: { guide: 'monitoring', body: <>
       <p>Findings are problems reported by security scans of this project's accepted code.</p>
@@ -226,6 +255,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
 // line is the page's one-sentence subtitle, kept with its title.
 export function PageHead({ page, actions, sub, help, line, title }: { page: HelpPage; title?: ReactNode; actions?: ReactNode; sub?: string; help?: { body: ReactNode; guide: string }; line?: ReactNode }) {
   const h: PageHelp = PAGE_HELP[page]
+  const beta = useContext(BetaPage)
   help = help ?? (sub ? SUB_HELP[page]?.[sub] : undefined)
   return (
     <div className="page-head">
@@ -233,6 +263,7 @@ export function PageHead({ page, actions, sub, help, line, title }: { page: Help
         <h1>{title ?? sub ?? h.title}</h1>
         {help ? <HelpButton about={sub ?? h.title} guide={help.guide}>{help.body}</HelpButton>
           : <HelpButton about={h.title} guide={h.guide}>{h.line && <p>{h.line}</p>}{h.help}</HelpButton>}
+        {beta && <BetaChip />}
         {actions && <><span className="grow" />{actions}</>}
       </div>
       {line && <p className="page-head-line">{line}</p>}

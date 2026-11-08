@@ -152,14 +152,14 @@ describe('the conversation as read', () => {
       expect(slot.closest('.chat-scroll')).toBeNull()
       for (turn of ['handed-back', 'working', 'handed-back', 'working']) {
         await act(async () => { await client.refetchQueries({ queryKey: getKey(messages) }) })
-        await vi.waitFor(() => expect(slot.style.visibility).toBe(turn === 'working' ? 'visible' : 'hidden'))
+        // Working… and stop show in the input's row while the helper works,
+        // in the same element, so nothing around them moves or remounts.
+        await vi.waitFor(() => expect(slot.hidden).toBe(turn !== 'working'))
+        expect(slot.closest('.chat-input')).not.toBeNull()
         expect(el.querySelector('.chat-working')).toBe(slot)
         expect(slot.parentElement).toBe(parent)
         expect(slot.previousElementSibling).toBe(before)
         expect(slot.nextElementSibling).toBe(after)
-        expect(slot.style.display).not.toBe('none')
-        expect(slot.hidden).toBe(false)
-        expect(slot.getAttribute('aria-hidden')).toBe(String(turn !== 'working'))
         expect(el.querySelector('.tool-fold')).toBe(fold)
         expect(fold.open).toBe(true)
       }
@@ -168,7 +168,7 @@ describe('the conversation as read', () => {
 
   it('says a conversation that could not be read could not be read, with no starters', async () => {
     const { el, done } = await mount(down)
-    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('title')).toContain('the worker cannot be reached'))
+    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('data-help')).toContain('the worker cannot be reached'))
     expect(el.textContent).not.toContain('What does this project do right now?')
     done()
   })

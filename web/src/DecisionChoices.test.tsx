@@ -28,8 +28,8 @@ it('offers at most three equal buttons in order, one highlighted, abandonment la
   expect([...el.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept and put live', 'Send back…', 'Abandon change'])
   expect([...el.querySelectorAll('.ch-decision-choices button')].map(b => b.className)).toEqual(['primary', '', 'danger'])
   expect(el.querySelector('input, textarea, details')).toBeNull()
-  expect(el.textContent).toContain('Want to talk it through first? Open the conversation →')
-  expect(el.querySelector('a')?.getAttribute('href')).toBe('?tab=conversation')
+  // The decision box is closed to look around; it offers no conversation link.
+  expect(el.textContent).not.toContain('Want to talk it through first?')
   click('Accept and put live')
   expect(accepted).toHaveBeenCalledWith('')
 })

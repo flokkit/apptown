@@ -165,7 +165,7 @@ it('does not turn an unreported test count into a passed tick', () => {
 })
 it('uses a neutral mark for pending work', () => {
  const el = document.createElement('div'); el.innerHTML = html(view())
- expect(el.querySelector('[aria-label="pending"]')?.textContent).toBe('·')
+ expect(el.querySelector('[aria-label="pending"]')?.textContent).toBe('○')
 })
 
 it('uses the owner’s failed verdict when a standards gate allowed existing failures', () => {

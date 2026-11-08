@@ -1,5 +1,5 @@
 import { PRODUCT } from '../brand'
-import { Section } from '../Section'
+import { Section, SectionFilter } from '../Section'
 import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { GuidanceBlock, post } from '../api'
@@ -76,7 +76,7 @@ export default function GuidanceLibrary() {
       <StaleNote q={blocksQ} />
       <Section title="Guidance" count={blocksQ.data ? shown.length : undefined}
         action={<>
-          <input className="section-filter guidance-search" aria-label="Search guidance" placeholder="Search name and text" value={q} onChange={(e) => setQ(e.target.value)} />
+          <SectionFilter className="guidance-search" placeholder="Filter guidance" value={q} onChange={setQ} />
           <button className="primary" onClick={() => setAdding(!adding)} aria-expanded={adding}>New guidance</button>
         </>}
         note={<span className="row guidance-filters">

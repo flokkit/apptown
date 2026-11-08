@@ -4,14 +4,16 @@
 .deployments-div { font-variant-numeric: tabular-nums; }
 .deployments-departures-board-button { margin-top: calc(var(--space-1) * 2.5); }
 .deployments-fleet-table-div { margin: 0 0 calc(var(--space-1) * 2.5); gap: var(--space-2); flex-wrap: wrap; }
-.deployments-fleet-table-input { width: 280px; max-width: 100%; }
 @media (width > 800px) {
   .departure-row { grid-template-columns: minmax(0, 1fr) max-content auto; }
 }
 .deployments-card { display: flex; }
 .deployments-link { display: flex; min-width: 0; }
-.fleet-deployment-row { grid-template-columns: minmax(0, 1fr) 16rem auto; }
-@container rows (max-width: 48rem) {
-  .fleet-deployment-row { grid-template-columns: minmax(0, 1fr); }
+.fleet-usage { font-variant-numeric: tabular-nums; }
+/* The table drops where it runs and what it uses when it is too narrow for
+   them; each deployment's page has both. */
+.fleet { container-type: inline-size; }
+@container (width < 62rem) {
+  .fleet-table .fleet-roomy { display: none; }
 }
 }

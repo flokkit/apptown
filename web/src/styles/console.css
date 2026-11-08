@@ -198,4 +198,14 @@ details.console-about { margin: 0; }
 
 }
 .agent-actions-switch input { width: auto; margin: 0; }
+/* The change chat's head and strip: two lines, so the conversation keeps the page. */
+.console-chat-title { font-size: var(--fs-lg); margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console-chat-title a { color: inherit; }
+.console-strip { gap: var(--space-2); margin-bottom: var(--space-2); }
+.console-strip .workshop-actions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+.console-facts { min-width: 0; }
+.chat-attach { padding-inline: calc(var(--space-1) * 2.5); }
+.console-strip .workshop-actions { margin: 0; padding: 0; border: 0; background: none; gap: var(--space-2); }
+.console-workshop { padding-top: var(--space-1); }
+.chat-working[hidden] { display: none; }
 }

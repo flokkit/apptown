@@ -10,6 +10,9 @@ import { MemoryRouter } from 'react-router-dom'
 import { CopyRunnerLine, EditTarget, RegistryLine, Unaccounted } from './TargetPage'
 import type { InfrastructureView } from '../../wire.gen'
 
+// A status's details ride in its title, not in the page text.
+const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
+
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const target = (domain: string, disks: boolean, settingsRevision = 0) => ({
@@ -134,7 +137,8 @@ describe('the registry line', () => {
     const el = document.createElement('div')
     const root = createRoot(el)
     act(() => root.render(<RegistryLine r={r} />))
-    const text = el.textContent ?? ''
+    // What the line says: its words, then its statuses' details.
+    const text = `${el.textContent ?? ''} | ${details(el)}`
     act(() => root.unmount())
     return text
   }

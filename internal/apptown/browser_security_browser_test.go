@@ -3,8 +3,11 @@
 package apptown
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -694,6 +697,21 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 			return daemon.run(req.Args...)
 		}
 		args := req.Args
+		// A deployment's backup streams each copy (pg_dump of a database, tar of
+		// a volume's files) through a script that ends with the stream's size
+		// and checksum. The stand-in host runs no processes, so it answers with
+		// a stand-in copy and that line, and a release's backup before
+		// deploying succeeds as it would.
+		if len(args) > 2 && req.Stdin == nil && strings.Contains(args[len(args)-1], "APPTOWN-STREAM-END") {
+			copied := []byte("-- the tour's stand-in database dump\n")
+			if strings.Contains(args[len(args)-1], "'tar' 'cz'") {
+				copied = standInArchive(t)
+			}
+			if _, err := fmt.Fprintf(req.Stdout, "%sAPPTOWN-STREAM-END %020d %x\n", copied, len(copied), sha256.Sum256(copied)); err != nil {
+				return nil, err
+			}
+			return nil, nil
+		}
 		if len(args) < 5 || args[0] != "image" || args[1] != "inspect" || args[3] != imageNames || req.Stdin != nil {
 			// What a container's processes print (a database's dump among
 			// them) the stand-in host cannot give: it runs no processes.
@@ -915,7 +933,7 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 			var lines []string
 			for _, name := range names {
 				if daemon.isStarted(name) {
-					lines = append(lines, name+"\t48MiB / 160MiB")
+					lines = append(lines, fmt.Sprintf("%s\t48MiB / 160MiB\t%d.00%%", name, 2+7*(len(name)%5)))
 				}
 			}
 			return strings.Join(lines, "\n"), nil, true
@@ -1737,13 +1755,38 @@ func (s *tourScene) approve(runID ids.ID, who string) {
 	adds := shownAdds(s.t, s.a, asPerson(who), step.ID)
 	s.call(who, "POST", fmt.Sprintf("/api/v1/steps/%s/approve", step.ID), map[string]string{"decision": "approve", "adds": adds})
 	s.a.Work.Wait()
-	// The merged main is deployed, unless the host was told to refuse it.
-	want := "pass"
-	if s.refuseRun.Load() {
-		want = "fail"
+	if d := s.steps(runID)["build"]; d.Status != "pass" {
+		s.t.Fatalf("run %s: build is %q: %s (%+v)", runID, d.Status, d.Evidence, s.steps(runID))
 	}
-	if d := s.steps(runID)["build"]; d.Status != want {
-		s.t.Fatalf("run %s: deploy is %q, want %q: %s (%+v)", runID, d.Status, want, d.Evidence, s.steps(runID))
+	// In the garage the landing's release follows, as its follow-up and
+	// release jobs run it: main is deployed, unless the host was told to
+	// refuse it. The tour and the camera record their releases' outcomes
+	// themselves.
+	if !s.garage {
+		return
+	}
+	ctx := s.t.Context()
+	if _, err := workflowFollowUps(s.a).Complete(ctx, fmt.Sprintf("%s/release", runID), map[string]any{"approvedBy": who}); err != nil {
+		s.t.Fatal(err)
+	}
+	run, err := s.a.Work.Run(s.a.asEngine(ctx), runID)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	rels, err := s.a.Deployment.Releases.LandingRequests(ctx, run.ProjectID, run.ChangeID)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	want := deployment.Released
+	if s.refuseRun.Load() {
+		want = deployment.ReleaseFailed
+	}
+	for _, r := range rels {
+		_, _ = deploymentJobsForTest(s.a).Release(ctx, r.ID.String(), nil)
+		got, err := s.a.Deployment.Releases.ByID(ctx, r.ID)
+		if err != nil || got.State != want {
+			s.t.Fatalf("run %s: release %d is %v, want %v (%v)", runID, r.Number, got, want, err)
+		}
 	}
 }
 
@@ -3678,10 +3721,10 @@ app:
 		if len(req.Args) > 0 && req.Args[0] == "stats" {
 			var rows []string
 			for _, dep := range captureDeps {
-				rows = append(rows, docker.ByKey(dep.ID).App()+"\t100MiB / 8GiB")
+				rows = append(rows, docker.ByKey(dep.ID).App()+"\t100MiB / 8GiB\t1.00%")
 			}
 			for i := 0; i < 10; i++ {
-				rows = append(rows, fmt.Sprintf("outside-%d\t10MiB / 8GiB", i))
+				rows = append(rows, fmt.Sprintf("outside-%d\t10MiB / 8GiB\t1.00%%", i))
 			}
 			return []byte(strings.Join(rows, "\n")), nil
 		}
@@ -4892,4 +4935,18 @@ try {
 	if result.RunErr != nil || result.ExitCode != 0 {
 		t.Fatalf("capture: %v (%d) %s", result.RunErr, result.ExitCode, result.Output)
 	}
+}
+
+// standInArchive is an empty gzipped tar: a volume's files as the tour's
+// stand-in host copies them.
+func standInArchive(t *testing.T) []byte {
+	var b bytes.Buffer
+	z := gzip.NewWriter(&b)
+	if err := tar.NewWriter(z).Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := z.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return b.Bytes()
 }

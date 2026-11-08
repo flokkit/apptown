@@ -8,6 +8,9 @@ import { newQueryClient } from '../data'
 import type { DocsIndex } from '../wire.gen'
 import DocsPage from './Docs'
 
+// A status's details ride in its title, not in the page text.
+const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
+
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 vi.mock('mermaid', () => ({ default: { initialize: vi.fn(), run: vi.fn(async () => {}) } }))
@@ -87,7 +90,7 @@ describe('the docs page', () => {
   // A failed first read says so; it is not shown as an empty list.
   it('says when the list cannot be read', async () => {
     const { el, root } = await render(() => json({ error: 'AppTown unavailable' }, 404))
-    await vi.waitFor(() => expect(el.textContent).toContain('The documentation list could not be read'))
+    await vi.waitFor(() => expect(details(el)).toContain('The documentation list could not be read'))
     expect(el.querySelector('nav')).toBeNull()
     act(() => root.unmount())
   })

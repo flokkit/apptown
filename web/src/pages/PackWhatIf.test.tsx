@@ -8,6 +8,9 @@ import { newQueryClient } from '../data'
 import { settled } from '../settled'
 import { WhatIfPanel } from './PackWhatIf'
 
+// A status's details ride with it (data-help, or a plain chip's title), not in the page text.
+const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
+
 // Record ids are UUIDv7 strings.
 const WHAT_IF = '00000000-0007-7000-8000-000000000000'
 const NEW_WHAT_IF = '00000000-0009-7000-8000-000000000000'
@@ -134,8 +137,10 @@ describe('what-if panel', () => {
     const whatIf = { id: WHAT_IF, pack: 'team', version: 2, outcomeLabels: { 'new-failures': 'failed', 'could-not-assess': 'unknown', 'no-new-failures': 'passed', 'not-evaluated': 'unknown', 'not-yet-judged': 'unknown' }, requestedBy: 'bls', statusLabel: 'waiting', state: 'queued', projectsTotal: 0, projectsDone: 0, createdAt: '2026-10-05T00:00:00Z', finishedAt: '', rows: [],
       projects: [{ projectId: LEDGER, projectSlug: 'ledger', statusLabel: 'unknown', outcome: 'not-evaluated', newFailures: [], notAssessed: [], fixed: 0 }] }
     const { el, done } = await render(() => json({ whatIf, eligible: ['ledger'] }))
-    expect(el.textContent).toContain('queued')
-    expect(el.textContent).toContain('1 ● unknownnot evaluated')
+    // Its state and what each count means are the statuses' details.
+    expect(details(el)).toContain('queued')
+    expect(el.textContent).toContain('1 ● unknown')
+    expect(el.querySelector('.chip.unknown')?.getAttribute('data-help') ?? el.querySelector('.chip.unknown')?.getAttribute('title')).toBe('not evaluated')
     expect(el.querySelector('a')?.getAttribute('href')).toBe(`/conformance/what-ifs/${WHAT_IF}`)
     expect(button(el, 'Run on').disabled).toBe(true)
     done()

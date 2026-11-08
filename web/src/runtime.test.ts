@@ -6,7 +6,6 @@ it('formats the server answer without qualifying it with other evidence', () => 
  expect(props.word).toBe('unknown')
  expect(props.help).toContain('storage (s3) did not answer in time · old reading · checked ')
  expect(props.help).toMatch(/next check \d{2}:\d{2}$/)
- expect(props.stacked).toBe(true)
  expect(props.help).toContain('old reading')
  expect(props.help).not.toMatch(/AM|PM/)
 })

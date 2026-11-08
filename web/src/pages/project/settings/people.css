@@ -28,4 +28,9 @@
   .secret-acts { flex-basis: auto; }
   .secrets-profile select { min-height: 44px; }
 }
+.member-row.list-row { display: flex; flex-wrap: wrap; }
+.member-row > .list-identity { display: contents; }
+.member-row > .list-state, .member-row > .list-action:empty { display: none; }
+.member-row > .list-detail { flex-basis: 100%; }
+.member-row > .list-detail { color: var(--text); }
 }

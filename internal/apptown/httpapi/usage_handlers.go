@@ -47,7 +47,7 @@ func (h Usage) Usage(w http.ResponseWriter, r *http.Request) {
 	}
 	byDayKind := []UsageDayKind{}
 	for _, d := range rep.ByDayKind {
-		byDayKind = append(byDayKind, UsageDayKind{Day: d.Day, Kind: d.Kind, Total: d.Total, CostMicros: d.CostMicros, ProviderReported: d.ProviderReported, Catalog: d.Catalog, Unpriced: d.Unpriced})
+		byDayKind = append(byDayKind, UsageDayKind{Day: d.Day, Kind: d.Kind, Total: d.Total, Cached: d.Cached, CostMicros: d.CostMicros, ProviderReported: d.ProviderReported, Catalog: d.Catalog, Unpriced: d.Unpriced})
 	}
 	resp := UsageReport{
 		WindowDays: rep.WindowDays, Totals: rep.Totals,
@@ -131,8 +131,10 @@ type UsageDayKind struct {
 	Catalog          int64 `json:"catalog"`
 	Unpriced         int64 `json:"unpriced"`
 
-	Day        string `json:"day"`
-	Kind       string `json:"kind"`
-	Total      int64  `json:"total"`
-	CostMicros int64  `json:"costMicros"`
+	Day   string `json:"day"`
+	Kind  string `json:"kind"`
+	Total int64  `json:"total"`
+	// Cached is the part of Total from the provider's prompt cache.
+	Cached     int64 `json:"cached"`
+	CostMicros int64 `json:"costMicros"`
 }

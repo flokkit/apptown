@@ -1,3 +1,5 @@
+import { AgentActionsSwitch, useAgentActions } from '../AgentActions'
+import { Status } from '../Status'
 import './Console.css'
 import { FormMenu } from '../MoreMenu'
 import { PRODUCT } from '../brand'
@@ -5,14 +7,13 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ChangeView, post } from '../api'
 import AgentActivity from '../AgentActivity'
-import { AgentActionsSwitch, useAgentActions } from '../AgentActions'
 import { useChatViewport, useNarrow } from '../chrome'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { ConsoleSessionView } from '../wire.gen'
 import { WorkerSaveLine } from './WorkerChat'
 import { Bubbles } from './console/Bubbles'
-import { ChangeContext, changeChip, StartedChanges, WorkshopActions } from './console/ChangeBar'
+import { ChangeFacts, StartedChanges, WorkshopActions } from './console/ChangeBar'
 import { useConsoleSession } from './console/useConsoleSession'
 import { useTerminal } from './console/useTerminal'
 
@@ -48,10 +49,10 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
     () => (localStorage.getItem('chat-zoom') === 'terminal' ? 'terminal' : 'chat'))
   const setZoomKeep = (z: 'chat' | 'terminal') => { setZoom(z); localStorage.setItem('chat-zoom', z) }
   const [robotBusy, setRobotBusy] = useState(false)
+  const [showActions, setShowActions] = useAgentActions()
   // Context stays inline at both widths.
   const narrow = useNarrow()
   useChatViewport(narrow)
-  const [showActions, setShowActions] = useAgentActions()
   const introKey = `chat-intro-seen-${slug}`
   const [introSeen, setIntroSeen] = useState(() => localStorage.getItem(introKey) === '1')
   const termRef = useRef<HTMLDivElement>(null)
@@ -62,9 +63,6 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   // (where building happens). People were confusing them; the chat says
   // which it is before a word is typed.
   const shopId = session?.changeId || changeId
-  // On a phone the head already shows the change's state, so this line
-  // leaves its chip out and has room for the agent-actions switch.
-  const actionsBesideAbout = narrow && !!shopId && !!session && zoom === 'chat'
   const isWorkshop = shopId !== ''
   // One read of the change feeds the action bar and the status card; its
   // status shows once, above both.
@@ -90,23 +88,29 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           The robot buddy owns the turn state; plumbing (model, session, reset
           actions) lives behind ⋯ where those who need it can find it. */}
       <div className="row console-head mb-2" >
-        {narrow && shopId
-          ? <h1 className="console-chat-page-h1"><Link to={`/changes/${shopId}`}>{shopName.charAt(0).toUpperCase() + shopName.slice(1)}</Link></h1>
-          : <h1 className="console-chat-page-h1">{isWorkshop ? 'Change chat' : 'Project chat'}</h1>}
-        {/* The address names the change before the session answers: a
-            change chat says it is one from its first paint, never the
-            project chat while it connects. */}
+        {/* The chat's space is the conversation's: a change chat's head is the
+            change itself (its number and title, linking to it, and its
+            state), and the change chat says it is one from its first paint,
+            never the project chat while it connects. */}
         {shopId
-          ? (narrow ? null : <Link className="badge here" to={`/changes/${shopId}`}
-              title="What you and the helper change here is saved onto this change.">{shopName}</Link>)
+          ? <h1 className="console-chat-page-h1 console-chat-title"><Link to={`/changes/${shopId}`} title="What you and the helper change here is saved onto this change.">{change.data ? <><span className="muted">#{change.data.change.number}</span> {change.data.change.title}</> : shopName.charAt(0).toUpperCase() + shopName.slice(1)}</Link></h1>
+          : <h1 className="console-chat-page-h1">Project chat</h1>}
+        {shopId
+          // Before a workflow starts the helper's turn says where things
+          // stand; the change's own state shows once checks or a decision do.
+          ? change.data?.detail && <Status word={change.data.statusLabel} />
           : <span className="badge here" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>}
+        {/* The change's actions share the head's line: the page is the conversation's. */}
+        {isWorkshop && change.data && zoom === 'chat' && (change.data.change.summary || change.data.report) && <Link className="small" to={`/changes/${change.data.change.id}/records/summary`}>What was made →</Link>}
         <span className="console-head-space grow" />
+        {isWorkshop && changeId !== '' && session?.mayAct && zoom === 'chat' && change.data && <span className="console-strip"><WorkshopActions compact changeId={changeId} view={change.data} robotBusy={robotBusy} sessionId={session?.id} /></span>}
         {session?.mayAct && zoom === 'chat' && <AgentActivity busy={robotBusy} connected={status === 'attached'} />}
         {(!narrow || zoom !== 'chat') && <button disabled={!session} className="subtle" onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
           {zoom === 'chat' ? 'Terminal ▾' : '← back to the chat'}
         </button>}
         <FormMenu className="head-menu" trigger={<button className="subtle" aria-label="Session details and resets">⋯</button>}>
           <div className="head-menu-card">
+            {change.data && <ChangeFacts view={change.data} />}
             <div className="muted small console-chat-page-div">
               {session?.openedBy && <>opened by {session.openedBy}<br /></>}
               {session?.model || 'default model'}<br />
@@ -114,6 +118,9 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
               {status === 'attached' ? 'connected' : status}
               {session && <><br /><span title={session.id}>session {session.id.slice(0, 8)}…</span></>}
             </div>
+            {/* A remembered way of reading the chat, not something to flip
+                mid-conversation: it lives here, not above the input. */}
+            {zoom === 'chat' && <AgentActionsSwitch shown={showActions} onChange={setShowActions} />}
             {narrow && zoom === 'chat' && <button className="subtle" disabled={!session} onClick={() => setZoomKeep('terminal')}>Terminal</button>}
             {session?.mayAct && <>
               <button className="subtle" onClick={startFresh}>↺ start fresh</button>
@@ -130,11 +137,6 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
         <div className="console-actions">
           <ReadStatus q={change} what={shopName} />
           <StaleNote q={change} />
-        </div>
-      )}
-      {isWorkshop && changeId !== '' && session?.mayAct && zoom === 'chat' && change.data && (
-        <div className="console-primary-actions">
-          <WorkshopActions changeId={changeId} view={change.data} robotBusy={robotBusy} sessionId={session?.id} />
         </div>
       )}
       {openErr && (
@@ -155,14 +157,10 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
       )}
       {/* Keep context, the worker's saved-copy warning and started changes visible. */}
       <div className="console-extra console-secondary">
-        {(shopId || (!shopId && !introSeen) || session?.continuedFrom) && (
-          <div className={actionsBesideAbout ? 'console-about-line' : undefined}>
+        {((!shopId && !introSeen) || session?.continuedFrom) && (
+          <div>
             <section className="console-about">
-              <h3 className="small">
-                {shopId
-                  ? <>{narrow ? 'About this change' : shopName}{change.data && !actionsBesideAbout && <> · {changeChip(change.data)}</>}</>
-                  : 'About this chat'}
-              </h3>
+              {!shopId && <h3 className="small">About this chat</h3>}
               {!shopId && !introSeen && <ChatIntro slug={slug}
                 onDismiss={() => { localStorage.setItem(introKey, '1'); setIntroSeen(true) }} />}
               {session?.continuedFrom && (
@@ -170,9 +168,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
                   This chat continues {session.continuedFrom}: it remembers what it did in the lane. That earlier work is on the change page.
                 </div>
               )}
-              {session?.changeId && change.data ? <ChangeContext view={change.data} /> : null}
             </section>
-            {actionsBesideAbout && <AgentActionsSwitch shown={showActions} onChange={setShowActions} />}
           </div>
         )}
       </div>
@@ -183,7 +179,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
         {session && <StartedChanges sessionId={session.id} />}
       </div>
       <Bubbles hidden={zoom !== 'chat'} sessionId={session?.id ?? null} attached={status === 'attached'}
-          starting={status !== 'attached' || !session ? <StartingLine opening={!session} /> : undefined} onBusy={setRobotBusy} actionsSwitch={!actionsBesideAbout}
+          starting={status !== 'attached' || !session ? <StartingLine opening={!session} /> : undefined} onBusy={setRobotBusy}
           readOnly={!session || session.mayAct ? undefined : session.openedBy}
           starters={shopId ? undefined : [
             // The project chat's three jobs, as things you could say (the

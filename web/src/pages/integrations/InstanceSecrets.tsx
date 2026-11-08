@@ -1,3 +1,4 @@
+import { StatusDot } from '../../Status'
 import { ListRow } from '../../ListRow'
 import { Section } from '../../Section'
 import { Link } from 'react-router-dom'
@@ -66,7 +67,7 @@ export function SecretNameStatus({ name }: { name: string }) {
   const store = namesQ.data?.stores?.[n]
   return (
     <div className="row small" style={{ gap: 8, flexWrap: 'wrap' }}>
-      <span className={`dot ${namesQ.err || !namesQ.data ? 'unknown' : store ? 'ok' : 'bad'}`} />
+      <StatusDot word={namesQ.err || !namesQ.data ? 'unknown' : store ? 'current' : 'missing'} />
       <code>{n}</code>
       {namesQ.err ? <span className="error">unknown · the secrets could not be read: {namesQ.reason}</span>
         : !namesQ.data ? <span className="muted">checking…</span>

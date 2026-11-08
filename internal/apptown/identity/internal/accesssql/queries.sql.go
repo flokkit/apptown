@@ -2246,6 +2246,43 @@ func (q *Queries) LiveGrantIDsOfUser(ctx context.Context, subject string) ([]ids
 	return items, nil
 }
 
+const liveGroupMembers = `-- name: LiveGroupMembers :many
+SELECT u.username FROM group_members m JOIN groups g ON g.name = m.group_name JOIN users u ON u.principal_id = m.principal_id
+WHERE m.group_name = $1::text AND m.revoked_at IS NULL
+AND (m.expires_at IS NULL OR m.expires_at > $2::timestamptz) AND g.retired_at IS NULL
+ORDER BY u.username
+`
+
+type LiveGroupMembersParams struct {
+	GroupName string
+	At        time.Time
+}
+
+// LiveGroupMembers is a live group's live members by name, as approval
+// eligibility reads membership.
+func (q *Queries) LiveGroupMembers(ctx context.Context, arg LiveGroupMembersParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, liveGroupMembers, arg.GroupName, arg.At)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var username string
+		if err := rows.Scan(&username); err != nil {
+			return nil, err
+		}
+		items = append(items, username)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const livePersonByName = `-- name: LivePersonByName :one
 SELECT id FROM principals WHERE name = $1 AND kind = 'person' AND removed_at IS NULL AND origin_forge IS NULL
 `
@@ -2912,6 +2949,57 @@ func (q *Queries) RevokeTokensMintedSince(ctx context.Context, arg RevokeTokensM
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const roleHoldersAt = `-- name: RoleHoldersAt :many
+SELECT g.subject_type, g.subject FROM grants_named g
+WHERE g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at > $1::timestamptz)
+AND g.scope_type = $2::text AND g.scope_id = $3::text
+AND g.role_name = $4::text AND g.capability = ''
+ORDER BY g.subject_type DESC, g.subject
+`
+
+type RoleHoldersAtParams struct {
+	At        time.Time
+	ScopeType string
+	ScopeID   string
+	Role      string
+}
+
+type RoleHoldersAtRow struct {
+	SubjectType string
+	Subject     string
+}
+
+// RoleHoldersAt is who holds a role at one scope now: the subjects of its
+// live, unexpired role grants (people and groups), as approval eligibility
+// reads them.
+func (q *Queries) RoleHoldersAt(ctx context.Context, arg RoleHoldersAtParams) ([]RoleHoldersAtRow, error) {
+	rows, err := q.db.QueryContext(ctx, roleHoldersAt,
+		arg.At,
+		arg.ScopeType,
+		arg.ScopeID,
+		arg.Role,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RoleHoldersAtRow
+	for rows.Next() {
+		var i RoleHoldersAtRow
+		if err := rows.Scan(&i.SubjectType, &i.Subject); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const saveDelegation = `-- name: SaveDelegation :one

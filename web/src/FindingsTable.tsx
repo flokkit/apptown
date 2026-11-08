@@ -1,3 +1,5 @@
+import { ListTable } from './ListTable'
+import './styles/findings-table.css'
 import { fmtDay } from './format'
 import { useNavigate } from 'react-router-dom'
 import { Finding, findingFixPayload, post } from './api'
@@ -32,22 +34,15 @@ export function FindingsTable({ findings, projectSlug, onChanged }: {
 
   if (findings.length === 0) return <div className="muted small">no findings</div>
   return (
-    <div style={{ marginTop: 6 }}>
-      <table>
-        <thead><tr><th>Sev</th><th>Finding</th><th>Package / location</th><th>Fix</th><th></th></tr></thead>
-        <tbody>
-          {findings.map((f) => (
-            <tr key={f.fingerprint} style={f.disposition ? { opacity: 0.55 } : undefined}>
-              <td>
-                <span className="badge"
+    <div className="findings-list">
+      <ListTable className="findings-list-table" label="Findings" rows={findings} rowKey={f => f.fingerprint} columns={[
+        { key: 'severity', label: 'Sev', phone: 'state', render: f => <><span className="badge"
                   title={f.severity === 'unknown' ? 'The source database gives no severity; it is treated as high.' : undefined}>
                   {f.severity === 'unknown' ? 'unscored' : f.severity}
                 </span>
                 {f.reached === false && <div><span className="badge" title="osv-scanner call analysis: the vulnerable code is never called by this program.">not reached</span></div>}
-                {f.reached === true && <div><span className="badge" title="osv-scanner call analysis: the program CALLS the vulnerable code.">reached</span></div>}
-              </td>
-              <td>
-                <span style={f.disposition ? { textDecoration: 'line-through' } : undefined} title={f.detail ?? ''}>
+                {f.reached === true && <div><span className="badge" title="osv-scanner call analysis: the program CALLS the vulnerable code.">reached</span></div>}</> },
+        { key: 'finding', label: 'Finding', phone: 'name', render: f => <><span className={f.disposition ? 'finding-suppressed' : undefined} title={f.detail ?? ''}>
                   {f.url ? <a href={f.url} target="_blank" rel="noreferrer">{f.identifiers?.[0] ?? f.title}</a>
                     : (f.identifiers?.[0] ?? f.title)}
                 </span>
@@ -63,16 +58,12 @@ export function FindingsTable({ findings, projectSlug, onChanged }: {
                     suppressed ({f.disposition.status}) by {f.disposition.by}
                     {f.disposition.expiresAt ? ` until ${fmtDay(f.disposition.expiresAt)}` : ''} — “{f.disposition.justification.slice(0, 80)}”
                   </div>
-                )}
-              </td>
-              <td className="muted small">
-                {f.package ? `${f.package.name}@${f.package.version ?? '?'}` : ''}
-                {f.location ? `${f.location.file}:${f.location.line ?? ''}` : ''}
-              </td>
-              <td className="muted small">{f.package?.fixedIn ?? ''}</td>
-              <td>
-                {!f.disposition && (
-                  <span className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                )}</> },
+        { key: 'package', label: 'Package / location', phone: 'detail', className: 'muted small', render: f => <>{f.package ? `${f.package.name}@${f.package.version ?? '?'}` : ''}
+                {f.location ? `${f.location.file}:${f.location.line ?? ''}` : ''}</> },
+        { key: 'fix', label: 'Fix', phone: 'extra', className: 'muted small', render: f => <>{f.package?.fixedIn ?? ''}</> },
+        { key: 'action', label: '', phone: 'action', render: f => <>{!f.disposition && (
+                  <span className="row finding-actions">
                     <QuietPrompt label="Fix…" ask="Fix with workflow:"
                       fields={[{ key: 'workflow', placeholder: 'workflow', initial: 'quick-change', required: true, width: 140 }]}
                       yes="Start" onYes={(v) => fix(f, v.workflow.trim())} />
@@ -87,12 +78,8 @@ export function FindingsTable({ findings, projectSlug, onChanged }: {
                       fields={[{ key: 'justification', placeholder: 'why (required)', required: true }]}
                       yes="Mark" onYes={(v) => accept(f, 'false_positive', v.justification.trim(), '')} />
                   </span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                )}</> },
+      ]} />
       {err && <div className="error">{err}</div>}
     </div>
   )

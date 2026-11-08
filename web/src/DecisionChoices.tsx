@@ -10,13 +10,14 @@ export function DecisionGrid({ children }: { children: ReactNode }) {
 export type DecisionChoice = { label: string; run: () => unknown; disabled?: boolean; prompt?: { ask: string; run: (reason: string) => unknown } }
 
 // The page words and places only the acts AppTown offers.
-export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, conversation, busy, highlight, showConversation = true }: {
+export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, conversation, busy, highlight, showConversation = false }: {
+  // showConversation: a held agent change can be taken into a chat from here.
   showConversation?: boolean
   highlight?: 'accept' | 'rework' | 'none'
   note: string; setNote: (note: string) => void
   // chat: a change worked in a chat continues there; it takes the send-back place.
   accept?: DecisionChoice; chat?: DecisionChoice; rework?: DecisionChoice; abandon?: DecisionChoice
-  conversation: { href: string; run?: () => unknown }; busy: boolean
+  conversation?: { href: string; run?: () => unknown }; busy: boolean
 }) {
   const [mode, setMode] = useState<'choices' | 'comment' | 'abandon' | 'reason'>('choices')
   const [reason, setReason] = useState('')
@@ -55,7 +56,7 @@ export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, 
       {abandon && <button className="danger" disabled={busy} onClick={() => setMode('abandon')}>Abandon change</button>}
     </DecisionGrid>}
     </div>
-    {showConversation && !chat && <p>Want to talk it through first? <a href={conversation.href} onClick={e => {
+    {showConversation && conversation && !chat && <p>Want to talk it through first? <a href={conversation.href} onClick={e => {
       e.currentTarget.closest('dialog')?.close()
       if (conversation.run) { e.preventDefault(); conversation.run() }
     }}>Open the conversation →</a></p>}

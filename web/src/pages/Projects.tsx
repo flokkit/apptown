@@ -1,5 +1,5 @@
 import { useNarrow } from '../chrome'
-import { Section, Group } from '../Section'
+import { Section, Group, SectionFilter } from '../Section'
 import { RuntimeObservation } from '../runtime'
 import { ProjectListRow } from '../ProjectListRow'
 import { useEffect, useRef, useState } from 'react'
@@ -70,7 +70,15 @@ export default function Projects() {
   const filterRef = useRef<HTMLInputElement>(null)
   const narrow = useNarrow()
   const listed = !!projects
-  useEffect(() => { if (!narrow && listed) filterRef.current?.focus() }, [narrow, listed])
+  // Once per visit, and without scrolling: a later re-run (the page width
+  // crossing the phone breakpoint, say) must not throw a reader back to the
+  // top of the list.
+  const focused = useRef(false)
+  useEffect(() => {
+    if (narrow || !listed || focused.current) return
+    focused.current = true
+    filterRef.current?.focus({ preventScroll: true })
+  }, [narrow, listed])
 
   if (!projects) return <ReadStatus q={pageQ} what="the projects" />
 
@@ -80,14 +88,6 @@ export default function Projects() {
   for (const p of shown) byNs.set(p.namespace, [...(byNs.get(p.namespace) ?? []), p])
   const namespaces = [...byNs.keys()].sort((a, b) => (a || 'zz').localeCompare(b || 'zz'))
   const grouped = namespaces.length > 1 || (namespaces.length === 1 && namespaces[0] !== '')
-
-  const ProjectRows = ({ rows }: { rows: typeof projects }) => (
-    <div className="project-rows" role="list">
-      {rows.map(p => <ProjectListRow key={p.id} project={p} refreshFailed={pageQ.refreshFailed} reason={pageQ.reason}>
-        <div className="small muted project-summary">{p.activeItems > 0 && <>{p.activeItems} in progress · </>}{p.doneRuns} shipped{p.lastChangeTitle && <> · {p.lastChangeTitle}</>}</div>
-      </ProjectListRow>)}
-    </div>
-  )
 
   return (
     <div>
@@ -100,17 +100,16 @@ export default function Projects() {
       <StaleNote q={pageQ} />
       {removed && <RemovalNotice slug={removed} onDismiss={() => { params.delete('removed'); setParams(params, { replace: true }) }} />}
       <Section title="All projects" label="All projects" count={page?.total}
-        action={<input ref={filterRef} aria-label="filter projects" className="section-filter" value={filter}
-          onChange={(e) => { setFilter(e.target.value); setOffset(0) }} placeholder="Filter projects" />}>
+        action={<SectionFilter ref={filterRef} value={filter} onChange={v => { setFilter(v); setOffset(0) }} placeholder="Filter projects" />}>
         {page?.total === 0 && !q && <p className="muted">No projects yet.</p>}
         {q !== '' && shown.length === 0 && <p className="muted">Nothing matches “{filter}”.</p>}
         {!pageQ.data && <ReadStatus q={pageQ} what="the projects" className="small" />}
         {namespaces.map((ns) => (
           grouped
             ? <Group key={ns || '_'} label={<>{ns || 'ungrouped'} <span className="section-count">{(byNs.get(ns) ?? []).length}</span></>}>
-                <ProjectRows rows={byNs.get(ns) ?? []} />
+                <ProjectRows rows={byNs.get(ns) ?? []} q={pageQ} />
               </Group>
-            : <ProjectRows key={ns || '_'} rows={byNs.get(ns) ?? []} />
+            : <ProjectRows key={ns || '_'} rows={byNs.get(ns) ?? []} q={pageQ} />
         ))}
       </Section>
 
@@ -123,4 +122,16 @@ export default function Projects() {
       </div>}
     </div>
   )
+}
+
+// Defined outside the page, so each refresh updates the rows in place; a
+// component declared inside the page is a new type on every render, which
+// rebuilt every row each poll (a flicker in Chrome, a jump to the top in
+// Safari).
+function ProjectRows({ rows, q }: { rows: ProjRow[]; q: { refreshFailed: boolean; reason?: string } }) {
+  return <div className="project-rows" role="list">
+    {rows.map(p => <ProjectListRow key={p.id} project={p} refreshFailed={q.refreshFailed} reason={q.reason}>
+      <div className="small muted project-summary">{p.activeItems > 0 && <>{p.activeItems} in progress · </>}{p.doneRuns} shipped{p.lastChangeTitle && <> · {p.lastChangeTitle}</>}</div>
+    </ProjectListRow>)}
+  </div>
 }

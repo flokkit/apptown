@@ -91,7 +91,10 @@ span.application-open { color: var(--text); border: 1px solid var(--border-stron
 /* Home and Projects share identity, state/age and action columns. */
 .project-rows { display: grid; grid-template-columns: minmax(0, 1fr); }
 .project-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 13ch) auto; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); position: relative; }
-.project-row.list-row { grid-template-columns: minmax(0, 1fr) minmax(0, 32ch) auto; }
+/* Fixed state and action columns, so a row without Open app keeps its
+   status under the others'. */
+.project-row.list-row { grid-template-columns: minmax(0, 1fr) 12rem 20rem; }
+.project-row.list-row > .list-action { justify-self: end; }
 .project-identity { display: flex; align-items: center; min-width: 0; gap: 12px; }
 .project-copy { min-width: 0; }
 .project-name { color: var(--text); overflow-wrap: anywhere; }

@@ -1,3 +1,4 @@
+import { ListTable } from '../../ListTable'
 import { Section } from '../../Section'
 import { Status } from '../../Status'
 import { Link } from 'react-router-dom'
@@ -85,16 +86,12 @@ export function ScheduleRows({ slug }: { slug: string }) {
     <Section title="Schedules" count={data.schedules.length}>
       <div data-testid="schedules">
       <StaleNote q={q} />
-      {data.schedules.map((s) => (
-        <div key={s.source.workflow} className="card row schedule-row" style={{ display: 'flex' }}>
-          <strong title={`workflow ${s.source.workflow}, version ${s.source.version}`}>{s.source.workflow}</strong>
-          <span className="muted small">
-            <span title={`cron ${s.cron} (${s.timeZone})`}>{cadenceWords(s.cron, s.next)}</span>
-            {' · '}<NextFiring s={s} />
-            {(s.last || s.problem) && <>{' · '}<LastFiring s={s} slug={slug} /></>}
-          </span>
-        </div>
-      ))}
+      <ListTable label="Schedules" rows={data.schedules} rowKey={s => s.source.workflow} columns={[
+        { key: 'workflow', label: 'Workflow', phone: 'name', render: s => <strong title={`workflow ${s.source.workflow}, version ${s.source.version}`}>{s.source.workflow}</strong> },
+        { key: 'cadence', label: 'When', phone: 'detail', className: 'muted small', render: s => <span title={`cron ${s.cron} (${s.timeZone})`}>{cadenceWords(s.cron, s.next)}</span> },
+        { key: 'last', label: 'Last run', phone: 'extra', className: 'muted small', render: s => <LastFiring s={s} slug={slug} /> },
+        { key: 'next', label: 'Next run', phone: 'time', className: 'small', kind: 'time', render: s => <NextFiring s={s} /> },
+      ]} />
       </div>
     </Section>
   )

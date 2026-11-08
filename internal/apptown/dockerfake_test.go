@@ -362,9 +362,13 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 				id = dockerfake.ContainerID(name)
 			}
 			// The memory a run or update held it to, as the daemon reports.
-			var memory int64
-			fmt.Sscan(f.limits[name], &memory)
-			out, err := json.Marshal(docker.Runtime{ID: id, Image: "sha256:built", Running: true, Labels: f.labels[name], MemoryLimit: memory})
+			var memory, nano int64
+			fmt.Sscan(f.limits[name], &memory, &nano)
+			var image string
+			if cfg, ok := f.storageContainers[name]["Config"].(map[string]string); ok {
+				image = cfg["Image"]
+			}
+			out, err := json.Marshal(docker.Runtime{ID: id, Image: "sha256:built", ImageName: image, Running: true, Labels: f.labels[name], MemoryLimit: memory, NanoCPUs: nano})
 			f.mu.Unlock()
 			return out, err
 		case strings.Contains(tmpl, ".Config.Entrypoint") || strings.Contains(tmpl, ".Config.Cmd"):

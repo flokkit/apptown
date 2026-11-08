@@ -57,7 +57,7 @@ it('keeps a deployment resource count unknown until its inventory can be read', 
       deployments: [{ project: 'shop', name: 'main', status: { word: 'working', reason: '', stale: false }, statusLabel: 'working' }] }, history: [], builtIn: true,
   })
   const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/kitchen']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name" element={<TargetPage />} /></Routes></QueryClientProvider></MemoryRouter>)
-  expect(html).toContain('<td class="number phone-extra">unknown</td>')
+  expect(html).toContain('<td class="number record-fit phone-extra">unknown</td>')
   expect(html).not.toContain('0 resources')
 })
 

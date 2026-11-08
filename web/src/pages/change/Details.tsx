@@ -1,3 +1,5 @@
+import { ListRow } from '../../ListRow'
+import './list-records.css'
 import { usePageName } from '../../chrome'
 import { StateRecord } from './StatePanel'
 import { TechnicalWords, useTechnicalDetail } from './TechnicalDetail'
@@ -241,7 +243,7 @@ function EntryEvidence({ entry, view, reload }: { entry: StoryEntry; view: Chang
     {entry.session && <p className="small">Session: <code>{entry.session}</code></p>}
     {/* Decision records belong where the workflow asks for one, or beside work that already links some. */}
     {entry.step?.type === 'adr/require' && <AdrLinks view={view} onChange={reload} />}
-    {entry.step?.type === 'approval' && !!view.evidence?.targets.length && <table className="ch-items-table"><tbody>{view.evidence.targets.map(t => <tr key={`${t.block}:${t.check}`}><th scope="row">{t.title || t.check}</th><td>{t.expects}</td></tr>)}</tbody></table>}
+    {entry.step?.type === 'approval' && !!view.evidence?.targets.length && <div>{view.evidence.targets.map(t => <ListRow className="approval-target-row" key={`${t.block}:${t.check}`} identity={<><strong>{t.title || t.check}</strong><span>{t.expects}</span></>} />)}</div>}
     {technical && !!entry.events.length && <pre className="log small">{JSON.stringify(entry.events, null, 2)}</pre>}
   </div>
 }
