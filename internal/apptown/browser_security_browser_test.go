@@ -350,6 +350,12 @@ func TestHostSnapshotScenesReadInventory(t *testing.T) {
 					continue
 				}
 				inv, err := w.a.Deployment.InventoryFor(t.Context(), target)
+				if target.Name == "tour-unreachable" {
+					if err != nil || !inv.Unknown {
+						t.Fatalf("offline scene host inventory: %+v %v", inv, err)
+					}
+					continue
+				}
 				if err != nil || inv.Unknown || inv.Invalidated {
 					t.Fatalf("scene inventory unknown: %+v %v", inv, err)
 				}
@@ -471,6 +477,81 @@ const tourAgentImage = "apptown-agent"
 // Semgrep version that does not exist.
 const garageScannerImage = "semgrep/semgrep:1.999.0"
 
+// A missing container or unreadable generation must leave its neighbours readable.
+func TestSceneDockerInspectsEveryContainer(t *testing.T) {
+	daemon, _, onHost, _ := newSceneDocker(t, true)
+	resources := []deploy.Resource{}
+	for _, state := range []string{"running", "stopped", "unknown"} {
+		resources = append(resources, deploy.Resource{Kind: "container", Name: state, Hosts: []deploy.ResourceHost{{Deployment: "tour-" + state, Generation: 1}}})
+	}
+	onHost.Store(&resources)
+	// Every command to the separate offline host fails, regardless of names.
+	for _, args := range [][]string{{"info"}, {"inspect", "--format", docker.RuntimeFormat, "running"}} {
+		_, err := daemon.Run(t.Context(), "ssh://apptown-target-tour-unreachable-test", docker.Command{Args: args})
+		if !deploy.IsUnreachable(err) {
+			t.Fatalf("offline host %v: %v", args, err)
+		}
+	}
+	for _, names := range [][]string{{"running", "stopped", "unknown", "missing", "also-missing"}, {"missing", "also-missing", "unknown", "stopped", "running"}} {
+		var stdout, stderr bytes.Buffer
+		args := append([]string{"inspect", "--format", `{{json .Name}}` + "\t" + docker.RuntimeFormat}, names...)
+		_, err := daemon.Run(t.Context(), "", docker.Command{Args: args, Stdout: &stdout, Stderr: &stderr})
+		if err == nil || stderr.String() != "Error: No such object: missing\nError: No such object: also-missing\n" {
+			t.Fatalf("missing container: stderr=%q err=%v", stderr.String(), err)
+		}
+		rows := map[string]docker.Runtime{}
+		for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+			nameJSON, raw, ok := strings.Cut(line, "\t")
+			var name string
+			var runtime docker.Runtime
+			if !ok || json.Unmarshal([]byte(nameJSON), &name) != nil || json.Unmarshal([]byte(raw), &runtime) != nil {
+				t.Fatalf("invalid runtime row %q", line)
+			}
+			rows[name] = runtime
+		}
+		if len(rows) != 3 || !rows["/running"].Running || rows["/stopped"].Running || rows["/stopped"].ID == "" || rows["/running"].Labels[dockerlabel.Generation] != "1" || rows["/unknown"].Labels[dockerlabel.Generation] != "unreadable" {
+			t.Fatalf("runtime rows: %+v", rows)
+		}
+	}
+}
+
+// The troubled tour deployments retain distinct states under host observations.
+func TestSceneDockerObservesTourDeployments(t *testing.T) {
+	daemon, _, onHost, _ := newSceneDocker(t, true)
+	dataDir, err := os.MkdirTemp("", "s-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dataDir) })
+	a, h := internalApp(t, Config{DataDir: dataDir, DockerClient: daemon})
+	a.SeedTargets(t.Context())
+	boot := postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "sam", "tour-password-not-secret"))
+	if boot.Code != http.StatusOK {
+		t.Fatalf("bootstrap: %d %s", boot.Code, boot.Body.String())
+	}
+	projectID, _, _ := fleetRepo(t, a, "lunch-orders", map[string]string{"index.html": "<h1>Lunch</h1>"})
+	resources := tourRuntimeDeployments(t, a, []string{"stopped", "unknown", "unreachable"})
+	onHost.Store(&resources)
+	if err := a.Deployment.ObserveRuntime(asPerson("sam")); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := a.Deployment.List(asPerson("sam"), projectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 3 {
+		t.Fatalf("tour deployments: %+v", rows)
+	}
+	for _, row := range rows {
+		if want := strings.TrimPrefix(row.Name, "tour-"); row.Observation.State.String() != want {
+			t.Errorf("%s observation: %+v", row.Name, row.Observation)
+		}
+		if (row.Name == "tour-unreachable") != (row.Target.Name == "tour-unreachable") {
+			t.Errorf("%s target: %s", row.Name, row.Target.Name)
+		}
+	}
+}
+
 // newSceneDocker supplies the tour and camera with the same reachable runtime.
 func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointer[[]deploy.Resource], *atomic.Bool) {
 	t.Helper()
@@ -559,9 +640,25 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 		}
 		return ""
 	}
-	// The one streamed question the scene's AppTown asks is the
-	// inventory's: which of the recorded images the host holds.
-	daemon.command = func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
+	// Stream runtime rows and inventory facts as a daemon would.
+	daemon.command = func(_ context.Context, host string, req docker.Command) ([]byte, error) {
+		if strings.HasPrefix(host, "ssh://apptown-target-tour-unreachable-") {
+			return nil, deploy.Unreachable(&net.OpError{Op: "dial", Net: "tcp", Err: errors.New("tour host offline")})
+		}
+		if len(req.Args) >= 4 && req.Args[0] == "inspect" && req.Args[1] == "--format" && req.Args[2] == `{{json .Name}}`+"\t"+docker.RuntimeFormat {
+			var result error
+			for _, name := range req.Args[3:] {
+				out, err := daemon.run("inspect", "--format", docker.RuntimeFormat, name)
+				if err != nil {
+					_, writeErr := fmt.Fprintln(req.Stderr, strings.TrimSpace(string(out)))
+					result = errors.Join(result, err, writeErr)
+					continue
+				}
+				_, err = fmt.Fprintf(req.Stdout, "%q\t%s\n", "/"+name, out)
+				result = errors.Join(result, err)
+			}
+			return nil, result
+		}
 		const imageNames = "{{json .RepoTags}}\t{{json .RepoDigests}}\t{{json .Id}}"
 		if len(req.Args) >= 6 && slices.Equal(req.Args[:5], []string{"inspect", "--type", "container", "--format", "{{json .}}"}) {
 			for _, ref := range req.Args[5:] {
@@ -824,15 +921,14 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 			return strings.Join(lines, "\n"), nil, true
 		}
 		switch {
-		case len(args) > 0 && args[0] == "inspect" && !slices.Contains(args, "{{json .}}") && seededRuntime(args[len(args)-1]) != "":
-			switch seededRuntime(args[len(args)-1]) {
-			case "stopped":
-				return `{"id":"tour-stopped","running":false}`, nil, true
-			case "unreachable":
-				return "", deploy.Unreachable(&net.OpError{Op: "dial", Net: "tcp", Err: errors.New("tour host offline")}), true
-			default:
-				return "", errors.New("tour provider response could not be read"), true
+		case len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat && seededRuntime(args[3]) != "":
+			state := seededRuntime(args[3])
+			generation := "1"
+			if state == "unknown" {
+				generation = "unreadable"
 			}
+			out, err := json.Marshal(docker.Runtime{ID: dockerfake.ContainerID(args[3]), Running: state != "stopped", Labels: map[string]string{dockerlabel.Generation: generation}})
+			return string(out), err, true
 		case len(args) > 1 && args[0] == "image" && args[1] == "inspect":
 			ref := args[len(args)-1]
 			if ref == tourAgentImage {
@@ -971,7 +1067,8 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 	if garage {
 		scene = "garage"
 	}
-	dataDir, err := os.MkdirTemp("", "apptown-"+scene+"-")
+	// Leave room for the attached host's SSH control socket on macOS.
+	dataDir, err := os.MkdirTemp("", scene[:1]+"-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1242,11 +1339,11 @@ func (w *tourWorld) hold() bool {
 	}
 }
 
-// tourRuntimeDeployments seeds Lunch Orders' troubled deployments on the
-// built-in host (the garage's), one in each runtime state named, and
-// returns what the host's inventory records: those and what the landings
-// deployed. The troubled ones are a stopped, an unknown and an unreachable
-// container no landing made: seed the persisted container pointer only, as
+// tourRuntimeDeployments seeds Lunch Orders' troubled deployments, one in
+// each runtime state named, and returns the built-in host's recorded inventory.
+// The unreachable deployment has its own attached host; the unknown one's
+// container has an unreadable generation label. No landing made these
+// containers: seed the persisted pointer and generation, as
 // no public operation imports an existing standing container without a
 // release. The provider fake supplies their runtime facts; no release or
 // check receipt is invented for them.
@@ -1262,7 +1359,19 @@ func tourRuntimeDeployments(t *testing.T, a *App, states []string) []deploy.Reso
 		t.Fatal(err)
 	}
 	for _, word := range states {
-		d, err := a.Deployment.Deployments.EnsureStanding(ctx, p.ID, "tour-"+word, target.ID, deployment.Attributes{}.WithDefaults())
+		deploymentTarget := target
+		if word == "unreachable" {
+			// Seed a previously attached host that is now offline; attaching it
+			// through the connection wizard requires a responding daemon.
+			if err := a.Secrets.SetInstance(ctx, "TOUR_OFFLINE_KEY", `-----BEGIN PRIVATE KEY-----\ndisposable test transport marker\n-----END PRIVATE KEY-----`, "sam"); err != nil {
+				t.Fatal(err)
+			}
+			deploymentTarget, err = a.Deployment.Targets.Put(ctx, &deployment.Target{Name: "tour-unreachable", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Status: deployment.TargetUnreachable, Address: map[string]any{"host": "ssh://deploy@offline.example.test", "keyFrom": "TOUR_OFFLINE_KEY"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		d, err := a.Deployment.Deployments.EnsureStanding(ctx, p.ID, "tour-"+word, deploymentTarget.ID, deployment.Attributes{}.WithDefaults())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1271,8 +1380,8 @@ func tourRuntimeDeployments(t *testing.T, a *App, states []string) []deploy.Reso
 			t.Fatal(err)
 		}
 		// Use the host naming protocol so inventory can confirm these containers.
-		// sql-guarantee: seed an existing container pointer; no owner operation imports one without creating release evidence.
-		if _, err := a.DB.SQL().ExecContext(ctx, `UPDATE deployments SET container=$1 WHERE id=$2`, names.App(), d.ID); err != nil {
+		// sql-guarantee: seed an existing container and generation; no owner operation imports one without creating release evidence.
+		if _, err := a.DB.SQL().ExecContext(ctx, `UPDATE deployments SET container=$1, desired_generation=1, observed_generation=1 WHERE id=$2`, names.App(), d.ID); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -3664,6 +3773,12 @@ app:
 	if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active", Health: "healthy", Handle: map[string]any{"container": docker.ByKey(prod.ID).App(), "hostPort": 43210}}}); err != nil {
 		t.Fatal(err)
 	}
+
+	// The camera completes this generation without a daemon run. Its
+	// container must carry that same generation when the host is observed.
+	daemon.mu.Lock()
+	daemon.labels[docker.ByKey(prod.ID).App()] = map[string]string{dockerlabel.Generation: fmt.Sprint(attempt.Generation)}
+	daemon.mu.Unlock()
 
 	// Publish the same sort of narrative that can fill empty release notes;
 	// it belongs in the release record, not the overview card.
