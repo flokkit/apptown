@@ -86,7 +86,7 @@ type standingDaemon struct {
 	unreadable   bool   // the daemon cannot say whether the service exists
 	stopped      bool   // the service exists but is not running
 	started      bool   // a start was asked for
-	health       string // its health check's interval and start interval, as Docker prints them
+	health       string // its health check as `docker inspect -f {{json .Config.Healthcheck}}` prints it
 }
 
 func (d *standingDaemon) reply(req Command) ([]byte, error) {
@@ -475,7 +475,9 @@ func TestAStandingNeedTakesTheCurrentHealthTimingWithoutLosingItsData(t *testing
 	own := Ownership{Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}}
 	svc := []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16-alpine", Health: "pg_isready"}}
 
-	d := &standingDaemon{health: "3s 0s"}
+	// As demo's Docker printed it on 9 Nov for a service made before the
+	// start interval: no StartInterval key at all.
+	d := &standingDaemon{health: `{"Test":["CMD-SHELL","pg_isready"],"Interval":3000000000,"Timeout":3000000000,"StartPeriod":120000000000,"Retries":20}`}
 	f := &fakeClient{reply: d.reply}
 	if _, err := EnsureStandingServices(t.Context(), Scope{Client: f}, "env-shop-main", svc, "production", own); err != nil {
 		t.Fatal(err)
@@ -493,7 +495,7 @@ func TestAStandingNeedTakesTheCurrentHealthTimingWithoutLosingItsData(t *testing
 		}
 	}
 
-	d = &standingDaemon{health: "30s 1s"}
+	d = &standingDaemon{health: `{"Test":["CMD-SHELL","pg_isready"],"Interval":30000000000,"Timeout":3000000000,"StartPeriod":120000000000,"StartInterval":1000000000,"Retries":3}`}
 	f = &fakeClient{reply: d.reply}
 	if _, err := EnsureStandingServices(t.Context(), Scope{Client: f}, "env-shop-main", svc, "production", own); err != nil {
 		t.Fatal(err)

@@ -836,23 +836,23 @@ func holdHealthTiming(ctx context.Context, dk Scope, cname, health string) (recr
 	if health == "" {
 		return false, nil
 	}
-	out, err := dk.Run(ctx, "inspect", "-f", "{{if .Config.Healthcheck}}{{.Config.Healthcheck.Interval}} {{.Config.Healthcheck.StartInterval}}{{end}}", cname)
+	// As JSON: a container made before Docker knew a start interval, or
+	// without one, has no StartInterval key, which a template field cannot
+	// read; durations are nanoseconds; null without a health check.
+	out, err := dk.Run(ctx, "inspect", "-f", "{{json .Config.Healthcheck}}", cname)
 	if err != nil {
 		return false, fmt.Errorf("reading its health check: %v: %s", err, strings.TrimSpace(string(out)))
 	}
-	// Docker prints the two as durations ("3s 0s"); none when the
-	// container was made without a health check.
+	var have *struct {
+		Interval      time.Duration
+		StartInterval time.Duration
+	}
+	if err := json.Unmarshal(out, &have); err != nil {
+		return false, fmt.Errorf("reading its health check: %q", strings.TrimSpace(string(out)))
+	}
 	var interval, start time.Duration
-	if text := strings.TrimSpace(string(out)); text != "" {
-		f := strings.Fields(text)
-		var e1, e2 error
-		if len(f) == 2 {
-			interval, e1 = time.ParseDuration(f[0])
-			start, e2 = time.ParseDuration(f[1])
-		}
-		if len(f) != 2 || e1 != nil || e2 != nil {
-			return false, fmt.Errorf("reading its health check: %q", text)
-		}
+	if have != nil {
+		interval, start = have.Interval, have.StartInterval
 	}
 	if interval == healthInterval && start == healthStartInterval {
 		return false, nil
