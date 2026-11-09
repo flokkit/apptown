@@ -18,6 +18,7 @@
   :is(.md, .md-doc) pre, pre.source.source {
     --ground: var(--code-bg);
     white-space: pre; overflow-x: auto; overflow-y: visible; max-height: none; position: relative;
+    contain: inline-size;
     background:
       linear-gradient(to right, var(--ground), transparent) left center / 24px 100% no-repeat local,
       linear-gradient(to left, var(--ground), transparent) right center / 24px 100% no-repeat local,
