@@ -40,7 +40,9 @@ architecture checksums with their version. Each checksum has its own release-tag
 annotation so Renovate can replace the two hashes independently. `check-pins`
 rejects an annotation whose release differs from the executable version. Keep
 these annotations in sync when making a manual update. CI gitleaks has its own
-version and checksum, independent of the project scanner.
+version, independent of the project scanner, and is built from the Go module
+proxy (checked by Go's checksum database), so CI does not depend on GitHub's
+release downloads.
 
 Runtime catalog proposals include their exact versions and pinned image digests.
 Alpine Git and Caddy move with their central pins. BusyBox's version and
@@ -95,7 +97,7 @@ being in a file that has some other managed dependency is insufficient.
 | All Dockerfiles, including stock seed bases and `ARG` image defaults | `dockerfile` |
 | `deploy/one-server/compose.yaml` | `docker-compose`; the AppTown image is a release substitution, not an upstream pin |
 | All `.github/workflows/` actions, runner OS versions and setup-node versions | `github-actions`; setup-go reads `go.mod` |
-| CI gitleaks version and archive checksum | `custom.regex`, paired release attachments |
+| CI gitleaks version | `custom.regex` with the `go` datasource |
 | `Makefile` analyzer versions and semgrep image | `custom.regex`; build tools have separate groups from project tools |
 | Agent Dockerfile tools and `deploy/tool-pins.txt` | `custom.regex`; GitHub archive checksums use `github-release-attachments`, grouped with executable versions and central pins |
 | Heavy CI Dockerfile Playwright, buildx, Compose and oxipng | `custom.regex`; archive versions and SHA-256 are replaced together |

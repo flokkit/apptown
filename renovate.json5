@@ -360,7 +360,7 @@
     },
     {
       "matchFileNames": [".github/workflows/ci.yml"],
-      "matchPackageNames": ["gitleaks/gitleaks"],
+      "matchPackageNames": ["github.com/zricethezav/gitleaks/v8"],
       "groupName": "CI gitleaks"
     },
     {
