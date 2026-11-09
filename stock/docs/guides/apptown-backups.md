@@ -198,7 +198,7 @@ Back up on the old host, restore on the new one, then stop `apptownd` on
 the old host before you start it on the new one: both have the same id and
 the same credentials. Apps on the old host's Docker keep running and
 writing until you stop them. Each app comes back with its newest
-deployment backup: take one of each app (the Backups page) just before
+deployment backup: take one of each app (Back up now on its deployment's ⋯ menu) just before
 the move if its newest is old. Keep the old host until the new one passes
 your checks.
 

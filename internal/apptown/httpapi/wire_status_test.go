@@ -44,6 +44,7 @@ type StatusBackup dataprotection.Backup
 type statusProjectBackup struct {
 	DeploymentLabel string `json:"deploymentLabel"`
 	StatusBackup
-	Project       string `json:"project"`
-	BeforeRelease int64  `json:"beforeRelease,omitempty"`
+	Project           string `json:"project"`
+	BeforeRelease     int64  `json:"beforeRelease,omitempty"`
+	DeploymentRemoved bool   `json:"deploymentRemoved,omitempty"`
 }

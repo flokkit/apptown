@@ -211,6 +211,11 @@ backup store and a copy runner is in
   whose definition AppTown cannot read, a volume nothing mounts). A restore
   into a deployment with an item that cannot be put back is refused before
   anything changes.
+- **Where.** Back up now and **Restore from a backup…** are on the
+  deployment's ⋯ menu. A restore offers the deployment's own sets and the
+  final sets kept from the project's taken-down deployments. A new
+  deployment starts from a set in the project's new-deployment form. The
+  Backups page lists every set; a row opens its deployment.
 - **Restore.** A restore replaces what is in the deployment, so AppTown
   first takes a safety set of what is there. It then stops every part, so
   nothing writes while the data goes back, and starts them again
