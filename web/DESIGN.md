@@ -111,7 +111,8 @@ CSS order and check text sizes, phone fields, rows, plot bounds and popovers.
 The page-disclosure gate allows zero fold-downs outside the menu components.
 Rows of the same component use the same text sizes; free text wraps at phone
 width. The top bar derives its sole breadcrumb trail from registered routes,
-linking every ancestor page and ending at the parent. Pages supply only dynamic
+linking every ancestor page and ending at the parent; on phones it shows
+only the parent, as a back link. Pages supply only dynamic
 segment names. Dependent project lists live on per-item projects pages; their
 parents show count links.
 The whole-page camera is `internal/apptown/web_ui_browser_test.go` with

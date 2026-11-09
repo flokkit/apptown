@@ -150,7 +150,7 @@ it.each([false, true])('offers only uncovered fixes and keeps evidence and links
 
 it('names project creation in the top bar', async () => {
   const el = await show(<TopBar me={null} />, {}, false, '/projects/_new')
-  expect(el.querySelector('.topbar-crumb.last a')?.textContent).toBe('Projects')
+  expect(el.querySelector('.topbar-crumb:last-child a')?.textContent).toBe('Projects')
   expect(el.querySelector('.topbar-here')).toBeNull()
 })
 

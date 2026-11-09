@@ -29,7 +29,8 @@ under Memory › Notes.
 The top bar has one breadcrumb trail built from the registered routes. It links
 every ancestor page and ends at the parent. The h1 names the current page;
 pages supply only display names for dynamic segments. There are no in-page
-parent labels. On phones the middle ancestors collapse to “…” .
+parent labels. On phones the trail is one back link to the parent (“‹ Club Newsletter”), in
+the logo’s place; top-level pages show the logo.
 
 Page facts stay inline at both widths. Long content opens on its own page.
 Menus and popovers are the only disclosures; the page-disclosure ratchet allows

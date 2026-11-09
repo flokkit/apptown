@@ -103,7 +103,8 @@ shows only while something of its kind is confirmed broken, and only to people
 who can fix it (administrators of deployment targets or connections). Hovering
 says what and how many; clicking opens Attention at that group. Checks whose
 answer is not known light nothing. No lights means nothing is confirmed broken,
-not that everything was checked.
+not that everything was checked. On a phone the lights are one dot, red or
+amber for the worst of them, that opens Attention.
 
 ## Workflows
 

@@ -27,7 +27,8 @@
 .sidebar .topbar-find { margin-bottom: 8px; }
 .sidebar .topbar-find input, .sidebar .topbar-find input:focus { width: 100%; }
 
-/* The top bar links to every ancestor page; the page heading names this page. */
+/* The top bar links to every ancestor page; the page heading names this page.
+   On a phone it links only to the parent, in the logo's place. */
 .topbar {
   position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); z-index: var(--z-topbar);
   display: flex; align-items: center; padding: 0 16px 0 14px;
@@ -41,7 +42,10 @@
 .topbar-crumb { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .topbar-crumb a { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 .topbar-sep { color: var(--faint); }
-.topbar-here { font-weight: 600; overflow: hidden; text-overflow: ellipsis; max-width: 48vw; }
+/* The back link is a 44px line; a very long parent name is cut as a last resort. */
+.topbar-back { display: block; min-width: 0; height: 44px; align-content: center; overflow: hidden; text-overflow: ellipsis; color: var(--text); font-weight: var(--fw-strong); }
+.topbar-back > span { color: var(--muted); margin-right: var(--space-1); }
+.topbar-back:hover { text-decoration: none; color: var(--accent); }
 .topbar-user { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: var(--fs-sm); margin-left: 6px; }
 .topbar-user button { padding: 3px 8px; font-size: var(--fs-xs); }
 .topbar-find { position: relative; }
@@ -70,12 +74,10 @@
 .topbar-chip { margin-left: 6px; }
 .sidebar-backdrop { display: none; }
 @media (max-width: 800px) {
-  .topbar { padding: 0 10px 0 6px; height: auto; min-height: var(--topbar-h); gap: 6px; padding-inline: 8px; }
+  /* One line, the height the page is padded by: the menu, the back link,
+     one status dot and Find. */
+  .topbar { padding: 0 10px 0 6px; gap: 6px; padding-inline: 8px; }
   .topbar-trail { gap: var(--space-1); flex: 0 1 auto; }
-  .topbar-crumb { overflow: hidden; display: none; }
-  .topbar-crumb a, .topbar-here { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40vw; }
-  .topbar-crumb:not(.last) { display: none; }
-  .topbar-crumb.last { display: inline-flex; }
   .topbar-chip { max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
   .sidebar {
     position: fixed; top: var(--topbar-h); bottom: 0; left: 0; z-index: var(--z-sidebar); overflow-y: auto;
@@ -113,13 +115,14 @@
 .attention-light.low { color: var(--warn); background: var(--warn-bg, transparent); }
 .attention-light.off { color: var(--faint); background: transparent; }
 .attention-light:hover { outline: 1px solid currentColor; }
+/* On a phone the four lights are one dot in a finger-sized box. */
+.attention-dot { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex-shrink: 0; color: var(--bad); }
+.attention-dot > span { width: var(--space-3); height: var(--space-3); border-radius: 50%; background: currentColor; }
+.attention-dot.low { color: var(--warn); }
+.attention-dot.off { color: var(--faint); }
+.attention-dot:hover > span { outline: 1px solid currentColor; outline-offset: 2px; }
 @media (max-width: 800px) {
-  /* The four lights stay one row beside the logo on a phone. */
   .attention-lights { gap: 0; }
-  .attention-light { width: 26px; height: 26px; position: relative; }
-  /* A finger gets a 44-pixel-tall target without the light growing; the
-     lights sit side by side, so the target grows only up and down. */
-  .attention-light::before { content: ""; position: absolute; inset: calc(var(--space-2) * -1 - 1px) 0; }
   .topbar .topbar-user-name { white-space: normal; overflow-wrap: anywhere; }
 }
 

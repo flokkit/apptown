@@ -59,8 +59,10 @@ export function useOperator() {
 // something of that kind is confirmed broken, for the people who can fix
 // it. Unlit kinds stay in place in grey, so a lit one stands out by colour
 // and position. A check that could not run lights nothing (Attention lists
-// it), and members never see admin conditions.
-export function AttentionLights() {
+// it), and members never see admin conditions. On a phone (compact) the
+// four fold into one dot, coloured by the worst of them, that opens the
+// list: four lights side by side are too small to tap there.
+export function AttentionLights({ compact = false }: { compact?: boolean }) {
   const q = useAttention()
   const operator = useOperator()
   if (!operator) return null
@@ -69,13 +71,18 @@ export function AttentionLights() {
   const groups = ATTENTION_GROUPS.map((g) => ({ ...g, items: q.data!.items.filter((i) => !i.unknown && attentionGroup(i.key) === g.key) }))
   const total = groups.reduce((n, g) => n + g.items.length, 0)
   const state = attentionState(q)
-  return <span className="row small attention-lights" role="group" aria-label={total > 0 ? `${total} to fix` : attentionSummary(state.count, state.unknown)}>
+  const label = total > 0 ? `${total} to fix` : attentionSummary(state.count, state.unknown)
+  // Low disk and pending approvals are amber, like their Attention rows.
+  const shade = (items: AttentionItem[]) => items.length === 0 ? ' off'
+    : items.every((i) => i.statusLabel === 'low' || attentionItemWord(i) === 'waiting for approval') ? ' low' : ''
+  if (compact) return <span className="row small attention-lights">
+    <Link className={`attention-dot${shade(groups.flatMap((g) => g.items))}`} to="/attention" title={label} aria-label={label}><span aria-hidden /></Link>
+    <StaleNote q={q} inline />
+  </span>
+  return <span className="row small attention-lights" role="group" aria-label={label}>
     {groups.map((g) => {
-      // Low disk and pending approvals are amber, like their Attention rows.
-      const off = g.items.length === 0
-      const low = !off && g.items.every((i) => i.statusLabel === 'low' || attentionItemWord(i) === 'waiting for approval')
-      const words = off ? `${g.title}: no known issues` : `${g.title}: ${g.items.length} to fix`
-      return <Link key={g.key} className={`attention-light${off ? ' off' : low ? ' low' : ''}`} to={`/attention#${g.key}`} title={words} aria-label={words}>
+      const words = g.items.length === 0 ? `${g.title}: no known issues` : `${g.title}: ${g.items.length} to fix`
+      return <Link key={g.key} className={`attention-light${shade(g.items)}`} to={`/attention#${g.key}`} title={words} aria-label={words}>
         <g.icon aria-hidden size={16} />
       </Link>
     })}

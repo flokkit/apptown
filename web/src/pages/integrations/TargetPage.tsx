@@ -18,6 +18,7 @@ import { ReadStatus, StaleNote } from '../../ReadGate'
 import { TargetView, capsWords, placeOf } from '../../targets'
 import type { TargetInfra } from '../Infrastructure'
 import { TargetResourcesTable } from './TargetResources'
+import { TargetTabs } from './TargetTabs'
 import { Capacity } from './Capacity'
 import { CapacityStrip, targetCapacityReadings } from '../../CapacityStrip'
 import type { TargetCapacity } from '../../wire.gen'
@@ -121,12 +122,7 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
       {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href={tab === 'overview' ? '#target-retained' : `/targets/${t.name}#target-retained`}>Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
       {resources.some(r => r.record === 'missing') && <p>Check missing resources below.</p>}
 
-      <nav className="row row-3 mt-3" aria-label="Target pages">
-        <Link to={`/targets/${t.name}`}>Overview</Link>
-        <Link to={`/targets/${t.name}/resources`}>Resources</Link>
-        <Link to={`/targets/${t.name}/capacity`}>Capacity</Link>
-        <Link to={`/targets/${t.name}/history`}>History</Link>
-      </nav>
+      <TargetTabs name={t.name} current={tab} />
       {tab === 'capacity' ? <Capacity name={t.name} /> : tab === 'history' ? <>      <Section title="History" count={data.history.length}>
         {data.history.length === 0
           ? <p className="muted small">No history yet.</p>

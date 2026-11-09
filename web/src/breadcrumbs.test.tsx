@@ -37,6 +37,22 @@ it('walks every route with one linked trail ending at its parent page', () => {
   }
 })
 
+it('shows only a back link to the parent on a phone, or the logo where the parent is home', () => {
+  const routes = [...app.matchAll(/<Route path="([^"]+)"/g)].map(m => m[1]).filter(p => !p.includes('*'))
+  for (const route of routes) {
+    const path = route.replace(/:([a-zA-Z]+)/g, 'example-$1')
+    const parent = routeAncestors(path).filter(c => c.to !== '/').at(-1)
+    const client = newQueryClient(), doc = document.createElement('div'), root = createRoot(doc)
+    try {
+      act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><TopBar me={null} narrow /></MemoryRouter></QueryClientProvider>))
+      const links = [...doc.querySelectorAll('nav[aria-label="Breadcrumb"] a')]
+      expect(links.map(a => a.getAttribute('href')), route).toEqual([parent?.to ?? '/'])
+      if (parent) expect(links[0].textContent, route).toBe('‹' + parent.label)
+      expect(doc.querySelector('.topbar-ellipsis'), route).toBeNull()
+    } finally { act(() => root.unmount()); client.clear() }
+  }
+})
+
 it('uses supplied dynamic names without letting a page rewrite the ancestors', () => {
   expect(routeAncestors('/integrations/profiles/standard/projects', {'/integrations/profiles/standard':'Careful work', '/integrations':'Other area'}).map(c => c.label)).toEqual(['AppTown','Integrations','Model profiles','Careful work'])
 })

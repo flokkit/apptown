@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../data'
 import { TargetResourcesPage } from './TargetResources'
+import { TargetTabs } from './TargetTabs'
 
 it('filters the resource table by deployment and opens full references on a separate page', () => {
   const client = newQueryClient()
@@ -53,4 +54,19 @@ it('keeps resource list states compact with their explanation on the resource pa
   const table = document.createElement('div'); table.innerHTML = render(false)
   expect(table.querySelector('.phone-state')?.textContent).toBe('● unknown')
   expect(render(true)).toContain('Inventory predates the latest change.')
+})
+
+it('marks the current page in the target tab row, which the resource list carries too', () => {
+  for (const current of ['overview', 'resources', 'capacity', 'history'] as const) {
+    const el = document.createElement('div')
+    el.innerHTML = renderToStaticMarkup(<MemoryRouter><TargetTabs name="host" current={current} /></MemoryRouter>)
+    const links = [...el.querySelectorAll('nav[aria-label="Target pages"] a.tab')]
+    expect(links.map(a => a.getAttribute('href'))).toEqual(['/targets/host', '/targets/host/resources', '/targets/host/capacity', '/targets/host/history'])
+    expect(links.filter(a => a.getAttribute('aria-current') === 'page').map(a => a.textContent)).toEqual([current[0].toUpperCase() + current.slice(1)])
+  }
+  const client = newQueryClient()
+  client.setQueryData(getKey('/infrastructure'), { targets: [{ target: 'host', live: true, resources: [] }] })
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/host/resources']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name/resources" element={<TargetResourcesPage />} /></Routes></QueryClientProvider></MemoryRouter>)
+  expect(el.querySelector('nav[aria-label="Target pages"] a[aria-current="page"]')?.getAttribute('href')).toBe('/targets/host/resources')
 })

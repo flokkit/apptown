@@ -13,8 +13,9 @@ import { type Size, applySize, currentSize } from './size'
 import { Theme, applyTheme, currentTheme } from './theme'
 import type { ProjectDetail, ProjectPage } from './wire.gen'
 
-// One trail links the route's ancestor pages, ending at the parent.
-// The current page is named by its heading in main.
+// One trail links the route's ancestor pages, ending at the parent; on a
+// phone only its last link, the parent, is shown. The current page is named
+// by its heading in main.
 
 
 type Me = { user?: string; role?: string; mode: string }
@@ -37,6 +38,9 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu, s
     ...page.names,
     ...(slug ? { [`/projects/${slug}`]: proj?.name ?? slug } : {}),
   }, search).filter(c => c.to !== '/')
+  // A phone has room for one link: back to the parent, in the logo's place.
+  // Home stays the first item of the menu.
+  const parent = crumbs.at(-1)
 
   // ⌘K / Ctrl-K, registered once: focuses whichever find box the page has —
   // the front page's big one or the bar's small one (same id, never both).
@@ -60,10 +64,11 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu, s
           aria-expanded={menuOpen} aria-controls="sidebar" onClick={onMenu}>{menuOpen ? '✕' : '☰'}</button>
       )}
       <nav className="topbar-trail" aria-label="Breadcrumb">
-      <Link to="/" className="topbar-logo">{PRODUCT}</Link>
-      {narrow && crumbs.length > 1 && <span className="topbar-ellipsis" aria-label="More ancestors">› …</span>}
-      {crumbs.map((c, i) => (
-        <span key={i} className={'topbar-crumb' + (i === crumbs.length - 1 ? ' last' : '')}>
+      {narrow && parent
+        ? <Link to={parent.to} className="topbar-back"><span aria-hidden>‹</span>{parent.label}</Link>
+        : <Link to="/" className="topbar-logo">{PRODUCT}</Link>}
+      {!narrow && crumbs.map((c, i) => (
+        <span key={i} className="topbar-crumb">
           <span className="topbar-sep">›</span>
           <Link to={c.to}>{c.label}</Link>
         </span>
@@ -71,7 +76,7 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu, s
       </nav>
       <span className="grow" />
       {!standalone && <>
-      {me && <AttentionLights />}
+      {me && <AttentionLights compact={narrow} />}
       <Disclosure className="account-menu topbar-search" closeOnAction={false} trigger={<button id="open-find" className="subtle" aria-label="Search">Find</button>}>
         {close => <Find onNavigate={close} />}
       </Disclosure>
