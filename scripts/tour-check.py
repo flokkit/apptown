@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """The tour's shape (site/tour), cheap enough for every gate: every stop in
-tour.yaml has an id, a title, a caption and a path, and index.html shows
-exactly the stops, in order.
+tour.yaml has an id, a title, a caption and a path, the stops come in the
+camera's order (TestTour: unmarked, then after: accept, photographed after
+the story's acceptance, then after: rollback, after the earlier release is
+deployed again), and index.html shows exactly the stops, in order.
 
   python3 scripts/tour-check.py           the shape (make check-docs)
   python3 scripts/tour-check.py --shots   also the screenshots: both of each
@@ -20,7 +22,9 @@ import sys
 WIDTH, HEIGHT = 2880, 1800
 
 
-KEYS = {"id", "title", "caption", "path", "wait", "click", "happy"}
+# The camera's phases, in order (TestTour); None is a stop without after.
+PHASES = [None, "accept", "rollback"]
+KEYS = {"id", "title", "caption", "path", "wait", "click", "happy", "after"}
 # A plain value YAML reads as the same string: no ": " or " #" inside, and
 # nothing YAML gives a meaning at the start. Anything else is double-quoted.
 PLAIN = re.compile(r"""^(?![-?:,\[\]{}#&*!|>'"%@`\s])(?!.*: )(?!.* #).*\S$""")
@@ -81,11 +85,21 @@ def problems(tour, shots):
     if not listed:
         out.append("tour.yaml lists no stops")
     ids = []
+    phase = 0
     for i, s in enumerate(listed, 1):
         for key in ("id", "title", "caption", "path"):
             if not s.get(key):
                 out.append(f"stop {i}: no {key}")
         sid = s.get("id", "")
+        # The camera shoots the stops phase by phase: a stop of an earlier
+        # phase listed after a later one would be shown out of order.
+        after = s.get("after")
+        if after not in PHASES:
+            out.append(f"stop {sid}: after is {after!r}; the values are accept and rollback")
+        elif PHASES.index(after) < phase:
+            out.append(f"stop {sid}: listed after a stop of a later phase (after: {PHASES[phase]})")
+        else:
+            phase = PHASES.index(after)
         if sid in ids:
             out.append(f"stop {sid}: listed twice")
         ids.append(sid)
