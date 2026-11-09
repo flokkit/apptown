@@ -20,9 +20,11 @@ import urllib.request
 # words are a classification of its recorded runs and steps, and a newer
 # AppTown may classify the same records differently (rc.14 reads a failed
 # check holding the stage as "waiting", where rc.12 said "blocked"); the runs,
-# steps and events they come from are compared. Stored reports and usage are
+# steps and events they come from are compared. What a change waits on is the
+# same kind of classification (rc.15 says "waiting for approval" where rc.14
+# said "waiting for you or another approver"). Stored reports and usage are
 # records and are compared.
-VOLATILE = {"editing", "next", "state", "stateDetail", "diffstat", "committedDiff"}
+VOLATILE = {"editing", "next", "state", "stateDetail", "diffstat", "committedDiff", "waitingOn"}
 
 
 def get(base, path, token=None):
@@ -58,6 +60,20 @@ def kept(before, after):
     return before == after
 
 
+def first_difference(before, after, path):
+    """Where a kept value first differs, and both sides of it, so a failed
+    verify says what to look at."""
+    if isinstance(before, dict) and isinstance(after, dict):
+        for k, v in before.items():
+            if not kept(v, after.get(k)):
+                return first_difference(v, after.get(k), f"{path}.{k}")
+    if isinstance(before, list) and isinstance(after, list) and len(before) == len(after):
+        for i, (b, a) in enumerate(zip(before, after)):
+            if not kept(b, a):
+                return first_difference(b, a, f"{path}[{i}]")
+    return f"{path}: {json.dumps(before)[:200]} -> {json.dumps(after)[:200]}"
+
+
 def recorded_change(base, cid):
     body = must(base, f"/api/v1/changes/{cid}")
     out = {k: v for k, v in body.items() if k not in VOLATILE}
@@ -65,8 +81,17 @@ def recorded_change(base, cid):
     # ago") and a release's current observation of its deployment.
     for c in out.get("commits") or []:
         c.pop("when", None)
-    for words in ("state", "stateDetail"):
+    # landingMeans is what the project's landing approval would ask if a
+    # landing started now, read from the current landing workflow: a newer
+    # AppTown ships that workflow's new wording. A recorded approval keeps
+    # the sentence it was given under in its own evidence, which is compared.
+    for words in ("state", "stateDetail", "landingMeans"):
         (out.get("detail") or {}).pop(words, None)
+    # Whether the work met the request is the model's narrative, not a
+    # person's act; an upgrade may withdraw a shortfall it cannot attribute
+    # to the person's words (migration 209 reset them to unknown).
+    for narrative in ("requestMet", "requestGap", "requestGapQuote"):
+        (out.get("change") or {}).pop(narrative, None)
     for r in (out.get("evidence") or {}).get("releases") or []:
         for live in ("observed", "observedAt", "observationStale", "serving", "reason"):  # the reason explains the observation
             r.pop(live, None)
@@ -115,7 +140,7 @@ def verify(base, path):
         after = recorded_change(base, cid)
         for key in sorted(before):
             if not kept(before[key], after.get(key)):
-                problems.append(f"change {cid}: {key} differs")
+                problems.append(f"change {cid}: {key} differs: {first_difference(before[key], after.get(key), key)}")
     # Each repository holds the main the source recorded. A project whose
     # source had no record is named as unverified, never counted as proof.
     proved, unverified = 0, []
