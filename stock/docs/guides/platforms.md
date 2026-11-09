@@ -8,7 +8,7 @@ release; "experimental" means it may work and is not yet tested.
 | | Supported |
 | --- | --- |
 | Operating system | Linux on amd64 or arm64 |
-| Container runtime | Docker Engine |
+| Container runtime | Docker Engine 25 or newer |
 | Database | the PostgreSQL AppTown starts for itself, or your own |
 
 One AppTown uses one CPU architecture for everything it builds and runs:
@@ -19,8 +19,8 @@ contract](contract-reference.md), "One architecture").
 
 | | Supported | Experimental | Not yet |
 | --- | --- | --- | --- |
-| macOS | Apple Silicon with Docker Desktop | Intel Macs | |
-| Linux | Docker Engine | | |
+| macOS | Apple Silicon with Docker Desktop 4.27 or newer | Intel Macs | |
+| Linux | Docker Engine 25 or newer | | |
 | Windows | | | planned for 1.1 |
 
 The trial serves its apps at `https://….localhost` addresses. Chrome,
@@ -35,7 +35,10 @@ The current versions of Chrome, Edge, Firefox and Safari.
 
 ## Deployment targets
 
-A Docker host, built in or attached over SSH, is supported. Portainer,
+A Docker host, built in or attached over SSH, is supported. It needs Docker
+Engine 25 or newer: AppTown checks an app's services often while they start
+and rarely once they run, which older Docker cannot do, so it does not start
+them there. Portainer,
 DigitalOcean App Platform and bucket websites are experimental ([What 1.0
 promises](compatibility.md)).
 
