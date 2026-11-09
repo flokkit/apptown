@@ -128,8 +128,12 @@ const trailFixture = await build({
 const browser = await chromium.launch({ headless: true })
 const out = process.env.APPTOWN_LAYOUT_OUT
 if (out) await mkdir(out, { recursive: true })
+let page
+const consoleLines = []
 try {
-  const page = await browser.newPage()
+  page = await browser.newPage()
+  page.on('console', m => consoleLines.push(`${m.type()}: ${m.text()}`))
+  page.on('pageerror', e => consoleLines.push(`pageerror: ${e.message}`))
   await page.route('http://layout.test/**', route => route.fulfill({ contentType: 'text/html', body: `<style>@layer tokens, base, components, pages, utilities; ${css}</style><div id="root"></div>` }))
   await page.goto('http://layout.test/')
   await page.addScriptTag({ content: fixture.outputFiles[0].text })
@@ -297,4 +301,15 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   assert.equal(await page.evaluate(() => { const sidebar = document.createElement('nav'); sidebar.className = 'sidebar open'; document.body.append(sidebar); return getComputedStyle(sidebar).transitionDuration }), '0s')
   console.log('layout: label fixtures, rows, disclosures and phone composer passed')
+} catch (error) {
+  // A step that timed out says whether the page itself was stuck (a script
+  // cannot run in it) or only slow, with its console and a screenshot.
+  if (page) {
+    const answers = await Promise.race([page.evaluate(() => document.activeElement?.outerHTML.slice(0, 200) ?? 'none').then(a => `page answers; focus on ${a}`), new Promise(r => setTimeout(() => r('page does not answer a script within 5 s'), 5000))])
+    console.error(`layout: at failure, ${answers}`)
+    console.error(`layout: console:\n${consoleLines.slice(-40).join('\n') || '(none)'}`)
+    const shot = `${process.env.TMPDIR || '/tmp'}/layout-failure-${process.pid}.png`
+    await page.screenshot({ path: shot, timeout: 5000 }).then(() => console.error(`layout: screenshot ${shot}`), () => console.error('layout: no screenshot'))
+  }
+  throw error
 } finally { await browser.close() }
