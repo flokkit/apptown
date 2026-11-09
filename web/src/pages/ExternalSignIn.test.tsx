@@ -67,3 +67,13 @@ it('lets a member revoke their token and disconnect their agent on Account', asy
   expect(sent).toEqual(['/api/v1/account/tokens/laptop', '/api/v1/auth/delegations/connection'])
  } finally { await act(async () => root.unmount()); client.clear() }
 })
+
+// No provider is an answer (null): it says so and offers setting one up.
+it('says no provider is set up and offers to configure one', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.includes('bindings') ? { bindings: [] } : null))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><ExternalProviderSettings /></MemoryRouter></QueryClientProvider>) })
+  await vi.waitFor(() => expect(el.textContent).toContain('No provider is set up.'))
+  expect(Array.from(el.querySelectorAll('button')).some(b => b.textContent === 'Configure provider')).toBe(true)
+  await act(async () => { root.unmount() })
+})

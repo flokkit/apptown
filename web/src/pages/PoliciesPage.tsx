@@ -101,7 +101,7 @@ function PolicyCard({ page, p, totalProjects, onClone, onEdit, onRemove }: {
           )}
           <section className="policies-page-policy-card-div">
             <h3 className="muted small policies-page-policy-card-summary">definition</h3>
-            <pre className="policies-page-policy-card-pre">
+            <pre className="source policies-page-policy-card-pre">
 {['rule: ' + p.rule,
   ...(Object.keys(p.with ?? {}).length
     ? ['with:', ...Object.entries(p.with).map(([k, v]) => `  ${k}: ${JSON.stringify(v)}`)]

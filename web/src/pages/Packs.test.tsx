@@ -59,3 +59,24 @@ it('shows every pack, counted on the section heading', async () => {
     expect(el.querySelector('section[aria-label="Packs"] .section-count')!.textContent).toBe('18')
   } finally { await act(async () => root.unmount()); client.clear() }
 })
+
+// The editor's choices are buttons that say whether the pack takes them.
+it('offers workflows, guidance and policies as toggle chips', async () => {
+  const { PackEditor } = await import('./Packs')
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.endsWith('/workflows/library') ? [{ name: 'excavate', description: '' }]
+      : url.endsWith('/guidance/blocks') ? [{ name: 'api/rest', bytes: 273 }]
+      : url.endsWith('/policy-library') ? { library: [{ name: 'scanner-bound', description: '' }] } : {}))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><PackEditor existing={false} onDone={() => {}}
+      draft={{ name: 'mine', description: '', versionName: '', guidance: [], workflows: ['excavate'], policies: [] } as never} /></MemoryRouter></QueryClientProvider>))
+    await settled(client)
+    const chip = (name: string) => [...el.querySelectorAll<HTMLButtonElement>('button.packs-chip')].find(b => b.textContent?.includes(name))!
+    expect(chip('excavate').getAttribute('aria-pressed')).toBe('true')
+    expect(chip('excavate').textContent).toBe('✓excavate')
+    expect(chip('api/rest').getAttribute('aria-pressed')).toBe('false')
+    await act(async () => chip('scanner-bound').click())
+    expect(chip('scanner-bound').getAttribute('aria-pressed')).toBe('true')
+  } finally { await act(async () => root.unmount()); client.clear() }
+})

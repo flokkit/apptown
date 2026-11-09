@@ -55,7 +55,7 @@ function ItemRow({ items, full = false }: { items: AttentionItem[]; full?: boole
   const item = items[0]
   return <ListRow listItem to={item.href} className="card row attention-row" state={
     <span className="row-status"><Status word={word(item)} old={item.stale && !item.unknown} /></span>} identity={<><span className="attention-what">
-      <Link to={item.href}>{item.title}</Link>{items.length > 1 && <span className="muted"> · {items.length}</span>}
+      {full ? <FullLinks item={item} /> : <Link to={item.href}>{item.title}</Link>}{items.length > 1 && <span className="muted"> · {items.length}</span>}
       <Detail text={withoutRepeatedName(item.title, item.detail)} />
       {items.length > 1 && !full && <p><Link to={`/attention/checks/${encodeURIComponent(item.key)}`}>{items.length} recorded conditions</Link></p>}
       {items.length > 1 && full && <section className="small"><h3>All {items.length} conditions</h3>
@@ -64,6 +64,17 @@ function ItemRow({ items, full = false }: { items: AttentionItem[]; full?: boole
     </span>
     <small className="muted attention-seen">{observed(item.observedAt, item.stale, item.attemptedAt)}</small>
     </>} />
+}
+
+// On a condition's own page its title is the heading; the row links what
+// it is about instead, and a target's disk condition its capacity reading.
+function FullLinks({ item }: { item: AttentionItem }) {
+  const name = /^([^:]{1,80}): /.exec(item.title)?.[1]
+  const disk = item.href.startsWith('/targets/') && /\/disk(-unassessed)?$/.test(item.key)
+  return <span className="row">
+    <Link to={item.href}>{name ? `Open ${name}` : 'Open'}</Link>
+    {disk && <Link to={`${item.href}/capacity`}>Disk reading</Link>}
+  </span>
 }
 
 function SourceRow({ source }: { source: AttentionCoverage }) {

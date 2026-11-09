@@ -197,7 +197,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
         <div role="list">
           <GivesRow title="Guidance" q={guidanceQ} what="the guidance"
             summary={`${guidance.length} instruction${guidance.length === 1 ? '' : 's'} its coding agents follow`}
-            items={guidance.map((im) => ({ key: im.name, label: im.name, to: `/guidance/${encodeURIComponent(im.name)}` }))} />
+            items={guidance.map((im) => ({ key: im.name, label: im.name, note: im.summary, to: `/guidance/${encodeURIComponent(im.name)}` }))} />
           <GivesRow title="Rules" q={policiesQ} what="the rules"
             summary={policies.length === 0 ? 'No rules' : `${policies.length} polic${policies.length === 1 ? 'y' : 'ies'}${warnings.length ? ` · ${warnings.length} warning${warnings.length === 1 ? '' : 's'}` : ''}`}
             items={[...policies.map((p) => ({ key: p.id ?? p.name, label: p.name, note: p.description || p.rule })), ...warnings.map((v, i) => ({ key: `w${i}`, label: `⚠ ${v.workflow}`, note: v.detail }))]} />

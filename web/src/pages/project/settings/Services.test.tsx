@@ -232,3 +232,18 @@ it('lists AI models once and keeps connecting it available inside that service',
     expect(el.querySelector('.service-pick')?.textContent).toContain('Attach AI models')
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+// A connection's settings are labelled as its kind declares each field, not by
+// the stored key.
+it('labels a connection’s settings with the kind’s field labels', async () => {
+  const client = newQueryClient()
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/attachables')
+    ? { attachables: [{ capability: 'sso', title: 'Club sign-in', description: '', connectors: ['hilltop'], provisionable: false,
+      resourceFields: [{ key: 'client_id', label: 'Client ID' }, { key: 'client_secret_from', label: 'Client secret (secret name)', type: 'secretRef' }] }] }
+    : { attachments: [{ capability: 'sso', title: 'Club sign-in', connector: 'hilltop', provenance: 'configured', resource: { client_id: 'club-newsletter', client_secret_from: 'CLUB_SECRET' } }] }))))
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectIntegrationsTab slug="demo" /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect([...el.querySelectorAll('.services-facts dt')].map(d => d.textContent)).toEqual(['Client ID', 'Client secret (secret name)']))
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

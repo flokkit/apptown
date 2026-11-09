@@ -76,7 +76,6 @@ details.console-about { margin: 0; }
   background: var(--ok-bg);
   font-weight: var(--fw-strong);
 }
-.workshop-actions .finish:disabled { opacity: 0.45; }
 @media (max-width: 800px) {
   .md, .bubble { font-size: var(--fs-base); }
   /* Hidden overflow still permits programmatic scrolling. Fix the body and

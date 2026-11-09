@@ -1875,6 +1875,9 @@
           "description": {
             "type": "string"
           },
+          "label": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -1885,6 +1888,7 @@
         "required": [
           "area",
           "name",
+          "label",
           "description",
           "default",
           "reason"
@@ -4435,6 +4439,9 @@
             ]
           },
           "approvalRole": {
+            "type": "string"
+          },
+          "approvalRoleTitle": {
             "type": "string"
           },
           "approvedBy": {

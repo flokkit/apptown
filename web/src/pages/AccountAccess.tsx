@@ -55,7 +55,7 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
           ]} /> : <section><h3>Connections and permissions</h3>
       <ListTable className="small" label={`${newest.clientName} connections and permissions for ${newest.user}`} rows={connections} rowKey={d => String(d.id)} columns={[
         { key: 'client', label: 'Agent', phone: 'name', render: d => <><span className="badge">{d.clientName}</span> as <b>{d.user}</b></> },
-        { key: 'permissions', label: 'Permissions', phone: 'detail', render: d => <><span>{d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span><div>Permissions: {d.scopes.join(', ')}</div></> },
+        { key: 'permissions', label: 'Permissions', phone: 'detail', render: d => <><span>{d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span><code className="tech-line muted">{d.scopes.join(', ')}</code></> },
         { key: 'connected', label: 'Connected', phone: 'extra', render: d => fmtStamp(d.createdAt) },
         { key: 'used', label: 'Last used', phone: 'time', kind: 'time', render: d => d.lastUsed ? fmtStamp(d.lastUsed) : '' },
         { key: 'action', label: '', phone: 'action', render: d => <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },

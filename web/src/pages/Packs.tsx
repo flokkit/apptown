@@ -4,7 +4,7 @@ import './Packs.css'
 import { LibraryRow, LibraryRows, firstSentence } from '../LibraryRow'
 import { Section } from '../Section'
 import { MoreMenu } from '../MoreMenu'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { GuidanceBlock, post } from '../api'
 import { fmtSize, sizeTitle } from '../format'
 import { Status } from '../Status'
@@ -143,6 +143,14 @@ export default function Packs() {
   )
 }
 
+// A choice in the pack editor: an outlined chip a finger can hit, with a
+// tick when the pack takes it and a plus when it does not.
+function ToggleChip({ on, title, onToggle, children }: { on: boolean; title?: string; onToggle: () => void; children: ReactNode }) {
+  return <button type="button" className={'packs-chip' + (on ? ' on' : '')} aria-pressed={on} title={title} onClick={onToggle}>
+    <span className="packs-chip-mark" aria-hidden>{on ? '✓' : '+'}</span>{children}
+  </button>
+}
+
 export function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boolean; onDone: (savedName?: string) => void }) {
   const [p, setP] = useState<Draft>(draft)
   const guidanceQ = useGet<GuidanceBlock[]>('/guidance/blocks', { kind: 'config' })
@@ -179,11 +187,8 @@ export function PackEditor({ draft, existing, onDone }: { draft: Draft; existing
       <h2>Workflows ({p.workflows.length})</h2>
       <div className="row packs-editor-actions">
         {allWorkflows.map((w) => (
-          <span key={w.name} className="badge packs-entry-action"
-             title={w.description}
-            onClick={() => setP({ ...p, workflows: toggle(p.workflows, w.name) })}>
-            {p.workflows.includes(w.name) ? '✓ ' : ''}{w.name}
-          </span>
+          <ToggleChip key={w.name} on={p.workflows.includes(w.name)} title={w.description}
+            onToggle={() => setP({ ...p, workflows: toggle(p.workflows, w.name) })}>{w.name}</ToggleChip>
         ))}
       </div>
 
@@ -193,11 +198,8 @@ export function PackEditor({ draft, existing, onDone }: { draft: Draft; existing
       </div>
       <div className="row packs-editor-actions">
         {allGuidance.map((g) => (
-          <span key={g.name} className="badge packs-entry-action"
-             title={`${g.tags ? g.tags + ' · ' : ''}${sizeTitle(g.bytes ?? 0)}`}
-            onClick={() => setP({ ...p, guidance: toggle(p.guidance, g.name) })}>
-            {p.guidance.includes(g.name) ? '✓ ' : ''}{g.name} <span className="muted">{fmtSize(g.bytes ?? 0)}</span>
-          </span>
+          <ToggleChip key={g.name} on={p.guidance.includes(g.name)} title={`${g.tags ? g.tags + ' · ' : ''}${sizeTitle(g.bytes ?? 0)}`}
+            onToggle={() => setP({ ...p, guidance: toggle(p.guidance, g.name) })}>{g.name} <span className="muted">{fmtSize(g.bytes ?? 0)}</span></ToggleChip>
         ))}
       </div>
 
@@ -209,16 +211,13 @@ export function PackEditor({ draft, existing, onDone }: { draft: Draft; existing
         {allPolicies.map((pol) => {
           const on = p.policies.some((x) => x.name === pol.name)
           return (
-            <span key={pol.name} className="badge packs-entry-action"
-               title={pol.description}
-              onClick={() => setP({
+            <ToggleChip key={pol.name} on={on} title={pol.description}
+              onToggle={() => setP({
                 ...p,
                 policies: on
                   ? p.policies.filter((x) => x.name !== pol.name)
                   : [...p.policies, { name: pol.name, description: '', rule: '', with: {} }],
-              })}>
-              {on ? '✓ ' : ''}{pol.name}
-            </span>
+              })}>{pol.name}</ToggleChip>
           )
         })}
       </div>

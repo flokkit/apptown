@@ -118,6 +118,10 @@
 
   /* Code, diffs and terminals. A terminal stays dark in both themes. */
   --code-bg: #EEF0F0;
+  /* A control that cannot be used yet: greyed by its colours, its words still readable. */
+  --disabled-bg: var(--panel2);
+  --disabled-fg: var(--muted);
+  --disabled-border: var(--border);
   --diff-add-bg: #E6F0EA;
   --diff-del-bg: #F8E9E5;
   --diff-hunk-bg: rgba(47, 93, 74, 0.07);

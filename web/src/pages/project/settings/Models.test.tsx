@@ -71,6 +71,8 @@ it('shows the current profile and the effective model for every task, and switch
       [expect.stringContaining('Custom'), 'vendor/custom'],
     ]))
     expect(el.querySelector('button[aria-label="About Models"]')).not.toBeNull()
+    // The current profile's button says it is in use rather than a greyed Use profile.
+    expect([...el.querySelectorAll('button')].find(b => b.textContent === 'In use')?.disabled).toBe(true)
     await choose(el, 'high')
     expect([...el.querySelectorAll('tbody tr')].find(r => r.querySelector('strong')?.textContent === 'Chat')?.querySelectorAll('td')[1].textContent).toBe('vendor/high · from Main · strong')
     await vi.waitFor(() => expect(apply(el).disabled).toBe(false))

@@ -599,3 +599,18 @@ describe('model provider settings', () => {
     page.done()
   })
 })
+
+// A group on a page of several kinds is named by its kind, as the kind's
+// definition titles it, not by one connector's title or the kind's key.
+it('names each connection group by its kind', async () => {
+  const registry = binding('design-registry', 'container-registry', 'docr', checked(true, ''))
+  stubAppTown({ 'GET /integrations': json({ integrations: [sso, registry] }), 'GET /integrations/catalog': json({ catalog }),
+    'GET /services': json({ services: [
+      { capability: 'sso', title: 'Sign-in', connector: {}, resource: {}, yaml: '' },
+      { capability: 'container-registry', title: 'Container registry', connector: {}, resource: {}, yaml: '' },
+    ] }) })
+  const page = await mount('/services/shared')
+  try {
+    await vi.waitFor(() => expect([...page.el.querySelectorAll('.group-label')].map(e => e.textContent)).toEqual(['Sign-in', 'Container registry']))
+  } finally { page.done() }
+})

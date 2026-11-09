@@ -100,3 +100,14 @@ it('shows embedded disclosures as open sections when the change page requests it
   expect(renderMd(text)).not.toContain('<details>')
   expect(renderMd(text)).toContain('<section><h4>Recorded commands</h4>')
 })
+
+it('keeps a short code token in a sentence whole, and lets long or spaced code wrap', () => {
+  const html = renderMd('Leave `--worker-url` unset; `' + 'x'.repeat(40) + '` and `two words` may wrap.\n\n```\n--in-a-block\n```')
+  const box = document.createElement('div')
+  box.innerHTML = html
+  const [flag, long, spaced] = box.querySelectorAll('p code')
+  expect(flag.classList.contains('nobreak')).toBe(true)
+  expect(long.classList.contains('nobreak')).toBe(false)
+  expect(spaced.classList.contains('nobreak')).toBe(false)
+  expect(box.querySelector('pre code')!.classList.contains('nobreak')).toBe(false)
+})

@@ -67,9 +67,9 @@ it('groups a person’s roles and omits disabled accounts from the picker', asyn
   const data = url.includes('/authz/me') ? { instance: { 'institution:read-structure': true }, project: { 'project:manage-members': true } }
    : url.endsWith('/users') ? { users: [{ username: 'sam', disabled: false }, { username: 'disabled-reader', disabled: true }] }
    : url.endsWith('/groups') ? { groups: [{ name: 'all-authenticated-users' }] }
-   : url.includes('/authz/roles') ? roles
+   : url.includes('/authz/roles') ? { ...roles, capabilities: { 'deployment:deploy': { description: 'ship a bundle to a standing deployment', risk: 'release' } } }
    : url.includes('/authz/explain') ? { whoCan: ['sam'] }
-   : url.endsWith('/members') ? { roles: [grant, { ...grant, id: 'approver', role: 'project-approver', roleTitle: 'Project approver' }], open: false }
+   : url.endsWith('/members') ? { roles: [grant, { ...grant, id: 'approver', role: 'project-approver', roleTitle: 'Project approver' }, { subjectType: 'person', subject: 'sam', capability: 'deployment:deploy', id: 'deploy' }], open: false }
    : { requireIndependentApproval: false }
   return new Response(JSON.stringify(data))
  }))
@@ -78,7 +78,8 @@ it('groups a person’s roles and omits disabled accounts from the picker', asyn
   await act(async () => root.render(<QueryClientProvider client={client}><MembersTab slug="shop" /></QueryClientProvider>))
   await settled(client)
   expect(el.querySelectorAll('strong')).toHaveLength(1)
-  expect(el.textContent).toContain('owner, approver')
+  // Roles read as titles and a single permission as what it allows, never its key.
+  expect(el.querySelector('.member-roles')!.textContent).toBe('Owner, Approver, Ship a bundle to a standing deployment')
   const options = [...el.querySelectorAll('option')].map(o => o.textContent)
   expect(options).not.toContain('disabled-reader')
   expect(options).toContain('Everyone signed in')

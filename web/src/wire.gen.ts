@@ -485,6 +485,7 @@ export type CreatedChange = {
 export type CreationTarget = {
   area: string
   name: string
+  label: string
   description: string
   default: boolean
   reason: string
@@ -1591,6 +1592,7 @@ export type ReleaseListed = {
   rollbackOf?: string | null
   restoreBackupId?: string | null
   approvalRole: string
+  approvalRoleTitle?: string
   approval?: ReleaseApproval | null
   supersededBy?: string | null
   fromDeploymentId?: string | null
@@ -3278,6 +3280,7 @@ export type Release = {
   rollbackOf?: string | null
   restoreBackupId?: string | null
   approvalRole: string
+  approvalRoleTitle?: string
   approval?: ReleaseApproval | null
   supersededBy?: string | null
   fromDeploymentId?: string | null
@@ -3999,6 +4002,7 @@ export type Import = {
   latestVersion: number
   disabled: boolean
   bytes: number
+  summary?: string
   tier?: string
   conflicts?: string
   origin: string

@@ -19,6 +19,8 @@ it('shows the latest ten answered reports and reveals older reports on request',
     await settled(client)
     expect(el.textContent).toContain('Report 9')
     expect(el.textContent).not.toContain('Report 10')
+    // A read complaint stays fully legible: no faded card.
+    expect((el.querySelector('.complaint') as HTMLElement).style.opacity).toBe('')
     await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Show more (11)')!.click())
     expect(el.textContent).toContain('Report 19')
     expect(el.textContent).not.toContain('Report 20')

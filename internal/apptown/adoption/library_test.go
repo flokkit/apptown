@@ -48,3 +48,36 @@ func TestLibraryManifestRulesAndAtomicPut(t *testing.T) {
 		t.Fatalf("half-written manifest replaced the old one: %+v", im)
 	}
 }
+
+// A project's guidance shows the summary of the version it pins, not the
+// library's latest: the words under a block's name are the words its agents
+// are given.
+func TestImportSummaryIsOfThePinnedVersion(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	ways := wow.New(db, wow.Dependencies{})
+	s := New(db, Dependencies{Ways: ways})
+	pid := adoptionTestProject(t, db, "s", "S")
+	b, err := ways.CreateBlock(t.Context(), "house/rule", "# House rule\n\nWrite **short** functions.\n\n    func f() {}\n", "", "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pins, err := ways.ResolvePins(t.Context(), []wow.Pin{{Name: b.Name}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PutImports(t.Context(), pid, pins); err != nil {
+		t.Fatal(err)
+	}
+	if err := ways.BumpBlock(t.Context(), b.ID, "Write `small` modules.", "", "alice", b.Name); err != nil {
+		t.Fatal(err)
+	}
+	view, err := s.GuidanceSnapshot(t.Context(), pid)
+	if err != nil || len(view.Imports) != 1 || view.Imports[0].Version != 1 || view.Imports[0].Summary != "Write short functions." {
+		t.Fatalf("project keeps its pinned version's summary: %+v %v", view.Imports, err)
+	}
+	library, err := ways.Blocks(t.Context(), wow.BlockFilter{})
+	if err != nil || len(library) != 1 || library[0].Summary != "Write small modules." {
+		t.Fatalf("library shows the latest version's summary: %+v %v", library, err)
+	}
+}

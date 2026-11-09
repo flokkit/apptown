@@ -121,7 +121,7 @@ it('asks for review of an unconfirmed AI flag before asking to fix it', () => {
 it('does not describe an evaluator error as a confirmed problem in the app', () => {
   const p = { slug: 'shop', lanes: { broken: 1 }, notKnown: [{ detail: 'scanner: scanner unavailable', evaluator: 'tool' }], total: 1 } as unknown as ProjectStanding
   const view = { byProject: { shop: [{ lane: 'broken', state: 'error', detail: 'scanner unavailable' }] } } as unknown as ConformanceView
-  expect(projectFact(p, view)).toBe('Not known: scanner: scanner unavailable')
+  expect(projectFact(p, view)).toBe("1 check couldn't run")
 })
 
 it('labels the project activity age on Home with what the timestamp measures', () => {

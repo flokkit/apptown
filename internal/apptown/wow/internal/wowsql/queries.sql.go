@@ -369,7 +369,7 @@ func (q *Queries) BlockVersionsMeta(ctx context.Context, blockID ids.ID) ([]Bloc
 }
 
 const blocksMatchingMeta = `-- name: BlocksMatchingMeta :many
-SELECT b.id, b.name, b.tags, b.latest_version, b.origin, b.created_at, b.updated_at, b.tier, b.conflicts,octet_length(v.body_md)::bigint AS body_bytes,left(v.body_md,240)::text AS excerpt FROM guidance_blocks b
+SELECT b.id, b.name, b.tags, b.latest_version, b.origin, b.created_at, b.updated_at, b.tier, b.conflicts,octet_length(v.body_md)::bigint AS body_bytes,left(v.body_md,2000)::text AS excerpt FROM guidance_blocks b
 JOIN guidance_block_versions v ON v.block_id=b.id AND v.version=b.latest_version
 WHERE ($1::text='' OR b.name LIKE '%'||$1||'%' OR v.body_md LIKE '%'||$1||'%')
 AND ($2::text='' OR (','||b.tags||',') LIKE '%,'||$2||',%') ORDER BY b.name
@@ -386,7 +386,8 @@ type BlocksMatchingMetaRow struct {
 	Excerpt       string
 }
 
-// Lists keep a bounded excerpt rather than copying bodies that may span megabytes.
+// Lists keep a bounded excerpt rather than copying bodies that may span megabytes;
+// 2000 characters holds a block's opening paragraph for its plain summary.
 func (q *Queries) BlocksMatchingMeta(ctx context.Context, arg BlocksMatchingMetaParams) ([]BlocksMatchingMetaRow, error) {
 	rows, err := q.db.QueryContext(ctx, blocksMatchingMeta, arg.Query, arg.Tag)
 	if err != nil {

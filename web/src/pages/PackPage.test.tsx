@@ -74,3 +74,25 @@ it.each([false, true])('version page starts what-ifs only when enabled (%s)', as
     expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).includes('/conformance/what-if?'))).toBe(beta)
   } finally { await act(async () => root.unmount()); client.clear() }
 })
+
+// A pack's workflows and policies say what each does, from their libraries.
+it('describes each workflow and policy the pack holds', async () => {
+  const declaration = { guidance: [], workflows: ['excavate'], policies: [{ name: 'scanner-bound' }] }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    const data = url.endsWith('/features') ? enabledFeatures
+      : url.endsWith('/authz/me') ? { instance: {} }
+      : url.endsWith('/workflows/library') ? [{ name: 'excavate', description: 'Reads an existing app and writes down how it works.' }]
+      : url.endsWith('/policy-library') ? { library: [{ name: 'scanner-bound', description: 'Scanners run before landing.' }] }
+      : url.endsWith('/packs') ? [{ name: 'team', enabled: true }]
+      : { name: 'team', origin: 'stock', description: '', recommended: 1, latest: 1, declaration, versions: [] }
+    return new Response(JSON.stringify(data))
+  }))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/packs/team']}><Routes><Route path="/packs/:name" element={<PackPage />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await settled(client)
+    const rows = [...el.querySelectorAll('.pack-content-row')].map(r => r.textContent)
+    expect(rows).toContain('excavateReads an existing app and writes down how it works.')
+    expect(rows).toContain('scanner-boundScanners run before landing.')
+  } finally { await act(async () => root.unmount()); client.clear() }
+})

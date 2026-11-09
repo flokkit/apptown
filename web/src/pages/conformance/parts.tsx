@@ -63,6 +63,9 @@ export function laneOf(v: Verdict): keyof Lanes {
   return v.lane
 }
 
+// How many checks could not run, in words; summaries say this instead of the
+// tools' own messages.
+export const couldNotRun = (n: number) => `${n} ${n === 1 ? 'check' : 'checks'} couldn't run`
 export const shortSha = (s?: string) => (s ? s.slice(0, 8) : '')
 
 // --- small parts ---------------------------------------------------------------------------

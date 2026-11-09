@@ -76,6 +76,12 @@ export function EvalStartPage() {
   const budgetDollars = Number(budget)
   const subject = varies === 'model' ? profile : pack && version ? `${pack}@${version}` : ''
   const ready = picked.length > 0 && subject !== '' && budgetDollars > 0
+  // What the disabled start button waits for, said beside it.
+  const missing = [
+    subject === '' && (varies === 'model' ? 'an AI setup' : 'a pack'),
+    picked.length === 0 && (slug ? 'a Change' : 'a project'),
+    !(budgetDollars > 0) && 'a budget',
+  ].filter((m): m is string => !!m)
   const choice = form?.packs.find((p) => p.name === pack)
   // The picked Changes of the project shown, by the numbers people read.
   const pickedHere = landed.filter((c) => c.id && picked.includes(c.id)).map((c) => `#${c.number}`)
@@ -150,7 +156,10 @@ export function EvalStartPage() {
             <label className="small">Budget $ <input type="number" min="0.01" step="0.5" value={budget} onChange={(e) => { setBudget(e.target.value); setConfirming(false) }} className="evals-budget" /></label>
             <div className="muted small evals-note">Includes checks and summaries. Work already running can exceed the budget; missing prices pause further work.</div>
           </section>
-          {!confirming && <button disabled={!ready} onClick={() => setConfirming(true)}>Review and start…</button>}
+          {!confirming && <div className="row">
+            <button disabled={!ready} onClick={() => setConfirming(true)}>Review and start…</button>
+            {!ready && missing.length > 0 && <span className="muted small evals-missing">Pick {missing.length > 1 ? `${missing.slice(0, -1).join(', ')} and ${missing.at(-1)}` : missing[0]}</span>}
+          </div>}
           {confirming && (
             <section className="card evals-warning">
               <p className="mt-0">Each of the {picked.length} Change{picked.length === 1 ? '' : 's'} is re-run twice in throwaway copies: as its project runs now, and with <strong>{varies === 'model' ? `model profile ${profile}` : `pack version ${subject}`}</strong>. Copies run landing builds with no one approving them. Configured releases use the eval domain only. Copies are deleted with the eval. Budget ${budgetDollars.toFixed(2)}, checked before each arm and step.</p>

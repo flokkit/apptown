@@ -2,6 +2,7 @@ package attention
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -69,8 +70,8 @@ func TestAppChecksSeparateUnknownAttemptsFromConfirmedProblems(t *testing.T) {
 		for _, item := range got.Items {
 			if item.Unknown {
 				unknown++
-				if !strings.Contains(item.Detail, "No Docker executor") {
-					t.Fatalf("missing reason: %+v", item)
+				if item.Detail != "1 check couldn't run. Open the app's checks to see why." {
+					t.Fatalf("summary should count, not quote the tool: %+v", item)
 				}
 			} else {
 				known++
@@ -84,7 +85,7 @@ func TestAppChecksSeparateUnknownAttemptsFromConfirmedProblems(t *testing.T) {
 		}
 		onlyUnknown := conformance.SummarizeProject(idstest.N(1), "calendar", conformance.RecordedObservations([]conformance.Verdict{{Check: "scan", State: state, Detail: "scanner timed out"}}, nil))
 		alone, err := (Checks{Conformance: &checkEvidence{standing: []conformance.ProjectStanding{onlyUnknown}}}).Snapshot(t.Context(), nil)
-		if err != nil || len(alone.Items) != 1 || !alone.Items[0].Unknown || !strings.Contains(alone.Items[0].Detail, "scanner timed out") || strings.Contains(alone.Items[0].Title, "confirmed") {
+		if err != nil || len(alone.Items) != 1 || !alone.Items[0].Unknown || strings.Contains(alone.Items[0].Detail, "scanner timed out") || strings.Contains(alone.Items[0].Title, "confirmed") {
 			t.Fatalf("unknown-only project: %+v %v", alone, err)
 		}
 	}
@@ -115,7 +116,7 @@ func TestAppCheckDeferralsRaiseNoAttention(t *testing.T) {
 			if err != nil || len(got.Items) != tc.unknown {
 				t.Fatalf("attention: %+v %v", got, err)
 			}
-			if tc.unknown == 1 && (!got.Items[0].Unknown || !strings.Contains(got.Items[0].Detail, tc.detail)) {
+			if tc.unknown == 1 && (!got.Items[0].Unknown || strings.Contains(got.Items[0].Detail, tc.detail)) {
 				t.Fatalf("launch failure: %+v", got)
 			}
 		})
@@ -161,5 +162,24 @@ func TestAppTownAICheckFailuresRemainActionable(t *testing.T) {
 		if fault && (!got.Items[0].Unknown || !strings.Contains(got.Items[0].Detail, "administrator must select")) {
 			t.Fatalf("missing next action: %+v", got)
 		}
+	}
+}
+
+// The card summarises: several tools' messages become one count in words, and
+// each message stays on the app's checks page.
+func TestAppChecksCardCountsChecksThatCouldNotRunWithoutTheirOutput(t *testing.T) {
+	t.Parallel()
+	reasons := []string{"hadolint error (exit -1): no Docker to run hadolint/hadolint:v2.12.0-alpine", "semgrep error (exit -1): no Docker to run semgrep/semgrep:1.99.0", "uv-lock-check error (exit -1): no Docker to run ghcr.io/astral-sh/uv:0.13.0"}
+	var vs []conformance.Verdict
+	for i, r := range reasons {
+		vs = append(vs, conformance.Verdict{Check: fmt.Sprintf("scan-%d", i), State: conformance.EvaluationError, Detail: r, Evaluator: "tool"})
+	}
+	p := conformance.SummarizeProject(idstest.N(1), "lunch", conformance.RecordedObservations(vs, nil))
+	got, err := (Checks{Conformance: &checkEvidence{standing: []conformance.ProjectStanding{p}}}).Snapshot(t.Context(), nil)
+	if err != nil || len(got.Items) != 1 {
+		t.Fatalf("attention: %+v %v", got, err)
+	}
+	if d := got.Items[0].Detail; d != "3 checks couldn't run. Open the app's checks to see why." {
+		t.Fatalf("detail: %q", d)
 	}
 }

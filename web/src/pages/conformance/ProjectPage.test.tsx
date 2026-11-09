@@ -93,3 +93,21 @@ it('leads with per-check current evidence and keeps dated reviews underneath, ou
     expect(el.textContent).not.toContain('Dated snapshots')
   } finally { act(() => root.unmount()); client.clear() }
 })
+
+// The lead line is a summary: checks that could not run are counted there and
+// each reason stays on its own check row further down.
+it('counts checks that could not run in the lead line and keeps each reason on its row', async () => {
+  const lanes = { conforms: 0, excepted: 0, findings: 0, flagged: 0, unassessed: 0, broken: 2, na: 0 }
+  const reasons = ['hadolint error (exit -1): no Docker to run hadolint/hadolint:v2.12.0-alpine', 'semgrep error (exit -1): no Docker to run semgrep/semgrep:1.99.0']
+  const vs = reasons.map((detail, i) => ({ id: `v${i}`, projectSlug: 'shop', evaluator: 'tool', lane: 'broken', state: 'error', statusLabel: 'unknown', severity: 'medium', block: 'tools', version: 1, check: `scan-${i}`, detail }))
+  const view = { projects: [{ slug: 'shop', name: 'Shop', standing: 'review-broken', sentence: `Review incomplete · 2 not known: ${reasons.join('; ')}`, lanes, notKnown: reasons.map(detail => ({ detail, evaluator: 'tool' })) }], byProject: { shop: vs }, exceptions: {}, adjudications: {}, priorConfirmations: {}, checkDefs: {}, openRemediations: [] } as unknown as ConformanceView
+  vi.stubGlobal('fetch', vi.fn(async () => new Response('{}')))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectPage view={view} slug="shop" readOnly onRunOne={() => {}} /></MemoryRouter></QueryClientProvider>))
+    const lead = el.querySelector('.page-head + .muted.small, .muted.small')!.textContent ?? ''
+    expect(lead).toContain("2 checks couldn't run")
+    for (const r of reasons) expect(lead).not.toContain(r)
+    for (const r of reasons) expect(el.textContent).toContain(r)
+  } finally { act(() => root.unmount()); client.clear() }
+})

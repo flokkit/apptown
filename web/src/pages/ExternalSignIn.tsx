@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { PRODUCT } from '../brand'
 import { del, post, put } from '../api'
 import { useAction, useGet } from '../data'
-import { ReadGate } from '../ReadGate'
+import { ReadGate, ReadStatus, StaleNote } from '../ReadGate'
 import { Section } from '../Section'
 import { AgentsCard, TokensCard } from './AccountAccess'
 import './ExternalSignIn.css'
@@ -22,8 +22,10 @@ export function ExternalProviderSettings() {
   return <section className="card"><h2>External sign-in</h2>
     <section><h3>Sign-in limits</h3><p>Keep a local-password administrator for recovery. External sessions last at most one hour. Disabling this provider ends its sessions; local passwords and CLI tokens remain independent.</p></section>
     {err && <p className="error">{err}</p>}
-    <ReadGate q={q} what="external sign-in settings">
-      <p>{q.data ? `${q.data.displayName}: ${q.data.enabled ? 'enabled' : 'disabled'}` : 'No provider configured.'}</p>
+    {/* No provider is answered as null: that is an answer, not a missing read. */}
+    {!(q.data || (!q.loading && !q.err && !q.denied && !q.paused)) ? <ReadStatus q={q} what="external sign-in settings" /> : <>
+      <StaleNote q={q} />
+      <p>{q.data ? `${q.data.displayName}: ${q.data.enabled ? 'enabled' : 'disabled'}` : 'No provider is set up.'}</p>
       {q.data && <p>Register callback: <code>{q.data.callbackOrigin}/api/v1/auth/external/callback</code></p>}
       {!draft && <button onClick={edit}>Configure provider</button>}
       {draft && <form onSubmit={e => { e.preventDefault(); void run(async () => { await put('/auth/external/provider', draft); setDraft(null); setTested(false) }) }}>
@@ -41,7 +43,7 @@ export function ExternalProviderSettings() {
         <h3>Explicit account binding</h3><label>Local principal UUID<input value={principal} onChange={e => setPrincipal(e.target.value)} /></label><label>Exact provider subject<input value={subject} onChange={e => setSubject(e.target.value)} /></label>
         <button disabled={!principal || !subject} onClick={() => { const input: ExternalBindRequest = { providerId: q.data!.id, principalId: principal, subject }; void run(async () => { await post('/auth/external/bindings', input); setSubject('') }) }}>Bind identity</button>
       </>}
-    </ReadGate>
+    </>}
     <ReadGate q={bindings} what="external identity bindings">{(bindings.data?.bindings.length ?? 0) > 0 && <ListTable label="External identity bindings" rows={bindings.data?.bindings ?? []} rowKey={b => String(b.id)} columns={[
       { key: 'principal', label: 'Principal', phone: 'name', render: b => b.principalId },
       { key: 'identity', label: 'Issuer / subject', phone: 'detail', render: b => <>{b.issuer} / {b.subject}</> },

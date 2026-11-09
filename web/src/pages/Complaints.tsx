@@ -100,7 +100,7 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
         : tab === 'answered' ? <p className="muted">Nothing answered and waiting to be read. Answers stay here until someone archives them.</p>
         : <p className="muted">{rows.length === 0 ? 'No complaints. Agents have not reported a problem.' : 'No new complaints.'}</p>)}
       {shown.slice(0, limit).map((c) => (
-        <div key={c.id} className="card complaint" style={{ opacity: c.seen ? 0.65 : 1 }}>
+        <div key={c.id} className={`card complaint${c.seen ? '' : ' complaint-unread'}`}>
           <div className="row">
             <span className="badge">{c.source}</span>
             {c.project && <Link className="small" to={`/projects/${c.project}`}>{c.projectName || c.project}</Link>}
@@ -112,7 +112,7 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
             <span className="grow" />
             <span className="muted small">{c.actor && c.actor !== 'anonymous' ? `${c.actor} · ` : ''}{fmtWhen(c.at)}</span>
           </div>
-          <div style={{ fontWeight: c.seen ? 400 : 600 }} className="complaints-answer-box-div">{c.text}</div>
+          <div className="complaints-answer-box-div complaint-text">{c.text}</div>
           {c.why && <div className="muted small mt-1" ><strong>why:</strong> {c.why}</div>}
           {c.wish && <div className="muted small complaints-div-3"><strong>wish:</strong> {c.wish}</div>}
           {c.answer && (

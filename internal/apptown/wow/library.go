@@ -22,7 +22,7 @@ import (
 type Block struct {
 	ID   ids.ID `json:"id"`
 	Name string `json:"name"`
-	// Summary is a bounded excerpt of the latest text for library browsing.
+	// Summary is the latest text's opening prose in plain words (PlainSummary).
 	Summary       string `json:"summary"`
 	Tags          string `json:"tags"`
 	LatestVersion int    `json:"latestVersion"`
@@ -127,7 +127,7 @@ func (s *library) all(ctx context.Context, f BlockFilter) ([]Block, error) {
 	for _, r := range rows {
 		b := blockRecord(r.GuidanceBlock)
 		b.Bytes = int(r.BodyBytes)
-		b.Summary = strings.Join(strings.Fields(r.Excerpt), " ")
+		b.Summary = PlainSummary(r.Excerpt)
 		out = append(out, b)
 	}
 	return out, err

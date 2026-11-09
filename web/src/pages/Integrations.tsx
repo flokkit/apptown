@@ -16,7 +16,7 @@ import { QuietConfirm } from '../QuietConfirm'
 import { fmtWhen, relTime, lastSeen, fmtStamp } from '../format'
 import { useAction, useGet, useRefresh } from '../data'
 import { ReadStatus, StaleNote, type Gated } from '../ReadGate'
-import type { ConnectorCatalog, ConnectorEntry, ConnectorPreset, IntegrationEntry, IntegrationHealth, IntegrationList, IntegrationUse } from '../wire.gen'
+import type { ConnectorCatalog, ConnectorEntry, ConnectorPreset, IntegrationEntry, IntegrationHealth, IntegrationList, IntegrationUse, ServiceKindList } from '../wire.gen'
 import { CatalogPicker, DocsModal } from './integrations/Catalog'
 import { ConnectorForm, asNumber } from './integrations/ConnectorForm'
 import { InstanceSecretsPanel } from './integrations/InstanceSecrets'
@@ -344,6 +344,13 @@ function KindPage({ which, area, bindings, catalog, offered, catalogErr, reading
     rows: rows.filter((b) => b.capability === cap),
   })).filter((g) => g.rows.length > 0)
   const labelled = groups.filter((g) => g.rows.length > 0).length > 1
+  // A group is named by its kind: a built-in kind by its own title, a kind
+  // defined at run time by its definition's title. One connector's title
+  // would name a single provider, not the group, so it is only the fallback
+  // while the definitions are unread.
+  const kindsQ = useGet<ServiceKindList>(labelled ? '/services' : null, { kind: 'config' })
+  const kindTitle = (cap: string, row: IntegrationEntry) => capabilityMeta(cap,
+    kindsQ.data?.services.find((k) => k.capability === cap)?.title ?? specFor(catalog, row)?.title).title
 
   return (
     <div>
@@ -363,7 +370,7 @@ function KindPage({ which, area, bindings, catalog, offered, catalogErr, reading
               // A page holding several kinds names each one, once more than one
               // has something connected; a lone kind would only repeat the page.
               return labelled && g.rows.length > 0
-                ? <div key={g.cap} className="int-kind-group"><Group label={capabilityMeta(g.cap, specFor(catalog, g.rows[0])?.title).title}>{rowsEl}</Group></div>
+                ? <div key={g.cap} className="int-kind-group"><Group label={kindTitle(g.cap, g.rows[0])}>{rowsEl}</Group></div>
                 : <div key={g.cap} className="int-kind-group">{rowsEl}</div>
             })}
         </Section>

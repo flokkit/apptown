@@ -56,13 +56,14 @@ export default function GuidanceBlockPage() {
         <h1 className="grow guidance-block-page-h1">{block.name.split('/').at(-1)!.replaceAll('-', ' ')}</h1>
         {canEdit && <button disabled={!current} title={current ? undefined : 'Reading the current text first'} onClick={() => setEditing(true)}>Edit</button>}
       </div>
-      {/* What it is, in one line: its full name, version, size, who ships it and its tags. */}
+      {/* Who ships it, its size and tags in words; its full name and version,
+          which packs refer to it by, on a technical line of their own. */}
       <p className="muted small mt-1" >
-        <code>{block.name}</code> · v{shownVersion}{viewingOld ? ` (latest is v${block.latestVersion})` : ''}
+        {block.origin === 'stock' ? `Included with ${PRODUCT}, read-only` : 'Yours'}
         {' · '}<span title={sizeTitle(block.bytes)}>{fmtSize(block.bytes)} per step</span>
-        {' · '}{block.origin === 'stock' ? `included with ${PRODUCT}, read-only` : 'yours'}
         {block.tags && <> · tags: {block.tags.split(',').join(', ')}</>}
       </p>
+      <code className="tech-line muted">{block.name} · v{shownVersion}{viewingOld ? ` (latest is v${block.latestVersion})` : ''}</code>
       {block.origin === 'stock' && !viewingOld && <p className="muted small">To change it, write your own guidance and use it in a pack instead.</p>}
       <StaleNote q={viewQ} />
       {actErr && <div className="error">{actErr}</div>}

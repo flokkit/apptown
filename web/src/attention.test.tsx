@@ -475,7 +475,9 @@ it('shows a pending release on Home and Attention with its deployment as the act
  const personal = v.el.querySelector('section[aria-label="Waiting on you"]')!
  expect(personal.querySelector('.section-count')?.textContent).toBe('1')
  expect(personal.querySelector('a')?.getAttribute('href')).toBe(href)
- expect(personal.textContent).toContain('Release 12 to Production service needs your approval')
+ expect(personal.textContent).toContain('Release 12 to Production service')
+ expect(personal.querySelector('.chip-word')?.textContent).toBe('waiting for approval')
+ expect([...personal.querySelectorAll('a.btn')].map(a => a.textContent)).toEqual(['Review'])
 })
 
 it('Home and Projects use the standing roll-up when a preview runs beside a stopped app', () => {

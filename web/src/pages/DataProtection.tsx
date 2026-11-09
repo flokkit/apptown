@@ -315,8 +315,11 @@ export function OperationPage() {
   return (
     <div className="data-protection-operation-page-div">
       <StaleNote q={q} />
-      <div className="muted small">operation {op.number}{op.subject ? ` · ${op.subject}` : ''}</div>
+      <div className="muted small">operation {op.number}</div>
       <h1 className="mb-1">{kindWords[op.kind] ?? op.kind} of {deploymentOf(op)}</h1>
+      {/* The subject is the hold path in ids, for an administrator matching
+          holds; the title above names the deployment in words. */}
+      {op.subject && <code className="tech-line muted mb-1">{op.subject}</code>}
       <div className="row status-strip data-protection-operation-page-status-strip">
         <Status word={old ? 'unknown' : op.statusLabel} help={stateWords(op) + asRead} />
         <span className="muted small">asked by {op.askedBy} {fmtWhen(op.createdAt)}{op.finishedAt ? `, ended ${fmtWhen(op.finishedAt)}` : old || !op.startedAt ? '' : ` · running for ${elapsed(op.startedAt)}`}</span>

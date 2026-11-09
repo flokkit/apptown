@@ -26,6 +26,11 @@ it('filters the resource table by deployment and opens full references on a sepa
   expect(detail).not.toContain('Resources on host')
   expect(detail).toContain('sha256:abc')
   expect(detail).toContain('shop/main: 3')
+  // The title names what the resource is and what it belongs to; its
+  // generated name is the full reference on a technical line.
+  const detailPage = document.createElement('div'); detailPage.innerHTML = detail
+  expect(detailPage.querySelector('h1')?.textContent).toBe('Container for shop/main')
+  expect([...detailPage.querySelectorAll('.tech-line')].map(e => e.textContent)).toEqual(['api', 'sha256:abc'])
   expect(detail).toContain('AppTown records ownership.')
 })
 

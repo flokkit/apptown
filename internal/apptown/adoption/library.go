@@ -23,8 +23,11 @@ type Import struct {
 	LatestVersion int    `json:"latestVersion"`
 	Disabled      bool   `json:"disabled"`
 	Bytes         int    `json:"bytes"` // of the pinned version
-	Tier          string `json:"tier,omitempty"`
-	Conflicts     string `json:"conflicts,omitempty"`
+	// Summary is the pinned version's opening prose (wow.PlainSummary): the
+	// words its agents are given, not the library's latest.
+	Summary   string `json:"summary,omitempty"`
+	Tier      string `json:"tier,omitempty"`
+	Conflicts string `json:"conflicts,omitempty"`
 	// Origin is the block's ("stock" or "" for yours); Withdrawn says it is
 	// stock the running release no longer ships: kept, still rendered and
 	// checked, and shown as no longer shipped.
@@ -58,7 +61,7 @@ func importsIn(ctx context.Context, q database.Queryer, projectID ids.ID) ([]Imp
 	var out []Import
 	for _, r := range rows {
 		im, b := r.GuidanceImport, r.GuidanceBlock
-		out = append(out, Import{Position: int(im.Position), BlockID: im.BlockID, Name: b.Name, Version: int(im.Version), LatestVersion: int(b.LatestVersion), Disabled: im.Disabled, Bytes: int(r.BodyBytes), Tier: b.Tier, Conflicts: b.Conflicts, Origin: b.Origin})
+		out = append(out, Import{Position: int(im.Position), BlockID: im.BlockID, Name: b.Name, Version: int(im.Version), LatestVersion: int(b.LatestVersion), Disabled: im.Disabled, Bytes: int(r.BodyBytes), Summary: wow.PlainSummary(r.Excerpt), Tier: b.Tier, Conflicts: b.Conflicts, Origin: b.Origin})
 	}
 	return out, err
 }

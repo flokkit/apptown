@@ -2,10 +2,12 @@ package wow
 
 import (
 	"errors"
+	"io/fs"
 	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/stock"
 )
 
 func TestGuidanceListingCombinesFiltersAndCountsBytes(t *testing.T) {
@@ -65,5 +67,47 @@ func TestGuidanceSummaryIsBoundedWithoutReturningTheBody(t *testing.T) {
 	}
 	if rows[0].BodyMD != "" || len(rows[0].Summary) == 0 || len(rows[0].Summary) > 240 {
 		t.Fatalf("summary not bounded: %+v", rows[0])
+	}
+}
+
+// A library row's summary is a plain sentence of the block's opening prose,
+// made from the stored body while its structure is still there: code,
+// comments and markup never reach the row, and a block that is all headings
+// still says what it is.
+func TestGuidanceSummaryIsTheOpeningProseInPlainWords(t *testing.T) {
+	t.Parallel()
+	lib := NewLibrary(testDB(t))
+	for _, path := range []string{"guidance/deploy/health-declared.md", "guidance/resource/spec-template.md"} {
+		raw, err := fs.ReadFile(stock.FS, path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err := parseStockGuidance(string(raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := lib.Create(t.Context(), b.Name, b.Body, b.Tags, "alice"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rows, err := lib.all(t.Context(), BlockFilter{})
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("listing: %+v %v", rows, err)
+	}
+	summary := map[string]string{}
+	for _, r := range rows {
+		summary[r.Name] = r.Summary
+	}
+	health := summary["deploy/health-declared"]
+	if !strings.HasPrefix(health, "Every part AppTown serves from your build or image declares its readiness") {
+		t.Errorf("health summary lost its opening prose: %q", health)
+	}
+	for _, markup := range []string{"app:", "web:", "**", "`", "<!--", "\n"} {
+		if strings.Contains(health, markup) {
+			t.Errorf("health summary carries %q: %q", markup, health)
+		}
+	}
+	if spec := summary["resource/spec-template"]; spec == "" || strings.Contains(spec, "#") || strings.Contains(spec, "<!--") {
+		t.Errorf("a heading-led block's summary is its heading in plain words: %q", spec)
 	}
 }

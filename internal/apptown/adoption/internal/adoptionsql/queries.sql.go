@@ -424,7 +424,8 @@ func (q *Queries) FleetPackMemberships(ctx context.Context, projectIds []ids.ID)
 }
 
 const guidanceImportsMeta = `-- name: GuidanceImportsMeta :many
-SELECT gi.id, gi.project_id, gi.position, gi.block_id, gi.version, gi.disabled,b.id, b.name, b.tags, b.latest_version, b.origin, b.created_at, b.updated_at, b.tier, b.conflicts,COALESCE(octet_length(v.body_md),0)::bigint AS body_bytes
+SELECT gi.id, gi.project_id, gi.position, gi.block_id, gi.version, gi.disabled,b.id, b.name, b.tags, b.latest_version, b.origin, b.created_at, b.updated_at, b.tier, b.conflicts,COALESCE(octet_length(v.body_md),0)::bigint AS body_bytes,
+COALESCE(left(v.body_md,2000),'')::text AS excerpt
 FROM guidance_imports gi JOIN guidance_blocks b ON b.id=gi.block_id
 LEFT JOIN guidance_block_versions v ON v.block_id=gi.block_id AND v.version=gi.version
 WHERE gi.project_id=$1 ORDER BY gi.position,gi.block_id
@@ -434,9 +435,11 @@ type GuidanceImportsMetaRow struct {
 	GuidanceImport GuidanceImport
 	GuidanceBlock  GuidanceBlock
 	BodyBytes      int64
+	Excerpt        string
 }
 
-// The manifest needs pinned body byte counts, not all guidance bodies.
+// The manifest needs pinned body byte counts and the pinned version's opening
+// text for its summary, not all guidance bodies.
 func (q *Queries) GuidanceImportsMeta(ctx context.Context, projectID ids.ID) ([]GuidanceImportsMetaRow, error) {
 	rows, err := q.db.QueryContext(ctx, guidanceImportsMeta, projectID)
 	if err != nil {
@@ -463,6 +466,7 @@ func (q *Queries) GuidanceImportsMeta(ctx context.Context, projectID ids.ID) ([]
 			&i.GuidanceBlock.Tier,
 			&i.GuidanceBlock.Conflicts,
 			&i.BodyBytes,
+			&i.Excerpt,
 		); err != nil {
 			return nil, err
 		}

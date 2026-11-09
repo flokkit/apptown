@@ -192,7 +192,10 @@ export default function Dashboard() {
       {!act && <ReadStatus q={actQ} what="activity" />}
       {!dash && <ReadStatus q={dashQ} what="what is waiting on you" />}
       <div id="waiting-on-you" className="dashboard-work-group">{(needsYouCount > 0) && <Section title={ended.length > 0 || releaseApprovals.length > 0 ? "Waiting on you" : "Changes waiting on you"} label="Waiting on you" count={needsYouCount}>
-        {releaseApprovals.map(task => <ListRow key={task.release.id} to={task.href} className="card row dashboard-card" identity={<><Link to={task.href} className="run-link"><strong>Release {task.release.number} to {task.deploymentLabel} needs your approval</strong></Link><span>{projectNames[task.project] || task.project}</span></>} />)}
+        {/* Laid out like the change rows below it: status word, title, project, Review. */}
+        {releaseApprovals.map(task => <ListRow key={task.release.id} to={task.href} className="card row run-list-row" state={<span className="row-status"><Status word="waiting for approval" /></span>}
+          identity={<><Link to={task.href} className="run-link"><strong>Release {task.release.number} to {task.deploymentLabel}</strong></Link><span className="muted small">{projectNames[task.project] || task.project}</span></>}
+          action={<span className="row-action"><Link to={task.href} className="btn">Review</Link></span>} />)}
         {ended.map((op) => <EndedOperation key={op.id} op={op} />)}
         <ActiveRunList runs={waiting} showProject names={projectNames} />
       </Section>}</div>

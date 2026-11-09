@@ -43,7 +43,8 @@ export function ConnIcon({ name, size = 26 }: { name: string; size?: number }) {
   const glyph = GLYPHS[name]
   const box = Math.round(size * 1.65)
   return (
-    <span className="icon-tile" style={{ width: box, height: box }}>
+    // Only brand marks need the white ground; drawn glyphs sit on the theme's panel.
+    <span className={brand ? 'icon-tile' : 'icon-tile icon-tile-glyph'} style={{ width: box, height: box }}>
       {brand ? (
         <svg viewBox={brand.viewBox ?? "0 0 24 24"} width={size} height={size} role="img" aria-label={name}>
           <path d={brand.path} fill={`#${brand.hex}`} />

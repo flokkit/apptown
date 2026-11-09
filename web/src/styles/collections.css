@@ -1,7 +1,4 @@
 @layer components {
-@media(max-width:800px) {
-  .job-key { overflow-wrap: anywhere; }
-}
 @media (max-width: 800px) {
   .conformance-extra { display: none; }
   .guidance-summary { white-space: normal; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }

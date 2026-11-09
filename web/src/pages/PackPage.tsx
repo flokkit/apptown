@@ -12,7 +12,7 @@ import { QuietConfirm } from '../QuietConfirm'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
-import type { PackHistory, Publication, PackView, WhatIf } from '../wire.gen'
+import type { LibraryWorkflow, PackHistory, PolicyLibraryList, Publication, PackView, WhatIf } from '../wire.gen'
 import { PackEditor } from './Packs'
 import { draftFrom } from './packDraft'
 import { useHolds } from '../instancePages'
@@ -34,6 +34,10 @@ export default function PackPage() {
   const canManage = useHolds('standards:manage-packs')
   const [editing, setEditing] = useState(false)
   const q = useGet<PackHistory>(`/packs/${name}`, { kind: 'config' })
+  // What each workflow and policy does comes from its own library; until a
+  // library answers, its rows show the name alone.
+  const workflowsQ = useGet<LibraryWorkflow[]>('/workflows/library', { kind: 'config' })
+  const policiesQ = useGet<PolicyLibraryList>('/policy-library', { kind: 'config' })
   const { run, busy, err: actErr } = useAction(q.reload)
   const h = q.data
   usePageName(`/packs/${name}`, h?.name)
@@ -83,14 +87,17 @@ export default function PackPage() {
       </Section>}
       {d.workflows.length > 0 && <Section title="Workflows" count={d.workflows.length}>
         {d.workflows.map((w) => (
-          <ListRow key={w} className="card row pack-content-row" identity={<span>{w}</span>} />
+          <ListRow key={w} className="card row pack-content-row" identity={<>
+            <span>{w}</span>
+            {workflowsQ.data?.find((x) => x.name === w)?.description && <span className="muted small">{workflowsQ.data.find((x) => x.name === w)!.description}</span>}</>} />
         ))}
       </Section>}
       {d.policies.length > 0 && <Section title="Policies" count={d.policies.length}>
         {d.policies.map((pp) => (
           <ListRow key={pp.name} className="card row pack-content-row" identity={<>
             <span>{pp.description || pp.name}</span>
-            {pp.description && <span className="muted small">{pp.name}</span>}</>} />
+            {pp.description ? <span className="muted small">{pp.name}</span>
+              : policiesQ.data?.library.find((x) => x.name === pp.name)?.description && <span className="muted small">{policiesQ.data.library.find((x) => x.name === pp.name)!.description}</span>}</>} />
         ))}
       </Section>}
 

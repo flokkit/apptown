@@ -74,3 +74,27 @@ it('offers the scan action to a viewer who may open a change', () => {
  expect(html).not.toContain('Ask a project member')
  client.clear()
 })
+
+describe('the problems list with nothing in it', () => {
+  const render = (view: object) => {
+    const client = newQueryClient()
+    client.setQueryData(getKey('/projects/game/findings'), view)
+    const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><FindingsTab slug="game" /></QueryClientProvider></MemoryRouter>)
+    client.clear()
+    return html
+  }
+
+  it('says the last scan found no problems when every scan was read', () => {
+    const html = render({ sources: [source], findings: [], summary: { actionable: 0 }, repo: {}, statusLabel: 'failed' })
+    expect(html).toMatch(/aria-label="Problems".*No problems in the last scan\./)
+  })
+
+  it('keeps the unread and no-scan lines and does not claim a clean scan', () => {
+    const unread = render({ sources: [{ ...source, unreadable: 'SARIF parse failed' }], findings: [], summary: { actionable: 0 }, repo: {}, statusLabel: 'unknown' })
+    expect(unread).toContain("security checks are incomplete")
+    expect(unread).not.toContain('No problems in the last scan.')
+    const none = render({ sources: [], findings: [], summary: { actionable: 0 }, repo: {}, statusLabel: 'unknown' })
+    expect(none).toContain('No scans yet.')
+    expect(none).not.toContain('No problems in the last scan.')
+  })
+})

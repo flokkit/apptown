@@ -54,7 +54,7 @@ export function SecretsTab({ slug }: { slug: string }) {
       <>
         <Section title="" label="Secrets" action={<button className="link" onClick={() => setAdding(true)}>Add secret</button>}>
           <StaleNote q={q} />
-          <p className="muted">This app declares no secrets.</p>
+          <p className="muted">This app declares no secrets. Secrets appear here once its code declares them.</p>
         </Section>
         {adding && <NewChangeButton slug={slug} request={{ title: 'Add a secret', body: 'Declare the secret this app needs and explain where the app uses it. Ask me for its name and purpose before editing. Keep its value out of the code and this change; I will set the value in Settings after the change lands.' }} external={{ open: true, onClose: () => setAdding(false) }} />}
       </>

@@ -209,7 +209,7 @@ function TargetSettings() {
           <dt>Kind</dt><dd>{placeOf(t.kindInfo, t.address)}</dd>
           <dt>Provides</dt><dd>{facts.join(' · ')} · needs are {t.needsMode || 'unknown'}</dd>
           {(concrete.length > 0 || t.provider) && <><dt>Address</dt><dd>{concrete.join(' · ')}{t.provider && <> · through the <Link to="/integrations">{t.provider}</Link> connection</>}</dd></>}
-          {addr.keyFrom && <><dt>SSH key</dt><dd>secret <code>{addr.keyFrom}</code> · <Link to="/integrations/secrets">Edit secret</Link></dd></>}
+          {addr.keyFrom && <><dt>SSH key</dt><dd>Secret <code>{addr.keyFrom}</code><div className="mt-1"><Link to="/integrations/secrets">Edit secret</Link></div></dd></>}
         </dl>
         {t.ingress?.rehearsals === true && <p className="small"><b>Kept for restore rehearsals.</b> {rehearsalHostMeaning}</p>}
         {t.copies && <CopyRunnerLine t={t} />}

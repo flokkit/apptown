@@ -120,6 +120,10 @@ func TestNewProjectTargetChoiceIsEnforcedByOwner(t *testing.T) {
 				if option.Name == "local" && !option.Default {
 					t.Fatal("default not marked")
 				}
+				// People see what the target is, not its key.
+				if option.Name == "local" && option.Label != "Built-in Docker host" {
+					t.Fatalf("unlabelled target is named by its kind: %+v", option)
+				}
 			}
 			err = s.db.InTx(ctx, func(tx *database.Tx) error {
 				return s.InitializeProjectIn(ctx, tx, in.ProjectID, CreationPlacement{Target: selection, Contracts: contracts})

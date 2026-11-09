@@ -1,4 +1,5 @@
 import { useNotOff } from '../../features'
+import { useHolds } from '../../instancePages'
 import { ListRow } from '../../ListRow'
 import { failedRuntimeRefresh } from '../../runtime'
 import './ApplicationOverview.css'
@@ -59,6 +60,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
   const backups = (backupQ.data?.backups ?? []).map(b => backupQ.refreshFailed ? { ...b, statusLabel: 'unknown' as const } : b)
   const data = activityQ.data
   const app = deployments.find(d => d.running && !d.hostOnly) ?? deployments.find(d => d.url)
+  const canStart = useHolds('change:create', slug) && (project.lifecycle?.state ?? 'active') === 'active'
   const events = data ? overviewActivity(data, deployments, backups, releasesQ.data ?? [], slug) : []
   return <div className="application-overview">
     <header className="application-heading">
@@ -79,7 +81,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
           <span className="muted small">{e.release && <><Link to={e.release.to}>{e.release.label}</Link>{e.source ? ' · ' : ''}</>}{e.source}</span></>} />
       ))}
       {events.length > activityCount && <div className="card"><button className="link" onClick={() => setActivityCount(n => n + 10)}>Show 10 more</button></div>}
-      {data && !events.length && <p className="muted">No activity yet.</p>}
+      {data && !events.length && <p className="muted">No activity yet.{canStart && <> <Link to={`/projects/${slug}/changes`}>Start a change</Link></>}</p>}
     </Section>
     {/* Every deployment, named, with its state and address: what used to be
         an unlabelled strip under the title. */}

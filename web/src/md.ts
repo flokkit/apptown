@@ -64,6 +64,13 @@ export function renderMd(src: string | null | undefined): string {
     if (http) fallback.setAttribute('href', url!.href)
     img.replaceWith(fallback)
   })
+  // A short token in a sentence (a flag, a file name) reads as one thing:
+  // broken after its hyphen it reads as two. Longer code may still wrap so
+  // the page never scrolls sideways.
+  fragment.querySelectorAll('code').forEach((code) => {
+    const text = code.textContent ?? ''
+    if (code.parentElement?.tagName !== 'PRE' && text.length <= 32 && !/\s/.test(text)) code.classList.add('nobreak')
+  })
   const container = document.createElement('div')
   container.append(fragment)
   return container.innerHTML

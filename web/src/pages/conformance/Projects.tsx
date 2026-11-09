@@ -6,14 +6,16 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ConformanceView, ProjectStanding } from '../../wire.gen'
 import { relTime } from '../../format'
-import { laneOf } from './parts'
+import { couldNotRun, laneOf } from './parts'
 
 // --- Projects (the front page) ---------------------------------------------------------------
 
 export function projectFact(p: ProjectStanding, view: ConformanceView): string {
   const observations = view.byProject[p.slug] ?? []
   const lane = (v: typeof observations[number]) => laneOf(v)
-  if (p.notKnown.length && !p.lanes.findings) return `Not known: ${p.notKnown.map((u) => u.detail).join('; ')}`
+  // A summary never carries tool output: the reasons stay on each check's row
+  // on the project's page.
+  if (p.notKnown.length && !p.lanes.findings) return couldNotRun(p.notKnown.length)
   const problem = observations.find(v => lane(v) === 'findings')
     ?? observations.find(v => lane(v) === 'broken')
     ?? observations.find(v => lane(v) === 'flagged')
@@ -32,13 +34,21 @@ export function projectFact(p: ProjectStanding, view: ConformanceView): string {
   return p.standing === 'conforms-with-exceptions' ? 'Exceptions are approved.' : 'Checks are up to date.'
 }
 
+// What to do next, then how many checks could not run when the fact does not
+// already say so.
+export function projectNext(p: ProjectStanding, view: ConformanceView): string {
+  const fact = projectFact(p, view).replace(/\.$/, '')
+  const broken = p.lanes.broken > 0 && !(p.notKnown.length && !p.lanes.findings) ? couldNotRun(p.lanes.broken) : ''
+  return [fact, broken].filter(Boolean).join(' · ')
+}
+
 // One table per group of projects: name, what to do next, its standing, and
 // when it was checked. Each check's evidence is on the project's page; the row
 // opens it. A finding count is the status, in the failed tone.
 function ProjectTable({ rows, view, base, label }: { rows: ProjectStanding[]; view: ConformanceView; base: string; label: string }) {
   return <ListTable label={label} rows={rows} rowKey={p => p.slug} rowTo={p => `${base}/projects/${p.slug}`} columns={[
     { key: 'project', label: 'Project', phone: 'name', render: p => <Link to={`${base}/projects/${p.slug}`}>{p.name || p.slug}</Link> },
-    { key: 'next', label: 'What to do', phone: 'detail', render: p => <span className="muted">{[projectFact(p, view).replace(/\.$/, ''), p.lanes.broken > 0 ? `${p.lanes.broken} couldn't run` : ''].filter(Boolean).join(' · ')}</span> },
+    { key: 'next', label: 'What to do', phone: 'detail', render: p => <span className="muted">{projectNext(p, view)}</span> },
     { key: 'status', label: 'Status', phone: 'state', render: p => {
       const findings = p.standing === 'does-not-conform' ? p.lanes.findings : 0
       return findings > 0 ? <Status word="needs review" reason={`${findings} ${findings === 1 ? 'finding' : 'findings'}`} help={p.sentence} /> : <Status word={p.statusLabel} help={p.sentence} />

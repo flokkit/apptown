@@ -9,6 +9,9 @@
 .deploy-entry .deploy-more { border-top: 1px solid var(--border); padding-top: 16px; gap: 4px 14px; flex-wrap: wrap; }
 .deploy-entry .deploy-more > div { margin-top: 0 !important; }
 .deployments-settings .deploy-new { padding: 12px 0; display: grid; gap: 10px; }
+/* The form sits above the deployments list; its foot keeps a gap from the
+   first deployment so the two do not read as one block. */
+.deploy-new { margin-bottom: var(--space-4); }
 .release-default { padding: 12px 0; }
 .release-default select { max-width: 100%; }
 

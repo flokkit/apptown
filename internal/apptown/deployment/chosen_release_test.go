@@ -227,6 +227,10 @@ func TestFailedReleaseCanBeRetriedWithCurrentAuthorityAndApproval(t *testing.T) 
 				if gate == "approval" && got.State != releaseWaiting {
 					t.Fatalf("retry bypassed approval: %s", got.State)
 				}
+				// The wait names who approves as people read it, not the role's key.
+				if gate == "approval" && got.ApprovalRoleTitle != "Release manager" {
+					t.Fatalf("approval role title: %q", got.ApprovalRoleTitle)
+				}
 				failed, err := s.Releases.ByID(t.Context(), original.ID)
 				if err != nil || failed.State != ReleaseFailed {
 					t.Fatalf("failed history rewritten: %+v %v", failed, err)

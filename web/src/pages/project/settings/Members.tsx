@@ -53,7 +53,7 @@ export function MembersTab({ slug }: { slug: string }) {
           </div>
         )}
         {membersQ.data && subjects.length === 0 && !open && <p className="muted">Nobody holds a role here yet.</p>}
-        {subjects.map(key => <MemberRow key={key} held={grants.filter(g => `${g.subjectType}:${g.subject}` === key)} canEdit={canEdit}
+        {subjects.map(key => <MemberRow key={key} held={grants.filter(g => `${g.subjectType}:${g.subject}` === key)} canEdit={canEdit} capabilities={rolesQ.data?.capabilities ?? {}}
           onRemove={id => act(() => del(`/authz/grants/${id}`))} />)}
         {canEdit && (
           <div className="member-add">
@@ -99,12 +99,20 @@ export function MembersTab({ slug }: { slug: string }) {
 
 // One member: who, the roles they hold, and (for someone who may manage
 // members) a Manage button that opens the roles with their Remove buttons.
-function MemberRow({ held, canEdit, onRemove }: { held: ProjectMemberList['roles']; canEdit: boolean; onRemove: (id: string) => void }) {
+// A held grant in words: a role by its title ("Contributor"), a single
+// permission by what it lets the member do, from the role catalog. The
+// permission's key is the fallback only while the catalog is unread.
+function heldWords(g: ProjectMemberList['roles'][number], capabilities: RoleCatalog['capabilities']) {
+  const words = g.roleTitle ? g.roleTitle.replace(/^Project /, '') : (g.capability && capabilities[g.capability]?.description) || grantTitle(g)
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+function MemberRow({ held, canEdit, onRemove, capabilities }: { held: ProjectMemberList['roles']; canEdit: boolean; onRemove: (id: string) => void; capabilities: RoleCatalog['capabilities'] }) {
   const [manage, setManage] = useState(false)
   return (
     <ListRow className="card row member-row" identity={<>
       <strong className="member-who">{subjectLabel(held[0])}</strong>
-      <span className="member-roles muted small">{held.map(g => grantTitle(g).replace(/^Project /, '')).join(', ')}</span></>} action={
+      <span className="member-roles muted small">{held.map(g => heldWords(g, capabilities)).join(', ')}</span></>} action={
       canEdit && <span className="row-action"><button aria-expanded={manage} onClick={() => setManage(m => !m)}>{manage ? 'Done' : 'Manage'}</button></span>} detail={manage && <div className="member-manage small">{held.map(g => <span key={g.id}>{grantTitle(g)} <button className="link danger" aria-label={`remove ${grantTitle(g)} from ${subjectLabel(g)}`} onClick={() => g.id && onRemove(g.id)}>Remove</button></span>)}</div>} />
   )
 }

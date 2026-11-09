@@ -36,7 +36,8 @@ export function ConversationLog({ changeId, chatHref, request, report, rounds = 
       {data && <UnreadableNote view={data} />}
       {none && (request ? <>
         <div className="bubble-row you"><div className="bubble you conversation-conversation-log-bubble-you">{firstLine(request)} <Link to={`/changes/${changeId}/records/request`}>full request →</Link></div></div>
-        {report && <div className="bubble-row"><div className="bubble"><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(report) }} /></div></div>}
+        {report ? <div className="bubble-row"><div className="bubble"><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(report) }} /></div></div>
+          : rounds.length > 0 && <p className="muted">{rounds.length === 1 ? 'The agent left no messages in this round.' : 'The agent left no messages.'}</p>}
       </> : <p className="muted">No chat yet.</p>)}
       {earlierRuns.map(id => <RunRounds key={id} id={id} changeId={changeId} />)}
       {rounds.map((e, i) => <ListRow to={workRecordHref(changeId, e)} className="conversation-record-row" key={e.key} identity={<Link to={workRecordHref(changeId, e)}>Agent round {i + 1} · work record</Link>} />)}
