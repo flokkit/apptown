@@ -349,6 +349,7 @@ func TestTour(t *testing.T) {
 			t.Fatalf("the camera failed: %v", run.RunErr)
 		}
 	}
+	w.settle()
 	shoot("")
 	// Priya accepts the makeover as the Decide dialog does; its landing
 	// merges it and main's release deploys it on the scene's host (approve).
@@ -361,15 +362,13 @@ func TestTour(t *testing.T) {
 	vars["{live}"] = w.scene.mainURL("club-newsletter")
 	// AppTown's rounds read the host again after the deploy, as they did
 	// before the first visit.
-	w.observe()
-	readHostsForTest(t, a)
+	w.settle()
 	shoot("accept")
 	// Members find it a bit much: Sam, who may release (Priya approves
 	// landings but may not), deploys the release before the makeover again,
 	// as the deployment's Deploy this again does.
 	vars["{rollback}"] = fmt.Sprint(w.scene.redeploy("sam", "club-newsletter", "main", 2))
-	w.observe()
-	readHostsForTest(t, a)
+	w.settle()
 	shoot("rollback")
 	writeTourPage(t, tourDir, stops)
 }
@@ -1415,6 +1414,49 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 		t.Cleanup(func() { stopRuntime(); <-done })
 	}
 	return w
+}
+
+// settle brings the story's scene to what the camera photographs before it
+// comes: AppTown's rounds and a host reader lap run until every deployment's
+// host reading is newer than its last deploy. Work the scene started (the
+// story's preview, a release) may settle after a lap, so the scene waits on
+// that fact, never on a time; the camera then judges each stop once.
+func (w *tourWorld) settle() {
+	t, a := w.t, w.a
+	var waiting []string
+	if !poll.Until(context.Background(), 2*time.Minute, 100*time.Millisecond, func() bool {
+		w.observe()
+		readHostsForTest(t, a)
+		waiting = waiting[:0]
+		var projects []struct {
+			Slug string `json:"slug"`
+		}
+		if err := json.Unmarshal(w.scene.call("sam", "GET", "/api/v1/projects", nil), &projects); err != nil {
+			t.Fatal(err)
+		}
+		for _, p := range projects {
+			project, err := a.Projects.BySlug(asPerson("sam"), p.Slug)
+			if err != nil {
+				t.Fatal(err)
+			}
+			deps, err := a.Deployment.List(asPerson("sam"), project.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, d := range deps {
+				diag, err := a.Deployment.Diagnostics(asPerson("sam"), project.ID, d.Name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if diag.Reading.Unknown {
+					waiting = append(waiting, fmt.Sprintf("%s %s: %s", p.Slug, d.Name, diag.Reading.Failure))
+				}
+			}
+		}
+		return len(waiting) == 0
+	}) {
+		t.Fatalf("the scene never settled: %s", strings.Join(waiting, "; "))
+	}
 }
 
 // observe runs the normal scheduled pass and its observation jobs, as

@@ -69,31 +69,27 @@ try {
       // or unknown status chip, or the word failed, on a happy stop means
       // the scene is not the story the tour tells.
       if (shot.happy) {
-        // A page still connecting or reading may show unknown for a moment;
-        // a happy stop gets ten seconds to settle, then must show none.
-        let trouble = '';
-        for (const settle = Date.now() + 10000; ;) {
-          trouble = await page.evaluate(() => {
-            const main = document.querySelector('main') || document.body;
-            // A chip is judged where the shot sees it: a standing note
-            // below the fold (a deployment's data protection names what it
-            // never assesses as unknown) is not in the photo.
-            const chip = [...main.querySelectorAll('.chip.fail, .chip.unknown')].find((c) => {
-              const r = c.getBoundingClientRect();
-              return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight;
-            });
-            if (chip) {
-              const where = chip.closest('li, tr, section, a') || chip.parentElement;
-              return `a ${chip.classList.contains('fail') ? 'failed' : 'unknown'} status (${(chip.getAttribute('aria-label') || chip.getAttribute('data-help') || chip.textContent).trim()}) in "${where.innerText.replace(/\s+/g, ' ').slice(0, 160)}"`;
-            }
-            const text = main.innerText;
-            const at = text.search(/\bfailed\b/i);
-            if (at >= 0) return `"${text.slice(Math.max(0, at - 60), at + 20).replace(/\s+/g, ' ')}"`;
-            return '';
+        // The scene settled before the camera came (tourWorld.settle): once
+        // the page has finished its reads, it is judged once.
+        await page.waitForLoadState('networkidle');
+        const trouble = await page.evaluate(() => {
+          const main = document.querySelector('main') || document.body;
+          // A chip is judged where the shot sees it: a standing note
+          // below the fold (a deployment's data protection names what it
+          // never assesses as unknown) is not in the photo.
+          const chip = [...main.querySelectorAll('.chip.fail, .chip.unknown')].find((c) => {
+            const r = c.getBoundingClientRect();
+            return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight;
           });
-          if (!trouble || Date.now() > settle) break;
-          await page.waitForTimeout(250);
-        }
+          if (chip) {
+            const where = chip.closest('li, tr, section, a') || chip.parentElement;
+            return `a ${chip.classList.contains('fail') ? 'failed' : 'unknown'} status (${(chip.getAttribute('aria-label') || chip.getAttribute('data-help') || chip.textContent).trim()}) in "${where.innerText.replace(/\s+/g, ' ').slice(0, 160)}"`;
+          }
+          const text = main.innerText;
+          const at = text.search(/\bfailed\b/i);
+          if (at >= 0) return `"${text.slice(Math.max(0, at - 60), at + 20).replace(/\s+/g, ' ')}"`;
+          return '';
+        });
         if (trouble) throw new Error(`happy stop ${shot.id} (${shot.path}) shows ${trouble}`);
       }
       if (shot.click) {
