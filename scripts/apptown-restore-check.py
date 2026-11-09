@@ -60,18 +60,14 @@ def kept(before, after):
     return before == after
 
 
-def first_difference(before, after, path):
-    """Where a kept value first differs, and both sides of it, so a failed
-    verify says what to look at."""
+def differences(before, after, path):
+    """Each place a kept value differs, with both sides, so one failed
+    verify names everything to look at."""
     if isinstance(before, dict) and isinstance(after, dict):
-        for k, v in before.items():
-            if not kept(v, after.get(k)):
-                return first_difference(v, after.get(k), f"{path}.{k}")
+        return [d for k, v in before.items() if not kept(v, after.get(k)) for d in differences(v, after.get(k), f"{path}.{k}")]
     if isinstance(before, list) and isinstance(after, list) and len(before) == len(after):
-        for i, (b, a) in enumerate(zip(before, after)):
-            if not kept(b, a):
-                return first_difference(b, a, f"{path}[{i}]")
-    return f"{path}: {json.dumps(before)[:200]} -> {json.dumps(after)[:200]}"
+        return [d for i, (b, a) in enumerate(zip(before, after)) if not kept(b, a) for d in differences(b, a, f"{path}[{i}]")]
+    return [f"{path}: {json.dumps(before)[:200]} -> {json.dumps(after)[:200]}"]
 
 
 def recorded_change(base, cid):
@@ -85,7 +81,9 @@ def recorded_change(base, cid):
     # landing started now, read from the current landing workflow: a newer
     # AppTown ships that workflow's new wording. A recorded approval keeps
     # the sentence it was given under in its own evidence, which is compared.
-    for words in ("state", "stateDetail", "landingMeans"):
+    # The run detail carries its own copy of the read-time words above,
+    # what the run waits on and what a person can do on it now.
+    for words in ("state", "stateDetail", "landingMeans", "waitingOn", "next"):
         (out.get("detail") or {}).pop(words, None)
     # Whether the work met the request is the model's narrative, not a
     # person's act; an upgrade may withdraw a shortfall it cannot attribute
@@ -140,7 +138,7 @@ def verify(base, path):
         after = recorded_change(base, cid)
         for key in sorted(before):
             if not kept(before[key], after.get(key)):
-                problems.append(f"change {cid}: {key} differs: {first_difference(before[key], after.get(key), key)}")
+                problems.extend(f"change {cid}: {d}" for d in differences(before[key], after.get(key), key))
     # Each repository holds the main the source recorded. A project whose
     # source had no record is named as unverified, never counted as proof.
     proved, unverified = 0, []
