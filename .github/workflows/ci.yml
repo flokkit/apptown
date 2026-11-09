@@ -240,16 +240,19 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      # renovate: datasource=github-releases depName=gitleaks/gitleaks versioning=semver extractVersion=^v(?<version>.*)$
-      GITLEAKS_VERSION: 8.30.1
-      # renovate: checksum=gitleaks/gitleaks version=v8.30.1
-      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+      # gitleaks is built from the Go module proxy, which Go's checksum
+      # database verifies: GitHub's release downloads returned 504 for every
+      # landing on 9 Nov 2026, and every run depended on them.
+      # renovate: datasource=go depName=github.com/zricethezav/gitleaks/v8 versioning=semver
+      GITLEAKS_VERSION: v8.30.1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
       - run: |
-          curl -fsSL -o /tmp/gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
-          mkdir -p "$HOME/.local/bin" && tar -xzf /tmp/gitleaks.tgz -C "$HOME/.local/bin" gitleaks
+          GOBIN="$HOME/.local/bin" go install "github.com/zricethezav/gitleaks/v8@${GITLEAKS_VERSION}"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: make check-public
 
