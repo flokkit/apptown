@@ -40,16 +40,12 @@ details > summary.muted, details > summary.small { color: var(--text); font-size
 .row.row-6, :not(table).stack.stack-6 { gap: var(--space-6); }
 
 /* A technical id an administrator may need (a key, branch, commit or
-   reference), in mono under the main text. On phones it is one line that
-   scrolls sideways inside itself, so it never fills several lines; on wider
-   screens it wraps, since one unbroken line would size a table column and
-   push the page sideways. */
+   reference), in mono under the main text. It wraps within its value: one
+   unbroken line would size a desktop table column, and a scroll box of its
+   own on a phone would be one more thing to reach by keyboard. */
 .tech-line {
   display: block; max-width: 100%; overflow-wrap: anywhere;
   font-family: var(--font-mono); font-size: var(--fs-xs);
-}
-@media (max-width: 800px) {
-  .tech-line { overflow-x: auto; white-space: nowrap; overflow-wrap: normal; }
 }
 
 }

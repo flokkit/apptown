@@ -52,6 +52,9 @@ pre.log {
 pre.source {
   background-color: var(--code-bg); border: 1px solid var(--rule); border-radius: var(--radius-sm);
   padding: var(--space-3); white-space: pre; overflow-x: auto; overflow-wrap: normal;
+  /* Its longest line must not size the row or card around it: the box takes
+     the width it is given and scrolls the rest. */
+  contain: inline-size;
 }
 .main table, .diff-body { background-image: none; }
 }

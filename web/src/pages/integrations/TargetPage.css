@@ -32,10 +32,12 @@
    table with its headings and scrolls inside its region, rather than the
    list layout, which stacks unlabelled figures past the screen's edge. */
 @media (width <= 800px) {
+  .cap-details .cap-table { display: table; }
+  .cap-details .cap-table tbody { display: table-row-group; }
   .cap-details .cap-table thead { position: static; width: auto; height: auto; overflow: visible; clip-path: none; display: table-header-group; }
   .cap-details .cap-table tr { display: table-row; padding: 0; }
   .cap-details .cap-table td { display: table-cell; padding: var(--space-2); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .cap-details .cap-table th { white-space: normal; }
+  .cap-details .cap-table th { display: table-cell; white-space: normal; padding: var(--space-2); }
 }
 @media (width <= 800px) {
   .target-resources-table .phone-name, .target-resources-table .phone-detail { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

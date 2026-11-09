@@ -239,6 +239,28 @@ try {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `technical line keeps the page within ${width}px`)
     await page.evaluate(() => document.getElementById('tech-fixture').remove())
   }
+  // On a phone a technical id wraps inside its value rather than scrolling
+  // in a box of its own, and a capacity table keeps headings over their
+  // figures.
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.evaluate(() => {
+    const box = document.createElement('div'); box.id = 'phone-content-fixtures'
+    box.innerHTML = '<p><code class="tech-line muted">protection-observation/01a1c0f7-f732-717b-bf23-3bc2cfec567f/0bfd216d8671931e214963dad76672e5b1978f80b6dae4cf07a49bab12b518bb</code></p>'
+      + '<div class="cap-details" tabindex="0"><table class="record-table small cap-table"><thead><tr><th>Name</th><th>Memory</th><th>CPU</th><th>Disk</th></tr></thead><tbody><tr><td class="phone-name">lunch-orders/main</td><td class="phone-detail">120 MB</td><td class="phone-state record-fit">2%</td><td class="phone-extra">1.2 GB</td></tr></tbody></table></div>'
+    box.innerHTML += '<div role="list"><div role="listitem"><div class="list-row pack-row"><div class="list-identity"><strong>adopt-integration</strong></div><div class="list-state">v1</div><div class="list-action"></div><div class="list-detail muted small"><div class="library-detail"><p>lifecycle · wire</p><pre class="source">description: Connect the app to a newly attached integration, following the integration guidance, and check that it builds and runs.</pre></div></div></div></div></div>'
+    document.querySelector('main').append(box)
+  })
+  // Source in a list row's detail scrolls in its box; it never widens the row.
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'workflow source in a row detail keeps the page within the phone')
+  assert.ok(await page.locator('#phone-content-fixtures .list-detail').evaluate(el => {
+    const row = el.closest('.list-row')
+    const style = getComputedStyle(row)
+    const available = row.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+    return el.getBoundingClientRect().width >= available - 1
+  }), 'workflow detail uses the available phone row width so source remains readable')
+  assert.ok(await page.locator('#phone-content-fixtures .tech-line').evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'technical id wraps inside its value on a phone')
+  assert.deepEqual(await page.locator('#phone-content-fixtures .cap-table').evaluate(t => [...t.tHead.rows[0].cells].map((th, i) => Math.round(th.getBoundingClientRect().left - t.tBodies[0].rows[0].cells[i].getBoundingClientRect().left))), [0, 0, 0, 0], 'capacity headings sit over their figures on a phone')
+  await page.evaluate(() => document.getElementById('phone-content-fixtures').remove())
   for (const width of [390, 800, 1440]) {
     await page.setViewportSize({ width, height: 844 })
     for (const size of ['small', 'medium', 'large']) {
