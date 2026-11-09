@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// A need's health check runs every second while it starts and every half
+// A need's health check runs every three seconds while it starts and every half
 // minute after: each check starts a process in the container, so a short
 // interval for life costs a small host a large share of its CPU.
 func TestHealthChecksAreFrequentOnlyWhileAServiceStarts(t *testing.T) {
@@ -18,7 +18,7 @@ func TestHealthChecksAreFrequentOnlyWhileAServiceStarts(t *testing.T) {
 		return args[i+1]
 	}
 	for name, want := range map[string]string{
-		"--health-start-interval": "1s",
+		"--health-start-interval": "3s",
 		"--health-start-period":   healthBound.String(),
 		"--health-interval":       "30s",
 		"--health-retries":        "3",
