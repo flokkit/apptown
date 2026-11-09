@@ -37,6 +37,7 @@ type Daemon struct {
 	oomKilled         map[string]bool // the last exit was the kernel's out-of-memory kill
 	labels            map[string]map[string]string
 	started           map[string][2][]string // a container started by its own entrypoint: that entrypoint and its arguments
+	health            map[string]string      // a container's health check timing as Docker prints it ("30s 1s"); absent without one
 	limits            map[string][2]int64    // the memory and NanoCPUs Docker holds a container to
 	host              string                 // docker info's memory, CPUs and data folder
 	disk              string                 // what df says of the data folder's filesystem
@@ -319,6 +320,24 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 						d.started[args[i+1]] = [2][]string{{args[j+1]}, append([]string{}, args[j+3:]...)}
 					}
 				}
+				// Docker keeps the health check timing the container was
+				// made with; it prints durations, "0s" for one not given.
+				if slices.Contains(args, "--health-cmd") {
+					flag := func(name string) string {
+						if j := slices.Index(args, name); j >= 0 && j+1 < len(args) {
+							if v, err := time.ParseDuration(args[j+1]); err == nil {
+								return v.String()
+							}
+						}
+						return "0s"
+					}
+					if d.health == nil {
+						d.health = map[string]string{}
+					}
+					d.health[args[i+1]] = flag("--health-interval") + " " + flag("--health-start-interval")
+				} else {
+					delete(d.health, args[i+1])
+				}
 				for j := range args {
 					if (args[j] == "--label" || args[j] == "-l") && j+1 < len(args) {
 						if k, v, ok := strings.Cut(args[j+1], "="); ok {
@@ -551,6 +570,9 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 		}
 		if strings.Contains(args[2], "State.Health") {
 			return []byte("healthy\n"), nil
+		}
+		if strings.Contains(args[2], "Config.Healthcheck") {
+			return []byte(d.health[args[3]] + "\n"), nil
 		}
 		if strings.Contains(args[2], "RestartCount") {
 			return []byte(fmt.Sprintf("%d\n", d.restarts[args[3]])), nil

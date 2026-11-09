@@ -82,10 +82,11 @@ needs:
 type standingDaemon struct {
 	memory, nano int64
 	failUpdate   bool
-	failRun      bool // the daemon will not start the service again
-	unreadable   bool // the daemon cannot say whether the service exists
-	stopped      bool // the service exists but is not running
-	started      bool // a start was asked for
+	failRun      bool   // the daemon will not start the service again
+	unreadable   bool   // the daemon cannot say whether the service exists
+	stopped      bool   // the service exists but is not running
+	started      bool   // a start was asked for
+	health       string // its health check's interval and start interval, as Docker prints them
 }
 
 func (d *standingDaemon) reply(req Command) ([]byte, error) {
@@ -103,6 +104,9 @@ func (d *standingDaemon) reply(req Command) ([]byte, error) {
 		return []byte(fmt.Sprint(!d.stopped)), nil
 	case len(a) > 0 && a[0] == "inspect":
 		for _, x := range a {
+			if strings.Contains(x, "Healthcheck") {
+				return []byte(d.health + "\n"), nil
+			}
 			if strings.Contains(x, "Config.Image") {
 				return []byte("postgres:16-alpine\n"), nil
 			}
@@ -459,5 +463,42 @@ func TestANeedWhoseDataFolderCannotBeReadStopsTheBoot(t *testing.T) {
 	}
 	if _, err := PrepareBoot(t.Context(), Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: unreadableData{}}, nil, "shop", "preview", t.TempDir(), c); err == nil {
 		t.Fatal("a preparation went on without knowing where its database keeps its data")
+	}
+}
+
+// A standing need made with older health check timing (every 3 s for life)
+// is remade on the same volume when the deployment is next deployed:
+// Docker fixes a health check when the container is made. One made with
+// the current timing, or a need with no health check, is reused.
+func TestAStandingNeedTakesTheCurrentHealthTimingWithoutLosingItsData(t *testing.T) {
+	t.Parallel()
+	own := Ownership{Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}}
+	svc := []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16-alpine", Health: "pg_isready"}}
+
+	d := &standingDaemon{health: "3s 0s"}
+	f := &fakeClient{reply: d.reply}
+	if _, err := EnsureStandingServices(t.Context(), Scope{Client: f}, "env-shop-main", svc, "production", own); err != nil {
+		t.Fatal(err)
+	}
+	runs := standingCalls(f, "run")
+	if len(standingCalls(f, "stop")) != 1 || len(standingCalls(f, "rm")) != 1 || len(runs) != 1 {
+		t.Fatalf("old health timing did not remake the container: %v", f.args)
+	}
+	if !strings.Contains(runs[0], "-v apptown-need-env-shop-main-postgres:/var/lib/postgresql/data") || !strings.Contains(runs[0], "--health-start-interval 1s") {
+		t.Errorf("the remade container is not on its volume, or not on the current timing: %s", runs[0])
+	}
+	for _, a := range f.args {
+		if len(a) > 1 && a[0] == "volume" && a[1] == "rm" {
+			t.Fatalf("the need's volume was removed: %v", a)
+		}
+	}
+
+	d = &standingDaemon{health: "30s 1s"}
+	f = &fakeClient{reply: d.reply}
+	if _, err := EnsureStandingServices(t.Context(), Scope{Client: f}, "env-shop-main", svc, "production", own); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(standingCalls(f, "rm")) + len(standingCalls(f, "run")); n > 0 {
+		t.Fatalf("a need on the current timing was remade: %v", f.args)
 	}
 }

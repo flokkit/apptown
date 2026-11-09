@@ -399,6 +399,10 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 			return []byte(v + "\n"), nil
 		case strings.Contains(tmpl, "Running"):
 			return []byte("true\n"), nil
+		case strings.Contains(tmpl, ".Config.Healthcheck"):
+			// A standing service's health check runs on the timing AppTown
+			// sets (docker.healthArgs: 30 s, starting every 1 s), so it is reused.
+			return []byte("30s 1s\n"), nil
 		case strings.Contains(tmpl, "Health"):
 			return []byte("healthy\n"), nil
 		case strings.Contains(tmpl, ".Image"):

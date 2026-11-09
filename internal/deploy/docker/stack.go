@@ -178,13 +178,26 @@ func waitStackReady(ctx context.Context, dk Scope, svcs []deploy.ServiceSpec, id
 // stayed not ready the whole bound.
 const healthBound = 2 * time.Minute
 
+// A check starts a process inside the container (and a database client
+// opens a connection), about a tenth of a CPU second each: every second
+// while the service starts, so readiness is seen at once, then every half
+// minute for as long as it runs. A three-second interval for life cost a
+// one-CPU host about 15% of its CPU with eight services.
+const (
+	healthStartInterval = time.Second
+	healthInterval      = 30 * time.Second
+	healthRetries       = 3
+)
+
 // healthArgs are the docker run flags of a health check, none for none.
+// --health-start-interval needs Docker 25 or newer.
 func healthArgs(cmd string) []string {
 	if cmd == "" {
 		return nil
 	}
-	return []string{"--health-cmd", cmd, "--health-interval", "3s", "--health-timeout", "3s",
-		"--health-retries", "20", "--health-start-period", healthBound.String()}
+	return []string{"--health-cmd", cmd, "--health-interval", healthInterval.String(), "--health-timeout", "3s",
+		"--health-retries", fmt.Sprint(healthRetries), "--health-start-period", healthBound.String(),
+		"--health-start-interval", healthStartInterval.String()}
 }
 
 // waitStackHealthy waits on the health-declaring services alone and reports
@@ -582,6 +595,9 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 				// stay. Only a limit taken away needs the container made
 				// again (Docker cannot lift one in place); its storage stays.
 				recreate, err := holdServiceLimits(ctx, dk, cname, svc.Resources)
+				if err == nil && !recreate {
+					recreate, err = holdHealthTiming(ctx, dk, cname, svc.Health)
+				}
 				if err != nil {
 					return network, fmt.Errorf("the standing %s service: %w", svc.Name, err)
 				}
@@ -809,6 +825,45 @@ func holdServiceLimits(ctx context.Context, dk Scope, cname string, want appcont
 		return false, fmt.Errorf("applying its declared limits: %v: %s", err, strings.TrimSpace(string(out)))
 	}
 	return false, nil
+}
+
+// holdHealthTiming remakes a standing service whose health check runs on
+// other timing than AppTown sets now (healthArgs): Docker fixes it when the
+// container is made. The container is stopped and removed, its storage
+// kept, and recreate says to make it again, as for a lifted limit. A
+// service without a health check is not compared.
+func holdHealthTiming(ctx context.Context, dk Scope, cname, health string) (recreate bool, err error) {
+	if health == "" {
+		return false, nil
+	}
+	out, err := dk.Run(ctx, "inspect", "-f", "{{if .Config.Healthcheck}}{{.Config.Healthcheck.Interval}} {{.Config.Healthcheck.StartInterval}}{{end}}", cname)
+	if err != nil {
+		return false, fmt.Errorf("reading its health check: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	// Docker prints the two as durations ("3s 0s"); none when the
+	// container was made without a health check.
+	var interval, start time.Duration
+	if text := strings.TrimSpace(string(out)); text != "" {
+		f := strings.Fields(text)
+		var e1, e2 error
+		if len(f) == 2 {
+			interval, e1 = time.ParseDuration(f[0])
+			start, e2 = time.ParseDuration(f[1])
+		}
+		if len(f) != 2 || e1 != nil || e2 != nil {
+			return false, fmt.Errorf("reading its health check: %q", text)
+		}
+	}
+	if interval == healthInterval && start == healthStartInterval {
+		return false, nil
+	}
+	if out, err := dk.Run(ctx, "stop", cname); err != nil {
+		return false, fmt.Errorf("stopping it to change its health check: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	if out, err := dk.Run(ctx, "rm", cname); err != nil {
+		return false, fmt.Errorf("removing it to change its health check: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return true, nil
 }
 
 // replaceDrifted replaces a standing service whose declared parameters
