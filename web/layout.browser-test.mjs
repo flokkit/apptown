@@ -25,7 +25,7 @@ const fixture = await build({
     import { Disclosure } from './Popover'
     import { Status } from './Status'
     import { SplitButton } from './SplitButton'
-    import { MoreMenu } from './MoreMenu'
+    import { MoreMenu, FormMenu } from './MoreMenu'
     import { ListRow } from './ListRow'
     import { ListTable } from './ListTable'
     import { LibraryRow, LibraryRows } from './LibraryRow'
@@ -137,6 +137,42 @@ const trailFixture = await build({
     client.setQueryData(getKey('/authz/me'), {instance:{'platform:manage-deploy-targets':true}})
     client.setQueryData(getKey('/attention'), {items:[],sources:[]})
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/club-newsletter/memory/decisions']}><TopBar me={me} narrow /></MemoryRouter></QueryClientProvider>)
+  ` },
+})
+// Overlays on a phone: help and status details open as sized dialogs, row
+// menus keep their place and close when their control scrolls away, dialog
+// buttons and the close button stay on screen, and Decide is a bottom bar.
+// window.overlayCase picks one scene so only one dialog is open at a time.
+const overlayFixture = await build({
+  absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
+  stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
+    import { useEffect } from 'react'
+    import { createRoot } from 'react-dom/client'
+    import { MemoryRouter, useLocation } from 'react-router-dom'
+    import { HelpButton, PageHead } from './PageHead'
+    import { Status } from './Status'
+    import { MoreMenu, FormMenu } from './MoreMenu'
+    import { LibraryRow, LibraryRows } from './LibraryRow'
+    import { Modal } from './Modal'
+    import { Tabs } from './Tabs'
+    import { TurnDecision } from './pages/change/Turn'
+    function Where() { const at = useLocation(); useEffect(() => { document.body.dataset.path = at.pathname }, [at]); return null }
+    const copies = Array.from({length: 30}, (_, i) => <label key={i} className="row row-2"><input type="radio" name="copy" /> Copy {i}</label>)
+    const scenes = {
+      page: <>
+        <div className="page-head"><div className="page-head-row"><h1>Things</h1><HelpButton about="Things" guide="things"><p>What things are.</p></HelpButton></div></div>
+        <p><Status word="unknown" help="No runtime reading." /></p>
+        <LibraryRows><LibraryRow name="A policy with a name" purpose="What it is for." to="/policies/one" menu={<MoreMenu label="Policy" items={[{label:'Copy',hint:'Make your own copy',onClick:()=>{}}]} />} /></LibraryRows>
+        <div style={{height: 3000}} />
+      </>,
+      'page-head-actions': <main style={{padding:16}}><PageHead page="people" sub="Groups" title="release-managers-x" actions={<FormMenu className="more-menu" trigger={<button aria-label="Group actions">⋯</button>}><button>Delete group</button></FormMenu>} /></main>,
+      'modal-long': <Modal title="Restore Production from a backup" onClose={()=>{}} actions={<><button className="danger">Restore</button><button>Cancel</button></>}>{copies}</Modal>,
+      'modal-search': <Modal title="New integration" onClose={()=>{}} head={<input placeholder="Search…" aria-label="search" style={{ width: 220 }} />}><p>Tiles.</p></Modal>,
+      'modal-tabs': <Modal title={<h2>GitLab docs</h2>} onClose={()=>{}} head={<Tabs className="tabs"><button className="tab active">Developer</button><button className="tab">Admin</button></Tabs>}><p>Docs.</p></Modal>,
+      decide: <div className="ch-page">{Array.from({length: 40}, (_, i) => <p key={i}>Line {i} of the change.</p>)}<p id="last-line">The last line of the change.</p>
+        <TurnDecision active actions={['approve']}><p>Accept this change?</p></TurnDecision></div>,
+    }
+    createRoot(document.getElementById('root')).render(<MemoryRouter><Where /><main style={{padding: 12}}>{scenes[window.overlayCase]}</main></MemoryRouter>)
   ` },
 })
 const browser = await chromium.launch({ headless: true })
@@ -368,6 +404,78 @@ try {
   }
   await page.emulateMedia({ reducedMotion: 'reduce' })
   assert.equal(await page.evaluate(() => { const sidebar = document.createElement('nav'); sidebar.className = 'sidebar open'; document.body.append(sidebar); return getComputedStyle(sidebar).transitionDuration }), '0s')
+  // Overlays at phone width (390) against the old popover behaviour; desktop
+  // keeps the popovers asserted above.
+  const overlay = async (scene, size, width = 390) => {
+    await page.setViewportSize({ width, height: 844 })
+    await page.goto('http://layout.test/')
+    await page.evaluate(([scene, size]) => { window.overlayCase = scene; document.documentElement.dataset.size = size }, [scene, size])
+    await page.addScriptTag({ content: overlayFixture.outputFiles[0].text })
+  }
+  const inView = box => box.x >= 0 && box.y >= 0 && box.x + box.width <= 390 + 0.5 && box.y + box.height <= 844 + 0.5
+  for (const size of ['small', 'medium', 'large']) {
+    await overlay('page', size)
+    await page.getByRole('button', { name: 'About Things', exact: true }).click()
+    const help = page.getByRole('dialog')
+    await help.waitFor()
+    const helpBox = await help.locator('.modal-panel').or(help).first().boundingBox()
+    assert.ok(inView(helpBox) && helpBox.height < 844 * 0.8, `help is a sized dialog on screen at 390, ${size}: ${JSON.stringify(helpBox)}`)
+    assert.ok(await help.getByRole('button', { name: 'close' }).isVisible(), `help dialog has a close button at ${size}`)
+    await page.keyboard.press('Escape')
+    await help.waitFor({ state: 'detached' })
+    assert.ok(await page.getByRole('button', { name: 'About Things', exact: true }).evaluate(el => el === document.activeElement), `focus returns to the ? at ${size}`)
+    await page.getByRole('button', { name: 'About Things', exact: true }).click()
+    await page.getByRole('dialog').getByRole('link', { name: 'Read more' }).click()
+    await page.waitForFunction(() => document.body.dataset.path === '/docs/guides/things', null, { timeout: 2000 }).catch(() => {})
+    assert.equal(await page.evaluate(() => document.body.dataset.path), '/docs/guides/things', `Read more in the help dialog navigates at ${size}`)
+    await overlay('page', size)
+    await page.locator('.chip-button').first().click()
+    const details = page.getByRole('dialog')
+    await details.waitFor()
+    assert.ok((await details.innerText()).includes('No runtime reading.'), `status details open as a dialog at 390, ${size}`)
+    assert.ok(inView(await details.locator('.modal-panel').or(details).first().boundingBox()), `status dialog on screen at ${size}`)
+    await page.keyboard.press('Escape')
+    const row = page.locator('.pack-row')
+    const [identity, action, rowBox] = await Promise.all([row.locator('.list-identity').boundingBox(), row.locator('.list-action').boundingBox(), row.boundingBox()])
+    assert.ok(Math.abs(identity.y - action.y) <= 2 && Math.abs(action.x + action.width - (rowBox.x + rowBox.width)) <= 6, `library row menu sits top right at ${size}: ${JSON.stringify({ identity, action, rowBox })}`)
+    const more = page.locator('.more-menu-button')
+    const moreLook = await more.evaluate(el => { const r = el.getBoundingClientRect(), style = getComputedStyle(el); return { width: r.width, height: r.height, border: style.borderTopColor } })
+    assert.ok(moreLook.width >= 44 && moreLook.height >= 44 && moreLook.border !== 'rgba(0, 0, 0, 0)', `⋯ is a 44px button with a border at ${size}: ${JSON.stringify(moreLook)}`)
+    await more.click()
+    const item = page.locator('.popover .more-menu-list > button').first()
+    assert.equal(await item.evaluate(el => getComputedStyle(el).color), await page.evaluate(() => { const probe = document.createElement('span'); probe.style.color = 'var(--text)'; document.body.append(probe); const c = getComputedStyle(probe).color; probe.remove(); return c }), `menu items read in the text colour at ${size}`)
+    await page.evaluate(() => window.scrollTo(0, 2500))
+    await page.locator('.popover').waitFor({ state: 'detached', timeout: 2000 })
+    await overlay('modal-long', size)
+    for (const name of ['Restore', 'Cancel']) assert.ok(inView(await page.getByRole('dialog').getByRole('button', { name, exact: true }).boundingBox()), `${name} is on screen in a long dialog at ${size}`)
+    for (const scene of ['modal-long', 'modal-search', 'modal-tabs']) {
+      await overlay(scene, size)
+      const dialog = page.getByRole('dialog')
+      const close = await dialog.getByRole('button', { name: 'close' }).boundingBox()
+      const title = await dialog.locator('h2').first().boundingBox()
+      assert.ok(inView(close) && close.width >= 44 && close.height >= 44 && Math.abs(close.y + close.height / 2 - (title.y + title.height / 2)) <= 14, `${scene}: ✕ beside the title at ${size}: ${JSON.stringify({ close, title })}`)
+      for (const control of await dialog.locator('.modal-head input, .modal-head .tab').all()) assert.ok(inView(await control.boundingBox()), `${scene}: header controls on screen at ${size}`)
+      // The title keeps a readable width rather than being squeezed by the header controls.
+      const titleBox = await dialog.locator('.modal-title').boundingBox()
+      assert.ok(titleBox.width >= 120, `${scene}: the title keeps its width beside the ✕ at ${size}: ${JSON.stringify(titleBox)}`)
+    }
+    await overlay('decide', size)
+    const bar = page.locator('.ch-turn-floater')
+    await bar.waitFor()
+    const barLook = await bar.evaluate(el => { const r = el.getBoundingClientRect(); return { left: r.left, width: r.width, background: getComputedStyle(el).backgroundColor } })
+    assert.ok(barLook.left <= 0.5 && barLook.width >= 389.5 && barLook.background !== 'rgba(0, 0, 0, 0)', `Decide is an opaque full-width bar at ${size}: ${JSON.stringify(barLook)}`)
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+    const [last, barBox] = await Promise.all([page.locator('#last-line').boundingBox(), bar.boundingBox()])
+    assert.ok(last.y + last.height <= barBox.y + 0.5, `the last line scrolls clear of the Decide bar at ${size}: ${JSON.stringify({ last, barBox })}`)
+    if (out) await page.screenshot({ path: `${out}/overlay-decide-390-${size}.png` })
+  }
+  // Wide screens keep the help popover.
+  await overlay('page', 'small', 1440)
+  await page.getByRole('button', { name: 'About Things', exact: true }).click()
+  assert.ok(await page.locator('.page-help-pop').isVisible() && !(await page.getByRole('dialog').count()), 'desktop keeps the help popover')
+  await overlay('page-head-actions', 'medium')
+  const [headingRow, headingAction] = await Promise.all([page.locator('.page-head-row').boundingBox(), page.getByRole('button', {name:'Group actions'}).boundingBox()])
+  assert.ok(Math.abs(headingAction.x + headingAction.width - (headingRow.x + headingRow.width)) <= 1, `a wrapped page action stays on the right: ${JSON.stringify({headingRow, headingAction})}`)
   console.log('layout: label fixtures, rows, disclosures and phone composer passed')
 } catch (error) {
   // A step that timed out says whether the page itself was stuck (a script

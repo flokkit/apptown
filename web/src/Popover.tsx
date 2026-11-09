@@ -1,5 +1,7 @@
 import { cloneElement, useCallback, useId, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { useNarrow } from './chrome'
+import { Modal } from './Modal'
 
 const focusable = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
 
@@ -8,7 +10,8 @@ const focusable = 'a[href], button:not(:disabled), input:not(:disabled), select:
 // takeFocus: a panel opened by a click or key moves focus into itself, for
 // keyboard use; one opened by a resting mouse leaves focus where it is. On
 // close, focus returns to the trigger only from inside the panel, so a click
-// into a field elsewhere keeps the field's focus.
+// into a field elsewhere keeps the field's focus. Scrolling the trigger out of
+// sight closes the panel.
 export function Popover({ anchor, onClose, children, id, placement = 'below', className = '', onPointerEnter, onPointerLeave, takeFocus = true }: {
   anchor: RefObject<HTMLElement>; onClose: () => void; children: ReactNode; id: string
   placement?: 'above' | 'below'; className?: string; takeFocus?: boolean
@@ -25,6 +28,9 @@ export function Popover({ anchor, onClose, children, id, placement = 'below', cl
       element.style.maxWidth = `${width - 16}px`
       element.style.maxHeight = `${height - 16}px`
       const rect = trigger.getBoundingClientRect(), box = element.getBoundingClientRect()
+      // A panel belongs beside its control: once the control has scrolled
+      // out of sight, close rather than pin the panel over unrelated rows.
+      if (rect.bottom < top || rect.top > top + height) { onClose(); return }
       const below = rect.bottom + 6
       const y = placement === 'above' || below + box.height > top + height - 8 ? rect.top - box.height - 6 : below
       element.style.left = `${Math.max(left + 8, Math.min(rect.right - box.width, left + width - box.width - 8))}px`
@@ -54,7 +60,7 @@ export function Popover({ anchor, onClose, children, id, placement = 'below', cl
       viewport?.removeEventListener('scroll', position)
       document.removeEventListener('pointerdown', down)
       document.removeEventListener('keydown', key)
-      if (element.contains(document.activeElement)) trigger.focus()
+      if (element.contains(document.activeElement)) trigger.focus({ preventScroll: true })
     }
     // Focus is taken once, as the panel opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -101,9 +107,19 @@ export function Disclosure({ trigger, children, className, placement, hidden, cl
 
 // DetailsPopover is a status's details: the same panel opens when a mouse
 // rests on the status or when it is clicked or tapped. Statuses and approval
-// states use it; their details are never written on the page.
-export function DetailsPopover({ trigger, children, className, closeOnAction }: {
-  trigger: ReactElement; children: ReactNode; className?: string; closeOnAction?: boolean
+// states use it; their details are never written on the page. On a phone a
+// panel beside the status would lie over the buttons next to it, so there a
+// tap opens the details as a dialog sized to its text, titled by the status.
+export function DetailsPopover({ trigger, children, className, closeOnAction, title }: {
+  trigger: ReactElement; children: ReactNode; className?: string; closeOnAction?: boolean; title: ReactNode
 }) {
-  return <Disclosure hover trigger={trigger} className={className} closeOnAction={closeOnAction}>{children}</Disclosure>
+  const narrow = useNarrow()
+  const [open, setOpen] = useState(false)
+  const id = useId()
+  const close = useCallback(() => setOpen(false), [])
+  if (!narrow) return <Disclosure hover trigger={trigger} className={className} closeOnAction={closeOnAction}>{children}</Disclosure>
+  return <div className={className} onClick={event => event.stopPropagation()}>
+    {cloneElement(trigger, { 'aria-expanded': open, 'aria-controls': open ? id : undefined, 'aria-haspopup': 'dialog', onClick: () => setOpen(true) })}
+    {open && <Modal fit title={title} onClose={close}><div id={id}>{children}</div></Modal>}
+  </div>
 }

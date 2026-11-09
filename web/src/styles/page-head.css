@@ -26,10 +26,21 @@ button.page-help-q {
   color: var(--muted); background: transparent; border: 1px solid var(--border-strong);
 }
 button.page-help-q:hover, button.page-help-q[aria-expanded="true"] { color: var(--text); border-color: var(--text); }
+/* On a phone the "?" keeps its full 44px tap target but draws the same small
+   circle as on a wide screen, so it reads as a button beside its title. */
 @media (max-width: 800px), (pointer: coarse) {
-  button.page-help-q { width: 44px; height: 44px; }
+  button.page-help-q { width: 44px; height: 44px; border: 0; border-radius: 50%;
+    background: radial-gradient(circle, transparent 11px, var(--border-strong) 11px, var(--border-strong) 12px, transparent 12.5px); }
+  button.page-help-q:hover, button.page-help-q[aria-expanded="true"] {
+    background: radial-gradient(circle, transparent 11px, var(--text) 11px, var(--text) 12px, transparent 12.5px); }
 }
+/* The title and its "?" never part; the page's actions wrap as a block. */
+.page-head-title { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; max-width: 100%; }
+.page-head-title h1 { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 800px) {
-  button.page-help-q { width: 44px; height: 44px; border: 0; border-radius: 0; }
+  .page-head-title { gap: 0; }
 }
+.page-head-actions { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+/* The help's text in its phone dialog: the guide link under it. */
+.page-help-text a { display: inline-block; margin-top: var(--space-1); }
 }

@@ -10,9 +10,36 @@
   box-shadow: var(--shadow-pop);
 }
 .modal-panel:focus { outline: none; }
+/* Title, any extra header controls, then the ✕, on one line. */
+.modal-head { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+.modal-title { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--space-2); overflow-wrap: anywhere; }
+.modal-title h2 { margin: 0; }
+.modal-head-extra { display: flex; align-items: center; min-width: 0; }
+/* The dialog's closing buttons, after its body. */
+.modal-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
+/* A dialog sized to its text: a help or a status's details. */
+.modal-fit { max-width: 28rem; }
+.modal-fit .modal-body { font-size: var(--fs-sm); line-height: var(--lh-body); }
+.modal-fit .modal-body p { margin: 0 0 var(--space-2); }
+.modal-fit .modal-body ul { margin: 0 0 var(--space-2); padding-left: var(--space-4); }
 @media (max-width: 800px) {
   .modal-backdrop { padding: 0; align-items: stretch; z-index: var(--z-modal-phone); }
-  .modal-panel > .row:first-child { position: sticky; top: -16px; z-index: var(--z-sticky); background: var(--panel); margin: -16px -16px 10px !important; padding: 10px 8px 10px 16px; border-bottom: 1px solid var(--rule); }
-  .modal-panel { max-width: none !important; max-height: none; height: 100%; border-radius: 0; border: none; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+  /* On a phone the title and the ✕ share the first line; header controls
+     (a search box, tabs) take the next line rather than push the ✕ off. */
+  .modal-head { position: sticky; top: -16px; z-index: var(--z-sticky); flex-wrap: wrap; background: var(--panel); margin: -16px -16px 10px; padding: 10px 8px 10px 16px; border-bottom: 1px solid var(--rule); }
+  .modal-title { flex: 1 1 0; }
+  .modal-close { order: 2; min-width: 44px; min-height: 44px; }
+  .modal-head-extra { order: 3; flex: 1 1 100%; flex-wrap: wrap; }
+  .modal-head-extra .catalog-search { width: 100%; }
+  .modal-panel:not(.modal-fit) { max-width: none !important; }
+  .modal-panel { max-height: none; height: 100%; border-radius: 0; border: none; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; }
+  .modal-body { flex: 1 0 auto; }
+  /* A long dialog scrolls under its buttons, which stay at the screen's foot. */
+  .modal-actions { position: sticky; bottom: calc(-1 * var(--space-4) - env(safe-area-inset-bottom)); z-index: var(--z-sticky); background: var(--panel); margin: var(--space-4) calc(-1 * var(--space-4)) calc(-1 * var(--space-4) - env(safe-area-inset-bottom)); padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom)); border-top: 1px solid var(--rule); }
+  .modal-actions button { min-height: 44px; }
+  /* A sized dialog stays a dialog on a phone, centred, as tall as its text. */
+  .modal-backdrop-fit { align-items: center; padding: var(--space-4); }
+  .modal-panel.modal-fit { height: auto; max-height: calc(100dvh - 2 * var(--space-6)); border: 1px solid var(--border); border-radius: var(--radius); overflow-y: auto; }
+  .modal-fit .modal-body { flex: 0 1 auto; }
 }
 }

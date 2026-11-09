@@ -40,7 +40,7 @@ export function TakeDown({ slug, env: e, onClose }: { slug: string; env: Deploym
     if (r) setTorn(r)
   }
   const name = deploymentName(e)
-  if (torn) return <Modal title={`${name} is being taken down`} onClose={() => onClose(torn)}>
+  if (torn) return <Modal title={`${name} is being taken down`} onClose={() => onClose(torn)} actions={<button className="primary" onClick={() => onClose(torn)}>Done</button>}>
     {'operationId' in torn
       ? <p>Taking it down: the app goes first so nothing writes, then a final copy is taken and checked before the database cluster is deleted. <Link to={`/operations/${torn.operationId}`}>Follow it</Link>.</p>
       : <p>
@@ -49,16 +49,14 @@ export function TakeDown({ slug, env: e, onClose }: { slug: string; env: Deploym
         {torn.deleted.length > 0 && <> Deleted: {torn.deleted.join('; ')}.</>}
         {torn.orphans.length > 0 ? <> Left at the target: {torn.orphans.join('; ')}.</> : ' Nothing was left behind.'}
       </p>}
-    <div className="row row-2"><button className="primary" onClick={() => onClose(torn)}>Done</button></div>
   </Modal>
-  return <Modal title={`Take down ${name}?`} onClose={() => onClose()}>
+  return <Modal title={`Take down ${name}?`} onClose={() => onClose()} actions={<>
+    <button className="danger" disabled={!known || busy} onClick={tearDown}>{noFinalCopy ? 'Take it down without a final copy' : 'Take it down'}</button>
+    <button className="subtle" onClick={() => onClose()}>Cancel</button>
+  </>}>
     {known
       ? <p>{prot.data?.takeDown || tearDownWords(e.target?.kind)}{e.aiModels?.length ? ' Its AI models key is revoked.' : ''}</p>
       : <p className="muted">Reading what a take-down would do to its data…</p>}
-    <div className="row row-2">
-      <button className="danger" disabled={!known || busy} onClick={tearDown}>{noFinalCopy ? 'Take it down without a final copy' : 'Take it down'}</button>
-      <button className="subtle" onClick={() => onClose()}>Cancel</button>
-    </div>
     {err && <p className="error" role="alert">{err}</p>}
   </Modal>
 }

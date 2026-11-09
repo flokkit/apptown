@@ -44,7 +44,7 @@ export function CatalogPicker({ catalog, onPick, onOpen, onClose }: {
 
   return (
     <Modal onClose={onClose} title="New integration"
-      head={<input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} autoFocus aria-label="search" style={{ width: 220 }} />}>
+      head={<input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} autoFocus aria-label="search" className="catalog-search" />}>
       <div>
         {/* Every kind page offers Connect; a kind with nothing new to add says so. */}
         {creatable.length === 0 && !q && <p className="muted">Nothing new of this kind can be connected yet.{managed.length > 0 ? ` ${PRODUCT} sets up the one below itself.` : ''}</p>}

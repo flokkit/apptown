@@ -63,7 +63,7 @@ function ConfirmRelease({ slug, name, label, deployment, choice, running, curren
     const result = await run(() => post<{ number: number }>(`/projects/${slug}/deployments/${name}/deploy`, body))
     if (result) setAccepted(result.number)
   }
-  return <Modal title={title} onClose={onClose}>
+  return <Modal title={title} onClose={onClose} actions={!accepted && <button className="primary" disabled={busy || !current || (!paired && !!running && !detail.current)} onClick={confirm}>{paired ? `Roll back to before release ${choice.before.number} on ${label}` : `Deploy ${code} to ${label}`}</button>}>
     {accepted ? <p role="status">Release {accepted} requested. Its approval and progress appear on this deployment.</p> : <>
       {paired ? <p>{PRODUCT} takes a safety copy, stops the app and restores this backup. It leaves the app stopped until the selected earlier release starts. If that release fails before starting, the restored data stays and the app stays stopped.</p> : <>
         <p>This deploys {code}'s code to {label}. Your data stays as it is now; {PRODUCT} does not undo data changes or migrations.</p>
@@ -75,7 +75,6 @@ function ConfirmRelease({ slug, name, label, deployment, choice, running, curren
       {!paired && takesBackup && <p>A backup is taken first.</p>}
       {deployment?.feed === 'main' && <p>The next change that lands deploys over this release.</p>}
       {err && <p role="alert">{err}</p>}
-      <button className="primary" disabled={busy || !current || (!paired && !!running && !detail.current)} onClick={confirm}>{paired ? `Roll back to before release ${choice.before.number} on ${label}` : `Deploy ${code} to ${label}`}</button>
     </>}
   </Modal>
 }

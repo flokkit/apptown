@@ -35,13 +35,13 @@ export function QuietConfirm({ label, ask, onYes, prepare, className = 'subtle d
     )
   }
   return (
-    <span className="small row" style={{ gap: 6 }}>
+    <span className="small row quiet-confirm" style={{ gap: 6 }}>
       <span>{ask}{detail ? <div className="muted small" style={{ whiteSpace: 'pre-wrap', marginTop: 2 }}>{detail}</div> : null}</span>
       <button className="danger" disabled={busy} onClick={async () => {
         setBusy(true); setErr('')
         try { await onYes() } catch (e) { setErr((e as Error).message) } finally { setBusy(false); setAsking(false) }
       }}>{busy ? '…' : yes}</button>
-      <button className="subtle" onClick={() => setAsking(false)}>{no}</button>
+      <button onClick={() => setAsking(false)}>{no}</button>
       {err && <span className="error small">{err}</span>}
     </span>
   )
@@ -84,7 +84,7 @@ export function QuietPrompt({ label, ask, fields, onYes, className = 'subtle', y
   }
   if (!asking) return <button className={className} onClick={start} disabled={disabled} title={title}>{label}</button>
   return (
-    <span className="small row" style={{ gap: 6 }}>
+    <span className="small row quiet-confirm" style={{ gap: 6 }}>
       {ask && <span>{ask}</span>}
       {fields.map((f, i) => (
         <input key={f.key} type={f.type ?? 'text'} autoFocus={i === 0}
@@ -95,7 +95,7 @@ export function QuietPrompt({ label, ask, fields, onYes, className = 'subtle', y
           onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setAsking(false) }} />
       ))}
       <button className="primary" disabled={!ok || busy} onClick={submit}>{busy ? '…' : yes}</button>
-      <button className="subtle" onClick={() => setAsking(false)}>{no}</button>
+      <button onClick={() => setAsking(false)}>{no}</button>
       {err && <span className="error small">{err}</span>}
     </span>
   )

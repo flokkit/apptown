@@ -105,7 +105,7 @@ export const hasDetails = (w: WaitingOn) => !!w.step && (w.kind === 'approval' |
 export function WaitingStatus({ waiting, changeId }: { waiting: WaitingOn; changeId?: string | null }) {
   if (!hasDetails(waiting)) return <ChangeStatus waiting={waiting} />
   const approval = waiting.kind === 'approval'
-  return <DetailsPopover className="approval-status" closeOnAction={false} trigger={
+  return <DetailsPopover className="approval-status" closeOnAction={false} title={<h2>{waiting.says}</h2>} trigger={
     <WaitingButton waiting={waiting} about={approval ? 'who can approve' : 'what went wrong'} />
   }>{approval ? <ApproversCard stepId={waiting.step} /> : <FailureWhy stepId={waiting.step!} changeId={changeId} />}</DetailsPopover>
 }

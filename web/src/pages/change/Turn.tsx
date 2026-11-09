@@ -1,6 +1,7 @@
 import { ReactNode, createContext, useContext, useEffect, useRef, useState } from 'react'
 import { DecisionContextOnly } from '../../DecisionChoices'
 import type { ChangeView } from '../../api'
+import { NARROW_QUERY } from '../../chrome'
 
 const OpenDecision = createContext(() => {})
 
@@ -26,8 +27,10 @@ export function TurnDecision({ active, actions, children, approvalWaiting = acti
     // The button and the decision screen sit over the page content, never over the menu.
     const measure = () => {
       const bounds = page.getBoundingClientRect()
-      surface.current?.style.setProperty('left', `${bounds.left}px`)
-      surface.current?.style.setProperty('width', `${bounds.width}px`)
+      // On a phone the button is a bar across the whole screen's foot.
+      const bar = window.matchMedia?.(NARROW_QUERY).matches
+      surface.current?.style.setProperty('left', bar ? '0px' : `${bounds.left}px`)
+      surface.current?.style.setProperty('width', bar ? '100%' : `${bounds.width}px`)
       dialog.current?.style.setProperty('--page-left', `${bounds.left}px`)
       dialog.current?.style.setProperty('--page-width', `${bounds.width}px`)
       page.style.paddingBottom = `${active ? surface.current?.getBoundingClientRect().height ?? 0 : 0}px`

@@ -142,5 +142,5 @@ it('shows a checked age only for stale project observations, without an empty sp
   expect(fresh.textContent).toContain('working')
   expect([...fresh.children].filter(c => !c.classList.contains('status-help-stack')).map(c => c.textContent).join('')).not.toContain('checked')
   expect(fresh.querySelector(':scope > .muted.small')).toBeNull()
-  expect(stale.querySelector('button.chip-button')?.getAttribute('data-help')).toContain('checked')
+  expect(stale.querySelector('button.chip-button')?.getAttribute('data-help')).toContain('Checked')
 })

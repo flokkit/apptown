@@ -2,7 +2,8 @@ import { BetaChip, BetaPage } from './features'
 import { ReactNode, useCallback, useContext, useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PRODUCT } from './brand'
-import { useDismiss } from './Modal'
+import { Modal, useDismiss } from './Modal'
+import { useNarrow } from './chrome'
 
 // A page's title, one short line under it, and a "?" beside the title that
 // opens the longer explanation with a link to its guide. Pages show facts;
@@ -260,11 +261,15 @@ export function PageHead({ page, actions, sub, help, line, title }: { page: Help
   return (
     <div className="page-head">
       <div className="page-head-row">
-        <h1>{title ?? sub ?? h.title}</h1>
-        {help ? <HelpButton about={sub ?? h.title} guide={help.guide}>{help.body}</HelpButton>
-          : <HelpButton about={h.title} guide={h.guide}>{h.line && <p>{h.line}</p>}{h.help}</HelpButton>}
-        {beta && <BetaChip />}
-        {actions && <><span className="grow" />{actions}</>}
+        {/* The title and its "?" stay together; actions wrap as a block. */}
+        <span className="page-head-title">
+          <h1>{title ?? sub ?? h.title}</h1>
+          {help ? <HelpButton about={sub ?? h.title} guide={help.guide}>{help.body}</HelpButton>
+            : <HelpButton about={h.title} guide={h.guide}>{h.line && <p>{h.line}</p>}{h.help}</HelpButton>}
+          {beta && <BetaChip />}
+        </span>
+        {/* The actions keep to the right, on the title's line or, wrapped, on their own. */}
+        {actions && <span className="page-head-actions">{actions}</span>}
       </div>
       {line && <p className="page-head-line">{line}</p>}
     </div>
@@ -274,27 +279,31 @@ export function PageHead({ page, actions, sub, help, line, title }: { page: Help
 // The "?" and its popover: a disclosure, so the button says whether it is
 // open and the popover follows it in the page, where Tab reaches it next.
 // Escape and a click outside close it, as the split button's menu does.
+// On a phone the popover would lie over the very list or form it explains,
+// so there the "?" opens a dialog sized to its text, with a close button.
+// The dialog is portalled out of the "?"'s box, so its own dismissal is the
+// only one: the box's would take a press on Read more for a click outside.
 export function HelpButton({ about, guide, children }: { about: string; guide: string; children: ReactNode }) {
   const [open, setOpen] = useState(false)
+  const narrow = useNarrow()
   const box = useRef<HTMLSpanElement>(null)
   const button = useRef<HTMLButtonElement>(null)
   const id = useId()
   const close = useCallback(() => setOpen(false), [])
-  useDismiss(box, close, open)
+  useDismiss(box, close, open && !narrow)
   // Escape from inside the popover would leave focus on a node that is
   // about to go; hand it back to the "?". A click outside leaves focus to
   // whatever was clicked.
   const onKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Escape') button.current?.focus() }
+  const body = <>{children}<Link to={`/docs/guides/${guide}`} onClick={close}>Read more</Link></>
   return (
     <span ref={box} className="page-help" onKeyDown={onKeyDown}>
-      <button ref={button} type="button" className="page-help-q" aria-expanded={open} aria-controls={id}
+      <button ref={button} type="button" className="page-help-q" aria-expanded={open} aria-controls={open ? id : undefined}
+        aria-haspopup={narrow ? 'dialog' : undefined}
         aria-label={`About ${about}`} title="What's this?" onClick={() => setOpen((o) => !o)}>?</button>
-      {open && (
-        <div id={id} className="page-help-pop" role="region" aria-label={`About ${about}`}>
-          {children}
-          <Link to={`/docs/guides/${guide}`}>Read more</Link>
-        </div>
-      )}
+      {open && (narrow
+        ? <Modal fit title={`About ${about}`} onClose={close}><div id={id} className="page-help-text">{body}</div></Modal>
+        : <div id={id} className="page-help-pop" role="region" aria-label={`About ${about}`}>{body}</div>)}
     </span>
   )
 }

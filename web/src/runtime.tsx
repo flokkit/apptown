@@ -22,11 +22,16 @@ export function failedRuntimeRefresh<T extends RuntimeObservation>(answer: T, re
 }
 
 // The browser formats the owner's answer; it never qualifies runtime evidence.
+// The details read as sentences: the owner's reason, then each time once.
 export function statusProps(status: DeploymentStatus) {
-  const checked = status.checkedAt ? `checked ${fmtLastRead(Date.parse(status.checkedAt))}` : ''
-  const applied = status.appliedAt ? `applied ${fmtStamp(status.appliedAt)}` : ''
-  const retry = status.retryAt ? ` · next check ${new Date(status.retryAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''
-  return { word: status.word, help: [status.reason, applied, checked].filter(Boolean).join(' · ') + retry }
+  const sentence = (text: string) => { const t = text.trim(); return t && !/[.!?]$/.test(t) ? `${t}.` : t }
+  const checked = status.checkedAt ? `Checked ${fmtLastRead(Date.parse(status.checkedAt))}.` : ''
+  const applied = status.appliedAt ? `Applied ${fmtStamp(status.appliedAt)}.` : ''
+  // A next check in the same minute as the check says nothing more.
+  const minute = (at: string) => Math.floor(Date.parse(at) / 60_000)
+  const retry = status.retryAt && !(status.checkedAt && minute(status.retryAt) === minute(status.checkedAt))
+    ? `Next check ${new Date(status.retryAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}.` : ''
+  return { word: status.word, help: [sentence(status.reason ?? ''), applied, checked, retry].filter(Boolean).join(' ') }
 }
 
 export function RuntimeStatus({ observation }: { observation: RuntimeObservation }) {

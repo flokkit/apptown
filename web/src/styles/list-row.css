@@ -122,6 +122,10 @@
   .list-row { grid-template-columns: minmax(0, 1fr); }
   .list-row > :is(.list-identity, .list-state, .list-action, .list-detail) { grid-column: 1; grid-row: auto; justify-self: start; text-align: left; }
   .pack-row .list-identity { grid-template-columns: minmax(0, 1fr); }
+  /* A library row's ⋯ keeps its place at the top right, beside the name. */
+  .list-row.pack-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .list-row.pack-row > .list-action { grid-column: 2; grid-row: 1; justify-self: end; align-self: start; }
+  .list-row.pack-row > .list-detail { grid-column: 1 / -1; }
 }
 .list-row-link { cursor: pointer; }
 .list-row-link:hover { background: var(--hover); }
