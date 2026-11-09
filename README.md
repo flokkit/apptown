@@ -1,12 +1,31 @@
 # Flokkit AppTown
 
-AppTown gives your team a ready-made place to build small web apps with AI
-coding agents, in the browser or from a desktop agent via MCP. Each app
-follows a way of working you choose, with consistent checks and deployment.
-That makes a growing collection of apps easier to maintain and change. You
-run AppTown yourself, on your own computer or server.
+AppTown gives your team a ready-made place to build and host web apps. Build
+in the browser by describing your app to a server-hosted AI coding agent, or
+from a desktop agent via MCP.
+
+AppTown respects your sovereignty: you can run AppTown yourself, on your own
+computer or server. Apps can live on your own servers (Docker, Portainer),
+and agents can use local models through any OpenAI-compatible server, such
+as LM Studio, vLLM or llama.cpp. Cloud works too: you can use cloud
+resources or hosted models if you prefer.
 
 **1.0 release candidate** · [Tour](https://apptown.dev/tour/) · [Install on a server](#install-on-a-server) · [Release notes](releases/) · [Apache-2.0](LICENSE)
+
+- A managed platform experience for deployments: HTTPS, databases, object
+  storage, backups and monitoring are set up for you, on your own servers or
+  in the cloud.
+- Fast previews while you work, not just at the end: every change in progress
+  runs in an environment like production, with its own database and services.
+- Pre-built ways of working that keep your tech stacks and code consistent.
+  Customise them to match your house style.
+- Every deploy takes a backup first, so you can roll back the code and the
+  data together. Backups are restore-tested automatically on a schedule.
+- Tests and checks run inside AppTown, not on someone's laptop, and every
+  change is approved before it ships.
+- A change history that records intent, not just code.
+- Automations for chores like dependency and container updates (some arrive
+  during 1.x).
 
 ## Why
 
@@ -21,8 +40,10 @@ Teams face the same problem with internal tools. An app might take an
 afternoon to build, but someone still has to look after it months later,
 often after the person who made it has moved on.
 
-Shared conventions and a record of what changed help the next person
-understand the app and keep it useful.
+A big product can justify its own previews, security checks, hosting,
+backups and monitoring. A small app can't, so it usually goes without.
+AppTown sets all of that up once and every app gets it. See and manage
+every app in one screen: what's running, what changed, and what needs you.
 
 ## What you get
 
