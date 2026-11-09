@@ -460,7 +460,8 @@ try {
           await page.getByRole('button', { name: 'Choose a way of working myself →', exact: true }).click();
           await page.locator('.pack-card').filter({ hasText: 'conventions-only' }).waitFor();
           if (screen === 'new-project-repository') {
-            await page.getByRole('button', { name: /none \(bare\)/ }).click();
+            await page.locator('.pack-card').filter({ hasText: 'No packs' }).click();
+            await page.getByRole('button', { name: 'Use no packs', exact: true }).click();
             await page.getByRole('button', { name: 'Next →', exact: true }).click();
             await page.getByRole('radio', { name: /Default target/ }).waitFor();
             // Both sections use the same divider, inset and heading-to-options gap.
@@ -494,8 +495,8 @@ try {
         if (screen === 'overview-navigation' && size.startsWith('phone')) await page.getByRole('button', { name: 'open the menu', exact: true }).click();
         if (screen === 'pack-new') {
           await page.getByRole('button', { name: 'New pack', exact: true }).click();
-          await page.getByText('adopt-integration', { exact: true }).waitFor();
-          await page.locator('.badge').filter({ hasText: 'api/rest-pragmatist' }).waitFor();
+          await page.getByRole('button', { name: 'adopt-integration', exact: true }).waitFor();
+          await page.locator('.packs-chip').filter({ hasText: 'api/rest-pragmatist' }).waitFor();
         }
         if (screen === 'policy-new') await page.getByRole('button', { name: 'New policy', exact: true }).click();
         if (screen === 'workflow-new') await page.getByRole('link', { name: 'New workflow', exact: true }).click();
