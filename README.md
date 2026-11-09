@@ -95,7 +95,7 @@ The trial is for your own computer: it has full control of your Docker.
 how to stop or remove it. To run it for a team, see
 [Install on a server](#install-on-a-server).
 
-![A change in AppTown: the checks that ran, the one that failed, and the approval it is waiting for](https://apptown.dev/tour/change-light.png)
+![A change in AppTown: what was asked, what the agent says, the checks that passed, and the approval it is waiting for](https://apptown.dev/tour/change-light.png)
 
 More screenshots are in [the tour](https://apptown.dev/tour/).
 

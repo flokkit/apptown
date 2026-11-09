@@ -203,7 +203,14 @@ try {
         await panel.waitFor({ state: 'detached' })
         assert.ok(await trigger.evaluate(element => element === document.activeElement), `focus returns to ${name}`)
         await trigger.click()
-        await page.locator('main').click({ position: { x: 2, y: 2 } })
+        // A tap outside closes it: on a point the person can see, outside the
+        // panel. Clicking main's own corner scrolled the page to reach it
+        // while the open panel held it at its trigger, and on a busy machine
+        // the scroll never settled (three landing gates timed out here).
+        const box = await panel.boundingBox()
+        const viewport = page.viewportSize()
+        const outsideY = box && box.y < viewport.height / 2 ? viewport.height - 4 : 4
+        await page.mouse.click(4, outsideY)
         await panel.waitFor({ state: 'detached' })
       }
       if (width <= 800) assert.ok(await page.locator('table[aria-label="Wrapping records"] td').evaluateAll(cells => cells.every(cell => cell.scrollWidth <= cell.clientWidth + 1)), `record text wraps at ${width}, ${size}`)

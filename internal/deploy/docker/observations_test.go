@@ -118,3 +118,25 @@ func TestInvalidGenerationOnlyBlindsItsOwnDeployment(t *testing.T) {
 		})
 	}
 }
+
+// A preview's container is started before its record exists and carries no
+// generation label; it is observed as its placement's own generation, so a
+// running preview reads as running rather than unknown. (Any other
+// container without one stays unknown: TestInvalidGenerationOnlyBlindsItsOwnDeployment.)
+func TestUnlabelledPreviewContainerIsItsPlacementsGeneration(t *testing.T) {
+	t.Parallel()
+	daemon := dockerfake.New()
+	if _, err := daemon.Run(t.Context(), "", docker.Command{Args: []string{"run", "-d", "--name", "preview", "--label", "apptown.class=preview", "app"}}); err != nil {
+		t.Fatal(err)
+	}
+	scope := func(context.Context) (docker.Scope, error) { return docker.Scope{Client: daemon}, nil }
+	p := deploy.Placement{Container: "preview", Generation: 2}
+	got, err := docker.Inventory{Scope: scope}.ObserveAll(t.Context(), []deploy.Placement{p})
+	if err != nil || len(got) != 1 || got[0].Rollout != "active" || got[0].Generation != 2 {
+		t.Fatalf("fleet %+v: %v", got, err)
+	}
+	single, err := (&docker.Driver{Scope: scope}).Observe(t.Context(), p)
+	if err != nil || !reflect.DeepEqual(single, got[0]) {
+		t.Fatalf("single %+v fleet %+v: %v", single, got[0], err)
+	}
+}

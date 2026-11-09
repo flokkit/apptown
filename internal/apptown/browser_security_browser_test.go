@@ -268,14 +268,16 @@ func (t *browserTerminal) Write(p []byte) (int, error) {
 // Docker; checks that need a tool's image or a model say they could not
 // run). The chats are recorded transcripts on the console's fake agent,
 // so no model is called; the commands they quote ran in the change's
-// folder. The extra fieldnotes case imports recorded outcomes, labelled as
-// such, with a local preview stand-in (tour_fieldnotes_browser_test.go).
-// Not part of any gate: make tour runs it.
+// folder. The garage's extra fieldnotes case imports recorded outcomes,
+// labelled as such, with a local preview stand-in. Not part of any gate:
+// make tour runs it.
 //
-// The tour is the healthy AppTown: its executor's image is present, its
-// app is running, every container the deployments recorded is on the
-// host, and its disk and memory readings are fixed, roomy ones rather than
-// this machine's. TestGarage is the same AppTown with one example of each
+// The tour is the healthy AppTown, and tells one change's story: the neon
+// makeover, checked, with its preview running and waiting for approval
+// (tourScene.story). Its executor's image is present, its apps are
+// running, every container the deployments recorded is on the host, and
+// its disk, memory and CPU readings are fixed, roomy ones rather than this
+// machine's. TestGarage is the same AppTown with one example of each
 // trouble.
 func TestTour(t *testing.T) {
 	w := newTourWorld(t, false, 0)
@@ -288,11 +290,14 @@ func TestTour(t *testing.T) {
 	a, password, tourDir, made := w.a, w.password, w.tourDir, w.made
 
 	// The stops, with the ids the scene made.
-	vars := map[string]string{"{before}": made.before, "{after}": made.after, "{review}": made.review.String(), "{chat}": made.chat.String(), "{session}": made.session}
+	vars := map[string]string{"{before}": made.before, "{after}": made.after, "{story}": made.story.String(), "{storySession}": made.storySession, "{preview}": made.preview, "{chat}": made.chat.String(), "{session}": made.session}
+	t.Logf("the story's change: /changes/%s, its preview %s", made.story, made.preview)
 	type shot struct {
-		ID   string `json:"id"`
-		Path string `json:"path"`
-		Wait string `json:"wait,omitempty"`
+		ID    string `json:"id"`
+		Path  string `json:"path"`
+		Wait  string `json:"wait,omitempty"`
+		Click string `json:"click,omitempty"`
+		Happy bool   `json:"happy,omitempty"`
 	}
 	var shots []shot
 	for _, s := range stops {
@@ -300,7 +305,10 @@ func TestTour(t *testing.T) {
 		for k, v := range vars {
 			p = strings.ReplaceAll(p, k, v)
 		}
-		shots = append(shots, shot{ID: s.ID, Path: p, Wait: s.Wait})
+		if strings.Contains(p, "{") {
+			t.Fatalf("stop %s names a value the tour does not have: %s", s.ID, p)
+		}
+		shots = append(shots, shot{ID: s.ID, Path: p, Wait: s.Wait, Click: s.Click, Happy: s.Happy})
 	}
 	shotsJSON, _ := json.Marshal(shots)
 	module := os.Getenv("APPTOWN_PLAYWRIGHT_MODULE")
@@ -337,8 +345,8 @@ func TestHostSnapshotScenesReadInventory(t *testing.T) {
 				t.Setenv("APPTOWN_DESIGN_HOLD", "127.0.0.1:0")
 			}
 			w := newTourWorld(t, garage, 10*time.Millisecond)
-			assertFieldnotesDecision(t, w.scene)
 			if garage {
+				assertFieldnotesDecision(t, w.scene)
 				assertGarageProgress(t, w.scene)
 				w.observe()
 				assertGarageProgress(t, w.scene)
@@ -585,12 +593,25 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 	var imagesMu sync.Mutex
 	daemon := newFakeDocker()
 	told := &atomic.Pointer[string]{}
-	// answer is what a started container serves: a page saying what it is,
+	// answer is what a started container serves: a page saying what it is
+	// (or, for a static site's mounted folder, site, that folder's files),
 	// and the release a static part was told (release) at ReleasePath.
-	answer := func(release func() string) http.Handler {
+	answer := func(release func() string, site string) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == appcontract.ReleasePath {
 				_, _ = rw.Write([]byte(release()))
+				return
+			}
+			if site != "" {
+				// AppTown's file server configuration answers the page's
+				// browser values (docker.StaticServerCommand); this site is
+				// given none.
+				if r.URL.Path == "/_apptown/env.js" {
+					rw.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+					_, _ = rw.Write([]byte(docker.BrowserEnvScript("{}")))
+					return
+				}
+				http.FileServer(http.Dir(site)).ServeHTTP(rw, r)
 				return
 			}
 			rw.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -604,7 +625,7 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 			return *v
 		}
 		return ""
-	}))
+	}, ""))
 	t.Cleanup(app.Close)
 	appPort := app.Listener.Addr().(*net.TCPAddr).Port
 	// The apps' front door (the main tier domain, below) is that port on
@@ -805,7 +826,18 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 				if err != nil {
 					return "docker: Error response from daemon: driver failed programming external connectivity: " + err.Error(), errors.New("exit status 125"), true
 				}
-				srv := &http.Server{Handler: answer(func() string { return release })}
+				// A change's preview of a static site is the file server
+				// with the change's folder mounted at /srv: the fake serves
+				// that folder, as the file server would.
+				site := ""
+				for i := 0; i+1 < len(args); i++ {
+					if args[i] == "-v" {
+						if folder, ok := strings.CutSuffix(args[i+1], ":/srv:ro"); ok {
+							site = folder
+						}
+					}
+				}
+				srv := &http.Server{Handler: answer(func() string { return release }, site)}
 				go func() { _ = srv.Serve(l) }()
 				listening.Lock()
 				if was := listening.on[name]; was != nil {
@@ -1093,6 +1125,21 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 	daemon, appPort, onHost, refuseRun := newSceneDocker(t, garage)
 	if garage {
 		daemon.disk.Kernel = func(string) (int, []byte, string) { return 1, nil, "the host's /proc could not be read" }
+	} else {
+		// The whole host's memory and CPU, as /proc describes the machine the
+		// daemon reports (8 GiB, 4 CPUs): steadily about 30% busy.
+		var samples atomic.Int64
+		daemon.disk.Kernel = func(command string) (int, []byte, string) {
+			if command == "cat /proc/meminfo" {
+				return 0, []byte("MemTotal: 8388608 kB\nMemAvailable: 5767168 kB\n"), ""
+			}
+			n := samples.Add(1)
+			stat := fmt.Appendf(nil, "cpu %d 0 0 %d 0 0 0 0 0 0\n", n*120, n*280)
+			for core := range 4 {
+				stat = fmt.Appendf(stat, "cpu%d 0 0 0 0 0 0 0 0\n", core)
+			}
+			return 0, stat, ""
+		}
 	}
 	// The garage has its own host name: browsers share cookies across ports
 	// on one host, so a tour session would otherwise reach the garage.
@@ -1101,8 +1148,12 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 		host = "garage.localhost"
 	}
 	publicHost := host + ":" + port
+	// Previews are served by AppTown itself, on its own port, as
+	// change-….preview.localhost: the camera can open one.
+	previewTier := "preview=preview.localhost:" + port
 	if hold != "" {
 		publicHost = "http://" + publicHost
+		previewTier = "preview=http://preview.localhost:" + port
 	}
 	// The data folder reads the same on every machine: roomy in the tour
 	// and low in the garage. Host use comes from the fake daemon's reader.
@@ -1130,7 +1181,7 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 		}
 		return daemon.Run(ctx, host, req)
 	})
-	a, h := internalApp(t, Config{DataDir: dataDir, PublicHost: publicHost, TierDomains: []string{"preview=preview.localhost", fmt.Sprintf("main=http://apps.localhost:%d", appPort)},
+	a, h := internalApp(t, Config{DataDir: dataDir, PublicHost: publicHost, TierDomains: []string{previewTier, fmt.Sprintf("main=http://apps.localhost:%d", appPort)},
 		DockerClient: client, ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t), AgentImage: tourAgentImage,
 		DataDiskSpace: dataDisk,
 		InferenceURL:  "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
@@ -1174,21 +1225,25 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 	if boot.Code != http.StatusOK {
 		t.Fatalf("bootstrap: %d %s", boot.Code, boot.Body.String())
 	}
-	s := &tourScene{t: t, a: a, runtime: runtime, password: password, cookies: map[string]*http.Cookie{}, garage: garage, refuseRun: refuseRun}
+	s := &tourScene{t: t, a: a, runtime: runtime, password: password, cookies: map[string]*http.Cookie{}, garage: garage, story: !garage, release: true, refuseRun: refuseRun}
 	// configureConsoleModel supplied an explicit fixture binding; no provider is contacted.
 	// The team: Sam runs AppTown; Priya and Tom make apps.
 	for _, u := range []string{"priya", "tom"} {
 		s.call("sam", "POST", "/api/v1/users", map[string]string{"username": u, "role": "member", "password": password})
 	}
 	made := s.play(start)
-	s.fieldnotes()
 	if garage {
+		// The recorded rejection is trouble: the tour's story leaves it out.
+		s.fieldnotes()
 		s.progress(freeze, frozen, daemon)
 	}
 	for _, job := range operationJobs(t, a, project.DescriptionJob) {
 		runQueuedJobForTest(t, a, project.DescriptionJob, job.Key)
 	}
 	moveClock(a, -a.cfg.clock.ahead)
+	if s.story {
+		made.preview = s.openPreview("tom", made.story)
+	}
 	if garage {
 		// Since the last landing the built-in host's disk cannot be read:
 		// its capacity check fails, and it would refuse a new deploy.
@@ -1412,6 +1467,11 @@ type tourStop struct {
 	Caption string `yaml:"caption"`
 	Path    string `yaml:"path"`
 	Wait    string `yaml:"wait"`
+	// Click is a button's text the camera clicks before the shot, for a
+	// stop that shows a dialog; Happy has the camera refuse a failed or
+	// unknown status on the stop (shoot.mjs).
+	Click string `yaml:"click"`
+	Happy bool   `yaml:"happy"`
 }
 
 func readTourStops(t *testing.T, path string) []tourStop {
@@ -1481,7 +1541,7 @@ const tourPageHead = `<!doctype html>
 <body>
 <main>
   <h1>AppTown tour</h1>
-  <p class="lead">Follow a small team's apps from a request to a checked change. Conversations are recorded examples; the checks run against real example code. <a href="/">Back to apptown.dev</a>.</p>
+  <p class="lead">Meet a small team's AppTown. Sam looks after it. Tom keeps a cycling club's newsletter and a little rocket game, and Priya runs the team's lunch orders and approves changes to the newsletter. Follow one change from Tom's request to Priya's decision, then look around. The conversations are recorded examples; the checks run against real example code. <a href="/">Back to apptown.dev</a>.</p>
 `
 
 const tourPageTail = `</main>
@@ -1505,6 +1565,17 @@ type tourScene struct {
 	// does not say it is built with Python, and its second landing's deploy
 	// fails.
 	garage bool
+	// story is the tour's happy path: its last act is the neon makeover,
+	// checked, previewed and waiting for approval in place of the November
+	// issue, and the history leaves out the change that failed (the order
+	// total's style check) and the recorded fieldnotes rejection. The
+	// garage and the camera keep the whole history, with the makeover
+	// shipped.
+	story bool
+	// release runs each landing's release, as its follow-up and release
+	// jobs would, so main runs what was landed. The tour and the garage
+	// release; the camera records its releases' outcomes itself.
+	release bool
 	// refuseRun, while set, has the fake Docker host refuse to start an
 	// app's container.
 	refuseRun *atomic.Bool
@@ -1753,11 +1824,10 @@ func (s *tourScene) approve(runID ids.ID, who string) {
 	if d := s.steps(runID)["build"]; d.Status != "pass" {
 		s.t.Fatalf("run %s: build is %q: %s (%+v)", runID, d.Status, d.Evidence, s.steps(runID))
 	}
-	// In the garage the landing's release follows, as its follow-up and
-	// release jobs run it: main is deployed, unless the host was told to
-	// refuse it. The tour and the camera record their releases' outcomes
-	// themselves.
-	if !s.garage {
+	// The landing's release follows, as its follow-up and release jobs run
+	// it: main is deployed, unless the host was told to refuse it (the
+	// garage's second Lunch Orders landing).
+	if !s.release {
 		return
 	}
 	ctx := s.t.Context()
@@ -1931,6 +2001,11 @@ type tourIDs struct {
 	review, chat  ids.ID
 	session       string
 	before, after string
+	// story is the neon makeover, and storySession its chat, in the
+	// tour's story (tourScene.story).
+	story        ids.ID
+	storySession string
+	preview      string
 }
 
 // tourAsk is a change a person asks the helper for in a chat: what they
@@ -1970,6 +2045,20 @@ func (s *tourScene) helped(c *tourChange, who string, h tourAsk) string {
 	s.transcript(session, log)
 	s.until(log.at)
 	return session
+}
+
+// openPreview is who opening a change's preview, as Try it does, and
+// answers its address. A preview nobody has looked at for eight hours is
+// stopped, so the tour opens the story's when its clock reads now.
+func (s *tourScene) openPreview(who string, change ids.ID) string {
+	s.t.Helper()
+	var opened struct {
+		URL string `json:"url"`
+	}
+	if err := json.Unmarshal(s.call(who, "POST", fmt.Sprintf("/api/v1/changes/%s/preview", change), map[string]any{}), &opened); err != nil || opened.URL == "" {
+		s.t.Fatalf("change %s's preview: %+v %v", change, opened, err)
+	}
+	return opened.URL
 }
 
 // endChat is who closing a chat, which harvests its usage.
@@ -2112,21 +2201,40 @@ func (s *tourScene) play(start time.Time) tourIDs {
 	s.commit(news2, "tom", "Ride calendar page")
 	s.ship(news2, "tom", "priya", 25*time.Minute)
 
-	// Day 8: a real before/after, photographed from committed example files.
-	at(8, "10:00")
-	neon := s.open("tom", "club-newsletter", "Give the club a neon makeover", "Keep the rides and newsletters, but make it gloriously loud.")
-	before := s.serveSite(neon)
-	neonSession := s.helped(neon, "tom", tourAsk{
-		ask:         "The site is sensible. Make it an exuberant neon cycling extravaganza. Keep it readable and keep every link working!",
-		look:        "I'll keep the newsletter and ride pages and change the front page and its styling.",
-		lookCommand: "cat public/index.html public/style.css",
-		files:       newsletterNeon,
-		did:         "The front page has a giant headline, neon colours, ride cards and a checkerboard border. No flashing or outside assets.",
-		after:       "The links pass. The newsletters and ride calendar are still there. Try the new look before approving it.",
-	})
-	after := s.serveSite(neon)
-	s.endChat("tom", neonSession)
-	s.ship(neon, "tom", "priya", 25*time.Minute)
+	// The neon makeover, a real before/after photographed from committed
+	// example files. In the tour's story it is the last act, and waits for
+	// Priya's approval with its checks passed and its preview running; in
+	// the garage and the camera it ships on day 8.
+	var made tourIDs
+	makeover := func() {
+		neon := s.open("tom", "club-newsletter", "Give the club a neon makeover", "Keep the rides and newsletters, but make it gloriously loud.")
+		made.before = s.serveSite(neon)
+		neonSession := s.helped(neon, "tom", tourAsk{
+			ask:         "The site is sensible. Make it an exuberant neon cycling extravaganza. Keep it readable and keep every link working!",
+			look:        "I'll keep the newsletter and ride pages and change the front page and its styling.",
+			lookCommand: "cat public/index.html public/style.css",
+			files:       newsletterNeon,
+			did:         "The front page has a giant headline, neon colours, ride cards and a checkerboard border. No flashing or outside assets.",
+			after:       "The links pass. The newsletters and ride calendar are still there. Try the new look before approving it.",
+		})
+		made.after = s.serveSite(neon)
+		s.endChat("tom", neonSession)
+		if !s.story {
+			s.ship(neon, "tom", "priya", 25*time.Minute)
+			return
+		}
+		// Tom closes the chat and asks for the landing; its checks pass
+		// and it waits for Priya. Its preview is opened at the end (openPreview), so it is
+		// running when the camera comes.
+		s.later(10 * time.Minute)
+		s.land(neon, "tom", map[string]string{"tests": "pass", "style": "pass"})
+		made.story, made.storySession = neon.ID, neonSession
+	}
+	// Day 8: the makeover, outside the story.
+	if !s.story {
+		at(8, "10:00")
+		makeover()
+	}
 
 	// Day 9: the best height survives a reload.
 	at(9, "17:00")
@@ -2155,12 +2263,16 @@ func (s *tourScene) play(start time.Time) tourIDs {
 		"expiresAt":     s.now().Add(30 * 24 * time.Hour).UTC().Format(time.RFC3339)})
 
 	// Day 11: the order total, with a debugging print the style check
-	// refuses. It waits for Sam to send it back or fix it.
-	at(11, "12:20")
-	lunch3 := s.open("sam", "lunch-orders", "Show the order total at the top of the list", "Whoever orders needs the total to pay the café.")
-	s.write(lunch3, lunchTotal)
-	s.commit(lunch3, "sam", "Total price at the top of the 11am list")
-	s.land(lunch3, "sam", map[string]string{"tests": "pass", "style": "fail"})
+	// refuses. It waits for Sam to send it back or fix it. The story
+	// leaves it out.
+	if !s.story {
+		at(11, "12:20")
+		lunch3 := s.open("sam", "lunch-orders", "Show the order total at the top of the list", "Whoever orders needs the total to pay the café.")
+		s.write(lunch3, lunchTotal)
+		s.commit(lunch3, "sam", "Total price at the top of the 11am list")
+		s.land(lunch3, "sam", map[string]string{"tests": "pass", "style": "fail"})
+		made.review = lunch3.ID
+	}
 
 	// Day 12: a countdown that preserves the no-fuel rule.
 	at(12, "16:45")
@@ -2173,15 +2285,20 @@ func (s *tourScene) play(start time.Time) tourIDs {
 	at(12, "23:00")
 	s.review()
 
-	// Day 13: the November issue waits for an approval; Priya asks the
-	// helper to make the menu editable.
+	// Day 13: the November issue waits for an approval (in the story,
+	// the makeover does instead); Priya asks the helper to make the menu
+	// editable.
 	at(13, "7:30")
-	news3 := s.open("tom", "club-newsletter", "Add the November newsletter", "Winter ride times and the end-of-season dinner.")
-	s.write(news3, newsletterNovember)
-	s.commit(news3, "tom", "November newsletter")
-	s.land(news3, "tom", map[string]string{"tests": "pass", "style": "pass"})
+	if s.story {
+		makeover()
+	} else {
+		news3 := s.open("tom", "club-newsletter", "Add the November newsletter", "Winter ride times and the end-of-season dinner.")
+		s.write(news3, newsletterNovember)
+		s.commit(news3, "tom", "November newsletter")
+		s.land(news3, "tom", map[string]string{"tests": "pass", "style": "pass"})
+	}
 
-	at(13, "8:50")
+	at(13, "9:10")
 	lunch4 := s.open("priya", "lunch-orders", "Let an admin edit the menu", "")
 	session = s.helped(lunch4, "priya", tourAsk{
 		ask:         "Can an admin edit the menu? Right now the dishes are hard-coded. Sam should be able to add, rename and hide dishes without asking me.",
@@ -2194,7 +2311,8 @@ func (s *tourScene) play(start time.Time) tourIDs {
 	// AppTown's own round reads the open chat's usage, as it does at start
 	// and every few minutes.
 	s.a.harvestAllConsoleUsage(context.Background())
-	return tourIDs{review: lunch3.ID, chat: lunch4.ID, session: session, before: before, after: after}
+	made.chat, made.session = lunch4.ID, session
+	return made
 }
 
 // review is Sam running a conformance review of every project's committed

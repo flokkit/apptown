@@ -20,7 +20,7 @@ import sys
 WIDTH, HEIGHT = 2880, 1800
 
 
-KEYS = {"id", "title", "caption", "path", "wait"}
+KEYS = {"id", "title", "caption", "path", "wait", "click", "happy"}
 # A plain value YAML reads as the same string: no ": " or " #" inside, and
 # nothing YAML gives a meaning at the start. Anything else is double-quoted.
 PLAIN = re.compile(r"""^(?![-?:,\[\]{}#&*!|>'"%@`\s])(?!.*: )(?!.* #).*\S$""")
