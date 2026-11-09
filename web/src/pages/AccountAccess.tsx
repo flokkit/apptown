@@ -48,16 +48,16 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
           {canEdit ? <ListTable label={`${newest.clientName} connections for ${newest.user}`} rows={connections} rowKey={d => String(d.id)} columns={[
             { key: 'client', label: 'Agent', phone: 'name', render: d => d.clientName },
             { key: 'user', label: 'Account', phone: 'state', render: d => d.user },
-            { key: 'permissions', label: 'Permissions', phone: 'detail', render: d => <button className="link" aria-label={`Permissions for ${d.clientName} as ${d.user}`} onClick={() => setSelected(d)}>Access</button> },
-            { key: 'connected', label: 'Connected', phone: 'extra', render: d => <span title={fmtStamp(d.createdAt ?? '')}><span className="record-wide">{fmtStamp(d.createdAt ?? '')}</span><span className="record-phone">{relTime(d.createdAt ?? '') || '—'}</span></span> },
-            { key: 'used', label: 'Last used', phone: 'time', kind: 'time', render: d => <span title={fmtStamp(d.lastUsed ?? '')}>{relTime(d.lastUsed ?? '') || 'never'}</span> },
+            { key: 'permissions', label: 'Permissions', render: d => <button className="link" aria-label={`Permissions for ${d.clientName} as ${d.user}`} onClick={() => setSelected(d)}>Access</button> },
+            { key: 'connected', label: 'Connected', render: d => <span title={fmtStamp(d.createdAt ?? '')}><span className="record-wide">{fmtStamp(d.createdAt ?? '')}</span><span className="record-phone">{relTime(d.createdAt ?? '') || '—'}</span></span> },
+            { key: 'used', label: 'Last used', kind: 'time', render: d => <span title={fmtStamp(d.lastUsed ?? '')}>{relTime(d.lastUsed ?? '') || 'never'}</span> },
             { key: 'action', label: '', phone: 'action', render: d => <CredentialConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },
           ]} /> : <section><h3>Connections and permissions</h3>
       <ListTable className="small" label={`${newest.clientName} connections and permissions for ${newest.user}`} rows={connections} rowKey={d => String(d.id)} columns={[
         { key: 'client', label: 'Agent', phone: 'name', render: d => <><span className="badge">{d.clientName}</span> as <b>{d.user}</b></> },
-        { key: 'permissions', label: 'Permissions', phone: 'detail', render: d => <><span>{d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span><code className="tech-line muted">{d.scopes.join(', ')}</code></> },
-        { key: 'connected', label: 'Connected', phone: 'extra', render: d => fmtStamp(d.createdAt) },
-        { key: 'used', label: 'Last used', phone: 'time', kind: 'time', render: d => d.lastUsed ? fmtStamp(d.lastUsed) : '' },
+        { key: 'permissions', label: 'Permissions', render: d => <><span>{d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span><code className="tech-line muted">{d.scopes.join(', ')}</code></> },
+        { key: 'connected', label: 'Connected', render: d => fmtStamp(d.createdAt) },
+        { key: 'used', label: 'Last used', kind: 'time', render: d => d.lastUsed ? fmtStamp(d.lastUsed) : '' },
         { key: 'action', label: '', phone: 'action', render: d => <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },
       ]} /></section>}
         </div>
@@ -106,9 +106,9 @@ export function TokensCard({ personal = false }: { personal?: boolean }) {
       {!personal && <ListTable label="Access tokens" rows={activeTokens} rowKey={t => t.Name} columns={[
         { key: 'name', label: 'Name', phone: 'name', kind: 'technical', render: t => t.Name },
         { key: 'user', label: 'Account', phone: 'state', render: t => t.User },
-        { key: 'role', label: 'Role', phone: 'detail', render: t => t.Role },
-        { key: 'purpose', label: 'Purpose', phone: 'extra', render: t => <span title={tokenPurposes[t.Purpose] ?? 'no purpose'}>{t.Purpose === 'cli' ? 'CLI' : t.Purpose === 'agent' ? 'Agent' : 'No purpose'}</span> },
-        { key: 'used', label: 'Last used', kind: 'time', phone: 'time', render: t => <span title={fmtStamp(t.LastUsed ?? '')}>{relTime(t.LastUsed ?? '') || 'never'}</span> },
+        { key: 'role', label: 'Role', render: t => t.Role },
+        { key: 'purpose', label: 'Purpose', render: t => <span title={tokenPurposes[t.Purpose] ?? 'no purpose'}>{t.Purpose === 'cli' ? 'CLI' : t.Purpose === 'agent' ? 'Agent' : 'No purpose'}</span> },
+        { key: 'used', label: 'Last used', kind: 'time', render: t => <span title={fmtStamp(t.LastUsed ?? '')}>{relTime(t.LastUsed ?? '') || 'never'}</span> },
         { key: 'action', label: '', phone: 'action', render: t => <CredentialConfirm label="revoke" ask={`Revoke token ${t.Name}? Anything using it stops working.`} onYes={() => { void run(() => del(`${personal ? '/account/tokens' : '/tokens'}/${t.Name}`)) }} /> },
       ]} />}
       {personal && activeTokens.map(t => (

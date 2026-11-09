@@ -129,6 +129,41 @@ const targetFixture = await build({
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main style={{padding:18}}><InfrastructureNew /></main></MemoryRouter></QueryClientProvider>)
   ` },
 })
+// The number of lines an element's text runs to, by its line boxes.
+const textLines = el => { const range = document.createRange(); range.selectNodeContents(el); return new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.bottom))).size }
+// Phone list shapes from real pages: a deployment's parts with their CPU and
+// memory, its technical parts table with a long state, an activity row
+// styled by its page, a title with its status and button, and a table of
+// row headers inside the change page's wrappers.
+const phoneListsFixture = await build({
+  absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
+  stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
+    import { createRoot } from 'react-dom/client'
+    import { MemoryRouter } from 'react-router-dom'
+    import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+    import { DeploymentContainers } from './pages/project/DeploymentContainers'
+    import { DiagnosticsDetail } from './pages/project/settings/Diagnostics'
+    import { ListRow } from './ListRow'
+    import { ListTable } from './ListTable'
+    import { Status } from './Status'
+    const reading = {waiting:false,stale:false,unknown:false,observedAt:'2026-11-09T13:36:00Z'}
+    const facts = {id:'c1',status:'running',running:true,oomKilled:false,restarts:0,startedAt:'2026-11-09T13:36:00Z',health:'not configured'}
+    const diagnostics = {reading,deployment:'main',generation:10,desiredGeneration:10,commit:'40ce2c8fed79aa',runtime:{state:'running',observedAt:'2026-11-09T22:52:00Z',stale:false},containers:true,
+      parts:[{part:'web',public:true,generation:10,presence:'running',facts,stale:false},{part:'postgres',need:true,generation:10,presence:'running',facts,stale:false}],
+      events:[],eventsKnown:true,eventsSource:'docker',logMaxLines:200,logMaxBytes:65536}
+    const used = (part, need, usedBytes) => ({part,public:!need,need,memory:'256 MB',cpu:'',overrideLabel:{},overrideApplied:false,observed:{part,need,usedBytes,limitBytes:268435456,cpuCores:0,cpuLimit:0,image:'sha256:b56a936be1430000',known:true}})
+    const resources = {reading,recorded:true,parts:[used('web',false,65956249),used('postgres',true,25375539)],limits:[],limitsKnown:true,limitsSource:'docker'}
+    window.fetch = async path => new Response(JSON.stringify(String(path).endsWith('/resources') ? resources : String(path).endsWith('/diagnostics') ? diagnostics : {}), {headers:{'Content-Type':'application/json'}})
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main className="main" style={{padding:16}}>
+      <div id="parts"><DeploymentContainers slug="if-only" name="main" /></div>
+      <div id="technical-parts"><DiagnosticsDetail d={diagnostics} busy={false} onLog={() => {}} /></div>
+      <div id="grid-list" style={{display:'grid'}}><section><ListTable label="Connections" rows={['ChatGPT']} rowKey={r=>r} columns={[{key:'agent',label:'Agent',phone:'name',render:r=>r},{key:'permissions',label:'Permissions',render:()=><><span>Can create and edit changes</span><code className="tech-line">apptown:user:read, apptown:change:create, apptown:change:write</code></>}]} /></section></div>
+      <section id="activity"><ListRow to="/changes/14" className="card row application-overview-card" state={<span className="row-status"><Status word="deployed" /></span>} identity={<><strong>#14 Publish the winter ride times</strong><span className="muted small">Release 16 · main</span></>} /></section>
+      <div id="title" className="row"><h1 className="grow">built-in-docker</h1><Status observation word="failed" /><button className="primary">Check target</button></div>
+      <div className="ch-page work-page"><section className="ch-change-card"><table id="row-headers" className="ch-facts-table"><tbody><tr><th>Instructions</th><td>Publish the winter ride times on the rides page</td></tr><tr><th>Attachments</th><td>none</td></tr></tbody></table></section></div>
+    </main></MemoryRouter></QueryClientProvider>)
+  ` },
+})
 const trailFixture = await build({
   absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
   stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
@@ -246,7 +281,7 @@ try {
   await page.evaluate(() => {
     const box = document.createElement('div'); box.id = 'phone-content-fixtures'
     box.innerHTML = '<p><code class="tech-line muted">protection-observation/01a1c0f7-f732-717b-bf23-3bc2cfec567f/0bfd216d8671931e214963dad76672e5b1978f80b6dae4cf07a49bab12b518bb</code></p>'
-      + '<div class="cap-details" tabindex="0"><table class="record-table small cap-table"><thead><tr><th>Name</th><th>Memory</th><th>CPU</th><th>Disk</th></tr></thead><tbody><tr><td class="phone-name">lunch-orders/main</td><td class="phone-detail">120 MB</td><td class="phone-state record-fit">2%</td><td class="phone-extra">1.2 GB</td></tr></tbody></table></div>'
+      + '<div class="cap-details" tabindex="0"><table class="record-table small cap-table"><thead><tr><th>Name</th><th>Memory</th><th>CPU</th><th>Disk</th></tr></thead><tbody><tr><td class="phone-name">lunch-orders/main</td><td class="phone-value" data-label="Memory">120 MB</td><td class="phone-state record-fit" data-label="CPU">2%</td><td class="phone-value" data-label="Disk">1.2 GB</td></tr></tbody></table></div>'
     box.innerHTML += '<div role="list"><div role="listitem"><div class="list-row pack-row"><div class="list-identity"><strong>adopt-integration</strong></div><div class="list-state">v1</div><div class="list-action"></div><div class="list-detail muted small"><div class="library-detail"><p>lifecycle · wire</p><pre class="source">description: Connect the app to a newly attached integration, following the integration guidance, and check that it builds and runs.</pre></div></div></div></div></div>'
     document.querySelector('main').append(box)
   })
@@ -260,6 +295,7 @@ try {
   }), 'workflow detail uses the available phone row width so source remains readable')
   assert.ok(await page.locator('#phone-content-fixtures .tech-line').evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'technical id wraps inside its value on a phone')
   assert.deepEqual(await page.locator('#phone-content-fixtures .cap-table').evaluate(t => [...t.tHead.rows[0].cells].map((th, i) => Math.round(th.getBoundingClientRect().left - t.tBodies[0].rows[0].cells[i].getBoundingClientRect().left))), [0, 0, 0, 0], 'capacity headings sit over their figures on a phone')
+  assert.ok(await page.locator('#phone-content-fixtures .cap-table td').evaluateAll(cells => cells.every(cell => ['none', 'normal'].includes(getComputedStyle(cell, '::before').content))), 'capacity cells draw no phone label: their headings name the figures')
   await page.evaluate(() => document.getElementById('phone-content-fixtures').remove())
   for (const width of [390, 800, 1440]) {
     await page.setViewportSize({ width, height: 844 })
@@ -427,7 +463,50 @@ try {
         const r = el.getBoundingClientRect()
         return r.left >= 0 && r.right <= innerWidth
       })), `target connection steps and fields fit at ${width}, ${size}`)
+      assert.equal(await page.locator('.wiz-steps li').evaluateAll(steps => new Set(steps.map(step => Math.round(step.getBoundingClientRect().top))).size), 1, `target steps stay on one row, in order, at ${width}, ${size}`)
       if (out) await page.screenshot({ path: `${out}/target-connection-${width}-${size}.png`, fullPage: true })
+    }
+  }
+  for (const width of [390, 1440]) {
+    for (const size of ['small', 'medium', 'large']) {
+      await page.setViewportSize({ width, height: 844 })
+      await page.goto('http://layout.test/')
+      await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
+      await page.addScriptTag({ content: phoneListsFixture.outputFiles[0].text })
+      await page.locator('#parts .container-gauge').last().waitFor()
+      // Each record's cells: none drawn over another, the name never
+      // squeezed, and on a phone each value under its column's label.
+      const records = await page.locator('#parts tbody tr, #technical-parts tbody tr').evaluateAll(rows => rows.map(row => {
+        const cells = [...row.children].filter(cell => getComputedStyle(cell).display !== 'none' && cell.getBoundingClientRect().height > 0)
+        const boxes = cells.map(cell => cell.getBoundingClientRect())
+        const overlaps = boxes.some((a, i) => boxes.some((b, j) => j > i && a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1))
+        const name = row.querySelector('.phone-name')
+        const words = name.textContent.trim().split(/\s+/).length
+        const range = document.createRange()
+        range.selectNodeContents(name)
+        const lines = new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.bottom))).size
+        const labels = cells.map(cell => getComputedStyle(cell, '::before').content).filter(c => c && c !== 'none' && c !== 'normal').map(c => JSON.parse(c))
+        const overflows = cells.some(cell => cell.scrollWidth > cell.clientWidth + 1)
+        return { overlaps, overflows, nameShare: name.getBoundingClientRect().width / row.getBoundingClientRect().width, words, lines, labels, oneLine: new Set(boxes.map(b => Math.round(b.top))).size === 1 }
+      }))
+      assert.equal(records.length, 4)
+      for (const r of records) {
+        assert.ok(!r.overlaps, `no cell is drawn over another at ${width}, ${size}`)
+        if (width === 390) assert.ok(!r.overflows, `every value wraps within its line at 390, ${size}`)
+        if (width === 390) {
+          assert.ok(r.nameShare >= 0.6, `a record's name keeps at least 60% of the row at 390, ${size}: ${r.nameShare}`)
+          assert.ok(r.lines <= r.words, `a record's name breaks only between words at 390, ${size}: ${r.lines} lines for ${r.words} words`)
+        } else assert.deepEqual(r.labels, [], 'desktop rows show column headers, not labels')
+      }
+      if (width === 390) {
+        assert.deepEqual(records[0].labels.filter(l => ['CPU', 'Memory'].includes(l)), ['CPU', 'Memory'], 'each part says which figure is CPU and which is memory')
+        assert.ok(await page.locator('#activity .list-row').evaluate(row => row.querySelector('.list-state').getBoundingClientRect().top >= row.querySelector('.list-identity').getBoundingClientRect().bottom - 1), `an activity row's status sits under its title at 390, ${size}`)
+        assert.ok(await page.locator('#activity strong').evaluate(textLines) <= 2, `an activity title is not squeezed at 390, ${size}`)
+        assert.equal(await page.locator('#title h1').evaluate(textLines), 1, `a title keeps its words on one line at 390, ${size}`)
+        for (const th of await page.locator('#row-headers th').all()) assert.equal(await th.evaluate(textLines), 1, `row headers keep whole words at 390, ${size}`)
+      } else assert.ok(await page.locator('#activity .list-state').evaluate(state => state.getBoundingClientRect().left < state.parentElement.querySelector('.list-identity').getBoundingClientRect().left), 'desktop activity rows lead with their status')
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `phone list fixture fits at ${width}, ${size}`)
+      if (out) await page.screenshot({ path: `${out}/phone-lists-${width}-${size}.png`, fullPage: true })
     }
   }
   // The existing visual viewport variables keep the composer in the shortened

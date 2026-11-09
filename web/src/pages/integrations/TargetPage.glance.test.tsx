@@ -57,7 +57,7 @@ it('keeps a deployment resource count unknown until its inventory can be read', 
       deployments: [{ project: 'shop', name: 'main', status: { word: 'working', reason: '', stale: false }, statusLabel: 'working' }] }, history: [], builtIn: true,
   })
   const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/kitchen']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name" element={<TargetPage />} /></Routes></QueryClientProvider></MemoryRouter>)
-  expect(html).toContain('<td class="number record-fit phone-extra">unknown</td>')
+  expect(html).toContain('<td class="number record-fit phone-value" data-label="Resources">unknown</td>')
   expect(html).not.toContain('0 resources')
 })
 
@@ -91,9 +91,9 @@ it('shows recorded deployment resources, generation and address without a curren
   const el = document.createElement('div'); el.innerHTML = html
   const row = el.querySelector('table[aria-label="What runs here"] tbody tr')!
   expect(row.querySelector('.phone-name a')?.textContent).toBe('shop/Production')
-  expect(row.querySelector('.phone-detail')?.textContent).toBe('shop.example.test')
-  expect(row.querySelector('.phone-extra a')?.textContent).toBe('2 resources')
-  expect(row.querySelector('.phone-extra a')?.getAttribute('href')).toBe('/targets/kitchen/resources?deployment=shop%2Fmain')
-  expect(row.querySelector('.phone-time')?.textContent).toBe('16')
+  expect(row.querySelector('[data-label="Address"]')?.textContent).toBe('shop.example.test')
+  expect(row.querySelector('[data-label="Resources"] a')?.textContent).toBe('2 resources')
+  expect(row.querySelector('[data-label="Resources"] a')?.getAttribute('href')).toBe('/targets/kitchen/resources?deployment=shop%2Fmain')
+  expect(row.querySelector('[data-label="Generation"]')?.textContent).toBe('16')
   expect(row.textContent).not.toContain('unknown')
 })

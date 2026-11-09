@@ -46,7 +46,7 @@ function Results({ vs, base, view }: { vs: Verdict[]; base: string; view: Confor
   const sorted = [...vs].sort((a, b) => stateOf(a.state).rank - stateOf(b.state).rank || a.projectSlug.localeCompare(b.projectSlug))
   return <ListTable label="Results by project" rows={sorted} rowKey={v => v.projectSlug} rowTo={v => `${base}/projects/${v.projectSlug}`} columns={[
     { key: 'project', label: 'Project', phone: 'name', render: v => <Link to={`${base}/projects/${v.projectSlug}`}>{v.projectSlug}</Link> },
-    { key: 'detail', label: 'Result', phone: 'detail', render: v => <>{v.detail && <span className="muted">{v.detail}</span>}{coveringChange(view, v) && <BeingFixed change={coveringChange(view, v)!} />}</> },
+    { key: 'detail', label: 'Result', render: v => <>{v.detail && <span className="muted">{v.detail}</span>}{coveringChange(view, v) && <BeingFixed change={coveringChange(view, v)!} />}</> },
     { key: 'status', label: 'Status', phone: 'state', render: v => <StateChip finding={v.lane === 'findings'} label={v.statusLabel} /> },
   ]} />
 }
@@ -96,7 +96,7 @@ export function ChecksList({ view, base }: { view: ConformanceView; base: string
       {checks.length === 0 && <p className="muted small">No checks recorded.</p>}
       {rows.length > 0 && <ListTable label="Checks" rows={rows} rowKey={r => r.id} rowTo={r => `${base}/checks/${encodeURIComponent(r.key)}`} columns={[
         { key: 'check', label: 'Check', phone: 'name', render: r => <Link to={`${base}/checks/${encodeURIComponent(r.key)}`}>{r.title}</Link> },
-        { key: 'results', label: 'Results', phone: 'detail', render: r => <span className="muted">{tally(r.vs)}</span> },
+        { key: 'results', label: 'Results', render: r => <span className="muted">{tally(r.vs)}</span> },
         { key: 'status', label: 'Status', phone: 'state', render: r => checkStatus(r.vs) },
         { key: 'fix', label: '', phone: 'action', render: r => view.lens.kind === 'current' && r.fixKey && fixableFindings(view, r.vs) > 0 && <FixEverywhere fixKey={r.fixKey} /> },
       ]} />}

@@ -51,14 +51,14 @@ export function ReviewsList() {
       <Section title="Fleet reviews" count={rows.length} note={single > 0 ? `${single} single-project review${single === 1 ? '' : 's'} appear on their project or remediation page.` : undefined}>
         <ListTable label="Fleet reviews" rows={rows.slice(0, limit)} rowKey={r => String(r.id)} rowTo={r => `/conformance/reviews/${r.id}`} columns={[
           { key: 'review', label: 'Review', phone: 'name', render: r => <Link to={`/conformance/reviews/${r.id}`}>Review #{r.number}</Link> },
-          { key: 'result', label: 'Result', phone: 'detail', render: r => <span className="muted">{result(r)}</span> },
-          { key: 'change', label: 'Since the last', phone: 'extra', render: r => r.delta && r.delta.comparedProjects > 0
+          { key: 'result', label: 'Result', render: r => <span className="muted">{result(r)}</span> },
+          { key: 'change', label: 'Since the last', render: r => r.delta && r.delta.comparedProjects > 0
             ? <span className="muted" title={`compared over ${r.delta.comparedProjects} projects with the review before it`}><span className={r.delta.fixed ? 'review-fixed' : undefined}>{r.delta.fixed} fixed</span>{' · '}<span className={r.delta.new ? 'review-new' : undefined}>{r.delta.new} new</span></span>
             : <span className="muted">—</span> },
-          { key: 'by', label: 'Started by', phone: 'extra', render: r => <span className="muted">{r.actor}</span> },
+          { key: 'by', label: 'Started by', render: r => <span className="muted">{r.actor}</span> },
           // A review that finished with checks that could not run is incomplete, never a green finish.
           { key: 'status', label: 'Status', phone: 'state', render: r => <Status word={r.status === 'done' && r.errors > 0 ? 'incomplete' : r.statusLabel} help={r.status === 'error' ? 'This review could not finish. Open the review for details.' : undefined} /> },
-          { key: 'when', label: 'When', phone: 'time', kind: 'time', render: r => fmtWhen(r.finishedAt || r.startedAt) },
+          { key: 'when', label: 'When', kind: 'time', render: r => fmtWhen(r.finishedAt || r.startedAt) },
         ]} />
       </Section>
       {rows.length > limit && <button onClick={() => setLimit(n => n + 10)}>Show more</button>}

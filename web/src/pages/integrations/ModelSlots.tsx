@@ -175,8 +175,8 @@ export function ModelProfilePage({ projects = false }: { projects?: boolean }) {
             <div className="muted small">{jobName(row.gloss)}</div>
             <div className="muted small">Used by: {row.consumers?.length ? row.consumers.join(', ') : 'no jobs request it directly'}</div>
           </> },
-          { key: 'model', label: 'Model', phone: 'detail', className: 'model-slots-td', render: row => cell(row) },
-          ...(spent ? [{ key: 'spent', label: 'Spent (7 days)', phone: 'extra' as const, className: 'small muted model-slots-td-2', render: (row: typeof data.slots[number]) => row.spend7d ? `${fmtTokens(row.spend7d.input)} in · ${fmtTokens(row.spend7d.output)} out` : '' }] : []),
+          { key: 'model', label: 'Model', className: 'model-slots-td', render: row => cell(row) },
+          ...(spent ? [{ key: 'spent', label: 'Spent (7 days)', className: 'small muted model-slots-td-2', render: (row: typeof data.slots[number]) => row.spend7d ? `${fmtTokens(row.spend7d.input)} in · ${fmtTokens(row.spend7d.output)} out` : '' }] : []),
         ]} />
       </Section>}
 

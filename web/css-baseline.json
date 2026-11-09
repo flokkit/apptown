@@ -19,7 +19,7 @@
     "declaration-no-important": 1
   },
   "web/src/pages/NewProject.css": {
-    "apptown/pixel-spacing": 6
+    "apptown/pixel-spacing": 4
   },
   "web/src/pages/Usage.css": {
     "apptown/pixel-spacing": 9

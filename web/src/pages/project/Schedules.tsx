@@ -88,9 +88,9 @@ export function ScheduleRows({ slug }: { slug: string }) {
       <StaleNote q={q} />
       <ListTable label="Schedules" rows={data.schedules} rowKey={s => s.source.workflow} columns={[
         { key: 'workflow', label: 'Workflow', phone: 'name', render: s => <strong title={`workflow ${s.source.workflow}, version ${s.source.version}`}>{s.source.workflow}</strong> },
-        { key: 'cadence', label: 'When', phone: 'detail', className: 'muted small', render: s => <span title={`cron ${s.cron} (${s.timeZone})`}>{cadenceWords(s.cron, s.next)}</span> },
-        { key: 'last', label: 'Last run', phone: 'extra', className: 'muted small', render: s => <LastFiring s={s} slug={slug} /> },
-        { key: 'next', label: 'Next run', phone: 'time', className: 'small', kind: 'time', render: s => <NextFiring s={s} /> },
+        { key: 'cadence', label: 'When', className: 'muted small', render: s => <span title={`cron ${s.cron} (${s.timeZone})`}>{cadenceWords(s.cron, s.next)}</span> },
+        { key: 'last', label: 'Last run', className: 'muted small', render: s => <LastFiring s={s} slug={slug} /> },
+        { key: 'next', label: 'Next run', className: 'small', kind: 'time', render: s => <NextFiring s={s} /> },
       ]} />
       </div>
     </Section>

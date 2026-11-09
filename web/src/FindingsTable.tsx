@@ -59,9 +59,9 @@ export function FindingsTable({ findings, projectSlug, onChanged }: {
                     {f.disposition.expiresAt ? ` until ${fmtDay(f.disposition.expiresAt)}` : ''} — “{f.disposition.justification.slice(0, 80)}”
                   </div>
                 )}</> },
-        { key: 'package', label: 'Package / location', phone: 'detail', className: 'muted small', render: f => <>{f.package ? `${f.package.name}@${f.package.version ?? '?'}` : ''}
+        { key: 'package', label: 'Package / location', className: 'muted small', render: f => <>{f.package ? `${f.package.name}@${f.package.version ?? '?'}` : ''}
                 {f.location ? `${f.location.file}:${f.location.line ?? ''}` : ''}</> },
-        { key: 'fix', label: 'Fix', phone: 'extra', className: 'muted small', render: f => <>{f.package?.fixedIn ?? ''}</> },
+        { key: 'fix', label: 'Fix', className: 'muted small', render: f => <>{f.package?.fixedIn ?? ''}</> },
         { key: 'action', label: '', phone: 'action', render: f => <>{!f.disposition && (
                   <span className="row finding-actions">
                     <QuietPrompt label="Fix…" ask="Fix with workflow:"

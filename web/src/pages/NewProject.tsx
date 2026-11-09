@@ -164,10 +164,10 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
 // The three steps of making a project, the current one marked.
 function StepChips({ step }: { step: number }) {
   return (
-    <ol className="np-steps">
+    <ol className="wiz-steps">
       {['Software', 'Way of working', 'Repository'].map((label, i) => (
         <li key={label} className={step === i + 1 ? 'current' : step > i + 1 ? 'done' : ''} aria-current={step === i + 1 ? 'step' : undefined}>
-          {step > i + 1 ? '✓ ' : `${i + 1} · `}{label}
+          {label}
         </li>
       ))}
     </ol>

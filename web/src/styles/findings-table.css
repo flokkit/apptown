@@ -4,12 +4,6 @@
 .finding-suppressed { text-decoration: line-through; }
 .finding-actions { gap: var(--space-1); flex-wrap: nowrap; }
 @media (width <= 800px) {
-  .findings-list-table tr { grid-template-columns: minmax(0, 1fr) auto; }
-  .findings-list-table .phone-name { grid-area: 1 / 1; }
-  .findings-list-table .phone-state { grid-area: 1 / 2; }
-  .findings-list-table .phone-detail { grid-area: 2 / 1; }
-  .findings-list-table .phone-extra { grid-area: 2 / 2; }
-  .findings-list-table .phone-action { grid-area: 3 / 1 / 4 / -1; text-align: left; }
   .finding-actions { flex-wrap: wrap; }
 }
 }

@@ -28,7 +28,7 @@ export default function Features() {
             {/* What turning it off means, before anyone does. */}
             {f.off && <HelpButton about={`turning ${f.name} off`} guide={f.docs.split('/').pop() || 'features'}><p><strong>Turning it off:</strong> {f.off}</p></HelpButton>}
           </span> },
-          { key: 'covers', label: 'What it covers', phone: 'detail', render: f => { const b = blocking(rows, f.area); return <span>{f.covers}{b && <span className="muted small"> · Needs {b.name} on</span>}</span> } },
+          { key: 'covers', label: 'What it covers', render: f => { const b = blocking(rows, f.area); return <span>{f.covers}{b && <span className="muted small"> · Needs {b.name} on</span>}</span> } },
         ]} />
       </Section>
     })}</>}</ReadGate>

@@ -56,7 +56,7 @@ export function CapacityTable({ rows, heads }: { rows: { name: string; kind: str
   return (
     <ListTable label="Use by app or system" className="small cap-table" rows={rows} rowKey={r => r.to || r.kind + r.name} columns={[
       { key: 'name', label: 'App or system', phone: 'name', render: r => <><span className={`cap-swatch cap-${r.kind}`} />{r.to ? <Link to={r.to}>{r.name}</Link> : r.name}</> },
-      ...heads.map((h, i) => ({ key: `c${i}`, label: h, phone: 'extra' as const, kind: 'number' as const, render: (r: typeof rows[number]) => r.cells[i] })),
+      ...heads.map((h, i) => ({ key: `c${i}`, label: h, kind: 'number' as const, render: (r: typeof rows[number]) => r.cells[i] })),
     ]} />
   )
 }

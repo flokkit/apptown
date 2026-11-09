@@ -228,9 +228,9 @@ function Table({ w }: { w: WhatIf }) {
         } },
         { key: 'project', label: 'Project', phone: 'name', render: p => <><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="badge what-if-page-badge">would join</span>}</> },
         { key: 'answer', label: 'Answer', phone: 'state', render: p => <Status word={p.statusLabel} help={OUTCOME_WORDS[p.outcome]} /> },
-        { key: 'score', label: 'Score', phone: 'extra', render: p => <><ScoreLine s={p.score} />{p.fixed > 0 && <div className="muted">{p.fixed} fixed</div>}</> },
-        { key: 'details', label: 'Details', phone: 'detail', render: p => <Link to={`/conformance/what-ifs/${w.id}/projects/${p.projectSlug}`}>Check details</Link> },
-        { key: 'adoption', label: 'Adoption', phone: 'detail', render: p => <AdoptedCell a={adopted[p.projectId ?? '']} /> },
+        { key: 'score', label: 'Score', render: p => <><ScoreLine s={p.score} />{p.fixed > 0 && <div className="muted">{p.fixed} fixed</div>}</> },
+        { key: 'details', label: 'Details', render: p => <Link to={`/conformance/what-ifs/${w.id}/projects/${p.projectSlug}`}>Check details</Link> },
+        { key: 'adoption', label: 'Adoption', render: p => <AdoptedCell a={adopted[p.projectId ?? '']} /> },
       ]} />
       </div>
     </>

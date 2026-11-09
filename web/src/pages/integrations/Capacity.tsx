@@ -143,9 +143,9 @@ export function Capacity({ name }: { name: string }) {
       {c.elastic && (
         <ListTable label="Parts and what they cost" className="small mt-1" rows={c.parts ?? []} rowKey={p => `${p.deployment}/${p.part}/${p.runsOn}`} columns={[
           { key: 'deployment', label: 'deployment', phone: 'name', render: p => p.deployment },
-          { key: 'part', label: 'part', phone: 'detail', render: p => <>{p.part || 'app'}{p.need ? <span className="muted"> (service)</span> : null}</> },
-          { key: 'runs', label: 'runs on', phone: 'extra', render: p => p.runsOn },
-          { key: 'cost', label: 'listed per month', phone: 'extra', kind: 'number', render: p => <FigureWords f={p.usdPerMonth} format={usd} /> },
+          { key: 'part', label: 'part', render: p => <>{p.part || 'app'}{p.need ? <span className="muted"> (service)</span> : null}</> },
+          { key: 'runs', label: 'runs on', render: p => p.runsOn },
+          { key: 'cost', label: 'listed per month', kind: 'number', render: p => <FigureWords f={p.usdPerMonth} format={usd} /> },
         ]} />
       )}
       </div>}

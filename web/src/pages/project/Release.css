@@ -2,6 +2,9 @@
 
 .release-page { max-width: 760px; }
 .release-summary { padding: calc(var(--space-1) * 5); margin-top: calc(var(--space-1) * 3.5); }
+/* Cards have no visible border: on a phone sideways padding reads as a stray
+   indent, so the record lines up with the page. */
+@media (width <= 800px) { .release-summary { padding-inline: 0; } }
 .release-block { margin: calc(var(--space-1) * 3.5) 0; }
 .release-disclosure { margin: calc(var(--space-1) * 1.5) 0; }
 .release-reference { font-size: var(--fs-xs); }

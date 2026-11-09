@@ -23,6 +23,17 @@
 .deployment-deploy-card .ch-deploy-caption { max-height: 3em; overflow: auto; }
 .deployment-deploy-card .decision-choices { margin-inline: 0; }
 
+/* On a phone the card sizes to what it holds: a reserved height there left a
+   gap the height of a screen under a short card. Sections below move when
+   the deploy changes state. Cards have no visible border, so the text lines
+   up with the page, and the next section draws the dividing rule. The stages
+   sit in two even rows of three. */
+@media (width <= 800px) {
+  .deployment-deploy-card { height: auto; overflow: visible; padding-inline: 0; border-bottom: 0; }
+  .deployment-deploy-card .ch-deploy-result { min-height: 0; }
+  .deployment-deploy-card .deploy-stages-compact { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 @media not all and (max-width: 800px) {
   .deployment-deploy-card .ch-deploy-result { display: grid; grid-template-columns: max-content minmax(0, 1fr); grid-template-rows: auto auto 1fr; column-gap: var(--space-6); row-gap: var(--space-3); min-height: 260px; }
   .deployment-deploy-card .deploy-scene { width: var(--deploy-scene-width); grid-column: 1; grid-row: 1 / span 3; }

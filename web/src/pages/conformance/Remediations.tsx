@@ -51,7 +51,7 @@ export function OccupancyCard({ occ }: { occ: Occupancy }) {
         {holding.length > 0 && <ListTable className="small" label="Worker occupancy" rows={holding} rowKey={h => h.id ?? `${h.projectSlug}/${h.check}`} columns={[
           { key: 'project', label: 'Project', phone: 'name', render: h => <strong>{h.projectSlug}</strong> },
           { key: 'state', label: 'Working on', phone: 'state', className: 'muted', render: h => h.doing ? `on ${h.doing}` : (ITEM[h.state]?.label ?? h.state) },
-          { key: 'check', label: 'Check', phone: 'detail', className: 'muted', render: h => h.check },
+          { key: 'check', label: 'Check', className: 'muted', render: h => h.check },
         ]} />}
       </Section>}
       {mayConfigure && <Section title="Processing" note="How many remediations work at once.">

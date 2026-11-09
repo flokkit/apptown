@@ -74,7 +74,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       <ReadStatus q={releasesQ} what="releases" /><StaleNote q={releasesQ} />
       {events.slice(0, activityCount).map(e => (
         <ListRow key={e.id} to={e.to} className="card row application-overview-card" state={<span className="row-status">{e.waitingOn ? <ChangeStatus waiting={e.waitingOn} /> : <Status word={e.word} help={e.help} />}</span>} identity={<>
-          <Link to={e.to} className="row grow application-overview-card">
+          <Link to={e.to} className="row grow application-overview-link">
             <strong>{e.number !== undefined && <span className="muted application-overview-span">#{e.number} </span>}{e.title}</strong>
             <span className="muted small">{fmtWhen(e.when)}</span>
           </Link>
@@ -126,7 +126,7 @@ export function ProjectChanges({ project }: { project: ProjectDetail }) {
           before its title, its one action on the right. */}
       {data?.open?.map(c => (
         <ListRow key={c.changeId} to={`/changes/${c.changeId}`} className="card row application-overview-card" state={<span className="row-status"><ChangeStatus waiting={c.waitingOn} /></span>} identity={
-          <Link to={`/changes/${c.changeId}`} className="row grow application-overview-card">
+          <Link to={`/changes/${c.changeId}`} className="row grow application-overview-link">
             <strong><span className="muted application-overview-span">#{c.changeNumber} </span>{c.title}</strong>
             {c.editing > 0 && <span className="muted small">{c.editing} file{c.editing === 1 ? '' : 's'} being edited</span>}
           </Link>} action={c.waitingOn.kind === 'chat' && <span className="row-action"><Link to={`/projects/${slug}/console?change=${c.changeId}`} className="btn">Continue chat</Link></span>} />

@@ -7,11 +7,14 @@
 .dashboard-setup-card-input { max-width: 420px; }
 .dashboard-setup-card-error { margin-top: calc(var(--space-1) * 1.5); }
 .dashboard-setup-card-div-2 { margin-top: calc(var(--space-1) * 2.5); }
-.dashboard-card { display: flex; }
 .dashboard-span { font-weight: 400; }
-.dashboard-card > .list-identity { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); flex: 1; }
-.dashboard-card > .list-state { order: -1; }
 .dashboard-card > .list-state:empty, .dashboard-card > .list-action:empty { display: none; }
 .dashboard-card { gap: var(--space-2); padding-block: var(--space-3); }
-.dashboard-card > .list-identity { overflow-wrap: normal; min-width: min-content; max-width: 100%; gap: var(--space-2); }
+/* One line, status first, on a wide screen; the shared row's stack on a phone. */
+.dashboard-card > .list-identity { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+@media (width > 800px) {
+  .dashboard-card { display: flex; }
+  .dashboard-card > .list-identity { flex: 1; overflow-wrap: normal; min-width: min-content; max-width: 100%; }
+  .dashboard-card > .list-state { order: -1; }
+}
 }

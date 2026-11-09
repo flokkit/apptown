@@ -51,7 +51,7 @@ export function PackProjects() {
         // A project moves to the recommended version from its own Way of working settings; the row opens them.
         : <ListTable label="Projects using this pack" rows={rows} rowKey={r => `${r.version}/${r.slug}`} rowTo={r => `/projects/${r.slug}/settings/working`} columns={[
           { key: 'project', label: 'Project', phone: 'name', render: r => <Link to={`/projects/${r.slug}/settings/working`}>{r.slug}</Link> },
-          { key: 'version', label: 'Version', phone: 'detail', render: r => `v${r.version}` },
+          { key: 'version', label: 'Version', render: r => `v${r.version}` },
           { key: 'status', label: 'Status', phone: 'state', render: r => r.version === recommended ? <Status word="current" /> : <Status word="available" reason="update available" help={`v${recommended} is recommended; update it from the project's Way of working settings.`} /> },
         ]} />}
     </Section>}</>

@@ -36,9 +36,9 @@ export function InfrastructureHome() {
       ]} rowKey={({ t, v }) => t?.target || v.name} columns={[
         { key: 'name', label: 'Target', phone: 'name', render: ({ t, v }) => <Link to={`/targets/${t?.target || v.name}`}>{v?.displayLabel || t?.target || v.name}</Link> },
         { key: 'state', label: 'State', phone: 'state', render: ({ t, v }) => { const state = hostState(t?.target || v.name, t?.statusLabel || v.statusLabel); return <Status observation word={state.word} /> } },
-        { key: 'place', label: 'Place', phone: 'detail', render: ({ t, v }) => <><span className="record-wide">{t?.place || 'unknown'}</span><span className="record-phone">{hostState(t?.target || v.name, t?.statusLabel || v.statusLabel).summary || t?.place || 'Inventory not known'}</span></> },
-        { key: 'apps', label: 'Apps', kind: 'number', phone: 'extra', render: ({ v }) => <>{v?.deployments.length ?? 'unknown'}<span className="record-phone"> {v?.deployments.length === 1 ? 'app' : 'apps'}</span></> },
-        { key: 'detail', label: 'Observation', phone: 'time', render: ({ t, v }) => {
+        { key: 'place', label: 'Place', render: ({ t, v }) => <><span className="record-wide">{t?.place || 'unknown'}</span><span className="record-phone">{hostState(t?.target || v.name, t?.statusLabel || v.statusLabel).summary || t?.place || 'Inventory not known'}</span></> },
+        { key: 'apps', label: 'Apps', kind: 'number', render: ({ v }) => <>{v?.deployments.length ?? 'unknown'}<span className="record-phone"> {v?.deployments.length === 1 ? 'app' : 'apps'}</span></> },
+        { key: 'detail', label: 'Observation', wideOnly: true, render: ({ t, v }) => {
           const state = hostState(t?.target || v.name, t?.statusLabel || v.statusLabel)
           return state.summary || (t?.asOf && !t.live ? lastSeen(t.asOf) : v?.status === 'retired' ? 'Retired' : !t ? 'Inventory not known' : t.resources?.some(r => r.record === 'missing') ? 'Check missing resources' : t.resources?.some(r => r.record === 'unrecorded') ? 'Review resources' : '')
         } },

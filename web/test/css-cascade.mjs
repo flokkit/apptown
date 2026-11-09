@@ -19,7 +19,7 @@ try {
       <div class="ch-overview"><section class="ch-decision"><h2>Your decision</h2></section></div>
       <section class="ch-phase"><h2>Work</h2></section>
     </div>
-    <table class="record-table"><tbody><tr><td class="phone-name">shop</td><td class="phone-detail record-wide">main</td><td class="phone-detail">details</td></tr></tbody></table>`)
+    <table class="record-table"><tbody><tr><td class="phone-name">shop</td><td class="phone-value record-wide" data-label="Deployment">main</td><td class="phone-value" data-label="Detail">details</td></tr></tbody></table>`)
   for (const width of [1440, 390]) for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width, height: 844 })
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme }, theme)

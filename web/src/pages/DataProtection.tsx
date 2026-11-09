@@ -329,8 +329,8 @@ export function OperationPage() {
       {op.steps.length === 0 ? <p className="muted small data-protection-operation-page-p">no step has started yet</p>
         : <ListTable label="Steps" className="small data-protection-operation-page-p" rows={op.steps} rowKey={st => `${st.name}-${st.started}`} columns={[
           { key: 'step', label: 'Step', phone: 'name', render: st => <>{st.name}{st.detail && <div className={st.failed ? 'error' : 'muted'}>{st.detail}</div>}</> },
-          { key: 'started', label: 'Started', phone: 'time', kind: 'time', render: st => <span className="muted">{fmtWhen(st.started)}</span> },
-          { key: 'took', label: 'Took', phone: 'extra', render: st => <span className="muted">{st.ended ? elapsed(st.started, new Date(st.ended).getTime()) : elapsed(st.started)}{st.bytes ? ` · ${fmtBytes(st.bytes)}` : ''}</span> },
+          { key: 'started', label: 'Started', kind: 'time', render: st => <span className="muted">{fmtWhen(st.started)}</span> },
+          { key: 'took', label: 'Took', render: st => <span className="muted">{st.ended ? elapsed(st.started, new Date(st.ended).getTime()) : elapsed(st.started)}{st.bytes ? ` · ${fmtBytes(st.bytes)}` : ''}</span> },
           { key: 'state', label: 'State', phone: 'state', render: st => !st.ended ? <Status word="working" staleAt={old ? st.started : undefined} /> : st.unknown ? <Status word="unknown" help="The operation did not record an outcome. Open its details before starting another restore." /> : st.failed ? <Status word="failed" /> : <Status word="finished" /> },
         ]} />}
       {op.cancellable && !op.cancelRequested && (
