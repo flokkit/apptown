@@ -128,12 +128,12 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
           ? <p className="muted small">No history yet.</p>
           : <ListTable className="small" label="Target history" rows={data.history.map((event, index) => ({ ...event, index }))} rowKey={e => String(e.index)} columns={[
             { key: 'event', label: 'Event', phone: 'name', render: e => <>{EVENT_WORDS[e.kind] ?? e.kind} by {shownActor(e.actor)}</> },
-            { key: 'detail', label: 'Detail', phone: 'detail', render: e => <>
+            { key: 'detail', label: 'Detail', render: e => <>
               {e.kind === 'target.checked' && <> — {(e.payload as Record<string, unknown>).ok ? '✓' : '✗'} {String((e.payload as Record<string, unknown>).detail ?? '')}</>}
               {e.kind === 'target.offered' && <> — to {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
               {e.kind === 'target.offer-withdrawn' && <> — from {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
             </> },
-            { key: 'at', label: 'When', phone: 'time', kind: 'time', render: e => fmtStamp(e.at) },
+            { key: 'at', label: 'When', kind: 'time', render: e => fmtStamp(e.at) },
           ]} />}
       </Section></> : <>
       {!retired && <><div className="stack stack-3 mt-3">{targetCapacityReadings(capacity.refreshFailed ? undefined : capacity.data ?? undefined).map(r => <CapacityStrip key={r.label} name={r.label} used={r.used} total={r.total} format={r.format} basis={r.basis} />)}</div><StaleNote q={capacity} /></>}
@@ -143,14 +143,14 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
         {!!t.deployments.length && <ListTable className="target-deployments-table" label="What runs here" rows={t.deployments} rowKey={e => `${e.project}/${e.name}`} columns={[
           { key: 'name', label: 'Deployment', phone: 'name', render: e => <Link to={`/projects/${e.project}/deployments/${e.name}`}>{e.project}/{e.displayLabel || e.name}</Link> },
           { key: 'state', label: 'State', phone: 'state', render: e => <Status observation {...statusProps(pageQ.refreshFailed ? failedStatusRefresh(e.status, pageQ.reason) : e.status)} /> },
-          { key: 'address', label: 'Address', kind: 'technical', phone: 'detail', render: e => e.url?.replace(/^https?:\/\//, '') || 'unknown' },
-          { key: 'resources', label: 'Resources', kind: 'number', phone: 'extra', render: e => {
+          { key: 'address', label: 'Address', kind: 'technical', render: e => e.url?.replace(/^https?:\/\//, '') || 'unknown' },
+          { key: 'resources', label: 'Resources', kind: 'number', render: e => {
             // Recorded resources remain counted when the host cannot be reached.
             if (!here) return 'unknown'
             const count = resources.filter(r => (r.hosts ?? []).some(h => h.project === e.project && h.deployment === e.name)).length
             return <Link to={`/targets/${t.name}/resources?deployment=${encodeURIComponent(`${e.project}/${e.name}`)}`}>{count}<span className="record-phone"> {count === 1 ? 'resource' : 'resources'}</span></Link>
           } },
-          { key: 'generation', label: 'Generation', kind: 'number', phone: 'time', render: e => e.generation || 'unknown' },
+          { key: 'generation', label: 'Generation', kind: 'number', wideOnly: true, render: e => e.generation || 'unknown' },
         ]} />}
 
       </Section>
@@ -223,8 +223,8 @@ function TargetSettings() {
           ? <p className="muted small">Not offered to anyone, so projects cannot deploy here.</p>
           : <ListTable className="small" label="Target offers" rows={t.offers} rowKey={o => o.id || 'implicit'} columns={[
             { key: 'group', label: 'Group', phone: 'name', render: o => <span className="badge accent">{o.group === '*' ? 'everyone' : o.group}</span> },
-            { key: 'limits', label: 'Limits', phone: 'detail', render: o => capsWords(o.caps) || <span className="muted">no limits</span> },
-            { key: 'by', label: 'Offered by', phone: 'extra', className: 'muted', render: o => o.implicit ? 'by construction' : `by ${o.createdBy}` },
+            { key: 'limits', label: 'Limits', render: o => capsWords(o.caps) || <span className="muted">no limits</span> },
+            { key: 'by', label: 'Offered by', className: 'muted', render: o => o.implicit ? 'by construction' : `by ${o.createdBy}` },
             { key: 'action', label: '', phone: 'action', render: o => !o.implicit && <QuietConfirm label="Withdraw" ask={`Withdraw the offer to ${o.group === '*' ? 'everyone' : o.group}? Deployments already here stay.`} onYes={() => void withdraw(o.id!)} yes="Withdraw" className="subtle" /> },
           ]} />}
       </Section>

@@ -36,15 +36,9 @@
   .cap-details .cap-table tbody { display: table-row-group; }
   .cap-details .cap-table thead { position: static; width: auto; height: auto; overflow: visible; clip-path: none; display: table-header-group; }
   .cap-details .cap-table tr { display: table-row; padding: 0; }
-  .cap-details .cap-table td { display: table-cell; padding: var(--space-2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .cap-details .cap-table td { display: table-cell; padding: var(--space-2); border-bottom: 1px solid var(--border); white-space: nowrap; contain: none; }
   .cap-details .cap-table th { display: table-cell; white-space: normal; padding: var(--space-2); }
-}
-@media (width <= 800px) {
-  .target-resources-table .phone-name, .target-resources-table .phone-detail { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .target-deployments-table .phone-time { display: none; }
-  .target-deployments-table .phone-name { grid-area: 1 / 1 / 2 / -1; white-space: normal; overflow-wrap: anywhere; }
-  .target-deployments-table .phone-state { grid-area: 2 / 1 / 3 / -1; }
-  .target-deployments-table .phone-detail { grid-area: 3 / 1 / 4 / 3; }
-  .target-deployments-table .phone-extra { grid-area: 3 / 3; }
+  /* Its headings say what each figure is, so cells carry no phone label. */
+  .cap-details .cap-table td::before { content: none; }
 }
 }

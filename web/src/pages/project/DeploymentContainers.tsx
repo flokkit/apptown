@@ -84,10 +84,10 @@ export function DeploymentContainers({ slug, name, stopped = false }: { slug: st
       if (stopped && p.presence !== 'running') return <Status observation word="stopped" />
       return <><Status observation word={t ? 'failed' : 'running'} />{t && <span className="muted small"> {t}</span>}</>
     } },
-    { key: 'image', label: 'Image', kind: 'technical', phone: 'detail', render: r => <span title={usage(r)?.image}>{usage(r)?.image ? shortImage(usage(r)!.image!) : '—'}</span> },
-    { key: 'cpu', label: 'CPU', phone: 'extra', render: r => { const u = usage(r); return u ? <Gauge used={u.cpuCores} limit={u.cpuLimit} format={cores} what={`${r.label} CPU`} /> : <span className="muted" title={r.use?.reason}>unknown</span> } },
-    { key: 'memory', label: 'Memory', phone: 'extra', render: r => { const u = usage(r); return u ? <Gauge used={u.usedBytes} limit={u.limitBytes} format={fmtBytes} what={`${r.label} memory`} /> : <span className="muted" title={r.use?.reason}>unknown</span> } },
-    { key: 'started', label: 'Started', kind: 'time', phone: 'time', render: r => r.diag?.facts?.running && r.diag.facts.startedAt ? fmtWhen(r.diag.facts.startedAt) : '—' },
+    { key: 'image', label: 'Image', kind: 'technical', render: r => <span title={usage(r)?.image}>{usage(r)?.image ? shortImage(usage(r)!.image!) : '—'}</span> },
+    { key: 'cpu', label: 'CPU', render: r => { const u = usage(r); return u ? <Gauge used={u.cpuCores} limit={u.cpuLimit} format={cores} what={`${r.label} CPU`} /> : <span className="muted" title={r.use?.reason}>unknown</span> } },
+    { key: 'memory', label: 'Memory', render: r => { const u = usage(r); return u ? <Gauge used={u.usedBytes} limit={u.limitBytes} format={fmtBytes} what={`${r.label} memory`} /> : <span className="muted" title={r.use?.reason}>unknown</span> } },
+    { key: 'started', label: 'Started', kind: 'time', render: r => r.diag?.facts?.running && r.diag.facts.startedAt ? fmtWhen(r.diag.facts.startedAt) : '—' },
     { key: 'more', label: '', phone: 'action', render: r => diagnostics.data?.containers && r.diag && r.diag.presence !== 'absent'
       ? reading === r.part ? <span className="muted small">reading…</span>
       : <MoreMenu label={r.label} items={[{ label: 'Logs', disabled: reading !== null, onClick: () => readLog(r.part) }]} />

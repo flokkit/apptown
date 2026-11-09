@@ -23,19 +23,23 @@
 .record-table-links tbody tr:hover { background: var(--hover); }
 .record-phone { display: none; }
 @media (width <= 800px) {
-  /* As specific as the phone cell rule below, so a wide-only column does
-     not come back as a block on phones. */
-  .record-wide, .record-table .record-wide { display: none; }
   .record-phone { display: inline; }
   .record-table, .record-table tbody { display: block; }
   .record-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .record-table thead th { overflow: visible; }
-  .record-table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto; grid-template-rows: auto auto; gap: 0 var(--space-2); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); align-items: center; }
-  .record-table td { display: block; padding: 0; border: 0; min-width: 0; white-space: normal; overflow-wrap: anywhere; overflow: visible; }
-  /* A fitted column's 1% width is a table rule; in the phone grid it would
-     shrink a status to a sliver of its slot. */
-  .record-table .record-fit { width: auto; }
-  /* The phone grid spaces its cells apart, so hover colours the whole row,
+  /* Each row is a stack. The name leads, with the action beside it until
+     the two no longer fit, when the action wraps under the name; then the
+     state and every other value, each on its own line under its column's
+     label. No two values share a place, and none squeezes the name. */
+  .record-table tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); }
+  /* Words stay whole (more specific than card.css's phone rule for cells in
+     .main); technical values break anywhere. */
+  .record-table tr > td { display: block; padding: 0; border: 0; min-width: 0; white-space: normal; overflow-wrap: break-word; overflow: visible; }
+  .record-table tr > td.technical { overflow-wrap: anywhere; }
+  /* A fitted column's 1% width is a table rule; in the phone stack it would
+     shrink a status to a sliver of its line. */
+  .record-table .record-fit { width: auto; white-space: normal; }
+  /* The phone stack spaces its cells apart, so hover colours the whole row,
      not each cell. */
   .record-table tbody tr:hover { background: var(--hover); }
   .record-table tbody tr:hover td { background: none; }
@@ -43,17 +47,27 @@
      meeting the panel's border, with the panel's own inset for the text. */
   .section-body .record-table { width: calc(100% + 2 * var(--space-4)); margin-inline: calc(-1 * var(--space-4)); }
   .section-body .record-table tr { padding-inline: var(--space-4); }
-  .section-body > .record-table td:first-child, .section-body > .record-table td:last-child { padding: 0; }
-  .record-table .phone-name { grid-area: 1 / 1 / 2 / 3; }
-  .record-table .phone-state { grid-area: 1 / 3; }
-  .record-table .phone-action { grid-area: 1 / 4; text-align: right; }
-  .record-table .phone-detail { grid-area: 2 / 1 / 3 / 3; color: var(--muted); }
-  .record-table .phone-extra { grid-area: 2 / 3; max-width: 12ch; color: var(--muted); }
-  .record-table .phone-time { grid-area: 2 / 4; text-align: right; }
-  /* A row without a menu lets its status take the menu's column too, and one
-     without an extra fact lets its details run under the status: the name and
-     details keep the room a wide status or time would otherwise squeeze. */
-  .record-table tr:not(:has(> .phone-action)) > .phone-state { grid-area: 1 / 3 / 2 / 5; justify-self: end; }
-  .record-table tr:not(:has(> .phone-extra)) > .phone-detail { grid-area: 2 / 1 / 3 / 4; }
+  .section-body > .record-table td:is(:first-child, :last-child):not([data-label]) { padding: 0; }
+  /* The name and the values size to the row, never to their content: a long
+     line that scrolls inside a value (a tech-line) or an unbroken name must
+     not widen a grid or table the list sits in past the screen. */
+  .record-table :is(.phone-name, .phone-state, .phone-value) { contain: inline-size; }
+  .record-table .phone-name { order: -3; flex: 1 1 12rem; }
+  .record-table .phone-action { order: -2; flex: 0 0 auto; margin-left: auto; text-align: right; }
+  .record-table .phone-state { order: -1; }
+  .record-table :is(.phone-state, .phone-value) { flex: 1 1 100%; text-align: left; }
+  /* A value's column label hangs in a fixed column to its left, so values
+     line up from row to row and a long value wraps under itself, not under
+     its label. The column is at most 30% of the screen, so large text keeps
+     room for a whole status. The label reads as a label whatever its value
+     is. */
+  .record-table { --record-label: min(7.5rem, 30vw); }
+  .record-table td[data-label] { display: flow-root; padding-left: calc(var(--record-label) + var(--space-3)); }
+  .record-table td[data-label]::before { content: attr(data-label); float: left; width: var(--record-label); margin-left: calc(-1 * var(--record-label) - var(--space-3)); color: var(--muted); font-family: var(--font-sans); font-size: var(--fs-sm); }
+  /* A value that says nothing takes its label with it. */
+  .record-table td:empty { display: none; }
+  /* Last and as specific as the stacked cell rules above, so a wide-only
+     column does not come back as a line on phones. */
+  .record-wide, .record-table .record-wide, .record-table td.record-wide { display: none; }
 }
 }

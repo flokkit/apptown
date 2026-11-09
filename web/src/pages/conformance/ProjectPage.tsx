@@ -79,8 +79,8 @@ function ProjectReviews({ slug }: { slug: string }) {
       {hist.length > 0 && <ListTable className="small" label="Review history" rows={[...hist].reverse()} rowKey={h => String(h.reviewId)} columns={[
         { key: 'review', label: 'Review', phone: 'name', render: h => <Link to={`/conformance/reviews/${h.reviewId}/projects/${slug}`}>Review · {fmtWhen(h.at)}</Link> },
         { key: 'findings', label: 'Findings', phone: 'state', kind: 'number', render: h => <><span className="record-phone">Findings: </span>{h.findings}</> },
-        { key: 'flagged', label: 'Possible problems', phone: 'detail', kind: 'number', render: h => <><span className="record-phone">Possible problems: </span>{h.flagged}</> },
-        { key: 'unassessed', label: 'Not judged', phone: 'extra', kind: 'number', render: h => <><span className="record-phone">Not judged: </span>{h.unassessed}</> },
+        { key: 'flagged', label: 'Possible problems', kind: 'number', render: h => <><span className="record-phone">Possible problems: </span>{h.flagged}</> },
+        { key: 'unassessed', label: 'Not judged', kind: 'number', render: h => <><span className="record-phone">Not judged: </span>{h.unassessed}</> },
       ]} />}
     </Section>
   )
@@ -108,8 +108,8 @@ function LaneSection({ lane, title, hint, groups, view, exceptions, readOnly, on
     return <Section title={title} count={list.length} note={hint}>
       <ListTable label={title} rows={list} rowKey={v => String(v.id || key(v))} rowTo={v => `${base}/checks/${encodeURIComponent(key(v))}`} columns={[
         { key: 'check', label: 'Check', phone: 'name', render: v => <Link to={`${base}/checks/${encodeURIComponent(key(v))}`}>{view.checkDefs[key(v)]?.title || v.check}</Link> },
-        { key: 'why', label: 'Result', phone: 'detail', render: v => <span className="muted">{v.state === 'stale' ? 'No judgement on the current commit' : v.detail ? (laneOf(v) === 'unassessed' ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : v.detail) : `from ${v.block}`}</span> },
-        { key: 'judged', label: 'Judged', phone: 'extra', render: v => <JudgedAt v={v} reviews={view.reviews ?? []} /> },
+        { key: 'why', label: 'Result', render: v => <span className="muted">{v.state === 'stale' ? 'No judgement on the current commit' : v.detail ? (laneOf(v) === 'unassessed' ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : v.detail) : `from ${v.block}`}</span> },
+        { key: 'judged', label: 'Judged', render: v => <JudgedAt v={v} reviews={view.reviews ?? []} /> },
         { key: 'status', label: 'Status', phone: 'state', render: v => laneOf(v) === 'unassessed' && v.state !== 'stale' ? <span className="muted">—</span> : <StateChip label={v.statusLabel} /> },
       ]} />
     </Section>

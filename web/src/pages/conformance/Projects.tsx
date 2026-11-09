@@ -48,12 +48,12 @@ export function projectNext(p: ProjectStanding, view: ConformanceView): string {
 function ProjectTable({ rows, view, base, label }: { rows: ProjectStanding[]; view: ConformanceView; base: string; label: string }) {
   return <ListTable label={label} rows={rows} rowKey={p => p.slug} rowTo={p => `${base}/projects/${p.slug}`} columns={[
     { key: 'project', label: 'Project', phone: 'name', render: p => <Link to={`${base}/projects/${p.slug}`}>{p.name || p.slug}</Link> },
-    { key: 'next', label: 'What to do', phone: 'detail', render: p => <span className="muted">{projectNext(p, view)}</span> },
+    { key: 'next', label: 'What to do', render: p => <span className="muted">{projectNext(p, view)}</span> },
     { key: 'status', label: 'Status', phone: 'state', render: p => {
       const findings = p.standing === 'does-not-conform' ? p.lanes.findings : 0
       return findings > 0 ? <Status word="needs review" reason={`${findings} ${findings === 1 ? 'finding' : 'findings'}`} help={p.sentence} /> : <Status word={p.statusLabel} help={p.sentence} />
     } },
-    { key: 'checked', label: 'Checked', phone: 'time', kind: 'time', render: p => p.judgedAt ? relTime(p.judgedAt) : 'not yet' },
+    { key: 'checked', label: 'Checked', kind: 'time', render: p => p.judgedAt ? relTime(p.judgedAt) : 'not yet' },
   ]} />
 }
 

@@ -33,8 +33,8 @@ it('lists every deployment separately by display name, including stopped copies,
     await vi.waitFor(() => expect(el.textContent).toContain('0.25 cores · 96 MB'))
     const east = [...el.querySelectorAll('tbody tr')].find(r => r.textContent?.includes('East office'))!
     // No reading for east: its use is unknown, never zero, and it has no backup.
-    expect(east.querySelector('.phone-extra:not(.record-wide)')?.textContent).toBe('—')
-    expect(east.querySelector('.phone-time')?.textContent).toBe('none')
+    expect(east.querySelector('[data-label="Resources"]')?.textContent).toBe('—')
+    expect(east.querySelector('[data-label="Last backup"]')?.textContent).toBe('none')
     // The status shows its word; why is behind a tap (or hover), not in the row.
     expect(east.querySelector('.phone-state')?.textContent).toContain('stopped')
     expect(east.textContent).not.toContain('the application is stopped')
@@ -42,7 +42,7 @@ it('lists every deployment separately by display name, including stopped copies,
     expect(document.body.querySelector('.status-word-detail')?.textContent).toContain('the application is stopped')
     expect(location.pathname).not.toContain('/deployments/east')
     // A static site holds no data: nothing to back up, not a missing backup.
-    expect([...el.querySelectorAll('tbody tr')].find(r => r.textContent?.includes('Website'))!.querySelector('.phone-time')?.textContent).toBe('no data')
+    expect([...el.querySelectorAll('tbody tr')].find(r => r.textContent?.includes('Website'))!.querySelector('[data-label="Last backup"]')?.textContent).toBe('no data')
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
 
@@ -93,12 +93,12 @@ it('marks the last backup as an old reading when its refresh fails', async () =>
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><Deployments /></MemoryRouter></QueryClientProvider>))
-    await vi.waitFor(() => expect(el.querySelector('.phone-time')?.textContent).toMatch(/\d{2}:\d{2}/))
-    expect(el.querySelector('.phone-time')?.textContent).not.toContain('old reading')
+    await vi.waitFor(() => expect(el.querySelector('[data-label="Last backup"]')?.textContent).toMatch(/\d{2}:\d{2}/))
+    expect(el.querySelector('[data-label="Last backup"]')?.textContent).not.toContain('old reading')
     backupsFail = true
     await act(async () => { await client.refetchQueries() })
-    await vi.waitFor(() => expect(el.querySelector('.phone-time')?.textContent).toContain('old reading'))
-    expect(el.querySelector('.phone-time')?.textContent).toMatch(/\d{2}:\d{2}/)
+    await vi.waitFor(() => expect(el.querySelector('[data-label="Last backup"]')?.textContent).toContain('old reading'))
+    expect(el.querySelector('[data-label="Last backup"]')?.textContent).toMatch(/\d{2}:\d{2}/)
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
 

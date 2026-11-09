@@ -19,7 +19,7 @@ labelled as such. Reviews open dated snapshot reports.
 
 | Need | Use |
 | --- | --- |
-| Records compared on the same facts | `ListTable`: column headers, one desktop row, two groups of cells on phones; free text wraps within each phone cell. Status keeps its dot and word, technical values use monospace, numbers align right, relative time comes before the final, unlabelled action column. `rowTo` opens the record. |
+| Records compared on the same facts | `ListTable`: column headers and one row per record on desktop; on phones each row stacks, the name with its action beside it, then the status and each other value on its own line under its column's label. Words stay whole; technical values break anywhere. Status keeps its dot and word, technical values use monospace, numbers align right, relative time comes before the final, unlabelled action column. `rowTo` opens the record. |
 | Items read and acted on one at a time: identity, state, action, optional detail | `ListRow`; `ProjectListRow` for projects and `LibraryRow` for ways of working. `to` opens the record. |
 | A list's filter | `SectionFilter` in its `Section`'s action: on the heading line, narrowing as the person types; on phones it takes its own line |
 | Disk name, used / total and capacity bar | `CapacityStrip` |

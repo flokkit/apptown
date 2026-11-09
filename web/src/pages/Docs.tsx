@@ -28,6 +28,9 @@ export function MdDoc({ content, file, links }: { content: string; file: string;
     const el = ref.current
     if (!el) return
     el.innerHTML = renderMd(content)
+    // On a phone a docs table keeps whole words and scrolls sideways in its
+    // own box, so the keyboard must be able to reach it to scroll.
+    el.querySelectorAll('table').forEach(table => { table.tabIndex = 0 })
     el.querySelectorAll('h1').forEach(title => {
       const section = document.createElement('h2')
       for (const attr of title.attributes) section.setAttribute(attr.name, attr.value)

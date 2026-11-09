@@ -84,12 +84,18 @@ textarea.prose { font-family: var(--font-sans); font-size: var(--fs-base); }
 /* Add-a-target wizard */
 .wiz-steps { display: flex; flex-wrap: wrap; gap: 0; list-style: none; padding: 0; margin: 12px 0 16px; counter-reset: wiz; }
 .wiz-steps li { counter-increment: wiz; display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 0; margin-right: 14px; color: var(--muted); font-size: var(--fs-sm); border-bottom: 2px solid transparent; }
-.wiz-steps li::before { content: counter(wiz); width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-xs); border: 1px solid var(--border); }
+.wiz-steps li::before { content: counter(wiz); flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-xs); border: 1px solid var(--border); }
 .wiz-steps li.current { color: var(--text); border-bottom-color: var(--accent); }
 .wiz-steps li.current::before { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .wiz-steps li.done { color: var(--text); }
 .wiz-steps li.done::before { content: "✓"; border-color: var(--accent); color: var(--accent); }
 .wiz-steps li small { color: var(--muted); }
+/* On a phone every step has an equal column on one row, in order; a long
+   label wraps within its own column. */
+@media (width <= 800px) {
+  .wiz-steps { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: var(--space-2); }
+  .wiz-steps li { margin-right: 0; padding-right: 0; min-width: 0; }
+}
 .wiz-kind { cursor: pointer; font: inherit; color: inherit; width: 100%; text-align: left; display: grid; grid-template-columns: 240px minmax(0,1fr); gap: 24px; padding: 16px 0; }
 .wiz-kind:disabled { color: var(--disabled-fg); cursor: default; }
 /* Hover only where a pointer hovers: a touch leaves :hover stuck on the

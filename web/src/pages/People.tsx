@@ -162,8 +162,8 @@ function RolesCard({ roles, grants, users, groups, act, canEdit, actionError }: 
           return role ? <button className="record-name" title={grantTitle(g)} onClick={() => setSelectedRole(role)}>{grantTitle(g)}</button> : grantTitle(g) || 'Additional access'
         } },
         { key: 'subject', label: 'Granted to', phone: 'state', render: g => <span title={subjectLabel(g)}>{subjectLabel(g)}</span> },
-        { key: 'scope', label: 'Scope', phone: 'detail', render: g => <span title={`${g.scopeType} ${g.scopeId}`}>{g.scopeId || g.scopeType}</span> },
-        { key: 'by', label: 'Granted by', phone: 'extra', render: g => <span title={[g.reason, g.origin && `origin: ${g.origin}`, `granted by ${g.grantedBy}`].filter(Boolean).join(' · ')}>{g.grantedBy}{g.origin === 'profile:transparent' ? ' · everyone can read' : g.origin === 'profile:open' ? ' · open mode' : ''}</span> },
+        { key: 'scope', label: 'Scope', render: g => <span title={`${g.scopeType} ${g.scopeId}`}>{g.scopeId || g.scopeType}</span> },
+        { key: 'by', label: 'Granted by', render: g => <span title={[g.reason, g.origin && `origin: ${g.origin}`, `granted by ${g.grantedBy}`].filter(Boolean).join(' · ')}>{g.grantedBy}{g.origin === 'profile:transparent' ? ' · everyone can read' : g.origin === 'profile:open' ? ' · open mode' : ''}</span> },
         { key: 'action', label: '', phone: 'action', render: g => canEdit && g.origin !== 'profile:transparent' && <button className="subtle" aria-label={`revoke ${grantTitle(g)} from ${subjectLabel(g)}`} onClick={() => act(() => del(`/authz/grants/${g.id}`))}>Revoke</button> },
       ]} />
       {selectedRole && <Modal title={selectedRole.title} onClose={() => setSelectedRole(null)}><p>{selectedRole.description}</p><ul>{selectedRole.capabilities.map(c => <li key={c}><code>{c}</code></li>)}</ul></Modal>}
@@ -263,10 +263,10 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
       </FormMenu>
   const accountRows = <ListTable label="Accounts" className="people-accounts" rows={accounts} rowKey={u => u.username} rowTo={detail ? undefined : u => `/people/accounts/${encodeURIComponent(u.username)}`} columns={[
     { key: 'name', label: 'Name', phone: 'name', render: u => <Link to={`/people/accounts/${encodeURIComponent(u.username)}`}>{u.username}</Link> },
-    { key: 'role', label: 'Role', phone: 'detail', render: u => u.role === 'admin' ? 'Admin' : 'Member' },
-    { key: 'groups', label: 'Groups', phone: 'extra', render: u => <span title={u.groups.join(', ')}>{u.groups.join(', ') || 'None'}</span> },
+    { key: 'role', label: 'Role', render: u => u.role === 'admin' ? 'Admin' : 'Member' },
+    { key: 'groups', label: 'Groups', render: u => <span title={u.groups.join(', ')}>{u.groups.join(', ') || 'None'}</span> },
     { key: 'status', label: 'Status', phone: 'state', render: u => <AccountStatus {...u} /> },
-    { key: 'seen', label: 'Last seen', kind: 'time', phone: 'time', render: u => <span title={fmtStamp(u.lastSeen ?? '')}>{relTime(u.lastSeen ?? '') || '—'}</span> },
+    { key: 'seen', label: 'Last seen', kind: 'time', render: u => <span title={fmtStamp(u.lastSeen ?? '')}>{relTime(u.lastSeen ?? '') || '—'}</span> },
     { key: 'manage', label: '', phone: 'action', render: manage },
   ]} />
   const withPassword = (
@@ -413,15 +413,15 @@ function GroupsCard({ groups, users, grants, act, canEdit, name, actionError }: 
         <ListTable label="Group members" rows={members} rowKey={m => m} columns={[
           { key: 'name', label: 'Name', phone: 'name', render: m => <Link to={`/people/accounts/${encodeURIComponent(m)}`}>{m}</Link> },
           { key: 'status', label: 'Status', phone: 'state', render: m => <AccountStatus {...users.find(u => u.username === m)} /> },
-          { key: 'seen', label: 'Last seen', phone: 'time', kind: 'time', render: m => relTime(users.find(u => u.username === m)?.lastSeen ?? '') || '—' },
+          { key: 'seen', label: 'Last seen', kind: 'time', render: m => relTime(users.find(u => u.username === m)?.lastSeen ?? '') || '—' },
           { key: 'action', label: '', phone: 'action', render: m => editable && <FormMenu className="more-menu" trigger={<button aria-label={`More actions for ${m}`}>⋯</button>}><button onClick={() => act(() => del(`/groups/${encodeURIComponent(g.name)}/members/${encodeURIComponent(m)}`))}>Remove member</button></FormMenu> },
         ]} />
       </Section>
       <Section title="Roles granted" action={<Link to="/people/roles">Manage roles</Link>}>{rolesFor(g).length ? <ListTable label="Roles granted" rows={rolesFor(g)} rowKey={r => String(r.id)} columns={[
         { key: 'role', label: 'Role', phone: 'name', render: grantTitle },
         { key: 'scope', label: 'Scope', phone: 'state', render: r => <>{r.scopeType}{r.scopeId && `: ${r.scopeId}`}</> },
-        { key: 'grantor', label: 'Granted by', phone: 'extra', render: r => r.grantedBy },
-        { key: 'reason', label: 'Reason', phone: 'detail', render: r => r.reason },
+        { key: 'grantor', label: 'Granted by', render: r => r.grantedBy },
+        { key: 'reason', label: 'Reason', render: r => r.reason },
       ]} /> : <p>No roles granted.</p>}</Section>
       {adding && <Modal title="Add member" onClose={() => setAdding(false)}>{actionError && <p className="error">{actionError}</p>}<div className="people-form">
         <select aria-label="Account to add" value={member} onChange={e => setMember(e.target.value)}><option value="">Choose account…</option>{users.filter(u => !members.includes(u.username)).map(u => <option key={u.username}>{u.username}</option>)}</select>
@@ -436,8 +436,8 @@ function GroupsCard({ groups, users, grants, act, canEdit, name, actionError }: 
       <ListTable label="Groups" rows={groups} rowKey={g => g.name} rowTo={g => `/people/groups/${encodeURIComponent(g.name)}`} columns={[
         { key: 'name', label: 'Name', phone: 'name', render: g => <Link to={`/people/groups/${encodeURIComponent(g.name)}`}>{groupLabel(g.name)}</Link> },
         { key: 'kind', label: 'Kind', phone: 'state', render: kind },
-        { key: 'members', label: 'Members', kind: 'number', phone: 'time', render: g => g.kind === 'built-in' ? users.filter(u => !u.disabled && (u.hasPassword || u.acted)).length : g.members.length },
-        { key: 'roles', label: 'Roles granted', phone: 'detail', render: g => <span title={roleText(g)}>{roleText(g)}</span> },
+        { key: 'members', label: 'Members', kind: 'number', render: g => g.kind === 'built-in' ? users.filter(u => !u.disabled && (u.hasPassword || u.acted)).length : g.members.length },
+        { key: 'roles', label: 'Roles granted', render: g => <span title={roleText(g)}>{roleText(g)}</span> },
       ]} />
     </Section>
     {creating && <Modal title="New group" onClose={() => setCreating(false)}>{actionError && <p className="error">{actionError}</p>}<div className="people-form">

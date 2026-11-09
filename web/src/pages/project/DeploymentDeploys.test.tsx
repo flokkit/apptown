@@ -93,7 +93,9 @@ it.each(['preparing', 'backing-up', 'building', 'starting', 'checking', 'live'] 
   const running = draw('releasing')
   expect(running.querySelector('.deploy-scene.paused')).toBeNull()
   expect(running.querySelector('li[aria-current="step"] .busy')).not.toBeNull()
-  expect(running.querySelector('svg')?.getAttribute('aria-label')).toBe(stage === 'live' ? 'The app is live' : `Deploying: ${deployWords[stage]}`)
+  // While the code is prepared the picture would be an empty outline, so
+  // there is none; the heading and the stage list carry the progress.
+  expect(running.querySelector('svg')?.getAttribute('aria-label')).toBe(stage === 'preparing' ? undefined : stage === 'live' ? 'The app is live' : `Deploying: ${deployWords[stage]}`)
   expect(running.querySelector('.ch-deploy-progress')?.textContent).toBe(`${deployWords[stage]} · 15s`)
   const failed = draw('failed')
   expect(failed.querySelector('.deploy-scene.fail li[aria-current="step"] .bad')).not.toBeNull()
@@ -222,3 +224,4 @@ it.each([['main', true, 'It deploys when a change lands on main.'], ['manual', f
   expect([...el.querySelectorAll('button')].some(b => b.textContent === 'Deploy a release…')).toBe(feed !== 'main')
   client.clear()
 })
+

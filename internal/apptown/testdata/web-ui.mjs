@@ -360,9 +360,9 @@ try {
           });
           if (!recorded.generation || recorded.count < 2) throw new Error('target seed must have recorded generation and resources');
           const row = page.locator('.target-deployments-table tbody tr').filter({ has: page.locator('a[href="/projects/club-newsletter/deployments/main"]') });
-          if (await row.locator('.phone-extra a').textContent() !== `${recorded.count} resources`) throw new Error('recorded resource count disappeared');
-          if (await row.locator('.phone-time').textContent() !== String(recorded.generation)) throw new Error('recorded generation disappeared');
-          if (await row.locator('.phone-detail').textContent() !== (recorded.url?.replace(/^https?:\/\//, '') || 'unknown')) throw new Error('recorded address disappeared');
+          if (await row.locator('[data-label="Resources"] a').textContent() !== `${recorded.count} resources`) throw new Error('recorded resource count disappeared');
+          if (await row.locator('[data-label="Generation"]').textContent() !== String(recorded.generation)) throw new Error('recorded generation disappeared');
+          if (await row.locator('[data-label="Address"]').textContent() !== (recorded.url?.replace(/^https?:\/\//, '') || 'unknown')) throw new Error('recorded address disappeared');
         }
         if (screen === 'infrastructure' && size.startsWith('desktop')) {
           const aligned = await page.locator('section').evaluateAll(sections => sections.every(section => {
@@ -383,7 +383,8 @@ try {
           if (stage === 'failed') {
             if (await scene.locator('.bad').count() !== 1 || await scene.locator('svg').getAttribute('aria-label') !== 'Stopped while ' + description) throw new Error('deployment failure did not light its failed stage');
           } else if (stage !== 'live') {
-            if (await active.locator('.busy').count() !== 1 || await scene.locator('svg').getAttribute('aria-label') !== 'Deploying: ' + description ||
+            // Preparing has no picture: it would draw only the plan's outline.
+            if (await active.locator('.busy').count() !== 1 || (stage === 'preparing' ? await scene.locator('svg').count() !== 0 : await scene.locator('svg').getAttribute('aria-label') !== 'Deploying: ' + description) ||
                 !(await page.locator('.ch-deploy-progress').innerText()).match(new RegExp(description + ' · \\d'))) throw new Error('deployment scene is not running at ' + stage + ' with time in stage');
           } else if (await scene.locator('svg').getAttribute('aria-label') !== 'The app is live') throw new Error('released deployment is not live');
         }
@@ -617,9 +618,9 @@ try {
           if (!(await page.locator('.people-accounts tbody tr').filter({ hasText: 'retired' }).innerText()).includes('disabled')) throw new Error('disabled account missing from table');
           if (await page.locator('.people-accounts tbody tr').count() < 30 || !words.includes('never signed in')) throw new Error('account states missing');
           const unused = page.locator('.people-accounts tbody tr').filter({ hasText: 'never-signed-in' });
-          if ((await unused.locator('.phone-time').innerText()).trim() !== '—') throw new Error('unused name has a last activity time');
+          if ((await unused.locator('[data-label="Last seen"]').innerText()).trim() !== '—') throw new Error('unused name has a last activity time');
           const provisioned = page.locator('.people-accounts tbody tr').filter({ hasText: 'colleague-32' });
-          if (!(await provisioned.innerText()).includes('never signed in') || (await provisioned.locator('.phone-time').innerText()).trim() !== '—') throw new Error('password provisioning counted as activity');
+          if (!(await provisioned.innerText()).includes('never signed in') || (await provisioned.locator('[data-label="Last seen"]').innerText()).trim() !== '—') throw new Error('password provisioning counted as activity');
           if (words.includes('Where administrators may sign in') || words.includes('Connected coding agents')) throw new Error('People still includes other settings');
         }
         if (!process.env.DESIGN_BASELINE && screen === 'account' && (!words.includes('sam-laptop') || words.includes('tom-laptop'))) throw new Error('personal token list crossed account boundary');
@@ -717,7 +718,7 @@ try {
           if (el.matches('.record-table td') && getComputedStyle(el).textOverflow === 'ellipsis' && el.querySelector('a[href], [title]')) return false;
           if (!el.getClientRects().length || el.closest('pre, .xterm, .diff, .log') || el.matches('.tabs') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return false;
           // These labelled, focusable regions intentionally keep full table columns scrollable.
-          if (el.matches('.target-resource-scroll[tabindex="0"], .cap-details[tabindex="0"], .capacity-details[tabindex="0"]')) return false;
+          if (el.matches('.target-resource-scroll[tabindex="0"], .cap-details[tabindex="0"], .capacity-details[tabindex="0"], .md-doc table[tabindex="0"]')) return false;
           const style = getComputedStyle(el);
           return ['auto', 'scroll', 'hidden'].includes(style.overflowX) && el.clientWidth > 4 && el.scrollWidth > el.clientWidth + 2;
         }).map(el => ({ tag: el.tagName, class: el.className, text: el.textContent.slice(0, 100) })));
@@ -734,8 +735,13 @@ try {
         if (['infrastructure', 'target-resources', 'target-resources-filtered'].includes(screen)) {
           const label = screen.startsWith('infrastructure') ? 'Targets' : 'Resources';
           const table = page.getByRole('table', { name: label, exact: true });
-          const firstRow = await table.locator('tbody tr').first().boundingBox();
-          if (firstRow && firstRow.height > 120) throw new Error(label + ' columns are squeezing words into vertical text');
+          // Squeezed means a narrow cell grown tall, a few letters a line. A
+          // phone row stacks its values, so a tall row alone is not squeezed.
+          const squeezed = await table.locator('tbody tr').first().evaluate(row => [...row.children].some(cell => {
+            const r = cell.getBoundingClientRect();
+            return r.width > 0 && r.width < row.getBoundingClientRect().width / 4 && r.height > 90;
+          })).catch(() => false);
+          if (squeezed) throw new Error(label + ' columns are squeezing words into vertical text');
         }
         // The navigation capture deliberately covers main with its backdrop.
         // Preserve that screenshot, then restore main before its disclosure check.

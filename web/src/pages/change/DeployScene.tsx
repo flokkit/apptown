@@ -75,6 +75,11 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
     (outcome === 'running' || outcome === 'paused') && current !== 'backing-up' && index < 5 ? `n${index}` : '', outcome === 'failed' ? 'fail' : '',
     outcome === 'paused' ? 'paused' : '', current === 'backing-up' ? 'backing-up' : '',
     current && stages.indexOf(current) >= stages.indexOf('backing-up') ? 'has-backup-shed' : '', catchingUp ? 'finishing-build' : '', Array.from({ length: 7 }, (_, i) => deliveryFrame(i)).some(f => f.active) ? 'carrying' : '', celebrate ? 'celebrate' : 'rest'].filter(Boolean).join(' ')
+  // The picture shows the deploy only when it has more to draw than the
+  // ground and the dashed outline of the plan: a failure, the backup shed,
+  // or a stage from building on. Before that the heading and the stage list
+  // say everything, and an empty picture reads as a broken image.
+  const pictured = outcome === 'failed' || current === 'backing-up' || index >= 2
   const stageRows = () => stages.map((s, i) => {
     const stopped = s === current && outcome === 'failed'
     const finished = (current ? i < stages.indexOf(current) : false) || outcome === 'passed'
@@ -90,7 +95,7 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
   return <div className={classes} onAnimationEnd={e => {
     if (e.animationName === 'deploy-burst') setCelebrated(true)
   }}>
-    <div className="deploy-scene-panel"><svg viewBox="0 0 300 150" role="img" aria-label={label}>
+    {pictured && <div className="deploy-scene-panel"><svg viewBox="0 0 300 150" role="img" aria-label={label}>
           <line className="ink ground" x1="10" y1="130" x2="290" y2="130"></line>
           <rect className="ink plan" x="110" y="52" width="80" height="78"></rect>
           <g className="backup-shed" aria-hidden="true">
@@ -170,7 +175,7 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
             return <line className="ink" key={i} x1={150 + Math.cos(angle) * 33} y1={34 + Math.sin(angle) * 24}
               x2={150 + Math.cos(angle) * 39} y2={34 + Math.sin(angle) * 29} />
           })}</g>
-    </svg></div>
+    </svg></div>}
     {showStages && (current || compactStages) && <>
       <ol className={`deploy-stages${compactStages ? ' deploy-stages-compact' : ''}`} aria-label="Deployment stages">{stageRows()}</ol>
     </>}

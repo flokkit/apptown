@@ -241,10 +241,10 @@ function Tallies({ e, variant }: { e: EvalScorecard; variant: string }) {
       <div className="muted small">Over {e.comparable} Change{e.comparable === 1 ? '' : 's'}{e.notComparable > 0 ? ` (${e.notComparable} not comparable, left out)` : ''}. Observed in this run: a small sample, and a flaky check can move it.</div>
       <ListTable label="Measures" className="small evals-note" rows={e.tallies} rowKey={(t: Tally) => t.measure} columns={[
         { key: 'measure', label: 'Measure', phone: 'name', render: (t: Tally) => t.measure },
-        { key: 'better', label: 'better', phone: 'extra', kind: 'number', render: (t: Tally) => t.better },
-        { key: 'same', label: 'same', phone: 'extra', kind: 'number', render: (t: Tally) => t.same },
-        { key: 'worse', label: 'worse', phone: 'extra', kind: 'number', render: (t: Tally) => t.worse },
-        { key: 'unknown', label: 'unknown', phone: 'extra', kind: 'number', render: (t: Tally) => <span className="muted">{t.unknown}</span> },
+        { key: 'better', label: 'better', kind: 'number', render: (t: Tally) => t.better },
+        { key: 'same', label: 'same', kind: 'number', render: (t: Tally) => t.same },
+        { key: 'worse', label: 'worse', kind: 'number', render: (t: Tally) => t.worse },
+        { key: 'unknown', label: 'unknown', kind: 'number', render: (t: Tally) => <span className="muted">{t.unknown}</span> },
       ]} />
     </section>
   )
@@ -365,9 +365,9 @@ function CheckTable({ baseline, variant, variantWords }: { baseline: Arm; varian
             : declares(variant, any.block, any.version) ? 'only the varied setup declares this' : 'only today\'s setup declares this'
           return <><code>{any.block} · {any.check}</code> <span className="muted">v{any.version}</span>{only && <div className="muted">{only}</div>}</>
         } },
-        { key: 'base', label: 'Base', phone: 'extra', render: k => (b.get(k) ?? v.get(k))!.base },
-        { key: 'now', label: 'As it runs now', phone: 'detail', render: k => <Cell r={b.get(k)} /> },
-        { key: 'variant', label: variantWords, phone: 'detail', render: k => <Cell r={v.get(k)} /> },
+        { key: 'base', label: 'Base', render: k => (b.get(k) ?? v.get(k))!.base },
+        { key: 'now', label: 'As it runs now', render: k => <Cell r={b.get(k)} /> },
+        { key: 'variant', label: variantWords, render: k => <Cell r={v.get(k)} /> },
       ]} />
     </section>
   )

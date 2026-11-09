@@ -15,7 +15,9 @@ it.each(Object.keys(deployWords) as DeployStage[])('draws only the reported %s f
   const index = ['preparing', 'building', 'starting', 'checking', 'live'].indexOf(stage === 'backing-up' ? 'preparing' : stage) + 1
   expect(el.querySelector('.deploy-scene')?.classList.contains(`g${index}`)).toBe(true)
   expect(el.querySelector('.deploy-scene')?.classList.contains(`g${index + 1}`)).toBe(false)
-  expect(el.querySelector('[role="img"]')?.getAttribute('aria-label')).toContain(deployWords[stage])
+  // Preparing draws nothing beyond the plan's outline, so it has no picture.
+  if (stage === 'preparing') expect(el.querySelector('[role="img"]')).toBeNull()
+  else expect(el.querySelector('[role="img"]')?.getAttribute('aria-label')).toContain(deployWords[stage])
   expect(el.querySelector('.celebrate')).toBeNull()
   expect(el.querySelector('[aria-current="step"]')?.textContent?.toLowerCase()).toContain(deployWords[stage])
 })
@@ -306,4 +308,21 @@ it('freezes build catch-up when progress becomes stale and resumes after a fresh
     act(() => vi.advanceTimersByTime(1000))
     expect(el.querySelector('.roof.placed')).not.toBeNull()
   } finally { act(() => root.unmount()); vi.useRealTimers() }
+})
+
+// The picture shows the deploy only when it has more to draw than the dashed
+// outline of the plan: with no stage yet, or while the code is prepared, the
+// heading and the stage list say it all.
+it.each([
+  ['no stage, waiting', {}, 'paused', false],
+  ['preparing', { stage: 'preparing' }, 'running', false],
+  ['building', { stage: 'building' }, 'running', true],
+  ['backing up', { stage: 'backing-up' }, 'running', true],
+  ['failed while preparing', { failedStage: 'preparing' }, 'failed', true],
+] as const)('draws the deploy picture only when it has something to show: %s', (_, stages, outcome, drawn) => {
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<DeployScene {...stages} outcome={outcome} compactStages />)
+  expect(!!el.querySelector('.deploy-scene-panel')).toBe(drawn)
+  expect(el.querySelectorAll('li')).toHaveLength(6)
+  if ('stage' in stages && stages.stage === 'preparing') expect(el.querySelector('li[aria-current="step"] .deploy-stage-mark.busy')).not.toBeNull()
 })

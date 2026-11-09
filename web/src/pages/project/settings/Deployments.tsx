@@ -375,8 +375,8 @@ export function RetainedTable({ rows }: { rows: Retained[] }) {
         {r.target && <div className="muted small">on {r.target}</div>}
       </span>
     } },
-    { key: 'from', label: 'From', phone: 'extra', render: r => <span className={faded(r)}>{r.deployment}</span> },
-    { key: 'torn', label: 'Torn down', phone: 'time', render: r => <span className={`muted small deployments-retained-row-td ${faded(r) ?? ''}`}>{fmtWhen(r.retainedAt)} by {r.retainedBy}</span> },
+    { key: 'from', label: 'From', render: r => <span className={faded(r)}>{r.deployment}</span> },
+    { key: 'torn', label: 'Torn down', render: r => <span className={`muted small deployments-retained-row-td ${faded(r) ?? ''}`}>{fmtWhen(r.retainedAt)} by {r.retainedBy}</span> },
     { key: 'status', label: 'Status', phone: 'state', render: r => <span className={faded(r)}>{r.disposition === 'retained'
       ? <span className="badge">still at the provider</span>
       : <span className="badge">{r.disposition === 'released' ? 'deleted at the provider' : 'kept on purpose'}{r.settledBy ? ` · ${r.settledBy}` : ''}{r.note ? `: ${r.note}` : ''}</span>}</span> },
@@ -467,9 +467,9 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
   const columns: ListColumn<Row>[] = [
     { key: 'part', label: 'Part', phone: 'name', render: p => <><strong>{p.part || 'app'}</strong>{role(p) && <span className="muted small"> {role(p)}</span>}</> },
     { key: 'memory', label: 'Memory', phone: 'state', render: p => <>{p.memory}{p.memoryUnlimited && <> <span className="badge">explicit no limit</span></>}{source(p) && <div className="muted small">{source(p)}</div>}</> },
-    { key: 'cpu', label: 'CPU', phone: 'detail', render: p => p.cpu },
-    { key: 'runs', label: 'Runs on', phone: 'extra', render: p => <span className="muted">{[p.size && `size ${p.size}`, p.runsOn].filter(Boolean).join(' · ') || '—'}</span> },
-    { key: 'override', label: 'Override', phone: 'time', render: p => p.override
+    { key: 'cpu', label: 'CPU', render: p => p.cpu },
+    { key: 'runs', label: 'Runs on', render: p => <span className="muted">{[p.size && `size ${p.size}`, p.runsOn].filter(Boolean).join(' · ') || '—'}</span> },
+    { key: 'override', label: 'Override', render: p => p.override
       ? <span><Status word={p.overrideLabel} help={`${p.override.reason} · ${p.override.setBy}, ${p.override.setAt}`} />{' '}{p.override.memoryUnlimited ? 'no memory limit' : p.override.resources.memoryBytes ? fmtBytes(p.override.resources.memoryBytes) : ''}{p.override.resources.cpus ? ` ${p.override.resources.cpus} cpu` : ''}{p.overrideApplied ? '' : ' · not applied yet'}{' '}
         {!p.suppliedService && <button className="link small" disabled={busy || r.reading?.unknown} onClick={() => clear(p.part)}>clear</button>}</span>
       : <span className="muted">—</span> },

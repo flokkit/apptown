@@ -6,9 +6,4 @@
 .infrastructure-home-job-queue-div-2 { overflow-x: auto; }
 .infrastructure-home-job-queue-job-table { font-variant-numeric: tabular-nums; }
 .target-connections td { white-space: normal; overflow-wrap: anywhere; }
-@media (width <= 800px) {
-  .target-list .phone-time { display: none; }
-  .target-connections .phone-extra { grid-area: 3 / 1 / 4 / -1; max-width: none; }
-  .target-connections .phone-detail { grid-column-end: -1; }
-}
 }

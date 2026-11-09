@@ -46,7 +46,7 @@ export function ExternalProviderSettings() {
     </>}
     <ReadGate q={bindings} what="external identity bindings">{(bindings.data?.bindings.length ?? 0) > 0 && <ListTable label="External identity bindings" rows={bindings.data?.bindings ?? []} rowKey={b => String(b.id)} columns={[
       { key: 'principal', label: 'Principal', phone: 'name', render: b => b.principalId },
-      { key: 'identity', label: 'Issuer / subject', phone: 'detail', render: b => <>{b.issuer} / {b.subject}</> },
+      { key: 'identity', label: 'Issuer / subject', render: b => <>{b.issuer} / {b.subject}</> },
       { key: 'revoked', label: 'Revocation', phone: 'state', render: b => b.revoked ? 'revoked' : null },
       { key: 'action', label: '', phone: 'action', render: b => !b.revoked && <button onClick={() => { void run(() => del(`/auth/external/bindings/${b.id}`)) }}>Revoke</button> },
     ]} />}</ReadGate>
@@ -74,7 +74,7 @@ export function MyExternalSignIn({ embedded = false }: { embedded?: boolean }) {
     </div>
     <ReadGate q={q} what="your external identities">{(q.data?.bindings.length ?? 0) > 0 && <ListTable label="Your external identities" rows={q.data?.bindings ?? []} rowKey={b => String(b.id)} columns={[
       { key: 'issuer', label: 'Issuer', phone: 'name', render: b => b.issuer },
-      { key: 'subject', label: 'Subject', phone: 'detail', render: b => b.subject },
+      { key: 'subject', label: 'Subject', render: b => b.subject },
       { key: 'state', label: 'Revocation', phone: 'state', render: b => b.revoked ? <span className="muted small">revoked</span> : null },
       { key: 'action', label: '', phone: 'action', render: b => !b.revoked && <button className="subtle" disabled={!password} title={password ? undefined : 'Enter your password above first'} onClick={() => { void run(async () => { await post(`/auth/external/bindings/${b.id}/unlink`, { password }); setPassword('') }) }}>Unlink</button> },
     ]} />}</ReadGate>

@@ -48,5 +48,8 @@
 .md-doc h1 { font-size: var(--fs-lg); } .md-doc h2 { font-size: var(--fs-base); margin-top: 18px; }
 .md-doc table { border-collapse: collapse; margin: 8px 0; }
 .md-doc th, .md-doc td { border: 1px solid var(--border); padding: 4px 10px; font-size: var(--fs-xs); }
+/* On a phone a docs table keeps whole words and scrolls sideways in its own
+   box (table-scroll.css) rather than breaking words a few letters at a time. */
+@media (width <= 800px) { .main .md-doc :is(th, td) { overflow-wrap: break-word; } }
 .md-doc code { background: var(--panel2); padding: 1px 4px; border-radius: var(--radius-xs); }
 }

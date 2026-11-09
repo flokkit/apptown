@@ -183,10 +183,9 @@ it.each(['reconciled', 'uncertain'])('reloads the resulting state after refreshi
     const refresh = () => [...document.body.querySelectorAll('.more-menu-list button')].find(b => b.firstChild?.textContent === 'Refresh status') as HTMLButtonElement | undefined
     await vi.waitFor(() => expect(el.querySelector('button[aria-label^="More actions"]')).not.toBeNull())
     await act(async () => { el.querySelector<HTMLButtonElement>('button[aria-label^="More actions"]')!.click() })
-    await act(async () => {
-      refresh()!.click()
-      await new Promise(resolve => setTimeout(resolve, 30))
-    })
+    // The menu lists Refresh status once the viewer's grants have loaded; wait for it, not a time.
+    await vi.waitFor(() => expect(refresh()).toBeDefined())
+    await act(async () => { refresh()!.click() })
     await vi.waitFor(() => {
       expect(readsAfterRefresh).toBeGreaterThan(0)
       expect(el.querySelector('.deployment-page-heading')?.textContent).toContain('stopped')

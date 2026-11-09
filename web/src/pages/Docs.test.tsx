@@ -103,3 +103,14 @@ describe('the docs page', () => {
     act(() => root.unmount())
   })
 })
+
+// A docs table that scrolls sideways on a phone can be reached, and so
+// scrolled, from the keyboard.
+it('lets the keyboard reach a docs table', async () => {
+  const { MdDoc } = await import('./Docs')
+  const el = document.body.appendChild(document.createElement('div')), root = createRoot(el)
+  try {
+    act(() => root.render(<MemoryRouter><MdDoc content={'| Chip | Meaning |\n| --- | --- |\n| working | The configured thing works. |'} file="glossary.md" /></MemoryRouter>))
+    expect(el.querySelector('table')?.tabIndex).toBe(0)
+  } finally { act(() => root.unmount()); el.remove() }
+})

@@ -52,7 +52,7 @@ export function ModelsTab({ slug }: { slug: string }) {
     {known && <Section title={`Models for ${selected}`}>
       <ListTable label={`Models for ${selected}`} rows={data.tasks} rowKey={row => row.slot} columns={[
         { key: 'task', label: 'Task', phone: 'name', render: row => <><strong>{jobName(row.slot)}</strong><div className="muted small">{row.gloss}</div></> },
-        { key: 'model', label: 'Model', phone: 'detail', render: row => {
+        { key: 'model', label: 'Model', render: row => {
           const { pattern: model, slot: from } = row.models[selected]
           return model ? `${model}${from !== row.slot ? ` · from ${jobName(from)}` : ''}` : 'No model set'
         } },

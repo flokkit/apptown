@@ -22,10 +22,10 @@ export function TargetResourcesTable({ t, only = () => true, empty = 'No resourc
   if (!resources.length) return <p className="muted small">{empty}</p>
   return <ListTable className="target-resources-table" label="Resources" rows={resources} rowKey={resourceKey} columns={[
     { key: 'name', label: 'Name', kind: 'technical', phone: 'name', render: r => <Link to={resourcePath(t.target, r)} title={r.name}>{r.name || r.id}</Link> },
-    { key: 'kind', label: 'Kind', phone: 'extra', className: 'record-words', render: r => r.kind },
-    { key: 'deployment', label: 'Deployment', phone: 'detail', className: 'record-words', render: r => (r.hosts ?? []).map((h, i) => <span key={i}>{i > 0 && ", "}{h.project.startsWith('(') ? h.project : <Link to={`/projects/${h.project}/deployments/${h.deployment}`} title={`${h.project}/${h.deploymentLabel || h.deployment}`}>{h.project}/{h.deploymentLabel || h.deployment}</Link>}</span>) },
+    { key: 'kind', label: 'Kind', className: 'record-words', render: r => r.kind },
+    { key: 'deployment', label: 'Deployment', className: 'record-words', render: r => (r.hosts ?? []).map((h, i) => <span key={i}>{i > 0 && ", "}{h.project.startsWith('(') ? h.project : <Link to={`/projects/${h.project}/deployments/${h.deployment}`} title={`${h.project}/${h.deploymentLabel || h.deployment}`}>{h.project}/{h.deploymentLabel || h.deployment}</Link>}</span>) },
     { key: 'state', label: 'State', phone: 'state', className: 'record-words', render: r => <ResourceStatus compact r={r} confirmed={confirmed(t)} invalidated={t.invalidated} /> },
-    { key: 'owned', label: 'Owned', phone: 'time', className: 'record-words', render: r => r.record === 'unrecorded' ? 'unknown' : 'owned' },
+    { key: 'owned', label: 'Owned', className: 'record-words', render: r => r.record === 'unrecorded' ? 'unknown' : 'owned' },
   ]} />
 }
 

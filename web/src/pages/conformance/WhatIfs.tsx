@@ -42,9 +42,9 @@ function ProjectsBehind() {
     {rows.length === 0 ? <p className="muted small">Every project is on its packs' recommended versions.</p>
       : <ListTable label="Projects behind" rows={rows} rowKey={r => `${r.pack}/${r.slug}`} rowTo={r => `/projects/${r.slug}/settings/working`} columns={[
         { key: 'project', label: 'Project', phone: 'name', render: r => <Link to={`/projects/${r.slug}/settings/working`}>{r.slug}</Link> },
-        { key: 'pack', label: 'Pack', phone: 'detail', render: r => <Link to={`/packs/${encodeURIComponent(r.pack)}`}>{r.pack}</Link> },
-        { key: 'on', label: 'On', phone: 'extra', kind: 'number', render: r => `v${r.on}` },
-        { key: 'recommended', label: 'Recommended', phone: 'extra', kind: 'number', render: r => `v${r.recommended}` },
+        { key: 'pack', label: 'Pack', render: r => <Link to={`/packs/${encodeURIComponent(r.pack)}`}>{r.pack}</Link> },
+        { key: 'on', label: 'On', kind: 'number', render: r => `v${r.on}` },
+        { key: 'recommended', label: 'Recommended', kind: 'number', render: r => `v${r.recommended}` },
         ...(!mayTry ? [] : [{ key: 'try', label: '', phone: 'action' as const, render: (r: typeof rows[number]) => <button disabled={busy} title={`Compare ${r.slug} on v${r.recommended} with how it stands now; nothing changes in the project`} onClick={() => void tryIt(r)}>Try the upgrade</button> }]),
       ]} />}
   </Section>
@@ -92,7 +92,7 @@ export function WhatIfsList() {
       {list.length > 0 && (
         <ListTable label="What-ifs" rows={list.slice(0, limit)} rowKey={w => w.id ?? `${w.pack}@${w.version}@${w.createdAt}`} rowTo={w => `/conformance/what-ifs/${w.id}`} columns={[
           { key: 'pack', label: 'Pack version', phone: 'name', render: w => <><Link to={`/conformance/what-ifs/${w.id}`}>{w.pack} v{w.version}</Link>{w.advanceWorkflows && <span className="muted small"> · and other workflows to newest</span>}</> },
-          { key: 'answers', label: 'Results', phone: 'detail', render: w => {
+          { key: 'answers', label: 'Results', render: w => {
             const counts: Record<string, number> = {}
             for (const p of w.projects) counts[p.outcome] = (counts[p.outcome] ?? 0) + 1
             return <div className="row what-if-answers">
@@ -102,8 +102,8 @@ export function WhatIfsList() {
             </div>
           } },
           { key: 'state', label: 'Status', phone: 'state', render: w => <Status word={w.statusLabel} help={w.detail || undefined} /> },
-          { key: 'by', label: 'Asked by', phone: 'extra', render: w => <span className="muted">{w.requestedBy}</span> },
-          { key: 'when', label: 'When', phone: 'time', kind: 'time', render: w => relTime(w.createdAt) },
+          { key: 'by', label: 'Asked by', render: w => <span className="muted">{w.requestedBy}</span> },
+          { key: 'when', label: 'When', kind: 'time', render: w => relTime(w.createdAt) },
         ]} />
       )}
       </Section>

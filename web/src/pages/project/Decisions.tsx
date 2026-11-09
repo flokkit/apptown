@@ -27,8 +27,8 @@ export function AdrsTab({ slug }: { slug: string }) {
           <ListTable label="Decisions" rows={adrs} rowKey={a => String(a.id)} rowTo={a => `/adrs/${a.id}`} columns={[
             { key: 'title', label: 'Decision', phone: 'name', render: a => <Link to={`/adrs/${a.id}`}><strong>{a.title}</strong></Link> },
             { key: 'state', label: 'State', phone: 'state', render: a => <Status word={a.statusLabel} help={`Decision: ${a.status}.`} /> },
-            { key: 'number', label: 'Number', phone: 'detail', className: 'muted small', render: a => `ADR-${String(a.number).padStart(3, '0')}` },
-            { key: 'tags', label: 'Tags', phone: 'extra', className: 'muted small', render: a => a.tags },
+            { key: 'number', label: 'Number', className: 'muted small', render: a => `ADR-${String(a.number).padStart(3, '0')}` },
+            { key: 'tags', label: 'Tags', className: 'muted small', render: a => a.tags },
           ]} />
         </>}</ReadGate>
       </Section>

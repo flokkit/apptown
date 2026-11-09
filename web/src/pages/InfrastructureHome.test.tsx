@@ -37,7 +37,7 @@ it('uses one Targets heading and linked table names with the create action in th
   expect(el.querySelector('.page-head-row a[href="/targets/new"]')).not.toBeNull()
   expect(el.querySelector('table.target-list[aria-label="Targets"] tbody a[href="/targets/kitchen"]')).not.toBeNull()
   expect(el.querySelectorAll('h2')).toHaveLength(3)
-  expect(el.querySelector('.phone-extra')?.textContent).toBe('1 app')
+  expect(el.querySelector('[data-label="Apps"]')?.textContent).toBe('1 app')
   expect(html).not.toContain('View target')
   expect(html).not.toContain('Job queue')
 })

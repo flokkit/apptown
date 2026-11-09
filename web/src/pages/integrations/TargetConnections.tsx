@@ -25,8 +25,8 @@ export function TargetConnections({ targets }: { targets: TargetView[] }) {
       {!q.data ? <ReadStatus q={q} what={title.toLowerCase()} /> : !rows.length ? <p className="muted small">None connected.</p> : <ListTable className="target-connections" label={title} rows={rows} rowKey={b => b.id || b.name} columns={[
         { key: 'name', label: 'Connection', phone: 'name', render: b => <Link to={`/integrations/${b.name}`}>{b.displayLabel || b.name}</Link> },
         { key: 'state', label: 'State', phone: 'state', render: b => <Status observation word={q.refreshFailed ? 'unknown' : healthState(b.health)} /> },
-        { key: 'description', label: 'Description', phone: 'detail', render: b => <span title={usedFor(b, specFor(catalog.data?.catalog ?? [], b)) || undefined}>{usedFor(b, specFor(catalog.data?.catalog ?? [], b))}</span> },
-        { key: 'uses', label: 'Used for', phone: 'extra', render: b => {
+        { key: 'description', label: 'Description', render: b => <span title={usedFor(b, specFor(catalog.data?.catalog ?? [], b)) || undefined}>{usedFor(b, specFor(catalog.data?.catalog ?? [], b))}</span> },
+        { key: 'uses', label: 'Used for', render: b => {
           const used = connectionTargets(b, targets)
           return used.length ? used.map(t => <div key={t.id}><Link to={`/targets/${t.name}`}>{t.displayLabel || t.name}</Link> · deploying{t.kind === 'do-app' && typeof t.address.registry === 'string' && t.address.registry ? ' · image registry' : ''}{t.ingress.rehearsals === true ? ' · rehearsal host' : ''}{targets.some(other => other.address.copyRunner === t.name) ? ' · backup jobs' : ''}</div>) : <span className="muted small">No target recorded.</span>
         } },

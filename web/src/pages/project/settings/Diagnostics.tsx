@@ -87,8 +87,8 @@ export function DiagnosticsDetail({ d, busy, onLog }: { d: Diag; busy: boolean; 
               {old && <div className="muted">last read {at(p.observedAt)}: {f.status}{f.exitCode != null ? `, exit ${f.exitCode}` : ''}{f.oomKilled ? ', out of memory' : ''}</div>}
             </>
           } },
-          { key: 'restarts', label: 'restarts', phone: 'extra', kind: 'number', render: p => <span className={(p.stale || d.reading?.waiting) && p.facts ? 'diagnostics-old' : undefined} title="Docker's count for this container; a deploy starts a new one">{p.facts ? p.facts.restarts : ''}</span> },
-          { key: 'health', label: 'health check', phone: 'extra', render: p => <span className={(p.stale || d.reading?.waiting) && p.facts ? 'diagnostics-old' : undefined}>{p.facts?.health ?? ''}</span> },
+          { key: 'restarts', label: 'restarts', kind: 'number', render: p => <span className={(p.stale || d.reading?.waiting) && p.facts ? 'diagnostics-old' : undefined} title="Docker's count for this container; a deploy starts a new one">{p.facts ? p.facts.restarts : ''}</span> },
+          { key: 'health', label: 'health check', render: p => <span className={(p.stale || d.reading?.waiting) && p.facts ? 'diagnostics-old' : undefined}>{p.facts?.health ?? ''}</span> },
           { key: 'log', label: '', phone: 'action', render: p => d.containers && p.presence !== 'absent' && <button className="link small" disabled={busy} onClick={() => onLog(p.part)}>log</button> },
         ]} />
       )}
