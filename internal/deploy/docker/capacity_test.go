@@ -486,7 +486,7 @@ func TestAStandingNeedTakesTheCurrentHealthTimingWithoutLosingItsData(t *testing
 	if len(standingCalls(f, "stop")) != 1 || len(standingCalls(f, "rm")) != 1 || len(runs) != 1 {
 		t.Fatalf("old health timing did not remake the container: %v", f.args)
 	}
-	if !strings.Contains(runs[0], "-v apptown-need-env-shop-main-postgres:/var/lib/postgresql/data") || !strings.Contains(runs[0], "--health-start-interval 1s") {
+	if !strings.Contains(runs[0], "-v apptown-need-env-shop-main-postgres:/var/lib/postgresql/data") || !strings.Contains(runs[0], "--health-start-interval 3s") {
 		t.Errorf("the remade container is not on its volume, or not on the current timing: %s", runs[0])
 	}
 	for _, a := range f.args {
@@ -495,7 +495,7 @@ func TestAStandingNeedTakesTheCurrentHealthTimingWithoutLosingItsData(t *testing
 		}
 	}
 
-	d = &standingDaemon{health: `{"Test":["CMD-SHELL","pg_isready"],"Interval":30000000000,"Timeout":3000000000,"StartPeriod":120000000000,"StartInterval":1000000000,"Retries":3}`}
+	d = &standingDaemon{health: `{"Test":["CMD-SHELL","pg_isready"],"Interval":30000000000,"Timeout":3000000000,"StartPeriod":120000000000,"StartInterval":3000000000,"Retries":3}`}
 	f = &fakeClient{reply: d.reply}
 	if _, err := EnsureStandingServices(t.Context(), Scope{Client: f}, "env-shop-main", svc, "production", own); err != nil {
 		t.Fatal(err)

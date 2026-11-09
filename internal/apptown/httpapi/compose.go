@@ -334,13 +334,13 @@ func probeShellCmd(pr *appcontract.Probe, partPort int) string {
 func composeHealth(cmd string) map[string]any {
 	return map[string]any{
 		"test": []any{"CMD-SHELL", deploy.ComposeLiteral(cmd)},
-		// As AppTown runs it (docker.healthArgs): every second while it
+		// As AppTown runs it (docker.healthArgs): every three seconds while it
 		// starts, then every half minute.
 		"interval":       "30s",
 		"timeout":        "3s",
 		"retries":        3,
 		"start_period":   "2m",
-		"start_interval": "1s",
+		"start_interval": "3s",
 	}
 }
 

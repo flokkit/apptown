@@ -179,12 +179,13 @@ func waitStackReady(ctx context.Context, dk Scope, svcs []deploy.ServiceSpec, id
 const healthBound = 2 * time.Minute
 
 // A check starts a process inside the container (and a database client
-// opens a connection), about a tenth of a CPU second each: every second
-// while the service starts, so readiness is seen at once, then every half
-// minute for as long as it runs. A three-second interval for life cost a
+// opens a connection), about a tenth of a CPU second each: every three
+// seconds while the service starts, so readiness is seen soon without a
+// host deploying many services at once being swamped by checks, then
+// every half minute for as long as it runs. A three-second interval for life cost a
 // one-CPU host about 15% of its CPU with eight services.
 const (
-	healthStartInterval = time.Second
+	healthStartInterval = 3 * time.Second
 	healthInterval      = 30 * time.Second
 	healthRetries       = 3
 )
