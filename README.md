@@ -4,7 +4,7 @@ AppTown gives your team a ready-made place to build and host web apps. Build
 in the browser by describing your app to a server-hosted AI coding agent, or
 from a desktop agent via MCP.
 
-AppTown respects your sovereignty: you can run AppTown yourself, on your own
+You stay in control: you can run AppTown yourself, on your own
 computer or server. Apps can live on your own servers (Docker, Portainer),
 and agents can use local models through any OpenAI-compatible server, such
 as LM Studio, vLLM or llama.cpp. Cloud works too: you can use cloud
@@ -21,8 +21,10 @@ resources or hosted models if you prefer.
   Customise them to match your house style.
 - Every deploy takes a backup first, so you can roll back the code and the
   data together. Backups are restore-tested automatically on a schedule.
-- Tests and checks run inside AppTown, not on someone's laptop, and every
-  change is approved before it ships.
+- Tests, checks and builds run on the server, so contributors don't need to
+  set up a development environment.
+- Project owners retain approval rights for contributions from people and
+  agents.
 - A change history that records intent, not just code.
 - Automations for chores like dependency and container updates (some arrive
   during 1.x).
