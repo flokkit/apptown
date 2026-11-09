@@ -187,3 +187,16 @@ it('links the release record to each deployment where its bundle ran', async () 
     expect(h.el.textContent).toContain('Has run here')
   } finally { act(() => h.root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+// A rollback deploys an earlier release's build again: the page names the
+// release it brings back, never as if that release were the one undone.
+it('says a rollback deploys the earlier release again', async () => {
+  const client = newQueryClient()
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ release: { id: B14, number: 4, state: 'released', createdAt: '2026-11-09T00:00:00Z', rollbackOf: B3 }, rollbackNumber: 2, changes: [], events: [] }))))
+  const view = render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="4" /></MemoryRouter></QueryClientProvider>)
+  try {
+    await vi.waitFor(() => expect(view.el.textContent).toContain('Deploys release 2 again.'))
+    expect(view.el.textContent).not.toContain('Rollback of')
+    expect(view.el.querySelector('a[href="/projects/shop/releases/2"]')).not.toBeNull()
+  } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

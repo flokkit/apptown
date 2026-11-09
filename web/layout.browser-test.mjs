@@ -130,6 +130,18 @@ const out = process.env.APPTOWN_LAYOUT_OUT
 if (out) await mkdir(out, { recursive: true })
 let page
 const consoleLines = []
+// A hang reports like a failure: at four minutes, say whether the page
+// answers, with its console and a screenshot, then fail (the make target's
+// deadline stops the process a minute later if even this cannot run).
+const report = async () => {
+  if (!page) return
+  const answers = await Promise.race([page.evaluate(() => document.activeElement?.outerHTML.slice(0, 200) ?? 'none').then(a => `page answers; focus on ${a}`), new Promise(r => setTimeout(() => r('page does not answer a script within 5 s'), 5000))])
+  console.error(`layout: at failure, ${answers}`)
+  console.error(`layout: console:\n${consoleLines.slice(-40).join('\n') || '(none)'}`)
+  const shot = `${process.env.TMPDIR || '/tmp'}/layout-failure-${process.pid}.png`
+  await page.screenshot({ path: shot, timeout: 5000 }).then(() => console.error(`layout: screenshot ${shot}`), () => console.error('layout: no screenshot'))
+}
+const watchdog = setTimeout(async () => { console.error('layout: still running after 240 s'); await report(); process.exit(1) }, 240_000)
 try {
   page = await browser.newPage()
   page.on('console', m => consoleLines.push(`${m.type()}: ${m.text()}`))
@@ -311,12 +323,6 @@ try {
 } catch (error) {
   // A step that timed out says whether the page itself was stuck (a script
   // cannot run in it) or only slow, with its console and a screenshot.
-  if (page) {
-    const answers = await Promise.race([page.evaluate(() => document.activeElement?.outerHTML.slice(0, 200) ?? 'none').then(a => `page answers; focus on ${a}`), new Promise(r => setTimeout(() => r('page does not answer a script within 5 s'), 5000))])
-    console.error(`layout: at failure, ${answers}`)
-    console.error(`layout: console:\n${consoleLines.slice(-40).join('\n') || '(none)'}`)
-    const shot = `${process.env.TMPDIR || '/tmp'}/layout-failure-${process.pid}.png`
-    await page.screenshot({ path: shot, timeout: 5000 }).then(() => console.error(`layout: screenshot ${shot}`), () => console.error('layout: no screenshot'))
-  }
+  await report()
   throw error
-} finally { await browser.close() }
+} finally { clearTimeout(watchdog); await browser.close() }
