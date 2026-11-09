@@ -112,6 +112,10 @@ type ProjectBackup struct {
 	Project         string `json:"project"`
 	DeploymentLabel string `json:"deploymentLabel"`
 	BeforeRelease   int64  `json:"beforeRelease,omitempty"`
+	// DeploymentRemoved says the set's deployment is no longer recorded
+	// (it was taken down): its sets stay, but there is no deployment to
+	// open or restore over.
+	DeploymentRemoved bool `json:"deploymentRemoved,omitempty"`
 }
 
 type Backups struct {
@@ -316,7 +320,8 @@ func (s *Service) AllSets(ctx context.Context, limit int) ([]ProjectBackup, erro
 				labels[projectID][d.Name] = d.DisplayLabel
 			}
 		}
-		out[i].DeploymentLabel = labels[projectID][out[i].Deployment]
+		label, recorded := labels[projectID][out[i].Deployment]
+		out[i].DeploymentLabel, out[i].DeploymentRemoved = label, !recorded
 		if out[i].DeploymentLabel == "" {
 			out[i].DeploymentLabel = out[i].Deployment
 		}
@@ -343,10 +348,11 @@ func (b ProjectBackup) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(struct {
 		backupFields
-		Project         string `json:"project"`
-		BeforeRelease   int64  `json:"beforeRelease,omitempty"`
-		DeploymentLabel string `json:"deploymentLabel"`
-	}{out, b.Project, b.BeforeRelease, b.DeploymentLabel})
+		Project           string `json:"project"`
+		BeforeRelease     int64  `json:"beforeRelease,omitempty"`
+		DeploymentLabel   string `json:"deploymentLabel"`
+		DeploymentRemoved bool   `json:"deploymentRemoved,omitempty"`
+	}{out, b.Project, b.BeforeRelease, b.DeploymentLabel, b.DeploymentRemoved})
 }
 
 // Reference reads the set in its owning project, including pruned records.

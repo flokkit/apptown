@@ -1302,6 +1302,7 @@ export type ProjectBackup = {
   storeBucket?: string
   project: string
   beforeRelease?: number
+  deploymentRemoved?: boolean
 }
 
 export type ProjectCleanupList = {

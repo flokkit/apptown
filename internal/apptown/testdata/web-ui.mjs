@@ -358,6 +358,15 @@ try {
         }
         if (screen === 'deployment') {
           if (await page.getByRole('button', { name: 'Approve', exact: true }).count() !== 1 || !(await page.locator('main').innerText()).includes('running on Production')) throw new Error('waiting release is missing its approval meaning or doors');
+          if (!process.env.DESIGN_BASELINE) {
+            // Restoring is on the deployment's ⋯ menu: pick a copy, then the question.
+            await page.getByRole('button', { name: /^More actions for /, exact: false }).first().click();
+            await page.getByRole('button', { name: 'Restore from a backup…', exact: true }).click();
+            await page.getByRole('dialog').locator('input[type="radio"]').first().check();
+            await page.getByRole('button', { name: 'Restore', exact: true }).waitFor();
+            await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-restore-question.png`, fullPage: true });
+            await page.keyboard.press('Escape');
+          }
         }
         if (!process.env.DESIGN_BASELINE && !cameraContentExclusions[screen] && (screen === 'conformance' || screen === 'conformance-project-mixed')) {
           const notes = page.locator('.conformance-broken');
@@ -739,9 +748,8 @@ try {
           }
           await page.locator('main details:not(.status-help)').evaluateAll(els => els.forEach(el => { el.open = true; }));
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-history.png`, fullPage: true });
-          await page.getByRole('button', { name: 'Restore Production from this copy', exact: true }).first().click();
-          await page.getByRole('button', { name: 'Restore', exact: true }).waitFor();
-          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-restore-question.png`, fullPage: true });
+          // The Backups page lists; restoring is the deployment's act.
+          if (await page.getByRole('button', { name: /^Restore |^Back up now$/ }).count()) throw new Error('Backups rows must not carry deployment acts');
         }
         if (screen === 'target' || screen === 'target-unknown') {
           await page.locator('.capacity-details, .cap-details, .target-deployments, .target-settings').evaluateAll(els => els.forEach(el => { el.open = true; }));
