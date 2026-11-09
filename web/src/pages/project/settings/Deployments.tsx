@@ -230,6 +230,7 @@ export function EnvCard({ slug, env: e }: { slug: string; env: DeploymentView; o
           </div>
         )}
         </DeploymentLine>
+        {e.generation && e.target && <HostLine share={resources.data?.share} target={e.target.name} old={resources.data?.reading?.waiting} />}
         {e.aiModels && e.aiModels.length > 0 && <AIModelsLine slug={slug} name={e.name} />}
         {(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host') && <ProtectionLines slug={slug} name={e.name} />}
         {e.restoreCheck && <DeploymentLine label="After restore"><Status word={e.restoreLabel} /> {restoreCheckWords(e.restoreCheck)}</DeploymentLine>}
@@ -539,21 +540,26 @@ export function LimitEventLines({ r }: { r: DeploymentResources }) {
   )
 }
 
-// ShareLine says what the deployment holds of a fixed host: its declared
-// limits and its use against the host's memory, and the host's state;
-// on an elastic target, that it grows.
-export function ShareLine({ share, old }: { share?: DeploymentResources['share']; old?: boolean }) {
+// HostLine is always present, so the page keeps its shape: whether the host
+// takes new deploys, and its memory against what its apps ask for. A host
+// check that failed is the host's own problem, shown on its page; here the
+// facts it could not read are unknown.
+export function HostLine({ share, target, old }: { share?: DeploymentResources['share']; target: string; old?: boolean }) {
   const [technical] = useTechnicalDetail()
-  if (!share) return null
-  if (share.elastic) return <div className="muted">on {share.target}, which grows on demand</div>
-  return <div>
-    {!share.readAt && !share.error && <div className="muted small">Waiting for the first host check.</div>}
-    {share.readAt && <TechnicalWords shown={technical}>Host read {fmtStamp(share.readAt)}{old ? ' (old)' : ''}</TechnicalWords>}
-    {(share.error || (share.stale && share.readAt)) && <p className={old ? "muted small" : "error small"}>{share.error || "The host reading is out of date."}</p>}
-    {share.overcommitted && share.requested?.known && share.hostMemory.known && <p className="capacity-warning">{fmtBytes(share.requested.value)} requested; host total {fmtBytes(share.hostMemory.value)}. <Link to={`/targets/${share.target}`}>Review server</Link></p>}
-    {share.diskRefuses ? <p className={old ? "muted" : "error"}>Server is short on disk space. New deployments are blocked.</p>
-      : share.lowDisk && <p className={old ? "muted" : "error"}>Server is low on disk space.</p>}
-  </div>
+  const link = <Link to={`/targets/${encodeURIComponent(target)}`}>host →</Link>
+  if (share?.elastic) return <DeploymentLine label="Host" trailer={link}>{target} · grows on demand</DeploymentLine>
+  const current = !!share?.readAt && !share.error && !share.stale && !old
+  const deploys = !current ? <span className="muted">unknown</span>
+    : share!.diskRefuses ? <span className="error">new deploys blocked: low on disk</span>
+    : share!.lowDisk ? <span className="deploy-warning">ready for deploys · low on disk</span>
+    : <>ready for deploys</>
+  const memory = current && share!.requested?.known && share!.hostMemory.known
+    ? <span className={share!.overcommitted ? 'deploy-warning' : undefined}>memory {fmtBytes(share!.requested.value)} requested of {fmtBytes(share!.hostMemory.value)}</span>
+    : null
+  return <DeploymentLine label="Host" trailer={link}>
+    {target} · {deploys}{memory && <> · {memory}</>}{' '}
+    {share?.readAt && <TechnicalWords shown={technical}>read {fmtStamp(share.readAt)}</TechnicalWords>}
+  </DeploymentLine>
 }
 
 // What holds a deployment after AppTown was restored, as a chip and as a
