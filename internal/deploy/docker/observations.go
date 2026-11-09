@@ -99,11 +99,17 @@ func containerObservation(p deploy.Placement, runtime *Runtime) (deploy.Observat
 	if runtime == nil {
 		return o, nil
 	}
-	generation, err := strconv.ParseInt(runtime.Labels[dockerlabel.Generation], 10, 64)
-	if err != nil || generation <= 0 {
-		return deploy.Observation{}, fmt.Errorf("the host's container has no valid generation label")
+	// A preview's container (class preview, as AppTown starts every
+	// preview) carries no generation label: its record is written after its
+	// boot, so the placement's generation is its own. Any other container
+	// must carry a valid one.
+	if runtime.Labels[dockerlabel.Class] != "preview" {
+		generation, err := strconv.ParseInt(runtime.Labels[dockerlabel.Generation], 10, 64)
+		if err != nil || generation <= 0 {
+			return deploy.Observation{}, fmt.Errorf("the host's container has no valid generation label")
+		}
+		o.Generation = generation
 	}
-	o.Generation = generation
 	if runtime.Running {
 		o.Rollout, o.Health = "active", "healthy"
 	} else {

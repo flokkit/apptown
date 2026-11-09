@@ -1,7 +1,10 @@
 // The tour's camera (make tour; internal/apptown/browser_security_browser_test.go starts it):
 // signs in to the tour's AppTown and photographs each stop at 1440x900,
 // device scale 2, in the light and the dark theme, with animations and the
-// text caret off. Writes <out>/<id>-light.png and <id>-dark.png.
+// text caret off. Writes <out>/<id>-light.png and <id>-dark.png. A stop's
+// click is a button's text: the camera clicks it and waits for the dialog
+// it opens before the shot. A happy stop (the story's stops, Home and
+// Projects) fails the run if it shows a failed or unknown status.
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.TOUR_URL;
 const shots = JSON.parse(process.env.TOUR_SHOTS);
@@ -40,9 +43,53 @@ try {
   if (status !== 200) throw new Error('sign-in answered ' + status);
   for (const shot of shots) {
     for (const theme of ['light', 'dark']) {
-      const url = (shot.path.startsWith('http://127.0.0.1:') ? shot.path : base + shot.path) + (shot.path.includes('?') ? '&' : '?') + 'theme=' + theme;
+      const url = (/^https?:\/\//.test(shot.path) ? shot.path : base + shot.path) + (shot.path.includes('?') ? '&' : '?') + 'theme=' + theme;
       await page.goto(url, { waitUntil: 'networkidle' });
       if (shot.wait) await page.getByText(shot.wait, { exact: false }).first().waitFor();
+      // A stop that shows an error instead of its page fails the tour: a
+      // removed page (the app's "Page not found"), a page that could not
+      // render (ErrorBoundary), or a read the page could not make
+      // (ReadStatus) would otherwise be photographed and published as if
+      // it were the page.
+      const wrong = await page.evaluate(() => {
+        if ([...document.querySelectorAll('h1')].some((h) => h.textContent.trim() === 'Page not found')) return 'Page not found';
+        if (document.body.innerText.includes('This page could not be displayed.')) return 'This page could not be displayed.';
+        const failed = document.querySelector('div.error');
+        if (failed) return 'a read failed: ' + (failed.innerText.trim() || failed.querySelector('[title],[aria-label]')?.getAttribute('title') || failed.querySelector('[aria-label]')?.getAttribute('aria-label') || '');
+        const denied = [...document.querySelectorAll('.muted')].find((e) => e.textContent.startsWith('Not available to you'));
+        if (denied) return denied.textContent.trim();
+        return '';
+      });
+      if (wrong) throw new Error(`stop ${shot.id} (${shot.path}) shows ${wrong} instead of its page`);
+      // The happy path shows nothing failed and nothing unknown: a failed
+      // or unknown status chip, or the word failed, on a happy stop means
+      // the scene is not the story the tour tells.
+      if (shot.happy) {
+        // A page still connecting or reading may show unknown for a moment;
+        // a happy stop gets ten seconds to settle, then must show none.
+        let trouble = '';
+        for (const settle = Date.now() + 10000; ;) {
+          trouble = await page.evaluate(() => {
+            const main = document.querySelector('main') || document.body;
+            const chip = main.querySelector('.chip.fail, .chip.unknown');
+            if (chip) {
+              const where = chip.closest('li, tr, section, a') || chip.parentElement;
+              return `a ${chip.classList.contains('fail') ? 'failed' : 'unknown'} status (${(chip.getAttribute('aria-label') || chip.getAttribute('data-help') || chip.textContent).trim()}) in "${where.innerText.replace(/\s+/g, ' ').slice(0, 160)}"`;
+            }
+            const text = main.innerText;
+            const at = text.search(/\bfailed\b/i);
+            if (at >= 0) return `"${text.slice(Math.max(0, at - 60), at + 20).replace(/\s+/g, ' ')}"`;
+            return '';
+          });
+          if (!trouble || Date.now() > settle) break;
+          await page.waitForTimeout(250);
+        }
+        if (trouble) throw new Error(`happy stop ${shot.id} (${shot.path}) shows ${trouble}`);
+      }
+      if (shot.click) {
+        await page.getByRole('button', { name: shot.click, exact: true }).first().click();
+        await page.getByRole('dialog').first().waitFor();
+      }
       await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }' });
       await page.mouse.move(0, 0);
       await page.waitForTimeout(400);

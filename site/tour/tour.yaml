@@ -1,60 +1,73 @@
 # The AppTown tour: the stops, in order. `make tour` photographs each one in
 # the light and the dark theme and writes index.html from this file.
-# path may use {review} (the change waiting for approval), {chat} (the
-# change with a chat) and {session} (that chat's session).
+# The tour follows one change from asking to deciding, then shows the
+# wider view. path may use {before} and {after} (the club site before and
+# after the change), {story} (the neon makeover change, waiting for
+# approval), {storySession} (its chat), {preview} (its running preview),
+# {chat} (another change with a chat) and {session} (that chat's session).
+# click is a button the camera clicks before the shot (it waits for the
+# dialog). happy: true fails the run if the stop shows a failed or unknown
+# status.
 stops:
-  - id: before
-    title: A perfectly sensible beginning
-    caption: The cycling club has a newsletter and a ride calendar. Useful, but Tom has an idea.
-    path: "{before}"
-  - id: after
-    title: Turn the neon up
-    caption: Same club, louder shirt. Tom asks for an exuberant makeover while keeping the pages and links working. These are the actual example pages, rendered before and after the change.
-    path: "{after}"
-  - id: home
-    title: Home
-    caption: See your apps, recent work and anything that needs your attention. This example leaves one style check to fix and one approval to give.
-    path: /
   - id: projects
     title: Projects
-    caption: The team's apps, each with its way of working and what is running.
+    caption: The team's apps, each one live and working.
     path: /projects
-  - id: new-project
-    title: Start an app
-    caption: Describe the app you want. AppTown suggests a name, then helps you choose how to build it and where to keep its code.
-    path: /projects/_new
+    happy: true
   - id: project
     title: An app's page
-    caption: What the app is, its open changes, and where it runs.
-    path: /projects/lunch-orders
+    caption: Club Newsletter's page shows what has gone live and where it runs. Open app shows the site as members see it.
+    path: /projects/club-newsletter
+    happy: true
+  - id: before
+    title: The site today
+    caption: The club's newsletter and ride calendar. Useful, but Tom has an idea.
+    path: "{before}"
   - id: chat
-    title: Chat with the helper
-    caption: Say what you want changed. A coding agent works on its own copy of the app, runs the tests, and says when there is something to try.
-    path: /projects/lunch-orders/console?change={chat}
+    title: Ask for a change
+    caption: Tom asked for a neon makeover in a chat. A coding agent changed its own copy of the site, ran the link checks, and said when it was ready to try.
+    path: /changes/{story}?tab=conversation
+    happy: true
+  - id: preview
+    title: Try the preview
+    caption: The change's preview runs the new site before anyone approves it. Once accepted and released, this is what club members see.
+    path: "{preview}"
   - id: change
-    title: A change, checked
-    caption: Review what changed and what the checks found. Here, the tests passed but a style check needs fixing.
-    path: /changes/{review}
+    title: The change, checked
+    caption: What Tom asked for, what the agent says it did, the checks that passed, and the preview. It waits for Priya, who approves the newsletter's changes.
+    path: /changes/{story}
+    happy: true
+  - id: decide
+    title: Decide
+    caption: Decide shows what was asked, the checks, and what accepting means. AppTown records who accepted and what they agreed to.
+    path: /changes/{story}
+    click: Decide…
+    happy: true
+  - id: home
+    title: Home
+    caption: Your apps, recent work and what needs your attention. Here, the makeover waits for approval.
+    path: /
+    happy: true
   - id: infrastructure
-    title: Infrastructure
-    caption: The machines and services apps run on, and how much room each has.
-    path: /infrastructure
+    title: A deployment target
+    caption: A machine apps run on, how much room it has, and what runs there.
+    path: /targets/built-in-docker
   - id: conformance
     title: Conformance
-    caption: See whether each app follows your team's ways of working, and what to fix. Some checks here need services the example does not run, so their results are shown as incomplete.
+    caption: Whether each app follows your team's ways of working, and what to fix. Checks that need services the example does not run are shown as incomplete.
     path: /conformance
   - id: ways-of-working
     title: Ways of working
-    caption: Share guidance, checks and workflows across your apps.
+    caption: Guidance, checks and workflows, shared across your apps as packs.
     path: /packs
   - id: usage
     title: Usage
-    caption: See token use and how long each step takes, including time waiting for approval.
+    caption: Token use and how long each step takes, including time waiting for approval.
     path: /usage
   - id: people
     title: People
-    caption: Choose who can use AppTown and what they can do.
-    path: /people
+    caption: Who can use AppTown and what they can do.
+    path: /people/accounts
   - id: docs
     title: Docs
     caption: The guides ship with AppTown and open inside it.
