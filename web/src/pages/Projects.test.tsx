@@ -90,7 +90,7 @@ it('stamps only the projects that have a deployment', async () => {
   const stamp = card('boat').querySelector('.chip.unknown')
   expect(stamp?.textContent).toBe('● unknown')
   // Why it is unknown is the status's detail, on hover or tap.
-  expect(card('boat').querySelector('button.chip-button')?.getAttribute('data-help')).toBe('not checked yet')
+  expect(card('boat').querySelector('button.chip-button')?.getAttribute('data-help')).toBe('not checked yet.')
 })
 
 

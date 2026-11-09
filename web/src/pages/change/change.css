@@ -319,6 +319,15 @@
   10% { transform: scale(1.03); box-shadow: var(--shadow-pop), 0 0 20px 5px var(--decision-glow); }
 }
 @media (prefers-reduced-motion: reduce) { .ch-decide { animation: none; } }
+/* On a phone Decide is a bar fixed to the screen's foot, opaque, across the
+   whole width; the page keeps its height free underneath (Turn.tsx), so the
+   bar never lies over the change's last lines. A full-width bar does not
+   breathe: growing would move its edges. */
+@media (max-width: 800px) {
+  .ch-turn-floater { padding: var(--space-2) var(--space-4) calc(var(--space-2) + env(safe-area-inset-bottom)); background: var(--panel); border-top: 1px solid var(--rule); pointer-events: auto; }
+  .ch-turn-floater button { flex: 1 1 auto; min-height: 44px; box-shadow: none; }
+  .ch-turn-floater .ch-decide { animation: none; }
+}
 .ch-title-row .ch-number { color: var(--muted); font-weight: inherit; }
 
 /* The change card's first row needs no rule above it. */

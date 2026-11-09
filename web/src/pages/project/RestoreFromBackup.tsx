@@ -31,7 +31,10 @@ export function RestoreFromBackup({ slug, env, onClose }: { slug: string; env: D
     const r = await run(() => post<OperationAdmitted>(`/projects/${slug}/deployments/${env.name}/backups/${b.id}/restore`, { confirm: env.name }))
     if (r) onClose(r.operationId ?? undefined)
   }
-  return <Modal title={`Restore ${name} from a backup`} onClose={() => onClose()}>
+  return <Modal title={`Restore ${name} from a backup`} onClose={() => onClose()} actions={<>
+    <button className="danger" disabled={!chosen || busy || !q.current} onClick={() => chosen && void restore(chosen)}>Restore</button>
+    <button onClick={() => onClose()}>Cancel</button>
+  </>}>
     <ReadStatus q={q} what="the backups" /><StaleNote q={q} />
     {q.data && copies.length === 0 && <p className="muted">No copy to restore {name} from.</p>}
     {copies.length > 0 && <fieldset className="stack stack-2 restore-copies">
@@ -45,9 +48,5 @@ export function RestoreFromBackup({ slug, env, onClose }: { slug: string; env: D
     </fieldset>}
     {chosen && <p>Restore {name} from the copy taken {fmtWhen(chosen.takenAt)}? A safety copy of what is there now is taken first; the app is stopped while its data is replaced.{caveatNote(chosen.items)}</p>}
     {err && <p className="error" role="alert">{err}</p>}
-    <div className="row row-2">
-      <button className="danger" disabled={!chosen || busy || !q.current} onClick={() => chosen && void restore(chosen)}>Restore</button>
-      <button onClick={() => onClose()}>Cancel</button>
-    </div>
   </Modal>
 }

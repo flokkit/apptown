@@ -61,7 +61,7 @@ function StatusDetails({ tone, help, label, children }: { tone: string; help: st
   const [inControl, setInControl] = useState(false)
   useLayoutEffect(() => { setInControl(!!at.current?.parentElement?.closest('a, button, summary')) }, [])
   if (inControl) return <span ref={at} className={`chip ${tone}`} title={help} aria-label={`${label}: ${help}`}>{children}</span>
-  return <><span ref={at} hidden /><DetailsPopover className="status-word" trigger={<StatusButton tone={tone} help={help} label={label}>{children}</StatusButton>}>
+  return <><span ref={at} hidden /><DetailsPopover className="status-word" title={<h2><span className={`chip ${tone}`}>{children}</span></h2>} trigger={<StatusButton tone={tone} help={help} label={label}>{children}</StatusButton>}>
     <p className="status-word-detail">{help}</p>
   </DetailsPopover></>
 }

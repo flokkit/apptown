@@ -1,4 +1,5 @@
 import { ReactNode, RefObject, useEffect, useId, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
 // One dialog for the whole app (debt review, finding 8): a backdrop and a
 // panel with a real dialog role, Escape and click-outside close it, focus
@@ -7,13 +8,22 @@ import { ReactNode, RefObject, useEffect, useId, useRef } from 'react'
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
-export function Modal({ title, head, onClose, children, maxWidth }: {
+// fit: a dialog sized to its text (help, a status's details) rather than the
+// phone's full-screen sheet. It opens from inside title lines and rows,
+// which are positioned above a row's stretched link, so it is portalled to
+// the body where no such ancestor can re-stack it; full dialogs open from the
+// page and stay where they are rendered. actions: the dialog's closing
+// buttons, kept on screen at the foot of a long dialog on a phone.
+export function Modal({ title, head, onClose, children, maxWidth, fit = false, actions }: {
   title: ReactNode
   // Extra controls in the title row (tabs, a search box), before the ✕.
+  // On a phone they take their own line under the title and the ✕.
   head?: ReactNode
   onClose: () => void
   children: ReactNode
   maxWidth?: number
+  fit?: boolean
+  actions?: ReactNode
 }) {
   const titleId = useId()
   const panel = useRef<HTMLDivElement>(null)
@@ -39,21 +49,22 @@ export function Modal({ title, head, onClose, children, maxWidth }: {
     else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus() }
   }
 
-  return (
-    <div className="modal-backdrop">
-      <div ref={panel} className="modal-panel" role="dialog" aria-modal="true" tabIndex={-1}
+  const dialog = (
+    <div className={`modal-backdrop${fit ? ' modal-backdrop-fit' : ''}`}>
+      <div ref={panel} className={`modal-panel${fit ? ' modal-fit' : ''}`} role="dialog" aria-modal="true" tabIndex={-1}
         aria-labelledby={titleId}
         style={maxWidth ? { maxWidth } : undefined} onKeyDown={onKeyDown}>
-        <div className="row" style={{ marginBottom: 10 }}>
-          <div id={titleId}>{typeof title === 'string' ? <h2 style={{ margin: 0 }}>{title}</h2> : title}</div>
-          <span className="grow" />
-          {head}
-          <button className="subtle" onClick={onClose} aria-label="close" title="close">✕</button>
+        <div className="modal-head">
+          <div id={titleId} className="modal-title">{typeof title === 'string' ? <h2>{title}</h2> : title}</div>
+          {head && <div className="modal-head-extra">{head}</div>}
+          <button className="subtle modal-close" onClick={onClose} aria-label="close" title="close">✕</button>
         </div>
         <div className="modal-body">{children}</div>
+        {actions && <div className="modal-actions">{actions}</div>}
       </div>
     </div>
   )
+  return fit ? createPortal(dialog, document.body) : dialog
 }
 
 // Escape and a click outside `ref` call onClose. Shared with the split

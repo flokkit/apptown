@@ -59,7 +59,7 @@ it('shows deployment facts without fold-downs', () => {
 it('shows one deployment check timestamp', () => {
   // Said once across the page and the statuses' details.
   const el = card()
-  expect(`${el.textContent} | ${details(el)}`.match(/checked /g)).toHaveLength(1)
+  expect(`${el.textContent} | ${details(el)}`.match(/checked /gi)).toHaveLength(1)
 })
 
 it('says the missing backup once, with a disabled restore test and its reason', () => {

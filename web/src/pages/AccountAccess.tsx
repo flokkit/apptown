@@ -19,7 +19,7 @@ function CredentialConfirm({ label, ask, onYes }: { label: string; ask: string; 
       <p>{ask}</p>
       <div className="row row-2">
         <button className="danger" onClick={() => { onYes(); close() }}>Yes</button>
-        <button className="subtle" onClick={close}>No</button>
+        <button onClick={close}>No</button>
       </div>
     </>}
   </FormMenu>

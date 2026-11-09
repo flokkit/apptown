@@ -19,10 +19,6 @@
     "styles": 4,
     "numericPx": 6
   },
-  "web/src/Modal.tsx": {
-    "styles": 2,
-    "numericPx": 1
-  },
   "web/src/ProjectListRow.tsx": {
     "styles": 1,
     "numericPx": 0

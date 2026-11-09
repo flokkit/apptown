@@ -11,9 +11,6 @@
   "web/src/pages/Docs.css": {
     "apptown/pixel-spacing": 3
   },
-  "web/src/pages/Evals.css": {
-    "apptown/pixel-spacing": 1
-  },
   "web/src/pages/ExternalSignIn.css": {
     "apptown/pixel-spacing": 2
   },
@@ -28,7 +25,7 @@
     "apptown/pixel-spacing": 9
   },
   "web/src/pages/WaysOfWorking.css": {
-    "apptown/pixel-spacing": 4
+    "apptown/pixel-spacing": 3
   },
   "web/src/pages/change/change.css": {
     "apptown/pixel-spacing": 129,
@@ -126,7 +123,7 @@
   },
   "web/src/styles/modal.css": {
     "apptown/pixel-spacing": 6,
-    "declaration-no-important": 2
+    "declaration-no-important": 1
   },
   "web/src/styles/page-head.css": {
     "apptown/pixel-spacing": 11

@@ -50,7 +50,7 @@ it.each(['working', 'unknown', 'failed', 'stopped', 'deploying'] as const)('rend
     // hover or tap.
     const details = state?.querySelector('[data-help]')?.getAttribute('data-help') ?? state?.querySelector('.chip[title]')?.getAttribute('title')
     expect(details, selector).toContain(reason)
-    expect(details, selector).toContain('checked ')
+    expect(details, selector).toContain('Checked ')
     expect(state?.textContent, selector).not.toContain(reason)
   }
   expect(deploymentStatus(env).word).toBe(word)

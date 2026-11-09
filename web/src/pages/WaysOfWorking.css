@@ -9,11 +9,6 @@
   .section-action:has(.guidance-search) { flex: 1 1 100%; align-items: center; }
   .section-action .guidance-search { flex: 1; min-width: 0; width: auto; }
 }
-/* The "?" keeps its full tap target on a phone but sits beside the title,
-   drawn as the same small circle as on a wide screen. */
-@media (max-width: 800px) {
-  .wow-page .page-head-row button.page-help-q { margin-left: -10px; background: radial-gradient(circle, transparent 11px, var(--border-strong) 11px, var(--border-strong) 12px, transparent 12.5px); }
-}
 /* A policy row on a phone: the rule, then who follows it under it. */
 @media (max-width: 800px) {
   .policy-head { flex-wrap: wrap; row-gap: 4px; }

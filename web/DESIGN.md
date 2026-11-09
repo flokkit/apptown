@@ -26,7 +26,7 @@ labelled as such. Reviews open dated snapshot reports.
 | Completed work out of a known total, or unknown progress | `ProgressBar` |
 | Page section | `Section`; a page's beta mark is `BetaChip` after the title's help button |
 | Action menu or popover | `MoreMenu`, `SplitButton`, `FormMenu` for menus with form controls |
-| Dialog | `Modal`; change decisions use the native dialog in `pages/change/Turn.tsx` |
+| Dialog | `Modal`, with its closing buttons in `actions` (on phones they stay at the screen's foot); `Modal fit` for a dialog sized to its text. Change decisions use the native dialog in `pages/change/Turn.tsx`, opened on phones from a Decide bar fixed to the screen's foot |
 | Labelled field in a form grid | `FieldRow` with native input, select or textarea |
 | State and its explanation | `Status` and `StatusDot` in `Status.tsx`; domain status owners supply meaning and freshness |
 | Wrapping horizontal group or vertical stack | `.row` or `.stack`, with `.row-1`–`.row-6` or `.stack-1`–`.stack-6` for gaps |
@@ -50,7 +50,9 @@ for actions.
   Review, Restart), not for going to the item.
 - **Status is a word, its details behind it.** A status shows its dot and word
   only; why, and when it was checked, open from the word on hover (after the
-  mouse rests a second) or tap, in the same panel either way. Never write a
+  mouse rests a second) or tap, in the same panel either way. On a phone a
+  tap opens them as a dialog sized to its text (`Modal fit`), as the page's
+  "?" help does, so they never lie over the buttons beside the status. Never write a
   checked time or reason under or beside a status word. Dates that are facts of
   the record (when a release went out, when a backup was taken) have their own
   column or place in the row's sentence.

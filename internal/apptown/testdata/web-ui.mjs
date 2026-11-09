@@ -315,7 +315,9 @@ try {
         if (['overview-help', 'memory-notes', 'memory-decisions'].includes(screen)) {
           const title = screen === 'overview-help' ? 'Overview' : screen === 'memory-notes' ? 'Notes' : 'Decisions';
           await page.getByRole('button', { name: 'About ' + title, exact: true }).click();
-          if (!await page.locator('.page-help-pop a').isVisible()) throw new Error('missing guide link');
+          if (!await page.locator('.page-help-pop a, [role="dialog"] .page-help-text a').first().isVisible()) throw new Error('missing guide link');
+          // The help was opened to check its link; the page's own shot shows the page.
+          await page.keyboard.press('Escape');
           if (screen === 'overview-help' && await page.locator('main').getByText('What agents know about this project', { exact: true }).count()) throw new Error('notes remain on Overview');
           if (screen === 'overview-help' && await page.locator('main').getByText('Changes →', { exact: true }).count()) throw new Error('Changes link remains on Overview');
         }
@@ -415,6 +417,12 @@ try {
         if (screen === 'backup-store-details') await page.getByRole('region', { name: 'Backup store', exact: true }).getByText('household-copies', { exact: true }).waitFor();
         if (screen === 'people-revoke' || screen === 'people-disconnect') await page.getByRole('button', { name: screen === 'people-revoke' ? 'revoke' : 'disconnect', exact: true }).first().click();
         if (screen === 'people-actions') await page.getByRole('button', { name: 'Actions for sam', exact: true }).click();
+        // A menu or confirmation opens beside the control that opened it.
+        if (['people-actions', 'people-revoke', 'people-disconnect'].includes(screen)) {
+          const trigger = page.locator('main [aria-expanded="true"]').first();
+          const [panel, control] = await Promise.all([page.locator('.popover').boundingBox(), trigger.boundingBox()]);
+          if (!panel || !control || Math.min(Math.abs(panel.y - (control.y + control.height)), Math.abs(control.y - (panel.y + panel.height))) > 8) throw new Error(`${screen}: the menu is not beside its control at ${size}: ${JSON.stringify({ panel, control })}`);
+        }
         if (screen.startsWith('new-project-')) {
           await page.locator('#project-description').fill('A calendar for the household');
           await page.getByPlaceholder('Suggested from your description').fill('Family Calendar');
@@ -586,6 +594,12 @@ try {
           if (currentTab !== 'Overview' || await page.locator('.diff').count()) throw new Error('change first view must show Overview; Code stays one tap away');
         }
         if (!process.env.DESIGN_BASELINE && size.startsWith('phone') && screen.startsWith('change') && await page.locator('.ch-line-by:visible, .ch-line-when:visible').count()) throw new Error('phone receipts must keep extra state and timestamps in the full record');
+        // On a phone Decide is a bar across the screen's foot, with the page's
+        // height kept free under it so it covers nothing at the end.
+        if (size.startsWith('phone') && screen.startsWith('change') && await page.locator('.ch-turn-floater:visible').count()) {
+          const bar = await page.locator('.ch-turn-floater').evaluate(el => { const r = el.getBoundingClientRect(), pad = parseFloat(getComputedStyle(el.ownerDocument.querySelector('.ch-page')).paddingBottom); return { left: r.left, width: r.width, height: r.height, pad } });
+          if (bar.left > 0.5 || bar.width < variants[size].width - 0.5 || bar.pad + 0.5 < bar.height) throw new Error(`${screen}: Decide is not a bar with its space kept at ${size}: ${JSON.stringify(bar)}`);
+        }
         if (!process.env.DESIGN_BASELINE && screen.startsWith('change')) {
           const hidden = await page.locator('.ch-tabs [aria-current="page"]').evaluateAll(els => els.some(el => {
             const r = el.getBoundingClientRect(), nav = el.parentElement.getBoundingClientRect();
@@ -668,7 +682,8 @@ try {
           return ['auto', 'scroll', 'hidden'].includes(style.overflowX) && el.clientWidth > 4 && el.scrollWidth > el.clientWidth + 2;
         }).map(el => ({ tag: el.tagName, class: el.className, text: el.textContent.slice(0, 100) })));
         const headings = await page.getByRole('heading', { level: 1 }).allTextContents();
-        await page.evaluate(() => window.scrollTo(0, 0));
+        // An open menu closes when its control scrolls away, so these shots stay where the menu is.
+        if (!['people-actions', 'people-revoke', 'people-disconnect'].includes(screen)) await page.evaluate(() => window.scrollTo(0, 0));
         await page.screenshot({ path: `${out}/${screen}/${size}-${theme}.png`, fullPage: true });
         finalPaths.add(new URL(page.url()).pathname);
         captures.push({ screen, path, finalPath: new URL(page.url()).pathname, size, theme, words: words.trim().split(/\s+/).filter(Boolean).length, text: words, headings, overflow, headerOverflow, clipped, fonts });
@@ -694,9 +709,15 @@ try {
           if (!wasOpen) await trigger.click();
           disclosures.push({ screen, size, theme, trigger: await trigger.innerText() });
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-disclosure.png`, fullPage: true });
+          // A disclosure that opened a dialog: on screen, with its close button.
+          const dialog = page.locator('[role="dialog"]:visible').first();
+          if (await dialog.count()) {
+            const box = await dialog.boundingBox(), view = page.viewportSize();
+            if (box.x < 0 || box.y < 0 || box.x + box.width > view.width + 0.5 || box.y + box.height > view.height + 0.5 || !await dialog.getByRole('button', { name: 'close' }).isVisible()) throw new Error(`${screen}: open dialog leaves the screen or has no close button at ${size}`);
+          }
           if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error(screen + ': open disclosure overflows');
           if (!wasOpen) {
-            if (await page.locator('.popover').count()) await page.keyboard.press('Escape');
+            if (await page.locator('.popover, [role="dialog"]').count()) await page.keyboard.press('Escape');
             else await trigger.click();
           }
         } else disclosures.push({ screen, size, theme, reason: 'No page disclosure' });

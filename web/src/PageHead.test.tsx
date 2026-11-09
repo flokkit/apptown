@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // @ts-expect-error -- this package has no Node types; only this read is used.
 import { readdirSync } from 'node:fs'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
@@ -65,6 +65,23 @@ describe('page help', () => {
   it('keeps the page actions in the title row', () => {
     const el = render(<PageHead page="evals" actions={<button>Start an eval</button>} />)
     expect(el.querySelector('.page-head-row')?.textContent).toContain('Start an eval')
+  })
+
+  // On a phone the popover would lie over what the page shows; the "?" opens
+  // a dialog with a close button instead, and nothing opens by itself.
+  it('opens a dialog with a close button on a phone', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
+    try {
+      const el = render(<PageHead page="deployments" />)
+      expect(document.querySelector('[role="dialog"]')).toBeNull()
+      act(() => q(el).click())
+      const dialog = document.querySelector('[role="dialog"]')!
+      expect(dialog.textContent).toContain(PAGE_HELP.deployments.line)
+      expect(dialog.querySelector('a')?.getAttribute('href')).toBe('/docs/guides/container-lifecycle')
+      expect(pop(el)).toBeNull()
+      act(() => dialog.querySelector<HTMLButtonElement>('button[aria-label="close"]')!.click())
+      expect(document.querySelector('[role="dialog"]')).toBeNull()
+    } finally { vi.unstubAllGlobals() }
   })
 })
 
