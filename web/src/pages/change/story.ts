@@ -7,6 +7,18 @@ export type StoryEntry = {
   key: string; at: string; text: string; step?: Step; actionStep?: Step; current?: boolean
   detail: RunDetail; records: Artifact[]; events: RunEvent[]; session?: string
 }
+// What a kind of record is called on the page.
+const RECORD_KIND: Record<string, string> = {
+  'agent-log': 'agent log', steering: 'agent instructions', 'scan-report': 'security scan report',
+  sbom: 'software inventory', 'approval-brief': 'approval brief', screenshot: 'screenshots',
+}
+export function recordKindName(kind: string): string {
+  return RECORD_KIND[kind] ?? kind.replace(/-/g, ' ')
+}
+// A record's label in a list: its kind's name, a step's report, else its own name.
+export function recordLabel(artifact: Artifact): string {
+  return RECORD_KIND[artifact.kind] ?? (artifact.name.startsWith('step-') ? `${recordKindName(artifact.kind)} report` : artifact.name || recordKindName(artifact.kind))
+}
 const words = (value: unknown) => typeof value === 'string' ? value : ''
 const object = (value: unknown): Record<string, unknown> => value && typeof value === 'object' ? value as Record<string, unknown> : {}
 

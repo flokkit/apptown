@@ -46,7 +46,7 @@ export function ModelsTab({ slug }: { slug: string }) {
       </div>
       {!canChange && <p className="muted small">You need permission to change this project’s model profile.</p>}
       {!known && <p className="error">This profile is unavailable. Choose another profile.</p>}
-      <div className="row mt-3 mb-3"><button disabled={!canChange || !q.current || busy || !known || selected === current} onClick={save}>{busy ? 'Saving…' : 'Use profile'}</button></div>
+      <div className="row mt-3 mb-3"><button disabled={!canChange || !q.current || busy || !known || selected === current} onClick={save}>{busy ? 'Saving…' : selected === current && known ? 'In use' : 'Use profile'}</button></div>
       {err && <p className="error">{err}</p>}
     </Section>
     {known && <Section title={`Models for ${selected}`}>

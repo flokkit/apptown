@@ -34,11 +34,44 @@ it.each([false, true])('preselects monthly updates and allows unticking them (in
       expect(card('custom-maintenance').getAttribute('aria-pressed')).toBe('true')
       await act(async () => { card('go').click() }); await act(async () => { card('custom-maintenance').click() })
       expect(card('custom-maintenance').getAttribute('aria-pressed')).toBe('false')
-      await act(async () => { button('Take ').click() })
+      await act(async () => { button('Use 1 pack').click() })
       expect(actions.find(a => a.type === 'packs')).toMatchObject({ packs: ['go'] })
     }
   } finally {
     await act(async () => root.unmount())
     client.clear()
   }
+})
+
+// Each pack says what it is in one line; choosing no packs is a choice
+// like the others, with the same mark; the button says how many it takes.
+it('describes each pack, offers no packs as a marked choice and counts the packs taken', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.endsWith('/packs') ? [
+      { name: 'godot-3d', description: 'Godot 3D games with export checks.', suggested: false, enabled: true, requires: [], services: [] },
+      { name: 'dependency-updates', description: 'Monthly dependency updates.', suggested: true, enabled: true, requires: [], services: [] },
+    ] : { dependencies: [] }))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  const actions: DraftAct[] = []
+  const draft = { ...newDraft(), name: 'Eggs', description: 'A game', choosing: true }
+  try {
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><WayOfWorkingStep d={draft} act={(a: DraftAct) => { actions.push(a) }} /></MemoryRouter></QueryClientProvider>) })
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)) })
+    const card = (name: string) => [...el.querySelectorAll<HTMLElement>('.pack-card')].find(e => e.textContent?.includes(name))!
+    expect(card('godot-3d').textContent).toContain('Godot 3D games with export checks.')
+    const none = card('No packs')
+    expect(none.getAttribute('aria-pressed')).toBe('false')
+    expect(none.querySelector('.pick-mark')?.textContent).toBe('+')
+    expect(el.textContent).not.toContain('none (bare)')
+    const primary = () => el.querySelector<HTMLButtonElement>('.row.mt-3 button.primary')!
+    expect(primary().textContent).toBe('Use 1 pack')
+    await act(async () => { card('godot-3d').click() })
+    expect(primary().textContent).toBe('Use 2 packs')
+    await act(async () => { none.click() })
+    expect(card('No packs').getAttribute('aria-pressed')).toBe('true')
+    expect(card('No packs').querySelector('.pick-mark')?.textContent).toBe('✓')
+    expect(primary().textContent).toBe('Use no packs')
+    await act(async () => { primary().click() })
+    expect(actions.find(a => a.type === 'packs')).toMatchObject({ packs: [] })
+  } finally { await act(async () => root.unmount()); client.clear() }
 })

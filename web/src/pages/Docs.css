@@ -7,7 +7,4 @@
 .docs-contents .conn-subnav-item { color: var(--muted); padding: 4px 9px; }
 .docs-contents .conn-subnav-item:hover { color: var(--text); }
 .docs-contents .conn-subnav-item.active { color: var(--text); }
-/* A reference to another guide reads as a link, not as plain text. */
-.docs-body .md-doc a { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 2px; }
-.docs-body .md-doc a:hover { text-decoration-color: currentColor; }
 }

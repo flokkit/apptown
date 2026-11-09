@@ -141,3 +141,30 @@ it('leaves the target parent trail to the top bar', () => {
     expect(el.querySelector('a[href="/targets"]')).toBeNull()
   } finally {client.clear()}
 })
+
+// A disabled Check names the fields still empty, and the line goes once they are filled.
+it('names the missing connection fields while Check is disabled', async () => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async () => json({}))))
+  const client = newQueryClient(), el = document.createElement('div'); document.body.append(el)
+  const root = createRoot(el)
+  disposals.push(() => { act(() => root.unmount()); client.clear(); el.remove() })
+  await act(async () => { root.render(<MemoryRouter><QueryClientProvider client={client}><InfrastructureNew /></QueryClientProvider></MemoryRouter>) })
+  await vi.waitFor(() => expect(el.querySelectorAll('.wiz-kind').length).toBeGreaterThan(0))
+  const docker = [...el.querySelectorAll<HTMLButtonElement>('.wiz-kind')].find((b) => b.textContent?.includes('ssh') || b.textContent?.toLowerCase().includes('docker host'))!
+  await act(async () => { docker.click() })
+  const check = () => [...el.querySelectorAll('button')].find((b) => b.textContent === 'Check')!
+  expect(check().disabled).toBe(true)
+  expect(el.querySelector('.wiz-missing')?.textContent).toBe('Fill in the name and SSH key secret')
+  const type = async (placeholder: string, value: string) => {
+    const input = el.querySelector<HTMLInputElement>(`input[placeholder="${placeholder}"]`)!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }
+  await type('droplet-syd', 'box')
+  expect(el.querySelector('.wiz-missing')?.textContent).toBe('Fill in the SSH key secret')
+  await type('DROPLET_SSH_KEY', 'BOX_KEY')
+  expect(check().disabled).toBe(false)
+  expect(el.querySelector('.wiz-missing')).toBeNull()
+})

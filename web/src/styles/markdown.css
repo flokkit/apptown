@@ -8,6 +8,7 @@
 .md pre { background: var(--code-bg); border: 1px solid var(--rule); padding: 10px; border-radius: var(--radius-sm); overflow-x: auto; }
 .md code { background: var(--panel2); padding: 1px 4px; border-radius: var(--radius-xs); }
 .md pre code { background: none; padding: 0; }
+:is(.md, .md-doc) code.nobreak { white-space: nowrap; }
 .md blockquote { border-left: 3px solid var(--border); margin-left: 0; padding-left: 12px; color: var(--muted); }
 
 /* A vertical sub-navigation beside a page's content (Docs). */

@@ -268,3 +268,20 @@ func TestDeploymentReleaseRequiresEverySettlementRecord(t *testing.T) {
 		}
 	}
 }
+
+// A release that settles with nothing more to say (no address) ends its log
+// line with the outcome, not a dash that reads as something missing.
+func TestReleaseLogLineWithoutDetailHasNoTrailingDash(t *testing.T) {
+	t.Parallel()
+	f, _, releaseID, at := releaseOutcomeFixture(t)
+	done := deploymentCompletionFor(at, "no-address")
+	done.Observed.URL = ""
+	if out, err := f.outcomes.Complete(context.Background(), done); err != nil || out != Applied {
+		t.Fatalf("completion: %s %v", out, err)
+	}
+	events := releaseEvents(t, f.db, releaseID)
+	last := events[len(events)-1].Text
+	if !strings.HasSuffix(last, ": released") {
+		t.Fatalf("release log line: %q", last)
+	}
+}

@@ -63,7 +63,7 @@ async function toStep3(el: HTMLElement) {
   await act(async () => { button(el, 'Next →')!.click() })
   await settle()
   await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
-  await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('none (bare)')) as HTMLElement).click() })
+  await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('No packs')) as HTMLElement).click() }); await act(async () => { button(el, 'Use no packs')!.click() })
   await act(async () => { button(el, 'Next →')!.click() })
   await settle()
   await settle()
@@ -158,7 +158,7 @@ describe('a pack picked before the service catalog arrives', () => {
       await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
       await settle()
       await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('web-server')) as HTMLElement).click() })
-      await act(async () => { button(el, 'Take web-server')!.click() })
+      await act(async () => { button(el, 'Use 1 pack')!.click() })
       expect(button(el, 'Next →')!.disabled).toBe(true)
       await act(async () => { deliver(new Response(JSON.stringify({ dependencies: [postgres] }))) })
       await settle()
@@ -208,7 +208,7 @@ describe('choosing several packs', () => {
       for (const name of ['server-base', 'go', 'postgres']) {
         await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.querySelector('strong')?.textContent === name) as HTMLElement).click() })
       }
-      await act(async () => { button(el, 'Take server-base + go + postgres')!.click() })
+      await act(async () => { button(el, 'Use 3 packs')!.click() })
       await settle()
       await act(async () => { button(el, 'Next →')!.click() })
       await settle()
@@ -357,7 +357,8 @@ describe('an interview that cannot decide', () => {
       await settle()
       expect(el.textContent).toContain('no model is set up to suggest a way of working')
       expect(el.querySelector('.pack-grid')).not.toBeNull()
-      expect(el.querySelector('.pack-card.on')).toBeNull()
+      // No pack is ticked for them; with nothing ticked, the choice reads as no packs.
+      expect([...el.querySelectorAll('.pack-card.on')].map(c => c.textContent)).toEqual(['✓No packsStart without optional packs.'])
       expect(button(el, 'Next →')).toBeUndefined()
     } finally {
       act(() => root.unmount())
@@ -380,7 +381,7 @@ describe('description-first creation', () => {
       await act(async () => { button(el, 'Next →')!.click() })
       await settle()
       await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
-      await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('none (bare)')) as HTMLElement).click() })
+      await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('No packs')) as HTMLElement).click() }); await act(async () => { button(el, 'Use no packs')!.click() })
       await act(async () => { button(el, 'Next →')!.click() })
       await settle()
       expect(el.textContent).toContain('Creating: Lunch orders')
@@ -415,7 +416,7 @@ describe('a late way-of-working suggestion', () => {
         await type(el.querySelector('textarea') as HTMLTextAreaElement, 'Dinner orders')
       } else {
         await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
-        await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('none (bare)')) as HTMLElement).click() })
+        await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('No packs')) as HTMLElement).click() }); await act(async () => { button(el, 'Use no packs')!.click() })
       }
       await act(async () => { deliver(new Response(JSON.stringify({ decided: true, packs: ['late-choice'], why: 'stale recommendation' }))) })
       await settle()

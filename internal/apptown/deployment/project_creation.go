@@ -31,8 +31,12 @@ type CreationPlacement struct {
 
 // CreationTarget is a target offered for a new project's main deployment.
 type CreationTarget struct {
-	Area        string `json:"area"`
-	Name        string `json:"name"`
+	Area string `json:"area"`
+	Name string `json:"name"`
+	// Label is what people call the target: its display label, or its kind
+	// when nobody changed the label from the name. Name stays the value a
+	// choice records.
+	Label       string `json:"label"`
 	Description string `json:"description"`
 	Default     bool   `json:"default"`
 	Reason      string `json:"reason"`
@@ -76,7 +80,13 @@ func (s *Service) CreationTargets(ctx context.Context, group string, contracts [
 		if place := TargetPlace(t); place != "" {
 			description += " · " + place
 		}
-		out = append(out, CreationTarget{Area: TargetFeatureArea(t.Kind), Name: t.Name, Description: description, Default: def != nil && t.ID == def.ID, Reason: why})
+		// A target's label defaults to its name; a key like built-in-docker
+		// is not what people call it, so an unchanged label reads as its kind.
+		label := t.DisplayLabel
+		if label == "" || label == t.Name {
+			label = kind.Title
+		}
+		out = append(out, CreationTarget{Area: TargetFeatureArea(t.Kind), Name: t.Name, Label: label, Description: description, Default: def != nil && t.ID == def.ID, Reason: why})
 	}
 	return out, nil
 }

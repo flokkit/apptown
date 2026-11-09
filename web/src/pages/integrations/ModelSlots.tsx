@@ -91,7 +91,10 @@ export function ModelProfilePage({ projects = false }: { projects?: boolean }) {
   const nav = useNavigate()
   const { run, err: actErr } = useAction()
 
-  if (!data) return <div><h1>{projects ? 'Projects' : profile}</h1><ReadStatus q={slotsQ} what="the model profiles" /></div>
+  // A profile's name is the word an administrator chose; the title reads it
+  // as a name ("Standard profile"), not as a bare lowercase key.
+  const title = projects ? 'Projects' : `${profile.charAt(0).toUpperCase()}${profile.slice(1)} profile`
+  if (!data) return <div><h1>{title}</h1><ReadStatus q={slotsQ} what="the model profiles" /></div>
 
   const isNew = !data.profiles.includes(profile)
   const spent = data.slots.some((r) => r.spend7d)
@@ -150,7 +153,7 @@ export function ModelProfilePage({ projects = false }: { projects?: boolean }) {
   return (
     <div>
 
-      <h1>{projects ? 'Projects' : profile}</h1>
+      <h1>{title}</h1>
       <div className="page-head-line model-slots-model-profile-page-page-head-line">
         {profile === 'standard' ? 'The default profile: every project uses it unless moved to another.'
           : isNew ? "A new profile. Choose a model for any task to keep it; tasks left unset follow this profile's basic choices, then standard's models."

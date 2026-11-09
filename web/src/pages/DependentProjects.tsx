@@ -64,11 +64,12 @@ export function IntegrationProjects() {
   const binding = q.data?.integrations.find(b => b.name === name)
   usePageName(`/${area}/${name}`, binding?.displayLabel || name)
   const use = binding?.usedBy
+  const label = binding?.displayLabel || name
   return <><h1>Projects</h1><ReadStatus q={q} what="the service's projects" /><StaleNote q={q} />
-    {q.data && (!binding ? <p>No integration is called “{name}”.</p> : <Section title="Projects and deployments">
+    {q.data && (!binding ? <p>No integration is called “{name}”.</p> : <Section title={`Using ${label}`}>
       {use?.projects.map(p => <p key={p.slug}><Link to={`/projects/${p.slug}`}>{p.name}</Link></p>)}
       {use?.deployments.map(d => <p key={`${d.project}/${d.name}`}><Link to={`/projects/${d.project}/deployments/${d.name}`}>{d.project}/{d.name}</Link> · deployment on <Link to={`/targets/${d.target}`}>{d.target}</Link></p>)}
-      {!use?.projects.length && !use?.deployments.length && <p>No project names it directly.</p>}
+      {!use?.projects.length && !use?.deployments.length && <p>No project or deployment names {label} directly.</p>}
     </Section>)}</>
 }
 

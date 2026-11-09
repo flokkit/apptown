@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
@@ -37,21 +38,24 @@ type Release struct {
 	RollbackOf           ids.ID             `json:"rollbackOf,omitzero"`
 	RestoreBackupID      ids.ID             `json:"restoreBackupId,omitzero"`
 	ApprovalRole         string             `json:"approvalRole"`
-	Approval             *ReleaseApproval   `json:"approval,omitempty"`
-	SupersededBy         ids.ID             `json:"supersededBy,omitzero"`
-	FromDeploymentID     ids.ID             `json:"fromDeploymentId,omitzero"`
-	BackupID             ids.ID             `json:"backupId,omitzero"`
-	ID                   ids.ID             `json:"id"`
-	ProjectID            ids.ID             `json:"projectId"`
-	Number               int64              `json:"number"`
-	State                ReleaseState       `json:"state"`
-	Deployment           string             `json:"deployment"`
-	ExternalRef          string             `json:"externalRef,omitempty"`
-	ApprovedBy           string             `json:"approvedBy,omitempty"`
-	RunID                ids.ID             `json:"runId,omitzero"`
-	CreatedAt            string             `json:"createdAt"`
-	ReleasedAt           stamp.Time         `json:"releasedAt,omitzero"`
-	Notes                string             `json:"notes,omitempty"`
+	// ApprovalRoleTitle is the approval role as people read it ("Release
+	// manager"); empty when no role is required or the role is not stock.
+	ApprovalRoleTitle string           `json:"approvalRoleTitle,omitempty"`
+	Approval          *ReleaseApproval `json:"approval,omitempty"`
+	SupersededBy      ids.ID           `json:"supersededBy,omitzero"`
+	FromDeploymentID  ids.ID           `json:"fromDeploymentId,omitzero"`
+	BackupID          ids.ID           `json:"backupId,omitzero"`
+	ID                ids.ID           `json:"id"`
+	ProjectID         ids.ID           `json:"projectId"`
+	Number            int64            `json:"number"`
+	State             ReleaseState     `json:"state"`
+	Deployment        string           `json:"deployment"`
+	ExternalRef       string           `json:"externalRef,omitempty"`
+	ApprovedBy        string           `json:"approvedBy,omitempty"`
+	RunID             ids.ID           `json:"runId,omitzero"`
+	CreatedAt         string           `json:"createdAt"`
+	ReleasedAt        stamp.Time       `json:"releasedAt,omitzero"`
+	Notes             string           `json:"notes,omitempty"`
 	// Failure is the recorded failure event, separate from release notes.
 	Failure   string `json:"failure,omitempty"`
 	CommitSHA string `json:"commitSha,omitempty"`
@@ -90,6 +94,14 @@ func NewReleases(db *database.DB) *Releases { return &Releases{db: db} }
 
 func (s *Releases) now() time.Time { return clock.Or(s.clock)() }
 
+// roleTitle is a stock role's title, for pages that name who must approve.
+func roleTitle(name string) string {
+	if r := access.RoleByName(name); r != nil {
+		return r.Title
+	}
+	return ""
+}
+
 func (s *Releases) record(r deploymentsql.Release, err error) (*Release, error) {
 	if err != nil {
 		return nil, err
@@ -97,7 +109,7 @@ func (s *Releases) record(r deploymentsql.Release, err error) (*Release, error) 
 	v := &Release{
 		StageEnteredAt: stamp.Time{NullTime: r.StageEnteredAt},
 		RollbackOf:     r.RollbackOf, RestoreBackupID: r.RestoreBackupID,
-		ApprovalRole: r.ApprovalRole, SupersededBy: r.SupersededBy,
+		ApprovalRole: r.ApprovalRole, ApprovalRoleTitle: roleTitle(r.ApprovalRole), SupersededBy: r.SupersededBy,
 		BackupID:         r.BackupID,
 		FromDeploymentID: r.FromDeploymentID,
 		ID:               r.ID,

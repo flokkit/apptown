@@ -67,7 +67,8 @@ export default function InvitePage({ token: fromLink }: { token: string }) {
       <div className="card" style={{ width: 'min(380px, 100%)', boxSizing: 'border-box', display: 'grid', gap: 12, padding: 24 }}>
         <h1>{reset ? 'Reset password' : 'Join ' + PRODUCT}</h1>
         {!token && <>
-          <div>Reopen your invite link.</div>
+          {/* Without the token the page cannot tell an invite from a reset link. */}
+          <div>This link is incomplete. Open the link you were sent again, or ask whoever sent it for a new one.</div>
           <a href="/" className="small">Go to sign in</a>
         </>}
         {token && !offer && !loadErr && <div className="muted small">Reading the link…</div>}

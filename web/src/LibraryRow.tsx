@@ -35,6 +35,6 @@ export function LibraryRows({ children }: { children: ReactNode }) {
 // A description's first sentence is its purpose: stock descriptions run a
 // purpose line and a longer explanation together.
 export function firstSentence(text = ''): string {
-  const m = text.trim().match(/^.+?[.!?](?=\s|$)/)
+  const m = text.trim().match(/^.*?\S[.!?](?=\s|$)/)
   return (m ? m[0] : text).trim()
 }

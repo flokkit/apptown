@@ -66,8 +66,10 @@ WHERE project_id=sqlc.arg(project_id) AND revision=sqlc.arg(expected_revision) R
 -- name: BlockUses :many
 SELECT p.slug,gi.version,gi.disabled FROM guidance_imports gi JOIN projects p ON p.id=gi.project_id WHERE gi.block_id=$1 ORDER BY p.slug;
 -- name: GuidanceImportsMeta :many
--- The manifest needs pinned body byte counts, not all guidance bodies.
-SELECT sqlc.embed(gi),sqlc.embed(b),COALESCE(octet_length(v.body_md),0)::bigint AS body_bytes
+-- The manifest needs pinned body byte counts and the pinned version's opening
+-- text for its summary, not all guidance bodies.
+SELECT sqlc.embed(gi),sqlc.embed(b),COALESCE(octet_length(v.body_md),0)::bigint AS body_bytes,
+COALESCE(left(v.body_md,2000),'')::text AS excerpt
 FROM guidance_imports gi JOIN guidance_blocks b ON b.id=gi.block_id
 LEFT JOIN guidance_block_versions v ON v.block_id=gi.block_id AND v.version=gi.version
 WHERE gi.project_id=$1 ORDER BY gi.position,gi.block_id;

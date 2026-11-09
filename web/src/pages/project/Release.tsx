@@ -16,6 +16,16 @@ import type { ReleaseBundleView, ReleaseDetail, ReleaseListed, ReleasePreviewSta
 import { fmtStamp } from '../../format'
 import { PRODUCT } from '../../brand'
 
+// Deployment's settlement lines begin "deployment attempt <id>, " (see
+// settlement_release.go). The id is for administrators, so it moves to its
+// own technical line under the words rather than leading them.
+const ATTEMPT_LINE = /^deployment attempt (\S+), ([\s\S]*)$/
+function LogText({ text }: { text: string }) {
+  const m = ATTEMPT_LINE.exec(text)
+  if (!m) return <>{text}</>
+  return <>{m[2]}<span className="tech-line">deployment attempt {m[1]}</span></>
+}
+
 export function ReleasePermalinkPage({ slug, number, log = false }: { slug: string; number?: string; log?: boolean }) {
   // The log can gain health-controller notes after release. Keep reading
   // the current version, and reset the cadence when the permalink changes.
@@ -33,7 +43,7 @@ export function ReleasePermalinkPage({ slug, number, log = false }: { slug: stri
   if (!data || !data.release) return <ReadStatus q={q} what="the release" />
   const r = data.release
   const when = r.releasedAt || r.createdAt
-  if (log) return <><h1>Release log</h1><StaleNote q={q} /><div className="release-log">{data.events.map((e, i) => <p key={i}><span className="muted">{fmtStamp(e.at)}</span> {e.text}</p>)}</div></>
+  if (log) return <><h1>Release log</h1><StaleNote q={q} /><div className="release-log">{data.events.map((e, i) => <p key={i}><span className="muted">{fmtStamp(e.at)}</span> <LogText text={e.text} /></p>)}</div></>
   return (
     <div className="release-page">
       <StaleNote q={q} />
@@ -46,7 +56,7 @@ export function ReleasePermalinkPage({ slug, number, log = false }: { slug: stri
           {r.origin === 'observed-after-restore' && <span className="badge" title={`found running after ${PRODUCT} was restored; ${PRODUCT} did not ship it`}>found after restore</span>}
         </div>
         <div className="release-facts">
-          {r.state === 'waiting for approval' ? <>Waiting for approval from {r.approvalRole}. <Link to={`/projects/${slug}/deployments/${r.deployment}`}>Review on the deployment page →</Link></> : r.state === 'cancelled' || r.state === 'superseded' ? <>Release {r.state}.</> : r.state === 'releasing'
+          {r.state === 'waiting for approval' ? <>Waiting for approval from {r.approvalRoleTitle || r.approvalRole}. <Link to={`/projects/${slug}/deployments/${r.deployment}`}>Review on the deployment page →</Link></> : r.state === 'cancelled' || r.state === 'superseded' ? <>Release {r.state}.</> : r.state === 'releasing'
             ? <>Deploying{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null}.</>
             : r.state === 'failed'
               ? <>This release attempt{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null} failed. See the log for the failed step.</>

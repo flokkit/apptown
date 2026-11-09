@@ -12,12 +12,12 @@ import { Screenshots } from '../../Screenshots'
 import { fmtPrice, fmtStamp, fmtTokens } from '../../format'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
-import { Attachments, RequestEntry, changeReport } from './Head'
+import { Attachments, RequestEntry, changeReport, changeTitle } from './Head'
 import { StepActions, StepCard } from './Steps'
 import { AddArtifact, AdrLinks, ArtifactBody } from './Tabs'
 import { stepTitle } from './Evidence'
 import { workRecordHref } from './WorkRecord'
-import { checkResult, runStory, StoryEntry } from './story'
+import { checkResult, recordLabel, runStory, StoryEntry } from './story'
 
 function TraceRead({ id, receive }: { id: string; receive: (id: string, detail: RunDetail) => void }) {
   const q = useGet<RunTrace>(`/runs/${id}/trace`, { poll: 3000 })
@@ -41,7 +41,7 @@ function EvidenceLink({ id, runId, children }: { id: string; runId?: string; chi
 }
 
 function RecordLink({ artifact, runId }: { artifact: Artifact; runId: string }) {
-  const label = artifact.kind === 'agent-log' ? 'agent log' : artifact.kind === 'steering' ? 'agent instructions' : artifact.kind === 'scan-report' ? 'security scan report' : artifact.kind === 'sbom' ? 'software inventory' : artifact.kind === 'approval-brief' ? 'approval brief' : artifact.kind === 'screenshot' ? 'screenshots' : artifact.name.startsWith('step-') ? `${artifact.kind.replace(/-/g, ' ')} report` : artifact.name || artifact.kind.replace(/-/g, ' ')
+  const label = recordLabel(artifact)
   return <div className="ch-story-record" id={`record-${artifact.id}`}>
     <EvidenceLink id={`record-${artifact.id}`} runId={runId}>{label}</EvidenceLink>
 
@@ -143,6 +143,7 @@ export function ChangeDetails({ recordId, view, current, reload, runId }: { reco
       || (recordId === 'preview' ? previewEntry : recordId === 'review' ? reviewEntry : undefined)
     const artifact = story.flatMap(e => e.records).find(a => `record-${a.id}` === recordId)
     return <><h1>{recordId === 'request' ? 'Request' : recordId === 'summary' ? 'Report' : recordId === 'preview' ? 'Preview' : recordId === 'review' ? 'Review' : recordId === 'checks' ? 'Checks' : entry?.step ? stepTitle(entry.step) : artifact?.name || 'Record'}</h1>
+      <p className="muted small">From <Link to={`/changes/${view.change.id}`}>change {view.change.number} · {changeTitle(view.change)}</Link></p>
       {[...ids].map(id => <TraceRead key={id} id={id} receive={receive} />)}
       {recordId === 'request' ? <RequestEntry full view={view} current={current} reload={reload} /> : recordId === 'summary' ? <Report text={fullReport || 'No report was recorded.'} changeId={view.change.id!} />
         : recordId === 'checks' ? recordStory.some(e => e.text.startsWith('Checks:')) ? recordStory.filter(e => e.text.startsWith('Checks:')).map(e => <EntryEvidence key={e.key} entry={e} view={view} reload={reload} />) : <p>{recordsRead ? 'No checks were recorded.' : 'This record has not been read.'}</p>
@@ -203,8 +204,8 @@ export function ChangeDetails({ recordId, view, current, reload, runId }: { reco
       </section>
     })}
     <section className="ch-change-card"><h2>About this change</h2><StateRecord view={view} /><table className="ch-facts-table"><tbody>
-      {view.change.branch && <tr><th scope="row">Branch</th><td><code>{view.change.branch}</code></td></tr>}
-      {view.change.baseSha && <tr><th scope="row">Started from</th><td><code>{view.change.baseSha}</code></td></tr>}
+      {view.change.branch && <tr><th scope="row">Branch</th><td><code className="tech-line">{view.change.branch}</code></td></tr>}
+      {view.change.baseSha && <tr><th scope="row">Started from</th><td><code className="tech-line">{view.change.baseSha}</code></td></tr>}
       {view.change.type && <tr><th scope="row">Kind</th><td>{view.change.type}</td></tr>}
       {u && (u.total > 0 || u.costMicros > 0 || u.unpriced > 0) && <tr><th scope="row">Cost</th><td>{fmtTokens(u.total)} tokens{` · ${fmtPrice(u.costMicros, u.unpriced)}`}</td></tr>}
       <Attachments changeId={view.change.id!} readOnly={['shipped', 'abandoned'].includes(view.change.state)} />

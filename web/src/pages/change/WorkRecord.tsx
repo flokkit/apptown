@@ -14,7 +14,8 @@ import { fmtStamp } from '../../format'
 import { setProjectScope } from '../../projectScope'
 import { parseUnifiedDiff } from '../../DiffView'
 import { changeTitle, firstLine } from './Head'
-import { runStory, StoryEntry } from './story'
+import { recordKindName, runStory, StoryEntry } from './story'
+import { renderMd } from '../../md'
 import { useTechnicalDetail } from './TechnicalDetail'
 import { ChangeWorkerChats } from '../WorkerChat'
 import './change.css'
@@ -96,15 +97,22 @@ function WorkRecord({ view: v, trace, entry, technical, notes, section, artifact
   const recordLink = (a: Artifact) => link(`records/${a.id}`)
   if (section) {
     const artifact = entry.records.find(a => a.id === artifactId)
-    const title = section === 'request' ? 'Change request' : section === 'workflow' ? 'Workflow' : section === 'report' ? 'Report' : artifact?.name || 'Record'
-    return <div className="ch-page work-page">{notes}<h1>{title}</h1><section className="ch-change-card work-full">
-      {section === 'request' ? <pre>{v.change.body || v.change.title}</pre>
-        : section === 'workflow' ? <pre>{trace.workflow.definition ? dump(trace.workflow.definition) : 'not recorded'}</pre>
-        : section === 'report' ? <pre>{evidence && 'output' in evidence && evidence.output || 'No report was recorded.'}</pre>
+    const kind = artifact && recordKindName(artifact.kind)
+    const title = section === 'request' ? 'Change request' : section === 'workflow' ? 'Workflow' : section === 'report' ? 'Report' : kind ? kind[0].toUpperCase() + kind.slice(1) : 'Record'
+    const report = evidence && 'output' in evidence ? evidence.output : ''
+    // An empty record says so in plain text, outside the box its content would fill.
+    const empty = section === 'report' ? !report && 'No report was recorded.'
+      : section === 'record' && artifact && !artifact.binary && !artifact.body && !artifact.bodyBytes && 'No text was recorded.'
+    return <div className="ch-page work-page">{notes}<h1>{title}</h1>
+      {artifact && artifact.name !== kind && <p className="work-byline">{artifact.name}</p>}
+      {empty ? <><p className="muted">{empty}</p>{artifact?.ref && <a href={artifact.ref}>Open record</a>}</> : <section className="ch-change-card work-full">
+      {section === 'request' ? <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(v.change.body || v.change.title) }} />
+        : section === 'workflow' ? (trace.workflow.definition ? <pre className="source">{dump(trace.workflow.definition)}</pre> : <p className="muted">not recorded</p>)
+        : section === 'report' ? <pre>{report}</pre>
         : !artifact ? <p>This record is not in this work session.</p>
         : artifact.binary ? <Screenshots shots={{shots:[{artifact:artifact.id!,path:artifact.name,view:'record'}]}} />
         : <RecordText artifact={artifact} code={code} fullHref={recordLink(artifact)} />}
-    </section></div>
+    </section>}</div>
   }
   return <div className="ch-page work-page">
     {notes}

@@ -289,7 +289,11 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
           side, the proof, the guide, the doors. */}
       <div className="integ-grid">
       {items.map((i) => {
-        const desc = attachables.find((a) => a.capability === i.capability)?.description
+        const kind = attachables.find((a) => a.capability === i.capability)
+        const desc = kind?.description
+        // A setting is labelled as its kind declares the field; the key is
+        // the last resort, for a field the kind no longer declares.
+        const fieldLabel = (k: string) => kind?.resourceFields?.find((f) => f.key === k)?.label || RESOURCE_LABEL[k] || k
         const last = i.lastEvent ? relTime(i.lastEvent) : ''
         return (
         <div key={i.capability} className={'integ-card' + (justAttached === i.capability && i.wirable ? ' tone-accent' : '')}>
@@ -360,7 +364,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
           <dl className="facts small mt-2 services-facts">
             {Object.entries(i.resource)
               .filter(([k]) => !['unresolved', 'issuesError'].includes(k))
-              .map(([k, v]) => <Fragment key={k}><dt>{RESOURCE_LABEL[k] ?? k}</dt><dd>{String(v)}</dd></Fragment>)}
+              .map(([k, v]) => <Fragment key={k}><dt>{fieldLabel(k)}</dt><dd>{String(v)}</dd></Fragment>)}
           </dl>
           <div className="row integ-foot">
             {i.docs && <Link to={i.docs} className="small">Guide: how it is wired in and how to test it</Link>}

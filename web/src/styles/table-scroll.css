@@ -12,5 +12,19 @@
       radial-gradient(farthest-side at 0 50%, var(--scroll-shade), transparent) left center / 12px 100% no-repeat scroll,
       radial-gradient(farthest-side at 100% 50%, var(--scroll-shade), transparent) right center / 12px 100% no-repeat scroll;
   }
+  /* Code on its own page keeps its lines whole and scrolls in its box, with
+     the same cue; the cue's cover is the box's own fill. */
+  /* pre.source is doubled to outrank a page's rule that wraps its pre. */
+  :is(.md, .md-doc) pre, pre.source.source {
+    --ground: var(--code-bg);
+    white-space: pre; overflow-x: auto; overflow-y: visible; max-height: none; position: relative;
+    background:
+      linear-gradient(to right, var(--ground), transparent) left center / 24px 100% no-repeat local,
+      linear-gradient(to left, var(--ground), transparent) right center / 24px 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%, var(--scroll-shade), transparent) left center / 12px 100% no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%, var(--scroll-shade), transparent) right center / 12px 100% no-repeat scroll,
+      var(--code-bg);
+  }
+  :is(.md, .md-doc) pre code, pre.source.source code { white-space: inherit; overflow-wrap: normal; }
 }
 }

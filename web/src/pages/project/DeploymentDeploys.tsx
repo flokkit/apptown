@@ -80,7 +80,7 @@ function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload
       <ReadStatus q={releases} what="releases" />
       {history.slice(0, count).map(r => <div className="card" key={r.number}>
         <Link to={`/projects/${slug}/releases/${r.number}`}>Release {r.number}</Link> · {r.statusLabel || r.state} · {fmtStamp(r.releasedAt || r.createdAt)}
-        {r.state === 'waiting for approval' ? <p>Waiting for approval from {r.approvalRole}.</p> : <ReleaseAssent approval={r.approval} />}
+        {r.state === 'waiting for approval' ? <p>Waiting for approval from {r.approvalRoleTitle || r.approvalRole}.</p> : <ReleaseAssent approval={r.approval} />}
         {r.state === 'failed' && r.bundleId && <button disabled={!current || !releases.current} onClick={() => setChoice({ release: r })}>Try again</button>}
         {r.state === 'released' && r.number !== history.find(h => h.state === 'released')?.number && r.bundleId && <button disabled={!releases.current} onClick={() => setChoice({ release: r })}>Deploy this again</button>}
         {r.changes.map(c => <div key={c.id}><Link to={`/changes/${c.id}`}>Change {c.number}: {c.title}</Link></div>)}

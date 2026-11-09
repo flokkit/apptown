@@ -17,7 +17,10 @@ button.danger { color: var(--bad); }
 button.danger:hover { background: var(--bad-bg); }
 button.subtle { border-color: transparent; color: var(--muted); background: transparent; }
 button.subtle:hover { color: var(--text); border-color: var(--border); }
-button:disabled { opacity: 0.5; cursor: default; }
+button.subtle.danger { color: var(--bad); }
+/* Greyed by colour, not by fading: a faded primary is white on mid grey. */
+button:disabled, button.primary:disabled, button.subtle:disabled { background: var(--disabled-bg); color: var(--disabled-fg); border-color: var(--disabled-border); cursor: default; }
+button.link:disabled { background: transparent; border-color: transparent; color: var(--disabled-fg); }
 /* A greyed box reads as greyed in both themes: the native dimming is too faint in dark. */
 input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: 0.35; cursor: not-allowed; }
 /* A button with a second line (a split button's sub-label) says it small. */
@@ -88,8 +91,11 @@ textarea.prose { font-family: var(--font-sans); font-size: var(--fs-base); }
 .wiz-steps li.done::before { content: "✓"; border-color: var(--accent); color: var(--accent); }
 .wiz-steps li small { color: var(--muted); }
 .wiz-kind { cursor: pointer; font: inherit; color: inherit; width: 100%; text-align: left; display: grid; grid-template-columns: 240px minmax(0,1fr); gap: 24px; padding: 16px 0; }
-.wiz-kind:disabled { opacity: 0.55; cursor: default; }
-.wiz-kind.active, .wiz-kind:not(:disabled):hover { border-color: var(--accent); }
+.wiz-kind:disabled { color: var(--disabled-fg); cursor: default; }
+/* Hover only where a pointer hovers: a touch leaves :hover stuck on the
+   last tapped kind, which then reads as chosen. */
+.wiz-kind.active { border-color: var(--accent); }
+@media (hover: hover) { .wiz-kind:not(:disabled):hover { border-color: var(--accent); } }
 .wiz-fields { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
 .wiz-fields label { display: flex; flex-direction: column; gap: 3px; }
 .wiz-answer { margin-top: 10px; min-height: 1.4em; }
@@ -109,6 +115,8 @@ textarea.prose { font-family: var(--font-sans); font-size: var(--fs-base); }
   /* A touch has no hover: the press itself shows. */
   button:active:not(:disabled), a.btn:active, details > summary:active { filter: brightness(0.92); }
   button.subtle:active:not(:disabled) { background: var(--hover); border-color: var(--border); }
+  /* A touch has no hover to reveal a quiet button's edge, so it keeps one. */
+  button.subtle { border-color: var(--border); }
   [role="button"] { min-height: 44px; }
   textarea { min-height: 44px; }
 }
@@ -122,6 +130,9 @@ textarea.prose { font-family: var(--font-sans); font-size: var(--fs-base); }
 .wiz-kind .infra-head { margin: 0; }
 @media (max-width: 800px) {
   .wiz-kind { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+  /* A kind is a choice: an edge and a chevron say a tap opens it. */
+  button.wiz-kind { position: relative; border: 1px solid var(--border); margin-bottom: var(--space-2); padding: var(--space-4) var(--space-6) var(--space-4) var(--space-4); }
+  .wiz-kind::after { content: "›"; position: absolute; right: var(--space-4); top: 50%; transform: translateY(-50%); font-size: var(--fs-lg); color: var(--muted); }
 }
 
 fieldset { min-inline-size: 0; max-width: 100%; border: 0; border-top: 1px solid var(--border); padding: 12px 0; }
@@ -163,4 +174,6 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
 .service-pick details { width: 100%; }
 .pick-tile > .chip { grid-column: 2; }
 .display-label-edit { margin-top: calc(var(--space-1) * 1.5); }
+/* The edit link lines up with the ID beside or above it, as text does. */
+.display-label-edit > button.link { padding-inline: 0; }
 }

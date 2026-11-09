@@ -201,3 +201,14 @@ it('opens Security from a scan’s details with its zero findings count', () => 
     expect(el.textContent).not.toContain('Suppress…')
   } finally { act(() => root.unmount()); client.clear() }
 })
+
+// The Checks record lists several checks; each one says its result.
+it('shows a check’s result word on its evidence card', () => {
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  const step = { id: STEP, runId: RUN, name: 'style', stage: 'check', type: 'check', isCheck: true, status: 'fail', statusLabel: 'failed', overrideBy: '', config: {}, evidence: {}, finishedAt: '2026-10-03T09:00:00Z' } as unknown as Step
+  try {
+    act(() => root.render(<QueryClientProvider client={client}><MemoryRouter><StepCard evidenceOnly step={step} onChange={() => {}} /></MemoryRouter></QueryClientProvider>))
+    expect(el.querySelector('.step-head .chip-word')?.textContent).toBe('failed')
+    expect(el.querySelector('.ch-check-about')?.textContent).toContain('Finished')
+  } finally { act(() => root.unmount()); client.clear() }
+})

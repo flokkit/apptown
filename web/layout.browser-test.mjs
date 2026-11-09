@@ -9,6 +9,11 @@ const app = await readFile(new URL('./src/App.tsx', import.meta.url), 'utf8')
 for (const path of ['/people/accounts', '/people/accounts/:name', '/people/groups', '/people/groups/:name', '/people/roles', '/people/sign-in', '/people/agents-and-tokens']) assert.ok(app.includes(`path="${path}"`), `missing People route: ${path}`)
 assert.ok(!app.includes('path="/people"') && !app.includes('/people?tab='), 'old People tab route remains')
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE)
+// WCAG contrast of two computed rgb() colours, ignoring alpha.
+const rgb = c => c.match(/[\d.]+/g).slice(0, 3).map(Number)
+const lum = c => { const [r, g, b] = rgb(c).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05) }
+const hexToRgb = h => { const n = parseInt(h.replace('#', ''), 16); return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})` }
 const css = await productionCSS()
 const fixture = await build({
   absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
@@ -26,6 +31,7 @@ const fixture = await build({
     import { LibraryRow, LibraryRows } from './LibraryRow'
     import AgentActivity from './AgentActivity'
     import { Tabs } from './Tabs'
+    import { renderMd } from './md'
     const long = 'A very long project identity with a long-unbroken-identifier-abcdefghijklmnopqrstuvwxyz0123456789'
     createRoot(document.getElementById('root')).render(<MemoryRouter>
       <main style={{padding: 12}}>
@@ -47,6 +53,14 @@ const fixture = await build({
         <Disclosure className="account-actions" closeOnAction={false} trigger={<button>Manage</button>}><label>Role<select><option>Member</option></select></label><button>Set password</button></Disclosure>
         <Disclosure className="head-menu" trigger={<button>Session details</button>}><button>Start fresh</button></Disclosure>
         <Disclosure className="account-menu" closeOnAction={false} trigger={<button>Find</button>}>{close=><div className="topbar-find"><input aria-label="Find" onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();document.body.dataset.found=e.currentTarget.value;close()}}}/><button onClick={close}>First match</button></div>}</Disclosure>
+        <section className="content-fixtures">
+          <button className="primary disabled-fixture" disabled>Save pack</button>
+          <button className="subtle danger quiet-danger-fixture">revoke</button>
+          <p className="link-fixture">This address does not identify a page. <a href="#projects">Find your project</a></p>
+          <div className="md guide-fixture" dangerouslySetInnerHTML={{__html: renderMd('Run this on the host:\\n\\n\\u0060\\u0060\\u0060\\nsudo tailscale serve --bg http://127.0.0.1:7071 --set-path /preview-proxy-for-the-whole-team --set-header X-Forwarded-Host=apptown.example.org --verbose\\n\\u0060\\u0060\\u0060\\n\\nKeep local Docker enabled and leave \\u0060--worker-url\\u0060 unset: a worker moves previews to the host too, for code you trust.')}} />
+          <pre className="source source-fixture">{'metadata:\\n  name: adopt-integration\\n  description: Connect the app to a newly attached cross-cutting service and prove the app still runs, minimally, without changing anything else in the repository.'}</pre>
+          <button className="card infra-card wiz-kind wiz-fixture"><span className="infra-head">Docker host</span><span>Docker over SSH.</span></button>
+        </section>
       </main>
     </MemoryRouter>)` },
 })
@@ -174,6 +188,14 @@ try {
   await page.locator('.record-table tbody tr:last-child td:first-child').evaluate(el => {el.style.fontSize='var(--fs-xl)'})
   assert.ok((await page.evaluate(rowFontDifferences)).some(d => d.row === '.record-table tbody tr'), 'font detector compares the same column across record rows')
   await page.locator('.record-table tbody tr:last-child td:first-child').evaluate(el => {el.style.removeProperty('font-size')})
+  // A technical id in a desktop table wraps inside its cell: one unbroken
+  // line would size the column and push the page sideways.
+  for (const width of [820, 900, 1024]) {
+    await page.setViewportSize({ width, height: 844 })
+    await page.evaluate(() => { const t = document.createElement('table'); t.id = 'tech-fixture'; t.innerHTML = '<tbody><tr><td>Observe target</td><td>waiting</td><td><code class="tech-line muted">protection-observation/01a1c0f7-f732-717b-bf23-3bc2cfec567f/0bfd216d8671931e214963dad76672e5b1978f80b6dae4cf07a49bab12b518bb</code></td></tr></tbody>'; document.querySelector('main').append(t) })
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `technical line keeps the page within ${width}px`)
+    await page.evaluate(() => document.getElementById('tech-fixture').remove())
+  }
   for (const width of [390, 800, 1440]) {
     await page.setViewportSize({ width, height: 844 })
     for (const size of ['small', 'medium', 'large']) {
@@ -185,6 +207,33 @@ try {
       assert.deepEqual(await page.evaluate(wrappedRowActions), [], `one-line action labels at ${width}, ${size}`)
       assert.ok(await page.locator('.int-list-row button').isVisible(), 'integration action remains visible')
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `page fits at ${width}, ${size}`)
+      for (const theme of ['light', 'dark']) {
+        await page.evaluate(theme => { document.documentElement.dataset.theme = theme }, theme)
+        const at = `${width}, ${size}, ${theme}`
+        // A disabled button is greyed by its colours, and its words stay readable.
+        const disabled = await page.locator('.disabled-fixture').evaluate(el => { const s = getComputedStyle(el); return { opacity: s.opacity, color: s.color, background: s.backgroundColor } })
+        assert.equal(disabled.opacity, '1', `disabled button is not faded at ${at}`)
+        assert.ok(contrast(disabled.color, disabled.background) >= 4.5, `disabled button words readable at ${at}: ${JSON.stringify(disabled)}`)
+        // A quiet destructive act is red, and on a phone it has an edge to show it is a button.
+        const quiet = await page.locator('.quiet-danger-fixture').evaluate(el => { const s = getComputedStyle(el); return { color: s.color, border: s.borderTopColor, bad: getComputedStyle(document.documentElement).getPropertyValue('--bad').trim() } })
+        assert.equal(quiet.color, hexToRgb(quiet.bad), `quiet danger button is red at ${at}`)
+        if (width <= 800) assert.notEqual(quiet.border, 'rgba(0, 0, 0, 0)', `quiet button has an edge on phones at ${at}`)
+        // A link in a sentence is underlined; the words around it are not links.
+        assert.ok((await page.locator('.link-fixture a').evaluate(el => getComputedStyle(el).textDecorationLine)).includes('underline'), `link in a sentence is underlined at ${at}`)
+      }
+      await page.evaluate(() => { delete document.documentElement.dataset.theme })
+      if (width <= 800) {
+        // Code on its own page keeps every line whole and scrolls inside its box.
+        for (const box of ['.guide-fixture pre', '.source-fixture']) {
+          const code = await page.locator(box).evaluate(el => ({ wrap: getComputedStyle(el).whiteSpace, scrolls: el.scrollWidth > el.clientWidth, overflow: getComputedStyle(el).overflowX, cue: getComputedStyle(el).backgroundImage.includes('radial-gradient') }))
+          assert.ok(['pre', 'nowrap'].includes(code.wrap) && code.scrolls && code.overflow === 'auto' && code.cue, `${box} scrolls sideways unwrapped at ${width}, ${size}: ${JSON.stringify(code)}`)
+        }
+        // A short flag in a sentence never breaks after its hyphen.
+        assert.equal(await page.locator('.guide-fixture p code').filter({ hasText: '--worker-url' }).evaluate(el => el.getClientRects().length), 1, `inline flag on one line at ${width}, ${size}`)
+        // A choice among kinds shows it can be tapped: an edge and a chevron.
+        const kind = await page.locator('.wiz-fixture').evaluate(el => ({ chevron: getComputedStyle(el, '::after').content, border: getComputedStyle(el).borderTopWidth }))
+        assert.ok(kind.chevron.includes('›') && kind.border !== '0px', `target kind looks like a choice at ${width}, ${size}: ${JSON.stringify(kind)}`)
+      }
       // A status shows its word; its explanation is its details, opened on hover or tap.
       assert.ok(await page.locator('[data-help="No runtime reading."]').isVisible(), `status word with its explanation as details at ${width}, ${size}`)
       assert.ok(await page.locator('.project-description').evaluateAll(els => els.every(el => el.scrollWidth <= el.clientWidth + 1)), `free text wraps at ${width}, ${size}`)

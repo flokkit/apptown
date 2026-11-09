@@ -8,4 +8,11 @@
 .way-of-working-step-div-3 { font-size: var(--fs-base); font-weight: 650; }
 .way-of-working-step-div-4 { opacity: 0.7; font-size: var(--fs-xs); }
 .way-of-working-step-div-5 { gap: var(--space-1); }
+/* A chosen pack keeps its place in the list: its mark turns to a tick in a
+   fixed-width slot and the row takes the accent wash, rather than an inset
+   box that crowds the text. */
+.pack-grid > .pack-card { padding-inline: var(--space-2); }
+.pack-grid > .pack-card.on { box-shadow: none; background: var(--accent-bg); }
+.pack-card .pick-mark { display: inline-block; width: 1.25em; text-align: center; font-weight: 700; color: var(--muted); }
+.pack-card.on .pick-mark { color: var(--accent); }
 }

@@ -14,7 +14,7 @@ export function ReleaseApprovalActions({ slug, release, decision, current = true
   if (release.state !== 'waiting for approval') return <ReleaseAssent approval={release.approval} />
   const path = `/projects/${slug}/releases/${release.number}`
   return <div className="stack stack-2">
-    <p>Waiting for approval from {release.approvalRole}.</p>
+    <p>Waiting for approval from {release.approvalRoleTitle || release.approvalRole}.</p>
     {decision?.canApprove && <p>{decision.meaning}</p>}
     <div className="row row-2">
       {decision?.canApprove && <button className="primary" disabled={busy || !current} onClick={() => run(() => post(`${path}/approve`, { meaning: decision.meaning }))}>Approve</button>}

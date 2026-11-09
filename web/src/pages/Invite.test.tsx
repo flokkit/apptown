@@ -95,7 +95,7 @@ describe('the invite link page', () => {
     const el = document.createElement('div')
     const root = createRoot(el)
     await act(async () => { root.render(<InvitePage token="" />) })
-    expect(el.textContent).toContain('Reopen your invite link.')
+    expect(el.textContent).toContain('This link is incomplete. Open the link you were sent again, or ask whoever sent it for a new one.')
     expect(fetched).not.toHaveBeenCalled()
     act(() => root.unmount())
   })

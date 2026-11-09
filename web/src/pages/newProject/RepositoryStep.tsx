@@ -152,15 +152,17 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
           {targetsQ.current && <>
             <label className="row repository-step-label">
               <input type="radio" name="target" checked={d.target === ''} disabled={!!defaultTarget?.reason} onChange={() => setRepo({ target: '' })} />
-              <span><strong>Default target{defaultTarget ? ` · ${defaultTarget.name}` : ''}</strong><br />
+              <span><strong>Default target{defaultTarget ? ` · ${defaultTarget.label || defaultTarget.name}` : ''}</strong><br />
                 <span className="muted small">{defaultTarget?.description ?? 'No default target is available.'}</span>
                 {defaultTarget?.reason && <span className="small"> · {defaultTarget.reason}</span>}
+                {defaultTarget && <code className="tech-line muted">{defaultTarget.name}</code>}
               </span>
             </label>
             {targets.filter(t => !t.default).map(t => <label key={t.name} className="row repository-step-label">
               <input type="radio" name="target" checked={d.target === t.name} disabled={!!t.reason} onChange={() => setRepo({ target: t.name })} />
-              <span><strong>{t.name}</strong><br /><span className="muted small">{t.description}</span>
+              <span><strong>{t.label || t.name}</strong><br /><span className="muted small">{t.description}</span>
                 {t.reason && <span className="small"> · {t.reason}</span>}
+                <code className="tech-line muted">{t.name}</code>
               </span>
             </label>)}
           </>}

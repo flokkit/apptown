@@ -115,7 +115,7 @@ it.each([false, true])('keeps failed execution beside findings in list and proje
   // The findings count is the status; what could not run is said once, in the meta line.
   for (const ui of [<ProjectsList view={view} base="/conformance" />, <ConformanceProject view={view} slug="calendar" readOnly onRunOne={() => {}} />]) {
     const el = await show(ui, {}, narrow)
-    expect(el.textContent!.split("1 couldn't run")).toHaveLength(2)
+    expect(el.textContent!.split("1 check couldn't run")).toHaveLength(2)
     expect(el.textContent).toContain('2 findings')
   }
 })

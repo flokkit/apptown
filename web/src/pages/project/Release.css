@@ -13,7 +13,8 @@
 .release-record { margin: var(--space-4) 0; }
 .release-heading { margin: 0 0 calc(var(--space-1) * 1.5); }
 .release-volume { padding: var(--space-1) 0; }
-.release-log { background: var(--code-bg); border-radius: var(--radius-sm); padding: calc(var(--space-1) * 2.5) var(--space-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
+/* A panel, not code-bg: in dark the code background equals the page's. */
+.release-log { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: calc(var(--space-1) * 2.5) var(--space-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
 .release-event { margin: calc(var(--space-1) * 0.5) 0; }
 .release-preview-action { gap: var(--space-2); }
 .release-image { gap: var(--space-2); align-items: baseline; flex-wrap: wrap; }

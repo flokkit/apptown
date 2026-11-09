@@ -100,8 +100,14 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
     : kind === 's3-bucket' ? { kind, name, endpoint, region: bucketRegion, websiteEndpoint, accessKeyFrom, secretKeyFrom }
     : { kind, name, tokenFrom, region }
   const key = JSON.stringify(body)
-  const filled = !!name && (kind === 'docker-host' ? !!host && !!keyFrom : kind === 'portainer' ? !!urlFrom && !!apiKeyFrom && !!environment
-    : kind === 's3-bucket' ? !!endpoint && !!bucketRegion && !!websiteEndpoint && !!accessKeyFrom && !!secretKeyFrom : !!tokenFrom && !!region)
+  // Each required field by its label: Check waits for all of them, and the
+  // empty ones are named beside it.
+  const required: [string, string][] = [['name', name], ...(kind === 'docker-host' ? [['address', host], ['SSH key secret', keyFrom]]
+    : kind === 'portainer' ? [['URL secret', urlFrom], ['API key secret', apiKeyFrom], ['environment', environment]]
+    : kind === 's3-bucket' ? [['endpoint', endpoint], ['region', bucketRegion], ['website address', websiteEndpoint], ['access key secret', accessKeyFrom], ['secret key secret', secretKeyFrom]]
+    : [['token secret', tokenFrom], ['region', region]]) as [string, string][]]
+  const empty = required.filter(([, v]) => !v).map(([label]) => label)
+  const filled = empty.length === 0
   const checked = answer?.for === key
   const check = async () => {
     const r = await run(() => post<TargetCheck | CloudAccountCheck>('/targets', { ...body, dryRun: true }))
@@ -162,6 +168,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
         <button className="subtle" onClick={onBack} disabled={busy}>Back</button>
         <button onClick={check} disabled={busy || !filled}>Check</button>
         <button className="primary" onClick={add} disabled={busy || !checked} title={checked ? '' : 'check first'}>Add target</button>
+        {!filled && <span className="muted small wiz-missing">Fill in the {empty.length > 1 ? `${empty.slice(0, -1).join(', ')} and ${empty.at(-1)}` : empty[0]}</span>}
       </div>
     </div>
   )

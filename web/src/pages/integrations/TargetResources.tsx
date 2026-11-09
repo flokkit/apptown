@@ -9,7 +9,7 @@ import { MoreMenu } from '../../MoreMenu'
 import { QuietConfirm } from '../../QuietConfirm'
 import { ResourceStatus } from '../Infrastructure'
 import { post } from '../../api'
-import type { InfrastructureTargets, InfrastructureView, Resource } from '../../wire.gen'
+import type { InfrastructureTargets, InfrastructureView, Resource, ResourceHost } from '../../wire.gen'
 
 // The route key retains provider identity and kind, including resources without an ID.
 const resourceKey = (r: Resource) => `${r.kind}:${r.id || r.name}`
@@ -53,18 +53,29 @@ export function TargetResourcesPage({ detail = false }: { detail?: boolean }) {
   </div>
 }
 
+const hostName = (h: ResourceHost) => `${h.project}/${h.deploymentLabel || h.deployment}`
+
+// A resource is titled by what it is and what it belongs to; its generated
+// name, which only an administrator matches against the target, is the full
+// reference below.
+function resourceTitle(r: Resource): string {
+  const kind = r.kind.charAt(0).toUpperCase() + r.kind.slice(1)
+  const hosts = (r.hosts ?? []).filter(h => !h.project.startsWith('('))
+  return hosts.length ? `${kind} for ${hosts.map(hostName).join(', ')}` : kind
+}
+
 function ResourcePage({ t, r, reload }: { t: InfrastructureView; r: Resource; reload: () => void }) {
   const [removing, setRemoving] = useState(false)
   const { run, busy, err } = useAction()
   const removable = r.record === 'unrecorded' && ['container', 'volume', 'stack'].includes(r.kind)
   return <div>
-    <div className="row"><h1 className="grow target-resource-reference">{r.name || r.kind}</h1>{removable && <MoreMenu label={r.name} items={[{ label: 'Remove…', onClick: () => setRemoving(true) }]} />}</div>
+    <div className="row"><h1 className="grow target-resource-reference">{resourceTitle(r)}</h1>{removable && <MoreMenu label={r.name} items={[{ label: 'Remove…', onClick: () => setRemoving(true) }]} />}</div>
     <dl className="facts">
-      <dt>Kind</dt><dd>{r.kind}</dd><dt>Full reference</dt><dd><code className="target-resource-reference">{r.id || r.name}</code></dd>
+      <dt>Kind</dt><dd>{r.kind}</dd><dt>Full reference</dt><dd>{r.name && <code className="tech-line">{r.name}</code>}{r.id && r.id !== r.name && <code className="tech-line">{r.id}</code>}</dd>
       <dt>State</dt><dd><ResourceStatus r={r} confirmed={confirmed(t)} invalidated={t.invalidated} /></dd>
       <dt>Ownership</dt><dd>{r.record === 'unrecorded' ? `Unknown. ${PRODUCT} has no ownership record.` : r.record === 'missing' ? 'Owned. Missing at the target.' : `${PRODUCT} records ownership.`}</dd>
       <dt>Used by</dt><dd>{(r.hosts ?? []).length ? (r.hosts ?? []).map((h, i) => <div key={i}>{h.project.startsWith('(') ? h.project : <Link to={`/projects/${h.project}/deployments/${h.deployment}`} title={`${h.project}/${h.deploymentLabel || h.deployment}`}>{h.project}/{h.deploymentLabel || h.deployment}</Link>}{h.need && ` · ${h.need}`}</div>) : 'No deployment recorded.'}</dd>
-      <dt>Generation</dt><dd>{(r.hosts ?? []).length ? (r.hosts ?? []).map((h, i) => <div key={i}>{h.project}/{h.deployment}: {h.generation || 'unknown'}</div>) : 'unknown'}</dd>
+      <dt>Generation</dt><dd>{(r.hosts ?? []).length ? (r.hosts ?? []).map((h, i) => <div key={i}>{hostName(h)}: {h.generation || 'unknown'}</div>) : 'unknown'}</dd>
       {r.detail && <><dt>Detail</dt><dd className="target-resource-reference">{r.detail}</dd></>}
       {r.version && <><dt>Version</dt><dd>{r.version}</dd></>}
       {r.size && <><dt>Size</dt><dd>{r.size}</dd></>}

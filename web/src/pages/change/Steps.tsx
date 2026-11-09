@@ -54,9 +54,12 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
           {c.instructions && <><dt>Asked to check</dt><dd>{c.instructions}</dd></>}
         </dl>
       })()}
+      {/* A record page lists several checks: each says which it is and its result. */}
+      {evidenceOnly && step.isCheck && <div className="row step-head"><Status word={statusLabel} /><strong>{stepTitle(step)}</strong></div>}
       {evidenceOnly && step.isCheck && <dl className="ch-check-about">
         <dt>What it checks</dt><dd>{checkPurpose(step) ?? <span className="muted">— this workflow’s own check; it has no description yet</span>}</dd>
         {checkMethod(step) && <><dt>How</dt><dd><code>{checkMethod(step)!.replace(/^Ran /, '')}</code></dd></>}
+        {step.finishedAt && <><dt>Finished</dt><dd>{fmtStamp(step.finishedAt)}</dd></>}
       </dl>}
       {overridden && (
         <div className="muted small">Exception by {step.overrideBy}: “{step.overrideReason}”</div>
@@ -192,15 +195,15 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
 
       {step.type === 'scan' && step.evidence.binding != null && (
         <div className="step-note">
-          <div className="muted small">
-            {step.evidence.binding} v{step.evidence.bindingVersion} ({step.evidence.image}) · exit {step.evidence.exitCode} ·
-            {' '}{step.evidence.durationMs}ms · config sha256:{step.evidence.configHash}
-            {step.evidence.note ? <> · {step.evidence.note}</> : null}
-            {step.evidence.findings != null && (
-              <> · {step.evidence.findings.actionable} actionable / {step.evidence.findings.total} findings
-                {step.evidence.findings.dispositioned > 0 && <> ({step.evidence.findings.dispositioned} suppressed)</>}</>
-            )}
-          </div>
+          {/* How the scanner ran is for administrators: one technical line
+              that scrolls sideways. The note and counts stay in words. */}
+          <code className="tech-line muted">
+            {[`${step.evidence.binding} v${step.evidence.bindingVersion} (${step.evidence.image})`, step.evidence.exitCode != null && `exit ${step.evidence.exitCode}`,
+              step.evidence.durationMs != null && `${step.evidence.durationMs}ms`, step.evidence.configHash && `config sha256:${step.evidence.configHash}`].filter(Boolean).join(' · ')}
+          </code>
+          {(step.evidence.note || step.evidence.findings != null) && <div className="muted small">
+            {[step.evidence.note, step.evidence.findings != null && `${step.evidence.findings.actionable} actionable / ${step.evidence.findings.total} findings${step.evidence.findings.dispositioned > 0 ? ` (${step.evidence.findings.dispositioned} suppressed)` : ''}`].filter(Boolean).join(' · ')}
+          </div>}
           {step.evidence.findings != null && (
             <section className="mt-1">
               <h4>Findings</h4>

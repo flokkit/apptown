@@ -145,10 +145,14 @@ func settleDeploymentReleaseIn(ctx context.Context, tx *database.Tx, at Attempt,
 	if status == attemptSuperseded {
 		reason = "superseded by a newer deployment generation"
 	}
+	detail := reason
 	if state == Released {
-		text += " — " + o.URL
-	} else {
-		text += " — " + reason
+		detail = o.URL
+	}
+	// A log line ends with what happened; a dash with nothing after it reads
+	// as something missing.
+	if detail != "" {
+		text += " — " + detail
 	}
 	n, err := releasesql.New(tx.SQL()).SettleReleaseAttempt(ctx, releasesql.SettleReleaseAttemptParams{
 		State: state.String(), Released: state == Released, OpenState: Releasing.String(),

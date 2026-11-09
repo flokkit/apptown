@@ -26,7 +26,7 @@ it.each([false, true])('leads with the host name, state and app address, and lin
   expect([...el.querySelectorAll('button')].filter(b => b.textContent === 'View resource')).toHaveLength(0)
   expect(el.querySelector('a[href="/targets/kitchen/resources/volume%3Aorphan-data"]')).not.toBeNull()
   expect(el.querySelector('a[href="/targets/kitchen/capacity"]')).not.toBeNull()
-  expect(el.querySelector('.target-settings')?.textContent).toContain('SSH keysecret HOST_KEY')
+  expect(el.querySelector('.target-settings')?.textContent).toContain('SSH keySecret HOST_KEYEdit secret')
   expect(el.querySelector('.target-settings')?.textContent?.match(/10\.0\.0\.4/g)).toHaveLength(1)
   expect(el.querySelector('.target-settings')?.textContent).toContain('ssh://root@10.0.0.4')
   expect(el.querySelector('.target-settings a[href="/integrations/secrets"]')?.textContent).toBe('Edit secret')

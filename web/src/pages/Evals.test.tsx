@@ -169,6 +169,8 @@ describe('starting an eval', () => {
       const modelRadio = [...r.el.querySelectorAll('input[type=radio]')].find((i) => i.parentElement?.textContent?.includes('an AI setup')) as HTMLInputElement
       await act(async () => { modelRadio.click() })
       await r.settle(() => r.el.querySelectorAll('select').length === 2)
+      // While the button is disabled a line names what is missing; it goes once nothing is.
+      expect(r.el.querySelector('.evals-missing')?.textContent).toBe('Pick an AI setup and a project')
       const [profile, project] = [...r.el.querySelectorAll('select')]
       await act(async () => {
         profile.value = 'frontier'; profile.dispatchEvent(new Event('change', { bubbles: true }))
@@ -176,7 +178,9 @@ describe('starting an eval', () => {
       })
       await r.settle(() => r.el.querySelectorAll('input[type=checkbox]').length > 0)
       expect(r.el.querySelectorAll('input[type=checkbox]').length).toBe(1) // only the landed Change
+      expect(r.el.querySelector('.evals-missing')?.textContent).toBe('Pick a Change')
       await act(async () => { (r.el.querySelector('input[type=checkbox]') as HTMLInputElement).click() })
+      expect(r.el.querySelector('.evals-missing')).toBeNull()
       expect(r.el.textContent).not.toContain(MEANING)
       const review = [...r.el.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Review'))!
       await act(async () => { review.click() })
@@ -207,6 +211,8 @@ describe('starting an eval', () => {
       const modelRadio = [...r.el.querySelectorAll('input[type=radio]')].find((i) => i.parentElement?.textContent?.includes('an AI setup')) as HTMLInputElement
       await act(async () => { modelRadio.click() })
       await r.settle(() => r.el.querySelectorAll('select').length === 2)
+      // While the button is disabled a line names what is missing; it goes once nothing is.
+      expect(r.el.querySelector('.evals-missing')?.textContent).toBe('Pick an AI setup and a project')
       const [profile, project] = [...r.el.querySelectorAll('select')]
       await act(async () => {
         profile.value = 'frontier'; profile.dispatchEvent(new Event('change', { bubbles: true }))

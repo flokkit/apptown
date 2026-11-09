@@ -182,6 +182,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
                     <span className="grow" />
                     <button className="subtle" onClick={(e) => { e.stopPropagation(); setInspecting(p) }}>inspect</button>
                   </div>
+                  {p.description && <div className="muted small">{p.description}</div>}
 
                   {missing.length > 0 && (
                     <div className="row way-of-working-step-div-5">
@@ -195,16 +196,22 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
                 </div>
               )
             })}
-            <div className="card pack-card" role="button" tabIndex={0}
-              onClick={() => pick([])}
-              onKeyDown={(e) => { if (e.key === 'Enter') pick([]) }}>
-              <strong>none (bare)</strong>
-              <div className="muted small mt-2">Start without optional packs.</div>
+            {/* No packs is a choice like the others: it clears the ticks, and
+                ticking a pack clears it. */}
+            <div className={'card pack-card' + (ticked.length === 0 ? ' on' : '')} role="button" tabIndex={0}
+              aria-pressed={ticked.length === 0}
+              onClick={() => setTicked([])}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTicked([]) } }}>
+              <div className="row">
+                <span className="pick-mark" aria-hidden>{ticked.length === 0 ? '✓' : '+'}</span>
+                <strong>No packs</strong>
+              </div>
+              <div className="muted small">Start without optional packs.</div>
             </div>
           </div>
           <div className="row mt-3">
-            <button className="primary" disabled={ticked.length === 0} onClick={() => pick(ticked)}>
-              {ticked.length === 0 ? 'Tick at least one pack' : `Take ${ticked.join(' + ')}`}
+            <button className="primary" onClick={() => pick(ticked)}>
+              {ticked.length === 0 ? 'Use no packs' : `Use ${ticked.length} ${ticked.length === 1 ? 'pack' : 'packs'}`}
             </button>
             <button className="subtle" onClick={() => act({ type: 'choosing', on: false })}>← describe it instead</button>
           </div>

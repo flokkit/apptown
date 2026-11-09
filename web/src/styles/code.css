@@ -47,5 +47,11 @@ pre.log {
 @media (max-width: 800px), (pointer: coarse) {
   .terminal-head { min-height: 44px; }
 }
+/* Source shown on its own page (a workflow, a policy, a work record's
+   files): every line whole, indentation kept. */
+pre.source {
+  background-color: var(--code-bg); border: 1px solid var(--rule); border-radius: var(--radius-sm);
+  padding: var(--space-3); white-space: pre; overflow-x: auto; overflow-wrap: normal;
+}
 .main table, .diff-body { background-image: none; }
 }

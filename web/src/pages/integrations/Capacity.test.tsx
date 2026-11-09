@@ -208,3 +208,9 @@ it('describes attached container readings and names failed tenants, including re
   expect(unknown).toContain('Container memory use is unknown; whole-host use is not measured')
   expect(unknown).toContain('stats failed')
 })
+
+// A target with no reading at all says its capacity is unknown, not a blank page.
+it('shows the unknown state when nothing was read', () => {
+  expect(render({ error: 'The host disk check failed.' })).toContain('No capacity reading yet.')
+  expect(render({ disk: { total: fig(100 * 2 ** 30), free: fig(90 * 2 ** 30), low: false, refuses: false } })).not.toContain('No capacity reading yet.')
+})

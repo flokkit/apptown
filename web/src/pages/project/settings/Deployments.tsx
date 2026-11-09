@@ -350,6 +350,8 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
       <div className="row deployments-add-deployment-div">
         <button className="primary" disabled={busy || !picked || (feed === 'promotion' && !source)} onClick={add}>Create</button>
         <button className="subtle" disabled={busy} onClick={() => { setErr(''); onDone(false) }}>Cancel</button>
+        {/* What the disabled Create waits for. */}
+        {!busy && (!picked ? choices.length > 0 && <span className="muted small">Choose a deployment target</span> : feed === 'promotion' && !source && <span className="muted small">Choose the deployment to promote from</span>)}
         {err && <span className="error small">{err}</span>}
       </div>
     </div>

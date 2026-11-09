@@ -1,3 +1,4 @@
+import { Status } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { ListTable } from '../../ListTable'
 import { useGet } from '../../data'
@@ -112,6 +113,7 @@ export function Capacity({ name }: { name: string }) {
   // the bars say what a summary table would, so there is none above them.
   const bars = !!(c.tenants && c.tenants.length > 0)
   const shown = reasons
+  const nothingRead = !m && !c.disk && !c.elastic && !bars && !c.estimate
   return (
     <div className="small">
       {c.readAt && bars && <p className="muted mt-0" >Read {readingAge(c.readAt, c.stale).replace(/^checked /, '')}</p>}
@@ -124,6 +126,8 @@ export function Capacity({ name }: { name: string }) {
       {c.disk?.refuses ? <p className="capacity-warning">Free disk space before starting a new release.</p>
         : c.disk?.low && <p className="capacity-warning">Low on disk. Free some space.</p>}
       {c.elastic && <p>{c.words}{c.readAt && <span className="muted"> · {readingAge(c.readAt, c.stale)}</span>}</p>}
+      {/* Nothing was read: the state is unknown, with why, not an empty page. */}
+      {nothingRead && <p className="row"><Status word="unknown" /> No capacity reading yet.</p>}
       {shown.length > 0 && <p className="error small">Some capacity readings could not be read: {shown.join('; ')}{reasons.length > shown.length ? `; and ${reasons.length - shown.length} more (App resource details)` : ''}</p>}
       {bars ? <Bars c={c} /> : <div className="capacity-details" role="region" aria-label="Capacity detail tables" tabIndex={0}>
       {c.memory && c.cpu && (

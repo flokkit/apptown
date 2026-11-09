@@ -144,8 +144,10 @@ export default function AdrPage() {
             <button onClick={() => { setEditing(false); load() }}>Cancel</button>
           </div>
         </div>
+      ) : adr.bodyMd ? (
+        <div className="card md" dangerouslySetInnerHTML={{ __html: renderMd(adr.bodyMd) }} />
       ) : (
-        <div className="card md" dangerouslySetInnerHTML={{ __html: renderMd(adr.bodyMd || '_no content yet_') }} />
+        <p className="muted">No text yet.</p>
       )}
     </div>
   )

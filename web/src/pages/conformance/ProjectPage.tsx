@@ -9,7 +9,7 @@ import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import type { ConformanceFixList, ConformanceHistory, ConformanceView, CheckDefinition, Adjudication, Disposition, Lanes, PriorConfirmation, RemediationOpened } from '../../wire.gen'
 import { fmtWhen } from '../../format'
-import { type Verdict, coveringChange, fixableFindings, BeingFixed, laneOf, shortSha, StateChip, HowJudged, Evidence, JudgedAt, useStartRemediation } from './parts'
+import { type Verdict, coveringChange, fixableFindings, BeingFixed, couldNotRun, laneOf, shortSha, StateChip, HowJudged, Evidence, JudgedAt, useStartRemediation } from './parts'
 import { Section } from '../../Section'
 import { PageHead } from '../../PageHead'
 import { ListRow } from '../../ListRow'
@@ -164,9 +164,11 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
         <button className="primary" disabled={busy} onClick={() => onRunOne(slug)}>Check this project</button>
       </span>} />
       <div className="muted small">
-        {/* The owner's sentence already says what could not run; the findings count alone does not. */}
-        {[p.standing === 'does-not-conform' && p.lanes.findings > 0 ? `${p.lanes.findings} ${p.lanes.findings === 1 ? 'finding' : 'findings'}` : p.sentence.replace(/\.$/, ''),
-          p.standing === 'does-not-conform' && p.lanes.findings > 0 && p.lanes.broken > 0 ? `${p.lanes.broken} couldn't run` : '',
+        {/* A lead line is a summary: checks that could not run are counted, and
+            each one's reason is on its row below. The owner's sentence carries
+            those reasons, so it leads only when nothing failed to run. */}
+        {[p.standing === 'does-not-conform' && p.lanes.findings > 0 ? `${p.lanes.findings} ${p.lanes.findings === 1 ? 'finding' : 'findings'}` : p.notKnown?.length ? couldNotRun(p.notKnown.length) : p.sentence.replace(/\.$/, ''),
+          p.standing === 'does-not-conform' && p.lanes.findings > 0 && p.lanes.broken > 0 ? couldNotRun(p.lanes.broken) : '',
           p.judgedAt ? `checked ${fmtWhen(p.judgedAt)}` : 'not checked yet'].filter(Boolean).join(' · ')}
         {' · '}<Link to={`/projects/${slug}`}>Open project →</Link>
       </div>

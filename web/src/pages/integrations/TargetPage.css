@@ -28,6 +28,15 @@
 @media (width > 800px) {
   .target-deployments-table .phone-state { width: 16rem; max-width: 16rem; }
 }
+/* The resource table compares five figures per row: on phones it stays a
+   table with its headings and scrolls inside its region, rather than the
+   list layout, which stacks unlabelled figures past the screen's edge. */
+@media (width <= 800px) {
+  .cap-details .cap-table thead { position: static; width: auto; height: auto; overflow: visible; clip-path: none; display: table-header-group; }
+  .cap-details .cap-table tr { display: table-row; padding: 0; }
+  .cap-details .cap-table td { display: table-cell; padding: var(--space-2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .cap-details .cap-table th { white-space: normal; }
+}
 @media (width <= 800px) {
   .target-resources-table .phone-name, .target-resources-table .phone-detail { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .target-deployments-table .phone-time { display: none; }

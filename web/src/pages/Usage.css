@@ -10,6 +10,9 @@
 .usage-chart-panel { padding: 12px 0; }
 .usage-legend { display: flex; gap: 12px; margin-bottom: 8px; }
 /* The picked day is underlined, not boxed: a box reads as a bar. */
+/* The chart's focus ring is grey: the page accent is near white in dark and
+   would frame the whole chart. Muted text colour keeps it above 3:1. */
+.usage-chart:focus-visible { outline-color: var(--muted); }
 .usage-chart .usage-col.on { background: transparent; outline: 0; box-shadow: 0 2px 0 var(--accent); border-radius: 0; }
 @media (max-width: 600px) {
   .usage-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }

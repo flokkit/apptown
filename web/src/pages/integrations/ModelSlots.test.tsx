@@ -61,7 +61,7 @@ it('says what an unset task gets, on each profile', async () => {
   await act(async () => { await client.invalidateQueries() })
   // Another profile's unset jobs use standard's models, and it names its projects.
   await at('/integrations/profiles/high')
-  await vi.waitFor(() => expect(el.querySelector('h1')!.textContent).toBe('high'))
+  await vi.waitFor(() => expect(el.querySelector('h1')!.textContent).toBe('High profile'))
   expect(unset('Review')).toBe('Same as standard (m/review)')
   expect(unset('Worker')).toBe("Same as standard's Review (m/review)")
   expect(el.querySelector('section[aria-label="Projects"]')).toBeNull()

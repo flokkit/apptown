@@ -210,7 +210,8 @@ it('shows the change report when the summary is Project work', () => {
   expect(html).toContain('All six rides have start times.')
   expect(html).not.toContain('Project work')
   expect(html).toContain('5 files +35 −15')
-  expect(html).toContain('→ Code')
+  expect(html).toContain('Code: 5 files changed →')
+  expect(html).not.toContain('How it was done → Details')
 })
 
 it('omits non-applicable checks without hiding failed or unknown checks', () => {
@@ -985,4 +986,13 @@ it('shows the server verdict in Overview and Evidence for a passed step with a b
  expect(el.textContent?.split(v.checks.text).length).toBeGreaterThan(2)
  expect(el.textContent).not.toContain('All checks passed')
  expect(el.textContent).toContain('Remove personal data.')
+})
+
+// The code link names what changed in words; the commit is a technical fact
+// that lives on Details, not the link's text.
+it('links the code by its change size, not its short commit', () => {
+  const v = view(); (v as { head?: string }).head = '257bbb1c0ffee0000000000000000000000000000'
+  const el = document.createElement('div'); el.innerHTML = render(v)
+  const code = [...el.querySelectorAll('a')].find(a => a.getAttribute('href')?.endsWith('?tab=changes'))!
+  expect(code.textContent).toBe('5 files +35 −15 · code →')
 })

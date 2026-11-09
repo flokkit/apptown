@@ -52,7 +52,9 @@ it('gives the session its own address, named inputs, produced files and explicit
   await f.click(f.el.querySelector<HTMLButtonElement>('button.ch-goggles')!)
   const full = [...f.el.querySelectorAll('a')].find(a => a.textContent === 'full text')!
   await f.click(full)
-  expect(f.el.querySelector('h1')?.textContent).toBe('step-step')
+  // The heading names the kind of record; its own name follows.
+  expect(f.el.querySelector('h1')?.textContent).toBe('Agent log')
+  expect(f.el.querySelector('.work-byline')?.textContent).toBe('step-step')
   expect(f.el.querySelector('.work-full pre')?.textContent).toBe(trace().artifacts[0].body)
   expect(f.el.querySelector('.work-events')).toBeNull()
   f.close()
@@ -120,7 +122,7 @@ it.each([
   ['request','Change request','Keep the time.\nKeep the invitation.'],
   ['workflow','Workflow','kind: pipeline'],
   ['report','Report','The report'],
-  ['records/instructions','steering-implement','Use the shared rules.'],
+  ['records/instructions','Agent instructions','Use the shared rules.'],
 ])('reads %s on its own page with one title', async (part,title,text) => {
   const f = await mount(trace(), `/changes/change/work/step/${part}?run=run&attempt=step-0`)
   try {
@@ -129,4 +131,20 @@ it.each([
     expect(f.el.textContent).not.toContain('library-copy')
     expect(f.el.querySelector('.work-events, details')).toBeNull()
   } finally { f.close() }
+})
+
+// An empty record is said in plain text outside the content box; the request reads as prose.
+it('says an empty report outside the box and renders the request as prose', async () => {
+  const t = trace() as unknown as { steps: { evidence: { output?: string } }[] }
+  t.steps[0].evidence.output = ''
+  const f = await mount(t as unknown as RunTrace, '/changes/change/work/step/report?run=run&attempt=step-0')
+  try {
+    expect(f.el.querySelector('.work-full')).toBeNull()
+    expect(f.el.querySelector('p.muted')?.textContent).toBe('No report was recorded.')
+  } finally { f.close() }
+  const r = await mount(trace(), '/changes/change/work/step/request?run=run&attempt=step-0')
+  try {
+    expect(r.el.querySelector('.work-full pre')).toBeNull()
+    expect(r.el.querySelector('.work-full .md')?.textContent).toContain('Keep the time.')
+  } finally { r.close() }
 })

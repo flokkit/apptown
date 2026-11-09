@@ -5,6 +5,14 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { font-size: var(--fs-base); margin: 0; background: var(--bg); color: var(--text); }
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-hover); text-decoration: underline; }
+/* The link ink is close to the body ink, so a link inside a sentence is
+   underlined to read as a link. A link that is itself the item (a row's
+   name, a table cell, a tab, navigation) is already marked as the item. */
+:where(p, li, dd, .muted, .small, .section-note, .section-action, .md, .md-doc) a:not([class]):not(:where(nav, td, th, .tabs, .list-identity) a),
+:where(.section-action) a {
+  text-decoration-line: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 2px;
+}
+:where(p, li, dd, .muted, .small, .section-note, .section-action, .md, .md-doc) a:not([class]):hover { text-decoration-color: currentColor; }
 code, pre, kbd, samp { font-family: var(--font-mono); font-size: var(--fs-xs); }
 pre { max-width: 100%; overflow-x: auto; }
 @media (max-width: 800px) {

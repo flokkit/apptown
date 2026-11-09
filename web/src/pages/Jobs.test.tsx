@@ -28,3 +28,18 @@ it.each(['available', 'pending', 'running', 'retryable', 'scheduled', 'completed
   expect(stateCell.textContent).toContain('attempt 2')
   expect(page.querySelector('details, [aria-expanded]')).toBeNull()
 })
+
+// A job's key is for administrators: it stays on the row, but on its own
+// technical line, never in the outcome's words.
+it('keeps the job key off the outcome text, on its own technical line', () => {
+  const key = 'protection-observation/01a1c0f7-f732-717b-bf23-3bc2cfec567f/0bfd216d8671931e214963dad76672e5b1978f80b6dae4cf07a49bab12b518bb'
+  const client = newQueryClient()
+  client.setQueryData(getKey('/jobs?limit=500'), { jobs: [{ id: 1, kind: 'protection-observation', key, state: 'available', statusLabel: 'waiting', createdAt: new Date().toISOString() }] })
+  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><JobsPage /></QueryClientProvider></MemoryRouter>)
+  const page = new DOMParser().parseFromString(html, 'text/html')
+  const outcome = page.querySelector('tbody tr td:nth-child(4)')!
+  const tech = outcome.querySelector('.tech-line')
+  expect(tech?.textContent).toContain(key)
+  tech?.remove()
+  expect(outcome.textContent).not.toContain(key)
+})

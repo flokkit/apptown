@@ -113,7 +113,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
     {!!briefParts?.length && <div className="ch-overview-line"><div className="ch-row-label">What it does</div><div className="ch-value">{briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}<StaleNote q={brief} /></div><span /></div>}
     <div className="ch-overview-line"><div className="ch-row-label">{summary ? 'What was made' : 'The agent says'}</div><div className="ch-value">{report?.length ? <ul>{report.map((line, i) => <li key={i}>{line}</li>)}</ul> : (agent || reply) ? <div className="ch-chat-excerpt md" dangerouslySetInnerHTML={{ __html: renderMd((agent || reply || '').trim().split(/\n\s*\n/)[0]) }} /> : <p className="muted">{transcript.err ? `The conversation could not be read: ${transcript.err}` : transcript.data?.unreadable ? 'Some of the conversation could not be read.' : !transcript.data ? 'Reading the conversation…' : 'No report from the agent'}</p>}
       {!summary && <StaleNote q={transcript} />}<TechnicalWords shown={technical}>{d && `${d.run.workflowName} v${d.run.workflowVersion} · run ${d.run.number}`} · {ch.branch} · {view.head}{steps.flatMap(s => s.type === 'agent/pi' && s.evidence.model ? [` · ${s.evidence.model}`] : []).join('')}{view.usage && ` · ${fmtPrice(view.usage.costMicros, view.usage.unpriced)}`}</TechnicalWords>
-    </div>{!summary && reply ? trailer(`/changes/${ch.id}?tab=conversation`, 'full conversation →') : trailer(`/changes/${ch.id}?tab=changes`, `${shortDiffstat(view.diffstat).replace(/^(.*) in (\d+ files?)$/, '$2 $1') || 'Code'}${view.head ? ` · ${view.head.slice(0, 7)}` : ''} →`)}</div>
+    </div>{!summary && reply ? trailer(`/changes/${ch.id}?tab=conversation`, 'full conversation →') : trailer(`/changes/${ch.id}?tab=changes`, shortDiffstat(view.diffstat) ? `${shortDiffstat(view.diffstat).replace(/^(.*) in (\d+ files?)$/, '$2 $1')} · code →` : 'Code →')}</div>
     <div className={`ch-overview-line${view.checks.tone === 'bad' ? ' ch-line-bad' : ''}`}><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary checks={view.checks} technical={technical} steps={steps} contractNeedsAttention={contractUnread(adds)} /><TechnicalWords shown={technical}>{checks.filter(s => s.status !== 'not_applicable').map(s => s.name).join(' · ')}</TechnicalWords></div>{checked && trailer(record('checks'), 'details →')}</div>
     {approval && <>
       <div className="ch-overview-line"><div className="ch-row-label">Goes live</div><div className="ch-value">Landing puts the change on main. Deployments update separately.</div><span /></div>
@@ -136,7 +136,8 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
       {shortfall && <><p>The summary says this change falls short of the request: {shortfall}</p><p>Based on: “{ch.requestGapQuote}”</p></>}
       {unchecked && view.waitingOn.kind !== 'closed' && <p>The summary could not check all of the request: {unchecked}</p>}
       {steps.filter(s => s.type === 'workflow/call' && s.evidence.childRunId).map(s => <ChildOverview key={s.id} step={s} onChange={onChange} />)}
-      {!approval && <p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>}
+      {!approval && (ch.state === 'shipped' ? <Landed view={view} /> : <p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>)}
+      {approval && !turn && current && !extraErr && <ApproversCard stepId={approval.id!} />}
       {approval && (!current || extraErr) && <p>Reading the current change before you can accept.</p>}
 
       {deciding && d && <>
@@ -163,7 +164,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
         abandon={offered(view.next, 'abandon') ? { label: 'Abandon change', run: () => act(() => post(`/changes/${ch.id}/abandon`, {})) } : undefined} />}
       {question.err && <p className="error">Changes to the app contract could not be read: {question.err}</p>}
     </TurnDecision>
-    <footer hidden={!shown} className="small muted"><Link to={`/changes/${ch.id}?tab=changes`}>{view.diffstat?.match(/\d+ files? changed/)?.[0] ? `${view.diffstat.match(/\d+ files? changed/)![0]} → Code` : 'Code →'}</Link> · <Link to={detail}>How it was done → Details</Link></footer>
+    <footer hidden={!shown} className="small muted"><Link to={`/changes/${ch.id}?tab=changes`}>{view.diffstat?.match(/\d+ files? changed/)?.[0] ? `Code: ${view.diffstat.match(/\d+ files? changed/)![0]} →` : 'Code →'}</Link> · <Link to={detail}>How it was done →</Link></footer>
   </div>
 }
 
@@ -201,6 +202,15 @@ export function approvalBrief(text?: string): string[] | undefined {
 export function progressTitle(view: ChangeView, steps: Step[]): string {
   if (steps.some(s => s.type === 'build' && s.status === 'running')) return 'Building'
   return view.runs?.find(r => r.id === view.detail?.run.id)?.role === 'landing' ? 'Landing' : 'Working'
+}
+
+// A landed change's next step is its deployment: where the release went, or
+// where to deploy from when none was asked for.
+function Landed({ view }: { view: ChangeView }) {
+  const deployments = [...new Set((view.evidence?.landingReleases ?? []).map(r => r.deployment))]
+  return <p>Landed on main{view.stateDetail && ` · ${view.stateDetail}`}. {deployments.length
+    ? <>Deployment: {deployments.map((d, i) => <span key={d}>{i > 0 && ', '}<Link to={`/projects/${view.projectSlug}/deployments/${d}`}>{d}</Link></span>)}</>
+    : <>No release was requested. <Link to={`/projects/${view.projectSlug}/deployments`}>Deployments</Link></>}</p>
 }
 
 export function ReleaseRow({ view }: { view: ChangeView;  }) {

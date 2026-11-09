@@ -100,7 +100,7 @@ it('keeps service project and deployment links on the dependent page and reports
   expect(el.querySelector('a[href="/targets/host"]')).not.toBeNull()
   const failed = await mount('/services/errors/projects', <Route path="/services/:name/projects" element={<IntegrationProjects />} />, {})
   expect(details(failed.el)).toContain('could not be read')
-  expect(failed.el.textContent).not.toContain('No project names it directly')
+  expect(failed.el.textContent).not.toContain('directly')
 })
 
 it('keeps check adopters behind a count link, including adopters without a result', async () => {
