@@ -34,6 +34,9 @@
 .tabs a.tab, .tabs button { min-height: 44px; display: inline-flex; align-items: center; gap: 0.3em; }
 .tab-strip.previous-tabs::before { content: ''; position: absolute; left: 0; top: 0; bottom: 16px; width: 16px; pointer-events: none; z-index: var(--z-base); background: linear-gradient(to left, transparent, var(--bg)); }
 @media(max-width:800px) {
-  .tabs, .ch-tabs { flex-wrap: nowrap; overflow-x: auto; }
+  /* No gap and narrower sides, so short rows more often fit a phone. Rows
+     that do not fit scroll with the current tab in view. */
+  .tabs, .ch-tabs { flex-wrap: nowrap; overflow-x: auto; gap: 0; }
+  .tabs a.tab, .tabs button { padding-inline: var(--space-2); }
 }
 }

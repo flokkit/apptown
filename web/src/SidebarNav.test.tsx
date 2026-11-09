@@ -20,7 +20,7 @@ it.each(['notes', 'decisions'])('Memory has the shared group controls and active
     await settled(client)
     expect([...el.querySelectorAll('.nav-drawer-head > a')].map(a => a.textContent)).toEqual(['Security', 'Settings', 'Memory'])
     const toggle = el.querySelector<HTMLButtonElement>('button[aria-label="Close Memory"]')!
-    expect(el.querySelector('.topbar-crumb.last a')?.textContent).toBe('Memory')
+    expect(el.querySelector('.topbar-crumb:last-child a')?.textContent).toBe('Memory')
     expect(toggle).not.toBeNull()
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
     expect(el.querySelector('a[href="/projects/a/memory"]')?.classList.contains('active-area')).toBe(true)

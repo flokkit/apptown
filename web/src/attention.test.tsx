@@ -61,8 +61,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     const v = mount(<><TopBar me={{ mode: 'internal', user: 'alice' }} narrow /><AttentionPage /></>)
     await settled(v.client)
     expect(calls.filter(p => p === '/attention')).toHaveLength(1)
-    expect(v.el.querySelector('.topbar')?.contains(badge(v.el))).toBe(true)
-    expect(badge(v.el).getAttribute('aria-label')).toBe('2 to fix')
+    expect(v.el.querySelector('.topbar .attention-dot:not(.off)')?.getAttribute('aria-label')).toBe('2 to fix')
         expect(v.el.querySelectorAll('[role=listitem]')).toHaveLength(2)
     expect(v.el.querySelector('a[href="/infrastructure"]')?.textContent).toBe('Worker unavailable')
     expect(v.el.querySelector('a[href="/projects/game/settings/data"]')?.textContent).toBe('Recovery is untested')
@@ -101,6 +100,23 @@ describe('Attention surfaces share authorized current evidence', () => {
     expect(lights.every(l => l.classList.contains('off'))).toBe(true)
     expect(lights[0].getAttribute('title')).toBe('Hosts and deployments: no known issues')
     expect(v.el.querySelector('.attention-lights')?.getAttribute('aria-label')).toBe('All quiet')
+  })
+  it('folds the kinds into one dot on a phone, coloured by the worst known condition, opening the list', async () => {
+    const low: AttentionView = { ...known, items: [{ ...warning.items[0], key: 'workers/b', statusLabel: 'low' }] }
+    for (const [view, cls, label] of [[known, 'off', 'All quiet'], [low, 'low', '1 to fix'], [warning, '', '2 to fix']] as const) {
+      responses(() => json(view))
+      const v = mount(<AttentionLights compact />); await settled(v.client)
+      expect(v.el.querySelector('.attention-light')).toBeNull()
+      const dots = [...v.el.querySelectorAll('a.attention-dot')]
+      expect(dots).toHaveLength(1)
+      expect(dots[0].getAttribute('href')).toBe('/attention')
+      expect(dots[0].getAttribute('aria-label')).toBe(label)
+      expect(dots[0].getAttribute('title')).toBe(label)
+      expect(dots[0].classList.contains('off')).toBe(cls === 'off')
+      expect(dots[0].classList.contains('low')).toBe(cls === 'low')
+      for (const m of mounted.splice(0)) m.close()
+      vi.unstubAllGlobals()
+    }
   })
   it('shows known conditions beside incomplete host coverage in the topbar', async () => {
     responses(() => json({ ...warning, sources: [{ ...known.sources[0], unknown: true }] }))

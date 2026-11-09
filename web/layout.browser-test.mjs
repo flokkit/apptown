@@ -18,6 +18,7 @@ const css = await productionCSS()
 const fixture = await build({
   absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
   stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
+    import { useState } from 'react'
     import { createRoot } from 'react-dom/client'
     import { MemoryRouter } from 'react-router-dom'
     import { ProjectListRow } from './ProjectListRow'
@@ -32,6 +33,11 @@ const fixture = await build({
     import AgentActivity from './AgentActivity'
     import { Tabs } from './Tabs'
     import { renderMd } from './md'
+    // The change page's tabs, switchable, so the current tab can be followed.
+    function ChangeTabs() {
+      const [current, setCurrent] = useState('Overview')
+      return <Tabs className="tabs ch-tabs">{['Overview','Code','Conversation','Details'].map(label=><a key={label} className={'tab'+(label===current?' active':'')} aria-current={label===current?'page':undefined} href="#change" onClick={e=>{e.preventDefault();setCurrent(label)}}>{label}</a>)}</Tabs>
+    }
     const long = 'A very long project identity with a long-unbroken-identifier-abcdefghijklmnopqrstuvwxyz0123456789'
     createRoot(document.getElementById('root')).render(<MemoryRouter>
       <main style={{padding: 12}}>
@@ -41,7 +47,7 @@ const fixture = await build({
         <LibraryRows><LibraryRow name="Short policy" to="/policies/short" /><LibraryRow name={long} to="/policies/long" /></LibraryRows>
         <DailyChart days={Array.from({length:90},(_,i)=>new Date(Date.UTC(2026,7,i+1)).toISOString().slice(0,10))} perDay={new Map([['2026-10-29',{step:100,console:50,other:10,cost:0}]])} />
         <SplitButton compact icon="" label="Change" onMain={()=>{document.body.dataset.main='yes'}} items={[{label:'Catalog change',hint:'Choose a prepared change'}]} />
-        <div className="ch-page" style={{paddingInline:6}}><Tabs className="tabs ch-tabs">{['Overview','Code','Conversation','Details'].map((label,i)=><a key={label} className={'tab'+(i===0?' active':'')} href="#change">{label}</a>)}</Tabs></div>
+        <div className="ch-page" style={{paddingInline:6}}><ChangeTabs /></div>
         <div className="row console-head" style={{marginBottom:8}}><h1 style={{margin:0}}>Project chat</h1><span className="badge here">questions &amp; setup</span><span className="console-head-space" style={{flex:1}} /><AgentActivity connected busy={false} /><div className="head-menu"><button aria-label="Chat menu">⋯</button></div></div>
         <div className="ch-decision-choices"><button>Accept</button><button>Send back…</button><button>Abandon change</button></div>
         <section><ListRow identity={long} state="Waiting for you" action={<><button>Review change</button><MoreMenu label="Project" items={[{label:'Archive project',hint:'Keep its history'}]} /></>} /></section>
@@ -132,10 +138,11 @@ const trailFixture = await build({
     import { newQueryClient, getKey } from './data'
     import TopBar from './TopBar'
     const me = {mode:'internal',user:'sam'}, client = newQueryClient()
-    window.fetch = async path => new Response(JSON.stringify(String(path).endsWith('/auth/me') ? me : String(path).endsWith('/authz/me') ? {instance:{'platform:manage-deploy-targets':true}} : {items:[],sources:[]}))
+    const attention = {items:[{key:'workers/a',title:'Worker unavailable',detail:'Work is waiting.',href:'/targets',statusLabel:'failed',severity:'warning',observedAt:'2026-11-10T00:00:00Z',stale:false}],sources:[]}
+    window.fetch = async path => new Response(JSON.stringify(String(path).endsWith('/auth/me') ? me : String(path).endsWith('/authz/me') ? {instance:{'platform:manage-deploy-targets':true}} : attention))
     client.setQueryData(getKey('/auth/me'), me)
     client.setQueryData(getKey('/authz/me'), {instance:{'platform:manage-deploy-targets':true}})
-    client.setQueryData(getKey('/attention'), {items:[],sources:[]})
+    client.setQueryData(getKey('/attention'), attention)
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/club-newsletter/memory/decisions']}><TopBar me={me} narrow /></MemoryRouter></QueryClientProvider>)
   ` },
 })
@@ -237,6 +244,11 @@ try {
     for (const size of ['small', 'medium', 'large']) {
       await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
       assert.equal(await page.locator('.ch-tabs').evaluate(strip => new Set([...strip.children].map(tab => Math.round(tab.getBoundingClientRect().top))).size), 1, `change tabs stay on one row at ${width}, ${size}`)
+      // The current tab is always wholly in view, whether or not the row scrolls.
+      for (const label of ['Overview', 'Details', 'Overview']) {
+        await page.locator('.ch-tabs a.tab', { hasText: label }).click()
+        assert.ok(await page.locator('.ch-tabs').evaluate(strip => { const s = strip.getBoundingClientRect(), t = strip.querySelector('[aria-current="page"]').getBoundingClientRect(); return t.left >= s.left - 0.5 && t.right <= s.right + 0.5 }), `current change tab ${label} wholly in view at ${width}, ${size}`)
+      }
       assert.ok(await page.locator('.console-head .agent-activity .chip').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `chat activity label stays complete at ${width}, ${size}`)
       assert.ok(await page.locator('.console-head').evaluate(head => [...head.children].every(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth })), `chat header fits at ${width}, ${size}`)
       assert.ok(await page.locator('.ch-decision-choices').evaluate(element => { const widths = [...element.children].map(child => child.getBoundingClientRect().width); return Math.max(...widths) - Math.min(...widths) < 1 }), `equal decision choices at ${width}, ${size}`)
@@ -322,7 +334,13 @@ try {
     await page.goto('http://layout.test/')
     await page.evaluate(size => {document.documentElement.dataset.size=size},size)
     await page.addScriptTag({content:trailFixture.outputFiles[0].text})
-    await page.locator('.attention-light').last().waitFor()
+    await page.locator('.topbar a[href^="/attention"]').last().waitFor()
+    // A phone bar is one 44px line: the menu, a back link to the parent, one status dot and Find.
+    assert.ok(await page.locator('.topbar').evaluate(bar => bar.getBoundingClientRect().height <= 44.5), `phone bar stays one line at ${size}: ${await page.locator('.topbar').evaluate(bar => bar.getBoundingClientRect().height)}`)
+    assert.deepEqual(await page.locator('nav[aria-label="Breadcrumb"] a').evaluateAll(links => links.map(a => [a.getAttribute('href'), a.textContent])), [['/projects/club-newsletter/memory', '‹Memory']], `phone trail is one back link at ${size}`)
+    assert.ok(await page.locator('nav[aria-label="Breadcrumb"] a').evaluate(a => a.scrollWidth <= a.clientWidth + 1), `back link is whole at ${size}`)
+    assert.equal(await page.locator('.topbar a[href^="/attention"]').count(), 1, `one status dot at ${size}`)
+    assert.ok(await page.locator('.topbar a[href^="/attention"]').evaluate(a => { const r = a.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 }), `status dot is a full-size tap target at ${size}`)
     assert.ok(await page.locator('.topbar').evaluate(bar => [...bar.children].every(el => {const r=el.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth+1})), `deep phone trail keeps controls on screen at ${size}: ${JSON.stringify(await page.locator('.topbar').evaluate(bar => [...bar.children].map(el=>({cls:el.className, left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right}))))}`)
   }
   for (const width of [390, 800, 1440]) {
