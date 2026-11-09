@@ -1,74 +1,117 @@
 # The AppTown tour: the stops, in order. `make tour` photographs each one in
 # the light and the dark theme and writes index.html from this file.
-# The tour follows one change from asking to deciding, then shows the
-# wider view. path may use {before} and {after} (the club site before and
-# after the change), {story} (the neon makeover change, waiting for
-# approval), {storySession} (its chat), {preview} (its running preview),
-# {chat} (another change with a chat) and {session} (that chat's session).
+# The tour follows one change from asking to deciding and going live, then
+# shows the wider view. path may use {before} and {after} (the club site
+# before and after the change), {story} (the neon makeover change),
+# {storySession} (its chat), {preview} (its running preview), {chat}
+# (another change with a chat), {session} (that chat's session) and, after
+# the acceptance, {live} (the club site's main deployment) and, after the
+# rollback, {rollback} (the number of the release that deployed the
+# earlier one again).
 # click is a button the camera clicks before the shot (it waits for the
 # dialog). happy: true fails the run if the stop shows a failed or unknown
-# status.
+# status. after marks the camera's later phases: accept, the stops
+# photographed after Priya accepts the change and its release has run;
+# rollback, those after the earlier release is deployed again. Stops come
+# in that order.
 stops:
   - id: projects
     title: Projects
-    caption: The team's apps, each one live and working.
+    caption: Three apps, all up and running.
     path: /projects
     happy: true
   - id: project
-    title: An app's page
-    caption: Club Newsletter's page shows what has gone live and where it runs. Open app shows the site as members see it.
+    title: Club Newsletter
+    caption: Every app has its own page. This one shows what's live, where it runs, and a button to open it.
     path: /projects/club-newsletter
     happy: true
   - id: before
     title: The site today
-    caption: The club's newsletter and ride calendar. Useful, but Tom has an idea.
+    caption: The club's newsletter as it is now. It works, but Tom thinks it's a bit dull.
     path: "{before}"
   - id: chat
     title: Ask for a change
-    caption: Tom asked for a neon makeover in a chat. A coding agent changed its own copy of the site, ran the link checks, and said when it was ready to try.
+    caption: Tom asks for something louder. The agent changes its own copy of the site, checks the links still work, and tells him it's ready to try.
     path: /changes/{story}?tab=conversation
     happy: true
   - id: preview
     title: Try the preview
-    caption: The change's preview runs the new site before anyone approves it. Once accepted and released, this is what club members see.
+    caption: Before anyone signs off, Tom can try the new site in a preview. If it's approved, this is what club members will see.
     path: "{preview}"
   - id: change
-    title: The change, checked
-    caption: What Tom asked for, what the agent says it did, the checks that passed, and the preview. It waits for Priya, who approves the newsletter's changes.
+    title: The change
+    caption: Tom's request and the agent's summary sit next to the checks, which all passed, and the preview. Now it's up to Priya.
     path: /changes/{story}
     happy: true
   - id: decide
     title: Decide
-    caption: Decide shows what was asked, the checks, and what accepting means. AppTown records who accepted and what they agreed to.
+    caption: Priya sees what she's agreeing to before she accepts. AppTown keeps a record of who said yes, and to what.
     path: /changes/{story}
     click: Decide…
     happy: true
+  - id: landed
+    title: Accepted
+    caption: Priya said yes. The change lands, and its release starts on its own.
+    path: "/changes/{story}?tab=details#checks"
+    happy: true
+    after: accept
+  - id: releasing
+    title: Going live
+    caption: The release builds the site, starts it and checks it before switching over. This site keeps no data, so there was nothing to back up.
+    path: /projects/club-newsletter/deployments/main
+    happy: true
+    after: accept
+  - id: live
+    title: Live
+    caption: The new look, now what club members see.
+    path: "{live}"
+    happy: true
+    after: accept
+  - id: rollback
+    title: Changed your mind?
+    caption: Members found it a bit much. Deploying the earlier release again puts the old site back.
+    path: /projects/club-newsletter/releases/{rollback}
+    happy: true
+    after: rollback
+  - id: rolled-back
+    title: Back to before
+    caption: The old site, back where it was.
+    path: "{live}"
+    happy: true
+    after: rollback
   - id: home
     title: Home
-    caption: Your apps, recent work and what needs your attention. Here, the makeover waits for approval.
+    caption: "Where you start the day: your apps, recent work, and anything waiting on you."
     path: /
     happy: true
+    after: rollback
   - id: infrastructure
-    title: A deployment target
-    caption: A machine apps run on, how much room it has, and what runs there.
+    title: Where the apps run
+    caption: The machine the apps run on, how busy it is, and what's running there.
     path: /targets/built-in-docker
+    after: rollback
   - id: conformance
     title: Conformance
-    caption: Whether each app follows your team's ways of working, and what to fix. Checks that need services the example does not run are shown as incomplete.
+    caption: Whether each app still follows the team's way of working, and what needs fixing. A few checks need services this example doesn't run, so they show as incomplete.
     path: /conformance
+    after: rollback
   - id: ways-of-working
     title: Ways of working
-    caption: Guidance, checks and workflows, shared across your apps as packs.
+    caption: "The team's shared rules for building apps: which tools to use, what to check, and how agents should work. Each app picks the ones that suit it."
     path: /packs
+    after: rollback
   - id: usage
     title: Usage
-    caption: Token use and how long each step takes, including time waiting for approval.
+    caption: What the agents have cost, and where the time goes, including time spent waiting for someone to approve.
     path: /usage
+    after: rollback
   - id: people
     title: People
-    caption: Who can use AppTown and what they can do.
+    caption: Who has access, and what each person can do.
     path: /people/accounts
+    after: rollback
   - id: docs
     title: Docs
-    caption: The guides ship with AppTown and open inside it.
+    caption: The docs come with AppTown, so they always match the version you're running.
     path: /docs
+    after: rollback

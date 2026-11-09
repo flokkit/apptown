@@ -60,6 +60,8 @@ class TourTest(unittest.TestCase):
             "belongs to no stop": (True, lambda: png(os.path.join(self.tour, "old-light.png"), 2880, 1800)),
             "index.html shows": (False, lambda: open(os.path.join(self.tour, "index.html"), "w").write('<section id="home"></section>')),
             "no caption": (False, lambda: open(os.path.join(self.tour, "tour.yaml"), "w").write(TOUR.replace("    caption: Who can do what.\n", ""))),
+            "of a later phase": (False, lambda: open(os.path.join(self.tour, "tour.yaml"), "w").write(TOUR.replace("    path: /\n", "    path: /\n    after: accept\n"))),
+            "the values are accept and rollback": (False, lambda: open(os.path.join(self.tour, "tour.yaml"), "w").write(TOUR.replace("    path: /people\n", "    path: /people\n    after: approve\n"))),
         }
         for want, (shots_only, breakit) in cases.items():
             with self.subTest(want=want):
@@ -70,6 +72,22 @@ class TourTest(unittest.TestCase):
                 self.assertIn(want, r.stderr)
                 r = self.run_script("tour-check.py")
                 self.assertEqual(r.returncode, 0 if shots_only else 1, r.stderr)
+
+    def test_the_stops_may_follow_the_camera_phases(self):
+        for first, second in ((None, "accept"), ("accept", "rollback"), (None, "rollback"), ("rollback", "rollback")):
+            with self.subTest(first=first, second=second):
+                text = TOUR.replace("    path: /people\n", f"    path: /people\n    after: {second}\n")
+                if first:
+                    text = text.replace("    path: /\n", f"    path: /\n    after: {first}\n")
+                with open(os.path.join(self.tour, "tour.yaml"), "w") as f:
+                    f.write(text)
+                r = self.run_script("tour-check.py", "--shots")
+                self.assertEqual(r.returncode, 0, r.stderr)
+        with open(os.path.join(self.tour, "tour.yaml"), "w") as f:
+            f.write(TOUR.replace("    path: /\n", "    path: /\n    after: rollback\n").replace("    path: /people\n", "    path: /people\n    after: accept\n"))
+        r = self.run_script("tour-check.py")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("of a later phase (after: rollback)", r.stderr)
 
     def test_the_gate_passes_a_tree_without_shots(self):
         for name in os.listdir(self.tour):

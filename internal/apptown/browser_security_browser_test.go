@@ -274,7 +274,9 @@ func (t *browserTerminal) Write(p []byte) (int, error) {
 //
 // The tour is the healthy AppTown, and tells one change's story: the neon
 // makeover, checked, with its preview running and waiting for approval
-// (tourScene.story). Its executor's image is present, its apps are
+// (tourScene.story); then Priya accepts it and its release puts it live,
+// and then Sam deploys the earlier release again, the camera coming back
+// after each. Its executor's image is present, its apps are
 // running, every container the deployments recorded is on the host, and
 // its disk, memory and CPU readings are fixed, roomy ones rather than this
 // machine's. TestGarage is the same AppTown with one example of each
@@ -289,7 +291,11 @@ func TestTour(t *testing.T) {
 	w.server.StartTLS()
 	a, password, tourDir, made := w.a, w.password, w.tourDir, w.made
 
-	// The stops, with the ids the scene made.
+	// The stops, with the ids the scene made. The camera comes three times:
+	// for the story up to Priya's decision; after she accepts the change
+	// through the product and its release puts it live, for the stops
+	// marked after: accept; and after the earlier release is deployed
+	// again, for those marked after: rollback.
 	vars := map[string]string{"{before}": made.before, "{after}": made.after, "{story}": made.story.String(), "{storySession}": made.storySession, "{preview}": made.preview, "{chat}": made.chat.String(), "{session}": made.session}
 	t.Logf("the story's change: /changes/%s, its preview %s", made.story, made.preview)
 	type shot struct {
@@ -299,41 +305,72 @@ func TestTour(t *testing.T) {
 		Click string `json:"click,omitempty"`
 		Happy bool   `json:"happy,omitempty"`
 	}
-	var shots []shot
-	for _, s := range stops {
-		p := s.Path
-		for k, v := range vars {
-			p = strings.ReplaceAll(p, k, v)
-		}
-		if strings.Contains(p, "{") {
-			t.Fatalf("stop %s names a value the tour does not have: %s", s.ID, p)
-		}
-		shots = append(shots, shot{ID: s.ID, Path: p, Wait: s.Wait, Click: s.Click, Happy: s.Happy})
-	}
-	shotsJSON, _ := json.Marshal(shots)
 	module := os.Getenv("APPTOWN_PLAYWRIGHT_MODULE")
 	if module == "" {
 		home, _ := os.UserHomeDir()
 		module = filepath.Join(home, ".local/share/forge-nightly/playwright/node_modules/playwright/index.mjs")
 	}
-	run := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
-		Argv: []string{"node", filepath.Join(tourDir, "shoot.mjs")},
-		Env: []string{
-			"APPTOWN_PLAYWRIGHT_MODULE=" + module,
-			"TOUR_URL=https://" + a.cfg.publicHost,
-			"TOUR_USER=sam", "TOUR_PASSWORD=" + password,
-			"TOUR_SHOTS=" + string(shotsJSON),
-			"TOUR_OUT=" + tourDir,
-			"TMPDIR=" + t.TempDir(),
-			"PATH=" + os.Getenv("PATH"),
-			"HOME=" + os.Getenv("HOME"),
-		},
-		Timeout: 10 * time.Minute,
-	})
-	t.Log(string(run.Output))
-	if run.RunErr != nil {
-		t.Fatalf("the camera failed: %v", run.RunErr)
+	shoot := func(after string) {
+		t.Helper()
+		var shots []shot
+		for _, s := range stops {
+			if s.After != after {
+				continue
+			}
+			p := s.Path
+			for k, v := range vars {
+				p = strings.ReplaceAll(p, k, v)
+			}
+			if strings.Contains(p, "{") {
+				t.Fatalf("stop %s names a value the tour does not have: %s", s.ID, p)
+			}
+			shots = append(shots, shot{ID: s.ID, Path: p, Wait: s.Wait, Click: s.Click, Happy: s.Happy})
+		}
+		if len(shots) == 0 {
+			return
+		}
+		shotsJSON, _ := json.Marshal(shots)
+		run := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
+			Argv: []string{"node", filepath.Join(tourDir, "shoot.mjs")},
+			Env: []string{
+				"APPTOWN_PLAYWRIGHT_MODULE=" + module,
+				"TOUR_URL=https://" + a.cfg.publicHost,
+				"TOUR_USER=sam", "TOUR_PASSWORD=" + password,
+				"TOUR_SHOTS=" + string(shotsJSON),
+				"TOUR_OUT=" + tourDir,
+				"TMPDIR=" + t.TempDir(),
+				"PATH=" + os.Getenv("PATH"),
+				"HOME=" + os.Getenv("HOME"),
+			},
+			Timeout: 10 * time.Minute,
+		})
+		t.Log(string(run.Output))
+		if run.RunErr != nil {
+			t.Fatalf("the camera failed: %v", run.RunErr)
+		}
 	}
+	shoot("")
+	// Priya accepts the makeover as the Decide dialog does; its landing
+	// merges it and main's release deploys it on the scene's host (approve).
+	// The camera comes back within the deploy page's ten minutes
+	// (DeploymentDeploys), so the release still shows its stages.
+	w.scene.approve(made.storyRun, "priya")
+	if ch, err := a.Work.Change(asPerson("sam"), made.story); err != nil || ch.State.String() != "shipped" {
+		t.Fatalf("the makeover did not ship: %+v %v", ch, err)
+	}
+	vars["{live}"] = w.scene.mainURL("club-newsletter")
+	// AppTown's rounds read the host again after the deploy, as they did
+	// before the first visit.
+	w.observe()
+	readHostsForTest(t, a)
+	shoot("accept")
+	// Members find it a bit much: Sam, who may release (Priya approves
+	// landings but may not), deploys the release before the makeover again,
+	// as the deployment's Deploy this again does.
+	vars["{rollback}"] = fmt.Sprint(w.scene.redeploy("sam", "club-newsletter", "main", 2))
+	w.observe()
+	readHostsForTest(t, a)
+	shoot("rollback")
 	writeTourPage(t, tourDir, stops)
 }
 
@@ -571,17 +608,27 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 	// holds an image once a build or pull made it, and starts what it is
 	// asked to run, except the run the garage refuses (refuseRun). Every
 	// container it started answers on one front door: the scene's app
-	// server, which is up and says the release a static part was told.
+	// server, which is up and says the release a static part was told. A
+	// main deployment of a static site answers there for its own address
+	// (<project>.apps.localhost) with the files its release packed.
 	// The garage's extra deployments, seeded below, are on the host as
 	// recorded (onHost).
 	onHost := new(atomic.Pointer[[]deploy.Resource])
 	refuseRun := new(atomic.Bool)
 	// listening is each started container's server on its published port.
+	// packed is the files the last static site build packed (the folder
+	// the file server's image copies to /srv), until a release runs it;
+	// released is each release identity's files (part@commit), so a
+	// release deployed again serves its own; front is each project's main
+	// deployment that serves a site, by project.
 	listening := struct {
 		sync.Mutex
-		on   map[string]*http.Server
-		port map[string]int
-	}{on: map[string]*http.Server{}, port: map[string]int{}}
+		on       map[string]*http.Server
+		port     map[string]int
+		packed   string
+		released map[string]string
+		front    map[string]http.Handler
+	}{on: map[string]*http.Server{}, port: map[string]int{}, released: map[string]string{}, front: map[string]http.Handler{}}
 	t.Cleanup(func() {
 		listening.Lock()
 		defer listening.Unlock()
@@ -620,12 +667,22 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 	}
 	// The apps' front door (the main tier domain, below) is one server for
 	// every app; it says the release a static part was told last.
-	app := httptest.NewServer(answer(func() string {
+	door := answer(func() string {
 		if v := told.Load(); v != nil {
 			return *v
 		}
 		return ""
-	}, ""))
+	}, "")
+	app := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		project, _, _ := strings.Cut(r.Host, ".apps.localhost")
+		listening.Lock()
+		h := listening.front[project]
+		listening.Unlock()
+		if h == nil {
+			h = door
+		}
+		h.ServeHTTP(rw, r)
+	}))
 	t.Cleanup(app.Close)
 	appPort := app.Listener.Addr().(*net.TCPAddr).Port
 	// The apps' front door (the main tier domain, below) is that port on
@@ -785,6 +842,25 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 				imagesMu.Lock()
 				images[tag], images["sha256:built"] = true, true // the fake names every image it holds by this ID
 				imagesMu.Unlock()
+				// A static site packed into the file server's image
+				// (docker.StaticSiteDockerfile) is its context's files: the
+				// fake keeps a copy, as the image would. It names every
+				// image by one ID, so the release that runs next is bound
+				// to these files (released).
+				for i := 0; i+1 < len(args); i++ {
+					if args[i] != "-f" {
+						continue
+					}
+					if file, err := os.ReadFile(args[i+1]); err == nil && strings.Contains(string(file), "\nCOPY . /srv\n") {
+						site := t.TempDir()
+						if err := os.CopyFS(site, os.DirFS(args[len(args)-1])); err != nil {
+							return "copying the build context: " + err.Error(), err, true
+						}
+						listening.Lock()
+						listening.packed = site
+						listening.Unlock()
+					}
+				}
 			}
 			return "", nil, false
 		}
@@ -807,13 +883,17 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 		if len(args) > 0 && args[0] == "run" {
 			// A container that publishes a port answers on it, as long as
 			// it runs.
-			name, published, release := containerNameOf(strings.Join(args, " ")), "", ""
+			name, published, release, project, main := containerNameOf(strings.Join(args, " ")), "", "", "", false
 			for i := 0; i+1 < len(args); i++ {
 				switch {
 				case args[i] == "-p":
 					published = args[i+1]
 				case args[i] == "-e" && strings.HasPrefix(args[i+1], appcontract.ReleaseEnvVar+"="):
 					release = strings.TrimPrefix(args[i+1], appcontract.ReleaseEnvVar+"=")
+				case args[i] == "--label" && strings.HasPrefix(args[i+1], "apptown.info.project="):
+					project = strings.TrimPrefix(args[i+1], "apptown.info.project=")
+				case args[i] == "--label" && args[i+1] == "apptown.info.deployment=main":
+					main = true
 				}
 			}
 			if published != "" {
@@ -837,9 +917,22 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 						}
 					}
 				}
+				// A release of a static part serves the files its build
+				// packed, and so does the same release run again.
+				listening.Lock()
+				if site == "" && release != "" {
+					if listening.released[release] == "" && listening.packed != "" {
+						listening.released[release], listening.packed = listening.packed, ""
+					}
+					site = listening.released[release]
+				}
+				listening.Unlock()
 				srv := &http.Server{Handler: answer(func() string { return release }, site)}
 				go func() { _ = srv.Serve(l) }()
 				listening.Lock()
+				if main && project != "" && site != "" {
+					listening.front[project] = srv.Handler
+				}
 				if was := listening.on[name]; was != nil {
 					_ = was.Close()
 				}
@@ -1472,6 +1565,10 @@ type tourStop struct {
 	// unknown status on the stop (shoot.mjs).
 	Click string `yaml:"click"`
 	Happy bool   `yaml:"happy"`
+	// After is "accept" for a stop photographed after Priya accepts the
+	// story's change and its release has run, and "rollback" for one
+	// photographed after the earlier release is deployed again (TestTour).
+	After string `yaml:"after"`
 }
 
 func readTourStops(t *testing.T, path string) []tourStop {
@@ -1541,7 +1638,7 @@ const tourPageHead = `<!doctype html>
 <body>
 <main>
   <h1>AppTown tour</h1>
-  <p class="lead">Meet a small team's AppTown. Sam looks after it. Tom keeps a cycling club's newsletter and a little rocket game, and Priya runs the team's lunch orders and approves changes to the newsletter. Follow one change from Tom's request to Priya's decision, then look around. The conversations are recorded examples; the checks run against real example code. <a href="/">Back to apptown.dev</a>.</p>
+  <p class="lead">This is the AppTown a small team shares. Sam set it up. Tom looks after a cycling club's newsletter and a rocket game he made for fun. Priya runs the team's lunch orders and signs off on newsletter changes. Below, Tom asks for a new look for the newsletter, Priya decides whether it goes out, and it goes live. Then the club changes its mind, and the old site goes back. After that there's a quick look around the rest of AppTown. The chats are scripted for the tour, but the checks run on real code. <a href="/">Back to apptown.dev</a>.</p>
 `
 
 const tourPageTail = `</main>
@@ -2004,6 +2101,7 @@ type tourIDs struct {
 	// story is the neon makeover, and storySession its chat, in the
 	// tour's story (tourScene.story).
 	story        ids.ID
+	storyRun     ids.ID
 	storySession string
 	preview      string
 }
@@ -2059,6 +2157,53 @@ func (s *tourScene) openPreview(who string, change ids.ID) string {
 		s.t.Fatalf("change %s's preview: %+v %v", change, opened, err)
 	}
 	return opened.URL
+}
+
+// redeploy is who deploying a project's earlier release again on a
+// deployment, as its Deploy this again button does, and the release job
+// running it on the scene's host.
+// It answers the new release's number.
+func (s *tourScene) redeploy(who, slug, name string, number int64) int64 {
+	s.t.Helper()
+	var accepted struct {
+		Number int64 `json:"number"`
+	}
+	if err := json.Unmarshal(s.call(who, "POST", "/api/v1/projects/"+slug+"/deployments/"+name+"/deploy", map[string]int64{"releaseNumber": number}), &accepted); err != nil {
+		s.t.Fatal(err)
+	}
+	ctx := s.t.Context()
+	p, err := s.a.Projects.BySlug(asPerson("sam"), slug)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	r, err := s.a.Deployment.Releases.ByNumber(ctx, p.ID, accepted.Number)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	_, _ = deploymentJobsForTest(s.a).Release(ctx, r.ID.String(), nil)
+	if got, err := s.a.Deployment.Releases.ByID(ctx, r.ID); err != nil || got.State != deployment.Released {
+		s.t.Fatalf("release %d (release %d again) is %+v (%v)", accepted.Number, number, got, err)
+	}
+	return accepted.Number
+}
+
+// mainURL is the address the project's main deployment serves on.
+func (s *tourScene) mainURL(slug string) string {
+	s.t.Helper()
+	var rows []struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	}
+	if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/projects/"+slug+"/deployments", nil), &rows); err != nil {
+		s.t.Fatal(err)
+	}
+	for _, r := range rows {
+		if r.Name == "main" && r.URL != "" {
+			return r.URL
+		}
+	}
+	s.t.Fatalf("%s has no main deployment with an address: %+v", slug, rows)
+	return ""
 }
 
 // endChat is who closing a chat, which harvests its usage.
@@ -2227,7 +2372,7 @@ func (s *tourScene) play(start time.Time) tourIDs {
 		// and it waits for Priya. Its preview is opened at the end (openPreview), so it is
 		// running when the camera comes.
 		s.later(10 * time.Minute)
-		s.land(neon, "tom", map[string]string{"tests": "pass", "style": "pass"})
+		made.storyRun = s.land(neon, "tom", map[string]string{"tests": "pass", "style": "pass"})
 		made.story, made.storySession = neon.ID, neonSession
 	}
 	// Day 8: the makeover, outside the story.

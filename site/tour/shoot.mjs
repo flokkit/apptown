@@ -4,7 +4,9 @@
 // text caret off. Writes <out>/<id>-light.png and <id>-dark.png. A stop's
 // click is a button's text: the camera clicks it and waits for the dialog
 // it opens before the shot. A happy stop (the story's stops, Home and
-// Projects) fails the run if it shows a failed or unknown status.
+// Projects) fails the run if it shows a failed or unknown status chip in
+// the shot, or the word failed anywhere on the page. TestTour
+// runs it once for each phase of the story (tour.yaml's after).
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.TOUR_URL;
 const shots = JSON.parse(process.env.TOUR_SHOTS);
@@ -43,8 +45,10 @@ try {
   if (status !== 200) throw new Error('sign-in answered ' + status);
   for (const shot of shots) {
     for (const theme of ['light', 'dark']) {
-      const url = (/^https?:\/\//.test(shot.path) ? shot.path : base + shot.path) + (shot.path.includes('?') ? '&' : '?') + 'theme=' + theme;
-      await page.goto(url, { waitUntil: 'networkidle' });
+      // The theme is a query parameter; a path's #anchor stays last.
+      const url = new URL(/^https?:\/\//.test(shot.path) ? shot.path : base + shot.path);
+      url.searchParams.set('theme', theme);
+      await page.goto(url.href, { waitUntil: 'networkidle' });
       if (shot.wait) await page.getByText(shot.wait, { exact: false }).first().waitFor();
       // A stop that shows an error instead of its page fails the tour: a
       // removed page (the app's "Page not found"), a page that could not
@@ -71,7 +75,13 @@ try {
         for (const settle = Date.now() + 10000; ;) {
           trouble = await page.evaluate(() => {
             const main = document.querySelector('main') || document.body;
-            const chip = main.querySelector('.chip.fail, .chip.unknown');
+            // A chip is judged where the shot sees it: a standing note
+            // below the fold (a deployment's data protection names what it
+            // never assesses as unknown) is not in the photo.
+            const chip = [...main.querySelectorAll('.chip.fail, .chip.unknown')].find((c) => {
+              const r = c.getBoundingClientRect();
+              return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight;
+            });
             if (chip) {
               const where = chip.closest('li, tr, section, a') || chip.parentElement;
               return `a ${chip.classList.contains('fail') ? 'failed' : 'unknown'} status (${(chip.getAttribute('aria-label') || chip.getAttribute('data-help') || chip.textContent).trim()}) in "${where.innerText.replace(/\s+/g, ' ').slice(0, 160)}"`;
