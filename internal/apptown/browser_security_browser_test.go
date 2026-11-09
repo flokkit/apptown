@@ -1039,6 +1039,11 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 			daemon.mu.Unlock()
 			return strings.Join(lines, "\n") + "\n", nil, true
 		}
+		if slices.Equal(args, []string{"system", "df", "--format", "{{json .}}"}) {
+			// What Docker's data holds, adding up to the disk reader's 10 GB.
+			return `{"Type":"Images","Size":"6.6GB"}` + "\n" + `{"Type":"Containers","Size":"112MB"}` + "\n" +
+				`{"Type":"Local Volumes","Size":"1.2GB"}` + "\n" + `{"Type":"Build Cache","Size":"2.1GB"}`, nil, true
+		}
 		if len(args) > 3 && args[0] == "stats" {
 			// Each running container uses a steady, modest amount of
 			// memory; with no names, every running container is reported.
@@ -1462,21 +1467,24 @@ func (w *tourWorld) settle() {
 // observe runs the normal scheduled pass and its observation jobs, as
 // AppTown's job queue would: before photographing Home, and while the
 // scene is held open, so its readings do not age into unknown.
-func (w *tourWorld) observe() {
-	t, a := w.t, w.a
+func (w *tourWorld) observe() { observeScene(w.t, w.a, w.scene, w.held) }
+
+// observeScene is the tour's and the camera's observation pass. held
+// tolerates a job history past the list's cap, as a long-open scene's is.
+func observeScene(t *testing.T, a *App, scene *tourScene, held bool) {
 	if _, err := infrastructureChecksFor(a).Run(context.Background(), "", nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := infrastructureChecksFor(a).RunHourly(context.Background(), "", nil); err != nil {
 		t.Fatal(err)
 	}
-	w.scene.call("sam", "GET", "/api/v1/attention", nil)
+	scene.call("sam", "GET", "/api/v1/attention", nil)
 	// Before the camera every job is accounted for (operationJobs refuses
 	// a capped list). A held scene refreshes every few minutes and its job
 	// history passes the list's cap within the hour: there the open jobs,
 	// which the list gives first, are run and a capped list is only noted.
 	queued := func(kind string) []jobs.Job { return operationJobs(t, a, kind) }
-	if w.held {
+	if held {
 		queued = func(kind string) []jobs.Job {
 			const cap = 500
 			all, err := jobs.List(context.Background(), a.DB, cap)
@@ -1503,7 +1511,7 @@ func (w *tourWorld) observe() {
 			}
 		}
 	}
-	t.Logf("tour operational observations: %s", w.scene.call("sam", "GET", "/api/v1/attention", nil))
+	t.Logf("tour operational observations: %s", scene.call("sam", "GET", "/api/v1/attention", nil))
 }
 
 // hold serves the scene on APPTOWN_DESIGN_HOLD until interrupted, with web
@@ -3968,7 +3976,6 @@ app:
 			t.Fatal(err)
 		}
 	}
-	daemon.markStarted(docker.ByKey(prod.ID).App())
 	// Export the archive volume through the test daemon's stream, then let
 	// TakeBackup hash, store and record those bytes through the owner operation.
 	if _, err := daemon.run("volume", "create", docker.ByKey(prod.ID).DataVolume()); err != nil {
@@ -3976,15 +3983,29 @@ app:
 	}
 	// Many deployments without limits reproduce a busy host. Capacity and
 	// runtime still pass through their owners, using the disposable daemon.
+	// They have the names a club gives its trial and staging copies.
+	appContainer := func(dep *deployment.Deployment) {
+		daemon.markStartedWithLimits(docker.ByKey(dep.ID).App(), 0, 0, map[string]string{dockerlabel.Class: "deployment", dockerlabel.Owner: dep.ID.String()})
+	}
+	appContainer(prod)
 	captureDeps := []*deployment.Deployment{prod}
-	for i := 1; i < 9; i++ {
-		dep, err := a.Deployment.Deployments.EnsureStanding(ctx, project.ID, fmt.Sprintf("app-%d", i), productionHost.ID, deployment.Attributes{Feed: "manual", Audience: "public", DataClass: "production"})
+	for _, name := range cameraDeployments {
+		dep, err := a.Deployment.Deployments.EnsureStanding(ctx, project.ID, name, productionHost.ID, deployment.Attributes{Feed: "manual", Audience: "public", DataClass: "production"})
 		if err != nil {
 			t.Fatal(err)
 		}
 		captureDeps = append(captureDeps, dep)
-		daemon.markStarted(docker.ByKey(dep.ID).App())
+		appContainer(dep)
+		if _, err := daemon.run("volume", "create", docker.ByKey(dep.ID).DataVolume()); err != nil {
+			t.Fatal(err)
+		}
 	}
+	// The household's other services share the host. AppTown did not start
+	// them, and the photo library asks for more memory than the host has.
+	for _, name := range cameraOtherContainers {
+		daemon.markStarted(name)
+	}
+	daemon.markStartedWithLimits("photo-library", 4541927916, 0, nil) // 4.23 GiB asked for.
 	// The kernel reader and daemon describe the same 1.93 GiB, one-core VM.
 	kernelSamples := 0
 	daemon.disk.Kernel = func(script string) (int, []byte, string) {
@@ -3994,49 +4015,61 @@ app:
 		kernelSamples++
 		return 0, []byte(fmt.Sprintf("cpu %d 0 0 %d 0 0 0 0\ncpu0 0 0 0 0 0 0 0 0\n", kernelSamples*40, kernelSamples*60)), ""
 	}
+	// What each container uses: Production's parts as the demo's app uses,
+	// the others fixed, distinct amounts by their sorted names.
+	prodNames, err := prod.HostNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	partUse := map[string]string{
+		docker.ByKey(prod.ID).App():             "87.1MiB / 512MiB\t0.31%",
+		prodNames.Service("newsletter-archive"): "41.6MiB / 256MiB\t0.02%",
+		prodNames.Service("postgres"):           "62.9MiB / 256MiB\t0.00%",
+	}
+	var backupCopies atomic.Int64
 	sceneDockerCommand := daemon.command
 	daemon.command = func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
 		if host != "" {
-			return nil, deploy.Unreachable(errors.New("SSH connection refused by the local test transport"))
+			return nil, deploy.Unreachable(errors.New("ssh: connect to host preview.example.test port 22: Connection refused"))
 		}
 		if len(req.Args) == 3 && req.Args[0] == "info" && strings.Contains(req.Args[2], "MemTotal") {
 			return []byte("2072321024\t1\t/var/lib/docker\n"), nil // 1.93 GiB host, independent of container usage.
 		}
-		if len(req.Args) == 3 && req.Args[0] == "ps" && req.Args[2] == "--no-trunc" {
-			var names []string
-			for _, dep := range captureDeps {
-				names = append(names, docker.ByKey(dep.ID).App())
-			}
-			for i := 0; i < 10; i++ {
-				names = append(names, fmt.Sprintf("outside-%d", i))
-			}
-			names = append(names, "limited-app")
-			return []byte(strings.Join(names, "\n")), nil
+		if len(req.Args) == 3 && req.Args[0] == "info" && req.Args[2] == "{{json .}}" {
+			return json.Marshal(map[string]any{"ID": "fake-daemon", "MemTotal": 2072321024, "NCPU": 1, "DockerRootDir": "/var/lib/docker", "CgroupVersion": "2"})
 		}
-		if len(req.Args) > 4 && req.Args[0] == "inspect" && strings.Contains(req.Args[4], "HostConfig.Memory") {
+		if len(req.Args) > 3 && req.Args[0] == "stats" {
+			var running []string
+			daemon.mu.Lock()
+			for name, up := range daemon.started {
+				if up {
+					running = append(running, name)
+				}
+			}
+			daemon.mu.Unlock()
+			slices.Sort(running)
+			names := req.Args[4:]
+			if len(names) == 0 {
+				names = running
+			}
 			var rows []string
-			for _, dep := range captureDeps {
-				rows = append(rows, fmt.Sprintf("/%s\t0\t0\t0\t0\t\tdeployment\t%s", docker.ByKey(dep.ID).App(), dep.ID))
+			for _, name := range names {
+				i := slices.Index(running, name)
+				if i < 0 {
+					continue
+				}
+				use, ok := partUse[name]
+				if !ok {
+					use = fmt.Sprintf("%.1fMiB / 1.93GiB\t%.2f%%", 18+float64((i*37)%123)+float64(i%10)/10, float64((i*7)%40)/100)
+				}
+				rows = append(rows, name+"\t"+use)
 			}
-			for i := 0; i < 10; i++ {
-				rows = append(rows, fmt.Sprintf("/outside-%d\t0\t0\t0\t0\t\t\t", i))
-			}
-			rows = append(rows, "/limited-app\t4541927916\t0\t0\t0\t\t\t") // 4.23 GiB asked for.
 			return []byte(strings.Join(rows, "\n")), nil
 		}
-		if len(req.Args) > 0 && req.Args[0] == "stats" {
-			var rows []string
-			for _, dep := range captureDeps {
-				rows = append(rows, docker.ByKey(dep.ID).App()+"\t100MiB / 8GiB\t1.00%")
-			}
-			for i := 0; i < 10; i++ {
-				rows = append(rows, fmt.Sprintf("outside-%d\t10MiB / 8GiB\t1.00%%", i))
-			}
-			return []byte(strings.Join(rows, "\n")), nil
-		}
-
 		if req.Stdout != nil && len(req.Args) > 0 && (req.Args[0] == "run" || req.Args[0] == "exec") {
-			_, err := containerresulttest.WriteString(req.Stdout, "disposable local backup data")
+			// A backup copy: a few hundred kilobytes, a different size each time.
+			n := int(backupCopies.Add(1))
+			_, err := containerresulttest.WriteString(req.Stdout, strings.Repeat("club newsletter archive\n", 7000+(n*3100)%26000))
 			return nil, err
 		}
 		return sceneDockerCommand(ctx, host, req)
@@ -4045,6 +4078,18 @@ app:
 	// of automated copies seen with five releases. The provider is the test daemon.
 	var delivered *tourChange
 	var deliveredRun ids.ID
+	revisions, err := gitexec.Run(ctx, a.projectRepoPath(project.Slug), "rev-list", "--reverse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Only commits that declare the app's runtime contract can be released.
+	var history []string
+	for _, rev := range strings.Fields(string(revisions)) {
+		if _, err := gitexec.Run(ctx, a.projectRepoPath(project.Slug), "cat-file", "-e", rev+":.apptown/app.yaml"); err == nil {
+			history = append(history, rev)
+		}
+	}
+	releaseNotes := []string{"Weekly newsletter update", "Fix the ride calendar links", "New committee page", "Spring ride photos and captions", "Membership fees for next year", "Correct the meeting point map", "Larger text on the front page"}
 	for i := 0; i < 15; i++ {
 		if i == 14 {
 			delivered = scene.open("tom", "club-newsletter", "Publish the winter ride times", "Publish the winter ride times on the club website.")
@@ -4059,8 +4104,10 @@ app:
 			continue // Keep the actual landing serving, including its release narrative.
 		}
 		scene.later(time.Minute)
+		// Each release is a later commit of the project's history.
+		revision := history[max(0, len(history)-14+i)]
 		draft := deployment.ReleaseDraft{Source: deployment.ReleaseFromBranch, ProjectID: project.ID, DeploymentID: prod.ID,
-			Deployment: "main", Revision: strings.TrimSpace(string(head)), Actor: "sam"}
+			Deployment: "main", Revision: revision, Actor: "sam"}
 		image := ""
 		if i == 0 && os.Getenv("APPTOWN_DESIGN_AUDIT") != "" {
 			// A disposable daemon-image bundle exercises long image identifiers
@@ -4073,12 +4120,12 @@ app:
 			}
 			draft.Source = deployment.ReleaseFromBundle
 		}
-		rel, err := a.Deployment.Releases.Start(ctx, draft, "local design capture")
+		rel, err := a.Deployment.Releases.Start(ctx, draft, releaseNotes[i%len(releaseNotes)])
 		if err != nil {
 			t.Fatal(err)
 		}
 		at, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: prod.ID, TargetID: prod.TargetID,
-			Key: fmt.Sprintf("design-release-%d", i), Inputs: deployment.Inputs{ReleaseID: rel.ID, BundleID: draft.BundleID, ImageDigest: image, Revision: strings.TrimSpace(string(head)), Applied: deployment.AppliedProfile{Profile: "default", How: "default", Parts: map[string]deployment.AppliedPart{"web": {Public: true, Resources: appcontract.Resources{MemoryBytes: 512 << 20}}}, Services: map[string]deployment.AppliedPart{"postgres": {Need: true, Resources: appcontract.Resources{MemoryBytes: 256 << 20}}}}}})
+			Key: fmt.Sprintf("design-release-%d", i), Inputs: deployment.Inputs{ReleaseID: rel.ID, BundleID: draft.BundleID, ImageDigest: image, Revision: revision, Applied: deployment.AppliedProfile{Profile: "default", How: "default", Parts: map[string]deployment.AppliedPart{"web": {Public: true, Resources: appcontract.Resources{MemoryBytes: 512 << 20}}}, Services: map[string]deployment.AppliedPart{"postgres": {Need: true, Resources: appcontract.Resources{MemoryBytes: 256 << 20}}}}}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -4114,8 +4161,16 @@ app:
 	}
 	// Like the historical releases above, this camera records a completed
 	// outcome on its stand-in daemon. An empty URL leaves its notes available
-	// for the change narrative published below.
-	attempt, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: prod.ID, TargetID: prod.TargetID, Key: "camera-serving", Inputs: deployment.Inputs{ReleaseID: releases[0].ID, BundleID: releases[0].BundleID, Revision: strings.TrimSpace(string(head))}})
+	// for the change narrative published below. Production runs the way a
+	// small real app does: a front door, a second part and a database, each
+	// held to a limit.
+	served := deployment.AppliedProfile{Profile: "default", How: "default",
+		Parts: map[string]deployment.AppliedPart{
+			"web":                {Public: true, Resources: appcontract.Resources{MemoryBytes: 512 << 20}},
+			"newsletter-archive": {Resources: appcontract.Resources{MemoryBytes: 256 << 20}},
+		},
+		Services: map[string]deployment.AppliedPart{"postgres": {Need: true, Resources: appcontract.Resources{MemoryBytes: 256 << 20}}}}
+	attempt, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: prod.ID, TargetID: prod.TargetID, Key: "camera-serving", Inputs: deployment.Inputs{ReleaseID: releases[0].ID, BundleID: releases[0].BundleID, Revision: strings.TrimSpace(string(head)), Applied: served}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4124,10 +4179,19 @@ app:
 	}
 
 	// The camera completes this generation without a daemon run. Its
-	// container must carry that same generation when the host is observed.
-	daemon.mu.Lock()
-	daemon.labels[docker.ByKey(prod.ID).App()] = map[string]string{dockerlabel.Generation: fmt.Sprint(attempt.Generation)}
-	daemon.mu.Unlock()
+	// containers carry that same generation and their limits when the host
+	// is observed, and use what the demo's app uses.
+	generation := map[string]string{dockerlabel.Generation: fmt.Sprint(attempt.Generation)}
+	for _, part := range []struct {
+		container        string
+		memory, nanoCPUs int64
+	}{
+		{docker.ByKey(prod.ID).App(), 512 << 20, 0},
+		{prodNames.Service("newsletter-archive"), 256 << 20, 0},
+		{prodNames.Service("postgres"), 256 << 20, 0},
+	} {
+		daemon.markStartedWithLimits(part.container, part.memory, part.nanoCPUs, generation)
+	}
 
 	// Publish the same sort of narrative that can fill empty release notes;
 	// it belongs in the release record, not the overview card.
@@ -4242,8 +4306,8 @@ app:
 
 	// Several browser connections by one person must remain distinguishable,
 	// with every individual disconnect action available after grouping.
-	for i := 0; i < 5; i++ {
-		client, err := a.Access.RegisterOAuthClient(ctx, identity.Registration{Name: "ChatGPT", RedirectURIs: []string{"http://127.0.0.1:9999/callback"}})
+	for _, name := range []string{"ChatGPT", "ChatGPT", "Claude", "Cursor", "Home Assistant"} {
+		client, err := a.Access.RegisterOAuthClient(ctx, identity.Registration{Name: name, RedirectURIs: []string{"http://127.0.0.1:9999/callback"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -4296,24 +4360,38 @@ app:
 	// owner operation to pause a real job at an arbitrary provider milestone.
 	// sql-guarantee: only this camera fixture supplies the persisted milestone;
 	// all browser reads and outcome settlement use the production owners.
+	// Their releases started a few minutes apart, as real ones do; the live
+	// one took 1m 40s and runs with an address.
 	for i, stage := range []deploy.DeployStage{deploy.Preparing, deploy.BackingUp, deploy.Building, deploy.Starting, deploy.Checking, deploy.Live, deploy.Starting} {
 		dep := captureDeps[i+1]
+		began := 20*time.Second + time.Duration(i)*90*time.Second
+		if stage == deploy.Live {
+			began = 100 * time.Second
+		}
+		moveClock(a, -began)
 		rel, err := a.Deployment.Releases.Start(ctx, deployment.ReleaseDraft{Source: deployment.ReleaseFromBundle, BundleID: last.BundleID, ProjectID: project.ID, DeploymentID: dep.ID, Deployment: dep.Name, Revision: strings.TrimSpace(string(head)), Actor: "sam"}, "Local deployment progress capture")
 		if err != nil {
 			t.Fatal(err)
 		}
+		var attempt deployment.Attempt
+		if stage == deploy.Live {
+			if attempt, _, err = a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "camera-progress-live", Inputs: deployment.Inputs{ReleaseID: rel.ID, Revision: strings.TrimSpace(string(head))}}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		moveClock(a, began)
 		// sql-guarantee: hold the release at a provider milestone; no owner operation pauses jobs.
 		if _, err := a.DB.SQL().ExecContext(ctx, `UPDATE releases SET stage=$1, stage_entered_at=$2 WHERE id=$3`, stage.String(), a.cfg.clock.Now().Add(-15*time.Second), rel.ID); err != nil {
 			t.Fatal(err)
 		}
-		if i == 5 {
-			attempt, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "camera-progress-live", Inputs: deployment.Inputs{ReleaseID: rel.ID, Revision: strings.TrimSpace(string(head))}})
-			if err != nil {
+		if stage == deploy.Live {
+			if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active", Health: "healthy", Handle: map[string]any{"container": docker.ByKey(dep.ID).App(), "hostPort": 43220}}}); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active"}}); err != nil {
+			if _, err := a.Deployment.Deployments.ReserveHostPort(ctx, project.ID, dep.Name, docker.ByKey(dep.ID).App(), 43220); err != nil {
 				t.Fatal(err)
 			}
+			daemon.markStartedWithLimits(docker.ByKey(dep.ID).App(), 0, 0, map[string]string{dockerlabel.Generation: fmt.Sprint(attempt.Generation)})
 		}
 		if i == 6 {
 			if _, err := a.Deployment.Outcomes.FailUnstartedRelease(ctx, rel.ID, errors.New("The app container exited during startup.")); err != nil {
@@ -4387,27 +4465,6 @@ app:
 	if err := a.capacityObserver.Run(ctx, previewHost.ID, previewHost.SettingsRevision); err != nil {
 		t.Logf("preview capacity remains unknown: %v", err)
 	}
-	readHostsForTest(t, a)
-	// Keep the test daemon's observations fresh during the whole-site walk.
-	observeCtx, cancelObserve := context.WithCancel(ctx)
-	observeDone := make(chan struct{})
-	go func() {
-		defer close(observeDone)
-		ticker := time.NewTicker(15 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-observeCtx.Done():
-				return
-			case <-ticker.C:
-				if err := a.Deployment.ObserveRuntime(observeCtx); err != nil && observeCtx.Err() == nil {
-					t.Errorf("refresh local runtime: %v", err)
-					return
-				}
-			}
-		}
-	}()
-	t.Cleanup(func() { cancelObserve(); <-observeDone })
 	// The local audit also covers installations that cannot run project chats.
 	// Rebuild admission after the tour, whose recorded chats need a local runtime.
 	if os.Getenv("APPTOWN_DESIGN_AUDIT") != "" {
@@ -4569,13 +4626,112 @@ spec:
 		}
 		proxy.ServeHTTP(w, r)
 	})
+	// One refresh is what AppTown's own loops do: the runtime observations
+	// (which expire after 45 seconds), a host reader lap (diagnostics refuse
+	// an old container section), then the observation jobs, run as a held
+	// scene runs them: the camera's job history is past the list's cap
+	// before it starts.
+	refresh := func() {
+		t.Helper()
+		if err := a.Deployment.ObserveRuntime(ctx); err != nil {
+			t.Fatal(err)
+		}
+		readHostsForTest(t, a)
+		observeScene(t, a, scene, true)
+	}
+	// The pages read only what the background checks recorded, so the camera
+	// waits until the readings it means to show are known: Production's
+	// resources, part by part, the built-in host's deployments' diagnostics
+	// and its inventory. The preview host is unreachable on purpose and is
+	// not waited for.
+	known := func() string {
+		res, err := a.Deployment.Resources(asPerson("sam"), project.ID, prod.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(res.Parts) != 3 {
+			return fmt.Sprintf("Production has %d parts", len(res.Parts))
+		}
+		for _, p := range res.Parts {
+			if !p.Observed.Known {
+				return fmt.Sprintf("Production's %s: %s", p.Part, p.Observed.Reason)
+			}
+		}
+		for _, dep := range captureDeps {
+			diag, err := a.Deployment.Diagnostics(asPerson("sam"), project.ID, dep.Name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diag.Reading.Unknown {
+				return fmt.Sprintf("%s diagnostics: %s", dep.Name, diag.Reading.Failure)
+			}
+		}
+		inv, err := a.Deployment.InventoryFor(ctx, productionHost)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if inv.Unknown || inv.Invalidated {
+			return "the built-in host's inventory is unknown"
+		}
+		return ""
+	}
+	var waiting string
+	if !poll.Until(ctx, 3*time.Minute, 100*time.Millisecond, func() bool {
+		refresh()
+		waiting = known()
+		return waiting == ""
+	}) {
+		t.Fatalf("the camera's scene never settled: %s", waiting)
+	}
+	// A refresh keeps the shoot's readings fresh: past the runtime
+	// observations' 45 seconds, one refresh reads every one of them again.
+	readAt := func() (runtime, resources, inventory time.Time) {
+		rows, err := a.Deployment.List(asPerson("sam"), project.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range rows {
+			if row.Name == prod.Name {
+				runtime = row.Observation.ObservedAt
+			}
+		}
+		res, err := a.Deployment.Resources(asPerson("sam"), project.ID, prod.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		inv, err := a.Deployment.InventoryFor(ctx, productionHost)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return runtime, res.Reading.ObservedAt, inv.ObservedAt
+	}
+	runtimeBefore, resourcesBefore, inventoryBefore := readAt()
+	moveClock(a, time.Minute)
+	refresh()
+	runtimeAfter, resourcesAfter, inventoryAfter := readAt()
+	if !runtimeAfter.After(runtimeBefore) || !resourcesAfter.After(resourcesBefore) || !inventoryAfter.After(inventoryBefore) {
+		t.Fatalf("a refresh did not read again: runtime %v -> %v, resources %v -> %v, inventory %v -> %v", runtimeBefore, runtimeAfter, resourcesBefore, resourcesAfter, inventoryBefore, inventoryAfter)
+	}
+	if why := known(); why != "" {
+		t.Fatalf("after a refresh: %s", why)
+	}
+	// The scene is refreshed every 15 seconds while it is photographed or
+	// held open, here on the test's own goroutine.
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
 	if hold != "" {
 		server.Start()
 		t.Logf("design scene open at http://%s (sam / %s); interrupt to stop", a.cfg.publicHost, password)
 		stop := make(chan os.Signal, 1)
 		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-		<-stop
-		return
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				refresh()
+			}
+		}
 	}
 	server.StartTLS()
 	module := os.Getenv("APPTOWN_PLAYWRIGHT_MODULE")
@@ -4584,13 +4740,25 @@ spec:
 		module = filepath.Join(home, ".local/share/forge-nightly/playwright/node_modules/playwright/index.mjs")
 	}
 	testinputs.Files(t, "testdata/web-ui.mjs", "../../web/row-action-lines.mjs")
-	run := (execution.Runner{}).Run(ctx, execution.Local, execution.Request{
-		Argv: []string{"node", "testdata/web-ui.mjs"},
-		Env: []string{"APPTOWN_PLAYWRIGHT_MODULE=" + module, "DESIGN_URL=https://" + a.cfg.publicHost,
-			"DESIGN_AUDIT=" + os.Getenv("APPTOWN_DESIGN_AUDIT"), "DESIGN_PAGES=" + os.Getenv("APPTOWN_DESIGN_PAGES"), "DESIGN_BASELINE=" + os.Getenv("APPTOWN_DESIGN_BASELINE"), "DESIGN_PASSWORD=" + password, "DESIGN_PROGRESS=" + progressChange.ID.String(), "DESIGN_CHANGE=" + approvalChange, "DESIGN_OUT=" + out,
-			"TMPDIR=" + t.TempDir(), "PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")},
-		Timeout: 45 * time.Minute,
-	})
+	shot := make(chan execution.Outcome, 1)
+	go func() {
+		shot <- (execution.Runner{}).Run(ctx, execution.Local, execution.Request{
+			Argv: []string{"node", "testdata/web-ui.mjs"},
+			Env: []string{"APPTOWN_PLAYWRIGHT_MODULE=" + module, "DESIGN_URL=https://" + a.cfg.publicHost,
+				"DESIGN_AUDIT=" + os.Getenv("APPTOWN_DESIGN_AUDIT"), "DESIGN_PAGES=" + os.Getenv("APPTOWN_DESIGN_PAGES"), "DESIGN_BASELINE=" + os.Getenv("APPTOWN_DESIGN_BASELINE"), "DESIGN_PASSWORD=" + password, "DESIGN_PROGRESS=" + progressChange.ID.String(), "DESIGN_CHANGE=" + approvalChange, "DESIGN_OUT=" + out,
+				"TMPDIR=" + t.TempDir(), "PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")},
+			Timeout: 45 * time.Minute,
+		})
+	}()
+	var run execution.Outcome
+	for shooting := true; shooting; {
+		select {
+		case run = <-shot:
+			shooting = false
+		case <-ticker.C:
+			refresh()
+		}
+	}
 	t.Log(string(run.Output))
 	if run.RunErr != nil {
 		t.Fatal(fmt.Errorf("web UI camera: %w", run.RunErr))
@@ -4609,6 +4777,34 @@ spec:
 		}
 	}
 }
+
+// markStartedWithLimits pretends a container is up as a run with --memory,
+// --cpus and --label leaves it: held to memory bytes and nanoCPUs (0 is no
+// limit), carrying labels. Docker reports them on inspect.
+func (f *fakeDocker) markStartedWithLimits(name string, memory, nanoCPUs int64, labels map[string]string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.started[name] = true
+	if f.limits == nil {
+		f.limits = map[string]string{}
+	}
+	f.limits[name] = fmt.Sprintf("%d %d", memory, nanoCPUs)
+	if f.labels[name] == nil {
+		f.labels[name] = map[string]string{}
+	}
+	for k, v := range labels {
+		f.labels[name][k] = v
+	}
+}
+
+// cameraDeployments are Club Newsletter's other deployments on the camera's
+// host, in the order of the deploy stages they are held at (web-ui.mjs
+// photographs them under the same names).
+var cameraDeployments = []string{"members-preview", "winter-timetable", "committee-review", "spring-edition", "ride-calendar-trial", "staging", "archive-migration", "print-layout"}
+
+// cameraOtherContainers are the household's own services on the camera's
+// host, which AppTown did not start.
+var cameraOtherContainers = []string{"uptime-monitor", "backup-agent", "log-shipper", "photo-sync", "dns-filter", "home-automation", "media-server", "metrics-collector", "mqtt-broker", "image-updater"}
 
 // The camera supplies historical declarations only. Consent identity,
 // authority, immutable history and current eligibility still use their owners.
