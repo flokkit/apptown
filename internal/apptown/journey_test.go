@@ -511,9 +511,13 @@ func kidStory(t *testing.T, h *jHarness, slug string, chosenReleases bool) {
 		}
 	}
 
-	// The standing deployment serves the project's page over real HTTP.
+	// The standing deployment serves the project's page over real HTTP, once
+	// the follows-main release has built and deployed it. A new project has
+	// its main deployment (and its address) before that release exists, so
+	// the address alone does not say the change is serving.
+	h.waitMainReleased(slug)
 	mainURL := h.waitMainURL(slug)
-	h.until("the main deployment to serve the page", 60*time.Second, func() bool {
+	h.until("the main deployment to serve the page", 30*time.Second, func() bool {
 		res, err := http.Get(mainURL)
 		if err != nil {
 			return false
@@ -1098,6 +1102,7 @@ func TestJourneyStackMigration(t *testing.T) {
 	}
 	ship("stack a page")
 
+	h.waitMainReleased(slug)
 	url := h.waitMainURL(slug)
 
 	// The standing probe: the app must serve throughout the migration,
@@ -1324,6 +1329,29 @@ func (h *jHarness) followMain(slug string) {
 }
 
 // Landing completes before the release worker boots the deployment.
+// waitMainReleased waits for a release to main to be released: the build
+// and the deploy, which a busy machine can take minutes over. A failed
+// release fails the test at once with its failed stage.
+func (h *jHarness) waitMainReleased(slug string) {
+	h.t.Helper()
+	h.until("the follows-main release to be released", 4*time.Minute, func() bool {
+		var history []deployment.Release
+		h.mustCall("GET", "/projects/"+slug+"/releases", nil, &history)
+		for _, r := range history {
+			if r.Deployment != "main" {
+				continue
+			}
+			if r.State == deployment.ReleaseFailed {
+				h.t.Fatalf("the follows-main release %d failed at %s", r.Number, r.FailedStage)
+			}
+			if r.State == deployment.Released {
+				return true
+			}
+		}
+		return false
+	})
+}
+
 func (h *jHarness) waitMainURL(slug string) string {
 	h.t.Helper()
 	var url string
