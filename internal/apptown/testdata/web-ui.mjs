@@ -44,8 +44,8 @@ try {
     return { pending, busy, unknown };
   });
   await writeFile(`${out}/infrastructure.json`, JSON.stringify(infraCases, null, 2));
-  if (!infraCases.busy.memory.total.known || infraCases.busy.memory.promised.unlimited.apptown + infraCases.busy.memory.promised.unlimited.other !== 19 || infraCases.busy.tenants.filter(t => t.kind === 'deployment').length !== 9) throw new Error('busy host seed lacks nine apps and nineteen containers without limits');
-  if (!infraCases.busy.memory.overcommitted || Math.abs(infraCases.busy.memory.total.value / 2 ** 30 - 1.93) > .01 || Math.abs((infraCases.busy.memory.promised.sum.apptown.value + infraCases.busy.memory.promised.sum.other.value) / 2 ** 30 - 4.23) > .01) throw new Error('host seed lacks real memory overcommit');
+  if (!infraCases.busy.memory.total.known || infraCases.busy.memory.promised.unlimited.apptown + infraCases.busy.memory.promised.unlimited.other !== 18 || infraCases.busy.tenants.filter(t => t.kind === 'deployment').length !== 9) throw new Error('busy host seed lacks nine apps and eighteen containers without limits');
+  if (!infraCases.busy.memory.overcommitted || Math.abs(infraCases.busy.memory.total.value / 2 ** 30 - 1.93) > .01 || Math.abs((infraCases.busy.memory.promised.sum.apptown.value + infraCases.busy.memory.promised.sum.other.value) / 2 ** 30 - 5.64) > .01) throw new Error('host seed lacks real memory overcommit');
   if (infraCases.unknown.memory?.total.known) throw new Error('unknown host memory total became known');
   const seeded = await page.evaluate(async (audit) => {
     const request = async (path, body) => {
@@ -73,11 +73,21 @@ try {
     }
     await request('/groups', { name: 'reviewers', description: 'Reviews team changes', members: ['sam', 'priya', 'colleague-01', 'colleague-02', 'never-signed-in'] });
     for (const name of ['support', 'editors', 'operations', 'readers']) await request('/groups', { name, members: ['sam', 'colleague-01'] });
-    for (let n = 1; n <= 21; n++) {
-      await request('/complaints', { text: `Could not open the household calendar (${n})`, why: 'The link did not open.', wish: 'Show a way back.' });
+    // Complaints of the kinds people send, short and long, over more than a page.
+    const said = [
+      ['Could not open the household calendar', 'The link did not open.', 'Show a way back.', 'The calendar link has been repaired.'],
+      ['The newsletter page is blank on my phone', 'I tapped the link in the email and saw a white page with nothing on it, twice.', 'Open the page or say what went wrong.', 'The phone page loads again; it was a slow image.'],
+      ['Approval button missing', 'I was asked to approve but could not find where.', 'Put the button where the message points.', 'The approval is on the change page; the message now links there.'],
+      ['Backups say unknown', 'The backups section says unknown and I do not know if my data is safe.', 'Tell me whether there is a copy.', 'The check had not run yet; it now shows the last copy.'],
+      ['Wrong time on the ride calendar', 'Saturday rides show 8 am but they leave at 9.', 'Fix the time.', 'Fixed in the latest release.'],
+      ['Too many emails', 'I get a message for every small change.', 'Let me choose fewer messages.', 'You can now choose a daily summary in your account.'],
+      ['Login keeps asking for my password', 'Every morning it asks again even though I ticked remember me on this computer.', 'Remember me for longer.', 'Sign-ins now last two weeks on a remembered computer.'],
+    ];
+    for (let n = 0; n < 21; n++) {
+      const [text, why, wish, answer] = said[n % said.length];
+      const filed = await request('/complaints', { text, why, wish });
+      await request(`/complaints/${filed.id}/answer`, { answer });
     }
-    const complaints = await request('/complaints');
-    for (const c of complaints.complaints) await request(`/complaints/${c.id}/answer`, { answer: 'The calendar link has been repaired.' });
     await request('/projects/club-newsletter/members', { grantee: 'sam', role: 'project-approver' });
     await request('/projects', { slug: 'shared-notes', name: 'Shared Notes', blurb: 'Notes for the household.' });
     if (!audit) await request('/projects/shared-notes/repo', { defaultBranch: 'main' });
@@ -110,8 +120,8 @@ try {
   }, !!process.env.DESIGN_AUDIT);
   if (process.env.DESIGN_AUDIT) await page.goto(base + '/?cameraPrepare=1', { waitUntil: 'networkidle' });
   const routes = {
-    'infrastructure-expanded': '/targets', 'target-settings': '/targets/design-preview', 'target-resources': '/targets/built-in-docker/resources', 'target-capacity': '/targets/built-in-docker/capacity', 'target-capacity-unknown': '/targets/design-preview/capacity', 'target-history': '/targets/built-in-docker/history', 'executor': '/integrations/executor',
-    'backup-store-details': '/backups', 'release-invalid': '/releases/6', 'usage-90': '/usage', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-agents-expanded': '/people/agents-and-tokens', 'people-revoke': '/people/agents-and-tokens', 'people-disconnect': '/people/agents-and-tokens',
+    'target-settings': '/targets/design-preview', 'target-resources': '/targets/built-in-docker/resources', 'target-capacity': '/targets/built-in-docker/capacity', 'target-capacity-unknown': '/targets/design-preview/capacity', 'target-history': '/targets/built-in-docker/history', 'executor': '/integrations/executor',
+    'backup-store-details': '/backups', 'release-invalid': '/releases/6', 'usage-90': '/usage', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-revoke': '/people/agents-and-tokens', 'people-disconnect': '/people/agents-and-tokens',
 
     'guidance-block': '/guidance/' + seeded.guidance, 'guidance-missing': '/guidance/lang%2Fselection%2Fdjango-fullstack', 'release-record': '/projects/club-newsletter/releases/1',
     home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', releases: '/releases', deployments: '/deployments', backups: '/backups',
@@ -199,10 +209,12 @@ try {
   Object.assign(routes, { features: '/features', 'feature-off': '/evals' });
   const resource = await page.evaluate(async () => {
     const data = await (await fetch('/api/v1/infrastructure')).json();
-    return data.targets.find(t => t.target === 'built-in-docker').resources.find(r => r.id);
+    const resources = data.targets.find(t => t.target === 'built-in-docker').resources;
+    // A network the scene's preview made; linked as the Resources list links it.
+    return resources.find(r => r.kind === 'network') ?? { missing: resources.map(r => `${r.kind} ${r.name} ${r.record} ${r.status ?? ''}`) };
   });
-  if (!resource) throw new Error('resource detail seed missing');
-  routes['target-resource'] = '/targets/built-in-docker/resources/' + encodeURIComponent(resource.kind + ':' + resource.id);
+  if (resource.missing) throw new Error('resource detail seed missing: ' + resource.missing.join('; '));
+  routes['target-resource'] = '/targets/built-in-docker/resources/' + encodeURIComponent(resource.kind + ':' + (resource.id || resource.name));
   routes['target-resources-filtered'] = '/targets/built-in-docker/resources?deployment=club-newsletter%2Fmain';
   const linked = await page.evaluate(async () => {
     const read = async path => { const r = await fetch('/api/v1' + path); if (!r.ok) throw new Error(path + ': ' + r.status); return r.json(); };
@@ -236,7 +248,9 @@ try {
     building: ['Build', 'building the app'], starting: ['Start', 'starting the app'],
     checking: ['Check', 'checking the app answers'], live: ['Live', 'live'], failed: ['Start', 'starting the app'],
   };
-  Object.keys(deployScenes).forEach((stage, i) => { routes['deployment-' + stage] = '/projects/club-newsletter/deployments/app-' + (i + 1); });
+  // The deployments TestWebUICapture holds at each stage (cameraDeployments there).
+  const stageDeployments = ['members-preview', 'winter-timetable', 'committee-review', 'spring-edition', 'ride-calendar-trial', 'staging', 'archive-migration'];
+  Object.keys(deployScenes).forEach((stage, i) => { routes['deployment-' + stage] = '/projects/club-newsletter/deployments/' + stageDeployments[i]; });
   routes['automatic-guidance'] = '/guidance/generated';
   if (linked.generated) routes['generated-guidance'] = `/guidance/generated/${encodeURIComponent(linked.generated)}`;
   await page.goto(`${base}/changes/${seeded.delivered}?tab=details`, {waitUntil:'networkidle'});
@@ -252,11 +266,13 @@ try {
   const disclosures = [];
   await writeFile(`${out}/content-exclusions.json`, JSON.stringify(cameraContentExclusions, null, 2));
   let cameraUser = 'sam';
+  let turnedOff = [];
   const changedFirst = name => /projects$|^work-record|^change-(record|artifact|review-record)|^policy$|^workflow$|^pack-version$|guidance/.test(name)
   // A finished deploy keeps its scene for ten minutes (DeploymentDeploys'
-  // sceneAfterMs), so the live and failed scenes, seeded before the camera
-  // starts, go first: a full run takes longer than that.
-  const timed = name => /^deployment-(live|failed)$/.test(name)
+  // sceneAfterMs), and a held stage's time in it keeps counting, so every
+  // deploy-stage scene, seeded before the camera starts, goes first: a full
+  // run takes longer than that.
+  const timed = name => /^deployment-(preparing|backing-up|building|starting|checking|live|failed)$/.test(name)
   const rank = name => timed(name) ? 2 : Number(changedFirst(name))
   const orderedRoutes = Object.entries(routes).sort(([a], [b]) => rank(b) - rank(a))
   for (const [screen, path] of orderedRoutes) {
@@ -269,15 +285,28 @@ try {
       }, { username, password: process.env.DESIGN_PASSWORD });
       cameraUser = username;
     }
-    if (screen === 'features' || screen === 'feature-off') await page.evaluate(async screen => {
-      const response = await fetch('/api/v1/features');
-      if (!response.ok) throw new Error('read Features: ' + response.status);
-      const features = await response.json();
-      for (const feature of features.filter(f => f.enabled && (screen === 'features' ? f.tier === 'beta' : f.area === 'evals'))) {
-        const r = await fetch('/api/v1/features/' + feature.area, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expected: true, enabled: false }) });
-        if (!r.ok) throw new Error('turn area off: ' + feature.area + ' ' + r.status);
+    // The Features shots turn areas off; the pages after them see the
+    // scene's areas on again.
+    const switchAreas = (areas, enabled) => page.evaluate(async ({ areas, enabled }) => {
+      for (const area of areas) {
+        const r = await fetch('/api/v1/features/' + area, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expected: !enabled, enabled }) });
+        if (!r.ok) throw new Error('turn area ' + (enabled ? 'on: ' : 'off: ') + area + ' ' + r.status);
       }
-    }, screen);
+    }, { areas, enabled });
+    if (turnedOff.length && screen !== 'features' && screen !== 'feature-off') {
+      await switchAreas(turnedOff, true);
+      turnedOff = [];
+    }
+    if (screen === 'features' || screen === 'feature-off') {
+      const areas = await page.evaluate(async screen => {
+        const response = await fetch('/api/v1/features');
+        if (!response.ok) throw new Error('read Features: ' + response.status);
+        const features = await response.json();
+        return features.filter(f => f.enabled && (screen === 'features' ? f.tier === 'beta' : f.area === 'evals')).map(f => f.area);
+      }, screen);
+      await switchAreas(areas, false);
+      turnedOff.push(...areas);
+    }
     await mkdir(`${out}/${screen}`, { recursive: true });
     for (const [size, viewport] of Object.entries(variants)) {
       await page.setViewportSize(viewport);
@@ -504,6 +533,17 @@ try {
         await writeFile(`${out}/${screen}/${size}-${theme}.txt`, words);
         if (screen === 'target' && await page.locator('.capacity-strip-track').count() !== 3) throw new Error('target capacity strip is missing');
         if (screen === 'target-capacity' && !words.includes('over by')) throw new Error('capacity limit warning missing');
+        // The scene's host reports what it runs, so these pages show readings
+        // with real values, not "unknown".
+        if (!process.env.DESIGN_BASELINE) {
+          const lines = words.split('\n').map(line => line.trim());
+          const readings = { deployment: ['CPU', 'MEMORY'], target: ['CPU', 'MEMORY', 'DISK'] }[screen] ?? [];
+          for (const label of readings) {
+            if (!lines.includes(label) || lines[lines.indexOf(label) + 1] === 'unknown') throw new Error(`${screen}: ${label} was not read`);
+          }
+          if (screen === 'deployment' && (!words.includes('/ 256 MB') || words.includes('did not report what every container uses'))) throw new Error('deployment: its parts do not report their use against their limits');
+          if (screen === 'check-record' && words.includes('is turned off')) throw new Error('check-record: an earlier shot left its feature turned off');
+        }
         if ((screen === 'change' || screen === 'change-non-approver') && !process.env.DESIGN_BASELINE) {
           const eligible = screen === 'change';
           if (await page.getByRole('button', { name: 'Decide…', exact: true }).count() !== (eligible ? 1 : 0)) throw new Error(screen + ': wrong approval eligibility');
@@ -616,7 +656,7 @@ try {
           if (strips.some(s => s.rows > 1 || s.hidden)) throw new Error(screen + ': tabs wrap or active tab is hidden');
           if (screen === 'usage' && !await page.locator('.usage-chart').count()) throw new Error('Usage Summary is empty');
           if (screen === 'workflows' && !await page.getByRole('link', { name: 'New workflow', exact: true }).count()) throw new Error('Workflows is empty');
-          if (screen === 'people-agents' && !(await page.locator('.agent-group').first().innerText()).includes('×5')) throw new Error('duplicate agents not grouped');
+          if (screen === 'people-agents' && await page.locator('.agent-group', { hasText: 'ChatGPT ×2' }).count() !== 1) throw new Error('duplicate agents not grouped');
           if (screen === 'docs') {
             const exposed = await page.locator('details.docs-group:not([open]) .conn-subnav-item').evaluateAll(els => els.some(el => el.getClientRects().length && el.checkVisibility()));
             if (exposed) throw new Error('closed docs group exposes its contents');
@@ -684,13 +724,14 @@ try {
         const headings = await page.getByRole('heading', { level: 1 }).allTextContents();
         // An open menu closes when its control scrolls away, so these shots stay where the menu is.
         if (!['people-actions', 'people-revoke', 'people-disconnect'].includes(screen)) await page.evaluate(() => window.scrollTo(0, 0));
-        await page.screenshot({ path: `${out}/${screen}/${size}-${theme}.png`, fullPage: true });
+        // The open phone menu covers the viewport, not the whole page.
+        await page.screenshot({ path: `${out}/${screen}/${size}-${theme}.png`, fullPage: !(screen === 'overview-navigation' && size.startsWith('phone')) });
         finalPaths.add(new URL(page.url()).pathname);
         captures.push({ screen, path, finalPath: new URL(page.url()).pathname, size, theme, words: words.trim().split(/\s+/).filter(Boolean).length, text: words, headings, overflow, headerOverflow, clipped, fonts });
         await writeFile(`${out}/pages-progress.json`, JSON.stringify(captures, null, 2));
         await writeFile(`${out}/layout-errors.json`, JSON.stringify(errors, null, 2));
         console.log('captured', screen, size, theme, overflow ? 'OVERFLOW' : '');
-        if (['infrastructure', 'infrastructure-expanded', 'target-resources', 'target-resources-filtered'].includes(screen)) {
+        if (['infrastructure', 'target-resources', 'target-resources-filtered'].includes(screen)) {
           const label = screen.startsWith('infrastructure') ? 'Targets' : 'Resources';
           const table = page.getByRole('table', { name: label, exact: true });
           const firstRow = await table.locator('tbody tr').first().boundingBox();
