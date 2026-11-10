@@ -323,7 +323,7 @@ func nonPublicPartServices(c *appcontract.Plan, secrets Delivery, url string) []
 		if p.Public {
 			continue
 		}
-		spec := deploy.ServiceSpec{Name: p.Name, Command: p.Command, Health: p.Health, Env: map[string]string{}, Resources: p.Resources, AppPart: true}
+		spec := deploy.ServiceSpec{Name: p.Name, Command: p.Command, Env: map[string]string{}, Resources: p.Resources, AppPart: true}
 		for k, v := range p.Env {
 			spec.Env[k] = v
 		}

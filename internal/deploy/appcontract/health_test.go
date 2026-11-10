@@ -31,15 +31,11 @@ func TestHealthSchemaValidation(t *testing.T) {
 
 	worker := "  worker:\n    build: .\n"
 
-	// The legacy string is a non-public part's container health check; on
-	// the public part no target reads it, so it is refused there.
-	ok(base + worker + "    healthcheck: \"pgrep -f worker || exit 1\"\n")
-	bad("healthcheck: is not used on the public part",
-		base+"    healthcheck: \"curl -f localhost:8080/ || exit 1\"\n")
-
-	// Structured intent parses: an http readiness, any liveness kind.
+	// Structured intent parses: an http readiness, an http or tcp liveness;
+	// a worker with a port may declare http liveness.
 	ok(base + "    health:\n      readiness: { http: /healthz, expect: 200, startupGrace: 90s, requestContext: direct }\n      liveness: { tcp: 8080 }\n")
-	ok(base + "    health:\n      readiness: { http: /healthz }\n      liveness: { exec: [\"true\"] }\n")
+	ok(base + "    health:\n      readiness: { http: /healthz }\n      liveness: { http: /livez }\n")
+	ok(base + worker + "    ports: [\"9000\"]\n    health:\n      liveness: { http: /livez }\n")
 
 	// What no target uses yet is refused, not accepted and ignored.
 	bad(`a health probe has no field "intervl"`,
@@ -58,9 +54,11 @@ func TestHealthSchemaValidation(t *testing.T) {
 	}
 
 	// exactly one target.
-	bad("exactly one of http, tcp or exec",
+	bad("health.readiness must declare http",
 		base+"    health:\n      readiness: { expect: 200 }\n")
-	bad("more than one of http/tcp/exec",
+	bad("health.liveness must declare one of http or tcp",
+		base+"    health:\n      liveness: { period: 10s }\n")
+	bad("declares both http and tcp",
 		base+"    health:\n      readiness: { http: /healthz, tcp: 8080 }\n")
 
 	// bad requestContext + bad duration.

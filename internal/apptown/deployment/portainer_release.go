@@ -114,7 +114,7 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 		if part.Public {
 			service = "app"
 		}
-		ready.Components = append(ready.Components, portainer.Component{Service: service, Image: src.Images[part.Name], ShellHealth: !part.Public && part.Health != ""})
+		ready.Components = append(ready.Components, portainer.Component{Service: service, Image: src.Images[part.Name]})
 	}
 	for _, init := range src.Contract.Init {
 		ready.Components = append(ready.Components, portainer.Component{Service: "init-" + init.Name, Image: src.Init[init.Name], Init: true})

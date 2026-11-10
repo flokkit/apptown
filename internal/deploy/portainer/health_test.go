@@ -19,7 +19,7 @@ import (
 )
 
 func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.T) {
-	for _, mode := range []string{"healthy", "explicit-streak", "wrong-status", "replacement-during-probe", "restart-during-probe", "failed-init", "worker-unhealthy", "provider-unavailable", "changed-target", "revoked-before-probe", "checkpoint-after-apply", "transport-cleanup", "lost-apply-response"} {
+	for _, mode := range []string{"healthy", "explicit-streak", "wrong-status", "replacement-during-probe", "restart-during-probe", "failed-init", "worker-stopped", "provider-unavailable", "changed-target", "revoked-before-probe", "checkpoint-after-apply", "transport-cleanup", "lost-apply-response"} {
 		t.Run(mode, func(t *testing.T) {
 			compose, r := readinessFixture(t)
 			if mode == "explicit-streak" {
@@ -129,8 +129,8 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 							state["ExitCode"] = 17
 						}
 					}
-					if service == "worker" && mode == "worker-unhealthy" {
-						state["Health"] = map[string]string{"Status": "unhealthy"}
+					if service == "worker" && mode == "worker-stopped" {
+						state["Running"], state["Status"] = false, "exited"
 					}
 					_ = json.NewEncoder(w).Encode(map[string]any{"Id": id, "Image": "sha256:actual", "Config": map[string]any{"Image": r.Components[0].Image, "Labels": l}, "State": state})
 				case path == "/api/endpoints/3/docker/images/sha256:actual/json":

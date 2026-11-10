@@ -3,9 +3,9 @@ package appcontract
 // Structured, per-part health intent (design/subsystems/healthchecks.md). The app declares
 // topology-neutral INTENT — what to check, what healthy means, its own startup
 // cost and execution policy — and AppTown renders it into a concrete probe per
-// deployment, or refuses (design §4). This is ADDITIVE: the legacy
-// `healthcheck: <shell command>` (Part.Health) still works; a part that
-// declares nothing gets a synthesized default (design §8). Nothing here reaches
+// deployment, or refuses (design §4). A part that declares nothing gets a
+// synthesized default (design §8). No probe runs a command: not every target
+// can, and a field means the same on every target. Nothing here reaches
 // into topology or ingress — that is AppTown-owned (ingress.go, §4.2).
 //
 // This file is the schema + validation only. Rendering (cold-boot / docker) and
@@ -39,7 +39,9 @@ type Probe struct {
 	// exactly one target:
 	HTTP string `yaml:"http" json:"http,omitempty"` // a path, e.g. /healthz
 	TCP  int    `yaml:"tcp" json:"tcp,omitempty"`   // a port (0 = infer from the part)
-	Exec []any  `yaml:"exec" json:"exec,omitempty"` // a command run INSIDE the container
+	// Exec is refused by name (validateProbe): a command run inside the
+	// container is not something every target can run as a check.
+	Exec []any `yaml:"exec" json:"exec,omitempty"`
 
 	// readiness only:
 	RequestContext string `yaml:"requestContext" json:"requestContext,omitempty"` // frontDoor | direct
@@ -181,6 +183,12 @@ func validateProbe(part, which string, p *Probe) error {
 	if p == nil {
 		return nil
 	}
+	if p.written["exec"] || len(p.Exec) > 0 {
+		if which == "liveness" {
+			return fmt.Errorf("part %q: health.liveness.exec is no longer part of the contract, because not every target can run a command as a health check; declare liveness: { http: /livez }, or remove it", part)
+		}
+		return fmt.Errorf("part %q: health.readiness is an http probe (a path); declare readiness: { http: /healthz }", part)
+	}
 	targets := 0
 	if p.HTTP != "" {
 		targets++
@@ -188,19 +196,19 @@ func validateProbe(part, which string, p *Probe) error {
 	if p.TCP != 0 {
 		targets++
 	}
-	if len(p.Exec) > 0 {
-		targets++
+	if targets == 0 && which == "readiness" {
+		return fmt.Errorf("part %q: health.readiness must declare http (a path)", part)
 	}
 	if targets == 0 {
-		return fmt.Errorf("part %q: health.%s must declare exactly one of http, tcp or exec", part, which)
+		return fmt.Errorf("part %q: health.liveness must declare one of http or tcp", part)
 	}
 	if targets > 1 {
-		return fmt.Errorf("part %q: health.%s declares more than one of http/tcp/exec — pick one", part, which)
+		return fmt.Errorf("part %q: health.%s declares both http and tcp — pick one", part, which)
 	}
-	// Refused rather than accepted and ignored (no target uses them yet), so
-	// a target that learns them later changes no app that wrote them.
+	// Refused rather than accepted and ignored (no target uses it yet), so
+	// a target that learns it later changes no app that wrote it.
 	if which == "readiness" && p.HTTP == "" {
-		return fmt.Errorf("part %q: health.readiness is an http probe (a path); tcp and exec are for liveness", part)
+		return fmt.Errorf("part %q: health.readiness is an http probe (a path); tcp is for liveness", part)
 	}
 	// Shared syntax limits are checked here; each target supplies its own
 	// execution defaults and refuses modes/components it cannot execute.

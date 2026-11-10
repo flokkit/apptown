@@ -38,9 +38,12 @@ type appYamlPart struct {
 	DataDir     string        `yaml:"dataDir"`
 	// Seed is refused by name (no target runs it yet), so a target that
 	// learns to run it later changes no app that wrote it.
-	Seed        string  `yaml:"seed"`
-	Healthcheck string  `yaml:"healthcheck"` // a non-public part's container health check (a shell command; exit 0 = healthy); refused on the public part
-	Health      *Health `yaml:"health"`      // structured per-part health intent (design/subsystems/healthchecks.md)
+	Seed string `yaml:"seed"`
+	// Healthcheck (a shell command run as the part's health check) is
+	// refused by name: not every target can run a command as a check, and
+	// a field must mean the same on every target.
+	Healthcheck string  `yaml:"healthcheck"`
+	Health      *Health `yaml:"health"` // structured per-part health intent (design/subsystems/healthchecks.md)
 	Public      bool    `yaml:"public"`
 	// Tools names what the part is built with (go, node): the checks for
 	// a tool judge the parts that name it, in the part's folder.
@@ -196,7 +199,7 @@ func checkPartName(kind, name string) error {
 // name the offending field and are written for a human or an agent to fix.
 func Parse(raw []byte) (*Contract, error) {
 	var doc appYamlDoc
-	// Strict: an unknown key is a wrong key (a misspelled `healthcheck` must
+	// Strict: an unknown key is a wrong key (a misspelled `health` must
 	// fail, not silently produce an incomplete contract). yaml.v3's
 	// KnownFields rejects fields absent from the structs above.
 	dec := yaml.NewDecoder(bytes.NewReader(raw))
@@ -265,8 +268,8 @@ func Parse(raw []byte) (*Contract, error) {
 		if p.Seed != "" {
 			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: seed: is not run by any target yet; remove it, and run the command as an init step (init:) if it must run at every deploy", name)
 		}
-		if p.Healthcheck != "" && p.Public {
-			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: healthcheck: is not used on the public part; remove it and declare health: { readiness: { http: /your-path } }", name)
+		if p.Healthcheck != "" {
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: healthcheck: is no longer part of the contract, because not every target can run a command as a health check; remove it. AppTown restarts a part whose process exits; to restart one that hangs, give it a port and declare health: { liveness: { http: /livez } }", name)
 		}
 		if p.DataDir != "" && !p.Public {
 			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: dataDir: is kept only for the public part; keep durable files in the public part's dataDir or in a need", name)
@@ -280,7 +283,7 @@ func Parse(raw []byte) (*Contract, error) {
 			for _, f := range []struct {
 				field string
 				set   bool
-			}{{"environment", len(p.Environment) > 0}, {"command", p.Command != nil}, {"dataDir", p.DataDir != ""}, {"healthcheck", p.Healthcheck != ""}} {
+			}{{"environment", len(p.Environment) > 0}, {"command", p.Command != nil}, {"dataDir", p.DataDir != ""}} {
 				if f.set {
 					return nil, fmt.Errorf(".apptown/app.yaml: app part %q: %s: is not used by a static site (AppTown's file server serves its files); remove it", name, f.field)
 				}
@@ -314,7 +317,7 @@ func Parse(raw []byte) (*Contract, error) {
 			Tools:     slices.Clone(p.Tools),
 			Resources: resources,
 			Name:      name, Build: p.Build, Image: p.Image, Static: p.Static.Folder, StaticBuild: built,
-			DataDir: p.DataDir, Health: p.Healthcheck, Intent: p.Health, Public: p.Public,
+			DataDir: p.DataDir, Intent: p.Health, Public: p.Public,
 			Command: partCommand(p.Command),
 			Env:     env,
 		}
@@ -331,6 +334,11 @@ func Parse(raw []byte) (*Contract, error) {
 			}
 		}
 		part.Port = port
+		// A liveness GET needs somewhere to send it: a worker with no port
+		// has none, on any target.
+		if port == 0 && p.Health != nil && p.Health.Liveness != nil && p.Health.Liveness.HTTP != "" {
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: an http liveness probe needs the part's port; add ports: [\"8080\"] or remove the probe", name)
+		}
 		c.Parts = append(c.Parts, part)
 		if p.Public {
 			publicCount++

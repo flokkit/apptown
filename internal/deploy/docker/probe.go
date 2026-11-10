@@ -23,10 +23,9 @@ type renderedProbe struct {
 	Expect      int               // required HTTP status; 0 = below 400 (appcontract.Ready)
 	Release     string            // a release identity the answer must serve (appcontract.ServesRelease); "" = none
 	Grace       time.Duration     // startupGrace floor — extends the probe deadline
-	// The controller's liveness variants (probeApp/cold-boot uses only the HTTP
-	// fields above): a TCP connect, or a command run inside the container.
-	TCP  bool     // dial the port instead of an HTTP GET
-	Exec []string // `docker exec` this command; exit 0 = healthy
+	// The controller's liveness variant (probeApp/cold-boot uses only the HTTP
+	// fields above): a TCP connect.
+	TCP bool // dial the port instead of an HTTP GET
 }
 
 // renderColdBootProbe derives the cold-boot READINESS probe for the public part

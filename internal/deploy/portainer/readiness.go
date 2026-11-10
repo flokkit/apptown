@@ -30,10 +30,9 @@ type Readiness struct {
 
 // Component identifies an application-owned service, never a shared need.
 type Component struct {
-	Service     string `json:"service" yaml:"service"`
-	Image       string `json:"image" yaml:"image"`
-	Init        bool   `json:"init,omitempty" yaml:"init,omitempty"`
-	ShellHealth bool   `json:"shellHealth,omitempty" yaml:"shellHealth,omitempty"`
+	Service string `json:"service" yaml:"service"`
+	Image   string `json:"image" yaml:"image"`
+	Init    bool   `json:"init,omitempty" yaml:"init,omitempty"`
 }
 
 // Probe is the supported HTTP readiness intent for the public container.
@@ -84,7 +83,7 @@ func (r Readiness) validate() error {
 	seen := map[string]bool{}
 	public := false
 	for _, c := range r.Components {
-		if !immutableImage(c.Image) || c.Service == "" || seen[c.Service] || (c.Init && c.ShellHealth) {
+		if !immutableImage(c.Image) || c.Service == "" || seen[c.Service] {
 			return errors.New("Portainer readiness has ambiguous components or nonimmutable images")
 		}
 		seen[c.Service] = true
@@ -125,10 +124,6 @@ func WithReadiness(compose string, r Readiness) (string, error) {
 		image := mapValue(service, "image")
 		if image == nil || image.Value != c.Image {
 			return "", fmt.Errorf("Portainer readiness image differs for component %s", c.Service)
-		}
-		health := mapValue(service, "healthcheck")
-		if c.ShellHealth && health == nil {
-			return "", fmt.Errorf("Portainer readiness healthcheck missing for component %s", c.Service)
 		}
 	}
 	var node yaml.Node
@@ -197,7 +192,7 @@ func RefusesHealth(c *appcontract.Contract) error {
 			if !part.Public {
 				return fmt.Errorf("part %s: Portainer does not support nonpublic structured readiness", part.Name)
 			}
-			if probe.HTTP == "" || probe.TCP != 0 || len(probe.Exec) > 0 {
+			if probe.HTTP == "" || probe.TCP != 0 {
 				return fmt.Errorf("part %s: Portainer supports HTTP readiness here", part.Name)
 			}
 		}

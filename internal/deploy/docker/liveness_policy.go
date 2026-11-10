@@ -53,7 +53,7 @@ func (c *HealthController) explicitLiveness(ctx context.Context, e Watched, dk S
 		return true
 	}
 	probe := renderLivenessProbe(pub)
-	ok := probeLiveness(ctx, dk, rt.ID, e.HostPort, probe, c.deps.FrontDoor())
+	ok := probeLiveness(ctx, dk, e.HostPort, probe, c.deps.FrontDoor())
 	after, err := Inspect(ctx, dk, e.Container)
 	if ctx.Err() != nil || err != nil || after.ID != rt.ID || after.State == nil || !after.State.StartedAt.Equal(rt.State.StartedAt) || !after.Running {
 		ph.fails, ph.passes = 0, 0

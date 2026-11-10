@@ -190,11 +190,7 @@ func IntranetCompose(st IntranetStack) string {
 		deps = append(deps, fmt.Sprintf("      init-%s:\n        condition: service_completed_successfully\n", it.Name))
 	}
 	for _, p := range st.Parts {
-		cond := "service_started"
-		if p.Health != "" {
-			cond = "service_healthy"
-		}
-		deps = append(deps, fmt.Sprintf("      %s:\n        condition: %s\n", p.Name, cond))
+		deps = append(deps, fmt.Sprintf("      %s:\n        condition: service_started\n", p.Name))
 	}
 	writeDepends(deps)
 	rules := make([]string, len(st.Hosts))
@@ -260,7 +256,6 @@ func IntranetCompose(st IntranetStack) string {
 			env["PORT"] = fmt.Sprintf("%d", p.Port)
 		}
 		writeEnv(env, [2]string{appcontract.TrustEnvVar, st.Trust}, [2]string{"APPTOWN_APP_URL", st.URL})
-		writeHealth(p.Health)
 		if p.DataDir != "" {
 			vol := st.dataVolume(st.Base + "-" + p.Name)
 			b.WriteString("    volumes:\n")

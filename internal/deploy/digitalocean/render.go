@@ -442,8 +442,8 @@ func renderProbe(part *appcontract.Part, probe *appcontract.Probe, purpose strin
 	if err != nil {
 		return nil, err
 	}
-	if probe != nil && (probe.HTTP == "" || probe.TCP != 0 || len(probe.Exec) > 0) {
-		return nil, errors.New("App Platform supports declared HTTP health here; TCP and exec require another supported capability")
+	if probe != nil && (probe.HTTP == "" || probe.TCP != 0) {
+		return nil, errors.New("App Platform supports declared HTTP health here; TCP requires another supported capability")
 	}
 	if purpose == "liveness" && (policy.SuccessThreshold != 1 || (probe != nil && probe.Expect != 0)) {
 		return nil, errors.New("App Platform liveness requires successThreshold 1 and cannot enforce an exact HTTP status")

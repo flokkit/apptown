@@ -24,7 +24,6 @@ const richContract = `app:
     dataDir: /data
   worker:
     image: worker:1
-    healthcheck: "pgrep work || exit 1"
     command: [work, "--queue", jobs]
     environment: {WORKER_ONLY: "1"}
   mail:

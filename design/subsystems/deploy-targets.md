@@ -573,7 +573,7 @@ with one Machine per part.
 - **What it refuses before any effect**: a need (no need is fulfilled on
   Fly yet), a data directory, a liveness probe (Fly's checks route traffic
   and do not restart a Machine), a readiness probe with a threshold or an
-  exact status (Fly counts none and passes any 2xx), a health command,
+  exact status (Fly counts none and passes any 2xx),
   parts or init steps given different secrets (Fly gives every Machine of
   an app all of its secrets), a release not published by digest, a
   restored copy (no gate), and a static site given browser values.

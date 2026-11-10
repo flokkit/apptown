@@ -4,7 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,20 +17,36 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
+// failingLiveness is a liveness path that always answers 500, on a port of
+// its own, and how many times it was asked.
+func failingLiveness(t *testing.T) (int, *atomic.Int32) {
+	t.Helper()
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+	_, raw, err := net.SplitHostPort(srv.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, _ := strconv.Atoi(raw)
+	return port, &hits
+}
+
 func TestExplicitLivenessUsesCadenceAndSameRuntimeFailures(t *testing.T) {
 	for _, replace := range []bool{false, true} {
 		t.Run(fmt.Sprint(replace), func(t *testing.T) {
 			now := time.Unix(1000, 0)
 			identity := deploy.DockerIdentity{Deployment: "selected", Generation: 7, Artifact: "artifact"}
 			rt := Runtime{ID: "captured-a", Running: true, Labels: identity.Labels(), State: &ContainerState{StartedAt: time.Unix(1, 0)}}
-			probes, restarts := 0, 0
+			port, probes := failingLiveness(t)
+			restarts := 0
 			dk := Scope{Client: &fakeClient{reply: func(cmd Command) ([]byte, error) {
 				switch cmd.Args[0] {
 				case "inspect":
 					return json.Marshal(rt)
-				case "exec":
-					probes++
-					return nil, fmt.Errorf("unhealthy")
 				case "restart":
 					restarts++
 					if cmd.Args[1] != rt.ID {
@@ -36,15 +57,15 @@ func TestExplicitLivenessUsesCadenceAndSameRuntimeFailures(t *testing.T) {
 					return nil, fmt.Errorf("unexpected %v", cmd.Args)
 				}
 			}}}
-			part := &appcontract.Part{Public: true, Port: 8080, Intent: &appcontract.Health{Liveness: &appcontract.Probe{Exec: []any{"false"}, Period: "5s", Timeout: "1s", FailureThreshold: 2, SuccessThreshold: 2}}}
+			part := &appcontract.Part{Public: true, Port: 8080, Intent: &appcontract.Health{Liveness: &appcontract.Probe{HTTP: "/livez", Period: "5s", Timeout: "1s", FailureThreshold: 2, SuccessThreshold: 2}}}
 			c := NewHealthController(HealthDependencies{Now: func() time.Time { return now }, FrontDoor: func() map[string]string { return nil }, Record: func(context.Context, Watched, string, map[string]any) {}})
 			ph := &partHealth{}
-			e := Watched{Container: "mutable-name", Identity: identity}
+			e := Watched{Container: "mutable-name", Identity: identity, HostPort: port}
 			for i := 0; i < 5; i++ {
 				c.explicitLiveness(t.Context(), e, dk, ph, part)
 				now = now.Add(time.Second)
 			}
-			if probes != 1 || restarts != 0 {
+			if probes.Load() != 1 || restarts != 0 {
 				t.Fatalf("cadence/threshold probes=%d restarts=%d", probes, restarts)
 			}
 			if replace {
@@ -77,26 +98,6 @@ type livenessContextClient func(context.Context, string, Command) ([]byte, error
 func (f livenessContextClient) Run(ctx context.Context, host string, cmd Command) ([]byte, error) {
 	return f(ctx, host, cmd)
 }
-func TestLivenessOmittedExecKeepsCallerDeadline(t *testing.T) {
-	for _, explicit := range []bool{false, true} {
-		seen := false
-		dk := Scope{Client: livenessContextClient(func(ctx context.Context, _ string, _ Command) ([]byte, error) {
-			seen = true
-			_, has := ctx.Deadline()
-			if has != explicit {
-				t.Errorf("explicit=%v has deadline=%v", explicit, has)
-			}
-			return nil, nil
-		})}
-		rp := renderedProbe{Exec: []string{"check"}}
-		if explicit {
-			rp.Policy = &appcontract.HealthPolicy{Explicit: true, Timeout: time.Second}
-		}
-		if !probeLiveness(context.Background(), dk, "captured", 0, rp, nil) || !seen {
-			t.Fatal("exec not sampled")
-		}
-	}
-}
 
 func TestUnreadableRuntimeDoesNotForgetExplicitLiveness(t *testing.T) {
 	calls := 0
@@ -126,8 +127,6 @@ func TestExplicitLivenessOwnRestartsRetainCappedBackoff(t *testing.T) {
 		switch cmd.Args[0] {
 		case "inspect":
 			return json.Marshal(rt)
-		case "exec":
-			return nil, fmt.Errorf("hung")
 		case "restart":
 			restarted = append(restarted, now)
 			rt.State.StartedAt = now
@@ -138,8 +137,9 @@ func TestExplicitLivenessOwnRestartsRetainCappedBackoff(t *testing.T) {
 	}}}
 	c := NewHealthController(HealthDependencies{Now: func() time.Time { return now }, FrontDoor: func() map[string]string { return nil }, Record: func(context.Context, Watched, string, map[string]any) {}})
 	ph := &partHealth{}
-	e := Watched{Container: "mutable", Identity: identity}
-	part := &appcontract.Part{Intent: &appcontract.Health{Liveness: &appcontract.Probe{Exec: []any{"false"}, Period: "5s", FailureThreshold: 1}}}
+	port, _ := failingLiveness(t)
+	e := Watched{Container: "mutable", Identity: identity, HostPort: port}
+	part := &appcontract.Part{Intent: &appcontract.Health{Liveness: &appcontract.Probe{HTTP: "/livez", Period: "5s", FailureThreshold: 1}}}
 	for i := 0; i < 250; i++ {
 		c.explicitLiveness(t.Context(), e, dk, ph, part)
 		now = now.Add(5 * time.Second)

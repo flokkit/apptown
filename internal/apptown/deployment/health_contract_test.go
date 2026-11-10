@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy"
@@ -80,5 +81,47 @@ func TestHealthProbesTheContractOfTheReleaseThatRuns(t *testing.T) {
 	run("rev-b")
 	if got := path(); got != "/alive-b" {
 		t.Fatalf("after the next release: %q, want /alive-b", got)
+	}
+}
+
+// oneSource answers every revision with one app.yaml, parsed as a release
+// reads it.
+type oneSource string
+
+func (oneSource) Project(_ context.Context, id ids.ID) (ReleaseProject, error) {
+	return ReleaseProject{Application: Application{ID: id, Slug: "release-create"}}, nil
+}
+func (s oneSource) Contract(context.Context, ReleaseProject, string) (*appcontract.Contract, string, error) {
+	c, err := appcontract.Parse([]byte(s))
+	return c, "selected", err
+}
+
+// A release whose source runs a command as a health check is refused when it
+// is requested, before anything is queued or made, saying what to change: no
+// target can run that check everywhere, so no target is offered it.
+//
+// Kills: accepting healthcheck: on a part that is not public, or exec liveness.
+func TestAReleaseThatRunsACommandAsAHealthCheckIsRefusedWhenRequested(t *testing.T) {
+	t.Parallel()
+	for name, c := range map[string]struct{ yaml, says string }{
+		"worker healthcheck": {"app:\n  web: { image: reg/x:1, ports: [\"8080\"], public: true }\n  worker: { image: reg/w:1, healthcheck: \"pgrep work\" }\n",
+			`app part "worker": healthcheck: is no longer part of the contract`},
+		"exec liveness": {"app:\n  web: { image: reg/x:1, ports: [\"8080\"], public: true, health: { liveness: { exec: [check] } } }\n",
+			`part "web": health.liveness.exec is no longer part of the contract`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			s, in, _, _ := requestFixture(t)
+			s.release.Sources = oneSource(c.yaml)
+			got, err := s.RequestRelease(t.Context(), in)
+			var read *contractReadError
+			if !errors.As(err, &read) || !strings.Contains(err.Error(), c.says) {
+				t.Fatalf("want a refusal saying %q, got %v", c.says, err)
+			}
+			if !got.ID.IsZero() {
+				t.Fatal("returned an unaccepted release")
+			}
+			wantN(t, "releases", everyRelease(t, s.db), 0)
+		})
 	}
 }

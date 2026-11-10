@@ -326,8 +326,7 @@ func TestAnInitStepThatExitsNonZeroStopsTheReleaseBeforeAnyPart(t *testing.T) {
 }
 
 // What Fly cannot honour is refused before any request: a liveness probe,
-// a threshold, an exact status, a health command, a gated
-// placement, and parts or init steps given different secrets. A plain HTTP
+// a threshold, an exact status, a gated placement, and parts or init steps given different secrets. A plain HTTP
 // or TCP probe is accepted. Kills: any refusal dropped, or made after Fly
 // was asked for something.
 func TestWhatFlyCannotHonourIsRefusedBeforeAnyRequest(t *testing.T) {

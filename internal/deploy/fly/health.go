@@ -19,10 +19,9 @@ func readinessDefaults() appcontract.HealthPolicy {
 // readiness check (the one kind the contract declares) whose period,
 // timeout and startup grace map to Fly's interval, timeout and grace
 // period. Fly's checks route traffic; they do not restart a Machine, so a
-// liveness probe is refused. They run no command, count no thresholds and
-// accept any 2xx, so an explicit threshold, an exact status and the legacy
-// health command are refused. Each is refused before any need, app or
-// image copy.
+// liveness probe is refused. They count no thresholds and accept any 2xx,
+// so an explicit threshold and an exact status are refused. Each is refused
+// before any need, app or image copy.
 func RefusesHealth(c *appcontract.Contract) error {
 	if c == nil {
 		return errors.New("a Fly release needs its contract")
@@ -38,9 +37,6 @@ func RefusesHealth(c *appcontract.Contract) error {
 // partCheck is the Fly check for a part's declared readiness, nil for none,
 // or why it cannot be one.
 func partCheck(p *appcontract.Part) (*serviceCheck, error) {
-	if p.Health != "" {
-		return nil, fmt.Errorf("part %s declares a health command; Fly runs no command as a check, so declare an HTTP readiness probe instead", p.Name)
-	}
 	if p.Intent == nil {
 		return nil, nil
 	}

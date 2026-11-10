@@ -79,7 +79,6 @@ type Part struct {
 	Port        int               // container port (from compose `ports:`)
 	Env         map[string]string // compose `environment:`
 	DataDir     string            // AppTown: a named volume that survives redeploys
-	Health      string            // LEGACY healthcheck shell command; exit 0 = healthy
 	Intent      *Health           // structured per-part health intent (design/subsystems/healthchecks.md); nil = none declared
 	Public      bool              // the front door the preview/deploy URL points at
 	// Resources is the most the part may use; zero fields are no limit.
@@ -266,7 +265,6 @@ func copyHealthProbe(p *Probe) *Probe {
 		return nil
 	}
 	copy := *p
-	copy.Exec = append([]any(nil), p.Exec...)
 	return &copy
 }
 

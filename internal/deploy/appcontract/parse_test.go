@@ -59,8 +59,8 @@ func TestAppYamlValidation(t *testing.T) {
 	}
 }
 
-// init containers + per-part healthcheck parse into the contract.
-func TestAppYamlInitAndHealth(t *testing.T) {
+// init containers and a worker part parse into the contract.
+func TestAppYamlInitAndWorker(t *testing.T) {
 	c, err := appcontract.Parse([]byte(`
 app:
   web:
@@ -69,7 +69,6 @@ app:
     public: true
   worker:
     build: .
-    healthcheck: "pgrep -f worker || exit 1"
 init:
   - name: migrate
     build: .
@@ -89,14 +88,14 @@ needs:
 	if len(c.Init[0].Command) == 0 || c.Init[0].Command[0] != "./migrate.sh" {
 		t.Fatalf("init command wrong: %+v", c.Init[0])
 	}
-	var web *appcontract.Part
+	var worker *appcontract.Part
 	for i := range c.Parts {
 		if c.Parts[i].Name == "worker" {
-			web = &c.Parts[i]
+			worker = &c.Parts[i]
 		}
 	}
-	if web == nil || web.Health == "" {
-		t.Fatalf("worker healthcheck not parsed: %+v", web)
+	if worker == nil || worker.Public || worker.Port != 0 {
+		t.Fatalf("worker not parsed as a portless private part: %+v", worker)
 	}
 }
 
