@@ -578,7 +578,10 @@ with one Machine per part.
   exact status (Fly counts none and passes any 2xx),
   parts or init steps given different secrets (Fly gives every Machine of
   an app all of its secrets), a release not published by digest, a
-  restored copy (no gate), and a static site given browser values.
+  restored copy (no gate), a static site given browser values, and a
+  deployment whose audience is not public (its `fly.dev` address answers
+  anyone and AppTown puts no sign-in in front of it; the refusal says to
+  set the audience to public or deploy to a Docker host).
 - **Data folders and Postgres.** A data directory uses a recorded volume
   `at_<key>_<part>`. A need's volume is `at_<key>_n_<need>`. Volumes start at
   1 GB and grow automatically to 10 GB. Postgres runs the catalogue's stock
@@ -620,8 +623,11 @@ with one Machine per part.
   addresses, secrets and images, after checking that the app under that
   name still has the recorded id and that every Machine in it carries this
   deployment's mark. A complete final set covers its volumes before deletion.
-  Without a store or a copyable need, take-down is refused unless the person
-  chooses to keep data. The app and volumes then stay as retained resources, with part
+  Without a store or a copyable need, or when the deployment's newest set
+  is a final set that failed, take-down is refused unless the person
+  chooses to keep data; a choice made while a final copy could be taken is
+  refused, to be confirmed again. A deployment never released records no
+  app and holds no data, so it is removed with no final set. The app and volumes then stay as retained resources, with part
   Machines removed and need Machines stopped. Unrecorded volumes or a
   Machine without the deployment's mark stop the take-down.
 

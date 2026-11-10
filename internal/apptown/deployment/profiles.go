@@ -297,7 +297,10 @@ func (s *Service) effectiveContract(ctx context.Context, dep *Deployment, ws str
 			}
 		}
 	}
-	if containerLimits {
+	// A Fly Machine's size is its memory limit, fitted from the same
+	// defaults (a need's catalogue size, else AppTown's), so the record and
+	// the release log say what the Machine runs with.
+	if containerLimits || target.Kind == kindFlyMachines {
 		return s.env.defaultMemory(ctx, out, applied)
 	}
 	return out, applied, nil

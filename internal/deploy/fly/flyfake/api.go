@@ -564,7 +564,7 @@ func (f *API) createMachine(w http.ResponseWriter, a *App, body map[string]any) 
 	}
 	if rp, _ := cfg["restart"].(map[string]any); rp["policy"] == "no" {
 		m.State = "stopped"
-		m.Events = []map[string]any{{"type": "exit", "status": "stopped", "timestamp": 1, "request": map[string]any{"exit_event": map[string]any{"exit_code": 0, "oom_killed": false}}}}
+		m.Events = []map[string]any{{"type": "exit", "status": "stopped", "timestamp": 1, "request": map[string]any{"exit_event": map[string]any{"exit_code": 0, "oom_killed": false, "signal": -1}}}}
 	}
 	if svcs, ok := cfg["services"].([]any); ok {
 		for _, s := range svcs {
@@ -611,10 +611,11 @@ func (f *API) createMachine(w http.ResponseWriter, a *App, body map[string]any) 
 	write(w, 200, m)
 }
 
-// Exit makes a one-off Machine's exit code and out-of-memory flag.
+// Exit makes a one-off Machine's exit code and out-of-memory flag. Like
+// Fly, it reports signal -1 when no signal ended the Machine.
 func Exit(m *Machine, code int, oom bool) {
 	m.State = "stopped"
-	m.Events = []map[string]any{{"type": "exit", "status": "stopped", "timestamp": 1, "request": map[string]any{"exit_event": map[string]any{"exit_code": code, "oom_killed": oom}}}}
+	m.Events = []map[string]any{{"type": "exit", "status": "stopped", "timestamp": 1, "request": map[string]any{"exit_event": map[string]any{"exit_code": code, "oom_killed": oom, "signal": -1}}}}
 }
 
 // PathOf is an API path for an app's resource, for Fail.

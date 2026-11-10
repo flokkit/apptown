@@ -425,3 +425,60 @@ func TestFlyCanKeepDataWhenItsNeedCannotBeCopiedEvenWithAStore(t *testing.T) {
 		t.Fatalf("keep-data take-down: %+v %v", out, err)
 	}
 }
+
+// A final backup that was tried and failed leaves the person a way out:
+// the choice to go without one, which keeps the app and its volumes. A
+// later whole set makes a final copy possible again, so the choice is
+// then refused as before.
+func TestFlyKeepChoiceStandsAfterTheFinalBackupFailed(t *testing.T) {
+	w := newFlyDataWorld(t)
+	w.attach(t)
+	w.failUpload = true
+	_, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod"})
+	if !errors.Is(err, errFinalBackupIncomplete) || !strings.Contains(err.Error(), "without a final copy") {
+		t.Fatalf("failed final backup did not refuse with the way out: %v", err)
+	}
+	w.failUpload = false
+	if _, err := w.s.TakeBackup(t.Context(), w.project, "prod", "alice"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"}); err == nil || !strings.Contains(err.Error(), "confirm the take-down again") {
+		t.Fatalf("a whole set newer than the failed final one did not make a copy possible: %v", err)
+	}
+	w.failUpload = true
+	if _, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, errFinalBackupIncomplete) {
+		t.Fatalf("failed final backup: %v", err)
+	}
+	out, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
+	if err != nil {
+		t.Fatalf("the choice to go without a final copy was refused after the final backup failed: %v", err)
+	}
+	if out.Removed == nil || len(out.Removed.Retained) == 0 {
+		t.Fatalf("no retained resource recorded: %+v", out)
+	}
+	for _, name := range w.api.Apps() {
+		if len(w.api.App(name).Volumes) != 2 {
+			t.Fatal("kept data was removed")
+		}
+	}
+}
+
+// A Fly deployment that was never released holds nothing at Fly: it is
+// taken down with no final copy and no choice to go without one.
+func TestFlyNeverReleasedDeploymentNeedsNoFinalCopy(t *testing.T) {
+	w := newFlyDataWorld(t)
+	w.attach(t)
+	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "staging", w.dep.TargetID, deployment.Attributes{}.WithDefaults()); err != nil {
+		t.Fatal(err)
+	}
+	out, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "staging"})
+	if err != nil {
+		t.Fatalf("a never-released deployment needed a final copy: %v", err)
+	}
+	if out.Removed == nil || out.Removed.FinalBackup != nil || len(out.Removed.Retained) != 0 {
+		t.Fatalf("take-down: %+v", out.Removed)
+	}
+	if len(w.api.Apps()) != 1 {
+		t.Fatal("the other deployment's app was touched")
+	}
+}

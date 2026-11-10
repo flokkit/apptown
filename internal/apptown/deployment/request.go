@@ -274,6 +274,9 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	if err := s.refusesPlacement(ctx, in.ProjectID, t); err != nil {
 		return AcceptedRelease{}, err
 	}
+	if why := t.refusesAudience(dep.Audience); why != "" {
+		return AcceptedRelease{}, refused("%s", why)
+	}
 	if err := s.providers.RefusesBundle(ctx, bundle, t); err != nil {
 		return AcceptedRelease{}, err
 	}

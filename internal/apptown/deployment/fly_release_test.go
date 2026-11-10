@@ -82,7 +82,7 @@ func TestAReleaseFlyCannotRunIsRefusedBeforeFlyIsAsked(t *testing.T) {
 	p := newPromotionTargetsWith(t, false, "app:\n  web:\n    public: true\n    build: worker\n    ports: [\"8080\"]\n    health: {liveness: {http: /live}}\n")
 	b := p.land(t)
 	target := p.target(t, "fly-syd")
-	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "cloud", target.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
+	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "cloud", target.ID, Attributes{Feed: "manual", Audience: "public", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
 	before := len(p.fly.Requests())
@@ -92,6 +92,30 @@ func TestAReleaseFlyCannotRunIsRefusedBeforeFlyIsAsked(t *testing.T) {
 	}
 	if after := p.fly.Requests()[before:]; len(after) != 0 {
 		t.Fatalf("the refusal asked Fly: %v", after)
+	}
+}
+
+// A Fly app answers anyone at its fly.dev address, and AppTown puts no
+// sign-in in front of it: a deployment kept to a narrower audience than
+// public is refused at the release door, before Fly is asked, with the
+// next action.
+func TestAFlyReleaseOfADeploymentNotForThePublicIsRefusedBeforeFlyIsAsked(t *testing.T) {
+	t.Parallel()
+	p := newPromotionTargets(t, false)
+	b := p.land(t)
+	target := p.target(t, "fly-syd")
+	for _, audience := range []string{"team", "organisation", "partners"} {
+		if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, audience, target.ID, Attributes{Feed: "manual", Audience: audience, DataClass: "synthetic"}); err != nil {
+			t.Fatal(err)
+		}
+		before := len(p.fly.Requests())
+		_, err := p.s.RequestRelease(context.Background(), DeploySelection{ProjectID: p.project, DeploymentName: audience, BundleID: b.ID})
+		if !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), "the "+audience+" audience") || !strings.Contains(err.Error(), "set this deployment's audience to public") {
+			t.Fatalf("%s: %v", audience, err)
+		}
+		if after := p.fly.Requests()[before:]; len(after) != 0 {
+			t.Fatalf("the refusal asked Fly: %v", after)
+		}
 	}
 }
 
@@ -121,6 +145,9 @@ func TestAReleaseToFlyStartsCataloguePostgresBeforeInitAndWiresItsPrivateAddress
 	if err != nil || !strings.Contains(asJSON(events), "image registry.fly.io/") {
 		t.Fatalf("need digest was not recorded on release: %v %v", events, err)
 	}
+	if !strings.Contains(asJSON(events), "postgres: memory 256Mi") {
+		t.Fatalf("the release log does not say the size Postgres runs with:\n%s", asJSON(events))
+	}
 	apps := p.fly.Apps()
 	if len(apps) != 1 {
 		t.Fatal(apps)
@@ -132,6 +159,11 @@ func TestAReleaseToFlyStartsCataloguePostgresBeforeInitAndWiresItsPrivateAddress
 			id = m.ID
 			if m.Metadata()["apptown_source_image"] != "postgres:16-alpine" {
 				t.Fatal("need did not use catalogue image")
+			}
+			// The catalogue's default size for Postgres (256M), not the
+			// default for a part that declares none.
+			if guest, _ := m.Config["guest"].(map[string]any); guest["memory_mb"] != float64(256) {
+				t.Fatalf("Postgres runs on %v, not its catalogue default", m.Config["guest"])
 			}
 		}
 	}
