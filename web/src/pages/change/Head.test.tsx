@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { ChangeView } from '../../api'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { newQueryClient } from '../../data'
+import { getKey, newQueryClient } from '../../data'
 import { MemoryRouter } from 'react-router-dom'
 import { ChangeHeader, ChangesTab, RequestEntry } from './Head'
 
@@ -78,4 +78,17 @@ it('quotes only the short request and keeps its full record and ticket reachable
  expect(html).not.toContain('WHAT CONFORMANCE LOOKS LIKE')
  expect(html).toContain(`/changes/${CHANGE}/records/request`)
  expect(html).toContain('EGG-4')
+})
+
+// The section under the change's diff is the latest run's own diff. A run
+// that committed nothing (a landing, after a person saved the work) says so
+// in words, never as an empty diff under the change's one-file diff.
+it("says the latest run changed nothing of its own rather than showing an empty diff", () => {
+  const RUN = '00000000-0014-7000-8000-000000000000'
+  const client = newQueryClient()
+  client.setQueryData([...getKey(`/runs/${RUN}/diff`), '#text'], '')
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><ChangesTab view={view('landing')} run={{ id: RUN, number: 14 } as never} /></QueryClientProvider>)
+  expect(html).toContain('What run 14 changed')
+  expect(html).toContain('Run 14 changed no files of its own.')
+  expect(html).not.toContain('(empty diff)')
 })

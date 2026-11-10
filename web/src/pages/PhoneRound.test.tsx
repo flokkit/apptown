@@ -8,6 +8,8 @@ import { getKey, newQueryClient } from '../data'
 import { UsersCard } from './People'
 import { AgentsCard } from './AccountAccess'
 import WaysOfWorking from './WaysOfWorking'
+import * as Policies from './PoliciesPage'
+import { routeAncestors } from '../breadcrumbs'
 import { StoreSection } from './DataProtection'
 import Deployments from './Deployments'
 import Dashboard from './Dashboard'
@@ -130,4 +132,21 @@ it('labels the project activity age on Home with what the timestamp measures', (
     '/projects?limit=5&order=mine': { projects: [{ id: 'shop', slug: 'shop', name: 'Shop', hasDeployments: false, lastRunAt: '2026-10-31T01:00:00Z' }], total: 1 },
   })
   expect(el.querySelector('.project-state > .muted')?.textContent).toMatch(/^Work updated /)
+})
+
+// A new policy is a page of its own, so its heading names it and the top bar
+// leads back to Policies; its rule is a choice whose words wrap on a phone.
+it('opens a new policy on its own page, with the rules as choices', () => {
+  const list = page(<WaysOfWorking tab="policies" />, { '/policy-library': { library: [] }, '/projects': [] })
+  const add = [...list.querySelectorAll('a')].find(a => a.textContent === 'New policy')
+  expect(add?.getAttribute('href')).toBe('/policies/new')
+  expect(routeAncestors('/policies/new').at(-1)).toEqual({ to: '/policies', label: 'Policies' })
+  const New = (Policies as Record<string, unknown>).PolicyNewPage as () => React.ReactElement
+  const form = page(<New />)
+  expect(form.querySelector('h1')?.textContent).toBe('New policy')
+  expect(form.querySelector('select')).toBeNull()
+  const choices = [...form.querySelectorAll('input[type="radio"]')].map(r => r.closest('label')?.textContent)
+  expect(choices).toEqual(['step X requires step Y in an earlier stage', 'capability must have a binding', 'scan failOn may not be looser than…'])
+  expect(form.querySelector('input[type="radio"]:checked')?.closest('label')?.textContent).toBe('step X requires step Y in an earlier stage')
+  expect(form.querySelector('input[aria-label="uses"]')).not.toBeNull()
 })

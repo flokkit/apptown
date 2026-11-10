@@ -51,19 +51,34 @@ describe('fmtTokens and fmtCost', () => {
     expect(fmtTokens(2_500_000)).toBe('2.5M')
     expect(fmtTokens(1_000_000_000)).toBe('1.0B')
   })
-  it('shows cents, and four places only under one cent', () => {
+  it('shows whole cents, rounded down, and under a cent in words', () => {
     expect(fmtCost(1_500_000)).toBe('$1.50')
     expect(fmtCost(12_300)).toBe('$0.01')
-    expect(fmtCost(3_000)).toBe('$0.0030')
+    expect(fmtCost(19_900)).toBe('$0.01')
+    expect(fmtCost(3_000)).toBe('under $0.01')
     expect(fmtCost(0)).toBe('$0.00')
   })
-  // A total and its parts use one rule, so "at least $0.0341" never sits
-  // beside "$0.03"; a lower bound rounds down, never claiming more than recorded.
+  // A total and its parts use one rule, rounding down: a total never reads
+  // below one of its parts, nor below the sum of the parts shown, and a
+  // lower bound never claims more than recorded.
   it('prices a total the way it prices its parts', () => {
     expect(fmtPrice(34_100, 0)).toBe('$0.03')
     expect(fmtPrice(34_100, 2)).toBe('at least $0.03')
     expect(fmtPrice(35_100, 2)).toBe('at least $0.03')
-    expect(fmtPrice(3_000, 1)).toBe('at least $0.0030')
+    // The usage page: the total is all Chat, partly unpriced elsewhere.
+    expect(fmtPrice(106_600, 2)).toBe('at least $0.10')
+    expect(fmtPrice(106_600, 0)).toBe('$0.10')
+    expect(fmtPrice(3_000, 1)).toBe('partly priced')
+    expect(fmtPrice(0, 1)).toBe('not priced')
+  })
+  it('never shows a total below the sum of its shown parts', () => {
+    const shown = (s: string) => s.startsWith('$') ? Number(s.slice(1)) : 0
+    const sets = [[5_000, 5_000], [106_600, 4_000], [15_000, 15_000, 15_000], [9_999, 9_999, 1], [1_234_567, 7_654_321, 5_555]]
+    for (const parts of sets) {
+      const total = parts.reduce((a, b) => a + b, 0)
+      const sum = parts.reduce((a, p) => a + shown(fmtCost(p)), 0)
+      expect(shown(fmtCost(total)) + 1e-9, JSON.stringify(parts)).toBeGreaterThanOrEqual(sum)
+    }
   })
 })
 

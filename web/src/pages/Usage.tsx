@@ -78,7 +78,7 @@ function BarList({ title, rows, labelKey, hasCost, mapLabel }: {
 // least" when some of it went unrecorded, "spend unknown" when none of it
 // was, nothing when nothing was spent.
 function spend(costMicros: number, incomplete: number): string {
-  if (incomplete > 0) return costMicros > 0 ? `at least ${fmtCost(costMicros, true)}` : 'spend unknown'
+  if (incomplete > 0) return costMicros > 0 ? price(costMicros, incomplete) : 'spend unknown'
   return costMicros > 0 ? fmtCost(costMicros) : ''
 }
 

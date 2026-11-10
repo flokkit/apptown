@@ -281,6 +281,8 @@ it.each([false, true])('search has its own visible control (narrow=%s)', async n
  act(() => search.dispatchEvent(new MouseEvent('click', { bubbles: true })))
  expect(search.getAttribute('aria-expanded')).toBe('true')
  expect(document.getElementById(search.getAttribute('aria-controls')!)?.querySelector('input[aria-label="find"]')).not.toBeNull()
+ // On a phone Find is a dialog over the page, not a box over half its heading.
+ expect(!!document.querySelector('[role="dialog"] input[aria-label="find"]')).toBe(narrow)
 })
 it('identifies sidebar links while the project name loads and after a failed read', async () => {
  let release!: (r: Response) => void

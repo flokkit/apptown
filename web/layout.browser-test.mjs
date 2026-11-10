@@ -246,6 +246,7 @@ const roundFixture = await build({
     import { MoreMenu } from './MoreMenu'
     import { Ident } from './Ident'
     import { ChecksRow } from './pages/project/settings/Working'
+    import { PolicyNewPage } from './pages/PoliciesPage'
     const ok = { word: 'working', reason: '' }
     const row = (app, slug, deployment, label) => ({ app, slug, deployment, label, url: 'https://' + deployment + '.example.test', targetName: 'built-in-docker', observation: 'running', status: ok })
     const rows = [row('Club Newsletter', 'club-newsletter', 'production', 'Production'), row('Club Newsletter', 'club-newsletter', 'staging', 'staging'), row('Lunch Orders', 'lunch-orders', 'main', 'main')]
@@ -312,7 +313,10 @@ const roundFixture = await build({
         <p>Plain with <strong id="para-strong">bold</strong> words.</p></div>,
       head: <div className="deployment-page-heading"><div className="deployment-page-title"><h1>members-preview</h1><div className="deployment-page-facts muted small">no address yet · No serving release recorded · built-in-docker</div></div>
         <div className="deployment-page-actions"><div className="deployment-menu row row-2"><button aria-label="Deployment menu" className="more-menu-button">⋯</button></div></div></div>,
-      label: <Section title="Settings"><DisplayLabelEdit value="design-preview" machineKey="design-preview" path="/targets/design-preview/label" /><dl className="facts"><dt id="next-fact">Kind</dt><dd>Docker host</dd></dl></Section>,
+      label: <Section title="Settings"><dl className="facts"><dt>Name</dt><dd><DisplayLabelEdit keyLabel="Target ID" value="design-preview" machineKey="design-preview" path="/targets/design-preview/label" /></dd><dt id="next-fact">Kind</dt><dd id="kind-value">Docker host · over SSH</dd><dt id="third-fact">Provides</dt><dd>no disks</dd></dl></Section>,
+      // Phone, last items.
+      drawer: <nav className="sidebar narrow open"><div className="sidebar-inner"><a className="nav" href="#o">Overview</a><a className="nav" href="#c">Changes</a><a className="nav" id="last-nav" href="#m">Memory</a><div className="spacer" /><div className="nav-bottom"><a className="nav" href="#d">Docs</a></div></div></nav>,
+      policy: <PolicyNewPage />,
       kinds: <ServiceKindsPanel />,
       checks: <Section title="What that gives it"><div role="list"><ChecksRow slug="club-newsletter" /></div></Section>,
       select: <div><label>Rule<select id="rule-select"><option>step X requires step Y in an earlier stage</option></select></label>
@@ -851,7 +855,7 @@ try {
     // A menu fits its words, not the screen.
     await round('menu', size)
     await page.getByRole('button', { name: 'Workflow' }).click()
-    want(await page.locator('.popover').evaluate(p => p.getBoundingClientRect().width <= 20 * parseFloat(getComputedStyle(document.documentElement).fontSize) + 20), `a menu is its 20rem list and padding at ${where}`)
+    want(await page.locator('.popover').evaluate(p => p.getBoundingClientRect().width <= 16 * parseFloat(getComputedStyle(document.documentElement).fontSize) + 20), `a menu is its 16rem list and padding at ${where}`)
     // A section row keeps its inset.
     await round('inset', size)
     want(await page.locator('.section-body').evaluate(b => document.getElementById('inset-identity').getBoundingClientRect().left - b.getBoundingClientRect().left >= 12), `a section row's text keeps its inset at ${where}`)
@@ -860,9 +864,12 @@ try {
     want(await page.evaluate(() => document.querySelector('.deployment-menu button').getBoundingClientRect().top < document.querySelector('.deployment-page-heading h1').getBoundingClientRect().bottom), `the ⋯ is on the title's line at ${where}`)
     // Edit display name has room after the ID, or a line of its own.
     await round('label', size)
-    const gaps = await page.evaluate(() => { const code = document.querySelector('.display-label-edit code').getBoundingClientRect(), link = document.querySelector('.display-label-edit button').getBoundingClientRect(), next = document.getElementById('next-fact').getBoundingClientRect(); return { after: link.left - code.right, under: link.top - code.bottom, below: next.top - link.bottom } })
+    const text = el => { const r = document.createRange(); r.selectNodeContents(el); const rs = [...r.getClientRects()].filter(x => x.width > 0); return { top: Math.min(...rs.map(x => x.top)), bottom: Math.max(...rs.map(x => x.bottom)) } }
+    const gaps = await page.evaluate(text => { const t = eval(text), code = document.querySelector('.display-label-edit code').getBoundingClientRect(), button = document.querySelector('.display-label-edit button'), link = button.getBoundingClientRect(), words = t(button), next = t(document.getElementById('next-fact')), kind = t(document.getElementById('kind-value')), third = t(document.getElementById('third-fact')); return { after: link.left - code.right, under: link.top - code.bottom, below: next.top - words.bottom, facts: third.top - kind.bottom } }, String(text))
     // Beside the ID with a gap, or (where the text is wider) on its own line under it.
     want(gaps.after >= 8 || gaps.under >= 0, `Edit display name sits apart from the ID at ${where}: ${JSON.stringify(gaps)}`)
+    // And no band under it: the next fact follows as one fact follows another.
+    want(gaps.below <= gaps.facts + 14, `the next fact follows Edit display name as facts follow each other at ${where}: ${JSON.stringify(gaps)}`)
     // Edit and Delete stay together.
     await round('kinds', size)
     await page.getByText('Club sign-in', { exact: true }).waitFor()
@@ -874,11 +881,21 @@ try {
     await round('select', size)
     want(parseFloat(await page.locator('#rule-select').evaluate(s => getComputedStyle(s).paddingInlineEnd)) >= 24, `a select keeps room for its arrow at ${where}`)
     want(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `a long option does not widen the page at ${where}`)
+    // Phone, last items. The drawer's foot follows the menu.
+    await round('drawer', size)
+    const foot = await page.evaluate(() => document.querySelector('.nav-bottom').getBoundingClientRect().top - document.getElementById('last-nav').getBoundingClientRect().bottom)
+    want(foot <= 24, `the drawer's foot follows its last item at ${where}: ${foot}`)
+    // A policy's rule is a choice whose words are whole on screen.
+    await round('policy', size)
+    want(await page.locator('[role="radiogroup"] label').evaluateAll(ls => ls.length === 3 && ls.every(l => l.querySelector('span').getBoundingClientRect().right <= innerWidth - 8 && l.querySelector('span').scrollWidth <= l.querySelector('span').clientWidth + 1)) && await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `each rule choice is whole on screen at ${where}`)
   }
+  // On a wide screen the sidebar's foot stays at the column's foot.
+  await round('drawer', 'small', 1440)
+  want(await page.evaluate(() => document.querySelector('.sidebar-inner').getBoundingClientRect().bottom - document.querySelector('.nav-bottom').getBoundingClientRect().bottom <= 16), 'at 1440 the sidebar foot is at the bottom')
   // The menu cap holds on a wide screen too.
   await round('menu', 'small', 1440)
   await page.getByRole('button', { name: 'Workflow' }).click()
-  want(await page.locator('.popover').evaluate(p => p.getBoundingClientRect().width <= 20 * parseFloat(getComputedStyle(document.documentElement).fontSize) + 20), 'a menu is its 20rem list and padding at 1440')
+  want(await page.locator('.popover').evaluate(p => p.getBoundingClientRect().width <= 16 * parseFloat(getComputedStyle(document.documentElement).fontSize) + 20), 'a menu is its 16rem list and padding at 1440')
   // Row names: one weight whether a link or bold text; bold text in prose is the strong token.
   for (const theme of ['dark', 'light']) {
     await round('names', 'medium', 390, theme)

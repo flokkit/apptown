@@ -231,22 +231,19 @@ export function ChangesTab({ view, run }: { view: ChangeView; run?: Run }) {
   )
 }
 
-// The latest run's own diff and workspace: what the run's workspace holds,
-// which can differ from the committed diff while work is under way.
+// The latest run's own diff and workspace: what this run committed, from
+// where it started, which can differ from the change's diff above. A run
+// that committed nothing (a landing checks what is there) says so in words.
 function RunDiff({ runId, number }: { runId: string; number: number }) {
   return (
     <section>
-      <h4>The latest run's workspace (run {number})</h4>
+      <h4>What run {number} changed</h4>
       <div className="row head-run-diff-div">
         <a href={`/api/v1/runs/${runId}/workspace/`} target="_blank" rel="noreferrer" className="btn">Browse the workspace ↗</a>
       </div>
-      <RunDiffBody runId={runId} />
+      <DiffBlock path={`/runs/${runId}/diff`} what="the diff" empty={`Run ${number} changed no files of its own.`} />
     </section>
   )
-}
-
-function RunDiffBody({ runId }: { runId: string }) {
-  return <DiffBlock path={`/runs/${runId}/diff`} what="the diff" empty="(empty diff)" />
 }
 
 export function ChangeDiffBlock({ changeId, empty }: { changeId: string; empty?: string }) {

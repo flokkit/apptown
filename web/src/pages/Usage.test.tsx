@@ -74,7 +74,7 @@ describe('the daily usage chart', () => {
       report.totals.total = 0
       await act(async () => { await client.invalidateQueries() })
       await settled(client)
-      expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).toContain('tokens not recorded · $0.07')
+      expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).toContain('tokens not recorded · $0.06')
       expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).not.toContain('0 tokens')
       expect(el.textContent).not.toContain('tallest day 1')
       expect(el.textContent).not.toContain('No usage recorded yet.')
@@ -97,7 +97,7 @@ describe('the daily usage chart', () => {
         root.render(<QueryClientProvider client={client}><UsageView project="demo" /></QueryClientProvider>)
       })
       await settled(client)
-      expect(el.querySelector('.usage-figure')?.textContent).toContain('Cost, 30 days$0.00')
+      expect(el.querySelector('.usage-figure')?.textContent).toContain('Cost, 30 daysunder $0.01')
       // One line under the cost: how many records have unknown or partial
       // cost. Their tokens are not counted as unpriced: a record may hold
       // priced calls, or no known tokens at all.
@@ -139,8 +139,8 @@ describe('model prices', () => {
       report.totals.unpriced = 1
       await act(async () => { await client.invalidateQueries() })
       await settled(client)
-      expect(el.querySelector('.usage-figure')?.textContent).toContain('at least $0.003')
-      expect(el.querySelector('.usage-figure .stat-value')?.classList.contains('stat-word')).toBe(false)
+      expect(el.querySelector('.usage-figure')?.textContent).toContain('partly priced')
+      expect(el.querySelector('.usage-figure .stat-value')?.classList.contains('stat-word')).toBe(true)
       expect(el.textContent).toContain('2 reported by the provider')
       expect(el.textContent).toContain('1 from the model catalog')
       expect(el.textContent).toContain('1 spend record without a price source')

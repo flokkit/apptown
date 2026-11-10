@@ -55,6 +55,7 @@ export const PAGE_ROUTES = [
   "/guidance/generated",
   "/guidance/generated/:name",
   "/workflows/:name",
+  "/policies/new",
   "/policies/:name",
   "/packs/:name/versions/:version",
   "/guidance/:name/projects",

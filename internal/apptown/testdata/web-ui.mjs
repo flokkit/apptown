@@ -218,7 +218,7 @@ try {
   routes['change-code'] = `/changes/${process.env.DESIGN_CHANGE}?tab=changes`;
   routes['change-findings'] = `/changes/${process.env.DESIGN_CHANGE}/records/checks`;
   for (const tab of ['overview', 'conversation', 'details']) routes['change-' + tab] = `/changes/${process.env.DESIGN_CHANGE}?tab=${tab}`;
-  Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies', 'workflow-new': '/workflows', 'infrastructure-connection': '/targets/new' });
+  Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies/new', 'workflow-new': '/workflows', 'infrastructure-connection': '/targets/new' });
   if (process.env.DESIGN_AUDIT) routes['change-advisory'] = `/changes/${seeded.advisory}`;
   if (process.env.DESIGN_AUDIT) routes['reviews-running'] = '/conformance/reviews?cameraRunning=1';
   Object.assign(routes, { features: '/features', 'feature-off': '/evals' });
@@ -508,7 +508,7 @@ try {
         if (screen === 'home-search') {
           await page.locator('button[aria-label="Search"]').click();
           await page.getByRole('textbox', { name: 'find', exact: true }).fill('club');
-          await page.locator('.topbar-find-menu').waitFor();
+          await page.locator('.topbar-find-menu button').filter({ hasText: 'Club Newsletter' }).waitFor();
           const clipped = await page.locator('.topbar-find-menu button').evaluateAll(els => els.some(el => el.scrollWidth > el.clientWidth + 1));
           if (clipped) throw new Error('search result text overflows its control');
         }
@@ -518,7 +518,7 @@ try {
           await page.getByRole('button', { name: 'adopt-integration', exact: true }).waitFor();
           await page.locator('.packs-chip').filter({ hasText: 'api/rest-pragmatist' }).waitFor();
         }
-        if (screen === 'policy-new') await page.getByRole('button', { name: 'New policy', exact: true }).click();
+        if (screen === 'policy-new') await page.getByRole('heading', { name: 'New policy', exact: true }).waitFor();
         if (screen === 'workflow-new') await page.getByRole('link', { name: 'New workflow', exact: true }).click();
         if (screen === 'infrastructure-connection') await page.getByRole('button', { name: /Docker host/ }).click();
         if (screen === 'change-findings') {
@@ -795,9 +795,10 @@ try {
           await page.getByRole('button', { name: 'close the menu', exact: true }).click();
           await page.locator('.sidebar-backdrop').waitFor({ state: 'detached' });
         }
-        // A confirmation the capture opened (revoke, disconnect) is a dialog
-        // over the page; close it before looking for the page's disclosure.
-        if (['people-revoke', 'people-disconnect'].includes(screen)) {
+        // A confirmation the capture opened (revoke, disconnect), or Find on a
+        // phone, is a dialog over the page; close it before looking for the
+        // page's disclosure.
+        if (['people-revoke', 'people-disconnect'].includes(screen) || (screen === 'home-search' && size.startsWith('phone'))) {
           await page.keyboard.press('Escape');
           await page.getByRole('dialog').waitFor({ state: 'detached' });
         }

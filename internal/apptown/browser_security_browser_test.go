@@ -5236,7 +5236,7 @@ try {
  await page.goto(process.env.CAPTURE_URL+'/policies');
  const policies=await response;
  if(policies.status()!==200) throw new Error('policy-library returned '+policies.status());
- await page.getByRole('button',{name:'New policy',exact:true}).waitFor();
+ await page.getByRole('link',{name:'New policy',exact:true}).waitFor();
  await page.getByText('approval',{exact:true}).waitFor();
  if(errors.length) throw new Error(errors.join('\n'));
  await page.screenshot({path:process.env.CAPTURE_OUT,fullPage:true});

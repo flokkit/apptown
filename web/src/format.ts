@@ -35,14 +35,13 @@ export const fmtDuration = (s: number): string => {
 export const fmtTokens = (n: number): string =>
   n >= 1e9 ? `${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n)
 
-// fmtCost is the one money rule: cents, and four places only for an amount
-// under one cent that cents would show as nothing. A lower bound ("at least")
-// rounds down, so it never claims more than was recorded.
-export function fmtCost(micros: number, down = false): string {
-  const places = micros === 0 || micros >= 10_000 ? 2 : 4
-  const scale = 10 ** places
-  const units = micros / 1e6 * scale
-  return `$${((down ? Math.floor(units + 1e-9) : Math.round(units)) / scale).toFixed(places)}`
+// fmtCost is the one money rule: whole cents, rounded down, and a nonzero
+// amount under a cent in words. Rounding down means a total never reads
+// below the sum of its parts as shown (floor is superadditive), and a lower
+// bound ("at least") never claims more than was recorded.
+export function fmtCost(micros: number): string {
+  if (micros > 0 && micros < 10_000) return 'under $0.01'
+  return `$${(Math.floor(micros / 10_000 + 1e-9) / 100).toFixed(2)}`
 }
 
 // fmtBytes is a stored size a person reads (a backup, a copy): 812 B,
@@ -105,7 +104,8 @@ export function readingAge(at: string, stale = false, now = Date.now()): string 
 }
 
 // Missing price sources qualify recorded amounts, including historical spend.
+// A known part under a cent, with more unpriced, is "partly priced".
 export function fmtPrice(cost: number, unpriced: number): string {
-  if (unpriced > 0) return cost > 0 ? `at least ${fmtCost(cost, true)}` : 'not priced'
+  if (unpriced > 0) return cost >= 10_000 ? `at least ${fmtCost(cost)}` : cost > 0 ? 'partly priced' : 'not priced'
   return fmtCost(cost)
 }

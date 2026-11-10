@@ -192,8 +192,9 @@ function TargetSettings() {
       {actErr && <div className="error small">{actErr}</div>}
 
       <div className="target-settings"><Section title="Settings">
-        <DisplayLabelEdit keyLabel="Target ID" value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} />
+        {/* The ID and its rename are the first fact, in the list's rhythm, as on a connection's page. */}
         <dl className="facts">
+          <dt>Name</dt><dd><DisplayLabelEdit keyLabel="Target ID" value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} /></dd>
           <dt>Kind</dt><dd>{placeOf(t.kindInfo, t.address)}</dd>
           <dt>Provides</dt><dd>{facts.join(' · ')} · needs are {t.needsMode || 'unknown'}</dd>
           {(concrete.length > 0 || t.provider) && <><dt>Address</dt><dd>{concrete.join(' · ')}{t.provider && <> · through the <Link to="/integrations">{t.provider}</Link> connection</>}</dd></>}

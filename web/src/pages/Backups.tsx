@@ -94,18 +94,24 @@ function itemBadge(i: BackupItem): string | null {
   if (i.error) return 'not copied'
   if (i.copy === 'declared') return i.format ? 'database copy' : "service's own copy"
   if (i.copy === 'files') return 'file copy, app stopped'
-  if (i.copy === 'live-files') return 'file copy · may be inconsistent'
+  if (i.copy === 'live-files') return 'file copy, app running'
   return null
 }
+
+// liveFilesLimit is what a copy of a running app's files cannot promise.
+// The set still finished: its status says so, and this line says why the
+// copy may not match any one moment.
+const liveFilesLimit = 'Copied while the app was running: a file it was writing at that moment may be incomplete in this copy.'
 
 // Contents is a set's items, each with its badge and what its copy leaves out.
 function Contents({ items }: { items: BackupItem[] }) {
   return <>{items.map((i) => {
     const badge = itemBadge(i)
+    const limits = [!i.error && i.copy === 'live-files' ? liveFilesLimit : '', i.caveat ?? ''].filter(Boolean)
     return (
       <div key={i.kind + i.name} title={i.error || i.how}>
         {itemName(i)} {badge && <span className="badge">{badge}</span>}
-        {i.caveat && <section className="muted small"><h3>Limits</h3>{i.caveat}</section>}
+        {limits.length > 0 && <section className="muted small"><h3>Limits</h3>{limits.join(' ')}</section>}
       </div>
     )
   })}</>

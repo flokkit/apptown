@@ -31,6 +31,8 @@ it.each([false, true])('leads with the host name, state and app address, and lin
   expect(el.querySelector('.target-settings')?.textContent?.match(/10\.0\.0\.4/g)).toHaveLength(1)
   expect(el.querySelector('.target-settings')?.textContent).toContain('ssh://root@10.0.0.4')
   expect(el.querySelector('.target-settings a[href="/integrations/secrets"]')?.textContent).toBe('Edit secret')
+  // The ID and its rename link are the first fact, in the list's rhythm.
+  expect(el.querySelector('.target-settings dl.facts > dd')?.textContent).toContain('Target ID: kitchen Edit display name')
   // The lead is everything before the first section: name, state, address.
   el.querySelectorAll('section').forEach(d => d.remove())
   el.querySelectorAll('.status-help > div').forEach(d => d.remove())
