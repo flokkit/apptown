@@ -189,13 +189,23 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 		}
 		if store != nil {
 			held, err := s.heldOnFly(ctx, selected, target)
-			if err == nil && unresolvedOf(held.items) == "" {
-				return removalResult{}, &deployment.Unavailable{Reason: "final-copy-possible", Why: "A final backup can be taken now, so taking it down would delete the Fly app and its volumes. Nothing was done: confirm the take-down again."}
-			}
-			if err != nil {
+			switch {
+			case err != nil:
 				in.noCopy = err.Error()
-			} else {
+			case unresolvedOf(held.items) != "":
 				in.noCopy = unresolvedOf(held.items)
+			default:
+				// Every item resolves, but a final backup that was tried
+				// and failed is no evidence one can be taken: the choice
+				// to go without stands (the data is kept, as it says).
+				failed, err := s.failedFinalSet(ctx, selected)
+				if err != nil {
+					return removalResult{}, err
+				}
+				if failed == "" {
+					return removalResult{}, &deployment.Unavailable{Reason: "final-copy-possible", Why: "A final backup can be taken now, so taking it down would delete the Fly app and its volumes. Nothing was done: confirm the take-down again."}
+				}
+				in.noCopy = failed
 			}
 		} else {
 			in.noCopy = errNoStore.Error()

@@ -2,6 +2,7 @@ package dataprotection
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -29,17 +30,21 @@ func (s *core) heldOnFly(ctx context.Context, dep *deployment.Deployment, t *dep
 	if err != nil {
 		return heldItems{}, err
 	}
+	owned, err := s.owned.Owned(ctx, dep.ID)
+	if err != nil {
+		return heldItems{}, err
+	}
 	ms, err := driver.DataMachines(ctx, dep.Placement())
+	if errors.Is(err, fly.ErrNoApp) && !ownsFlyVolume(owned) {
+		// Never released: no app and no volume, so no data to copy.
+		return heldItems{}, errNothingToBackUp
+	}
 	if err != nil {
 		return heldItems{}, fmt.Errorf("%w: %v", errDataNotKnown, err)
 	}
 	live, err := driver.VolumeIDs(ctx, dep.Placement())
 	if err != nil {
 		return heldItems{}, fmt.Errorf("%w: %v", errDataNotKnown, err)
-	}
-	owned, err := s.owned.Owned(ctx, dep.ID)
-	if err != nil {
-		return heldItems{}, err
 	}
 	contract, err := s.releaseContract(ctx, dep)
 	if err != nil {
@@ -118,6 +123,15 @@ func (s *core) heldOnFly(ctx context.Context, dep *deployment.Deployment, t *dep
 		return heldItems{}, errNothingToBackUp
 	}
 	return held, nil
+}
+
+func ownsFlyVolume(owned []deploy.Owned) bool {
+	for _, o := range owned {
+		if o.Kind == "fly-volume" {
+			return true
+		}
+	}
+	return false
 }
 
 func appOf(dep *deployment.Deployment) string {
@@ -257,7 +271,22 @@ func (s *Service) finalBackupOnFly(ctx context.Context, dep *deployment.Deployme
 		return refuse(err)
 	}
 	if why := b.uncovered(held.items); why != "" {
-		return refuse(fmt.Errorf("%w: %s", errFinalBackupIncomplete, why))
+		return refuse(fmt.Errorf("%w: %s. To take it down anyway, take it down without a final copy: the Fly app and its volumes are then kept, with every Machine stopped", errFinalBackupIncomplete, why))
 	}
 	return finalCopy{set: b, parts: stoppedParts{providerRestart: resume}}, nil
+}
+
+// failedFinalSet says why the deployment's newest set, when it is a final
+// set that failed, did not cover its data; empty when the newest set is
+// anything else. That failure is why a person may then choose to take the
+// deployment down without a final copy although every item resolves.
+func (s *Service) failedFinalSet(ctx context.Context, dep *deployment.Deployment) (string, error) {
+	sets, err := s.backups.ForDeployment(ctx, dep.ProjectID, dep.Name, 1)
+	if err != nil {
+		return "", fmt.Errorf("reading the deployment's newest backup: %w", err)
+	}
+	if len(sets) == 0 || sets[0].Trigger != triggerTakeDown || sets[0].Status == BackupOK {
+		return "", nil
+	}
+	return fmt.Sprintf("the final backup %s failed: %s", sets[0].ID, setShortfall(&sets[0])), nil
 }

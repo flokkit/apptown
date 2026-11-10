@@ -188,6 +188,9 @@ func (s *Service) executeRequestedRelease(ctx context.Context, rel *Release, pla
 	if err := s.refusesPlacement(ctx, rel.ProjectID, t); err != nil {
 		return result, fail(err)
 	}
+	if why := t.refusesAudience(dep.Audience); why != "" {
+		return result, fail(refused("%s", why))
+	}
 	if err := s.providers.RefusesBundle(ctx, bundle, t); err != nil {
 		return result, fail(err)
 	}

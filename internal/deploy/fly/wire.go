@@ -68,6 +68,13 @@ type exit struct {
 	Signal int  `json:"signal"`
 }
 
+// failed says whether the exit is anything but a clean finish. Fly reports
+// signal -1 (or none) for a Machine that ended on its own; only a positive
+// signal number means a signal ended it.
+func (e exit) failed() bool {
+	return e.Code != 0 || e.OOM || e.Signal > 0
+}
+
 type machineConfig struct {
 	Mounts   []mount                 `json:"mounts,omitempty"`
 	Image    string                  `json:"image"`

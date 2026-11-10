@@ -340,7 +340,7 @@ func (d *Driver) runInit(ctx context.Context, c *Client, p deploy.Placement, pl 
 	if err != nil {
 		return fmt.Errorf("init step %s: %w", it.Name, err)
 	}
-	if ex.Code != 0 || ex.OOM || ex.Signal != 0 {
+	if ex.failed() {
 		oom := ""
 		if ex.OOM {
 			oom = ", out of memory"

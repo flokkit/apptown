@@ -21,6 +21,10 @@ type DataMachine struct {
 }
 type dataVolume struct{ ID, Path string }
 
+// ErrNoApp is a deployment whose records name no Fly app: it was never
+// released (or its first release made nothing), so Fly holds nothing of it.
+var ErrNoApp = errors.New("the deployment records no Fly app")
+
 func (d *Driver) DataMachines(ctx context.Context, p deploy.Placement) ([]DataMachine, error) {
 	c, _, err := d.client(ctx)
 	if err != nil {
@@ -28,7 +32,7 @@ func (d *Driver) DataMachines(ctx context.Context, p deploy.Placement) ([]DataMa
 	}
 	app, ok := d.recordedApp(ctx, p)
 	if !ok {
-		return nil, errors.New("the deployment records no Fly app")
+		return nil, ErrNoApp
 	}
 	if err := d.sameApp(ctx, c, app.Name, app.ID); err != nil {
 		return nil, err
@@ -163,7 +167,7 @@ func (d *Driver) DataJob(ctx context.Context, p deploy.Placement, image, command
 	if err != nil {
 		return err
 	}
-	if ex.Code != 0 || ex.OOM || ex.Signal != 0 {
+	if ex.failed() {
 		return fmt.Errorf("copy Machine %s exited %d (signal %d, out of memory: %t)", made.ID, ex.Code, ex.Signal, ex.OOM)
 	}
 	return nil
@@ -303,7 +307,7 @@ func (d *Driver) VolumeIDs(ctx context.Context, p deploy.Placement) (map[string]
 	}
 	app, ok := d.recordedApp(ctx, p)
 	if !ok {
-		return nil, errors.New("no recorded Fly app")
+		return nil, ErrNoApp
 	}
 	if err := d.sameApp(ctx, c, app.Name, app.ID); err != nil {
 		return nil, err

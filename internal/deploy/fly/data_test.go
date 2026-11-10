@@ -224,3 +224,24 @@ func TestReleaseAfterStoppedRestoreRetiresOldVolumeOnlyWhenReady(t *testing.T) {
 		})
 	}
 }
+
+// Fly reports signal -1 for a Machine that ended on its own; only a real
+// signal (or a non-zero code, or out of memory) is a failed one-off.
+func TestOneOffExitFailsOnlyOnARealSignal(t *testing.T) {
+	for _, c := range []struct {
+		event  map[string]any
+		failed bool
+	}{
+		{map[string]any{"exit_code": 0.0, "signal": -1.0}, false},
+		{map[string]any{"exit_code": 0.0}, false},
+		{map[string]any{"exit_code": 0.0, "signal": 0.0}, false},
+		{map[string]any{"exit_code": 0.0, "signal": 15.0}, true},
+		{map[string]any{"exit_code": 1.0, "signal": -1.0}, true},
+		{map[string]any{"exit_code": 0.0, "signal": -1.0, "oom_killed": true}, true},
+	} {
+		ex, ok := exitOf([]event{{Request: map[string]any{"exit_event": c.event}}})
+		if !ok || ex.failed() != c.failed {
+			t.Errorf("exit %v: failed %t, want %t", c.event, ex.failed(), c.failed)
+		}
+	}
+}

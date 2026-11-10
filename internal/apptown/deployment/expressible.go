@@ -82,6 +82,16 @@ func staticOnly(c *appcontract.Contract) bool {
 }
 
 // refusal is a target's refusal sentence as an error, or nil for none.
+// refusesAudience is the target's refusal of a deployment's audience, or "".
+// A Fly app answers anyone at its fly.dev address and AppTown puts no
+// sign-in in front of it, so only a public deployment says what Fly does.
+func (t *Target) refusesAudience(audience string) string {
+	if t.Kind != kindFlyMachines || audience == "public" {
+		return ""
+	}
+	return fmt.Sprintf("%s serves the app at its fly.dev address to anyone, with no AppTown sign-in in front of it, so it cannot keep a deployment to the %s audience; set this deployment's audience to public, or deploy it to a Docker host", t.Name, audience)
+}
+
 func refusal(why string) error {
 	if why == "" {
 		return nil

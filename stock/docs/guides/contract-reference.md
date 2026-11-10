@@ -235,6 +235,7 @@ AppTown adds a few values of its own, which differ by target:
 | `APPTOWN_ORIGINS` | public part: its own standing or configured preview origin | public part: its admitted deployment ingress hosts | public part: the app's own address |
 | `APPTOWN_APP_URL` | every app part and init step: the selected deployment or preview address, when known | every app part and init step: the admitted ingress URL | every service, worker and pre-deploy job: `${APP_URL}` |
 | `DATA_DIR` | public part, when it has a `dataDir`, set last | public part, the same | — (no `dataDir`) |
+| `APPTOWN_RELEASE` | a static site part only: its release identity, `<part>@<revision>`, which its file server answers at `/_apptown/release`; a server part does not get it, on any target | the same | the same |
 | `APPTOWN_TRUST` | every part and init step but a static site's, when the server is given extra certificate authorities: a script the start command runs (`eval "${APPTOWN_TRUST:-}"`) to trust them | the same | the same |
 | attached integrations: `SENTRY_DSN` (error reporting); `FEEDBACK_URL` and `FEEDBACK_APP_KEY` (customer feedback, Experimental) | public part | public part, the same | not delivered; the release records it |
 | order of precedence | need values and scoped secrets over the part's own `environment`; a name shared by both is refused | the same | the same |
