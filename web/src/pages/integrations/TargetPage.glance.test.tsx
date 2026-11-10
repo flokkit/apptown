@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { getKey, newQueryClient } from '../../data'
 import { TargetPage } from './TargetPage'
+import { TargetResourcesPage } from './TargetResources'
 
 it.each([false, true])('leads with the host name, state and app address, and links to its settings (unknown capacity: %s)', (unknown) => {
   const client = newQueryClient()
@@ -96,4 +97,26 @@ it('shows recorded deployment resources, generation and address without a curren
   expect(row.querySelector('[data-label="Resources"] a')?.getAttribute('href')).toBe('/targets/kitchen/resources?deployment=shop%2Fmain')
   expect(row.querySelector('[data-label="Generation"]')?.textContent).toBe('16')
   expect(row.textContent).not.toContain('unknown')
+})
+
+// Every tab of a target carries the same head: its name, state and Check
+// target, so the head does not change as a person moves between tabs.
+it('heads every target tab with the target name and Check target', () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/auth/me'), { mode: 'internal', user: 'sam' })
+  client.setQueryData(getKey('/attention'), { sources: [], items: [] })
+  client.setQueryData(getKey('/targets/kitchen'), { target: { id: 'host', name: 'kitchen', displayLabel: 'Kitchen', status: 'ready', statusLabel: 'working', kind: 'docker-host', kindInfo: {}, check: {}, ingress: {}, address: {}, capabilities: {}, deployments: [], offers: [], retained: 0 }, history: [], builtIn: true })
+  client.setQueryData(getKey('/infrastructure'), { targets: [{ target: 'kitchen', live: true, resources: [] }] })
+  const pages = [
+    ['/targets/kitchen', '/targets/:name', <TargetPage />],
+    ['/targets/kitchen/capacity', '/targets/:name/capacity', <TargetPage tab="capacity" />],
+    ['/targets/kitchen/history', '/targets/:name/history', <TargetPage tab="history" />],
+    ['/targets/kitchen/resources', '/targets/:name/resources', <TargetResourcesPage />],
+  ] as const
+  for (const [path, route, element] of pages) {
+    const el = document.createElement('div')
+    el.innerHTML = renderToStaticMarkup(<MemoryRouter initialEntries={[path]}><QueryClientProvider client={client}><Routes><Route path={route} element={element} /></Routes></QueryClientProvider></MemoryRouter>)
+    expect(el.querySelector('h1')?.textContent, path).toBe('Kitchen')
+    expect([...el.querySelectorAll('button')].some(b => b.textContent === 'Check target'), path).toBe(true)
+  }
 })

@@ -6,7 +6,7 @@ import { MemoryRouter, matchPath } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from './data'
 import TopBar from './TopBar'
-import { PAGE_ROUTES, routeAncestors } from './breadcrumbs'
+import { PAGE_ROUTES, TAB_ROUTES, routeAncestors } from './breadcrumbs'
 import app from './App.tsx?raw'
 
 vi.mock('./data', async original => ({ ...await original<typeof import('./data')>(), useGet: () => ({ data: null }) }))
@@ -23,6 +23,8 @@ it('walks every route with one linked trail ending at its parent page', () => {
     }).filter(({r, prefix}) => !/^\/projects\/[^/]+\/releases$/.test(prefix) && (prefix === '/' || path.startsWith(prefix + '/')) && matchPath({path:r,end:true}, prefix))
       .map(({prefix}) => prefix)
     if (/^\/(targets|releases|backups)(\/|$)/.test(path)) expected.push('/deployments')
+    // A tab of a page has the page's own parent, not the page's first tab.
+    if ((TAB_ROUTES as readonly string[]).includes(route)) expected.splice(expected.indexOf(path.split('/').slice(0, -1).join('/')), 1)
     const trail = routeAncestors(path)
     expect(trail.map(c => c.to), route).toEqual([...new Set(expected)].sort((a,b) => a.split('/').filter(Boolean).length-b.split('/').filter(Boolean).length || (a === '/deployments' ? -1 : b === '/deployments' ? 1 : 0)))
     const client = newQueryClient()
@@ -79,4 +81,15 @@ it('retains the work-session identity in its parent link', () => {
     act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/changes/c/work/s/records/a?run=r&attempt=s-1&theme=dark']}><TopBar me={null} /></MemoryRouter></QueryClientProvider>))
     expect(doc.querySelector('a[href^="/changes/c/work/s"]')?.getAttribute('href')).toBe('/changes/c/work/s?run=r&attempt=s-1')
   } finally { act(() => root.unmount()); client.clear() }
+})
+
+it('gives every tab of one page the same parent', () => {
+  expect(routeAncestors('/complaints/answered')).toEqual(routeAncestors('/complaints'))
+  expect(routeAncestors('/complaints/archive')).toEqual(routeAncestors('/complaints'))
+  for (const tab of ['resources', 'capacity', 'history']) {
+    expect(routeAncestors(`/targets/a/${tab}`).map(c => c.to), tab).toEqual(routeAncestors('/targets/a').map(c => c.to))
+    expect(routeAncestors(`/targets/a/${tab}`).at(-1)?.to, tab).toBe('/targets')
+  }
+  // A record under a tab keeps the tab as its parent.
+  expect(routeAncestors('/targets/a/resources/r1').at(-1)?.to).toBe('/targets/a/resources')
 })

@@ -58,7 +58,9 @@ export function Status({ word, help, staleAt, observation = false, old = false, 
   const tone = STATUS_LIGHT[word] === 'fail' ? 'fail' : old || staleAt && label.startsWith('last seen') ? 'pending' : observation && ['working', 'running'].includes(word) ? 'pass' : STATUS_LIGHT[word]
   const content = <>{/* Every state has its dot; a neutral one is grey, so it sits in line with the rest. */}<span aria-hidden="true">● </span><span className="chip-word">{reason ?? label}</span></>
   if (button) return <button type="button" {...button} className={`chip chip-button ${tone}`}>{content}</button>
-  if (!help) return <span className={`chip ${tone}`}>{content}</span>
+  // Details that only repeat the word say nothing more: no control to open.
+  const same = (a?: string) => !!a && a.trim().toLowerCase() === help?.trim().toLowerCase()
+  if (!help?.trim() || same(word) || same(label) || same(reason)) return <span className={`chip ${tone}`}>{content}</span>
   return <StatusDetails tone={tone} help={help} label={label}>{content}</StatusDetails>
 }
 

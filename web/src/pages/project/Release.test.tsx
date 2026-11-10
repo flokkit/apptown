@@ -209,10 +209,24 @@ it('marks a release a later one replaced, naming it', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body))))
   const view = render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="1" /></MemoryRouter></QueryClientProvider>)
   try {
-    await vi.waitFor(() => expect(view.el.textContent).toContain('Release #1'))
+    await vi.waitFor(() => expect(view.el.querySelector('.release-summary .chip')).not.toBeNull())
     const chip = view.el.querySelector('.release-summary .chip')!
     expect(chip.textContent).toContain('replaced')
     expect(chip.classList.contains('pass')).toBe(false)
     expect(chip.getAttribute('data-help')).toBe('Release 16 replaced it on this deployment.')
+  } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+// The page's own heading names the release (Project draws it); the record
+// below does not repeat it, and keeps its deployment, state and badges.
+it('does not repeat the release number under the page heading', async () => {
+  const client = newQueryClient()
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ release: { id: B14, number: 14, state: 'released', deployment: 'main', createdAt: '2026-11-05T00:00:00Z' }, deploymentLabel: 'Production', statusLabel: 'released', isLive: true, changes: [], events: [] }))))
+  const view = render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="14" /></MemoryRouter></QueryClientProvider>)
+  try {
+    await vi.waitFor(() => expect(view.el.querySelector('.release-summary')).not.toBeNull())
+    expect(view.el.textContent).not.toContain('Release #14')
+    const badges = [...view.el.querySelectorAll('.release-summary .badge')].map(b => b.textContent)
+    expect(badges).toEqual(['Production', 'current release'])
   } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

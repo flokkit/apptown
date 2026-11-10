@@ -589,7 +589,8 @@ try {
           });
           if (covered) throw new Error('decision controls cover the approval meaning');
           if (await decision.evaluate(el => el.scrollWidth > el.clientWidth)) throw new Error('decision screen overflows');
-          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-decision.png`, fullPage: true });
+          // The decision is a full-screen sheet on a phone: shoot the screen, not the page under it.
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-decision.png` });
           await decision.getByRole('button', { name: 'Close', exact: true }).click();
           await decision.waitFor({ state: 'hidden' });
         }
@@ -767,6 +768,9 @@ try {
         const headings = await page.getByRole('heading', { level: 1 }).allTextContents();
         // An open menu closes when its control scrolls away, so these shots stay where the menu is.
         if (!['people-actions', 'people-revoke', 'people-disconnect'].includes(screen)) await page.evaluate(() => window.scrollTo(0, 0));
+        // A resting mouse is not part of the page: on a phone its hover would
+        // light whatever card it last passed over.
+        if (size.startsWith('phone')) await page.mouse.move(-1, -1);
         // The open phone menu covers the viewport, not the whole page.
         await page.screenshot({ path: `${out}/${screen}/${size}-${theme}.png`, fullPage: !(screen === 'overview-navigation' && size.startsWith('phone')) });
         finalPaths.add(new URL(page.url()).pathname);
@@ -803,7 +807,8 @@ try {
           const wasOpen = await trigger.evaluate(el => el.tagName === 'SUMMARY' ? el.parentElement.open : el.getAttribute('aria-expanded') === 'true');
           if (!wasOpen) await trigger.click();
           disclosures.push({ screen, size, theme, trigger: await trigger.innerText() });
-          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-disclosure.png`, fullPage: true });
+          // A dialog covers the screen; the page under it is not part of the shot.
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-disclosure.png`, fullPage: !(await page.locator('[role="dialog"]:visible').count()) });
           // A disclosure that opened a dialog: on screen, with its close button.
           const dialog = page.locator('[role="dialog"]:visible').first();
           if (await dialog.count()) {

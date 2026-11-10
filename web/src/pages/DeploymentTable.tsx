@@ -1,4 +1,5 @@
 import { ProjectMark } from '../ProjectListRow'
+import { Ident } from '../Ident'
 import { useHolds } from '../instancePages'
 import { useNotOff } from '../features'
 import type { ReactNode } from 'react'
@@ -32,7 +33,7 @@ export function DeploymentTable({ rows, withApp = false, release }: { rows: Depl
   const backups = useNotOff('backups')
   const columns: ListColumn<DeploymentTableRow>[] = [
     ...(withApp ? [{ key: 'project', label: 'Project', phone: 'name' as const, render: (r: DeploymentTableRow) => <><ProjectMark small name={r.app} slug={r.slug} icon={r.icon} /><Link to={`/projects/${r.slug}`}><strong>{r.app}</strong></Link></> }] : []),
-    { key: 'deployment', label: 'Deployment', phone: withApp ? undefined : 'name', render: r => <><Link to={deploymentHref(r)}>{withApp ? r.label : <strong>{r.label}</strong>}</Link>{r.url && <> <OpenApp url={r.url} hostOnly={r.hostOnly} label={r.label} /></>}{r.targetName && <span className="record-phone muted"> · {r.targetName}</span>}</> },
+    { key: 'deployment', label: 'Deployment', phone: withApp ? undefined : 'name', render: r => <><Link to={deploymentHref(r)}>{withApp ? r.label : <strong>{r.label}</strong>}</Link>{r.url && <> <OpenApp url={r.url} hostOnly={r.hostOnly} label={r.label} /></>}{r.targetName && <span className="record-phone muted"> · <Ident>{r.targetName}</Ident></span>}</> },
     ...(release ? [{ key: 'release', label: 'Release', className: 'fleet-wraps', render: release }] : []),
     { key: 'target', label: 'Target', kind: 'technical', wideOnly: true, className: 'fleet-roomy', render: r => r.targetName ? <Link to={`/targets/${encodeURIComponent(r.targetName)}`}>{r.targetName}</Link> : <span className="muted">—</span> },
     { key: 'status', label: 'Status', phone: 'state', render: r => <RuntimeStatus observation={r} /> },

@@ -1,5 +1,5 @@
 @layer pages {
-.conformance-list-row { padding: var(--space-3) 0; }
+.conformance-list-row { padding-block: var(--space-3); }
 .conformance-list-row > .list-identity { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
 /* One line, status first, on a wide screen; the shared row's stack on a phone. */
 @media (width > 800px) {

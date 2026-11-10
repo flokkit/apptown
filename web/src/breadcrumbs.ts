@@ -106,6 +106,16 @@ const LABELS: Record<string, string> = {
   ...Object.fromEntries(INTEGRATION_MENU.flatMap(g => g.items.map(i => [i.key, i.title]))),
 }
 
+// Tabs of one page that each have their own address. A tab has the page's
+// own parent, so every tab of the page shows the same way back.
+export const TAB_ROUTES = [
+  "/complaints/answered",
+  "/complaints/archive",
+  "/targets/:name/resources",
+  "/targets/:name/capacity",
+  "/targets/:name/history",
+] as const
+
 export type Breadcrumb = { to: string; label: string }
 // A grouping only appears when it is itself a page. Routes such as
 // /docs/guides/:slug have no /docs/guides page to link to.
@@ -118,6 +128,11 @@ export function routeAncestors(pathname: string, names: Record<string, string> =
     // collection page: its deployments own release history.
     if (/^\/projects\/[^/]+\/releases$/.test(path)) continue
     if (PAGE_ROUTES.some(pattern => matchPath({ path: pattern, end: true }, path))) paths.push(path)
+  }
+  if (TAB_ROUTES.some(pattern => matchPath({ path: pattern, end: true }, pathname))) {
+    const home = '/' + parts.slice(0, -1).join('/')
+    const at = paths.indexOf(home)
+    if (at >= 0) paths.splice(at, 1)
   }
   // Targets, releases and backups are pages in the Deployments area.
   if (['targets', 'releases', 'backups'].includes(parts[0])) paths.splice(1, 0, '/deployments')

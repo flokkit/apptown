@@ -10,7 +10,10 @@
    letter per line. Other cells may break anywhere, so a long name never
    pushes the page sideways. */
 .record-table .phone-name, .record-table .record-words { overflow-wrap: break-word; }
-.record-table td > a { font-weight: 500; }
+.record-table td > a { font-weight: var(--fw-medium); }
+/* A row's name has one weight whether it is a link or bold text; lines
+   under it in the same cell keep the body weight. */
+.record-table td.phone-name :is(a, strong, b) { font-weight: var(--fw-medium); }
 /* A name that opens a panel instead of a page reads as a name, like a link. */
 .record-table td > button.record-name { font: inherit; font-weight: 500; color: inherit; text-decoration: none; background: none; border: 0; padding: 0; min-height: 0; cursor: pointer; text-align: left; }
 .record-table td > button.record-name:hover { text-decoration: underline; }
@@ -54,6 +57,8 @@
   :is(.section-body, .section-body > .fleet) > .record-table { width: calc(100% + 2 * var(--space-4)); margin-inline: calc(-1 * var(--space-4)); }
   :is(.section-body, .section-body > .fleet) > .record-table tr { padding-inline: var(--space-4); }
   .section-body > .record-table td:is(:first-child, :last-child):not([data-label]) { padding: 0; }
+  /* A stacked value reaches the row's edge; the desktop table's last-column gap does not apply. */
+  .section-body > .record-table td[data-label]:last-child { padding-right: 0; }
   /* The name and the values size to the row, never to their content: a long
      line that scrolls inside a value (a tech-line) or an unbroken name must
      not widen a grid or table the list sits in past the screen. */

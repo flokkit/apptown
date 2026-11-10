@@ -7,7 +7,7 @@ import { Section } from '../Section'
 import './People.css'
 import { Link, useLocation, useParams, useNavigate } from 'react-router-dom'
 import { PRODUCT } from '../brand'
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { HttpError, del, post, put } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadGate, ReadStatus, StaleNote } from '../ReadGate'
@@ -264,7 +264,10 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
   const accountRows = <ListTable label="Accounts" className="people-accounts" rows={accounts} rowKey={u => u.username} rowTo={detail ? undefined : u => `/people/accounts/${encodeURIComponent(u.username)}`} columns={[
     { key: 'name', label: 'Name', phone: 'name', render: u => <Link to={`/people/accounts/${encodeURIComponent(u.username)}`}>{u.username}</Link> },
     { key: 'role', label: 'Role', render: u => u.role === 'admin' ? 'Admin' : 'Member' },
-    { key: 'groups', label: 'Groups', render: u => <span title={u.groups.join(', ')}>{u.groups.join(', ') || 'None'}</span> },
+    // On an account's own page its groups are links; in the list the row opens the account.
+    { key: 'groups', label: 'Groups', render: u => detail
+      ? <>{u.groups.map((g, i) => <Fragment key={g}>{i > 0 && ', '}<Link to={`/people/groups/${encodeURIComponent(g)}`}>{groupLabel(g)}</Link></Fragment>)}{!u.groups.length && 'None'}</>
+      : <span title={u.groups.join(', ')}>{u.groups.join(', ') || 'None'}</span> },
     { key: 'status', label: 'Status', phone: 'state', render: u => <AccountStatus {...u} /> },
     { key: 'seen', label: 'Last seen', kind: 'time', render: u => <span title={fmtStamp(u.lastSeen ?? '')}>{relTime(u.lastSeen ?? '') || '—'}</span> },
     { key: 'manage', label: '', phone: 'action', render: manage },
@@ -293,7 +296,6 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
       )}
       {accounts.length === 0 && <p className="muted small">No accounts.</p>}
       {accountRows}
-      {detail && users[0] && <p className="small">Groups: {users[0].groups.map(g => <Link key={g} to={`/people/groups/${encodeURIComponent(g)}`}>{groupLabel(g)} </Link>)}{!users[0].groups.length && 'None'}</p>}
     </Section>
     {/* With invites, choosing someone's password is the exception: the
         person sets their own from the link. */}

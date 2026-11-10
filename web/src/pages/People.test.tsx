@@ -478,3 +478,17 @@ it.each([['accounts', 'Accounts'], ['groups', 'Groups'], ['roles', 'Roles']] as 
   expect(el.querySelector('.record-table')).toBeNull()
  } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+// An account's page lists its groups once, in the Groups cell, each a link,
+// separated by commas.
+it('lists an account page groups once, as comma-separated links', async () => {
+ vi.stubGlobal('fetch', vi.fn(async () => new Response('{}')))
+ const kim: Account = { principalId: '00000000-0001-7000-8000-000000000000', username: 'kim', role: 'member', hasPassword: true, acted: true, lastSeen: '', disabled: false, groups: ['editors', 'operations'] }
+ const el = document.createElement('div'), root = createRoot(el)
+ await act(async () => root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><UsersCard users={[kim]} act={() => {}} canEdit={false} invites detail /></MemoryRouter></QueryClientProvider>))
+ for (const g of ['editors', 'operations']) expect(el.querySelectorAll(`a[href="/people/groups/${g}"]`), g).toHaveLength(1)
+ const cell = el.querySelector('td[data-label="Groups"]')!
+ expect(cell.querySelectorAll('a')).toHaveLength(2)
+ expect(cell.textContent).toBe('Team of editors, Team of operations')
+ await act(async () => root.unmount()); vi.unstubAllGlobals()
+})

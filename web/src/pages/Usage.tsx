@@ -24,12 +24,15 @@ export const LANE_LABEL: Record<string, string> = { step: 'Automated work', cons
 const LANE_COLOR: Record<string, string> = { step: 'var(--accent)', console: 'var(--note)', other: 'var(--muted)' }
 
 // One figure in the totals panel: a label, the amount, and a qualifying line
-// only when there is something to qualify.
+// only when there is something to qualify. A value with no figure in it
+// ("not priced") is a word, set smaller and muted so it never reads as an
+// amount, and kept on one line.
 function StatCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
+  const word = typeof value === 'string' && !/\d/.test(value)
   return (
     <div className="usage-figure">
       <div className="stat-label">{label}</div>
-      <div className="stat-value">{value}</div>
+      <div className={word ? 'stat-value stat-word' : 'stat-value'}>{value}</div>
       {sub && <div className="muted small">{sub}</div>}
     </div>
   )

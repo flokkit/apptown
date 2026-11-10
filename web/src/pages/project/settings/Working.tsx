@@ -202,10 +202,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
           <GivesRow title="Rules" q={policiesQ} what="the rules"
             summary={policies.length === 0 ? 'No rules' : `${policies.length} polic${policies.length === 1 ? 'y' : 'ies'}${warnings.length ? ` · ${warnings.length} warning${warnings.length === 1 ? '' : 's'}` : ''}`}
             items={[...policies.map((p) => ({ key: p.id ?? p.name, label: p.name, note: p.description || p.rule })), ...warnings.map((v, i) => ({ key: `w${i}`, label: `⚠ ${v.workflow}`, note: v.detail }))]} />
-          <ListRow listItem className="card row wow-gives wow-list-row" identity={<>
-            <strong>Checks</strong>
-            <span className="muted small">Judged when a change lands and in reviews</span>
-            </>} action={<span className="row-action"><Link to={`/conformance/projects/${slug}`}>Does it meet them? →</Link></span>} />
+          <ChecksRow slug={slug} />
           <GivesRow title="Workflows" q={lanesQ} what="the workflows"
             summary={workflows.length <= 3 ? workflows.map((l) => l.name).join(', ') : `${workflows.slice(0, 3).map((l) => l.name).join(', ')} and ${workflows.length - 3} more`}
             items={workflows.map((l) => ({ key: l.name, label: l.name, note: l.summary?.description || l.description, to: `/workflows?open=${encodeURIComponent(l.name)}` }))} />
@@ -245,4 +242,12 @@ export function PoliciesCard({ slug }: { slug: string }) {
   // rules since.
   if (data.policies.length === 0) return <><StaleNote q={q} /><p className="muted">No rules adopted · a pack usually brings some.</p></>
   return <><StaleNote q={q} />{data.policies.map((p) => <ListRow className="card row wow-row wow-list-row" key={p.id} identity={<><strong className="small">{p.name}</strong><span className="muted small wow-note">{p.description || p.rule}</span></>} />)}</>
+}
+
+// The checks a project is held to are judged elsewhere; this row links there.
+export function ChecksRow({ slug }: { slug: string }) {
+  return <ListRow listItem className="card row wow-gives wow-list-row" identity={<div className="row wow-gives">
+    <strong>Checks</strong>
+    <span className="muted small">Judged when a change lands and in reviews</span>
+    </div>} action={<span className="row-action"><Link to={`/conformance/projects/${slug}`}>Does it meet them? →</Link></span>} />
 }

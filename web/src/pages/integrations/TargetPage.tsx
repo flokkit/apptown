@@ -1,6 +1,5 @@
 import { Tech } from '../../Tech'
 import { statusProps, failedStatusRefresh } from '../../runtime'
-import { BetaChip, targetFeatureArea } from '../../features'
 import { usePageName } from '../../chrome'
 
 import './TargetPage.css'
@@ -20,6 +19,7 @@ import { TargetView, capsWords, placeOf } from '../../targets'
 import type { TargetInfra } from '../Infrastructure'
 import { TargetResourcesTable } from './TargetResources'
 import { TargetTabs } from './TargetTabs'
+import { TargetHead } from './TargetHead'
 import { Capacity } from './Capacity'
 import { CapacityStrip, targetCapacityReadings } from '../../CapacityStrip'
 import type { TargetCapacity } from '../../wire.gen'
@@ -88,7 +88,6 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
   const pageQ = useGet<TargetPage>(`/targets/${name}`)
   const load = pageQ.reload
   const { data } = pageQ
-  const { run, busy, err: actErr } = useAction()
   const infra = useGet<InfrastructureTargets>('/infrastructure', { poll: 30000 })
   const here = infra.data?.targets.find((x) => x.target === name)
   const capacity = useGet<TargetCapacity>(`/targets/${name}/capacity`)
@@ -108,18 +107,10 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
   // is about, except a failed connection, which is about the whole host.
   return (
     <div>
-      <StaleNote q={pageQ} />
       <StaleNote q={infra} />
-      <div className="row target-page-div">
-        <h1 className="grow target-page-h1">{tab === 'overview' ? t.displayLabel || t.name : tab === 'capacity' ? 'Capacity' : 'History'}</h1>
- {targetFeatureArea(t.kind) !== 'deployments' && <BetaChip />}
-
-        <Status observation word={state.word} help={state.help.startsWith('Host connection') ? undefined : state.help} />
-        {!retired && <button className="primary" disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await load() })}>Check target</button>}
-      </div>
+      <TargetHead name={t.name} />
       <div className="muted small mt-1" >{[domain ? `*.${domain}` : '', t.kind === 'do-app' ? 'Cloud hosting: apps update without downtime' : '', state.word === 'unknown' || t.statusLabel === 'failed' ? state.summary : ''].filter(Boolean).join(' · ')}</div>
       <p className="small" data-testid="target-check">Target check: {t.check.detail !== t.check.failure && t.check.detail} <BackgroundReading reading={t.check} /></p>
-      {actErr && <div className="error small">{actErr}</div>}
       {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href={tab === 'overview' ? '#target-retained' : `/targets/${t.name}#target-retained`}>Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
       {resources.some(r => r.record === 'missing') && <p>Check missing resources below.</p>}
 

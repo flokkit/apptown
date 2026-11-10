@@ -1,7 +1,8 @@
 import { useParams } from 'react-router-dom'
+import { Ident } from '../Ident'
 import { ProjectCount } from './DependentProjects'
 import './PoliciesPage.css'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { del, post } from '../api'
 import { OriginChip } from '../OriginChip'
 import { Section } from '../Section'
@@ -88,7 +89,7 @@ function PolicyCard({ page, p, totalProjects, onClone, onEdit, onRemove }: {
       ]} />}
       detail={page && <>
           <div className="muted small"><OriginChip origin={p.origin} />
-            {p.packs.length > 0 && <> · in packs: {p.packs.join(', ')}</>}</div>
+            {p.packs.length > 0 && <> · in packs: {p.packs.map((pack, i) => <Fragment key={pack}>{i > 0 && ', '}<Ident>{pack}</Ident></Fragment>)}</>}</div>
           <div className="policies-page-policy-card-div">
             <div className="muted small policies-page-policy-card-div-2">The rule</div>
             {p.reading}

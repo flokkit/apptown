@@ -2,7 +2,7 @@ import { useFeature, targetFeatureArea } from '../features'
 import './InfrastructureNew.css'
 import { changedTargetSettings, editTarget, offerTarget, targetOffer, NEEDS_MODES, type TargetSettings } from '../targetCommands'
 import { PRODUCT } from '../brand'
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { HttpError, post } from '../api'
 import { useQueryClient } from '@tanstack/react-query'
@@ -56,7 +56,7 @@ function KindStep({ kind, onPick }: { kind: Kind | null; onPick: (k: Kind) => vo
  const enabled = useFeature()
   return (
     <div>
-      <p className="muted small mt-0" >Target kind</p>
+      <p className="wiz-section mt-0">Target kind</p>
       <div className="infra-grid">
         {KINDS.filter(k => enabled(targetFeatureArea(k.kind))).map((k) => (
           <button key={k.kind} className={'card infra-card wiz-kind' + (kind === k.kind ? ' active' : '')} onClick={() => onPick(k.kind)}>
@@ -118,7 +118,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
     if (r?.target) onSaved(r.target)
   }
   const field = (label: string, value: string, set: (v: string) => void, placeholder = '', width = 200) => (
-    <label className="small">{label}<input value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder} style={{ width }} /></label>
+    <label className="small">{label}<input value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder} style={{ '--field-width': `${width}px` } as CSSProperties} /></label>
   )
   return (
     <div className="card infrastructure-new-connection-step-card">

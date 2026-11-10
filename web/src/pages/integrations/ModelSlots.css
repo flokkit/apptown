@@ -4,12 +4,12 @@
 .model-slots-model-profiles-input { width: 150px; }
 .model-slots-div { min-width: 0; }
 .model-slots-cell-input { width: 200px; }
-.model-slots-cell-select { width: 100%; max-width: 100%; white-space: normal; }
+.model-slots-cell-select { width: 100%; max-width: 100%; }
 .model-slots-model-profile-page-page-head-line { margin-bottom: calc(var(--space-1) * 3.5); }
-.model-slots-model-profile-page-slots-table { width: 100%; }
 .model-slots-model-profile-page-th { text-align: left; }
 .model-slots-stack-lead { vertical-align: top; padding-right: var(--space-4); }
-.model-slots-td { width: 60%; vertical-align: top; padding-right: var(--space-2); }
+.model-slots-td { vertical-align: top; }
+/* Desktop column widths; on phones the shared stacked table reaches the panel's edges. */
+@media (width > 800px) { .model-slots-model-profile-page-slots-table { width: 100%; } .model-slots-td { width: 60%; padding-right: var(--space-2); } }
 .model-slots-td-2 { vertical-align: top; white-space: nowrap; }
-@media (width <= 800px) { .model-slots-td { width: 100%; } }
 }

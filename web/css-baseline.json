@@ -108,7 +108,7 @@
     "apptown/pixel-spacing": 22
   },
   "web/src/styles/integrations.css": {
-    "apptown/pixel-spacing": 38
+    "apptown/pixel-spacing": 37
   },
   "web/src/styles/list-row.css": {
     "apptown/pixel-spacing": 26,

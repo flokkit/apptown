@@ -256,7 +256,6 @@ export default function App() {
       <nav id="sidebar" className={'sidebar' + (narrow ? ' narrow' : '') + (menuOpen ? ' open' : '')}>
         <div className="sidebar-inner">
           <SidebarNav />
-          <div className="spacer" />
           {me && me.mode === 'open' && (
             <div className="user">
               acting as

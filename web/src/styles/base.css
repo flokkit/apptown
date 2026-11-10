@@ -15,8 +15,13 @@ a[href]:not(:where(.tab, .project-name, .project-mark-link, .pack-name, .record-
   text-decoration-line: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 2px;
 }
 a[href]:hover { text-decoration-color: currentColor; }
+/* Bold text is the strong weight, not the browser's 700. */
+strong, b { font-weight: var(--fw-strong); }
 code, pre, kbd, samp { font-family: var(--font-mono); font-size: var(--fs-xs); }
 pre { max-width: 100%; overflow-x: auto; }
+/* A short name is one unit (Ident.tsx): whole on the next line, broken inside
+   only when wider than the line. */
+.ident { display: inline-block; max-width: 100%; overflow-wrap: anywhere; }
 /* A section reached by its #anchor lands below the fixed top bar. */
 [id] { scroll-margin-top: calc(var(--topbar-h) + var(--space-3)); }
 @media (max-width: 800px) {

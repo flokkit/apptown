@@ -52,7 +52,7 @@ export function SecretsTab({ slug }: { slug: string }) {
   if (!data.declared) {
     return (
       <>
-        <Section title="" label="Secrets" action={<button className="link" onClick={() => setAdding(true)}>Add secret</button>}>
+        <Section title="" label="Secrets" action={<button className="primary" onClick={() => setAdding(true)}>Add secret</button>}>
           <StaleNote q={q} />
           <p className="muted">This app declares no secrets. Secrets appear here once its code declares them.</p>
         </Section>

@@ -4,7 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { newQueryClient } from './data'
 import { settled } from './settled'
 import { ProjectListRow } from './ProjectListRow'
@@ -94,6 +94,16 @@ it('keeps workflow purpose and suitability visible before maintenance', async ()
   expect([...document.querySelectorAll('.popover button')].map((b) => b.firstChild?.textContent)).toContain('Copy')
 })
 
+
+// A workflow's own page shows its whole description once, not its first
+// sentence again above it.
+it('shows a workflow description once on its own page', async () => {
+  const description = 'Review an ordinary change.'
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(url.includes('system-workflows') ? { bindings: [], candidates: [] } : [{ name: 'review', description, tier: 'core', latestVersion: 2, usedBy: [], stages: [], yaml: 'name: review', origin: 'stock' }])))))
+  const el = await mount(<Routes><Route path="/workflows/:name" element={<WorkflowLibrary page />} /></Routes>, '/workflows/review')
+  expect(el.textContent).toContain('name: review')
+  expect(el.textContent!.split(description).length - 1).toBe(1)
+})
 
 it('distinguishes the project overview, changes and deployments with their icons', async () => {
   vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response('{}'))))

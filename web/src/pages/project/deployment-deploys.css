@@ -10,6 +10,14 @@
 .deployment-latest-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); padding-block: var(--space-2); }
 .deployment-latest-failure { flex-basis: 100%; color: var(--muted); font-size: var(--fs-sm); }
 .deployment-runtime-actions { font-size: var(--fs-base); font-weight: normal; max-width: 100%; }
+/* On a phone the ⋯ stays beside the title; Stop and Restart take the line
+   under the facts, rather than the ⋯ getting a line of its own. */
+@media (max-width: 800px) {
+  .deployment-page-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+  .deployment-page-actions { display: contents; }
+  .deployment-page-actions > .deployment-menu { grid-column: 2; grid-row: 1; }
+  .deployment-page-actions > .deployment-runtime-actions { grid-column: 1 / -1; grid-row: 2; }
+}
 .deployment-deploy-card { --deploy-scene-width: 300px; height: 660px; overflow: auto; position: relative; padding: var(--space-5); }
 .deployment-deploy-card .ch-deploy-result { max-width: none; min-height: 380px; margin: 0; }
 .deployment-deploy-card .deploy-scene-panel { height: 150px; width: var(--deploy-scene-width); max-width: 100%; margin-inline: auto; }
