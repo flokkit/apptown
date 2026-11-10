@@ -178,3 +178,34 @@ it('names the missing connection fields while Check is disabled', async () => {
   expect(check().disabled).toBe(false)
   expect(el.querySelector('.wiz-missing')).toBeNull()
 })
+
+// A Fly.io target is offered beside the others; its connection asks only
+// for the token's secret and a region (the org is read from the token),
+// and Check asks the server without saving.
+it('connects a Fly.io target by its token secret and region, checking before it adds', async () => {
+  const posts: Record<string, unknown>[] = []
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') { posts.push(JSON.parse(String(init.body))); return json({ ok: true, detail: 'Fly answers: org acme, region syd (Sydney)', dryRun: true }) }
+    return json({})
+  })))
+  const client = newQueryClient(), el = document.createElement('div'); document.body.append(el)
+  const root = createRoot(el)
+  disposals.push(() => { act(() => root.unmount()); client.clear(); el.remove() })
+  await act(async () => { root.render(<MemoryRouter><QueryClientProvider client={client}><InfrastructureNew /></QueryClientProvider></MemoryRouter>) })
+  await vi.waitFor(() => expect(el.querySelectorAll('.wiz-kind').length).toBeGreaterThan(0))
+  const fly = [...el.querySelectorAll<HTMLButtonElement>('.wiz-kind')].find((b) => b.textContent?.includes('Fly.io Machines'))!
+  expect(fly.querySelector('svg')?.getAttribute('aria-label')).toBe('Fly.io')
+  await act(async () => { fly.click() })
+  expect(el.querySelector('.wiz-missing')?.textContent).toBe('Fill in the name')
+  const name = el.querySelector<HTMLInputElement>('input[placeholder="fly-syd"]')!
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(name, 'fly-demo')
+    name.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  const button = (label: string) => [...el.querySelectorAll('button')].find((b) => b.textContent === label)!
+  expect(button('Add target').disabled).toBe(true)
+  await act(async () => { button('Check').click() })
+  await vi.waitFor(() => expect(el.textContent).toContain('Fly answers: org acme'))
+  expect(posts).toEqual([{ kind: 'fly-machines', name: 'fly-demo', tokenFrom: 'FLY_API_TOKEN', region: 'syd', org: '', dryRun: true }])
+  expect(button('Add target').disabled).toBe(false)
+})

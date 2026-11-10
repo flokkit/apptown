@@ -6,6 +6,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
+	"github.com/flokkit/apptown/internal/deploy/fly"
 )
 
 // Composition: what Deployment asks of the world, supplied by AppTown once
@@ -84,7 +85,7 @@ func environmentDependenciesFor(a *App) deployment.EnvironmentDependencies {
 }
 
 // providerDependencies are the providers' owners and settings.
-func providerDependenciesFor(a *App, digitalOcean digitalocean.Options) deployment.ProviderDependencies {
-	return deployment.ProviderDependencies{Projects: a.Projects, Secrets: a.Secrets, Integrations: a.Integrations, DigitalOcean: digitalOcean,
+func providerDependenciesFor(a *App, digitalOcean digitalocean.Options, flyOptions fly.Options) deployment.ProviderDependencies {
+	return deployment.ProviderDependencies{Projects: a.Projects, Secrets: a.Secrets, Integrations: a.Integrations, DigitalOcean: digitalOcean, Fly: flyOptions,
 		DatabaseContainer: builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, Applied: a.infrastructure.Applied, Now: a.cfg.clock.Now, Installation: a.docker.Instance}
 }

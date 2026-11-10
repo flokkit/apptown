@@ -160,7 +160,7 @@ func (s *Service) targetCapacity(ctx context.Context, t *Target) (TargetCapacity
 		out, err = s.dockerCapacity(ctx, t)
 	case KindPortainer:
 		out = s.portainerCapacity(ctx, t)
-	case KindDOApp:
+	case KindDOApp, kindFlyMachines:
 		out, err = s.elasticCapacity(ctx, t)
 	default:
 		out = TargetCapacity{Words: "Serves files; no capacity to manage."}

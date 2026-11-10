@@ -23,6 +23,8 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
+	"github.com/flokkit/apptown/internal/deploy/fly"
+	"github.com/flokkit/apptown/internal/deploy/fly/flyfake"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/stock"
 )
@@ -53,6 +55,7 @@ type targetHTTPWorld struct {
 	hosts        *deployment.Hosts
 	providers    *deployment.Providers
 	cloud        digitalocean.Options
+	fly          fly.Options
 	docker       *dockerfake.Daemon
 	targets      Targets
 	infra        Infrastructure
@@ -77,7 +80,7 @@ func newTargetHTTPWorld(t *testing.T, options ...digitalocean.Options) *targetHT
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, area := range []string{"app-platform", "portainer", "bucket-site"} {
+	for _, area := range []string{"app-platform", "fly-machines", "portainer", "bucket-site"} {
 		if _, err := identity.SetFeature(t.Context(), access.Principal{Kind: "user", Name: "bls", ID: accounts[0].PrincipalID, Via: "session"}, area, false, true); err != nil {
 			t.Fatal(err)
 		}
@@ -127,7 +130,7 @@ func (w *targetHTTPWorld) setDockerClient(client docker.Client) {
 	w.hosts = deployment.NewHosts(targets, w.secrets, deployment.HostSettings{Scope: docker.Scope{Client: client, Instance: testInstallation}, DataDir: w.dir, SSHConfigPath: filepath.Join(w.dir, "ssh-config"), SSHCommand: func(context.Context, []string) ([]byte, error) { return nil, nil }, BuiltInTarget: targetTestBuiltin})
 	environment := deployment.NewEnvironment(deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: w.secrets, Integrations: w.integrations, Needs: w.needs, Projects: w.projects})
 	w.providers = deployment.NewProviders(context.Background(), w.db, deployment.ProviderRecords{Targets: targets, Deployments: deployments}, w.hosts, environment,
-		deployment.ProviderDependencies{Projects: w.projects, Secrets: w.secrets, Integrations: w.integrations, DigitalOcean: w.cloud, Installation: testInstallation})
+		deployment.ProviderDependencies{Projects: w.projects, Secrets: w.secrets, Integrations: w.integrations, DigitalOcean: w.cloud, Fly: w.fly, Installation: testInstallation})
 	w.deployment = deployment.New(context.Background(), w.db, deployment.Dependencies{Groups: w.identity, Authority: access.Checked{Authority: w.identity, Projects: w.projects}, Targets: targets, Deployments: deployments, Hosts: w.hosts, Environment: environment, Providers: w.providers,
 		Projects: w.projects, Declared: targetTestDeclarations{}})
 	w.targets = NewTargets(w.deployment, w.providers, w.projects, w.identity, w.db, nil)
@@ -176,6 +179,20 @@ func targetDOWorld(t *testing.T) (*targetHTTPWorld, *dofake.API) {
 	t.Cleanup(server.Close)
 	w := newTargetHTTPWorld(t, digitalocean.Options{APIBase: server.URL})
 	writeTargetSecret(t, w, "DIGITALOCEAN_ACCESS_TOKEN=dop_v1_test\n")
+	return w, api
+}
+
+// targetFlyWorld is a target world whose Fly org is the fake's, reached
+// with a token named FLY_API_TOKEN in AppTown's secrets.
+func targetFlyWorld(t *testing.T) (*targetHTTPWorld, *flyfake.API) {
+	t.Helper()
+	api := flyfake.New("acme")
+	server := httptest.NewServer(api.Handler())
+	t.Cleanup(server.Close)
+	w := newTargetHTTPWorld(t)
+	w.fly = fly.Options{APIBase: server.URL}
+	w.setDockerClient(w.docker) // the providers again, with Fly's address
+	writeTargetSecret(t, w, "FLY_API_TOKEN=fo1_test\n")
 	return w, api
 }
 

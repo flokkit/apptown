@@ -142,6 +142,9 @@
   line-height: var(--lh-body);
   --cap-deployment: #2E8B67; --cap-previews: #3B72C4; --cap-work: #8A6BD1; --cap-apptown: #C2622F;
   --cap-other: #8A877C; --cap-host: #B9B5A9; --cap-free: var(--panel2, #E9ECED);
+  /* A target mark whose brand colour does not read on a dark page gets a
+     lighter tint of it there (Fly.io's deep purple). */
+  --mark-fly: #24175B;
 }
 /* A row's action button (the ⋯) and the slot a list keeps for it: the
    button's line, padding and border on a wide screen, a 44px target to tap. */
@@ -172,6 +175,7 @@
     color-scheme: dark;
     --cap-deployment: #3E9C77; --cap-previews: #5E94DE; --cap-work: #9277D9; --cap-apptown: #C8703F;
     --cap-other: #7A766B; --cap-host: #5A574E; --cap-free: #171B1D;
+    --mark-fly: #B9A6F5;
   }
 }
 :root[data-theme="dark"] {
@@ -196,6 +200,7 @@
     color-scheme: dark;
   --cap-deployment: #3E9C77; --cap-previews: #5E94DE; --cap-work: #9277D9; --cap-apptown: #C8703F;
   --cap-other: #7A766B; --cap-host: #5A574E; --cap-free: #171B1D;
+  --mark-fly: #B9A6F5;
 }
 
 /* Resolve the per-project hue where its inline custom property is defined. */

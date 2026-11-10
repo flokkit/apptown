@@ -82,6 +82,10 @@ describe('a take-down says what it will do before anyone confirms', () => {
   it('deletes a static site\'s bucket, which holds no data', () => {
     expect(tearDownWords('s3-bucket')).toContain('bucket and every file in it are deleted')
   })
+  it('deletes a Fly deployment\'s app, which holds no data AppTown keeps, without promising a backup', () => {
+    expect(tearDownWords('fly-machines')).toContain('Machines, addresses, secrets and images')
+    expect(tearDownWords('fly-machines')).not.toContain('backed up first')
+  })
 })
 
 describe('what a take-down left says why, and closes only as deleted', () => {

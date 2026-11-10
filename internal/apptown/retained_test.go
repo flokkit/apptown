@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
+	"github.com/flokkit/apptown/internal/deploy/fly"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -25,7 +26,7 @@ func TestRetainedSettlementChecksAuthorityAndHTTPOutcome(t *testing.T) {
 	a := authzFixture(t)
 	driver := &removalHTTPDriver{}
 	deps := deploymentDependenciesForTest(a)
-	providers := providerDependenciesFor(a, digitalocean.Options{})
+	providers := providerDependenciesFor(a, digitalocean.Options{}, fly.Options{})
 	providers.Drivers = map[string]deployment.DriverFactory{"retained-test": func(context.Context, *deployment.Target, *deployment.Deployment) (deploy.Driver, error) {
 		return driver, nil
 	}}

@@ -12,6 +12,8 @@ export function tearDownWords(kind?: string) {
   switch (kind) {
     case 'do-app':
       return 'The app is deleted first, so nothing writes, and so are its images when no other deployment of this project on that account uses them. With a backup store attached and a copy runner named, a final copy of its database goes to the store and is checked by filling a new database from it; only then is the database cluster deleted, and the copy is kept 30 days to start a new deployment from. If the copy falls short, the cluster stays. When no final copy can be taken (no store, no copy runner), the take-down is refused unless you choose to go without one, and the cluster stays.'
+    case 'fly-machines':
+      return `The Fly app ${PRODUCT} made for it is deleted, with its Machines, addresses, secrets and images. It holds no data ${PRODUCT} keeps, so there is nothing to back up. If the app holds a Machine ${PRODUCT} did not make, nothing is deleted and the Machine is named.`
     case 's3-bucket':
       return 'The bucket and every file in it are deleted, and the site stops answering. A static site holds no data, so there is nothing to back up.'
     case 'portainer':

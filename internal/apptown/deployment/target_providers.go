@@ -116,6 +116,9 @@ func stockCapabilities(kind string, emulators []string) TargetCapabilities {
 		return TargetCapabilities{PersistentVolumes: true, OwnLiveness: true, Rollout: []string{"replace"}, Needs: emulators}
 	case KindDOApp:
 		return TargetCapabilities{PersistentVolumes: false, OwnLiveness: true, Rollout: []string{"rolling", "rollback"}, Needs: []string{"postgres", "s3"}}
+	case kindFlyMachines:
+		// No need is fulfilled on Fly yet: each is refused before any effect.
+		return TargetCapabilities{PersistentVolumes: false, OwnLiveness: true, Rollout: []string{"rolling", "rollback"}, Needs: []string{}}
 	}
 	return TargetCapabilities{}
 }
@@ -126,7 +129,7 @@ func stockNeedsMode(kind string) string {
 	switch kind {
 	case KindDockerHost, KindPortainer:
 		return "emulators"
-	case KindDOApp:
+	case KindDOApp, kindFlyMachines:
 		return "managed"
 	}
 	return ""
@@ -146,6 +149,16 @@ func (s *Service) SeedCloudTargets(ctx context.Context, who string) {
 	for _, n := range names {
 		if _, err := s.seedCloudTarget(ctx, n, who); err != nil {
 			log.Printf("seeding the cloud target for %s: %v", n, err)
+		}
+	}
+	flyNames, err := s.env.integrations.Bindings.NamesByProvider(ctx, digitalocean.CapCloudAccount, flyProvider)
+	if err != nil {
+		log.Printf("seeding Fly targets: %v", err)
+		return
+	}
+	for _, n := range flyNames {
+		if _, err := s.seedFlyTarget(ctx, n, who); err != nil {
+			log.Printf("seeding the Fly target for %s: %v", n, err)
 		}
 	}
 }
@@ -321,6 +334,8 @@ func (p *Providers) checkTarget(ctx context.Context, t *Target) (ok bool, detail
 		return true, fmt.Sprintf("Portainer answers; endpoint %d (%s)", id, portainer.PlatformText(ctx, cfg, id))
 	case KindS3Bucket:
 		return p.checkS3Bucket(ctx, s3BucketConfig(t))
+	case kindFlyMachines:
+		return p.checkFly(ctx, t)
 	}
 	return false, "no check yet for a " + t.Kind + " target"
 }

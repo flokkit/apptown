@@ -29,6 +29,9 @@ const (
 	KindPortainer  = "portainer"
 	KindDOApp      = "do-app"
 	KindS3Bucket   = "s3-bucket"
+	// kindFlyMachines is a Fly.io org and region: one Fly app per
+	// deployment, one Machine per part (deploy-targets.md, "Fly Machines").
+	kindFlyMachines = "fly-machines"
 
 	OriginBuiltIn     = "built-in"
 	OriginAttached    = "attached"
@@ -507,7 +510,8 @@ func (s *Targets) Retire(ctx context.Context, name, who string) error {
 		if err := audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "target.retired", name, map[string]any{"kind": t.Kind}); err != nil {
 			return err
 		}
-		if t.Kind == KindDOApp && t.Provider != "" && s.connectors != nil {
+		// A cloud kind's target is its account connector's (App Platform, Fly).
+		if k := describeKind(t.Kind); k.Family == "cloud" && k.Provider != "" && t.Provider != "" && s.connectors != nil {
 			// LockTargets excludes every INSERT/UPDATE/DELETE until commit,
 			// so this observation remains true while the connector is removed.
 			used, err := deploymentsql.New(tx.SQL()).ProviderHasLiveTargets(ctx, deploymentsql.ProviderHasLiveTargetsParams{Provider: t.Provider, Status: TargetRetired.String()})

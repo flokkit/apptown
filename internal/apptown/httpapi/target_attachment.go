@@ -11,7 +11,8 @@ import (
 // Portainer environment {kind: portainer, name, urlFrom, apiKeyFrom,
 // environment, domain}; a bucket website {kind: s3-bucket, name, endpoint,
 // region, websiteEndpoint, accessKeyFrom, secretKeyFrom}; a DigitalOcean account's App Platform {kind:
-// do-app, name, tokenFrom, region, registry?} — the account connector is
+// do-app, name, tokenFrom, region, registry?}; a Fly.io org {kind:
+// fly-machines, name, tokenFrom, region, org?} — the account connector is
 // made here too, so the cloud account is one door, not an integration
 // apart. Every kind must answer before it is saved.
 func (h Targets) AttachTarget(w http.ResponseWriter, r *http.Request) {

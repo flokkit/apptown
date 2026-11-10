@@ -54,6 +54,8 @@ func runtimeControls(t *Target, d *Deployment) map[string]string {
 			controls = map[string]string{"deploy": "", "start": "", "stop": "", "restart": ""}
 		case KindDOApp:
 			controls = map[string]string{"deploy": "", "start": "App Platform cannot keep an app stopped", "stop": "App Platform cannot keep an app stopped", "restart": ""}
+		case kindFlyMachines:
+			controls = map[string]string{"deploy": "", "start": "This Fly target does not keep an app stopped yet", "stop": "This Fly target does not keep an app stopped yet", "restart": ""}
 		case KindS3Bucket:
 			for _, action := range []string{"start", "stop", "restart"} {
 				controls[action] = "Bucket websites cannot be started, stopped or restarted"

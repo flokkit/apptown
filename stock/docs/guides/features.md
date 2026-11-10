@@ -43,6 +43,7 @@ reload before saving again. Always-on areas have no off switch.
 | restore-rehearsals | Beta, off by default | Rehearsal and restored-copy environments |
 | conformance-estate | Beta, off by default | Estate conformance inventory |
 | app-platform | Beta, off by default | DigitalOcean App Platform targets |
+| fly-machines | Beta, off by default | Fly.io Machines targets |
 | portainer | Beta, off by default | Portainer targets |
 | bucket-site | Beta, off by default | S3 bucket sites |
 | mcp | Beta, off by default | MCP access for outside agents |
@@ -60,6 +61,7 @@ The ? beside each switch on the Features page says the same.
 - **Pack upgrades** (what-ifs): Hides Pack upgrades: the projects behind on a pack, and what-ifs that try a newer pack version on them before anyone adopts it. Adoption changes already opened from a what-if are ordinary changes and carry on. Needs Conformance on.
 - **Restore rehearsals** (restore-rehearsals): Starts no new restore rehearsals or restored copies. Rehearsal places already made are still cleaned up, and past results are kept.
 - **Conformance estate view** (conformance-estate): Hides the estate-wide conformance inventory. Each project's own conformance pages are unaffected. Needs Conformance on.
+- **Fly.io targets** (fly-machines): Fly.io can no longer be chosen or set up as a target. Deployments already on it keep running, and their history and restart stay available.
 - **App Platform targets** (app-platform): DigitalOcean App Platform can no longer be chosen or set up as a target. Deployments already on it keep running, and their history and start, stop and restart stay available.
 - **Portainer targets** (portainer): Portainer can no longer be chosen or set up as a target. Deployments already on it keep running, and their history and start, stop and restart stay available.
 - **Bucket-site targets** (bucket-site): S3 bucket sites can no longer be chosen or set up as targets. Sites already published keep serving, and their history stays available.
