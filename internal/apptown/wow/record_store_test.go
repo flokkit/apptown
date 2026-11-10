@@ -102,7 +102,9 @@ func TestGuidanceSummaryIsTheOpeningProseInPlainWords(t *testing.T) {
 	if !strings.HasPrefix(health, "Every part AppTown serves from your build or image declares its readiness") {
 		t.Errorf("health summary lost its opening prose: %q", health)
 	}
-	for _, markup := range []string{"app:", "web:", "**", "`", "<!--", "\n"} {
+	// Inline code keeps its backticks so the row can set it as code; the
+	// indented YAML, emphasis and comments are gone.
+	for _, markup := range []string{"app:", "web:", "**", "<!--", "\n"} {
 		if strings.Contains(health, markup) {
 			t.Errorf("health summary carries %q: %q", markup, health)
 		}

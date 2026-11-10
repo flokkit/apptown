@@ -1,4 +1,4 @@
-// Credential confirmations stay readable without changing table row geometry.
+// Credential confirmations ask in a sized dialog without changing table row geometry.
 import assert from 'node:assert/strict'
 import { mkdir } from 'node:fs/promises'
 import { build } from 'esbuild'
@@ -41,7 +41,7 @@ try {
       await trigger.click()
       const clipped = await page.locator('td.record-action').evaluateAll(cells => cells.filter(c => c.scrollWidth > c.clientWidth + 1).map(c => c.textContent))
       assert.deepEqual(clipped, [], `Confirmation clipped at ${width}px`)
-      const panel = page.locator('.popover')
+      const panel = page.getByRole('dialog')
       await panel.waitFor()
       assert.match(await panel.innerText(), action === 'revoke' ? /Revoke token tom-laptop\? Anything using it stops working\./ : /Disconnect ChatGPT \(as sam, connected [^)]+\)\? It stops working at once; they can sign in again\./)
       assert.ok(await panel.evaluate(panel => [...panel.querySelectorAll('p, button')].every(el => {

@@ -182,7 +182,9 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
                     <span className="grow" />
                     <button className="subtle" onClick={(e) => { e.stopPropagation(); setInspecting(p) }}>inspect</button>
                   </div>
-                  {p.description && <div className="muted small">{p.description}</div>}
+                  {/* A description's paragraphs stay paragraphs: its short first
+                      one says what the pack is and must not run into the next. */}
+                  {p.description && <div className="muted small">{p.description.split(/\n\s*\n/).map((para, i) => <p key={i} className="way-of-working-step-para">{para}</p>)}</div>}
 
                   {missing.length > 0 && (
                     <div className="row way-of-working-step-div-5">

@@ -9,6 +9,7 @@ import { ReadStatus, StaleNote } from '../../ReadGate'
 import { ChangeButton } from './ChangeButton'
 import { fmtWhen } from '../../format'
 import type { DeploymentView, ReleasePlan, CreatedChange, ProjectDetail as ProjectT } from '../../wire.gen'
+import './overview.css'
 
 // The project overview's top: the two big doors and the catalog of prepared
 // changes behind one of them.
@@ -97,11 +98,11 @@ export function ReleaseRows({ slug, releases }: { slug: string; releases: Releas
           <div className="row">
             <strong>Releases</strong>
             {live && <span className="badge">live: #{live.number}</span>}
-            <span className="row" style={{ gap: 6 }}>
+            <ul className="release-strip">
               {releases.slice(0, 5).map((r) => (
-                <Link key={r.number} to={`/projects/${slug}/releases/${r.number}`}>#{r.number} <span className="muted small">{fmtWhen(r.releasedAt || r.createdAt)}{r.origin === 'observed-after-restore' ? ' · observed after restore' : ''}</span></Link>
+                <li key={r.number}><Link to={`/projects/${slug}/releases/${r.number}`}>#{r.number} <span className="muted small">{fmtWhen(r.releasedAt || r.createdAt)}{r.origin === 'observed-after-restore' ? ' · observed after restore' : ''}</span></Link></li>
               ))}
-            </span>
+            </ul>
           </div>
         </div>
       )}

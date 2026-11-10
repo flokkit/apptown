@@ -23,6 +23,10 @@ button:disabled, button.primary:disabled, button.subtle:disabled { background: v
 button.link:disabled { background: transparent; border-color: transparent; color: var(--disabled-fg); }
 /* A greyed box reads as greyed in both themes: the native dimming is too faint in dark. */
 input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: 0.35; cursor: not-allowed; }
+/* A choice's words stay beside its button: in a wrapping row, words a little
+   wider than the space left would otherwise drop under a lone button. */
+label:has(> input:is([type="radio"], [type="checkbox"]):first-child) { flex-wrap: nowrap; align-items: baseline; }
+label:has(> input:is([type="radio"], [type="checkbox"]):first-child) > input + * { min-width: 0; }
 /* A button with a second line (a split button's sub-label) says it small. */
 button .btn-sub { font-size: var(--fs-xs); font-weight: 400; margin-top: var(--space-1); opacity: 0.85; }
 

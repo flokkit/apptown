@@ -18,6 +18,11 @@
 .record-table .technical { font-family: var(--font-mono); }
 .record-table button.link { padding-inline: 0; }
 .record-table .record-action { text-align: right; overflow-wrap: normal; }
+/* A row's action slot has its final size from the first paint: a menu that
+   waits for the viewer's permissions or a target reading must not make the
+   row grow when it arrives. The slot is the button plus the cell's padding;
+   a viewer with no act on the row keeps it empty. */
+.record-table td.record-action { height: calc(var(--row-action-size) + 2 * var(--space-2)); }
 .record-table .time { color: var(--muted); }
 .record-table-links tbody tr { cursor: pointer; }
 .record-table-links tbody tr:hover { background: var(--hover); }
@@ -45,8 +50,9 @@
   .record-table tbody tr:hover td { background: none; }
   /* In a section's panel the rows run edge to edge, their dividers and hover
      meeting the panel's border, with the panel's own inset for the text. */
-  .section-body .record-table { width: calc(100% + 2 * var(--space-4)); margin-inline: calc(-1 * var(--space-4)); }
-  .section-body .record-table tr { padding-inline: var(--space-4); }
+  /* Only the section's own table: one inside a group keeps the group's width. */
+  :is(.section-body, .section-body > .fleet) > .record-table { width: calc(100% + 2 * var(--space-4)); margin-inline: calc(-1 * var(--space-4)); }
+  :is(.section-body, .section-body > .fleet) > .record-table tr { padding-inline: var(--space-4); }
   .section-body > .record-table td:is(:first-child, :last-child):not([data-label]) { padding: 0; }
   /* The name and the values size to the row, never to their content: a long
      line that scrolls inside a value (a tech-line) or an unbroken name must
@@ -54,6 +60,11 @@
   .record-table :is(.phone-name, .phone-state, .phone-value) { contain: inline-size; }
   .record-table .phone-name { order: -3; flex: 1 1 12rem; }
   .record-table .phone-action { order: -2; flex: 0 0 auto; margin-left: auto; text-align: right; }
+  /* The first line is the action slot's height whether or not its menu has
+     arrived: the slot keeps its size empty, and it and the name sit at the
+     top of the line rather than on a baseline that moves with the button. */
+  .record-table td.phone-action { height: auto; min-width: var(--row-action-size); min-height: var(--row-action-size); align-self: flex-start; }
+  .record-table tr:has(> td.phone-action) > td.phone-name { min-height: var(--row-action-size); align-self: flex-start; align-content: center; }
   .record-table .phone-state { order: -1; }
   .record-table :is(.phone-state, .phone-value) { flex: 1 1 100%; text-align: left; }
   /* A value's column label hangs in a fixed column to its left, so values
@@ -65,7 +76,7 @@
   .record-table td[data-label] { display: flow-root; padding-left: calc(var(--record-label) + var(--space-3)); }
   .record-table td[data-label]::before { content: attr(data-label); float: left; width: var(--record-label); margin-left: calc(-1 * var(--record-label) - var(--space-3)); color: var(--muted); font-family: var(--font-sans); font-size: var(--fs-sm); }
   /* A value that says nothing takes its label with it. */
-  .record-table td:empty { display: none; }
+  .record-table td:empty:not(.phone-action) { display: none; }
   /* Last and as specific as the stacked cell rules above, so a wide-only
      column does not come back as a line on phones. */
   .record-wide, .record-table .record-wide, .record-table td.record-wide { display: none; }

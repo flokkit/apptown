@@ -202,8 +202,6 @@ packs:
       - frontend/server-rendered
   - name: html-game
     description: |-
-      Browser games in plain HTML, CSS and JavaScript.
-
       Browser games in plain HTML, CSS and JavaScript: no server, no build
       step, no dependencies. The file you edit is the file that ships.
       Starts with a small working game to change.

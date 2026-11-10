@@ -54,6 +54,34 @@ it.each([false, true])('refreshes Account inventory after writes (existing token
   } finally { act(() => root.unmount()); client.clear() }
 })
 
+// Revoking a token or disconnecting an agent asks in a dialog, not a box over
+// the row: No leaves the credential alone, Yes removes it.
+it.each(['revoke', 'disconnect'])('%s asks in a dialog before it removes the credential', async action => {
+  const deletes: string[] = []
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    if (init?.method === 'DELETE') { deletes.push(url); return new Response('{"ok":true}') }
+    if (url.includes('/delegations')) return new Response(JSON.stringify({ delegations: [{ id: 'd1', clientName: 'ChatGPT', user: 'sam', scopes: ['apptown:user:read'], createdAt: '2026-11-05T01:00:00Z' }] }))
+    return new Response(JSON.stringify({ tokens: [{ Name: 'tom-laptop', User: 'sam', Role: 'admin', Purpose: 'cli' }] }))
+  }))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  document.body.append(el)
+  const button = (text: string) => [...document.querySelectorAll('button')].find(b => b.textContent === text)!
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter>{action === 'revoke' ? <TokensCard /> : <AgentsCard canEdit />}</MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(button(action)).toBeTruthy())
+    await act(async () => button(action).click())
+    const dialog = document.querySelector('[role="dialog"]')!
+    expect(dialog.textContent).toMatch(action === 'revoke' ? /Revoke token tom-laptop\?/ : /Disconnect ChatGPT \(as sam, connected [^)]+\)\?/)
+    await act(async () => button('No').click())
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(deletes).toEqual([])
+    await act(async () => button(action).click())
+    await act(async () => button('Yes').click())
+    await vi.waitFor(() => expect(deletes).toEqual([action === 'revoke' ? '/api/v1/tokens/tom-laptop' : '/api/v1/auth/delegations/d1']))
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+  } finally { act(() => root.unmount()); el.remove(); client.clear() }
+})
+
 // The count heads the tokens listed: revoked tokens, which the server also
 // returns for the record, are not among them.
 it('counts the live tokens it lists, not revoked ones', async () => {

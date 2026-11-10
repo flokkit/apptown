@@ -2,4 +2,9 @@
 /* Project overview: rows wrap their meta under the title on a phone. */
 .application-overview .card.row { flex-wrap: wrap; gap: 4px 12px; }
 .application-overview a.card.row { color: var(--text); }
+/* A project's latest releases: one run of "#N date" on a wide screen, one
+   release per line on a phone, so a date always sits with its number. */
+.release-strip { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); margin: 0; padding: 0; list-style: none; }
+.release-strip li { white-space: nowrap; }
+@media (width <= 800px) { .release-strip { flex-direction: column; } }
 }

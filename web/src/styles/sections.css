@@ -22,11 +22,13 @@
 
 /* A section's content sits on its own surface, one shade off the page: the
    heading stays on the page, so each block reads as one thing at a glance. */
-.section-body { margin-top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-section); padding: 2px 16px; }
+/* A section's panel is what its contents sit on: a table's scroll cue
+   covers its edges in the panel's colour, not the page's. */
+.section-body { --ground: var(--panel); margin-top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-section); padding: 2px 16px; }
 .section-body > .card { border-left: 0; border-right: 0; border-top: 0; border-radius: 0; margin-left: 0; margin-right: 0; }
 .section-body > .section-group:first-child { margin-top: 12px; }
 .section-body > p.muted { margin: 12px 0; }
-.section-action button.link { font-size: inherit; text-decoration: none; padding: 0; min-height: 0; color: var(--accent); }
+.section-action button.link { font-size: inherit; padding: 0; min-height: 0; color: var(--accent); }
 .section-body > table, .section-body > .table-wrap > table { width: calc(100% + 32px); margin: 0 -16px; }
 .section-body > table thead th:first-child, .section-body > table td:first-child { padding-left: 16px; }
 .section-body > table thead th:last-child, .section-body > table td:last-child { padding-right: 16px; }

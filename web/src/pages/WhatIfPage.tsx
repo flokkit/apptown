@@ -1,3 +1,4 @@
+import { usePageName } from '../chrome'
 import { FeatureOnly } from '../features'
 import './WhatIfPage.css'
 import { ListTable } from '../ListTable'
@@ -51,6 +52,9 @@ export default function WhatIfPage() {
   const [running, setRunning] = useState(true)
   const q = useGet<WhatIf>(`/conformance/what-if/${id}`, { poll: running ? 3000 : undefined })
   const w = q.data
+  // The what-if's own page is the parent of each project's result: its name,
+  // not its id, is the way back.
+  usePageName(`/conformance/what-ifs/${id}`, w ? `What-if: ${w.pack} v${w.version}` : undefined)
   if (w && running !== (w.state === 'queued' || w.state === 'running')) setRunning(!running)
   if (w && slug) {
     const p = w.projects.find(p => p.projectSlug === slug)

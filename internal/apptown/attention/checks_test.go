@@ -36,6 +36,18 @@ func TestAppChecksRenderOwnerSummaryFromOneBatch(t *testing.T) {
 	}
 }
 
+// One confirmed problem is said in the singular.
+func TestAppChecksCountConfirmedProblemsInWords(t *testing.T) {
+	t.Parallel()
+	for count, want := range map[int]string{1: "Calendar · app checks · 1 confirmed problem", 3: "Calendar · app checks · 3 confirmed problems"} {
+		owner := &checkEvidence{standing: []conformance.ProjectStanding{{ProjectID: idstest.N(1), Name: "Calendar", Slug: "calendar", Lanes: conformance.Lanes{Findings: count}}}}
+		got, err := (Checks{Conformance: owner}).Snapshot(t.Context(), nil)
+		if err != nil || len(got.Items) != 1 || got.Items[0].Title != want {
+			t.Errorf("%d findings: %+v %v, want %q", count, got.Items, err, want)
+		}
+	}
+}
+
 // The source row says when the apps were judged, by its oldest judgement, and
 // opens Conformance, where those judgements are listed.
 func TestAppChecksSourceIsAsOldAsItsOldestJudgementAndOpensConformance(t *testing.T) {

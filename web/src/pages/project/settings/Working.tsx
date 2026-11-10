@@ -1,3 +1,4 @@
+import { inlineCode } from '../../../LibraryRow'
 import { ListRow } from '../../../ListRow'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -229,7 +230,7 @@ function GivesRow({ title, summary, items, q, what }: {
       </>} detail={items.length > 0 && <ul className="wow-gives-list">
         {items.map((it) => <li key={it.key}>
           {it.to ? <Link to={it.to}>{it.label}</Link> : <span>{it.label}</span>}
-          {it.note && <span className="muted small"> · {it.note}</span>}
+          {it.note && <span className="muted small"> · {inlineCode(it.note)}</span>}
         </li>)}
       </ul>} />
   )

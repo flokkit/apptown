@@ -6,7 +6,7 @@ import { GuidanceBlock, post } from '../api'
 import { fmtSize, sizeTitle } from '../format'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import { LibraryRow, LibraryRows, firstSentence } from '../LibraryRow'
+import { LibraryRow, LibraryRows, firstSentence, inlineCode } from '../LibraryRow'
 import { MoreMenu } from '../MoreMenu'
 import type { GeneratedGuidance } from '../wire.gen'
 
@@ -31,7 +31,7 @@ export function GeneratedGuidance({ page = false }: { page?: boolean }) {
             purpose={`from ${g.source}`}
             state={<span className="muted small">{g.always ? 'every step' : 'some steps'} · <span title={sizeTitle(g.bytes)}>{fmtSize(g.bytes)}</span></span>}
             detail={page && name && <>
-              <pre className="log" style={{ whiteSpace: 'pre-wrap' }}>{(g.bodyMd ?? '').trim()}</pre>
+              <pre className="source">{(g.bodyMd ?? '').trim()}</pre>
               {g.note && <p className="muted small">{g.note}</p>}
             </>} />
         ))}
@@ -111,7 +111,7 @@ function GuidanceRow({ b }: { b: GuidanceBlock }) {
   return (
     <LibraryRow name={b.name.split('/').at(-1)!.replaceAll('-', ' ')} to={`/guidance/${b.id}`}
       badges={b.origin !== 'stock' && <span className="badge">yours</span>}
-      purpose={firstSentence(b.summary || 'No text yet')}
+      purpose={inlineCode(firstSentence(b.summary || 'No text yet'))}
       menu={b.id && <MoreMenu label={b.name} items={[
         { label: 'Open its page', hint: `Versions, projects using it${b.origin !== 'stock' ? ', and editing' : ''}.`, onClick: () => nav(`/guidance/${b.id}`) },
       ]} />}

@@ -78,9 +78,9 @@ function ProjectReviews({ slug }: { slug: string }) {
       {hist.length === 0 && <p className="muted small">No reviews yet.</p>}
       {hist.length > 0 && <ListTable className="small" label="Review history" rows={[...hist].reverse()} rowKey={h => String(h.reviewId)} columns={[
         { key: 'review', label: 'Review', phone: 'name', render: h => <Link to={`/conformance/reviews/${h.reviewId}/projects/${slug}`}>Review · {fmtWhen(h.at)}</Link> },
-        { key: 'findings', label: 'Findings', phone: 'state', kind: 'number', render: h => <><span className="record-phone">Findings: </span>{h.findings}</> },
-        { key: 'flagged', label: 'Possible problems', kind: 'number', render: h => <><span className="record-phone">Possible problems: </span>{h.flagged}</> },
-        { key: 'unassessed', label: 'Not judged', kind: 'number', render: h => <><span className="record-phone">Not judged: </span>{h.unassessed}</> },
+        { key: 'findings', label: 'Findings', phone: 'state', kind: 'number', render: h => h.findings },
+        { key: 'flagged', label: 'Possible problems', kind: 'number', render: h => h.flagged },
+        { key: 'unassessed', label: 'Not judged', kind: 'number', render: h => h.unassessed },
       ]} />}
     </Section>
   )

@@ -5,14 +5,16 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { font-size: var(--fs-base); margin: 0; background: var(--bg); color: var(--text); }
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-hover); text-decoration: underline; }
-/* The link ink is close to the body ink, so a link inside a sentence is
-   underlined to read as a link. A link that is itself the item (a row's
-   name, a table cell, a tab, navigation) is already marked as the item. */
-:where(p, li, dd, .muted, .small, .section-note, .section-action, .md, .md-doc) a:not([class]):not(:where(nav, td, th, .tabs, .list-identity) a),
-:where(.section-action) a {
+/* The link ink is close to the body ink, so a link is underlined to read as
+   a link wherever it sits. A link that is itself the item is already marked
+   as the item and is not: navigation, tabs, a list's name (the name cell of
+   a table, a project's name and mark, a library row's name, a row title set
+   in bold), a link drawn as a button or a card. Component rules that take
+   the underline off their own card-like links still apply. */
+a[href]:not(:where(.tab, .project-name, .project-mark-link, .pack-name, .record-name, .btn, .card, .list-identity a:has(> strong))):not(:where(nav, header, .topbar, .sidebar, .tabs, td.phone-name) a) {
   text-decoration-line: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 2px;
 }
-:where(p, li, dd, .muted, .small, .section-note, .section-action, .md, .md-doc) a:not([class]):hover { text-decoration-color: currentColor; }
+a[href]:hover { text-decoration-color: currentColor; }
 code, pre, kbd, samp { font-family: var(--font-mono); font-size: var(--fs-xs); }
 pre { max-width: 100%; overflow-x: auto; }
 /* A section reached by its #anchor lands below the fixed top bar. */

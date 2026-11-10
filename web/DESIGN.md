@@ -63,9 +63,12 @@ for actions.
 
 ## Links, buttons and code
 
-- **A link in a sentence is underlined.** The link ink is close to the body
-  ink, so words that open something carry an underline. A link that is
-  itself the item (a row's name, a table cell, a tab, navigation) is not.
+- **A link is underlined unless it is the item.** The link ink is close to
+  the body ink, so words that open something carry an underline, and so does
+  a `button.link`. A link that is itself the item is not: navigation, tabs, a
+  list's name (a table's name cell, `.project-name`, `.pack-name`, a row
+  title set in bold), a link drawn as a button or a card. The exceptions are
+  one selector in `styles/base.css`.
 - **Disabled is drawn by colour, never by fading** (`--disabled-*` tokens),
   so its words stay readable in both themes. Where the missing input is not
   the empty field right above, a muted line beside the button names it.
@@ -74,8 +77,15 @@ for actions.
 - **Code is shown whole on its own page, never in a summary.** Guides,
   workflow and policy source (`pre.source`) keep each line unwrapped and
   scroll sideways in their own box, with the scroll cue. A list row or
-  summary says what happened in words and links to the record. Short code
-  tokens in a sentence do not break. Diffs keep their phone wrapping.
+  summary says what happened in words and links to the record; a summary's
+  inline code keeps its backticks and is set as code (`inlineCode`). Short
+  code tokens in a sentence do not break; longer code, addresses, paths and
+  keys (`Tech`) break at their separators, not inside a word. Diffs keep
+  their phone wrapping.
+- **A row's action slot is there from the first paint.** A `ListTable`
+  action cell keeps the ⋯'s size (`--row-action-size`) whether or not its
+  menu has arrived, so a row does not grow when late reads answer.
+- **A choice's words stay beside its button,** wrapping in their own column.
 
 ## Tokens and CSS
 

@@ -141,6 +141,10 @@
   --cap-deployment: #2E8B67; --cap-previews: #3B72C4; --cap-work: #8A6BD1; --cap-apptown: #C2622F;
   --cap-other: #8A877C; --cap-host: #B9B5A9; --cap-free: var(--panel2, #E9ECED);
 }
+/* A row's action button (the ⋯) and the slot a list keeps for it: the
+   button's line, padding and border on a wide screen, a 44px target to tap. */
+:root { --row-action-size: calc(var(--fs-lg) + 10px); }
+@media (max-width: 800px), (pointer: coarse) { :root { --row-action-size: 44px; } }
 :root[data-size="small"] { font-size: 87.5%; }
 :root[data-size="large"] { font-size: 112.5%; }
 @media (prefers-color-scheme: dark) {

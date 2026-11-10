@@ -130,7 +130,7 @@ function WorkRecord({ view: v, trace, entry, technical, notes, section, artifact
     <section className="ch-change-card"><h2>What the agent was given</h2><table className="ch-facts-table"><tbody>
       <tr><th>Request</th><td>{firstLine(v.change.body || v.change.title)} <Link to={link('request')}>full request</Link><span className="small muted"> · Change request</span></td></tr>
       <tr><th>Instructions</th><td>{instructions.length ? instructions.map(a => <div key={a.id}><Link to={recordLink(a)}>{a.name}</Link></div>) : <span className="muted">not recorded</span>}</td></tr>
-      <tr><th>Pinned guidance</th><td>{guidance?.imports?.length ? guidance.imports.map(g => <div key={g.name}><Link to={`/guidance/${encodeURIComponent(g.name)}?version=${g.version}`}>{g.name} v{g.version}</Link></div>) : <span className="muted">not recorded</span>}</td></tr>
+      <tr><th>Pinned guidance</th><td>{guidance?.imports?.length ? guidance.imports.map(g => <div key={g.name}><Link to={`/guidance/${encodeURIComponent(g.name)}?version=${g.version}`}>{g.name}{'\u00a0'}v{g.version}</Link></div>) : <span className="muted">not recorded</span>}</td></tr>
       <tr><th>Workflow step</th><td>{[`${entry.detail.run.workflowName} v${entry.detail.run.workflowVersion}`, entry.step?.stage, entry.step?.name || 'run'].filter(Boolean).join(' · ')} <Link to={link('workflow')}>workflow text</Link></td></tr>
     </tbody></table></section>
     <section className="ch-change-card"><h2>The session</h2><p className="small muted">{fmtStamp(entry.at)}{entry.step?.finishedAt && ` → ${fmtStamp(entry.step.finishedAt)}`} · {entry.session || '—'}{!logs.length && ' · log not recorded'}</p>

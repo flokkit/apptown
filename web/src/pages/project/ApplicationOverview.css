@@ -6,10 +6,10 @@
 .application-overview-card > .list-state:empty, .application-overview-card > .list-action:empty, .application-finished > .list-state, .application-finished > .list-action { display: none; }
 .application-overview-card, .application-overview-link { gap: var(--space-2); padding-block: var(--space-3); }
 /* On a wide screen a row reads as one line, status first. On a phone the
-   shared row's stack applies: the title has the full width, the status
-   under it. */
-.application-overview-card > .list-identity { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+   shared row's stack applies: the title has the full width, its release
+   under it, then the status. */
 @media (width > 800px) {
+  .application-overview-card > .list-identity { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
   .application-overview-card { display: flex; }
   .application-overview-card > .list-identity { flex: 1; overflow-wrap: normal; min-width: min-content; max-width: 100%; }
   .application-overview-card > .list-state { order: -1; }
