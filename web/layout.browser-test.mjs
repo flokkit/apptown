@@ -342,7 +342,7 @@ try {
   page = await browser.newPage()
   page.on('console', m => consoleLines.push(`${m.type()}: ${m.text()}`))
   page.on('pageerror', e => consoleLines.push(`pageerror: ${e.message}`))
-  await page.route('http://layout.test/**', route => route.fulfill({ contentType: 'text/html', body: `<style>@layer tokens, base, components, pages, utilities; ${css}</style><div id="root"></div>` }))
+  await page.route('http://layout.test/**', route => route.fulfill({ contentType: 'text/html', body: `<style>@layer tokens, base, type, components, pages, utilities; ${css}</style><div id="root"></div>` }))
   await page.goto('http://layout.test/')
   await page.addScriptTag({ content: fixture.outputFiles[0].text })
   await page.getByRole('button', { name: 'Review change', exact: true }).waitFor()
@@ -616,7 +616,7 @@ try {
   // The existing visual viewport variables keep the composer in the shortened
   // keyboard viewport; controls retain touch targets rather than shrinking.
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.setContent(`<style>@layer tokens, base, components, pages, utilities; ${css}</style>
+  await page.setContent(`<style>@layer tokens, base, type, components, pages, utilities; ${css}</style>
     <div class="layout" style="--viewport-h:450px"><main class="main"><div class="console"><div class="console-controls controls-open"><div class="console-head"><h1>Change chat</h1><button>Open preview</button><button>Check and land</button><button>Restart preview</button></div></div><div class="chat-pane"><div class="chat-scroll" style="flex:1;min-height:0;overflow:auto">Conversation</div><div class="chat-input row"><textarea aria-label="Message"></textarea><button>Send</button></div></div></div></main></div>`)
   for (const size of ['small', 'medium', 'large']) {
     await page.evaluate(size => { document.documentElement.dataset.size = size }, size)

@@ -55,13 +55,13 @@ export function NewChangeButton({ slug, external, request }: { slug: string; req
               {START_OPTIONS.filter((l) => workflows.some((w) => w.name === l.wf)).map((l) => (
                 <label key={l.wf} className="row new-change-label">
                   <input type="radio" name="lane" checked={wf === l.wf} onChange={() => setWf(l.wf)} />
-                  <strong style={{ fontWeight: wf === l.wf ? 600 : 400 }}>{l.label}</strong>
+                  <span className={wf === l.wf ? 'text-name' : undefined}>{l.label}</span>
                   <span className="muted small">{l.hint}</span>
                 </label>
               ))}
               <label className="row new-change-label">
                 <input type="radio" name="lane" checked={wf === ''} onChange={() => setWf('')} />
-                <strong style={{ fontWeight: wf === '' ? 600 : 400 }}>Just open it</strong>
+                <span className={wf === '' ? 'text-name' : undefined}>Just open it</span>
                 <span className="muted small">no run yet; use the chat or a workflow later</span>
               </label>
               <label className="row new-change-new-change-button-label">

@@ -48,7 +48,7 @@ export function ActiveRunList({ runs, showProject, names = {} }: { runs: RunRow[
         // sits outside the row's link.
         const approval = hasDetails(r.waitingOn) && !!r.changeId
         const status = approval ? <WaitingStatus waiting={r.waitingOn} changeId={r.changeId} /> : <ChangeStatus waiting={r.waitingOn} />
-        const title = <strong>{r.changeNumber ? <span className="muted run-number">#{r.changeNumber} </span> : null}{r.title || `run ${r.runNumber}`}</strong>
+        const title = <strong>{r.changeNumber ? <span className="muted">#{r.changeNumber} </span> : null}{r.title || `run ${r.runNumber}`}</strong>
         const meta = <span className="muted small">{showProject ? `${names[r.project ?? ''] ?? r.project} · ` : ''}{relTime(r.startedAt)}</span>
         // A run with no change (a scheduled uplift, a system run) has no
         // page of its own — its one door is here: stop it.

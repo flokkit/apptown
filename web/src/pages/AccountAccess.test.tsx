@@ -118,3 +118,19 @@ it('tells two connections of the same agent apart, on a phone and when disconnec
     expect(document.body.textContent).toMatch(/Disconnect ChatGPT \(as sam, connected [^)]+\)/)
   } finally { act(() => root.unmount()); client.clear() }
 })
+
+// An agent's name is the agent and the person; the word joining them is
+// muted, so the Name role's weight leaves it regular.
+it('keeps the word joining an agent and its person out of the name weight', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ delegations: [
+    { id: 'one', clientName: 'Home Assistant', user: 'sam', scopes: ['apptown:user:read'], lastUsed: '', createdAt: '2026-11-09T09:40:00Z' },
+  ] }))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><AgentsCard canEdit={false} /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('td.phone-name')).not.toBeNull())
+    const name = el.querySelector('td.phone-name')!
+    expect([...name.childNodes].filter(n => n.nodeType === Node.TEXT_NODE && n.textContent!.trim()).map(n => n.textContent)).toEqual([])
+    expect(name.querySelector('.muted')?.textContent?.trim()).toBe('as')
+  } finally { act(() => root.unmount()); client.clear() }
+})

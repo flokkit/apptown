@@ -257,7 +257,7 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
                 <span>
                   <input aria-label={f.label} value={String(cfg[f.key] ?? '')} placeholder={f.placeholder}
                     onChange={(e) => setCfg({ ...cfg, [f.key]: e.target.value })}
-                    style={{ fontFamily: f.type === 'command' ? 'var(--font-mono)' : undefined }} className="connector-form-input" />
+                    className={f.type === 'command' ? 'connector-form-input text-code' : 'connector-form-input'} />
                   {f.help && <HelpButton about={f.label || f.key} guide="server-setup">{f.help}</HelpButton>}
                 </span>
               )}

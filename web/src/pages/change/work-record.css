@@ -8,7 +8,7 @@
 .work-mini button[aria-pressed=true] { background: var(--text); color: var(--bg); }
 .work-events { list-style: none; padding: 0; margin: 0; }
 .work-event { display: grid; grid-template-columns: 48px 76px minmax(0,1fr) 110px; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: var(--fs-xs); align-items: baseline; }
-.work-event strong { font-weight: 500; }
+.work-event strong { font-weight: var(--fw-medium); }
 .work-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .work-event pre, .work-full pre, pre.work-full { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-xs); max-height: none; }
 .work-event pre { margin: 6px 0; }

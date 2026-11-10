@@ -101,7 +101,7 @@ export default function DocsPage() {
           <nav className="conn-subnav docs-contents" aria-label="Contents">
             {manifest.groups.map((group) => (
               <div key={group.title} className="docs-group" role="group" aria-label={group.title}>
-                <div className="docs-group-title">{group.title}</div>
+                <div className="group-label docs-group-title">{group.title}</div>
                 {group.guides.map((g) => (
                   <button
                     key={g.slug}
@@ -113,7 +113,7 @@ export default function DocsPage() {
             ))}
             {manifest.integrations.length > 0 && (
               <div className="docs-group" role="group" aria-label="Integrations">
-                <div className="docs-group-title">Integrations</div>
+                <div className="group-label docs-group-title">Integrations</div>
                 {manifest.integrations.map((i) => (
                   <button
                     key={`${i.capability}-${i.provider}`}

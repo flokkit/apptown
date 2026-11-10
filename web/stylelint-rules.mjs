@@ -37,6 +37,21 @@ export default [
       if (bad) report(decl, `${prop}: use a custom property from styles/tokens.css`)
     })
   }),
+  // Type comes from tokens: a weight, family or font shorthand is a token or
+  // inherit, so the scale in tokens.css is the only place its values live.
+  plugin('apptown/type-values', (root, report) => {
+    if (root.source.input.file?.endsWith('/styles/tokens.css')) return
+    const token = { 'font-weight': /^--fw-/, 'font-family': /^--font-/, font: /^--(?:fs|font|fw|lh)-/ }
+    root.walkDecls(decl => {
+      const prop = decl.prop.toLowerCase()
+      if (!token[prop]) return
+      const nodes = valueParser(decl.value).nodes.filter(node => node.type !== 'space' && !(prop === 'font' && node.type === 'div' && node.value === '/'))
+      const ok = node => (node.type === 'word' && node.value.toLowerCase() === 'inherit')
+        || (node.type === 'function' && node.value === 'var' && node.nodes.length === 1 && token[prop].test(node.nodes[0].value))
+      const fits = prop === 'font' ? nodes.length > 0 && nodes.every(ok) : nodes.length === 1 && ok(nodes[0])
+      if (!fits) report(decl, `${prop}: use a type token from styles/tokens.css, or inherit`)
+    })
+  }),
   plugin('apptown/pixel-spacing', (root, report) => {
     if (root.source.input.file?.endsWith('/styles/tokens.css')) return
     root.walkDecls(decl => {

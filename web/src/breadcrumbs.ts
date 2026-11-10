@@ -97,6 +97,7 @@ export const PAGE_ROUTES = [
   "/evals/:id",
   "/docs",
   "/docs/:section/:slug",
+  "/text-roles",
 ] as const
 
 const LABELS: Record<string, string> = {

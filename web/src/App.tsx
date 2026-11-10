@@ -55,6 +55,7 @@ import InvitePage from './pages/Invite'
 // page's first load small. A tab left open across a deploy reloads once
 // rather than failing to find the previous build's chunk.
 const DocsPage = lazy(withChunkReload(() => import('./pages/Docs')))
+const TextRoles = lazy(withChunkReload(() => import('./pages/TextRoles')))
 const Console = lazy(withChunkReload(() => import('./pages/Console')))
 import { useProjectScope } from './projectScope'
 import { EvalScorecardPage, EvalStartPage, EvalsPage } from './pages/Evals'
@@ -371,6 +372,7 @@ export default function App() {
           <Route path="/evals/:id" element={<FeatureGate area="evals"><InstanceGate page="evals"><EvalScorecardPage /></InstanceGate></FeatureGate>} />
           <Route path="/docs" element={<CoreArea area="setup"><DocsPage /></CoreArea>} />
           <Route path="/docs/:section/:slug" element={<CoreArea area="setup"><DocsPage /></CoreArea>} />
+          <Route path="/text-roles" element={<CoreArea area="setup"><TextRoles /></CoreArea>} />
           <Route path="*" element={<CoreArea area="setup"><div><h1>Page not found</h1><p>This address does not identify a page. Release links include the project name.</p><Link to="/projects">Find your project</Link></div></CoreArea>} />
 
         </Routes>

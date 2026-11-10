@@ -14,7 +14,6 @@
 /* In its own section the panel is the box; the judging block adds none. */
 .check-judging .conformance-how-judged { padding: 0; background: none; }
 .remediation-list-link { display: block; }
-.remediation-number { font-weight: 400; }
 .review-list-row, .fixed-list-row { display: block; }
 .review-list-row > .list-state, .review-list-row > .list-action, .fixed-list-row > .list-state, .fixed-list-row > .list-action, .remediation-item-row > .list-state { display: none; }
 .review-fixed { color: var(--ok); }

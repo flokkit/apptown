@@ -12,6 +12,7 @@
   flex-shrink: 0;
 }
 .icon-tile-glyph { background: var(--panel2); }
+.icon-letter { font-weight: var(--fw-strong); color: var(--muted); }
 
 /* Integrations: one ruled sheet listing every service, grouped by kind;
    each opens its own page (pages/Integrations.tsx). */

@@ -53,7 +53,7 @@ export function Screenshots({ shots, head, at, hero = false }: { hero?: boolean;
   const cmp = sameCommitWords(shots.commit, head)
   return (
     <div className={hero ? "ch-shots ch-shots-hero" : "ch-shots"}>
-      {!hero && <div className="ch-label">What the preview looked like</div>}
+      {!hero && <div className="group-label ch-label">What the preview looked like</div>}
       {taken.length > 0 && (
         <>
           <div className={hero && cmp.kind === 'same' ? "ch-shot-provenance muted small" : "muted small"}>

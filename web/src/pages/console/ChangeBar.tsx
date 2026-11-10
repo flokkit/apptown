@@ -68,7 +68,7 @@ export function WorkshopActions({ changeId, view, robotBusy, sessionId, hideRest
     return (
       <div className="workshop-actions">
         <Link to={`/changes/${changeId}`}>
-          <button className="finish robot-busy" style={{ fontWeight: 700 }}>Review and approve →</button>
+          <button className="finish robot-busy">Review and approve →</button>
         </Link>
         <span className="small">waiting for a person to approve</span>
       </div>

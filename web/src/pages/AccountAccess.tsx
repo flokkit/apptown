@@ -59,7 +59,7 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
             { key: 'action', label: '', phone: 'action', render: d => <CredentialConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user}, connected ${fmtStamp(d.createdAt ?? '')})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },
           ]} /> : <section><h3>Connections and permissions</h3>
       <ListTable className="small" label={`${newest.clientName} connections and permissions for ${newest.user}`} rows={connections} rowKey={d => String(d.id)} columns={[
-        { key: 'client', label: 'Agent', phone: 'name', render: d => <><span className="badge">{d.clientName}</span> as <b>{d.user}</b></> },
+        { key: 'client', label: 'Agent', phone: 'name', render: d => <><span className="badge">{d.clientName}</span><span className="muted"> as </span><b>{d.user}</b></> },
         { key: 'permissions', label: 'Permissions', render: d => <><span>{d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span><code className="tech-line muted"><Tech>{d.scopes.join(', ')}</Tech></code></> },
         { key: 'connected', label: 'Connected', render: d => fmtStamp(d.createdAt) },
         { key: 'used', label: 'Last used', kind: 'time', render: d => d.lastUsed ? fmtStamp(d.lastUsed) : '' },

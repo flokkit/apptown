@@ -12,11 +12,7 @@
 .ch-title-row h1 { margin: 0; overflow-wrap: anywhere; font-size: var(--fs-xl); }
 .ch-meta { font-size: var(--fs-base); color: var(--muted); }
 .ch-oneline { font-size: var(--fs-base); color: var(--text); max-width: 900px; }
-.ch-label-inline {
-  display: inline-block; min-width: 72px; margin-right: 8px;
-  font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--subtle); text-transform: uppercase; letter-spacing: 0.06em;
-}
-.ch-label { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--subtle); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.ch-label { margin-bottom: 4px; }
 
 /* The state: a sheet with a dot, a headline, who it waits on, one primary act. */
 .ch-state {
@@ -184,7 +180,7 @@
 .ch-receipt[open] > summary { margin-bottom: 0; }
 .check-heading .check-title { display: grid; grid-template-columns: 8px minmax(0, 1fr); align-items: baseline; gap: 8px; white-space: normal; }
 
-.ch-mark { font-weight: 600; }
+.ch-mark { font-weight: var(--fw-strong); }
 .ch-mark.ok { color: var(--ok); }
 .ch-mark.bad { color: var(--bad); }
 .ch-mark.warn { color: var(--warn); }

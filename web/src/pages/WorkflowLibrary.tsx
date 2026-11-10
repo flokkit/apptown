@@ -91,8 +91,7 @@ export default function WorkflowLibrary({ page = false }: { page?: boolean }) {
             <strong>Custom workflow</strong>
             <span className="muted small">Stock names are read-only.</span>
           </div>
-          <textarea aria-label="Workflow YAML" wrap="off" rows={Math.min(30, Math.max(8, editor.yaml.split('\n').length + 1))} value={editor.yaml} onChange={(e) => setEditor({ yaml: e.target.value })}
-            style={{ width: '100%', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }} />
+          <textarea aria-label="Workflow YAML" wrap="off" rows={Math.min(30, Math.max(8, editor.yaml.split('\n').length + 1))} value={editor.yaml} onChange={(e) => setEditor({ yaml: e.target.value })} />
           {saveErr && <div className="error" style={{ marginTop: 6 }}>{saveErr}</div>}
           <div className="row mt-2" >
             <button className="primary" disabled={saving} onClick={() => void saveCustom()}>Save</button>

@@ -103,8 +103,8 @@
 .deploy-stages li { display: grid; grid-template-columns: 1.5em minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 24px; }
 .deploy-stage-mark { display: flex; justify-content: center; }
 .deploy-stages li:has(.deploy-stage-mark.ok) { color: var(--text); }
-.deploy-stages [aria-current="step"] { color: var(--text); font-weight: 600; }
-.deploy-stages small { font-weight: 400; font-size: var(--fs-sm); }
+.deploy-stages [aria-current="step"] { color: var(--text); font-weight: var(--fw-strong); }
+.deploy-stages small { font-weight: var(--fw-regular); font-size: var(--fs-sm); }
 .deploy-stages .ok { color: var(--ok); }
 .deploy-stages .busy { color: var(--busy); }
 .deploy-stages .bad { color: var(--bad); }

@@ -87,9 +87,9 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
           {steering && (
             <>
               <p className="muted small mt-0" >{steering.note}</p>
-              <div className="small complaints-div-2">Given to every workflow step:</div>
+              <div className="small text-name">Given to every workflow step:</div>
               <pre className="complaints-pre">{steering.step.trim()}</pre>
-              <div className="small mt-2 complaints-div-2">Given to every chat session (inside its ground rules):</div>
+              <div className="small mt-2 text-name">Given to every chat session (inside its ground rules):</div>
               <pre className="complaints-pre">{steering.console.trim()}</pre>
             </>
           )}

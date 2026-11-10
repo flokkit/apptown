@@ -25,6 +25,10 @@ class CSSCheckTest(unittest.TestCase):
     def test_nested_rules_and_quoted_braces_pass(self):
         self.assertEqual(self.check('/* why */ @layer components { @media (width < 800px) { .a::after { content: "}"; } } }'), [])
 
+    def test_the_type_layer_is_declared_between_base_and_components(self):
+        self.assertEqual(self.check('@layer type { h2 { font-size: var(--fs-lg); } }'), [])
+        self.assertIn("base, type, components", checker.LAYERS)
+
     def test_unlayered_rules_fail(self):
         for css in ['.a {}', '@layer components { .a {} } .b {}', '.a {} @layer pages {}', '@layer pages {} @layer base {}', '@layer other {}', '@layer pages {']:
             with self.subTest(css=css):

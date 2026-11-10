@@ -218,7 +218,7 @@ export default function Dashboard() {
           status chip would say nothing. */}
       {finished.length > 0 && <Section title="Recently landed" label="Recently landed">
         {finished.slice(0, 5).map(c => (
-          <ListRow key={c.changeId} to={`/changes/${c.changeId}`} className="card row dashboard-card" identity={<><Link to={`/changes/${c.changeId}`} className="run-link"><strong>{c.changeNumber ? <span className="muted dashboard-span">#{c.changeNumber} </span> : null}{c.title}</strong></Link>
+          <ListRow key={c.changeId} to={`/changes/${c.changeId}`} className="card row dashboard-card" identity={<><Link to={`/changes/${c.changeId}`} className="run-link"><strong>{c.changeNumber ? <span className="muted">#{c.changeNumber} </span> : null}{c.title}</strong></Link>
             <span className="muted small">{projectNames[c.project ?? ''] ?? c.project} · {relTime(c.when)}</span></>} />
         ))}
       </Section>}

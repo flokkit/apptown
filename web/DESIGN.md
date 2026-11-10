@@ -99,7 +99,7 @@ Use named depth roles (`--z-base`, `--z-sticky`, `--z-topbar`, `--z-popover`,
 Responsive widths are 600px and 800px, mirrored in `src/chrome.ts`;
 use `(width > 800px)` for the desktop complement.
 
-`src/layers.css` declares tokens, base, components, pages and utilities.
+`src/layers.css` declares tokens, base, type, components, pages and utilities.
 Shared CSS lives by owner in `src/styles/`; page CSS uses the pages layer.
 Keep phone rules beside their desktop rules. Every source stylesheet wraps
 its rules in one declared layer and stays within 400 lines. Xterm's external
@@ -110,9 +110,39 @@ anchors, not selectors. Specificity stays at or below `0,5,3`. Colours, radius,
 font size and z-index use custom properties outside `tokens.css`. Existing
 `!important` and pixel-spacing debt is counted per file in `css-baseline.json`;
 remove debt and lower its entry together. New files have no allowance.
+A font weight, font family or `font` shorthand is a type token or `inherit`
+(`apptown/type-values`, counted the same way).
 Exceptions are zero, auto, inherit, currentColor, transparent, hairlines and
 border widths, circle radii (50% or 999px), and safe-area or viewport arithmetic.
 Do not copy pixel spacing, add importance or raise a baseline to pass.
+
+## Text roles
+
+Text is set by role. `src/styles/typography.css`, in the type layer, maps
+elements to roles and defines each role's class, built only from type tokens;
+`.small` and `.muted` stay in `text.css`.
+
+| Role | Class | Elements | Used for |
+| --- | --- | --- | --- |
+| Page title | `.text-title` | `h1` | the page's name |
+| Section heading | `.text-heading` | `h2` | a section or dialog title |
+| Subheading | `.text-subheading` | `h3`–`h6` | a heading inside a section or card |
+| Name | `.text-name` | `strong`, `b` | a record's name in a row (in a `ListTable` name cell and a `ListRow` alike), and emphasis |
+| Body | `.text-body` | `body`; family and weight of controls | running text, buttons, fields |
+| Label | `.text-label` | `th`, `dt` | a column head, a fact's name, a phone row's value label |
+| Group label | `.group-label` | | the uppercase label over a group of rows |
+| Small | `.small` | | meta lines and hints |
+| Muted | `.muted` | | secondary words; regular weight inside a heading or a name |
+| Code | `.text-code` | `code`, `pre`, `kbd`, `samp`; family of `textarea` | commands, keys, source, paths |
+
+Use an element or a role class rather than setting type in a component. A
+component may adjust a role with tokens only, for a state or a part of
+itself. Literal type values live only in `tokens.css`. Form control sizes and
+a button's line height stay with the controls in `forms.css`, so a phone
+field keeps its no-zoom size. Inline styles do not set weight, family or a
+literal ink or size; `make check-web-inline-style` counts them per file.
+Every role is shown at `/text-roles`, which the camera captures in every
+width, text size and theme; a role change shows up there.
 
 ## Checking appearance
 

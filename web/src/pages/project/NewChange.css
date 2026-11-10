@@ -1,7 +1,7 @@
 @layer pages {
 
 .new-change-new-change-button-subtle { font-size: var(--fs-sm); }
-.new-change-new-change-button-div { font-size: var(--fs-base); font-weight: normal; }
+.new-change-new-change-button-div { font-size: var(--fs-base); font-weight: var(--fw-regular); }
 .new-change-new-change-button-div-2 { margin-top: calc(var(--space-1) * 2.5); }
 .new-change-new-change-button-div-3 { margin-bottom: calc(var(--space-1) * 1.5); }
 .new-change-label { gap: var(--space-2); padding: calc(var(--space-1) * 0.75) 0; cursor: pointer; }

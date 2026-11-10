@@ -1,0 +1,47 @@
+@layer type {
+/* Text roles. Every kind of text the app sets is one of these roles, applied
+   by element or by class, and built only from the type tokens. The layer
+   comes after base and before components: a component may adjust a role with
+   tokens (a state, a part of itself), never with literal values. The roles
+   are listed with samples on /text-roles (pages/TextRoles.tsx, textRoles.ts).
+   Form controls take their family and weight here; their sizes and a
+   button's line height stay with the controls in forms.css. */
+
+/* Page title: the page's name. */
+h1, .project-heading, .text-title {
+  font-family: var(--font-heading); font-size: var(--fs-xl); font-weight: var(--fw-strong);
+  line-height: var(--lh-tight); letter-spacing: var(--ls-title); color: var(--text);
+}
+/* Section heading. */
+h2, .text-heading {
+  font-family: var(--font-heading); font-size: var(--fs-lg); font-weight: var(--fw-strong);
+  line-height: var(--lh-tight); color: var(--text);
+}
+/* Subheading: a heading inside a section or card. */
+h3, h4, h5, h6, .text-subheading {
+  font-family: var(--font-heading); font-size: var(--fs-base); font-weight: var(--fw-strong); color: var(--text);
+}
+/* Name: a record's name in a row, and emphasis in a sentence. It keeps the
+   size around it; bold is the strong weight, not the browser's 700. */
+strong, b, .text-name { font-weight: var(--fw-strong); }
+/* Body: running text, and the family and weight of controls. */
+body, .text-body {
+  font-family: var(--font-sans); font-size: var(--fs-base); font-weight: var(--fw-regular);
+  line-height: var(--lh-body); color: var(--text);
+}
+button, input, select, textarea.prose { font-family: var(--font-sans); font-weight: var(--fw-regular); }
+/* Label: a column head, a fact's name, a phone row's value label
+   (list-table.css draws that one from the same tokens). */
+th, dt, .text-label { font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: var(--fw-regular); color: var(--muted); }
+/* Group label: the label over a group of rows. */
+.group-label {
+  font-family: var(--font-sans); font-size: var(--fs-xs); font-weight: var(--fw-strong);
+  letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--muted);
+}
+/* Muted words beside a heading or a name (a count, a #number) are quiet:
+   the muted ink at the regular weight. .muted and .small are in text.css. */
+:where(h1, h2, h3, h4, h5, h6, strong, b, .text-name, .record-table td.phone-name) .muted { font-weight: var(--fw-regular); }
+/* Code: commands, keys, source, paths. */
+code, pre, kbd, samp, .text-code { font-family: var(--font-mono); font-size: var(--fs-xs); }
+textarea, input.text-code { font-family: var(--font-mono); }
+}

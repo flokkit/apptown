@@ -14,7 +14,6 @@
 .run-list-row > .list-state:empty, .run-list-row > .list-action:empty { display: none; }
 .run-link { color: inherit; text-decoration: none; }
 .run-link:hover { text-decoration: underline; }
-.run-number { font-weight: 400; }
 .run-stop { gap: calc(var(--space-1) * 1.5); }
 @media (width <= 600px) {
   .run-list-row:has(> .list-state:not(:empty)) { grid-template-columns: minmax(0, 1fr) max-content; }

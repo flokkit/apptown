@@ -5,7 +5,7 @@
 .secrets-profile select { padding: 2px 6px; min-height: 0; height: auto; font-size: var(--fs-sm); }
 .secret-what { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
 .secret-acts { flex: 0 0 11em; gap: 6px; align-items: center; }
-.section-head h2 .status-help, .section-head h2 .chip { font-size: var(--fs-sm); font-weight: 400; }
+.section-head h2 .status-help, .section-head h2 .chip { font-size: var(--fs-sm); font-weight: var(--fw-regular); }
 .member-row .member-who { flex: 0 0 12em; min-width: 0; overflow-wrap: anywhere; }
 .member-row .member-roles { flex: 1; min-width: 0; }
 .member-manage { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }

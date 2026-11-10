@@ -9,7 +9,7 @@
 .deployment-not-deployed p { margin: 0; }
 .deployment-latest-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); padding-block: var(--space-2); }
 .deployment-latest-failure { flex-basis: 100%; color: var(--muted); font-size: var(--fs-sm); }
-.deployment-runtime-actions { font-size: var(--fs-base); font-weight: normal; max-width: 100%; }
+.deployment-runtime-actions { font-size: var(--fs-base); font-weight: var(--fw-regular); max-width: 100%; }
 /* On a phone the ⋯ stays beside the title; Stop and Restart take the line
    under the facts, rather than the ⋯ getting a line of its own. */
 @media (max-width: 800px) {
