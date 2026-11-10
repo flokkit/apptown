@@ -116,11 +116,11 @@ func (s *Service) RequestDrill(ctx context.Context, projectID ids.ID, name strin
 }
 
 // copyAdmission is why a copy of the deployment's data cannot start now,
-// nil when it can. A Docker host's deployment is copied by its backups,
-// not by a copy operation.
+// nil when it can. A deployment whose backups AppTown takes itself is
+// copied by those backups, not by a copy operation.
 func (s *Service) copyAdmission(ctx context.Context, t *deployment.Target, items []backupPlanItem) error {
 	if t.HoldsBackups() == nil {
-		return errDockerBackupsPage
+		return backupsPage(t)
 	}
 	return s.ready(ctx, t, items)
 }

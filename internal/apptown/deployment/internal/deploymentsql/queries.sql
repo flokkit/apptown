@@ -668,8 +668,11 @@ SELECT * FROM releases WHERE id=sqlc.arg(id);
 SELECT * FROM release_bundles WHERE project_id=sqlc.arg(project_id) ORDER BY id DESC;
 
 -- name: EarlierReleaseForBundle :one
+-- An earlier release of this bundle, when the deployment's latest released
+-- release runs another bundle: deploying it goes back to that release.
+-- Releasing the bundle already running again is not a return to anything.
 SELECT r.* FROM releases r WHERE r.deployment_id=sqlc.arg(deployment_id) AND r.bundle_id=sqlc.arg(bundle_id) AND r.state='released'
-AND r.number < (SELECT max(latest.number) FROM releases latest WHERE latest.deployment_id=r.deployment_id AND latest.state='released')
+AND (SELECT latest.bundle_id FROM releases latest WHERE latest.deployment_id=r.deployment_id AND latest.state='released' ORDER BY latest.number DESC LIMIT 1) IS DISTINCT FROM r.bundle_id
 ORDER BY r.number DESC LIMIT 1;
 
 -- name: SetRuntimeState :execrows

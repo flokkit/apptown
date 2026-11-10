@@ -399,6 +399,26 @@ func TestFlyProtectionReadsTheStoreRequirementAndKeepDataMeaning(t *testing.T) {
 	}
 }
 
+// A Fly deployment's page names where it runs from its target's own
+// description, not a Docker host's or App Platform's words: the doors that
+// do not apply there say why in terms of this deployment.
+func TestFlyProtectionNamesFlyNotADockerHost(t *testing.T) {
+	w := newFlyDataWorld(t)
+	collectProtectionForTest(t, w.s, w.project, "prod")
+	p, err := w.s.DeploymentProtection(t.Context(), w.project, "prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Operations == nil || p.Operations.Copy.Reason != "backups-page" || p.Operations.Copy.Why != "A deployment on fly-syd (Fly.io Machines) is backed up daily and from the Backups page." {
+		t.Fatalf("copy: %+v", p.Operations)
+	}
+	for what, said := range map[string]string{"copy": p.Operations.Copy.Why, "check": p.Operations.Check.Why, "restore": p.Operations.Restore.Why, "restore test": p.RestoreTestNote} {
+		if said == "" || strings.Contains(said, "Docker host") {
+			t.Errorf("%s says %q on a Fly deployment", what, said)
+		}
+	}
+}
+
 func TestFlyCanKeepDataWhenItsNeedCannotBeCopiedEvenWithAStore(t *testing.T) {
 	w := newFlyDataWorld(t)
 	w.attach(t)

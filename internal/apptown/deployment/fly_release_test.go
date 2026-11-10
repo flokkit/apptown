@@ -119,6 +119,33 @@ func TestAFlyReleaseOfADeploymentNotForThePublicIsRefusedBeforeFlyIsAsked(t *tes
 	}
 }
 
+// A deployment that has run keeps its audience: making it public is a
+// migration the owner refuses. Its refusal names a step the person can
+// take instead of the edit that would be refused.
+func TestAFlyRefusalForADeploymentThatHasRunNamesANewPublicDeployment(t *testing.T) {
+	t.Parallel()
+	p := newPromotionTargets(t, false)
+	b := p.land(t)
+	target := p.target(t, "fly-syd")
+	team := Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}
+	dep, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "web", target.ID, team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := p.s.Outcomes.Admit(t.Context(), Start{DeploymentID: dep.ID, TargetID: target.ID, Key: "before-the-rule", Inputs: Inputs{Revision: "earlier"}}); err != nil {
+		t.Fatal(err)
+	}
+	public := team
+	public.Audience = "public"
+	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "web", target.ID, public); err == nil {
+		t.Fatal("an admitted deployment was made public in place; the refusal's premise is gone")
+	}
+	_, err = p.s.RequestRelease(context.Background(), DeploySelection{ProjectID: p.project, DeploymentName: "web", BundleID: b.ID})
+	if !errors.Is(err, ErrReleaseRefused) || strings.Contains(err.Error(), "set this deployment's audience to public") || !strings.Contains(err.Error(), "make a new public deployment of this project on fly-syd") {
+		t.Fatalf("refusal: %v", err)
+	}
+}
+
 // Why a Fly deployment gets no backup set before a release is said as it
 // is: in this slice it holds no data AppTown backs up; it does not keep
 // backups of its own. App Platform's sentence names its copy operations.

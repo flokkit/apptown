@@ -3,6 +3,8 @@ package deployment
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -131,6 +133,10 @@ func TestPairedRollbackChecksAuthorityAndApprovalBeforeRestoreAndReportsStoppedF
 				}
 			} else if err != nil || got.State != Released {
 				t.Fatalf("pair: %+v %v", got, err)
+			} else if events, e := w.s.Releases.Events(t.Context(), admitted.ID); e != nil || len(events) == 0 || !slices.ContainsFunc(events, func(ev ReleaseEvent) bool {
+				return strings.HasPrefix(ev.Text, fmt.Sprintf("rollback to before release %d: deploys release %d again", first.Number, first.Number))
+			}) {
+				t.Fatalf("a chosen rollback does not say so: %v %v", events, e)
 			}
 		})
 	}
@@ -237,5 +243,48 @@ func TestFailedReleaseCanBeRetriedWithCurrentAuthorityAndApproval(t *testing.T) 
 				}
 			})
 		}
+	}
+}
+
+// Releasing by hand the bundle the deployment already runs is a release,
+// not a return to an earlier one: nothing records or says a rollback.
+// Choosing an earlier release says what it does: deploys it again.
+func TestReleasingTheRunningBundleAgainIsNotARollback(t *testing.T) {
+	t.Parallel()
+	w := newDigestWorld(t, "", nil)
+	b := w.publish(t)
+	var last *Release
+	for range 3 {
+		rel, err := w.promote(t, b.ID, "staging", w.lab)
+		if err != nil {
+			t.Fatal(err)
+		}
+		last = rel
+	}
+	if !last.RollbackOf.IsZero() {
+		t.Fatalf("a release of the running bundle recorded a rollback of %v", last.RollbackOf)
+	}
+	events, err := w.s.Releases.Events(t.Context(), last.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range events {
+		if strings.Contains(e.Text, "rollback") || strings.Contains(e.Text, "again") {
+			t.Fatalf("a release of the running bundle says %q", e.Text)
+		}
+	}
+	chosen, err := w.s.RequestRelease(t.Context(), DeploySelection{ProjectID: w.project, DeploymentName: "staging", ReleaseNumber: last.Number})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if events, err = w.s.Releases.Events(t.Context(), chosen.ID); err != nil {
+		t.Fatal(err)
+	}
+	said := ""
+	for _, e := range events {
+		said += e.Text + "\n"
+	}
+	if !strings.Contains(said, fmt.Sprintf("deploys release %d again", last.Number)) || strings.Contains(said, "rollback") {
+		t.Fatalf("a chosen release says:\n%s", said)
 	}
 }

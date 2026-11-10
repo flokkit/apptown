@@ -518,18 +518,24 @@ const nativeReadFor = 5 * time.Minute
 // Provider backup readings have one freshness budget in detail and coverage.
 const nativeStaleAfter = 15 * time.Minute
 
-// Words for a Docker host's deployment's operations that run elsewhere,
-// and for the operations only App Platform has so far.
+// Words for the operations of a deployment whose backups AppTown takes
+// itself (a Docker host, a Portainer environment, Fly.io Machines) that
+// run elsewhere, and for the operations only App Platform has so far.
+// The target is named by its own description, so a new kind needs no
+// sentence of its own here.
 var (
-	// errDockerBackupsPage: a Docker host's deployment is copied by its
-	// backups, from the Backups page, not by a copy operation.
-	errDockerBackupsPage error = &deployment.Unavailable{Reason: "backups-page", Why: "A Docker host's deployment is backed up daily and from the Backups page."}
 	// errDrillAppPlatform: a check fills a new database the provider makes.
-	errDrillAppPlatform error = &deployment.Unavailable{Reason: "not-on-this-platform", Why: "Checks run on App Platform only; a rehearsal checks a Docker host's copies."}
+	errDrillAppPlatform error = &deployment.Unavailable{Reason: "not-on-this-platform", Why: "Checks run on App Platform only; a rehearsal checks this deployment's backups."}
 	// errRestoreTestAppPlatform: a restore test runs behind a gate only
 	// App Platform places so far.
-	errRestoreTestAppPlatform error = &deployment.Unavailable{Reason: "not-on-this-platform", Why: "Restore tests run on App Platform only; a rehearsal checks a Docker host's copies."}
+	errRestoreTestAppPlatform error = &deployment.Unavailable{Reason: "not-on-this-platform", Why: "Restore tests run on App Platform only; a rehearsal checks this deployment's backups."}
 )
+
+// backupsPage is why a deployment whose backups AppTown takes itself is
+// copied by those backups, from the Backups page, not by a copy operation.
+func backupsPage(t *deployment.Target) error {
+	return &deployment.Unavailable{Reason: "backups-page", Why: fmt.Sprintf("A deployment on %s (%s) is backed up daily and from the Backups page.", t.Name, deployment.DescribeTarget(t).Title)}
+}
 
 // onAppTownDiskNote is what a Docker host's deployment says first when no
 // store is attached: where its backups are and what that does not cover,
@@ -651,7 +657,7 @@ func (s *Service) dockerProtectionFromPlan(ctx context.Context, out *Protection,
 	}
 	out.Operations = ops
 	if out.RestoreTest == nil {
-		out.RestoreTestNote = "App Platform only; a rehearsal checks a Docker host's copies"
+		out.RestoreTestNote = "App Platform only; a rehearsal checks this deployment's backups"
 	}
 	return nil
 }
