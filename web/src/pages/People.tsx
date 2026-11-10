@@ -211,9 +211,12 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
   const reset = useAction(undefined, { affects: ['/invites'] })
   // One row per account: name and role, then when they were last seen and
   // the one ⋯ control, as on every row. On a phone it is two lines.
-  const manage = (u: Account) => canEdit && <FormMenu className="account-actions" closeOnAction={false} trigger={<button className="subtle more-menu-button" aria-label={`Actions for ${u.username}`}>⋯</button>}>
+  const manage = (u: Account) => canEdit && <FormMenu className="account-actions" closeOnAction={false} title={u.username} trigger={<button className="subtle more-menu-button" aria-label={`Actions for ${u.username}`}>⋯</button>}>{(close: () => void) => <>
 
         <div className="account-action-list">
+        {/* An account write's failure shows here too: on a phone these
+            actions are a dialog over the page that shows it. */}
+        {actionError && <p className="error small">{actionError}</p>}
         <label>Role                 {canEdit ? (
                   <select value={u.role}
                     onChange={e => act(() => post('/users', { username: u.username, role: e.target.value }))}>
@@ -232,6 +235,10 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
                     onYes={async () => {
                       const r = await reset.run(() => post<InviteLink>('/password-links', { username: u.username }))
                       if (r) setResetLink(r)
+                      // The link (shown once) or why none was made is on the
+                      // page: close the actions so it is in view, not behind
+                      // a phone's dialog.
+                      close()
                     }} />
                 )}
                 {canEdit && (u.hasPassword || u.acted) && !sso && (
@@ -260,7 +267,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
           <QuietConfirm label="remove" ask={`Remove the name ${u.username}? Its grants, tokens and invites are revoked; the record keeps its history.`}
             onYes={() => act(() => del(`/users/${encodeURIComponent(u.username)}`))} />
         </>}
-      </FormMenu>
+      </>}</FormMenu>
   const accountRows = <ListTable label="Accounts" className="people-accounts" rows={accounts} rowKey={u => u.username} rowTo={detail ? undefined : u => `/people/accounts/${encodeURIComponent(u.username)}`} columns={[
     { key: 'name', label: 'Name', phone: 'name', render: u => <Link to={`/people/accounts/${encodeURIComponent(u.username)}`}>{u.username}</Link> },
     { key: 'role', label: 'Role', render: u => u.role === 'admin' ? 'Admin' : 'Member' },

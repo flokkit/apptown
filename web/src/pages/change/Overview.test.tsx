@@ -815,6 +815,22 @@ it('puts a shipped change\'s Release row before its Preview row', () => {
   expect(labels.filter(l => l === 'Release')).toHaveLength(1)
 })
 
+// A change whose release went out is tried there: the Preview row keeps its
+// record and logs link but offers no try-it button. One whose release did
+// not go out, or that has none, still offers the landed commit's preview.
+it('offers no preview to try once the change\'s release went out', () => {
+  const live = landingResult('pass')
+  live.detail!.steps.push(step('preview', 'pass', { screenshots: { shots: [], unavailable: 'No capture was recorded.' } }, { id: 'boot', runId: 'preview-run' }))
+  const el = document.createElement('div'); el.innerHTML = render(live)
+  const preview = [...el.querySelectorAll('.ch-overview-line')].find(row => row.querySelector('.ch-row-label')?.textContent === 'Preview')!
+  expect(preview.textContent).toContain('No capture was recorded.')
+  expect(preview.querySelector('a[href*="/records/preview"]')).not.toBeNull()
+  expect(el.textContent).not.toContain('Open it and try it')
+  expect(render(landingResult('fail'))).toContain('Open it and try it')
+  const unreleased = landingResult('pass'); unreleased.evidence!.landingReleases = []
+  expect(render(unreleased)).toContain('Open it and try it')
+})
+
 it.each(['pass', 'fail'] as const)('keeps an unheld %s landing in the fixed Release row without a scene', status => {
  const el = document.createElement('div'); el.innerHTML = render(landingResult(status))
  expect(el.querySelector('.ch-deploy-result')).toBeNull()

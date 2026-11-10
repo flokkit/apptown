@@ -344,6 +344,9 @@ it('deletes an eval only after in-page confirmation, with a cancellation path', 
   const button = (text: string) => [...r.el.querySelectorAll('button')].find(b => b.textContent === text)!
   try {
     await r.settle(() => !!button('Delete this eval'))
+    // Who may delete is said as a sentence, not a fragment beside the button.
+    expect(r.el.textContent).toContain('The person who started it can delete it while they manage packs, as can an administrator.')
+    expect(r.el.textContent).not.toContain('its starter, while managing packs')
     await act(async () => button('Delete this eval').click())
     expect(r.el.textContent).toContain('Its arms stop and its copies are deleted')
     expect(calls).toEqual([])

@@ -17,8 +17,6 @@ import { OUTCOME_ORDER, OUTCOME_WORDS } from './WhatIfPage'
 export function WhatIfPanel({ pack, version }: { pack: string; version: number }) {
   const q = useGet<LatestWhatIf>(`/conformance/what-if?pack=${encodeURIComponent(pack)}&version=${version}`, { poll: 3000 })
   const [choosing, setChoosing] = useState(false)
-  const fleetQ = useGet<FleetView>(choosing ? '/wow' : null)
-  const projectsQ = useGet<ProjectRow[]>(choosing ? '/projects' : null)
   const { run, busy, err: actErr } = useAction(q.reload)
   const [added, setAdded] = useState<string[]>([])
   const [left, setLeft] = useState<string[]>([])
@@ -33,8 +31,14 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
   const also = ownPacks ? offered : []
   const alsoParam = also.map((a) => `${a.pack}@${a.version}`).join(',')
   const alsoQ = useGet<LatestWhatIf>(also.length > 0 ? `/conformance/what-if?pack=${encodeURIComponent(pack)}&version=${version}&also=${encodeURIComponent(alsoParam)}` : null)
-  const err = firstErr(actErr, q.err, fleetQ.err, alsoQ.err)
   const eligible = (also.length > 0 ? alsoQ.data?.eligible : q.data?.eligible) ?? null
+  // Who could be asked about is read while choosing, and when none is
+  // eligible, so the panel offers asking only when there is someone to ask
+  // about.
+  const askable = choosing || eligible?.length === 0
+  const fleetQ = useGet<FleetView>(askable ? '/wow' : null)
+  const projectsQ = useGet<ProjectRow[]>(askable ? '/projects' : null)
+  const err = firstErr(actErr, q.err, fleetQ.err, alsoQ.err)
   // Membership is known only once read: while a read is pending or failed
   // the picker says so, never that there is nothing.
   const fleet = fleetQ.data
@@ -48,6 +52,10 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
   // choosing projects (and moving their own packs, which can make some
   // eligible), not options and a run button that cannot act.
   const none = !choosing && eligible !== null && eligible.length === 0
+  // With none eligible, choosing asks about projects already on this
+  // version or not on the pack, and is offered unless both lists were read
+  // and are empty (an unread list is not known to be empty).
+  const nobodyToAsk = none && onPack !== null && onPack.length === 0 && !!projectsQ.data && others.length === 0
   const start = () => run(() => post<WhatIfStarted>('/conformance/what-if', { pack, version, ...(choosing ? { projects: chosen } : {}), rubrics, spendLimitMicros: rubrics ? limitMicros : 0, advanceWorkflows: advance, ...(also.length > 0 ? { also } : {}) }))
 
   return (
@@ -64,7 +72,7 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
               ? <span className="muted">{q.err ? 'could not be read' : 'reading…'}</span>
               : eligible.length === 0 ? <span className="muted">none; no project is on an earlier version</span>
                 : eligible.map((s) => <code key={s}>{s}</code>)}
-            <button className="subtle" onClick={() => setChoosing(true)}>choose projects</button>
+            {!nobodyToAsk && <button className="subtle" onClick={() => setChoosing(true)}>{none ? 'ask about other projects' : 'choose projects'}</button>}
           </div>
         )}
         {choosing && (onPack === null

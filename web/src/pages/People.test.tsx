@@ -141,6 +141,31 @@ describe('disabling an account', () => {
     act(() => root.unmount())
   })
 
+  // An account's actions are a form (its role, password resets, disabling).
+  // On a phone they open as a dialog named for the account, not a panel
+  // lying over the accounts below it; on a wide screen they are the panel
+  // beside the ⋯. Every control is in both.
+  it.each([true, false])('opens an account\'s actions as a dialog on a phone (phone=%s)', async phone => {
+    vi.stubGlobal('matchMedia', () => ({ matches: phone, addEventListener() {}, removeEventListener() {} }))
+    const el = document.createElement('div')
+    document.body.append(el)
+    const root = createRoot(el)
+    await act(async () => {
+      root.render(<QueryClientProvider client={newQueryClient()}>
+        <MemoryRouter><UsersCard users={[account('sam', false, 'admin'), account('tom', false)]} act={() => {}} canEdit invites me="bls" /></MemoryRouter>
+      </QueryClientProvider>)
+    })
+    try {
+      await manage(el, 'sam')
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"]')
+      const panel = phone ? dialog : panels(el)[0]
+      if (phone) expect(dialog?.getAttribute('aria-labelledby') && document.getElementById(dialog.getAttribute('aria-labelledby')!)?.textContent).toBe('sam')
+      else expect(dialog).toBeNull()
+      expect(panel?.querySelector('select')?.value).toBe('admin')
+      expect([...panel!.querySelectorAll('button')].map(b => b.textContent)).toEqual(expect.arrayContaining(['reset password', 'set password', 'disable']))
+    } finally { act(() => root.unmount()); el.remove() }
+  })
+
   // A single sign-on account never has a password; once it has signed in or
   // acted it is an account, offered disable and never remove. Only a name
   // that never signed in or acted is offered removal.
@@ -491,4 +516,47 @@ it('lists an account page groups once, as comma-separated links', async () => {
  expect(cell.querySelectorAll('a')).toHaveLength(2)
  expect(cell.textContent).toBe('Team of editors, Team of operations')
  await act(async () => root.unmount()); vi.unstubAllGlobals()
+})
+
+// On a phone the account's actions are a dialog over the page: making a
+// reset link closes it, so the link (shown once) or why none was made is in
+// view, and an account write's failure is said inside the dialog too.
+it.each([true, false])('makes the password reset result available after confirming in the phone dialog (success=%s)', async success => {
+  vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
+  const result = success ? 'https://forge.test/invite/reset-review' : 'review reset failure'
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(success ? {
+    invite: { username: 'sam' }, link: result, note: ''
+  } : { error: result }), { status: success ? 201 : 500 })))
+  const el = document.body.appendChild(document.createElement('div')), root = createRoot(el)
+  const client = newQueryClient()
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><UsersCard
+      users={[{ principalId: '00000000-0001-7000-8000-000000000000', username: 'sam', role: 'member', hasPassword: true, acted: true, lastSeen: '', disabled: false, groups: [] }]}
+      act={() => {}} canEdit invites me="bls" /></MemoryRouter></QueryClientProvider>))
+    const trigger = el.querySelector<HTMLButtonElement>('[aria-label="Actions for sam"]')!
+    trigger.focus()
+    await act(async () => trigger.click())
+    const press = async (label: string) => act(async () => {
+      [...document.querySelectorAll('[role="dialog"] button, .popover button')].find(b => b.textContent === label)!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    await press('reset password')
+    await press('Make link')
+    await vi.waitFor(() => expect(el.textContent).toContain(result))
+    // Either close the dialog to expose the result, or present it inside.
+    const dialog = document.querySelector('[role="dialog"]')
+    expect(dialog === null || dialog.textContent?.includes(result)).toBe(true)
+  } finally { await act(async () => root.unmount()); el.remove(); client.clear(); vi.unstubAllGlobals() }
+})
+
+it('says an account write\'s failure inside the phone dialog', async () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
+  const el = document.body.appendChild(document.createElement('div')), root = createRoot(el)
+  const client = newQueryClient()
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><UsersCard
+      users={[{ principalId: '00000000-0001-7000-8000-000000000000', username: 'sam', role: 'member', hasPassword: true, acted: true, lastSeen: '', disabled: false, groups: [] }]}
+      act={() => {}} canEdit invites me="bls" actionError="the role could not be changed" /></MemoryRouter></QueryClientProvider>))
+    await act(async () => el.querySelector<HTMLButtonElement>('[aria-label="Actions for sam"]')!.click())
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('the role could not be changed')
+  } finally { await act(async () => root.unmount()); el.remove(); client.clear(); vi.unstubAllGlobals() }
 })

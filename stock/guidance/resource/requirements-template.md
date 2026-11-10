@@ -2,6 +2,8 @@
 name: resource/requirements-template
 tags: resource,excavation,requirements
 ---
+Write the requirements in this layout, filling in each placeholder.
+
 # Requirements: <system name>
 
 Excavated from: <repo/ref, version, date> by <who/run>.

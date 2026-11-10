@@ -73,10 +73,16 @@ export function Popover({ anchor, onClose, children, id, placement = 'below', cl
 // keyboard open it by tapping or pressing, as without hover.
 export const hoverDelay = 1000
 
-export function Disclosure({ trigger, children, className, placement, hidden, closeOnAction = true, hover = false }: {
+// title: a disclosure that holds a form (fields, prompts that open in place)
+// rather than a few commands. On a phone a panel beside its control would
+// lie over the rows below it while it is filled in, so there it opens as a
+// dialog sized to its content, titled by what it acts on, as DetailsPopover
+// does; elsewhere it is the same panel beside its control.
+export function Disclosure({ trigger, children, className, placement, hidden, closeOnAction = true, hover = false, title }: {
   trigger: ReactElement; children: ReactNode | ((close: () => void) => ReactNode); className?: string
-  placement?: 'above' | 'below'; hidden?: boolean; closeOnAction?: boolean; hover?: boolean
+  placement?: 'above' | 'below'; hidden?: boolean; closeOnAction?: boolean; hover?: boolean; title?: ReactNode
 }) {
+  const narrow = useNarrow()
   const [open, setOpen] = useState<false | 'hover' | 'click'>(false)
   const anchor = useRef<HTMLButtonElement>(null)
   const leaving = useRef<ReturnType<typeof setTimeout>>()
@@ -95,12 +101,19 @@ export function Disclosure({ trigger, children, className, placement, hidden, cl
     clearTimeout(leaving.current)
     leaving.current = setTimeout(() => setOpen(value => value === 'hover' ? false : value), 150)
   }
+  const content = <div className="popover-content" onClick={event => {
+    if ((event.target as Element).closest('a[href]') || (closeOnAction && (event.target as Element).closest('button'))) close()
+  }}>{typeof children === 'function' ? children(close) : children}</div>
+  if (title !== undefined && narrow) {
+    return <div className={className} hidden={hidden} onClick={event => event.stopPropagation()}>
+      {cloneElement(trigger, { ref: anchor, 'aria-expanded': !!open, 'aria-controls': open ? id : undefined, 'aria-haspopup': 'dialog', onClick: () => setOpen('click') })}
+      {open && !hidden && <Modal fit title={title} onClose={close}><div id={id}>{content}</div></Modal>}
+    </div>
+  }
   return <div className={className} hidden={hidden} onClick={event => event.stopPropagation()} onPointerEnter={enter} onPointerLeave={leave}>
     {cloneElement(trigger, { ref: anchor, 'aria-expanded': !!open, 'aria-controls': open ? id : undefined, onClick: () => setOpen(value => value === 'click' ? false : 'click') })}
     {open && !hidden && <Popover anchor={anchor} onClose={close} id={id} placement={placement} onPointerEnter={enter} onPointerLeave={leave} takeFocus={open === 'click'}>
-      <div className="popover-content" onClick={event => {
-        if ((event.target as Element).closest('a[href]') || (closeOnAction && (event.target as Element).closest('button'))) close()
-      }}>{typeof children === 'function' ? children(close) : children}</div>
+      {content}
     </Popover>}
   </div>
 }
