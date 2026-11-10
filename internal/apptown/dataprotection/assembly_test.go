@@ -17,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/fly"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -86,6 +87,8 @@ type testRuntime struct {
 	NoLocalDocker                                                        bool
 	Drivers                                                              map[string]deployment.DriverFactory
 	Inventories                                                          map[string]deployment.InventoryFactory
+	Installation                                                         string
+	Fly                                                                  fly.Options
 	DigitalOcean                                                         digitalocean.Options
 	S3Bucket                                                             s3bucket.Options
 	Connectors                                                           deployment.ConnectorRetirement
@@ -112,8 +115,8 @@ func assembled(db *database.DB, rt testRuntime, deps deployment.Dependencies) *b
 	deps.Environment = deployment.NewEnvironment(deployment.EnvironmentDependencies{Secrets: rt.Secrets, Integrations: rt.Integrations, Needs: rt.Needs,
 		Probe: rt.Probe, ToolVersions: chownTools(rt.ChownImage), Routes: rt.Routes, Projects: rt.Projects})
 	deps.Providers = deployment.NewProviders(ctx, db, deployment.ProviderRecords{Targets: deps.Targets, Deployments: deps.Deployments}, deps.Hosts, deps.Environment,
-		deployment.ProviderDependencies{Projects: rt.Projects, Secrets: rt.Secrets, Integrations: rt.Integrations, DigitalOcean: rt.DigitalOcean, S3Bucket: rt.S3Bucket,
-			Drivers: rt.Drivers, Inventories: rt.Inventories, DatabaseContainer: rt.DatabaseContainer, Applied: deps.Applied, Now: deps.Now})
+		deployment.ProviderDependencies{Projects: rt.Projects, Secrets: rt.Secrets, Integrations: rt.Integrations, DigitalOcean: rt.DigitalOcean, Fly: rt.Fly, S3Bucket: rt.S3Bucket,
+			Drivers: rt.Drivers, Inventories: rt.Inventories, DatabaseContainer: rt.DatabaseContainer, Installation: rt.Installation, Applied: deps.Applied, Now: deps.Now})
 	starter := NewStarter(db, StarterDependencies{Authority: deps.Authority, Still: deps.Releases.Still, Projects: rt.Projects, Targets: deps.Targets, Hosts: deps.Hosts,
 		Environment: deps.Environment, Providers: deps.Providers, Catalog: rt.Needs, Deployments: deps.Deployments, Sources: deps.Releases.Sources, Secrets: rt.Secrets, DataDir: rt.DataDir, Now: deps.Now})
 	deps.CopyStarter = starter

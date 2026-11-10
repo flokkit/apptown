@@ -39,8 +39,9 @@ var errFinalBackupIncomplete = fault.New(fault.Conflict, "the final backup does 
 // stoppedParts are the application containers a take-down stopped, which
 // a refusal starts again.
 type stoppedParts struct {
-	dk  docker.Scope
-	ids []string
+	providerRestart func(context.Context) []string
+	dk              docker.Scope
+	ids             []string
 	// idle are the parts that are there and were not running: left as
 	// they were, never started.
 	idle []string
@@ -50,6 +51,9 @@ func (p stoppedParts) restart(ctx context.Context) []string { return p.restartEa
 
 // restartEach is restart, telling started of each part as it starts.
 func (p stoppedParts) restartEach(ctx context.Context, started func(id string)) []string {
+	if p.providerRestart != nil {
+		return p.providerRestart(ctx)
+	}
 	var failed []string
 	for _, id := range p.ids {
 		if out, err := p.dk.Run(ctx, "start", id); err != nil {
@@ -76,6 +80,9 @@ type finalCopy struct {
 // the held-data planner before stopping anything, so a take-down that
 // cannot cover the data on its list refuses having changed nothing.
 func (s *Service) finalBackup(ctx context.Context, dep *deployment.Deployment, t *deployment.Target, owned []deploy.Owned, actor string) (finalCopy, error) {
+	if t.DataAccess() == deployment.DataOnFlyMachines {
+		return s.finalBackupOnFly(ctx, dep, t, actor)
+	}
 	if t.HoldsBackups() != nil {
 		return finalCopy{}, nil
 	}
@@ -159,7 +166,7 @@ func (s *Service) finalBackupOnPortainer(ctx context.Context, dep *deployment.De
 	case errors.Is(err, errNothingToBackUp), errors.Is(err, errHeldDataAbsent):
 		return finalCopy{}, nil
 	case errors.Is(err, portainer.ErrCannotBackUp):
-		return finalCopy{}, &portainerUnreachable{why: err.Error()}
+		return finalCopy{}, &finalCopyUnavailable{why: err.Error()}
 	case err != nil:
 		return finalCopy{}, err
 	}
@@ -206,12 +213,12 @@ func (s *Service) finalBackupOnPortainer(ctx context.Context, dep *deployment.De
 	return finalCopy{set: b, parts: stopped, kept: keptOffList(b, plan)}, nil
 }
 
-// portainerUnreachable is a final copy refused because AppTown cannot
+// finalCopyUnavailable is a final copy refused because AppTown cannot
 // reach the deployment's Portainer environment for data: the take-down then
 // asks for a person's choice to go without one (NoFinalCopy).
-type portainerUnreachable struct{ why string }
+type finalCopyUnavailable struct{ why string }
 
-func (e *portainerUnreachable) Error() string { return e.why }
+func (e *finalCopyUnavailable) Error() string { return e.why }
 
 // containerHeldData says which need containers on the list keep data in
 // their own files, which deleting the container would delete uncopied:

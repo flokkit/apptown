@@ -341,7 +341,6 @@ func TestWhatFlyCannotHonourIsRefusedBeforeAnyRequest(t *testing.T) {
 		"a threshold":                {app: "app:\n  web:\n    image: x/y:1\n    ports: [\"8080\"]\n    public: true\n    health: {readiness: {http: /h, successThreshold: 3}}\n", want: "thresholds"},
 		"an exact status":            {app: "app:\n  web:\n    image: x/y:1\n    ports: [\"8080\"]\n    public: true\n    health: {readiness: {http: /h, expect: 204}}\n", want: "status 204"},
 		"a gated copy":               {app: webApp, gate: true, want: "gate"},
-		"a data directory":           {app: "app:\n  web:\n    image: x/y:1\n    ports: [\"8080\"]\n    public: true\n    dataDir: /data\n", want: "volume yet"},
 		"differing secrets":          {app: "app:\n  web:\n    image: x/y:1\n    ports: [\"8080\"]\n    public: true\n  worker:\n    image: x/y:1\n", secrets: secrets{"web": {"A": "1"}, "worker": {"B": "2"}}, want: "same secrets"},
 		"an init step's own secrets": {app: webApp + "init:\n  - {name: migrate, image: x/y:1}\n", secrets: secrets{"web": {"A": "1"}, "init-migrate": {"A": "1", "ROOT": "2"}}, want: "init-migrate"},
 	}

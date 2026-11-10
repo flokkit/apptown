@@ -38,6 +38,7 @@ import (
 // copied, before it is: a Docker volume, copied on its host, or a managed
 // instance's database, copied from the target's copy runner.
 type backupPlanItem struct {
+	Fly                            *flyItem
 	Kind, Name, File, How, Restore string
 	Volume                         string      // the volume this item copies ("" when its data is in none AppTown can name)
 	Listed                         bool        // the volume is on the deployment's list: a take-down deletes it
@@ -145,7 +146,7 @@ func (s *Service) takeBackup(ctx context.Context, projectID ids.ID, deploymentNa
 		defer s.applied(dep.TargetID)
 	}
 	// A target that cannot be read is not one known to take AppTown's
-	// backups: the refusal for one that keeps its own is never skipped.
+	// backups: the refusal for one AppTown takes no set on is never skipped.
 	t, err := s.targets.ByID(ctx, dep.TargetID)
 	if err != nil {
 		return nil, fmt.Errorf("%s: reading its deployment target: %w", deploymentName, err)
@@ -185,6 +186,11 @@ func (s *Service) takeSetWhere(ctx context.Context, dk docker.Scope, projectID i
 	if onDisk {
 		store = nil
 	}
+	for _, p := range plan {
+		if p.Fly != nil && store == nil {
+			return nil, errNoStore
+		}
+	}
 	var c *s3bucket.Client
 	if store != nil {
 		if c, err = s.storeClientFor(ctx, store); err != nil {
@@ -223,6 +229,14 @@ func (s *Service) takeSetWhere(ctx context.Context, dk docker.Scope, projectID i
 		switch {
 		case p.Unresolved != "":
 			it.Error = p.Unresolved
+		case p.Fly != nil:
+			size, sum, client, user, err := s.copyFlyItem(ctx, p, c, store.Bucket, b.Path+"/"+p.File)
+			if err != nil {
+				it.Error = strs.Truncate(err.Error(), 300)
+			} else {
+				it.Bytes, it.SHA256, it.Client, it.AsUser = size, sum, client, user
+				b.Bytes += size
+			}
 		default:
 			var err error
 			if p.Kind == "need" && p.RestoreStopped {
@@ -532,6 +546,10 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 		return nil, fmt.Errorf("the safety set %d is %s (%s); nothing was restored; fix what is listed, or take a new safety set, then restore again", safety.ID, safety.Status, strings.Join(missing, "; "))
 	}
 	rec.end(ctx, fmt.Sprintf("set %d", safety.ID))
+	if t.DataAccess() == deployment.DataOnFlyMachines {
+		return s.restoreFly(ctx, dep, held, moves, untouched, paths, b, safety, rec, keepStopped)
+	}
+
 	names, err := dep.HostNames()
 	if err != nil {
 		return nil, fmt.Errorf("naming %s on its host: %w; nothing was restored", deploymentName, err)

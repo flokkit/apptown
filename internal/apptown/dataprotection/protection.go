@@ -580,6 +580,8 @@ func (s *Service) dockerProtectionFromPlan(ctx context.Context, out *Protection,
 		}
 	}
 	switch {
+	case !hasStore && t.DataAccess() == deployment.DataOnFlyMachines:
+		out.Note = errNoStore.Error()
 	case !hasStore:
 		out.Note = onAppTownDiskNote
 	case newest != nil && newest.Store == StoreBackupStore:
@@ -632,6 +634,21 @@ func (s *Service) dockerProtectionFromPlan(ctx context.Context, out *Protection,
 	// Each operation as its own door answers it: the card and the refusal
 	// say the same thing.
 	ops := s.operationsOf(ctx, dep, t, nil, nil)
+	if t.DataAccess() == deployment.DataOnFlyMachines {
+		ops.FinalCopy = Availability{Available: hasStore}
+		if !hasStore {
+			ops.FinalCopy = availabilityOf(errNoStore)
+		} else if why := unresolvedOf(plan); why != "" {
+			ops.FinalCopy = availabilityOf(&deployment.Unavailable{Reason: "cannot-back-up", Why: why})
+		}
+		out.TakeDown = "Taking it down stops the app, takes a final backup to the store, then deletes the Fly app and its volumes. The backup is kept with the project."
+		if !ops.FinalCopy.Available {
+			out.TakeDown = "A final backup cannot be taken now. Taking it down keeps the Fly app and its volumes under retained resources, with every Machine stopped."
+			if !hasStore {
+				out.TakeDown = "No backup store is attached. Taking it down keeps the Fly app and its volumes under retained resources, with every Machine stopped."
+			}
+		}
+	}
 	out.Operations = ops
 	if out.RestoreTest == nil {
 		out.RestoreTestNote = "App Platform only; a rehearsal checks a Docker host's copies"

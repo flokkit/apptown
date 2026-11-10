@@ -168,14 +168,14 @@ capabilities (`StockCapabilities`), and fails if a cell here differs.
 | Several parts, one image | yes | yes | yes | yes | refused: serves only a static-only app |
 | Parts or init steps with different images | yes | yes | refused: App Platform runs one image per repository | yes | refused: static-only |
 | Init steps | yes | yes | yes, as pre-deploy jobs | yes, as one-off Machines before any part's | refused: static-only |
-| Postgres | yes, a local emulator | yes, a local emulator | yes, a managed database | refused: cannot provide it as a managed service yet | refused: static-only |
-| Object storage (s3) | yes, a local store: its bucket made before the app starts, a key for it alone | yes, a local store, as on a Docker host | yes, a Spaces bucket of its own and a key for it alone | refused: cannot provide it as a managed service yet | refused: static-only |
-| Another need with a local emulator (redis) | yes, a local emulator | yes, a local emulator | refused: cannot provide it as a managed service | refused: cannot provide it as a managed service | refused: static-only |
-| A data directory | yes, a named volume | yes, a named volume | refused: no persistent volumes | refused: no persistent volumes | refused: static-only |
+| Postgres | yes, a local emulator | yes, a local emulator | yes, a managed database | yes, a stock container on its own volume | refused: static-only |
+| Object storage (s3) | yes, a local store: its bucket made before the app starts, a key for it alone | yes, a local store, as on a Docker host | yes, a Spaces bucket of its own and a key for it alone | refused: cannot run as a need container | refused: static-only |
+| Another need with a local emulator (redis) | yes, a local emulator | yes, a local emulator | refused: cannot provide it as a managed service | refused: cannot run as a need container | refused: static-only |
+| A data directory | yes, a named volume | yes, a named volume | refused: no persistent volumes | yes, a named volume; stop then start on release | refused: static-only |
 | A static site given browser values by an integration | yes, as /_apptown/env.js | yes, as /_apptown/env.js | refused: cannot deliver browser values yet | refused: cannot deliver browser values yet | yes, published as /_apptown/env.js |
 | Secrets | each part's environment | each part's environment | each component's environment | the app's secrets, the same for every Machine; parts or init steps given different ones are refused before any effect | none: a site has no runtime |
 | Declared resources | exact: each part's container gets its memory (swap included) and cpus | exact: each part's service gets mem_limit, memswap_limit and cpus | rounded up to the cheapest current instance size that covers each part; one no size covers is refused before any effect | rounded up to the smallest shared-CPU Machine that covers each part; one none covers is refused before any effect | none: a site has no runtime |
-| A need's declared resources | exact on the need's service; a standing need takes a new size in place, or is remade on its volume when a limit is lifted | exact: the need's service gets mem_limit, memswap_limit and cpus | refused: the managed Postgres is made at the integration's database size | refused: no needs yet | refused: static-only |
+| A need's declared resources | exact on the need's service; a standing need takes a new size in place, or is remade on its volume when a limit is lifted | exact: the need's service gets mem_limit, memswap_limit and cpus | refused: the managed Postgres is made at the integration's database size | rounded up to a shared-CPU Machine; the standing need is updated in place on its volume | refused: static-only |
 | A part or need larger than the host | refused before any effect, previews included; the sum of limits may exceed the host | not checked: Portainer's endpoint is read for the capacity view only | rounds to a size, or is refused | rounds to a Machine size, or is refused | none: a site has no runtime |
 | Capacity shown | fixed: memory and CPUs it has, the limits Docker enforces, whole-host memory and CPU use, the containers' use, and the disk holding Docker's data (its folder, when it was read, and whether new releases are refused) | fixed: what the endpoint has, and AppTown's own deployments' limits; use and disk not read | elastic: each part's size and listed price, and an estimated monthly cost | elastic: each part's Machine size; prices are not read, Fly lists none AppTown can ask | none: a site has no runtime |
 | A host short of disk | a release or preview is refused before anything is pulled or started while Docker's data folder has less than 5% free (at least 1 GiB, at most 20 GiB) or cannot be read, read when it starts; what runs is not touched | not checked: disk is not read through Portainer | not applicable: the platform's disks | not applicable: the platform's disks | not applicable |
@@ -184,9 +184,9 @@ capabilities (`StockCapabilities`), and fails if a cell here differs.
 | Releases after a landing | each follows-main deployment requests the landing’s bundle | follows-main or manual release of a digest bundle | as App Platform | as App Platform | as App Platform |
 | Readiness witnessed | the container AppTown started; a static site's release identity | the stack was accepted; health unknown | the platform's deployment is active (its own probe); AppTown asks the front door only for a declared HTTP readiness path or a static site's release identity | each new Machine is started and passes its checks; AppTown asks the front door for a declared HTTP readiness path and a static site's release identity | the published files answer this release's identity |
 | An earlier release again | yes, its bundle by digest; data is not rolled back | yes; data is not rolled back | yes; data is not rolled back | yes, its images copied again by digest; data is not rolled back | yes |
-| Take-down | what AppTown recorded creating; its data volumes are deleted after a complete final backup, refused without one; what it did not create is named and kept | the stack AppTown recorded, then the volumes its deploys made after a complete final backup, refused without one unless a person chooses to keep the data; a volume it did not make is named and kept | the app and managed resources AppTown recorded; a need's bucket is deleted with its objects after a checked final copy or when its data is synthetic, otherwise kept and named, and its key deleted | the Fly app AppTown recorded, with its Machines, addresses, secrets and images, and only when every Machine in it carries the deployment's mark | the bucket AppTown recorded |
-| Volume backups, restored in place | yes, each data volume and need | yes, each data volume and need, through Portainer's Docker proxy (an edge environment in async mode is refused) | no volumes | no volumes | no data |
-| Managed database copies | not applicable | not applicable | yes, with a copy runner and backup store; restored into a new place, never in place | not applicable: no managed database yet | not applicable |
+| Take-down | what AppTown recorded creating; its data volumes are deleted after a complete final backup, refused without one; what it did not create is named and kept | the stack AppTown recorded, then the volumes its deploys made after a complete final backup, refused without one unless a person chooses to keep the data; a volume it did not make is named and kept | the app and managed resources AppTown recorded; a need's bucket is deleted with its objects after a checked final copy or when its data is synthetic, otherwise kept and named, and its key deleted | the recorded Fly app and volumes after a complete final set; without a store, refused unless a person chooses to keep the app and volumes with all Machines stopped | the bucket AppTown recorded |
+| Volume backups, restored in place | yes, each data volume and need | yes, each data volume and need, through Portainer's Docker proxy (an edge environment in async mode is refused) | no volumes | yes, in the backup store: declared need exports and stop-copy-start volume tars; database restore in place and files into a new volume | no data |
+| Managed database copies | not applicable | not applicable | yes, with a copy runner and backup store; restored into a new place, never in place | not applicable: Postgres is a container on a volume | not applicable |
 
 What owns each guarantee through its real operation (ordering before effects,
 witnessed outcomes):
@@ -221,7 +221,7 @@ carrier:
 | Portainer | stack variable `APPTOWN_INSTANCE` | at every create and update |
 | App Platform app | app-wide spec variable `APPTOWN_INSTANCE` (apps take no tags) | at every release |
 | Managed database cluster | DigitalOcean tag `apptown-instance:<id>` | at creation |
-| Fly Machine | metadata `apptown_instance` (with `apptown_deployment` and `apptown_generation`) | at creation; Machines are never changed in place |
+| Fly Machine | metadata `apptown_instance` (with `apptown_deployment` and `apptown_generation`) | at creation; needs keep their identity during updates |
 | Fly app | marked when any of its Machines carries the mark (Fly apps take no tags) | follows from its Machines |
 | Bucket website bucket | private object `_apptown/instance` holding the id (Spaces has no bucket tags) | at every release |
 
@@ -543,8 +543,8 @@ with one Machine per part.
   use, never stored) and a region. The org is the token's own answer
   (`GET /v1/tokens/current`): a token that reaches one org uses it, one
   that reaches several must name it (`org`), and a token for apps alone is
-  refused because it cannot create an app. The region must be one where
-  Fly offers Managed Postgres. A dry run asks Fly and records nothing.
+  refused because it cannot create an app. The region must be an available
+  Machines region. A dry run asks Fly and records nothing.
   Attaching records the connector (capability `cloud-account`, provider
   `fly`) and the target together. The token is an org token: it can manage
   every app in the org, including ones AppTown did not make, and attaching
@@ -566,17 +566,38 @@ with one Machine per part.
   before any part's Machine is made), gives the app a shared IPv4 and an
   IPv6 address once, then makes a new Machine for each part and waits for
   it to start and pass its checks. Only after the front door is witnessed
-  are the previous generation's Machines destroyed; a failure before that
-  destroys the new ones and the previous release keeps serving. Machines
-  are never changed in place, so an interrupted release is finished when
-  all of its Machines stand ready, and otherwise destroyed.
-- **What it refuses before any effect**: a need (no need is fulfilled on
-  Fly yet), a data directory, a liveness probe (Fly's checks route traffic
+  are the previous generation's Machines destroyed. A part with a data
+  directory stops and is destroyed before its replacement mounts the same
+  volume; a failed replacement restores the previous config on that volume.
+  Parts without data keep serving until the new generation is ready.
+  A standing need is updated in place with its complete config and existing
+  mount, preserving its private address for the previous release.
+- **What it refuses before any effect**: a need other than Postgres,
+  a liveness probe (Fly's checks route traffic
   and do not restart a Machine), a readiness probe with a threshold or an
   exact status (Fly counts none and passes any 2xx),
   parts or init steps given different secrets (Fly gives every Machine of
   an app all of its secrets), a release not published by digest, a
   restored copy (no gate), and a static site given browser values.
+- **Data folders and Postgres.** A data directory uses a recorded volume
+  `at_<key>_<part>`. A need's volume is `at_<key>_n_<need>`. Volumes start at
+  1 GB and grow automatically to 10 GB. Postgres runs the catalogue's stock
+  image and start script as a standing need Machine, with the deployment's
+  generated password. Its cluster is in `pgdata` under the volume mount (`PGDATA`), because a Fly volume's root holds `lost+found` and `initdb` refuses a non-empty folder. Its catalogue health command runs through Machines
+  exec as `/bin/sh -c`; only an explicit successful exit allows init and
+  parts to proceed. Its private address is `<id>.vm.<app>.internal`, used
+  in both `PGHOST` and `DATABASE_URL`. An image version change is refused
+  before effects because its data files belong to the standing image.
+- **Backups and restore.** Sets require an attached backup store. One-off
+  Machines export Postgres live as the app's user, and copy a data folder
+  by stopping and destroying its part, mounting the volume to tar it, then
+  recreating the previous part even after an upload failure. Jobs receive
+  one presigned object URL, never the store's key pair. AppTown reads the
+  uploaded object with its own key and records its size and SHA-256.
+  Restore takes a safety set and stops every app writer, restores Postgres
+  in place and runs its declared verification, and fills a new volume for
+  a data folder. The old volume stays until the new part passes readiness.
+  Copies are unencrypted. Retention and rehearsals use the shared set rules.
 - **Runtime**: restart is offered; start and stop are not, as on App
   Platform. Fly restarts a part's Machine whenever its process exits,
   without limit (restart policy `always`), as every other target restarts
@@ -598,7 +619,11 @@ with one Machine per part.
 - **Take-down** deletes the app the records name, with its Machines,
   addresses, secrets and images, after checking that the app under that
   name still has the recorded id and that every Machine in it carries this
-  deployment's mark. A Machine that does not stops the take-down, named.
+  deployment's mark. A complete final set covers its volumes before deletion.
+  Without a store or a copyable need, take-down is refused unless the person
+  chooses to keep data. The app and volumes then stay as retained resources, with part
+  Machines removed and need Machines stopped. Unrecorded volumes or a
+  Machine without the deployment's mark stop the take-down.
 
 ## Bucket websites
 

@@ -540,8 +540,9 @@ func (s *Targets) Retire(ctx context.Context, name, who string) error {
 }
 
 // ErrTargetKeepsBackups is a target whose deployments AppTown does not
-// back up: a scheduled backup there is skipped, not failed.
-var ErrTargetKeepsBackups = errors.New("it keeps its own backups; AppTown backs up what it holds on a Docker host or a Portainer environment it talks to")
+// back up as backup sets: a scheduled backup there is skipped, not failed.
+// HoldsBackups wraps it with why, which a release log shows.
+var ErrTargetKeepsBackups = errors.New("AppTown takes no backup set there")
 
 // dataAccess is how AppTown reaches the data of a target's deployments
 // for its own copies: on a Docker host it talks to; in a Portainer
@@ -556,6 +557,7 @@ const (
 	DataOnDockerHost
 	DataThroughPortainer
 	DataOnManagedPlatform
+	DataOnFlyMachines
 )
 
 // DataAccess is how AppTown reaches this target's deployments' data.
@@ -565,6 +567,8 @@ func (t *Target) DataAccess() dataAccess {
 		return DataOnDockerHost
 	case KindPortainer:
 		return DataThroughPortainer
+	case kindFlyMachines:
+		return DataOnFlyMachines
 	case KindDOApp:
 		return DataOnManagedPlatform
 	}
@@ -576,10 +580,13 @@ func (t *Target) DataAccess() dataAccess {
 // Portainer environment; a cloud target is copied by operations of its own
 // (ErrTargetKeepsBackups).
 func (t *Target) HoldsBackups() error {
-	if a := t.DataAccess(); a != DataOnDockerHost && a != DataThroughPortainer {
-		return fmt.Errorf("a %s target: %w", t.Kind, ErrTargetKeepsBackups)
+	switch t.DataAccess() {
+	case DataOnDockerHost, DataThroughPortainer, DataOnFlyMachines:
+		return nil
+	case DataOnManagedPlatform:
+		return fmt.Errorf("a %s target: its managed data is copied by AppTown's copy operations, not by a backup set before a release; %w", t.Kind, ErrTargetKeepsBackups)
 	}
-	return nil
+	return fmt.Errorf("a %s target: it holds no data AppTown backs up; %w", t.Kind, ErrTargetKeepsBackups)
 }
 
 func (s *Targets) notifyReaders() {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/oci"
 	"github.com/flokkit/apptown/internal/trust"
 )
@@ -22,6 +23,9 @@ type Driver struct {
 
 // Dependencies select one deployment's account and records.
 type Dependencies struct {
+	// Needs resolves catalogue containers and consumer variables at the supplied
+	// per-need hosts, using this deployment's generated credentials.
+	Needs func(context.Context, *appcontract.Contract, map[string]string) ([]deploy.ServiceSpec, map[string]string, error)
 	// Client resolves the target's token and configuration at use time.
 	Client func(context.Context) (*Client, Config, error)
 	// Installation is this installation's id: every Machine carries it,

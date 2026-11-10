@@ -41,7 +41,7 @@ func (s *Service) backupRelease(ctx context.Context, dep *deployment.Deployment,
 			}
 			running = len(writers) > 0
 		}
-	case deployment.DataOnManagedPlatform:
+	case deployment.DataOnManagedPlatform, deployment.DataOnFlyMachines:
 		driver, err := s.providers.Driver(ctx, target, dep)
 		if err != nil {
 			return ids.Nil, err

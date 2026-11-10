@@ -79,7 +79,7 @@ const testInstallationID = "inst-promotion"
 // asked of Fly: a part that keeps data in a directory.
 func TestAReleaseFlyCannotRunIsRefusedBeforeFlyIsAsked(t *testing.T) {
 	t.Parallel()
-	p := newPromotionTargetsWith(t, false, "app:\n  web:\n    public: true\n    build: worker\n    ports: [\"8080\"]\n    dataDir: /data\n")
+	p := newPromotionTargetsWith(t, false, "app:\n  web:\n    public: true\n    build: worker\n    ports: [\"8080\"]\n    health: {liveness: {http: /live}}\n")
 	b := p.land(t)
 	target := p.target(t, "fly-syd")
 	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "cloud", target.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
@@ -87,10 +87,71 @@ func TestAReleaseFlyCannotRunIsRefusedBeforeFlyIsAsked(t *testing.T) {
 	}
 	before := len(p.fly.Requests())
 	_, err := p.s.RequestRelease(context.Background(), DeploySelection{ProjectID: p.project, DeploymentName: "cloud", BundleID: b.ID})
-	if !errors.Is(err, ErrRefusedContract) || !strings.Contains(err.Error(), "no persistent volumes") {
+	if !errors.Is(err, ErrRefusedContract) || !strings.Contains(err.Error(), "liveness") {
 		t.Fatalf("the release: %v", err)
 	}
 	if after := p.fly.Requests()[before:]; len(after) != 0 {
 		t.Fatalf("the refusal asked Fly: %v", after)
+	}
+}
+
+// Why a Fly deployment gets no backup set before a release is said as it
+// is: in this slice it holds no data AppTown backs up; it does not keep
+// backups of its own. App Platform's sentence names its copy operations.
+// Kills: the shared "keeps its own backups" claim, untrue for both.
+func TestWhyATargetTakesNoBackupSetIsSaidAsItIs(t *testing.T) {
+	t.Parallel()
+	for kind, want := range map[string]string{KindS3Bucket: "holds no data AppTown backs up", KindDOApp: "copied by AppTown's copy operations"} {
+		err := (&Target{Kind: kind}).HoldsBackups()
+		if !errors.Is(err, ErrTargetKeepsBackups) || !strings.Contains(err.Error(), want) || strings.Contains(err.Error(), "keeps its own backups") {
+			t.Errorf("%s: %v, want %q", kind, err, want)
+		}
+	}
+}
+
+func TestAReleaseToFlyStartsCataloguePostgresBeforeInitAndWiresItsPrivateAddress(t *testing.T) {
+	p := newPromotionTargetsWith(t, false, "app:\n  web:\n    public: true\n    build: worker\n    ports: ['8080']\nneeds: {postgres: {}}\ninit:\n  - {name: migrate, build: worker}\n")
+	b := p.land(t)
+	target := p.target(t, "fly-syd")
+	rel, err := p.promote(t, b.ID, "cloud", target)
+	if err != nil || rel.State != Released {
+		t.Fatalf("release: %+v %v", rel, err)
+	}
+	events, err := p.s.Releases.Events(t.Context(), rel.ID)
+	if err != nil || !strings.Contains(asJSON(events), "image registry.fly.io/") {
+		t.Fatalf("need digest was not recorded on release: %v %v", events, err)
+	}
+	apps := p.fly.Apps()
+	if len(apps) != 1 {
+		t.Fatal(apps)
+	}
+	app := p.fly.App(apps[0])
+	var id string
+	for _, m := range app.Machines {
+		if m.Metadata()["apptown_role"] == "need" {
+			id = m.ID
+			if m.Metadata()["apptown_source_image"] != "postgres:16-alpine" {
+				t.Fatal("need did not use catalogue image")
+			}
+		}
+	}
+	if id == "" {
+		t.Fatal("no standing Postgres")
+	}
+	host := id + ".vm." + app.Name + ".internal"
+	if app.Secrets["PGHOST"] != host || !strings.Contains(app.Secrets["DATABASE_URL"], "@"+host+":") {
+		t.Fatal("release not wired to need")
+	}
+	exec, init := -1, -1
+	for i, r := range p.fly.Requests() {
+		if strings.HasSuffix(r.Path, "/exec") && exec < 0 {
+			exec = i
+		}
+		if r.Method == "POST" && strings.HasSuffix(r.Path, "/machines") && exec >= 0 && init < 0 {
+			init = i
+		}
+	}
+	if exec < 0 || init <= exec {
+		t.Fatal("no readiness before init")
 	}
 }

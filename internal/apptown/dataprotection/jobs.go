@@ -69,7 +69,7 @@ func (w JobWorker) Backup(ctx context.Context, key string, args map[string]any) 
 }
 
 // backup-sweep: ask for a backup of every standing deployment on a Docker
-// host or in a Portainer environment; each is its own job with its own
+// host, in a Portainer environment or on Fly; each is its own job with its own
 // receipt.
 func (w JobWorker) Sweep(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
 	enabled, err := identity.FeatureEnabledIn(ctx, w.Service.db, "backups")
@@ -94,7 +94,7 @@ func (w JobWorker) Sweep(ctx context.Context, _ string, _ map[string]any) (map[s
 		}
 		for _, e := range standing {
 			t, err := w.Service.targets.ByID(ctx, e.TargetID)
-			if err != nil || t.DataAccess() != deployment.DataThroughPortainer {
+			if err != nil || (t.DataAccess() != deployment.DataThroughPortainer && t.DataAccess() != deployment.DataOnFlyMachines) {
 				continue
 			}
 			if err := w.Backups.RequestBackup(ctx, e.ProjectID.String()+"/"+e.Name, "scheduled"); err != nil {

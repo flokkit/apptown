@@ -710,6 +710,9 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 	{n: 221, note: "record a deployment's other acts", stmts: []string{
 		`ALTER TABLE deployments ADD COLUMN act_at TIMESTAMPTZ`,
 	}},
+	{n: 222, note: "enable container data on existing Fly targets", stmts: []string{
+		`UPDATE targets SET needs_mode='emulators', capabilities_json=capabilities_json || '{"persistentVolumes":true,"needs":["postgres"],"rollout":["replace","rolling","rollback"]}'::jsonb, settings_revision=settings_revision+1 WHERE kind='fly-machines' AND needs_mode='managed' AND COALESCE(capabilities_json->'needs','[]'::jsonb)='[]'::jsonb`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

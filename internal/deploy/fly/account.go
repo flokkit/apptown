@@ -16,8 +16,7 @@ type Account struct {
 	// limited to named apps (a deploy token), which cannot create apps.
 	Orgs []string
 	Apps []string
-	// Regions are Fly's region codes, with whether Managed Postgres is
-	// offered there and whether a paid plan is needed.
+	// Regions are Fly's region codes and whether a paid plan is needed.
 	Regions []Region
 }
 
@@ -25,7 +24,6 @@ type Account struct {
 type Region struct {
 	Code         string `json:"code"`
 	Name         string `json:"name"`
-	Postgres     bool   `json:"postgres"`
 	PaidPlanOnly bool   `json:"paidPlanOnly"`
 }
 
@@ -57,7 +55,6 @@ func ReadAccount(ctx context.Context, c *Client) (Account, error) {
 			Code         string `json:"code"`
 			Name         string `json:"name"`
 			Deprecated   bool   `json:"deprecated"`
-			MPG          bool   `json:"mpg_available"`
 			PaidPlanOnly bool   `json:"requires_paid_plan"`
 		} `json:"regions"`
 	}
@@ -68,7 +65,7 @@ func ReadAccount(ctx context.Context, c *Client) (Account, error) {
 		if r.Deprecated {
 			continue
 		}
-		out.Regions = append(out.Regions, Region{Code: r.Code, Name: r.Name, Postgres: r.MPG, PaidPlanOnly: r.PaidPlanOnly})
+		out.Regions = append(out.Regions, Region{Code: r.Code, Name: r.Name, PaidPlanOnly: r.PaidPlanOnly})
 	}
 	sort.Slice(out.Regions, func(i, j int) bool { return out.Regions[i].Code < out.Regions[j].Code })
 	return out, nil

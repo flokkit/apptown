@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"maps"
 	"strings"
 	"time"
@@ -97,6 +98,38 @@ func (p *Providers) newFlyDriver(ctx context.Context, t *Target, dep *Deployment
 		Installation: p.installation,
 		Owner:        h,
 		Owned:        h.Owned,
+		Needs: func(ctx context.Context, c *appcontract.Contract, hosts map[string]string) ([]deploy.ServiceSpec, map[string]string, error) {
+			c, err := p.env.needs.ResolveSizes(ctx, c)
+			if err != nil {
+				return nil, nil, err
+			}
+			if why, err := p.env.needs.RefusesNeeds(ctx, c.Needs, c.NeedParams); err != nil {
+				return nil, nil, err
+			} else if why != "" {
+				return nil, nil, fmt.Errorf("%s", why)
+			}
+			var services []deploy.ServiceSpec
+			env := map[string]string{}
+			for _, need := range c.Needs {
+				k, err := p.env.needs.ByCapability(ctx, need)
+				if err != nil {
+					return nil, nil, err
+				}
+				generated, err := k.Generated(ctx, p.env.NeedCredentials(NeedSecretsScope(dep.ID)))
+				if err != nil {
+					return nil, nil, err
+				}
+				local := k.ResolveLocal(c.NeedParams[need], hosts[need], generated)
+				if local == nil {
+					continue
+				}
+				spec := local.Spec()
+				spec.Resources = c.NeedResources[need]
+				services = append(services, spec)
+				maps.Copy(env, local.Inject)
+			}
+			return services, env, nil
+		},
 		ReleaseLogin: func(ref string) (oci.Credential, error) { return p.releaseCredential(ctx, dep.ProjectID, ref) },
 	}, p.fly), nil
 }
@@ -139,18 +172,13 @@ func (p *Providers) probeFly(ctx context.Context, cfg fly.Config) (bool, string)
 	if err != nil {
 		return false, fmt.Sprintf("%v; choose one of %s", err, regionWords(acc))
 	}
-	if !region.Postgres {
-		return false, fmt.Sprintf("Fly offers no Managed Postgres in %s, so an app's database could not stand beside it; choose one of %s", region.Code, regionWords(acc))
-	}
 	return true, fmt.Sprintf("Fly answers: org %s, region %s (%s). This token can manage every app in the org %s, including ones AppTown did not make; AppTown touches only what it made and recorded", org, region.Code, region.Name, org)
 }
 
 func regionWords(acc fly.Account) string {
 	var codes []string
 	for _, r := range acc.Regions {
-		if r.Postgres {
-			codes = append(codes, r.Code)
-		}
+		codes = append(codes, r.Code)
 	}
 	return strings.Join(codes, ", ")
 }
@@ -239,4 +267,10 @@ func flyTarget(account string, cfg fly.Config) *Target {
 // flyInventory reads a Fly target's org.
 func (p *Providers) flyInventory(t *Target) (deploy.Inventorier, error) {
 	return fly.Inventory{Client: p.flyClientFor(t.Provider), Installation: p.installation}, nil
+}
+
+// FlyData reaches one deployment's volumes and catalogue containers through
+// the same account and owned list as its release driver.
+func (p *Providers) FlyData(ctx context.Context, t *Target, dep *Deployment) (*fly.Driver, error) {
+	return p.newFlyDriver(ctx, t, dep)
 }

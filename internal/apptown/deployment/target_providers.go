@@ -117,8 +117,7 @@ func stockCapabilities(kind string, emulators []string) TargetCapabilities {
 	case KindDOApp:
 		return TargetCapabilities{PersistentVolumes: false, OwnLiveness: true, Rollout: []string{"rolling", "rollback"}, Needs: []string{"postgres", "s3"}}
 	case kindFlyMachines:
-		// No need is fulfilled on Fly yet: each is refused before any effect.
-		return TargetCapabilities{PersistentVolumes: false, OwnLiveness: true, Rollout: []string{"rolling", "rollback"}, Needs: []string{}}
+		return TargetCapabilities{PersistentVolumes: true, OwnLiveness: true, Rollout: []string{"replace", "rolling", "rollback"}, Needs: []string{"postgres"}}
 	}
 	return TargetCapabilities{}
 }
@@ -127,9 +126,9 @@ func stockCapabilities(kind string, emulators []string) TargetCapabilities {
 // emulators, or managed services from the provider.
 func stockNeedsMode(kind string) string {
 	switch kind {
-	case KindDockerHost, KindPortainer:
+	case KindDockerHost, KindPortainer, kindFlyMachines:
 		return "emulators"
-	case KindDOApp, kindFlyMachines:
+	case KindDOApp:
 		return "managed"
 	}
 	return ""

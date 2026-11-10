@@ -19,11 +19,11 @@ const releases = [
   { id: 'r2', number: 2, deployment: 'staging', state: 'released', bundleId: 'b1', createdAt: stamp, changes: [], serving: true },
   { id: 'r1', number: 1, deployment: 'production', state: 'released', bundleId: 'b1', createdAt: stamp, changes: [{ id: 'c1', number: 1, title: 'Show delivery times' }], serving: false },
 ]
-async function fixture(recorded = true, options: { backup?: boolean; reason?: string; approvalRole?: string; data?: boolean; feed?: string; unknown?: boolean; failed?: boolean } = {}) {
+async function fixture(recorded = true, options: { backup?: boolean; reason?: string; approvalRole?: string; data?: boolean; feed?: string; unknown?: boolean; failed?: boolean; kind?: string } = {}) {
   const sent: { path: string; body: unknown }[] = []
   const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST') { sent.push({ path: url, body: JSON.parse(String(init.body)) }); return new Response('{"number":4,"state":"waiting for approval"}', { status: 202 }) }
-    if (url.endsWith('/deployments')) return new Response(JSON.stringify([{ name: 'production', displayLabel: 'Customer office', approvalRole: options.approvalRole || '', feed: options.feed || 'manual', target: { kind: 'docker-host' } }, { name: 'staging', displayLabel: 'Team trial' }]))
+    if (url.endsWith('/deployments')) return new Response(JSON.stringify([{ name: 'production', displayLabel: 'Customer office', approvalRole: options.approvalRole || '', feed: options.feed || 'manual', target: { kind: options.kind || 'docker-host' } }, { name: 'staging', displayLabel: 'Team trial' }]))
     if (url.endsWith('/protection')) return new Response(JSON.stringify({ items: options.data ? [{ need: 'postgres' }] : [], operations: { copy: { available: true } } }))
     if (url.includes('/authz/me')) return new Response(JSON.stringify({ instance: {}, project: { 'deployment:deploy': true, 'deployment:operate': true } }))
     if (url.endsWith('/release-bundles')) return new Response(JSON.stringify([
@@ -145,4 +145,11 @@ it('retries failed bundle code through the normal confirmation and shows its fai
   await h.click('Deploy a release…')
   expect(h.el.querySelector('[role=dialog]')?.textContent).toContain('Release 8 failed: Provider refused the update')
   expect(h.el.querySelector('[role=dialog]')?.textContent).toContain('Release 8')
+})
+
+it('reads protection for a Fly release and says when its backup goes first', async () => {
+  const h = await fixture(true, { kind: 'fly-machines', data: true })
+  await h.click('Deploy this again')
+  expect(h.fetcher.mock.calls.some(([url]) => url.endsWith('/protection'))).toBe(true)
+  expect(h.el.textContent).toContain('A backup is taken first.')
 })

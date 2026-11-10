@@ -29,13 +29,13 @@ func (s ResourceLabel) MarshalJSON() ([]byte, error)  { return resourceLabelCode
 func (s *ResourceLabel) UnmarshalJSON(b []byte) error { return resourceLabelCodec.ReadJSON(s, b) }
 func (r Resource) display() ResourceLabel {
 	switch r.Status {
-	case "active", "online", "running":
+	case "active", "online", "running", "deployed":
 		return resourceRunning
 	case "ready", "reconciled":
 		return resourcePassed
-	case "exited", "absent", "stopped":
+	case "exited", "absent", "stopped", "suspended":
 		return resourceStopped
-	case "deploying", "creating", "reconciling", "rolling":
+	case "deploying", "creating", "reconciling", "rolling", "pending":
 		return resourceWorking
 	case "error", "failed":
 		return resourceFailed

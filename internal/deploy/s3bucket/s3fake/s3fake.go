@@ -247,6 +247,10 @@ func (s *Store) Revoke(access string) {
 // is the object, "" for the bucket itself.
 func (s *Store) allowed(r *http.Request, name, key string) bool {
 	auth := r.Header.Get("Authorization")
+	if q := r.URL.Query(); q.Get("X-Amz-Algorithm") == "AWS4-HMAC-SHA256" && q.Get("X-Amz-Signature") != "" && (r.Method == "GET" || r.Method == "PUT") && name != "" && key != "" {
+		auth = "AWS4-HMAC-SHA256 Credential=" + q.Get("X-Amz-Credential")
+	}
+
 	if s.AccessKey != "" && strings.HasPrefix(auth, "AWS4-HMAC-SHA256 Credential="+s.AccessKey+"/") {
 		return true
 	}
@@ -392,7 +396,7 @@ func (s *Store) serveAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		body, _ := io.ReadAll(r.Body)
-		if sum := sha256.Sum256(body); r.Header.Get("x-amz-content-sha256") != hex.EncodeToString(sum[:]) {
+		if sum := sha256.Sum256(body); r.Header.Get("x-amz-content-sha256") != hex.EncodeToString(sum[:]) && r.URL.Query().Get("X-Amz-Signature") == "" {
 			errXML(w, 400, "XAmzContentSHA256Mismatch")
 			return
 		}
@@ -450,7 +454,7 @@ func (s *Store) serveAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		body, _ := io.ReadAll(r.Body)
 		// A store checks the body against the signed payload hash.
-		if sum := sha256.Sum256(body); r.Header.Get("x-amz-content-sha256") != hex.EncodeToString(sum[:]) {
+		if sum := sha256.Sum256(body); r.Header.Get("x-amz-content-sha256") != hex.EncodeToString(sum[:]) && r.URL.Query().Get("X-Amz-Signature") == "" {
 			errXML(w, 400, "XAmzContentSHA256Mismatch")
 			return
 		}
