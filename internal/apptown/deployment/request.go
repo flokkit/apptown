@@ -274,7 +274,7 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	if err := s.refusesPlacement(ctx, in.ProjectID, t); err != nil {
 		return AcceptedRelease{}, err
 	}
-	if why := t.refusesAudience(dep.Audience); why != "" {
+	if why := t.refusesAudience(dep); why != "" {
 		return AcceptedRelease{}, refused("%s", why)
 	}
 	if err := s.providers.RefusesBundle(ctx, bundle, t); err != nil {
@@ -353,7 +353,13 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 			if _, err := q.RecordRollback(ctx, deploymentsql.RecordRollbackParams{ID: rel.ID, RollbackOf: rollbackOf, RestoreBackupID: restoreBackup}); err != nil {
 				return err
 			}
-			if err := appendReleaseEvent(ctx, tx, rel.ID, fmt.Sprintf("rollback of release %d", in.ReleaseNumber), s.now()); err != nil {
+			// Rollback is the person's choice of --before; any other
+			// selection deploys an earlier release's bundle again.
+			again := fmt.Sprintf("deploys release %d again", in.ReleaseNumber)
+			if !restoreBackup.IsZero() {
+				again = fmt.Sprintf("rollback to before release %d: %s, with the data backed up before release %d", in.BeforeRelease, again, in.BeforeRelease)
+			}
+			if err := appendReleaseEvent(ctx, tx, rel.ID, again, s.now()); err != nil {
 				return err
 			}
 		}

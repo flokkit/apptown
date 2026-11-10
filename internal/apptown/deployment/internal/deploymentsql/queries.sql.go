@@ -1190,7 +1190,7 @@ func (q *Queries) DeploymentsHeldAfterRestore(ctx context.Context, held string) 
 
 const earlierReleaseForBundle = `-- name: EarlierReleaseForBundle :one
 SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id, r.from_deployment_id, r.approval_role, r.approval_json, r.superseded_by, r.rollback_of, r.restore_backup_id, r.stage, r.stage_entered_at, r.failed_stage, r.stage_finished_at FROM releases r WHERE r.deployment_id=$1 AND r.bundle_id=$2 AND r.state='released'
-AND r.number < (SELECT max(latest.number) FROM releases latest WHERE latest.deployment_id=r.deployment_id AND latest.state='released')
+AND (SELECT latest.bundle_id FROM releases latest WHERE latest.deployment_id=r.deployment_id AND latest.state='released' ORDER BY latest.number DESC LIMIT 1) IS DISTINCT FROM r.bundle_id
 ORDER BY r.number DESC LIMIT 1
 `
 
@@ -1199,6 +1199,9 @@ type EarlierReleaseForBundleParams struct {
 	BundleID     ids.ID
 }
 
+// An earlier release of this bundle, when the deployment's latest released
+// release runs another bundle: deploying it goes back to that release.
+// Releasing the bundle already running again is not a return to anything.
 func (q *Queries) EarlierReleaseForBundle(ctx context.Context, arg EarlierReleaseForBundleParams) (Release, error) {
 	row := q.db.QueryRowContext(ctx, earlierReleaseForBundle, arg.DeploymentID, arg.BundleID)
 	var i Release

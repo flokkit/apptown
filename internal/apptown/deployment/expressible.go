@@ -82,14 +82,21 @@ func staticOnly(c *appcontract.Contract) bool {
 }
 
 // refusal is a target's refusal sentence as an error, or nil for none.
-// refusesAudience is the target's refusal of a deployment's audience, or "".
+// refusesAudience is the target's refusal of dep's audience, or "".
 // A Fly app answers anyone at its fly.dev address and AppTown puts no
 // sign-in in front of it, so only a public deployment says what Fly does.
-func (t *Target) refusesAudience(audience string) string {
-	if t.Kind != kindFlyMachines || audience == "public" {
+// The next step is one the person can take: a deployment that has run
+// keeps its audience (making it public is a migration EnsureStanding
+// refuses), so for that one the step is a new public deployment.
+func (t *Target) refusesAudience(dep *Deployment) string {
+	if t.Kind != kindFlyMachines || dep.Audience == "public" {
 		return ""
 	}
-	return fmt.Sprintf("%s serves the app at its fly.dev address to anyone, with no AppTown sign-in in front of it, so it cannot keep a deployment to the %s audience; set this deployment's audience to public, or deploy it to a Docker host", t.Name, audience)
+	next := "set this deployment's audience to public"
+	if dep.DesiredGeneration != 0 || dep.ObservedGeneration != 0 {
+		next = fmt.Sprintf("this deployment has run, so its audience cannot change; make a new public deployment of this project on %s", t.Name)
+	}
+	return fmt.Sprintf("%s serves the app at its fly.dev address to anyone, with no AppTown sign-in in front of it, so it cannot keep a deployment to the %s audience; %s, or deploy it to a Docker host", t.Name, dep.Audience, next)
 }
 
 func refusal(why string) error {
