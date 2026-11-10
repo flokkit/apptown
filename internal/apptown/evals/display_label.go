@@ -16,6 +16,22 @@ func evalLabel(state string) status.DisplayStatus {
 		return status.DisplayUnknown
 	}
 }
+
+// withArms refines a running eval's label by its arms: while every arm is
+// still queued nothing is being worked on, so the eval waits as they do
+// rather than reading "in progress" above arms that say "waiting".
+func withArms(label status.DisplayStatus, state string, arms []Arm) status.DisplayStatus {
+	if state != stateRunning || len(arms) == 0 {
+		return label
+	}
+	for _, a := range arms {
+		if a.State != armQueued {
+			return label
+		}
+	}
+	return status.DisplayWaiting
+}
+
 func armLabel(state string) status.DisplayStatus {
 	switch state {
 	case armQueued:

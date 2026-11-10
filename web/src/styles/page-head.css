@@ -39,8 +39,11 @@ button.page-help-q:hover, button.page-help-q[aria-expanded="true"] { color: var(
 /* The title and its "?" never part; the page's actions wrap as a block. */
 .page-head-title { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; max-width: 100%; }
 .page-head-title h1 { min-width: 0; overflow-wrap: anywhere; }
+/* On phones the 44px target's own margin spaces the circle from the title;
+   a small gap keeps the focus ring (3px outside the circle) clear of the
+   title's last letter. */
 @media (max-width: 800px) {
-  .page-head-title { gap: 0; }
+  .page-head-title { gap: var(--space-1); }
 }
 .page-head-actions { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
 /* The help's text in its phone dialog: the guide link under it. */

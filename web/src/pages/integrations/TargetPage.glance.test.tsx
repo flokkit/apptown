@@ -122,3 +122,24 @@ it('heads every target tab with the target name and Check target', () => {
     expect([...el.querySelectorAll('button')].some(b => b.textContent === 'Check target'), path).toBe(true)
   }
 })
+
+// A failed host's line under its head states the state; the act is the
+// Check target button beside it, so the line is never an instruction.
+it('says a failed host is not answering rather than an instruction under Check target', () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/auth/me'), { mode: 'internal', user: 'sam' })
+  client.setQueryData(getKey('/attention'), { sources: [], items: [] })
+  client.setQueryData(getKey('/targets/kitchen'), {
+    target: { id: 'host-id', name: 'kitchen', status: 'ready', statusLabel: 'failed',
+      check: { detail: '', observedAt: '2026-10-29T00:00:00Z', stale: true, failure: 'SSH connection refused', unknown: false, waiting: false },
+      kind: 'docker-host', kindInfo: { title: 'Docker host' },
+      address: { host: 'ssh://root@10.0.0.4', hostname: '10.0.0.4', user: 'root', port: 22, keyFrom: 'HOST_KEY' },
+      capabilities: { needs: [], rollout: ['replace'], persistentVolumes: true },
+      needsMode: 'emulators', deployments: [], offers: [], retained: 0 },
+    history: [], builtIn: false,
+  })
+  client.setQueryData(getKey('/infrastructure'), { targets: [] })
+  const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/kitchen']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name" element={<TargetPage />} /></Routes></QueryClientProvider></MemoryRouter>)
+  expect(html).toContain('not answering')
+  expect(html).not.toContain('Check connection')
+})

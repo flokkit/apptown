@@ -57,7 +57,8 @@ function KindStep({ kind, onPick }: { kind: Kind | null; onPick: (k: Kind) => vo
  const enabled = useFeature()
   return (
     <div>
-      <h3 className="wiz-section mt-0">Target kind</h3>
+      {/* The step's heading, a size above the kinds' own titles under it. */}
+      <h2 className="wiz-section mt-0">Target kind</h2>
       <div className="infra-grid">
         {KINDS.filter(k => enabled(targetFeatureArea(k.kind))).map((k) => (
           <button key={k.kind} className={'card infra-card wiz-kind' + (kind === k.kind ? ' active' : '')} onClick={() => onPick(k.kind)}>

@@ -7,7 +7,7 @@ import type { ChangeView } from '../../api'
 import type { WaitingOn } from '../../wire.gen'
 import { newQueryClient } from '../../data'
 import { ChangeStatus } from '../../Status'
-import { StatePanel } from './StatePanel'
+import { StatePanel, StateRecord } from './StatePanel'
 import { changeChip, nextStep } from './next'
 
 it.each([
@@ -41,4 +41,14 @@ it('places actions at the holding step supplied by the owner', () => {
   v.waitingOn.run = 'child'; v.waitingOn.step = 'child-approval'; v.waitingOn.kind = 'approval'
   expect(nextStep(v).primary).toBe('open-decision')
   expect(nextStep(v).step).toBeUndefined()
+})
+
+// The owner's state detail for a waiting approval is the step's name; the
+// change's record shows who it waits on, never the bare name as a sentence.
+it('does not print a waiting approval step name as the state sentence', () => {
+  const waitingOn: WaitingOn = { kind: 'approval', says: 'waiting for a person allowed to approve it', tone: 'warn', run: 'run', step: 'accept', checks: 0, who: [], you: 'no' }
+  const v = { checks: { tone: 'neutral', text: '', started: false }, waitingOn, stateDetail: 'accept', change: { id: 'c', number: 9, title: 'T', state: 'in_progress' }, runs: [], detail: null } as unknown as ChangeView
+  expect(nextStep(v).sentence).toBeUndefined()
+  const record = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><StateRecord view={v} /></QueryClientProvider></MemoryRouter>)
+  expect(record).not.toContain('accept')
 })

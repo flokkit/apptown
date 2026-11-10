@@ -220,13 +220,17 @@ function ResultMark({ text }: { text: string }) {
   return <><span className={`ch-mark ${tone}`}>{tone === 'warn' ? 'unknown' : text[0]}</span>{text.slice(tone === 'warn' ? 7 : 1)}</>
 }
 
+// A pass with nothing more to say and no report beside it would be a lone
+// tick; it says "passed", so the row never reads as empty.
+const passedWords = (result: string, records: number) => result === '✓' && records === 0 ? '✓ passed' : result
+
 function CheckRow({ entry, technical, reload, preview }: { entry: StoryEntry; technical: boolean; reload: () => void; preview: boolean }) {
   const s = entry.step!
   const na = s.status === 'not_applicable' && !s.overrideBy
   const duration = s.startedAt && s.finishedAt ? Math.max(0, Date.parse(s.finishedAt) - Date.parse(s.startedAt)) : undefined
   return <><tr id={`entry-${entry.key}`} className={na ? 'muted' : undefined}>
     <th scope="row">{preview && <span id="preview" />}{stepTitle(s)}<TechnicalWords shown={technical}>{s.name} · {s.type} · run {entry.detail.run.number}</TechnicalWords></th>
-    <td><div className="ch-check-result">{na ? "doesn't apply: no matching part" : <ResultMark text={checkResult(s)} />}<Records records={entry.records} runId={entry.detail.run.id!} /></div>
+    <td><div className="ch-check-result">{na ? "doesn't apply: no matching part" : <ResultMark text={passedWords(checkResult(s), entry.records.length)} />}<Records records={entry.records} runId={entry.detail.run.id!} /></div>
       {na && <TechnicalWords shown={technical}>{checkResult(s)}</TechnicalWords>}
       {!na && !s.overrideBy && ['fail', 'error', 'needs_human'].includes(s.status) && !!s.evidence.actions?.length && <p className="ch-story-reason">To satisfy this check: {s.evidence.actions?.join(' ')}</p>}
     </td>

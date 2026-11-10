@@ -37,13 +37,17 @@ it('says what an unset task gets, on each profile', async () => {
   expect(rows[1]).toContain('Same as standard')
   expect(rows[1]).not.toContain('A')
   expect(el.querySelector('a[href="/integrations/profiles/high/projects"]')?.textContent).toBe('1 project')
-  const unset = (job: string) => el.querySelector<HTMLSelectElement>(`select[aria-label="${job} model"]`)!.options[0].textContent
+  // What an unset job gets is the line under its select; the select's own
+  // empty choice is one short word that fits a phone's cell.
+  const unset = (job: string) => el.querySelector<HTMLSelectElement>(`select[aria-label="${job} model"]`)!.nextElementSibling?.textContent
+  const choice = (job: string) => el.querySelector<HTMLSelectElement>(`select[aria-label="${job} model"]`)!.options[0].textContent
   await at('/integrations/profiles/standard')
   await vi.waitFor(() => expect(el.querySelector('select')).not.toBeNull())
   expect(unset('Plan')).toBe('Same as Main · strong (m/base)')
   expect(el.querySelector('select[aria-label="Plan model"]')!.nextElementSibling?.textContent).toBe('Same as Main · strong (m/base)')
   expect(unset('Worker')).toBe('Same as Review (m/review)')
-  expect(unset('Main · strong')).toBe('Not set')
+  expect(choice('Main · strong')).toBe('Not set')
+  expect(choice('Plan')).toBe('Default')
   for (const label of ['Main · fast', 'Second opinion · strong']) {
     expect(unset(label)).toBe('Same as Main · strong (m/base)')
   }

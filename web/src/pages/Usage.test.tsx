@@ -131,17 +131,22 @@ describe('model prices', () => {
       expect(el.querySelector('.usage-figure .stat-value')?.classList.contains('stat-word')).toBe(true)
       // Where prices came from is a detail, on the Details tab.
       expect(el.textContent).not.toContain('without a price source')
+      // The tabs come first and switch everything under them, the cost card included.
+      expect(el.querySelector('.tabs')!.compareDocumentPosition(el.querySelector('.usage-figure')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Details')!.click() })
       expect(el.textContent).toContain('4 spend records without a price source')
+      expect(el.querySelector('.usage-figure')).toBeNull()
       report.totals.costMicros = 3000
       report.totals.providerReported = 2
       report.totals.catalog = 1
       report.totals.unpriced = 1
       await act(async () => { await client.invalidateQueries() })
       await settled(client)
+      expect(el.textContent).toContain('2 reported by the provider')
+      await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Summary')!.click() })
       expect(el.querySelector('.usage-figure')?.textContent).toContain('partly priced')
       expect(el.querySelector('.usage-figure .stat-value')?.classList.contains('stat-word')).toBe(true)
-      expect(el.textContent).toContain('2 reported by the provider')
+      await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Details')!.click() })
       expect(el.textContent).toContain('1 from the model catalog')
       expect(el.textContent).toContain('1 spend record without a price source')
     } finally { act(() => root.unmount()); client.clear() }
@@ -196,6 +201,27 @@ it('says nothing of a typical run when no run completed', async () => {
     expect(el.textContent).toContain('2 runs')
     expect(el.textContent).toContain('tests')
     expect(el.textContent).not.toContain('a typical run takes')
+  } finally {
+    act(() => root.unmount())
+    client.clear()
+  }
+})
+
+// Two steps whose words both say "took under 1s" draw bars of one length,
+// whatever their milliseconds.
+it('draws the same bar for steps that both took under a second', async () => {
+  const step = (name: string, ms: number) => ({ stage: 'check', name, type: 'check', runs: 1, medianMs: ms, p90Ms: ms, maxMs: ms, waitMedianMs: 0, costMicros: 0, costIncomplete: 0, reworks: 0 })
+  const report = { days: 7, workflows: [{ workflow: 'implement', days: 7, runs: 1, steps: [step('gitleaks', 900), step('tests', 40), step('style', 2000)] }] }
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(report))))
+  const client = newQueryClient()
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  try {
+    await act(async () => { root.render(<QueryClientProvider client={client}><TimingView days={7} /></QueryClientProvider>) })
+    await settled(client)
+    const took = Object.fromEntries([...el.querySelectorAll('.bar-row')].map(r => [r.querySelector('.bar-row-label')?.textContent, (r.querySelector('.usage-div-3') as HTMLElement).style.width]))
+    expect(took.gitleaks).toBe(took.tests)
+    expect(took.style).toBe('100%')
   } finally {
     act(() => root.unmount())
     client.clear()

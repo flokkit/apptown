@@ -47,7 +47,7 @@ export function fulfilledBy(k: DepKind): string[] {
   for (const [vendor, c] of Object.entries(k.cloud ?? {})) {
     out.push(`${VENDOR[vendor] ?? vendor}: ${c.kind ? c.kind.replace(/-/g, ' ') : 'provided by the platform'}`)
   }
-  if (k.register?.connector) out.push(`through the ${CONNECTOR[k.register.connector] ?? k.register.connector} integration (attach it under Connections)`)
+  if (k.register?.connector) out.push(`through the ${CONNECTOR[k.register.connector] ?? k.register.connector} integration, attached here once the service is on`)
   return out
 }
 
@@ -157,7 +157,7 @@ export function ServicesTab({ slug }: { slug: string }) {
 
   return (
     <Section title="Services" count={needs.length || undefined}
-      note={contract === 'none' ? 'No runtime contract yet · build the app first.' : undefined}>
+      note={contract === 'none' ? 'No runtime contract yet · build the app first.' : needs.length === 0 ? 'None turned on · fine for a client-only site or a stateless service.' : undefined}>
       <StaleNote q={svcQ} />
       <ReadStatus q={catQ} what="the service catalogue" className="small" />
       <StaleNote q={catQ} />
@@ -173,7 +173,7 @@ export function ServicesTab({ slug }: { slug: string }) {
               <div><strong>{k.title}</strong>{k.status === 'experimental' && <span className="badge services-badge">Experimental</span>}</div>
               {tileLine(k) && <div className="muted small">{tileLine(k)}</div>}
               <div className="muted small">Runs on: {fulfilledBy(k).join(' · ')}</div>
-              {k.register?.connector && <div className="service-connection"><ProjectIntegrationsTab slug={slug} onlyCapability={k.capability} /></div>}
+              {k.register?.connector && <div className="service-connection"><ProjectIntegrationsTab slug={slug} onlyCapability={k.capability} canAttach={on} /></div>}
             </div>
             <div className="service-controls">
               {on && version !== undefined && (
@@ -187,8 +187,6 @@ export function ServicesTab({ slug }: { slug: string }) {
           </div>
         )
       })}
-      {needs.length === 0 &&
-        <p className="muted small">None declared · fine for a client-only site or a stateless service.</p>}
 
       {conflict && draft && (
         <div className="card tone-warn services-services-tab-card-tone-warn">
@@ -233,7 +231,9 @@ export const INTEG_ICON: Record<string, string> = {
 
 export type AttachableT = Attachable
 
-export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string; onlyCapability?: string }) {
+// canAttach false keeps a service row's attach button away while its need is
+// Off: the switch is the one act there until the app asks for the service.
+export function ProjectIntegrationsTab({ slug, onlyCapability, canAttach = true }: { slug: string; onlyCapability?: string; canAttach?: boolean }) {
   const catalogQ = useGet<DependencyList>('/dependencies', { kind: 'config' })
   const catalog = (catalogQ.data?.dependencies ?? []).filter(k => declarable(k) && !!k.register?.connector)
   const itemsQ = useGet<AttachmentList>(`/projects/${slug}/integrations`)
@@ -381,7 +381,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
       <ReadStatus q={catalogQ} what="the service catalogue" /><StaleNote q={catalogQ} />
       {adding === null ? (
         <div className="row service-attach services-project-integrations-tab-service-attach">
-          {catalogQ.data && !catalogQ.refreshFailed && unattached.map((a) => (
+          {canAttach && catalogQ.data && !catalogQ.refreshFailed && unattached.map((a) => (
             <button key={a.capability} onClick={() => openAdd(a)} title={a.description}>+ {a.title}</button>
           ))}
         </div>

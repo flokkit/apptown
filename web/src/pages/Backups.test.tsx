@@ -25,7 +25,7 @@ const set = {
 // or the project's deployments when that deployment was taken down.
 it('lists copies without acts, and a row opens its deployment', async () => {
   const client = newQueryClient()
-  const store = { ...set, id: DOCKER_SET, store: 'store', path: 'shop/main/x' }
+  const store = { ...set, id: DOCKER_SET, deploymentLabel: 'Production', store: 'store', path: 'shop/main/x' }
   const final = { ...set, id: CLOUD_SET, deployment: 'old', trigger: 'take-down' }
   const body = { keep: 7, where: '/b', backups: [store, final] }
   client.setQueryData(getKey('/backups'), body)
@@ -41,6 +41,9 @@ it('lists copies without acts, and a row opens its deployment', async () => {
     // stopped move left behind is matched against it (OHB-02).
     const all = el.querySelectorAll('table')[1].querySelectorAll('tbody tr')
     expect(all[0].textContent).toContain('backup store')
+    // The cleanup guide requires the exact folder identity to be readable.
+    // A display label does not supply the path's deployment segment, and
+    // a native title tooltip is unavailable to a person using a phone.
     expect(all[0].textContent).toContain('shop/main/x')
     expect(el.textContent).toContain('object metadata is not in the copy')
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }

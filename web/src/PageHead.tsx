@@ -252,6 +252,25 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
       <p>Set rules every workflow must follow, such as "a deploy needs a scan first". A policy is checked whenever a workflow is saved.</p>
     </> },
   },
+  // Each conformance page says what that page shows, not the area's summary.
+  conformance: {
+    Checks: { guide: 'conformance', body: <>
+      <p>Every check the projects' adopted packs ask for, with how many projects pass, fail or could not be checked.</p>
+      <p>Open a check to see each project's latest result for it.</p>
+    </> },
+    'this check': { guide: 'conformance', body: <>
+      <p>This check's result in each project that adopted it, with the commit it was judged on. Under a review, the results are as that review found them.</p>
+      <p>A finding opens the project; a fix for it is made as a change there.</p>
+    </> },
+    Reviews: { guide: 'conformance', body: <>
+      <p>Each review read every project's <code>main</code> branch at one time and changed nothing.</p>
+      <p>Open one to see the results as they were then.</p>
+    </> },
+    Remediations: { guide: 'conformance', body: <>
+      <p>A remediation fixes findings: it opens one change per project, one at a time, and each waits for approval like any other change.</p>
+      <p>Open one to follow its changes.</p>
+    </> },
+  },
 }
 
 // sub names the page inside an area the menu opens as a drawer: the title is

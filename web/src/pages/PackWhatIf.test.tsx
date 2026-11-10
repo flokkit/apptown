@@ -77,7 +77,7 @@ describe('what-if panel', () => {
         ? json({ whatIf: null, eligible: ['ledger', 'till'], ownPacksNewest: [] })
         : json({ whatIf: null, eligible: [], ownPacksNewest: [{ pack: 'rails', version: 38 }, { pack: 'django-htmx', version: 43 }] })
     })
-    expect(button(el, 'Run on').disabled).toBe(true)
+    expect(button(el, 'Run on')).toBeUndefined()
     expect(el.textContent).toContain('rails v38, django-htmx v43: for projects already on them')
     const tick = [...el.querySelectorAll('input[type=checkbox]')].find((i) => i.parentElement?.textContent?.includes("Also move each project's own pack")) as HTMLInputElement
     await act(async () => { tick.click() })
@@ -116,8 +116,11 @@ describe('what-if panel', () => {
 
   it('cannot run when no project is eligible', async () => {
     const { el, done } = await render(() => json({ whatIf: null, eligible: [] }))
-    expect(el.textContent).toContain('Eligible (on an earlier version):none')
-    expect(button(el, 'Run on').disabled).toBe(true)
+    expect(el.textContent).toContain('Eligible (on an earlier version):none; no project is on an earlier version')
+    // Nothing can run, so no run button or run options are offered; choosing projects is.
+    expect(button(el, 'Run on')).toBeUndefined()
+    expect(el.querySelectorAll('input[type=checkbox]')).toHaveLength(0)
+    expect(button(el, 'choose projects')).toBeDefined()
     done()
   })
 

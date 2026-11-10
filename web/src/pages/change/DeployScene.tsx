@@ -164,9 +164,10 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
           </g>
           <rect className="ink tilt" x="150" y="40" width="38" height="12"></rect>
           <g className="sign">
-            <rect className="ink" x="64" y="104" width="34" height="14"></rect>
-            <line className="ink" x1="81" y1="118" x2="81" y2="130"></line>
-            <text className="sign-label" x="81" y="114" textAnchor="middle">closed</text>
+            {/* Large enough to read on a phone, where the scene is drawn small. */}
+            <rect className="ink" x="50" y="96" width="58" height="22"></rect>
+            <line className="ink" x1="79" y1="118" x2="79" y2="130"></line>
+            <text className="sign-label" x="79" y="111.5" textAnchor="middle">closed</text>
           </g>
           <line className="ink pole" x1="150" y1="30" x2="150" y2="8"></line>
           <path className="ink flag" d="M150 8 L166 12 L150 16 Z"></path>

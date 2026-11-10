@@ -84,8 +84,10 @@ export function nextStep(view: ChangeView): NextStep {
     const release = d?.artifacts.some(a => a.kind === 'release' && a.ref)
     return { ...base, primary: release ? 'open-release' : 'none', sentence: view.stateDetail }
   }
+  // A waiting approval's state detail is the approval step's name ("accept"),
+  // not a sentence; who it waits on says the rest.
   if (w.kind === 'approval') {
-    return { ...base, primary: step ? 'approve' : 'open-decision', waitingOn: w.you === 'yes' ? 'you' : w.who.map(x => x.name).join(' or '), sentence: view.stateDetail }
+    return { ...base, primary: step ? 'approve' : 'open-decision', waitingOn: w.you === 'yes' ? 'you' : w.who.map(x => x.name).join(' or ') }
   }
   if (w.kind === 'ready') return { ...base, primary: offered(d?.next, 'advance') ? 'continue' : 'none' }
   if (w.kind !== 'check' && w.kind !== 'person') return base

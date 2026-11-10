@@ -24,3 +24,20 @@ func TestReadersSupplyEvalAndArmLabelsIncludingStoredChecks(t *testing.T) {
 		}
 	}
 }
+
+// A running eval whose arms are all still queued waits as they do; once one
+// arm starts, the eval is in progress.
+func TestRunningEvalWithOnlyQueuedArmsIsWaiting(t *testing.T) {
+	t.Parallel()
+	queued := []Arm{{State: armQueued}, {State: armQueued}}
+	if got := withArms(evalLabel(stateRunning), stateRunning, queued).String(); got != "waiting" {
+		t.Errorf("all queued: %s, want waiting", got)
+	}
+	started := []Arm{{State: armQueued}, {State: armWorking}}
+	if got := withArms(evalLabel(stateRunning), stateRunning, started).String(); got != "working" {
+		t.Errorf("one working: %s, want working", got)
+	}
+	if got := withArms(evalLabel(stateHeld), stateHeld, queued).String(); got != "waiting for you" {
+		t.Errorf("held: %s", got)
+	}
+}

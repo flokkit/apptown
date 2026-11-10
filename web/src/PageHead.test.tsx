@@ -136,6 +136,19 @@ it("shows the Backups page's own help", () => {
   act(() => root.unmount()); el.remove()
 })
 
+// A conformance page's help is about that page (its remediations, its
+// check), not the area's summary of reviews.
+it.each([['Remediations', 'A remediation fixes findings'], ['this check', "This check's result in each project"]])('shows the conformance %s page its own help', (sub, words) => {
+  const el = document.createElement('div'); document.body.append(el)
+  const root = createRoot(el)
+  act(() => root.render(<MemoryRouter><PageHead page="conformance" title="Remediations" sub={sub} /></MemoryRouter>))
+  act(() => el.querySelector<HTMLButtonElement>('.page-help-q')!.click())
+  const text = el.querySelector('.page-help-pop')!.textContent
+  expect(text).toContain(words)
+  expect(text).not.toContain(PAGE_HELP.conformance.line)
+  act(() => root.unmount()); el.remove()
+})
+
 it('explains Memory as project context and leaves decisions out of Settings help', () => {
   const memory = render(<PageHead page="projectMemory" />)
   act(() => q(memory).click())

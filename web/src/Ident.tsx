@@ -8,7 +8,9 @@ import { Fragment } from 'react'
 // copying it and finding it on the page still work. Wrap plain text only:
 // an underline does not reach into an inline-block, so put Ident outside a
 // link, never inside one.
-export function Ident({ children }: { children: string }) {
+// after is punctuation that belongs to the name in a list (", "'s comma):
+// it sits inside the name's unit, so a line never starts with it.
+export function Ident({ children, after = '' }: { children: string; after?: string }) {
   const parts = children.split('/')
-  return <>{parts.map((part, i) => <Fragment key={i}><span className="ident">{part}{i < parts.length - 1 ? '/' : ''}</span>{i < parts.length - 1 && <wbr />}</Fragment>)}</>
+  return <>{parts.map((part, i) => <Fragment key={i}><span className="ident">{part}{i < parts.length - 1 ? '/' : after}</span>{i < parts.length - 1 && <wbr />}</Fragment>)}</>
 }

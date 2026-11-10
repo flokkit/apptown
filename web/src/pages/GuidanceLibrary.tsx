@@ -1,5 +1,5 @@
 import { PRODUCT } from '../brand'
-import { Ident } from '../Ident'
+import { renderMd } from '../md'
 import { Section, SectionFilter } from '../Section'
 import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -14,25 +14,35 @@ import type { GeneratedGuidance } from '../wire.gen'
 // Machine-written steering sections, rendered live — the library shows
 // EVERYTHING that steers agents, authored and generated alike, each with
 // what it costs an agent's context.
+// A generated section's name is a path ("platform/complaints-box"); people
+// read its last part as words, as its row in the list does.
+const sectionTitle = (name: string) => name.split('/').at(-1)!.replaceAll('-', ' ')
+// A section's markdown may open with its own "# Title": on the section's
+// page that is the page's one title, and the body follows it.
+const LEAD_TITLE = /^#\s+(.+)\n*/
+const titled = (md: string) => { const m = LEAD_TITLE.exec(md); return m ? { title: m[1].trim(), body: md.slice(m[0].length) } : { title: '', body: md } }
+
 export function GeneratedGuidance({ page = false }: { page?: boolean }) {
   const { name } = useParams()
   const q = useGet<GeneratedGuidance>('/guidance/generated')
   const data = q.data
-  if (!data) return <>{page && <h1>{name ? <Ident>{name}</Ident> : 'Automatic guidance'}</h1>}<ReadStatus q={q} what="the generated guidance" /></>
+  if (!data) return <>{page && <h1>{name ? sectionTitle(name) : 'Automatic guidance'}</h1>}<ReadStatus q={q} what="the generated guidance" /></>
   const gens = data.generated ?? [], always = data.alwaysBytes ?? 0, conditional = data.conditionalBytes ?? 0
-  if (gens.length === 0) return page ? <><h1>{name ? <Ident>{name}</Ident> : 'Automatic guidance'}</h1><p>No automatic guidance is recorded.</p></> : null
+  if (gens.length === 0) return page ? <><h1>{name ? sectionTitle(name) : 'Automatic guidance'}</h1><p>No automatic guidance is recorded.</p></> : null
   return (
-    <>{page && <h1>{name ? <Ident>{name}</Ident> : 'Automatic guidance'}</h1>}<Section title={page ? '' : 'Automatic guidance'} count={name ? undefined : gens.length}
+    <>{page && <h1>{name ? titled((gens.find(g => g.name === name)?.bodyMd ?? '').trim()).title || sectionTitle(name) : 'Automatic guidance'}</h1>}<Section title={page ? '' : 'Automatic guidance'} count={name ? undefined : gens.length}
       note={<>Written from instance settings. <span title={sizeTitle(always)}>{fmtSize(always)}</span> per step
         {conditional > 0 && <> · up to <span title={sizeTitle(conditional)}>{fmtSize(conditional)}</span> in some steps</>}</>}>
       <StaleNote q={q} />
       <LibraryRows>
         {gens.filter(g => !page || !name || g.name === name).map((g) => (
-          <LibraryRow key={g.name} name={g.name.split('/').at(-1)!.replaceAll('-', ' ')} to={page && name ? undefined : `/guidance/generated/${encodeURIComponent(g.name)}`}
+          <LibraryRow key={g.name} name={sectionTitle(g.name)} to={page && name ? undefined : `/guidance/generated/${encodeURIComponent(g.name)}`}
             purpose={`from ${g.source}`}
             state={<span className="muted small">{g.always ? 'every step' : 'some steps'} · <span title={sizeTitle(g.bytes)}>{fmtSize(g.bytes)}</span></span>}
             detail={page && name && <>
-              <pre className="source">{(g.bodyMd ?? '').trim()}</pre>
+              {/* Guidance is prose for an agent, in markdown, rendered as the
+                  authored guidance page renders it: words wrap, code scrolls. */}
+              <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(titled((g.bodyMd ?? '').trim()).body) }} />
               {g.note && <p className="muted small">{g.note}</p>}
             </>} />
         ))}

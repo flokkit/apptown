@@ -252,6 +252,14 @@ it('puts check actions and produced records together on the check row', async ()
   f.close()
 })
 
+// A passed check with no notes and no report reads "passed", not a lone tick.
+it('says passed on a check row that has nothing else to show', async () => {
+  const v = view()
+  v.detail!.steps = [step('style', 'script', 'pass', { statusLabel: 'passed' })]
+  const f = await mount(v)
+  try { expect(f.el.querySelector('#entry-style-0 .ch-check-result')?.textContent).toBe('✓ passed') } finally { f.close() }
+})
+
 it('describes run-level work by its output, with session and code links', async () => {
   const v = view(); v.detail!.steps = []; v.diffstat = '2 files changed, 5 insertions(+)'
   let f = await mount(v)

@@ -36,13 +36,13 @@ func TestHostDownFoldsUnknownsAndKeepsConfirmedConditions(t *testing.T) {
 		t.Fatalf("host items: %+v %v", got, err)
 	}
 	outage := got.Items[0]
-	if outage.Title != "office is not reachable" || outage.Unknown || outage.Href != "/targets/office" || !strings.Contains(outage.Detail, "50 deployments can't be checked") || !strings.Contains(outage.Detail, "connection refused") || !strings.Contains(outage.Detail, "3 Nov, 01:02 UTC") || !strings.Contains(outage.Detail, "check its connection") {
+	if outage.Title != "office is not reachable" || outage.Unknown || outage.Href != "/targets/office" || !strings.Contains(outage.Detail, "50 deployments can't be checked") || !strings.Contains(outage.Detail, "connection refused") || !strings.Contains(outage.Detail, "3 Nov, 01:02 UTC") || !strings.Contains(outage.Detail, "then use Check target") || strings.Contains(outage.Detail, "Open the target page") {
 		t.Fatalf("outage: %+v", outage)
 	}
 	// A host with no standing deployment (only a preview, say) is still
 	// unreachable, but does not count nothing as something it can't check.
 	inv.Hosts = hostOutages{host: {Down: true, Since: at, Error: "connection refused"}}
-	if got, err := inv.Snapshot(t.Context()); err != nil || strings.Contains(got.Items[0].Detail, "can't be checked") || !strings.Contains(got.Items[0].Detail, "check its connection") {
+	if got, err := inv.Snapshot(t.Context()); err != nil || strings.Contains(got.Items[0].Detail, "can't be checked") || !strings.Contains(got.Items[0].Detail, "then use Check target") {
 		t.Fatalf("outage without deployments: %+v %v", got, err)
 	}
 	inv.Hosts = outages

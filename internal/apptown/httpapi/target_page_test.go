@@ -146,7 +146,12 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app := names.App() // what the deployment's app is called on its host, recorded or not
+	app := names.App() // what the deployment's app is called on its host
+	// A deploy names the container it boots when it reserves its port; a
+	// deployment that never booted has nothing on the host to protect.
+	if _, err := w.deployment.Deployments.ReserveHostPort(t.Context(), pid, "main", app, 18080); err != nil {
+		t.Fatal(err)
+	}
 	if code, out := call(fmt.Sprintf(`{"kind":"container","name":%q,"confirm":%q}`, app, app)); code != 409 || !strings.Contains(out["error"].(string), "ri/main") {
 		t.Fatalf("recorded container: %d %v", code, out)
 	}

@@ -100,7 +100,8 @@ export function ChecksList({ view, base }: { view: ConformanceView; base: string
         { key: 'status', label: 'Status', phone: 'state', render: r => checkStatus(r.vs) },
         { key: 'fix', label: '', phone: 'action', render: r => view.lens.kind === 'current' && r.fixKey && fixableFindings(view, r.vs) > 0 && <FixEverywhere fixKey={r.fixKey} /> },
       ]} />}
-      {checks.length > limit && <p><button onClick={() => setLimit(n => n + 10)}>Show more checks</button></p>}
+      {/* The heading counts every check; the button says how many more it shows. */}
+      {checks.length > limit && <p><button onClick={() => setLimit(n => n + 10)}>Show {Math.min(10, checks.length - limit)} more {checks.length - limit === 1 ? 'check' : 'checks'}</button></p>}
     </Section>
   )
 }

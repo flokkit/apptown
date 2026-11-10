@@ -31,6 +31,9 @@ import './conformance.css'
 
 // --- the page ---------------------------------------------------------------------------------------
 
+// The tabs with help of their own (PageHead's SUB_HELP.conformance).
+const TAB_HELP: Partial<Record<string, string>> = { checks: 'Checks', reviews: 'Reviews', remediations: 'Remediations' }
+
 export default function Conformance({ tab }: { tab: 'projects' | 'project' | 'reviews' | 'checks' | 'remediations' | 'remediation' | 'what-ifs' }) {
   const { reviewId, slug, remId, checkKey } = useParams()
   const rid = reviewId ?? ''
@@ -98,7 +101,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
           fixing every finding is a plain button beside it. While a review
           runs, its progress takes their place. */}
       {tab === 'what-ifs' && <PageHead page="packUpgrades" />}
-      {tab !== 'project' && tab !== 'remediation' && tab !== 'what-ifs' && <PageHead page="conformance" title={title} actions={!readOnly && !checkKey ? (live && isUnfinished(live.review.status)
+      {tab !== 'project' && tab !== 'remediation' && tab !== 'what-ifs' && <PageHead page="conformance" title={title} sub={checkKey ? 'this check' : TAB_HELP[tab]} actions={!readOnly && !checkKey ? (live && isUnfinished(live.review.status)
         ? <ReviewProgress d={live} />
         : <span className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             {fixable > 0 && <button disabled={busy} title="Start a remediation over every finding: one change per project at a time, each waiting for your approval" onClick={() => remediation.start('all', '')}>Fix {fixable} {fixable === 1 ? 'problem' : 'problems'}</button>}

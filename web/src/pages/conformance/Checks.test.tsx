@@ -28,3 +28,13 @@ it('shows findings on a closed group of versions of the same check', () => {
  expect(row).toContain('1 passed')
  expect(html).not.toContain('Version 1')
 })
+
+// The heading counts every check (16) while ten are listed; the button says
+// how many more it shows, so the count and the list do not disagree unsaid.
+it('says how many more checks the button shows beside the total', () => {
+  const pass = { projectSlug: 'one', lane: 'conforms', state: 'conforms', statusLabel: 'passed' }
+  const keys = Array.from({ length: 16 }, (_, i) => `c${String(i).padStart(2, '0')}`)
+  const view = { openRemediations: [], lens: { kind: 'current' }, adjudications: {}, checkDefs: Object.fromEntries(keys.map(k => [k, { key: k, title: k, adopters: [] }])), byCheck: Object.fromEntries(keys.map(k => [k, [pass]])) } as unknown as ConformanceView
+  const html = renderToStaticMarkup(<MemoryRouter><ChecksList view={view} base="/conformance" /></MemoryRouter>)
+  expect(html).toContain('Show 6 more checks')
+})
