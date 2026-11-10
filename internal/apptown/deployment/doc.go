@@ -164,7 +164,10 @@
 // unread section stays unknown. BeforeAct increments the act counter before an
 // effect. Only a complete lap begun after that act clears the whole-reading
 // mark; passive reads compare with the current counter. Docker inventory
-// and deployment diagnostics derive from the stored facts. Diagnostics never
+// and deployment diagnostics derive from the stored facts. The whole-reading
+// mark governs host-level views; a deployment's parts wait only for a reading
+// begun after its own last act (its applied attempt or confirmed runtime act),
+// so one deployment's act leaves its siblings' witnessed parts. Diagnostics never
 // inspect parts individually; a failed section exposes the next ordinary lap.
 // Missing-resource claims compare records
 // and facts during the same complete collection; newer records cannot establish

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -21,6 +22,20 @@ var errRuntimeBusy = fault.New(fault.Conflict, "the deployment is changing; wait
 
 func (e *Deployment) runtimeBusy() bool {
 	return e.RuntimeState != "running" && e.RuntimeState != "stopped"
+}
+
+// lastActAt is when this deployment's own last effect finished: its applied
+// attempt or its confirmed runtime act. Readings begun earlier cannot
+// witness its parts.
+func (e *Deployment) lastActAt() time.Time {
+	var at time.Time
+	if e.LastApplied != nil {
+		at = e.LastApplied.At
+	}
+	if e.RuntimeAt.Valid && e.RuntimeAt.Time.After(at) {
+		at = e.RuntimeAt.Time
+	}
+	return at
 }
 
 // runtimeControls says, per action (deploy, start, stop, restart), why it is
@@ -186,12 +201,17 @@ func (s *Service) ControlRuntime(ctx context.Context, projectID ids.ID, name, ac
 		}
 		detail := ""
 		kind := "deployment." + action + "-completed"
+		// A confirmed act is dated at confirmation: a host reading begun
+		// before then cannot witness its result. An unconfirmed act keeps
+		// its request time, which the retry fence compares.
+		at := sql.NullTime{Time: s.now(), Valid: true}
 		if err != nil {
 			state = transition
 			detail = err.Error()
 			kind = "deployment." + action + "-unconfirmed"
+			at = current.RuntimeAt.NullTime
 		}
-		_, writeErr := deploymentsql.New(tx.SQL()).SetRuntimeState(recordCtx, deploymentsql.SetRuntimeStateParams{ID: dep.ID, State: state, Actor: actor.Principal.Name, At: current.RuntimeAt.NullTime, Error: detail})
+		_, writeErr := deploymentsql.New(tx.SQL()).SetRuntimeState(recordCtx, deploymentsql.SetRuntimeStateParams{ID: dep.ID, State: state, Actor: actor.Principal.Name, At: at, Error: detail})
 		if writeErr != nil {
 			return writeErr
 		}
@@ -269,7 +289,7 @@ func (s *Service) checkRuntimeControl(ctx context.Context, dep *Deployment) (che
 		if current.RuntimeState != dep.RuntimeState {
 			return errRuntimeBusy
 		}
-		if _, err := deploymentsql.New(tx.SQL()).SetRuntimeState(ctx, deploymentsql.SetRuntimeStateParams{ID: dep.ID, State: state, Actor: dep.RuntimeActor, At: dep.RuntimeAt.NullTime}); err != nil {
+		if _, err := deploymentsql.New(tx.SQL()).SetRuntimeState(ctx, deploymentsql.SetRuntimeStateParams{ID: dep.ID, State: state, Actor: dep.RuntimeActor, At: sql.NullTime{Time: s.now(), Valid: true}}); err != nil {
 			return err
 		}
 		return audit.At(s.now()).RecordIn(ctx, tx, dep.RuntimeActor, dep.ProjectID, "deployment.runtime-confirmed", dep.Name, map[string]any{"deploymentId": dep.ID, "state": state})
