@@ -615,6 +615,7 @@ func evalIn(ctx context.Context, q database.Queryer, id ids.ID) (*Eval, error) {
 	for _, a := range arms {
 		e.Arms = append(e.Arms, armOf(a.EvalArm, a.SourceChangeNumber, a.ChangeNumber))
 	}
+	e.StatusLabel = withArms(e.StatusLabel, e.State, e.Arms)
 	return &e, nil
 }
 

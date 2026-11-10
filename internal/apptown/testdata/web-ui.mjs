@@ -7,6 +7,11 @@ const base = process.env.DESIGN_URL, out = process.env.DESIGN_OUT;
 const browser = await chromium.launch({ headless: true, args: ['--no-proxy-server'] });
 const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1, timezoneId: 'UTC' });
 const page = await context.newPage();
+// A full-page shot of a scrolled page draws the fixed top bar where the
+// viewport was, pasted over the middle of the page. In full-page shots the
+// bar is placed at the top of the document instead, where a reader expects it.
+const screenshot = page.screenshot.bind(page);
+page.screenshot = options => screenshot(options?.fullPage ? { ...options, style: `${options.style ?? ''} .topbar { position: absolute; }` } : options);
 // Each deployment row's height when it is first drawn, before its late reads
 // (the viewer's permissions, the target's reading, the backups) arrive, so the
 // deployments pages can check that rows do not grow when they do. Installed
@@ -869,6 +874,11 @@ try {
             if (await row.getAttribute('aria-expanded') === 'false') await row.press('Enter');
           }
           await page.locator('main details:not(.status-help)').evaluateAll(els => els.forEach(el => { el.open = true; }));
+          // The history is the whole list of backups, as the jobs history is.
+          for (let more = 0; more < 50 && await page.getByRole('button', { name: 'Show 10 more', exact: true }).count(); more++) {
+            await page.getByRole('button', { name: 'Show 10 more', exact: true }).click();
+          }
+          await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-history.png`, fullPage: true });
           // The Backups page lists; restoring is the deployment's act.
           if (await page.getByRole('button', { name: /^Restore |^Back up now$/ }).count()) throw new Error('Backups rows must not carry deployment acts');

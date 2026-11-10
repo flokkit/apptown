@@ -4,7 +4,8 @@ import { useAttention } from './attention'
 import { useGet } from './data'
 import type { InfrastructureTargets, TargetLabel } from './wire.gen'
 
-// Connection failures take priority; otherwise every host view uses the same
+// Connection failures take priority (their summary is the state, "not
+// answering": the Check target button beside it is the act); otherwise every host view uses the same
 // current Attention condition, including unknown coverage.
 export function useHostStates() {
   const attention = useAttention()
@@ -15,7 +16,7 @@ export function useHostStates() {
     const error = reading?.error
     const word: keyof typeof STATUS_WORD = connection === 'failed' || connection === 'stopped' ? connection
       : issue ? (attention.refreshFailed || issue.unknown || issue.statusLabel === 'unknown' ? 'unknown' : issue.severity === 'advisory' ? 'not checked yet' : 'failed') : reading?.unknown ? 'unknown' : connection
-    const summary = connection === 'failed' ? 'Check connection' : issue
+    const summary = connection === 'failed' ? 'not answering' : issue
       ? issue.title.slice(issue.title.indexOf(': ') + 2).replace('resources not known', 'capacity not known')
       : reading?.unknown ? 'Capacity not known' : reading?.asOf && !reading.live ? lastSeen(reading.asOf) : ''
     return { word, summary, help: issue?.detail || error || `Host connection: ${connection}.` }

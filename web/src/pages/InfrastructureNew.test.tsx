@@ -146,7 +146,7 @@ it('heads the kind list like the other wizard lists', () => {
   const client = newQueryClient(), el = document.createElement('div')
   try {
     el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><InfrastructureNew /></QueryClientProvider></MemoryRouter>)
-    expect([...el.querySelectorAll('.wiz-section')].map(e => e.textContent)).toContain('Target kind')
+    expect([...el.querySelectorAll('h2.wiz-section')].map(e => e.textContent)).toContain('Target kind')
   } finally {client.clear()}
 })
 

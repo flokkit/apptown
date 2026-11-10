@@ -18,28 +18,13 @@
 
   .target-resource-reference { overflow-wrap: anywhere; }
 
-  .cap-table { min-width: 54rem; }
-  .capacity-details, .cap-details { overflow-x: auto; }
+  /* The capacity tables are wide on a desktop; on phones the resource table
+     is a ListTable and stacks each row with its values labelled. */
+  .capacity-details { overflow-x: auto; }
 
-.main .cap-details table.cap-table:not(.stack):not(.kv),
 .main .capacity-details table:not(.stack):not(.kv):not(.diff-table) { display: table; overflow: visible; }
 .target-deployments-table .phone-state { white-space: normal; }
 @media (width > 800px) {
   .target-deployments-table .phone-state { width: 16rem; max-width: 16rem; }
-}
-/* The resource table compares five figures per row: on phones it stays a
-   table with its headings and scrolls inside its region, rather than the
-   list layout, which stacks unlabelled figures past the screen's edge. */
-@media (width <= 800px) {
-  .cap-details .cap-table { display: table; }
-  .cap-details .cap-table tbody { display: table-row-group; }
-  .cap-details .cap-table thead { position: static; width: auto; height: auto; overflow: visible; clip-path: none; display: table-header-group; }
-  .cap-details .cap-table tr { display: table-row; padding: 0; }
-  .cap-details .cap-table td { display: table-cell; padding: var(--space-2); border-bottom: 1px solid var(--border); white-space: nowrap; contain: none; }
-  /* Headings stay whole; the table is wider than the screen and scrolls in
-     its region instead of breaking a heading inside a word. */
-  .cap-details .cap-table th { display: table-cell; white-space: nowrap; padding: var(--space-2); }
-  /* Its headings say what each figure is, so cells carry no phone label. */
-  .cap-details .cap-table td::before { content: none; }
 }
 }

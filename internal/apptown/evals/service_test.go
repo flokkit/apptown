@@ -1443,6 +1443,9 @@ func TestOffEvalsPassStartsNoArms(t *testing.T) {
 	}
 	if got := w.eval(t, e.ID); countArms(got, armQueued) != 4 || len(w.work.started) != 0 {
 		t.Fatalf("off eval started arms: %+v, starts %+v", got.Arms, w.work.started)
+	} else if got.StatusLabel.String() != "waiting" {
+		// Its arms all wait, so the eval reads waiting, not in progress.
+		t.Fatalf("eval with only queued arms reads %s", got.StatusLabel)
 	}
 	setEvalFeature(t, w.ids, true)
 	if _, err := w.service.RunPassJob(t.Context(), "scheduled", nil); err != nil {

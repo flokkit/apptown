@@ -11,7 +11,10 @@
 .popover :is(.more-menu-list, .split-menu) { max-width: 16rem; }
 .popover button { white-space: normal; overflow-wrap: anywhere; text-align: left; }
 .popover :is(.more-menu-list, .split-menu) > button { display: flex; flex-direction: column; align-items: start; padding: 10px 12px; }
+/* A hint takes the width its item's label sets and never widens the menu
+   itself (width 0, then the item's full width). */
 .popover .btn-sub { white-space: normal; }
+.popover :is(.more-menu-list, .split-menu) > button > :is(.btn-sub, .muted) { width: 0; min-width: 100%; }
 /* A menu item is something to do: it reads in the text colour; its hint stays muted. */
 .popover :is(.more-menu-list, .split-menu) > button:not(.danger) { color: var(--text); }
 .account-action-list > label { display: flex; align-items: center; gap: var(--space-2); }

@@ -162,7 +162,7 @@ it('says what fulfils each need and lists only declarable kinds', async () => {
   const llm = { capability: 'llm', title: 'AI models', local: { image: '' }, register: { connector: 'openrouter' } }
   const errors = { capability: 'errors', title: 'Error reporting', local: { image: '' }, integration: true, register: { connector: 'glitchtip' } }
   expect(fulfilledBy(pg)).toEqual(['Docker host or Portainer: runs beside the app', 'DigitalOcean: managed database'])
-  expect(fulfilledBy(llm)).toEqual(['through the OpenRouter integration (attach it under Connections)'])
+  expect(fulfilledBy(llm)).toEqual(['through the OpenRouter integration, attached here once the service is on'])
   expect([pg, llm, errors].filter(declarable).map((k) => k.capability)).toEqual(['postgres', 'llm'])
 })
 
@@ -223,10 +223,16 @@ it('lists AI models once and keeps connecting it available inside that service',
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ServicesTab slug="demo" /><section className="other-connections"><ProjectIntegrationsTab slug="demo" /></section></MemoryRouter></QueryClientProvider>))
     await vi.waitFor(() => expect(el.querySelector('.service-pick [role=switch]')).not.toBeNull())
+    // Off, the row has one act, its switch: no attach button beside it, and
+    // the "none turned on" line is the section's note.
+    await vi.waitFor(() => expect(el.textContent).toContain('None turned on'))
+    expect(el.querySelector('.service-pick')?.textContent).not.toContain('+ AI models')
+    expect(el.textContent).toContain('Turn a service on or off')
+    await act(async () => (el.querySelector('.service-pick [role=switch]') as HTMLElement).click())
     await vi.waitFor(() => expect(el.querySelector('.service-pick')?.textContent).toContain('+ AI models'))
+    expect(el.textContent).not.toContain('None turned on')
     expect(el.querySelectorAll('.service-pick')).toHaveLength(1)
     expect(el.querySelector('.other-connections')?.textContent).not.toContain('+ AI models')
-    expect(el.textContent).toContain('Turn a service on or off')
     const connect = [...el.querySelectorAll<HTMLButtonElement>('.service-pick button')].find(b => b.textContent === '+ AI models')!
     await act(async () => connect.click())
     expect(el.querySelector('.service-pick')?.textContent).toContain('Attach AI models')

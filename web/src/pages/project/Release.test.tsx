@@ -171,9 +171,9 @@ it.each([true, false])('labels the exact-version preview as a preview (live=%s)'
 
 it('links the release record to each deployment where its bundle ran', async () => {
   const history = [
-    { bundleId: B14, deployment: 'production', state: 'released', serving: true },
-    { bundleId: B14, deployment: 'staging', state: 'released', serving: false },
-    { bundleId: B15, deployment: 'other', state: 'released', serving: true },
+    { number: 14, bundleId: B14, deployment: 'production', state: 'released', serving: true },
+    { number: 14, bundleId: B14, deployment: 'staging', state: 'released', serving: false },
+    { number: 15, bundleId: B15, deployment: 'other', state: 'released', serving: true },
   ]
   const detail = { release: { number: 14, bundleId: B14, state: 'released', createdAt: '2026-11-06T01:00:00Z' }, changes: [], events: [] }
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/releases') ? history : detail))))
@@ -185,6 +185,25 @@ it('links the release record to each deployment where its bundle ran', async () 
     expect(h.el.querySelector('a[href="/projects/shop/deployments/other"]')).toBeNull()
     await vi.waitFor(() => expect(h.el.textContent).toContain('Running here'))
     expect(h.el.textContent).toContain('Has run here')
+  } finally { act(() => h.root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+// Release 23 and release 16 can ship one build; a deployment running 16 does
+// not run release 23, so its row names the release it runs.
+it('names the release a deployment runs when it serves the same build under another number', async () => {
+  const history = [
+    { number: 23, bundleId: B14, deployment: 'staging', state: 'released', serving: true },
+    { number: 16, bundleId: B14, deployment: 'production', deploymentLabel: 'Production', state: 'released', serving: true },
+  ]
+  const detail = { release: { number: 23, bundleId: B14, state: 'released', createdAt: '2026-11-06T01:00:00Z' }, changes: [], events: [] }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/releases') ? history : detail))))
+  const client = newQueryClient()
+  const h = render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="23" /></MemoryRouter></QueryClientProvider>)
+  try {
+    await vi.waitFor(() => expect(h.el.querySelector('a[href="/projects/shop/releases/16"]')).not.toBeNull())
+    const rows = [...h.el.querySelectorAll('.release-record p')].map(p => p.textContent)
+    expect(rows).toContain('staging · Running here')
+    expect(rows).toContain('Production · Runs the same build as release 16')
   } finally { act(() => h.root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
 

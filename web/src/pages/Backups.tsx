@@ -71,7 +71,7 @@ export function BackupsView() {
           { key: 'state', label: 'State', phone: 'state', render: b => <Status word={b.statusLabel} help={b.error || (b.status === 'pruned' ? 'This old copy has been removed.' : undefined)} /> },
           { key: 'taken', label: 'Taken', kind: 'time', render: b => fmtWhen(b.takenAt) },
           { key: 'details', label: 'Details', render: b => <>{b.deploymentLabel || b.deployment} · {b.beforeRelease ? <Link to={`/projects/${b.project}/releases/${b.beforeRelease}`}>before release {b.beforeRelease}</Link> : b.trigger} · {b.actor}{b.status === 'pruned' ? <p>Copy removed</p> : <>
-            {' · '}<KeptOn b={b} /><section><h3>Location</h3><code><Tech>{setPlace(b, data.where)}</Tech></code></section>
+            {' · '}<KeptOn b={b} />{' · folder '}<code className="backup-location"><Tech>{setPlace(b, data.where)}</Tech></code>
           </>}</> },
         ]} />
       </Section>}
@@ -129,6 +129,8 @@ function KeptOn({ b }: { b: ProjectBackup }) {
 // setPlace is a set's <project>/<deployment>/<time>, the same in the
 // store and under the backups folder on this host: a folder left on the
 // disk is matched to its set by it.
+// The row shows the whole place, wrapping on a phone: the deployment
+// column shows a display label, not the path's deployment segment.
 const setPlace = (b: ProjectBackup, where: string) => b.store === 'store' ? b.path : b.path.startsWith(where + '/') ? b.path.slice(where.length + 1) : b.path
 
 // managedCopy is a copy of a managed database: never restored over what

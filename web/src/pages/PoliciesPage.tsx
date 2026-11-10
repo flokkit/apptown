@@ -97,7 +97,7 @@ function PolicyCard({ page, p, totalProjects, onClone, onEdit, onRemove }: {
       ]} />}
       detail={page && <>
           <div className="muted small"><OriginChip origin={p.origin} />
-            {p.packs.length > 0 && <> · in packs: {p.packs.map((pack, i) => <Fragment key={pack}>{i > 0 && ', '}<Ident>{pack}</Ident></Fragment>)}</>}</div>
+            {p.packs.length > 0 && <> · in packs: {p.packs.map((pack, i) => <Fragment key={pack}>{i > 0 && ' '}<Ident after={i < p.packs.length - 1 ? ',' : ''}>{pack}</Ident></Fragment>)}</>}</div>
           <div className="policies-page-policy-card-div">
             <div className="muted small policies-page-policy-card-div-2">The rule</div>
             {p.reading}

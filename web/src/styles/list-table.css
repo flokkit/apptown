@@ -10,6 +10,8 @@
    letter per line. Other cells may break anywhere, so a long name never
    pushes the page sideways. */
 .record-table .phone-name, .record-table .record-words { overflow-wrap: break-word; }
+/* A backup's place is one long path; it breaks at any character on a phone. */
+.backup-location { overflow-wrap: anywhere; }
 .record-table td > a { font-weight: var(--fw-medium); }
 /* A row's name is the Name role whether it is text, a link, a button or bold
    text, the same weight as a ListRow's name; lines under it in the same cell

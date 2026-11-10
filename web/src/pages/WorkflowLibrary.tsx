@@ -144,7 +144,7 @@ function WorkflowRow({ page, l, busy, binding, candidates, onBind, onCopy, onEdi
       purpose={!page && l.description && firstSentence(l.description)}
       state={<span className="muted small">{stock ? PRODUCT : 'yours'} · v{l.latestVersion}</span>}
       menu={<MoreMenu label={l.name} items={[
-        { label: 'Copy', hint: 'Make a workflow of your own from this one. Save it with a new name.', onClick: onCopy },
+        { label: 'Copy', hint: 'Your own copy, under a new name.', onClick: onCopy },
         ...(!stock ? [
           { label: 'Edit', onClick: onEdit },
           { label: 'Delete', danger: true, disabled: busy, onClick: onDelete },

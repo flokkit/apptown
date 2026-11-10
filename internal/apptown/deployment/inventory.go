@@ -64,17 +64,16 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 				// The preview boot supplies its resources. Its deployment key
 				// never names a stack, and today's contract is not its boot.
 				out = append(out, deploy.Resource{Kind: "container", Name: e.Container, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
-			} else {
+			} else if e.Container != "" {
+				// A standing deployment without a container has not booted one
+				// (container_observation.go): nothing of it is on the host yet,
+				// so none of its names is a missing resource there.
 				// What it is called on the host is what it was made with.
 				names, err := e.HostNames()
 				if err != nil {
 					return nil, fmt.Errorf("naming %s/%s on its host: %w", e.Project, e.Name, err)
 				}
-				name := e.Container
-				if name == "" {
-					name = names.App()
-				}
-				out = append(out, deploy.Resource{Kind: "container", Name: name, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
+				out = append(out, deploy.Resource{Kind: "container", Name: e.Container, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
 				if d, ok := inv.declared.Declared(ctx, e.ProjectID); ok {
 					if d.KeepsData {
 						out = append(out, deploy.Resource{Kind: "volume", Name: names.DataVolume(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})

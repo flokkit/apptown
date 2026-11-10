@@ -22,7 +22,7 @@
     "apptown/pixel-spacing": 4
   },
   "web/src/pages/Usage.css": {
-    "apptown/pixel-spacing": 9
+    "apptown/pixel-spacing": 8
   },
   "web/src/pages/WaysOfWorking.css": {
     "apptown/pixel-spacing": 3

@@ -139,7 +139,9 @@ export function ModelProfilePage({ projects = false }: { projects?: boolean }) {
             else set(row.slot, v)
           }}
            className="model-slots-cell-select">
-          <option value="">{unset}</option>
+          {/* The closed select shows one short word; what the default is
+              and where it comes from is the line under it, whole. */}
+          <option value="">{unset === 'Not set' ? unset : 'Default'}</option>
           {models.map((m) => <option key={m.pattern} value={m.pattern}>{m.pattern}</option>)}
           {mapped && !models.some((m) => m.pattern === mapped) && <option value="__custom_current__">{mapped}</option>}
           <option value="__custom__">Another model…</option>

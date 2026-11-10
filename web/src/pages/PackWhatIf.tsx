@@ -44,6 +44,10 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
   const limitMicros = Math.round(parseFloat(limit) * 1e6)
   const limitOK = !rubrics || (Number.isFinite(limitMicros) && limitMicros > 0)
   const w = q.data?.whatIf
+  // With no eligible project there is nothing to run: the panel offers
+  // choosing projects (and moving their own packs, which can make some
+  // eligible), not options and a run button that cannot act.
+  const none = !choosing && eligible !== null && eligible.length === 0
   const start = () => run(() => post<WhatIfStarted>('/conformance/what-if', { pack, version, ...(choosing ? { projects: chosen } : {}), rubrics, spendLimitMicros: rubrics ? limitMicros : 0, advanceWorkflows: advance, ...(also.length > 0 ? { also } : {}) }))
 
   return (
@@ -58,7 +62,7 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
             <span>Eligible (on an earlier version{also.length > 0 ? ', of this pack or their own' : ''}):</span>
             {eligible === null
               ? <span className="muted">{q.err ? 'could not be read' : 'reading…'}</span>
-              : eligible.length === 0 ? <span className="muted">none</span>
+              : eligible.length === 0 ? <span className="muted">none; no project is on an earlier version</span>
                 : eligible.map((s) => <code key={s}>{s}</code>)}
             <button className="subtle" onClick={() => setChoosing(true)}>choose projects</button>
           </div>
@@ -86,16 +90,17 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
               </div>
             </>
           ))}
-        <div className="pack-what-if-what-if-panel-div-4">
+        {!none && <div className="pack-what-if-what-if-panel-div-4">
           <label><input type="checkbox" checked={advance} onChange={(e) => setAdvance(e.target.checked)} /> Also move each project's other workflows to the newest version</label>
           <div className="muted">Workflows this pack does not pin otherwise keep the version each project is on.</div>
-        </div>
+        </div>}
         {offered.length > 0 && (
           <div className="pack-what-if-what-if-panel-div-4">
             <label><input type="checkbox" checked={ownPacks} onChange={(e) => setOwnPacks(e.target.checked)} /> Also move each project's own pack to its newest version</label>
             <div className="muted">{offered.map((a) => `${a.pack} v${a.version}`).join(', ')}: for projects already on them. Moving one pack alone takes the other's rules back to the version the project recorded.</div>
           </div>
         )}
+        {!none && <>
         <div className="pack-what-if-what-if-panel-div-4">
           <label><input type="checkbox" checked={rubrics} onChange={(e) => setRubrics(e.target.checked)} /> Include AI reviews (costs money)</label>
           {rubrics && (
@@ -108,6 +113,7 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
         <button className="subtle pack-what-if-what-if-panel-div-4"  disabled={busy || w?.state === 'queued' || w?.state === 'running' || chosen.length === 0 || !limitOK} onClick={start}>
           Run on {chosen.length}{choosing ? '' : ' eligible'} project{chosen.length === 1 ? '' : 's'}
         </button>
+        </>}
       </div>
       {err && <div className="error">{err}</div>}
       {q.data && !w && <div className="muted mt-1" >None run on this version.</div>}

@@ -14,7 +14,7 @@
   --fs-base: 1rem;   /* body */
   --fs-lg: calc(18rem / 14);     /* section headings */
   --fs-xl: calc(26rem / 14);     /* page titles */
-  --fs-scene: 0.5rem;
+  --fs-scene: 0.8rem;
   --fs-logo: calc(17rem / 14);
   --fs-field: max(1rem, 16px); /* iOS focus must not zoom phone fields. */
   --lh-tight: 1.2;
@@ -120,10 +120,12 @@
 
   /* Code, diffs and terminals. A terminal stays dark in both themes. */
   --code-bg: #EEF0F0;
-  /* A control that cannot be used yet: greyed by its colours, its words still readable. */
+  /* A control that cannot be used yet: greyed by its colours, its words still
+     readable. Its words sit a step above --muted (at least 6.5:1 on its fill)
+     and it keeps a control's edge, so a greyed Save never reads as faint. */
   --disabled-bg: var(--panel2);
-  --disabled-fg: var(--muted);
-  --disabled-border: var(--border);
+  --disabled-fg: #48545A;
+  --disabled-border: var(--border-strong);
   --diff-add-bg: #E6F0EA;
   --diff-del-bg: #F8E9E5;
   --diff-hunk-bg: rgba(47, 93, 74, 0.07);
@@ -160,7 +162,7 @@
     --text: #D2D9DC; --muted: #98A4AA; --subtle: #8E9AA0; --faint: #7A766B;
     --accent: #D4E0E4; --accent-hover: #FFFFFF; --accent-bg: #313D43; --on-accent: #182126;
     --link: #7FB2FF; --link-hover: #A8CBFF;
-    --busy: #8FB6DD; --busy-bg: rgba(143, 182, 221, 0.13);
+    --busy: #8FB6DD; --busy-bg: rgba(143, 182, 221, 0.13); --disabled-fg: #AEB9BE;
     --warn: #E0AE58; --warn-mark: #D99A2B; --warn-bg: rgba(224, 174, 88, 0.12);
     --ok: #8FC48F; --ok-bg: rgba(143, 196, 143, 0.13);
     --bad: #EE8E7C; --bad-bg: rgba(238, 142, 124, 0.13);
@@ -185,7 +187,7 @@
     --text: #D2D9DC; --muted: #98A4AA; --subtle: #8E9AA0; --faint: #7A766B;
     --accent: #D4E0E4; --accent-hover: #FFFFFF; --accent-bg: #313D43; --on-accent: #182126;
     --link: #7FB2FF; --link-hover: #A8CBFF;
-    --busy: #8FB6DD; --busy-bg: rgba(143, 182, 221, 0.13);
+    --busy: #8FB6DD; --busy-bg: rgba(143, 182, 221, 0.13); --disabled-fg: #AEB9BE;
     --warn: #E0AE58; --warn-mark: #D99A2B; --warn-bg: rgba(224, 174, 88, 0.12);
     --ok: #8FC48F; --ok-bg: rgba(143, 196, 143, 0.13);
     --bad: #EE8E7C; --bad-bg: rgba(238, 142, 124, 0.13);

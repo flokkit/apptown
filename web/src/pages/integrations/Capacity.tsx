@@ -226,7 +226,9 @@ function Bars({ c }: { c: TargetCapacity }) {
       {pc && c.cpu && <CapacityBar label="CPU limits" bar={pc} format={cpuWords}
         sum={pc.partial > 0 || pc.unknown.length > 0
           ? `at least ${cpuWords(pc.sum)} of ${cpuWords(c.cpu.total.value)} · ${pc.partial > 0 ? `could not read ${pc.partial} limit${pc.partial === 1 ? '' : 's'}` : 'CPU limits are not all known'}`
-          : `${cpuWords(pc.sum)} of ${cpuWords(c.cpu.total.value)}${c.cpu.overcommitted ? ` · over by ${cpuWords(pc.sum - c.cpu.total.value)}` : ''}`} />}
+          : pc.sum === 0 && pc.unlimited > 0
+            ? `none set; apps share all ${cpuWords(c.cpu.total.value)}`
+            : `${cpuWords(pc.sum)} of ${cpuWords(c.cpu.total.value)}${c.cpu.overcommitted ? ` · over by ${cpuWords(pc.sum - c.cpu.total.value)}` : ''}`} />}
       {dk && c.disk ? (
         <>
           <CapacityBar label={diskLabel(c.disk)} bar={dk} format={fmtBytes} sum={`${fmtBytes(c.disk.free.value)} free of ${fmtBytes(c.disk.total.value)}${c.disk.readAt && c.disk.free.stale ? ` · ${readingAge(c.disk.readAt, true)}` : ''}`} />

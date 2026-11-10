@@ -81,7 +81,10 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 				case host.Deployments > 1:
 					unchecked = fmt.Sprintf(" · %d deployments can't be checked.", host.Deployments)
 				}
-				out.Items = append(out.Items, Item{Key: t.ID.String() + "/unreachable", Title: label + " is not reachable", Detail: fmt.Sprintf("Since %s: %s%s Open the target page and check its connection.", host.Since.UTC().Format("2 Jan, 15:04 UTC"), host.Error, unchecked), Href: "/targets/" + url.PathEscape(t.Name), Severity: SeverityWarning, ObservedAt: host.Since})
+				// The detail is read on the attention list and in the target
+				// page's own status, so its next step names the button both
+				// lead to (the item links to the target page), not the page.
+				out.Items = append(out.Items, Item{Key: t.ID.String() + "/unreachable", Title: label + " is not reachable", Detail: fmt.Sprintf("Not answering since %s. The last try said: %s%s Make sure the host is on and reachable, then use Check target.", host.Since.UTC().Format("2 Jan, 15:04 UTC"), host.Error, unchecked), Href: "/targets/" + url.PathEscape(t.Name), Severity: SeverityWarning, ObservedAt: host.Since})
 			}
 		}
 		subjects++

@@ -89,11 +89,15 @@ export function TimingView({ days }: { days: number }) {
   if (wfs.length === 0) return <><StaleNote q={tq} /><div className="muted">No runs in the last {days} days.</div></>
   // A measured time under a second is said so, never rounded down to a 0 that reads as missing.
   const sec = (ms: number) => ms > 0 && ms < 1000 ? 'under 1s' : fmtDuration(Math.round(ms / 1000))
+  // Bars are drawn from the time the words say, so two steps that both say
+  // "under 1s" get the same length (all of a sub-second time draws as half
+  // a second).
+  const shown = (ms: number) => ms <= 0 ? 0 : ms < 1000 ? 500 : Math.round(ms / 1000) * 1000
   return (
     <div className="stack usage-timing-view-div">
       <StaleNote q={tq} />
       {wfs.map((wf) => {
-        const max = Math.max(1, ...wf.steps.map((s) => s.waitMedianMs + s.medianMs))
+        const max = Math.max(1, ...wf.steps.map((s) => shown(s.waitMedianMs) + shown(s.medianMs)))
         const cost = spend(wf.steps.reduce((a, s) => a + s.costMicros, 0), wf.steps.reduce((a, s) => a + s.costIncomplete, 0))
         return (
           <div key={wf.workflow} className="card">
@@ -106,8 +110,8 @@ export function TimingView({ days }: { days: number }) {
             </div>
             {[...wf.steps].sort((a, b) => (b.waitMedianMs + b.medianMs) - (a.waitMedianMs + a.medianMs)).slice(0, 3).map((s) => {
               const isApproval = s.type === 'approval'
-              const waitPct = (s.waitMedianMs / max) * 100
-              const tookPct = (s.medianMs / max) * 100
+              const waitPct = (shown(s.waitMedianMs) / max) * 100
+              const tookPct = (shown(s.medianMs) / max) * 100
               return (
                 <div key={s.stage + '/' + s.name} className="bar-row">
                   <div className="bar-row-head">
@@ -253,11 +257,17 @@ export function UsageView({ project }: { project?: string }) {
   return (
     <div>
       <StaleNote q={uq} />
-      <Section title="Recorded cost" action={<div className="usage-range" role="group" aria-label="Range">
+      {/* The tabs lead: each switches everything under it, the cost card
+          included (it is the Summary's). The range applies to every tab. */}
+      <Tabs className="tabs" aria-label="Usage views">
+        {(['summary', 'details', 'timing'] as const).filter(t => !project || t !== 'timing').map(t => <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{t === 'summary' ? 'Summary' : t === 'details' ? 'Details' : 'Time spent'}</button>)}
+      </Tabs>
+      <div className="usage-range" role="group" aria-label="Range">
         {[7, 30, 90].map((w) => (
           <button key={w} aria-pressed={window === w} className={window === w ? 'on' : ''} onClick={() => setWindow(w)}>{w}d</button>
         ))}
-      </div>}>
+      </div>
+      {tab === 'summary' && <Section title="Recorded cost">
         <div className="usage-totals">
           <StatCard label={`Cost, ${window} days`} value={price(data.totals.costMicros, data.totals.unpriced)}
             // A record's cost may be partly known or not known at all, and its
@@ -266,11 +276,7 @@ export function UsageView({ project }: { project?: string }) {
           <StatCard label="Automated work" value={price(workCost, workUnpriced)} />
           <StatCard label="Chat" value={price(chatCost, chatUnpriced)} />
         </div>
-      </Section>
-
-      <Tabs className="tabs" aria-label="Usage views">
-        {(['summary', 'details', 'timing'] as const).filter(t => !project || t !== 'timing').map(t => <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{t === 'summary' ? 'Summary' : t === 'details' ? 'Details' : 'Time spent'}</button>)}
-      </Tabs>
+      </Section>}
       {tab === 'summary' && <DailyChart days={days} perDay={perDay} shownFrom={shownDays[0]} />}
       {tab === 'details' && <>
       <p className="muted small">{fmtTokens(data.totals.total)} tokens · {fmtTokens(data.totals.cacheRead)} from saved responses{sources(data.totals.providerReported, data.totals.catalog, data.totals.unpriced) && ` · priced: ${sources(data.totals.providerReported, data.totals.catalog, data.totals.unpriced)}`}</p>

@@ -75,7 +75,7 @@ export function ReleasePermalinkPage({ slug, number, log = false }: { slug: stri
         <ReleaseAssent approval={r.approval} />
         {!data.backup && data.backupReason && <p>{data.backupReason}</p>}
         {data.backup && <p><Link to={`/backups#backup-${data.backup.id}`}>{data.backup.status === 'ok' ? 'Backed up before this release →' : data.backup.status === 'pruned' ? 'Backup before this release was removed →' : 'Backup before this release was incomplete →'}</Link></p>}
-        {r.bundleId && <ReleaseDeployments slug={slug} bundleId={r.bundleId} />}
+        {r.bundleId && <ReleaseDeployments slug={slug} bundleId={r.bundleId} number={r.number} />}
         {data.changes.length > 0 && (
           <div className="release-record">
             <h3 className="release-heading">Changes</h3>
@@ -164,14 +164,20 @@ function ImageReference({ value }: { value: string }) {
 
 // These are links into the deployments that own deploy actions. Serving is a
 // fresh runtime fact; past successful runs remain history during a failed read.
-function ReleaseDeployments({ slug, bundleId }: { slug: string; bundleId: string }) {
+// One build can be released more than once (a rollback, or the same build to
+// another deployment), so a deployment serving the build under another
+// release number says which release it runs rather than "Running here".
+function ReleaseDeployments({ slug, bundleId, number }: { slug: string; bundleId: string; number: number }) {
   const q = useGet<ReleaseListed[]>(`/projects/${slug}/releases`, { poll: 5000 })
   const ran = q.data?.filter(r => r.bundleId === bundleId && r.state === 'released') ?? []
   const names = [...new Set(ran.map(r => r.deployment))]
   return <div className="release-record">
     <h3 className="release-heading">Deployments</h3>
     <ReadStatus q={q} what="where this release has run" /><StaleNote q={q} />
-    {names.map(name => <p key={name}><Link to={`/projects/${slug}/deployments/${name}`}>{ran.find(r => r.deployment === name)?.deploymentLabel || name}</Link> · {q.current && ran.some(r => r.deployment === name && r.serving) ? 'Running here' : 'Has run here'}</p>)}
+    {names.map(name => {
+      const serving = q.current ? ran.find(r => r.deployment === name && r.serving) : undefined
+      return <p key={name}><Link to={`/projects/${slug}/deployments/${name}`}>{ran.find(r => r.deployment === name)?.deploymentLabel || name}</Link> · {!serving ? 'Has run here' : serving.number === number ? 'Running here' : <>Runs the same build as <Link to={`/projects/${slug}/releases/${serving.number}`}>release {serving.number}</Link></>}</p>
+    })}
     {q.current && names.length === 0 && <p>No successful deployments are recorded for this bundle.</p>}
   </div>
 }

@@ -805,6 +805,16 @@ function landingResult(status: 'pass' | 'fail') {
   return v
 }
 
+// A landed change leads with its release; the preview of the landed commit
+// follows it rather than opening the overview.
+it('puts a shipped change\'s Release row before its Preview row', () => {
+  const el = document.createElement('div'); el.innerHTML = render(landingResult('pass'))
+  const labels = [...el.querySelectorAll('.ch-change-card .ch-overview-line .ch-row-label')].map(l => l.textContent)
+  expect(labels.indexOf('Release')).toBeGreaterThanOrEqual(0)
+  expect(labels.indexOf('Release')).toBeLessThan(labels.indexOf('Preview'))
+  expect(labels.filter(l => l === 'Release')).toHaveLength(1)
+})
+
 it.each(['pass', 'fail'] as const)('keeps an unheld %s landing in the fixed Release row without a scene', status => {
  const el = document.createElement('div'); el.innerHTML = render(landingResult(status))
  expect(el.querySelector('.ch-deploy-result')).toBeNull()

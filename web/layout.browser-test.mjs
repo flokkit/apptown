@@ -297,7 +297,7 @@ const roundFixture = await build({
         <Link id="btn-link" className="btn" to="/b">Open app</Link>
       </div>,
       // Phone round 3.
-      heading: <div><h1 id="long-name">Projects adopting <Ident>requireindependentproductionapproval</Ident></h1><h1 id="short-name">Projects adopting the policy <Ident>build-requires-scan</Ident></h1></div>,
+      heading: <div><h1 id="long-name">Projects adopting <Ident>requireindependentproductionapproval</Ident></h1><h1 id="short-name">Projects adopting the policy <Ident>build-requires-scan</Ident></h1><p id="pack-list" style={{ width: '13ch' }}>in packs: <Ident after=",">server-base</Ident> <Ident>video-game</Ident></p></div>,
       newTarget: <InfrastructureNew />,
       networks: <AdminNetworksCard canEdit />,
       slots: <Section title="Tasks"><ListTable label="Tasks" className="slots-table model-slots-model-profile-page-slots-table" rows={['Review']} rowKey={r => r} columns={[
@@ -402,8 +402,10 @@ try {
     return el.getBoundingClientRect().width >= available - 1
   }), 'workflow detail uses the available phone row width so source remains readable')
   assert.ok(await page.locator('#phone-content-fixtures .tech-line').evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'technical id wraps inside its value on a phone')
-  assert.deepEqual(await page.locator('#phone-content-fixtures .cap-table').evaluate(t => [...t.tHead.rows[0].cells].map((th, i) => Math.round(th.getBoundingClientRect().left - t.tBodies[0].rows[0].cells[i].getBoundingClientRect().left))), [0, 0, 0, 0], 'capacity headings sit over their figures on a phone')
-  assert.ok(await page.locator('#phone-content-fixtures .cap-table td').evaluateAll(cells => cells.every(cell => ['none', 'normal'].includes(getComputedStyle(cell, '::before').content))), 'capacity cells draw no phone label: their headings name the figures')
+  // On a phone the capacity table stacks like any ListTable: each figure
+  // carries its column's label and nothing runs past the screen.
+  assert.ok(await page.locator('#phone-content-fixtures .cap-table td:not(:first-child)').evaluateAll(cells => cells.length > 0 && cells.every(cell => !['none', 'normal'].includes(getComputedStyle(cell, '::before').content))), 'capacity figures carry their labels on a phone')
+  assert.ok(await page.locator('#phone-content-fixtures .cap-table').evaluate(t => t.getBoundingClientRect().right <= document.documentElement.clientWidth + 0.5), 'the capacity table fits the phone')
   await page.evaluate(() => document.getElementById('phone-content-fixtures').remove())
   for (const width of [390, 800, 1440]) {
     await page.setViewportSize({ width, height: 844 })
@@ -427,7 +429,7 @@ try {
         // A disabled button is greyed by its colours, and its words stay readable.
         const disabled = await page.locator('.disabled-fixture').evaluate(el => { const s = getComputedStyle(el); return { opacity: s.opacity, color: s.color, background: s.backgroundColor } })
         assert.equal(disabled.opacity, '1', `disabled button is not faded at ${at}`)
-        assert.ok(contrast(disabled.color, disabled.background) >= 4.5, `disabled button words readable at ${at}: ${JSON.stringify(disabled)}`)
+        assert.ok(contrast(disabled.color, disabled.background) >= 6.5, `disabled button words readable, not faint, at ${at}: ${JSON.stringify(disabled)}`)
         // A quiet destructive act is red, and on a phone it has an edge to show it is a button.
         const quiet = await page.locator('.quiet-danger-fixture').evaluate(el => { const s = getComputedStyle(el); return { color: s.color, border: s.borderTopColor, bad: getComputedStyle(document.documentElement).getPropertyValue('--bad').trim() } })
         assert.equal(quiet.color, hexToRgb(quiet.bad), `quiet danger button is red at ${at}`)
@@ -777,7 +779,10 @@ try {
       const r = el.getBoundingClientRect(), s = getComputedStyle(el), h1 = document.querySelector('h1').getBoundingClientRect()
       const grow = s.outlineStyle === 'none' ? 0 : parseFloat(s.outlineWidth) + parseFloat(s.outlineOffset)
       const cx = r.left + r.width / 2, cy = r.top + r.height / 2
-      return { width: r.width, circle: (b => parseFloat(b.width) + parseFloat(b.borderLeftWidth) + parseFloat(b.borderRightWidth))(getComputedStyle(el, '::before')) || 0, clear: r.left - grow >= h1.right, target: [[cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]].every(([x, y]) => el.contains(document.elementFromPoint(x, y))) }
+      // On phones the ring is drawn round the ::before circle; it keeps 4px from the title.
+      const b = getComputedStyle(el, '::before'), circle = parseFloat(b.width) || 0
+      const ring = b.outlineStyle === 'none' ? r.left - grow : cx - circle / 2 - parseFloat(b.outlineWidth) - parseFloat(b.outlineOffset)
+      return { width: r.width, circle: (b => parseFloat(b.width) + parseFloat(b.borderLeftWidth) + parseFloat(b.borderRightWidth))(getComputedStyle(el, '::before')) || 0, clear: ring >= h1.right + 4, target: [[cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]].every(([x, y]) => el.contains(document.elementFromPoint(x, y))) }
     })
     want(look.width >= 44 && look.circle >= 32 && look.clear && look.target, `the ? is a 32px circle, a 44px target, and its ring clears the title at ${where}: ${JSON.stringify(look)}`)
     // An overview row's title has the row's width; the release goes under it.
@@ -788,7 +793,9 @@ try {
     want(await page.locator('.release-strip li').evaluateAll(items => new Set(items.map(li => Math.round(li.getBoundingClientRect().top))).size === items.length && items.length === 5), `one release per line at ${where}`)
     // Capacity headers stay whole (the table scrolls); bar labels are not cut.
     await round('capacity', size)
-    want(await wordLines('containers', '.cap-table thead') === 1, `"containers" is one line at ${where}`)
+    // On a phone the resource table stacks like any ListTable: nothing runs
+    // past the screen's edge and every value is labelled.
+    want(await page.locator('.cap-table').evaluate(t => t.getBoundingClientRect().right <= document.documentElement.clientWidth + 0.5 && [...t.querySelectorAll('td')].every(td => td.getBoundingClientRect().right <= document.documentElement.clientWidth + 0.5)), `the capacity table fits the screen at ${where}`)
     if (out) await page.screenshot({ path: `${out}/round-capacity-${size}.png` })
     want(await page.locator('.cap-in').evaluate(el => el.scrollHeight <= el.clientHeight && el.getBoundingClientRect().bottom <= el.closest('.cap-bar').getBoundingClientRect().bottom + 0.5), `a bar label is not cut at ${where}`)
   }
@@ -833,6 +840,8 @@ try {
     const long = await page.locator('#long-name .ident').evaluate(el => ({ lines: (r => (r.selectNodeContents(el), new Set([...r.getClientRects()].map(x => Math.round(x.top))).size))(document.createRange()), inside: el.scrollWidth <= el.clientWidth + 0.5, page: document.documentElement.scrollWidth <= innerWidth }))
     want(long.lines > 1 && long.inside && long.page, `a long name wraps inside the line at ${where}: ${JSON.stringify(long)}`)
     want((await lines('#short-name .ident'))[0] === 1, `a short name in a heading moves whole at ${where}`)
+    // A list's comma stays with the name before it: no line starts with it.
+    want(await page.locator('#pack-list').evaluate(p => { const [a, b] = p.querySelectorAll('.ident'); return a.textContent === 'server-base,' && b.getBoundingClientRect().top > a.getBoundingClientRect().top }), `a list's comma stays with its name at ${where}`)
     // Fields grow with the text: the placeholder is not cut.
     await round('newTarget', size)
     await page.locator('.wiz-kind').first().click()
@@ -856,6 +865,9 @@ try {
     await round('menu', size)
     await page.getByRole('button', { name: 'Workflow' }).click()
     want(await page.locator('.popover').evaluate(p => p.getBoundingClientRect().width <= 16 * parseFloat(getComputedStyle(document.documentElement).fontSize) + 20), `a menu is its 16rem list and padding at ${where}`)
+    // A long hint wraps under its label: it never widens the menu past the
+    // 12rem the short label needs.
+    want(await page.locator('.popover').evaluate(p => p.getBoundingClientRect().width <= 12 * parseFloat(getComputedStyle(document.documentElement).fontSize) + 20), `a one-item menu is as narrow as its label allows at ${where}`)
     // A section row keeps its inset.
     await round('inset', size)
     want(await page.locator('.section-body').evaluate(b => document.getElementById('inset-identity').getBoundingClientRect().left - b.getBoundingClientRect().left >= 12), `a section row's text keeps its inset at ${where}`)

@@ -127,7 +127,9 @@ export function promised(c: TargetCapacity, resource: 'memory' | 'cpu'): (Bar & 
   const scale = Math.max(total, sum)
   const rest: Segment[] = sum >= total ? [] : partial > 0 || unknown.length > 0
     ? [{ key: 'unread', kind: 'unread', name: 'not known', value: total - sum, detail: 'Some limits are unknown; the displayed total is a minimum' }]
-    : [{ key: 'free', kind: 'free', name: 'not allocated', value: total - sum }]
+    // With no limit set at all nothing is allocated, yet every container may
+    // use the whole host: the free part says so rather than "not allocated".
+    : [{ key: 'free', kind: 'free', name: sum === 0 && unlimited > 0 ? 'shared' : 'not allocated', value: total - sum }]
   return { segments: collapse([...segs, ...rest], scale), scale, mark: total / scale, unlimited, unknown, sum, partial }
 }
 

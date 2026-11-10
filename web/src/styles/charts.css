@@ -90,12 +90,15 @@
 .cap-unknown { font-size: var(--fs-xs); color: var(--muted); margin-top: 3px; }
 .cap-unknown span { text-decoration: underline dotted; cursor: help; }
 .cap-swatch { display: inline-block; width: 9px; height: 9px; border-radius: var(--radius-xs); margin-right: 6px; vertical-align: baseline; }
-.cap-table td:not(:first-child), .cap-table th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+/* Figures align right in the desktop table; on phones its rows stack. */
+.cap-table td:not(:first-child), .cap-table th:not(:first-child) { font-variant-numeric: tabular-nums; }
+@media (width > 800px) {
+  .cap-table td:not(:first-child), .cap-table th:not(:first-child) { text-align: right; }
+}
 .cap-details { margin-top: 4px; }
 @media (max-width: 600px) {
   .cap-head { flex-direction: column; gap: 0; }
   .cap-sum { text-align: left; }
-  .cap-table { display: block; overflow-x: auto; }
 }
 .usage-stats .stat { background: transparent; border-width: 0 0 1px; padding: 12px 0; }
 

@@ -3833,6 +3833,7 @@ func TestWebUICapture(t *testing.T) {
 kind: Workflow
 metadata:
   name: design-review
+  description: Checks a design change in a preview, then asks a person to accept it.
 spec:
   kind: lifecycle
   role: working

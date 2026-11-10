@@ -121,11 +121,15 @@ func TestStandingInventoryKeepsDeploymentKeyNames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	key := deploy.HostKey(dep.ID)
+	// A deploy reserving its port names the container it boots.
+	if _, err := s.Deployments.ReserveHostPort(t.Context(), projectID, "main", "apptown-dep-"+key, 18080); err != nil {
+		t.Fatal(err)
+	}
 	got, err := s.Inventory.Recorded(t.Context(), target)
 	if err != nil {
 		t.Fatal(err)
 	}
-	key := deploy.HostKey(dep.ID)
 	want := map[string]bool{
 		"container:apptown-dep-" + key:                   true,
 		"container:apptown-svc-dep-" + key + "-postgres": true,
@@ -139,5 +143,24 @@ func TestStandingInventoryKeepsDeploymentKeyNames(t *testing.T) {
 	}
 	if len(want) > 0 {
 		t.Fatalf("missing standing resources: %v", want)
+	}
+}
+
+// A standing deployment that never booted (a new project bound to the
+// built-in host) has nothing on the host: its names are not recorded
+// resources, so the host's inventory reads none of them as missing.
+func TestStandingInventoryRecordsNothingForANeverBootedDeployment(t *testing.T) {
+	t.Parallel()
+	s, _, _, projectID, target := healthWorld(t)
+	s.Inventory.declared = inventoryDeclaration{Declared{KeepsData: true, Needs: []string{"postgres"}}}
+	if _, err := s.Deployments.EnsureStanding(t.Context(), projectID, "main", target.ID, Attributes{}.WithDefaults()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Inventory.Recorded(t.Context(), target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("a never-booted deployment records %+v", got)
 	}
 }
