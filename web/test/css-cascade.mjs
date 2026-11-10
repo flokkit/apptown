@@ -2,6 +2,7 @@
 // Exercise the real layers and entrypoint order without a server or fixture data.
 import assert from 'node:assert/strict'
 import { productionCSS } from '../production-css.mjs'
+import { fontsReady } from '../fonts-ready.mjs'
 
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE)
 const css = await productionCSS()
@@ -20,6 +21,7 @@ try {
       <section class="ch-phase"><h2>Work</h2></section>
     </div>
     <table class="record-table"><tbody><tr><td class="phone-name">shop</td><td class="phone-value record-wide" data-label="Deployment">main</td><td class="phone-value" data-label="Detail">details</td></tr></tbody></table>`)
+  await fontsReady(page)
   for (const width of [1440, 390]) for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width, height: 844 })
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme }, theme)

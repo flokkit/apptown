@@ -109,17 +109,34 @@ class TestCache(unittest.TestCase):
             r = subprocess.run(['sh', '-c', script], env={'RESULTS': results}, capture_output=True)
             self.assertEqual(r.returncode == 0, results == 'success success success', results)
 
-    def test_camera_is_required_and_keeps_captures_before_cleanup(self):
+    def test_camera_is_required_and_keeps_failed_captures_before_cleanup(self):
         main = text('heavy-main.yml')
         self.assertRegex(main, r'name: web-ui\n            args: camera -timeout \d+m\n            require: TestWebUICapture')
         tier = job(main, 'tier')
         self.assertLess(tier.index('name: web-ui-captures'), tier.index('sh scripts/ci-heavy.sh cleanup'))
-        self.assertIn("if: always() && matrix.name == 'web-ui'", tier)
-        self.assertIn('path: /tmp/apptown-ci-web-ui/captures/', tier)
+        self.assertIn("if: failure() && matrix.name == 'web-ui'", tier)
+        self.assertIn('path: /tmp/apptown-ci-web-ui/cam-*/captures/', tier)
         self.assertIn('if-no-files-found: error', tier)
         runner = (HERE / 'ci-web-camera.mjs').read_text()
         for value in ['web/dist', 'APPTOWN_DESIGN_VITE:', 'APPTOWN_DESIGN_OUT:', "server.listen(0, '127.0.0.1'", "'^TestWebUICapture$'"]:
             self.assertIn(value, runner)
+
+    def test_camera_refuses_a_tmpdir_too_long_for_ssh_sockets(self):
+        import os, tempfile
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            bin_dir = Path(tmp) / 'bin'
+            bin_dir.mkdir()
+            started = Path(tmp) / 'go-started'
+            (bin_dir / 'go').write_text(f'#!/bin/sh\ntouch {started}\n')
+            (bin_dir / 'go').chmod(0o755)
+            long = Path(tmp) / ('t' * 60)
+            long.mkdir()
+            env = {**os.environ, 'TMPDIR': str(long), 'PATH': f'{bin_dir}:{os.environ["PATH"]}'}
+            r = subprocess.run(['node', str(HERE / 'ci-web-camera.mjs')], cwd=ROOT, env=env, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 2, r.stderr)
+            self.assertIn('TMPDIR=/tmp', r.stderr)
+            self.assertFalse(started.exists(), 'the camera started go test with a TMPDIR too long for its sockets')
+            self.assertEqual(list(long.iterdir()), [])
 
     def test_main_executes_fresh_and_alone_saves(self):
         main, ci = text('heavy-main.yml'), text('ci.yml')

@@ -670,8 +670,18 @@ func TestAttentionKeepsAWitnessedMissingResourceAfterAnAct(t *testing.T) {
 	}
 }
 
-// Run the actual loops and wait for a new stored lap, then join them. Timeout
-// is only a hang guard. A fixed injected lap clock identifies the storing write.
+// hostLapBound is the scenes' wait budget for one host reader lap: about
+// six unreachable SSH connection attempts of 15 s (one per docker command a
+// host read makes) plus 5 s of settlement. It is not a maximum the lap
+// enforces: its control-socket checks and process starts are bounded only by
+// their own, longer, command limits, so under heavy load an unfinished lap
+// can be cancelled when the budget runs out. (It was 10 s, shorter than one
+// unreachable connection attempt.)
+const hostLapBound = 6*15*time.Second + 5*time.Second
+
+// Run the actual loops and wait for a new stored lap, then join them. A fixed
+// injected lap clock identifies the storing write. A lap that fails before
+// storing is logged by the loops as "host reading <id>: <error>".
 func readHostsForTest(t *testing.T, a *App) {
 	t.Helper()
 	targets, err := a.targets.All(t.Context())
@@ -699,7 +709,10 @@ func readHostsForTest(t *testing.T, a *App) {
 	loops.Snapshots = deployment.NewHostSnapshots(a.DB, func() time.Time { return lapAt })
 	go func() { defer close(done); loops.Run(ctx) }()
 	defer func() { cancel(); <-done }()
-	if !poll.Until(t.Context(), 10*time.Second, time.Millisecond, func() bool {
+	began := time.Now()
+	var waiting []string
+	if !poll.Until(t.Context(), hostLapBound, time.Millisecond, func() bool {
+		waiting = waiting[:0]
 		for _, target := range targets {
 			if !eligible[target.Name] {
 				continue
@@ -710,12 +723,16 @@ func readHostsForTest(t *testing.T, a *App) {
 				return false
 			}
 			if !reading.AttemptedAt.Equal(lapAt) {
-				return false
+				waiting = append(waiting, target.Name)
 			}
 		}
-		return true
+		return len(waiting) == 0
 	}) {
-		t.Fatal("host loops did not store their first lap")
+		t.Fatalf("host readers stored no lap for %v within %s: look above for \"host reading <id>: <error>\" lines; if there are none, no lap finished and the cause is unknown", waiting, hostLapBound)
+	}
+	// Slow laps are logged so a slow scene shows where its time went.
+	if took := time.Since(began); took > 5*time.Second {
+		t.Logf("host readers' lap took %s", took.Round(time.Millisecond))
 	}
 }
 

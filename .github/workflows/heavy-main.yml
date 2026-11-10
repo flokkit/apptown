@@ -83,7 +83,7 @@ jobs:
           - name: journeys
             args: test -tags=journey ./internal/apptown/ -run TestJourney -timeout 30m -v
             require: ""
-          # Full local camera: 24m58s; 45m leaves 80% headroom.
+          # Full local camera: 6m02s on four tabs (23m before them); 45m stays until a CI run is measured.
           - name: web-ui
             args: camera -timeout 45m
             require: TestWebUICapture
@@ -159,11 +159,13 @@ jobs:
         env:
           CI_HEAVY_PREBUILT: "1"
         run: eval "sh scripts/ci-heavy.sh ${{ matrix.args }}"
-      - if: always() && matrix.name == 'web-ui'
+      # Captures are kept only when the camera fails; the full set for a
+      # review comes from the UI review run.
+      - if: failure() && matrix.name == 'web-ui'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-ui-captures
-          path: /tmp/apptown-ci-web-ui/captures/
+          path: /tmp/apptown-ci-web-ui/cam-*/captures/
           if-no-files-found: error
           retention-days: 7
       - if: always()
