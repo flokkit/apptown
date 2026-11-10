@@ -1,3 +1,4 @@
+import { Tech } from '../../Tech'
 import { statusProps, failedStatusRefresh } from '../../runtime'
 import { BetaChip, targetFeatureArea } from '../../features'
 import { usePageName } from '../../chrome'
@@ -143,7 +144,7 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
         {!!t.deployments.length && <ListTable className="target-deployments-table" label="What runs here" rows={t.deployments} rowKey={e => `${e.project}/${e.name}`} columns={[
           { key: 'name', label: 'Deployment', phone: 'name', render: e => <Link to={`/projects/${e.project}/deployments/${e.name}`}>{e.project}/{e.displayLabel || e.name}</Link> },
           { key: 'state', label: 'State', phone: 'state', render: e => <Status observation {...statusProps(pageQ.refreshFailed ? failedStatusRefresh(e.status, pageQ.reason) : e.status)} /> },
-          { key: 'address', label: 'Address', kind: 'technical', render: e => e.url?.replace(/^https?:\/\//, '') || 'unknown' },
+          { key: 'address', label: 'Address', kind: 'technical', render: e => e.url ? <Tech>{e.url.replace(/^https?:\/\//, '')}</Tech> : 'unknown' },
           { key: 'resources', label: 'Resources', kind: 'number', render: e => {
             // Recorded resources remain counted when the host cannot be reached.
             if (!here) return 'unknown'
@@ -212,7 +213,7 @@ function TargetSettings() {
         {t.kindInfo.environment && !t.providerScope && !retired && <p className="small">Provider endpoint: <b>unknown</b>. Releases are refused until {PRODUCT} reads the endpoint.</p>}
         {data.registry && <RegistryLine r={data.registry} />}
         {!retired && !data.builtIn && <EditTarget t={t} current={pageQ.current} onSaved={load} />}
-        {!retired && !data.builtIn && <div className="target-page-target-settings-page-div"><QuietConfirm label="Retire this target" ask={`Retire ${t.name}? This fails while any deployment uses it; its offers are withdrawn.`} onYes={retire} yes="Retire" className="subtle" /></div>}
+        {!retired && !data.builtIn && <div className="target-page-target-settings-page-div"><QuietConfirm label="Retire this target" ask={`Retire ${t.name}? This fails while any deployment uses it; its offers are withdrawn.`} onYes={retire} yes="Retire" className="subtle danger" /></div>}
         {data.builtIn && <p className="muted small">This is {PRODUCT}'s own host; it cannot be retired.</p>}
       </Section></div>
 

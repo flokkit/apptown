@@ -22,7 +22,8 @@ import (
 type Block struct {
 	ID   ids.ID `json:"id"`
 	Name string `json:"name"`
-	// Summary is the latest text's opening prose in plain words (PlainSummary).
+	// Summary is the latest text's opening prose as one sentence, inline code
+	// kept in backticks (PlainSummary).
 	Summary       string `json:"summary"`
 	Tags          string `json:"tags"`
 	LatestVersion int    `json:"latestVersion"`

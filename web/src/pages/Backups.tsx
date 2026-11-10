@@ -1,3 +1,4 @@
+import { Tech } from '../Tech'
 import { Section } from '../Section'
 import { ListTable } from '../ListTable'
 import { Status } from '../Status'
@@ -70,7 +71,7 @@ export function BackupsView() {
           { key: 'state', label: 'State', phone: 'state', render: b => <Status word={b.statusLabel} help={b.error || (b.status === 'pruned' ? 'This old copy has been removed.' : undefined)} /> },
           { key: 'taken', label: 'Taken', kind: 'time', render: b => fmtWhen(b.takenAt) },
           { key: 'details', label: 'Details', render: b => <>{b.deploymentLabel || b.deployment} · {b.beforeRelease ? <Link to={`/projects/${b.project}/releases/${b.beforeRelease}`}>before release {b.beforeRelease}</Link> : b.trigger} · {b.actor}{b.status === 'pruned' ? <p>Copy removed</p> : <>
-            {' · '}<KeptOn b={b} /><section><h3>Location</h3><code>{setPlace(b, data.where)}</code></section>
+            {' · '}<KeptOn b={b} /><section><h3>Location</h3><code><Tech>{setPlace(b, data.where)}</Tech></code></section>
           </>}</> },
         ]} />
       </Section>}

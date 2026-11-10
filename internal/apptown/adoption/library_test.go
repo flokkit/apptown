@@ -77,7 +77,7 @@ func TestImportSummaryIsOfThePinnedVersion(t *testing.T) {
 		t.Fatalf("project keeps its pinned version's summary: %+v %v", view.Imports, err)
 	}
 	library, err := ways.Blocks(t.Context(), wow.BlockFilter{})
-	if err != nil || len(library) != 1 || library[0].Summary != "Write small modules." {
+	if err != nil || len(library) != 1 || library[0].Summary != "Write `small` modules." {
 		t.Fatalf("library shows the latest version's summary: %+v %v", library, err)
 	}
 }

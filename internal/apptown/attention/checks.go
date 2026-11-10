@@ -33,7 +33,11 @@ func (s Checks) Snapshot(ctx context.Context, projects []ids.ID) (Snapshot, erro
 		}
 		href := "/conformance/projects/" + url.PathEscape(p.Slug)
 		if count := p.Lanes.Findings; count > 0 {
-			out.Items = append(out.Items, Item{Count: count, Key: p.ProjectID.String(), Title: fmt.Sprintf("%s · app checks · %d confirmed problems", p.Name, count), Detail: "Review the app checks and fix the confirmed problems.", Severity: SeverityWarning, Href: href, ObservedAt: at})
+			problems := "problems"
+			if count == 1 {
+				problems = "problem"
+			}
+			out.Items = append(out.Items, Item{Count: count, Key: p.ProjectID.String(), Title: fmt.Sprintf("%s · app checks · %d confirmed %s", p.Name, count, problems), Detail: "Review the app checks and fix the confirmed problems.", Severity: SeverityWarning, Href: href, ObservedAt: at})
 		}
 		// The card is a summary: it counts the checks that could not run and
 		// leaves each tool's own message to the app's checks page. AppTown's

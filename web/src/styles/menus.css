@@ -12,7 +12,7 @@
 /* A menu item is something to do: it reads in the text colour; its hint stays muted. */
 .popover :is(.more-menu-list, .split-menu) > button:not(.danger) { color: var(--text); }
 .account-action-list > label { display: flex; align-items: center; gap: var(--space-2); }
-.more-menu-button { font-size: var(--fs-lg); line-height: 1; padding: 4px 12px; }
+.more-menu-button { font-size: var(--fs-lg); line-height: 1; padding: 4px 12px; height: var(--row-action-size); }
 .split-button > div { display: flex; align-items: stretch; }
 .action-label, :is(.list-action, .project-action, .row-action) :is(button, .btn, a) { white-space: nowrap; }
 :is(.list-action, .project-action, .row-action) .popover button { white-space: normal; }
@@ -37,6 +37,6 @@
   /* A row's ⋯ is a button to tap: a full target with the same edge in either theme. */
   /* A question answered in place: both answers are buttons a finger can hit. */
   .quiet-confirm > button { min-height: 44px; min-width: 44px; }
-  button.more-menu-button { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-color: var(--border); }
+  button.more-menu-button { min-width: var(--row-action-size); min-height: var(--row-action-size); display: inline-flex; align-items: center; justify-content: center; border-color: var(--border); }
 }
 }

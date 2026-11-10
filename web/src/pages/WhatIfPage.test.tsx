@@ -8,6 +8,7 @@ import { newQueryClient } from '../data'
 import { withFeatures } from '../features.fixture'
 import { settled } from '../settled'
 import WhatIfPage from './WhatIfPage'
+import TopBar from '../TopBar'
 
 // Record ids are UUIDv7 strings.
 const WHAT_IF = '00000000-0007-7000-8000-000000000000'
@@ -318,4 +319,18 @@ describe('the what-if page', () => {
   })
 
 
+})
+
+// A project's result names its what-if in the back link, not the what-if's id.
+it('names the what-if in the back link of a project result', async () => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).includes('/conformance/what-if/') ? whatIf : {})))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  const path = `/conformance/what-ifs/${WHAT_IF}/projects/ledger`
+  try {
+    await act(async () => {
+      root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><TopBar me={null} narrow /><Routes><Route path="/conformance/what-ifs/:id/projects/:slug" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
+    })
+    await settled(client)
+    await vi.waitFor(() => expect(el.querySelector('.topbar-back')?.textContent).toBe('‹What-if: team v2'))
+  } finally { act(() => root.unmount()); client.clear() }
 })

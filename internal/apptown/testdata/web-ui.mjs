@@ -1,11 +1,26 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { rowFontDifferences } from '../../../web/row-font-sizes.mjs';
 import { wrappedRowActions } from '../../../web/row-action-lines.mjs';
+import { splitWords } from '../../../web/word-splits.mjs';
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE);
 const base = process.env.DESIGN_URL, out = process.env.DESIGN_OUT;
 const browser = await chromium.launch({ headless: true, args: ['--no-proxy-server'] });
 const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1, timezoneId: 'UTC' });
 const page = await context.newPage();
+// Each deployment row's height when it is first drawn, before its late reads
+// (the viewer's permissions, the target's reading, the backups) arrive, so the
+// deployments pages can check that rows do not grow when they do. Installed
+// before every navigation, since the camera waits for the network to settle.
+await page.addInitScript(() => {
+  const seen = new WeakSet();
+  const record = () => document.querySelectorAll('.fleet-table tbody tr').forEach(tr => {
+    if (seen.has(tr)) return;
+    seen.add(tr);
+    tr.dataset.firstHeight = String(tr.getBoundingClientRect().height);
+  });
+  const start = () => new MutationObserver(() => document.fonts.ready.then(record)).observe(document.documentElement, { childList: true, subtree: true });
+  if (document.documentElement) start(); else document.addEventListener('DOMContentLoaded', start);
+});
 // Content decisions awaiting resolution; these pages still receive every layout check.
 // These exclusions concern status meaning and help wording, not layout.
 // The affected pages still receive every viewport and disclosure check.
@@ -446,8 +461,14 @@ try {
         if (screen === 'backup-store-details') await page.getByRole('region', { name: 'Backup store', exact: true }).getByText('household-copies', { exact: true }).waitFor();
         if (screen === 'people-revoke' || screen === 'people-disconnect') await page.getByRole('button', { name: screen === 'people-revoke' ? 'revoke' : 'disconnect', exact: true }).first().click();
         if (screen === 'people-actions') await page.getByRole('button', { name: 'Actions for sam', exact: true }).click();
-        // A menu or confirmation opens beside the control that opened it.
-        if (['people-actions', 'people-revoke', 'people-disconnect'].includes(screen)) {
+        // A credential's confirmation is a sized dialog on screen; it does not cover its row.
+        if (['people-revoke', 'people-disconnect'].includes(screen)) {
+          const box = await page.getByRole('dialog').boundingBox();
+          const view = page.viewportSize();
+          if (!box || box.x < 0 || box.y < 0 || box.x + box.width > view.width + 0.5 || box.y + box.height > view.height + 0.5) throw new Error(`${screen}: the confirmation is not a dialog on screen at ${size}: ${JSON.stringify(box)}`);
+        }
+        // A menu opens beside the control that opened it.
+        if (screen === 'people-actions') {
           const trigger = page.locator('main [aria-expanded="true"]').first();
           const [panel, control] = await Promise.all([page.locator('.popover').boundingBox(), trigger.boundingBox()]);
           if (!panel || !control || Math.min(Math.abs(panel.y - (control.y + control.height)), Math.abs(control.y - (panel.y + panel.height))) > 8) throw new Error(`${screen}: the menu is not beside its control at ${size}: ${JSON.stringify({ panel, control })}`);
@@ -731,6 +752,18 @@ try {
           const style = getComputedStyle(el);
           return ['auto', 'scroll', 'hidden'].includes(style.overflowX) && el.clientWidth > 4 && el.scrollWidth > el.clientWidth + 2;
         }).map(el => ({ tag: el.tagName, class: el.className, text: el.textContent.slice(0, 100) })));
+        // The project's own Deployments tab is not checked: its release cell
+        // adds and drops lines as its own reads answer (a preview's change
+        // title, a waiting release, backup and disk warnings).
+        if (['deployments', 'fleet', 'overview'].includes(screen)) {
+          const grown = await page.locator('.fleet-table tbody tr').evaluateAll(rows => rows.filter(tr => tr.dataset.firstHeight && Math.abs(tr.getBoundingClientRect().height - Number(tr.dataset.firstHeight)) > 1)
+            .map(tr => ({ row: tr.textContent.slice(0, 60), first: Number(tr.dataset.firstHeight), now: tr.getBoundingClientRect().height })));
+          if (grown.length) errors.push(`${screen}: deployment rows grew after they were first drawn at ${size}: ${JSON.stringify(grown)}`);
+        }
+        if (size.startsWith('phone')) {
+          const split = await page.evaluate(splitWords);
+          if (split.length) errors.push(`${screen}: words split across lines at ${size} ${theme}: ${JSON.stringify(split.slice(0, 10))}`);
+        }
         const headings = await page.getByRole('heading', { level: 1 }).allTextContents();
         // An open menu closes when its control scrolls away, so these shots stay where the menu is.
         if (!['people-actions', 'people-revoke', 'people-disconnect'].includes(screen)) await page.evaluate(() => window.scrollTo(0, 0));
@@ -757,6 +790,12 @@ try {
         if (screen === 'overview-navigation' && size.startsWith('phone')) {
           await page.getByRole('button', { name: 'close the menu', exact: true }).click();
           await page.locator('.sidebar-backdrop').waitFor({ state: 'detached' });
+        }
+        // A confirmation the capture opened (revoke, disconnect) is a dialog
+        // over the page; close it before looking for the page's disclosure.
+        if (['people-revoke', 'people-disconnect'].includes(screen)) {
+          await page.keyboard.press('Escape');
+          await page.getByRole('dialog').waitFor({ state: 'detached' });
         }
         // Open the page's first disclosure without invoking any action inside it.
         const trigger = page.locator('main details > summary:visible, main button[aria-expanded]:visible').first();

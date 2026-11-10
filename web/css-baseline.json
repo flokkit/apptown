@@ -139,7 +139,7 @@
     "apptown/pixel-spacing": 45
   },
   "web/src/styles/tables.css": {
-    "apptown/pixel-spacing": 20,
+    "apptown/pixel-spacing": 19,
     "declaration-no-important": 3
   },
   "web/src/styles/tabs.css": {

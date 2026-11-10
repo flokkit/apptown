@@ -111,3 +111,10 @@ it('keeps a short code token in a sentence whole, and lets long or spaced code w
   expect(spaced.classList.contains('nobreak')).toBe(false)
   expect(box.querySelector('pre code')!.classList.contains('nobreak')).toBe(false)
 })
+
+it('breaks long code in a sentence at its separators, not inside a word', () => {
+  const box = document.createElement('div')
+  box.innerHTML = renderMd('Pass `--providers.docker.exposedbydefault=false` to Traefik.\n\n```\n--providers.docker.exposedbydefault=false\n```')
+  expect(box.querySelector('p code')!.innerHTML).toBe('--providers.<wbr>docker.<wbr>exposedbydefault=<wbr>false')
+  expect(box.querySelector('pre code')!.querySelector('wbr')).toBeNull()
+})

@@ -10,6 +10,7 @@ import { QuietConfirm } from '../../QuietConfirm'
 import { ResourceStatus } from '../Infrastructure'
 import { TargetTabs } from './TargetTabs'
 import { post } from '../../api'
+import { fmtStamp } from '../../format'
 import type { InfrastructureTargets, InfrastructureView, Resource, ResourceHost } from '../../wire.gen'
 
 // The route key retains provider identity and kind, including resources without an ID.
@@ -54,7 +55,7 @@ export function TargetResourcesPage({ detail = false }: { detail?: boolean }) {
       <option value="">All deployments</option>{[...new Set([...deployments, ...(selected ? [selected] : [])])].map(d => <option key={d} value={d}>{labels.get(d) ?? d}</option>)}
     </select></label>
     <TargetResourcesTable t={t} only={r => !selected || (r.hosts ?? []).some(h => `${h.project}/${h.deployment}` === selected)} />
-    {t.asOf && <p className="muted small">Inventory read {t.asOf}</p>}
+    {t.asOf && <p className="muted small">Inventory read <span title={t.asOf}>{fmtStamp(t.asOf)}</span></p>}
   </div>
 }
 

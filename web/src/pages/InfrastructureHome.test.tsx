@@ -41,3 +41,19 @@ it('uses one Targets heading and linked table names with the create action in th
   expect(html).not.toContain('View target')
   expect(html).not.toContain('Job queue')
 })
+
+// On a phone the Place line says where the target is; what was observed of it
+// has its own Observation line.
+it('keeps the place under Place and the observation under its own label', () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/auth/me'), { mode: 'internal', user: 'sam' })
+  client.setQueryData(getKey('/attention'), { sources: [], items: [] })
+  client.setQueryData(getKey('/infrastructure'), { targets: [{ target: 'kitchen', place: 'the kitchen cupboard', statusLabel: 'failed', live: true, resources: [{ record: 'missing' }] }] })
+  client.setQueryData(getKey('/targets'), { targets: [{ name: 'kitchen', deployments: [] }] })
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><InfrastructureHome /></QueryClientProvider></MemoryRouter>)
+  expect(el.querySelector('td[data-label="Place"]')?.textContent).toBe('the kitchen cupboard')
+  const observation = el.querySelector('td[data-label="Observation"]')!
+  expect(observation.classList.contains('record-wide')).toBe(false)
+  expect(observation.textContent).not.toBe('')
+})

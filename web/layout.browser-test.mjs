@@ -4,6 +4,7 @@ import { mkdir, readFile } from 'node:fs/promises'
 import { build } from 'esbuild'
 import { rowFontDifferences } from './row-font-sizes.mjs'
 import { wrappedRowActions } from './row-action-lines.mjs'
+import { splitWords } from './word-splits.mjs'
 // People navigation is a route contract, independent of rendered tab state.
 const app = await readFile(new URL('./src/App.tsx', import.meta.url), 'utf8')
 for (const path of ['/people/accounts', '/people/accounts/:name', '/people/groups', '/people/groups/:name', '/people/roles', '/people/sign-in', '/people/agents-and-tokens']) assert.ok(app.includes(`path="${path}"`), `missing People route: ${path}`)
@@ -215,6 +216,76 @@ const overlayFixture = await build({
         <TurnDecision active actions={['approve']}><p>Accept this change?</p></TurnDecision></div>,
     }
     createRoot(document.getElementById('root')).render(<MemoryRouter><Where /><main style={{padding: 12}}>{scenes[window.overlayCase]}</main></MemoryRouter>)
+  ` },
+})
+// Phone round 2: scenes for regressions found in the phone camera after the
+// first five phone fixes. window.roundCase picks one scene; the fleet scene
+// holds its per-row reads until window.release() so the test can measure a
+// row before and after they arrive.
+const roundFixture = await build({
+  absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
+  stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
+    import { createRoot } from 'react-dom/client'
+    import { MemoryRouter, Link } from 'react-router-dom'
+    import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+    import { DeploymentTable } from './pages/DeploymentTable'
+    import { DeployScene } from './pages/change/DeployScene'
+    import { Modal } from './Modal'
+    import { Section } from './Section'
+    import { ListTable } from './ListTable'
+    import { ListRow } from './ListRow'
+    import { LibraryRow, LibraryRows } from './LibraryRow'
+    import { HelpButton } from './PageHead'
+    import { ReleaseRows } from './pages/project/Overview'
+    import { CapacityTable } from './pages/integrations/CapacityBars'
+    const ok = { word: 'working', reason: '' }
+    const row = (app, slug, deployment, label) => ({ app, slug, deployment, label, url: 'https://' + deployment + '.example.test', targetName: 'built-in-docker', observation: 'running', status: ok })
+    const rows = [row('Club Newsletter', 'club-newsletter', 'production', 'Production'), row('Club Newsletter', 'club-newsletter', 'staging', 'staging'), row('Lunch Orders', 'lunch-orders', 'main', 'main')]
+    const tenant = (project, deployment) => ({ kind: 'deployment', name: project + '/' + deployment, project, deployment, containers: 1, used: { known: true, value: 62900000 }, cpuUsed: { known: true, value: 0.02 }, promised: { known: true, value: 0 }, unlimited: 0, cpus: 0, cpuUnlimited: 0, cpuUnread: 0 })
+    const answers = path => path.includes('/authz/me') ? { user: 'sam', instance: {}, project: { 'deployment:operate': true, 'deployment:deploy': true } }
+      : path.includes('/capacity') ? { target: 'built-in-docker', kind: 'docker-host', elastic: false, stale: false, words: '', tenants: rows.map(r => tenant(r.slug, r.deployment)) }
+      : path.includes('/backups') ? { backups: rows.map(r => ({ project: r.slug, deployment: r.deployment, deploymentLabel: r.label, takenAt: '2026-11-08T11:55:00Z', status: 'ok', statusLabel: 'ok', id: r.deployment, projectId: null, trigger: 'manual', actor: 'sam', path: '', bytes: 1, items: [], store: 'host' })), keep: 7, where: '', retention: '' }
+      : path.includes('/features') ? [{ area: 'backups', name: 'Backups', enabled: true }] : {}
+    const held = []
+    window.release = () => { window.released = true; held.splice(0).forEach(go => go()) }
+    window.fetch = async input => {
+      const path = String(input)
+      const answer = () => new Response(JSON.stringify(answers(path)), { headers: { 'Content-Type': 'application/json' } })
+      if (!window.released && /\\/authz\\/me|\\/capacity|\\/backups/.test(path)) return new Promise(done => held.push(() => done(answer())))
+      return answer()
+    }
+    const long = i => '8 Nov, 11:' + (50 - i) + ' · scheduled · ' + (500 + i) + ' KB · this host'
+    const scenes = {
+      fleet: <Section title="All deployments"><DeploymentTable rows={rows} withApp /></Section>,
+      stages: <div style={{ width: 300 }}><div className="deployment-deploy-card"><DeployScene compactStages failedStage="starting" stage="starting" outcome="failed" /></div></div>,
+      choices: <Modal title="Restore Production from a backup" fit onClose={() => {}}>
+        <fieldset className="stack stack-2">{[0, 1, 2, 3, 4, 5].map(i => <label key={i} className="row row-2 round-choice"><input type="radio" name="copy" /><span>{long(i)}</span></label>)}
+          <label className="row round-choice"><input type="radio" name="target" /><span><strong>Default target · This computer</strong><br /><span className="muted small">Runs apps in Docker on the computer AppTown runs on.</span><code className="tech-line muted">built-in-docker</code></span></label>
+        </fieldset></Modal>,
+      nested: <Section title="Connected coding agents"><div className="people-agents-card-div"><div className="agent-group"><div className="host-row"><strong>Home Assistant as sam</strong><span>Connected</span></div>
+          <ListTable label="nested" rows={['Home Assistant']} rowKey={r => r} columns={[{ key: 'n', label: 'Agent', phone: 'name', render: r => r }, { key: 'a', label: 'Account', render: () => 'sam' }]} /></div></div></Section>,
+      direct: <Section title="Direct"><ListTable label="direct" rows={['Home Assistant']} rowKey={r => r} columns={[{ key: 'n', label: 'Agent', phone: 'name', render: r => r }, { key: 'a', label: 'Account', render: () => 'sam' }]} /></Section>,
+      help: <div className="page-head"><div className="page-head-row"><span className="page-head-title"><h1>Club Newsletter</h1><HelpButton about="Overview" guide="overview"><p>What the overview shows.</p></HelpButton></span></div></div>,
+      overview: <div><ListRow to="/changes/1" className="card row application-overview-card" state={<span className="row-status">deployed</span>} identity={<>
+          <Link to="/changes/1" className="row grow application-overview-link"><strong>Put up the October newsletter and 9 more</strong><span className="muted small">9 Nov, 22:14</span></Link>
+          <span className="muted small"><Link to="/r">Release 18</Link> · members-preview</span></>} /></div>,
+      releases: <ReleaseRows slug="club-newsletter" releases={[24, 23, 22, 21, 20].map(n => ({ number: n, serving: n === 23, releasedAt: '2026-11-09T22:0' + (n % 10) + ':00Z', createdAt: '2026-11-09T22:00:00Z' }))} />,
+      capacity: <div>
+        <div className="cap-bar" style={{ width: 300 }}><span className="cap-seg cap-free" style={{ flex: '0 1 100%' }}><span className="cap-in">1 CPU not allocated</span></span></div>
+        <div className="cap-details" role="region" aria-label="App resource table" tabIndex={0}><h2>App resource details</h2><CapacityTable heads={['containers', 'memory used', 'memory limits', 'without a set limit', 'CPU limits']}
+          rows={['other containers', 'club-newsletter/Production', 'club-newsletter/members-preview', 'club-newsletter/archive-migration'].map((name, i) => ({ name, kind: 'deployment', cells: [String(11 - i), '62.9 MB · read 2 minutes ago, before the last restart', '256 MB each for 3 containers', '0 of 3 containers', '1 CPU each, 2 without a limit'] }))} /></div></div>,
+      links: <div>
+        <div className="ch-overview-line"><div className="ch-value">Checks passed</div><Link className="ch-trailer" id="trailer" to="/x">details →</Link></div>
+        <Section title="" label="Secrets" action={<button className="link" id="add-secret">Add secret</button>}><p>None.</p></Section>
+        <table><tbody><tr><th>Request</th><td><Link id="value-link" to="/r">full request</Link></td></tr></tbody></table>
+        <ListTable label="names" rows={['lunch-orders']} rowKey={r => r} columns={[{ key: 'n', label: 'Name', phone: 'name', render: r => <Link id="table-name" to="/p">{r}</Link> }, { key: 's', label: 'State', render: () => 'ok' }]} />
+        <div className="list-row project-row"><div className="list-identity"><Link id="mark-link" className="project-mark-link" to="/p">L</Link><Link id="project-name" className="project-name" to="/p"><strong>Lunch Orders</strong></Link></div></div>
+        <LibraryRows><LibraryRow name="server-base" purpose="A server." to="/packs/server-base" /></LibraryRows>
+        <div className="tabs"><Link id="tab" className="tab" to="/t">Overview</Link></div>
+        <Link id="btn-link" className="btn" to="/b">Open app</Link>
+      </div>,
+    }
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main className="main" style={{ padding: 12 }}>{scenes[window.roundCase]}</main></MemoryRouter></QueryClientProvider>)
   ` },
 })
 const browser = await chromium.launch({ headless: true })
@@ -595,6 +666,117 @@ try {
   await overlay('page-head-actions', 'medium')
   const [headingRow, headingAction] = await Promise.all([page.locator('.page-head-row').boundingBox(), page.getByRole('button', {name:'Group actions'}).boundingBox()])
   assert.ok(Math.abs(headingAction.x + headingAction.width - (headingRow.x + headingRow.width)) <= 1, `a wrapped page action stays on the right: ${JSON.stringify({headingRow, headingAction})}`)
+  // Phone round 2. Every check is collected, so one run shows each that fails.
+  const misses = []
+  const want = (ok, message) => { if (!ok) misses.push(message) }
+  const round = async (scene, size, width = 390, theme = 'light') => {
+    await page.setViewportSize({ width, height: 844 })
+    await page.goto('http://layout.test/')
+    await page.evaluate(([scene, size, theme]) => { window.roundCase = scene; document.documentElement.dataset.size = size; document.documentElement.dataset.theme = theme }, [scene, size, theme])
+    await page.addScriptTag({ content: roundFixture.outputFiles[0].text })
+  }
+  // The distinct lines a word's letters sit on (not its rects: inline markup
+  // can give several rects on one line).
+  const wordLines = (word, within = 'main') => page.evaluate(([word, within]) => {
+    const root = document.querySelector(within)
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+    for (let node; (node = walk.nextNode());) {
+      const at = node.data.search(new RegExp('(^|[^A-Za-z])' + word + '($|[^A-Za-z])'))
+      if (at < 0) continue
+      const start = node.data.indexOf(word, at)
+      const range = document.createRange(); range.setStart(node, start); range.setEnd(node, start + word.length)
+      return new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top))).size
+    }
+    return -1
+  }, [word, within])
+  const underlined = sel => page.locator(sel).first().evaluate(el => getComputedStyle(el).textDecorationLine.includes('underline'))
+  for (const [size, width] of [['medium', 390], ['large', 390], ['small', 1440]]) {
+    const where = `${width}, ${size}`
+    // Deployment rows keep their shape when their late reads arrive.
+    await round('fleet', size, width)
+    await page.getByText('Production', { exact: true }).waitFor()
+    const shape = () => page.locator('.fleet-table tbody tr').evaluateAll(rows => rows.map(tr => {
+      const top = tr.getBoundingClientRect().top
+      const textTop = el => { const r = document.createRange(); r.selectNodeContents(el); return Math.round((r.getClientRects()[0]?.top ?? 0) - top) }
+      return { height: Math.round(tr.getBoundingClientRect().height), name: textTop(tr.querySelector('td.phone-name strong')), value: textTop(tr.querySelector('td[data-label="Deployment"] a')) }
+    }))
+    const before = await shape()
+    await page.evaluate(() => window.release())
+    await page.waitForFunction(() => document.querySelectorAll('.fleet-table .more-menu-button').length === 3 && document.body.innerText.includes('8 Nov'))
+    const after = await shape()
+    want(before.every((b, i) => Math.abs(b.height - after[i].height) <= 1 && Math.abs(b.name - after[i].name) <= 1 && Math.abs(b.value - after[i].value) <= 1), `deployment rows keep their shape when late reads arrive at ${where}: ${JSON.stringify({ before, after })}`)
+    if (width === 390) {
+      want(await wordLines('Production') === 1, `"Production" is whole at ${where}`)
+      want(await page.locator('.fleet-table td[data-label="Deployment"]').first().evaluate(td => { const b = getComputedStyle(td, '::before'); return parseFloat(b.height) < 2 * parseFloat(b.fontSize) }), `the "Deployment" label is one line at ${where}`)
+    }
+    if (out) await page.screenshot({ path: `${out}/round-fleet-${width}-${size}.png`, fullPage: true })
+    if (width !== 390) continue
+    // The compact stage strip keeps its words whole.
+    await round('stages', size)
+    want(await wordLines('Start') === 1 && await wordLines('stopped') === 1, `"Start" and "stopped" are whole at ${where}`)
+    want(await page.locator('.deploy-stages-compact li').evaluateAll(items => items.every(li => [...li.children].every(c => c.getBoundingClientRect().right <= li.getBoundingClientRect().right + 0.5))), `each stage's words stay in its own column at ${where}`)
+    if (out) await page.screenshot({ path: `${out}/round-stages-${size}.png` })
+    // A choice's words stay beside its button.
+    await round('choices', size)
+    await page.getByRole('dialog').waitFor()
+    want(await page.locator('label.round-choice').evaluateAll(labels => labels.every(l => {
+      const radio = l.querySelector('input').getBoundingClientRect()
+      const r = document.createRange(); r.selectNodeContents(l.querySelector('span'))
+      return r.getClientRects()[0].top < radio.bottom
+    })), `every choice's text starts beside its radio at ${where}`)
+    // A table in a group inside a section stays inside the group.
+    await round('nested', size)
+    if (out) await page.screenshot({ path: `${out}/round-nested-${size}.png` })
+    want(await page.locator('.section-body').evaluate(b => getComputedStyle(b.querySelector('table')).backgroundImage.includes(getComputedStyle(b).backgroundColor)), `a table's scroll cue is drawn in its section's colour at ${where}`)
+    want(await page.locator('.agent-group').evaluate(g => { const box = g.getBoundingClientRect(), t = g.querySelector('table').getBoundingClientRect(); return t.left >= box.left - 0.5 && t.right <= box.right + 0.5 }), `a nested table stays inside its group at ${where}`)
+    await round('direct', size)
+    if (out) await page.screenshot({ path: `${out}/round-direct-${size}.png` })
+    want(await page.locator('.section-body').evaluate(b => { const box = b.getBoundingClientRect(), t = b.querySelector('table').getBoundingClientRect(); return t.left <= box.left + 1.5 && t.right >= box.right - 1.5 }), `a section's own table still reaches the panel's edges at ${where}`)
+    // The help "?" is a 32px circle with a 44px target, and its focus ring clears the title.
+    await round('help', size)
+    const help = page.getByRole('button', { name: 'About Overview', exact: true })
+    await help.focus()
+    const look = await help.evaluate(el => {
+      const r = el.getBoundingClientRect(), s = getComputedStyle(el), h1 = document.querySelector('h1').getBoundingClientRect()
+      const grow = s.outlineStyle === 'none' ? 0 : parseFloat(s.outlineWidth) + parseFloat(s.outlineOffset)
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+      return { width: r.width, circle: (b => parseFloat(b.width) + parseFloat(b.borderLeftWidth) + parseFloat(b.borderRightWidth))(getComputedStyle(el, '::before')) || 0, clear: r.left - grow >= h1.right, target: [[cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]].every(([x, y]) => el.contains(document.elementFromPoint(x, y))) }
+    })
+    want(look.width >= 44 && look.circle >= 32 && look.clear && look.target, `the ? is a 32px circle, a 44px target, and its ring clears the title at ${where}: ${JSON.stringify(look)}`)
+    // An overview row's title has the row's width; the release goes under it.
+    await round('overview', size)
+    want(await page.locator('.application-overview-card').evaluate(row => row.querySelector('.application-overview-link').getBoundingClientRect().width >= 0.9 * row.getBoundingClientRect().width), `an overview title has the row's width at ${where}`)
+    // One release per line.
+    await round('releases', size)
+    want(await page.locator('.release-strip li').evaluateAll(items => new Set(items.map(li => Math.round(li.getBoundingClientRect().top))).size === items.length && items.length === 5), `one release per line at ${where}`)
+    // Capacity headers stay whole (the table scrolls); bar labels are not cut.
+    await round('capacity', size)
+    want(await wordLines('containers', '.cap-table thead') === 1, `"containers" is one line at ${where}`)
+    if (out) await page.screenshot({ path: `${out}/round-capacity-${size}.png` })
+    want(await page.locator('.cap-in').evaluate(el => el.scrollHeight <= el.clientHeight && el.getBoundingClientRect().bottom <= el.closest('.cap-bar').getBoundingClientRect().bottom + 0.5), `a bar label is not cut at ${where}`)
+  }
+  // Wide screens: an overview row still leads with its state; releases run on.
+  await round('overview', 'small', 1440)
+  want(await page.locator('.application-overview-card').evaluate(row => row.querySelector('.list-state').getBoundingClientRect().left < row.querySelector('.list-identity').getBoundingClientRect().left), 'at 1440 the overview row leads with its state')
+  await round('releases', 'small', 1440)
+  want(await page.locator('.release-strip li').evaluateAll(items => items.length >= 2 && Math.round(items[0].getBoundingClientRect().top) === Math.round(items[1].getBoundingClientRect().top)), 'at 1440 releases run on one line')
+  // Links are underlined unless they are the item, at both widths.
+  for (const width of [390, 1440]) {
+    await round('links', 'medium', width)
+    for (const sel of ['#trailer', '#add-secret', '#value-link']) want(await underlined(sel), `${sel} is underlined at ${width}`)
+    for (const sel of ['#table-name', '#project-name', '#mark-link', '.pack-name', '#tab', '#btn-link']) want(!(await underlined(sel)), `${sel} is not underlined at ${width}`)
+  }
+  // The camera's word-split detector finds a word broken inside itself and
+  // leaves alone one too wide for its line, and code.
+  await round('direct', 'medium')
+  await page.evaluate(() => {
+    const probe = document.createElement('div')
+    probe.innerHTML = `<p style="width:60px;overflow-wrap:anywhere">Production</p><p style="width:30px;overflow-wrap:anywhere">${'W'.repeat(60)}</p><p style="width:200px;overflow-wrap:anywhere">Production staging</p><p style="width:40px;overflow-wrap:anywhere"><code>Production</code></p>`
+    document.querySelector('main').append(probe)
+  })
+  const split = await page.evaluate(splitWords)
+  want(split.length === 1 && split[0].word === 'Production', `the word-split detector finds exactly the split word: ${JSON.stringify(split)}`)
+  assert.deepEqual(misses, [], 'phone round 2')
   console.log('layout: label fixtures, rows, disclosures and phone composer passed')
 } catch (error) {
   // A step that timed out says whether the page itself was stuck (a script

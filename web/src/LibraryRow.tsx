@@ -33,8 +33,23 @@ export function LibraryRows({ children }: { children: ReactNode }) {
 }
 
 // A description's first sentence is its purpose: stock descriptions run a
-// purpose line and a longer explanation together.
+// purpose line and a longer explanation together. A full stop inside inline
+// code (`build: .`) does not end the sentence.
 export function firstSentence(text = ''): string {
-  const m = text.trim().match(/^.*?\S[.!?](?=\s|$)/)
-  return (m ? m[0] : text).trim()
+  const t = text.trim()
+  let code = false
+  for (let i = 1; i < t.length; i++) {
+    if (t[i] === '`') code = !code
+    else if (!code && '.!?'.includes(t[i]) && /\S/.test(t[i - 1]) && (i + 1 === t.length || /\s/.test(t[i + 1]))) return t.slice(0, i + 1)
+  }
+  return t
+}
+
+// inlineCode sets a summary's backtick spans as code and leaves the rest as
+// text. It is not markdown: nothing else is read, and an unpaired backtick
+// stays as it is.
+export function inlineCode(text: string): ReactNode {
+  const parts = text.split('`')
+  if (parts.length < 3) return text
+  return parts.map((part, i) => i % 2 === 1 && i < parts.length - 1 ? <code key={i}>{part}</code> : i % 2 === 1 ? '`' + part : part)
 }

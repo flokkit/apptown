@@ -49,7 +49,7 @@ it('describes each pack, offers no packs as a marked choice and counts the packs
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
     url.endsWith('/packs') ? [
       { name: 'godot-3d', description: 'Godot 3D games with export checks.', suggested: false, enabled: true, requires: [], services: [] },
-      { name: 'dependency-updates', description: 'Monthly dependency updates.', suggested: true, enabled: true, requires: [], services: [] },
+      { name: 'dependency-updates', description: 'Monthly dependency updates\n\nUpdates a project\'s dependencies once a month through the\ndependency-uplift workflow.', suggested: true, enabled: true, requires: [], services: [] },
     ] : { dependencies: [] }))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   const actions: DraftAct[] = []
@@ -59,6 +59,8 @@ it('describes each pack, offers no packs as a marked choice and counts the packs
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)) })
     const card = (name: string) => [...el.querySelectorAll<HTMLElement>('.pack-card')].find(e => e.textContent?.includes(name))!
     expect(card('godot-3d').textContent).toContain('Godot 3D games with export checks.')
+    // A description's short first paragraph does not run into the next.
+    expect([...card('dependency-updates').querySelectorAll('p')].map(p => p.textContent)).toEqual(['Monthly dependency updates', 'Updates a project\'s dependencies once a month through the\ndependency-uplift workflow.'])
     const none = card('No packs')
     expect(none.getAttribute('aria-pressed')).toBe('false')
     expect(none.querySelector('.pick-mark')?.textContent).toBe('+')

@@ -32,6 +32,10 @@
   .deployment-deploy-card { height: auto; overflow: visible; padding-inline: 0; border-bottom: 0; }
   .deployment-deploy-card .ch-deploy-result { min-height: 0; }
   .deployment-deploy-card .deploy-stages-compact { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* A stage's word and its note ("stopped") keep their words whole; the note
+     goes under the word when the column is too narrow for both. */
+  .deployment-deploy-card .deploy-stages-compact li { flex-wrap: wrap; min-width: 0; }
+  .deployment-deploy-card .deploy-stages-compact li > * { white-space: nowrap; }
 }
 
 @media not all and (max-width: 800px) {

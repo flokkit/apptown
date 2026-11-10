@@ -10,6 +10,9 @@
 .deployments-card { display: flex; }
 .deployments-link { display: flex; min-width: 0; }
 .fleet-usage { font-variant-numeric: tabular-nums; }
+/* What a deployment uses arrives after the row: "—" and the reading take the
+   same width, so the table does not re-balance its columns when it does. */
+.fleet-table .fleet-usage-col { white-space: nowrap; min-width: 18ch; }
 /* The table drops where it runs and what it uses when it is too narrow for
    them; each deployment's page has both. */
 .fleet { container-type: inline-size; }

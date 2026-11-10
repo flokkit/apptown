@@ -88,6 +88,8 @@ it('leads with per-check current evidence and keeps dated reviews underneath, ou
     expect(el.textContent).toContain('Review · 7 Nov')
     expect(el.textContent!.indexOf('judged at')).toBeLessThan(el.textContent!.indexOf('Dated snapshots'))
     expect(el.querySelector('a[href="/conformance/reviews/r/projects/shop"]')).not.toBeNull()
+    // A review's counts are the numbers alone: the column label names them.
+    expect(['Findings', 'Possible problems', 'Not judged'].map(l => el.querySelector(`td[data-label="${l}"]`)?.textContent)).toEqual(['0', '0', '0'])
     await act(async () => root.render(render(true)))
     expect(el.textContent).not.toContain('Check this project')
     expect(el.textContent).not.toContain('Dated snapshots')

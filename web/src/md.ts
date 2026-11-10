@@ -25,6 +25,12 @@ const SANITIZE = {
   FORBID_ATTR: ['style', 'srcset'],
 }
 
+// TECH_BREAK is each place after a separator ("/ . : - _ = ,") that sits
+// between two letters or digits, where a technical value may break: "--flag"
+// and ", " gain no break point of their own. It lives here, with no imports,
+// because the docs checks load this file in plain Node; Tech uses it too.
+export const TECH_BREAK = /(?<=[A-Za-z0-9][/.:\-_=,])(?=[A-Za-z0-9])/
+
 export function renderMd(src: string | null | undefined): string {
   const document = window.document
   const html = marked.parse(src ?? '') as string
@@ -67,9 +73,16 @@ export function renderMd(src: string | null | undefined): string {
   // A short token in a sentence (a flag, a file name) reads as one thing:
   // broken after its hyphen it reads as two. Longer code may still wrap so
   // the page never scrolls sideways.
+  // Longer code in a sentence breaks at its separators (Tech), not inside a
+  // word.
   fragment.querySelectorAll('code').forEach((code) => {
     const text = code.textContent ?? ''
-    if (code.parentElement?.tagName !== 'PRE' && text.length <= 32 && !/\s/.test(text)) code.classList.add('nobreak')
+    if (code.parentElement?.tagName === 'PRE') return
+    if (text.length <= 32 && !/\s/.test(text)) { code.classList.add('nobreak'); return }
+    if (code.children.length > 0) return
+    const parts = text.split(TECH_BREAK)
+    if (parts.length < 2) return
+    code.replaceChildren(...parts.flatMap((part, i) => i > 0 ? [document.createElement('wbr'), part] : [part]))
   })
   const container = document.createElement('div')
   container.append(fragment)

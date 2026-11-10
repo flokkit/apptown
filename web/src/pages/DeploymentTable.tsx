@@ -36,7 +36,7 @@ export function DeploymentTable({ rows, withApp = false, release }: { rows: Depl
     ...(release ? [{ key: 'release', label: 'Release', className: 'fleet-wraps', render: release }] : []),
     { key: 'target', label: 'Target', kind: 'technical', wideOnly: true, className: 'fleet-roomy', render: r => r.targetName ? <Link to={`/targets/${encodeURIComponent(r.targetName)}`}>{r.targetName}</Link> : <span className="muted">—</span> },
     { key: 'status', label: 'Status', phone: 'state', render: r => <RuntimeStatus observation={r} /> },
-    { key: 'resources', label: 'Resources', className: 'fleet-roomy', render: r => <Usage row={r} /> },
+    { key: 'resources', label: 'Resources', className: 'fleet-roomy fleet-usage-col', render: r => <Usage row={r} /> },
     ...(backups ? [{ key: 'backup', label: 'Last backup', kind: 'time' as const, render: (r: DeploymentTableRow) => <LastBackup row={r} /> }] : []),
     { key: 'more', label: '', phone: 'action', render: r => <RowMenu row={r} /> },
   ]

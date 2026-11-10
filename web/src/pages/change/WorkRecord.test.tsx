@@ -42,7 +42,8 @@ async function mount(t = trace(), address = '/changes/change/work/step?run=run&a
 it('gives the session its own address, named inputs, produced files and explicit data gaps', async () => {
   const f = await mount()
   for (const text of ['Work record', 'test-model', '90s', 'What the agent was given', 'The session', 'What it produced', 'Needs a key.', '+1 −1 (whole change)']) expect(f.el.textContent).toContain(text)
-  expect(f.el.querySelector('a[href="/guidance/rules%2Fshared?version=4"]')).not.toBeNull()
+  // The version never sits on a line of its own: it is joined to the name.
+  expect(f.el.querySelector('a[href="/guidance/rules%2Fshared?version=4"]')?.textContent).toBe('rules/shared\u00a0v4')
   expect(f.el.querySelector('a[href="/changes/change?tab=changes#diff-app.ts"]')).not.toBeNull()
   expect(f.el.querySelectorAll('.work-event')).toHaveLength(5)
   expect(f.el.querySelector('details, summary')).toBeNull()

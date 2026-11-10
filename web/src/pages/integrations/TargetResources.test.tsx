@@ -71,6 +71,16 @@ it('marks the current page in the target tab row, which the resource list carrie
   expect(el.querySelector('nav[aria-label="Target pages"] a[aria-current="page"]')?.getAttribute('href')).toBe('/targets/host/resources')
 })
 
+// When the inventory was read is a date in words, not a raw timestamp.
+it('says when the inventory was read in the shared date format', () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/infrastructure'), { targets: [{ target: 'host', live: true, asOf: '2026-11-09T23:44:07Z', resources: [] }] })
+  const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/host/resources']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name/resources" element={<TargetResourcesPage />} /></Routes></QueryClientProvider></MemoryRouter>)
+  const el = document.createElement('div'); el.innerHTML = html
+  expect(el.textContent).toContain('Inventory read')
+  expect(el.textContent).not.toMatch(/\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ/)
+})
+
 // The deployment filter names a deployment as its rows do (its display
 // label), and keeps the name the address uses as the option's value.
 it('labels the deployment filter as the rows do, keeping the name as its value', () => {

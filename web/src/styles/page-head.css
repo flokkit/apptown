@@ -26,13 +26,15 @@ button.page-help-q {
   color: var(--muted); background: transparent; border: 1px solid var(--border-strong);
 }
 button.page-help-q:hover, button.page-help-q[aria-expanded="true"] { color: var(--text); border-color: var(--text); }
-/* On a phone the "?" keeps its full 44px tap target but draws the same small
-   circle as on a wide screen, so it reads as a button beside its title. */
+/* On a phone the "?" keeps its full 44px tap target and draws a 32px circle
+   inside it. The focus ring follows the circle, inside the target, so it
+   never reaches the title beside it. */
 @media (max-width: 800px), (pointer: coarse) {
-  button.page-help-q { width: 44px; height: 44px; border: 0; border-radius: 50%;
-    background: radial-gradient(circle, transparent 11px, var(--border-strong) 11px, var(--border-strong) 12px, transparent 12.5px); }
-  button.page-help-q:hover, button.page-help-q[aria-expanded="true"] {
-    background: radial-gradient(circle, transparent 11px, var(--text) 11px, var(--text) 12px, transparent 12.5px); }
+  button.page-help-q { position: relative; width: 44px; height: 44px; border: 0; background: transparent; }
+  button.page-help-q::before { content: ""; position: absolute; inset: 0; margin: auto; width: 32px; height: 32px; border: 1px solid var(--border-strong); border-radius: 50%; }
+  button.page-help-q:hover::before, button.page-help-q[aria-expanded="true"]::before { border-color: var(--text); }
+  button.page-help-q:focus-visible { outline: none; }
+  button.page-help-q:focus-visible::before { outline: 2px solid var(--accent); outline-offset: 1px; }
 }
 /* The title and its "?" never part; the page's actions wrap as a block. */
 .page-head-title { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; max-width: 100%; }

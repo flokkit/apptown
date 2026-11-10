@@ -8,6 +8,8 @@
 .way-of-working-step-div-3 { font-size: var(--fs-base); font-weight: 650; }
 .way-of-working-step-div-4 { opacity: 0.7; font-size: var(--fs-xs); }
 .way-of-working-step-div-5 { gap: var(--space-1); }
+.way-of-working-step-para { margin: 0; }
+.way-of-working-step-para + .way-of-working-step-para { margin-top: var(--space-1); }
 /* A chosen pack keeps its place in the list: its mark turns to a tick in a
    fixed-width slot and the row takes the accent wash, rather than an inset
    box that crowds the text. */

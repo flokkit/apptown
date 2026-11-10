@@ -1,3 +1,4 @@
+import { Tech } from '../../../Tech'
 import './services.css'
 import { Fragment } from 'react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
@@ -364,7 +365,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string;
           <dl className="facts small mt-2 services-facts">
             {Object.entries(i.resource)
               .filter(([k]) => !['unresolved', 'issuesError'].includes(k))
-              .map(([k, v]) => <Fragment key={k}><dt>{fieldLabel(k)}</dt><dd>{String(v)}</dd></Fragment>)}
+              .map(([k, v]) => <Fragment key={k}><dt>{fieldLabel(k)}</dt><dd><Tech>{String(v)}</Tech></dd></Fragment>)}
           </dl>
           <div className="row integ-foot">
             {i.docs && <Link to={i.docs} className="small">Guide: how it is wired in and how to test it</Link>}

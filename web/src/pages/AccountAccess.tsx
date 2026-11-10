@@ -1,3 +1,4 @@
+import { Tech } from '../Tech'
 import { ListRow } from '../ListRow'
 import { useState } from 'react'
 import { del, post } from '../api'
@@ -5,24 +6,26 @@ import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { Section } from '../Section'
 import { QuietConfirm } from '../QuietConfirm'
-import { FormMenu } from '../MoreMenu'
 import { Modal } from '../Modal'
 import { ListTable } from '../ListTable'
 import { fmtStamp, fmtWhen, relTime } from '../format'
 import type { AuthMe, DelegationList, IssuedToken, TokenList } from '../wire.gen'
 import './People.css'
 
-// Keep credential consequences outside the table's fixed-width action cell.
+// A credential's consequence is asked in a sized dialog: the table's action
+// cell has no room for the question, and a box opened under the button would
+// cover the very row it is about.
 function CredentialConfirm({ label, ask, onYes }: { label: string; ask: string; onYes: () => void }) {
-  return <FormMenu closeOnAction={false} trigger={<button className="subtle danger">{label}</button>}>
-    {close => <>
+  const [asking, setAsking] = useState(false)
+  return <>
+    <button className="subtle danger" onClick={() => setAsking(true)}>{label}</button>
+    {asking && <Modal fit title={label[0].toUpperCase() + label.slice(1)} onClose={() => setAsking(false)} actions={<>
+      <button className="danger" onClick={() => { onYes(); setAsking(false) }}>Yes</button>
+      <button onClick={() => setAsking(false)}>No</button>
+    </>}>
       <p>{ask}</p>
-      <div className="row row-2">
-        <button className="danger" onClick={() => { onYes(); close() }}>Yes</button>
-        <button onClick={close}>No</button>
-      </div>
-    </>}
-  </FormMenu>
+    </Modal>}
+  </>
 }
 
 // Coding agents people have connected through the browser sign-in
@@ -57,7 +60,7 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
           ]} /> : <section><h3>Connections and permissions</h3>
       <ListTable className="small" label={`${newest.clientName} connections and permissions for ${newest.user}`} rows={connections} rowKey={d => String(d.id)} columns={[
         { key: 'client', label: 'Agent', phone: 'name', render: d => <><span className="badge">{d.clientName}</span> as <b>{d.user}</b></> },
-        { key: 'permissions', label: 'Permissions', render: d => <><span>{d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span><code className="tech-line muted">{d.scopes.join(', ')}</code></> },
+        { key: 'permissions', label: 'Permissions', render: d => <><span>{d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span><code className="tech-line muted"><Tech>{d.scopes.join(', ')}</Tech></code></> },
         { key: 'connected', label: 'Connected', render: d => fmtStamp(d.createdAt) },
         { key: 'used', label: 'Last used', kind: 'time', render: d => d.lastUsed ? fmtStamp(d.lastUsed) : '' },
         { key: 'action', label: '', phone: 'action', render: d => <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user}, connected ${fmtStamp(d.createdAt)})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },

@@ -85,7 +85,7 @@ it('explains the image store in plain words and shows where images are kept', ()
   expect(firstView(html)).toContain('Stores your app’s built images')
   expect(firstView(html)).toContain('Images kept at')
   expect(firstView(html)).not.toContain('OCI')
-  expect(html).toContain('registry.example')
+  expect(html.replaceAll('<wbr/>', '')).toContain('registry.example/club/app')
   client.clear()
 })
 
