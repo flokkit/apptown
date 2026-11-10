@@ -237,14 +237,18 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 	}
 	section := reading.Containers
 	out.Reading = DetailReading{ObservedAt: section.ObservedAt, AttemptedAt: reading.AttemptedAt}
-	predatesDeployment := dep.LastApplied != nil && reading.AttemptedAt.Before(dep.LastApplied.At)
+	// A deployment's parts wait only for its own last act. The host-wide act
+	// mark governs host-level views; a sibling's act leaves this deployment's
+	// containers as last witnessed. A reading begun at the same instant as
+	// the act cannot be ordered after it.
+	predatesDeployment := !reading.AttemptedAt.After(dep.lastActAt())
 	whyRead := ""
 	switch {
 	case section.Reason != "":
 		whyRead = "its host's container listing could not be read: " + reading.ContainerFailure
 	case section.Value == nil:
 		whyRead = "waiting for the first host container reading"
-	case reading.Invalidated || predatesDeployment:
+	case predatesDeployment:
 		whyRead = "waiting for a host container reading after the latest change"
 	case s.now().Sub(section.ObservedAt) > observationStaleAfter:
 		whyRead = "its host's container reading is out of date"
@@ -265,7 +269,7 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 		p := &out.Parts[i]
 		p.AttemptedAt = reading.AttemptedAt
 		c, present := byName[containers[p.Part]]
-		if present && !reading.Invalidated && !predatesDeployment {
+		if present && !predatesDeployment {
 			health := "not configured"
 			if c.State.Health != nil {
 				health = c.State.Health.Status

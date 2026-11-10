@@ -133,6 +133,9 @@ func TestHostSweepSuppliesAllDeploymentPartsWithOneListing(t *testing.T) {
 		w.land(t, w.s, dep, ids.New(w.at))
 	}
 	w.daemon.ResetCommands()
+	// The lap begins after the landings settled; one begun at the same
+	// instant could not witness them.
+	w.advance(time.Second)
 	reader := HostReaders{Snapshots: NewHostSnapshots(w.s.db, w.s.now), Targets: w.s.Targets, Hosts: w.s.hosts, Providers: w.s.providers}
 	if err := reader.lap(t.Context(), w.main.TargetID); err != nil {
 		t.Fatal(err)

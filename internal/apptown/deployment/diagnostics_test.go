@@ -603,3 +603,79 @@ func TestDiagnosticsRejectHostReadingBegunBeforeDeploymentSettled(t *testing.T) 
 		t.Fatalf("old host reading stayed current: %+v %v", d, err)
 	}
 }
+
+// An act by one deployment on a shared Docker host does not take its
+// sibling's parts away: the sibling's last reading still witnesses its own
+// containers. The acting deployment waits for a lap begun after its act.
+//
+// Kills: diagnostics reading the host-wide act mark for every deployment;
+// a runtime act whose wait ends at its request rather than its confirmation.
+func TestARuntimeActWaitsOnlyForTheActingDeployment(t *testing.T) {
+	t.Parallel()
+	w := newDiagnosticsWorld(t)
+	sibling := w.deployment(t, w.s, "sibling", w.remote)
+	w.land(t, w.s, sibling, idstest.N(8))
+	w.advance(time.Second)
+	w.s.readHostContainersForTest(t, w.main.TargetID)
+	diagnose := func(name string) Diagnostics {
+		t.Helper()
+		d, err := w.s.Diagnostics(t.Context(), w.project, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	known := func(name string, d Diagnostics) {
+		t.Helper()
+		if d.Reading.Unknown || len(d.Parts) == 0 {
+			t.Fatalf("%s unknown: %+v", name, d.Reading)
+		}
+		for _, p := range d.Parts {
+			if p.Presence != presenceRunning || p.Facts == nil {
+				t.Fatalf("%s part not witnessed: %+v", name, p)
+			}
+		}
+	}
+	known("main", diagnose("main"))
+	known("sibling", diagnose("sibling"))
+
+	// The provider effect itself is not under test: a runtime driver
+	// stands in for the Docker driver's container selection.
+	lapDuringAct := false
+	w.s.providers.drivers[KindDockerHost] = func(context.Context, *Target, *Deployment) (deploy.Driver, error) {
+		return &midActDriver{during: func() {
+			if lapDuringAct {
+				w.advance(time.Second)
+				w.s.readHostContainersForTest(t, w.main.TargetID)
+				w.advance(time.Second)
+			}
+		}}, nil
+	}
+	for _, lap := range []bool{false, true} {
+		// A lap begun while the effect is under way cannot witness its result.
+		lapDuringAct = lap
+		w.advance(time.Second)
+		if _, err := w.s.ControlRuntime(t.Context(), w.project, "main", "restart"); err != nil {
+			t.Fatal(err)
+		}
+		known("sibling", diagnose("sibling"))
+		if d := diagnose("main"); !d.Reading.Unknown {
+			t.Fatalf("lap during act %v: the acting deployment kept its pre-act reading: %+v", lap, d.Reading)
+		}
+		w.advance(time.Second)
+		w.s.readHostContainersForTest(t, w.main.TargetID)
+		known("main", diagnose("main"))
+		known("sibling", diagnose("sibling"))
+	}
+}
+
+// midActDriver runs during while the provider effect is under way.
+type midActDriver struct {
+	runtimeDriver
+	during func()
+}
+
+func (d *midActDriver) Runtime(ctx context.Context, p deploy.Placement, action string) error {
+	d.during()
+	return d.runtimeDriver.Runtime(ctx, p, action)
+}
