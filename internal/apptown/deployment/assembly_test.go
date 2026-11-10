@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/fly"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket"
 	"github.com/flokkit/apptown/internal/toolversions"
 	"github.com/flokkit/apptown/stock"
@@ -30,6 +31,8 @@ type testRuntime struct {
 	Drivers                                                              map[string]DriverFactory
 	Inventories                                                          map[string]InventoryFactory
 	DigitalOcean                                                         digitalocean.Options
+	Fly                                                                  fly.Options
+	Installation                                                         string
 	S3Bucket                                                             s3bucket.Options
 	Connectors                                                           ConnectorRetirement
 	OfferedByConstruction                                                []string
@@ -51,8 +54,8 @@ func assembled(db *database.DB, rt testRuntime, deps Dependencies) Dependencies 
 	deps.Environment = NewEnvironment(EnvironmentDependencies{Secrets: rt.Secrets, Integrations: rt.Integrations, Needs: rt.Needs,
 		Probe: rt.Probe, ToolVersions: chownTools(rt.ChownImage), Routes: rt.Routes, Projects: rt.Projects})
 	deps.Providers = NewProviders(context.Background(), db, ProviderRecords{Targets: deps.Targets, Deployments: deps.Deployments}, deps.Hosts, deps.Environment,
-		ProviderDependencies{Projects: rt.Projects, Secrets: rt.Secrets, Integrations: rt.Integrations, DigitalOcean: rt.DigitalOcean, S3Bucket: rt.S3Bucket,
-			Drivers: rt.Drivers, Inventories: rt.Inventories, DatabaseContainer: rt.DatabaseContainer, Applied: deps.Applied, Now: deps.Now})
+		ProviderDependencies{Projects: rt.Projects, Secrets: rt.Secrets, Integrations: rt.Integrations, DigitalOcean: rt.DigitalOcean, Fly: rt.Fly, S3Bucket: rt.S3Bucket,
+			Drivers: rt.Drivers, Inventories: rt.Inventories, DatabaseContainer: rt.DatabaseContainer, Applied: deps.Applied, Now: deps.Now, Installation: rt.Installation})
 	return deps
 }
 

@@ -23,6 +23,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/fly"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket"
 	"github.com/flokkit/apptown/internal/oci"
@@ -54,6 +55,7 @@ type Providers struct {
 	drivers      map[string]DriverFactory
 	inventories  map[string]InventoryFactory
 	digitalOcean digitalocean.Options
+	fly          fly.Options
 	s3Bucket     s3bucket.Options
 	// databaseContainer is AppTown's own database, which the built-in
 	// host's inventory knows is there.
@@ -74,6 +76,7 @@ type ProviderDependencies struct {
 	Secrets      *secret.Service
 	Integrations *integration.Service
 	DigitalOcean digitalocean.Options
+	Fly          fly.Options
 	S3Bucket     s3bucket.Options
 	// Drivers and Inventories replace the built-in factories for a kind
 	// (a test's fake provider); the rest are built here.
@@ -105,12 +108,15 @@ func NewProviders(ctx context.Context, db *database.DB, records ProviderRecords,
 	p := &Providers{db: db, clock: deps.Now, targets: records.Targets, deployments: records.Deployments, needs: NeedStore{db: db, clock: deps.Now}, applied: deps.Applied,
 		hosts: hosts, env: env, projects: deps.Projects, secrets: deps.Secrets, integrations: deps.Integrations,
 		drivers: maps.Clone(deps.Drivers), inventories: maps.Clone(deps.Inventories),
-		digitalOcean: deps.DigitalOcean, s3Bucket: deps.S3Bucket,
+		digitalOcean: deps.DigitalOcean, fly: deps.Fly, s3Bucket: deps.S3Bucket,
 		databaseContainer: deps.DatabaseContainer, installation: deps.Installation}
 	// The DigitalOcean driver judges its deadlines and grace on AppTown's
 	// clock too, unless its options name a clock of their own.
 	if p.digitalOcean.Now == nil {
 		p.digitalOcean.Now = deps.Now
+	}
+	if p.fly.Now == nil {
+		p.fly.Now = deps.Now
 	}
 	if p.drivers == nil {
 		p.drivers = map[string]DriverFactory{}
@@ -508,6 +514,14 @@ func (p *Providers) configureProviders(ctx context.Context) {
 			return &digitalOceanRelease{Driver: driver}, nil
 		}
 	}
+	if p.drivers[kindFlyMachines] == nil {
+		p.drivers[kindFlyMachines] = func(ctx context.Context, t *Target, d *Deployment) (deploy.Driver, error) {
+			return p.newFlyDriver(ctx, t, d)
+		}
+	}
+	if p.inventories[kindFlyMachines] == nil {
+		p.inventories[kindFlyMachines] = p.flyInventory
+	}
 	if p.drivers[KindS3Bucket] == nil {
 		p.drivers[KindS3Bucket] = func(ctx context.Context, t *Target, d *Deployment) (deploy.Driver, error) {
 			driver, err := p.newS3BucketDriver(ctx, t, d)
@@ -603,7 +617,7 @@ func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target
 
 // RefusesBundle says why b cannot be released to t, before anything is
 // prepared. A digest bundle's images are in its registry: it goes to any
-// target that runs its platform (App Platform runs linux/amd64; a Docker
+// target that runs its platform (App Platform and Fly run linux/amd64; a Docker
 // host's and Portainer's platform are asked where they are released), but
 // never, in an AppTown with no local Docker, to the built-in host. In that
 // mode a bundle of image IDs goes only to the attached Docker host it was
@@ -614,15 +628,21 @@ func (p *Providers) RefusesBundle(ctx context.Context, b *ReleaseBundle, t *Targ
 	if t.Kind == KindS3Bucket && (b == nil || !b.ByDigest()) {
 		return refused("%s publishes a site's files from its release image in the project's container registry, and this release was not published there. Attach a container registry to the project, then land a change", t.Name)
 	}
-	appPlatform := t.Kind == KindDOApp
-	if b != nil && appPlatform {
+	// A kind that runs only published images (its catalogue entry says so)
+	// has no local image to push: Fly copies from the project's registry.
+	info := describeKind(t.Kind)
+	if info.publishedOnly && (b == nil || !b.ByDigest()) {
+		return refused("%s runs a release's images from the project's container registry, and this release was not published there. Attach a container registry to the project, then land a change", t.Name)
+	}
+	if b != nil && t.Kind == KindDOApp {
 		if why := digitalocean.MultiImageRefusal(b.Parts, b.Init); why != "" {
 			return refused("%s", why)
 		}
 	}
 	if b != nil && b.ByDigest() {
-		if appPlatform {
-			if err := refusesPlatform(b, t.Name, digitalocean.Platform, nil); err != nil {
+		// A cloud kind runs one platform, which its catalogue entry names.
+		if info.platform != "" {
+			if err := refusesPlatform(b, t.Name, info.platform, nil); err != nil {
 				return err
 			}
 		}

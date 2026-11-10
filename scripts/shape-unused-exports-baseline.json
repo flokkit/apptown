@@ -536,6 +536,8 @@
   "internal/deploy/docker/scope.go:Scope.Remove (func)",
   "internal/deploy/docker/source.go:BrowserEnvVar (const)",
   "internal/deploy/docker/stack.go:EnsureStandingServices (func)",
+  "internal/deploy/fly/driver.go:Options.CopyImage (field)",
+  "internal/deploy/fly/driver.go:Options.FrontDoor (field)",
   "internal/deploy/portainer/dockerproxy.go:DockerProxy.Socket (field)",
   "internal/deploy/portainer/portainer.go:InstanceEnv (const)",
   "internal/deploy/portainer/volumes.go:ComposeVolumes (func)",

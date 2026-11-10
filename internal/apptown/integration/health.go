@@ -88,6 +88,9 @@ func FeatureArea(capability, provider string) string {
 		if provider == "digitalocean" {
 			return "app-platform"
 		}
+		if provider == "fly" {
+			return "fly-machines"
+		}
 	}
 	if provider == "portainer" {
 		return "portainer"

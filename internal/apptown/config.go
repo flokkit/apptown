@@ -25,6 +25,7 @@ import (
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/fly"
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/worker"
@@ -53,6 +54,9 @@ type Config struct {
 	// DigitalOcean supplies external driver options at construction. The zero
 	// value keeps driver defaults; later changes do not reconfigure App.
 	DigitalOcean digitalocean.Options
+	// Fly supplies the Fly driver's options at construction; the zero value
+	// keeps its defaults.
+	Fly fly.Options
 	// DataDiskSpace reads the data folder's filesystem for the disk
 	// observation; nil reads it. A test scene supplies its own reading.
 	DataDiskSpace diskspace.Reader

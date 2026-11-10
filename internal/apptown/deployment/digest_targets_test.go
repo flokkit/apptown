@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -23,8 +24,11 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/fly"
+	"github.com/flokkit/apptown/internal/deploy/fly/flyfake"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/deploy/portainer/portainerfake"
+	"github.com/flokkit/apptown/internal/oci"
 	"github.com/flokkit/apptown/internal/poll"
 )
 
@@ -42,6 +46,7 @@ const digestDOToken = "dop_v1_test"
 type promotionTargets struct {
 	*digestWorld
 	do       *dofake.API
+	fly      *flyfake.API
 	docr     *digestRegistry
 	platform atomic.Pointer[string]
 	mu       sync.Mutex
@@ -76,12 +81,14 @@ func newPromotionTargets(t *testing.T, noLocalDocker bool) *promotionTargets {
 // newPromotionTargetsWith is newPromotionTargets whose app is appYAML.
 func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *promotionTargets {
 	t.Helper()
-	p := &promotionTargets{do: &dofake.API{}, docr: newDigestRegistry(t, "apptown", digestDOToken), volumes: map[string]bool{}, stackRecords: map[int64]promotionStack{}}
+	p := &promotionTargets{do: &dofake.API{}, fly: flyfake.New("acme"), docr: newDigestRegistry(t, "apptown", digestDOToken), volumes: map[string]bool{}, stackRecords: map[int64]promotionStack{}}
 	p.do.ServeFrontDoor(false)
 	amd64 := `{"Os":"linux","Arch":"amd64"}`
 	p.platform.Store(&amd64)
 	api := httptest.NewServer(p.do.Handler())
 	t.Cleanup(api.Close)
+	flyAPI := httptest.NewServer(p.fly.Handler())
+	t.Cleanup(flyAPI.Close)
 	portainerAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if p.serveReadiness(w, r) {
 			return
@@ -169,10 +176,29 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 		}
 	}))
 	t.Cleanup(portainerAPI.Close)
-	secrets := fmt.Sprintf("DIGITALOCEAN_ACCESS_TOKEN=%s\nPORTAINER_URL=%s\nPORTAINER_API_KEY=key\nAPPTOWN_APPS_DOMAIN=apps.example\n", digestDOToken, portainerAPI.URL)
+	secrets := fmt.Sprintf("FLY_API_TOKEN=fo1_promotion\nDIGITALOCEAN_ACCESS_TOKEN=%s\nPORTAINER_URL=%s\nPORTAINER_API_KEY=key\nAPPTOWN_APPS_DOMAIN=apps.example\n", digestDOToken, portainerAPI.URL)
 	p.digestWorld = newDigestWorldWith(t, secrets, appYAML, func(w *digestWorld, deps *testRuntime) {
 		deps.DigitalOcean = digitalocean.Options{APIBase: api.URL, RegistryHost: p.docr.host, PollInterval: 10 * time.Millisecond, DBPoll: 10 * time.Millisecond,
 			ProbeFrontDoor: func(context.Context, string, int, time.Time, func(string, ...any)) error { return nil }}
+		// Fly's registry is answered by the copy's digest, and the app's
+		// front door by the release the landed contract's public part serves.
+		deps.Fly = fly.Options{APIBase: flyAPI.URL,
+			CopyImage: func(_ context.Context, from oci.Source, _ oci.Repository, _ string) (string, error) {
+				_, digest, _ := strings.Cut(from.Reference, "@")
+				return digest, nil
+			},
+			FrontDoor: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				body := "ok"
+				if r.URL.Path == appcontract.ReleasePath {
+					parsed, err := appcontract.Parse(p.contract)
+					if err != nil {
+						return nil, err
+					}
+					body = parsed.PublicRelease(strings.TrimSpace(p.revision))
+				}
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: http.Header{}, Request: r}, nil
+			})}
+		deps.Installation = testInstallationID
 		deps.OfferedByConstruction = []string{IntranetTargetName}
 		if noLocalDocker {
 			// As an AppTown started with -no-local-docker: its own daemon refuses.
@@ -181,6 +207,9 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 		}
 	})
 	if _, err := p.s.env.integrations.Bindings.Save(context.Background(), "do-syd", digitalocean.CapCloudAccount, "digitalocean", asJSON(map[string]any{"tokenFrom": "DIGITALOCEAN_ACCESS_TOKEN", "region": "syd", "registry": "forge-test"}), "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.s.env.integrations.Bindings.Save(context.Background(), "fly-syd", digitalocean.CapCloudAccount, "fly", asJSON(map[string]any{"tokenFrom": "FLY_API_TOKEN", "org": "acme", "region": "syd"}), "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	p.s.SeedCloudTargets(t.Context(), "fixture")
@@ -734,3 +763,8 @@ func (p *promotionTargets) serveReadiness(w http.ResponseWriter, r *http.Request
 	}
 	return portainerfake.ServeComponents(w, r, 3, stacks)
 }
+
+// roundTripFunc answers HTTP requests in a test.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }

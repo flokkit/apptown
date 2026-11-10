@@ -194,7 +194,7 @@ use in production by the maintainers.
 | Packs `godot-3d`, `video-game` | an app shipped from the current starter |
 | Need `redis` | an app shipped with it |
 | Need `llm` | a deployed app that used its own key |
-| Targets Portainer, App Platform, bucket website | a qualification that released a real app to them |
+| Targets Portainer, App Platform, Fly.io Machines, bucket website | a qualification that released a real app to them |
 | Workflows `research`, `excavate`, `product-spec` | more use |
 | Customer feedback integration | more than one project, and a service that signs in |
 

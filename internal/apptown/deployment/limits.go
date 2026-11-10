@@ -406,6 +406,8 @@ func (s *Service) limitEventsSource(ctx context.Context, d *Deployment) (known b
 		return true, "recorded from the Docker host's events; Docker replays only its recent events, so a gap is possible while AppTown or the daemon was down"
 	case KindDOApp:
 		return false, "App Platform does not report them to AppTown"
+	case kindFlyMachines:
+		return false, "Fly does not report them to AppTown"
 	case KindPortainer:
 		return false, "not read through Portainer in 1.0"
 	}

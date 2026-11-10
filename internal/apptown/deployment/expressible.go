@@ -7,6 +7,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/fly"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
@@ -23,6 +24,8 @@ func (t *Target) refusesContract(c *appcontract.Contract) string {
 		healthErr = docker.RefusesHealth(c)
 	case KindPortainer:
 		healthErr = portainer.RefusesHealth(c)
+	case kindFlyMachines:
+		healthErr = fly.RefusesHealth(c)
 	case KindS3Bucket:
 		for _, part := range c.Parts {
 			if part.Intent == nil {

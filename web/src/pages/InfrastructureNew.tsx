@@ -19,12 +19,13 @@ import { SecretNameStatus } from './integrations/InstanceSecrets'
 // uses: POST /targets (dryRun for the check), POST /targets/{name}/offers,
 // PATCH /targets/{name}. Finish lands on the target's own page.
 
-type Kind = 'docker-host' | 'portainer' | 'do-app' | 's3-bucket'
+type Kind = 'docker-host' | 'portainer' | 'do-app' | 'fly-machines' | 's3-bucket'
 const DO_REGIONS = ['syd', 'sgp', 'blr', 'nyc', 'sfo', 'tor', 'lon', 'fra', 'ams']
 const KINDS: { kind: Kind; title: string; vendor: string; blurb: string }[] = [
   { kind: 'docker-host', title: 'Docker host', vendor: 'over SSH', blurb: "Docker over SSH. Builds run on the host. Data uses the image's user. Traefik serves the apps domain." },
   { kind: 'portainer', title: 'Portainer environment', vendor: 'Portainer', blurb: 'Experimental: no real app qualified yet. Portainer runs and restarts apps. Traefik serves the apps domain.' },
   { kind: 'do-app', title: 'DigitalOcean App Platform', vendor: 'DigitalOcean', blurb: 'Experimental: no real app qualified yet. App Platform runs apps, Managed Databases hold data, and the registry holds images. One target per account and region.' },
+  { kind: 'fly-machines', title: 'Fly.io Machines', vendor: 'Fly.io', blurb: `Experimental: no real app qualified yet. Each deployment is a Fly app with one Machine per part. Needs (databases, object storage) are not offered yet. Use an org token for an org that holds your team's apps; ${PRODUCT} touches only the apps it made.` },
   { kind: 's3-bucket', title: 'Bucket website', vendor: 'S3-compatible storage', blurb: `Experimental: no real app qualified yet. Static files only, served from a bucket website. DigitalOcean Spaces first. Each deployment gets one bucket; taking it down deletes the bucket, so keep nothing else there. Use a key made for ${PRODUCT} that can create buckets. Full-access keys reach every bucket in the team.` },
 ]
 
@@ -85,7 +86,8 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
   const [urlFrom, setUrlFrom] = useState('')
   const [apiKeyFrom, setApiKeyFrom] = useState('')
   const [environment, setEnvironment] = useState('')
-  const [tokenFrom, setTokenFrom] = useState('DIGITALOCEAN_ACCESS_TOKEN')
+  const [tokenFrom, setTokenFrom] = useState(kind === 'fly-machines' ? 'FLY_API_TOKEN' : 'DIGITALOCEAN_ACCESS_TOKEN')
+  const [org, setOrg] = useState('')
   const [region, setRegion] = useState('syd')
   const [registry, setRegistry] = useState('')
   const [endpoint, setEndpoint] = useState('https://syd1.digitaloceanspaces.com')
@@ -98,6 +100,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
   const body = kind === 'docker-host' ? { kind, name, host, keyFrom }
     : kind === 'portainer' ? { kind, name, urlFrom, apiKeyFrom, environment }
     : kind === 's3-bucket' ? { kind, name, endpoint, region: bucketRegion, websiteEndpoint, accessKeyFrom, secretKeyFrom }
+    : kind === 'fly-machines' ? { kind, name, tokenFrom, region, org }
     : { kind, name, tokenFrom, region }
   const key = JSON.stringify(body)
   // Each required field by its label: Check waits for all of them, and the
@@ -126,7 +129,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
         {KINDS.find((k) => k.kind === kind)?.blurb} Enter secret names; saved values are hidden.
       </p>
       <div className="wiz-fields">
-        {field('name', name, setName, kind === 'do-app' ? 'do-syd' : kind === 'portainer' ? 'home-portainer' : kind === 's3-bucket' ? 'spaces-syd' : 'droplet-syd', 160)}
+        {field('name', name, setName, kind === 'do-app' ? 'do-syd' : kind === 'fly-machines' ? 'fly-syd' : kind === 'portainer' ? 'home-portainer' : kind === 's3-bucket' ? 'spaces-syd' : 'droplet-syd', 160)}
         {kind === 'docker-host' && <>
           {field('address', host, setHost, 'ssh://root@1.2.3.4', 240)}
           {field('SSH key secret', keyFrom, setKeyFrom, 'DROPLET_SSH_KEY', 180)}
@@ -142,6 +145,11 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
           {field('website address', websiteEndpoint, setWebsiteEndpoint, 'https://{bucket}.{region}-static.digitaloceanspaces.com', 380)}
           {field('access key secret', accessKeyFrom, setAccessKeyFrom, 'SPACES_ACCESS_KEY', 180)}
           {field('secret key secret', secretKeyFrom, setSecretKeyFrom, 'SPACES_SECRET_KEY', 180)}
+        </>}
+        {kind === 'fly-machines' && <>
+          {field('token secret', tokenFrom, setTokenFrom, 'FLY_API_TOKEN', 240)}
+          {field('region', region, setRegion, 'syd', 90)}
+          {field('org (if the token reaches several)', org, setOrg, 'read from the token', 220)}
         </>}
         {kind === 'do-app' && <>
           {field('token secret', tokenFrom, setTokenFrom, '', 240)}
@@ -238,7 +246,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
       .map((key) => [key, draft[key] !== before[key] ? draft[key] : now[key]])) as OfferFacts : now)
     setBase(current); setConflict(false); setErr('')
   }
-  const cloud = target.kind === 'do-app'
+  const cloud = target.kind === 'do-app' || target.kind === 'fly-machines'
   return (
     <div className="card infrastructure-new-connection-step-card">
       <p className="muted small mt-0" ><b>{target.name}</b> added. Set its offers and capabilities.</p>

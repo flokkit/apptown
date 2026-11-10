@@ -153,6 +153,10 @@ func (h connectorHealth) test(ctx context.Context, capability, provider string, 
 	}
 	switch capability {
 	case digitalocean.CapCloudAccount:
+		if provider == "fly" {
+			h := h.providers.CheckFlyAccount(ctx, config)
+			return integration.Health{OK: h.OK, Detail: h.Detail}, true
+		}
 		h := h.providers.CheckCloudAccount(ctx, config)
 		return integration.Health{OK: h.OK, Detail: h.Detail}, true
 	case integration.CapContainerRegistry:

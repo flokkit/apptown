@@ -29,6 +29,8 @@ type TargetAttachment struct {
 	TokenFrom    string `json:"tokenFrom"`
 	Region       string `json:"region"`
 	Registry     string `json:"registry"`
+	// Org is a Fly target's org, needed only when its token reaches several.
+	Org string `json:"org"`
 	// A bucket target: the store's API endpoint, the website address
 	// template ({bucket}, {region}) and the secrets holding its key pair.
 	Endpoint        string `json:"endpoint"`
@@ -173,6 +175,8 @@ func (s *Service) AttachTarget(ctx context.Context, in TargetAttachment) (target
 			return targetAttachmentResult{}, err
 		}
 		return targetAttachmentResult{Target: saved, Detail: detail, Registry: registry}, nil
+	case kindFlyMachines:
+		return s.attachFly(ctx, in, actor.Principal.Name)
 	case KindS3Bucket:
 		address := map[string]any{"endpoint": strings.TrimRight(strings.TrimSpace(in.Endpoint), "/"), "region": strings.TrimSpace(in.Region), "websiteEndpoint": strings.TrimSpace(in.WebsiteEndpoint),
 			"accessKeyFrom": strings.TrimSpace(in.AccessKeyFrom), "secretKeyFrom": strings.TrimSpace(in.SecretKeyFrom)}
@@ -198,7 +202,7 @@ func (s *Service) AttachTarget(ctx context.Context, in TargetAttachment) (target
 			NeedsMode:    "managed", Status: TargetReady,
 		}
 	default:
-		return targetAttachmentResult{}, fault.Wrap(fault.Invalid, fmt.Errorf("kind must be %s, %s, %s or %s", KindDockerHost, KindPortainer, KindDOApp, KindS3Bucket))
+		return targetAttachmentResult{}, fault.Wrap(fault.Invalid, fmt.Errorf("kind must be %s, %s, %s, %s or %s", KindDockerHost, KindPortainer, KindDOApp, kindFlyMachines, KindS3Bucket))
 	}
 	if in.DryRun {
 		return targetAttachmentResult{Detail: detail}, nil

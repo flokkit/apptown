@@ -256,6 +256,15 @@ func ConnectorCatalog() []ConnectorSpec {
 				{Key: "dbSize", Label: "Database size", Type: "string", Placeholder: "db-s-1vcpu-1gb", Help: "Managed database node size."},
 			},
 		},
+		{
+			Capability: digitalocean.CapCloudAccount, Provider: "fly", Title: "Fly.io", Multi: true, Icon: "deploy",
+			Description: "A Fly.io org: each deployment is a Fly app of its own, with one Machine per part. Each connection offers one Fly target. The token is given as a secret name and read when it is used; an org token can manage every app in its org, and AppTown touches only what it made and recorded.",
+			Fields: []ConnectorField{
+				{Key: "tokenFrom", Label: "API token secret", Type: "secretRef", Placeholder: "FLY_API_TOKEN", Help: "The name of the secret holding a Fly org token (fly tokens create org)."},
+				{Key: "org", Label: "Org", Type: "string", Placeholder: "", Help: "The Fly org slug; read from the token when it reaches only one."},
+				{Key: "region", Label: "Region", Type: "string", Placeholder: "syd", Help: "The Fly region Machines run in; one where Fly offers Managed Postgres."},
+			},
+		},
 	}
 
 }
