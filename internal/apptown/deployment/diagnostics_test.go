@@ -346,6 +346,41 @@ func TestDiagnosticsOnATargetWithoutContainersSayWhy(t *testing.T) {
 	}
 }
 
+// A bucket website runs no containers: its diagnostics say so, never "unknown" and never "its target does not report", and its part
+// is what the observer last saw its address answer: serving this release,
+// answering something else, or unknown when it gave no current answer.
+//
+// Kills: a bucket read as a container target that does not report.
+func TestABucketWebsitesPartIsWhatItsAddressServes(t *testing.T) {
+	s, dep, driver, _ := runtimeFixture(t, KindS3Bucket)
+	read := func() (Diagnostics, PartDiagnosis) {
+		t.Helper()
+		if err := s.ObserveRuntime(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		d, err := s.collectDiagnostics(t.Context(), dep.ProjectID, dep.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !d.NoContainers || d.Containers || d.Unsupported != "" || len(d.Parts) != 1 || d.Parts[0].Facts != nil {
+			t.Fatalf("a bucket website's diagnostics: %+v", d)
+		}
+		return d, d.Parts[0]
+	}
+	driver.health = "healthy"
+	if _, p := read(); p.Presence != presenceServing || p.Generation == nil || *p.Generation != dep.ObservedGeneration {
+		t.Fatalf("an address answering this release: %+v", p)
+	}
+	driver.health = "unhealthy"
+	if _, p := read(); p.Presence != presenceNotServing || p.Reason == "" {
+		t.Fatalf("an address answering another release: %+v", p)
+	}
+	driver.health = ""
+	if _, p := read(); p.Presence != presenceUnknown || p.Reason == "" {
+		t.Fatalf("an address with no health answer: %+v", p)
+	}
+}
+
 // A part's log is read only by someone who may operate the deployment,
 // only for a part or need of its settled generation, from the container
 // AppTown names for it there; the bounds come back with it. A refused or

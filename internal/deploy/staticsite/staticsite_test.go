@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/oci"
 )
 
@@ -41,8 +42,10 @@ func TestASetPutsAssetsThenEntriesThenTheMarkerLast(t *testing.T) {
 	if env := string(set.Files[1].Body); !strings.Contains(env, `{"DSN":"x"}`) {
 		t.Fatalf("env.js = %s", env)
 	}
-	if set.Files[0].NoStore() || !set.Files[3].NoStore() || !last.NoStore() {
-		t.Fatal("only entry files and AppTown's files are no-store")
+	for i, want := range []string{appcontract.CacheRevalidate, "no-store", appcontract.CacheRevalidate, appcontract.CacheRevalidate, "no-store"} {
+		if got := set.Files[i].CacheControl(); got != want {
+			t.Errorf("%s: Cache-Control %q, want %q", set.Files[i].Key, got, want)
+		}
 	}
 }
 

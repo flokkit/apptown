@@ -4,6 +4,7 @@ package docker
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/stock"
 )
@@ -26,33 +28,7 @@ func TestIntegrationStaticServerGivesThePageItsValues(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte(page), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	start := func(values string) string {
-		t.Helper()
-		args := []string{"run", "-d", "-p", "127.0.0.1::8080", "-v", site + ":/srv:ro"}
-		if values != "" {
-			args = append(args, "-e", BrowserEnvVar+"="+values)
-		}
-		args = append(args, stock.Images().StaticServer)
-		args = append(args, StaticServerCommand(8080)...)
-		id := runDetached(t, args...)
-		port, err := exec.Command("docker", "port", id, "8080/tcp").CombinedOutput()
-		if err != nil {
-			state, _ := exec.Command("docker", "inspect", "-f", "{{json .State}} {{json .NetworkSettings.Ports}}", id).CombinedOutput()
-			logs, _ := exec.Command("docker", "logs", id).CombinedOutput()
-			t.Fatalf("docker port: %v %s\nthe server's state: %s\nits log:\n%s", err, port, state, logs)
-		}
-		base := "http://" + strings.TrimSpace(strings.Split(string(port), "\n")[0])
-		if !poll.Until(context.Background(), 30*time.Second, 100*time.Millisecond, func() bool {
-			code, _, err := check.HTTPFetcher.Fetch(context.Background(), base+"/")
-			return err == nil && code == 200
-		}) {
-			logs, _ := exec.Command("docker", "logs", id).CombinedOutput()
-			t.Fatalf("the static server did not answer: %s", logs)
-		}
-		return base
-	}
-
-	base := start(`{"SENTRY_DSN":"https://key@errors.example/3"}`)
+	base := startStaticServer(t, site, `{"SENTRY_DSN":"https://key@errors.example/3"}`)
 	code, body, err := check.HTTPFetcher.Fetch(context.Background(), base+check.BrowserEnvPath)
 	if err != nil || code != 200 || body != BrowserEnvScript(`{"SENTRY_DSN":"https://key@errors.example/3"}`) {
 		t.Fatalf("env.js: %d %q %v", code, body, err)
@@ -65,7 +41,7 @@ func TestIntegrationStaticServerGivesThePageItsValues(t *testing.T) {
 		t.Fatalf("the site itself: %d %q", code, body)
 	}
 
-	bare := start("")
+	bare := startStaticServer(t, site, "")
 	if code, body, _ := check.HTTPFetcher.Fetch(context.Background(), bare+check.BrowserEnvPath); code != 200 || body != BrowserEnvScript("{}") {
 		t.Fatalf("with nothing given: %d %q", code, body)
 	}
@@ -93,6 +69,67 @@ func TestIntegrationStaticServerStartsWithoutWarnings(t *testing.T) {
 	for _, line := range strings.Split(string(logs), "\n") {
 		if strings.Contains(line, `"level":"warn"`) || strings.Contains(line, `"level":"error"`) {
 			t.Errorf("the static server logged: %s", line)
+		}
+	}
+}
+
+// startStaticServer runs the real static server on site, given values
+// (none when ""), and returns its address once it answers.
+func startStaticServer(t *testing.T, site, values string) string {
+	t.Helper()
+	args := []string{"run", "-d", "-p", "127.0.0.1::8080", "-v", site + ":/srv:ro"}
+	if values != "" {
+		args = append(args, "-e", BrowserEnvVar+"="+values)
+	}
+	args = append(args, stock.Images().StaticServer)
+	args = append(args, StaticServerCommand(8080)...)
+	id := runDetached(t, args...)
+	port, err := exec.Command("docker", "port", id, "8080/tcp").CombinedOutput()
+	if err != nil {
+		state, _ := exec.Command("docker", "inspect", "-f", "{{json .State}} {{json .NetworkSettings.Ports}}", id).CombinedOutput()
+		logs, _ := exec.Command("docker", "logs", id).CombinedOutput()
+		t.Fatalf("docker port: %v %s\nthe server's state: %s\nits log:\n%s", err, port, state, logs)
+	}
+	base := "http://" + strings.TrimSpace(strings.Split(string(port), "\n")[0])
+	if !poll.Until(context.Background(), 30*time.Second, 100*time.Millisecond, func() bool {
+		code, _, err := check.HTTPFetcher.Fetch(context.Background(), base+"/")
+		return err == nil && code == 200
+	}) {
+		logs, _ := exec.Command("docker", "logs", id).CombinedOutput()
+		t.Fatalf("the static server did not answer: %s", logs)
+	}
+	return base
+}
+
+// The real static server says how browsers may keep each file, by the rule
+// a bucket website's upload applies (appcontract.StaticCacheControl): a
+// content-hashed asset for a year, the page and unhashed files revalidated,
+// AppTown's browser values never. A file sent with none is cached by
+// guesswork, and a release then shows under last release's styles.
+func TestIntegrationStaticServerSaysHowBrowsersMayKeepEachFile(t *testing.T) {
+	site := t.TempDir()
+	for name, body := range map[string]string{"index.html": "<html></html>", "styles.css": "a{}", "assets/index-BdK3x9aQ.js": "1"} {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(site, name)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(site, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	base := startStaticServer(t, site, "")
+	for path, want := range map[string]string{
+		"/":                         appcontract.CacheRevalidate,
+		"/styles.css":               appcontract.CacheRevalidate,
+		"/assets/index-BdK3x9aQ.js": appcontract.CacheImmutable,
+		check.BrowserEnvPath:        "no-store",
+	} {
+		res, err := http.Get(base + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = res.Body.Close()
+		if got := res.Header.Get("Cache-Control"); res.StatusCode != 200 || got != want {
+			t.Errorf("%s: %d Cache-Control %q, want %q", path, res.StatusCode, got, want)
 		}
 	}
 }

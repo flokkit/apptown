@@ -19,7 +19,7 @@ import type { DeploymentView } from '../../../wire.gen'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const base = '/projects/lunch/deployments'
 const at = '2026-11-03T08:00:00Z'
-const env = { name: 'main', displayLabel: 'Lunch Orders', generation: 1, kind: 'standing', feed: 'main', audience: 'team', data: 'production', status: { word: 'working', reason: '', stale: false, servingRelease: 'Running release 8', servingReleaseNumber: 8 }, observation: 'running', servingRelease: { number: 8, releasedAt: at }, observedAt: at, readiness: 'reconciled', url: 'https://lunch.example', target: { kind: 'docker-host', name: 'local' } } as DeploymentView
+const env = { name: 'main', displayLabel: 'Lunch Orders', generation: 1, kind: 'standing', feed: 'main', audience: 'team', data: 'production', status: { word: 'working', reason: '', stale: false, servingRelease: 'Running release 8', servingReleaseNumber: 8 }, observation: 'running', runtimeActions: ['start', 'stop', 'restart'], servingRelease: { number: 8, releasedAt: at }, observedAt: at, readiness: 'reconciled', url: 'https://lunch.example', target: { kind: 'docker-host', name: 'local' } } as DeploymentView
 const reading = { waiting: false, stale: false, unknown: false, observedAt: at }
 function fixtures({ backup = 'none', lowDisk = false, readiness = 'reconciled' } = {}): Record<string, unknown> {
   return {

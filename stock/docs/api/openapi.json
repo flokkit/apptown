@@ -2471,6 +2471,12 @@
               }
             ]
           },
+          "runtimeActions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "runtimeActor": {
             "type": "string"
           },
@@ -2547,6 +2553,7 @@
           "runtimeState",
           "runtimeActor",
           "runtimeControls",
+          "runtimeActions",
           "servingRelease",
           "promotionBundleId",
           "promotionRelease",

@@ -16,7 +16,10 @@ import './deployment-containers.css'
 // DeploymentContainers is what a deployment runs, one row per container:
 // its state as the host reports it, the image it runs and what it uses now
 // against its limits, with the deployment's totals above. A use the host
-// did not report is unknown, never zero; a part with no limit says so.
+// did not report is unknown, never zero; a part with no limit says so. A
+// target that runs no containers (a bucket website, diagnostics'
+// noContainers) has no image, CPU, memory or start time to show: its rows
+// are its parts and whether its address serves this release.
 
 type Row = { part: string; label: string; role?: string; diag?: DeploymentDiagnostics['parts'][number]; use?: PartMemory }
 
@@ -75,7 +78,19 @@ export function DeploymentContainers({ slug, name, stopped = false }: { slug: st
     finally { setReading(null) }
   }
   const diagUnknown = diagnostics.refreshFailed || !!diagnostics.data?.reading?.unknown
-  const columns: ListColumn<Row>[] = [
+  const noContainers = !!diagnostics.data?.noContainers
+  // Use is shown once diagnostics say there are containers to use it: a
+  // bucket website's CPU and memory are not applicable, never unknown.
+  const showUse = !noContainers && !diagnostics.loading
+  const served: ListColumn<Row> = { key: 'status', label: 'Status', phone: 'state', render: r => {
+    const p = r.diag
+    if (!p || diagnostics.refreshFailed || p.presence === 'unknown') return <Status observation word="unknown" help={p?.reason} />
+    return p.presence === 'serving' ? <Status observation word="running" /> : <Status observation word="failed" help={p.reason} />
+  } }
+  const columns: ListColumn<Row>[] = noContainers ? [
+    { key: 'name', label: 'Name', phone: 'name', render: r => <><strong>{r.label}</strong>{r.role && <span className="muted small"> {r.role}</span>}</> },
+    served,
+  ] : [
     { key: 'name', label: 'Name', phone: 'name', render: r => <><strong>{r.label}</strong>{r.role && <span className="muted small"> {r.role}</span>}</> },
     { key: 'status', label: 'Status', phone: 'state', render: r => {
       const p = r.diag
@@ -93,20 +108,20 @@ export function DeploymentContainers({ slug, name, stopped = false }: { slug: st
       : <MoreMenu label={r.label} items={[{ label: 'Logs', disabled: reading !== null, onClick: () => readLog(r.part) }]} />
       : null },
   ]
-  return <section className="deployment-containers" aria-label="Containers">
-    <div className="deployment-containers-strip">
+  return <section className="deployment-containers" aria-label={noContainers ? 'Parts' : 'Containers'}>
+    {showUse && <div className="deployment-containers-strip">
       <CapacityStrip name="CPU" used={sum(u => u.cpuCores)} total={limited(u => u.cpuLimit)} unlimited format={v => `${cores(v)} cores`} />
       <CapacityStrip name="MEMORY" used={sum(u => u.usedBytes)} total={limited(u => u.limitBytes)} unlimited />
-    </div>
-    <ListTable label="Containers" className="deployment-containers-table" columns={columns} rows={rows} rowKey={r => r.part || 'app'} />
-    {!diagnostics.data?.reading?.waiting && rows.filter(r => !stopped && r.diag && r.diag.presence !== 'unknown' && trouble(r.diag)).map(r =>
+    </div>}
+    <ListTable label={noContainers ? 'Parts' : 'Containers'} className="deployment-containers-table" columns={columns} rows={rows} rowKey={r => r.part || 'app'} />
+    {!noContainers && !diagnostics.data?.reading?.waiting && rows.filter(r => !stopped && r.diag && r.diag.presence !== 'unknown' && trouble(r.diag)).map(r =>
       <p key={r.part} className="small"><strong>{r.label}</strong>: {nextStep(r.diag!)}</p>)}
     {diagnostics.data && <HoldLine slug={slug} d={diagnostics.data} />}
     {diagnostics.data?.unsupported && <p className="muted small">{diagnostics.data.unsupported}</p>}
-    {resources.data && <div className="small"><LimitEventLines r={resources.data} /></div>}
+    {resources.data && !noContainers && <div className="small"><LimitEventLines r={resources.data} /></div>}
     {technical && diagnostics.data && <DiagnosticsDetail d={diagnostics.data} busy={reading !== null} onLog={readLog} />}
     {diagnostics.data?.unsettled && <TechnicalWords shown={technical}>{diagnostics.data.unsettled}</TechnicalWords>}
-    {rows.some(r => !usage(r)) && <p className="muted small">{rows.find(r => !usage(r) && r.use?.reason)?.use?.reason ?? 'Its host did not report what every container uses.'}</p>}
+    {showUse && rows.some(r => !usage(r)) && <p className="muted small">{rows.find(r => !usage(r) && r.use?.reason)?.use?.reason ?? 'Its host did not report what every container uses.'}</p>}
     <StaleNote q={[resources, diagnostics]} />
     {err && <p className="error">{err}</p>}
     {log && <LogView log={log} onClose={() => setLog(null)} />}

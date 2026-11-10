@@ -60,6 +60,12 @@ type Target struct {
 
 func (t *Target) String() string { return t.Name + " (" + t.Kind + ")" }
 
+// runsNoContainers says the target serves its deployments without any
+// container: a bucket website is files a store serves. Container state,
+// CPU, memory and runtime acts are then not applicable, which is not the
+// same as unknown (App Platform runs containers and does not report them).
+func (t *Target) runsNoContainers() bool { return t != nil && kindRuntime[t.Kind].noContainers }
+
 // TargetCapabilities is what a target can express (§2.2). A contract that
 // asks for more is refused at the door with a sentence.
 type TargetCapabilities struct {

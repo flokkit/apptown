@@ -1313,8 +1313,13 @@ the one the deployment had settled on when the event came after it settled and
 no later than the sweep's check that found it still settled, with no deploy
 open (the sweep's event cutoff is taken before those checks); otherwise not
 known. Events from before migration 152 have none. A target
-without containers (App Platform, Portainer) says it does not report them and
-lists the parts as unknown.
+that runs containers without reporting them (App Platform, Portainer) says it
+does not report them and lists the parts as unknown. A target that runs no
+containers at all (a bucket website) says so
+(`noContainers`): container state, image, CPU and memory are not applicable,
+not unknown, and the page leaves them out. Each of its parts is what the
+observer last saw its address answer: `serving` (this release's marker),
+`not serving` (an answer, but not this release) or unknown with the reason.
 
 A part's recent log (`GET .../logs?part=`) is read only when someone asks, by
 someone holding `deployment:operate` on the project, since a log can hold the
@@ -1800,7 +1805,9 @@ needs stay up. Restart stops then starts the current release, without rebuilding
 running initialization steps or making a pre-deploy backup. App Platform uses
 DigitalOcean's documented app restart API; Start and Stop are unavailable because
 App Platform cannot keep an app stopped. Bucket websites cannot start, stop or
-restart, and show that reason beside disabled buttons.
+restart. The listing names the acts a target can ever take
+(`runtimeActions`), and the page shows only those: every act on Docker hosts
+and Portainer, Restart on App Platform and Fly, none on a bucket website.
 
 Runtime intent is separate from release readiness and provider observations.
 An intentional stop stays stopped across AppTown restarts and stale or missing
@@ -1814,8 +1821,8 @@ Start restores those app replicas with the selected images.
 Runtime actions and releases exclude each other while effects are underway.
 The deployment listing says, per action (deploy, start, stop, restart), why it
 is refused now: a release on its way, a blocked promotion, or what the target
-cannot do. The page greys that action with the reason instead of offering one
-admission would refuse. An interrupted action retains its transition and error. Refresh status observes
+cannot do. The page greys an act the target can take with the reason instead
+of offering one admission would refuse. An interrupted action retains its transition and error. Refresh status observes
 what happened without repeating effects; a failed action can also be retried.
 A failed replacement can be stopped, but must be deployed successfully before
 Start or Restart can run its parts. The deployment list shows state and links

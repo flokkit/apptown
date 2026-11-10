@@ -42,25 +42,44 @@ func (e *Deployment) lastActAt() time.Time {
 	return at
 }
 
+// kindRuntime is what each target kind can do with a deployment's runtime:
+// the acts (start, stop, restart) it can ever take, the sentence that
+// refuses the others, and whether it runs any container at all. A kind not
+// listed takes no act.
+var kindRuntime = map[string]struct {
+	acts         []string
+	never        string
+	noContainers bool
+}{
+	KindDockerHost:  {acts: []string{"start", "stop", "restart"}},
+	KindPortainer:   {acts: []string{"start", "stop", "restart"}},
+	KindDOApp:       {acts: []string{"restart"}, never: "App Platform cannot keep an app stopped"},
+	kindFlyMachines: {acts: []string{"restart"}, never: "This Fly target does not keep an app stopped yet"},
+	KindS3Bucket:    {never: "Bucket websites cannot be started, stopped or restarted", noContainers: true},
+}
+
+// runtimeActions are the runtime acts (start, stop, restart) the target
+// can ever take; a page offers no other. An act left out is refused by
+// runtimeControls with the target's sentence, never offered.
+func runtimeActions(t *Target) []string {
+	if t == nil {
+		return []string{}
+	}
+	return append([]string{}, kindRuntime[t.Kind].acts...)
+}
+
 // runtimeControls says, per action (deploy, start, stop, restart), why it is
 // refused; an empty reason means it is offered. This is the target contract,
 // independent of credentials and observations; the listing adds the refusals
 // admission would make now (a release in flight, a blocked promotion).
 func runtimeControls(t *Target, d *Deployment) map[string]string {
-	controls := map[string]string{"deploy": "", "start": "This target cannot control the app's containers", "stop": "This target cannot control the app's containers", "restart": "This target cannot control the app's containers"}
-	if t != nil {
-		switch t.Kind {
-		case KindDockerHost, KindPortainer:
-			controls = map[string]string{"deploy": "", "start": "", "stop": "", "restart": ""}
-		case KindDOApp:
-			controls = map[string]string{"deploy": "", "start": "App Platform cannot keep an app stopped", "stop": "App Platform cannot keep an app stopped", "restart": ""}
-		case kindFlyMachines:
-			controls = map[string]string{"deploy": "", "start": "This Fly target does not keep an app stopped yet", "stop": "This Fly target does not keep an app stopped yet", "restart": ""}
-		case KindS3Bucket:
-			for _, action := range []string{"start", "stop", "restart"} {
-				controls[action] = "Bucket websites cannot be started, stopped or restarted"
-			}
-		}
+	never := "This target cannot control the app's containers"
+	if t != nil && kindRuntime[t.Kind].never != "" {
+		never = kindRuntime[t.Kind].never
+	}
+	controls := map[string]string{"deploy": "", "start": never, "stop": never, "restart": never}
+	for _, action := range runtimeActions(t) {
+		controls[action] = ""
 	}
 	// A failed replacement may have left application parts from different
 	// releases. Runtime control must not start that partial replacement.

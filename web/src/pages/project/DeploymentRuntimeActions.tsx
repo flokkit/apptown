@@ -13,8 +13,10 @@ export function DeploymentRuntimeActions({ slug, env, current, reload, onPending
   const retry = env.runtimeError ? ({ starting: 'start', stopping: 'stop', restarting: 'restart' } as Record<string, Action>)[env.runtimeState] : undefined
   const changing = ['starting', 'stopping', 'restarting'].includes(env.runtimeState) && !retry
   const controls = env.runtimeControls
-  const unsupported = !!controls?.stop
-  const actions: Action[] = retry ? [retry] : unsupported ? ['start', 'stop', 'restart'] : stopped ? ['start'] : ['stop', 'restart']
+  // Only the acts the target can ever take are buttons (App Platform:
+  // restart; a bucket website: none); refusals of those say why now.
+  const candidates: Action[] = retry ? [retry] : stopped ? ['start'] : ['stop', 'restart']
+  const actions = candidates.filter(action => env.runtimeActions.includes(action))
   const act = async (action: Action) => {
     onPending({ start: 'starting', stop: 'stopping', restart: 'restarting' }[action])
     try {
@@ -25,11 +27,12 @@ export function DeploymentRuntimeActions({ slug, env, current, reload, onPending
     } finally { onPending(undefined) }
   }
   const reasons = [...new Set(actions.map(action => controls?.[action]).filter(Boolean))]
+  if (actions.length === 0 && !err && !env.runtimeError) return null
   return <div className="deployment-runtime-actions stack stack-2">
     <div className="row row-2" aria-label="Deployment controls">{actions.map(action => {
       const reason = controls?.[action]
       const disabled = !current || busy || changing || !controls || !!reason || !env.generation
-      return action === 'stop' && !unsupported
+      return action === 'stop'
         ? <QuietConfirm key={action} className="primary" label={labels.stop} disabled={disabled}
           ask={`Stop ${deploymentName(env)}? People can't use it until you start it again.`} yes="Stop" onYes={() => act('stop')} />
         : <button key={action} className="primary" disabled={disabled} title={reason} onClick={() => act(action)}>{labels[action]}</button>
