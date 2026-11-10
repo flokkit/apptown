@@ -4193,14 +4193,15 @@ app:
 		daemon.markStartedWithLimits(part.container, part.memory, part.nanoCPUs, generation)
 	}
 
-	// Publish the same sort of narrative that can fill empty release notes;
-	// it belongs in the release record, not the overview card.
+	// Publish a narrative in the shape the summary writer produces (title,
+	// whether the request was met, what was made); it fills the empty release
+	// notes and belongs in the release record, not the overview card.
 	source, err := a.Work.NarrativeSource(asPerson("sam"), delivered.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	draft, err := workflow.ParseNarrative("TITLE: Publish the winter ride times\nTo satisfy it: provide the independent review report for this change.")
+	draft, err := workflow.ParseNarrative("TITLE: Publish the winter ride times\nASKED: yes\n\nAdds the winter ride times page: each Saturday's 9 am start and route, linked from the home page.")
 	if err != nil {
 		t.Fatal(err)
 	}

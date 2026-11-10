@@ -13,6 +13,7 @@ export type ADRChangeSummary = {
 
 export type ADRRecord = {
   statusLabel: ADRLabel
+  statusHelp: string
   id: string | null
   projectId: string | null
   projectSlug?: string
@@ -138,6 +139,8 @@ export type AttentionCoverage = {
   attemptedAt?: string
   unknown: boolean
   stale: boolean
+  conditions: number
+  notKnown: number
 }
 
 export type AttentionItem = {
@@ -645,7 +648,6 @@ export type DeploymentView = {
   promotionBundleId: string | null
   promotionRelease: number
   promotionSource: string
-  promotionBlocked: string
   approvalRole: string
   feedRevision: number
   feedConfirmed: boolean
@@ -1573,6 +1575,7 @@ export type ReleaseDetail = {
   release: Release | null
   changes: ReleaseChange[]
   isLive: boolean
+  replacedBy?: number
   events: ReleaseEvent[]
   sbomArtifact?: string | null
   bundle?: ReleaseBundleView | null
@@ -2309,6 +2312,7 @@ export type Verdict = {
 
 export type WhatIf = {
   statusLabel: WhatIfLabel
+  statusHelp: string
   outcomeLabels: Record<string, CheckLabel>
   id: string | null
   pack: string
@@ -2493,7 +2497,7 @@ export type Decision = {
   paths?: string[]
 }
 
-export type BackupLabel = "unknown" | "finished" | "failed" | "stopped"
+export type BackupLabel = "unknown" | "finished" | "failed" | "stopped" | "removed"
 
 export type BackupItem = {
   engineImageID?: string
@@ -2828,7 +2832,7 @@ export type AgentEvidence = {
 
 export type Outcome = "conforms" | "does-not-conform" | "excepted" | "not-applicable" | "cannot-assess" | "error"
 
-export type CheckLabel = "unknown" | "passed" | "failed" | "excepted" | "not applicable" | "needs review"
+export type CheckLabel = "unknown" | "passed" | "failed" | "excepted" | "not applicable" | "needs review" | "waiting"
 
 export type Lane = "conforms" | "excepted" | "findings" | "flagged" | "na" | "broken" | "unassessed"
 
@@ -2883,6 +2887,8 @@ export type RemediationCoverage = {
   projectId: string | null
   changeId: string | null
   number: number
+  remediationId: string | null
+  remediationNumber: number
   block: string
   version: number
   check: string
@@ -4510,6 +4516,7 @@ export type TargetView = {
   needsMode: string
   status: TargetState
   settingsRevision: number
+  connector: string
   kindInfo: KindInfo
   offers: Offer[]
   deployments: TargetDeployment[]

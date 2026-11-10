@@ -94,6 +94,23 @@ it('leads with per-check current evidence and keeps dated reviews underneath, ou
   } finally { act(() => root.unmount()); client.clear() }
 })
 
+// Every row in the no-current-judgement section shows its owner's status
+// chip: a check not run yet is never a bare dash beside a chip for an old one.
+it('shows a status chip on every row without a current judgement', async () => {
+  const stale = { id: 'v1', reviewId: 'r', sha: 'abcdef123456', at: '2026-11-07T03:02:00Z', projectSlug: 'shop', evaluator: 'sh', lane: 'unassessed', state: 'stale', statusLabel: 'unknown', severity: 'medium', block: 'tools', version: 2, check: 'clean' }
+  const notRun = { ...stale, id: 'v2', state: 'not-run', statusLabel: 'unknown', check: 'tidy' }
+  const view = { projects: [{ slug: 'shop', name: 'Shop', standing: 'conforms-so-far', sentence: '', lanes: {} }], byProject: { shop: [stale, notRun] }, exceptions: {}, adjudications: {}, priorConfirmations: {}, checkDefs: {}, openRemediations: [], reviews: [{ id: 'r', number: 12, trigger: 'landing' }] } as unknown as ConformanceView
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ history: [], fixes: [] }))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectPage view={view} slug="shop" readOnly onRunOne={() => {}} /></MemoryRouter></QueryClientProvider>))
+    const rows = [...el.querySelectorAll('tbody tr')]
+    expect(rows).toHaveLength(2)
+    for (const row of rows) expect(row.querySelector('.chip')).not.toBeNull()
+    expect(el.textContent).not.toContain('—')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
 // The lead line is a summary: checks that could not run are counted there and
 // each reason stays on its own check row further down.
 it('counts checks that could not run in the lead line and keeps each reason on its row', async () => {

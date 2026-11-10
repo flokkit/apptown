@@ -110,7 +110,7 @@ function LaneSection({ lane, title, hint, groups, view, exceptions, readOnly, on
         { key: 'check', label: 'Check', phone: 'name', render: v => <Link to={`${base}/checks/${encodeURIComponent(key(v))}`}>{view.checkDefs[key(v)]?.title || v.check}</Link> },
         { key: 'why', label: 'Result', render: v => <span className="muted">{v.state === 'stale' ? 'No judgement on the current commit' : v.detail ? (laneOf(v) === 'unassessed' ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : v.detail) : `from ${v.block}`}</span> },
         { key: 'judged', label: 'Judged', render: v => <JudgedAt v={v} reviews={view.reviews ?? []} /> },
-        { key: 'status', label: 'Status', phone: 'state', render: v => laneOf(v) === 'unassessed' && v.state !== 'stale' ? <span className="muted">—</span> : <StateChip label={v.statusLabel} /> },
+        { key: 'status', label: 'Status', phone: 'state', render: v => <StateChip label={v.statusLabel} /> },
       ]} />
     </Section>
   }

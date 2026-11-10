@@ -111,8 +111,10 @@ func TestRemediationCoverageExcludesOpenChangesAndReturnsAfterAbandonment(t *tes
 	if err != nil || len(findings) != 1 || findings[0].ProjectID != alpha {
 		t.Fatalf("after abandon: %+v %v", findings, err)
 	}
+	// The abandoned change no longer covers alpha; beta's finding stays
+	// covered by its queued item, which has no change yet.
 	view, err = a.conformance.View(ctx, ids.Nil)
-	if err != nil || len(view.OpenRemediations) != 0 {
-		t.Fatalf("abandoned view: %+v %v", view, err)
+	if err != nil || len(view.OpenRemediations) != 1 || view.OpenRemediations[0].ProjectID != beta || !view.OpenRemediations[0].ChangeID.IsZero() || view.OpenRemediations[0].RemediationNumber == 0 {
+		t.Fatalf("abandoned view: %+v %v", view.OpenRemediations, err)
 	}
 }

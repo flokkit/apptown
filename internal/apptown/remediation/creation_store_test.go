@@ -100,7 +100,13 @@ func TestRemediationCreationRollsBackMissingRecordsAndCommitFailure(t *testing.T
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			store, in := remediationCreationFixture(t)
-			if _, _, err := store.Create(context.Background(), in); err != nil {
+			first, _, err := store.Create(context.Background(), in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// A cancelled job no longer covers its findings, so the creations
+			// below reach the injected failure rather than a coverage refusal.
+			if err := (Attempts{db: store.db, caller: context.Background()}).status(context.Background(), first.ID, []string{RemRunning}, RemCancelled, "alice"); err != nil {
 				t.Fatal(err)
 			}
 			before := outcomeSnapshot(t, store.db)

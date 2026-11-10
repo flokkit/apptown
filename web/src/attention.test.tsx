@@ -19,7 +19,7 @@ import type { AttentionView } from './wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const at = '2026-10-26T00:00:00Z'
-const known: AttentionView = { items: [], sources: [{ href: '/infrastructure', nextStep: 'An administrator can check this worker.', key: 'workers', name: 'Worker availability', observedAt: at, unknown: false, stale: false }] }
+const known: AttentionView = { items: [], sources: [{ href: '/infrastructure', nextStep: 'An administrator can check this worker.', key: 'workers', name: 'Worker availability', observedAt: at, unknown: false, stale: false, conditions: 0, notKnown: 0 }] }
 const warning: AttentionView = { ...known, items: [
   { key: 'workers/a', title: 'Worker unavailable', detail: 'Work is waiting.', href: '/infrastructure', statusLabel: 'failed', severity: 'warning', observedAt: at, stale: false },
   { key: 'protection/a', title: 'Recovery is untested', detail: 'No recovery evidence yet.', href: '/projects/game/settings/data', statusLabel: 'recovery not rehearsed', severity: 'advisory', observedAt: at, stale: false },
@@ -381,6 +381,30 @@ it('shows a never-checked source as not checked yet in the full list', async () 
  expect(rows.find(r => r.textContent!.includes('Checked source'))!.querySelector('.row-status')!.textContent).toContain('working')
 })
 
+// A check that found problems or could not assess part of what it covers is
+// not "working": it shows its confirmed count, and unknowns stay unknown.
+it('shows a check with conditions or unknowns by its counts, never as working', async () => {
+ responses(() => json({ items: [], sources: [
+  { ...known.sources[0], key: 'checks', name: 'App checks', conditions: 1, notKnown: 1 },
+  { ...known.sources[0], key: 'integrations', name: 'Integrations', conditions: 0, notKnown: 1 },
+  { ...known.sources[0], key: 'disks', name: 'Disks', conditions: 0, notKnown: 0 },
+ ] }))
+ const v = mount(<AttentionPage checks />); await settled(v.client)
+ const all = v.el.querySelector('section[aria-label="All checks"]')!
+ const fold = all.querySelector('section.attention-working')!
+ const rows = [...all.querySelectorAll('.attention-row')]
+ const mixed = rows.find(r => r.textContent!.includes('App checks'))!
+ expect(fold.contains(mixed)).toBe(false)
+ expect(mixed.querySelector('.row-status')!.textContent).toContain('failed')
+ expect(mixed.textContent).toContain('1 to fix · 1 not known')
+ const unknownOnly = rows.find(r => r.textContent!.includes('Integrations'))!
+ expect(fold.contains(unknownOnly)).toBe(false)
+ expect(unknownOnly.querySelector('.row-status')!.textContent).toContain('unknown')
+ expect(unknownOnly.textContent).not.toContain('to fix')
+ expect(unknownOnly.textContent).not.toContain('working')
+ expect(fold.textContent).toContain('Disks')
+})
+
 // Only people who can fix conditions see the lights; members see none.
 it('shows the lights to operators only, one per kind of condition, linking to its group', async () => {
  responses(() => json(warning))
@@ -496,6 +520,13 @@ it('shows a pending release on Home and Attention with its deployment as the act
  expect([...personal.querySelectorAll('a.btn')].map(a => a.textContent)).toEqual(['Review'])
 })
 
+it('counts an app live while one standing deployment runs beside a stopped one', () => {
+ const status = { word: 'stopped', reason: 'staging: the application is stopped', stale: false } as const
+ const deployments = [{project:'news',kind:'standing',name:'main',running:true,projectStatus:status}, {project:'news',kind:'standing',name:'staging',running:false,projectStatus:status}] as InstanceActivity['deployments']
+ const parts = homeStatusParts({needsYou:0,running:0,deployments,operations:{known:true,count:0}})
+ expect(parts.find(p=>p.label==='Apps live')?.value).toBe(1)
+})
+
 it('Home and Projects use the standing roll-up when a preview runs beside a stopped app', () => {
  const status = { word: 'stopped', reason: 'main: the application is stopped', stale: false } as const
  const deployments = [{project:'game',kind:'standing',name:'main',running:false,projectStatus:status}, {project:'game',kind:'preview',name:'preview-1',running:true,projectStatus:status}] as InstanceActivity['deployments']
@@ -513,4 +544,14 @@ it.each(['stopped', 'recovery not rehearsed', 'recovery not tested on its platfo
  expect(v.el.querySelector('[role=listitem] .chip')?.textContent).toContain(statusLabel)
  expect(v.el.querySelector('[role=listitem] .chip')?.textContent).not.toContain('not checked yet')
  expect(v.el.querySelector('[role=listitem] .attention-seen')?.textContent).toContain('last seen')
+})
+
+
+it('keeps an old source visibly old when it has confirmed conditions', async () => {
+ responses(() => json({ items: [{ ...warning.items[0], key: 'disks/worker', title: 'Worker disk check failed', stale: true }], sources: [
+  { ...known.sources[0], key: 'disks', name: 'AppTown and worker disks', conditions: 1, notKnown: 0, unknown: false, stale: true },
+ ] }))
+ const v = mount(<AttentionPage checks />); await settled(v.client)
+ const row = [...v.el.querySelectorAll('.attention-row')].find(r => r.textContent!.includes('AppTown and worker disks'))!
+ expect(row.textContent).toMatch(/old|last seen/i)
 })

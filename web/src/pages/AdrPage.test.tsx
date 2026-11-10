@@ -131,3 +131,25 @@ it('links a decision to a chosen project change from the decision page', async (
    expect(sent).toEqual([{ changeId: 'change-1' }])
  } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+// The chip's explanation is the owner's, in the chip's own terms: a draft
+// reads "waiting", never "waiting" beside "Decision: draft.".
+it('explains a decision state with the owner help, not a second state word', async () => {
+  const body = { ...held, adr: { ...held.adr, statusLabel: 'waiting', statusHelp: 'A draft: waiting for its author to propose it.' } }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith(`/adrs/${ADR}`) ? body : []))))
+  const client = newQueryClient()
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  try {
+    await act(async () => {
+      root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/adrs/${ADR}`]}><Routes><Route path="/adrs/:id" element={<AdrPage />} /></Routes></MemoryRouter></QueryClientProvider>)
+    })
+    await vi.waitFor(() => expect(el.querySelector('[data-help]')).not.toBeNull())
+    expect(el.querySelector('[data-help]')?.getAttribute('data-help')).toBe('A draft: waiting for its author to propose it.')
+    expect(el.innerHTML).not.toContain('Decision: draft')
+  } finally {
+    act(() => root.unmount())
+    client.clear()
+    vi.unstubAllGlobals()
+  }
+})

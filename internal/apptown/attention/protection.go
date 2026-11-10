@@ -52,7 +52,10 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 
 	subjects, folded := 0, 0
 	for _, dep := range deps {
-		if dep.Kind != deployment.Standing {
+		// Nothing has been applied to a deployment not yet released: it holds
+		// no data to protect, and waiting on it must not make its siblings'
+		// conditions read as unknown or old.
+		if dep.Kind != deployment.Standing || dep.ObservedGeneration == 0 && dep.LastApplied == nil {
 			continue
 		}
 		down := false
@@ -68,16 +71,23 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 			folded++
 		}
 		reading, readErr := p.Observer.Snapshot(ctx, dep.ID)
-		if readErr == nil && reading.Waiting {
-			out.Known = false
-			continue
-		}
-		unknown := reading.Unknown || readErr != nil
-		out.Known = out.Known && (!unknown || down)
 		label := dep.DisplayLabel
 		if label == "" {
 			label = dep.Name
 		}
+		if readErr == nil && reading.Waiting {
+			// Not read yet: the source has no reading time to show, and says
+			// which deployment it waits for.
+			out.Known = false
+			out.ObservedAt = time.Time{}
+			if out.Reason != "" {
+				out.Reason += " "
+			}
+			out.Reason += label + ": waiting for the first backup check."
+			continue
+		}
+		unknown := reading.Unknown || readErr != nil
+		out.Known = out.Known && (!unknown || down)
 		reason := reading.Reason
 		pending := reading.AttemptedAt.IsZero() && reading.ObservedAt.IsZero() && readErr == nil
 		if pending {

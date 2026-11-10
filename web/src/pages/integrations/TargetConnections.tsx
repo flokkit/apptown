@@ -9,9 +9,10 @@ import { ReadStatus, StaleNote } from '../../ReadGate'
 import type { ConnectorCatalog, IntegrationEntry, IntegrationList, TargetView } from '../../wire.gen'
 import { healthState, specFor, usedFor } from './kinds'
 
-// Relationships come from target identities and settings, never from matching display names.
+// Relationships come from the connector each target is shown under (its
+// provider, or the built-in host's stock connector), never from display names.
 function connectionTargets(b: IntegrationEntry, targets: TargetView[]) {
-  return targets.filter(t => t.provider === b.name)
+  return targets.filter(t => t.connector === b.name)
 }
 
 export function TargetConnections({ targets }: { targets: TargetView[] }) {

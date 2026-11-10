@@ -16,14 +16,16 @@ it('shows background job facts inline without a disclosure', () => {
   expect(html).not.toContain('Technical details')
 })
 
-it.each(['available', 'pending', 'running', 'retryable', 'scheduled', 'completed', 'cancelled', 'discarded'])('shows recorded %s and its error beside the job label', state => {
+// The job's word is the owner's; the queue's own state name beside it
+// ("waiting available") would be a second word for one state.
+it.each(['available', 'pending', 'running', 'retryable', 'scheduled', 'completed', 'cancelled', 'discarded'])('shows the label for recorded %s, and its error, without the queue state name', state => {
   const client = newQueryClient()
   client.setQueryData(getKey('/jobs?limit=500'), { jobs: [{ id: 1, kind: 'inventory', key: 'host-inventory', state, statusLabel: 'waiting', error: 'Host did not answer', attempts: 2, createdAt: new Date().toISOString() }] })
   const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><JobsPage /></QueryClientProvider></MemoryRouter>)
   const page = new DOMParser().parseFromString(html, 'text/html')
   const stateCell = page.querySelector('tbody tr td:nth-child(2)')!
   expect(stateCell.textContent).toContain('waiting')
-  expect(stateCell.textContent).toContain(state)
+  expect(stateCell.textContent).not.toContain(state)
   expect(stateCell.textContent).toContain('Host did not answer')
   expect(stateCell.textContent).toContain('attempt 2')
   expect(page.querySelector('details, [aria-expanded]')).toBeNull()

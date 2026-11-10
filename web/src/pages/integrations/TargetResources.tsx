@@ -40,7 +40,10 @@ export function TargetResourcesPage({ detail = false }: { detail?: boolean }) {
   if (!t) return <p>Inventory is unknown for this target.</p>
   const r = t.resources.find(r => resourceKey(r) === id)
   if (detail) return r ? <><StaleNote q={q} />{t.error && <p className="muted">Inventory is unknown: {t.error}</p>}<ResourcePage key={resourceKey(r)} t={t} r={r} reload={q.reload} /></> : <p>This resource is absent from the latest inventory. <Link to={`/targets/${name}/resources`}>Resources</Link></p>
-  const deployments = [...new Set(t.resources.flatMap(r => (r.hosts ?? []).map(h => `${h.project}/${h.deployment}`)))].sort()
+  // The filter keeps the deployment's name as its value (the address names
+  // it) and shows its display label, as the rows do.
+  const labels = new Map<string, string>(t.resources.flatMap(r => (r.hosts ?? []).map(h => [`${h.project}/${h.deployment}`, hostName(h)] as const)))
+  const deployments = [...labels.keys()].sort()
   const selected = search.get('deployment') ?? ''
   return <div>
     <h1>Resources</h1><StaleNote q={q} />
@@ -48,7 +51,7 @@ export function TargetResourcesPage({ detail = false }: { detail?: boolean }) {
     {t.error && <p className="muted">Inventory is unknown: {t.error}</p>}
     {(t.unknown || t.invalidated) && <p>Current resource state is unknown.</p>}
     <label>Deployment <select value={selected} onChange={e => setSearch(e.target.value ? { deployment: e.target.value } : {})}>
-      <option value="">All deployments</option>{[...new Set([...deployments, ...(selected ? [selected] : [])])].map(d => <option key={d}>{d}</option>)}
+      <option value="">All deployments</option>{[...new Set([...deployments, ...(selected ? [selected] : [])])].map(d => <option key={d} value={d}>{labels.get(d) ?? d}</option>)}
     </select></label>
     <TargetResourcesTable t={t} only={r => !selected || (r.hosts ?? []).some(h => `${h.project}/${h.deployment}` === selected)} />
     {t.asOf && <p className="muted small">Inventory read {t.asOf}</p>}

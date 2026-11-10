@@ -11,7 +11,7 @@ func TestBackupLabelsKeepPartialFailuresVisible(t *testing.T) {
 	for _, tc := range []struct {
 		state BackupState
 		want  BackupLabel
-	}{{BackupOK, labelFinished}, {BackupPartial, labelFailed}, {BackupFailed, labelFailed}, {backupPruned, labelFinished}} {
+	}{{BackupOK, labelFinished}, {BackupPartial, labelFailed}, {BackupFailed, labelFailed}, {backupPruned, labelRemoved}} {
 		b, err := backupRecord(protectionsql.Backup{Status: tc.state.String()}, nil)
 		if err != nil {
 			t.Fatal(err)
@@ -36,9 +36,10 @@ func TestBackupLabelsKeepPartialFailuresVisible(t *testing.T) {
 	}
 }
 
-// Removing an old copy is retention, not an interrupted backup job.
-func TestPrunedBackupIsFinished(t *testing.T) {
-	if got := (Backup{Status: backupPruned}).label().String(); got != "finished" {
-		t.Fatalf("pruned backup reads as %q; want finished", got)
+// Removing an old copy is retention: not an interrupted backup job, and not
+// a finished copy that could still be restored.
+func TestPrunedBackupIsRemoved(t *testing.T) {
+	if got := (Backup{Status: backupPruned}).label().String(); got != "removed" {
+		t.Fatalf("pruned backup reads as %q; want removed", got)
 	}
 }

@@ -53,7 +53,7 @@ func TestQueuedItemReadsExplainTheirCurrentHold(t *testing.T) {
 					changes = append(changes, workflow.ProjectBlocker{ID: ch.ID, Number: ch.Number, Kind: kind})
 				}
 			case "remediation":
-				other := f.job(t, 0, queued.ProjectID)[0]
+				other := f.jobOn(t, 0, "tidy", queued.ProjectID)[0]
 				requireStoredWrite(t)(queries(f.db).SetItemState(f.ctx, remediationsql.SetItemStateParams{ID: other.ID, State: ItemWorking, UpdatedAt: time.Now()}))
 			case "cooldown":
 				s.cool.hold("provider rate limit")

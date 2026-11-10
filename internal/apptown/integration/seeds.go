@@ -41,6 +41,10 @@ func seedJSON(v any) string {
 	return string(b)
 }
 
+// DockerDeploy is the stock deploy connector for AppTown's own Docker host.
+// The built-in target is shown under it (deployment.Target.Connector).
+const DockerDeploy = "docker-deploy"
+
 // Seed is one binding AppTown's own configuration defines.
 type Seed struct {
 	Name, Capability, Provider string
@@ -74,7 +78,7 @@ func Seeds(cfg SeedConfig) []Seed {
 		mk("docker", CapExecutor, "docker", map[string]any{
 			"image": cfg.AgentImage, "cacheVolume": "apptown-cache",
 		}),
-		mk("docker-deploy", CapDeploy, "docker", map[string]any{
+		mk(DockerDeploy, CapDeploy, "docker", map[string]any{
 			"description": "Deploys apps to AppTown’s own Docker host.",
 			"target":      "docker", "appcontract.Contract": ".apptown/app.yaml",
 		}),

@@ -46,6 +46,17 @@ const BuiltInTargetName = "built-in-docker"
 // Each is recorded through Targets.Sync, so a start refreshes only the facts
 // configuration owns and keeps what an administrator set; a change it makes
 // is receipted to AppTown itself.
+// Connector is the deploy connector a target is shown under: its provider,
+// or the stock connector for AppTown's own Docker host for the built-in
+// target, which records no provider because it reaches the local daemon
+// directly. It is display only and grants nothing.
+func (t *Target) Connector() string {
+	if t.Origin == OriginBuiltIn {
+		return integration.DockerDeploy
+	}
+	return t.Provider
+}
+
 func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 	const who = "apptown-system"
 	// The targets that run needs locally record which; a catalog that

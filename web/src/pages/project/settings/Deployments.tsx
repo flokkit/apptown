@@ -90,7 +90,7 @@ function ServingRelease({ slug, env: e }: { slug: string; env: DeploymentView })
 
 function promotionHelp(e: DeploymentView) {
   return e.feed === 'promotion'
-    ? e.promotionBlocked || `Deploys release ${e.promotionRelease}, the release ${e.promotionSource} last deployed successfully.`
+    ? e.runtimeControls?.deploy || `Deploys release ${e.promotionRelease}, the release ${e.promotionSource} last deployed successfully.`
     : undefined
 }
 
@@ -128,7 +128,7 @@ export function DeploymentReleaseCell({ slug, env: e }: { slug: string; env: Dep
     {e.kind === 'standing' && <div className="muted small">{feedWords(e)} · {e.approvalRole ? `approval from ${e.approvalRole}` : 'no approval'}</div>}
     {waitingRelease && <div className="deploy-warning small">Release {waitingRelease.number} is waiting for approval.</div>}
     <FeedPause env={e} />
-    {e.promotionBlocked && <div className="muted small">{e.promotionBlocked}</div>}
+    {e.feed === 'promotion' && e.runtimeControls?.deploy && <div className="muted small">{e.runtimeControls.deploy}</div>}
     {(backup || warning) && <div>{backup && <span className={backup === 'no backup yet' ? 'error small' : 'deploy-warning small'}>{backup} </span>}{warning && <span className={share?.diskRefuses ? 'error small' : 'deploy-warning small'}>{warning}</span>}</div>}
   </div>
 }
@@ -207,7 +207,7 @@ export function EnvCard({ slug, env: e }: { slug: string; env: DeploymentView; o
   const action = e.feed === 'main'
     ? null
     : e.target
-    ? <div className="stack stack-1"><button title={promotionHelp(e)} disabled={busy || !!e.promotionBlocked} onClick={deploy}>{deployLabel(e)}</button>{e.promotionBlocked && <span className="muted small">{e.promotionBlocked}</span>}</div>
+    ? <div className="stack stack-1"><button title={promotionHelp(e)} disabled={busy || !!e.runtimeControls?.deploy} onClick={deploy}>{deployLabel(e)}</button>{e.runtimeControls?.deploy && <span className="muted small">{e.runtimeControls.deploy}</span>}</div>
     : null
 
   return (

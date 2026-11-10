@@ -89,6 +89,9 @@ func TestAQueuedWhatIfIsClaimedOnceAndEndsInterruptedWhenStopped(t *testing.T) {
 		}
 		if w, err := service.WhatIf(ctx, id); err != nil || w.State != whatIfQueued || len(w.Projects) != 1 || w.Projects[0].Outcome != whatIfNotYetJudged {
 			t.Fatalf("admitted: a queued what-if's project is not yet judged, not ended: %+v %v", w, err)
+		} else if w.ProjectsTotal != 1 {
+			// Its progress counts the chosen project before it starts ("0 of 1").
+			t.Fatalf("a queued what-if counts %d projects, chose 1", w.ProjectsTotal)
 		}
 		run, got, err := service.ClaimWhatIf(context.Background(), id)
 		if err != nil || got.Pack != in.Pack || got.Version != in.Version || !slices.Equal(got.Projects, in.Projects) || !got.Rubrics || got.SpendLimitMicros != 500 {

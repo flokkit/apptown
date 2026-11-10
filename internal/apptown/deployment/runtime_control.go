@@ -23,18 +23,20 @@ func (e *Deployment) runtimeBusy() bool {
 	return e.RuntimeState != "running" && e.RuntimeState != "stopped"
 }
 
-// Empty reasons mean supported. Availability is a target contract, independent
-// of credentials and transient observations.
+// runtimeControls says, per action (deploy, start, stop, restart), why it is
+// refused; an empty reason means it is offered. This is the target contract,
+// independent of credentials and observations; the listing adds the refusals
+// admission would make now (a release in flight, a blocked promotion).
 func runtimeControls(t *Target, d *Deployment) map[string]string {
-	controls := map[string]string{"start": "This target cannot control the app's containers", "stop": "This target cannot control the app's containers", "restart": "This target cannot control the app's containers"}
+	controls := map[string]string{"deploy": "", "start": "This target cannot control the app's containers", "stop": "This target cannot control the app's containers", "restart": "This target cannot control the app's containers"}
 	if t != nil {
 		switch t.Kind {
 		case KindDockerHost, KindPortainer:
-			controls = map[string]string{"start": "", "stop": "", "restart": ""}
+			controls = map[string]string{"deploy": "", "start": "", "stop": "", "restart": ""}
 		case KindDOApp:
-			controls = map[string]string{"start": "App Platform cannot keep an app stopped", "stop": "App Platform cannot keep an app stopped", "restart": ""}
+			controls = map[string]string{"deploy": "", "start": "App Platform cannot keep an app stopped", "stop": "App Platform cannot keep an app stopped", "restart": ""}
 		case KindS3Bucket:
-			for action := range controls {
+			for _, action := range []string{"start", "stop", "restart"} {
 				controls[action] = "Bucket websites cannot be started, stopped or restarted"
 			}
 		}
@@ -49,6 +51,16 @@ func runtimeControls(t *Target, d *Deployment) map[string]string {
 		}
 	}
 	return controls
+}
+
+// refuseControl records why each action is refused, keeping a reason already
+// given: the first refusal found is the one a person must resolve first.
+func refuseControl(controls map[string]string, reason string, actions ...string) {
+	for _, action := range actions {
+		if controls[action] == "" {
+			controls[action] = reason
+		}
+	}
 }
 
 // ControlRuntime checks operate authority before recording intent or contacting

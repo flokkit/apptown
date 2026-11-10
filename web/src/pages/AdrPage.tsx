@@ -87,7 +87,7 @@ export default function AdrPage() {
 
       <div className="row">
         <h1 className="mb-0">ADR-{String(adr.number).padStart(3, '0')} — {adr.title}</h1>
-        <Status word={adr.statusLabel} help={`Decision: ${adr.status}.`} />
+        <Status word={adr.statusLabel} help={adr.statusHelp} />
       </div>
       <div className="muted small mb-3" >
         tags: {adr.tags || '—'} · updated {fmtWhen(adr.updatedAt)}

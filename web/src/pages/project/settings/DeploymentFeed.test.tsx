@@ -31,12 +31,12 @@ it('words each feed and keeps promotion actions off list rows', () => {
   expect(feedWords({ feed: 'main', promotionSource: '' })).toBe('Follows main')
   expect(feedWords({ feed: 'manual', promotionSource: '' })).toBe('By hand')
   const client = newQueryClient()
-  const e = { status: { word: 'unknown', reason: '', stale: false }, id: 'prod', name: 'production', kind: 'standing', feed: 'promotion', promotionSource: 'Staging', promotionBlocked: 'Source runs nothing. Deploy to Staging first.', target: { kind: 'docker-host' } } as DeploymentView
+  const e = { status: { word: 'unknown', reason: '', stale: false }, id: 'prod', name: 'production', kind: 'standing', feed: 'promotion', promotionSource: 'Staging', runtimeControls: { deploy: 'Source runs nothing. Deploy to Staging first.' }, target: { kind: 'docker-host' } } as unknown as DeploymentView
   const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><DeploymentRow slug="shop" env={e} /></MemoryRouter></QueryClientProvider>)
   const el = document.createElement('div')
   el.innerHTML = html
   expect(el.textContent).toContain('Promoted from Staging')
-  expect(el.textContent).toContain(e.promotionBlocked)
+  expect(el.textContent).toContain(e.runtimeControls.deploy)
   // The row's only control is its ⋯ menu; promoting is on the deployment's page.
   expect([...el.querySelectorAll('button')].map(b => b.textContent).filter(t => /Promote|Deploy/.test(t ?? ''))).toEqual([])
   expect(el.textContent).not.toContain('Deploy latest')
@@ -52,6 +52,18 @@ it.each(['card'])('names the source last successful release on the Promote %s co
   expect(button).toBeDefined()
   expect(button?.title).toBe('Deploys release 17, the release Staging last deployed successfully.')
   expect(button?.disabled).toBe(false)
+  client.clear()
+})
+
+it('greys Deploy latest with the server\'s reason while a release is on its way', () => {
+  const client = newQueryClient()
+  const reason = 'a release is already on its way — watch it finish first'
+  const e = { status: { word: 'deploying', reason: 'release 20 building', stale: false }, id: 'prod', name: 'production', kind: 'standing', feed: 'manual', runtimeControls: { deploy: reason, start: reason, stop: reason, restart: reason }, target: { kind: 'docker-host' } } as unknown as DeploymentView
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><PageCard slug="shop" env={e} /></MemoryRouter></QueryClientProvider>)
+  const button = [...el.querySelectorAll('button')].find(b => b.textContent === 'Deploy latest')
+  expect(button?.disabled).toBe(true)
+  expect(el.textContent).toContain(reason)
   client.clear()
 })
 

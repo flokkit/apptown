@@ -25,7 +25,7 @@ func record(r adrssql.Adr, slug, name string, changeNumber int64) (Record, error
 		return Record{}, err
 	}
 	return Record{ID: r.ID, ProjectID: r.ProjectID, ProjectSlug: slug, ProjectName: name,
-		Number: r.Number, Title: r.Title, Status: state, StatusLabel: state.display(), BodyMD: r.BodyMd, Tags: r.Tags,
+		Number: r.Number, Title: r.Title, Status: state, StatusLabel: state.display(), StatusHelp: state.help(), BodyMD: r.BodyMd, Tags: r.Tags,
 		SupersedesID: r.SupersedesID, ChangeID: r.ChangeID, ChangeNumber: changeNumber,
 		CreatedAt: r.CreatedAt.UTC().Format(time.RFC3339Nano), UpdatedAt: r.UpdatedAt.UTC().Format(time.RFC3339Nano)}, nil
 }

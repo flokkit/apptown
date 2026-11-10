@@ -128,7 +128,9 @@ func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) e
 		reason = "The host capacity check failed."
 	} else {
 		reason = capacityFailure(reading)
-		if DescribeTarget(target).ContainerMemoryLimits && (reading.Disk == nil || !reading.Disk.Free.Known || !reading.Disk.Total.Known) {
+		// The first failure found is the cause; an unread disk is often only
+		// its consequence (a host that did not answer).
+		if reason == "" && DescribeTarget(target).ContainerMemoryLimits && (reading.Disk == nil || !reading.Disk.Free.Known || !reading.Disk.Total.Known) {
 			reason = "The host disk check failed."
 		}
 		merged := mergeCapacity(prior.Capacity, reading, now)

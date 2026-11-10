@@ -49,16 +49,18 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
             { key: 'client', label: 'Agent', phone: 'name', render: d => d.clientName },
             { key: 'user', label: 'Account', phone: 'state', render: d => d.user },
             { key: 'permissions', label: 'Permissions', render: d => <button className="link" aria-label={`Permissions for ${d.clientName} as ${d.user}`} onClick={() => setSelected(d)}>Access</button> },
-            { key: 'connected', label: 'Connected', render: d => <span title={fmtStamp(d.createdAt ?? '')}><span className="record-wide">{fmtStamp(d.createdAt ?? '')}</span><span className="record-phone">{relTime(d.createdAt ?? '') || '—'}</span></span> },
+            // Reconnecting registers a new connection: the time it was made is
+            // what tells two of the same agent apart, on a phone too.
+            { key: 'connected', label: 'Connected', render: d => fmtStamp(d.createdAt ?? '') || '—' },
             { key: 'used', label: 'Last used', kind: 'time', render: d => <span title={fmtStamp(d.lastUsed ?? '')}>{relTime(d.lastUsed ?? '') || 'never'}</span> },
-            { key: 'action', label: '', phone: 'action', render: d => <CredentialConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },
+            { key: 'action', label: '', phone: 'action', render: d => <CredentialConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user}, connected ${fmtStamp(d.createdAt ?? '')})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },
           ]} /> : <section><h3>Connections and permissions</h3>
       <ListTable className="small" label={`${newest.clientName} connections and permissions for ${newest.user}`} rows={connections} rowKey={d => String(d.id)} columns={[
         { key: 'client', label: 'Agent', phone: 'name', render: d => <><span className="badge">{d.clientName}</span> as <b>{d.user}</b></> },
         { key: 'permissions', label: 'Permissions', render: d => <><span>{d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span><code className="tech-line muted">{d.scopes.join(', ')}</code></> },
         { key: 'connected', label: 'Connected', render: d => fmtStamp(d.createdAt) },
         { key: 'used', label: 'Last used', kind: 'time', render: d => d.lastUsed ? fmtStamp(d.lastUsed) : '' },
-        { key: 'action', label: '', phone: 'action', render: d => <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },
+        { key: 'action', label: '', phone: 'action', render: d => <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user}, connected ${fmtStamp(d.createdAt)})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },
       ]} /></section>}
         </div>
       })}
@@ -91,7 +93,7 @@ export function TokensCard({ personal = false }: { personal?: boolean }) {
   const [minted, setMinted] = useState('')
   const { run, err } = useAction(undefined, { affects: personal ? ['/auth/me'] : [] })
   return (
-    <Section title="Access tokens" count={personal ? meQ.data?.ownTokens?.length : tokensQ.data?.tokens.length} note={<>A command-line token is for your own <code>apptown</code> CLI (set <code>APPTOWN_TOKEN</code>). An agent token is for a coding agent's MCP connection. A token is shown once.</>}>
+    <Section title="Access tokens" count={(personal ? meQ.data : tokensQ.data) ? activeTokens.length : undefined} note={<>A command-line token is for your own <code>apptown</code> CLI (set <code>APPTOWN_TOKEN</code>). An agent token is for a coding agent's MCP connection. A token is shown once.</>}>
     <div className="people-agents-card-div">
       {err && <div className="error small">{err}</div>}
       <ReadStatus q={personal ? [meQ] : [tokensQ]} what="the tokens" className="small" />

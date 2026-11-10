@@ -11,8 +11,8 @@ import { DeploymentRuntimeActions } from './DeploymentRuntimeActions'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const env: DeploymentView = { status: { word: 'working', reason: '', stale: false },
   id: 'main-id', name: 'main', displayLabel: 'Lunch Orders', kind: 'standing', generation: 2,
-  runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { start: '', stop: '', restart: '' },
-  servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', promotionBlocked: '',
+  runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { deploy: '', start: '', stop: '', restart: '' },
+  servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '',
   approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown',
   targetId: null, url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observation: 'running', observationStale: false, protected: false,
 }

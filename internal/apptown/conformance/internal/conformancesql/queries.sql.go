@@ -1059,8 +1059,8 @@ func (q *Queries) InsertVerdict(ctx context.Context, arg InsertVerdictParams) (C
 }
 
 const insertWhatIf = `-- name: InsertWhatIf :one
-INSERT INTO what_if_reviews(id, pack,pack_version,requested_by,requested_by_principal,requested_by_via,rubrics,spend_limit_micros,advance_workflows,also_packs,created_at,projects,state)
-VALUES($1, $2,$3,$4,$5,$6,$7,$8,$9,$10::text::jsonb,$11,$12::text::jsonb,'queued') RETURNING id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs
+INSERT INTO what_if_reviews(id, pack,pack_version,requested_by,requested_by_principal,requested_by_via,rubrics,spend_limit_micros,advance_workflows,also_packs,created_at,projects,projects_total,state)
+VALUES($1, $2,$3,$4,$5,$6,$7,$8,$9,$10::text::jsonb,$11,$12::text::jsonb,$13,'queued') RETURNING id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs
 `
 
 type InsertWhatIfParams struct {
@@ -1076,6 +1076,7 @@ type InsertWhatIfParams struct {
 	AlsoPacks            string
 	CreatedAt            time.Time
 	Projects             string
+	ProjectsTotal        int64
 }
 
 // The selection is sent as text, as InsertReview's is.
@@ -1093,6 +1094,7 @@ func (q *Queries) InsertWhatIf(ctx context.Context, arg InsertWhatIfParams) (Wha
 		arg.AlsoPacks,
 		arg.CreatedAt,
 		arg.Projects,
+		arg.ProjectsTotal,
 	)
 	var i WhatIfReview
 	err := row.Scan(

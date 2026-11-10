@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -101,6 +102,11 @@ type Coverage struct {
 	AttemptedAt time.Time `json:"attemptedAt,omitempty"`
 	Unknown     bool      `json:"unknown"`
 	Stale       bool      `json:"stale"`
+	// Conditions counts the source's confirmed Attention items (those not
+	// unknown): the rows its "to fix" count and its Attention group show.
+	// NotKnown counts its items that could not be assessed.
+	Conditions int `json:"conditions"`
+	NotKnown   int `json:"notKnown"`
 }
 
 type View struct {
@@ -259,6 +265,7 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 	}
 	sort.Slice(out.Items, func(i, j int) bool { return out.Items[i].Key < out.Items[j].Key })
 	sort.Slice(out.Sources, func(i, j int) bool { return out.Sources[i].Key < out.Sources[j].Key })
+	out.countConditions()
 	return out, nil
 }
 
@@ -310,6 +317,25 @@ func (v *View) add(key, name string, snapshot Snapshot, err error) {
 		}
 	} else {
 		v.Sources = append(v.Sources, coverage)
+	}
+}
+
+// countConditions gives each source the number of its confirmed items, the
+// same selection the Attention count uses, and of its unknown items apart.
+func (v *View) countConditions() {
+	for i := range v.Sources {
+		v.Sources[i].Conditions, v.Sources[i].NotKnown = 0, 0
+		for _, item := range v.Items {
+			switch {
+			// An item is the source's own (a connection's failed check, keyed
+			// as its coverage) or one under it.
+			case item.Key != v.Sources[i].Key && !strings.HasPrefix(item.Key, v.Sources[i].Key+"/"):
+			case item.Unknown:
+				v.Sources[i].NotKnown++
+			default:
+				v.Sources[i].Conditions++
+			}
+		}
 	}
 }
 

@@ -125,7 +125,7 @@ function Latest({ w }: { w: WhatIf }) {
   return (
     <div className="row pack-what-if-latest-div">
       <Link to={`/conformance/what-ifs/${w.id}`}>Open the what-if</Link>
-      <Status word={w.statusLabel} help={w.detail || w.state} />
+      <Status word={w.statusLabel} help={w.statusHelp} />
       <span className="muted">{w.requestedBy} · {relTime(w.createdAt)}</span>
       {OUTCOME_ORDER.filter((o) => counts[o]).map((o) =>
         <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} help={OUTCOME_WORDS[o]} /></span>)}

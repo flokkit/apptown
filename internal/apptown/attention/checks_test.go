@@ -109,7 +109,7 @@ func TestAppCheckDeferralsRaiseNoAttention(t *testing.T) {
 			if len(p.NotKnown) != tc.unknown || p.Judged != 0 {
 				t.Fatalf("standing: %+v", p)
 			}
-			if tc.unknown == 0 && (!strings.Contains(p.Sentence, "1 not yet assessed") || strings.Contains(p.Sentence, "not known")) {
+			if tc.unknown == 0 && (!strings.Contains(p.Sentence, "1 with no current judgement") || strings.Contains(p.Sentence, "not known")) {
 				t.Fatalf("deferral: %s", p.Sentence)
 			}
 			got, err := (Checks{Conformance: &checkEvidence{standing: []conformance.ProjectStanding{p}}}).Snapshot(t.Context(), nil)

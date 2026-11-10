@@ -13,7 +13,7 @@ type JobGroup = { job: Job; count: number }
 
 const jobColumns: ListColumn<JobGroup>[] = [
   { key: 'job', label: 'Job', phone: 'name', render: ({ job: j, count: repeats }) => <>{JOB_WORDS[j.kind] ?? j.kind.replaceAll('-', ' ')}{repeats === 1 && typeof j.receipt?.target === 'string' && <> on {j.receipt.target}</>}{repeats > 1 && <span className="muted"> · {repeats} done</span>}</> },
-  { key: 'state', label: 'State', phone: 'state', render: ({ job: j }) => <><Status word={j.statusLabel} /> <span className="muted">{j.state}</span>{j.error && <> <span className="error">{j.error}</span></>}{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</> },
+  { key: 'state', label: 'State', phone: 'state', render: ({ job: j }) => <><Status word={j.statusLabel} />{j.error && <> <span className="error">{j.error}</span></>}{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</> },
   { key: 'when', label: 'When', kind: 'time', render: ({ job: j }) => <span className="muted">{j.finishedAt ? 'Finished ' : j.startedAt ? 'Started ' : 'Queued '}{relTime(j.finishedAt || j.startedAt || j.createdAt)}</span> },
   { key: 'outcome', label: 'Outcome', render: ({ job: j }) => <>{jobReceipt(j)}<code className="tech-line muted">{j.kind} · {j.key}</code></> },
 ]

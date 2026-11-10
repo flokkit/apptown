@@ -3,7 +3,6 @@ package remediation
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"sort"
 	"time"
 
@@ -82,7 +81,7 @@ func (s creations) Create(ctx context.Context, in CreationRequest) (*Remediation
 			return nil, nil, err
 		}
 	}
-	covered, err := workflow.OpenRemediationsIn(ctx, tx, projects)
+	covered, err := CoverageIn(ctx, tx, projects)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -93,7 +92,7 @@ func (s creations) Create(ctx context.Context, in CreationRequest) (*Remediation
 		for _, c := range covered {
 			if c.ProjectID == v.ProjectID && c.Block == v.Block && c.Version == v.Version && c.Check == v.Check {
 				conflict = true
-				refusal = c.Refusal()
+				refusal = c.refusal()
 				break
 			}
 		}

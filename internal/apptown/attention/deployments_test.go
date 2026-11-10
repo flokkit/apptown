@@ -45,8 +45,10 @@ func TestDeploymentConditionsSeparateAttemptRuntimeAndHoldGenerations(t *testing
 	d.Hold = nil
 	d.Runtime = deployment.RuntimeObservation{State: deployment.RuntimeStopped, ObservedAt: at}
 	got = read()
-	if got.Known || len(got.Items) != 1 || got.Items[0].Severity != severityAdvisory || got.Items[0].StatusLabel != labelStopped || !strings.Contains(got.Items[0].Title, "office: Stopped; check whether it should be running") {
-		t.Fatalf("invented unintentional stop %+v", got)
+	// The absence is a known, current reading; only its intent is open, and
+	// the advisory says so without calling the reading unknown or old.
+	if !got.Known || len(got.Items) != 1 || got.Items[0].Stale || got.Items[0].Unknown || got.Items[0].Severity != severityAdvisory || got.Items[0].StatusLabel != labelStopped || !strings.Contains(got.Items[0].Title, "office: Stopped; check whether it should be running") {
+		t.Fatalf("observed stop: %+v", got)
 	}
 	d.RuntimeState = "stopped"
 	if got = read(); !got.Known || len(got.Items) != 0 {
@@ -76,7 +78,7 @@ func TestDeploymentRuntimeFirstCheckAndStaleReading(t *testing.T) {
 		{"fresh", deployment.RuntimeObservation{State: deployment.RuntimeRunning, ObservedAt: at}, 0, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			source := Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{{ID: idstest.N(1), Name: "office", Runtime: tc.runtime}}}, Now: func() time.Time { return at.Add(time.Hour) }}
+			source := Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{{ID: idstest.N(1), ObservedGeneration: 1, Name: "office", Runtime: tc.runtime}}}, Now: func() time.Time { return at.Add(time.Hour) }}
 			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
 			if err != nil || got.Known != tc.known || got.Stale != tc.runtime.Stale || len(got.Items) != tc.wantItems {
 				t.Fatalf("runtime coverage: %+v %v", got, err)
@@ -105,7 +107,7 @@ func TestDeploymentRuntimeMissedReadingWaitsOutTheGrace(t *testing.T) {
 		{"never read, failed", deployment.RuntimeObservation{State: deployment.RuntimeUnknown, AttemptedAt: at, Err: errors.New("deadline exceeded"), Stale: true}, time.Second, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			source := Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{{ID: idstest.N(1), Name: "office", Runtime: tc.runtime}}}, Now: func() time.Time { return at.Add(tc.age) }}
+			source := Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{{ID: idstest.N(1), ObservedGeneration: 1, Name: "office", Runtime: tc.runtime}}}, Now: func() time.Time { return at.Add(tc.age) }}
 			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
 			if err != nil || (len(got.Items) > 0) != tc.listed || got.Known == tc.listed || got.Stale != tc.listed {
 				t.Fatalf("grace: %+v %v", got, err)
@@ -118,7 +120,7 @@ func TestDeploymentRuntimeMissedReadingWaitsOutTheGrace(t *testing.T) {
 func TestDeploymentGraceNeverHidesACrashHold(t *testing.T) {
 	t.Parallel()
 	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
-	d := deployment.OperationalObservation{ID: idstest.N(1), Name: "office", Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, ObservedAt: at, Stale: true}, Hold: &deployment.CrashLoopHold{Confirmed: true, At: at.Format(time.RFC3339Nano)}}
+	d := deployment.OperationalObservation{ID: idstest.N(1), ObservedGeneration: 1, Name: "office", Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, ObservedAt: at, Stale: true}, Hold: &deployment.CrashLoopHold{Confirmed: true, At: at.Format(time.RFC3339Nano)}}
 	got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return at.Add(time.Minute) }}).ProjectSnapshot(t.Context(), idstest.N(2))
 	if err != nil || len(got.Items) != 1 || !strings.Contains(got.Items[0].Title, "Stopped after repeated crashes") {
 		t.Fatalf("crash hold during grace: %+v %v", got, err)
@@ -152,5 +154,22 @@ func TestRuntimeGraceUsesLastSuccessfulAttempt(t *testing.T) {
 		read(0)
 		now = now.Add(2 * time.Minute)
 		read(1)
+	}
+}
+
+// A deployment with nothing applied yet (new, or its first deploy still
+// running) has no runtime to miss: it is neither stopped nor unknown.
+func TestNothingAppliedRaisesNoRuntimeCondition(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 11, 10, 0, 0, 0, 0, time.UTC)
+	for _, runtime := range []deployment.RuntimeObservation{
+		{State: deployment.RuntimeStopped, ObservedAt: at, AttemptedAt: at},
+		{State: deployment.RuntimeUnknown, AttemptedAt: at, Err: errors.New("deployment replacement is in progress"), Stale: true},
+	} {
+		d := deployment.OperationalObservation{ID: idstest.N(1), Name: "staging", DesiredGeneration: 1, Runtime: runtime}
+		got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return at.Add(time.Hour) }}).ProjectSnapshot(t.Context(), idstest.N(2))
+		if err != nil || !got.Known || got.Stale || len(got.Items) != 0 {
+			t.Fatalf("nothing applied, runtime %+v: %+v %v", runtime, got, err)
+		}
 	}
 }

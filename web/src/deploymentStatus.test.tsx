@@ -63,7 +63,7 @@ it('says when the project activity could not be read', async () => {
   const { createRoot } = await import('react-dom/client'), { act } = await import('react'), { vi } = await import('vitest')
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/overview')
-    ? new Response('{"error":"broken"}', { status: 404 })
+    ? new Response('{"error":"broken"}', { status: 400 })
     : new Response(JSON.stringify(url.endsWith('/deployments') || url.endsWith('/releases') ? [] : url.endsWith('/schedules') ? { schedules: [] } : {}))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {

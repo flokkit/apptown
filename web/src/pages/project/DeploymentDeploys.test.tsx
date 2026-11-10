@@ -17,7 +17,7 @@ function runtimeClient() {
   return client
 }
 function DeploymentDeploys(props: Omit<ComponentProps<typeof ActualDeploymentDeploys>, 'env' | 'current' | 'reload'>) {
-  const env = { status: { word: 'working', reason: '', stale: false }, id: 'deployment', name: props.name, generation: 1, kind: 'standing', runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { start: '', stop: '', restart: '' }, observation: 'running', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', promotionBlocked: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, displayLabel: 'Lunch Orders', url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView
+  const env = { status: { word: 'working', reason: '', stale: false }, id: 'deployment', name: props.name, generation: 1, kind: 'standing', runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { deploy: '', start: '', stop: '', restart: '' }, observation: 'running', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, displayLabel: 'Lunch Orders', url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView
   // The status tab, then the history tab: the page shows them one at a time.
   return <><ActualDeploymentDeploys {...props} env={env} current reload={async () => {}} tab="status" /><ActualDeploymentDeploys {...props} env={env} current reload={async () => {}} tab="history" /></>
 }
@@ -225,3 +225,14 @@ it.each([['main', true, 'It deploys when a change lands on main.'], ['manual', f
   client.clear()
 })
 
+
+it('calls a failed deploy failed, not stopped', () => {
+  const client = runtimeClient()
+  const at = new Date().toISOString()
+  client.setQueryData(getKey('/projects/lunch/releases'), [{ number: 3, deployment: 'main', state: 'failed', failedStage: 'starting', lastStage: 'starting', failure: 'The app container exited during startup.', createdAt: at, stageEnteredAt: at, changes: [] }])
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="main" /></QueryClientProvider></MemoryRouter>)
+  expect(el.querySelector('.ch-deploy-heading')?.textContent).toBe('Deploy failed')
+  expect(el.textContent).not.toContain('Deploy stopped')
+  client.clear()
+})

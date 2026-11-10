@@ -167,6 +167,13 @@ func (f *attemptScenario) eventCount(t *testing.T, runID ids.ID, kind string) in
 
 func (f *attemptScenario) job(t *testing.T, concurrency int, projects ...ids.ID) []Item {
 	t.Helper()
+	return f.jobOn(t, concurrency, "clean", projects...)
+}
+
+// jobOn is job over another adopted check. A finding with a queued item is
+// covered, so a second job on the same project needs a different check.
+func (f *attemptScenario) jobOn(t *testing.T, concurrency int, check string, projects ...ids.ID) []Item {
+	t.Helper()
 	checks := conformance.New(f.db, reconcileActor{}, attemptChecks{}, nil, nil)
 	e, err := checks.BeginReview(f.ctx, conformance.ReviewRequest{Trigger: "manual", Projects: projects})
 	if err != nil {
@@ -174,7 +181,7 @@ func (f *attemptScenario) job(t *testing.T, concurrency int, projects ...ids.ID)
 	}
 	var findings []conformance.Observation
 	for _, p := range projects {
-		pending, err := e.PrepareVerdict(f.ctx, conformance.Assessment{ProjectID: p, Check: conformance.CheckIdentity{Block: "hygiene", Version: 1, Check: "clean"}, State: conformance.DoesNotConform, Detail: "tests failed"})
+		pending, err := e.PrepareVerdict(f.ctx, conformance.Assessment{ProjectID: p, Check: conformance.CheckIdentity{Block: "hygiene", Version: 1, Check: check}, State: conformance.DoesNotConform, Detail: "tests failed"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -264,7 +271,7 @@ func (attemptChecks) Head(context.Context, conformance.ProjectSource) (conforman
 	return conformance.SourceHead{SHA: "original-sha"}, nil
 }
 func (attemptChecks) HistoricalChecksIn(context.Context, database.Queryer, []conformance.CheckVersion) ([]conformance.DeclaredCheck, error) {
-	return []conformance.DeclaredCheck{{Block: "hygiene", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "clean", Sh: "false"}}}, nil
+	return []conformance.DeclaredCheck{{Block: "hygiene", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "clean", Sh: "false"}}, {Block: "hygiene", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "tidy", Sh: "false"}}}, nil
 }
 func (s attemptChecks) ChecksIn(ctx context.Context, q database.Queryer, projects []ids.ID) (map[ids.ID][]conformance.DeclaredCheck, error) {
 	checks, err := s.HistoricalChecksIn(ctx, q, nil)

@@ -136,7 +136,7 @@ func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who st
 		for _, c := range covered {
 			for _, check := range in.Acceptance.Checks {
 				if c.Block == check.Block && c.Version == check.Version && c.Check == check.Check {
-					return CreatedChange{}, c.Refusal()
+					return CreatedChange{}, c.refusal()
 				}
 			}
 		}

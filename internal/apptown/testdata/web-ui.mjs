@@ -33,7 +33,7 @@ try {
   });
   await mkdir(out, { recursive: true });
   await writeFile(`${out}/facts.json`, JSON.stringify(facts, null, 2));
-  if (!facts.registryAttached || facts.history < 8 || facts.history > 12 || !facts.failingCheck || !facts.backupBytes || !facts.stoppedCheck || facts.backups.length < 16 || facts.releases.length < 16 || !(facts.idleSeconds >= 458640) || !facts.releases.some(r => r.serving && r.notes?.startsWith("To satisfy it:"))) throw new Error('incomplete design seed: ' + JSON.stringify(facts));
+  if (!facts.registryAttached || facts.history < 8 || facts.history > 12 || !facts.failingCheck || !facts.backupBytes || !facts.stoppedCheck || facts.backups.length < 16 || facts.releases.length < 16 || !(facts.idleSeconds >= 458640) || !facts.releases.some(r => r.serving && r.notes?.startsWith("Adds the winter ride times page"))) throw new Error('incomplete design seed: ' + JSON.stringify(facts));
   if (!facts.deployments.some(d => d.displayLabel === 'Production' && d.running === true) || !facts.deployments.some(d => d.kind === 'preview' && d.running === null && d.observation === 'unreachable')) throw new Error('deployment seed is not running production + unavailable preview: ' + JSON.stringify(facts.deployments));
   const infraCases = await page.evaluate(async () => {
     const read = async path => { const r = await fetch('/api/v1' + path); if (!r.ok) throw new Error(path + ': ' + r.status); return r.json(); };
@@ -440,7 +440,6 @@ try {
         if (screen === 'usage-90') {
           await page.getByRole('button', {name:'90d',exact:true}).click();
           await page.waitForFunction(() => document.querySelectorAll('.usage-col').length === 90);
-          await page.getByRole('slider').press('End');
         }
         if (screen === 'usage-details') await page.getByRole('button', { name: 'Details', exact: true }).click();
         if (screen === 'usage-timing') await page.getByRole('button', { name: 'Time spent', exact: true }).click();
@@ -545,6 +544,15 @@ try {
           }
           if (screen === 'deployment' && (!words.includes('/ 256 MB') || words.includes('did not report what every container uses'))) throw new Error('deployment: its parts do not report their use against their limits');
           if (screen === 'check-record' && words.includes('is turned off')) throw new Error('check-record: an earlier shot left its feature turned off');
+          // A deploy under way names what is served, never the release on its
+          // way, and does not offer a second deploy admission would refuse.
+          if (/^deployment-(preparing|building|backing-up|starting|checking)$/.test(screen)) {
+            if (/Serving release \d/.test(words)) throw new Error(screen + ': the release still on its way is called served');
+            const deploy = page.getByRole('button', { name: 'Deploy latest', exact: true });
+            if (await deploy.count() && await deploy.first().isEnabled()) throw new Error(screen + ': Deploy latest offered mid-deploy');
+          }
+          // A reading taken just now is not old.
+          if (screen === 'attention' && lines.some((line, i) => line.startsWith('●old ·') && /just now$/.test(lines[i - 1] ?? ''))) throw new Error('attention: a condition seen just now is marked old');
         }
         if ((screen === 'change' || screen === 'change-non-approver') && !process.env.DESIGN_BASELINE) {
           const eligible = screen === 'change';
@@ -575,7 +583,7 @@ try {
           if (screen === 'overview') {
             const rows = await page.locator('.activity-ledger tbody tr').allTextContents();
             if (rows.some(r => /backup/.test(r) && !/failed|stopped|manual/.test(r))) throw new Error('routine automated backup in Activity');
-            if (await page.locator('.application-details').getByText('To satisfy it:', { exact: false }).count()) throw new Error('release narrative leaked into the overview');
+            if (await page.locator('.application-details').getByText('Adds the winter ride times page', { exact: false }).count()) throw new Error('release narrative leaked into the overview');
           }
           if (screen === 'change-delivery') {
             const widths = size.startsWith('desktop') ? [320, 390, 600, 768, 800, 801, 900, 1024, 1280, 1440, 1920] : [viewport.width];

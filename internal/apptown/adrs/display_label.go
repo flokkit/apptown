@@ -42,4 +42,25 @@ func (s State) display() ADRLabel {
 	}
 }
 
+// help explains the display word in the lifecycle's terms, so the word and
+// its explanation say one thing ("waiting" is a draft not proposed yet).
+func (s State) help() string {
+	switch s {
+	case Draft:
+		return "A draft: waiting for its author to propose it."
+	case proposed:
+		return "Proposed: waiting for someone to accept or reject it."
+	case Accepted:
+		return "Accepted: this is the decision."
+	case rejected:
+		return "Rejected."
+	case Deprecated:
+		return "Deprecated: no longer followed."
+	case Superseded:
+		return "Superseded by a later decision."
+	default:
+		return "Its state could not be read."
+	}
+}
+
 func (s *ADRLabel) UnmarshalJSON(b []byte) error { return adrLabelCodec.ReadJSON(s, b) }
