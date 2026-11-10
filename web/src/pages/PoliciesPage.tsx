@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Ident } from '../Ident'
 import { ProjectCount } from './DependentProjects'
 import './PoliciesPage.css'
@@ -27,6 +27,15 @@ const RULES: { rule: string; label: string; params: string[] }[] = [
   { rule: 'scanFailOnCeiling', label: 'scan failOn may not be looser than…', params: ['max'] },
 ]
 
+const blank = (): PolicyLibraryEntry => ({ name: '', description: '', rule: 'requireStepBefore', with: {}, origin: '', adoptedBy: 0, nonConformant: 0, packs: [], reading: '', fix: '' })
+
+// PolicyNewPage is a new policy, on a page of its own: its heading names
+// it and the top bar leads back to Policies. Save and Cancel return there.
+export function PolicyNewPage() {
+  const nav = useNavigate()
+  return <div><h1>New policy</h1><PolicyEditor policy={blank()} titled={false} onDone={() => nav('/policies')} /></div>
+}
+
 export default function PoliciesPage({ page = false }: { page?: boolean }) {
   const { name } = useParams()
   const libQ = useGet<PolicyLibraryList>('/policy-library', { kind: 'config' })
@@ -37,7 +46,6 @@ export default function PoliciesPage({ page = false }: { page?: boolean }) {
   // refresh that too.
   const { run, busy, err: actErr } = useAction(undefined, { affects: ['/projects'] })
 
-  const blank = (): PolicyLibraryEntry => ({ name: '', description: '', rule: 'requireStepBefore', with: {}, origin: '', adoptedBy: 0, nonConformant: 0, packs: [], reading: '', fix: '' })
   const clone = (p: PolicyLibraryEntry): PolicyLibraryEntry => ({ ...structuredClone(p), name: `${p.name}-custom`, origin: '' })
 
   const remove = (p: PolicyLibraryEntry) => run(() => del(`/policy-library/${p.name}`))
@@ -57,7 +65,7 @@ export default function PoliciesPage({ page = false }: { page?: boolean }) {
       <StaleNote q={[libQ, projectsQ]} />
       {actErr && <div className="error">{actErr}</div>}
       {page && !lib.some(p => p.name === name) && <p>This policy is no longer in the library.</p>}
-      <Section title={page ? '' : 'Policies'} count={page ? undefined : lib.length} action={!page && <button className="primary" onClick={() => setEditing(blank())}>New policy</button>}>
+      <Section title={page ? '' : 'Policies'} count={page ? undefined : lib.length} action={!page && <Link className="btn primary" to="/policies/new">New policy</Link>}>
         {lib.length === 0 ? <p className="muted">No policies yet.</p> : <LibraryRows>{lib.filter(p => !page || p.name === name).map((p) => <PolicyCard page={page} key={p.name} p={p} totalProjects={totalProjects} onClone={() => setEditing(clone(p))}
           onEdit={() => setEditing(structuredClone(p))} onRemove={() => { if (!busy) void remove(p) }} />)}</LibraryRows>}
       </Section>
@@ -121,7 +129,7 @@ function PolicyCard({ page, p, totalProjects, onClone, onEdit, onRemove }: {
   )
 }
 
-function PolicyEditor({ policy, onDone }: { policy: PolicyLibraryEntry; onDone: (saved?: boolean) => void }) {
+function PolicyEditor({ policy, onDone, titled = true }: { policy: PolicyLibraryEntry; onDone: (saved?: boolean) => void; titled?: boolean }) {
   const [p, setP] = useState(policy)
   const { run, busy, err } = useAction(() => onDone(true), { affects: ['/projects'] })
   const form = RULES.find((r) => r.rule === p.rule) ?? RULES[0]
@@ -130,16 +138,18 @@ function PolicyEditor({ policy, onDone }: { policy: PolicyLibraryEntry; onDone: 
 
   return (
     <div className="policies-page-policy-editor-div">
-      <h2>{policy.name && policy.origin === '' && policy.name === p.name ? `Edit: ${policy.name}` : 'New policy'}</h2>
+      {titled && <h2>{policy.name && policy.origin === '' && policy.name === p.name ? `Edit: ${policy.name}` : 'New policy'}</h2>}
       <div className="form-grid mb-3" >
         <label>Name</label>
         <input aria-label="Name" value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="my-rule" autoFocus />
         <label>Description</label>
         <input aria-label="Description" value={p.description} onChange={(e) => setP({ ...p, description: e.target.value })} />
-        <label>Rule</label>
-        <select aria-label="Rule" value={p.rule} onChange={(e) => setP({ ...p, rule: e.target.value, with: {} })}>
-          {RULES.map((r) => <option key={r.rule} value={r.rule}>{r.label}</option>)}
-        </select>
+        {/* Choices, not a select: a select cannot wrap, so a long rule was cut on a phone. */}
+        <label id="policy-rule">Rule</label>
+        <div role="radiogroup" aria-labelledby="policy-rule" className="stack stack-1">
+          {RULES.map((r) => <label key={r.rule} className="row row-2"><input type="radio" name="policy-rule" value={r.rule} checked={p.rule === r.rule}
+            onChange={() => setP({ ...p, rule: r.rule, with: {} })} /><span>{r.label}</span></label>)}
+        </div>
         {form.params.map((param) => (
           <span key={param} className="policies-page-span">
             <label>{param}</label>

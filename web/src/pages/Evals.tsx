@@ -7,7 +7,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { del, post, type Change } from '../api'
 import { useAction, useGet, useGetText } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import { relTime } from '../format'
+import { fmtCost, fmtPrice, relTime } from '../format'
 import type { Arm, CheckRow, Complaint, Eval, EvalList, EvalScorecard, EvalStartForm, ProjectRow, Tally } from '../wire.gen'
 import { PageHead } from '../PageHead'
 import { Section } from '../Section'
@@ -20,7 +20,8 @@ import './Evals.css'
 // findings against the Change's base, and the cost. The scorecard decides
 // nothing and is never evidence.
 
-const dollars = (micros: number, incomplete = 0) => `${incomplete > 0 ? 'at least ' : ''}$${(micros / 1e6).toFixed(2)}`
+// Money follows the one rule in format.ts, so arms and the total agree.
+const dollars = (micros: number, incomplete = 0) => fmtPrice(micros, incomplete)
 
 
 // What an eval read refused to the caller says: who may, not an error.
@@ -200,7 +201,7 @@ export function EvalScorecardPage() {
             {e.subjectDigest && <> · tested exactly <code title="digest of the version's resolved spec and pins at start">{e.subjectDigest}</code></>}
           </div>
           <div className="row evals-summary">
-            <span>Spent <strong>{dollars(e.costMicros, e.incomplete)}</strong> of ${(e.budgetMicros / 1e6).toFixed(2)}</span>
+            <span>Spent <strong>{dollars(e.costMicros, e.incomplete)}</strong> of {fmtCost(e.budgetMicros)}</span>
             {e.incomplete > 0 && <span className="muted small">{e.incomplete} model {e.incomplete === 1 ? 'call' : 'calls'} spent an unknown amount</span>}
           </div>
           {e.reason && e.state !== 'held' && <div className="small mb-2" >{e.reason}</div>}

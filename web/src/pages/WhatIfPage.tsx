@@ -9,7 +9,7 @@ import { currentUser, get, HttpError, post } from '../api'
 import { QuietConfirm } from '../QuietConfirm'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import { relTime } from '../format'
+import { fmtCost, fmtPrice, relTime } from '../format'
 import type { AdoptionUpliftOpened, InAdvanceQuestion, WhatIf, WhatIfCheck, WhatIfFleetGap, WhatIfMove, WhatIfRow, WhatIfScore } from '../wire.gen'
 
 // One what-if on a pack version (design/subsystems/conformance.md):
@@ -70,7 +70,7 @@ export default function WhatIfPage() {
         <span className="muted">{w.requestedBy} · {relTime(w.createdAt)}</span>
         <span className="muted">
           {w.rubrics
-            ? `model rubrics: ${w.incomplete > 0 ? 'at least ' : ''}$${(w.costMicros / 1e6).toFixed(2)} of $${(w.spendLimitMicros / 1e6).toFixed(2)}`
+            ? `model rubrics: ${fmtPrice(w.costMicros, w.incomplete)} of ${fmtCost(w.spendLimitMicros)}`
             : 'model rubrics not included'}
         </span>
         {w.advanceWorkflows && <span className="muted">moves each project's other workflows to the newest version</span>}

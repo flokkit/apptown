@@ -6,8 +6,9 @@
   border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-pop);
 }
 .popover-content, .more-menu-list, .split-menu, .head-menu-card { display: grid; gap: 4px; }
-/* A menu is as wide as its labels: a long hint wraps rather than stretching it. */
-.popover :is(.more-menu-list, .split-menu) { max-width: 20rem; }
+/* A menu is as wide as its labels: a long hint wraps rather than stretching
+   it, and the menu stays narrower than a phone's card. */
+.popover :is(.more-menu-list, .split-menu) { max-width: 16rem; }
 .popover button { white-space: normal; overflow-wrap: anywhere; text-align: left; }
 .popover :is(.more-menu-list, .split-menu) > button { display: flex; flex-direction: column; align-items: start; padding: 10px 12px; }
 .popover .btn-sub { white-space: normal; }

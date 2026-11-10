@@ -5,7 +5,7 @@ import { ChangeRecordPage } from './pages/change/Details'
 import { GeneratedGuidance } from './pages/GuidanceLibrary'
 import { PastChatsPage } from './pages/change/Conversation'
 import WorkflowLibrary from './pages/WorkflowLibrary'
-import PoliciesPage from './pages/PoliciesPage'
+import PoliciesPage, { PolicyNewPage } from './pages/PoliciesPage'
 import { CheckProjects, GuidanceProjects, PolicyProjects, PackProjects, IntegrationProjects } from './pages/DependentProjects'
 
 import { DeploymentPage } from './pages/project/settings/Deployments'
@@ -329,6 +329,7 @@ export default function App() {
           <Route path="/guidance/generated" element={<CoreArea area="ways"><GeneratedGuidance page /></CoreArea>} />
           <Route path="/guidance/generated/:name" element={<CoreArea area="ways"><GeneratedGuidance page /></CoreArea>} />
           <Route path="/workflows/:name" element={<CoreArea area="ways"><WorkflowLibrary page /></CoreArea>} />
+          <Route path="/policies/new" element={<CoreArea area="ways"><PolicyNewPage /></CoreArea>} />
           <Route path="/policies/:name" element={<CoreArea area="ways"><PoliciesPage page /></CoreArea>} />
           <Route path="/packs/:name/versions/:version" element={<CoreArea area="ways"><PackPage /></CoreArea>} />
           <Route path="/guidance/:name/projects" element={<CoreArea area="ways"><GuidanceProjects /></CoreArea>} />

@@ -1,6 +1,7 @@
 import { routeAncestors } from './breadcrumbs'
 import { Disclosure } from './Popover'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { Modal } from './Modal'
 import { TechnicalDetailMark, TechnicalDetailSwitch } from './pages/change/TechnicalDetail'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { post } from './api'
@@ -77,13 +78,26 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu, s
       <span className="grow" />
       {!standalone && <>
       {me && <AttentionLights compact={narrow} />}
-      <Disclosure className="account-menu topbar-search" closeOnAction={false} trigger={<button id="open-find" className="subtle" aria-label="Search">Find</button>}>
+      {narrow ? <PhoneFind /> : <Disclosure className="account-menu topbar-search" closeOnAction={false} trigger={<button id="open-find" className="subtle" aria-label="Search">Find</button>}>
         {close => <Find onNavigate={close} />}
-      </Disclosure>
+      </Disclosure>}
       <Link to="/projects">Projects</Link>
       </>}
     </header>
   )
+}
+
+// PhoneFind: on a phone, Find opens as a dialog sized to its results, as
+// help and status details do there. A box hung under the top bar would lie
+// over the page's heading and leave its figures without their labels.
+function PhoneFind() {
+  const [open, setOpen] = useState(false)
+  const id = useId()
+  const close = useCallback(() => setOpen(false), [])
+  return <div className="account-menu topbar-search">
+    <button id="open-find" className="subtle" aria-label="Search" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(true)}>Find</button>
+    {open && <Modal fit title="Find" onClose={close}><div id={id}><Find onNavigate={close} /></div></Modal>}
+  </div>
 }
 
 // AccountCorner is you, at the foot of the menu: your name, and under it

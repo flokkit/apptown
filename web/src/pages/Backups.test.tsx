@@ -96,3 +96,21 @@ it('counts kept copies in the heading and removed sets apart', async () => {
     expect(all.textContent).toContain('2 removed by the keep policy')
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+// A copy of a running app's files may hold a file caught half-written. The
+// set still finished, so its status stays; the item says why in words.
+it('says why a file copy of a running app may be inconsistent', async () => {
+  const client = newQueryClient()
+  const volume = { ...set, items: [{ kind: 'volume', name: 'shop_data', file: 'shop_data.tar.gz', bytes: 5, sha256: 'c', how: 'tar of the volume shop_data', copy: 'live-files' }] }
+  const body = { keep: 7, where: '/b', backups: [volume] }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/backups') ? body : {}))))
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><BackupsView /></MemoryRouter></QueryClientProvider>) })
+    await vi.waitFor(() => expect(el.querySelectorAll('table').length).toBe(2))
+    const latest = el.querySelector('table')!.textContent ?? ''
+    expect(latest).toContain('file copy, app running')
+    expect(latest).toContain('Copied while the app was running: a file it was writing at that moment may be incomplete in this copy.')
+    expect(latest).not.toContain('may be inconsistent')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

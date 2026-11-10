@@ -196,6 +196,8 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
 .pick-tile > .chip { grid-column: 2; }
 .display-label-edit { margin-top: calc(var(--space-1) * 1.5); display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-3); }
 .display-label-edit > :is(form, .error) { flex-basis: 100%; }
+/* As a fact's value it sits under its label like any other value. */
+.facts dd > .display-label-edit { margin-top: 0; }
 /* The edit link lines up with the ID beside or above it, as text does. */
 .display-label-edit > button.link { padding-inline: 0; }
 }
