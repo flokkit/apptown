@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdir } from 'node:fs/promises'
 import { build } from 'esbuild'
 import { productionCSS } from './production-css.mjs'
+import { fontsReady } from './fonts-ready.mjs'
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE || 'playwright')
 const bundle = await build({
   bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
@@ -28,6 +29,7 @@ try {
     await page.setContent(`<style>${css}</style><div id="root"></div>`)
     await page.evaluate(({size,theme}) => { document.documentElement.dataset.size = size; document.documentElement.dataset.theme = theme }, {size,theme})
     await page.addScriptTag({ content: bundle.outputFiles[0].text })
+    await fontsReady(page)
     for (const action of ['revoke', 'disconnect']) {
       const trigger = page.getByRole('button', { name: action, exact: true })
       const row = trigger.locator('xpath=ancestor::tr')

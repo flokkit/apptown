@@ -1,4 +1,5 @@
 import { productionCSS } from './production-css.mjs'
+import { fontsReady } from './fonts-ready.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, readFile } from 'node:fs/promises'
 import { build } from 'esbuild'
@@ -349,6 +350,7 @@ try {
   await page.route('http://layout.test/**', route => route.fulfill({ contentType: 'text/html', body: `<style>@layer tokens, base, type, components, pages, utilities; ${css}</style><div id="root"></div>` }))
   await page.goto('http://layout.test/')
   await page.addScriptTag({ content: fixture.outputFiles[0].text })
+  await fontsReady(page)
   await page.getByRole('button', { name: 'Review change', exact: true }).waitFor()
   await page.locator('.split-button > button').click()
   assert.equal(await page.evaluate(() => document.body.dataset.main), 'yes')
@@ -502,6 +504,7 @@ try {
     await page.goto('http://layout.test/')
     await page.evaluate(size => {document.documentElement.dataset.size=size},size)
     await page.addScriptTag({content:trailFixture.outputFiles[0].text})
+    await fontsReady(page)
     await page.locator('.topbar a[href^="/attention"]').last().waitFor()
     // A phone bar is one 44px line: the menu, a back link to the parent, one status dot and Find.
     assert.ok(await page.locator('.topbar').evaluate(bar => bar.getBoundingClientRect().height <= 44.5), `phone bar stays one line at ${size}: ${await page.locator('.topbar').evaluate(bar => bar.getBoundingClientRect().height)}`)
@@ -517,6 +520,7 @@ try {
       await page.goto('http://layout.test/')
       await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
       await page.addScriptTag({ content: peopleFixture.outputFiles[0].text })
+      await fontsReady(page)
       await page.getByRole('button', { name: 'Mint token', exact: true }).waitFor()
       assert.ok(await page.getByRole('region', { name: 'Access tokens' }).locator('input, select, button').evaluateAll(controls => controls.length === 3 && controls.every(control => {
         const r = control.getBoundingClientRect()
@@ -532,6 +536,7 @@ try {
       await page.goto('http://layout.test/')
       await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
       await page.addScriptTag({ content: conformanceProjectFixture.outputFiles[0].text })
+      await fontsReady(page)
       await page.getByRole('button', { name: 'Re-check', exact: true }).last().waitFor()
       assert.equal(await page.locator('.chip.unknown').count(), 3)
       assert.ok(await page.locator('.chip.unknown').evaluateAll(chips => chips.every(chip => {
@@ -553,6 +558,7 @@ try {
     await page.goto('http://layout.test/')
     await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
     await page.addScriptTag({ content: conformanceFixture.outputFiles[0].text })
+    await fontsReady(page)
     await page.waitForFunction(() => !!window.finishConformance)
     // Conformance's pages are in the sidebar; the page must still fit a
     // phone once its counts load.
@@ -567,6 +573,7 @@ try {
       await page.goto('http://layout.test/')
       await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
       await page.addScriptTag({ content: targetFixture.outputFiles[0].text })
+      await fontsReady(page)
       await page.getByRole('button', { name: /Docker host/ }).click()
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `target connection page fits at ${width}, ${size}`)
       assert.ok(await page.locator('.wiz-steps li, .wiz-fields input').evaluateAll(els => els.every(el => {
@@ -583,6 +590,7 @@ try {
       await page.goto('http://layout.test/')
       await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
       await page.addScriptTag({ content: phoneListsFixture.outputFiles[0].text })
+      await fontsReady(page)
       await page.locator('#parts .container-gauge').last().waitFor()
       // Each record's cells: none drawn over another, the name never
       // squeezed, and on a phone each value under its column's label.
@@ -624,6 +632,7 @@ try {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.setContent(`<style>@layer tokens, base, type, components, pages, utilities; ${css}</style>
     <div class="layout" style="--viewport-h:450px"><main class="main"><div class="console"><div class="console-controls controls-open"><div class="console-head"><h1>Change chat</h1><button>Open preview</button><button>Check and land</button><button>Restart preview</button></div></div><div class="chat-pane"><div class="chat-scroll" style="flex:1;min-height:0;overflow:auto">Conversation</div><div class="chat-input row"><textarea aria-label="Message"></textarea><button>Send</button></div></div></div></main></div>`)
+  await fontsReady(page)
   for (const size of ['small', 'medium', 'large']) {
     await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
     await page.getByRole('textbox').focus()
@@ -640,6 +649,7 @@ try {
     await page.goto('http://layout.test/')
     await page.evaluate(([scene, size]) => { window.overlayCase = scene; document.documentElement.dataset.size = size }, [scene, size])
     await page.addScriptTag({ content: overlayFixture.outputFiles[0].text })
+    await fontsReady(page)
   }
   const inView = box => box.x >= 0 && box.y >= 0 && box.x + box.width <= 390 + 0.5 && box.y + box.height <= 844 + 0.5
   for (const size of ['small', 'medium', 'large']) {
@@ -713,6 +723,7 @@ try {
     await page.goto('http://layout.test/')
     await page.evaluate(([scene, size, theme]) => { window.roundCase = scene; document.documentElement.dataset.size = size; document.documentElement.dataset.theme = theme }, [scene, size, theme])
     await page.addScriptTag({ content: roundFixture.outputFiles[0].text })
+    await fontsReady(page)
   }
   // The distinct lines a word's letters sit on (not its rects: inline markup
   // can give several rects on one line).

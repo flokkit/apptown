@@ -3704,12 +3704,71 @@ func TestWebUICameraExclusionsNameCurrentRoutes(t *testing.T) {
 	}
 }
 
+func TestWebUICameraRefusesTheScriptsOwnSettingNames(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"DESIGN_PAGES", "DESIGN_AUDIT", "DESIGN_BASELINE"} {
+		env := map[string]string{name: "home"}
+		err := cameraSettingsRefusal(func(k string) string { return env[k] })
+		if err == nil || !strings.Contains(err.Error(), "APPTOWN_"+name) {
+			t.Errorf("%s set: %v", name, err)
+		}
+	}
+	env := map[string]string{"APPTOWN_DESIGN_PAGES": "home"}
+	if err := cameraSettingsRefusal(func(k string) string { return env[k] }); err != nil {
+		t.Errorf("the documented name refused: %v", err)
+	}
+}
+
 func TestWebUICameraCoversDocsAtItsRedirectDestination(t *testing.T) {
 	t.Parallel()
 	source := `<Route path="/docs"/><Route path="/docs/:section/:slug"/>`
 	if err := cameraRouteCoverage(source, []string{"/docs/guides/quickstart"}, map[string]string{"/docs": cameraRouteExclusions["/docs"]}); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// cameraPhases records how long each part of the camera's scene took, in
+// scene-timings.json beside the captures, rewritten after every phase so a
+// failed run keeps what it measured.
+type cameraPhases struct {
+	t    *testing.T
+	out  string
+	last time.Time
+	list []struct {
+		Name string `json:"name"`
+		Ms   int64  `json:"ms"`
+	}
+}
+
+func (p *cameraPhases) mark(name string) {
+	now := time.Now()
+	took := now.Sub(p.last)
+	p.last = now
+	p.list = append(p.list, struct {
+		Name string `json:"name"`
+		Ms   int64  `json:"ms"`
+	}{name, took.Milliseconds()})
+	p.t.Logf("camera scene: %s took %s", name, took.Round(time.Millisecond))
+	if err := os.MkdirAll(p.out, 0o755); err != nil {
+		p.t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(p.out, "scene-timings.json"), mustJSONBytes(p.list), 0o644); err != nil {
+		p.t.Fatal(err)
+	}
+}
+
+// cameraSettingsRefusal stops a camera run before its scene is built when a
+// caller set the browser script's own names (DESIGN_PAGES and friends, which
+// web-ui.mjs reads). The test hands the script an explicit environment, so
+// those values would be dropped silently and a run meant for a few pages
+// would photograph every page.
+func cameraSettingsRefusal(getenv func(string) string) error {
+	for _, name := range []string{"DESIGN_PAGES", "DESIGN_AUDIT", "DESIGN_BASELINE"} {
+		if getenv(name) != "" {
+			return fmt.Errorf("%s is set, but the camera reads APPTOWN_%s; %s would be ignored", name, name, name)
+		}
+	}
+	return nil
 }
 
 func cameraAppRoutes(t *testing.T) string {
@@ -3743,10 +3802,16 @@ func sceneModel(t *testing.T, a *App) {
 }
 
 func TestWebUICapture(t *testing.T) {
+	if err := cameraSettingsRefusal(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
 	vite, out := os.Getenv("APPTOWN_DESIGN_VITE"), os.Getenv("APPTOWN_DESIGN_OUT")
 	if vite == "" || out == "" {
 		t.Skip("set APPTOWN_DESIGN_VITE and APPTOWN_DESIGN_OUT for the local UI capture")
 	}
+	// Where the scene's time goes, written beside the captures (with the
+	// browser script's timings.json) so a run's cost is measured, not guessed.
+	phases := cameraPhases{t: t, out: out, last: time.Now()}
 	frontend, err := url.Parse(vite)
 	if err != nil || frontend.Hostname() != "127.0.0.1" {
 		t.Fatal("design frontend must be a local Vite server")
@@ -3805,6 +3870,7 @@ func TestWebUICapture(t *testing.T) {
 	tourChecks(t, a)
 	useScriptTasks(t, a, tourScript)
 	defineWorkflows(t, a, tourWorkflow)
+	phases.mark("app and stock")
 	const password = "design-local-password"
 	boot := postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "sam", password))
 	if boot.Code != http.StatusOK {
@@ -3815,6 +3881,7 @@ func TestWebUICapture(t *testing.T) {
 		scene.call("sam", "POST", "/api/v1/users", map[string]string{"username": user, "role": "member", "password": password})
 	}
 	scene.play(start)
+	phases.mark("story")
 	// The camera needs a real, actionable finding for the remediation family.
 	// The tour excepts the game's external font; revoke that exception here.
 	var exceptions struct {
@@ -4726,6 +4793,7 @@ spec:
 		}
 		return runtime, res.Reading.ObservedAt, inv.ObservedAt
 	}
+	phases.mark("records")
 	runtimeBefore, resourcesBefore, inventoryBefore := readAt()
 	moveClock(a, time.Minute)
 	refresh()
@@ -4754,6 +4822,7 @@ spec:
 			}
 		}
 	}
+	phases.mark("readings")
 	server.StartTLS()
 	module := os.Getenv("APPTOWN_PLAYWRIGHT_MODULE")
 	if module == "" {
@@ -4781,6 +4850,7 @@ spec:
 		}
 	}
 	t.Log(string(run.Output))
+	phases.mark("browser script")
 	if run.RunErr != nil {
 		t.Fatal(fmt.Errorf("web UI camera: %w", run.RunErr))
 	}

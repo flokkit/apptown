@@ -1,4 +1,5 @@
 import { productionCSS } from './production-css.mjs'
+import { fontsReady } from './fonts-ready.mjs'
 // Run with APPTOWN_PLAYWRIGHT_MODULE pointing to the installed Playwright module.
 // Uses the shipped CSS, without a server or seeded application records.
 import assert from 'node:assert/strict'
@@ -27,6 +28,7 @@ try {
         </div></div>
       </div></div></div>
     </div></aside>`)
+  await fontsReady(page)
   const results = []
   for (const [size, root] of [['small', 14], ['medium', 16], ['large', 18]]) {
     await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
@@ -103,6 +105,7 @@ try {
     <div id="controls"><button>Go</button><input aria-label="Text"><select aria-label="Select"><option>One</option></select>
       <textarea aria-label="Code"></textarea><textarea class="prose" aria-label="Prose"></textarea><input class="text-code" aria-label="Command"></div>
     <div class="console"><div class="chat-input"><textarea aria-label="Composer"></textarea></div></div>`)
+  await fontsReady(roles)
   const owned = {
     title: { fontFamily: '--font-heading', fontSize: '--fs-xl', fontWeight: '--fw-strong', lineHeight: '--lh-tight', letterSpacing: '--ls-title', color: '--text' },
     heading: { fontFamily: '--font-heading', fontSize: '--fs-lg', fontWeight: '--fw-strong', lineHeight: '--lh-tight', color: '--text' },

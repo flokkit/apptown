@@ -83,26 +83,49 @@ trusting a pass; the other two fail without their prerequisites.
 **Web** — `make check-web`: `tsc --noEmit` and the Vite build; `vitest` for
 the pure functions (formatting, diff rendering, markdown, ranking; eleven
 test files). `web/layout.browser-test.mjs` checks shared layout behaviour in Chromium.
+The browser tests take the production CSS from `web/production-css.mjs`,
+with the interface fonts inlined, and wait for IBM Plex to load
+(`web/fonts-ready.mjs`) before measuring text, so widths match on every
+machine.
 The heavy `web-ui` job serves the built front end and runs
 `TestWebUICapture` against disposable tour records. It captures desktop and
 phone pages in both themes at Medium and Large sizes, including each page's
 first disclosure where present, and checks overflow and row-action labels.
+Pages are shot on four tabs at once. Features, its refusal page and an
+audit's running review change what other pages show, so they run last, alone,
+after every other page has finished (`camera-queue.mjs`, with its test);
+the page that may not approve and the login page use sessions of their own.
+Each page is loaded fresh per width and theme at Medium text, then switched to
+Large in place, as the size control does, when it is back in its just-loaded
+state; otherwise, and for pages whose checks compare rows with their first
+drawing, it is reloaded at Large. `timings.json` records which, and why.
+Themes are always loaded fresh (the chat terminal reads its colours once).
 Every literal route in `web/src/App.tsx` must appear in the captures' final
 browser URLs or have a reason in `cameraRouteExclusions` beside the test. Content questions have explicit reasons in
 `cameraContentExclusions` in the browser script and are emitted with the captures;
 those states still receive every layout check.
-The job requires the test to pass (a skip fails) and uploads its captures,
-including partial output on failure, before cleanup. The public tour remains
+The job requires the test to pass (a skip fails). When it fails it uploads
+its run folder's captures (the failure shot, layout errors, timings and the
+pages shot before the failure) before cleanup; a passing run uploads none. The public tour remains
 separate.
 
-For a local camera run, build `web/`, create a short writable temporary folder,
-and run `TMPDIR=/tmp/apptown-camera node scripts/ci-web-camera.mjs -timeout 45m`.
-The script serves `web/dist` and sets `APPTOWN_DESIGN_VITE` and
-`APPTOWN_DESIGN_OUT`; captures go under `$TMPDIR/captures`. Chromium needs
+For a local camera run, build `web/` and run
+`TMPDIR=/tmp node scripts/ci-web-camera.mjs -timeout 45m`.
+The script serves `web/dist`, makes a fresh run folder under `TMPDIR`
+(`cam-XXXXXX`, printed first and last) and gives it to the test as its
+`TMPDIR`, with captures in `<run>/captures`; two runs never share a folder.
+It refuses a `TMPDIR` too long for the scene's SSH connection-sharing
+sockets. Chromium needs
 `APPTOWN_PLAYWRIGHT_MODULE` as in the browser tier. For a local Vite server,
-set those two design variables directly and run `TestWebUICapture` with the
-`browser` tag. `APPTOWN_DESIGN_PAGES` selects named pages for focused checks;
-only an unfiltered run checks route completeness.
+set `APPTOWN_DESIGN_VITE` and `APPTOWN_DESIGN_OUT` directly and run `TestWebUICapture` with the
+`browser` tag. `APPTOWN_DESIGN_PAGES` selects named pages for focused checks
+(the browser script's own name, `DESIGN_PAGES`, is refused before the scene is
+built, since the test would drop it); the log says how many pages it shoots.
+Only an unfiltered run checks route completeness.
+Each run records where its time went: `scene-timings.json` (the scene's
+phases) and `timings.json` (the browser script's phases and every shot's
+load, settle, checks, screenshot and after-shot parts) beside the captures,
+with a summary at the end of the log.
 
 **Live-fire** — not a test target. Real model calls, the private Docker
 daemon, cloud reconciles, GitLab pushes, PTY chat sessions. These are

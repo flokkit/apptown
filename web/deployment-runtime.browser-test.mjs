@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { build } from 'esbuild'
 import { productionCSS } from './production-css.mjs'
+import { fontsReady } from './fonts-ready.mjs'
 import { chromium } from 'playwright'
 const out = process.env.APPTOWN_RUNTIME_OUT
 const css = await productionCSS()
@@ -61,6 +62,7 @@ try {
     })
     await page.goto('http://layout.test/')
     await page.addScriptTag({ content: fixture.outputFiles[0].text })
+    await fontsReady(page)
     await page.evaluate(state => window.drawRuntime(state), state)
     await page.locator('.deployment-page-heading').waitFor()
     if (state === 'failed-picker') await page.getByRole('button', { name: 'Deploy a release…', exact: true }).click()
