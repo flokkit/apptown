@@ -3724,6 +3724,24 @@ func cameraAppRoutes(t *testing.T) string {
 // TestWebUICapture photographs every web page against
 // real disposable tour records. No API responses are replaced by the camera.
 // Run with APPTOWN_DESIGN_VITE=http://127.0.0.1:5180 and APPTOWN_DESIGN_OUT set.
+// sceneModel gives the capture scene a model id of a real install's shape,
+// so usage and model settings read as they would there rather than as the
+// fixture's fake/model ("model" by its last segment). It is bound to the
+// same fake provider address: nothing in the scene calls a model.
+func sceneModel(t *testing.T, a *App) {
+	t.Helper()
+	const id = "openrouter/anthropic/claude-haiku-5.5"
+	if _, err := a.Integrations.Bindings.Save(context.Background(), "openrouter", "model", "pi", `{"model":"openrouter/*","providerDef":{"baseUrl":"https://provider.invalid/v1","api":"openai-completions","apiKey":"provider-canary"},"modelsJson":"[{\"id\":\"anthropic/claude-haiku-5.5\",\"contextWindow\":32768,\"maxTokens\":1024}]"}`, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Models.SetDefault(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Models.Set(context.Background(), "chat", "standard", id, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestWebUICapture(t *testing.T) {
 	vite, out := os.Getenv("APPTOWN_DESIGN_VITE"), os.Getenv("APPTOWN_DESIGN_OUT")
 	if vite == "" || out == "" {
@@ -3783,6 +3801,7 @@ func TestWebUICapture(t *testing.T) {
 	verification.SyncStockScanners(ctx, a.Integrations, stock.FS)
 	a.SyncStockDependencies(ctx)
 	configureConsoleModel(t, a)
+	sceneModel(t, a)
 	tourChecks(t, a)
 	useScriptTasks(t, a, tourScript)
 	defineWorkflows(t, a, tourWorkflow)

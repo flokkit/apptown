@@ -2,6 +2,8 @@
 name: resource/spec-template
 tags: resource,spec
 ---
+Write the first-iteration specification in this layout, filling in each placeholder.
+
 # <Product name> — first-iteration specification
 
 ## Problem & job-to-be-done

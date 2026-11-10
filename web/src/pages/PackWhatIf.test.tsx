@@ -73,6 +73,8 @@ describe('what-if panel', () => {
     const { el, client, done } = await render((p, init) => {
       if (init?.method === 'POST') { posted.push(JSON.parse(String(init.body))); return json({ id: NEW_WHAT_IF }, 202) }
       asked.push(p)
+      if (p.includes('/wow')) return json(fleet)
+      if (p.includes('/projects')) return json([])
       return p.includes('also=')
         ? json({ whatIf: null, eligible: ['ledger', 'till'], ownPacksNewest: [] })
         : json({ whatIf: null, eligible: [], ownPacksNewest: [{ pack: 'rails', version: 38 }, { pack: 'django-htmx', version: 43 }] })
@@ -114,14 +116,26 @@ describe('what-if panel', () => {
     done()
   })
 
-  it('cannot run when no project is eligible', async () => {
-    const { el, done } = await render(() => json({ whatIf: null, eligible: [] }))
-    expect(el.textContent).toContain('Eligible (on an earlier version):none; no project is on an earlier version')
-    // Nothing can run, so no run button or run options are offered; choosing projects is.
-    expect(button(el, 'Run on')).toBeUndefined()
-    expect(el.querySelectorAll('input[type=checkbox]')).toHaveLength(0)
-    expect(button(el, 'choose projects')).toBeDefined()
-    done()
+  it('cannot run when no project is eligible, and asks about other projects only when there are some', async () => {
+    const answer = (projects: unknown[], packs: unknown) => (p: string) =>
+      p.includes('/wow') ? json(packs) : p.includes('/projects') ? json(projects) : json({ whatIf: null, eligible: [] })
+    const nobody = await render(answer([], { packs: [] }))
+    expect(nobody.el.textContent).toContain('Eligible (on an earlier version):none; no project is on an earlier version')
+    // Nothing can run, so no run button or run options are offered, and
+    // with no project to ask about, no choosing either.
+    expect(button(nobody.el, 'Run on')).toBeUndefined()
+    expect(nobody.el.querySelectorAll('input[type=checkbox]')).toHaveLength(0)
+    expect(nobody.el.querySelectorAll('button')).toHaveLength(0)
+    nobody.done()
+    // A project not on the pack can be asked about: the button says so,
+    // never "choose" among none, and opens the picker that adds it.
+    const other = await render(answer([{ slug: 'shop', defaultBranch: 'main' }], { packs: [] }))
+    expect(button(other.el, 'choose projects')).toBeUndefined()
+    await act(async () => { button(other.el, 'ask about other projects').click() })
+    await settled(other.client)
+    const select = other.el.querySelector('select[aria-label="add a project not on this pack"]') as HTMLSelectElement
+    expect([...select.options].map((o) => o.value)).toEqual(['', 'shop'])
+    other.done()
   })
 
   it('says unknown, not none, when its read fails', async () => {
@@ -160,7 +174,7 @@ describe('what-if panel', () => {
       if (p.includes('/projects')) return json([{ slug: 'ledger', defaultBranch: 'main' }, { slug: 'shop', defaultBranch: 'main' }, { slug: 'empty', defaultBranch: '' }])
       return json({ whatIf: null, eligible: [] })
     })
-    await act(async () => { button(el, 'choose projects').click() })
+    await act(async () => { button(el, 'ask about other projects').click() })
     await settled(client)
     const select = el.querySelector('select[aria-label="add a project not on this pack"]') as HTMLSelectElement
     expect([...select.options].map((o) => o.value)).toEqual(['', 'shop'])

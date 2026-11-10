@@ -25,7 +25,7 @@ labelled as such. Reviews open dated snapshot reports.
 | Disk name, used / total and capacity bar | `CapacityStrip` |
 | Completed work out of a known total, or unknown progress | `ProgressBar` |
 | Page section | `Section`; a page's beta mark is `BetaChip` after the title's help button |
-| Action menu or popover | `MoreMenu`, `SplitButton`, `FormMenu` for menus with form controls; a menu is as wide as its labels, and an item's hint wraps under its label |
+| Action menu or popover | `MoreMenu`, `SplitButton`, `FormMenu` for menus with form controls (given a `title`, a dialog on phones); a menu is as wide as its labels, and an item's hint wraps under its label |
 | Dialog | `Modal`, with its closing buttons in `actions` (on phones they stay at the screen's foot); `Modal fit` for a dialog sized to its text (help and a status's details; on phones also Find, which would otherwise lie over the page's heading). Change decisions use the native dialog in `pages/change/Turn.tsx`, opened on phones from a Decide bar fixed to the screen's foot |
 | Labelled field in a form grid | `FieldRow` with native input, select or textarea |
 | State and its explanation | `Status` and `StatusDot` in `Status.tsx`; domain status owners supply meaning and freshness |

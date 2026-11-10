@@ -472,8 +472,13 @@ try {
           const view = page.viewportSize();
           if (!box || box.x < 0 || box.y < 0 || box.x + box.width > view.width + 0.5 || box.y + box.height > view.height + 0.5) throw new Error(`${screen}: the confirmation is not a dialog on screen at ${size}: ${JSON.stringify(box)}`);
         }
-        // A menu opens beside the control that opened it.
-        if (screen === 'people-actions') {
+        // An account's actions open beside the control that opened them; on a
+        // phone they are a dialog named for the account, on screen.
+        if (screen === 'people-actions' && size.startsWith('phone')) {
+          const box = await page.getByRole('dialog', { name: 'sam', exact: true }).boundingBox();
+          const view = page.viewportSize();
+          if (!box || box.x < 0 || box.y < 0 || box.x + box.width > view.width + 0.5 || box.y + box.height > view.height + 0.5) throw new Error(`${screen}: the account's actions are not a dialog on screen at ${size}: ${JSON.stringify(box)}`);
+        } else if (screen === 'people-actions') {
           const trigger = page.locator('main [aria-expanded="true"]').first();
           const [panel, control] = await Promise.all([page.locator('.popover').boundingBox(), trigger.boundingBox()]);
           if (!panel || !control || Math.min(Math.abs(panel.y - (control.y + control.height)), Math.abs(control.y - (panel.y + panel.height))) > 8) throw new Error(`${screen}: the menu is not beside its control at ${size}: ${JSON.stringify({ panel, control })}`);
@@ -535,10 +540,10 @@ try {
           const chat = page.getByRole('row').filter({ has: page.getByText('Chat', { exact: true }) });
           await chat.waitFor();
           const modelCell = await chat.locator('td').nth(1).innerText();
-          if (modelCell !== 'fake/model') throw new Error(`unexpected Chat model: ${modelCell}`);
+          if (modelCell !== 'openrouter/anthropic/claude-haiku-5.5') throw new Error(`unexpected Chat model: ${modelCell}`);
           const plan = page.getByRole('row').filter({ has: page.getByText('Plan', { exact: true }) });
           const inherited = await plan.locator('td').nth(1).innerText();
-          if (inherited !== 'fake/model · from Main · strong') throw new Error(`unexpected Plan model: ${inherited}`);
+          if (inherited !== 'openrouter/anthropic/claude-haiku-5.5 · from Main · strong') throw new Error(`unexpected Plan model: ${inherited}`);
           for (const row of await page.locator('tbody tr').all()) {
             const name = await row.locator('strong').innerText();
             if ((await row.locator('.muted').innerText()).startsWith(name + ':')) throw new Error(`repeated task description: ${name}`);
@@ -800,10 +805,10 @@ try {
           await page.getByRole('button', { name: 'close the menu', exact: true }).click();
           await page.locator('.sidebar-backdrop').waitFor({ state: 'detached' });
         }
-        // A confirmation the capture opened (revoke, disconnect), or Find on a
-        // phone, is a dialog over the page; close it before looking for the
-        // page's disclosure.
-        if (['people-revoke', 'people-disconnect'].includes(screen) || (screen === 'home-search' && size.startsWith('phone'))) {
+        // A confirmation the capture opened (revoke, disconnect), or Find or an
+        // account's actions on a phone, is a dialog over the page; close it
+        // before looking for the page's disclosure.
+        if (['people-revoke', 'people-disconnect'].includes(screen) || (['home-search', 'people-actions'].includes(screen) && size.startsWith('phone'))) {
           await page.keyboard.press('Escape');
           await page.getByRole('dialog').waitFor({ state: 'detached' });
         }
@@ -840,7 +845,9 @@ try {
           await page.getByLabel('Actions for sam', { exact: true }).click();
           await page.getByRole('button', { name: 'set password', exact: true }).waitFor();
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-actions.png`, fullPage: true });
-          await page.getByLabel('Actions for sam', { exact: true }).click();
+          // On a phone the actions are a dialog over the ⋯: close it as a person does.
+          if (size.startsWith('phone')) await page.keyboard.press('Escape');
+          else await page.getByLabel('Actions for sam', { exact: true }).click();
           await page.getByLabel('Actions for retired', { exact: true }).click();
           await page.getByRole('button', { name: 'enable', exact: true }).waitFor();
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-other.png`, fullPage: true });

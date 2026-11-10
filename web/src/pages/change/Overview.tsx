@@ -105,10 +105,15 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
   const detail = _workTab()
   const record = (key: string, run?: string | null) => `/changes/${ch.id}/records/${key}${run ? `?run=${encodeURIComponent(run)}` : ''}`
   const trailer = (href: string, text: string) => <Link className="ch-trailer" to={href}>{text}</Link>
+  // A shipped change whose release went out is tried there (the Release
+  // row's link), so its Preview row keeps what was recorded and offers no
+  // second way to try the same work. Without a release that went out, the
+  // landed commit's preview is still the way to try it.
+  const released = ch.state === 'shipped' && (view.evidence?.landingReleases ?? []).some(r => r.state === 'released')
   const previewLine = <>
     <div className="ch-overview-line"><div className="ch-row-label">Preview</div><div className="ch-value ch-preview">
       {!!boot?.evidence.screenshots?.shots?.length && <Screenshots hero shots={boot?.evidence.screenshots} head={view.head} at={boot?.finishedAt} />}
-      <TryIt changeId={ch.id!} label="Open it and try it" />
+      {!released && <TryIt changeId={ch.id!} label="Open it and try it" />}
       {!boot?.evidence.screenshots?.shots?.length && <p className="small muted">{boot?.evidence.screenshots?.unavailable || 'No screenshots were recorded for this preview.'}</p>}
     </div>{boot ? trailer(record('preview', boot.runId), `${boot.evidence.screenshots?.commit ? `built from ${boot.evidence.screenshots.commit.slice(0, 7)} · ` : ''}logs →`) : <span />}</div>
   </>

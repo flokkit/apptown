@@ -1,9 +1,13 @@
 package wow
 
 import (
+	"io/fs"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/stock"
 )
 
 func TestPlainSummary(t *testing.T) {
@@ -57,5 +61,45 @@ func TestPlainSummaryOfStockGuidance(t *testing.T) {
 		if !strings.HasPrefix(got, c.prefix) || strings.HasSuffix(got, ":") {
 			t.Errorf("%s: summary %q, want it to start %q and not end on a colon", c.name, got, c.prefix)
 		}
+	}
+}
+
+// No stock guidance row shows a template's raw placeholder: a block whose
+// body is a template opens with a sentence saying what it is for, and a
+// literal format is set as code, so the row reads as words and the format
+// as code, never as "<Product name>" prose.
+func TestStockGuidanceSummariesHaveNoRawPlaceholders(t *testing.T) {
+	t.Parallel()
+	placeholder := regexp.MustCompile(`<[^<>]+>`)
+	err := fs.WalkDir(stock.FS, "guidance", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".md") {
+			return err
+		}
+		raw, err := fs.ReadFile(stock.FS, path)
+		if err != nil {
+			return err
+		}
+		b, err := parseStockGuidance(string(raw))
+		if err != nil {
+			return err
+		}
+		summary := PlainSummary(b.Body)
+		if want, ok := map[string]string{
+			"repo/project-notes":             "Add one line to PROJECT-NOTES.md for each durable fact this change establishes about the project: `- <sentence>. (<author> · change <N>)`.",
+			"resource/requirements-template": "Write the requirements in this layout, filling in each placeholder.",
+			"resource/spec-template":         "Write the first-iteration specification in this layout, filling in each placeholder.",
+		}[b.Name]; ok && !strings.HasPrefix(summary, want) {
+			t.Errorf("%s: summary %q, want it to open %q", path, summary, want)
+		}
+		if strings.Count(summary, "`")%2 != 0 {
+			t.Errorf("%s: summary leaves a code span open: %q", path, summary)
+		}
+		if p := placeholder.FindString(summaryCode.ReplaceAllString(summary, "")); p != "" {
+			t.Errorf("%s: summary shows the placeholder %s outside code: %q", path, p, summary)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

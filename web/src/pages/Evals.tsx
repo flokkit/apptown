@@ -221,7 +221,7 @@ export function EvalScorecardPage() {
             <QuietConfirm label="Delete this eval" yes="Delete eval" no="Cancel" disabled={busy}
               ask={`Delete eval ${e.number}? Its arms stop and its copies are deleted; what it cost and what was said in it are kept.`}
               onYes={() => run(async () => { await del(`/evals/${e.id}`); nav('/evals') })} />
-            <span className="muted small evals-aside">its starter, while managing packs, or an administrator</span>
+            <p className="muted small">The person who started it can delete it while they manage packs, as can an administrator.</p>
           </div>
         </>
       )}

@@ -11,7 +11,6 @@
 .evals-actions { gap: var(--space-2); }
 .evals-title { margin: 0; }
 .evals-summary { gap: var(--space-4); flex-wrap: wrap; margin: calc(var(--space-1) * 2.5) 0; }
-.evals-aside { margin-left: var(--space-2); }
 .evals-tally { margin-bottom: calc(var(--space-1) * 2.5); }
 .evals-tally-heading { text-align: left; }
 .evals-tally-cell { text-align: center; }
