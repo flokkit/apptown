@@ -277,14 +277,12 @@ func generateProcfile(c *appcontract.Contract) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-// composeHealth renders a shell healthcheck command as a compose healthcheck
-// block (the same shape ECS healthCheck uses: a command + interval/retries).
 // composePartHealth renders an app part's health as a compose healthcheck for
 // `apptown dev` (local, in-container — the full source image has a shell, so the
-// design's platform-executed rule (§4.3) relaxes to an in-container test here).
-// The structured intent (design/subsystems/healthchecks.md) wins when declared, else the
-// legacy string. Local dev is `direct` — no proxy in front — so nothing is
-// front-door shaped; that shaping belongs to the fronted deployments (ingress.go).
+// design's platform-executed rule (§4.3) relaxes to an in-container test here),
+// from its structured intent (design/subsystems/healthchecks.md). Local dev is
+// `direct` — no proxy in front — so nothing is front-door shaped; that shaping
+// belongs to the fronted deployments (ingress.go).
 func composePartHealth(p appcontract.Part) map[string]any {
 	if p.Intent != nil {
 		// Readiness is the routing question and the richer signal; prefer it,
@@ -306,9 +304,6 @@ func composePartHealth(p appcontract.Part) map[string]any {
 			}
 		}
 	}
-	if p.Health != "" {
-		return composeHealth(p.Health)
-	}
 	return nil
 }
 
@@ -321,16 +316,12 @@ func probeShellCmd(pr *appcontract.Probe, partPort int) string {
 		return fmt.Sprintf("wget -qO- http://localhost:%d%s >/dev/null 2>&1", portOr(partPort, 8080), pr.HTTP)
 	case pr.TCP != 0:
 		return fmt.Sprintf("timeout 2 bash -c '</dev/tcp/localhost/%d' 2>/dev/null", pr.TCP)
-	case len(pr.Exec) > 0:
-		parts := make([]string, len(pr.Exec))
-		for i, e := range pr.Exec {
-			parts[i] = fmt.Sprint(e)
-		}
-		return strings.Join(parts, " ")
 	}
 	return ""
 }
 
+// composeHealth renders a shell healthcheck command (a need's, or a probe's
+// in-container form) as a compose healthcheck block.
 func composeHealth(cmd string) map[string]any {
 	return map[string]any{
 		"test": []any{"CMD-SHELL", deploy.ComposeLiteral(cmd)},

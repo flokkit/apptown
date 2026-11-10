@@ -140,10 +140,10 @@ func TestProbeJudgesByTheReadinessRule(t *testing.T) {
 	}
 	port, _ := strconv.Atoi(rawPort)
 	dk := (Scope{}).WithHost("ssh://selected", "127.0.0.1", "")
-	if probeLiveness(t.Context(), dk, "c", port, renderedProbe{Path: "/healthz"}, nil) {
+	if probeLiveness(t.Context(), dk, port, renderedProbe{Path: "/healthz"}, nil) {
 		t.Error("liveness: a 404 at the health path is a miss")
 	}
-	if !probeLiveness(t.Context(), dk, "c", port, renderedProbe{Path: "/healthz", Expect: 404}, nil) {
+	if !probeLiveness(t.Context(), dk, port, renderedProbe{Path: "/healthz", Expect: 404}, nil) {
 		t.Error("liveness: a declared 404 is the answer")
 	}
 }

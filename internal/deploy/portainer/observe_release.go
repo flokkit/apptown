@@ -113,9 +113,6 @@ func inspectRelease(ctx context.Context, cfg *Target, p deploy.Placement, stack 
 			if !actual.State.Running {
 				return out, "", fmt.Errorf("Portainer component %s is not running", component.Service)
 			}
-			if component.ShellHealth && (actual.State.Health == nil || actual.State.Health.Status != "healthy") {
-				return out, "", &predicateFailure{reason: fmt.Sprintf("Portainer component %s has not passed its declared healthcheck", component.Service)}
-			}
 		}
 		if component.Service == "app" {
 			out.Running = component.Image

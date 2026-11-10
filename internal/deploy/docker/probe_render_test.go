@@ -74,8 +74,4 @@ func TestRenderLivenessProbe(t *testing.T) {
 	if p := renderLivenessProbe(httpL); p.TCP || p.Path != "/livez" || p.Expect != 200 {
 		t.Fatalf("http liveness: %+v", p)
 	}
-	execL := &appcontract.Part{Intent: &appcontract.Health{Liveness: &appcontract.Probe{Exec: []any{"pgrep", "-f", "worker"}}}}
-	if p := renderLivenessProbe(execL); len(p.Exec) != 3 || p.Exec[0] != "pgrep" {
-		t.Fatalf("exec liveness: %+v", p)
-	}
 }

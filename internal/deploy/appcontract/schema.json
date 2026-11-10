@@ -108,8 +108,8 @@
             "description": "Refused: no target runs it yet. Use an init step for a command that must run before the app starts."
           },
           "healthcheck": {
-            "type": "string",
-            "description": "A part that is not public only: a shell command run in its container, exit 0 means healthy (its container health check on a Docker host and Portainer). Refused on the public part: use health."
+            "not": {},
+            "description": "Refused: not every target can run a command as a health check. A part whose process exits is restarted; declare health.liveness http on a part with a port to restart one that hangs."
           },
           "public": {
             "type": "boolean",
@@ -146,7 +146,7 @@
                   },
                   "exec": {
                     "not": {},
-                    "description": "Refused: readiness is an http probe; exec is for liveness."
+                    "description": "Refused: readiness is an http probe."
                   },
                   "requestContext": {
                     "type": "string",
@@ -189,26 +189,19 @@
               "liveness": {
                 "type": "object",
                 "additionalProperties": false,
-                "description": "One probe. Exactly one target: http, tcp or exec.",
+                "description": "One probe. Exactly one target: http or tcp.",
                 "properties": {
                   "http": {
                     "type": "string",
-                    "description": "A request path, e.g. /healthz."
+                    "description": "A request path, e.g. /livez. The part needs a port."
                   },
                   "tcp": {
                     "type": "integer",
                     "description": "A port; 0 infers it from the part."
                   },
                   "exec": {
-                    "type": "array",
-                    "description": "A command run inside the container.",
-                    "items": {
-                      "type": [
-                        "string",
-                        "number",
-                        "boolean"
-                      ]
-                    }
+                    "not": {},
+                    "description": "Refused: not every target can run a command as a health check. Declare http."
                   },
                   "requestContext": {
                     "type": "string",

@@ -164,7 +164,7 @@ app:
     dataDir: /data/$tenant
   worker:
     build: .
-    healthcheck: 'test "$PORT" = 8080'
+    environment: { WORKER_KEY: "pa$word" }
 init:
   - name: migrate
     build: .
@@ -204,7 +204,7 @@ init:
 	for _, c := range []struct{ what, written, want string }{
 		{"web env", web.Environment["SECRET_KEY"], "x${HOME}$2a$$y"},
 		{"web command", strings.Join(web.Command, " "), "serve --key pa$word"},
-		{"worker healthcheck", strings.Join(worker.Healthcheck.Test, " "), `CMD-SHELL test "$PORT" = 8080`},
+		{"worker env", worker.Environment["WORKER_KEY"], "pa$word"},
 		{"migrate env", migrate.Environment["SECRET_KEY"], "x${HOME}$2a$$y"},
 		{"migrate command", strings.Join(migrate.Command, " "), "migrate pa$word"},
 		{"web data mount", strings.Join(web.Volumes, " "), "appdata-web:/data/$tenant"},

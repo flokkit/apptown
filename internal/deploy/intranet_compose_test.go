@@ -214,7 +214,7 @@ var dollarValues = []string{"pa$word", "x${HOME}y", "$2a$10$abc", "lit$$eral"}
 
 // A value containing $ reaches every service of a Portainer stack as it is
 // written, wherever it came from (a contract's environment, a secret, a
-// need's environment, a part's, an init step's, a healthcheck, a data
+// need's environment, a part's, an init step's, a need's healthcheck, a data
 // folder), as docker run -e and -v give it on a Docker host: Compose interpolates $ in the file, so
 // AppTown writes each $ as $$.
 func TestAnIntranetStackKeepsEveryDollarLiteral(t *testing.T) {
@@ -228,7 +228,7 @@ func TestAnIntranetStackKeepsEveryDollarLiteral(t *testing.T) {
 				Secrets: staticSecrets{"FROM_SECRET": v},
 				Needs:   []IntranetNeed{{Name: "postgres", Image: "postgres:16", Env: map[string]string{"POSTGRES_PASSWORD": v}, Health: "check " + v, Data: "/pg/" + v}},
 				Init:    []appcontract.InitContainer{{Name: "migrate", Image: "reg/app@sha256:x", Env: map[string]string{"FROM_INIT": v}}},
-				Parts:   []appcontract.Part{{Name: "worker", Image: "reg/app@sha256:x", Env: map[string]string{"FROM_PART": v}, Health: "check " + v, DataDir: "/part/" + v}},
+				Parts:   []appcontract.Part{{Name: "worker", Image: "reg/app@sha256:x", Env: map[string]string{"FROM_PART": v}, DataDir: "/part/" + v}},
 			}
 			out := IntranetCompose(st)
 			var stack struct {
@@ -259,7 +259,6 @@ func TestAnIntranetStackKeepsEveryDollarLiteral(t *testing.T) {
 				{"init-migrate", "FROM_SECRET", stack.Services["init-migrate"].Environment["FROM_SECRET"], v},
 				{"worker", "FROM_PART", stack.Services["worker"].Environment["FROM_PART"], v},
 				{"postgres", "healthcheck", last(stack.Services["postgres"].Healthcheck.Test), "check " + v},
-				{"worker", "healthcheck", last(stack.Services["worker"].Healthcheck.Test), "check " + v},
 				{"app", "image", stack.Services["app"].Image, "reg/app:" + v},
 				// The app's data is mounted where it is told its data is.
 				{"app", "DATA_DIR", stack.Services["app"].Environment["DATA_DIR"], "/data/" + v},
@@ -324,7 +323,7 @@ func TestAnIntranetStackFinishesInitInOrderBeforeWorkersStart(t *testing.T) {
 	st := IntranetStack{Secrets: noSecrets{}, Prefix: "apptown-", Base: "dep-one", Hosts: []string{"app.example"}, Domain: "example", Image: "app:1", Port: 8080,
 		Needs: []IntranetNeed{{Name: "database", Image: "db:1", Health: "ready"}, {Name: "cache", Image: "cache:1"}},
 		Init:  []appcontract.InitContainer{{Name: "schema", Image: "init:1"}, {Name: "data", Image: "init:1"}},
-		Parts: []appcontract.Part{{Name: "worker", Image: "worker:1"}, {Name: "helper", Image: "helper:1", Health: "ready"}}}
+		Parts: []appcontract.Part{{Name: "worker", Image: "worker:1"}, {Name: "helper", Image: "helper:1"}}}
 	type dependency struct {
 		Condition string `yaml:"condition"`
 	}
@@ -352,7 +351,7 @@ func TestAnIntranetStackFinishesInitInOrderBeforeWorkersStart(t *testing.T) {
 		"init-data":   {"database": "service_healthy", "cache": "service_started", "init-schema": "service_completed_successfully"},
 		"worker":      {"database": "service_healthy", "cache": "service_started", "init-data": "service_completed_successfully"},
 		"helper":      {"database": "service_healthy", "cache": "service_started", "init-data": "service_completed_successfully"},
-		"app":         {"database": "service_healthy", "cache": "service_started", "init-schema": "service_completed_successfully", "init-data": "service_completed_successfully", "worker": "service_started", "helper": "service_healthy"},
+		"app":         {"database": "service_healthy", "cache": "service_started", "init-schema": "service_completed_successfully", "init-data": "service_completed_successfully", "worker": "service_started", "helper": "service_started"},
 	}
 	for _, base := range []string{"dep-one", "dep-two"} {
 		st.Base = base

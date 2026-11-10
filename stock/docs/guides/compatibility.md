@@ -22,15 +22,15 @@ These limits of 1.0 may be lifted or corrected in a 1.x release, and nothing
 else in the contract will change that way:
 
 - **Fields refused today** may be accepted: health `period`, `timeout`,
-  `failureThreshold`, `successThreshold` and `checksDeps`; a `tcp` or `exec`
-  readiness; `seed`; `dataDir` on a part that is not public. A release that accepts one says what it does.
+  `failureThreshold`, `successThreshold` and `checksDeps`; a `tcp`
+  readiness; `seed`; `dataDir` on a part that is not public. `healthcheck`
+  and a probe's `exec` are not on this list: a health check does not run a
+  command, because not every target can run one. A release that accepts one says what it does.
 - **Health settings accepted but not used everywhere** may start being used:
   App Platform ignores `expect`, `requestContext` and `startupGrace`; a
   `tcp` liveness on a Docker host connects to the public part's port, not a
   port it names; liveness is used only on a Docker host, `health` not at all
-  on Portainer, and a non-public part's `health` only on App Platform; a
-  non-public part's `healthcheck` may be replaced by its `health` block, with
-  notice.
+  on Portainer, and a non-public part's `health` only on App Platform.
 - **Commands on App Platform** keeping a list's arguments as written.
 - **Startup order on Portainer:** init steps run one after another, and the
   other parts wait for them, as on a Docker host.

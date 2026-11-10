@@ -21,8 +21,8 @@ import (
 func readinessFixture(t *testing.T) (string, Readiness) {
 	t.Helper()
 	image := "registry.example/app@sha256:" + strings.Repeat("a", 64)
-	r := Readiness{URL: "https://app.example", Version: 1, Deployment: idstest.N(7), Target: idstest.N(8), Revision: "revision", Components: []Component{{Service: "app", Image: image}, {Service: "worker", Image: image, ShellHealth: true}, {Service: "init-schema", Image: image, Init: true}}, Public: Probe{ToolImage: image, Port: 9123, Path: "/ready?mode=live", Expect: 204}}
-	compose, err := MarkCompose("services:\n  app:\n    image: "+image+"\n  worker:\n    image: "+image+"\n    healthcheck:\n      test: [CMD, true]\n  init-schema:\n    image: "+image+"\n", r.Deployment)
+	r := Readiness{URL: "https://app.example", Version: 1, Deployment: idstest.N(7), Target: idstest.N(8), Revision: "revision", Components: []Component{{Service: "app", Image: image}, {Service: "worker", Image: image}, {Service: "init-schema", Image: image, Init: true}}, Public: Probe{ToolImage: image, Port: 9123, Path: "/ready?mode=live", Expect: 204}}
+	compose, err := MarkCompose("services:\n  app:\n    image: "+image+"\n  worker:\n    image: "+image+"\n  init-schema:\n    image: "+image+"\n", r.Deployment)
 	if err != nil {
 		t.Fatal(err)
 	}

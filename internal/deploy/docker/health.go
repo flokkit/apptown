@@ -2,7 +2,6 @@ package docker
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -204,7 +203,7 @@ func (c *HealthController) Sweep(ctx context.Context) {
 		if within := withinStartupGrace(ctx, dk, e.Container, grace); within {
 			continue
 		}
-		ok := probeLiveness(ctx, dk, e.Container, e.HostPort, probe, c.deps.FrontDoor())
+		ok := probeLiveness(ctx, dk, e.HostPort, probe, c.deps.FrontDoor())
 		if !ok && ctx.Err() != nil {
 			return // a probe the controller's stop cut short is not a failure
 		}
@@ -351,7 +350,7 @@ func (c *HealthController) restart(ctx context.Context, e Watched, dk Scope, ph 
 // deliberately dependency-free (§8): a TCP connect to the mapped port, which on
 // a real host means "the process is up and listening." That default almost never
 // false-restarts a healthy app; a part that wants hang-detection declares an
-// http/exec liveness explicitly. Never carries checksDeps (guardrail §5.1,
+// http liveness explicitly. Never carries checksDeps (guardrail §5.1,
 // enforced at parse).
 func renderLivenessProbe(pub *appcontract.Part) renderedProbe {
 	rp := renderedProbe{Path: "/"}
@@ -377,11 +376,6 @@ func renderLivenessProbe(pub *appcontract.Part) renderedProbe {
 	case l.HTTP != "":
 		rp.Path = l.HTTP
 		rp.Expect = l.Expect
-	case len(l.Exec) > 0:
-		rp.Exec = make([]string, len(l.Exec))
-		for i, e := range l.Exec {
-			rp.Exec[i] = fmt.Sprint(e)
-		}
 	default: // tcp (or nothing usable) → the safe default
 		rp.TCP = true
 	}
@@ -402,12 +396,12 @@ func withinStartupGrace(ctx context.Context, dk Scope, container string, grace t
 }
 
 // probeLiveness executes one rendered liveness probe against a running env
-// container: an in-container exec, a TCP connect to the mapped port, or a
+// container: a TCP connect to the mapped port, or a
 // platform HTTP GET (shaped by AppTown front door so a hardened app doesn't
 // 301 the check — the same signal the cold-boot render sends). Any transport
 // error, or an answer the readiness rule refuses (appcontract.Ready), is a
 // miss.
-func probeLiveness(ctx context.Context, dk Scope, container string, hostPort int, rp renderedProbe, headers map[string]string) bool {
+func probeLiveness(ctx context.Context, dk Scope, hostPort int, rp renderedProbe, headers map[string]string) bool {
 	if rp.PolicyError != nil {
 		return false
 	}
@@ -415,15 +409,9 @@ func probeLiveness(ctx context.Context, dk Scope, container string, hostPort int
 	if rp.Policy != nil {
 		timeout = rp.Policy.Timeout
 	}
-	if rp.Policy != nil || len(rp.Exec) == 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
-	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	switch {
-	case len(rp.Exec) > 0:
-		_, err := dk.Run(ctx, append([]string{"exec", container}, rp.Exec...)...)
-		return err == nil
 	case rp.TCP:
 		conn, err := (&net.Dialer{Timeout: timeout}).DialContext(ctx, "tcp", dk.dialAddress(hostPort))
 		if err != nil {

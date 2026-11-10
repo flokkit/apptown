@@ -11,7 +11,7 @@ import (
 )
 
 func TestReleaseObservationRequiresExactComponentsAndActualImages(t *testing.T) {
-	for _, mode := range []string{"exact", "old-generation", "foreign-deployment", "wrong-artifact", "wrong-image", "missing-digest", "duplicate", "missing", "init-running", "init-failed", "worker-starting", "unavailable", "changed-scope"} {
+	for _, mode := range []string{"exact", "old-generation", "foreign-deployment", "wrong-artifact", "wrong-image", "missing-digest", "duplicate", "missing", "init-running", "init-failed", "worker-stopped", "unavailable", "changed-scope"} {
 		t.Run(mode, func(t *testing.T) {
 			_, r := readinessFixture(t)
 			artifact := strings.Repeat("f", 64)
@@ -69,8 +69,8 @@ func TestReleaseObservationRequiresExactComponentsAndActualImages(t *testing.T) 
 							state["ExitCode"] = 17
 						}
 					}
-					if service == "worker" && mode == "worker-starting" {
-						state["Health"] = map[string]string{"Status": "starting"}
+					if service == "worker" && mode == "worker-stopped" {
+						state["Running"], state["Status"] = false, "exited"
 					}
 					_ = json.NewEncoder(w).Encode(map[string]any{"Id": service, "Image": "sha256:actual", "Config": map[string]any{"Image": image, "Labels": l}, "State": state})
 				case path == "/api/endpoints/3/docker/images/sha256:actual/json":

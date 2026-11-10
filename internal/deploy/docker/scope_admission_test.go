@@ -42,7 +42,7 @@ func TestDockerLivenessUsesSelectedHostAndHeaders(t *testing.T) {
 	}
 	port, _ := strconv.Atoi(rawPort)
 	dk := (Scope{}).WithHost("ssh://selected", "localhost", "")
-	if !probeLiveness(context.Background(), dk, "app", port, renderedProbe{Path: "/live", Expect: 204}, map[string]string{"X-Forwarded-Proto": "https"}) {
+	if !probeLiveness(context.Background(), dk, port, renderedProbe{Path: "/live", Expect: 204}, map[string]string{"X-Forwarded-Proto": "https"}) {
 		t.Fatal("HTTP probe ignored selected host or front-door headers")
 	}
 }

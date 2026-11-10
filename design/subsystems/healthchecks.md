@@ -13,8 +13,16 @@ reports with `Ready`.
 
 Readiness asks whether an application can serve. Liveness can trigger a restart.
 The schema rejects dependency-checking liveness because a downstream outage must
-not cause an application restart loop. It also rejects exec readiness with a
-front-door request context. Probe durations require explicit units.
+not cause an application restart loop. Probe durations require explicit units.
+
+No probe runs a command in the application's container. A contract field must
+mean the same on every target, and not every target can run a command as a
+check, so the part-level `healthcheck` and a probe's `exec` are refused by
+name. A part that is not public is restarted when its process exits, by every
+target; an HTTP liveness probe needs the part's port, checked by the parser so
+every target refuses a portless one alike. AppTown's own command checks (need
+readiness such as `pg_isready`, need measurements) belong to the catalogue, not
+the contract, and are unaffected.
 
 Readiness is not the front page. A readiness path is often exempt from what
 refuses visitors (Rails skips host authorization for `/up`), so a gate's boot
@@ -48,8 +56,8 @@ HTTP readiness and supported liveness probes accept `period`, `timeout`,
 `failureThreshold`, `successThreshold` and `checksDeps`. Written periods are
 whole seconds from 5 through 300; timeouts from 1 through 10; thresholds from
 1 through 50. `checksDeps` is the application's assertion, not proof of a
-healthy dependency, and cannot be true for liveness. TCP and exec readiness
-remain refused.
+healthy dependency, and cannot be true for liveness. TCP readiness remains
+refused.
 
 Omitted fields retain each target and phase's defaults. Explicit readiness must
 fit its consecutive successes within the greater of 90 seconds and
@@ -59,8 +67,8 @@ the operation deadline. Cancellation and late answers never establish health.
 
 Docker executes structured health on its public application. Portainer executes
 public HTTP readiness and refuses structured liveness and nonpublic structured
-health. App Platform renders HTTP policy for declared-port services and refuses
-worker readiness, exec probes and HTTP liveness without a declared port. Static
+health. App Platform renders HTTP policy for declared-port services, including
+liveness on a part that is not public, and refuses worker readiness. Static
 buckets refuse runtime execution policy. These refusals occur before preparation
 or provider effects; accepted syntax does not promise every target can run it.
 

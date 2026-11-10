@@ -47,8 +47,16 @@ func TestTheContractRefusesWhatItWouldNotUseAsWritten(t *testing.T) {
 		{"static environment", "app:\n  site: { static: public, public: true, environment: { API: x } }\n", "environment: is not used by a static site"},
 		{"static command", "app:\n  site: { static: public, public: true, command: serve }\n", "command: is not used by a static site"},
 		{"static dataDir", "app:\n  site: { static: public, public: true, dataDir: /data }\n", "dataDir: is not used by a static site"},
-		{"static healthcheck", "app:\n  web: { build: ., public: true }\n  docs: { static: docs, healthcheck: \"true\" }\n", "healthcheck: is not used by a static site"},
 		{"static profile environment", "app:\n  site: { static: public, public: true }\nprofiles:\n  big:\n    site: { environment: { API: x } }\n", "a static site has no environment"},
+		// A health check is never a command: not every target can run one.
+		{"worker healthcheck", publicWeb + "  worker: { build: ., healthcheck: \"pgrep worker\" }\n", "app part \"worker\": healthcheck: is no longer part of the contract"},
+		{"public healthcheck", publicWeb + "    healthcheck: \"true\"\n", "app part \"web\": healthcheck: is no longer part of the contract"},
+		{"static healthcheck", "app:\n  web: { build: ., public: true }\n  docs: { static: docs, healthcheck: \"true\" }\n", "app part \"docs\": healthcheck: is no longer part of the contract"},
+		{"public exec liveness", publicWeb + "    health: { liveness: { exec: [\"true\"] } }\n", "part \"web\": health.liveness.exec is no longer part of the contract"},
+		{"worker exec liveness", publicWeb + "  worker: { build: ., ports: [\"9000\"], health: { liveness: { exec: [check] } } }\n", "part \"worker\": health.liveness.exec is no longer part of the contract"},
+		{"empty exec liveness", publicWeb + "    health: { liveness: { http: /livez, exec: [] } }\n", "health.liveness.exec is no longer part of the contract"},
+		{"exec readiness", publicWeb + "    health: { readiness: { exec: [\"true\"] } }\n", "health.readiness is an http probe"},
+		{"portless http liveness", publicWeb + "  worker: { build: ., health: { liveness: { http: /livez } } }\n", "app part \"worker\": an http liveness probe needs the part's port"},
 		// One port, published where AppTown chooses.
 		{"two ports", "app:\n  web: { build: ., public: true, ports: [\"8080\", \"9090\"] }\n", "listens on one port"},
 		{"host port", "app:\n  web: { build: ., public: true, ports: [\"3000:8080\"] }\n", "names a host port"},

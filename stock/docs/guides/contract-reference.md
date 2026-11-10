@@ -64,8 +64,8 @@ notAppCode: [docs/site]
   runs them side by side. `app`, and names starting `init-` or `apptown-`,
   are the ones targets give their own services, so they are refused.
 - A part may also declare `ports`, `command`, `environment`, `health`,
-  `resources` and `replicas`; the public part may declare `dataDir`, and
-  another part `healthcheck` (below). `replicas` is `1` or left out; a
+  `resources` and `replicas`; the public part may declare `dataDir`.
+  `replicas` is `1` or left out; a
   larger number is refused before anything is built. `ports` lists the one
   port the part listens on (`["8080"]`); a second entry, or a host port
   (`"3000:8080"`), is refused, because AppTown chooses where a part is
@@ -137,9 +137,12 @@ notAppCode: [docs/site]
 - **`rehearsal`**: see "Restore checks" below.
 - **Refused until a target uses them:** `seed` on a part (put a command
   that must run before the app starts in `init`), `dataDir` on a part that
-  is not public, `healthcheck` on the public part, and the health fields
-  "Health" names below. Each is refused by name, so a later release can give
-  it a meaning without changing an app that already wrote it.
+  is not public, and the health fields "Health" names below. Each is refused
+  by name, so a later release can give it a meaning without changing an app
+  that already wrote it.
+- **Refused:** `healthcheck` on any part, and a health probe's `exec`. A
+  health check never runs a command in the app's container, because not
+  every target can run one.
 
 The schema and validator are on every AppTown:
 
@@ -352,7 +355,7 @@ health:
 ```
 
 Readiness is an `http` probe (a path). Liveness names one target: `http`
-(a path), `tcp` (a port) or `exec` (a command run in the container). Either
+(a path) or `tcp` (a port). Either
 may give `startupGrace`; an `http` probe may give `expect` (a status), and
 readiness `requestContext` (`frontDoor`, the default, or `direct`). A
 liveness probe restarts the part, so it should not check other services:
@@ -368,15 +371,16 @@ answers 404 is not ready unless it declares `expect: 404`.
 fields keep the target and phase defaults. Explicit cold readiness must fit its
 consecutive success checks within the greater of 90 seconds and `startupGrace`.
 `checksDeps` is an application assertion, not verified dependency health; it
-cannot be true for liveness. TCP and exec readiness remain refused.
+cannot be true for liveness. TCP readiness remains refused.
 
-A part that is not public may also declare `healthcheck:`, a shell command
-run in its container (exit 0 is healthy): its container health check on a
-Docker host and on Portainer. Structured nonpublic `health` is supported only
-for App Platform services with a declared port. Docker and Portainer refuse
-nonpublic structured declarations on fresh deployment, including declarations
-that were previously ignored. Running workloads and retained artifacts are not
-rewritten; remove an unsupported declaration or select a supporting target.
+A part that is not public, such as a worker, is restarted when its process
+exits, on every target; it declares nothing for that. To be restarted when
+it hangs, it declares `ports` and `health: { liveness: { http: /livez } }`;
+an `http` liveness on a part with no port is refused. App Platform is the
+one target that honours liveness on a part that is not public; a Docker
+host and Portainer refuse it before anything is released. Running workloads
+and retained artifacts are not rewritten; remove an unsupported declaration
+or select a supporting target.
 
 What each target uses:
 
@@ -384,8 +388,7 @@ What each target uses:
   declared path, `/` when none is declared, sent as the front door would
   send it unless `requestContext: direct`. Liveness is watched on the public part of a
   standing deployment, which is restarted when it fails: an `http`
-  liveness is a GET of its path, an `exec` liveness runs its command in the
-  container (exit 0 is alive), and a `tcp` liveness, or none declared,
+  liveness is a GET of its path, and a `tcp` liveness, or none declared,
   connects to the part's port. Every HTTP probe's answer is judged as
   above. Explicit cold and maintained readiness require
   consecutive answers from the same container start; liveness uses its declared
@@ -394,16 +397,15 @@ What each target uses:
   `startupGrace`, execution policy and request context, with `/` when no path is
   declared. Consecutive answers belong to the exact deployed container start.
   An owned diagnostic checks the exact deployed container; a running
-  container alone is not healthy. Other parts retain their native
-  `healthcheck:` checks. Structured liveness and nonpublic structured health are
-  refused; this does not add a liveness restart controller.
+  container alone is not healthy; other parts must be running. Structured
+  liveness and nonpublic structured health are refused; this does not add a
+  liveness restart controller.
 - **App Platform.** The readiness path and `startupGrace`, with a port check
   when no path is declared. The startup delay is at least five seconds and
   at least the declared grace, rounded up to whole seconds; declarations
   above 3600 seconds are refused before provider effects. Declared HTTP policy is
   rendered for services with ports; liveness successThreshold must be 1. Worker
-  readiness, exec probes and worker HTTP liveness without a declared port are
-  refused. A public HTTP readiness probe may require an exact `expect`
+  readiness is refused. A public HTTP readiness probe may require an exact `expect`
   from 200 through 299. AppTown checks that status at the front door after
   native readiness succeeds; it does not follow redirects for that exact
   check. Without `expect`, the front door is judged as above. An exact status on a private service, or outside
@@ -419,7 +421,7 @@ evidence; tolerated failures do not make stale evidence healthy.
 
 A `static` part serves files with AppTown's file server. It runs no code of
 yours and reads no environment, so `environment` (in the part or a
-profile), `command`, `dataDir` and `healthcheck` are refused on it; its
+profile), `command` and `dataDir` are refused on it; its
 readiness is `health`, and `resources` and `ports` apply as to any part.
 
 ```yaml
