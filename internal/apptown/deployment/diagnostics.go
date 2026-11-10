@@ -46,9 +46,13 @@ type Diagnostics struct {
 	// deployment as a whole.
 	Runtime DiagnosedRuntime `json:"runtime"`
 	// Containers says each part's container is read from a Docker host;
-	// otherwise Unsupported says why the target gives no such facts.
-	Containers  bool   `json:"containers"`
-	Unsupported string `json:"unsupported,omitempty"`
+	// NoContainers says its target runs none (a bucket website), so
+	// container state, CPU and memory are not applicable, and each part is
+	// what its address was last seen serving; otherwise Unsupported says why
+	// the target gives no such facts.
+	Containers   bool   `json:"containers"`
+	NoContainers bool   `json:"noContainers,omitempty"`
+	Unsupported  string `json:"unsupported,omitempty"`
 	// Unsettled says why the parts read cannot all be named as the settled
 	// generation's (a deploy is under way, or one failed part way): each
 	// part then carries only the generation its own container proves.
@@ -68,10 +72,12 @@ type Diagnostics struct {
 }
 
 // DiagnosedRuntime is the observer's answer: running, stopped or unknown,
-// when it last answered and was last asked, and whether that answer is out
-// of date (a failed refresh keeps the last answer with its age).
+// its health (healthy, unhealthy, unknown or ""), when it last answered and
+// was last asked, and whether that answer is out of date (a failed refresh
+// keeps the last answer with its age).
 type DiagnosedRuntime struct {
 	State       string    `json:"state"`
+	Health      string    `json:"health,omitempty"`
 	ObservedAt  time.Time `json:"observedAt,omitzero"`
 	AttemptedAt time.Time `json:"attemptedAt,omitzero"`
 	Stale       bool      `json:"stale"`
@@ -82,12 +88,15 @@ type DiagnosedRuntime struct {
 const diagnosisReadWithin = 5 * time.Second
 
 // Part presences. Unknown is a read that did not answer: never stopped or
-// absent.
+// absent. Serving and not serving are a container-less part's: its address
+// answers this release's marker, or answers something else.
 const (
-	presenceRunning = "running"
-	presenceStopped = "stopped"
-	presenceAbsent  = "absent"
-	presenceUnknown = "unknown"
+	presenceRunning    = "running"
+	presenceStopped    = "stopped"
+	presenceAbsent     = "absent"
+	presenceUnknown    = "unknown"
+	presenceServing    = "serving"
+	presenceNotServing = "not serving"
 )
 
 // PartDiagnosis is the container under one part's or need's name, as its
@@ -186,7 +195,7 @@ func (s *Service) diagnosedRuntime(ctx context.Context, dep *Deployment) (Diagno
 			continue
 		}
 		o := s.observations.read(r, s.now())
-		out := DiagnosedRuntime{State: o.State.String(), ObservedAt: o.ObservedAt, AttemptedAt: o.AttemptedAt, Stale: o.Stale}
+		out := DiagnosedRuntime{State: o.State.String(), Health: o.Health, ObservedAt: o.ObservedAt, AttemptedAt: o.AttemptedAt, Stale: o.Stale}
 		switch {
 		case o.Err != nil:
 			out.Reason = "its latest observation failed: " + safeReason(o.Err)
@@ -211,6 +220,20 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 		out.Unsupported = "nothing has been deployed here yet"
 		return nil
 	}
+	var target *Target
+	if !dep.TargetID.IsZero() {
+		if target, err = s.Targets.ByID(ctx, dep.TargetID); err != nil {
+			return err
+		}
+	}
+	if target.runsNoContainers() {
+		out.NoContainers = true
+		for _, p := range diagnosedParts(applied) {
+			servedPart(&p, out.Runtime, dep.ObservedGeneration)
+			out.Parts = append(out.Parts, p)
+		}
+		return nil
+	}
 	if dep.Container == "" {
 		_, words := s.limitEventsSource(ctx, dep)
 		out.Unsupported = "its target does not report each part's container to AppTown (" + words + ")"
@@ -226,10 +249,8 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 	}
 	out.Containers = true
 	containers := partContainers(dep, proj.Slug, applied)
-
-	target, err := s.Targets.ByID(ctx, dep.TargetID)
-	if err != nil {
-		return err
+	if target == nil {
+		return errors.New("a deployment with a container has no target")
 	}
 	reading, err := NewHostSnapshots(s.db, s.now).reading(ctx, target)
 	if err != nil {
@@ -506,4 +527,28 @@ func (s *Service) Diagnostics(ctx context.Context, projectID ids.ID, name string
 
 func (s *Service) collectDiagnostics(ctx context.Context, projectID ids.ID, name string) (Diagnostics, error) {
 	return s.diagnostics(ctx, projectID, name, s.diagnoseParts)
+}
+
+// servedPart is a container-less part as the observer last saw its
+// address: serving this release when the address answered this release's
+// marker, not serving when it answered something else, and unknown when
+// it did not answer or the answer is out of date. The marker names the
+// settled generation's publication, so serving proves that generation.
+func servedPart(p *PartDiagnosis, rt DiagnosedRuntime, generation int64) {
+	p.ObservedAt, p.AttemptedAt, p.Stale = rt.ObservedAt, rt.AttemptedAt, rt.Stale
+	switch {
+	case rt.Stale || rt.State != RuntimeRunning.String():
+		p.Presence, p.Reason = presenceUnknown, rt.Reason
+		if p.Reason == "" {
+			p.Reason = "AppTown has no current answer from its address"
+		}
+	case rt.Health == "healthy":
+		p.Presence = presenceServing
+		g := generation
+		p.Generation = &g
+	case rt.Health == "unhealthy":
+		p.Presence, p.Reason = presenceNotServing, "its address answers, but not with this release"
+	default:
+		p.Presence, p.Reason = presenceUnknown, "whether its address serves this release is not known"
+	}
 }

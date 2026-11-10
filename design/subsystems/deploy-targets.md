@@ -624,8 +624,8 @@ sentence.
   (`oci.ReadTree`, `/srv`, no links, at most 200 MB), adds `/_apptown/env.js`
   with the project's browser values and `/_apptown/release` with the
   publication identity `<part>@<revision>+<set>` (`staticsite`), and uploads
-  assets, then HTML and `env.js` (`no-store`), then the marker, each
-  public-read. It is released when the website address, asked past caches,
+  assets, then HTML and `env.js`, then the marker, each public-read and
+  each with the static site's Cache-Control (below). It is released when the website address, asked past caches,
   answers exactly that identity. Not answering within the witness budget
   leaves the attempt uncertain; recovery and **Refresh status** only witness,
   never upload. An upload refused before the marker fails the release as an
@@ -653,6 +653,32 @@ sentence.
   neither witnesses a release nor reads healthy.
 - Spaces serves bucket websites without its CDN, and custom domains are not
   supported yet.
+- **Runtime**: a bucket website runs no containers, so its deployment page
+  shows no CPU, memory or container columns and no Start, Stop or Restart.
+  Its part reads `serving` when its address answers this release's marker.
+
+## Static site caching
+
+Every static site is served with one Cache-Control rule
+(`appcontract.StaticCacheControl`), the same on a bucket website (set on each
+upload) and on the Docker-host file server (`docker.StaticServerCommand`,
+Caddy `path_regexp` with the same expression):
+
+- `/_apptown/env.js` and `/_apptown/release`: `no-store`.
+- A content-hashed asset: `public, max-age=31536000, immutable`. A name is
+  content-hashed when it is `<stem>.<hash>.<ext>` or `<stem>-<hash>.<ext>`,
+  `<ext>` is a build output type (scripts, styles, wasm, fonts, images, source
+  maps), and `<hash>` is 8 characters of `[A-Za-z0-9_-]` with a digit (Vite,
+  Rollup, Create React App) or 16 or more lowercase hex characters (webpack).
+- Every other file, HTML included: `no-cache`. The browser revalidates it
+  with its ETag, so a new release's page never runs with the last release's
+  unhashed styles or script.
+
+The rule is conservative: a hash it misses only costs a revalidation. A
+hand-made name that matches (`app-version2.js`) and changes in place keeps its
+old content in browsers for a year; give such files another name. A CDN in
+front of a static site would also need the release to purge the changed
+unhashed paths. Neither target has one today, so no purge is made.
 
 ## Implementation references
 

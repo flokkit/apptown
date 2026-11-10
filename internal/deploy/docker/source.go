@@ -220,7 +220,9 @@ func BrowserEnvScript(values string) string {
 // empty, the file answers {} whatever the target set (App Platform sets
 // nothing, and a bare expansion would end the script mid-expression).
 // ReleasePath answers the part's release identity (ReleaseEnvVar, empty when unset): what a front
-// door AppTown reaches only from outside is witnessed serving.
+// door AppTown reaches only from outside is witnessed serving. Both are
+// no-store; the site's own files carry appcontract.StaticCacheControl's
+// rule, the same text a bucket website's upload applies.
 func StaticServerCommand(port int) []string {
 	// HTTP only and HTTP/1.1 only, said outright: TLS ends at the front door,
 	// so Caddy's automatic HTTPS and HTTP/2 and /3 would each log a warning at
@@ -248,10 +250,15 @@ func StaticServerCommand(port int) []string {
 	}
 	handle {
 		root * /srv
+		@hashed path_regexp "%s"
+		@unhashed not path_regexp "%s"
+		header @hashed Cache-Control "%s"
+		header @unhashed Cache-Control "%s"
 		file_server
 	}
 }
-`, port, BrowserEnvVar, BrowserEnvScript(`\{\}`), BrowserEnvScript("{env."+BrowserEnvVar+"}"), appcontract.ReleasePath, appcontract.ReleaseEnvVar)
+`, port, BrowserEnvVar, BrowserEnvScript(`\{\}`), BrowserEnvScript("{env."+BrowserEnvVar+"}"), appcontract.ReleasePath, appcontract.ReleaseEnvVar,
+		appcontract.HashedAssetPattern, appcontract.HashedAssetPattern, appcontract.CacheImmutable, appcontract.CacheRevalidate)
 	return []string{"sh", "-c", "printf '%s' '" + caddyfile + "' > /etc/caddy/Caddyfile && exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"}
 }
 

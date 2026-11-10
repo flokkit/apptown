@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -18,6 +19,7 @@ type runtimeDriver struct {
 	fakeDriver
 	actions []string
 	state   string
+	health  string
 	failure error
 }
 
@@ -33,7 +35,7 @@ func (d *runtimeDriver) Runtime(_ context.Context, _ deploy.Placement, action st
 	return nil
 }
 func (d *runtimeDriver) Observe(_ context.Context, p deploy.Placement) (deploy.Observation, error) {
-	return deploy.Observation{Generation: p.Generation, Rollout: d.state}, nil
+	return deploy.Observation{Generation: p.Generation, Rollout: d.state, Health: d.health}, nil
 }
 
 func (d *runtimeDriver) ObserveRuntime(ctx context.Context, p deploy.Placement) (deploy.Observation, error) {
@@ -128,6 +130,31 @@ func TestRuntimeActionsRequireOperateBeforeIntentOrProviderEffects(t *testing.T)
 				t.Fatalf("refused act had effects: %+v %v", got, driver.actions)
 			}
 		})
+	}
+}
+
+// A page offers only the runtime acts a target can ever take: every act on
+// a Docker host or Portainer, only restart on App Platform (it cannot keep
+// an app stopped), none on a bucket website, which runs nothing to start.
+// Each act left out is still refused with its target's sentence.
+func TestATargetOffersOnlyTheRuntimeActsItCanEverTake(t *testing.T) {
+	for kind, want := range map[string][]string{
+		KindDockerHost:  {"start", "stop", "restart"},
+		KindPortainer:   {"start", "stop", "restart"},
+		KindDOApp:       {"restart"},
+		kindFlyMachines: {"restart"},
+		KindS3Bucket:    {},
+	} {
+		target := &Target{Kind: kind}
+		if got := runtimeActions(target); !slices.Equal(got, want) {
+			t.Errorf("%s offers %v, want %v", kind, got, want)
+		}
+		controls := runtimeControls(target, &Deployment{})
+		for _, action := range []string{"start", "stop", "restart"} {
+			if offered := slices.Contains(want, action); offered != (controls[action] == "") {
+				t.Errorf("%s %s: offered %v, refusal %q", kind, action, offered, controls[action])
+			}
+		}
 	}
 }
 

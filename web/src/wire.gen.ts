@@ -583,6 +583,7 @@ export type DeploymentDiagnostics = {
   releaseNumber?: number
   runtime: DiagnosedRuntime
   containers: boolean
+  noContainers?: boolean
   unsupported?: string
   unsettled?: string
   parts: PartDiagnosis[]
@@ -643,6 +644,7 @@ export type DeploymentView = {
   runtimeAt?: string
   runtimeError?: string
   runtimeControls: Record<string, string>
+  runtimeActions: string[]
   servingRelease: Release | null
   promotedFromId?: string | null
   promotionBundleId: string | null
@@ -3129,6 +3131,7 @@ export type DetailReading = {
 
 export type DiagnosedRuntime = {
   state: string
+  health?: string
   observedAt?: string
   attemptedAt?: string
   stale: boolean

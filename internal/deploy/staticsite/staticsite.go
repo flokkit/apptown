@@ -64,9 +64,10 @@ type file struct {
 	Pass        Pass
 }
 
-// NoStore: entry files and AppTown's files are never cached, so a
-// reload asks for the current page and values.
-func (f file) NoStore() bool { return f.Pass != Assets }
+// CacheControl is how browsers may keep the file
+// (appcontract.StaticCacheControl): a content-hashed asset for a year,
+// AppTown's own files never, anything else revalidated on every use.
+func (f file) CacheControl() string { return appcontract.StaticCacheControl(f.Key) }
 
 // Set is one publication: its files in upload order, its identity (what
 // the marker answers) and a digest over every key and body.

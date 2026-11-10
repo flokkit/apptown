@@ -84,3 +84,20 @@ it('offers logs for the unnamed app container before any log request', () => {
     expect(html).not.toContain('reading…')
   } finally { client.clear() }
 })
+
+// A bucket website runs no containers: CPU, memory, image and start time
+// are not applicable, so they are left out rather than shown unknown, and
+// its part reads what its address was seen serving. An address answering
+// another release is a failure; no current answer stays unknown.
+it.each([['serving', 'working'], ['not serving', 'failed'], ['unknown', 'unknown']])('shows a bucket website part %s as %s, with no container facts', (presence, word) => {
+  const client = newQueryClient()
+  client.setQueryData(getKey(`${base}/resources`), { reading: { stale: false }, parts: [part('catalog', { part: 'catalog', usedBytes: 0, limitBytes: 0, cpuCores: 0, cpuLimit: 0, known: false, reason: 'its target does not report memory use to AppTown' })], limits: [], limitsKnown: false, limitsSource: 'this target runs no containers' } as unknown as DeploymentResources)
+  client.setQueryData(getKey(`${base}/diagnostics`), { reading: {}, containers: false, noContainers: true, parts: [{ part: 'catalog', public: true, presence, stale: false, reason: presence === 'serving' ? undefined : 'its address answers, but not with this release' }] } as unknown as DeploymentDiagnostics)
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><DeploymentContainers slug="shop" name="main" /></MemoryRouter></QueryClientProvider>)
+  client.clear()
+  const text = html.replace(/<[^>]+>/g, ' ')
+  expect(text).toContain('catalog')
+  expect(text).toContain(word)
+  for (const absent of ['CPU', 'MEMORY', 'Memory', 'Image', 'Started', 'does not report', 'Limit events']) expect(text).not.toContain(absent)
+  if (presence === 'serving') expect(text).not.toContain('unknown')
+})

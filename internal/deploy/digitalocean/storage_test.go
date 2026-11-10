@@ -170,7 +170,7 @@ func TestAnS3NeedOnAppPlatformIsABucketAndAKeyForItAlone(t *testing.T) {
 		t.Fatal("the key's secret is not kept")
 	}
 	app := &s3bucket.Client{Endpoint: a.store.API.URL, Region: "syd1", AccessKey: b.Env["AWS_ACCESS_KEY_ID"], SecretKey: "x"}
-	if err := app.PutObject(context.Background(), bucket, "notes/one.txt", "text/plain", false, []byte("kept")); err != nil {
+	if err := app.PutObject(context.Background(), bucket, "notes/one.txt", "text/plain", "", []byte("kept")); err != nil {
 		t.Fatalf("the app's key puts an object: %v", err)
 	}
 	if err := app.CreateBucket(context.Background(), "another"); !s3bucket.IsCode(err, "AccessDenied") {

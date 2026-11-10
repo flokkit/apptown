@@ -220,7 +220,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 			if f.Pass != pass {
 				continue
 			}
-			if err := c.PutObject(ctx, bucket, f.Key, f.ContentType, f.NoStore(), f.Body); err != nil {
+			if err := c.PutObject(ctx, bucket, f.Key, f.ContentType, f.CacheControl(), f.Body); err != nil {
 				if pass == staticsite.Marker {
 					// The marker may have been written: whether the address
 					// answers it is for the witness to find out.

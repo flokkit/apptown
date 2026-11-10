@@ -11,7 +11,7 @@ import { DeploymentRuntimeActions } from './DeploymentRuntimeActions'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const env: DeploymentView = { status: { word: 'working', reason: '', stale: false },
   id: 'main-id', name: 'main', displayLabel: 'Lunch Orders', kind: 'standing', generation: 2,
-  runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { deploy: '', start: '', stop: '', restart: '' },
+  runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { deploy: '', start: '', stop: '', restart: '' }, runtimeActions: ['start', 'stop', 'restart'],
   servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '',
   approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown',
   targetId: null, url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observation: 'running', observationStale: false, protected: false,
@@ -46,12 +46,28 @@ it('Stop asks once in place, using the display name, before acting', async () =>
   expect(fetch).toHaveBeenCalledTimes(1)
   expect(String(fetch.mock.calls[0][0])).toContain('/main/stop')
 })
-it.each(['Bucket websites cannot be started, stopped or restarted', 'App Platform cannot keep an app stopped'])('shows unsupported controls and their reason: %s', async reason => {
-  const host = await render({ ...env, runtimeControls: { start: reason, stop: reason, restart: reason.startsWith('Bucket') ? reason : '' } })
+// Only the acts a target can ever take are buttons: a bucket website has
+// none to show, App Platform only Restart. A disabled button that can never
+// work is noise, and its sentence repeats what the missing button says.
+it('shows no runtime buttons for a bucket website', async () => {
+  const reason = 'Bucket websites cannot be started, stopped or restarted'
+  const host = await render({ ...env, runtimeActions: [], runtimeControls: { deploy: '', start: reason, stop: reason, restart: reason } })
+  expect(host.querySelectorAll('button')).toHaveLength(0)
+  expect(host.textContent).not.toContain(reason)
+})
+it('shows only Restart on App Platform', async () => {
+  const reason = 'App Platform cannot keep an app stopped'
+  const host = await render({ ...env, runtimeActions: ['restart'], runtimeControls: { deploy: '', start: reason, stop: reason, restart: '' } })
+  expect([...host.querySelectorAll('button')].map(b => b.textContent)).toEqual(['↻ Restart'])
+  expect(button(host, '↻ Restart').disabled).toBe(false)
+  expect(host.textContent).not.toContain(reason)
+})
+it('keeps a refused act that can apply, with why it is refused now', async () => {
+  const reason = 'The latest deploy failed. Deploy a release successfully before starting or restarting.'
+  const host = await render({ ...env, runtimeControls: { deploy: '', start: reason, stop: '', restart: reason } })
+  expect(button(host, '↻ Restart').disabled).toBe(true)
+  expect(button(host, '■ Stop').disabled).toBe(false)
   expect(host.textContent).toContain(reason)
-  expect(button(host, '▶ Start').disabled).toBe(true)
-  expect(button(host, '■ Stop').disabled).toBe(true)
-  expect(button(host, '↻ Restart').disabled).toBe(reason.startsWith('Bucket'))
 })
 it.each(['starting', 'stopping', 'restarting'])('shows %s and disables duplicate actions', async runtimeState => {
   const host = await render({ ...env, runtimeState })

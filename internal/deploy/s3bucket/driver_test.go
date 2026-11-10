@@ -153,6 +153,31 @@ func get(t *testing.T, url string) (int, string) {
 
 var v1Files = map[string]string{"index.html": "<h1>one</h1>", "assets/app-1.js": "one", "logo.png": "L"}
 
+// Every uploaded file says how browsers may keep it: a content-hashed asset
+// for a year, AppTown's browser values never, and every other file, the
+// page and an unhashed stylesheet or script included, revalidated. A file
+// sent with no Cache-Control is cached by guesswork, and a browser then
+// serves last release's styles under this release's page.
+func TestEveryUploadSaysHowBrowsersMayKeepIt(t *testing.T) {
+	w := newWorld(t)
+	if _, err := w.release(map[string]string{"index.html": "<h1>one</h1>", "styles.css": "a{}", "app.js": "1", "assets/index-BdK3x9aQ.js": "2"}, "abc"); err != nil {
+		t.Fatal(err)
+	}
+	bucket := "apptown-3b89d1da8075-aaaa0001"
+	for key, want := range map[string]string{
+		"index.html":               "no-cache",
+		"styles.css":               "no-cache",
+		"app.js":                   "no-cache",
+		"assets/index-BdK3x9aQ.js": "public, max-age=31536000, immutable",
+		"_apptown/env.js":          "no-store",
+		"_apptown/release":         "no-store",
+	} {
+		if obj, ok := w.store.Get(bucket, key); !ok || obj.CacheControl != want {
+			t.Errorf("%s: Cache-Control %q, want %q", key, obj.CacheControl, want)
+		}
+	}
+}
+
 // The first release makes the deployment's bucket and records it before
 // anything else touches it, sets its website, uploads assets, then entry
 // files, then the marker, readable by anyone, and is witnessed at the
@@ -186,10 +211,10 @@ func TestTheFirstReleaseOwnsABucketAndPublishesInOrder(t *testing.T) {
 	if status, body := get(t, o.URL+"/_apptown/release"); status != 200 || !strings.HasPrefix(body, "web@abc+") {
 		t.Fatalf("marker = %d %q", status, body)
 	}
-	if obj, _ := w.store.Get(bucket, "index.html"); !obj.Public || obj.CacheControl != "no-store" {
+	if obj, _ := w.store.Get(bucket, "index.html"); !obj.Public {
 		t.Fatalf("index.html = %+v", obj)
 	}
-	if obj, _ := w.store.Get(bucket, "assets/app-1.js"); !obj.Public || obj.CacheControl != "" {
+	if obj, _ := w.store.Get(bucket, "assets/app-1.js"); !obj.Public {
 		t.Fatalf("an asset = %+v", obj)
 	}
 	if status, _ := get(t, w.store.API.URL+"/"+bucket+"?list-type=2"); status != 403 {

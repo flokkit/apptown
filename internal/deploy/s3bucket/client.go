@@ -96,11 +96,12 @@ func (c *Client) putWebsite(ctx context.Context, bucket string) error {
 	return c.do(ctx, "PUT", bucket, "", url.Values{"website": {""}}, map[string]string{"Content-Type": "application/xml"}, body, nil)
 }
 
-// PutObject writes one object, readable by anyone at the website address.
-func (c *Client) PutObject(ctx context.Context, bucket, key, contentType string, noStore bool, body []byte) error {
+// PutObject writes one object, readable by anyone at the website address,
+// served with cacheControl ("" sends none).
+func (c *Client) PutObject(ctx context.Context, bucket, key, contentType, cacheControl string, body []byte) error {
 	h := map[string]string{"Content-Type": contentType, "x-amz-acl": "public-read"}
-	if noStore {
-		h["Cache-Control"] = "no-store"
+	if cacheControl != "" {
+		h["Cache-Control"] = cacheControl
 	}
 	return c.do(ctx, "PUT", bucket, key, nil, h, body, nil)
 }
