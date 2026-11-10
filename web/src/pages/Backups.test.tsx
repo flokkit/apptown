@@ -78,3 +78,21 @@ it('shows the Deployment column on wide screens only', async () => {
     }
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+// The heading counts copies kept; sets the keep policy removed are listed for
+// their record and counted apart, so the count matches the policy.
+it('counts kept copies in the heading and removed sets apart', async () => {
+  const client = newQueryClient()
+  const kept = { ...set, statusLabel: 'finished' }
+  const removed = { ...set, id: DOCKER_SET, status: 'pruned', statusLabel: 'removed' }
+  const body = { keep: 7, where: '/b', backups: [kept, removed, { ...removed, id: CLOUD_SET }] }
+  client.setQueryData(getKey('/backups'), body)
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body))))
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><BackupsView /></MemoryRouter></QueryClientProvider>) })
+    const all = [...el.querySelectorAll('section')].find(s => s.querySelector('h2')?.textContent?.startsWith('All backups'))!
+    expect(all.querySelector('.section-count')?.textContent).toBe('1')
+    expect(all.textContent).toContain('2 removed by the keep policy')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

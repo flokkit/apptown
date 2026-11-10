@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -320,7 +321,8 @@ func TestOpenReleaseStatusIsItsRecordedStage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if first.Word != progressLabelDeploying || first.Reason != fmt.Sprintf("release %d %s", rel.Number, stage) || first.ServingRelease != fmt.Sprintf("Serving release %d", rel.Number) || first.ServingReleaseNumber != rel.Number || first.Stale || !first.CheckedAt.IsZero() {
+		// The release on its way is not the one served.
+		if first.Word != progressLabelDeploying || first.Reason != fmt.Sprintf("release %d %s", rel.Number, stage) || strings.Contains(first.ServingRelease, fmt.Sprint(rel.Number)) || first.ServingReleaseNumber == rel.Number || first.Stale || !first.CheckedAt.IsZero() {
 			t.Fatalf("stage: %+v", first)
 		}
 		w.advance(time.Hour)
@@ -335,5 +337,139 @@ func TestOpenReleaseStatusIsItsRecordedStage(t *testing.T) {
 	failed, err := w.s.Status(t.Context(), w.main.ID)
 	if err != nil || failed.Word != progressLabelFailed || strings.Count(failed.Reason, "readiness check failed") != 1 {
 		t.Fatalf("attempt failure: %+v %v", failed, err)
+	}
+}
+
+// A deploy names the release the deployment serves, never the one still on
+// its way; with nothing applied there is no serving release to name.
+func TestReleasingAnswerNamesTheServedRelease(t *testing.T) {
+	t.Parallel()
+	at := time.Now().UTC()
+	dep := Deployment{Container: "web", ObservedGeneration: 16}
+	running := RuntimeObservation{State: RuntimeRunning, ObservedAt: at, AttemptedAt: at}
+	a := deploymentAnswer(&dep, running, Diagnostics{}, &releaseProgress{Number: 19, Stage: "building"}, &Release{Number: 18, Generation: 16})
+	if a.Word != progressLabelDeploying || a.Reason != "release 19 building" || a.ServingRelease != "Running release 18" || a.ServingReleaseNumber != 18 {
+		t.Fatalf("redeploy: %+v", a)
+	}
+	absent := RuntimeObservation{State: RuntimeStopped, ObservedAt: at, AttemptedAt: at}
+	a = deploymentAnswer(&Deployment{}, absent, Diagnostics{}, &releaseProgress{Number: 1, Stage: "building"}, nil)
+	if a.ServingRelease != "No serving release recorded" || a.ServingReleaseNumber != 0 {
+		t.Fatalf("first deploy: %+v", a)
+	}
+}
+
+// A failed first deploy stays failed after the next runtime reading: an
+// absent runtime is all there is, and nothing older runs in its place.
+func TestFailedFirstDeployStaysFailedAfterAReading(t *testing.T) {
+	t.Parallel()
+	w := newDiagnosticsWorld(t)
+	first := w.deployment(t, w.s, "first", w.remote)
+	rel, err := w.s.Releases.Start(t.Context(), ReleaseDraft{Source: ReleaseFromBundle, ProjectID: w.project, DeploymentID: first.ID, Deployment: first.Name, Revision: "selected-revision", Actor: "sam"}, "starting")
+	if err != nil {
+		t.Fatal(err)
+	}
+	attempt, _, err := w.s.Outcomes.Admit(t.Context(), Start{DeploymentID: first.ID, TargetID: first.TargetID, Key: "first-release", Inputs: Inputs{ReleaseID: rel.ID, Revision: "selected-revision"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.s.Outcomes.Fail(t.Context(), attempt, deploy.Terminal(errors.New("the app container exited during startup"))); err != nil {
+		t.Fatal(err)
+	}
+	w.advance(time.Minute)
+	if err := w.s.ObserveRuntime(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := w.s.Status(t.Context(), first.ID)
+	if err != nil || got.Word != progressLabelFailed || !strings.Contains(got.Reason, "exited during startup") || got.ServingReleaseNumber != 0 {
+		t.Fatalf("failed first deploy after a reading: %+v %v", got, err)
+	}
+}
+
+// While a release is on its way the listing refuses a second deploy and the
+// runtime actions with admission's own reason; once it ends they are offered.
+func TestListingRefusesControlsWhileAReleaseIsInFlight(t *testing.T) {
+	t.Parallel()
+	w := newDiagnosticsWorld(t)
+	controls := func() map[string]string {
+		t.Helper()
+		w.s.authority = &listingWorld{projects: []ids.ID{w.project}}
+		rows, err := w.s.List(t.Context(), w.project)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range rows {
+			if row.ID == w.main.ID {
+				return row.RuntimeControls
+			}
+		}
+		t.Fatal("main is not listed")
+		return nil
+	}
+	if got := controls(); got["deploy"] != "" || got["stop"] != "" {
+		t.Fatalf("idle controls: %v", got)
+	}
+	rel, err := w.s.Releases.Start(t.Context(), ReleaseDraft{Source: ReleaseFromBundle, ProjectID: w.project, DeploymentID: w.main.ID, Deployment: w.main.Name, Revision: "selected-revision", Actor: "sam"}, "starting")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := controls()
+	for _, action := range []string{"deploy", "start", "stop", "restart"} {
+		if got[action] != errReleaseInFlight.Error() {
+			t.Fatalf("%s while release %d is in flight: %v", action, rel.Number, got)
+		}
+	}
+	attempt, _, err := w.s.Outcomes.Admit(t.Context(), Start{DeploymentID: w.main.ID, TargetID: w.main.TargetID, Key: "controls-release", Inputs: Inputs{ReleaseID: rel.ID, Revision: "selected-revision"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.s.Outcomes.Fail(t.Context(), attempt, deploy.Terminal(errors.New("readiness check failed"))); err != nil {
+		t.Fatal(err)
+	}
+	if got := controls(); got["deploy"] != "" {
+		t.Fatalf("after the release ended: %v", got)
+	}
+}
+
+// An older release on a deployment is replaced by the later one released
+// there; the newest is replaced by nothing.
+func TestAnOlderReleaseNamesTheReleaseThatReplacedIt(t *testing.T) {
+	t.Parallel()
+	w := newDigestWorld(t, "", nil)
+	b := w.publish(t)
+	first, err := w.promote(t, b.ID, "production", w.lab2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := w.promote(t, b.ID, "production", w.lab2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err = w.s.Releases.ByID(t.Context(), first.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if by, err := w.s.Releases.ReplacedBy(t.Context(), first); err != nil || by != second.Number {
+		t.Fatalf("release %d replaced by %d (%v), want %d", first.Number, by, err, second.Number)
+	}
+	if by, err := w.s.Releases.ReplacedBy(t.Context(), second); err != nil || by != 0 {
+		t.Fatalf("newest release replaced by %d (%v)", by, err)
+	}
+}
+
+// The built-in host records no provider, yet is shown under the stock
+// Docker deploy connector, which the seeds define as a deploy connector; a
+// remote target is shown under its provider.
+func TestTheBuiltInHostIsShownUnderASeededDeployConnector(t *testing.T) {
+	t.Parallel()
+	builtIn := &Target{Origin: OriginBuiltIn, Kind: KindDockerHost}
+	found := false
+	for _, s := range integration.Seeds(integration.SeedConfig{}) {
+		found = found || s.Name == builtIn.Connector() && s.Capability == integration.CapDeploy
+	}
+	if !found {
+		t.Fatalf("the built-in host's connector %q is not a seeded deploy connector", builtIn.Connector())
+	}
+	if got := (&Target{Provider: "portainer-deploy"}).Connector(); got != "portainer-deploy" {
+		t.Fatalf("remote target's connector: %q", got)
 	}
 }

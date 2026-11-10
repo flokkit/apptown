@@ -2,6 +2,7 @@ package conformance
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -9,7 +10,7 @@ func TestWhatIfLabelsKeepComparisonsAndUnknownDistinct(t *testing.T) {
 	for _, tc := range []struct {
 		outcome string
 		want    CheckLabel
-	}{{WhatIfNewFailures, checkFailed}, {WhatIfNoNewFailures, checkPassed}, {whatIfCouldNotAssess, checkUnknown}, {whatIfNotEvaluated, checkUnknown}, {whatIfNotYetJudged, checkUnknown}} {
+	}{{WhatIfNewFailures, checkFailed}, {WhatIfNoNewFailures, checkPassed}, {whatIfCouldNotAssess, checkUnknown}, {whatIfNotEvaluated, checkUnknown}, {whatIfNotYetJudged, checkWaiting}} {
 		raw, err := json.Marshal(WhatIfProject{Outcome: tc.outcome})
 		if err != nil {
 			t.Fatal(err)
@@ -53,5 +54,25 @@ func TestUnchangedWhatIfRetainsTheKnownVerdict(t *testing.T) {
 		if got.StatusLabel != tc.want {
 			t.Fatalf("%s: %s", raw, got.StatusLabel)
 		}
+	}
+}
+
+// A queued what-if is waiting, and its explanation says so in the same terms,
+// never only its raw state ("queued").
+func TestAQueuedWhatIfExplainsItsWaitInItsOwnWords(t *testing.T) {
+	raw, err := json.Marshal(WhatIf{State: "queued"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		StatusLabel   WhatIfLabel
+		StatusHelp    string
+		OutcomeLabels map[string]CheckLabel
+	}
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.StatusLabel != labelWaiting || !strings.HasPrefix(got.StatusHelp, "Waiting") || got.OutcomeLabels[whatIfNotYetJudged] != checkWaiting {
+		t.Fatalf("queued what-if: %s", raw)
 	}
 }

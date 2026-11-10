@@ -63,7 +63,7 @@ export function BackupsView() {
       ]} />
       </>}
       </Section>
-      {data.backups.length > 0 && <Section title="All backups" count={data.backups.length}>
+      {data.backups.length > 0 && <Section title="All backups" count={data.backups.filter(b => b.statusLabel !== 'removed').length} note={removedNote(data.backups)}>
         <ListTable label="All backups" className="small" rows={data.backups.slice(0, shown)} rowKey={b => b.id ?? `${b.project}/${b.deployment}/${b.takenAt}`} rowId={b => `backup-${b.id}`} rowTo={opens} columns={[
           { key: 'project', label: 'Project', phone: 'name', render: b => b.project },
           { key: 'deployment', label: 'Deployment', wideOnly: true, className: 'record-words', render: b => b.deploymentLabel || b.deployment },
@@ -78,6 +78,13 @@ export function BackupsView() {
 
     </div>
   )
+}
+
+// The heading counts the copies kept; sets retention removed stay listed
+// for their record and are counted apart.
+function removedNote(backups: ProjectBackup[]) {
+  const removed = backups.filter(b => b.statusLabel === 'removed').length
+  return removed > 0 ? `${removed} removed by the keep policy` : undefined
 }
 
 // itemBadge is how an item was copied, as a fact: a database's own dump, a

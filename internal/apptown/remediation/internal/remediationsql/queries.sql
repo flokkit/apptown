@@ -261,3 +261,11 @@ ORDER BY a.id;
 -- The record people name by its number ("remediation 9").
 -- name: RemediationIDByNumber :one
 SELECT id FROM remediations WHERE number = $1;
+
+-- Queued items of a job that can still run them cover their findings before
+-- any change exists (Coverage); their job's number is what a person follows.
+-- name: QueuedItemCoverage :many
+SELECT i.project_id, i.block, i.version, i.check_name, m.id AS remediation_id, m.number
+FROM remediation_items i JOIN remediations m ON m.id = i.remediation_id
+WHERE i.project_id = ANY(sqlc.arg(projects)::uuid[]) AND i.state = 'queued' AND m.status IN ('running', 'paused')
+ORDER BY i.id;

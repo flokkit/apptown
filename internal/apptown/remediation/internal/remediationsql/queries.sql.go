@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/lib/pq"
 )
 
 const activeItemCounts = `-- name: ActiveItemCounts :one
@@ -789,6 +790,54 @@ func (q *Queries) ProjectActiveItems(ctx context.Context, projectID ids.ID) ([]P
 	for rows.Next() {
 		var i ProjectActiveItemsRow
 		if err := rows.Scan(&i.ID, &i.RemediationID, &i.Number); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const queuedItemCoverage = `-- name: QueuedItemCoverage :many
+SELECT i.project_id, i.block, i.version, i.check_name, m.id AS remediation_id, m.number
+FROM remediation_items i JOIN remediations m ON m.id = i.remediation_id
+WHERE i.project_id = ANY($1::uuid[]) AND i.state = 'queued' AND m.status IN ('running', 'paused')
+ORDER BY i.id
+`
+
+type QueuedItemCoverageRow struct {
+	ProjectID     ids.ID
+	Block         string
+	Version       int64
+	CheckName     string
+	RemediationID ids.ID
+	Number        int64
+}
+
+// Queued items of a job that can still run them cover their findings before
+// any change exists (Coverage); their job's number is what a person follows.
+func (q *Queries) QueuedItemCoverage(ctx context.Context, projects []ids.ID) ([]QueuedItemCoverageRow, error) {
+	rows, err := q.db.QueryContext(ctx, queuedItemCoverage, pq.Array(projects))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []QueuedItemCoverageRow
+	for rows.Next() {
+		var i QueuedItemCoverageRow
+		if err := rows.Scan(
+			&i.ProjectID,
+			&i.Block,
+			&i.Version,
+			&i.CheckName,
+			&i.RemediationID,
+			&i.Number,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

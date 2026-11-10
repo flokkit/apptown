@@ -115,10 +115,12 @@ export function homeStatusParts({ needsYou, running, deployments, operations }: 
   const parts: HomeStatusPart[] = []
   if (needsYou === null || needsYou > 0) parts.push({ label: 'Waiting on you', value: needsYou ?? "couldn't read", to: '#waiting-on-you' })
   if (running > 0) parts.push({ label: 'Other work', value: running, to: '#other-work' })
-  // Deployment owns the project roll-up; Home only counts its answers.
+  // An app is live while a standing deployment of it is observed running,
+  // whatever its other deployments are doing (the roll-up names the most
+  // urgent one). Deployment owns both answers; Home only counts them.
   const live = new Set<string>(), unknown = new Set<string>()
   for (const d of deployments) {
-    if (d.kind === 'standing' && d.projectStatus.word === 'working') live.add(d.project)
+    if (d.kind === 'standing' && d.running === true) live.add(d.project)
   }
   for (const d of deployments) {
     if (d.kind === 'standing' && d.projectStatus.word === 'unknown') unknown.add(d.project)

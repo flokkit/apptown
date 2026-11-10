@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/remediation/internal/remediationsql"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/dbtest"
@@ -336,7 +337,7 @@ func TestRemediationAttemptProjectAndJobLimits(t *testing.T) {
 			f, store, item, def := attemptFixture(t, false)
 			var other Item
 			if scope == "project" {
-				other = f.job(t, 0, item.ProjectID)[0]
+				other = f.jobOn(t, 0, "tidy", item.ProjectID)[0]
 			} else {
 				// Creation freezes the entire scope; adding an item to a running job is
 				// not a supported operation. Retire the unused single-project job first.
@@ -476,5 +477,45 @@ func TestAnOutcomeIsRecordedThoughTheWorkerStopped(t *testing.T) {
 	cancel()
 	if current, err := NewOutcomes(f.db, nil).Record(stopped, item, Outcome{Kind: "stuck", Reason: "failed"}); err != nil || current == nil || current.State != ItemStuck {
 		t.Fatalf("outcome recorded by a stopped worker: %+v %v", current, err)
+	}
+}
+
+// A queued item covers its finding before it has a change: a second
+// remediation of the same finding is refused. The item's own first attempt
+// still makes its change, because a change's admission checks only open
+// changes, never the item's own reservation.
+func TestAQueuedItemCoversItsFindingAndStillStarts(t *testing.T) {
+	t.Parallel()
+	f, store, item, def := attemptFixture(t, false)
+	covered, err := CoverageIn(context.Background(), f.db, []ids.ID{item.ProjectID})
+	if err != nil || len(covered) != 1 || !covered[0].ChangeID.IsZero() || covered[0].RemediationID != item.RemediationID || covered[0].Check != "clean" {
+		t.Fatalf("queued coverage: %+v %v", covered, err)
+	}
+	checks := conformance.New(f.db, reconcileActor{}, attemptChecks{}, nil, nil)
+	e, err := checks.BeginReview(f.ctx, conformance.ReviewRequest{Trigger: "manual", Projects: []ids.ID{item.ProjectID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pending, err := e.PrepareVerdict(f.ctx, conformance.Assessment{ProjectID: item.ProjectID, Check: conformance.CheckIdentity{Block: "hygiene", Version: 1, Check: "clean"}, State: conformance.DoesNotConform, Detail: "tests failed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	verdict, err := pending.Commit(f.ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Finish(f.ctx, conformance.Completion{Projects: 1, ProjectsDone: 1}, conformance.ReviewDone); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := NewCreations(f.db, f.now).Create(f.ctx, CreationRequest{Scope: "fleet", Actor: "alice", Findings: []conformance.Observation{conformance.Recorded(verdict, nil)}}); fault.KindOf(err) != fault.Conflict || !strings.Contains(err.Error(), "queued in remediation") {
+		t.Fatalf("second remediation of a queued finding: %v", err)
+	}
+	run, err := store.Start(context.Background(), item, def, "worker")
+	if err != nil || run == nil {
+		t.Fatalf("the queued item's own first attempt: %+v %v", run, err)
+	}
+	started := f.item(t, item.ID)
+	if started.ChangeID.IsZero() || started.RunID.IsZero() || started.State != ItemWorking {
+		t.Fatalf("started item has no change and run: %+v", started)
 	}
 }

@@ -3,8 +3,9 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { newQueryClient } from '../data'
-import { TokensCard } from './AccountAccess'
+import { AgentsCard, TokensCard } from './AccountAccess'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 afterEach(() => vi.unstubAllGlobals())
@@ -50,5 +51,42 @@ it.each([false, true])('refreshes Account inventory after writes (existing token
     expect(el.textContent).toContain('No access tokens yet.')
     expect(el.querySelector('.section-count')?.textContent).toBe('0')
     expect(writes).toEqual(existing ? ['/api/v1/account/tokens/laptop'] : ['/api/v1/account/tokens', '/api/v1/account/tokens/laptop'])
+  } finally { act(() => root.unmount()); client.clear() }
+})
+
+// The count heads the tokens listed: revoked tokens, which the server also
+// returns for the record, are not among them.
+it('counts the live tokens it lists, not revoked ones', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ tokens: [
+    { Name: 'laptop', User: 'kim', Purpose: 'cli' },
+    { Name: 'old-laptop', User: 'kim', Purpose: 'cli', RevokedAt: '2026-11-01T00:00:00Z' },
+  ] }))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><TokensCard /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.textContent).toContain('laptop'))
+    expect(el.querySelector('.section-count')?.textContent).toBe('1')
+  } finally { act(() => root.unmount()); client.clear() }
+})
+
+// Two connections of one agent by one person (a reconnect) differ by when
+// they were made: the phone row shows that, and the disconnect question
+// names it, so the right one ends.
+it('tells two connections of the same agent apart, on a phone and when disconnecting', async () => {
+  const base = { clientName: 'ChatGPT', user: 'sam', scopes: ['apptown:user:read'], lastUsed: '' }
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ delegations: [
+    { ...base, id: 'one', createdAt: '2026-11-09T09:40:00Z' },
+    { ...base, id: 'two', createdAt: '2026-11-09T09:41:00Z' },
+  ] }))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><AgentsCard canEdit /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelectorAll('tbody tr')).toHaveLength(2))
+    // What a phone shows: the row without the desktop-only parts.
+    const phoneText = (row: Element) => { const copy = row.cloneNode(true) as Element; copy.querySelectorAll('.record-wide').forEach(n => n.remove()); return copy.textContent }
+    const [a, b] = [...el.querySelectorAll('tbody tr')]
+    expect(phoneText(a)).not.toBe(phoneText(b))
+    await act(async () => { [...a.querySelectorAll('button')].find(x => x.textContent === 'disconnect')!.click() })
+    expect(document.body.textContent).toMatch(/Disconnect ChatGPT \(as sam, connected [^)]+\)/)
   } finally { act(() => root.unmount()); client.clear() }
 })

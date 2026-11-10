@@ -53,7 +53,10 @@ than inferring them from their text.
   Crash-loop receipts are selected for the exact deployment and observed
   generation before limiting the ledger query. A fresh running observation
   supersedes an old hold. An absent runtime without recorded stop intent is
-  reported as uncertain intent, not proof of an unintentional outage.
+  reported as uncertain intent, not proof of an unintentional outage; the
+  absence itself is a known, current reading, so the source stays known. A
+  deployment with nothing applied yet raises no runtime condition and does not
+  make its source unknown.
 - Data protection supplies copy cadence and disposable-data classification.
   Required production copies can be missing, stale or unassessed. Untested
   recovery is advisory; recorded failed and interrupted/unknown recovery results
@@ -96,6 +99,9 @@ deployment coverage because they cannot read the instance host item.
 
 The page groups named links under Hosts and deployments, Backups, Integrations
 and App checks. Unknown coverage names its resource, reason and next step.
+Each source carries how many of its items are confirmed and how many are not
+known. All checks shows a source with confirmed items as “N to fix”, linked to
+its group, and one with unknown items as unknown; neither is listed as working.
 
 ## Observation lifecycle
 
@@ -124,7 +130,8 @@ size expires after seven days. Unknown remains distinct from an old known value
 and from a successful empty answer. Pending first checks contribute unknown
 coverage without an Attention item. Backup coverage names deployments by their
 public display name, or their name when no display name is set. A first check
-says backups have not been checked yet. Failed attempts retain their safe reason
+says backups have not been checked yet; a source waiting for its first check has
+no reading time and names the deployment it waits for. Failed attempts retain their safe reason
 and last attempt time; the page distinguishes that time from a successful
 reading. Each failed reading records its own cause and next step; the
 background schedule is named only where trying again can help.

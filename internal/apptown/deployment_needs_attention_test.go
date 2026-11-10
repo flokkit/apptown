@@ -433,7 +433,8 @@ func TestOfflineHostKeepsLastGoodTimeInCapacityAndAttention(t *testing.T) {
 			t.Fatalf("offline Attention: %+v %v", got, err)
 		}
 		item := got.Items[0]
-		if !item.ObservedAt.Equal(good.Disk.ReadAt) || !strings.Contains(item.Detail, "The host disk check failed.") || !item.Stale {
+		// The cause is the host not answering, not its disk.
+		if !item.ObservedAt.Equal(good.Disk.ReadAt) || !strings.Contains(item.Detail, page.Error) || strings.Contains(item.Detail, "disk check failed") || !item.Stale {
 			t.Errorf("Attention lost failure or successful time: %+v", item)
 		}
 		if item.Unknown != (step == 6*time.Hour) {

@@ -71,10 +71,15 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 		if d.LastApplied != nil && r.ObservedAt.Before(d.LastApplied.At) && now.Sub(d.LastApplied.At) < runtimeGrace {
 			late = true
 		}
-		out.Known = out.Known && (!unknown || late || down)
-		out.Stale = out.Stale || (r.Stale && !late)
-		if r.ObservedAt.IsZero() || r.ObservedAt.Before(out.ObservedAt) {
-			out.ObservedAt = r.ObservedAt
+		// A deployment with nothing applied has no runtime to read; its
+		// readings (often a refusal while its first deploy runs) say nothing.
+		applied := d.ObservedGeneration > 0 || d.LastApplied != nil
+		if applied {
+			out.Known = out.Known && (!unknown || late || down)
+			out.Stale = out.Stale || (r.Stale && !late)
+			if r.ObservedAt.IsZero() || r.ObservedAt.Before(out.ObservedAt) {
+				out.ObservedAt = r.ObservedAt
+			}
 		}
 		label := d.DisplayLabel
 		if label == "" {
@@ -118,10 +123,14 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 		pending := d.LastApplied == nil && r.AttemptedAt.IsZero() && r.ObservedAt.IsZero() && r.Err == nil
 		switch {
 		case d.RuntimeState == "stopped": // The owner has recorded an intentional stop.
+		case !applied:
+			// Nothing has been applied here yet: there is no runtime to know or
+			// miss. Its release conditions above still apply.
 		case (unknown || r.Stale) && !pending && !late && !down:
 			add("runtime", "App status not known", "The latest runtime observation is unavailable or out of date.", SeverityWarning, r.ObservedAt, true)
 		case r.State == deployment.RuntimeStopped && !held && !(down && (unknown || r.Stale)):
-			out.Known = false
+			// The absence is observed; only its intent is unknown, which the
+			// advisory says. The reading itself stays known and current.
 			add("runtime", "Stopped; check whether it should be running", "The runtime is absent. This observation does not establish whether it was stopped intentionally.", severityAdvisory, r.ObservedAt, r.Stale)
 		case r.Health == "unhealthy" || r.Rollout == "failed":
 			add("runtime", "Deployment runtime needs attention", "The observed serving generation is unhealthy or its provider rollout failed.", SeverityWarning, r.ObservedAt, r.Stale)

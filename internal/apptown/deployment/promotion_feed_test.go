@@ -149,7 +149,7 @@ func TestPromotionRefusesEmptySource(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, summary := range summaries {
-		if summary.ID == dep.ID && summary.PromotionBlocked != errPromotionEmpty.Error() {
+		if summary.ID == dep.ID && summary.RuntimeControls["deploy"] != errPromotionEmpty.Error() {
 			t.Fatalf("disabled reason: %+v", summary)
 		}
 	}

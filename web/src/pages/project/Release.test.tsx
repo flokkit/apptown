@@ -200,3 +200,19 @@ it('says a rollback deploys the earlier release again', async () => {
     expect(view.el.querySelector('a[href="/projects/shop/releases/2"]')).not.toBeNull()
   } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+// An old release a later one replaced is not shown with the same green
+// "deployed" as the release running now.
+it('marks a release a later one replaced, naming it', async () => {
+  const client = newQueryClient()
+  const body = { release: { id: B14, number: 1, state: 'released', deployment: 'main', createdAt: '2026-11-05T00:00:00Z' }, statusLabel: 'deployed', isLive: false, replacedBy: 16, changes: [], events: [] }
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body))))
+  const view = render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="1" /></MemoryRouter></QueryClientProvider>)
+  try {
+    await vi.waitFor(() => expect(view.el.textContent).toContain('Release #1'))
+    const chip = view.el.querySelector('.release-summary .chip')!
+    expect(chip.textContent).toContain('replaced')
+    expect(chip.classList.contains('pass')).toBe(false)
+    expect(chip.getAttribute('data-help')).toBe('Release 16 replaced it on this deployment.')
+  } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

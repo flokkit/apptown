@@ -19,8 +19,10 @@ it('summarizes successful checks in one plain line', () => {
 })
 it.each(['fail', 'running', 'pending', 'skipped', 'needs_human', 'error'])('shows problems and omits non-applicability (%s)', status => {
   const el = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[step(status, { evidence: { reason: 'The build needs work.' } }), step('not_applicable', { evidence: { reason: 'No dependencies.' } }), step('pass')]} />))
-  if (['running', 'pending'].includes(status)) {
+  if (status === 'running') {
     expect(el.textContent).toBe('Still running: Build app')
+  } else if (status === 'pending') {
+    expect(el.textContent).toBe('Not started: Build app')
   } else {
     expect(el.querySelector('.ch-check-exception')?.textContent).toBe(`Build app ${status === 'skipped' ? 'not run' : 'failed'}: The build needs work.`)
   }
@@ -114,4 +116,21 @@ it('keeps unfinished execution unknown after the owner says its run stopped', ()
  expect(el.textContent).toContain('Build app stopped')
  expect(el.textContent).not.toContain('Still running')
  expect(el.textContent).not.toContain('All checks passed')
+})
+
+// A step that has not started is "not started", never "still running"; after
+// a failure the steps behind it never start, so they are not listed at all.
+it('separates running from not started, and drops not started after a failure', () => {
+  const layout = step('running', { id: 'layout', name: 'Check layout' })
+  const standards = step('pending', { id: 'standards', name: 'Standards check' })
+  const progress = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[layout, standards]} />))
+  expect(progress.textContent).toContain('Still running: Check layout')
+  expect(progress.textContent).not.toContain('Still running: Check layout, Standards check')
+  expect(progress.textContent).toContain('Not started: Standards check')
+  const style = step('fail', { id: 'style', name: 'Style', evidence: { reason: 'Lines too long.' } })
+  const scan = step('pending', { id: 'scan', name: 'Dependency scan' })
+  const failed = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'bad', text: 'A check failed', started: true }} steps={[style, scan]} />))
+  expect(failed.textContent).not.toContain('Still running')
+  expect(failed.textContent).not.toContain('Dependency scan')
+  expect(failed.textContent).toContain('Style failed')
 })

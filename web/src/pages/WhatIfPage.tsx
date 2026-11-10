@@ -82,7 +82,7 @@ export default function WhatIfPage() {
 }
 
 function State({ w }: { w: WhatIf }) {
-  return <><Status word={w.statusLabel} help={w.detail || w.state} /> <span>{w.projectsDone} of {w.projectsTotal}</span></>
+  return <><Status word={w.statusLabel} help={w.statusHelp} /> <span>{w.projectsDone} of {w.projectsTotal}</span></>
 }
 
 function Decide({ w }: { w: WhatIf }) {

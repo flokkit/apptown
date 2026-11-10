@@ -39,7 +39,7 @@ func TestPromotionRefusesFreshStoppedSource(t *testing.T) {
 				if summary.ID == source.ID {
 					t.Logf("source runtime state: %v", summary.Observation.State)
 				}
-				if summary.ID == dep.ID && (!strings.Contains(summary.PromotionBlocked, "staging") || !strings.Contains(summary.PromotionBlocked, "stopped")) {
+				if summary.ID == dep.ID && (!strings.Contains(summary.RuntimeControls["deploy"], "staging") || !strings.Contains(summary.RuntimeControls["deploy"], "stopped")) {
 					t.Error("Promote remains enabled for a stopped source")
 				}
 			}
@@ -78,8 +78,8 @@ func TestPromotionWithUnknownOrStaleSourceRecordsLastSettledRelease(t *testing.T
 				t.Fatal(err)
 			}
 			for _, summary := range summaries {
-				if summary.ID == dep.ID && (summary.PromotionBlocked != "" || summary.PromotionRelease != sourceNumber) {
-					t.Fatalf("promotion blocked: %s", summary.PromotionBlocked)
+				if summary.ID == dep.ID && (summary.RuntimeControls["deploy"] != "" || summary.PromotionRelease != sourceNumber) {
+					t.Fatalf("promotion blocked: %s", summary.RuntimeControls["deploy"])
 				}
 			}
 			accepted, err := w.s.RequestRelease(t.Context(), DeploySelection{ProjectID: w.project, DeploymentName: dep.Name})

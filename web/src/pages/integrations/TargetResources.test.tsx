@@ -70,3 +70,17 @@ it('marks the current page in the target tab row, which the resource list carrie
   el.innerHTML = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/host/resources']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name/resources" element={<TargetResourcesPage />} /></Routes></QueryClientProvider></MemoryRouter>)
   expect(el.querySelector('nav[aria-label="Target pages"] a[aria-current="page"]')?.getAttribute('href')).toBe('/targets/host/resources')
 })
+
+// The deployment filter names a deployment as its rows do (its display
+// label), and keeps the name the address uses as the option's value.
+it('labels the deployment filter as the rows do, keeping the name as its value', () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/infrastructure'), { targets: [{ target: 'host', live: true, resources: [
+    { name: 'web', id: 'sha256:abc', kind: 'container', record: 'recorded', statusLabel: 'running', hosts: [{ project: 'club-newsletter', deployment: 'main', deploymentLabel: 'Production', generation: 3 }] },
+  ] }] })
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/host/resources?deployment=club-newsletter%2Fmain']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name/resources" element={<TargetResourcesPage />} /></Routes></QueryClientProvider></MemoryRouter>)
+  const option = [...el.querySelectorAll('option')].find(o => o.getAttribute('value') === 'club-newsletter/main')
+  expect(option?.textContent).toBe('club-newsletter/Production')
+  expect(el.querySelector('tbody')?.textContent).toContain('club-newsletter/Production')
+})

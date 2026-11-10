@@ -811,7 +811,7 @@ it.each(['pass', 'fail'] as const)('keeps an unheld %s landing in the fixed Rele
  const rows = [...el.querySelectorAll('.ch-change-card .ch-overview-line')]
  const row = rows.find(row => row.querySelector('.ch-row-label')?.textContent === 'Release')!
  expect(row).toBeDefined()
- expect(row.textContent).toContain(status === 'pass' ? 'Release 7 · live' : 'Deploy stopped: starting the app')
+ expect(row.textContent).toContain(status === 'pass' ? 'Release 7 · live' : 'Deploy failed: starting the app')
  expect(row.querySelector('a')?.getAttribute('href')).toBe('/projects/club/releases/7')
 })
 

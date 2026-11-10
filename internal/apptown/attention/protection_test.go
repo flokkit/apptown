@@ -55,7 +55,7 @@ func TestProtectionSourceDistinguishesMissingFailedAndUnknownRecovery(t *testing
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			evidence := &protectionEvidence{value: dataprotection.ProtectionSnapshot{ObservedAt: at, OffHost: true, Items: []dataprotection.ProtectionItemObservation{{Key: "data", Need: "database", Copy: dataprotection.CopyFresh}}, Rehearsed: tc.recorded, RehearsalPassed: tc.outcome == dataprotection.RehearsalPassed, RehearsalOutcome: tc.outcome, RehearsalAt: at, RestoreTested: tc.recorded, RestoreOutcome: tc.outcome, RestoreAt: at, AttemptedAt: at.Add(time.Minute)}}
-			source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, DataClass: "production", DisplayLabel: "Office"}}}, Observer: evidence, Now: func() time.Time { return at }}
+			source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, ObservedGeneration: 1, DataClass: "production", DisplayLabel: "Office"}}}, Observer: evidence, Now: func() time.Time { return at }}
 			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
 			if err != nil || got.Known != tc.known {
 				t.Fatalf("coverage %+v %v", got, err)
@@ -137,7 +137,7 @@ func TestProtectionFirstCheckAndStaleReading(t *testing.T) {
 		{"fresh", dataprotection.ProtectionSnapshot{ObservedAt: at}, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, DataClass: "production"}}}, Observer: &protectionEvidence{value: tc.reading}, Now: func() time.Time { return at.Add(time.Hour) }}
+			source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, ObservedGeneration: 1, DataClass: "production"}}}, Observer: &protectionEvidence{value: tc.reading}, Now: func() time.Time { return at.Add(time.Hour) }}
 			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
 			if err != nil || got.Known == tc.reading.Unknown || got.Stale != tc.reading.Stale || len(got.Items) != tc.wantItems {
 				t.Fatalf("protection coverage: %+v %v", got, err)
@@ -173,7 +173,7 @@ func TestProtectionCoverageWords(t *testing.T) {
 		{"retry", "Office", nil, "The background check will try again in five minutes.", dataprotection.ProtectionSnapshot{Unknown: true, AttemptedAt: at, Reason: "AppTown could not read what this deployment holds.", NextStep: "The background check will try again in five minutes."}, "Office: AppTown could not read what this deployment holds."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, Name: "internal-name", DisplayLabel: tc.label}}}, Observer: &protectionEvidence{value: tc.reading, err: tc.readErr}, Now: func() time.Time { return at }}
+			source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, ObservedGeneration: 1, Name: "internal-name", DisplayLabel: tc.label}}}, Observer: &protectionEvidence{value: tc.reading, err: tc.readErr}, Now: func() time.Time { return at }}
 			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
 			if err != nil || got.Reason != tc.want || got.AttemptedAt != tc.reading.AttemptedAt || got.NextStep != strings.Split(tc.want, ": ")[0]+": "+tc.nextStep {
 				t.Fatalf("coverage: %+v %v", got, err)
@@ -198,8 +198,8 @@ func TestProtectionNextStepNamesOnlyDeploymentsWithAProblem(t *testing.T) {
 	source := Protection{
 		Projects: protectionProject{},
 		Deployments: protectionDeployments{[]*deployment.Deployment{
-			{ID: healthy, Kind: deployment.Standing, Name: "main", DisplayLabel: "Shop"},
-			{ID: failing, Kind: deployment.Standing, Name: "office", DisplayLabel: "Office"},
+			{ID: healthy, Kind: deployment.Standing, ObservedGeneration: 1, Name: "main", DisplayLabel: "Shop"},
+			{ID: failing, Kind: deployment.Standing, ObservedGeneration: 1, Name: "office", DisplayLabel: "Office"},
 		}},
 		Observer: byDeployment{
 			healthy: {ObservedAt: at, AttemptedAt: at},
@@ -219,15 +219,31 @@ func TestProtectionNextStepNamesOnlyDeploymentsWithAProblem(t *testing.T) {
 func TestWaitingProtectionDoesNotReportOldEvidenceAsAttention(t *testing.T) {
 	t.Parallel()
 	evidence := &protectionEvidence{value: dataprotection.ProtectionSnapshot{Waiting: true, Unknown: true, Stale: true, AttemptedAt: time.Now(), Items: []dataprotection.ProtectionItemObservation{{Copy: dataprotection.CopyNone}}}}
-	source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, DataClass: "production"}}}, Observer: evidence}
+	source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Name: "office", Kind: deployment.Standing, ObservedGeneration: 1, DataClass: "production"}}}, Observer: evidence}
 	got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
 	if err != nil || len(got.Items) != 0 || got.Known {
 		t.Fatalf("waiting reading reported a problem: %+v %v", got, err)
+	}
+	// Nothing was read: the source has no reading time, and says what it waits for.
+	if !got.ObservedAt.IsZero() || got.Reason != "office: waiting for the first backup check." {
+		t.Fatalf("waiting reading dated or unexplained: %+v", got)
 	}
 	evidence.value.Waiting = false
 	evidence.value.Reason = "AppTown could not read this deployment's release contract."
 	got, err = source.ProjectSnapshot(t.Context(), idstest.N(2))
 	if err != nil || len(got.Items) == 0 {
 		t.Fatalf("failed assessment suppressed: %+v %v", got, err)
+	}
+}
+
+// A deployment not released yet holds no data: it is not waited on, so a
+// released sibling's conditions stay current, not unknown or old.
+func TestADeploymentNotReleasedYetLeavesBackupCoverageKnown(t *testing.T) {
+	t.Parallel()
+	evidence := &protectionEvidence{value: dataprotection.ProtectionSnapshot{Waiting: true, Unknown: true, Stale: true}}
+	source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Name: "staging", Kind: deployment.Standing, DataClass: "production"}}}, Observer: evidence}
+	got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+	if err != nil || !got.Known || len(got.Items) != 0 || got.Reason != "" {
+		t.Fatalf("a deployment not released yet was waited on: %+v %v", got, err)
 	}
 }

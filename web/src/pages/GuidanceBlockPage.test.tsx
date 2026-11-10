@@ -23,3 +23,17 @@ it('gives an invalid name link a readable error and a route back to the ID-based
     expect(el.textContent).toContain('Choose it from the library')
   } finally { await act(async () => root.unmount()); client.clear() }
 })
+
+// A block that does not exist is not found, not "unknown": the shared read
+// status says so from the response's status, not its words.
+it('says a missing guidance block is not found, without an unknown chip', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'no such guidance block' }), { status: 404 })))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/guidance/00000000-0009-7000-8000-000000000000']}><Routes><Route path="/guidance/:id" element={<GuidanceBlockPage />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await settled(client)
+    expect(el.textContent).toContain('Not found: the guidance block.')
+    expect(el.querySelector('.chip')).toBeNull()
+    expect(el.textContent).not.toContain('unknown')
+  } finally { await act(async () => root.unmount()); client.clear() }
+})

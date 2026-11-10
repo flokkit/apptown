@@ -10,17 +10,19 @@ import { Status } from './Status'
 
 // Gated is the part of a read the gate looks at, so a page can gate on any
 // read whatever its answer's type.
-export type Gated = Pick<Read<unknown>, 'data' | 'err' | 'reason' | 'loading' | 'denied' | 'refreshFailed' | 'answeredAt'>
+export type Gated = Pick<Read<unknown>, 'data' | 'err' | 'reason' | 'loading' | 'denied' | 'refreshFailed' | 'answeredAt' | 'notFound'>
 
 
 // ReadStatus is what a read with no answer to show says: nothing while it
-// has no path, then refused, failed or still reading, in that order. A read
+// has no path, then refused, not found, failed or still reading, in that order. A read
 // that holds an answer says nothing here; StaleNote marks it when it may be
 // old.
 export function ReadStatus({ q, what, denied, className = '' }: { q: Gated | Gated[]; what: string; denied?: ReactNode; className?: string }) {
   const missing = (Array.isArray(q) ? q : [q]).filter((r) => r.data === null || r.data === undefined)
   if (missing.length === 0) return null
   if (missing.some((r) => r.denied)) return <div className={`muted ${className}`}>{denied ?? `Not available to you: ${what}.`}</div>
+  // A thing that does not exist is not unknown: say it is not there.
+  if (missing.some((r) => r.notFound)) return <div className={`muted ${className}`}>Not found: {what}.</div>
   const failed = missing.find((r) => r.err)
   if (failed) return <div className={`error ${className}`}><Status word="unknown" help={`${what.charAt(0).toUpperCase() + what.slice(1)} could not be read: ${failed.reason || failed.err}`} /></div>
   if (missing.some((r) => r.loading)) return <div className={`muted ${className}`}>Loading…</div>

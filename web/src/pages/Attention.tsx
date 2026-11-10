@@ -121,9 +121,13 @@ export default function AttentionPage({ checks = false }: { checks?: boolean }) 
         // Checks that are working are the bulk and say nothing new: they fold
         // into one line, open for anyone asking whether a thing is watched.
         // The rest (unknown, old, not checked yet) stay in view.
-        const working = (s: AttentionCoverage) => !s.unknown && !s.stale && !neverChecked(s.observedAt)
+        // A check that found problems, or could not assess some of what it
+        // covers, is not working: it says how many of each, as Attention does.
+        const working = (s: AttentionCoverage) => !s.unknown && !s.stale && !neverChecked(s.observedAt) && !s.conditions && !s.notKnown
+        const counts = (s: AttentionCoverage) => [s.conditions > 0 ? `${s.conditions} to fix` : '', s.notKnown > 0 ? `${s.notKnown} not known` : ''].filter(Boolean).join(' · ')
         const row = (source: AttentionCoverage) => <ListRow key={source.key} className="card row attention-row" state={
-          <span className="row-status"><Status word={source.unknown ? 'unknown' : neverChecked(source.observedAt) ? 'not checked yet' : 'fresh'} observation staleAt={source.stale && !source.unknown ? source.observedAt : undefined} /></span>} identity={<><span className="attention-what"><Link to={source.href}>{source.name}</Link></span>
+          <span className="row-status"><Status word={source.conditions > 0 ? 'failed' : source.unknown || source.notKnown > 0 ? 'unknown' : neverChecked(source.observedAt) ? 'not checked yet' : 'fresh'} observation old={source.stale && !source.unknown && source.conditions > 0} staleAt={source.stale && !source.unknown && !source.conditions ? source.observedAt : undefined} /></span>} identity={<><span className="attention-what"><Link to={source.href}>{source.name}</Link>
+          {counts(source) && <> · <Link to={`/attention#${attentionGroup(source.key)}`}>{counts(source)}</Link></>}</span>
           {(!source.stale || source.unknown) && (!neverChecked(source.observedAt) || !neverChecked(source.attemptedAt)) && <small className="muted attention-seen">{observed(source.observedAt, source.stale, source.attemptedAt)}</small>}
         </>} />
         const others = q.data!.sources.filter(s => !working(s))

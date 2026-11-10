@@ -20,9 +20,12 @@ const (
 	// checkNeedsReview: an AI judge flagged it and no person has confirmed it
 	// yet. Not a confirmed failure, and not missing evidence either.
 	checkNeedsReview
+	// checkWaiting: not judged yet, and on its way (a what-if's project it
+	// has not reached). Waiting is not unknown.
+	checkWaiting
 )
 
-var checkLabelCodec = enum.Set[CheckLabel]{Names: []string{"unknown", "passed", "failed", "excepted", "not applicable", "needs review"}, Invalid: "invalid-check-label", Err: errors.New("invalid check label"), ScanLabel: "value"}
+var checkLabelCodec = enum.Set[CheckLabel]{Names: []string{"unknown", "passed", "failed", "excepted", "not applicable", "needs review", "waiting"}, Invalid: "invalid-check-label", Err: errors.New("invalid check label"), ScanLabel: "value"}
 
 func (s CheckLabel) String() string                   { return checkLabelCodec.String(s) }
 func (s CheckLabel) Value() (driver.Value, error)     { return checkLabelCodec.Value(s) }

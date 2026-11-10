@@ -116,6 +116,9 @@
           "status": {
             "$ref": "#/components/schemas/ADRState"
           },
+          "statusHelp": {
+            "type": "string"
+          },
           "statusLabel": {
             "$ref": "#/components/schemas/ADRLabel"
           },
@@ -138,6 +141,7 @@
         },
         "required": [
           "statusLabel",
+          "statusHelp",
           "id",
           "projectId",
           "number",
@@ -915,7 +919,8 @@
           "unknown",
           "finished",
           "failed",
-          "stopped"
+          "stopped",
+          "removed"
         ],
         "type": "string"
       },
@@ -1805,6 +1810,9 @@
             "format": "date-time",
             "type": "string"
           },
+          "conditions": {
+            "type": "integer"
+          },
           "href": {
             "type": "string"
           },
@@ -1816,6 +1824,9 @@
           },
           "nextStep": {
             "type": "string"
+          },
+          "notKnown": {
+            "type": "integer"
           },
           "observedAt": {
             "format": "date-time",
@@ -1838,7 +1849,9 @@
           "name",
           "observedAt",
           "unknown",
-          "stale"
+          "stale",
+          "conditions",
+          "notKnown"
         ],
         "type": "object"
       },
@@ -2413,9 +2426,6 @@
               "null"
             ]
           },
-          "promotionBlocked": {
-            "type": "string"
-          },
           "promotionBundleId": {
             "format": "uuid",
             "type": [
@@ -2541,7 +2551,6 @@
           "promotionBundleId",
           "promotionRelease",
           "promotionSource",
-          "promotionBlocked",
           "approvalRole",
           "feedRevision",
           "feedConfirmed",
@@ -4808,6 +4817,9 @@
                 "type": "null"
               }
             ]
+          },
+          "replacedBy": {
+            "type": "integer"
           },
           "request": {
             "anyOf": [

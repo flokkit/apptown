@@ -137,7 +137,7 @@ func (h Targets) targetViews(ctx context.Context) ([]TargetView, error) {
 		if err != nil {
 			return nil, err
 		}
-		v := TargetView{Check: check, Target: *t, StatusLabel: t.Status.Display(), KindInfo: deployment.DescribeTarget(t), Offers: []deployment.Offer{}, Deployments: []TargetDeployment{}, Copies: dataprotection.CopiesOn(t)}
+		v := TargetView{Check: check, Target: *t, Connector: t.Connector(), StatusLabel: t.Status.Display(), KindInfo: deployment.DescribeTarget(t), Offers: []deployment.Offer{}, Deployments: []TargetDeployment{}, Copies: dataprotection.CopiesOn(t)}
 		if check.Unknown && t.Status != deployment.TargetRetired {
 			v.StatusLabel = deployment.UnknownTargetLabel()
 		}
@@ -232,6 +232,8 @@ type TargetView struct {
 	Check       deployment.TargetReading `json:"check"`
 	StatusLabel deployment.TargetLabel   `json:"statusLabel"`
 	deployment.Target
+	// Connector is the deploy connector the target is shown under.
+	Connector   string              `json:"connector"`
 	KindInfo    deployment.KindInfo `json:"kindInfo"`
 	Offers      []deployment.Offer  `json:"offers"`
 	Deployments []TargetDeployment  `json:"deployments"`

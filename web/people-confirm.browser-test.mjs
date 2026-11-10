@@ -43,7 +43,7 @@ try {
       assert.deepEqual(clipped, [], `Confirmation clipped at ${width}px`)
       const panel = page.locator('.popover')
       await panel.waitFor()
-      assert.match(await panel.innerText(), action === 'revoke' ? /Revoke token tom-laptop\? Anything using it stops working\./ : /Disconnect ChatGPT \(as sam\)\? It stops working at once; they can sign in again\./)
+      assert.match(await panel.innerText(), action === 'revoke' ? /Revoke token tom-laptop\? Anything using it stops working\./ : /Disconnect ChatGPT \(as sam, connected [^)]+\)\? It stops working at once; they can sign in again\./)
       assert.ok(await panel.evaluate(panel => [...panel.querySelectorAll('p, button')].every(el => {
         const box = el.getBoundingClientRect()
         return el.scrollWidth <= el.clientWidth + 1 && box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight

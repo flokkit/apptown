@@ -89,7 +89,7 @@ describe('the docs page', () => {
 
   // A failed first read says so; it is not shown as an empty list.
   it('says when the list cannot be read', async () => {
-    const { el, root } = await render(() => json({ error: 'AppTown unavailable' }, 404))
+    const { el, root } = await render(() => json({ error: 'AppTown unavailable' }, 400))
     await vi.waitFor(() => expect(details(el)).toContain('The documentation list could not be read'))
     expect(el.querySelector('nav')).toBeNull()
     act(() => root.unmount())

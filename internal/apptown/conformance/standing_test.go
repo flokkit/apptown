@@ -65,7 +65,9 @@ func TestReviewComparisonUsesProjectAndCheckIdentity(t *testing.T) {
 func TestPartialConformanceDoesNotCountExceptionsAsPassed(t *testing.T) {
 	t.Parallel()
 	_, sentence := standingFor(Lanes{Conforms: 12, Excepted: 2, Unassessed: 1}, 0, 15)
-	if sentence != "12 checks passed · 2 accepted exceptions · 1 not yet assessed" {
+	// The unassessed check may have been judged on an older commit: it has no
+	// current judgement, which "not yet assessed" would deny.
+	if sentence != "12 checks passed · 2 accepted exceptions · 1 with no current judgement" {
 		t.Fatal(sentence)
 	}
 }

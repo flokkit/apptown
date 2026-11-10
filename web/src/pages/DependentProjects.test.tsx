@@ -23,7 +23,7 @@ async function mount(path: string, routes: ReactNode, answers: Record<string, un
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     const path = url.replace('/api/v1', '')
     reads.push(path)
-    return new Response(JSON.stringify(answers[path] ?? {error:'not found'}), {status: path in answers ? 200 : 404})
+    return new Response(JSON.stringify(answers[path] ?? {error:'not found'}), {status: path in answers ? 200 : 400})
   }))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   cleanups.push(() => { act(() => root.unmount()); client.clear() })

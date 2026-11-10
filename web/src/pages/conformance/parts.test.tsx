@@ -32,7 +32,7 @@ it('keeps review deferrals out of not-known counts and uses the owner lane', () 
 
 it('counts only uncovered findings and links the change fixing them', () => {
   const finding = { projectId: 'project', block: 'hygiene', version: 1, check: 'clean', lane: 'findings' } as Verdict
-  const change = { projectId: 'project', block: 'hygiene', version: 1, check: 'clean', changeId: 'change', number: 12 }
+  const change = { projectId: 'project', block: 'hygiene', version: 1, check: 'clean', changeId: 'change', number: 12, remediationId: null, remediationNumber: 0 }
   const view = { openRemediations: [change] } as ConformanceView
   expect(fixableFindings(view, [finding, { ...finding, check: 'other' }])).toBe(1)
   const html = renderToStaticMarkup(<MemoryRouter><BeingFixed change={change} /></MemoryRouter>)
@@ -40,6 +40,14 @@ it('counts only uncovered findings and links the change fixing them', () => {
   expect(html).toContain('change #12')
   expect(html).toContain('href="/changes/change"')
   expect(fixableFindings({ ...view, openRemediations: [] }, [finding])).toBe(1)
+})
+
+it('links a queued remediation that covers a finding before its change exists', () => {
+  const queued = { projectId: 'project', block: 'hygiene', version: 1, check: 'clean', changeId: null, number: 0, remediationId: 'job', remediationNumber: 3 }
+  const html = renderToStaticMarkup(<MemoryRouter><BeingFixed change={queued} /></MemoryRouter>)
+  expect(html).toContain('queued in')
+  expect(html).toContain('href="/conformance/remediations/job"')
+  expect(html).not.toContain('change #0')
 })
 
 // The date and source belong to each check, even when landings update only some checks.

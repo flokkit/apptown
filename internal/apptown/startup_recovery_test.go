@@ -499,7 +499,8 @@ func TestStartupRepairSettlesAnUnfinishedWhatIfAsInterrupted(t *testing.T) {
 	}
 	runQueuedJobForTest(t, a, verification.WhatIfJob, fmt.Sprint(queued))
 	got, err = a.conformance.WhatIf(ctx, queued)
-	if err != nil || got.State != conformance.WhatIfInterrupted || len(got.Rows) != 0 || got.ProjectsTotal != 0 {
+	// It reached none of the project it was admitted with.
+	if err != nil || got.State != conformance.WhatIfInterrupted || len(got.Rows) != 0 || got.ProjectsTotal != 1 || got.ProjectsDone != 0 {
 		t.Fatalf("a what-if queued at startup: %+v %v", got, err)
 	}
 	if got, err := a.conformance.WhatIf(ctx, finishedID); err != nil || got.State != conformance.WhatIfDone {

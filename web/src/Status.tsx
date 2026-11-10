@@ -2,7 +2,7 @@ import { forwardRef, useLayoutEffect, useRef, useState, type ComponentPropsWitho
 import { DetailsPopover } from './Popover'
 import './styles/status-details.css'
 import { lastSeen } from './format'
-import type { DisplayStatus, RuntimeState, HealthStatus, CheckLabel, ReleaseLabel, UpdateLabel, CopyLabel, JobLabel, TargetLabel, DepartureLabel, ResourceLabel, ProgressLabel, ADRLabel, AttentionLabel } from './wire.gen'
+import type { DisplayStatus, RuntimeState, HealthStatus, CheckLabel, ReleaseLabel, UpdateLabel, CopyLabel, JobLabel, TargetLabel, DepartureLabel, ResourceLabel, ProgressLabel, ADRLabel, AttentionLabel, BackupLabel } from './wire.gen'
 
 
 // Recorded owner labels are inputs, never page-local chip wording.
@@ -16,7 +16,13 @@ export const STATUS_WORD = {
   incomplete: 'incomplete', 'nothing connected': 'nothing connected', 'needs review': 'needs review',
   // A change worked in a chat that has no run yet: nobody is blocked on it.
   'chat open': 'chat open',
-} as const satisfies Record<'chat open' | 'no automatic check' | 'in progress' | 'abandoned' | 'not checked yet' | 'low' | 'blocked' | 'incomplete' | 'nothing connected' | DisplayStatus | RuntimeState | HealthStatus | CheckLabel | ReleaseLabel | UpdateLabel | CopyLabel | JobLabel | TargetLabel | DepartureLabel | ResourceLabel | ProgressLabel | ADRLabel | AttentionLabel, string>
+  // An old backup that retention has pruned: its record is kept, its copy is gone.
+  removed: 'removed',
+  // A chat whose helper has answered: the person may write next. Nothing waits on them.
+  'your turn': 'your turn',
+  // A release a later release on its deployment replaced: it ran, and no longer does.
+  replaced: 'replaced',
+} as const satisfies Record<'replaced' | 'your turn' | 'chat open' | 'no automatic check' | 'in progress' | 'abandoned' | 'not checked yet' | 'low' | 'blocked' | 'incomplete' | 'nothing connected' | DisplayStatus | RuntimeState | HealthStatus | CheckLabel | ReleaseLabel | UpdateLabel | CopyLabel | JobLabel | TargetLabel | DepartureLabel | ResourceLabel | ProgressLabel | ADRLabel | AttentionLabel | BackupLabel, string>
 
 export const STATUS_LIGHT: Record<keyof typeof STATUS_WORD, string> = {
   'recovery not rehearsed': '', 'recovery not tested on its platform': '',
@@ -30,6 +36,9 @@ export const STATUS_LIGHT: Record<keyof typeof STATUS_WORD, string> = {
   incomplete: 'pending',
   'nothing connected': '',
   'chat open': '',
+  removed: '',
+  'your turn': '',
+  replaced: '',
   // An AI flag no person has confirmed: amber, like work waiting on someone.
   'needs review': 'pending',
 }

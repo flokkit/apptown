@@ -21,7 +21,7 @@ type RemediationCoverage struct {
 	Check     string `json:"check"`
 }
 
-func (c RemediationCoverage) Refusal() error {
+func (c RemediationCoverage) refusal() error {
 	return fault.New(fault.Conflict, fmt.Sprintf("This finding is being fixed in change #%d. Open that change to follow its progress.", c.Number))
 }
 

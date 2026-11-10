@@ -46,7 +46,10 @@ const rows: Row[] = [
     hides: ['showing the last answer read'],
     error: null },
   { name: 'shows a failed first read as an error, never as an empty answer',
-    first: () => reply(404, { error: 'no such list' }), error: '● unknown', failure: 'The names could not be read: no such list', mark: '● unknown', hides: ['No names yet'] },
+    first: () => reply(400, { error: 'no such list' }), error: '● unknown', failure: 'The names could not be read: no such list', mark: '● unknown', hides: ['No names yet'] },
+  // A thing that does not exist is not there: neither unknown nor an error.
+  { name: 'says a read of something that does not exist is not found',
+    first: () => reply(404, { error: 'no such list' }), text: 'Not found: the names.', error: null },
   { name: 'says reading while the first answer is on its way', first: never, text: 'Loading…' },
   { name: 'says a refused read is not available, which is not an error',
     first: () => reply(403, { error: 'forbidden' }), text: 'Not available to you: the names.', error: null },
@@ -124,7 +127,7 @@ describe('StaleScope', () => {
   it('says once that sections are out of date, and clears when they read again', async () => {
     let down = false
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (String(url).includes('/broken')) return new Response(JSON.stringify({ error: 'no such list' }), { status: 404 })
+      if (String(url).includes('/broken')) return new Response(JSON.stringify({ error: 'no such list' }), { status: 400 })
       if (down) return new Response(JSON.stringify({ error: 'AppTown is restarting' }), { status: 502 })
       return new Response(JSON.stringify(String(url).includes('/names') ? ['ada', 'grace'] : ['Wellington']), { status: 200 })
     }))

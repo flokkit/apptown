@@ -129,7 +129,8 @@ it('lists not-judged checks with their reason and says what could not run once',
   const el = await show(<ConformanceProject view={view} slug="calendar" readOnly onRunOne={() => {}} />, {}, false)
   const section = el.querySelector('section[aria-label="No current judgement"]')!
   expect(section.textContent).toContain('Judged on a standing deployment; there is none here')
-  expect(section.querySelector('.chip')).toBeNull()
+  // Its status is the owner's chip, as for every row in the section.
+  expect(section.querySelector('.chip')?.textContent).toContain('unknown')
   expect(el.textContent!.split('not known')).toHaveLength(2)
   expect(el.textContent).not.toContain("couldn't run")
 })

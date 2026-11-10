@@ -49,11 +49,11 @@ func TestHostDownFoldsUnknownsAndKeepsConfirmedConditions(t *testing.T) {
 	}
 	rows := []deployment.OperationalObservation{}
 	for i := 0; i < 50; i++ {
-		rows = append(rows, deployment.OperationalObservation{ID: idstest.N(uint64(100 + i)), TargetID: host, Name: "office", Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, AttemptedAt: at, Err: errors.New("offline")}})
+		rows = append(rows, deployment.OperationalObservation{ID: idstest.N(uint64(100 + i)), ObservedGeneration: 1, TargetID: host, Name: "office", Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, AttemptedAt: at, Err: errors.New("offline")}})
 	}
 	rows[0].Hold = &deployment.CrashLoopHold{Confirmed: true, At: at.Add(-time.Hour).Format(time.RFC3339Nano)}
 	rows[1].Readiness = deployment.ReadinessFailed
-	rows = append(rows, deployment.OperationalObservation{ID: idstest.N(500), TargetID: other, Name: "other", Runtime: rows[0].Runtime})
+	rows = append(rows, deployment.OperationalObservation{ID: idstest.N(500), ObservedGeneration: 1, TargetID: other, Name: "other", Runtime: rows[0].Runtime})
 	runtime := Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{rows}, Hosts: outages, Now: func() time.Time { return at }}
 	got, err = runtime.ProjectSnapshot(t.Context(), idstest.N(3))
 	if err != nil || len(got.Items) != 3 {
@@ -64,7 +64,7 @@ func TestHostDownFoldsUnknownsAndKeepsConfirmedConditions(t *testing.T) {
 			t.Fatalf("outage runtime leaked: %+v", item)
 		}
 	}
-	data := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(4), TargetID: host, Kind: deployment.Standing, DataClass: "production"}, {ID: idstest.N(5), TargetID: other, Kind: deployment.Standing, DataClass: "production"}}}, Observer: &protectionEvidence{value: dataprotection.ProtectionSnapshot{Unknown: true, AttemptedAt: at}}, Hosts: outages}
+	data := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(4), TargetID: host, Kind: deployment.Standing, ObservedGeneration: 1, DataClass: "production"}, {ID: idstest.N(5), TargetID: other, Kind: deployment.Standing, ObservedGeneration: 1, DataClass: "production"}}}, Observer: &protectionEvidence{value: dataprotection.ProtectionSnapshot{Unknown: true, AttemptedAt: at}}, Hosts: outages}
 	got, err = data.ProjectSnapshot(t.Context(), idstest.N(3))
 	if err != nil || len(got.Items) != 1 || !strings.HasPrefix(got.Items[0].Key, idstest.N(5).String()) {
 		t.Fatalf("backup items: %+v %v", got, err)
@@ -98,10 +98,10 @@ func TestHostDownHasOneAttentionRow(t *testing.T) {
 		snapshot, err := source.Snapshot(t.Context())
 		view.add([]string{"inventory", "capacity"}[i], "hosts", snapshot, err)
 	}
-	runtime := Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{{ID: idstest.N(2), TargetID: host, Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, AttemptedAt: at, Err: errors.New("offline")}}}}, Hosts: outages}
+	runtime := Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{{ID: idstest.N(2), ObservedGeneration: 1, TargetID: host, Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, AttemptedAt: at, Err: errors.New("offline")}}}}, Hosts: outages}
 	snapshot, err := runtime.ProjectSnapshot(t.Context(), idstest.N(3))
 	view.add("deployments/project", "deployments", snapshot, err)
-	data := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(2), TargetID: host, Kind: deployment.Standing, DataClass: "production"}}}, Observer: &protectionEvidence{value: dataprotection.ProtectionSnapshot{Unknown: true, AttemptedAt: at, Items: []dataprotection.ProtectionItemObservation{{Key: "data", Need: "database"}}}}, Hosts: outages}
+	data := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(2), TargetID: host, Kind: deployment.Standing, ObservedGeneration: 1, DataClass: "production"}}}, Observer: &protectionEvidence{value: dataprotection.ProtectionSnapshot{Unknown: true, AttemptedAt: at, Items: []dataprotection.ProtectionItemObservation{{Key: "data", Need: "database"}}}}, Hosts: outages}
 	snapshot, err = data.ProjectSnapshot(t.Context(), idstest.N(3))
 	view.add("protection/project", "backups", snapshot, err)
 	if len(view.Items) != 1 || view.Items[0].Unknown || len(view.Sources) != 0 || !strings.Contains(view.Items[0].Detail, "1 deployment can't be checked") {
@@ -157,15 +157,15 @@ func TestHostDownKeepsMixedSourceCoverage(t *testing.T) {
 			t.Parallel()
 			targets := capacityTargets{[]*deployment.Target{{ID: host, Kind: deployment.KindDockerHost}, {ID: other, Kind: deployment.KindDockerHost}}}
 			inv := &Inventory{Targets: targets, Records: &recordedInventory{}, Observer: &inventoryEvidence{InventoryReading{Unknown: !known, ObservedAt: at, AttemptedAt: at}}, Hosts: outages}
-			rows := []deployment.OperationalObservation{{ID: idstest.N(3), TargetID: host, Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, AttemptedAt: at}}}
-			deps := []*deployment.Deployment{{ID: idstest.N(3), TargetID: host, Kind: deployment.Standing}}
+			rows := []deployment.OperationalObservation{{ID: idstest.N(3), ObservedGeneration: 1, TargetID: host, Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, AttemptedAt: at}}}
+			deps := []*deployment.Deployment{{ID: idstest.N(3), TargetID: host, Kind: deployment.Standing, ObservedGeneration: 1}}
 			for i := 0; i < 5; i++ {
 				state := deployment.RuntimeRunning
 				if !known {
 					state = deployment.RuntimeUnknown
 				}
-				rows = append(rows, deployment.OperationalObservation{ID: idstest.N(uint64(10 + i)), TargetID: other, Runtime: deployment.RuntimeObservation{State: state, ObservedAt: at.Add(-10 * time.Minute)}})
-				deps = append(deps, &deployment.Deployment{ID: idstest.N(uint64(10 + i)), TargetID: other, Kind: deployment.Standing})
+				rows = append(rows, deployment.OperationalObservation{ID: idstest.N(uint64(10 + i)), ObservedGeneration: 1, TargetID: other, Runtime: deployment.RuntimeObservation{State: state, ObservedAt: at.Add(-10 * time.Minute)}})
+				deps = append(deps, &deployment.Deployment{ID: idstest.N(uint64(10 + i)), TargetID: other, Kind: deployment.Standing, ObservedGeneration: 1})
 			}
 			runtime := Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{rows}, Hosts: outages, Now: func() time.Time { return at }}
 			data := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{deps}, Observer: &protectionEvidence{value: dataprotection.ProtectionSnapshot{Unknown: !known, ObservedAt: at, AttemptedAt: at}}, Hosts: outages}
@@ -244,8 +244,8 @@ func TestHostLookupOncePerHostPerAttentionBuild(t *testing.T) {
 		if i > 0 {
 			target = other
 		}
-		rows = append(rows, deployment.OperationalObservation{ID: idstest.N(uint64(10 + i)), TargetID: target})
-		deps = append(deps, &deployment.Deployment{ID: idstest.N(uint64(10 + i)), TargetID: target, Kind: deployment.Standing})
+		rows = append(rows, deployment.OperationalObservation{ID: idstest.N(uint64(10 + i)), ObservedGeneration: 1, TargetID: target})
+		deps = append(deps, &deployment.Deployment{ID: idstest.N(uint64(10 + i)), TargetID: target, Kind: deployment.Standing, ObservedGeneration: 1})
 	}
 	svc := New(auth, Sources{
 		Inventory:   &Inventory{Targets: targets, Records: &recordedInventory{}, Observer: &inventoryEvidence{}, Hosts: hosts},

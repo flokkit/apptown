@@ -5,6 +5,7 @@ import "github.com/flokkit/apptown/internal/ids"
 // Record is a detached decision snapshot, not authority to edit it.
 type Record struct {
 	StatusLabel  ADRLabel `json:"statusLabel"`
+	StatusHelp   string   `json:"statusHelp"`
 	ID           ids.ID   `json:"id"`
 	ProjectID    ids.ID   `json:"projectId"`
 	ProjectSlug  string   `json:"projectSlug,omitempty"`

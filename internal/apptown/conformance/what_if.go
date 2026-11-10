@@ -304,6 +304,7 @@ type WhatIfRow struct {
 // WhatIf is one what-if with its rows.
 type WhatIf struct {
 	StatusLabel   WhatIfLabel           `json:"statusLabel"`
+	StatusHelp    string                `json:"statusHelp"`
 	OutcomeLabels map[string]CheckLabel `json:"outcomeLabels"`
 	ID            ids.ID                `json:"id"`
 	Pack          string                `json:"pack"`
@@ -393,7 +394,9 @@ func (s *Service) AdmitWhatIfIn(ctx context.Context, tx *database.Tx, in WhatIfR
 		}
 	}
 	// JSON keeps the difference between the whole estate (null) and no
-	// projects ([]).
+	// projects ([]). The total is the chosen projects from admission, so a
+	// queued what-if counts what it will run; its start sets the count of
+	// those it can read.
 	projects, err := json.Marshal(in.Projects)
 	if err != nil {
 		return ids.Nil, err
@@ -409,7 +412,7 @@ func (s *Service) AdmitWhatIfIn(ctx context.Context, tx *database.Tx, in WhatIfR
 	if err != nil {
 		return ids.Nil, err
 	}
-	r, err := queries(tx).InsertWhatIf(ctx, conformancesql.InsertWhatIfParams{ID: ids.New(s.records.now().UTC()), Pack: in.Pack, PackVersion: in.Version, RequestedBy: who, RequestedByPrincipal: requester.Principal, RequestedByVia: requester.Via, Rubrics: in.Rubrics, SpendLimitMicros: in.SpendLimitMicros, AdvanceWorkflows: in.AdvanceWorkflows, AlsoPacks: string(also), CreatedAt: s.records.now().UTC(), Projects: string(projects)})
+	r, err := queries(tx).InsertWhatIf(ctx, conformancesql.InsertWhatIfParams{ID: ids.New(s.records.now().UTC()), Pack: in.Pack, PackVersion: in.Version, RequestedBy: who, RequestedByPrincipal: requester.Principal, RequestedByVia: requester.Via, Rubrics: in.Rubrics, SpendLimitMicros: in.SpendLimitMicros, AdvanceWorkflows: in.AdvanceWorkflows, AlsoPacks: string(also), CreatedAt: s.records.now().UTC(), Projects: string(projects), ProjectsTotal: int64(len(in.Projects))})
 	if err != nil {
 		return ids.Nil, err
 	}

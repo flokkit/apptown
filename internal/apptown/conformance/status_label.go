@@ -32,6 +32,8 @@ func outcomeLabel(s string) CheckLabel {
 		return checkFailed
 	case WhatIfNoNewFailures:
 		return checkPassed
+	case whatIfNotYetJudged:
+		return checkWaiting
 	default:
 		return checkUnknown
 	}
@@ -64,6 +66,7 @@ func (w WhatIf) MarshalJSON() ([]byte, error) {
 	case "interrupted":
 		out.StatusLabel = labelStopped
 	}
+	out.StatusHelp = whatIfHelp(w)
 	out.OutcomeLabels = map[string]CheckLabel{}
 	for _, s := range []string{WhatIfNewFailures, whatIfCouldNotAssess, WhatIfNoNewFailures, whatIfNotEvaluated, whatIfNotYetJudged} {
 		out.OutcomeLabels[s] = outcomeLabel(s)
@@ -105,4 +108,26 @@ func (r WhatIfRow) MarshalJSON() ([]byte, error) {
 		out.StatusLabel = checkNotApplicable
 	}
 	return json.Marshal(out)
+}
+
+// whatIfHelp explains a what-if's word in its own terms; a failure or stop
+// adds the recorded reason.
+func whatIfHelp(w WhatIf) string {
+	help := "Its state could not be read."
+	switch w.State {
+	case "queued":
+		help = "Waiting its turn: what-ifs and reviews run one at a time."
+	case "running":
+		help = "Working: comparing each project with the new version."
+	case "done":
+		help = "Finished."
+	case "error":
+		help = "Failed."
+	case "interrupted":
+		help = "Stopped before it finished."
+	}
+	if w.Detail != "" {
+		help += " " + w.Detail
+	}
+	return help
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
+	"github.com/flokkit/apptown/internal/apptown/deployment/internal/releasesql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 )
@@ -112,7 +113,6 @@ type Summary struct {
 	PromotionBundleID ids.ID
 	PromotionRelease  int64
 	PromotionSource   string
-	PromotionBlocked  string
 	ApprovalRole      string
 	FeedRevision      int64
 	FeedConfirmed     bool
@@ -192,8 +192,17 @@ func (s *Service) List(ctx context.Context, projectID ids.ID) ([]Summary, error)
 				if !errors.Is(err, errPromotionEmpty) && !errors.Is(err, errPromotionSource) && !errors.Is(err, errPromotionStopped) {
 					return nil, err
 				}
-				r.summary.PromotionBlocked = err.Error()
+				refuseControl(r.summary.RuntimeControls, err.Error(), "deploy")
 			}
+		}
+		// Release admission and runtime control refuse while a release is on
+		// its way (Releases.Start, ControlRuntime); the controls say so first.
+		busy, err := releasesql.New(s.db.SQL()).ReleaseInFlight(ctx, releasesql.ReleaseInFlightParams{ProjectID: r.deployment.ProjectID, DeploymentID: r.deployment.ID, OpenState: Releasing.String()})
+		if err != nil {
+			return nil, err
+		}
+		if busy {
+			refuseControl(r.summary.RuntimeControls, errReleaseInFlight.Error(), "deploy", "start", "stop", "restart")
 		}
 		out[i] = r.summary
 	}

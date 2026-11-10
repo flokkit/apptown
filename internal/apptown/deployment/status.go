@@ -26,18 +26,26 @@ type DeploymentStatus struct {
 
 func (s *Service) displayObservation(ctx context.Context, r listingRecord) (RuntimeObservation, error) {
 	o := s.observations.read(r, s.now())
+	// The release a deployment serves is the one applied to its observed
+	// generation, also while a newer release is on its way.
+	applied, err := s.releaseForGeneration(ctx, r.deployment)
+	if err != nil {
+		return o, err
+	}
 	release, err := deploymentsql.New(s.db.SQL()).LatestDeploymentRelease(ctx, r.deployment.ID)
 	var releasing *releaseProgress
 	if found, err := database.Lookup(err); err != nil {
 		return o, err
-	} else if found && (release.State == "releasing" || release.State == "failed" && o.AttemptedAt.Before(release.StageFinishedAt.Time)) {
+	} else if found && (release.State == "releasing" || release.State == "failed" && (o.AttemptedAt.Before(release.StageFinishedAt.Time) || r.deployment.ObservedGeneration == 0)) {
+		// A failed release keeps the answer until runtime evidence can speak
+		// for an older release; with nothing ever applied there is none.
 		releasing = &releaseProgress{Number: release.Number, Stage: release.Stage}
 		if release.State == "failed" {
 			releasing.Failure = release.Failure
 		}
 	}
 	if releasing != nil {
-		o.Status = deploymentAnswer(r.deployment, o, Diagnostics{}, releasing, nil)
+		o.Status = deploymentAnswer(r.deployment, o, Diagnostics{}, releasing, applied)
 		return o, nil
 	}
 	var d Diagnostics
@@ -46,10 +54,6 @@ func (s *Service) displayObservation(ctx context.Context, r listingRecord) (Runt
 		if err != nil {
 			return o, err
 		}
-	}
-	applied, err := s.releaseForGeneration(ctx, r.deployment)
-	if err != nil {
-		return o, err
 	}
 	o.Status = deploymentAnswer(r.deployment, o, d, releasing, applied)
 	return o, nil
@@ -62,19 +66,19 @@ type releaseProgress struct {
 }
 
 func deploymentAnswer(dep *Deployment, o RuntimeObservation, d Diagnostics, releasing *releaseProgress, applied *Release) (a DeploymentStatus) {
-	// An open release owns the answer. Runtime evidence cannot change its stage.
+	// An open release owns the word and reason. Runtime evidence cannot
+	// change its stage, and the release being deployed is not yet served:
+	// what is served is still the applied release, said as for any reading.
 	if releasing != nil {
-		a = DeploymentStatus{Word: progressLabelDeploying, Reason: fmt.Sprintf("release %d %s", releasing.Number, releasing.Stage), ServingRelease: fmt.Sprintf("Serving release %d", releasing.Number), ServingReleaseNumber: releasing.Number}
+		a = DeploymentStatus{Word: progressLabelDeploying, Reason: fmt.Sprintf("release %d %s", releasing.Number, releasing.Stage)}
 		if releasing.Failure != "" {
 			a.Word, a.Reason = progressLabelFailed, releasing.Failure
 		}
+		a.ServingRelease, a.ServingReleaseNumber = servingRelease(o, applied, a.AppliedAt)
 		return a
 	}
 	defer func() {
-		a.ServingRelease = servingReleaseWords(o, applied, a.AppliedAt)
-		if applied != nil && (!a.AppliedAt.IsZero() || !o.Stale && (o.State == RuntimeRunning || o.State == RuntimeStopped)) {
-			a.ServingReleaseNumber = applied.Number
-		}
+		a.ServingRelease, a.ServingReleaseNumber = servingRelease(o, applied, a.AppliedAt)
 		if a.Stale && !o.ObservedAt.IsZero() {
 			if a.Reason == "" {
 				a.Reason = "old reading"
@@ -166,6 +170,16 @@ func deploymentAnswer(dep *Deployment, o RuntimeObservation, d Diagnostics, rele
 		}
 	}
 	return a
+}
+
+// servingRelease says which release a deployment serves, and its number when
+// the reading supports naming it.
+func servingRelease(o RuntimeObservation, applied *Release, appliedAt time.Time) (string, int64) {
+	var number int64
+	if applied != nil && (!appliedAt.IsZero() || !o.Stale && (o.State == RuntimeRunning || o.State == RuntimeStopped)) {
+		number = applied.Number
+	}
+	return servingReleaseWords(o, applied, appliedAt), number
 }
 
 func servingReleaseWords(o RuntimeObservation, release *Release, appliedAt time.Time) string {

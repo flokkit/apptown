@@ -26,7 +26,7 @@ export function AdrsTab({ slug }: { slug: string }) {
         <ReadGate q={q} what="this project's decisions">{(adrs) => adrs.length === 0 ? <p className="muted">No decisions recorded yet.</p> : <>
           <ListTable label="Decisions" rows={adrs} rowKey={a => String(a.id)} rowTo={a => `/adrs/${a.id}`} columns={[
             { key: 'title', label: 'Decision', phone: 'name', render: a => <Link to={`/adrs/${a.id}`}><strong>{a.title}</strong></Link> },
-            { key: 'state', label: 'State', phone: 'state', render: a => <Status word={a.statusLabel} help={`Decision: ${a.status}.`} /> },
+            { key: 'state', label: 'State', phone: 'state', render: a => <Status word={a.statusLabel} help={a.statusHelp} /> },
             { key: 'number', label: 'Number', className: 'muted small', render: a => `ADR-${String(a.number).padStart(3, '0')}` },
             { key: 'tags', label: 'Tags', className: 'muted small', render: a => a.tags },
           ]} />

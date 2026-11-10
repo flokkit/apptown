@@ -25,7 +25,8 @@ reason, Re-check and Record a decision. Recording a decision uses the existing
 accepted-risk disposition for that check version: it does not turn uncertainty
 into a pass. The decision remains attributed and revocable.
 
-Routine deferrals stay not yet assessed and contribute no not-known count.
+Routine deferrals, and checks judged only on an older commit, have no current
+judgement and contribute no not-known count.
 Conformance classifies each observation once when it is built, using the
 exact verdict confirmation. Transports render that lane, including in live
 review feeds. Required

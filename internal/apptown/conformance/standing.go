@@ -138,7 +138,9 @@ func standingFor(l Lanes, high, total int) (Standing, string) {
 		if l.Excepted > 0 {
 			sentence += " · " + plural(l.Excepted, "accepted exception", "accepted exceptions")
 		}
-		return standingSoFar, sentence + " · " + plural(l.Unassessed, "not yet assessed", "not yet assessed")
+		// Unassessed covers checks never judged and checks judged only on an
+		// older commit; neither has a judgement on the current commit.
+		return standingSoFar, sentence + " · " + plural(l.Unassessed, "with no current judgement", "with no current judgement")
 	case l.Excepted > 0:
 		return standingExcepted, "Meets adopted standards · " + plural(l.Excepted, "accepted exception", "accepted exceptions")
 	default:

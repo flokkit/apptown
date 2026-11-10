@@ -300,6 +300,9 @@ export function fixableFindings(view: ConformanceView, vs: Verdict[]) {
   return vs.filter(v => laneOf(v) === 'findings' && !coveringChange(view, v)).length
 }
 
+// A queued remediation item covers its finding before its change exists.
 export function BeingFixed({ change }: { change: ConformanceView['openRemediations'][number] }) {
-  return <span className="muted small">being fixed in <Link to={`/changes/${change.changeId}`}>change #{change.number}</Link></span>
+  return change.changeId
+    ? <span className="muted small">being fixed in <Link to={`/changes/${change.changeId}`}>change #{change.number}</Link></span>
+    : <span className="muted small">queued in <Link to={`/conformance/remediations/${change.remediationId}`}>remediation #{change.remediationNumber}</Link></span>
 }

@@ -44,7 +44,7 @@ export function DeploymentFeed({ slug, name }: { slug: string; name: string }) {
         cache.setQueryData<DeploymentView[]>(getKey(path), old => old?.map(d => d.id === e.id && d.feedRevision <= saved.feedRevision ? { ...d, approvalRole: saved.approvalRole, feed: saved.feed, feedRevision: saved.feedRevision, feedConfirmed: saved.feedConfirmed, promotedFromId: saved.promotedFromId,
           promotionSource: saved.feed === 'promotion' ? (current.data?.find(source => source.name === value.from)?.displayLabel || value.from) : '',
           promotionRelease: 0,
-          promotionBlocked: saved.feed === 'promotion' ? 'Checking the source deployment…' : '',
+          runtimeControls: saved.feed === 'promotion' ? { ...d.runtimeControls, deploy: 'Checking the source deployment…' } : d.runtimeControls,
         } : d))
         setDraft(null)
       }

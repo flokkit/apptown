@@ -35,9 +35,10 @@ What a reader gets back is the whole state, not one flag:
 | `paused` | the browser is offline and the read waits |
 | `current` | this reader received the answer itself, for its current path, and no refresh has failed since |
 | `denied` | AppTown refused the read to this caller (403): not available to them, which is neither empty nor broken |
+| `notFound` | the thing read does not exist (404): not there, which is neither unknown nor a failure |
 | `answeredAt` | when the answer shown arrived; for a reading the server takes as it answers, when it was taken |
 
-Display rules: loading, empty, failed and denied reads remain distinct. A failed
+Display rules: loading, empty, failed, denied and not-found reads remain distinct. A failed
 refresh keeps the last answer under an `unknown` light; its help includes the
 failure and last successful read time. `StaleScope` says once that the refresh
 failed and the last answer is shown. `ReadGate`, `ReadStatus` and `StaleNote` own
@@ -237,8 +238,8 @@ needs a guard instead, as the ADR editor has.
 
 Home labels its status counts above their values: Waiting on you, Other work,
 Apps live, Apps not checked, Problems and Couldn't check. Each links to the list
-it counts. Apps count projects once, with a current running deployment taking
-precedence over stale or unknown deployments. Zero counts are omitted except
+it counts. Apps count projects once: an app is live when a standing deployment
+of it is observed running, whatever its other deployments are doing. Zero counts are omitted except
 Apps live when deployments exist. Unread waiting counts say “couldn't read”.
 All quiet replaces the strip only when its counts are empty and all reads are known.
 

@@ -28,13 +28,17 @@ type LensInfo struct {
 }
 
 // RemediationCoverage is current work covering one adopted check.
+// A queued remediation item covers its check before it has a change: its
+// ChangeID is zero and RemediationID names the job to follow.
 type RemediationCoverage struct {
-	ProjectID ids.ID `json:"projectId"`
-	ChangeID  ids.ID `json:"changeId"`
-	Number    int64  `json:"number"`
-	Block     string `json:"block"`
-	Version   int    `json:"version"`
-	Check     string `json:"check"`
+	ProjectID         ids.ID `json:"projectId"`
+	ChangeID          ids.ID `json:"changeId"`
+	Number            int64  `json:"number"`
+	RemediationID     ids.ID `json:"remediationId"`
+	RemediationNumber int64  `json:"remediationNumber"`
+	Block             string `json:"block"`
+	Version           int    `json:"version"`
+	Check             string `json:"check"`
 }
 
 // OpenRemediations reads Work's coverage for an authorized project selection.

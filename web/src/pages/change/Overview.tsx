@@ -36,13 +36,18 @@ export function checkAttention(steps: Step[]) {
 export function CheckSummary({ steps, checks: verdict, contractNeedsAttention = false, technical = false }: { steps: Step[]; checks: ChecksSummary; contractNeedsAttention?: boolean; technical?: boolean }) {
   const attention = checkAttention(steps)
   if (!verdict.started) return <span>{verdict.text}</span>
-  const running = attention.filter(s => !s.overrideBy && s.statusLabel !== 'stopped' && ['running', 'pending'].includes(s.status))
-  const unfinished = running.map(stepTitle)
+  // A step that has not started is not running; after a failure in its
+  // stage it never starts, so a failed change does not list it at all.
+  const open = (s: Step) => !s.overrideBy && s.statusLabel !== 'stopped'
+  const running = attention.filter(s => open(s) && s.status === 'running')
+  const pending = attention.filter(s => open(s) && s.status === 'pending')
+  const failed = attention.some(s => !s.overrideBy && ['fail', 'error', 'needs_human'].includes(s.status))
   const notes = checkNotes(steps)
   return <div className="ch-check-summary">
-    {!!unfinished.length && <p>Still running: {unfinished.join(', ')}</p>}
+    {!!running.length && <p>Still running: {running.map(stepTitle).join(', ')}</p>}
+    {!!pending.length && !failed && <p>Not started: {pending.map(stepTitle).join(', ')}</p>}
     {verdict.tone === 'ok' && !contractNeedsAttention && <span><span className="ch-mark ok">✓</span> {verdict.text}</span>}
-    {attention.filter(s => !running.includes(s)).map((s, i) => {
+    {attention.filter(s => !running.includes(s) && !pending.includes(s)).map((s, i) => {
       const problems = checkProblems(s).filter(c => c.gates !== false).map(c => c.detail || `${c.check}: ${c.verdict}`)
       const recorded = s.overrideBy ? `An exception was recorded by ${s.overrideBy}: ${s.overrideReason}` : s.checkReading?.unreadable ? `The result could not be read: ${s.checkReading.unreadable}` : ['unknown', 'excepted'].includes(s.statusLabel) ? `The result is ${s.statusLabel}: ${s.evidence.reason || 'The recorded result needs review.'}` : s.evidence.reason
       const log = (s.type === 'script' || s.type === 'tests') ? s.evidence.log?.trim().split('\n')[0] : ''
@@ -223,7 +228,7 @@ export function ReleaseRow({ view }: { view: ChangeView;  }) {
       const to = waiting ? `/projects/${view.projectSlug}/deployments/${release.deployment}` : `/projects/${view.projectSlug}/releases/${release.number}`
       return <div key={release.number}>
         {requests.length > 1 && <>{release.deployment}: </>}
-        {waiting ? 'Waiting for approval' : running ? 'Deploying…' : release.state === 'cancelled' || release.state === 'superseded' ? `Release ${release.number} · ${release.state}` : failed ? <>Deploy stopped{release.failure && <>: {release.failure}</>}</> : <>Release {release.number} · live</>}
+        {waiting ? 'Waiting for approval' : running ? 'Deploying…' : release.state === 'cancelled' || release.state === 'superseded' ? `Release ${release.number} · ${release.state}` : failed ? <>Deploy failed{release.failure && <>: {release.failure}</>}</> : <>Release {release.number} · live</>}
         {' · '}<Link to={to}>{waiting ? 'review →' : running ? 'watch →' : failed ? 'see why →' : 'view →'}</Link>
       </div>
     })}

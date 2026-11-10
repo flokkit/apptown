@@ -654,3 +654,23 @@ func TestBlockedWorkerDiskKeepsFullnessAndLargestCategory(t *testing.T) {
 		t.Fatalf("blocked disk lost its pressure evidence: %+v", got.Items[0])
 	}
 }
+
+// Each source counts its confirmed items, the rows its "to fix" count
+// opens; an item the source could not assess is not counted.
+func TestCoverageCountsConfirmedConditionsOnly(t *testing.T) {
+	t.Parallel()
+	var view View
+	view.add("checks", "App checks", Snapshot{Known: true, Items: []Item{{Key: "a", Title: "confirmed"}, {Key: "b", Title: "could not run", Unknown: true}}}, nil)
+	view.add("integrations", "Integrations", Snapshot{Known: true, Items: []Item{{Key: "c", Title: "could not run", Unknown: true}}}, nil)
+	view.add("disks", "Disks", Snapshot{Known: true}, nil)
+	// A connection's failed check is keyed as its own coverage row.
+	view.add("connections", "Integrations", Snapshot{Known: true, Coverage: []Coverage{{Key: "mail", Name: "mail"}}, Items: []Item{{Key: "mail", Title: "mail"}}}, nil)
+	view.countConditions()
+	got := map[string][2]int{}
+	for _, s := range view.Sources {
+		got[s.Key] = [2]int{s.Conditions, s.NotKnown}
+	}
+	if got["checks"] != [2]int{1, 1} || got["integrations"] != [2]int{0, 1} || got["disks"] != [2]int{} || got["connections/mail"] != [2]int{1, 0} {
+		t.Fatalf("conditions, not known: %v", got)
+	}
+}

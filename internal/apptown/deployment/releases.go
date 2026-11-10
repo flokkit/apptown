@@ -299,6 +299,24 @@ func (s *Releases) Live(ctx context.Context, rel *Release) (bool, error) {
 	return err == nil, err
 }
 
+// ReplacedBy is the number of the later release that replaced a released
+// one on its deployment: the newest released there when that is newer. Zero
+// when nothing later was released, including when the deployment was taken
+// down with this release still the newest.
+func (s *Releases) ReplacedBy(ctx context.Context, rel *Release) (int64, error) {
+	if rel.State != Released || rel.DeploymentID.IsZero() {
+		return 0, nil
+	}
+	latest, err := deploymentsql.New(s.db.SQL()).LatestReleasedForDeployment(ctx, deploymentsql.LatestReleasedForDeploymentParams{DeploymentID: rel.DeploymentID, State: Released.String()})
+	if found, err := database.Lookup(err); err != nil || !found {
+		return 0, err
+	}
+	if latest.ID == rel.ID || latest.Number <= rel.Number {
+		return 0, nil
+	}
+	return latest.Number, nil
+}
+
 // LatestReleasedNumber is the newest released number, zero when none has been.
 func (s *Releases) LatestReleasedNumber(ctx context.Context, projectID ids.ID, deployment string) (int64, error) {
 	return deploymentsql.New(s.db.SQL()).LatestReleasedNumber(ctx, deploymentsql.LatestReleasedNumberParams{ProjectID: projectID, Deployment: deployment, State: Released.String()})

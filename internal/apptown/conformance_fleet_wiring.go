@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
+	"github.com/flokkit/apptown/internal/apptown/remediation"
 	"github.com/flokkit/apptown/internal/apptown/verification"
-	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -16,13 +16,13 @@ func fleetReviewsFor(a *App) *verification.Fleet {
 
 func openRemediationsFor(db *database.DB) conformance.OpenRemediations {
 	return func(ctx context.Context, projects []ids.ID) ([]conformance.RemediationCoverage, error) {
-		covered, err := workflow.OpenRemediationsIn(ctx, db, projects)
+		covered, err := remediation.CoverageIn(ctx, db, projects)
 		if err != nil {
 			return nil, err
 		}
 		out := make([]conformance.RemediationCoverage, 0, len(covered))
 		for _, c := range covered {
-			out = append(out, conformance.RemediationCoverage{ProjectID: c.ProjectID, ChangeID: c.ChangeID, Number: c.Number, Block: c.Block, Version: c.Version, Check: c.Check})
+			out = append(out, conformance.RemediationCoverage{ProjectID: c.ProjectID, ChangeID: c.ChangeID, Number: c.ChangeNumber, RemediationID: c.RemediationID, RemediationNumber: c.RemediationNumber, Block: c.Block, Version: c.Version, Check: c.Check})
 		}
 		return out, nil
 	}

@@ -201,6 +201,10 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	out := ReleaseDetail{DeploymentLabel: label, Release: rel, StatusLabel: rel.State.Display(), Changes: changes, IsLive: live, Events: events}
+	if out.ReplacedBy, err = h.deployment.Releases.ReplacedBy(r.Context(), rel); err != nil {
+		WriteFault(w, err)
+		return
+	}
 	if !rel.RollbackOf.IsZero() {
 		previous, e := h.deployment.Releases.ByID(r.Context(), rel.RollbackOf)
 		if e != nil {
@@ -274,9 +278,12 @@ type ReleaseDetail struct {
 	Release         *deployment.Release             `json:"release"`
 	Changes         []ReleaseChange                 `json:"changes"`
 	IsLive          bool                            `json:"isLive"`
-	Events          []deployment.ReleaseEvent       `json:"events"`
-	SBOMArtifact    ids.ID                          `json:"sbomArtifact,omitzero"`
-	Bundle          *ReleaseBundleView              `json:"bundle,omitempty"`
+	// ReplacedBy is the later release that replaced this one on its
+	// deployment; zero when none did.
+	ReplacedBy   int64                     `json:"replacedBy,omitempty"`
+	Events       []deployment.ReleaseEvent `json:"events"`
+	SBOMArtifact ids.ID                    `json:"sbomArtifact,omitzero"`
+	Bundle       *ReleaseBundleView        `json:"bundle,omitempty"`
 }
 
 // ReleaseBundleView is the bundle a release ships, by its form. By digest,

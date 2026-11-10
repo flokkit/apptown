@@ -51,7 +51,7 @@ export function ReleasePermalinkPage({ slug, number, log = false }: { slug: stri
         <div className="row">
           <h2 className="release-title">Release #{r.number}</h2>
           {r.deployment && <span className="badge">{data.deploymentLabel || r.deployment}</span>}
-          <Status word={data.statusLabel} />
+          {data.replacedBy ? <Status word="replaced" help={`Release ${data.replacedBy} replaced it on this deployment.`} /> : <Status word={data.statusLabel} />}
           {data.isLive && <span className="badge">current release</span>}
           {r.origin === 'observed-after-restore' && <span className="badge" title={`found running after ${PRODUCT} was restored; ${PRODUCT} did not ship it`}>found after restore</span>}
         </div>

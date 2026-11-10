@@ -76,6 +76,18 @@ const button = (el: HTMLElement, text: string) => [...el.querySelectorAll('butto
 describe('the what-if page', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
+  // A queued what-if's chip opens the owner's sentence in its own terms
+  // ("Waiting its turn"), never the raw state "queued".
+  it('explains a queued what-if as waiting, not queued', async () => {
+    const queued = { ...whatIf, statusLabel: 'waiting', statusHelp: 'Waiting its turn: what-ifs and reviews run one at a time.', state: 'queued', detail: '', projectsDone: 0 }
+    const v = await render((url) => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : queued)
+    try {
+      const head = chips(v.el).find((c) => c.startsWith('waiting'))
+      expect(head).toBe('waiting: Waiting its turn: what-ifs and reviews run one at a time.')
+      expect(chips(v.el).some((c) => c.endsWith(': queued'))).toBe(false)
+    } finally { v.done() }
+  })
+
   it('keeps phone answers brief without calling an unassessed project clear', async () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
     const { el, done } = await render(url => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : whatIf)
@@ -291,13 +303,15 @@ describe('the what-if page', () => {
   // A what-if still running says how far it has got; a project it has not
   // reached is not yet judged, never "not evaluated", which says it ended.
   it('says a running what-if is running and its unreached projects not yet judged', async () => {
-    const running = { ...whatIf, statusLabel: 'working', state: 'running', projectsDone: 1, projectsTotal: 4,
-      projects: whatIf.projects.map((p, i) => i === 0 ? p : { ...p, statusLabel: 'unknown', outcome: 'not-yet-judged', candidateDigest: undefined, newFailures: [], notAssessed: [], notAssessedBy: [] }) }
+    const running = { ...whatIf, statusLabel: 'working', statusHelp: 'Working: comparing each project with the new version.', state: 'running', projectsDone: 1, projectsTotal: 4,
+      outcomeLabels: { ...whatIf.outcomeLabels, 'not-yet-judged': 'waiting' },
+      projects: whatIf.projects.map((p, i) => i === 0 ? p : { ...p, statusLabel: 'waiting', outcome: 'not-yet-judged', candidateDigest: undefined, newFailures: [], notAssessed: [], notAssessedBy: [] }) }
     const { el, done } = await render((url) => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : running)
     expect(el.textContent).toContain('● in progress 1 of 4')
-    expect(chips(el)[0]).toBe('in progress: AppTown restarted')
-    expect(el.textContent).toContain('3 ● unknown')
-    expect(chips(el)).toContain('unknown: not yet judged')
+    expect(chips(el)[0]).toBe('in progress: Working: comparing each project with the new version.')
+    // A project it has not reached is waiting, not unknown.
+    expect(el.textContent).toContain('3 ● waiting')
+    expect(chips(el)).toContain('waiting: not yet judged')
     expect(el.textContent).not.toContain('not evaluated')
     expect(chips(el).join(' | ')).not.toContain('not evaluated')
     done()

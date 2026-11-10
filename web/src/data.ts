@@ -157,6 +157,9 @@ export type Read<T> = {
   // denied: AppTown refused this read to the caller (403). It is neither
   // empty nor broken: the page says the read is not available to them.
   denied: boolean
+  // notFound: the thing read does not exist (404). It is neither unknown nor
+  // a failure to read: the page says it is not there.
+  notFound: boolean
   // answeredAt is when the answer shown arrived (ms since the epoch), 0 when
   // there is none. For a reading the server takes as it answers (an
   // integration's health), it is when that reading was taken.
@@ -213,6 +216,7 @@ export function useGet<T>(path: string | null, opts: { poll?: number; kind?: Rea
     paused: q.fetchStatus === 'paused',
     current: q.data !== undefined && !refreshFailed && (client.getQueryState(key)?.dataUpdateCount ?? 0) > seen.current.answers,
     denied: q.error instanceof HttpError && q.error.status === 403,
+    notFound: q.error instanceof HttpError && q.error.status === 404,
     answeredAt: q.data !== undefined ? q.dataUpdatedAt : 0,
     reload,
   }
@@ -326,6 +330,7 @@ export function useGetText(path: string | null, opts: { kind?: ReadKind } = {}) 
     loading: q.isPending && path !== null,
     refreshFailed,
     denied: q.error instanceof HttpError && q.error.status === 403,
+    notFound: q.error instanceof HttpError && q.error.status === 404,
     answeredAt: q.data !== undefined ? q.dataUpdatedAt : 0,
   }
 }

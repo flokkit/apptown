@@ -1808,7 +1808,10 @@ the same stack with app replicas at zero, retaining needs and configuration;
 Start restores those app replicas with the selected images.
 
 Runtime actions and releases exclude each other while effects are underway.
-An interrupted action retains its transition and error. Refresh status observes
+The deployment listing says, per action (deploy, start, stop, restart), why it
+is refused now: a release on its way, a blocked promotion, or what the target
+cannot do. The page greys that action with the reason instead of offering one
+admission would refuse. An interrupted action retains its transition and error. Refresh status observes
 what happened without repeating effects; a failed action can also be retried.
 A failed replacement can be stopped, but must be deployed successfully before
 Start or Restart can run its parts. The deployment list shows state and links
