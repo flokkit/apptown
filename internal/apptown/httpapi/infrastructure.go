@@ -113,23 +113,23 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 			v.Unknown = true
 		} else {
 			{
-				live, shared, errText, at, invalidated, unknown, took := h.cache.Live(r.Context(), t)
-				v.TookSeconds = took
-				v.Error, v.Invalidated = errText, invalidated
-				v.Unknown = unknown
-				if !at.IsZero() {
-					v.AsOf = stamp.Of(at)
+				ev := h.cache.Live(r.Context(), t)
+				v.TookSeconds = ev.TookSeconds
+				v.Error, v.Invalidated = ev.Reason, ev.Invalidated
+				v.Unknown = ev.Unknown
+				if !ev.ObservedAt.IsZero() {
+					v.AsOf = stamp.Of(ev.ObservedAt)
 				}
 				var answered bool
-				v.Resources, v.Live, answered = deployment.InventoryAnswer(v.Resources, live, errText, at, invalidated)
+				v.Resources, v.Live, answered = deployment.InventoryAnswer(v.Resources, ev)
 				if answered {
 					if t.Kind == deployment.KindDockerHost || t.Kind == deployment.KindPortainer {
-						if v.Resources, v.Shared, err = h.attributeLeftovers(r.Context(), t, v.Resources, shared); err != nil {
+						if v.Resources, v.Shared, err = h.attributeLeftovers(r.Context(), t, v.Resources, ev.Shared); err != nil {
 							// Failed placement is unknown, never an orphan. Keep
 							// this target's records while the rest of the fleet
 							// remains readable; effects still verify placement.
 							v.Error = "Inventory placement could not be verified: " + err.Error()
-							v.Resources, v.Live, _ = deployment.InventoryAnswer(recorded, nil, v.Error, time.Time{}, false)
+							v.Resources, v.Live, _ = deployment.InventoryAnswer(recorded, deployment.InventoryEvidence{Reason: v.Error})
 							v.AsOf, v.Shared = stamp.Time{}, ""
 							v.Unknown = true
 						}

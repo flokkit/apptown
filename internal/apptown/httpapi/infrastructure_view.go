@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -207,5 +206,5 @@ type InfrastructureView struct {
 }
 
 type inventoryCache interface {
-	Live(context.Context, *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool, float64)
+	Live(context.Context, *deployment.Target) deployment.InventoryEvidence
 }

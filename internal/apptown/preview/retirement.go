@@ -48,9 +48,11 @@ func (s *Service) removeLocalPreview(ctx context.Context, name string) error {
 	if dk.Absent() {
 		return nil
 	}
-	if err := s.beforeLocalAct(ctx); err != nil {
-		return err
+	done, actErr := s.beforeLocalAct(ctx)
+	if actErr != nil {
+		return actErr
 	}
+	defer done()
 	removed := dk.RemoveDisposable(ctx, name)
 	// A shared image still in use stays; permanent cleanup never forces it.
 	_, images := dk.RemoveBuildImagesOf(ctx, name)
@@ -105,8 +107,10 @@ func (s *Service) removeLocalStack(ctx context.Context, stack string) error {
 	if dk.Absent() {
 		return nil
 	}
-	if err := s.beforeLocalAct(ctx); err != nil {
-		return err
+	done, actErr := s.beforeLocalAct(ctx)
+	if actErr != nil {
+		return actErr
 	}
+	defer done()
 	return dk.RemoveDisposableStack(ctx, stack)
 }

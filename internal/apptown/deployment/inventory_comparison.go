@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"slices"
-	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -10,15 +9,29 @@ import (
 
 // InventoryAnswer lays a cached provider answer over the records. latest says
 // the latest check answered; answered says there is a list to compare, possibly
-// the last good one under a later error. Before the first answer or while the
-// reading predates an act, show records alone: that evidence cannot establish
-// missing or unrecorded resources.
-func InventoryAnswer(recorded, live []deploy.Resource, errText string, at time.Time, invalidated bool) (resources []deploy.Resource, latest, answered bool) {
-	latest = errText == "" && !at.IsZero()
-	if invalidated || (live == nil && !latest) {
+// the last good one under a later error. Before the first answer, show records
+// alone: that evidence cannot establish missing or unrecorded resources. A list
+// read before the latest act is kept, not latest; it cannot establish a new
+// absence, so a record it lacks is missing only if its own reading said so.
+func InventoryAnswer(recorded []deploy.Resource, ev InventoryEvidence) (resources []deploy.Resource, latest, answered bool) {
+	read := ev.Reason == "" && !ev.ObservedAt.IsZero()
+	if ev.Items == nil && !read {
 		return coalesceInventory(inventorySlots(recorded)), false, false
 	}
-	return MergeInventory(recorded, live), latest, true
+	out := MergeInventory(recorded, ev.Items)
+	if !ev.Invalidated {
+		return out, read, true
+	}
+	witnessed := map[string]bool{}
+	for _, m := range ev.Missing {
+		witnessed[inventoryIdentity(m)] = true
+	}
+	for i := range out {
+		if out[i].Record == deploy.RecordMissing && !witnessed[inventoryIdentity(out[i])] {
+			out[i].Record = deploy.RecordRecorded
+		}
+	}
+	return out, false, true
 }
 
 // MergeInventory lays the provider's list over the records: a record the

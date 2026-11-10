@@ -261,13 +261,17 @@ where all four inventory sections succeed, against records read in that same
 collection. A record made later is never compared against that collection.
 
 Before a Docker effect starts, its owner increments the host's act counter,
-even if the effect subsequently fails. A lap captures the counter before I/O.
+even if the effect subsequently fails, and increments it again when the effect
+ends, so a lap that ran during the effect cannot leave the reading current
+after it. A lap captures the counter before I/O.
 The storing write advances its complete-lap counter only for a complete lap
 whose counter still matches. Pages compare that counter with the current host
 counter, including acts since the last store. The whole reading remains marked
 as taken before the latest change until a complete lap begun after it succeeds;
-section timestamps cannot clear the mark. Missing-resource claims are held back
-while it is marked. Acts do not request an extra host reading. Foreground reads
+section timestamps cannot clear the mark. While it is marked, the last list and
+the missing-resource claims its own collection witnessed are kept and shown as
+taken before the latest change; a record the list lacks is not called missing
+unless that collection said so. Acts do not request an extra host reading. Foreground reads
 run independently and never store host evidence. Attached hosts allow three
 foreground commands alongside the loop's single command, under the shared
 ten-session cap.
@@ -340,8 +344,8 @@ evidence. Other providers store the missing claims witnessed by their successful
 check. Docker stores missing-resource claims only when all four inventory sections
 succeed in the same collection, against the records read in that collection.
 A record made after a collection is never compared against it. Inventory age
-uses the oldest inventory section time. Missing-resource claims are held back
-while the reading predates an act. A first pending check contributes unknown
+uses the oldest inventory section time. Missing-resource claims stay, marked
+old, while the reading predates an act. A first pending check contributes unknown
 coverage; Docker host readings also raise the age warning described above.
 Docker disk admission still reads the filesystem at admission; retained display
 readings never authorize work.

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"strconv"
 	"time"
 
@@ -182,12 +183,26 @@ func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope,
 
 // BeforeAct records that a Docker host may change, before the effect starts.
 // Failure prevents the caller's effect. Foreground reads never store evidence.
-func (s *HostSnapshots) BeforeAct(ctx context.Context, targetID ids.ID) error {
+// The caller defers done, which marks the host again when the effect ends: a
+// complete lap that began during the effect saw it half done, and must not
+// leave the reading current after it. A failed end mark is logged; the
+// effect has happened and its outcome stands.
+func (s *HostSnapshots) BeforeAct(ctx context.Context, targetID ids.ID) (done func(), err error) {
 	t, err := NewTargets(s.db, nil).ByID(ctx, targetID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return deploymentsql.New(s.db.SQL()).BeforeHostAct(ctx, deploymentsql.BeforeHostActParams{ID: ids.New(s.now()), Subject: t.ID.String(), Identity: strconv.FormatInt(t.SettingsRevision, 10)})
+	mark := func(ctx context.Context) error {
+		return deploymentsql.New(s.db.SQL()).BeforeHostAct(ctx, deploymentsql.BeforeHostActParams{ID: ids.New(s.now()), Subject: t.ID.String(), Identity: strconv.FormatInt(t.SettingsRevision, 10)})
+	}
+	if err := mark(ctx); err != nil {
+		return nil, err
+	}
+	return func() {
+		if err := mark(context.WithoutCancel(ctx)); err != nil {
+			log.Printf("host %s: marking the end of an act: %v", t.Name, err)
+		}
+	}, nil
 }
 
 // inventory derives the inventory view with the oldest source evidence time.
@@ -219,11 +234,9 @@ func (s *HostSnapshots) inventory(r hostReading) (inventoryObservation, error) {
 	if r.PlacementReason != "" {
 		return out, errors.New(r.PlacementReason)
 	}
-	out.Shared = r.Shared
-	if out.Invalidated {
-		return out, nil
-	}
-	out.Missing = r.Missing
+	// Missing claims were witnessed by a complete collection; under a later
+	// act they stay, marked invalidated, until a reading after it.
+	out.Shared, out.Missing = r.Shared, r.Missing
 	return out, nil
 }
 

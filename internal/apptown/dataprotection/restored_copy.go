@@ -1334,5 +1334,5 @@ func refusal(why string) error {
 
 // runRestoredCopy records host provenance before the restored app's reconcile.
 func (s *Service) runRestoredCopy(ctx context.Context, in deployment.Start, effect func(context.Context, deployment.Attempt, deploy.Checkpoint) (deploy.Observation, error)) (deployment.ExecutionResult, error) {
-	return (deployment.Runner{Store: s.outcomes, Applied: s.applied, BeforeAct: deployment.NewHostSnapshots(s.db, s.now).BeforeAct}).Run(ctx, in, effect)
+	return (deployment.Runner{Store: s.outcomes, Acted: s.applied, BeforeAct: deployment.NewHostSnapshots(s.db, s.now).BeforeAct}).Run(ctx, in, effect)
 }

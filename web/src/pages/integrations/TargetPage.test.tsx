@@ -221,6 +221,18 @@ describe('what is unaccounted for at a target', () => {
     expect(text).toContain(`showing the inventory last seen 2h ago`)
     expect(text).not.toContain(allClear)
   })
+  // A list read before the latest change is still the last list: its
+  // unaccounted rows stay, and an empty one says when it was read.
+  it('keeps the list read before the latest change', () => {
+    const asOf = new Date(Date.now() - 30 * 1000).toISOString()
+    const empty = show({ live: false, invalidated: true, asOf, resources: [claim] })
+    expect(empty).toContain('Nothing unaccounted for in the inventory read before the latest change.')
+    expect(empty).not.toContain('Inventory is unknown')
+    const stray = { kind: 'container', name: 'someone-elses', record: 'unrecorded' } as InfrastructureView['resources'][number]
+    const kept = show({ live: false, invalidated: true, asOf, resources: [claim, stray] })
+    expect(kept).toContain('someone-elses')
+    expect(kept).not.toContain('Nothing unaccounted for')
+  })
   it('says all accounted for only on an answer', () => {
     expect(show({ live: true, asOf: new Date().toISOString(), resources: [claim] })).toContain(allClear)
     expect(show({ live: false, resources: [] })).toContain('checking')

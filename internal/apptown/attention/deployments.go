@@ -66,11 +66,12 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 		}
 		r := d.Runtime
 		unknown := r.Err != nil || r.State == deployment.RuntimeUnknown || r.ObservedAt.IsZero()
-		// A successful attempt gives the observer time to read the new runtime.
-		late := (unknown || r.Stale) && !r.ObservedAt.IsZero() && now.Sub(r.ObservedAt) < runtimeGrace
-		if d.LastApplied != nil && r.ObservedAt.Before(d.LastApplied.At) && now.Sub(d.LastApplied.At) < runtimeGrace {
-			late = true
-		}
+		// The deployment's own act gives the observer time to read the new
+		// runtime: a reading begun before the act, or taken while a runtime
+		// control is under way, says nothing about what runs after it.
+		acting := d.RuntimeState == "starting" || d.RuntimeState == "stopping" || d.RuntimeState == "restarting"
+		withheld := !d.LastActAt.IsZero() && now.Sub(d.LastActAt) < runtimeGrace && (acting || !r.AttemptedAt.After(d.LastActAt))
+		late := withheld || (unknown || r.Stale) && !r.ObservedAt.IsZero() && now.Sub(r.ObservedAt) < runtimeGrace
 		// A deployment with nothing applied has no runtime to read; its
 		// readings (often a refusal while its first deploy runs) say nothing.
 		applied := d.ObservedGeneration > 0 || d.LastApplied != nil
@@ -126,6 +127,7 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 		case !applied:
 			// Nothing has been applied here yet: there is no runtime to know or
 			// miss. Its release conditions above still apply.
+		case withheld: // The deployment's status says it is changing.
 		case (unknown || r.Stale) && !pending && !late && !down:
 			add("runtime", "App status not known", "The latest runtime observation is unavailable or out of date.", SeverityWarning, r.ObservedAt, true)
 		case r.State == deployment.RuntimeStopped && !held && !(down && (unknown || r.Stale)):

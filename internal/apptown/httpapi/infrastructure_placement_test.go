@@ -128,12 +128,12 @@ type siblingInventoryCache map[string]struct {
 	error  string
 }
 
-func (c siblingInventoryCache) Live(_ context.Context, t *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool, float64) {
+func (c siblingInventoryCache) Live(_ context.Context, t *deployment.Target) deployment.InventoryEvidence {
 	at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
 	if c[t.Name].error != "" {
 		at = time.Time{}
 	}
-	return c[t.Name].items, c[t.Name].shared, c[t.Name].error, at, false, at.IsZero(), 3
+	return deployment.InventoryEvidence{Items: c[t.Name].items, Shared: c[t.Name].shared, Reason: c[t.Name].error, ObservedAt: at, Unknown: at.IsZero(), TookSeconds: 3}
 }
 func collectSiblingInventory(t *testing.T, w *targetHTTPWorld) siblingInventoryCache {
 	t.Helper()

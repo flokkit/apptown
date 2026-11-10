@@ -127,13 +127,13 @@ func TestDeploymentGraceNeverHidesACrashHold(t *testing.T) {
 	}
 }
 
-// Grace is anchored to application, including a first release and a rebuild;
+// Grace is anchored to the deployment's last act, including a first release and a rebuild;
 // metadata edits cannot extend it and an unattempted observer cannot wait forever.
 func TestRuntimeGraceUsesLastSuccessfulAttempt(t *testing.T) {
 	t.Parallel()
 	at := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
 	for _, attempted := range []bool{false, true} {
-		d := deployment.OperationalObservation{ID: idstest.N(1), Name: "main", LastApplied: &deployment.AppliedAttempt{At: at, Generation: 1}, Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, Stale: true}}
+		d := deployment.OperationalObservation{ID: idstest.N(1), Name: "main", LastApplied: &deployment.AppliedAttempt{At: at, Generation: 1}, LastActAt: at, Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, Stale: true}}
 		if attempted {
 			d.Runtime.AttemptedAt = at
 			d.Runtime.Err = errors.New("not read")
@@ -150,7 +150,7 @@ func TestRuntimeGraceUsesLastSuccessfulAttempt(t *testing.T) {
 		d.UpdatedAt = now.Format(time.RFC3339Nano)
 		now = at.Add(2 * time.Minute)
 		read(1)
-		d.LastApplied = &deployment.AppliedAttempt{At: now, Generation: 2}
+		d.LastApplied, d.LastActAt = &deployment.AppliedAttempt{At: now, Generation: 2}, now
 		read(0)
 		now = now.Add(2 * time.Minute)
 		read(1)
@@ -171,5 +171,57 @@ func TestNothingAppliedRaisesNoRuntimeCondition(t *testing.T) {
 		if err != nil || !got.Known || got.Stale || len(got.Items) != 0 {
 			t.Fatalf("nothing applied, runtime %+v: %+v %v", runtime, got, err)
 		}
+	}
+}
+
+// A runtime reading begun before the deployment's last act, or taken while a
+// runtime control is under way, raises no runtime item during the grace: the
+// deployment's own status says it is changing. Release and crash-hold items
+// stay, and past the grace the runtime items return.
+func TestRuntimeItemsWaitForAReadingBegunAfterTheAct(t *testing.T) {
+	t.Parallel()
+	acted := time.Date(2026, 11, 10, 0, 0, 0, 0, time.UTC)
+	before, after := acted.Add(-time.Second), acted.Add(time.Second)
+	for _, tc := range []struct {
+		name    string
+		state   string
+		runtime deployment.RuntimeObservation
+		hold    bool
+	}{
+		{"unread after a start", "running", deployment.RuntimeObservation{State: deployment.RuntimeUnknown, Stale: true}, false},
+		{"stopped while stopping", "stopping", deployment.RuntimeObservation{State: deployment.RuntimeStopped, AttemptedAt: after, ObservedAt: after}, false},
+		{"stopped, begun during a restart", "running", deployment.RuntimeObservation{State: deployment.RuntimeStopped, AttemptedAt: before, ObservedAt: after}, false},
+		{"unhealthy, begun before a health restart", "running", deployment.RuntimeObservation{State: deployment.RuntimeRunning, Health: "unhealthy", AttemptedAt: before, ObservedAt: before}, false},
+		{"stopped before the act, crash hold", "running", deployment.RuntimeObservation{State: deployment.RuntimeStopped, AttemptedAt: before, ObservedAt: after}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := deployment.OperationalObservation{ID: idstest.N(1), ObservedGeneration: 1, Name: "office", RuntimeState: tc.state, LastApplied: &deployment.AppliedAttempt{At: acted.Add(-time.Hour), Generation: 1}, LastActAt: acted, Runtime: tc.runtime}
+			if tc.hold {
+				d.Hold = &deployment.CrashLoopHold{Confirmed: true, At: acted.Format(time.RFC3339Nano)}
+			}
+			read := func(now time.Time) []Item {
+				t.Helper()
+				got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return now }}).ProjectSnapshot(t.Context(), idstest.N(2))
+				if err != nil {
+					t.Fatal(err)
+				}
+				return got.Items
+			}
+			var runtime, holds int
+			for _, it := range read(acted.Add(time.Minute)) {
+				if strings.HasSuffix(it.Key, "/runtime") {
+					runtime++
+				}
+				if strings.HasSuffix(it.Key, "/crash-hold") {
+					holds++
+				}
+			}
+			if runtime != 0 || (holds == 1) != tc.hold {
+				t.Fatalf("during the grace: runtime items %d, crash holds %d", runtime, holds)
+			}
+			if items := read(acted.Add(3 * time.Minute)); len(items) == 0 {
+				t.Fatal("past the grace the runtime items did not return")
+			}
+		})
 	}
 }

@@ -328,9 +328,16 @@ func TestRestoreBackup(t *testing.T) {
 		}
 	}
 	client.SetRunning(deployedNames(t, s, pid, "main", "rs").App(), true) // a standing deployment's app runs
+	beforeRestore := time.Now()
 	op, res := restoreThroughOperation(t, s, pid, "main", b.ID)
 	if op.State != operations.Succeeded {
 		t.Fatalf("restore: %s %s", op.State, op.Detail)
+	}
+	// The restore stopped and started the app: readings begun before it ended
+	// cannot witness the deployment's parts.
+	rows, err := s.deploymentOwner.Operational(context.Background(), pid)
+	if err != nil || len(rows) != 1 || rows[0].LastActAt.Before(beforeRestore) {
+		t.Fatalf("the restore recorded no act on its deployment: %+v %v", rows, err)
 	}
 	if res.Status != restoreNotVerified || res.SafetyBackup.Compare(b.ID) <= 0 {
 		t.Fatalf("a safety set is taken first and the outcome recorded: %v", res)

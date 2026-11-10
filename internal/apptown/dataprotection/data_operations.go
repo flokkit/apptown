@@ -672,10 +672,11 @@ func (s *Service) refusesInstanceDeletion(ctx context.Context, md deploy.Managed
 	// A database no copy covers goes with the cluster only when it answers
 	// empty to the kind's check, run as the app's user like a copy:
 	// whatever its name, and a provider's own default database included.
-	dk, runner, err := s.copyRunnerForAct(ctx, t)
+	dk, runner, done, err := s.copyRunnerForAct(ctx, t)
 	if err != nil {
 		return "", "what the cluster's other databases hold could not be checked: " + err.Error()
 	}
+	defer done()
 	var held, checked []string
 	for _, db := range dbs {
 		if covered[db] {

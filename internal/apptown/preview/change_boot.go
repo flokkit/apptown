@@ -210,9 +210,11 @@ func (h changeBoots) BootPreview(ctx context.Context, ch Change, restart bool) (
 	life, cancel := context.WithTimeout(context.WithoutCancel(ctx), docker.BootLifetime)
 	defer cancel()
 	created = make([]deploy.Owned, 0)
-	if err := s.beforeLocalAct(life); err != nil {
-		return Result{}, err
+	done, actErr := s.beforeLocalAct(life)
+	if actErr != nil {
+		return Result{}, actErr
 	}
+	defer done()
 	res, err := s.env.PreparedHost(prepared).Boot(life, docker.BootRequest{URL: prepared.URL, Allowed: docker.AuthorisedWhenRequested, Docker: s.hosts.Local().WithLifetime(life),
 		Name: name, StackID: docker.ChangeStackID(ch.ID), Workspace: ws, Slug: b.slug, ChangeTitle: ch.Title,
 		Deployment: "preview", Probe: 45 * time.Second, Incarnation: incarnation, Scratch: s.hosts.BootScratch(),
@@ -278,9 +280,11 @@ func (s *Service) removeChangePreview(ctx context.Context, changeID ids.ID) erro
 	} else {
 		// AppTown has decided: the local removal is a clean-up, finished
 		// though the caller stops.
-		if err := s.beforeLocalAct(context.WithoutCancel(ctx)); err != nil {
-			return err
+		done, actErr := s.beforeLocalAct(context.WithoutCancel(ctx))
+		if actErr != nil {
+			return actErr
 		}
+		defer done()
 		err = docker.RemovePreview(context.WithoutCancel(ctx), s.hosts.Local(), name, docker.ChangeStackID(changeID))
 	}
 	if err != nil {

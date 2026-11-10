@@ -173,13 +173,15 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 		if !inputs.same(req.original) {
 			return ExecutionResult{}, errors.New("restart retry inputs differ from the admitted release")
 		}
-		if err := NewHostSnapshots(s.db, s.now).BeforeAct(ctx, t.ID); err != nil {
+		done, err := NewHostSnapshots(s.db, s.now).BeforeAct(ctx, t.ID)
+		if err != nil {
 			return ExecutionResult{}, err
 		}
+		defer done()
 		o, err := act(ctx, *req.retry, s.Outcomes.Checkpoint(ctx, *req.retry))
 		return ExecutionResult{Attempt: *req.retry, Observed: o}, err
 	}
-	result, err := (Runner{Store: s.Outcomes, Applied: s.applied, BeforeAct: NewHostSnapshots(s.db, s.now).BeforeAct}).Run(ctx,
+	result, err := (Runner{Store: s.Outcomes, Acted: s.applied, BeforeAct: NewHostSnapshots(s.db, s.now).BeforeAct}).Run(ctx,
 		Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: key, Inputs: inputs, BaseGeneration: req.baseGeneration}, act)
 
 	if err != nil {

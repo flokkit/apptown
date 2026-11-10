@@ -39,6 +39,7 @@ type Deployment struct {
 	RuntimeActor       string          `json:"runtimeActor"`
 	RuntimeAt          stamp.Time      `json:"runtimeAt,omitzero"`
 	RuntimeError       string          `json:"runtimeError,omitempty"`
+	actAt              time.Time       // the end of its last other act (see MarkActed)
 	LastApplied        *AppliedAttempt `json:"lastApplied,omitempty"`
 	DisplayLabel       string          `json:"displayLabel"`
 	ID                 ids.ID          `json:"id"`
@@ -194,7 +195,7 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		return nil, err
 	}
 	e := &Deployment{
-		RuntimeState: r.RuntimeState, RuntimeActor: r.RuntimeActor, RuntimeAt: stamp.Time{NullTime: r.RuntimeAt}, RuntimeError: r.RuntimeError,
+		RuntimeState: r.RuntimeState, RuntimeActor: r.RuntimeActor, RuntimeAt: stamp.Time{NullTime: r.RuntimeAt}, RuntimeError: r.RuntimeError, actAt: r.ActAt.Time,
 		ID:                 r.ID,
 		ProjectID:          r.ProjectID,
 		Name:               r.Name,
@@ -231,6 +232,18 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		return nil, err
 	}
 	return e, nil
+}
+
+// MarkActed records that an act other than an applied attempt or a runtime
+// control (a restore) has just ended on this deployment's runtime, so its
+// parts wait for a reading begun after it.
+func (s *Deployments) MarkActed(ctx context.Context, id ids.ID) error {
+	return markActedIn(ctx, s.db.SQL(), id, s.now())
+}
+
+func markActedIn(ctx context.Context, db deploymentsql.DBTX, id ids.ID, at time.Time) error {
+	_, err := deploymentsql.New(db).MarkDeploymentAct(ctx, deploymentsql.MarkDeploymentActParams{ID: id, At: at})
+	return err
 }
 
 func (s *Deployments) ByID(ctx context.Context, id ids.ID) (*Deployment, error) {

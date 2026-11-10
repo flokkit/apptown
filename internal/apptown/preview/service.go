@@ -122,10 +122,11 @@ func New(db *database.DB, deps Dependencies) *Service {
 func (s *Service) now() time.Time { return clock.Or(s.clock)() }
 
 // beforeLocalAct marks the host before an effect, including one that fails.
-func (s *Service) beforeLocalAct(ctx context.Context) error {
+// The caller defers done, which marks it again when the effect ends.
+func (s *Service) beforeLocalAct(ctx context.Context) (done func(), err error) {
 	t, err := s.targets.ByName(ctx, s.hosts.BuiltInTarget())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	return deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, t.ID)
 }

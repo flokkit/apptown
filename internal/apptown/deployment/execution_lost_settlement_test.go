@@ -26,7 +26,7 @@ func TestDeploymentExecutionLostSettlementQueuesObservationWithoutReexecution(t 
 			in := deploymentStartFor(dep, fmt.Sprintf("release-%d", releaseID), "selected")
 			in.Inputs.ReleaseID = releaseID
 			notified := 0
-			runner := Runner{Store: store, Applied: func(_ ids.ID) { notified++ }}
+			runner := Runner{Store: store, Acted: func(_ ids.ID) { notified++ }}
 			executions := 0
 			result, err := runner.Run(context.Background(), in, func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 				executions++
@@ -39,7 +39,7 @@ func TestDeploymentExecutionLostSettlementQueuesObservationWithoutReexecution(t 
 				}
 				return deploymentCompletionFor(at, "selected").Observed, nil
 			})
-			if !errors.Is(err, dbtest.ErrInjectedFailure) || deploy.IsTerminal(err) || result.Outcome != outcomeUncertain || notified != 0 {
+			if !errors.Is(err, dbtest.ErrInjectedFailure) || deploy.IsTerminal(err) || result.Outcome != outcomeUncertain || notified != 1 {
 				t.Fatalf("%+v %v notified=%d", result, err, notified)
 			}
 			if a := storedAttempt(t, f.db, result.Attempt.ID); a.Status != AttemptUncertain.String() || a.FinishedAt.Valid {

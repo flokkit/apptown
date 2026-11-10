@@ -223,8 +223,10 @@ func TestAppliedReleaseWaitsForFirstReading(t *testing.T) {
 			t.Fatalf("after apply: %+v", a)
 		}
 	}
-	good := Diagnostics{Reading: DetailReading{ObservedAt: at, AttemptedAt: at}, Parts: []PartDiagnosis{{Part: "web", Presence: presenceRunning}}}
-	o := RuntimeObservation{State: RuntimeRunning, ObservedAt: at, AttemptedAt: at}
+	// A reading begun at the apply's own instant cannot be ordered after it.
+	read := at.Add(time.Microsecond)
+	good := Diagnostics{Reading: DetailReading{ObservedAt: read, AttemptedAt: read}, Parts: []PartDiagnosis{{Part: "web", Presence: presenceRunning}}}
+	o := RuntimeObservation{State: RuntimeRunning, ObservedAt: read, AttemptedAt: read}
 	if a := deploymentAnswer(&dep, o, good, nil, release); a.Word != progressLabelWorking || !a.AppliedAt.IsZero() || a.ServingRelease != "Running release 18" {
 		t.Fatalf("first read: %+v", a)
 	}
@@ -232,7 +234,7 @@ func TestAppliedReleaseWaitsForFirstReading(t *testing.T) {
 	if a := deploymentAnswer(&dep, o, good, nil, release); a.Word != progressLabelFailed {
 		t.Fatalf("failed first read: %+v", a)
 	}
-	o = RuntimeObservation{State: RuntimeUnknown, AttemptedAt: at, Err: context.DeadlineExceeded, Stale: true}
+	o = RuntimeObservation{State: RuntimeUnknown, AttemptedAt: read, Err: context.DeadlineExceeded, Stale: true}
 	if a := deploymentAnswer(&dep, o, Diagnostics{}, nil, release); a.Word == progressLabelDeploying || !a.AppliedAt.IsZero() {
 		t.Fatalf("failed check still starting: %+v", a)
 	}
@@ -474,5 +476,29 @@ func TestTheBuiltInHostIsShownUnderASeededDeployConnector(t *testing.T) {
 	}
 	if got := (&Target{Provider: "portainer-deploy"}).Connector(); got != "portainer-deploy" {
 		t.Fatalf("remote target's connector: %q", got)
+	}
+}
+
+// A runtime act waits for a reading begun after it. A Start drops the cached
+// reading, and a reading begun during a restart can finish after it is
+// confirmed while still reporting the container it saw stopped: neither is
+// "unknown" or "stopped", but the first check after the act, pending.
+func TestRuntimeActWaitsForAReadingBegunAfterIt(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 11, 10, 0, 0, 0, 0, time.UTC)
+	dep := &Deployment{RuntimeState: "running", Container: "web", ObservedGeneration: 1, LastApplied: &AppliedAttempt{At: at.Add(-time.Hour), Generation: 1}}
+	dep.RuntimeAt.Time, dep.RuntimeAt.Valid = at, true
+	for name, o := range map[string]RuntimeObservation{
+		"unread after a start":           {State: RuntimeUnknown},
+		"begun during a restart":         {State: RuntimeStopped, AttemptedAt: at.Add(-time.Second), ObservedAt: at.Add(time.Second)},
+		"begun at the confirmation time": {State: RuntimeStopped, AttemptedAt: at, ObservedAt: at.Add(time.Second)},
+	} {
+		if got := deploymentAnswer(dep, o, Diagnostics{}, nil, nil); got.Word != progressLabelWaiting || !got.AppliedAt.Equal(dep.LastApplied.At) {
+			t.Errorf("%s: want the first check after the act pending, got %+v", name, got)
+		}
+	}
+	after := RuntimeObservation{State: RuntimeStopped, AttemptedAt: at.Add(time.Second), ObservedAt: at.Add(2 * time.Second)}
+	if got := deploymentAnswer(dep, after, Diagnostics{}, nil, nil); got.Word != progressLabelStopped {
+		t.Fatalf("a reading begun after the act: %+v", got)
 	}
 }

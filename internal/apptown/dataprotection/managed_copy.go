@@ -170,21 +170,22 @@ func (s *core) managedList(ctx context.Context, dep *deployment.Deployment, t *d
 }
 
 // copyRunnerForAct resolves and marks the Docker host before copy effects.
-func (s *core) copyRunnerForAct(ctx context.Context, t *deployment.Target) (docker.Scope, string, error) {
-	name := t.CopyRunner()
+// The caller defers done, which marks the host again when its effects end.
+func (s *core) copyRunnerForAct(ctx context.Context, t *deployment.Target) (dk docker.Scope, name string, done func(), err error) {
+	name = t.CopyRunner()
 	if name == "" {
-		return docker.Scope{}, "", deployment.ErrNoCopyRunner
+		return docker.Scope{}, "", nil, deployment.ErrNoCopyRunner
 	}
 	runner, err := s.targets.ByName(ctx, name)
 	if err != nil {
-		return docker.Scope{}, name, fmt.Errorf("the copy runner %s: %w", name, err)
+		return docker.Scope{}, name, nil, fmt.Errorf("the copy runner %s: %w", name, err)
 	}
-	dk, err := s.hosts.DockerScope(ctx, runner)
+	dk, err = s.hosts.DockerScope(ctx, runner)
 	if err != nil {
-		return dk, name, err
+		return dk, name, nil, err
 	}
-	err = deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, runner.ID)
-	return dk, name, err
+	done, err = deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, runner.ID)
+	return dk, name, done, err
 }
 
 // copyJob runs one of a kind's copy commands in a throwaway container of
@@ -271,10 +272,11 @@ func (s *Service) takeStoreCopy(ctx context.Context, t *tracker, dep *deployment
 	if err != nil {
 		return nil, err
 	}
-	dk, runner, err := s.copyRunnerForAct(ctx, target)
+	dk, runner, done, err := s.copyRunnerForAct(ctx, target)
 	if err != nil {
 		return nil, err
 	}
+	defer done()
 	md := s.providers.ManagedData(target)
 	bd, err := s.bucketData(ctx, target, dep)
 	if err != nil {
@@ -487,10 +489,11 @@ func (s *Service) drill(ctx context.Context, t *tracker, b *Backup, target *depl
 	if err != nil {
 		return false, "", err
 	}
-	dk, runner, err := s.copyRunnerForAct(ctx, target)
+	dk, runner, done, err := s.copyRunnerForAct(ctx, target)
 	if err != nil {
 		return false, "", err
 	}
+	defer done()
 	md := s.providers.ManagedData(target)
 	dir, cleanup, err := s.staging(t.op.ID)
 	if err != nil {

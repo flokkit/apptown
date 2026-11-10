@@ -675,6 +675,9 @@ ORDER BY r.number DESC LIMIT 1;
 -- name: SetRuntimeState :execrows
 UPDATE deployments SET runtime_state=sqlc.arg(state), runtime_actor=sqlc.arg(actor), runtime_at=sqlc.narg(at), runtime_error=sqlc.arg(error) WHERE id=sqlc.arg(id);
 
+-- name: MarkDeploymentAct :execrows
+UPDATE deployments SET act_at=GREATEST(act_at, sqlc.arg(at)::timestamptz) WHERE id=sqlc.arg(id);
+
 -- name: ReleaseRecoveryProgress :one
 -- Recovery observes an existing effect; its old execution milestone is history.
 SELECT EXISTS (

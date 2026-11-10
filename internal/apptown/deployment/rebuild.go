@@ -200,7 +200,7 @@ func (s *Service) Rebuild(ctx context.Context, dep *Deployment, plan RebuildPlan
 	}
 	var providerErr error
 	base := plan.generation
-	result, err := (Runner{Store: s.Outcomes, Applied: s.applied, BeforeAct: NewHostSnapshots(s.db, s.now).BeforeAct}).Run(ctx,
+	result, err := (Runner{Store: s.Outcomes, Acted: s.applied, BeforeAct: NewHostSnapshots(s.db, s.now).BeforeAct}).Run(ctx,
 		Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: plan.key, Inputs: inputs, BaseGeneration: &base},
 		func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 			o, err := d.Reconcile(ctx, dep.Placement(), at.Generation, art, plan.key,

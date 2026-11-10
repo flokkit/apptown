@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -51,7 +52,7 @@ func TestHostSnapshotsPreserveEachSectionsEvidenceTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	reader.fail = true
-	if err := s.BeforeAct(t.Context(), target.ID); err != nil {
+	if _, err := s.BeforeAct(t.Context(), target.ID); err != nil {
 		t.Fatal(err)
 	}
 	// Partial evidence keeps the whole-reading mark, even at the same clock.
@@ -130,7 +131,7 @@ func TestHostSnapshotsActInvalidationAndSettingsIdentity(t *testing.T) {
 	s := NewHostSnapshots(db, func() time.Time { return now })
 	d := dockerfake.New()
 	q := docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true, Use: true, ReaderImage: "df:test"}
-	if err = s.BeforeAct(t.Context(), target.ID); err != nil {
+	if _, err = s.BeforeAct(t.Context(), target.ID); err != nil {
 		t.Fatal(err)
 	}
 	r, err := s.reading(t.Context(), target)
@@ -140,7 +141,7 @@ func TestHostSnapshotsActInvalidationAndSettingsIdentity(t *testing.T) {
 	if err = s.collect(t.Context(), target, docker.Scope{Client: d}, q, nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.BeforeAct(t.Context(), target.ID); err != nil {
+	if _, err = s.BeforeAct(t.Context(), target.ID); err != nil {
 		t.Fatal(err)
 	}
 	r, err = s.reading(t.Context(), target)
@@ -190,7 +191,7 @@ func TestHostSnapshotsActDuringCollectionKeepsInvalidation(t *testing.T) {
 			d.SetReply(func(args []string) ([]byte, error, bool) {
 				if args[0] == "volume" {
 					now = acted
-					if err := s.BeforeAct(t.Context(), target.ID); err != nil {
+					if _, err := s.BeforeAct(t.Context(), target.ID); err != nil {
 						t.Error(err)
 					}
 				}
@@ -226,7 +227,8 @@ func TestHostSnapshotsActDuringCollectionKeepsInvalidation(t *testing.T) {
 }
 
 // Missing claims require records and provider evidence from the same collection.
-// Stale evidence retains a witnessed absence; an act withholds it until refreshed.
+// Stale evidence retains a witnessed absence, and so does a reading an act
+// has made out of date: it stays, marked invalidated, until refreshed.
 func TestHostSnapshotsMissingClaimsUseCollectedRecords(t *testing.T) {
 	t.Parallel()
 	svc, db, daemon, projectID, target := healthWorld(t)
@@ -257,9 +259,9 @@ func TestHostSnapshotsMissingClaimsUseCollectedRecords(t *testing.T) {
 		if got.Stale != old.Stale || got.Unknown != old.Unknown || got.Invalidated != old.Invalidated {
 			t.Fatalf("%s: classifications differ: snapshot %+v, cache %+v", stage, got, old)
 		}
-		// The old cache keeps prior missing claims after an act; snapshots
-		// withhold them while the host facts predate that act.
-		if !invalidated && !reflect.DeepEqual(got.Missing, old.Missing) {
+		// Both keep prior missing claims after an act, marked invalidated:
+		// they were witnessed by a complete collection.
+		if !reflect.DeepEqual(got.Missing, old.Missing) {
 			t.Fatalf("%s: missing differs: snapshot %+v, cache %+v", stage, got.Missing, old.Missing)
 		}
 	}
@@ -289,13 +291,13 @@ func TestHostSnapshotsMissingClaimsUseCollectedRecords(t *testing.T) {
 	check("fresh", 1, false, false, false)
 	now = first.Add(liveFresh + time.Second)
 	check("stale but known", 1, true, false, false)
-	if err := s.BeforeAct(t.Context(), target.ID); err != nil {
+	if _, err := s.BeforeAct(t.Context(), target.ID); err != nil {
 		t.Fatal(err)
 	}
 	if err := cache.Invalidate(t.Context(), target.Name); err != nil {
 		t.Fatal(err)
 	}
-	check("after act", 0, true, false, true)
+	check("after act", 1, true, false, true)
 	collect()
 	check("refreshed after act", 1, false, false, false)
 	// A preview recorded after collection was never compared with these facts.
@@ -352,14 +354,13 @@ func TestHostReadingActProvenanceReachesInventoryPages(t *testing.T) {
 		if err != nil || got.Invalidated != want || got.Unknown {
 			t.Fatalf("inventory page: %+v %v; want invalidated %v", got, err, want)
 		}
-		_, _, _, _, invalidated, _, _ := svc.InventoryLive(t.Context(), target)
-		if invalidated != want {
-			t.Fatalf("page lost act mark: %v, want %v", invalidated, want)
+		if live := svc.InventoryLive(t.Context(), target); live.Invalidated != want {
+			t.Fatalf("page lost act mark: %v, want %v", live.Invalidated, want)
 		}
 	}
 	lap()
 	page(false)
-	if err := s.BeforeAct(t.Context(), target.ID); err != nil {
+	if _, err := s.BeforeAct(t.Context(), target.ID); err != nil {
 		t.Fatal(err)
 	}
 	page(true) // Before another lap, with exactly the same clock.
@@ -387,14 +388,14 @@ func TestHostReadingActProvenanceReachesInventoryPages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.BeforeAct(t.Context(), target.ID); err != nil {
+	if _, err := s.BeforeAct(t.Context(), target.ID); err != nil {
 		t.Fatal(err)
 	}
 	acted := false
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		if args[0] == "info" && !acted {
 			acted = true
-			if err := s.BeforeAct(t.Context(), target.ID); err != nil {
+			if _, err := s.BeforeAct(t.Context(), target.ID); err != nil {
 				t.Error(err)
 			}
 			now = now.Add(time.Microsecond)
@@ -480,8 +481,37 @@ func TestInventoryCarriesTheStoredLapsDuration(t *testing.T) {
 	if err := snapshots.collect(t.Context(), target, docker.Scope{Client: daemon, Now: svc.now}, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true}, nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	_, _, why, at, _, unknown, took := svc.InventoryLive(t.Context(), target)
-	if why != "" || unknown || !at.Equal(now) || took != 3 {
-		t.Fatalf("stored source metadata: at=%v took=%v unknown=%v reason=%s", at, took, unknown, why)
+	live := svc.InventoryLive(t.Context(), target)
+	if live.Reason != "" || live.Unknown || !live.ObservedAt.Equal(now) || live.TookSeconds != 3 {
+		t.Fatalf("stored source metadata: %+v", live)
+	}
+}
+
+// A complete lap that runs in the middle of an act cannot leave the host
+// reading current once the act ends: the act marks the host again.
+func TestHostSnapshotsLapDuringActLeavesReadingInvalidated(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	target, err := NewTargets(db, nil).Put(t.Context(), &Target{Name: "host", Kind: KindDockerHost, Status: TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewHostSnapshots(db, nil)
+	dk := docker.Scope{Client: dockerfake.New()}
+	q := docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true}
+	r, _, in, _ := executionFixture()
+	in.TargetID = target.ID
+	r.BeforeAct = s.BeforeAct
+	if _, err := r.Run(t.Context(), in, func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
+		if err := s.collect(ctx, target, dk, q, nil, nil); err != nil {
+			t.Fatal(err)
+		}
+		return activeExecution(ctx, at, checkpoint)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	reading, err := s.reading(t.Context(), target)
+	if err != nil || !reading.Invalidated {
+		t.Fatalf("a lap begun during the act left the reading current after it: %+v %v", reading, err)
 	}
 }

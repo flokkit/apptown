@@ -74,10 +74,11 @@ func TestManagedCopyMarksRunnerBeforeCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkAct := expectHostAct(t, w.s, runner.ID)
-	dk, _, err := w.s.copyRunnerForAct(t.Context(), w.target)
+	dk, _, done, err := w.s.copyRunnerForAct(t.Context(), w.target)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer done()
 	called := false
 	client.SetCommandReply(func(req docker.Command) ([]byte, error, bool) {
 		called = true
