@@ -153,3 +153,15 @@ it('explains a decision state with the owner help, not a second state word', asy
     vi.unstubAllGlobals()
   }
 })
+
+// An empty decision says how to add its text, unless it can no longer be edited.
+it.each([true, false])('says how to write an empty decision only when it can be edited (%s)', async editable => {
+  const body = { ...held, adr: { ...held.adr, bodyMd: '' }, options: { ...held.options, contentEditable: editable } }
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith(`/adrs/${ADR}`) ? body : []))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/adrs/${ADR}`]}><Routes><Route path="/adrs/:id" element={<AdrPage />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.textContent).toContain('No text yet.'))
+    expect(el.textContent?.includes('Use Edit to write it.')).toBe(editable)
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

@@ -108,7 +108,7 @@ export function SuppressionsTab({ slug }: { slug: string }) {
       {err && <div className="error">{err}</div>}
       <Section title="Recorded" count={list.length || undefined}
         action={<a href={`/api/v1/projects/${slug}/dispositions/openvex`} target="_blank" rel="noreferrer">OpenVEX export ↗</a>}>
-        {list.length === 0 && <p className="muted">No suppressions. You suppress a problem from the <Link to={`/projects/${slug}/security/findings`}>Findings</Link> page.</p>}
+        {list.length === 0 && <p className="muted">No suppressions. You suppress a problem from the <Link to={`/projects/${slug}/security/findings`}>Security findings</Link> page.</p>}
         <ListTable label="Suppressions" rows={list} rowKey={d => String(d.id)} columns={[
           { key: 'finding', label: 'Finding', phone: 'name', render: d => <>{d.identifier || d.fingerprint}{d.package && <span className="muted small"> · {d.package}</span>}</> },
           { key: 'state', label: 'State', phone: 'state', render: d => <Status observation word={d.statusLabel} help={`${d.status}${d.expiresAt ? ` · until ${fmtDay(d.expiresAt)}` : ''}`} /> },

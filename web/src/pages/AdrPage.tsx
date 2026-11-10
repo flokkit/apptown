@@ -147,7 +147,7 @@ export default function AdrPage() {
       ) : adr.bodyMd ? (
         <div className="card md" dangerouslySetInnerHTML={{ __html: renderMd(adr.bodyMd) }} />
       ) : (
-        <p className="muted">No text yet.</p>
+        <p className="muted">No text yet.{!locked && ' Use Edit to write it.'}</p>
       )}
     </div>
   )

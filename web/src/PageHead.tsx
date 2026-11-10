@@ -185,7 +185,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
     'Agents and tokens': { guide: 'people-and-roles', body: <p>Coding agents connected to {PRODUCT}, and the tokens they use. Disconnecting one stops it at once.</p> },
   },
   projectSecurity: {
-    Findings: { guide: 'monitoring', body: <>
+    'Security findings': { guide: 'monitoring', body: <>
       <p>Findings are problems reported by security scans of this project's accepted code.</p>
       <p>Read the latest scan results and open a finding to fix it or record a suppression. If main has changed since the scan, open a change to scan the latest code. Missing or unreadable reports leave checks incomplete.</p>
     </> },

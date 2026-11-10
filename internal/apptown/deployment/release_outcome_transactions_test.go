@@ -213,7 +213,7 @@ func TestDeploymentReleasePreparationFailureHasOneReceipt(t *testing.T) {
 	if err != nil || len(recent) != 1 {
 		t.Fatalf("recent releases: %+v %v", recent, err)
 	}
-	if recent[0].Failure != "FAILED before deployment admission: preparation" || recent[0].Notes != "" {
+	if recent[0].Failure != "Stopped before deploying: preparation. Deploy again once this is fixed." || recent[0].Notes != "" {
 		t.Fatalf("failure must use its recorded event, not release notes: %+v", recent[0])
 	}
 

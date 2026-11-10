@@ -47,6 +47,14 @@ export function stateWords(op: Operation): string {
   return 'done'
 }
 
+// statusDetail is what an operation's status adds to its word. Waiting,
+// running and a plain done say nothing more (the page says which step), so
+// their chip opens nothing.
+export function statusDetail(op: Operation): string {
+  const words = stateWords(op)
+  return live(op) || words === 'done' ? '' : words
+}
+
 // writesStopped says a live take-down has deleted the app: nothing writes.
 export const writesStopped = (op: Operation) => live(op) && op.result.writesStopped === true
 
@@ -245,7 +253,7 @@ function EnabledProtectionLines({ slug, name }: { slug: string; name: string }) 
       {p.restoredCopies.filter((c) => !c.endedAt).map((c) => <RestoredCopyLines key={c.id} slug={slug} source={name} copy={c} asRead={asRead} />)}
       {p.running && (
         <div className="mt-1">
-          <Status word={old ? 'unknown' : p.running.statusLabel} help={stateWords(p.running) + asRead} /> <Link to={`/operations/${p.running.id}`}>{currentStep(p.running)}</Link>
+          <Status word={old ? 'unknown' : p.running.statusLabel} help={old ? stateWords(p.running) + asRead : statusDetail(p.running)} /> <Link to={`/operations/${p.running.id}`}>{currentStep(p.running)}</Link>
           {writesStopped(p.running) && <span className="muted data-protection-protection-lines-span">writes stopped{asRead}</span>}
         </div>
       )}
@@ -321,7 +329,7 @@ export function OperationPage() {
           holds; the title above names the deployment in words. */}
       {op.subject && <code className="tech-line muted mb-1">{op.subject}</code>}
       <div className="row status-strip data-protection-operation-page-status-strip">
-        <Status word={old ? 'unknown' : op.statusLabel} help={stateWords(op) + asRead} />
+        <Status word={old ? 'unknown' : op.statusLabel} help={old ? stateWords(op) + asRead : statusDetail(op)} />
         <span className="muted small">asked by {op.askedBy} {fmtWhen(op.createdAt)}{op.finishedAt ? `, ended ${fmtWhen(op.finishedAt)}` : old || !op.startedAt ? '' : ` · running for ${elapsed(op.startedAt)}`}</span>
         {writesStopped(op) && <span className="muted">writes stopped{asRead}</span>}
       </div>

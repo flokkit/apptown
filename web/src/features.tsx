@@ -50,7 +50,7 @@ export function FeatureGate({ area, children }: { area: string; children: ReactN
   if (!q.current) return <><StaleNote q={q} /><p role="status">{q.refreshFailed ? 'Features could not be refreshed. Reload before opening this area.' : 'Checking Features…'}</p></>
   const f = blocking(q.data, area) ?? q.data.find(f => f.area === area)
   if (!f) return <p className="error">This page has no feature area.</p>
-  if (!f.enabled) return <section><h1>{f.name}</h1><p role="status">{f.name} is turned off; an administrator can turn it on in {mayManage ? <Link to="/features">Features</Link> : 'Features'}</p></section>
+  if (!f.enabled) return <section><h1>{f.name}</h1><p role="status">{f.name} is turned off; an administrator can turn it on in {mayManage ? <Link to="/features">Features</Link> : 'Features'}.</p></section>
   return <BetaPage.Provider value={f.tier === 'beta'}>{children}</BetaPage.Provider>
 }
 

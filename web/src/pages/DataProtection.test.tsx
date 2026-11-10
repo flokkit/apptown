@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { copyLine, currentStep, drillLine, itemLabel, nativeLine, stateWords } from './DataProtection'
+import { copyLine, currentStep, drillLine, itemLabel, nativeLine, stateWords, statusDetail } from './DataProtection'
 import type { ItemProtection, Operation } from '../wire.gen'
 
 // Record ids are UUIDv7 strings.
@@ -51,6 +51,16 @@ describe('how a cloud deployment\'s data is protected, in words', () => {
     expect(stateWords({ ...op, kind: 'deployment.rehearsal', verification: 'verified' })).toBe('passed: the app answered on the copy')
     expect(stateWords({ ...op, state: 'unknown' })).toBe('unknown: AppTown stopped while it ran')
     expect(currentStep({ ...op, state: 'queued' }, Date.parse('2026-10-08T00:00:40Z'))).toBe('Copy waiting to start (asked 40s ago)')
+  })
+  // The status chip opens only words its own word does not say.
+  it('gives a waiting, running or plainly done operation no status details', () => {
+    const op: Operation = { statusLabel: 'waiting', id: OPERATION, number: 1, projectId: PROJECT, holds: [], input: { deployment: 'prod' }, kind: 'deployment.restore', askedBy: 'alice', state: 'queued', result: {},
+      cancellable: true, createdAt: '2026-10-08T00:00:00Z', touchedAt: '2026-10-08T00:00:00Z', steps: [] }
+    expect(statusDetail(op)).toBe('')
+    expect(statusDetail({ ...op, state: 'running' })).toBe('')
+    expect(statusDetail({ ...op, state: 'succeeded' })).toBe('')
+    expect(statusDetail({ ...op, state: 'succeeded', verification: 'verified' })).toBe('done, and the copy came back')
+    expect(statusDetail({ ...op, state: 'unknown' })).toBe('unknown: AppTown stopped while it ran')
   })
 })
 

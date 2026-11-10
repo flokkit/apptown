@@ -29,7 +29,7 @@ it.each([true, false])('refuses a disabled area and links Features only for an a
  const Page = page
  const { el } = await mount(<FeatureGate area="evals"><Page /></FeatureGate>)
  expect(page).not.toHaveBeenCalled()
- expect(el.textContent).toContain('Evals is turned off; an administrator can turn it on in Features')
+ expect(el.textContent).toContain('Evals is turned off; an administrator can turn it on in Features.')
  expect(el.querySelector('a')?.getAttribute('href') ?? null).toBe(admin ? '/features' : null)
 })
 it('shows the beta tag and uses the settings API for an administrator switch', async () => {

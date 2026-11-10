@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -233,7 +234,7 @@ func (s *Outcomes) FailUnstartedRelease(ctx context.Context, releaseID ids.ID, c
 		if changed != 1 {
 			return "", errOutcomeConflict
 		}
-		if err := appendReleaseEvent(ctx, tx, releaseID, "FAILED before deployment admission: "+cause.Error(), now); err != nil {
+		if err := appendReleaseEvent(ctx, tx, releaseID, unstartedFailure(cause), now); err != nil {
 			return "", err
 		}
 		if err := audit.At(now).RecordIn(ctx, tx, r.actor, r.projectID, "release.failed", fmt.Sprintf("r%d", r.number), map[string]any{"reason": cause.Error(), "deployment": r.deployment}); err != nil {
@@ -241,4 +242,11 @@ func (s *Outcomes) FailUnstartedRelease(ctx context.Context, releaseID ids.ID, c
 		}
 		return Applied, nil
 	})
+}
+
+// unstartedFailure says what stopped a release before it reached its
+// deployment, and what to do, as one plain sentence a person reads on the
+// deployment's page.
+func unstartedFailure(cause error) string {
+	return "Stopped before deploying: " + strings.TrimRight(cause.Error(), ".") + ". Deploy again once this is fixed."
 }
