@@ -131,14 +131,14 @@ try {
     const remediation = await request('/conformance/remediations', { scope: 'all', concurrency: 1 });
     const backups = await request('/projects/club-newsletter/deployments/main/backups');
     const operation = await request('/projects/club-newsletter/deployments/main/backups/' + backups.backups.find(b => b.bytes > 0).id + '/restore', { confirm: 'main' });
-    return { projectChat: projectChat.session.id, guidance: blocks[0].id, advisory: advisory?.change.id, delivered: delivered.change.id, review: review.reviewId, adr: adr.id, invite: new URL(invite.link).pathname, failed: failed.change.id, evaluation: evaluation.id, whatif: whatif.id, remediation: remediation.remediation.id, operation: operation.operationId };
+    return { projectChat: projectChat.session.id, guidance: encodeURIComponent(blocks[0].name), advisory: advisory?.change.id, delivered: delivered.change.id, review: review.reviewId, adr: adr.id, invite: new URL(invite.link).pathname, failed: failed.change.id, evaluation: evaluation.id, whatif: whatif.id, remediation: remediation.remediation.id, operation: operation.operationId };
   }, !!process.env.DESIGN_AUDIT);
   if (process.env.DESIGN_AUDIT) await page.goto(base + '/?cameraPrepare=1', { waitUntil: 'networkidle' });
   const routes = {
     'target-settings': '/targets/design-preview', 'target-resources': '/targets/built-in-docker/resources', 'target-capacity': '/targets/built-in-docker/capacity', 'target-capacity-unknown': '/targets/design-preview/capacity', 'target-history': '/targets/built-in-docker/history', 'executor': '/integrations/executor',
     'backup-store-details': '/backups', 'release-invalid': '/releases/6', 'usage-90': '/usage', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-revoke': '/people/agents-and-tokens', 'people-disconnect': '/people/agents-and-tokens',
 
-    'guidance-block': '/guidance/' + seeded.guidance, 'guidance-missing': '/guidance/lang%2Fselection%2Fdjango-fullstack', 'release-record': '/projects/club-newsletter/releases/1',
+    'guidance-block': '/guidance/' + seeded.guidance, 'guidance-missing': '/guidance/lang%2Fselection%2Fno-such-guidance', 'release-record': '/projects/club-newsletter/releases/1',
     home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', releases: '/releases', deployments: '/deployments', backups: '/backups',
     'project-deployments': '/projects/club-newsletter/deployments', fleet: '/deployments', 'deployment-infrastructure': '/targets', attention: '/attention', 'attention-checks': '/attention/checks', 'attention-condition': '/attention/checks/' + encodeURIComponent(infraCases.pending.items[0].key), updates: '/updates',
     'target-offers': '/targets', 'release-detail': '/projects/club-newsletter/releases/' + facts.releases.find(r => r.serving).number,

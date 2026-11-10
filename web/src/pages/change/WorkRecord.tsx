@@ -118,7 +118,9 @@ function WorkRecord({ view: v, trace, entry, technical, notes, section, artifact
     {notes}
     <header><h1>Work record</h1>
       <p className="work-byline">{[
-        entry.step?.type === 'agent/review' ? 'Reviewer' : 'Agent',
+        // A run-level entry (a run with no agent step, such as landing) is the
+        // run's record, not an agent's.
+        !entry.step ? 'Run' : entry.step.type === 'agent/review' ? 'Reviewer' : 'Agent',
         evidence && 'provider' in evidence && evidence.provider,
         evidence && 'model' in evidence && evidence.model,
         entry.at && fmtStamp(entry.at),
@@ -137,7 +139,8 @@ function WorkRecord({ view: v, trace, entry, technical, notes, section, artifact
       {logs.length ? logs.map(a => <RecordText key={a.id} artifact={a} session code={code} fullHref={recordLink(a)} />) : null}
     </section>
     <section className="ch-change-card"><h2>What it produced</h2><table className="ch-facts-table"><tbody>
-      <tr><th>Files changed</th><td>{changed ? changed.length ? changed.map(path => { const f = files.find(f => f.path === path); return <div key={path}><Link to={`${code}#diff-${path}`}>{path}</Link> <span className="mono small">{f ? `+${f.adds} −${f.dels} (whole change)` : '—'}</span></div> }) : 'No files changed.' : <span className="muted">—</span>}<ReadStatus q={diff} what="file counts" /><StaleNote q={diff} /> · <Link to={code}>code for the whole change →</Link></td></tr>
+      {!entry.step ? <tr><th>Code</th><td><Link to={code}>code for the whole change →</Link></td></tr>
+      : <tr><th>Files changed</th><td>{changed ? changed.length ? changed.map(path => { const f = files.find(f => f.path === path); return <div key={path}><Link to={`${code}#diff-${path}`}>{path}</Link> <span className="mono small">{f ? `+${f.adds} −${f.dels} (whole change)` : '—'}</span></div> }) : 'No files changed.' : <span className="muted">—</span>}<ReadStatus q={diff} what="file counts" /><StaleNote q={diff} /> · <Link to={code}>code for the whole change →</Link></td></tr>}
       <tr><th>Records</th><td>{[...logs, ...records].map(a => <div key={a.id}><Link to={recordLink(a)}>{a.kind === 'agent-log' ? 'agent log' : a.name || a.kind}</Link></div>)}{!logs.length && !records.length && <span className="muted">not recorded</span>}</td></tr>
       {evidence && 'output' in evidence && evidence.output && <tr><th>Report</th><td>{firstLine(evidence.output)} <Link to={link('report')}>full report</Link></td></tr>}
       <tr><th>Blockers reported</th><td>{evidence?.reason || evidence?.blockedBy || <span className="muted">not recorded</span>}</td></tr>

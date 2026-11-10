@@ -12,7 +12,8 @@ import { ReadStatus, StaleNote } from '../ReadGate'
 import { Section } from '../Section'
 
 export default function GuidanceBlockPage() {
-  const { id } = useParams()
+  // A block is addressed by its name, the form packs and work records use.
+  const { name = '' } = useParams()
   const [params, setParams] = useSearchParams()
   const [editing, setEditing] = useState(false)
   const [body, setBody] = useState('')
@@ -20,7 +21,7 @@ export default function GuidanceBlockPage() {
   const { run, busy, err: actErr } = useAction()
 
   const version = params.get('version') || ''
-  const viewQ = useGet<BlockView>(`/guidance/blocks/${encodeURIComponent(id ?? "")}${version ? `?version=${version}` : ''}`)
+  const viewQ = useGet<BlockView>(`/guidance/blocks/${encodeURIComponent(name)}${version ? `?version=${version}` : ''}`)
   const view = viewQ.data
   const load = viewQ.reload
   // The editor starts only from an answer this page read itself (a held one
@@ -33,7 +34,7 @@ export default function GuidanceBlockPage() {
     setBody(view.block.bodyMd || ''); setTags(view.block.tags)
   }, [view, editing, current])
 
-  usePageName(`/guidance/${id}`, view?.block.name)
+  usePageName(`/guidance/${encodeURIComponent(name)}`, view?.block.name)
   if (!view) return <div><h1>{viewQ.err && !viewQ.denied ? 'Guidance unavailable' : 'Guidance'}</h1>
     <ReadStatus q={viewQ} what="the guidance block" />
     {viewQ.err && <p>This guidance could not be opened. Choose it from the library.</p>}
@@ -100,7 +101,7 @@ export default function GuidanceBlockPage() {
         </Section>
       )}
 
-      <p><ProjectCount to={`/guidance/${id}/projects`} count={usedBy.length} /></p>
+      <p><ProjectCount to={`/guidance/${encodeURIComponent(name)}/projects`} count={usedBy.length} /></p>
 
       {!editing && checks.length > 0 && (
         <Section title="Checks" count={checks.length} note="Checked on every change; versioned with this text.">

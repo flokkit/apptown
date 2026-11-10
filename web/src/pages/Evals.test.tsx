@@ -107,6 +107,10 @@ describe('the eval scorecard', () => {
       await r.settle(() => !!r.el.textContent?.includes('waiting'))
       expect(r.el.textContent).toContain('in progress')
       expect(r.el.textContent).toContain('waiting')
+      // With no reason there is no help: the raw state ("running", "queued")
+      // is not a second word beside the status word.
+      const helps = [...r.el.querySelectorAll('[aria-label], [title]')].map(e => `${e.getAttribute('aria-label') ?? ''} ${e.getAttribute('title') ?? ''}`)
+      expect(helps.filter(h => /: (running|queued)\b/.test(h))).toEqual([])
     } finally {
       r.done()
     }

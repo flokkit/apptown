@@ -109,11 +109,11 @@ export default function GuidanceLibrary() {
 function GuidanceRow({ b }: { b: GuidanceBlock }) {
   const nav = useNavigate()
   return (
-    <LibraryRow name={b.name.split('/').at(-1)!.replaceAll('-', ' ')} to={`/guidance/${b.id}`}
+    <LibraryRow name={b.name.split('/').at(-1)!.replaceAll('-', ' ')} to={`/guidance/${encodeURIComponent(b.name)}`}
       badges={b.origin !== 'stock' && <span className="badge">yours</span>}
       purpose={inlineCode(firstSentence(b.summary || 'No text yet'))}
       menu={b.id && <MoreMenu label={b.name} items={[
-        { label: 'Open its page', hint: `Versions, projects using it${b.origin !== 'stock' ? ', and editing' : ''}.`, onClick: () => nav(`/guidance/${b.id}`) },
+        { label: 'Open its page', hint: `Versions, projects using it${b.origin !== 'stock' ? ', and editing' : ''}.`, onClick: () => nav(`/guidance/${encodeURIComponent(b.name)}`) },
       ]} />}
  />
   )

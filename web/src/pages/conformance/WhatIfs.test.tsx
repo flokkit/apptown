@@ -83,3 +83,18 @@ it('lists projects behind and tries the upgrade on one', async () => {
     expect(JSON.parse(started!.body!)).toMatchObject({ pack: 'house', version: 2, projects: ['old'] })
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+// A what-if can try a pack's only version on projects not yet on it (a pack
+// version's own page offers the same), so a single-version pack is offered.
+it('offers a pack with one version to try', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/authz/me') ? { instance: { 'conformance:review': true } }
+    : url.endsWith('/wow') ? { packs: [{ pack: 'conventions-only', enabled: true, recommended: 1, versions: [{ version: 1, projects: ['club'] }] }] }
+    : url.endsWith('/conformance/what-ifs') ? { whatIfs: [] } : {}))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><PackUpgrades /></MemoryRouter></QueryClientProvider>) })
+    await settled(client)
+    expect(el.textContent).not.toContain('nothing to try')
+    expect([...el.querySelectorAll('option')].map(o => o.textContent)).toContain('conventions-only')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

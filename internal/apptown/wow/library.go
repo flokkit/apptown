@@ -105,8 +105,18 @@ func (s *library) byID(ctx context.Context, id ids.ID) (*Block, error) {
 	return &b, nil
 }
 
+// errNoBlock and errNoBlockVersion are the absence of what a caller addressed,
+// classified here so readers tell "no such guidance" from a failed read.
+var (
+	errNoBlock        = fault.New(fault.NotFound, "no guidance is named")
+	errNoBlockVersion = fault.New(fault.NotFound, "the guidance has no such version")
+)
+
 func (s *library) ByName(ctx context.Context, name string) (*Block, error) {
 	r, err := wowsql.New(s.db.SQL()).BlockByName(ctx, name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("%w %q: %w", errNoBlock, name, err)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +127,9 @@ func (s *library) ByName(ctx context.Context, name string) (*Block, error) {
 // versionBody is the body of one version of a block.
 func (s *library) versionBody(ctx context.Context, blockID ids.ID, version int) (string, error) {
 	r, err := wowsql.New(s.db.SQL()).BlockVersion(ctx, wowsql.BlockVersionParams{BlockID: blockID, Version: int64(version)})
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("%w: %d: %w", errNoBlockVersion, version, err)
+	}
 	return string(r.BodyMd), err
 }
 

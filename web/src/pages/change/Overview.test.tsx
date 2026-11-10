@@ -48,7 +48,7 @@ it('leads with the preview, separates request from report and links every eviden
   const html = render(view())
   const facts = ['The change', 'Preview', 'Open it and try it', 'You asked', 'What was made', 'Checks', 'Reviewer', 'Your decision']
   for (let i = 1; i < facts.length; i++) expect(html.indexOf(facts[i])).toBeGreaterThan(html.indexOf(facts[i - 1]))
-  for (const fact of ['/records/preview', '/records/checks', '/records/review', '?tab=changes', 'How it was done']) expect(html).toContain(fact)
+  for (const fact of ['/records/checks', '/records/review', '?tab=changes', 'How it was done']) expect(html).toContain(fact)
   expect(html).not.toContain('Keep the dinner invitation.')
   expect(html).toContain('full request →')
   expect(html).not.toContain('No review recorded')
@@ -966,6 +966,14 @@ it('keeps legacy step selectors from reopening evidence inside the timeline', as
   } finally { act(() => root.unmount()); client.clear() }
 })
 
+
+// A run with no preview step has no preview record: the try-it door stays,
+// but no "logs" link leads to a record that says none was made.
+it('links preview logs only when a preview was recorded', () => {
+  const html = render(view())
+  expect(html).toContain('Open it and try it')
+  expect(html).not.toContain('/records/preview')
+})
 
 it('retains the preview run in the logs link', () => {
   const v = view()

@@ -62,13 +62,15 @@ it('reads policy adopters only on their projects page and preserves the reasons 
 })
 
 it('links guidance usage to a page retaining each version and turned-off state', async () => {
-  const block = {block:{id:'guide',name:'House rules',origin:'stock',bodyMd:'Be clear.',tags:'',bytes:9,latestVersion:2},shownVersion:2,versions:[],checks:[],usedBy:projects.map((p,i)=>({projectSlug:p.slug,version:i+1,disabled:i===0}))}
-  const {el,click} = await mount('/guidance/guide', <>
-    <Route path="/guidance/:id" element={<GuidanceBlockPage />} />
-    <Route path="/guidance/:id/projects" element={<GuidanceProjects />} />
-  </>, {'/guidance/blocks/guide':block})
+  // Guidance is addressed by its name, which has slashes: one encoded segment.
+  const block = {block:{id:'guide',name:'team/house-rules',origin:'stock',bodyMd:'Be clear.',tags:'',bytes:9,latestVersion:2},shownVersion:2,versions:[],checks:[],usedBy:projects.map((p,i)=>({projectSlug:p.slug,version:i+1,disabled:i===0}))}
+  const {el,click,reads} = await mount('/guidance/team%2Fhouse-rules', <>
+    <Route path="/guidance/:name" element={<GuidanceBlockPage />} />
+    <Route path="/guidance/:name/projects" element={<GuidanceProjects />} />
+  </>, {'/guidance/blocks/team%2Fhouse-rules':block})
   expect(el.textContent).not.toContain('app-0')
-  await click('a[href="/guidance/guide/projects"]')
+  await click('a[href="/guidance/team%2Fhouse-rules/projects"]')
+  expect([...new Set(reads.filter(r => r.startsWith('/guidance/blocks/')))]).toEqual(['/guidance/blocks/team%2Fhouse-rules'])
   expect(el.querySelectorAll('a[href^="/projects/app-"]')).toHaveLength(100)
   expect(el.textContent).toContain('app-0 · v1 · turned off')
 })

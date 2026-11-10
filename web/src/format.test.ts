@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fmtCost, fmtDuration, fmtLastRead, fmtTokens, fmtWhen, fmtStamp, lastSeen, relTime, stampDate } from './format'
+import { fmtCost, fmtPrice, fmtDuration, fmtLastRead, fmtTokens, fmtWhen, fmtStamp, lastSeen, relTime, stampDate } from './format'
 
 const NOW = Date.parse('2026-09-03T10:00:00Z')
 
@@ -51,9 +51,19 @@ describe('fmtTokens and fmtCost', () => {
     expect(fmtTokens(2_500_000)).toBe('2.5M')
     expect(fmtTokens(1_000_000_000)).toBe('1.0B')
   })
-  it('shows cents for dollars and four places under one', () => {
+  it('shows cents, and four places only under one cent', () => {
     expect(fmtCost(1_500_000)).toBe('$1.50')
-    expect(fmtCost(12_300)).toBe('$0.0123')
+    expect(fmtCost(12_300)).toBe('$0.01')
+    expect(fmtCost(3_000)).toBe('$0.0030')
+    expect(fmtCost(0)).toBe('$0.00')
+  })
+  // A total and its parts use one rule, so "at least $0.0341" never sits
+  // beside "$0.03"; a lower bound rounds down, never claiming more than recorded.
+  it('prices a total the way it prices its parts', () => {
+    expect(fmtPrice(34_100, 0)).toBe('$0.03')
+    expect(fmtPrice(34_100, 2)).toBe('at least $0.03')
+    expect(fmtPrice(35_100, 2)).toBe('at least $0.03')
+    expect(fmtPrice(3_000, 1)).toBe('at least $0.0030')
   })
 })
 

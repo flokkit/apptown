@@ -123,7 +123,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
   return (
     <div className="card infrastructure-new-connection-step-card">
       <p className="muted small mt-0" >
-        {KINDS.find((k) => k.kind === kind)?.blurb} Enter secret names. Set missing values below; saved values are hidden.
+        {KINDS.find((k) => k.kind === kind)?.blurb} Enter secret names; saved values are hidden.
       </p>
       <div className="wiz-fields">
         {field('name', name, setName, kind === 'do-app' ? 'do-syd' : kind === 'portainer' ? 'home-portainer' : kind === 's3-bucket' ? 'spaces-syd' : 'droplet-syd', 160)}

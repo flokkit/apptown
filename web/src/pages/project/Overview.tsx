@@ -90,14 +90,16 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
 }
 
 // Release records own their preview action.
+// Each deployment runs its own release, so the badge names the serving
+// release per deployment rather than the newest serving one anywhere.
 export function ReleaseRows({ slug, releases }: { slug: string; releases: Release[] }) {
-  const live = releases.find(r => r.serving)
+  const live = releases.filter((r, i) => r.serving && releases.findIndex(o => o.serving && o.deployment === r.deployment) === i)
   return <>
       {releases.length > 0 && (
         <div className="card">
           <div className="row">
             <strong>Releases</strong>
-            {live && <span className="badge">live: #{live.number}</span>}
+            {live.length > 0 && <span className="badge">live: {live.map(r => `${r.deploymentLabel} #${r.number}`).join(' · ')}</span>}
             <ul className="release-strip">
               {releases.slice(0, 5).map((r) => (
                 <li key={r.number}><Link to={`/projects/${slug}/releases/${r.number}`}>#{r.number} <span className="muted small">{fmtWhen(r.releasedAt || r.createdAt)}{r.origin === 'observed-after-restore' ? ' · observed after restore' : ''}</span></Link></li>

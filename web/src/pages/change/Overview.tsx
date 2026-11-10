@@ -112,7 +112,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
       {!!boot?.evidence.screenshots?.shots?.length && <Screenshots hero shots={boot?.evidence.screenshots} head={view.head} at={boot?.finishedAt} />}
       <TryIt changeId={ch.id!} label="Open it and try it" />
       {!boot?.evidence.screenshots?.shots?.length && <p className="small muted">{boot?.evidence.screenshots?.unavailable || 'No screenshots were recorded for this preview.'}</p>}
-    </div>{trailer(record('preview', boot?.runId), `${boot?.evidence.screenshots?.commit ? `built from ${boot.evidence.screenshots.commit.slice(0, 7)} · ` : ''}logs →`)}</div>
+    </div>{boot ? trailer(record('preview', boot.runId), `${boot.evidence.screenshots?.commit ? `built from ${boot.evidence.screenshots.commit.slice(0, 7)} · ` : ''}logs →`) : <span />}</div>
     <NotesDiff diff={view.notesDiff} />
     <div className="ch-overview-line ch-request"><div className="ch-row-label">You asked</div><div className="ch-value">{ch.requestSummary || firstLine(ch.body || ch.title)}</div>{trailer(ch.chatRequest ? `/changes/${ch.id}?tab=conversation` : record('request'), !ch.chatRequest && (ch.body || ch.title) !== firstLine(ch.body || ch.title) ? 'full request →' : 'request →')}</div>
     {!!briefParts?.length && <div className="ch-overview-line"><div className="ch-row-label">What it does</div><div className="ch-value">{briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}<StaleNote q={brief} /></div><span /></div>}

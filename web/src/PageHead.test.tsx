@@ -23,6 +23,20 @@ const down = (target: Element) => act(() => { target.dispatchEvent(new MouseEven
 describe('page help', () => {
   afterEach(() => { document.body.innerHTML = '' })
 
+  // Help describes the page it is on: the marks the rows carry, the actions
+  // the page has.
+  it('names the pack mark the rows carry, and gives an account its own help', () => {
+    const packs = render(<PageHead page="waysOfWorking" sub="Packs" />)
+    act(() => q(packs).click())
+    expect(pop(packs)?.textContent).toContain('marked yours')
+    expect(pop(packs)?.textContent).not.toContain('marked AppTown')
+    document.body.innerHTML = ''
+    const account = render(<PageHead page="people" sub="Account" title="sam" />)
+    act(() => q(account).click())
+    expect(pop(account)?.textContent).not.toContain('Invite someone')
+    expect(pop(account)?.textContent).toContain('resets their password')
+  })
+
   it('shows the title with introductions behind help', () => {
     const el = render(<PageHead page="deployments" />)
     expect(el.querySelector('h1')?.textContent).toBe('Deployments')

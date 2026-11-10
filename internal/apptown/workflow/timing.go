@@ -24,7 +24,10 @@ type RunTiming struct {
 	ID        ids.ID
 	Workflow  string
 	CreatedAt time.Time
-	Steps     []StepTiming
+	// Status is the run's lifecycle state. Only RunDone says the run
+	// completed: later stages have no step rows until they are entered.
+	Status RunState
+	Steps  []StepTiming
 }
 type StepTiming struct {
 	ID                    ids.ID
@@ -79,7 +82,11 @@ func readTimingsIn(ctx context.Context, q database.Queryer, projects []ids.ID, i
 	}
 	out := []RunTiming{}
 	for _, row := range rows {
-		run := RunTiming{ID: row.RunID, Workflow: row.WorkflowName, CreatedAt: row.CreatedAt}
+		status, err := ParseRunState(row.RunStatus)
+		if err != nil {
+			return nil, err
+		}
+		run := RunTiming{ID: row.RunID, Workflow: row.WorkflowName, CreatedAt: row.CreatedAt, Status: status}
 		if len(out) == 0 || out[len(out)-1].ID != run.ID {
 			out = append(out, run)
 		}

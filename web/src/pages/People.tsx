@@ -281,7 +281,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
   )
   return (
     <>
-    <PageHead page="people" sub="Accounts" title={detail ? users[0]?.username ?? 'Account' : 'Accounts'} actions={!detail && canEdit && <button className="primary" onClick={() => setInviting(true)}>{invites ? 'Invite' : 'Add person'}</button>} />
+    <PageHead page="people" sub={detail ? 'Account' : 'Accounts'} title={detail ? users[0]?.username ?? 'Account' : 'Accounts'} actions={!detail && canEdit && <button className="primary" onClick={() => setInviting(true)}>{invites ? 'Invite' : 'Add person'}</button>} />
     <Section title={detail ? '' : 'All accounts'} count={detail ? undefined : accounts.length} label="Accounts" note={canEdit && sso ? 'Reset passwords through your sign-in provider.' : undefined}>
       {reset.err && <div className="error small">{reset.err}</div>}
       {resetLink && (

@@ -76,6 +76,9 @@ it('offers workflows, guidance and policies as toggle chips', async () => {
     expect(chip('excavate').getAttribute('aria-pressed')).toBe('true')
     expect(chip('excavate').textContent).toBe('✓excavate')
     expect(chip('api/rest').getAttribute('aria-pressed')).toBe('false')
+    // There are no tabs; the hint leads to the Policies page itself.
+    expect(el.textContent).not.toContain('Policies tab')
+    expect(el.querySelector('a[href="/policies"]')?.textContent).toBe('Policies')
     await act(async () => chip('scanner-bound').click())
     expect(chip('scanner-bound').getAttribute('aria-pressed')).toBe('true')
   } finally { await act(async () => root.unmount()); client.clear() }

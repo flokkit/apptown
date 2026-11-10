@@ -75,7 +75,7 @@ function BarList({ title, rows, labelKey, hasCost, mapLabel }: {
 // least" when some of it went unrecorded, "spend unknown" when none of it
 // was, nothing when nothing was spent.
 function spend(costMicros: number, incomplete: number): string {
-  if (incomplete > 0) return costMicros > 0 ? `at least ${fmtCost(costMicros)}` : 'spend unknown'
+  if (incomplete > 0) return costMicros > 0 ? `at least ${fmtCost(costMicros, true)}` : 'spend unknown'
   return costMicros > 0 ? fmtCost(costMicros) : ''
 }
 
@@ -97,7 +97,7 @@ export function TimingView({ days }: { days: number }) {
             <div className="row mb-2 usage-div">
               <h3 className="usage-h3">{wf.workflow === 'land' ? 'Landing a change' : wf.workflow.replaceAll('-', ' ')}</h3>
               <span className="muted small">
-                {wf.runs} run{wf.runs === 1 ? '' : 's'} · a typical run takes {sec(wf.totalMedianMs)} from open to its last step
+                {wf.runs} run{wf.runs === 1 ? '' : 's'}{wf.totalMedianMs != null && ` · a typical run takes ${sec(wf.totalMedianMs)} from open to its last step`}
                 {cost ? ` · ${cost} in agent time` : ''}
               </span>
             </div>

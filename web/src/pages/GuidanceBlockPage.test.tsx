@@ -10,12 +10,12 @@ import GuidanceBlockPage from './GuidanceBlockPage'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 afterEach(() => vi.unstubAllGlobals())
 
-it('gives an invalid name link a readable error and a route back to the ID-based library', async () => {
+it('reads a block by its encoded name and gives a failed read a route back to the library', async () => {
   const paths: string[] = []
   vi.stubGlobal('fetch', vi.fn(async (url: string) => { paths.push(url); return new Response(JSON.stringify({ error: 'bad id' }), { status: 400 }) }))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
-    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/guidance/lang%2Fselection%2Fdjango-fullstack']}><Routes><Route path="/guidance/:id" element={<GuidanceBlockPage />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/guidance/lang%2Fselection%2Fdjango-fullstack']}><Routes><Route path="/guidance/:name" element={<GuidanceBlockPage />} /></Routes></MemoryRouter></QueryClientProvider>))
     await settled(client)
     expect(paths).toEqual(['/api/v1/guidance/blocks/lang%2Fselection%2Fdjango-fullstack'])
     expect(el.querySelector('h1')?.textContent).toBe('Guidance unavailable')
@@ -30,7 +30,7 @@ it('says a missing guidance block is not found, without an unknown chip', async 
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'no such guidance block' }), { status: 404 })))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
-    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/guidance/00000000-0009-7000-8000-000000000000']}><Routes><Route path="/guidance/:id" element={<GuidanceBlockPage />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/guidance/team%2Fabsent']}><Routes><Route path="/guidance/:name" element={<GuidanceBlockPage />} /></Routes></MemoryRouter></QueryClientProvider>))
     await settled(client)
     expect(el.textContent).toContain('Not found: the guidance block.')
     expect(el.querySelector('.chip')).toBeNull()
