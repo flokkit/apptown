@@ -6,6 +6,7 @@
 }
 .stat-label { font-size: var(--fs-sm); color: var(--subtle); }
 .stat-value { font-family: var(--font-heading); font-weight: var(--fw-strong); font-variant-numeric: lining-nums tabular-nums; margin: 4px 0 2px; font-size: var(--fs-xl); }
+.stat-value.stat-word { font-size: var(--fs-base); color: var(--muted); white-space: nowrap; }
 .lane-split {
   display: flex; height: 18px; border-radius: var(--radius-xs); overflow: hidden;
   min-width: 140px; margin: 6px 0 4px; border: 1px solid var(--border);
@@ -32,7 +33,7 @@
   .usage-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .usage-stats > span:empty { display: none; }
   .usage-stats .stat-card { min-width: 0; padding: 12px 14px; }
-  .usage-stats .stat-value { font-size: var(--fs-xl); }
+  .usage-stats .stat-value:not(.stat-word) { font-size: var(--fs-xl); }
   .usage-stats .lane-split { min-width: 0; }
   .bar-row-head { flex-wrap: wrap; }
   .bar-row-label { white-space: normal; flex: 1 1 100%; }

@@ -70,19 +70,27 @@ export function renderMd(src: string | null | undefined): string {
     if (http) fallback.setAttribute('href', url!.href)
     img.replaceWith(fallback)
   })
-  // A short token in a sentence (a flag, a file name) reads as one thing:
-  // broken after its hyphen it reads as two. Longer code may still wrap so
-  // the page never scrolls sideways.
-  // Longer code in a sentence breaks at its separators (Tech), not inside a
-  // word.
+  // Short code in a sentence (a flag, a file name, a short command) reads as
+  // one thing: broken after a hyphen or inside "-- stop" it reads as two.
+  // Longer code breaks only at its spaces, each piece kept whole; a piece
+  // still too long for a line breaks at its separators (Tech), never inside
+  // a word, so the page never scrolls sideways.
   fragment.querySelectorAll('code').forEach((code) => {
     const text = code.textContent ?? ''
     if (code.parentElement?.tagName === 'PRE') return
-    if (text.length <= 32 && !/\s/.test(text)) { code.classList.add('nobreak'); return }
+    if (text.length <= 32) { code.classList.add('nobreak'); return }
     if (code.children.length > 0) return
-    const parts = text.split(TECH_BREAK)
-    if (parts.length < 2) return
-    code.replaceChildren(...parts.flatMap((part, i) => i > 0 ? [document.createElement('wbr'), part] : [part]))
+    const piece = (part: string): (Node | string)[] => {
+      if (part.length > 32) {
+        const parts = part.split(TECH_BREAK)
+        return parts.flatMap((p, i) => i > 0 ? [document.createElement('wbr'), p] : [p])
+      }
+      const span = document.createElement('span')
+      span.className = 'nobreak'
+      span.textContent = part
+      return [span]
+    }
+    code.replaceChildren(...text.split(/(\s+)/).flatMap((part): (Node | string)[] => part === '' ? [] : /^\s+$/.test(part) ? [part] : piece(part)))
   })
   const container = document.createElement('div')
   container.append(fragment)

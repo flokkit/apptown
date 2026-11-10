@@ -48,8 +48,8 @@ export function ReleasePermalinkPage({ slug, number, log = false }: { slug: stri
     <div className="release-page">
       <StaleNote q={q} />
       <div className="card release-summary">
+        {/* The page heading names the release; this row is its deployment and state. */}
         <div className="row">
-          <h2 className="release-title">Release #{r.number}</h2>
           {r.deployment && <span className="badge">{data.deploymentLabel || r.deployment}</span>}
           {data.replacedBy ? <Status word="replaced" help={`Release ${data.replacedBy} replaced it on this deployment.`} /> : <Status word={data.statusLabel} />}
           {data.isLive && <span className="badge">current release</span>}

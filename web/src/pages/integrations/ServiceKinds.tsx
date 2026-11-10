@@ -63,8 +63,10 @@ export function ServiceKindsPanel() {
             <span className="badge">{k.capability}</span>
             {k.error && <Status word="failed" help={`${k.error} Correct its definition.`} />}
             <span className="grow" />
-            <button className="subtle" onClick={() => setEditing(k.yaml)}>Edit</button>
-            <QuietConfirm label="Delete" ask={`Delete the shared service "${k.capability}"?`} onYes={() => void remove(k.capability)} />
+            <span className="row-action service-kind-actions">
+              <button className="subtle" onClick={() => setEditing(k.yaml)}>Edit</button>
+              <QuietConfirm label="Delete" ask={`Delete the shared service "${k.capability}"?`} onYes={() => void remove(k.capability)} />
+            </span>
           </div>
           {k.description && <div className="muted small mt-1" >{k.description}</div>}
           <div className="muted small mt-1" >

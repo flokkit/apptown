@@ -29,6 +29,7 @@ labelled as such. Reviews open dated snapshot reports.
 | Dialog | `Modal`, with its closing buttons in `actions` (on phones they stay at the screen's foot); `Modal fit` for a dialog sized to its text. Change decisions use the native dialog in `pages/change/Turn.tsx`, opened on phones from a Decide bar fixed to the screen's foot |
 | Labelled field in a form grid | `FieldRow` with native input, select or textarea |
 | State and its explanation | `Status` and `StatusDot` in `Status.tsx`; domain status owners supply meaning and freshness |
+| A short name in running text or a heading (a target, pack or policy) | `Ident`: the name moves to the next line whole instead of breaking at its hyphen; a name wider than the line still breaks |
 | Wrapping horizontal group or vertical stack | `.row` or `.stack`, with `.row-1`–`.row-6` or `.stack-1`–`.stack-6` for gaps |
 
 Choose a list by its content: if column headers would help, it is a table

@@ -12,7 +12,6 @@
 .release-facts { margin: calc(var(--space-1) * 2.5) 0; }
 .release-error { margin-top: calc(var(--space-1) * 2.5); }
 .release-next { margin-top: calc(var(--space-1) * 3.5); }
-.release-title { margin: 0; }
 .release-record { margin: var(--space-4) 0; }
 .release-heading { margin: 0 0 calc(var(--space-1) * 1.5); }
 .release-volume { padding: var(--space-1) 0; }

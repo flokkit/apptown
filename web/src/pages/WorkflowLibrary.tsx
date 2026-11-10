@@ -141,7 +141,8 @@ function WorkflowRow({ page, l, busy, binding, candidates, onBind, onCopy, onEdi
   return (
     <LibraryRow name={l.name} to={page ? undefined : `/workflows/${encodeURIComponent(l.name)}`}
       badges={binding?.custom && <span className="badge">custom</span>}
-      purpose={l.description && firstSentence(l.description)}
+      // On its own page the full description follows, so no purpose line repeats it.
+      purpose={!page && l.description && firstSentence(l.description)}
       state={<span className="muted small">{stock ? PRODUCT : 'yours'} · v{l.latestVersion}</span>}
       menu={<MoreMenu label={l.name} items={[
         { label: 'Copy', hint: 'Make a workflow of your own from this one. Save it with a new name.', onClick: onCopy },

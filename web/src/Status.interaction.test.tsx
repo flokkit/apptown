@@ -39,3 +39,14 @@ it('opens the same details on hover as on click, and shows no browser tooltip', 
     expect(document.body.querySelector('.status-word-detail')?.textContent).toBe('Tests did not pass.')
   } finally { vi.useRealTimers(); act(() => root.unmount()); el.remove() }
 })
+
+// Details that only repeat the word are not details: the chip is plain, with
+// nothing to open.
+it('opens nothing when the details only repeat the word', () => {
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    act(() => root.render(<><Status word="running" help="running" /><Status word="failed" help="Failed" /><Status word="passed" help="" /></>))
+    expect(el.querySelector('.chip-button')).toBeNull()
+    expect(el.querySelectorAll('.chip').length).toBe(3)
+  } finally { act(() => root.unmount()) }
+})

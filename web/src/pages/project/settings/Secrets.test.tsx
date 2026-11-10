@@ -83,3 +83,16 @@ it('shows a reveal failure in the page and clears it when a later reveal succeed
     expect(f.el.textContent).toContain('revealed')
   } finally { f.cleanup() }
 })
+
+// "Add secret" is the page's only act when the app declares none: a button
+// that looks like one, not a text link.
+it('offers Add secret as a primary button when the app declares no secrets', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ declared: false, spec: 'secretspec.toml', project: 'Demo', secrets: [], profiles: [], stores: [], deployments: [] }))))
+  const client = newQueryClient(), el = document.body.appendChild(document.createElement('div')), root = createRoot(el)
+  try {
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><SecretsTab slug="demo" /></MemoryRouter></QueryClientProvider>) })
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    const add = [...el.querySelectorAll('button')].find(b => b.textContent === 'Add secret')!
+    expect(add.className).toBe('primary')
+  } finally { act(() => root.unmount()); el.remove(); client.clear() }
+})

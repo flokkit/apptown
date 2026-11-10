@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Ident } from '../Ident'
 import { Status } from '../Status'
 import { ListTable } from '../ListTable'
 import { setPageContext } from '../chrome'
@@ -27,7 +28,7 @@ export function GuidanceProjects() {
 export function PolicyProjects() {
   const { name = '' } = useParams()
   const q = useGet<PolicyUsageList>(`/policy-library/${encodeURIComponent(name)}/usage`)
-  return <><h1>Projects adopting {name}</h1><ReadStatus q={q} what="the policy's projects" /><StaleNote q={q} />
+  return <><h1>Projects adopting <Ident>{name}</Ident></h1><ReadStatus q={q} what="the policy's projects" /><StaleNote q={q} />
     {q.data && <Section title="Projects" count={q.data.usedBy.length}>
       {q.data.usedBy.map(u => <div key={u.slug} className="card"><Link to={`/projects/${u.slug}`}>{u.project}</Link> · {u.conformant ? 'following it' : 'not following it'}
         {u.violations.map((v, i) => <p key={i}>Workflow “{v.workflow}”: {v.detail}</p>)}

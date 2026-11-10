@@ -238,6 +238,14 @@ const roundFixture = await build({
     import { HelpButton } from './PageHead'
     import { ReleaseRows } from './pages/project/Overview'
     import { CapacityTable } from './pages/integrations/CapacityBars'
+    import { InfrastructureNew } from './pages/InfrastructureNew'
+    import { AdminNetworksCard } from './pages/People'
+    import { ServiceKindsPanel } from './pages/integrations/ServiceKinds'
+    import { DisplayLabelEdit } from './DisplayLabel'
+    import { Switch } from './Switch'
+    import { MoreMenu } from './MoreMenu'
+    import { Ident } from './Ident'
+    import { ChecksRow } from './pages/project/settings/Working'
     const ok = { word: 'working', reason: '' }
     const row = (app, slug, deployment, label) => ({ app, slug, deployment, label, url: 'https://' + deployment + '.example.test', targetName: 'built-in-docker', observation: 'running', status: ok })
     const rows = [row('Club Newsletter', 'club-newsletter', 'production', 'Production'), row('Club Newsletter', 'club-newsletter', 'staging', 'staging'), row('Lunch Orders', 'lunch-orders', 'main', 'main')]
@@ -245,7 +253,10 @@ const roundFixture = await build({
     const answers = path => path.includes('/authz/me') ? { user: 'sam', instance: {}, project: { 'deployment:operate': true, 'deployment:deploy': true } }
       : path.includes('/capacity') ? { target: 'built-in-docker', kind: 'docker-host', elastic: false, stale: false, words: '', tenants: rows.map(r => tenant(r.slug, r.deployment)) }
       : path.includes('/backups') ? { backups: rows.map(r => ({ project: r.slug, deployment: r.deployment, deploymentLabel: r.label, takenAt: '2026-11-08T11:55:00Z', status: 'ok', statusLabel: 'ok', id: r.deployment, projectId: null, trigger: 'manual', actor: 'sam', path: '', bytes: 1, items: [], store: 'host' })), keep: 7, where: '', retention: '' }
-      : path.includes('/features') ? [{ area: 'backups', name: 'Backups', enabled: true }] : {}
+      : path.includes('/features') ? [{ area: 'backups', name: 'Backups', enabled: true }, { area: 'deployments', name: 'Deployments', enabled: true }]
+      : path.includes('/auth/admin-networks') ? { networks: [], you: '10.0.0.5', youInside: true }
+      : path.includes('/services') ? { services: [{ capability: 'hilltop-club-sign-in', title: 'Club sign-in', connector: {}, resource: {}, yaml: '', updatedAt: '2026-11-09T00:00:00Z' }, { capability: 'registry', title: 'Container registry', connector: {}, resource: {}, yaml: '', updatedAt: '2026-11-09T00:00:00Z' }] }
+      : {}
     const held = []
     window.release = () => { window.released = true; held.splice(0).forEach(go => go()) }
     window.fetch = async input => {
@@ -284,6 +295,28 @@ const roundFixture = await build({
         <div className="tabs"><Link id="tab" className="tab" to="/t">Overview</Link></div>
         <Link id="btn-link" className="btn" to="/b">Open app</Link>
       </div>,
+      // Phone round 3.
+      heading: <div><h1 id="long-name">Projects adopting <Ident>requireindependentproductionapproval</Ident></h1><h1 id="short-name">Projects adopting the policy <Ident>build-requires-scan</Ident></h1></div>,
+      newTarget: <InfrastructureNew />,
+      networks: <AdminNetworksCard canEdit />,
+      slots: <Section title="Tasks"><ListTable label="Tasks" className="slots-table model-slots-model-profile-page-slots-table" rows={['Review']} rowKey={r => r} columns={[
+          { key: 'task', label: 'Task', phone: 'name', className: 'model-slots-stack-lead', render: r => <><strong>{r}</strong><div className="muted small">A second set of eyes on finished work</div><div className="muted small">Used by: 8 workflows (e.g. library/adopt-integration)</div></> },
+          { key: 'model', label: 'Model', className: 'model-slots-td', render: () => <div><select aria-label="Review model" className="model-slots-cell-select"><option>Same as Main · strong (fake/model)</option></select><div className="muted small">Same as Main · strong (fake/model)</div></div> },
+          { key: 'spent', label: 'Spent (7 days)', className: 'small muted model-slots-td-2', render: () => '' }]} /></Section>,
+      switch: <Section title="Approval"><div className="members-policy"><label className="small" id="switch-label"><Switch label="Require approval" checked={false} onChange={() => {}} />{' '}Require another person to approve the author's change</label></div></Section>,
+      menu: <MoreMenu label="Workflow" items={[{ label: 'Copy', hint: 'Make your own editable copy of this workflow, so changes to it never alter the stock one.', onClick: () => {} }]} />,
+      inset: <Section title="Remediations"><ListRow className="card row conformance-list-row" identity={<span id="inset-identity">#1 fix all findings</span>} state="running" /></Section>,
+      names: <div>
+        <ListTable label="Features" rows={['Backups']} rowKey={r => r} columns={[{ key: 'n', label: 'Area', phone: 'name', render: r => <><strong id="feature-name">{r}</strong><div className="muted small" id="name-note">Copies of each app's data</div></> }, { key: 'c', label: 'What it covers', render: () => 'Copies' }]} />
+        <ListTable label="Accounts" rows={['sam']} rowKey={r => r} columns={[{ key: 'n', label: 'Name', phone: 'name', render: r => <Link id="account-name" to="/people/accounts/sam">{r}</Link> }, { key: 'c', label: 'Role', render: () => 'Member' }]} />
+        <p>Plain with <strong id="para-strong">bold</strong> words.</p></div>,
+      head: <div className="deployment-page-heading"><div className="deployment-page-title"><h1>members-preview</h1><div className="deployment-page-facts muted small">no address yet · No serving release recorded · built-in-docker</div></div>
+        <div className="deployment-page-actions"><div className="deployment-menu row row-2"><button aria-label="Deployment menu" className="more-menu-button">⋯</button></div></div></div>,
+      label: <Section title="Settings"><DisplayLabelEdit value="design-preview" machineKey="design-preview" path="/targets/design-preview/label" /><dl className="facts"><dt id="next-fact">Kind</dt><dd>Docker host</dd></dl></Section>,
+      kinds: <ServiceKindsPanel />,
+      checks: <Section title="What that gives it"><div role="list"><ChecksRow slug="club-newsletter" /></div></Section>,
+      select: <div><label>Rule<select id="rule-select"><option>step X requires step Y in an earlier stage</option></select></label>
+        <div className="row mb-3"><label>Change <select aria-label="Change to link"><option>#15 Check the October newsletter for broken links before it goes out</option></select></label><button>Link change</button></div></div>,
     }
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main className="main" style={{ padding: 12 }}>{scenes[window.roundCase]}</main></MemoryRouter></QueryClientProvider>)
   ` },
@@ -777,6 +810,95 @@ try {
   const split = await page.evaluate(splitWords)
   want(split.length === 1 && split[0].word === 'Production', `the word-split detector finds exactly the split word: ${JSON.stringify(split)}`)
   assert.deepEqual(misses, [], 'phone round 2')
+  // Phone round 3. Collected like round 2.
+  const lines = sel => page.locator(sel).evaluateAll(els => els.map(el => { const r = document.createRange(); r.selectNodeContents(el); return new Set([...r.getClientRects()].filter(x => x.width > 0).map(x => Math.round(x.top))).size }))
+  const placeholderFits = sel => page.locator(sel).evaluate(input => {
+    const s = getComputedStyle(input), probe = document.createElement('span')
+    probe.textContent = input.placeholder; probe.style.font = s.font; probe.style.position = 'absolute'; probe.style.whiteSpace = 'pre'
+    document.body.append(probe); const w = probe.getBoundingClientRect().width; probe.remove()
+    return { text: w, room: input.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight) }
+  })
+  for (const size of ['medium', 'large']) {
+    const where = `390, ${size}`
+    // A short name moves whole; a long one breaks inside and stays on screen.
+    await round('fleet', size)
+    await page.getByText('Production', { exact: true }).waitFor()
+    const idents = await lines('.fleet-table .ident')
+    want(idents.length === 3 && idents.every(n => n === 1), `each target name is one line at ${where}: ${JSON.stringify(idents)}`)
+    await round('heading', size)
+    const long = await page.locator('#long-name .ident').evaluate(el => ({ lines: (r => (r.selectNodeContents(el), new Set([...r.getClientRects()].map(x => Math.round(x.top))).size))(document.createRange()), inside: el.scrollWidth <= el.clientWidth + 0.5, page: document.documentElement.scrollWidth <= innerWidth }))
+    want(long.lines > 1 && long.inside && long.page, `a long name wraps inside the line at ${where}: ${JSON.stringify(long)}`)
+    want((await lines('#short-name .ident'))[0] === 1, `a short name in a heading moves whole at ${where}`)
+    // Fields grow with the text: the placeholder is not cut.
+    await round('newTarget', size)
+    await page.locator('.wiz-kind').first().click()
+    for (const name of ['SSH key secret', 'address', 'name']) {
+      const fit = await placeholderFits(`.wiz-fields label:has-text("${name}") input`)
+      want(fit.text <= fit.room + 1, `the ${name} placeholder fits at ${where}: ${JSON.stringify(fit)}`)
+    }
+    await round('networks', size)
+    const net = await placeholderFits('input[aria-label="Network"]')
+    want(net.text <= net.room + 1, `the network placeholder fits at ${where}: ${JSON.stringify(net)}`)
+    want(await page.locator('input[aria-label="Network"]').evaluate(i => i.getBoundingClientRect().right <= i.closest('.people-agents-card-div').getBoundingClientRect().right + 0.5 && document.documentElement.scrollWidth <= innerWidth), `the network field stays inside its card at ${where}`)
+    // A select in a stacked table is one line and reaches the row's edge.
+    await round('slots', size)
+    const slot = await page.locator('.slots-table tbody tr').evaluate(tr => { const sel = tr.querySelector('select'), row = tr.getBoundingClientRect(), s = getComputedStyle(tr); return { gap: row.right - parseFloat(s.paddingRight) - sel.getBoundingClientRect().right, wraps: getComputedStyle(sel).whiteSpace } })
+    want(slot.gap <= 2 && slot.wraps !== 'normal', `a slot's select is one line and reaches the row edge at ${where}: ${JSON.stringify(slot)}`)
+    want(await page.locator('.section-body').evaluate(b => { const box = b.getBoundingClientRect(), t = b.querySelector('table').getBoundingClientRect(); return t.left <= box.left + 1.5 && t.right >= box.right - 1.5 }), `the slots table reaches the panel's edges at ${where}`)
+    // A switch's words stay beside it.
+    await round('switch', size)
+    want(await page.locator('#switch-label').evaluate(l => { const sw = l.querySelector('.setting-switch').getBoundingClientRect(); return [...l.childNodes].filter(n => n.nodeType === 3 && n.data.trim()).every(n => { const r = document.createRange(); r.selectNodeContents(n); return [...r.getClientRects()].filter(x => x.width > 0).every(x => x.left >= sw.right - 0.5) }) }), `a switch's label lines start right of it at ${where}`)
+    // A menu fits its words, not the screen.
+    await round('menu', size)
+    await page.getByRole('button', { name: 'Workflow' }).click()
+    want(await page.locator('.popover').evaluate(p => p.getBoundingClientRect().width <= 20 * parseFloat(getComputedStyle(document.documentElement).fontSize) + 20), `a menu is its 20rem list and padding at ${where}`)
+    // A section row keeps its inset.
+    await round('inset', size)
+    want(await page.locator('.section-body').evaluate(b => document.getElementById('inset-identity').getBoundingClientRect().left - b.getBoundingClientRect().left >= 12), `a section row's text keeps its inset at ${where}`)
+    // The deployment menu sits beside the title.
+    await round('head', size)
+    want(await page.evaluate(() => document.querySelector('.deployment-menu button').getBoundingClientRect().top < document.querySelector('.deployment-page-heading h1').getBoundingClientRect().bottom), `the ⋯ is on the title's line at ${where}`)
+    // Edit display name has room after the ID, or a line of its own.
+    await round('label', size)
+    const gaps = await page.evaluate(() => { const code = document.querySelector('.display-label-edit code').getBoundingClientRect(), link = document.querySelector('.display-label-edit button').getBoundingClientRect(), next = document.getElementById('next-fact').getBoundingClientRect(); return { after: link.left - code.right, under: link.top - code.bottom, below: next.top - link.bottom } })
+    // Beside the ID with a gap, or (where the text is wider) on its own line under it.
+    want(gaps.after >= 8 || gaps.under >= 0, `Edit display name sits apart from the ID at ${where}: ${JSON.stringify(gaps)}`)
+    // Edit and Delete stay together.
+    await round('kinds', size)
+    await page.getByText('Club sign-in', { exact: true }).waitFor()
+    want(await page.locator('.card').first().evaluate(c => { const [e, d] = [...c.querySelectorAll('button')].filter(b => /^(Edit|Delete)$/.test(b.textContent.trim())).map(b => Math.round(b.getBoundingClientRect().top)); return e === d }), `Edit and Delete share a line at ${where}`)
+    // The Checks title and its caption do not run together.
+    await round('checks', size)
+    want(await page.locator('.wow-list-row').evaluate(row => { const t = row.querySelector('strong').getBoundingClientRect(), c = row.querySelector('.muted.small').getBoundingClientRect(); return c.left >= t.right + 4 || c.top >= t.bottom - 1 }), `the Checks caption stands apart from its title at ${where}`)
+    // A select leaves room for its arrow.
+    await round('select', size)
+    want(parseFloat(await page.locator('#rule-select').evaluate(s => getComputedStyle(s).paddingInlineEnd)) >= 24, `a select keeps room for its arrow at ${where}`)
+    want(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `a long option does not widen the page at ${where}`)
+  }
+  // The menu cap holds on a wide screen too.
+  await round('menu', 'small', 1440)
+  await page.getByRole('button', { name: 'Workflow' }).click()
+  want(await page.locator('.popover').evaluate(p => p.getBoundingClientRect().width <= 20 * parseFloat(getComputedStyle(document.documentElement).fontSize) + 20), 'a menu is its 20rem list and padding at 1440')
+  // Row names: one weight whether a link or bold text; bold text in prose is the strong token.
+  for (const theme of ['dark', 'light']) {
+    await round('names', 'medium', 390, theme)
+    const w = await page.evaluate(() => ['feature-name', 'account-name', 'para-strong', 'name-note'].map(id => getComputedStyle(document.getElementById(id)).fontWeight))
+    want(w[0] === w[1] && w[2] === '600' && w[3] === '400', `row names share a weight, a line under a name keeps the body weight and strong is 600 in ${theme}: ${JSON.stringify(w)}`)
+  }
+  // The off switch is light against its panel; on is coloured.
+  for (const theme of ['light', 'dark']) {
+    await round('switch', 'medium', 390, theme)
+    const off = await page.locator('.setting-switch').evaluate(el => [getComputedStyle(el).backgroundColor, getComputedStyle(el.closest('.section-body') || document.body).backgroundColor])
+    want(contrast(off[0], off[1]) < 1.5, `the off switch is light against its panel in ${theme}: ${JSON.stringify(off)}`)
+  }
+  // The word-split detector counts a split name, and not one that moved whole.
+  await round('direct', 'medium')
+  await page.evaluate(() => { const p = document.createElement('p'); p.style.width = '140px'; p.innerHTML = 'Running on <span class="ident" style="display:inline">built-in-docker</span> <span class="ident">lunch-orders</span>'; document.querySelector('main').append(p) })
+  const names = await page.evaluate(splitWords)
+  want(names.length === 1 && names[0].word === 'built-in-docker', `the detector finds exactly the split name: ${JSON.stringify(names)}`)
+  // The drawer has one spacer: the one inside SidebarNav, before its foot.
+  want(!/<SidebarNav \/>\s*<div className="spacer" \/>/.test(app), 'the drawer has no second spacer after SidebarNav')
+  assert.deepEqual(misses, [], 'phone round 3')
   console.log('layout: label fixtures, rows, disclosures and phone composer passed')
 } catch (error) {
   // A step that timed out says whether the page itself was stuck (a script

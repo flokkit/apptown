@@ -101,14 +101,14 @@ it('shows embedded disclosures as open sections when the change page requests it
   expect(renderMd(text)).toContain('<section><h4>Recorded commands</h4>')
 })
 
-it('keeps a short code token in a sentence whole, and lets long or spaced code wrap', () => {
-  const html = renderMd('Leave `--worker-url` unset; `' + 'x'.repeat(40) + '` and `two words` may wrap.\n\n```\n--in-a-block\n```')
+it('keeps short code in a sentence whole, spaces or not, and lets long code wrap', () => {
+  const html = renderMd('Leave `--worker-url` unset; `' + 'x'.repeat(40) + '` and `sh -s -- stop` are commands.\n\n```\n--in-a-block\n```')
   const box = document.createElement('div')
   box.innerHTML = html
   const [flag, long, spaced] = box.querySelectorAll('p code')
   expect(flag.classList.contains('nobreak')).toBe(true)
   expect(long.classList.contains('nobreak')).toBe(false)
-  expect(spaced.classList.contains('nobreak')).toBe(false)
+  expect(spaced.classList.contains('nobreak')).toBe(true)
   expect(box.querySelector('pre code')!.classList.contains('nobreak')).toBe(false)
 })
 
@@ -117,4 +117,17 @@ it('breaks long code in a sentence at its separators, not inside a word', () => 
   box.innerHTML = renderMd('Pass `--providers.docker.exposedbydefault=false` to Traefik.\n\n```\n--providers.docker.exposedbydefault=false\n```')
   expect(box.querySelector('p code')!.innerHTML).toBe('--providers.<wbr>docker.<wbr>exposedbydefault=<wbr>false')
   expect(box.querySelector('pre code')!.querySelector('wbr')).toBeNull()
+})
+
+it('breaks long code with spaces only at its spaces, each short piece whole', () => {
+  const box = document.createElement('div')
+  box.innerHTML = renderMd('Run `curl -fsSL https://get.docker.com | sh` first, then `-console-url http://172.17.0.1:7778 -x ' + 'y'.repeat(20) + '` and `run --path=/srv/apps/club-newsletter/releases/current/public`.')
+  const [curl, consoleUrl, path] = box.querySelectorAll('p code')
+  expect(curl.querySelector('wbr')).toBeNull()
+  expect([...curl.querySelectorAll('span.nobreak')].map(s => s.textContent)).toContain('https://get.docker.com')
+  expect(curl.textContent).toBe('curl -fsSL https://get.docker.com | sh')
+  expect(consoleUrl.querySelector('wbr')).toBeNull()
+  // A piece longer than 32 characters still breaks at its separators.
+  expect(path.querySelector('wbr')).not.toBeNull()
+  expect(path.textContent).toBe('run --path=/srv/apps/club-newsletter/releases/current/public')
 })

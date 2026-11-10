@@ -127,6 +127,8 @@ describe('model prices', () => {
       await act(async () => { root.render(<QueryClientProvider client={client}><UsageView project="demo" /></QueryClientProvider>) })
       await settled(client)
       expect(el.querySelector('.usage-figure')?.textContent).toContain('not priced')
+      // A missing price is a word, set apart from an amount.
+      expect(el.querySelector('.usage-figure .stat-value')?.classList.contains('stat-word')).toBe(true)
       // Where prices came from is a detail, on the Details tab.
       expect(el.textContent).not.toContain('without a price source')
       await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Details')!.click() })
@@ -138,6 +140,7 @@ describe('model prices', () => {
       await act(async () => { await client.invalidateQueries() })
       await settled(client)
       expect(el.querySelector('.usage-figure')?.textContent).toContain('at least $0.003')
+      expect(el.querySelector('.usage-figure .stat-value')?.classList.contains('stat-word')).toBe(false)
       expect(el.textContent).toContain('2 reported by the provider')
       expect(el.textContent).toContain('1 from the model catalog')
       expect(el.textContent).toContain('1 spend record without a price source')

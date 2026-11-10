@@ -9,6 +9,7 @@ import { MoreMenu } from '../../MoreMenu'
 import { QuietConfirm } from '../../QuietConfirm'
 import { ResourceStatus } from '../Infrastructure'
 import { TargetTabs } from './TargetTabs'
+import { TargetHead } from './TargetHead'
 import { post } from '../../api'
 import { fmtStamp } from '../../format'
 import type { InfrastructureTargets, InfrastructureView, Resource, ResourceHost } from '../../wire.gen'
@@ -47,7 +48,7 @@ export function TargetResourcesPage({ detail = false }: { detail?: boolean }) {
   const deployments = [...labels.keys()].sort()
   const selected = search.get('deployment') ?? ''
   return <div>
-    <h1>Resources</h1><StaleNote q={q} />
+    <TargetHead name={t.target} /><StaleNote q={q} />
     <TargetTabs name={t.target} current="resources" />
     {t.error && <p className="muted">Inventory is unknown: {t.error}</p>}
     {(t.unknown || t.invalidated) && <p>Current resource state is unknown.</p>}

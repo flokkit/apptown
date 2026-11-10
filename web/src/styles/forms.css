@@ -50,6 +50,8 @@ input, textarea, select {
   border-radius: var(--radius-sm); padding: 7px 10px; font-family: inherit; font-size: var(--fs-base);
 }
 input::placeholder, textarea::placeholder { color: var(--subtle); }
+/* The text stops before the arrow. */
+select { padding-inline-end: 2em; }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 textarea { width: 100%; font-family: var(--font-mono); font-size: var(--fs-xs); }
 /* A textarea for sentences, not code. */
@@ -108,10 +110,17 @@ textarea.prose { font-family: var(--font-sans); font-size: var(--fs-base); }
 @media (hover: hover) { .wiz-kind:not(:disabled):hover { border-color: var(--accent); } }
 .wiz-fields { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
 .wiz-fields label { display: flex; flex-direction: column; gap: 3px; }
+/* A wizard field's width is set per field; on phones each takes the line,
+   since the field's text grows with the text size and a fixed box cuts it. */
+.wiz-fields input { width: var(--field-width, auto); }
+@media (max-width: 800px) { .wiz-fields, .wiz-fields label, .wiz-fields input { width: 100%; } }
 .wiz-answer { margin-top: 10px; min-height: 1.4em; }
 .wiz-section { font-weight: 600; margin: 12px 0 6px; }
 @media (max-width: 800px) {
   input, select, textarea { max-width: 100%; }
+  /* A label holding a select is no wider than its line, so a long option
+     (and the arrow's room) narrows the select instead of widening the page. */
+  label:has(> select) { max-width: 100%; min-width: 0; }
 }
 @media (max-width: 800px), (pointer: coarse) {
   button, a.btn, select, details > summary,
@@ -183,7 +192,8 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
 }
 .service-pick details { width: 100%; }
 .pick-tile > .chip { grid-column: 2; }
-.display-label-edit { margin-top: calc(var(--space-1) * 1.5); }
+.display-label-edit { margin-top: calc(var(--space-1) * 1.5); display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-3); }
+.display-label-edit > :is(form, .error) { flex-basis: 100%; }
 /* The edit link lines up with the ID beside or above it, as text does. */
 .display-label-edit > button.link { padding-inline: 0; }
 }

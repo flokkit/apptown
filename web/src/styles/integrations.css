@@ -92,7 +92,8 @@ a.int-name:hover { color: var(--accent-hover); }
 
 @media (max-width: 800px) {
   .slots-table td { max-width: 100%; }
-  .slots-table td[data-label] { display: flex; align-items: center; gap: 8px; }
   .slots-table td select { max-width: 100%; }
 }
+/* A shared service's Edit and Delete wrap together. */
+.service-kind-actions { gap: var(--space-2); }
 }

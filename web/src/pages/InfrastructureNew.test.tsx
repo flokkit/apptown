@@ -142,6 +142,14 @@ it('leaves the target parent trail to the top bar', () => {
   } finally {client.clear()}
 })
 
+it('heads the kind list like the other wizard lists', () => {
+  const client = newQueryClient(), el = document.createElement('div')
+  try {
+    el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><InfrastructureNew /></QueryClientProvider></MemoryRouter>)
+    expect([...el.querySelectorAll('.wiz-section')].map(e => e.textContent)).toContain('Target kind')
+  } finally {client.clear()}
+})
+
 // A disabled Check names the fields still empty, and the line goes once they are filled.
 it('names the missing connection fields while Check is disabled', async () => {
   vi.stubGlobal('fetch', vi.fn(withFeatures(async () => json({}))))
