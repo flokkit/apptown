@@ -266,10 +266,11 @@ func (s *starter) FillStart(ctx context.Context, in deployment.StartFill) (deplo
 	if err != nil {
 		return deployment.StartReceipt{}, err
 	}
-	dk, runner, err := s.copyRunnerForAct(ctx, t)
+	dk, runner, done, err := s.copyRunnerForAct(ctx, t)
 	if err != nil {
 		return deployment.StartReceipt{}, err
 	}
+	defer done()
 	md := s.providers.ManagedData(t)
 	bd, err := s.bucketData(ctx, t, current)
 	if err != nil {

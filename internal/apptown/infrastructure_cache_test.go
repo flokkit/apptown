@@ -530,7 +530,7 @@ func TestHostReaderCutoverKeepsOtherProviderRefreshes(t *testing.T) {
 		if target.Kind != deployment.KindDockerHost || target.Status == deployment.TargetRetired {
 			continue
 		}
-		if err := a.hostSnapshots.BeforeAct(ctx, target.ID); err != nil {
+		if _, err := a.hostSnapshots.BeforeAct(ctx, target.ID); err != nil {
 			t.Fatal(err)
 		}
 		reading, err := a.Deployment.InventoryFor(ctx, target)
@@ -624,6 +624,50 @@ func TestAttentionDoesNotReportNewPreviewMissingFromEarlierSnapshot(t *testing.T
 	// Once collected, the running preview still raises no condition.
 	readHostsForTest(t, a)
 	check()
+}
+
+// An act on the host does not hide a resource the last complete reading
+// found missing: the warning stays, marked as old, until a reading after the
+// act confirms or clears it.
+func TestAttentionKeepsAWitnessedMissingResourceAfterAnAct(t *testing.T) {
+	t.Parallel()
+	daemon := dockerfake.New()
+	a := testApp(t, Config{DockerClient: daemon})
+	a.Deployment.SeedTargets(t.Context(), nil)
+	projectID := createReadTestProject(t, a, "missing-after-act")
+	target, err := a.targets.ByName(t.Context(), deployment.BuiltInTargetName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	change := idstest.N(7)
+	if err := a.deployments.RecordPreview(t.Context(), projectID, change, target.ID, docker.PreviewChangeName(change), 40001, "http://preview", nil); err != nil {
+		t.Fatal(err)
+	}
+	readHostsForTest(t, a)
+	source := &attention.Inventory{Targets: inventoryTargetOnly{target}, Records: a.Deployment.Inventory, Observer: attentionInventory{service: a.Deployment}}
+	missing := func() []attention.Item {
+		t.Helper()
+		got, err := source.Snapshot(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []attention.Item
+		for _, it := range got.Items {
+			if strings.HasSuffix(it.Title, "resource missing") {
+				out = append(out, it)
+			}
+		}
+		return out
+	}
+	if got := missing(); len(got) != 1 || got[0].Stale {
+		t.Fatalf("before the act: %+v", got)
+	}
+	if _, err := a.hostSnapshots.BeforeAct(t.Context(), target.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got := missing(); len(got) != 1 || !got[0].Stale {
+		t.Fatalf("after an act the witnessed absence vanished or claims to be current: %+v", got)
+	}
 }
 
 // Run the actual loops and wait for a new stored lap, then join them. Timeout

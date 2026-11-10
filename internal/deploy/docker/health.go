@@ -94,7 +94,7 @@ type Watched struct {
 
 // HealthDependencies is what the controller asks of the world.
 type HealthDependencies struct {
-	BeforeAct  func(context.Context, Watched) error
+	BeforeAct  func(context.Context, Watched) (done func(), err error)                   // marks the host before an act; done marks it again after
 	Watch      func(context.Context) []Watched                                           // the standing deployments the apptown runs on hosts it talks to
 	PublicPart func(context.Context, Watched) *appcontract.Part                          // the running release's public part, nil when unreadable
 	FrontDoor  func() map[string]string                                                  // the front-door signal a probe sends
@@ -279,13 +279,16 @@ func (c *HealthController) hold(ctx context.Context, e Watched, dk Scope, ph *pa
 	total := ph.restartsSeen + seen
 	log.Printf("health controller: %s/%s is crash-looping — Docker restarted it %d× in %s, %d in all, last exit code %s — stopping it",
 		e.Slug, e.Name, seen, CrashLoopWindow, total, exit)
+	done := func() {}
 	if c.deps.BeforeAct != nil {
-		if err := c.deps.BeforeAct(ctx, e); err != nil {
+		var err error
+		if done, err = c.deps.BeforeAct(ctx, e); err != nil {
 			log.Printf("health controller: recording act: %v", err)
 			return
 		}
 	}
 	out, err := dk.Run(ctx, "stop", rt.ID)
+	done()
 	detail := strings.TrimSpace(string(out))
 	if err != nil {
 		detail = err.Error() + ": " + detail
@@ -321,13 +324,16 @@ func (c *HealthController) hold(ctx context.Context, e Watched, dk Scope, ph *pa
 func (c *HealthController) restart(ctx context.Context, e Watched, dk Scope, ph *partHealth) {
 	log.Printf("health controller: %s/%s failed liveness %d× past grace — restarting (attempt %d)",
 		e.Slug, e.Name, ph.fails, ph.restarts+1)
+	done := func() {}
 	if c.deps.BeforeAct != nil {
-		if err := c.deps.BeforeAct(ctx, e); err != nil {
+		var err error
+		if done, err = c.deps.BeforeAct(ctx, e); err != nil {
 			log.Printf("health controller: recording act: %v", err)
 			return
 		}
 	}
 	out, err := dk.Run(ctx, "restart", e.Container)
+	done()
 	// The restart is made: its receipt is written though ctx has ended.
 	c.deps.Record(context.WithoutCancel(ctx), e, "deployment.health-restart", map[string]any{
 		"container": e.Container,

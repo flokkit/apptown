@@ -107,18 +107,6 @@ func (c *InventoryReadings) Finish(ctx context.Context, t *Target, generation in
 }
 
 // Live is the passive infrastructure view; old evidence retains its original time.
-// The flags are invalidated and unknown, followed by the source lap duration in seconds.
-func (c *InventoryReadings) Live(ctx context.Context, t *Target) ([]deploy.Resource, []SharedResource, string, time.Time, bool, bool, float64) {
-	out, err := c.snapshotForTarget(ctx, t)
-	if err != nil {
-		return nil, nil, err.Error(), time.Time{}, false, true, 0
-	}
-	why := out.Reason
-	if why == "" && (out.Stale || out.Invalidated) {
-		why = "Inventory reading is out of date"
-	}
-	if out.Unknown {
-		return nil, nil, why, out.ObservedAt, out.Invalidated, out.Unknown, out.TookSeconds
-	}
-	return out.Items, out.Shared, why, out.ObservedAt, out.Invalidated, out.Unknown, out.TookSeconds
+func (c *InventoryReadings) Live(ctx context.Context, t *Target) InventoryEvidence {
+	return evidenceOf(c.snapshotForTarget(ctx, t))
 }

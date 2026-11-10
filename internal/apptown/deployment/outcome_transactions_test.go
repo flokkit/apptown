@@ -396,3 +396,44 @@ func TestADeploymentsOutcomeIsSettledThoughItsCallerHasGone(t *testing.T) {
 		}
 	}
 }
+
+// A failed or uncertain deploy may have changed the runtime: its settlement
+// records an act on the deployment, so readings begun before it cannot
+// witness its parts. Replaying a settled outcome records nothing new.
+func TestUnappliedSettlementRecordsAnAct(t *testing.T) {
+	t.Parallel()
+	for _, uncertain := range []bool{false, true} {
+		t.Run(fmt.Sprint("uncertain=", uncertain), func(t *testing.T) {
+			t.Parallel()
+			f, dep := deploymentOutcomeFixture(t)
+			useRecoveryJobs(t, f)
+			at := time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
+			f.outcomes.clock = func() time.Time { return at }
+			attempt, _, err := f.outcomes.Admit(t.Context(), deploymentStartFor(dep, "failing", "selected"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			settle := func() {
+				t.Helper()
+				if uncertain {
+					_, err = f.outcomes.Uncertain(t.Context(), attempt, errors.New("lost response"))
+				} else {
+					_, err = f.outcomes.Fail(t.Context(), attempt, errors.New("rejected"))
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			settle()
+			got, err := NewDeployments(f.db).ByID(t.Context(), dep.ID)
+			if err != nil || !got.lastActAt().Equal(at) {
+				t.Fatalf("settlement recorded no act: %v %v", got.lastActAt(), err)
+			}
+			at = at.Add(time.Minute)
+			settle()
+			if got, err = NewDeployments(f.db).ByID(t.Context(), dep.ID); err != nil || !got.lastActAt().Equal(at.Add(-time.Minute)) {
+				t.Fatalf("a replayed settlement renewed the act: %v %v", got.lastActAt(), err)
+			}
+		})
+	}
+}

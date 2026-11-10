@@ -19,7 +19,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -143,8 +142,8 @@ func (f targetDockerClientFunc) Run(ctx context.Context, host string, req docker
 	return f(ctx, host, req)
 }
 
-func (*targetTestInventoryCache) Live(context.Context, *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool, float64) {
-	return nil, nil, "", time.Time{}, false, true, 0
+func (*targetTestInventoryCache) Live(context.Context, *deployment.Target) deployment.InventoryEvidence {
+	return deployment.InventoryEvidence{Unknown: true}
 }
 func (*targetTestInventoryCache) Invalidate() {}
 

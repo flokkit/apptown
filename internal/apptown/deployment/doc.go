@@ -162,11 +162,16 @@
 // reading from it. Use is reserved for capacity. Foreground reads never store
 // this evidence. A failed section retains its evidence; an
 // unread section stays unknown. BeforeAct increments the act counter before an
-// effect. Only a complete lap begun after that act clears the whole-reading
+// effect, and the done it returns increments it again when the effect ends.
+// Only a complete lap begun after that act clears the whole-reading
 // mark; passive reads compare with the current counter. Docker inventory
 // and deployment diagnostics derive from the stored facts. The whole-reading
-// mark governs host-level views; a deployment's parts wait only for a reading
-// begun after its own last act (its applied attempt or confirmed runtime act),
+// mark governs host-level views: under it the last list and its witnessed
+// missing claims are kept, marked as predating the act, and a record the list
+// lacks is not called missing ([InventoryAnswer]). A deployment's parts and
+// status wait only for a reading begun strictly after its own last act
+// (its applied attempt, confirmed runtime act, or other
+// act such as a health restart, crash-loop stop, restore or failed attempt),
 // so one deployment's act leaves its siblings' witnessed parts. Diagnostics never
 // inspect parts individually; a failed section exposes the next ordinary lap.
 // Missing-resource claims compare records

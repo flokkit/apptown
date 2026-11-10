@@ -146,6 +146,13 @@ func (s *Outcomes) Uncertain(ctx context.Context, at Attempt, cause error) (depl
 		if _, err := deploymentsql.New(tx.SQL()).SetReadiness(ctx, deploymentsql.SetReadinessParams{Readiness: lost.String(), UpdatedAt: now, ID: dep.ID}); err != nil {
 			return "", err
 		}
+		// What the uncertain effect did to the runtime is not known. A later
+		// note on an attempt already uncertain is not a new effect.
+		if status != AttemptUncertain {
+			if err := markActedIn(ctx, tx.SQL(), dep.ID, now); err != nil {
+				return "", err
+			}
+		}
 		if err := s.followups.EnqueueIn(ctx, tx, jobs.Request{Operation: RecoveryJob, Key: fmt.Sprint(at.ID)}); err != nil {
 			return "", err
 		}

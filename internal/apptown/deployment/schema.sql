@@ -95,6 +95,11 @@ CREATE TABLE IF NOT EXISTS deployments (
   runtime_actor TEXT NOT NULL DEFAULT '',
   runtime_at TIMESTAMPTZ,
   runtime_error TEXT NOT NULL DEFAULT '',
+  -- When the last act on this deployment's runtime ended that is neither an
+  -- applied attempt nor a runtime control: a health restart, a crash-loop
+  -- stop, a restore, a failed or uncertain deploy. Readings begun earlier
+  -- cannot witness its parts. Null until the first such act.
+  act_at TIMESTAMPTZ,
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
   UNIQUE(project_id, name)
 );

@@ -101,8 +101,11 @@ func deploymentAnswer(dep *Deployment, o RuntimeObservation, d Diagnostics, rele
 		a.Word, a.Reason, a.Stale = progressLabelDeploying, "releasing", false
 		return a
 	}
-	// A completed apply waits for evidence, without a clock-based grace period.
-	if dep.LastApplied != nil && o.AttemptedAt.Before(dep.LastApplied.At) && o.ObservedAt.Before(dep.LastApplied.At) {
+	// The deployment's last act waits for evidence, without a clock-based
+	// grace period: only a reading begun after the act can say what runs now.
+	// A reading begun during a restart may finish after it, still reporting
+	// the container stopped.
+	if acted := dep.lastActAt(); dep.LastApplied != nil && !o.AttemptedAt.After(acted) {
 		a = DeploymentStatus{Word: progressLabelWaiting, Reason: "live — first check pending", AppliedAt: dep.LastApplied.At}
 		if applied != nil {
 			a.Reason = fmt.Sprintf("release %d live — first check pending", applied.Number)

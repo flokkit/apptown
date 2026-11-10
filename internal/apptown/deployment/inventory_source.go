@@ -43,18 +43,37 @@ func (s *Service) newInventorySources() map[string]func(context.Context, *Target
 	return sources
 }
 
+// InventoryEvidence is a target's passive inventory answer: the last list
+// read, with its age and coverage. Invalidated says the list was read before
+// the latest act on the target; it is still the last list, and Missing holds
+// only the absences that list's own complete reading witnessed.
+type InventoryEvidence struct {
+	Items      []deploy.Resource
+	Shared     []SharedResource
+	Missing    []deploy.Resource
+	Reason     string // why the list is not current: a failure, or its age
+	ObservedAt time.Time
+	// Unknown: there is no list to show; Invalidated: the list predates an act.
+	Unknown, Invalidated bool
+	TookSeconds          float64 // the source lap's duration
+}
+
 // InventoryLive is the passive infrastructure view with source age and coverage.
-// The final value is the source lap duration in seconds.
-func (s *Service) InventoryLive(ctx context.Context, t *Target) ([]deploy.Resource, []SharedResource, string, time.Time, bool, bool, float64) {
+func (s *Service) InventoryLive(ctx context.Context, t *Target) InventoryEvidence {
 	r, err := s.InventoryFor(ctx, t)
+	return evidenceOf(r, err)
+}
+
+func evidenceOf(r inventoryObservation, err error) InventoryEvidence {
 	if err != nil {
-		return nil, nil, err.Error(), time.Time{}, false, true, 0
+		return InventoryEvidence{Reason: err.Error(), Unknown: true}
 	}
-	if r.Reason == "" && (r.Stale || r.Invalidated) {
+	if r.Reason == "" && r.Stale {
 		r.Reason = "Inventory reading is out of date"
 	}
-	if r.Unknown {
-		return nil, nil, r.Reason, r.ObservedAt, r.Invalidated, r.Unknown, r.TookSeconds
+	out := InventoryEvidence{Reason: r.Reason, ObservedAt: r.ObservedAt, Unknown: r.Unknown, Invalidated: r.Invalidated, TookSeconds: r.TookSeconds}
+	if !r.Unknown {
+		out.Items, out.Shared, out.Missing = r.Items, r.Shared, r.Missing
 	}
-	return r.Items, r.Shared, r.Reason, r.ObservedAt, r.Invalidated, r.Unknown, r.TookSeconds
+	return out
 }

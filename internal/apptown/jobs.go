@@ -209,8 +209,10 @@ func (c infrastructureChecks) RunHourly(ctx context.Context, _ string, _ map[str
 	return nil, errors.Join(errs...)
 }
 
-// Applied queues fresh detail, protection and capacity checks after every act.
-// Docker inventory remains owned by the host reader loop.
+// Applied queues fresh detail, protection and capacity checks after every act,
+// including a failed or uncertain deploy, which may have changed the target
+// too. Other targets' inventory is marked out of date and read again; Docker
+// inventory remains owned by the host reader loop.
 func (c *infrastructureChecks) Applied(targetID ids.ID) {
 	ctx := context.WithoutCancel(c.life)
 	target, err := c.targets.ByID(ctx, targetID)

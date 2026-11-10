@@ -157,9 +157,11 @@ func (s *Service) takeBackup(ctx context.Context, projectID ids.ID, deploymentNa
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", deploymentName, err)
 	}
-	if err := deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, dep.TargetID); err != nil {
-		return nil, err
+	actDone, actErr := deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, dep.TargetID)
+	if actErr != nil {
+		return nil, actErr
 	}
+	defer actDone()
 	b, err := s.takeSet(ctx, held.dk, projectID, slug, deploymentName, held.items, trigger, actor)
 	return b, err
 }
@@ -570,9 +572,18 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 	rec.begin(ctx, "stopping the app, so nothing writes while the data goes back")
 	recordStop := func(id string) error { return rec.stopping(ctx, id) }
 	recordStart := func(id string) { rec.started(ctx, id) }
-	if err := deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, dep.TargetID); err != nil {
-		return nil, err
+	actDone, actErr := deployment.NewHostSnapshots(s.db, s.now).BeforeAct(ctx, dep.TargetID)
+	if actErr != nil {
+		return nil, actErr
 	}
+	defer actDone()
+	// From here on the app's runtime may change: its parts wait for a
+	// reading begun after the restore, whatever its outcome.
+	defer func() {
+		if err := s.deployments.MarkActed(context.WithoutCancel(ctx), dep.ID); err != nil {
+			log.Printf("restore of %s: recording the act on the deployment: %v", deploymentName, err)
+		}
+	}()
 	parts, err := stopParts(ctx, dk, append(writers, owned...), recordStop)
 	// A part the running release names that Docker does not have cannot
 	// write, so the data still goes back; but the app does not come back

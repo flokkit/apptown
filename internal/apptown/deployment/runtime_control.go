@@ -25,8 +25,9 @@ func (e *Deployment) runtimeBusy() bool {
 }
 
 // lastActAt is when this deployment's own last effect finished: its applied
-// attempt or its confirmed runtime act. Readings begun earlier cannot
-// witness its parts.
+// attempt, its confirmed runtime act, or another act (a health restart, a
+// crash-loop stop, a restore, a failed or uncertain deploy). Readings begun
+// earlier cannot witness its runtime or its parts.
 func (e *Deployment) lastActAt() time.Time {
 	var at time.Time
 	if e.LastApplied != nil {
@@ -34,6 +35,9 @@ func (e *Deployment) lastActAt() time.Time {
 	}
 	if e.RuntimeAt.Valid && e.RuntimeAt.Time.After(at) {
 		at = e.RuntimeAt.Time
+	}
+	if e.actAt.After(at) {
+		at = e.actAt
 	}
 	return at
 }
@@ -179,8 +183,10 @@ func (s *Service) ControlRuntime(ctx context.Context, projectID ids.ID, name, ac
 		} else {
 			// Resolve current authority again after credential and provider setup.
 			if _, err = s.authority.Require(ctx, permission); err == nil {
-				if err = NewHostSnapshots(s.db, s.now).BeforeAct(ctx, dep.TargetID); err == nil {
+				var done func()
+				if done, err = NewHostSnapshots(s.db, s.now).BeforeAct(ctx, dep.TargetID); err == nil {
 					err = controller.Runtime(ctx, dep.Placement(), action)
+					done()
 				}
 			}
 		}

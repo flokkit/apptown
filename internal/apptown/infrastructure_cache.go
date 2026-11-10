@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
@@ -87,6 +86,6 @@ type inventorySources struct {
 func inventorySourcesFor(a *App) inventorySources {
 	return inventorySources{service: a.Deployment}
 }
-func (s inventorySources) Live(ctx context.Context, t *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool, bool, float64) {
+func (s inventorySources) Live(ctx context.Context, t *deployment.Target) deployment.InventoryEvidence {
 	return s.service.InventoryLive(ctx, t)
 }

@@ -162,10 +162,39 @@ func TestARecordIsMissingOnlyWhenAnAnswerLacksIt(t *testing.T) {
 		{"an empty host", nil, "", now, deploy.RecordMissing, true, true},
 		{"an old answer under an error", running, "docker ps: ssh refused", now, deploy.RecordRecorded, false, true},
 	} {
-		out, latest, answered := deployment.InventoryAnswer(append([]deploy.Resource{}, recorded...), tc.live, tc.errText, tc.at, false)
+		out, latest, answered := deployment.InventoryAnswer(append([]deploy.Resource{}, recorded...), deployment.InventoryEvidence{Items: tc.live, Reason: tc.errText, ObservedAt: tc.at})
 		if len(out) != 1 || out[0].Record != tc.record || latest != tc.latest || answered != tc.answered {
 			t.Fatalf("%s: %+v latest %v answered %v", tc.name, out, latest, answered)
 		}
+	}
+}
+
+// A list read before the latest act is still the last list: its unrecorded
+// resources and the absences its own reading witnessed stay, but it is not
+// the latest answer, and it cannot establish a new absence (a record made
+// since, such as a new deployment's container, is not called missing).
+func TestAnInventoryReadBeforeAnActIsKeptAsTheLastList(t *testing.T) {
+	t.Parallel()
+	gone := deploy.Resource{Kind: "container", Name: "apptown-env-app-main", Record: deploy.RecordRecorded}
+	fresh := deploy.Resource{Kind: "container", Name: "apptown-env-app-new", Record: deploy.RecordRecorded}
+	stray := deploy.Resource{Kind: "container", Name: "someone-elses"}
+	now := time.Now()
+	ev := deployment.InventoryEvidence{Items: []deploy.Resource{stray}, ObservedAt: now, Invalidated: true, Missing: []deploy.Resource{{Kind: "container", Name: gone.Name, Record: deploy.RecordMissing}}}
+	out, latest, answered := deployment.InventoryAnswer([]deploy.Resource{gone, fresh}, ev)
+	if latest || !answered {
+		t.Fatalf("latest %v answered %v", latest, answered)
+	}
+	records := map[string]string{}
+	for _, r := range out {
+		records[r.Name] = r.Record
+	}
+	want := map[string]string{gone.Name: deploy.RecordMissing, fresh.Name: deploy.RecordRecorded, stray.Name: deploy.RecordUnrecorded}
+	if fmt.Sprint(records) != fmt.Sprint(want) {
+		t.Fatalf("got %v, want %v", records, want)
+	}
+	// An empty list read before the act is still an answer, not "no list".
+	if out, latest, answered := deployment.InventoryAnswer(nil, deployment.InventoryEvidence{ObservedAt: now, Invalidated: true}); latest || !answered || len(out) != 0 {
+		t.Fatalf("empty list before an act: %+v %v %v", out, latest, answered)
 	}
 }
 
@@ -216,7 +245,7 @@ func TestInventoryReconciliationHasOneRowPerConfirmedResource(t *testing.T) {
 		}
 	}
 	// Even without a provider answer, duplicate claims are still one resource.
-	unassessed, latest, answered := deployment.InventoryAnswer(recorded, nil, "unavailable", time.Time{}, false)
+	unassessed, latest, answered := deployment.InventoryAnswer(recorded, deployment.InventoryEvidence{Reason: "unavailable"})
 	if len(unassessed) != 27 || latest || answered {
 		t.Fatalf("unassessed inventory duplicated or confirmed: %d %v %v", len(unassessed), latest, answered)
 	}

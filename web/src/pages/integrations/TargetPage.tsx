@@ -369,7 +369,7 @@ export function Unaccounted({ here }: { here: TargetInfra; onChanged: () => void
       {here.asOf && <div className="muted small">Inventory {readingAge(here.asOf, !here.live)}{here.invalidated ? " · before the latest change" : ""}</div>}
       {failed && <div className="muted small target-page-unaccounted-error">Inventory is unknown: {(here.error || 'No complete inventory reading').replace(/[.!?]$/, '')}{here.asOf ? `; showing the inventory ${lastSeen(here.asOf)}.` : ', and nothing has been read from it yet, so unaccounted resources are unknown.'}</div>}
       {here.live || here.asOf
-        ? <TargetResourcesTable t={here} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Nothing unaccounted for.' : `Nothing unaccounted for in the inventory ${lastSeen(here.asOf!)}.`} />
+        ? <TargetResourcesTable t={here} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Nothing unaccounted for.' : here.invalidated ? 'Nothing unaccounted for in the inventory read before the latest change.' : `Nothing unaccounted for in the inventory ${lastSeen(here.asOf!)}.`} />
         : !failed && <div className="muted small">checking…</div>}
       {here.shared && <div className="muted small target-page-registry-line-div">{here.shared}</div>}
     </>

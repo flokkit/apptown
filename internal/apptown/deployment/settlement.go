@@ -274,6 +274,10 @@ func (s *Outcomes) finish(ctx context.Context, in Completion, cause error) (depl
 			if _, err := deploymentsql.New(tx.SQL()).SetReadiness(ctx, deploymentsql.SetReadinessParams{Readiness: readiness.String(), UpdatedAt: now, ID: dep.ID}); err != nil {
 				return "", err
 			}
+			// A failed effect may still have changed the runtime.
+			if err := markActedIn(ctx, tx.SQL(), dep.ID, now); err != nil {
+				return "", err
+			}
 		} else {
 			handle := dep.Handle
 			if h, ok := in.Observed.Handle.(map[string]any); ok && h != nil {

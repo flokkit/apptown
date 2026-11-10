@@ -679,3 +679,58 @@ func (d *midActDriver) Runtime(ctx context.Context, p deploy.Placement, action s
 	d.during()
 	return d.runtimeDriver.Runtime(ctx, p, action)
 }
+
+// Acts other than an applied attempt or a runtime control also end the
+// acting deployment's witnessed parts, and only its own: a health restart,
+// a crash-loop stop and a restore. (Failed and uncertain deploys are
+// TestUnappliedSettlementRecordsAnAct.)
+//
+// Kills: an act that records no time on its deployment.
+func TestOtherActsWaitOnlyForTheActingDeployment(t *testing.T) {
+	t.Parallel()
+	w := newDiagnosticsWorld(t)
+	sibling := w.deployment(t, w.s, "sibling", w.remote)
+	w.land(t, w.s, sibling, idstest.N(8))
+	diagnose := func(name string) Diagnostics {
+		t.Helper()
+		d, err := w.s.Diagnostics(t.Context(), w.project, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	known := func(name string) {
+		t.Helper()
+		if d := diagnose(name); d.Reading.Unknown || len(d.Parts) == 0 {
+			t.Fatalf("%s unknown: %+v", name, d.Reading)
+		}
+	}
+	acts := []struct {
+		name string
+		act  func(t *testing.T)
+	}{
+		{"health restart", func(t *testing.T) {
+			w.s.recordHealth(t.Context(), docker.Watched{DeploymentID: w.main.ID, ProjectID: w.project, Name: "main", TargetID: w.main.TargetID}, "deployment.health-restart", map[string]any{"ok": true})
+		}},
+		{"crash-loop stop", func(t *testing.T) {
+			w.s.recordHealth(t.Context(), docker.Watched{DeploymentID: w.main.ID, ProjectID: w.project, Name: "main", TargetID: w.main.TargetID}, "deployment.crash-loop-held", map[string]any{"ok": true})
+		}},
+		{"restore", func(t *testing.T) {
+			if err := w.s.Deployments.MarkActed(t.Context(), w.main.ID); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	}
+	for _, a := range acts {
+		w.advance(time.Second)
+		w.s.readHostContainersForTest(t, w.main.TargetID)
+		known("main")
+		known("sibling")
+		w.advance(time.Second)
+		a.act(t)
+		if d := diagnose("main"); !d.Reading.Unknown {
+			t.Errorf("%s: the acting deployment kept its pre-act reading: %+v", a.name, d.Reading)
+		}
+		known("sibling")
+	}
+}

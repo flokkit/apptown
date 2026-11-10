@@ -145,10 +145,14 @@ memory fallback when an owner read fails.
 
 Worker availability still requests bounded background observation from reads;
 age alone creates no worker-unavailable item. Deployment runtime uses its existing
-background observation owner. With no runtime reading since the last successful
-attempt, a missing status waits two minutes from that attempt's finish time,
-including first releases and rebuilds. Metadata edits do not restart this interval.
-Attempt failures and crash holds remain visible during it. Once applied, a
+background observation owner. A deployment's last act is the latest of its
+successful attempt, its confirmed start, stop or restart, and its other acts (a
+health restart, a crash-loop stop, a restore, a failed or uncertain attempt).
+For two minutes after that act, a runtime reading begun before it, or one taken
+while a start, stop or restart is under way, raises no runtime item: not a
+missing status, not the stopped advisory, not an unhealthy runtime. This
+includes first releases and rebuilds. Metadata edits do not restart this
+interval. Attempt failures and crash holds remain visible during it. Once applied, a
 pending first runtime reading cannot wait indefinitely. Protection remains pending
 until a deployment has a successful attempt. An applied deployment with an empty
 release revision is still assessed. Readings waiting after a change contribute no

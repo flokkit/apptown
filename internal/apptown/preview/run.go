@@ -144,9 +144,11 @@ func (s *Service) runSnapshots(runID ids.ID) string {
 func (s *Service) runPreviewHere(ctx context.Context, stepID ids.ID, slug, name, incarnation, visitor string, prepared docker.Prepared, tree string) (runResult, error) {
 	life, cancel := context.WithTimeout(context.WithoutCancel(ctx), docker.BootLifetime)
 	defer cancel()
-	if err := s.beforeLocalAct(life); err != nil {
-		return runResult{}, err
+	done, actErr := s.beforeLocalAct(life)
+	if actErr != nil {
+		return runResult{}, actErr
 	}
+	defer done()
 	result, err := s.env.PreparedHost(prepared).Boot(life, docker.BootRequest{URL: prepared.URL, Allowed: docker.AuthorisedWhenRequested, Docker: s.hosts.Local().WithLifetime(life), Name: name, StackID: docker.RunStepStackID(stepID), Workspace: tree, Slug: slug,
 		Deployment: "preview", Services: prepared.Services, Probe: 90 * time.Second, PageCheck: true, VisitorHost: visitor, Incarnation: incarnation, Scratch: s.hosts.BootScratch()}, prepared.Contract)
 	if err != nil {
@@ -197,9 +199,11 @@ func (s *Service) DiscardRunPreview(ctx context.Context, runID ids.ID, stepIDs [
 		err = s.removeOnWorker(ctx, name)
 	} else {
 		dk := s.hosts.Local()
-		if err := s.beforeLocalAct(ctx); err != nil {
-			return err
+		done, actErr := s.beforeLocalAct(ctx)
+		if actErr != nil {
+			return actErr
 		}
+		defer done()
 		err = errors.Join(dk.RemoveDisposable(ctx, name))
 		for _, id := range stepIDs {
 			err = errors.Join(err, dk.RemoveDisposableStack(ctx, docker.RunStepStackID(id)))

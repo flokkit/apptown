@@ -411,7 +411,7 @@ func TestHostSnapshotScenesReadInventory(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err := w.a.hostSnapshots.BeforeAct(t.Context(), target.ID); err != nil {
+				if _, err := w.a.hostSnapshots.BeforeAct(t.Context(), target.ID); err != nil {
 					t.Fatal(err)
 				}
 				var last string

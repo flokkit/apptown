@@ -23,13 +23,13 @@ import (
 // the Docker library owns probing, restart thresholds and backoff.
 func (s *Service) HealthController() *docker.HealthController {
 	return docker.NewHealthController(docker.HealthDependencies{
-		BeforeAct: func(ctx context.Context, w docker.Watched) error {
+		BeforeAct: func(ctx context.Context, w docker.Watched) (func(), error) {
 			dep, err := s.Deployments.ByID(ctx, w.DeploymentID)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if dep.RuntimeState != "running" {
-				return errRuntimeBusy
+				return nil, errRuntimeBusy
 			}
 			return NewHostSnapshots(s.db, s.now).BeforeAct(ctx, w.TargetID)
 		},
@@ -45,6 +45,13 @@ func (s *Service) HealthController() *docker.HealthController {
 func (s *Service) recordHealth(ctx context.Context, w docker.Watched, kind string, payload map[string]any) {
 	at := s.now()
 	err := s.db.InTx(ctx, func(tx *database.Tx) error {
+		// Both kinds are acts on the deployment's runtime: its parts wait for
+		// a reading begun after them.
+		if kind == "deployment.crash-loop-held" || kind == "deployment.health-restart" {
+			if err := markActedIn(ctx, tx.SQL(), w.DeploymentID, at); err != nil {
+				return err
+			}
+		}
 		if kind == "deployment.crash-loop-held" {
 			payload["deploymentId"], payload["generation"] = w.DeploymentID, w.Identity.Generation
 			r, err := deploymentsql.New(tx.SQL()).ReleasedGeneration(ctx, deploymentsql.ReleasedGenerationParams{ProjectID: w.ProjectID, DeploymentID: w.DeploymentID, Generation: w.Identity.Generation, State: Released.String()})

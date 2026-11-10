@@ -109,9 +109,11 @@ func (e *runError) Unwrap() error {
 // inputs, owns context lifetime and handles workflow-specific evidence. No new
 // deadline is imposed on builds or provider rollouts.
 type Runner struct {
-	Store     executionStore
-	Applied   func(ids.ID)
-	BeforeAct func(context.Context, ids.ID) error
+	Store executionStore
+	// Acted hears of every effect that ran, once it is settled, whatever its
+	// outcome: a failed or uncertain deploy may have changed the target too.
+	Acted     func(ids.ID)
+	BeforeAct func(context.Context, ids.ID) (done func(), err error)
 }
 
 // Run admits the attempt, executes only a newly admitted identity, and records
@@ -165,9 +167,14 @@ func (r Runner) Run(ctx context.Context, in Start, execute execute) (ExecutionRe
 		return failure(err, true)
 	}
 	if r.BeforeAct != nil {
-		if err := r.BeforeAct(ctx, in.TargetID); err != nil {
+		done, err := r.BeforeAct(ctx, in.TargetID)
+		if err != nil {
 			return failure(err, true)
 		}
+		defer done()
+	}
+	if r.Acted != nil {
+		defer r.Acted(in.TargetID)
 	}
 	o, err := execute(ctx, at, r.Store.Checkpoint(ctx, at))
 	result.Observed = o
@@ -183,8 +190,5 @@ func (r Runner) Run(ctx context.Context, in Start, execute execute) (ExecutionRe
 		return uncertain(settlement, err)
 	}
 	result.Outcome = out
-	if out == Applied && r.Applied != nil {
-		r.Applied(in.TargetID)
-	}
 	return result, nil
 }

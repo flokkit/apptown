@@ -1258,8 +1258,12 @@ deployment and reason that need attention. Previews do not qualify that roll-up.
 While a release attempt is open, its recorded stage and release number are the
 status, or its recorded failure reason. Runtime readings do not qualify that
 answer. Its serving-release text names the attempt's release. After settlement,
-the latest reading supplies status. If it predates the completed apply, status
-says “waiting” with “release N live — first check pending” until a reading arrives. Advancing
+the latest reading supplies status. Unless the reading began strictly after
+the deployment's last act (its completed apply, confirmed runtime control, or
+other act such as a health restart, restore or failed attempt), status says
+“waiting” with “release N live — first check pending” until such a reading
+arrives; a reading begun during a restart can finish after it and still see the
+app stopped. Advancing
 the clock alone cannot end that wait. Readiness stays in the attempt's check
 stage and the app's health declaration.
 

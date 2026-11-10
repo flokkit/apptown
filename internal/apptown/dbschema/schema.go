@@ -707,6 +707,9 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 	{n: 220, note: "make core working areas always on", stmts: []string{
 		`INSERT INTO instance_settings (key, value) VALUES ('feature.ways','true'), ('feature.previews','true'), ('feature.complaints','true'), ('feature.usage','true') ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`,
 	}},
+	{n: 221, note: "record a deployment's other acts", stmts: []string{
+		`ALTER TABLE deployments ADD COLUMN act_at TIMESTAMPTZ`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

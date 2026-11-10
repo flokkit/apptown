@@ -111,9 +111,10 @@ func policyLibraryUpgradeFixture(t *testing.T) *App {
 	if _, err := a.DB.SQL().ExecContext(t.Context(), `INSERT INTO lib_workflow_versions(id,lib_id,version,yaml,created_at,source,signer) VALUES('00000000-0000-7000-8000-000000000302','00000000-0000-7000-8000-000000000301',1,$1,now(),'flokkit','old stock')`, string(raw)); err != nil {
 		t.Fatal(err)
 	}
-	// sql-guarantee: recreate the schema before runtime controls; merely lowering
-	// its version would replay the new column migration over existing columns.
-	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE deployments DROP COLUMN runtime_state, DROP COLUMN runtime_actor, DROP COLUMN runtime_at, DROP COLUMN runtime_error`); err != nil {
+	// sql-guarantee: recreate the schema before runtime controls and other acts;
+	// merely lowering its version would replay the new column migrations over
+	// existing columns.
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE deployments DROP COLUMN runtime_state, DROP COLUMN runtime_actor, DROP COLUMN runtime_at, DROP COLUMN runtime_error, DROP COLUMN act_at`); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: recreate releases before deployment progress was recorded.

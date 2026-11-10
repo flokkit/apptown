@@ -17,9 +17,11 @@ func (s *Service) RemoveDockerResource(ctx context.Context, t *Target, kind, nam
 	if err != nil {
 		return nil, err
 	}
-	if err := NewHostSnapshots(s.db, s.now).BeforeAct(ctx, t.ID); err != nil {
+	done, err := NewHostSnapshots(s.db, s.now).BeforeAct(ctx, t.ID)
+	if err != nil {
 		return nil, err
 	}
+	defer done()
 	if kind == "container" {
 		return dk.Run(ctx, "rm", "-f", name)
 	}
