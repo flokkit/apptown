@@ -11408,13 +11408,13 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/guidance/blocks/{id}": {
+    "/api/v1/guidance/blocks/{block}": {
       "get": {
-        "operationId": "getGuidanceBlocksId",
+        "operationId": "getGuidanceBlocksBlock",
         "parameters": [
           {
             "in": "path",
-            "name": "id",
+            "name": "block",
             "required": true,
             "schema": {
               "type": "string"
@@ -11433,7 +11433,7 @@
           "guidance"
         ],
         "x-apptown-access": {
-          "contract": "guidanceBlocks.GetBlock: shared guidance definition",
+          "contract": "guidanceBlocks.GetBlock: shared guidance definition, read by the block's name",
           "kind": "public"
         },
         "x-apptown-feature": {
@@ -11443,11 +11443,11 @@
         "x-apptown-stability": "experimental"
       },
       "patch": {
-        "operationId": "patchGuidanceBlocksId",
+        "operationId": "patchGuidanceBlocksBlock",
         "parameters": [
           {
             "in": "path",
-            "name": "id",
+            "name": "block",
             "required": true,
             "schema": {
               "type": "string"

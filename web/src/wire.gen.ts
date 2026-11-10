@@ -2409,7 +2409,7 @@ export type WorkflowTiming = {
   workflow: string
   days: number
   runs: number
-  totalMedianMs: number
+  totalMedianMs?: number | null
   steps: StepTiming[]
 }
 

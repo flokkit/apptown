@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // The loop confirms an outage after two consecutive host failures, retains its
@@ -75,7 +76,7 @@ func TestHostDownRequiresTwoLapsAndCompleteRecovery(t *testing.T) {
 // Reachability comes from stored host evidence, rather than the target kind.
 func TestHostReachabilityUsesStoredReading(t *testing.T) {
 	t.Parallel()
-	svc, db, daemon, _, _ := healthWorld(t)
+	svc, db, daemon, projectID, _ := healthWorld(t)
 	target, err := svc.Targets.Put(t.Context(), &Target{Name: "stored-host", Kind: KindPortainer, Origin: OriginAttached, Status: TargetReady})
 	if err != nil {
 		t.Fatal(err)
@@ -100,5 +101,14 @@ func TestHostReachabilityUsesStoredReading(t *testing.T) {
 	got, err = svc.HostReachability(t.Context(), target.ID)
 	if err != nil || !got.Down || got.Error != "connection refused" || got.Since.IsZero() {
 		t.Fatalf("stored outage: %+v, %v", got, err)
+	}
+	// The count is of standing deployments, as the target page lists; a
+	// change preview on the host does not make it one, and the outage stays.
+	if err := svc.Deployments.RecordPreview(t.Context(), projectID, idstest.N(7), target.ID, docker.PreviewChangeName(idstest.N(7)), 40001, "http://preview", nil); err != nil {
+		t.Fatal(err)
+	}
+	got, err = svc.HostReachability(t.Context(), target.ID)
+	if err != nil || !got.Down || got.Deployments != 0 {
+		t.Fatalf("outage with only a preview: %+v, %v", got, err)
 	}
 }

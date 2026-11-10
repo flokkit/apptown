@@ -59,24 +59,24 @@ func (h GuidanceBlocks) CreateBlock(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetBlock reads a block by its name, the address packs and work records use
+// (names are unique and never change). Absence is 404; a failed read is a fault.
+// The route shares its one path template, {block}, with PatchBlock, which
+// takes the block's ID: an API description may not list the same path twice.
 func (h GuidanceBlocks) GetBlock(w http.ResponseWriter, r *http.Request) {
-	id, err := pathID(r, "id")
+	b, err := h.ways.BlockByName(r.Context(), r.PathValue("block"))
 	if err != nil {
-		WriteError(w, 400, "bad id")
+		WriteFault(w, err)
 		return
 	}
-	b, err := h.ways.BlockByID(r.Context(), id)
-	if err != nil {
-		WriteError(w, 404, "no such block")
-		return
-	}
+	id := b.ID
 	version, ok := queryInt(w, r, "version", b.LatestVersion)
 	if !ok {
 		return
 	}
 	body, err := h.ways.BlockVersionBody(r.Context(), id, version)
 	if err != nil {
-		WriteError(w, 404, "no such version %d", version)
+		WriteFault(w, err)
 		return
 	}
 	b.BodyMD = body
@@ -101,7 +101,7 @@ func (h GuidanceBlocks) PatchBlock(w http.ResponseWriter, r *http.Request) {
 	if _, ok := AuthorizeRequest(h.access, w, r, access.CapStandardsGuidance, access.Resource{Type: "instance"}, access.Context{}); !ok {
 		return
 	}
-	id, err := pathID(r, "id")
+	id, err := pathID(r, "block")
 	if err != nil {
 		WriteError(w, 400, "bad id")
 		return

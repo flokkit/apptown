@@ -34,7 +34,7 @@ export const PAGE_HELP = {
         <li><strong>Guidance:</strong> instructions the coding agents read.</li>
         <li><strong>Policies:</strong> rules every change has to pass.</li>
       </ul>
-      <p>New projects start from a pack. Packs marked <span className="badge">{PRODUCT}</span> come with {PRODUCT}. To change one, make your own pack based on it.</p>
+      <p>New projects start from a pack. Packs marked <span className="badge">yours</span> were made here; the rest come with {PRODUCT}. To change one of those, make your own pack based on it.</p>
     </>,
     guide: 'packs-and-what-if',
   },
@@ -168,6 +168,11 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
       <p>Everyone who can sign in to {PRODUCT}.</p>
       <p>Invite someone to add them. The ⋯ on a row resets a password or turns the account off.</p>
     </> },
+    // One account's page: its own actions, not the list's.
+    Account: { guide: 'people-and-roles', body: <>
+      <p>One person's account and the groups they are in.</p>
+      <p>The ⋯ resets their password or turns the account off.</p>
+    </> },
     Groups: { guide: 'people-and-roles', body: <>
       <p>A group is a named set of people. Give a group a role and everyone in it gets that access.</p>
       <p>A workflow can ask any member of a group to approve: put <code>group:name</code> in its approvers. The record keeps the name of whoever approved.</p>
@@ -234,7 +239,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
   waysOfWorking: {
     Packs: { guide: 'packs-and-what-if', body: <>
       <p>Choose the packs projects can start from. A pack bundles a stack with the workflows, guidance and policies that go with it.</p>
-      <p>Packs marked {PRODUCT} come with {PRODUCT}; to change one, make your own pack based on it.</p>
+      <p>Packs marked yours were made here; the rest come with {PRODUCT}. To change one of those, make your own pack based on it.</p>
     </> },
     Workflows: { guide: 'ways-of-working-formats', body: <>
       <p>See the steps a change goes through, from request to release: who builds it, which checks run and who approves it.</p>

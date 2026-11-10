@@ -981,7 +981,7 @@ func cmdTiming(args []string) error {
 		Workflows []struct {
 			Workflow      string
 			Runs          int
-			TotalMedianMs int64
+			TotalMedianMs *int64
 			Steps         []struct {
 				Stage, Name, Type                                string
 				Runs, Reworks                                    int
@@ -1000,7 +1000,12 @@ func cmdTiming(args []string) error {
 		if i > 0 {
 			fmt.Println()
 		}
-		fmt.Printf("%s — %d runs in %d days, median %s from start to last step\n", wf.Workflow, wf.Runs, out.Days, fmtMs(wf.TotalMedianMs))
+		// The median covers completed runs only; with none there is no claim.
+		if wf.TotalMedianMs != nil {
+			fmt.Printf("%s — %d runs in %d days, median %s from start to last step of a completed run\n", wf.Workflow, wf.Runs, out.Days, fmtMs(*wf.TotalMedianMs))
+		} else {
+			fmt.Printf("%s — %d runs in %d days, none completed\n", wf.Workflow, wf.Runs, out.Days)
+		}
 		w := tw()
 		fmt.Fprintln(w, "STAGE\tSTEP\tTYPE\tRUNS\tWAIT (median)\tTOOK (median)\tP90\tMAX\tREWORKS\tCOST")
 		for _, s := range wf.Steps {

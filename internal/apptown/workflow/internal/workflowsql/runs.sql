@@ -178,7 +178,7 @@ SELECT id,project_id FROM runs WHERE id=ANY($1::uuid[]);
 
 -- name: RunTimingReport :many
 WITH selected AS (
- SELECT id,workflow_name,created_at FROM runs
+ SELECT id,workflow_name,created_at,status FROM runs
  WHERE ((sqlc.narg(run_id)::uuid IS NOT NULL AND id=sqlc.narg(run_id)) OR
   (sqlc.narg(run_id)::uuid IS NULL AND (sqlc.arg(workflow_name)::text='' OR workflow_name=sqlc.arg(workflow_name)) AND created_at>sqlc.arg(since)))
  AND project_id=ANY(sqlc.arg(project_ids)::uuid[])
@@ -188,7 +188,7 @@ WITH selected AS (
  WHERE e.kind='step.rework' AND jsonb_typeof(e.payload_json->'step')='string'
  GROUP BY e.run_id,e.payload_json->>'step'
 )
-SELECT r.id AS run_id,r.workflow_name,r.created_at,s.id AS step_id,
+SELECT r.id AS run_id,r.workflow_name,r.created_at,r.status AS run_status,s.id AS step_id,
  COALESCE(s.stage,'')::text AS stage,COALESCE(s.name,'')::text AS name,COALESCE(s.type,'')::text AS type,COALESCE(s.status,'')::text AS status,
  s.started_at,s.finished_at,COALESCE(w.n,0)::bigint AS reworks
 FROM selected r LEFT JOIN steps s ON s.run_id=r.id

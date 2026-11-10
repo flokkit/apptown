@@ -35,10 +35,12 @@ type stepTiming struct {
 }
 
 type workflowTiming struct {
-	Workflow      string       `json:"workflow"`
-	Days          int          `json:"days"`
-	Runs          int          `json:"runs"`
-	TotalMedianMs int64        `json:"totalMedianMs"` // run birth to last step end
+	Workflow string `json:"workflow"`
+	Days     int    `json:"days"`
+	Runs     int    `json:"runs"`
+	// TotalMedianMs is the median from run birth to last step end over the
+	// completed runs; absent when no run in the window completed.
+	TotalMedianMs *int64       `json:"totalMedianMs,omitempty"`
 	Steps         []stepTiming `json:"steps"`
 }
 
@@ -154,7 +156,7 @@ func summarizeWorkflowTiming(name string, days int, runs []workflow.RunTiming, c
 				}
 			}
 		}
-		if !born.IsZero() && !last.IsZero() {
+		if run.Status == workflow.RunDone && !born.IsZero() && !last.IsZero() {
 			totals = append(totals, last.Sub(born).Milliseconds())
 		}
 	}
@@ -171,7 +173,10 @@ func summarizeWorkflowTiming(name string, days int, runs []workflow.RunTiming, c
 		out.Steps = append(out.Steps, ac.st)
 	}
 	sort.Slice(totals, func(i, j int) bool { return totals[i] < totals[j] })
-	out.TotalMedianMs = percentile(totals, 0.5)
+	if len(totals) > 0 {
+		median := percentile(totals, 0.5)
+		out.TotalMedianMs = &median
+	}
 	return out
 }
 

@@ -14,9 +14,9 @@ export function ProjectCount({ to, count }: { to: string; count: number }) {
 }
 
 export function GuidanceProjects() {
-  const { id = '' } = useParams()
-  const q = useGet<GuidanceBlockDetail>(`/guidance/blocks/${encodeURIComponent(id)}`)
-  usePageName(`/guidance/${id}`, q.data?.block.name)
+  const { name = '' } = useParams()
+  const q = useGet<GuidanceBlockDetail>(`/guidance/blocks/${encodeURIComponent(name)}`)
+  usePageName(`/guidance/${encodeURIComponent(name)}`, q.data?.block.name)
   return <><h1>Projects</h1><ReadStatus q={q} what="the guidance's projects" /><StaleNote q={q} />
     {q.data && <Section title="Projects" count={q.data.usedBy.length}>
       {q.data.usedBy.map(u => <p key={u.projectSlug}><Link to={`/projects/${u.projectSlug}`}>{u.projectSlug}</Link> · v{u.version}{u.disabled ? ' · turned off' : ''}</p>)}

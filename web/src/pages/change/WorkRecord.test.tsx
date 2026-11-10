@@ -113,7 +113,12 @@ it('uses quiet missing facts and never emits empty separators in a run record', 
   const f = await mount(t, '/changes/change/work/run?run=run&attempt=work-run')
   expect(f.el.querySelector('.work-byline')?.textContent).not.toMatch(/unknown|unavailable/)
   expect(f.el.textContent).toContain('not recorded')
-  expect(f.el.textContent).toContain('— · code for the whole change →')
+  // A run-level entry is the run's record: no agent, and no file count the
+  // run did not record; the whole change's code is one link away.
+  expect(f.el.querySelector('.work-byline')?.textContent).toMatch(/^Run · /)
+  expect(f.el.textContent).not.toContain('Files changed')
+  expect(f.el.textContent).not.toContain('— · code for the whole change')
+  expect(f.el.querySelector('a[href="/changes/change?tab=changes"]')?.textContent).toBe('code for the whole change →')
   expect(f.el.textContent).toContain('make v2 · run workflow text')
   for (const text of ['tokens and cost', 'Session identity unavailable', 'The saved agent log', 'No instruction record exposed', 'Worker chats are recorded', 'result unknown', ' ·  · ']) expect(f.el.textContent).not.toContain(text)
   f.close()

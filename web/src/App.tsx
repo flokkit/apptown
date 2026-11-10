@@ -331,14 +331,14 @@ export default function App() {
           <Route path="/workflows/:name" element={<CoreArea area="ways"><WorkflowLibrary page /></CoreArea>} />
           <Route path="/policies/:name" element={<CoreArea area="ways"><PoliciesPage page /></CoreArea>} />
           <Route path="/packs/:name/versions/:version" element={<CoreArea area="ways"><PackPage /></CoreArea>} />
-          <Route path="/guidance/:id/projects" element={<CoreArea area="ways"><GuidanceProjects /></CoreArea>} />
+          <Route path="/guidance/:name/projects" element={<CoreArea area="ways"><GuidanceProjects /></CoreArea>} />
           <Route path="/policies/:name/projects" element={<CoreArea area="ways"><PolicyProjects /></CoreArea>} />
           <Route path="/packs/:name/projects" element={<CoreArea area="ways"><PackProjects /></CoreArea>} />
           <Route path="/integrations/profiles/:profile/projects" element={<CoreArea area="models"><InstanceGate page="integrations"><ModelProfilePage projects /></InstanceGate></CoreArea>} />
           <Route path="/integrations/:name/projects" element={<CoreArea area="setup"><InstanceGate page="integrations"><IntegrationProjects /></InstanceGate></CoreArea>} />
           <Route path="/services/:name/projects" element={<CoreArea area="setup"><InstanceGate page="integrations"><IntegrationProjects /></InstanceGate></CoreArea>} />
           <Route path="/guidance" element={<CoreArea area="ways"><WaysOfWorking tab="guidance" /></CoreArea>} />
-          <Route path="/guidance/:id" element={<CoreArea area="ways"><GuidanceBlockPage /></CoreArea>} />
+          <Route path="/guidance/:name" element={<CoreArea area="ways"><GuidanceBlockPage /></CoreArea>} />
           <Route path="/workflows" element={<CoreArea area="ways"><WaysOfWorking tab="workflows" /></CoreArea>} />
           <Route path="/projects/:slug/workflows/*" element={<CoreArea area="projects"><ToProjectWorking /></CoreArea>} />
           <Route path="/projects/:slug/console" element={<CoreArea area="chats"><Console /></CoreArea>} />

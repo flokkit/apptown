@@ -155,6 +155,8 @@ it('names the missing connection fields while Check is disabled', async () => {
   const check = () => [...el.querySelectorAll('button')].find((b) => b.textContent === 'Check')!
   expect(check().disabled).toBe(true)
   expect(el.querySelector('.wiz-missing')?.textContent).toBe('Fill in the name and SSH key secret')
+  // Nothing is below to set until a secret name is typed, so the step does not say so.
+  expect(el.textContent).not.toContain('below')
   const type = async (placeholder: string, value: string) => {
     const input = el.querySelector<HTMLInputElement>(`input[placeholder="${placeholder}"]`)!
     await act(async () => {

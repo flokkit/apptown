@@ -46,7 +46,7 @@ function EvalRow({ e }: { e: Eval }) {
       <div className="row evals-row">
         <Link className="tap-open" to={`/evals/${e.id}`}><strong>Eval {e.number}</strong></Link>
         <span>{e.subject} against what projects run now</span>
-        <Status word={e.statusLabel} help={e.reason || e.state} />
+        <Status word={e.statusLabel} help={e.reason} />
         <span className="grow" />
         <span className="muted small">started by {e.startedBy} {relTime(e.startedAt)}</span>
       </div>
@@ -193,7 +193,7 @@ export function EvalScorecardPage() {
         <>
           <div className="row evals-row">
             <h1 className="evals-title">Eval {e.number}: {e.subject}</h1>
-            <Status word={e.statusLabel} help={e.reason || e.state} />
+            <Status word={e.statusLabel} help={e.reason} />
           </div>
           <div className="muted small mt-1" >
             Started by {e.startedBy} {relTime(e.startedAt)}, meaning “{e.meaning}”
@@ -290,7 +290,7 @@ function ArmCard({ e, a, label, cost, complaints }: { e: EvalScorecard; a: Arm; 
       <div className="row evals-arm-heading">
         <strong>{label}</strong>
         <span className="muted small">{a.profile}</span>
-        <Status word={a.statusLabel} help={a.reason || a.state} />
+        <Status word={a.statusLabel} help={a.reason} />
         {s.notComparable && <span className="badge">not comparable</span>}
       </div>
       {a.reason && <div className="small mt-1" >{a.reason}</div>}

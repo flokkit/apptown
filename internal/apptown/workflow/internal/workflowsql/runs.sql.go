@@ -1188,7 +1188,7 @@ func (q *Queries) RunStartByID(ctx context.Context, runID ids.ID) (RunStart, err
 
 const runTimingReport = `-- name: RunTimingReport :many
 WITH selected AS (
- SELECT id,workflow_name,created_at FROM runs
+ SELECT id,workflow_name,created_at,status FROM runs
  WHERE (($1::uuid IS NOT NULL AND id=$1) OR
   ($1::uuid IS NULL AND ($2::text='' OR workflow_name=$2) AND created_at>$3))
  AND project_id=ANY($4::uuid[])
@@ -1198,7 +1198,7 @@ WITH selected AS (
  WHERE e.kind='step.rework' AND jsonb_typeof(e.payload_json->'step')='string'
  GROUP BY e.run_id,e.payload_json->>'step'
 )
-SELECT r.id AS run_id,r.workflow_name,r.created_at,s.id AS step_id,
+SELECT r.id AS run_id,r.workflow_name,r.created_at,r.status AS run_status,s.id AS step_id,
  COALESCE(s.stage,'')::text AS stage,COALESCE(s.name,'')::text AS name,COALESCE(s.type,'')::text AS type,COALESCE(s.status,'')::text AS status,
  s.started_at,s.finished_at,COALESCE(w.n,0)::bigint AS reworks
 FROM selected r LEFT JOIN steps s ON s.run_id=r.id
@@ -1217,6 +1217,7 @@ type RunTimingReportRow struct {
 	RunID        ids.ID
 	WorkflowName string
 	CreatedAt    time.Time
+	RunStatus    string
 	StepID       ids.ID
 	Stage        string
 	Name         string
@@ -1245,6 +1246,7 @@ func (q *Queries) RunTimingReport(ctx context.Context, arg RunTimingReportParams
 			&i.RunID,
 			&i.WorkflowName,
 			&i.CreatedAt,
+			&i.RunStatus,
 			&i.StepID,
 			&i.Stage,
 			&i.Name,

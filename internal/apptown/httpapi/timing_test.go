@@ -30,7 +30,7 @@ func TestPercentile(t *testing.T) {
 func TestWorkflowTimingSummary(t *testing.T) {
 	t.Parallel()
 	born := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
-	runs := []workflow.RunTiming{{ID: idstest.N(1), Workflow: "quick-change", CreatedAt: born, Steps: []workflow.StepTiming{
+	runs := []workflow.RunTiming{{ID: idstest.N(1), Workflow: "quick-change", CreatedAt: born, Status: workflow.RunDone, Steps: []workflow.StepTiming{
 		{ID: idstest.N(10), Stage: "apply", Name: "apply-change", Type: "agent/pi", Status: workflow.StatusPass, StartedAt: stamp.Of(born.Add(70 * time.Second)), FinishedAt: stamp.Of(born.Add(100 * time.Second))},
 		{Stage: "apply", Name: "review-change", Type: "agent/review", Status: workflow.StatusPass, StartedAt: stamp.Of(born.Add(102 * time.Second)), FinishedAt: stamp.Of(born.Add(162 * time.Second))},
 		{Stage: "apply", Name: "accept", Type: "approval", Status: workflow.StatusPass, FinishedAt: stamp.Of(born.Add(462 * time.Second)), Reworks: 1},
@@ -49,8 +49,8 @@ func TestWorkflowTimingSummary(t *testing.T) {
 	if by["accept"].WaitMedianMs != 300000 {
 		t.Fatalf("the approval waited 5 minutes for a person: %+v", by["accept"])
 	}
-	if wt.TotalMedianMs != 462000 {
-		t.Fatalf("total: %d", wt.TotalMedianMs)
+	if wt.TotalMedianMs == nil || *wt.TotalMedianMs != 462000 {
+		t.Fatalf("total: %v", wt.TotalMedianMs)
 	}
 }
 
@@ -82,7 +82,7 @@ func TestWorkflowTimingTimeline(t *testing.T) {
 	t.Parallel()
 	born := time.Date(2020, 1, 2, 3, 4, 5, 123456000, time.UTC)
 	at := func(t time.Time) stamp.Time { return stamp.Time{NullTime: sql.NullTime{Time: t, Valid: true}} }
-	runs := []workflow.RunTiming{{ID: idstest.N(1), Workflow: "timing", CreatedAt: born, Steps: []workflow.StepTiming{
+	runs := []workflow.RunTiming{{ID: idstest.N(1), Workflow: "timing", CreatedAt: born, Status: workflow.RunDone, Steps: []workflow.StepTiming{
 		{Stage: "apply", Name: "build", Type: "agent/pi", Status: workflow.StatusPass, StartedAt: at(born.Add(250 * time.Millisecond)), FinishedAt: at(born.Add(1500 * time.Millisecond)), Reworks: 1},
 		{Stage: "review", Name: "build", Type: "agent/review", Status: workflow.StatusPass, StartedAt: at(born.Add(time.Second)), FinishedAt: at(born.Add(2 * time.Second)), Reworks: 1},
 		{Stage: "review", Name: "accept", Type: "approval", Status: workflow.StatusPass, FinishedAt: at(born.Add(2500 * time.Millisecond))},
@@ -94,7 +94,36 @@ func TestWorkflowTimingTimeline(t *testing.T) {
 		t.Fatalf("timeline: %+v", timeline)
 	}
 	summary := summarizeWorkflowTiming("timing", 1, runs, nil)
-	if summary.TotalMedianMs != 2500 || summary.Steps[0].Reworks != 1 || summary.Steps[1].Reworks != 1 {
+	if summary.TotalMedianMs == nil || *summary.TotalMedianMs != 2500 || summary.Steps[0].Reworks != 1 || summary.Steps[1].Reworks != 1 {
 		t.Fatalf("fractional total / names across stages: %+v", summary)
+	}
+}
+
+// The typical run is measured over completed runs only. A run that failed in
+// its first stage has rows for that stage alone, every one finished, and no
+// rows for the stages it never entered; it says nothing about how long a run
+// takes. With no completed run there is no typical duration.
+func TestTypicalRunCountsCompletedRunsOnly(t *testing.T) {
+	t.Parallel()
+	born := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+	failed := func(id uint64) workflow.RunTiming {
+		return workflow.RunTiming{ID: idstest.N(id), Workflow: "land", CreatedAt: born, Status: workflow.RunRunning, Steps: []workflow.StepTiming{
+			{Stage: "check", Name: "tests", Type: "check", Status: workflow.StatusFail, StartedAt: stamp.Of(born), FinishedAt: stamp.Of(born.Add(time.Second))},
+		}}
+	}
+	done := workflow.RunTiming{ID: idstest.N(3), Workflow: "land", CreatedAt: born, Status: workflow.RunDone, Steps: []workflow.StepTiming{
+		{Stage: "check", Name: "tests", Type: "check", Status: workflow.StatusPass, StartedAt: stamp.Of(born), FinishedAt: stamp.Of(born.Add(time.Second))},
+		{Stage: "accept", Name: "accept", Type: "approval", Status: workflow.StatusPass, FinishedAt: stamp.Of(born.Add(25*time.Minute + time.Second))},
+	}}
+	wt := summarizeWorkflowTiming("land", 1, []workflow.RunTiming{failed(1), failed(2), done}, nil)
+	if wt.Runs != 3 || wt.TotalMedianMs == nil || *wt.TotalMedianMs != (25*time.Minute+time.Second).Milliseconds() {
+		t.Fatalf("typical run over the completed run: %+v", wt)
+	}
+	if wt.Steps[0].Runs != 3 {
+		t.Fatalf("step figures keep every run: %+v", wt.Steps[0])
+	}
+	wt = summarizeWorkflowTiming("land", 1, []workflow.RunTiming{failed(1)}, nil)
+	if wt.Runs != 1 || wt.TotalMedianMs != nil {
+		t.Fatalf("no completed run, no typical duration: %+v", wt)
 	}
 }

@@ -3,6 +3,7 @@ package apptown
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -25,6 +26,8 @@ func TestGuidanceHTTPVersionsKeepProseChecksAndRejectedTagsTogether(t *testing.T
 		t.Fatalf("create: %d %s %v", w.Code, w.Body.String(), err)
 	}
 	path := fmt.Sprintf("%s/%d", base, block.ID)
+	// Reads address the block by its name, one encoded route segment.
+	read := base + "/" + url.PathEscape("team/review")
 	for _, tc := range []struct {
 		body string
 		code int
@@ -45,7 +48,7 @@ func TestGuidanceHTTPVersionsKeepProseChecksAndRejectedTagsTogether(t *testing.T
 
 	check := func(query, body string, version, checks int) {
 		t.Helper()
-		w := authzCall(h, "owner", "GET", path+query, "")
+		w := authzCall(h, "owner", "GET", read+query, "")
 		var out struct {
 			Block        wow.Block
 			ShownVersion int
@@ -110,7 +113,7 @@ func TestGuidanceHTTPVersionsKeepProseChecksAndRejectedTagsTogether(t *testing.T
 	for _, tc := range []struct {
 		path string
 		code int
-	}{{base + "/bad", 400}, {base + "/0000000f-423f-7000-8000-000000000000", 404}, {path + "?version=bad", 400}, {path + "?version=99", 404}} {
+	}{{base + "/" + url.PathEscape("team/absent"), 404}, {path, 404}, {read + "?version=bad", 400}, {read + "?version=99", 404}} {
 		if w := authzCall(h, "owner", "GET", tc.path, ""); w.Code != tc.code {
 			t.Fatalf("invalid read: %d %s", w.Code, w.Body.String())
 		}

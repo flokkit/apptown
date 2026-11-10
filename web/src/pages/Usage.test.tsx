@@ -74,7 +74,7 @@ describe('the daily usage chart', () => {
       report.totals.total = 0
       await act(async () => { await client.invalidateQueries() })
       await settled(client)
-      expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).toContain('tokens not recorded · $0.0671')
+      expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).toContain('tokens not recorded · $0.07')
       expect(el.querySelector('[role=slider]')?.getAttribute('aria-valuetext')).not.toContain('0 tokens')
       expect(el.textContent).not.toContain('tallest day 1')
       expect(el.textContent).not.toContain('No usage recorded yet.')
@@ -165,16 +165,38 @@ describe('where the time goes', () => {
       })
       await settled(client)
       const rows = [...el.querySelectorAll('.bar-row-head')].map((r) => r.textContent ?? '')
-      expect(rows[0]).toContain('· at least $0.0300')
+      expect(rows[0]).toContain('· at least $0.03')
       expect(rows[1]).toContain('· spend unknown')
-      expect(rows[2]).toContain('· $0.0200')
+      expect(rows[2]).toContain('· $0.02')
       expect(rows[2]).not.toContain('at least')
-      expect(el.textContent).toContain('at least $0.0500 in agent time')
+      expect(el.textContent).toContain('at least $0.05 in agent time')
     } finally {
       act(() => root.unmount())
       client.clear()
     }
   })
+})
+
+// The typical run is measured over completed runs; with none in the window the
+// owner sends no duration, and the page makes no claim of one ("takes 0s").
+it('says nothing of a typical run when no run completed', async () => {
+  const report = { days: 7, workflows: [{ workflow: 'land', days: 7, runs: 2, steps: [{ stage: 'check', name: 'tests', type: 'check', runs: 2, medianMs: 1000, p90Ms: 1000, maxMs: 1000, waitMedianMs: 0, costMicros: 0, costIncomplete: 0, reworks: 0 }] }] }
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(report))))
+  const client = newQueryClient()
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  try {
+    await act(async () => {
+      root.render(<QueryClientProvider client={client}><TimingView days={7} /></QueryClientProvider>)
+    })
+    await settled(client)
+    expect(el.textContent).toContain('2 runs')
+    expect(el.textContent).toContain('tests')
+    expect(el.textContent).not.toContain('a typical run takes')
+  } finally {
+    act(() => root.unmount())
+    client.clear()
+  }
 })
 
 // A record with unknown or partial cost is counted as a record: neither its

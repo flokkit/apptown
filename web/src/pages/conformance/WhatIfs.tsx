@@ -56,11 +56,13 @@ function StartWhatIf() {
   const q = useGet<FleetView>('/wow')
   const [pack, setPack] = useState('')
   const [version, setVersion] = useState(0)
-  const packs = (q.data?.packs ?? []).filter(p => p.versions.length > 1)
+  // Any version can be tried on projects, including a pack's only version on
+  // projects not yet on it, as a pack version's own page offers.
+  const packs = (q.data?.packs ?? []).filter(p => p.versions.length > 0)
   const chosen = packs.find(p => p.pack === pack)
   if (!q.data) return null
   return <Section title="Try a pack version">
-    {packs.length === 0 ? <p className="muted small">No pack has more than one version yet, so there is nothing to try.</p> : <>
+    {packs.length === 0 ? <p className="muted small">No packs yet.</p> : <>
       <div className="row what-if-choose">
         <label>Pack <select value={pack} onChange={e => { setPack(e.target.value); setVersion(packs.find(p => p.pack === e.target.value)?.recommended ?? 0) }}>
           <option value="">Choose a pack</option>

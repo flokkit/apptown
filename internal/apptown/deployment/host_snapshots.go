@@ -230,9 +230,10 @@ func (s *HostSnapshots) inventory(r hostReading) (inventoryObservation, error) {
 // HostReachability describes the loop's confirmed host outage. Only a complete
 // lap clears an outage; a successful info command alone cannot clear it.
 type HostReachability struct {
-	Down        bool
-	Since       time.Time
-	Error       string
+	Down  bool
+	Since time.Time
+	Error string
+	// Deployments counts the standing deployments on the host.
 	Deployments int
 }
 
@@ -249,5 +250,13 @@ func (s *Service) HostReachability(ctx context.Context, targetID ids.ID) (HostRe
 		return HostReachability{}, err
 	}
 	deps, err := s.Deployments.OnTarget(ctx, targetID)
-	return HostReachability{Down: r.HostDown, Since: r.UnreachableSince, Error: r.UnreachableError, Deployments: len(deps)}, err
+	// Count standing deployments, the ones the target page lists; previews
+	// and restored copies belong to a change or a restore, not to the host.
+	standing := 0
+	for _, d := range deps {
+		if d.Standing() {
+			standing++
+		}
+	}
+	return HostReachability{Down: r.HostDown, Since: r.UnreachableSince, Error: r.UnreachableError, Deployments: standing}, err
 }

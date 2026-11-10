@@ -72,11 +72,16 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 				if label == "" {
 					label = t.Name
 				}
-				noun := "deployments"
-				if host.Deployments == 1 {
-					noun = "deployment"
+				// The count is of standing deployments; a host holding none says
+				// nothing about them rather than "0 deployments can't be checked".
+				unchecked := "."
+				switch {
+				case host.Deployments == 1:
+					unchecked = " · 1 deployment can't be checked."
+				case host.Deployments > 1:
+					unchecked = fmt.Sprintf(" · %d deployments can't be checked.", host.Deployments)
 				}
-				out.Items = append(out.Items, Item{Key: t.ID.String() + "/unreachable", Title: label + " is not reachable", Detail: fmt.Sprintf("Since %s: %s · %d %s can't be checked. Open the target page and check its connection.", host.Since.UTC().Format("2 Jan, 15:04 UTC"), host.Error, host.Deployments, noun), Href: "/targets/" + url.PathEscape(t.Name), Severity: SeverityWarning, ObservedAt: host.Since})
+				out.Items = append(out.Items, Item{Key: t.ID.String() + "/unreachable", Title: label + " is not reachable", Detail: fmt.Sprintf("Since %s: %s%s Open the target page and check its connection.", host.Since.UTC().Format("2 Jan, 15:04 UTC"), host.Error, unchecked), Href: "/targets/" + url.PathEscape(t.Name), Severity: SeverityWarning, ObservedAt: host.Since})
 			}
 		}
 		subjects++

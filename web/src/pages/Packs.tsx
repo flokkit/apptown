@@ -57,7 +57,7 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
                 <code>{name}</code>
                 {b ? <span className="muted small">v{b.latestVersion} · <span title={sizeTitle(b.bytes)}>{fmtSize(b.bytes)}</span> · {b.tags}</span>
                    : <Status word="failed" help="This adopted pack is missing from the library. Ask an administrator to restore the pack or change the project’s adoption." />}
-              </div>} action={b && <Link to={`/guidance/${b.id}`}>Read</Link>} />
+              </div>} action={b && <Link to={`/guidance/${encodeURIComponent(b.name)}`}>Read</Link>} />
           )
         })}
 
@@ -205,7 +205,7 @@ export function PackEditor({ draft, existing, onDone }: { draft: Draft; existing
 
       <h2>Policies ({p.policies.length})</h2>
       <div className="muted small packs-editor-label">
-        From the policy library (add or clone policies on the Policies tab).
+        From the policy library (add or clone policies under <Link to="/policies">Policies</Link>).
       </div>
       <div className="row packs-editor-actions">
         {allPolicies.map((pol) => {

@@ -15,7 +15,8 @@ recurring work by itself. The `dependency-updates` pack declares
 `schedules: [dependency-uplift]`; technology packs declare no schedules.
 See the [pack format](ways-of-working-formats.md) for validation rules.
 
-Packs, workflows, guidance and policies marked **AppTown** come with AppTown.
+Packs, workflows, guidance and policies marked **yours** were made on this
+AppTown; the rest come with AppTown.
 A release adds new versions. A project adopts updates under
 **Settings → Way of working**. A run uses its adoption record's workflow version
 when that record pins one; otherwise it uses the library's latest version.
