@@ -184,7 +184,10 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 		// front door by the release the landed contract's public part serves.
 		deps.Fly = fly.Options{APIBase: flyAPI.URL,
 			CopyImage: func(_ context.Context, from oci.Source, _ oci.Repository, _ string) (string, error) {
-				_, digest, _ := strings.Cut(from.Reference, "@")
+				_, digest, ok := strings.Cut(from.Reference, "@")
+				if !ok {
+					digest = "sha256:" + strings.Repeat("d", 64)
+				}
 				return digest, nil
 			},
 			FrontDoor: roundTripFunc(func(r *http.Request) (*http.Response, error) {

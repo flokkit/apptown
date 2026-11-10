@@ -106,7 +106,7 @@ function deployLabel(e: DeploymentView) {
 export function DeploymentReleaseCell({ slug, env: e }: { slug: string; env: DeploymentView }) {
   const base = `/projects/${slug}/deployments/${e.name}`
   const resources = useGet<DeploymentResources>(e.generation ? `${base}/resources` : null, { poll: 5000 })
-  const hasProtection = useNotOff('backups') && (e.target?.kind === 'do-app' || e.target?.kind === 'docker-host')
+  const hasProtection = useNotOff('backups') && (e.target?.kind === 'do-app' || e.target?.kind === 'docker-host' || e.target?.kind === 'fly-machines')
   const protection = useGet<DeploymentProtection>(hasProtection ? `${base}/protection` : null, { poll: 5000 })
   const change = useGet<ChangeView>(e.kind === 'preview' && e.changeId ? `/changes/${e.changeId}` : null)
   const releases = useGet<ReleaseListed[]>(e.kind !== 'preview' ? `/projects/${slug}/releases` : null)
@@ -193,7 +193,7 @@ export function EnvCard({ slug, env: e }: { slug: string; env: DeploymentView; o
   const base = `/projects/${slug}/deployments/${e.name}`
   const resources = useGet<DeploymentResources>(e.generation ? `${base}/resources` : null, { poll: 5000 })
   const diagnostics = useGet<DeploymentDiagnostics>(e.generation ? `${base}/diagnostics` : null, { poll: 5000 })
-  const protection = useGet<DeploymentProtection>(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host' ? `${base}/protection` : null, { poll: 5000 })
+  const protection = useGet<DeploymentProtection>(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host' || e.target?.kind === 'fly-machines' ? `${base}/protection` : null, { poll: 5000 })
   const models = useGet<DeploymentAIModels>(e.aiModels?.length ? `${base}/ai-models` : null, { poll: 5000 })
   const waiting = [resources.data?.reading, diagnostics.data?.reading, protection.data?.reading, ...(models.data?.keys.map(k => k.reading) ?? [])].some(r => r?.waiting)
   const place = e.target ? placeWords(e.target.title, e.target.vendor, e.target.region) : 'not bound'
@@ -232,7 +232,7 @@ export function EnvCard({ slug, env: e }: { slug: string; env: DeploymentView; o
         </DeploymentLine>
         {e.generation && e.target && <HostLine share={resources.data?.share} target={e.target.name} old={resources.data?.reading?.waiting} />}
         {e.aiModels && e.aiModels.length > 0 && <AIModelsLine slug={slug} name={e.name} />}
-        {(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host') && <ProtectionLines slug={slug} name={e.name} />}
+        {(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host' || e.target?.kind === 'fly-machines') && <ProtectionLines slug={slug} name={e.name} />}
         {e.restoreCheck && <DeploymentLine label="After restore"><Status word={e.restoreLabel} /> {restoreCheckWords(e.restoreCheck)}</DeploymentLine>}
         {e.dataAfterRestore && (
           <DeploymentLine label="Data after restore">

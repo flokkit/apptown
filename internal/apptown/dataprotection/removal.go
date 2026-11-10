@@ -182,9 +182,27 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 		return removalResult{}, actErr
 	}
 	defer actDone()
-	if !synthetic {
+	if !synthetic && target.DataAccess() == deployment.DataOnFlyMachines && in.WithoutFinalCopy == selected.Name {
+		store, err := s.Store(ctx)
+		if err != nil {
+			return removalResult{}, err
+		}
+		if store != nil {
+			held, err := s.heldOnFly(ctx, selected, target)
+			if err == nil && unresolvedOf(held.items) == "" {
+				return removalResult{}, &deployment.Unavailable{Reason: "final-copy-possible", Why: "A final backup can be taken now, so taking it down would delete the Fly app and its volumes. Nothing was done: confirm the take-down again."}
+			}
+			if err != nil {
+				in.noCopy = err.Error()
+			} else {
+				in.noCopy = unresolvedOf(held.items)
+			}
+		} else {
+			in.noCopy = errNoStore.Error()
+		}
+	} else if !synthetic {
 		fc, err := s.finalBackup(ctx, selected, target, owned, actor.Principal.Name)
-		var cannot *portainerUnreachable
+		var cannot *finalCopyUnavailable
 		switch {
 		case errors.As(err, &cannot) && in.WithoutFinalCopy == selected.Name:
 			// The person chose to go without one: the data stays.

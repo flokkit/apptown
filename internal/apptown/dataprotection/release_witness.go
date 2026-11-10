@@ -117,7 +117,7 @@ func (w *releaseWitness) CopyWords() string {
 // deploymentName, and reads each need's storage and measures there.
 // synthetic says the deployment's data is synthetic (a reset may let it
 // go). A deployment never released, holding no data, or on a target that
-// keeps its own backups needs no copy; an error is a copy that could not be
+// takes no backup set needs no copy; an error is a copy that could not be
 // taken, which is not "nothing to copy".
 func (s *Service) BeforeRelease(ctx context.Context, projectID ids.ID, deploymentName string, synthetic bool) (*releaseWitness, error) {
 	w := &releaseWitness{synthetic: synthetic}

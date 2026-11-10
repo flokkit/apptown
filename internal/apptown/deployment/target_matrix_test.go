@@ -48,23 +48,23 @@ var targetMatrix = []matrixRow{
 		app:   "app:\n  web:\n    image: reg/x:1\n    ports: [\"8080\"]\n    public: true\ninit:\n  - {name: migrate, image: reg/x:1, command: [\"migrate\"]}\n",
 		want:  map[string]string{KindDockerHost: "", KindPortainer: "", KindDOApp: "", kindFlyMachines: "", KindS3Bucket: "static-only"}},
 	{row: "Postgres",
-		cells: [5]string{"yes, a local emulator", "yes, a local emulator", "yes, a managed database", "refused: cannot provide it as a managed service yet", "refused: static-only"},
+		cells: [5]string{"yes, a local emulator", "yes, a local emulator", "yes, a managed database", "yes, a stock container on its own volume", "refused: static-only"},
 		app:   "app:\n  web:\n    image: reg/x:1\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres: {}\n",
-		want:  map[string]string{KindDockerHost: "", KindPortainer: "", KindDOApp: "", kindFlyMachines: "cannot provide as a managed service", KindS3Bucket: "static-only"}},
+		want:  map[string]string{KindDockerHost: "", KindPortainer: "", KindDOApp: "", kindFlyMachines: "", KindS3Bucket: "static-only"}},
 	{row: "Object storage (s3)",
-		cells:    [5]string{"yes, a local store: its bucket made before the app starts, a key for it alone", "yes, a local store, as on a Docker host", "yes, a Spaces bucket of its own and a key for it alone", "refused: cannot provide it as a managed service yet", "refused: static-only"},
+		cells:    [5]string{"yes, a local store: its bucket made before the app starts, a key for it alone", "yes, a local store, as on a Docker host", "yes, a Spaces bucket of its own and a key for it alone", "refused: cannot run as a need container", "refused: static-only"},
 		app:      "app:\n  web:\n    image: reg/x:1\n    ports: [\"8080\"]\n    public: true\nneeds:\n  s3: {}\n",
-		want:     map[string]string{KindDockerHost: "", KindPortainer: "", KindDOApp: "", kindFlyMachines: "cannot provide as a managed service", KindS3Bucket: "static-only"},
+		want:     map[string]string{KindDockerHost: "", KindPortainer: "", KindDOApp: "", kindFlyMachines: "cannot run as a need container", KindS3Bucket: "static-only"},
 		pinnedBy: []string{"TestAnS3NeedOnAppPlatformIsABucketAndAKeyForItAlone"}},
 	{row: "Another need with a local emulator (redis)",
-		cells:    [5]string{"yes, a local emulator", "yes, a local emulator", "refused: cannot provide it as a managed service", "refused: cannot provide it as a managed service", "refused: static-only"},
+		cells:    [5]string{"yes, a local emulator", "yes, a local emulator", "refused: cannot provide it as a managed service", "refused: cannot run as a need container", "refused: static-only"},
 		app:      "app:\n  web:\n    image: reg/x:1\n    ports: [\"8080\"]\n    public: true\nneeds:\n  redis: {}\n",
-		want:     map[string]string{KindDockerHost: "", KindPortainer: "", KindDOApp: "cannot provide as a managed service", kindFlyMachines: "cannot provide as a managed service", KindS3Bucket: "static-only"},
+		want:     map[string]string{KindDockerHost: "", KindPortainer: "", KindDOApp: "cannot provide as a managed service", kindFlyMachines: "cannot run as a need container", KindS3Bucket: "static-only"},
 		pinnedBy: []string{"TestTargetRefusesContract"}},
 	{row: "A data directory",
-		cells:    [5]string{"yes, a named volume", "yes, a named volume", "refused: no persistent volumes", "refused: no persistent volumes", "refused: static-only"},
+		cells:    [5]string{"yes, a named volume", "yes, a named volume", "refused: no persistent volumes", "yes, a named volume; stop then start on release", "refused: static-only"},
 		app:      "app:\n  web:\n    image: reg/x:1\n    ports: [\"8080\"]\n    public: true\n    dataDir: /data\n",
-		want:     map[string]string{KindDockerHost: "", KindPortainer: "", KindDOApp: "no persistent volumes", kindFlyMachines: "no persistent volumes", KindS3Bucket: "static-only"},
+		want:     map[string]string{KindDockerHost: "", KindPortainer: "", KindDOApp: "no persistent volumes", kindFlyMachines: "", KindS3Bucket: "static-only"},
 		pinnedBy: []string{"TestTargetRefusesContract", "TestRequestReleaseRefusesUnreadableOrIncompatibleContract"}},
 	{row: "A static site given browser values by an integration",
 		cells:    [5]string{"yes, as /_apptown/env.js", "yes, as /_apptown/env.js", "refused: cannot deliver browser values yet", "refused: cannot deliver browser values yet", "yes, published as /_apptown/env.js"},
@@ -75,7 +75,7 @@ var targetMatrix = []matrixRow{
 		cells:    [5]string{"exact: each part's container gets its memory (swap included) and cpus", "exact: each part's service gets mem_limit, memswap_limit and cpus", "rounded up to the cheapest current instance size that covers each part; one no size covers is refused before any effect", "rounded up to the smallest shared-CPU Machine that covers each part; one none covers is refused before any effect", "none: a site has no runtime"},
 		pinnedBy: []string{"TestAPartsContainerIsHeldToItsDeclaredResources", "TestAnIntranetStackHoldsEachPartToItsDeclaredResources", "TestAppPlatformFitsEachPartBeforeAnyEffect"}},
 	{row: "A need's declared resources",
-		cells:    [5]string{"exact on the need's service; a standing need takes a new size in place, or is remade on its volume when a limit is lifted", "exact: the need's service gets mem_limit, memswap_limit and cpus", "refused: the managed Postgres is made at the integration's database size", "refused: no needs yet", "refused: static-only"},
+		cells:    [5]string{"exact on the need's service; a standing need takes a new size in place, or is remade on its volume when a limit is lifted", "exact: the need's service gets mem_limit, memswap_limit and cpus", "refused: the managed Postgres is made at the integration's database size", "rounded up to a shared-CPU Machine; the standing need is updated in place on its volume", "refused: static-only"},
 		pinnedBy: []string{"TestANeedsServiceIsHeldToItsDeclaredSize", "TestAStandingNeedTakesItsNewSizeWithoutLosingItsData", "TestAnIntranetStackHoldsEachPartToItsDeclaredResources", "TestAnAppPlatformPartNoSizeCoversIsRefusedBeforeAnyEffect"}},
 	{row: "A part or need larger than the host",
 		cells:    [5]string{"refused before any effect, previews included; the sum of limits may exceed the host", "not checked: Portainer's endpoint is read for the capacity view only", "rounds to a size, or is refused", "rounds to a Machine size, or is refused", "none: a site has no runtime"},
@@ -101,13 +101,13 @@ var targetMatrix = []matrixRow{
 	{row: "An earlier release again",
 		cells: [5]string{"yes, its bundle by digest; data is not rolled back", "yes; data is not rolled back", "yes; data is not rolled back", "yes, its images copied again by digest; data is not rolled back", "yes"}},
 	{row: "Take-down",
-		cells:    [5]string{"what AppTown recorded creating; its data volumes are deleted after a complete final backup, refused without one; what it did not create is named and kept", "the stack AppTown recorded, then the volumes its deploys made after a complete final backup, refused without one unless a person chooses to keep the data; a volume it did not make is named and kept", "the app and managed resources AppTown recorded; a need's bucket is deleted with its objects after a checked final copy or when its data is synthetic, otherwise kept and named, and its key deleted", "the Fly app AppTown recorded, with its Machines, addresses, secrets and images, and only when every Machine in it carries the deployment's mark", "the bucket AppTown recorded"},
+		cells:    [5]string{"what AppTown recorded creating; its data volumes are deleted after a complete final backup, refused without one; what it did not create is named and kept", "the stack AppTown recorded, then the volumes its deploys made after a complete final backup, refused without one unless a person chooses to keep the data; a volume it did not make is named and kept", "the app and managed resources AppTown recorded; a need's bucket is deleted with its objects after a checked final copy or when its data is synthetic, otherwise kept and named, and its key deleted", "the recorded Fly app and volumes after a complete final set; without a store, refused unless a person chooses to keep the app and volumes with all Machines stopped", "the bucket AppTown recorded"},
 		pinnedBy: []string{"TestTakeDownBacksUpWhatTheDeploymentHoldsThenDeletesIt"}},
 	{row: "Volume backups, restored in place",
-		cells:    [5]string{"yes, each data volume and need", "yes, each data volume and need, through Portainer's Docker proxy (an edge environment in async mode is refused)", "no volumes", "no volumes", "no data"},
+		cells:    [5]string{"yes, each data volume and need", "yes, each data volume and need, through Portainer's Docker proxy (an edge environment in async mode is refused)", "no volumes", "yes, in the backup store: declared need exports and stop-copy-start volume tars; database restore in place and files into a new volume", "no data"},
 		pinnedBy: []string{"TestTargetHoldsBackups"}},
 	{row: "Managed database copies",
-		cells:    [5]string{"not applicable", "not applicable", "yes, with a copy runner and backup store; restored into a new place, never in place", "not applicable: no managed database yet", "not applicable"},
+		cells:    [5]string{"not applicable", "not applicable", "yes, with a copy runner and backup store; restored into a new place, never in place", "not applicable: Postgres is a container on a volume", "not applicable"},
 		pinnedBy: []string{"TestAStoreCopyIsNeverRestoredInPlace"}},
 }
 
@@ -168,7 +168,7 @@ func TestEachTargetRefusesWhatItCannotRunBeforeAnyEffect(t *testing.T) {
 		}
 	}
 	for kind, tg := range targets {
-		if err := tg.HoldsBackups(); (err == nil) != (kind == KindDockerHost || kind == KindPortainer) {
+		if err := tg.HoldsBackups(); (err == nil) != (kind == KindDockerHost || kind == KindPortainer || kind == kindFlyMachines) {
 			t.Errorf("volume backups on %s: %v; the table says a Docker host's and a Portainer environment's volumes are copied", kind, err)
 		}
 	}

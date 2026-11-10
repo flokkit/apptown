@@ -2,6 +2,7 @@ package fly
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,12 +20,13 @@ import (
 )
 
 // Reconcile places the artifact as generation g. It never updates a Machine
-// in place: it sets the app's secrets, runs each init step as a one-off
+// in place for application parts: it sets the app's secrets, runs each init step as a one-off
 // Machine, makes a new Machine for each part, waits for each to start and
 // pass its checks, witnesses the front door, and only then destroys the
 // previous generation's Machines. Every Machine's id is checkpointed the
 // moment Fly answers its creation. A failure before the old generation is
-// destroyed destroys the new one, so the old one keeps serving.
+// destroyed destroys the new one and restores data parts from their checkpointed
+// previous configs on the same volumes. Standing needs keep their identities.
 func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, g int64, art deploy.Artifact, _ string, logf deploy.Logf, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 	pl, err := decodePlan(art)
 	if err != nil {
@@ -38,6 +40,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, g int64, art
 		return deploy.Observation{}, err
 	}
 	noted := map[string]any{"appId": pl.AppID, "appName": pl.App, "generation": g, "public": pl.Public, "release": pl.Release, "readinessPath": pl.Ready}
+	if len(pl.NeedImages) > 0 {
+		noted["needImages"] = pl.NeedImages
+	}
 	if err := checkpoint(noted); err != nil {
 		return deploy.Observation{}, fmt.Errorf("persisting the provider response: %w", err)
 	}
@@ -64,13 +69,44 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, g int64, art
 		return deploy.Observation{}, fmt.Errorf("persisting the provider response: %w", err)
 	}
 	made := map[string]string{}
+	previous := map[string]createMachine{}
 	fail := func(err error) (deploy.Observation, error) {
 		d.destroyAll(ctx, c, pl.App, made, logf)
-		return deploy.Observation{}, err
+		recovery := d.restorePrevious(context.WithoutCancel(ctx), c, p, pl.App, previous, logf)
+		return deploy.Observation{}, errors.Join(err, recovery)
 	}
 	for _, part := range pl.Parts {
+		previousVolume := ""
+		if len(part.Config.Mounts) > 0 {
+			ms, err := c.machines(ctx, pl.App)
+			if err != nil {
+				return fail(err)
+			}
+			for _, old := range ms {
+				if !d.ours(old, p) || old.Config.Metadata[metaRole] != "part" || old.Config.Metadata[metaGroup] != part.Name {
+					continue
+				}
+				cfg, err := old.Config.requestConfig()
+				if err != nil {
+					return fail(err)
+				}
+				previousVolume = cfg.Metadata[metaPreviousVolume]
+				body := createMachine{Name: old.Name, Region: old.Region, Config: cfg, SkipLaunch: old.State == "stopped"}
+				previous[part.Name] = body
+				noted["previous:"+part.Name] = body
+				if err := checkpoint(noted); err != nil {
+					return fail(fmt.Errorf("recording the previous part before releasing its volume: %w", err))
+				}
+				if err := d.removeMachine(ctx, c, pl.App, old.ID); err != nil {
+					return fail(err)
+				}
+			}
+		}
 		cfg := part.Config
 		cfg.Metadata = d.metadata(cfg.Metadata, p, g)
+		if previousVolume != "" {
+			cfg.Metadata[metaPreviousVolume] = previousVolume
+		}
 		var m machine
 		body := createMachine{Name: machineName(part.Name, g), Region: pl.Region, Config: cfg, MinSecretsVersion: version}
 		if err := c.do(ctx, "POST", "/v1/apps/"+url.PathEscape(pl.App)+"/machines", body, &m); err != nil {
@@ -153,6 +189,9 @@ func (d *Driver) Resume(ctx context.Context, p deploy.Placement, g int64, noted 
 		if !d.ours(m, p) || m.Config.Metadata[metaGeneration] != strconv.FormatInt(g, 10) {
 			continue
 		}
+		if m.Config.Metadata[metaRole] == "need" {
+			continue
+		}
 		if m.Config.Metadata[metaRole] == "init" {
 			d.destroy(ctx, c, app, m.ID, logf)
 			continue
@@ -168,7 +207,29 @@ func (d *Driver) Resume(ctx context.Context, p deploy.Placement, g int64, noted 
 	}
 	if !ready || !complete || mine[public] == "" {
 		d.destroyAll(ctx, c, app, mine, logf)
-		return deploy.Observation{Generation: g, Rollout: "failed", Health: "unknown"}, errors.New("the release was interrupted before all of its Machines were ready; they were destroyed and the previous release keeps serving")
+		previous := map[string]createMachine{}
+		for key, value := range noted {
+			if name, ok := strings.CutPrefix(key, "previous:"); ok {
+				raw, err := json.Marshal(value)
+				if err != nil {
+					return deploy.Observation{}, err
+				}
+				var body createMachine
+				if err := json.Unmarshal(raw, &body); err != nil {
+					return deploy.Observation{}, err
+				}
+				previous[name] = body
+			}
+		}
+		err := d.restorePrevious(ctx, c, p, app, previous, logf)
+		return deploy.Observation{Generation: g, Rollout: "failed", Health: "unknown"}, errors.Join(errors.New("the release was interrupted before all of its Machines were ready"), err)
+	}
+	for _, m := range ms {
+		if d.ours(m, p) && m.Config.Metadata[metaRole] == "part" && m.Config.Metadata[metaGeneration] == strconv.FormatInt(g, 10) {
+			if err := d.retirePreviousVolume(ctx, c, app, m); err != nil {
+				return deploy.Observation{}, err
+			}
+		}
 	}
 	release, _ := noted["release"].(string)
 	path, _ := noted["readinessPath"].(string)
@@ -279,7 +340,7 @@ func (d *Driver) runInit(ctx context.Context, c *Client, p deploy.Placement, pl 
 	if err != nil {
 		return fmt.Errorf("init step %s: %w", it.Name, err)
 	}
-	if ex.Code != 0 || ex.OOM {
+	if ex.Code != 0 || ex.OOM || ex.Signal != 0 {
 		oom := ""
 		if ex.OOM {
 			oom = ", out of memory"
@@ -336,9 +397,13 @@ func exitOf(events []event) (exit, bool) {
 				continue
 			}
 		}
-		var ex exit
-		if v, ok := raw["exit_code"].(float64); ok {
-			ex.Code = int(v)
+		code, ok := raw["exit_code"].(float64)
+		if !ok {
+			continue
+		}
+		ex := exit{Code: int(code)}
+		if signal, ok := raw["signal"].(float64); ok {
+			ex.Signal = int(signal)
 		}
 		ex.OOM, _ = raw["oom_killed"].(bool)
 		return ex, true
@@ -359,7 +424,7 @@ func (d *Driver) awaitReady(ctx context.Context, c *Client, app, part, id string
 		switch {
 		case m.State == "started" && checksPass(m):
 			logf("part %s's Machine %s is started and passes its checks", part, id)
-			return nil
+			return d.retirePreviousVolume(ctx, c, app, m)
 		case m.State == "failed" || m.State == "stopped" || m.State == "destroyed":
 			return terminal(fmt.Errorf("part %s's Machine %s %s before it was ready; its output is in Fly's logs", part, id, m.State))
 		}
@@ -449,7 +514,7 @@ func (d *Driver) retireOthers(ctx context.Context, c *Client, p deploy.Placement
 		return
 	}
 	for _, m := range ms {
-		if d.ours(m, p) && m.Config.Metadata[metaGeneration] != strconv.FormatInt(g, 10) && m.State != "destroyed" {
+		if d.ours(m, p) && m.Config.Metadata[metaRole] != "need" && m.Config.Metadata[metaGeneration] != strconv.FormatInt(g, 10) && m.State != "destroyed" {
 			d.destroy(ctx, c, app, m.ID, logf)
 		}
 	}
@@ -522,4 +587,41 @@ func (d *Driver) askFrontDoor(ctx context.Context, rawURL string, ok func(int, [
 		}
 	}
 	return fmt.Errorf("the front door did not answer %s for %s after six tries (last: %s)", rawURL, what, last)
+}
+
+// restorePrevious is also recovery's path: the checkpoint precedes
+// releasing a volume, so a controller restart retains the old config.
+func (d *Driver) restorePrevious(ctx context.Context, c *Client, p deploy.Placement, app string, previous map[string]createMachine, logf deploy.Logf) error {
+	ms, err := c.machines(ctx, app)
+	if err != nil {
+		return err
+	}
+	var failed []error
+	for part, body := range previous {
+		found := false
+		for _, m := range ms {
+			if d.ours(m, p) && m.Config.Metadata[metaRole] == "part" && m.Config.Metadata[metaGroup] == part && m.Config.Metadata[metaGeneration] == body.Config.Metadata[metaGeneration] {
+				found = true
+				if m.State != "started" && !body.SkipLaunch {
+					if err := c.do(ctx, "POST", "/v1/apps/"+url.PathEscape(app)+"/machines/"+url.PathEscape(m.ID)+"/start", nil, nil); err != nil {
+						failed = append(failed, err)
+					}
+				}
+			}
+		}
+		if found {
+			continue
+		}
+		var m machine
+		if err := c.do(ctx, "POST", "/v1/apps/"+url.PathEscape(app)+"/machines", body, &m); err != nil {
+			failed = append(failed, fmt.Errorf("restoring previous part %s: %w", part, err))
+			continue
+		}
+		if !body.SkipLaunch {
+			if err := d.awaitReady(ctx, c, app, part, m.ID, logf); err != nil {
+				failed = append(failed, err)
+			}
+		}
+	}
+	return errors.Join(failed...)
 }

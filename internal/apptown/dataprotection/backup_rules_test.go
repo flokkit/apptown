@@ -32,7 +32,7 @@ func TestBackupSafetyCopyDoesNotPrune(t *testing.T) {
 }
 
 func TestTargetHoldsBackups(t *testing.T) {
-	for _, kind := range []string{deployment.KindDockerHost, deployment.KindPortainer} {
+	for _, kind := range []string{deployment.KindDockerHost, deployment.KindPortainer, "fly-machines"} {
 		if err := (&deployment.Target{Kind: kind}).HoldsBackups(); err != nil {
 			t.Fatalf("a %s target holds AppTown's backups: %v", kind, err)
 		}

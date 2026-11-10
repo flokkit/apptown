@@ -27,7 +27,7 @@ const protection = (takeDown: string, finalCopy: boolean) => ({
 describe('taking down a deployment that holds data', () => {
   afterEach(() => vi.unstubAllGlobals())
   // cached: an earlier answer already read, which opening must not trust.
-  const mount = async (prot: unknown, cached?: unknown) => {
+  const mount = async (prot: unknown, cached?: unknown, selected: DeploymentView = env) => {
     const deletes: (string | undefined)[] = []
     const reads = { protection: prot as unknown, failing: false }
     vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
@@ -39,7 +39,7 @@ describe('taking down a deployment that holds data', () => {
     if (cached) client.setQueryData(getKey('/projects/shop/deployments/prod/protection'), cached)
     const el = document.body.appendChild(document.createElement('div'))
     const root = createRoot(el)
-    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><TakeDown slug="shop" env={env} onClose={() => {}} /></MemoryRouter></QueryClientProvider>) })
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><TakeDown slug="shop" env={selected} onClose={() => {}} /></MemoryRouter></QueryClientProvider>) })
     await vi.waitFor(() => expect(el.textContent).not.toContain('Reading what a take-down'))
     const button = (label: string) => Array.from(el.querySelectorAll('button')).find((b) => b.textContent === label)
     return { el, deletes, button, reads, client, done: () => { act(() => root.unmount()); client.clear(); el.remove() } }
@@ -81,4 +81,16 @@ describe('taking down a deployment that holds data', () => {
     expect(deletes[0]).toBeUndefined()
     done()
   })
+  it.each([{ needs: [] }, { needs: [{ need: 'postgres', status: 'ready' }] }])('reads Fly data protection before offering keep-data, including a data folder alone: %j', async ({ needs }) => {
+    const fly = { ...env, target: { ...env.target, kind: 'fly-machines' }, needs } as unknown as DeploymentView
+    const words = 'No backup store is attached. The Fly app and volumes stay, with every Machine stopped.'
+    const { el, deletes, button, done } = await mount(protection(words, false), undefined, fly)
+    expect(el.textContent).toContain(words)
+    expect(button('Take it down without a final copy')).toBeDefined()
+    await act(async () => { button('Take it down without a final copy')!.click() })
+    await vi.waitFor(() => expect(deletes).toHaveLength(1))
+    expect(JSON.parse(deletes[0]!)).toEqual({ withoutFinalCopy: 'prod' })
+    done()
+  })
+
 })

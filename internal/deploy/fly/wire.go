@@ -1,5 +1,7 @@
 package fly
 
+import "encoding/json"
+
 // The Machines API's words, as much of them as AppTown reads and writes
 // (https://docs.fly.io/api/machines/openapi.json).
 
@@ -42,6 +44,7 @@ type machine struct {
 
 type answeredConfig struct {
 	Metadata map[string]string `json:"metadata"`
+	Raw      json.RawMessage   `json:"-"`
 }
 
 type checkStatus struct {
@@ -66,6 +69,7 @@ type exit struct {
 }
 
 type machineConfig struct {
+	Mounts   []mount                 `json:"mounts,omitempty"`
 	Image    string                  `json:"image"`
 	Guest    guest                   `json:"guest"`
 	Env      map[string]string       `json:"env,omitempty"`
@@ -87,7 +91,8 @@ type guest struct {
 }
 
 type machineInit struct {
-	Cmd []string `json:"cmd,omitempty"`
+	Cmd        []string `json:"cmd,omitempty"`
+	Entrypoint []string `json:"entrypoint,omitempty"`
 }
 
 type restart struct {
@@ -132,6 +137,7 @@ type machineCheck struct {
 }
 
 type createMachine struct {
+	SkipLaunch        bool          `json:"skip_launch,omitempty"`
 	Name              string        `json:"name"`
 	Region            string        `json:"region"`
 	Config            machineConfig `json:"config"`
@@ -142,4 +148,66 @@ type ipAssignment struct {
 	IP     string `json:"ip"`
 	Shared bool   `json:"shared"`
 	Type   string `json:"type,omitempty"`
+}
+
+func (a *answeredConfig) UnmarshalJSON(b []byte) error {
+	type plain answeredConfig
+	if err := json.Unmarshal(b, (*plain)(a)); err != nil {
+		return err
+	}
+	a.Raw = append(a.Raw[:0], b...)
+	return nil
+}
+
+// requestConfig restores Fly's response-only autostop booleans to its request form.
+func (a answeredConfig) requestConfig() (machineConfig, error) {
+	var obj map[string]any
+	var cfg machineConfig
+	if err := json.Unmarshal(a.Raw, &obj); err != nil {
+		return cfg, err
+	}
+	if ss, ok := obj["services"].([]any); ok {
+		for _, v := range ss {
+			if s, ok := v.(map[string]any); ok {
+				if b, ok := s["autostop"].(bool); ok {
+					s["autostop"] = "off"
+					if b {
+						s["autostop"] = "stop"
+					}
+				}
+			}
+		}
+	}
+	b, err := json.Marshal(obj)
+	if err != nil {
+		return cfg, err
+	}
+	err = json.Unmarshal(b, &cfg)
+	return cfg, err
+}
+
+type mount struct {
+	Volume          string `json:"volume"`
+	Path            string `json:"path"`
+	ExtendThreshold int    `json:"extend_threshold_percent,omitempty"`
+	AddGB           int    `json:"add_size_gb,omitempty"`
+	LimitGB         int    `json:"size_gb_limit,omitempty"`
+}
+
+type volume struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	State    string `json:"state"`
+	Attached string `json:"attached_machine_id"`
+}
+
+// destroyed says Fly is deleting or has deleted the volume. Fly keeps
+// listing such a volume for its snapshot retention; it holds no data the
+// deployment serves, so it is neither backed up nor kept at take-down.
+func (v volume) destroyed() bool {
+	switch v.State {
+	case "scheduling_destroy", "pending_destroy", "destroying", "destroyed":
+		return true
+	}
+	return false
 }

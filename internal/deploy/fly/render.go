@@ -26,18 +26,19 @@ const artifactKind = "fly-machines"
 // plan is the artifact's body. Secrets hold values only in memory (the
 // body is never stored); the hash is over the body with each value blanked.
 type plan struct {
-	App      string            `json:"app"`
-	AppID    string            `json:"appId"`
-	Org      string            `json:"org"`
-	Region   string            `json:"region"`
-	Parts    []placed          `json:"parts"`
-	Init     []placed          `json:"init,omitempty"`
-	Secrets  map[string]string `json:"secrets,omitempty"`
-	Public   string            `json:"public"`
-	Ready    string            `json:"readinessPath,omitempty"`
-	Release  string            `json:"release,omitempty"`
-	RunsOn   map[string]string `json:"runsOn,omitempty"`
-	Released string            `json:"-"`
+	NeedImages map[string]string `json:"needImages,omitempty"`
+	App        string            `json:"app"`
+	AppID      string            `json:"appId"`
+	Org        string            `json:"org"`
+	Region     string            `json:"region"`
+	Parts      []placed          `json:"parts"`
+	Init       []placed          `json:"init,omitempty"`
+	Secrets    map[string]string `json:"secrets,omitempty"`
+	Public     string            `json:"public"`
+	Ready      string            `json:"readinessPath,omitempty"`
+	Release    string            `json:"release,omitempty"`
+	RunsOn     map[string]string `json:"runsOn,omitempty"`
+	Released   string            `json:"-"`
 }
 
 // placed is one Machine's config, by the part or init step it runs.
@@ -83,7 +84,7 @@ func decodePlan(art deploy.Artifact) (plan, error) {
 // a port, health Fly cannot honour, a part no Machine size covers, and
 // consumers given different secrets (Fly gives every Machine of an app the
 // same secrets).
-func (d *Driver) Preflight(_ context.Context, p deploy.Placement, src deploy.Source, secrets deploy.ConsumerSecrets, _ deploy.Logf) error {
+func (d *Driver) Preflight(ctx context.Context, p deploy.Placement, src deploy.Source, secrets deploy.ConsumerSecrets, _ deploy.Logf) error {
 	if p.Gate != nil {
 		return terminal(errors.New("a Fly target cannot place AppTown's gate yet, so it does not run a restored copy"))
 	}
@@ -99,12 +100,6 @@ func (d *Driver) Preflight(_ context.Context, p deploy.Placement, src deploy.Sou
 		return terminal(err)
 	}
 	for _, part := range c.Parts {
-		// A data directory becomes a Fly volume in a later slice; until then
-		// it is refused here too, so a target whose persistent volumes were
-		// switched on cannot run the part without its data.
-		if part.DataDir != "" {
-			return terminal(fmt.Errorf("part %s keeps data in a directory (%s); this Fly target does not give a part a volume yet — keep the data in a need, or release to a Docker host", part.Name, part.DataDir))
-		}
 		if _, err := fit(part.Resources); err != nil {
 			return terminal(fmt.Errorf("part %s: %w", part.Name, err))
 		}
@@ -117,7 +112,48 @@ func (d *Driver) Preflight(_ context.Context, p deploy.Placement, src deploy.Sou
 			return terminal(fmt.Errorf("init step %s's image is not in a registry by digest; Fly runs only images AppTown copies into its registry by digest", it.Name))
 		}
 	}
-	return refusesDifferingSecrets(c, secrets)
+	if err := refusesDifferingSecrets(c, secrets); err != nil {
+		return err
+	}
+	if len(c.Needs) > 0 {
+		if d.Needs == nil {
+			return terminal(errors.New("no catalogue runtime for Fly needs"))
+		}
+		services, connections, err := d.Needs(ctx, c, nil)
+		if err != nil {
+			return err
+		}
+		for _, s := range services {
+			if _, err := fit(s.Resources); err != nil {
+				return terminal(fmt.Errorf("need %s: %w", s.Name, err))
+			}
+		}
+		selected, err := appcontract.PrepareWired(c, connections)
+		if err != nil {
+			return terminal(err)
+		}
+		if err := deploy.RefuseNeedSecretCollisions(selected, slices.Sorted(maps.Keys(connections)), secrets); err != nil {
+			return terminal(err)
+		}
+		var credentials []string
+		for _, svc := range services {
+			credentials = append(credentials, svc.Credentials...)
+		}
+		given := map[string]string{}
+		maps.Copy(given, connections)
+		for _, part := range selected.Parts {
+			if err := protectNeedEnv(maps.Clone(part.Env), given, connections, credentials); err != nil {
+				return terminal(err)
+			}
+		}
+		for _, it := range selected.Init {
+			if err := protectNeedEnv(maps.Clone(it.Env), given, connections, credentials); err != nil {
+				return terminal(err)
+			}
+		}
+
+	}
+	return nil
 }
 
 // refusesDifferingSecrets says why consumers' secrets cannot be delivered
@@ -156,16 +192,9 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		return deploy.Artifact{}, err
 	}
 	if len(bindings) > 0 {
-		return deploy.Artifact{}, terminal(errors.New("a Fly target fulfils no needs yet"))
+		return deploy.Artifact{}, terminal(errors.New("Fly runs needs as containers and does not consume managed need bindings"))
 	}
 	c := src.Contract
-	selected, err := appcontract.PrepareWired(c, nil)
-	if err != nil {
-		return deploy.Artifact{}, terminal(err)
-	}
-	if err := deploy.RefuseNeedSecretCollisions(selected, nil, secrets); err != nil {
-		return deploy.Artifact{}, terminal(err)
-	}
 	client, cfg, err := d.client(ctx)
 	if err != nil {
 		return deploy.Artifact{}, err
@@ -174,8 +203,36 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 	if err != nil {
 		return deploy.Artifact{}, err
 	}
+	connections, needCredentials, err := d.standingNeeds(ctx, client, cfg, app, p, c, logf)
+	if err != nil {
+		return deploy.Artifact{}, err
+	}
+	selected, err := appcontract.PrepareWired(c, connections)
+	if err != nil {
+		return deploy.Artifact{}, terminal(err)
+	}
+	needNames := slices.Sorted(maps.Keys(connections))
+	if err := deploy.RefuseNeedSecretCollisions(selected, needNames, secrets); err != nil {
+		return deploy.Artifact{}, terminal(err)
+	}
 	url := appURL(app.Name)
 	pl := plan{App: app.Name, AppID: app.ID, Org: cfg.Org, Region: cfg.Region, Public: c.PublicPart().Name, Release: c.PublicRelease(src.Revision), RunsOn: map[string]string{}}
+	if len(c.Needs) > 0 {
+		ms, err := client.machines(ctx, app.Name)
+		if err != nil {
+			return deploy.Artifact{}, err
+		}
+		pl.NeedImages = map[string]string{}
+		for _, m := range ms {
+			if d.ours(m, p) && m.Config.Metadata[metaRole] == "need" {
+				cfg, err := m.Config.requestConfig()
+				if err != nil {
+					return deploy.Artifact{}, err
+				}
+				pl.NeedImages[m.Config.Metadata[metaGroup]] = cfg.Image
+			}
+		}
+	}
 	copied := map[string]string{}
 	imageFor := func(name, ref string) (string, error) {
 		if got, ok := copied[ref]; ok {
@@ -192,6 +249,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		pl.Secrets = map[string]string{}
 		consumer := c.Parts[0].Name
 		maps.Copy(pl.Secrets, secrets.EnvFor(consumer))
+		maps.Copy(pl.Secrets, connections)
 	}
 	trustScript := trust.Current().Script(false)
 	for _, part := range selected.Parts {
@@ -207,6 +265,9 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		env := maps.Clone(part.Env)
 		if env == nil {
 			env = map[string]string{}
+		}
+		if err := protectNeedEnv(env, pl.Secrets, connections, needCredentials); err != nil {
+			return deploy.Artifact{}, terminal(err)
 		}
 		// AppTown's wiring wins over the app's own values, as everywhere.
 		env["APPTOWN_APP_URL"] = url
@@ -243,6 +304,13 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		} else if check != nil {
 			cfgM.Checks = map[string]machineCheck{"readiness": {serviceCheck: *check, Kind: "readiness"}}
 		}
+		if part.DataDir != "" {
+			v, err := d.ensureVolume(ctx, client, pl, p, part.Name, "", logf)
+			if err != nil {
+				return deploy.Artifact{}, err
+			}
+			cfgM.Mounts = []mount{dataMount(v.ID, part.DataDir)}
+		}
 		pl.Parts = append(pl.Parts, placed{Name: part.Name, Config: cfgM})
 	}
 	for _, it := range selected.Init {
@@ -253,6 +321,9 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		env := maps.Clone(it.Env)
 		if env == nil {
 			env = map[string]string{}
+		}
+		if err := protectNeedEnv(env, pl.Secrets, connections, needCredentials); err != nil {
+			return deploy.Artifact{}, terminal(err)
 		}
 		env["APPTOWN_APP_URL"] = url
 		env["APPTOWN_INSTANCE"] = d.Installation
@@ -395,4 +466,26 @@ func handleGeneration(h map[string]any) (int64, bool) {
 		return n, err == nil
 	}
 	return 0, false
+}
+
+// Connection outputs and values containing generated credentials use Fly
+// secrets. Ordinary per-consumer environment values remain per-consumer.
+func protectNeedEnv(env, given, connections map[string]string, credentials []string) error {
+	for key, value := range env {
+		if _, injected := connections[key]; injected {
+			delete(env, key)
+			continue
+		}
+		for _, secret := range credentials {
+			if secret != "" && strings.Contains(value, secret) {
+				if previous, ok := given[key]; ok && previous != value {
+					return fmt.Errorf("Fly gives every Machine the same secret %s, but this release gives its consumers different values for it", key)
+				}
+				given[key] = value
+				delete(env, key)
+				break
+			}
+		}
+	}
+	return nil
 }

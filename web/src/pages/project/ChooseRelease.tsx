@@ -51,8 +51,8 @@ export function ChooseRelease({ slug, name, displayLabel, releases, current, cho
 
 function ConfirmRelease({ slug, name, label, deployment, choice, running, current, onClose }: { slug: string; name: string; label: string; deployment?: DeploymentView; choice: ReleaseChoice; running?: ReleaseListed; current: boolean; onClose: () => void }) {
   const detail = useGet<ReleaseDetail>(running ? `/projects/${slug}/releases/${running.number}` : null)
-  const protection = useGet<DeploymentProtection>(running && deployment?.target && ['docker-host', 'do-app'].includes(deployment.target.kind) ? `/projects/${slug}/deployments/${name}/protection` : null)
-  const takesBackup = protection.current && !protection.data?.unknown && !protection.data?.reading?.unknown && !protection.data?.reading?.stale && !!protection.data?.items.length && protection.data.operations?.copy.available
+  const protection = useGet<DeploymentProtection>(running && deployment?.target && ['docker-host', 'do-app', 'fly-machines'].includes(deployment.target.kind) ? `/projects/${slug}/deployments/${name}/protection` : null)
+  const takesBackup = protection.current && !protection.data?.unknown && !protection.data?.reading?.unknown && !protection.data?.reading?.stale && !!protection.data?.items.length && (protection.data.operations?.copy.available || (deployment?.target?.kind === 'fly-machines' && protection.data.operations?.finalCopy.available))
   const { run, busy, err } = useAction()
   const [accepted, setAccepted] = useState<number>()
   const paired = 'before' in choice

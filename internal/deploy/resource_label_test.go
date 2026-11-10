@@ -6,7 +6,7 @@ import (
 )
 
 func TestInventoryLabelsKeepUnknownDistinctFromStopped(t *testing.T) {
-	for state, want := range map[string]string{"active": "running", "online": "running", "running": "running", "ready": "passed", "reconciled": "passed", "creating": "working", "reconciling": "working", "rolling": "working", "deploying": "working", "exited": "stopped", "absent": "stopped", "stopped": "stopped", "error": "failed", "failed": "failed", "": "unknown", "future": "unknown"} {
+	for state, want := range map[string]string{"active": "running", "online": "running", "running": "running", "ready": "passed", "reconciled": "passed", "creating": "working", "reconciling": "working", "rolling": "working", "deploying": "working", "exited": "stopped", "absent": "stopped", "stopped": "stopped", "error": "failed", "failed": "failed", "deployed": "running", "pending": "working", "suspended": "stopped", "": "unknown", "future": "unknown"} {
 		b, err := json.Marshal(Resource{Status: state})
 		var got struct {
 			StatusLabel string `json:"statusLabel"`

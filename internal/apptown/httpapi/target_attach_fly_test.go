@@ -8,7 +8,7 @@ import (
 // A Fly.io target is attached by naming the AppTown secret that holds an
 // org token and a region. The org is the token's own answer; a dry run asks
 // Fly and records nothing; attaching records the connector and the target
-// together; a region without Managed Postgres, a token that reaches no org
+// together; an unavailable Machines region, a token that reaches no org
 // and a token for apps alone are refused before anything is recorded; and
 // retiring the target removes its connector.
 //
@@ -32,19 +32,22 @@ func TestAttachFlyTarget(t *testing.T) {
 	}
 	for body, want := range map[string]string{
 		`{"kind":"fly-machines","name":"fly-x","tokenFrom":"NO_SUCH_TOKEN","region":"syd"}`:                   "does not resolve",
-		`{"kind":"fly-machines","name":"fly-x","tokenFrom":"FLY_API_TOKEN","region":"jnb"}`:                   "no Managed Postgres in jnb",
+		`{"kind":"fly-machines","name":"fly-x","tokenFrom":"FLY_API_TOKEN","region":"missing"}`:               "no region",
 		`{"kind":"fly-machines","name":"fly-x","tokenFrom":"FLY_API_TOKEN","region":"syd","org":"elsewhere"}`: "does not reach the org elsewhere",
 	} {
 		if code, out := call(body); code != 422 || !strings.Contains(out["error"].(string), want) {
 			t.Fatalf("%s: %d %v, want %q", body, code, out, want)
 		}
 	}
+	if code, out := call(`{"kind":"fly-machines","name":"fly-jnb","tokenFrom":"FLY_API_TOKEN","region":"jnb","dryRun":true}`); code != 200 {
+		t.Fatalf("a Machines region must not require Managed Postgres: %d %v", code, out)
+	}
 	code, out = call(`{"kind":"fly-machines","name":"fly-syd","tokenFrom":"FLY_API_TOKEN","region":"syd"}`)
 	if code != 200 {
 		t.Fatalf("attach: %d %v", code, out)
 	}
 	target, err := w.deployment.Targets.ByName(t.Context(), "fly-syd")
-	if err != nil || target.Kind != "fly-machines" || target.Address["org"] != "acme" || target.Address["region"] != "syd" || target.NeedsMode != "managed" || target.Ingress["domain"] != "fly.dev" {
+	if err != nil || target.Kind != "fly-machines" || target.Address["org"] != "acme" || target.Address["region"] != "syd" || target.NeedsMode != "emulators" || !target.Capabilities.PersistentVolumes || target.Ingress["domain"] != "fly.dev" {
 		t.Fatalf("target: %+v %v", target, err)
 	}
 	cfg, err := w.integrations.ConnectorConfig(t.Context(), "fly-syd", "cloud-account")

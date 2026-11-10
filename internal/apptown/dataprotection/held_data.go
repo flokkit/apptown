@@ -66,6 +66,8 @@ type heldItems struct {
 // ErrDataNotKnown when what it holds could not be read.
 func (s *core) heldData(ctx context.Context, dep *deployment.Deployment, t *deployment.Target) (heldItems, error) {
 	switch {
+	case t.DataAccess() == deployment.DataOnFlyMachines:
+		return s.heldOnFly(ctx, dep, t)
 	case t.DataAccess() == deployment.DataThroughPortainer:
 		dk, err := s.providers.PortainerDataScope(ctx, t)
 		if err != nil {

@@ -44,14 +44,28 @@ func (m *Machine) Metadata() map[string]string {
 }
 
 // App is one app in the fake's world.
+type Volume struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	State    string `json:"state"`
+	Attached string `json:"attached_machine_id"`
+	// Root is what a new volume holds at its root: Fly formats it ext4,
+	// with lost+found. Not part of Fly's answer.
+	Root []string `json:"-"`
+}
+
 type App struct {
-	ID       string
-	Name     string
-	Org      string
-	Machines map[string]*Machine
-	Secrets  map[string]string
-	Version  int64
-	IPs      []string
+	Volumes map[string]*Volume
+	// destroyed volumes stay in Fly's volume list, in a destroy state, for
+	// their snapshot retention; flyctl hides them unless asked (--all).
+	destroyed []*Volume
+	ID        string
+	Name      string
+	Org       string
+	Machines  map[string]*Machine
+	Secrets   map[string]string
+	Version   int64
+	IPs       []string
 	// Untouchable: any request naming this app is a trespass.
 	Untouchable bool
 }
@@ -69,13 +83,16 @@ type API struct {
 	// Orgs and AppsOnly are what the token reaches (GET /v1/tokens/current).
 	Orgs     []string
 	AppsOnly []string
-	// Regions are Fly's regions, code to whether Managed Postgres is there.
+	// Regions are Fly's regions, code to whether a paid plan is needed.
 	Regions map[string]bool
 	// OnCreate adjusts each Machine as it is made, before it is answered:
 	// a test sets its state, checks or exit. The default starts a part
 	// Machine with its checks passing, and stops a one-off (restart policy
 	// "no") Machine with exit 0.
 	OnCreate func(app string, m *Machine)
+	// OnExec returns the exec response, including an explicit exit_code;
+	// nil represents a missing answer, not a successful completion.
+	OnExec func(app string, m *Machine, command []string) (map[string]any, int)
 	// Trespasses are the requests that named an untouchable app.
 	trespasses []Request
 	requests   []Request
@@ -118,6 +135,12 @@ func (f *API) App(name string) *App {
 		return nil
 	}
 	cp := *a
+	cp.Volumes = map[string]*Volume{}
+	for id, v := range a.Volumes {
+		vc := *v
+		vc.Root = append([]string(nil), v.Root...)
+		cp.Volumes[id] = &vc
+	}
 	cp.Machines = map[string]*Machine{}
 	for id, m := range a.Machines {
 		mc := *m
@@ -190,7 +213,7 @@ func (f *API) id(prefix string) string {
 }
 
 func (f *API) newApp(org, name string) *App {
-	a := &App{ID: f.id("app"), Name: name, Org: org, Machines: map[string]*Machine{}, Secrets: map[string]string{}}
+	a := &App{ID: f.id("app"), Name: name, Org: org, Machines: map[string]*Machine{}, Volumes: map[string]*Volume{}, Secrets: map[string]string{}}
 	f.apps[name] = a
 	return a
 }
@@ -267,8 +290,8 @@ func (f *API) serve(w http.ResponseWriter, r *http.Request) {
 		write(w, 200, map[string]any{"tokens": tokens})
 	case r.URL.Path == "/v1/platform/regions":
 		var rows []map[string]any
-		for code, mpg := range f.Regions {
-			rows = append(rows, map[string]any{"code": code, "name": code, "mpg_available": mpg})
+		for code, paid := range f.Regions {
+			rows = append(rows, map[string]any{"code": code, "name": code, "requires_paid_plan": paid})
 		}
 		write(w, 200, map[string]any{"regions": rows})
 	case len(parts) == 4 && parts[1] == "orgs" && parts[3] == "machines":
@@ -375,6 +398,39 @@ func (f *API) appResource(w http.ResponseWriter, r *http.Request, a *App, rest [
 			ips = append(ips, map[string]any{"ip": ip})
 		}
 		write(w, 200, map[string]any{"ips": ips})
+	case "volumes":
+		if len(rest) == 1 {
+			if r.Method == "POST" {
+				name, _ := body["name"].(string)
+				v := &Volume{ID: f.id("vol"), Name: name, State: "created", Root: []string{"lost+found"}}
+				a.Volumes[v.ID] = v
+				write(w, 200, v)
+				return
+			}
+			vs := []*Volume{}
+			for _, v := range a.Volumes {
+				vs = append(vs, v)
+			}
+			vs = append(vs, a.destroyed...)
+			write(w, 200, vs)
+			return
+		}
+		v := a.Volumes[rest[1]]
+		if v == nil {
+			refuse(w, 404, "", "volume not found")
+			return
+		}
+		if r.Method == "DELETE" {
+			if v.Attached != "" {
+				refuse(w, 409, "", "volume attached")
+				return
+			}
+			delete(a.Volumes, v.ID)
+			a.destroyed = append(a.destroyed, &Volume{ID: v.ID, Name: v.Name, State: "pending_destroy"})
+			write(w, 200, nil)
+			return
+		}
+		write(w, 200, v)
 	case "machines":
 		f.machines(w, r, a, rest[1:], body)
 	default:
@@ -423,13 +479,54 @@ func (f *API) machines(w http.ResponseWriter, r *http.Request, a *App, rest []st
 		return
 	}
 	switch {
+	case len(rest) == 1 && r.Method == "POST":
+		cfg, _ := body["config"].(map[string]any)
+		mounts, _ := cfg["mounts"].([]any)
+		for _, v := range a.Volumes {
+			if v.Attached == m.ID {
+				found := false
+				for _, mt := range mounts {
+					if mt.(map[string]any)["volume"] == v.ID {
+						found = true
+					}
+				}
+				if !found {
+					refuse(w, 422, "", "update must retain its mount")
+					return
+				}
+			}
+		}
+		m.Config = cfg
+		m.State = "started"
+		write(w, 200, m)
+	case len(rest) == 2 && rest[1] == "exec":
+		var command []string
+		for _, v := range body["command"].([]any) {
+			command = append(command, v.(string))
+		}
+		answer, status := map[string]any{"exit_code": 0}, 200
+		if f.OnExec != nil {
+			answer, status = f.OnExec(a.Name, m, command)
+		}
+		write(w, status, answer)
 	case len(rest) == 1 && r.Method == "GET":
 		write(w, 200, m)
 	case len(rest) == 1 && r.Method == "DELETE" && f.HoldDeletes:
 		refuse(w, 503, "", "held")
 	case len(rest) == 1 && r.Method == "DELETE":
+		for _, v := range a.Volumes {
+			if v.Attached == m.ID {
+				v.Attached = ""
+			}
+		}
 		delete(a.Machines, m.ID)
 		write(w, 200, map[string]any{"ok": true})
+	case len(rest) == 2 && rest[1] == "stop":
+		m.State = "stopped"
+		write(w, 200, nil)
+	case len(rest) == 2 && rest[1] == "start":
+		m.State = "started"
+		write(w, 200, nil)
 	case len(rest) == 2 && rest[1] == "events":
 		write(w, 200, m.Events)
 	case len(rest) == 2 && rest[1] == "restart":
@@ -447,6 +544,16 @@ func (f *API) createMachine(w http.ResponseWriter, a *App, body map[string]any) 
 	if !strings.HasPrefix(img, "registry.fly.io/"+a.Name+"@sha256:") {
 		refuse(w, 422, "", "image "+img+" is not in this app's repository in Fly's registry")
 		return
+	}
+	if mounts, _ := cfg["mounts"].([]any); len(mounts) > 0 {
+		for _, mt := range mounts {
+			id, _ := mt.(map[string]any)["volume"].(string)
+			v := a.Volumes[id]
+			if v == nil || v.Attached != "" {
+				refuse(w, 409, "", "volume absent or already attached")
+				return
+			}
+		}
 	}
 	f.images = append(f.images, img)
 	name, _ := body["name"].(string)
@@ -488,10 +595,19 @@ func (f *API) createMachine(w http.ResponseWriter, a *App, body map[string]any) 
 			}
 		}
 	}
+	if body["skip_launch"] == true {
+		m.State = "stopped"
+	}
 	if f.OnCreate != nil {
 		f.OnCreate(a.Name, m)
 	}
 	a.Machines[m.ID] = m
+	if mounts, _ := cfg["mounts"].([]any); len(mounts) > 0 {
+		for _, mt := range mounts {
+			id, _ := mt.(map[string]any)["volume"].(string)
+			a.Volumes[id].Attached = m.ID
+		}
+	}
 	write(w, 200, m)
 }
 

@@ -58,6 +58,13 @@ func (t *Target) refusesContract(c *appcontract.Contract) string {
 			}
 		}
 	}
+	if t.Kind == kindFlyMachines {
+		for _, n := range c.Needs {
+			if !contains(t.Capabilities.Needs, n) {
+				return fmt.Sprintf("this app needs %s, which %s cannot run as a need container", n, t.Name)
+			}
+		}
+	}
 	if t.NeedsMode == "managed" {
 		for _, n := range c.Needs {
 			if !contains(t.Capabilities.Needs, n) {

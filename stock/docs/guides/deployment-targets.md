@@ -9,7 +9,7 @@ an AppTown secret; set it there, or with `apptown secret set <NAME> < file`.
 | Docker host | a machine with Docker, reached over SSH: its host and the secret holding the SSH key. AppTown's own Docker is the built-in one |
 | Portainer environment | the Portainer address, API key and environment |
 | DigitalOcean App Platform | an API token, the region, and the container registry it copies images into. Run the registry's garbage collection occasionally to free space taken-down projects left; it blocks pushes (and so releases) while it runs. An app that needs object storage gets a Spaces bucket, so the account needs Spaces enabled, and the token makes and deletes Spaces keys: for each bucket a key that reaches it alone, and for a moment while it makes or deletes one, a full-access key it deletes again |
-| Fly.io Machines | the secret holding a Fly org token (`fly tokens create org`; `FLY_API_TOKEN` by default) and a region where Fly offers Managed Postgres. The org is read from the token; name it only when the token reaches several. Each deployment is a Fly app of its own, named `at-…` and reached at its `fly.dev` address, with one Machine per part. An org token can manage every app in its org, so prefer an org for your team's apps alone; AppTown touches only the apps it made and recorded, and leaves the rest alone. Fly fulfils no app needs yet (an app with a database or object storage is refused), and a part's liveness probe, a readiness threshold or exact status, and parts given different secrets are refused before anything is made |
+| Fly.io Machines | the secret holding a Fly org token (`fly tokens create org`; `FLY_API_TOKEN` by default) and a Machines region. The org is read from the token; name it only when the token reaches several. Each deployment is a Fly app of its own, named `at-…` and reached at its `fly.dev` address, with one Machine per part. An org token can manage every app in its org, so prefer an org for your team's apps alone; AppTown touches only the apps it made and recorded, and leaves the rest alone. Postgres runs as a stock container on its own volume, and a data folder gets a volume. Other needs are refused, and a part's liveness probe, a readiness threshold or exact status, and parts given different secrets are refused before anything is made |
 | Bucket website | an S3-compatible endpoint, region, website address and keys. Each deployment gets its own bucket, and taking the deployment down deletes it; use a key made for AppTown alone |
 
 AppTown keeps one SSH connection per attached Docker host and reuses it for
@@ -140,7 +140,19 @@ change its logging. Portainer endpoints use their daemon's own default.
   priced by the API, and are left out of the estimate.
 - **Fly grows too.** Its page lists the Machine size each part runs on
   (shared CPUs and memory, rounded up from what the part declares; 512 MB
-  when it declares none). Fly's prices are not read, so no cost is shown.
+  when it declares none). A need uses its declared resources or its catalogue
+  default. Fly's prices are not read, so no cost is shown. A part with a
+  data folder stops briefly during releases and backups. Postgres keeps its
+  Machine and volume across releases; an incompatible image version is refused.
+
+Fly backups require an attached backup store. AppTown exports Postgres live
+as the app's user and copies data folders while their parts are stopped.
+The copies are unencrypted. Restore takes a safety backup, stops all app
+writers, restores and verifies Postgres in place, and fills a new volume for
+a data folder. Take-down stops the app, takes a final backup, then deletes
+the Fly app and volumes. Without a store, or when a need cannot be copied,
+choose to keep the data: the app
+and volumes stay under retained resources with every Machine stopped.
 
 A deployment's card shows its share of its host, and over the last day each
 part's **limit events**: killed out of memory, or exited without anyone

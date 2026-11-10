@@ -46,6 +46,15 @@ func (s *core) CannotCopy(ctx context.Context, dep *deployment.Deployment, t *de
 	case err != nil:
 		return err.Error()
 	}
+	if t.DataAccess() == deployment.DataOnFlyMachines {
+		store, err := s.Store(ctx)
+		if err != nil {
+			return err.Error()
+		}
+		if store == nil {
+			return errNoStore.Error()
+		}
+	}
 	return unresolvedOf(held.items)
 }
 
