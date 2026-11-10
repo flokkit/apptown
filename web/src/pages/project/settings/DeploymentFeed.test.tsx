@@ -58,7 +58,7 @@ it.each(['card'])('names the source last successful release on the Promote %s co
 it('greys Deploy latest with the server\'s reason while a release is on its way', () => {
   const client = newQueryClient()
   const reason = 'a release is already on its way — watch it finish first'
-  const e = { status: { word: 'deploying', reason: 'release 20 building', stale: false }, id: 'prod', name: 'production', kind: 'standing', feed: 'manual', runtimeControls: { deploy: reason, start: reason, stop: reason, restart: reason }, target: { kind: 'docker-host' } } as unknown as DeploymentView
+  const e = { status: { word: 'deploying', reason: 'release 20: building the app', stale: false }, id: 'prod', name: 'production', kind: 'standing', feed: 'manual', runtimeControls: { deploy: reason, start: reason, stop: reason, restart: reason }, target: { kind: 'docker-host' } } as unknown as DeploymentView
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><PageCard slug="shop" env={e} /></MemoryRouter></QueryClientProvider>)
   const button = [...el.querySelectorAll('button')].find(b => b.textContent === 'Deploy latest')

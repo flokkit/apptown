@@ -318,7 +318,12 @@ func TestOpenReleaseStatusIsItsRecordedStage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, stage := range []deploy.DeployStage{deploy.Starting, deploy.Checking} {
+	// The reason says the stage in the words the deploy's stage list uses.
+	for _, step := range []struct {
+		stage deploy.DeployStage
+		words string
+	}{{deploy.Starting, "starting the app"}, {deploy.Checking, "checking the app answers"}} {
+		stage, words := step.stage, step.words
 		if err := w.s.recordReleaseStage(t.Context(), rel.ID, stage); err != nil {
 			t.Fatal(err)
 		}
@@ -327,7 +332,7 @@ func TestOpenReleaseStatusIsItsRecordedStage(t *testing.T) {
 			t.Fatal(err)
 		}
 		// The release on its way is not the one served.
-		if first.Word != progressLabelDeploying || first.Reason != fmt.Sprintf("release %d %s", rel.Number, stage) || strings.Contains(first.ServingRelease, fmt.Sprint(rel.Number)) || first.ServingReleaseNumber == rel.Number || first.Stale || !first.CheckedAt.IsZero() {
+		if first.Word != progressLabelDeploying || first.Reason != fmt.Sprintf("release %d: %s", rel.Number, words) || strings.Contains(first.ServingRelease, fmt.Sprint(rel.Number)) || first.ServingReleaseNumber == rel.Number || first.Stale || !first.CheckedAt.IsZero() {
 			t.Fatalf("stage: %+v", first)
 		}
 		w.advance(time.Hour)
@@ -345,6 +350,16 @@ func TestOpenReleaseStatusIsItsRecordedStage(t *testing.T) {
 	}
 }
 
+// Every deploy stage has words, so no stage reaches a person as its raw name.
+func TestEveryDeployStageHasWords(t *testing.T) {
+	t.Parallel()
+	for stage := deploy.Preparing; stage <= deploy.Live; stage++ {
+		if stageWords[stage] == "" || strings.Contains(stageWords[stage], "-") {
+			t.Fatalf("stage %s has no words: %q", stage, stageWords[stage])
+		}
+	}
+}
+
 // A deploy names the release the deployment serves, never the one still on
 // its way; with nothing applied there is no serving release to name.
 func TestReleasingAnswerNamesTheServedRelease(t *testing.T) {
@@ -353,7 +368,7 @@ func TestReleasingAnswerNamesTheServedRelease(t *testing.T) {
 	dep := Deployment{Container: "web", ObservedGeneration: 16}
 	running := RuntimeObservation{State: RuntimeRunning, ObservedAt: at, AttemptedAt: at}
 	a := deploymentAnswer(&dep, running, Diagnostics{}, &releaseProgress{Number: 19, Stage: "building"}, &Release{Number: 18, Generation: 16})
-	if a.Word != progressLabelDeploying || a.Reason != "release 19 building" || a.ServingRelease != "Running release 18" || a.ServingReleaseNumber != 18 {
+	if a.Word != progressLabelDeploying || a.Reason != "release 19: building the app" || a.ServingRelease != "Running release 18" || a.ServingReleaseNumber != 18 {
 		t.Fatalf("redeploy: %+v", a)
 	}
 	absent := RuntimeObservation{State: RuntimeStopped, ObservedAt: at, AttemptedAt: at}

@@ -78,3 +78,12 @@ it.each(['Retry', 'Skip'])('records %s in place, with a required reason only for
     expect(calls).toEqual([{ url: `/api/v1/conformance/remediations/job/items/stuck/${label.toLowerCase()}`, body: { [label === 'Retry' ? 'note' : 'reason']: 'The project has moved' } }])
   } finally { done() }
 })
+
+// A running remediation's chip says "in progress" and opens nothing; one that
+// finished with stuck items opens what its word does not say.
+it('opens remediation status details only when they add to the word', async () => {
+  const running = await render({ remediation, occupancy, attempts: {}, items: [] })
+  try { expect(running.el.querySelector('h1 .chip-button')).toBeNull(); expect(running.el.querySelector('h1 .chip')?.textContent).toContain('in progress') } finally { running.done() }
+  const stuck = await render({ remediation: { ...remediation, status: 'completed_with_stuck', statusLabel: 'failed' }, occupancy, attempts: {}, items: [] })
+  try { expect(stuck.el.querySelector('h1 .chip-button')?.getAttribute('data-help')).toBe('finished; some items could not be fixed') } finally { stuck.done() }
+})

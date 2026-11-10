@@ -1,11 +1,11 @@
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { fmtWhen } from '../../format'
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../data'
 import type { ChatHistoryEntry } from '../../wire.gen'
-import { ConversationLog, chatByline, chatOpening } from './Conversation'
+import { ConversationLog, PastChatsPage, chatByline, chatOpening } from './Conversation'
 
 // Record ids are UUIDv7 strings.
 const CHANGE = '00000000-0007-7000-8000-000000000000'
@@ -85,4 +85,13 @@ it('quotes a generated request briefly and links to the complete request', () =>
  expect(html).toContain('Fix Egg Catch.')
  expect(html).not.toContain('WHAT CONFORMANCE LOOKS LIKE')
  expect(html).toContain(`/changes/${CHANGE}/records/request`)
+})
+
+// An empty past-chats page says where its chats come from and links there.
+it('says past chats come from Project chat when there are none', () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/projects/notes/transcript'), { sessions: [] })
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/notes/chats']}><Routes><Route path="/projects/:slug/chats" element={<PastChatsPage />} /></Routes></MemoryRouter></QueryClientProvider>)
+  expect(html).toContain('No ended chats yet.')
+  expect(html).toMatch(/<a href="\/projects\/notes\/console"[^>]*>Project chat<\/a>/)
 })

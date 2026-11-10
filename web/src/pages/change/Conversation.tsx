@@ -115,7 +115,7 @@ export function PastChatsPage() {
       <ChatMessages chat={selected} pictures={`/api/v1/projects/${slug}/transcript/${selected.id}/pictures/`} />
     </> : <p>This chat is not recorded.</p> : <Section title="Chats" count={sessions.length}>
       {sessions.map(se => <ListRow to={`/projects/${slug}/chats/${se.id}`} className="conversation-record-row" key={se.id} identity={<><Link to={`/projects/${slug}/chats/${se.id}`}>{chatOpening(se)}</Link> · {chatByline(se)}</>} />)}
-      {sessions.length === 0 && !q.data.unreadable && <p>No ended chats on this project.</p>}
+      {sessions.length === 0 && !q.data.unreadable && <p>No ended chats yet. Chats from <Link to={`/projects/${slug}/console`}>Project chat</Link> are kept here when they end.</p>}
     </Section>)}
   </>
 }

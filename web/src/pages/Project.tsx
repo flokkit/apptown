@@ -86,7 +86,7 @@ export default function Project() {
       {tab === 'security' && (
         <>
           {/* The menu's Security drawer holds these pages; the heading says which. */}
-          <PageHead key={secTab} page="projectSecurity" sub={secTab[0].toUpperCase() + secTab.slice(1)} />
+          <PageHead key={secTab} page="projectSecurity" sub={secTab === 'findings' ? 'Security findings' : 'Suppressions'} />
           {secTab === 'findings' && <FindingsTab slug={slug!} />}
           {secTab === 'suppressions' && <SuppressionsTab slug={slug!} />}
         </>

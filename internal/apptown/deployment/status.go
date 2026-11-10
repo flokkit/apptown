@@ -8,6 +8,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -65,12 +66,29 @@ type releaseProgress struct {
 	Failure string
 }
 
+// stageWords says each deploy stage as the deployment page's stage list does,
+// so a status reason never shows a stage's stored name.
+var stageWords = map[deploy.DeployStage]string{
+	deploy.Preparing: "getting the code ready", deploy.BackingUp: "backing up the data", deploy.Building: "building the app",
+	deploy.Starting: "starting the app", deploy.Checking: "checking the app answers", deploy.Live: "live",
+}
+
+// releasingReason names the release on its way and, once one is recorded,
+// its stage in words.
+func releasingReason(r *releaseProgress) string {
+	stage, err := deploy.ParseDeployStage(r.Stage)
+	if err != nil {
+		return fmt.Sprintf("release %d", r.Number)
+	}
+	return fmt.Sprintf("release %d: %s", r.Number, stageWords[stage])
+}
+
 func deploymentAnswer(dep *Deployment, o RuntimeObservation, d Diagnostics, releasing *releaseProgress, applied *Release) (a DeploymentStatus) {
 	// An open release owns the word and reason. Runtime evidence cannot
 	// change its stage, and the release being deployed is not yet served:
 	// what is served is still the applied release, said as for any reading.
 	if releasing != nil {
-		a = DeploymentStatus{Word: progressLabelDeploying, Reason: fmt.Sprintf("release %d %s", releasing.Number, releasing.Stage)}
+		a = DeploymentStatus{Word: progressLabelDeploying, Reason: releasingReason(releasing)}
 		if releasing.Failure != "" {
 			a.Word, a.Reason = progressLabelFailed, releasing.Failure
 		}

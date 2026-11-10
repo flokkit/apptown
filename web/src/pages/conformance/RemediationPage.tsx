@@ -23,6 +23,12 @@ function ItemReason({ item }: { item: Item }) {
   </div>
 }
 
+// What a remediation's status adds to its word: why it waits, or how it
+// ended. Running says nothing more than "in progress", so it opens nothing.
+const remediationDetail: Record<string, string | undefined> = {
+  paused: 'paused', cancelled: 'cancelled', completed_with_stuck: 'finished; some items could not be fixed',
+}
+
 export function RemediationPage({ id }: { id: string }) {
   const q = useGet<RemediationDetail>(`/conformance/remediations/${id}`, { poll: 5000 })
   const data = q.data
@@ -39,7 +45,7 @@ export function RemediationPage({ id }: { id: string }) {
   return (
     <div>
       <StaleNote q={q} />
-      <PageHead page="conformance" title={<>Remediation #{m.number} <Status word={m.statusLabel} help={m.status.replaceAll('_', ' ')} /></>} actions={<span className="row remediation-page-span">
+      <PageHead page="conformance" title={<>Remediation #{m.number} <Status word={m.statusLabel} help={remediationDetail[m.status]} /></>} actions={<span className="row remediation-page-span">
         {m.status === 'running' && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/pause`)}>Pause</button>}
         {m.status === 'paused' && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/resume`)}>Resume</button>}
         {(m.status === 'running' || m.status === 'paused') && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/cancel`)}>Cancel</button>}

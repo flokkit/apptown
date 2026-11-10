@@ -66,7 +66,7 @@ it('lists releases waiting for approval with their own dates and deployment name
 // A failed release's reason can be long; the list shows the word and keeps
 // the reason behind it (hover or tap), so the row's own text keeps its width.
 it('keeps a release failure reason in the status details, not the row', async () => {
-  const reason = 'FAILED before deployment admission: release refused: the copy taken before this release failed'
+  const reason = 'Stopped before deploying: release refused: the copy taken before this release failed. Deploy again once this is fixed.'
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ departures: [
     { releaseNumber: 2, at: '2026-10-30T00:55:00Z', slug: 'lunch', name: 'Lunch Orders', tier: 'main deployment', state: 'failed', reason },
   ] }))))

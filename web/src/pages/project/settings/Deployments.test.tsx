@@ -182,7 +182,7 @@ it('says nothing deploys and how to add a deployment when there is no default ta
  client.clear()
 })
 
-it.each(['row', 'card'].flatMap(view => ['release 18 starting', 'release 18 checking', 'release 18 live — first check pending'].map(reason => [view, reason])))('uses the server answer in the %s: %s', (view, reason) => {
+it.each(['row', 'card'].flatMap(view => ['release 18: starting the app', 'release 18: checking the app answers', 'release 18 live — first check pending'].map(reason => [view, reason])))('uses the server answer in the %s: %s', (view, reason) => {
  const client = newQueryClient()
  const word = reason.includes('pending') ? 'waiting' : 'deploying'
  const env = {name:'main', kind:'standing', feed:'main', feedConfirmed:true, observation:'unknown', observationStale:true, status:{word, reason, appliedAt:reason.includes('pending') ? '2026-11-07T06:32:39Z' : undefined, stale:false, servingReleaseNumber:18, servingRelease:'Serving release 18'}, servingRelease:{number:17}, lastApplied:{at:'2026-11-07T06:32:39Z', generation:16}} as DeploymentView

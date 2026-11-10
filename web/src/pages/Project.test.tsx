@@ -161,7 +161,7 @@ it('shows the public app address on Overview without notes or a Changes link', a
 // title, including when its content cannot be read.
 it.each([
   ['', 'Overview', null, 'changes-and-main'],
-  ['security', 'Findings', 'Security', 'monitoring'],
+  ['security', 'Security findings', 'Security', 'monitoring'],
   ['security/suppressions', 'Suppressions', 'Security', 'glossary'],
   ['settings/general', 'General', 'Settings', 'project-settings'],
   ['settings', 'General', 'Settings', 'project-settings'],
