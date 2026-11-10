@@ -55,7 +55,7 @@ export function RemediationPage({ id }: { id: string }) {
       {Object.entries(byProject).map(([slug, items]) => (
         <div key={slug} className="card mb-3 remediation-page-card">
           <div className="remediation-page-div-3">
-            <Link to={`/conformance/projects/${slug}`} className="remediation-page-link">{slug}</Link>
+            <Link to={`/conformance/projects/${slug}`} className="remediation-page-link text-name">{slug}</Link>
           </div>
           {items.map((it) => {
             const tries = data.attempts[it.id ?? ''] ?? []

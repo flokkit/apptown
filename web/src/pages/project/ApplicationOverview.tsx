@@ -75,7 +75,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       {events.slice(0, activityCount).map(e => (
         <ListRow key={e.id} to={e.to} className="card row application-overview-card" state={<span className="row-status">{e.waitingOn ? <ChangeStatus waiting={e.waitingOn} /> : <Status word={e.word} help={e.help} />}</span>} identity={<>
           <Link to={e.to} className="row grow application-overview-link">
-            <strong>{e.number !== undefined && <span className="muted application-overview-span">#{e.number} </span>}{e.title}</strong>
+            <strong>{e.number !== undefined && <span className="muted">#{e.number} </span>}{e.title}</strong>
             <span className="muted small">{fmtWhen(e.when)}</span>
           </Link>
           <span className="muted small">{e.release && <><Link to={e.release.to}>{e.release.label}</Link>{e.source ? ' · ' : ''}</>}{e.source}</span></>} />
@@ -127,7 +127,7 @@ export function ProjectChanges({ project }: { project: ProjectDetail }) {
       {data?.open?.map(c => (
         <ListRow key={c.changeId} to={`/changes/${c.changeId}`} className="card row application-overview-card" state={<span className="row-status"><ChangeStatus waiting={c.waitingOn} /></span>} identity={
           <Link to={`/changes/${c.changeId}`} className="row grow application-overview-link">
-            <strong><span className="muted application-overview-span">#{c.changeNumber} </span>{c.title}</strong>
+            <strong><span className="muted">#{c.changeNumber} </span>{c.title}</strong>
             {c.editing > 0 && <span className="muted small">{c.editing} file{c.editing === 1 ? '' : 's'} being edited</span>}
           </Link>} action={c.waitingOn.kind === 'chat' && <span className="row-action"><Link to={`/projects/${slug}/console?change=${c.changeId}`} className="btn">Continue chat</Link></span>} />
       ))}
@@ -135,7 +135,7 @@ export function ProjectChanges({ project }: { project: ProjectDetail }) {
 <Section title="Finished changes">
  {/* The same row as an open change: number and title, then how it ended and when. */}
  {data?.history.map(c => <ListRow to={`/changes/${c.changeId}`} className="card row application-overview-card" key={c.changeId} identity={<>
-   <Link to={`/changes/${c.changeId}`} className="run-link"><strong><span className="muted application-overview-span">#{c.changeNumber} </span>{c.title}</strong></Link>
+   <Link to={`/changes/${c.changeId}`} className="run-link"><strong><span className="muted">#{c.changeNumber} </span>{c.title}</strong></Link>
    <span className="muted small">{c.statusLabel} · {fmtWhen(c.when)}</span>
  </>} />)}
  </Section></>

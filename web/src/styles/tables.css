@@ -1,10 +1,12 @@
 @layer components {
 table { border-collapse: collapse; width: 100%; }
 /* Ledger tables: plain column heads over a rule, faint rules between rows. */
-th, td { min-width: 0; overflow-wrap: anywhere; text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--rule-faint); font-size: var(--fs-base); }
+th, td { min-width: 0; overflow-wrap: anywhere; text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--rule-faint); }
+td { font-size: var(--fs-base); }
 /* Headers are words: a long one wraps at its spaces, and its column is never
-   narrower than its longest word ("Instructio / ns"). */
-th { color: var(--subtle); font-size: var(--fs-sm); font-weight: var(--fw-medium); border-bottom-color: var(--rule); overflow-wrap: break-word; }
+   narrower than its longest word ("Instructio / ns"). Their type is the
+   Label role (typography.css). */
+th { border-bottom-color: var(--rule); overflow-wrap: break-word; }
 tbody tr:hover td { background: var(--hover); }
 .kv { width: 100%; border-top: 1px solid var(--rule); }
 .kv td { border: none; padding: 4px 14px; font-size: var(--fs-sm); }

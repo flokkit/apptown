@@ -15,7 +15,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error?: 
     if (!this.state.error) return this.props.children
     return (
       <div className="card" style={{ margin: '24px auto', maxWidth: 640, padding: 18 }}>
-        <div style={{ fontWeight: 600, marginBottom: 6 }}>This page could not be displayed.</div>
+        <div className="text-name" style={{ marginBottom: 6 }}>This page could not be displayed.</div>
         <div className="muted small" style={{ marginBottom: 10 }}>{this.state.error.message}</div>
         <div className="row" style={{ gap: 10 }}>
           <button className="primary" onClick={() => window.location.reload()}>Reload the page</button>

@@ -56,7 +56,7 @@ function KindStep({ kind, onPick }: { kind: Kind | null; onPick: (k: Kind) => vo
  const enabled = useFeature()
   return (
     <div>
-      <p className="wiz-section mt-0">Target kind</p>
+      <h3 className="wiz-section mt-0">Target kind</h3>
       <div className="infra-grid">
         {KINDS.filter(k => enabled(targetFeatureArea(k.kind))).map((k) => (
           <button key={k.kind} className={'card infra-card wiz-kind' + (kind === k.kind ? ' active' : '')} onClick={() => onPick(k.kind)}>
@@ -243,7 +243,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
     <div className="card infrastructure-new-connection-step-card">
       <p className="muted small mt-0" ><b>{target.name}</b> added. Set its offers and capabilities.</p>
       <fieldset disabled={busy} className="infrastructure-new-offer-step-fieldset">
-      <div className="wiz-section">Offer</div>
+      <h3 className="wiz-section">Offer</h3>
       <div className="form-grid infrastructure-new-offer-step-form-grid">
         <label>To</label>
         <span className="row">
@@ -262,7 +262,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
           <span className="row">{DATA_CLASSES.map((x) => <label key={x} className="small"><input type="checkbox" checked={data.includes(x)} onChange={() => toggle(data, setData, x)} /> {x}</label>)}</span>
         </>}
       </div>
-      <div className="wiz-section">Facts</div>
+      <h3 className="wiz-section">Facts</h3>
       <div className="form-grid infrastructure-new-offer-step-form-grid">
         {!cloud && <>
           <label>Apps domain</label>

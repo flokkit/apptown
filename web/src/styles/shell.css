@@ -126,7 +126,7 @@
   .topbar .topbar-user-name { white-space: normal; overflow-wrap: anywhere; }
 }
 
-.sidebar button.nav { border: 0; background: transparent; text-align: left; font-family: inherit; font-weight: var(--fw-regular); }
+.sidebar button.nav { border: 0; background: transparent; text-align: left; font-weight: var(--fw-regular); }
 
 /* ---- The menu: icons on areas, drawers for areas with pages, help and
    you at the bottom. Icons are single-colour line icons, top level only. */

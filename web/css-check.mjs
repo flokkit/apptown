@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { relative } from 'node:path'
 import config from './stylelint.config.mjs'
 
-export const ratchets = ['declaration-no-important', 'apptown/pixel-spacing']
+export const ratchets = ['declaration-no-important', 'apptown/pixel-spacing', 'apptown/type-values']
 export function checkDebt(actual, baseline) {
   const errors = []
   for (const file of new Set([...Object.keys(actual), ...Object.keys(baseline)])) {

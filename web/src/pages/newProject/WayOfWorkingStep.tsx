@@ -129,7 +129,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
             </div>
           ) : (
           <div className="way-of-working-step-div-2">
-            <div className="way-of-working-step-div-3">Services</div>
+            <h3 className="way-of-working-step-div-3">Services</h3>
             <div className="pick-grid">
               {catalog.map((k) => {
                 const on = d.services.some((n) => n.capability === k.capability)

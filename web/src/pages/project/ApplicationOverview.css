@@ -1,6 +1,5 @@
 @layer pages {
 
-.application-overview-span { font-weight: 400; }
 .application-overview-p { white-space: pre-wrap; margin: var(--space-3) 0; }
 .application-overview-span-2 { display: block; }
 .application-overview-card > .list-state:empty, .application-overview-card > .list-action:empty, .application-finished > .list-state, .application-finished > .list-action { display: none; }

@@ -40,10 +40,23 @@ test('tokens and named exceptions pass', async () => {
   assert.deepEqual(await lint(':root { --color: #fff; --radius: 4px; --z-base: 1 }', 'src/styles/tokens.css'), [])
 })
 
+test('type values come from tokens outside tokens.css', async () => {
+  for (const css of [
+    '.new { font-weight: 600 }', '.new { font-weight: bold }', '.new { font-weight: normal }',
+    '.new { font-family: Arial }', '.new { font-family: var(--font-mono), monospace }',
+    '.new { font: 700 1rem Arial }', '.new { font: bold var(--fs-xs) var(--font-mono) }',
+  ]) assert.ok((await lint(css)).includes('apptown/type-values'), css)
+  assert.deepEqual(await lint(`.new { font-weight: var(--fw-strong); font-family: var(--font-mono);
+    font: var(--fs-xs) var(--font-mono); }
+    .b { font-weight: inherit; font-family: inherit; font: inherit; }
+    .c { font: var(--fw-strong) var(--fs-sm)/var(--lh-tight) var(--font-sans); }`), [])
+  assert.deepEqual(await lint(':root { --x: 1 } .t { font-weight: 600; font-family: Arial }', 'src/styles/tokens.css'), [])
+})
+
 test('debt is per file and per rule, and reductions must tighten the baseline', () => {
-  const debt = { 'web/src/old.css': { 'declaration-no-important': 1, 'apptown/pixel-spacing': 2 } }
+  const debt = { 'web/src/old.css': { 'declaration-no-important': 1, 'apptown/pixel-spacing': 2, 'apptown/type-values': 3 } }
   assert.deepEqual(checkDebt(debt, debt), [])
-  assert.equal(checkDebt({}, debt).length, 2)
-  assert.equal(checkDebt(debt, {}).length, 2)
-  assert.equal(checkDebt({ 'web/src/new.css': debt['web/src/old.css'] }, debt).length, 4)
+  assert.equal(checkDebt({}, debt).length, 3)
+  assert.equal(checkDebt(debt, {}).length, 3)
+  assert.equal(checkDebt({ 'web/src/new.css': debt['web/src/old.css'] }, debt).length, 6)
 })

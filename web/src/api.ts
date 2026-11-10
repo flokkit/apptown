@@ -327,6 +327,8 @@ export function findingFixPayload(f: {
 export async function openAfter(fetchUrl: () => Promise<string>): Promise<void> {
   const tab = window.open('', '_blank')
   if (tab) {
+    // The blank tab has none of the app's stylesheets, so its type and
+    // colours are written out here rather than taken from the tokens.
     tab.document.write('<title>starting…</title><body style="font:16px system-ui;background:#F6F4EE;color:#1C1B18;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">Starting the app…</body>')
   }
   try {

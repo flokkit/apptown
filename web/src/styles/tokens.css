@@ -9,7 +9,7 @@
   /* Type and space use the 14px Small reference. */
   /* One type scale: five text sizes. Field keeps phone fields from zooming;
      logo and scene are the wordmark's and the garage scene's own. */
-  --fs-xs: calc(12rem / 14);     /* meta lines, chips, table heads */
+  --fs-xs: calc(12rem / 14);     /* meta lines, chips, group labels */
   --fs-sm: calc(13rem / 14);     /* dense tables, secondary text */
   --fs-base: 1rem;   /* body */
   --fs-lg: calc(18rem / 14);     /* section headings */
@@ -19,6 +19,8 @@
   --fs-field: max(1rem, 16px); /* iOS focus must not zoom phone fields. */
   --lh-tight: 1.2;
   --lh-body: 1.5;
+  --ls-title: -0.015em; /* page titles */
+  --ls-caps: 0.06em;    /* uppercase group labels */
   --fw-regular: 400;
   --fw-medium: 500;
   --fw-strong: 600;
@@ -88,7 +90,7 @@
   /* Ink. */
   --text: #202729;
   --muted: #535F63;          /* secondary text */
-  --subtle: #606D72;         /* meta lines, table heads */
+  --subtle: #606D72;         /* meta lines, placeholders */
   --faint: #8A877C;          /* decoration only (separators); too light for words */
 
   /* One colour, one job. ACCENT (ledger green): you can act on it, or you

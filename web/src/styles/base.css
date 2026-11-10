@@ -2,7 +2,7 @@
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-body { font-size: var(--fs-base); margin: 0; background: var(--bg); color: var(--text); }
+body { margin: 0; background: var(--bg); }
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-hover); text-decoration: underline; }
 /* The link ink is close to the body ink, so a link is underlined to read as
@@ -15,9 +15,6 @@ a[href]:not(:where(.tab, .project-name, .project-mark-link, .pack-name, .record-
   text-decoration-line: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 2px;
 }
 a[href]:hover { text-decoration-color: currentColor; }
-/* Bold text is the strong weight, not the browser's 700. */
-strong, b { font-weight: var(--fw-strong); }
-code, pre, kbd, samp { font-family: var(--font-mono); font-size: var(--fs-xs); }
 pre { max-width: 100%; overflow-x: auto; }
 /* A short name is one unit (Ident.tsx): whole on the next line, broken inside
    only when wider than the line. */
@@ -25,14 +22,12 @@ pre { max-width: 100%; overflow-x: auto; }
 /* A section reached by its #anchor lands below the fixed top bar. */
 [id] { scroll-margin-top: calc(var(--topbar-h) + var(--space-3)); }
 @media (max-width: 800px) {
-  h1 { font-size: var(--fs-xl); }
   code { overflow-wrap: anywhere; }
 }
-/* Headings use size and weight to establish hierarchy. */
-h1, h2, .project-heading { font-family: var(--font-heading); font-weight: var(--fw-strong); color: var(--text); }
-h1, .project-heading { font-size: var(--fs-xl); line-height: var(--lh-tight); letter-spacing: -0.015em; margin: 0 0 16px; }
-h2 { font-size: var(--fs-lg); line-height: var(--lh-tight); margin: 28px 0 10px; }
-h3 { font-size: var(--fs-base); font-weight: var(--fw-strong); margin: 14px 0 6px; }
+/* Headings' spacing; their type is a text role (typography.css). */
+h1, .project-heading { margin: 0 0 16px; }
+h2 { margin: 28px 0 10px; }
+h3 { margin: 14px 0 6px; }
 
 .clamp2 {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;

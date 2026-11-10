@@ -60,7 +60,7 @@ a.infra-card:hover, a.infra-add:hover { text-decoration: none; border-color: var
   .resource-details { margin-top: 6px; }
 }
 
-.host-disk > summary strong::after { content: " ›"; color: var(--muted); font-weight: 400; }
+.host-disk > summary strong::after { content: " ›"; color: var(--muted); font-weight: var(--fw-regular); }
 .service-pick .host-row { width: 100%; grid-template-columns: minmax(0, 1fr) auto; }
 .service-pick .host-row > :last-child { grid-column: 2; grid-row: 1; }
 .resource-evidence { overflow-wrap: anywhere; }

@@ -82,7 +82,7 @@ export function RemediationsList() {
         {data.remediations.length === 0 && <p className="muted small">No remediations yet. Start one with Fix on a check or a project.</p>}
         {data.remediations.map((m) => (
           <ListRow key={m.id} to={`/conformance/remediations/${m.id}`} className="card row conformance-list-row" state={<span className="row-status"><Status word={m.statusLabel} /></span>} identity={<>
-            <Link to={`/conformance/remediations/${m.id}`} className="run-link"><strong><span className="muted remediation-number">#{m.number} </span>{m.sentence}</strong></Link>
+            <Link to={`/conformance/remediations/${m.id}`} className="run-link"><strong><span className="muted">#{m.number} </span>{m.sentence}</strong></Link>
             <span className="muted small grow" >{m.actor} · {fmtWhen(m.createdAt)} · {m.mode}{m.cost ? ` · $${m.cost.toFixed(3)}` : ''}</span>
             </>} action={<span className="row-action phone-secondary"><JobBar counts={m.counts} /></span>} />
         ))}

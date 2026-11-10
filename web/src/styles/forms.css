@@ -4,7 +4,7 @@
    on buttons are the smell this block exists to kill. */
 button {
   background: var(--panel); color: var(--text); border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm); padding: 8px 14px; font-family: inherit; font-size: var(--fs-base); cursor: pointer;
+  border-radius: var(--radius-sm); padding: 8px 14px; font-size: var(--fs-base); cursor: pointer;
   line-height: 1.3;
 }
 button:hover { border-color: var(--text); }
@@ -28,7 +28,7 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: 0.35; c
 label:has(> input:is([type="radio"], [type="checkbox"]):first-child) { flex-wrap: nowrap; align-items: baseline; }
 label:has(> input:is([type="radio"], [type="checkbox"]):first-child) > input + * { min-width: 0; }
 /* A button with a second line (a split button's sub-label) says it small. */
-button .btn-sub { font-size: var(--fs-xs); font-weight: 400; margin-top: var(--space-1); opacity: 0.85; }
+button .btn-sub { font-size: var(--fs-xs); font-weight: var(--fw-regular); margin-top: var(--space-1); opacity: 0.85; }
 
 /* Pick tiles: a big tappable choice with a check in the corner (the
    services a project runs against, the presets a new project starts from). */
@@ -40,22 +40,24 @@ button .btn-sub { font-size: var(--fs-xs); font-weight: 400; margin-top: var(--s
   border: 2px solid var(--border); background: transparent; display: grid; grid-template-columns: 24px 180px minmax(0,1fr); gap: 4px 16px; text-align: left; padding: 12px 28px 12px 0; border-width: 0 0 1px; border-color: var(--border);
 }
 .pick-tile.on { background: var(--accent-bg); border-color: var(--border-strong); }
-.pick-tile .pick-mark { position: absolute; font-weight: 700; color: var(--border); font-size: var(--fs-base); top: 12px; right: 8px; }
+.pick-tile .pick-mark { position: absolute; font-weight: var(--fw-strong); color: var(--border); font-size: var(--fs-base); top: 12px; right: 8px; }
 .pick-tile.on .pick-mark { color: var(--accent); }
 .pick-tile .pick-icon { line-height: 1; grid-column: 1; grid-row: 1 / span 3; font-size: var(--fs-lg); }
 .pick-tile .pick-title { font-weight: var(--fw-strong); margin-top: 8px; grid-column: 2; margin: 0; }
 
 input, textarea, select {
   background: var(--panel); color: var(--text); border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm); padding: 7px 10px; font-family: inherit; font-size: var(--fs-base);
+  border-radius: var(--radius-sm); padding: 7px 10px; font-size: var(--fs-base);
 }
 input::placeholder, textarea::placeholder { color: var(--subtle); }
 /* The text stops before the arrow. */
 select { padding-inline-end: 2em; }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); }
-textarea { width: 100%; font-family: var(--font-mono); font-size: var(--fs-xs); }
-/* A textarea for sentences, not code. */
-textarea.prose { font-family: var(--font-sans); font-size: var(--fs-base); }
+/* A textarea, or a field marked text-code, holds code: the Code role's family
+   (typography.css) at the code size. A prose textarea holds sentences. */
+textarea { width: 100%; }
+textarea, input.text-code { font-size: var(--fs-xs); }
+textarea.prose { font-size: var(--fs-base); }
 .form-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 12px; align-items: start; max-width: 560px; }
 .form-grid > label { padding-top: 5px; }
 
@@ -115,7 +117,7 @@ textarea.prose { font-family: var(--font-sans); font-size: var(--fs-base); }
 .wiz-fields input { width: var(--field-width, auto); }
 @media (max-width: 800px) { .wiz-fields, .wiz-fields label, .wiz-fields input { width: 100%; } }
 .wiz-answer { margin-top: 10px; min-height: 1.4em; }
-.wiz-section { font-weight: 600; margin: 12px 0 6px; }
+.wiz-section { margin: 12px 0 6px; }
 @media (max-width: 800px) {
   input, select, textarea { max-width: 100%; }
   /* A label holding a select is no wider than its line, so a long option

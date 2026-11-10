@@ -117,8 +117,8 @@ export function LensBanner({ view }: { view: ConformanceView }) {
           {d && d.comparedProjects > 0 && (
             <div className="small conformance-lens-note">
               Since the review before it, over {d.comparedProjects} project{d.comparedProjects === 1 ? '' : 's'} in both:{' '}
-              <span className={d.fixed ? 'conformance-fixed' : 'conformance-no-delta'}>{d.fixed} fixed</span>
-              {' · '}<span className={d.new ? 'conformance-new' : 'conformance-no-delta'}>{d.new} new</span>
+              <span className={d.fixed ? 'conformance-fixed text-name' : undefined}>{d.fixed} fixed</span>
+              {' · '}<span className={d.new ? 'conformance-new text-name' : undefined}>{d.new} new</span>
               {' · '}{d.stillOpen} still open{d.newlyJudged ? ` · ${d.newlyJudged} newly judged` : ''}{d.newlyUnjudged ? ` · ${d.newlyUnjudged} no longer judged` : ''}
             </div>
           )}
@@ -149,7 +149,7 @@ export function ReviewFeed({ d }: { d: LiveReview }) {
             {reviewProgressWords(r.status, r.projectsDone, r.projectsTotal || r.projects || 0)} · {d.verdicts.length} checks
             {running && r.currentProject && <> · now <span className="mono">{r.currentProject}</span></>}
             {unknown > 0 && <> · {unknown} not known</>}
-            {open> 0 && <> · <span className="conformance-finding-total">{open} findings</span></>}
+            {open> 0 && <> · <span className="conformance-finding-total text-name">{open} findings</span></>}
           </span>
         </div>
         {!running && <Link to={`/conformance/reviews/${r.id}`} className="subtle small">open this review →</Link>}
@@ -159,7 +159,7 @@ export function ReviewFeed({ d }: { d: LiveReview }) {
         {feed.map((v, i) => (
           <div key={i} className="row conformance-feed-row">
             <span className="small conformance-feed-identity">
-              <span className="conformance-feed-project">{v.projectSlug}</span>
+              <span className="text-name">{v.projectSlug}</span>
               <span className="mono muted conformance-feed-check"> · {v.block}/{v.check}</span>
             </span>
             <StateChip finding={v.lane === 'findings'} label={v.statusLabel} help={v.detail} />
@@ -198,7 +198,7 @@ export function ReviewProgress({ d }: { d: LiveReview }) {
           <span className="muted">{reviewProgressWords(r.status, r.projectsDone, total)}{r.currentProject ? <> · <span className="mono">{r.currentProject}</span></> : null}</span>
         </span>
         <span className="muted">
-          {open> 0 ? <span className="conformance-finding-total">{open} findings</span> : `${d.verdicts.length} checks`}
+          {open> 0 ? <span className="conformance-finding-total text-name">{open} findings</span> : `${d.verdicts.length} checks`}
           {unknown > 0 && <> · {unknown} not known</>}
           {' · '}<Link to={`/conformance/reviews/${r.id}`} className="subtle">watch</Link>
         </span>

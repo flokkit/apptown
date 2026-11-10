@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LAYERS = "tokens, base, components, pages, utilities"
+LAYERS = "tokens, base, type, components, pages, utilities"
 
 
 def check(root):
@@ -22,7 +22,7 @@ def check(root):
             if plain.strip() != f"@layer {LAYERS};":
                 errors.append(f"{name}: must declare @layer {LAYERS};")
             continue
-        match = re.match(r"\s*@layer\s+(tokens|base|components|pages|utilities)\s*\{", plain)
+        match = re.match(r"\s*@layer\s+(tokens|base|type|components|pages|utilities)\s*\{", plain)
         depth = 1
         if match:
             for index in range(match.end(), len(plain)):

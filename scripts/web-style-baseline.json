@@ -104,7 +104,7 @@
     "numericPx": 5
   },
   "web/src/pages/Project.tsx": {
-    "styles": 4,
+    "styles": 3,
     "numericPx": 4
   },
   "web/src/pages/Projects.tsx": {
@@ -124,7 +124,7 @@
     "numericPx": 5
   },
   "web/src/pages/WorkflowLibrary.tsx": {
-    "styles": 4,
+    "styles": 3,
     "numericPx": 4
   },
   "web/src/pages/change/Conversation.tsx": {
@@ -180,7 +180,7 @@
     "numericPx": 0
   },
   "web/src/pages/console/ChangeBar.tsx": {
-    "styles": 2,
+    "styles": 1,
     "numericPx": 2
   },
   "web/src/pages/integrations/Capacity.tsx": {
@@ -192,20 +192,16 @@
     "numericPx": 0
   },
   "web/src/pages/integrations/Catalog.tsx": {
-    "styles": 7,
-    "numericPx": 2
+    "styles": 5,
+    "numericPx": 1
   },
   "web/src/pages/integrations/ConnectorForm.tsx": {
-    "styles": 2,
+    "styles": 1,
     "numericPx": 0
   },
   "web/src/pages/integrations/InstanceSecrets.tsx": {
     "styles": 5,
     "numericPx": 5
-  },
-  "web/src/pages/integrations/ServiceKinds.tsx": {
-    "styles": 1,
-    "numericPx": 0
   },
   "web/src/pages/integrations/Targets.tsx": {
     "styles": 3,
@@ -217,10 +213,6 @@
   },
   "web/src/pages/project/ChangeButton.tsx": {
     "styles": 1,
-    "numericPx": 0
-  },
-  "web/src/pages/project/NewChange.tsx": {
-    "styles": 2,
     "numericPx": 0
   },
   "web/src/pages/project/Overview.tsx": {

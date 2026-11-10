@@ -21,7 +21,7 @@
 .conn-subnav-item {
   display: flex; align-items: center; gap: 8px;
   background: none; border: none; color: var(--text); cursor: pointer;
-  padding: 7px 9px; border-radius: var(--radius-sm); font-family: inherit; font-size: var(--fs-base); text-align: left;
+  padding: 7px 9px; border-radius: var(--radius-sm); font-size: var(--fs-base); text-align: left;
 }
 .conn-subnav-item:hover { background: var(--panel2); }
 .docs-layout { display: flex; gap: 24px; align-items: flex-start; }
@@ -29,7 +29,7 @@
 /* A heading over each group of guides, in reading order. */
 .docs-group { display: block; }
 .docs-group + .docs-group { margin-top: 10px; }
-.docs-group-title { margin: 0; padding: 4px 9px; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.docs-group-title { margin: 0; padding: 4px 9px; }
 .docs-body { flex: 1; min-width: 0; max-width: 860px; }
 .docs-pick { display: none; }
 @media (max-width: 800px) {

@@ -121,7 +121,7 @@
 .ch-story-evidence pre { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ch-story-attach { margin-top: 12px; }
 .ch-facts-table { width: 100%; margin-top: 28px; font-size: var(--fs-sm); table-layout: fixed; }
-.ch-facts-table th { width: 115px; font-weight: 400; color: var(--muted); text-align: left; vertical-align: top; }
+.ch-facts-table th { width: 115px; text-align: left; vertical-align: top; }
 .ch-facts-table td { overflow-wrap: anywhere; }
 .ch-facts-table .card { border: 0; padding: 4px 0; margin: 0; }
 @container change-details (max-width: 48rem) {
@@ -180,7 +180,7 @@
 .decision-bottom .ch-quiet { flex-shrink: 0; }
 .ch-items-table { width: 100%; table-layout: fixed; margin-top: 10px; border-collapse: collapse; }
 .ch-items-table th, .ch-items-table td { text-align: left; vertical-align: top; padding: 10px 8px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
-.ch-items-table th { width: 26%; font-weight: 400; }
+.ch-items-table th { width: 26%; }
 .ch-items-table .ch-check-duration { width: 4rem; white-space: nowrap; color: var(--muted); font-size: var(--fs-sm); }
 .ch-items-table .ch-check-actions { width: 9rem; text-align: right; }
 .ch-check-actions .step-acts { display: flex; justify-content: flex-end; gap: 10px; border: 0; padding: 0; margin: 0; flex-wrap: wrap; }
@@ -210,7 +210,7 @@
 .ch-detail-row { display: grid; grid-template-columns: 5.125rem 6.25rem minmax(0, 1fr) auto; gap: 14px; align-items: start; }
 .ch-detail-row > time { color: var(--muted); font-size: var(--fs-xs); }
 .ch-detail-row > time span { display: block; }
-.ch-event-label { font-size: var(--fs-sm); font-weight: 500; }
+.ch-event-label { font-size: var(--fs-sm); font-weight: var(--fw-medium); }
 .ch-detail-facts { min-width: 0; overflow-wrap: anywhere; }
 .ch-detail-facts .ch-story-line { display: block; line-height: 1.5; }
 .ch-detail-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 6px 14px; font-size: var(--fs-xs); text-align: right; }
@@ -361,7 +361,7 @@
 .ch-send-back textarea { width: 100%; box-sizing: border-box; margin-bottom: 8px; }
 
 /* The checks shield: clear green when ready, clear red when a check failed. */
-.ch-shield { display: inline-flex; align-items: center; gap: 6px; margin-left: 16px; padding: 3px 10px; border-radius: 999px; font-size: var(--fs-sm); font-weight: 600; text-decoration: none; border: 1px solid currentColor; }
+.ch-shield { display: inline-flex; align-items: center; gap: 6px; margin-left: 16px; padding: 3px 10px; border-radius: 999px; font-size: var(--fs-sm); font-weight: var(--fw-strong); text-decoration: none; border: 1px solid currentColor; }
 .ch-shield.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
 .ch-shield.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
 .ch-shield.unknown { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }

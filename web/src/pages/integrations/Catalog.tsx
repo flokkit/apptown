@@ -57,7 +57,7 @@ export function CatalogPicker({ catalog, onPick, onOpen, onClose }: {
           return (
             <div key={spec.capability + spec.provider} style={{ marginBottom: 18 }}>
               <h3 className="catalog-section">{meta.title}
-                <span className="muted small" style={{ fontWeight: 400 }}> — {meta.blurb}</span></h3>
+                <span className="muted small"> — {meta.blurb}</span></h3>
               <div className="cat-grid">
                 {presets.map((p) => (
                   <div key={p.name} className="cat-tile" onClick={() => onPick(spec, spec.presets?.length ? p : undefined)}>
