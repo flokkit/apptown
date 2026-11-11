@@ -61,7 +61,7 @@ func (a *Executor) mergeMainFirst(ctx context.Context, run *workflow.Run, step *
 		log.Printf("run %d: resolving repository for main merge: %v", run.ID, err)
 		return scm.MainMerge{}
 	}
-	merge, err := scm.MergeMain(ctx, hub, commit, source.DefaultBranch, message)
+	merge, err := scm.MergeMain(ctx, hub, commit, source.DefaultBranch, message, a.now())
 	if err != nil {
 		log.Printf("run %d step %s: main is not merged in: %v", run.ID, step.Name, err)
 		return scm.MainMerge{}

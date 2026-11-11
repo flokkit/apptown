@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -86,6 +87,18 @@ func TestRepositoryHTTPDiffAndManifestIdentifyCurrentProjectWork(t *testing.T) {
 			t.Fatalf("%v: %s", args, out)
 		}
 	}
+	// The repository's last commit carries its own time, for the page to
+	// format as every other event time; never git's words relative to the
+	// machine's clock.
+	var overview struct {
+		Repo struct{ Head struct{ SHA, When string } }
+	}
+	if w := authzCall(h, "owner", "GET", base+"/overview", ""); w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &overview) != nil {
+		t.Fatalf("overview: %d %s", w.Code, w.Body.String())
+	}
+	if when, err := time.Parse(time.RFC3339, overview.Repo.Head.When); err != nil || fmt.Sprint(when.Unix()) != strings.TrimSpace(gittest.Run(t, repo, "log", "-1", "--format=%ct")) {
+		t.Fatalf("last commit time %q: %v", overview.Repo.Head.When, err)
+	}
 	seedLibraryWorkflow(t, a, idstest.N(1), "review", `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: review}
@@ -163,12 +176,13 @@ spec:
 
 	detailPath := fmt.Sprintf("/api/v1/changes/%d", ch.ID)
 	head := strings.TrimSpace(gittest.Run(t, ws, "rev-parse", "HEAD"))
+	committed := strings.TrimSpace(gittest.Run(t, ws, "log", "-1", "--format=%ct"))
 	checkDetail := func() {
 		t.Helper()
 		w := authzCall(h, "owner", "GET", detailPath, "")
 		var detail struct {
 			CommittedDiff struct{ Status string }
-			Commits       []struct{ SHA, Subject string }
+			Commits       []struct{ SHA, Subject, When string }
 			Diffstat      string
 			Head          string
 		}
@@ -179,6 +193,12 @@ spec:
 		// compared with, is the newest commit the page lists, in full.
 		if detail.Head != head || !strings.HasPrefix(head, detail.Commits[0].SHA) {
 			t.Fatalf("head %q, the change is at %q (newest listed %q)", detail.Head, head, detail.Commits[0].SHA)
+		}
+		// A commit's time is its own timestamp, for the page to format as
+		// every other event time; never git's words relative to the machine's clock.
+		when, err := time.Parse(time.RFC3339, detail.Commits[0].When)
+		if err != nil || fmt.Sprint(when.Unix()) != committed {
+			t.Fatalf("commit time %q, committed at %s: %v", detail.Commits[0].When, committed, err)
 		}
 	}
 	checkDetail()

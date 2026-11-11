@@ -115,6 +115,12 @@ func deploymentAnswer(dep *Deployment, o RuntimeObservation, d Diagnostics, rele
 	case "starting", "stopping", "restarting":
 		return DeploymentStatus{Word: progressLabelDeploying, Reason: strings.TrimSpace(dep.RuntimeState + " " + dep.RuntimeError), CheckedAt: dep.RuntimeAt.Time}
 	}
+	// Nothing was ever applied and no release is on its way (an open or
+	// failed first release answered above): no container is expected, so
+	// none found is not a stopped app.
+	if dep.LastApplied == nil && dep.ObservedGeneration == 0 && dep.Readiness != reconciling {
+		return DeploymentStatus{Word: progressLabelNotDeployed, Reason: "nothing deployed yet"}
+	}
 	if dep.Readiness == reconciling {
 		a.Word, a.Reason, a.Stale = progressLabelDeploying, "releasing", false
 		return a

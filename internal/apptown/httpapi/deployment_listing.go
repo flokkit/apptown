@@ -72,6 +72,7 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 			v.Needs = append(v.Needs, DeploymentNeedView{Need: n.Need, Name: n.Name, ID: n.ID, Region: n.Region, Size: n.Size, Version: n.Version, Status: n.Status.String(), StatusLabel: n.Status.Display()})
 		}
 		if t := e.Target; t != nil {
+			v.Backups = dataprotection.Applies(e.Kind, t.Kind)
 			k := deployment.DescribeTarget(&deployment.Target{Kind: t.Kind, Origin: t.Origin})
 			v.Target = &DeploymentTargetView{Name: t.Name, DisplayLabel: t.DisplayLabel, Kind: t.Kind, Origin: t.Origin, Title: k.Title, Vendor: k.Vendor, Family: k.Family, Region: t.Region}
 		}
@@ -115,10 +116,13 @@ type DeploymentView struct {
 	Static            bool                       `json:"static,omitempty"`
 	Target            *DeploymentTargetView      `json:"target,omitempty"`
 	RuntimeObservationView
-	Feed       string               `json:"feed,omitempty"`
-	Audience   string               `json:"audience,omitempty"`
-	Data       string               `json:"data,omitempty"`
-	Protected  bool                 `json:"protected"`
+	Feed      string `json:"feed,omitempty"`
+	Audience  string `json:"audience,omitempty"`
+	Data      string `json:"data,omitempty"`
+	Protected bool   `json:"protected"`
+	// Backups says AppTown keeps protection for it (dataprotection.Applies):
+	// a page asks for its backup state only then.
+	Backups    bool                 `json:"backups"`
 	Generation int64                `json:"generation,omitempty"`
 	Readiness  string               `json:"readiness,omitempty"`
 	ChangeID   ids.ID               `json:"changeId,omitzero"`

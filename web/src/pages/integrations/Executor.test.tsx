@@ -41,3 +41,29 @@ it('keeps each observed disk source identifiable', () => {
   expect(html).toContain('10 GB / 100 GB')
   expect(html).toContain('20 GB / 200 GB')
 })
+
+// CPU and memory are the reading of the host whose Docker runs the work,
+// never a pair of bars that nothing fills; a worker's machine is not read,
+// and the page says so instead of drawing empty bars.
+it.each([false, true])('shows the work host CPU and memory, or says a worker is not read (worker: %s)', configured => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/executor'), { configured, address: 'https://worker.example:7443', state: 'reachable', previews: [], ...(configured ? {} : { hostTarget: 'built-in-docker' }) })
+  client.setQueryData(getKey('/targets/built-in-docker/capacity'), { target: 'built-in-docker', kind: 'docker-host', elastic: false, fixedHost: true, stale: false, words: '',
+    cpu: { total: { known: true, value: 8 }, hostUsed: { known: true, value: 2 }, promised: {} },
+    memory: { total: { known: true, value: 8 * 2 ** 30 }, hostUsed: { known: true, value: 3 * 2 ** 30 }, promised: {} } })
+  client.setQueryData(getKey('/infrastructure/disks'), { disks: [] })
+  client.setQueryData(getKey('/runs/executing'), { executing: [] })
+  client.setQueryData(getKey('/tiers'), { tiers: [] })
+  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ExecutorObservation /></QueryClientProvider></MemoryRouter>)
+  const el = document.createElement('div'); el.innerHTML = html
+  const strips = Object.fromEntries([...el.querySelectorAll('.capacity-strip')].map(s => [s.querySelector('h3')!.textContent, s.querySelector('span')!.textContent]))
+  if (configured) {
+    expect(strips.CPU).toBeUndefined()
+    expect(strips.MEMORY).toBeUndefined()
+    expect(el.textContent).toContain("The worker's CPU and memory are not read.")
+  } else {
+    expect(strips.CPU).toBe('2 / 8')
+    expect(strips.MEMORY).toBe('3 GB / 8 GB')
+    expect(html).toContain('href="/targets/built-in-docker"')
+  }
+})

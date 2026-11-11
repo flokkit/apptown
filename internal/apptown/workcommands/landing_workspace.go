@@ -164,7 +164,7 @@ func (a *Preparation) catchUp(ctx context.Context, p *project.Project, ch *workf
 	message := trailer.Message(repositoryedit.MergeTitle(p.DefaultBranch, ch.Branch),
 		fmt.Sprintf("AppTown merged %[1]s into this change when %[2]s asked to land it: the branch was behind %[1]s and the merge had no conflicts.", p.DefaultBranch, by),
 		trailer.Line{Key: trailer.ChangeID, Value: ch.ID.String()}, trailer.Line{Key: trailer.Actor, Value: by}) + "\n"
-	merge, err := scm.MergeMain(ctx, hub, tip, p.DefaultBranch, message)
+	merge, err := scm.MergeMain(ctx, hub, tip, p.DefaultBranch, message, a.now())
 	if err != nil {
 		return out, fmt.Errorf("merging %s into change %d for its landing: %w", p.DefaultBranch, ch.Number, err)
 	}

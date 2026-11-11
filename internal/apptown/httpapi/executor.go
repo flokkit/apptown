@@ -20,12 +20,15 @@ type Executor struct {
 		Snapshot(context.Context) (maintenance.WorkerSnapshot, error)
 	}
 	address string
+	// hostTarget is the target whose Docker runs the work, when AppTown
+	// reads that host: the built-in Docker host while no worker is set.
+	hostTarget string
 }
 
 func NewExecutor(observer interface {
 	Snapshot(context.Context) (maintenance.WorkerSnapshot, error)
-}, address string, previews *preview.Service, work *workflow.Service) Executor {
-	return Executor{observer: observer, address: address, previews: previews, work: work}
+}, address, hostTarget string, previews *preview.Service, work *workflow.Service) Executor {
+	return Executor{observer: observer, address: address, hostTarget: hostTarget, previews: previews, work: work}
 }
 
 type ExecutorPreview struct {
@@ -45,6 +48,10 @@ type ExecutorView struct {
 	VersionMismatch bool              `json:"versionMismatch"`
 	Stale           bool              `json:"stale"`
 	Failure         string            `json:"failure,omitempty"`
+	// HostTarget names the deployment target whose Docker runs the work
+	// when AppTown reads that host's CPU and memory (its capacity); absent
+	// with a worker, whose machine's CPU and memory AppTown does not read.
+	HostTarget string `json:"hostTarget,omitempty"`
 }
 
 // Get reads the same stored observation used for worker attention. It makes no worker calls.
@@ -54,7 +61,7 @@ func (h Executor) Get(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	v := ExecutorView{Configured: s.Configured, Address: h.address, State: "unknown", CheckedAt: stamp.Of(s.AttemptedAt), Version: s.Version, AppTownVersion: version.String(), Stale: s.Stale, Failure: s.Failure}
+	v := ExecutorView{Configured: s.Configured, Address: h.address, State: "unknown", CheckedAt: stamp.Of(s.AttemptedAt), Version: s.Version, AppTownVersion: version.String(), Stale: s.Stale, Failure: s.Failure, HostTarget: h.hostTarget}
 	if !s.Unknown && !s.Stale && s.Availability == execution.WorkerAvailable {
 		v.State = "reachable"
 	}

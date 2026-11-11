@@ -19,12 +19,12 @@ import type { DeploymentView } from '../../../wire.gen'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const base = '/projects/lunch/deployments'
 const at = '2026-11-03T08:00:00Z'
-const env = { name: 'main', displayLabel: 'Lunch Orders', generation: 1, kind: 'standing', feed: 'main', audience: 'team', data: 'production', status: { word: 'working', reason: '', stale: false, servingRelease: 'Running release 8', servingReleaseNumber: 8 }, observation: 'running', runtimeActions: ['start', 'stop', 'restart'], servingRelease: { number: 8, releasedAt: at }, observedAt: at, readiness: 'reconciled', url: 'https://lunch.example', target: { kind: 'docker-host', name: 'local' } } as DeploymentView
+const env = { name: 'main', displayLabel: 'Lunch Orders', generation: 1, kind: 'standing', backups: true, feed: 'main', audience: 'team', data: 'production', status: { word: 'working', reason: '', stale: false, servingRelease: 'Running release 8', servingReleaseNumber: 8 }, observation: 'running', runtimeActions: ['start', 'stop', 'restart'], servingRelease: { number: 8, releasedAt: at }, observedAt: at, readiness: 'reconciled', url: 'https://lunch.example', target: { kind: 'docker-host', name: 'local' } } as DeploymentView
 const reading = { waiting: false, stale: false, unknown: false, observedAt: at }
 function fixtures({ backup = 'none', lowDisk = false, readiness = 'reconciled' } = {}): Record<string, unknown> {
   return {
     '/projects/lunch': { slug: 'lunch', name: 'Lunch' },
-    [base]: [{ ...env, readiness }, { ...env, name: 'preview-1', displayLabel: 'Fix lunch', kind: 'preview', changeId: 'change-1', generation: 0, target: undefined }],
+    [base]: [{ ...env, readiness }, { ...env, name: 'preview-1', displayLabel: 'Fix lunch', kind: 'preview', backups: false, changeId: 'change-1', generation: 0, target: undefined }],
     '/projects/lunch/targets': { targets: [{ name: 'local', kind: 'docker-host', kindInfo: { title: 'Docker host' }, address: {}, capabilities: {} }] },
     '/changes/change-1': { change: { number: 12, title: 'Fix lunch' } },
     '/authz/roles': { roles: [{ name: 'release-manager', title: 'Release manager', scope: 'project' }], capabilities: {} },

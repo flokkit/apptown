@@ -24,7 +24,7 @@ func (s *executorReading) Snapshot(context.Context) (maintenance.WorkerSnapshot,
 func TestExecutorReadsStoredWorkerFactsAndMarksVersionMismatch(t *testing.T) {
 	at := time.Now().UTC().Truncate(time.Second)
 	source := &executorReading{value: maintenance.WorkerSnapshot{Configured: true, Availability: execution.WorkerAvailable, Version: "different-build", AttemptedAt: at, ObservedAt: at}}
-	h := NewExecutor(source, "https://worker.example:7443", nil, nil)
+	h := NewExecutor(source, "https://worker.example:7443", "", nil, nil)
 	read := func() ExecutorView {
 		t.Helper()
 		w := httptest.NewRecorder()
@@ -39,6 +39,9 @@ func TestExecutorReadsStoredWorkerFactsAndMarksVersionMismatch(t *testing.T) {
 		return v
 	}
 	v := read()
+	if v.HostTarget != "" {
+		t.Fatal("a worker's machine is not read, so no host target is named", v)
+	}
 	if v.Address != "https://worker.example:7443" || v.State != "reachable" || v.Version != "different-build" || !v.VersionMismatch || v.AppTownVersion != version.String() || !v.CheckedAt.Time.Equal(at) {
 		t.Fatal(v)
 	}
@@ -53,5 +56,17 @@ func TestExecutorReadsStoredWorkerFactsAndMarksVersionMismatch(t *testing.T) {
 	}
 	if source.calls != 3 {
 		t.Fatal("unexpected reads", source.calls)
+	}
+}
+
+// Without a worker, the executor names the target whose Docker runs the
+// work, so the page shows that host's CPU and memory reading.
+func TestExecutorNamesTheHostTargetWhoseDockerRunsTheWork(t *testing.T) {
+	h := NewExecutor(&executorReading{}, "", "built-in-docker", nil, nil)
+	w := httptest.NewRecorder()
+	h.Get(w, httptest.NewRequest("GET", "/executor", nil))
+	var v ExecutorView
+	if err := json.Unmarshal(w.Body.Bytes(), &v); err != nil || v.HostTarget != "built-in-docker" {
+		t.Fatal(w.Body.String(), err)
 	}
 }

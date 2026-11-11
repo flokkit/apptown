@@ -145,7 +145,11 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
             { key: 'at', label: 'When', kind: 'time', render: e => fmtStamp(e.at) },
           ]} />}
       </Section></> : <>
-      {!retired && <><div className="stack stack-3 mt-3">{targetCapacityReadings(capacity.refreshFailed ? undefined : capacity.data ?? undefined).map(r => <CapacityStrip key={r.label} name={r.label} used={r.used} total={r.total} format={r.format} basis={r.basis} />)}</div><StaleNote q={capacity} /></>}
+      {/* A host has CPU, memory and disk to fill; any other target has none of
+          them, so the owner's sentence says what it has instead. */}
+      {!retired && <>{capacity.data && !capacity.data.fixedHost
+        ? <p className="small mt-3" data-testid="target-capacity-words">{capacity.data.words}</p>
+        : <div className="stack stack-3 mt-3">{targetCapacityReadings(capacity.refreshFailed ? undefined : capacity.data ?? undefined).map(r => <CapacityStrip key={r.label} name={r.label} used={r.used} total={r.total} format={r.format} basis={r.basis} />)}</div>}<StaleNote q={capacity} /></>}
 
       <Section title="What runs here" count={t.deployments.length}>
         {t.deployments.length === 0 && <p className="muted small">No deployments on this target.</p>}

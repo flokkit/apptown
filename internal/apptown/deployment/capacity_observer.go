@@ -172,10 +172,11 @@ func (s *Service) recordedCapacity(ctx context.Context, t *Target) (TargetCapaci
 		return TargetCapacity{}, err
 	}
 	if r.Capacity.ReadAt.IsZero() {
-		return TargetCapacity{Target: t.Name, Kind: t.Kind, Words: "Pending first check", Stale: true, Error: r.Reason}, nil
+		return TargetCapacity{Target: t.Name, Kind: t.Kind, FixedHost: fixedHostKind(t.Kind), Elastic: elasticKind(t.Kind), Words: "Pending first check", Stale: true, Error: r.Reason}, nil
 	}
 	out := capacityAt(r.Capacity, s.now())
 	out.Error = r.Reason
+	out.FixedHost = fixedHostKind(t.Kind)
 	return out, nil
 }
 

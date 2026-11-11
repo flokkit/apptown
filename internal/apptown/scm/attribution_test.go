@@ -2,9 +2,11 @@ package scm
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/gitlab"
@@ -207,6 +209,24 @@ func TestALandingsMergeCommitNamesWhatAdmittedIt(t *testing.T) {
 	}
 	if found, err := driver.mergeCommit(context.Background(), repo, "main", "land-op.1"); err != nil || found != result.Result {
 		t.Fatalf("inspection lost the operation: %q %v", found, err)
+	}
+}
+
+// A direct landing's merge commit is dated by AppTown's clock, as author
+// and committer, not by the machine's.
+func TestALandingsMergeCommitIsDatedByAppTownsClock(t *testing.T) {
+	t.Parallel()
+	repo, _, base, candidate := landingRepository(t)
+	at := time.Date(2031, 2, 3, 4, 5, 6, 0, time.UTC)
+	source := Source{RunID: idstest.N(1903), ProjectID: idstest.N(1), Repository: repo, Branch: "change", DefaultBranch: "main", WorkflowName: "land", WorkflowVersion: 3,
+		Candidate: candidate, Target: base, PinRequired: true, Attribution: landingAttribution(candidate)}
+	driver := GitDrivers{DataDir: t.TempDir(), Now: func() time.Time { return at }}.Driver()
+	result, err := driver.Execute(context.Background(), source, Prepared{Kind: LocalMerge, Expected: base}, "land-op.1")
+	if err != nil || result.Result == "" {
+		t.Fatalf("merge: %+v %v", result, err)
+	}
+	if dates := gittest.RunAsTester(t, repo, "log", "-1", "--format=%at %ct", result.Result); dates != fmt.Sprintf("%d %d", at.Unix(), at.Unix()) {
+		t.Fatalf("the landing's merge is dated %q, want AppTown's clock %d", dates, at.Unix())
 	}
 }
 

@@ -222,7 +222,7 @@ export function ChangesTab({ view, run }: { view: ChangeView; run?: Run }) {
           <ListTable className="small" label="Commits" rows={commits} rowKey={c => c.sha} columns={[
             { key: 'sha', label: 'Commit', phone: 'name', kind: 'technical', render: c => c.sha },
             { key: 'subject', label: 'Subject', render: c => c.subject },
-            { key: 'when', label: 'When', kind: 'time', render: c => c.when },
+            { key: 'when', label: 'When', kind: 'time', render: c => fmtStamp(c.when) },
           ]} />
         </>
       )}

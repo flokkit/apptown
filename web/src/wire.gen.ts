@@ -680,6 +680,7 @@ export type DeploymentView = {
   audience?: string
   data?: string
   protected: boolean
+  backups: boolean
   generation?: number
   readiness?: string
   changeId?: string | null
@@ -784,6 +785,7 @@ export type ExecutorView = {
   versionMismatch: boolean
   stale: boolean
   failure?: string
+  hostTarget?: string
 }
 
 export type ExternalBindRequest = {
@@ -2217,6 +2219,7 @@ export type TargetCapacity = {
   target: string
   kind: string
   elastic: boolean
+  fixedHost: boolean
   error?: string
   stale: boolean
   liveUnknown?: boolean
@@ -3354,7 +3357,7 @@ export type AppliedAttempt = {
   generation: number
 }
 
-export type ProgressLabel = "unknown" | "deployed" | "deploying" | "failed" | "passed" | "working" | "stopped" | "waiting" | "excepted" | "unreachable"
+export type ProgressLabel = "unknown" | "deployed" | "deploying" | "failed" | "passed" | "working" | "stopped" | "waiting" | "excepted" | "unreachable" | "not deployed"
 
 export type DeploymentTargetView = {
   displayLabel: string
@@ -5429,6 +5432,7 @@ export type TierApp = {
   hostOnly?: boolean
   running: boolean
   static?: boolean
+  backups: boolean
   changeId?: string | null
   changeNumber?: number
 }

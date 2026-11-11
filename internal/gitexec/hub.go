@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // AppTown's own repositories (a project's hub, and the scratch
@@ -79,6 +80,26 @@ func HubRun(ctx context.Context, dir string, args ...string) (string, error) {
 	cmd.Stdout, cmd.Stderr = &buf, &buf
 	err = cmd.Run()
 	return strings.TrimSpace(buf.String()), err
+}
+
+// CommitDates is the environment that dates a commit git makes at at, as
+// author and committer: AppTown's clock, not the machine's.
+func CommitDates(at time.Time) []string {
+	date := fmt.Sprintf("@%d +0000", at.Unix())
+	return []string{"GIT_AUTHOR_DATE=" + date, "GIT_COMMITTER_DATE=" + date}
+}
+
+// HubCommitOutput is HubOutput for a command that makes a commit, dated at
+// (CommitDates).
+func HubCommitOutput(ctx context.Context, dir string, at time.Time, stdin io.Reader, args ...string) ([]byte, error) {
+	cmd, done, err := hubCommand(ctx, dir, args)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
+	cmd.Env = append(cmd.Env, CommitDates(at)...)
+	cmd.Stdin = stdin
+	return output(cmd)
 }
 
 // HubOutput runs git in one of AppTown's own repositories, hardened, with

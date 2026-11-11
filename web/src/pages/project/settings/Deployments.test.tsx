@@ -13,7 +13,7 @@ import type { Retained } from '../../../targets'
 // One deployment as the project's Deployments page lists it: a table row
 // with its release facts.
 function DeploymentRow({ slug, env }: { slug: string; env: DeploymentView; current?: boolean }) {
-  return <DeploymentTable release={() => <DeploymentReleaseCell slug={slug} env={env} />} rows={[{ ...env, slug, app: slug, deployment: env.name, label: env.displayLabel || env.name, static: env.static, url: env.url, hostOnly: env.hostOnly }]} />
+  return <DeploymentTable release={() => <DeploymentReleaseCell slug={slug} env={env} />} rows={[{ ...env, slug, app: slug, deployment: env.name, label: env.displayLabel || env.name, static: env.static, url: env.url, hostOnly: env.hostOnly, backups: env.backups }]} />
 }
 
 
@@ -204,4 +204,23 @@ it.each(['row', 'card'].flatMap(view => ['release 18: starting the app', 'releas
  expect(html).toContain('/projects/game/releases/18')
  expect(html).not.toContain('/projects/game/releases/17')
  client.clear()
+})
+
+// AppTown keeps no backups for a preview (the owner's backups answer), so
+// its row asks for none: no "backup unknown", and its last backup is not a
+// missing one. A standing deployment on the same host still asks.
+it.each([false, true])('asks for backup state only where the owner keeps backups (standing: %s)', standing => {
+  const client = newQueryClient()
+  const env = { name: standing ? 'main' : 'preview-13', kind: standing ? 'standing' : 'preview', backups: standing, changeId: standing ? undefined : 'change-13', observation: 'running', observationStale: false,
+    status: { word: 'working', reason: '', stale: false }, target: { name: 'built-in-docker', kind: 'docker-host' } } as unknown as DeploymentView
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><DeploymentRow slug="game" env={env} /></MemoryRouter></QueryClientProvider>)
+  const shown = html.replace(/<[^>]*>/g, ' ')
+  if (standing) {
+    // Its protection is still being read: unknown until it answers.
+    expect(shown).toContain('backup unknown')
+  } else {
+    expect(shown).not.toContain('backup unknown')
+    expect(html).toMatch(/data-label="Last backup"[^>]*>(<[^>]*>)*not backed up/)
+  }
+  client.clear()
 })

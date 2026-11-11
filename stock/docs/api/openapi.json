@@ -1336,7 +1336,15 @@
             "type": "string"
           },
           "when": {
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "const": ""
+              }
+            ]
           }
         },
         "required": [
@@ -2337,6 +2345,9 @@
           "audience": {
             "type": "string"
           },
+          "backups": {
+            "type": "boolean"
+          },
           "changeId": {
             "format": "uuid",
             "type": [
@@ -2576,7 +2587,8 @@
           "observation",
           "targetName",
           "observationStale",
-          "protected"
+          "protected",
+          "backups"
         ],
         "type": "object"
       },
@@ -2726,6 +2738,9 @@
             "type": "boolean"
           },
           "failure": {
+            "type": "string"
+          },
+          "hostTarget": {
             "type": "string"
           },
           "previews": {
@@ -3968,7 +3983,8 @@
           "stopped",
           "waiting",
           "excepted",
-          "unreachable"
+          "unreachable",
+          "not deployed"
         ],
         "type": "string"
       },

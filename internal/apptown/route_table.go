@@ -159,7 +159,13 @@ func appRoutes(a *App) []routeSpec {
 		if a.cfg.worker != nil {
 			workerAddress = a.cfg.worker.URL
 		}
-		executor = httpapi.NewExecutor(a.workerObserver, workerAddress, a.Preview, a.Work)
+		// Without a worker, work runs on AppTown's own Docker: the built-in
+		// target's, whose CPU and memory its capacity reading holds.
+		hostTarget := ""
+		if a.cfg.worker == nil && !a.cfg.noLocalDocker {
+			hostTarget = a.hosts.BuiltInTarget()
+		}
+		executor = httpapi.NewExecutor(a.workerObserver, workerAddress, hostTarget, a.Preview, a.Work)
 		deploymentListing = httpapi.NewDeploymentListing(a.Projects, a.Deployment, a.cfg.dataDir, a.DataProtection.FillsOf)
 		targets = httpapi.NewTargets(a.Deployment, a.targetProviders, a.Projects, a.Access, a.DB, a.cfg.clock.Now)
 		backups = httpapi.NewBackups(a.Projects, a.DataProtection, a.Deployment.Releases)
