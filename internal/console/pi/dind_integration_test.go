@@ -149,7 +149,7 @@ func TestIntegrationACancelledScriptDoesNotOutliveItsChat(t *testing.T) {
 	run := func(ctx context.Context) chan error {
 		done := make(chan error, 1)
 		go func() {
-			done <- r.Script(ctx, in, "touch /work/started; while true; do echo writing >> /work/writer; sleep 0.1; done", nil, io.Discard)
+			done <- r.Script(ctx, in, "touch /work/started; while true; do echo writing >> /work/writer; sleep 0.1; done", nil, nil, io.Discard)
 		}()
 		if !poll.Until(context.Background(), 20*time.Second, 20*time.Millisecond, func() bool {
 			_, err := os.Stat(filepath.Join(in.Workspace.Path, "started"))

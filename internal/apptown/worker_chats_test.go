@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -258,6 +259,59 @@ func TestALandingSavesTheWorkerChatFirst(t *testing.T) {
 	}
 	if candidate.Candidate != want {
 		t.Fatalf("the landing chose %s, not the chat's latest commit %s", candidate.Candidate, want)
+	}
+}
+
+// A chat on a worker holds the change and main has moved: the landing
+// merges main in, the chat's work tree takes the merge before it is
+// published (its saves bundle from the branch's tip), and the chat's later
+// saves build on it. A tree that cannot take the merge (files in the way)
+// refuses the landing with the reason, and the branch does not move.
+func TestALandingMergesMainIntoAWorkerChatsTreeBeforePublishingIt(t *testing.T) {
+	t.Parallel()
+	w := newWorkerChatWorld(t)
+	defineWorkflows(t, w.a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "accept", Steps: []schema.Step{{Name: "hold", Uses: "approval"}}}}}})
+	w.a.Work.Stop()
+	s, err := w.openOnWorker(t, conversation.ProjectOpen{ChangeID: w.change.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	work := w.onWork.Started(s.ID).Workspace.Path
+	chat := w.commitOnWorker(t, s.ID, "change.txt", "the chat's work\n")
+	hub := w.a.projectRepoPath("game")
+	main := commitOnMain(t, hub, "main.txt", "landed elsewhere\n")
+
+	// An unsaved file the merge would overwrite: the tree cannot take it.
+	w.writeOnWorker(t, s.ID, "main.txt", "the chat's own\n")
+	if _, err := w.a.Work.RequestLanding(conversation.Context(context.Background(), s), w.change.ID); err == nil || errors.Is(err, workflow.ErrDispatchStopped) || !strings.Contains(err.Error(), "the chat's folder could not take the merge") {
+		t.Fatalf("a landing the chat's tree could not take: %v", err)
+	}
+	if tip := scm.Ref(t.Context(), hub, "refs/heads/"+w.change.Branch); tip != chat {
+		t.Fatalf("a refused landing moved the branch to %s, not the chat's %s", tip, chat)
+	}
+	if err := os.Remove(filepath.Join(work, "main.txt")); err != nil {
+		t.Fatal(err)
+	}
+
+	run, err := w.a.Work.RequestLanding(conversation.Context(context.Background(), s), w.change.ID)
+	if err != nil && !errors.Is(err, workflow.ErrDispatchStopped) {
+		t.Fatal(err)
+	}
+	merge := scm.Ref(t.Context(), hub, "refs/heads/"+w.change.Branch)
+	if parents := strings.Fields(gittest.Run(t, hub, "rev-list", "--parents", "-n", "1", merge)); !slices.Equal(parents, []string{merge, chat, main}) {
+		t.Fatalf("the branch is not the chat's work with main merged in: %v", parents)
+	}
+	candidate, _, err := workflow.LandingCandidateIn(context.Background(), w.a.DB, run.ID)
+	if err != nil || candidate.Candidate != merge {
+		t.Fatalf("the landing chose %s, not the merge %s: %v", candidate.Candidate, merge, err)
+	}
+	if got := gittest.Run(t, work, "rev-parse", "HEAD"); got != merge {
+		t.Fatalf("the chat's tree is at %s, not the merge %s", got, merge)
+	}
+	later := w.commitOnWorker(t, s.ID, "later.txt", "after the merge\n")
+	w.a.changeConsole.SaveAfterTurn(s.ID)
+	if tip := scm.Ref(t.Context(), hub, "refs/heads/"+w.change.Branch); tip != later {
+		t.Fatalf("the chat's save after the merge did not reach the branch: %s, want %s", tip, later)
 	}
 }
 

@@ -40,9 +40,11 @@ type LandingRechecked struct {
 
 // landingWork publishes a change folder's committed work under its
 // holder's grant before a landing picks its candidate (the chat's, or a
-// momentary request's when nobody holds the change).
+// momentary request's when nobody holds the change), and brings main in
+// under the same grant, recording that on the landing's run. by is who
+// asked.
 type landingWork interface {
-	PublishForLanding(ctx context.Context, change *Change) error
+	PublishForLanding(ctx context.Context, change *Change, by string, runID ids.ID) error
 }
 
 // RecheckLanding re-runs a landing's gates for the change; the actor is
@@ -55,6 +57,7 @@ func (s *Service) RecheckLanding(ctx context.Context, in LandingRecheck) (Landin
 	in.who = actor.Receipt
 	// Publication is an effect too: refuse an unprepared landing before Git,
 	// then recheck under the reset transaction's locks below.
+	var landing ids.ID
 	if err := s.db.InTx(ctx, func(tx *database.Tx) error {
 		run, err := runRecord(workflowsql.New(tx.SQL()).ActiveLandingForUpdate(ctx, workflowsql.ActiveLandingForUpdateParams{ChangeID: in.ChangeID, ProjectID: projectID, Status: RunRunning.String()}))
 		if errors.Is(err, sql.ErrNoRows) {
@@ -66,18 +69,20 @@ func (s *Service) RecheckLanding(ctx context.Context, in LandingRecheck) (Landin
 		if !in.RunID.IsZero() && run.ID != in.RunID {
 			return ErrRunMoved
 		}
+		landing = run.ID
 		return requireRunReady(ctx, tx, run.ID)
 	}); err != nil {
 		return LandingRechecked{}, err
 	}
-	// The fix the chat committed reaches the branch before the recheck picks
-	// its candidate; the landing itself only reads the branch.
+	// The fix the chat committed reaches the branch, with main merged in,
+	// before the recheck picks its candidate; the landing itself only
+	// reads the branch.
 	if s.landingWork != nil {
 		change, err := ReadChangeIn(ctx, s.db, in.ChangeID)
 		if err != nil {
 			return LandingRechecked{}, err
 		}
-		if err := s.landingWork.PublishForLanding(ctx, change); err != nil {
+		if err := s.landingWork.PublishForLanding(ctx, change, in.who, landing); err != nil {
 			return LandingRechecked{}, err
 		}
 	}

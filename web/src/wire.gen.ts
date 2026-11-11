@@ -2712,7 +2712,6 @@ export type ApprovalStanding = {
 export type MainConflict = {
   mainBranch: string
   main: string
-  step: string
   files: string[]
   catchUp: string
 }

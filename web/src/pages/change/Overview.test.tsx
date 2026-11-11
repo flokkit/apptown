@@ -80,7 +80,7 @@ it('opens Overview by default and keeps code, conversation, full records and edi
   const scroll = vi.fn(); Element.prototype.scrollIntoView = scroll
   const v = view()
   v.notesDiff = { added: ['- Credit photos. (agent · change 9)'], removed: ['- Use illustrations. (Sam · change 4)'] }
-  v.mainConflict = { mainBranch: 'main', step: 'implement', files: ['calendar.ts'], catchUp: 'git merge origin/main' } as ChangeView['mainConflict']
+  v.mainConflict = { mainBranch: 'main', files: ['calendar.ts'], catchUp: 'git merge origin/main' } as ChangeView['mainConflict']
   v.detail!.artifacts[0].body = 'Report start.'
   v.detail!.artifacts[0].bodyBytes = 8000
   vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
@@ -116,7 +116,7 @@ it('opens Overview by default and keeps code, conversation, full records and edi
   expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/distill'))).toHaveLength(0)
   const click = async (name: string) => { await act(async () => [...el.querySelectorAll('.ch-tabs a')].find(a => a.textContent === name)!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }))); await settle() }
   await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
-  const catchUp = [...el.querySelectorAll('dialog a')].find(a => a.textContent === 'Open Details for the catch-up command')!
+  const catchUp = [...el.querySelectorAll('dialog a')].find(a => a.textContent === 'Details has the catch-up command')!
   await act(async () => catchUp.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })))
   await settle()
   expect(el.querySelector('.ch-tabs [aria-current]')?.textContent).toBe('Details')
@@ -456,6 +456,33 @@ it('shows the latest chat reply and Continue chat as the only action before any 
   const buttons = [...el.querySelectorAll('.ch-decision-choices button')]
   expect(buttons.map(b => b.textContent)).toEqual(['Continue chat'])
   expect(buttons[0].className).toBe('primary')
+  await act(async () => root.unmount()); client.clear()
+})
+
+// The live loop (change #5): a change behind main whose landing ended at
+// its first step was offered Check and land again, without the reason.
+// A conflicting main sends the change to its chat; an ended landing keeps
+// its reason on the page.
+it('sends a change that conflicts with main to its chat and keeps an ended landing’s reason', async () => {
+  const v = view(); v.change.state = 'in_progress'; v.approval = undefined; v.waitingOn = { ...v.waitingOn, kind: 'chat', says: 'chat open', tone: 'neutral', you: 'no', step: null }
+  v.detail!.run = { ...v.detail!.run, status: 'abandoned' }; v.detail!.steps = []; v.detail!.next = []
+  v.runs = [{ id: 'run', number: 12, workflowName: 'land', status: 'abandoned', statusLabel: 'abandoned', currentStage: 'gates', createdAt: '', updatedAt: '', role: 'landing' }] as ChangeView['runs']
+  v.stateDetail = 'main moved after this landing was asked for, so the branch no longer contains it. Check and land again.'
+  v.next = [{ act: 'land' }] as ChangeView['next']
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/transcript') ? { sessions: [], unreadable: 0 } : [])))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  const show = async (shown: ChangeView) => {
+    await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={shown} current steps={[]} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
+    await act(async () => { for (let i = 0; i < 12; i++) await new Promise(r => setTimeout(r, 0)) })
+    return [...el.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)
+  }
+  expect(await show(v)).toContain('Check and land')
+  expect(el.textContent).toContain('The last landing ended: main moved after this landing was asked for')
+  const conflicted = { ...v, next: [], mainConflict: { mainBranch: 'main', main: 'abc', files: ['package.json', 'package-lock.json'], catchUp: 'git fetch' } } as unknown as ChangeView
+  const buttons = await show(conflicted)
+  expect(buttons).not.toContain('Check and land')
+  expect(buttons).toContain('Resolve in chat')
+  expect(el.textContent).toContain('main has moved and conflicts with this change in package.json, package-lock.json, so it cannot land yet.')
   await act(async () => root.unmount()); client.clear()
 })
 

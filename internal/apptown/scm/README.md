@@ -137,7 +137,10 @@ AppTown), only when the branch is behind `main` and the merge has no
 conflicts; otherwise it names the conflicting files and makes nothing. It
 moves no ref. The caller publishes the merge through `Branches.Publish`
 like any other commit, so who may move the branch is decided there
-(`repositoryedit.PublishMainMerge`, before an agent step on a worker).
+(`repositoryedit.PublishMainMerge` before an agent step, the landing's
+admission under the holder's grant). `MainConflicts` asks the same question
+without making the commit; the change page reads it
+(`repositoryedit.MainConflictNow`).
 
 A change's folder is used by one holder at a time. A chat or a writing run
 that takes it commits what the previous worker left before working there,
@@ -155,10 +158,14 @@ default-branch commit (target) the branch contains. It is pinned at
 admission, after the change's committed work is published under its
 holder's grant (the chat's, or a momentary request's when nobody holds it;
 uncommitted files are not included, and are named in a `landing.uncommitted`
-event), and again each time the reconcile step runs. The reconcile step only
-reads: a branch that does not contain the default branch is refused ("behind
-main"). A recheck publishes the chat's new commits the same way before it
-reruns anything, and reruns the reconcile step whenever it reruns anything.
+event) and, under the same grant, main merged in when the branch is behind
+it and the merge is clean (`workcommands` catchUp, `MergeMain`, a
+`main.merged` event naming who asked); and again each time the reconcile
+step runs. The reconcile step only reads: a branch that does not contain the
+default branch (main conflicts, or moved since) ends the landing with the
+reason. A recheck publishes the chat's new commits and merges main the same
+way before it reruns anything, and reruns the reconcile step whenever it
+reruns anything.
 A workflow a landing calls checks the landing's candidate.
 
 A new candidate resets, anywhere in the run, every result that named the old

@@ -222,6 +222,17 @@ func (a *RemoteAgent) Save(ctx context.Context, id, base, dest string) (string, 
 	return a.Sessions.Save(ctx, id, base, "", dest)
 }
 
+// Follow brings the chat's work tree to commit to, from the bundle at
+// path (SessionClient.follow).
+func (a *RemoteAgent) Follow(ctx context.Context, id, from, to, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return a.Sessions.follow(ctx, id, from, to, f)
+}
+
 // SaveLast is Save for an ending chat, once it has stopped: what it left
 // uncommitted is committed first, as its leftovers.
 func (a *RemoteAgent) SaveLast(ctx context.Context, id, base, dest string) (string, error) {

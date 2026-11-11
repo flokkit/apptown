@@ -23,6 +23,9 @@ func TestChangeDisplayPreservesWaitingFailureAndLanding(t *testing.T) {
 		{ChangeLanding, "", &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityWaiting}, status.DisplayWaitingForYou},
 		{ChangeInProgress, "", &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityBlocked}, status.DisplayFailed},
 		{ChangeInProgress, "", &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityWorking}, status.DisplayWorking},
+		// An in-progress change whose landing ended reads as the change,
+		// not as that run (the chat's header said "abandoned").
+		{ChangeInProgress, "", &RunSnapshot{Run: &Run{Status: RunAbandoned}, State: ActivityAbandoned}, status.DisplayWaiting},
 	} {
 		if got := (&Change{State: tc.state, ClosedAs: tc.closed}).Display(tc.run); got != tc.want {
 			t.Errorf("%s: got %s, want %s", tc.state, got, tc.want)

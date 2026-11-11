@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -46,23 +45,6 @@ func (s *Service) ChangeRuns(ctx context.Context, id ids.ID, in ChangeRuns) ([]*
 		return nil, err
 	}
 	return readChangeRunsIn(ctx, s.db, ChangeRef{ID: id, ProjectID: project}, in)
-}
-
-// LatestChangeEvent is the newest event of kind across every run of the
-// change; nil when none was recorded.
-func (s *Service) LatestChangeEvent(ctx context.Context, id ids.ID, kind string) (*Event, error) {
-	project, _, err := s.changeScope(ctx, id, actionReadEvidence)
-	if err != nil {
-		return nil, err
-	}
-	row, err := workflowsql.New(s.db.SQL()).LatestChangeEvent(ctx, workflowsql.LatestChangeEventParams{ProjectID: project, ChangeID: id, Kind: kind})
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, database.QueryError(err, "reading the change's latest "+kind)
-	}
-	return &Event{row.ID, row.RunID, row.At.Format(time.RFC3339Nano), row.Kind, rawJSON(string(row.PayloadJson))}, nil
 }
 
 // ReadScopedStepsIn returns observations only; no attempt claim is issued.

@@ -146,24 +146,43 @@ branch alone and the step works on it as it is. The change's page and
 `apptown wait -c` then say which files conflict, until you catch up in the
 change's chat with the command above.
 
-Landing requires it (below): a branch behind `main` is refused until it has
-caught up. On a long change while traffic is high, pulling as you go keeps
-each catch-up small.
+Landing does the same (below): asking to land a branch behind `main` merges
+`main` in first when it merges cleanly. When it conflicts, the change page
+names the files and sends you to the chat instead of offering **Check and
+land**. On a long change while traffic is high, pulling as you go keeps each
+catch-up small.
 
-## Landing: already caught up, then the gates
+## Landing: main merged in, then the gates
 
-Landing checks and merges; it never writes, merges into your branch, or
-touches anyone's folder. It lands the change's branch as published, and its
-very first gate checks that the branch **already contains the current
-`main`**:
+When someone (or AppTown, for accepted work) asks to land a change, AppTown
+first publishes what the change's folder has committed, then, when the
+branch is behind `main` and the merge has no conflicts, merges `main` into
+it: an ordinary merge commit, "Merge main into <branch>", made by AppTown and
+naming who asked. It is made under the same hold as the publication: the
+chat's, when a chat has the change, or a moment's hold the request takes
+when nobody does. A chat's folder takes the merge too (a chat on a worker
+takes it before it is published), and the chat is told. That merge is what
+the landing checks.
+
+Uncommitted work with nothing committed is refused before any merge
+("nothing to land: commit it first"). A chat on a worker whose folder cannot
+take the merge (it committed since its last save, or a file is in the way)
+refuses the landing with that reason and nothing moves. A chat on AppTown
+whose folder has a file in the way keeps the file; the branch holds the merge,
+and the chat is told how to take it.
+
+The landing's very first gate then checks that the branch **contains the
+current `main`**:
 
 ```mermaid
 flowchart TD
-    S["land"] --> R{"does the branch contain main?"}
+    A["ask to land"] --> M["main merged in
+when it merges cleanly"]
+    M --> R{"does the branch contain main?"}
     R -->|yes| C["the candidate:
 the branch as published"]
-    R -->|no| X["landing stops: behind main —
-catch up in the chat and land again"]
+    R -->|no| X["landing stops: main conflicts, or moved since —
+the reason stays on the change page"]
     C --> G["gates on the candidate:
 tests · scans · approval"]
     G --> MG["merge to main,
@@ -176,10 +195,16 @@ only if main and the branch haven't moved"]
 Why?
 
 1. **Every gate runs on the tree that will actually be on `main`**: the
-   candidate already contains `main`. The approval names that candidate.
-2. **A branch behind `main` is caught early**, before any gate runs. The
-   chat merges `main` into its folder (the read-only remote above), resolves
-   any conflict there, commits, and lands again.
+   candidate already contains `main`. The approval names that candidate. An
+   acceptance given on the work before `main` was merged in was given on
+   other code, so the landing asks a person again.
+2. **A branch that conflicts with `main` is caught before any gate runs**,
+   and before anyone presses: the change page names the files and offers
+   **Resolve in chat** instead of **Check and land**. The chat merges
+   `main` into its folder (the read-only remote above), resolves the
+   conflict there, commits, and lands again. A landing asked for anyway
+   ends at its first step with the files, and the change page keeps that
+   reason.
 3. **What merges is what was checked.** The merge refuses unless `main`
    and the branch are still where the candidate was made. If `main` moved
    while the checks ran, the landing says so; restarting it checks the new

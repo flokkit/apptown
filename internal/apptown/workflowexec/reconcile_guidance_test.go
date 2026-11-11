@@ -47,12 +47,13 @@ func TestTheCatchUpCommandGivesTheMergeAPlainMessage(t *testing.T) {
 	commit(chat, "fix.go")
 	commit(hub, "later.go")
 
-	reason := behindMain("main", "apptown/change-00000000-0001-7000-8000-000000000000")["reason"].(string)
-	_, command, found := strings.Cut(reason, "chat (")
+	_, evidence := behindMain(t.Context(), hub, git(chat, "rev-parse", "HEAD"), "main", "apptown/change-00000000-0001-7000-8000-000000000000")
+	reason := evidence["reason"].(string)
+	_, command, found := strings.Cut(reason, "catch up itself (")
 	if !found {
 		t.Fatalf("no chat instruction in %q", reason)
 	}
-	if command, _, found = strings.Cut(command, "), then"); !found {
+	if command, _, found = strings.Cut(command, ")."); !found {
 		t.Fatalf("no catch-up command in %q", reason)
 	}
 	cmd := exec.Command("sh", "-c", command)

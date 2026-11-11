@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // A running agent or review step can be stopped through the product: its
@@ -68,11 +69,7 @@ func TestStepInterruptStopsTheStepsContainers(t *testing.T) {
 	if idx := f.indexOf("rm -f -v " + execution.StepContainer(stepID, "review")); idx < 0 {
 		t.Fatalf("the container was not removed: %v", f.joined())
 	}
-	snap, err := a.Work.Snapshot(asPerson("bls"), runID, workflow.DetailView)
-	if err != nil {
-		t.Fatal(err)
-	}
-	event, err := a.Work.LatestChangeEvent(asPerson("bls"), snap.Run.ChangeID, "step.interrupted")
+	event, err := interruptedEvent(a, runID)
 	if err != nil || event == nil || event.RunID != runID || !strings.Contains(string(event.Payload), `"by":"jenny"`) {
 		t.Fatalf("the run records who stopped the step: %+v %v", event, err)
 	}
@@ -117,14 +114,26 @@ func TestStepInterruptFailureDoesNotRecordSuccess(t *testing.T) {
 			if failure == "ps" && f.indexOf("rm -f -v ") >= 0 {
 				t.Fatalf("failed inventory reached removal: %v", f.joined())
 			}
-			snap, err := a.Work.Snapshot(asPerson("bls"), runID, workflow.DetailView)
-			if err != nil {
-				t.Fatal(err)
-			}
-			event, err := a.Work.LatestChangeEvent(asPerson("bls"), snap.Run.ChangeID, "step.interrupted")
+			event, err := interruptedEvent(a, runID)
 			if err != nil || event != nil {
 				t.Fatalf("failed interruption recorded success: %+v %v", event, err)
 			}
 		})
 	}
+}
+
+// interruptedEvent is the run's newest step.interrupted record; nil when
+// it has none.
+func interruptedEvent(a *App, runID ids.ID) (*workflow.Event, error) {
+	snap, err := a.Work.Snapshot(asPerson("bls"), runID, workflow.TraceView)
+	if err != nil {
+		return nil, err
+	}
+	var latest *workflow.Event
+	for i := range snap.Events {
+		if snap.Events[i].Kind == "step.interrupted" {
+			latest = &snap.Events[i]
+		}
+	}
+	return latest, nil
 }

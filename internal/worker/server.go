@@ -217,6 +217,7 @@ func (s *Server) agentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /v1/sessions/{id}/uploads/{name}", session(s.putUpload))
 	mux.HandleFunc("PUT /v1/sessions/{id}/source", session(s.putSource))
 	mux.HandleFunc("GET /v1/sessions/{id}/save", session(s.save))
+	mux.HandleFunc("POST /v1/sessions/{id}/follow", session(s.follow))
 	mux.HandleFunc("POST /v1/sessions/{id}/deliver", session(s.deliver))
 	mux.HandleFunc("POST /v1/sessions/{id}/interrupt", session(s.interrupt))
 	mux.HandleFunc("GET /v1/sessions/{id}/terminal", session(s.terminal))

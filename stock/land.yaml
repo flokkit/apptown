@@ -19,12 +19,12 @@ spec:
     - name: gates
       steps:
         - name: catch-up-with-main
-          # Land preflight (reconcile.go): the branch must already contain
-          # main, so every gate below includes the main revision read here.
-          # A branch behind main fails here, early, not at the final merge,
-          # and ends the landing with the change back in progress; the chat
-          # catches up in the change's folder and lands again. The landing
-          # itself never merges or publishes.
+          # Land preflight (reconcile.go): the branch must contain main, so
+          # every gate below includes the main revision read here. Asking to
+          # land has already merged main in when it merged cleanly. A branch
+          # still behind main (main conflicts, or moved since) fails here,
+          # early, not at the final merge, and ends the landing with the
+          # change back in progress and the reason on its page.
           uses: reconcile
         - name: tests
           # The committed tree runs its own tests before anything else looks

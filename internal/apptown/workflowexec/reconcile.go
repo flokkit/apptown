@@ -1,8 +1,10 @@
 package workflowexec
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -13,16 +15,15 @@ import (
 )
 
 // The land preflight (design/architecture/contracts.md dev-loop): before a
-// change lands, does its branch contain where main is NOW, or only the main
-// it branched from? A change can sit for hours while main moves under it;
-// discovering that at the final merge, after tests, scans and a human
-// approval, is late. This gate runs FIRST and only reads: a branch that
-// already contains main is pinned as the landing's candidate, so every gate
-// below checks the tree that will be on main; a branch behind main fails
-// here, and the change's worker (usually its chat) catches up and lands
-// again. A landing never merges or publishes
-// (stock/docs/guides/changes-and-main.md, "Landing: already caught up, then
-// the gates").
+// change lands, does its branch contain where main is NOW? The landing's
+// admission (and a recheck) has already merged main in when the branch was
+// behind and the merge was clean (workcommands catchUp), so this gate only
+// reads: a branch that contains main is pinned as the landing's candidate,
+// so every gate below checks the tree that will be on main. A branch behind
+// main here means main moved after the landing was asked for, or the chat
+// published again; the landing ends, and asking again merges the newer
+// main (stock/docs/guides/changes-and-main.md, "Landing: main merged in,
+// then the gates").
 
 // RunReconcile pins the change's branch as published as the landing's
 // candidate when it already contains the hub's main.
@@ -57,9 +58,11 @@ func (a *repositories) RunReconcile(task *workflow.Execution) {
 	if _, err := gitexec.Run(task.Context(), hub, "merge-base", "--is-ancestor", target, candidate); err != nil {
 		// Nothing below can pass on a branch behind main, so the landing
 		// ends here rather than running its other gates, and the change is
-		// back in progress for its chat to catch up.
-		if task.Settle(workflow.EncodeOutcome(workflow.StatusFail, behindMain(mainBranch, branch), nil)) == nil {
-			if err := task.EndLanding(fmt.Sprintf("%s is behind %s", branch, mainBranch)); err != nil {
+		// back in progress: asked again, the landing merges main in, or,
+		// when main conflicts, the change's chat catches up.
+		reason, evidence := behindMain(task.Context(), hub, candidate, mainBranch, branch)
+		if task.Settle(workflow.EncodeOutcome(workflow.StatusFail, evidence, nil)) == nil {
+			if err := task.EndLanding(reason); err != nil {
 				log.Printf("run %d: ending the landing of a branch behind %s: %v", run.ID, mainBranch, err)
 			}
 		}
@@ -78,10 +81,18 @@ func (a *repositories) RunReconcile(task *workflow.Execution) {
 	finish(workflow.StatusPass, evidence)
 }
 
-func behindMain(mainBranch, branch string) map[string]any {
-	return map[string]any{
-		"mainBranch": mainBranch,
-		"reason": fmt.Sprintf("behind %[1]s: %[1]s has moved ahead and %[2]s does not contain it. The landing ended here and changed nothing; "+
-			"the change is back in progress. Catch up in the change's chat (%[3]s), then land again.", mainBranch, branch, repositoryedit.CatchUpCommand(mainBranch, branch)),
+// behindMain is why a landing of a branch behind main ended, as the change
+// page shows it once the landing has ended, and the step's evidence: the
+// files that conflict, when main does not merge in cleanly, or else that
+// main moved after the landing was asked for (its admission merges main in).
+func behindMain(ctx context.Context, hub, candidate, mainBranch, branch string) (string, map[string]any) {
+	catchUp := repositoryedit.CatchUpCommand(mainBranch, branch)
+	reason := fmt.Sprintf("%[1]s moved after this landing was asked for, so the change no longer contains it. Check and land again: AppTown merges %[1]s in when it can.", mainBranch)
+	evidence := map[string]any{"mainBranch": mainBranch}
+	if merge, err := scm.MainConflicts(ctx, hub, candidate, mainBranch); err == nil && len(merge.Conflicts) > 0 {
+		reason = fmt.Sprintf("%[1]s has moved and conflicts with this change in %[2]s, so it cannot land yet. Resolve it in the change's chat: catch up with %[1]s there, then land again.", mainBranch, strings.Join(merge.Conflicts, ", "))
+		evidence["conflicts"] = merge.Conflicts
 	}
+	evidence["reason"] = reason + fmt.Sprintf(" The landing changed nothing. A chat can also catch up itself (%s).", catchUp)
+	return reason, evidence
 }

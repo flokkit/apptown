@@ -176,7 +176,10 @@ because main moved under it. The landing notice is sent once per ended landing
 by the run's abandonment follow-up job (`workcommands.FollowUps.Abandon`), only
 while the change is in progress. It carries the run's `Ending`: the reason the
 landing was abandoned and the failing step's own reason, which for a branch
-behind main is the catch-up to do. A chat that cannot be told fails that job,
+still behind main (main conflicts, or moved after the landing was asked for)
+is the catch-up to do. When a landing merges main into the change itself,
+the chat is told once, and told how to take the merge when its folder could
+not. A chat that cannot be told fails that job,
 where the failure is kept. `apptown wait -c` reads the same `Ending` when no run
 is going. The briefing does not state the change's state: it is written once
 at opening and would go stale, so the chat queries AppTown instead.

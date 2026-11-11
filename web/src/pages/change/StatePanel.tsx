@@ -1,4 +1,3 @@
-import { PRODUCT } from '../../brand'
 import { ChangeView, Step, StepOf, isStep } from '../../api'
 import { StaleNote, type Gated } from '../../ReadGate'
 import type { MainConflict } from '../../wire.gen'
@@ -62,14 +61,13 @@ export function latestBoot(steps: Step[]): StepOf<'preview'> | undefined {
   return boots.length ? boots[boots.length - 1] : undefined
 }
 
-// MainConflictLine: main AppTown could not merge into the change before a
-// step, while the branch still does not contain it, and how to catch up.
-// It goes once the change has caught up.
+// MainConflictLine: main has moved and changes the same files as the
+// change, so neither AppTown nor a landing can merge it in; how to catch
+// up in the chat. It goes once the change has caught up.
 export function MainConflictLine({ conflict }: { conflict: MainConflict }) {
   return (
     <div className="ch-sentence">
-      {conflict.mainBranch} has moved and {PRODUCT} could not merge it in before step {conflict.step}: {conflict.files.join(', ')}{' '}
-      {conflict.files.length === 1 ? 'conflicts' : 'conflict'}. Catch up in the change's chat:{' '}
+      {conflict.mainBranch} has moved and conflicts with this change in {conflict.files.join(', ')}. Catch up in the change's chat:{' '}
       <code style={{ overflowWrap: 'anywhere' }}>{conflict.catchUp}</code>
     </div>
   )

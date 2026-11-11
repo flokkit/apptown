@@ -42,6 +42,9 @@ type StartRequest struct {
 	evalAuthority string
 }
 
+// Requester is who asked for the run, as its receipt records them.
+func (in StartRequest) Requester() string { return in.receiptActor }
+
 // IsChild reports whether workflow admitted this request from a parent run.
 func (in StartRequest) IsChild() bool { return !in.parentRunID.IsZero() }
 

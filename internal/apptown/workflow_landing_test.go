@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -109,7 +111,12 @@ func TestGitLandingMachinery(t *testing.T) {
 	}
 }
 
-func TestALandingThatDidNotCatchUpIsRefusedBeforeMerging(t *testing.T) {
+// A change behind main is caught up by its landing: admission merges main
+// into the branch (AppTown's merge commit, naming who asked) and pins that
+// merge as the candidate, so the landing checks and merges the tree main
+// will have. Live, change #5 was behind main and every "Check and land"
+// ended at the landing's first step, in a loop.
+func TestALandingBringsMainInItselfAndMergesTheMergedTree(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	plainTestProject(t, a.DB, "p", "P")
@@ -127,7 +134,67 @@ func TestALandingThatDidNotCatchUpIsRefusedBeforeMerging(t *testing.T) {
 	}
 	stageAll(repo)
 	gittest.Run(t, repo, "commit", "-qm", "main moved")
-	before := gittest.Run(t, repo, "rev-parse", "HEAD")
+	main := gittest.Run(t, repo, "rev-parse", "HEAD")
+	wt := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	if err := os.WriteFile(filepath.Join(wt, "change.txt"), []byte("the change\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gittest.Run(t, wt, "add", "change.txt")
+	gittest.Run(t, wt, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "the change")
+	work := gittest.Run(t, wt, "rev-parse", "HEAD")
+
+	run := engineLandingRun(t, a, &p, ch)
+	merge := gittest.Run(t, repo, "rev-parse", "refs/heads/"+ch.Branch)
+	if parents := strings.Fields(gittest.Run(t, repo, "rev-list", "--parents", "-n", "1", merge)); !slices.Equal(parents, []string{merge, work, main}) {
+		t.Fatalf("the branch is not the change's work with main merged in: %v", parents)
+	}
+	if got := gittest.Run(t, repo, "log", "-1", "--format=%cn|%s|%(trailers:key=AppTown-Actor,valueonly)", merge); got != "apptown|"+repositoryedit.MergeTitle("main", ch.Branch)+"|lander" {
+		t.Fatalf("the merge does not say it is AppTown's, for whom: %q", got)
+	}
+	if got := gittest.Run(t, wt, "rev-parse", "HEAD"); got != merge {
+		t.Fatalf("the change's folder did not follow the merge: %s", got)
+	}
+	source := mergeSourceForTest(t, a, run)
+	if source.Landing.Candidate != merge || source.Landing.Target != main {
+		t.Fatalf("the landing checks %s against %s, not the merge %s against main %s", source.Landing.Candidate, source.Landing.Target, merge, main)
+	}
+	snapshot, err := a.Work.Snapshot(a.asAppTown(context.Background(), p.ID, "test"), run.ID, workflow.TraceView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorded := false
+	for _, event := range snapshot.Events {
+		recorded = recorded || (event.Kind == repositoryedit.MainMergedNotice && strings.Contains(string(event.Payload), merge) && strings.Contains(string(event.Payload), `"by":"lander"`))
+	}
+	if !recorded {
+		t.Fatal("the landing does not record main merged in, by whom")
+	}
+	result, err := mergeEffectForTest(t, a, source)
+	if err != nil || !result.Merged {
+		t.Fatalf("the caught-up landing did not merge: %+v %v", result, err)
+	}
+	for _, file := range []string{"main.txt", "change.txt"} {
+		if _, err := gitexec.Run(t.Context(), repo, "cat-file", "-e", "HEAD:"+file); err != nil {
+			t.Fatalf("main lacks %s after the landing", file)
+		}
+	}
+}
+
+// What merges is what was checked: main moving after a landing was
+// admitted refuses the merge, and main stays where it was.
+func TestALandingIsRefusedBeforeMergingWhenMainMovedAfterItsChecks(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	plainTestProject(t, a.DB, "p", "P")
+	p, _ := a.Projects.BySlug(context.Background(), "p")
+	if err := a.lifecycle.InitializeRepository(t.Context(), &p, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	repo := a.projectRepoPath("p")
+	ch := engineLandingChange(t, a, &p)
+	if err := prepareChangeWorkspaceForTest(a, &p, ch); err != nil {
+		t.Fatal(err)
+	}
 	wt := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
 	if err := os.WriteFile(filepath.Join(wt, "change.txt"), []byte("the change\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -135,9 +202,15 @@ func TestALandingThatDidNotCatchUpIsRefusedBeforeMerging(t *testing.T) {
 	gittest.Run(t, wt, "add", "change.txt")
 	gittest.Run(t, wt, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "the change")
 	run := engineLandingRun(t, a, &p, ch)
+	if err := os.WriteFile(filepath.Join(repo, "main.txt"), []byte("landed elsewhere\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stageAll(repo)
+	gittest.Run(t, repo, "commit", "-qm", "main moved")
+	before := gittest.Run(t, repo, "rev-parse", "HEAD")
 	result, err := mergeEffectForTest(t, a, mergeSourceForTest(t, a, run))
-	if err == nil || result.Merged || !strings.Contains(err.Error(), "catch-up") {
-		t.Fatalf("an uncaught-up landing merged or was not refused with the reason: %+v %v", result, err)
+	if err == nil || result.Merged || !strings.Contains(err.Error(), "catch up") {
+		t.Fatalf("a landing whose main moved merged or was not refused with the reason: %+v %v", result, err)
 	}
 	if got := gittest.Run(t, repo, "rev-parse", "HEAD"); got != before {
 		t.Fatalf("the refused landing changed main: %s, was %s", got, before)
@@ -166,9 +239,25 @@ func TestALandingLeavesUncommittedWorkAndSaysSo(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(wt, "the-work.txt"), []byte("hand edits\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// main moves first: a merge of the fork point and main would have
+	// main's tree but not be in main, so the refusal is decided before any
+	// merge is made.
+	repo := a.projectRepoPath("p")
+	if err := os.WriteFile(filepath.Join(repo, "main.txt"), []byte("landed elsewhere\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stageAll(repo)
+	gittest.Run(t, repo, "commit", "-qm", "main moved")
+	moved := gittest.Run(t, repo, "rev-parse", "HEAD")
 	ctx := a.asAppTown(context.Background(), p.ID, "test")
 	if _, err := a.Work.StartRun(asLander(t, a), workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "land"}); err == nil || !strings.Contains(err.Error(), "nothing to land") {
 		t.Fatalf("a landing with nothing committed: %v", err)
+	}
+	if tip := scm.Ref(t.Context(), repo, "refs/heads/"+ch.Branch); tip != "" && scm.Contains(t.Context(), repo, ch.Branch, moved) {
+		t.Fatalf("a refused landing merged main into the branch: %s", tip)
+	}
+	if status := gittest.Run(t, wt, "status", "--porcelain"); !strings.Contains(status, "the-work.txt") {
+		t.Fatalf("the uncommitted work left the folder: %q", status)
 	}
 	gittest.Run(t, wt, "add", "the-work.txt")
 	gittest.Run(t, wt, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "the work")

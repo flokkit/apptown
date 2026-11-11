@@ -282,17 +282,17 @@ func waitRelease(project, arg string, interval time.Duration) error {
 	return fmt.Errorf("release r%d of %s failed — the log above shows where it stopped", number, project)
 }
 
-// mainConflict is main AppTown could not merge into a change before a
-// step, while the change's branch does not contain it yet.
+// mainConflict is main that conflicts with a change, while the change's
+// branch does not contain it yet.
 type mainConflict struct {
-	MainBranch, Main, Step, CatchUp string
-	Files                           []string
+	MainBranch, Main, CatchUp string
+	Files                     []string
 }
 
 // line says the conflict and the catch-up, in AppTown's words.
 func (c mainConflict) line(id string) string {
-	return fmt.Sprintf("! change %s: %s has moved and AppTown could not merge it in before step %s: %s conflict. Catch up in the change's chat: %s",
-		id, c.MainBranch, c.Step, strings.Join(c.Files, ", "), c.CatchUp)
+	return fmt.Sprintf("! change %s: %s has moved and conflicts with this change in %s. Catch up in the change's chat: %s",
+		id, c.MainBranch, strings.Join(c.Files, ", "), c.CatchUp)
 }
 
 // runEnded is wait's answer for a run that ended without finishing, with

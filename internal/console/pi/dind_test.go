@@ -593,7 +593,7 @@ func TestAWorkersChatHasItsOwnCacheLimitsAndMirror(t *testing.T) {
 	if err := execfile.Write(r.cfg.Binary, []byte("#!/bin/sh\necho \"$@\" > "+recorded+"\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.Script(context.Background(), in, "true", nil, io.Discard); err != nil {
+	if err := r.Script(context.Background(), in, "true", nil, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	if script, _ := os.ReadFile(recorded); !strings.Contains(string(script), limits) {

@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/flokkit/apptown/internal/projectnotes"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/projectnotes"
 
 	"github.com/flokkit/apptown/internal/apptown/status"
 
@@ -156,18 +158,19 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Main AppTown could not merge in before a step, while the branch
-	// still does not contain it: the person catches up in the change's chat.
-	// It is read across the change's runs: a landing refused since is the
-	// change's current run and records none.
+	// Main that conflicts with the branch, asked of Git now: such a change
+	// is not offered "Check and land" (its landing could only end at its
+	// first step) and goes back to its chat. A main that merges in cleanly
+	// is merged by the landing itself. A question Git cannot answer fails
+	// the read, as the change's other Git reads do: unknown is never
+	// shown as "no conflict".
 	var mainConflict *repositoryedit.MainConflict
 	if item.State == workflow.ChangeInProgress && item.Branch != "" && slug != "" {
-		latest, err := h.work.LatestChangeEvent(r.Context(), id, repositoryedit.MainConflictNotice)
+		mainConflict, err = repositoryedit.MainConflictNow(r.Context(), hub, item.Branch, slugMeta.DefaultBranch)
 		if err != nil {
-			WriteFault(w, err)
+			WriteFault(w, fmt.Errorf("whether main conflicts with this change could not be read: %w", err))
 			return
 		}
-		mainConflict = repositoryedit.MainConflictIn(r.Context(), hub, item.Branch, latest)
 	}
 
 	reports, err := h.work.ChangeArtifacts(r.Context(), id, workflow.ArtifactSelection{Kinds: []string{"change-report"}, Latest: true})
@@ -205,7 +208,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, ChangeCockpit{Checks: checks, NotesDiff: notesDiff, WaitingOn: h.work.ChangeWaitingOn(r.Context(), item, detail), Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
 		Runs: runs, Commits: commits, Head: head, Diffstat: diffstat, CommittedDiff: comparison, Report: report, Editing: editing,
 		StatusLabel: item.Display(detail), State: state, StateDetail: stateDetail, Approval: h.approvalStanding(r, detail), MainConflict: mainConflict,
-		Usage: ChangeUsage{Total: spend.Total, CostMicros: spend.CostMicros, Unpriced: spend.Unpriced}, Next: workflow.ChangeActs(item, detail, evidence.Merged, h.work.MayAbandon(r.Context(), id) == nil)})
+		Usage: ChangeUsage{Total: spend.Total, CostMicros: spend.CostMicros, Unpriced: spend.Unpriced}, Next: workflow.ChangeActs(item, detail, evidence.Merged, h.work.MayAbandon(r.Context(), id) == nil, mainConflict != nil)})
 }
 
 // approvalStanding: whether the viewer could decide the approval the run

@@ -2,7 +2,6 @@ package repositoryedit
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -18,8 +17,8 @@ import (
 const MainMergedNotice = "main.merged"
 
 // MainConflictNotice is the run's record that main could not be merged into
-// the change's branch before a step, because files conflict. It is the
-// fact a person reads (MainConflictIn); nobody is sent it.
+// the change's branch before a step, because files conflict. Nobody is
+// sent it; the change page asks Git (MainConflictNow).
 const MainConflictNotice = "main.conflict"
 
 // MergeTitle is the subject of a merge of main into a change's branch, the
@@ -33,45 +32,32 @@ func CatchUpCommand(mainBranch, branch string) string {
 	return fmt.Sprintf(`git fetch "$APPTOWN_MAIN_REMOTE" %s && git merge --no-edit -m %q FETCH_HEAD`, mainBranch, MergeTitle(mainBranch, branch))
 }
 
-// MainConflict is main that AppTown could not merge into a change, while
-// the change's branch still does not contain it.
+// MainConflict is main that does not merge cleanly into a change's
+// branch: the files that conflict, while the branch does not contain main.
 type MainConflict struct {
 	MainBranch string   `json:"mainBranch"`
 	Main       string   `json:"main"`
-	Step       string   `json:"step"`
 	Files      []string `json:"files"`
 	// CatchUp is the command that catches the change up in its chat.
 	CatchUp string `json:"catchUp"`
 }
 
-// MainConflictIn is the change's latest main.conflict (latest, the newest
-// across all its runs: workflow.Service.LatestChangeEvent), while the
-// change's branch in hub does not contain the main it names; nil once it
-// does (the change caught up, in a chat or by a later merge), or when there
-// is none. main only moves forward, so a branch containing the latest
-// conflicting main contains every earlier one. A branch that cannot be read
-// is not said to contain it.
-func MainConflictIn(ctx context.Context, hub, branch string, latest *workflow.Event) *MainConflict {
-	if latest == nil || latest.Kind != MainConflictNotice {
-		return nil
+// MainConflictNow is whether main, as it is now, conflicts with the
+// change's branch in hub: nil when the branch contains main or main merges
+// in cleanly (a landing then merges it in itself), the files otherwise.
+// It is asked before anyone presses "Check and land", so a change that
+// could only end its landing at the first step is sent to its chat
+// instead. Git failing to answer is the error, never "no conflict".
+func MainConflictNow(ctx context.Context, hub, branch, mainBranch string) (*MainConflict, error) {
+	tip := scm.Ref(ctx, hub, "refs/heads/"+branch)
+	if tip == "" || mainBranch == "" {
+		return nil, nil
 	}
-	var payload struct {
-		MainBranch string   `json:"mainBranch"`
-		Main       string   `json:"main"`
-		Step       string   `json:"step"`
-		Conflicts  []string `json:"conflicts"`
+	merge, err := scm.MainConflicts(ctx, hub, tip, mainBranch)
+	if err != nil || len(merge.Conflicts) == 0 {
+		return nil, err
 	}
-	if json.Unmarshal(latest.Payload, &payload) != nil || !gitexec.IsObjectID(payload.Main) {
-		return nil
-	}
-	if gitexec.HubAncestor(ctx, hub, payload.Main, "refs/heads/"+branch) {
-		return nil
-	}
-	if payload.Conflicts == nil {
-		payload.Conflicts = []string{}
-	}
-	return &MainConflict{MainBranch: payload.MainBranch, Main: payload.Main, Step: payload.Step, Files: payload.Conflicts,
-		CatchUp: CatchUpCommand(payload.MainBranch, branch)}
+	return &MainConflict{MainBranch: mainBranch, Main: merge.Main, Files: merge.Conflicts, CatchUp: CatchUpCommand(mainBranch, branch)}, nil
 }
 
 // PublishMainMerge publishes AppTown's merge of main into the run's branch

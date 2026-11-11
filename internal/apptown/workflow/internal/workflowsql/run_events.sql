@@ -83,13 +83,6 @@ ORDER BY CASE WHEN sqlc.arg(newest_first)::boolean THEN id END DESC,
          CASE WHEN NOT sqlc.arg(newest_first)::boolean THEN id END ASC
 LIMIT NULLIF(sqlc.arg(event_limit)::integer,0);
 
--- name: LatestChangeEvent :one
-SELECT e.id,e.run_id,e.at,e.kind,e.payload_json FROM run_events e
-JOIN runs r ON r.id=e.run_id
-WHERE r.project_id=sqlc.arg(project_id) AND r.change_id IS NOT DISTINCT FROM sqlc.arg(change_id) AND e.kind=sqlc.arg(kind)
-ORDER BY e.id DESC
-LIMIT 1;
-
 -- name: ReworkHistory :one
 -- rounds counts unkeyed reworks; keyed recovery has its own allowance.
 -- Both count since a person last retried a step (apptown retry, retry -m,

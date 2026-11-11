@@ -6,6 +6,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -253,6 +255,112 @@ func TestAnAcceptanceCarriesOnlyToTheCommitItWasGivenOn(t *testing.T) {
 	for _, s := range snap.Steps {
 		if s.Name == "approve" && s.Status == workflow.StatusPass {
 			t.Fatalf("accepted %s, but carried that approval to %s: %s", acceptedSHA, pin.Candidate, s.Evidence)
+		}
+	}
+}
+
+// A scheduled change's accepted work, landed by AppTown with nobody in a
+// chat, while main moved after the acceptance: the landing merges main in
+// itself (AppTown asked, so AppTown is named), its gates check that merge,
+// and the acceptance, given on the work alone, does not carry to it.
+func TestAnAcceptedLandingBringsMainInAndAsksAgain(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	testAdministrator(t, a, "bls")
+	pid := plainTestProject(t, a.DB, "carry-main", "Carry main")
+	p := a.projectByID(context.Background(), pid)
+	if err := a.lifecycle.InitializeRepository(t.Context(), p, "main", ""); err != nil {
+		t.Fatal(err)
+	}
+	defineWorkflows(t, a,
+		workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "work", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "accept", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"means": "I accept this work"}}}}}}},
+		workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{
+			{Name: "checks", Steps: []schema.Step{{Name: "catch-up-with-main", Uses: "reconcile"}, {Name: "tests", Uses: "tests"}}},
+			{Name: "approve", Steps: []schema.Step{{Name: "approve", Uses: "approval", With: map[string]any{"means": "merge the accepted work"}}}},
+			{Name: "done", Steps: []schema.Step{{Name: "hold", Uses: "approval"}}},
+		}}})
+	if err := recordCatalogFixture(a.Adoption, t.Context(), pid, "review"); err != nil {
+		t.Fatal(err)
+	}
+	rebuildWork(t, a, func(d *workflow.Dependencies) { d.LandingMeans = acceptedLandingMeans{} })
+	ch := engineChange(t, a, p)
+	if err := prepareChangeWorkspaceForTest(a, p, ch); err != nil {
+		t.Fatal(err)
+	}
+	a.Work.Stop()
+	work, err := a.Work.StartRun(a.asAppTown(context.Background(), pid, "review"), workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "work"})
+	if !errors.Is(err, workflow.ErrDispatchStopped) {
+		t.Fatal(err)
+	}
+	source := workflowSourceForTest(t, a, work)
+	ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
+	hub := requireLocation(t)(source.Repository(a.cfg.dataDir))
+	if err := os.WriteFile(filepath.Join(ws, "work.txt"), []byte("accepted\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gittest.Run(t, ws, "add", "work.txt")
+	gittest.Run(t, ws, "commit", "-qm", "accepted")
+	if _, err := a.branches.Publish(context.Background(), scm.Publication{ProjectID: pid, Repository: hub, Branch: source.Branch, From: ws, Grant: scm.Grant{Holder: scm.RunHolder(work.ID)}}); err != nil {
+		t.Fatal(err)
+	}
+	accepted := gittest.Run(t, ws, "rev-parse", "HEAD")
+	snap, err := a.Work.Snapshot(asPerson("bls"), work.ID, workflow.DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var acceptID ids.ID
+	for _, s := range snap.Steps {
+		if s.Name == "accept" {
+			acceptID = s.ID
+		}
+	}
+	if _, err := a.Work.Approve(asPerson("bls"), workflow.Approval{StepID: acceptID, Decision: workflow.VoteApprove, Shown: []string{"merge the accepted work"}, Adds: shownAdds(t, a, asPerson("bls"), acceptID)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := advanceAs(a, work.ID, "system"); err != nil {
+		t.Fatal(err)
+	}
+	main := commitOnMain(t, hub, "main.txt", "landed elsewhere\n")
+	if _, err := a.Work.AdvanceAcceptedLanding(context.Background(), work.ID, alwaysCanLand{}); !errors.Is(err, workflow.ErrDispatchStopped) {
+		t.Fatalf("creating landing: %v", err)
+	}
+	runs, err := a.Work.ChangeRuns(asPerson("bls"), ch.ID, workflow.ChangeRuns{RootsOnly: true, Limit: 1})
+	if err != nil || len(runs) != 1 || runs[0].ID == work.ID {
+		t.Fatalf("the change's newest run is not the landing: %v %v", runs, err)
+	}
+	landing, err := workflow.ReadRunIn(context.Background(), a.DB, runs[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	merge := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
+	if parents := strings.Fields(gittest.Run(t, hub, "rev-list", "--parents", "-n", "1", merge)); !slices.Equal(parents, []string{merge, accepted, main}) {
+		t.Fatalf("the branch is not the accepted work with main merged in: %v", parents)
+	}
+	if by := gittest.Run(t, hub, "log", "-1", "--format=%(trailers:key=AppTown-Actor,valueonly)", merge); by != "apptown-system" {
+		t.Fatalf("the merge names %q as asking", by)
+	}
+	if pin := mergeSourceForTest(t, a, landing).Landing; pin.Candidate != merge || pin.Target != main {
+		t.Fatalf("the landing checks %+v, not the merge", pin)
+	}
+	if step := reviewExecute(t, a, landing, "catch-up-with-main"); step.Status != workflow.StatusPass {
+		t.Fatalf("the caught-up landing's first step: %s %s", step.Status, step.Evidence)
+	}
+	if check := reviewExecute(t, a, landing, "tests"); !strings.Contains(string(check.Evidence), merge) {
+		t.Fatalf("the tests did not check the merge %s: %s %s", merge, check.Status, check.Evidence)
+	}
+	if _, err := a.Work.AdvanceAcceptedLanding(context.Background(), work.ID, alwaysCanLand{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := advanceAs(a, landing.ID, "system"); err != nil {
+		t.Fatal(err)
+	}
+	snap, err = a.Work.Snapshot(asPerson("bls"), landing.ID, workflow.DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range snap.Steps {
+		if s.Name == "approve" && s.Status == workflow.StatusPass {
+			t.Fatalf("accepted %s, but carried that approval to the merge %s: %s", accepted, merge, s.Evidence)
 		}
 	}
 }

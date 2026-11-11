@@ -277,7 +277,7 @@ it('describes run-level work by its output, with session and code links', async 
 
 it('retains the conflict catch-up command promised by Overview', async () => {
   const v = view()
-  v.mainConflict = { mainBranch: 'main', step: 'implement', files: ['app.ts'], catchUp: 'git merge origin/main' } as ChangeView['mainConflict']
+  v.mainConflict = { mainBranch: 'main', files: ['app.ts'], catchUp: 'git merge origin/main' } as ChangeView['mainConflict']
   const f = await mount(v)
   try { expect(f.el.textContent).toContain('git merge origin/main') } finally { f.close() }
 })

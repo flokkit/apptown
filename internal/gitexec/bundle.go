@@ -56,6 +56,26 @@ func BundleCommit(ctx context.Context, repo, commit, branch, dest string) error 
 	return nil
 }
 
+// BundleSince writes to dest a bundle of commit, named ref, less what since
+// holds: for a repository that has since and is to take commit.
+func BundleSince(ctx context.Context, repo, commit, since, ref, dest string) error {
+	dir, err := os.MkdirTemp("", "apptown-bundle-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir) // unchecked-error: temporary scratch may remain; bundle creation has its own checked result.
+	if err := scratch(ctx, repo, dir); err != nil {
+		return err
+	}
+	if out, err := HubRun(ctx, dir, "update-ref", ref, commit); err != nil {
+		return fmt.Errorf("naming %s for its bundle: %w: %s", commit, err, out)
+	}
+	if out, err := HubRun(ctx, dir, "bundle", "create", "-q", dest, ref, "^"+since); err != nil {
+		return fmt.Errorf("bundling %s since %s: %w: %s", commit, since, err, out)
+	}
+	return nil
+}
+
 // BundleCommits writes to dest a bundle holding each of commits, with their
 // full histories, as refs/apptown/commits/<n>: enough for a repository made
 // from it to answer questions about those commits and the ranges between

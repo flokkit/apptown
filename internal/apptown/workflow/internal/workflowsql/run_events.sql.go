@@ -380,33 +380,6 @@ func (q *Queries) LatestAgentSessionReceipt(ctx context.Context, arg LatestAgent
 	return column_1, err
 }
 
-const latestChangeEvent = `-- name: LatestChangeEvent :one
-SELECT e.id,e.run_id,e.at,e.kind,e.payload_json FROM run_events e
-JOIN runs r ON r.id=e.run_id
-WHERE r.project_id=$1 AND r.change_id IS NOT DISTINCT FROM $2 AND e.kind=$3
-ORDER BY e.id DESC
-LIMIT 1
-`
-
-type LatestChangeEventParams struct {
-	ProjectID ids.ID
-	ChangeID  ids.ID
-	Kind      string
-}
-
-func (q *Queries) LatestChangeEvent(ctx context.Context, arg LatestChangeEventParams) (RunEvent, error) {
-	row := q.db.QueryRowContext(ctx, latestChangeEvent, arg.ProjectID, arg.ChangeID, arg.Kind)
-	var i RunEvent
-	err := row.Scan(
-		&i.ID,
-		&i.RunID,
-		&i.At,
-		&i.Kind,
-		&i.PayloadJson,
-	)
-	return i, err
-}
-
 const latestPersonFeedback = `-- name: LatestPersonFeedback :one
 SELECT f.note::text AS note, f.who::text AS who FROM (
   SELECT COALESCE(e.payload_json->>'note','') AS note, COALESCE(e.payload_json->>'by','') AS who, e.at AS at, e.id AS ord

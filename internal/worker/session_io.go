@@ -432,7 +432,7 @@ func (s *Server) putSource(w http.ResponseWriter, r *http.Request) {
 // chatScript runs a script on a chat's work tree in a short-lived
 // container from the chat's image (pi.Runtime on a worker).
 type chatScript interface {
-	Script(ctx context.Context, in console.Launch, script string, env []string, stdout io.Writer) error
+	Script(ctx context.Context, in console.Launch, script string, env []string, stdin io.Reader, stdout io.Writer) error
 }
 
 // saveScript runs on the chat's work tree with the chat's own tools, in a
@@ -493,7 +493,7 @@ func (s *Server) save(w http.ResponseWriter, r *http.Request) {
 	defer os.Remove(spool.Name())
 	defer spool.Close()
 	limited := &limitWriter{w: spool, n: maxBundleBytes}
-	err = ex.Script(r.Context(), in, saveScript, []string{"BASE=" + base, "LEFTOVERS=" + leftovers}, limited)
+	err = ex.Script(r.Context(), in, saveScript, []string{"BASE=" + base, "LEFTOVERS=" + leftovers}, nil, limited)
 	var exit interface{ ExitCode() int }
 	if errors.As(err, &exit) && exit.ExitCode() == 3 {
 		w.WriteHeader(http.StatusNoContent)
@@ -523,6 +523,65 @@ func (s *Server) save(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("AppTown-Head", head)
 	_, _ = io.Copy(w, spool)
+}
+
+// followScript runs on the chat's work tree with the chat's own tools, in a
+// container of the chat's image: it takes AppTown's merge of main into the
+// change (TO, a descendant of FROM) from a bundle on its standard input,
+// and fast-forwards the tree to it, only while the tree's HEAD is FROM, the
+// commit AppTown last saved from it. Exit 4: the chat has committed since.
+// A tree whose files are in the way refuses the fast-forward and is left
+// as it was.
+const followScript = `set -e
+b=$(mktemp)
+trap 'rm -f "$b"' EXIT
+cat > "$b"
+[ "$(git rev-parse --verify HEAD^{commit})" = "$FROM" ] || exit 4
+git fetch -q --no-tags "$b" "+` + FollowRef + `:` + FollowRef + `"
+[ "$(git rev-parse --verify ` + FollowRef + `^{commit})" = "$TO" ] || exit 5
+git merge --ff-only -q "$TO"
+`
+
+// FollowRef is the ref a follow's bundle names its commit by.
+const FollowRef = "refs/apptown/follow"
+
+// follow takes a commit AppTown made on the change's branch (its merge of
+// main for a landing) into the chat's work tree, from a bundle of that
+// commit since the tree's last saved commit, before AppTown publishes it:
+// the chat's next save bundles from the branch's tip, which its tree must
+// hold. 422 when the tree cannot take it (the chat committed since, or
+// files are in the way), with nothing changed.
+func (s *Server) follow(w http.ResponseWriter, r *http.Request) {
+	if !s.sessionRuntime(w) {
+		return
+	}
+	ex, ok := s.Sessions.(chatScript)
+	if !ok {
+		http.Error(w, "this worker cannot bring chats forward", http.StatusNotImplemented)
+		return
+	}
+	from, to := r.URL.Query().Get("from"), r.URL.Query().Get("to")
+	if !commitPattern.MatchString(from) || !commitPattern.MatchString(to) {
+		http.Error(w, "a follow needs the commit the tree is at and the one it takes", http.StatusBadRequest)
+		return
+	}
+	in, ok := s.liveLaunch(w, r.PathValue("id"))
+	if !ok {
+		return
+	}
+	var out strings.Builder
+	err := ex.Script(r.Context(), in, followScript, []string{"FROM=" + from, "TO=" + to}, io.LimitReader(r.Body, maxBundleBytes), &out)
+	var exit interface{ ExitCode() int }
+	switch {
+	case err == nil:
+		writeJSON(w, struct{}{})
+	case errors.As(err, &exit) && exit.ExitCode() == 4:
+		http.Error(w, "the chat has committed since its last save, so its folder is not where the merge starts", http.StatusUnprocessableEntity)
+	case errors.As(err, &exit):
+		http.Error(w, "the chat's folder could not take the merge: "+err.Error(), http.StatusUnprocessableEntity)
+	default:
+		http.Error(w, "bringing the chat's folder forward: "+err.Error(), http.StatusInternalServerError)
+	}
 }
 
 // bundleTip reads the commit a bundle's header names for ref.

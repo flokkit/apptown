@@ -32,12 +32,42 @@ type MainMerge struct {
 // or a repository without main, needs nothing. A merge with conflicts is not
 // made; the files are named instead. Git failing to answer is an error.
 func MergeMain(ctx context.Context, repo, tip, mainBranch, message string) (MainMerge, error) {
+	out, tree, err := mergeTree(ctx, repo, tip, mainBranch)
+	if err != nil || out.Main == "" || len(out.Conflicts) > 0 {
+		return out, err
+	}
+	commit, err := gitexec.HubOutput(ctx, repo, strings.NewReader(message), "-c", "user.name=apptown", "-c", "user.email=apptown@localhost",
+		"commit-tree", tree, "-p", tip, "-p", out.Main)
+	if err != nil {
+		return MainMerge{}, fmt.Errorf("committing the merge of %s into %s: %w: %s", mainBranch, strs.ShortSHA(tip), err, stderrOf(err))
+	}
+	out.Commit = strings.TrimSpace(string(commit))
+	if !gitexec.IsObjectID(out.Commit) {
+		return MainMerge{}, fmt.Errorf("committing the merge of %s into %s: git named no commit (%q)", mainBranch, strs.ShortSHA(tip), out.Commit)
+	}
+	return out, nil
+}
+
+// MainConflicts is MergeMain without the commit: whether merging
+// mainBranch's tip into tip would conflict, and in which files. A zero
+// MainMerge means tip already contains main (or there is no main); Main set
+// with no Conflicts means it merges cleanly. Git failing to answer is an
+// error, never "no conflict".
+func MainConflicts(ctx context.Context, repo, tip, mainBranch string) (MainMerge, error) {
+	out, _, err := mergeTree(ctx, repo, tip, mainBranch)
+	return out, err
+}
+
+// mergeTree writes the tree of merging mainBranch's tip into tip, and names
+// the files that conflict instead when it does. Main is left empty when tip
+// already contains main or there is no main.
+func mergeTree(ctx context.Context, repo, tip, mainBranch string) (MainMerge, string, error) {
 	main, err := gitexec.HubReadRef(ctx, repo, "refs/heads/"+mainBranch)
 	if err != nil {
-		return MainMerge{}, fmt.Errorf("reading %s: %w", mainBranch, err)
+		return MainMerge{}, "", fmt.Errorf("reading %s: %w", mainBranch, err)
 	}
 	if main == "" || gitexec.HubAncestor(ctx, repo, main, tip) {
-		return MainMerge{}, nil
+		return MainMerge{}, "", nil
 	}
 	out := MainMerge{Main: main}
 	// merge-tree writes the merged tree without touching any work tree or
@@ -53,24 +83,15 @@ func MergeMain(ctx context.Context, repo, tip, mainBranch, message string) (Main
 				out.Conflicts = append(out.Conflicts, f)
 			}
 		}
-		return out, nil
+		return out, "", nil
 	default:
-		return MainMerge{}, fmt.Errorf("merging %s into %s: %w: %s", mainBranch, strs.ShortSHA(tip), err, stderrOf(err))
+		return MainMerge{}, "", fmt.Errorf("merging %s into %s: %w: %s", mainBranch, strs.ShortSHA(tip), err, stderrOf(err))
 	}
 	tree := fields[0]
 	if !gitexec.IsObjectID(tree) {
-		return MainMerge{}, fmt.Errorf("merging %s into %s: git wrote no tree (%q)", mainBranch, strs.ShortSHA(tip), tree)
+		return MainMerge{}, "", fmt.Errorf("merging %s into %s: git wrote no tree (%q)", mainBranch, strs.ShortSHA(tip), tree)
 	}
-	commit, err := gitexec.HubOutput(ctx, repo, strings.NewReader(message), "-c", "user.name=apptown", "-c", "user.email=apptown@localhost",
-		"commit-tree", tree, "-p", tip, "-p", main)
-	if err != nil {
-		return MainMerge{}, fmt.Errorf("committing the merge of %s into %s: %w: %s", mainBranch, strs.ShortSHA(tip), err, stderrOf(err))
-	}
-	out.Commit = strings.TrimSpace(string(commit))
-	if !gitexec.IsObjectID(out.Commit) {
-		return MainMerge{}, fmt.Errorf("committing the merge of %s into %s: git named no commit (%q)", mainBranch, strs.ShortSHA(tip), out.Commit)
-	}
-	return out, nil
+	return out, tree, nil
 }
 
 func stderrOf(err error) string {

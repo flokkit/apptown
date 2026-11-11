@@ -283,7 +283,7 @@ func (s *Service) readerWaitingOn(ctx context.Context, ch *Change, d *RunSnapsho
 		if err != nil {
 			return w
 		}
-		acts = append(acts, ChangeActs(change, &RunSnapshot{Run: run, State: d.activity.State, held: d.activity.Held}, merged, false)...)
+		acts = append(acts, ChangeActs(change, &RunSnapshot{Run: run, State: d.activity.State, held: d.activity.Held}, merged, false, false)...)
 	}
 	w.You = "no"
 	for _, act := range acts {

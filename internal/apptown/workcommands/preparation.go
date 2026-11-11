@@ -5,15 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/clock"
-	"github.com/flokkit/apptown/internal/fault"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/database"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -61,6 +60,14 @@ type workerChats interface {
 	// A save that is not confirmed, or refused, is the error; so is not
 	// knowing where the chat runs.
 	SaveFirst(ctx context.Context, holder string) (onWorker bool, err error)
+	// FollowFirst gives the chat on a worker that holder names the commit
+	// to (a descendant of from, the branch's tip it saved last) in its work
+	// tree, then calls publish, both under the chat's save lock, so no save
+	// moves the branch between them. A tree that cannot take it is the
+	// error, and publish is not called.
+	FollowFirst(ctx context.Context, holder, hub, from, to string, publish func() error) error
+	// Tell sends the chat that holder names a message, best effort.
+	Tell(ctx context.Context, holder, text string)
 }
 
 func NewPreparation(db *database.DB, adopted adoptedWorkflows, branches *scm.Branches, dataDir string, chats workflow.Presence, workers workerChats, stores secretStores, now func() time.Time) *Preparation {
@@ -94,32 +101,36 @@ func (a *Preparation) Resolve(ctx context.Context, req workflow.StartRequest, so
 			// The change's committed work in its folder is published first:
 			// under its chat's own grant when a chat holds the change, or
 			// under a grant this request takes and at once releases when
-			// nobody does. What is not committed is not in this landing, and
-			// the record says so. A run or a checkout holding the change
-			// refuses the landing when it is admitted.
-			uncommitted, err := a.publishForLanding(ctx, &p, source.Change)
+			// nobody does, and main is merged in under the same grant. What
+			// is not committed is not in this landing, and the record says
+			// so; uncommitted work with nothing committed, or a main that
+			// conflicts, refuses the landing. A run or a checkout holding
+			// the change refuses the landing when it is admitted.
+			// A landing AppTown starts on accepted work names no person:
+			// AppTown asked for it.
+			by := req.Requester()
+			if by == "" {
+				by = "apptown-system"
+			}
+			published, err := a.publishForLanding(ctx, &p, source.Change, by)
 			if err != nil {
 				return workflow.PreparedRun{}, err
 			}
-			if len(uncommitted) > 0 {
+			if uncommitted := published.uncommitted; len(uncommitted) > 0 {
 				body, _ := json.Marshal(map[string]any{"files": uncommitted, "reason": "not committed in the change's folder, so not in this landing"})
 				pinning = append(pinning, workflow.StartEvent{Kind: "landing.uncommitted", Payload: body})
 			}
-			// Work left uncommitted with nothing committed is refused, never
-			// landed as an empty change (star-hop shipped an empty change
-			// when its work was left uncommitted). A change with no work and
-			// a clean folder lands as before.
-			// The branch as published and main are each read once, for this
-			// check and the pinned candidate alike; whether main already
-			// holds the branch (scm.Contains) is asked of main as it is then.
+			if published.merged != nil {
+				body, _ := json.Marshal(mainMerged(source.Change, p.DefaultBranch, by, "admission", published.merged))
+				pinning = append(pinning, workflow.StartEvent{Kind: repositoryedit.MainMergedNotice, Payload: body})
+			}
+			// The branch as published (main merged in, when it was) and
+			// main are each read once, for the pinned candidate.
 			hub, err := p.Repository(a.dataDir)
 			if err != nil {
 				return workflow.PreparedRun{}, err
 			}
 			tip, main := scm.Ref(ctx, hub, "refs/heads/"+source.Change.Branch), scm.Ref(ctx, hub, "refs/heads/"+p.DefaultBranch)
-			if len(uncommitted) > 0 && (tip == "" || (main != "" && scm.Contains(ctx, hub, p.DefaultBranch, tip))) {
-				return workflow.PreparedRun{}, fault.Wrap(fault.Conflict, fmt.Errorf("nothing to land: change %d has no committed work beyond %s; commit it first (uncommitted: %s)", source.Change.ID, p.DefaultBranch, strings.Join(uncommitted, ", ")))
-			}
 			pinned, err := admissionCandidate(tip, main)
 			if err != nil {
 				return workflow.PreparedRun{}, err

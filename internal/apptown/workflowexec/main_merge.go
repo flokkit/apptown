@@ -22,13 +22,14 @@ import (
 // know why the branch fell behind (a landing that ended behind main, or main
 // moving during the run). A merge with conflicts is not made: the step works
 // on the branch as it is, and the run records which files conflict
-// (main.conflict). That record is what a person reads: the change page and
-// apptown wait -c show it, with the catch-up command, while the branch still
-// does not contain that main (repositoryedit.MainConflictIn). Nobody is
-// sent it: while the run holds the change no chat can be open on it. The
+// (main.conflict). The change page and apptown wait -c ask Git the same
+// question when they are read (repositoryedit.MainConflictNow) and show the
+// files with the catch-up command. Nobody is sent it: while the run holds
+// the change no chat can be open on it. The
 // landing still checks that the branch contains main (reconcile), on
 // AppTown, whatever happened here. A review or a landing's step is never given a merge: a
-// review judges the change as it is, and a landing publishes nothing.
+// review judges the change as it is, and a landing's main is merged in when
+// it is asked for (workcommands catchUp), not by its steps.
 
 // mainMergeBrief is what an agent step of a change is told about main.
 const mainMergeBrief = "# Main\n\nIf main moves, AppTown merges it into this change before your step when it can; you don't need to catch up yourself.\n\n"

@@ -101,6 +101,10 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
   const [technical] = useTechnicalDetail()
   const report = summary?.split(/\n+/).map(s => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '').trim()).filter(s => s && !s.startsWith('#')).flatMap(s => s.split(/(?<=[.!?])\s+/)).slice(0, 4).map(line => firstLine(line))
   const checks = steps.filter(s => s.isCheck)
+  // A landing that ended (at its first step, or stopped) leaves the change
+  // in progress; its reason stays on the page, so pressing again is never
+  // a silent loop.
+  const landingEnded = ch.state === 'in_progress' && d?.run.status === 'abandoned' && view.runs?.find(r => r.id === d.run.id)?.role === 'landing' && !!view.stateDetail
   const checked = checks.some(s => !['pending', 'skipped'].includes(s.status))
   const detail = _workTab()
   const record = (key: string, run?: string | null) => `/changes/${ch.id}/records/${key}${run ? `?run=${encodeURIComponent(run)}` : ''}`
@@ -148,12 +152,12 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
       <div className="ch-overview-line"><div className="ch-row-label">Goes live</div><div className="ch-value">Landing puts the change on main. Deployments update separately.</div></div>
     </div> : turn && !next.recovery ? <CheckSummary checks={view.checks} steps={steps} contractNeedsAttention={contractUnread(adds)} /> : undefined} actions={approval ? ['Accept', ...(offered(view.next, 'send-back') || offered(d?.next, 'rework') ? ['Send back…'] : []), ...(offered(view.next, 'abandon') ? ['Abandon change'] : [])] : heldLabels(view)}>
       {next.sentBack && <p>{next.sentBack.by} sent it back: “{next.sentBack.note}”</p>}
-      {view.mainConflict && <p>{view.mainConflict.mainBranch} conflicts with this change: {view.mainConflict.files.join(', ')}. <Link to={detail} onClick={e => e.currentTarget.closest('dialog')?.close()}>Open Details for the catch-up command</Link>.</p>}
+      {view.mainConflict && <p>{view.mainConflict.mainBranch} has moved and conflicts with this change in {view.mainConflict.files.join(', ')}, so it cannot land yet. Resolve it in the change's chat; <Link to={detail} onClick={e => e.currentTarget.closest('dialog')?.close()}>Details has the catch-up command</Link>.</p>}
       {extraErr && <p className="error">The work this landing carries could not be read: {extraErr}</p>}
       {shortfall && <><p>The summary says this change falls short of the request: {shortfall}</p><p>Based on: “{ch.requestGapQuote}”</p></>}
       {unchecked && view.waitingOn.kind !== 'closed' && <p>The summary could not check all of the request: {unchecked}</p>}
       {steps.filter(s => s.type === 'workflow/call' && s.evidence.childRunId).map(s => <ChildOverview key={s.id} step={s} onChange={onChange} />)}
-      {!approval && (ch.state === 'shipped' ? <Landed view={view} /> : <p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>)}
+      {!approval && (ch.state === 'shipped' ? <Landed view={view} /> : landingEnded ? <><p>{view.waitingOn.says}</p><p>The last landing ended: {view.stateDetail}</p></> : <p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>)}
       {approval && !turn && current && !extraErr && <ApproversCard stepId={approval.id!} />}
       {approval && (!current || extraErr) && <p>Reading the current change before you can accept.</p>}
 
@@ -176,7 +180,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
       {actionErr && <p className="error">{actionErr}</p>}
       {!approval && !turn && !deciding && !['shipped', 'abandoned'].includes(ch.state) && <DecisionChoices note={note} setNote={setNote} busy={actionBusy || !current}
         accept={d && offered(view.next, 'land') ? { label: 'Check and land', run: () => act(() => post(`/changes/${ch.id}/land`, {})) } : undefined}
-        chat={!d ? { label: 'Continue chat', run: () => nav(`/projects/${view.projectSlug}/console?change=${ch.id}`) } : undefined}
+        chat={!d || view.mainConflict ? { label: view.mainConflict ? 'Resolve in chat' : 'Continue chat', run: () => nav(`/projects/${view.projectSlug}/console?change=${ch.id}`) } : undefined}
         rework={offered(view.next, 'send-back') ? { label: 'Rework with comment', run: () => act(() => post(`/changes/${ch.id}/sendback`, { note })) } : undefined}
         abandon={offered(view.next, 'abandon') ? { label: 'Abandon change', run: () => act(() => post(`/changes/${ch.id}/abandon`, {})) } : undefined} />}
       {question.err && <p className="error">Changes to the app contract could not be read: {question.err}</p>}
