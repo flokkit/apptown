@@ -94,13 +94,16 @@ Without a worker, work runs on AppTown's own server.
   capacity response and does not make a successful check unknown. Per-deployment
   disk use is not shown.
 
-  **A Portainer endpoint** shows what it can give containers, and the limits
-  AppTown's own deployments there declare.
+  **A Portainer endpoint** is read as a Docker host is, through the endpoint's
+  Docker proxy in Portainer: what it has, every container's limits and use,
+  who holds it and its disk. The containers of a stack AppTown released there
+  count as that deployment's. Portainer's other stacks count as other
+  containers.
 
-  The disk is read by a one-off `df` in a small pinned image (busybox), with no
-  network and the folder mounted read-only, at most every five minutes. A host
-  that cannot run it shows the disk as unknown. Through Portainer, use and disk
-  are not read.
+  The disk is read by `df` in the daemon's standing reader: one long-lived
+  container from a small pinned image (busybox), with no network and the
+  folder mounted read-only. It is read at most every five minutes. If a host
+  cannot run the reader, its disk shows as unknown, with the reason.
 
 **Disk space.** New work is refused while a disk it would write to has less
 free than its floor, a twentieth of the disk but at least 1 GiB and at most
@@ -109,6 +112,8 @@ disk is read again when the work starts, not taken from the page's reading:
 - a release, recovery or preview on a Docker host reads Docker's data
   folder there before it pulls or starts anything; the deployment keeps
   serving what it served;
+- a release to a Portainer endpoint reads the endpoint's Docker data folder
+  through Portainer before it sends the stack;
 - a worker reads its state folder and its Docker's data folder once for a
   new task, before it writes anything of it; a release build's image that would leave the state folder under its floor
   is not copied, and the build fails saying so.

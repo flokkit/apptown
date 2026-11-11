@@ -293,7 +293,12 @@ type Driver struct {
 	// nothing, and then take-down deletes no stack.
 	Owner deploy.Owner
 	// Diagnostics supplies transport to the already verified configuration only.
-	Diagnostics      func(context.Context, Target) (Diagnostic, func() error, error)
+	Diagnostics func(context.Context, Target) (Diagnostic, func() error, error)
+	// AdmitDisk refuses a release while the endpoint's Docker data folder
+	// has less than its floor free, or cannot be read, as a Docker host's
+	// boot does (docker.AdmitDisk). It is asked before any stack is sent;
+	// nil admits nothing.
+	AdmitDisk        func(context.Context) error
 	Allowed          func(context.Context) error
 	Now              func() time.Time
 	readinessTimeout time.Duration
@@ -386,6 +391,15 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 				}
 			}()
 		}
+	}
+	// New work on an endpoint short of disk is refused before any stack is
+	// sent, stopped releases too: a stack's apply pulls and makes
+	// containers there. What runs is not touched.
+	if d.AdmitDisk == nil {
+		return out, deploy.Terminal(errors.New("Portainer release has no disk admission"))
+	}
+	if err := d.AdmitDisk(ctx); err != nil {
+		return out, deploy.Terminal(err)
 	}
 	if err := deploy.ReportStage(ctx, deploy.Starting); err != nil {
 		return out, deploy.Terminal(err)
@@ -931,27 +945,6 @@ var (
 	_ deploy.Driver        = (*Driver)(nil)
 	_ deploy.FleetObserver = Inventory{}
 )
-
-// EndpointCapacity is what the endpoint's Docker says it can give
-// containers (its docker info, through Portainer's proxy): memory in bytes
-// and CPUs. An endpoint that does not answer is an error, never zero.
-func EndpointCapacity(ctx context.Context, cfg *Target, endpointID int64) (memoryBytes int64, cpus int, err error) {
-	code, raw, err := JSON(ctx, cfg, "GET", fmt.Sprintf("/api/endpoints/%d/docker/info", endpointID), nil)
-	if err != nil {
-		return 0, 0, fmt.Errorf("asking Portainer's endpoint %d what it has: %w", endpointID, err)
-	}
-	if code != 200 {
-		return 0, 0, fmt.Errorf("asking Portainer's endpoint %d what it has: HTTP %d", endpointID, code)
-	}
-	var v struct {
-		MemTotal int64
-		NCPU     int
-	}
-	if err := json.Unmarshal(raw, &v); err != nil || v.MemTotal <= 0 || v.NCPU <= 0 {
-		return 0, 0, fmt.Errorf("Portainer's endpoint %d did not say what it has", endpointID)
-	}
-	return v.MemTotal, v.NCPU, nil
-}
 
 // RecordedRunning is the image the newest released release ran
 // (deploy.RunningRecord): a stack carries no AppTown identity, so the

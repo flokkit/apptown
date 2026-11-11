@@ -131,7 +131,11 @@ func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) e
 		// The first failure found is the cause; an unread disk is often only
 		// its consequence (a host that did not answer).
 		if reason == "" && DescribeTarget(target).ContainerMemoryLimits && (reading.Disk == nil || !reading.Disk.Free.Known || !reading.Disk.Total.Known) {
-			reason = "The host disk check failed."
+			disk := DiskCapacity{Free: unknown("the reading has no disk")}
+			if reading.Disk != nil {
+				disk = *reading.Disk
+			}
+			reason = disk.Unread()
 		}
 		merged := mergeCapacity(prior.Capacity, reading, now)
 		// A partly read host keeps moving: its time is the newest figure

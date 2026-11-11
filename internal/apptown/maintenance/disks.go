@@ -76,7 +76,7 @@ func (d Disks) local(ctx context.Context) []diskspace.Reading {
 			space, err = diskspace.ReadThroughDocker(ctx, func(ctx context.Context, args ...string) (string, string, error) {
 				raw, err := d.Docker.Run(ctx, args...)
 				return string(raw), "", err
-			}, image, strings.TrimSpace(string(root)), now)
+			}, image, strings.TrimSpace(string(root)), now, false)
 		}
 		r := diskspace.NewReading("this AppTown's Docker data", strings.TrimSpace(string(root)), space, err, now())
 		r.Refuses, r.FloorBytes = false, 0

@@ -56,6 +56,9 @@ type promotionTargets struct {
 	volumes         map[string]bool
 	stackRecords    map[int64]promotionStack
 	diagnosticCalls atomic.Int64
+	// dockerDown makes the endpoint's Docker stop answering through
+	// Portainer, as an environment whose daemon is gone does.
+	dockerDown atomic.Bool
 }
 
 type promotionStack struct {
@@ -99,6 +102,10 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 		case "/api/endpoints/3":
 			fmt.Fprint(w, `{"Id":3,"Name":"local","Type":1}`)
 		case "/api/endpoints/3/docker/version":
+			if p.dockerDown.Load() {
+				http.Error(w, "the environment's Docker does not answer", http.StatusInternalServerError)
+				return
+			}
 			fmt.Fprint(w, *p.platform.Load())
 		case "/api/endpoints/3/docker/info":
 			fmt.Fprint(w, `{"ID":"promotion-engine","MemTotal":17179869184,"NCPU":4}`)
@@ -215,6 +222,10 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 	if _, err := p.s.env.integrations.Bindings.Save(context.Background(), "fly-syd", digitalocean.CapCloudAccount, "fly", asJSON(map[string]any{"tokenFrom": "FLY_API_TOKEN", "org": "acme", "region": "syd"}), "fixture"); err != nil {
 		t.Fatal(err)
 	}
+	// The endpoint's Docker, reached through the target's Docker proxy.
+	p.hosts.mu.Lock()
+	p.hosts.daemons[portainerHost] = newDockerFake()
+	p.hosts.mu.Unlock()
 	p.s.SeedCloudTargets(t.Context(), "fixture")
 	// The fixture uses the same explicit verified attachment as an operator.
 	if _, err := p.s.AttachPortainerTarget(t.Context(), PortainerAttachment{Name: IntranetTargetName, EndpointID: 3, Environment: defaultPortainerEnvironment, URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_API_KEY", Domain: "apps.example"}); err != nil {

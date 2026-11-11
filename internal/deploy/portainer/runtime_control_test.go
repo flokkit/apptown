@@ -184,7 +184,7 @@ func TestStoppedPortainerReconcileUpdatesCodeWithoutStartingAppParts(t *testing.
 	}))
 	defer server.Close()
 	cfg := &Target{Scope: &Scope{Version: 1, APIBase: server.URL, EndpointID: 9, DaemonID: "daemon"}, PortainerURL: server.URL}
-	d := &Driver{TargetID: ready.Target, Config: func(context.Context, ids.ID) (*Target, error) { return cfg, nil }, Allowed: func(context.Context) error { return nil }, Diagnostics: func(context.Context, Target) (Diagnostic, func() error, error) {
+	d := &Driver{AdmitDisk: admitDisk, TargetID: ready.Target, Config: func(context.Context, ids.ID) (*Target, error) { return cfg, nil }, Allowed: func(context.Context) error { return nil }, Diagnostics: func(context.Context, Target) (Diagnostic, func() error, error) {
 		t.Fatal("a stopped release must not probe the app")
 		return Diagnostic{}, nil, nil
 	}}

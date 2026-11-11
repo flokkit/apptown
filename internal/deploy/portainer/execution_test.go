@@ -78,7 +78,7 @@ func TestPortainerExecutionUsesCheckpointedEndpointAndStack(t *testing.T) {
 				var got deploy.Observation
 				var err error
 				if driver {
-					d := &Driver{Config: func(context.Context, ids.ID) (*Target, error) { return &cfg, nil }}
+					d := &Driver{AdmitDisk: admitDisk, Config: func(context.Context, ids.ID) (*Target, error) { return &cfg, nil }}
 					got, err = d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), URL: "https://app", Handle: map[string]any{"stack": "app", "owner": "kept"}}, 5, deploy.Artifact{Kind: "compose", Body: []byte(scopeFixtureCompose("services: {}\nx-original: original compose\n")), Hash: deploy.ConfigHash(scopeFixtureCompose("services: {}\nx-original: original compose\n"))}, "key", func(string, ...any) {}, save)
 				} else {
 					got, err = (execution{deploymentID: idstest.N(7), config: cfg, endpointID: 3, stack: "app", compose: scopeFixtureCompose("services: {}\nx-original: original compose\n"), url: "https://app", log: func(string, ...any) {}}).execute(context.Background(), 5, save)
@@ -92,6 +92,47 @@ func TestPortainerExecutionUsesCheckpointedEndpointAndStack(t *testing.T) {
 					t.Fatal("lost provider handle fields")
 				}
 			})
+		}
+	}
+}
+
+// A release to an endpoint whose disk admission refuses (below the floor,
+// or unread) is refused for good before any stack is created or updated,
+// with the refusal's words; a stopped release too. Identity reads may come
+// before it.
+//
+// Kills: a Reconcile that sends the stack without asking the disk, or one
+// that admits when no admission is wired.
+func TestAPortainerReleaseIsRefusedBeforeAnyStackOnAShortDisk(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		admit   func(context.Context) error
+		stopped bool
+		want    string
+	}{
+		{admit: func(context.Context) error { return errors.New("refused for disk space: 500.0 MiB free of 20.0 GiB") }, want: "500.0 MiB free"},
+		{admit: func(context.Context) error { return errors.New("refused for disk space: could not be read") }, stopped: true, want: "could not be read"},
+		{want: "no disk admission"},
+	} {
+		var mutations atomic.Int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == "GET" && r.URL.Path == "/api/endpoints":
+				fmt.Fprint(w, `[{"Id":3,"Name":"selected"}]`)
+			case r.Method == "GET":
+				fmt.Fprint(w, `[]`)
+			default:
+				mutations.Add(1)
+				fmt.Fprint(w, `{}`)
+			}
+		}))
+		cfg := Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, PortainerKey: "secret", EnvName: "selected"}
+		d := &Driver{AdmitDisk: c.admit, Config: func(context.Context, ids.ID) (*Target, error) { return &cfg, nil }}
+		compose := scopeFixtureCompose("services: {}\n")
+		_, err := d.Reconcile(t.Context(), deploy.Placement{ID: idstest.N(7), Stopped: c.stopped, Handle: map[string]any{"stack": "app"}}, 5, deploy.Artifact{Kind: "compose", Body: []byte(compose), Hash: deploy.ConfigHash(compose)}, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
+		server.Close()
+		if err == nil || !deploy.IsTerminal(err) || !strings.Contains(err.Error(), c.want) || mutations.Load() != 0 {
+			t.Errorf("%q: %v (terminal %v), %d stack mutations", c.want, err, err != nil && deploy.IsTerminal(err), mutations.Load())
 		}
 	}
 }

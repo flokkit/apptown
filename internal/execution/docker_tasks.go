@@ -312,7 +312,7 @@ func (d DockerTasks) DataDisk(ctx context.Context) (root string, space diskspace
 	if d.ToolVersions != nil {
 		image = d.ToolVersions.Current().Images.DF
 	}
-	space, err = diskspace.ReadThroughDocker(ctx, d.dockerApart, image, root, clock.Or(d.Now))
+	space, err = diskspace.ReadThroughDocker(ctx, d.dockerApart, image, root, clock.Or(d.Now), false)
 	if err != nil {
 		return root, space, fmt.Errorf("reading its disk: %w", err)
 	}

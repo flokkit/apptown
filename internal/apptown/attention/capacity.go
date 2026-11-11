@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -89,8 +90,17 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 			if disk != nil && disk.Free.Known && disk.Total.Known {
 				title = label + ": capacity check failed"
 			}
+			// An unread disk says why in its own words; the reading's first
+			// failure follows when it is another (the host not answering).
+			why := "The latest reading is unavailable or out of date. " + reading.Reason
+			if disk != nil && (!disk.Free.Known || !disk.Total.Known) {
+				why = disk.Unread()
+				if reading.Reason != "" && !strings.Contains(why, strings.TrimSuffix(reading.Reason, ".")) {
+					why += " " + reading.Reason
+				}
+			}
 			if !down {
-				out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/disk-unassessed", Unknown: reading.DiskUnknown || disk == nil || !disk.Free.Known || !disk.Total.Known, Title: title, Detail: label + ": check the host’s disk. The latest reading is unavailable or out of date. " + reading.Reason + " " + capacityAdmission(target.Kind), Href: href, ObservedAt: at, Stale: true})
+				out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/disk-unassessed", Unknown: reading.DiskUnknown || disk == nil || !disk.Free.Known || !disk.Total.Known, Title: title, Detail: label + ": check the host’s disk. " + why + " " + capacityAdmission(target.Kind), Href: href, ObservedAt: at, Stale: true})
 			}
 			if disk == nil || !disk.Free.Known || !disk.Total.Known {
 				continue
@@ -104,14 +114,11 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 		}
 		title := label + ": low on disk"
 		detail := fmt.Sprintf("%s: %.1f GiB free of %.1f GiB. Warning below %.1f GiB.", label, disk.Free.Value/(1<<30), disk.Total.Value/(1<<30), float64(disk.Warning)/(1<<30))
-		if disk.Refuses && target.Kind == deployment.KindDockerHost {
+		if disk.Refuses {
 			title = label + ": free disk space to start new work"
-			detail += " New releases and previews are refused below the admission threshold."
+			detail += " " + refusedWork(target.Kind) + " are refused below the admission threshold."
 		} else {
 			detail += " Free space is below the warning threshold."
-			if target.Kind == deployment.KindPortainer {
-				detail += " " + capacityAdmission(target.Kind)
-			}
 		}
 		out.Items = append(out.Items, Item{StatusLabel: labelLow, Severity: SeverityWarning, Key: target.ID.String() + "/disk", Title: title, Detail: detail, Href: href, ObservedAt: disk.ReadAt, Stale: diskStale})
 	}
@@ -119,8 +126,14 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 }
 
 func capacityAdmission(kind string) string {
-	if kind == deployment.KindDockerHost {
-		return "New releases and previews are refused when the disk cannot be read or is below the admission threshold."
+	return refusedWork(kind) + " are refused when the disk cannot be read or is below the admission threshold."
+}
+
+// refusedWork is the new work a short disk refuses: a Portainer endpoint
+// runs no previews.
+func refusedWork(kind string) string {
+	if kind == deployment.KindPortainer {
+		return "New releases"
 	}
-	return "This is advisory: Portainer releases are not protected by this disk reading."
+	return "New releases and previews"
 }

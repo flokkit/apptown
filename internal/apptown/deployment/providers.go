@@ -27,6 +27,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/fly"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket"
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/oci"
 )
 
@@ -363,6 +364,17 @@ func (p *Providers) PortainerDataScope(ctx context.Context, t *Target) (docker.S
 	return dk, nil
 }
 
+// admitPortainerDisk reads the endpoint's Docker data folder now, through
+// its Docker proxy, as a Docker host's boot does (docker.AdmitDisk): below
+// its floor, or unread, a release is refused.
+func (p *Providers) admitPortainerDisk(ctx context.Context, t *Target) error {
+	dk, err := p.PortainerDataScope(ctx, t)
+	if err != nil {
+		return diskspace.Admit("this Portainer endpoint's Docker data folder", diskspace.Space{}, err)
+	}
+	return docker.AdmitDisk(ctx, dk, p.env.ToolVersions().Images.DF)
+}
+
 // s3BucketConfig is an s3-bucket target's store, from its own record: the
 // endpoint, region, website address template and the names of the secrets
 // holding its key pair.
@@ -509,7 +521,7 @@ func (p *Providers) configureProviders(ctx context.Context) {
 	}
 	if p.drivers[KindPortainer] == nil {
 		p.drivers[KindPortainer] = func(ctx context.Context, t *Target, dep *Deployment) (deploy.Driver, error) {
-			return &portainerRelease{providers: p, target: t, dep: dep, Driver: &portainer.Driver{Diagnostics: p.portainerDiagnostic, Now: p.clock, TargetID: t.ID, Owner: ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock}, Config: func(ctx context.Context, id ids.ID) (*portainer.Target, error) {
+			return &portainerRelease{providers: p, target: t, dep: dep, Driver: &portainer.Driver{Diagnostics: p.portainerDiagnostic, AdmitDisk: func(ctx context.Context) error { return p.admitPortainerDisk(ctx, t) }, Now: p.clock, TargetID: t.ID, Owner: ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock}, Config: func(ctx context.Context, id ids.ID) (*portainer.Target, error) {
 				target, err := p.targets.ByID(ctx, id)
 				if err != nil {
 					return nil, fmt.Errorf("resolving Portainer target %d: %w", id, err)

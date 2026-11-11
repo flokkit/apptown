@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -379,10 +380,10 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 		case len(args) > 1 && args[0] == "ps" && args[1] == "-q":
 			return []byte("a\nb\nc\nd\n"), nil, true
 		case len(args) > 4 && args[0] == "inspect" && strings.Contains(args[4], "CpuQuota"):
-			return []byte("/apptown-env-p-prod\t536870912\t1000000000\t0\t0\t\tenv\t\n" +
-				"/apptown-svc-env-p-prod-postgres\t0\t0\t0\t0\t\tenv\t\n" +
-				"/traefik\t268435456\t0\t50000\t100000\t\t<no value>\t<no value>\n" +
-				"/odd\t0\t0\t0\t0\tlots\t\t\n"), nil, true
+			return []byte("/apptown-env-p-prod\t536870912\t1000000000\t0\t0\t\tenv\t\t\n" +
+				"/apptown-svc-env-p-prod-postgres\t0\t0\t0\t0\t\tenv\t\t\n" +
+				"/traefik\t268435456\t0\t50000\t100000\t\t<no value>\t<no value>\t<no value>\n" +
+				"/odd\t0\t0\t0\t0\tlots\t\t\t\n"), nil, true
 		case len(args) > 0 && args[0] == "stats":
 			if statsFail {
 				return []byte("cannot connect"), fmt.Errorf("exit 1"), true
@@ -469,7 +470,7 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 			if inspectFails {
 				return []byte("Error: No such object: a"), fmt.Errorf("exit 1"), true
 			}
-			return []byte("/apptown-env-p-prod\t0\t0\t0\t0\t\tenv\t\n"), nil, true
+			return []byte("/apptown-env-p-prod\t0\t0\t0\t0\t\tenv\t\t\n"), nil, true
 		case len(args) > 0 && args[0] == "stats":
 			out := "apptown-env-p-prod\t100MiB / 8GiB\t1.00%\n"
 			if newcomer {
@@ -552,45 +553,119 @@ func TestADeploymentShowsItsShareOfItsHost(t *testing.T) {
 	}
 }
 
-// Through Portainer AppTown reads what the endpoint has, and the limits
-// its own deployments there declare; the other stacks are unknown, not
-// none. A deployment released before limits were recorded makes the
-// AppTown's sum unknown rather than leaving it out.
-func TestAPortainerTargetsCapacityIsWhatItHasAndWhatAppTownDeclares(t *testing.T) {
+// A Portainer endpoint is read as a Docker host is, through its Docker
+// proxy: what it has, every running container's limits and use, the whole
+// host's use, who holds it and the disk holding Docker's data. A container
+// of a stack AppTown's record names on this target is AppTown's, under its
+// deployment, whatever the case of its Compose project; another project,
+// one whose name only begins like it, is someone else's. The reader is the
+// daemon's standing one, made and read by plain requests.
+//
+// Kills: a Portainer capacity that leaves disk, use or other stacks
+// unread; AppTown's stacks counted as others'; ownership by prefix; a
+// standing reader made with docker run or read by an attached exec.
+func TestAPortainerTargetsCapacityIsWhatItsDaemonReports(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargetsWith(t, false, "app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n    resources: { memory: 256M }\n")
+	p.land(t)
+	if rel := p.releaseDefault(t); rel.State != Released {
+		t.Fatalf("release: %+v", rel)
+	}
+	stack, _ := mustDeployment(t, p.digestWorld, "lan").Handle["stack"].(string)
+	if stack == "" {
+		t.Fatal("the release recorded no stack")
+	}
+	d := p.hosts.daemons[portainerHost]
+	d.SetHostInfo(8<<30, 8, "/var/lib/docker")
+	d.SetDisk(100<<30, 3<<30) // below its 5 GiB floor
+	d.ResetCommands()
+	ours, other, lookalike := strings.ToUpper(stack)+"-app-1", "wiki-app-1", stack+"x-app-1"
+	d.SetReply(func(args []string) ([]byte, error, bool) {
+		switch {
+		case len(args) > 1 && args[0] == "ps" && args[1] == "-q":
+			return []byte("c1\nc2\nc3\n"), nil, true
+		case len(args) > 4 && args[0] == "inspect" && strings.Contains(args[4], "CpuQuota"):
+			return []byte("/" + ours + "\t268435456\t0\t0\t0\t\t<no value>\t<no value>\t" + strings.ToUpper(stack) + "\n" +
+				"/" + other + "\t536870912\t0\t0\t0\t\t<no value>\t<no value>\twiki\n" +
+				"/" + lookalike + "\t1073741824\t0\t0\t0\t\t<no value>\t<no value>\t" + stack + "x\n"), nil, true
+		case len(args) > 0 && args[0] == "stats":
+			if !slices.Equal(args[len(args)-3:], []string{"c1", "c2", "c3"}) {
+				return []byte("waiting for events"), errors.New("an unnamed stats never answers through Portainer"), true
+			}
+			return []byte(ours + "\t100MiB / 256MiB\t1.00%\n" + other + "\t200MiB / 512MiB\t1.00%\n" + lookalike + "\t300MiB / 1GiB\t1.00%\n"), nil, true
+		}
+		return nil, nil, false
+	})
 	c, err := backgroundCapacity(t, p.s, IntranetTargetName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Elastic || !c.Memory.Total.Known || c.Memory.Total.Value != 16<<30 || c.CPU.Total.Value != 4 {
-		t.Fatalf("what the endpoint has: %+v %+v", c.Memory.Total, c.CPU.Total)
+	if !strings.Contains(c.Words, "behind Portainer") || c.Memory.Total.Value != 8<<30 || c.CPU.Total.Value != 8 {
+		t.Fatalf("what the endpoint has: %s %+v %+v", c.Words, c.Memory.Total, c.CPU.Total)
 	}
-	if !c.Memory.Promised.Sum.AppTown.Known || c.Memory.Promised.Sum.Other.Known || !strings.Contains(c.Words, "declare") {
-		t.Errorf("promised through Portainer: %+v (%s)", c.Memory.Promised, c.Words)
+	if got := c.Memory.Promised.Sum; !got.AppTown.Known || got.AppTown.Value != 256<<20 || !got.Other.Known || got.Other.Value != (512+1024)<<20 {
+		t.Errorf("limits, AppTown's and others': %+v", got)
 	}
-	if c.Memory.InUse == nil || c.Memory.InUse.AppTown.Known || c.Disk.Free.Known {
-		t.Errorf("use and disk through Portainer are read: %+v %+v", c.Memory.InUse, c.Disk)
+	if use := c.Memory.InUse; use == nil || use.AppTown.Value != 100<<20 || use.Other.Value != 500<<20 {
+		t.Errorf("use: %+v", use)
 	}
+	if c.Memory.HostUsed == nil || !c.Memory.HostUsed.Known || c.CPU.HostUsed == nil || !c.CPU.HostUsed.Known {
+		t.Errorf("the whole host's use: %+v %+v", c.Memory.HostUsed, c.CPU.HostUsed)
+	}
+	if c.Disk == nil || c.Disk.Free.Value != 3<<30 || !c.Disk.Refuses || !c.Disk.Low || c.Disk.Path != "/var/lib/docker" {
+		t.Errorf("disk: %+v", c.Disk)
+	}
+	tenants := map[string]Tenant{}
+	for _, tn := range c.Tenants {
+		tenants[tn.Kind] = tn
+	}
+	if dep := tenants[tenantDeployment]; dep.Containers != 1 || dep.Deployment != "lan" || dep.Used.Value != 100<<20 {
+		t.Errorf("the deployment's tenant: %+v", c.Tenants)
+	}
+	if o := tenants[tenantOther]; o.Containers != 2 {
+		t.Errorf("other containers: %+v", c.Tenants)
+	}
+	for _, cmd := range d.Commands() {
+		if cmd[0] == "run" || cmd[0] == "exec" && cmd[1] != "-d" {
+			t.Errorf("through Portainer AppTown sent %v", cmd)
+		}
+	}
+}
 
-	// What AppTown's running deployments declare is summed.
-	b := p.land(t)
-	if rel, err := p.promote(t, b.ID, "prod", p.lab); err != nil || rel.State != Released {
-		t.Fatalf("release: %+v %v", rel, err)
-	}
-	declared, err := p.s.declaredOn(t.Context(), p.lab.ID)
-	if err != nil || !declared[0].Sum.AppTown.Known || declared[0].Sum.AppTown.Value < 256<<20 {
-		t.Fatalf("declared with every record: %+v %v", declared[0], err)
-	}
-	// A generation from before applied records were kept makes the
-	// AppTown's sum unknown, never the others' sum alone.
-	recorded := AppliedProfile{Profile: "default", Parts: map[string]AppliedPart{"web": {Resources: appcontract.Resources{MemoryBytes: 256 << 20}}}}
-	if got := sumDeclared([]AppliedProfile{recorded}); !got[0].Sum.AppTown.Known || got[0].Sum.AppTown.Value != 256<<20 {
-		t.Fatalf("one recorded generation: %+v", got[0])
-	}
-	got := sumDeclared([]AppliedProfile{recorded, {}})
-	if got[0].Sum.AppTown.Known || got[1].Sum.AppTown.Known || !strings.Contains(got[0].Sum.AppTown.Reason, "before limits were recorded") {
-		t.Fatalf("with an unrecorded generation: %+v %+v", got[0], got[1])
+// An unread disk stays in view as unknown, and says AppTown cannot read it
+// and why: a read that failed, in its words; an environment whose Docker
+// does not answer through Portainer, in those. It never says a check
+// failed.
+//
+// Kills: "The host disk check failed." for a disk no check read, or an
+// item whose words are another figure's.
+func TestAnUnreadPortainerDiskSaysWhyAppTownCannotReadIt(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		name   string
+		break_ func(p *promotionTargets)
+		want   string
+	}{
+		{"the read failed", func(p *promotionTargets) { p.hosts.daemons[portainerHost].SetDisk(0, 0) }, "df answered"},
+		{"the Docker does not answer", func(p *promotionTargets) { p.dockerDown.Store(true) }, "does not answer through Portainer"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			p := newPromotionTargetsWith(t, false, digestAppYAML)
+			c.break_(p)
+			target := p.target(t, IntranetTargetName)
+			if _, err := backgroundCapacity(t, p.s, IntranetTargetName); err != nil {
+				t.Fatal(err)
+			}
+			snap, err := NewCapacityObserver(p.s).Snapshot(t.Context(), target)
+			if err != nil || snap.Disk == nil || snap.Disk.Free.Known {
+				t.Fatalf("the disk: %+v %v", snap.Disk, err)
+			}
+			words := snap.Disk.Unread()
+			if !strings.HasPrefix(words, "AppTown cannot read this host's disk: ") || !strings.Contains(words, c.want) || strings.Contains(words+snap.Reason, "check failed") {
+				t.Errorf("the words: %q (reason %q)", words, snap.Reason)
+			}
+		})
 	}
 }
 
@@ -668,29 +743,6 @@ func TestAStoppedContainersExitIsNeverRecordedAsItsOwn(t *testing.T) {
 	got, err := w.s.limitEvents(t.Context(), mustDeployment(t, w, "prod"), t0.Add(-time.Hour))
 	if err != nil || len(got) != 2 || got[0].Part != "b" || got[1].Part != "d" {
 		t.Fatalf("recorded %+v %v: only B and D exited on their own", got, err)
-	}
-}
-
-// An open first release on a target AppTown does not inspect may have
-// applied its limits: AppTown's declared sum there is unknown, not zero.
-func TestAnOpenFirstReleaseMakesTheDeclaredSumUnknown(t *testing.T) {
-	t.Parallel()
-	p := newPromotionTargetsWith(t, false, "app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n    resources: { memory: 256M }\n")
-	intranet := p.target(t, IntranetTargetName)
-	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "office", intranet.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}); err != nil {
-		t.Fatal(err)
-	}
-	c, err := backgroundCapacity(t, p.s, IntranetTargetName)
-	if err != nil || !c.Memory.Promised.Sum.AppTown.Known || c.Memory.Promised.Sum.AppTown.Value != 0 {
-		t.Fatalf("nothing released or open: %+v %v", c.Memory.Promised, err)
-	}
-	office := mustDeployment(t, p.digestWorld, "office")
-	if _, created, err := p.s.Outcomes.Admit(t.Context(), deploymentStartFor(office, "a first apply, its answer lost", "office")); err != nil || !created {
-		t.Fatalf("opening the release: %v %v", created, err)
-	}
-	c, err = backgroundCapacity(t, p.s, IntranetTargetName)
-	if err != nil || c.Memory.Promised.Sum.AppTown.Known || c.CPU.Promised.Sum.AppTown.Known {
-		t.Fatalf("with an open first release: %+v %v", c.Memory.Promised, err)
 	}
 }
 

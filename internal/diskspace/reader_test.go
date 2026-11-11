@@ -25,7 +25,7 @@ func read(t *testing.T, d *containerresulttest.Daemon, image string) error {
 			return "", "", fmt.Errorf("unexpected command %v", args)
 		}
 		return string(out), "", err
-	}, image, "/var/lib/docker", time.Now)
+	}, image, "/var/lib/docker", time.Now, false)
 	return err
 }
 

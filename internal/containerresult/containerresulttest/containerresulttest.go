@@ -144,6 +144,16 @@ func (d *Daemon) RunEnv(args, env []string) (out []byte, err error, ok bool) {
 		return []byte(name + "\n"), nil, true
 	case "create":
 		name := flag(args, "--name")
+		if strings.HasPrefix(name, containerresult.StandingPrefix) {
+			// A standing reader made for a plain daemon (Spec.Plain): made
+			// stopped, started by its own call.
+			if _, ok := d.standing[name]; ok {
+				return []byte("Error response from daemon: Conflict. The container name \"/" + name + "\" is already in use"), exitError(125), true
+			}
+			class := strings.TrimPrefix(flag(args, "--label"), dockerlabel.Class+"=")
+			d.standing[name] = &reader{class: class, image: args[len(args)-3], args: append([]string(nil), args...)}
+			return []byte(name + "\n"), nil, true
+		}
 		if !strings.HasPrefix(name, containerresult.Prefix) {
 			return nil, nil, false
 		}
@@ -211,6 +221,10 @@ func (d *Daemon) RunEnv(args, env []string) (out []byte, err error, ok bool) {
 		return nil, nil, true
 	case "exec":
 		at := 1
+		detached := at < len(args) && args[at] == "-d"
+		if detached {
+			at++
+		}
 		for at < len(args) && args[at] == "-e" {
 			at += 2
 		}
@@ -219,7 +233,9 @@ func (d *Daemon) RunEnv(args, env []string) (out []byte, err error, ok bool) {
 		}
 		container := args[at]
 		if args[at+1] == "rm" && strings.HasPrefix(args[at+3], "/tmp/apptown-result-") {
-			delete(d.files, container+":"+args[at+3])
+			for _, f := range args[at+3:] {
+				delete(d.files, container+":"+f)
+			}
 			d.Cleared++
 			return nil, nil, true
 		}
@@ -244,7 +260,20 @@ func (d *Daemon) RunEnv(args, env []string) (out []byte, err error, ok bool) {
 		if !ok {
 			return nil, nil, false
 		}
-		path := last[strings.LastIndex(last, " ")+1:]
+		path := last[strings.LastIndex(last, "\n) >")+len("\n) >"):]
+		path = path[:strings.Index(path, ".part")]
+		if detached {
+			// A plain read (Spec.Plain): its status and stderr are files
+			// beside its answer, and the exec itself says nothing.
+			d.files[container+":"+path+".code"] = Answer{Answer: []byte(fmt.Sprintf("%d\n", a.Code))}
+			if a.Code != 0 {
+				d.files[container+":"+path+".err"] = Answer{Answer: []byte(a.Said)}
+			} else if a.Answer != nil {
+				d.files[container+":"+path] = a
+			}
+			d.execd = append(d.execd, container)
+			return nil, nil, true
+		}
 		if a.Code != 0 {
 			return []byte(a.Said), exitError(a.Code), true
 		}

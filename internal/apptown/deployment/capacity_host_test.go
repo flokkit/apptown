@@ -84,7 +84,7 @@ func TestHostUseReadsKernelAndPreservesUnknownReasons(t *testing.T) {
 					_, err := diskspace.ReadThroughDocker(t.Context(), func(ctx context.Context, args ...string) (string, string, error) {
 						b, e := dk.Run(ctx, args...)
 						return string(b), "", e
-					}, s.env.ToolVersions().Images.DF, "/var/lib/docker", s.now)
+					}, s.env.ToolVersions().Images.DF, "/var/lib/docker", s.now, false)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -195,7 +195,7 @@ func TestHostUseChoosesCgroupCounters(t *testing.T) {
 				_, err := diskspace.ReadThroughDocker(t.Context(), func(ctx context.Context, args ...string) (string, string, error) {
 					b, e := dk.Run(ctx, args...)
 					return string(b), "", e
-				}, s.env.ToolVersions().Images.DF, "/var/lib/docker", s.now)
+				}, s.env.ToolVersions().Images.DF, "/var/lib/docker", s.now, false)
 				if err != nil || d.Started() != 1 {
 					t.Fatalf("shared disk reader: %d, %v", d.Started(), err)
 				}

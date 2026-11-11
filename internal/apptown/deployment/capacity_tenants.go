@@ -63,7 +63,11 @@ var workClasses = map[string]bool{"step": true, "console": true, "console-dind":
 
 // tenantOf names the tenant a container is counted under.
 func tenantOf(l docker.ContainerLimit, owners containerOwners, deps map[ids.ID]ProjectDeployment) (kind, name string, dep *ProjectDeployment) {
-	if p, ok := owners.of(l.Name); ok {
+	p, ok := owners.of(l.Name)
+	if !ok {
+		p, ok = owners.stackOf(l)
+	}
+	if ok {
 		if d, ok := deps[p.deployment]; ok {
 			if d.Kind == preview {
 				return tenantPreviews, "previews", nil
@@ -169,20 +173,20 @@ func tenantsOf(limits []docker.ContainerLimit, used map[string]docker.Usage, use
 	return out
 }
 
-// dockerTenants is who holds a Docker host, from the readings capacity
-// already made.
-func (s *Service) dockerTenants(ctx context.Context, t *Target, limits []docker.ContainerLimit, used map[string]docker.Usage, usedErr error) ([]Tenant, error) {
+// ownersOnTarget is which standing deployment on t each container is,
+// by the names and stacks AppTown's records give them.
+func (s *Service) ownersOnTarget(ctx context.Context, t *Target) (containerOwners, map[ids.ID]ProjectDeployment, error) {
 	deps, err := s.Deployments.OnTarget(ctx, t.ID)
 	if err != nil {
-		return nil, err
+		return containerOwners{}, nil, err
 	}
 	owners, err := s.ownersOn(ctx, deps)
 	if err != nil {
-		return nil, err
+		return containerOwners{}, nil, err
 	}
 	byID := make(map[ids.ID]ProjectDeployment, len(deps))
 	for _, d := range deps {
 		byID[d.ID] = d
 	}
-	return tenantsOf(limits, used, usedErr, owners, byID), nil
+	return owners, byID, nil
 }

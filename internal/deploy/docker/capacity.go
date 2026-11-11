@@ -55,6 +55,10 @@ type ContainerLimit struct {
 	AppTown bool
 	Class   string
 	Owner   string
+	// Stack is the Compose project it runs in (com.docker.compose.project),
+	// "" outside one: a Portainer stack's containers carry no class label,
+	// and AppTown knows its stacks by name.
+	Stack string
 }
 
 // RunningLimits is the limits Docker enforces on every running container:
@@ -71,7 +75,7 @@ func RunningLimits(ctx context.Context, dk Scope) ([]ContainerLimit, error) {
 	if len(running) == 0 {
 		return nil, nil
 	}
-	format := "{{.Name}}\t{{.HostConfig.Memory}}\t{{.HostConfig.NanoCpus}}\t{{.HostConfig.CpuQuota}}\t{{.HostConfig.CpuPeriod}}\t{{.HostConfig.CpusetCpus}}\t" + `{{index .Config.Labels "` + dockerlabel.Class + `"}}` + "\t" + `{{index .Config.Labels "` + dockerlabel.Owner + `"}}`
+	format := "{{.Name}}\t{{.HostConfig.Memory}}\t{{.HostConfig.NanoCpus}}\t{{.HostConfig.CpuQuota}}\t{{.HostConfig.CpuPeriod}}\t{{.HostConfig.CpusetCpus}}\t" + `{{index .Config.Labels "` + dockerlabel.Class + `"}}` + "\t" + `{{index .Config.Labels "` + dockerlabel.Owner + `"}}` + "\t" + `{{index .Config.Labels "` + composeProject + `"}}`
 	out, err = dk.Run(ctx, append([]string{"inspect", "--type", "container", "--format", format}, running...)...)
 	if err != nil {
 		return nil, fmt.Errorf("docker inspect: %v: %s", err, strings.TrimSpace(string(out)))
@@ -95,7 +99,7 @@ func RunningLimits(ctx context.Context, dk Scope) ([]ContainerLimit, error) {
 
 func parseContainerLimit(line string) (ContainerLimit, error) {
 	f := strings.Split(line, "\t")
-	if len(f) != 8 {
+	if len(f) != 9 {
 		return ContainerLimit{}, fmt.Errorf("docker inspect answered %q", line)
 	}
 	mem, err1 := strconv.ParseInt(f[1], 10, 64)
@@ -111,7 +115,7 @@ func parseContainerLimit(line string) (ContainerLimit, error) {
 		}
 		return v
 	}
-	l := ContainerLimit{Name: strings.TrimPrefix(f[0], "/"), MemoryBytes: mem, Class: label(f[6]), Owner: label(f[7])}
+	l := ContainerLimit{Name: strings.TrimPrefix(f[0], "/"), MemoryBytes: mem, Class: label(f[6]), Owner: label(f[7]), Stack: label(f[8])}
 	l.AppTown = l.Class != ""
 	tightest := func(c float64) {
 		if c > 0 && (l.CPUs == 0 || c < l.CPUs) {
@@ -156,10 +160,29 @@ func cpusetSize(set string) (int, bool) {
 	return n, true
 }
 
+// composeProject is the label Compose puts on each container of a project.
+const composeProject = "com.docker.compose.project"
+
 // RunningUsage is what every running container uses now, memory and CPU,
-// by name (docker stats, one sample).
+// by name (docker stats, one sample). Through a proxy that carries only
+// plain requests (NoStreams) the containers are named: an unnamed stats
+// first opens the daemon's event stream, whose answer Portainer's proxy
+// holds until an event comes, so it waits indefinitely there. A container
+// that stops between the two calls fails that reading.
 func RunningUsage(ctx context.Context, dk Scope) (map[string]Usage, error) {
-	out, err := dk.Run(ctx, "stats", "--no-stream", "--format", "{{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}")
+	args := []string{"stats", "--no-stream", "--format", "{{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}"}
+	if dk.NoStreams {
+		out, err := dk.Run(ctx, "ps", "-q", "--no-trunc")
+		if err != nil {
+			return nil, fmt.Errorf("docker ps: %v: %s", err, strings.TrimSpace(string(out)))
+		}
+		running := strings.Fields(string(out))
+		if len(running) == 0 {
+			return map[string]Usage{}, nil
+		}
+		args = append(args, running...)
+	}
+	out, err := dk.Run(ctx, args...)
 	if err != nil {
 		return nil, fmt.Errorf("docker stats: %v: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -173,7 +196,7 @@ func ReadDisk(ctx context.Context, dk Scope, image, dataRoot string) (diskspace.
 	space, err := diskspace.ReadThroughDocker(ctx, func(ctx context.Context, args ...string) (string, string, error) {
 		out, err := dk.Run(ctx, args...)
 		return string(out), "", err
-	}, image, dataRoot, clock.Or(dk.Now))
+	}, image, dataRoot, clock.Or(dk.Now), dk.NoStreams)
 	if err != nil {
 		return diskspace.Space{}, fmt.Errorf("reading the disk: %w", err)
 	}

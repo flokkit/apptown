@@ -1033,7 +1033,7 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 						}
 						return "<no value>"
 					}
-					lines = append(lines, fmt.Sprintf("/%s\t%d\t%d\t0\t0\t\t%s\t%s", name, memory, nano, value(dockerlabel.Class), value(dockerlabel.Owner)))
+					lines = append(lines, fmt.Sprintf("/%s\t%d\t%d\t0\t0\t\t%s\t%s\t<no value>", name, memory, nano, value(dockerlabel.Class), value(dockerlabel.Owner)))
 				}
 			}
 			daemon.mu.Unlock()
