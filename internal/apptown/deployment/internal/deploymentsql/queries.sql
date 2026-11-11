@@ -585,6 +585,16 @@ SELECT sqlc.arg(id)::uuid,sqlc.arg(subject)::text,'host-snapshot',sqlc.arg(ident
 WHERE EXISTS (SELECT 1 FROM targets WHERE id::text=sqlc.arg(subject) AND kind='docker-host')
 ON CONFLICT (subject,kind) DO UPDATE SET act_counter=deployment_readings.act_counter+1;
 
+-- name: LockHostActCounter :one
+-- Holds the host reading row so an act cannot start until the caller commits.
+SELECT act_counter FROM deployment_readings WHERE subject=sqlc.arg(subject) AND kind='host-snapshot' FOR UPDATE;
+
+-- name: MarkHostActForDeployment :exec
+-- Recording an image copy is an act on the deployment's host reading, so a
+-- reading that saw the image absent cannot retire the new record.
+UPDATE deployment_readings SET act_counter=act_counter+1
+WHERE kind='host-snapshot' AND subject=(SELECT d.target_id::text FROM deployments d WHERE d.id=sqlc.arg(deployment_id));
+
 -- name: FinishHostSnapshot :execrows
 UPDATE deployment_readings r SET payload=sqlc.arg(payload),
     complete_act_counter=CASE WHEN sqlc.arg(complete)::boolean AND r.act_counter=sqlc.arg(act_counter)

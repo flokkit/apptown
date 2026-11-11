@@ -36,6 +36,9 @@ last seven days, and any release a backup AppTown still keeps was taken with.
 AppTown combines keep sets for deployments sharing one store. It removes only
 images recorded in release bundles and its own unused landing build tags.
 Images that containers still use stay.
+Removing unused images from a Docker host yourself (`docker image prune -a`) is
+fine: AppTown notices on its next reading of the host, forgets those copies
+without reporting them missing, and pulls one again when a release needs it.
 If AppTown cannot identify one target's image store in a pass (a Docker host or
 Portainer endpoint that does not answer, an async edge endpoint), it deletes
 from no target that pass, because that store might be shared with another.

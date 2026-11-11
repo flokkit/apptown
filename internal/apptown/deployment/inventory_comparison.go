@@ -36,8 +36,8 @@ func InventoryAnswer(recorded []deploy.Resource, ev InventoryEvidence) (resource
 
 // MergeInventory lays the provider's list over the records: a record the
 // provider confirms takes the provider's live facts; a record the provider
-// has no trace of is "missing"; a provider item with no record is
-// "unrecorded".
+// has no trace of is "missing", except an image copy, which is left out; a
+// provider item with no record is "unrecorded".
 func MergeInventory(recorded, live []deploy.Resource) []deploy.Resource {
 	recorded, live = coalesceInventory(inventorySlots(recorded)), coalesceInventory(live)
 	seen := map[string]bool{}
@@ -60,6 +60,11 @@ func MergeInventory(recorded, live []deploy.Resource) []deploy.Resource {
 			}
 		}
 		if !ok {
+			// An image copy the provider lacks is not at the target and is
+			// never missing: the hub supplies it again (retireImageCopies).
+			if imageCopy(r.Kind) {
+				continue
+			}
 			r.Record = deploy.RecordMissing
 			out = append(out, r)
 			continue

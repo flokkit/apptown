@@ -1744,6 +1744,19 @@ marked as taken before the latest change until a complete lap begun after it
 succeeds. The [background infrastructure contract](deploy-targets.md#background-infrastructure-readings)
 defines section retention, age and loop lifecycle.
 
+An owned image on a Docker host is a copy: the hub, or its recorded commit,
+supplies it again. When a complete lap asked about a recorded image and the host
+does not have it (someone pruned it, or retention removed it), the lap retires
+that record instead of claiming it missing, with a
+`deployment.image-copies.retired` receipt per deployment noting "no longer on
+the host; pulled again when needed". It does so only if no act has marked the
+host since the lap began, holding the reading row so an act waits for it.
+Recording an image copy is itself such a mark, so a deploy already under way
+that pulls the image and records it again keeps its record. An image record
+the provider lacks is never shown as missing, retired or not. Containers,
+volumes, networks and every other owned kind still read missing. No other
+target kind records individual images.
+
 ## The address given to apps
 
 `APPTOWN_APP_URL` gives every app part and init step one selected deployment
