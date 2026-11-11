@@ -88,23 +88,26 @@ func staticOnly(c *appcontract.Contract) bool {
 }
 
 // refusal is a target's refusal sentence as an error, or nil for none.
-// refusesAudience is the target's refusal of dep's audience, or "".
-// A Fly app answers anyone at its fly.dev address and AppTown puts no
-// sign-in in front of it, so only a public deployment says what Fly does.
-// The next step is one the person can take: a deployment that has run
-// keeps its audience (making it public is a migration EnsureStanding
-// refuses), so for that one the step is a new public deployment.
+// refusesAudience is the target's refusal of dep's audience, or "", with
+// the step that satisfies it: the audience is changed in the deployment's
+// Settings (SetClassification).
 func (t *Target) refusesAudience(dep *Deployment) string {
-	kind := describeKind(t.Kind)
-	if kind.audienceAddress == "" || dep.Audience == "public" {
+	why := t.refusesAudienceValue(dep.Audience)
+	if why == "" {
 		return ""
 	}
-	next := "set this deployment's audience to public"
-	if dep.DesiredGeneration != 0 || dep.ObservedGeneration != 0 {
-		next = fmt.Sprintf("this deployment has run, so its audience cannot change; make a new public deployment of this project on %s", t.Name)
+	return why + "; set this deployment's audience to public in its Settings, or make a deployment of it on another target"
+}
+
+// refusesAudienceValue is why the target cannot keep a deployment to
+// audience, or "". A Fly app answers anyone at its fly.dev address and
+// AppTown puts no sign-in in front of it, so only public says what it does.
+func (t *Target) refusesAudienceValue(audience string) string {
+	kind := describeKind(t.Kind)
+	if kind.audienceAddress == "" || audience == "public" {
+		return ""
 	}
-	address := kind.audienceAddress
-	return fmt.Sprintf("%s serves the app at its %s address to anyone, with no AppTown sign-in in front of it, so it cannot keep a deployment to the %s audience; %s, or deploy it to a Docker host", t.Name, address, dep.Audience, next)
+	return fmt.Sprintf("%s serves the app at its %s address to anyone, with no AppTown sign-in in front of it, so it cannot keep a deployment to the %s audience", t.Name, kind.audienceAddress, audience)
 }
 
 func refusal(why string) error {

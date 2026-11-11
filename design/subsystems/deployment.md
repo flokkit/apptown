@@ -1616,6 +1616,27 @@ Historical duplicate claims retain every claimant, so no deployment wins by
 migration order. Conflicted hostnames refuse release until the conflicting
 resources are resolved. Historical release records remain readable.
 
+### Audience and data
+
+A standing deployment's audience and data class are settings. Every rule that
+reads them reads the current record at its own act: release permission at
+request and execution, Fly and AWS audience refusals, data protection's
+retention, copies and checks, and a Docker host's replacement of a changed
+service's synthetic data. Audience reaches no target: no proxy or gate puts a
+sign-in in front of an app by audience. `Service.SetClassification` is the only
+change. It takes Configure's lock order (project, target row for update so an
+offer edit waits, deployment), compares against the values the person edited
+from, and refuses what the target, its offer or a production starting copy
+forbids. It needs `deployment:bind-target`, plus `release:promote` when the
+deployment was protected. A change that lowers either value also needs a
+verified person and the exact meaning `Classification` showed ("I state that
+<deployment> serves … and holds …"); it is recorded as
+`deployment.classification-lowered` with that meaning, a raise as
+`deployment.classified`. `Configure` and `EnsureStanding` refuse a differing
+class on an existing deployment. Queued releases whose admitted attributes
+differ are refused as a changed placement. A deployment that has run stays on
+its target: its handle and data are there.
+
 ### Release permission
 
 Named releases and redeploy overrides require deployment permission. A

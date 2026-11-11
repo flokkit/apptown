@@ -12,10 +12,19 @@ import (
 
 // copyStarter is data protection's side of a start from a copy as these
 // tests see it: it counts fills and answers a receipt for the set.
-type copyStarter struct{ fills int }
+type copyStarter struct {
+	fills int
+	class string // the class of every set; "" is non-production
+}
 
 func (c *copyStarter) CheckStart(context.Context, ids.ID, ids.ID, string) error { return nil }
 func (c *copyStarter) UncheckedStart(context.Context, ids.ID) (string, error)   { return "", nil }
+func (c *copyStarter) StartClass(context.Context, ids.ID) (string, error) {
+	if c.class == "" {
+		return "non-production", nil
+	}
+	return c.class, nil
+}
 func (c *copyStarter) FillStart(_ context.Context, in StartFill) (StartReceipt, error) {
 	c.fills++
 	return StartReceipt{Set: in.Deployment.StartFrom, FromDeployment: "prod", FromProject: in.Deployment.ProjectID}, nil

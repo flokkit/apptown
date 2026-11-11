@@ -119,10 +119,10 @@ func TestAFlyReleaseOfADeploymentNotForThePublicIsRefusedBeforeFlyIsAsked(t *tes
 	}
 }
 
-// A deployment that has run keeps its audience: making it public is a
-// migration the owner refuses. Its refusal names a step the person can
-// take instead of the edit that would be refused.
-func TestAFlyRefusalForADeploymentThatHasRunNamesANewPublicDeployment(t *testing.T) {
+// A Fly deployment that has run with a team audience is refused a release
+// with the step that satisfies it: its audience is set to public in its
+// Settings (SetClassification, tested in classification_test.go).
+func TestAFlyRefusalNamesTheAudienceSettingThatSatisfiesIt(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargets(t, false)
 	b := p.land(t)
@@ -135,13 +135,8 @@ func TestAFlyRefusalForADeploymentThatHasRunNamesANewPublicDeployment(t *testing
 	if _, _, err := p.s.Outcomes.Admit(t.Context(), Start{DeploymentID: dep.ID, TargetID: target.ID, Key: "before-the-rule", Inputs: Inputs{Revision: "earlier"}}); err != nil {
 		t.Fatal(err)
 	}
-	public := team
-	public.Audience = "public"
-	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "web", target.ID, public); err == nil {
-		t.Fatal("an admitted deployment was made public in place; the refusal's premise is gone")
-	}
 	_, err = p.s.RequestRelease(context.Background(), DeploySelection{ProjectID: p.project, DeploymentName: "web", BundleID: b.ID})
-	if !errors.Is(err, ErrReleaseRefused) || strings.Contains(err.Error(), "set this deployment's audience to public") || !strings.Contains(err.Error(), "make a new public deployment of this project on fly-syd") {
+	if !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), "set this deployment's audience to public in its Settings") || strings.Contains(err.Error(), "Docker host") {
 		t.Fatalf("refusal: %v", err)
 	}
 }

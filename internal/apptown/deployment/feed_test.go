@@ -20,6 +20,7 @@ func TestConfirmFeedRecordsAuthorityAndRevisionAndRechecksProtection(t *testing.
 			if scenario == "protected" {
 				audience = "public"
 			}
+			reclassifyForTest(t, s.db, in.ProjectID, prior.Name, audience, "synthetic")
 			dep, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, prior.Name, prior.TargetID, Attributes{Feed: "main", Audience: audience, DataClass: "synthetic"})
 			if err != nil {
 				t.Fatal(err)

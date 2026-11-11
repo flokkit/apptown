@@ -90,6 +90,19 @@ func (s *starter) CheckStart(ctx context.Context, set, destinationProject ids.ID
 	return nil
 }
 
+// StartClass is the data class of the set a deployment starts or started
+// from, as it was taken: a production copy keeps its deployment production.
+func (s *starter) StartClass(ctx context.Context, set ids.ID) (string, error) {
+	b, err := backupRecord(protectionsql.New(s.db.SQL()).BackupByIDAnywhere(ctx, set))
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fault.New(fault.NotFound, fmt.Sprintf("no copy %d", set))
+	}
+	if err != nil {
+		return "", err
+	}
+	return b.DataClass, nil
+}
+
 // UncheckedStart names each item a start would fill from set that its
 // last check of this set did not show to come back, with that check: ""
 // when every one did. A drill fills a set's items in turn and records each

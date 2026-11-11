@@ -50,4 +50,6 @@
 .deployment-name-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-3); }
 .deployment-name-line > .display-label-edit { margin-top: 0; }
 .retained-settled { opacity: 0.6; }
+/* Audience and data: what a change adds or removes, and refused values. */
+.classification-list { margin: 0; padding-left: 1.25em; }
 }

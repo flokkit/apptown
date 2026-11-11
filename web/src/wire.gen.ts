@@ -320,6 +320,15 @@ export type ChatUpload = {
   picture: boolean
 }
 
+export type ClassificationView = {
+  audience: string
+  data: string
+  audiences: ClassificationChoice[]
+  dataClasses: ClassificationChoice[]
+  effect: string
+  proposed?: ClassificationChange | null
+}
+
 export type CloudAccountCheck = {
   ok: boolean
   detail: string
@@ -2762,6 +2771,21 @@ export type ChatHistoryEntry = {
   ended: boolean
   imported: boolean
   messages: Message[]
+}
+
+export type ClassificationChoice = {
+  value: string
+  refusal?: string
+}
+
+export type ClassificationChange = {
+  audience: string
+  data: string
+  lowers: boolean
+  adds: string[]
+  removes: string[]
+  meaning?: string
+  refusal?: string
 }
 
 export type Target = {

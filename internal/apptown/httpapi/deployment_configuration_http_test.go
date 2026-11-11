@@ -268,6 +268,21 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	if missing.Code != 409 {
 		t.Fatalf("revision omitted: %d %s", missing.Code, missing.Body.String())
 	}
+	// Audience and data change through their own compare-and-set write
+	// under the configure capability.
+	raise := `{"audience":"organisation","data":"synthetic","was":{"audience":"team","data":"synthetic"}}`
+	denied = authenticatedRequest(deployments.SetClassification, "outsider", "PUT", "/", raise, values)
+	if denied.Code != 403 {
+		t.Fatalf("unauthorized classification: %d %s", denied.Code, denied.Body.String())
+	}
+	raised := authenticatedRequest(deployments.SetClassification, "owner", "PUT", "/", raise, values)
+	if raised.Code != 200 || !strings.Contains(raised.Body.String(), `"audience":"organisation"`) {
+		t.Fatalf("classification: %d %s", raised.Code, raised.Body.String())
+	}
+	stale = authenticatedRequest(deployments.SetClassification, "owner", "PUT", "/", raise, values)
+	if stale.Code != 409 {
+		t.Fatalf("stale classification: %d %s", stale.Code, stale.Body.String())
+	}
 	bulk := authenticatedRequest(deployments.ConfirmAllFeeds, "owner", "POST", "/", `{}`, nil)
 	if bulk.Code != 200 {
 		t.Fatalf("bulk confirmation: %d %s", bulk.Code, bulk.Body.String())

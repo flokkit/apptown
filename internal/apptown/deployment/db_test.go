@@ -155,13 +155,25 @@ func mutateStoredDeployment(t *testing.T, db *database.DB, projectID ids.ID, nam
 		t.Fatal(err)
 	}
 	r := row.Deployment
+	was := r
 	mutate(&r)
 	if _, err := q.EnsureStanding(context.Background(), deploymentsql.EnsureStandingParams{ID: ids.New(r.UpdatedAt), ProjectID: r.ProjectID, Name: r.Name, Kind: r.Kind, TargetID: r.TargetID, Feed: r.Feed, Audience: r.Audience, DataClass: r.DataClass, UpdatedAt: r.UpdatedAt}); err != nil {
 		t.Fatal(err)
 	}
+	if n, err := q.SetDeploymentClassification(context.Background(), deploymentsql.SetDeploymentClassificationParams{ID: r.ID, Audience: r.Audience, DataClass: r.DataClass, UpdatedAt: r.UpdatedAt, WasAudience: was.Audience, WasDataClass: was.DataClass}); err != nil || n != 1 {
+		t.Fatalf("mutate classification: rows=%d err=%v", n, err)
+	}
 	if n, err := q.AdmitGeneration(context.Background(), deploymentsql.AdmitGenerationParams{ID: r.ID, DesiredGeneration: r.DesiredGeneration, Readiness: r.Readiness, UpdatedAt: r.UpdatedAt}); err != nil || n != 1 {
 		t.Fatalf("mutate generation: rows=%d err=%v", n, err)
 	}
+}
+
+// reclassifyForTest stores a deployment's audience and data for a test
+// whose subject is what a classification does, not how it is changed:
+// SetClassification's authority and meaning are classification_test.go's.
+func reclassifyForTest(t *testing.T, db *database.DB, projectID ids.ID, name, audience, data string) {
+	t.Helper()
+	mutateStoredDeployment(t, db, projectID, name, func(r *deploymentsql.Deployment) { r.Audience, r.DataClass = audience, data })
 }
 
 func cutBundleFixture(t *testing.T, db *database.DB, projectID ids.ID, revision string, origin BundleOrigin) ids.ID {

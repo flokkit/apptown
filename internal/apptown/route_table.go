@@ -360,6 +360,8 @@ func appRoutes(a *App) []routeSpec {
 		ownerRoute("POST /api/v1/deployments/confirm-feed", deployments.ConfirmAllFeeds, "deployments.ConfirmAllFeeds").inArea("deployments"),
 		ownerRoute("POST /api/v1/projects/{slug}/deployments/{name}/confirm-feed", deployments.ConfirmFeed, "deployments.ConfirmFeed").inArea("deployments"),
 		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{name}/feed", deployments.SetFeed, "deployments.SetFeed").inArea("deployments"),
+		requireRoute("GET /api/v1/projects/{slug}/deployments/{name}/classification", deployments.Classification, access.CapDeploymentRead, "project-slug").inArea("deployments"),
+		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{name}/classification", deployments.SetClassification, "deployments.SetClassification").inArea("deployments"),
 		ownerRoute("POST /api/v1/projects/{slug}/deployments", deployments.CreateDeployment, "deployments.CreateDeployment").inArea("deployments"),
 		ownerRoute("DELETE /api/v1/projects/{slug}/deployments/{name}", deployments.DeleteDeployment, "deployments.DeleteDeployment").inArea("deployments"),
 		ownerRoute("POST /api/v1/projects/{slug}/deployments/{name}/deploy", deployments.DeployDeployment, "deployments.DeployDeployment").inArea("deployments"),
