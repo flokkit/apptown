@@ -145,7 +145,7 @@ implements it identically.
 
 Recovery resumes observation of the admitted provider identity. Display observations
 are separate from both deployment settlement and health enforcement. Kubernetes,
-ECS, Cloud Run and other providers are not target kinds.
+Cloud Run and other providers are not target kinds.
 
 ## What each target supports
 
@@ -163,30 +163,30 @@ sentence the release page shows. The table is the rows of
 rows the admission checks decide through those checks for each kind's stock
 capabilities (`StockCapabilities`), and fails if a cell here differs.
 
-| Contract or act | `docker-host` | `portainer` | `do-app` | `fly-machines` | `s3-bucket` |
-| --- | --- | --- | --- | --- | --- |
-| Several parts, one image | yes | yes | yes | yes | refused: serves only a static-only app |
-| Parts or init steps with different images | yes | yes | refused: App Platform runs one image per repository | yes | refused: static-only |
-| Init steps | yes | yes | yes, as pre-deploy jobs | yes, as one-off Machines before any part's | refused: static-only |
-| Postgres | yes, a local emulator | yes, a local emulator | yes, a managed database | yes, a stock container on its own volume | refused: static-only |
-| Object storage (s3) | yes, a local store: its bucket made before the app starts, a key for it alone | yes, a local store, as on a Docker host | yes, a Spaces bucket of its own and a key for it alone | refused: cannot run as a need container | refused: static-only |
-| Another need with a local emulator (redis) | yes, a local emulator | yes, a local emulator | refused: cannot provide it as a managed service | refused: cannot run as a need container | refused: static-only |
-| A data directory | yes, a named volume | yes, a named volume | refused: no persistent volumes | yes, a named volume; stop then start on release | refused: static-only |
-| A static site given browser values by an integration | yes, as /_apptown/env.js | yes, as /_apptown/env.js | refused: cannot deliver browser values yet | refused: cannot deliver browser values yet | yes, published as /_apptown/env.js |
-| Secrets | each part's environment | each part's environment | each component's environment | the app's secrets, the same for every Machine; parts or init steps given different ones are refused before any effect | none: a site has no runtime |
-| Declared resources | exact: each part's container gets its memory (swap included) and cpus | exact: each part's service gets mem_limit, memswap_limit and cpus | rounded up to the cheapest current instance size that covers each part; one no size covers is refused before any effect | rounded up to the smallest shared-CPU Machine that covers each part; one none covers is refused before any effect | none: a site has no runtime |
-| A need's declared resources | exact on the need's service; a standing need takes a new size in place, or is remade on its volume when a limit is lifted | exact: the need's service gets mem_limit, memswap_limit and cpus | refused: the managed Postgres is made at the integration's database size | rounded up to a shared-CPU Machine; the standing need is updated in place on its volume | refused: static-only |
-| A part or need larger than the host | refused before any effect, previews included; the sum of limits may exceed the host | not checked: Portainer's endpoint is read for the capacity view only | rounds to a size, or is refused | rounds to a Machine size, or is refused | none: a site has no runtime |
-| Capacity shown | fixed: memory and CPUs it has, the limits Docker enforces, whole-host memory and CPU use, the containers' use, and the disk holding Docker's data (its folder, when it was read, and whether new releases are refused) | fixed: what the endpoint has, and AppTown's own deployments' limits; use and disk not read | elastic: each part's size and listed price, and an estimated monthly cost | elastic: each part's Machine size; prices are not read, Fly lists none AppTown can ask | none: a site has no runtime |
-| A host short of disk | a release or preview is refused before anything is pulled or started while Docker's data folder has less than 5% free (at least 1 GiB, at most 20 GiB) or cannot be read, read when it starts; what runs is not touched | not checked: disk is not read through Portainer | not applicable: the platform's disks | not applicable: the platform's disks | not applicable |
-| Container logs | every container AppTown starts from this release on logs through `json-file`, rotated at 10 MiB, three files kept; one started earlier keeps its own until it is made again | the endpoint daemon's default; not set by AppTown in 1.0 | the platform's | the platform's | none: a site has no runtime |
-| Limit events | out-of-memory kills and exits of every standing deployment's parts and needs, from the daemon's events | not read | not reported to AppTown | not reported to AppTown | none: a site has no runtime |
-| Releases after a landing | each follows-main deployment requests the landing’s bundle | follows-main or manual release of a digest bundle | as App Platform | as App Platform | as App Platform |
-| Readiness witnessed | the container AppTown started; a static site's release identity | the stack was accepted; health unknown | the platform's deployment is active (its own probe); AppTown asks the front door only for a declared HTTP readiness path or a static site's release identity | each new Machine is started and passes its checks; AppTown asks the front door for a declared HTTP readiness path and a static site's release identity | the published files answer this release's identity |
-| An earlier release again | yes, its bundle by digest; data is not rolled back | yes; data is not rolled back | yes; data is not rolled back | yes, its images copied again by digest; data is not rolled back | yes |
-| Take-down | what AppTown recorded creating; its data volumes are deleted after a complete final backup, refused without one; what it did not create is named and kept | the stack AppTown recorded, then the volumes its deploys made after a complete final backup, refused without one unless a person chooses to keep the data; a volume it did not make is named and kept | the app and managed resources AppTown recorded; a need's bucket is deleted with its objects after a checked final copy or when its data is synthetic, otherwise kept and named, and its key deleted | the recorded Fly app and volumes after a complete final set; without a store, refused unless a person chooses to keep the app and volumes with all Machines stopped | the bucket AppTown recorded |
-| Volume backups, restored in place | yes, each data volume and need | yes, each data volume and need, through Portainer's Docker proxy (an edge environment in async mode is refused) | no volumes | yes, in the backup store: declared need exports and stop-copy-start volume tars; database restore in place and files into a new volume | no data |
-| Managed database copies | not applicable | not applicable | yes, with a copy runner and backup store; restored into a new place, never in place | not applicable: Postgres is a container on a volume | not applicable |
+| Contract or act | `docker-host` | `portainer` | `do-app` | `fly-machines` | `s3-bucket` | `aws-ecs` |
+| --- | --- | --- | --- | --- | --- | --- |
+| Several parts, one image | yes | yes | yes | yes | refused: serves only a static-only app | refused: single-part apps |
+| Parts or init steps with different images | yes | yes | refused: App Platform runs one image per repository | yes | refused: static-only | refused: single-part apps |
+| Init steps | yes | yes | yes, as pre-deploy jobs | yes, as one-off Machines before any part's | refused: static-only | yes, as one-off tasks before the service changes |
+| Postgres | yes, a local emulator | yes, a local emulator | yes, a managed database | yes, a stock container on its own volume | refused: static-only | yes, a dedicated RDS instance |
+| Object storage (s3) | yes, a local store: its bucket made before the app starts, a key for it alone | yes, a local store, as on a Docker host | yes, a Spaces bucket of its own and a key for it alone | refused: cannot run as a need container | refused: static-only | refused: not offered yet |
+| Another need with a local emulator (redis) | yes, a local emulator | yes, a local emulator | refused: cannot provide it as a managed service | refused: cannot run as a need container | refused: static-only | refused: not offered yet |
+| A data directory | yes, a named volume | yes, a named volume | refused: no persistent volumes | yes, a named volume; stop then start on release | refused: static-only | refused: no data directories |
+| A static site given browser values by an integration | yes, as /_apptown/env.js | yes, as /_apptown/env.js | refused: cannot deliver browser values yet | refused: cannot deliver browser values yet | yes, published as /_apptown/env.js | refused: cannot deliver browser values yet |
+| Secrets | each part's environment | each part's environment | each component's environment | the app's secrets, the same for every Machine; parts or init steps given different ones are refused before any effect | none: a site has no runtime | SSM SecureString values, immutable per generation and consumer |
+| Declared resources | exact: each part's container gets its memory (swap included) and cpus | exact: each part's service gets mem_limit, memswap_limit and cpus | rounded up to the cheapest current instance size that covers each part; one no size covers is refused before any effect | rounded up to the smallest shared-CPU Machine that covers each part; one none covers is refused before any effect | none: a site has no runtime | rounded up to the smallest Fargate CPU and memory pair |
+| A need's declared resources | exact on the need's service; a standing need takes a new size in place, or is remade on its volume when a limit is lifted | exact: the need's service gets mem_limit, memswap_limit and cpus | refused: the managed Postgres is made at the integration's database size | rounded up to a shared-CPU Machine; the standing need is updated in place on its volume | refused: static-only | refused: fixed dedicated RDS class |
+| A part or need larger than the host | refused before any effect, previews included; the sum of limits may exceed the host | not checked: Portainer's endpoint is read for the capacity view only | rounds to a size, or is refused | rounds to a Machine size, or is refused | none: a site has no runtime | rounds to a Fargate size, or is refused |
+| Capacity shown | fixed: memory and CPUs it has, the limits Docker enforces, whole-host memory and CPU use, the containers' use, and the disk holding Docker's data (its folder, when it was read, and whether new releases are refused) | fixed: what the endpoint has, and AppTown's own deployments' limits; use and disk not read | elastic: each part's size and listed price, and an estimated monthly cost | elastic: each part's Machine size; prices are not read, Fly lists none AppTown can ask | none: a site has no runtime | elastic: each part’s Fargate size; cost not read |
+| A host short of disk | a release or preview is refused before anything is pulled or started while Docker's data folder has less than 5% free (at least 1 GiB, at most 20 GiB) or cannot be read, read when it starts; what runs is not touched | not checked: disk is not read through Portainer | not applicable: the platform's disks | not applicable: the platform's disks | not applicable | not applicable: the platform’s disks |
+| Container logs | every container AppTown starts from this release on logs through `json-file`, rotated at 10 MiB, three files kept; one started earlier keeps its own until it is made again | the endpoint daemon's default; not set by AppTown in 1.0 | the platform's | the platform's | none: a site has no runtime | CloudWatch log group per deployment, retained 14 days |
+| Limit events | out-of-memory kills and exits of every standing deployment's parts and needs, from the daemon's events | not read | not reported to AppTown | not reported to AppTown | none: a site has no runtime | stopped task reason, including out of memory |
+| Releases after a landing | each follows-main deployment requests the landing’s bundle | follows-main or manual release of a digest bundle | as App Platform | as App Platform | as App Platform | as App Platform |
+| Readiness witnessed | the container AppTown started; a static site's release identity | the stack was accepted; health unknown | the platform's deployment is active (its own probe); AppTown asks the front door only for a declared HTTP readiness path or a static site's release identity | each new Machine is started and passes its checks; AppTown asks the front door for a declared HTTP readiness path and a static site's release identity | the published files answer this release's identity | every running task is on the recorded revision and the target is healthy; the declared front-door path or static identity answers |
+| An earlier release again | yes, its bundle by digest; data is not rolled back | yes; data is not rolled back | yes; data is not rolled back | yes, its images copied again by digest; data is not rolled back | yes | yes, its images copied by digest; data is not rolled back |
+| Take-down | what AppTown recorded creating; its data volumes are deleted after a complete final backup, refused without one; what it did not create is named and kept | the stack AppTown recorded, then the volumes its deploys made after a complete final backup, refused without one unless a person chooses to keep the data; a volume it did not make is named and kept | the app and managed resources AppTown recorded; a need's bucket is deleted with its objects after a checked final copy or when its data is synthetic, otherwise kept and named, and its key deleted | the recorded Fly app and volumes after a complete final set; without a store, refused unless a person chooses to keep the app and volumes with all Machines stopped | the bucket AppTown recorded | the recorded service and resources; dedicated RDS and its network kept without a final checked set |
+| Volume backups, restored in place | yes, each data volume and need | yes, each data volume and need, through Portainer's Docker proxy (an edge environment in async mode is refused) | no volumes | yes, in the backup store: declared need exports and stop-copy-start volume tars; database restore in place and files into a new volume | no data | no volumes |
+| Managed database copies | not applicable | not applicable | yes, with a copy runner and backup store; restored into a new place, never in place | not applicable: Postgres is a container on a volume | not applicable | yes, one-off ECS tasks into the backup store; every database dumped or shown empty, with rdsadmin explicitly provider-owned |
 
 What owns each guarantee through its real operation (ordering before effects,
 witnessed outcomes):
@@ -718,3 +718,38 @@ unhashed paths. Neither target has one today, so no purge is made.
 - [internal/apptown/deployment/target_providers.go](../../internal/apptown/deployment/target_providers.go)
 - [internal/deploy/driver.go](../../internal/deploy/driver.go)
 - [internal/deploy/fly](../../internal/deploy/fly)
+
+
+## AWS ECS
+
+`aws-ecs` (AWS ECS on Fargate) is behind the AWS ECS beta switch. It runs one
+part on Linux/AMD64, with an optional dedicated PostgreSQL RDS instance. Multiple
+parts, shared databases, object storage, data directories, gated placements and
+signed-in audiences are refused before provider effects. See the
+[AWS setup guide](../../stock/docs/guides/aws-target-setup.md) for prerequisites,
+explicit attach fields and the matching CloudFormation and Terraform samples.
+
+The administrator supplies an existing cluster, subnets, HTTPS listener and task
+execution role. AppTown checks the expected account before other AWS calls and
+uses only an explicit access-key pair resolved from instance secrets. AppTown
+manages its tagged, recorded deployment resources; it does not manage the estate,
+DNS or stack outputs. The target reports its load balancer and DNS reading.
+
+Releases copy digest images to a deployment repository, write generation-specific
+SSM parameters and run init tasks before changing the service. Running task
+revisions and target health confirm convergence. A failed rollout returns to the
+recorded previous revision, or stops the service on its first release. Costs that
+cannot be read are unknown.
+
+Data jobs export into scratch files before uploading into AppTown's backup store.
+A set includes its verified database manifest, a dump of every database with user
+tables and a repeated empty check for every other database. Only `rdsadmin` is
+provider-owned. Failed listing, counting, dumping, upload or drill keeps data.
+The existing copy verification command is unchanged. RDS snapshots are the
+provider's own snapshots, separate from AppTown backup sets.
+
+A final take-down stops writers and removes the listener rule before taking and
+checking the set. Only complete coverage allows deletion of the RDS instance.
+An explicit take-down without a final copy retains the instance, subnet group and
+database security group, with continuing costs. Deleting an instance also deletes
+its automatic snapshots. Fargate's default 20 GB ephemeral storage bounds exports.

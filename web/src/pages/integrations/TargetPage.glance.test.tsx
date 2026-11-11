@@ -16,7 +16,7 @@ it.each([false, true])('leads with the host name, state and app address, and lin
       check: { detail: 'Docker daemon answers', observedAt: '2026-10-29T00:00:00Z', stale: true, failure: 'SSH connection refused', unknown: true, waiting: false },
       kind: 'docker-host', kindInfo: { title: 'Docker host' }, ingress: { domain: 'apps.example.test' },
       address: { host: 'ssh://root@10.0.0.4', hostname: '10.0.0.4', user: 'root', port: 22, keyFrom: 'HOST_KEY' },
-      capabilities: { needs: ['postgres'], rollout: ['replace'], persistentVolumes: true },
+      capabilities: { needs: ['postgres'], rollout: ['replace'], keepsDataDir: true },
       needsMode: 'emulators', deployments: [], offers: [], retained: 0 },
     history: [], builtIn: true,
   })
@@ -56,7 +56,7 @@ it('keeps a deployment resource count unknown until its inventory can be read', 
   client.setQueryData(getKey('/auth/me'), { mode: 'internal', user: 'sam' })
   client.setQueryData(getKey('/attention'), { sources: [], items: [] })
   client.setQueryData(getKey('/targets/kitchen'), {
-    target: { id: 'host', name: 'kitchen', status: 'ready', statusLabel: 'working', kind: 'docker-host', kindInfo: { title: 'Docker host' }, check: {}, ingress: {}, address: {}, capabilities: { persistentVolumes: true }, needsMode: 'emulators', offers: [], retained: 0,
+    target: { id: 'host', name: 'kitchen', status: 'ready', statusLabel: 'working', kind: 'docker-host', kindInfo: { title: 'Docker host' }, check: {}, ingress: {}, address: {}, capabilities: { keepsDataDir: true }, needsMode: 'emulators', offers: [], retained: 0,
       deployments: [{ project: 'shop', name: 'main', status: { word: 'working', reason: '', stale: false }, statusLabel: 'working' }] }, history: [], builtIn: true,
   })
   const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/kitchen']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name" element={<TargetPage />} /></Routes></QueryClientProvider></MemoryRouter>)
@@ -134,7 +134,7 @@ it('says a failed host is not answering rather than an instruction under Check t
       check: { detail: '', observedAt: '2026-10-29T00:00:00Z', stale: true, failure: 'SSH connection refused', unknown: false, waiting: false },
       kind: 'docker-host', kindInfo: { title: 'Docker host' },
       address: { host: 'ssh://root@10.0.0.4', hostname: '10.0.0.4', user: 'root', port: 22, keyFrom: 'HOST_KEY' },
-      capabilities: { needs: [], rollout: ['replace'], persistentVolumes: true },
+      capabilities: { needs: [], rollout: ['replace'], keepsDataDir: true },
       needsMode: 'emulators', deployments: [], offers: [], retained: 0 },
     history: [], builtIn: false,
   })

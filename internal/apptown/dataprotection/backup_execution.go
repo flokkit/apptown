@@ -490,6 +490,9 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 	if err != nil {
 		return nil, fmt.Errorf("%s: reading its deployment target: %w", deploymentName, err)
 	}
+	if t.CopyProtocol() == deployment.CopyDedicatedPostgres {
+		return s.restoreAWS(ctx, rec, dep, t, b, keepStopped)
+	}
 	held, err := s.heldData(ctx, dep, t)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", deploymentName, err)

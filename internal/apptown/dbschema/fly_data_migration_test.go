@@ -25,17 +25,17 @@ func TestFlyDataUpgradeChangesOnlyTheStageOneTargetConfiguration(t *testing.T) {
 		var mode, needs, domain string
 		var volumes, liveness bool
 		var revision int
-		if err := db.SQL().QueryRowContext(t.Context(), `SELECT needs_mode,(capabilities_json->>'persistentVolumes')::boolean,capabilities_json->'needs',(capabilities_json->>'ownLiveness')::boolean,ingress_json->>'domain',settings_revision FROM targets WHERE name=$1`, kind).Scan(&mode, &volumes, &needs, &liveness, &domain, &revision); err != nil {
+		if err := db.SQL().QueryRowContext(t.Context(), `SELECT needs_mode,(capabilities_json->>'keepsDataDir')::boolean,capabilities_json->'needs',(capabilities_json->>'ownLiveness')::boolean,ingress_json->>'domain',settings_revision FROM targets WHERE name=$1`, kind).Scan(&mode, &volumes, &needs, &liveness, &domain, &revision); err != nil {
 			t.Fatal(err)
 		}
 		if !liveness || domain != "apps.example" {
 			t.Fatal("unrelated settings changed")
 		}
 		if kind == "fly-machines" {
-			if mode != "emulators" || !volumes || needs != `["postgres"]` || revision != 5 {
+			if mode != "emulators" || !volumes || needs != `["postgres"]` || revision != 6 {
 				t.Fatalf("Fly remains in stage-one configuration: %s %t %s %d", mode, volumes, needs, revision)
 			}
-		} else if mode != "managed" || volumes || needs != "[]" || revision != 4 {
+		} else if mode != "managed" || volumes || needs != "[]" || revision != 5 {
 			t.Fatalf("%s settings changed", kind)
 		}
 	}

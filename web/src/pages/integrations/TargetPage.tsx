@@ -68,7 +68,7 @@ function targetFacts(t: TargetView) {
   const facts: string[] = []
   if (caps.needs?.length) facts.push(`provides ${caps.needs.join(', ')}`)
   if (caps.rollout?.length) facts.push(caps.rollout.join(', '))
-  facts.push(caps.persistentVolumes ? 'has disks' : 'no disks · networked databases only')
+  facts.push(caps.keepsDataDir ? 'has disks' : 'no disks · networked databases only')
   if (caps.ownLiveness) facts.push('restarts its own containers')
   const addr = t.address as Record<string, string | number | undefined>
   const concrete: string[] = []
@@ -109,6 +109,7 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
     <div>
       <StaleNote q={infra} />
       <TargetHead name={t.name} />
+      {data.awsRouting && <p className="small">Load balancer: <Tech>{data.awsRouting.loadBalancer}</Tech>. Wildcard apps address: {data.awsRouting.unknown || (data.awsRouting.matches ? 'resolves to this load balancer' : 'does not resolve to this load balancer; point the wildcard DNS record to it')}. Read {fmtStamp(data.awsRouting.readAt)}.</p>}
       <div className="muted small mt-1" >{[domain ? `*.${domain}` : '', t.kind === 'do-app' ? 'Cloud hosting: apps update without downtime' : t.kind === 'fly-machines' ? 'Cloud hosting: data folders use volumes. Parts with data stop briefly during releases and backups.' : '', state.word === 'unknown' || t.statusLabel === 'failed' ? state.summary : ''].filter(Boolean).join(' · ')}</div>
       <p className="small" data-testid="target-check">Target check: {t.check.detail !== t.check.failure && t.check.detail} <BackgroundReading reading={t.check} /></p>
       {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href={tab === 'overview' ? '#target-retained' : `/targets/${t.name}#target-retained`}>Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
@@ -249,7 +250,7 @@ const said = (v: string) => (v === '' ? 'empty' : `“${v}”`)
 type TargetSettings = Omit<SettingsCommand, 'evals'>
 const settingsOf = (t: TargetView): TargetSettings => ({
   domain: typeof t.ingress?.domain === 'string' ? t.ingress.domain : '',
-  persistentVolumes: t.capabilities.persistentVolumes, needsMode: t.needsMode,
+  keepsDataDir: t.capabilities.keepsDataDir, needsMode: t.needsMode,
   copyRunner: typeof t.address?.copyRunner === 'string' ? t.address.copyRunner : '',
   rehearsals: t.ingress?.rehearsals === true,
   environment: typeof t.address?.environment === 'string' ? t.address.environment : '',
@@ -305,7 +306,7 @@ export function EditTarget({ t, current = true, onSaved }: { t: TargetView; curr
     <div className="card target-page-edit-target-card">
       <div className="row target-page-edit-target-div-2">
         <label className="small">apps domain <input value={draft.domain} disabled={busy} onChange={(e) => set('domain', e.target.value)} placeholder="none" className="target-page-edit-target-input" /></label>
-        <label className="small"><input type="checkbox" checked={draft.persistentVolumes} disabled={busy} onChange={(e) => set('persistentVolumes', e.target.checked)} /> keeps disks (a dataDir may bind)</label>
+        <label className="small"><input type="checkbox" checked={draft.keepsDataDir} disabled={busy} onChange={(e) => set('keepsDataDir', e.target.checked)} /> keeps disks (a dataDir may bind)</label>
         <label className="small">needs are <select value={draft.needsMode} disabled={busy} onChange={(e) => set('needsMode', e.target.value)}>
           {NEEDS_MODES.map(({ value, title }) => <option key={value} value={value}>{title}</option>)}
         </select></label>

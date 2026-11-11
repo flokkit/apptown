@@ -50,7 +50,7 @@ func CopiesOn(t *deployment.Target) *Availability {
 	if managedProvider(t) == "" {
 		return nil
 	}
-	if t.CopyRunner() == "" {
+	if t.CopyRunner() == "" && t.CopyProtocol() != deployment.CopyDedicatedPostgres {
 		u := deployment.ErrNoCopyRunner.(*deployment.Unavailable)
 		return &Availability{Reason: u.Reason, Why: u.Why}
 	}
@@ -61,7 +61,7 @@ func CopiesOn(t *deployment.Target) *Availability {
 // declared under in a kind's cloud block.
 func managedProvider(t *deployment.Target) string {
 	if t.DataAccess() == deployment.DataOnManagedPlatform {
-		return "digitalocean"
+		return deployment.DescribeTarget(t).Provider
 	}
 	return ""
 }
@@ -258,6 +258,9 @@ func (s *core) staging(op ids.ID) (string, func(), error) {
 // disk, written to the store private and checked there. The set records,
 // for each item, the instance and database it certifies.
 func (s *Service) takeStoreCopy(ctx context.Context, t *tracker, dep *deployment.Deployment, target *deployment.Target, trigger string) (*Backup, error) {
+	if target.CopyProtocol() == deployment.CopyDedicatedPostgres {
+		return s.takeAWSSet(ctx, t, dep, target, trigger)
+	}
 	if s.applied != nil {
 		defer s.applied(dep.TargetID)
 	}
@@ -485,6 +488,9 @@ func fillAt(ctx context.Context, dk docker.Scope, extra []string, cp *dependency
 // that could not be removed is named. It reports pass or fail and why,
 // never the data.
 func (s *Service) drill(ctx context.Context, t *tracker, b *Backup, target *deployment.Target) (bool, string, error) {
+	if target.CopyProtocol() == deployment.CopyDedicatedPostgres {
+		return s.drillAWS(ctx, t, b, target)
+	}
 	c, store, err := s.storeOf(ctx, b)
 	if err != nil {
 		return false, "", err

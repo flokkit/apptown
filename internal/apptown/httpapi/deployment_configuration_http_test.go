@@ -96,7 +96,7 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	for _, cap := range []access.Capability{access.CapDeploymentBind, access.CapDeploymentDeploy, access.CapDeploymentRead, access.CapProjectRead} {
 		a.grant(t, "owner", cap)
 	}
-	builtin, err := a.service.Targets.Put(context.Background(), &deployment.Target{Name: "built-in-docker", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady, Capabilities: deployment.TargetCapabilities{PersistentVolumes: true}})
+	builtin, err := a.service.Targets.Put(context.Background(), &deployment.Target{Name: "built-in-docker", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady, Capabilities: deployment.TargetCapabilities{KeepsDataDir: true}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	if err != nil || !env.Protected() {
 		t.Fatalf("settings must be saved despite 422: %+v %v", env, err)
 	}
-	cloud.Capabilities.PersistentVolumes = true
+	cloud.Capabilities.KeepsDataDir = true
 	if _, err := a.service.Targets.Put(context.Background(), cloud); err != nil {
 		t.Fatal(err)
 	}

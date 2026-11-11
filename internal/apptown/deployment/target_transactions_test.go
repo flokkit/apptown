@@ -367,7 +367,7 @@ func TestDuplicateTargetAttachmentPreservesActiveAndRetiredRecords(t *testing.T)
 				t.Fatal(err)
 			}
 			revision, yes := initial.SettingsRevision, true
-			if _, err = targets.EditSettings(t.Context(), initial.Name, TargetSettingsEdit{ExpectedRevision: &revision, PersistentVolumes: &yes}, "fixture"); err != nil {
+			if _, err = targets.EditSettings(t.Context(), initial.Name, TargetSettingsEdit{ExpectedRevision: &revision, KeepsDataDir: &yes}, "fixture"); err != nil {
 				t.Fatal(err)
 			}
 			if retired {

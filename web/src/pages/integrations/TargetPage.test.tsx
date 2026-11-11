@@ -17,7 +17,7 @@ const details = (root: Element) => [...root.querySelectorAll('[data-help], [titl
 
 const target = (domain: string, disks: boolean, settingsRevision = 0) => ({
   name: 'lan', ingress: { domain }, needsMode: 'emulators', settingsRevision, kindInfo: { environment: false },
-  capabilities: { persistentVolumes: disks },
+  capabilities: { keepsDataDir: disks },
 } as unknown as TargetView)
 
 describe('the target editor', () => {
@@ -78,7 +78,7 @@ describe('the target editor', () => {
     await act(async () => { button('Edit target').click() })
     await act(async () => { (el.querySelectorAll('input')[1] as HTMLInputElement).click() })
     await act(async () => { button('Save').click() })
-    expect(sent[0]).toEqual({ expectedRevision: 2, persistentVolumes: true })
+    expect(sent[0]).toEqual({ expectedRevision: 2, keepsDataDir: true })
     await vi.waitFor(() => expect(el.textContent).toContain("Someone changed this target's settings"))
     await render(target('other.example', false, 3))
     expect(el.textContent).toContain('domain is now “other.example”')
@@ -87,7 +87,7 @@ describe('the target editor', () => {
     expect((el.querySelectorAll('input')[1] as HTMLInputElement).checked).toBe(true)
     conflict = false
     await act(async () => { button('Save').click() })
-    expect(sent[1]).toEqual({ expectedRevision: 3, persistentVolumes: true })
+    expect(sent[1]).toEqual({ expectedRevision: 3, keepsDataDir: true })
     act(() => root.unmount())
   })
 

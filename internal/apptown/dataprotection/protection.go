@@ -331,7 +331,7 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 		out.Note = "not protected off-host: no backup store is attached"
 	case store == nil:
 		out.Note = "no backup store is attached, so AppTown keeps no copies of this data"
-	case t.CopyRunner() == "":
+	case t.CopyRunner() == "" && t.CopyProtocol() != deployment.CopyDedicatedPostgres:
 		// Operations says why, and what an administrator does about it.
 	default:
 		out.OffHost = true

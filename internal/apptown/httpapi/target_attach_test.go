@@ -69,7 +69,7 @@ func TestAttachHostTarget(t *testing.T) {
 		t.Fatalf("attach: %d %v", code, out)
 	}
 	target, err := w.deployment.Targets.ByName(t.Context(), "droplet")
-	if err != nil || target.Origin != deployment.OriginAttached || target.Kind != deployment.KindDockerHost || !target.Capabilities.PersistentVolumes || target.Ingress["domain"] != "apps.example.com" {
+	if err != nil || target.Origin != deployment.OriginAttached || target.Kind != deployment.KindDockerHost || !target.Capabilities.KeepsDataDir || target.Ingress["domain"] != "apps.example.com" {
 		t.Fatalf("saved target: %+v %v", target, err)
 	}
 	if target.Address["keyFrom"] != "DROPLET_KEY" {
@@ -164,25 +164,29 @@ func TestAttachPortainerTargetAndEdit(t *testing.T) {
 	if code, out := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"expectedRevision":0,"environment":"another-endpoint"}`, "home"); code != 409 {
 		t.Fatalf("verified endpoint retarget: %d %v", code, out)
 	}
+	// Removed API fields are refused rather than silently reading an old shape.
+	if code, out := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"expectedRevision":0,"persistentVolumes":false}`, "home"); code != 400 {
+		t.Fatalf("old capability field accepted: %d %v", code, out)
+	}
 	// The status check above did not move the settings revision, so an edit
 	// read before it still saves.
 	if code, out := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"expectedRevision":0,"domain":"*.apps2.home.example"}`, "home"); code != 200 {
 		t.Fatalf("edit: %d %v", code, out)
 	}
-	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"expectedRevision":0,"persistentVolumes":false}`, "home"); code != 409 {
+	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"expectedRevision":0,"keepsDataDir":false}`, "home"); code != 409 {
 		t.Fatalf("stale edit: %d", code)
 	}
-	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"persistentVolumes":false}`, "home"); code != 400 {
+	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"keepsDataDir":false}`, "home"); code != 400 {
 		t.Fatalf("edit without a revision: %d", code)
 	}
 	target, _ = w.deployment.Targets.ByName(t.Context(), "home")
-	if target.Ingress["domain"] != "apps2.home.example" || !target.Capabilities.PersistentVolumes {
+	if target.Ingress["domain"] != "apps2.home.example" || !target.Capabilities.KeepsDataDir {
 		t.Fatalf("edited: %+v", target)
 	}
 	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"expectedRevision":1,"needsMode":"sideways"}`, "home"); code != 400 {
 		t.Fatalf("bad mode: %d", code)
 	}
-	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/"+targetTestBuiltin, `{"expectedRevision":0,"persistentVolumes":false}`, targetTestBuiltin); code != 409 {
+	if code, _ := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/"+targetTestBuiltin, `{"expectedRevision":0,"keepsDataDir":false}`, targetTestBuiltin); code != 409 {
 		t.Fatalf("built-in edited: %d", code)
 	}
 	code, out = call(w.targets.TargetPage, "GET", "/api/v1/targets/home", "", "home")

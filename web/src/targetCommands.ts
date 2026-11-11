@@ -4,7 +4,7 @@ import type { OfferCaps, TargetEdited } from './wire.gen'
 // Optional fields are actual changes: false and empty strings must survive.
 export type TargetSettings = {
   domain: string
-  persistentVolumes: boolean
+  keepsDataDir: boolean
   needsMode: string
   evals: boolean
   rehearsals: boolean

@@ -218,3 +218,29 @@ apptown deployment start <project> <deployment>
 apptown deployment stop <project> <deployment>
 apptown deployment restart <project> <deployment>
 ```
+
+## AWS ECS on Fargate
+
+An administrator can enable the AWS ECS beta feature and attach an existing AWS
+estate using the [AWS setup guide](aws-target-setup.md). The target runs single-part
+public apps with an optional dedicated PostgreSQL RDS instance.
+It refuses multiple parts, object storage, data directories, shared databases,
+restored-copy placements and audiences that require AppTown sign-in before any
+provider effect. Images must be published by digest for Linux/AMD64.
+
+Attach names the expected account, region, cluster, task subnets, HTTPS listener,
+execution role and apps domain, plus optional database subnets. Access keys are
+instance secrets, read at use time. AppTown checks these explicit values and
+manages only resources it creates for each deployment. The existing AWS estate,
+DNS and prerequisite templates remain the administrator's responsibility.
+
+A backup store enables database copies through one-off ECS tasks; no copy runner
+host is needed. A backup set includes the database list, dumps of databases with
+user tables, and evidence for databases checked as empty. Each dump is restored
+and checked in a scratch database before a final take-down may delete the RDS
+instance. Only RDS's own `rdsadmin` database is excluded. Failed checks keep data.
+RDS's automatic snapshots are shown separately and are never AppTown backup sets.
+
+A take-down without a final copy keeps the RDS instance and its database network,
+listed as retained resources with continuing costs. Deleting the instance also
+deletes its automatic snapshots. Costs that cannot be read are shown as unknown.

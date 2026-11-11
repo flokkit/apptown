@@ -247,6 +247,9 @@ var tokenRe = regexp.MustCompile(`\{([a-zA-Z0-9_]+)\}`)
 
 // Cloud is a kind on one provider.
 type Cloud struct {
+	// Setup is the provider-job command that hands an ordinary database and
+	// role to the app. Credentials are supplied only at job time.
+	Setup string `yaml:"setup,omitempty" json:"setup,omitempty"`
 	// Kind is the provider's need module that makes it (managed-database,
 	// bucket).
 	Kind string `yaml:"kind,omitempty" json:"kind,omitempty"`
@@ -567,7 +570,7 @@ func (k *Kind) checkCopy() error {
 			if cloud.Kind == managedDatabaseKind && strings.TrimSpace(k.Copy.Empty) == "" {
 				return fmt.Errorf("%w: dependency %q on %s: a %s reached for a copy declares the check that a database holds nothing (copy.empty)", ErrSpec, k.Capability, provider, managedDatabaseKind)
 			}
-			if r.How != reachConnect || r.From != fromNamedHost || r.Credential != credentialAppUser {
+			if r.How != reachConnect || (r.From != fromNamedHost && r.From != "provider-job") || r.Credential != credentialAppUser {
 				return fmt.Errorf("%w: dependency %q on %s: AppTown reaches a cloud instance by connect, from the named host, as the app's user (how: %s, from: %s, credential: %s), got how %q, from %q, credential %q",
 					ErrSpec, k.Capability, provider, reachConnect, fromNamedHost, credentialAppUser, r.How, r.From, r.Credential)
 			}
@@ -575,7 +578,7 @@ func (k *Kind) checkCopy() error {
 				return fmt.Errorf("%w: dependency %q on %s: only a %s or a %s is reached for a copy, not %q", ErrSpec, k.Capability, provider, managedDatabaseKind, bucketKind, cloud.Kind)
 			}
 		}
-		if n := cloud.Native; n != nil && !(provider == "digitalocean" && n.Mechanism == nativeDOBackups) {
+		if n := cloud.Native; n != nil && !((provider == "digitalocean" && n.Mechanism == nativeDOBackups) || (provider == "aws" && n.Mechanism == "aws-rds-snapshots")) {
 			return fmt.Errorf("%w: dependency %q on %s: AppTown reads no native protection called %q there", ErrSpec, k.Capability, provider, n.Mechanism)
 		}
 	}

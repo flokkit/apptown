@@ -9,7 +9,7 @@ import (
 
 func TestCheckedTargetAdmissionRefusesBeforeReadingOrProbing(t *testing.T) {
 	denied := errors.New("authority denied")
-	for _, kind := range []string{KindDockerHost, KindPortainer, KindDOApp, KindS3Bucket} {
+	for _, kind := range []string{KindDockerHost, KindPortainer, KindDOApp, KindS3Bucket, KindAWSECS} {
 		for _, dry := range []bool{false, true} {
 			authority := &requestAuthority{deny: denied}
 			// No record or provider collaborators: denial must precede their use.

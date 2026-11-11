@@ -302,3 +302,17 @@ cloud:
     # AppTown's), and shows DigitalOcean's own daily backups beside its copies.
     reach: { how: connect, from: named-host, credential: app-user }
     native: { mechanism: do-database-backups }
+
+  aws:
+    kind: managed-database
+    setup: |
+      set -eu
+      psql -v ON_ERROR_STOP=1 -v user="$APPTOWN_DB_USER" -v db="$APPTOWN_DB_NAME" -v password="$APPTOWN_DB_PASSWORD" <<'SQL'
+      SELECT format('CREATE ROLE %I LOGIN', :'user') WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname=:'user') \gexec
+      ALTER ROLE :"user" WITH LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NOREPLICATION NOBYPASSRLS PASSWORD :'password';
+      SELECT format('CREATE DATABASE %I OWNER %I', :'db', :'user') WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname=:'db') \gexec
+      ALTER DATABASE :"db" OWNER TO :"user";
+      REVOKE ALL ON DATABASE :"db" FROM PUBLIC;
+      SQL
+    reach: { how: connect, from: provider-job, credential: app-user }
+    native: { mechanism: aws-rds-snapshots }

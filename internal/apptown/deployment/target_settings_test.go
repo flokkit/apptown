@@ -21,7 +21,7 @@ func TestTargetSettingsEditsFromOneRevisionOneWinsAndChecksDoNotMoveIt(t *testin
 		t.Fatal(err)
 	}
 	rev, yes, mode := int64(0), true, "managed"
-	edits := []TargetSettingsEdit{{ExpectedRevision: &rev, PersistentVolumes: &yes}, {ExpectedRevision: &rev, NeedsMode: &mode}}
+	edits := []TargetSettingsEdit{{ExpectedRevision: &rev, KeepsDataDir: &yes}, {ExpectedRevision: &rev, NeedsMode: &mode}}
 	errs := make([]error, len(edits))
 	var wg sync.WaitGroup
 	for i, e := range edits {
@@ -46,10 +46,10 @@ func TestTargetSettingsEditsFromOneRevisionOneWinsAndChecksDoNotMoveIt(t *testin
 	if err != nil || after.SettingsRevision != 1 {
 		t.Fatalf("revision: %+v %v", after, err)
 	}
-	if errs[0] == nil && (!after.Capabilities.PersistentVolumes || after.NeedsMode == mode) || errs[1] == nil && (after.NeedsMode != mode || after.Capabilities.PersistentVolumes) {
+	if errs[0] == nil && (!after.Capabilities.KeepsDataDir || after.NeedsMode == mode) || errs[1] == nil && (after.NeedsMode != mode || after.Capabilities.KeepsDataDir) {
 		t.Fatalf("the refused edit leaked: %+v", after)
 	}
-	if _, err := targets.EditSettings(ctx, target.Name, TargetSettingsEdit{PersistentVolumes: &yes}, "alice"); !errors.Is(err, errTargetSettingsRevisionRequired) {
+	if _, err := targets.EditSettings(ctx, target.Name, TargetSettingsEdit{KeepsDataDir: &yes}, "alice"); !errors.Is(err, errTargetSettingsRevisionRequired) {
 		t.Fatalf("edit without a revision: %v", err)
 	}
 	// Startup sync writes the same settings back: no conflict for an open edit.

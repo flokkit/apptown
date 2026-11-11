@@ -13,7 +13,7 @@ import (
 func TestTargetRefusesContract(t *testing.T) {
 	keeps := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true, DataDir: "/data"}}}
 	needs := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true}}, Needs: []string{"postgres", "redis"}}
-	host := &Target{Name: "box", Kind: KindDockerHost, Capabilities: TargetCapabilities{PersistentVolumes: true}, NeedsMode: "emulators"}
+	host := &Target{Name: "box", Kind: KindDockerHost, Capabilities: TargetCapabilities{KeepsDataDir: true}, NeedsMode: "emulators"}
 	cloud := &Target{Name: "cloud", Kind: KindDOApp, Capabilities: TargetCapabilities{Needs: []string{"postgres"}}, NeedsMode: "managed"}
 	if why := host.refusesContract(keeps); why != "" {
 		t.Fatalf("a host with volumes takes a data directory: %s", why)
@@ -74,7 +74,7 @@ func TestRemovable(t *testing.T) {
 func TestTargetsRefuseUnexecutedHealthPolicyBeforePreparation(t *testing.T) {
 	for _, kind := range []string{KindDockerHost, KindPortainer, KindS3Bucket} {
 		c := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true, Static: "site", Intent: &appcontract.Health{Readiness: &appcontract.Probe{HTTP: "/ready", Period: "5s"}}}}}
-		target := &Target{Kind: kind, Capabilities: TargetCapabilities{PersistentVolumes: true}}
+		target := &Target{Kind: kind, Capabilities: TargetCapabilities{KeepsDataDir: true}}
 		if kind == KindS3Bucket {
 			if target.refusesContract(c) == "" {
 				t.Fatal("bucket accepted ignored runtime policy")
