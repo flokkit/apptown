@@ -354,7 +354,7 @@ func (w *noLocalWorld) rebuild(t *testing.T, s *Service, dep *Deployment) (map[s
 		t.Fatal(err)
 	}
 	return JobWorker{Service: s, Projects: project.New(w.db, nil), DataDir: w.dir}.Rebuild(context.Background(), current.ProjectID.String()+"/"+dep.Name,
-		map[string]any{"deployment": current.ID, "generation": current.ObservedGeneration})
+		map[string]any{"attempt": current.ServingAttemptID})
 }
 
 // expectRecordedBoot says a boot ran the bundle's images and nothing else:

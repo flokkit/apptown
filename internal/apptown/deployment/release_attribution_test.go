@@ -56,6 +56,9 @@ func TestReleaseAttributionDoesNotFollowReusedDeploymentNames(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if dep, err = deployments.ByID(t.Context(), dep.ID); err != nil { // the removal's locked record
+				t.Fatal(err)
+			}
 			if err := db.InTx(t.Context(), func(tx *database.Tx) error {
 				return takeDownReleaseIn(context.Background(), tx, dep, "target", "alice", time.Now())
 			}); err != nil {

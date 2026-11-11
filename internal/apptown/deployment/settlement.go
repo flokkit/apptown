@@ -117,7 +117,7 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 			return Attempt{}, false, err
 		}
 	}
-	nextGeneration, admitted, err := dep.admit(in.BaseGeneration)
+	nextGeneration, admitted, err := dep.admit(in.BaseGeneration, in.Repairs)
 	if err != nil {
 		return Attempt{}, false, err
 	}
@@ -136,7 +136,7 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 		if err := r.belongsTo(dep); err != nil {
 			return Attempt{}, false, err
 		}
-		if !r.state.open() && !(r.state == Released && r.generation == 0) {
+		if !r.state.open() {
 			return Attempt{}, false, errOutcomeConflict
 		}
 		if r.revision != "" && r.revision != in.Inputs.Revision {
@@ -299,6 +299,10 @@ func (s *Outcomes) finish(ctx context.Context, in Completion, cause error) (depl
 			if err != nil {
 				return "", err
 			}
+			serving := inputs.ReleaseID // a repair serves the release it reapplied
+			if inputs.Rebuild {
+				serving = dep.ServingReleaseID
+			}
 			if _, err := deploymentsql.New(tx.SQL()).ObserveGeneration(ctx, deploymentsql.ObserveGenerationParams{
 				ObservedGeneration: at.Generation,
 				HandleJson:         json.RawMessage(jsonText(handle)),
@@ -309,6 +313,8 @@ func (s *Outcomes) finish(ctx context.Context, in Completion, cause error) (depl
 				ReleaseSha:         inputs.Revision,
 				ImageDigest:        image,
 				Readiness:          readiness.String(),
+				ServingReleaseID:   serving,
+				ServingAttemptID:   at.ID,
 				UpdatedAt:          now,
 				ID:                 dep.ID,
 			}); err != nil {

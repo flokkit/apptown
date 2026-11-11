@@ -114,7 +114,7 @@ func policyLibraryUpgradeFixture(t *testing.T) *App {
 	// sql-guarantee: recreate the schema before runtime controls and other acts;
 	// merely lowering its version would replay the new column migrations over
 	// existing columns.
-	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE deployments DROP COLUMN runtime_state, DROP COLUMN runtime_actor, DROP COLUMN runtime_at, DROP COLUMN runtime_error, DROP COLUMN act_at`); err != nil {
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE deployments DROP COLUMN runtime_state, DROP COLUMN runtime_actor, DROP COLUMN runtime_at, DROP COLUMN runtime_error, DROP COLUMN act_at, DROP COLUMN serving_release_id, DROP COLUMN serving_attempt_id`); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: recreate releases before deployment progress was recorded.

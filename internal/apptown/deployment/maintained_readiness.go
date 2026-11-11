@@ -41,7 +41,7 @@ func overlayReadiness(v RuntimeObservation, r listingRecord, e readinessEntry, n
 	compatible := v.State == RuntimeRunning && v.Rollout == "active" && v.Health != "unhealthy" && (e.observed.Running == "" || v.running == e.observed.Running)
 	v.Health, v.healthObservedAt, v.healthGeneration, v.healthArtifact = "unknown", time.Time{}, 0, ""
 	at := e.observed.HealthObservedAt
-	if !compatible || !r.deployment.Standing() || r.deployment.HeldAfterRestore() != nil || r.deployment.DesiredGeneration != r.deployment.ObservedGeneration || v.Stale || e.err != nil || e.key != observationKey(r) || e.artifact == "" ||
+	if !compatible || !r.deployment.Standing() || r.deployment.HeldAfterRestore() != nil || v.Stale || e.err != nil || e.key != observationKey(r) || e.artifact == "" ||
 		e.observed.ArtifactHash != e.artifact || e.observed.Generation != r.deployment.ObservedGeneration ||
 		at.IsZero() || at.After(now) || now.Sub(at) > readinessFreshFor(e) {
 		return v
@@ -158,7 +158,7 @@ func (s *Service) refreshReadiness(ctx context.Context) error {
 
 func (s *Service) sampleReadiness(ctx context.Context, r listingRecord, sampler maintainedReadinessDriver) readinessEntry {
 	e := readinessEntry{key: observationKey(r), attempted: s.now()}
-	in, err := s.Outcomes.InputsAtGeneration(ctx, r.deployment.ID, r.deployment.ObservedGeneration)
+	in, _, err := s.serving(ctx, r.deployment)
 	if err != nil {
 		e.err = err
 		return e
@@ -186,7 +186,7 @@ func (s *Service) requireMaintainedReadiness(ctx context.Context, original listi
 	if err != nil {
 		return err
 	}
-	if !dep.Standing() || dep.ObservedGeneration <= 0 || dep.DesiredGeneration != dep.ObservedGeneration || artifact == "" {
+	if !dep.Standing() || dep.ObservedGeneration <= 0 || artifact == "" {
 		return errors.New("Provider readiness requires a settled standing generation")
 	}
 	if err := dep.HeldAfterRestore(); err != nil {
@@ -209,7 +209,7 @@ func (s *Service) requireMaintainedReadiness(ctx context.Context, original listi
 	if open {
 		return errors.New("Provider readiness is owned by an unfinished attempt")
 	}
-	in, err := s.Outcomes.InputsAtGeneration(ctx, dep.ID, dep.ObservedGeneration)
+	in, _, err := s.serving(ctx, dep)
 	if err != nil {
 		return err
 	}

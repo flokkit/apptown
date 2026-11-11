@@ -824,7 +824,7 @@ func TestALandingBuildsOnTheWorkerPublishesAndPullsByDigest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	inputs, err := w.a.Deployment.Outcomes.InputsAtGeneration(context.Background(), env.ID, env.ObservedGeneration)
+	inputs, err := w.a.Deployment.Outcomes.InputsFor(context.Background(), deployment.Attempt{ID: env.ServingAttemptID, DeploymentID: env.ID, Generation: env.ObservedGeneration})
 	if err != nil || inputs.BundleID != b.ID {
 		t.Errorf("the generation's inputs %+v %v, want bundle %d pinned", inputs, err, b.ID)
 	}

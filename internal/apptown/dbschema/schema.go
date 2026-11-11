@@ -747,6 +747,22 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 			ORDER BY a.deployment_id, i.release_run, a.generation DESC) a
 		WHERE r.state='released' AND r.generation=0 AND r.deployment_id=a.deployment_id AND r.run_id=a.release_run`,
 	}},
+	// The serving attempt is the done one at the observed generation; its
+	// release is found through old rebuilds' keys back to the generation they
+	// rebuilt. An adoption after a restore serves its release, with no attempt.
+	{n: 227, note: "record what each deployment serves", stmts: []string{
+		`ALTER TABLE deployments ADD COLUMN serving_release_id UUID, ADD COLUMN serving_attempt_id UUID`,
+		`UPDATE deployments d SET serving_attempt_id=a.id FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done'`,
+		`WITH RECURSIVE source(deployment_id, generation) AS (
+			SELECT id, observed_generation FROM deployments WHERE serving_attempt_id IS NOT NULL
+			UNION SELECT s.deployment_id, split_part(a.idempotency_key, '-from-', 2)::bigint FROM source s
+			JOIN deployment_attempts a ON a.deployment_id=s.deployment_id AND a.generation=s.generation AND a.status='done' AND a.idempotency_key LIKE 'rebuild-%-from-%'
+			JOIN deployment_attempt_inputs i ON i.attempt_id=a.id AND i.rebuild)
+		UPDATE deployments d SET serving_release_id=r.id FROM source s
+		JOIN releases r ON r.deployment_id=s.deployment_id AND r.generation=s.generation AND r.state='released' WHERE d.id=s.deployment_id`,
+		`UPDATE deployments d SET serving_release_id=r.id, serving_attempt_id=NULL FROM releases r
+		WHERE r.id=(SELECT id FROM releases WHERE deployment_id=d.id AND state='released' ORDER BY number DESC LIMIT 1) AND r.origin='observed-after-restore' AND r.generation=d.observed_generation`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

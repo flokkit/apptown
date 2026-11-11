@@ -4,17 +4,17 @@ import (
 	"context"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// backupRelease records a settled release only while application writers run.
-// A stopped app, an unobserved runtime, a failed or in-flight replacement,
-// or historical missing release evidence records none. Restoring data never
-// infers a predecessor from release numbers.
+// backupRelease records the serving release only while application writers
+// run and the deployment is reconciled. A stopped app, an unobserved runtime,
+// a failed or in-flight replacement (whose writers may run), or an unknown
+// serving release records none. Restoring data never infers a predecessor
+// from release numbers.
 func (s *Service) backupRelease(ctx context.Context, dep *deployment.Deployment, dk docker.Scope) (ids.ID, error) {
-	if dep == nil || s.releases == nil || dep.ObservedGeneration == 0 || dep.DesiredGeneration != dep.ObservedGeneration {
+	if dep == nil || dep.ServingReleaseID.IsZero() || dep.Readiness != deployment.Reconciled {
 		return ids.Nil, nil
 	}
 	target, err := s.targets.ByID(ctx, dep.TargetID)
@@ -52,11 +52,5 @@ func (s *Service) backupRelease(ctx context.Context, dep *deployment.Deployment,
 	if !running {
 		return ids.Nil, nil
 	}
-	r, err := s.releases.LastReleasedForDeployment(ctx, dep.ID)
-	if found, err := database.Lookup(err); err != nil {
-		return ids.Nil, err
-	} else if found && r.Generation == dep.ObservedGeneration {
-		return r.ID, nil
-	}
-	return ids.Nil, nil
+	return dep.ServingReleaseID, nil
 }

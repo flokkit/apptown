@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
 
@@ -152,7 +151,7 @@ func TestPortainerReleaseAndMaintenanceKeepReadsEffectFree(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := p.s.observations.read(record, p.s.now())
-	in, err := p.s.Outcomes.InputsAtGeneration(t.Context(), dep.ID, dep.ObservedGeneration)
+	in, _, err := p.s.serving(t.Context(), dep)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,11 +191,7 @@ func TestPortainerRecoveryUsesCapturedReleaseAuthorityBeforeDiagnostic(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	row, err := deploymentsql.New(p.s.db.SQL()).CompletedAttempt(t.Context(), deploymentsql.CompletedAttemptParams{DeploymentID: dep.ID, Generation: dep.ObservedGeneration, Status: AttemptDone.String()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	at := Attempt{ID: row.ID, DeploymentID: row.DeploymentID, Generation: row.Generation}
+	at := Attempt{ID: dep.ServingAttemptID, DeploymentID: dep.ID, Generation: dep.ObservedGeneration}
 	// Preparing an observer is read-only; exercise the same binding shared by
 	// ordinary and stranded recovery without changing a completed settlement.
 	target, err := p.s.Recoverer().source.PrepareObservation(t.Context(), at)

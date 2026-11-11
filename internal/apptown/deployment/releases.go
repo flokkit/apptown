@@ -2,9 +2,7 @@ package deployment
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -270,35 +268,25 @@ func (s *Releases) LastReleasedForDeployment(ctx context.Context, deploymentID i
 	return s.read(ctx, row, err)
 }
 
-// releaseForGeneration reads the release applied to this exact placement.
-func (s *Service) releaseForGeneration(ctx context.Context, dep *Deployment) (*Release, error) {
-	row, err := deploymentsql.New(s.db.SQL()).ReleaseForGeneration(ctx, deploymentsql.ReleaseForGenerationParams{DeploymentID: dep.ID, Generation: dep.ObservedGeneration})
-	if found, err := database.Lookup(err); err != nil || !found {
-		return nil, err
+// servingRelease is the release a deployment serves, nil when not known.
+func (s *Service) servingRelease(ctx context.Context, dep *Deployment) (*Release, error) {
+	if dep.ServingReleaseID.IsZero() {
+		return nil, nil
 	}
-	return s.Releases.read(ctx, row, nil)
+	return s.Releases.ByID(ctx, dep.ServingReleaseID)
 }
 
-// Live reports whether a release is the newest released on its recorded
-// deployment identity while that deployment still stands. Historical releases
-// without a recorded identity remain history; a name cannot establish liveness.
+// Live reports whether a release is what its recorded deployment serves while
+// that deployment still stands. A name cannot establish liveness.
 func (s *Releases) Live(ctx context.Context, rel *Release) (bool, error) {
 	if rel.State != Released || rel.DeploymentID.IsZero() {
 		return false, nil
 	}
-	q := deploymentsql.New(s.db.SQL())
-	latest, err := q.LatestReleasedForDeployment(ctx, deploymentsql.LatestReleasedForDeploymentParams{DeploymentID: rel.DeploymentID, State: Released.String()})
+	dep, err := deploymentsql.New(s.db.SQL()).DeploymentByID(ctx, rel.DeploymentID)
 	if found, err := database.Lookup(err); err != nil || !found {
 		return false, err
 	}
-	if latest.ID != rel.ID {
-		return false, nil
-	}
-	_, err = q.DeploymentByID(ctx, rel.DeploymentID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	}
-	return err == nil, err
+	return dep.Deployment.ServingReleaseID == rel.ID, nil
 }
 
 // ReplacedBy is the number of the later release that replaced a released

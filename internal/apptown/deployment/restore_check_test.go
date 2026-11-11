@@ -217,6 +217,13 @@ func TestTheCheckAfterARestoreSettlesWhatTheProviderSays(t *testing.T) {
 				if got.Handle["deploymentId"] != "dep-9" || got.ReleaseSHA != "" {
 					t.Fatalf("the record of what runs: %v, revision %q", got.Handle, got.ReleaseSHA)
 				}
+				// The adopted release serves; what AppTown applied there does not.
+				if got.ServingReleaseID != r.ID || !got.ServingAttemptID.IsZero() {
+					t.Fatalf("serving record after the adoption: release %s attempt %s", got.ServingReleaseID, got.ServingAttemptID)
+				}
+				if bundle, err := s.runningBundle(ctx, got); err != nil || !bundle.IsZero() {
+					t.Fatalf("an adopted deployment's bundle is known: %s %v", bundle, err)
+				}
 				wantN(t, "adoptions", receipts(t, s.db, "deployment.adopted-after-restore", func(e audit.Entry) bool {
 					return strings.Contains(string(e.Payload), "dep-1") && strings.Contains(string(e.Payload), "dep-9")
 				}), 1)
@@ -270,6 +277,22 @@ func TestTheRecordedReleaseCanBeDeployedAgainAfterAnAdoption(t *testing.T) {
 	}
 	if err := s.checkRestoredDeployments(ctx); err != nil {
 		t.Fatal(err)
+	}
+	// The adopted release serves, not the shipped one before it, and only the
+	// hand bundle names what AppTown last shipped there.
+	adopted := storedDeployment(t, s.db, dep.ID)
+	shippedRelease, err := s.Releases.ByID(ctx, shipped.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if live, err := s.Releases.Live(ctx, shippedRelease); err != nil || live || adopted.ServingReleaseID == shipped.ID || adopted.ServingReleaseID.IsZero() {
+		t.Fatalf("the shipped release still serves after the adoption: live %v %v, serving %s", live, err, adopted.ServingReleaseID)
+	}
+	if running, err := s.runningBundle(ctx, adopted); err != nil || !running.IsZero() {
+		t.Fatalf("an adopted deployment's bundle is known: %s %v", running, err)
+	}
+	if hand, err := s.handBundle(ctx, adopted); err != nil || hand != in.BundleID {
+		t.Fatalf("the recorded release's bundle: %s %v", hand, err)
 	}
 	if _, err := s.RequestRelease(ctx, in); err != nil {
 		t.Fatalf("the recorded release cannot be deployed again: %v", err)

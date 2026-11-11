@@ -24,12 +24,11 @@ type verdict struct {
 }
 
 // settle decides an attempt's outcome against the deployment it belongs
-// to: superseded when the deployment has moved on (an open attempt closes
-// as superseded), already applied when this outcome is the one recorded,
-// otherwise the transition to done or failed with the deployment's
-// readiness settled accordingly.
+// to: superseded when admission replaced it, already applied when this
+// outcome is the one recorded, otherwise the transition to done or failed
+// with the deployment's readiness settled accordingly.
 func (at Attempt) settle(dep *Deployment, status AttemptState, failed bool) (verdict, error) {
-	if status == attemptSuperseded || dep.DesiredGeneration != at.Generation {
+	if status == attemptSuperseded {
 		v := verdict{Outcome: Superseded, Next: status}
 		if status.open() {
 			next, err := status.transition(attemptSuperseded)
@@ -56,11 +55,11 @@ func (at Attempt) settle(dep *Deployment, status AttemptState, failed bool) (ver
 }
 
 // unsettled decides what an uncertain outcome means: nothing when the
-// deployment has moved on or the attempt is already closed; otherwise
-// the attempt becomes uncertain once (an attempt already uncertain keeps
-// its state) and the deployment's readiness is lost.
+// attempt was replaced or is already closed; otherwise the attempt becomes
+// uncertain once (an attempt already uncertain keeps its state) and the
+// deployment's readiness is lost.
 func (at Attempt) unsettled(dep *Deployment, status AttemptState) (verdict, error) {
-	if status == attemptSuperseded || dep.DesiredGeneration != at.Generation {
+	if status == attemptSuperseded {
 		return verdict{Outcome: Superseded, Next: status}, nil
 	}
 	if !status.open() {
@@ -98,19 +97,30 @@ func (e *Deployment) bound(targetID ids.ID) error {
 	return nil
 }
 
-// admit is the deployment taking on a new attempt: the next generation and
-// the readiness that says one is on its way. A rebuild names the
-// generation it selected and is refused when the deployment moved on.
-func (e *Deployment) admit(base *int64) (generation int64, readiness Readiness, err error) {
-	if base != nil && e.DesiredGeneration != *base {
-		return 0, 0, errors.New("deployment generation changed since this rebuild was queued")
+// Admitting is the generation a decision from base is admitted as.
+func (e *Deployment) Admitting(base *int64) int64 {
+	if base != nil {
+		return *base + 1
 	}
+	return e.DesiredGeneration + 1
+}
 
-	readiness, err = e.Readiness.admitted()
-	if err != nil {
-		return 0, 0, err
+// admit is the deployment taking on a new attempt and the readiness that says
+// one is on its way. A decision is the next generation, refused when the
+// deployment moved past its base; a repair reapplies the serving attempt at
+// its generation, refused once another attempt serves.
+func (e *Deployment) admit(base *int64, repairs ids.ID) (int64, Readiness, error) {
+	generation := e.Admitting(base)
+	switch {
+	case !repairs.IsZero() && e.ServingAttemptID != repairs:
+		return 0, 0, errors.New("deployment serves another attempt since this repair was queued")
+	case !repairs.IsZero():
+		generation = e.ObservedGeneration
+	case base != nil && e.DesiredGeneration != *base:
+		return 0, 0, errors.New("deployment generation changed since this was queued")
 	}
-	return e.DesiredGeneration + 1, readiness, nil
+	readiness, err := e.Readiness.admitted()
+	return generation, readiness, err
 }
 
 // retire decides whether a target may be retired and what its status

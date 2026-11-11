@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
@@ -28,13 +29,13 @@ func TestAttemptSettle(t *testing.T) {
 	if _, err := at.settle(dep, AttemptDone, true); !errors.Is(err, errOutcomeConflict) {
 		t.Fatalf("a different outcome for a settled attempt conflicts: %v", err)
 	}
+	// A repair runs below the allocation counter: only admission replaces it.
 	moved := &Deployment{ID: idstest.N(1), DesiredGeneration: 4, Readiness: reconciling}
-	v, err = at.settle(moved, AttemptRunning, false)
-	if err != nil || v.Outcome != Superseded || v.Next != attemptSuperseded || !v.Changed {
-		t.Fatalf("an open attempt of an old generation closes superseded: %+v %v", v, err)
+	if v, err := at.settle(moved, AttemptRunning, false); err != nil || v.Outcome != Applied || v.Next != AttemptDone {
+		t.Fatalf("an open attempt below the desired generation applies: %+v %v", v, err)
 	}
-	if v, err := at.settle(moved, AttemptDone, false); err != nil || v.Outcome != Superseded || v.Changed {
-		t.Fatalf("a closed attempt of an old generation is superseded without a write: %+v %v", v, err)
+	if v, err := at.settle(moved, attemptSuperseded, false); err != nil || v.Outcome != Superseded || v.Changed {
+		t.Fatalf("a replaced attempt is superseded without a write: %+v %v", v, err)
 	}
 }
 
@@ -52,8 +53,11 @@ func TestAttemptUnsettled(t *testing.T) {
 	if v, err := at.unsettled(dep, AttemptDone); err != nil || v.Outcome != alreadyApplied || v.Changed {
 		t.Fatalf("a closed attempt stays closed: %+v %v", v, err)
 	}
-	if v, err := at.unsettled(&Deployment{DesiredGeneration: 9}, AttemptRunning); err != nil || v.Outcome != Superseded || v.Changed {
-		t.Fatalf("an old generation is superseded: %+v %v", v, err)
+	if v, err := at.unsettled(&Deployment{DesiredGeneration: 9, Readiness: reconciling}, AttemptRunning); err != nil || v.Outcome != outcomeUncertain {
+		t.Fatalf("an open attempt below the desired generation becomes uncertain: %+v %v", v, err)
+	}
+	if v, err := at.unsettled(dep, attemptSuperseded); err != nil || v.Outcome != Superseded || v.Changed {
+		t.Fatalf("a replaced attempt is superseded: %+v %v", v, err)
 	}
 	if err := at.completes(deploy.Observation{Generation: 2, Rollout: "active"}); err != nil {
 		t.Fatal(err)
@@ -69,17 +73,25 @@ func TestDeploymentAdmit(t *testing.T) {
 	if err := dep.bound(idstest.N(3)); err == nil {
 		t.Fatal("a changed target binding is refused")
 	}
-	gen, readiness, err := dep.admit(nil)
+	gen, readiness, err := dep.admit(nil, ids.Nil)
 	if err != nil || gen != 5 || readiness != reconciling {
 		t.Fatalf("admission is the next generation, on its way: %d %s %v", gen, readiness, err)
 	}
 	four := int64(4)
-	if _, _, err := dep.admit(&four); err != nil {
-		t.Fatalf("a rebuild of the selected generation is admitted: %v", err)
+	if gen, _, err := dep.admit(&four, ids.Nil); err != nil || gen != 5 || dep.Admitting(&four) != 5 {
+		t.Fatalf("a release from the current base is admitted as the next generation: %d %v", gen, err)
 	}
 	three := int64(3)
-	if _, _, err := dep.admit(&three); err == nil {
-		t.Fatal("a rebuild of a generation the deployment moved past is refused")
+	if _, _, err := dep.admit(&three, ids.Nil); err == nil {
+		t.Fatal("a release from a base the deployment moved past is refused")
+	}
+	// Serving generation 2 after a failed generation 4: a repair reapplies 2.
+	dep.ObservedGeneration, dep.ServingAttemptID = 2, idstest.N(20)
+	if gen, _, err := dep.admit(nil, idstest.N(20)); err != nil || gen != 2 {
+		t.Fatalf("a repair is admitted at the serving generation: %d %v", gen, err)
+	}
+	if _, _, err := dep.admit(nil, idstest.N(21)); err == nil {
+		t.Fatal("a repair of an attempt that no longer serves is refused")
 	}
 }
 

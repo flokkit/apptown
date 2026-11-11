@@ -27,13 +27,13 @@ import (
 // nuance (§2.3a). This package owns the record and its rules; AppTown holds
 // the doors and the drivers.
 
-// AppliedAttempt identifies the observed generation’s successful attempt and finish time.
+// AppliedAttempt is the serving attempt's generation and finish time.
 type AppliedAttempt struct {
 	At         time.Time `json:"at"`
 	Generation int64     `json:"generation"`
 }
 
-// Deployment includes the last successful attempt of its observed generation.
+// Deployment includes its serving attempt's finish time.
 type Deployment struct {
 	RuntimeState       string          `json:"runtimeState"`
 	RuntimeActor       string          `json:"runtimeActor"`
@@ -78,6 +78,9 @@ type Deployment struct {
 	// RestoreCheck holds it after a whole-AppTown restore (restore_check.go);
 	// "" when nothing does.
 	RestoreCheck RestoreCheck `json:"restoreCheck,omitempty"`
+	// What serves (the serving record): the release, Nil when unknown, and
+	// the attempt AppTown applied, Nil when unknown or adopted after a restore.
+	ServingReleaseID, ServingAttemptID ids.ID `json:"-"`
 }
 
 // ReadingBasis names the settled deployment facts that observation depends on.
@@ -227,6 +230,8 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		StartFrom:          r.StartFromBackup,
 		StartedFrom:        stamp.Time{NullTime: r.StartedFromAt},
 		RestoreCheck:       RestoreCheck(r.RestoreCheck),
+		ServingReleaseID:   r.ServingReleaseID,
+		ServingAttemptID:   r.ServingAttemptID,
 	}
 	if err := e.Kind.Scan(r.Kind); err != nil {
 		return nil, err
@@ -426,17 +431,7 @@ func nameFreeOfDataIn(ctx context.Context, tx *database.Tx, projectID ids.ID, na
 	return fmt.Errorf("%w: %s (%s); delete it and mark it deleted under Left behind, or choose another name", ErrNameHeldByData, name, strings.Join(what, ", "))
 }
 
-// completedAttempt selects successful application evidence for release inputs.
-func (s *Deployments) completedAttempt(ctx context.Context, d *Deployment) (deploymentsql.DeploymentAttempt, bool, error) {
-	if d.ObservedGeneration == 0 {
-		return deploymentsql.DeploymentAttempt{}, false, nil
-	}
-	at, err := deploymentsql.New(s.db.SQL()).CompletedAttempt(ctx, deploymentsql.CompletedAttemptParams{DeploymentID: d.ID, Generation: d.ObservedGeneration, Status: AttemptDone.String()})
-	found, err := database.Lookup(err)
-	return at, found, err
-}
-
-// The successful attempt is selected in the same statement as the deployment.
+// The serving attempt's finish time is read in the same statement as the deployment.
 func appliedDeploymentRecord(row deploymentsql.Deployment, at sql.NullTime, err error) (*Deployment, error) {
 	d, err := deploymentRecord(row, err)
 	if err != nil {

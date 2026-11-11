@@ -79,7 +79,7 @@
 // request before source staging or secret resolution. Duplicate delivery does not
 // repeat preparation. Managed-need provisioning and artifact rendering can perform
 // provider I/O during preparation. Execution then uses [Runner] and [Outcomes.Admit]
-// to persist an attempt, immutable [Inputs] and the next generation before calling
+// to persist an attempt, immutable [Inputs] and its generation before calling
 // the driver's Reconcile operation. Those guards do not cover earlier preparation.
 // Reusing a key requires identical inputs and does not authorize another execution.
 //
@@ -87,9 +87,15 @@
 // in deployment/attempt order. Provider I/O stays outside these transactions.
 // [Outcomes.Checkpoint] persists provider identities needed for observation.
 // [Outcomes.Complete] and [Outcomes.Fail] commit the attempt, deployment changes,
-// associated release and required receipts together. A superseded attempt cannot
-// overwrite a newer generation. Replay preserves the stored terminal evidence;
-// conflicting terminal outcomes return an error.
+// associated release and required receipts together. An attempt a later
+// admission superseded cannot overwrite current records. Replay preserves the
+// stored terminal evidence; conflicting terminal outcomes return an error.
+//
+// Only Admit allocates a generation: a decision takes the next one
+// ([Deployment.Admitting]); a repair ([Start.Repairs]) reapplies the serving
+// attempt at its generation. Successful settlement records the serving attempt
+// and its release (a repair keeps the release); restore adoption records its
+// observed release and no attempt. What runs is read from that record.
 //
 // [Runner.Run] distinguishes provider failure from settlement failure through
 // [runError]. An unknown provider result or failure to record an outcome requires

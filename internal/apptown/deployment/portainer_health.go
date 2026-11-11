@@ -78,7 +78,7 @@ func (s *Service) requireRecoveryReadiness(ctx context.Context, at Attempt) erro
 	if err != nil {
 		return err
 	}
-	if dep.TargetID != row.ReleaseRequest.TargetID || dep.DesiredGeneration != at.Generation {
+	if dep.TargetID != row.ReleaseRequest.TargetID {
 		return errors.New("Portainer recovery placement changed")
 	}
 	if err := dep.HeldAfterRestore(); err != nil {

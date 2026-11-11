@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
-	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/fault"
@@ -161,14 +159,10 @@ func (s *Service) diagnostics(ctx context.Context, projectID ids.ID, name string
 	if out.Runtime, err = s.diagnosedRuntime(ctx, dep); err != nil {
 		return Diagnostics{}, err
 	}
-	if dep.ObservedGeneration > 0 {
-		r, err := deploymentsql.New(s.db.SQL()).ReleasedGeneration(ctx, deploymentsql.ReleasedGenerationParams{ProjectID: projectID, DeploymentID: dep.ID, Generation: dep.ObservedGeneration, State: Released.String()})
-		switch {
-		case err == nil:
-			out.ReleaseNumber = int(r.Number)
-		case !errors.Is(err, sql.ErrNoRows):
-			return Diagnostics{}, err
-		}
+	if r, err := s.servingRelease(ctx, dep); err != nil {
+		return Diagnostics{}, err
+	} else if r != nil {
+		out.ReleaseNumber = int(r.Number)
 	}
 	if err := parts(ctx, dep, &out); err != nil {
 		return Diagnostics{}, err

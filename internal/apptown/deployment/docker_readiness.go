@@ -25,7 +25,7 @@ func (d dockerReadiness) maintainReadiness(ctx context.Context, p deploy.Placeme
 	if s.release.Sources == nil || d.record.deployment.ImageDigest == "" {
 		return unknown, errors.New("Docker readiness lacks retained source or image authority")
 	}
-	in, err := s.Outcomes.InputsAtGeneration(ctx, p.ID, p.Generation)
+	in, _, err := s.serving(ctx, d.record.deployment)
 	if err != nil {
 		return unknown, err
 	}

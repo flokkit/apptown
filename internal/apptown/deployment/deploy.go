@@ -142,13 +142,9 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 		if !ok {
 			return ExecutionResult{}, fail("%s renders no artifact of its own; prepare one for it", t.Kind)
 		}
-		// Admission mints base+1 and refuses a deployment that moved since
-		// the request chose its base; a retry renders for its own attempt.
+		// A retry renders for its own attempt.
 		placement := dep.Placement()
-		placement.Next = dep.DesiredGeneration + 1
-		if req.baseGeneration != nil {
-			placement.Next = *req.baseGeneration + 1
-		}
+		placement.Next = dep.Admitting(req.baseGeneration)
 		if req.retry != nil {
 			placement.Next = req.retry.Generation
 		}

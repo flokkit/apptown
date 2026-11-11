@@ -663,4 +663,27 @@ func TestBackupsRecordTheRunningReleaseAndPairOnlyRecordedEvidence(t *testing.T)
 	if err != nil || !stopped.RunningReleaseID.IsZero() {
 		t.Fatalf("a stopped app claimed a running release: %+v %v", stopped, err)
 	}
+	// A successful repair of the serving attempt settles it again: backups
+	// pair with the release it still serves.
+	current, err := s.Deployments.ByName(t.Context(), pid, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputs, err := s.Outcomes.InputsFor(t.Context(), deployment.Attempt{ID: current.ServingAttemptID, DeploymentID: current.ID, Generation: current.ObservedGeneration})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputs.ReleaseID, inputs.Rebuild = ids.Nil, true
+	repair, _, err := s.Outcomes.Admit(t.Context(), deployment.Start{DeploymentID: current.ID, TargetID: current.TargetID, Key: "repair", Inputs: inputs, Repairs: current.ServingAttemptID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Outcomes.Complete(t.Context(), deployment.Completion{Attempt: repair, Observed: deploy.Observation{Generation: repair.Generation, Rollout: "active", Health: "healthy"}}); err != nil {
+		t.Fatal(err)
+	}
+	client.SetRunning(deployedNames(t, s, pid, "main", "backup-release").App(), true)
+	paired, err := s.TakeBackup(t.Context(), pid, "main", "bls")
+	if err != nil || paired.RunningReleaseID != rel.ID {
+		t.Fatalf("a backup after a successful repair: %+v %v", paired, err)
+	}
 }

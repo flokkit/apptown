@@ -257,10 +257,8 @@ func removeRecordedIn(ctx context.Context, tx *database.Tx, dep *Deployment, s R
 // release reads as history, not as live. Releases.Live reads the
 // deployment's record, which the removal deletes in the same transaction.
 func takeDownReleaseIn(ctx context.Context, tx *database.Tx, dep *Deployment, target, who string, at time.Time) error {
-	q := deploymentsql.New(tx.SQL())
-	rel, err := q.LatestReleasedForDeployment(ctx, deploymentsql.LatestReleasedForDeploymentParams{DeploymentID: dep.ID, State: Released.String()})
-	if found, err := database.Lookup(err); err != nil || !found {
-		return err
+	if dep.ServingReleaseID.IsZero() {
+		return nil
 	}
-	return appendReleaseEvent(ctx, tx, rel.ID, fmt.Sprintf("taken down — %s deleted the deployment %s on %s; it no longer serves this release", who, dep.Name, target), at)
+	return appendReleaseEvent(ctx, tx, dep.ServingReleaseID, fmt.Sprintf("taken down — %s deleted the deployment %s on %s; it no longer serves this release", who, dep.Name, target), at)
 }

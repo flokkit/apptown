@@ -120,8 +120,10 @@ func TestADigestBundleIsPromotedAndRecoveredWithoutABuild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inputs, err := w.s.Outcomes.InputsAtGeneration(context.Background(), after.ID, after.ObservedGeneration); err != nil || inputs.BundleID != b.ID || after.ObservedGeneration == dep.ObservedGeneration {
-		t.Errorf("the recovered generation %d: %+v %v", after.ObservedGeneration, inputs, err)
+	// The repair is a new serving attempt at the same generation, still
+	// serving the release.
+	if inputs, _, err := w.s.serving(context.Background(), after); err != nil || inputs.BundleID != b.ID || after.ObservedGeneration != dep.ObservedGeneration || after.ServingAttemptID == dep.ServingAttemptID || after.ServingReleaseID != dep.ServingReleaseID {
+		t.Errorf("the repaired generation %d: %+v %v", after.ObservedGeneration, inputs, err)
 	}
 }
 

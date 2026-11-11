@@ -128,7 +128,7 @@ func (o *ProtectionObserver) snapshot(ctx context.Context, id ids.ID) (Protectio
 	if dep.Kind != deployment.Standing {
 		return ProtectionSnapshot{Unknown: true}, "", errors.New("protection observations require a standing deployment")
 	}
-	if dep.LastApplied == nil {
+	if dep.LastApplied == nil && dep.ServingReleaseID.IsZero() { // nothing applied or adopted
 		return ProtectionSnapshot{Unknown: true, Waiting: true, Reason: "Not released yet."}, identity, nil
 	}
 	r, err := o.load(ctx, id, identity)
@@ -185,7 +185,7 @@ func (o *ProtectionObserver) run(ctx context.Context, id ids.ID, identity string
 	if err == nil && (current != identity || dep.Kind != deployment.Standing) {
 		return nil
 	}
-	if err == nil && dep.LastApplied == nil {
+	if err == nil && dep.LastApplied == nil && dep.ServingReleaseID.IsZero() {
 		return nil
 	}
 	var protection *Protection

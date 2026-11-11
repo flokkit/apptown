@@ -154,8 +154,8 @@ func TestLastAppliedSurvivesAddressEditsAndAdvancesOnRebuild(t *testing.T) {
 	w.s.setClock(w.s.clock)
 	ctx := t.Context()
 	// Deployment reads must select application evidence with the row, rather
-	// than issuing the old per-row CompletedAttempt query.
-	clear := dbtest.NextStatementFailure(w.s.db, "-- name: CompletedAttempt")
+	// than issuing a per-row attempt read.
+	clear := dbtest.NextStatementFailure(w.s.db, "-- name: AttemptByID")
 	t.Cleanup(clear)
 	byID, err := w.s.Deployments.ByID(ctx, w.main.ID)
 	if err != nil || byID.LastApplied == nil {
