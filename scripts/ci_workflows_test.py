@@ -34,6 +34,40 @@ def save_guards(section):
 
 
 class TestCache(unittest.TestCase):
+    def test_ui_review_produces_a_full_readable_artifact_without_saving_caches(self):
+        workflow = text('ui-review.yml')
+        self.assertIn('  push:\n    tags: ["ui-review/*"]\n  workflow_dispatch:\n', workflow)
+        self.assertNotIn('branches:', workflow)
+        self.assertNotIn('pull_request', workflow)
+        self.assertNotIn('cache/save@', workflow)
+        self.assertNotIn('cache-to:', workflow)
+        self.assertNotIn('APPTOWN_DESIGN_PAGES', workflow)
+        shots = job(workflow, 'shots')
+        camera = re.search(r'- name: web-ui\n            args: (.*)', text('heavy-main.yml')).group(1)
+        self.assertIn('run: sh scripts/ci-heavy.sh ' + camera, shots)
+        self.assertIn('CI_HEAVY_REQUIRE: TestWebUICapture', shots)
+        self.assertIn('CI_TEST_RESULTS: fresh', shots)
+        self.assertIn('sudo cp -R', shots)
+        self.assertIn('sudo chown -R', shots)
+        self.assertIn('scripts/ui-review.mjs sheets', shots)
+        self.assertIn('APPTOWN_PLAYWRIGHT_MODULE: ${{ github.workspace }}/web/node_modules/playwright/index.mjs', shots)
+        upload = next(s for s in re.split(r'\n      - ', shots) if 'actions/upload-artifact@' in s)
+        self.assertIn('if: always()', upload)
+        self.assertIn('name: ui-review-${{ steps.commit.outputs.short }}', upload)
+        self.assertIn('if-no-files-found: error', upload)
+        self.assertIn('retention-days: 30', upload)
+        self.assertLess(shots.index('actions/upload-artifact@'), shots.index('ci-heavy.sh cleanup'))
+        guard = re.search(r'- name: verify review tag\n        env:\n.*?        run: \|\n(.*?)(?=      - )', shots, re.S).group(1)
+        guard = '\n'.join(line[10:] for line in guard.splitlines())
+        sha = 'a' * 40
+        import os
+        for tag, ok in [('ui-review/' + sha[:12], True), ('ui-review/' + sha, True),
+                        ('ui-review/aaaa', False), ('ui-review/' + 'b' * 12, False)]:
+            r = subprocess.run(['bash', '-c', guard], env={**os.environ, 'EVENT': 'push', 'TAG': tag, 'SHA': sha}, capture_output=True, text=True)
+            self.assertEqual(r.returncode == 0, ok, r.stderr)
+        r = subprocess.run(['bash', '-c', guard], env={**os.environ, 'EVENT': 'workflow_dispatch', 'TAG': 'main', 'SHA': sha}, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
     def test_heavy_checks_action_release_tags(self):
         web = job(text('heavy-main.yml'), 'web')
         self.assertIn('python3 scripts/action-pins-check.py', web)

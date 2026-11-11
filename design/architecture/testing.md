@@ -360,3 +360,5 @@ Docker Desktop requires **Enable host networking** under Settings → Resources 
 Network (apply/restart after changing it). A failed preflight names this
 prerequisite; it does not change Desktop settings or widen app port publication.
 Docker startup or port-observation failures remain harness errors.
+
+For a review of every page by eye, see [UI review](../operations/ui-review.md).

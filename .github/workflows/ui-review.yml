@@ -1,0 +1,122 @@
+# Capture a complete review set; model review runs locally.
+name: ui-review
+on:
+  push:
+    tags: ["ui-review/*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  shots:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    env:
+      GOFLAGS: -buildvcs=false
+      CI_HEAVY_ID: ui-review
+      CI_HEAVY_REQUIRE: TestWebUICapture
+      CI_TEST_RESULTS: fresh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: verify review tag
+        env:
+          EVENT: ${{ github.event_name }}
+          TAG: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = push ]; then
+            suffix=${TAG#ui-review/}
+            if [[ ! "$suffix" =~ ^[0-9a-f]{12,40}$ ]] || [[ "$SHA" != "$suffix"* ]]; then
+              echo "the tag names $suffix, the run is at $SHA" >&2
+              exit 1
+            fi
+          fi
+      - name: name the artifact
+        id: commit
+        env:
+          SHA: ${{ github.sha }}
+        run: echo "short=${SHA:0:12}" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.22.2'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: web
+      - run: npx vite build
+        working-directory: web
+      # Stable content times let Go reuse compiled packages across runs.
+      - run: python3 scripts/ci-content-mtimes.py .
+      - name: configure host compilation caches
+        run: |
+          echo "CI_HEAVY_GOMOD=$HOME/go/pkg/mod" >> "$GITHUB_ENV"
+          echo "CI_HEAVY_GOCACHE=$HOME/.cache/go-build" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: gobuild
+        with:
+          path: ~/.cache/go-build
+          key: go-build-heavy-web-ui-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'deploy/ci-heavy/Dockerfile') }}-${{ github.sha }}
+          restore-keys: go-build-heavy-web-ui-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'deploy/ci-heavy/Dockerfile') }}-
+      # Unused SDKs leave room for the test images and Buildx layers.
+      - name: free runner disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
+          df -h /
+      # The tests' images (deploy/ci-heavy/test-images.txt), before the
+      # tests: a registry error fails this step, not a test.
+      - name: pull test images
+        run: sh scripts/ci-heavy.sh pull
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: runner image inputs
+        id: image-inputs
+        run: echo "pi=$(sed -n 's/^ARG PI_VERSION=//p' deploy/apptown-agent/Dockerfile)" >> "$GITHUB_OUTPUT"
+      - name: build agent image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: deploy/apptown-agent
+          load: true
+          tags: apptown-agent
+          cache-from: type=gha,version=2,scope=ci-heavy-agent-linux-amd64
+      - name: build test runner image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: deploy/ci-heavy
+          file: deploy/ci-heavy/Dockerfile
+          build-args: PI_VERSION=${{ steps.image-inputs.outputs.pi }}
+          load: true
+          tags: apptown-ci-heavy
+          cache-from: type=gha,version=2,scope=ci-heavy-runner-linux-amd64
+      - name: capture every page
+        env:
+          CI_HEAVY_PREBUILT: "1"
+        run: sh scripts/ci-heavy.sh camera -timeout 45m
+      - name: stage captures for the runner
+        if: always()
+        run: |
+          mapfile -t runs < <(sudo find /tmp/apptown-ci-ui-review -mindepth 1 -maxdepth 1 -type d -name 'cam-*')
+          [ "${#runs[@]}" -eq 1 ] || { echo "expected one camera run, found ${#runs[@]}" >&2; exit 1; }
+          mkdir -p "$RUNNER_TEMP/ui-review"
+          sudo cp -R "${runs[0]}/captures" "$RUNNER_TEMP/ui-review/captures"
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/ui-review"
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - name: make readable sheets
+        env:
+          APPTOWN_PLAYWRIGHT_MODULE: ${{ github.workspace }}/web/node_modules/playwright/index.mjs
+        run: node scripts/ui-review.mjs sheets "$RUNNER_TEMP/ui-review/captures" "$RUNNER_TEMP/ui-review/sheets"
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-review-${{ steps.commit.outputs.short }}
+          path: ${{ runner.temp }}/ui-review/
+          if-no-files-found: error
+          retention-days: 30
+      - if: always()
+        run: sh scripts/ci-heavy.sh cleanup

@@ -8,8 +8,10 @@
 # commit was qualified already (design/operations/releasing.md): each
 # candidate/... tag needs heavy-main.yml's first-attempt execution on its commit
 # (scripts/heavy-evidence.py), each v* tag a successful candidate run for
-# its commit and version (scripts/candidate-evidence.py). Any other push, a
-# deletion or a mix of tags and branches, runs the full gate.
+# its commit and version (scripts/candidate-evidence.py). A ui-review/* tag
+# needs nothing: it publishes nothing, and ui-review.yml checks that the tag
+# names its commit. Any other push, a deletion (of a ui-review tag too) or a
+# mix of tags and branches, runs the full gate.
 #
 # Git hands hooks its own environment (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE,
 # GIT_PREFIX; absolute paths when pushing from a linked worktree). Tests that
@@ -22,7 +24,7 @@ updates=$(cat)
 tags_only=${repo:+yes}
 [ -n "$updates" ] || tags_only=
 while read -r _ local_sha remote_ref _; do
-	case $remote_ref in refs/tags/candidate/v*|refs/tags/v*) ;; *) tags_only= ;; esac
+	case $remote_ref in refs/tags/candidate/v*|refs/tags/v*|refs/tags/ui-review/*) ;; *) tags_only= ;; esac
 	[ "$local_sha" != "$zero" ] || tags_only=
 done <<EOF2
 $updates
@@ -33,6 +35,7 @@ while read -r _ local_sha remote_ref _; do
 	commit=$(git rev-parse "$local_sha^{commit}") || exit 1
 	tag=${remote_ref#refs/tags/}
 	case $tag in
+	ui-review/*) ;; # Captures only; the workflow verifies the commit.
 	candidate/*) python3 scripts/heavy-evidence.py "$repo" "$commit" || exit 1 ;;
 	*) python3 scripts/candidate-evidence.py "$repo" "$commit" "$tag" >/dev/null || exit 1 ;;
 	esac

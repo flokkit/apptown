@@ -51,7 +51,10 @@ release promises is [What 1.0 promises](../../stock/docs/guides/compatibility.md
    ones; a stranger's install of the linux/amd64 archive
    (`scripts/stranger-install.sh`, first preview without a model key); and the
    UI tour. A failure stops the release: fix `main` and push a new candidate
-   tag for the same version, since no version tag was pushed.
+   tag for the same version, since no version tag was pushed. Also push
+   `ui-review/<first 12 characters of C>` at C for the full screenshot set
+   and contact sheets ([UI review](ui-review.md)). That run succeeds before
+   publication; model review and owner decisions run locally on its artifact.
 3. **Qualification on the candidate's bytes.** From the candidate's
    archive artifacts, in parallel: rehearse the upgrade on copies of
    maintained installations' data (below), install the darwin archive
