@@ -12,13 +12,9 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
-// EnsureDeployments reconciles recorded deployments against the docker
-// host at boot. Standing deployments are STANDING: after a host
-// migration, a docker prune, or first boot on a new machine, the DB
-// remembers deployments whose containers do not exist here — rebuild
-// each from its immutable admitted deployment inputs, on the same stable
-// port: the data directory travels with a host move, the containers do
-// not.
+// EnsureDeployments reconciles recorded previews against the hosts at boot.
+// A standing deployment whose container is gone is repaired by its host's
+// reader (deployment.HostReaders).
 func (a *App) EnsureDeployments(ctx context.Context) {
 	go a.ensureDeploymentsOnce(ctx)
 	// What records name and was made before the installation's mark gets
@@ -31,11 +27,8 @@ func (a *App) EnsureDeployments(ctx context.Context) {
 	}
 }
 
-// ensureDeploymentsOnce reconciles recorded deployments against the hosts
-// at boot: previews whose container is gone are forgotten, standing
-// deployments whose container is gone are rebuilt from their recorded
-// inputs. Deployment decides; AppTown says what is running and asks for the
-// rebuild through the queue.
+// ensureDeploymentsOnce forgets previews whose container is gone or stopped.
+// Deployment decides; AppTown says what is running.
 func (a *App) ensureDeploymentsOnce(ctx context.Context) {
 	a.Deployment.BootReconcile(ctx,
 		func(targetID ids.ID, container string) (deployment.ContainerPresence, error) {
@@ -58,11 +51,5 @@ func (a *App) ensureDeploymentsOnce(ctx context.Context) {
 				return deployment.ContainerRunning, nil
 			}
 			return deployment.ContainerStopped, nil
-		},
-		func(e deployment.ProjectDeployment) error {
-			// Admission is unique while queued. The repair's attempt key
-			// prevents a later boot request from repeating an admitted repair.
-			_, err := a.Jobs().Enqueue(ctx, "rebuild", e.ProjectID.String()+"/"+e.Name, map[string]any{"attempt": e.ServingAttemptID}, time.Time{})
-			return err
 		})
 }

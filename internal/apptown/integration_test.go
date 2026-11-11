@@ -356,7 +356,10 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 	if err := dockertest.Run("rm", "-f", envContainer); err != nil {
 		t.Fatal(err)
 	}
-	a.ensureDeploymentsOnce(ctx)
+	// Its host's reader finds it gone and asks for a repair.
+	if _, err := a.Jobs().Enqueue(ctx, "rebuild", environment.ProjectID.String()+"/"+environment.Name, map[string]any{"attempt": environment.ServingAttemptID}, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
 	// Lose completion persistence after boot; the rebuild is not replayed.
 	dbtest.FailNextStatement(t, a.DB, "UPDATE deployments SET observed_generation")
 	job := runQueuedJobForTest(t, a, "rebuild", p.ID.String()+"/main")

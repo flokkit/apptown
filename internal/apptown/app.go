@@ -431,6 +431,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("constructing job queue: %w", err)
 	}
+	a.HostReaders.Jobs = a.jobs
 	a.attention = attentionFor(a)
 	a.mcpDoor = newMCPDoor(a)
 	return a, nil

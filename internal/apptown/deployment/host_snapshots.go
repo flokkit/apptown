@@ -77,29 +77,30 @@ func mergeHostSection[T any](old *docker.HostSection[T], next docker.HostSection
 
 // collect captures act provenance before any host command. A
 // failed attempt is persisted as evidence, not retried as a second host read.
-func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope, q docker.HostQuery, also []string, records *Inventory) error {
+// fresh is this read's container listing (nil when it failed), begun at started.
+func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope, q docker.HostQuery, also []string, records *Inventory) (fresh *[]docker.HostContainer, started time.Time, err error) {
 	queries := deploymentsql.New(s.db.SQL())
 	row, err := queries.StartHostSnapshot(ctx, deploymentsql.StartHostSnapshotParams{ID: ids.New(s.now()), Subject: t.ID.String(), Identity: strconv.FormatInt(t.SettingsRevision, 10)})
 	if err != nil {
-		return err
+		return nil, started, err
 	}
 	prior, err := s.reading(ctx, t)
 	if err != nil {
-		return err
+		return nil, started, err
 	}
-	started := s.now()
+	started = s.now()
 	facts, readErr := docker.ReadHost(ctx, dk, q)
 	if errors.Is(ctx.Err(), context.Canceled) {
-		return ctx.Err()
+		return nil, started, ctx.Err()
 	}
 	finish, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	current, err := NewTargets(s.db, nil).ByID(finish, t.ID)
 	if err != nil {
-		return err
+		return nil, started, err
 	}
 	if current.SettingsRevision != t.SettingsRevision || current.Status == TargetRetired {
-		return nil
+		return nil, started, nil
 	}
 	prior.AttemptedAt, prior.Took, prior.Instance, prior.Also = started, s.now().Sub(started), dk.Instance, also
 	if facts.Host.Reason != "" {
@@ -190,10 +191,10 @@ func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope,
 	}
 	raw, err := json.Marshal(prior)
 	if err != nil {
-		return err
+		return nil, started, err
 	}
 	_, err = queries.FinishHostSnapshot(finish, deploymentsql.FinishHostSnapshotParams{Subject: t.ID.String(), Identity: strconv.FormatInt(t.SettingsRevision, 10), ActCounter: row, Payload: raw, Complete: readErr == nil})
-	return err
+	return facts.Containers.Value, started, err
 }
 
 // BeforeAct records that a Docker host may change, before the effect starts.

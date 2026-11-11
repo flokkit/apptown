@@ -60,8 +60,11 @@ keeps serving its release, the desired generation does not move, and a queued
 or approval-waiting release keeps its base. After a failed release, a repair
 puts back the release that still serves. Its key names the serving attempt,
 so each serving attempt is repaired once; a successful repair becomes the
-serving attempt and can itself be repaired. AppTown asks for repairs when it
-starts.
+serving attempt and can itself be repaired. Each Docker host's reader asks
+for one when a lap's container listing (read successfully, begun after the
+deployment's last act) lacks the container of an idle standing deployment
+meant to run; a stopped container is listed and left as found. An unreachable
+host is asked again on its next lap. A failed repair waits for a person.
 
 ## Requesting and executing a release
 
@@ -376,7 +379,9 @@ that checkpoint applied nothing, so recovery retries it once after a restart
 and otherwise records it failed.
 
 At AppTown start a preview row is forgotten only when its host answers that the
-container is gone or stopped; a host that cannot be asked keeps the row.
+container is gone or stopped; a host that cannot be asked keeps the row. A
+preview's ownership is in memory, lost at a restart; standing deployments are
+left to their hosts' readers.
 
 A new App Platform app's provider-issued name (`*.ondigitalocean.app`) can be
 missing from DNS for minutes after the app goes active, and a resolver that

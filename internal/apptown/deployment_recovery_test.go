@@ -72,10 +72,6 @@ func TestDeploymentUncertaintyBlocksLandingAndBackgroundRebuild(t *testing.T) {
 	if len(containersRun(docker)) != 0 {
 		t.Fatal("landing booted before uncertainty admission guard")
 	}
-	a.ensureDeploymentsOnce(context.Background())
-	if n := len(operationJobs(t, a, "rebuild")); n != 0 {
-		t.Fatalf("%d rebuilds queued for an unresolved deployment", n)
-	}
 	if out, err := deploymentJobsForTest(a).Rebuild(context.Background(), env.ProjectID.String()+"/main", nil); err != nil || out["skipped"] != "deployment execution or observation owns this deployment" {
 		t.Fatalf("queued rebuild bypassed recovery: %v %v", out, err)
 	}

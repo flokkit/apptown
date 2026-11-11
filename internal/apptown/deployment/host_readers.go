@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"log"
+	"slices"
 	"sync"
 	"time"
 
@@ -19,6 +20,12 @@ type HostReaders struct {
 	Providers *Providers
 	Inventory *Inventory
 	Interval  time.Duration
+	// Jobs queues the repair of a standing deployment whose container a lap
+	// found gone (unique while queued; the repair's attempt key keeps a later
+	// request from repeating an admitted one). nil asks for none.
+	Jobs interface {
+		Enqueue(ctx context.Context, operation, key string, values map[string]any, after time.Time) (int64, error)
+	}
 }
 
 const hostReadInterval = 20 * time.Second
@@ -129,5 +136,29 @@ func (r HostReaders) lap(ctx context.Context, id ids.ID) error {
 	if t.Origin == OriginBuiltIn && r.Providers.databaseContainer != "" {
 		also = []string{r.Providers.databaseContainer}
 	}
-	return r.Snapshots.collect(ctx, t, dk, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true, ImageRefs: refs}, also, r.Inventory)
+	fresh, started, err := r.Snapshots.collect(ctx, t, dk, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true, ImageRefs: refs}, also, r.Inventory)
+	if err != nil || fresh == nil || r.Jobs == nil {
+		return err
+	}
+	return r.repairGone(ctx, t.ID, *fresh, started)
+}
+
+// repairGone asks to repair each idle standing deployment on the target, meant
+// to run and not acted on since the lap began, whose container the listing
+// lacks. A stopped container is listed and left; the job and Admit decide.
+func (r HostReaders) repairGone(ctx context.Context, targetID ids.ID, listed []docker.HostContainer, began time.Time) error {
+	standing, err := NewDeployments(r.Snapshots.db).StandingWithoutOpenAttempt(ctx)
+	if err != nil {
+		return err
+	}
+	for _, e := range standing {
+		if e.TargetID != targetID || e.RuntimeState != "running" || e.Container == "" || !e.lastActAt().Before(began) ||
+			slices.ContainsFunc(listed, func(c docker.HostContainer) bool { return c.Name == e.Container }) {
+			continue
+		}
+		if _, err := r.Jobs.Enqueue(ctx, "rebuild", e.ProjectID.String()+"/"+e.Name, map[string]any{"attempt": e.ServingAttemptID}, time.Time{}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

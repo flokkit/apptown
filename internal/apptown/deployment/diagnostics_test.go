@@ -604,7 +604,7 @@ func (s *Service) readHostContainersForTest(t *testing.T, id ids.ID) {
 		t.Fatal(err)
 	}
 	dk.Now = s.now
-	if err := NewHostSnapshots(s.db, s.now).collect(t.Context(), target, dk, docker.HostQuery{Containers: true}, nil, nil); err != nil {
+	if _, _, err := NewHostSnapshots(s.db, s.now).collect(t.Context(), target, dk, docker.HostQuery{Containers: true}, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 }

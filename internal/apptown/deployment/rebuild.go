@@ -251,49 +251,22 @@ func (p ContainerPresence) String() string {
 	return "unknown"
 }
 
-// BootReconcile is what a restart does for what the apptown runs itself:
-// forget preview rows whose container is not running, and ask for a rebuild
-// of every standing deployment whose container is GONE on a host AppTown
-// talks to. A standing container that exists but is stopped stays as found —
-// the health controller holds a crash loop by stopping it, a person may stop
-// one too, and unless-stopped makes Docker the same promise. present says
-// what a target's host has; rebuild asks for a container, given the placement.
-func (s *Service) BootReconcile(ctx context.Context, present func(targetID ids.ID, container string) (ContainerPresence, error), rebuild func(p ProjectDeployment) error) {
-	if previews, err := s.Deployments.Previews(ctx); err == nil {
-		for _, p := range previews {
-			// Only a definite answer forgets one: an unreachable host keeps it.
-			state, perr := present(p.TargetID, p.Container)
-			if p.Container == "" || (perr == nil && (state == ContainerGone || state == ContainerStopped)) {
-				if err := s.Deployments.ForgetPreview(ctx, p.ChangeID); err != nil {
-					log.Printf("change %d: forgetting its preview deployment: %v", p.ChangeID, err)
-				}
-			}
-		}
-	}
-	envs, err := s.Deployments.StandingWithoutOpenAttempt(ctx)
+// BootReconcile forgets, at a restart, the preview rows whose container its
+// host says is gone or stopped: a preview's ownership is in memory and lost
+// at a restart. present says what a target's host has. A standing
+// deployment's lost container is repaired by its host's reader (HostReaders).
+func (s *Service) BootReconcile(ctx context.Context, present func(targetID ids.ID, container string) (ContainerPresence, error)) {
+	previews, err := s.Deployments.Previews(ctx)
 	if err != nil {
 		return
 	}
-	for _, e := range envs {
-		if e.RuntimeState != "running" {
-			continue
-		}
-		if e.Container == "" {
-			continue // served elsewhere: nothing local to rebuild
-		}
-		state, err := present(e.TargetID, e.Container)
-		if err != nil {
-			log.Printf("deployment %s/%s: cannot inspect selected target: %v", e.Project, e.Name, err)
-			continue
-		}
-		if state == ContainerStopped {
-			log.Printf("deployment %s/%s: container %s is stopped; leaving it as found", e.Project, e.Name, e.Container)
-		}
-		if state != ContainerGone {
-			continue
-		}
-		if err := rebuild(e); err != nil {
-			log.Printf("deployment %s/%s: asking for a rebuild: %v", e.Project, e.Name, err)
+	for _, p := range previews {
+		// Only a definite answer forgets one: an unreachable host keeps it.
+		state, perr := present(p.TargetID, p.Container)
+		if p.Container == "" || (perr == nil && (state == ContainerGone || state == ContainerStopped)) {
+			if err := s.Deployments.ForgetPreview(ctx, p.ChangeID); err != nil {
+				log.Printf("change %d: forgetting its preview deployment: %v", p.ChangeID, err)
+			}
 		}
 	}
 }
