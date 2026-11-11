@@ -1028,6 +1028,20 @@ it('links preview logs only when a preview was recorded', () => {
   expect(html).not.toContain('/records/preview')
 })
 
+// The screenshots sentence speaks of a preview a run recorded; with no
+// preview step in the runs shown, the row says that instead of denying
+// screenshots of a preview no run made.
+it('says the latest run recorded no preview rather than missing screenshots', () => {
+  const html = render(view())
+  expect(html).toContain('The latest run recorded no preview.')
+  expect(html).not.toContain('No screenshots were recorded for this preview.')
+  const v = view()
+  v.detail!.steps.push(step('preview', 'pass', {}, {id: 'boot'}))
+  const recorded = render(v)
+  expect(recorded).toContain('No screenshots were recorded for this preview.')
+  expect(recorded).not.toContain('The latest run recorded no preview.')
+})
+
 it('retains the preview run in the logs link', () => {
   const v = view()
   v.detail!.steps.push(step('preview', 'pass', {screenshots:{shots:[],unavailable:'No capture was recorded.'}}, {id:'boot',runId:'preview-run'}))

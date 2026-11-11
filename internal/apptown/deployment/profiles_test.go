@@ -261,8 +261,14 @@ func TestMemoryUseIsWhatTheHostReportsOrUnknown(t *testing.T) {
 	var mu sync.Mutex
 	inspected := map[string]int{}
 	replaced := "" // a container whose second inspection finds another container
+	stopped := ""  // a container that is there and not running
 	w.hosts.daemon("lab").SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 0 && args[0] == "stats" {
+			mu.Lock()
+			defer mu.Unlock()
+			if stopped == web {
+				return []byte(worker + "\t200MiB / 256MiB\t35.00%\n"), nil, true
+			}
 			return []byte(web + "\t11.5MiB / 128MiB\t0.20%\n" + worker + "\t200MiB / 256MiB\t35.00%\n"), nil, true
 		}
 		if len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat {
@@ -274,7 +280,7 @@ func TestMemoryUseIsWhatTheHostReportsOrUnknown(t *testing.T) {
 				id = "id-new-" + args[3]
 			}
 			limit := map[string]int64{web: 128 << 20, worker: 0}[args[3]]
-			return []byte(fmt.Sprintf(`{"id":%q,"image":"i","running":true,"labels":{},"memoryLimit":%d}`, id, limit)), nil, true
+			return []byte(fmt.Sprintf(`{"id":%q,"image":"i","imageName":"registry/app:1","running":%t,"labels":{},"memoryLimit":%d,"nanoCpus":500000000}`, id, args[3] != stopped, limit)), nil, true
 		}
 		return nil, nil, false
 	})
@@ -293,9 +299,21 @@ func TestMemoryUseIsWhatTheHostReportsOrUnknown(t *testing.T) {
 	if m := use["web"]; !m.Known || m.UsedBytes != int64(11.5*(1<<20)) || m.LimitBytes != 128<<20 {
 		t.Errorf("web, with the limit its container is held to: %+v", m)
 	}
-	if m := use["worker"]; !m.Known || m.UsedBytes != 200<<20 || m.LimitBytes != 0 {
+	if m := use["worker"]; !m.Known || m.Stopped || m.UsedBytes != 200<<20 || m.LimitBytes != 0 {
 		t.Errorf("worker, held to no limit: %+v", m)
 	}
+	// A container that is there and stopped uses nothing: known, stopped,
+	// zero use, with the limits it is held to and its image, never a
+	// failed read.
+	mu.Lock()
+	stopped = web
+	mu.Unlock()
+	if m := observe()["web"]; !m.Known || !m.Stopped || m.UsedBytes != 0 || m.CPUCores != 0 || m.LimitBytes != 128<<20 || m.CPULimit != 0.5 || m.Image != "registry/app:1" || m.Reason != "" {
+		t.Errorf("a stopped container: %+v", m)
+	}
+	mu.Lock()
+	stopped = ""
+	mu.Unlock()
 	// A container replaced while it was observed (a deploy, an override)
 	// answers for nothing: its use is unknown, never another container's.
 	mu.Lock()

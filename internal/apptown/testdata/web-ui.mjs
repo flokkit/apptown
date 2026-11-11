@@ -1137,7 +1137,17 @@ try {
         }
         if (screen === 'features' || screen === 'feature-off') await turnOff(screen);
         if (screen === 'login') await shootLogin(tabPage);
-        else await shootPage(tabPage, screen, path, tab);
+        else if (screen === 'jobs') {
+          // One backup is held running while the jobs page is shot (its
+          // upload waits at the NAS), and let through after.
+          const job = async what => {
+            if (!tabPage.url().startsWith(base)) await tabPage.goto(base + '/', { waitUntil: 'domcontentloaded' });
+            const status = await tabPage.evaluate(async query => (await fetch(query)).status, '/?cameraJob=' + what);
+            if (status !== 204) throw new Error(`camera job ${what}: ${status}`);
+          };
+          await job('hold');
+          try { await shootPage(tabPage, screen, path, tab); } finally { await job('release'); }
+        } else await shootPage(tabPage, screen, path, tab);
       } catch (err) {
         // The run's failure is the first a tab claims; only that tab writes the
         // failure text and screenshot, of its own page, and every tab reports it.

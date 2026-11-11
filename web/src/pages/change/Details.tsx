@@ -18,6 +18,8 @@ import { AddArtifact, AdrLinks, ArtifactBody } from './Tabs'
 import { stepTitle } from './Evidence'
 import { workRecordHref } from './WorkRecord'
 import { checkResult, recordLabel, runStory, StoryEntry } from './story'
+import { previewReleased } from './Overview'
+import { TryIt } from '../../TryIt'
 
 function TraceRead({ id, receive }: { id: string; receive: (id: string, detail: RunDetail) => void }) {
   const q = useGet<RunTrace>(`/runs/${id}/trace`, { poll: 3000 })
@@ -152,7 +154,7 @@ export function ChangeDetails({ recordId, view, current, reload, runId }: { reco
       {recordId === 'request' ? <RequestEntry full view={view} current={current} reload={reload} /> : recordId === 'summary' ? <Report text={fullReport || 'No report was recorded.'} changeId={view.change.id!} />
         : recordId === 'checks' ? recordStory.some(e => e.text.startsWith('Checks:')) ? recordStory.filter(e => e.text.startsWith('Checks:')).map(e => <EntryEvidence key={e.key} entry={e} view={view} reload={reload} />) : <p>{recordsRead ? 'No checks were recorded.' : 'This record has not been read.'}</p>
         : entry ? <EntryEvidence entry={entry} view={view} reload={reload} />
-        : artifact ? <RecordBody artifact={artifact} /> : recordId === 'preview' && recordsRead ? <p>No preview was recorded.</p> : recordId === 'review' && recordsRead ? <p>No review was recorded.</p> : <p>This record has not been read.</p>}
+        : artifact ? <RecordBody artifact={artifact} /> : recordId === 'preview' && recordsRead ? <NoPreviewRecorded view={view} oneRun={!!runId} /> : recordId === 'review' && recordsRead ? <p>No review was recorded.</p> : <p>This record has not been read.</p>}
     </>
   }
   let previousDate = ''
@@ -262,4 +264,15 @@ function EntryEvidence({ entry, view, reload }: { entry: StoryEntry; view: Chang
 function Report({ text, changeId }: { text: string; changeId: string }) {
   const { run, busy, err } = useAction()
   return <div id="summary"><div className="ch-request">{text}</div><button className="link" disabled={busy} onClick={() => run(() => post(`/changes/${changeId}/distill`, {}))}>{busy ? 'Writing…' : 'Write it again'}</button>{err && <p className="error">{err}</p>}</div>
+}
+
+// NoPreviewRecorded: the runs read recorded no preview step. It says so of
+// the runs it read (one, or every run of the change), beside the live
+// preview's own state, so a preview someone started with Try it is never
+// offered on the Overview and denied here.
+function NoPreviewRecorded({ view, oneRun }: { view: ChangeView; oneRun: boolean }) {
+  return <>
+    <p>{oneRun ? 'This run recorded no preview.' : 'No run recorded a preview.'}</p>
+    {!previewReleased(view) && <TryIt changeId={view.change.id!} label="Open it and try it" />}
+  </>
 }

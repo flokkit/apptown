@@ -151,10 +151,9 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 	if err != nil {
 		errs = append(errs, fmt.Errorf("list deployments: %w", err))
 	}
+	// Every deployment's resources are read, a preview's too: it runs on
+	// a host like any other.
 	for _, dep := range deployments {
-		if dep.Kind != deployment.Standing {
-			continue
-		}
 		key, err := c.deploymentService.DetailObservationKey(ctx, dep.ID)
 		if err != nil {
 			errs = append(errs, err)
@@ -244,7 +243,7 @@ func (c *infrastructureChecks) Applied(targetID ids.ID) {
 		return
 	}
 	for _, dep := range deployments {
-		if dep.TargetID != targetID || dep.Kind != deployment.Standing {
+		if dep.TargetID != targetID {
 			continue
 		}
 		if err := c.requestDeployment(ctx, dep.ID); err != nil {

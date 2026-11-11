@@ -101,6 +101,24 @@ it('shows recorded deployment resources, generation and address without a curren
   expect(row.textContent).not.toContain('unknown')
 })
 
+// A port the built-in host publishes on its loopback answers there only:
+// the target says so, as the deployment's own page does, never the public
+// host and port as if they answered elsewhere.
+it('says a host-only address answers on the host only', () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/auth/me'), { mode: 'internal', user: 'sam' })
+  client.setQueryData(getKey('/attention'), { sources: [], items: [] })
+  client.setQueryData(getKey('/targets/kitchen'), {
+    target: { id: 'host', name: 'kitchen', status: 'ready', statusLabel: 'working', kind: 'docker-host', kindInfo: {}, check: {}, ingress: {}, address: {}, capabilities: {}, offers: [], retained: 0,
+      deployments: [{ project: 'shop', name: 'print-layout', status: { word: 'stopped', reason: '', stale: false }, statusLabel: 'stopped', url: 'http://apptown.example.org:43228', hostOnly: true, generation: 3 }] }, history: [], builtIn: true,
+  })
+  const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/kitchen']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name" element={<TargetPage />} /></Routes></QueryClientProvider></MemoryRouter>)
+  const el = document.createElement('div'); el.innerHTML = html
+  const address = el.querySelector('table[aria-label="What runs here"] tbody tr [data-label="Address"]')!
+  expect(address.textContent).toBe("on AppTown's host only, at localhost:43228")
+  expect(address.querySelector('a')).toBeNull()
+})
+
 // Every tab of a target carries the same head: its name, state and Check
 // target, so the head does not change as a person moves between tabs.
 it('heads every target tab with the target name and Check target', () => {

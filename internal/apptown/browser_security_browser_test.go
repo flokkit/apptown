@@ -2191,8 +2191,24 @@ func (s *tourScene) helped(c *tourChange, who string, h tourAsk) string {
 	log := newPiLog(s.now())
 	log.user(h.ask)
 	asked := log.at
+	// The helper finds its way round first, as a coding agent does: what
+	// the project holds and how its tests check it. Each look is a turn of
+	// its own, billed like the rest, so a chat costs what such chats cost.
+	look := func(text, command string) { log.say(text, command, s.sh(c, command)) }
+	look("First, what the project holds.", "ls -R . | grep -v '^$' | head -40")
+	look("What changed lately, so this fits.", "git log --oneline -8")
+	look("And how its tests check it, so the change keeps them passing.", "cat checks/tests.sh")
+	for _, name := range slices.Sorted(maps.Keys(h.files)) {
+		if _, err := os.Stat(filepath.Join(c.folder, name)); err == nil {
+			look("Reading "+name+" before changing it.", "sed -n 1,120p "+name)
+		}
+	}
 	log.say(h.look, h.lookCommand, s.sh(c, h.lookCommand))
 	s.write(c, h.files)
+	look("Checking what the change touches before running the tests.", "git diff --stat")
+	if _, err := os.Stat(filepath.Join(c.folder, "checks/style.sh")); err == nil {
+		look("And the style check.", "sh checks/style.sh")
+	}
 	// The helper's last word says the tests pass; they must.
 	tests, code := s.run(c, "sh checks/tests.sh")
 	if code != 0 {
@@ -3844,7 +3860,37 @@ func TestWebUICapture(t *testing.T) {
 	var household struct{ store, apps atomic.Pointer[url.URL] }
 	appsSuffix := ".apps." + cameraClubDomain
 	onHousehold := func(host string) bool { return host == nasStoreHost || strings.HasSuffix(host, appsSuffix) }
+	// held is an upload the NAS has not answered yet: while the camera
+	// photographs the jobs page, one backup's upload to the store waits
+	// here (cameraJob), so its job is genuinely running.
+	var held struct {
+		mu   sync.Mutex
+		path string        // the store path whose uploads wait
+		gate chan struct{} // closed to let them through
+	}
+	releaseHeld := func() {
+		held.mu.Lock()
+		defer held.mu.Unlock()
+		if held.gate != nil {
+			close(held.gate)
+			held.gate = nil
+		}
+	}
+	t.Cleanup(releaseHeld)
 	householdProxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		held.mu.Lock()
+		gate := held.gate
+		if r.Host != nasStoreHost || r.Method != http.MethodPut && r.Method != http.MethodPost || held.path == "" || !strings.Contains(r.URL.Path, held.path) {
+			gate = nil
+		}
+		held.mu.Unlock()
+		if gate != nil {
+			select {
+			case <-gate:
+			case <-r.Context().Done():
+				return
+			}
+		}
 		target := household.store.Load()
 		if strings.HasSuffix(r.Host, appsSuffix) {
 			target = household.apps.Load()
@@ -4909,7 +4955,15 @@ spec:
 	// Docker through AppTown's own local check executor, as the landings'
 	// source scans run; the scene's earlier reviews leave them unrun, so
 	// the scanners do not run on every review. A check that asks a model
-	// really asks the scene's model provider, whose address answers no one.
+	// really asks a stand-in for the scene's model provider, which refuses
+	// the scene's key as a provider refuses a revoked one: no model
+	// answers, so no verdict is made up.
+	refusing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = io.WriteString(w, `{"error":{"message":"Invalid API key","code":401}}`)
+	}))
+	t.Cleanup(refusing.Close)
 	localChecks := verification.LocalChecks(a.processRunner, a.cfg.clock.Now)
 	installCheckEffects(t, a, checkOverrides{
 		run: func(req execRequest) execOutcome {
@@ -4919,17 +4973,12 @@ spec:
 			return agentenv.Execute(a.processRunner, context.Background(), execution.Local, req, a.cfg.clock.Now())
 		},
 		complete: func(string, string, string) (string, *modelcall.Usage, error) {
-			resp, err := http.Post("https://provider.invalid/v1/chat/completions", "application/json", strings.NewReader("{}"))
-			if err == nil {
-				resp.Body.Close()
-				err = errors.New(resp.Status)
+			resp, err := http.Post(refusing.URL+"/v1/chat/completions", "application/json", strings.NewReader("{}"))
+			if err != nil {
+				return "", nil, fmt.Errorf("the model provider could not be reached: %w", err)
 			}
-			// Its lookup's words, without the request's long address.
-			var lookup *net.DNSError
-			if errors.As(err, &lookup) {
-				err = lookup
-			}
-			return "", nil, fmt.Errorf("the model provider could not be reached: %w", err)
+			resp.Body.Close()
+			return "", nil, fmt.Errorf("the model provider refused the request: %s", resp.Status)
 		},
 	})
 	scene.review()
@@ -4945,7 +4994,12 @@ spec:
 		t.Fatal(err)
 	}
 	scene.call("sam", "POST", "/api/v1/console/"+projectChat.Session.ID+"/say", map[string]string{"text": "Which pages still show last year's membership fees?"})
-	runtime.Reply(projectChat.Session.ID, "Only the fees page did, and the change \"Publish membership fees\" has already updated it. The front page and the committee page link to it and show no prices themselves.")
+	// The answer is billed as the helper's turns are: the project's guidance
+	// written to the prompt cache, and the reply, at Claude Haiku's list
+	// prices ($1 in, $5 out, $1.25 a cache write per million tokens).
+	runtime.ReplyWith(projectChat.Session.ID, "Only the fees page did, and the change \"Publish membership fees\" has already updated it. The front page and the committee page link to it and show no prices themselves.", "openrouter",
+		map[string]any{"input": 60, "output": 180, "cacheRead": 0, "cacheWrite": 26000, "totalTokens": 26240,
+			"cost": map[string]any{"input": 60 * 1.0 / 1e6, "output": 180 * 5.0 / 1e6, "cacheRead": 0.0, "cacheWrite": 26000 * 1.25 / 1e6, "total": (60*1.0 + 180*5.0 + 26000*1.25) / 1e6}})
 	scene.call("sam", "DELETE", "/api/v1/console/"+projectChat.Session.ID, nil)
 	a.Work.Wait()
 	cameraComplaints(scene)
@@ -5000,9 +5054,32 @@ spec:
 	// test goroutine runs it (runSeededWork) while it waits for the shots.
 	// Nothing runs AppTown's job queue in the scene, so each job is run on
 	// a consumer of its own, by its real handler: the what-if, the restore
-	// and the eval's pass. (No job is held running, and none is made to
-	// fail: the scene has no honest way to do either.)
+	// and the eval's pass, then the noticeboard's backup, which fails. (One
+	// backup is held running while the jobs page is shot, jobHold.)
 	seededWork := make(chan chan struct{})
+	// jobHold is the browser's request to hold one backup running: a
+	// scheduled backup of club-newsletter's main, asked for as the sweep
+	// asks, started on a consumer of its own; its upload to the NAS waits
+	// (held) until the camera releases it, so the queue says it is running
+	// because it is.
+	jobHold := make(chan chan struct{})
+	holdBackup := func() {
+		t.Helper()
+		key := project.ID.String() + "/main"
+		held.mu.Lock()
+		held.path, held.gate = "/household-copies/club-newsletter/main/", make(chan struct{})
+		held.mu.Unlock()
+		if err := (backupRequests{db: a.DB, life: ctx}).RequestBackup(ctx, key, "scheduled"); err != nil {
+			t.Error(err)
+			return
+		}
+		id := cameraQueuedJob(t, a, "backup", key)
+		_, stop := startJobForTest(t, a, id)
+		t.Cleanup(stop)
+		if !poll.Until(ctx, 30*time.Second, 100*time.Millisecond, func() bool { return jobState(t, a, id) == string(rivertype.JobStateRunning) }) {
+			t.Errorf("the held backup is %s, not running", jobState(t, a, id))
+		}
+	}
 	runSeededWork := func() {
 		t.Helper()
 		// The camera's job history is longer than operationJobs reads.
@@ -5029,6 +5106,17 @@ spec:
 			}
 			done := runJobForTest(t, a, id)
 			t.Logf("camera ran %s job %d: %s %v", kind, id, done.State, done.Errors)
+		}
+		// A scheduled backup of the noticeboard copy fails: the old laptop
+		// it runs on is off. It is asked for as the sweep asks and run once
+		// by its job's own handler, which ends it failed among the jobs'
+		// latest.
+		noticeboardBackup := project.ID.String() + "/noticeboard"
+		if err := (backupRequests{db: a.DB, life: ctx}).RequestBackup(ctx, noticeboardBackup, "scheduled"); err != nil {
+			t.Fatal(err)
+		}
+		if job := runJobForTest(t, a, cameraQueuedJob(t, a, "backup", noticeboardBackup)); job.State != rivertype.JobStateDiscarded {
+			t.Fatalf("the noticeboard's backup ended %s, not failed: %v", job.State, job.Errors)
 		}
 	}
 	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -5072,6 +5160,25 @@ spec:
 				return
 			}
 		}
+		// The camera holds one backup running while it photographs the
+		// jobs page (cameraJob=hold, run by the test goroutine) and lets its
+		// upload through after (cameraJob=release, here: the test goroutine
+		// may itself be waiting on that backup).
+		if what := r.URL.Query().Get("cameraJob"); r.URL.Path == "/" && what != "" {
+			switch what {
+			case "hold":
+				done := make(chan struct{})
+				jobHold <- done
+				<-done
+			case "release":
+				releaseHeld()
+			default:
+				http.Error(w, "hold or release", http.StatusBadRequest)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		// After the browser seeded its work (a what-if, a restore, an eval),
 		// the test goroutine runs it through the jobs' own handlers.
 		if r.URL.Path == "/" && r.URL.Query().Get("cameraSeeded") == "1" {
@@ -5110,14 +5217,20 @@ spec:
 	// (which expire after 45 seconds), a host reader lap (diagnostics refuse
 	// an old container section), then the observation jobs, run as a held
 	// scene runs them: the camera's job history is past the list's cap
-	// before it starts.
+	// before it starts. The runtime loop and the reader keep going while
+	// the jobs run, as they do on a host, so a long batch of jobs on a
+	// loaded machine does not leave either older than the pages accept.
 	refresh := func() {
 		t.Helper()
-		if err := a.Deployment.ObserveRuntime(ctx); err != nil {
-			t.Fatal(err)
+		lap := func() {
+			if err := a.Deployment.ObserveRuntime(ctx); err != nil {
+				t.Fatal(err)
+			}
+			readHostsForTest(t, a)
 		}
-		readHostsForTest(t, a)
+		lap()
 		observeScene(t, a, scene, true)
+		lap()
 	}
 	// The pages read only what the background checks recorded, so the camera
 	// waits until the readings it means to show are known: Production's
@@ -5239,6 +5352,11 @@ spec:
 			shooting = false
 		case <-ticker.C:
 			refresh()
+		case done := <-jobHold:
+			func() {
+				defer close(done)
+				holdBackup()
+			}()
 		case done := <-seededWork:
 			// done is closed even when the work fails the test, so the
 			// browser's request returns and the run ends.
@@ -6081,4 +6199,24 @@ func standInArchive(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	return b.Bytes()
+}
+
+// cameraQueuedJob is the newest queued job of kind with key. The camera's
+// job history is longer than operationJobs reads.
+func cameraQueuedJob(t *testing.T, a *App, kind, key string) int64 {
+	t.Helper()
+	all, err := jobs.List(context.Background(), a.DB, 5000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var id int64
+	for _, j := range all {
+		if j.Kind == kind && j.Key == key && (j.State == "available" || j.State == "retryable" || j.State == "scheduled") && j.ID > id {
+			id = j.ID
+		}
+	}
+	if id == 0 {
+		t.Fatalf("no queued %s job for %s", kind, key)
+	}
+	return id
 }

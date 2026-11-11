@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // A restore puts data back only while nothing can write it: every
@@ -238,11 +239,37 @@ func TestARestoreOperationFailsAndNamesAPartThatIsNotThere(t *testing.T) {
 		t.Fatal(err)
 	}
 	op, res := restoreThroughOperation(t, s, pid, "main", b.ID)
-	if op.State.String() != "failed" || !strings.Contains(op.Detail, worker) {
-		t.Errorf("a missing part fails the restore, named: %s %q", op.State, op.Detail)
+	// The summary says it in words, from where, with no id or container
+	// name; the step that started the app again names the part once, by
+	// itself, rather than the operation's end copying the summary into it.
+	if op.State.String() != "failed" || !strings.Contains(op.Detail, "Set from main ") || !strings.Contains(op.Detail, "1 part is not running again") ||
+		strings.Contains(op.Detail, worker) || strings.Contains(op.Detail, b.ID.String()) || strings.Contains(op.Detail, res.SafetyBackup.String()) {
+		t.Errorf("a missing part fails the restore, said plainly: %s %q", op.State, op.Detail)
+	}
+	last := op.Steps[len(op.Steps)-1]
+	if last.Name != "starting the app again" || !last.Failed || last.Detail != worker+": not there, so not started" {
+		t.Errorf("the restart step names the missing part itself: %+v", last)
+	}
+	named := 0
+	for _, st := range op.Steps {
+		named += strings.Count(st.Detail, worker)
+	}
+	if named+strings.Count(op.Detail, worker) != 1 {
+		t.Errorf("the missing part is named %d times: %q %+v", named, op.Detail, op.Steps)
 	}
 	if res.Status != restoreNotVerified || res.Started == nil || *res.Started || res.Ready != nil ||
 		len(res.NotStarted) != 1 || !strings.Contains(res.NotStarted[0], worker) || !strings.Contains(res.NotStarted[0], "not there") {
 		t.Fatalf("the data is back and the missing worker is named: %+v", res)
+	}
+}
+
+// A set restored into another deployment says where it came from: the
+// page's heading names only the deployment it went back into.
+func TestARestoreSaysWhereItsSetCameFrom(t *testing.T) {
+	t.Parallel()
+	words := restoreWords(&RestoreResult{From: "production", Status: restoreNotVerified, SafetyBackup: idstest.N(2), Backup: idstest.N(1),
+		Items: []RestoredItem{{Name: "data", Outcome: restoreCopied}}})
+	if !strings.HasPrefix(words, "Set from production ") || strings.Contains(words, idstest.N(1).String()) || strings.Contains(words, idstest.N(2).String()) {
+		t.Errorf("restore words: %q", words)
 	}
 }

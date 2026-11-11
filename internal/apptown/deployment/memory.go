@@ -61,14 +61,18 @@ type PartMemory struct {
 	CPULimit   float64 `json:"cpuLimit"`
 	Image      string  `json:"image,omitempty"`
 	Known      bool    `json:"known"`
-	Reason     string  `json:"reason,omitempty"` // why it is unknown
+	// Stopped: its container is there and not running, so it uses nothing
+	// now (known, zero use, with the limits it would be held to).
+	Stopped bool   `json:"stopped,omitempty"`
+	Reason  string `json:"reason,omitempty"` // why it is unknown
 }
 
 // observedMemory is each part's memory use now, asked of the deployment's
 // own target: a Docker host's daemon reports each part's container. A
 // target that does not report it (App Platform, Portainer), a daemon that
 // cannot be asked, or a part it does not report is unknown with the
-// reason: never zero, and never "within its limit". The parts are those
+// reason: never zero, and never "within its limit". A part whose container
+// is there and stopped is known to use nothing. The parts are those
 // the settled generation recorded, else the public part alone.
 func (s *Service) observedMemory(ctx context.Context, d *Deployment) ([]PartMemory, error) {
 	applied, err := s.SettledApplied(ctx, d)
@@ -133,6 +137,10 @@ func (s *Service) observedMemory(ctx context.Context, d *Deployment) ([]PartMemo
 		first, inspected := before[c]
 		after, err := docker.Inspect(ctx, dk, c)
 		switch {
+		case inspected && err == nil && first.ID == after.ID && !first.Running && !after.Running:
+			// A container that is there and stopped uses nothing: the
+			// daemon reports no use for it, which is not a failed read.
+			out = append(out, PartMemory{Part: p, LimitBytes: first.MemoryLimit, CPULimit: float64(first.NanoCPUs) / 1e9, Image: first.ImageName, Known: true, Stopped: true})
 		case !reported:
 			out = append(out, PartMemory{Part: p, Reason: "the daemon did not report its container"})
 		case !inspected || err != nil:

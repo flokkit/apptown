@@ -65,6 +65,21 @@ func runQueuedJobForTest(t *testing.T, a *App, kind, key string) *rivertype.JobR
 // own.
 func runJobForTest(t *testing.T, a *App, id int64) *rivertype.JobRow {
 	t.Helper()
+	settled, stop := startJobForTest(t, a, id)
+	defer stop()
+	select {
+	case job := <-settled:
+		return job
+	case <-time.After(20 * time.Second):
+		t.Fatal("job did not settle")
+		return nil
+	}
+}
+
+// startJobForTest starts the queued job id on a consumer of its own and
+// returns at once: settled gives its outcome, and stop ends the consumer.
+func startJobForTest(t *testing.T, a *App, id int64) (settled <-chan *rivertype.JobRow, stop func()) {
+	t.Helper()
 	queue := fmt.Sprintf("test_job_%d", id)
 	// sql-guarantee: Move only the selected existing job onto this test consumer queue and make it due; River JobUpdateFull has neither queue nor scheduled_at, and re-enqueueing would change the tested job identity.
 	completionExec(t, a.DB, `UPDATE river_job SET queue=$1,state='available',scheduled_at=now() WHERE id=$2`, queue, id)
@@ -75,24 +90,31 @@ func runJobForTest(t *testing.T, a *App, id int64) *rivertype.JobRow {
 		t.Fatal(err)
 	}
 	events, unsubscribe := client.Subscribe(river.EventKindJobCompleted, river.EventKindJobFailed, river.EventKindJobCancelled)
-	defer unsubscribe()
-	defer func() {
+	out := make(chan *rivertype.JobRow, 1)
+	done := make(chan struct{})
+	go func() {
+		select {
+		case event, ok := <-events:
+			if ok && event != nil {
+				out <- event.Job
+			}
+		case <-done:
+		}
+	}()
+	stop = func() {
+		close(done)
+		unsubscribe()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := client.StopAndCancel(ctx); err != nil {
 			t.Error(err)
 		}
-	}()
+	}
 	if err := client.Start(context.Background()); err != nil {
+		stop()
 		t.Fatal(err)
 	}
-	select {
-	case event := <-events:
-		return event.Job
-	case <-time.After(20 * time.Second):
-		t.Fatal("job did not settle")
-		return nil
-	}
+	return out, stop
 }
 
 // jobState is a job's queue state, read through the queue's own client.

@@ -180,9 +180,11 @@ func judgedOutcome(state string) bool {
 // project).
 func checkRow(r WhatIfRow) bool { return r.Block != "" && r.Check != "" && !r.ruleMove() }
 
-// versionSideUnjudged: a check the version carries and could not judge.
+// versionSideUnjudged: a check the version carries and could not judge. A
+// check the version makes not applicable was answered: it applies to
+// nothing the project declares.
 func versionSideUnjudged(r WhatIfRow) bool {
-	return checkRow(r) && r.Proposed != "" && !judgedOutcome(r.Proposed)
+	return checkRow(r) && r.Proposed != "" && r.Proposed != NotApplicable.String() && !judgedOutcome(r.Proposed)
 }
 
 // whatIfByProject is each selected project's answer, in selection order,

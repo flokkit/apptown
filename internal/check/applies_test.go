@@ -85,8 +85,20 @@ func TestAppliesMatchesDeclaredParts(t *testing.T) {
 		}
 	}
 	_, why, _ := check.Applies([]string{"tool:python"}, src)
-	if !strings.Contains(why, "no part is built with python") || !strings.Contains(why, "api, a container, built with go") {
+	if !strings.Contains(why, "no part is built with python: api is a container built with go, worker is a container built with go") {
 		t.Errorf("the reason names what was looked for and what is declared: %q", why)
+	}
+	// What each part is, in a sentence: a part naming no tools is said
+	// without them, never with internal wording.
+	newsletter := check.Source{Parts: []check.Part{
+		{Name: "archive", Folder: "archive", Kinds: []string{check.KindContainer}, Public: true},
+		{Name: "site", Folder: "site", Kinds: []string{check.KindStatic}},
+	}}
+	if _, why, _ := check.Applies([]string{"build"}, newsletter); why != "no part is built from a Dockerfile: archive is a container, site is a static site" {
+		t.Errorf("a contract with no Dockerfile part: %q", why)
+	}
+	if why, _ := check.AppliesToPublic([]string{"tool:python"}, check.Source{Parts: monorepo}); why != "the public part api is not built with python: it is a container built with go" {
+		t.Errorf("the public part: %q", why)
 	}
 	if _, why, _ := check.Applies([]string{"repository"}, check.Source{Empty: true}); why != "the repository holds no files" {
 		t.Errorf("an empty tree: %q", why)

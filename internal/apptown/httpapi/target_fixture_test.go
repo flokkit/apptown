@@ -57,8 +57,10 @@ type targetHTTPWorld struct {
 	cloud        digitalocean.Options
 	fly          fly.Options
 	docker       *dockerfake.Daemon
-	targets      Targets
-	infra        Infrastructure
+	// routes is how the world's AppTown names addresses (none by default).
+	routes  deployment.Routing
+	targets Targets
+	infra   Infrastructure
 }
 
 func newTargetHTTPWorld(t *testing.T, options ...digitalocean.Options) *targetHTTPWorld {
@@ -128,7 +130,7 @@ const testInstallation = "inst-test"
 func (w *targetHTTPWorld) setDockerClient(client docker.Client) {
 	targets, deployments := deployment.NewTargets(w.db, targetTestConnectors{}), deployment.NewDeployments(w.db)
 	w.hosts = deployment.NewHosts(targets, w.secrets, deployment.HostSettings{Scope: docker.Scope{Client: client, Instance: testInstallation}, DataDir: w.dir, SSHConfigPath: filepath.Join(w.dir, "ssh-config"), SSHCommand: func(context.Context, []string) ([]byte, error) { return nil, nil }, BuiltInTarget: targetTestBuiltin})
-	environment := deployment.NewEnvironment(deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: w.secrets, Integrations: w.integrations, Needs: w.needs, Projects: w.projects})
+	environment := deployment.NewEnvironment(deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: w.secrets, Integrations: w.integrations, Needs: w.needs, Projects: w.projects, Routes: w.routes})
 	w.providers = deployment.NewProviders(context.Background(), w.db, deployment.ProviderRecords{Targets: targets, Deployments: deployments}, w.hosts, environment,
 		deployment.ProviderDependencies{Projects: w.projects, Secrets: w.secrets, Integrations: w.integrations, DigitalOcean: w.cloud, Fly: w.fly, Installation: testInstallation})
 	w.deployment = deployment.New(context.Background(), w.db, deployment.Dependencies{Groups: w.identity, Authority: access.Checked{Authority: w.identity, Projects: w.projects}, Targets: targets, Deployments: deployments, Hosts: w.hosts, Environment: environment, Providers: w.providers,
