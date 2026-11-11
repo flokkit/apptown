@@ -100,7 +100,7 @@ func (c *standingClass) read(ctx context.Context, dk Docker, class, name string,
 		}
 		c.mu.Unlock()
 	}()
-	return RunIn(ctx, dk, name, Spec{Script: s.Script, Env: s.Env, Max: s.Max, Validate: s.Validate})
+	return RunIn(ctx, dk, name, Spec{Script: s.Script, Env: s.Env, Max: s.Max, Validate: s.Validate, Plain: s.Plain})
 }
 
 func (c *standingClass) inUse(name string) bool {
@@ -151,17 +151,27 @@ func ensureStanding(ctx context.Context, dk Docker, class, name string, s Spec, 
 	case "running":
 		return nil
 	case "":
-		run := []string{"run", "-d", "--name", name, "--label", dockerlabel.Class + "=" + class,
-			"--restart", "unless-stopped", "--entrypoint", ""}
-		run = append(run, s.Options...)
-		run = append(run, s.Image, "sleep", "2147483647")
-		if out, err := dk(ctx, nil, run...); err != nil {
-			if strings.Contains(string(out), "is already in use") {
+		// A plain proxy holds docker run -d's wait on the container it has
+		// not yet started (Spec.Plain): there it is made, then started.
+		made := []string{"run", "-d"}
+		if s.Plain {
+			made = []string{"create"}
+		}
+		made = append(made, "--name", name, "--label", dockerlabel.Class+"="+class,
+			"--restart", "unless-stopped", "--entrypoint", "")
+		made = append(made, s.Options...)
+		made = append(made, s.Image, "sleep", "2147483647")
+		if out, err := dk(ctx, nil, made...); err != nil {
+			if !strings.Contains(string(out), "is already in use") {
+				return step("making the standing reader", name, err, out)
+			}
+			if !s.Plain {
 				return nil // another process on the host is making it
 			}
-			return step("making the standing reader", name, err, out)
+		} else if !s.Plain {
+			return nil
 		}
-		return nil
+		fallthrough
 	default:
 		if out, err := dk(ctx, nil, "start", name); err != nil {
 			return step("starting the standing reader", name, err, out)

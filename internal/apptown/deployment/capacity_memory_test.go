@@ -26,7 +26,7 @@ func TestRunningContainerWithoutStatsLeavesHostMemoryKnown(t *testing.T) {
 		case len(args) > 1 && args[0] == "ps" && args[1] == "-q":
 			return []byte(missing + "\n" + other + "\n"), nil, true
 		case len(args) > 4 && args[0] == "inspect" && strings.Contains(args[4], "CpuQuota"):
-			return []byte("/" + missing + "\t0\t0\t0\t0\t\tenv\t\n/" + other + "\t0\t0\t0\t0\t\tenv\t\n"), nil, true
+			return []byte("/" + missing + "\t0\t0\t0\t0\t\tenv\t\t\n/" + other + "\t0\t0\t0\t0\t\tenv\t\t\n"), nil, true
 		case len(args) > 0 && args[0] == "stats":
 			return []byte(missing + "\t-- / --\n" + other + "\t20MiB / 1GiB\t1.00%\n"), nil, true
 		}

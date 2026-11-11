@@ -44,7 +44,7 @@ func TestDiskReadValidatesTheCopiedAnswer(t *testing.T) {
 					return "", "", fmt.Errorf("unexpected diagnostic command %v", args)
 				}
 				return string(out), "", err
-			}, "chosen-image", "/var/lib/docker", time.Now)
+			}, "chosen-image", "/var/lib/docker", time.Now, false)
 			if (err == nil) != tc.valid {
 				t.Fatalf("space=%+v error=%v valid=%v", space, err, tc.valid)
 			}

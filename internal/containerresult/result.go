@@ -29,6 +29,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/strs"
 )
 
@@ -60,6 +61,15 @@ type Spec struct {
 	Validate func([]byte) error
 	// Now stamps a throwaway container's deadline; nil is the real clock.
 	Now func() time.Time
+	// Plain says the daemon is reached through a proxy that carries only
+	// plain requests and answers, not attached streams (Portainer's Docker
+	// proxy, docker.Scope.NoStreams), for RunIn and RunStanding. Such a
+	// proxy holds a long request's answer until its body comes, so docker
+	// run -d waits on the container it has not yet started, and an attached
+	// exec loses its status on an agent endpoint. A standing reader is then
+	// made with create and start, and a script runs with a detached exec
+	// that leaves its status beside its answer (runInPlain).
+	Plain bool
 }
 
 // defaultMax bounds an answer whose Spec gives no bound.
@@ -234,6 +244,9 @@ func RunIn(ctx context.Context, dk Docker, container string, s Spec) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
+	if s.Plain {
+		return runInPlain(ctx, dk, container, path, s)
+	}
 	defer func() { _, _ = dk(ctx, nil, "exec", container, "rm", "-f", path, path+".part") }()
 	args := append([]string{"exec"}, envFlags(s.Env)...)
 	args = append(args, container, "sh", "-c", script(s.Script, path))
@@ -250,6 +263,67 @@ func RunIn(ctx context.Context, dk Docker, container string, s Spec) ([]byte, er
 			return nil, &ExitError{Code: exit.ExitCode(), Said: clip(string(out))}
 		}
 		return nil, step("running in", container, err, out)
+	}
+	answer, err := copyOut(ctx, dk, container, path, limitOf(s))
+	if errors.Is(err, errNoResult) {
+		return nil, fmt.Errorf("%w in container %s", err, container)
+	}
+	return validateAnswer(answer, err, s)
+}
+
+// plainWait bounds how long a detached script's status is waited for,
+// within the caller's context; plainInterval is how often it is looked for.
+const (
+	plainWait     = time.Minute
+	plainInterval = 100 * time.Millisecond
+)
+
+// runInPlain is RunIn through a daemon that carries no attached streams
+// (Spec.Plain). The script runs with docker exec -d. Its answer is
+// written as RunIn writes it, its stderr beside it (.err), and then its
+// exit status (.code, written whole). The status file is copied out until
+// it is there, so the answer is read only once the script has ended. A
+// status that never comes is an error, never an answer. The files are
+// removed by another detached exec when the read ends.
+func runInPlain(ctx context.Context, dk Docker, container, path string, s Spec) ([]byte, error) {
+	code, said := path+".code", path+".err"
+	defer remove(ctx, dk, "exec", "-d", container, "rm", "-f", path, path+".part", code, code+".part", said)
+	script := "( " + s.Script + "\n) >" + path + ".part 2>" + said + " && mv -f " + path + ".part " + path +
+		"; echo $? >" + code + ".part && mv -f " + code + ".part " + code
+	args := append([]string{"exec", "-d"}, envFlags(s.Env)...)
+	args = append(args, container, "sh", "-c", script)
+	if out, err := dk(ctx, s.Env, args...); err != nil {
+		if strings.Contains(string(out), "No such container: "+container) {
+			return nil, fmt.Errorf("running in %s: %w", container, errNoContainer)
+		}
+		return nil, step("running in", container, err, out)
+	}
+	// The bound holds each copy too: poll.Until does not stop a copy that
+	// does not answer.
+	wait, cancel := context.WithTimeout(ctx, plainWait)
+	defer cancel()
+	var status []byte
+	var err error
+	ended := poll.Until(wait, plainWait, plainInterval, func() bool {
+		status, err = copyOut(wait, dk, container, code, 16)
+		return !errors.Is(err, errNoResult)
+	})
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	if !ended || wait.Err() != nil {
+		return nil, fmt.Errorf("running in %s: the script left no exit status within %s", container, plainWait)
+	}
+	if err != nil {
+		return nil, err
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(string(status)))
+	if err != nil {
+		return nil, fmt.Errorf("running in %s: its exit status is not known: %q", container, clip(string(status)))
+	}
+	if n != 0 {
+		words, _ := copyOut(ctx, dk, container, said, 4096)
+		return nil, &ExitError{Code: n, Said: clip(string(words))}
 	}
 	answer, err := copyOut(ctx, dk, container, path, limitOf(s))
 	if errors.Is(err, errNoResult) {

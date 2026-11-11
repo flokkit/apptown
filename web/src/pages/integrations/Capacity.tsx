@@ -132,7 +132,7 @@ export function Capacity({ name }: { name: string }) {
       {bars ? <Bars c={c} /> : <div className="capacity-details" role="region" aria-label="Capacity detail tables" tabIndex={0}>
       {c.memory && c.cpu && (
         <table className="small mt-1" >
-          <thead><tr><th></th><th>has</th><th>{c.kind === 'portainer' ? `declared by ${PRODUCT}'s deployments` : 'app resource limits'}</th><th>in use by containers</th></tr></thead>
+          <thead><tr><th></th><th>has</th><th>app resource limits</th><th>in use by containers</th></tr></thead>
           <tbody>
             <ResourceRow label="memory" r={c.memory} format={fmtBytes} />
             <ResourceRow label="CPUs" r={c.cpu} format={cpuWords} />

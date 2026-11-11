@@ -22,7 +22,7 @@ func (s *Service) hostUse(ctx context.Context, dk docker.Scope, memory int64, cp
 	parts, err := diskspace.ReadKernel(ctx, func(ctx context.Context, args ...string) (string, string, error) {
 		b, err := dk.Run(ctx, args...)
 		return string(b), "", err
-	}, image, root, s.now)
+	}, image, root, s.now, dk.NoStreams)
 	if err != nil {
 		m := unknownErr(err)
 		c := unknownErr(err)

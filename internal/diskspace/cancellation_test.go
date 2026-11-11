@@ -22,7 +22,7 @@ func TestACancelledDiskReadOwnsNoContainer(t *testing.T) {
 		reached = append(reached, strings.Join(args, " "))
 		return "", "", nil
 	}
-	_, err := ReadThroughDocker(ctx, dk, "busybox:1.37", "/var/lib/docker", time.Now)
+	_, err := ReadThroughDocker(ctx, dk, "busybox:1.37", "/var/lib/docker", time.Now, false)
 	if len(reached) != 0 {
 		t.Fatalf("cancelled disk read called Docker without owning a container: %v", reached)
 	}

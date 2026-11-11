@@ -11,14 +11,13 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/toolversions"
 )
 
 // Target capacity: how full a target is. A fixed host (a Docker host, a
-// Portainer endpoint) has a total, and the limits and use of what runs on
-// it; an elastic one (App Platform) grows, and shows instead what each
+// Portainer endpoint, read through its Docker proxy) has a total, and the
+// limits and use of what runs on it; an elastic one (App Platform) grows, and shows instead what each
 // deployment runs on and an estimate of what it costs. A figure AppTown
 // cannot read is unknown with the reason, never zero.
 
@@ -82,7 +81,7 @@ type ResourceCapacity struct {
 	Overcommitted bool    `json:"overcommitted"`
 }
 
-// DiskCapacity is the filesystem holding a Docker host's data.
+// DiskCapacity is the filesystem holding a fixed host's Docker data.
 type DiskCapacity struct {
 	Total Figure `json:"total"`
 	Free  Figure `json:"free"`
@@ -91,13 +90,28 @@ type DiskCapacity struct {
 	Warning int64 `json:"warning,omitempty"`
 	// Refuses says less than Floor is free: a new release or preview on
 	// this host is refused until space is freed. It is read again when one
-	// starts (docker.AdmitDisk); this reading may be minutes old (ReadAt).
+	// starts (docker.AdmitDisk, on a Docker host and through Portainer);
+	// this reading may be minutes old (ReadAt).
 	Refuses bool  `json:"refuses"`
 	Floor   int64 `json:"floor,omitempty"`
 	// Path is the folder whose filesystem this is, on the host: the
 	// daemon's data folder.
 	Path   string    `json:"path,omitempty"`
 	ReadAt time.Time `json:"readAt,omitzero"`
+}
+
+// Unread is what a person is told of a disk AppTown could not read: that
+// it cannot, and why, in the figure's own words. It never says a check
+// failed: when no check could run, the reason says so.
+func (d DiskCapacity) Unread() string {
+	why := d.Free.Reason
+	if why == "" {
+		why = d.Total.Reason
+	}
+	if why == "" {
+		why = "no reason was recorded"
+	}
+	return "AppTown cannot read this host's disk: " + strings.TrimSuffix(why, ".") + "."
 }
 
 // StaleAt judges the disk's own evidence independently of the wrapper time.
@@ -128,7 +142,7 @@ type TargetCapacity struct {
 	Memory      *ResourceCapacity `json:"memory,omitempty"`
 	CPU         *ResourceCapacity `json:"cpu,omitempty"`
 	Disk        *DiskCapacity     `json:"disk,omitempty"`
-	// Tenants, on a Docker host, is who holds it: each running container
+	// Tenants, on a fixed host, is who holds it: each running container
 	// counted once (capacity_tenants.go).
 	Tenants   []Tenant  `json:"tenants,omitempty"`
 	TenantsAt time.Time `json:"tenantsAt,omitzero"`
@@ -159,7 +173,7 @@ func (s *Service) targetCapacity(ctx context.Context, t *Target) (TargetCapacity
 	case KindDockerHost:
 		out, err = s.dockerCapacity(ctx, t)
 	case KindPortainer:
-		out = s.portainerCapacity(ctx, t)
+		out, err = s.portainerCapacity(ctx, t)
 	case KindDOApp, kindFlyMachines, KindAWSECS:
 		out, err = s.elasticCapacity(ctx, t)
 	default:
@@ -175,10 +189,25 @@ func (s *Service) targetCapacity(ctx context.Context, t *Target) (TargetCapacity
 }
 
 func (s *Service) dockerCapacity(ctx context.Context, t *Target) (TargetCapacity, error) {
-	out := TargetCapacity{Words: "A fixed host: it does not grow.", Memory: &ResourceCapacity{}, CPU: &ResourceCapacity{}}
 	dk, err := s.hosts.DockerScope(ctx, t)
-	if err != nil {
-		reason := fmt.Sprintf("its daemon cannot be asked: %v", err)
+	return s.fixedHostCapacity(ctx, t, dk, err, "A fixed host: it does not grow.")
+}
+
+// portainerCapacity reads a Portainer endpoint as a Docker host is read,
+// through the endpoint's Docker proxy (Providers.PortainerDataScope).
+func (s *Service) portainerCapacity(ctx context.Context, t *Target) (TargetCapacity, error) {
+	dk, err := s.providers.PortainerDataScope(ctx, t)
+	return s.fixedHostCapacity(ctx, t, dk, err, "A fixed host behind Portainer: it does not grow.")
+}
+
+// fixedHostCapacity reads a fixed host through its daemon's scope: its
+// totals, every running container's limits and use, the whole host's use,
+// who holds it, and the disk holding its data. A scope that could not be
+// made (scopeErr) leaves every figure unknown with why.
+func (s *Service) fixedHostCapacity(ctx context.Context, t *Target, dk docker.Scope, scopeErr error, words string) (TargetCapacity, error) {
+	out := TargetCapacity{Words: words, Memory: &ResourceCapacity{}, CPU: &ResourceCapacity{}}
+	if scopeErr != nil {
+		reason := fmt.Sprintf("its daemon cannot be asked: %v", scopeErr)
 		*out.Memory, *out.CPU = unknownResource(reason, true), unknownResource(reason, false)
 		out.Disk = &DiskCapacity{Total: unknown(reason), Free: unknown(reason)}
 		return out, nil
@@ -190,6 +219,20 @@ func (s *Service) dockerCapacity(ctx context.Context, t *Target) (TargetCapacity
 		out.Memory.Total, out.CPU.Total = known(float64(info.MemoryBytes)), known(float64(info.CPUs))
 	}
 	limits, limitsErr := docker.RunningLimits(ctx, dk)
+	var owners containerOwners
+	var deps map[ids.ID]ProjectDeployment
+	if limitsErr == nil {
+		if owners, deps, err = s.ownersOnTarget(ctx, t); err != nil {
+			return out, err
+		}
+		// A Portainer stack's containers carry no class label: those of a
+		// stack AppTown's record names are AppTown's.
+		for i := range limits {
+			if _, ok := owners.stackOf(limits[i]); ok {
+				limits[i].AppTown = true
+			}
+		}
+	}
 	if limitsErr != nil {
 		out.Memory.Promised = unknownPromised(limitsErr)
 		out.CPU.Promised = unknownPromised(limitsErr)
@@ -201,11 +244,7 @@ func (s *Service) dockerCapacity(ctx context.Context, t *Target) (TargetCapacity
 	out.Memory.HostUsed, out.CPU.HostUsed = s.hostUse(ctx, dk, info.MemoryBytes, info.CPUs, info.DataRoot)
 
 	if limitsErr == nil {
-		tenants, err := s.dockerTenants(ctx, t, limits, used, usedErr)
-		if err != nil {
-			return out, err
-		}
-		out.Tenants = tenants
+		out.Tenants = tenantsOf(limits, used, usedErr, owners, deps)
 		out.TenantsAt = s.now()
 	}
 	overcommit(out.Memory)
@@ -315,112 +354,6 @@ func (s *Service) disk(ctx context.Context, target *Target, dk docker.Scope, roo
 		out.Warning = d.Warning()
 	}
 	return out
-}
-
-// portainerCapacity is a Portainer endpoint's total, and what the
-// AppTown's own deployments there declare; other stacks and use are not
-// read in 1.0.
-func (s *Service) portainerCapacity(ctx context.Context, t *Target) TargetCapacity {
-	const notRead = "not read through Portainer in 1.0"
-	out := TargetCapacity{Words: "A fixed host behind Portainer: it does not grow. The limits shown are those AppTown's deployments declare; Portainer's other stacks, use and disk are not read.",
-		Memory: &ResourceCapacity{InUse: &Split{AppTown: unknown(notRead), Other: unknown(notRead)}},
-		CPU:    &ResourceCapacity{},
-		Disk:   &DiskCapacity{Total: unknown(notRead), Free: unknown(notRead)}}
-	if cfg, err := s.providers.PortainerConfig(ctx, t); err != nil {
-		out.Memory.Total, out.CPU.Total = unknownErr(err), unknownErr(err)
-	} else if endpoint, err := portainer.EndpointID(ctx, cfg); err != nil {
-		out.Memory.Total, out.CPU.Total = unknownErr(err), unknownErr(err)
-	} else if mem, cpus, err := portainer.EndpointCapacity(ctx, cfg, endpoint); err != nil {
-		out.Memory.Total, out.CPU.Total = unknownErr(err), unknownErr(err)
-	} else {
-		out.Memory.Total, out.CPU.Total = known(float64(mem)), known(float64(cpus))
-	}
-	declared, err := s.declaredOn(ctx, t.ID)
-	if err != nil {
-		out.Memory.Promised, out.CPU.Promised = unknownPromised(err), unknownPromised(err)
-		return out
-	}
-	out.Memory.Promised, out.CPU.Promised = declared[0], declared[1]
-	out.Memory.Promised.Sum.Other = unknown("other stacks are " + notRead)
-	out.CPU.Promised.Sum.Other = unknown("other stacks are " + notRead)
-	return out
-}
-
-// declaredOn sums what AppTown's settled deployments on a target
-// applied, memory and CPUs: AppTown's share of a host it does not
-// inspect.
-func (s *Service) declaredOn(ctx context.Context, targetID ids.ID) ([2]Promised, error) {
-	deps, err := s.Deployments.All(ctx)
-	if err != nil {
-		return [2]Promised{}, err
-	}
-	var settled []AppliedProfile
-	for _, d := range deps {
-		if d.Kind != Standing || d.TargetID != targetID {
-			continue
-		}
-		if d.ObservedGeneration == 0 {
-			// Nothing settled. An attempt still open may have applied its
-			// limits there already: its share is unknown, not none.
-			open, err := s.Outcomes.HasOpenAttempt(ctx, d.ID)
-			if err != nil {
-				return [2]Promised{}, err
-			}
-			if open {
-				settled = append(settled, AppliedProfile{})
-			}
-			continue
-		}
-		applied, err := s.SettledApplied(ctx, &d.Deployment)
-		if err != nil {
-			return [2]Promised{}, err
-		}
-		settled = append(settled, applied)
-	}
-	return sumDeclared(settled), nil
-}
-
-// sumDeclared sums what each running generation applied, memory and CPUs.
-// One with no record (released before limits were recorded, or a release
-// still open, which may have applied) makes the sum unknown: its share is
-// unknown, not none.
-func sumDeclared(settled []AppliedProfile) [2]Promised {
-	var mem, cpu Promised
-	var memSum, cpuSum float64
-	unrecorded := 0
-	for _, applied := range settled {
-		if !applied.Recorded() {
-			unrecorded++
-			continue
-		}
-		parts := make([]AppliedPart, 0, len(applied.Parts)+len(applied.Services))
-		for _, p := range applied.Parts {
-			parts = append(parts, p)
-		}
-		for _, p := range applied.Services {
-			parts = append(parts, p)
-		}
-		for _, p := range parts {
-			if p.Resources.MemoryBytes > 0 {
-				memSum += float64(p.Resources.MemoryBytes)
-				mem.Limited.add(true)
-			} else {
-				mem.Unlimited.add(true)
-			}
-			if p.Resources.CPUs > 0 {
-				cpuSum += p.Resources.CPUs
-				cpu.Limited.add(true)
-			} else {
-				cpu.Unlimited.add(true)
-			}
-		}
-	}
-	mem.Sum.AppTown, cpu.Sum.AppTown = known(memSum), known(cpuSum)
-	if unrecorded > 0 {
-		why := unknown(fmt.Sprintf("%d deployment(s) here hold limits with no record: released before limits were recorded (release them again), or a release still open", unrecorded))
-		mem.Sum.AppTown, cpu.Sum.AppTown = why, why
-	}
-	return [2]Promised{mem, cpu}
 }
 
 // elasticCapacity is what each deployment on an App Platform target runs

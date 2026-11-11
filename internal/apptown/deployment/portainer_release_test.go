@@ -624,3 +624,34 @@ func (portainerCopyWitness) CopyEvidence() json.RawMessage {
 func (portainerCopyWitness) CopyWords() string                                    { return "test fixture has no prior data" }
 func (portainerCopyWitness) BackupID() ids.ID                                     { return ids.Nil }
 func (portainerCopyWitness) After(context.Context, []string) ([]string, []string) { return nil, nil }
+
+// A release to a Portainer endpoint short of disk is refused before any
+// stack is sent, as one to a Docker host short of disk is: the endpoint's
+// data folder is read now, through its Docker proxy, and the refusal says
+// what is free. Once space is freed the same release goes out.
+//
+// Kills: a Portainer release that does not ask the endpoint's disk.
+func TestAPortainerReleaseToAnEndpointShortOfDiskSendsNoStack(t *testing.T) {
+	t.Parallel()
+	p := newPromotionTargetsWith(t, false, digestAppYAML)
+	p.land(t)
+	daemon := p.hosts.daemons[portainerHost]
+	daemon.SetDisk(100<<30, 1<<30) // 1 GiB free of 100: below the 5 GiB floor
+	selected := p.chooseDefault(t)
+	accepted, err := p.s.RequestDefaultRelease(t.Context(), DefaultReleaseSelection{ProjectID: p.project, ExpectedRevision: &selected.Revision})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = p.s.ExecuteRelease(t.Context(), accepted.ID)
+	rel, readErr := p.s.Releases.ByNumber(t.Context(), p.project, accepted.Number)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if _, sent := p.lastStack(t); rel.State != ReleaseFailed || sent != 0 || err == nil || !strings.Contains(err.Error(), "1.0 GiB free of 100.0 GiB") {
+		t.Fatalf("a release to an endpoint short of disk: %s %v, %d stacks sent", rel.State, err, sent)
+	}
+	daemon.SetDisk(100<<30, 50<<30)
+	if rel := p.releaseDefault(t); rel.State != Released {
+		t.Fatalf("the release once space was freed: %+v", rel)
+	}
+}

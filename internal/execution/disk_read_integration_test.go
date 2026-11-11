@@ -66,7 +66,7 @@ func TestIntegrationADiskReadAnswersUnderLoadAndLeavesNothing(t *testing.T) {
 	for range readers {
 		readersDone.Go(func() {
 			for next.Add(1) <= reads {
-				space, err := diskspace.ReadThroughDocker(ctx, dk, stock.Images().DF, root, time.Now)
+				space, err := diskspace.ReadThroughDocker(ctx, dk, stock.Images().DF, root, time.Now, false)
 				if err == nil && space.TotalBytes <= 0 {
 					err = errors.New("an empty filesystem")
 				}
@@ -116,7 +116,7 @@ func TestIntegrationADiskReadAnswersFromItsFileWhenTheLogIsEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	space, err := diskspace.ReadThroughDocker(ctx, dk, stock.Images().DF, strings.TrimSpace(root), time.Now)
+	space, err := diskspace.ReadThroughDocker(ctx, dk, stock.Images().DF, strings.TrimSpace(root), time.Now, false)
 	if err != nil || space.TotalBytes <= 0 {
 		t.Fatalf("read %+v, %v", space, err)
 	}

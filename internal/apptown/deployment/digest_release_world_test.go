@@ -219,7 +219,14 @@ func (h *digestHosts) daemon(target string) *dockerfake.Daemon {
 	return h.daemons[digestHostOf(target)]
 }
 
+// portainerHost is the daemon behind the Portainer target's Docker proxy:
+// the CLI is pointed at the proxy's socket (Providers.PortainerDataScope).
+const portainerHost = "portainer"
+
 func (h *digestHosts) Run(ctx context.Context, host string, req docker.Command) ([]byte, error) {
+	if strings.HasPrefix(host, "unix://") && strings.Contains(host, "/portainer-") {
+		host = portainerHost
+	}
 	if strings.HasPrefix(host, "ssh://apptown-target-") && len(host) > 17 && host[len(host)-17] == '-' {
 		host = host[:len(host)-17]
 	}

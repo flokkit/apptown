@@ -146,7 +146,7 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 			defer server.Close()
 			scope := Scope{Version: 1, APIBase: server.URL, EndpointID: 3, DaemonID: "daemon"}
 			now := time.Unix(1234, 0).UTC()
-			d := Driver{TargetID: r.Target, readinessTimeout: 100 * time.Millisecond, Now: func() time.Time { return now }, Allowed: func(context.Context) error {
+			d := Driver{AdmitDisk: admitDisk, TargetID: r.Target, readinessTimeout: 100 * time.Millisecond, Now: func() time.Time { return now }, Allowed: func(context.Context) error {
 				if revoked {
 					return errors.New("release permission revoked")
 				}

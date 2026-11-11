@@ -260,39 +260,99 @@ func TestAContainerEventIsReadAsDockerReportsIt(t *testing.T) {
 	}
 }
 
+// Through a proxy that carries only plain requests (Portainer's), use is
+// read for the running containers by name: an unnamed stats opens the
+// event stream the proxy holds, and never answers. With nothing running
+// nothing is asked; a list that fails is an error. A Docker host's reading
+// is the one unnamed stats it always was.
+//
+// Kills: an unnamed stats through a plain proxy.
+func TestUseThroughAPlainProxyNamesTheRunningContainers(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		plain   bool
+		running string
+		psErr   error
+		want    []string // the stats command's containers; nil: no stats sent
+		wantErr bool
+	}{
+		{plain: false, running: "a1\nb2\n", want: []string{}},
+		{plain: true, running: "a1\nb2\n", want: []string{"a1", "b2"}},
+		{plain: true, running: ""},
+		{plain: true, psErr: errors.New("exit status 1"), wantErr: true},
+	} {
+		f := &fakeClient{reply: func(req Command) ([]byte, error) {
+			switch req.Args[0] {
+			case "ps":
+				return []byte(c.running), c.psErr
+			case "stats":
+				return []byte("web\t10MiB / 1GiB\t1.00%\n"), nil
+			}
+			return nil, fmt.Errorf("unexpected %v", req.Args)
+		}}
+		used, err := RunningUsage(t.Context(), Scope{Client: f, NoStreams: c.plain})
+		if (err != nil) != c.wantErr {
+			t.Fatalf("%+v: %v", c, err)
+		}
+		var stats []string
+		for _, a := range f.args {
+			if a[0] == "stats" {
+				stats = a[4:]
+			}
+		}
+		if c.wantErr {
+			continue
+		}
+		if c.want == nil && stats != nil || c.want != nil && !slices.Equal(stats, c.want) {
+			t.Errorf("%+v: stats asked for %v", c, stats)
+		}
+		if c.want == nil && len(used) != 0 || len(c.want) > 0 && used["web"].MemoryBytes != 10<<20 {
+			t.Errorf("%+v: use %+v", c, used)
+		}
+		if !c.plain && slices.ContainsFunc(f.args, func(a []string) bool { return a[0] == "ps" }) {
+			t.Errorf("a Docker host's use listed its containers: %v", f.args)
+		}
+	}
+}
+
 // A CPU ceiling may be set three ways, and the tightest holds; a cpuset
 // AppTown cannot read is unread, never "no limit".
 func TestEveryWayDockerCapsCPUsIsRead(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
-		line         string
-		cpus         float64
-		unread       bool
-		mem          int64
-		apptown      bool
-		class, owner string
+		line                string
+		cpus                float64
+		unread              bool
+		mem                 int64
+		apptown             bool
+		class, owner, stack string
 	}{
-		{"/web\t536870912\t1500000000\t0\t0\t\tenv\tapptown-env-a-main", 1.5, false, 512 << 20, true, "env", "apptown-env-a-main"},
-		{"/other\t0\t0\t50000\t100000\t\t<no value>\t<no value>", 0.5, false, 0, false, "", ""},
-		{"/other\t0\t0\t50000\t0\t\t\t", 0.5, false, 0, false, "", ""},
-		{"/pinned\t0\t0\t0\t0\t0-3,6\t\t", 5, false, 0, false, "", ""},
-		{"/both\t0\t2000000000\t0\t0\t0\tenv\t", 1, false, 0, true, "env", ""},
-		{"/odd\t0\t0\t0\t0\tlots\tstep\tstep-1", 0, true, 0, true, "step", "step-1"},
-		{"/free\t0\t0\t0\t0\t\t\t", 0, false, 0, false, "", ""},
+		{"/web\t536870912\t1500000000\t0\t0\t\tenv\tapptown-env-a-main\t<no value>", 1.5, false, 512 << 20, true, "env", "apptown-env-a-main", ""},
+		{"/other\t0\t0\t50000\t100000\t\t<no value>\t<no value>\t<no value>", 0.5, false, 0, false, "", "", ""},
+		{"/other\t0\t0\t50000\t0\t\t\t\t", 0.5, false, 0, false, "", "", ""},
+		{"/pinned\t0\t0\t0\t0\t0-3,6\t\t\t", 5, false, 0, false, "", "", ""},
+		{"/both\t0\t2000000000\t0\t0\t0\tenv\t\t", 1, false, 0, true, "env", "", ""},
+		{"/odd\t0\t0\t0\t0\tlots\tstep\tstep-1\t", 0, true, 0, true, "step", "step-1", ""},
+		{"/free\t0\t0\t0\t0\t\t\t\t", 0, false, 0, false, "", "", ""},
+		// A Portainer stack's container: its Compose project, and no class.
+		{"/apptown-a-main-app-1\t0\t0\t0\t0\t\t<no value>\t<no value>\tapptown-a-main", 0, false, 0, false, "", "", "apptown-a-main"},
 	} {
 		l, err := parseContainerLimit(c.line)
 		if err != nil {
 			t.Fatalf("%q: %v", c.line, err)
 		}
-		if l.CPUs != c.cpus || l.CPUUnread != c.unread || l.MemoryBytes != c.mem || l.AppTown != c.apptown || l.Class != c.class || l.Owner != c.owner {
+		if l.CPUs != c.cpus || l.CPUUnread != c.unread || l.MemoryBytes != c.mem || l.AppTown != c.apptown || l.Class != c.class || l.Owner != c.owner || l.Stack != c.stack {
 			t.Errorf("%q read as %+v", c.line, l)
 		}
 	}
-	if _, err := parseContainerLimit("/x\tlots\t0\t0\t0\t\t\t"); err == nil {
+	if _, err := parseContainerLimit("/x\tlots\t0\t0\t0\t\t\t\t"); err == nil {
 		t.Error("an unreadable memory was accepted")
 	}
 	if _, err := parseContainerLimit("/x\t0\t0\t0\t0\t\tenv"); err == nil {
 		t.Error("a line without the owner field was accepted")
+	}
+	if _, err := parseContainerLimit("/x\t0\t0\t0\t0\t\tenv\t"); err == nil {
+		t.Error("a line without the Compose project field was accepted")
 	}
 }
 

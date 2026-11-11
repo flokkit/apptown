@@ -272,6 +272,32 @@ func TestDiskConditionsExplainRoomAndActualAdmissionBoundary(t *testing.T) {
 	}
 }
 
+// An unread disk's item stays, and says AppTown cannot read the disk and
+// why in the disk's own words, though the reading's first failure is
+// another figure's (which follows); it never says a check failed.
+//
+// Kills: a disk item worded "check failed", or one quoting only the
+// memory figure's failure.
+func TestAnUnreadDiskSaysWhyInItsOwnWords(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 11, 11, 0, 0, 0, 0, time.UTC)
+	office := idstest.N(7)
+	why := "its daemon cannot be asked: its Docker does not answer through Portainer: HTTP 500"
+	evidence := &capacityEvidence{reads: map[ids.ID]deployment.CapacitySnapshot{
+		office: {ObservedAt: at, AttemptedAt: at, FailedAt: at, Unknown: true, DiskUnknown: true, Reason: "The host memory total could not be read.",
+			Disk: &deployment.DiskCapacity{Free: deployment.Figure{Reason: why}, Total: deployment.Figure{Reason: why}, ReadAt: at}},
+	}}
+	source := Capacity{Targets: capacityTargets{[]*deployment.Target{{ID: office, Name: "office", Kind: deployment.KindPortainer}}}, Observer: evidence, Now: func() time.Time { return at }}
+	got, err := source.Snapshot(t.Context())
+	if err != nil || len(got.Items) != 1 {
+		t.Fatalf("items %+v %v", got.Items, err)
+	}
+	item := got.Items[0]
+	if item.Title != "office: disk space is unknown" || !item.Unknown || !strings.Contains(item.Detail, "AppTown cannot read this host's disk: "+why) || strings.Contains(item.Detail, "check failed") {
+		t.Fatalf("the item: %+v", item)
+	}
+}
+
 func TestCapacityConditionsRespectRetirementAndProviderAdmission(t *testing.T) {
 	t.Parallel()
 	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
@@ -289,8 +315,10 @@ func TestCapacityConditionsRespectRetirementAndProviderAdmission(t *testing.T) {
 	if err != nil || len(got.Items) != 2 || len(evidence.calls) != 2 {
 		t.Fatalf("retired target sampled %+v calls%v %v", got, evidence.calls, err)
 	}
-	if strings.Contains(got.Items[0].Title, "blocks") || !strings.Contains(got.Items[0].Detail, "advisory: Portainer") || strings.Contains(got.Items[0].Detail, "are refused") {
-		t.Fatalf("invented Portainer admission %+v", got.Items[0])
+	// A Portainer endpoint below its floor refuses new releases, as a
+	// Docker host does; it runs no previews.
+	if got.Items[0].Title != "office: free disk space to start new work" || !strings.Contains(got.Items[0].Detail, "New releases are refused below the admission threshold") || strings.Contains(got.Items[0].Detail, "previews") {
+		t.Fatalf("Portainer admission %+v", got.Items[0])
 	}
 	if got.Items[1].Title != "unread: disk space is unknown" || !strings.Contains(got.Items[1].Detail, "disk cannot be read") {
 		t.Fatalf("unknown disk lost actual admission boundary %+v", got.Items[1])

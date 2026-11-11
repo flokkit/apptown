@@ -132,11 +132,24 @@ func (d settledAs) generationOf(e docker.ContainerEvent) *int64 {
 // containerOwners answers which standing deployment's part or need a
 // container on one target is, by the names AppTown gives them: the
 // public part's container (whichever generation runs it), and each
-// other part's and need's service on the deployment's stack.
+// other part's and need's service on the deployment's stack; or, on
+// Portainer, by the Compose project of the stack its record names.
 type containerOwners struct {
 	exact    map[string]partOf
 	services map[string]ids.ID // a stack's service-name prefix → its deployment
+	stacks   map[string]ids.ID // a Portainer stack's name, lowercased → its deployment
 	settled  map[ids.ID]settledAs
+}
+
+// stackOf is the deployment whose recorded Portainer stack l runs in: its
+// Compose project is the stack's name exactly, compared lowercased as
+// Compose lowers a project's name (appContainers). The part is not known.
+func (o containerOwners) stackOf(l docker.ContainerLimit) (partOf, bool) {
+	if l.Stack == "" {
+		return partOf{}, false
+	}
+	id, ok := o.stacks[strings.ToLower(l.Stack)]
+	return partOf{deployment: id}, ok
 }
 
 func (o containerOwners) of(container string) (partOf, bool) {
@@ -159,7 +172,7 @@ func (o containerOwners) of(container string) (partOf, bool) {
 }
 
 func (s *Service) ownersOn(ctx context.Context, deps []ProjectDeployment) (containerOwners, error) {
-	o := containerOwners{exact: map[string]partOf{}, services: map[string]ids.ID{}, settled: map[ids.ID]settledAs{}}
+	o := containerOwners{exact: map[string]partOf{}, services: map[string]ids.ID{}, stacks: map[string]ids.ID{}, settled: map[ids.ID]settledAs{}}
 	for _, d := range deps {
 		applied, since, err := s.settled(ctx, &d.Deployment)
 		if err != nil {
@@ -189,6 +202,9 @@ func (s *Service) ownersOn(ctx context.Context, deps []ProjectDeployment) (conta
 			}
 		}
 		o.services[names.Service("")] = d.ID
+		if stack, _ := d.Handle["stack"].(string); stack != "" {
+			o.stacks[strings.ToLower(stack)] = d.ID
+		}
 	}
 	return o, nil
 }

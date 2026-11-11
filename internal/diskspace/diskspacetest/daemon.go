@@ -36,12 +36,14 @@ func (d *Daemon) Started() int {
 	return d.results.StartedCount()
 }
 
-// IsCreate recognizes the making of a daemon's standing disk reader.
+// IsCreate recognizes the making of a daemon's standing disk reader: run -d,
+// or create on a daemon reached by plain requests (containerresult.Spec.Plain).
 func IsCreate(args []string) bool {
 	if len(args) > 1 && args[0] == "--config" {
 		args = args[2:]
 	}
-	return len(args) > 4 && args[0] == "run" && args[1] == "-d" && slices.Contains(args, dockerlabel.Class+"="+diskspace.ReaderClass)
+	made := len(args) > 4 && (args[0] == "run" && args[1] == "-d" || args[0] == "create")
+	return made && slices.Contains(args, dockerlabel.Class+"="+diskspace.ReaderClass)
 }
 
 // isReader names a standing disk reader.

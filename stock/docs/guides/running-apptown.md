@@ -126,6 +126,6 @@ out-of-date coverage means AppTown cannot currently confirm the complete picture
 an empty list in that state is not an all-clear.
 
 Controller disk warnings are advisory. Worker disk refusal prevents new tasks;
-Docker-host disk refusal prevents new releases and previews. Portainer disk
-readings are advisory and do not protect release admission. Inspect
+Docker-host disk refusal prevents new releases and previews. Portainer
+endpoint disk refusal prevents new releases. Inspect
 ownership and retention requirements before removing stored resources.
