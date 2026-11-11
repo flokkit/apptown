@@ -118,13 +118,15 @@ func createReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft) (Numb
 		if dep.runtimeBusy() {
 			return NumberedRelease{}, errRuntimeBusy
 		}
-	}
-	if !d.Automatic {
-		if err := takeDownHeldIn(ctx, tx, d.ProjectID, deploymentID); err != nil {
-			return NumberedRelease{}, err
-		}
-		if err := heldAfterRestoreIn(ctx, tx, deploymentID); err != nil {
-			return NumberedRelease{}, err
+		// A held deployment's release is refused at once (attempt
+		// admission refuses it again).
+		if !d.Automatic {
+			if err := takeDownHeldIn(ctx, tx, d.ProjectID, deploymentID); err != nil {
+				return NumberedRelease{}, err
+			}
+			if err := dep.HeldAfterRestore(); err != nil {
+				return NumberedRelease{}, err
+			}
 		}
 	}
 	q := releasesql.New(tx.SQL())

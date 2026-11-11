@@ -154,10 +154,8 @@ func (s *Service) executeRequestedRelease(ctx context.Context, rel *Release, pla
 	if err != nil {
 		return result, fail(err)
 	}
-	if op, err := s.runningOperation(ctx, dep); err != nil {
+	if err := s.db.InTx(ctx, func(tx *database.Tx) error { return takeDownHeldIn(ctx, tx, dep.ProjectID, dep.ID) }); err != nil {
 		return result, fail(err)
-	} else if op != nil && slices.Contains(op.Holds, SubjectOf(dep)) {
-		return result, fail(&operations.HeldError{Holder: op})
 	}
 	// Before any preparation: App Platform's needs and rendering reach the
 	// provider before an attempt is admitted.

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -189,18 +188,10 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	if err := dep.deployableByHand(); err != nil && !errors.Is(err, errFedByLanding) {
 		return AcceptedRelease{}, err
 	}
-	// A project being deleted, or deleted, takes no release; while a
-	// take-down runs, nothing deploys the app it is deleting. (Said early
-	// here; release creation decides both under the lock.)
+	// A project being deleted, or deleted, takes no release. (Said early
+	// here; release creation decides it, and any hold, under the lock.)
 	if err := project.RefuseUnlessActive(ctx, s.db, in.ProjectID); err != nil {
 		return AcceptedRelease{}, err
-	}
-	// A take-down holds the deployment whole (SubjectOf); data operations
-	// hold only its data and do not meet a release.
-	if op, err := s.runningOperation(ctx, dep); err != nil {
-		return AcceptedRelease{}, err
-	} else if op != nil && slices.Contains(op.Holds, SubjectOf(dep)) {
-		return AcceptedRelease{}, &operations.HeldError{Holder: op}
 	}
 	// The first release of a deployment that starts from a copy fills its
 	// data: it is a restore, so its caller needs the restore grant in the

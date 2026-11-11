@@ -93,6 +93,10 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 		}
 		return at, false, nil
 	}
+	// Nothing starts writers while a take-down or a restore holds it.
+	if err := takeDownHeldIn(ctx, tx, dep.ProjectID, dep.ID); err != nil {
+		return Attempt{}, false, err
+	}
 	// After a restore nothing runs a held deployment, whichever way it was
 	// asked for, queued before the backup or since; the one exception is the
 	// rebuild that puts a filling one's data back.

@@ -30,7 +30,7 @@ import (
 
 var ErrRemovalChanged = fault.New(fault.Conflict, "deployment changed during removal; current records were preserved")
 
-var ErrRemovalBusy = fault.New(fault.Conflict, "deployment has unfinished work; finish or resolve it before removal")
+var ErrRemovalBusy = fault.New(fault.Conflict, "deployment has unfinished work; finish or resolve it first")
 
 // ErrRestoredCopyDoor: a restored copy is taken down from its source's
 // card, by its own rule, not as a deployment.
@@ -101,9 +101,6 @@ func SelectRemovalIn(ctx context.Context, tx *database.Tx, projectID ids.ID, nam
 	if err != nil {
 		return nil, err
 	}
-	if dep.runtimeBusy() {
-		return nil, errRuntimeBusy
-	}
 	// Feed edits hold the same project lock. Check both before effects and
 	// when settlement selects again, before any retention or deletion writes.
 	rows, err := q.LockFeedSettings(ctx, projectID)
@@ -130,21 +127,7 @@ func SelectRemovalIn(ctx context.Context, tx *database.Tx, projectID ids.ID, nam
 	if err := dep.takeDownHeldAfterRestore(); err != nil {
 		return nil, err
 	}
-	busy, err := q.HasOpenAttempt(ctx, deploymentsql.HasOpenAttemptParams{DeploymentID: dep.ID, RunningState: AttemptRunning.String(), UncertainState: AttemptUncertain.String()})
-	if err != nil {
-		return nil, err
-	}
-	if busy {
-		return nil, ErrRemovalBusy
-	}
-	busy, err = releasesql.New(tx.SQL()).ReleaseInFlight(ctx, releasesql.ReleaseInFlightParams{ProjectID: projectID, DeploymentID: dep.ID, OpenState: Releasing.String()})
-	if err != nil {
-		return nil, err
-	}
-	if busy {
-		return nil, ErrRemovalBusy
-	}
-	return dep, nil
+	return dep, QuietIn(ctx, tx, dep.ID, ids.Nil)
 }
 
 // CancelWaitingForRemovalIn settles waiting approvals in the transaction that

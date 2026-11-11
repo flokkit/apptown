@@ -392,7 +392,7 @@ func newDataWorldWith(t *testing.T, opts dataWorldOptions) *dataWorld {
 			return digest, nil
 		}}
 	w.ops = operations.New(db, w.auth, w.auth, opts.opsNow)
-	w.s = assembled(db, testRuntime{Scope: docker.Scope{Client: client}, DataDir: dir, Projects: projects, Secrets: secrets, Integrations: integrations, Needs: catalog, ChownImage: "test-helper", BuiltInTarget: "local", DigitalOcean: options}, deployment.Dependencies{Operations: w.ops, Authority: w.auth, Followups: recoveryJobFollowups{}, Configuration: deployment.ConfigurationDependencies{Authority: w.auth, Projects: sources, Contracts: sources}, Releases: deployment.ReleaseDependencies{Authority: w.auth, Still: w.auth, Sources: sources, Secrets: doReleaseSecrets{}, Queue: doReleaseQueue{}}})
+	w.s = assembled(db, testRuntime{Scope: docker.Scope{Client: client}, DataDir: dir, Projects: projects, Secrets: secrets, Integrations: integrations, Needs: catalog, ChownImage: "test-helper", BuiltInTarget: "local", DigitalOcean: options, Operations: w.ops}, deployment.Dependencies{Authority: w.auth, Followups: recoveryJobFollowups{}, Configuration: deployment.ConfigurationDependencies{Authority: w.auth, Projects: sources, Contracts: sources}, Releases: deployment.ReleaseDependencies{Authority: w.auth, Still: w.auth, Sources: sources, Secrets: doReleaseSecrets{}, Queue: doReleaseQueue{}}})
 	if _, err := w.s.Targets.Put(context.Background(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady}); err != nil {
 		t.Fatal(err)
 	}

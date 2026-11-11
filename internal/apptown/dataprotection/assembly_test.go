@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/database"
@@ -94,6 +95,7 @@ type testRuntime struct {
 	Connectors                                                           deployment.ConnectorRetirement
 	OfferedByConstruction                                                []string
 	RestoredCopies                                                       RestoredCopyDependencies
+	Operations                                                           *operations.Service
 }
 
 // assembled is Deployment and data protection built over the shared
@@ -123,7 +125,7 @@ func assembled(db *database.DB, rt testRuntime, deps deployment.Dependencies) *b
 	deps.CopyCheck = starter
 	d := deployment.New(ctx, db, deps)
 	s := New(starter, Dependencies{Deployments: d.Deployments, Releases: d.Releases, Bundles: d.Bundles, Retained: d.Retained, Outcomes: d.Outcomes,
-		Projects: rt.Projects, Integrations: rt.Integrations, Operations: deps.Operations, RestoredCopies: rt.RestoredCopies,
+		Projects: rt.Projects, Integrations: rt.Integrations, Operations: rt.Operations, RestoredCopies: rt.RestoredCopies,
 		Applied: deps.Applied})
 	return &both{Service: s, deploymentOwner: d}
 }

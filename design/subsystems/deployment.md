@@ -688,8 +688,13 @@ restored` accordingly, in the operation's result (`RestoreResult`, under
 `restore`) and the `restored` receipt. **A restore is an operation**
 (`deployment.restore`, `dataprotection/restore_operation.go`): the
 door (`RequestRestore`, deploy grant) refuses what would refuse it before
-any change and admits it holding the deployment's data (`DataHold`; a
-release is not held off); the worker runs it once, asking the admitting
+any change, and admits it only while nothing may start the deployment's
+writers (`QuietIn`: no runtime or health act recorded or under way, no open
+attempt, no release in flight except a rollback's own). It holds the whole
+deployment, as a take-down does: releases, attempts, runtime acts and
+health restarts are refused while it lives (deploy after the restore
+finishes; a follows-main release that meets it fails before any effect).
+The worker runs it once, asking the admitting
 credential again before the safety set and before each item. It records
 each step, the safety set, each container before it is stopped and again
 once started, and each item's outcome as it ends; its `restored` receipt is
@@ -870,17 +875,19 @@ the release declares disposable empty; any other item fails it, by name.
   (`deployment.rehearsal`) and a restored copy's start and end
   (`deployment.restored-copy`, `deployment.restored-copy-end`) are
   operations in the operations ledger (`internal/apptown/operations`). Deployment registers the kinds and
-  admits each under the project's release lock, then the ledger's
-  admission lock, then its own eligibility reads; the row, its River job
+  admits each under the project's release lock, then its own eligibility
+  reads (which may lock the deployment's row), then the ledger's admission
+  lock: the order every admission keeps (`holds.go`). The row, its River job
   and its receipt commit together, and a worker on the `operations` queue
   runs it once, for up to two hours. Its subject is
   `project:<id>/deployment:<id>`. A copy, drill, rehearsal or restored copy
   holds `<subject>/data`, so one data operation runs per deployment; a
-  take-down holds the whole subject. Release creation checks
-  `<subject>/release` under the same project lock: no release is minted, by
-  any door, while a take-down is live, and a take-down is not admitted
-  while a release or attempt is in flight. Data operations do not keep a
-  release out. Asking again while one is live is a 409 naming it. It ends
+  take-down and an in-place restore hold the whole subject. Release
+  creation, attempt admission, runtime acts and health acts check
+  `<subject>/release`: nothing starts the app's writers, by any door, while
+  either is live, and neither is admitted while a runtime act, attempt or
+  release is under way (`QuietIn`). Data operations do not keep a release
+  out. Asking again while one is live is a 409 naming it. It ends
   succeeded (verified, not-verified, or neither for a restored copy's end),
   failed, unknown or cancelled. Before each consequential effect (the
   table in the operations package doc names each one), the kind asks

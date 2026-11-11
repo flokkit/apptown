@@ -47,8 +47,8 @@ func newSharedRehearsalWorld(t *testing.T) *sharedRehearsalWorld {
 	secrets := secret.NewService(w.db, secret.Config{DataDir: w.dir})
 	w.s = assembled(w.db, testRuntime{Scope: docker.Scope{Client: w.daemon}, Probe: &docker.Probe{Settle: time.Millisecond}, DataDir: w.dir, SSHConfigPath: filepath.Join(w.dir, "ssh-config"),
 		Projects: projects, Secrets: secrets, Integrations: integration.NewService(w.db, integration.Dependencies{Projects: projects, Secrets: secrets}), Needs: dependency.NewCatalog(w.db, nil),
-		ChownImage: "test-helper", BuiltInTarget: "local", NoLocalDocker: true},
-		deployment.Dependencies{Operations: w.ops, Authority: auth, Followups: noFollowups{}, Configuration: deployment.ConfigurationDependencies{Projects: w.sources},
+		ChownImage: "test-helper", BuiltInTarget: "local", NoLocalDocker: true, Operations: w.ops},
+		deployment.Dependencies{Authority: auth, Followups: noFollowups{}, Configuration: deployment.ConfigurationDependencies{Projects: w.sources},
 			Releases: deployment.ReleaseDependencies{Authority: auth, Still: auth, Sources: w.sources, Secrets: requestSecrets{}, Queue: requestQueue{}}})
 	ctx := context.Background()
 	volumes := true
