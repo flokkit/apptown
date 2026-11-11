@@ -2232,6 +2232,7 @@ export type TargetOffers = {
 }
 
 export type TargetPage = {
+  awsRouting?: AWSRoutingReading | null
   target: TargetView | null
   history: TargetEvent[]
   builtIn: boolean
@@ -3079,6 +3080,7 @@ export type Copy = {
 }
 
 export type Cloud = {
+  setup?: string
   kind?: string
   reach?: Reach | null
   native?: Native | null
@@ -4549,6 +4551,14 @@ export type Offer = {
   implicit?: boolean
 }
 
+export type AWSRoutingReading = {
+  loadBalancer: string
+  domain: string
+  matches: boolean
+  unknown?: string
+  readAt: string
+}
+
 export type TargetEvent = {
   at: string
   actor: string
@@ -4868,7 +4878,7 @@ export type ShippedComparison = {
 }
 
 export type TargetCapabilities = {
-  persistentVolumes: boolean
+  keepsDataDir: boolean
   ownLiveness: boolean
   rollout: string[]
   needs: string[]

@@ -19,12 +19,13 @@ import { SecretNameStatus } from './integrations/InstanceSecrets'
 // uses: POST /targets (dryRun for the check), POST /targets/{name}/offers,
 // PATCH /targets/{name}. Finish lands on the target's own page.
 
-type Kind = 'docker-host' | 'portainer' | 'do-app' | 'fly-machines' | 's3-bucket'
+type Kind = 'aws-ecs' | 'docker-host' | 'portainer' | 'do-app' | 'fly-machines' | 's3-bucket'
 const DO_REGIONS = ['syd', 'sgp', 'blr', 'nyc', 'sfo', 'tor', 'lon', 'fra', 'ams']
 const KINDS: { kind: Kind; title: string; vendor: string; blurb: string }[] = [
   { kind: 'docker-host', title: 'Docker host', vendor: 'over SSH', blurb: "Docker over SSH. Builds run on the host. Data uses the image's user. Traefik serves the apps domain." },
   { kind: 'portainer', title: 'Portainer environment', vendor: 'Portainer', blurb: 'Experimental: no real app qualified yet. Portainer runs and restarts apps. Traefik serves the apps domain.' },
   { kind: 'do-app', title: 'DigitalOcean App Platform', vendor: 'DigitalOcean', blurb: 'Experimental: no real app qualified yet. App Platform runs apps, Managed Databases hold data, and the registry holds images. One target per account and region.' },
+  { kind: 'aws-ecs', title: 'AWS ECS on Fargate', vendor: 'AWS', blurb: `Beta: single-part apps and a dedicated RDS instance for postgres. Name your existing cluster, subnets, HTTPS listener and execution role. ${PRODUCT} manages only its own deployment resources.` },
   { kind: 'fly-machines', title: 'Fly.io Machines', vendor: 'Fly.io', blurb: `Experimental: no real app qualified yet. Each deployment is a Fly app with one Machine per part. Needs (databases, object storage) are not offered yet. Use an org token for an org that holds your team's apps; ${PRODUCT} touches only the apps it made.` },
   { kind: 's3-bucket', title: 'Bucket website', vendor: 'S3-compatible storage', blurb: `Experimental: no real app qualified yet. Static files only, served from a bucket website. DigitalOcean Spaces first. Each deployment gets one bucket; taking it down deletes the bucket, so keep nothing else there. Use a key made for ${PRODUCT} that can create buckets. Full-access keys reach every bucket in the team.` },
 ]
@@ -89,7 +90,17 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
   const [environment, setEnvironment] = useState('')
   const [tokenFrom, setTokenFrom] = useState(kind === 'fly-machines' ? 'FLY_API_TOKEN' : 'DIGITALOCEAN_ACCESS_TOKEN')
   const [org, setOrg] = useState('')
-  const [region, setRegion] = useState('syd')
+  const [region, setRegion] = useState(kind === 'aws-ecs' ? 'ap-southeast-2' : 'syd')
+  const [keyIdFrom, setKeyIdFrom] = useState('AWS_ACCESS_KEY_ID')
+  const [awsSecretKeyFrom, setAwsSecretKeyFrom] = useState('AWS_SECRET_ACCESS_KEY')
+  const [account, setAccount] = useState('')
+  const [cluster, setCluster] = useState('')
+  const [listener, setListener] = useState('')
+  const [executionRole, setExecutionRole] = useState('')
+  const [taskSubnets, setTaskSubnets] = useState('')
+  const [databaseSubnets, setDatabaseSubnets] = useState('')
+  const [domain, setDomain] = useState('')
+  const subnetList = (text: string) => text.split(/[\s,]+/).filter(Boolean)
   const [registry, setRegistry] = useState('')
   const [endpoint, setEndpoint] = useState('https://syd1.digitaloceanspaces.com')
   const [bucketRegion, setBucketRegion] = useState('syd1')
@@ -101,6 +112,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
   const body = kind === 'docker-host' ? { kind, name, host, keyFrom }
     : kind === 'portainer' ? { kind, name, urlFrom, apiKeyFrom, environment }
     : kind === 's3-bucket' ? { kind, name, endpoint, region: bucketRegion, websiteEndpoint, accessKeyFrom, secretKeyFrom }
+    : kind === 'aws-ecs' ? { kind, name, keyIdFrom, secretKeyFrom: awsSecretKeyFrom, account, cluster, listener, executionRole, taskSubnets: subnetList(taskSubnets), databaseSubnets: subnetList(databaseSubnets), domain, region }
     : kind === 'fly-machines' ? { kind, name, tokenFrom, region, org }
     : { kind, name, tokenFrom, region }
   const key = JSON.stringify(body)
@@ -109,6 +121,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
   const required: [string, string][] = [['name', name], ...(kind === 'docker-host' ? [['address', host], ['SSH key secret', keyFrom]]
     : kind === 'portainer' ? [['URL secret', urlFrom], ['API key secret', apiKeyFrom], ['environment', environment]]
     : kind === 's3-bucket' ? [['endpoint', endpoint], ['region', bucketRegion], ['website address', websiteEndpoint], ['access key secret', accessKeyFrom], ['secret key secret', secretKeyFrom]]
+    : kind === 'aws-ecs' ? [['access key secret', keyIdFrom], ['secret key secret', awsSecretKeyFrom], ['expected account id', account], ['cluster', cluster], ['HTTPS listener ARN', listener], ['execution role ARN', executionRole], ['task subnets', taskSubnets], ['apps domain', domain], ['region', region]]
     : [['token secret', tokenFrom], ['region', region]]) as [string, string][]]
   const empty = required.filter(([, v]) => !v).map(([label]) => label)
   const filled = empty.length === 0
@@ -130,7 +143,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
         {KINDS.find((k) => k.kind === kind)?.blurb} Enter secret names; saved values are hidden.
       </p>
       <div className="wiz-fields">
-        {field('name', name, setName, kind === 'do-app' ? 'do-syd' : kind === 'fly-machines' ? 'fly-syd' : kind === 'portainer' ? 'home-portainer' : kind === 's3-bucket' ? 'spaces-syd' : 'droplet-syd', 160)}
+        {field('name', name, setName, kind === 'aws-ecs' ? 'aws-syd' : kind === 'do-app' ? 'do-syd' : kind === 'fly-machines' ? 'fly-syd' : kind === 'portainer' ? 'home-portainer' : kind === 's3-bucket' ? 'spaces-syd' : 'droplet-syd', 160)}
         {kind === 'docker-host' && <>
           {field('address', host, setHost, 'ssh://root@1.2.3.4', 240)}
           {field('SSH key secret', keyFrom, setKeyFrom, 'DROPLET_SSH_KEY', 180)}
@@ -147,6 +160,19 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
           {field('access key secret', accessKeyFrom, setAccessKeyFrom, 'SPACES_ACCESS_KEY', 180)}
           {field('secret key secret', secretKeyFrom, setSecretKeyFrom, 'SPACES_SECRET_KEY', 180)}
         </>}
+        {kind === 'aws-ecs' && <>
+          {field('access key secret', keyIdFrom, setKeyIdFrom, '', 240)}
+          {field('secret key secret', awsSecretKeyFrom, setAwsSecretKeyFrom, '', 240)}
+          {field('expected account id', account, setAccount, '123456789012')}
+          {field('region', region, setRegion)}
+          {field('cluster', cluster, setCluster)}
+          {field('task subnets (comma separated)', taskSubnets, setTaskSubnets)}
+          {field('database subnets (optional; uses task subnets)', databaseSubnets, setDatabaseSubnets)}
+          {field('HTTPS listener ARN', listener, setListener)}
+          {field('execution role ARN', executionRole, setExecutionRole)}
+          {field('apps domain', domain, setDomain, 'apps.example.com')}
+          <Link to="/docs/guides/aws-target-setup">AWS setup guide and prerequisite templates</Link>
+        </>}
         {kind === 'fly-machines' && <>
           {field('token secret', tokenFrom, setTokenFrom, 'FLY_API_TOKEN', 240)}
           {field('region', region, setRegion, 'syd', 90)}
@@ -158,7 +184,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
         </>}
       </div>
       <div className="mt-2 infrastructure-new-connection-step-div">
-        {(kind === 'docker-host' ? [keyFrom] : kind === 'portainer' ? [urlFrom, apiKeyFrom] : kind === 's3-bucket' ? [accessKeyFrom, secretKeyFrom] : [tokenFrom]).map((n, i) => <SecretNameStatus key={i} name={n} />)}
+        {(kind === 'docker-host' ? [keyFrom] : kind === 'portainer' ? [urlFrom, apiKeyFrom] : kind === 's3-bucket' ? [accessKeyFrom, secretKeyFrom] : kind === 'aws-ecs' ? [keyIdFrom, awsSecretKeyFrom] : [tokenFrom]).map((n, i) => <SecretNameStatus key={i} name={n} />)}
       </div>
       <div className="wiz-answer">
         {busy ? <span className="muted small">checking…</span>
@@ -186,10 +212,10 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
 // OfferStep: who may bind here and with what caps, and the facts only the
 // owner can state. The target is already recorded; skipping leaves it
 // offered to nobody, which the target page can change later.
-type OfferFacts = Pick<TargetSettings, 'domain' | 'persistentVolumes' | 'needsMode'>
+type OfferFacts = Pick<TargetSettings, 'domain' | 'keepsDataDir' | 'needsMode'>
 const factsOf = (target: Target): OfferFacts => ({
   domain: typeof target.ingress?.domain === 'string' ? target.ingress.domain : '',
-  persistentVolumes: target.capabilities.persistentVolumes,
+  keepsDataDir: target.capabilities.keepsDataDir,
   needsMode: target.needsMode,
 })
 
@@ -247,7 +273,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
       .map((key) => [key, draft[key] !== before[key] ? draft[key] : now[key]])) as OfferFacts : now)
     setBase(current); setConflict(false); setErr('')
   }
-  const cloud = target.kind === 'do-app' || target.kind === 'fly-machines'
+  const cloud = target.kind === 'do-app' || target.kind === 'fly-machines' || target.kind === 'aws-ecs'
   return (
     <div className="card infrastructure-new-connection-step-card">
       <p className="muted small mt-0" ><b>{target.name}</b> added. Set its offers and capabilities.</p>
@@ -278,7 +304,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
           <span className="row"><input aria-label="Apps domain" value={draft.domain} onChange={(e) => set('domain', e.target.value)} placeholder="apps.example.com" className="infrastructure-new-offer-step-input-2" /> <span className="muted small">apps are reached at name.domain; empty means host:port</span></span>
         </>}
         <label>Disks</label>
-        <span><label className="small"><input type="checkbox" checked={draft.persistentVolumes} onChange={(e) => set('persistentVolumes', e.target.checked)} /> keeps disks (a dataDir may bind)</label></span>
+        <span><label className="small"><input type="checkbox" checked={draft.keepsDataDir} onChange={(e) => set('keepsDataDir', e.target.checked)} /> keeps disks (a dataDir may bind)</label></span>
         <label>Previews</label>
         <label>Needs</label>
         <span><select aria-label="Needs" value={draft.needsMode} onChange={(e) => set('needsMode', e.target.value)}>
@@ -288,7 +314,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
       </fieldset>
       {conflict && <div role="alert">
         <p>The target settings changed. Your edits are kept.</p>
-        {current ? <p>Current facts: domain {factsOf(current).domain || '(none)'}, disks {String(current.capabilities.persistentVolumes)}, needs {current.needsMode}.</p>
+        {current ? <p>Current facts: domain {factsOf(current).domain || '(none)'}, disks {String(current.capabilities.keepsDataDir)}, needs {current.needsMode}.</p>
           : <p>Read the current settings before choosing.</p>}
         <button disabled={!current || busy} onClick={() => resolve(true)}>Keep my edits on current settings</button>
         <button disabled={!current || busy} onClick={() => resolve(false)}>Discard my fact edits</button>

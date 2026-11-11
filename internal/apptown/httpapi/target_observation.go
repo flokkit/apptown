@@ -32,7 +32,7 @@ func (h Targets) TargetPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	history := h.targetHistory(r.Context(), t.Name, 50)
-	WriteJSON(w, 200, TargetPage{Target: view, History: history, BuiltIn: t.Origin == deployment.OriginBuiltIn, Registry: lastRegistryReading(history)})
+	WriteJSON(w, 200, TargetPage{Target: view, History: history, BuiltIn: t.Origin == deployment.OriginBuiltIn, Registry: lastRegistryReading(history), AWSRouting: h.deployment.AWSRouting(r.Context(), t)})
 }
 
 // TargetCapacity: GET /targets/{name}/capacity — how full the target is:
@@ -193,9 +193,10 @@ func (h Targets) targetHistory(ctx context.Context, name string, limit int) []Ta
 
 // TargetPage is one target with its offers, deployments and history.
 type TargetPage struct {
-	Target  *TargetView   `json:"target"`
-	History []TargetEvent `json:"history"`
-	BuiltIn bool          `json:"builtIn"`
+	AWSRouting *deployment.AWSRoutingReading `json:"awsRouting,omitempty"`
+	Target     *TargetView                   `json:"target"`
+	History    []TargetEvent                 `json:"history"`
+	BuiltIn    bool                          `json:"builtIn"`
 	// Registry is an App Platform target's container registry as its
 	// newest check read it, with when.
 	Registry *deployment.RegistryReading `json:"registry,omitempty"`

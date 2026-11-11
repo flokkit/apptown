@@ -30,7 +30,7 @@ func TestSeedTargetsNamesTheBuiltInHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bi.Kind != deployment.KindDockerHost || bi.Origin != deployment.OriginBuiltIn || !bi.Capabilities.PersistentVolumes {
+	if bi.Kind != deployment.KindDockerHost || bi.Origin != deployment.OriginBuiltIn || !bi.Capabilities.KeepsDataDir {
 		t.Fatalf("built-in host: %+v", bi)
 	}
 	if !containsString(bi.Capabilities.Needs, "postgres") {

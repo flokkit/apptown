@@ -158,13 +158,13 @@ func TestAStartRefreshesTheBuiltInHostOnlyWhenItsFactsChange(t *testing.T) {
 	}
 	// A record from an older AppTown whose own defaults differed.
 	stale := *first
-	stale.NeedsMode, stale.Capabilities.PersistentVolumes = "register", false
+	stale.NeedsMode, stale.Capabilities.KeepsDataDir = "register", false
 	if _, err := w.s.Targets.Put(context.Background(), &stale); err != nil {
 		t.Fatal(err)
 	}
 	w.s.SeedTargets(t.Context(), []string{"team=apps.example.net"})
 	moved := w.target(t, "local")
-	if moved.NeedsMode != "emulators" || !moved.Capabilities.PersistentVolumes {
+	if moved.NeedsMode != "emulators" || !moved.Capabilities.KeepsDataDir {
 		t.Fatalf("the built-in host kept stale settings as though an administrator had set them: %+v", moved)
 	}
 	if domains, _ := moved.Ingress["domains"].([]any); len(domains) != 1 || domains[0] != "team=apps.example.net" || moved.SettingsRevision != first.SettingsRevision+2 {
@@ -195,10 +195,10 @@ func TestASyncKeepsEverySettingAnEditWrites(t *testing.T) {
 			edit:     TargetSettingsEdit{Domain: &empty},
 			kept:     func(t *Target) bool { _, ok := t.Ingress["domain"]; return !ok },
 		},
-		"PersistentVolumes": {
-			proposed: &Target{Kind: KindDockerHost, Capabilities: TargetCapabilities{PersistentVolumes: true}},
-			edit:     TargetSettingsEdit{PersistentVolumes: &off},
-			kept:     func(t *Target) bool { return !t.Capabilities.PersistentVolumes },
+		"KeepsDataDir": {
+			proposed: &Target{Kind: KindDockerHost, Capabilities: TargetCapabilities{KeepsDataDir: true}},
+			edit:     TargetSettingsEdit{KeepsDataDir: &off},
+			kept:     func(t *Target) bool { return !t.Capabilities.KeepsDataDir },
 		},
 		"NeedsMode": {
 			proposed: &Target{Kind: KindDockerHost, NeedsMode: "emulators"},
@@ -288,14 +288,14 @@ func TestSyncAndASettingsEditQueueInsteadOfDeadlocking(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Go(func() { _, syncErr = w.s.Targets.sync(ctx, &proposed, "apptown-system") })
 		wg.Go(func() {
-			_, editErr = w.s.Targets.EditSettings(ctx, "do-syd", TargetSettingsEdit{ExpectedRevision: &current.SettingsRevision, PersistentVolumes: &disks}, "alice")
+			_, editErr = w.s.Targets.EditSettings(ctx, "do-syd", TargetSettingsEdit{ExpectedRevision: &current.SettingsRevision, KeepsDataDir: &disks}, "alice")
 		})
 		wg.Wait()
 		if syncErr != nil || editErr != nil && !errors.Is(editErr, errTargetSettingsMoved) {
 			t.Fatalf("round %d: sync %v, edit %v", round, syncErr, editErr)
 		}
 		after := w.target(t, "do-syd")
-		if after.Address["region"] != regions[round%2] || editErr == nil && after.Capabilities.PersistentVolumes != disks {
+		if after.Address["region"] != regions[round%2] || editErr == nil && after.Capabilities.KeepsDataDir != disks {
 			t.Fatalf("round %d: a change was lost: %+v (edit %v)", round, after, editErr)
 		}
 	}

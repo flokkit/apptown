@@ -32,6 +32,7 @@ const (
 	// kindFlyMachines is a Fly.io org and region: one Fly app per
 	// deployment, one Machine per part (deploy-targets.md, "Fly Machines").
 	kindFlyMachines = "fly-machines"
+	KindAWSECS      = "aws-ecs"
 
 	OriginBuiltIn     = "built-in"
 	OriginAttached    = "attached"
@@ -69,7 +70,7 @@ func (t *Target) runsNoContainers() bool { return t != nil && kindRuntime[t.Kind
 // TargetCapabilities is what a target can express (§2.2). A contract that
 // asks for more is refused at the door with a sentence.
 type TargetCapabilities struct {
-	PersistentVolumes bool `json:"persistentVolumes"` // §0.1a: a dataDir contract needs one
+	KeepsDataDir bool `json:"keepsDataDir"` // §0.1a: a dataDir contract needs one
 
 	OwnLiveness bool     `json:"ownLiveness"` // the target restarts and probes; the health controller steps back
 	Rollout     []string `json:"rollout"`     // replicas, rolling, traffic, drain, rollback, zero-downtime
@@ -569,7 +570,7 @@ func (t *Target) DataAccess() dataAccess {
 		return DataThroughPortainer
 	case kindFlyMachines:
 		return DataOnFlyMachines
-	case KindDOApp:
+	case KindDOApp, KindAWSECS:
 		return DataOnManagedPlatform
 	}
 	return dataAccessNone

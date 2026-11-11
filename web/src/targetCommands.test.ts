@@ -7,15 +7,15 @@ afterEach(() => vi.unstubAllGlobals())
 it('sends explicit clears against the captured settings revision without unchanged fields', async () => {
   const fetch = vi.fn(async () => new Response('{"ok":true,"target":{"settingsRevision":8}}'))
   vi.stubGlobal('fetch', fetch)
-  const base = { domain: 'old.example', persistentVolumes: true, needsMode: 'emulators' }
-  const draft = { ...base, domain: '', persistentVolumes: false }
+  const base = { domain: 'old.example', keepsDataDir: true, needsMode: 'emulators' }
+  const draft = { ...base, domain: '', keepsDataDir: false }
   const saved = await editTarget('host', 7, changedTargetSettings(base, draft))
   expect(saved.target?.settingsRevision).toBe(8)
   expect(fetch).toHaveBeenCalledOnce()
   const [path, request] = fetch.mock.calls[0] as unknown as [string, RequestInit]
   expect(path).toBe('/api/v1/targets/host')
   expect(request.method).toBe('PATCH')
-  expect(JSON.parse(String(request.body))).toEqual({ expectedRevision: 7, domain: '', persistentVolumes: false })
+  expect(JSON.parse(String(request.body))).toEqual({ expectedRevision: 7, domain: '', keepsDataDir: false })
 })
 
 it('sends populated offer caps through the target offer endpoint', async () => {

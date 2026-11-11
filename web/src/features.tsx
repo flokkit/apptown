@@ -71,7 +71,7 @@ export function FeatureOnly({ area, children }: { area: string; children: ReactN
   const enabled = useFeature()
   return enabled(area) ? <>{children}</> : null
 }
-export const targetFeatureArea = (kind: string) => ({ 'do-app': 'app-platform', 'fly-machines': 'fly-machines', portainer: 'portainer', 's3-bucket': 'bucket-site' } as Record<string, string>)[kind] ?? 'deployments'
+export const targetFeatureArea = (kind: string) => ({ 'aws-ecs': 'aws-ecs', 'do-app': 'app-platform', 'fly-machines': 'fly-machines', portainer: 'portainer', 's3-bucket': 'bucket-site' } as Record<string, string>)[kind] ?? 'deployments'
 
 // Core route declarations name their area for completeness; they never wait
 // for a switch read. The server refuses any attempt to switch these areas off.

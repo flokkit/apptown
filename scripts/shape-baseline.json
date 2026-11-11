@@ -22,11 +22,11 @@
   "transportaudit": 3,
   "transportdb": 46,
   "hubpaths": 0,
-  "kindbranches": 44,
+  "kindbranches": 43,
   "historycomments": 0,
   "testexecwrites": 0,
   "testexecfixtures": 66,
   "droppederrors": 32,
   "workflowexports": 352,
-  "unusedexports": 588
+  "unusedexports": 587
 }

@@ -266,7 +266,7 @@ func TestPairedRollbackNeverStartsRejectedCodeOnRestoredData(t *testing.T) {
 		t.Run(fmt.Sprintf("fail-before-start=%t", failBeforeStart), func(t *testing.T) {
 			t.Parallel()
 			w := newReleaseWorld(t, nil)
-			w.lab2.Capabilities.PersistentVolumes = true
+			w.lab2.Capabilities.KeepsDataDir = true
 			var targetErr error
 			w.lab2, targetErr = w.a.Deployment.Targets.Put(t.Context(), w.lab2)
 			if targetErr != nil {

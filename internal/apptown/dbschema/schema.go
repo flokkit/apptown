@@ -713,6 +713,9 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 	{n: 222, note: "enable container data on existing Fly targets", stmts: []string{
 		`UPDATE targets SET needs_mode='emulators', capabilities_json=capabilities_json || '{"persistentVolumes":true,"needs":["postgres"],"rollout":["replace","rolling","rollback"]}'::jsonb, settings_revision=settings_revision+1 WHERE kind='fly-machines' AND needs_mode='managed' AND COALESCE(capabilities_json->'needs','[]'::jsonb)='[]'::jsonb`,
 	}},
+	{n: 223, note: "name target data-directory retention explicitly", stmts: []string{
+		`UPDATE targets SET capabilities_json=(capabilities_json - 'persistentVolumes') || jsonb_build_object('keepsDataDir', capabilities_json->'persistentVolumes'), settings_revision=settings_revision+1 WHERE capabilities_json ? 'persistentVolumes'`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

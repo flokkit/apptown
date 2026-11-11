@@ -18,6 +18,12 @@ import (
 // app that keeps data in a directory needs persistent volumes, and an app
 // whose needs a managed-needs target cannot fulfil cannot stand there.
 func (t *Target) refusesContract(c *appcontract.Contract) string {
+	if check := describeKind(t.Kind).contractRefusal; check != nil {
+		if why := check(c); why != "" {
+			return why
+		}
+	}
+
 	var healthErr error
 	switch t.Kind {
 	case KindDockerHost:
@@ -48,7 +54,7 @@ func (t *Target) refusesContract(c *appcontract.Contract) string {
 	if t.Kind == KindS3Bucket && !staticOnly(c) {
 		return fmt.Sprintf("%s serves only a static-only app: one public static part, no init steps and no needs — this app needs a container target", t.Name)
 	}
-	if !t.Capabilities.PersistentVolumes {
+	if !t.Capabilities.KeepsDataDir {
 		if c.PublicPart().DataDir != "" {
 			return fmt.Sprintf("this app keeps data in a directory (%s); %s has no persistent volumes — keep the data in a need such as postgres instead, or release to a Docker host", c.PublicPart().DataDir, t.Name)
 		}
@@ -89,14 +95,16 @@ func staticOnly(c *appcontract.Contract) bool {
 // keeps its audience (making it public is a migration EnsureStanding
 // refuses), so for that one the step is a new public deployment.
 func (t *Target) refusesAudience(dep *Deployment) string {
-	if t.Kind != kindFlyMachines || dep.Audience == "public" {
+	kind := describeKind(t.Kind)
+	if kind.audienceAddress == "" || dep.Audience == "public" {
 		return ""
 	}
 	next := "set this deployment's audience to public"
 	if dep.DesiredGeneration != 0 || dep.ObservedGeneration != 0 {
 		next = fmt.Sprintf("this deployment has run, so its audience cannot change; make a new public deployment of this project on %s", t.Name)
 	}
-	return fmt.Sprintf("%s serves the app at its fly.dev address to anyone, with no AppTown sign-in in front of it, so it cannot keep a deployment to the %s audience; %s, or deploy it to a Docker host", t.Name, dep.Audience, next)
+	address := kind.audienceAddress
+	return fmt.Sprintf("%s serves the app at its %s address to anyone, with no AppTown sign-in in front of it, so it cannot keep a deployment to the %s audience; %s, or deploy it to a Docker host", t.Name, address, dep.Audience, next)
 }
 
 func refusal(why string) error {

@@ -52,20 +52,25 @@ func (s *Service) restorable(ctx context.Context, projectID ids.ID, name string,
 	if err := b.Status.restorable(); err != nil {
 		return nil, nil, fmt.Errorf("backup %d: %w", backupID, err)
 	}
-	// A managed database's copy is only ever filled into a new place: a
-	// new deployment starts from it. A Docker host's set is restored in
-	// place wherever it is kept.
-	for _, it := range b.Items {
-		if it.Instance != "" {
-			return nil, nil, fmt.Errorf("%w: set %d is a copy of a managed database; start a new deployment from it instead", errRestoreMismatch, backupID)
-		}
-	}
 	if _, err := project.ByIDIn(ctx, s.db, projectID); err != nil {
 		return nil, nil, fault.New(fault.NotFound, "no such project")
 	}
 	dep, err := s.deployments.ByName(ctx, projectID, name)
 	if err != nil || !dep.Standing() {
 		return nil, nil, fault.New(fault.NotFound, fmt.Sprintf("no standing deployment named %q", name))
+	}
+	target, err := s.targets.ByID(ctx, dep.TargetID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if target.CopyProtocol() != deployment.CopyDedicatedPostgres { // A managed database's copy is only ever filled into a new place: a
+		// new deployment starts from it. A Docker host's set is restored in
+		// place wherever it is kept.
+		for _, it := range b.Items {
+			if it.Instance != "" {
+				return nil, nil, fmt.Errorf("%w: set %d is a copy of a managed database; start a new deployment from it instead", errRestoreMismatch, backupID)
+			}
+		}
 	}
 	return b, dep, nil
 }
@@ -94,7 +99,12 @@ func (s *Service) RequestRestore(ctx context.Context, projectID ids.ID, name str
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
-	if _, _, err := restoreMoves(b, held.items); err != nil {
+	if t.CopyProtocol() == deployment.CopyDedicatedPostgres {
+		_, err = s.awsRestoreItems(ctx, b, held.items)
+	} else {
+		_, _, err = restoreMoves(b, held.items)
+	}
+	if err != nil {
 		return nil, err
 	}
 	return s.admit(ctx, dep, operationRestoreSet, actor, []string{deployment.DataHold(dep)}, map[string]any{"backup": backupID}, nil)

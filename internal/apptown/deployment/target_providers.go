@@ -107,17 +107,19 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 // stockCapabilities is what a kind of target offers as AppTown records it
 // (deploy-targets.md, "What each target supports"); emulators are the need
 // kinds this AppTown can run locally. An administrator may later change
-// PersistentVolumes on a target (target_settings.go).
+// KeepsDataDir on a target (target_settings.go).
 func stockCapabilities(kind string, emulators []string) TargetCapabilities {
 	switch kind {
 	case KindDockerHost:
-		return TargetCapabilities{PersistentVolumes: true, OwnLiveness: false, Rollout: []string{"replace"}, Needs: emulators}
+		return TargetCapabilities{KeepsDataDir: true, OwnLiveness: false, Rollout: []string{"replace"}, Needs: emulators}
 	case KindPortainer:
-		return TargetCapabilities{PersistentVolumes: true, OwnLiveness: true, Rollout: []string{"replace"}, Needs: emulators}
+		return TargetCapabilities{KeepsDataDir: true, OwnLiveness: true, Rollout: []string{"replace"}, Needs: emulators}
 	case KindDOApp:
-		return TargetCapabilities{PersistentVolumes: false, OwnLiveness: true, Rollout: []string{"rolling", "rollback"}, Needs: []string{"postgres", "s3"}}
+		return TargetCapabilities{KeepsDataDir: false, OwnLiveness: true, Rollout: []string{"rolling", "rollback"}, Needs: []string{"postgres", "s3"}}
+	case KindAWSECS:
+		return TargetCapabilities{OwnLiveness: true, Rollout: []string{"rolling", "rollback"}, Needs: []string{"postgres"}}
 	case kindFlyMachines:
-		return TargetCapabilities{PersistentVolumes: true, OwnLiveness: true, Rollout: []string{"replace", "rolling", "rollback"}, Needs: []string{"postgres"}}
+		return TargetCapabilities{KeepsDataDir: true, OwnLiveness: true, Rollout: []string{"replace", "rolling", "rollback"}, Needs: []string{"postgres"}}
 	}
 	return TargetCapabilities{}
 }
@@ -128,7 +130,7 @@ func stockNeedsMode(kind string) string {
 	switch kind {
 	case KindDockerHost, KindPortainer, kindFlyMachines:
 		return "emulators"
-	case KindDOApp:
+	case KindDOApp, KindAWSECS:
 		return "managed"
 	}
 	return ""
@@ -333,6 +335,12 @@ func (p *Providers) checkTarget(ctx context.Context, t *Target) (ok bool, detail
 		return true, fmt.Sprintf("Portainer answers; endpoint %d (%s)", id, portainer.PlatformText(ctx, cfg, id))
 	case KindS3Bucket:
 		return p.checkS3Bucket(ctx, s3BucketConfig(t))
+	case KindAWSECS:
+		_, _, e, err := p.awsClientFor(t)(ctx)
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, "AWS answers; load balancer " + e.LoadBalancerDNS
 	case kindFlyMachines:
 		return p.checkFly(ctx, t)
 	}

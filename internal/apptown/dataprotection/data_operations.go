@@ -72,7 +72,7 @@ func (s *core) ready(ctx context.Context, t *deployment.Target, items []backupPl
 	if store == nil {
 		return errNoStore
 	}
-	if t.CopyRunner() == "" {
+	if t.CopyRunner() == "" && t.CopyProtocol() != deployment.CopyDedicatedPostgres {
 		return deployment.ErrNoCopyRunner
 	}
 	return nil
@@ -252,6 +252,15 @@ func (s *Service) beginManagedTakeDown(ctx context.Context, in RemoveDeployment)
 	// delete the cluster: not what a person who chose to keep the data
 	// without a copy agreed to. They confirm again what it means now.
 	if in.WithoutFinalCopy != "" {
+		if t.CopyProtocol() == deployment.CopyDedicatedPostgres {
+			failed, err := s.failedFinalSet(ctx, dep)
+			if err != nil {
+				return nil, "", err
+			}
+			if failed != "" {
+				return nil, failed, nil
+			}
+		}
 		return nil, "", errFinalCopyPossible
 	}
 	// The same admission a removal has (not main, no release or attempt in
@@ -360,9 +369,13 @@ func (s *Service) drillDue(ctx context.Context, dep *deployment.Deployment, b *B
 // attached and a copy runner named. One already running is left to run;
 // what could not start is named.
 func (s *Service) scheduledCopies(ctx context.Context) (started int, skipped []string, err error) {
-	deps, err := s.deployments.ProductionOnTargetKind(ctx, deployment.KindDOApp)
-	if err != nil {
-		return 0, nil, err
+	var deps []*deployment.Deployment
+	for _, kind := range []string{deployment.KindDOApp, deployment.KindAWSECS} {
+		batch, e := s.deployments.ProductionOnTargetKind(ctx, kind)
+		if e != nil {
+			return 0, nil, e
+		}
+		deps = append(deps, batch...)
 	}
 	for _, dep := range deps {
 		t, err := s.targets.ByID(ctx, dep.TargetID)
@@ -482,7 +495,22 @@ func (s *Service) runTakeDown(ctx context.Context, t *tracker, withProject bool)
 		return operationFailed, "stopped as asked before anything was changed", nil
 	}
 	t.begin(ctx, "deleting the app, so nothing writes")
-	taken, err := driver.Teardown(ctx, selected.Placement(), selected.ObservedGeneration, deploy.TakeDown{Owned: owned, LastUser: others == 0})
+	var taken deploy.TakenDown
+	if target.CopyProtocol() == deployment.CopyDedicatedPostgres {
+		aws, e := s.providers.AWSData(ctx, target, selected)
+		err = e
+		if err == nil {
+			err = aws.ValidateTakeDown(ctx, selected.Placement(), owned)
+		}
+		if err == nil {
+			_, _, err = aws.StopWriters(ctx, selected.Placement(), nil, nil)
+		}
+		if err == nil {
+			err = aws.RemoveRoute(ctx, selected.Placement())
+		}
+	} else {
+		taken, err = driver.Teardown(ctx, selected.Placement(), selected.ObservedGeneration, deploy.TakeDown{Owned: owned, LastUser: others == 0})
+	}
 	if s.applied != nil {
 		s.applied(selected.TargetID)
 	}
@@ -542,7 +570,12 @@ func (s *Service) runTakeDown(ctx context.Context, t *tracker, withProject bool)
 			return operationFailed, fmt.Sprintf("%sSet %d came back; stopped as asked before deleting the cluster %s.", kept, final.ID, it.Cluster), result
 		}
 		t.begin(ctx, "deleting the cluster "+it.Cluster)
-		empty, why := s.refusesInstanceDeletion(ctx, md, target, it, items)
+		var empty, why string
+		if target.CopyProtocol() == deployment.CopyDedicatedPostgres {
+			empty, why = s.refusesAWSDeletion(ctx, final, it)
+		} else {
+			empty, why = s.refusesInstanceDeletion(ctx, md, target, it, items)
+		}
 		if why != "" {
 			t.fail(ctx, why)
 			return operationFailed, fmt.Sprintf("%sSet %d holds this deployment's data and came back, but the cluster %s stays: %s", kept, final.ID, it.Cluster, why), result
@@ -590,6 +623,14 @@ func (s *Service) runTakeDown(ctx context.Context, t *tracker, withProject bool)
 		taken.Left = append(taken.Left, gone.Left...)
 		t.end(ctx, strings.Join(gone.Deleted, "; "), 0)
 	}
+	if target.CopyProtocol() == deployment.CopyDedicatedPostgres {
+		gone, e := driver.Teardown(ctx, selected.Placement(), selected.ObservedGeneration, deploy.TakeDown{Owned: owned, BackedUp: true, LastUser: others == 0})
+		if e != nil {
+			return operationFailed, kept + e.Error(), result
+		}
+		taken.Deleted = append(taken.Deleted, gone.Deleted...)
+		taken.Left = append(taken.Left, gone.Left...)
+	}
 	result["deleted"] = taken.Deleted
 	result["shownEmpty"] = shownEmpty
 
@@ -629,6 +670,16 @@ func (b *Backup) uncoveredManaged(items []backupPlanItem) string {
 			continue
 		}
 		got := b.goodCopy("need", it.Name)
+		if it.Instance != "" {
+			got = nil
+			for i := range b.Items {
+				row := &b.Items[i]
+				if (row.Kind == "need" || row.Kind == "empty") && row.Name == it.Name && row.Instance == it.Instance && row.Database == it.Database && row.Error == "" {
+					got = row
+					break
+				}
+			}
+		}
 		if got == nil || got.Instance != it.Instance || got.Database != it.Database || got.Bucket != it.Bucket {
 			missing = append(missing, it.Name+" from "+it.where())
 		}

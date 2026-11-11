@@ -1,0 +1,290 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "AppTown ECS prerequisites in an existing estate. Apply as an administrator; AppTown never reads this stack.",
+  "Parameters": {
+    "InstallationId": {
+      "Type": "String"
+    },
+    "InstallationPrefix": {
+      "Type": "String",
+      "AllowedPattern": "^[0-9a-f]{8}$"
+    },
+    "VpcId": {
+      "Type": "String"
+    },
+    "ClusterName": {
+      "Type": "String"
+    },
+    "ListenerArn": {
+      "Type": "String",
+      "Default": ""
+    },
+    "CertificateArn": {
+      "Type": "String",
+      "Default": ""
+    },
+    "CreateLoadBalancer": {
+      "Type": "String",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Default": "false"
+    },
+    "TaskSubnetIds": {
+      "Type": "List<AWS::EC2::Subnet::Id>"
+    },
+    "PublicSubnetIds": {
+      "Type": "CommaDelimitedList",
+      "Default": ""
+    }
+  },
+  "Conditions": {
+    "MakeLoadBalancer": {
+      "Fn::Equals": [
+        {
+          "Ref": "CreateLoadBalancer"
+        },
+        "true"
+      ]
+    }
+  },
+  "Resources": {
+    "ExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": {
+          "Fn::Sub": "apptown-${InstallationPrefix}-task-execution"
+        },
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "execution",
+            "PolicyDocument": {
+              "Fn::Sub": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"ecr:GetAuthorizationToken\"], \"Resource\": \"*\"}, {\"Effect\": \"Allow\", \"Action\": [\"ecr:BatchCheckLayerAvailability\", \"ecr:BatchGetImage\", \"ecr:GetDownloadUrlForLayer\"], \"Resource\": \"arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/apptown/${InstallationPrefix}/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": \"arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/apptown/${InstallationPrefix}/*:*\"}, {\"Effect\": \"Allow\", \"Action\": [\"ssm:GetParameters\"], \"Resource\": \"arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/apptown/${InstallationPrefix}/*\"}, {\"Effect\": \"Allow\", \"Action\": [\"kms:Decrypt\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"kms:ViaService\": \"ssm.${AWS::Region}.amazonaws.com\"}, \"ForAnyValue:StringEquals\": {\"kms:ResourceAliases\": \"alias/aws/ssm\"}}}]}"
+            }
+          }
+        ]
+      }
+    },
+    "User": {
+      "Type": "AWS::IAM::User",
+      "Properties": {
+        "UserName": {
+          "Fn::Sub": "apptown-${InstallationPrefix}"
+        },
+        "Policies": [
+          {
+            "PolicyName": "apptown",
+            "PolicyDocument": {
+              "Fn::Sub": [
+                "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"Read\", \"Effect\": \"Allow\", \"Action\": [\"sts:GetCallerIdentity\", \"ec2:DescribeRegions\", \"ec2:DescribeSubnets\", \"ec2:DescribeRouteTables\", \"ec2:DescribeSecurityGroups\", \"elasticloadbalancing:Describe*\", \"acm:DescribeCertificate\", \"ecs:DescribeClusters\", \"ecs:DescribeServices\", \"ecs:DescribeTasks\", \"ecs:DescribeTaskDefinition\", \"ecs:ListTasks\", \"rds:DescribeDBInstances\", \"rds:DescribeDBSnapshots\", \"iam:GetRole\", \"tag:GetResources\", \"ecr:GetAuthorizationToken\"], \"Resource\": \"*\"}, {\"Sid\": \"CheckExecutionRole\", \"Effect\": \"Allow\", \"Action\": [\"iam:SimulatePrincipalPolicy\"], \"Resource\": \"${ExecutionRoleArn}\"}, {\"Sid\": \"PassExecutionRole\", \"Effect\": \"Allow\", \"Action\": [\"iam:PassRole\"], \"Resource\": \"${ExecutionRoleArn}\", \"Condition\": {\"StringEquals\": {\"iam:PassedToService\": \"ecs-tasks.amazonaws.com\"}}}, {\"Sid\": \"TaskDefinitionsRegister\", \"Effect\": \"Allow\", \"Action\": [\"ecs:RegisterTaskDefinition\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"aws:RequestTag/apptown:instance\": \"${InstallationId}\"}}}, {\"Sid\": \"TaskDefinitionsDeregister\", \"Effect\": \"Allow\", \"Action\": [\"ecs:DeregisterTaskDefinition\"], \"Resource\": \"*\"}, {\"Sid\": \"TaskDefinitionsDelete\", \"Effect\": \"Allow\", \"Action\": [\"ecs:DeleteTaskDefinitions\"], \"Resource\": \"arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/at-${InstallationPrefix}-*:*\"}, {\"Sid\": \"EcsTagOnCreate\", \"Effect\": \"Allow\", \"Action\": [\"ecs:TagResource\"], \"Resource\": \"*\", \"Condition\": {\"StringEquals\": {\"aws:RequestTag/apptown:instance\": \"${InstallationId}\", \"ecs:CreateAction\": [\"RegisterTaskDefinition\", \"CreateService\", \"RunTask\"]}}}, {\"Sid\": \"ServicesCreate\", \"Effect\": \"Allow\", \"Action\": [\"ecs:CreateService\"], \"Resource\": \"arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:service/${ClusterName}/at-${InstallationPrefix}-*\", \"Condition\": {\"StringEquals\": {\"aws:RequestTag/apptown:instance\": \"${InstallationId}\"}}}, {\"Sid\": \"ServicesOwn\", \"Effect\": \"Allow\", \"Action\": [\"ecs:UpdateService\", \"ecs:DeleteService\"], \"Resource\": \"arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:service/${ClusterName}/at-${InstallationPrefix}-*\", \"Condition\": {\"StringEquals\": {\"aws:ResourceTag/apptown:instance\": \"${InstallationId}\"}}}, {\"Sid\": \"TasksRun\", \"Effect\": \"Allow\", \"Action\": [\"ecs:RunTask\"], \"Resource\": \"arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/at-${InstallationPrefix}-*:*\", \"Condition\": {\"StringEquals\": {\"aws:RequestTag/apptown:instance\": \"${InstallationId}\", \"ecs:cluster\": \"arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}\"}}}, {\"Sid\": \"TasksStopOwn\", \"Effect\": \"Allow\", \"Action\": [\"ecs:StopTask\"], \"Resource\": \"arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/${ClusterName}/*\", \"Condition\": {\"StringEquals\": {\"aws:ResourceTag/apptown:instance\": \"${InstallationId}\"}}}, {\"Sid\": \"SecurityGroupsCreate\", \"Effect\": \"Allow\", \"Action\": [\"ec2:CreateSecurityGroup\"], \"Resource\": \"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*\", \"Condition\": {\"StringEquals\": {\"aws:RequestTag/apptown:instance\": \"${InstallationId}\"}}}, {\"Sid\": \"SecurityGroupsInVpc\", \"Effect\": \"Allow\", \"Action\": [\"ec2:CreateSecurityGroup\"], \"Resource\": \"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:vpc/${VpcId}\"}, {\"Sid\": \"SecurityGroupsTagOnCreate\", \"Effect\": \"Allow\", \"Action\": [\"ec2:CreateTags\"], \"Resource\": \"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*\", \"Condition\": {\"StringEquals\": {\"aws:RequestTag/apptown:instance\": \"${InstallationId}\", \"ec2:CreateAction\": \"CreateSecurityGroup\"}}}, {\"Sid\": \"SecurityGroupsOwn\", \"Effect\": \"Allow\", \"Action\": [\"ec2:AuthorizeSecurityGroupIngress\", \"ec2:RevokeSecurityGroupIngress\", \"ec2:DeleteSecurityGroup\"], \"Resource\": \"arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*\", \"Condition\": {\"StringEquals\": {\"aws:ResourceTag/apptown:instance\": \"${InstallationId}\"}}}, {\"Sid\": \"TargetGroupsCreate\", \"Effect\": \"Allow\", \"Action\": [\"elasticloadbalancing:CreateTargetGroup\"], \"Resource\": \"arn:aws:elasticloadbalancing:${AWS::Region}:${AWS::AccountId}:targetgroup/at-${InstallationPrefix}-*/*\", \"Condition\": {\"StringEquals\": {\"aws:RequestTag/apptown:instance\": \"${InstallationId}\"}}}, {\"Sid\": \"TargetGroupsOwn\", \"Effect\": \"Allow\", \"Action\": [\"elasticloadbalancing:DeleteTargetGroup\"], \"Resource\": \"arn:aws:elasticloadbalancing:${AWS::Region}:${AWS::AccountId}:targetgroup/at-${InstallationPrefix}-*/*\"}, {\"Sid\": \"ListenerRulesCreate\", \"Effect\": \"Allow\", \"Action\": [\"elasticloadbalancing:CreateRule\"], \"Resource\": [\"${EffectiveListenerArn}\", \"${RulePrefix}\"], \"Condition\": {\"StringEquals\": {\"aws:RequestTag/apptown:instance\": \"${InstallationId}\"}}}, {\"Sid\": \"LoadBalancerTagOnCreate\", \"Effect\": \"Allow\", \"Action\": [\"elasticloadbalancing:AddTags\"], \"Resource\": [\"${RulePrefix}\", \"arn:aws:elasticloadbalancing:${AWS::Region}:${AWS::AccountId}:targetgroup/at-${InstallationPrefix}-*/*\"], \"Condition\": {\"StringEquals\": {\"aws:RequestTag/apptown:instance\": \"${InstallationId}\", \"elasticloadbalancing:CreateAction\": [\"CreateTargetGroup\", \"CreateRule\"]}}}, {\"Sid\": \"ListenerRulesOwn\", \"Effect\": \"Allow\", \"Action\": [\"elasticloadbalancing:DeleteRule\"], \"Resource\": \"${RulePrefix}\", \"Condition\": {\"StringEquals\": {\"aws:ResourceTag/apptown:instance\": \"${InstallationId}\"}}}, {\"Sid\": \"Images\", \"Effect\": \"Allow\", \"Action\": [\"ecr:CreateRepository\", \"ecr:DeleteRepository\", \"ecr:TagResource\", \"ecr:BatchCheckLayerAvailability\", \"ecr:InitiateLayerUpload\", \"ecr:UploadLayerPart\", \"ecr:CompleteLayerUpload\", \"ecr:PutImage\", \"ecr:BatchGetImage\", \"ecr:GetDownloadUrlForLayer\", \"ecr:ListTagsForResource\"], \"Resource\": \"arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/apptown/${InstallationPrefix}/*\"}, {\"Sid\": \"Logs\", \"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogGroup\", \"logs:PutRetentionPolicy\", \"logs:DeleteLogGroup\", \"logs:TagResource\", \"logs:ListTagsForResource\"], \"Resource\": \"arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/apptown/${InstallationPrefix}/*\"}, {\"Sid\": \"Parameters\", \"Effect\": \"Allow\", \"Action\": [\"ssm:PutParameter\", \"ssm:GetParameters\", \"ssm:ListTagsForResource\", \"ssm:DeleteParameters\", \"ssm:GetParametersByPath\", \"ssm:AddTagsToResource\"], \"Resource\": \"arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/apptown/${InstallationPrefix}/*\"}, {\"Sid\": \"Databases\", \"Effect\": \"Allow\", \"Action\": [\"rds:CreateDBInstance\", \"rds:CreateDBSubnetGroup\", \"rds:AddTagsToResource\", \"rds:DeleteDBInstance\", \"rds:DeleteDBSubnetGroup\", \"rds:ListTagsForResource\"], \"Resource\": [\"arn:aws:rds:${AWS::Region}:${AWS::AccountId}:db:at-${InstallationPrefix}-*\", \"arn:aws:rds:${AWS::Region}:${AWS::AccountId}:subgrp:at-${InstallationPrefix}-*\", \"arn:aws:rds:${AWS::Region}:${AWS::AccountId}:pg:default.*\", \"arn:aws:rds:${AWS::Region}:${AWS::AccountId}:og:default:*\"]}]}",
+                {
+                  "ExecutionRoleArn": {
+                    "Fn::GetAtt": [
+                      "ExecutionRole",
+                      "Arn"
+                    ]
+                  },
+                  "EffectiveListenerArn": {
+                    "Fn::If": [
+                      "MakeLoadBalancer",
+                      {
+                        "Ref": "HttpsListener"
+                      },
+                      {
+                        "Ref": "ListenerArn"
+                      }
+                    ]
+                  },
+                  "RulePrefix": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        {
+                          "Fn::Join": [
+                            "listener-rule/",
+                            {
+                              "Fn::Split": [
+                                "listener/",
+                                {
+                                  "Fn::If": [
+                                    "MakeLoadBalancer",
+                                    {
+                                      "Ref": "HttpsListener"
+                                    },
+                                    {
+                                      "Ref": "ListenerArn"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "/*"
+                      ]
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "LoadBalancerSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Condition": "MakeLoadBalancer",
+      "Properties": {
+        "GroupDescription": "HTTPS entry for AppTown applications",
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 80,
+            "ToPort": 80,
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "LoadBalancer": {
+      "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Condition": "MakeLoadBalancer",
+      "Properties": {
+        "Scheme": "internet-facing",
+        "Type": "application",
+        "Subnets": {
+          "Ref": "PublicSubnetIds"
+        },
+        "SecurityGroups": [
+          {
+            "Ref": "LoadBalancerSecurityGroup"
+          }
+        ]
+      }
+    },
+    "HttpListener": {
+      "Type": "AWS::ElasticLoadBalancingV2::Listener",
+      "Condition": "MakeLoadBalancer",
+      "Properties": {
+        "LoadBalancerArn": {
+          "Ref": "LoadBalancer"
+        },
+        "Port": 80,
+        "Protocol": "HTTP",
+        "DefaultActions": [
+          {
+            "Type": "redirect",
+            "RedirectConfig": {
+              "Protocol": "HTTPS",
+              "Port": "443",
+              "StatusCode": "HTTP_301"
+            }
+          }
+        ]
+      }
+    },
+    "HttpsListener": {
+      "Type": "AWS::ElasticLoadBalancingV2::Listener",
+      "Condition": "MakeLoadBalancer",
+      "Properties": {
+        "LoadBalancerArn": {
+          "Ref": "LoadBalancer"
+        },
+        "Port": 443,
+        "Protocol": "HTTPS",
+        "Certificates": [
+          {
+            "CertificateArn": {
+              "Ref": "CertificateArn"
+            }
+          }
+        ],
+        "DefaultActions": [
+          {
+            "Type": "fixed-response",
+            "FixedResponseConfig": {
+              "StatusCode": "404",
+              "ContentType": "text/plain",
+              "MessageBody": "No application at this address"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "Region": {
+      "Value": {
+        "Ref": "AWS::Region"
+      }
+    },
+    "Account": {
+      "Value": {
+        "Ref": "AWS::AccountId"
+      }
+    },
+    "ExecutionRoleArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "ExecutionRole",
+          "Arn"
+        ]
+      }
+    },
+    "ListenerArn": {
+      "Value": {
+        "Fn::If": [
+          "MakeLoadBalancer",
+          {
+            "Ref": "HttpsListener"
+          },
+          {
+            "Ref": "ListenerArn"
+          }
+        ]
+      }
+    },
+    "UserName": {
+      "Value": {
+        "Ref": "User"
+      }
+    },
+    "Cluster": {
+      "Value": {
+        "Ref": "ClusterName"
+      }
+    },
+    "TaskSubnets": {
+      "Value": {
+        "Fn::Join": [
+          ",",
+          {
+            "Ref": "TaskSubnetIds"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -52,7 +52,7 @@ func newSharedRehearsalWorld(t *testing.T) *sharedRehearsalWorld {
 			Releases: deployment.ReleaseDependencies{Authority: auth, Still: auth, Sources: w.sources, Secrets: requestSecrets{}, Queue: requestQueue{}}})
 	ctx := context.Background()
 	volumes := true
-	remote, err := w.s.Targets.EditSettings(ctx, w.remote.Name, deployment.TargetSettingsEdit{ExpectedRevision: &w.remote.SettingsRevision, PersistentVolumes: &volumes}, "admin")
+	remote, err := w.s.Targets.EditSettings(ctx, w.remote.Name, deployment.TargetSettingsEdit{ExpectedRevision: &w.remote.SettingsRevision, KeepsDataDir: &volumes}, "admin")
 	if err != nil {
 		t.Fatal(err)
 	}

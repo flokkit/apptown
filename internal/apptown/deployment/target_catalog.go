@@ -1,14 +1,35 @@
 package deployment
 
 import (
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/awsecs"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/fly"
 )
 
-// KindInfo is the catalog of kinds, as data: a new provider is one entry
-// here plus its driver. The UI reads this; it never hard-codes a provider.
+// CopyProtocol distinguishes managed copies reached through a named host from
+// complete per-instance inventories and copies run by the provider's own jobs.
+type copyProtocol uint8
+
+const (
+	copyNone copyProtocol = iota
+	copyNamedHost
+	CopyDedicatedPostgres
+)
+
+// CopyProtocol is the kind's data execution contract; it is not an editable
+// target setting. Provider jobs keep their network through final verification.
+func (t *Target) CopyProtocol() copyProtocol { return describeKind(t.Kind).copyProtocol }
+
+// KindInfo is the catalog of kinds and their local admission and data contracts.
+// Provider mechanisms remain with their drivers; the UI reads the display fields.
 type KindInfo struct {
-	featureArea string
+	copyProtocol    copyProtocol
+	contractRefusal func(*appcontract.Contract) string
+	audienceAddress string
+	managedData     func(*Providers, *Target) deploy.ManagedData
+	featureArea     string
 	// creationDescription is the one-line placement choice, owned by the kind catalog.
 	creationDescription string
 	// ContainerMemoryLimits permits direct caps/defaults and explicit unlimited overrides.
@@ -30,12 +51,15 @@ type KindInfo struct {
 }
 
 var kindCatalog = []KindInfo{
+	{copyProtocol: CopyDedicatedPostgres, contractRefusal: awsecs.RefusesContract, audienceAddress: "load balancer", managedData: func(p *Providers, t *Target) deploy.ManagedData { return p.awsManaged(t) }, creationDescription: "AWS ECS on Fargate · AWS", Kind: KindAWSECS, featureArea: "aws-ecs", Title: "AWS ECS on Fargate", Provider: "aws", Family: "cloud", Vendor: "AWS", Region: "region", platform: "linux/amd64", publishedOnly: true},
 	{ContainerMemoryLimits: true, creationDescription: "Built-in Docker host · this AppTown", Kind: KindDockerHost, featureArea: "deployments", Title: "Built-in Docker host", Family: "built-in", Vendor: "this AppTown"},
 	{ContainerMemoryLimits: true, creationDescription: "Portainer environment · Portainer", Kind: KindPortainer, featureArea: "portainer", Title: "Portainer environment", Provider: "portainer", Family: "intranet", Vendor: "Portainer", Environment: true},
-	{creationDescription: "App Platform · DigitalOcean", Kind: KindDOApp, featureArea: "app-platform", Title: "App Platform", Provider: "digitalocean", Family: "cloud", Vendor: "DigitalOcean", Region: "region", platform: digitalocean.Platform},
-	{creationDescription: "Fly.io Machines · Fly.io", Kind: kindFlyMachines, featureArea: "fly-machines", Title: "Fly.io Machines", Provider: "fly", Family: "cloud", Vendor: "Fly.io", Region: "region", platform: fly.Platform, publishedOnly: true},
+	{copyProtocol: copyNamedHost, managedData: func(p *Providers, t *Target) deploy.ManagedData {
+		return digitalocean.ManagedData{Client: p.cloudClientFor(t.Provider), OwnDatabase: p.digitalOcean.OwnDatabase}
+	}, creationDescription: "App Platform · DigitalOcean", Kind: KindDOApp, featureArea: "app-platform", Title: "App Platform", Provider: "digitalocean", Family: "cloud", Vendor: "DigitalOcean", Region: "region", platform: digitalocean.Platform},
+	{audienceAddress: "fly.dev", creationDescription: "Fly.io Machines · Fly.io", Kind: kindFlyMachines, featureArea: "fly-machines", Title: "Fly.io Machines", Provider: "fly", Family: "cloud", Vendor: "Fly.io", Region: "region", platform: fly.Platform, publishedOnly: true},
 	{creationDescription: "Bucket website · static sites only", Kind: KindS3Bucket, featureArea: "bucket-site", Title: "Bucket website", Family: "cloud", Vendor: "S3-compatible storage", Region: "region"},
-	// AWS (ECS) and Google Cloud (Cloud Run) land here as one line each
+	// Other providers land here as one line each
 	// with their drivers; nothing in the UI changes.
 }
 

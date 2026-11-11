@@ -47,7 +47,7 @@ func TestAttachFlyTarget(t *testing.T) {
 		t.Fatalf("attach: %d %v", code, out)
 	}
 	target, err := w.deployment.Targets.ByName(t.Context(), "fly-syd")
-	if err != nil || target.Kind != "fly-machines" || target.Address["org"] != "acme" || target.Address["region"] != "syd" || target.NeedsMode != "emulators" || !target.Capabilities.PersistentVolumes || target.Ingress["domain"] != "fly.dev" {
+	if err != nil || target.Kind != "fly-machines" || target.Address["org"] != "acme" || target.Address["region"] != "syd" || target.NeedsMode != "emulators" || !target.Capabilities.KeepsDataDir || target.Ingress["domain"] != "fly.dev" {
 		t.Fatalf("target: %+v %v", target, err)
 	}
 	cfg, err := w.integrations.ConnectorConfig(t.Context(), "fly-syd", "cloud-account")

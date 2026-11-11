@@ -6597,6 +6597,9 @@
       },
       "TargetCapabilities": {
         "properties": {
+          "keepsDataDir": {
+            "type": "boolean"
+          },
           "needs": {
             "items": {
               "type": "string"
@@ -6604,9 +6607,6 @@
             "type": "array"
           },
           "ownLiveness": {
-            "type": "boolean"
-          },
-          "persistentVolumes": {
             "type": "boolean"
           },
           "rollout": {
@@ -6617,7 +6617,7 @@
           }
         },
         "required": [
-          "persistentVolumes",
+          "keepsDataDir",
           "ownLiveness",
           "rollout",
           "needs"

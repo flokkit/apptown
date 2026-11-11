@@ -21,6 +21,7 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/awsecs"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/fly"
@@ -56,6 +57,7 @@ type Providers struct {
 	inventories  map[string]InventoryFactory
 	digitalOcean digitalocean.Options
 	fly          fly.Options
+	aws          awsecs.Options
 	s3Bucket     s3bucket.Options
 	// databaseContainer is AppTown's own database, which the built-in
 	// host's inventory knows is there.
@@ -77,6 +79,7 @@ type ProviderDependencies struct {
 	Integrations *integration.Service
 	DigitalOcean digitalocean.Options
 	Fly          fly.Options
+	aws          awsecs.Options
 	S3Bucket     s3bucket.Options
 	// Drivers and Inventories replace the built-in factories for a kind
 	// (a test's fake provider); the rest are built here.
@@ -108,7 +111,7 @@ func NewProviders(ctx context.Context, db *database.DB, records ProviderRecords,
 	p := &Providers{db: db, clock: deps.Now, targets: records.Targets, deployments: records.Deployments, needs: NeedStore{db: db, clock: deps.Now}, applied: deps.Applied,
 		hosts: hosts, env: env, projects: deps.Projects, secrets: deps.Secrets, integrations: deps.Integrations,
 		drivers: maps.Clone(deps.Drivers), inventories: maps.Clone(deps.Inventories),
-		digitalOcean: deps.DigitalOcean, fly: deps.Fly, s3Bucket: deps.S3Bucket,
+		aws: deps.aws, digitalOcean: deps.DigitalOcean, fly: deps.Fly, s3Bucket: deps.S3Bucket,
 		databaseContainer: deps.DatabaseContainer, installation: deps.Installation}
 	// The DigitalOcean driver judges its deadlines and grace on AppTown's
 	// clock too, unless its options name a clock of their own.
@@ -494,6 +497,16 @@ func (p *Providers) cloudClientForID(connection ids.ID) func(context.Context) (*
 // configureProviders binds provider drivers to Deployment's own stores. Credentials
 // are resolved on use, and explicit factory overrides are preserved.
 func (p *Providers) configureProviders(ctx context.Context) {
+	if p.drivers[KindAWSECS] == nil {
+		p.drivers[KindAWSECS] = func(ctx context.Context, t *Target, d *Deployment) (deploy.Driver, error) {
+			return p.newAWSDriver(ctx, t, d)
+		}
+	}
+	if p.inventories[KindAWSECS] == nil {
+		p.inventories[KindAWSECS] = func(t *Target) (deploy.Inventorier, error) {
+			return awsecs.NewDriver(awsecs.Dependencies{Client: p.awsClientFor(t), Installation: p.installation}), nil
+		}
+	}
 	if p.drivers[KindPortainer] == nil {
 		p.drivers[KindPortainer] = func(ctx context.Context, t *Target, dep *Deployment) (deploy.Driver, error) {
 			return &portainerRelease{providers: p, target: t, dep: dep, Driver: &portainer.Driver{Diagnostics: p.portainerDiagnostic, Now: p.clock, TargetID: t.ID, Owner: ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock}, Config: func(ctx context.Context, id ids.ID) (*portainer.Target, error) {
@@ -569,10 +582,10 @@ func (p *Providers) s3BucketClientFor(targetID ids.ID) func(context.Context) (*s
 // ManagedData is the provider module that answers for a target's managed
 // instances; nil when the target has none.
 func (p *Providers) ManagedData(t *Target) deploy.ManagedData {
-	if t.Kind != KindDOApp {
-		return nil
+	if factory := describeKind(t.Kind).managedData; factory != nil {
+		return factory(p, t)
 	}
-	return digitalocean.ManagedData{Client: p.cloudClientFor(t.Provider), OwnDatabase: p.digitalOcean.OwnDatabase}
+	return nil
 }
 
 // PrepareNeeds fulfils the contract's needs on the target and records

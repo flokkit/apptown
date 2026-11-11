@@ -16,19 +16,26 @@ import (
 
 // TargetAttachment describes a target to observe and optionally attach.
 type TargetAttachment struct {
-	ConnectionID ids.ID `json:"connectionId"`
-	EndpointID   int64  `json:"endpointId"`
-	Kind         string `json:"kind"`
-	Name         string `json:"name"`
-	Host         string `json:"host"`
-	KeyFrom      string `json:"keyFrom"`
-	URLFrom      string `json:"urlFrom"`
-	APIKeyFrom   string `json:"apiKeyFrom"`
-	Environment  string `json:"environment"`
-	Domain       string `json:"domain"`
-	TokenFrom    string `json:"tokenFrom"`
-	Region       string `json:"region"`
-	Registry     string `json:"registry"`
+	KeyIDFrom       string   `json:"keyIdFrom"`
+	Account         string   `json:"account"`
+	Cluster         string   `json:"cluster"`
+	Listener        string   `json:"listener"`
+	ExecutionRole   string   `json:"executionRole"`
+	TaskSubnets     []string `json:"taskSubnets"`
+	DatabaseSubnets []string `json:"databaseSubnets"`
+	ConnectionID    ids.ID   `json:"connectionId"`
+	EndpointID      int64    `json:"endpointId"`
+	Kind            string   `json:"kind"`
+	Name            string   `json:"name"`
+	Host            string   `json:"host"`
+	KeyFrom         string   `json:"keyFrom"`
+	URLFrom         string   `json:"urlFrom"`
+	APIKeyFrom      string   `json:"apiKeyFrom"`
+	Environment     string   `json:"environment"`
+	Domain          string   `json:"domain"`
+	TokenFrom       string   `json:"tokenFrom"`
+	Region          string   `json:"region"`
+	Registry        string   `json:"registry"`
 	// Org is a Fly target's org, needed only when its token reaches several.
 	Org string `json:"org"`
 	// A bucket target: the store's API endpoint, the website address
@@ -119,7 +126,7 @@ func (s *Service) AttachTarget(ctx context.Context, in TargetAttachment) (target
 		t = &Target{
 			Name: in.Name, Kind: KindDockerHost, Provider: "", Origin: OriginAttached,
 			Address:      map[string]any{"host": in.Host, "keyFrom": in.KeyFrom, "user": addr.User, "hostname": addr.Host, "port": addr.Port},
-			Capabilities: TargetCapabilities{PersistentVolumes: true, OwnLiveness: false, Rollout: []string{"replace"}, Needs: needs},
+			Capabilities: TargetCapabilities{KeepsDataDir: true, OwnLiveness: false, Rollout: []string{"replace"}, Needs: needs},
 			Ingress:      map[string]any{},
 			NeedsMode:    "emulators", Status: TargetReady,
 		}
@@ -175,6 +182,8 @@ func (s *Service) AttachTarget(ctx context.Context, in TargetAttachment) (target
 			return targetAttachmentResult{}, err
 		}
 		return targetAttachmentResult{Target: saved, Detail: detail, Registry: registry}, nil
+	case KindAWSECS:
+		return s.attachAWS(ctx, in, actor.Principal.Name)
 	case kindFlyMachines:
 		return s.attachFly(ctx, in, actor.Principal.Name)
 	case KindS3Bucket:
@@ -197,7 +206,7 @@ func (s *Service) AttachTarget(ctx context.Context, in TargetAttachment) (target
 		t = &Target{
 			Name: in.Name, Kind: KindS3Bucket, Provider: "", Origin: OriginAttached,
 			Address:      address,
-			Capabilities: TargetCapabilities{PersistentVolumes: false, OwnLiveness: true, Rollout: []string{"replace"}},
+			Capabilities: TargetCapabilities{KeepsDataDir: false, OwnLiveness: true, Rollout: []string{"replace"}},
 			Ingress:      map[string]any{"binding": "provider-issued"},
 			NeedsMode:    "managed", Status: TargetReady,
 		}

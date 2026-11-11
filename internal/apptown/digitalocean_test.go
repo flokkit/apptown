@@ -25,7 +25,7 @@ func TestDigitalOceanTargetIsOfferedByTheConnector(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tg.Kind != deployment.KindDOApp || tg.NeedsMode != "managed" || tg.Capabilities.PersistentVolumes || tg.Ingress["binding"] != "provider-issued" {
+	if tg.Kind != deployment.KindDOApp || tg.NeedsMode != "managed" || tg.Capabilities.KeepsDataDir || tg.Ingress["binding"] != "provider-issued" {
 		t.Fatalf("target: %+v", tg)
 	}
 	h := a.targetProviders.CheckCloudAccount(context.Background(), map[string]any{"tokenFrom": "DIGITALOCEAN_ACCESS_TOKEN"})

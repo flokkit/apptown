@@ -15,7 +15,7 @@ const target = (revision = 7, domain = 'old.example'): Target => ({
   id: 'target-id', provider: '', origin: 'attached', status: 'ready',
   name: 'test-host', displayLabel: 'Test host', kind: 'docker-host', ingress: { domain }, address: {},
   settingsRevision: revision, needsMode: 'emulators',
-  capabilities: { persistentVolumes: true, ownLiveness: false, rollout: [], needs: [] },
+  capabilities: { keepsDataDir: true, ownLiveness: false, rollout: [], needs: [] },
 })
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status })
 const disposals: (() => void)[] = []
@@ -37,7 +37,7 @@ async function setup(options: { conflict?: boolean; failOffer?: boolean; failRea
     writes.push({ method, body })
     if (method === 'PATCH') {
       if (conflict) {
-        current = { ...target(8, 'their.example'), capabilities: { ...current.capabilities, persistentVolumes: false } }
+        current = { ...target(8, 'their.example'), capabilities: { ...current.capabilities, keepsDataDir: false } }
         return new Response('{"error":"settings moved"}', { status: 409, headers: { 'X-AppTown-Deny-Code': 'settings-moved' } })
       }
       if (body.expectedRevision !== current.settingsRevision) return json({ error: 'revision required' }, 422)
@@ -208,4 +208,32 @@ it('connects a Fly.io target by its token secret and region, checking before it 
   await vi.waitFor(() => expect(el.textContent).toContain('Fly answers: org acme'))
   expect(posts).toEqual([{ kind: 'fly-machines', name: 'fly-demo', tokenFrom: 'FLY_API_TOKEN', region: 'syd', org: '', dryRun: true }])
   expect(button('Add target').disabled).toBe(false)
+})
+
+it('checks explicit AWS estate fields and invalidates the check after an edit', async () => {
+  const posts: Record<string, unknown>[] = []
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (_url, init) => {
+    if (init?.method === 'POST') { posts.push(JSON.parse(String(init.body))); return json({ detail: 'account and estate checked' }) }
+    return json({})
+  })))
+  const client = newQueryClient(), el = document.createElement('div'); document.body.append(el)
+  const root = createRoot(el)
+  disposals.push(() => { act(() => root.unmount()); client.clear(); el.remove() })
+  await act(async () => { root.render(<MemoryRouter><QueryClientProvider client={client}><InfrastructureNew /></QueryClientProvider></MemoryRouter>) })
+  await vi.waitFor(() => expect([...el.querySelectorAll('.wiz-kind')].some(b => b.textContent?.includes('AWS ECS'))).toBe(true))
+  await act(async () => { [...el.querySelectorAll<HTMLButtonElement>('.wiz-kind')].find(b => b.textContent?.includes('AWS ECS'))!.click() })
+  const button = (text: string) => [...el.querySelectorAll('button')].find(b => b.textContent === text)!
+  const edit = async (label: string, value: string) => {
+    const input = [...el.querySelectorAll('label')].find(l => l.firstChild?.textContent === label)!.querySelector('input')!
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })) })
+  }
+  expect(button('Check').disabled).toBe(true)
+  for (const [label, value] of Object.entries({ name: 'aws-prod', 'expected account id': '123456789012', cluster: 'existing', 'task subnets (comma separated)': 'subnet-a, subnet-b', 'HTTPS listener ARN': 'arn:listener', 'execution role ARN': 'arn:role', 'apps domain': 'apps.example.com' })) await edit(label, value)
+  await act(async () => { button('Check').click() })
+  await vi.waitFor(() => expect(posts).toHaveLength(1))
+  expect(posts[0]).toEqual({ kind: 'aws-ecs', name: 'aws-prod', keyIdFrom: 'AWS_ACCESS_KEY_ID', secretKeyFrom: 'AWS_SECRET_ACCESS_KEY', account: '123456789012', cluster: 'existing', taskSubnets: ['subnet-a', 'subnet-b'], databaseSubnets: [], listener: 'arn:listener', executionRole: 'arn:role', domain: 'apps.example.com', region: 'ap-southeast-2', dryRun: true })
+  await vi.waitFor(() => expect(button('Add target').disabled).toBe(false))
+  await edit('cluster', 'changed')
+  expect(button('Add target').disabled).toBe(true)
+  expect(el.querySelector('a[href="/docs/guides/aws-target-setup"]')).not.toBeNull()
 })

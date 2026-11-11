@@ -20,7 +20,7 @@ func TestMigration217DropsOnlyUnusedTargetPreviewSetting(t *testing.T) {
 		t.Fatal(err)
 	}
 	var preview, disks, evals bool
-	if err := db.SQL().QueryRowContext(t.Context(), `SELECT capabilities_json ? 'previews',(capabilities_json->>'persistentVolumes')::boolean,(ingress_json->>'evals')::boolean FROM targets WHERE name='host'`).Scan(&preview, &disks, &evals); err != nil {
+	if err := db.SQL().QueryRowContext(t.Context(), `SELECT capabilities_json ? 'previews',(capabilities_json->>'keepsDataDir')::boolean,(ingress_json->>'evals')::boolean FROM targets WHERE name='host'`).Scan(&preview, &disks, &evals); err != nil {
 		t.Fatal(err)
 	}
 	if preview || !disks || !evals {

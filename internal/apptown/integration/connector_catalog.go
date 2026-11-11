@@ -256,6 +256,7 @@ func ConnectorCatalog() []ConnectorSpec {
 				{Key: "dbSize", Label: "Database size", Type: "string", Placeholder: "db-s-1vcpu-1gb", Help: "Managed database node size."},
 			},
 		},
+		{Capability: digitalocean.CapCloudAccount, Provider: "aws", Title: "AWS", Multi: true, Icon: "deploy", Description: "An existing AWS estate for single-part apps on ECS Fargate, with a dedicated RDS instance for postgres. Attach it from deployment targets.", Fields: []ConnectorField{{Key: "keyIdFrom", Label: "Access key secret", Type: "secretRef"}, {Key: "secretKeyFrom", Label: "Secret key secret", Type: "secretRef"}, {Key: "region", Label: "Region", Type: "string"}, {Key: "account", Label: "Expected account id", Type: "string"}, {Key: "cluster", Label: "Cluster name", Type: "string"}, {Key: "listener", Label: "HTTPS listener ARN", Type: "string"}, {Key: "executionRole", Label: "Task execution role ARN", Type: "string"}, {Key: "domain", Label: "Apps domain", Type: "string"}}},
 		{
 			Capability: digitalocean.CapCloudAccount, Provider: "fly", Title: "Fly.io", Multi: true, Icon: "deploy",
 			Description: "A Fly.io org: each deployment is a Fly app of its own, with one Machine per part. Each connection offers one Fly target. The token is given as a secret name and read when it is used; an org token can manage every app in its org, and AppTown touches only what it made and recorded.",
