@@ -4583,6 +4583,7 @@ export type KindInfo = {
   vendor: string
   region: string
   environment: boolean
+  guide: string
 }
 
 export type Offer = {

@@ -43,6 +43,9 @@ type KindInfo struct {
 	// Environment says the target releases into one of its provider's
 	// environments, named by the administrator (AddressEnvironment).
 	Environment bool `json:"environment"`
+	// Guide is the slug of the kind's setup guide under stock/docs/guides,
+	// which the product links at /docs/guides/<guide>.
+	Guide string `json:"guide"`
 	// platform is the one platform a cloud kind runs ("" where the target
 	// is asked); publishedOnly says it runs only images in a registry by
 	// digest, with no local image to push.
@@ -51,14 +54,14 @@ type KindInfo struct {
 }
 
 var kindCatalog = []KindInfo{
-	{copyProtocol: CopyDedicatedPostgres, contractRefusal: awsecs.RefusesContract, audienceAddress: "load balancer", managedData: func(p *Providers, t *Target) deploy.ManagedData { return p.awsManaged(t) }, creationDescription: "AWS ECS on Fargate · AWS", Kind: KindAWSECS, featureArea: "aws-ecs", Title: "AWS ECS on Fargate", Provider: "aws", Family: "cloud", Vendor: "AWS", Region: "region", platform: "linux/amd64", publishedOnly: true},
-	{ContainerMemoryLimits: true, creationDescription: "Built-in Docker host · this AppTown", Kind: KindDockerHost, featureArea: "deployments", Title: "Built-in Docker host", Family: "built-in", Vendor: "this AppTown"},
-	{ContainerMemoryLimits: true, creationDescription: "Portainer environment · Portainer", Kind: KindPortainer, featureArea: "portainer", Title: "Portainer environment", Provider: "portainer", Family: "intranet", Vendor: "Portainer", Environment: true},
+	{copyProtocol: CopyDedicatedPostgres, contractRefusal: awsecs.RefusesContract, audienceAddress: "load balancer", managedData: func(p *Providers, t *Target) deploy.ManagedData { return p.awsManaged(t) }, creationDescription: "AWS ECS on Fargate · AWS", Kind: KindAWSECS, Guide: "aws-target-setup", featureArea: "aws-ecs", Title: "AWS ECS on Fargate", Provider: "aws", Family: "cloud", Vendor: "AWS", Region: "region", platform: "linux/amd64", publishedOnly: true},
+	{ContainerMemoryLimits: true, creationDescription: "Built-in Docker host · this AppTown", Kind: KindDockerHost, Guide: "docker-host-target-setup", featureArea: "deployments", Title: "Built-in Docker host", Family: "built-in", Vendor: "this AppTown"},
+	{ContainerMemoryLimits: true, creationDescription: "Portainer environment · Portainer", Kind: KindPortainer, Guide: "portainer-target-setup", featureArea: "portainer", Title: "Portainer environment", Provider: "portainer", Family: "intranet", Vendor: "Portainer", Environment: true},
 	{copyProtocol: copyNamedHost, managedData: func(p *Providers, t *Target) deploy.ManagedData {
 		return digitalocean.ManagedData{Client: p.cloudClientFor(t.Provider), OwnDatabase: p.digitalOcean.OwnDatabase}
-	}, creationDescription: "App Platform · DigitalOcean", Kind: KindDOApp, featureArea: "app-platform", Title: "App Platform", Provider: "digitalocean", Family: "cloud", Vendor: "DigitalOcean", Region: "region", platform: digitalocean.Platform},
-	{audienceAddress: "fly.dev", creationDescription: "Fly.io Machines · Fly.io", Kind: kindFlyMachines, featureArea: "fly-machines", Title: "Fly.io Machines", Provider: "fly", Family: "cloud", Vendor: "Fly.io", Region: "region", platform: fly.Platform, publishedOnly: true},
-	{creationDescription: "Bucket website · static sites only", Kind: KindS3Bucket, featureArea: "bucket-site", Title: "Bucket website", Family: "cloud", Vendor: "S3-compatible storage", Region: "region"},
+	}, creationDescription: "App Platform · DigitalOcean", Kind: KindDOApp, Guide: "app-platform-target-setup", featureArea: "app-platform", Title: "App Platform", Provider: "digitalocean", Family: "cloud", Vendor: "DigitalOcean", Region: "region", platform: digitalocean.Platform},
+	{audienceAddress: "fly.dev", creationDescription: "Fly.io Machines · Fly.io", Kind: kindFlyMachines, Guide: "fly-target-setup", featureArea: "fly-machines", Title: "Fly.io Machines", Provider: "fly", Family: "cloud", Vendor: "Fly.io", Region: "region", platform: fly.Platform, publishedOnly: true},
+	{audienceAddress: "website", creationDescription: "Bucket website · static sites only", Kind: KindS3Bucket, Guide: "bucket-website-target-setup", featureArea: "bucket-site", Title: "Bucket website", Family: "cloud", Vendor: "S3-compatible storage", Region: "region"},
 	// Other providers land here as one line each
 	// with their drivers; nothing in the UI changes.
 }

@@ -14,7 +14,7 @@ it.each([false, true])('leads with the host name, state and app address, and lin
   client.setQueryData(getKey('/targets/kitchen'), {
     target: { id: 'host-id', name: 'kitchen', displayLabel: 'Kitchen', status: 'ready', statusLabel: 'working',
       check: { detail: 'Docker daemon answers', observedAt: '2026-10-29T00:00:00Z', stale: true, failure: 'SSH connection refused', unknown: true, waiting: false },
-      kind: 'docker-host', kindInfo: { title: 'Docker host' }, ingress: { domain: 'apps.example.test' },
+      kind: 'docker-host', kindInfo: { title: 'Docker host', guide: 'guide-from-the-catalog' }, ingress: { domain: 'apps.example.test' },
       address: { host: 'ssh://root@10.0.0.4', hostname: '10.0.0.4', user: 'root', port: 22, keyFrom: 'HOST_KEY' },
       capabilities: { needs: ['postgres'], rollout: ['replace'], keepsDataDir: true },
       needsMode: 'emulators', deployments: [], offers: [], retained: 0 },
@@ -31,6 +31,8 @@ it.each([false, true])('leads with the host name, state and app address, and lin
   expect(el.querySelector('.target-settings')?.textContent?.match(/10\.0\.0\.4/g)).toHaveLength(1)
   expect(el.querySelector('.target-settings')?.textContent).toContain('ssh://root@10.0.0.4')
   expect(el.querySelector('.target-settings a[href="/integrations/secrets"]')?.textContent).toBe('Edit secret')
+  // The kind's setup guide is the one AppTown's kind catalog names.
+  expect(el.querySelector('.target-settings a[href="/docs/guides/guide-from-the-catalog"]')?.textContent).toBe('Docker host')
   // The ID and its rename link are the first fact, in the list's rhythm.
   expect(el.querySelector('.target-settings dl.facts > dd')?.textContent).toContain('Target ID: kitchen Edit display name')
   // The lead is everything before the first section: name, state, address.

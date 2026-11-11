@@ -26,7 +26,7 @@ const KINDS: { kind: Kind; title: string; vendor: string; blurb: string }[] = [
   { kind: 'portainer', title: 'Portainer environment', vendor: 'Portainer', blurb: 'Experimental: no real app qualified yet. Portainer runs and restarts apps. Traefik serves the apps domain.' },
   { kind: 'do-app', title: 'DigitalOcean App Platform', vendor: 'DigitalOcean', blurb: 'Experimental: no real app qualified yet. App Platform runs apps, Managed Databases hold data, and the registry holds images. One target per account and region.' },
   { kind: 'aws-ecs', title: 'AWS ECS on Fargate', vendor: 'AWS', blurb: `Beta: single-part apps and a dedicated RDS instance for postgres. Name your existing cluster, subnets, HTTPS listener and execution role. ${PRODUCT} manages only its own deployment resources.` },
-  { kind: 'fly-machines', title: 'Fly.io Machines', vendor: 'Fly.io', blurb: `Experimental: no real app qualified yet. Each deployment is a Fly app with one Machine per part. Needs (databases, object storage) are not offered yet. Use an org token for an org that holds your team's apps; ${PRODUCT} touches only the apps it made.` },
+  { kind: 'fly-machines', title: 'Fly.io Machines', vendor: 'Fly.io', blurb: `Experimental: no real app qualified yet. Each deployment is a Fly app with one Machine per part. Postgres and data folders get volumes; other needs are refused. Use an org token for an org that holds your team's apps; ${PRODUCT} touches only the apps it made.` },
   { kind: 's3-bucket', title: 'Bucket website', vendor: 'S3-compatible storage', blurb: `Experimental: no real app qualified yet. Static files only, served from a bucket website. DigitalOcean Spaces first. Each deployment gets one bucket; taking it down deletes the bucket, so keep nothing else there. Use a key made for ${PRODUCT} that can create buckets. Full-access keys reach every bucket in the team.` },
 ]
 
@@ -37,6 +37,11 @@ export function InfrastructureNew() {
   const [kind, setKind] = useState<Kind | null>(null)
   const [saved, setSaved] = useState<Target | null>(null)
   const chosen = KINDS.find((k) => k.kind === kind)
+  // Each kind's setup guide, named by AppTown's kind catalog, read from the
+  // first step so it is there by the time the connection form shows. While
+  // the catalog is loading or unreadable the link is left out; the form
+  // works the same, and the guide is on the Docs page either way.
+  const catalog = useGet<TargetList>('/targets').data?.kinds
   return (
     <div className="infrastructure-new-div">
       <div className="row infrastructure-new-div-2">
@@ -48,7 +53,7 @@ export function InfrastructureNew() {
         <li className={step === 3 ? 'current' : ''}>Offer and facts</li>
       </ol>
       {step === 1 && <KindStep kind={kind} onPick={(k) => { setKind(k); setStep(2) }} />}
-      {step === 2 && kind && <ConnectionStep kind={kind} onBack={() => setStep(1)} onSaved={(t) => { setSaved(t); setStep(3) }} />}
+      {step === 2 && kind && <ConnectionStep kind={kind} guide={catalog?.find((k) => k.kind === kind)?.guide} onBack={() => setStep(1)} onSaved={(t) => { setSaved(t); setStep(3) }} />}
       {step === 3 && saved && <OfferStep target={saved} onDone={() => nav(`/targets/${saved.name}`)} />}
     </div>
   )
@@ -81,7 +86,7 @@ function KindStep({ kind, onPick }: { kind: Kind | null; onPick: (k: Kind) => vo
 // ConnectionStep: the kind's fields, named as secrets AppTown already
 // holds. Check asks the target to answer without recording anything; the
 // words it answers with are shown; only then may the target be added.
-function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => void; onSaved: (t: Target) => void }) {
+function ConnectionStep({ kind, guide, onBack, onSaved }: { kind: Kind; guide?: string; onBack: () => void; onSaved: (t: Target) => void }) {
   const [name, setName] = useState('')
   const [host, setHost] = useState('ssh://root@')
   const [keyFrom, setKeyFrom] = useState('')
@@ -141,6 +146,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
     <div className="card infrastructure-new-connection-step-card">
       <p className="muted small mt-0" >
         {KINDS.find((k) => k.kind === kind)?.blurb} Enter secret names; saved values are hidden.
+        {guide && <> <Link to={`/docs/guides/${guide}`}>Setup guide</Link></>}
       </p>
       <div className="wiz-fields">
         {field('name', name, setName, kind === 'aws-ecs' ? 'aws-syd' : kind === 'do-app' ? 'do-syd' : kind === 'fly-machines' ? 'fly-syd' : kind === 'portainer' ? 'home-portainer' : kind === 's3-bucket' ? 'spaces-syd' : 'droplet-syd', 160)}
@@ -171,7 +177,6 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
           {field('HTTPS listener ARN', listener, setListener)}
           {field('execution role ARN', executionRole, setExecutionRole)}
           {field('apps domain', domain, setDomain, 'apps.example.com')}
-          <Link to="/docs/guides/aws-target-setup">AWS setup guide and prerequisite templates</Link>
         </>}
         {kind === 'fly-machines' && <>
           {field('token secret', tokenFrom, setTokenFrom, 'FLY_API_TOKEN', 240)}

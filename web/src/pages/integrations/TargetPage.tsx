@@ -217,6 +217,7 @@ function TargetSettings() {
         <dl className="facts">
           <dt>Name</dt><dd><DisplayLabelEdit keyLabel="Target ID" value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} /></dd>
           <dt>Kind</dt><dd>{placeOf(t.kindInfo, t.address)}</dd>
+          {t.kindInfo.guide && <><dt>Setup guide</dt><dd><Link to={`/docs/guides/${t.kindInfo.guide}`}>{t.kindInfo.title}</Link></dd></>}
           {facts.map(f => <Fragment key={f.label}><dt>{f.label}</dt><dd>{f.value}</dd></Fragment>)}
           {(concrete.length > 0 || t.provider) && <><dt>Address</dt><dd>{concrete.join(' · ')}{t.provider && <> · through the <Link to="/integrations">{t.provider}</Link> connection</>}</dd></>}
           {addr.keyFrom && <><dt>SSH key</dt><dd>Secret <code>{addr.keyFrom}</code><div className="mt-1"><Link to="/integrations/secrets">Edit secret</Link></div></dd></>}

@@ -667,7 +667,7 @@ try {
           }
           if (screen === 'policy-new') await page.getByRole('heading', { name: 'New policy', exact: true }).waitFor();
           if (screen === 'workflow-new') await page.getByRole('link', { name: 'New workflow', exact: true }).click();
-          if (screen === 'infrastructure-connection') await page.getByRole('button', { name: /Docker host/ }).click();
+          if (screen === 'infrastructure-connection') { await page.getByRole('button', { name: /Docker host/ }).click(); await page.getByRole('link', { name: 'Setup guide', exact: true }).waitFor(); }
           if (screen === 'change-findings') {
             await page.getByRole('link', { name: /^Security › Findings \(/ }).first().waitFor();
             if (await page.getByRole('button', { name: /^(Fix…|Suppress…)$/ }).count()) throw new Error('finding actions remain on the change');
