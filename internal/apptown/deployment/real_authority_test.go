@@ -128,7 +128,8 @@ func TestReleaseRequestChecksInternalAuthority(t *testing.T) {
 	if _, err := s.RequestRelease(owner, in); !errors.Is(err, errNoBundle) {
 		t.Fatalf("permitted caller: %v", err)
 	}
-	dep, err = s.Deployments.EnsureStanding(owner, pid, "cloud", target.ID, Attributes{Feed: "manual", Audience: "public", DataClass: "non-production"})
+	reclassifyForTest(t, s.db, pid, "cloud", "public", "non-production")
+	dep, err = s.Deployments.ByName(owner, pid, "cloud")
 	if err != nil {
 		t.Fatal(err)
 	}

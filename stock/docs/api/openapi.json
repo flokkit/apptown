@@ -1734,6 +1734,132 @@
         ],
         "type": "object"
       },
+      "ClassificationChange": {
+        "properties": {
+          "adds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "audience": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          },
+          "lowers": {
+            "type": "boolean"
+          },
+          "meaning": {
+            "type": "string"
+          },
+          "refusal": {
+            "type": "string"
+          },
+          "removes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "audience",
+          "data",
+          "lowers",
+          "adds",
+          "removes"
+        ],
+        "type": "object"
+      },
+      "ClassificationChoice": {
+        "properties": {
+          "refusal": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "type": "object"
+      },
+      "ClassificationSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string"
+          },
+          "was": {
+            "properties": {
+              "audience": {
+                "type": "string"
+              },
+              "data": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "audience",
+              "data"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "ClassificationView": {
+        "properties": {
+          "audience": {
+            "type": "string"
+          },
+          "audiences": {
+            "items": {
+              "$ref": "#/components/schemas/ClassificationChoice"
+            },
+            "type": "array"
+          },
+          "data": {
+            "type": "string"
+          },
+          "dataClasses": {
+            "items": {
+              "$ref": "#/components/schemas/ClassificationChoice"
+            },
+            "type": "array"
+          },
+          "effect": {
+            "type": "string"
+          },
+          "proposed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "audience",
+          "data",
+          "audiences",
+          "dataClasses",
+          "effect"
+        ],
+        "type": "object"
+      },
       "CommittedComparison": {
         "properties": {
           "message": {
@@ -14039,6 +14165,117 @@
           "tier": "always"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/deployments/{name}/classification": {
+      "get": {
+        "operationId": "getProjectsSlugDeploymentsNameClassification",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationView"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "deployment:read",
+          "kind": "capability",
+          "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      },
+      "put": {
+        "operationId": "putProjectsSlugDeploymentsNameClassification",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassificationSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.SetClassification",
+          "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/confirm-feed": {

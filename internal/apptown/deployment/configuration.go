@@ -131,14 +131,27 @@ func (s *Service) Configure(ctx context.Context, in ConfigureDeployment) (config
 				return configurationResult{}, err
 			}
 		}
-		if why := offer.permits(target, proj.Slug, attrs, int(standing)); why != "" {
-			return configurationResult{}, &offerDeniedError{why}
-		}
 		existing, err := q.DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: in.ProjectID, Name: in.Name})
 		if found, e := database.Lookup(err); e != nil {
 			return configurationResult{}, e
-		} else if found && existing.Deployment.Feed != attrs.Feed {
-			return configurationResult{}, fault.New(fault.Conflict, "change the feed through the deployment's revisioned settings")
+		} else if found {
+			// An existing deployment keeps what the request leaves unsaid;
+			// its feed, audience and data change only in its settings.
+			if in.Audience == "" {
+				attrs.Audience = existing.Deployment.Audience
+			}
+			if in.DataClass == "" {
+				attrs.DataClass = existing.Deployment.DataClass
+			}
+			if existing.Deployment.Feed != attrs.Feed {
+				return configurationResult{}, fault.New(fault.Conflict, "change the feed through the deployment's revisioned settings")
+			}
+			if existing.Deployment.Audience != attrs.Audience || existing.Deployment.DataClass != attrs.DataClass {
+				return configurationResult{}, fault.New(fault.Conflict, fmt.Sprintf("%s exists; change its audience and data in its Settings", in.Name))
+			}
+		}
+		if why := offer.permits(target, proj.Slug, attrs, int(standing)); why != "" {
+			return configurationResult{}, &offerDeniedError{why}
 		}
 		if attrs.Feed == "promotion" && in.From == "" && (err != nil || existing.Deployment.PromotedFromID.IsZero()) {
 			return configurationResult{}, fault.New(fault.Invalid, "choose a source deployment for promotion")

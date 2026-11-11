@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/fault"
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
@@ -25,10 +26,15 @@ type configurationWorld struct {
 	contract    *appcontract.Contract
 	contractErr error
 	before      func()
+	deny        access.Capability // one capability this caller lacks
+	agent       bool              // the caller is an agent, not a verified person
 }
 
-func (w *configurationWorld) Require(context.Context, access.Permission) (access.Caller, error) {
-	return access.Caller{Principal: access.Principal{ID: idstest.N(501), Kind: "user", Name: w.actor.Name, Via: "header", Credential: "header:" + w.actor.Name}, Verified: true, Receipt: w.actor.Name}, w.denial
+func (w *configurationWorld) Require(_ context.Context, p access.Permission) (access.Caller, error) {
+	if w.deny != "" && p.Capability == w.deny {
+		return access.Caller{}, fault.New(fault.Forbidden, "denied "+string(p.Capability))
+	}
+	return access.Caller{Principal: access.Principal{ID: idstest.N(501), Kind: "user", Name: w.actor.Name, Via: "header", Credential: "header:" + w.actor.Name}, Verified: !w.agent, Receipt: w.actor.Name}, w.denial
 }
 func (w *configurationWorld) Project(_ context.Context, id ids.ID) (ReleaseProject, error) {
 	return ReleaseProject{Application: Application{ID: id, Slug: w.actor.ProjectSlug}, OwnerGroup: w.actor.OwnerGroup}, nil
@@ -240,8 +246,12 @@ func TestConfigureLimitIsAtomicAndExcludesCurrentBinding(t *testing.T) {
 	}
 	in.Name = envs[0].Name
 	in.Audience = "organisation"
+	if _, err := s.Configure(context.Background(), in); fault.KindOf(err) != fault.Conflict || !strings.Contains(err.Error(), "change its audience and data in its Settings") {
+		t.Fatalf("re-posting changed the audience: %v", err)
+	}
+	in.Audience = ""
 	dep := configureForTest(t, s, in)
-	if dep.ID != envs[0].ID || dep.Audience != in.Audience {
+	if dep.ID != envs[0].ID || dep.Audience != envs[0].Audience {
 		t.Fatalf("update: %+v", dep)
 	}
 	wantN(t, "bound receipts", receipts(t, s.db, "deployment.bound"), 2)
@@ -276,15 +286,10 @@ func TestConfigureDoesNotRetargetAdmittedDeployment(t *testing.T) {
 		t.Fatal(err)
 	}
 	in.Target = other.Name
-	if _, err := s.Configure(context.Background(), in); !errors.Is(err, errDeploymentAdmitted) {
+	if _, err := s.Configure(context.Background(), in); !errors.Is(err, errDeploymentStaysOnTarget) {
 		t.Fatalf("retargeted admitted generation: %v", err)
 	}
 	in.Target = target.Name
-	in.Audience = "public"
-	if _, err := s.Configure(context.Background(), in); !errors.Is(err, errDeploymentAdmitted) {
-		t.Fatalf("changed protection: %v", err)
-	}
-	in.Audience = "organisation"
 	updated := configureForTest(t, s, in)
 	if updated.TargetID != target.ID || updated.DesiredGeneration != 1 {
 		t.Fatalf("generation changed: %+v", updated)

@@ -55,7 +55,25 @@ credential. Create that setting through
 ```
 
 This requires permission to bind and deploy to that target, including
-protected-release permission where needed. The card's creation form adds a
+protected-release permission where needed. Posting an existing deployment
+again does not change its feed, audience or data.
+
+A deployment's audience and data class change in its **Settings**, under
+**Audience and data** (`PUT /api/v1/projects/<project>/deployments/<name>/classification`
+with the new values and the values you edited from). The page lists, before
+you save, what the change adds or removes: release permission for deploys,
+how many backup sets are kept, AppTown's daily copies on App Platform and AWS
+ECS, and whether a Docker host's release may discard test data. Values the
+target or its offer refuse are greyed with the reason: Fly.io and AWS ECS keep
+only a public audience. Lowering either one asks you to confirm a sentence
+saying what it now holds and serves; that needs a person signed in, the
+permission to configure deployments and, for a protected deployment, release
+permission, and is recorded as its own act. A deployment that started from a
+copy of production data keeps production data. A deploy already waiting when
+the class changes is refused and asked for again. The audience is AppTown's
+rule for who may deploy and what is refused; it puts no sign-in in front of
+the app. A deployment that has run stays on its target: to run it elsewhere,
+make a new deployment there and move its data with a backup. The card's creation form adds a
 manual-release deployment. Migrated follows-main settings need **Confirm follows
 main** before automatic releases can run.
 

@@ -102,7 +102,7 @@ func TestDeploymentAdmissionAndSettingsPreservePreparedTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	first, second := firstTarget.ID, secondTarget.ID
-	attrs := Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"}
+	attrs := Attributes{Feed: dep.Feed, Audience: dep.Audience, DataClass: dep.DataClass}
 	if _, err := NewDeployments(f.db).EnsureStanding(t.Context(), dep.ProjectID, dep.Name, first, attrs); err != nil {
 		t.Fatal(err)
 	}

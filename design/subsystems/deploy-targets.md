@@ -581,7 +581,8 @@ with one Machine per part.
   restored copy (no gate), a static site given browser values, and a
   deployment whose audience is not public (its `fly.dev` address answers
   anyone and AppTown puts no sign-in in front of it; the refusal says to
-  set the audience to public or deploy to a Docker host).
+  set the deployment's audience to public in its Settings, or make a
+  deployment on another target).
 - **Data folders and Postgres.** A data directory uses a recorded volume
   `at_<key>_<part>`. A need's volume is `at_<key>_n_<need>`. Volumes start at
   1 GB and grow automatically to 10 GB. Postgres runs the catalogue's stock

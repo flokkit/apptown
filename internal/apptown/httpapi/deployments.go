@@ -369,6 +369,41 @@ func (h Deployments) SetFeed(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Classification reads a deployment's audience and data with the values its
+// target and offer allow; ?audience=&data= also asks what saving them would do.
+func (h Deployments) Classification(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	var to *deployment.Attributes
+	if a, d := r.URL.Query().Get("audience"), r.URL.Query().Get("data"); a != "" || d != "" {
+		to = &deployment.Attributes{Audience: a, DataClass: d}
+	}
+	view, err := h.deployment.Classification(r.Context(), p.ID, r.PathValue("name"), to)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, view)
+}
+
+// SetClassification saves a deployment's audience and data.
+func (h Deployments) SetClassification(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	jsonCommand(w, r, jsonBody{strict: true}, func(in deployment.ClassificationSettings) {
+		dep, err := h.deployment.SetClassification(r.Context(), p.ID, r.PathValue("name"), in)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		WriteJSON(w, 200, dep)
+	})
+}
+
 // controlRuntime changes runtime state through Deployment's checked operation.
 func (h Deployments) controlRuntime(w http.ResponseWriter, r *http.Request) {
 	p, ok := projectFromPath(h.projects, w, r)

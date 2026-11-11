@@ -170,9 +170,12 @@ func (at Attributes) Validate() error {
 }
 
 var (
-	deploymentNameRe      = regexp.MustCompile(`^[a-z][a-z0-9-]{0,30}$`)
-	errDeploymentName     = errors.New("a deployment name is a short lowercase word")
-	errDeploymentAdmitted = fault.New(fault.Conflict, "the deployment has an admitted generation; changing its target or making it protected requires a migration")
+	deploymentNameRe  = regexp.MustCompile(`^[a-z][a-z0-9-]{0,30}$`)
+	errDeploymentName = errors.New("a deployment name is a short lowercase word")
+	// errDeploymentStaysOnTarget: a deployment that has run has its handle,
+	// volumes and data at its target, so moving is a new deployment.
+	errClassificationElsewhere = fault.New(fault.Conflict, "the deployment exists; change its audience and data in its Settings")
+	errDeploymentStaysOnTarget = fault.New(fault.Conflict, "a deployment that has run stays on its target; to run it elsewhere, make a new deployment on the other target and move its data with a backup")
 )
 
 // PreviewName is a preview deployment's name: one per change.
@@ -279,9 +282,10 @@ func lockDeploymentRecordIn(ctx context.Context, tx *database.Tx, id ids.ID) (*D
 
 // EnsureStanding records a standing deployment on a target with its
 // attributes, leaving the handle and generations of an existing row alone:
-// attributes are settings, the rest is state. Binding and protection are
-// fixed once a generation has been admitted; the upsert checks under its
-// row lock so concurrent admission cannot slip between a read and an update.
+// attributes are settings, the rest is state. An existing row keeps its
+// audience and data (SetClassification changes them); its target is fixed
+// once a generation has been admitted, checked under the row lock so
+// concurrent admission cannot slip between a read and an update.
 func (s *Deployments) EnsureStanding(ctx context.Context, projectID ids.ID, name string, targetID ids.ID, at Attributes) (*Deployment, error) {
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (*Deployment, error) {
 		return ensureStandingIn(ctx, tx, projectID, name, targetID, at, s.now())
@@ -328,10 +332,13 @@ func ensureStandingIn(ctx context.Context, tx *database.Tx, projectID ids.ID, na
 			UpdatedAt: now.UTC(),
 		}))
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("%s: %w", name, errDeploymentAdmitted)
+			return nil, fmt.Errorf("%s: %w", name, errDeploymentStaysOnTarget)
 		}
 		if err != nil {
 			return nil, err
+		}
+		if e.Audience != at.Audience || e.DataClass != at.DataClass {
+			return nil, fmt.Errorf("%s: %w", name, errClassificationElsewhere)
 		}
 		if err := preserveDefaultConfiguration(ctx, tx, e); err != nil {
 			return nil, err

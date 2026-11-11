@@ -52,6 +52,7 @@ var (
 type copyLauncher interface {
 	CheckStart(ctx context.Context, setID ids.ID, destinationProject ids.ID, dataClass string) error
 	UncheckedStart(ctx context.Context, setID ids.ID) (string, error)
+	StartClass(ctx context.Context, setID ids.ID) (string, error)
 	FillStart(ctx context.Context, in StartFill) (StartReceipt, error)
 }
 

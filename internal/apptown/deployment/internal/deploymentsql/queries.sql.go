@@ -1405,14 +1405,12 @@ const ensureStanding = `-- name: EnsureStanding :one
 
 INSERT INTO deployments (display_label, id, project_id, name, kind, target_id, feed, audience, data_class, host_port, updated_at)
   VALUES ($1, $2, $3,$1,$4,$5,$6,$7,$8,0,$9)
-  ON CONFLICT (project_id, name) DO UPDATE SET target_id=excluded.target_id, feed=excluded.feed, audience=excluded.audience,
+  ON CONFLICT (project_id, name) DO UPDATE SET target_id=excluded.target_id, feed=excluded.feed,
  feed_revision=deployments.feed_revision+CASE WHEN deployments.feed IS DISTINCT FROM excluded.feed THEN 1 ELSE 0 END,
  feed_authority_json=CASE WHEN deployments.feed IS DISTINCT FROM excluded.feed THEN NULL ELSE deployments.feed_authority_json END,
-  data_class=excluded.data_class, updated_at=excluded.updated_at
+  updated_at=excluded.updated_at
   WHERE (deployments.desired_generation=0 AND deployments.observed_generation=0)
-  OR (deployments.target_id=excluded.target_id AND
-  (deployments.audience IN ('partners','public') OR deployments.data_class='production'
-  OR (excluded.audience NOT IN ('partners','public') AND excluded.data_class!='production'))) RETURNING id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, url, start_from_backup, started_from_at, restore_check, display_label, feed_revision, feed_authority_json, promoted_from_id, approval_role, runtime_state, runtime_actor, runtime_at, runtime_error, act_at
+  OR deployments.target_id=excluded.target_id RETURNING id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, url, start_from_backup, started_from_at, restore_check, display_label, feed_revision, feed_authority_json, promoted_from_id, approval_role, runtime_state, runtime_actor, runtime_at, runtime_error, act_at
 `
 
 type EnsureStandingParams struct {
@@ -5430,6 +5428,35 @@ func (q *Queries) RuntimeDeployments(ctx context.Context, projectIds []ids.ID) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const setDeploymentClassification = `-- name: SetDeploymentClassification :execrows
+UPDATE deployments SET audience=$1, data_class=$2, updated_at=$3
+WHERE id=$4 AND audience=$5 AND data_class=$6
+`
+
+type SetDeploymentClassificationParams struct {
+	Audience     string
+	DataClass    string
+	UpdatedAt    time.Time
+	ID           ids.ID
+	WasAudience  string
+	WasDataClass string
+}
+
+func (q *Queries) SetDeploymentClassification(ctx context.Context, arg SetDeploymentClassificationParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setDeploymentClassification,
+		arg.Audience,
+		arg.DataClass,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.WasAudience,
+		arg.WasDataClass,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const setDeploymentFeed = `-- name: SetDeploymentFeed :execrows

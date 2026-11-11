@@ -2,6 +2,7 @@ import { useNotOff } from '../../../features'
 import './deployments.css'
 import { deploymentName } from '../../../deploymentName'
 import { DeploymentFeed, feedWords } from './DeploymentFeed'
+import { AUDIENCE_WORDS, DATA_WORDS, DeploymentClassification, PROTECTED_WORDS } from './DeploymentClassification'
 import '../../../overview-line.css'
 import { DeploymentDeploys, type DeploymentTab } from '../DeploymentDeploys'
 import { Tabs } from '../../../Tabs'
@@ -142,6 +143,7 @@ const DEPLOYMENT_TABS: { key: DeploymentTab; label: string }[] = [{ key: 'status
 export function DeploymentSettings({ slug, env: e, onChanged }: { slug: string; env: DeploymentView; onChanged: () => void }) {
   return <>
     <DeploymentFeed key={`${slug}/${e.name}/feed`} slug={slug} name={e.name} />
+    {e.kind === 'standing' && <DeploymentClassification key={`${slug}/${e.name}/classification`} slug={slug} name={e.name} onChanged={onChanged} />}
     <div className="card deploy-entry"><div className="deploy-lines">
       {e.generation ? <ResourceLines slug={slug} name={e.name} /> : null}
       {e.target?.kind === 'portainer' && e.id && <DeploymentLine label="Address"><DeploymentAddressEdit slug={slug} id={e.id} /></DeploymentLine>}
@@ -319,11 +321,11 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
         </select></>}
         <label title="who can reach it">Audience</label>
         <select aria-label="Audience" value={audience} onChange={(e) => setAudience(e.target.value)}>
-          {AUDIENCES.map((x) => <option key={x} value={x}>{x}</option>)}
+          {AUDIENCES.map((x) => <option key={x} value={x}>{AUDIENCE_WORDS[x]}</option>)}
         </select>
         <label title="what kind of data it holds">Data</label>
         <select aria-label="Data" value={data} onChange={(e) => setData(e.target.value)}>
-          {DATA_CLASSES.map((x) => <option key={x} value={x}>{x}</option>)}
+          {DATA_CLASSES.map((x) => <option key={x} value={x}>{DATA_WORDS[x]}</option>)}
         </select>
         {picked?.kind === 'do-app' && (finalsQ.data?.copies.length ?? 0) > 0 && <>
           <label title="its first release fills its database from this copy, and checks it, before the app starts">Start from</label>
@@ -346,7 +348,7 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
       </div>
       {protectedPick && (
         <div className="muted small mt-2" >
-          This makes the deployment <b>protected</b>: deploying to it takes the release grant, and its target and protection cannot be changed once something runs there.
+          This deployment will be protected. {PROTECTED_WORDS}
         </div>
       )}
       <div className="row deployments-add-deployment-div">

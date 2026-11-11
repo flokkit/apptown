@@ -2,7 +2,7 @@ package deployment
 
 import (
 	"context"
-	"strings"
+	"errors"
 	"testing"
 )
 
@@ -23,12 +23,12 @@ func TestDeployedDeploymentIsNotSilentlyRebound(t *testing.T) {
 		t.Fatal(err)
 	}
 	attrs := Attributes{Feed: "manual", Audience: "team", DataClass: "non-production"}
-	if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, in.Name, other.ID, attrs); err == nil || !strings.Contains(err.Error(), "migration") {
-		t.Fatalf("moving a deployed environment is a migration: %v", err)
+	if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, in.Name, other.ID, attrs); !errors.Is(err, errDeploymentStaysOnTarget) {
+		t.Fatalf("moving a deployed deployment needs a new one: %v", err)
 	}
 	attrs.Audience = "public"
-	if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, in.Name, target.ID, attrs); err == nil || !strings.Contains(err.Error(), "protected") {
-		t.Fatalf("raising protection on a deployed environment goes through the gates: %v", err)
+	if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, in.Name, target.ID, attrs); !errors.Is(err, errClassificationElsewhere) {
+		t.Fatalf("classification changes only through its settings: %v", err)
 	}
 	attrs.Feed, attrs.Audience = "manual", "team"
 	if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, in.Name, target.ID, attrs); err != nil {

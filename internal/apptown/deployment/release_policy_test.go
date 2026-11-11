@@ -38,9 +38,7 @@ func TestReleaseAdmissionCapturesLockedProtectionAndExecutionKeepsBothGates(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, dep.Name, dep.TargetID, Attributes{Feed: "manual", Audience: "team", DataClass: "production"}); err != nil {
-		t.Fatal(err)
-	}
+	reclassifyForTest(t, s.db, in.ProjectID, dep.Name, "team", "production")
 	accepted, err := s.RequestRelease(t.Context(), in)
 	if err != nil {
 		t.Fatal(err)
@@ -77,9 +75,7 @@ func TestReleaseAdmissionRefusesPromotionWithdrawnBeforeLockedProtectionCheck(t 
 	}
 	sources.before = func() {
 		sources.before = nil
-		if _, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, dep.Name, dep.TargetID, Attributes{Feed: "manual", Audience: "team", DataClass: "production"}); err != nil {
-			t.Fatal(err)
-		}
+		reclassifyForTest(t, s.db, in.ProjectID, dep.Name, "team", "production")
 		auth.denied = access.CapReleasePromote
 	}
 	got, err := s.RequestRelease(t.Context(), in)

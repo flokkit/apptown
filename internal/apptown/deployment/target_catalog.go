@@ -28,8 +28,14 @@ type KindInfo struct {
 	copyProtocol    copyProtocol
 	contractRefusal func(*appcontract.Contract) string
 	audienceAddress string
-	managedData     func(*Providers, *Target) deploy.ManagedData
-	featureArea     string
+	// dailyCopies: AppTown copies a production deployment's data each day
+	// and checks it weekly (dataprotection's scheduled copies).
+	dailyCopies bool
+	// discardsSynthetic: a release may remake a changed service, and lose
+	// its data, only when the data is declared synthetic (replaceDrifted).
+	discardsSynthetic bool
+	managedData       func(*Providers, *Target) deploy.ManagedData
+	featureArea       string
 	// creationDescription is the one-line placement choice, owned by the kind catalog.
 	creationDescription string
 	// ContainerMemoryLimits permits direct caps/defaults and explicit unlimited overrides.
@@ -54,10 +60,10 @@ type KindInfo struct {
 }
 
 var kindCatalog = []KindInfo{
-	{copyProtocol: CopyDedicatedPostgres, contractRefusal: awsecs.RefusesContract, audienceAddress: "load balancer", managedData: func(p *Providers, t *Target) deploy.ManagedData { return p.awsManaged(t) }, creationDescription: "AWS ECS on Fargate · AWS", Kind: KindAWSECS, Guide: "aws-target-setup", featureArea: "aws-ecs", Title: "AWS ECS on Fargate", Provider: "aws", Family: "cloud", Vendor: "AWS", Region: "region", platform: "linux/amd64", publishedOnly: true},
-	{ContainerMemoryLimits: true, creationDescription: "Built-in Docker host · this AppTown", Kind: KindDockerHost, Guide: "docker-host-target-setup", featureArea: "deployments", Title: "Built-in Docker host", Family: "built-in", Vendor: "this AppTown"},
+	{copyProtocol: CopyDedicatedPostgres, contractRefusal: awsecs.RefusesContract, audienceAddress: "load balancer", dailyCopies: true, managedData: func(p *Providers, t *Target) deploy.ManagedData { return p.awsManaged(t) }, creationDescription: "AWS ECS on Fargate · AWS", Kind: KindAWSECS, Guide: "aws-target-setup", featureArea: "aws-ecs", Title: "AWS ECS on Fargate", Provider: "aws", Family: "cloud", Vendor: "AWS", Region: "region", platform: "linux/amd64", publishedOnly: true},
+	{ContainerMemoryLimits: true, discardsSynthetic: true, creationDescription: "Built-in Docker host · this AppTown", Kind: KindDockerHost, Guide: "docker-host-target-setup", featureArea: "deployments", Title: "Built-in Docker host", Family: "built-in", Vendor: "this AppTown"},
 	{ContainerMemoryLimits: true, creationDescription: "Portainer environment · Portainer", Kind: KindPortainer, Guide: "portainer-target-setup", featureArea: "portainer", Title: "Portainer environment", Provider: "portainer", Family: "intranet", Vendor: "Portainer", Environment: true},
-	{copyProtocol: copyNamedHost, managedData: func(p *Providers, t *Target) deploy.ManagedData {
+	{copyProtocol: copyNamedHost, dailyCopies: true, managedData: func(p *Providers, t *Target) deploy.ManagedData {
 		return digitalocean.ManagedData{Client: p.cloudClientFor(t.Provider), OwnDatabase: p.digitalOcean.OwnDatabase}
 	}, creationDescription: "App Platform · DigitalOcean", Kind: KindDOApp, Guide: "app-platform-target-setup", featureArea: "app-platform", Title: "App Platform", Provider: "digitalocean", Family: "cloud", Vendor: "DigitalOcean", Region: "region", platform: digitalocean.Platform},
 	{audienceAddress: "fly.dev", creationDescription: "Fly.io Machines · Fly.io", Kind: kindFlyMachines, Guide: "fly-target-setup", featureArea: "fly-machines", Title: "Fly.io Machines", Provider: "fly", Family: "cloud", Vendor: "Fly.io", Region: "region", platform: fly.Platform, publishedOnly: true},

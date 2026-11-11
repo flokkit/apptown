@@ -250,7 +250,7 @@ try {
     complaints: '/complaints', 'complaints-answered': '/complaints/answered', 'complaints-archive': '/complaints/archive',
     glossary: '/docs/guides/glossary', 'setups-guide': '/docs/guides/setups',
     'model-profile': '/integrations/profiles/standard', 'target-new': '/targets/new',
-    services: '/services', 'services-shared': '/services/shared', 'deployment': '/projects/club-newsletter/deployments/main',
+    services: '/services', 'services-shared': '/services/shared', 'deployment': '/projects/club-newsletter/deployments/main', 'deployment-settings': '/projects/club-newsletter/deployments/main?tab=settings',
     'camera-not-found': '/camera-missing-page',
     'new-project': '/projects/_new', docs: '/docs', invite: '/invite',
     overview: '/projects/club-newsletter', 'project-changes': '/projects/club-newsletter/changes', console: '/projects/club-newsletter/console',

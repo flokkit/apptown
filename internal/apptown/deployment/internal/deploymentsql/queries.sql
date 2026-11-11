@@ -125,14 +125,16 @@ LOCK TABLE targets IN SHARE ROW EXCLUSIVE MODE;
 -- name: EnsureStanding :one
 INSERT INTO deployments (display_label, id, project_id, name, kind, target_id, feed, audience, data_class, host_port, updated_at)
   VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(target_id),sqlc.arg(feed),sqlc.arg(audience),sqlc.arg(data_class),0,sqlc.arg(updated_at))
-  ON CONFLICT (project_id, name) DO UPDATE SET target_id=excluded.target_id, feed=excluded.feed, audience=excluded.audience,
+  ON CONFLICT (project_id, name) DO UPDATE SET target_id=excluded.target_id, feed=excluded.feed,
  feed_revision=deployments.feed_revision+CASE WHEN deployments.feed IS DISTINCT FROM excluded.feed THEN 1 ELSE 0 END,
  feed_authority_json=CASE WHEN deployments.feed IS DISTINCT FROM excluded.feed THEN NULL ELSE deployments.feed_authority_json END,
-  data_class=excluded.data_class, updated_at=excluded.updated_at
+  updated_at=excluded.updated_at
   WHERE (deployments.desired_generation=0 AND deployments.observed_generation=0)
-  OR (deployments.target_id=excluded.target_id AND
-  (deployments.audience IN ('partners','public') OR deployments.data_class='production'
-  OR (excluded.audience NOT IN ('partners','public') AND excluded.data_class!='production'))) RETURNING *;
+  OR deployments.target_id=excluded.target_id RETURNING *;
+
+-- name: SetDeploymentClassification :execrows
+UPDATE deployments SET audience=sqlc.arg(audience), data_class=sqlc.arg(data_class), updated_at=sqlc.arg(updated_at)
+WHERE id=sqlc.arg(id) AND audience=sqlc.arg(was_audience) AND data_class=sqlc.arg(was_data_class);
 
 -- name: RecordPreview :one
 INSERT INTO deployments (display_label, id, project_id, name, kind, change_id, target_id, handle_json, host_port, container, url, feed, audience, data_class, observed_generation, desired_generation, updated_at)
