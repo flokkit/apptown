@@ -222,9 +222,12 @@ export function HowJudged({ def, brief = false }: { def?: CheckDefinition; brief
       <div>
         <span className="muted">How it's judged: </span>
         <strong>{EVAL[def.evaluator] ?? def.evaluator}</strong>
-        <span className="muted"> · {def.judgedWhere} · {def.block}@{def.version} · severity {def.severity}</span>
+        {/* A scanner is named by one word, so it reads inline; scripts and
+            rubrics are bodies of text and keep their own box. */}
+        {def.evaluator === 'tool' && how && <> <code>{how}</code></>}
+        <span className="muted"> · {def.judgedWhere} · from guidance <Link to={`/guidance/${encodeURIComponent(def.block)}?version=${def.version}`}>{def.block}{'\u00a0'}v{def.version}</Link> · severity {def.severity}</span>
       </div>
-      {how && <pre className="mono conformance-code conformance-code-short">{how}</pre>}
+      {how && def.evaluator !== 'tool' && <pre className="mono conformance-code conformance-code-short">{how}</pre>}
       {def.files && def.files.length > 0 && <div className="muted small">judged on: <span className="mono">{def.files.join(', ')}</span></div>}
       {def.evaluator === 'llm' && def.scope === 'diff' && <div className="muted small">Runs when a change lands.</div>}
       <div className="muted small">Adopted by <ProjectCount count={def.adopters.length} to={`${base}/checks/${encodeURIComponent(def.key)}/projects`} /></div>
@@ -233,26 +236,28 @@ export function HowJudged({ def, brief = false }: { def?: CheckDefinition; brief
 }
 
 // The source is the numbered evaluation record, including landing evaluations.
-export function JudgedAt({ v, reviews }: { v: Verdict; reviews: Review[] }) {
+// olderNote is off where the row's result already says the judgement is not
+// on the current commit, so the same fact is not said twice.
+export function JudgedAt({ v, reviews, olderNote = true }: { v: Verdict; reviews: Review[]; olderNote?: boolean }) {
   if (!v.sha) return <span className="muted small">Not judged yet</span>
   const review = reviews.find(r => r.id === v.reviewId)
   const source = review?.trigger === 'landing' ? 'landing' : review?.trigger === 'remediation' ? 'remediation' : 'review'
   return <div className="muted small">
-    judged at <span className="mono">{shortSha(v.sha)}</span> · {fmtWhen(v.at)} · via{' '}
+    commit <span className="mono">{shortSha(v.sha)}</span> · {fmtWhen(v.at)} · via{' '}
     {review ? <Link to={`/conformance/reviews/${review.id}`}>{source} #{review.number}</Link> : 'unknown source'}
-    {v.state === 'stale' && <span> · judged on an older commit</span>}
+    {olderNote && v.state === 'stale' && <span> · judged on an older commit</span>}
   </div>
 }
 
 // One verdict's evidence: the commit, the check's own words, the exception
 // behind an excepted verdict, the adjudication on an AI flag.
-export function Evidence({ v, exceptions, adj, reviews }: { v: Verdict; exceptions: Disposition[]; adj?: Adjudication; reviews: Review[] }) {
+export function Evidence({ v, exceptions, adj, reviews, olderNote = true }: { v: Verdict; exceptions: Disposition[]; adj?: Adjudication; reviews: Review[]; olderNote?: boolean }) {
   let exc: { id: string; status: string; by: string } | null = null
   try { exc = v.exceptedBy ? JSON.parse(v.exceptedBy) : null } catch { exc = null }
   const covering = exc ? exceptions.find((d) => d.id === exc!.id) : undefined
   return (
     <div className="stack conformance-evidence">
-      <JudgedAt v={v} reviews={reviews} />
+      <JudgedAt v={v} reviews={reviews} olderNote={olderNote} />
       {v.sha && (
         <div className="muted small">
           {EVAL[v.evaluator] ?? v.evaluator}

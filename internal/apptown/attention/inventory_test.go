@@ -204,3 +204,31 @@ func TestDockerHostWithoutLoopDoesNotWarnAboutNeverRead(t *testing.T) {
 		t.Fatalf("target without loop warned: %+v %v", got, err)
 	}
 }
+
+// A host never read says so, not that its reading is old; an old reading
+// says when it was last read in minutes; a queued first check adds nothing.
+func TestDockerHostNeverReadIsNotAnOldReading(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 11, 3, 0, 10, 0, 0, time.UTC)
+	read := func(r InventoryReading) []Item {
+		t.Helper()
+		target := &deployment.Target{ID: idstest.N(1), Name: "host", DisplayLabel: "Office host", Kind: deployment.KindDockerHost, Status: deployment.TargetReady}
+		source := Inventory{Targets: capacityTargets{[]*deployment.Target{target}}, Records: &recordedInventory{}, Observer: &inventoryEvidence{r}, Now: func() time.Time { return now }}
+		got, err := source.Snapshot(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got.Items
+	}
+	never := read(InventoryReading{AttemptedAt: now, FailedAt: now, LastFailure: "ssh refused."})
+	if len(never) != 1 || never[0].Title != "Office host: host not read yet" || never[0].Detail != "AppTown has not read this host yet. ssh refused." {
+		t.Fatalf("never read host: %+v", never)
+	}
+	old := read(InventoryReading{ObservedAt: now.Add(-7 * time.Minute)})
+	if len(old) != 1 || old[0].Title != "Office host: host reading is old" || old[0].Detail != "Last read 7 minutes ago." {
+		t.Fatalf("old reading: %+v", old)
+	}
+	if queued := read(InventoryReading{}); len(queued) != 0 {
+		t.Fatalf("queued first check warned: %+v", queued)
+	}
+}

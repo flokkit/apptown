@@ -164,7 +164,7 @@ func appRoutes(a *App) []routeSpec {
 		targets = httpapi.NewTargets(a.Deployment, a.targetProviders, a.Projects, a.Access, a.DB, a.cfg.clock.Now)
 		backups = httpapi.NewBackups(a.Projects, a.DataProtection, a.Deployment.Releases)
 		dataProtection = httpapi.NewDataProtection(a.Projects, a.DataProtection)
-		ops = httpapi.NewOperations(a.operations)
+		ops = httpapi.NewOperations(a.operations, a.Projects)
 		landingRestart = httpapi.NewLandingRestart(a.Projects, a.Work, a.lifecycle, a.DB, a.cfg.clock.Now)
 		changePreviewState = httpapi.NewChangePreviewState(a.DB, changePreviewViewsFor(a))
 		changeNarratives = httpapi.NewChangeNarratives(a.Work, a.Projects, a.Access, a.narratives, a.authModeName())

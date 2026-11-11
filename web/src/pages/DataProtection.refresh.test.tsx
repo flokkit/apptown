@@ -62,3 +62,47 @@ describe('a protection reading whose refresh failed', () => {
     done()
   })
 })
+
+// f502, f503: the operation page names its project and links its
+// deployment; the ledger's subject key (ids) is for diagnosis, shown only
+// with the technical switch on.
+describe('an operation page', () => {
+  afterEach(() => { vi.unstubAllGlobals(); localStorage.clear() })
+  // The switch is remembered per person for the session, so each test
+  // reads as its own person.
+  const show = async (body: unknown, technical: boolean) => {
+    const user = `kim-${Math.random().toString(36).slice(2)}`
+    if (technical) localStorage.setItem(`apptown.technical-detail.${user}`, '1')
+    const client = newQueryClient()
+    vi.stubGlobal('fetch', withFeatures(async (url: string) => new Response(JSON.stringify(url.endsWith('/auth/me') ? { mode: 'internal', user } : body), { status: 200 })))
+    const el = document.createElement('div')
+    const root = createRoot(el)
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/operations/${OPERATION}`]}><Routes><Route path="/operations/:id" element={<OperationPage />} /></Routes></MemoryRouter></QueryClientProvider>) })
+    await settled(client)
+    await vi.waitFor(() => expect(el.querySelector('h1')).not.toBeNull())
+    return { el, done: () => { act(() => root.unmount()); client.clear() } }
+  }
+  const withProject = { ...takeDown, project: { slug: 'ledger', name: 'Ledger' } }
+  it('links the deployment and the project, without the subject key', async () => {
+    const { el, done } = await show(withProject, false)
+    const title = el.querySelector('h1')!
+    expect(title.textContent).toBe('Take-down of prod')
+    expect(title.querySelector('a')?.getAttribute('href')).toBe('/projects/ledger/deployments/prod')
+    const project = [...el.querySelectorAll('a')].find(a => a.textContent === 'Ledger')
+    expect(project?.getAttribute('href')).toBe('/projects/ledger')
+    expect(el.textContent).not.toContain('project:')
+    done()
+  })
+  it('shows the subject key with the technical switch on', async () => {
+    const { el, done } = await show(withProject, true)
+    await vi.waitFor(() => expect(el.textContent).toContain('project:1/deployment:2'))
+    done()
+  })
+  it('names the deployment without links when the project is not known', async () => {
+    const { el, done } = await show(takeDown, false)
+    expect(el.querySelector('h1')!.textContent).toBe('Take-down of prod')
+    expect(el.querySelector('h1 a')).toBeNull()
+    expect(el.textContent).not.toContain('project:')
+    done()
+  })
+})

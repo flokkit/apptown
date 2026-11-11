@@ -1,4 +1,3 @@
-import { Tech } from '../Tech'
 import { ListRow } from '../ListRow'
 import { useState } from 'react'
 import { del, post } from '../api'
@@ -26,6 +25,14 @@ function CredentialConfirm({ label, ask, onYes }: { label: string; ask: string; 
       <p>{ask}</p>
     </Modal>}
   </>
+}
+
+// What a connection's scopes allow, in words. The scopes themselves are
+// listed in the connection's dialog.
+function accessWords(scopes: string[]): string {
+  if (scopes.includes('apptown:user:read') && scopes.length === 1) return 'Read only'
+  if (scopes.includes('apptown:change:create') && scopes.includes('apptown:change:write')) return 'Can create and edit changes'
+  return 'Connected access'
 }
 
 // Coding agents people have connected through the browser sign-in
@@ -60,7 +67,8 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
           ]} /> : <section><h3>Connections and permissions</h3>
       <ListTable className="small" label={`${newest.clientName} connections and permissions for ${newest.user}`} rows={connections} rowKey={d => String(d.id)} columns={[
         { key: 'client', label: 'Agent', phone: 'name', render: d => <><span className="badge">{d.clientName}</span><span className="muted"> as </span><b>{d.user}</b></> },
-        { key: 'permissions', label: 'Permissions', render: d => <><span>{d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span><code className="tech-line muted"><Tech>{d.scopes.join(', ')}</Tech></code></> },
+        // The raw scopes are in the dialog the words open, one per line.
+        { key: 'permissions', label: 'Permissions', render: d => <button className="link" aria-label={`Permissions for ${d.clientName} as ${d.user}: ${accessWords(d.scopes)}`} onClick={() => setSelected(d)}>{accessWords(d.scopes)}</button> },
         { key: 'connected', label: 'Connected', render: d => fmtStamp(d.createdAt) },
         { key: 'used', label: 'Last used', kind: 'time', render: d => d.lastUsed ? fmtStamp(d.lastUsed) : '' },
         { key: 'action', label: '', phone: 'action', render: d => <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user}, connected ${fmtStamp(d.createdAt)})? It stops working at once; they can sign in again.`} onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} /> },
@@ -69,7 +77,7 @@ export function AgentsCard({ canEdit }: { canEdit: boolean }) {
       })}
       {selected && <Modal title={`${selected.clientName} as ${selected.user}`} onClose={() => setSelected(null)}>
         <p>Connected {fmtStamp(selected.createdAt)} · last used {selected.lastUsed ? fmtStamp(selected.lastUsed) : 'never'}</p>
-        <p>{selected.scopes.includes('apptown:user:read') && selected.scopes.length === 1 ? 'Read only' : selected.scopes.includes('apptown:change:create') && selected.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</p>
+        <p>{accessWords(selected.scopes)}</p>
         <ul>{selected.scopes.map(scope => <li key={scope}><code>{scope}</code></li>)}</ul>
       </Modal>}
     </div>

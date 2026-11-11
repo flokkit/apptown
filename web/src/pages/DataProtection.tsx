@@ -7,15 +7,16 @@ import { BackgroundReading } from '../BackgroundReading'
 import { ListTable } from '../ListTable'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { del, post, put } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { fmtBytes, fmtWhen, readingAge } from '../format'
-import type { BackupStoreState, Coverage, DeploymentProtection, ItemProtection, Operation, OperationAdmitted, RehearsalRef, RestoredCopy } from '../wire.gen'
+import type { BackupStoreState, Coverage, DeploymentProtection, ItemProtection, Operation, OperationAdmitted, OperationView, RehearsalRef, RestoredCopy } from '../wire.gen'
 import { useNow } from '../hooks'
 import { useHolds } from '../instancePages'
+import { setProjectScope } from '../projectScope'
 
 // Protecting deployment data off-host (design/subsystems/deployment.md):
 // for each data-holding item of a cloud deployment, how
@@ -313,9 +314,14 @@ function RestoredCopyLines({ slug, source, copy: c, asRead }: { slug: string; so
 // happened, and how it ended.
 export function OperationPage() {
   const { id = '' } = useParams()
-  const q = useGet<Operation>(`/operations/${id}`, { poll: 3000 })
+  const q = useGet<OperationView>(`/operations/${id}`, { poll: 3000 })
   const { run, busy, err } = useAction()
+  const [technical] = useTechnicalDetail()
   useNow(1000, q.data ? live(q.data) : false)
+  // The operation's project is the page's scope, so the menu and the back
+  // link lead to it; a project the reader cannot see sets none.
+  const scope = q.data ? q.data.project?.slug ?? null : undefined
+  useEffect(() => { if (scope !== undefined) setProjectScope(scope) }, [scope])
   if (!q.data) return <ReadStatus q={q} what="the operation" />
   const op = q.data
   const old = q.refreshFailed
@@ -324,10 +330,13 @@ export function OperationPage() {
     <div className="data-protection-operation-page-div">
       <StaleNote q={q} />
       <div className="muted small">operation {op.number}</div>
-      <h1 className="mb-1">{kindWords[op.kind] ?? op.kind} of {deploymentOf(op)}</h1>
+      <h1 className="mb-1">{kindWords[op.kind] ?? op.kind} of {op.project && typeof op.input.deployment === 'string'
+        ? <Link to={`/projects/${op.project.slug}/deployments/${encodeURIComponent(op.input.deployment)}`}>{op.input.deployment}</Link>
+        : deploymentOf(op)}</h1>
+      {op.project && <div className="mb-1">in <Link to={`/projects/${op.project.slug}`}>{op.project.name}</Link></div>}
       {/* The subject is the hold path in ids, for an administrator matching
-          holds; the title above names the deployment in words. */}
-      {op.subject && <code className="tech-line muted mb-1">{op.subject}</code>}
+          holds: diagnosis only, so it is behind the technical switch. */}
+      {technical && op.subject && <code className="tech-line muted mb-1">{op.subject}</code>}
       <div className="row status-strip data-protection-operation-page-status-strip">
         <Status word={old ? 'unknown' : op.statusLabel} help={old ? stateWords(op) + asRead : statusDetail(op)} />
         <span className="muted small">asked by {op.askedBy} {fmtWhen(op.createdAt)}{op.finishedAt ? `, ended ${fmtWhen(op.finishedAt)}` : old || !op.startedAt ? '' : ` · running for ${elapsed(op.startedAt)}`}</span>

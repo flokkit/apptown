@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, useLocation, useSearchParams } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, expect, it, vi } from 'vitest'
-import type { ChangeView, RunDetail, Step } from '../../api'
+import type { Artifact, ChangeView, RunDetail, Step } from '../../api'
 import { newQueryClient } from '../../data'
 import { ChangeDetails, storyPhases } from './Details'
 import { TechnicalDetailSwitch } from './TechnicalDetail'
@@ -145,6 +145,39 @@ it('dates an acceptance by its recorded decision and shows the merge once', asyn
   expect(entries.filter(e => e.textContent?.includes('merged at deadbeef'))).toHaveLength(1)
   expect(f.el.querySelector('ol')?.textContent).not.toContain('Merged ✓')
   f.close()
+})
+
+// A record's page is titled in the words its link uses, and its subtitle
+// does not repeat a name that only says the kind again.
+it('titles a record page with its plain label and drops a name equal to its kind', async () => {
+  const v = view()
+  v.detail!.artifacts = [{ id: 'inv', runId: 'work', name: 'sbom', kind: 'sbom', body: '{"packages":[]}', createdAt: '2026-11-01T10:01:00Z' }] as unknown as Artifact[]
+  const f = await mount(v, {}, '/changes/change/records/record-inv')
+  try {
+    expect(f.el.querySelector('h1')?.textContent).toBe('Software inventory')
+    const sub = f.el.querySelector('.ch-story-evidence > p.small.muted')!.textContent!
+    expect(sub.startsWith('sbom · ')).toBe(true)
+    expect(sub).not.toContain('sbom · sbom')
+    // Its JSON is source, kept whole on each line rather than wrapped mid-token.
+    expect(f.el.querySelector('pre.source')?.textContent).toBe('{"packages":[]}')
+  } finally { f.close() }
+})
+
+// The starting commit is a short hash for everyone; the full hash is for the
+// technical switch. The branch is an exact git name and stays whole.
+it('shows the starting commit short, and whole with the technical switch', async () => {
+  const v = view(), sha = '0123456789abcdef0123456789abcdef01234567'
+  v.change.baseSha = sha
+  v.change.branch = 'change-9-a-very-long-branch-name-people-copy'
+  const f = await mount(v)
+  const cell = (name: string) => [...f.el.querySelectorAll('.ch-facts-table tr')].find(r => r.querySelector('th')?.textContent === name)!.querySelector('td')!.textContent
+  try {
+    expect(cell('Started from')).toBe('01234567')
+    expect(cell('Branch')).toBe('change-9-a-very-long-branch-name-people-copy')
+    await act(async () => f.el.querySelector<HTMLButtonElement>('button.ch-goggles')!.click())
+    expect(cell('Started from')).toBe(sha)
+    await act(async () => f.el.querySelector<HTMLButtonElement>('button.ch-goggles')!.click())
+  } finally { f.close() }
 })
 
 it.each(['preview', 'review', 'checks'])('opens a shareable %s page with its evidence', async anchor => {
@@ -384,7 +417,7 @@ it('retains binary records and their provenance on the record page', async () =>
   const f = await mount(v, {'/artifacts/shot':{bodyBase64:'cGhvdG8='}}, '/changes/change/records/record-shot')
   try {
     await vi.waitFor(() => expect(f.el.querySelector('img[src="data:image/png;base64,cGhvdG8="]')).not.toBeNull())
-    expect(f.el.querySelector('h1')?.textContent).toBe('step-check')
+    expect(f.el.querySelector('h1')?.textContent).toBe('Screenshots')
     expect(f.el.textContent).toContain('step-check · screenshot')
     expect(f.el.querySelector('a[href="https://example.test/record"]')?.textContent).toBe('Open record')
   } finally { f.close() }

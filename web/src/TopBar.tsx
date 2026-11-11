@@ -35,10 +35,14 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu, s
   // itself cannot be read.
   const proj = useGet<ProjectDetail>(slug ? `/projects/${slug}` : null).data
 
-  const crumbs = routeAncestors(pathname, {
+  const projectCrumb = slug ? { to: `/projects/${slug}`, label: proj?.name ?? slug } : null
+  const trail = routeAncestors(pathname, {
     ...page.names,
-    ...(slug ? { [`/projects/${slug}`]: proj?.name ?? slug } : {}),
+    ...(projectCrumb ? { [projectCrumb.to]: projectCrumb.label } : {}),
   }, search).filter(c => c.to !== '/')
+  // A page whose address names no parent (a change, an operation) but which
+  // is inside a project has that project as its parent.
+  const crumbs = trail.length === 0 && projectCrumb ? [projectCrumb] : trail
   // A phone has room for one link: back to the parent, in the logo's place.
   // Home stays the first item of the menu.
   const parent = crumbs.at(-1)
@@ -125,7 +129,7 @@ function usePageProject(): string | null {
   const { pathname } = useLocation()
   const scope = useProjectScope()
   const m = pathname.match(/^\/projects\/([^/]+)/)
-  return m && m[1] !== '_new' ? m[1] : /^\/(changes|items|adrs)\//.test(pathname) ? scope : null
+  return m && m[1] !== '_new' ? m[1] : /^\/(changes|items|adrs|operations)\//.test(pathname) ? scope : null
 }
 
 export const FIND_BOX_ID = 'find-projects'

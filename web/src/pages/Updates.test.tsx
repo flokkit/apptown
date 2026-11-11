@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
 import { settled } from '../settled'
-import { ReleaseAvailabilityNote, UpdatesPage } from './Updates'
+import { ReleaseAvailabilityNote, UpdatesPage, platformWords } from './Updates'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -60,6 +60,7 @@ describe('authenticated update notifications', () => {
     try {
       expect(view.el.querySelector('a[href="/updates"]')).not.toBeNull()
       expect(view.el.textContent).toContain('Signed notes')
+      expect(view.el.textContent).toContain('Built forLinux on 64-bit Intel or AMD (linux/amd64)')
       expect(view.el.querySelector('script')).toBeNull()
       expect(view.el.querySelector('a[href^="javascript:"]')).toBeNull()
       expect(view.el.textContent).toContain('APPTOWN_VERSION=1.2.0')
@@ -113,4 +114,14 @@ describe('authenticated update notifications', () => {
     } finally { await act(async () => root.unmount()); client.clear() }
   })
 
+})
+
+// A platform is said in words for each real build, with the exact value kept;
+// one without words is shown as it is.
+it('says which machines a build is for, keeping the exact platform', () => {
+  expect(platformWords('linux/amd64')).toBe('Linux on 64-bit Intel or AMD (linux/amd64)')
+  expect(platformWords('linux/arm64')).toBe('Linux on 64-bit ARM (linux/arm64)')
+  expect(platformWords('darwin/arm64')).toBe('macOS on Apple silicon (darwin/arm64)')
+  expect(platformWords('darwin/amd64')).toBe('macOS on Intel (darwin/amd64)')
+  expect(platformWords('freebsd/riscv64')).toBe('freebsd/riscv64')
 })

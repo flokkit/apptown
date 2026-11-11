@@ -116,6 +116,22 @@ describe('the eval scorecard', () => {
     }
   })
 
+  // With no comparable pair the tally says so plainly; pairs that finished
+  // but cannot be compared are counted, never called unfinished.
+  it.each([0, 1])('says there is nothing to compare yet, with %s finished but not comparable', async notComparable => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ...scorecard, comparable: 0, notComparable }))))
+    const r = await render(`/evals/${EVAL}`, <EvalScorecardPage />, '/evals/:id')
+    try {
+      await r.settle(() => !!r.el.textContent?.includes('Nothing to compare yet'))
+      expect(r.el.textContent).toContain('Nothing to compare yet: no change has two results that can be compared.')
+      expect(r.el.textContent?.includes("1 finished but can't be compared.")).toBe(notComparable === 1)
+      expect(r.el.textContent).not.toContain('finished comparably')
+      expect(r.el.textContent).not.toContain('finished both runs')
+    } finally {
+      r.done()
+    }
+  })
+
   // A score that could not be read is not known: none of its facts is
   // shown as no or zero, and cost and complaints, read on their own, stay.
   it('does not show an unreadable stored score as known facts', async () => {

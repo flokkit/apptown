@@ -40,6 +40,7 @@ function fakeAppTown(list: () => Reply, openReply: (body: { changeId?: string; p
       return json(openReply(body))
     }
     if (u === '/api/v1/projects/p/console') return json(await list())
+    if (u === '/api/v1/auth/me') return json({ body: { user: 'bls' } })
     if (u.includes('/messages')) return json({ body: { messages: [] } })
     if (u.endsWith('/changes')) return json({ body: { changes: [] } })
     if (u.startsWith('/api/v1/changes/')) return json({ body: { change: { id: C1, number: 1, title: 'a change', state: 'in progress' }, state: '' } })
@@ -69,8 +70,13 @@ async function page(search: string, client: QueryClient = newQueryClient()) {
 // A wait long enough for any open the page was going to send to be sent.
 const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 30)) })
 
+// The menu names the chat it shows by its session id, which shows with the
+// technical switch on: these tests read which chat the page took from it.
+const shownSession = () => [...document.querySelectorAll('.popover span')].map((x) => x.textContent ?? '').find((t) => t.startsWith('session '))?.slice('session '.length)
+
 beforeEach(() => {
   sessionStorage.clear()
+  localStorage.setItem('apptown.technical-detail.bls', '1')
   Element.prototype.scrollIntoView = () => {}
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -98,7 +104,7 @@ describe('choosing a chat', () => {
     const opens = fakeAppTown(() => ({ body: { sessions: [chat('mine', C1)] } }))
     const { el, done } = await page(`?change=${C1}`)
     await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
-    await vi.waitFor(() => expect(document.querySelector('[title="mine"]')).not.toBeNull())
+    await vi.waitFor(() => expect(shownSession()).toBe('mine'))
     await settle()
     expect(opens).toEqual([])
     done()
@@ -136,7 +142,7 @@ describe('choosing a chat', () => {
     const opens = fakeAppTown(() => answer)
     const { el, done } = await page(`?change=${C1}`)
     await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
-    await vi.waitFor(() => expect(document.querySelector('[title="one"]')).not.toBeNull())
+    await vi.waitFor(() => expect(shownSession()).toBe('one'))
     // The next reading is on its way: the answer held from change 1's
     // reading (no chat for change 2) must not open one.
     let release!: (r: { body: unknown }) => void
@@ -147,7 +153,7 @@ describe('choosing a chat', () => {
     // It answers with change 2's chat, opened elsewhere meanwhile.
     await act(async () => { release({ body: { sessions: [chat('one', C1), chat('two', C2)] } }) })
     if (el.querySelector('.head-menu > button')?.getAttribute('aria-expanded') === 'false') await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
-    await vi.waitFor(() => expect(document.querySelector('[title="two"]')).not.toBeNull())
+    await vi.waitFor(() => expect(shownSession()).toBe('two'))
     // And back to the project's chat, which also waits for its own reading.
     answer = new Promise((r) => { release = r })
     await act(async () => { navigate('/projects/p/console') })
@@ -155,7 +161,7 @@ describe('choosing a chat', () => {
     expect(opens).toEqual([])
     await act(async () => { release({ body: { sessions: [chat('one', C1), chat('two', C2), chat('desk', null)] } }) })
     if (el.querySelector('.head-menu > button')?.getAttribute('aria-expanded') === 'false') await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
-    await vi.waitFor(() => expect(document.querySelector('[title="desk"]')).not.toBeNull())
+    await vi.waitFor(() => expect(shownSession()).toBe('desk'))
     await settle()
     expect(opens).toEqual([])
     done()
@@ -205,8 +211,9 @@ describe('ending a chat', () => {
     })))
     const { el, done } = await page(`?change=${C1}`)
     await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
-    await vi.waitFor(() => expect(document.querySelector('[title="mine"]')).not.toBeNull())
-    const button = [...document.querySelectorAll<HTMLButtonElement>('.popover button')].find((b) => b.textContent === 'end chat')!
+    const endChat = () => [...document.querySelectorAll<HTMLButtonElement>('.popover button')].find((b) => b.textContent === 'End chat')
+    await vi.waitFor(() => expect(endChat()).toBeDefined())
+    const button = endChat()!
     await act(async () => { button.click() })
     await settle()
     expect(deletes).toEqual(['/api/v1/console/mine'])

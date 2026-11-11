@@ -233,6 +233,25 @@ describe('phone change controls', () => {
       expect(el.querySelector('details')).toBeNull()
     } finally { done() }
   })
+  // The menu's acts read as sentences; the session id is for diagnosis
+  // (what `apptown wait-chat` takes), so it shows only with the technical switch.
+  it.each([false, true])('names the menu acts in sentence case and shows the session id only with the technical switch (%s)', async (technical) => {
+    const answered = globalThis.fetch
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => String(url) === '/api/v1/auth/me'
+      ? new Response(JSON.stringify({ mode: 'internal', user: `ana-${technical}` })) : answered(url, init)))
+    if (technical) localStorage.setItem(`apptown.technical-detail.ana-${technical}`, '1')
+    const { el, done } = await mount()
+    try {
+      await act(async () => el.querySelector<HTMLButtonElement>('.head-menu > button')!.click())
+      const menu = () => document.querySelector('.popover')
+      await vi.waitFor(() => expect(menu()).not.toBeNull())
+      const labels = [...menu()!.querySelectorAll('button')].map(b => b.textContent)
+      expect(labels).toEqual(expect.arrayContaining(['Open terminal', '↺ Start fresh', 'End chat']))
+      expect(labels).not.toContain('Terminal')
+      if (technical) await vi.waitFor(() => expect(menu()!.textContent).toContain('session s1'))
+      else expect(menu()!.textContent).not.toContain('session')
+    } finally { done() }
+  })
   it('keeps desktop controls unfolded after messages', async () => {
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {} }))
     messageCount = 1

@@ -3,7 +3,7 @@ import type { ConformanceView } from '../../wire.gen'
 import { expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
-import { JudgedAt, LensBanner, BeingFixed, fixableFindings, type Verdict, ReviewFeed, ReviewProgress, type LiveReview } from './parts'
+import { HowJudged, JudgedAt, LensBanner, BeingFixed, fixableFindings, type Verdict, ReviewFeed, ReviewProgress, type LiveReview } from './parts'
 
 it('shows an unanswered check as not known in the review feed and progress', () => {
   const d = { review: { id: 'review', status: 'done' }, verdicts: [{ projectSlug: 'lunch', lane: 'broken', state: 'error', statusLabel: 'unknown', detail: 'No Docker executor can run this check' }] } as unknown as LiveReview
@@ -56,8 +56,8 @@ it('shows each judgement’s commit, date and numbered source, and warns about o
     const v = { sha: 'abcdef123456', at: '2026-11-07T03:02:00Z', reviewId: 'r', state: 'stale' } as Verdict
     const reviews = [{ id: 'r', number: 12, trigger }] as ConformanceView['reviews']
     const html = renderToStaticMarkup(<MemoryRouter><JudgedAt v={v} reviews={reviews} /></MemoryRouter>)
-    expect(html).toContain('judged at')
-    expect(html).toContain('abcdef12')
+    expect(html).not.toContain('judged at')
+    expect(html).toContain('commit <span class="mono">abcdef12</span>')
     expect(html).toContain('7 Nov')
     expect(html).toContain(`${source} #12`)
     expect(html).toContain('href="/conformance/reviews/r"')
@@ -66,6 +66,29 @@ it('shows each judgement’s commit, date and numbered source, and warns about o
   const html = renderToStaticMarkup(<JudgedAt v={{} as Verdict} reviews={[]} />)
   expect(html).toContain('Not judged yet')
   expect(html).not.toContain('via review')
+})
+
+// Where the row's result already says the judgement is not on the current
+// commit, the judged line does not say it again; other callers keep it.
+it('leaves out the older-commit note when the caller already says it', () => {
+  const v = { sha: 'abcdef123456', at: '2026-11-07T03:02:00Z', reviewId: 'r', state: 'stale' } as Verdict
+  const reviews = [{ id: 'r', number: 5, trigger: 'manual' }] as ConformanceView['reviews']
+  const html = renderToStaticMarkup(<MemoryRouter><JudgedAt v={v} reviews={reviews} olderNote={false} /></MemoryRouter>)
+  expect(html).toContain('review #5')
+  expect(html).not.toContain('judged on an older commit')
+})
+
+// A scanner is named inline as code; the guidance it comes from is a link to
+// that version of the guidance, not a raw block@version.
+it('names a scanner inline and links the guidance version it comes from', () => {
+  const def = { key: 'k', title: 'Image', block: 'build/container-image', version: 1, check: 'scan', expects: '', evaluator: 'tool', tool: 'trivy', judgedWhere: 'at review', severity: 'high', scope: 'main', adopters: [], files: [] } as unknown as ConformanceView['checkDefs'][string]
+  const html = renderToStaticMarkup(<MemoryRouter><HowJudged def={def} /></MemoryRouter>)
+  expect(html).not.toContain('<pre')
+  expect(html).toContain('<code>trivy</code>')
+  expect(html).not.toContain('build/container-image@1')
+  expect(html).toContain('from guidance <a href="/guidance/build%2Fcontainer-image?version=1" data-discover="true">build/container-image\u00a0v1</a>')
+  const sh = renderToStaticMarkup(<MemoryRouter><HowJudged def={{ ...def, evaluator: 'sh', sh: 'test -f README.md' }} /></MemoryRouter>)
+  expect(sh).toContain('>test -f README.md</pre>')
 })
 
 it('labels current state and dated snapshots distinctly', () => {

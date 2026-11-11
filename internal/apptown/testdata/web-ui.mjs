@@ -910,7 +910,7 @@ try {
           }
           if (!process.env.DESIGN_BASELINE && screen === 'people') {
             await page.getByLabel('Actions for sam', { exact: true }).click();
-            await page.getByRole('button', { name: 'set password', exact: true }).waitFor();
+            await page.getByRole('button', { name: 'type a new password', exact: true }).waitFor();
             await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-actions.png`, fullPage: true });
             // On a phone the actions are a dialog over the ⋯: close it as a person does.
             if (size.startsWith('phone')) await page.keyboard.press('Escape');

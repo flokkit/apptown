@@ -3,12 +3,14 @@ import { relTime } from '../format'
 import { expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { getKey, newQueryClient } from '../data'
 import { UsersCard } from './People'
 import { AgentsCard } from './AccountAccess'
 import WaysOfWorking from './WaysOfWorking'
 import * as Policies from './PoliciesPage'
+import WorkflowLibrary, { NEW_TEMPLATE } from './WorkflowLibrary'
+import { load as loadYaml } from 'js-yaml'
 import { routeAncestors } from '../breadcrumbs'
 import { StoreSection } from './DataProtection'
 import Deployments from './Deployments'
@@ -148,5 +150,48 @@ it('opens a new policy on its own page, with the rules as choices', () => {
   const choices = [...form.querySelectorAll('input[type="radio"]')].map(r => r.closest('label')?.textContent)
   expect(choices).toEqual(['step X requires step Y in an earlier stage', 'capability must have a binding', 'scan failOn may not be looser than…'])
   expect(form.querySelector('input[type="radio"]:checked')?.closest('label')?.textContent).toBe('step X requires step Y in an earlier stage')
-  expect(form.querySelector('input[aria-label="uses"]')).not.toBeNull()
+  // The fields say what each step is; the saved keys stay uses and requires.
+  const labels = [...form.querySelectorAll('.policies-page-span > label')].map(l => l.textContent)
+  expect(labels).toEqual(['Step X: the step that needs it (e.g. build)', 'Step Y: must run in an earlier stage (e.g. scan)'])
+  expect(form.querySelector('input[aria-label="Step X: the step that needs it (e.g. build)"]')).not.toBeNull()
+})
+
+// A policy's source block is headed Source, under its plain reading.
+it('heads a policy source block Source', () => {
+  const policy = { name: 'scan-before-build', description: '', rule: 'requireStepBefore', with: { uses: 'build', requires: 'scan' }, origin: 'stock', adoptedBy: 0, nonConformant: 0, packs: [], reading: 'A workflow with a "build" step must have a "scan" step in an earlier stage.', fix: 'Add a "scan" step.' }
+  const client = newQueryClient()
+  client.setQueryData(getKey('/policy-library'), { library: [policy] }); client.setQueryData(getKey('/projects'), [])
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter initialEntries={['/policies/scan-before-build']}><QueryClientProvider client={client}><Routes><Route path="/policies/:name" element={<Policies.default page />} /></Routes></QueryClientProvider></MemoryRouter>)
+  const heads = [...el.querySelectorAll('h3')].map(h => h.textContent)
+  expect(heads).toContain('Source')
+  expect(heads).not.toContain('definition')
+  expect(el.textContent).toContain('uses: "build"')
+})
+
+// A workflow's pacing is said in the server's words, not its kind key.
+it.each([['pipeline', 'Runs straight through'], ['lifecycle', 'Paced by people']])('says a %s workflow is %s', (kind, words) => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/workflows/library'), [{ name: 'review', description: '', tier: 'core', latestVersion: 1, stages: ['work', 'check'], kind, yaml: 'name: review', origin: 'stock' }])
+  client.setQueryData(getKey('/system-workflows'), { bindings: [], candidates: [] })
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter initialEntries={['/workflows/review']}><QueryClientProvider client={client}><Routes><Route path="/workflows/:name" element={<WorkflowLibrary page />} /></Routes></QueryClientProvider></MemoryRouter>)
+  expect(el.textContent).toContain(`${words} · stages: work → check`)
+  expect(el.textContent).not.toContain(`${kind} ·`)
+})
+
+// The new-workflow template explains its choices in YAML comments and still
+// reads as the same workflow.
+it('explains the new workflow template in comments that leave it valid YAML', () => {
+  expect(NEW_TEMPLATE).toContain('  # core: on the short list\n  # extra: the longer list\n  tier: extra')
+  expect(NEW_TEMPLATE).toContain('# AI agent works\n          uses: agent/pi')
+  // A pipeline still waits for failing checks and approvals: the hint keeps that condition.
+  expect(NEW_TEMPLATE).toContain('# pipeline: next stage\n  #   once checks pass')
+  expect(NEW_TEMPLATE).not.toContain('never pauses')
+  // Each comment line fits a phone-width editor (about 30 characters at large text) whole.
+  for (const line of NEW_TEMPLATE.split('\n').filter(l => l.includes('#') || l.includes('description:'))) expect(line.length).toBeLessThanOrEqual(28)
+  const doc = loadYaml(NEW_TEMPLATE) as { metadata: { tier: string }; spec: { kind: string; stages: { steps: { uses: string }[] }[] } }
+  expect(doc.metadata.tier).toBe('extra')
+  expect(doc.spec.kind).toBe('lifecycle')
+  expect(doc.spec.stages[0].steps.map(s => s.uses)).toEqual(['agent/pi', 'approval'])
 })

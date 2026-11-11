@@ -1,11 +1,14 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
 
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/operations"
+	"github.com/flokkit/apptown/internal/apptown/project"
 )
 
 // Operations is the doors of the operations ledger
@@ -14,14 +17,31 @@ import (
 // OperationAdmitted; these read and steer them. The owner checks read and
 // cancel authority; one the caller may not read is missing.
 type Operations struct {
-	ops *operations.Service
+	ops      *operations.Service
+	projects *project.Projects
 }
 
-func NewOperations(ops *operations.Service) Operations { return Operations{ops: ops} }
+func NewOperations(ops *operations.Service, projects *project.Projects) Operations {
+	return Operations{ops: ops, projects: projects}
+}
 
 type (
 	// Operation is one operation as the ledger has it.
 	Operation = operations.Operation
+	// OperationView is one operation as the ledger has it, with the
+	// project it belongs to, so its page can name and link the project
+	// instead of showing the ledger's subject key. Project is absent when
+	// the project is gone or the caller may not read it: an operation
+	// outlives its project.
+	OperationView struct {
+		operations.Operation
+		Project *OperationProject `json:"project,omitempty"`
+	}
+	// OperationProject names an operation's project.
+	OperationProject struct {
+		Slug string `json:"slug"`
+		Name string `json:"name"`
+	}
 	// OperationAdmitted is an owner door's 202: the operation was admitted
 	// and queued; follow it at URL.
 	OperationAdmitted struct {
@@ -34,6 +54,22 @@ type (
 		OK bool `json:"ok"`
 	}
 )
+
+// MarshalJSON writes the operation's own encoding (which sets its status
+// label) with the project added. Without it the embedded operation's
+// MarshalJSON would stand for the whole view and drop the project.
+func (v OperationView) MarshalJSON() ([]byte, error) {
+	op, err := json.Marshal(v.Operation)
+	if err != nil || v.Project == nil {
+		return op, err
+	}
+	p, err := json.Marshal(v.Project)
+	if err != nil {
+		return nil, err
+	}
+	out := append(op[:len(op)-1:len(op)-1], `,"project":`...)
+	return append(append(out, p...), '}'), nil
+}
 
 // writeAdmitted answers an admitted operation: 202, Location and the handle.
 func writeAdmitted(w http.ResponseWriter, op *operations.Operation) {
@@ -53,7 +89,33 @@ func (h Operations) Get(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, Operation(*op))
+	p, err := h.operationProject(r, op.ProjectID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, OperationView{Operation: *op, Project: p})
+}
+
+// operationProject reads an operation's project through the projects
+// owner as the caller. A project that is gone or that the caller may not
+// read is left out; any other failure is the read's error.
+func (h Operations) operationProject(r *http.Request, id ids.ID) (*OperationProject, error) {
+	if id.IsZero() {
+		return nil, nil
+	}
+	p, err := h.projects.ByID(r.Context(), id)
+	if err == nil {
+		p, err = h.projects.Readable(r.Context(), p.Slug)
+	}
+	switch fault.KindOf(err) {
+	case fault.NotFound, fault.Forbidden:
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &OperationProject{Slug: p.Slug, Name: p.Name}, nil
 }
 
 // Cancel: POST /operations/{id}/cancel — a queued operation is cancelled

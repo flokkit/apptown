@@ -87,3 +87,19 @@ it('opens remediation status details only when they add to the word', async () =
   const stuck = await render({ remediation: { ...remediation, status: 'completed_with_stuck', statusLabel: 'failed' }, occupancy, attempts: {}, items: [] })
   try { expect(stuck.el.querySelector('h1 .chip-button')?.getAttribute('data-help')).toBe('finished; some items could not be fixed') } finally { stuck.done() }
 })
+
+// An item's status word opens nothing: its reason is already the line under
+// the row, and without one the details would only show the raw state.
+it('gives item status words no details, keeping the reason line under the row', async () => {
+  const { el, done } = await render({ remediation, occupancy, attempts: {}, items: [
+    { id: 'stuck', projectSlug: 'notes', state: 'stuck', statusLabel: 'failed', check: 'dockerfile-lint', attempt: 1, reason: 'The build failed.' },
+    { id: 'fixing', projectSlug: 'notes', state: 'fixing', statusLabel: 'working', check: 'readme', attempt: 1, reason: '' },
+  ] })
+  try {
+    const rows = [...el.querySelectorAll('.remediation-item-row')]
+    expect(rows).toHaveLength(2)
+    for (const row of rows) expect(row.querySelector('.chip-button')).toBeNull()
+    expect(rows[0].textContent).toContain('The build failed.')
+    expect(el.textContent).not.toContain('fixing')
+  } finally { done() }
+})

@@ -18,11 +18,22 @@ import { recordKindName, runStory, StoryEntry } from './story'
 import { renderMd } from '../../md'
 import { useTechnicalDetail } from './TechnicalDetail'
 import { ChangeWorkerChats } from '../WorkerChat'
+import { stepTitleOf } from './Evidence'
+import type { Spec } from '../../wire.gen'
 import './change.css'
 
 export function workRecordHref(change: string, entry: StoryEntry) {
   const q = new URLSearchParams({ run: entry.detail.run.id!, attempt: entry.key })
   return `/changes/${change}/work/${entry.step?.id || 'run'}?${q}`
+}
+
+// WorkflowStages leads the workflow's source with one plain line per stage:
+// its name and its steps' titles. A definition without stages adds nothing.
+export function WorkflowStages({ spec }: { spec: Spec }) {
+  const stages = (spec.stages ?? []).filter(st => (st.onEnter?.length ?? 0) + (st.steps?.length ?? 0) > 0)
+  if (!stages.length) return null
+  return <ul className="work-workflow-stages">{stages.map((st, i) =>
+    <li key={`${st.name}-${i}`}><strong>{st.name}:</strong> {[...(st.onEnter ?? []), ...(st.steps ?? [])].map(s => stepTitleOf(s.uses, s.name)).join(', ')}</li>)}</ul>
 }
 
 type LogRow = { kind: string; text: string }
@@ -107,7 +118,7 @@ function WorkRecord({ view: v, trace, entry, technical, notes, section, artifact
       {artifact && artifact.name !== kind && <p className="work-byline">{artifact.name}</p>}
       {empty ? <><p className="muted">{empty}</p>{artifact?.ref && <a href={artifact.ref}>Open record</a>}</> : <section className="ch-change-card work-full">
       {section === 'request' ? <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(v.change.body || v.change.title) }} />
-        : section === 'workflow' ? (trace.workflow.definition ? <pre className="source">{dump(trace.workflow.definition)}</pre> : <p className="muted">not recorded</p>)
+        : section === 'workflow' ? (trace.workflow.definition ? <><WorkflowStages spec={trace.workflow.definition} /><pre className="source">{dump(trace.workflow.definition)}</pre></> : <p className="muted">not recorded</p>)
         : section === 'report' ? <pre>{report}</pre>
         : !artifact ? <p>This record is not in this work session.</p>
         : artifact.binary ? <Screenshots shots={{shots:[{artifact:artifact.id!,path:artifact.name,view:'record'}]}} />

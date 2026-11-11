@@ -36,7 +36,8 @@ export function ArtifactBody({ artifact }: { artifact: Artifact }) {
       {fullQ.err && <div className="error small">Showing the first part only; the rest could not be read: {fullQ.err}</div>}
       {truncated && full === null && !fullQ.err && <div className="muted small">Reading the full body…</div>}
       {isJson || artifact.kind === 'agent-log'
-        ? <pre className="log" style={{ maxHeight: 400 }}>{body}</pre>
+        // A record's JSON is source: whole lines that scroll sideways, never broken mid-token.
+        ? <pre className={isJson ? 'source' : 'log'} style={{ maxHeight: 400 }}>{body}</pre>
         : <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(body) }} />}
     </section>
   )

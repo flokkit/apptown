@@ -230,7 +230,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
                     themselves; on use every session of theirs ends. Not for a
                     disabled account: enable it first. */}
                 {canEdit && (u.hasPassword || u.acted) && !sso && invites && !u.disabled && (
-                  <QuietConfirm label="reset password" className="subtle" yes="Make link"
+                  <QuietConfirm label="make a reset link" className="subtle" yes="Make link"
                     ask={`Make a password reset link for ${u.username}? You give it to them; when they use it, their old password stops working. This signs them out of browsers. Their personal access tokens and agent connections keep working · revoke those on the People page if the account may be compromised.`}
                     onYes={async () => {
                       const r = await reset.run(() => post<InviteLink>('/password-links', { username: u.username }))
@@ -242,7 +242,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '', 
                     }} />
                 )}
                 {canEdit && (u.hasPassword || u.acted) && !sso && (
-                  <QuietPrompt label="set password" yes="Set"
+                  <QuietPrompt label="type a new password" yes="Set"
                     ask={`New password for ${u.username} · their current sessions will be signed out.`}
                     fields={[{ key: 'password', type: 'password', placeholder: 'min 8 characters', required: true, minLength: 8, width: 180 }]}
                     onYes={(v) => act(() => post('/users', { username: u.username, password: v.password }))} />

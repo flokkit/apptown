@@ -5463,7 +5463,7 @@ func TestLandingConformanceBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Main moves after the fixing landing; the view must retain its evidence
-	// and say that it was judged on an older commit.
+	// and say that there is no judgement on the current commit.
 	gittest.RunAsTester(t, a.projectRepoPath("review-landing"), "commit", "--allow-empty", "-m", "subsequent work")
 	setTestFeatureAs(t, a, "conformance-estate", true, "reviewer")
 	app := a.Handler()
@@ -5497,7 +5497,7 @@ try {
   await page.goto(process.env.CAPTURE_URL+'/conformance/projects/review-landing');
   await page.getByRole('heading',{name:'Fixed',exact:false}).waitFor();
   await page.locator('a[href="'+process.env.CHANGE_PATH+'"]').first().waitFor();
-  await page.getByText('judged on an older commit',{exact:false}).last().waitFor();
+  await page.getByText('No judgement on the current commit',{exact:false}).last().waitFor();
   await page.getByText('via',{exact:false}).first().waitFor();
   await page.screenshot({path:process.env.CAPTURE_OUT+'/landing-conformance-'+width+'.png',fullPage:true});
   await page.goto(process.env.CAPTURE_URL+'/conformance/reviews');

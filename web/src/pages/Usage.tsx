@@ -38,8 +38,24 @@ function StatCard({ label, value, sub }: { label: string; value: React.ReactNode
   )
 }
 
+// Where prices came from (usage/doc.go): the provider's own figure or
+// AppTown's model price list, counted in model calls. The count without a
+// price is not called calls: an old record with no source counts as one
+// however many calls it held.
+function priced(reported: number, catalog: number): string {
+  return [reported > 0 ? `${reported} by the provider` : '', catalog > 0 ? `${catalog} from the model price list` : ''].filter(Boolean).join(', ')
+}
+const noPrice = (unpriced: number) => unpriced > 0 ? `${unpriced} record${unpriced === 1 ? ' has' : 's have'} no known price` : ''
 function sources(reported: number, catalog: number, unpriced: number): string {
-  return [reported > 0 ? `${reported} reported by the provider` : '', catalog > 0 ? `${catalog} from the model catalog` : '', unpriced > 0 ? `${unpriced} spend record${unpriced === 1 ? '' : 's'} without a price source` : ''].filter(Boolean).join(' · ')
+  const known = priced(reported, catalog)
+  return [known && `priced ${known}`, noPrice(unpriced)].filter(Boolean).join(' · ')
+}
+// The Details line, in sentences: tokens, the share read from the model's
+// cache, then where the prices came from.
+export function usageSentence(t: { total: number; cacheRead: number; providerReported: number; catalog: number; unpriced: number }): string {
+  const known = priced(t.providerReported, t.catalog), none = noPrice(t.unpriced)
+  return [`${fmtTokens(t.total)} tokens.`, t.cacheRead > 0 && `${fmtTokens(t.cacheRead)} of them were read again from the model's cache.`,
+    known && `Model calls priced: ${known}.`, none && `${none}.`].filter(Boolean).join(' ')
 }
 
 function BarList({ title, rows, labelKey, hasCost, mapLabel }: {
@@ -279,7 +295,7 @@ export function UsageView({ project }: { project?: string }) {
       </Section>}
       {tab === 'summary' && <DailyChart days={days} perDay={perDay} shownFrom={shownDays[0]} />}
       {tab === 'details' && <>
-      <p className="muted small">{fmtTokens(data.totals.total)} tokens · {fmtTokens(data.totals.cacheRead)} from saved responses{sources(data.totals.providerReported, data.totals.catalog, data.totals.unpriced) && ` · priced: ${sources(data.totals.providerReported, data.totals.catalog, data.totals.unpriced)}`}</p>
+      <p className="muted small">{usageSentence(data.totals)}</p>
       <DailyChart days={days} perDay={perDay} shownFrom={shownDays[0]} />
 
       <div className="row usage-usage-view-div">

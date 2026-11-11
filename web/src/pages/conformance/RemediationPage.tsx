@@ -62,7 +62,9 @@ export function RemediationPage({ id }: { id: string }) {
             return (
               <ListRow key={it.id} className="remediation-page-div-4 remediation-item-row" identity={
                   <span className="row remediation-page-span-2">
-                    <Status word={it.statusLabel} help={it.state === 'queued' ? it.waiting?.reason : (it.reason || it.state)} />
+                    {/* No details behind the word: the reason is the row's own line
+                        below, with its links, and the raw state would only repeat the word. */}
+                    <Status word={it.statusLabel} />
                     <span className="mono remediation-page-mono">{it.check}</span>
                     {it.changeId ? <Link to={`/changes/${it.changeId}`} className="subtle small">{it.changeNumber ? `change ${it.projectSlug}#${it.changeNumber}` : 'the change'}</Link> : null}
                     {it.attempt > 1 && <span className="muted small">attempt {it.attempt}</span>}

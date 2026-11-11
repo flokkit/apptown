@@ -8,13 +8,18 @@ Groups lists everyone, personal and team groups, with member counts and roles.
 Open a team group to add an account, remove a member from its row menu, or delete
 the group from its page menu. Everyone and personal groups cannot be changed here.
 
+A workflow's approval step can name a group instead of a person: write
+`group:<name>` in the step's `approvers` list, for example
+`group:reviewers`. Then any member's approval counts. The record keeps the
+name of whoever approved.
+
 - **Invites.** With `-auth internal`, an administrator invites a person
   from **People → Accounts → Invite** or with
   `apptown invite <username> [--role member|admin] [--days N]`. The link is
   shown once and works for 1 to 30 days (7 by default); the person sets
   their own password. AppTown sends no email.
 - **Password reset links.** For an account that already has a password,
-  an administrator uses **People → Accounts → Manage → reset password** or
+  an administrator uses **People → Accounts → Manage → make a reset link** or
   `apptown password-link <username> [--days N]`. The link is shown once,
   works for 1 to 30 days (3 by default), and you hand it over yourself; a
   newer link for the same person withdraws the older one. Until it is used

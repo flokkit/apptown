@@ -35,16 +35,22 @@ const TITLE: Record<string, string> = {
 }
 
 export function stepTitle(s: Step): string {
-  if (s.type === 'script' && s.name) return s.name.replace(/[-_]+/g, ' ').replace(/^./, c => c.toUpperCase())
-  if (s.type === 'scan') {
-    if (s.name?.includes('sbom')) return 'Software inventory'
-    if (s.name?.includes('license')) return 'Licence scan'
-    if (s.name?.includes('osv')) return 'Dependency scan'
-    if (s.name?.includes('gitleaks')) return 'Secret scan'
+  return stepTitleOf(s.type, s.name, s.type === 'artifact/require' ? s.evidence.kind : undefined)
+}
+
+// stepTitleOf is a step's plain title from its type and name, for a step
+// that has run (with its record's kind) or one only declared in a workflow.
+export function stepTitleOf(type: string, name?: string, recordKind?: string): string {
+  if (type === 'script' && name) return name.replace(/[-_]+/g, ' ').replace(/^./, c => c.toUpperCase())
+  if (type === 'scan') {
+    if (name?.includes('sbom')) return 'Software inventory'
+    if (name?.includes('license')) return 'Licence scan'
+    if (name?.includes('osv')) return 'Dependency scan'
+    if (name?.includes('gitleaks')) return 'Secret scan'
     return 'Security scan'
   }
-  if (s.type === 'artifact/require') return s.name === 'release-exists' || s.evidence.kind === 'release' ? 'Release created' : 'Required file recorded'
-  return TITLE[s.type] || 'Check'
+  if (type === 'artifact/require') return name === 'release-exists' || recordKind === 'release' ? 'Release created' : 'Required file recorded'
+  return TITLE[type] || 'Check'
 }
 
 // testsNote is what a tests step's report says, in words. Only counts with

@@ -13,6 +13,16 @@ import type { InstanceUpdateStatus } from '../wire.gen'
 
 // Affirmative holdings gate both the page and its background status read.
 // These reads never trigger remote discovery or mutate configuration.
+// What a build's platform (Go's os/arch) means, with the exact value kept
+// in brackets; a platform without words is shown as it is.
+const PLATFORMS: Record<string, string> = {
+  'linux/amd64': 'Linux on 64-bit Intel or AMD',
+  'linux/arm64': 'Linux on 64-bit ARM',
+  'darwin/arm64': 'macOS on Apple silicon',
+  'darwin/amd64': 'macOS on Intel',
+}
+export const platformWords = (platform: string) => PLATFORMS[platform] ? `${PLATFORMS[platform]} (${platform})` : platform
+
 export function UpdatesPage() {
   const may = useHolds('instance:updates')
   if (!may) return <div role="status">Update information requires instance administration permission.</div>
@@ -71,7 +81,7 @@ function UpdateDetails() {
             ? <>This {PRODUCT} runs a development build. Updates come by deployment.</>
             : <><Status word={data.statusLabel} /> <span className="muted">{data.reason || states[data.state]}</span></>}</dd>
           <dt>Version</dt><dd>{data.build}</dd>
-          <dt>Platform</dt><dd>{data.platform}</dd>
+          <dt>Built for</dt><dd>{platformWords(data.platform)}</dd>
           {/* A release channel and its checks mean nothing to a development build. */}
           {!development && <>
             <dt>Channel</dt><dd>{data.channel}</dd>

@@ -200,4 +200,10 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
 .facts dd > .display-label-edit { margin-top: 0; }
 /* The edit link lines up with the ID beside or above it, as text does. */
 .display-label-edit > button.link { padding-inline: 0; }
+/* On a touch screen the link keeps its 44px tap area (--row-action-size
+   there), but the area reaches over the lines around it rather than making
+   the row 44px tall: the row stays one line, with no gap above and below. */
+@media (max-width: 800px), (pointer: coarse) {
+  .display-label-edit > button.link { padding-block: 0; margin-block: calc(min(0px, (1lh - var(--row-action-size)) / 2)); }
+}
 }

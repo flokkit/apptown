@@ -143,3 +143,40 @@ it('says a failed host is not answering rather than an instruction under Check t
   expect(html).toContain('not answering')
   expect(html).not.toContain('Check connection')
 })
+
+// A target's capabilities are labelled facts in plain words, not its
+// internal names (replace, emulators, has disks, by construction).
+it('says what a target provides as labelled facts in plain words', () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/auth/me'), { mode: 'internal', user: 'sam' })
+  client.setQueryData(getKey('/attention'), { sources: [], items: [] })
+  const page = (capabilities: object, needsMode: string, offers: object[] = [], kind = 'docker-host') => {
+    client.setQueryData(getKey('/targets/kitchen'), { target: { id: 'host', name: 'kitchen', status: 'ready', statusLabel: 'working', kind, kindInfo: {}, check: {}, ingress: {}, address: {}, capabilities, needsMode, deployments: [], offers, retained: 0 }, history: [], builtIn: true })
+    client.setQueryData(getKey('/infrastructure'), { targets: [] })
+    const el = document.createElement('div')
+    el.innerHTML = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/kitchen']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name" element={<TargetPage />} /></Routes></QueryClientProvider></MemoryRouter>)
+    const dl = el.querySelector('.target-settings dl.facts')!
+    return { el, fact: (label: string) => [...dl.querySelectorAll('dt')].find(dt => dt.textContent === label)?.nextElementSibling?.textContent }
+  }
+  const cloud = page({ needs: ['postgres', 's3'], rollout: ['rolling', 'rollback'], keepsDataDir: false, ownLiveness: true }, 'managed')
+  expect(cloud.fact('Databases and storage')).toBe('postgres, s3, run by the provider')
+  expect(cloud.fact('Updates')).toBe('can replace running parts in stages · can go back to the previous release')
+  expect(cloud.fact('Disks')).toBe('no disks: apps use networked databases')
+  expect(cloud.fact('Restarts')).toBe('The provider restarts apps that stop.')
+  const host = page({ needs: ['postgres'], rollout: ['replace'], keepsDataDir: true }, 'emulators', [{ group: '*', caps: {}, implicit: true }])
+  expect(host.fact('Databases and storage')).toBe('postgres, run as containers on this host')
+  expect(host.fact('Updates')).toBe('stops the old version, then starts the new one')
+  expect(host.fact('Disks')).toBe('keeps app data on disk')
+  expect(host.fact('Restarts')).toBeUndefined()
+  expect(host.el.textContent).toContain('AppTown, automatically')
+  expect(host.el.textContent).not.toMatch(/Provides|needs are|by construction|has disks/)
+  // A rolling update does not promise no downtime: a part with a data volume stops first.
+  const fly = page({ needs: ['postgres'], rollout: ['replace', 'rolling'], keepsDataDir: true, ownLiveness: true }, 'managed', [], 'fly-machines')
+  expect(fly.fact('Databases and storage')).toBe('postgres, run by the provider')
+  expect(fly.fact('Updates')).toBe('stops the old version, then starts the new one · can replace running parts in stages')
+  expect(fly.fact('Disks')).toBe('keeps app data on disk')
+  expect(fly.fact('Restarts')).toBe('The provider restarts apps that stop.')
+  expect(fly.el.textContent).toContain('Parts with data stop briefly during releases and backups.')
+  expect(fly.el.querySelector('.target-settings')!.textContent).not.toContain('downtime')
+  expect(page({ needs: [] }, 'register').fact('Databases and storage')).toBe('registered by hand')
+})

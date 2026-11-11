@@ -48,7 +48,8 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
         <div className="check-results">
           <div className="project-page-check-row-div">
             <div className="small muted">{v.block} version {v.version} · {v.check}</div>
-            <Evidence v={v} exceptions={exceptions} adj={adj} reviews={reviews} />
+            {/* The row above already says "No judgement on the current commit". */}
+            <Evidence v={v} exceptions={exceptions} adj={adj} reviews={reviews} olderNote={false} />
             {undecidedAI && decision && <p className="small">Recorded decision: {decision.status === 'accepted' ? 'accepted risk' : 'false positive'} — {decision.justification} · {decision.by}. This check remains undecided.</p>}
             {!readOnly && (lane === 'findings' || lane === 'flagged') && (
               <div className="row mt-3 project-page-check-row-div-2">
@@ -109,7 +110,7 @@ function LaneSection({ lane, title, hint, groups, view, exceptions, readOnly, on
       <ListTable label={title} rows={list} rowKey={v => String(v.id || key(v))} rowTo={v => `${base}/checks/${encodeURIComponent(key(v))}`} columns={[
         { key: 'check', label: 'Check', phone: 'name', render: v => <Link to={`${base}/checks/${encodeURIComponent(key(v))}`}>{view.checkDefs[key(v)]?.title || v.check}</Link> },
         { key: 'why', label: 'Result', render: v => <span className="muted">{v.state === 'stale' ? 'No judgement on the current commit' : v.detail ? (laneOf(v) === 'unassessed' ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : v.detail) : `from ${v.block}`}</span> },
-        { key: 'judged', label: 'Judged', render: v => <JudgedAt v={v} reviews={view.reviews ?? []} /> },
+        { key: 'judged', label: 'Judged', render: v => <JudgedAt v={v} reviews={view.reviews ?? []} olderNote={false} /> },
         { key: 'status', label: 'Status', phone: 'state', render: v => <StateChip label={v.statusLabel} /> },
       ]} />
     </Section>

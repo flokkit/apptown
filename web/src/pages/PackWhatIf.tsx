@@ -62,7 +62,7 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
     <div className="small mt-2 pack-what-if-what-if-panel-div">
       <div className="row pack-what-if-what-if-panel-div-2">
         <strong>What-if</strong>
-        <span className="muted">hypothetical: never a project's standing</span>
+        <span className="muted">Try this version on projects without changing them.</span>
       </div>
       <div className="card pack-what-if-what-if-panel-card">
         {!choosing && (

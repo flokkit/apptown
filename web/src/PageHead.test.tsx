@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { PAGE_HELP, PageHead, SUB_HELP } from './PageHead'
+import { INTEGRATION_MENU } from './pages/integrations/kinds'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -158,4 +160,65 @@ it('explains Memory as project context and leaves decisions out of Settings help
   act(() => q(settings).click())
   expect(pop(settings)?.textContent).not.toContain('decisions')
   expect(SUB_HELP.projectSettings).not.toHaveProperty('Decisions')
+})
+
+// The help text a person reads, as plain text, for one page or one area page.
+function helpText(node: React.ReactNode): string {
+  return renderToStaticMarkup(<MemoryRouter>{node}</MemoryRouter>).replace(/<[^>]+>/g, '').replace(/&#x27;/g, "'").replace(/&amp;/g, '&')
+}
+
+// Help speaks in the reader's words: no internal terms or syntax a person
+// has nowhere to type, and every fact the old wording carried stays.
+describe('help wording', () => {
+  const all = [...Object.values(PAGE_HELP).map((h) => h.help), ...Object.values(SUB_HELP).flatMap((p) => Object.values(p ?? {}).map((h) => h.body))]
+  it.each(['Previews run on the', 'group:name', 'fingerprint', 'the gate', 'prices pi', 'claims, never evidence', '$0'])('no help says "%s"', (old) => {
+    for (const h of all) expect(helpText(h)).not.toContain(old)
+  })
+
+  it('says what previews are and that they run on the executor', () => {
+    const t = helpText(PAGE_HELP.infrastructure.help)
+    expect(t).toContain('Previews, the trial copies of an app made while a change is worked on, run on the executor instead')
+  })
+
+  it('says a group can approve without the syntax', () => {
+    for (const h of [PAGE_HELP.people.help, SUB_HELP.people!.Groups.body]) {
+      expect(helpText(h)).toContain("A workflow's approval step can name a group instead of a person. Then any member's approval counts. The record keeps the name of whoever approved.")
+    }
+  })
+
+  // Costs: what is priced and how, and that unknown prices are not counted as nothing.
+  it('says costs are estimates and how a price is known', () => {
+    const t = helpText(PAGE_HELP.usage.help)
+    expect(t).toContain("Costs are estimates, not your provider's bill.")
+    expect(t).toContain("the provider's own, or one worked out from the model's list price")
+    expect(t).toContain('Use with no known price shows as not priced.')
+  })
+
+  it('says how a suppression matches and what its export is', () => {
+    const t = helpText(SUB_HELP.projectSecurity!.Suppressions.body)
+    expect(t).toContain("the scanner's own ID for it, or by the vulnerability's ID (such as a CVE number) and the package")
+    expect(t).toContain('fails the security check again')
+    expect(t).toContain('OpenVEX export downloads the records in a standard format other security tools read.')
+  })
+
+  it('says notes are edited through a change and are not proof', () => {
+    const t = helpText(SUB_HELP.projectMemory!.Notes.body)
+    expect(t).toContain('every edit has an author and a change number')
+    expect(t).toContain("An AI check can't count a note alone as proof of how the app behaves.")
+  })
+
+  it('names the secrets file in plain type and says how to add a secret', () => {
+    const html = renderToStaticMarkup(<MemoryRouter>{SUB_HELP.projectSettings!.Secrets.body}</MemoryRouter>)
+    expect(html).not.toContain('<code>')
+    expect(helpText(SUB_HELP.projectSettings!.Secrets.body)).toContain('To add a new one, ask for a change to the app, then enter its value here.')
+  })
+
+  // Completeness: a page added to the Integrations menu must be named in the
+  // area's help, or the help silently stops describing the menu.
+  it('names every page of the Integrations menu, and sends app services to Services', () => {
+    const t = helpText(PAGE_HELP.integrations.help)
+    const items = INTEGRATION_MENU.find((g) => g.key === 'integrations')!.items
+    for (const i of items) expect(t, i.title).toContain(`${i.title}:`)
+    expect(t).toContain('Services an app itself connects to, such as a database, are on the Services page.')
+  })
 })

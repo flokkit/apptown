@@ -170,17 +170,17 @@ func FailOnLooseness(s string) int {
 	return 4
 }
 
-// Reading renders the precise plain-words reading of a rule; the server
-// owns the wording so the UI cannot drift.
+// Reading renders the precise plain-words reading of a rule as sentences;
+// the server owns the wording so the UI cannot drift.
 func Reading(rule string, with map[string]any) string {
 	switch rule {
 	case "requireStepBefore":
-		return fmt.Sprintf("any workflow containing a %q step must have a %q step in a strictly earlier stage; checked when workflows are saved (a save that breaks this is refused), warned on runs of workflows saved before the policy",
+		return fmt.Sprintf("A workflow with a %q step must have a %q step in an earlier stage, not the same one. AppTown checks this when a workflow is saved and refuses a save that breaks it. Runs of workflows saved before the policy get a warning.",
 			optString(with, "uses"), optString(with, "requires"))
 	case "requireCapabilityBound":
-		return fmt.Sprintf("this AppTown must have a working %q integration; checked when workflows are saved", optString(with, "capability"))
+		return fmt.Sprintf("This AppTown must have a working %q integration. AppTown checks this when a workflow is saved.", optString(with, "capability"))
 	case "scanFailOnCeiling":
-		return fmt.Sprintf("no workflow may tell a security scan to ignore findings worse than %q; checked when workflows are saved", optString(with, "max"))
+		return fmt.Sprintf("No workflow may tell a security scan to ignore findings worse than %q. AppTown checks this when a workflow is saved.", optString(with, "max"))
 	}
 	return rule
 }
@@ -190,11 +190,11 @@ func Reading(rule string, with map[string]any) string {
 func Fix(rule string, with map[string]any) string {
 	switch rule {
 	case "requireStepBefore":
-		return fmt.Sprintf("add a %q step to a stage before the %q step (or ask the helper to)", optString(with, "requires"), optString(with, "uses"))
+		return fmt.Sprintf("Add a %q step to a stage before the %q step, or ask the helper to.", optString(with, "requires"), optString(with, "uses"))
 	case "requireCapabilityBound":
-		return fmt.Sprintf("connect a %q integration on the Integrations page", optString(with, "capability"))
+		return fmt.Sprintf("Connect a %q integration on the Integrations page.", optString(with, "capability"))
 	case "scanFailOnCeiling":
-		return fmt.Sprintf("set the scan's failOn back to %q or stricter", optString(with, "max"))
+		return fmt.Sprintf("Set the scan's failOn back to %q or stricter.", optString(with, "max"))
 	}
 	return ""
 }

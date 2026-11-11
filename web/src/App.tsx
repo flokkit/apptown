@@ -78,7 +78,7 @@ export function SidebarNav() {
   const m = pathname.match(/^\/projects\/([^/]+)/)
   // Inside a project by URL, or inside one of its changes/decisions by scope.
   const slug = m ? (m[1] !== '_new' ? m[1] : null)
-    : /^\/(changes|items|adrs)\//.test(pathname) ? scope : null
+    : /^\/(changes|items|adrs|operations)\//.test(pathname) ? scope : null
   const nav = useNavigate()
   const chat = useAction()
   const canCreate = useHolds('change:create', slug ?? undefined)

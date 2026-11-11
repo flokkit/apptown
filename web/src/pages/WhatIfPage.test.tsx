@@ -108,10 +108,21 @@ describe('the what-if page', () => {
     } finally { done() }
   })
 
+  // Without AI reviews, the page says which checks that leaves unjudged.
+  it('says checks needing an AI review were not judged when none were run', async () => {
+    const { el, done } = await render((url) => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : { ...whatIf, rubrics: false })
+    try {
+      expect(el.textContent).toContain("AI reviews not run, so checks that need one weren't judged")
+      expect(el.textContent).not.toContain('model rubrics not included')
+    } finally { done() }
+  })
+
   it('answers per project and says what it could not assess', async () => {
     const { el, done } = await render((url) => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : whatIf)
     const text = el.textContent ?? ''
     expect(text).toContain('What-if: team v2')
+    expect(text).toContain('AI reviews: ')
+    expect(text).not.toContain('model rubrics')
     expect(text).toContain('stopped')
     expect(text).toContain('at least $0.80 of $0.50')
     expect(text).toContain('4 projects1 ● failed1 ● unknown1 ● passed1 ● unknown1 move rules back')

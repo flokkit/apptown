@@ -49,7 +49,9 @@ it('offers catalog and detailed paths, and opens the detailed form without creat
   const h = await row()
   await h.click('[aria-label="Change: more options"]')
   const items = [...document.querySelectorAll('.popover .split-menu > button')]
-  expect(items.map(b => b.firstChild?.textContent)).toEqual(['Catalog change', 'New change, detailed'])
+  expect(items.map(b => b.firstChild?.textContent)).toEqual(['Catalog change', 'New change without a chat'])
+  // Each hint says what the path is, in words a newcomer reads.
+  expect(items.map(b => b.lastChild?.textContent)).toEqual(['a prepared change, the same steps every time', 'write the title and choose the workflow yourself'])
   await act(async () => (items[1] as HTMLButtonElement).click())
   expect(h.el.querySelector('[role=dialog] textarea')).not.toBeNull()
   await h.click('[role=dialog] button[aria-label="close"]')

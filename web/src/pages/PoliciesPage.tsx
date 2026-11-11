@@ -21,11 +21,18 @@ import type { PolicyLibraryEntry, PolicyLibraryList, ProjectRow } from '../wire.
 // they're currently in line.
 
 
+// Each rule's fields, labelled by what they mean; the key is the name saved under with:.
 const RULES: { rule: string; label: string; params: string[] }[] = [
   { rule: 'requireStepBefore', label: 'step X requires step Y in an earlier stage', params: ['uses', 'requires'] },
   { rule: 'requireCapabilityBound', label: 'capability must have a binding', params: ['capability'] },
   { rule: 'scanFailOnCeiling', label: 'scan failOn may not be looser than…', params: ['max'] },
 ]
+
+// A field's label says what to type; fields without one show their key.
+const PARAM_LABELS: Record<string, string> = {
+  uses: 'Step X: the step that needs it (e.g. build)',
+  requires: 'Step Y: must run in an earlier stage (e.g. scan)',
+}
 
 const blank = (): PolicyLibraryEntry => ({ name: '', description: '', rule: 'requireStepBefore', with: {}, origin: '', adoptedBy: 0, nonConformant: 0, packs: [], reading: '', fix: '' })
 
@@ -109,7 +116,7 @@ function PolicyCard({ page, p, totalProjects, onClone, onEdit, onRemove }: {
             </div>
           )}
           <section className="policies-page-policy-card-div">
-            <h3 className="muted small policies-page-policy-card-summary">definition</h3>
+            <h3 className="muted small policies-page-policy-card-summary">Source</h3>
             <pre className="source policies-page-policy-card-pre">
 {['rule: ' + p.rule,
   ...(Object.keys(p.with ?? {}).length
@@ -152,8 +159,8 @@ function PolicyEditor({ policy, onDone, titled = true }: { policy: PolicyLibrary
         </div>
         {form.params.map((param) => (
           <span key={param} className="policies-page-span">
-            <label>{param}</label>
-            <input aria-label={param} value={String(p.with?.[param] ?? '')}
+            <label>{PARAM_LABELS[param] ?? param}</label>
+            <input aria-label={PARAM_LABELS[param] ?? param} value={String(p.with?.[param] ?? '')}
               onChange={(e) => setP({ ...p, with: { ...p.with, [param]: e.target.value } })} />
           </span>
         ))}

@@ -212,3 +212,21 @@ it('shows a check’s result word on its evidence card', () => {
     expect(el.querySelector('.ch-check-about')?.textContent).toContain('Finished')
   } finally { act(() => root.unmount()); client.clear() }
 })
+
+// How a scanner ran (binding, image, exit, config hash) is for administrators:
+// it shows only with the technical switch, as the script line does.
+it.each([false, true])('shows how a scan ran only with the technical switch (%s)', technical => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const user = `scan-viewer-${technical}`
+  if (technical) localStorage.setItem(`apptown.technical-detail.${user}`, '1')
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  client.setQueryData(getKey('/auth/me'), { mode: 'internal', user })
+  client.setQueryData(getKey(`/runs/${RUN}/findings`), { projectSlug: 'game', findings: [], unread: [] })
+  const step = { id: STEP, runId: RUN, name: 'secret-scan', stage: 'check', type: 'scan', status: 'pass', overrideBy: '', config: {}, evidence: { binding: 'gitleaks', bindingVersion: 3, image: 'zricethezav/gitleaks:v8', exitCode: 0, durationMs: 412, configHash: 'abc123', findings: { total: 0, actionable: 0, dispositioned: 0 } } } as unknown as Step
+  try {
+    act(() => root.render(<QueryClientProvider client={client}><MemoryRouter><StepCard evidenceOnly step={step} onChange={() => {}} /></MemoryRouter></QueryClientProvider>))
+    const raw = ['gitleaks v3 (zricethezav/gitleaks:v8)', 'config sha256:abc123']
+    for (const r of raw) expect(el.textContent?.includes(r)).toBe(technical)
+    expect(el.textContent).toContain('0 actionable / 0 findings')
+  } finally { act(() => root.unmount()); client.clear(); localStorage.clear() }
+})

@@ -2,68 +2,124 @@
 
 ## What it's for
 
-Nothing ships without being checked for known
-vulnerabilities in its dependencies, leaked secrets in its code, and
-without a record of what is in it. Scanners are the tools that do that
-checking; this guide is how to add, pin and tune them for the whole
+Nothing ships until AppTown has checked it. It looks for known
+vulnerabilities in the app's dependencies and for secrets leaked in its code.
+It also records what is in the app. Scanners are the tools that do that
+checking. This guide says how to add, pin and tune them for the whole
 instance.
 
-A scanner is any container run against the committed tree — or, with
-`target: image`, against the app's built container image — with the exit
-contract: 0 = clean, 1 = findings (step fails), else error. Stock
-manifests ship osv-scanner (dependencies), gitleaks (secrets), syft
-(SBOM) on source, and trivy on the image; a preset exists for semgrep.
+## What a scanner is
+
+A scanner is any container AppTown runs against the app. It reads one of
+two things:
+
+- With `target: source`, the committed files.
+- With `target: image`, the app's built container image.
+
+Its exit code says what it found:
+
+- 0: clean.
+- 1: findings. The step fails.
+- Any other code: an error.
+
+The stock scanners are:
+
+- osv-scanner, for dependencies, on source.
+- gitleaks, for secrets, on source.
+- syft, for the software inventory (SBOM), on source.
+- trivy, on the image.
+
+A preset exists for semgrep.
 
 ## Adding one
 
-Integrations → Scanners → New integration (or a preset). Pin the image
-tag — the config hash lands in run receipts. Declare the report path
-and format (sarif/osv) to light up structured findings; leave network
-off unless the tool queries a database (osv, semgrep --config auto).
-Say what it looks at with `target: source` (default, the committed tree
-at `/work`) or `target: image` (the built container, handed over as a
-tarball — write `${IMAGE_TAR}` in the command). Test pulls the image
-before you save.
+1. Open **Integrations → Scanners → New integration**, or choose a preset.
+2. Pin the image tag. Run receipts record the scanner's config hash, a
+   fingerprint of its settings.
+3. Declare the report path and its format (`sarif` or `osv`). AppTown then
+   shows structured findings.
+4. Leave network off unless the tool queries a database (osv,
+   `semgrep --config auto`).
+5. Say what it looks at:
+   - `target: source` is the default. The scanner reads the committed files
+     at `/work`.
+   - `target: image` hands the built container over as a tarball. Write
+     `${IMAGE_TAR}` in the command.
+6. Choose **Test**. It pulls the image before you save.
 
-Attaching is the whole act: the stock `land` workflow carries
-*scan points* (`on: source` in the gates, `on: image` in the gates)
-that run every attached scanner with that target, each as its own check
-with its own receipt. Nobody edits a workflow to add a scanner.
+Attaching is the whole act. The stock `land` workflow has scan points in
+its gates: `on: source` and `on: image`. Each scan point runs every attached
+scanner with that target. Each scanner is its own check, with its own
+receipt. Nobody edits a workflow to add a scanner.
+
+## What a scanner applies to
+
+Each scanner says what it applies to in `appliesTo`, using the words a check
+uses. The [developer guide](scanner-tool.developer.md) lists what each
+stock scanner applies to.
+
+A scanner may declare `emptyExit`. This is the exit code it gives when it
+found nothing to judge. For osv it is 128, "no package sources found". Where
+the scanner applies, that exit is a failure, because the app declares
+something to scan.
+
+A manual scanner runs only from a way of working's tool check. It takes that
+check's `appliesTo`. It runs in the folder of each matching part. Write
+`${PART_FOLDER}` in its command for that folder.
 
 ## How scans run
 
-Scans execute against a staged `git archive HEAD` — the committed tree,
-never the working directory — so AppTown's runtime state and agent scratch
-can't pollute findings. Findings normalize into severity buckets;
-verdicts are actionable = findings − active suppressions; suppressions
-are VEX-shaped with justification and expiry, exportable as OpenVEX.
+- Scans read a staged `git archive HEAD`. That is the committed files, never
+  the working directory. So AppTown's runtime files and agents' scratch files
+  cannot add findings.
+- AppTown sorts findings by severity.
+- A finding counts unless an active suppression covers it.
+- A suppression has a written justification and an expiry date.
+- Suppressions can be exported as OpenVEX.
 
 ## What a landing's secret scan covers
 
-At a landing, a source scanner that declares a `historyCommand` (stock
-gitleaks does) reads every commit the landing will publish to main — the
-commits between main as the landing checked it and the change's candidate,
-including merges, each against its parents — not only the final tree.
-AppTown first reads that range in the project's repository; a range it
-cannot read is a scan error, never a clean pass. Each finding there is in
-what main would gain, so it gates as found: it is not compared with main's
-tree, where an older secret of the same kind in the same file would hide
-it. Outside a landing, and for a scanner with no history command, only the
-committed tree is read.
+At a landing, some source scanners read history, not only the final files.
+These are scanners that declare a `historyCommand`. Stock gitleaks does.
 
-A secret committed and deleted later in the same change therefore fails
-the landing: deleting it does not take it out of the history a merge
-publishes. Rewrite the change's branch without the commit that added it,
-or suppress the finding with a justification. AppTown reads the range
-first because gitleaks reports a range its Git cannot read as clean; a
-failure of the scanner's own Git after that, inside its container, is not
-detected.
+Such a scanner reads every commit the landing will publish to main:
 
-## Policy hooks
+- the commits between main, as the landing checked it, and the change's
+  candidate;
+- merges included, each read against its parents.
 
-`scanner-bound` requires the capability bound; `build-requires-scan`
-requires scans before a build (`scan-failon-ceiling` ships too). The stock
-`land` workflow runs every source and image scanner before approval. Image scanners pull or build the image they check.
-After merging, landing builds the runtime bundle. Deployments that follow
-main request that bundle separately. Attach a scanner to include it in
-landings; no workflow edit is needed.
+AppTown first reads that range in the project's repository. If it cannot
+read the range, the scan is an error, never a clean pass.
+
+Each finding in that range is in what main would gain, so it blocks as
+found. It is not compared with main's files. There, an older secret of the
+same kind in the same file would hide it.
+
+Outside a landing, only the committed files are read. The same is true for a
+scanner with no history command.
+
+A secret committed and then deleted in the same change still fails the
+landing. Deleting it does not take it out of the history a merge publishes.
+To fix it, do one of these:
+
+- Rewrite the change's branch without the commit that added the secret.
+- Suppress the finding, with a justification.
+
+AppTown reads the range first because gitleaks reports a range its Git
+cannot read as clean. After that first read, a failure of the scanner's own
+Git inside its container is not detected.
+
+## Policies
+
+- `scanner-bound` requires a working scanner integration.
+- `build-requires-scan` requires a scan in a stage before a build.
+- `scan-failon-ceiling` also ships. It limits how loose a scan's `failOn`
+  may be set.
+
+The stock `land` workflow runs every source and image scanner before
+approval. Image scanners pull or build the image they check.
+
+After merging, the landing builds the runtime bundle. Deployments that
+follow main request that bundle separately.
+
+Attach a scanner to include it in landings. No workflow edit is needed.

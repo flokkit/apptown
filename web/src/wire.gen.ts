@@ -1170,6 +1170,32 @@ export type OperationDismissed = {
   ok: boolean
 }
 
+export type OperationView = {
+  statusLabel: OperationLabel
+  id: string | null
+  number: number
+  kind: string
+  projectId: string | null
+  subject?: string
+  holds: string[]
+  askedBy: string
+  askedVia?: string
+  input: Record<string, unknown>
+  state: OperationState
+  verification?: string
+  steps: OperationStep[]
+  result: Record<string, unknown>
+  detail?: string
+  cancelRequested?: boolean
+  cancellable: boolean
+  createdAt: string
+  startedAt?: string
+  touchedAt: string
+  finishedAt?: string
+  dismissedAt?: string
+  project?: OperationProject | null
+}
+
 export type OverrideResult = {
   override?: Override | null
   release?: RedeployNumber | null
@@ -3801,6 +3827,11 @@ export type OperationStep = {
   unknown?: boolean
   detail?: string
   bytes?: number
+}
+
+export type OperationProject = {
+  slug: string
+  name: string
 }
 
 export type Override = {

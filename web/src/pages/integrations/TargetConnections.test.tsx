@@ -34,3 +34,14 @@ it('lists the built-in host under the connector the owner names for it', () => {
   expect(el.querySelector('a[href="/targets/built-in-docker"]')).not.toBeNull()
   expect(el.textContent).not.toContain('No target recorded.')
 })
+
+// A connection no target uses says so plainly, not as a missing record.
+it('says a connection no target uses is not used yet', () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/integrations'), { integrations: [{ id: 'spare-id', name: 'spare-deploy', capability: 'deploy', provider: 'portainer', config: {}, health: { checked: true, status: 'ok' } }] })
+  client.setQueryData(getKey('/integrations/catalog'), { catalog: [] })
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><TargetConnections targets={[]} /></QueryClientProvider></MemoryRouter>)
+  expect(el.textContent).toContain('Not used by any target yet.')
+  expect(el.textContent).not.toContain('No target recorded.')
+})
