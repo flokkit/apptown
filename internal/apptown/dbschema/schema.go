@@ -733,6 +733,20 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		`ALTER TABLE release_requests ADD COLUMN rebuild_pending BOOLEAN NOT NULL DEFAULT false`,
 		`ALTER TABLE releases ADD COLUMN rebuilt_from BIGINT NOT NULL DEFAULT 0, ADD COLUMN rebuilt_commit TEXT NOT NULL DEFAULT ''`,
 	}},
+	// Before rc.15 the ship workflow's deploy step deployed and then recorded
+	// its release already released, with the run but without the generation;
+	// the attempt named the run in its inputs. A deployment's serving release
+	// is the release at its observed generation, so record each such release's
+	// generation from the newest done attempt of its run on its deployment.
+	// A rebuild carries its source generation's run and is not the release.
+	{n: 226, note: "record the generation of releases the workflow deploy step recorded", stmts: []string{
+		`UPDATE releases r SET generation=a.generation
+		FROM (SELECT DISTINCT ON (a.deployment_id, i.release_run) a.deployment_id, i.release_run, a.generation
+			FROM deployment_attempts a JOIN deployment_attempt_inputs i ON i.attempt_id=a.id
+			WHERE a.status='done' AND NOT i.rebuild AND i.release_run IS NOT NULL
+			ORDER BY a.deployment_id, i.release_run, a.generation DESC) a
+		WHERE r.state='released' AND r.generation=0 AND r.deployment_id=a.deployment_id AND r.run_id=a.release_run`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.
