@@ -1157,7 +1157,7 @@ under Integrations"), a hub credential the secrets store does not hold, `-privat
 is checked when each release executes.
 
 **Consumers.** Promotion to another Docker host, recovery after a host
-lost its images or container (the rebuild a apptown start asks for), App
+lost its images or container (the repair its host's reader asks for), App
 Platform (each digest copied into DOCR by AppTown, then named in the
 app spec), Portainer (the stack names every digest) and release previews
 (booted by digest where change previews boot) all pull. None builds. A

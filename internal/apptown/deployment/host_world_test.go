@@ -157,12 +157,12 @@ func TestBootReconcileForgetsAPreviewOnlyOnADefiniteAnswer(t *testing.T) {
 			return ContainerGone, ctx.Err()
 		},
 	} {
-		s.BootReconcile(ctx, present, func(ProjectDeployment) error { return nil })
+		s.BootReconcile(ctx, present)
 		if !kept() {
 			t.Fatal("a preview whose host could not be asked was forgotten")
 		}
 	}
-	s.BootReconcile(context.Background(), func(ids.ID, string) (ContainerPresence, error) { return ContainerGone, nil }, func(ProjectDeployment) error { return nil })
+	s.BootReconcile(context.Background(), func(ids.ID, string) (ContainerPresence, error) { return ContainerGone, nil })
 	if kept() {
 		t.Fatal("a preview its host says is gone was kept")
 	}

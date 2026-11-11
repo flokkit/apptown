@@ -36,7 +36,7 @@ func TestHostDownRequiresTwoLapsAndCompleteRecovery(t *testing.T) {
 		t.Helper()
 		// Recreate the owner each lap: the outage streak belongs to stored evidence.
 		s := NewHostSnapshots(db, svc.now)
-		if err := s.collect(t.Context(), target, docker.Scope{Client: daemon, Now: svc.now}, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true}, nil, nil); err != nil {
+		if _, _, err := s.collect(t.Context(), target, docker.Scope{Client: daemon, Now: svc.now}, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true}, nil, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -94,7 +94,7 @@ func TestHostReachabilityUsesStoredReading(t *testing.T) {
 		return nil, nil, false
 	})
 	for range 2 {
-		if err := NewHostSnapshots(db, svc.now).collect(t.Context(), target, docker.Scope{Client: daemon, Now: svc.now}, docker.HostQuery{Host: true}, nil, nil); err != nil {
+		if _, _, err := NewHostSnapshots(db, svc.now).collect(t.Context(), target, docker.Scope{Client: daemon, Now: svc.now}, docker.HostQuery{Host: true}, nil, nil); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -35,7 +35,6 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
-	"github.com/riverqueue/river/rivertype"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -435,7 +434,10 @@ func TestDeploymentRebuildCarriesNeedsInitAndParts(t *testing.T) {
 	f.labels = map[string]map[string]string{}
 	f.mu.Unlock()
 
-	a.ensureDeploymentsOnce(context.Background()) // the container is not running: a rebuild job is asked for
+	// Its host's reader finds the container gone and asks for a repair.
+	if _, err := a.Jobs().Enqueue(context.Background(), "rebuild", env.ProjectID.String()+"/"+env.Name, map[string]any{"attempt": env.ServingAttemptID}, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
 	runQueuedJobForTest(t, a, "rebuild", idstest.N(1).String()+"/main")
 
 	names := mainNames(t, a)
@@ -446,12 +448,6 @@ func TestDeploymentRebuildCarriesNeedsInitAndParts(t *testing.T) {
 	if audits := auditCount(t, a.DB, "deployment.rebuilt"); audits != 1 {
 		t.Fatalf("the rebuild must be on the audit record, got %d", audits)
 	}
-	// A standing deployment is left standing.
-	f.reset()
-	a.ensureDeploymentsOnce(context.Background())
-	requireJobs(t, a, 0, func(j *rivertype.JobRow, r jobs.Request) bool {
-		return r.Operation == "rebuild" && slices.Contains([]rivertype.JobState{rivertype.JobStateAvailable, rivertype.JobStateRunning, rivertype.JobStateRetryable, rivertype.JobStateScheduled}, j.State)
-	})
 }
 
 // Complaint #77: startup recovery rebuilt a change's preview from the

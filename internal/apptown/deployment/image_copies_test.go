@@ -69,7 +69,7 @@ func collectImageCopies(t *testing.T, svc *Service, s *HostSnapshots, target *Ta
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.collect(t.Context(), target, dk, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true, ImageRefs: refs}, nil, svc.Inventory); err != nil {
+	if _, _, err := s.collect(t.Context(), target, dk, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true, ImageRefs: refs}, nil, svc.Inventory); err != nil {
 		t.Fatal(err)
 	}
 	r, err := s.reading(t.Context(), target)

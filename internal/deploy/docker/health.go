@@ -176,7 +176,7 @@ func (c *HealthController) Sweep(ctx context.Context) {
 			c.hold(ctx, e, dk, ph, seen)
 			continue
 		}
-		// ensureDeployments owns the missing case, and a stopped container was
+		// The host reader repairs a missing container, and a stopped one was
 		// stopped on purpose — by this controller or by a person — and stays
 		// so. Liveness is a question about a running container only.
 		if !dk.Running(ctx, e.Container) {
