@@ -130,12 +130,13 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 			continue
 		}
 		if t.Kind == deployment.KindDockerHost && !sample.Unreported {
-			if sample.ObservedAt.IsZero() || clock.Or(s.Now)().Sub(sample.ObservedAt) > 5*time.Minute {
-				age := "never read"
-				if !sample.ObservedAt.IsZero() {
-					age = fmt.Sprintf("read %.0f s ago", clock.Or(s.Now)().Sub(sample.ObservedAt).Seconds())
-				}
-				out.Items = append(out.Items, Item{Key: t.ID.String() + "/unassessed", Unknown: unknown, Title: label + ": host reading is old", Detail: age + ". " + sample.LastFailure, Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: true})
+			// A host never read is not an old reading: it says so, with the last
+			// failure if a check was tried. A queued first check adds nothing.
+			switch age := clock.Or(s.Now)().Sub(sample.ObservedAt); {
+			case sample.ObservedAt.IsZero() && !pending:
+				out.Items = append(out.Items, Item{Key: t.ID.String() + "/unassessed", Unknown: unknown, Title: label + ": host not read yet", Detail: joinSentences("AppTown has not read this host yet.", sample.LastFailure), Severity: SeverityWarning, Href: href, Stale: true})
+			case !sample.ObservedAt.IsZero() && age > 5*time.Minute:
+				out.Items = append(out.Items, Item{Key: t.ID.String() + "/unassessed", Unknown: unknown, Title: label + ": host reading is old", Detail: joinSentences("Last read "+minutesAgo(age)+".", sample.LastFailure), Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: true})
 			}
 			continue
 		}
@@ -160,4 +161,20 @@ func inventoryConditionKey(target ids.ID, r deploy.Resource) string {
 		Retained       *deploy.RetainedNote
 	}{r.Kind, r.ID, r.Name, r.Hosts, r.Retained})
 	return fmt.Sprintf("%s/missing/%x", target, sha256.Sum256(raw))
+}
+
+// minutesAgo words an age in whole minutes, as a person reads it.
+func minutesAgo(age time.Duration) string {
+	n := int(age / time.Minute)
+	if n == 1 {
+		return "1 minute ago"
+	}
+	return fmt.Sprintf("%d minutes ago", n)
+}
+
+func joinSentences(first, rest string) string {
+	if rest == "" {
+		return first
+	}
+	return first + " " + rest
 }

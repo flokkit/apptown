@@ -134,3 +134,24 @@ it('keeps the word joining an agent and its person out of the name weight', asyn
     expect(name.querySelector('.muted')?.textContent?.trim()).toBe('as')
   } finally { act(() => root.unmount()); client.clear() }
 })
+
+// A connection's row says what it allows in words; the raw scopes are in the
+// dialog those words open, one per line.
+it('keeps raw scopes off the row and lists them in the dialog the words open', async () => {
+  const scopes = ['apptown:user:read', 'apptown:change:create', 'apptown:change:write']
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ delegations: [
+    { id: 'one', clientName: 'Claude Code', user: 'sam', scopes, lastUsed: '', createdAt: '2026-11-09T09:40:00Z' },
+  ] }))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  document.body.append(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><AgentsCard canEdit={false} /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('tbody tr')).not.toBeNull())
+    const row = el.querySelector('tbody tr')!
+    for (const scope of scopes) expect(row.textContent).not.toContain(scope)
+    const words = row.querySelector<HTMLButtonElement>('button.link')!
+    expect(words.textContent).toBe('Can create and edit changes')
+    await act(async () => words.click())
+    expect([...document.querySelectorAll('li code')].map(c => c.textContent)).toEqual(scopes)
+  } finally { act(() => root.unmount()); el.remove(); client.clear() }
+})

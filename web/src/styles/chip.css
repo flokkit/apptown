@@ -5,14 +5,15 @@
 
 /* Chips are the ledger's stamps: a ruled edge in the state's colour over
    its wash. No capitals, because chips also carry URLs and ids. Neutral
-   (draft, queued, stopped) is a plain grey stamp; UNKNOWN is dashed and
-   hatched so it never reads as neutral or passed. */
+   (draft, queued, stopped) is a plain grey stamp, in the secondary text
+   colour so it still reads beside coloured states in both themes; UNKNOWN is
+   dashed and hatched so it never reads as neutral or passed. */
 /* Important layer order is reversed: these component properties keep the
    stamp transparent even when a page supplies a state wash or border. */
 .chip {
   display: inline-block; padding: 1px 7px;
   font-size: var(--fs-xs); font-weight: var(--fw-strong); letter-spacing: 0.01em;
-  line-height: 1.5; border: 1px solid var(--border-strong); color: var(--subtle); white-space: nowrap; background: transparent !important; border-color: transparent !important; padding-left: 0; border-radius: 0;
+  line-height: 1.5; border: 1px solid var(--border-strong); color: var(--muted); white-space: nowrap; background: transparent !important; border-color: transparent !important; padding-left: 0; border-radius: 0;
 }
 .chip.pass
   { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); }

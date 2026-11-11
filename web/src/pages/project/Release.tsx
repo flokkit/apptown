@@ -15,15 +15,17 @@ export type { ReleasePlan } from '../../wire.gen'
 import type { ReleaseBundleView, ReleaseDetail, ReleaseListed, ReleasePreviewStarted } from '../../wire.gen'
 import { fmtStamp } from '../../format'
 import { PRODUCT } from '../../brand'
+import { useTechnicalDetail } from '../change/TechnicalDetail'
 
 // Deployment's settlement lines begin "deployment attempt <id>, " (see
 // settlement_release.go). The id is for administrators, so it moves to its
-// own technical line under the words rather than leading them.
+// own technical line under the words, shown only with the technical switch.
 const ATTEMPT_LINE = /^deployment attempt (\S+), ([\s\S]*)$/
 function LogText({ text }: { text: string }) {
+  const [technical] = useTechnicalDetail()
   const m = ATTEMPT_LINE.exec(text)
   if (!m) return <>{text}</>
-  return <>{m[2]}<span className="tech-line">deployment attempt {m[1]}</span></>
+  return <>{m[2]}{technical && <span className="tech-line">deployment attempt {m[1]}</span>}</>
 }
 
 export function ReleasePermalinkPage({ slug, number, log = false }: { slug: string; number?: string; log?: boolean }) {

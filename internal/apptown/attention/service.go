@@ -290,8 +290,12 @@ func (v *View) add(key, name string, snapshot Snapshot, err error) {
 			v.Items[i].Stale = true
 		}
 	}
+	// A source that has a reading but could not use it is not one never read.
 	if coverage.Reason == "" && coverage.Unknown {
 		coverage.Reason = "No usable reading has been recorded yet."
+		if !coverage.ObservedAt.IsZero() {
+			coverage.Reason = "The latest reading could not be used."
+		}
 	}
 	if coverage.NextStep == "" {
 		coverage.NextStep = "Open the resource to check its settings."

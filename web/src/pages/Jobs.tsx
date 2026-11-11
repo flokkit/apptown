@@ -8,6 +8,7 @@ import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
 import type { Job, JobList } from '../wire.gen'
+import { useTechnicalDetail } from './change/TechnicalDetail'
 
 type JobGroup = { job: Job; count: number }
 
@@ -15,8 +16,15 @@ const jobColumns: ListColumn<JobGroup>[] = [
   { key: 'job', label: 'Job', phone: 'name', render: ({ job: j, count: repeats }) => <>{JOB_WORDS[j.kind] ?? j.kind.replaceAll('-', ' ')}{repeats === 1 && typeof j.receipt?.target === 'string' && <> on {j.receipt.target}</>}{repeats > 1 && <span className="muted"> · {repeats} done</span>}</> },
   { key: 'state', label: 'State', phone: 'state', render: ({ job: j }) => <><Status word={j.statusLabel} />{j.error && <> <span className="error">{j.error}</span></>}{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</> },
   { key: 'when', label: 'When', kind: 'time', render: ({ job: j }) => <span className="muted">{j.finishedAt ? 'Finished ' : j.startedAt ? 'Started ' : 'Queued '}{relTime(j.finishedAt || j.startedAt || j.createdAt)}</span> },
-  { key: 'outcome', label: 'Outcome', render: ({ job: j }) => <>{jobReceipt(j)}<code className="tech-line muted">{j.kind} · {j.key}</code></> },
+  { key: 'outcome', label: 'Outcome', render: ({ job: j }) => <>{jobReceipt(j)}<JobKey job={j} /></> },
 ]
+
+// The job's kind and key are for administrators: the Job column already
+// names the kind in words, so the raw line shows only with the technical switch.
+function JobKey({ job }: { job: Job }) {
+  const [technical] = useTechnicalDetail()
+  return technical ? <code className="tech-line muted">{job.kind} · {job.key}</code> : null
+}
 
 export function JobsPage() {
   return <div><h1>Background jobs</h1><p>Backups, resource checks and workflow follow-ups run here. Safe jobs retry by themselves.</p><p><Link to="/usage">Usage</Link></p><JobQueue /></div>

@@ -2,62 +2,97 @@
 
 ## What it's for
 
-Before anything ships, AppTown checks it for the
-things you would not want to discover later: dependencies with known
-security holes, a password or token committed by accident, and it
-records exactly what is inside the build. A scan that finds something
-blocks the landing and shows you what and where.
+Before anything ships, AppTown checks it for things you would not want to
+discover later:
 
-Every landing runs every attached source scanner (dependencies,
-secrets, SBOM by default) on the committed tree before the approval,
-and every attached image scanner (trivy by default) on the public part's
-image: pulled by its declared reference, or built from the landing's commit
-(or found cached for that commit); failed scans block the landing. The release
-resolves its own images, so the scan's receipt names the image it scanned and
-how it got it, not the release's digest, and lists the other parts and init
-steps, which it does not scan.
+- dependencies with known security holes;
+- a password or token committed by accident.
 
-Each scanner says what it applies to (`appliesTo`, the words a check uses),
-and a scan that applies to nothing the app declares says **not
-applicable** with the reason, never a pass: the dependency scan (osv)
-applies to an app with a part built with a language it reads (go, node,
-python, ruby, rust, java, dotnet, php: `tools:` in `.apptown/app.yaml`);
-secrets and the SBOM to any repository with files; the image scan to a
-public part that runs as a container (a public static site is not
-applicable: its files are packed into AppTown's file-server image at
-release); the licence scan to a public container part built with node,
-python, ruby or php. A scanner may declare `emptyExit`, the exit it gives
-when it found nothing to judge (osv's 128, "no package sources found"):
-where the scanner applies, that is a failure, since the contract says
-there is something to scan. Commit the lockfile it reads (a .NET app its
-packages.lock.json). A manual scanner, run only by a way of working's tool
-check, takes that check's `appliesTo` and runs in each matching part's
-folder, `${PART_FOLDER}` in its command.
+It also records exactly what is inside the build. A scan that finds
+something blocks the landing and shows you what it found and where.
 
-An image scan compares with an earlier image: the image of the commit the
-change forked from main at. When that image cannot be made, there is nothing
-to compare with and every finding counts as new; the scan says why, and on a
-project's first release it says "first release".
+## What runs at a landing
 
-`apptown check` runs the same source and image scans on your commit before you
-hand back, as feedback: the landing still scans what it lands.
+Every landing runs each attached source and image scanner that is not
+manual. A failed scan blocks the landing.
+
+A manual scanner runs only when a way of working's tool check names it.
+Attaching one to a project does not make it run at a landing.
+
+- **Source scanners** read the committed files before the approval. By
+  default these scan dependencies and secrets, and make the software
+  inventory (SBOM).
+- **Image scanners** read the public part's image. The default is trivy.
+  AppTown pulls the image by its declared reference, builds it from the
+  landing's commit, or finds it cached for that commit.
+
+The release resolves its own images. So the scan's receipt names the image
+it scanned and how it got it, not the release's digest. The receipt also
+lists the other parts and init steps, which the scan does not read.
+
+## What each scanner applies to
+
+Each scanner says what it applies to (`appliesTo`, the words a check uses).
+A scan that applies to nothing the app declares says **not applicable**,
+with the reason. It is never a pass.
+
+- **Dependency scan (osv):** an app with a part built with a language it
+  reads. These are go, node, python, ruby, rust, java, dotnet and php, set
+  by `tools:` in `.apptown/app.yaml`.
+- **Secrets and the SBOM:** any repository with files.
+- **Image scan:** a public part that runs as a container. A public static
+  site is not applicable. Its files are packed into AppTown's file-server
+  image at release.
+- **Licence scan:** a public container part built with node, python, ruby
+  or php.
+
+A scanner that applies but finds nothing to read fails. For osv this is
+"no package sources found". Commit the lockfile it reads. For a .NET app
+that is `packages.lock.json`. The [admin guide](scanner-tool.admin.md) says
+how a scanner declares this, and how manual scanners choose their folders.
+
+## What an image scan compares with
+
+An image scan compares with an earlier image: the image of the commit where
+the change forked from main.
+
+When that image cannot be made, there is nothing to compare with. Every
+finding then counts as new, and the scan says why. On a project's first
+release it says "first release".
+
+## Scanning before you hand back
+
+`apptown check` runs the same source and image scans on your commit. This
+is feedback only. The landing still scans what it lands.
 
 ## When a scan blocks you
 
-- The change page shows the findings under Details, on the scan's own
-  check: grouped by package, with severity, fix versions where known,
-  and the raw report as evidence.
-- Fix it (bump the dep, remove the secret) — or, when a finding is
-  genuinely not applicable, SUPPRESS it: per-finding, with a written
-  justification and an expiry date. Blanket overrides are the wrong
-  tool and the UI will push you toward per-finding suppressions.
-- The project's Security tab has two views: Findings, the posture of
-  what's on main with suppressions applied, and Suppressions, where
-  they are made and expire.
+The change page shows the findings under **Details**, on the scan's own
+check. They are grouped by package, with:
+
+- severity;
+- fix versions, where known;
+- the raw report, as evidence.
+
+Then do one of these:
+
+- **Fix it.** Update the dependency or remove the secret.
+- **Suppress it,** when a finding genuinely does not apply. A suppression
+  covers one finding. It needs a written justification and an expiry date.
+
+Blanket overrides are the wrong tool. The page steers you to suppressing
+single findings instead.
+
+The project's **Security** tab has two views:
+
+- **Findings:** what is on main now, with suppressions applied.
+- **Suppressions:** where suppressions are made and where they expire.
 
 ## What "clean" means
 
-A green scan attests the committed tree at that SHA, with the scanner
-image + config hash pinned in the receipt. Reports are artifacts —
-downloadable, diffable, and exportable (OpenVEX for suppressions,
-CycloneDX for SBOMs).
+A passing scan covers the files committed at that exact commit. The
+receipt records the scanner image and its config hash, a fingerprint of its
+settings.
+
+Reports are kept as records. You can download them, compare them and export
+them: suppressions as OpenVEX, software inventories as CycloneDX.

@@ -196,11 +196,12 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
       {step.type === 'scan' && step.evidence.binding != null && (
         <div className="step-note">
           {/* How the scanner ran is for administrators: one technical line
-              that scrolls sideways. The note and counts stay in words. */}
-          <code className="tech-line muted">
+              that scrolls sideways, shown with the technical switch as the
+              script's line is. The note and counts stay in words. */}
+          {technical && <code className="tech-line muted">
             {[`${step.evidence.binding} v${step.evidence.bindingVersion} (${step.evidence.image})`, step.evidence.exitCode != null && `exit ${step.evidence.exitCode}`,
               step.evidence.durationMs != null && `${step.evidence.durationMs}ms`, step.evidence.configHash && `config sha256:${step.evidence.configHash}`].filter(Boolean).join(' · ')}
-          </code>
+          </code>}
           {(step.evidence.note || step.evidence.findings != null) && <div className="muted small">
             {[step.evidence.note, step.evidence.findings != null && `${step.evidence.findings.actionable} actionable / ${step.evidence.findings.total} findings${step.evidence.findings.dispositioned > 0 ? ` (${step.evidence.findings.dispositioned} suppressed)` : ''}`].filter(Boolean).join(' · ')}
           </div>}

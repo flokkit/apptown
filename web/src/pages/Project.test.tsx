@@ -201,8 +201,8 @@ it.each([
     if (title === 'Notes') {
       expect(popover.textContent).toContain('PROJECT-NOTES.md')
       expect(popover.textContent).toContain('every session')
-      expect(popover.textContent).toContain('author and change number')
-      expect(popover.textContent).toContain('claims, never evidence')
+      expect(popover.textContent).toContain('an author and a change number')
+      expect(popover.textContent).toContain("can't count a note alone as proof")
     }
     if (title === 'Decisions') {
       expect(popover.textContent).toContain('what this project chose and why')
@@ -210,7 +210,7 @@ it.each([
     }
     if (title === 'Secrets') {
       expect(popover.textContent).toContain('Secrets are values your app needs but should not be part of the code: passwords, API keys, signing keys. AppTown keeps them and gives them to the app when it runs.')
-      expect(popover.textContent).toContain('Project secrets are declared in secretspec.toml.')
+      expect(popover.textContent).toContain('The app\'s code lists the secrets it needs, in its secretspec.toml file.')
       expect(popover.textContent).toContain('Entered values will not be shown again.')
     }
     const link = popover.querySelector('a')!

@@ -48,9 +48,13 @@ function RecordLink({ artifact, runId }: { artifact: Artifact; runId: string }) 
   </div>
 }
 
+// A record's page is titled with the words its link in the story uses.
+const recordTitle = (artifact: Artifact) => { const label = recordLabel(artifact); return label.charAt(0).toUpperCase() + label.slice(1) }
+
 function RecordBody({ artifact }: { artifact: Artifact }) {
   return <div className="ch-story-evidence">
-      <p className="small muted">{artifact.name} · {artifact.kind.replace(/-/g, ' ')} · {fmtStamp(artifact.createdAt)}</p>
+      {/* A name that only repeats the kind says nothing new. */}
+      <p className="small muted">{artifact.name !== artifact.kind && `${artifact.name} · `}{artifact.kind.replace(/-/g, ' ')} · {fmtStamp(artifact.createdAt)}</p>
       {artifact.kind === 'agent-reported' && <p>Reported by the agent.</p>}
       {artifact.ref && <a href={artifact.ref} target="_blank" rel="noreferrer">Open record</a>}
       {artifact.binary ? <Screenshots shots={{ shots: [{ artifact: artifact.id!, path: artifact.name, view: "record" }] }} /> : artifact.body && <ArtifactBody artifact={artifact} />}
@@ -142,7 +146,7 @@ export function ChangeDetails({ recordId, view, current, reload, runId }: { reco
     const entry = story.find(e => `entry-${e.key}` === recordId)
       || (recordId === 'preview' ? previewEntry : recordId === 'review' ? reviewEntry : undefined)
     const artifact = story.flatMap(e => e.records).find(a => `record-${a.id}` === recordId)
-    return <><h1>{recordId === 'request' ? 'Request' : recordId === 'summary' ? 'Report' : recordId === 'preview' ? 'Preview' : recordId === 'review' ? 'Review' : recordId === 'checks' ? 'Checks' : entry?.step ? stepTitle(entry.step) : artifact?.name || 'Record'}</h1>
+    return <><h1>{recordId === 'request' ? 'Request' : recordId === 'summary' ? 'Report' : recordId === 'preview' ? 'Preview' : recordId === 'review' ? 'Review' : recordId === 'checks' ? 'Checks' : entry?.step ? stepTitle(entry.step) : artifact ? recordTitle(artifact) : 'Record'}</h1>
       <p className="muted small">From <Link to={`/changes/${view.change.id}`}>change {view.change.number} · {changeTitle(view.change)}</Link></p>
       {[...ids].map(id => <TraceRead key={id} id={id} receive={receive} />)}
       {recordId === 'request' ? <RequestEntry full view={view} current={current} reload={reload} /> : recordId === 'summary' ? <Report text={fullReport || 'No report was recorded.'} changeId={view.change.id!} />
@@ -205,7 +209,9 @@ export function ChangeDetails({ recordId, view, current, reload, runId }: { reco
     })}
     <section className="ch-change-card"><h2>About this change</h2><StateRecord view={view} /><table className="ch-facts-table"><tbody>
       {view.change.branch && <tr><th scope="row">Branch</th><td><code className="tech-line">{view.change.branch}</code></td></tr>}
-      {view.change.baseSha && <tr><th scope="row">Started from</th><td><code className="tech-line">{view.change.baseSha}</code></td></tr>}
+      {/* The branch is an exact git name people copy, so it stays whole; the
+          starting commit is its short form unless the technical switch is on. */}
+      {view.change.baseSha && <tr><th scope="row">Started from</th><td><code className="tech-line">{technical ? view.change.baseSha : view.change.baseSha.slice(0, 8)}</code></td></tr>}
       {view.change.type && <tr><th scope="row">Kind</th><td>{view.change.type}</td></tr>}
       {u && (u.total > 0 || u.costMicros > 0 || u.unpriced > 0) && <tr><th scope="row">Cost</th><td>{fmtTokens(u.total)} tokens{` · ${fmtPrice(u.costMicros, u.unpriced)}`}</td></tr>}
       <Attachments changeId={view.change.id!} readOnly={['shipped', 'abandoned'].includes(view.change.state)} />

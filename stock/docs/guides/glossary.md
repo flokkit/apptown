@@ -28,8 +28,8 @@ records are removed, and its GitLab copy is renamed and archived. Its
 receipts and usage stay.
 
 **Change** — a unit of work with its own branch. However it starts — a
-chat, the detailed form, a catalog change, or an imported branch — it
-accumulates commits and ends shipped or abandoned. A change whose workflow
+chat, the form for a new change without a chat, a catalog change, or an
+imported branch — it accumulates commits and ends shipped or abandoned. A change whose workflow
 keeps a record instead of commits (research, a product spec) closes when
 its record is accepted; nothing lands, and its lifecycle record says **finished** rather
 than shipped. A change AppTown closed because its run found nothing to
@@ -153,8 +153,8 @@ our norms"). It is shown when deciding and recorded with the decision.
 **Pacing** — how a workflow advances. "Paced by people" waits at gates for a
 human; "runs straight through" advances on its own when checks pass.
 
-**Catalog change** — a prepared change that can be run on any project, with
-parameters. AppTown ships them with each release.
+**Catalog change** — a prepared change, the same steps every time, that can
+be run on any project, with parameters. AppTown ships them with each release.
 
 ## Shipping
 

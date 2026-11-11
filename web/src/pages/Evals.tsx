@@ -234,7 +234,10 @@ export function EvalScorecardPage() {
 // stated and no claim of significance.
 function Tallies({ e, variant }: { e: EvalScorecard; variant: string }) {
   if (e.comparable === 0) {
-    return <div className="muted small mb-2" >No Change has both arms finished comparably yet{e.notComparable > 0 ? `; ${e.notComparable} not comparable` : ''}.</div>
+    // A Change both of whose runs finished can still be left out when their
+    // scores cannot be compared (evals/score.go), so this does not say the
+    // runs are unfinished.
+    return <div className="muted small mb-2" >Nothing to compare yet: no change has two results that can be compared.{e.notComparable > 0 ? ` ${e.notComparable} finished but can't be compared.` : ''}</div>
   }
   return (
     <section className="card evals-tally">

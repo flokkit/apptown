@@ -16,6 +16,7 @@ import { Bubbles } from './console/Bubbles'
 import { ChangeFacts, StartedChanges, WorkshopActions } from './console/ChangeBar'
 import { useConsoleSession } from './console/useConsoleSession'
 import { useTerminal } from './console/useTerminal'
+import { useTechnicalDetail } from './change/TechnicalDetail'
 
 // The chat page (C1.5): a conversation with the project's helper, and the
 // same session as a real terminal one toggle away. Which chat it shows
@@ -53,6 +54,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   // Context stays inline at both widths.
   const narrow = useNarrow()
   useChatViewport(narrow)
+  const [technical] = useTechnicalDetail()
   const introKey = `chat-intro-seen-${slug}`
   const [introSeen, setIntroSeen] = useState(() => localStorage.getItem(introKey) === '1')
   const termRef = useRef<HTMLDivElement>(null)
@@ -116,15 +118,17 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
               {session?.model || 'default model'}<br />
               {session?.continuedFrom && <>continuing {session.continuedFrom}<br /></>}
               {status === 'attached' ? 'connected' : status}
-              {session && <><br /><span title={session.id}>session {session.id.slice(0, 8)}…</span></>}
+              {/* The session id is what `apptown wait-chat` takes: for
+                  diagnosis, so it shows with the technical switch. */}
+              {session && technical && <><br /><span className="mono">session {session.id}</span></>}
             </div>
             {/* A remembered way of reading the chat, not something to flip
                 mid-conversation: it lives here, not above the input. */}
             {zoom === 'chat' && <AgentActionsSwitch shown={showActions} onChange={setShowActions} />}
-            {narrow && zoom === 'chat' && <button className="subtle" disabled={!session} onClick={() => setZoomKeep('terminal')}>Terminal</button>}
+            {narrow && zoom === 'chat' && <button className="subtle" disabled={!session} onClick={() => setZoomKeep('terminal')}>Open terminal</button>}
             {session?.mayAct && <>
-              <button className="subtle" onClick={startFresh}>↺ start fresh</button>
-              <button className="subtle danger" onClick={() => void end()}>end chat</button>
+              <button className="subtle" onClick={startFresh}>↺ Start fresh</button>
+              <button className="subtle danger" onClick={() => void end()}>End chat</button>
             </>}
           </div>
         </FormMenu>

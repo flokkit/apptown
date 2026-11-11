@@ -55,6 +55,9 @@ describe('what-if panel', () => {
     })
     expect(el.textContent).toContain('Eligible (on an earlier version):ledgertill')
     expect(el.textContent).toContain('None run on this version.')
+    // What a what-if is, in plain words.
+    expect(el.textContent).toContain('Try this version on projects without changing them.')
+    expect(el.textContent).not.toContain('hypothetical')
     const run = button(el, 'Run on')
     expect(run.textContent).toBe('Run on 2 eligible projects')
     await act(async () => { run.click() })

@@ -159,7 +159,7 @@ const phoneListsFixture = await build({
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main className="main" style={{padding:16}}>
       <div id="parts"><DeploymentContainers slug="if-only" name="main" /></div>
       <div id="technical-parts"><DiagnosticsDetail d={diagnostics} busy={false} onLog={() => {}} /></div>
-      <div id="grid-list" style={{display:'grid'}}><section><ListTable label="Connections" rows={['ChatGPT']} rowKey={r=>r} columns={[{key:'agent',label:'Agent',phone:'name',render:r=>r},{key:'permissions',label:'Permissions',render:()=><><span>Can create and edit changes</span><code className="tech-line">apptown:user:read, apptown:change:create, apptown:change:write</code></>}]} /></section></div>
+      <div id="grid-list" style={{display:'grid'}}><section><ListTable label="Connections" rows={['ChatGPT']} rowKey={r=>r} columns={[{key:'agent',label:'Agent',phone:'name',render:r=>r},{key:'permissions',label:'Permissions',render:()=><button className="link">Can create and edit changes</button>}]} /></section></div>
       <section id="activity"><ListRow to="/changes/14" className="card row application-overview-card" state={<span className="row-status"><Status word="deployed" /></span>} identity={<><strong>#14 Publish the winter ride times</strong><span className="muted small">Release 16 · main</span></>} /></section>
       <div id="title" className="row"><h1 className="grow">built-in-docker</h1><Status observation word="failed" /><button className="primary">Check target</button></div>
       <div className="ch-page work-page"><section className="ch-change-card"><table id="row-headers" className="ch-facts-table"><tbody><tr><th>Instructions</th><td>Publish the winter ride times on the rides page</td></tr><tr><th>Attachments</th><td>none</td></tr></tbody></table></section></div>
@@ -888,11 +888,30 @@ try {
     // Edit display name has room after the ID, or a line of its own.
     await round('label', size)
     const text = el => { const r = document.createRange(); r.selectNodeContents(el); const rs = [...r.getClientRects()].filter(x => x.width > 0); return { top: Math.min(...rs.map(x => x.top)), bottom: Math.max(...rs.map(x => x.bottom)) } }
-    const gaps = await page.evaluate(text => { const t = eval(text), code = document.querySelector('.display-label-edit code').getBoundingClientRect(), button = document.querySelector('.display-label-edit button'), link = button.getBoundingClientRect(), words = t(button), next = t(document.getElementById('next-fact')), kind = t(document.getElementById('kind-value')), third = t(document.getElementById('third-fact')); return { after: link.left - code.right, under: link.top - code.bottom, below: next.top - words.bottom, facts: third.top - kind.bottom } }, String(text))
-    // Beside the ID with a gap, or (where the text is wider) on its own line under it.
+    const gaps = await page.evaluate(text => { const t = eval(text), code = document.querySelector('.display-label-edit code').getBoundingClientRect(), button = document.querySelector('.display-label-edit button'), link = button.getBoundingClientRect(), words = t(button), next = t(document.getElementById('next-fact')), kind = t(document.getElementById('kind-value')), third = t(document.getElementById('third-fact')); return { after: link.left - code.right, under: words.top - code.bottom, below: next.top - words.bottom, facts: third.top - kind.bottom } }, String(text))
+    // Beside the ID with a gap, or (where the text is wider) on its own line
+    // under it. Under is measured by the words: on a phone the tap area
+    // reaches over the line above.
     want(gaps.after >= 8 || gaps.under >= 0, `Edit display name sits apart from the ID at ${where}: ${JSON.stringify(gaps)}`)
     // And no band under it: the next fact follows as one fact follows another.
     want(gaps.below <= gaps.facts + 14, `the next fact follows Edit display name as facts follow each other at ${where}: ${JSON.stringify(gaps)}`)
+    // The value is as tall as its text (f908, f993): the link's tap area
+    // reaches over the lines around it rather than adding height to the row.
+    const shape = await page.evaluate(() => {
+      // Rects of the text alone: a range over the dd would also give the
+      // button's own box.
+      const dd = document.querySelector('.display-label-edit').closest('dd'), style = getComputedStyle(dd), rs = []
+      for (const walk = document.createTreeWalker(dd, NodeFilter.SHOW_TEXT), r = document.createRange(); walk.nextNode();) {
+        r.selectNodeContents(walk.currentNode)
+        rs.push(...[...r.getClientRects()].filter(x => x.width > 0))
+      }
+      const button = dd.querySelector('button').getBoundingClientRect()
+      return { content: dd.getBoundingClientRect().height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom), text: Math.max(...rs.map(x => x.bottom)) - Math.min(...rs.map(x => x.top)), tap: button.height }
+    })
+    // A few pixels is the line spacing around the glyphs; the
+    // 44px row this guards against stood 13 to 25 pixels taller.
+    want(shape.content <= shape.text + 6, `the Edit display name value is as tall as its text at ${where}: ${JSON.stringify(shape)}`)
+    want(shape.tap >= 44, `Edit display name keeps a 44px tap area at ${where}: ${JSON.stringify(shape)}`)
     // Edit and Delete stay together.
     await round('kinds', size)
     await page.getByText('Club sign-in', { exact: true }).waitFor()

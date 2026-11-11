@@ -134,7 +134,7 @@ describe('model prices', () => {
       // The tabs come first and switch everything under them, the cost card included.
       expect(el.querySelector('.tabs')!.compareDocumentPosition(el.querySelector('.usage-figure')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Details')!.click() })
-      expect(el.textContent).toContain('4 spend records without a price source')
+      expect(el.textContent).toContain('4 records have no known price.')
       expect(el.querySelector('.usage-figure')).toBeNull()
       report.totals.costMicros = 3000
       report.totals.providerReported = 2
@@ -142,13 +142,13 @@ describe('model prices', () => {
       report.totals.unpriced = 1
       await act(async () => { await client.invalidateQueries() })
       await settled(client)
-      expect(el.textContent).toContain('2 reported by the provider')
+      expect(el.textContent).toContain('Model calls priced: 2 by the provider, 1 from the model price list. 1 record has no known price.')
       await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Summary')!.click() })
       expect(el.querySelector('.usage-figure')?.textContent).toContain('partly priced')
       expect(el.querySelector('.usage-figure .stat-value')?.classList.contains('stat-word')).toBe(true)
       await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Details')!.click() })
-      expect(el.textContent).toContain('1 from the model catalog')
-      expect(el.textContent).toContain('1 spend record without a price source')
+      expect(el.textContent).not.toContain('model catalog')
+      expect(el.querySelector('.bar-row')?.textContent).toContain('44 · not priced · 4 records have no known price')
     } finally { act(() => root.unmount()); client.clear() }
   })
 })
@@ -242,4 +242,23 @@ it.each([0, 100])('does not call incomplete usage an exact unpriced token count:
     expect(html).not.toContain('with no price')
     expect(html).toContain('1 record has unknown or partial cost')
   } finally { client.clear() }
+})
+
+// The Details line is sentences a person can read aloud: the cache share is
+// "of them", and the price counts name model calls and where prices came from.
+it('says the token, cache and price-source counts in plain sentences', async () => {
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  const report = {
+    windowDays: 30, totals: { total: 185100, cacheRead: 174500, costMicros: 1000000, incomplete: 0, providerReported: 0, catalog: 18, unpriced: 2 },
+    byKind: [], byModel: [], byDay: [], byProject: [], byWorkflow: [], byDayKind: [],
+  }
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(report))))
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><UsageView project="shop" /></QueryClientProvider>))
+    await settled(client)
+    await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Details')!.click())
+    const text = el.textContent!
+    expect(text).toContain("185.1k tokens. 174.5k of them were read again from the model's cache. Model calls priced: 18 from the model price list. 2 records have no known price.")
+    for (const old of ['saved responses', 'model catalog', 'price source']) expect(text).not.toContain(old)
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

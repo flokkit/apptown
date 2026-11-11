@@ -8,8 +8,9 @@ import { newQueryClient } from './data'
 import TopBar from './TopBar'
 import { PAGE_ROUTES, TAB_ROUTES, routeAncestors } from './breadcrumbs'
 import app from './App.tsx?raw'
+import { setProjectScope } from './projectScope'
 
-vi.mock('./data', async original => ({ ...await original<typeof import('./data')>(), useGet: () => ({ data: null }) }))
+vi.mock('./data', async original => ({ ...await original<typeof import('./data')>(), useGet: (path: string | null) => ({ data: path === '/projects/club' ? { name: 'Club Newsletter' } : null }) }))
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 it('walks every route with one linked trail ending at its parent page', () => {
@@ -39,7 +40,7 @@ it('walks every route with one linked trail ending at its parent page', () => {
   }
 })
 
-it('shows only a back link to the parent on a phone, or the logo where the parent is home', () => {
+it('shows only a back link to the parent on a phone, or the logo where the parent is home and no project is in scope', () => {
   const routes = [...app.matchAll(/<Route path="([^"]+)"/g)].map(m => m[1]).filter(p => !p.includes('*'))
   for (const route of routes) {
     const path = route.replace(/:([a-zA-Z]+)/g, 'example-$1')
@@ -52,6 +53,20 @@ it('shows only a back link to the parent on a phone, or the logo where the paren
       if (parent) expect(links[0].textContent, route).toBe('‹' + parent.label)
       expect(doc.querySelector('.topbar-ellipsis'), route).toBeNull()
     } finally { act(() => root.unmount()); client.clear() }
+  }
+})
+
+// f503: an operation's address names no parent, but the page is inside its
+// project, so a phone leads back there rather than to the logo.
+it('leads a scoped page whose parent is home back to its project', () => {
+  for (const path of ['/operations/x', '/changes/x']) {
+    const client = newQueryClient(), doc = document.createElement('div'), root = createRoot(doc)
+    try {
+      act(() => setProjectScope('club'))
+      act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><TopBar me={null} narrow /></MemoryRouter></QueryClientProvider>))
+      const links = [...doc.querySelectorAll('nav[aria-label="Breadcrumb"] a')]
+      expect(links.map(a => [a.getAttribute('href'), a.textContent]), path).toEqual([['/projects/club', '‹Club Newsletter']])
+    } finally { act(() => root.unmount()); act(() => setProjectScope(null)); client.clear() }
   }
 })
 

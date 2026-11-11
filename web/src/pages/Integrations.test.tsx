@@ -454,6 +454,18 @@ it('gives every menu page its own help, naming a shipped guide', async () => {
   }
 })
 
+// The model profiles help says where an unset task's model comes from in the
+// page's own words: the line under each choice, and Main · strong at the end.
+it('explains fallbacks in the words the profile page shows', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { KIND_HELP } = await import('./Integrations')
+  const t = renderToStaticMarkup(<>{KIND_HELP.profiles.body}</>).replace(/<[^>]+>/g, '').replace(/&#x27;/g, "'").replace(/&amp;/g, '&')
+  expect(t).not.toContain("Default's")
+  expect(t).toContain('A task with no model of its own uses the model of the task it falls back to, shown under its choice.')
+  expect(t).toContain('Every fallback ends at Main · strong.')
+  expect(t).toContain("In another profile, a chain with no model at all uses standard's.")
+})
+
 // A connector with no presets (OpenRouter) is still offered in Connect.
 it('offers a connector that has no presets', async () => {
   const { CatalogPicker } = await import('./integrations/Catalog')

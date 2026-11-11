@@ -29,7 +29,7 @@ export function TargetConnections({ targets }: { targets: TargetView[] }) {
         { key: 'description', label: 'Description', render: b => <span title={usedFor(b, specFor(catalog.data?.catalog ?? [], b)) || undefined}>{usedFor(b, specFor(catalog.data?.catalog ?? [], b))}</span> },
         { key: 'uses', label: 'Used for', render: b => {
           const used = connectionTargets(b, targets)
-          return used.length ? used.map(t => <div key={t.id}><Link to={`/targets/${t.name}`}>{t.displayLabel || t.name}</Link> · deploying{t.kind === 'do-app' && typeof t.address.registry === 'string' && t.address.registry ? ' · image registry' : ''}{t.ingress.rehearsals === true ? ' · rehearsal host' : ''}{targets.some(other => other.address.copyRunner === t.name) ? ' · backup jobs' : ''}</div>) : <span className="muted small">No target recorded.</span>
+          return used.length ? used.map(t => <div key={t.id}><Link to={`/targets/${t.name}`}>{t.displayLabel || t.name}</Link> · deploying{t.kind === 'do-app' && typeof t.address.registry === 'string' && t.address.registry ? ' · image registry' : ''}{t.ingress.rehearsals === true ? ' · rehearsal host' : ''}{targets.some(other => other.address.copyRunner === t.name) ? ' · backup jobs' : ''}</div>) : <span className="muted small">Not used by any target yet.</span>
         } },
       ]} />}
 

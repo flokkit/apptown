@@ -162,7 +162,10 @@ describe('disabling an account', () => {
       if (phone) expect(dialog?.getAttribute('aria-labelledby') && document.getElementById(dialog.getAttribute('aria-labelledby')!)?.textContent).toBe('sam')
       else expect(dialog).toBeNull()
       expect(panel?.querySelector('select')?.value).toBe('admin')
-      expect([...panel!.querySelectorAll('button')].map(b => b.textContent)).toEqual(expect.arrayContaining(['reset password', 'set password', 'disable']))
+      expect([...panel!.querySelectorAll('button')].map(b => b.textContent)).toEqual(expect.arrayContaining(['make a reset link', 'type a new password', 'disable']))
+      // The two password acts say who chooses the password: a link the person
+      // uses to choose their own, or one you type for them.
+      expect([...panel!.querySelectorAll('button')].map(b => b.textContent)).not.toContain('reset password')
     } finally { act(() => root.unmount()); el.remove() }
   })
 
@@ -220,13 +223,13 @@ describe('disabling an account', () => {
       </QueryClientProvider>)
     })
     await manage(el, 'kim')
-    expect(panelText(el)).toContain('set password')
+    expect(panelText(el)).toContain('type a new password')
     const typePassword = async () => act(async () => {
       const input = el.querySelector('input[type=password][placeholder="min 8 characters"]') ?? panels(el).flatMap(panel => [...panel.querySelectorAll('input[type=password]')])[0] as HTMLInputElement
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'new-password-1')
       input.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    await press(el, 'set password')
+    await press(el, 'type a new password')
     await typePassword()
     await press(el, 'Set')
     await vi.waitFor(() => expect(sent).toEqual([{ username: 'kim', password: 'new-password-1' }]))
@@ -268,8 +271,8 @@ describe('a password reset link', () => {
       </QueryClientProvider>)
     })
     await manage(el, 'kim')
-    expect(buttons(el).filter((b) => b.textContent === 'reset password')).toHaveLength(1)
-    await press(el, 'reset password')
+    expect(buttons(el).filter((b) => b.textContent === 'make a reset link')).toHaveLength(1)
+    await press(el, 'make a reset link')
     expect(posted).toHaveLength(0)
     expect(panelText(el)).toContain('Make a password reset link for kim?')
     await press(el, 'Make link')
@@ -304,7 +307,7 @@ describe('a password reset link', () => {
     })
     const resetFor = async (name: string) => {
       await manage(el, name)
-      await press(el, 'reset password')
+      await press(el, 'make a reset link')
       await press(el, 'Make link')
       await vi.waitFor(() => expect(el.textContent).toContain(`apptown_invite_${name}`))
     }
@@ -329,8 +332,8 @@ describe('a password reset link', () => {
         <MemoryRouter><UsersCard users={[account('kim', false)]} act={() => {}} canEdit invites={invites} sso me="bls" /></MemoryRouter>
       </QueryClientProvider>)
     })
-    expect(buttons(el).map((b) => b.textContent)).not.toContain('reset password')
-    expect(buttons(el).map((b) => b.textContent)).not.toContain('set password')
+    expect(buttons(el).map((b) => b.textContent)).not.toContain('make a reset link')
+    expect(buttons(el).map((b) => b.textContent)).not.toContain('type a new password')
     await manage(el, 'kim')
     expect(document.querySelector('.popover')).toBeTruthy()
     expect(el.textContent).toContain("Reset passwords through your sign-in provider.")
@@ -539,7 +542,7 @@ it.each([true, false])('makes the password reset result available after confirmi
     const press = async (label: string) => act(async () => {
       [...document.querySelectorAll('[role="dialog"] button, .popover button')].find(b => b.textContent === label)!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
-    await press('reset password')
+    await press('make a reset link')
     await press('Make link')
     await vi.waitFor(() => expect(el.textContent).toContain(result))
     // Either close the dialog to expose the result, or present it inside.

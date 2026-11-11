@@ -70,8 +70,8 @@ export default function WhatIfPage() {
         <span className="muted">{w.requestedBy} · {relTime(w.createdAt)}</span>
         <span className="muted">
           {w.rubrics
-            ? `model rubrics: ${fmtPrice(w.costMicros, w.incomplete)} of ${fmtCost(w.spendLimitMicros)}`
-            : 'model rubrics not included'}
+            ? `AI reviews: ${fmtPrice(w.costMicros, w.incomplete)} of ${fmtCost(w.spendLimitMicros)}`
+            : "AI reviews not run, so checks that need one weren't judged"}
         </span>
         {w.advanceWorkflows && <span className="muted">moves each project's other workflows to the newest version</span>}
         {(w.also ?? []).length > 0 && <span className="muted">with, for projects already on them: {alsoWords(w)}</span>}

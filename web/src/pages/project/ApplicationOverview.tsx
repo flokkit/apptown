@@ -136,7 +136,7 @@ export function ProjectChanges({ project }: { project: ProjectDetail }) {
  {/* The same row as an open change: number and title, then how it ended and when. */}
  {data?.history.map(c => <ListRow to={`/changes/${c.changeId}`} className="card row application-overview-card" key={c.changeId} identity={<>
    <Link to={`/changes/${c.changeId}`} className="run-link"><strong><span className="muted">#{c.changeNumber} </span>{c.title}</strong></Link>
-   <span className="muted small">{c.statusLabel} · {fmtWhen(c.when)}</span>
+   <div className="muted small">{c.statusLabel} · {fmtWhen(c.when)}</div>
  </>} />)}
  </Section></>
 }

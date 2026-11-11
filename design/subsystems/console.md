@@ -11,7 +11,7 @@ lists tools, mounts, services and credential grants.
 
 Change on Home and the Projects list creates a chat change and opens its
 conversation when chat is available. Its menu offers Catalog change and New
-change, detailed. Without chat, Change opens the detailed form and the menu
+change without a chat. Without chat, Change opens that form and the menu
 still offers Catalog change. The project overview shares the same Change
 control, with its descriptive sub-label.
 

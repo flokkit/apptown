@@ -163,7 +163,7 @@ nothing. Administrators list pending invites and withdraw them
 (`user.invite-revoked`); used and withdrawn invites stay as records.
 
 A password reset link is the same kind of link for an account that already
-has a password: People → reset password, `apptown password-link <username>
+has a password: People → make a reset link, `apptown password-link <username>
 [--days N]`, or `POST /api/v1/password-links {username, days?}`. It needs the
 same authority as an invite (an agent token or OAuth connection is refused),
 is refused for a name without a password and for a disabled account, and has
@@ -197,7 +197,7 @@ of the address bar as soon as it is read (leaving `/invite`, so reloading
 asks for the link again), the page is served with `Referrer-Policy:
 no-referrer`, and browser error reports have every `apptown_invite_` token
 replaced before they are sent.
-Setting a password directly (People → set password, People → Add a person
+Setting a password directly (People → type a new password, People → Add a person
 with a password you choose instead, or `POST /api/v1/users`) remains for
 scripted setup.
 An administrator disables or enables an account on People, or with

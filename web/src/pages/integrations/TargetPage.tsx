@@ -9,7 +9,7 @@ import { Status } from '../../Status'
 import { changedTargetSettings, editTarget, NEEDS_MODES, type TargetSettings as SettingsCommand } from '../../targetCommands'
 import { DisplayLabelEdit } from '../../DisplayLabel'
 import { PRODUCT } from '../../brand'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { HttpError, del, post } from '../../api'
 import { QuietConfirm } from '../../QuietConfirm'
@@ -62,14 +62,30 @@ const EVENT_WORDS: Record<string, string> = {
   'target.refreshed': 'refreshed from its configuration',
 }
 
-// What a target is and how it is reached, as its pages say it.
+// How a target runs a project's databases and storage, by its needs mode.
+const NEEDS_WORDS: Record<(typeof NEEDS_MODES)[number]['value'], string> = {
+  managed: 'run by the provider',
+  emulators: 'run as containers on this host',
+  register: 'registered by hand',
+}
+// How a target updates an app, by its rollout kind.
+const ROLLOUT_WORDS: Record<string, string> = {
+  replace: 'stops the old version, then starts the new one',
+  rolling: 'can replace running parts in stages',
+  rollback: 'can go back to the previous release',
+}
+
+// What a target is and how it is reached, as its pages say it: each
+// capability a labelled fact in plain words.
 function targetFacts(t: TargetView) {
   const caps = t.capabilities
-  const facts: string[] = []
-  if (caps.needs?.length) facts.push(`provides ${caps.needs.join(', ')}`)
-  if (caps.rollout?.length) facts.push(caps.rollout.join(', '))
-  facts.push(caps.keepsDataDir ? 'has disks' : 'no disks · networked databases only')
-  if (caps.ownLiveness) facts.push('restarts its own containers')
+  const mode = NEEDS_WORDS[t.needsMode as keyof typeof NEEDS_WORDS] ?? 'how they are provided is unknown'
+  const facts: { label: string; value: string }[] = [
+    { label: 'Databases and storage', value: [...(caps.needs ?? []), mode].join(', ') },
+  ]
+  if (caps.rollout?.length) facts.push({ label: 'Updates', value: caps.rollout.map(r => ROLLOUT_WORDS[r] ?? r).join(' · ') })
+  facts.push({ label: 'Disks', value: caps.keepsDataDir ? 'keeps app data on disk' : 'no disks: apps use networked databases' })
+  if (caps.ownLiveness) facts.push({ label: 'Restarts', value: 'The provider restarts apps that stop.' })
   const addr = t.address as Record<string, string | number | undefined>
   const concrete: string[] = []
   if (addr.host) concrete.push(String(addr.host))
@@ -197,7 +213,7 @@ function TargetSettings() {
         <dl className="facts">
           <dt>Name</dt><dd><DisplayLabelEdit keyLabel="Target ID" value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} /></dd>
           <dt>Kind</dt><dd>{placeOf(t.kindInfo, t.address)}</dd>
-          <dt>Provides</dt><dd>{facts.join(' · ')} · needs are {t.needsMode || 'unknown'}</dd>
+          {facts.map(f => <Fragment key={f.label}><dt>{f.label}</dt><dd>{f.value}</dd></Fragment>)}
           {(concrete.length > 0 || t.provider) && <><dt>Address</dt><dd>{concrete.join(' · ')}{t.provider && <> · through the <Link to="/integrations">{t.provider}</Link> connection</>}</dd></>}
           {addr.keyFrom && <><dt>SSH key</dt><dd>Secret <code>{addr.keyFrom}</code><div className="mt-1"><Link to="/integrations/secrets">Edit secret</Link></div></dd></>}
         </dl>
@@ -219,7 +235,7 @@ function TargetSettings() {
           : <ListTable className="small" label="Target offers" rows={t.offers} rowKey={o => o.id || 'implicit'} columns={[
             { key: 'group', label: 'Group', phone: 'name', render: o => <span className="badge accent">{o.group === '*' ? 'everyone' : o.group}</span> },
             { key: 'limits', label: 'Limits', render: o => capsWords(o.caps) || <span className="muted">no limits</span> },
-            { key: 'by', label: 'Offered by', className: 'muted', render: o => o.implicit ? 'by construction' : `by ${o.createdBy}` },
+            { key: 'by', label: 'Offered by', className: 'muted', render: o => o.implicit ? `${PRODUCT}, automatically` : `by ${o.createdBy}` },
             { key: 'action', label: '', phone: 'action', render: o => !o.implicit && <QuietConfirm label="Withdraw" ask={`Withdraw the offer to ${o.group === '*' ? 'everyone' : o.group}? Deployments already here stay.`} onYes={() => void withdraw(o.id!)} yes="Withdraw" className="subtle" /> },
           ]} />}
       </Section>

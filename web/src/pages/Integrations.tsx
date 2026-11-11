@@ -174,7 +174,7 @@ export const KIND_HELP: Record<string, { body: ReactNode; guide: string }> = {
   </> },
   profiles: { guide: 'architecture', body: <>
     <p>Choose which AI model does each task, such as planning, writing code or reviewing. Workflows ask for a task, not a model, so a change here applies to every workflow at once.</p>
-    <p>Every project uses the standard profile unless you move it to another, for example one with stronger models for demanding projects. A task left unset uses the task it falls back to, and in the end Default's model; another profile's unset task uses standard's.</p>
+    <p>Every project uses the standard profile unless you move it to another, for example one with stronger models for demanding projects. A task with no model of its own uses the model of the task it falls back to, shown under its choice. Every fallback ends at Main · strong. In another profile, a chain with no model at all uses standard's.</p>
   </> },
   registry: { guide: 'toolchains', body: <>
     <p>Connect a package mirror: a local copy of the libraries apps are built from, such as npm or PyPI. Builds fetch from it instead of the internet, so they are faster and less affected by outside outages.</p>

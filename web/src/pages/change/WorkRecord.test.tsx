@@ -139,6 +139,27 @@ it.each([
   } finally { f.close() }
 })
 
+// A workflow's source is led by one plain line per stage with its steps'
+// titles; a definition without stages adds no summary.
+it('leads the workflow source with a plain line per stage', async () => {
+  const t = trace() as unknown as { workflow: { definition: unknown } }
+  t.workflow.definition = { kind: 'lifecycle', stages: [
+    { name: 'work', steps: [{ name: 'implement', uses: 'agent/pi' }] },
+    { name: 'check', steps: [{ name: 'tests', uses: 'tests' }, { name: 'style', uses: 'script' }, { name: 'trivy', uses: 'scan' }, { name: 'accept', uses: 'approval' }] },
+  ] }
+  const f = await mount(t as unknown as RunTrace, '/changes/change/work/step/workflow?run=run&attempt=step-0')
+  try {
+    const lines = [...f.el.querySelectorAll('.work-workflow-stages li')].map(li => li.textContent)
+    expect(lines).toEqual(['work: Implementation', 'check: Tests, Style, Security scan, Approval'])
+    expect(f.el.querySelector('pre.source')?.textContent).toContain('uses: approval')
+  } finally { f.close() }
+  const bare = await mount(trace(), '/changes/change/work/step/workflow?run=run&attempt=step-0')
+  try {
+    expect(bare.el.querySelector('.work-workflow-stages')).toBeNull()
+    expect(bare.el.textContent).toContain('kind: pipeline')
+  } finally { bare.close() }
+})
+
 // An empty record is said in plain text outside the content box; the request reads as prose.
 it('says an empty report outside the box and renders the request as prose', async () => {
   const t = trace() as unknown as { steps: { evidence: { output?: string } }[] }

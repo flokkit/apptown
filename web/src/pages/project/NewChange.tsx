@@ -37,7 +37,7 @@ export function NewChangeButton({ slug, external, request }: { slug: string; req
 
   return (
     <>
-      {!external && <button className="subtle new-change-new-change-button-subtle"  onClick={() => setOpen(true)}>+ new change, detailed</button>}
+      {!external && <button className="subtle new-change-new-change-button-subtle"  onClick={() => setOpen(true)}>+ new change without a chat</button>}
       {open && (
         <Modal title="New change" onClose={() => setOpen(false)} maxWidth={560}>
           <div className="new-change-new-change-button-div">

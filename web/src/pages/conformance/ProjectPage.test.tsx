@@ -82,11 +82,15 @@ it('leads with per-check current evidence and keeps dated reviews underneath, ou
     // The current view acts on the project; a snapshot only shows it.
     expect(el.textContent).toContain('Check this project')
     expect(el.textContent).toContain('landing #12')
-    expect(el.textContent).toContain('judged on an older commit')
+    // The Result says the judgement is not on the current commit; the
+    // judged line beside it does not say so again.
+    const row = [...el.querySelectorAll('tbody tr')].find(r => r.textContent?.includes('landing #12'))!
+    expect(row.textContent).toContain('No judgement on the current commit')
+    expect(row.textContent).not.toContain('judged on an older commit')
     expect(el.textContent).not.toContain('Not run yet')
     expect(el.textContent).toContain('No current judgement')
     expect(el.textContent).toContain('Review · 7 Nov')
-    expect(el.textContent!.indexOf('judged at')).toBeLessThan(el.textContent!.indexOf('Dated snapshots'))
+    expect(el.textContent!.indexOf('commit abcdef12')).toBeLessThan(el.textContent!.indexOf('Dated snapshots'))
     expect(el.querySelector('a[href="/conformance/reviews/r/projects/shop"]')).not.toBeNull()
     // A review's counts are the numbers alone: the column label names them.
     expect(['Findings', 'Possible problems', 'Not judged'].map(l => el.querySelector(`td[data-label="${l}"]`)?.textContent)).toEqual(['0', '0', '0'])
@@ -128,5 +132,22 @@ it('counts checks that could not run in the lead line and keeps each reason on i
     expect(lead).toContain("2 checks couldn't run")
     for (const r of reasons) expect(lead).not.toContain(r)
     for (const r of reasons) expect(el.textContent).toContain(r)
+  } finally { act(() => root.unmount()); client.clear() }
+})
+
+// A finding row already says "No judgement on the current commit" for an old
+// result, so its evidence line names the commit without saying it again.
+it('does not repeat the older-commit note in a finding row', async () => {
+  const lanes = { conforms: 0, excepted: 0, findings: 1, flagged: 0, unassessed: 0, broken: 0, na: 0 }
+  const v = { id: 'old', reviewId: 'r', sha: 'abcdef123456', at: '2026-11-07T03:02:00Z', projectSlug: 'shop', evaluator: 'sh', lane: 'findings', state: 'stale', statusLabel: 'failed', severity: 'medium', block: 'tools', version: 2, check: 'clean' }
+  const view = { projects: [{ slug: 'shop', name: 'Shop', standing: 'has-findings', sentence: '1 finding', lanes }], byProject: { shop: [v] }, exceptions: {}, adjudications: {}, priorConfirmations: {}, checkDefs: {}, openRemediations: [], reviews: [{ id: 'r', number: 5, trigger: 'manual' }] } as unknown as ConformanceView
+  vi.stubGlobal('fetch', vi.fn(async () => new Response('{}')))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectPage view={view} slug="shop" readOnly onRunOne={() => {}} /></MemoryRouter></QueryClientProvider>))
+    expect(el.textContent).toContain('No judgement on the current commit')
+    expect(el.textContent).toContain('commit abcdef12')
+    expect(el.textContent).toContain('review #5')
+    expect(el.textContent).not.toContain('judged on an older commit')
   } finally { act(() => root.unmount()); client.clear() }
 })

@@ -42,6 +42,26 @@ describe('a release page', () => {
   })
 })
 
+// The deployment attempt id in a log line is for administrators: the words
+// stay, and the id shows on its own line only with the technical switch.
+it.each([false, true])('shows a log line\'s deployment attempt id only with the technical switch (%s)', async technical => {
+  const user = `release-log-viewer-${technical}`
+  if (technical) localStorage.setItem(`apptown.technical-detail.${user}`, '1')
+  const client = newQueryClient()
+  client.setQueryData(getKey('/auth/me'), { mode: 'internal', user })
+  client.setQueryData(getKey('/projects/shop/releases/14'), {
+    release: { id: B14, number: 14, state: 'released', deployment: 'main', createdAt: '2026-10-13T04:34:46Z', releasedAt: '2026-10-13T04:34:46Z' },
+    isLive: false, changes: [], events: [{ at: '2026-10-13T04:38:45Z', text: `deployment attempt ${B15}, released to main` }],
+  })
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="14" log /></MemoryRouter></QueryClientProvider>) })
+    expect(el.textContent).toContain('released to main')
+    expect(el.textContent?.includes(`deployment attempt ${B15}`)).toBe(technical)
+    expect(el.textContent?.includes(B15)).toBe(technical)
+  } finally { act(() => root.unmount()); client.clear(); localStorage.clear() }
+})
+
 // A released version can fail later. Its log must refresh after settlement,
 // and a failed refresh retains the witnessed note under a stale marker.
 it('reads a crash-loop note after successful release and marks a failed refresh', async () => {

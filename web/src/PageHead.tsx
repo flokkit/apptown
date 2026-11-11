@@ -76,7 +76,7 @@ export const PAGE_HELP = {
     line: 'The places your apps run.',
     help: <>
       <p>A deployment target is a place deployments run, such as a Docker host, a Portainer environment or a DigitalOcean account. Each target's page shows what runs there and how full it is.</p>
-      <p>Previews run on the <Link to="/integrations/executor">executor</Link>.</p>
+      <p>Previews, the trial copies of an app made while a change is worked on, run on the <Link to="/integrations/executor">executor</Link> instead: the machine that also runs agents and checks.</p>
     </>,
     guide: 'deployment-targets',
   },
@@ -87,11 +87,16 @@ export const PAGE_HELP = {
       <ul>
         <li><strong>Source control:</strong> where project code lives.</li>
         <li><strong>Executor:</strong> where workflow steps run.</li>
-        <li><strong>Model providers and profiles:</strong> the models agents use.</li>
-        <li><strong>Deploy connectors and cloud accounts:</strong> how {PRODUCT} reaches where apps run.</li>
+        <li><strong>Model providers:</strong> the model accounts agents use.</li>
+        <li><strong>Model profiles:</strong> which model does each task.</li>
+        <li><strong>Deploy connectors:</strong> how {PRODUCT} reaches the machines apps run on.</li>
+        <li><strong>Cloud accounts:</strong> accounts whose deployment targets are under Targets.</li>
+        <li><strong>Package registries:</strong> local copies of the libraries apps are built from.</li>
         <li><strong>Scanners:</strong> checks run against a project's code.</li>
+        <li><strong>Secrets:</strong> where passwords and API keys are stored.</li>
       </ul>
-      <p>Each says whether it is working now. Test connection asks it again. What projects attach is under Services.</p>
+      <p>Each says whether it is working now. Test connection asks it again.</p>
+      <p>Services an app itself connects to, such as a database, are on the Services page.</p>
     </>,
     guide: 'monitoring',
   },
@@ -106,7 +111,7 @@ export const PAGE_HELP = {
   people: {
     title: 'People',
     line: `Accounts and groups on this ${PRODUCT}, and the roles they hold.`,
-    help: <p>A group can be named as an approver. Write <code>group:name</code> in a workflow's approver list. Any member's approval counts. The record keeps the name of the person who approved.</p>,
+    help: <p>A workflow's approval step can name a group instead of a person. Then any member's approval counts. The record keeps the name of whoever approved.</p>,
     guide: 'people-and-roles',
   },
   features: {
@@ -118,7 +123,8 @@ export const PAGE_HELP = {
   usage: {
     title: 'Usage',
     line: 'AI model use and cost, by model and project.',
-    help: <p>It counts the projects you can read. If you can read all of {PRODUCT}, it counts all of it. Workflow use comes from runs. Interactive use comes from chats. Costs are the per-message prices pi, the agent tool, reports. Local models cost $0.</p>,
+    help: <><p>It counts the projects you can read. If you can read all of {PRODUCT}, it counts all of it. Workflow use comes from runs. Interactive use comes from chats.</p>
+      <p>Costs are estimates, not your provider's bill. The coding agent reports a price for each message: the provider's own, or one worked out from the model's list price. Use with no known price shows as not priced.</p></>,
     guide: 'monitoring',
   },
   evals: {
@@ -175,7 +181,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
     </> },
     Groups: { guide: 'people-and-roles', body: <>
       <p>A group is a named set of people. Give a group a role and everyone in it gets that access.</p>
-      <p>A workflow can ask any member of a group to approve: put <code>group:name</code> in its approvers. The record keeps the name of whoever approved.</p>
+      <p>A workflow's approval step can name a group instead of a person. Then any member's approval counts. The record keeps the name of whoever approved.</p>
     </> },
     Roles: { guide: 'people-and-roles', body: <>
       <p>A role is what someone may do across {PRODUCT}. Click a role to see what it allows.</p>
@@ -191,13 +197,15 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
     </> },
     Suppressions: { guide: 'glossary', body: <>
       <p>Suppressions are recorded decisions to accept security findings for a time.</p>
-      <p>Create one from Findings, with a reason and an expiry. Each matches findings by fingerprint or identifier and package. When it expires, the finding fails the gate again. Revoke one here to make the finding actionable immediately, or export the records as OpenVEX.</p>
+      <p>Create one from Findings, with a reason and an expiry. Each matches findings by the scanner's own ID for it, or by the vulnerability's ID (such as a CVE number) and the package.</p>
+      <p>When it expires, the finding fails the security check again. Revoke one here to make the finding count again at once.</p>
+      <p>OpenVEX export downloads the records in a standard format other security tools read.</p>
     </> },
   },
   projectMemory: {
     Notes: { guide: 'project-notes', body: <>
       <p><code>PROJECT-NOTES.md</code> records durable facts and preferences about this project. Agents read it in every session.</p>
-      <p>Entries change through changes, with an author and change number. Notes are claims, never evidence.</p>
+      <p>Notes are edited through a change, so every edit has an author and a change number. An AI check can't count a note alone as proof of how the app behaves.</p>
     </> },
     Decisions: { guide: 'glossary', body: <>
       <p>Decisions are records of what this project chose and why.</p>
@@ -223,7 +231,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
     </> },
     Secrets: { guide: 'secrets', body: <>
       <p>Secrets are values your app needs but should not be part of the code: passwords, API keys, signing keys. {PRODUCT} keeps them and gives them to the app when it runs.</p>
-      <p>Project secrets are declared in <code>secretspec.toml</code>.</p>
+      <p>The app's code lists the secrets it needs, in its secretspec.toml file. To add a new one, ask for a change to the app, then enter its value here.</p>
       <p>Entered values will not be shown again.</p>
     </> },
     Members: { guide: 'people-and-roles', body: <>

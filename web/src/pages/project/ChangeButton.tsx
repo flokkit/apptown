@@ -25,8 +25,8 @@ export function ChangeButton({ slug, chatAvailable, compact = false, primary = f
       sub={compact ? undefined : 'describe what you want changed'}
       primary={primary} busy={busy} onMain={chatAvailable ? startChat : () => setDetailedOpen(true)}
       items={[
-        { label: 'Catalog change', hint: 'run one of the prepared changes', onClick: () => setCatalogOpen(true) },
-        ...(chatAvailable ? [{ label: 'New change, detailed', hint: 'pick the title and workflow yourself', onClick: () => setDetailedOpen(true) }] : []),
+        { label: 'Catalog change', hint: 'a prepared change, the same steps every time', onClick: () => setCatalogOpen(true) },
+        ...(chatAvailable ? [{ label: 'New change without a chat', hint: 'write the title and choose the workflow yourself', onClick: () => setDetailedOpen(true) }] : []),
       ]} />
     {err && <div className="error change-button-error">{err}</div>}
     {catalogOpen && <CatalogPicker slug={slug} onClose={() => setCatalogOpen(false)} />}

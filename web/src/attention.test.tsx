@@ -443,6 +443,16 @@ it('shows a failed backup attempt as last tried, while a first check remains pen
  expect(rows[1].textContent).not.toContain('Ask an administrator')
 })
 
+// An unknown source that was read says when it was last seen, never "checked".
+it('shows an unknown source with a reading as last seen, not checked', async () => {
+ responses(() => json({ items: [], sources: [{ ...known.sources[0], key: 'capacity', name: 'Capacity', unknown: true, stale: false, reason: 'The latest reading could not be used.' }] }))
+ const v = mount(<AttentionPage />); await settled(v.client)
+ const row = v.el.querySelector('[role=listitem]')!
+ expect(row.textContent).toContain('The latest reading could not be used.')
+ expect(row.querySelector('.attention-seen')!.textContent).toContain('last seen')
+ expect(row.querySelector('.attention-seen')!.textContent).not.toContain('checked')
+})
+
 // An operator whose Attention read failed is told so, not shown an all-clear.
 it('shows a not-known light when Attention cannot be read', async () => {
  responses(() => json({ error: 'down' }, 500))

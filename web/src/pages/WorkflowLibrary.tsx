@@ -9,23 +9,37 @@ import { firstErr, useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { SystemWorkflowBindings, WorkflowPublished } from '../wire.gen'
 
-const NEW_TEMPLATE = `apiVersion: apptown.dev/v1
+// The comments say what each choice means; they are read by people editing
+// the template and ignored by the parser. Each sits on its own short line
+// above its key, so it is read whole in a phone-width editor
+// at large text (about 30 characters).
+export const NEW_TEMPLATE = `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: team/my-workflow
   category: change
+  # core: on the short list
+  # extra: the longer list
   tier: extra
-  description: What this workflow does.
+  description: What it does.
 spec:
+  # lifecycle: people-paced
+  # pipeline: next stage
+  #   once checks pass
   kind: lifecycle
   stages:
     - name: work
       steps:
         - name: do-it
+          # AI agent works
           uses: agent/pi
         - name: accept
+          # person approves
           uses: approval
 `
+
+// A workflow's pacing in the server's words (httpapi/workflow_summary.go).
+export const pacingWords = (kind: string) => kind === 'pipeline' ? 'Runs straight through' : 'Paced by people'
 
 export default function WorkflowLibrary({ page = false }: { page?: boolean }) {
   const { name } = useParams()
@@ -152,7 +166,7 @@ function WorkflowRow({ page, l, busy, binding, candidates, onBind, onCopy, onEdi
       ]} />}
       detail={page && <>
           {l.description && <p>{l.description}</p>}
-          <p className="small">{l.kind} · {l.stages.join(' → ')}</p>
+          <p className="small">{pacingWords(l.kind)} · {l.stages.length === 1 ? 'stage' : 'stages'}: {l.stages.join(' → ')}</p>
           {binding && (
             <div className="row small" style={{ margin: '4px 0 8px' }}>
               <span className="muted">{PRODUCT} runs:</span>

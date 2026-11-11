@@ -212,3 +212,103 @@ func TestGuideDocCarriesAppTownsOwnAddresses(t *testing.T) {
 		t.Errorf("without an origin: %+v, want %+v", got, unknown)
 	}
 }
+
+// The guides people read on a phone are short sentences, steps and lists:
+// no paragraph or list item runs past 80 words, and the internal words that
+// made them hard to read (SUPPRESS, posture, exit contract, VEX-shaped) are
+// gone. Fenced code, HTML comments and table rows are not prose.
+func TestPhoneReadGuidesAreShortAndPlain(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"guides/quickstart.md", "guides/setups.md", "integrations/scanner-tool.developer.md", "integrations/scanner-tool.admin.md"} {
+		raw, err := fs.ReadFile(stockdocs.FS, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := string(raw)
+		for _, old := range []string{"SUPPRESS", "posture", "exit contract", "VEX-shaped"} {
+			if strings.Contains(text, old) {
+				t.Errorf("%s still says %q", name, old)
+			}
+		}
+		for _, para := range guideProse(text) {
+			if n := len(strings.Fields(para)); n > 80 {
+				t.Errorf("%s has a %d-word paragraph: %.60q", name, n, para)
+			}
+		}
+	}
+}
+
+// The developer guide's account of what a landing runs keeps the manual
+// scanner limit: attaching a manual scanner does not make it run, so a reader
+// is not told a landing checked what it did not.
+func TestScannerGuideSaysManualScannersRunOnlyFromAToolCheck(t *testing.T) {
+	t.Parallel()
+	raw, err := fs.ReadFile(stockdocs.FS, "integrations/scanner-tool.developer.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(strings.Fields(string(raw)), " ")
+	for _, want := range []string{
+		"runs each attached source and image scanner that is not manual",
+		"A manual scanner runs only when a way of working's tool check names it.",
+		"Attaching one to a project does not make it run at a landing.",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("the developer scanner guide does not say %q", want)
+		}
+	}
+	if strings.Contains(text, "runs every attached scanner") {
+		t.Error("the developer scanner guide says every attached scanner runs at a landing")
+	}
+}
+
+// guideProse splits a guide into its paragraphs and list items, leaving out
+// fenced code, HTML comments and table rows.
+func guideProse(text string) []string {
+	var out, cur []string
+	flush := func() {
+		if len(cur) > 0 {
+			out = append(out, strings.Join(cur, " "))
+			cur = nil
+		}
+	}
+	fenced, comment := false, false
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(trimmed, "```"):
+			flush()
+			fenced = !fenced
+			continue
+		case fenced:
+			continue
+		case strings.HasPrefix(trimmed, "<!--"):
+			flush()
+			comment = !strings.Contains(trimmed, "-->")
+			continue
+		case comment:
+			comment = !strings.Contains(trimmed, "-->")
+			continue
+		case trimmed == "", strings.HasPrefix(trimmed, "|"), strings.HasPrefix(trimmed, "#"):
+			flush()
+			continue
+		}
+		if listItem(trimmed) {
+			flush()
+		}
+		cur = append(cur, trimmed)
+	}
+	flush()
+	return out
+}
+
+func listItem(line string) bool {
+	if strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") {
+		return true
+	}
+	i := 0
+	for i < len(line) && line[i] >= '0' && line[i] <= '9' {
+		i++
+	}
+	return i > 0 && strings.HasPrefix(line[i:], ". ")
+}

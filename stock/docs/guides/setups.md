@@ -19,21 +19,26 @@ Choose an install first, then the targets where its apps run. The
 Use the trial to try AppTown on your computer. For production, use the
 setup below.
 
-A new project gets a `main` deployment that follows main on the default target
-when its creator has permission to deploy. With local Docker enabled, that
-target is the built-in Docker host. Agent-created projects need a person to
-save **Follows main** in the deployment’s **Release feed** setting before
-automatic releases run. Without a
-default target or deploy permission, nothing deploys yet; add a deployment
-under **Deployments** with **New deployment**.
+## Where a new project deploys
+
+A new project gets a `main` deployment that follows main on the default
+target, when its creator has permission to deploy.
+
+- With local Docker enabled, that target is the built-in Docker host.
+- For a project an agent created, a person must save **Follows main** in the
+  deployment’s **Release feed** setting before automatic releases run.
+- Without a default target or deploy permission, nothing deploys yet. Add a
+  deployment under **Deployments** with **New deployment**.
 
 ## Recommended setup
 
-Keep AppTown on the tailnet and put production apps on a separate Docker
-host with its own public ingress, or on a cloud target. App traffic then
-never passes through `apptownd`, and people using the apps do not need
-access to AppTown. Previews stay on AppTown's built-in host and are
-reachable only through the tailnet.
+Keep AppTown on the tailnet. Put production apps on a separate Docker host
+with its own public ingress, or on a cloud target. Then:
+
+- App traffic never passes through `apptownd`.
+- People using the apps do not need access to AppTown.
+- Previews stay on AppTown's built-in host, reachable only through the
+  tailnet.
 
 ```text
 Team on tailnet ── tailscale serve ── 127.0.0.1:7777 AppTown
@@ -43,15 +48,19 @@ Public visitors ── production host's ingress ── production apps
                                              (separate Docker or cloud target)
 ```
 
-Install the native release as in [Setting up a server](server-setup.md).
-Keep local Docker enabled and leave `-worker-url` unset: a worker moves
-previews to the worker. This setup keeps agents on AppTown's host too.
-For code you do not trust, use the [split install](split-install.md).
-This recommendation combines the native install with the same attached
-app host used by the split install.
+This setup is the native install with the same attached app host the split
+install uses.
 
-Use these settings, replacing the example names and Docker bridge address
-with yours. Each flag also has its `APPTOWN_` environment variable.
+1. Install the native release as in [Setting up a server](server-setup.md).
+2. Keep local Docker enabled.
+3. Leave `-worker-url` unset. A worker would move previews to the worker.
+   This setup keeps agents on AppTown's host too. For code you do not trust,
+   use the [split install](split-install.md).
+
+### Settings
+
+Use these settings, with your own names and Docker bridge address in place
+of the examples. Each flag also has its `APPTOWN_` environment variable.
 
 | Setting | Value |
 | --- | --- |
@@ -67,51 +76,86 @@ with yours. Each flag also has its `APPTOWN_` environment variable.
 | Preview certificate | Wildcard certificate for `*.preview.example.com`, obtained through DNS validation |
 | Built-in production routing | Leave `-tier-domain main=…` unset |
 
-The console and inference addresses must be private and reachable from
-AppTown's containers. The console default, `:7778`, listens on all
-interfaces; bind it to a private address as above or disable it with
-`-console-addr ''` (and omit `-console-url`). Do not forward either listener
-through an internet proxy or publish their ports on a router.
+The console and inference addresses must be private. AppTown's containers
+must be able to reach them.
 
-Join AppTown's machine to Tailscale, enable tailnet HTTPS, and run:
+- The console default, `:7778`, listens on all interfaces. Bind it to a
+  private address as above.
+- Or disable the console with `-console-addr ''`, and leave out
+  `-console-url`.
+- Do not forward either listener through an internet proxy.
+- Do not publish their ports on a router.
+
+### Tailscale
+
+1. Join AppTown's machine to Tailscale.
+2. Enable tailnet HTTPS.
+3. Run:
 
 ```sh
 sudo tailscale serve --bg http://127.0.0.1:7777
 tailscale serve status
 ```
 
-`tailscale serve` carries AppTown's setup, token use and Git over the tailnet name.
-The private preview proxy works over HTTP. Preview HTTPS with a wildcard
-certificate and the restore-test route have not been tried with AppTown.
-Attaching the production host by its tailnet name and the firewall
-arrangement below have not been tried either.
+`tailscale serve` carries AppTown's setup, token use and Git over the
+tailnet name. [Tailscale
+Serve](https://tailscale.com/docs/reference/tailscale-cli/serve) provides
+HTTPS at the machine's tailnet name.
 
-[Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve)
-provides HTTPS at the machine's tailnet name. Keep it restricted to the
-team with tailnet access rules. Do not enable Funnel or put a public proxy
-in front of AppTown.
+- Keep it restricted to the team with tailnet access rules.
+- Do not enable Funnel.
+- Do not put a public proxy in front of AppTown.
 
-Previews require their own private hostname routing. A landing's runtime
+What has been tried:
+
+- The private preview proxy works over HTTP.
+- Preview HTTPS with a wildcard certificate has not been tried with AppTown.
+- The restore-test route has not been tried with AppTown.
+- Attaching the production host by its tailnet name has not been tried.
+- The firewall arrangement below has not been tried.
+
+### Previews
+
+Previews need their own private hostname routing. A landing's runtime
 checks reach the change's preview at its preview address. Without a preview
-domain and proxy in this setup, every landing stops at the
-Standards check gate. Point
-`*.preview.example.com` at AppTown's Tailscale IP in private DNS. Configure
-your preview proxy with a wildcard certificate obtained through DNS
-validation, bind it only to that IP on port 443, and send requests to `127.0.0.1:7777`, preserving
-`Host`. The other proxy requirements are in [Setting up a
-server](server-setup.md), “Your own proxy”. Serve at the single tailnet
-name does not create wildcard preview DNS or certificates. Built-in app
-ports stay on loopback. If you use a certificate-on-demand proxy for
-previews, keep `/tls/ask` on loopback: it answers only callers on the same
-machine, never on the tailnet or public address.
+domain and proxy in this setup, every landing stops at the Standards check
+gate.
 
-Attach the production Docker host under **Deployments › Targets** and offer it to
-the project. Configure its domain and Traefik for `main`: the adapter uses
-the `traefik` network, the `websecure` entrypoint and the `letsencrypt`
-certificate resolver. Before attaching the host, create the network
-(`docker network create traefik`) and run Traefik 3.6 or later on it (Docker 29 refuses the
-Docker client in Traefik 3.5),
-publishing ports 80 and 443. Configure:
+1. In private DNS, point `*.preview.example.com` at AppTown's Tailscale IP.
+2. Give your preview proxy a wildcard certificate obtained through DNS
+   validation.
+3. Bind the proxy only to that IP, on port 443.
+4. Send its requests to `127.0.0.1:7777`, preserving `Host`.
+
+The other proxy requirements are in [Setting up a server](server-setup.md),
+“Your own proxy”.
+
+- Serve at the single tailnet name does not create wildcard preview DNS or
+  certificates.
+- Built-in app ports stay on loopback.
+- If you use a certificate-on-demand proxy for previews, keep `/tls/ask` on
+  loopback. It answers only callers on the same machine, never on the
+  tailnet or public address.
+
+### The production host
+
+Attach the production Docker host under **Deployments › Targets** and offer
+it to the project. Configure its domain and Traefik for `main`.
+
+The adapter uses:
+
+- the `traefik` network;
+- the `websecure` entrypoint;
+- the `letsencrypt` certificate resolver.
+
+Before attaching the host:
+
+1. Create the network: `docker network create traefik`.
+2. Run Traefik 3.6 or later on it. Docker 29 refuses the Docker client in
+   Traefik 3.5.
+3. Publish ports 80 and 443.
+
+Configure Traefik with:
 
 - `--providers.docker=true` and `--providers.docker.exposedbydefault=false`.
 - `--providers.docker.network=traefik`.
@@ -120,35 +164,58 @@ publishing ports 80 and 443. Configure:
 - A certificate resolver `letsencrypt` with an ACME email, storage and the
   HTTP challenge on `web`.
 
-Give the target its domain when attaching it (`"domain": "apps.example.com"`).
-`main` is served at `<project>.apps.example.com`; point `*.apps.example.com`
-at the production host's public address.
+Give the target its domain when attaching it
+(`"domain": "apps.example.com"`). `main` is served at
+`<project>.apps.example.com`. Point `*.apps.example.com` at the production
+host's public address.
 
-Every deployment, `main` included, also publishes its container port on
-all of the host's interfaces; AppTown checks the app through that port.
-Join the production host to the tailnet and attach it by its tailnet name,
-so AppTown's SSH connection and app checks travel over the tailnet. Then
-give the host a provider firewall (for example a DigitalOcean cloud
-firewall) that admits only TCP 80 and 443 from the internet; Docker's
-published ports bypass the host's own `ufw`/`INPUT` rules. Tailnet traffic
-arrives inside Tailscale's tunnel and is unaffected. Without that, each app
-is also reachable over plain HTTP at
-the host's public address and port. Other
-deployment names have no Traefik hostname route; give them their own ingress
-to the published port.
+### The host's firewall
 
-Create a deployment on the chosen target with feed `main` to deploy each
-landing automatically. Creating that setting records the creator’s deploy
-authority. A landing builds its runtime bundle without booting a deployment;
-the deployment takes the bundle afterwards. Projects without a runtime only
-build and land. Portainer and App Platform remain experimental. Target setup
-and credentials are in [Deployment targets](deployment-targets.md).
+Every deployment, `main` included, also publishes its container port on all
+of the host's interfaces. AppTown checks the app through that port.
 
-Restore tests need `-restore-gate-image` pinned by digest and a stated
-`-public-host` origin. The target's gate container must reach `/gate/redeem`
-at that origin, which here uses the tailnet name. Put that target on the
-tailnet, including the route and DNS its gate container uses, or give it
-one narrow route to that endpoint.
+1. Join the production host to the tailnet.
+2. Attach it by its tailnet name. AppTown's SSH connection and app checks
+   then travel over the tailnet.
+3. Give the host a provider firewall, for example a DigitalOcean cloud
+   firewall. It should admit only TCP 80 and 443 from the internet.
+
+Docker's published ports bypass the host's own `ufw`/`INPUT` rules. Tailnet
+traffic arrives inside Tailscale's tunnel and is unaffected. Without the
+provider firewall, each app is also reachable over plain HTTP at the host's
+public address and port.
+
+Other deployment names have no Traefik hostname route. Give them their own
+ingress to the published port.
+
+### Deploying each landing
+
+Create a deployment on the chosen target with feed `main`. It then deploys
+each landing automatically.
+
+- Creating that setting records the creator’s deploy authority.
+- A landing builds its runtime bundle without booting a deployment. The
+  deployment takes the bundle afterwards.
+- Projects without a runtime only build and land.
+- Portainer and App Platform remain experimental.
+
+Target setup and credentials are in [Deployment
+targets](deployment-targets.md).
+
+### Restore tests
+
+Restore tests need:
+
+- `-restore-gate-image`, pinned by digest;
+- a stated `-public-host` origin.
+
+The target's gate container must reach `/gate/redeem` at that origin. Here
+that is the tailnet name. Do one of these:
+
+- Put the target on the tailnet, including the route and DNS its gate
+  container uses.
+- Give it one narrow route to that endpoint.
+
 An isolated target with neither cannot run the restore test. See
 [Deployment backups](deployment-backups.md) for the gate image and other
 restore-test settings.

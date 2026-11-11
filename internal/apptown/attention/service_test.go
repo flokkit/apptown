@@ -702,3 +702,19 @@ func TestCoverageCountsConfirmedConditionsOnly(t *testing.T) {
 		t.Fatalf("conditions, not known: %v", got)
 	}
 }
+
+// An unknown source with a reading time was read: its reason says the
+// reading could not be used, not that nothing was ever recorded.
+func TestUnknownSourceWithAReadingSaysItCouldNotBeUsed(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 11, 11, 0, 0, 0, 0, time.UTC)
+	var view View
+	view.add("capacity", "Capacity", Snapshot{ObservedAt: at}, nil)
+	view.add("inventory", "Inventory", Snapshot{}, nil)
+	if got := view.Sources[0].Reason; got != "The latest reading could not be used." {
+		t.Fatalf("read but unusable source: %q", got)
+	}
+	if got := view.Sources[1].Reason; got != "No usable reading has been recorded yet." {
+		t.Fatalf("never read source: %q", got)
+	}
+}

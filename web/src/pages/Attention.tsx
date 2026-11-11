@@ -81,10 +81,11 @@ function SourceRow({ source }: { source: AttentionCoverage }) {
   return <ListRow listItem to={source.href} className="card row attention-row" state={
     <span className="row-status"><Status word="unknown" /></span>} identity={<><span className="attention-what">
       <Link to={source.href}>{source.name}</Link>
-      <Detail text={source.reason || 'No usable reading has been recorded yet.'} />
+      <Detail text={source.reason || (neverChecked(source.observedAt) ? 'No usable reading has been recorded yet.' : 'The latest reading could not be used.')} />
       <div className="muted small">{source.nextStep}</div>
     </span>
-    <small className="muted attention-seen">{observed(source.observedAt, source.stale, source.attemptedAt)}</small>
+    {/* An unknown source's reading is not a current check: it was last seen then. */}
+    <small className="muted attention-seen">{observed(source.observedAt, true, source.attemptedAt)}</small>
     </>} />
 }
 
@@ -128,7 +129,7 @@ export default function AttentionPage({ checks = false }: { checks?: boolean }) 
         const row = (source: AttentionCoverage) => <ListRow key={source.key} className="card row attention-row" state={
           <span className="row-status"><Status word={source.conditions > 0 ? 'failed' : source.unknown || source.notKnown > 0 ? 'unknown' : neverChecked(source.observedAt) ? 'not checked yet' : 'fresh'} observation old={source.stale && !source.unknown && source.conditions > 0} staleAt={source.stale && !source.unknown && !source.conditions ? source.observedAt : undefined} /></span>} identity={<><span className="attention-what"><Link to={source.href}>{source.name}</Link>
           {counts(source) && <> · <Link to={`/attention#${attentionGroup(source.key)}`}>{counts(source)}</Link></>}</span>
-          {(!source.stale || source.unknown) && (!neverChecked(source.observedAt) || !neverChecked(source.attemptedAt)) && <small className="muted attention-seen">{observed(source.observedAt, source.stale, source.attemptedAt)}</small>}
+          {(!source.stale || source.unknown) && (!neverChecked(source.observedAt) || !neverChecked(source.attemptedAt)) && <small className="muted attention-seen">{observed(source.observedAt, source.stale || source.unknown, source.attemptedAt)}</small>}
         </>} />
         const others = q.data!.sources.filter(s => !working(s))
         const fine = q.data!.sources.filter(working)
