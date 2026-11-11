@@ -88,7 +88,7 @@ func (p *Providers) awsClientFor(t *Target) func(context.Context) (*awsecs.API, 
 func (p *Providers) newAWSDriver(ctx context.Context, t *Target, dep *Deployment) (*awsecs.Driver, error) {
 
 	h := holdings{deployments: p.deployments, dep: dep}
-	d := awsecs.NewDriver(awsecs.Dependencies{Client: p.awsClientFor(t), Installation: p.installation, Generation: dep.DesiredGeneration, Owner: h, Owned: h.Owned, Needs: p.needs, Now: p.clock})
+	d := awsecs.NewDriver(awsecs.Dependencies{Client: p.awsClientFor(t), Installation: p.installation, Owner: h, Owned: h.Owned, Needs: p.needs, Now: p.clock})
 	if p.env.needs != nil {
 		kind, err := p.env.needs.ByCapability(ctx, "postgres")
 		if err != nil {

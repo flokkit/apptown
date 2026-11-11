@@ -16,6 +16,11 @@ type Placement struct {
 	Handle     map[string]any // the provider's own identifiers
 	Container  string         // the built-in host's container, when it has one
 	HostPort   int            // the built-in host's port, when it has one
+	// Next is the generation a release renders for, set only when one is
+	// rendered: admission mints the request's base generation plus one, and
+	// Reconcile is handed that same number. Render runs before admission, so
+	// a driver that names the generation in what it renders reads it here.
+	Next int64
 	// Gate, when set, puts the deployment behind AppTown's access gate
 	// (design/subsystems/deployment.md, "Restored copies"): it holds production data
 	// that only people AppTown admits may reach.

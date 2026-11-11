@@ -52,6 +52,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, g int64, art
 	if err != nil {
 		return deploy.Observation{}, err
 	}
+	// The service is checkpointed by its deterministic name before it is
+	// made, so a lost create answer still finds it, and never rewritten:
+	// a checkpoint key cannot name different evidence. Its ARN is owned.
 	noted := map[string]any{"service": d.name(p), "definition": definition, "generation": g, "previous": text(p.Handle, "definition"), "target": pl.Target, "rule": pl.Rule, "url": pl.URL, "release": pl.Release, "ready": pl.Ready, "static": pl.Static, "artifactHash": art.Hash}
 	if err = checkpoint(noted); err != nil {
 		return deploy.Observation{}, err
@@ -124,7 +127,6 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, g int64, art
 		}
 		deployments = out.Service.Deployments
 	}
-	noted["service"] = service.ID
 	for _, dep := range deployments {
 		if aws.ToString(dep.TaskDefinition) == definition && aws.ToString(dep.Status) == "PRIMARY" {
 			noted["deployment"] = aws.ToString(dep.Id)

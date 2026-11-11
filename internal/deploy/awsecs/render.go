@@ -36,8 +36,8 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 	if err := d.Preflight(ctx, p, src, secrets, log); err != nil {
 		return deploy.Artifact{}, err
 	}
-	if d.Generation < 1 {
-		return deploy.Artifact{}, errors.New("AWS render needs the admitted generation")
+	if p.Next < 1 {
+		return deploy.Artifact{}, errors.New("AWS render needs the generation the release will be admitted as")
 	}
 	a, c, e, err := d.Client(ctx)
 	if err != nil {
@@ -59,7 +59,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 	if err := deploy.RefuseNeedSecretCollisions(selected, slices.Sorted(maps.Keys(connections)), secrets); err != nil {
 		return deploy.Artifact{}, err
 	}
-	pl := releasePlan{Generation: d.Generation, Network: network(c, e, group)}
+	pl := releasePlan{Generation: p.Next, Network: network(c, e, group)}
 	part := selected.Parts[0]
 	pl.Static = part.IsStatic()
 	pl.Release = src.Contract.PublicRelease(src.Revision)
@@ -116,7 +116,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 			if len(private[k]) > 4096 {
 				return ecs.RegisterTaskDefinitionInput{}, fmt.Errorf("secret %s exceeds SSM's 4 KB limit", k)
 			}
-			path := d.path(p) + "/g" + strconv.FormatInt(d.Generation, 10) + "/" + name + "/" + k
+			path := d.path(p) + "/g" + strconv.FormatInt(p.Next, 10) + "/" + name + "/" + k
 			got, err := a.SSM.GetParameters(ctx, &ssm.GetParametersInput{Names: []string{path}, WithDecryption: aws.Bool(true)})
 			if err != nil {
 				return ecs.RegisterTaskDefinitionInput{}, err
@@ -138,7 +138,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		if name == part.Name && part.Public && part.Port > 0 {
 			container.PortMappings = []ecstypes.PortMapping{{ContainerPort: aws.Int32(int32(part.Port)), Protocol: ecstypes.TransportProtocolTcp}}
 		}
-		tags := append(d.tags(p), ecstypes.Tag{Key: aws.String("apptown:generation"), Value: aws.String(strconv.FormatInt(d.Generation, 10))})
+		tags := append(d.tags(p), ecstypes.Tag{Key: aws.String("apptown:generation"), Value: aws.String(strconv.FormatInt(p.Next, 10))})
 		return ecs.RegisterTaskDefinitionInput{Family: aws.String(d.name(p) + "-" + name), Cpu: aws.String(strconv.Itoa(size.CPU)), Memory: aws.String(strconv.Itoa(size.Memory)), NetworkMode: ecstypes.NetworkModeAwsvpc, RequiresCompatibilities: []ecstypes.Compatibility{ecstypes.CompatibilityFargate}, ExecutionRoleArn: aws.String(c.ExecutionRole), RuntimePlatform: &ecstypes.RuntimePlatform{CpuArchitecture: ecstypes.CPUArchitectureX8664, OperatingSystemFamily: ecstypes.OSFamilyLinux}, Tags: tags, ContainerDefinitions: []ecstypes.ContainerDefinition{container}}, nil
 	}
 	size, _ := fit(part.Resources)

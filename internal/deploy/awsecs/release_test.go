@@ -24,11 +24,11 @@ import (
 // revisions. Init failures cannot update the service; lost answers resume from
 // the checkpoint; rollback cannot adopt a revision while an old task survives.
 func TestReleaseWaitsForInitAndRunningRevisionAndResumesLostAnswer(t *testing.T) {
-	for _, mode := range []string{"release", "init failed", "lost update", "old task", "first failed", "stopped"} {
+	for _, mode := range []string{"release", "init failed", "lost update", "lost create", "old task", "first failed", "stopped"} {
 		t.Run(mode, func(t *testing.T) {
 			p := deploy.Placement{ID: idstest.N(71), Generation: 1, Handle: map[string]any{"service": "service", "definition": "old"}, Stopped: mode == "stopped"}
 			owner := &jobOwner{items: []deploy.Owned{{Kind: "ecs-service", ID: "service", Name: "service"}}}
-			if mode == "first failed" {
+			if mode == "first failed" || mode == "lost create" {
 				owner.items = nil
 				p.Handle = nil
 				p.Generation = 0
@@ -85,7 +85,7 @@ func TestReleaseWaitsForInitAndRunningRevisionAndResumesLostAnswer(t *testing.T)
 					revision = aws.ToString(def)
 				}
 				desired = aws.ToInt32(count)
-				if mode == "lost update" && !lost {
+				if (mode == "lost update" || mode == "lost create") && !lost {
 					lost = true
 					return nil, errors.New("answer lost")
 				}
@@ -123,9 +123,17 @@ func TestReleaseWaitsForInitAndRunningRevisionAndResumesLostAnswer(t *testing.T)
 				if err == nil || !strings.Contains(err.Error(), "nothing is serving") || desired != 0 {
 					t.Fatalf("first failure: desired %d %v", desired, err)
 				}
-			case "lost update":
+			case "lost update", "lost create":
 				if err == nil {
 					t.Fatal("lost answer accepted")
+				}
+				if mode == "lost create" {
+					checking := p
+					checking.Handle, checking.Generation = noted, 2
+					seen, readErr := d.Observe(t.Context(), checking)
+					if readErr != nil || seen.Rollout == "absent" {
+						t.Fatalf("created service was not read after its answer was lost: %+v %v", seen, readErr)
+					}
 				}
 				out, err = d.Resume(t.Context(), p, 2, noted, func(string, ...any) {})
 				if err != nil || out.Running != "revision:1" {

@@ -96,7 +96,7 @@ func TestSecretsAreImmutablePerGenerationAndConsumerAndPrunedOnlyAfterConvergenc
 	source := deploy.Source{Contract: contract, Images: map[string]string{"worker": image}, Init: map[string]string{"migrate": image}}
 	secrets := consumerSecrets{"worker": {"API_KEY": "part-secret"}, "init-migrate": {"API_KEY": "init-secret"}}
 	for generation := int64(1); generation <= 3; generation++ {
-		d.Generation = generation
+		p.Next = generation
 		artifact, err := d.Render(t.Context(), p, source, nil, secrets, func(string, ...any) {})
 		if err != nil {
 			t.Fatal(err)
