@@ -191,3 +191,16 @@ func TestPruneFailureDoesNotFailAServingRelease(t *testing.T) {
 		t.Fatalf("cleanup failure not said: %v", logged)
 	}
 }
+
+// An attempt interrupted before its task definition was checkpointed has
+// changed no service: a terminal not-applied answer, which recovery retries
+// once after a restart and otherwise settles failed, never uncertain.
+//
+// Kills: an attempt with no definition left uncertain for good.
+func TestAnAttemptInterruptedBeforeItsDefinitionWasNotApplied(t *testing.T) {
+	d := awsecs.NewDriver(awsecs.Dependencies{Installation: "installation"})
+	_, err := d.Resume(t.Context(), deploy.Placement{ID: idstest.N(74), Generation: 1}, 2, map[string]any{"service": "service"}, func(string, ...any) {})
+	if !deploy.IsTerminal(err) || !errors.Is(err, deploy.ErrNotApplied) {
+		t.Fatalf("resume with no definition: %v", err)
+	}
+}

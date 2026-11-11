@@ -370,7 +370,13 @@ that confirms the app is absent permits the restart retry. An existing app
 without a uniquely matching deployment stays uncertain with the reason recorded;
 an unrelated active deployment never establishes success. Docker and Portainer
 record their admitted identity before provider effects. Missing identity remains
-uncertain and never authorizes another apply.
+uncertain and never authorizes another apply. Fly and AWS checkpoint their app
+or task definition before changing what serves; an attempt interrupted before
+that checkpoint applied nothing, so recovery retries it once after a restart
+and otherwise records it failed.
+
+At AppTown start a preview row is forgotten only when its host answers that the
+container is gone or stopped; a host that cannot be asked keeps the row.
 
 A new App Platform app's provider-issued name (`*.ondigitalocean.app`) can be
 missing from DNS for minutes after the app goes active, and a resolver that

@@ -170,7 +170,7 @@ func (d *Driver) Resume(ctx context.Context, p deploy.Placement, g int64, noted 
 	app, _ := noted["appName"].(string)
 	appID, _ := noted["appId"].(string)
 	if app == "" {
-		return deploy.Observation{Generation: g, Rollout: "failed", Health: "unknown"}, errors.New("the attempt was interrupted before Fly named its app; nothing of this generation was made")
+		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("the attempt was interrupted before Fly named its app: %w", deploy.ErrNotApplied))
 	}
 	c, _, err := d.client(ctx)
 	if err != nil {

@@ -16,6 +16,11 @@ type terminalError struct{ error }
 
 func Terminal(err error) error { return terminalError{err} }
 
+// Is keeps a terminal not-applied answer one that permits the restart retry.
+func (e terminalError) Is(target error) bool {
+	return target == ErrNotApplied && errors.Is(e.error, target)
+}
+
 func IsTerminal(err error) bool {
 	var t terminalError
 	return errors.As(err, &t)
