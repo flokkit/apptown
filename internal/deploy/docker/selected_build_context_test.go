@@ -212,6 +212,7 @@ func TestImagesByDigestArePulledWithTheirCredentialAndConfirmed(t *testing.T) {
 			recorded := *recorded
 			recorded.Scratch = t.TempDir()
 			var configs []string
+			pulled := map[string]bool{}
 			fake := &fakeClient{}
 			fake.reply = func(req Command) ([]byte, error) {
 				args := req.Args
@@ -222,6 +223,12 @@ func TestImagesByDigestArePulledWithTheirCredentialAndConfirmed(t *testing.T) {
 					}
 					configs = append(configs, string(raw))
 					args = args[2:]
+				}
+				if args[0] == "image" && !pulled[args[len(args)-1]] {
+					return []byte("No such image: " + args[len(args)-1]), errors.New("absent")
+				}
+				if args[0] == "pull" {
+					pulled[args[1]] = true
 				}
 				switch {
 				case args[0] == "pull" && args[1] == digest('b') && scenario == "manifest unknown":
@@ -274,5 +281,26 @@ func TestImagesByDigestArePulledWithTheirCredentialAndConfirmed(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestARetainedDigestNeedsNoRegistry(t *testing.T) {
+	t.Parallel()
+	ref := "registry.test/team/app@sha256:" + strings.Repeat("a", 64)
+	fake := &fakeClient{reply: func(req Command) ([]byte, error) {
+		if req.Args[0] == "image" {
+			return []byte(`sha256:held ["` + ref + `"]`), nil
+		}
+		return []byte("registry unreachable"), errors.New("registry unreachable")
+	}}
+	r := &RecordedImages{Scratch: t.TempDir()}
+	got, err := r.pull(t.Context(), Scope{Client: fake}, "web", ref)
+	if err != nil || got != "sha256:held" {
+		t.Fatalf("retained digest: %q %v", got, err)
+	}
+	for _, args := range fake.args {
+		if slices.Contains(args, "pull") {
+			t.Fatalf("retained digest pulled: %v", args)
+		}
 	}
 }

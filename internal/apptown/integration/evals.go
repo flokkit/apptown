@@ -48,28 +48,31 @@ func refusesIntegrations(ctx context.Context, q database.Queryer, projectID ids.
 func (s *Service) EvalPublication(ctx context.Context, projectID ids.ID) (*Registry, error) {
 	// Publication through AppTown's own registry is an eval copy's act,
 	// not the absence of integrations: another purpose would be judged here.
-	if purpose, err := s.projects.Purpose(ctx, projectID); err != nil {
+	if purpose, err := project.PurposeIn(ctx, s.Bindings.db, projectID); err != nil {
 		return nil, err
 	} else if purpose != project.EvalCopy {
 		return nil, fmt.Errorf("project %d is not an eval copy", projectID)
 	}
-	return s.evalRegistry(ctx, projectID)
+	return s.hubRegistry(ctx, projectID)
 }
 
-// evalRegistry is where an eval copy's releases are published: the one
+// hubRegistry derives the repository every project publishes releases to: the one
 // container-registry connector AppTown offers, at <url>/<group>/<slug>
-// for the copy's own slug, with the connector's credential. A GitLab
+// for the project slug, with the connector's credential. A GitLab
 // connector would provision a project and a token for the copy, which a
 // copy is never given; with none, several or a GitLab one, the error says
 // so.
-func (s *Service) evalRegistry(ctx context.Context, projectID ids.ID) (*Registry, error) {
-	p, err := s.projects.ByID(ctx, projectID)
+func (s *Service) hubRegistry(ctx context.Context, projectID ids.ID) (*Registry, error) {
+	p, err := project.ByIDIn(ctx, s.Bindings.db, projectID)
 	if err != nil {
 		return nil, err
 	}
 	connectors, err := ForCapability(ctx, s.Bindings.db, CapContainerRegistry)
 	if err != nil {
 		return nil, err
+	}
+	if len(connectors) == 0 {
+		return nil, nil
 	}
 	if len(connectors) != 1 {
 		return nil, fmt.Errorf("an eval copy publishes its releases to the one container-registry connector AppTown offers, and it offers %d", len(connectors))
@@ -79,7 +82,7 @@ func (s *Service) evalRegistry(ctx context.Context, projectID ids.ID) (*Registry
 	if err != nil {
 		return nil, fmt.Errorf("the container-registry connector %s's configuration: %w", connector.Name, err)
 	}
-	if provider, _ := cfg["provider"].(string); provider == "gitlab" {
+	if connector.Provider == "gitlab" || cfg["provider"] == "gitlab" {
 		return nil, fmt.Errorf("the container-registry connector %s provisions a GitLab project per project, which an eval copy is never given; offer a registry connector with its own credential for evals", connector.Name)
 	}
 	host, _ := cfg["url"].(string)

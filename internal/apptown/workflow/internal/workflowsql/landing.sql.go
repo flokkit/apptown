@@ -170,7 +170,7 @@ func (q *Queries) ReserveLanding(ctx context.Context, workRunID ids.ID) error {
 
 const startedLanding = `-- name: StartedLanding :one
 
-SELECT r.id, r.project_id, r.number, r.workflow_name, r.workflow_version, r.kind, r.status, r.current_stage, r.definition_json, r.change_id, r.workflow_origin, r.parent_run_id, r.parent_step_id, r.parent_step_attempt, r.inputs_json, r.retry_revision, r.base_sha, r.created_at, r.updated_at, r.adoption_id, r.landing_authority, r.landing_authority_principal, r.landing_authority_via FROM workflow_landings l JOIN runs w ON w.id = l.work_run_id
+SELECT r.id, r.project_id, r.number, r.workflow_name, r.workflow_version, r.kind, r.status, r.current_stage, r.definition_json, r.change_id, r.workflow_origin, r.parent_run_id, r.parent_step_id, r.parent_step_attempt, r.inputs_json, r.retry_revision, r.base_sha, r.created_at, r.updated_at, r.adoption_id, r.landing_authority, r.landing_authority_principal, r.landing_authority_via, r.source_commit, r.rebuild_release_id, r.rebuild_from FROM workflow_landings l JOIN runs w ON w.id = l.work_run_id
 JOIN runs r ON r.id = l.landing_run_id
 WHERE l.work_run_id = $1 AND w.project_id = $2 AND w.change_id IS NOT DISTINCT FROM $3
 `
@@ -209,6 +209,9 @@ func (q *Queries) StartedLanding(ctx context.Context, arg StartedLandingParams) 
 		&i.LandingAuthority,
 		&i.LandingAuthorityPrincipal,
 		&i.LandingAuthorityVia,
+		&i.SourceCommit,
+		&i.RebuildReleaseID,
+		&i.RebuildFrom,
 	)
 	return i, err
 }

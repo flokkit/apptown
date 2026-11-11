@@ -161,9 +161,15 @@ func (s *Bindings) Upsert(ctx context.Context, name, capability, provider, confi
 // upsertAt is Upsert at the operation's time, now, with receipt (when not
 // nil) written in the same transaction.
 func (s *Bindings) upsertAt(ctx context.Context, now time.Time, name, capability, provider, configJSON string, managed bool, receipt func(*database.Tx) error) (int, error) {
+	if err := validateHubConfig(capability, provider, configJSON); err != nil {
+		return 0, err
+	}
 	var version int
 	err := s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := integrationsql.New(tx.SQL())
+		if err := checkOneHub(ctx, tx, name, capability); err != nil {
+			return err
+		}
 		current, err := q.BindingByNameForUpdate(ctx, name)
 		if errors.Is(err, sql.ErrNoRows) {
 			version = 1
@@ -225,6 +231,13 @@ func (s *Bindings) Save(ctx context.Context, name, capability, provider, configJ
 // in the caller's transaction. Any existing name is a conflict; this never
 // edits a binding. The caller owns commit and rollback.
 func (s *Bindings) CreateIn(ctx context.Context, tx *database.Tx, name, capability, provider, configJSON, who string) error {
+	if err := validateHubConfig(capability, provider, configJSON); err != nil {
+		return err
+	}
+	if err := checkOneHub(ctx, tx, name, capability); err != nil {
+		return err
+	}
+
 	if err := validateConfig(name, capability, configJSON); err != nil {
 		return err
 	}
@@ -465,6 +478,9 @@ func (s *Attachments) Attach(ctx context.Context, projectID ids.ID, capability, 
 }
 
 func (s *Attachments) attach(ctx context.Context, projectID ids.ID, capability, binding, resourceJSON string, provenance provenance, who string, receipt map[string]any) error {
+	if capability == CapContainerRegistry {
+		return fault.New(fault.Unprocessable, "the hub registry is set under Integrations for all projects")
+	}
 	if provenance == "" {
 		return errors.New("an attachment needs a provenance")
 	}
@@ -495,6 +511,9 @@ func (s *Attachments) Remember(ctx context.Context, projectID ids.ID, capability
 // in the same transaction: a credential it holds is never remembered
 // without its receipt.
 func (s *Attachments) remember(ctx context.Context, projectID ids.ID, capability, binding, resourceJSON string, receipt func(*database.Tx, time.Time) error) error {
+	if capability == CapContainerRegistry {
+		return fault.New(fault.Unprocessable, "the hub registry is set under Integrations for all projects")
+	}
 	if err := refusesIntegrations(ctx, s.db, projectID); err != nil {
 		return err
 	}

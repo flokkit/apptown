@@ -18,6 +18,7 @@ type FollowUps struct {
 	Landings AcceptedLandings
 	Releases interface {
 		RequestLandingReleases(context.Context, ids.ID, ids.ID, ids.ID, string) error
+		ResumeRebuiltRelease(context.Context, ids.ID, ids.ID) error
 	}
 	Uplifts   UpliftSettlement
 	Resources Resources

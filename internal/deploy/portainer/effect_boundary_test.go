@@ -23,6 +23,14 @@ func TestCurrentStackProofGuardsActualUpdateAndDelete(t *testing.T) {
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if r.Method != "GET" {
 						effects.Add(1)
+						if r.Method == "PUT" {
+							var body struct {
+								PullImage bool `json:"pullImage"`
+							}
+							if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.PullImage {
+								t.Errorf("stack update must use retained digests: pullImage=%v err=%v", body.PullImage, err)
+							}
+						}
 						fmt.Fprint(w, `{}`)
 						return
 					}

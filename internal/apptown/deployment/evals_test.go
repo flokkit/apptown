@@ -229,9 +229,7 @@ func TestAnUnreadableRegistryCredentialIsNotAnAnonymousRead(t *testing.T) {
 	if _, err := integrations.Bindings.Upsert(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"registry.example","username":"robot","tokenFrom":["REGISTRY_PASSWORD"]}`, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", `{"repo":"registry.example/team/shop"}`, "test", nil); err != nil {
-		t.Fatal(err)
-	}
+
 	// A folder where the secrets file belongs: the credential cannot be read.
 	if err := os.Mkdir(filepath.Join(dir, "secrets.env"), 0o700); err != nil {
 		t.Fatal(err)
@@ -279,9 +277,7 @@ func TestRegistryDestinationRefusalReachesPublicationAndLogin(t *testing.T) {
 	if _, err := integrations.Bindings.Save(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"docker.io"}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", `{"repo":"docker.io/team/shop","username":"robot","token":"private-canary"}`, "fixture", nil); err != nil {
-		t.Fatal(err)
-	}
+
 	repo, err := env.ReleaseRepository(t.Context(), id)
 	if err != nil {
 		t.Fatal(err)
@@ -290,7 +286,7 @@ func TestRegistryDestinationRefusalReachesPublicationAndLogin(t *testing.T) {
 	if err != nil || login == nil || login.Host != "index.docker.io" || sourceCredential(false, repo, "docker.io/team/base:tag") != repo.Credential {
 		t.Fatalf("canonical resolver/selector: %+v %v", login, err)
 	}
-	if _, err := integrations.Bindings.Save(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"other.example"}`, "fixture"); err != nil {
+	if _, err := integrations.Bindings.Save(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"registry"}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := env.ReleaseRepository(t.Context(), id); err == nil || got != (oci.Repository{}) {

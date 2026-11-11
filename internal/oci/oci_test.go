@@ -558,3 +558,84 @@ func TestRegistryMatchesAliasesWithoutCrossingAuthorities(t *testing.T) {
 		}
 	}
 }
+
+// A retained spoke is sufficient for an immutable image, including its platform.
+// Tags still follow the source when it changes.
+func TestACopyUsesTheRetainedDigestWithoutItsSource(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	dst := Repository{Name: newRegistry(t, nil) + "/team/app"}
+	amd, arm := newImage(t, "amd64", "retained amd"), newImage(t, "arm64", "retained arm")
+	for _, img := range []testImage{amd, arm} {
+		platform := "linux/amd64"
+		if img.digest() == arm.digest() {
+			platform = "linux/arm64"
+		}
+		if _, err := Publish(ctx, img.files, dst, platform[6:], platform); err != nil {
+			t.Fatal(err)
+		}
+	}
+	source := "127.0.0.1:1/gone/app@"
+	got, err := Copy(ctx, Source{Reference: source + amd.digest()}, dst, "rollback", "linux/amd64")
+	if err != nil || got.Digest != amd.digest() {
+		t.Fatalf("retained digest: %+v %v", got, err)
+	}
+	if _, err := Copy(ctx, Source{Reference: source + arm.digest()}, dst, "wrong", "linux/amd64"); !errors.Is(err, errUnsupported) {
+		t.Fatalf("wrong platform: %v", err)
+	}
+	src := Repository{Name: newRegistry(t, nil) + "/source/app"}
+	for _, img := range []testImage{amd, newImage(t, "amd64", "moved tag")} {
+		want, err := Publish(ctx, img.files, src, "latest", "linux/amd64")
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := Copy(ctx, Source{Reference: src.Name + ":latest"}, dst, "current", "linux/amd64")
+		if err != nil || got.Digest != want.Digest {
+			t.Fatalf("source tag: %+v %v", got, err)
+		}
+	}
+}
+
+func TestRetentionKeepsSharedAndUnrecordedImagesAndReportsUnsupported(t *testing.T) {
+	for _, unsupported := range []bool{false, true} {
+		t.Run(fmt.Sprint(unsupported), func(t *testing.T) {
+			t.Parallel()
+			base := registry.New(registry.Logger(log.New(io.Discard, "", 0)))
+			var deletes []string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodDelete {
+					deletes = append(deletes, r.URL.Path)
+					if unsupported {
+						w.WriteHeader(405)
+						return
+					}
+				}
+				base.ServeHTTP(w, r)
+			}))
+			defer server.Close()
+			repo := Repository{Name: strings.TrimPrefix(server.URL, "http://") + "/team/app"}
+			var images []Image
+			for n := 0; n < 3; n++ {
+				got, err := Publish(t.Context(), newImage(t, "amd64", fmt.Sprint(n)).files, repo, fmt.Sprint(n), "linux/amd64")
+				if err != nil {
+					t.Fatal(err)
+				}
+				images = append(images, got)
+			}
+			deleted, left, err := Trim(t.Context(), repo, []string{images[0].Reference(), images[1].Reference()}, []string{images[1].Reference()})
+			if err != nil || len(deletes) != 1 || !strings.HasSuffix(deletes[0], images[0].Digest) {
+				t.Fatalf("bounded trim: %v %v", deletes, err)
+			}
+			if unsupported {
+				if len(left) != 1 || len(deleted) != 0 || !strings.Contains(left[0].Why, "does not delete") {
+					t.Fatalf("unsupported: %v %v", deleted, left)
+				}
+			} else if len(deleted) != 1 || len(left) != 0 {
+				t.Fatalf("deleted: %v %v", deleted, left)
+			}
+			if _, err := confirm(t.Context(), repo, images[2].Digest); err != nil {
+				t.Fatalf("unrecorded image lost: %v", err)
+			}
+		})
+	}
+}

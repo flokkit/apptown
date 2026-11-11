@@ -476,10 +476,13 @@ func newDigestWorldWith(t *testing.T, secrets, appYAML string, configure func(*d
 	}
 	w.deps = assembled(db, rt, Dependencies{Authority: &requestAuthority{}, Followups: noFollowups{}, Configuration: ConfigurationDependencies{Authority: &requestAuthority{}, Projects: w.sources}, Releases: ReleaseDependencies{Authority: &requestAuthority{}, Still: &requestAuthority{}, Sources: w.sources, Secrets: doReleaseSecrets{}, Queue: requestQueue{}}})
 	w.s = New(context.Background(), db, w.deps)
-	if err := integrations.Attachments.Attach(t.Context(), w.project, "container-registry", "missing",
-		fmt.Sprintf(`{"repo":%q,"username":%q,"token":%q}`, w.registry.host+"/team/p", digestRegistryUser, digestRegistryToken), "test", nil); err != nil {
+	if err := secretStore.SetInstance(t.Context(), "HUB_PASSWORD", digestRegistryToken, "test"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := integrations.Bindings.Upsert(t.Context(), "hub", "container-registry", "direct", fmt.Sprintf(`{"url":%q,"group":"team","username":%q,"tokenFrom":"HUB_PASSWORD"}`, w.registry.host, digestRegistryUser), false); err != nil {
+		t.Fatal(err)
+	}
+
 	// The image-only declarations' images, in the project's own registry.
 	for ref, content := range map[string]string{"upstream/cache:7": "cache", "upstream/seed:1": "seed"} {
 		repo, tag, _ := strings.Cut(ref, ":")

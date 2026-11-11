@@ -41,3 +41,6 @@ CREATE TABLE integration_resource_readings (
  payload JSONB NOT NULL,
  UNIQUE(project_id,capability)
 );
+
+CREATE UNIQUE INDEX integrations_one_hub ON integrations(capability) WHERE capability='container-registry';
+ALTER TABLE project_integrations ADD CONSTRAINT no_project_registry CHECK (capability <> 'container-registry');

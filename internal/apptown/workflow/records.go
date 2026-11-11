@@ -13,6 +13,9 @@ import (
 // Run is a workflow execution pinned to its definition. RetryRevision fences
 // decisions made before changed work; it is distinct from a step's attempt.
 type Run struct {
+	SourceCommit      string               `json:"sourceCommit,omitempty"`
+	RebuildReleaseID  ids.ID               `json:"rebuildReleaseId,omitzero"`
+	RebuildFrom       int64                `json:"rebuildFrom,omitempty"`
 	StatusLabel       status.DisplayStatus `json:"statusLabel"`
 	ParentStepAttempt int64                `json:"-"`
 	RetryRevision     int64                `json:"-"` // changed work invalidates an earlier advancement read

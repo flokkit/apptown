@@ -27,6 +27,8 @@ import (
 
 // Release is one row of the release ledger.
 type Release struct {
+	RebuiltFrom   int64  `json:"rebuiltFrom,omitempty"`
+	RebuiltCommit string `json:"rebuiltCommit,omitempty"`
 	// LastStage is historical when recovery cannot confirm current execution.
 	LastStage            deploy.DeployStage `json:"lastStage,omitempty"`
 	InterruptedByRestart bool               `json:"interruptedByRestart,omitempty"`
@@ -106,7 +108,7 @@ func (s *Releases) record(r deploymentsql.Release, err error) (*Release, error) 
 	if err != nil {
 		return nil, err
 	}
-	v := &Release{
+	v := &Release{RebuiltFrom: r.RebuiltFrom, RebuiltCommit: r.RebuiltCommit,
 		StageEnteredAt: stamp.Time{NullTime: r.StageEnteredAt},
 		RollbackOf:     r.RollbackOf, RestoreBackupID: r.RestoreBackupID,
 		ApprovalRole: r.ApprovalRole, ApprovalRoleTitle: roleTitle(r.ApprovalRole), SupersededBy: r.SupersededBy,

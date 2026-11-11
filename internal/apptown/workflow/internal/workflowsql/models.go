@@ -102,6 +102,9 @@ type Run struct {
 	LandingAuthority          string
 	LandingAuthorityPrincipal ids.ID
 	LandingAuthorityVia       string
+	SourceCommit              string
+	RebuildReleaseID          ids.ID
+	RebuildFrom               int64
 }
 
 type RunEvent struct {

@@ -252,7 +252,7 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if b != nil {
-			out.Bundle = &ReleaseBundleView{ID: b.ID, ByDigest: b.ByDigest(), Registry: b.BuiltFrom.Registry, Platform: b.BuiltFrom.Platform, Parts: map[string]string{}, Init: map[string]string{}}
+			out.Bundle = &ReleaseBundleView{RebuiltFrom: b.BuiltFrom.RebuiltFrom, Commit: b.ContractRevision, ID: b.ID, ByDigest: b.ByDigest(), Registry: b.BuiltFrom.Registry, Platform: b.BuiltFrom.Platform, Parts: map[string]string{}, Init: map[string]string{}}
 			maps.Copy(out.Bundle.Parts, b.Parts)
 			maps.Copy(out.Bundle.Init, b.Init)
 		}
@@ -292,12 +292,14 @@ type ReleaseDetail struct {
 // App Platform and Portainer included. Otherwise each is an image ID that
 // exists only on the Docker daemon that built it.
 type ReleaseBundleView struct {
-	ID       ids.ID            `json:"id"`
-	ByDigest bool              `json:"byDigest"`
-	Registry string            `json:"registry,omitempty"`
-	Platform string            `json:"platform,omitempty"`
-	Parts    map[string]string `json:"parts"`
-	Init     map[string]string `json:"init"`
+	RebuiltFrom int64             `json:"rebuiltFrom,omitempty"`
+	Commit      string            `json:"commit,omitempty"`
+	ID          ids.ID            `json:"id"`
+	ByDigest    bool              `json:"byDigest"`
+	Registry    string            `json:"registry,omitempty"`
+	Platform    string            `json:"platform,omitempty"`
+	Parts       map[string]string `json:"parts"`
+	Init        map[string]string `json:"init"`
 }
 
 // ReleaseChange is a change a release carried, by its label.

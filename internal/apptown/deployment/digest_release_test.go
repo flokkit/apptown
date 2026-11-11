@@ -137,8 +137,7 @@ func TestAPullThatFailsIsAnErrorAndAMissingDigestIsRefused(t *testing.T) {
 		want    string
 	}{
 		{name: "credential refused", break_: func(t *testing.T, w *digestWorld, _ *ReleaseBundle) {
-			if err := w.s.env.integrations.Attachments.Attach(t.Context(), w.project, "container-registry", "missing",
-				fmt.Sprintf(`{"repo":%q,"username":%q,"token":"revoked"}`, w.registry.host+"/team/p", digestRegistryUser), "test", nil); err != nil {
+			if err := w.s.env.secrets.SetInstance(t.Context(), "HUB_PASSWORD", "revoked", "test"); err != nil {
 				t.Fatal(err)
 			}
 		}, want: "unauthorized"},

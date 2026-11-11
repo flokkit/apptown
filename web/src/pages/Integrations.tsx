@@ -402,6 +402,7 @@ function KindRows({ area, rows, catalog, reading }: {
                 <div style={{ minWidth: 0 }}>
                   <Link to={to} className="int-name">{b.displayLabel || b.name}</Link>
                   <div className="muted small">{usedFor(b, specFor(catalog, b))}</div>
+                  {b.imageRetention && <div className="muted small">{b.imageRetention}</div>}
                 </div>
               </div>}
               state={<StatusChip state={state} stale={reading.q.refreshFailed} health={b.health} checked={lastChecked(b.health, reading.now)} />} />
@@ -468,6 +469,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
         <div style={{ minWidth: 0 }} className="grow">
           <h1>{b.displayLabel || b.name}</h1>
           <div className="int-sub">{usedFor(b, spec)}</div>
+          {b.imageRetention && <p className="small">{b.imageRetention}</p>}
         </div>
       </div>
 

@@ -168,7 +168,7 @@ func (s *Service) bundleImages(ctx context.Context, b *ReleaseBundle, t *Target)
 		return b.Parts, b.Init, nil
 	case b != nil:
 		if b.BuiltFrom.TargetID != t.ID {
-			return nil, nil, refused("this release has image IDs on a different build host; attach a container registry and build again")
+			return nil, nil, refused("this release has image IDs on a different build host; configure the hub registry and build again")
 		}
 		images, err := s.recordedImages(ctx, b, t)
 		if err != nil {

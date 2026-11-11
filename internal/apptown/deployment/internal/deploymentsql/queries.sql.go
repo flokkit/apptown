@@ -128,6 +128,17 @@ func (q *Queries) AdoptAfterRestore(ctx context.Context, arg AdoptAfterRestorePa
 	return result.RowsAffected()
 }
 
+const appPlatformReleaseInFlight = `-- name: AppPlatformReleaseInFlight :one
+SELECT EXISTS(SELECT 1 FROM release_requests q JOIN releases r ON r.id=q.release_id JOIN targets t ON t.id=q.target_id WHERE t.kind='do-app' AND r.state='releasing')
+`
+
+func (q *Queries) AppPlatformReleaseInFlight(ctx context.Context) (bool, error) {
+	row := q.db.QueryRowContext(ctx, appPlatformReleaseInFlight)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const associateTargetProvider = `-- name: AssociateTargetProvider :one
 UPDATE targets SET connection_id=$1, provider=$2, provider_scope_json=$3,
   settings_revision=settings_revision+1, updated_at=$4
@@ -1189,7 +1200,7 @@ func (q *Queries) DeploymentsHeldAfterRestore(ctx context.Context, held string) 
 }
 
 const earlierReleaseForBundle = `-- name: EarlierReleaseForBundle :one
-SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id, r.from_deployment_id, r.approval_role, r.approval_json, r.superseded_by, r.rollback_of, r.restore_backup_id, r.stage, r.stage_entered_at, r.failed_stage, r.stage_finished_at FROM releases r WHERE r.deployment_id=$1 AND r.bundle_id=$2 AND r.state='released'
+SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id, r.from_deployment_id, r.approval_role, r.approval_json, r.superseded_by, r.rollback_of, r.restore_backup_id, r.stage, r.stage_entered_at, r.failed_stage, r.stage_finished_at, r.rebuilt_from, r.rebuilt_commit FROM releases r WHERE r.deployment_id=$1 AND r.bundle_id=$2 AND r.state='released'
 AND (SELECT latest.bundle_id FROM releases latest WHERE latest.deployment_id=r.deployment_id AND latest.state='released' ORDER BY latest.number DESC LIMIT 1) IS DISTINCT FROM r.bundle_id
 ORDER BY r.number DESC LIMIT 1
 `
@@ -1235,6 +1246,8 @@ func (q *Queries) EarlierReleaseForBundle(ctx context.Context, arg EarlierReleas
 		&i.StageEnteredAt,
 		&i.FailedStage,
 		&i.StageFinishedAt,
+		&i.RebuiltFrom,
+		&i.RebuiltCommit,
 	)
 	return i, err
 }
@@ -1952,7 +1965,7 @@ func (q *Queries) InsertProviderTarget(ctx context.Context, arg InsertProviderTa
 
 const insertReleaseRequest = `-- name: InsertReleaseRequest :one
 INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json,ingress_json,authority_json,require_promotion)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING release_id, target_id, base_generation, attributes_json, claimed_at, start_from_backup, provider_binding_json, ingress_json, authority_json, require_promotion, feed_revision, landing_approvers, backup_evidence_json, uncopied_acceptance_json
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING release_id, target_id, base_generation, attributes_json, claimed_at, start_from_backup, provider_binding_json, ingress_json, authority_json, require_promotion, feed_revision, landing_approvers, backup_evidence_json, uncopied_acceptance_json, rebuild_pending
 `
 
 type InsertReleaseRequestParams struct {
@@ -1995,6 +2008,7 @@ func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseReq
 		&i.LandingApprovers,
 		&i.BackupEvidenceJson,
 		&i.UncopiedAcceptanceJson,
+		&i.RebuildPending,
 	)
 	return i, err
 }
@@ -2256,7 +2270,7 @@ func (q *Queries) LandingReleaseExists(ctx context.Context, arg LandingReleaseEx
 }
 
 const landingRequestsForChange = `-- name: LandingRequestsForChange :many
-SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id, r.from_deployment_id, r.approval_role, r.approval_json, r.superseded_by, r.rollback_of, r.restore_backup_id, r.stage, r.stage_entered_at, r.failed_stage, r.stage_finished_at FROM releases r JOIN release_requests q ON q.release_id=r.id JOIN runs w ON w.id=r.run_id
+SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id, r.from_deployment_id, r.approval_role, r.approval_json, r.superseded_by, r.rollback_of, r.restore_backup_id, r.stage, r.stage_entered_at, r.failed_stage, r.stage_finished_at, r.rebuilt_from, r.rebuilt_commit FROM releases r JOIN release_requests q ON q.release_id=r.id JOIN runs w ON w.id=r.run_id
 WHERE r.project_id=$1 AND w.change_id=$2 AND q.feed_revision IS NOT NULL ORDER BY r.number DESC
 `
 
@@ -2304,6 +2318,8 @@ func (q *Queries) LandingRequestsForChange(ctx context.Context, arg LandingReque
 			&i.StageEnteredAt,
 			&i.FailedStage,
 			&i.StageFinishedAt,
+			&i.RebuiltFrom,
+			&i.RebuiltCommit,
 		); err != nil {
 			return nil, err
 		}
@@ -2319,7 +2335,7 @@ func (q *Queries) LandingRequestsForChange(ctx context.Context, arg LandingReque
 }
 
 const lastRelease = `-- name: LastRelease :one
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at FROM releases WHERE project_id=$1 AND deployment=$2 ORDER BY number DESC LIMIT 1
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at, rebuilt_from, rebuilt_commit FROM releases WHERE project_id=$1 AND deployment=$2 ORDER BY number DESC LIMIT 1
 `
 
 type LastReleaseParams struct {
@@ -2360,6 +2376,8 @@ func (q *Queries) LastRelease(ctx context.Context, arg LastReleaseParams) (Relea
 		&i.StageEnteredAt,
 		&i.FailedStage,
 		&i.StageFinishedAt,
+		&i.RebuiltFrom,
+		&i.RebuiltCommit,
 	)
 	return i, err
 }
@@ -2432,7 +2450,7 @@ func (q *Queries) LatestLimitEventOnTarget(ctx context.Context, targetID ids.ID)
 }
 
 const latestReleasedForDeployment = `-- name: LatestReleasedForDeployment :one
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at FROM releases WHERE deployment_id=$1 AND state=$2 ORDER BY number DESC LIMIT 1
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at, rebuilt_from, rebuilt_commit FROM releases WHERE deployment_id=$1 AND state=$2 ORDER BY number DESC LIMIT 1
 `
 
 type LatestReleasedForDeploymentParams struct {
@@ -2475,6 +2493,8 @@ func (q *Queries) LatestReleasedForDeployment(ctx context.Context, arg LatestRel
 		&i.StageEnteredAt,
 		&i.FailedStage,
 		&i.StageFinishedAt,
+		&i.RebuiltFrom,
+		&i.RebuiltCommit,
 	)
 	return i, err
 }
@@ -2497,7 +2517,7 @@ func (q *Queries) LatestReleasedNumber(ctx context.Context, arg LatestReleasedNu
 }
 
 const latestReleasedOn = `-- name: LatestReleasedOn :many
-SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id, r.from_deployment_id, r.approval_role, r.approval_json, r.superseded_by, r.rollback_of, r.restore_backup_id, r.stage, r.stage_entered_at, r.failed_stage, r.stage_finished_at FROM releases r WHERE r.deployment=$1 AND r.state=$2 AND r.number=(SELECT MAX(number) FROM releases WHERE project_id=r.project_id AND deployment=r.deployment AND state=$2) ORDER BY r.project_id
+SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id, r.from_deployment_id, r.approval_role, r.approval_json, r.superseded_by, r.rollback_of, r.restore_backup_id, r.stage, r.stage_entered_at, r.failed_stage, r.stage_finished_at, r.rebuilt_from, r.rebuilt_commit FROM releases r WHERE r.deployment=$1 AND r.state=$2 AND r.number=(SELECT MAX(number) FROM releases WHERE project_id=r.project_id AND deployment=r.deployment AND state=$2) ORDER BY r.project_id
 `
 
 type LatestReleasedOnParams struct {
@@ -2544,6 +2564,8 @@ func (q *Queries) LatestReleasedOn(ctx context.Context, arg LatestReleasedOnPara
 			&i.StageEnteredAt,
 			&i.FailedStage,
 			&i.StageFinishedAt,
+			&i.RebuiltFrom,
+			&i.RebuiltCommit,
 		); err != nil {
 			return nil, err
 		}
@@ -2782,6 +2804,18 @@ type MarkDeploymentActParams struct {
 
 func (q *Queries) MarkDeploymentAct(ctx context.Context, arg MarkDeploymentActParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, markDeploymentAct, arg.At, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const markReleaseRebuilding = `-- name: MarkReleaseRebuilding :execrows
+UPDATE release_requests SET rebuild_pending=true WHERE release_id=$1
+`
+
+func (q *Queries) MarkReleaseRebuilding(ctx context.Context, releaseID ids.ID) (int64, error) {
+	result, err := q.db.ExecContext(ctx, markReleaseRebuilding, releaseID)
 	if err != nil {
 		return 0, err
 	}
@@ -3626,7 +3660,7 @@ func (q *Queries) Reading(ctx context.Context, arg ReadingParams) (ReadingRow, e
 }
 
 const recentReleases = `-- name: RecentReleases :many
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at FROM releases WHERE project_id=ANY($1::uuid[]) ORDER BY id DESC LIMIT $2::bigint
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at, rebuilt_from, rebuilt_commit FROM releases WHERE project_id=ANY($1::uuid[]) ORDER BY id DESC LIMIT $2::bigint
 `
 
 type RecentReleasesParams struct {
@@ -3675,6 +3709,8 @@ func (q *Queries) RecentReleases(ctx context.Context, arg RecentReleasesParams) 
 			&i.StageEnteredAt,
 			&i.FailedStage,
 			&i.StageFinishedAt,
+			&i.RebuiltFrom,
+			&i.RebuiltCommit,
 		); err != nil {
 			return nil, err
 		}
@@ -4130,7 +4166,7 @@ func (q *Queries) RefreshTarget(ctx context.Context, arg RefreshTargetParams) (T
 }
 
 const releaseByID = `-- name: ReleaseByID :one
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at FROM releases WHERE id=$1
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at, rebuilt_from, rebuilt_commit FROM releases WHERE id=$1
 `
 
 func (q *Queries) ReleaseByID(ctx context.Context, id ids.ID) (Release, error) {
@@ -4166,12 +4202,14 @@ func (q *Queries) ReleaseByID(ctx context.Context, id ids.ID) (Release, error) {
 		&i.StageEnteredAt,
 		&i.FailedStage,
 		&i.StageFinishedAt,
+		&i.RebuiltFrom,
+		&i.RebuiltCommit,
 	)
 	return i, err
 }
 
 const releaseByNumber = `-- name: ReleaseByNumber :one
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at FROM releases WHERE project_id=$1 AND number=$2
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at, rebuilt_from, rebuilt_commit FROM releases WHERE project_id=$1 AND number=$2
 `
 
 type ReleaseByNumberParams struct {
@@ -4212,6 +4250,8 @@ func (q *Queries) ReleaseByNumber(ctx context.Context, arg ReleaseByNumberParams
 		&i.StageEnteredAt,
 		&i.FailedStage,
 		&i.StageFinishedAt,
+		&i.RebuiltFrom,
+		&i.RebuiltCommit,
 	)
 	return i, err
 }
@@ -4249,7 +4289,7 @@ func (q *Queries) ReleaseEvents(ctx context.Context, releaseID ids.ID) ([]Releas
 }
 
 const releaseForGeneration = `-- name: ReleaseForGeneration :one
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at FROM releases WHERE deployment_id=$1 AND generation=$2 AND state='released' ORDER BY number DESC LIMIT 1
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at, rebuilt_from, rebuilt_commit FROM releases WHERE deployment_id=$1 AND generation=$2 AND state='released' ORDER BY number DESC LIMIT 1
 `
 
 type ReleaseForGenerationParams struct {
@@ -4290,6 +4330,8 @@ func (q *Queries) ReleaseForGeneration(ctx context.Context, arg ReleaseForGenera
 		&i.StageEnteredAt,
 		&i.FailedStage,
 		&i.StageFinishedAt,
+		&i.RebuiltFrom,
+		&i.RebuiltCommit,
 	)
 	return i, err
 }
@@ -4383,7 +4425,7 @@ func (q *Queries) ReleaseStartFrom(ctx context.Context, releaseID ids.ID) (ids.I
 }
 
 const releasedBefore = `-- name: ReleasedBefore :one
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at FROM releases WHERE project_id=$1 AND deployment=$2 AND state=$3 AND number<$4 ORDER BY number DESC LIMIT 1
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at, rebuilt_from, rebuilt_commit FROM releases WHERE project_id=$1 AND deployment=$2 AND state=$3 AND number<$4 ORDER BY number DESC LIMIT 1
 `
 
 type ReleasedBeforeParams struct {
@@ -4432,6 +4474,8 @@ func (q *Queries) ReleasedBefore(ctx context.Context, arg ReleasedBeforeParams) 
 		&i.StageEnteredAt,
 		&i.FailedStage,
 		&i.StageFinishedAt,
+		&i.RebuiltFrom,
+		&i.RebuiltCommit,
 	)
 	return i, err
 }
@@ -4502,7 +4546,7 @@ func (q *Queries) ReleasesBeforeBackups(ctx context.Context, arg ReleasesBeforeB
 }
 
 const releasesForChange = `-- name: ReleasesForChange :many
-SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id, r.from_deployment_id, r.approval_role, r.approval_json, r.superseded_by, r.rollback_of, r.restore_backup_id, r.stage, r.stage_entered_at, r.failed_stage, r.stage_finished_at FROM releases r JOIN release_changes rc ON rc.release_id=r.id WHERE rc.change_id IS NOT DISTINCT FROM $1 AND r.project_id=$2 ORDER BY r.number DESC
+SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id, r.from_deployment_id, r.approval_role, r.approval_json, r.superseded_by, r.rollback_of, r.restore_backup_id, r.stage, r.stage_entered_at, r.failed_stage, r.stage_finished_at, r.rebuilt_from, r.rebuilt_commit FROM releases r JOIN release_changes rc ON rc.release_id=r.id WHERE rc.change_id IS NOT DISTINCT FROM $1 AND r.project_id=$2 ORDER BY r.number DESC
 `
 
 type ReleasesForChangeParams struct {
@@ -4549,6 +4593,8 @@ func (q *Queries) ReleasesForChange(ctx context.Context, arg ReleasesForChangePa
 			&i.StageEnteredAt,
 			&i.FailedStage,
 			&i.StageFinishedAt,
+			&i.RebuiltFrom,
+			&i.RebuiltCommit,
 		); err != nil {
 			return nil, err
 		}
@@ -4564,7 +4610,7 @@ func (q *Queries) ReleasesForChange(ctx context.Context, arg ReleasesForChangePa
 }
 
 const releasesForProject = `-- name: ReleasesForProject :many
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at FROM releases WHERE project_id=$1 ORDER BY number DESC LIMIT NULLIF($2::bigint,0)
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at, rebuilt_from, rebuilt_commit FROM releases WHERE project_id=$1 ORDER BY number DESC LIMIT NULLIF($2::bigint,0)
 `
 
 type ReleasesForProjectParams struct {
@@ -4611,6 +4657,8 @@ func (q *Queries) ReleasesForProject(ctx context.Context, arg ReleasesForProject
 			&i.StageEnteredAt,
 			&i.FailedStage,
 			&i.StageFinishedAt,
+			&i.RebuiltFrom,
+			&i.RebuiltCommit,
 		); err != nil {
 			return nil, err
 		}
@@ -4738,6 +4786,7 @@ const repairInterruptedReleases = `-- name: RepairInterruptedReleases :many
 UPDATE releases r SET state=$1, failed_stage=stage, stage_finished_at=$2::timestamptz WHERE state=$3
   AND NOT EXISTS(SELECT 1 FROM release_requests q WHERE q.release_id=r.id AND q.claimed_at IS NULL
     AND r.id=ANY($4::uuid[]))
+  AND NOT EXISTS(SELECT 1 FROM release_requests q WHERE q.release_id=r.id AND q.rebuild_pending)
   AND NOT EXISTS(SELECT 1 FROM deployment_attempts a LEFT JOIN deployment_attempt_inputs i ON i.attempt_id=a.id
   WHERE i.release_id=r.id OR (i.attempt_id IS NULL AND a.idempotency_key='release-' || r.id::text))
   RETURNING id
@@ -4780,6 +4829,39 @@ func (q *Queries) RepairInterruptedReleases(ctx context.Context, arg RepairInter
 	return items, nil
 }
 
+const replaceRebuiltReleaseBundle = `-- name: ReplaceRebuiltReleaseBundle :execrows
+UPDATE releases SET bundle_id=$1,notes=$2,state=$3,approval_json=NULL,approval_role=$4,rebuilt_from=$5,rebuilt_commit=$6
+WHERE id=$7 AND state='releasing' AND bundle_id=$8
+`
+
+type ReplaceRebuiltReleaseBundleParams struct {
+	BundleID         ids.ID
+	Notes            string
+	State            string
+	ApprovalRole     string
+	RebuiltFrom      int64
+	RebuiltCommit    string
+	ID               ids.ID
+	OriginalBundleID ids.ID
+}
+
+func (q *Queries) ReplaceRebuiltReleaseBundle(ctx context.Context, arg ReplaceRebuiltReleaseBundleParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, replaceRebuiltReleaseBundle,
+		arg.BundleID,
+		arg.Notes,
+		arg.State,
+		arg.ApprovalRole,
+		arg.RebuiltFrom,
+		arg.RebuiltCommit,
+		arg.ID,
+		arg.OriginalBundleID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const repositoryOwned = `-- name: RepositoryOwned :one
 SELECT EXISTS(SELECT 1 FROM owned_repositories WHERE project_id=$1 AND connection_id=$2 AND registry=$3 AND repository=$4)
 `
@@ -4804,7 +4886,7 @@ func (q *Queries) RepositoryOwned(ctx context.Context, arg RepositoryOwnedParams
 }
 
 const requestedReleaseForUpdate = `-- name: RequestedReleaseForUpdate :one
-SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id, r.from_deployment_id, r.approval_role, r.approval_json, r.superseded_by, r.rollback_of, r.restore_backup_id, r.stage, r.stage_entered_at, r.failed_stage, r.stage_finished_at,q.release_id, q.target_id, q.base_generation, q.attributes_json, q.claimed_at, q.start_from_backup, q.provider_binding_json, q.ingress_json, q.authority_json, q.require_promotion, q.feed_revision, q.landing_approvers, q.backup_evidence_json, q.uncopied_acceptance_json FROM releases r JOIN release_requests q ON q.release_id=r.id
+SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin, r.backup_id, r.from_deployment_id, r.approval_role, r.approval_json, r.superseded_by, r.rollback_of, r.restore_backup_id, r.stage, r.stage_entered_at, r.failed_stage, r.stage_finished_at, r.rebuilt_from, r.rebuilt_commit,q.release_id, q.target_id, q.base_generation, q.attributes_json, q.claimed_at, q.start_from_backup, q.provider_binding_json, q.ingress_json, q.authority_json, q.require_promotion, q.feed_revision, q.landing_approvers, q.backup_evidence_json, q.uncopied_acceptance_json, q.rebuild_pending FROM releases r JOIN release_requests q ON q.release_id=r.id
 WHERE r.id=$1 FOR UPDATE OF q
 `
 
@@ -4846,6 +4928,8 @@ func (q *Queries) RequestedReleaseForUpdate(ctx context.Context, id ids.ID) (Req
 		&i.Release.StageEnteredAt,
 		&i.Release.FailedStage,
 		&i.Release.StageFinishedAt,
+		&i.Release.RebuiltFrom,
+		&i.Release.RebuiltCommit,
 		&i.ReleaseRequest.ReleaseID,
 		&i.ReleaseRequest.TargetID,
 		&i.ReleaseRequest.BaseGeneration,
@@ -4860,6 +4944,7 @@ func (q *Queries) RequestedReleaseForUpdate(ctx context.Context, id ids.ID) (Req
 		&i.ReleaseRequest.LandingApprovers,
 		&i.ReleaseRequest.BackupEvidenceJson,
 		&i.ReleaseRequest.UncopiedAcceptanceJson,
+		&i.ReleaseRequest.RebuildPending,
 	)
 	return i, err
 }
@@ -4949,6 +5034,18 @@ func (q *Queries) ResetHostPort(ctx context.Context, arg ResetHostPortParams) (i
 	return result.RowsAffected()
 }
 
+const resetRebuiltReleaseClaim = `-- name: ResetRebuiltReleaseClaim :execrows
+UPDATE release_requests SET claimed_at=NULL,rebuild_pending=false WHERE release_id=$1
+`
+
+func (q *Queries) ResetRebuiltReleaseClaim(ctx context.Context, releaseID ids.ID) (int64, error) {
+	result, err := q.db.ExecContext(ctx, resetRebuiltReleaseClaim, releaseID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const retainedOpenCount = `-- name: RetainedOpenCount :one
 SELECT COUNT(*) FROM retained_resources WHERE target_id=$1 AND disposition=$2
 `
@@ -5022,6 +5119,138 @@ func (q *Queries) RetainedResources(ctx context.Context, arg RetainedResourcesPa
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const retentionBundles = `-- name: RetentionBundles :many
+SELECT id, project_id, contract_revision, contract_hash, parts_json, init_json, built_from_json, created_at, target_id, registry, platform, built_on_json, run_id, step_id, attempt FROM release_bundles ORDER BY created_at DESC,id DESC
+`
+
+func (q *Queries) RetentionBundles(ctx context.Context) ([]ReleaseBundle, error) {
+	rows, err := q.db.QueryContext(ctx, retentionBundles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReleaseBundle
+	for rows.Next() {
+		var i ReleaseBundle
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.ContractRevision,
+			&i.ContractHash,
+			&i.PartsJson,
+			&i.InitJson,
+			&i.BuiltFromJson,
+			&i.CreatedAt,
+			&i.TargetID,
+			&i.Registry,
+			&i.Platform,
+			&i.BuiltOnJson,
+			&i.RunID,
+			&i.StepID,
+			&i.Attempt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const retentionReleases = `-- name: RetentionReleases :many
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at, rebuilt_from, rebuilt_commit FROM releases ORDER BY number DESC
+`
+
+func (q *Queries) RetentionReleases(ctx context.Context) ([]Release, error) {
+	rows, err := q.db.QueryContext(ctx, retentionReleases)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Release
+	for rows.Next() {
+		var i Release
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Number,
+			&i.State,
+			&i.Deployment,
+			&i.ExternalRef,
+			&i.ApprovedBy,
+			&i.RunID,
+			&i.CreatedAt,
+			&i.ReleasedAt,
+			&i.Notes,
+			&i.CommitSha,
+			&i.SourceSha,
+			&i.BundleID,
+			&i.DeploymentID,
+			&i.Generation,
+			&i.ArtifactHash,
+			&i.Origin,
+			&i.BackupID,
+			&i.FromDeploymentID,
+			&i.ApprovalRole,
+			&i.ApprovalJson,
+			&i.SupersededBy,
+			&i.RollbackOf,
+			&i.RestoreBackupID,
+			&i.Stage,
+			&i.StageEnteredAt,
+			&i.FailedStage,
+			&i.StageFinishedAt,
+			&i.RebuiltFrom,
+			&i.RebuiltCommit,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const retentionRunningBundles = `-- name: RetentionRunningBundles :many
+SELECT i.bundle_id FROM deployments d
+JOIN deployment_attempts a ON a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done'
+JOIN deployment_attempt_inputs i ON i.attempt_id=a.id
+WHERE i.bundle_id IS NOT NULL
+`
+
+func (q *Queries) RetentionRunningBundles(ctx context.Context) ([]ids.ID, error) {
+	rows, err := q.db.QueryContext(ctx, retentionRunningBundles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ids.ID
+	for rows.Next() {
+		var bundle_id ids.ID
+		if err := rows.Scan(&bundle_id); err != nil {
+			return nil, err
+		}
+		items = append(items, bundle_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -5877,7 +6106,7 @@ func (q *Queries) UpdateDeploymentAddressSettings(ctx context.Context, arg Updat
 }
 
 const waitingReleases = `-- name: WaitingReleases :many
-SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at FROM releases WHERE state='waiting for approval' ORDER BY created_at
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin, backup_id, from_deployment_id, approval_role, approval_json, superseded_by, rollback_of, restore_backup_id, stage, stage_entered_at, failed_stage, stage_finished_at, rebuilt_from, rebuilt_commit FROM releases WHERE state='waiting for approval' ORDER BY created_at
 `
 
 func (q *Queries) WaitingReleases(ctx context.Context) ([]Release, error) {
@@ -5919,6 +6148,8 @@ func (q *Queries) WaitingReleases(ctx context.Context) ([]Release, error) {
 			&i.StageEnteredAt,
 			&i.FailedStage,
 			&i.StageFinishedAt,
+			&i.RebuiltFrom,
+			&i.RebuiltCommit,
 		); err != nil {
 			return nil, err
 		}

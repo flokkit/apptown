@@ -23,6 +23,9 @@ import (
 
 // Account records calls and supplies service answers. Unconfigured calls fail.
 type Account struct {
+	BatchGetImageFunc    func(context.Context, *ecr.BatchGetImageInput) (*ecr.BatchGetImageOutput, error)
+	BatchDeleteImageFunc func(context.Context, *ecr.BatchDeleteImageInput) (*ecr.BatchDeleteImageOutput, error)
+
 	SSMListTagsForResourceFunc        func(context.Context, *ssm.ListTagsForResourceInput) (*ssm.ListTagsForResourceOutput, error)
 	GetParametersFunc                 func(context.Context, *ssm.GetParametersInput) (*ssm.GetParametersOutput, error)
 	GetProductsFunc                   func(context.Context, *pricing.GetProductsInput) (*pricing.GetProductsOutput, error)
@@ -694,3 +697,23 @@ type ecrAPI struct{ *Account }
 type logsAPI struct{ *Account }
 
 type ssmAPI struct{ *Account }
+
+func (a *Account) BatchGetImage(ctx context.Context, in *ecr.BatchGetImageInput, _ ...func(*ecr.Options)) (*ecr.BatchGetImageOutput, error) {
+	if err := a.called("BatchGetImage"); err != nil {
+		return nil, err
+	}
+	if a.BatchGetImageFunc == nil {
+		return nil, fmt.Errorf("unconfigured AWS call BatchGetImage")
+	}
+	return a.BatchGetImageFunc(ctx, in)
+}
+
+func (a *Account) BatchDeleteImage(ctx context.Context, in *ecr.BatchDeleteImageInput, _ ...func(*ecr.Options)) (*ecr.BatchDeleteImageOutput, error) {
+	if err := a.called("BatchDeleteImage"); err != nil {
+		return nil, err
+	}
+	if a.BatchDeleteImageFunc == nil {
+		return nil, fmt.Errorf("unconfigured AWS call BatchDeleteImage")
+	}
+	return a.BatchDeleteImageFunc(ctx, in)
+}

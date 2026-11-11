@@ -19,6 +19,8 @@ type RunRef struct{ ID, ProjectID ids.ID }
 // and consumers share these facts instead of rewalking parents or silently
 // substituting a per-run directory after a failed repository lookup.
 type Source struct {
+	SourceCommit string
+
 	RunID, ProjectID, RootRunID, ChangeID  ids.ID
 	RunNumber, ChangeNumber                int64 // within the project; ChangeNumber 0 without a change
 	WorkflowName                           string
@@ -58,7 +60,7 @@ func sourceRecord(run RunRef, row workflowsql.WorkflowSourceRow) (Source, error)
 	if row.DefaultBranch == "" && declaration.Workspace != "project" && !row.ValidLineage {
 		return Source{}, fmt.Errorf("run %d has an invalid workspace continuation chain", run.ID)
 	}
-	source := Source{RunID: run.ID, ProjectID: run.ProjectID, RootRunID: row.RootRunID, ChangeID: row.RootChangeID, RunNumber: row.RunNumber, ChangeNumber: row.ChangeNumber,
+	source := Source{SourceCommit: row.SourceCommit, RunID: run.ID, ProjectID: run.ProjectID, RootRunID: row.RootRunID, ChangeID: row.RootChangeID, RunNumber: row.RunNumber, ChangeNumber: row.ChangeNumber,
 		WorkflowName: row.WorkflowName, WorkflowVersion: int(row.WorkflowVersion), Slug: row.Slug, DefaultBranch: row.DefaultBranch,
 		Branch: row.Branch, ChangeType: row.ChangeType, ExpectedRevision: row.ExpectedRevision, AdoptionRevision: row.AdoptionRevision,
 		RunBaseSHA: row.RunBaseSha, RootBaseSHA: row.RootBaseSha, ChangeBaseSHA: row.ChangeBaseSha,

@@ -205,8 +205,8 @@ It has one of two forms.
   below, and AppTown saves each built image (`docker save`) and
   publishes it the same way. A worker changes where a release is built, not
   what it produces. AppTown, not the worker, publishes each image to the
-  project's container-registry attachment (the one container-registry
-  connector, attached at that landing, when the project has none) and reads
+  instance hub registry (one container-registry
+  connector for every project) and reads
   it back; the bundle
   records each part and init image as `<repository>@sha256:<digest>` with
   the repository, the platform (`os/arch`), where it was built (the
@@ -288,8 +288,9 @@ the current code and restarts it after restoring.
 
 A landing builds a bundle; App Platform and Portainer are
 promotion targets. A registry that refuses or cannot be reached is an
-error. A digest the registry confirms missing is refused, never rebuilt:
-registry retention decides how long a release can be redeployed. Docker
+error. A digest the hub confirms missing, absent from the spoke too, starts a build
+from the recorded commit and a fresh ordinary release, labelled rebuilt. An
+unreachable hub or refused credential is an error and never starts a rebuild. Docker
 hosts, App Platform and Portainer refuse a target whose platform is
 unknown or not the bundle's. Release previews do not check: they rely on
 the rule of one platform per AppTown (the worker's), as an accepted
@@ -1827,3 +1828,17 @@ what happened without repeating effects; a failed action can also be retried.
 A failed replacement can be stopped, but must be deployed successfully before
 Start or Restart can run its parts. The deployment list shows state and links
 to the deployment page for actions.
+
+## Image retention
+
+Deployment owns the daily image pass, separately from Maintenance's preview
+image reaper. Required reads finish before any deletion. Drivers implement
+`deploy.ImageStore` to identify a shared store and remove only the expired
+recorded references after keep sets have been combined. Docker and Portainer
+use the daemon's reported identity, including when both reach the same daemon.
+Every part and init image participates. Kept backups are read through
+`BackupImageKeeper`, supplied by Data protection at assembly. The hub keeps
+90 days and the newest 10 bundles per project by default, plus spoke keep sets
+and in-flight release requests. Passes write `images.retained` receipts; last
+results appear on the hub and target pages. See the
+[image guide](../../stock/docs/guides/images.md) for policy and failure behaviour.

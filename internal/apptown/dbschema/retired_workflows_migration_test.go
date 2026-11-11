@@ -68,7 +68,7 @@ func TestMigration215RetiresDeploymentProceduresWithoutChangingRuns(t *testing.T
 	exec(`INSERT INTO system_workflows(stock_name,name,updated_at) VALUES('land','ship',now()),('adopt-integration','ship',now()) ON CONFLICT(stock_name) DO UPDATE SET name='ship'`)
 	exec(`INSERT INTO workflow_schedules(project_id,workflow_name,last_fired_at) VALUES('00000000-0000-7000-8000-000000000520','ship',now())`)
 	var before string
-	if err := db.SQL().QueryRowContext(t.Context(), `SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY id),'[]')::text FROM runs r`).Scan(&before); err != nil {
+	if err := db.SQL().QueryRowContext(t.Context(), `SELECT COALESCE(jsonb_agg(to_jsonb(r)-'source_commit'-'rebuild_release_id'-'rebuild_from' ORDER BY id),'[]')::text FROM runs r`).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
 	if before == "[]" {
@@ -111,7 +111,7 @@ func TestMigration215RetiresDeploymentProceduresWithoutChangingRuns(t *testing.T
 		t.Fatalf("unrelated pack contents changed: %v", err)
 	}
 	var after string
-	if err := db.SQL().QueryRowContext(t.Context(), `SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY id),'[]')::text FROM runs r`).Scan(&after); err != nil || after != before {
+	if err := db.SQL().QueryRowContext(t.Context(), `SELECT COALESCE(jsonb_agg(to_jsonb(r)-'source_commit'-'rebuild_release_id'-'rebuild_from' ORDER BY id),'[]')::text FROM runs r`).Scan(&after); err != nil || after != before {
 		t.Fatalf("historical runs changed: %v", err)
 	}
 	if err := db.SQL().QueryRowContext(t.Context(), `SELECT count(*) FROM lib_workflows WHERE name='valid-script'`).Scan(&count); err != nil || count != 1 {

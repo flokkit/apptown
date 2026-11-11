@@ -251,6 +251,27 @@ func (h *releaseHosts) Run(ctx context.Context, host string, req docker.Command)
 	if len(args) == 2 && args[0] == "save" && req.Stdout != nil {
 		return nil, h.save(host, args[1], req.Stdout)
 	}
+	if len(args) >= 5 && args[0] == "image" && args[1] == "inspect" && strings.Contains(args[3], "RepoTags") {
+		captured := req
+		captured.Stdout = nil
+		captured.Stderr = nil
+		_, _ = d.Run(ctx, "", captured)
+		var missing bool
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		for _, ref := range args[4:] {
+			if h.held[host][ref] || strings.HasPrefix(ref, "sha256:") {
+				fmt.Fprintf(req.Stdout, "[]\t[%q]\t%q\n", ref, "sha256:built")
+			} else {
+				fmt.Fprintln(req.Stderr, "Error response from daemon: No such image: "+ref)
+				missing = true
+			}
+		}
+		if missing {
+			return nil, errFakeExit
+		}
+		return nil, nil
+	}
 	out, err := d.Run(ctx, "", req) // recorded, as the daemon saw it
 	switch {
 	case len(args) >= 2 && args[0] == "context" && args[1] == "show":
@@ -575,10 +596,11 @@ func newReleaseWorld(t *testing.T, configure func(*Config)) *releaseWorld {
 	}
 	w.worker = &releaseWorker{Tasks: &executionfake.Tasks{}, t: t, arch: "x86_64", layouts: map[string]map[string]layoutFiles{}, released: map[string]bool{}}
 	w.a.tasks.Driver, w.a.tasks.Poll = w.worker, 20*time.Millisecond
-	if err := w.a.Integrations.Attachments.Attach(t.Context(), idstest.N(1), "container-registry", "missing",
-		fmt.Sprintf(`{"repo":%q,"username":%q,"token":%q}`, w.registry.host+"/team/p", registryUser, registryToken), "test", nil); err != nil {
+
+	if _, err := w.a.Integrations.Bindings.Upsert(t.Context(), "hub", integration.CapContainerRegistry, "direct", fmt.Sprintf(`{"url":%q,"group":"team","username":%q,"tokenFrom":"HUB_PASSWORD"}`, w.registry.host, registryUser), false); err != nil {
 		t.Fatal(err)
 	}
+
 	// The image-only declarations' images, in the project's own registry.
 	for ref, content := range map[string]string{"upstream/cache:7": "cache", "upstream/seed:1": "seed"} {
 		repo, tag, _ := strings.Cut(ref, ":")
@@ -589,6 +611,9 @@ func newReleaseWorld(t *testing.T, configure func(*Config)) *releaseWorld {
 	w.a.SeedTargets(t.Context())
 	w.lab = attachTarget(t, w.a, "lab", "127.0.0.1")
 	w.lab2 = attachTarget(t, w.a, "lab2", "127.0.0.1")
+	if err := w.a.Secrets.SetInstance(t.Context(), "HUB_PASSWORD", registryToken, "fixture"); err != nil {
+		t.Fatal(err)
+	}
 	return w
 }
 
@@ -826,14 +851,10 @@ func TestAReleaseBuildIsRefusedBeforeAnythingIsBuilt(t *testing.T) {
 		want    string
 	}{
 		{name: "no registry", prepare: func(t *testing.T, w *releaseWorld) {
-			if err := w.a.Integrations.Attachments.Detach(context.Background(), idstest.N(1), "container-registry", "test"); err != nil {
+			if err := w.a.Integrations.Bindings.Delete(t.Context(), "hub", "test"); err != nil {
 				t.Fatal(err)
 			}
-		}, want: "this project has no container registry for its releases, and no container-registry connector is offered"},
-		{name: "two registry connectors", prepare: func(t *testing.T, w *releaseWorld) {
-			w.offerRegistry(t, "registry-a", "REGISTRY_PASSWORD")
-			w.offerRegistry(t, "registry-b", "REGISTRY_PASSWORD")
-		}, want: "several container-registry connectors are offered (registry-a, registry-b); attach the one p publishes to"},
+		}, want: "this AppTown has no hub registry for releases"},
 		{name: "registry credential not held", prepare: func(t *testing.T, w *releaseWorld) {
 			w.offerRegistry(t, "registry-a", "NOT_IN_THE_STORE")
 		}, want: "names its credential NOT_IN_THE_STORE, which the secrets store does not hold"},
@@ -871,9 +892,10 @@ func TestAReleaseBuildIsRefusedBeforeAnythingIsBuilt(t *testing.T) {
 // the secret tokenFrom names: the store holds REGISTRY_PASSWORD.
 func (w *releaseWorld) offerRegistry(t *testing.T, name, tokenFrom string) {
 	t.Helper()
-	if err := w.a.Integrations.Attachments.Detach(context.Background(), idstest.N(1), integration.CapContainerRegistry, "test"); err != nil && !errors.Is(err, integration.ErrNotAttached) {
+	if err := w.a.Integrations.Bindings.Delete(t.Context(), "hub", "fixture"); err != nil {
 		t.Fatal(err)
 	}
+
 	f, err := os.OpenFile(filepath.Join(w.a.cfg.dataDir, "secrets.env"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 	if err != nil {
 		t.Fatal(err)
@@ -890,70 +912,22 @@ func (w *releaseWorld) offerRegistry(t *testing.T, name, tokenFrom string) {
 	}
 }
 
-// A project with no container registry, on an AppTown that offers one
-// container-registry connector, is given it at its first landing: the
-// attachment is recorded by the integrations owner like any other, names
-// <url>/<group>/<slug>, and holds no credential. The connector's
-// credential is read from the secrets store, and the release is published
-// with it.
-func TestAFirstLandingAttachesTheOneOfferedRegistry(t *testing.T) {
+// Every landing publishes through the hub without creating a project attachment.
+func TestAFirstLandingUsesTheHubWithoutAnAttachment(t *testing.T) {
 	t.Parallel()
 	w := newReleaseWorld(t, nil)
-	w.offerRegistry(t, "registry-a", "REGISTRY_PASSWORD")
 	w.mainOn(t, w.lab)
 	run, stepID := w.landingRun(t)
-	w.a.Work.ExecuteStep(w.a.asEngine(context.Background()), stepID)
+	w.a.Work.ExecuteStep(w.a.asEngine(t.Context()), stepID)
 	if step := w.step(t, stepID); step.Status != workflow.StatusPass {
-		t.Fatalf("deploy step: %s %s", step.Status, step.Evidence)
+		t.Fatalf("build: %s %s", step.Status, step.Evidence)
 	}
-	rows, err := integration.AttachedRows(context.Background(), w.a.DB, idstest.N(1))
-	if err != nil {
-		t.Fatal(err)
+	if attached, err := w.a.Integrations.Attachments.IsAttached(t.Context(), idstest.N(1), integration.CapContainerRegistry); err != nil || attached {
+		t.Fatalf("hub attached to project: %v %v", attached, err)
 	}
-	var attached *integration.Attachment
-	for i := range rows {
-		if rows[i].Capability == integration.CapContainerRegistry {
-			attached = &rows[i]
-		}
-	}
-	if attached == nil || attached.Binding != "registry-a" || attached.Provenance != string(integration.Provisioned) {
-		t.Fatalf("the project's container registry: %+v", attached)
-	}
-	var resource map[string]any
-	if err := json.Unmarshal([]byte(attached.ResourceJSON), &resource); err != nil || len(resource) != 1 || resource["repo"] != w.registry.host+"/team/p" {
-		t.Errorf("the attachment holds %s, want only the repository %s/team/p", attached.ResourceJSON, w.registry.host)
-	}
-	b, err := w.a.Deployment.Bundles.OfRun(context.Background(), idstest.N(1), run.ID)
+	b, err := w.a.Deployment.Bundles.OfRun(t.Context(), idstest.N(1), run.ID)
 	if err != nil || b == nil || b.BuiltFrom.Registry != w.registry.host+"/team/p" {
-		t.Fatalf("the landing's bundle: %+v %v", b, err)
-	}
-	if w.registry.digestOf(t, fmt.Sprintf("%s/team/p:change-%d-part-web", w.registry.host, run.ChangeID)) == "" {
-		t.Error("the release was not published to the attached registry")
-	}
-}
-
-// A project that has a container registry keeps it, whatever AppTown
-// offers: the landing publishes to the attachment it has.
-func TestALandingKeepsAnAttachedRegistry(t *testing.T) {
-	t.Parallel()
-	w := newReleaseWorld(t, nil)
-	before, _, err := w.a.Integrations.Attachments.Attached(context.Background(), idstest.N(1), integration.CapContainerRegistry)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config := `{"url":"other.invalid","group":"elsewhere","tokenFrom":["REGISTRY_PASSWORD"]}`
-	if _, err := w.a.Integrations.Bindings.Upsert(t.Context(), "registry-a", integration.CapContainerRegistry, "service", config, false); err != nil {
-		t.Fatal(err)
-	}
-	w.mainOn(t, w.lab)
-	_, stepID := w.landingRun(t)
-	w.a.Work.ExecuteStep(w.a.asEngine(context.Background()), stepID)
-	if step := w.step(t, stepID); step.Status != workflow.StatusPass {
-		t.Fatalf("deploy step: %s %s", step.Status, step.Evidence)
-	}
-	binding, resource, err := w.a.Integrations.Attachments.Attached(context.Background(), idstest.N(1), integration.CapContainerRegistry)
-	if err != nil || binding != before || !strings.Contains(resource, registryToken) || !strings.Contains(resource, w.registry.host+"/team/p") {
-		t.Errorf("the manual attachment changed: %s %s %v", binding, resource, err)
+		t.Fatalf("derived publication: %+v %v", b, err)
 	}
 }
 
@@ -1953,7 +1927,7 @@ func TestALandingBuiltOnItsHostIsPublishedAsOnTheWorker(t *testing.T) {
 func TestALandingWithNoRegistryKeepsItsHostsImages(t *testing.T) {
 	t.Parallel()
 	w := localReleaseWorld(t)
-	if err := w.a.Integrations.Attachments.Detach(t.Context(), idstest.N(1), "container-registry", "test"); err != nil {
+	if err := w.a.Integrations.Bindings.Delete(t.Context(), "hub", "test"); err != nil {
 		t.Fatal(err)
 	}
 	w.mainOn(t, w.lab)
@@ -2015,5 +1989,130 @@ func TestTheReleasePlanShipsTheLandingsPublishedBundle(t *testing.T) {
 	}
 	if err := json.Unmarshal(out.Body.Bytes(), &plan); err != nil || out.Code != 200 || plan.Published == nil || !*plan.Published || plan.Head.SHA != b.ContractRevision {
 		t.Fatalf("the plan: %d %s %v", out.Code, out.Body.String(), err)
+	}
+}
+
+func TestOnlyAConfirmedMissingHubImageStartsAPinnedRebuild(t *testing.T) {
+	for _, scenario := range []string{"missing", "failed rebuild", "unavailable", "refused", "retained"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+			w := newReleaseWorld(t, nil)
+			w.mainOn(t, w.lab)
+			run, step := w.landingRun(t)
+			executeBootFixture(t, w.a, w.a.asEngine(t.Context()), step)
+			original, err := w.a.Deployment.Bundles.OfRun(t.Context(), idstest.N(1), run.ID)
+			if err != nil || original == nil {
+				t.Fatalf("initial bundle: %v", err)
+			}
+			if err := w.a.Projects.SetDefaultBranch(t.Context(), idstest.N(1), "main"); err != nil {
+				t.Fatal(err)
+			}
+			w.a.Ways.SyncStockWorkflows(t.Context())
+			rebuildWork(t, w.a, func(deps *workflow.Dependencies) {
+				deps.Resolve = w.a.preparation.Resolve
+				deps.Git = workflow.GitWorkspace{DataDir: w.a.cfg.dataDir}
+			})
+			repo := w.a.projectRepoPath("p")
+			if _, err := gitexec.Run(t.Context(), repo, "branch", "-M", "main"); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(repo, "site", "index.html"), []byte("later main must not be rebuilt"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := gitexec.Run(t.Context(), repo, "add", "site/index.html"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := gitexec.Run(t.Context(), repo, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-qm", "later main"); err != nil {
+				t.Fatal(err)
+			}
+			switch scenario {
+			case "missing", "failed rebuild":
+				_, digest, _ := strings.Cut(original.Parts["web"], "@")
+				if err := oci.Delete(t.Context(), w.registry.repository("team/p"), digest); err != nil {
+					t.Fatal(err)
+				}
+				if scenario == "failed rebuild" {
+					w.worker.exit = 2
+				}
+			case "unavailable":
+				w.registry.unavailable.Store(true)
+			case "refused":
+				w.registry.refusing.Store(true)
+			case "retained":
+				w.hosts.mu.Lock()
+				if w.hosts.held[hostOf("lab2")] == nil {
+					w.hosts.held[hostOf("lab2")] = map[string]bool{}
+				}
+				for _, images := range []map[string]string{original.Parts, original.Init} {
+					for _, ref := range images {
+						w.hosts.held[hostOf("lab2")][ref] = true
+					}
+				}
+				w.hosts.mu.Unlock()
+				w.registry.unavailable.Store(true)
+			}
+			rel, err := w.promote(t, original.ID, "staging", w.lab2)
+			if scenario == "unavailable" || scenario == "refused" {
+				if err == nil || rel.State != deployment.ReleaseFailed {
+					t.Fatalf("hub failure became success/rebuild: %+v %v", rel, err)
+				}
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			if scenario == "retained" && rel.State != deployment.Released {
+				t.Fatalf("retained image needed hub: %+v", rel)
+			}
+			runs, err := w.a.Work.Runs(w.a.asEngine(t.Context()), workflow.RunQuery{ProjectID: rel.ProjectID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			n := 0
+			var rebuiltRun ids.ID
+			for _, summary := range runs {
+				candidate, err := workflow.ReadRunIn(t.Context(), w.a.DB, summary.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if candidate.RebuildReleaseID == rel.ID {
+					n++
+					rebuiltRun = candidate.ID
+				}
+			}
+			if scenario != "missing" && scenario != "failed rebuild" {
+				if n != 0 {
+					t.Fatalf("%s started %d rebuilds", scenario, n)
+				}
+				return
+			}
+			if n != 1 {
+				t.Fatalf("missing image started %d rebuilds", n)
+			}
+
+			w.a.Work.Wait()
+			if scenario == "failed rebuild" {
+				// The rebuild run has no change to abandon: its failure must
+				// settle the release, or the deployment refuses every later one.
+				failed, err := w.a.Deployment.Releases.ByID(t.Context(), rel.ID)
+				if err != nil || failed.State != deployment.ReleaseFailed {
+					t.Fatalf("release after a failed rebuild: %+v %v", failed, err)
+				}
+				return
+			}
+			rebuilt, err := workflow.ReadRunIn(t.Context(), w.a.DB, rebuiltRun)
+			if err != nil || rebuilt.SourceCommit != original.ContractRevision || rebuilt.Status != workflow.RunDone {
+				t.Fatalf("pinned rebuild: %+v %v", rebuilt, err)
+			}
+			bundle, err := w.a.Deployment.Bundles.OfRun(t.Context(), rel.ProjectID, rebuiltRun)
+			if err != nil || bundle == nil || bundle.BuiltFrom.RebuiltFrom == 0 || bundle.ContractRevision != original.ContractRevision || bundle.ID == original.ID {
+				t.Fatalf("rebuilt origin: %+v %v", bundle, err)
+			}
+			if _, err := workflowFollowUps(w.a).Complete(context.Background(), completionKey(rebuiltRun, workflow.CompletionRelease), nil); err != nil {
+				t.Fatal(err)
+			}
+			final, err := w.a.Deployment.Releases.ByID(t.Context(), rel.ID)
+			if err != nil || final.State != deployment.Released || final.BundleID != bundle.ID || final.RebuiltFrom == 0 || final.RebuiltCommit != original.ContractRevision {
+				t.Fatalf("rebuilt release: %+v %v", final, err)
+			}
+		})
 	}
 }

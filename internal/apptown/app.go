@@ -72,6 +72,8 @@ import (
 // receive this object. workflow_wiring.go supplies the advancement engine's
 // operations. Database schema and migrations belong to dbschema.
 type App struct {
+	imageRebuilds *releaseImageRebuilder
+
 	// images is the runtime images of the tool versions this AppTown shipped with.
 	images toolversions.Images
 	// newWork holds new jobs and steps for a whole-AppTown backup's brief
@@ -396,6 +398,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.guidance = guidanceFor(a)
 	a.preparation = workcommands.NewPreparation(db, a.Adoption, a.branches, cfg.dataDir, holderPresenceFor(a), a.chatSaves, a.Secrets, cfg.clock.Now)
 	a.Work = workflow.New(a.life, db, a.workDependencies())
+	a.imageRebuilds.work = a.Work
 	a.attachments = workflow.NewAttachments(db, access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects}, workflow.GitWorkspace{DataDir: cfg.dataDir}, cfg.clock.Now)
 	a.standingRules = workflow.NewStandingRules(db, workflow.StandingDependencies{Adoptions: a.Adoption, Inspector: verification.NewRoutineInspector(cfg.dataDir, &a.repositories, checksFor(a)), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: identity.Scoped(a.Access, "standing-approval"), Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Lanes: a.lifecycle, Laws: workflowLawRules{}}, Destinations: standingDestinations{}, Now: cfg.clock.Now})
 	a.ADRs = adrs.New(db, access.Checked{Authority: identity.Scoped(a.Access, "adrs"), Projects: a.Projects}, refreshADREvidence(a.Work, a.asEngine(a.life)), cfg.clock.Now)

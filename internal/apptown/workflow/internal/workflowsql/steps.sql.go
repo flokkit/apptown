@@ -100,7 +100,7 @@ func (q *Queries) AgentSessionObservation(ctx context.Context, arg AgentSessionO
 }
 
 const approvalInbox = `-- name: ApprovalInbox :many
-SELECT r.id, r.project_id, r.number, r.workflow_name, r.workflow_version, r.kind, r.status, r.current_stage, r.definition_json, r.change_id, r.workflow_origin, r.parent_run_id, r.parent_step_id, r.parent_step_attempt, r.inputs_json, r.retry_revision, r.base_sha, r.created_at, r.updated_at, r.adoption_id, r.landing_authority, r.landing_authority_principal, r.landing_authority_via,s.attempt, s.id, s.run_id, s.stage, s.name, s.type, s.config_json, s.status, s.evidence_json, s.override_by, s.override_by_principal, s.override_by_via, s.override_reason, s.started_at, s.finished_at,p.slug AS project_slug,p.name AS project_name,COALESCE(c.title,'')::text AS change_title
+SELECT r.id, r.project_id, r.number, r.workflow_name, r.workflow_version, r.kind, r.status, r.current_stage, r.definition_json, r.change_id, r.workflow_origin, r.parent_run_id, r.parent_step_id, r.parent_step_attempt, r.inputs_json, r.retry_revision, r.base_sha, r.created_at, r.updated_at, r.adoption_id, r.landing_authority, r.landing_authority_principal, r.landing_authority_via, r.source_commit, r.rebuild_release_id, r.rebuild_from,s.attempt, s.id, s.run_id, s.stage, s.name, s.type, s.config_json, s.status, s.evidence_json, s.override_by, s.override_by_principal, s.override_by_via, s.override_reason, s.started_at, s.finished_at,p.slug AS project_slug,p.name AS project_name,COALESCE(c.title,'')::text AS change_title
 FROM steps s JOIN runs r ON r.id=s.run_id JOIN projects p ON p.id=r.project_id
 LEFT JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
 WHERE r.project_id=ANY($1::uuid[]) AND r.status=$2
@@ -160,6 +160,9 @@ func (q *Queries) ApprovalInbox(ctx context.Context, arg ApprovalInboxParams) ([
 			&i.Run.LandingAuthority,
 			&i.Run.LandingAuthorityPrincipal,
 			&i.Run.LandingAuthorityVia,
+			&i.Run.SourceCommit,
+			&i.Run.RebuildReleaseID,
+			&i.Run.RebuildFrom,
 			&i.Step.Attempt,
 			&i.Step.ID,
 			&i.Step.RunID,
@@ -223,7 +226,7 @@ func (q *Queries) AttemptSessionStarted(ctx context.Context, arg AttemptSessionS
 }
 
 const completedParent = `-- name: CompletedParent :one
-SELECT r.id, r.project_id, r.number, r.workflow_name, r.workflow_version, r.kind, r.status, r.current_stage, r.definition_json, r.change_id, r.workflow_origin, r.parent_run_id, r.parent_step_id, r.parent_step_attempt, r.inputs_json, r.retry_revision, r.base_sha, r.created_at, r.updated_at, r.adoption_id, r.landing_authority, r.landing_authority_principal, r.landing_authority_via, EXISTS (
+SELECT r.id, r.project_id, r.number, r.workflow_name, r.workflow_version, r.kind, r.status, r.current_stage, r.definition_json, r.change_id, r.workflow_origin, r.parent_run_id, r.parent_step_id, r.parent_step_attempt, r.inputs_json, r.retry_revision, r.base_sha, r.created_at, r.updated_at, r.adoption_id, r.landing_authority, r.landing_authority_principal, r.landing_authority_via, r.source_commit, r.rebuild_release_id, r.rebuild_from, EXISTS (
   SELECT 1 FROM steps s JOIN runs child ON child.id=$1
     AND child.parent_run_id=r.id AND child.parent_step_id=s.id AND child.parent_step_attempt=s.attempt
     AND child.project_id=r.project_id AND child.status='done'
@@ -279,6 +282,9 @@ func (q *Queries) CompletedParent(ctx context.Context, arg CompletedParentParams
 		&i.Run.LandingAuthority,
 		&i.Run.LandingAuthorityPrincipal,
 		&i.Run.LandingAuthorityVia,
+		&i.Run.SourceCommit,
+		&i.Run.RebuildReleaseID,
+		&i.Run.RebuildFrom,
 		&i.CurrentCall,
 	)
 	return i, err

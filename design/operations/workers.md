@@ -1119,7 +1119,7 @@ naming a private image fails with that registry's error.
 
 AppTown then reads each image the worker left, checks every blob
 against its digest and the platform, writes it to the project's
-container registry with the attachment's credential, and reads it back
+repository on the hub registry with the hub's credential, and reads it back
 by digest. Only the registry's answer is recorded. The bundle names every
 part and init image as `<repository>@sha256:<digest>`, with the
 platform, the worker that built it and the profile that worker measured. It is
@@ -1135,29 +1135,25 @@ DOCR copies carry a commit-based tag. Images are named `part-<part>` and
 
 On an AppTown without a worker the landing builds images on its build host without booting a deployment
 or running init steps. When the project has a container registry, AppTown
-saves each built image (`docker save`) and publishes it through the same publication. The bundle names the Docker host where the worker would be. A
+saves each built image (`docker save`) and publishes it through the same publication when AppTown has a hub registry. The bundle names the Docker host where the worker would be. A
 worker changes where a release is built, not what it produces.
 
 **What it needs.**
 - A worker, and private Docker not turned off (`-private-docker`, on by
   default).
-- A container registry for each shipping project: the one
-  container-registry connector AppTown has, which a project's first
-  landing attaches when it has none, or a registry attached to the project
-  (below). AppTown needs to reach it, and so does every target: Docker
-  hosts pull with a per-operation login, the worker pulls for release
-  previews.
+- The hub registry: AppTown's one container-registry connector. Every
+  project's repository is `<url>/<group>/<slug>`, read and written with the
+  connector's credential. AppTown needs to reach it, and so does every
+  target: Docker hosts pull with a per-operation login, the worker pulls
+  for release previews.
 - The worker's platform (its measured architecture, as `linux/amd64` or
   `linux/arm64`) must be the target's: a Docker host's `docker info`, App
   Platform's `linux/amd64`, Portainer's endpoint. Unknown or different is
   refused before anything runs.
 
 **Refused before anything is built**, each naming the next action: no
-registry attached and no single connector to attach ("this project has no
-container registry for its releases, and no container-registry connector
-is offered …" or "… several container-registry connectors are offered (a,
-b); attach the one <slug> publishes to …"), a connector credential the
-secrets store does not hold, `-private-docker=false`, and an unknown build platform. Destination compatibility
+hub registry ("this AppTown has no hub registry for releases; add one
+under Integrations"), a hub credential the secrets store does not hold, `-private-docker=false`, and an unknown build platform. Destination compatibility
 is checked when each release executes.
 
 **Consumers.** Promotion to another Docker host, recovery after a host
@@ -1165,100 +1161,38 @@ lost its images or container (the rebuild a apptown start asks for), App
 Platform (each digest copied into DOCR by AppTown, then named in the
 app spec), Portainer (the stack names every digest) and release previews
 (booted by digest where change previews boot) all pull. None builds. A
-registry that refuses or cannot be reached is an error; a digest the
-registry confirms missing is refused: land the change again.
+registry that refuses or cannot be reached is an error. When the hub
+confirms a digest missing and the target does not hold it, AppTown
+rebuilds from the release's recorded commit and labels the release as
+rebuilt ([images guide](../../stock/docs/guides/images.md)).
 
 **Accepted failures.** An AppTown restart during a build step leaves the
 step in error: restart only while `apptown executing` lists nothing, or
-retry the step, which builds again. An interrupted publication can leave an unused tagged image;
-AppTown never deletes from a registry, and the registry's retention
-decides how long a release can be redeployed. Every image byte passes
+retry the step, which builds again. An interrupted publication can leave an unused tagged image that no
+bundle records; the daily image retention pass deletes only recorded
+images, so it stays until the registry's own tools remove it. Every image byte passes
 through AppTown, and builds are cold.
 
 An AppTown without a worker builds on its targets.
 
-#### Offering a registry before the rollout
+#### The hub registry
 
-A landing on an AppTown with a worker publishes to the project's container
-registry. A project with none is given AppTown's one container-registry
-connector at its first landing, recorded as an attachment (provenance
-`provisioned`, by `apptown-system`, with the run and step in its receipt)
-that shows under the project's integrations like one made by hand. With
-no connector, or several, the landing is refused before any effect, naming
-the choice. A project that has a registry keeps it. Before upgrading a
-AppTown with a worker to this version, or before giving an AppTown its first
-worker:
+A landing on an AppTown with a worker publishes to the hub registry: the
+one `container-registry` connector, added under Integrations (its form
+sets the registry host, repository prefix, username, password secret and
+the retention numbers). Its credential must push and pull every project's
+repository. A second connector is refused. Check that every target can
+pull from it: its TLS certificate is trusted by each Docker host's
+daemon, and the hosts can reach it. The first landing of each project is
+its check: a missing hub, an unheld secret or an unreachable registry
+fails the build step before any effect on `main`.
 
-1. Define the `container-registry` service kind, if AppTown has none:
-   `POST /api/v1/services` with its YAML (the kind is runtime-defined). The
-   definition in use has connector fields `url`, `group`, `provider`,
-   `username` and `tokenFrom`, and resource fields `repo`, `username` and
-   `token`:
-
-   ```yaml
-   capability: container-registry
-   title: Container registry
-   description: OCI images per project — a pushed image is the unit of release.
-   connector:
-     fields:
-       - key: url
-         label: Registry host
-         placeholder: registry.example.com
-       - key: group
-         label: Namespace / group
-       - key: provider
-         label: Provider
-         optional: true
-       - key: username
-         label: Push username
-         optional: true
-       - key: tokenFrom
-         label: Push password secret
-         type: secretRef
-         optional: true
-   resource:
-     fields:
-       - key: repo
-         label: Image repository
-         optional: true
-       - key: username
-         label: Push username
-         optional: true
-       - key: token
-         label: Push token
-         optional: true
-   env:
-     - key: REGISTRY
-       value: "{{connector.url}}"
-     - key: IMAGE_REPO
-       value: "{{resource.repo}}"
-   ```
-2. Offer one registry: add one `container-registry` connector
-   (`POST /api/v1/integrations`, provider `service`). Either
-   - `provider: gitlab` with `url` and `group`: a project's first landing
-     provisions a per-project deploy token, as the linked attach does; or
-   - any other registry: `url`, `group`, `username` and `tokenFrom`, the
-     name of a secret in AppTown's secrets store that holds the
-     password. Projects are attached as `<url>/<group>/<slug>` and hold no
-     credential; AppTown reads the secret each time it pushes or logs a
-     daemon in, so rotating it is a change to the secret only. The
-     credential must be able to push and pull every project's repository.
-
-   With several registries, attach each project yourself:
-   `POST /api/v1/projects/<slug>/integrations` with
-   `{"capability":"container-registry","connector":<name>,"resource":{"repo":"<url>/<group>/<slug>"}}`
-   uses that connector's credential (add `username` and `token` to the
-   resource only for a connector that names none; a GitLab connector
-   provisions when no resource is given). Attachments made before this
-   version, holding their own `token`, keep working unchanged.
-3. Check that every target can pull from that registry: its TLS
-   certificate is trusted by each Docker host's daemon, and the hosts can
-   reach it.
-4. Upgrade or start AppTown with the worker (and private Docker not
-   turned off). The
-   first landing of each project is its check: a missing connector, an
-   unheld secret or an unreachable registry fails the build step before
-   any effect on `main`.
+Upgrading an AppTown that had per-project registry attachments removes
+them. The upgrade refuses to start while several container-registry
+connectors or a GitLab per-project one exist: replace them with one
+connector whose credential reaches every project's repository first.
+Bundles keep the repository they recorded; one on another registry host
+is pulled without the hub's credential.
 
 Releases recorded before the upgrade keep their image IDs and their old
 rules (same-target reuse in the mode, a rebuild outside it).

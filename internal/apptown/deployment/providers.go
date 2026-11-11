@@ -172,9 +172,10 @@ func (p *Providers) dockerDriver(ctx context.Context, t *Target, dep *Deployment
 		return nil, fmt.Errorf("reading the deployment's serving identity: %w", err)
 	}
 	return &docker.Driver{Allowed: docker.AuthorisedWhenRequested,
-		ServingLabel: owner.ServingLabel,
-		Scope:        func(ctx context.Context) (docker.Scope, error) { return p.hosts.DockerScope(ctx, t) },
-		Boot:         p.env.host(dep.ProjectID, p.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(p.db, p.clock, dep, slug) }),
+		ServingLabel:   owner.ServingLabel,
+		Scope:          func(ctx context.Context) (docker.Scope, error) { return p.hosts.DockerScope(ctx, t) },
+		BuildTagPrefix: string(docker.Current),
+		Boot:           p.env.host(dep.ProjectID, p.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(p.db, p.clock, dep, slug) }),
 		URL: func(servingLabel, name string, port int) (string, error) {
 			reach, err := dockerReach(p.env.RoutesFor(ctx, dep.ProjectID), t, servingLabel, name, port)
 			return reach.URL, err
@@ -458,8 +459,8 @@ func (p *Providers) newDOAppDriver(ctx context.Context, t *Target, dep *Deployme
 		// key's secret is in the built-in store under its scope.
 		Holdings: holdings{deployments: p.deployments, dep: dep},
 		Secrets:  p.needSecrets(dep),
-		// A project with no registry attached now reads anonymously, and
-		// its registry's refusal is the release's error.
+		// Without a hub the project reads anonymously; the registry's
+		// refusal is the release's error.
 		ReleaseLogin: func(ref string) (oci.Credential, error) { return p.releaseCredential(ctx, dep.ProjectID, ref) },
 		// The gate image is read with the project's registry credential
 		// only when it lives on that registry's host; a credential is never
@@ -521,7 +522,7 @@ func (p *Providers) configureProviders(ctx context.Context) {
 	}
 	if p.drivers[KindPortainer] == nil {
 		p.drivers[KindPortainer] = func(ctx context.Context, t *Target, dep *Deployment) (deploy.Driver, error) {
-			return &portainerRelease{providers: p, target: t, dep: dep, Driver: &portainer.Driver{Diagnostics: p.portainerDiagnostic, AdmitDisk: func(ctx context.Context) error { return p.admitPortainerDisk(ctx, t) }, Now: p.clock, TargetID: t.ID, Owner: ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock}, Config: func(ctx context.Context, id ids.ID) (*portainer.Target, error) {
+			return &portainerRelease{providers: p, target: t, dep: dep, Driver: &portainer.Driver{ImageScope: func(ctx context.Context) (docker.Scope, error) { return p.PortainerDataScope(ctx, t) }, Diagnostics: p.portainerDiagnostic, AdmitDisk: func(ctx context.Context) error { return p.admitPortainerDisk(ctx, t) }, Now: p.clock, TargetID: t.ID, Owner: ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock}, Config: func(ctx context.Context, id ids.ID) (*portainer.Target, error) {
 				target, err := p.targets.ByID(ctx, id)
 				if err != nil {
 					return nil, fmt.Errorf("resolving Portainer target %d: %w", id, err)

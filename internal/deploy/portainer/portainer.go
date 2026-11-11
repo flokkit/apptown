@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/oci"
 	"github.com/flokkit/apptown/internal/strs"
@@ -248,7 +249,7 @@ func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compo
 			}
 			code, raw, err = JSON(ctx, cfg, "PUT",
 				fmt.Sprintf("/api/stacks/%d?endpointId=%d", st.ID, endpointID),
-				map[string]any{"stackFileContent": compose, "env": cfg.stackEnv(), "pullImage": true, "prune": true})
+				map[string]any{"stackFileContent": compose, "env": cfg.stackEnv(), "pullImage": false, "prune": true})
 			if err != nil {
 				return fmt.Errorf("updating stack %s: %w", name, err)
 			}
@@ -287,6 +288,8 @@ func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compo
 // Driver reconciles an admitted deployment through its owned stack.
 // Portainer owns runtime liveness; AppTown records release outcomes.
 type Driver struct {
+	ImageScope func(context.Context) (docker.Scope, error)
+
 	TargetID ids.ID // AppTown's target record
 	Config   func(context.Context, ids.ID) (*Target, error)
 	// Owner records the stack when AppTown creates it; nil records

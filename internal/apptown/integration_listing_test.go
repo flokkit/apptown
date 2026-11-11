@@ -149,3 +149,68 @@ func TestPackageRegistryIsCheckedByTheJobAndNeverByThePage(t *testing.T) {
 		t.Fatal("connection coverage missing")
 	}
 }
+
+// An administrator sets the hub's retention numbers through the connector
+// form that creates and edits it: the catalog offers one container-registry
+// form (also where the runtime-defined kind exists, as on older AppTowns),
+// saving it keeps the numbers, the list shows them, and a zero is refused.
+func TestTheHubsRetentionIsSetThroughItsConnectorForm(t *testing.T) {
+	t.Parallel()
+	a := authzFixture(t)
+	kind := `capability: container-registry
+title: Container registry
+connector:
+  fields:
+    - {key: url, label: Registry host}
+    - {key: group, label: Namespace}
+`
+	if err := a.Integrations.ServiceKinds.Save(t.Context(), "container-registry", kind, "Container registry", "boss"); err != nil {
+		t.Fatal(err)
+	}
+	h := a.Handler()
+	w := authzCall(h, "boss", "GET", "/api/v1/integrations/catalog", "")
+	var catalog httpapi.ConnectorCatalog
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &catalog) != nil {
+		t.Fatalf("catalog: %d %s", w.Code, w.Body.String())
+	}
+	var forms []httpapi.ConnectorEntry
+	for _, c := range catalog.Catalog {
+		if c.Capability == integration.CapContainerRegistry {
+			forms = append(forms, c)
+		}
+	}
+	if len(forms) != 1 || forms[0].Provider != "service" || !forms[0].Multi {
+		t.Fatalf("container-registry forms: %+v", forms)
+	}
+	fields := map[string]string{}
+	for _, f := range forms[0].Fields {
+		fields[f.Key] = f.Type
+	}
+	if fields["keepDays"] != "number" || fields["keepReleases"] != "number" {
+		t.Fatalf("the hub form cannot set retention: %+v", forms[0].Fields)
+	}
+	save := func(days int) int {
+		body := fmt.Sprintf(`{"name":"hub","capability":"container-registry","provider":"service","config":{"url":"registry.example","group":"team","username":"robot","tokenFrom":["HUB_PASSWORD"],"keepDays":%d,"keepReleases":4}}`, days)
+		return authzCall(h, "boss", "POST", "/api/v1/integrations", body).Code
+	}
+	if code := save(30); code != 200 {
+		t.Fatalf("saving the hub: %d", code)
+	}
+	if code := save(0); code < 400 {
+		t.Fatalf("a zero retention was saved: %d", code)
+	}
+	w = authzCall(h, "boss", "GET", "/api/v1/integrations", "")
+	var list httpapi.IntegrationList
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &list) != nil {
+		t.Fatalf("integrations: %d %s", w.Code, w.Body.String())
+	}
+	for _, e := range list.Integrations {
+		if e.Name == "hub" {
+			if want := "keeps 30 days and the newest 4 releases per project"; len(e.ImageRetention) < len(want) || e.ImageRetention[:len(want)] != want {
+				t.Fatalf("hub row: %q", e.ImageRetention)
+			}
+			return
+		}
+	}
+	t.Fatal("the hub is not listed")
+}

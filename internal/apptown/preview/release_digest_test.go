@@ -62,8 +62,7 @@ func releasedFrom(t *testing.T, s *Service, projectID, bundleID ids.ID, image st
 }
 
 // releasePreviewWorld is the worker preview world with release previews
-// configured, the project's container registry attached (the preview
-// credential), a commit of the fixture contract in the project's
+// configured, the instance hub registry (the preview credential), a commit of the fixture contract in the project's
 // repository, and a digest bundle and a bundle of daemon image IDs cut from
 // it, each released.
 func releasePreviewWorld(t *testing.T) (s *Service, w *fakePreviewWorker, local func() []string, digest *deployment.ReleaseBundle, published, recorded int64) {
@@ -73,10 +72,10 @@ func releasePreviewWorld(t *testing.T) (s *Service, w *fakePreviewWorker, local 
 
 func releasePreviewWorldWithSize(t *testing.T, size bool) (s *Service, w *fakePreviewWorker, local func() []string, digest *deployment.ReleaseBundle, published, recorded int64) {
 	t.Helper()
-	s, w, local, dir, projectID := workerPreviewWorld(t)
+	s, w, local, dir, projectID := onWorker(t, newWorld(t, "", "PREVIEW_HUB_TOKEN=preview-token\n"))
 	s.authority = releasePreviewAuthorityFunc(func(context.Context, ids.ID) error { return nil })
-	if err := s.integrations.Attachments.Attach(t.Context(), projectID, "container-registry", "missing",
-		`{"repo":"registry.example.com/team/p","username":"robot","token":"preview-token"}`, "test", nil); err != nil {
+	if _, err := s.integrations.Bindings.Upsert(t.Context(), "hub", "container-registry", "service",
+		`{"url":"registry.example.com","group":"team","username":"robot","tokenFrom":["PREVIEW_HUB_TOKEN"]}`, false); err != nil {
 		t.Fatal(err)
 	}
 	repo := filepath.Join(dir, "workspaces", "project-"+projectID.String())

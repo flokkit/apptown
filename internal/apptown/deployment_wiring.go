@@ -1,12 +1,16 @@
 package apptown
 
 import (
+	"context"
+	"fmt"
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
+	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/fly"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Composition: what Deployment asks of the world, supplied by AppTown once
@@ -15,10 +19,14 @@ import (
 func (a *App) deploymentDependencies() deployment.Dependencies {
 	authority := access.Checked{Authority: a.Access, Projects: a.Projects}
 	sources := projectSources{projects: a.Projects, dataDir: a.cfg.dataDir}
+	data := &releaseData{data: a.DataProtection, after: (backupRequests{db: a.DB, life: a.life}).AfterRelease}
+	a.imageRebuilds = &releaseImageRebuilder{work: a.Work}
 	return deployment.Dependencies{
 		// AppTown's one clock, the one project deletion reads too: an
 		// orphaned copy's age is its taking against the deletion's.
 		Now:               a.cfg.clock.Now,
+		BackupImages:      data,
+		ImageRebuilder:    a.imageRebuilds,
 		Authority:         authority,
 		CreationAuthority: a.Access,
 		Groups:            a.Access,
@@ -29,7 +37,7 @@ func (a *App) deploymentDependencies() deployment.Dependencies {
 		Providers:         a.targetProviders,
 		Projects:          a.Projects,
 		Configuration:     deployment.ConfigurationDependencies{Authority: authority, Projects: sources, Contracts: sources},
-		Releases:          deployment.ReleaseDependencies{Grants: a.Access, Authority: authority, Still: a.Access, Sources: sources, Secrets: releaseSecrets{secrets: a.Secrets}, Queue: releaseJobs{}, Data: &releaseData{data: a.DataProtection, after: (backupRequests{db: a.DB, life: a.life}).AfterRelease}},
+		Releases:          deployment.ReleaseDependencies{Grants: a.Access, Authority: authority, Still: a.Access, Sources: sources, Secrets: releaseSecrets{secrets: a.Secrets}, Queue: releaseJobs{}, Data: data},
 		Followups:         jobQueue{},
 		Declared:          sources,
 		Applied:           a.infrastructure.Applied,
@@ -88,4 +96,23 @@ func environmentDependenciesFor(a *App) deployment.EnvironmentDependencies {
 func providerDependenciesFor(a *App, digitalOcean digitalocean.Options, flyOptions fly.Options) deployment.ProviderDependencies {
 	return deployment.ProviderDependencies{Projects: a.Projects, Secrets: a.Secrets, Integrations: a.Integrations, DigitalOcean: digitalOcean, Fly: flyOptions,
 		DatabaseContainer: builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, Applied: a.infrastructure.Applied, Now: a.cfg.clock.Now, Installation: a.docker.Instance}
+}
+
+// Data protection is assembled after Deployment; the same release collaborator
+// receives its concrete service before any scheduled work starts.
+func (r *releaseData) KeptBackupReleases(ctx context.Context) ([]ids.ID, error) {
+	if r.data == nil {
+		return nil, fmt.Errorf("data protection is unavailable")
+	}
+	return r.data.KeptBackupReleases(ctx)
+}
+
+type releaseImageRebuilder struct{ work *workflow.Service }
+
+func (r *releaseImageRebuilder) StartRebuild(ctx context.Context, project, release ids.ID, commit string, from int64) (ids.ID, error) {
+	if r.work == nil {
+		return ids.Nil, fmt.Errorf("build execution is unavailable")
+	}
+	system := verifiedContext(ctx, access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "engine"})
+	return r.work.StartRebuild(system, project, release, commit, from)
 }

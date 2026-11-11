@@ -74,7 +74,8 @@ func (h Connectors) ConnectorCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, k := range kinds {
-		if len(k.Connector.Fields) > 0 {
+		// A compiled spec for the same capability is the form (the hub's).
+		if len(k.Connector.Fields) > 0 && integration.FindConnector(k.Capability, "service") == nil {
 			out = append(out, ConnectorEntry{integration.ServiceConnectorSpec(k), false})
 		}
 	}

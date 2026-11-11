@@ -1,7 +1,6 @@
 # Package and container registries
 
-Integration stores package-registry bindings and project container-registry
-attachments. Agentenv translates supported package formats into helper environment
+Integration stores package-registry bindings and the instance hub registry. Agentenv translates supported package formats into helper environment
 settings and configuration files. Docker preparation supplies its daemon/build
 configuration separately.
 
@@ -39,20 +38,12 @@ Nested builds and containers do not automatically inherit the helper's routing;
 required settings must be passed explicitly. A failed download does not by itself
 prove that a security policy denied it.
 
-A container-registry attachment can provide scoped credentials for image operations.
-The linked GitLab adapter can provision a project deploy token. Any other
-attachment either holds its own `username` and `token`, or holds only its
-`repo` and is written with its connector's credential: the connector's
-`username` and the secret its `tokenFrom` names, read from the secrets store
-when used and never copied into the attachment. A named secret the store does
-not hold is an error, not an anonymous registry. On an AppTown with a worker, a
-landing whose project has no container registry attaches the one
-container-registry connector AppTown has (a GitLab one by provisioning,
-any other as `<url>/<group>/<slug>`); with none or several it is refused,
-naming the choice. Detaching stops
-AppTown contributions but does not itself revoke that provider-side token. Treat
-staged client authentication as a credential available to its runtime, even when
-it is not an environment variable.
+One instance hub connector supplies release credentials. Its `url`, `group`
+and project slug derive the repository. Its username and `tokenFrom` resolve
+through the secrets store when used, and a missing named secret is an error.
+Eval copies receive no general registry credential. Publication and deployment
+of their own bundles use only their own derived repository. GitLab per-project
+provisioning and project registry attachments are unavailable.
 
 Implementation steps, application deployment and chats have different grants.
 Private Docker in a change chat does not automatically confer registry push access.
@@ -67,7 +58,7 @@ the implemented registry contract.
 On an AppTown with a worker, a landing's release images are built once on the
 worker and published to the project's container registry; the bundle records
 each image as `<repository>@sha256:<digest>`. The worker build carries no
-registry credential. AppTown pushes each image with the attachment's
+registry credential. AppTown pushes each image with the hub's
 credential and reads it back by digest, and only the registry's answer is
 recorded. Targets pull those digests and build nothing: Docker hosts with a
 per-operation login, Portainer by naming each digest in the stack, and App
@@ -75,15 +66,13 @@ Platform from DigitalOcean's registry (DOCR), into which AppTown copies each
 digest. That DOCR repository, one per project and connector, is recorded as the
 deployment's own and emptied when the project's last App Platform deployment
 on that connector is taken down. A bucket website reads the site's files out
-of the release image. AppTown never deletes from the project's own registry; its
-retention decides how long a release can be redeployed. Without a worker, a
-landing builds images on its build host without booting them. When the project has a container
-registry, AppTown saves each built image and publishes it as above,
-so the bundle is by digest. With no registry attached it records image IDs.
-Portainer and a bucket website take only a bundle by digest, through either
-door to Portainer (`apptown release <project>` or a deployment released by
-name): a bundle of image IDs is refused with "Attach a container registry to
-the project, then land a change". Nothing is built at release. An agent
+of the release image. Deployment applies the hub's retention policy daily;
+its operator manages blob collection. Without a worker, a landing builds images
+on its build host without booting them and publishes to the hub when configured.
+With no hub it records image IDs on that host. Portainer and bucket websites
+require digest bundles. A confirmed missing original image is rebuilt from its
+recorded commit through a new build run; a registry refusal or outage is an
+error. An agent
 step's private Docker is logged in to no registry, with or without a worker. See
 [deployment targets](deploy-targets.md#where-a-release-comes-from) and
 [workers](../operations/workers.md#releases-built-on-the-worker).
@@ -108,3 +97,20 @@ keep their separate lifecycles.
 Already-admitted tasks retain their saved request and cache mount. An older task
 without a kept request can be refused if reconstruction changes its admitted
 digest; cache upgrades do not rewrite requests or silently execute changed work.
+
+## Release image retention
+
+Container images use one instance hub connector (`container-registry`), with
+repositories derived from its host, prefix and project slug. Project registry
+attachments and GitLab per-project provisioning are unavailable. Migration 223
+refuses multiple or GitLab connectors before deleting attachment rows.
+
+Deployment owns the daily `image-retention` pass. It reads its release, bundle
+and request records and Data protection's kept-backup release IDs before deleting
+anything. The hub defaults to 90 days and the newest 10 bundles per project; it
+also retains every spoke keep set and in-flight selection. Driver stores combine
+keep sets by physical store identity; only recorded expired references and owned
+landing build tags can be removed. The pass writes one `images.retained` audit
+record, including unknown reads and refused deletions. The hub operator manages
+blob collection. The [image guide](../../stock/docs/guides/images.md) states the
+policy and target-specific limits.

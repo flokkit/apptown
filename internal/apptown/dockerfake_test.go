@@ -93,6 +93,18 @@ func (f *fakeDocker) Run(ctx context.Context, host string, req docker.Command) (
 		}
 		return out, err
 	}
+	// Release admission asks which recorded images the daemon holds before
+	// any pull. This daemon holds every one it is asked about, so a test's
+	// release goes on to its scripted pulls; a test about missing images
+	// scripts its own transport.
+	if len(req.Args) >= 4 && req.Args[0] == "image" && req.Args[1] == "inspect" && req.Args[2] == "--format" && strings.HasPrefix(req.Args[3], "{{json .RepoTags}}") && req.Stdout != nil {
+		for _, ref := range req.Args[4:] {
+			if _, err := fmt.Fprintf(req.Stdout, "[%q]\t[]\t%q\n", ref, dockerfake.ImageID(ref)); err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
+	}
 	if req.Stdin != nil || req.Stdout != nil {
 		return nil, errors.New("fake Docker streaming requires an explicit reply")
 	}

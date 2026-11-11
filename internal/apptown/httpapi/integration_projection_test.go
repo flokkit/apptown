@@ -59,7 +59,7 @@ func TestProjectIntegrationReadBatchesAndContainsPrivateRecords(t *testing.T) {
  ($5,'feedback','gone','{"appKey":"app-key-canary"}','direct',$6,now())`, projectIDs[0], changeIDs[0], projectIDs[0], changeIDs[1], projectIDs[0], idstest.N(999)); err != nil {
 		t.Fatal(err)
 	}
-	if err := integrations.Attachments.Attach(ctx, projectIDs[0], "container-registry", "gone", `{"token":"registry-canary"}`, "fixture", nil); err != nil {
+	if err := integrations.Attachments.Attach(ctx, projectIDs[0], "private-service", "gone", `{"token":"private-service-canary"}`, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := integrations.Attachments.Remember(ctx, projectIDs[0], "scm", "gitlab", `{"token":"scm-canary"}`); err != nil {
@@ -100,7 +100,7 @@ func TestProjectIntegrationReadBatchesAndContainsPrivateRecords(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("list: %d %s", w.Code, w.Body.String())
 	}
-	for _, secret := range []string{"connector-canary", "dsn-canary", "app-key-canary", "registry-canary", "scm-canary", "Private other change"} {
+	for _, secret := range []string{"connector-canary", "dsn-canary", "app-key-canary", "private-service-canary", "scm-canary", "Private other change"} {
 		if strings.Contains(w.Body.String(), secret) {
 			t.Fatalf("private data reached attachment response: %s", secret)
 		}

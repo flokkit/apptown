@@ -11,7 +11,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/ids"
 
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -106,32 +105,10 @@ func PlanRelease(c *appcontract.Contract) ReleasePlan {
 
 // errNoReleaseRegistry: a release built on the worker is published to the
 // project's container-registry attachment, and it has none.
-var errNoReleaseRegistry = fmt.Errorf("%w: this project has no container registry for its releases; attach one", ErrReleaseRefused)
+var errNoReleaseRegistry = fmt.Errorf("%w: this AppTown has no hub registry for releases; add one under Integrations", ErrReleaseRefused)
 
-// LandingRegistry is the repository a landing publishes its release to.
-// A project with no container registry is first given the one
-// container-registry connector AppTown offers, through the integrations
-// owner (integration.AttachOfferedRegistry), as landingTarget gives a
-// landing the one offered Docker host; with none or several the refusal
-// names the choice a person makes.
-//
-// An eval copy is attached nothing: its releases go to the repository the
-// AppTown keeps for it (integration.Service.Registry), with AppTown's own
-// credential.
+// LandingRegistry is the instance hub's derived repository for this project.
 func (s *Service) LandingRegistry(ctx context.Context, projectID ids.ID, who string, receipt map[string]any) (oci.Repository, error) {
-	if s.env.integrations == nil {
-		return oci.Repository{}, errNoReleaseRegistry
-	}
-	if purpose, err := s.env.Purpose(ctx, projectID); err != nil {
-		return oci.Repository{}, err
-	} else if !purpose.Integrations() {
-		return s.env.ReleaseRepository(ctx, projectID)
-	}
-	if err := s.env.integrations.AttachOfferedRegistry(ctx, projectID, who, receipt); errors.Is(err, integration.ErrNoOfferedRegistry) {
-		return oci.Repository{}, refused("this project has no container registry for its releases, and %s", strings.TrimPrefix(err.Error(), integration.ErrNoOfferedRegistry.Error()+": "))
-	} else if err != nil {
-		return oci.Repository{}, fmt.Errorf("attaching the offered container registry: %w", err)
-	}
 	return s.env.ReleaseRepository(ctx, projectID)
 }
 
@@ -207,6 +184,7 @@ func (s *Service) tagRelease(ctx context.Context, number int64, b *ReleaseBundle
 
 // ReleasePublication is a release the worker built, to publish and commit.
 type ReleasePublication struct {
+	RebuiltFrom int64
 	// Log reports phase entry only; image names, never credentials or image contents.
 	Log deploy.Logf
 	// By is the build step attempt publishing it: it must own its step
@@ -287,7 +265,7 @@ func (s *Service) PublishRelease(ctx context.Context, in ReleasePublication) (*R
 	if in.Log != nil {
 		in.Log("Recording the published release bundle")
 	}
-	id, err := s.Bundles.Cut(ctx, projectID, in.Tree, parts, init, in.Contract, BundleOrigin{ChangeID: in.ChangeID, RunID: runID,
+	id, err := s.Bundles.Cut(ctx, projectID, in.Tree, parts, init, in.Contract, BundleOrigin{RebuiltFrom: in.RebuiltFrom, ChangeID: in.ChangeID, RunID: runID,
 		Registry: registry, Platform: in.Platform, Build: in.Build, By: in.By})
 	if err != nil {
 		return nil, fmt.Errorf("committing the release bundle: %w", err)

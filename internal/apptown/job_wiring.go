@@ -133,8 +133,9 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 		// After AppTown was restored, its App Platform and Portainer
 		// deployments are checked against their providers each minute
 		// until none is left unconfirmed.
-		restoreCheckJob: {Run: jobErrors(deployments.CheckAfterRestore)},
-		"backup-sweep":  {Run: jobErrors(data.Sweep)},
+		restoreCheckJob:              {Run: jobErrors(deployments.CheckAfterRestore)},
+		"backup-sweep":               {Run: jobErrors(data.Sweep)},
+		deployment.ImageRetentionJob: {Run: jobErrors(deployments.RetainImages), Timeout: 20 * time.Minute},
 		// Restored copies of production whose time is up are taken down
 		// within minutes of it, not at the next daily sweep.
 		dataprotection.RestoredCopySweepJob: {Run: jobErrors(data.RestoredCopySweep)},
@@ -197,6 +198,7 @@ var jobBudgets = map[string]int{
 	"rebuild":                               1,
 	restoreCheckJob:                         1,
 	"backup-sweep":                          1,
+	deployment.ImageRetentionJob:            1,
 	dataprotection.RestoredCopySweepJob:     1,
 	operations.Job:                          1,
 	"db-backup":                             1,
@@ -323,7 +325,7 @@ const (
 
 func apptownJobSchedules() []jobs.Schedule {
 	var schedules []jobs.Schedule
-	for _, spec := range []struct{ operation, cron, key string }{{"db-backup", "0 2 * * *", ""}, {"backup-sweep", "0 3 * * *", ""}, {dataprotection.RestoredCopySweepJob, "*/5 * * * *", ""},
+	for _, spec := range []struct{ operation, cron, key string }{{"db-backup", "0 2 * * *", ""}, {"backup-sweep", "0 3 * * *", ""}, {deployment.ImageRetentionJob, "30 3 * * *", ""}, {dataprotection.RestoredCopySweepJob, "*/5 * * * *", ""},
 		{projectlifecycle.DeletionPassJob, "*/5 * * * *", ""}, {projectlifecycle.PurgePassJob, "0 4 * * *", ""},
 		{remediation.PassJob, "* * * * *", passScheduledKey}, {evals.PassJob, "* * * * *", passScheduledKey},
 		{restoreCheckJob, "* * * * *", passScheduledKey}, {infrastructureCheckJob, "*/5 * * * *", passScheduledKey}, {hourlyInfrastructureCheckJob, "0 * * * *", passScheduledKey}} {

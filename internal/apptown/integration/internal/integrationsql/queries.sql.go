@@ -640,6 +640,15 @@ func (q *Queries) LinkIntegrationWire(ctx context.Context, arg LinkIntegrationWi
 	return result.RowsAffected()
 }
 
+const lockHubRegistry = `-- name: LockHubRegistry :exec
+SELECT pg_advisory_xact_lock(872103)
+`
+
+func (q *Queries) LockHubRegistry(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, lockHubRegistry)
+	return err
+}
+
 const markScannerManaged = `-- name: MarkScannerManaged :exec
 UPDATE integrations SET managed=true WHERE name=$1
 `

@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
-	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/database"
@@ -116,66 +116,18 @@ type Registry struct {
 	Token    string
 }
 
-// Registry is the project's registry wiring, nil when the capability is
-// not attached (or is attached without a repo). "Could not read" and "the
-// credential does not resolve" are errors, never an anonymous registry. The
-// credential is the attachment's own (username, token), when it holds one,
-// or else its connector's: username and the secret tokenFrom names,
-// resolved from the secrets store when used and never stored in the
-// attachment. Repository and login host must name the same OCI registry as
-// the connector before its credential is read; changing the connector host
-// cannot redirect an attachment. A connector credential needs an explicit
-// matching host. A self-contained attachment derives its host from its repo.
-//
-// An eval copy is attached nothing, so it has no registry here: nothing it
-// declares is pulled with a credential. AppTown publishes a copy's
-// releases itself (EvalPublication), to that copy's own repository only.
+// Registry derives the project's repository from the instance hub. Eval copies
+// receive no general registry credential; EvalPublication is scoped to their
+// own published images. An absent hub is nil; unreadable settings are errors.
 func (s *Service) Registry(ctx context.Context, projectID ids.ID) (*Registry, error) {
-	binding, resJSON, err := s.Attachments.Attached(ctx, projectID, CapContainerRegistry)
-	if errors.Is(err, ErrNotAttached) {
+	purpose, err := project.PurposeIn(ctx, s.Bindings.db, projectID)
+	if err != nil {
+		return nil, err
+	}
+	if !purpose.Integrations() {
 		return nil, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-	res, err := strictJSONMap(resJSON)
-	if err != nil {
-		return nil, fmt.Errorf("the container-registry attachment: %w", err)
-	}
-	value := func(k string) string { v, _ := res[k].(string); return v }
-	info := &Registry{Repo: value("repo"), Username: value("username"), Token: value("token")}
-	cfg, err := s.ConnectorConfig(ctx, binding, CapContainerRegistry)
-	if err != nil {
-		return nil, err
-	}
-	if info.Repo == "" {
-		return nil, nil
-	}
-	rawHost, hasHost := cfg["url"]
-	host, ok := rawHost.(string)
-	if hasHost && !ok {
-		return nil, fault.New(fault.Unprocessable, "the container-registry connector host must be text")
-	}
-	if info.Host, err = registryDestination(info.Repo, host); err != nil {
-		return nil, err
-	}
-	if info.Token == "" {
-		if from := ConfigStrings(cfg["tokenFrom"]); len(from) > 0 {
-			if host == "" {
-				return nil, fault.New(fault.Unprocessable, "the container-registry connector needs an explicit host before its credential can be used")
-			}
-			if info.Username == "" {
-				info.Username, _ = cfg["username"].(string)
-			}
-			if info.Token, err = s.registryToken(ctx, from); err != nil {
-				return nil, err
-			}
-			if info.Token == "" {
-				return nil, fmt.Errorf("the container-registry connector %s names its credential %s, which the secrets store does not hold", binding, strings.Join(from, ", "))
-			}
-		}
-	}
-	return info, nil
+	return s.hubRegistry(ctx, projectID)
 }
 
 // registryToken is the first of from the secrets hold, "" when they hold

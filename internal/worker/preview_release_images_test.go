@@ -29,6 +29,7 @@ func TestAReleasePreviewOnTheWorkerPullsItsImagesByDigestAndBuildsNothing(t *tes
 	dk, _ := sweepDocker(t)
 	var mu sync.Mutex
 	var loggedIn []string // the commands whose own configuration carried the login
+	held := map[string]bool{}
 	dk.reply = func(args []string) ([]byte, error, bool) {
 		if len(args) >= 2 && args[0] == "--config" {
 			if config, _ := os.ReadFile(filepath.Join(args[1], "config.json")); strings.Contains(string(config), "reg.example") {
@@ -42,7 +43,17 @@ func TestAReleasePreviewOnTheWorkerPullsItsImagesByDigestAndBuildsNothing(t *tes
 		switch {
 		case strings.Contains(line, "context show"):
 			return []byte("default\n"), nil, true
+		case len(args) == 2 && args[0] == "pull":
+			mu.Lock()
+			held[args[1]] = true
+			mu.Unlock()
 		case strings.Contains(line, "{{.Id}} {{json .RepoDigests}}"):
+			// The daemon holds an image only once it has pulled it.
+			mu.Lock()
+			defer mu.Unlock()
+			if !held[args[len(args)-1]] {
+				return []byte("Error: No such image: " + args[len(args)-1] + "\n"), errExit, true
+			}
 			return []byte("sha256:pulled [\"" + args[len(args)-1] + "\"]\n"), nil, true
 		case strings.Contains(line, "{{.State.Running}} {{.Id}}"):
 			return []byte("Error: No such object\n"), errExit, true

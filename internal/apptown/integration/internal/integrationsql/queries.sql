@@ -143,3 +143,6 @@ ON CONFLICT(project_id,capability) DO UPDATE SET identity=excluded.identity,payl
 
 -- name: ErrorReportSubjects :many
 SELECT project_id FROM project_integrations WHERE capability='errors' AND provenance='provisioned' ORDER BY project_id;
+
+-- name: LockHubRegistry :exec
+SELECT pg_advisory_xact_lock(872103);

@@ -21,6 +21,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/oci"
@@ -120,7 +121,7 @@ func TestAPublicationStopsWhenItsAttemptIsSuperseded(t *testing.T) {
 	reg := httptest.NewServer(registry.New(registry.Logger(log.New(io.Discard, "", 0))))
 	t.Cleanup(reg.Close)
 	host := strings.TrimPrefix(reg.URL, "http://")
-	if err := s.env.integrations.Attachments.Attach(t.Context(), w.project, "container-registry", "missing", `{"repo":"`+host+`/team/game"}`, "test", nil); err != nil {
+	if _, err := s.env.integrations.Bindings.Upsert(t.Context(), "hub", "container-registry", "direct", `{"url":"`+host+`","group":"team"}`, false); err != nil {
 		t.Fatal(err)
 	}
 	c, err := appcontract.Parse([]byte("app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n  worker:\n    build: worker\ninit:\n  - name: migrate\n    build: migrations\n"))
@@ -204,7 +205,7 @@ func TestAPartAndAnInitStepKeepTheirOwnImages(t *testing.T) {
 	reg := httptest.NewServer(registry.New(registry.Logger(log.New(io.Discard, "", 0))))
 	t.Cleanup(reg.Close)
 	repo := strings.TrimPrefix(reg.URL, "http://") + "/team/game"
-	if err := s.env.integrations.Attachments.Attach(t.Context(), w.project, "container-registry", "missing", `{"repo":"`+repo+`"}`, "test", nil); err != nil {
+	if _, err := s.env.integrations.Bindings.Upsert(t.Context(), "hub", "container-registry", "direct", `{"url":"`+strings.Split(repo, "/team/")[0]+`","group":"team"}`, false); err != nil {
 		t.Fatal(err)
 	}
 	initImage, err := oci.Publish(context.Background(), ociImage(t, "migration image"), oci.Repository{Name: repo}, "migration", "linux/amd64")
@@ -268,14 +269,15 @@ func TestHistoricalReleaseTagDoesNotRetargetTheCurrentRegistryCredential(t *test
 			db := testDB(t)
 			id := createTestProject(t, db, "shop", "Shop")
 			projects := project.New(db, nil)
-			integrations := integration.NewService(db, integration.Dependencies{Projects: projects})
-			if _, err := integrations.Bindings.Save(t.Context(), "registry", integration.CapContainerRegistry, "service", fmt.Sprintf(`{"url":%q}`, currentHost), "fixture"); err != nil {
+			store := secret.NewService(db, secret.Config{DataDir: t.TempDir()})
+			integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: store})
+			if _, err := integrations.Bindings.Save(t.Context(), "registry", integration.CapContainerRegistry, "service", fmt.Sprintf(`{"url":%q,"group":"team","username":"robot","tokenFrom":"HUB_PASSWORD"}`, currentHost), "fixture"); err != nil {
 				t.Fatal(err)
 			}
-			resource := fmt.Sprintf(`{"repo":%q,"username":"robot","token":"new-registry-canary"}`, currentHost+"/team/shop")
-			if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", resource, "fixture", nil); err != nil {
+			if err := store.SetInstance(t.Context(), "HUB_PASSWORD", "new-registry-canary", "fixture"); err != nil {
 				t.Fatal(err)
 			}
+
 			s := &Service{env: NewEnvironment(EnvironmentDependencies{Projects: projects, Integrations: integrations})}
 			digest := "sha256:" + strings.Repeat("a", 64)
 			bundle := &ReleaseBundle{ProjectID: id, BuiltFrom: BundleOrigin{Registry: oldHost + "/team/shop"}, Parts: map[string]string{"web": oldHost + "/team/shop@" + digest}}

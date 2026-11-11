@@ -140,7 +140,7 @@ func releaseOf(src deploy.Source) (ref, release string, err error) {
 	}
 	ref = src.Images[c.Parts[0].Name]
 	if !strings.Contains(ref, "@sha256:") {
-		return "", "", deploy.Terminal(fmt.Errorf("part %s has no image by digest in this release (%q); land a change with a container registry attached to the project, then release that", c.Parts[0].Name, ref))
+		return "", "", deploy.Terminal(fmt.Errorf("part %s has no image by digest in this release (%q); configure the hub registry and land a change, then release that", c.Parts[0].Name, ref))
 	}
 	if release = c.PublicRelease(src.Revision); release == "" {
 		return "", "", deploy.Terminal(errors.New("the release names no revision, so its publication has no identity"))

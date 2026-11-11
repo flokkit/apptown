@@ -77,31 +77,19 @@ records each by digest, and every deployment target pulls those digests.
 Nothing is built on a target. This needs private Docker, which is on
 unless AppTown is started with `-private-docker=false`.
 
-Offer one container-registry connector under Integrations: a project with
-no registry is given it at its first landing, recorded as an attachment.
-With several connectors, attach each project to one yourself; with none,
-the landing is refused before anything happens, naming what to do. The
-connector's credential (the name of an AppTown secret, or for a GitLab
-connector a deploy token it makes for each project) must be able to push
-and pull every project's repository. Every target must be able to
-reach the registry and trust its TLS certificate. AppTown does not delete
-release images from the project's container registry; the registry's own
-retention decides how long a release can be
-deployed again. The repository's `design/operations/workers.md` ("Releases
-built on the worker") has the full procedure.
+Set up one hub registry under Integrations with its host, repository prefix,
+username and password secret. Its credential must push and pull every project's
+repository. AppTown derives repositories as `<host>/<prefix>/<project slug>`;
+projects have no registry attachment. GitLab per-project provisioning is not
+available. Every target must reach the registry and trust its TLS certificate.
 
-Registry resolution checks the attached repository against the connector's
-registry host before reading its credential. Use a host (optionally with a
-port), without a URL scheme or path. Credentials may rotate at that same host;
-changing the connector to another registry does not move existing attachments.
-Restore its host or explicitly replace the attachment with the intended
-repository and credential. A connector credential requires an explicit host.
-A directly attached repository with its own credential remains self-contained.
-Docker Hub aliases use the same registry authority; explicit ports remain distinct.
+The hub keeps 90 days and the newest 10 bundles per project by default, together
+with images needed by target copies, backups and in-flight requests. Change the
+numbers on its integration. AppTown applies the policy daily and reports failed
+or unsupported deletes. You manage the hub's garbage collection. See
+[Images: where they live and how long they're kept](../guides/images.md).
 
-After a project changes registries, historical release images on a different
-registry are read anonymously. Private historical images need an appropriate
-current registry attachment. Readable release tags are skipped when their
-historical registry is outside the current credential's scope; the recorded
-image digest remains the release identity. Eval-copy credentials remain limited
-to the copy's own publication repository.
+Use a registry host, optionally with a port, without a URL scheme or path.
+Changing the hub changes the derived repositories for new builds. Historical
+bundles keep their recorded repository; a different host is read anonymously.
+Eval copies receive the hub credential only for their own published repository.

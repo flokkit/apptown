@@ -121,6 +121,10 @@ func policyLibraryUpgradeFixture(t *testing.T) *App {
 	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE releases DROP COLUMN stage, DROP COLUMN stage_entered_at, DROP COLUMN failed_stage, DROP COLUMN stage_finished_at`); err != nil {
 		t.Fatal(err)
 	}
+	// sql-guarantee: recreate the schema before the hub registry and rebuilds.
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `DROP INDEX integrations_one_hub; ALTER TABLE project_integrations DROP CONSTRAINT no_project_registry; ALTER TABLE runs DROP COLUMN source_commit, DROP COLUMN rebuild_release_id, DROP COLUMN rebuild_from; ALTER TABLE release_requests DROP COLUMN rebuild_pending; ALTER TABLE releases DROP COLUMN rebuilt_from, DROP COLUMN rebuilt_commit`); err != nil {
+		t.Fatal(err)
+	}
 	// sql-guarantee: this data-only migration needs the pre-upgrade schema stamp.
 	if _, err := a.DB.SQL().ExecContext(t.Context(), `UPDATE schema_version SET version=214`); err != nil {
 		t.Fatal(err)

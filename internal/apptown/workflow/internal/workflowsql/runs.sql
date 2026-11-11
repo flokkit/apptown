@@ -76,8 +76,8 @@ SELECT sqlc.arg(id),sqlc.arg(number),src.project_id,src.workflow_name,src.workfl
 DELETE FROM runs WHERE project_id=$1;
 
 -- name: InsertRun :one
-INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,workflow_origin,kind,status,current_stage,definition_json,change_id,parent_run_id,parent_step_id,inputs_json,adoption_id,created_at,updated_at)
-VALUES (sqlc.arg(id),sqlc.arg(number),sqlc.arg(project_id),sqlc.arg(workflow_name),sqlc.arg(workflow_version),sqlc.arg(workflow_origin),sqlc.arg(kind),sqlc.arg(status),sqlc.arg(current_stage),sqlc.arg(definition_json),sqlc.arg(change_id),sqlc.arg(parent_run_id),sqlc.arg(parent_step_id),sqlc.arg(inputs_json),sqlc.arg(adoption_id),sqlc.arg(created_at),sqlc.arg(updated_at)) RETURNING *;
+INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,workflow_origin,kind,status,current_stage,definition_json,change_id,parent_run_id,parent_step_id,inputs_json,adoption_id,source_commit,rebuild_release_id,rebuild_from,created_at,updated_at)
+VALUES (sqlc.arg(id),sqlc.arg(number),sqlc.arg(project_id),sqlc.arg(workflow_name),sqlc.arg(workflow_version),sqlc.arg(workflow_origin),sqlc.arg(kind),sqlc.arg(status),sqlc.arg(current_stage),sqlc.arg(definition_json),sqlc.arg(change_id),sqlc.arg(parent_run_id),sqlc.arg(parent_step_id),sqlc.arg(inputs_json),sqlc.arg(adoption_id),sqlc.arg(source_commit),sqlc.arg(rebuild_release_id),sqlc.arg(rebuild_from),sqlc.arg(created_at),sqlc.arg(updated_at)) RETURNING *;
 
 -- name: InvalidateRunDecision :execrows
 UPDATE runs SET retry_revision=retry_revision+1,updated_at=sqlc.arg(at)::timestamptz
@@ -256,7 +256,7 @@ WITH RECURSIVE ancestry AS (
   JOIN runs previous ON previous.id=c.source_run_id WHERE current.valid
 )
 SELECT root.id AS root_run_id,root.parent_run_id,root.change_id AS root_change_id,root.depth,
-  owner.base_sha AS root_base_sha,owner.definition_json AS root_definition,
+  owner.base_sha AS root_base_sha,owner.definition_json AS root_definition,owner.source_commit,
   current_run.base_sha AS run_base_sha,current_run.workflow_name,current_run.workflow_version,current_run.number AS run_number,
   (SELECT id FROM lineage ORDER BY id LIMIT 1)::uuid AS workspace_run_id,
   COALESCE((SELECT bool_and(valid) FROM lineage),false)::boolean AS valid_lineage,
@@ -340,3 +340,6 @@ SELECT id,project_id,'change'::text AS kind FROM changes
 UNION ALL
 SELECT id,project_id,'run'::text AS kind FROM runs
 ORDER BY kind,id;
+
+-- name: RebuildRun :one
+SELECT * FROM runs WHERE project_id=sqlc.arg(project_id) AND rebuild_release_id=sqlc.arg(release_id);

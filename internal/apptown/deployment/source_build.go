@@ -10,6 +10,7 @@ import (
 )
 
 type SourceBuild struct {
+	RebuiltFrom                int64
 	By                         AttemptClaim
 	ProjectID, ChangeID, RunID ids.ID
 	Tree, Revision             string
@@ -46,9 +47,9 @@ func (s *Service) BuildRelease(ctx context.Context, in SourceBuild) (*ReleaseBun
 		return nil, err
 	}
 	if publish {
-		return s.publishImages(ctx, t, parts, init, ReleasePublication{By: in.By, ChangeID: in.ChangeID, Tree: in.Revision, Contract: in.Raw, Plan: PlanRelease(in.Contract), Log: in.Log})
+		return s.publishImages(ctx, t, parts, init, ReleasePublication{RebuiltFrom: in.RebuiltFrom, By: in.By, ChangeID: in.ChangeID, Tree: in.Revision, Contract: in.Raw, Plan: PlanRelease(in.Contract), Log: in.Log})
 	}
-	id, err := s.Bundles.Cut(ctx, in.ProjectID, in.Revision, parts, init, in.Raw, BundleOrigin{ChangeID: in.ChangeID, RunID: in.RunID, TargetID: t.ID, By: in.By})
+	id, err := s.Bundles.Cut(ctx, in.ProjectID, in.Revision, parts, init, in.Raw, BundleOrigin{RebuiltFrom: in.RebuiltFrom, ChangeID: in.ChangeID, RunID: in.RunID, TargetID: t.ID, By: in.By})
 	if err != nil {
 		return nil, err
 	}

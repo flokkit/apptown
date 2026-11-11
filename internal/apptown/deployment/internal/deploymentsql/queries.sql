@@ -303,6 +303,7 @@ DELETE FROM deployments WHERE project_id=$1;
 UPDATE releases r SET state=sqlc.arg(failed_state), failed_stage=stage, stage_finished_at=sqlc.arg(at)::timestamptz WHERE state=sqlc.arg(open_state)
   AND NOT EXISTS(SELECT 1 FROM release_requests q WHERE q.release_id=r.id AND q.claimed_at IS NULL
     AND r.id=ANY(sqlc.arg(queued_release_ids)::uuid[]))
+  AND NOT EXISTS(SELECT 1 FROM release_requests q WHERE q.release_id=r.id AND q.rebuild_pending)
   AND NOT EXISTS(SELECT 1 FROM deployment_attempts a LEFT JOIN deployment_attempt_inputs i ON i.attempt_id=a.id
   WHERE i.release_id=r.id OR (i.attempt_id IS NULL AND a.idempotency_key='release-' || r.id::text))
   RETURNING id;
@@ -702,3 +703,27 @@ FROM releases r WHERE r.deployment_id=$1 ORDER BY (r.state='releasing') DESC, r.
 UPDATE deployment_attempts
 SET observed_json = observed_json || jsonb_build_object('_restartRetry', sqlc.arg(at)::timestamptz)
 WHERE id=sqlc.arg(id) AND NOT jsonb_exists(observed_json, '_restartRetry');
+-- name: RetentionBundles :many
+SELECT * FROM release_bundles ORDER BY created_at DESC,id DESC;
+
+-- name: RetentionReleases :many
+SELECT * FROM releases ORDER BY number DESC;
+
+-- name: RetentionRunningBundles :many
+SELECT i.bundle_id FROM deployments d
+JOIN deployment_attempts a ON a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done'
+JOIN deployment_attempt_inputs i ON i.attempt_id=a.id
+WHERE i.bundle_id IS NOT NULL;
+
+-- name: AppPlatformReleaseInFlight :one
+SELECT EXISTS(SELECT 1 FROM release_requests q JOIN releases r ON r.id=q.release_id JOIN targets t ON t.id=q.target_id WHERE t.kind='do-app' AND r.state='releasing');
+
+-- name: ReplaceRebuiltReleaseBundle :execrows
+UPDATE releases SET bundle_id=sqlc.arg(bundle_id),notes=sqlc.arg(notes),state=sqlc.arg(state),approval_json=NULL,approval_role=sqlc.arg(approval_role),rebuilt_from=sqlc.arg(rebuilt_from),rebuilt_commit=sqlc.arg(rebuilt_commit)
+WHERE id=sqlc.arg(id) AND state='releasing' AND bundle_id=sqlc.arg(original_bundle_id);
+
+-- name: ResetRebuiltReleaseClaim :execrows
+UPDATE release_requests SET claimed_at=NULL,rebuild_pending=false WHERE release_id=sqlc.arg(release_id);
+
+-- name: MarkReleaseRebuilding :execrows
+UPDATE release_requests SET rebuild_pending=true WHERE release_id=sqlc.arg(release_id);

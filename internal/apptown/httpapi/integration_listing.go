@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -41,6 +42,11 @@ func (h IntegrationListing) ListIntegrations(w http.ResponseWriter, r *http.Requ
 		WriteError(w, 500, "%s", err.Error())
 		return
 	}
+	retention, err := h.deployment.LastImageRetention(r.Context())
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	var list []IntegrationEntry
 	for _, b := range bindings {
 		f, err := h.features.FeatureState(r.Context(), integration.FeatureArea(b.Capability, b.Provider))
@@ -66,6 +72,14 @@ func (h IntegrationListing) ListIntegrations(w http.ResponseWriter, r *http.Requ
 		if e.Capability == "model" {
 			integration.RedactModelCredentials(e.Config)
 		}
+		if b.Capability == integration.CapContainerRegistry {
+			_, policy, err := h.integrations.Hub(r.Context())
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
+			e.ImageRetention = fmt.Sprintf("keeps %d days and the newest %d releases per project · %s", policy.KeepDays, policy.KeepReleases, retention.Summary(ids.Nil, true))
+		}
 		e.ConfigHash = deploy.ConfigHash(b.ConfigJSON)
 		list = append(list, e)
 	}
@@ -83,6 +97,7 @@ func (h IntegrationListing) ListIntegrations(w http.ResponseWriter, r *http.Requ
 // IntegrationEntry is one binding with what uses it and its retained health;
 // its inline credentials are redacted.
 type IntegrationEntry struct {
+	ImageRetention string `json:"imageRetention,omitempty"`
 	IntegrationView
 	Managed    bool               `json:"managed"`
 	ConfigHash string             `json:"configHash"`

@@ -719,6 +719,13 @@ unhashed paths. Neither target has one today, so no purge is made.
 - [internal/deploy/driver.go](../../internal/deploy/driver.go)
 - [internal/deploy/fly](../../internal/deploy/fly)
 
+Release images are published to the instance hub and copied to target stores.
+Docker and Portainer confirm retained digests locally; App Platform and Fly
+confirm the destination digest and platform before reading the hub. Each store
+keeps the running release, last three successful releases, seven days of
+successful releases and releases named by kept backups. Bucket websites hold
+files and need the hub for rollback. See the
+[image guide](../../stock/docs/guides/images.md) for retention and garbage collection.
 
 ## AWS ECS
 

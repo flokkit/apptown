@@ -23,7 +23,7 @@ export function JobsPage() {
 }
 
 const JOB_WORDS: Record<string, string> = {
-  backup: 'Back up apps', inventory: 'Check resources', rebuild: 'Rebuild an app', 'backup-sweep': 'Check backups', 'db-backup': `Back up ${PRODUCT}`,
+  backup: 'Back up apps', inventory: 'Check resources', rebuild: 'Rebuild an app', 'image-retention': 'Keep release images', 'backup-sweep': 'Check backups', 'db-backup': `Back up ${PRODUCT}`,
   narrative: 'Write a change summary', 'protection-observation': 'Check backups', 'capacity-observation': 'Check server memory',
   'worker-observation': 'Check worker', 'disk-observation': 'Check storage', operation: 'Copy or restore data', 'remediation-pass': 'Fix findings', 'what-if': 'Compare rules',
   'eval-pass': 'Compare changes', 'project-description': 'Describe a project', 'workflow-completion': 'Finish a workflow',

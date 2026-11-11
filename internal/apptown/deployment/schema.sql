@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS releases (
   stage_entered_at TIMESTAMPTZ,
   failed_stage TEXT NOT NULL DEFAULT '',
   stage_finished_at TIMESTAMPTZ,
+  rebuilt_from BIGINT NOT NULL DEFAULT 0,
+  rebuilt_commit TEXT NOT NULL DEFAULT '',
   UNIQUE(project_id, number)
 );
 CREATE TABLE IF NOT EXISTS release_changes (
@@ -297,7 +299,8 @@ CREATE TABLE IF NOT EXISTS release_requests (
   feed_revision BIGINT,
   landing_approvers TEXT NOT NULL DEFAULT '',
   backup_evidence_json JSONB,
-  uncopied_acceptance_json JSONB
+  uncopied_acceptance_json JSONB,
+  rebuild_pending BOOLEAN NOT NULL DEFAULT false
 );
 -- An operator's override of one part's resources on one deployment
 -- (design/subsystems/deployment.md): set as a recorded act,
