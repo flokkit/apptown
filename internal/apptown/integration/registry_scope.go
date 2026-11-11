@@ -13,7 +13,7 @@ import (
 func registryDestination(repository, connectorHost string) (string, error) {
 	repo, err := name.NewRepository(repository)
 	if err != nil {
-		return "", fault.New(fault.Unprocessable, "the container-registry attachment needs a valid repository, without a tag or digest")
+		return "", fault.New(fault.Unprocessable, "the hub registry needs a valid repository, without a tag or digest")
 	}
 	authority, err := name.NewRegistry(strings.ToLower(repo.RegistryStr()), name.StrictValidation)
 	if err != nil {
@@ -26,7 +26,7 @@ func registryDestination(repository, connectorHost string) (string, error) {
 			return "", fault.New(fault.Unprocessable, "the container-registry connector needs a registry host, optionally with a port, without a scheme or path")
 		}
 		if !strings.EqualFold(connector.RegistryStr(), host) {
-			return "", fault.New(fault.Unprocessable, "the container-registry connector and attached repository name different registries; restore the connector host or replace the attachment")
+			return "", fault.New(fault.Unprocessable, "the hub host and derived repository name different registries; set an explicit registry host")
 		}
 	}
 	return host, nil

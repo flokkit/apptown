@@ -433,7 +433,7 @@ func (d *Driver) copyImage(ctx context.Context, c *Client, app, ref, tag string,
 		}
 		from.Credential = cred
 	}
-	repo := registryHost + "/" + app
+	repo := d.options.registryHost + "/" + app
 	logf("copying %s into %s:%s", ref, repo, tag)
 	got, err := d.options.CopyImage(ctx, from, oci.Repository{Name: repo, Credential: oci.Credential{Username: "x", Password: c.Token}}, tag)
 	if err != nil {

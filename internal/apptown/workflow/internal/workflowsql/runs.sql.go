@@ -17,7 +17,7 @@ import (
 
 const abandonActiveChangeTrees = `-- name: AbandonActiveChangeTrees :many
 WITH RECURSIVE tree(id) AS (SELECT root.id FROM runs root WHERE root.change_id IS NOT DISTINCT FROM $2 AND root.project_id=$3 UNION SELECT r.id FROM runs r JOIN tree t ON r.parent_run_id=t.id WHERE r.project_id=$3)
-SELECT r.id, r.project_id, r.number, r.workflow_name, r.workflow_version, r.kind, r.status, r.current_stage, r.definition_json, r.change_id, r.workflow_origin, r.parent_run_id, r.parent_step_id, r.parent_step_attempt, r.inputs_json, r.retry_revision, r.base_sha, r.created_at, r.updated_at, r.adoption_id, r.landing_authority, r.landing_authority_principal, r.landing_authority_via FROM runs r WHERE r.id IN (SELECT id FROM tree) AND r.status=$1 ORDER BY r.id FOR UPDATE
+SELECT r.id, r.project_id, r.number, r.workflow_name, r.workflow_version, r.kind, r.status, r.current_stage, r.definition_json, r.change_id, r.workflow_origin, r.parent_run_id, r.parent_step_id, r.parent_step_attempt, r.inputs_json, r.retry_revision, r.base_sha, r.created_at, r.updated_at, r.adoption_id, r.landing_authority, r.landing_authority_principal, r.landing_authority_via, r.source_commit, r.rebuild_release_id, r.rebuild_from FROM runs r WHERE r.id IN (SELECT id FROM tree) AND r.status=$1 ORDER BY r.id FOR UPDATE
 `
 
 type AbandonActiveChangeTreesParams struct {
@@ -59,6 +59,9 @@ func (q *Queries) AbandonActiveChangeTrees(ctx context.Context, arg AbandonActiv
 			&i.LandingAuthority,
 			&i.LandingAuthorityPrincipal,
 			&i.LandingAuthorityVia,
+			&i.SourceCommit,
+			&i.RebuildReleaseID,
+			&i.RebuildFrom,
 		); err != nil {
 			return nil, err
 		}
@@ -75,7 +78,7 @@ func (q *Queries) AbandonActiveChangeTrees(ctx context.Context, arg AbandonActiv
 
 const abandonActiveRunTree = `-- name: AbandonActiveRunTree :many
 WITH RECURSIVE tree(id) AS (SELECT root.id FROM runs root WHERE root.id=$2 AND root.project_id=$3 UNION SELECT r.id FROM runs r JOIN tree t ON r.parent_run_id=t.id WHERE r.project_id=$3)
-SELECT r.id, r.project_id, r.number, r.workflow_name, r.workflow_version, r.kind, r.status, r.current_stage, r.definition_json, r.change_id, r.workflow_origin, r.parent_run_id, r.parent_step_id, r.parent_step_attempt, r.inputs_json, r.retry_revision, r.base_sha, r.created_at, r.updated_at, r.adoption_id, r.landing_authority, r.landing_authority_principal, r.landing_authority_via FROM runs r WHERE r.id IN (SELECT id FROM tree) AND r.status=$1 ORDER BY r.id FOR UPDATE
+SELECT r.id, r.project_id, r.number, r.workflow_name, r.workflow_version, r.kind, r.status, r.current_stage, r.definition_json, r.change_id, r.workflow_origin, r.parent_run_id, r.parent_step_id, r.parent_step_attempt, r.inputs_json, r.retry_revision, r.base_sha, r.created_at, r.updated_at, r.adoption_id, r.landing_authority, r.landing_authority_principal, r.landing_authority_via, r.source_commit, r.rebuild_release_id, r.rebuild_from FROM runs r WHERE r.id IN (SELECT id FROM tree) AND r.status=$1 ORDER BY r.id FOR UPDATE
 `
 
 type AbandonActiveRunTreeParams struct {
@@ -117,6 +120,9 @@ func (q *Queries) AbandonActiveRunTree(ctx context.Context, arg AbandonActiveRun
 			&i.LandingAuthority,
 			&i.LandingAuthorityPrincipal,
 			&i.LandingAuthorityVia,
+			&i.SourceCommit,
+			&i.RebuildReleaseID,
+			&i.RebuildFrom,
 		); err != nil {
 			return nil, err
 		}
@@ -168,7 +174,7 @@ func (q *Queries) ActiveChangeRunMeta(ctx context.Context, arg ActiveChangeRunMe
 }
 
 const activeLandingForUpdate = `-- name: ActiveLandingForUpdate :one
-SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via FROM runs WHERE change_id IS NOT DISTINCT FROM $1 AND project_id = $2 AND parent_run_id IS NULL
+SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via, source_commit, rebuild_release_id, rebuild_from FROM runs WHERE change_id IS NOT DISTINCT FROM $1 AND project_id = $2 AND parent_run_id IS NULL
   AND workflow_name = 'land' AND status = $3
 ORDER BY number DESC LIMIT 1 FOR UPDATE
 `
@@ -206,12 +212,15 @@ func (q *Queries) ActiveLandingForUpdate(ctx context.Context, arg ActiveLandingF
 		&i.LandingAuthority,
 		&i.LandingAuthorityPrincipal,
 		&i.LandingAuthorityVia,
+		&i.SourceCommit,
+		&i.RebuildReleaseID,
+		&i.RebuildFrom,
 	)
 	return i, err
 }
 
 const changeRuns = `-- name: ChangeRuns :many
-SELECT r.id, r.project_id, r.number, r.workflow_name, r.workflow_version, r.kind, r.status, r.current_stage, r.definition_json, r.change_id, r.workflow_origin, r.parent_run_id, r.parent_step_id, r.parent_step_attempt, r.inputs_json, r.retry_revision, r.base_sha, r.created_at, r.updated_at, r.adoption_id, r.landing_authority, r.landing_authority_principal, r.landing_authority_via FROM runs r JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
+SELECT r.id, r.project_id, r.number, r.workflow_name, r.workflow_version, r.kind, r.status, r.current_stage, r.definition_json, r.change_id, r.workflow_origin, r.parent_run_id, r.parent_step_id, r.parent_step_attempt, r.inputs_json, r.retry_revision, r.base_sha, r.created_at, r.updated_at, r.adoption_id, r.landing_authority, r.landing_authority_principal, r.landing_authority_via, r.source_commit, r.rebuild_release_id, r.rebuild_from FROM runs r JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
 WHERE r.project_id=$1 AND r.change_id IS NOT DISTINCT FROM $2
 AND (NOT $3::boolean OR r.parent_run_id IS NULL)
 ORDER BY r.number DESC LIMIT NULLIF($4::integer,0)
@@ -262,6 +271,9 @@ func (q *Queries) ChangeRuns(ctx context.Context, arg ChangeRunsParams) ([]Run, 
 			&i.LandingAuthority,
 			&i.LandingAuthorityPrincipal,
 			&i.LandingAuthorityVia,
+			&i.SourceCommit,
+			&i.RebuildReleaseID,
+			&i.RebuildFrom,
 		); err != nil {
 			return nil, err
 		}
@@ -278,7 +290,7 @@ func (q *Queries) ChangeRuns(ctx context.Context, arg ChangeRunsParams) ([]Run, 
 
 const continuationInsertRun = `-- name: ContinuationInsertRun :one
 INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,workflow_origin,kind,status,current_stage,definition_json,change_id,inputs_json,adoption_id,base_sha,created_at,updated_at)
-SELECT $1,$2,src.project_id,src.workflow_name,src.workflow_version,src.workflow_origin,src.kind,$3,$4,src.definition_json,src.change_id,src.inputs_json,src.adoption_id,'',$5::timestamptz,$5::timestamptz FROM runs src WHERE src.id=$6 RETURNING id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via
+SELECT $1,$2,src.project_id,src.workflow_name,src.workflow_version,src.workflow_origin,src.kind,$3,$4,src.definition_json,src.change_id,src.inputs_json,src.adoption_id,'',$5::timestamptz,$5::timestamptz FROM runs src WHERE src.id=$6 RETURNING id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via, source_commit, rebuild_release_id, rebuild_from
 `
 
 type ContinuationInsertRunParams struct {
@@ -324,6 +336,9 @@ func (q *Queries) ContinuationInsertRun(ctx context.Context, arg ContinuationIns
 		&i.LandingAuthority,
 		&i.LandingAuthorityPrincipal,
 		&i.LandingAuthorityVia,
+		&i.SourceCommit,
+		&i.RebuildReleaseID,
+		&i.RebuildFrom,
 	)
 	return i, err
 }
@@ -441,28 +456,31 @@ func (q *Queries) HasActiveLanding(ctx context.Context, arg HasActiveLandingPara
 }
 
 const insertRun = `-- name: InsertRun :one
-INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,workflow_origin,kind,status,current_stage,definition_json,change_id,parent_run_id,parent_step_id,inputs_json,adoption_id,created_at,updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via
+INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,workflow_origin,kind,status,current_stage,definition_json,change_id,parent_run_id,parent_step_id,inputs_json,adoption_id,source_commit,rebuild_release_id,rebuild_from,created_at,updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via, source_commit, rebuild_release_id, rebuild_from
 `
 
 type InsertRunParams struct {
-	ID              ids.ID
-	Number          int64
-	ProjectID       ids.ID
-	WorkflowName    string
-	WorkflowVersion int64
-	WorkflowOrigin  string
-	Kind            string
-	Status          string
-	CurrentStage    string
-	DefinitionJson  json.RawMessage
-	ChangeID        ids.ID
-	ParentRunID     ids.ID
-	ParentStepID    ids.ID
-	InputsJson      json.RawMessage
-	AdoptionID      ids.ID
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID               ids.ID
+	Number           int64
+	ProjectID        ids.ID
+	WorkflowName     string
+	WorkflowVersion  int64
+	WorkflowOrigin   string
+	Kind             string
+	Status           string
+	CurrentStage     string
+	DefinitionJson   json.RawMessage
+	ChangeID         ids.ID
+	ParentRunID      ids.ID
+	ParentStepID     ids.ID
+	InputsJson       json.RawMessage
+	AdoptionID       ids.ID
+	SourceCommit     string
+	RebuildReleaseID ids.ID
+	RebuildFrom      int64
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 func (q *Queries) InsertRun(ctx context.Context, arg InsertRunParams) (Run, error) {
@@ -482,6 +500,9 @@ func (q *Queries) InsertRun(ctx context.Context, arg InsertRunParams) (Run, erro
 		arg.ParentStepID,
 		arg.InputsJson,
 		arg.AdoptionID,
+		arg.SourceCommit,
+		arg.RebuildReleaseID,
+		arg.RebuildFrom,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -510,6 +531,9 @@ func (q *Queries) InsertRun(ctx context.Context, arg InsertRunParams) (Run, erro
 		&i.LandingAuthority,
 		&i.LandingAuthorityPrincipal,
 		&i.LandingAuthorityVia,
+		&i.SourceCommit,
+		&i.RebuildReleaseID,
+		&i.RebuildFrom,
 	)
 	return i, err
 }
@@ -931,7 +955,7 @@ func (q *Queries) ParentRunAdoptionMeta(ctx context.Context, arg ParentRunAdopti
 }
 
 const projectRunsForRemoval = `-- name: ProjectRunsForRemoval :many
-SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via FROM runs WHERE project_id=$1 ORDER BY id FOR UPDATE
+SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via, source_commit, rebuild_release_id, rebuild_from FROM runs WHERE project_id=$1 ORDER BY id FOR UPDATE
 `
 
 func (q *Queries) ProjectRunsForRemoval(ctx context.Context, projectID ids.ID) ([]Run, error) {
@@ -967,6 +991,9 @@ func (q *Queries) ProjectRunsForRemoval(ctx context.Context, projectID ids.ID) (
 			&i.LandingAuthority,
 			&i.LandingAuthorityPrincipal,
 			&i.LandingAuthorityVia,
+			&i.SourceCommit,
+			&i.RebuildReleaseID,
+			&i.RebuildFrom,
 		); err != nil {
 			return nil, err
 		}
@@ -981,8 +1008,51 @@ func (q *Queries) ProjectRunsForRemoval(ctx context.Context, projectID ids.ID) (
 	return items, nil
 }
 
+const rebuildRun = `-- name: RebuildRun :one
+SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via, source_commit, rebuild_release_id, rebuild_from FROM runs WHERE project_id=$1 AND rebuild_release_id=$2
+`
+
+type RebuildRunParams struct {
+	ProjectID ids.ID
+	ReleaseID ids.ID
+}
+
+func (q *Queries) RebuildRun(ctx context.Context, arg RebuildRunParams) (Run, error) {
+	row := q.db.QueryRowContext(ctx, rebuildRun, arg.ProjectID, arg.ReleaseID)
+	var i Run
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Number,
+		&i.WorkflowName,
+		&i.WorkflowVersion,
+		&i.Kind,
+		&i.Status,
+		&i.CurrentStage,
+		&i.DefinitionJson,
+		&i.ChangeID,
+		&i.WorkflowOrigin,
+		&i.ParentRunID,
+		&i.ParentStepID,
+		&i.ParentStepAttempt,
+		&i.InputsJson,
+		&i.RetryRevision,
+		&i.BaseSha,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AdoptionID,
+		&i.LandingAuthority,
+		&i.LandingAuthorityPrincipal,
+		&i.LandingAuthorityVia,
+		&i.SourceCommit,
+		&i.RebuildReleaseID,
+		&i.RebuildFrom,
+	)
+	return i, err
+}
+
 const runByID = `-- name: RunByID :one
-SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via FROM runs WHERE id = $1 AND ($2::uuid IS NULL OR project_id=$2)
+SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via, source_commit, rebuild_release_id, rebuild_from FROM runs WHERE id = $1 AND ($2::uuid IS NULL OR project_id=$2)
 `
 
 type RunByIDParams struct {
@@ -1017,12 +1087,15 @@ func (q *Queries) RunByID(ctx context.Context, arg RunByIDParams) (Run, error) {
 		&i.LandingAuthority,
 		&i.LandingAuthorityPrincipal,
 		&i.LandingAuthorityVia,
+		&i.SourceCommit,
+		&i.RebuildReleaseID,
+		&i.RebuildFrom,
 	)
 	return i, err
 }
 
 const runForUpdate = `-- name: RunForUpdate :one
-SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via FROM runs WHERE id = $1 FOR UPDATE
+SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via, source_commit, rebuild_release_id, rebuild_from FROM runs WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) RunForUpdate(ctx context.Context, id ids.ID) (Run, error) {
@@ -1052,6 +1125,9 @@ func (q *Queries) RunForUpdate(ctx context.Context, id ids.ID) (Run, error) {
 		&i.LandingAuthority,
 		&i.LandingAuthorityPrincipal,
 		&i.LandingAuthorityVia,
+		&i.SourceCommit,
+		&i.RebuildReleaseID,
+		&i.RebuildFrom,
 	)
 	return i, err
 }
@@ -1359,7 +1435,7 @@ func (q *Queries) RunningWorkflowCount(ctx context.Context, arg RunningWorkflowC
 }
 
 const scopedRunForUpdate = `-- name: ScopedRunForUpdate :one
-SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via FROM runs WHERE id=$1 AND project_id=$2 FOR UPDATE
+SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via, source_commit, rebuild_release_id, rebuild_from FROM runs WHERE id=$1 AND project_id=$2 FOR UPDATE
 `
 
 type ScopedRunForUpdateParams struct {
@@ -1394,6 +1470,9 @@ func (q *Queries) ScopedRunForUpdate(ctx context.Context, arg ScopedRunForUpdate
 		&i.LandingAuthority,
 		&i.LandingAuthorityPrincipal,
 		&i.LandingAuthorityVia,
+		&i.SourceCommit,
+		&i.RebuildReleaseID,
+		&i.RebuildFrom,
 	)
 	return i, err
 }
@@ -1475,7 +1554,7 @@ func (q *Queries) SetRunWorkspaceBase(ctx context.Context, arg SetRunWorkspaceBa
 }
 
 const startedChild = `-- name: StartedChild :one
-SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via FROM runs WHERE parent_run_id IS NOT DISTINCT FROM $1 AND parent_step_id IS NOT DISTINCT FROM $2 AND project_id = $3
+SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via, source_commit, rebuild_release_id, rebuild_from FROM runs WHERE parent_run_id IS NOT DISTINCT FROM $1 AND parent_step_id IS NOT DISTINCT FROM $2 AND project_id = $3
   AND change_id IS NOT DISTINCT FROM $4 AND parent_step_attempt = $5 AND status != 'abandoned'
 ORDER BY number DESC LIMIT 1
 `
@@ -1521,6 +1600,9 @@ func (q *Queries) StartedChild(ctx context.Context, arg StartedChildParams) (Run
 		&i.LandingAuthority,
 		&i.LandingAuthorityPrincipal,
 		&i.LandingAuthorityVia,
+		&i.SourceCommit,
+		&i.RebuildReleaseID,
+		&i.RebuildFrom,
 	)
 	return i, err
 }
@@ -1721,7 +1803,7 @@ WITH RECURSIVE ancestry AS (
   JOIN runs previous ON previous.id=c.source_run_id WHERE current.valid
 )
 SELECT root.id AS root_run_id,root.parent_run_id,root.change_id AS root_change_id,root.depth,
-  owner.base_sha AS root_base_sha,owner.definition_json AS root_definition,
+  owner.base_sha AS root_base_sha,owner.definition_json AS root_definition,owner.source_commit,
   current_run.base_sha AS run_base_sha,current_run.workflow_name,current_run.workflow_version,current_run.number AS run_number,
   (SELECT id FROM lineage ORDER BY id LIMIT 1)::uuid AS workspace_run_id,
   COALESCE((SELECT bool_and(valid) FROM lineage),false)::boolean AS valid_lineage,
@@ -1758,6 +1840,7 @@ type WorkflowSourceRow struct {
 	Depth              int32
 	RootBaseSha        string
 	RootDefinition     json.RawMessage
+	SourceCommit       string
 	RunBaseSha         string
 	WorkflowName       string
 	WorkflowVersion    int64
@@ -1791,6 +1874,7 @@ func (q *Queries) WorkflowSource(ctx context.Context, arg WorkflowSourceParams) 
 		&i.Depth,
 		&i.RootBaseSha,
 		&i.RootDefinition,
+		&i.SourceCommit,
 		&i.RunBaseSha,
 		&i.WorkflowName,
 		&i.WorkflowVersion,
@@ -1929,7 +2013,7 @@ func (q *Queries) WorkflowUsageReport(ctx context.Context, projectID ids.ID) ([]
 }
 
 const workingRunForUpdate = `-- name: WorkingRunForUpdate :one
-SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via FROM runs WHERE change_id IS NOT DISTINCT FROM $1 AND parent_run_id IS NULL
+SELECT id, project_id, number, workflow_name, workflow_version, kind, status, current_stage, definition_json, change_id, workflow_origin, parent_run_id, parent_step_id, parent_step_attempt, inputs_json, retry_revision, base_sha, created_at, updated_at, adoption_id, landing_authority, landing_authority_principal, landing_authority_via, source_commit, rebuild_release_id, rebuild_from FROM runs WHERE change_id IS NOT DISTINCT FROM $1 AND parent_run_id IS NULL
   AND status IN ('running','done') AND COALESCE(definition_json->>'role','working') != 'landing'
 ORDER BY number DESC LIMIT 1 FOR UPDATE
 `
@@ -1961,6 +2045,9 @@ func (q *Queries) WorkingRunForUpdate(ctx context.Context, changeID ids.ID) (Run
 		&i.LandingAuthority,
 		&i.LandingAuthorityPrincipal,
 		&i.LandingAuthorityVia,
+		&i.SourceCommit,
+		&i.RebuildReleaseID,
+		&i.RebuildFrom,
 	)
 	return i, err
 }

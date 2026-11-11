@@ -75,18 +75,15 @@ it('replaces an empty decisions table with a clear empty state', () => {
   client.clear()
 })
 
-// The connection's settings are shown, labelled in plain words, with no
-// registry jargon.
-it('explains the image store in plain words and shows where images are kept', () => {
-  const client = newQueryClient()
-  client.setQueryData(getKey('/projects/club/integrations'), { attachments: [{ capability: 'container-registry', title: 'Container registry', resource: { repo: 'registry.example/club/app' } }] })
-  client.setQueryData(getKey('/attachables'), { attachables: [{ capability: 'container-registry', description: 'OCI images are the unit of release' }] })
-  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ProjectIntegrationsTab slug="club" /></QueryClientProvider></MemoryRouter>)
-  expect(firstView(html)).toContain('Stores your app’s built images')
-  expect(firstView(html)).toContain('Images kept at')
-  expect(firstView(html)).not.toContain('OCI')
-  expect(html.replaceAll('<wbr/>', '')).toContain('registry.example/club/app')
-  client.clear()
+// Registry setup belongs to the instance; project connections offer no registry.
+it('has no project registry setup', () => {
+ const client=newQueryClient()
+ client.setQueryData(getKey('/projects/club/integrations'),{attachments:[]})
+ client.setQueryData(getKey('/attachables'),{attachables:[]})
+ const html=renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ProjectIntegrationsTab slug="club" /></QueryClientProvider></MemoryRouter>)
+ expect(firstView(html)).not.toContain('Container registry')
+ expect(firstView(html)).not.toContain('Images kept at')
+ client.clear()
 })
 
 it('starts a secret request as a prepared change without asking for its value', () => {

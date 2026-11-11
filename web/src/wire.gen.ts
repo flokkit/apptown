@@ -1587,6 +1587,8 @@ export type ReleaseListed = {
   deploymentLabel: string
   decision: ReleaseDecision
   statusLabel: ReleaseLabel
+  rebuiltFrom?: number
+  rebuiltCommit?: string
   lastStage?: DeployStage
   interruptedByRestart?: boolean
   progressUncertain?: boolean
@@ -2232,6 +2234,7 @@ export type TargetOffers = {
 }
 
 export type TargetPage = {
+  imageRetention: string
   awsRouting?: AWSRoutingReading | null
   target: TargetView | null
   history: TargetEvent[]
@@ -2574,6 +2577,9 @@ export type Change = {
 }
 
 export type Run = {
+  sourceCommit?: string
+  rebuildReleaseId?: string | null
+  rebuildFrom?: number
   statusLabel: DisplayStatus
   id: string | null
   number: number
@@ -3280,6 +3286,8 @@ export type LimitCount = {
 }
 
 export type Release = {
+  rebuiltFrom?: number
+  rebuiltCommit?: string
   lastStage?: DeployStage
   interruptedByRestart?: boolean
   progressUncertain?: boolean
@@ -3687,6 +3695,7 @@ export type UpdateLabel = "unknown" | "waiting" | "none" | "current" | "availabl
 export type HealthStatus = "unknown" | "passed" | "failed" | "not set up"
 
 export type IntegrationEntry = {
+  imageRetention?: string
   displayLabel: string
   id: string | null
   name: string
@@ -4172,6 +4181,7 @@ export type workflowSummary = {
 }
 
 export type BundleOrigin = {
+  rebuiltFrom?: number
   changeId?: string | null
   runId?: string | null
   tree: string
@@ -4219,6 +4229,8 @@ export type ReleaseEvent = {
 }
 
 export type ReleaseBundleView = {
+  rebuiltFrom?: number
+  commit?: string
   id: string | null
   byDigest: boolean
   registry?: string

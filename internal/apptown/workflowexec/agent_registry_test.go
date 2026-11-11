@@ -14,7 +14,7 @@ import (
 )
 
 // An agent step's private Docker on AppTown's own machine is logged in to
-// no registry, as on a worker, though the project has one attached: the
+// no registry, as on a worker, though the instance has a hub: the
 // step's Docker client is given no credential, the workshop adds no
 // registry to the step's environment, and the agent is not told to push.
 // Release images are built and published by the landing.
@@ -29,13 +29,14 @@ func TestALocalAgentsPrivateDockerIsLoggedInToNoRegistry(t *testing.T) {
 		t.Fatal(err)
 	}
 	ex := a.agentExecutor(t)
-	if _, err := ex.integrations.Bindings.Upsert(context.Background(), "registry", integration.CapContainerRegistry, "service", `{"url":"registry.example"}`, false); err != nil {
+	if _, err := ex.integrations.Bindings.Upsert(context.Background(), "registry", integration.CapContainerRegistry, "service", `{"url":"registry.example","group":"team","username":"robot","tokenFrom":"HUB_TOKEN"}`, false); err != nil {
 		t.Fatal(err)
 	}
 	const token = "registry-token-canary"
-	if err := ex.integrations.Attachments.Attach(context.Background(), snapshot.Run.ProjectID, integration.CapContainerRegistry, "registry", `{"repo":"registry.example/team/agents","username":"robot","token":"`+token+`"}`, "test", nil); err != nil {
+	if err := ex.secrets.SetInstance(t.Context(), "HUB_TOKEN", token, "fixture"); err != nil {
 		t.Fatal(err)
 	}
+
 	if ri, err := ex.integrations.Registry(context.Background(), snapshot.Run.ProjectID); err != nil || ri == nil || ri.Token != token {
 		t.Fatalf("the project's registry: %+v %v", ri, err)
 	}

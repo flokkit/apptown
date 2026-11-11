@@ -1,0 +1,15 @@
+apiVersion: apptown.dev/v1
+kind: Workflow
+metadata:
+  name: rebuild
+  system: true
+  description: Build a new release image from a recorded commit when the original image is gone.
+spec:
+  kind: pipeline
+  role: record
+  workspace: run
+  stages:
+    - name: build
+      steps:
+        - name: build
+          uses: build

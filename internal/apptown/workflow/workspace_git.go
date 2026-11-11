@@ -15,6 +15,7 @@ import (
 )
 
 type CloneRequest struct {
+	Commit                                       string // recorded source, never a mutable revision expression
 	Repository, Workspace, Branch, DefaultBranch string
 	RequireBranch                                bool // a recorded historical base must not invent a replacement branch
 }
@@ -32,6 +33,9 @@ func (g GitWorkspace) EnsureClone(ctx context.Context, in CloneRequest) (out Wor
 	if in.Repository == "" || in.Workspace == "" || in.Branch == "" {
 		return out, fmt.Errorf("workspace needs a repository, path and branch")
 	}
+	if in.Commit != "" && !gitexec.IsObjectID(in.Commit) {
+		return out, fmt.Errorf("workspace source must be a recorded commit ID")
+	}
 	if err := gitexec.CheckBranchName(in.Branch); err != nil {
 		return out, err
 	}
@@ -40,7 +44,11 @@ func (g GitWorkspace) EnsureClone(ctx context.Context, in CloneRequest) (out Wor
 		if !info.IsDir() {
 			return out, fmt.Errorf("workspace %s must have a self-contained .git directory; recreate or convert it offline", in.Workspace)
 		}
-		return g.existingClone(ctx, in.Workspace, in.Branch)
+		existing, err := g.existingClone(ctx, in.Workspace, in.Branch)
+		if err == nil && in.Commit != "" && existing.Tip != in.Commit {
+			return out, fmt.Errorf("workspace differs from its recorded source commit")
+		}
+		return existing, err
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return out, err
 	}
@@ -49,23 +57,26 @@ func (g GitWorkspace) EnsureClone(ctx context.Context, in CloneRequest) (out Wor
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return out, err
 	}
-	ref := "refs/heads/" + in.Branch
-	probe := g.command(ctx, in.Repository, "show-ref", "--verify", "--quiet", ref)
-	switch {
-	case probe.Termination == execution.Exited && probe.ExitCode == 1:
-		if in.RequireBranch {
-			return out, fmt.Errorf("historical branch %q is missing; inspect before preparing its workspace", in.Branch)
-		}
-		if in.DefaultBranch == "" {
-			in.DefaultBranch, err = g.git(ctx, in.Repository, "symbolic-ref", "--quiet", "--short", "HEAD")
-			if err != nil {
-				return out, err
+	ref := in.Commit
+	if ref == "" {
+		ref = "refs/heads/" + in.Branch
+		probe := g.command(ctx, in.Repository, "show-ref", "--verify", "--quiet", ref)
+		switch {
+		case probe.Termination == execution.Exited && probe.ExitCode == 1:
+			if in.RequireBranch {
+				return out, fmt.Errorf("historical branch %q is missing; inspect before preparing its workspace", in.Branch)
 			}
+			if in.DefaultBranch == "" {
+				in.DefaultBranch, err = g.git(ctx, in.Repository, "symbolic-ref", "--quiet", "--short", "HEAD")
+				if err != nil {
+					return out, err
+				}
+			}
+			ref = "refs/heads/" + in.DefaultBranch
+		case probe.Termination == execution.Exited && probe.ExitCode == 0:
+		default:
+			return out, fmt.Errorf("reading workspace branch: %w", gitOutcomeError(ctx, probe))
 		}
-		ref = "refs/heads/" + in.DefaultBranch
-	case probe.Termination == execution.Exited && probe.ExitCode == 0:
-	default:
-		return out, fmt.Errorf("reading workspace branch: %w", gitOutcomeError(ctx, probe))
 	}
 	start, err := g.git(ctx, in.Repository, "rev-parse", "--verify", ref+"^{commit}")
 	if err != nil {

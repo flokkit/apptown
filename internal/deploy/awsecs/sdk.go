@@ -395,3 +395,13 @@ func (a sdkSSM) ListTagsForResource(ctx context.Context, in *ssm.ListTagsForReso
 	out, err := a.client.ListTagsForResource(ctx, in, opt...)
 	return out, sanitizedError(err, a.keyID, a.secret)
 }
+
+func (a sdkECR) BatchGetImage(ctx context.Context, in *ecr.BatchGetImageInput, opt ...func(*ecr.Options)) (*ecr.BatchGetImageOutput, error) {
+	out, err := a.client.BatchGetImage(ctx, in, opt...)
+	return out, sanitizedError(err, a.keyID, a.secret)
+}
+
+func (a sdkECR) BatchDeleteImage(ctx context.Context, in *ecr.BatchDeleteImageInput, opt ...func(*ecr.Options)) (*ecr.BatchDeleteImageOutput, error) {
+	out, err := a.client.BatchDeleteImage(ctx, in, opt...)
+	return out, sanitizedError(err, a.keyID, a.secret)
+}

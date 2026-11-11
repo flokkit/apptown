@@ -52,6 +52,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	var rel *Release
 	var placement deploymentsql.ReleaseRequest
 	claimed := false
+	rebuilding := false
 	err := s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := deploymentsql.New(tx.SQL())
 		row, err := q.RequestedReleaseForUpdate(ctx, id)
@@ -63,7 +64,15 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 			return err
 		}
 		placement = row.ReleaseRequest
-		if rel.State != Releasing || placement.ClaimedAt.Valid {
+		if rel.State != Releasing {
+			return nil
+		}
+		if placement.RebuildPending {
+			claimed = true
+			rebuilding = true
+			return nil
+		}
+		if placement.ClaimedAt.Valid {
 			return nil
 		}
 		n, err := q.ClaimReleaseRequest(ctx, deploymentsql.ClaimReleaseRequestParams{ReleaseID: id, ClaimedAt: sql.NullTime{Time: now, Valid: true}})
@@ -78,6 +87,13 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	})
 	if err != nil || !claimed {
 		return err
+	}
+	if rebuilding {
+		b, err := s.Bundles.ByID(ctx, rel.BundleID)
+		if err != nil {
+			return err
+		}
+		return s.startMissingImageRebuild(ctx, rel, b)
 	}
 	_, err = s.executeRequestedRelease(ctx, rel, placement, nil)
 	return err
@@ -199,6 +215,18 @@ func (s *Service) executeRequestedRelease(ctx context.Context, rel *Release, pla
 	} else if r, ok := d.(releaseRefuser); ok {
 		if err := r.refusesRelease(bundle); err != nil {
 			return result, fail(err)
+		}
+	}
+	if retry == nil && s.imageRebuilder != nil {
+		needed, err := s.releaseNeedsRebuild(ctx, bundle, t, dep)
+		if err != nil {
+			return result, fail(err)
+		}
+		if needed {
+			if err := s.startMissingImageRebuild(ctx, rel, bundle); err != nil {
+				return result, fail(err)
+			}
+			return result, nil
 		}
 	}
 	project, err := s.release.Sources.Project(ctx, rel.ProjectID)

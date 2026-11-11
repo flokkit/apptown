@@ -42,6 +42,8 @@ func existingStartedRun(ctx context.Context, db database.Queryer, req StartReque
 	var row workflowsql.Run
 	var err error
 	switch {
+	case !req.rebuildReleaseID.IsZero():
+		row, err = queries.RebuildRun(ctx, workflowsql.RebuildRunParams{ProjectID: req.ProjectID, ReleaseID: req.rebuildReleaseID})
 	case !req.acceptedRunID.IsZero():
 		row, err = queries.StartedLanding(ctx, workflowsql.StartedLandingParams{WorkRunID: req.acceptedRunID, ProjectID: req.ProjectID, ChangeID: req.ChangeID})
 	case !req.parentStepID.IsZero():
@@ -199,7 +201,7 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 	inserted, err := queries.InsertRun(ctx, workflowsql.InsertRunParams{ID: ids.New(at), Number: number, ProjectID: req.ProjectID, WorkflowName: def.Workflow.Name,
 		WorkflowVersion: int64(def.Workflow.Version), WorkflowOrigin: def.Workflow.Origin, Kind: def.Spec.Kind, Status: RunRunning.String(),
 		CurrentStage: first, DefinitionJson: definition, ChangeID: req.ChangeID, ParentRunID: req.parentRunID, ParentStepID: req.parentStepID,
-		InputsJson: json.RawMessage(req.InputsJSON), AdoptionID: def.AdoptionID, CreatedAt: at, UpdatedAt: at})
+		InputsJson: json.RawMessage(req.InputsJSON), AdoptionID: def.AdoptionID, SourceCommit: req.sourceCommit, RebuildReleaseID: req.rebuildReleaseID, RebuildFrom: req.rebuildFrom, CreatedAt: at, UpdatedAt: at})
 	if err != nil {
 		return nil, err
 	}

@@ -37,19 +37,14 @@ func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T
 	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("REGISTRY_PASSWORD=forge-held\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AttachOfferedRegistry(context.Background(), copy, "apptown-system", nil); !errors.Is(err, errNoIntegrations) {
-		t.Fatalf("the offered registry attached to a copy: %v", err)
-	}
+
 	if err := s.Attachments.Attach(t.Context(), copy, CapErrors, "errors", `{}`, "someone", nil); !errors.Is(err, errNoIntegrations) {
 		t.Fatalf("an attachment for a copy: %v", err)
 	}
 	if err := s.Attachments.Remember(t.Context(), copy, "scm", "gitlab", `{}`); !errors.Is(err, errNoIntegrations) {
 		t.Fatalf("a remembered resource for a copy: %v", err)
 	}
-	p, _ := s.projects.ByID(context.Background(), copy)
-	if _, _, err := s.ProvisionRegistry(t.Context(), &p, "registry", "apptown-system"); !errors.Is(err, errNoIntegrations) {
-		t.Fatalf("a registry provisioned for a copy: %v", err)
-	}
+
 	if attached, err := s.Attachments.IsAttached(t.Context(), copy, CapContainerRegistry); err != nil || attached {
 		t.Fatalf("the copy holds an attachment: %v %v", attached, err)
 	}
@@ -83,10 +78,7 @@ func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T
 	if got, err := s.EvalPublication(t.Context(), ordinary); err == nil {
 		t.Fatalf("an ordinary project publishes through AppTown's credential: %+v", got)
 	}
-	if _, err := s.Bindings.Upsert(t.Context(), "gitlab-registry", CapContainerRegistry, "gitlab", `{"provider":"gitlab","url":"registry.gitlab.example"}`, false); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.EvalPublication(t.Context(), copy); err == nil {
-		t.Fatal("with two registry connectors AppTown cannot choose one for a copy")
+	if _, err := s.Bindings.Upsert(t.Context(), "gitlab-registry", CapContainerRegistry, "gitlab", `{"provider":"gitlab","url":"registry.gitlab.example"}`, false); err == nil {
+		t.Fatal("GitLab per-project setup admitted")
 	}
 }

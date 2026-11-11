@@ -219,3 +219,6 @@ VALUES ($1,$2,$3,$4,$5)
 ON CONFLICT (subject,kind) DO UPDATE SET identity=EXCLUDED.identity, payload=EXCLUDED.payload
 WHERE protection_readings.identity=EXCLUDED.identity OR protection_readings.generation=0;
 
+
+-- name: KeptBackupReleases :many
+SELECT DISTINCT running_release_id FROM backups WHERE status<>'pruned' AND running_release_id IS NOT NULL;

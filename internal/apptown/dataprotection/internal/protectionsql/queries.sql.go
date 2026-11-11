@@ -558,6 +558,33 @@ func (q *Queries) InsertRestoredCopy(ctx context.Context, arg InsertRestoredCopy
 	return i, err
 }
 
+const keptBackupReleases = `-- name: KeptBackupReleases :many
+SELECT DISTINCT running_release_id FROM backups WHERE status<>'pruned' AND running_release_id IS NOT NULL
+`
+
+func (q *Queries) KeptBackupReleases(ctx context.Context) ([]ids.ID, error) {
+	rows, err := q.db.QueryContext(ctx, keptBackupReleases)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ids.ID
+	for rows.Next() {
+		var running_release_id ids.ID
+		if err := rows.Scan(&running_release_id); err != nil {
+			return nil, err
+		}
+		items = append(items, running_release_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const latestDrillOf = `-- name: LatestDrillOf :one
 SELECT id, backup_id, project_id, deployment, drilled_at, passed, target, place, as_user, detail, operation_id, deployment_id, need FROM backup_drills WHERE deployment_id=$1 AND deployment_id IS NOT NULL AND need=$2 ORDER BY id DESC LIMIT 1
 `

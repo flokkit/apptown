@@ -4348,14 +4348,7 @@ app:
 	}
 
 	scene.call("sam", "PUT", "/api/v1/secrets/DESIGN_REGISTRY_KEY", map[string]string{"value": "disposable-registry-key"})
-	if _, err := a.Integrations.Bindings.Save(ctx, "design-registry", integration.CapContainerRegistry, "service", mustJSON(map[string]any{"url": "https://registry.example.test", "group": "club", "username": "capture", "tokenFrom": "DESIGN_REGISTRY_KEY"}), "sam"); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.Integrations.ServiceKinds.Save(ctx, integration.CapContainerRegistry, "capability: container-registry\ntitle: Container registry\ndescription: OCI images per project; a pushed image is the unit of release.\n", "Container registry", "sam"); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := a.Integrations.Attachments.Attach(ctx, project.ID, integration.CapContainerRegistry, "design-registry", `{"repo":"registry.example.test/club/newsletter"}`, "sam", nil); err != nil {
+	if _, err := a.Integrations.Bindings.Save(ctx, "design-registry", integration.CapContainerRegistry, "service", mustJSON(map[string]any{"url": "registry.example.test", "group": "club", "username": "capture", "tokenFrom": "DESIGN_REGISTRY_KEY"}), "sam"); err != nil {
 		t.Fatal(err)
 	}
 

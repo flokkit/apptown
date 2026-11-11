@@ -20,6 +20,9 @@ import (
 // execution operations with their configured drivers and collaborators. Its
 // exposed record owners are not independently authenticated user entry points.
 type Service struct {
+	backupImages   backupImageKeeper
+	imageRebuilder imageRebuilder
+
 	runtimeActs       sync.Map // Local executors and status repair exclude each other per deployment.
 	creationAuthority creationAuthority
 	// healthParts is the public part read at each release revision the
@@ -76,6 +79,9 @@ type Service struct {
 // Docker, providers or registered needs (a standalone tool or a test):
 // New builds empty ones over the same records.
 type Dependencies struct {
+	BackupImages   backupImageKeeper
+	ImageRebuilder imageRebuilder
+
 	CreationAuthority creationAuthority
 	Targets           *Targets
 	Deployments       *Deployments
@@ -136,6 +142,8 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 	}
 	s := &Service{
 		records:            context.WithoutCancel(ctx),
+		backupImages:       deps.BackupImages,
+		imageRebuilder:     deps.ImageRebuilder,
 		hosts:              hosts,
 		creationAuthority:  deps.CreationAuthority,
 		env:                env,

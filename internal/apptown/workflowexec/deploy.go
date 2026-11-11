@@ -1,8 +1,11 @@
 package workflowexec
 
 import (
+	"cmp"
+	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -24,6 +27,17 @@ func (a *shipping) RunBuild(task *workflow.Execution) {
 	}
 	finish := func(status workflow.StepState, evidence any) {
 		task.Settle(workflow.EncodeOutcome(status, evidence, nil))
+		// A rebuild that does not build settles the release waiting on it,
+		// which nothing else would: its run has no change to abandon.
+		if (status == workflow.StatusError || status == workflow.StatusFail) && !run.RebuildReleaseID.IsZero() {
+			why := fmt.Sprintf("its build step ended %s; see run %s", status, run.ID)
+			if m, ok := evidence.(map[string]any); ok && m["reason"] != nil {
+				why = fmt.Sprint(m["reason"])
+			}
+			if err := a.deployment.FailRebuild(context.WithoutCancel(task.Context()), run.RebuildReleaseID, why); err != nil {
+				log.Printf("run %s: failing release %s after its rebuild failed: %v", run.ID, run.RebuildReleaseID, err)
+			}
+		}
 	}
 	fail := func(err error) { finish(workflow.StatusError, map[string]any{"reason": err.Error()}) }
 	stop := a.progress.Heartbeat(step.ID, "building")
@@ -42,7 +56,7 @@ func (a *shipping) RunBuild(task *workflow.Execution) {
 		fail(err)
 		return
 	}
-	revision, err := (deploy.SelectedSource{Repository: ws, Revision: "HEAD"}).Resolve(task.Context())
+	revision, err := (deploy.SelectedSource{Repository: ws, Revision: cmp.Or(source.SourceCommit, "HEAD")}).Resolve(task.Context())
 	if err != nil {
 		fail(err)
 		return
@@ -94,7 +108,7 @@ func (a *shipping) RunBuild(task *workflow.Execution) {
 			return
 		}
 	} else {
-		bundle, err = a.deployment.BuildRelease(task.Context(), deployment.SourceBuild{By: task, ProjectID: run.ProjectID, ChangeID: run.ChangeID, RunID: run.ID, Tree: tree.Directory, Revision: revision, Contract: contract, Raw: raw, Log: func(format string, args ...any) { a.progress.Append(step.ID, fmt.Sprintf(format, args...)) }})
+		bundle, err = a.deployment.BuildRelease(task.Context(), deployment.SourceBuild{By: task, ProjectID: run.ProjectID, ChangeID: run.ChangeID, RunID: run.ID, Tree: tree.Directory, Revision: revision, Contract: contract, Raw: raw, RebuiltFrom: run.RebuildFrom, Log: func(format string, args ...any) { a.progress.Append(step.ID, fmt.Sprintf(format, args...)) }})
 		if err != nil {
 			fail(err)
 			return

@@ -317,6 +317,7 @@ resource "aws_iam_user_policy" "apptown" {
       "Action": [
         "ecr:CreateRepository",
         "ecr:DeleteRepository",
+        "ecr:BatchDeleteImage",
         "ecr:TagResource",
         "ecr:BatchCheckLayerAvailability",
         "ecr:InitiateLayerUpload",

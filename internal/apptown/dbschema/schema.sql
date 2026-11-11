@@ -583,6 +583,9 @@ CREATE TABLE integration_resource_readings (
  UNIQUE(project_id,capability)
 );
 
+CREATE UNIQUE INDEX integrations_one_hub ON integrations(capability) WHERE capability='container-registry';
+ALTER TABLE project_integrations ADD CONSTRAINT no_project_registry CHECK (capability <> 'container-registry');
+
 -- Source: internal/apptown/secret/schema.sql
 -- Object capabilities (authorization-capabilities.md §11, authz_tickets.go):
 -- short-lived credentials for one operation on one object, e.g. the Change
@@ -1238,6 +1241,9 @@ CREATE TABLE IF NOT EXISTS runs (
   -- The landing authority's principal and way of acting (access.Actor); NULL for none, an eval's authority, or one not resolved to a person.
   landing_authority_principal UUID,
   landing_authority_via TEXT NOT NULL DEFAULT '',
+  source_commit TEXT NOT NULL DEFAULT '',
+  rebuild_release_id UUID,
+  rebuild_from BIGINT NOT NULL DEFAULT 0,
   UNIQUE(project_id, number)
 );
 -- Only new runs have a start record. Legacy runs retain their recovery rules.
@@ -1347,6 +1353,8 @@ CREATE INDEX IF NOT EXISTS runs_status_updated ON runs(status, updated_at DESC, 
 CREATE TABLE IF NOT EXISTS standing_rules (id UUID PRIMARY KEY, current_revision BIGINT NOT NULL CHECK(current_revision > 0));
 CREATE TABLE IF NOT EXISTS standing_rule_revisions (rule_id UUID NOT NULL REFERENCES standing_rules(id), revision BIGINT NOT NULL CHECK(revision > 0), enabled BOOLEAN NOT NULL, record_json JSONB NOT NULL, PRIMARY KEY(rule_id,revision));
 
+CREATE UNIQUE INDEX runs_rebuild_request ON runs(rebuild_release_id) WHERE rebuild_release_id IS NOT NULL;
+
 -- Source: internal/apptown/deployment/schema.sql
 CREATE TABLE IF NOT EXISTS releases (
   id UUID PRIMARY KEY,
@@ -1381,6 +1389,8 @@ CREATE TABLE IF NOT EXISTS releases (
   stage_entered_at TIMESTAMPTZ,
   failed_stage TEXT NOT NULL DEFAULT '',
   stage_finished_at TIMESTAMPTZ,
+  rebuilt_from BIGINT NOT NULL DEFAULT 0,
+  rebuilt_commit TEXT NOT NULL DEFAULT '',
   UNIQUE(project_id, number)
 );
 CREATE TABLE IF NOT EXISTS release_changes (
@@ -1647,7 +1657,8 @@ CREATE TABLE IF NOT EXISTS release_requests (
   feed_revision BIGINT,
   landing_approvers TEXT NOT NULL DEFAULT '',
   backup_evidence_json JSONB,
-  uncopied_acceptance_json JSONB
+  uncopied_acceptance_json JSONB,
+  rebuild_pending BOOLEAN NOT NULL DEFAULT false
 );
 -- An operator's override of one part's resources on one deployment
 -- (design/subsystems/deployment.md): set as a recorded act,

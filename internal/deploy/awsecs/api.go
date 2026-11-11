@@ -143,6 +143,8 @@ type rdsService interface {
 }
 
 type ecrService interface {
+	BatchGetImage(context.Context, *ecr.BatchGetImageInput, ...func(*ecr.Options)) (*ecr.BatchGetImageOutput, error)
+	BatchDeleteImage(context.Context, *ecr.BatchDeleteImageInput, ...func(*ecr.Options)) (*ecr.BatchDeleteImageOutput, error)
 	CreateRepository(context.Context, *ecr.CreateRepositoryInput, ...func(*ecr.Options)) (*ecr.CreateRepositoryOutput, error)
 	DescribeRepositories(context.Context, *ecr.DescribeRepositoriesInput, ...func(*ecr.Options)) (*ecr.DescribeRepositoriesOutput, error)
 	DeleteRepository(context.Context, *ecr.DeleteRepositoryInput, ...func(*ecr.Options)) (*ecr.DeleteRepositoryOutput, error)

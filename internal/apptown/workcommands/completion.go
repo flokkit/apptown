@@ -22,6 +22,10 @@ func (a FollowUps) Complete(ctx context.Context, key string, values map[string]a
 	run := task.Run
 	switch task.Effect {
 	case workflow.CompletionRelease:
+		if !run.RebuildReleaseID.IsZero() {
+			err = a.Releases.ResumeRebuiltRelease(ctx, run.RebuildReleaseID, run.ID)
+			break
+		}
 		approvers, _ := values["approvedBy"].(string)
 		err = a.Releases.RequestLandingReleases(ctx, run.ProjectID, run.ID, run.ChangeID, approvers)
 	case workflow.CompletionLand:

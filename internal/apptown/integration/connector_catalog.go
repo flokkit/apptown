@@ -44,6 +44,20 @@ type ConnectorSpec struct {
 
 func ConnectorCatalog() []ConnectorSpec {
 	return []ConnectorSpec{
+		// The hub replaces the runtime-defined container-registry kind's form
+		// (provider "service", as existing hubs are recorded), so the same
+		// form creates and edits it, retention numbers included. Multi only
+		// opens the form: a second hub is refused when saved.
+		{Capability: CapContainerRegistry, Provider: "service", Title: "Hub registry", Multi: true, Icon: "registry",
+			Description: "Stores release history for every project. AppTown manages the copies where apps run.",
+			Fields: []ConnectorField{
+				{Key: "url", Label: "Registry host", Type: "string", Placeholder: "registry.example.com"},
+				{Key: "group", Label: "Repository prefix", Type: "string", Placeholder: "team"},
+				{Key: "username", Label: "Username", Type: "string"},
+				{Key: "tokenFrom", Label: "Password secret", Type: "secretRef"},
+				{Key: "keepDays", Label: "Days to keep", Type: "number", Placeholder: "90"},
+				{Key: "keepReleases", Label: "Newest releases per project", Type: "number", Placeholder: "10"},
+			}},
 		{
 			Capability: "scanner", Provider: "tool", Title: "Scanner (tool)", Multi: true, Icon: "scanner",
 			Description: "Runs a container against the code: exit 0 = clean, 1 = findings. The report file is stored with the run. Covers SCA, SAST, secrets, SBOM, license and lint tools.",

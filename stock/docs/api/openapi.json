@@ -4543,6 +4543,12 @@
               "null"
             ]
           },
+          "rebuiltCommit": {
+            "type": "string"
+          },
+          "rebuiltFrom": {
+            "type": "integer"
+          },
           "releasedAt": {
             "anyOf": [
               {
@@ -4660,6 +4666,9 @@
           "byDigest": {
             "type": "boolean"
           },
+          "commit": {
+            "type": "string"
+          },
           "id": {
             "format": "uuid",
             "type": [
@@ -4681,6 +4690,9 @@
           },
           "platform": {
             "type": "string"
+          },
+          "rebuiltFrom": {
+            "type": "integer"
           },
           "registry": {
             "type": "string"
@@ -5477,6 +5489,19 @@
               "string",
               "null"
             ]
+          },
+          "rebuildFrom": {
+            "type": "integer"
+          },
+          "rebuildReleaseId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceCommit": {
+            "type": "string"
           },
           "status": {
             "$ref": "#/components/schemas/RunState"

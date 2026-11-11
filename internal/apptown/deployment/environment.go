@@ -311,8 +311,8 @@ func (e *Environment) ReleaseRepository(ctx context.Context, projectID ids.ID) (
 }
 
 // releaseLogin is the credential a project's images by digest are pulled
-// with: its container-registry attachment's, or nil (anonymous) when none
-// is attached. An attachment or credential that cannot be read is an error.
+// with: the instance hub's, or nil (anonymous) without a hub.
+// A hub configuration or credential that cannot be read is an error.
 func (e *Environment) releaseLogin(ctx context.Context, projectID ids.ID) (*docker.RegistryCredential, error) {
 	if e.integrations == nil {
 		return nil, nil

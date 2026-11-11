@@ -200,7 +200,7 @@ func (w workspaces) prepareRun(ctx context.Context, ref RunRef) error {
 		return err
 	}
 	result, err := w.git.EnsureClone(ctx, CloneRequest{Repository: repository, Workspace: workspace, Branch: before.Branch, DefaultBranch: before.DefaultBranch,
-		RequireBranch: before.ChangeBaseSHA != "" || before.RunBaseSHA != ""})
+		Commit: before.SourceCommit, RequireBranch: before.ChangeBaseSHA != "" || before.RunBaseSHA != ""})
 	if err != nil {
 		return err
 	}

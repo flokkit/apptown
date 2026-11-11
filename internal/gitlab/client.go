@@ -59,7 +59,7 @@ func (g *Client) Do(ctx context.Context, method, path string, body any, out any)
 }
 
 func (g *Client) doContext(ctx context.Context, method, path string, body any, out any) error {
-	status, raw, err := g.Raw(ctx, method, path, body)
+	status, raw, err := g.rawCall(ctx, method, path, body)
 	if err != nil {
 		return err
 	}
@@ -72,10 +72,10 @@ func (g *Client) doContext(ctx context.Context, method, path string, body any, o
 	return nil
 }
 
-// Raw sends JSON to an API-relative path and returns the complete bounded response.
+// rawCall sends JSON to an API-relative path and returns the complete bounded response.
 // It honors ctx without detaching cancellation. Status remains available if reading
 // fails; an incomplete response does not establish the outcome of a provider write.
-func (g *Client) Raw(ctx context.Context, method, path string, body any) (int, []byte, error) {
+func (g *Client) rawCall(ctx context.Context, method, path string, body any) (int, []byte, error) {
 	var rd io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)

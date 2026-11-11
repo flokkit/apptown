@@ -88,6 +88,9 @@ CREATE TABLE IF NOT EXISTS runs (
   -- The landing authority's principal and way of acting (access.Actor); NULL for none, an eval's authority, or one not resolved to a person.
   landing_authority_principal UUID,
   landing_authority_via TEXT NOT NULL DEFAULT '',
+  source_commit TEXT NOT NULL DEFAULT '',
+  rebuild_release_id UUID,
+  rebuild_from BIGINT NOT NULL DEFAULT 0,
   UNIQUE(project_id, number)
 );
 -- Only new runs have a start record. Legacy runs retain their recovery rules.
@@ -196,3 +199,5 @@ CREATE INDEX IF NOT EXISTS runs_status_updated ON runs(status, updated_at DESC, 
 -- Standing consent survives project/account deletion as immutable evidence.
 CREATE TABLE IF NOT EXISTS standing_rules (id UUID PRIMARY KEY, current_revision BIGINT NOT NULL CHECK(current_revision > 0));
 CREATE TABLE IF NOT EXISTS standing_rule_revisions (rule_id UUID NOT NULL REFERENCES standing_rules(id), revision BIGINT NOT NULL CHECK(revision > 0), enabled BOOLEAN NOT NULL, record_json JSONB NOT NULL, PRIMARY KEY(rule_id,revision));
+
+CREATE UNIQUE INDEX runs_rebuild_request ON runs(rebuild_release_id) WHERE rebuild_release_id IS NOT NULL;

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -25,6 +26,9 @@ type StartRequest struct {
 	// carried it; a root run records it rather than the name looked up.
 	owner             access.Actor
 	ProjectID         ids.ID
+	sourceCommit      string
+	rebuildReleaseID  ids.ID
+	rebuildFrom       int64
 	ChangeID          ids.ID
 	WorkflowName      string
 	InputsJSON        string
@@ -51,7 +55,7 @@ func (in StartRequest) IsChild() bool { return !in.parentRunID.IsZero() }
 // allowsSystemWorkflow identifies AppTown's own invocations. A caller cannot
 // set the integration or landing marker, parent execution, or accepted-run identity.
 func (in StartRequest) allowsSystemWorkflow() bool {
-	return in.integrationWork || in.requestLanding || in.IsChild() || !in.acceptedRunID.IsZero()
+	return !in.rebuildReleaseID.IsZero() || in.integrationWork || in.requestLanding || in.IsChild() || !in.acceptedRunID.IsZero()
 }
 
 type DefinitionRef struct {
@@ -86,6 +90,9 @@ func (s runAdmissions) createIn(ctx context.Context, tx *database.Tx, in StartRe
 func validateStart(in StartRequest) error {
 	if in.ProjectID.IsZero() || in.WorkflowName == "" || (in.parentRunID.IsZero() && !in.parentStepID.IsZero()) || (!in.acceptedRunID.IsZero() && !in.parentRunID.IsZero()) {
 		return fmt.Errorf("a run needs a project, workflow, and a valid parent context")
+	}
+	if in.sourceCommit != "" && !gitexec.IsObjectID(in.sourceCommit) {
+		return fmt.Errorf("a run source must be a recorded commit ID")
 	}
 	var inputs map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(in.InputsJSON), &inputs); err != nil || inputs == nil {

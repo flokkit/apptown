@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/dbtest"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -302,61 +301,6 @@ func TestARotationMintsNothingWhileTheOldTokenStands(t *testing.T) {
 //
 // Kills: a revocation whose answer was dropped, and a predecessor read whose
 // failure was taken for "nothing recorded".
-func TestARegistryProvisionMintsNothingWhileTheOldTokenStands(t *testing.T) {
-	t.Parallel()
-	var minted atomic.Int32
-	var deleteStatus atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.Method == "DELETE" && strings.Contains(r.URL.Path, "/deploy_tokens/"):
-			w.WriteHeader(int(deleteStatus.Load()))
-		case r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/deploy_tokens"):
-			n := minted.Add(1)
-			fmt.Fprintf(w, `{"id":%d,"username":"robot-%d","token":"deploy-secret-%d"}`, 40+n, n, n)
-		default:
-			t.Errorf("unexpected provider request %s %s", r.Method, r.URL.Path)
-			w.WriteHeader(500)
-		}
-	}))
-	defer srv.Close()
-	db := testDB(t)
-	id := createTestProject(t, db, "app", "App")
-	service := scmService(t, db, srv.URL)
-	if _, err := service.Bindings.Upsert(t.Context(), "gitlab-registry", CapContainerRegistry, "gitlab", `{"provider":"gitlab","url":"registry.gitlab.example","group":"team"}`, false); err != nil {
-		t.Fatal(err)
-	}
-	p, err := project.New(db, nil).ByID(t.Context(), id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	provision := func() error {
-		_, _, err := service.ProvisionRegistry(t.Context(), &p, "gitlab-registry", "bls")
-		return err
-	}
-	if err := service.Attachments.Remember(t.Context(), id, CapContainerRegistry, "gitlab-registry", `{"token_id":7,"repo":"registry.gitlab.example/team/app"}`); err != nil {
-		t.Fatal(err)
-	}
-	deleteStatus.Store(500)
-	if err := provision(); err == nil || !strings.Contains(err.Error(), "nothing new was minted") || minted.Load() != 0 {
-		t.Fatalf("a failed revocation must refuse: %v, minted %d", err, minted.Load())
-	}
-	if err := service.Attachments.Remember(t.Context(), id, CapContainerRegistry, "gitlab-registry", `["not","an","object"]`); err != nil {
-		t.Fatal(err)
-	}
-	if err := provision(); err == nil || !strings.Contains(err.Error(), "could not be read") || minted.Load() != 0 {
-		t.Fatalf("an unreadable attachment must refuse: %v, minted %d", err, minted.Load())
-	}
-	if err := service.Attachments.Remember(t.Context(), id, CapContainerRegistry, "gitlab-registry", `{"token_id":7,"repo":"registry.gitlab.example/team/app"}`); err != nil {
-		t.Fatal(err)
-	}
-	deleteStatus.Store(404)
-	if err := provision(); err != nil || minted.Load() != 1 {
-		t.Fatalf("an old token already gone does not hold up provisioning: %v, minted %d", err, minted.Load())
-	}
-}
-
-// The recorded SCM tokens are what a rotation revokes: a record that cannot
-// be read mints nothing.
 func TestAnSCMRecordThatCannotBeReadMintsNothing(t *testing.T) {
 	t.Parallel()
 	srv, issued, _ := scmFake(t, nil)

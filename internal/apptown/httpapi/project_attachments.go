@@ -134,15 +134,8 @@ func (h ProjectAttachments) AttachIntegration(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		// Linked path for the container-registry capability: mint a per-project
-		// deploy token through the connector's provider (registry adapter).
-		if in.Capability == integration.CapContainerRegistry && len(in.Resource) == 0 {
-			out, code, err := h.integrations.ProvisionRegistry(r.Context(), p, in.Connector, actor(r))
-			if err != nil {
-				WriteError(w, code, "%v", err)
-				return
-			}
-			WriteJSON(w, 200, out)
+		if in.Capability == integration.CapContainerRegistry {
+			WriteError(w, 422, "The hub registry is set under Integrations for all projects")
 			return
 		}
 
@@ -379,6 +372,9 @@ func (h ProjectAttachments) ListAttachables(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	for _, k := range kinds {
+		if k.Capability == integration.CapContainerRegistry {
+			continue
+		}
 		// A kind whose resource fields are all optional needs no input:
 		// attachable in one click (wizard included) — nothing is minted,
 		// the contributions just switch on.

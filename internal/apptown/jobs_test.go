@@ -681,3 +681,20 @@ func TestEveryJobKindHasAPlainName(t *testing.T) {
 		}
 	}
 }
+
+func TestImageRetentionRunsDailyAfterTheBackupSweep(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 11, 11, 0, 0, 0, 0, time.UTC)
+	var backup, image time.Time
+	for _, job := range apptownJobSchedules() {
+		if job.Operation == "backup-sweep" {
+			backup = job.When.Next(at)
+		}
+		if job.Operation == "image-retention" {
+			image = job.When.Next(at)
+		}
+	}
+	if image.IsZero() || image.Hour() != 3 || image.Minute() != 30 || !image.After(backup) {
+		t.Fatalf("backup=%s image retention=%s", backup, image)
+	}
+}

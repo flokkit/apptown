@@ -134,13 +134,20 @@ func listAll[T any](ctx context.Context, c *Client, path, key string) ([]T, erro
 		if err := c.Call(ctx, "GET", path, nil, &raw); err != nil {
 			return nil, err
 		}
-		if items, ok := raw[key]; ok {
+		items, ok := raw[key]
+		// A manifest list authorizes image deletion. An absent list cannot
+		// establish that a repository is empty.
+		if key == "manifests" && (!ok || string(items) == "null") {
+			return nil, fmt.Errorf("listing %s: the provider returned no list", key)
+		}
+		if ok {
 			var got []T
 			if err := json.Unmarshal(items, &got); err != nil {
 				return nil, fmt.Errorf("listing %s: %w", key, err)
 			}
 			all = append(all, got...)
 		}
+
 		var links struct {
 			Pages struct {
 				Next string `json:"next"`

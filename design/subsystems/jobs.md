@@ -162,3 +162,9 @@ See [database startup and migration](postgres-migration.md) for River's tables.
 - [internal/apptown/database_dump.go](../../internal/apptown/database_dump.go)
 - [internal/apptown/deployment/jobs.go](../../internal/apptown/deployment/jobs.go)
 - [internal/apptown/jobs/river_contract_test.go](../../internal/apptown/jobs/river_contract_test.go)
+
+The daily `image-retention` job runs at 03:30 after `backup-sweep`. Deployment
+computes keep sets before effects and records one `images.retained` audit entry
+per pass. It deletes nothing when required release, bundle or backup evidence
+cannot be read. Store failures and refused deletions remain in the entry and
+are tried again on the next daily pass.

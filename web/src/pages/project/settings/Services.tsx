@@ -225,7 +225,7 @@ export function ServicesTab({ slug }: { slug: string }) {
 export type ProjIntegration = AttachmentView
 
 export const INTEG_ICON: Record<string, string> = {
-  errors: '🚨', feedback: '💬', telemetry: '📡', sso: '🔐', 'container-registry': '📦',
+  errors: '🚨', feedback: '💬', telemetry: '📡', sso: '🔐',
 }
 
 
@@ -309,7 +309,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability, canAttach = true 
                   {i.provenance === 'provisioned' ? `linked · ${i.connector}` : i.connector ? `via ${i.connector}` : 'direct'}
                 </span>
               </div>
-              {i.capability === 'container-registry' ? <p className="muted small">Stores your app’s built images</p> : desc && <p className="muted small">{desc}</p>}
+              {desc && <p className="muted small">{desc}</p>}
             </div>
           </div>
 

@@ -184,6 +184,8 @@ type Release struct {
 	StageEnteredAt   sql.NullTime
 	FailedStage      string
 	StageFinishedAt  sql.NullTime
+	RebuiltFrom      int64
+	RebuiltCommit    string
 }
 
 type ReleaseBundle struct {
@@ -226,6 +228,7 @@ type ReleaseRequest struct {
 	LandingApprovers       string
 	BackupEvidenceJson     *json.RawMessage
 	UncopiedAcceptanceJson *json.RawMessage
+	RebuildPending         bool
 }
 
 type RetainedResource struct {

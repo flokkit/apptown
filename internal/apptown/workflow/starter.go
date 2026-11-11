@@ -129,6 +129,11 @@ func (s *starter) definition(ctx context.Context, req StartRequest, source Start
 	if err != nil {
 		return PreparedRun{}, err
 	}
+	if !req.rebuildReleaseID.IsZero() {
+		if len(def.Spec.Stages) != 1 || len(def.Spec.Stages[0].OnEnter) != 0 || len(def.Spec.Stages[0].Steps) != 1 || def.Spec.Stages[0].Steps[0].Uses != "build" || def.Spec.Role == "landing" {
+			return PreparedRun{}, fmt.Errorf("the rebuild workflow must contain one build step and cannot land a change")
+		}
+	}
 	if def.System && !req.allowsSystemWorkflow() {
 		return PreparedRun{}, fault.New(fault.Unprocessable, fmt.Sprintf("workflow %q is run by AppTown; choose another workflow", def.Workflow.Name))
 	}

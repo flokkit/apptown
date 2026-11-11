@@ -716,6 +716,23 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 	{n: 223, note: "name target data-directory retention explicitly", stmts: []string{
 		`UPDATE targets SET capabilities_json=(capabilities_json - 'persistentVolumes') || jsonb_build_object('keepsDataDir', capabilities_json->'persistentVolumes'), settings_revision=settings_revision+1 WHERE capabilities_json ? 'persistentVolumes'`,
 	}},
+	{n: 224, note: "use one instance hub registry", stmts: []string{
+		`DO $$ DECLARE names text; BEGIN
+ SELECT string_agg(name, ', ' ORDER BY name) INTO names FROM integrations WHERE capability='container-registry';
+ IF (SELECT count(*) FROM integrations WHERE capability='container-registry') > 1 OR EXISTS (SELECT 1 FROM integrations WHERE capability='container-registry' AND (provider='gitlab' OR config_json->>'provider'='gitlab')) THEN
+ RAISE EXCEPTION 'The hub needs one registry connector with a shared credential; replace connectors: %', names;
+ END IF;
+ END $$`,
+		`DELETE FROM project_integrations WHERE capability='container-registry'`,
+		`CREATE UNIQUE INDEX integrations_one_hub ON integrations(capability) WHERE capability='container-registry'`,
+		`ALTER TABLE project_integrations ADD CONSTRAINT no_project_registry CHECK (capability <> 'container-registry')`,
+	}},
+	{n: 225, note: "pin rebuild runs to recorded commits", stmts: []string{
+		`ALTER TABLE runs ADD COLUMN source_commit TEXT NOT NULL DEFAULT '', ADD COLUMN rebuild_release_id UUID, ADD COLUMN rebuild_from BIGINT NOT NULL DEFAULT 0`,
+		`CREATE UNIQUE INDEX runs_rebuild_request ON runs(rebuild_release_id) WHERE rebuild_release_id IS NOT NULL`,
+		`ALTER TABLE release_requests ADD COLUMN rebuild_pending BOOLEAN NOT NULL DEFAULT false`,
+		`ALTER TABLE releases ADD COLUMN rebuilt_from BIGINT NOT NULL DEFAULT 0, ADD COLUMN rebuilt_commit TEXT NOT NULL DEFAULT ''`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

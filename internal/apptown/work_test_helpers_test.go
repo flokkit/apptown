@@ -59,6 +59,9 @@ func rebuildWork(t testing.TB, a *App, mutate func(*workflow.Dependencies)) {
 		m(&deps)
 	}
 	a.Work = workflow.New(context.Background(), a.DB, deps)
+	if a.imageRebuilds != nil {
+		a.imageRebuilds.work = a.Work
+	}
 	rebuildConsoleOwners(a)
 	a.repositoryEdits = repositoryedit.New(a.Work, a.Dependencies, repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, a.branches, a.lifecycle, a.DB, a.cfg.dataDir)
 	a.changeActions = changeactions.New(a.Work, a.DB)

@@ -205,6 +205,7 @@ function TargetSettings() {
         {t.copies && <CopyRunnerLine t={t} />}
         {t.kindInfo.environment && !t.providerScope && !retired && <p className="small">Provider endpoint: <b>unknown</b>. Releases are refused until {PRODUCT} reads the endpoint.</p>}
         {data.registry && <RegistryLine r={data.registry} />}
+        {data.imageRetention && <p className="muted small">Images: {data.imageRetention}</p>}
         {!retired && !data.builtIn && <EditTarget t={t} current={pageQ.current} onSaved={load} />}
         {!retired && !data.builtIn && <div className="target-page-target-settings-page-div"><QuietConfirm label="Retire this target" ask={`Retire ${t.name}? This fails while any deployment uses it; its offers are withdrawn.`} onYes={retire} yes="Retire" className="subtle danger" /></div>}
         {data.builtIn && <p className="muted small">This is {PRODUCT}'s own host; it cannot be retired.</p>}

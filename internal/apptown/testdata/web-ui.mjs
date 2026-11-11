@@ -87,14 +87,14 @@ try {
     const backups = await read('/projects/club-newsletter/deployments/main/backups');
     const releases = await read('/projects/club-newsletter/releases');
     const changes = await read('/projects/club-newsletter/changes');
-    const attachments = await read('/projects/club-newsletter/integrations');
+    const integrations = await read('/integrations');
     const reviews = await Promise.all(activity.active.map(r => read('/changes/' + r.changeId)));
-    return { releases, registryAttached: attachments.attachments.some(i => i.capability === 'container-registry' && i.title === 'Container registry'), idleSeconds: activity.history.find(c => c.title === "Replace the old ride archive")?.tookS, history: activity.history.length, backups: backups.backups, stoppedCheck: changes.some(c => c.title === "Release check: a chat answers" && c.state === "abandoned"), deployments, backupBytes: backups.backups.find(b => b.bytes > 0)?.bytes, failingCheck: reviews.some(v => v.detail?.steps.some(s => s.status === 'fail')) };
+    return { releases, registryConfigured: integrations.integrations.some(i => i.capability === 'container-registry'), idleSeconds: activity.history.find(c => c.title === "Replace the old ride archive")?.tookS, history: activity.history.length, backups: backups.backups, stoppedCheck: changes.some(c => c.title === "Release check: a chat answers" && c.state === "abandoned"), deployments, backupBytes: backups.backups.find(b => b.bytes > 0)?.bytes, failingCheck: reviews.some(v => v.detail?.steps.some(s => s.status === 'fail')) };
   });
   await mkdir(out, { recursive: true });
   phase('login and facts');
   await writeFile(`${out}/facts.json`, JSON.stringify(facts, null, 2));
-  if (!facts.registryAttached || facts.history < 8 || facts.history > 12 || !facts.failingCheck || !facts.backupBytes || !facts.stoppedCheck || facts.backups.length < 16 || facts.releases.length < 16 || !(facts.idleSeconds >= 458640) || !facts.releases.some(r => r.serving && r.notes?.startsWith("Adds the winter ride times page"))) throw new Error('incomplete design seed: ' + JSON.stringify(facts));
+  if (!facts.registryConfigured || facts.history < 8 || facts.history > 12 || !facts.failingCheck || !facts.backupBytes || !facts.stoppedCheck || facts.backups.length < 16 || facts.releases.length < 16 || !(facts.idleSeconds >= 458640) || !facts.releases.some(r => r.serving && r.notes?.startsWith("Adds the winter ride times page"))) throw new Error('incomplete design seed: ' + JSON.stringify(facts));
   if (!facts.deployments.some(d => d.displayLabel === 'Production' && d.running === true) || !facts.deployments.some(d => d.kind === 'preview' && d.running === null && d.observation === 'unreachable')) throw new Error('deployment seed is not running production + unavailable preview: ' + JSON.stringify(facts.deployments));
   const infraCases = await page.evaluate(async () => {
     const read = async path => { const r = await fetch('/api/v1' + path); if (!r.ok) throw new Error(path + ': ' + r.status); return r.json(); };

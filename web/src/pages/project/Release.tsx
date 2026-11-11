@@ -69,6 +69,7 @@ export function ReleasePermalinkPage({ slug, number, log = false }: { slug: stri
             <> Open it at <a href={r.notes} target="_blank" rel="noreferrer"><strong>{r.notes}</strong></a></>
           )}
         </div>
+        {r.rebuiltFrom ? <p>Rebuilt from commit <code>{r.rebuiltCommit}</code>, not the original image of release {r.rebuiltFrom}.</p> : null}
         {r.failure && <p role="status">{r.failure}</p>}
         {/* rollbackNumber is the earlier release this one deploys again (its build), not the release it replaces. */}
         {data.rollbackNumber && <p>Deploys <Link to={`/projects/${slug}/releases/${data.rollbackNumber}`}>release {data.rollbackNumber}</Link> again{r.restoreBackupId && ', with data restored from the selected backup'}.</p>}
@@ -135,12 +136,13 @@ export function BundleFacts({ bundle }: { bundle: ReleaseBundleView }) {
   ]
   return (
     <>
+      {bundle.rebuiltFrom ? <><dt>Rebuilt image</dt><dd>Rebuilt from commit <code>{bundle.commit}</code>, not the original image of release {bundle.rebuiltFrom}.</dd></> : null}
       <dt>Runs on</dt>
       <dd>{bundle.byDigest
         ? bundle.platform === APP_PLATFORM
           ? <>Any <code>{bundle.platform}</code> host, App Platform included</>
           : <>Any <code>{bundle.platform}</code> host; not App Platform, which runs {APP_PLATFORM}, so it cannot take it</>
-        : <>Only the server where it was built: its images are not in a registry. Attach a container registry to the project, then land a change, to release it elsewhere.</>}</dd>
+        : <>Only the server where it was built: its images are not in a registry. Set up the hub registry under Integrations, then land a change, to release it elsewhere.</>}</dd>
       {bundle.byDigest && bundle.registry && <><dt>Registry</dt><dd><code>{bundle.registry}</code></dd></>}
       {images.map((i) => (
         <Fragment key={(i.init ? 'init:' : '') + i.n}>

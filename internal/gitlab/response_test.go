@@ -68,7 +68,7 @@ func TestGitLabRawResponsePreservesStatusAndCompleteBodies(t *testing.T) {
 			client.http.Transport = responseTransport(func(*http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: tc.status, Body: io.NopCloser(strings.NewReader(tc.body))}, nil
 			})
-			status, body, err := client.Raw(context.Background(), http.MethodDelete, "/projects/1", nil)
+			status, body, err := client.rawCall(context.Background(), http.MethodDelete, "/projects/1", nil)
 			if status != tc.status || (err != nil) != tc.failed {
 				t.Fatalf("response status=%d err=%v", status, err)
 			}
@@ -99,11 +99,11 @@ func TestGitLabRawResponseRefusesUnreadableBodiesAndUnencodableRequests(t *testi
 		calls++
 		return &http.Response{StatusCode: 404, Body: failedResponse{}}, nil
 	})
-	status, body, err := client.Raw(context.Background(), http.MethodDelete, "/projects/1", nil)
+	status, body, err := client.rawCall(context.Background(), http.MethodDelete, "/projects/1", nil)
 	if status != 404 || len(body) != 0 || !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Fatalf("unreadable response: status=%d body=%q err=%v", status, body, err)
 	}
-	_, _, err = client.Raw(context.Background(), http.MethodPost, "/projects", make(chan int))
+	_, _, err = client.rawCall(context.Background(), http.MethodPost, "/projects", make(chan int))
 	if err == nil || calls != 1 {
 		t.Fatalf("unencodable request sent: calls=%d err=%v", calls, err)
 	}

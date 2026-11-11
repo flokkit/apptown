@@ -210,11 +210,20 @@ func (r *RecordedImages) onDaemon(ctx context.Context, dk Scope, name, ref strin
 // from its registry. A registry that refuses the credential or cannot be
 // reached, and a daemon that cannot be asked, are errors, never "missing".
 func (r *RecordedImages) pull(ctx context.Context, dk Scope, name, ref string) (string, error) {
+	out, inspectErr := dk.Run(ctx, "image", "inspect", "--format", "{{.Id}} {{json .RepoDigests}}", ref)
+	if inspectErr == nil {
+		if id, ok := heldDigest(out, ref); ok {
+			return id, nil
+		}
+	} else if !strings.Contains(strings.ToLower(string(out)), "no such image") {
+		return "", fmt.Errorf("asking the daemon for %s (%s): %w: %s", ref, name, inspectErr, strs.Truncate(string(out), 300))
+	}
+
 	pulling, done, err := dk.WithBootConfig(ctx, r.Scratch, r.Login)
 	if err != nil {
 		return "", fmt.Errorf("a Docker configuration for pulling %s (%s): %w", ref, name, err)
 	}
-	out, err := pulling.Run(ctx, "pull", ref)
+	out, err = pulling.Run(ctx, "pull", ref)
 	if doneErr := done(); doneErr != nil {
 		log.Printf("removing a pull's Docker configuration: %v", doneErr)
 	}
@@ -229,14 +238,21 @@ func (r *RecordedImages) pull(ctx context.Context, dk Scope, name, ref string) (
 	if err != nil {
 		return "", fmt.Errorf("asking the daemon for the pulled %s (%s): %v: %s", ref, name, err, strs.Truncate(strings.TrimSpace(string(out)), 300))
 	}
-	id, raw, _ := strings.Cut(strings.TrimSpace(string(out)), " ")
-	var held []string
-	_ = json.Unmarshal([]byte(raw), &held)
-	digest := ref[strings.LastIndex(ref, "@"):]
-	if !strings.HasPrefix(id, "sha256:") || !slices.ContainsFunc(held, func(d string) bool { return strings.HasSuffix(d, digest) }) {
+	id, ok := heldDigest(out, ref)
+	if !ok {
 		return "", fmt.Errorf("the daemon does not hold %s (%s) under its digest: it answers %s", ref, name, strs.Truncate(strings.TrimSpace(string(out)), 300))
 	}
 	return id, nil
+}
+
+func heldDigest(out []byte, ref string) (string, bool) {
+	id, raw, _ := strings.Cut(strings.TrimSpace(string(out)), " ")
+	var held []string
+	if json.Unmarshal([]byte(raw), &held) != nil {
+		return "", false
+	}
+	digest := ref[strings.LastIndex(ref, "@"):]
+	return id, strings.HasPrefix(id, "sha256:") && slices.ContainsFunc(held, func(d string) bool { return strings.HasSuffix(d, digest) })
 }
 
 // onDaemon is a recorded image ID, verified present on the daemon. A daemon

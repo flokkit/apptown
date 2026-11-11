@@ -17,6 +17,8 @@ import (
 // this daemon, or images by digest it pulls), and
 // runs it as the placement's container, through the stack boot it is given.
 type Driver struct {
+	BuildTagPrefix string // installation-owned landing build tags
+
 	Now func() time.Time // completion time of a current readiness sample
 	// Allowed is required: a current permission check or AuthorisedWhenRequested.
 	Allowed      func(context.Context) error

@@ -44,7 +44,8 @@ type Dependencies struct {
 
 // Options configures one provider instance; zero values are production's.
 type Options struct {
-	APIBase string
+	APIBase      string
+	registryHost string // empty is registry.fly.io; a test can supply its registry
 	// pollInterval is how often a Machine's state is read while waiting.
 	pollInterval time.Duration
 	// machineWait bounds waiting for one Machine to start, pass its checks
@@ -62,6 +63,9 @@ type Options struct {
 
 // NewDriver snapshots settings and collaborators.
 func NewDriver(deps Dependencies, options Options) *Driver {
+	if options.registryHost == "" {
+		options.registryHost = registryHost
+	}
 	if options.pollInterval <= 0 {
 		options.pollInterval = 5 * time.Second
 	}

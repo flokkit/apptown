@@ -109,6 +109,9 @@ func (w advanceStore) complete(ctx context.Context, run *Run) error {
 			return err
 		}
 		completed := CompletedRun{RunID: run.ID, ProjectID: run.ProjectID, ChangeID: run.ChangeID, Effects: []CompletionEffect{CompletionCleanup}}
+		if !run.RebuildReleaseID.IsZero() {
+			completed.Effects = append(completed.Effects, CompletionRelease)
+		}
 		if run.ParentRunID.IsZero() && !run.ChangeID.IsZero() {
 			completed.Narrative = true
 			// A landing ships its change. So does a record run (research, a
