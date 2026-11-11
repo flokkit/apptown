@@ -246,6 +246,16 @@ func (c SessionClient) putSource(ctx context.Context, id, branch, commit string,
 	return st, c.send(ctx, http.MethodPut, sessionPath(id, "/source?"+q.Encode()), bundle, &st)
 }
 
+// follow sends the chat's work tree commit to, a descendant of from, in
+// bundle (made since from, naming it by FollowRef), and the tree
+// fast-forwards to it while it is at from. An error is the worker's
+// refusal or no answer; either way nothing was published.
+func (c SessionClient) follow(ctx context.Context, id, from, to string, bundle io.Reader) error {
+	q := url.Values{"from": {from}, "to": {to}}
+	var out struct{}
+	return c.transport().Send(ctx, http.MethodPost, sessionPath(id, "/follow?"+q.Encode()), bundle, "application/octet-stream", &out, maxSessionAnswer, refusal)
+}
+
 // Save asks for a bundle of the chat's commits since base, writes it to
 // dest, and answers the commit it holds; "" when there is nothing new. Only
 // 204 means nothing new: a reply without its commit is not an answer. A

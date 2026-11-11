@@ -148,7 +148,7 @@ func (s *Service) FailureAdvice(ctx context.Context, id ids.ID) (ApprovalBriefIn
 		}
 	}
 	if out.Change != nil {
-		out.Acts = append(out.Acts, ChangeActs(out.Change, d, false, false)...)
+		out.Acts = append(out.Acts, ChangeActs(out.Change, d, false, false, false)...)
 	}
 	if err := tx.Commit(); err != nil {
 		return ApprovalBriefInputs{}, err

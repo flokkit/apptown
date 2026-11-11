@@ -446,6 +446,79 @@ func TestASaveIsTheChatsCommitsSinceItsBase(t *testing.T) {
 	}
 }
 
+// AppTown's merge of main for a landing reaches the chat's work tree before
+// it is published: the tree fast-forwards to it while it is at the commit
+// AppTown last saved, and the chat's next save builds on it. A tree the
+// chat has committed on since is refused and left as it was.
+func TestAChatsWorkTreeTakesAppTownsMergeBeforeItIsPublished(t *testing.T) {
+	ctx := context.Background()
+	repo, commit := chatSourceRepo(t)
+	c := startRemoteChats(t, consoletest.Static{})
+	c.agent.Source = func(ctx context.Context, in console.Launch, dest string) (string, string, error) {
+		return "change/7", commit, gitexec.BundleCommit(ctx, repo, commit, "change/7", dest)
+	}
+	s := c.open(t)
+	if err := c.service.Warm(ctx, s.ID); err != nil {
+		t.Fatal(err)
+	}
+	git := func(dir string, args ...string) string {
+		t.Helper()
+		cmd := gittest.Command(append([]string{"-C", dir}, args...)...)
+		cmd.Env = append(cmd.Env, "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@x", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@x")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	// main, and AppTown's merge of it into the change, in AppTown's repository.
+	if err := os.WriteFile(filepath.Join(repo, "MAIN"), []byte("main moved\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git(repo, "switch", "-q", "--orphan", "main")
+	git(repo, "add", "MAIN")
+	git(repo, "commit", "-q", "-m", "main")
+	main := git(repo, "rev-parse", "HEAD")
+	git(repo, "switch", "-q", "change/7")
+	tree := git(repo, "merge-tree", "--write-tree", "--allow-unrelated-histories", commit, main)
+	merge := git(repo, "commit-tree", tree, "-p", commit, "-p", main, "-m", "Merge main into change/7")
+	bundle := filepath.Join(t.TempDir(), "follow.bundle")
+	if err := gitexec.BundleSince(ctx, repo, merge, commit, worker.FollowRef, bundle); err != nil {
+		t.Fatal(err)
+	}
+	work := c.runtime.Started(s.ID).Workspace.Path
+
+	// The chat committed since its last save: refused, and nothing moved.
+	git(work, "commit", "-q", "--allow-empty", "-m", "unsaved")
+	unsaved := git(work, "rev-parse", "HEAD")
+	if err := c.agent.Follow(ctx, s.ID, commit, merge, bundle); err == nil {
+		t.Fatal("a tree the chat committed on took the merge")
+	}
+	if got := git(work, "rev-parse", "HEAD"); got != unsaved {
+		t.Fatalf("a refused follow moved the tree: %s", got)
+	}
+
+	git(work, "reset", "-q", "--hard", commit)
+	if err := c.agent.Follow(ctx, s.ID, commit, merge, bundle); err != nil {
+		t.Fatal(err)
+	}
+	if got := git(work, "rev-parse", "HEAD"); got != merge {
+		t.Fatalf("the tree is at %s, not the merge %s", got, merge)
+	}
+	if got, err := os.ReadFile(filepath.Join(work, "MAIN")); err != nil || string(got) != "main moved\n" {
+		t.Fatalf("the tree lacks main's file: %q %v", got, err)
+	}
+	// Published, the merge is the branch's tip: the chat's next save builds on it.
+	dest := filepath.Join(t.TempDir(), "save.bundle")
+	if tip, err := c.agent.Save(ctx, s.ID, merge, dest); err != nil || tip != "" {
+		t.Fatalf("a save from the merge with nothing new: %q %v", tip, err)
+	}
+	git(work, "commit", "-q", "--allow-empty", "-m", "after the merge")
+	if tip, err := c.agent.Save(ctx, s.ID, merge, dest); err != nil || tip != git(work, "rev-parse", "HEAD") {
+		t.Fatalf("a save after the merge: %q %v", tip, err)
+	}
+}
+
 // AppTown's copy of the record triggers a save when it shows a turn
 // handed back that it had not shown before, once per turn.
 func TestAHandedBackTurnTriggersASaveOnce(t *testing.T) {

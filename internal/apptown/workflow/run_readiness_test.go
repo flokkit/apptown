@@ -318,7 +318,7 @@ func TestReadinessReadFailureCannotAdmitExecution(t *testing.T) {
 
 type readinessLandingWork func(context.Context, *Change) error
 
-func (f readinessLandingWork) PublishForLanding(ctx context.Context, change *Change) error {
+func (f readinessLandingWork) PublishForLanding(ctx context.Context, change *Change, _ string, _ ids.ID) error {
 	return f(ctx, change)
 }
 

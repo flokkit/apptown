@@ -100,7 +100,7 @@ func TestReconcilePreflight(t *testing.T) {
 	s = stepID("behind-main")
 	a.Work.ExecuteStep(a.asEngine(context.Background()), s)
 	st, ev := stepStatusEv(t, a, s)
-	if st != workflow.StatusFail || !strings.Contains(ev, "behind main") {
+	if st != workflow.StatusFail || !strings.Contains(ev, "no longer contains it") {
 		t.Fatalf("a branch behind main must fail with the reason, got %s: %s", st, ev)
 	}
 	if gittest.Run(t, hub, "rev-parse", "refs/heads/"+change.Branch) != branchBefore || gittest.Run(t, hub, "rev-parse", "refs/heads/main") != mainBefore {
@@ -114,7 +114,7 @@ func TestReconcilePreflight(t *testing.T) {
 	}
 	// Why it ended, and the catch-up, are read with it: apptown wait -c and
 	// the change's chat say this rather than "a person's move".
-	if !strings.Contains(ended.Ending, change.Branch+" is behind main; behind-main (fail): behind main") || !strings.Contains(ended.Ending, `git fetch "$APPTOWN_MAIN_REMOTE" main`) {
+	if !strings.Contains(ended.Ending, "main moved after this landing was asked for, so the change no longer contains it. Check and land again") || !strings.Contains(ended.Ending, `git fetch "$APPTOWN_MAIN_REMOTE" main`) {
 		t.Fatalf("the ended landing must say why and how to catch up: %q", ended.Ending)
 	}
 	back, err := a.Work.Change(ctx, change.ID)
@@ -196,7 +196,7 @@ func TestAChangesChatIsToldOnceWhenItsLandingEnds(t *testing.T) {
 	}
 	runQueuedJobForTest(t, a, workflowAbandonmentJob, fmt.Sprintf("run/%d/ended", run.ID))
 	n, text := notices()
-	if n != 1 || !strings.Contains(text, fmt.Sprintf("landing (run %d) ended", run.ID)) || !strings.Contains(text, "behind main") || !strings.Contains(text, `git fetch "$APPTOWN_MAIN_REMOTE" main`) {
+	if n != 1 || !strings.Contains(text, fmt.Sprintf("landing (run %d) ended", run.ID)) || !strings.Contains(text, "no longer contains it") || !strings.Contains(text, `git fetch "$APPTOWN_MAIN_REMOTE" main`) {
 		t.Fatalf("the chat must be told once why its landing ended and how to catch up, got %d: %q", n, text)
 	}
 }

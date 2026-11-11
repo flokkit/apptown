@@ -76,7 +76,7 @@ func TestHeldRunsExplainTheDispatchHoldInEveryRead(t *testing.T) {
 			if ready, err := dispatchReady(context.Background(), db, storedStep(t, db, next)); err != nil || ready {
 				t.Fatalf("held step dispatchable: %v %v", ready, err)
 			}
-			if acts := ChangeActs(&Change{State: ChangeInProgress}, detail, false, true); !slices.Contains(acts, NextAct{Act: nextSendBack}) {
+			if acts := ChangeActs(&Change{State: ChangeInProgress}, detail, false, true, false); !slices.Contains(acts, NextAct{Act: nextSendBack}) {
 				t.Fatalf("held change lacks send back: %+v", acts)
 			}
 			if len(detail.Next) == 0 {
@@ -354,23 +354,28 @@ func TestTheChangeOffersLandingAndSendingBack(t *testing.T) {
 		{"shipped", ChangeShipped, run(RunDone, "", false), true, []NextAct{}},
 		{"abandoned", ChangeAbandoned, nil, false, []NextAct{}},
 	} {
-		if got := ChangeActs(&Change{State: c.state}, c.current, c.merged, true); !slices.Equal(got, c.want) {
+		if got := ChangeActs(&Change{State: c.state}, c.current, c.merged, true, false); !slices.Equal(got, c.want) {
 			t.Errorf("%s: %+v, want %+v", c.name, got, c.want)
 		}
+	}
+	// A branch that conflicts with main is not offered a landing: it could
+	// only end at its first step, and the change goes back to its chat.
+	if got := ChangeActs(&Change{State: ChangeInProgress}, run(RunAbandoned, ActivityAbandoned, false), false, true, true); slices.Contains(got, land) {
+		t.Errorf("a change conflicting with main was offered %+v", got)
 	}
 }
 
 // Closing a blocked change is offered only to a reader who may abandon it.
 func TestAbandonIsOfferedOnlyToWhoMayAbandon(t *testing.T) {
 	t.Parallel()
-	if got := ChangeActs(&Change{State: ChangeInProgress}, nil, false, false); len(got) != 0 {
+	if got := ChangeActs(&Change{State: ChangeInProgress}, nil, false, false, false); len(got) != 0 {
 		t.Fatalf("chat reader offered %+v", got)
 	}
 	blocked := &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityBlocked}
-	if got := ChangeActs(&Change{State: ChangeInProgress}, blocked, false, false); !slices.Equal(got, []NextAct{{Act: nextSendBack}}) {
+	if got := ChangeActs(&Change{State: ChangeInProgress}, blocked, false, false, false); !slices.Equal(got, []NextAct{{Act: nextSendBack}}) {
 		t.Errorf("a reader who may not abandon was offered %+v", got)
 	}
-	if got := ChangeActs(&Change{State: ChangeInProgress}, blocked, false, true); !slices.Contains(got, NextAct{Act: nextAbandon}) {
+	if got := ChangeActs(&Change{State: ChangeInProgress}, blocked, false, true, false); !slices.Contains(got, NextAct{Act: nextAbandon}) {
 		t.Errorf("a reader who may abandon was offered %+v", got)
 	}
 }

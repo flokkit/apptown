@@ -87,7 +87,7 @@ func (s *Service) OpenChanges(ctx context.Context) ([]PersonalOpenChange, int64,
 			case s.editingFiles(ctx, ch.ID) > 0:
 				item.State, item.Reason = openRunning, "being edited in a chat"
 			default:
-				for _, act := range ChangeActs(ch, current, false, false) {
+				for _, act := range ChangeActs(ch, current, false, false, false) {
 					if act.Act == nextLand {
 						item.State, item.Reason = openWaitingReader, "ready to land"
 					}

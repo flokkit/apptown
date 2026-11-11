@@ -479,14 +479,15 @@ func (r *Runtime) Remove(ctx context.Context, id string) error {
 // short-lived container from the session's image: the work tree mounted at
 // the work mount, no network, nothing else of the session. What it runs is
 // the chat's own tools on the chat's own files, inside the chat's boundary,
-// whether or not the chat is running. The script's standard output goes to
-// stdout; its exit status is the error.
+// whether or not the chat is running. stdin, when set, is the script's
+// standard input; its standard output goes to stdout; its exit status is
+// the error.
 //
 // A session has at most one script at a time, named for it: a script left
 // running by an earlier call that was cancelled (which ends the docker
 // client, not the container) is removed before the next begins, and by
 // Stop and Remove, and Status reports one that exists.
-func (r *Runtime) Script(ctx context.Context, in console.Launch, script string, env []string, stdout io.Writer) error {
+func (r *Runtime) Script(ctx context.Context, in console.Launch, script string, env []string, stdin io.Reader, stdout io.Writer) error {
 	if err := r.removeScript(in.ID); err != nil {
 		return err
 	}
@@ -506,7 +507,7 @@ func (r *Runtime) Script(ctx context.Context, in console.Launch, script string, 
 	args = append(args, "--", r.image(in), "sh", "-c", script)
 	var stderr strings.Builder
 	cmd := exec.CommandContext(ctx, r.cfg.Binary, args...)
-	cmd.Stdout, cmd.Stderr = stdout, &stderr
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = stdin, stdout, &stderr
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() != nil {
 			// Cancelling ended the client; the container is removed here.

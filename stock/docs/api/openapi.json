@@ -3252,15 +3252,11 @@
           },
           "mainBranch": {
             "type": "string"
-          },
-          "step": {
-            "type": "string"
           }
         },
         "required": [
           "mainBranch",
           "main",
-          "step",
           "files",
           "catchUp"
         ],

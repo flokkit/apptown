@@ -17,7 +17,7 @@ func TestAScriptSeesNoInheritedGitVariable(t *testing.T) {
 	t.Setenv("GIT_INDEX_FILE", "/elsewhere/index")
 	var out strings.Builder
 	in := console.Launch{ID: "a", Workspace: console.Workspace{Path: t.TempDir()}}
-	if err := NewAgent().Script(context.Background(), in, "env", []string{"GIVEN=yes"}, &out); err != nil {
+	if err := NewAgent().Script(context.Background(), in, "env", []string{"GIVEN=yes"}, nil, &out); err != nil {
 		t.Fatal(err)
 	}
 	env := "\n" + out.String()

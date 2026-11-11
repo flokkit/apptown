@@ -230,7 +230,7 @@ func TestMainThatConflictsIsRecordedForTheChangeUntilItCatchesUp(t *testing.T) {
 	}
 
 	conflict := w.mainConflict(t)
-	if conflict == nil || conflict.Main != main || conflict.Step != w.step.Name || !slices.Equal(conflict.Files, []string{"README.md"}) ||
+	if conflict == nil || conflict.Main != main || !slices.Equal(conflict.Files, []string{"README.md"}) ||
 		conflict.CatchUp != repositoryedit.CatchUpCommand("main", w.source.Branch) {
 		t.Fatalf("the change's unresolved conflict: %+v", conflict)
 	}
@@ -243,15 +243,15 @@ func TestMainThatConflictsIsRecordedForTheChangeUntilItCatchesUp(t *testing.T) {
 	}
 }
 
-// mainConflict is the change's conflict as its page reads it: the newest
-// recorded across its runs, while the branch does not contain that main.
+// mainConflict is the change's conflict as its page reads it: main as it
+// is now, asked of Git, while the branch does not contain it.
 func (w *mainMergeWorld) mainConflict(t *testing.T) *repositoryedit.MainConflict {
 	t.Helper()
-	latest, err := w.work.LatestChangeEvent(w.ctx, w.run.ChangeID, repositoryedit.MainConflictNotice)
+	conflict, err := repositoryedit.MainConflictNow(w.ctx, w.f.hub, w.source.Branch, "main")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return repositoryedit.MainConflictIn(w.ctx, w.f.hub, w.source.Branch, latest)
+	return conflict
 }
 
 // catchUp merges main into the change's branch as its chat would,

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -81,8 +82,12 @@ func TestIntegrationAppTownMergesMainBeforeAWorkerStep(t *testing.T) {
 
 // Main that conflicts with the change is not merged: the step works on the
 // change as it is, the run records the conflict, and the change's page
-// payload says it, with the files and the catch-up, until the branch
-// contains that main.
+// payload says it, with the files and the catch-up, while main as it is
+// conflicts. The change is not offered a landing then (live, change #5
+// looped on landings that ended at their first step); one asked for anyway
+// merges nothing, ends at its first step with the files, and the page keeps
+// that reason. Main that stops conflicting (here it reverts its edit)
+// clears it at once, and the change is offered its landing.
 func TestIntegrationMainThatConflictsIsShownOnTheChange(t *testing.T) {
 	t.Parallel()
 	w := newAgentWorkerWorld(t, nil, map[string]string{"app.txt": "the change's app\n", "fake-pi.sh": `say "done"`})
@@ -104,32 +109,49 @@ func TestIntegrationMainThatConflictsIsShownOnTheChange(t *testing.T) {
 	if parents := strings.Fields(gittest.Run(t, hub, "rev-list", "--parents", "-n", "1", given)); len(parents) != 2 {
 		t.Fatalf("the step was given a merge despite the conflict: %v", parents)
 	}
-
-	rec := changeRequest(w.a, "alice", "GET", "/api/v1/changes/"+w.run.ChangeID.String(), "")
-	var view struct {
-		MainConflict *repositoryedit.MainConflict `json:"mainConflict"`
-	}
-	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &view) != nil || view.MainConflict == nil {
-		t.Fatalf("the change's payload: %d %s", rec.Code, rec.Body)
-	}
-	if c := view.MainConflict; c.Main != main || c.Step != w.step.Name || len(c.Files) != 1 || c.Files[0] != "app.txt" ||
-		c.CatchUp != repositoryedit.CatchUpCommand("main", w.source.Branch) {
-		t.Fatalf("the change's conflict: %+v", c)
-	}
-
-	// The work is done and a landing is tried: it finds the branch behind
-	// main and ends, the change back in progress with the landing as its
-	// run. The conflict is still the change's, and still shown.
 	ctx := asPerson("alice")
 	if out, err := w.a.Work.Advance(ctx, w.run.ID); err != nil || out.RunStatus != workflow.RunDone {
 		t.Fatalf("finishing the work: %+v %v", out, err)
 	}
+
+	type cockpit struct {
+		MainConflict *repositoryedit.MainConflict `json:"mainConflict"`
+		Next         []workflow.NextAct           `json:"next"`
+	}
+	read := func() cockpit {
+		t.Helper()
+		rec := changeRequest(w.a, "alice", "GET", "/api/v1/changes/"+w.run.ChangeID.String(), "")
+		var view cockpit
+		if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &view) != nil {
+			t.Fatalf("the change's payload: %d %s", rec.Code, rec.Body)
+		}
+		return view
+	}
+	offersLanding := func(view cockpit) bool {
+		return slices.ContainsFunc(view.Next, func(a workflow.NextAct) bool { return a.Act == "land" })
+	}
+	view := read()
+	if c := view.MainConflict; c == nil || c.Main != main || len(c.Files) != 1 || c.Files[0] != "app.txt" ||
+		c.CatchUp != repositoryedit.CatchUpCommand("main", w.source.Branch) {
+		t.Fatalf("the change's conflict: %+v", c)
+	}
+	if offersLanding(view) {
+		t.Fatalf("a change that conflicts with main was offered a landing: %+v", view.Next)
+	}
+
+	// A landing asked for anyway merges nothing and ends at its first step
+	// with the file; the change is back in progress and its page keeps the
+	// reason.
 	defineWorkflows(t, w.a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing",
 		Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{{Name: "catch-up-with-main", Uses: "reconcile"}}}}}})
 	w.a.Work.Stop()
+	before := gittest.Run(t, hub, "rev-parse", "refs/heads/"+w.source.Branch)
 	landing, err := w.a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: w.run.ChangeID, Workflow: "land"})
 	if err != nil && !errors.Is(err, workflow.ErrDispatchStopped) {
 		t.Fatal(err)
+	}
+	if got := gittest.Run(t, hub, "rev-parse", "refs/heads/"+w.source.Branch); got != before {
+		t.Fatalf("a conflicting main was merged into the branch: %s, was %s", got, before)
 	}
 	snapshot, err := w.a.Work.Snapshot(ctx, landing.ID, workflow.DetailView)
 	if err != nil || len(snapshot.Steps) != 1 {
@@ -140,11 +162,28 @@ func TestIntegrationMainThatConflictsIsShownOnTheChange(t *testing.T) {
 	}
 	back, err := w.a.Work.Change(ctx, w.run.ChangeID)
 	if err != nil || back.State != workflow.ChangeInProgress || back.RunID != landing.ID {
-		t.Fatalf("the change after its refused landing: %+v %v", back, err)
+		t.Fatalf("the change after its ended landing: %+v %v", back, err)
 	}
-	rec = changeRequest(w.a, "alice", "GET", "/api/v1/changes/"+w.run.ChangeID.String(), "")
-	view.MainConflict = nil
-	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &view) != nil || view.MainConflict == nil || view.MainConflict.Main != main {
-		t.Fatalf("the conflict after the refused landing: %d %s", rec.Code, rec.Body)
+	rec := changeRequest(w.a, "alice", "GET", "/api/v1/changes/"+w.run.ChangeID.String(), "")
+	var ended struct {
+		StatusLabel string `json:"statusLabel"`
+		StateDetail string `json:"stateDetail"`
+	}
+	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &ended) != nil || !strings.Contains(ended.StateDetail, "conflicts with this change in app.txt") || ended.StatusLabel == "abandoned" {
+		t.Fatalf("the page after the ended landing: %d %s", rec.Code, rec.Body)
+	}
+	if view := read(); view.MainConflict == nil || offersLanding(view) {
+		t.Fatalf("after the ended landing: %+v", view)
+	}
+
+	// main reverts its edit: nothing conflicts now, and the change can land
+	// (the landing merges main in itself).
+	gittest.Run(t, hub, "rm", "-q", "app.txt")
+	if out, err := gitexec.Run(t.Context(), hub, "commit", "-m", "main reverts"); err != nil {
+		t.Fatalf("main reverts: %s", out)
+	}
+	if view := read(); view.MainConflict != nil || !offersLanding(view) {
+		rec := changeRequest(w.a, "alice", "GET", "/api/v1/changes/"+w.run.ChangeID.String(), "")
+		t.Fatalf("a change main no longer conflicts with: %+v %.600s", view, rec.Body)
 	}
 }

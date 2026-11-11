@@ -43,10 +43,11 @@ func (c *Change) Display(run *RunSnapshot) status.DisplayStatus {
 		}
 		return status.DisplayWaiting
 	}
-	if run.Run.Status == RunAbandoned {
-		return status.DisplayAbandoned
-	}
-	if run.Run.Status == RunDone {
+	// A run that ended is not the change: an open change whose last run
+	// finished, or was abandoned (a landing that ended at its first step,
+	// an attempt someone stopped), is waiting for its next act. Only a
+	// closed change reads "abandoned".
+	if run.Run.Status == RunAbandoned || run.Run.Status == RunDone {
 		return status.DisplayWaiting
 	}
 	return run.State.Display()

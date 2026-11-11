@@ -167,7 +167,7 @@ func (f *Agent) Remove(ctx context.Context, id string) error {
 
 // Script runs a shell script in the launch's work tree, standing in for a
 // script run in a container beside the agent's.
-func (f *Agent) Script(ctx context.Context, in console.Launch, script string, env []string, stdout io.Writer) error {
+func (f *Agent) Script(ctx context.Context, in console.Launch, script string, env []string, stdin io.Reader, stdout io.Writer) error {
 	f.mu.Lock()
 	if a := f.get(in.ID); a.running {
 		a.scriptsRunning++
@@ -176,7 +176,7 @@ func (f *Agent) Script(ctx context.Context, in console.Launch, script string, en
 	cmd := exec.CommandContext(ctx, "sh", "-c", script)
 	// AppTown's environment without its GIT_* variables (gitexec.Environ),
 	// as a container would not have them: a script's git names the work tree.
-	cmd.Dir, cmd.Env, cmd.Stdout = in.Workspace.Path, gitexec.Environ(env...), stdout
+	cmd.Dir, cmd.Env, cmd.Stdin, cmd.Stdout = in.Workspace.Path, gitexec.Environ(env...), stdin, stdout
 	return cmd.Run()
 }
 

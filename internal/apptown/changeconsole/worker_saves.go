@@ -132,6 +132,45 @@ func (w *Saves) SaveAndReport(ctx context.Context, holder string) (string, error
 	}
 }
 
+// FollowFirst is the preparation's: it brings the work tree of the chat
+// on the worker that holder names to commit to (AppTown's merge of main
+// for a landing, a descendant of from, the branch's tip the chat saved
+// last), then publishes it, under the chat's save lock, so no save moves
+// the branch between them. A tree that cannot take it is the error, and
+// nothing is published.
+func (w *Saves) FollowFirst(ctx context.Context, holder, hub, from, to string, publish func() error) error {
+	id, ok := strings.CutPrefix(holder, "chat:")
+	if !ok || w.remote == nil {
+		return fmt.Errorf("%s is no chat on a worker", holder)
+	}
+	defer w.lock(id)()
+	dir, err := os.MkdirTemp("", "apptown-follow-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	bundle := filepath.Join(dir, "follow.bundle")
+	if err := gitexec.BundleSince(ctx, hub, to, from, worker.FollowRef, bundle); err != nil {
+		return err
+	}
+	if err := w.remote.Follow(ctx, id, from, to, bundle); err != nil {
+		return err
+	}
+	return publish()
+}
+
+// Tell sends the chat that holder names a message, best effort: a chat
+// that cannot be told is logged.
+func (w *Saves) Tell(ctx context.Context, holder, text string) {
+	id, ok := strings.CutPrefix(holder, "chat:")
+	if !ok {
+		return
+	}
+	if err := w.sessions.Send(ctx, id, text); err != nil {
+		log.Printf("console %s: telling the chat %q: %v", id, strs.Truncate(text, 80), err)
+	}
+}
+
 // HeldBy names the chat on the worker that holds a change ("" when none
 // does): the branch's authority names it, and it has not ended (or whether
 // it has cannot be known).

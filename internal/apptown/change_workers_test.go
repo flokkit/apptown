@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/execfile"
 	"github.com/flokkit/apptown/internal/ids"
 
+	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -454,11 +455,144 @@ func TestAnUncommittedAppContractDoesNotLandEmpty(t *testing.T) {
 	}
 	defineWorkflows(t, w.a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "done", Steps: []schema.Step{{Name: "hold", Uses: "approval"}}}}}})
 	w.a.Work.Stop()
+	// main has moved: the refusal is decided before the landing would
+	// merge main in (a merge of the fork point is not in main).
+	hub := w.a.projectRepoPath("game")
+	moved := commitOnMain(t, hub, "main.txt", "landed elsewhere\n")
 	run, err := w.a.Work.RequestLanding(asPerson("owner"), w.change.ID)
 	if err == nil || errors.Is(err, workflow.ErrDispatchStopped) {
 		t.Fatalf("empty landing admitted despite uncommitted source contract: run=%d error=%v", run.ID, err)
 	}
 	if !strings.Contains(err.Error(), "nothing to land") {
 		t.Fatalf("unexpected refusal: %v", err)
+	}
+	if scm.Ref(t.Context(), hub, "refs/heads/"+w.change.Branch) != "" && scm.Contains(t.Context(), hub, w.change.Branch, moved) {
+		t.Fatal("a refused landing merged main into the branch")
+	}
+}
+
+// commitOnMain moves main in the project's hub (another change landed).
+func commitOnMain(t *testing.T, hub, file, content string) string {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(hub, file), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stageAll(hub)
+	gittest.Run(t, hub, "commit", "-qm", "main moved: "+file)
+	return gittest.Run(t, hub, "rev-parse", "HEAD")
+}
+
+// A chat holds the change and main has moved: the landing merges main in
+// under the chat's grant, the chat's folder follows the merge, and the chat
+// is told. A folder with an uncommitted edit in the merge's way keeps the
+// edit, the branch holds the merge, and the chat is told its folder could
+// not take it and how. A main that conflicts is not merged.
+func TestALandingMergesMainUnderTheChatThatHoldsTheChange(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name  string
+		dirty bool
+		clash bool
+		told  string
+	}{
+		{name: "the folder follows", told: "your folder has it"},
+		{name: "files in the way", dirty: true, told: "your folder could not take it"},
+		{name: "main conflicts", clash: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			w := newHolderWorld(t)
+			id, code, body := w.openChat(t)
+			if code != 201 {
+				t.Fatalf("open: %d %s", code, body)
+			}
+			defineWorkflows(t, w.a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "done", Steps: []schema.Step{{Name: "hold", Uses: "approval"}}}}}})
+			w.a.Work.Stop()
+			if err := os.WriteFile(filepath.Join(w.folder, "change.txt"), []byte("the change\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			gittest.Run(t, w.folder, "add", "change.txt")
+			gittest.Run(t, w.folder, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "the change")
+			hub := w.a.projectRepoPath("game")
+			main := commitOnMain(t, hub, "main.txt", "landed elsewhere\n")
+			if tc.clash {
+				main = commitOnMain(t, hub, "change.txt", "main's own\n")
+			}
+			if tc.dirty {
+				if err := os.WriteFile(filepath.Join(w.folder, "main.txt"), []byte("the chat's unsaved edit\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before := scm.Ref(t.Context(), hub, "refs/heads/"+w.change.Branch)
+			_, err := w.a.Work.RequestLanding(asPerson("owner"), w.change.ID)
+			tip := scm.Ref(t.Context(), hub, "refs/heads/"+w.change.Branch)
+			if !errors.Is(err, workflow.ErrDispatchStopped) {
+				t.Fatal(err)
+			}
+			if tc.clash {
+				// Nothing is merged; the landing's first step ends it with
+				// the files (TestIntegrationMainThatConflictsIsShownOnTheChange).
+				if before != "" && tip != before || scm.Contains(t.Context(), hub, w.change.Branch, main) {
+					t.Fatalf("a conflicting main was merged: %s, was %s", tip, before)
+				}
+				return
+			}
+			if !scm.Contains(t.Context(), hub, w.change.Branch, main) {
+				t.Fatal("the landing did not merge main into the chat's branch")
+			}
+			if w.holder(t) != scm.ChatHolder(id) {
+				t.Fatalf("the chat lost the change: %s", w.holder(t))
+			}
+			folderTip := gittest.Run(t, w.folder, "rev-parse", "HEAD")
+			if tc.dirty {
+				if folderTip == tip {
+					t.Fatal("the folder took the merge over an uncommitted edit")
+				}
+				if got, _ := os.ReadFile(filepath.Join(w.folder, "main.txt")); string(got) != "the chat's unsaved edit\n" {
+					t.Fatalf("the chat's edit was lost: %q", got)
+				}
+			} else if folderTip != tip {
+				t.Fatalf("the chat's folder did not follow the merge: %s, branch %s", folderTip, tip)
+			}
+			s, err := w.a.Console.Get(context.Background(), id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			told := ""
+			for _, m := range sessionMessages(t, w.a.Console, s) {
+				if strings.Contains(m.Text, "was merged into this change") {
+					told = m.Text
+				}
+			}
+			if !strings.Contains(told, tc.told) || (tc.dirty && !strings.Contains(told, "git merge --ff-only "+tip)) {
+				t.Fatalf("the chat was told %q", told)
+			}
+		})
+	}
+}
+
+// Whether main conflicts with a change is a question Git can fail to
+// answer; the change's page then fails its read rather than showing no
+// conflict and offering the landing (review land-catch-up-code F1).
+func TestAConflictCheckGitCannotAnswerIsNotShownAsNone(t *testing.T) {
+	t.Parallel()
+	w := newHolderWorld(t)
+	if _, code, body := w.openChat(t); code != 201 {
+		t.Fatalf("open chat: %d %s", code, body)
+	}
+	hub := w.a.projectRepoPath("game")
+	gittest.Run(t, w.folder, "-c", "user.name=t", "-c", "user.email=t@x", "commit", "--allow-empty", "-qm", "change")
+	if _, err := w.a.branches.Publish(t.Context(), scm.Publication{ProjectID: w.change.ProjectID, Repository: hub, Branch: w.change.Branch, From: w.folder, Grant: scm.Grant{Holder: w.holder(t)}}); err != nil {
+		t.Fatal(err)
+	}
+	commitOnMain(t, hub, "main.txt", "main moved\n")
+	// A merge-only Git failure: the branch and main stay readable.
+	gittest.Run(t, hub, "config", "merge.renames", "invalid")
+	if _, err := repositoryedit.MainConflictNow(t.Context(), hub, w.change.Branch, "main"); err == nil {
+		t.Fatal("fault injection did not make the conflict check fail")
+	}
+	rec := changeRequest(w.a, "owner", "GET", "/api/v1/changes/"+w.change.ID.String(), "")
+	if rec.Code == 200 || !strings.Contains(rec.Body.String(), "whether main conflicts with this change could not be read") {
+		t.Fatalf("an unanswered conflict check: %d %s", rec.Code, rec.Body)
 	}
 }

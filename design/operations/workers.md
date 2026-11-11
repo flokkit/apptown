@@ -953,7 +953,15 @@ the worker makes the chat's work tree from it. A chat's work reaches the
 change when AppTown saves it: after a turn, AppTown asks the worker for
 a bundle of the chat's new commits, made by the chat's own git in a
 short-lived container of the chat's image, and publishes them with the usual
-checks. Ending a chat stops it first (its turn, its terminal, anything it
+checks. A landing that merges main into the change (because the branch was
+behind it) sends that merge to the chat's work tree before publishing it
+(`POST /v1/sessions/{id}/follow`, a bundle of the merge since the commit
+AppTown last saved): a script in the same kind of container fetches it and
+fast-forwards the tree, only while the tree is still at that commit. The
+chat's later saves bundle from the branch's tip, which its tree then holds.
+A tree that cannot take it (the chat committed since, or a file is in the
+way) is left as it was and the landing is refused with the reason. Ending a
+chat stops it first (its turn, its terminal, anything it
 started, its private Docker), then saves what it left uncommitted as its
 leftovers, then removes it. A last save refused by the checks is kept on the
 AppTown for its download and the chat still ends; a last save the worker
