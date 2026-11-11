@@ -6,7 +6,7 @@
 # with no context. Every pin is an ARG default here, the one place it is set;
 # the bases and the npm registry are the public upstreams.
 ARG GO_IMAGE=golang:1.27.4-trixie@sha256:b54b2639de8c1bfe538ec5ffc45f29b1932235ac5f6d63c059853646677112d9
-ARG NODE_IMAGE=node:24@sha256:6449e19d8184d84062525b6a7524def03146c2cb04a7f08b076680d0e8e4240a
+ARG NODE_IMAGE=node:24@sha256:8fa96264f302f58bbb13aa7339c541547b56975766ce956c875da149452a3e40
 FROM ${GO_IMAGE} AS go
 
 # node: a test reads the static server's values back in JavaScript. The
