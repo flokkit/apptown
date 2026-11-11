@@ -12,6 +12,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/preview"
 
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -151,6 +152,9 @@ func (h Tiers) runtimeApp(ctx context.Context, p *project.Project, d *deployment
 			continue
 		}
 		app := TierApp{RuntimeObservationView: runtimeObservationView(row.Observation), DeploymentID: row.ID, DeploymentLabel: row.DisplayLabel, Deployment: row.Name, Slug: p.Slug, Name: p.Name, Icon: p.Icon, URL: row.URL, HostOnly: row.HostOnly}
+		if row.Target != nil {
+			app.Backups = dataprotection.Applies(row.Kind, row.Target.Kind)
+		}
 		if running := row.Observation.Running(); running != nil {
 			app.Running = *running
 		}
@@ -247,6 +251,9 @@ type TierApp struct {
 	Running  bool `json:"running"`
 
 	Static bool `json:"static,omitempty"`
+	// Backups says AppTown keeps protection for the deployment
+	// (dataprotection.Applies), as on the project's own deployments list.
+	Backups bool `json:"backups"`
 	// ChangeID is the change a preview is of, and ChangeNumber its number
 	// within the project; absent on other tiers.
 	ChangeID     ids.ID `json:"changeId,omitzero"`

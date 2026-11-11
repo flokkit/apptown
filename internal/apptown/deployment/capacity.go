@@ -134,6 +134,11 @@ type TargetCapacity struct {
 	Target  string `json:"target"`
 	Kind    string `json:"kind"`
 	Elastic bool   `json:"elastic"`
+	// FixedHost says the target is one machine with a CPU, memory and disk
+	// to fill (a Docker host, a Portainer endpoint); another target has none
+	// of them, so they are not unknown there but absent. Set from the
+	// target's kind on every answer, the first check's too.
+	FixedHost bool `json:"fixedHost"`
 	// Words is the one sentence the view leads with.
 	Error       string            `json:"error,omitempty"`
 	Stale       bool              `json:"stale"`
@@ -151,6 +156,19 @@ type TargetCapacity struct {
 	Parts    []ElasticPart `json:"parts,omitempty"`
 	Estimate *Figure       `json:"estimate,omitempty"`
 	ReadAt   time.Time     `json:"readAt,omitzero"`
+}
+
+// fixedHostKind says whether a target of kind is one machine whose CPU,
+// memory and disk AppTown reads (fixedHostCapacity).
+func fixedHostKind(kind string) bool { return kind == KindDockerHost || kind == KindPortainer }
+
+// elasticKind says whether a target of kind grows on demand (elasticCapacity).
+func elasticKind(kind string) bool {
+	switch kind {
+	case KindDOApp, kindFlyMachines, KindAWSECS:
+		return true
+	}
+	return false
 }
 
 // Disk display freshness does not govern docker.AdmitDisk.

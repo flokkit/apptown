@@ -50,3 +50,24 @@ func TestProjectWorksOnlyWhenEveryStandingDeploymentWorks(t *testing.T) {
 		t.Fatalf("a preview changed standing health: %+v", got)
 	}
 }
+
+// A project's word comes from a deployment that runs before one never
+// deployed; with only never-deployed deployments it is not deployed.
+func TestProjectNotDeployedYieldsToAnyOtherWord(t *testing.T) {
+	id := idstest.N(1)
+	never := RuntimeObservation{State: RuntimeStopped, Status: DeploymentStatus{Word: progressLabelNotDeployed, Reason: "nothing deployed yet"}}
+	good := RuntimeObservation{State: RuntimeRunning, Status: DeploymentStatus{Word: progressLabelWorking}}
+	for _, reverse := range []bool{false, true} {
+		rows := []runtimeDeployment{{ProjectID: id, Name: "main", Kind: Standing, Observation: never}, {ProjectID: id, Name: "staging", Kind: Standing, Observation: good}}
+		if reverse {
+			rows[0], rows[1] = rows[1], rows[0]
+		}
+		if got := projectRuntimeSummaries(rows)[id].Status; got.Word != progressLabelWorking {
+			t.Fatalf("reverse %v: %+v", reverse, got)
+		}
+	}
+	rows := []runtimeDeployment{{ProjectID: id, Name: "main", Kind: Standing, Observation: never}}
+	if got := projectRuntimeSummaries(rows)[id].Status; got.Word != progressLabelNotDeployed {
+		t.Fatalf("only main, never deployed: %+v", got)
+	}
+}

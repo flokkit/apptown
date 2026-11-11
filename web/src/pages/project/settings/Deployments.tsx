@@ -62,7 +62,7 @@ export function DeploymentsTab({ slug }: { slug: string }) {
         {adding && <AddDeployment slug={slug} choices={choices} existing={envs} onDone={(added) => { setAdding(false); if (added) load() }} />}
         {envs.length === 0 && !adding && <p className="muted">Nothing deploys yet. {choices.length === 0 ? 'Ask an administrator to offer a deployment target, then choose New deployment.' : 'Choose New deployment to add one.'}</p>}
         {envs.length > 0 && <DeploymentTable release={r => <DeploymentReleaseCell slug={slug} env={envs.find(e => e.name === r.deployment)!} />}
-          rows={envs.map(e => ({ ...(envsQ.refreshFailed ? failedRuntimeRefresh(e, envsQ.reason) : e), slug, app: slug, deployment: e.name, label: deploymentName(e), static: e.static, url: e.url, hostOnly: e.hostOnly }))} />}
+          rows={envs.map(e => ({ ...(envsQ.refreshFailed ? failedRuntimeRefresh(e, envsQ.reason) : e), slug, app: slug, deployment: e.name, label: deploymentName(e), static: e.static, url: e.url, hostOnly: e.hostOnly, backups: e.backups }))} />}
       </Section>
 
       <ReleaseDefaultPicker slug={slug} deployments={envs.filter(e => e.kind !== 'preview')} />
@@ -106,7 +106,9 @@ function deployLabel(e: DeploymentView) {
 export function DeploymentReleaseCell({ slug, env: e }: { slug: string; env: DeploymentView }) {
   const base = `/projects/${slug}/deployments/${e.name}`
   const resources = useGet<DeploymentResources>(e.generation ? `${base}/resources` : null, { poll: 5000 })
-  const hasProtection = useNotOff('backups') && (e.target?.kind === 'do-app' || e.target?.kind === 'docker-host' || e.target?.kind === 'fly-machines' || e.target?.kind === 'aws-ecs')
+  // The owner says whether it keeps backups for this deployment: a preview,
+  // or a target holding no data, has no backup to be unknown.
+  const hasProtection = useNotOff('backups') && e.backups
   const protection = useGet<DeploymentProtection>(hasProtection ? `${base}/protection` : null, { poll: 5000 })
   const change = useGet<ChangeView>(e.kind === 'preview' && e.changeId ? `/changes/${e.changeId}` : null)
   const releases = useGet<ReleaseListed[]>(e.kind !== 'preview' ? `/projects/${slug}/releases` : null)
@@ -193,7 +195,7 @@ export function EnvCard({ slug, env: e }: { slug: string; env: DeploymentView; o
   const base = `/projects/${slug}/deployments/${e.name}`
   const resources = useGet<DeploymentResources>(e.generation ? `${base}/resources` : null, { poll: 5000 })
   const diagnostics = useGet<DeploymentDiagnostics>(e.generation ? `${base}/diagnostics` : null, { poll: 5000 })
-  const protection = useGet<DeploymentProtection>(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host' || e.target?.kind === 'fly-machines' || e.target?.kind === 'aws-ecs' ? `${base}/protection` : null, { poll: 5000 })
+  const protection = useGet<DeploymentProtection>(e.backups ? `${base}/protection` : null, { poll: 5000 })
   const models = useGet<DeploymentAIModels>(e.aiModels?.length ? `${base}/ai-models` : null, { poll: 5000 })
   const waiting = [resources.data?.reading, diagnostics.data?.reading, protection.data?.reading, ...(models.data?.keys.map(k => k.reading) ?? [])].some(r => r?.waiting)
   const place = e.target ? placeWords(e.target.title, e.target.vendor, e.target.region) : 'not bound'

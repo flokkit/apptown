@@ -1018,3 +1018,34 @@ func TestFailedCapacityFigureKeepsItsOwnFreshness(t *testing.T) {
 		})
 	}
 }
+
+// Whether a target has a host's CPU, memory and disk comes from its kind, on
+// the first check's pending answer and on a recorded one alike: a cloud
+// platform has none, so a page never shows them as unknown there.
+func TestCapacitySaysWhetherTheTargetIsAFixedHost(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	db := testDB(t)
+	s := &Service{db: db, clock: func() time.Time { return at }}
+	for i, test := range []struct {
+		kind           string
+		fixed, elastic bool
+	}{{KindDockerHost, true, false}, {KindPortainer, true, false}, {KindDOApp, false, true}, {KindS3Bucket, false, false}} {
+		target := &Target{ID: idstest.N(uint64(i + 1)), Name: test.kind, Kind: test.kind, SettingsRevision: 1}
+		pending, err := s.recordedCapacity(t.Context(), target)
+		if err != nil || pending.Words != "Pending first check" || pending.FixedHost != test.fixed || pending.Elastic != test.elastic {
+			t.Fatalf("%s pending: %+v %v", test.kind, pending, err)
+		}
+		o := &CapacityObserver{db: db, now: s.now, target: func(context.Context, ids.ID) (*Target, error) { return target, nil }, read: func(context.Context, *Target) (TargetCapacity, error) {
+			// A reading stored before the field existed carries no kind facts.
+			return TargetCapacity{Target: target.Name, Elastic: test.elastic, ReadAt: at}, nil
+		}}
+		if err := o.Run(t.Context(), target.ID, 1); err != nil {
+			t.Fatal(err)
+		}
+		read, err := s.recordedCapacity(t.Context(), target)
+		if err != nil || read.FixedHost != test.fixed {
+			t.Fatalf("%s read: %+v %v", test.kind, read, err)
+		}
+	}
+}

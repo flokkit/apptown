@@ -61,7 +61,7 @@ function FleetTable() {
   if (!q.data) return <ReadStatus q={q} what="the deployments" />
   const search = filter.trim().toLowerCase()
   const rows: DeploymentTableRow[] = q.data.tiers.filter(t => t.name !== 'preview' && !t.future)
-    .flatMap(t => (t.apps ?? []).filter(a => a.deployment).map(a => ({ ...(q.refreshFailed ? failedRuntimeRefresh(a, q.reason) : a), app: a.name, deployment: a.deployment!, label: a.deploymentLabel || a.deployment!, url: a.url, hostOnly: a.hostOnly })))
+    .flatMap(t => (t.apps ?? []).filter(a => a.deployment).map(a => ({ ...(q.refreshFailed ? failedRuntimeRefresh(a, q.reason) : a), app: a.name, deployment: a.deployment!, label: a.deploymentLabel || a.deployment!, url: a.url, hostOnly: a.hostOnly, backups: a.backups })))
     .filter(a => `${a.app} ${a.label}`.toLowerCase().includes(search))
     .sort((a, b) => a.app.localeCompare(b.app) || a.label.localeCompare(b.label))
   return <div>

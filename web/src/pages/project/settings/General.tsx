@@ -283,7 +283,7 @@ export function RepoCard({ slug }: { slug: string }) {
       <div className="card row general-general-tab-card">
         <span className="badge">{repo.defaultBranch}</span>
         <span className="muted small">{repo.commits} commits</span>
-        <span className="muted small repo-head">{repo.head.sha} {repo.head.subject.slice(0, 60)} · {repo.head.when}</span>
+        <span className="muted small repo-head">{repo.head.sha} {repo.head.subject.slice(0, 60)}{repo.head.when && <> · {fmtStamp(repo.head.when)}</>}</span>
         <span className="grow" />
         {repo.webUrl && <a href={repo.webUrl} target="_blank" rel="noreferrer">Repository ↗</a>}
       </div>

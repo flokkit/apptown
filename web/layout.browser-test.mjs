@@ -249,7 +249,7 @@ const roundFixture = await build({
     import { ChecksRow } from './pages/project/settings/Working'
     import { PolicyNewPage } from './pages/PoliciesPage'
     const ok = { word: 'working', reason: '' }
-    const row = (app, slug, deployment, label) => ({ app, slug, deployment, label, url: 'https://' + deployment + '.example.test', targetName: 'built-in-docker', observation: 'running', status: ok })
+    const row = (app, slug, deployment, label) => ({ app, slug, deployment, label, url: 'https://' + deployment + '.example.test', targetName: 'built-in-docker', observation: 'running', status: ok, backups: true })
     const rows = [row('Club Newsletter', 'club-newsletter', 'production', 'Production'), row('Club Newsletter', 'club-newsletter', 'staging', 'staging'), row('Lunch Orders', 'lunch-orders', 'main', 'main')]
     const tenant = (project, deployment) => ({ kind: 'deployment', name: project + '/' + deployment, project, deployment, containers: 1, used: { known: true, value: 62900000 }, cpuUsed: { known: true, value: 0.02 }, promised: { known: true, value: 0 }, unlimited: 0, cpus: 0, cpuUnlimited: 0, cpuUnread: 0 })
     const answers = path => path.includes('/authz/me') ? { user: 'sam', instance: {}, project: { 'deployment:operate': true, 'deployment:deploy': true } }

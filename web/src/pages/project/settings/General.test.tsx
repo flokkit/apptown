@@ -7,6 +7,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import type { Project } from '../../../api'
 import { newQueryClient } from '../../../data'
 import { DangerZone, GeneralTab } from './General'
+import { fmtStamp } from '../../../format'
 
 // Record ids are UUIDv7 strings.
 const PROJECT = '00000000-0001-7000-8000-000000000000'
@@ -27,7 +28,7 @@ function mount(answer: () => Response, onChanged: () => void = () => {}) {
   const sent: Record<string, unknown>[] = []
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === 'PATCH') { sent.push(JSON.parse(String(init.body))); return answer() }
-    if (url.endsWith('/overview')) return new Response(JSON.stringify({ repo: { defaultBranch: 'main', commits: 1, head: { sha: 'abc', subject: 'Initial', when: '' } } }))
+    if (url.endsWith('/overview')) return new Response(JSON.stringify({ repo: { defaultBranch: 'main', commits: 1, head: { sha: 'abc', subject: 'Initial', when: '2026-11-09T03:04:00Z' } } }))
     return new Response(url.endsWith('/projects') || url.endsWith('/deployments') ? '[]' : '{}')
   }))
   const client = newQueryClient()
@@ -43,6 +44,16 @@ function mount(answer: () => Response, onChanged: () => void = () => {}) {
 
 describe('project settings form', () => {
   afterEach(() => { vi.unstubAllGlobals() })
+
+  // The last commit's time is formatted as every other event time on the
+  // page, from the commit's own timestamp.
+  it('dates the last commit as the page dates everything else', async () => {
+    const f = mount(() => new Response('{}'))
+    try {
+      await f.render(project(''))
+      await vi.waitFor(() => expect(f.el.querySelector('.repo-head')?.textContent).toBe(`abc Initial · ${fmtStamp('2026-11-09T03:04:00Z')}`))
+    } finally { act(() => f.root.unmount()) }
+  })
 
   it('shows description ownership and sends an explicit empty value to resume suggestions', async () => {
     const f = mount(() => new Response(JSON.stringify({ ...project(''), blurbSource: 'generated' })))

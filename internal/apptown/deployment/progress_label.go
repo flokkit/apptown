@@ -21,9 +21,12 @@ const (
 	progressLabelWaiting
 	progressLabelExcepted
 	progressLabelUnreachable
+	// progressLabelNotDeployed is a standing deployment that has never had
+	// a release applied: there is nothing of it to run or stop.
+	progressLabelNotDeployed
 )
 
-var progressLabelCodec = enum.Set[ProgressLabel]{Names: []string{"unknown", "deployed", "deploying", "failed", "passed", "working", "stopped", "waiting", "excepted", "unreachable"}, Invalid: "invalid-display-label", Err: errors.New("invalid display label"), ScanLabel: "value"}
+var progressLabelCodec = enum.Set[ProgressLabel]{Names: []string{"unknown", "deployed", "deploying", "failed", "passed", "working", "stopped", "waiting", "excepted", "unreachable", "not deployed"}, Invalid: "invalid-display-label", Err: errors.New("invalid display label"), ScanLabel: "value"}
 
 func (s ProgressLabel) String() string               { return progressLabelCodec.String(s) }
 func (s ProgressLabel) Value() (driver.Value, error) { return progressLabelCodec.Value(s) }

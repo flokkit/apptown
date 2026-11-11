@@ -25,6 +25,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/stamp"
 )
 
 type ChangeDetail struct {
@@ -305,7 +306,9 @@ type (
 	ChangeCommit struct {
 		SHA     string `json:"sha"`
 		Subject string `json:"subject"`
-		When    string `json:"when"`
+		// When is the commit's own committer time; the page formats it as
+		// every other event time.
+		When stamp.Time `json:"when"`
 	}
 	// CommittedComparison's Status is "changed", "empty", "unavailable", or
 	// "no-code": a change with no code of its own, which Shipped describes.
@@ -325,14 +328,14 @@ type (
 // when the log cannot be read (the comparison already said what it could).
 func commitsBetween(ctx context.Context, repo, base, head string) []ChangeCommit {
 	commits := []ChangeCommit{}
-	out, err := gitexec.Run(ctx, repo, "log", "--format=%h%x09%s%x09%cr", base+".."+head, "--", ".")
+	out, err := gitexec.Run(ctx, repo, "log", "--format=%h%x09%s%x09%cI", base+".."+head, "--", ".")
 	if err != nil {
 		return commits
 	}
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
 		parts := strings.SplitN(line, "\t", 3)
 		if len(parts) == 3 {
-			commits = append(commits, ChangeCommit{SHA: parts[0], Subject: parts[1], When: parts[2]})
+			commits = append(commits, ChangeCommit{SHA: parts[0], Subject: parts[1], When: stamp.Parse(parts[2])})
 		}
 	}
 	return commits

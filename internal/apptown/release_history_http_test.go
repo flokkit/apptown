@@ -72,7 +72,10 @@ func TestReleaseHistoryHTTPScopesNumbersAndDistinguishesLatestFromServing(t *tes
 	var tiers struct {
 		Tiers []struct {
 			Name string
-			Apps []struct{ Slug string }
+			Apps []struct {
+				Slug    string
+				Backups bool
+			}
 		}
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &tiers); err != nil || w.Code != 200 || len(tiers.Tiers) != 4 {
@@ -90,13 +93,28 @@ func TestReleaseHistoryHTTPScopesNumbersAndDistinguishesLatestFromServing(t *tes
 		}
 		if tier.Name == "main" {
 			main = true
-			if len(tier.Apps) != 1 {
-				t.Fatalf("standing main missing: %+v", tier)
+			if len(tier.Apps) != 1 || !tier.Apps[0].Backups {
+				t.Fatalf("standing main missing, or not said to be backed up: %+v", tier)
 			}
 		}
 	}
 	if !main {
 		t.Fatal("main tier missing")
+	}
+	// The project's own list says the same of main as the fleet's rows.
+	var listed []struct {
+		Name    string
+		Kind    string
+		Backups bool
+	}
+	w = authzCall(h, "owner", "GET", "/api/v1/projects/game/deployments", "")
+	if err := json.Unmarshal(w.Body.Bytes(), &listed); err != nil || w.Code != 200 {
+		t.Fatalf("deployments: %d %s %v", w.Code, w.Body.String(), err)
+	}
+	for _, d := range listed {
+		if d.Backups != (d.Kind == "standing") {
+			t.Fatalf("backups flag: %+v", d)
+		}
 	}
 	if w := authzCall(h, "owner", "GET", "/api/v1/tiers?project=missing", ""); w.Code != 404 {
 		t.Fatalf("missing tier filter: %d %s", w.Code, w.Body.String())

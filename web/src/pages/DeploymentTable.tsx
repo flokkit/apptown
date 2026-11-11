@@ -15,8 +15,10 @@ import './Deployments.css'
 
 // A deployment as a table row: its app and project, its own name and label,
 // where it runs and what is observed of it now.
+// backups is the owner's answer whether AppTown keeps backups for it
+// (dataprotection.Applies), from whichever listing the row came from.
 export type DeploymentTableRow = RuntimeObservation & {
-  slug: string; app: string; icon?: string; deployment: string; label: string; static?: boolean; url?: string; hostOnly?: boolean
+  slug: string; app: string; icon?: string; deployment: string; label: string; static?: boolean; url?: string; hostOnly?: boolean; backups: boolean
 }
 
 export const deploymentHref = (r: { slug: string; deployment: string }) => `/projects/${r.slug}/deployments/${encodeURIComponent(r.deployment)}`
@@ -64,10 +66,12 @@ function Usage({ row }: { row: DeploymentTableRow }) {
 }
 
 // The deployment's newest backup, from the fleet's one backups read. A static
-// site holds no data, so it has nothing to back up rather than no backup.
+// site holds no data, so it has nothing to back up rather than no backup; a
+// deployment AppTown keeps no backups for (a preview) is not backed up.
 function LastBackup({ row }: { row: DeploymentTableRow }) {
-  const q = useGet<AllBackups>(row.static ? null : '/backups', { poll: 30000 })
+  const q = useGet<AllBackups>(row.static || !row.backups ? null : '/backups', { poll: 30000 })
   if (row.static) return <span className="muted">no data</span>
+  if (!row.backups) return <span className="muted">not backed up</span>
   if (!Array.isArray(q.data?.backups)) return <span className="muted" title={q.reason || undefined}>—</span>
   const last = q.data.backups.filter(b => b.project === row.slug && b.deployment === row.deployment && b.status !== 'pruned')
     .sort((a, b) => b.takenAt.localeCompare(a.takenAt))[0]

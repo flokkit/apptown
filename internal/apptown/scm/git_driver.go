@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/gitexec"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -29,10 +30,13 @@ type GitDrivers struct {
 	// ChangeURL is a change's page on this AppTown, "" when AppTown has no
 	// public address; merge commits and merge requests link to it.
 	ChangeURL func(changeID ids.ID) string
+	// Now is AppTown's clock, which dates a landing's merge commit; nil is
+	// the real one.
+	Now func() time.Time
 }
 
 func (d GitDrivers) Driver() Driver {
-	return &gitDriver{runner: d.Runner, dataDir: d.DataDir, provider: d.Provider, changeURL: d.ChangeURL}
+	return &gitDriver{runner: d.Runner, dataDir: d.DataDir, provider: d.Provider, changeURL: d.ChangeURL, now: d.Now}
 }
 
 // This adapter knows Git and the provider protocol, not Work rows or SQL.
@@ -42,6 +46,7 @@ type gitDriver struct {
 	dataDir          string
 	provider         func(context.Context, RepositoryIdentity) (VerifiedRepository, error)
 	changeURL        func(ids.ID) string
+	now              func() time.Time
 	once             sync.Once
 	client           *gitlab.Client
 	env              []string
@@ -239,7 +244,7 @@ func (d *gitDriver) Execute(ctx context.Context, source Source, plan Prepared, o
 		return Execution{}, fmt.Errorf("invalid Git effect plan")
 	}
 	message := mergeMessage(source, operation, d.pageOf(source))
-	_, mergeErr := d.git(ctx, source.Repository, nil, "merge", "--no-ff", source.Branch, "-m", message)
+	_, mergeErr := d.git(ctx, source.Repository, gitexec.CommitDates(clock.Or(d.now)()), "merge", "--no-ff", source.Branch, "-m", message)
 	if mergeErr != nil {
 		current, err := d.revision(ctx, source.Repository, "refs/heads/"+source.DefaultBranch)
 		if err != nil {

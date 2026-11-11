@@ -1724,6 +1724,9 @@ The existing maintained-readiness cache admits only fresh matching generation
 and artifact evidence; historical release success cannot substitute for it.
 
 Runtime display separates `running`, `stopped`, `unknown` and `unreachable`.
+A standing deployment that has never had a release applied, with none on its
+way, is `not deployed`: no container is expected, so finding none is not a
+stopped app. It ranks below every other word in a project's summary.
 The deployment owner classifies reachability from typed provider connection
 errors, never error wording. Rejections, missing targets, replacement and
 mismatched generations are unknown. Expired evidence is unknown too. HTTP

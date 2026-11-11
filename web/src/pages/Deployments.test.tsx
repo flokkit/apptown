@@ -9,7 +9,7 @@ import Deployments from './Deployments'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
-const app = (deployment: string, label: string, observation: string, word: string) => ({ slug: 'ledger', name: 'Ledger', deploymentId: `internal-${deployment}`, deployment, deploymentLabel: label, targetName: 'lab', status: { word, reason: word === 'stopped' ? 'the application is stopped' : '', stale: false }, observation, observationStale: false, running: observation === 'running' })
+const app = (deployment: string, label: string, observation: string, word: string) => ({ slug: 'ledger', name: 'Ledger', deploymentId: `internal-${deployment}`, deployment, deploymentLabel: label, targetName: 'lab', status: { word, reason: word === 'stopped' ? 'the application is stopped' : '', stale: false }, observation, observationStale: false, running: observation === 'running', backups: true })
 
 it('lists every deployment separately by display name, including stopped copies, with its use and last backup', async () => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(

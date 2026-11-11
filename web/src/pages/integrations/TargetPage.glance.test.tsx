@@ -180,3 +180,25 @@ it('says what a target provides as labelled facts in plain words', () => {
   expect(fly.el.querySelector('.target-settings')!.textContent).not.toContain('downtime')
   expect(page({ needs: [] }, 'register').fact('Databases and storage')).toBe('registered by hand')
 })
+
+// A cloud platform has no host CPU, memory or disk: the overview says what
+// it has in the owner's words instead of three bars that read unknown. A
+// host keeps its three bars.
+it.each([false, true])('shows a host its capacity bars and a platform its sentence (fixed host: %s)', fixedHost => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/auth/me'), { mode: 'internal', user: 'sam' })
+  client.setQueryData(getKey('/attention'), { sources: [], items: [] })
+  client.setQueryData(getKey('/targets/cloud'), { target: { id: 'cloud', name: 'cloud', status: 'ready', statusLabel: 'working', kind: fixedHost ? 'docker-host' : 'do-app', kindInfo: {}, check: {}, ingress: {}, address: {}, capabilities: {}, deployments: [], offers: [], retained: 0 }, history: [] })
+  client.setQueryData(getKey('/infrastructure'), { targets: [{ target: 'cloud', live: true, resources: [] }] })
+  client.setQueryData(getKey('/targets/cloud/capacity'), { target: 'cloud', kind: fixedHost ? 'docker-host' : 'do-app', elastic: !fixedHost, fixedHost, stale: false,
+    words: fixedHost ? 'A fixed host: it does not grow.' : 'Grows on demand: you pay for the size each part runs on.' })
+  const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/targets/cloud']}><QueryClientProvider client={client}><Routes><Route path="/targets/:name" element={<TargetPage />} /></Routes></QueryClientProvider></MemoryRouter>)
+  const el = document.createElement('div'); el.innerHTML = html
+  const strips = [...el.querySelectorAll('.capacity-strip h3')].map(h => h.textContent)
+  if (fixedHost) {
+    expect(strips).toEqual(['CPU', 'MEMORY', 'DISK'])
+  } else {
+    expect(strips).toEqual([])
+    expect(el.textContent).toContain('Grows on demand: you pay for the size each part runs on.')
+  }
+})

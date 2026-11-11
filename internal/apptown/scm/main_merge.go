@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/strs"
@@ -30,13 +31,14 @@ type MainMerge struct {
 // message. Nothing moves: the caller publishes it (Branches.Publish), so who
 // may move the branch is decided there. A tip that already contains main,
 // or a repository without main, needs nothing. A merge with conflicts is not
-// made; the files are named instead. Git failing to answer is an error.
-func MergeMain(ctx context.Context, repo, tip, mainBranch, message string) (MainMerge, error) {
+// made; the files are named instead. Git failing to answer is an error. at
+// (AppTown's clock) dates the commit.
+func MergeMain(ctx context.Context, repo, tip, mainBranch, message string, at time.Time) (MainMerge, error) {
 	out, tree, err := mergeTree(ctx, repo, tip, mainBranch)
 	if err != nil || out.Main == "" || len(out.Conflicts) > 0 {
 		return out, err
 	}
-	commit, err := gitexec.HubOutput(ctx, repo, strings.NewReader(message), "-c", "user.name=apptown", "-c", "user.email=apptown@localhost",
+	commit, err := gitexec.HubCommitOutput(ctx, repo, at, strings.NewReader(message), "-c", "user.name=apptown", "-c", "user.email=apptown@localhost",
 		"commit-tree", tree, "-p", tip, "-p", out.Main)
 	if err != nil {
 		return MainMerge{}, fmt.Errorf("committing the merge of %s into %s: %w: %s", mainBranch, strs.ShortSHA(tip), err, stderrOf(err))

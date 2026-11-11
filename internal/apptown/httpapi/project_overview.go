@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/stamp"
 )
 
 type ProjectOverview struct {
@@ -82,12 +83,12 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 		remote, _, hasRemote := scm.Origin(ctx, dir)
 		sha, _ := gitexec.Run(ctx, dir, "rev-parse", "--short", "HEAD")
 		subject, _ := gitexec.Run(ctx, dir, "log", "-1", "--format=%s")
-		when, _ := gitexec.Run(ctx, dir, "log", "-1", "--format=%cr")
+		when, _ := gitexec.Run(ctx, dir, "log", "-1", "--format=%cI")
 		commits, _ := gitexec.Run(ctx, dir, "rev-list", "--count", "HEAD")
 		repo = &OverviewRepo{
 			DefaultBranch: p.DefaultBranch,
 			Path:          dir,
-			Head:          OverviewHead{SHA: sha, Subject: subject, When: when},
+			Head:          OverviewHead{SHA: sha, Subject: subject, When: stamp.Parse(when)},
 			Commits:       commits,
 		}
 		if hasRemote {
@@ -182,5 +183,7 @@ type OverviewRepo struct {
 type OverviewHead struct {
 	SHA     string `json:"sha"`
 	Subject string `json:"subject"`
-	When    string `json:"when"`
+	// When is the commit's own committer time (AppTown dates its merges by
+	// its own clock); the page formats it as every other event time.
+	When stamp.Time `json:"when"`
 }

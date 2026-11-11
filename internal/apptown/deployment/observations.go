@@ -464,6 +464,9 @@ func projectRuntimeSummaries(rows []runtimeDeployment) map[ids.ID]projectRuntime
 }
 
 func runtimeUrgency(o RuntimeObservation) int {
+	if o.Status.Word == progressLabelNotDeployed {
+		return 0
+	}
 	if o.Status.Word == progressLabelStopped {
 		return 3
 	}

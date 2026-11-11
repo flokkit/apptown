@@ -2,11 +2,13 @@ package scm
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 )
@@ -43,19 +45,21 @@ func mainMergeHub(t *testing.T) (hub string, write func(branch string, files map
 // and the files are named.
 func TestAppTownMergesMainOnlyWhenTheBranchIsBehindAndTheMergeIsClean(t *testing.T) {
 	ctx := context.Background()
+	// AppTown's clock, far from the machine's.
+	at := time.Date(2031, 2, 3, 4, 5, 6, 0, time.UTC)
 	hub, write := mainMergeHub(t)
 	tip := write("change", map[string]string{"change.txt": "the change\n"})
 
-	if got, err := MergeMain(ctx, hub, tip, "main", "Merge main into change\n"); err != nil || got.Commit != "" || got.Main != "" || len(got.Conflicts) != 0 {
+	if got, err := MergeMain(ctx, hub, tip, "main", "Merge main into change\n", at); err != nil || got.Commit != "" || got.Main != "" || len(got.Conflicts) != 0 {
 		t.Fatalf("a branch containing main needs no merge: %+v %v", got, err)
 	}
-	if got, err := MergeMain(ctx, hub, tip, "trunk", "Merge trunk into change\n"); err != nil || got.Commit != "" || len(got.Conflicts) != 0 {
+	if got, err := MergeMain(ctx, hub, tip, "trunk", "Merge trunk into change\n", at); err != nil || got.Commit != "" || len(got.Conflicts) != 0 {
 		t.Fatalf("a repository without the main branch needs no merge: %+v %v", got, err)
 	}
 
 	main := write("main", map[string]string{"app.txt": "one\ntwo\nthree\nfour\n", "added.txt": "on main\n"})
 	before := gittest.RunAsTester(t, hub, "for-each-ref")
-	got, err := MergeMain(ctx, hub, tip, "main", "Merge main into change\n")
+	got, err := MergeMain(ctx, hub, tip, "main", "Merge main into change\n", at)
 	if err != nil || got.Commit == "" || got.Main != main || len(got.Conflicts) != 0 {
 		t.Fatalf("a clean merge of main: %+v %v", got, err)
 	}
@@ -64,6 +68,9 @@ func TestAppTownMergesMainOnlyWhenTheBranchIsBehindAndTheMergeIsClean(t *testing
 	}
 	if who := gittest.RunAsTester(t, hub, "log", "-1", "--format=%an <%ae> / %cn <%ce> / %s", got.Commit); who != "apptown <apptown@localhost> / apptown <apptown@localhost> / Merge main into change" {
 		t.Fatalf("the merge is %q", who)
+	}
+	if dates := gittest.RunAsTester(t, hub, "log", "-1", "--format=%at %ct", got.Commit); dates != fmt.Sprintf("%d %d", at.Unix(), at.Unix()) {
+		t.Fatalf("the merge is dated %q, want AppTown's clock", dates)
 	}
 	for name, want := range map[string]string{"app.txt": "one\ntwo\nthree\nfour\n", "added.txt": "on main\n", "change.txt": "the change\n"} {
 		if body := gittest.RunAsTester(t, hub, "show", got.Commit+":"+name); body != strings.TrimSpace(want) {
@@ -76,7 +83,7 @@ func TestAppTownMergesMainOnlyWhenTheBranchIsBehindAndTheMergeIsClean(t *testing
 
 	conflicting := write("change", map[string]string{"app.txt": "one\nTWO\nthree\n"})
 	write("main", map[string]string{"app.txt": "one\n2\nthree\nfour\n"})
-	got, err = MergeMain(ctx, hub, conflicting, "main", "Merge main into change\n")
+	got, err = MergeMain(ctx, hub, conflicting, "main", "Merge main into change\n", at)
 	if err != nil || got.Commit != "" || !slices.Equal(got.Conflicts, []string{"app.txt"}) {
 		t.Fatalf("a merge with conflicts names the files and makes nothing: %+v %v", got, err)
 	}

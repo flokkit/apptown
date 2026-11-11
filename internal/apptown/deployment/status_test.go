@@ -172,7 +172,7 @@ func (f statusInspectClient) Run(ctx context.Context, host string, cmd docker.Co
 }
 
 func TestUnreachableStatusNamesAnUnnamedHost(t *testing.T) {
-	a := deploymentAnswer(&Deployment{}, RuntimeObservation{State: runtimeUnreachable}, Diagnostics{}, nil, nil)
+	a := deploymentAnswer(&Deployment{ObservedGeneration: 1}, RuntimeObservation{State: runtimeUnreachable}, Diagnostics{}, nil, nil)
 	if a.Reason != "cannot reach the deployment host; the app may still be running" {
 		t.Fatalf("%+v", a)
 	}
@@ -248,7 +248,7 @@ func TestDeploymentReasonsDescribeOneReading(t *testing.T) {
 		{State: RuntimeUnknown, Stale: true, ObservedAt: at, AttemptedAt: at},
 		{State: RuntimeUnknown, Stale: true, ObservedAt: at, AttemptedAt: at, Err: context.DeadlineExceeded},
 	} {
-		a := deploymentAnswer(&Deployment{}, o, Diagnostics{}, nil, nil)
+		a := deploymentAnswer(&Deployment{ObservedGeneration: 1}, o, Diagnostics{}, nil, nil)
 		if strings.Count(a.Reason, "not checked yet") > 1 || strings.Count(a.Reason, "old reading") > 1 || (strings.Contains(a.Reason, "not checked yet") && strings.Contains(a.Reason, "old reading")) {
 			t.Fatalf("contradictory reason: %+v", a)
 		}
@@ -515,5 +515,25 @@ func TestRuntimeActWaitsForAReadingBegunAfterIt(t *testing.T) {
 	after := RuntimeObservation{State: RuntimeStopped, AttemptedAt: at.Add(time.Second), ObservedAt: at.Add(2 * time.Second)}
 	if got := deploymentAnswer(dep, after, Diagnostics{}, nil, nil); got.Word != progressLabelStopped {
 		t.Fatalf("a reading begun after the act: %+v", got)
+	}
+}
+
+// A deployment nothing was ever applied to is not deployed, whatever the
+// runtime reader found (no container, so "stopped"); a first release on its
+// way or failed keeps its own word, and once applied a stopped app is stopped.
+func TestNeverDeployedIsNotDeployedNotStopped(t *testing.T) {
+	now := time.Now().UTC()
+	stopped := RuntimeObservation{State: RuntimeStopped, ObservedAt: now, AttemptedAt: now}
+	if a := deploymentAnswer(&Deployment{}, stopped, Diagnostics{}, nil, nil); a.Word != progressLabelNotDeployed || a.Reason != "nothing deployed yet" {
+		t.Fatalf("never deployed: %+v", a)
+	}
+	if a := deploymentAnswer(&Deployment{}, stopped, Diagnostics{}, &releaseProgress{Number: 1, Stage: "building"}, nil); a.Word != progressLabelDeploying {
+		t.Fatalf("first release on its way: %+v", a)
+	}
+	if a := deploymentAnswer(&Deployment{}, stopped, Diagnostics{}, &releaseProgress{Number: 1, Failure: "build failed"}, nil); a.Word != progressLabelFailed {
+		t.Fatalf("first release failed: %+v", a)
+	}
+	if a := deploymentAnswer(&Deployment{Container: "web", ObservedGeneration: 1}, stopped, Diagnostics{}, nil, nil); a.Word != progressLabelStopped {
+		t.Fatalf("applied and stopped: %+v", a)
 	}
 }

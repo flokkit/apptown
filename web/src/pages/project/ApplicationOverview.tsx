@@ -89,7 +89,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       action={<Link to={`/projects/${slug}/deployments`}>Manage →</Link>}>
       <ReadStatus q={deploymentsQ} what="deployments" /><StaleNote q={deploymentsQ} />
       {deploymentsQ.data && !deployments.length && <p className="muted">Not deployed yet.</p>}
-      {deployments.length > 0 && <DeploymentTable rows={deployments.map(d => ({ ...d, slug, app: project.name, deployment: d.name, label: d.displayLabel || d.name, static: d.static, url: d.url, hostOnly: d.hostOnly }))} />}
+      {deployments.length > 0 && <DeploymentTable rows={deployments.map(d => ({ ...d, slug, app: project.name, deployment: d.name, label: d.displayLabel || d.name, static: d.static, url: d.url, hostOnly: d.hostOnly, backups: d.backups }))} />}
       <ReleaseRows slug={slug} releases={releasesQ.data ?? []} />
     </Section>
     {/* Omitted while there is nothing to back up: no deployment, or one

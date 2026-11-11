@@ -22,6 +22,8 @@ export const STATUS_WORD = {
   'your turn': 'your turn',
   // A release a later release on its deployment replaced: it ran, and no longer does.
   replaced: 'replaced',
+  // A standing deployment nothing was ever deployed to.
+  'not deployed': 'not deployed',
 } as const satisfies Record<'replaced' | 'your turn' | 'chat open' | 'no automatic check' | 'in progress' | 'abandoned' | 'not checked yet' | 'low' | 'blocked' | 'incomplete' | 'nothing connected' | DisplayStatus | RuntimeState | HealthStatus | CheckLabel | ReleaseLabel | UpdateLabel | CopyLabel | JobLabel | TargetLabel | DepartureLabel | ResourceLabel | ProgressLabel | ADRLabel | AttentionLabel | BackupLabel, string>
 
 export const STATUS_LIGHT: Record<keyof typeof STATUS_WORD, string> = {
@@ -39,6 +41,8 @@ export const STATUS_LIGHT: Record<keyof typeof STATUS_WORD, string> = {
   removed: '',
   'your turn': '',
   replaced: '',
+  // Nothing to run yet: a fact, not a warning.
+  'not deployed': '',
   // An AI flag no person has confirmed: amber, like work waiting on someone.
   'needs review': 'pending',
 }

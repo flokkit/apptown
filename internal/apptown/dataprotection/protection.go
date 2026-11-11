@@ -676,6 +676,19 @@ func (v Coverage) MarshalJSON() ([]byte, error) {
 }
 
 // DeploymentProtection reads the protection job's result for the current placement.
+// Applies says whether AppTown keeps protection for a deployment of kind on
+// a target of targetKind: a standing deployment (protection observations
+// refuse any other) on a target that holds data, its own backup sets or a
+// managed platform's copies. A page asks for protection only then; elsewhere
+// there is no backup to be unknown.
+func Applies(kind deployment.Kind, targetKind string) bool {
+	if kind != deployment.Standing || targetKind == "" {
+		return false
+	}
+	t := &deployment.Target{Kind: targetKind}
+	return t.HoldsBackups() == nil || t.DataAccess() == deployment.DataOnManagedPlatform
+}
+
 func (s *Service) DeploymentProtection(ctx context.Context, projectID ids.ID, name string) (*Protection, error) {
 	dep, err := s.deployments.ByName(ctx, projectID, name)
 	if err != nil {
