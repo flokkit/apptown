@@ -116,6 +116,19 @@ describe("a target's capacity", () => {
     expect(html).not.toContain('not allocated')
   })
 
+  // A phone's bar is narrow: "0.75 CPUs not allocated" in a segment of a
+  // third of it was cut to "0.75 CP…". The words go inside only when they fit.
+  it('keeps a free segment\'s words inside the bar only when they fit it', () => {
+    const memory = { total: fig(8 * 2 ** 30), promised: { sum: { apptown: fig(0), other: fig(0) }, limited: count(0, 0), unlimited: count(0, 0), unread: count(0, 0) }, hostUsed: fig(2 ** 30), overcommitted: false }
+    const html = render({
+      memory, cpu: { ...memory, total: fig(2), hostUsed: undefined },
+      tenants: [{ kind: 'deployment', name: 'a/main', project: 'a', deployment: 'main', containers: 1, used: fig(2 ** 20), promised: fig(2 ** 28), unlimited: 0, cpus: 1.25, cpuUnlimited: 0, cpuUsed: { known: false, value: 0 }, cpuUnread: 0 }],
+    })
+    expect(html).toContain('not allocated: 0.75 CPUs')
+    expect(html).not.toContain('class="cap-in">0.75 CPUs not allocated')
+    expect(html).toContain('class="cap-in">7.75 GB not allocated')
+  })
+
   it('says a CPU promise is partial when a limit was not read, never 0 or unpromised', () => {
     const memory = { total: fig(8 * 2 ** 30), promised: { sum: { apptown: fig(0), other: fig(0) }, limited: count(0, 0), unlimited: count(0, 0), unread: count(0, 0) }, hostUsed: fig(2 ** 30), overcommitted: false }
     const html = render({

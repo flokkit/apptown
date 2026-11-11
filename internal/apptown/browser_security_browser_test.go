@@ -41,11 +41,13 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/evals"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -69,7 +71,9 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/openrouter/openrouterfake"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/version"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
 	"github.com/flokkit/apptown/stock"
@@ -673,7 +677,7 @@ func newSceneDocker(t *testing.T, garage bool) (*fakeDocker, int, *atomic.Pointe
 		return ""
 	}, "")
 	app := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		project, _, _ := strings.Cut(r.Host, ".apps.localhost")
+		project, _, _ := strings.Cut(r.Host, ".") // <project>.apps.<domain>
 		listening.Lock()
 		h := listening.front[project]
 		listening.Unlock()
@@ -1946,7 +1950,7 @@ func (s *tourScene) land(c *tourChange, who string, want map[string]string) ids.
 			ID ids.ID `json:"id"`
 		} `json:"run"`
 	}
-	if err := json.Unmarshal(s.call(who, "POST", fmt.Sprintf("/api/v1/changes/%s/runs", c.ID), map[string]string{"workflow": "tour-land"}), &started); err != nil {
+	if err := json.Unmarshal(s.call(who, "POST", fmt.Sprintf("/api/v1/changes/%s/runs", c.ID), map[string]string{"workflow": "publish"}), &started); err != nil {
 		s.t.Fatal(err)
 	}
 	run := started.Run
@@ -2058,10 +2062,13 @@ type piLog struct {
 	prev    any
 	n       int
 	context int // tokens of conversation so far, read again each turn
+	// cachedOnce: the first reply has written the conversation's start to
+	// the prompt cache.
+	cachedOnce bool
 }
 
 func newPiLog(at time.Time) *piLog {
-	l := &piLog{started: at, at: at, context: 9000}
+	l := &piLog{started: at, at: at, context: 28000} // the agent's system prompt, tools and project guidance
 	l.lines = append(l.lines, map[string]any{"type": "session", "version": 3, "id": "console", "timestamp": l.stamp(0), "cwd": "/work"})
 	return l
 }
@@ -2096,18 +2103,28 @@ func (l *piLog) say(text, command, output string) {
 		content = append(content, map[string]any{"type": "toolCall", "id": call, "name": "bash", "arguments": map[string]any{"command": command}})
 		stop = "toolUse"
 	}
-	out := 60 + len(text)/4 + len(command)/4
-	fresh := 400 + len(text)/2
+	// A turn as a coding agent's are billed: the conversation so far is
+	// read from the prompt cache, what is new to it (the agent's system
+	// prompt, tools and the project's guidance on the first turn; the
+	// files it read and the last command's output after that) is written
+	// to the cache, and the reply is output.
+	out := 900 + len(text)/2 + len(command)/2
+	written := 6000 + len(text)
 	cached := l.context
+	if !l.cachedOnce {
+		written += cached
+		cached, l.cachedOnce = 0, true
+	}
+	fresh := 40
 	// Claude Sonnet list prices per million tokens: $3 in, $15 out, $0.30 a
-	// cache read.
-	cost := (float64(fresh)*3 + float64(out)*15 + float64(cached)*0.3) / 1e6
+	// cache read, $3.75 a cache write.
+	cost := (float64(fresh)*3 + float64(out)*15 + float64(cached)*0.3 + float64(written)*3.75) / 1e6
 	l.add("assistant", 15*time.Second, map[string]any{
 		"content": content, "api": "openai-completions", "provider": "openrouter", "model": "anthropic/claude-sonnet-5.5",
-		"usage": map[string]any{"input": fresh, "output": out, "cacheRead": cached, "cacheWrite": 0, "totalTokens": fresh + out + cached,
-			"cost": map[string]any{"input": float64(fresh) * 3 / 1e6, "output": float64(out) * 15 / 1e6, "cacheRead": float64(cached) * 0.3 / 1e6, "cacheWrite": 0, "total": cost}},
+		"usage": map[string]any{"input": fresh, "output": out, "cacheRead": cached, "cacheWrite": written, "totalTokens": fresh + out + cached + written,
+			"cost": map[string]any{"input": float64(fresh) * 3 / 1e6, "output": float64(out) * 15 / 1e6, "cacheRead": float64(cached) * 0.3 / 1e6, "cacheWrite": float64(written) * 3.75 / 1e6, "total": cost}},
 		"stopReason": stop, "responseId": fmt.Sprintf("r%d", l.n+1)})
-	l.context += fresh + out
+	l.context = cached + fresh + out + written
 	if command != "" {
 		l.add("toolResult", 4*time.Second, map[string]any{"toolCallId": call, "toolName": "bash",
 			"content": []any{map[string]any{"type": "text", "text": output}}, "isError": false})
@@ -2131,7 +2148,7 @@ func (l *piLog) bytes() []byte {
 // merged main is built and deployed to the project's main deployment, as
 // the stock land workflow does, with its release record required.
 var tourWorkflow = workflow.PreparedRun{
-	Workflow: workflow.DefinitionRef{Name: "tour-land", Version: 1},
+	Workflow: workflow.DefinitionRef{Name: "publish", Version: 1},
 	Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{
 		{Name: "tests", Uses: "script", With: map[string]any{"run": "sh checks/tests.sh", "env": map[string]any{tourCheckEnv: "checks/tests.sh"}}},
 		{Name: "style", Uses: "script", With: map[string]any{"run": "sh checks/style.sh", "env": map[string]any{tourCheckEnv: "checks/style.sh"}}},
@@ -3783,20 +3800,25 @@ func cameraAppRoutes(t *testing.T) string {
 // TestWebUICapture photographs every web page against
 // real disposable tour records. No API responses are replaced by the camera.
 // Run with APPTOWN_DESIGN_VITE=http://127.0.0.1:5180 and APPTOWN_DESIGN_OUT set.
-// sceneModel gives the capture scene a model id of a real install's shape,
-// so usage and model settings read as they would there rather than as the
-// fixture's fake/model ("model" by its last segment). It is bound to the
-// same fake provider address: nothing in the scene calls a model.
+// sceneModel gives the capture scene the model setup of a real install:
+// an OpenRouter model provider whose enabled models are listed (so the
+// catalog does not ask the provider), the standard profile on Claude Haiku
+// and a second profile, frontier, on Claude Sonnet, so an eval compares two
+// setups. It is bound to the fixture's unreachable provider address:
+// nothing in the scene calls a model.
 func sceneModel(t *testing.T, a *App) {
 	t.Helper()
-	const id = "openrouter/anthropic/claude-haiku-5.5"
-	if _, err := a.Integrations.Bindings.Save(context.Background(), "openrouter", "model", "pi", `{"model":"openrouter/*","providerDef":{"baseUrl":"https://provider.invalid/v1","api":"openai-completions","apiKey":"provider-canary"},"modelsJson":"[{\"id\":\"anthropic/claude-haiku-5.5\",\"contextWindow\":32768,\"maxTokens\":1024}]"}`, "fixture"); err != nil {
+	const haiku, sonnet = "openrouter/anthropic/claude-haiku-5.5", "openrouter/anthropic/claude-sonnet-5.5"
+	if _, err := a.Integrations.Bindings.Save(context.Background(), "openrouter", "model", "pi", `{"model":"openrouter/anthropic/claude-haiku-5.5","models":["anthropic/claude-haiku-5.5","anthropic/claude-sonnet-5.5"],"providerDef":{"baseUrl":"https://provider.invalid/v1","api":"openai-completions","apiKey":"provider-canary"},"modelsJson":"[{\"id\":\"anthropic/claude-haiku-5.5\",\"contextWindow\":200000,\"maxTokens\":8192},{\"id\":\"anthropic/claude-sonnet-5.5\",\"contextWindow\":200000,\"maxTokens\":8192}]"}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Models.SetDefault(context.Background(), id); err != nil {
+	if err := a.Models.SetDefault(context.Background(), haiku); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Models.Set(context.Background(), "chat", "standard", id, "fixture"); err != nil {
+	if err := a.Models.Set(context.Background(), "chat", "standard", haiku, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Models.Set(context.Background(), "main-strong", "frontier", sonnet, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -3809,6 +3831,44 @@ func TestWebUICapture(t *testing.T) {
 	if vite == "" || out == "" {
 		t.Skip("set APPTOWN_DESIGN_VITE and APPTOWN_DESIGN_OUT for the local UI capture")
 	}
+	// The household's network has names this machine cannot look up: its
+	// NAS's S3 service, nasStoreHost, where the backup copies are kept, and
+	// its apps under apps.<club domain>. AppTown connects to both (the
+	// backup store's checks write and read a test object; the running-app
+	// checks call an app's front door), so this process reaches them as a
+	// client behind a forward proxy does: requests for those hosts go to a
+	// proxy that hands them to the scene's S3 bucket and its apps' front
+	// door (household, once each exists). Every other request is sent as
+	// before. The transports AppTown's clients make are copies of Go's
+	// default transport, taken at their first use, so it is set first.
+	var household struct{ store, apps atomic.Pointer[url.URL] }
+	appsSuffix := ".apps." + cameraClubDomain
+	onHousehold := func(host string) bool { return host == nasStoreHost || strings.HasSuffix(host, appsSuffix) }
+	householdProxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		target := household.store.Load()
+		if strings.HasSuffix(r.Host, appsSuffix) {
+			target = household.apps.Load()
+		}
+		if target == nil || !onHousehold(r.Host) {
+			http.Error(w, "dial tcp: lookup "+r.Host+": no such host", http.StatusBadGateway)
+			return
+		}
+		httputil.NewSingleHostReverseProxy(target).ServeHTTP(w, r)
+	}))
+	t.Cleanup(householdProxy.Close)
+	householdProxyURL, err := url.Parse(householdProxy.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaults := http.DefaultTransport.(*http.Transport)
+	usual := defaults.Proxy
+	defaults.Proxy = func(r *http.Request) (*url.URL, error) {
+		if onHousehold(r.URL.Host) {
+			return householdProxyURL, nil
+		}
+		return usual(r)
+	}
+	t.Cleanup(func() { defaults.Proxy = usual })
 	// Where the scene's time goes, written beside the captures (with the
 	// browser script's timings.json) so a run's cost is measured, not guessed.
 	phases := cameraPhases{t: t, out: out, last: time.Now()}
@@ -3835,14 +3895,36 @@ func TestWebUICapture(t *testing.T) {
 	}
 	runtime := consoletest.NewAgent()
 	daemon, appPort, _, refuseRun := newSceneDocker(t, false)
+	household.apps.Store(&url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", appPort)})
+	// A built image's ID is its own digest, as a daemon gives it, not the
+	// shared fake's one placeholder ID (the tour's deploys rely on that
+	// placeholder; the camera records its releases' outcomes itself).
+	sceneReply := daemon.reply
+	daemon.reply = func(args []string) (string, error, bool) {
+		if len(args) == 5 && args[0] == "image" && args[1] == "inspect" && args[2] == "--format" && args[3] == "{{.Id}}" {
+			return dockerfake.ImageID(args[4]) + "\n", nil, true
+		}
+		return sceneReply(args)
+	}
 	cloud := &dofake.API{}
 	cloudAPI := httptest.NewServer(cloud.Handler())
 	t.Cleanup(cloudAPI.Close)
 
-	publicHost := "apptown.localhost:" + port
+	// The household's AppTown has its own name, cameraPublicHost, with its
+	// apps under apps.<club domain>. Nothing in AppTown dials either name
+	// (app checks dial the published port and send the name as Host); the
+	// camera's browser maps cameraPublicHost to this server's port. A held
+	// scene, opened by a person's own browser, keeps a localhost address.
+	publicHost, mainTier := cameraPublicHost, "main=http://apps."+cameraClubDomain
 	if hold != "" {
-		publicHost = "http://" + publicHost
+		publicHost, mainTier = "http://apptown.localhost:"+port, fmt.Sprintf("main=http://apps.localhost:%d", appPort)
 	}
+	// The household runs a released AppTown, so its pages show a release's
+	// version where a development build says it is one. This names the
+	// build the scene runs as; it is not the published artifact.
+	built := version.Release
+	version.Release = "v1.0.0"
+	t.Cleanup(func() { version.Release = built })
 	// Keep bind mounts in TMPDIR, shared with the heavy runner's daemon,
 	// and leave room for SSH's Unix socket suffix on attached targets.
 	dataDir, err := os.MkdirTemp("", "c-")
@@ -3852,7 +3934,7 @@ func TestWebUICapture(t *testing.T) {
 	t.Cleanup(func() { _ = os.RemoveAll(dataDir) })
 	a, h := internalApp(t, Config{DataDir: dataDir, PublicHost: publicHost,
 		SSHConfigPath: filepath.Join(t.TempDir(), "ssh-config"),
-		TierDomains:   []string{"preview=preview.localhost", fmt.Sprintf("main=http://apps.localhost:%d", appPort)}, DockerClient: daemon,
+		TierDomains:   []string{"preview=preview.localhost", mainTier}, DockerClient: daemon,
 		DigitalOcean: digitalocean.Options{APIBase: cloudAPI.URL},
 		ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t), InferenceURL: "http://worker.test:7779",
 		InferenceNetworks: []string{"127.0.0.1/32"}})
@@ -3865,10 +3947,17 @@ func TestWebUICapture(t *testing.T) {
 	a.SeedTargets(ctx)
 	verification.SyncStockScanners(ctx, a.Integrations, stock.FS)
 	a.SyncStockDependencies(ctx)
-	configureConsoleModel(t, a)
 	sceneModel(t, a)
 	tourChecks(t, a)
-	useScriptTasks(t, a, tourScript)
+	// The camera's script checks really run, in milliseconds here; the
+	// scene's clock then stands for the household's slower machine, as it
+	// stands for the days between acts, so a check takes as long as it
+	// would there and the timing pages have something to show.
+	useScriptTasks(t, a, func(spec execution.TaskSpec) (string, int) {
+		out, code := tourScript(spec)
+		moveClock(a, cameraCheckTime(spec))
+		return out, code
+	})
 	defineWorkflows(t, a, tourWorkflow)
 	phases.mark("app and stock")
 	const password = "design-local-password"
@@ -3939,6 +4028,40 @@ spec:
           with:
             means: I have read what changed and the checks, and it does what the change says.
 `})
+	// Club Newsletter's main deployment runs each change soon after it
+	// ships: its first release once the app declares its parts, then one
+	// per change. Like the history below, the camera records each outcome
+	// on its stand-in host.
+	newsletter, err := a.Projects.BySlug(ctx, "club-newsletter")
+	if err != nil {
+		t.Fatal(err)
+	}
+	newsletterMain, err := a.Deployment.Deployments.ByName(ctx, newsletter.ID, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	releaseShipped := func(i int, notes string) {
+		t.Helper()
+		head, err := gitexec.Run(ctx, a.projectRepoPath(newsletter.Slug), "rev-parse", "HEAD")
+		if err != nil {
+			t.Fatal(err)
+		}
+		revision := strings.TrimSpace(string(head))
+		scene.later(12 * time.Minute)
+		rel, err := a.Deployment.Releases.Start(ctx, deployment.ReleaseDraft{Source: deployment.ReleaseFromBranch, ProjectID: newsletter.ID, DeploymentID: newsletterMain.ID, Deployment: "main", Revision: revision, Actor: "priya"}, notes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		at, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: newsletterMain.ID, TargetID: newsletterMain.TargetID, Key: fmt.Sprintf("design-shipped-%d", i), Inputs: deployment.Inputs{ReleaseID: rel.ID, Revision: revision, Applied: cameraApplied}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		scene.later(100 * time.Second)
+		if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active", Health: "healthy",
+			Handle: map[string]any{"container": docker.ByKey(newsletterMain.ID).App(), "hostPort": 43210}}}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	// Extend one disposable project through public change operations. The camera uses these same records; script checks execute locally.
 	for i, title := range []string{"Add club contact details", "Publish membership fees", "Update the committee list", "Add the Saturday meeting point", "Publish the annual meeting date"} {
 		scene.later(20 * time.Minute)
@@ -3950,7 +4073,7 @@ app:
   site:
     static: public
   archive:
-    image: example/newsletter-archive:1
+    image: registry.hilltopcycling.club/club/newsletter-archive:1
     public: true
     ports: ["8080"]
     dataDir: /data
@@ -3970,11 +4093,12 @@ app:
 			scene.approve(started.Run.ID, "priya")
 		}
 		scene.ship(c, "tom", "priya", 5*time.Minute)
+		releaseShipped(i, title)
 	}
-	// A release check stopped immediately and an idle change stopped after
+	// A change stopped at once (already fixed) and an idle change stopped after
 	// several days expose noise and misleading wall times on Home.
-	stoppedCheck := scene.open("sam", "club-newsletter", "Release check: a chat answers", "Automated release check stopped before work began.")
-	if _, err := a.Work.Abandon(asPerson("sam"), workflow.StopWork{ChangeID: stoppedCheck.ID, Reason: "Release check stopped"}); err != nil {
+	duplicate := scene.open("sam", "club-newsletter", "Fix the broken ride calendar link", "The front page link to the ride calendar goes nowhere.")
+	if _, err := a.Work.Abandon(asPerson("sam"), workflow.StopWork{ChangeID: duplicate.ID, Reason: "Already fixed by Fix the ride calendar links"}); err != nil {
 		t.Fatal(err)
 	}
 	scene.later(-127*time.Hour - 24*time.Minute)
@@ -4021,7 +4145,7 @@ app:
 		t.Fatal(err)
 	}
 	scene.call("sam", "PUT", "/api/v1/secrets/DESIGN_PREVIEW_KEY", map[string]string{"value": `-----BEGIN PRIVATE KEY-----\ndisposable test transport marker\n-----END PRIVATE KEY-----`})
-	previewHost, err := a.Deployment.Targets.Put(ctx, &deployment.Target{Name: "design-preview", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Status: deployment.TargetUnreachable, Address: map[string]any{"host": "ssh://deploy@preview.example.test", "keyFrom": "DESIGN_PREVIEW_KEY"}})
+	previewHost, err := a.Deployment.Targets.Put(ctx, &deployment.Target{Name: "design-preview", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Status: deployment.TargetUnreachable, Address: map[string]any{"host": "ssh://deploy@192.168.1.40", "keyFrom": "DESIGN_PREVIEW_KEY"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4032,7 +4156,24 @@ app:
 	if _, err := a.Deployment.EditDeploymentLabel(asPerson("sam"), project.ID, prod.ID, prod.DisplayLabel, "Production"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Deployment.Deployments.RecordPreview(ctx, project.ID, december.ID, previewHost.ID, "design-preview-container", 43211, "https://preview.club.example.test", nil); err != nil {
+	// The December change's preview runs on the household's own host. The
+	// old laptop (design-preview) is off; the club's noticeboard copy,
+	// recorded while it answered, is on it.
+	if err := a.Deployment.Deployments.RecordPreview(ctx, project.ID, december.ID, productionHost.ID, cameraPreviewContainer, 43211, "https://preview.hilltopcycling.club", nil); err != nil {
+		t.Fatal(err)
+	}
+	noticeboard, err := a.Deployment.Deployments.EnsureStanding(ctx, project.ID, "noticeboard", previewHost.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "non-production"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The garden shed's machine answers, but its Docker cannot read its
+	// own disk: the club-rooms display runs there.
+	gardenShed, err := a.Deployment.Targets.Put(ctx, &deployment.Target{Name: "garden-shed", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Status: deployment.TargetReady, Address: map[string]any{"host": "ssh://deploy@" + gardenShedAddress, "keyFrom": "DESIGN_PREVIEW_KEY"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	clubRooms, err := a.Deployment.Deployments.EnsureStanding(ctx, project.ID, "club-rooms-display", gardenShed.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "non-production"})
+	if err != nil {
 		t.Fatal(err)
 	}
 	previews, err := a.Deployment.Deployments.Previews(ctx)
@@ -4041,6 +4182,7 @@ app:
 	}
 	for _, dep := range previews {
 		if dep.ChangeID == december.ID {
+			daemon.markStartedWithLimits(cameraPreviewContainer, 0, 0, map[string]string{dockerlabel.Class: "preview", dockerlabel.Owner: dep.ID.String(), dockerlabel.Deployment: string(dep.Placement().Label)})
 			if _, err := a.Deployment.EditDeploymentLabel(asPerson("sam"), project.ID, dep.ID, dep.DisplayLabel, "Preview"); err != nil {
 				t.Fatal(err)
 			}
@@ -4050,14 +4192,21 @@ app:
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, dep := range []*deployment.Deployment{prod} {
+	for _, dep := range []*deployment.Deployment{prod, noticeboard, clubRooms} {
 		at, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "design-" + dep.Name, Inputs: deployment.Inputs{Revision: strings.TrimSpace(string(head))}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active", Health: "healthy", URL: "https://" + dep.Name + ".club.example.test"}})
+		observed := deploy.Observation{Generation: at.Generation, Rollout: "active", Health: "healthy", URL: "https://" + dep.Name + ".hilltopcycling.club"}
+		if dep != prod {
+			observed.Handle = map[string]any{"container": docker.ByKey(dep.ID).App(), "hostPort": 8080}
+		}
+		_, err = a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: at, Observed: observed})
 		if err != nil {
 			t.Fatal(err)
+		}
+		if dep != prod {
+			continue
 		}
 		if _, err := a.Deployment.Deployments.ReserveHostPort(ctx, project.ID, dep.Name, docker.ByKey(dep.ID).App(), 43210); err != nil {
 			t.Fatal(err)
@@ -4072,12 +4221,12 @@ app:
 	// runtime still pass through their owners, using the disposable daemon.
 	// They have the names a club gives its trial and staging copies.
 	appContainer := func(dep *deployment.Deployment) {
-		daemon.markStartedWithLimits(docker.ByKey(dep.ID).App(), 0, 0, map[string]string{dockerlabel.Class: "deployment", dockerlabel.Owner: dep.ID.String()})
+		daemon.markStartedWithLimits(docker.ByKey(dep.ID).App(), 0, 0, map[string]string{dockerlabel.Class: "deployment", dockerlabel.Owner: dep.ID.String(), dockerlabel.Deployment: string(dep.Placement().Label)})
 	}
 	appContainer(prod)
 	captureDeps := []*deployment.Deployment{prod}
-	for _, name := range cameraDeployments {
-		dep, err := a.Deployment.Deployments.EnsureStanding(ctx, project.ID, name, productionHost.ID, deployment.Attributes{Feed: "manual", Audience: "public", DataClass: "production"})
+	for i, name := range cameraDeployments {
+		dep, err := a.Deployment.Deployments.EnsureStanding(ctx, project.ID, name, productionHost.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "non-production"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -4086,6 +4235,61 @@ app:
 		if _, err := daemon.run("volume", "create", docker.ByKey(dep.ID).DataVolume()); err != nil {
 			t.Fatal(err)
 		}
+		// Each copy has run a release for a day or more: its first, made
+		// days apart, recorded on the stand-in host as Production's are.
+		ago := time.Duration(30+i*17) * time.Hour
+		scene.later(-ago)
+		first, err := a.Deployment.Releases.Start(ctx, deployment.ReleaseDraft{Source: deployment.ReleaseFromBranch, ProjectID: project.ID, DeploymentID: dep.ID, Deployment: dep.Name, Revision: strings.TrimSpace(string(head)), Actor: "sam"}, cameraDeploymentNotes[name])
+		if err != nil {
+			t.Fatal(err)
+		}
+		at, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "camera-first-" + name, Inputs: deployment.Inputs{ReleaseID: first.ID, Revision: strings.TrimSpace(string(head))}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		scene.later(95 * time.Second)
+		if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active", Health: "healthy", Handle: map[string]any{"container": docker.ByKey(dep.ID).App(), "hostPort": 43221 + i}}}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Deployment.Deployments.ReserveHostPort(ctx, project.ID, dep.Name, docker.ByKey(dep.ID).App(), 43221+i); err != nil {
+			t.Fatal(err)
+		}
+		daemon.markStartedWithLimits(docker.ByKey(dep.ID).App(), 0, 0, map[string]string{dockerlabel.Generation: fmt.Sprint(at.Generation)})
+		scene.later(ago - 95*time.Second)
+	}
+	// The household's other apps run their last landing on the same host,
+	// recorded on the stand-in host as Club Newsletter's are.
+	for i, slug := range []string{"lunch-orders", "rocket-garden"} {
+		other, err := a.Projects.BySlug(ctx, slug)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dep, err := a.Deployment.Deployments.ByName(ctx, other.ID, "main")
+		if err != nil {
+			t.Fatal(err)
+		}
+		landed, err := gitexec.Run(ctx, a.projectRepoPath(slug), "rev-parse", "HEAD")
+		if err != nil {
+			t.Fatal(err)
+		}
+		at, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "camera-running-" + slug, Inputs: deployment.Inputs{Revision: strings.TrimSpace(string(landed))}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active", Health: "healthy", Handle: map[string]any{"container": docker.ByKey(dep.ID).App(), "hostPort": 43240 + i}}}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Deployment.Deployments.ReserveHostPort(ctx, other.ID, dep.Name, docker.ByKey(dep.ID).App(), 43240+i); err != nil {
+			t.Fatal(err)
+		}
+		daemon.markStartedWithLimits(docker.ByKey(dep.ID).App(), 0, 0, map[string]string{dockerlabel.Class: "deployment", dockerlabel.Owner: dep.ID.String(), dockerlabel.Generation: fmt.Sprint(at.Generation)})
+		if slug == "lunch-orders" { // its database, which its contract needs
+			names, err := dep.HostNames()
+			if err != nil {
+				t.Fatal(err)
+			}
+			daemon.markStartedWithLimits(names.Service("postgres"), 0, 0, map[string]string{dockerlabel.Class: "deployment", dockerlabel.Owner: dep.ID.String(), dockerlabel.Generation: fmt.Sprint(at.Generation)})
+		}
 	}
 	// The household's other services share the host. AppTown did not start
 	// them, and the photo library asks for more memory than the host has.
@@ -4093,14 +4297,15 @@ app:
 		daemon.markStarted(name)
 	}
 	daemon.markStartedWithLimits("photo-library", 4541927916, 0, nil) // 4.23 GiB asked for.
-	// The kernel reader and daemon describe the same 1.93 GiB, one-core VM.
+	// The kernel reader and daemon describe the same 3.8 GiB, two-core
+	// machine (an old mini PC).
 	kernelSamples := 0
 	daemon.disk.Kernel = func(script string) (int, []byte, string) {
 		if script == "cat /proc/meminfo" {
-			return 0, []byte("MemTotal: 2023751 kB\nMemAvailable: 1048576 kB\n"), ""
+			return 0, []byte("MemTotal: 3984588 kB\nMemAvailable: 1677722 kB\n"), ""
 		}
 		kernelSamples++
-		return 0, []byte(fmt.Sprintf("cpu %d 0 0 %d 0 0 0 0\ncpu0 0 0 0 0 0 0 0 0\n", kernelSamples*40, kernelSamples*60)), ""
+		return 0, []byte(fmt.Sprintf("cpu %d 0 0 %d 0 0 0 0\ncpu0 0 0 0 0 0 0 0 0\ncpu1 0 0 0 0 0 0 0 0\n", kernelSamples*40, kernelSamples*60)), ""
 	}
 	// What each container uses: Production's parts as the demo's app uses,
 	// the others fixed, distinct amounts by their sorted names.
@@ -4116,14 +4321,26 @@ app:
 	var backupCopies atomic.Int64
 	sceneDockerCommand := daemon.command
 	daemon.command = func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
+		if strings.Contains(host, "garden-shed") { // AppTown's SSH alias for the target names it
+			// The garden shed's daemon answers what it is, then fails every
+			// question about its containers, images and disk, as a daemon
+			// with a failing disk does.
+			if len(req.Args) == 3 && req.Args[0] == "info" && strings.Contains(req.Args[2], "MemTotal") {
+				return []byte("2072321024\t2\t/var/lib/docker\n"), nil
+			}
+			if len(req.Args) == 3 && req.Args[0] == "info" && req.Args[2] == "{{json .}}" {
+				return json.Marshal(map[string]any{"ID": "garden-shed", "MemTotal": 2072321024, "NCPU": 2, "DockerRootDir": "/var/lib/docker", "CgroupVersion": "2"})
+			}
+			return nil, errors.New("Error response from daemon: open /var/lib/docker/containers: input/output error")
+		}
 		if host != "" {
-			return nil, deploy.Unreachable(errors.New("ssh: connect to host preview.example.test port 22: Connection refused"))
+			return nil, deploy.Unreachable(errors.New("ssh: connect to host 192.168.1.40 port 22: No route to host"))
 		}
 		if len(req.Args) == 3 && req.Args[0] == "info" && strings.Contains(req.Args[2], "MemTotal") {
-			return []byte("2072321024\t1\t/var/lib/docker\n"), nil // 1.93 GiB host, independent of container usage.
+			return []byte("4080218112\t2\t/var/lib/docker\n"), nil // 3.8 GiB host, independent of container usage.
 		}
 		if len(req.Args) == 3 && req.Args[0] == "info" && req.Args[2] == "{{json .}}" {
-			return json.Marshal(map[string]any{"ID": "fake-daemon", "MemTotal": 2072321024, "NCPU": 1, "DockerRootDir": "/var/lib/docker", "CgroupVersion": "2"})
+			return json.Marshal(map[string]any{"ID": "fake-daemon", "MemTotal": 4080218112, "NCPU": 2, "DockerRootDir": "/var/lib/docker", "CgroupVersion": "2"})
 		}
 		if len(req.Args) > 3 && req.Args[0] == "stats" {
 			var running []string
@@ -4147,11 +4364,16 @@ app:
 				}
 				use, ok := partUse[name]
 				if !ok {
-					use = fmt.Sprintf("%.1fMiB / 1.93GiB\t%.2f%%", 18+float64((i*37)%123)+float64(i%10)/10, float64((i*7)%40)/100)
+					use = fmt.Sprintf("%.1fMiB / 3.8GiB\t%.2f%%", 18+float64((i*37)%123)+float64(i%10)/10, float64((i*7)%40)/100)
 				}
 				rows = append(rows, name+"\t"+use)
 			}
 			return []byte(strings.Join(rows, "\n")), nil
+		}
+		if req.Stdin != nil && len(req.Args) > 0 && (req.Args[0] == "run" || req.Args[0] == "exec") {
+			// A restore writing a copy back: the volume takes what it is sent.
+			_, err := io.Copy(io.Discard, req.Stdin)
+			return nil, err
 		}
 		if req.Stdout != nil && len(req.Args) > 0 && (req.Args[0] == "run" || req.Args[0] == "exec") {
 			// A backup copy: a few hundred kilobytes, a different size each time.
@@ -4180,7 +4402,11 @@ app:
 	for i := 0; i < 15; i++ {
 		if i == 14 {
 			delivered = scene.open("tom", "club-newsletter", "Publish the winter ride times", "Publish the winter ride times on the club website.")
-			scene.write(delivered, map[string]string{"public/winter.html": "<!doctype html><title>Winter rides</title><h1>Winter rides at 9 am</h1>"})
+			// The ride pages format their dates with dayjs: the project
+			// names it in package.json and npm's lock file, which the
+			// source scan's bill of materials lists.
+			scene.write(delivered, map[string]string{"public/winter.html": "<!doctype html><title>Winter rides</title><h1>Winter rides at 9 am</h1>",
+				"package.json": cameraPackageJSON, "package-lock.json": cameraPackageLock})
 			scene.commit(delivered, "tom", "Winter ride times")
 			deliveredRun = scene.ship(delivered, "tom", "priya", 5*time.Minute)
 
@@ -4212,7 +4438,7 @@ app:
 			t.Fatal(err)
 		}
 		at, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: prod.ID, TargetID: prod.TargetID,
-			Key: fmt.Sprintf("design-release-%d", i), Inputs: deployment.Inputs{ReleaseID: rel.ID, BundleID: draft.BundleID, ImageDigest: image, Revision: revision, Applied: deployment.AppliedProfile{Profile: "default", How: "default", Parts: map[string]deployment.AppliedPart{"web": {Public: true, Resources: appcontract.Resources{MemoryBytes: 512 << 20}}}, Services: map[string]deployment.AppliedPart{"postgres": {Need: true, Resources: appcontract.Resources{MemoryBytes: 256 << 20}}}}}})
+			Key: fmt.Sprintf("design-release-%d", i), Inputs: deployment.Inputs{ReleaseID: rel.ID, BundleID: draft.BundleID, ImageDigest: image, Revision: revision, Applied: cameraApplied}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -4253,10 +4479,10 @@ app:
 	// held to a limit.
 	served := deployment.AppliedProfile{Profile: "default", How: "default",
 		Parts: map[string]deployment.AppliedPart{
-			"web":                {Public: true, Resources: appcontract.Resources{MemoryBytes: 512 << 20}},
-			"newsletter-archive": {Resources: appcontract.Resources{MemoryBytes: 256 << 20}},
+			"web":                {Public: true, Resources: appcontract.Resources{MemoryBytes: 512 << 20, CPUs: 0.5}},
+			"newsletter-archive": {Resources: appcontract.Resources{MemoryBytes: 256 << 20, CPUs: 0.25}},
 		},
-		Services: map[string]deployment.AppliedPart{"postgres": {Need: true, Resources: appcontract.Resources{MemoryBytes: 256 << 20}}}}
+		Services: map[string]deployment.AppliedPart{"postgres": {Need: true, Resources: appcontract.Resources{MemoryBytes: 256 << 20, CPUs: 0.5}}}}
 	attempt, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: prod.ID, TargetID: prod.TargetID, Key: "camera-serving", Inputs: deployment.Inputs{ReleaseID: releases[0].ID, BundleID: releases[0].BundleID, Revision: strings.TrimSpace(string(head)), Applied: served}})
 	if err != nil {
 		t.Fatal(err)
@@ -4273,9 +4499,9 @@ app:
 		container        string
 		memory, nanoCPUs int64
 	}{
-		{docker.ByKey(prod.ID).App(), 512 << 20, 0},
-		{prodNames.Service("newsletter-archive"), 256 << 20, 0},
-		{prodNames.Service("postgres"), 256 << 20, 0},
+		{docker.ByKey(prod.ID).App(), 512 << 20, 5e8},
+		{prodNames.Service("newsletter-archive"), 256 << 20, 2.5e8},
+		{prodNames.Service("postgres"), 256 << 20, 5e8},
 	} {
 		daemon.markStartedWithLimits(part.container, part.memory, part.nanoCPUs, generation)
 	}
@@ -4336,6 +4562,9 @@ app:
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The account's container registry is on the starter tier, whose one
+	// repository the newsletter already fills: a reading with its reason.
+	cloud.SeedRegistry("design", "starter", 1, "club-newsletter")
 	cloud.SeedDatabase(map[string]any{"id": "old-club-db", "name": "Club database", "engine": "pg", "status": "online", "region": "syd", "version": "16"})
 	if err := a.DB.InTx(ctx, func(tx *database.Tx) error {
 		_, err := deployment.RemoveRecordedIn(ctx, tx, oldCloud, false, deployment.RemovalSettlement{Target: target.Name, By: access.Principal{Name: "sam"}, At: a.cfg.clock.Now(), Taken: deploy.TakenDown{Left: []deploy.Left{{What: "postgres", Data: true, Handle: map[string]any{"id": "old-club-db", "name": "Club database"}, Why: "Kept for review"}}}})
@@ -4347,8 +4576,18 @@ app:
 		t.Fatal(err)
 	}
 
+	// The household gives its apps AI models through an OpenRouter
+	// provisioning key (Services › AI models), kept apart from AppTown's own
+	// model provider. The key API is the OpenRouter fake.
+	appModels := openrouterfake.New("design-provisioning-key")
+	t.Cleanup(appModels.Close)
+	scene.call("sam", "PUT", "/api/v1/secrets/OPENROUTER_PROVISIONING_KEY", map[string]string{"value": "design-provisioning-key"})
+	if _, err := a.Integrations.Bindings.Save(ctx, "app-models", integration.CapLLM, "openrouter", mustJSON(map[string]any{"url": appModels.Base, "provisioningKeyFrom": []string{"OPENROUTER_PROVISIONING_KEY"}, "maxLimit": 20, "defaultLimit": 2, "previewLimit": 1}), "sam"); err != nil {
+		t.Fatal(err)
+	}
+
 	scene.call("sam", "PUT", "/api/v1/secrets/DESIGN_REGISTRY_KEY", map[string]string{"value": "disposable-registry-key"})
-	if _, err := a.Integrations.Bindings.Save(ctx, "design-registry", integration.CapContainerRegistry, "service", mustJSON(map[string]any{"url": "registry.example.test", "group": "club", "username": "capture", "tokenFrom": "DESIGN_REGISTRY_KEY"}), "sam"); err != nil {
+	if _, err := a.Integrations.Bindings.Save(ctx, "design-registry", integration.CapContainerRegistry, "service", mustJSON(map[string]any{"url": "registry." + cameraClubDomain, "group": "club", "username": "sam", "tokenFrom": "DESIGN_REGISTRY_KEY"}), "sam"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -4437,20 +4676,26 @@ app:
 		t.Fatalf("camera approval request: %+v %v", waitingRelease, err)
 	}
 	moveClock(a, -a.cfg.clock.ahead)
-	// Seed held release jobs on the existing disposable apps. There is no
-	// owner operation to pause a real job at an arbitrary provider milestone.
+	// Three new releases: members-preview's is being deployed, held at a
+	// provider milestone (the camera moves it from stage to stage, one
+	// stage's pages at a time, through cameraStage below); staging's has
+	// just gone live, after 1m 40s, and archive-migration's failed to start.
+	// There is no owner operation to pause a real job at an arbitrary
+	// provider milestone.
 	// sql-guarantee: only this camera fixture supplies the persisted milestone;
 	// all browser reads and outcome settlement use the production owners.
-	// Their releases started a few minutes apart, as real ones do; the live
-	// one took 1m 40s and runs with an address.
-	for i, stage := range []deploy.DeployStage{deploy.Preparing, deploy.BackingUp, deploy.Building, deploy.Starting, deploy.Checking, deploy.Live, deploy.Starting} {
+	var heldRelease ids.ID
+	for i, stage := range []deploy.DeployStage{deploy.Building, deploy.BackingUp, deploy.Building, deploy.Starting, deploy.Checking, deploy.Live, deploy.Starting} {
+		if i >= 1 && i <= 4 {
+			continue // these copies keep running their first release
+		}
 		dep := captureDeps[i+1]
 		began := 20*time.Second + time.Duration(i)*90*time.Second
 		if stage == deploy.Live {
 			began = 100 * time.Second
 		}
 		moveClock(a, -began)
-		rel, err := a.Deployment.Releases.Start(ctx, deployment.ReleaseDraft{Source: deployment.ReleaseFromBundle, BundleID: last.BundleID, ProjectID: project.ID, DeploymentID: dep.ID, Deployment: dep.Name, Revision: strings.TrimSpace(string(head)), Actor: "sam"}, "Local deployment progress capture")
+		rel, err := a.Deployment.Releases.Start(ctx, deployment.ReleaseDraft{Source: deployment.ReleaseFromBundle, BundleID: last.BundleID, ProjectID: project.ID, DeploymentID: dep.ID, Deployment: dep.Name, Revision: strings.TrimSpace(string(head)), Actor: "sam"}, map[string]string{"members-preview": "Members' pages with the winter ride times", "staging": "Winter ride times", "archive-migration": "Archive moved to its own part"}[dep.Name])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -4466,10 +4711,7 @@ app:
 			t.Fatal(err)
 		}
 		if stage == deploy.Live {
-			if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active", Health: "healthy", Handle: map[string]any{"container": docker.ByKey(dep.ID).App(), "hostPort": 43220}}}); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := a.Deployment.Deployments.ReserveHostPort(ctx, project.ID, dep.Name, docker.ByKey(dep.ID).App(), 43220); err != nil {
+			if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active", Health: "healthy", Handle: map[string]any{"container": docker.ByKey(dep.ID).App(), "hostPort": 43221 + i}}}); err != nil {
 				t.Fatal(err)
 			}
 			daemon.markStartedWithLimits(docker.ByKey(dep.ID).App(), 0, 0, map[string]string{dockerlabel.Generation: fmt.Sprint(attempt.Generation)})
@@ -4478,6 +4720,31 @@ app:
 			if _, err := a.Deployment.Outcomes.FailUnstartedRelease(ctx, rel.ID, errors.New("The app container exited during startup.")); err != nil {
 				t.Fatal(err)
 			}
+		}
+		if i == 0 {
+			heldRelease = rel.ID
+		}
+	}
+	if err := a.Deployment.ObserveRuntime(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// Every copy has a backup but spring-edition, which never had one.
+	// print-layout was stopped by Sam; ride-calendar-trial's app exited on
+	// the host by itself.
+	for _, dep := range captureDeps[1:] {
+		if dep.Name == "spring-edition" {
+			continue
+		}
+		if _, err := a.DataProtection.TakeBackup(ctx, project.ID, dep.Name, "sam"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	scene.call("sam", "POST", "/api/v1/projects/club-newsletter/deployments/print-layout/stop", nil)
+	for _, dep := range captureDeps {
+		if dep.Name == "ride-calendar-trial" {
+			daemon.mu.Lock()
+			daemon.started[docker.ByKey(dep.ID).App()] = false
+			daemon.mu.Unlock()
 		}
 	}
 	if err := a.Deployment.ObserveRuntime(ctx); err != nil {
@@ -4545,6 +4812,9 @@ app:
 	}
 	if err := a.capacityObserver.Run(ctx, previewHost.ID, previewHost.SettingsRevision); err != nil {
 		t.Logf("preview capacity remains unknown: %v", err)
+	}
+	if err := a.capacityObserver.Run(ctx, gardenShed.ID, gardenShed.SettingsRevision); err != nil {
+		t.Logf("the garden shed's capacity remains unknown: %v", err)
 	}
 	// The local audit also covers installations that cannot run project chats.
 	// Rebuild admission after the tour, whose recorded chats need a local runtime.
@@ -4625,24 +4895,77 @@ spec:
 	// local copies, so both the store summary and its existing-copy caveat render.
 	bucket := s3fake.New(t, "CAMERAKEY")
 	bucket.AddBucket("household-copies")
-	scene.call("sam", "PUT", "/api/v1/secrets/CAMERA_STORE_KEY", map[string]string{"value": "CAMERAKEY"})
-	scene.call("sam", "PUT", "/api/v1/secrets/CAMERA_STORE_SECRET", map[string]string{"value": "local-camera-secret"})
-	scene.call("sam", "PUT", "/api/v1/backup-store", map[string]string{"endpoint": bucket.API.URL, "region": "syd1", "bucket": "household-copies", "accessKeyFrom": "CAMERA_STORE_KEY", "secretKeyFrom": "CAMERA_STORE_SECRET"})
+	bucketURL, err := url.Parse(bucket.API.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	household.store.Store(bucketURL)
+	scene.call("sam", "PUT", "/api/v1/secrets/NAS_BACKUP_ACCESS_KEY", map[string]string{"value": "CAMERAKEY"})
+	scene.call("sam", "PUT", "/api/v1/secrets/NAS_BACKUP_SECRET_KEY", map[string]string{"value": "local-camera-secret"})
+	scene.call("sam", "PUT", "/api/v1/backup-store", map[string]string{"endpoint": "http://" + nasStoreHost, "region": "us-east-1", "bucket": "household-copies", "accessKeyFrom": "NAS_BACKUP_ACCESS_KEY", "secretKeyFrom": "NAS_BACKUP_SECRET_KEY"})
 
+	// The camera's last review is the one its conformance pages show. It
+	// runs the checks that need a tool's image for real, on this machine's
+	// Docker through AppTown's own local check executor, as the landings'
+	// source scans run; the scene's earlier reviews leave them unrun, so
+	// the scanners do not run on every review. A check that asks a model
+	// really asks the scene's model provider, whose address answers no one.
+	localChecks := verification.LocalChecks(a.processRunner, a.cfg.clock.Now)
+	installCheckEffects(t, a, checkOverrides{
+		run: func(req execRequest) execOutcome {
+			if req.Image != stock.Images().Sh {
+				return localChecks(context.Background(), req)
+			}
+			return agentenv.Execute(a.processRunner, context.Background(), execution.Local, req, a.cfg.clock.Now())
+		},
+		complete: func(string, string, string) (string, *modelcall.Usage, error) {
+			resp, err := http.Post("https://provider.invalid/v1/chat/completions", "application/json", strings.NewReader("{}"))
+			if err == nil {
+				resp.Body.Close()
+				err = errors.New(resp.Status)
+			}
+			// Its lookup's words, without the request's long address.
+			var lookup *net.DNSError
+			if errors.As(err, &lookup) {
+				err = lookup
+			}
+			return "", nil, fmt.Errorf("the model provider could not be reached: %w", err)
+		},
+	})
+	scene.review()
+
+	// A project chat Sam had and ended: one question and the helper's
+	// answer, recorded as every chat is (the past-chat pages show it).
+	var projectChat struct {
+		Session struct {
+			ID string `json:"id"`
+		} `json:"session"`
+	}
+	if err := json.Unmarshal(scene.call("sam", "POST", "/api/v1/projects/club-newsletter/console", map[string]any{}), &projectChat); err != nil {
+		t.Fatal(err)
+	}
+	scene.call("sam", "POST", "/api/v1/console/"+projectChat.Session.ID+"/say", map[string]string{"text": "Which pages still show last year's membership fees?"})
+	runtime.Reply(projectChat.Session.ID, "Only the fees page did, and the change \"Publish membership fees\" has already updated it. The front page and the committee page link to it and show no prices themselves.")
+	scene.call("sam", "DELETE", "/api/v1/console/"+projectChat.Session.ID, nil)
+	a.Work.Wait()
+	cameraComplaints(scene)
 	scene.call("sam", "GET", "/api/v1/packs", nil)
 	// Hold one executor attempt for the camera, as the tour's progress scene
 	// does. Completed script checks above it still execute the project's scripts.
 	progressWorkflow := workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "camera-progress", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{
 		{Name: "tests", Uses: "script", With: map[string]any{"run": "sh checks/tests.sh", "env": map[string]any{tourCheckEnv: "checks/tests.sh"}}},
 		{Name: "style", Uses: "script", With: map[string]any{"run": "sh checks/style.sh", "env": map[string]any{tourCheckEnv: "checks/style.sh"}}},
-		{Name: "check-layout", Uses: "script", With: map[string]any{"run": "sh checks/style.sh"}},
+		{Name: "check-layout", Uses: "script", With: map[string]any{"run": "sh checks/style.sh", "env": map[string]any{tourCheckEnv: "checks/style.sh"}}},
 		{Name: "guidance-conformance", Uses: "guidance/conformance"},
 	}}}}}
 	defineWorkflows(t, a, tourWorkflow, reviewWorkflow, evalWorkflow, progressWorkflow)
+	// The first run of the workflow finishes, so its steps have times on
+	// the timing page; the second is held at check-layout.
+	var layoutRuns atomic.Int32
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
 		original := deps.Runners["script"]
 		deps.Runners["script"] = func(e *workflow.Execution) {
-			if e.Step().Name != "check-layout" {
+			if e.Step().Name != "check-layout" || layoutRuns.Add(1) == 1 {
 				original(e)
 				return
 			}
@@ -4651,15 +4974,63 @@ spec:
 			}
 		}
 	})
+	springNotice := scene.open("sam", "club-newsletter", "Check the spring notice", "Check the spring notice against the club’s standards.")
+	scene.call("sam", "POST", "/api/v1/changes/"+springNotice.ID.String()+"/runs", map[string]string{"workflow": "camera-progress"})
+	a.Work.Wait()
+	scene.later(25 * time.Minute)
 	progressChange := scene.open("sam", "club-newsletter", "Check the club notice", "Check the notice against the club’s standards.")
 	scene.call("sam", "POST", "/api/v1/changes/"+progressChange.ID.String()+"/runs", map[string]string{"workflow": "camera-progress"})
 	a.Work.Wait()
+	// Evals start their lanes on the workflow owner they were built with;
+	// the scene rebuilt that owner above, so evals are built again on it,
+	// through their normal dependencies.
+	a.Evals = evals.New(a.DB, evalsDependencies(a))
+	rebuildRoutes(a)
 	api := a.Handler()
 	proxy := httputil.NewSingleHostReverseProxy(frontend)
+	// The page server (Vite in development) answers only its own host name,
+	// not the scene's public name the browser used.
+	direct := proxy.Director
+	proxy.Director = func(r *http.Request) { direct(r); r.Host = frontend.Host }
 	var prepareCamera sync.Once
 	var prepareCameraErr error
 	var startCameraReview sync.Once
 	var cameraReviewErr error
+	// seededWork is the browser's request to run the work it seeded; the
+	// test goroutine runs it (runSeededWork) while it waits for the shots.
+	// Nothing runs AppTown's job queue in the scene, so each job is run on
+	// a consumer of its own, by its real handler: the what-if, the restore
+	// and the eval's pass. (No job is held running, and none is made to
+	// fail: the scene has no honest way to do either.)
+	seededWork := make(chan chan struct{})
+	runSeededWork := func() {
+		t.Helper()
+		// The camera's job history is longer than operationJobs reads.
+		queued, err := jobs.List(ctx, a.DB, 5000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		latest := func(kind string) int64 {
+			var id int64
+			for _, j := range queued {
+				if j.Kind != kind {
+					continue
+				}
+				if (j.State == "available" || j.State == "retryable" || j.State == "scheduled") && j.ID > id {
+					id = j.ID
+				}
+			}
+			return id
+		}
+		for _, kind := range []string{verification.WhatIfJob, operations.Job, evals.PassJob} {
+			id := latest(kind)
+			if id == 0 {
+				t.Fatalf("the camera's seeded work has no queued %s job", kind)
+			}
+			done := runJobForTest(t, a, id)
+			t.Logf("camera ran %s job %d: %s %v", kind, id, done.State, done.Errors)
+		}
+	}
 	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Finish the fixture's queued checks through their real worker path,
 		// so idle tabs can show their Check/Fix actions before the running stop.
@@ -4701,7 +5072,35 @@ spec:
 				return
 			}
 		}
+		// After the browser seeded its work (a what-if, a restore, an eval),
+		// the test goroutine runs it through the jobs' own handlers.
+		if r.URL.Path == "/" && r.URL.Query().Get("cameraSeeded") == "1" {
+			done := make(chan struct{})
+			seededWork <- done
+			<-done
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		// The camera moves members-preview's held release to the stage its
+		// next pages show, before it photographs them (see heldRelease).
+		if stage := r.URL.Query().Get("cameraStage"); r.URL.Path == "/" && stage != "" {
+			if !slices.Contains([]string{deploy.Preparing.String(), deploy.BackingUp.String(), deploy.Building.String(), deploy.Starting.String(), deploy.Checking.String()}, stage) {
+				http.Error(w, "no such stage", http.StatusBadRequest)
+				return
+			}
+			// sql-guarantee: hold the release at a provider milestone; no owner operation pauses jobs.
+			if _, err := a.DB.SQL().ExecContext(r.Context(), `UPDATE releases SET stage=$1, stage_entered_at=$2 WHERE id=$3`, stage, a.cfg.clock.Now().Add(-15*time.Second), heldRelease); err != nil {
+				t.Errorf("camera stage %s: %v", stage, err)
+				http.Error(w, "camera stage failed", http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
+			// This handler stands where a real install's reverse proxy
+			// stands, on the same machine, and says who it forwards for.
+			r.Header.Set("X-Real-IP", cameraClientAddress)
 			api.ServeHTTP(w, r)
 			return
 		}
@@ -4827,8 +5226,8 @@ spec:
 	go func() {
 		shot <- (execution.Runner{}).Run(ctx, execution.Local, execution.Request{
 			Argv: []string{"node", "testdata/web-ui.mjs"},
-			Env: []string{"APPTOWN_PLAYWRIGHT_MODULE=" + module, "DESIGN_URL=https://" + a.cfg.publicHost,
-				"DESIGN_AUDIT=" + os.Getenv("APPTOWN_DESIGN_AUDIT"), "DESIGN_PAGES=" + os.Getenv("APPTOWN_DESIGN_PAGES"), "DESIGN_BASELINE=" + os.Getenv("APPTOWN_DESIGN_BASELINE"), "DESIGN_PASSWORD=" + password, "DESIGN_PROGRESS=" + progressChange.ID.String(), "DESIGN_CHANGE=" + approvalChange, "DESIGN_OUT=" + out,
+			Env: []string{"APPTOWN_PLAYWRIGHT_MODULE=" + module, "DESIGN_URL=https://" + a.cfg.publicHost, "DESIGN_RESOLVE=" + a.cfg.publicHost + " 127.0.0.1:" + port,
+				"DESIGN_AUDIT=" + os.Getenv("APPTOWN_DESIGN_AUDIT"), "DESIGN_PAGES=" + os.Getenv("APPTOWN_DESIGN_PAGES"), "DESIGN_BASELINE=" + os.Getenv("APPTOWN_DESIGN_BASELINE"), "DESIGN_PASSWORD=" + password, "DESIGN_PROGRESS=" + progressChange.ID.String(), "DESIGN_PROJECT_CHAT=" + projectChat.Session.ID, "DESIGN_CHANGE=" + approvalChange, "DESIGN_OUT=" + out,
 				"TMPDIR=" + t.TempDir(), "PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")},
 			Timeout: 45 * time.Minute,
 		})
@@ -4840,6 +5239,15 @@ spec:
 			shooting = false
 		case <-ticker.C:
 			refresh()
+		case done := <-seededWork:
+			// done is closed even when the work fails the test, so the
+			// browser's request returns and the run ends.
+			// The readings are taken again after it, as the next lap would.
+			func() {
+				defer close(done)
+				runSeededWork()
+				refresh()
+			}()
 		}
 	}
 	t.Log(string(run.Output))
@@ -4881,10 +5289,148 @@ func (f *fakeDocker) markStartedWithLimits(name string, memory, nanoCPUs int64, 
 	}
 }
 
+// cameraComplaints files the household's complaints of the past fortnight,
+// each by the person who had the trouble, at the time they had it. Sam
+// answers most a few hours later and archives some of those; the newest
+// are still open. The clock ends where it started.
+func cameraComplaints(scene *tourScene) {
+	scene.t.Helper()
+	type said struct{ who, text, why, wish, answer string }
+	complaints := []said{
+		{"tom", "Could not open the household calendar", "The link in Monday's email went to a page that said not found.", "Show a way back to the calendar.", "The calendar link has been repaired."},
+		{"priya", "The newsletter page is blank on my phone", "I tapped the link in the email and saw a white page with nothing on it, twice.", "Open the page or say what went wrong.", "The phone page loads again; it was a slow image."},
+		{"tom", "Approval button missing", "I was asked to approve the committee page but could not find where.", "Put the button where the message points.", "The approval is on the change page; the message now links there."},
+		{"priya", "Backups say unknown", "The backups section says unknown and I do not know if the members list is safe.", "Tell me whether there is a copy.", "The check had not run yet; it now shows the last copy."},
+		{"sam", "Wrong time on the ride calendar", "Saturday rides show 8 am but they leave at 9.", "Fix the time.", "Fixed in the latest release."},
+		{"tom", "Too many emails", "I get a message for every small change, even ones I am not part of.", "Let me choose fewer messages.", "You can now choose a daily summary in your account."},
+		{"priya", "Login keeps asking for my password", "Every morning it asks again even though I ticked remember me on this computer.", "Remember me for longer.", "Sign-ins now last two weeks on a remembered computer."},
+		{"tom", "Photos upload sideways", "Ride photos taken on my phone show on their side on the spring ride page.", "Turn them the right way up.", "Photos are now turned using the camera's own setting."},
+		{"sam", "Membership fees page shows last year's prices", "The fees page still says $45; the committee agreed $50 in October.", "Show this year's fees.", "Updated with the new fees and the date they start."},
+		{"priya", "Map on the meeting point page does not load", "The map area stays grey on the library computer.", "Show the address even when the map cannot load.", ""},
+		{"tom", "Cannot find last month's newsletter", "The archive only lists the current issue, so I cannot send the October one to a new member.", "List the older issues.", "Older issues are listed on the archive page again."},
+		{"priya", "Text is too small on the ride calendar", "I have to zoom in to read the route names on my tablet, and then the table runs off the side.", "Make the text bigger.", ""},
+		{"sam", "The committee page lists someone who left", "Alex stepped down in September but is still listed as treasurer.", "Remove Alex and show who took over.", "Alex has been removed and the new treasurer added."},
+		{"tom", "Preview link asks me to sign in again", "I opened the preview Priya sent and had to sign in, then it lost the page I was on.", "Take me back to the preview after signing in.", ""},
+		{"priya", "Event times shown in the wrong time zone", "The winter ride times show an hour later than the poster at the club rooms.", "Show our local time.", "Times are now shown in the club's own time zone."},
+		{"tom", "Release waiting for days", "My change to the meeting point page has said waiting for approval since Tuesday.", "Tell me who needs to approve it.", ""},
+		{"sam", "Email from the site goes to spam", "Two members said the reminder about the annual meeting arrived in their spam folder.", "Make the reminders arrive normally.", "The site's email now says who it is from properly; reminders arrive in the inbox."},
+		{"priya", "Search does not find ride names", "Searching for Bayside Loop finds nothing although it is on the calendar.", "Find rides by their name.", ""},
+		{"tom", "Printing the ride calendar cuts off the last column", "When I print the December calendar the distance column is missing.", "Fit the calendar on the page when printed.", ""},
+	}
+	total := time.Duration(0)
+	move := func(d time.Duration) { scene.later(d); total += d }
+	move(-14 * 24 * time.Hour)
+	for i, c := range complaints {
+		move(time.Duration(9+i%4*3) * time.Hour)
+		var filed struct {
+			ID ids.ID `json:"id"`
+		}
+		if err := json.Unmarshal(scene.call(c.who, "POST", "/api/v1/complaints", map[string]string{"text": c.text, "why": c.why, "wish": c.wish}), &filed); err != nil {
+			scene.t.Fatal(err)
+		}
+		if c.answer == "" {
+			continue
+		}
+		move(time.Duration(2+i%3) * time.Hour)
+		scene.call("sam", "POST", "/api/v1/complaints/"+filed.ID.String()+"/answer", map[string]string{"answer": c.answer})
+		if i < 5 {
+			scene.call("sam", "POST", "/api/v1/complaints/"+filed.ID.String()+"/archive", nil)
+		}
+	}
+	scene.later(-total)
+}
+
+// cameraCheckTime is how long a camera script check takes on the
+// household's machine: the project's tests longest, its style check
+// shorter, anything else a few seconds.
+func cameraCheckTime(spec execution.TaskSpec) time.Duration {
+	for _, kv := range spec.Env {
+		switch kv {
+		case tourCheckEnv + "=checks/tests.sh":
+			return 41 * time.Second
+		case tourCheckEnv + "=checks/style.sh":
+			return 8 * time.Second
+		}
+	}
+	return 3 * time.Second
+}
+
+// cameraApplied is how Club Newsletter's main deployment ran its earlier
+// releases: its site, held to a memory limit, and its database.
+var cameraApplied = deployment.AppliedProfile{Profile: "default", How: "default",
+	Parts:    map[string]deployment.AppliedPart{"web": {Public: true, Resources: appcontract.Resources{MemoryBytes: 512 << 20}}},
+	Services: map[string]deployment.AppliedPart{"postgres": {Need: true, Resources: appcontract.Resources{MemoryBytes: 256 << 20}}}}
+
+// cameraPreviewContainer is the December change's preview container, named
+// as AppTown names its previews' containers.
+const cameraPreviewContainer = string(docker.Current) + "preview-december-ride-calendar"
+
+// cameraClubDomain is the cycling club's own domain, under which the
+// camera's AppTown and apps are named.
+const cameraClubDomain = "hilltopcycling.club"
+
+// cameraPublicHost is the camera's AppTown address (see TestWebUICapture).
+const cameraPublicHost = "apptown." + cameraClubDomain
+
+// cameraPackageJSON and cameraPackageLock are Club Newsletter's npm
+// manifest and the lock file npm wrote for it.
+const cameraPackageJSON = `{
+  "name": "club-newsletter",
+  "private": true,
+  "description": "Hilltop Cycling Club newsletter: the ride pages format dates with dayjs.",
+  "dependencies": {
+    "dayjs": "1.11.13"
+  }
+}
+`
+
+const cameraPackageLock = `{
+  "name": "club-newsletter",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "club-newsletter",
+      "dependencies": {
+        "dayjs": "1.11.13"
+      }
+    },
+    "node_modules/dayjs": {
+      "version": "1.11.13",
+      "resolved": "https://registry.npmjs.org/dayjs/-/dayjs-1.11.13.tgz",
+      "integrity": "sha512-oaMBel6gjolK862uaPQOVTA7q3TZhuSvuMQAAglQDOWYO9A91IrAOUJEyKVlqJlHE0vq5p5UXxzdPfMH/x6xNg==",
+      "license": "MIT"
+    }
+  }
+}
+`
+
+// gardenShedAddress is the garden shed's machine on the household's
+// network (the garden-shed target).
+const gardenShedAddress = "192.168.1.41"
+
+// cameraClientAddress is the address the camera's browser connects from,
+// a computer on the household's network, as the reverse proxy in front of
+// the scene reports it.
+const cameraClientAddress = "192.168.1.23"
+
+// nasStoreHost is the household NAS's S3 service, where the camera's
+// backup copies are kept (reached through the test's forward proxy).
+const nasStoreHost = "nas.home.arpa:9000"
+
 // cameraDeployments are Club Newsletter's other deployments on the camera's
 // host, in the order of the deploy stages they are held at (web-ui.mjs
 // photographs them under the same names).
 var cameraDeployments = []string{"members-preview", "winter-timetable", "committee-review", "spring-edition", "ride-calendar-trial", "staging", "archive-migration", "print-layout"}
+
+// cameraDeploymentNotes are the notes of each camera deployment's first
+// release.
+var cameraDeploymentNotes = map[string]string{
+	"members-preview": "A copy for members to try the new pages", "winter-timetable": "Winter timetable draft",
+	"committee-review": "Copy for the committee to review", "spring-edition": "Spring edition layout",
+	"ride-calendar-trial": "Trying the new ride calendar", "staging": "Staging copy of the newsletter",
+	"archive-migration": "Moving the old archive across", "print-layout": "Layout for the printed edition",
+}
 
 // cameraOtherContainers are the household's own services on the camera's
 // host, which AppTown did not start.
