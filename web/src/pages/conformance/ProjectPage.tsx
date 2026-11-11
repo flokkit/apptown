@@ -3,6 +3,7 @@ import './list-migrations.css'
 import { QuietPrompt } from '../../QuietConfirm'
 import './ProjectPage.css'
 import { Fragment } from 'react'
+import { proseBreaks } from '../../Tech'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { post } from '../../api'
 import { useAction, useGet } from '../../data'
@@ -32,7 +33,7 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix, 
           <strong>{def?.title || v.check}</strong>
         </div>
         <span className="muted small">{v.state === 'stale' ? 'No judgement on the current commit' : lane === 'unassessed' || undecidedAI
-          ? (v.detail ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : 'Not run yet')
+          ? (v.detail ? proseBreaks(v.detail.charAt(0).toUpperCase() + v.detail.slice(1)) : 'Not run yet')
           : [`from ${v.block}`, lane === 'flagged' && prior ? `confirmed before at ${shortSha(prior.sha)} by ${prior.by}` : ''].filter(Boolean).join(' · ')}</span>
       </>}
         state={covered && <BeingFixed change={covered} />}
@@ -109,7 +110,7 @@ function LaneSection({ lane, title, hint, groups, view, exceptions, readOnly, on
     return <Section title={title} count={list.length} note={hint}>
       <ListTable label={title} rows={list} rowKey={v => String(v.id || key(v))} rowTo={v => `${base}/checks/${encodeURIComponent(key(v))}`} columns={[
         { key: 'check', label: 'Check', phone: 'name', render: v => <Link to={`${base}/checks/${encodeURIComponent(key(v))}`}>{view.checkDefs[key(v)]?.title || v.check}</Link> },
-        { key: 'why', label: 'Result', render: v => <span className="muted">{v.state === 'stale' ? 'No judgement on the current commit' : v.detail ? (laneOf(v) === 'unassessed' ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : v.detail) : `from ${v.block}`}</span> },
+        { key: 'why', label: 'Result', render: v => <span className="muted">{v.state === 'stale' ? 'No judgement on the current commit' : v.detail ? proseBreaks(laneOf(v) === 'unassessed' ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) : v.detail) : `from ${v.block}`}</span> },
         { key: 'judged', label: 'Judged', render: v => <JudgedAt v={v} reviews={view.reviews ?? []} olderNote={false} /> },
         { key: 'status', label: 'Status', phone: 'state', render: v => <StateChip label={v.statusLabel} /> },
       ]} />

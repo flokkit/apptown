@@ -46,7 +46,11 @@ function Seg({ s, width, share, format }: { s: Segment; width: string; share: nu
   if (s.project && s.deployment) {
     return <Link className={cls} style={style} title={title} aria-label={title} to={`/projects/${s.project}/deployments/${s.deployment}`} />
   }
-  const words = labelled.has(s.kind) && share >= 0.18 ? `${format(s.value)} ${s.name}` : null
+  // Words go inside only when they fit the segment at a phone's width
+  // (about 40 characters across the whole bar); otherwise the segment
+  // keeps them as its title, not cut to "0.75 CP…".
+  const said = `${format(s.value)} ${s.name}`
+  const words = labelled.has(s.kind) && share >= 0.18 && said.length <= share * 40 ? said : null
   return <span className={cls} style={style} title={title} aria-label={title} tabIndex={0}>{words && <span className="cap-in">{words}</span>}</span>
 }
 

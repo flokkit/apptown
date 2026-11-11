@@ -14,3 +14,11 @@ export function techBreaks(value: string): ReactNode {
 export function Tech({ children }: { children: string }) {
   return <>{techBreaks(children)}</>
 }
+
+// An address inside a sentence (a check's result: "front door
+// https://club.example/ → 200") breaks as a technical value does, at its
+// separators; the words around it wrap as words.
+export function proseBreaks(text: string): ReactNode {
+  const parts = text.split(/(https?:\/\/\S+)/)
+  return parts.length < 2 ? text : parts.map((part, i) => <Fragment key={i}>{i % 2 ? techBreaks(part) : part}</Fragment>)
+}

@@ -230,6 +230,14 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 			f.limits[args[len(args)-1]] = runLimits(args, f.limits[args[len(args)-1]])
 		case "rm":
 			delete(f.started, args[len(args)-1])
+		case "stop", "start":
+			// A container stopped or started by name or ID stays so, as
+			// docker reports it afterwards.
+			if len(args) == 2 {
+				if name := f.containerNamedLocked(args[1]); name != "" {
+					f.started[name] = args[0] == "start"
+				}
+			}
 		case "network", "volume":
 			if len(args) > 2 && args[1] == "create" {
 				name := args[len(args)-1]
@@ -337,9 +345,12 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 		}
 		return []byte(fmt.Sprintf("0.0.0.0:%d\n", f.port)), nil
 	case "inspect":
-		name := args[len(args)-1]
-		if !f.isStarted(name) {
-			return []byte("Error: No such object: " + name + "\n"), errFakeExit
+		// A container is inspected by name or ID; a stopped one still exists.
+		f.mu.Lock()
+		name := f.containerNamedLocked(args[len(args)-1])
+		f.mu.Unlock()
+		if name == "" {
+			return []byte("Error: No such object: " + args[len(args)-1] + "\n"), errFakeExit
 		}
 		tmpl := ""
 		for i, a := range args {
@@ -377,7 +388,8 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 			if cfg, ok := f.storageContainers[name]["Config"].(map[string]string); ok {
 				image = cfg["Image"]
 			}
-			out, err := json.Marshal(docker.Runtime{ID: id, Image: "sha256:built", ImageName: image, Running: true, Labels: f.labels[name], MemoryLimit: memory, NanoCPUs: nano})
+			running, known := f.started[name]
+			out, err := json.Marshal(docker.Runtime{ID: id, Image: "sha256:built", ImageName: image, Running: !known || running, Labels: f.labels[name], MemoryLimit: memory, NanoCPUs: nano})
 			f.mu.Unlock()
 			return out, err
 		case strings.Contains(tmpl, ".Config.Entrypoint") || strings.Contains(tmpl, ".Config.Cmd"):
@@ -410,7 +422,7 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 			f.mu.Unlock()
 			return []byte(v + "\n"), nil
 		case strings.Contains(tmpl, "Running"):
-			return []byte("true\n"), nil
+			return []byte(fmt.Sprintln(f.isStarted(name))), nil
 		case strings.Contains(tmpl, ".Config.Healthcheck"):
 			// A standing service's health check runs on the timing AppTown
 			// sets (docker.healthArgs: 30 s, starting every 3 s), so it is reused.
@@ -573,3 +585,17 @@ func runLimits(args []string, was string) string {
 
 // diskDaemon composes the disk and result protocols for this package's tests.
 type diskDaemon = diskspacetest.Daemon
+
+// containerNamedLocked is the started container ref names, by its name or
+// its ID; "" when there is none. f.mu is held.
+func (f *fakeDocker) containerNamedLocked(ref string) string {
+	if _, ok := f.started[ref]; ok {
+		return ref
+	}
+	for name := range f.started {
+		if f.ids[name] == ref || dockerfake.ContainerID(name) == ref {
+			return name
+		}
+	}
+	return ""
+}

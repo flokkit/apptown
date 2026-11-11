@@ -243,7 +243,7 @@ spec:
 `
 
 // Journeys normally land through stock land. LawMidFlight starts a
-// non-system landing workflow explicitly, like tour-land: it needs a landing
+// non-system landing workflow explicitly, like the tour's publish workflow: it needs a landing
 // with no scan before deploy so the amended law has something to catch.
 const unscannedLand = `
 apiVersion: apptown.dev/v1
@@ -702,7 +702,7 @@ func TestJourneyLawMidFlight(t *testing.T) {
 	h.newProject(slug, journeyQuickChange, unscannedLand)
 
 	// People cannot start AppTown's system landing directly. A non-system
-	// landing, like tour-land, exercises the same current-law boundary.
+	// landing, like the tour's publish workflow, exercises the same current-law boundary.
 	if code := h.jCall("POST", "/projects/"+slug+"/changes",
 		map[string]string{"title": "system landing", "workflow": "land"}, nil); code != 422 {
 		t.Fatalf("explicit system landing must be refused, got %d", code)
