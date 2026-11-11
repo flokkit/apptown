@@ -250,9 +250,15 @@ func (f *Agent) MarkStale(id string) {
 // Reply is the agent answering: an assistant entry with text and no tool
 // calls, and the record left quiet long enough to count as handed back.
 func (f *Agent) Reply(id, text string) {
+	f.ReplyWith(id, text, "fake", map[string]any{"input": 10, "output": 5, "totalTokens": 15})
+}
+
+// ReplyWith is Reply recorded as provider with the usage given, as a
+// recording carries it (token counts, and its cost when priced).
+func (f *Agent) ReplyWith(id, text, provider string, usage map[string]any) {
 	l := f.Started(id)
-	_ = appendEntry(l.Dir, l.AgentSession, map[string]any{"role": "assistant", "provider": "fake", "model": l.Model,
-		"content": []map[string]any{{"type": "text", "text": text}}, "usage": map[string]any{"input": 10, "output": 5, "totalTokens": 15}}, time.Now())
+	_ = appendEntry(l.Dir, l.AgentSession, map[string]any{"role": "assistant", "provider": provider, "model": l.Model,
+		"content": []map[string]any{{"type": "text", "text": text}}, "usage": usage}, time.Now())
 	settle(l.Dir)
 }
 

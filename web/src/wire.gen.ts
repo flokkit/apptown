@@ -5099,6 +5099,7 @@ export type PartMemory = {
   cpuLimit: number
   image?: string
   known: boolean
+  stopped?: boolean
   reason?: string
 }
 
@@ -5400,6 +5401,7 @@ export type TargetDeployment = {
   project: string
   name: string
   url: string
+  hostOnly?: boolean
   generation: number
   readiness: string
   audience: string

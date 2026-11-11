@@ -206,13 +206,13 @@ func AppliesToPublic(words []string, src Source) (string, error) {
 		return "", nil
 	}
 	if !matches(*pub, words) {
-		return "the public part " + pub.Name + " is not " + describeWords(words) + " (" + partList([]Part{*pub}) + ")", nil
+		return "the public part " + pub.Name + " is not " + describeWords(words) + ": it is " + partWords(*pub), nil
 	}
 	return "", nil
 }
 
 func notMatched(words []string, parts []Part) string {
-	return "no part is " + describeWords(words) + " (the contract's parts: " + partList(parts) + ")"
+	return "no part is " + describeWords(words) + ": " + partList(parts)
 }
 
 func describeWords(words []string) string {
@@ -247,23 +247,29 @@ func orList(xs []string) string {
 	return strings.Join(xs[:len(xs)-1], ", ") + " or " + xs[len(xs)-1]
 }
 
+// partList says what each part is, as a reader would: "archive is a
+// container, site is a static site built with node".
 func partList(parts []Part) string {
 	var out []string
 	for _, p := range parts {
-		var what []string
-		if slices.Contains(p.Kinds, KindStatic) {
-			what = append(what, "a static site")
-		} else if slices.Contains(p.Kinds, KindContainer) {
-			what = append(what, "a container")
-		}
-		if len(p.Tools) > 0 {
-			what = append(what, "built with "+strings.Join(p.Tools, " and "))
-		} else {
-			what = append(what, "naming no tools")
-		}
-		out = append(out, p.Name+", "+strings.Join(what, ", "))
+		out = append(out, p.Name+" is "+partWords(p))
 	}
-	return strings.Join(out, "; ")
+	return strings.Join(out, ", ")
+}
+
+// partWords is what one part is, and what it is built with when it names
+// tools.
+func partWords(p Part) string {
+	what := "a part"
+	if slices.Contains(p.Kinds, KindStatic) {
+		what = "a static site"
+	} else if slices.Contains(p.Kinds, KindContainer) {
+		what = "a container"
+	}
+	if len(p.Tools) > 0 {
+		what += " built with " + strings.Join(p.Tools, " and ")
+	}
+	return what
 }
 
 // placeEnv is the environment a check run in a place gets: the folder, the

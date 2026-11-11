@@ -1,5 +1,5 @@
 import { Tech } from '../../Tech'
-import { statusProps, failedStatusRefresh } from '../../runtime'
+import { AppAddress, statusProps, failedStatusRefresh } from '../../runtime'
 import { usePageName } from '../../chrome'
 
 import './TargetPage.css'
@@ -156,7 +156,7 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
         {!!t.deployments.length && <ListTable className="target-deployments-table" label="What runs here" rows={t.deployments} rowKey={e => `${e.project}/${e.name}`} columns={[
           { key: 'name', label: 'Deployment', phone: 'name', render: e => <Link to={`/projects/${e.project}/deployments/${e.name}`}>{e.project}/{e.displayLabel || e.name}</Link> },
           { key: 'state', label: 'State', phone: 'state', render: e => <Status observation {...statusProps(pageQ.refreshFailed ? failedStatusRefresh(e.status, pageQ.reason) : e.status)} /> },
-          { key: 'address', label: 'Address', kind: 'technical', render: e => e.url ? <Tech>{e.url.replace(/^https?:\/\//, '')}</Tech> : 'unknown' },
+          { key: 'address', label: 'Address', kind: 'technical', render: e => !e.url ? 'unknown' : e.hostOnly ? <AppAddress url={e.url} hostOnly /> : <Tech>{e.url.replace(/^https?:\/\//, '')}</Tech> },
           { key: 'resources', label: 'Resources', kind: 'number', render: e => {
             // Recorded resources remain counted when the host cannot be reached.
             if (!here) return 'unknown'

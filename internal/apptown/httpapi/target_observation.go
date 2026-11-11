@@ -167,7 +167,8 @@ func (h Targets) targetViews(ctx context.Context) ([]TargetView, error) {
 			if err != nil {
 				return nil, err
 			}
-			v.Deployments = append(v.Deployments, TargetDeployment{Status: answer, Project: e.Project, Name: e.Name, DisplayLabel: e.DisplayLabel, URL: h.deployment.URL(ctx, e.Project, &e.Deployment), Generation: e.ObservedGeneration,
+			url, hostOnly := h.deployment.Reach(ctx, e.Project, &e.Deployment)
+			v.Deployments = append(v.Deployments, TargetDeployment{Status: answer, Project: e.Project, Name: e.Name, DisplayLabel: e.DisplayLabel, URL: url, HostOnly: hostOnly, Generation: e.ObservedGeneration,
 				Readiness: e.Readiness.String(), StatusLabel: e.Readiness.Display(), Audience: e.Audience, Data: e.DataClass})
 		}
 		if v.Retained, err = h.deployment.Retained.CountOpen(ctx, t.ID); err != nil {
@@ -229,10 +230,13 @@ type TargetDeployment struct {
 	Project      string                      `json:"project"`
 	Name         string                      `json:"name"`
 	URL          string                      `json:"url"`
-	Generation   int64                       `json:"generation"`
-	Readiness    string                      `json:"readiness"`
-	Audience     string                      `json:"audience"`
-	Data         string                      `json:"data"`
+	// HostOnly: the address answers on the AppTown host only (a port its
+	// own Docker publishes on loopback), as the deployment's page says.
+	HostOnly   bool   `json:"hostOnly,omitempty"`
+	Generation int64  `json:"generation"`
+	Readiness  string `json:"readiness"`
+	Audience   string `json:"audience"`
+	Data       string `json:"data"`
 }
 
 type TargetView struct {

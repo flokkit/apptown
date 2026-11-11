@@ -649,15 +649,19 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 		result.Items = append(result.Items, RestoredItem{Kind: p.Kind, Name: p.Name, Outcome: restoreSkipped, Detail: "the set holds no good copy of this item; it is left as it is"})
 	}
 	rec.record(ctx, "items", result.Items)
-	if result.Stopped && !keepStopped {
+	// The step that starts the app again settles itself, naming once what
+	// is not running (a part that would not start, or one that is not
+	// there), so the operation's end never copies its summary into it.
+	restarting := result.Stopped && !keepStopped
+	if restarting {
 		rec.begin(ctx, "starting the app again")
 		result.NotStarted = parts.restartEach(ctx, recordStart)
-		if len(result.NotStarted) > 0 {
-			rec.fail(ctx, strings.Join(result.NotStarted, "; "))
-		}
 	}
 	if !keepStopped {
 		result.NotStarted = append(result.NotStarted, absent...)
+	}
+	if restarting {
+		rec.restarted(ctx, result.NotStarted)
 	}
 	started := !keepStopped && result.Stopped && len(result.NotStarted) == 0
 	result.Started = &started

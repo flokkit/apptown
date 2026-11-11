@@ -18,6 +18,33 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
+// The target page's "What runs here" says a deployment's address as the
+// deployment's own page does: a port the built-in host publishes on its
+// loopback answers there only, so the row carries hostOnly with the URL.
+// Kills: the target reader dropping the owner's host-only answer.
+func TestTargetPageSaysAHostOnlyAddressIsHostOnly(t *testing.T) {
+	t.Parallel()
+	w := newTargetHTTPWorld(t)
+	w.routes = deployment.Routing{PublicHost: "apptown.example.org", Scheme: "https"}
+	w.setDockerClient(w.docker)
+	builtin := w.seedBuiltin(t)
+	pid := w.createProject(t, "tp")
+	if _, err := w.deployment.Deployments.EnsureStanding(t.Context(), pid, "print-layout", builtin.ID, (deployment.Attributes{}).WithDefaults()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.deployment.Deployments.ReserveHostPort(t.Context(), pid, "print-layout", "target-reader-app", 43228); err != nil {
+		t.Fatal(err)
+	}
+	code, out := targetCall(t, w.targets.TargetPage, "GET", "/api/v1/targets/"+targetTestBuiltin, "", map[string]string{"name": targetTestBuiltin})
+	if code != 200 {
+		t.Fatalf("target read: %d %v", code, out)
+	}
+	placements := out["target"].(map[string]any)["deployments"].([]any)
+	if len(placements) != 1 || placements[0].(map[string]any)["url"] != "http://apptown.example.org:43228" || placements[0].(map[string]any)["hostOnly"] != true {
+		t.Fatalf("a host-only address is not said to be host-only: %v", placements)
+	}
+}
+
 func TestTargetCheckAndRetire(t *testing.T) {
 	t.Parallel()
 	w := newTargetHTTPWorld(t)

@@ -105,4 +105,19 @@ describe('an operation page', () => {
     expect(el.textContent).not.toContain('project:')
     done()
   })
+  // f507: a restore's summary carries no ids; the restored set's id is
+  // for diagnosis, behind the technical switch, and a step that took under
+  // half a second does not read "0s".
+  const restore = { ...withProject, kind: 'deployment.restore', state: 'failed', cancellable: false, finishedAt: now, result: { restore: { backup: SET, from: 'prod' } },
+    detail: 'Set from prod restored, not verified: data copied.', steps: [{ name: 'restoring data', started: '2026-11-11T09:06:00.000Z', ended: '2026-11-11T09:06:00.200Z' }] }
+  it('keeps the restored set behind the technical switch and says under a second', async () => {
+    const plain = await show(restore, false)
+    expect(plain.el.textContent).not.toContain(SET)
+    expect(plain.el.textContent).toContain('under 1s')
+    expect(plain.el.textContent).not.toContain('0s')
+    plain.done()
+    const technical = await show(restore, true)
+    await vi.waitFor(() => expect(technical.el.textContent).toContain(`set ${SET}`))
+    technical.done()
+  })
 })

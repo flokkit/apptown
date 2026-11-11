@@ -8,7 +8,7 @@ import { InlineHelp } from '../../InlineHelp'
 import { Link, useNavigate } from 'react-router-dom'
 import { QuietConfirm } from '../../QuietConfirm'
 import { DecisionContextOnly } from '../../DecisionChoices'
-import { post, type AdvanceResult, type ChangeView, type Step } from '../../api'
+import { isStep, post, type AdvanceResult, type ChangeView, type Step } from '../../api'
 import { Screenshots } from '../../Screenshots'
 import { TryIt } from '../../TryIt'
 import { DecisionForm, landingMeansFor } from '../../DecisionForm'
@@ -68,6 +68,11 @@ export function CheckSummary({ steps, checks: verdict, contractNeedsAttention = 
   </div>
 }
 
+// previewReleased: a shipped change whose release went out is tried there
+// (the Release row's link), so its preview is not offered as a second way
+// to try the same work.
+export const previewReleased = (view: ChangeView) => view.change.state === 'shipped' && (view.evidence?.landingReleases ?? []).some(r => r.state === 'released')
+
 export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extraErr, current, shown = true }: {
   view: ChangeView; onChange: () => void; workTab: (step?: string | null, run?: string | null) => string
   steps: Step[]; extraErr?: string; current: boolean; shown?: boolean
@@ -113,12 +118,16 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
   // row's link), so its Preview row keeps what was recorded and offers no
   // second way to try the same work. Without a release that went out, the
   // landed commit's preview is still the way to try it.
-  const released = ch.state === 'shipped' && (view.evidence?.landingReleases ?? []).some(r => r.state === 'released')
+  const released = previewReleased(view)
+  // A preview someone started (Try it) is live without a run recording it;
+  // only a recorded preview step has screenshots to miss. Absence is said
+  // of the runs shown here, not of the change's whole history.
+  const previewRecorded = steps.some(isStep('preview'))
   const previewLine = <>
     <div className="ch-overview-line"><div className="ch-row-label">Preview</div><div className="ch-value ch-preview">
       {!!boot?.evidence.screenshots?.shots?.length && <Screenshots hero shots={boot?.evidence.screenshots} head={view.head} at={boot?.finishedAt} />}
       {!released && <TryIt changeId={ch.id!} label="Open it and try it" />}
-      {!boot?.evidence.screenshots?.shots?.length && <p className="small muted">{boot?.evidence.screenshots?.unavailable || 'No screenshots were recorded for this preview.'}</p>}
+      {!boot?.evidence.screenshots?.shots?.length && <p className="small muted">{boot?.evidence.screenshots?.unavailable || (previewRecorded ? 'No screenshots were recorded for this preview.' : 'The latest run recorded no preview.')}</p>}
     </div>{boot ? trailer(record('preview', boot.runId), `${boot.evidence.screenshots?.commit ? `built from ${boot.evidence.screenshots.commit.slice(0, 7)} · ` : ''}logs →`) : <span />}</div>
   </>
   return <div className="ch-overview">

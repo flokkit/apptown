@@ -424,14 +424,42 @@ it('retains binary records and their provenance on the record page', async () =>
 })
 
 
-it.each(['preview', 'review', 'checks'])('names an empty %s record without inventing evidence', async name => {
+it.each([['preview', 'No run recorded a preview.'], ['review', 'No review was recorded.'], ['checks', 'No checks were recorded.']])('names an empty %s record without inventing evidence', async (name, words) => {
   const v = view()
   v.detail!.steps = [step('agent', 'agent/pi', 'pass', {evidence:{output:'This is agent work, not a preview.'}})]
   const f = await mount(v, {}, `/changes/change/records/${name}`)
   try {
     expect(f.el.querySelector('h1')?.textContent).toBe(name.charAt(0).toUpperCase()+name.slice(1))
-    expect(f.el.textContent).toContain(`No ${name} ${name === 'checks' ? 'were' : 'was'} recorded.`)
+    expect(f.el.textContent).toContain(words)
     expect(f.el.textContent).not.toContain('This is agent work')
+  } finally {f.close()}
+})
+
+// A preview someone started with Try it is live without a run recording
+// it: the record says no run recorded one, beside the live preview's own
+// control, as the Overview offers it, never only "none".
+it('offers the live preview beside a preview record no run made', async () => {
+  const v = view()
+  v.detail!.steps = [step('agent', 'agent/pi', 'pass')]
+  const f = await mount(v, {'/changes/change/preview': {state: 'live', url: 'https://preview.example.test', built: '2026-11-01T10:00:00Z', commit: 'abc1234def'}}, '/changes/change/records/preview')
+  try {
+    expect(f.el.textContent).toContain('No run recorded a preview.')
+    expect([...f.el.querySelectorAll('button')].map(b => b.textContent)).toContain('Open it and try it')
+    expect(f.el.textContent).toContain('built from commit abc1234')
+  } finally {f.close()}
+})
+
+// The record of one run says absence of that run only: an earlier run's
+// preview is not denied.
+it('says only the run it read recorded no preview', async () => {
+  const v = view()
+  v.detail!.steps = [step('agent', 'agent/pi', 'pass')]
+  const old = detail('older', [step('boot', 'preview', 'pass', {runId: 'older'})])
+  v.runs = [{id: 'older'}] as ChangeView['runs']
+  const f = await mount(v, {'/runs/older/trace': old}, `/changes/change/records/preview?run=${v.detail!.run.id}`)
+  try {
+    expect(f.el.textContent).toContain('This run recorded no preview.')
+    expect(f.el.textContent).not.toContain('No run recorded a preview.')
   } finally {f.close()}
 })
 

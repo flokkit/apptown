@@ -210,7 +210,9 @@ func (s *Service) restoreFly(ctx context.Context, dep *deployment.Deployment, he
 		result.Items = append(result.Items, RestoredItem{Kind: p.Kind, Name: p.Name, Outcome: restoreSkipped, Detail: "the set holds no good copy of this item; it is left as it is"})
 	}
 	if !keepStopped {
+		rec.begin(ctx, "starting the app again")
 		result.NotStarted = resume(context.WithoutCancel(ctx))
+		rec.restarted(ctx, result.NotStarted)
 	}
 	started := !keepStopped && stopped > 0 && len(result.NotStarted) == 0
 	result.Started = &started

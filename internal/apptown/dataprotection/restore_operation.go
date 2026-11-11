@@ -156,17 +156,24 @@ func (s *Service) runRestoreSet(ctx context.Context, t *tracker) (runEnd, string
 	return operationVerified, detail, result
 }
 
-// restoreWords says what a restore that ran to its end did.
+// restoreWords says what a restore that ran to its end did, in words a
+// reader acts on: the deployment the set came from (it may be another),
+// what each item came back as, and whether the app is whole. Ids and
+// container names are not repeated here: the safety set's id is its step's
+// detail, the restored set's is the receipt's, and the parts not running
+// are named once, by the step that started the app again.
 func restoreWords(r *RestoreResult) string {
-	out := fmt.Sprintf("Set %d (from %s) %s: %s.", r.Backup, r.From, r.Status, itemWords(r.Items))
+	out := fmt.Sprintf("Set from %s %s: %s.", r.From, r.Status, itemWords(r.Items))
 	if r.SafetyBackup != ids.Nil {
-		out += fmt.Sprintf(" The safety set %d holds what was there before.", r.SafetyBackup)
+		out += " A safety set holds what was there before."
 	}
 	switch {
 	case r.LeftStopped:
 		out += " The app stays stopped until the selected release starts."
-	case len(r.NotStarted) > 0:
-		out += " These are not running again, so the app may not be serving: " + strings.Join(r.NotStarted, "; ") + "."
+	case len(r.NotStarted) == 1:
+		out += " 1 part is not running again, so the app may not be serving."
+	case len(r.NotStarted) > 1:
+		out += fmt.Sprintf(" %d parts are not running again, so the app may not be serving.", len(r.NotStarted))
 	case r.Started == nil || !r.Stopped:
 		out += " The app was not running, so it was not started."
 	case *r.Started && r.Ready != nil && !*r.Ready:
@@ -291,6 +298,17 @@ func (l *restoreLog) end(ctx context.Context, detail string) {
 func (l *restoreLog) fail(ctx context.Context, why string) {
 	if l != nil {
 		l.t.fail(ctx, why)
+	}
+}
+
+// restarted settles the step that started the app again: failed, naming
+// once what is not running (and the target's own words for why), or
+// ended "started". The restore's summary only counts them.
+func (l *restoreLog) restarted(ctx context.Context, notStarted []string) {
+	if len(notStarted) > 0 {
+		l.fail(ctx, strings.Join(notStarted, "; "))
+	} else {
+		l.end(ctx, "started")
 	}
 }
 

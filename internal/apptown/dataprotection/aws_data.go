@@ -398,7 +398,9 @@ func (s *Service) restoreAWS(ctx context.Context, rec *restoreLog, dep *deployme
 		rec.record(ctx, "items", result.Items)
 	}
 	if !keepStopped {
+		rec.begin(ctx, "starting the app again")
 		result.NotStarted = resume(context.WithoutCancel(ctx))
+		rec.restarted(ctx, result.NotStarted)
 	}
 	started := !keepStopped && len(result.NotStarted) == 0
 	result.Started = &started

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
@@ -34,6 +35,7 @@ type flyDataWorld struct {
 	project          ids.ID
 	dep              *deployment.Deployment
 	driver           *fly.Driver
+	rejectStart      *atomic.Bool
 	failUpload       bool
 	copied, restored []string
 }
@@ -56,10 +58,18 @@ func newFlyDataWorld(t *testing.T) *flyDataWorld {
 		t.Fatal(err)
 	}
 	api := flyfake.New("acme")
-	server := httptest.NewServer(api.Handler())
+	rejectStart := &atomic.Bool{}
+	handler := api.Handler()
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if rejectStart.Load() && req.Method == "POST" && strings.HasSuffix(req.URL.Path, "/start") {
+			http.Error(rw, "restart denied by provider", http.StatusForbidden)
+			return
+		}
+		handler.ServeHTTP(rw, req)
+	}))
 	t.Cleanup(server.Close)
 	auth := &grants{who: "alice", deny: map[string]bool{}}
-	w := &flyDataWorld{api: api, project: createTestProject(t, db, "fly-data", "Fly data"), store: s3fake.New(t, "STOREKEY")}
+	w := &flyDataWorld{rejectStart: rejectStart, api: api, project: createTestProject(t, db, "fly-data", "Fly data"), store: s3fake.New(t, "STOREKEY")}
 	w.store.AddBucket("copies")
 	w.s = assembled(db, testRuntime{Installation: "0193a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b", DataDir: dir, Secrets: vault, Needs: catalog, Integrations: integrations, NoLocalDocker: true, ChownImage: "reg/helper@sha256:" + strings.Repeat("e", 64), Fly: fly.Options{APIBase: server.URL, CopyImage: func(_ context.Context, from oci.Source, _ oci.Repository, _ string) (string, error) {
 		if _, digest, ok := strings.Cut(from.Reference, "@"); ok {
@@ -500,5 +510,30 @@ func TestFlyNeverReleasedDeploymentNeedsNoFinalCopy(t *testing.T) {
 	}
 	if len(w.api.Apps()) != 1 {
 		t.Fatal("the other deployment's app was touched")
+	}
+}
+
+// A Fly restore whose provider refuses to start a Machine again names the
+// provider's reason in its "starting the app again" step: the summary only
+// counts the parts not running, so the step keeps the diagnosis.
+func TestAFlyRestoreNamesWhyAPartDidNotStartAgain(t *testing.T) {
+	w := newFlyDataWorld(t)
+	w.attach(t)
+	b, err := w.s.TakeBackup(t.Context(), w.project, "prod", "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	takeDownOps(t, w.s)
+	w.rejectStart.Store(true)
+	op, result := restoreThroughOperation(t, w.s, w.project, "prod", b.ID)
+	if result == nil || len(result.NotStarted) == 0 || op.State.String() != "failed" {
+		t.Fatalf("not a failed restart: %+v %+v", op, result)
+	}
+	visible := op.Detail
+	for _, st := range op.Steps {
+		visible += "\n" + st.Detail
+	}
+	if !strings.Contains(visible, "restart denied by provider") {
+		t.Fatalf("restart cause lost from operation page; receipt has %q; visible: %s", result.NotStarted, visible)
 	}
 }

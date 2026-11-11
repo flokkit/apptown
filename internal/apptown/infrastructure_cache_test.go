@@ -281,6 +281,11 @@ func TestInfrastructureScheduleChecksAllTargetsWithoutReaders(t *testing.T) {
 	if _, err := a.deployments.EnsureStanding(t.Context(), project.ID, "cloud", target.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "production"}); err != nil {
 		t.Fatal(err)
 	}
+	// A preview runs on a host like any deployment, so its resources are
+	// read too (f693: a working preview read "resources unknown").
+	if err := a.Deployment.Deployments.RecordPreview(t.Context(), project.ID, idstest.N(235), target.ID, docker.PreviewChangeName(idstest.N(235)), 0, "", nil); err != nil {
+		t.Fatal(err)
+	}
 	targets, err := a.targets.All(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -315,8 +320,8 @@ func TestInfrastructureScheduleChecksAllTargetsWithoutReaders(t *testing.T) {
 	if len(operationJobs(t, a, "protection-observation")) != 0 {
 		t.Fatal("five-minute pass requested protection")
 	}
-	if len(operationJobs(t, a, deployment.DetailObservationJob)) != 1 {
-		t.Fatal("five-minute pass omitted deployment detail")
+	if len(operationJobs(t, a, deployment.DetailObservationJob)) != 2 {
+		t.Fatal("five-minute pass omitted the standing deployment's or the preview's detail")
 	}
 	bindings, err := a.Integrations.Bindings.All(t.Context())
 	if err != nil {

@@ -75,6 +75,18 @@ export function elapsed(from: string, now = Date.now()): string {
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
 }
 
+// took is how long an ended step took; one that took under half a second
+// says so, rather than "0s".
+export function took(started: string, ended: string): string {
+  return new Date(ended).getTime() - new Date(started).getTime() < 500 ? 'under 1s' : elapsed(started, new Date(ended).getTime())
+}
+
+// restoredSet is the id of the set a restore put back, from its receipt.
+const restoredSet = (op: Operation) => {
+  const restore = op.result.restore as { backup?: unknown } | undefined
+  return typeof restore?.backup === 'string' ? restore.backup : ''
+}
+
 // currentStep is the running operation's step in plain words, with how long
 // it has run; between steps it says so.
 export function currentStep(op: Operation, now = Date.now()): string {
@@ -337,6 +349,9 @@ export function OperationPage() {
       {/* The subject is the hold path in ids, for an administrator matching
           holds: diagnosis only, so it is behind the technical switch. */}
       {technical && op.subject && <code className="tech-line muted mb-1">{op.subject}</code>}
+      {/* A restore's summary names where its set came from, in words; the
+          set's id is for diagnosis, beside the subject. */}
+      {technical && restoredSet(op) && <code className="tech-line muted mb-1">set {restoredSet(op)}</code>}
       <div className="row status-strip data-protection-operation-page-status-strip">
         <Status word={old ? 'unknown' : op.statusLabel} help={old ? stateWords(op) + asRead : statusDetail(op)} />
         <span className="muted small">asked by {op.askedBy} {fmtWhen(op.createdAt)}{op.finishedAt ? `, ended ${fmtWhen(op.finishedAt)}` : old || !op.startedAt ? '' : ` · running for ${elapsed(op.startedAt)}`}</span>
@@ -347,7 +362,7 @@ export function OperationPage() {
         : <ListTable label="Steps" className="small data-protection-operation-page-p" rows={op.steps} rowKey={st => `${st.name}-${st.started}`} columns={[
           { key: 'step', label: 'Step', phone: 'name', render: st => <>{st.name}{st.detail && <div className={st.failed ? 'error' : 'muted'}>{st.detail}</div>}</> },
           { key: 'started', label: 'Started', kind: 'time', render: st => <span className="muted">{fmtWhen(st.started)}</span> },
-          { key: 'took', label: 'Took', render: st => <span className="muted">{st.ended ? elapsed(st.started, new Date(st.ended).getTime()) : elapsed(st.started)}{st.bytes ? ` · ${fmtBytes(st.bytes)}` : ''}</span> },
+          { key: 'took', label: 'Took', render: st => <span className="muted">{st.ended ? took(st.started, st.ended) : elapsed(st.started)}{st.bytes ? ` · ${fmtBytes(st.bytes)}` : ''}</span> },
           { key: 'state', label: 'State', phone: 'state', render: st => !st.ended ? <Status word="working" staleAt={old ? st.started : undefined} /> : st.unknown ? <Status word="unknown" help="The operation did not record an outcome. Open its details before starting another restore." /> : st.failed ? <Status word="failed" /> : <Status word="finished" /> },
         ]} />}
       {op.cancellable && !op.cancelRequested && (

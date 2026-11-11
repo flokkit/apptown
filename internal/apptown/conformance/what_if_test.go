@@ -139,6 +139,28 @@ func TestAWhatIfAnswersEachProjectWithWhatTheVersionChanges(t *testing.T) {
 // check judged by the version counted as unassessed because today's side
 // was not; a reason without a remedy; the fleet grouped by project instead
 // of by check; a whole-project row counted as a check; the fleet's order lost.
+// A check the version makes not applicable was answered: it is counted as
+// not applicable, never listed among the checks that could not run, where
+// it would read as a gap with no reason and nothing to do. Kills: the
+// fleet treating "not applicable" as unjudged.
+func TestAWhatIfFleetListsOnlyChecksThatCouldNotRun(t *testing.T) {
+	t.Parallel()
+	one := idstest.N(1)
+	rows := []WhatIfRow{
+		{ProjectID: one, ProjectSlug: "p1", SHA: "abc", Block: "build/container-image", Check: "no-volume", CurrentVersion: 1, ProposedVersion: 1,
+			Proposed: NotApplicable.String(), Result: whatIfNotApplicable},
+		{ProjectID: one, ProjectSlug: "p1", SHA: "abc", Block: "deploy/memory-declared", Check: "memory-within", CurrentVersion: 1, ProposedVersion: 1,
+			Current: CannotAssess.String(), Proposed: CannotAssess.String(), Result: WhatIfNotAssessed, Reason: NotAssessedError},
+	}
+	fleet := whatIfFleetGaps(rows)
+	if len(fleet) != 1 || fleet[0].Check != "memory-within" || fleet[0].Words == "" || fleet[0].Remedy == "" {
+		t.Fatalf("fleet %+v, want only the check that could not run, with its reason and remedy", fleet)
+	}
+	if got := whatIfByProject([]ids.ID{one}, rows, nil, true)[0].Score; got.NotApplicable != 1 || got.CouldNotAssess != 1 {
+		t.Fatalf("score %+v, want one not applicable and one could not assess", got)
+	}
+}
+
 func TestAWhatIfScoresEachProjectAndSaysWhatMoves(t *testing.T) {
 	t.Parallel()
 	row := func(project ids.ID, block, check string, cur, pro int, current, proposed, result string, reason NotAssessed) WhatIfRow {

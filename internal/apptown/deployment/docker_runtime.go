@@ -60,9 +60,18 @@ type reach struct {
 	HostOnly bool
 }
 
-// URL is where people reach a deployment now (reachedAt).
+// URL is where people reach a deployment now (reachedAt): the address
+// itself, for a caller that calls it. A page that shows it reads Reach, so
+// a host-only address is never shown as one that answers elsewhere.
 func (s *Service) URL(ctx context.Context, slug string, d *Deployment) string {
 	return s.reach(ctx, slug, d).URL
+}
+
+// Reach is where people reach a deployment now, and whether that address
+// answers on the AppTown host only (reachedAt).
+func (s *Service) Reach(ctx context.Context, slug string, d *Deployment) (url string, hostOnly bool) {
+	r := s.reach(ctx, slug, d)
+	return r.URL, r.HostOnly
 }
 
 // reach is where people reach a deployment now, and whether only on the
