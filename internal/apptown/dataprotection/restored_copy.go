@@ -611,6 +611,7 @@ func (s *Service) bootRestoredCopy(ctx context.Context, t *tracker, p *restoredP
 	}
 	placement := dep.Placement()
 	placement.Gate = gate
+	placement.Next = dep.DesiredGeneration + 1 // admitted below from base dep.DesiredGeneration
 	r, ok := d.(deploy.Renderer)
 	if !ok {
 		return "", c, "rendering", fmt.Errorf("%s renders no artifact of its own", p.target.Kind)

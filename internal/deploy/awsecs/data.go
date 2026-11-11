@@ -24,7 +24,6 @@ import (
 type Dependencies struct {
 	Client        func(context.Context) (*API, Config, Estate, error)
 	Installation  string
-	Generation    int64
 	Needs         deploy.NeedRecorder
 	PostgresSetup string
 	Credentials   func(context.Context) (map[string]string, error)
