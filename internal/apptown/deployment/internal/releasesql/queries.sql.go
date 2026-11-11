@@ -513,7 +513,7 @@ func (q *Queries) ReleaseForUpdate(ctx context.Context, id ids.ID) (ReleaseForUp
 
 const releaseInFlight = `-- name: ReleaseInFlight :one
 SELECT EXISTS(SELECT 1 FROM releases WHERE project_id=$1 AND state=$2
-  AND ($3::boolean OR deployment_id=$4))
+  AND ($3::boolean OR deployment_id=$4) AND id IS DISTINCT FROM $5)
 `
 
 type ReleaseInFlightParams struct {
@@ -521,6 +521,7 @@ type ReleaseInFlightParams struct {
 	OpenState    string
 	ProjectWide  bool
 	DeploymentID ids.ID
+	ExceptID     ids.ID
 }
 
 func (q *Queries) ReleaseInFlight(ctx context.Context, arg ReleaseInFlightParams) (bool, error) {
@@ -529,6 +530,7 @@ func (q *Queries) ReleaseInFlight(ctx context.Context, arg ReleaseInFlightParams
 		arg.OpenState,
 		arg.ProjectWide,
 		arg.DeploymentID,
+		arg.ExceptID,
 	)
 	var exists bool
 	err := row.Scan(&exists)

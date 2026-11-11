@@ -42,7 +42,7 @@ SELECT id FROM projects WHERE id=$1 FOR UPDATE;
 
 -- name: ReleaseInFlight :one
 SELECT EXISTS(SELECT 1 FROM releases WHERE project_id=sqlc.arg(project_id) AND state=sqlc.arg(open_state)
-  AND (sqlc.arg(project_wide)::boolean OR deployment_id=sqlc.arg(deployment_id)));
+  AND (sqlc.arg(project_wide)::boolean OR deployment_id=sqlc.arg(deployment_id)) AND id IS DISTINCT FROM sqlc.narg(except_id));
 
 -- name: CreateRelease :one
 INSERT INTO releases(id, project_id,number,state,deployment,approved_by,run_id,created_at,released_at,

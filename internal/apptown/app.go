@@ -372,7 +372,6 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	// built over the same one after.
 	starter := dataprotection.NewStarter(db, starterDependenciesFor(a))
 	deploymentDeps := a.deploymentDependencies()
-	deploymentDeps.Operations = a.operations
 	deploymentDeps.CopyStarter = starter
 	deploymentDeps.CopyCheck = starter
 	deploymentDeps.RestoreFiller = starter

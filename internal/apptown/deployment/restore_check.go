@@ -159,19 +159,6 @@ func (s *Service) RebuildRecorded(ctx context.Context, dep *Deployment) bool {
 	return err == nil
 }
 
-// heldAfterRestoreIn refuses a new release of a held deployment at once,
-// in the release's admission (attempt admission refuses it again).
-func heldAfterRestoreIn(ctx context.Context, tx *database.Tx, deploymentID ids.ID) error {
-	if deploymentID.IsZero() {
-		return nil
-	}
-	dep, err := deploymentByIDRecord(deploymentsql.New(tx.SQL()).DeploymentByID(ctx, deploymentID))
-	if found, err := database.Lookup(err); err != nil || !found {
-		return err
-	}
-	return dep.HeldAfterRestore()
-}
-
 // heldKinds are the targets whose deployments a restore holds.
 var heldKinds = []string{KindDOApp, KindPortainer}
 

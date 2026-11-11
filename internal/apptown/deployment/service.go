@@ -7,7 +7,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
-	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
@@ -23,7 +22,6 @@ type Service struct {
 	backupImages   backupImageKeeper
 	imageRebuilder imageRebuilder
 
-	runtimeActs       sync.Map // Local executors and status repair exclude each other per deployment.
 	creationAuthority creationAuthority
 	// healthParts is the public part read at each release revision the
 	// health controller has asked about; a revision's contract never changes.
@@ -49,10 +47,9 @@ type Service struct {
 	configuration      ConfigurationDependencies
 	observationTimeout time.Duration
 	observations       *observations
-	ops                *operations.Service // the ledger, read for a take-down holding a deployment
-	starter            copyLauncher        // data protection's fill of a deployment started from a copy
-	filler             RestoreFiller       // data protection's fill of a rebuild after AppTown was restored
-	copyCheck          dataCopyCheck       // whether AppTown can copy what a deployment holds now
+	starter            copyLauncher  // data protection's fill of a deployment started from a copy
+	filler             RestoreFiller // data protection's fill of a rebuild after AppTown was restored
+	copyCheck          dataCopyCheck // whether AppTown can copy what a deployment holds now
 	// now is AppTown's clock: every time a rule stores and later judges
 	// (observations' age among them) is written and read by it, so a test
 	// can set it.
@@ -96,10 +93,6 @@ type Dependencies struct {
 	Followups         jobs.Enqueuer // settlement's after-commit work
 	Declared          declarations  // the app's declaration, for what a target holds
 	Applied           func(ids.ID)  // called after a deployment is applied; nil is fine
-	// Operations is the ledger data protection's operations run through,
-	// which a release reads for a take-down holding its deployment; nil:
-	// none runs.
-	Operations *operations.Service
 	// CopyStarter is data protection's side of starting a deployment from a
 	// copy; nil refuses every start from a copy.
 	CopyStarter copyLauncher
@@ -163,7 +156,6 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		Outcomes:           NewOutcomes(db, deps.Followups),
 		Bundles:            newBundles(db),
 		Retained:           NewRetained(db),
-		ops:                deps.Operations,
 		starter:            deps.CopyStarter,
 		filler:             deps.RestoreFiller,
 		copyCheck:          deps.CopyCheck,

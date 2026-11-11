@@ -127,16 +127,10 @@ func (s *Service) ControlRuntime(ctx context.Context, projectID ids.ID, name, ac
 	if err != nil {
 		return nil, database.Missing(err)
 	}
-	if _, busy := s.runtimeActs.LoadOrStore(selected.ID, struct{}{}); busy {
-		return nil, errRuntimeBusy
-	}
-	defer s.runtimeActs.Delete(selected.ID)
 	var dep *Deployment
 	var target *Target
-	err = s.db.InTx(ctx, func(tx *database.Tx) error {
-		if err := LockProjectIn(ctx, tx, projectID); err != nil {
-			return err
-		}
+	end, err := s.beginAct(ctx, projectID, selected.ID, func(tx *database.Tx, d *Deployment) error {
+		dep = d
 		if err := project.RefuseUnlessActiveIn(ctx, tx, projectID); err != nil {
 			return err
 		}
@@ -146,10 +140,6 @@ func (s *Service) ControlRuntime(ctx context.Context, projectID ids.ID, name, ac
 		}
 		if row.Deployment.ID != selected.ID {
 			return fault.New(fault.Conflict, "the deployment changed; reload before acting")
-		}
-		dep, err = lockDeploymentRecordIn(ctx, tx, row.Deployment.ID)
-		if err != nil {
-			return err
 		}
 		if !dep.Standing() {
 			return fault.New(fault.Unprocessable, "only a standing deployment has runtime controls")
@@ -177,9 +167,6 @@ func (s *Service) ControlRuntime(ctx context.Context, projectID ids.ID, name, ac
 		if action != "start" && dep.RuntimeState == "stopped" {
 			return fault.New(fault.Conflict, "the deployment is stopped; start it first")
 		}
-		if err := takeDownHeldIn(ctx, tx, projectID, dep.ID); err != nil {
-			return err
-		}
 		busy, err := releasesql.New(tx.SQL()).ReleaseInFlight(ctx, releasesql.ReleaseInFlightParams{ProjectID: projectID, DeploymentID: dep.ID, OpenState: Releasing.String()})
 		if err != nil {
 			return err
@@ -196,6 +183,7 @@ func (s *Service) ControlRuntime(ctx context.Context, projectID ids.ID, name, ac
 	if err != nil {
 		return nil, err
 	}
+	defer end()
 	driver, err := s.providers.Driver(ctx, target, dep)
 	if err == nil {
 		controller, ok := driver.(deploy.RuntimeController)
@@ -257,10 +245,10 @@ func (s *Service) checkRuntimeControl(ctx context.Context, dep *Deployment) (che
 	if !dep.runtimeBusy() {
 		return nil
 	}
-	if _, busy := s.runtimeActs.LoadOrStore(dep.ID, struct{}{}); busy {
+	if _, busy := runtimeActs.LoadOrStore(dep.ID, struct{}{}); busy {
 		return errRuntimeBusy
 	}
-	defer s.runtimeActs.Delete(dep.ID)
+	defer runtimeActs.Delete(dep.ID)
 	// A process may have stopped between recording intent and contacting the
 	// provider. Retain a failed check so the same action can be retried.
 	defer func() {

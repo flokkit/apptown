@@ -203,6 +203,92 @@ func TestARestoreIsAdmittedAsAnOperationAndChangesNothingUntilItRuns(t *testing.
 	}
 }
 
+// An in-place restore holds the whole deployment while it lives: a
+// person's restart and any attempt (a release, a repair) are refused, with
+// nothing asked of the host.
+//
+// Kills: a restore holding only the deployment's data, which runtime acts
+// and attempt admission do not meet.
+func TestARestoreRefusesEveryWriterStartWhileItLives(t *testing.T) {
+	t.Parallel()
+	s, _, client, _, pid, b := restoreWorld(t, "rw")
+	ctx := t.Context()
+	if _, err := s.RequestRestore(ctx, pid, "main", b.ID); err != nil {
+		t.Fatal(err)
+	}
+	dep, err := s.Deployments.ByName(ctx, pid, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var held *operations.HeldError
+	if _, err := s.ControlRuntime(ctx, pid, "main", "restart"); !errors.As(err, &held) || len(client.Matching("restart")) != 0 {
+		t.Fatalf("a restart during the restore: %v, host asked %v", err, client.Matching("restart"))
+	}
+	if _, _, err := s.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "during-restore", Inputs: deployment.Inputs{Revision: dep.ReleaseSHA}}); !errors.As(err, &held) {
+		t.Fatalf("an attempt during the restore: %v", err)
+	}
+}
+
+// A restore is admitted only while nothing may start the deployment's
+// writers: a release in flight refuses it, except the rollback whose own
+// restore it is.
+//
+// Kills: a restore admitted beside a release that will start writers; a
+// rollback refused by its own release.
+func TestARestoreWaitsForAReleaseInFlightButARollbackRunsItsOwn(t *testing.T) {
+	t.Parallel()
+	s, _, _, _, pid, _ := restoreWorld(t, "rq")
+	ctx := t.Context()
+	dep, err := s.Deployments.ByName(ctx, pid, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := s.sources.(*releasedContracts)
+	src.mu.Lock()
+	yaml := src.by[dep.ReleaseSHA]
+	src.mu.Unlock()
+	bundle, err := s.Bundles.Cut(ctx, pid, dep.ReleaseSHA, map[string]string{"web": "image-one"}, nil, []byte(yaml), deployment.BundleOrigin{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rel, err := s.releases.Start(ctx, deployment.ReleaseDraft{Source: deployment.ReleaseFromBundle, ProjectID: pid, DeploymentID: dep.ID, Deployment: "main", BundleID: bundle, Revision: dep.ReleaseSHA, Actor: "bls"}, "released")
+	if err != nil {
+		t.Fatal(err)
+	}
+	attempt, _, err := s.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "released", Inputs: deployment.Inputs{ReleaseID: rel.ID, BundleID: bundle, Revision: dep.ReleaseSHA}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Outcomes.Complete(ctx, deployment.Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active", Health: "healthy"}}); err != nil {
+		t.Fatal(err)
+	}
+	witness, err := s.BeforeRelease(ctx, pid, "main", true)
+	if err != nil || witness.copy == nil {
+		t.Fatalf("the paired set: %+v %v", witness, err)
+	}
+	rollback, err := s.releases.Start(ctx, deployment.ReleaseDraft{Source: deployment.ReleaseFromBundle, ProjectID: pid, DeploymentID: dep.ID, Deployment: "main", BundleID: bundle, Revision: dep.ReleaseSHA, Actor: "bls"}, "rollback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.RequestRestore(ctx, pid, "main", witness.copy.ID); !errors.Is(err, deployment.ErrRemovalBusy) {
+		t.Fatalf("a restore beside a release in flight: %v", err)
+	}
+	principal, err := s.Service.requireAuthority(ctx, access.CapDeploymentDeploy, pid, operationRestoreSet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Service.releaseAuthority = approvedRelease{}
+	if err := s.RestoreForRelease(ctx, pid, "main", witness.copy.ID, rollback.ID, principal); err != nil {
+		t.Fatalf("the rollback's own restore: %v", err)
+	}
+}
+
+// approvedRelease is Deployment's release check answering that the release
+// is still authorised and approved.
+type approvedRelease struct{}
+
+func (approvedRelease) CheckRelease(context.Context, ids.ID) error { return nil }
+
 // Run, the restore writes each step and fact as it goes and ends with its
 // receipt, which its settlement writes once.
 //

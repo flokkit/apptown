@@ -79,9 +79,9 @@ func (s *Service) restorable(ctx context.Context, projectID ids.ID, name string,
 // the caller, who needs the deploy grant in the project. What would refuse
 // the restore before any change (no such set or deployment, a set whose
 // items have nowhere certain to go) refuses here, before anything is
-// recorded. It holds the deployment's data while it lives: a second
-// restore, a copy or a take-down operation of it is refused meanwhile; a
-// release is not.
+// recorded. Admitted only while the deployment is quiet (QuietIn), it holds
+// the whole deployment while it lives: releases, runtime and health acts,
+// copies and a take-down are refused meanwhile.
 func (s *Service) RequestRestore(ctx context.Context, projectID ids.ID, name string, backupID ids.ID) (*operations.Operation, error) {
 	actor, err := s.requireAuthority(ctx, access.CapDeploymentDeploy, projectID, operationRestoreSet)
 	if err != nil {
@@ -107,7 +107,7 @@ func (s *Service) RequestRestore(ctx context.Context, projectID ids.ID, name str
 	if err != nil {
 		return nil, err
 	}
-	return s.admit(ctx, dep, operationRestoreSet, actor, []string{deployment.DataHold(dep)}, map[string]any{"backup": backupID}, nil)
+	return s.admit(ctx, dep, operationRestoreSet, actor, []string{deployment.SubjectOf(dep)}, map[string]any{"backup": backupID}, func(tx *database.Tx) error { return deployment.QuietIn(ctx, tx, dep.ID, ids.Nil) })
 }
 
 // runRestoreSet is the restore operation's body. It ends failed when it
@@ -440,7 +440,7 @@ func (s *Service) RestoreForRelease(ctx context.Context, projectID ids.ID, name 
 	if err != nil {
 		return err
 	}
-	op, err := s.admit(ctx, dep, operationRestoreSet, principal, []string{deployment.DataHold(dep)}, map[string]any{"backup": backupID, "keepStopped": true, "release": releaseID}, nil)
+	op, err := s.admit(ctx, dep, operationRestoreSet, principal, []string{deployment.SubjectOf(dep)}, map[string]any{"backup": backupID, "keepStopped": true, "release": releaseID}, func(tx *database.Tx) error { return deployment.QuietIn(ctx, tx, dep.ID, releaseID) })
 	if err != nil {
 		return err
 	}

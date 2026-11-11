@@ -90,6 +90,76 @@ func TestHealthControllerRestartsOnThreshold(t *testing.T) {
 	}
 }
 
+// failingHealthWorld is a standing deployment whose public part fails
+// liveness, and the sweep that counts its misses up to the threshold.
+func failingHealthWorld(t *testing.T) (*Service, *dockerfake.Daemon, *Deployment, func(), func() int) {
+	t.Helper()
+	s, _, f, projectID, target := healthWorld(t)
+	const container = "apptown-env-p-main"
+	dep, err := s.Deployments.EnsureStanding(t.Context(), projectID, "main", target.ID, Attributes{}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Deployments.ReserveHostPort(t.Context(), projectID, "main", container, healthClosedPort(t)); err != nil {
+		t.Fatal(err)
+	}
+	f.SetRunning(container, true)
+	at := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
+	s.clock = func() time.Time { return at }
+	hc := s.HealthController()
+	sweep := func() {
+		for i := 0; i < docker.HealthFailThreshold; i++ {
+			at = at.Add(docker.HealthTick)
+			hc.Sweep(context.Background())
+		}
+	}
+	return s, f, dep, sweep, func() int { return len(f.Matching("restart " + container)) }
+}
+
+// A health act is admitted as a person's runtime act is: while an
+// operation holds the deployment whole (an in-place restore, a take-down)
+// a failing probe restarts nothing.
+//
+// Kills: a health restart admitted on the runtime state alone, starting
+// writers a restore has stopped.
+func TestAHealthActMeetsTheWholeDeploymentHold(t *testing.T) {
+	t.Parallel()
+	s, _, dep, sweep, restarts := failingHealthWorld(t)
+	holdWhole(t, s.db, dep)
+	sweep()
+	if n := restarts(); n != 0 {
+		t.Fatalf("a health act restarted a held deployment %d times", n)
+	}
+}
+
+// A health act under way keeps the deployment from being quiet, so a
+// restore or take-down asked for meanwhile is refused; once it ends the
+// deployment is quiet again.
+//
+// Kills: restore admission blind to a health act it cannot see in the
+// records.
+func TestAHealthActUnderWayKeepsTheDeploymentFromQuiet(t *testing.T) {
+	t.Parallel()
+	s, f, dep, sweep, restarts := failingHealthWorld(t)
+	quiet := func() error {
+		return s.db.InTx(t.Context(), func(tx *database.Tx) error { return QuietIn(t.Context(), tx, dep.ID, ids.Nil) })
+	}
+	var during error
+	f.SetReply(func(args []string) ([]byte, error, bool) {
+		if args[0] == "restart" {
+			during = quiet()
+		}
+		return nil, nil, false
+	})
+	sweep()
+	if restarts() != 1 || !errors.Is(during, errRuntimeBusy) {
+		t.Fatalf("during the health act: restarts %d, quiet %v", restarts(), during)
+	}
+	if err := quiet(); err != nil {
+		t.Fatalf("after the health act: %v", err)
+	}
+}
+
 // A standing deployment that answers liveness is never restarted.
 func TestHealthControllerLeavesHealthyEnvAlone(t *testing.T) {
 	t.Parallel()

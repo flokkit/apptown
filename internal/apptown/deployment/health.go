@@ -24,14 +24,21 @@ import (
 func (s *Service) HealthController() *docker.HealthController {
 	return docker.NewHealthController(docker.HealthDependencies{
 		BeforeAct: func(ctx context.Context, w docker.Watched) (func(), error) {
-			dep, err := s.Deployments.ByID(ctx, w.DeploymentID)
+			end, err := s.beginAct(ctx, w.ProjectID, w.DeploymentID, func(_ *database.Tx, dep *Deployment) error {
+				if dep.RuntimeState != "running" {
+					return errRuntimeBusy
+				}
+				return nil
+			})
 			if err != nil {
 				return nil, err
 			}
-			if dep.RuntimeState != "running" {
-				return nil, errRuntimeBusy
+			done, err := NewHostSnapshots(s.db, s.now).BeforeAct(ctx, w.TargetID)
+			if err != nil {
+				end()
+				return nil, err
 			}
-			return NewHostSnapshots(s.db, s.now).BeforeAct(ctx, w.TargetID)
+			return func() { done(); end() }, nil
 		},
 		Watch:      func(ctx context.Context) []docker.Watched { return s.hosts.Watched(ctx, s.Deployments) },
 		PublicPart: s.healthPublicPart,

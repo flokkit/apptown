@@ -239,9 +239,9 @@ func (t *tracker) allowed(ctx context.Context) error {
 }
 
 // admit records an operation on a deployment and queues it, in one
-// transaction under the plan's locking order: the project's release lock,
-// the admission lock, then eligible (the kind's own reads), then the
-// ledger's hold check and row. A hold that meets a live one refuses with
+// transaction in deployment's lock order: the project's release lock,
+// eligible (the kind's own reads), then the ledger's admission lock, hold
+// check and row. A hold that meets a live one refuses with
 // operations.HeldError.
 func (s *Service) admit(ctx context.Context, dep *deployment.Deployment, kind string, actor access.Principal, holds []string, input map[string]any, eligible func(*database.Tx) error) (*operations.Operation, error) {
 	if s.ops == nil {
@@ -256,9 +256,6 @@ func (s *Service) admit(ctx context.Context, dep *deployment.Deployment, kind st
 			return nil, err
 		}
 		if err := refuseUnlessAdmittedIn(ctx, tx, dep.ProjectID, kind); err != nil {
-			return nil, err
-		}
-		if err := operations.LockIn(ctx, tx); err != nil {
 			return nil, err
 		}
 		if eligible != nil {

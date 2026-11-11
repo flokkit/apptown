@@ -52,7 +52,7 @@ func backupWorldFor(t *testing.T, purpose project.Purpose, slug string, port int
 	// the test may change.
 	who := &grants{who: "bls", deny: map[string]bool{}}
 	ops := operations.New(db, who, who, nil)
-	s := assembled(db, testRuntime{Scope: docker.Scope{Client: client}, Probe: &docker.Probe{Settle: time.Millisecond}, DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), ChownImage: "test-helper", BuiltInTarget: "local"}, deployment.Dependencies{Operations: ops, Authority: who, Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
+	s := assembled(db, testRuntime{Scope: docker.Scope{Client: client}, Probe: &docker.Probe{Settle: time.Millisecond}, DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), ChownImage: "test-helper", BuiltInTarget: "local", Operations: ops}, deployment.Dependencies{Authority: who, Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
 	target, err := s.Targets.Put(context.Background(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)
