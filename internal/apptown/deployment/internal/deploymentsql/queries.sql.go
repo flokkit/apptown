@@ -2701,6 +2701,18 @@ func (q *Queries) LockFeedSettings(ctx context.Context, projectID ids.ID) ([]Dep
 	return items, nil
 }
 
+const lockHostActCounter = `-- name: LockHostActCounter :one
+SELECT act_counter FROM deployment_readings WHERE subject=$1 AND kind='host-snapshot' FOR UPDATE
+`
+
+// Holds the host reading row so an act cannot start until the caller commits.
+func (q *Queries) LockHostActCounter(ctx context.Context, subject string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, lockHostActCounter, subject)
+	var act_counter int64
+	err := row.Scan(&act_counter)
+	return act_counter, err
+}
+
 const lockHostnameClaim = `-- name: LockHostnameClaim :one
 SELECT hostname FROM deployment_hostname_claims WHERE hostname=$1 FOR UPDATE
 `
@@ -2808,6 +2820,18 @@ func (q *Queries) MarkDeploymentAct(ctx context.Context, arg MarkDeploymentActPa
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const markHostActForDeployment = `-- name: MarkHostActForDeployment :exec
+UPDATE deployment_readings SET act_counter=act_counter+1
+WHERE kind='host-snapshot' AND subject=(SELECT d.target_id::text FROM deployments d WHERE d.id=$1)
+`
+
+// Recording an image copy is an act on the deployment's host reading, so a
+// reading that saw the image absent cannot retire the new record.
+func (q *Queries) MarkHostActForDeployment(ctx context.Context, deploymentID ids.ID) error {
+	_, err := q.db.ExecContext(ctx, markHostActForDeployment, deploymentID)
+	return err
 }
 
 const markReleaseRebuilding = `-- name: MarkReleaseRebuilding :execrows

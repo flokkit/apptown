@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"slices"
 	"strconv"
 	"time"
 
@@ -168,6 +169,20 @@ func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope,
 						if item.Record == deploy.RecordMissing {
 							prior.Missing = append(prior.Missing, item)
 						}
+					}
+					// An image copy this reading asked about and did not find
+					// is retired; a newer record waits for the next reading.
+					var gone []goneImageCopy
+					for _, r := range recorded {
+						if imageCopy(r.Kind) && slices.Contains(q.ImageRefs, r.ID) && !slices.Contains(*facts.Images.Value, r.ID) {
+							for _, h := range r.Hosts {
+								gone = append(gone, goneImageCopy{project: h.ProjectID, deployment: h.DeploymentID, name: h.Deployment, image: r.ID})
+							}
+						}
+					}
+					// A refused or failed retirement is tried again next lap.
+					if _, err := retireImageCopies(finish, s.db, t, row, gone, s.now()); err != nil {
+						log.Printf("host %s: retiring image records gone from the host: %v", t.Name, err)
 					}
 				}
 			}

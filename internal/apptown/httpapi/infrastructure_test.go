@@ -263,14 +263,15 @@ func TestInventoryPreservesDistinctProviderIdentitiesAndAllHosts(t *testing.T) {
 	}
 	live := []deploy.Resource{{Kind: "volume", Name: "shared"}, {Kind: "database", Name: "db", ID: "two"}, {Kind: "image", Name: "reg/app", ID: "reg/app@sha256:two"}, {Kind: "image", Name: "unrelated:latest", ID: "unrelated:latest"}}
 	out := deployment.MergeInventory(recorded, live)
-	if len(out) != 5 {
-		t.Fatalf("identities collapsed or unrelated image exposed: %+v", out)
+	// The image copy the provider lacks is left out, never missing.
+	if len(out) != 4 || slices.ContainsFunc(out, func(r deploy.Resource) bool { return r.ID == "reg/app@sha256:one" }) {
+		t.Fatalf("identities collapsed, unrelated image exposed or absent image copy shown: %+v", out)
 	}
 	for _, r := range out {
 		if r.Kind == "volume" && !slices.Equal(r.Hosts, []deploy.ResourceHost{a, b}) {
 			t.Errorf("lost hosts: %+v", r)
 		}
-		if r.ID == "one" || r.ID == "reg/app@sha256:one" {
+		if r.ID == "one" {
 			if r.Record != deploy.RecordMissing {
 				t.Errorf("different ID falsely confirmed: %+v", r)
 			}
@@ -307,7 +308,8 @@ func TestInventoryMatchesAnImmutableIDDespiteDisplayNameChanges(t *testing.T) {
 		{Kind: "image", Name: "reg/app@sha256:aaa", ID: "reg/app@sha256:aaa"},
 		{Kind: "image", Name: "reg/app@sha256:bbb", ID: "reg/app@sha256:bbb"},
 	}, []deploy.Resource{{Kind: "image", Name: "reg/app@sha256:bbb", ID: "reg/app@sha256:bbb"}, {Kind: "image", Name: "reg/app:latest", ID: "reg/app:latest"}})
-	if len(out) != 2 || out[0].Record != deploy.RecordMissing || out[1].Record != deploy.RecordRecorded {
+	// The absent digest is an image copy, left out rather than missing.
+	if len(out) != 1 || out[0].ID != "reg/app@sha256:bbb" || out[0].Record != deploy.RecordRecorded {
 		t.Fatalf("different digests or mutable tag falsely confirmed: %+v", out)
 	}
 }

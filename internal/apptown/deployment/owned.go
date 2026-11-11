@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/apptown/secret"
@@ -41,11 +42,25 @@ func recordOwned(ctx context.Context, db *database.DB, deployment ids.ID, o depl
 	if deployment.IsZero() || o.Kind == "" || o.ID == "" {
 		return errors.New("an owned thing needs its deployment, kind and identity")
 	}
-	_, err := deploymentsql.New(db.SQL()).RecordOwned(ctx, deploymentsql.RecordOwnedParams{ID: ids.New(at.UTC()),
+	params := deploymentsql.RecordOwnedParams{ID: ids.New(at.UTC()),
 		DeploymentID: deployment, Kind: o.Kind, Ident: o.ID, Name: o.Name, HoldsData: o.Data, Need: o.Need,
 		RecordedAt: at.UTC(), Note: note,
+	}
+	if !imageCopy(o.Kind) {
+		_, err := deploymentsql.New(db.SQL()).RecordOwned(ctx, params)
+		return err
+	}
+	// An image copy is recorded (again, after a pull) as an act on its host's
+	// reading, so a reading that saw it absent cannot retire it
+	// (retireImageCopies).
+	return db.InTx(ctx, func(tx *database.Tx) error {
+		q := deploymentsql.New(tx.SQL())
+		if err := q.MarkHostActForDeployment(ctx, deployment); err != nil {
+			return err
+		}
+		_, err := q.RecordOwned(ctx, params)
+		return err
 	})
-	return err
 }
 
 // OwnerOf is what a driver built for dep records its creations through.
@@ -68,6 +83,78 @@ func ownedIn(ctx context.Context, q *deploymentsql.Queries, deployment ids.ID) (
 		out = append(out, deploy.Owned{Kind: r.Kind, ID: r.Ident, Name: r.Name, Data: r.HoldsData, Need: r.Need})
 	}
 	return out, nil
+}
+
+// imageCopy says an owned kind is an image on a host: a copy of a release
+// image the hub (or its recorded commit) can supply again. Retention removes
+// such copies; when one is gone, whoever removed it, its record is retired at
+// observation instead of reading missing. Every other kind stays missing.
+func imageCopy(kind string) bool { return kind == "image" }
+
+// imageCopyRetiredNote is the receipt's reason for a retired image record.
+const imageCopyRetiredNote = "no longer on the host; pulled again when needed"
+
+// goneImageCopy is one deployment's record of an image a complete host
+// reading asked about and did not find.
+type goneImageCopy struct {
+	project, deployment ids.ID
+	name, image         string // the deployment's name; the image reference
+}
+
+// retireImageCopies forgets the records of image copies gone from a Docker
+// host, with one receipt per deployment. act is the host reading's act counter
+// when the reading began. Any act since, including recording an image copy
+// (recordOwned), refuses the whole retirement: that image may be back. The
+// reading row stays locked until commit, so an act or image record that comes
+// now waits, and its record lands after the delete.
+func retireImageCopies(ctx context.Context, db *database.DB, target *Target, act int64, gone []goneImageCopy, at time.Time) (bool, error) {
+	if len(gone) == 0 {
+		return true, nil
+	}
+	retired := false
+	err := db.InTx(ctx, func(tx *database.Tx) error {
+		q := deploymentsql.New(tx.SQL())
+		current, err := q.LockHostActCounter(ctx, target.ID.String())
+		if err != nil {
+			return err
+		}
+		if current != act {
+			return nil
+		}
+		type receipt struct {
+			project ids.ID
+			name    string
+			images  []string
+		}
+		byDeployment := map[ids.ID]*receipt{}
+		var order []ids.ID
+		for _, g := range gone {
+			n, err := q.ForgetOwned(ctx, deploymentsql.ForgetOwnedParams{DeploymentID: g.deployment, Kind: "image", Ident: g.image})
+			if err != nil {
+				return err
+			}
+			if n == 0 {
+				continue
+			}
+			r := byDeployment[g.deployment]
+			if r == nil {
+				r = &receipt{project: g.project, name: g.name}
+				byDeployment[g.deployment] = r
+				order = append(order, g.deployment)
+			}
+			r.images = append(r.images, g.image)
+		}
+		for _, dep := range order {
+			r := byDeployment[dep]
+			if err := audit.At(at).RecordIn(ctx, tx, "apptown-system", r.project, "deployment.image-copies.retired", r.name,
+				map[string]any{"target": target.Name, "deployment": dep, "images": r.images, "note": imageCopyRetiredNote}); err != nil {
+				return err
+			}
+		}
+		retired = true
+		return nil
+	})
+	return retired, err
 }
 
 // repositoryRecorder is the digitalocean.RepositoryOwner for one project on
