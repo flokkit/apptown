@@ -214,6 +214,8 @@ it('checks explicit AWS estate fields and invalidates the check after an edit', 
   const posts: Record<string, unknown>[] = []
   vi.stubGlobal('fetch', vi.fn(withFeatures(async (_url, init) => {
     if (init?.method === 'POST') { posts.push(JSON.parse(String(init.body))); return json({ detail: 'account and estate checked' }) }
+    // The kind catalog names each kind's setup guide; the page links the one it names.
+    if (_url === '/api/v1/targets') return json({ targets: [], groups: [], kinds: [{ kind: 'docker-host', guide: 'docker-guide' }, { kind: 'aws-ecs', guide: 'aws-guide-from-the-catalog' }] })
     return json({})
   })))
   const client = newQueryClient(), el = document.createElement('div'); document.body.append(el)
@@ -235,5 +237,5 @@ it('checks explicit AWS estate fields and invalidates the check after an edit', 
   await vi.waitFor(() => expect(button('Add target').disabled).toBe(false))
   await edit('cluster', 'changed')
   expect(button('Add target').disabled).toBe(true)
-  expect(el.querySelector('a[href="/docs/guides/aws-target-setup"]')).not.toBeNull()
+  expect([...el.querySelectorAll('a[href^="/docs/guides/"]')].map(a => a.getAttribute('href'))).toEqual(['/docs/guides/aws-guide-from-the-catalog'])
 })
