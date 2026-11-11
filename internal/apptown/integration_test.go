@@ -383,8 +383,9 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 		t.Fatalf("recover real Docker generation: %+v %v", result, err)
 	}
 	environment, err = a.Deployment.Deployments.ByName(ctx, p.ID, "main")
-	if err != nil || environment.ObservedGeneration != 2 {
-		t.Fatalf("recovered generation: %+v %v", environment, err)
+	// A repair reapplies the serving generation and becomes what serves.
+	if err != nil || environment.ObservedGeneration != 1 || environment.ServingAttemptID != attemptID {
+		t.Fatalf("recovered repair: %+v %v", environment, err)
 	}
 	if !strings.Contains(mustGET(t, fmt.Sprintf("http://127.0.0.1:%d/", hostPort)), "deployed and standing") {
 		t.Fatal("reconciler did not stand the environment back up")
