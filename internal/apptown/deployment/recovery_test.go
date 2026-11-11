@@ -84,7 +84,7 @@ func recoveryFixture(t *testing.T) (Recoverer, *recoveryFixtureSource, *executio
 	at := Attempt{ID: idstest.N(7), DeploymentID: idstest.N(3), Generation: 2}
 	s := &recoveryFixtureSource{snapshot: Snapshot{Attempt: at, Status: AttemptUncertain, Checkpoint: map[string]any{"providerID": "original"}}}
 	calls := new(int)
-	s.target = RecoveryTarget{ReleaseID: idstest.N(11), DesiredGeneration: 2, Observer: recoveryFixtureObserver(func(ctx context.Context, got Attempt, checkpoint map[string]any, log func(string, ...any)) (deploy.Observation, error) {
+	s.target = RecoveryTarget{ReleaseID: idstest.N(11), Observer: recoveryFixtureObserver(func(ctx context.Context, got Attempt, checkpoint map[string]any, log func(string, ...any)) (deploy.Observation, error) {
 		*calls++
 		if got != at || !reflect.DeepEqual(checkpoint, s.snapshot.Checkpoint) {
 			t.Fatal("lost admitted identity")
@@ -173,27 +173,18 @@ func TestRecoveryMissingInputsRemainUncertain(t *testing.T) {
 	}
 }
 
-func TestRecoveryChecksGenerationBeforeObservationAndAfterSettlement(t *testing.T) {
+// Ownership is the attempt's status, decided where it settles: recovery of an
+// open attempt observes it whatever the deployment's desired generation.
+func TestRecoveryChecksOwnershipAtSettlement(t *testing.T) {
 	for _, out := range []Outcome{Superseded, AlreadyApplied} {
-		for _, before := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/before=%v", out, before), func(t *testing.T) {
-				r, s, store, report, calls := recoveryFixture(t)
-				store.outcome = out
-				if before {
-					s.target.DesiredGeneration++
-				}
-				got, err := r.Run(context.Background(), idstest.N(7))
-				wantCalls := 1
-				write := "complete"
-				if before {
-					wantCalls = 0
-					write = "fail"
-				}
-				if err != nil || got.Outcome != string(out) || *calls != wantCalls || !reflect.DeepEqual(store.calls, []string{write}) || report.applied != 0 || len(report.logs) != 0 {
-					t.Fatalf("%+v %v observes=%d writes=%v report=%+v", got, err, *calls, store.calls, report)
-				}
-			})
-		}
+		t.Run(string(out), func(t *testing.T) {
+			r, _, store, report, calls := recoveryFixture(t)
+			store.outcome = out
+			got, err := r.Run(context.Background(), idstest.N(7))
+			if err != nil || got.Outcome != string(out) || *calls != 1 || !reflect.DeepEqual(store.calls, []string{"complete"}) || report.applied != 0 || len(report.logs) != 0 {
+				t.Fatalf("%+v %v observes=%d writes=%v report=%+v", got, err, *calls, store.calls, report)
+			}
+		})
 	}
 }
 

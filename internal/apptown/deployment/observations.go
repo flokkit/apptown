@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -275,12 +276,12 @@ func (s *Service) observationGroups(records []listingRecord, dockerHost bool) []
 }
 
 func (s *Service) observeRuntime(ctx context.Context, r listingRecord) RuntimeObservation {
-	ctx, cancel := context.WithTimeout(ctx, s.observationTimeout)
-	defer cancel()
 	v, ok := s.observable(ctx, r)
 	if !ok {
 		return v
 	}
+	ctx, cancel := context.WithTimeout(ctx, s.observationTimeout)
+	defer cancel()
 	driver, err := s.providers.Driver(ctx, r.target, r.deployment)
 	if ctx.Err() != nil {
 		err = ctx.Err()
@@ -300,8 +301,6 @@ func (s *Service) observeRuntime(ctx context.Context, r listingRecord) RuntimeOb
 // observeFleet observes a target's records with one look, writing each
 // record's observation at its index. A failed look is every record's error.
 func (s *Service) observeFleet(ctx context.Context, g observationGroup, records []listingRecord, values []RuntimeObservation) {
-	ctx, cancel := context.WithTimeout(ctx, s.observationTimeout)
-	defer cancel()
 	var asked []int
 	var placements []deploy.Placement
 	for _, i := range g.at {
@@ -315,6 +314,8 @@ func (s *Service) observeFleet(ctx context.Context, g observationGroup, records 
 	if len(asked) == 0 {
 		return
 	}
+	ctx, cancel := context.WithTimeout(ctx, s.observationTimeout)
+	defer cancel()
 	observed, err := g.fleet.ObserveAll(ctx, placements)
 	if err == nil && len(observed) != len(placements) {
 		err = fmt.Errorf("the provider answered %d observations for %d deployments", len(observed), len(placements))
@@ -328,8 +329,8 @@ func (s *Service) observeFleet(ctx context.Context, g observationGroup, records 
 	}
 }
 
-// observable starts a record's observation: when it was attempted, and
-// whether the provider may be asked at all. A record with no target, or
+// observable starts a record's observation, before the provider's deadline:
+// when it was attempted, and whether the provider may be asked at all. A record with no target, or
 // whose replacement is in progress, is not asked, so a new workload never
 // inherits the old one's state.
 func (s *Service) observable(ctx context.Context, r listingRecord) (RuntimeObservation, bool) {
@@ -343,8 +344,8 @@ func (s *Service) observable(ctx context.Context, r listingRecord) (RuntimeObser
 		v.Err = errors.New("deployment has no target")
 		return v, false
 	}
-	if r.deployment.DesiredGeneration != r.deployment.ObservedGeneration {
-		v.Err = errors.New("deployment replacement is in progress")
+	if open, err := s.Outcomes.HasOpenAttempt(ctx, r.deployment.ID); err != nil || open {
+		v.Err = cmp.Or(err, errors.New("deployment replacement is in progress"))
 		return v, false
 	}
 	return v, true

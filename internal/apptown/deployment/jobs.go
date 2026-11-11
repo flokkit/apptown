@@ -58,8 +58,7 @@ func (w JobWorker) Rebuild(ctx context.Context, key string, args map[string]any)
 		return nil, err
 	}
 	var selected struct {
-		Deployment ids.ID `json:"deployment"`
-		Generation int64  `json:"generation"`
+		Attempt ids.ID `json:"attempt"` // the serving attempt to repair
 	}
 	raw, err := json.Marshal(args)
 	if err != nil {
@@ -68,7 +67,7 @@ func (w JobWorker) Rebuild(ctx context.Context, key string, args map[string]any)
 	if err := json.Unmarshal(raw, &selected); err != nil {
 		return nil, jobs.Permanent(err)
 	}
-	plan, err := w.Service.prepareRebuild(ctx, dep, selected.Deployment, selected.Generation)
+	plan, err := w.Service.prepareRebuild(ctx, dep, selected.Attempt)
 	if errors.Is(err, errRebuildUnselected) || errors.Is(err, ErrReleaseRefused) {
 		w.Service.settleFill(ctx, dep, "not rebuilt: "+err.Error())
 		return nil, jobs.Permanent(err)

@@ -593,7 +593,11 @@ func TestAnIntranetReleaseNamesEveryImageByDigest(t *testing.T) {
 	if err != nil || address == nil || address.DeploymentID != rel.DeploymentID || address.Revision != 1 {
 		t.Fatalf("legacy request address: %+v %v", address, err)
 	}
-	inputs, err := p.s.Outcomes.InputsAtGeneration(t.Context(), rel.DeploymentID, rel.Generation)
+	dep, err := p.s.Deployments.ByID(t.Context(), rel.DeploymentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputs, _, err := p.s.serving(t.Context(), dep)
 	if err != nil || inputs.Address == nil || !inputs.Address.same(*address) {
 		t.Fatalf("attempt lost admitted address: %+v %v", inputs.Address, err)
 	}

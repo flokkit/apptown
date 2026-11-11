@@ -37,6 +37,32 @@ Makers and operators must choose application changes suitable for it. There is
 no setting to choose another procedure; one is added when a second procedure
 can execute.
 
+## Generations and the serving record
+
+A generation names one admitted decision: a release or a restored copy. Only
+attempt admission allocates one, from the deployment's desired generation,
+which is that allocation counter and a release request's base; rendering
+before admission asks the same rule (`Deployment.Admitting`). An attempt is
+in progress while it is open and replaced once a later admission marks it
+superseded. No reader compares generation numbers to decide either.
+
+The deployment's serving record says what serves: the release (unknown when
+none was recorded) and the attempt whose inputs AppTown applied (unknown after
+a restore adopted what a provider ran). Successful settlement writes both;
+restore adoption writes its observed release and no attempt; nothing else
+writes them. Status, listings, `Releases.Live`, promotion, overrides,
+backups, diagnostics, take-down and image retention read it.
+
+A repair rebuilds a Docker-host deployment whose container is gone from its
+serving attempt's recorded inputs, never from the current checkout, at the
+serving generation. It is a new attempt without a release: the deployment
+keeps serving its release, the desired generation does not move, and a queued
+or approval-waiting release keeps its base. After a failed release, a repair
+puts back the release that still serves. Its key names the serving attempt,
+so each serving attempt is repaired once; a successful repair becomes the
+serving attempt and can itself be repaired. AppTown asks for repairs when it
+starts.
+
 ## Requesting and executing a release
 
 A manual request selects a deployment and release bundle. Deployment checks the
@@ -274,10 +300,10 @@ or the recorded reason no backup exists.
 
 **Roll back to before release N**, also `apptown rollback <project> <deployment>
 --before N`, restores N's pre-deploy backup and deploys the release recorded as
-running when that backup was taken. Backups record the running release only
-when the current desired generation has completed successfully and the app is
-running. After a failed replacement or during an in-flight replacement, the
-running release is unknown. Missing release evidence offers no pair; ordinary
+running when that backup was taken. Backups record the serving release only
+when the deployment's last attempt succeeded and the app is running. After a
+failed replacement or during an in-flight one, whose writers may run, the
+running release is unknown until a release or repair succeeds. Missing release evidence offers no pair; ordinary
 Restore remains available. Release authority and approval
 precede destructive effects. Data protection takes its safety copy, stops the
 application writers, restores the data and leaves the app stopped. Deployment
@@ -301,9 +327,9 @@ rollout procedure are in [workers](../operations/workers.md#releases-built-on-th
 
 ## Uncertain outcomes and restart
 
-Provider effects occur outside SQL transactions. Generation checks prevent stale
-results replacing current records, but cannot undo an external effect or stop an
-old call already in flight. A failed provider-identity checkpoint stops execution.
+Provider effects occur outside SQL transactions. An attempt admission
+superseded cannot settle over current records, but that cannot undo an
+external effect or stop an old call already in flight. A failed provider-identity checkpoint stops execution.
 
 An unknown result remains uncertain and queues observation atomically. Recovery
 uses `Resume` on the recorded identity first. If that version is up, recovery
@@ -399,9 +425,8 @@ current health remains unknown. A missing container or an unavailable host
 leaves the attempt uncertain. The queued startup recovery job owns the single
 apply retry. A confirmed failure of the selected version fails the attempt.
 A release left releasing follows its
-attempt: failed or superseded fails it, an attempt a newer generation
-replaced is superseded, and a done attempt of the current generation is
-observed the same way. Settlement is the usual one, with its release receipts;
+attempt: failed or superseded fails it, a done attempt that no longer serves
+is superseded, and the serving one is observed the same way. Settlement is the usual one, with its release receipts;
 the ledger records `deployment.checked-again` with who pressed it and what was
 observed. Missing evidence is still not retry authority.
 
@@ -1306,8 +1331,8 @@ under the same name shows only when a read answers (its ID changes). Each part
 names the generation its container is proven to run: the public part's
 container by its identity labels; any other part's (which a rollout replaces
 before the public part, and a failed rollout can leave) only when the
-deployment, read after the containers, is still settled on its recorded
-generation with no deploy open. Otherwise the view says why it is unsettled
+deployment, read after the containers, still serves the attempt it was read
+with, no deploy is open and its last one succeeded. Otherwise the view says why it is unsettled
 and the part's generation is not known. Failure reasons are AppTown's words;
 what a host's client wrote is not shown.
 
@@ -1370,14 +1395,14 @@ has its own time, so a partial check cannot renew an unread sibling. See
 
 After an act, detail, protection and target capacity checks are queued immediately
 on every target. Docker host inventory is written only by its reader loop.
-The deployment read includes `LastApplied`: the observed generation's successful
-attempt and its finish time. A deployment with no successful attempt is not
-released yet; its protection check stays pending. Managed-deployment operation
+The deployment read includes `LastApplied`: the serving attempt's generation
+and finish time. A deployment with neither a serving attempt nor a serving
+release is not released yet; its protection check stays pending. Managed-deployment operation
 availability uses the current recorded resources even while that check is
 pending. Take-down instructions state whether a final copy is available and
 require the explicit choice to go without one when it cannot be taken.
-Restore adoption preserves successful-attempt evidence even when the release
-revision is unknown.
+After a restore adoption the observed release serves with no applied attempt,
+and its protection is still assessed.
 
 While readings wait after a change, the deployment card says once that AppTown
 is checking after the release, with its time. Sections keep prior values marked

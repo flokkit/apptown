@@ -69,7 +69,6 @@ func (s recoverySource) PrepareObservation(ctx context.Context, at Attempt) (rec
 		return target, fmt.Errorf("reading deployment: %w", err)
 	}
 	target.TargetID = dep.TargetID
-	target.DesiredGeneration = dep.DesiredGeneration
 	target.Observer = recoveryObserver{dep: dep, driver: s.driver, allowed: s.allowed, inputs: inputs}
 	return target, nil
 }

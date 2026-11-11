@@ -32,8 +32,11 @@ func (s *Service) SettledApplied(ctx context.Context, d *Deployment) (AppliedPro
 // zero time is not known (nothing settled, or an attempt that kept no
 // finish time).
 func (s *Service) settled(ctx context.Context, d *Deployment) (AppliedProfile, time.Time, error) {
-	at, found, err := s.Deployments.completedAttempt(ctx, d)
-	if err != nil || !found {
+	if d.ServingAttemptID.IsZero() {
+		return AppliedProfile{}, time.Time{}, nil
+	}
+	at, err := deploymentsql.New(s.db.SQL()).AttemptByID(ctx, d.ServingAttemptID)
+	if err != nil {
 		return AppliedProfile{}, time.Time{}, err
 	}
 	var since time.Time
@@ -205,10 +208,10 @@ func (s *Service) unsettledReason(ctx context.Context, d *Deployment) (string, e
 	switch {
 	case open:
 		return "a deploy of it is in progress", nil
-	case now.DesiredGeneration != now.ObservedGeneration:
-		return fmt.Sprintf("it has not settled on generation %d, which was admitted after the one it runs", now.DesiredGeneration), nil
-	case now.ObservedGeneration != d.ObservedGeneration:
-		return "it settled on another generation since it was read", nil
+	case now.Readiness != Reconciled: // a failed deploy may have replaced some parts
+		return "it has not settled since its last deploy", nil
+	case now.ServingAttemptID != d.ServingAttemptID:
+		return "it settled on another attempt since it was read", nil
 	}
 	return "", nil
 }

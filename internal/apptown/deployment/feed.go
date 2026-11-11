@@ -210,15 +210,15 @@ func (s *Service) promotionBundle(ctx context.Context, dep *Deployment, expected
 	if err != nil {
 		return ids.Nil, "", err
 	}
-	if bundle.IsZero() {
-		return ids.Nil, "", errPromotionEmpty
-	}
-	number, err := s.Releases.LatestReleasedNumber(ctx, source.ProjectID, source.Name)
+	serving, err := s.servingRelease(ctx, source)
 	if err != nil {
 		return ids.Nil, "", err
 	}
-	if !expected.IsZero() && expected != bundle {
-		return ids.Nil, "", fault.New(fault.Conflict, fmt.Sprintf("%s now runs release %d; promote again", source.Name, number))
+	if bundle.IsZero() || serving == nil {
+		return ids.Nil, "", errPromotionEmpty
 	}
-	return bundle, fmt.Sprintf("promoted release %d from %s", number, source.Name), nil
+	if !expected.IsZero() && expected != bundle {
+		return ids.Nil, "", fault.New(fault.Conflict, fmt.Sprintf("%s now runs release %d; promote again", source.Name, serving.Number))
+	}
+	return bundle, fmt.Sprintf("promoted release %d from %s", serving.Number, source.Name), nil
 }

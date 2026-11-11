@@ -100,10 +100,6 @@ VALUES (sqlc.arg(id), sqlc.arg(project_id),
   sqlc.arg(at)::timestamptz, sqlc.arg(at)::timestamptz, sqlc.arg(origin))
 RETURNING number;
 
--- name: NewestReleasedOrigin :one
-SELECT origin FROM releases WHERE deployment_id=sqlc.arg(deployment_id) AND state=sqlc.arg(released)
-ORDER BY number DESC LIMIT 1;
-
 -- name: NewestShippedBundle :one
 SELECT bundle_id FROM releases WHERE deployment_id=sqlc.arg(deployment_id) AND state=sqlc.arg(released)
   AND origin=sqlc.arg(shipped) AND bundle_id IS NOT NULL

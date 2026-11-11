@@ -252,7 +252,10 @@ func TestDeploymentOutcomeAdmissionRacesCompletion(t *testing.T) {
 	if d := storedDeployment(t, f.db, dep.ID); d.DesiredGeneration != 2 || d.ObservedGeneration > 1 || d.Readiness != reconciling {
 		t.Fatalf("deployment after the race: desired %d observed %d %s", d.DesiredGeneration, d.ObservedGeneration, d.Readiness)
 	}
-	if out, err := s.Fail(context.Background(), old, errors.New("late failure")); err != nil || out != Superseded {
+	// A late failure of the replaced attempt is superseded; of one that
+	// completed first, a conflicting outcome. Neither changes the deployment.
+	out, err := s.Fail(context.Background(), old, errors.New("late failure"))
+	if completed := storedAttempt(t, f.db, old.ID).Status == AttemptDone.String(); completed && !errors.Is(err, errOutcomeConflict) || !completed && (err != nil || out != Superseded) {
 		t.Fatalf("old failure after race: %s %v", out, err)
 	}
 	newAttempt, _, err := s.Admit(context.Background(), deploymentStartFor(dep, "new", "new"))

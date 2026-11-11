@@ -611,7 +611,8 @@ func (s *Service) bootRestoredCopy(ctx context.Context, t *tracker, p *restoredP
 	}
 	placement := dep.Placement()
 	placement.Gate = gate
-	placement.Next = dep.DesiredGeneration + 1 // admitted below from base dep.DesiredGeneration
+	base := dep.DesiredGeneration
+	placement.Next = dep.Admitting(&base)
 	r, ok := d.(deploy.Renderer)
 	if !ok {
 		return "", c, "rendering", fmt.Errorf("%s renders no artifact of its own", p.target.Kind)
@@ -623,7 +624,6 @@ func (s *Service) bootRestoredCopy(ctx context.Context, t *tracker, p *restoredP
 	art.Source = &src
 	key := fmt.Sprintf("restored-copy-%d", dep.ID)
 	inputs := deployment.Inputs{BundleID: p.bundle.ID, Revision: revision, ArtifactHash: art.Hash, ImageDigest: p.bundle.Parts[c.PublicPart().Name], Applied: applied}
-	base := dep.DesiredGeneration
 	if err := t.allowed(ctx); err != nil {
 		return "", c, "deploying it", err
 	}

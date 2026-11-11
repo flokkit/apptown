@@ -60,9 +60,9 @@ func (a *App) ensureDeploymentsOnce(ctx context.Context) {
 			return deployment.ContainerStopped, nil
 		},
 		func(e deployment.ProjectDeployment) error {
-			// Admission is unique while queued. The deployment attempt key
-			// prevents a later boot request from repeating an admitted rebuild.
-			_, err := a.Jobs().Enqueue(ctx, "rebuild", e.ProjectID.String()+"/"+e.Name, map[string]any{"deployment": e.ID, "generation": e.ObservedGeneration}, time.Time{})
+			// Admission is unique while queued. The repair's attempt key
+			// prevents a later boot request from repeating an admitted repair.
+			_, err := a.Jobs().Enqueue(ctx, "rebuild", e.ProjectID.String()+"/"+e.Name, map[string]any{"attempt": e.ServingAttemptID}, time.Time{})
 			return err
 		})
 }

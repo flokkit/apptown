@@ -58,6 +58,21 @@ func TestDockerSweepReadsTheWholeHostTogether(t *testing.T) {
 			// The host returns only after the observation deadline. No app gets a
 			// fresh success while another waits in the per-deployment worker queue.
 			s.observationTimeout = 10 * time.Millisecond
+			// Deciding whether to ask the host is not charged to its deadline:
+			// that decision's read is held back past the deadline here.
+			real := s.providers.inventories[KindDockerHost]
+			s.providers.inventories[KindDockerHost] = func(target *Target) (deploy.Inventorier, error) {
+				lock, err := s.db.Begin(context.Background())
+				if err != nil {
+					return nil, err
+				}
+				// sql-guarantee: delay the eligibility read; no owner operation holds a read back.
+				if _, err := lock.SQL().ExecContext(context.Background(), `LOCK TABLE deployment_attempts IN ACCESS EXCLUSIVE MODE`); err != nil {
+					return nil, err
+				}
+				time.AfterFunc(10*s.observationTimeout, func() { _ = lock.Rollback() })
+				return real(target)
+			}
 			s.hosts.settings.Scope.Client = statusInspectClient(func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
 				if req.Args[0] == "inspect" {
 					<-ctx.Done()

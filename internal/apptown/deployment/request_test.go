@@ -332,7 +332,7 @@ func TestFollowsMainTakesChosenBundlesWithoutInferringWhatRuns(t *testing.T) {
 	t.Run("an unreadable generation is not an unknown success", func(t *testing.T) {
 		t.Parallel()
 		w := setup(t, true)
-		restore := dbtest.NextStatementFailure(w.s.db, "-- name: CompletedAttempt")
+		restore := dbtest.NextStatementFailure(w.s.db, "-- name: AttemptInputs")
 		bundle, err := w.s.runningBundle(t.Context(), w.dep)
 		restore()
 		if err == nil || !bundle.IsZero() {

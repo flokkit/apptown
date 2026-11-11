@@ -49,7 +49,7 @@ func (s *Outcomes) Checkpoint(ctx context.Context, at Attempt) deploy.Checkpoint
 			return err
 		}
 		_, retrying := noted["_restartRetry"]
-		if dep.DesiredGeneration != at.Generation || (status != AttemptRunning && !(status == AttemptUncertain && retrying)) {
+		if status != AttemptRunning && !(status == AttemptUncertain && retrying) {
 			return fmt.Errorf("attempt %d no longer owns provider execution (%s)", at.ID, status)
 		}
 		if value, ok := values["docker"]; ok {
@@ -205,14 +205,6 @@ func (s *Outcomes) AttemptByKey(ctx context.Context, deploymentID ids.ID, key st
 		return at, 0, err
 	}
 	return at, status, nil
-}
-
-func (s *Outcomes) InputsAtGeneration(ctx context.Context, deploymentID ids.ID, generation int64) (Inputs, error) {
-	r, err := deploymentsql.New(s.db.SQL()).CompletedAttempt(ctx, deploymentsql.CompletedAttemptParams{DeploymentID: deploymentID, Generation: generation, Status: AttemptDone.String()})
-	if err != nil {
-		return Inputs{}, err
-	}
-	return s.InputsFor(ctx, Attempt{ID: r.ID, DeploymentID: r.DeploymentID, Generation: r.Generation})
 }
 
 // HasOpenAttempt reports whether a deploy or an observation currently owns

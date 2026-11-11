@@ -18,12 +18,10 @@ type Inputs struct {
 	ReleaseRun ids.ID
 	Backup     ids.ID
 	// BundleID pins the release bundle a generation runs, ahead of its
-	// release's or its landing run's: a recovery clears ReleaseID, which
-	// settles one release once, and names its bundle here; a landing whose
-	// bundle is committed before its deploy names it here, so a later
-	// attempt of the same run committing another bundle does not change
-	// what this generation ran. 0 for other attempts, whose bundle is their
-	// release's or their landing run's newest.
+	// release's or its landing run's: a landing whose bundle is committed
+	// before its deploy names it here, so a later attempt of the same run
+	// committing another bundle does not change what this generation ran.
+	// 0 for other attempts, whose bundle is their release's or run's newest.
 	BundleID                            ids.ID
 	Revision, ImageDigest, ArtifactHash string
 	DockerSource                        string // Selected configuration, without resolved secrets.
@@ -54,7 +52,8 @@ type Start struct {
 	TargetID       ids.ID // admission rejects a changed target binding.
 	Key            string
 	Inputs         Inputs
-	BaseGeneration *int64 // Requests and rebuilds must still replace the generation they selected.
+	BaseGeneration *int64 // A release must still replace the generation it selected.
+	Repairs        ids.ID // A repair reapplies this serving attempt.
 }
 
 // executionStore retains transaction authority. Admit must bind the key to

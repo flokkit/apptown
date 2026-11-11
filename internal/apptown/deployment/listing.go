@@ -16,7 +16,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/releasesql"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 )
 
@@ -161,7 +160,7 @@ func (s *Service) List(ctx context.Context, projectID ids.ID) ([]Summary, error)
 	}
 	out := make([]Summary, len(records))
 	for i, r := range records {
-		release, err := s.releaseForGeneration(ctx, r.deployment)
+		release, err := s.servingRelease(ctx, r.deployment)
 		if err != nil {
 			return nil, err
 		}
@@ -179,10 +178,10 @@ func (s *Service) List(ctx context.Context, projectID ids.ID) ([]Summary, error)
 				if err != nil {
 					return nil, err
 				}
-				release, err := s.Releases.LastReleasedForDeployment(ctx, source.ID)
-				if found, err := database.Lookup(err); err != nil {
+				release, err := s.servingRelease(ctx, source)
+				if err != nil {
 					return nil, err
-				} else if found {
+				} else if release != nil {
 					r.summary.PromotionRelease = release.Number
 					r.summary.PromotionBundleID = release.BundleID
 				}

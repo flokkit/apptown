@@ -47,6 +47,8 @@ type Deployment struct {
 	RuntimeAt          sql.NullTime
 	RuntimeError       string
 	ActAt              sql.NullTime
+	ServingReleaseID   ids.ID
+	ServingAttemptID   ids.ID
 }
 
 type DeploymentAddressSetting struct {

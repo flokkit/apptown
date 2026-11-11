@@ -27,9 +27,8 @@ type DeploymentStatus struct {
 
 func (s *Service) displayObservation(ctx context.Context, r listingRecord) (RuntimeObservation, error) {
 	o := s.observations.read(r, s.now())
-	// The release a deployment serves is the one applied to its observed
-	// generation, also while a newer release is on its way.
-	applied, err := s.releaseForGeneration(ctx, r.deployment)
+	// What serves, also while a newer release is on its way.
+	applied, err := s.servingRelease(ctx, r.deployment)
 	if err != nil {
 		return o, err
 	}

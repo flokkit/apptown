@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -14,36 +15,37 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
-// Rebuilding (deployment.md §14): a standing deployment whose container is
-// gone after a host restart is rebuilt from the exact inputs its last
-// generation was admitted with, never from the current checkout. The
-// caller restores the recorded source; the package decides whether a
-// rebuild is due and runs it as a new attempt fenced on the generation.
+// Repair (deployment.md, the serving record): a standing deployment whose container is gone
+// after a host restart is rebuilt from its serving attempt's exact inputs,
+// never from the current checkout, at the serving generation and still
+// serving its release. The caller restores the recorded source; the package
+// decides whether a repair is due and runs it as a new attempt fenced on
+// the serving attempt.
 
 // RebuildPlan is what the package decided about a rebuild before any
 // source is restored: the inputs to rebuild from and the attempt key, or
 // the reason nothing is to be done.
 type RebuildPlan struct {
-	inputs     Inputs
-	key        string
-	generation int64
-	skipped    string // "" when the rebuild is due
-	attempt    ids.ID // an attempt already admitted under the key, when Skipped says so
-	outcome    string
+	inputs  Inputs
+	key     string
+	repairs ids.ID // the serving attempt it reapplies
+	skipped string // "" when the rebuild is due
+	attempt ids.ID // an attempt already admitted under the key, when Skipped says so
+	outcome string
 	// bundle is the generation's bundle when the rebuild runs its images
 	// instead of building: a digest bundle, pulled by digest, or, in an AppTown
 	// with no local Docker, any bundle, whose images are on the target.
 	bundle *ReleaseBundle
 }
 
-// prepareRebuild decides whether a standing deployment is to be rebuilt
-// from its selected generation: a rebuild already admitted under the key
-// is left to observation (an open one becomes uncertain), an owned
-// deployment is left alone, a deployment that moved on is skipped, and
-// only a Docker host's standing container is rebuilt.
-func (s *Service) prepareRebuild(ctx context.Context, dep *Deployment, selectedDeployment ids.ID, selectedGeneration int64) (RebuildPlan, error) {
-	plan := RebuildPlan{key: fmt.Sprintf("rebuild-%d-from-%d", dep.ID, selectedGeneration), generation: selectedGeneration}
-	if selectedDeployment == dep.ID && selectedGeneration != 0 {
+// prepareRebuild decides whether a standing deployment's serving attempt,
+// as the job named it, is to be repaired: a repair already admitted under
+// the key is left to observation (an open one becomes uncertain), an owned
+// deployment is left alone, one serving another attempt is skipped, and
+// only a Docker host's standing container is repaired.
+func (s *Service) prepareRebuild(ctx context.Context, dep *Deployment, serving ids.ID) (RebuildPlan, error) {
+	plan := RebuildPlan{key: fmt.Sprintf("repair-%s", serving), repairs: serving}
+	if !serving.IsZero() {
 		if at, status, err := s.Outcomes.AttemptByKey(ctx, dep.ID, plan.key); err == nil {
 			if status.open() {
 				if _, err := s.Outcomes.Uncertain(ctx, at, errors.New("rebuild execution interrupted; observing its original container")); err != nil {
@@ -79,16 +81,16 @@ func (s *Service) prepareRebuild(ctx context.Context, dep *Deployment, selectedD
 	if err := s.refusesPlacement(ctx, dep.ProjectID, t); err != nil {
 		return plan, err
 	}
-	if selectedDeployment != dep.ID || selectedGeneration == 0 {
+	if serving.IsZero() {
 		return plan, errRebuildUnselected
 	}
-	if dep.DesiredGeneration != selectedGeneration || dep.ObservedGeneration != selectedGeneration {
-		plan.skipped = "deployment generation changed since rebuild was queued"
+	if dep.ServingAttemptID != serving {
+		plan.skipped = "deployment serves another attempt since the repair was queued"
 		return plan, nil
 	}
-	plan.inputs, err = s.Outcomes.InputsAtGeneration(ctx, dep.ID, selectedGeneration)
-	if err != nil {
-		return plan, fmt.Errorf("%w: reading original rebuild inputs: %w", errRebuildUnselected, err)
+	var found bool
+	if plan.inputs, found, err = s.serving(ctx, dep); err != nil || !found {
+		return plan, cmp.Or(err, errRebuildUnselected)
 	}
 	// No source build for a digest bundle (pulled by digest), nor, without
 	// local Docker, for any bundle (recorded on this target).
@@ -105,7 +107,7 @@ func (s *Service) prepareRebuild(ctx context.Context, dep *Deployment, selectedD
 	return plan, nil
 }
 
-var errRebuildUnselected = errors.New("rebuild has no selected deployment generation; inspect or deploy a fresh revision")
+var errRebuildUnselected = errors.New("repair has no recorded serving attempt; inspect or deploy a fresh revision")
 
 // rebuildResult is a rebuild's outcome and, when the provider refused,
 // the provider's error for the caller to report.
@@ -119,7 +121,7 @@ type rebuildResult struct {
 
 // Rebuild runs the rebuild: the restored artifact must match the recorded
 // inputs; a container already running is left alone; then a new attempt
-// fenced on the selected generation reconciles through the driver. For a
+// fenced on the serving attempt reconciles through the driver. For a
 // digest bundle, and for any bundle without local Docker, it runs the
 // generation's recorded images, built nothing.
 func (s *Service) Rebuild(ctx context.Context, dep *Deployment, plan RebuildPlan, art deploy.Artifact) (rebuildResult, error) {
@@ -199,9 +201,8 @@ func (s *Service) Rebuild(ctx context.Context, dep *Deployment, plan RebuildPlan
 		return rebuildResult{}, err
 	}
 	var providerErr error
-	base := plan.generation
 	result, err := (Runner{Store: s.Outcomes, Acted: s.applied, BeforeAct: NewHostSnapshots(s.db, s.now).BeforeAct}).Run(ctx,
-		Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: plan.key, Inputs: inputs, BaseGeneration: &base},
+		Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: plan.key, Inputs: inputs, Repairs: plan.repairs},
 		func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 			o, err := d.Reconcile(ctx, dep.Placement(), at.Generation, art, plan.key,
 				func(format string, values ...any) { log.Printf("deployment rebuild: "+format, values...) }, checkpoint)

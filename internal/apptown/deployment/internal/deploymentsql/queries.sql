@@ -1,16 +1,16 @@
 -- Record reads, grouped by table.
 
 -- name: DeploymentByID :one
-SELECT sqlc.embed(d), (SELECT a.finished_at FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done') AS last_applied_at FROM deployments d WHERE d.id=$1;
+SELECT sqlc.embed(d), a.finished_at AS last_applied_at FROM deployments d LEFT JOIN deployment_attempts a ON a.id=d.serving_attempt_id WHERE d.id=$1;
 
 -- name: DeploymentByName :one
-SELECT sqlc.embed(d), (SELECT a.finished_at FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done') AS last_applied_at FROM deployments d WHERE d.project_id=$1 AND d.name=$2;
+SELECT sqlc.embed(d), a.finished_at AS last_applied_at FROM deployments d LEFT JOIN deployment_attempts a ON a.id=d.serving_attempt_id WHERE d.project_id=$1 AND d.name=$2;
 
 -- A restored copy is not one of the project's deployments: it is shown on
 -- its source's card only (RestoredCopiesOf), never in listings, health,
 -- conformance or the sweeps that read these.
 -- name: DeploymentsForProject :many
-SELECT sqlc.embed(d), (SELECT a.finished_at FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done') AS last_applied_at FROM deployments d WHERE d.project_id=$1 AND d.kind<>'restored-copy' ORDER BY d.kind DESC,d.id;
+SELECT sqlc.embed(d), a.finished_at AS last_applied_at FROM deployments d LEFT JOIN deployment_attempts a ON a.id=d.serving_attempt_id WHERE d.project_id=$1 AND d.kind<>'restored-copy' ORDER BY d.kind DESC,d.id;
 
 -- name: PreviewDeployments :many
 SELECT * FROM deployments WHERE kind=$1 ORDER BY id;
@@ -93,9 +93,6 @@ SELECT * FROM deployment_attempts WHERE id=$1;
 
 -- name: InterruptedAttempts :many
 SELECT * FROM deployment_attempts WHERE status IN ($1,$2) ORDER BY id;
-
--- name: CompletedAttempt :one
-SELECT * FROM deployment_attempts WHERE deployment_id=sqlc.arg(deployment_id) AND generation=sqlc.arg(generation) AND status=sqlc.arg(status);
 
 -- name: AttemptInputs :one
 SELECT i.* FROM deployment_attempt_inputs i JOIN deployment_attempts a ON a.id=i.attempt_id WHERE a.id=sqlc.arg(id) AND a.deployment_id=sqlc.arg(deployment_id) AND a.generation=sqlc.arg(generation);
@@ -262,7 +259,7 @@ UPDATE retained_resources SET disposition=sqlc.arg(disposition), note=sqlc.arg(n
 UPDATE deployment_attempts SET status=sqlc.arg(status), terminal=true, superseded_by=sqlc.arg(superseded_by), finished_at=sqlc.arg(finished_at) WHERE deployment_id=sqlc.arg(deployment_id) AND status=sqlc.arg(running_state) AND id!=sqlc.arg(id);
 
 -- name: AdmitGeneration :execrows
-UPDATE deployments SET desired_generation=sqlc.arg(desired_generation), readiness=sqlc.arg(readiness), updated_at=sqlc.arg(updated_at) WHERE id=sqlc.arg(id);
+UPDATE deployments SET desired_generation=GREATEST(desired_generation, sqlc.arg(desired_generation)), readiness=sqlc.arg(readiness), updated_at=sqlc.arg(updated_at) WHERE id=sqlc.arg(id);
 
 -- name: FinishSupersededAttempt :execrows
 UPDATE deployment_attempts SET status=sqlc.arg(status), terminal=sqlc.arg(terminal), finished_at=sqlc.arg(finished_at) WHERE id=sqlc.arg(id);
@@ -272,7 +269,8 @@ UPDATE deployments SET readiness=sqlc.arg(readiness), updated_at=sqlc.arg(update
 
 -- name: ObserveGeneration :execrows
 UPDATE deployments SET observed_generation=sqlc.arg(observed_generation), handle_json=sqlc.arg(handle_json), url=sqlc.arg(url), container=sqlc.arg(container), host_port=sqlc.arg(host_port),
-  release_run=sqlc.arg(release_run), release_sha=sqlc.arg(release_sha), image_digest=sqlc.arg(image_digest), readiness=sqlc.arg(readiness), updated_at=sqlc.arg(updated_at) WHERE id=sqlc.arg(id);
+  release_run=sqlc.arg(release_run), release_sha=sqlc.arg(release_sha), image_digest=sqlc.arg(image_digest), readiness=sqlc.arg(readiness),
+  serving_release_id=sqlc.arg(serving_release_id), serving_attempt_id=sqlc.arg(serving_attempt_id), updated_at=sqlc.arg(updated_at) WHERE id=sqlc.arg(id);
 
 -- name: FinishAttempt :execrows
 UPDATE deployment_attempts SET status=sqlc.arg(status), terminal=sqlc.arg(terminal), observed_json=sqlc.arg(observed_json), finished_at=sqlc.arg(finished_at) WHERE id=sqlc.arg(id);
@@ -372,7 +370,7 @@ SELECT EXISTS(SELECT 1 FROM targets WHERE provider=$1 AND status<>$2);
 
 -- Runtime display/observation facts. NULL scope is private to the background sweep.
 -- name: RuntimeDeployments :many
-SELECT sqlc.embed(d), (SELECT a.finished_at FROM deployment_attempts a WHERE a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done') AS last_applied_at, p.slug FROM deployments d JOIN projects p ON p.id=d.project_id
+SELECT sqlc.embed(d), a.finished_at AS last_applied_at, p.slug FROM deployments d LEFT JOIN deployment_attempts a ON a.id=d.serving_attempt_id JOIN projects p ON p.id=d.project_id
 WHERE d.kind<>'restored-copy' AND (sqlc.narg(project_ids)::uuid[] IS NULL OR d.project_id=ANY(sqlc.narg(project_ids)::uuid[]))
 ORDER BY d.kind DESC,d.id;
 
@@ -427,11 +425,11 @@ UPDATE deployments SET restore_check=sqlc.arg(next), updated_at=sqlc.arg(updated
 WHERE id=sqlc.arg(id) AND restore_check=sqlc.arg(current);
 
 -- What the provider runs becomes the record (the driver's change to the
--- handle, deploy.RunningRecord): the release that put it there is not
--- known, so neither is its revision.
+-- handle, deploy.RunningRecord) and its observed release serves: what
+-- AppTown applied there, and its revision, are not known.
 -- name: AdoptAfterRestore :execrows
 UPDATE deployments SET handle_json=handle_json || sqlc.arg(handle_patch)::jsonb,
-  release_sha='', restore_check=sqlc.arg(next), updated_at=sqlc.arg(updated_at)
+  release_sha='', serving_release_id=sqlc.arg(serving_release_id), serving_attempt_id=NULL, restore_check=sqlc.arg(next), updated_at=sqlc.arg(updated_at)
 WHERE id=sqlc.arg(id) AND restore_check=sqlc.arg(current);
 
 -- name: StorageBinding :one
@@ -451,9 +449,6 @@ DELETE FROM deployment_storage_bindings WHERE deployment_id=sqlc.arg(deployment_
 -- establish current attribution or select another placement's history.
 -- name: LatestReleasedForDeployment :one
 SELECT * FROM releases WHERE deployment_id=sqlc.arg(deployment_id) AND state=sqlc.arg(state) ORDER BY number DESC LIMIT 1;
-
--- name: ReleaseForGeneration :one
-SELECT * FROM releases WHERE deployment_id=sqlc.arg(deployment_id) AND generation=sqlc.arg(generation) AND state='released' ORDER BY number DESC LIMIT 1;
 
 -- name: AssociateTargetProvider :one
 UPDATE targets SET connection_id=sqlc.arg(connection_id), provider=sqlc.arg(provider), provider_scope_json=sqlc.arg(provider_scope_json),
@@ -723,8 +718,7 @@ SELECT * FROM releases ORDER BY number DESC;
 
 -- name: RetentionRunningBundles :many
 SELECT i.bundle_id FROM deployments d
-JOIN deployment_attempts a ON a.deployment_id=d.id AND a.generation=d.observed_generation AND a.status='done'
-JOIN deployment_attempt_inputs i ON i.attempt_id=a.id
+JOIN deployment_attempt_inputs i ON i.attempt_id=d.serving_attempt_id
 WHERE i.bundle_id IS NOT NULL;
 
 -- name: AppPlatformReleaseInFlight :one

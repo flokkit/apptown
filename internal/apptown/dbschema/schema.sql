@@ -1405,8 +1405,8 @@ CREATE TABLE IF NOT EXISTS release_events (
   text       TEXT NOT NULL
 );
 -- A deployment (design/subsystems/deployment.md §2.3): identity, a kind, a binding
--- to a target, the target-specific handle the driver owns, the desired and
--- observed deployment generations, and the four attributes that carry the
+-- to a target, the target-specific handle the driver owns, its generations
+-- and serving record, and the four attributes that carry the
 -- nuance (§2.3a; protected is derived in Go). A preview row is named
 -- preview-<change> so (project, name) stays the one key. host_port and
 -- container are the built-in Docker host's handle, kept as columns because
@@ -1460,6 +1460,10 @@ CREATE TABLE IF NOT EXISTS deployments (
   -- stop, a restore, a failed or uncertain deploy. Readings begun earlier
   -- cannot witness its parts. Null until the first such act.
   act_at TIMESTAMPTZ,
+  -- What serves: the release (null when unknown) and the attempt whose
+  -- inputs AppTown applied (null when unknown or adopted after a restore).
+  serving_release_id UUID,
+  serving_attempt_id UUID,
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
   UNIQUE(project_id, name)
 );

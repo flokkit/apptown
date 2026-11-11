@@ -328,8 +328,9 @@ func TestNewDeploymentWaitsButRestoreAdoptionStillAssessesProtection(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dep.ReleaseSHA != "" || dep.LastApplied == nil || dep.RestoreCheck != "" {
-		t.Fatalf("adoption did not preserve application evidence: %+v", dep)
+	// What AppTown applied is no longer what runs; the adopted release serves.
+	if dep.ReleaseSHA != "" || dep.LastApplied != nil || !dep.ServingAttemptID.IsZero() || dep.ServingReleaseID.IsZero() || dep.RestoreCheck != "" {
+		t.Fatalf("adoption did not record its observed release as serving: %+v", dep)
 	}
 	_, identity, err = o.resolve(ctx, dep.ID)
 	if err != nil {

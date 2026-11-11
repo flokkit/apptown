@@ -22,10 +22,9 @@ type snapshot struct {
 // may read admitted inputs and bind a provider, but must perform no provider I/O.
 // Observation contains no source checkout; the separately checked retry restores it.
 type recoveryTarget struct {
-	ReleaseID         ids.ID
-	TargetID          ids.ID
-	DesiredGeneration int64
-	Observer          observer
+	ReleaseID ids.ID
+	TargetID  ids.ID
+	Observer  observer
 }
 
 type recoveryReader interface {
@@ -103,11 +102,6 @@ func (r recoverer) Run(ctx context.Context, id ids.ID) (RecoveryResult, error) {
 	releaseID = target.ReleaseID
 	if err != nil {
 		return uncertain(err)
-	}
-	if target.DesiredGeneration != at.Generation {
-		out, err := r.store.Fail(ctx, at, deploy.Terminal(errors.New("superseded before observation")))
-		result.Outcome = string(out)
-		return result, err
 	}
 	if err := ctx.Err(); err != nil {
 		return result, err

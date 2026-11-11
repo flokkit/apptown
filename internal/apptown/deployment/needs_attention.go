@@ -250,7 +250,7 @@ func (s *Service) checkStranded(ctx context.Context, dep *Deployment, c contradi
 	if c.Status != AttemptDone {
 		return settle(c.Status, deploy.Observation{}, fmt.Sprintf("its deployment attempt %d ended %s", c.Attempt.ID, c.Status))
 	}
-	if c.Attempt.Generation != dep.DesiredGeneration {
+	if c.Attempt.ID != dep.ServingAttemptID {
 		return settle(attemptSuperseded, deploy.Observation{}, "superseded by a newer deployment generation")
 	}
 	source := s.recoverySource()

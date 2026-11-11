@@ -149,14 +149,10 @@ func (s *Service) settleFill(ctx context.Context, dep *Deployment, why string) {
 }
 
 // RebuildRecorded says whether a restored AppTown can rebuild dep from its
-// record: the attempt that put its observed generation there recorded
-// its inputs.
+// record: its serving attempt recorded its inputs.
 func (s *Service) RebuildRecorded(ctx context.Context, dep *Deployment) bool {
-	if dep.ObservedGeneration == 0 {
-		return false
-	}
-	_, err := s.Outcomes.InputsAtGeneration(ctx, dep.ID, dep.ObservedGeneration)
-	return err == nil
+	_, ok, err := s.serving(ctx, dep)
+	return ok && err == nil
 }
 
 // heldKinds are the targets whose deployments a restore holds.
@@ -205,8 +201,8 @@ func (s *Service) checkAfterRestore(ctx context.Context, id ids.ID) error {
 	if err != nil || dep.RestoreCheck != RestoreUnconfirmed {
 		return err
 	}
-	if dep.DesiredGeneration != dep.ObservedGeneration {
-		return nil // an attempt is open: its recovery settles it first
+	if open, err := s.Outcomes.HasOpenAttempt(ctx, dep.ID); err != nil || open {
+		return err // an attempt is open: its recovery settles it first
 	}
 	t, err := s.Targets.ByID(ctx, dep.TargetID)
 	if err != nil {
@@ -271,13 +267,14 @@ func (s *Service) adoptAfterRestore(ctx context.Context, dep *Deployment, t *Tar
 		if err := LockProjectIn(ctx, tx, dep.ProjectID); err != nil {
 			return err
 		}
+		release := ids.New(now)
 		n, err := deploymentsql.New(tx.SQL()).AdoptAfterRestore(ctx, deploymentsql.AdoptAfterRestoreParams{
-			HandlePatch: patch, Next: "", UpdatedAt: now, ID: dep.ID, Current: string(RestoreUnconfirmed)})
+			HandlePatch: patch, ServingReleaseID: release, Next: "", UpdatedAt: now, ID: dep.ID, Current: string(RestoreUnconfirmed)})
 		if err != nil || n != 1 {
 			return err // settled meanwhile
 		}
 		number, err := releasesql.New(tx.SQL()).RecordObservedRelease(ctx, releasesql.RecordObservedReleaseParams{
-			ID: ids.New(now), ProjectID: dep.ProjectID, State: Released.String(), Deployment: dep.Name, DeploymentID: dep.ID,
+			ID: release, ProjectID: dep.ProjectID, State: Released.String(), Deployment: dep.Name, DeploymentID: dep.ID,
 			Generation: dep.ObservedGeneration, ExternalRef: running, At: now, Origin: originObservedAfterRestore,
 			Notes: fmt.Sprintf("observed on %s after AppTown was restored; AppTown did not ship this (it had recorded %s)", t.Name, orNone(recorded)),
 		})
@@ -291,20 +288,15 @@ func (s *Service) adoptAfterRestore(ctx context.Context, dep *Deployment, t *Tar
 
 // handBundle is the bundle a landing-fed deployment takes by hand
 // (DeployableByHandAt): the one it is known to run, or, once a restore
-// adopted what its provider ran (its newest released release is observed,
-// not shipped), the one AppTown last shipped there: deploying the recorded
-// version puts back what AppTown's records said.
+// adopted what its provider ran (a serving release with no applied attempt),
+// the one AppTown last shipped there: deploying the recorded version puts
+// back what AppTown's records said.
 func (s *Service) handBundle(ctx context.Context, dep *Deployment) (ids.ID, error) {
 	running, err := s.runningBundle(ctx, dep)
-	if err != nil || !running.IsZero() {
+	if err != nil || !running.IsZero() || !dep.ServingAttemptID.IsZero() || dep.ServingReleaseID.IsZero() {
 		return running, err
 	}
-	q := releasesql.New(s.db.SQL())
-	origin, err := q.NewestReleasedOrigin(ctx, releasesql.NewestReleasedOriginParams{DeploymentID: dep.ID, Released: Released.String()})
-	if found, err := database.Lookup(err); err != nil || !found || origin != originObservedAfterRestore {
-		return ids.Nil, err
-	}
-	bundle, err := q.NewestShippedBundle(ctx, releasesql.NewestShippedBundleParams{DeploymentID: dep.ID, Released: Released.String(), Shipped: originShipped})
+	bundle, err := releasesql.New(s.db.SQL()).NewestShippedBundle(ctx, releasesql.NewestShippedBundleParams{DeploymentID: dep.ID, Released: Released.String(), Shipped: originShipped})
 	if found, err := database.Lookup(err); err != nil || !found {
 		return ids.Nil, err
 	}

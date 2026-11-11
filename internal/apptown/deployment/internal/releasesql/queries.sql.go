@@ -363,23 +363,6 @@ func (q *Queries) NewReleaseChanges(ctx context.Context, arg NewReleaseChangesPa
 	return items, nil
 }
 
-const newestReleasedOrigin = `-- name: NewestReleasedOrigin :one
-SELECT origin FROM releases WHERE deployment_id=$1 AND state=$2
-ORDER BY number DESC LIMIT 1
-`
-
-type NewestReleasedOriginParams struct {
-	DeploymentID ids.ID
-	Released     string
-}
-
-func (q *Queries) NewestReleasedOrigin(ctx context.Context, arg NewestReleasedOriginParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, newestReleasedOrigin, arg.DeploymentID, arg.Released)
-	var origin string
-	err := row.Scan(&origin)
-	return origin, err
-}
-
 const newestShippedBundle = `-- name: NewestShippedBundle :one
 SELECT bundle_id FROM releases WHERE deployment_id=$1 AND state=$2
   AND origin=$3 AND bundle_id IS NOT NULL

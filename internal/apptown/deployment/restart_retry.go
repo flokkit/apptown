@@ -14,11 +14,11 @@ import (
 // provider effects. Another delivery or restart can only observe its outcome.
 func (s *Outcomes) claimRestartRetry(ctx context.Context, at Attempt) (bool, error) {
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (bool, error) {
-		dep, status, checkpoint, err := lockDeploymentIn(ctx, tx, at)
+		_, status, checkpoint, err := lockDeploymentIn(ctx, tx, at)
 		if err != nil {
 			return false, err
 		}
-		if !status.open() || dep.DesiredGeneration != at.Generation {
+		if !status.open() {
 			return false, nil
 		}
 		var noted map[string]any
