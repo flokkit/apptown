@@ -261,11 +261,9 @@ func (p ContainerPresence) String() string {
 func (s *Service) BootReconcile(ctx context.Context, present func(targetID ids.ID, container string) (ContainerPresence, error), rebuild func(p ProjectDeployment) error) {
 	if previews, err := s.Deployments.Previews(ctx); err == nil {
 		for _, p := range previews {
+			// Only a definite answer forgets one: an unreachable host keeps it.
 			state, perr := present(p.TargetID, p.Container)
-			if perr != nil && ctx.Err() != nil {
-				return // cut short: what the hosts hold is unknown, and nothing is forgotten
-			}
-			if p.Container == "" || state != ContainerRunning {
+			if p.Container == "" || (perr == nil && (state == ContainerGone || state == ContainerStopped)) {
 				if err := s.Deployments.ForgetPreview(ctx, p.ChangeID); err != nil {
 					log.Printf("change %d: forgetting its preview deployment: %v", p.ChangeID, err)
 				}

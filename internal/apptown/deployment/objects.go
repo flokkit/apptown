@@ -29,15 +29,7 @@ type verdict struct {
 // with the deployment's readiness settled accordingly.
 func (at Attempt) settle(dep *Deployment, status AttemptState, failed bool) (verdict, error) {
 	if status == attemptSuperseded {
-		v := verdict{Outcome: Superseded, Next: status}
-		if status.open() {
-			next, err := status.transition(attemptSuperseded)
-			if err != nil {
-				return verdict{}, err
-			}
-			v.Next, v.Changed = next, true
-		}
-		return v, nil
+		return verdict{Outcome: Superseded, Next: status}, nil
 	}
 	wanted := outcomeState(failed)
 	if status == wanted {

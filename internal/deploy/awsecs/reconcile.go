@@ -148,7 +148,7 @@ func jobExit(t ecstypes.Task) error {
 }
 func (d *Driver) Resume(ctx context.Context, p deploy.Placement, g int64, noted map[string]any, log deploy.Logf) (deploy.Observation, error) {
 	if text(noted, "definition") == "" {
-		return deploy.Observation{}, errors.New("AWS attempt has no checkpointed task definition; its outcome is unknown")
+		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("the attempt was interrupted before its task definition was recorded: %w", deploy.ErrNotApplied))
 	}
 	return d.finish(ctx, p, g, noted, log)
 }

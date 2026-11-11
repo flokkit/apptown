@@ -260,10 +260,12 @@ func TestRecoveryFailureWriteAndConcurrentUncertaintySettlement(t *testing.T) {
 }
 
 func TestRecoveryRetriesOnlyAnUnappliedVersionAndPreservesFailureClassification(t *testing.T) {
-	for _, scenario := range []string{"already up", "provider failed", "unreachable", "retry succeeds", "retry fails", "retry unknown"} {
+	for _, scenario := range []string{"already up", "provider failed", "unreachable", "retry succeeds", "retry fails", "retry unknown", "unapplied before checkpoint", "unapplied, no restart"} {
 		t.Run(scenario, func(t *testing.T) {
 			r, source, store, _, _ := recoveryFixture(t)
-			source.snapshot.Checkpoint["_restart"] = true
+			if scenario != "unapplied, no restart" {
+				source.snapshot.Checkpoint["_restart"] = true
+			}
 			observation := deploy.Observation{Generation: 2, Rollout: "active"}
 			source.target.Observer = recoveryFixtureObserver(func(context.Context, Attempt, map[string]any, func(string, ...any)) (deploy.Observation, error) {
 				switch scenario {
@@ -273,6 +275,9 @@ func TestRecoveryRetriesOnlyAnUnappliedVersionAndPreservesFailureClassification(
 					return deploy.Observation{}, deploy.Terminal(errors.New("provider rejected"))
 				case "unreachable":
 					return deploy.Observation{}, errors.New("host unavailable")
+				case "unapplied before checkpoint", "unapplied, no restart":
+					// A driver interrupted before its first checkpoint applied nothing.
+					return deploy.Observation{}, deploy.Terminal(fmt.Errorf("no app was named: %w", deploy.ErrNotApplied))
 				default:
 					return deploy.Observation{}, deploy.ErrNotApplied
 				}
@@ -299,8 +304,10 @@ func TestRecoveryRetriesOnlyAnUnappliedVersionAndPreservesFailureClassification(
 				want = "failed"
 			case "unreachable":
 				want = "uncertain"
-			case "retry succeeds":
+			case "retry succeeds", "unapplied before checkpoint":
 				calls = 1
+			case "unapplied, no restart":
+				want = "failed"
 			case "retry fails":
 				want, calls = "failed", 1
 			case "retry unknown":

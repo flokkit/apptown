@@ -787,3 +787,17 @@ func TestAMissingPartIsNeverHealthy(t *testing.T) {
 		t.Fatalf("the missing worker was reported healthy: %+v", o)
 	}
 }
+
+// An attempt interrupted before Fly named its app applied nothing: a
+// terminal not-applied answer, which recovery retries once after a restart
+// and otherwise settles failed, never uncertain.
+//
+// Kills: an attempt with no app left uncertain for good.
+func TestAnAttemptInterruptedBeforeItsAppIsNamedWasNotApplied(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	_, err := w.driver.Resume(t.Context(), w.p, 2, map[string]any{}, w.logf)
+	if !deploy.IsTerminal(err) || !errors.Is(err, deploy.ErrNotApplied) {
+		t.Fatalf("resume with no app: %v", err)
+	}
+}

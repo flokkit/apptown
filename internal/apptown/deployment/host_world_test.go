@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -129,24 +130,41 @@ func TestAnAttachedHostShowsTheProjectsNameForMainOnly(t *testing.T) {
 	}
 }
 
-// Boot reconcile forgets a preview its host says is gone, never one whose
-// host could not be asked because reconcile itself was stopped: that is
-// unknown, and its row stays.
-func TestBootReconcileCutShortForgetsNoPreview(t *testing.T) {
+// Boot reconcile forgets a preview only when its host answers that it is
+// gone: an unreachable host, or reconcile itself being stopped, is unknown,
+// and the row stays.
+//
+// Kills: a preview forgotten because its host could not be asked.
+func TestBootReconcileForgetsAPreviewOnlyOnADefiniteAnswer(t *testing.T) {
 	t.Parallel()
 	s, _, _, _, projectID := hostWorld(t, "")
 	if err := s.Deployments.RecordPreview(context.Background(), projectID, idstest.N(9), idstest.N(1), docker.PreviewChangeName(idstest.N(9)), 4000, "http://p", nil); err != nil {
 		t.Fatal(err)
 	}
+	kept := func() bool {
+		_, err := s.Deployments.ByName(context.Background(), projectID, PreviewName(idstest.N(9)))
+		return err == nil
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	present := func(ids.ID, string) (ContainerPresence, error) {
-		cancel() // the daemon stops while the host is being asked
-		return ContainerGone, ctx.Err()
+	// Unreachable first: the cut-short case stops ctx for good.
+	for _, present := range []func(ids.ID, string) (ContainerPresence, error){
+		func(ids.ID, string) (ContainerPresence, error) {
+			return ContainerGone, errors.New("dial ssh: host unreachable")
+		},
+		func(ids.ID, string) (ContainerPresence, error) {
+			cancel() // the daemon stops while the host is being asked
+			return ContainerGone, ctx.Err()
+		},
+	} {
+		s.BootReconcile(ctx, present, func(ProjectDeployment) error { return nil })
+		if !kept() {
+			t.Fatal("a preview whose host could not be asked was forgotten")
+		}
 	}
-	s.BootReconcile(ctx, present, func(ProjectDeployment) error { return nil })
-	if _, err := s.Deployments.ByName(context.Background(), projectID, PreviewName(idstest.N(9))); err != nil {
-		t.Fatalf("a preview whose host could not be asked was forgotten: %v", err)
+	s.BootReconcile(context.Background(), func(ids.ID, string) (ContainerPresence, error) { return ContainerGone, nil }, func(ProjectDeployment) error { return nil })
+	if kept() {
+		t.Fatal("a preview its host says is gone was kept")
 	}
 }
 
