@@ -161,3 +161,5 @@ The whole-page camera is `internal/apptown/web_ui_browser_test.go` with
 `testdata/web-ui.mjs`; inspect its screenshots at phone and desktop widths in
 both themes as well as running assertions. Fixture checks do not replace
 looking at real pages.
+
+For a review of every page by eye, see [UI review](../design/operations/ui-review.md).

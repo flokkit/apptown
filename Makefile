@@ -295,6 +295,7 @@ check-web-layout:       ## content-sized rows and phone fields hold at every tex
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" sh scripts/with-deadline.sh 300 node web/people-confirm.browser-test.mjs
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" sh scripts/with-deadline.sh 300 node web/dialogs.browser-test.mjs
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" node web/test/css-cascade.mjs
+	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" sh scripts/with-deadline.sh 300 node scripts/ui-review.browser-test.mjs
 	node --test internal/apptown/testdata/camera-queue.test.mjs
 
 check-web-tsc:

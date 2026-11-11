@@ -54,6 +54,12 @@ class PrePush(unittest.TestCase):
             os.remove(self.calls)
         return r.returncode, calls
 
+    def test_review_tags_need_no_gate_but_a_branch_mix_does(self):
+        ref = f"refs/tags/ui-review/{self.commit[:12]}"
+        tag = f"{ref} {self.commit} {ref} {ZERO}"
+        self.assertEqual(self.push(tag), (0, []))
+        self.assertEqual(self.push(tag, f"refs/heads/main {self.commit} refs/heads/main {ZERO}"), (0, ["make check"]))
+
     def test_a_candidate_tag_checks_heavy_evidence_on_its_commit(self):
         ref = f"refs/tags/candidate/v1.0.1/{self.commit[:12]}"
         self.assertEqual(self.push(f"{ref} {self.commit} {ref} {ZERO}"), (0, [f"heavy flokkit/apptown {self.commit}"]))

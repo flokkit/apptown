@@ -13,6 +13,7 @@ procedures.
 | Invite people, grant roles, make tokens | [People, invites, roles and grants](../../stock/docs/guides/people-and-roles.md), [Invites](../subsystems/auth.md#invites), [Authorization decisions](../subsystems/authorization-capabilities.md) |
 | Configure the private model gateway and worker networks | [Inference security](../subsystems/inference-security.md) |
 | Understand startup, interrupted work and bounded shutdown | [Daemon lifecycle](../subsystems/daemon-lifecycle.md) |
+| Review every page's screenshots before a release | [UI review](ui-review.md) |
 | Make a release: notes, tag, build, frozen upgrade fixture | [Releasing](releasing.md) |
 | The GitHub repository's CI and its published images | [GitHub Actions and images](github.md) |
 | Run steps, checks, previews, change chats and release builds on a separate worker machine | [Workers](workers.md) |
