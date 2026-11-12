@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/lib/pq"
 )
 
 const armCopied = `-- name: ArmCopied :execrows
@@ -648,6 +649,22 @@ func (q *Queries) RecordCopy(ctx context.Context, arg RecordCopyParams) error {
 		arg.Arm,
 	)
 	return err
+}
+
+const retainsAutomatedWork = `-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM eval_arms WHERE source_change_id=$1 OR change_id=$1 OR run_id=ANY($2::uuid[]) OR landing_run_id=ANY($2::uuid[]))
+`
+
+type RetainsAutomatedWorkParams struct {
+	ChangeID ids.ID
+	RunIds   []ids.ID
+}
+
+func (q *Queries) RetainsAutomatedWork(ctx context.Context, arg RetainsAutomatedWorkParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, retainsAutomatedWork, arg.ChangeID, pq.Array(arg.RunIds))
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const runningEvals = `-- name: RunningEvals :many

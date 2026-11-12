@@ -1135,6 +1135,17 @@ func (q *Queries) RefreshAdoptedPolicyWords(ctx context.Context) (int64, error) 
 	return result.RowsAffected()
 }
 
+const retainsAutomatedWork = `-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM project_adoptions WHERE change_id=$1)
+`
+
+func (q *Queries) RetainsAutomatedWork(ctx context.Context, changeID ids.ID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, retainsAutomatedWork, changeID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const saveCurrentAdoption = `-- name: SaveCurrentAdoption :one
 UPDATE adoptions SET revision=$1,drift_note=$2
 WHERE project_id=$3 AND revision=$4 RETURNING project_id, revision, drift_note

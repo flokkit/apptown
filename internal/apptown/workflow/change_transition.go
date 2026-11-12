@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -35,6 +36,11 @@ func TransitionChangeIn(ctx context.Context, tx *database.Tx, projectID ids.ID, 
 		return current, err
 	}
 	current = changeLifecycle{ID: row.ID, ProjectID: row.ProjectID, RunID: row.RunID, State: row.State, Type: row.Type, Branch: row.Branch}
+	if move.Action == LandChange || humanTouch(ctx) {
+		if err := promoteChangeIn(ctx, tx, projectID, id); err != nil {
+			return current, err
+		}
+	}
 	next, err := current.apply(move)
 	if err != nil || next == current {
 		return current, err
@@ -54,6 +60,11 @@ func TransitionChangeIn(ctx context.Context, tx *database.Tx, projectID ids.ID, 
 	}
 	if n != 1 {
 		return current, fmt.Errorf("%w: Change %d changed or its write was suppressed", ErrChangeTransition, id)
+	}
+	if next.State.Closed() {
+		if err := workflowsql.New(tx.SQL()).EndAutomatedChange(ctx, workflowsql.EndAutomatedChangeParams{ID: id, Outcome: next.State.String(), EndedAt: sql.NullTime{Time: at, Valid: true}}); err != nil {
+			return current, err
+		}
 	}
 	return next, nil
 }

@@ -24,7 +24,7 @@ const cleanup: (() => void)[] = []
 afterEach(() => { cleanup.splice(0).forEach(close => close()); vi.unstubAllGlobals() })
 async function show(ui: ReactNode, replies: Record<string, unknown> = {}, narrow = false, path = '/') {
   vi.stubGlobal('matchMedia', () => ({ matches: narrow, addEventListener() {}, removeEventListener() {} }))
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(replies[url.replace('/api/v1', '')] ?? {}))))
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(replies[url.replace('/api/v1', '')] ?? (url.endsWith('/scans') ? { scans: { main: "", source: [], running: [], historical: [], known: false, stale: false, lastScan: "" }, recent: [] } : {})))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter></QueryClientProvider>))
   cleanup.push(() => { act(() => root.unmount()); client.clear() })

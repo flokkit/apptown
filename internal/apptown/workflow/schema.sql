@@ -49,6 +49,9 @@ CREATE TABLE IF NOT EXISTS changes (
   chat_request BOOLEAN NOT NULL DEFAULT false,
   request_summary JSONB NOT NULL DEFAULT '{}',
   request_gap_quote TEXT NOT NULL DEFAULT '',
+  automated BOOLEAN NOT NULL DEFAULT false,
+  purge_pending BOOLEAN NOT NULL DEFAULT false,
+  automated_origin BOOLEAN NOT NULL DEFAULT false,
   UNIQUE(project_id, number)
 );
 -- The last number given to a change and to a run in each project. A
@@ -201,3 +204,19 @@ CREATE TABLE IF NOT EXISTS standing_rules (id UUID PRIMARY KEY, current_revision
 CREATE TABLE IF NOT EXISTS standing_rule_revisions (rule_id UUID NOT NULL REFERENCES standing_rules(id), revision BIGINT NOT NULL CHECK(revision > 0), enabled BOOLEAN NOT NULL, record_json JSONB NOT NULL, PRIMARY KEY(rule_id,revision));
 
 CREATE UNIQUE INDEX runs_rebuild_request ON runs(rebuild_release_id) WHERE rebuild_release_id IS NOT NULL;
+
+-- Retained summaries of automated work. The original identity remains after
+-- execution material is discarded; active_change_id is only its current link.
+CREATE TABLE IF NOT EXISTS automated_changes (
+ id UUID PRIMARY KEY,
+ project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+ active_change_id UUID REFERENCES changes(id) ON DELETE SET NULL,
+ queue TEXT NOT NULL,
+ what TEXT NOT NULL,
+ opened_at TIMESTAMPTZ NOT NULL,
+ ended_at TIMESTAMPTZ,
+ outcome TEXT NOT NULL DEFAULT '',
+ reason TEXT NOT NULL DEFAULT '',
+ fingerprint TEXT NOT NULL DEFAULT '',
+ packages JSONB NOT NULL DEFAULT '[]'
+);

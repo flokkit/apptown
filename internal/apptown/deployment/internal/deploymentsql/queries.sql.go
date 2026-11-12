@@ -5112,6 +5112,22 @@ func (q *Queries) RetainedResources(ctx context.Context, arg RetainedResourcesPa
 	return items, nil
 }
 
+const retainsAutomatedWork = `-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 WHERE EXISTS(SELECT 1 FROM releases retained0 WHERE retained0.run_id=ANY($1::uuid[])) OR EXISTS(SELECT 1 FROM release_changes retained1 WHERE retained1.change_id=$2) OR EXISTS(SELECT 1 FROM deployments retained2 WHERE retained2.change_id=$2) OR EXISTS(SELECT 1 FROM release_bundles retained3 WHERE retained3.run_id=ANY($1::uuid[])))
+`
+
+type RetainsAutomatedWorkParams struct {
+	RunIds   []ids.ID
+	ChangeID ids.ID
+}
+
+func (q *Queries) RetainsAutomatedWork(ctx context.Context, arg RetainsAutomatedWorkParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, retainsAutomatedWork, pq.Array(arg.RunIds), arg.ChangeID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const retentionBundles = `-- name: RetentionBundles :many
 SELECT id, project_id, contract_revision, contract_hash, parts_json, init_json, built_from_json, created_at, target_id, registry, platform, built_on_json, run_id, step_id, attempt FROM release_bundles ORDER BY created_at DESC,id DESC
 `

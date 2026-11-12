@@ -87,7 +87,7 @@ var sections = []section{
 		commands: []command{
 			{[]string{"signin"}, `  signin <show|configure|test|enable|disable|bindings|bind|revoke>
     Manage external sign-in; configuration contains secret names only.`, cmdSignIn},
-			{[]string{"janitor"}, `  janitor <list|preview|enable|disable|history>
+			{[]string{"janitor"}, `  janitor <list|preview|enable|disable|history|attempts>
                                         manage explicit standing consent; does not run updates`, cmdJanitor},
 			{[]string{"uplift"}, `  uplift [-p proj]                      dependency uplift (dependency-uplift workflow)`, verb("uplift")},
 			{[]string{"excavate"}, `  excavate [-p proj] ["<focus>"]        reverse-engineer the codebase into REQUIREMENTS.md (excavate workflow)`, verb("excavate")},

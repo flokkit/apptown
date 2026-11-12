@@ -1124,6 +1124,22 @@ func (q *Queries) ResumeRemediation(ctx context.Context, arg ResumeRemediationPa
 	return result.RowsAffected()
 }
 
+const retainsAutomatedWork = `-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 WHERE EXISTS(SELECT 1 FROM remediation_items retained0 WHERE retained0.change_id=$1 OR retained0.run_id=ANY($2::uuid[])) OR EXISTS(SELECT 1 FROM remediation_attempts retained1 WHERE retained1.change_id=$1 OR retained1.run_id=ANY($2::uuid[])))
+`
+
+type RetainsAutomatedWorkParams struct {
+	ChangeID ids.ID
+	RunIds   []ids.ID
+}
+
+func (q *Queries) RetainsAutomatedWork(ctx context.Context, arg RetainsAutomatedWorkParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, retainsAutomatedWork, arg.ChangeID, pq.Array(arg.RunIds))
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const rollUpAttemptCost = `-- name: RollUpAttemptCost :exec
 
 UPDATE remediation_attempts a SET cost_micros = COALESCE((

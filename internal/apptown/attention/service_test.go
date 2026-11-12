@@ -75,7 +75,7 @@ func TestCurrentAuthorityControlsCollectionAndCount(t *testing.T) {
 	if err != nil || len(got.Items) != 1 || got.Items[0].Title != "visible app" || global.calls != 0 || len(projects.calls) != 1 || projects.calls[0] != visible {
 		t.Fatalf("visibility: %+v, %v, calls %d/%v", got, err, global.calls, projects.calls)
 	}
-	if len(got.Sources) != 3 {
+	if len(got.Sources) != 4 {
 		t.Fatalf("hidden source counts leaked: %+v", got.Sources)
 	}
 	auth.revoked = true

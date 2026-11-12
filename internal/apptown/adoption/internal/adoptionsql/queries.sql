@@ -138,3 +138,6 @@ ORDER BY gi.project_id,gi.position;
 -- name: DeletePackMembership :exec
 DELETE FROM project_packs WHERE project_id=sqlc.arg(project_id)
 AND pack_id = (SELECT id FROM packs WHERE name=sqlc.arg(pack)::text);
+
+-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM project_adoptions WHERE change_id=sqlc.arg(change_id));

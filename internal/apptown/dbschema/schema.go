@@ -763,6 +763,51 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		`UPDATE deployments d SET serving_release_id=r.id, serving_attempt_id=NULL FROM releases r
 		WHERE r.id=(SELECT id FROM releases WHERE deployment_id=d.id AND state='released' ORDER BY number DESC LIMIT 1) AND r.origin='observed-after-restore' AND r.generation=d.observed_generation`,
 	}},
+	{n: 228, note: "retain subject-bound scan observations", stmts: []string{`CREATE TABLE IF NOT EXISTS scan_observations (
+  id UUID PRIMARY KEY,
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  change_id UUID,
+  run_id UUID NOT NULL,
+  step_id UUID NOT NULL,
+  attempt BIGINT NOT NULL,
+  subject TEXT NOT NULL,
+  scanner TEXT NOT NULL,
+  observed_at TIMESTAMPTZ NOT NULL,
+  receipt JSONB NOT NULL,
+  UNIQUE(step_id, attempt, subject, scanner)
+);
+CREATE INDEX IF NOT EXISTS scan_observations_project ON scan_observations(project_id, observed_at DESC);
+`}},
+	{n: 229, note: "record automated Change origins and retained summaries", stmts: []string{`ALTER TABLE changes ADD COLUMN automated BOOLEAN NOT NULL DEFAULT false, ADD COLUMN purge_pending BOOLEAN NOT NULL DEFAULT false, ADD COLUMN automated_origin BOOLEAN NOT NULL DEFAULT false`, `CREATE TABLE IF NOT EXISTS automated_changes (
+ id UUID PRIMARY KEY,
+ project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+ active_change_id UUID REFERENCES changes(id) ON DELETE SET NULL,
+ queue TEXT NOT NULL,
+ what TEXT NOT NULL,
+ opened_at TIMESTAMPTZ NOT NULL,
+ ended_at TIMESTAMPTZ,
+ outcome TEXT NOT NULL DEFAULT '',
+ reason TEXT NOT NULL DEFAULT '',
+ fingerprint TEXT NOT NULL DEFAULT '',
+ packages JSONB NOT NULL DEFAULT '[]'
+);
+`}},
+	// Completed legacy runs use their observed scanner set because the original
+	// admission inventory was not retained. Incomplete and already-purged runs
+	// get an empty set: without completion evidence a partial scan stays unknown.
+	{n: 230, note: "retain expected source scanners after execution cleanup", stmts: []string{`
+WITH expected AS (
+ SELECT o.run_id, jsonb_agg(DISTINCT o.scanner ORDER BY o.scanner) AS scanners
+ FROM scan_observations o JOIN runs r ON r.id = o.run_id
+ WHERE o.receipt->'subject'->>'on' = 'source' AND r.status = 'done'
+ GROUP BY o.run_id
+)
+UPDATE scan_observations o SET receipt = jsonb_set(o.receipt, '{expectedScanners}',
+ CASE WHEN o.receipt->'subject'->>'on' = 'source'
+ THEN COALESCE((SELECT scanners FROM expected e WHERE e.run_id = o.run_id), '[]'::jsonb)
+ ELSE '[]'::jsonb END)
+WHERE NOT (o.receipt ? 'expectedScanners');
+`}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

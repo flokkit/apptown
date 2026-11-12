@@ -8,8 +8,9 @@ and the person who enabled it. Changes create new revisions; history is retained
 Automatic processing is not available. Saving consent does not update, accept,
 land or deploy software. No existing approval or imported rule enables it.
 
-The CLI and API manage saved consent and its history. There is no Janitor web page. Consent
-can be disabled, revised or read with its history. A revision
+The CLI and API manage saved consent and its history. The project page shows
+the current scan summary and findings, with a link to Conformance for scan
+history. Consent can be disabled, revised or read with its history. A revision
 previews the exact consent before saving. Full delivery
 requires explicit environments for every selected project, deployment authority
 and promotion consent where required. Nothing selects a default environment on
@@ -153,3 +154,49 @@ explain every source and procedure change independently; adoption consent cannot
 cover unrelated application edits. The source, rule and adoption consent are
 checked again after inspection. These short-lived checks produce observations,
 not authority held until a later effect. `processingAvailable` remains false.
+
+## Scheduled observations
+
+The platform pack carries `janitor-scan`. It runs only after a project adopts a
+version that schedules it. Its daily `security` queue scans project source and
+the images in each deployment's serving bundle. It does not update, accept,
+land or release anything. Source scans with `baseline: none` count existing
+findings as well as new ones, except active exceptions. A missing scanner is
+an error. Running scans pull each distinct digest with the project's registry
+credential and scan it once with every attached image scanner. An unknown
+serving bundle or a bundle of local image IDs is not known, never clean.
+
+The project's Janitor section shows the current scan summary and findings.
+Conformance's Last scan lists each scanner subject, result and observation time,
+with the newest ten earlier observations below. An aggregate Not known and its
+reason appear above the results whenever the current scan is incomplete or
+unavailable. Commits and image digests show
+twelve characters, with the full value in their title. A running finding belongs
+to the project when main's latest usable source scan also reports its package
+and identifier. Other findings stay
+in the running image only: a base-image update or a newer release may fix them.
+Each source observation retains the scanner bindings expected by its run,
+captured when execution starts. Retained usable answers must cover every expected
+scanner before running findings can be classified; disposable workflow steps
+do not establish completeness. A partial source scan or a scanner that found nothing it could judge classifies nothing;
+the latter records an error observation. Observations of older commits or
+digests remain historical; a landing never proves a running finding fixed.
+Missing scans and scans older than three days appear in Attention as not known.
+Running-image-only findings do not create Attention items.
+
+Scheduled Changes record their origin and a compact summary at creation. A
+person's edit, chat or other work on a Change, or starting its landing, makes
+it ordinary work permanently. Automated queue Changes stay out of the Change
+list. Their existing Change pages remain reachable through
+`apptown janitor attempts -p SLUG`. An observation-only
+queue Change runs every scan even after findings or scanner errors, then closes
+when its scans settle, retaining their actual outcomes. Ordinary runs stop on
+failure.
+
+The Change owner purges untouched abandoned automated Changes after references
+and unreleased tasks no longer retain them. Disposal is claimed before removing
+branches, workspaces, transcripts and execution rows. Failed cleanup is retried
+by settlement and the reaper. Conformance keeps scan observations independently,
+including exact subjects, scanner binding version, configuration and hash,
+observation time, verdict, normalized findings and unknown reasons. Compact
+summaries continue to reference those observations after disposal.

@@ -1,0 +1,21 @@
+apiVersion: apptown.dev/v1
+kind: Workflow
+metadata:
+  name: janitor-scan
+  tier: core
+  category: maintenance
+  description: Scan the project's code and running images for findings.
+spec:
+  kind: pipeline
+  role: working
+  on:
+    schedule: {cron: "0 5 * * *", queue: security}
+  stages:
+    - name: scan
+      steps:
+        - name: scan-source
+          uses: scan
+          with: {on: source, baseline: none}
+        - name: scan-running
+          uses: scan
+          with: {on: running}

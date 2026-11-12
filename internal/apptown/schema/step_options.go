@@ -23,7 +23,7 @@ var stepOptions = map[string][]string{
 	"preview":              {"services"},
 	"build":                {},
 	"tests":                {"require", "timeoutMinutes", "appliesTo"},
-	"scan":                 {"on", "scanner", "failOn", "timeoutMinutes"},
+	"scan":                 {"on", "scanner", "baseline", "failOn", "timeoutMinutes"},
 	"guidance/conformance": {"failOn"},
 	"workflow/call":        {"workflow", "with"},
 	"script":               {"run", "env", "executor", "image", "timeoutMinutes"},
@@ -86,6 +86,9 @@ func checkOptions(stage string, s Step) error {
 		if err := check.ValidateAppliesTo(ws); err != nil {
 			return fmt.Errorf("stage %q step %q: %w", stage, s.Name, err)
 		}
+	}
+	if v, ok := s.With["baseline"]; ok && v != "none" {
+		return fmt.Errorf("stage %q step %q: baseline must be none", stage, s.Name)
 	}
 	if v, ok := s.With["failOn"]; ok {
 		if severity, isText := v.(string); !isText || !slices.Contains(FailOnValues, severity) {

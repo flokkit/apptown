@@ -186,7 +186,7 @@ spec:
 	for _, step := range snapshot.Steps {
 		got[step.Name] = string(step.Config)
 	}
-	if c, ok := got["scan-source"]; !ok || !sameJSON(c, `{"on":"source","none":true}`) {
+	if c, ok := got["scan-source"]; !ok || !sameJSON(c, `{"on":"source","none":true,"failOn":"high"}`) {
 		t.Fatalf("a source point with nothing attached must become one passing step: %v", got)
 	}
 	if c, ok := got["scan-image:trivy"]; !ok || !strings.Contains(canonJSON(c), `"scanner":"trivy"`) {

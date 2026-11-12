@@ -117,6 +117,9 @@ func (s *Service) RetryStep(ctx context.Context, in RetryCommand) (retried, erro
 	if err != nil {
 		return retried{}, err
 	}
+	if err := s.touchChange(ctx, p.scope.ProjectID, p.scope.ChangeID); err != nil {
+		return retried{}, err
+	}
 	result, err := s.stepRetries.retryExpected(ctx, retryIntent{RetryCommand: in, RunID: p.scope.RunID, Actor: actor}, &p)
 	if err == nil {
 		s.DispatchCommittedRetry(result.RunID)

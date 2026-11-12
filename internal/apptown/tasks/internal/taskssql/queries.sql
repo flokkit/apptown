@@ -88,3 +88,6 @@ SELECT EXISTS(SELECT 1 FROM task_attempts WHERE workspace=sqlc.arg(workspace) AN
 
 -- name: UnreleasedLayoutAttempts :many
 SELECT * FROM task_attempts WHERE released_at IS NULL ORDER BY operation;
+
+-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM task_attempts WHERE run_id=ANY(sqlc.arg(run_ids)::uuid[]) AND (observed<>'settled' OR released_at IS NULL OR (workspace<>'' AND workspace_released_at IS NULL)));

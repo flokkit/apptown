@@ -191,3 +191,19 @@ CREATE TABLE IF NOT EXISTS conformance_review_numbers (
   id   BOOLEAN PRIMARY KEY DEFAULT true CONSTRAINT conformance_review_numbers_one CHECK (id),
   last BIGINT NOT NULL
 );
+
+-- Scan observations survive disposal of the Change that collected them.
+CREATE TABLE IF NOT EXISTS scan_observations (
+  id UUID PRIMARY KEY,
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  change_id UUID,
+  run_id UUID NOT NULL,
+  step_id UUID NOT NULL,
+  attempt BIGINT NOT NULL,
+  subject TEXT NOT NULL,
+  scanner TEXT NOT NULL,
+  observed_at TIMESTAMPTZ NOT NULL,
+  receipt JSONB NOT NULL,
+  UNIQUE(step_id, attempt, subject, scanner)
+);
+CREATE INDEX IF NOT EXISTS scan_observations_project ON scan_observations(project_id, observed_at DESC);

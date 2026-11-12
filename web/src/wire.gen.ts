@@ -1518,6 +1518,11 @@ export type ProjectRow = {
   observationStale: boolean
 }
 
+export type ProjectScanView = {
+  scans: MainScans
+  recent: AutomatedAttempt[]
+}
+
 export type ProjectSecrets = {
   declared: boolean
   spec: string
@@ -2575,6 +2580,7 @@ export type BackupStore = {
 }
 
 export type Change = {
+  automatedOrigin: boolean
   chatRequest?: boolean
   requestSummary?: string
   id: string | null
@@ -4179,6 +4185,31 @@ export type Violation = {
   detail: string
 }
 
+export type MainScans = {
+  main: string
+  source: ScanObservation[]
+  running: RunningScan[]
+  historical: ScanObservation[]
+  reason?: string
+  known: boolean
+  stale: boolean
+  lastScan: string
+}
+
+export type AutomatedAttempt = {
+  fingerprint: string
+  packages: unknown
+  id: string | null
+  projectId: string | null
+  openChange?: string | null
+  queue: string
+  what: string
+  when: string
+  outcome: string
+  reason: string
+  observations: ScanObservation[]
+}
+
 export type DeclaredSecret = {
   name: string
   description: string
@@ -4878,6 +4909,7 @@ export type CatalogParam = {
 
 export type ChangeSummary = {
   waitingOn: WaitingOn
+  automatedOrigin: boolean
   chatRequest?: boolean
   requestSummary?: string
   id: string | null
@@ -5244,6 +5276,49 @@ export type OverviewHead = {
   when: string
 }
 
+export type ScanObservation = {
+  id: string | null
+  projectId: string | null
+  changeId?: string | null
+  runId: string | null
+  stepId: string | null
+  attempt: number
+  subject: ScanSubject
+  expectedScanners: string[]
+  scanner: string
+  bindingVersion: number
+  configHash: string
+  configuration: string
+  stepConfig: unknown
+  observedAt: string
+  verdict: string
+  findings: Finding[]
+  reason?: string
+}
+
+export type RunningScan = {
+  id: string | null
+  projectId: string | null
+  changeId?: string | null
+  runId: string | null
+  stepId: string | null
+  attempt: number
+  subject: ScanSubject
+  expectedScanners: string[]
+  scanner: string
+  bindingVersion: number
+  configHash: string
+  configuration: string
+  stepConfig: unknown
+  observedAt: string
+  verdict: string
+  findings: Finding[]
+  reason?: string
+  projectFindings: Finding[]
+  imageOnlyFindings: Finding[]
+  unclassifiedFindings: Finding[]
+}
+
 export type SecretStatus = {
   agentVisible: boolean
   agentEligible: boolean
@@ -5507,6 +5582,17 @@ export type ProviderDeployment = {
   target: string
 }
 
+export type ScanSubject = {
+  on: string
+  commit?: string
+  history?: string
+  deploymentId?: string | null
+  deployment?: string
+  bundleId?: string | null
+  part?: string
+  digest?: string
+}
+
 export type workflowStepSummary = {
   name: string
   uses: string
@@ -5578,6 +5664,7 @@ export type CheckRow = {
 }
 
 export type ScheduleTrigger = {
+  queue?: string
   cron: string
   skipIfActive?: boolean | null
 }

@@ -447,6 +447,7 @@ var cliOperations = map[string]described{
 	"POST /api/v1/routine-publications":                             {request: wow.RoutinePublicationConsent{}, status: 200, response: wow.RoutinePublicationClassification{}},
 	"GET /api/v1/routine-publications/{kind}/{id}/history":          {status: 200, response: []wow.RoutinePublicationClassification{}},
 	"POST /api/v1/routine-publications/{id}/revoke":                 {status: 200, response: wow.RoutinePublicationClassification{}},
+	"GET /api/v1/projects/{slug}/janitor/attempts":                  {query: []string{"queue"}, status: 200, response: []workflow.AutomatedAttempt{}},
 	"GET /api/v1/standing-approvals":                                {query: []string{"projectId"}, status: 200, response: []workflow.StandingStatus{}},
 	"GET /api/v1/standing-approvals/{id}/history":                   {status: 200, response: []workflow.StandingRevision{}},
 	"POST /api/v1/standing-approvals/preview":                       {request: workflow.StandingDefinition{}, status: 200, response: workflow.StandingQuestion{}},
@@ -495,6 +496,7 @@ var cliOperations = map[string]described{
 // describedOperations add full schemas at existing non-CLI API doors. They
 // share reflection with CLI descriptions, without claiming CLI usage.
 var describedOperations = map[string]described{
+	"GET /api/v1/projects/{slug}/scans":        {status: 200, response: httpapi.ProjectScanView{}},
 	"GET /api/v1/executor":                     {status: 200, response: httpapi.ExecutorView{}},
 	"GET /api/v1/activity":                     {status: 200, response: httpapi.InstanceActivity{}},
 	"POST /api/v1/projects/{slug}/deployments": {request: httpapi.DeploymentConfigurationRequest{}, strict: true, status: 200, response: deployment.Deployment{}},

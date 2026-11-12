@@ -60,6 +60,9 @@ func (s *Service) callFrom(ctx context.Context, parent *Run, step *Step, in Work
 	if s.starter == nil {
 		return nil, fmt.Errorf("Run execution is unavailable")
 	}
+	if err := s.touchChange(ctx, parent.ProjectID, parent.ChangeID); err != nil {
+		return nil, err
+	}
 	return s.starter.start(ctx, StartRequest{
 		ProjectID: parent.ProjectID, ChangeID: parent.ChangeID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs),
 		parentRunID: parent.ID, parentStepID: step.ID, parentStepAttempt: step.Attempt, parentStepConfig: string(step.Config),
@@ -109,6 +112,9 @@ func (s *Service) startChangeRun(ctx context.Context, in StartChangeRun, action 
 	}
 	if s.starter == nil {
 		return nil, fmt.Errorf("Run execution is unavailable")
+	}
+	if err := s.touchChange(ctx, project, change.ID); err != nil {
+		return nil, err
 	}
 	return s.starter.start(ctx, StartRequest{requestLanding: action == actionRequestLanding, ProjectID: project, ChangeID: change.ID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs), requestedBy: actor.InferenceOwner, owner: actor.Owner, receiptActor: actor.Receipt})
 }

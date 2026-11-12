@@ -104,7 +104,7 @@ wi.state,wi.branch,wi.base_sha,wi.external_ref,wi.summary,wi.closed_at,wi.closed
 COALESCE(r.current_stage,'')::text AS stage,COALESCE(r.status,'')::text AS run_status,COALESCE(r.workflow_name,'')::text AS workflow_name,
 GREATEST(wi.created_at,wi.closed_at,r.updated_at)::timestamptz AS updated_at
 FROM changes wi LEFT JOIN runs r ON wi.run_id=r.id AND r.project_id=wi.project_id
-WHERE wi.project_id=sqlc.arg(project_id) AND (sqlc.arg(state)::text='' OR wi.state=sqlc.arg(state)) ORDER BY wi.number DESC LIMIT NULLIF(sqlc.arg(limit_count)::integer,0);
+WHERE wi.project_id=sqlc.arg(project_id) AND NOT wi.purge_pending AND NOT (wi.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=wi.id AND a.queue<>'')) AND (sqlc.arg(state)::text='' OR wi.state=sqlc.arg(state)) ORDER BY wi.number DESC LIMIT NULLIF(sqlc.arg(limit_count)::integer,0);
 
 -- name: ChangeTargetAdoptionMeta :one
 SELECT target_adoption_id FROM changes WHERE changes.id=$1 AND changes.project_id=$2;
@@ -162,7 +162,7 @@ WITH change_counts AS (
  COUNT(*) FILTER(WHERE c.state IN (sqlc.arg(in_progress_state)::text,sqlc.arg(landing_state)::text))::bigint AS open_changes,
  COUNT(*) FILTER(WHERE c.type='uplift' AND c.state=sqlc.arg(in_progress_state)::text)::bigint AS open_uplifts
  FROM changes c LEFT JOIN runs current ON current.id=c.run_id AND current.project_id=c.project_id
- WHERE c.project_id=ANY(sqlc.arg(project_ids)::uuid[]) GROUP BY c.project_id
+ WHERE c.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND NOT c.purge_pending AND NOT (c.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=c.id AND a.queue<>'')) GROUP BY c.project_id
 ), run_counts AS (
  SELECT project_id,COUNT(*) FILTER(WHERE status=sqlc.arg(done_status)::text AND parent_run_id IS NULL)::bigint AS done_runs,
  COUNT(*) FILTER(WHERE status=sqlc.arg(running_status)::text)::bigint AS running_runs,MAX(updated_at) AS last_run_at
@@ -172,7 +172,7 @@ SELECT p.id,COALESCE(c.changes,0)::bigint AS changes,COALESCE(c.active_items,0):
  COALESCE(r.done_runs,0)::bigint AS done_runs,COALESCE(r.running_runs,0)::bigint AS running_runs,
  COALESCE(r.last_run_at,'epoch'::timestamptz)::timestamptz AS last_run_at,(r.last_run_at IS NOT NULL)::boolean AS has_last_run_at,
  COALESCE(c.open_changes,0)::bigint AS open_changes,COALESCE(c.open_uplifts,0)::bigint AS open_uplifts,
- COALESCE((SELECT latest.title FROM changes latest WHERE latest.project_id=p.id ORDER BY latest.created_at DESC,latest.id DESC LIMIT 1),'')::text AS last_change_title
+ COALESCE((SELECT latest.title FROM changes latest WHERE latest.project_id=p.id AND NOT latest.purge_pending AND NOT (latest.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=latest.id AND a.queue<>'')) ORDER BY latest.created_at DESC,latest.id DESC LIMIT 1),'')::text AS last_change_title
 FROM projects p LEFT JOIN change_counts c ON c.project_id=p.id LEFT JOIN run_counts r ON r.project_id=p.id
 WHERE p.id=ANY(sqlc.arg(project_ids)::uuid[]);
 
@@ -230,3 +230,45 @@ AND NOT EXISTS (SELECT 1 FROM runs r JOIN steps s ON s.run_id=r.id WHERE r.chang
 SELECT chat_request AND state IN ('in_progress','landing')
 AND NOT EXISTS (SELECT 1 FROM runs r JOIN steps s ON s.run_id=r.id WHERE r.change_id=changes.id AND s.type='approval' AND s.status='pass') AS open
 FROM changes WHERE changes.id=$1 AND changes.project_id=$2;
+
+-- name: MarkAutomatedChange :exec
+UPDATE changes SET automated=true, automated_origin=true WHERE id=$1;
+
+-- name: RecordAutomatedChange :exec
+INSERT INTO automated_changes(id,project_id,active_change_id,queue,what,opened_at) VALUES($1,$2,$1,$3,$4,$5);
+
+-- name: PromoteAutomatedChange :execrows
+UPDATE changes SET automated=false WHERE id=$1 AND project_id=$2 AND NOT purge_pending;
+
+-- name: RunChangeMeta :one
+SELECT change_id FROM runs WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project_id);
+
+-- name: AutomatedChangeRecords :many
+SELECT * FROM automated_changes WHERE project_id=$1 AND ($2::text='' OR queue=$2) ORDER BY opened_at DESC LIMIT $3;
+
+-- name: EndAutomatedChange :exec
+UPDATE automated_changes SET outcome=$2, reason=$3, ended_at=$4 WHERE id=$1;
+
+-- name: IsAutomatedQueueChange :one
+SELECT EXISTS(SELECT 1 FROM changes c JOIN automated_changes a ON a.id=c.id WHERE c.id=$1 AND c.automated AND a.queue<>'');
+
+-- name: AutomatedPurgeCandidates :many
+SELECT * FROM changes WHERE automated AND state='abandoned' ORDER BY closed_at;
+
+-- name: ClaimAutomatedPurge :execrows
+UPDATE changes SET purge_pending=true WHERE id=$1 AND automated AND state='abandoned';
+
+-- name: AutomatedPurgeBusy :one
+SELECT EXISTS(SELECT 1 WHERE EXISTS(SELECT 1 FROM runs r WHERE r.change_id=$1 AND (r.status='running'
+ OR EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.status='running')
+ OR EXISTS(SELECT 1 FROM runs child WHERE child.parent_run_id=r.id AND child.change_id IS DISTINCT FROM r.change_id)))
+ OR EXISTS(SELECT 1 FROM workflow_schedules WHERE last_change_id=$1));
+
+-- name: PurgeAutomatedRuns :exec
+DELETE FROM runs WHERE change_id=$1;
+
+-- name: PurgeAutomatedChange :execrows
+DELETE FROM changes WHERE id=$1 AND automated AND purge_pending AND state='abandoned';
+
+-- name: ChangeTranscriptDigests :many
+SELECT DISTINCT t.digest FROM agent_transcripts t JOIN runs r ON r.id=t.run_id WHERE r.change_id=$1;

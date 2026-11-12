@@ -232,7 +232,7 @@ func (d *dispatcher) execute(plan DispatchPlan) bool {
 				go func() {
 					defer wg.Done()
 					defer d.reportPanic("workflow scan dispatch")
-					ok[j] = d.executeStep(plan.RunID, step)
+					ok[j] = d.executeStep(plan.RunID, step, plan.ObserveOnly)
 				}()
 			}
 			wg.Wait()
@@ -244,7 +244,7 @@ func (d *dispatcher) execute(plan DispatchPlan) bool {
 			i += len(group) - 1
 			continue
 		}
-		ok := d.executeStep(plan.RunID, step)
+		ok := d.executeStep(plan.RunID, step, plan.ObserveOnly)
 		if !ok {
 			return false
 		}
@@ -254,7 +254,10 @@ func (d *dispatcher) execute(plan DispatchPlan) bool {
 
 // Completed steps are observed, never replayed. Every later step waits until
 // its predecessors settle. Read/write errors stop dispatch rather than guessing.
-func (d *dispatcher) executeStep(runID ids.ID, step ReadyStep) bool {
+func (d *dispatcher) executeStep(runID ids.ID, step ReadyStep, observing bool) bool {
+	settled := func(status StepState) bool {
+		return dispatchSettled(status) || observing && (status == StatusFail || status == StatusError)
+	}
 	if d.isStopped() {
 		return false
 	}
@@ -276,7 +279,7 @@ func (d *dispatcher) executeStep(runID ids.ID, step ReadyStep) bool {
 	if !state.Active {
 		return false
 	}
-	if !dispatchSettled(state.Status) && !state.runnable() && state.Status != StatusRunning {
+	if !settled(state.Status) && !state.runnable() && state.Status != StatusRunning {
 		return false
 	}
 	if state.Status == StatusRunning {
@@ -294,10 +297,10 @@ func (d *dispatcher) executeStep(runID ids.ID, step ReadyStep) bool {
 			d.report(fmt.Errorf("run %d step %d: reading outcome: %w", runID, step.ID, err))
 			return false
 		}
-		if !state.Active || !dispatchSettled(state.Status) {
+		if !state.Active || !settled(state.Status) {
 			return false
 		}
-		return dispatchSettled(state.Status)
+		return settled(state.Status)
 	}
 	if state.runnable() {
 		if state.Orphaned {
@@ -322,14 +325,14 @@ func (d *dispatcher) executeStep(runID ids.ID, step ReadyStep) bool {
 			d.report(fmt.Errorf("run %d step %d: reading outcome: %w", runID, step.ID, err))
 			return false
 		}
-		if !state.Active || !dispatchSettled(state.Status) {
+		if !state.Active || !settled(state.Status) {
 			// A runner that returns with its step still running left work
 			// without a recorded outcome (a task whose result could not be
 			// recorded yet): nothing after it runs on that basis.
 			return false
 		}
 	}
-	return dispatchSettled(state.Status)
+	return settled(state.Status)
 }
 
 // takeAdopted reports whether step was left running with recorded work by a

@@ -1,7 +1,8 @@
 // Package verification composes AppTown checks over existing operation owners.
 // Conformance owns findings, dispositions and review receipts; the check library
 // owns evaluator declarations and classification. This package owns execution
-// and comparison policy. Its check-session artifacts cache evaluator outputs
+// and comparison policy. Scan observations are retained by Conformance with
+// their exact subjects and scanner configuration, independently of Change cleanup. Its check-session artifacts cache evaluator outputs
 // and transcripts; Conformance remains the owner of review standing and receipts.
 //
 // Changes.Check runs checks against a change and caches its source baseline.

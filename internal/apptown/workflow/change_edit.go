@@ -62,11 +62,17 @@ func (s changeStore) edit(ctx context.Context, in ChangeEdit, who string) (*Chan
 		if err != nil {
 			return nil, err
 		}
+		if held.PurgePending {
+			return nil, missingChange{in.ID}
+		}
 		if in.ExpectedRevision == nil {
 			return nil, errChangeEditRevisionRequired
 		}
 		if *in.ExpectedRevision != held.EditRevision {
 			return nil, errChangeEditMoved
+		}
+		if err := TouchChangeIn(ctx, tx, in.ProjectID, in.ID); err != nil {
+			return nil, err
 		}
 		if in.Title != nil {
 			if _, err := editChangeTitleIn(ctx, tx, in.ProjectID, in.ID, changeTitleEdit{act: pinTitle, words: *in.Title}); err != nil {

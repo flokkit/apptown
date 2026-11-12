@@ -7,14 +7,29 @@ import (
 	"os"
 )
 
-// Janitor commands manage consent only. Preview and explicit confirmation are
+// Janitor commands read scans and manage consent. Preview and explicit confirmation are
 // separate requests so a script cannot silently agree to newly changed meaning.
 func cmdJanitor(args []string) error {
 	if len(args) == 0 {
-		return usagef("usage: apptown janitor <list|preview|enable|disable|history|assess> [options]")
+		return usagef("usage: apptown janitor <list|preview|enable|disable|history|assess|attempts> [options]")
 	}
 	if args[0] == "publication" {
 		return cmdJanitorPublication(args[1:])
+	}
+	if args[0] == "attempts" {
+		fs := newFlags("janitor attempts")
+		var slug string
+		fs.StringVar(&slug, "p", "", "project slug")
+		queue := fs.String("queue", "", "queue name")
+		rest := parseArgs(fs, args[1:])
+		if slug == "" || len(rest) != 0 {
+			return usagef("usage: apptown janitor attempts -p <slug> [--queue name]")
+		}
+		var out json.RawMessage
+		if err := api.get("/projects/"+url.PathEscape(slug)+"/janitor/attempts?queue="+url.QueryEscape(*queue), &out); err != nil {
+			return err
+		}
+		return printJSON(out)
 	}
 	verb := args[0]
 	fs := newFlags("janitor " + verb)

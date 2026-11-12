@@ -572,3 +572,51 @@ func TestAFixingLandingRecordsItsFixedChangeImmediately(t *testing.T) {
 	t.Parallel()
 	fixingLandingFixture(t)
 }
+
+// baseline:none judges the entire committed tree even in a landing. A scanner
+// with a history command must not replace it with only the added commits.
+func TestAnAbsoluteLandingScanJudgesTheWholeTree(t *testing.T) {
+	for _, history := range []bool{false, true} {
+		t.Run(fmt.Sprintf("history-%v", history), func(t *testing.T) {
+			a := testApp(t)
+			attachScanner(t, a, "absolute", map[string]any{"image": "scanner:test", "command": []string{"tree"}, "historyCommand": func() []string {
+				if history {
+					return []string{"history"}
+				}
+				return nil
+			}(), "report": ".apptown/report.sarif", "format": "sarif", "target": "source", "kind": "secret"})
+			run, _ := reviewLanding(t, a, []schema.Step{{Name: "source", Uses: "scan", With: map[string]any{"scanner": "absolute", "baseline": "none"}}}, map[string]string{"work.txt": "change"}, nil)
+			calls := 0
+			a.scanSteps = verification.NewScanSteps(verification.ScanDependencies{DB: a.DB, Scanners: a.scanners, Conformance: a.conformance, Integrations: a.Integrations, Progress: &a.progress, DataDir: a.cfg.dataDir, Executor: verification.Executor{Run: func(_ context.Context, req execution.Request) execution.Outcome {
+				calls++
+				if req.History != nil {
+					t.Error("absolute scan read only the added commits")
+				}
+				return execution.Outcome{Termination: execution.Exited, ExitCode: 1, Report: []byte(`{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"scanner"}},"results":[{"ruleId":"carried-secret","level":"error","message":{"text":"existing finding"}}]}]}`)}
+			}}})
+			rebuildWork(t, a, func(*workflow.Dependencies) {})
+			a.Work.Stop()
+			result := reviewExecute(t, a, run, "source")
+			if result.Status != workflow.StatusFail || calls != 1 {
+				t.Fatalf("tree finding: %s %s calls=%d", result.Status, result.Evidence, calls)
+			}
+			receipts, err := a.Work.LatestMainScans(a.asAppTown(t.Context(), run.ProjectID, "fixture"), run.ProjectID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// The pinned candidate is not main yet: its observation is historical for main.
+			if len(receipts.Historical) == 0 {
+				t.Fatal("candidate observation lost its exact subject")
+			}
+		})
+	}
+}
+
+func TestAnAbsoluteLandingScanWithoutAScannerIsAnError(t *testing.T) {
+	a := testApp(t)
+	run, _ := reviewLanding(t, a, []schema.Step{{Name: "source", Uses: "scan", With: map[string]any{"on": "source", "baseline": "none"}}}, map[string]string{"work.txt": "change"}, nil)
+	result := reviewExecute(t, a, run, "source")
+	if result.Status != workflow.StatusError {
+		t.Fatalf("missing scanner: %s %s", result.Status, result.Evidence)
+	}
+}

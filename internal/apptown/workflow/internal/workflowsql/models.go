@@ -23,6 +23,20 @@ type Artifact struct {
 	BodyBytes []byte
 }
 
+type AutomatedChange struct {
+	ID             ids.ID
+	ProjectID      ids.ID
+	ActiveChangeID ids.ID
+	Queue          string
+	What           string
+	OpenedAt       time.Time
+	EndedAt        sql.NullTime
+	Outcome        string
+	Reason         string
+	Fingerprint    string
+	Packages       json.RawMessage
+}
+
 type Change struct {
 	ID                  ids.ID
 	ProjectID           ids.ID
@@ -56,6 +70,9 @@ type Change struct {
 	ChatRequest         bool
 	RequestSummary      json.RawMessage
 	RequestGapQuote     string
+	Automated           bool
+	PurgePending        bool
+	AutomatedOrigin     bool
 }
 
 type Project struct {

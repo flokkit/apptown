@@ -48,7 +48,9 @@ func planStage(stage *schema.Stage, scanners []Scanner) ([]plannedStep, error) {
 			return nil, fmt.Errorf("check %q configuration: %w", step.Name, err)
 		}
 		target := scanTarget(step)
-		if target == "" {
+		// A running scan observes all deployments and deduplicates image pulls
+		// across its scanners in one execution.
+		if target == "" || target == "running" {
 			if err := add(step.Name, step.Name, step.Uses, encoded, onEnter); err != nil {
 				return nil, err
 			}
@@ -63,7 +65,7 @@ func planStage(stage *schema.Stage, scanners []Scanner) ([]plannedStep, error) {
 			if err := json.Unmarshal(encoded, &config); err != nil {
 				return nil, err
 			}
-			delete(config, "on")
+			// Keep the subject and baseline on every concrete scanner step.
 			config["scanner"], err = json.Marshal(scanner.Name)
 			if err != nil {
 				return nil, err
@@ -78,10 +80,12 @@ func planStage(stage *schema.Stage, scanners []Scanner) ([]plannedStep, error) {
 			matched = true
 		}
 		if !matched {
-			body, err := json.Marshal(struct {
-				On   string `json:"on"`
-				None bool   `json:"none"`
-			}{target, true})
+			config := map[string]any{}
+			if err := json.Unmarshal(encoded, &config); err != nil {
+				return nil, err
+			}
+			config["none"] = true
+			body, err := json.Marshal(config)
 			if err != nil {
 				return nil, err
 			}

@@ -17,7 +17,7 @@ func scannersFor(a *App) *verification.Scanners {
 	return verification.NewScanners(verification.ScannerDependencies{Now: a.cfg.clock.Now, DB: a.DB, Docker: &a.docker, Executor: checksFor(a), Conformance: a.conformance, Evaluator: checkEvaluatorFor(a), Integrations: a.Integrations, Deployments: a.Deployment.Deployments, Dependencies: a.Dependencies})
 }
 func scanStepsFor(a *App) *verification.ScanSteps {
-	return verification.NewScanSteps(verification.ScanDependencies{DB: a.DB, Scanners: a.scanners, Conformance: a.conformance, Integrations: a.Integrations, Progress: &a.progress, Executor: checksFor(a), DataDir: a.cfg.dataDir, Panics: jobReporter{}, Now: a.cfg.clock.Now})
+	return verification.NewScanSteps(verification.ScanDependencies{DB: a.DB, Deployments: a.Deployment, Scanners: a.scanners, Conformance: a.conformance, Integrations: a.Integrations, Progress: &a.progress, Executor: checksFor(a), DataDir: a.cfg.dataDir, Panics: jobReporter{}, Now: a.cfg.clock.Now})
 }
 
 func runtimeFor(a *App) *verification.Runtime {

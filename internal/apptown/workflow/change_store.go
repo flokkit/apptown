@@ -44,6 +44,9 @@ func changeRecord(row workflowsql.Change, err error) (*Change, error) {
 	if err != nil {
 		return nil, err
 	}
+	if row.PurgePending {
+		return nil, missingChange{row.ID}
+	}
 	state, err := ParseChangeState(row.State)
 	if err != nil {
 		return nil, err
@@ -59,7 +62,7 @@ func changeRecord(row workflowsql.Change, err error) (*Change, error) {
 	if request != nil {
 		text = request.Text
 	}
-	return &Change{ChatRequest: row.ChatRequest, RequestSummary: text, RequestSummarySource: request, ID: row.ID, Number: row.Number, ProjectID: row.ProjectID, Type: row.Type, Title: row.Title, Body: row.Body,
+	return &Change{AutomatedOrigin: row.AutomatedOrigin, ChatRequest: row.ChatRequest, RequestSummary: text, RequestSummarySource: request, ID: row.ID, Number: row.Number, ProjectID: row.ProjectID, Type: row.Type, Title: row.Title, Body: row.Body,
 		RunID: row.RunID, State: state, Branch: row.Branch, BaseSHA: row.BaseSha, LandedSHA: row.LandedSha,
 		ExternalRef: row.ExternalRef, Summary: row.Summary, Provenance: row.Provenance,
 		CreatedAt: row.CreatedAt.Format(time.RFC3339Nano), ClosedAt: stamp.Time{NullTime: row.ClosedAt}, ClosedAs: row.ClosedAs,

@@ -103,3 +103,10 @@ Project package-cache names, discovery and precise retirement belong to
 project UUID; `maintenance` asks it for current cache names before pruning closed
 work's toolchain entries. These owner-directed imports do not authorize either
 consumer to infer cache ownership from a slug.
+
+Work reads retained scan observations through Conformance's owner operation for
+`LatestMainScans` and automated Change summaries. Conformance owns the exact
+subjects and scanner receipts; Work owns current-subject selection, finding
+comparison, and the disposable Change lifecycle. The cross-owner human-touch
+participant and the scan-read response and port types are part of Work's public
+surface because composition and the transports consume them.

@@ -124,7 +124,7 @@ func (w advanceEngine) advanceRun(ctx context.Context, run *Run, who string) (*A
 		return nil, err
 	}
 	res.Required, res.Missing, res.Blocking = decision.Required, decision.Missing, decision.Blocked
-	if _, ok := decision.nothingToChange(steps); ok && w.endNothing != nil && !run.ChangeID.IsZero() && run.ParentRunID.IsZero() {
+	if _, legacy := decision.nothingToChange(steps); (legacy || deterministicSettled(steps, true)) && w.endNothing != nil && !run.ChangeID.IsZero() && run.ParentRunID.IsZero() {
 		if err := w.endNothing(ctx, run); err == nil {
 			res.Advanced, res.Blocking, res.RunStatus = true, nil, RunAbandoned
 			return res, nil

@@ -129,6 +129,7 @@ type requestSummary struct {
 }
 
 type Change struct {
+	AutomatedOrigin      bool            `json:"automatedOrigin"`
 	ChatRequest          bool            `json:"chatRequest,omitempty"`
 	RequestSummary       string          `json:"requestSummary,omitempty"`
 	RequestSummarySource *requestSummary `json:"-"`

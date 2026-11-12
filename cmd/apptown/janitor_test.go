@@ -105,3 +105,18 @@ func TestJanitorPublicationNeedsExactMeaningAndStableHumanRequest(t *testing.T) 
 		t.Fatalf("request retry changed meaning: %+v", *seen)
 	}
 }
+
+func TestJanitorAttemptsReadsTheNamedProjectAndQueue(t *testing.T) {
+	seen := jsonAppTown(t, func(method, path string) (int, string) {
+		if method != "GET" || path != "/projects/my-app/janitor/attempts" {
+			t.Fatalf("unexpected request: %s %s", method, path)
+		}
+		return 200, `[]`
+	})
+	if _, err := run(t, "janitor", "attempts", "-p", "my-app", "--queue", "security"); err != nil || len(*seen) != 1 {
+		t.Fatalf("attempt read: %v %+v", err, seen)
+	}
+	if _, err := run(t, "janitor", "attempts"); err == nil || len(*seen) != 1 {
+		t.Fatalf("missing project made a request: %v %+v", err, seen)
+	}
+}

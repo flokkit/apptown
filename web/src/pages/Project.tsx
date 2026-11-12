@@ -1,3 +1,4 @@
+import { LastScan } from './project/Janitor'
 import { PageHead } from '../PageHead'
 import { PRODUCT } from '../brand'
 import { Link, useParams } from 'react-router-dom'
@@ -80,7 +81,7 @@ export default function Project() {
       <LifecycleNote slug={project.slug} lifecycle={project.lifecycle} />
       <IntegrityBanner slug={project.slug} files={project.outOfBandEdits} onResolved={load} />
       <MainNote main={project.main} />
-      {tab === 'overview' && <ApplicationOverview project={project} />}
+      {tab === 'overview' && <><ApplicationOverview project={project} /><div id="janitor"><LastScan slug={project.slug} janitor /></div></>}
       {tab === 'changes' && <ProjectChanges project={project} />}
       {tab === 'deployments' && <ProjectDeployments slug={slug!} />}
       {tab === 'security' && (

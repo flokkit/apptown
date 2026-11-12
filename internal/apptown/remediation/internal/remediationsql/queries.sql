@@ -269,3 +269,6 @@ SELECT i.project_id, i.block, i.version, i.check_name, m.id AS remediation_id, m
 FROM remediation_items i JOIN remediations m ON m.id = i.remediation_id
 WHERE i.project_id = ANY(sqlc.arg(projects)::uuid[]) AND i.state = 'queued' AND m.status IN ('running', 'paused')
 ORDER BY i.id;
+
+-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 WHERE EXISTS(SELECT 1 FROM remediation_items retained0 WHERE retained0.change_id=sqlc.arg(change_id) OR retained0.run_id=ANY(sqlc.arg(run_ids)::uuid[])) OR EXISTS(SELECT 1 FROM remediation_attempts retained1 WHERE retained1.change_id=sqlc.arg(change_id) OR retained1.run_id=ANY(sqlc.arg(run_ids)::uuid[])));

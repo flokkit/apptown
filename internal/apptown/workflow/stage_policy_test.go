@@ -105,3 +105,21 @@ func TestWorkflowStageWithoutOptionsHasObjectConfiguration(t *testing.T) {
 		}
 	}
 }
+
+// Expansion retains the declared subject and baseline, including no match.
+func TestScanExpansionKeepsTheAbsoluteSubject(t *testing.T) {
+	stage := schema.Stage{Name: "scan", Steps: []schema.Step{{Name: "source", Uses: "scan", With: map[string]any{"on": "source", "baseline": "none"}}}}
+	for _, scanners := range [][]Scanner{nil, {{Name: "osv", Target: "source"}}} {
+		steps, err := planStage(&stage, scanners)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var cfg struct{ On, Baseline string }
+		if err := json.Unmarshal([]byte(steps[0].configJSON), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if cfg.On != "source" || cfg.Baseline != "none" {
+			t.Fatalf("lost scan options: %s", steps[0].configJSON)
+		}
+	}
+}

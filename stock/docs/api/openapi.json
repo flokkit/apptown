@@ -742,6 +742,70 @@
         ],
         "type": "object"
       },
+      "AutomatedAttempt": {
+        "properties": {
+          "fingerprint": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/ScanObservation"
+            },
+            "type": "array"
+          },
+          "openChange": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "packages": {},
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "queue": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "what": {
+            "type": "string"
+          },
+          "when": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "packages",
+          "id",
+          "projectId",
+          "queue",
+          "what",
+          "when",
+          "outcome",
+          "reason",
+          "observations"
+        ],
+        "type": "object"
+      },
       "Backup": {
         "properties": {
           "actor": {
@@ -1012,6 +1076,9 @@
           "adoptedRevision": {
             "type": "integer"
           },
+          "automatedOrigin": {
+            "type": "boolean"
+          },
           "baseSha": {
             "type": "string"
           },
@@ -1126,6 +1193,7 @@
           }
         },
         "required": [
+          "automatedOrigin",
           "id",
           "number",
           "projectId",
@@ -1531,6 +1599,9 @@
           "adoptedRevision": {
             "type": "integer"
           },
+          "automatedOrigin": {
+            "type": "boolean"
+          },
           "baseSha": {
             "type": "string"
           },
@@ -1665,6 +1736,7 @@
         },
         "required": [
           "waitingOn",
+          "automatedOrigin",
           "id",
           "number",
           "projectId",
@@ -2758,6 +2830,71 @@
         ],
         "type": "string"
       },
+      "Disposition": {
+        "properties": {
+          "by": {
+            "type": "string"
+          },
+          "byPrincipal": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "const": ""
+              }
+            ]
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "justification": {
+            "type": "string"
+          },
+          "package": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DispositionKind"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "justification",
+          "by",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "DispositionKind": {
+        "enum": [
+          "accepted",
+          "false_positive"
+        ],
+        "type": "string"
+      },
       "Done": {
         "properties": {
           "ok": {
@@ -3182,6 +3319,97 @@
         ],
         "type": "object"
       },
+      "Finding": {
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "disposition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Disposition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "identifiers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Location"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "package": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preExisting": {
+            "type": "boolean"
+          },
+          "reached": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "regression": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "kind",
+          "severity",
+          "title",
+          "source"
+        ],
+        "type": "object"
+      },
       "InstanceActivity": {
         "properties": {
           "active": {
@@ -3381,6 +3609,20 @@
         ],
         "type": "object"
       },
+      "Location": {
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "type": "object"
+      },
       "MainConflict": {
         "properties": {
           "catchUp": {
@@ -3404,6 +3646,54 @@
           "main",
           "files",
           "catchUp"
+        ],
+        "type": "object"
+      },
+      "MainScans": {
+        "properties": {
+          "historical": {
+            "items": {
+              "$ref": "#/components/schemas/ScanObservation"
+            },
+            "type": "array"
+          },
+          "known": {
+            "type": "boolean"
+          },
+          "lastScan": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "main": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "running": {
+            "items": {
+              "$ref": "#/components/schemas/RunningScan"
+            },
+            "type": "array"
+          },
+          "source": {
+            "items": {
+              "$ref": "#/components/schemas/ScanObservation"
+            },
+            "type": "array"
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "main",
+          "source",
+          "running",
+          "historical",
+          "known",
+          "stale",
+          "lastScan"
         ],
         "type": "object"
       },
@@ -4049,6 +4339,26 @@
         ],
         "type": "object"
       },
+      "PackageRef": {
+        "properties": {
+          "ecosystem": {
+            "type": "string"
+          },
+          "fixedIn": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "PersonalOpenChange": {
         "properties": {
           "id": {
@@ -4466,6 +4776,24 @@
           "observation",
           "targetName",
           "observationStale"
+        ],
+        "type": "object"
+      },
+      "ProjectScanView": {
+        "properties": {
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/AutomatedAttempt"
+            },
+            "type": "array"
+          },
+          "scans": {
+            "$ref": "#/components/schemas/MainScans"
+          }
+        },
+        "required": [
+          "scans",
+          "recent"
         ],
         "type": "object"
       },
@@ -5794,6 +6122,125 @@
         ],
         "type": "string"
       },
+      "RunningScan": {
+        "properties": {
+          "attempt": {
+            "type": "integer"
+          },
+          "bindingVersion": {
+            "type": "integer"
+          },
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "configHash": {
+            "type": "string"
+          },
+          "configuration": {
+            "type": "string"
+          },
+          "expectedScanners": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "imageOnlyFindings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array"
+          },
+          "observedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "projectFindings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "runId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scanner": {
+            "type": "string"
+          },
+          "stepConfig": {},
+          "stepId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject": {
+            "$ref": "#/components/schemas/ScanSubject"
+          },
+          "unclassifiedFindings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array"
+          },
+          "verdict": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "runId",
+          "stepId",
+          "attempt",
+          "subject",
+          "expectedScanners",
+          "scanner",
+          "bindingVersion",
+          "configHash",
+          "configuration",
+          "stepConfig",
+          "observedAt",
+          "verdict",
+          "findings",
+          "projectFindings",
+          "imageOnlyFindings",
+          "unclassifiedFindings"
+        ],
+        "type": "object"
+      },
       "RuntimeState": {
         "enum": [
           "unknown",
@@ -5802,6 +6249,144 @@
           "unreachable"
         ],
         "type": "string"
+      },
+      "ScanObservation": {
+        "properties": {
+          "attempt": {
+            "type": "integer"
+          },
+          "bindingVersion": {
+            "type": "integer"
+          },
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "configHash": {
+            "type": "string"
+          },
+          "configuration": {
+            "type": "string"
+          },
+          "expectedScanners": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "runId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scanner": {
+            "type": "string"
+          },
+          "stepConfig": {},
+          "stepId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject": {
+            "$ref": "#/components/schemas/ScanSubject"
+          },
+          "verdict": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "runId",
+          "stepId",
+          "attempt",
+          "subject",
+          "expectedScanners",
+          "scanner",
+          "bindingVersion",
+          "configHash",
+          "configuration",
+          "stepConfig",
+          "observedAt",
+          "verdict",
+          "findings"
+        ],
+        "type": "object"
+      },
+      "ScanSubject": {
+        "properties": {
+          "bundleId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "commit": {
+            "type": "string"
+          },
+          "deployment": {
+            "type": "string"
+          },
+          "deploymentId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "digest": {
+            "type": "string"
+          },
+          "history": {
+            "type": "string"
+          },
+          "on": {
+            "type": "string"
+          },
+          "part": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "type": "object"
       },
       "SecretDeployment": {
         "properties": {
@@ -15511,6 +16096,60 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/projects/{slug}/janitor/attempts": {
+      "get": {
+        "operationId": "getProjectsSlugJanitorAttempts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "queue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AutomatedAttempt"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "project:read",
+          "kind": "capability",
+          "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
     "/api/v1/projects/{slug}/lanes": {
       "get": {
         "operationId": "getProjectsSlugLanes",
@@ -16916,6 +17555,49 @@
         "x-apptown-access": {
           "contract": "retention.SettleRetained",
           "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/scans": {
+      "get": {
+        "operationId": "getProjectsSlugScans",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectScanView"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "project:read",
+          "kind": "capability",
+          "scope": "project-slug"
         },
         "x-apptown-feature": {
           "area": "projects",

@@ -38,6 +38,9 @@ func (s *Service) InterruptStep(ctx context.Context, stepID ids.ID, stop stepSto
 	if step.Status != StatusRunning {
 		return nil, errStepNotRunning
 	}
+	if err := s.touchRun(ctx, step.RunID); err != nil {
+		return nil, err
+	}
 	stopped, err := stop(ctx, step)
 	if err != nil {
 		return nil, err

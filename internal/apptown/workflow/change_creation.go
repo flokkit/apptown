@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -20,6 +21,7 @@ import (
 // after its existing capability guard; worker operations explicitly use system
 // ownership. Pinned acceptance is data, never a title convention or encoded map.
 type ChangeDraft struct {
+	Queue                          string
 	ProjectID                      ids.ID
 	Type, Title, Body, ExternalRef string
 	TitleFromChat                  bool
@@ -172,6 +174,16 @@ func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who st
 	if err != nil {
 		return CreatedChange{}, err
 	}
+	if caller, ok := access.CallerFrom(ctx); ok && caller.Principal.Kind == "instrument" && caller.Principal.Instrument == access.SystemInstrument && caller.Principal.Via == "schedule" {
+		q := workflowsql.New(tx.SQL())
+		if err := q.MarkAutomatedChange(ctx, row.ID); err != nil {
+			return CreatedChange{}, err
+		}
+		if err := q.RecordAutomatedChange(ctx, workflowsql.RecordAutomatedChangeParams{ID: row.ID, ProjectID: row.ProjectID, Queue: in.Queue, What: row.Title, OpenedAt: at}); err != nil {
+			return CreatedChange{}, err
+		}
+	}
+
 	id := row.ID
 	if origin.autoBranch && created.DefaultBranch != "" {
 		n, err := workflowsql.New(tx.SQL()).SetChangeBranch(ctx, workflowsql.SetChangeBranchParams{Branch: fmt.Sprintf("apptown/change-%d", id), ID: id, ProjectID: in.ProjectID})

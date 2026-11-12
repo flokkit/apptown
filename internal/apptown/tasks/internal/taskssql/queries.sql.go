@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/lib/pq"
 )
 
 const attemptByOperation = `-- name: AttemptByOperation :one
@@ -341,6 +342,17 @@ func (q *Queries) ReserveAttempt(ctx context.Context, arg ReserveAttemptParams) 
 		&i.WorkspaceReleasedAt,
 	)
 	return i, err
+}
+
+const retainsAutomatedWork = `-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM task_attempts WHERE run_id=ANY($1::uuid[]) AND (observed<>'settled' OR released_at IS NULL OR (workspace<>'' AND workspace_released_at IS NULL)))
+`
+
+func (q *Queries) RetainsAutomatedWork(ctx context.Context, runIds []ids.ID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, retainsAutomatedWork, pq.Array(runIds))
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const settleAttempt = `-- name: SettleAttempt :execrows

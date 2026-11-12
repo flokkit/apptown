@@ -104,6 +104,10 @@
                 },
                 "skipIfActive": {
                   "type": "boolean"
+                },
+                "queue": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]*$"
                 }
               }
             }
@@ -440,7 +444,10 @@
                               "on": {},
                               "scanner": {},
                               "failOn": {},
-                              "timeoutMinutes": {}
+                              "timeoutMinutes": {},
+                              "baseline": {
+                                "const": "none"
+                              }
                             }
                           }
                         }
@@ -834,7 +841,10 @@
                               "on": {},
                               "scanner": {},
                               "failOn": {},
-                              "timeoutMinutes": {}
+                              "timeoutMinutes": {},
+                              "baseline": {
+                                "const": "none"
+                              }
                             }
                           }
                         }

@@ -21,7 +21,8 @@ packs:
       - repo/project-notes
       - repo/no-build-artifacts
       - repo/contract-matches-code
-    workflows: [land, adopt-integration, retire-integration]
+    workflows: [land, adopt-integration, retire-integration, janitor-scan]
+    schedules: [janitor-scan]
   - name: dependency-updates
     suggested: true
     description: |-
