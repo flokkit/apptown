@@ -164,7 +164,7 @@ its working rules apply as well: @private/CLAUDE.md
 [Makefile](Makefile), [CI configuration](.github/workflows/ci.yml),
 [the heavy tiers' CI](.github/workflows/heavy-main.yml) and
 [web package scripts](web/package.json) own executable commands and tool versions.
-`make build` builds the application; `make check` runs the local validation gate.
+`make build` builds the application; `make check` runs the whole local suite.
 Check the affected owner's requirements and the
 [testing guide](design/architecture/testing.md) before selecting additional tiers.
 Do not assume local and CI coverage are identical. Runtime options belong in
@@ -187,8 +187,9 @@ application fixture to work around ownership. Isolate resources, clean them up,
 poll with deadlines, and make concurrency choices visible at each test rather
 than hiding them in fixture helpers.
 
-Run checks appropriate to the change and the required repository gates. Report
-what ran and what remains unverified. A skipped infrastructure test is not proof
+Run the tests you judge prove the change and say which in the pull request
+text, with what remains unverified; GitHub CI and the merge queue are the
+gate. A skipped infrastructure test is not proof
 of isolation, recovery or deployment. Keep local validation, deployment and live
 observation separate. Preserve architecture and reachability ratchets: tighten
 after removing debt and never disguise a bypass to keep a count flat. Exact
