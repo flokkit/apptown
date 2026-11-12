@@ -936,23 +936,34 @@ func cmdLand(args []string) error {
 	noFollow := fs.Bool("no-follow", false, "fire the landing and return")
 	asJSON := fs.Bool("json", false, "print the landing run as JSON and return (no following)")
 	args = parseArgs(fs, args)
-	if len(args) < 1 {
-		// Inside a change chat, bare `apptown land` lands THIS session's own
-		// change through the console plane — the session token opens only
-		// that one door. Checks and the person's OK still stand.
-		if sid, tok := os.Getenv("APPTOWN_SESSION_ID"), os.Getenv("APPTOWN_SESSION_TOKEN"); sid != "" && tok != "" {
-			// The chat's door answers with the landing's run alone, not the
-			// change; --json names both, so it is refused here, before
-			// anything starts, rather than printed half.
-			if *asJSON {
-				return usagef("a bare apptown land in a chat answers in words, not --json: its door names the landing run but not the change; run it without --json")
-			}
-			if err := api.post("/console/"+sid+"/land", map[string]any{}, nil); err != nil {
+	// Inside a change chat, `apptown land` lands THIS session's own change
+	// through the console plane — the session token opens only that one
+	// door, so naming the chat's own change takes the same door, and naming
+	// any other is refused here rather than at the read-only port. Checks
+	// and the person's OK still stand.
+	if sid, tok := os.Getenv("APPTOWN_SESSION_ID"), os.Getenv("APPTOWN_SESSION_TOKEN"); sid != "" && tok != "" {
+		if len(args) > 0 {
+			id, err := changeRef(args[0], "")
+			if err != nil {
 				return err
 			}
-			fmt.Println("landing started — AppTown runs its checks, then asks a person for the final OK")
-			return nil
+			if own, _ := ids.Parse(os.Getenv("APPTOWN_CHANGE")); own.IsZero() || id != own {
+				return usagef("a chat lands only its own change: run apptown land with no change named, in that change's chat")
+			}
 		}
+		// The chat's door answers with the landing's run alone, not the
+		// change; --json names both, so it is refused here, before
+		// anything starts, rather than printed half.
+		if *asJSON {
+			return usagef("apptown land in a chat answers in words, not --json: its door names the landing run but not the change; run it without --json")
+		}
+		if err := api.post("/console/"+sid+"/land", map[string]any{}, nil); err != nil {
+			return err
+		}
+		fmt.Println("landing started — AppTown runs its checks, then asks a person for the final OK")
+		return nil
+	}
+	if len(args) < 1 {
 		return usagef("usage: apptown land <change-id> [-y] [--no-follow]")
 	}
 	id, err := changeRef(args[0], "")
