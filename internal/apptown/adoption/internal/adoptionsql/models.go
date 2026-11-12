@@ -48,15 +48,14 @@ type LibWorkflow struct {
 }
 
 type Pack struct {
-	ID                 ids.ID
-	Name               string
-	Description        string
-	SpecJson           json.RawMessage
-	LatestVersion      int64
-	RecommendedVersion int64
-	Origin             string
-	Enabled            bool
-	UpdatedAt          time.Time
+	ID            ids.ID
+	Name          string
+	Description   string
+	SpecJson      json.RawMessage
+	LatestVersion int64
+	Origin        string
+	Enabled       bool
+	UpdatedAt     time.Time
 }
 
 type Policy struct {

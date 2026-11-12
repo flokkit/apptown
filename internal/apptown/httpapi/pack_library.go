@@ -9,7 +9,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
-	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/wow"
@@ -19,15 +18,14 @@ import (
 )
 
 type PackLibrary struct {
-	ways    *wow.Service
-	whatIfs *conformance.Service
-	access  *identity.Service
-	db      *database.DB
-	now     func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
+	ways   *wow.Service
+	access *identity.Service
+	db     *database.DB
+	now    func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
-func NewPackLibrary(ways *wow.Service, whatIfs *conformance.Service, access *identity.Service, db *database.DB, now func() time.Time) PackLibrary {
-	return PackLibrary{ways: ways, whatIfs: whatIfs, access: access, db: db, now: now}
+func NewPackLibrary(ways *wow.Service, access *identity.Service, db *database.DB, now func() time.Time) PackLibrary {
+	return PackLibrary{ways: ways, access: access, db: db, now: now}
 }
 
 // SetPackEnabled: POST /packs/{name}/enabled {enabled} — the
@@ -149,43 +147,4 @@ type PackSaved struct {
 	OK       bool     `json:"ok"`
 	Version  int64    `json:"version"`
 	Warnings []string `json:"warnings"`
-}
-
-// RecommendPackVersion: POST /api/v1/packs/{name}/recommended {version,
-// whatIf?} — with whatIf, the what-if the person decided on, which must be
-// of this pack and version and done; its receipt names it. Otherwise
-// the version new projects get and projects are offered as the update. A
-// person's act: standards:manage-packs is in no agent scope or instrument
-// table, so an agent credential is refused before any effect.
-func (h PackLibrary) RecommendPackVersion(w http.ResponseWriter, r *http.Request) {
-	if _, ok := AuthorizeRequest(h.access, w, r, access.CapStandardsPacks, access.Resource{Type: "instance"}, access.Context{}); !ok {
-		return
-	}
-	name := r.PathValue("name")
-	jsonCommand(w, r, jsonBody{}, func(in struct {
-		Version int64  `json:"version"`
-		WhatIf  ids.ID `json:"whatIf"`
-	}) {
-		if !in.WhatIf.IsZero() {
-			wi, err := h.whatIfs.WhatIf(r.Context(), in.WhatIf)
-			if err != nil {
-				WriteFault(w, err)
-				return
-			}
-			if wi.Pack != name || wi.Version != in.Version || wi.State != conformance.WhatIfDone {
-				WriteError(w, 409, "what-if #%d is of %s v%d and %s; recommend %s v%d on one of that version that finished", wi.ID, wi.Pack, wi.Version, wi.State, name, in.Version)
-				return
-			}
-		}
-		if err := h.ways.RecommendPack(r.Context(), name, in.Version, actor(r), in.WhatIf); err != nil {
-			WriteFault(w, err)
-			return
-		}
-		history, err := h.ways.PackHistory(r.Context(), name)
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		WriteJSON(w, 200, history)
-	})
 }

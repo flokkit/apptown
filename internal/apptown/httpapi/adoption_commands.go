@@ -117,17 +117,19 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 			}
 			in.Request, in.ExpectedRevision, expectedDigest, basis = adoption.Request{Packs: picks, AdvanceWorkflows: assessed.advance}, assessed.revision, assessed.digest, assessed.basis
 		}
-		c, err := h.adoption.Prepare(r.Context(), p.ID, in.Request)
+		var c *adoption.Candidate
+		var err error
+		if expectedDigest != "" {
+			c, err = h.adoption.PrepareAssessed(r.Context(), p.ID, in.Request, in.ExpectedRevision, expectedDigest)
+		} else {
+			c, err = h.adoption.Prepare(r.Context(), p.ID, in.Request)
+		}
 		if err != nil {
-			WriteError(w, 422, "%v", err)
+			WriteFaultOr(w, err, 422)
 			return
 		}
 		if in.ExpectedRevision != 0 && c.ExpectedRevision != in.ExpectedRevision {
 			WriteError(w, 409, "the project is on revision %d, not %d — prepare again", c.ExpectedRevision, in.ExpectedRevision)
-			return
-		}
-		if expectedDigest != "" && c.Digest != expectedDigest {
-			WriteError(w, 409, "what this project would adopt has changed since it was assessed — run the what-if again")
 			return
 		}
 		if len(c.Problems) > 0 {

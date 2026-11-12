@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -126,7 +127,7 @@ func (s *Service) processStanding(ctx context.Context, runID, stepID ids.ID, rev
 	if cfg.Standing == nil {
 		return false, nil
 	}
-	rule, _, err := s.standing.StandingForWorkflow(ctx, run.ProjectID, run.WorkflowName)
+	rule, _, err := s.standing.standingForWorkflow(ctx, run.ProjectID, run.WorkflowName, run.AdoptionID)
 	if err != nil {
 		return false, err
 	}
@@ -142,10 +143,10 @@ func (s *Service) processStanding(ctx context.Context, runID, stepID ids.ID, rev
 				return false, err
 			}
 			decision.Reason = err.Error()
-		} else if assessed.Inspection.Classification != "routine-dependency" {
+		} else if assessed.Inspection.Classification != "routine-dependency" && assessed.Inspection.Classification != "routine-adoption" {
 			decision.Reason = assessed.Inspection.Reason
 		}
-		if err == nil && assessed.Inspection.Classification != "routine-dependency" && decision.Reason == "" {
+		if err == nil && assessed.Inspection.Classification != "routine-dependency" && assessed.Inspection.Classification != "routine-adoption" && decision.Reason == "" {
 			decision.Reason = "the candidate could not be classified within the rule"
 		}
 	}
@@ -201,7 +202,7 @@ func (s *Service) processStanding(ctx context.Context, runID, stepID ids.ID, rev
 			if err != nil {
 				return false, err
 			}
-			proc, e := s.standing.eligibleForIn(ctx, tx, fresh, current.ProjectID, current.WorkflowName)
+			proc, e := s.standing.eligibleForIn(ctx, tx, fresh, current.ProjectID, current.WorkflowName, current.AdoptionID)
 			if e != nil {
 				if !standingRefusal(e) {
 					return false, e
@@ -219,6 +220,24 @@ func (s *Service) processStanding(ctx context.Context, runID, stepID ids.ID, rev
 					decision.Reason = "the project update level changed during assessment"
 				}
 			}
+			if decision.Reason == "" && assessed.Adoption != nil {
+				if _, err := adoption.CurrentForUpdateIn(ctx, tx, current.ProjectID); err != nil {
+					return false, err
+				}
+				ch, err := readChangeInProject(ctx, tx, current.ChangeID, current.ProjectID)
+				if err != nil {
+					return false, err
+				}
+				target, err := s.standing.deps.Adoptions.CheckRoutineTargetIn(ctx, tx, ch.ProjectID, ch.ID, ch.TargetAdoptionID, ch.ExpectedRevision, []byte(ch.TargetCandidateJSON))
+				if err != nil {
+					if !standingRefusal(err) {
+						return false, err
+					}
+					decision.Reason = err.Error()
+				} else if target != *assessed.Adoption {
+					decision.Reason = "the assessed adoption changed before acceptance"
+				}
+			}
 			if decision.Reason == "" {
 				why, err := standingEvidence(ctx, tx, current, false, 0)
 				if err != nil {
@@ -230,7 +249,7 @@ func (s *Service) processStanding(ctx context.Context, runID, stepID ids.ID, rev
 		if decision.Reason != "" {
 			return false, recordReceiptIn(ctx, tx, runID, "acceptance.standing.withheld", decision, s.now())
 		}
-		proc, err := s.standing.deps.Procedures.StandingProcedure(ctx, tx, current.ProjectID, current.WorkflowName)
+		proc, err := s.standing.eligibleForIn(ctx, tx, rule, current.ProjectID, current.WorkflowName, current.AdoptionID)
 		if err != nil {
 			return false, err
 		}

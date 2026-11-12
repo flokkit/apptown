@@ -441,7 +441,11 @@ func (f Fleet) assessTree(ctx context.Context, sh string, posture, tools []confo
 				case workflow.VerdictPass:
 					a.State, a.Reason = conformance.Conforms, ""
 				case workflow.VerdictNotApplicable:
-					a.State, a.Reason, a.Detail = conformance.NotApplicable, "", result.Detail
+					if result.Met() {
+						a.State, a.Reason, a.Detail = conformance.NotApplicable, "", result.Detail
+					} else {
+						a.State, a.Reason, a.Detail = conformance.CannotAssess, conformance.NotAssessedError, "not applicable was recorded without a reason"
+					}
 				case workflow.VerdictFail:
 					a.State, a.Reason, a.Detail, a.Findings = conformance.DoesNotConform, "", detailOr(result, sc.Check.Expects), ev.Findings
 					if ref, ok := conformance.ExceptionFor(sc, tc.Exceptions); ok {
@@ -479,7 +483,11 @@ func (f Fleet) assessTree(ctx context.Context, sh string, posture, tools []confo
 		case workflow.VerdictSkipped:
 			a.State, a.Reason, a.Detail = conformance.CannotAssess, conformance.NotAssessedNoImage, detail("exec-image tool runs at the land gate")
 		case workflow.VerdictNotApplicable:
-			a.State, a.Reason, a.Detail = conformance.NotApplicable, "", ev.Detail
+			if resultOf(ev).Met() {
+				a.State, a.Reason, a.Detail = conformance.NotApplicable, "", ev.Detail
+			} else {
+				a.State, a.Reason, a.Detail = conformance.CannotAssess, conformance.NotAssessedError, "not applicable was recorded without a reason"
+			}
 		}
 		out = append(out, a)
 	}

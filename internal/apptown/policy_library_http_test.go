@@ -144,6 +144,24 @@ func policyLibraryUpgradeFixture(t *testing.T) *App {
 	if _, err := a.DB.SQL().ExecContext(t.Context(), `DROP TABLE notification_deliveries; DROP TABLE notification_items; DROP TABLE notification_baseline`); err != nil {
 		t.Fatal(err)
 	}
+	// sql-guarantee: recreate the schema before migration 239 removed the
+	// recommendation pointer and publication interval classifications.
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE packs ADD COLUMN recommended_version BIGINT NOT NULL DEFAULT 0; ALTER TABLE what_if_reviews DROP COLUMN rule_id, DROP COLUMN rule_revision; CREATE TABLE routine_publication_classifications (
+ id UUID PRIMARY KEY,
+ publication_kind TEXT NOT NULL CHECK (publication_kind IN ('block','pack')),
+ publication_id UUID NOT NULL,
+ from_version BIGINT NOT NULL CHECK (from_version > 0),
+ to_version BIGINT NOT NULL CHECK (to_version > from_version),
+ digest TEXT NOT NULL CHECK (digest <> ''),
+ issuer_id UUID NOT NULL,
+ request_id UUID NOT NULL,
+ created_at TIMESTAMPTZ NOT NULL,
+ record_json JSONB NOT NULL,
+ revocation_json JSONB NOT NULL DEFAULT 'null'::jsonb,
+ UNIQUE(issuer_id,request_id)
+)`); err != nil {
+		t.Fatal(err)
+	}
 	// sql-guarantee: this data-only migration needs the pre-upgrade schema stamp.
 	if _, err := a.DB.SQL().ExecContext(t.Context(), `UPDATE schema_version SET version=214`); err != nil {
 		t.Fatal(err)

@@ -858,6 +858,11 @@ WHERE NOT (o.receipt ? 'expectedScanners');
  next_at TIMESTAMPTZ,
  finished_at TIMESTAMPTZ
 )`, `CREATE UNIQUE INDEX notification_event ON notification_deliveries(channel,kind,item_key,opened_at) WHERE kind IN ('opened','resolved')`, `CREATE UNIQUE INDEX notification_digest ON notification_deliveries(channel,digest_date) WHERE kind='digest'`}},
+	{n: 239, note: "offer newest publications and remove interval classification", stmts: []string{
+		`ALTER TABLE packs DROP COLUMN recommended_version`,
+		`DROP TABLE routine_publication_classifications`,
+		`ALTER TABLE what_if_reviews ADD COLUMN rule_id UUID, ADD COLUMN rule_revision BIGINT NOT NULL DEFAULT 0`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

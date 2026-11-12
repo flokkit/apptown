@@ -300,3 +300,9 @@ SELECT * FROM automated_changes WHERE id=$1;
 
 -- name: SkipQueueAttempt :exec
 UPDATE automated_changes SET outcome='skipped',reason='Skipped this update' WHERE id=$1;
+
+-- name: HasBlockingPackUplift :one
+SELECT EXISTS(SELECT 1 FROM changes c
+LEFT JOIN automated_changes a ON a.active_change_id=c.id
+WHERE c.project_id=$1 AND c.type='uplift' AND c.state=$2
+AND (NOT c.automated OR COALESCE(a.queue,'') <> 'packs'));

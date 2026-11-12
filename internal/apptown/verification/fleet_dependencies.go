@@ -2,6 +2,7 @@ package verification
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/apptown/workflow"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
@@ -15,15 +16,22 @@ import (
 type reporter interface {
 	Report(kind, where, message string, tags map[string]string, stack string)
 }
+type packAdopter interface {
+	AdoptWhatIf(context.Context, *conformance.WhatIf) error
+}
+
 type Fleet struct {
-	checks    *conformance.Service
-	evaluator *evaluator
-	scanners  *Scanners
-	selection model.Selection
-	ledger    *usage.Ledger
-	db        *database.DB
-	reporting reporter
-	dataDir   string
+	standing      *workflow.StandingRules
+	publications  packPublications
+	packAdoptions packAdopter
+	checks        *conformance.Service
+	evaluator     *evaluator
+	scanners      *Scanners
+	selection     model.Selection
+	ledger        *usage.Ledger
+	db            *database.DB
+	reporting     reporter
+	dataDir       string
 	// candidates prepares what a project would adopt, for a what-if.
 	candidates candidatePreparer
 	// runtime observes deployments: a what-if probes the app serving the
@@ -34,14 +42,17 @@ type Fleet struct {
 }
 
 type FleetDependencies struct {
-	Checks    *conformance.Service
-	Evaluator *evaluator
-	Scanners  *Scanners
-	Selection model.Selection
-	Ledger    *usage.Ledger
-	DB        *database.DB
-	Reporting reporter
-	DataDir   string
+	Standing      *workflow.StandingRules
+	Publications  packPublications
+	PackAdoptions packAdopter
+	Checks        *conformance.Service
+	Evaluator     *evaluator
+	Scanners      *Scanners
+	Selection     model.Selection
+	Ledger        *usage.Ledger
+	DB            *database.DB
+	Reporting     reporter
+	DataDir       string
 	// Candidates is Adoption's candidate preparation, for what-ifs.
 	Candidates candidatePreparer
 	// Runtime observes deployments, for what-ifs' runtime probes.
@@ -51,7 +62,7 @@ type FleetDependencies struct {
 }
 
 func NewFleet(d FleetDependencies) *Fleet {
-	return &Fleet{checks: d.Checks, evaluator: d.Evaluator, scanners: d.Scanners, selection: d.Selection, ledger: d.Ledger, db: d.DB, reporting: d.Reporting, dataDir: d.DataDir, candidates: d.Candidates, runtime: d.Runtime, jobs: d.Jobs}
+	return &Fleet{standing: d.Standing, publications: d.Publications, packAdoptions: d.PackAdoptions, checks: d.Checks, evaluator: d.Evaluator, scanners: d.Scanners, selection: d.Selection, ledger: d.Ledger, db: d.DB, reporting: d.Reporting, dataDir: d.DataDir, candidates: d.Candidates, runtime: d.Runtime, jobs: d.Jobs}
 }
 
 // judgeChecks uses the checks slot of the project it is for.

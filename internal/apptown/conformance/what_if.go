@@ -30,9 +30,11 @@ import (
 
 // WhatIfRequest names the pack version and the projects to run it on.
 type WhatIfRequest struct {
-	Pack     string   `json:"pack"`
-	Version  int64    `json:"version"`
-	Projects []ids.ID `json:"projects"`
+	RuleID       ids.ID   `json:"-"`
+	RuleRevision int64    `json:"-"`
+	Pack         string   `json:"pack"`
+	Version      int64    `json:"version"`
+	Projects     []ids.ID `json:"projects"`
 	// Rubrics includes model rubrics, which cost money: only with a spend
 	// limit, which stops further rubric calls once observed spend reaches
 	// it (one project's checklist may overshoot it).
@@ -303,6 +305,8 @@ type WhatIfRow struct {
 
 // WhatIf is one what-if with its rows.
 type WhatIf struct {
+	RuleID        ids.ID                `json:"ruleId,omitzero"`
+	RuleRevision  int64                 `json:"ruleRevision"`
 	StatusLabel   WhatIfLabel           `json:"statusLabel"`
 	StatusHelp    string                `json:"statusHelp"`
 	OutcomeLabels map[string]CheckLabel `json:"outcomeLabels"`
@@ -412,7 +416,7 @@ func (s *Service) AdmitWhatIfIn(ctx context.Context, tx *database.Tx, in WhatIfR
 	if err != nil {
 		return ids.Nil, err
 	}
-	r, err := queries(tx).InsertWhatIf(ctx, conformancesql.InsertWhatIfParams{ID: ids.New(s.records.now().UTC()), Pack: in.Pack, PackVersion: in.Version, RequestedBy: who, RequestedByPrincipal: requester.Principal, RequestedByVia: requester.Via, Rubrics: in.Rubrics, SpendLimitMicros: in.SpendLimitMicros, AdvanceWorkflows: in.AdvanceWorkflows, AlsoPacks: string(also), CreatedAt: s.records.now().UTC(), Projects: string(projects), ProjectsTotal: int64(len(in.Projects))})
+	r, err := queries(tx).InsertWhatIf(ctx, conformancesql.InsertWhatIfParams{ID: ids.New(s.records.now().UTC()), Pack: in.Pack, PackVersion: in.Version, RequestedBy: who, RequestedByPrincipal: requester.Principal, RequestedByVia: requester.Via, Rubrics: in.Rubrics, SpendLimitMicros: in.SpendLimitMicros, AdvanceWorkflows: in.AdvanceWorkflows, AlsoPacks: string(also), CreatedAt: s.records.now().UTC(), Projects: string(projects), ProjectsTotal: int64(len(in.Projects)), RuleID: in.RuleID, RuleRevision: in.RuleRevision})
 	if err != nil {
 		return ids.Nil, err
 	}
@@ -431,7 +435,7 @@ func (s *Service) ClaimWhatIf(ctx context.Context, id ids.ID) (*WhatIfRun, WhatI
 	if err != nil {
 		return nil, WhatIfRequest{}, err
 	}
-	in := WhatIfRequest{Pack: r.Pack, Version: r.PackVersion, Rubrics: r.Rubrics, SpendLimitMicros: r.SpendLimitMicros, AdvanceWorkflows: r.AdvanceWorkflows}
+	in := WhatIfRequest{RuleID: r.RuleID, RuleRevision: r.RuleRevision, Pack: r.Pack, Version: r.PackVersion, Rubrics: r.Rubrics, SpendLimitMicros: r.SpendLimitMicros, AdvanceWorkflows: r.AdvanceWorkflows}
 	if err := json.Unmarshal(r.Projects, &in.Projects); err != nil {
 		return nil, WhatIfRequest{}, fmt.Errorf("what-if %d's selection: %w", id, err)
 	}
@@ -584,7 +588,7 @@ func (s *Service) LatestWhatIf(ctx context.Context, pack string, version int64) 
 }
 
 func whatIfWithRows(ctx context.Context, db database.Queryer, r conformancesql.WhatIfReview) (*WhatIf, error) {
-	out := &WhatIf{ID: r.ID, Pack: r.Pack, Version: r.PackVersion, RequestedBy: r.RequestedBy, RequestedByPrincipal: r.RequestedByPrincipal, State: r.State, Detail: r.Detail,
+	out := &WhatIf{RuleID: r.RuleID, RuleRevision: r.RuleRevision, ID: r.ID, Pack: r.Pack, Version: r.PackVersion, RequestedBy: r.RequestedBy, RequestedByPrincipal: r.RequestedByPrincipal, State: r.State, Detail: r.Detail,
 		ProjectsTotal: r.ProjectsTotal, ProjectsDone: r.ProjectsDone, CreatedAt: stamp.Time{NullTime: sql.NullTime{Time: r.CreatedAt, Valid: true}},
 		FinishedAt: stamp.Time{NullTime: r.FinishedAt}, Rubrics: r.Rubrics, SpendLimitMicros: r.SpendLimitMicros, AdvanceWorkflows: r.AdvanceWorkflows, CostMicros: r.CostMicros, Incomplete: r.Incomplete, Rows: []WhatIfRow{}, Also: []PackVersion{}}
 	if err := json.Unmarshal(r.AlsoPacks, &out.Also); err != nil {
@@ -651,4 +655,17 @@ func (r *WhatIfRun) RubricSpend(ctx context.Context) (spent WhatIfSpend, limit i
 		return WhatIfSpend{}, 0, err
 	}
 	return WhatIfSpend{CostMicros: w.CostMicros, Incomplete: w.Incomplete}, w.SpendLimitMicros, nil
+}
+
+// FinishedPackWhatIf is the trusted job's retained assessment, never authority
+// to adopt. The Change owner rechecks the current rule for every project.
+func (s *Service) FinishedPackWhatIf(ctx context.Context, id ids.ID) (*WhatIf, error) {
+	row, err := queries(s.db).WhatIfByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if row.State != WhatIfDone || row.RuleID.IsZero() {
+		return nil, nil
+	}
+	return whatIfWithRows(ctx, s.db, row)
 }

@@ -5,7 +5,7 @@ is separate from a vote on an individual Change. AppTown records the exact
 meaning, project UUIDs, workflow purposes, selected environment and target UUIDs,
 and the person who enabled it. Changes create new revisions; history is retained.
 
-The janitor processes eligible dependency updates under enabled standing consent.
+The janitor processes eligible dependency and pack updates under enabled standing consent.
 Saving a rule authorizes the declared workflows within its bounds; an individual
 Change still needs a fresh classification and all its required evidence.
 No rule is enabled by default.
@@ -121,48 +121,37 @@ Security targets come from the failed source scan. An observing running-image
 scan cannot start a fix. Classification never substitutes for the required tests,
 start-up or scans, and an inspection result alone provides no authority.
 
-## Classifying publication transitions
+## Keeping packs current
 
-A current standards manager can preview two exact forward versions of a guidance
-block or pack, then explicitly classify their displayed meaning as routine.
-`apptown janitor publication preview --file transition.json` returns the exact
-before/after material, source and signer facts, explanation and digest. The file
-names `kind` (`block` or `pack`), publication UUID `id`, `from` and `to` versions.
-Inspect the complete material, then use `publication classify --file
-transition.json --confirm DIGEST --request UUID`. Keep that request UUID for any
-retry of the same human act. Equal retries return the original receipt, including
-its revocation; changed input conflicts. A later new act requires a new UUID.
+“Keep packs current” is a separate standing rule with category `waysOfWorking`.
+It has no dependency update level or cron. Publication starts a what-if as
+`apptown-system`, recording the rule and revision. Enabling starts a fresh
+assessment for each project below a newest publication, even when a person
+already assessed it. Each candidate moves all of that project’s outdated packs
+to their newest publications together. A later publication assesses the whole
+outstanding set again, so replacement work retains the other pack updates. A
+what-if reports impact; it grants no acceptance.
 
-The initial supported class changes guidance body text only. Executable checks,
-workflows, approval rules, policies, capability requirements, needs, services,
-secrets, resources, tools, starter settings and component membership must remain
-unchanged. A pack may advance its pinned guidance while preserving those inputs;
-its complete included publication tree participates. Unresolved or unsupported
-publication material refuses classification. A recommendation is not consent.
+A finished assessment opens an automated adoption Change in queue `packs`.
+`janitor-adopt` runs the `adopt` fix, up to two repair sessions, tests, start-up,
+scans, guidance checks, `routine` and standing acceptance. Its declaration is
+the publication, and its classifier checks that the immutable target remains
+the assessed candidate. New checks and agent-written application code use the
+same acceptance and landing ladder as other fixes. There is no separate
+classification of publication intervals.
 
-`publication history block|pack UUID` reads that publication's classification
-history. `publication revoke CLASSIFICATION_UUID` records a one-way revocation.
-Both require current standards authority. An agent, run, chat or delegated token
-cannot supply the enabling human act. Insert and audit commit together. Restored
-classifications are disabled before application recovery and require new local
-human consent; their historical meaning is retained.
+Eligibility requires an active project below the publication, current issuer
+authority, matching approval meanings, a project level other than `off` and no
+release hold. Dependency fix coverage does not apply. The preview's projects
+needing a pack upgrade will be moved when this rule is on. Attempts retain rule
+attribution; the queue fingerprints main's commit and the adoption candidate.
+An empty source diff still has its adoption to land.
 
-Assessment reads the actual Change target and current adoption, not a submitted
-subset or a display summary. Every selected pack and guidance transition needs
-exact coverage, with unchanged membership, order, disabled state, tiers,
-workflows, policies and capability requirements. Existing capability requirements
-must remain available. A pack classification covers only its exact nested
-publication intervals. Revoked consent, changed material or a no-longer-eligible
-issuer refuses assessment. Responses carry selected classification UUIDs,
-digests and shown meaning; full material remains in publication preview/history.
-
-A nonempty, fully covered adoption target may have an empty Git diff. An ordinary
-empty Change is insufficient. Combined npm, image and adoption updates must
-explain every source and procedure change independently; adoption consent cannot
-cover unrelated application edits. The source, rule and adoption consent are
-checked again after inspection. These short-lived checks produce observations,
-not authority held until a later effect. Publication adoption is assessed
-separately; the scheduled dependency path does not move pack membership.
+Every required check must be met. `workflow.CheckReceipt.Met` treats a check
+judged not applicable with its reason as met; an error, waived check or unknown
+answer is not met. What-if, the adoption condition, yes in advance, standing
+acceptance and landing preserve that meaning. A person's yes in advance still
+requires no code changes.
 
 ## Scheduled scans and updates
 
@@ -173,7 +162,7 @@ covers. Scanner errors never trigger the call. The update schedule updates the
 parts through the language packs' declared commands. Node, Go, Python with uv,
 and Ruby ship update declarations and standard-list converters.
 
-The `fix` step dispatches by `kind`; `update` is the supported kind. Whole updates
+The `fix` step dispatches by `kind`: `update` (below) and `adopt` (above). Whole updates
 use `run` at routine level and `runMajor` where declared at aggressive level,
 otherwise `run`; targeted updates use `runFor` with the caller's targets, never `run`.
 Each command runs after `mise install` in its part's folder and publishes its

@@ -45,7 +45,7 @@ func ProjectPacksIn(ctx context.Context, q database.Queryer, projectID ids.ID) (
 	var out []ProjectPackRecord
 	for _, r := range rows {
 		p, pp := r.Pack, r.ProjectPack
-		out = append(out, ProjectPackRecord{Pack: p.Name, Version: pp.Version, Recommended: p.RecommendedVersion, Reason: pp.Reason, AdoptedBy: pp.AdoptedBy, AdoptedByPrincipal: pp.AdoptedByPrincipal, AdoptedAt: stamp.Time{NullTime: sql.NullTime{Time: pp.AdoptedAt, Valid: true}}, SpecJSON: string(r.VersionSpec)})
+		out = append(out, ProjectPackRecord{Pack: p.Name, Version: pp.Version, Recommended: p.LatestVersion, Reason: pp.Reason, AdoptedBy: pp.AdoptedBy, AdoptedByPrincipal: pp.AdoptedByPrincipal, AdoptedAt: stamp.Time{NullTime: sql.NullTime{Time: pp.AdoptedAt, Valid: true}}, SpecJSON: string(r.VersionSpec)})
 	}
 	return out, err
 }

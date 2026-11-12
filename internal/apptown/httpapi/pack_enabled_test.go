@@ -31,7 +31,7 @@ func TestPackEnabledSwitch(t *testing.T) {
 		t.Fatalf("both packs should start on: %+v %v", packs, err)
 	}
 	ctx := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "test"}, Receipt: "bls", Verified: true})
-	handler := NewPackLibrary(ways, nil, authority, db, nil)
+	handler := NewPackLibrary(ways, authority, db, nil)
 	flip := func(name string, on bool) *httptest.ResponseRecorder {
 		t.Helper()
 		body := `{"enabled":false}`

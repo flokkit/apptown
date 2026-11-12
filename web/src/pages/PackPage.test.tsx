@@ -11,7 +11,7 @@ import PackPage from './PackPage'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 afterEach(() => vi.unstubAllGlobals())
-it.each([{enabled:true,beta:true}, {enabled:false,beta:true}, {enabled:true,beta:false}])('owns visibility, edit, delete and recommendation (%j)', async ({enabled, beta}) => {
+it.each([{enabled:true,beta:true}, {enabled:false,beta:true}, {enabled:true,beta:false}])('owns visibility, edit and delete; publications need no recommendation (%j)', async ({enabled, beta}) => {
   const sent: [string, unknown][] = []
   const declaration = { guidance: ['team/code-review'], workflows: [], policies: [] }
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
@@ -22,6 +22,9 @@ it.each([{enabled:true,beta:true}, {enabled:false,beta:true}, {enabled:true,beta
       : url.endsWith('/guidance/blocks') ? []
       : url.endsWith('/policy-library') ? { library: [] }
       : url.endsWith('/packs') ? [{ name: 'team', enabled }]
+      : url.endsWith('/wow') ? { packs: [] }
+      : url.endsWith('/projects') ? []
+      : url.includes('/conformance/what-if?') ? { whatIf: null, eligible: [] }
       : url.includes('/conformance/what-if/') ? { id: 'assessment', pack: 'team', version: 2 }
       : { name: 'team', origin: 'custom', description: 'Team rules', recommended: 1, latest: 2, declaration, versions: [{ version: 2, at: '', spec: declaration, pins: { blocks: {}, workflows: {} } }] }
     return new Response(JSON.stringify(data))
@@ -36,12 +39,8 @@ it.each([{enabled:true,beta:true}, {enabled:false,beta:true}, {enabled:true,beta
     expect(button('Delete…')).toBeDefined()
     await act(async () => el.querySelector<HTMLButtonElement>('[role="switch"][aria-label="team"]')!.click())
     expect(sent).toContainEqual(['/api/v1/packs/team/enabled', { enabled: !enabled }])
-    // Flipping the switch re-reads the pack; Recommend is disabled until that
-    // read is current, so wait for it to be enabled rather than click mid-read.
-    await vi.waitFor(() => expect(button('Recommend v2')?.disabled).toBe(false))
-    await act(async () => button('Recommend v2').click())
-    await act(async () => button('Recommend it').click())
-    expect(sent).toContainEqual(['/api/v1/packs/team/recommended', { version: 2, ...(beta ? { whatIf: 'assessment' } : {}) }])
+    expect(button('Recommend v2')).toBeUndefined()
+    expect(sent.some(([path]) => path.endsWith('/recommended'))).toBe(false)
     if (!beta) {
       expect(el.querySelector('a[href="/packs/team/versions/2"]')).not.toBeNull()
       expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).includes('/conformance/what-if'))).toBe(false)

@@ -158,6 +158,8 @@ CREATE TABLE IF NOT EXISTS what_if_reviews (
   also_packs         JSONB NOT NULL DEFAULT '[]'::jsonb,
   -- queued: admitted, waiting for the conformance queue's worker.
   -- interrupted: AppTown stopped before it finished; it is not resumed.
+  rule_id UUID,
+  rule_revision BIGINT NOT NULL DEFAULT 0,
   CONSTRAINT what_if_state CHECK (state IN ('queued','running','done','error','interrupted'))
 );
 CREATE INDEX IF NOT EXISTS what_if_reviews_version ON what_if_reviews(pack, pack_version, id);

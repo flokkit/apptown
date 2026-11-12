@@ -387,7 +387,7 @@ func TestWordPressDeploymentURLGuidanceCutsANewPackVersion(t *testing.T) {
 	release := New(db, Dependencies{Stock: stock.FS, ToolLines: stock.Versions()})
 	release.SyncStock(t.Context())
 	after, err := libraryRows(db).PackByName(t.Context(), "wordpress")
-	if err != nil || after.LatestVersion != before.LatestVersion+1 || after.RecommendedVersion != before.RecommendedVersion {
+	if err != nil || after.LatestVersion != before.LatestVersion+1 {
 		t.Fatalf("new WordPress publication: before=%+v after=%+v err=%v", before, after, err)
 	}
 	kept, err := libraryRows(db).PackVersion(t.Context(), wowsql.PackVersionParams{PackID: before.ID, Version: before.LatestVersion})

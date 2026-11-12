@@ -30,6 +30,10 @@ type RecordedTarget struct {
 	Candidate json.RawMessage
 }
 type Uplift struct {
+	RuleID           ids.ID
+	RuleRevision     int64
+	Workflow         string
+	validate         admissionParticipant
 	ProjectID        ids.ID
 	ExpectedRevision int64
 	Acceptance       Acceptance
@@ -76,6 +80,12 @@ func (s changeStore) openUplift(ctx context.Context, in Uplift, who string) (*Ch
 		if err != nil {
 			return nil, err
 		}
+		if open && !in.RuleID.IsZero() {
+			open, err = workflowsql.New(tx.SQL()).HasBlockingPackUplift(ctx, workflowsql.HasBlockingPackUpliftParams{ProjectID: in.ProjectID, State: ChangeInProgress.String()})
+			if err != nil {
+				return nil, err
+			}
+		}
 		if open {
 			return nil, fmt.Errorf("an adoption change is already open; land or abandon it first")
 		}
@@ -88,9 +98,19 @@ func (s changeStore) openUplift(ctx context.Context, in Uplift, who string) (*Ch
 			in.Acceptance.InAdvance = yes
 		}
 		title, body := upliftBrief(in)
-		created, err := insertChangeIn(ctx, tx, ChangeDraft{ProjectID: in.ProjectID, Type: "uplift", Title: title, Body: body, Acceptance: &in.Acceptance}, who, current, changeOrigin{expectedRevision: in.ExpectedRevision}, now)
+		created, err := insertChangeIn(ctx, tx, ChangeDraft{RuleID: in.RuleID, RuleRevision: in.RuleRevision, Schedule: in.Workflow, Queue: func() string {
+			if !in.RuleID.IsZero() {
+				return "packs"
+			}
+			return ""
+		}(), ProjectID: in.ProjectID, Type: "uplift", Title: title, Body: body, Acceptance: &in.Acceptance}, who, current, changeOrigin{expectedRevision: in.ExpectedRevision}, now)
 		if err != nil {
 			return nil, err
+		}
+		if in.validate != nil {
+			if err := in.validate(ctx, tx, created.Change); err != nil {
+				return nil, err
+			}
 		}
 		target, err := in.Target.RecordTargetIn(ctx, tx, TargetChange{in.ProjectID, created.Change.ID, who})
 		if err != nil {

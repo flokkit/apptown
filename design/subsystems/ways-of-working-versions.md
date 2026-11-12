@@ -36,11 +36,10 @@ on, as any adoption is. Core and extra library workflows remain available
 independently of pack membership. It reports guidance for a person to adopt separately.
 
 Every pack version stores its pinned contents beside the declaration. Each
-pack has one recommended version: what new projects get, what applying the pack installs
-and sets up, and what projects on other versions are offered. Saving never
-moves it, a release's stock versions included, so a what-if can judge a
-version before projects are offered it; a person does
-(`standards:manage-packs`, no agent credential). Library workflows remain available when a pack drops them. Installed policies
+pack's recommended version is its newest publication: what new projects get,
+what applying the pack installs and sets up, and what projects on older versions
+are offered. Publication makes it available immediately. The pack page shows
+what-if impact information beside the version; assessment never gates availability. Library workflows remain available when a pack drops them. Installed policies
 remain until an explicit policy edit removes them. A library workflow no pack of the
 candidate pins keeps the version the project's receipt pins, unless the
 request asks to advance workflows (`adoption.Request.AdvanceWorkflows`),

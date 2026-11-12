@@ -1,6 +1,8 @@
 package workflowexec
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // stockInAdvance reads the sentence stock quick-change's acceptance gives a
@@ -40,6 +43,25 @@ func stockInAdvance(t *testing.T) (means, inAdvance string) {
 		t.Fatal("stock quick-change's accept gives no yes in advance")
 	}
 	return means, inAdvance
+}
+
+// InAdvance supplies the fixture's declared landing sentences, just as the
+// adopted procedure owner supplies them to the assembled application.
+func (f *taskAppTown) InAdvance(context.Context, ids.ID) (workflow.InAdvanceQuestion, error) {
+	q := workflow.InAdvanceQuestion{}
+	for _, stage := range f.definitions["land"].Stages {
+		for _, step := range stage.Steps {
+			if sentence, _ := step.With["inAdvance"].(string); sentence != "" {
+				q.Landing = append(q.Landing, sentence)
+			}
+		}
+	}
+	return q, nil
+}
+
+func (f *taskAppTown) CanLand(context.Context, ids.ID) (bool, error) {
+	_, ok := f.definitions["land"]
+	return ok, nil
 }
 
 // openAdoptionWithYes opens an adoption Change as the adoption door does,
@@ -74,6 +96,26 @@ func openAdoptionWithYes(shown []string, via string) func(*taskAppTown) (*workfl
 func TestAYesInAdvanceAcceptsAnAdoptionThatNeedsNoCode(t *testing.T) {
 	t.Parallel()
 	means, sentence := stockInAdvance(t)
+	landBody, err := os.ReadFile(filepath.Join("..", "..", "..", "stock", "land.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	land, err := schema.ParseWorkflow(landBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var landingApproval schema.Step
+	for _, stage := range land.Spec.Stages {
+		for _, step := range stage.Steps {
+			if step.Name == "approve-landing" {
+				landingApproval = step
+			}
+		}
+	}
+	landingSentence, _ := landingApproval.With["inAdvance"].(string)
+	if landingSentence == "" {
+		t.Fatal("stock landing declares no yes in advance")
+	}
 	accept := func(inAdvance string) schema.Step {
 		with := map[string]any{"approvers": []any{"role:project-approver"}, "means": means}
 		if inAdvance != "" {
@@ -91,6 +133,7 @@ func TestAYesInAdvanceAcceptsAnAdoptionThatNeedsNoCode(t *testing.T) {
 		withheld string
 	}{
 		{"needs no code, every step passed", []string{sentence}, sentence, false, `[]`, true, ""},
+		{"static site container checks are not applicable", []string{sentence, landingSentence}, sentence, false, `[]`, true, ""},
 		{"the change has code", []string{sentence}, sentence, true, `[]`, false, "has code of its own"},
 		{"the review left a finding", []string{sentence}, sentence, false, `["the README is stale"]`, false, "left 1 finding"},
 		{"the acceptance declares no yes in advance", []string{sentence}, "", false, `[]`, false, "says nothing of a yes given in advance"},
@@ -99,8 +142,32 @@ func TestAYesInAdvanceAcceptsAnAdoptionThatNeedsNoCode(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			a, runID, stepID := admittedAgentStepOn(t, openAdoptionWithYes(c.shown, "session"), `{"prompt":"adopt","output":{"kind":"change-report","file":".apptown/CHANGE.md"}}`,
-				schema.Step{Name: "review", Uses: ReviewKind, With: map[string]any{"of": "change-report"}}, accept(c.declared))
+			also := []schema.Step{{Name: "review", Uses: ReviewKind, With: map[string]any{"of": "change-report"}}, accept(c.declared)}
+			if strings.HasPrefix(c.name, "static site") {
+				also = append([]schema.Step{{Name: "container-checks", Uses: "scan", With: map[string]any{"on": "image"}}}, also...)
+			}
+			a, runID, stepID := admittedAgentStepOn(t, openAdoptionWithYes(c.shown, "session"), `{"prompt":"adopt","output":{"kind":"change-report","file":".apptown/CHANGE.md"}}`, also...)
+			if strings.HasPrefix(c.name, "static site") {
+				a.definitions["land"] = schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{
+					{Name: "gates", Steps: []schema.Step{{Name: "container-checks", Uses: "scan", With: map[string]any{"on": "image"}}}},
+					{Name: "approval", Steps: []schema.Step{landingApproval}},
+				}}
+				a.scan = func(e *workflow.Execution) {
+					if _, err := e.Claim(); err != nil {
+						return
+					}
+					var checks []workflow.CheckReceipt
+					for _, name := range []string{"readiness-declared", "memory-declared", "container-image"} {
+						checks = append(checks, workflow.CheckReceipt{Check: name, Verdict: workflow.VerdictNotApplicable, Detail: "the app declares only a static site"})
+					}
+					pin, _, err := workflow.LandingCandidateIn(e.Context(), a.db, e.Run().ID)
+					if err != nil {
+						t.Fatal(err)
+					}
+					e.Settle((workflow.CheckEvidence{Checks: checks}).Outcome(workflow.StatusNotApplicable, map[string]any{"candidate": pin.Candidate}))
+				}
+			}
+
 			installFakePi(a, func(n int, req execution.Request) execution.Outcome {
 				write := func(name, body string) {
 					if err := os.WriteFile(filepath.Join(req.Workspace, name), []byte(body), 0o644); err != nil {
@@ -120,6 +187,11 @@ func TestAYesInAdvanceAcceptsAnAdoptionThatNeedsNoCode(t *testing.T) {
 			})
 			if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
 				t.Fatal(err)
+			}
+			if strings.HasPrefix(c.name, "static site") {
+				if err := a.work.ExecuteStep(a.ctx, pendingStepNamed(t, a, runID, "container-checks")); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if err := a.work.ExecuteStep(a.ctx, pendingStepNamed(t, a, runID, "review")); err != nil {
 				t.Fatal(err)
@@ -160,6 +232,47 @@ func TestAYesInAdvanceAcceptsAnAdoptionThatNeedsNoCode(t *testing.T) {
 			}
 			if applied := runIDEvents(t, a, runID, "acceptance.inadvance.applied"); len(applied) != 1 || applied[0]["means"] != sentence {
 				t.Fatalf("applied receipts %v", applied)
+			}
+			if strings.HasPrefix(c.name, "static site") {
+				if len(vote.AlsoApproves) != 1 || vote.AlsoApproves[0] != landingSentence {
+					t.Fatalf("landing sentence not retained: %+v", vote)
+				}
+				if _, err := a.work.Advance(a.ctx, runID); err != nil {
+					t.Fatal(err)
+				}
+				landing, err := a.work.AdvanceAcceptedLanding(a.ctx, runID, a)
+				if errors.Is(err, workflow.ErrDispatchStopped) {
+					// This fixture executes steps explicitly rather than running a dispatcher.
+					landing, err = a.work.AdvanceAcceptedLanding(a.ctx, runID, a)
+				}
+				if err != nil {
+					t.Fatalf("request landing: %+v %v", landing, err)
+				}
+				if err := a.work.ExecuteStep(a.ctx, pendingStepNamed(t, a, landing.RunID, "container-checks")); err != nil {
+					t.Fatal(err)
+				}
+				for i := 0; i < 3; i++ {
+					if _, err := a.work.Advance(a.ctx, landing.RunID); err != nil {
+						t.Fatal(err)
+					}
+				}
+				landed, err := a.work.Change(a.ctx, snapshot.Run.ChangeID)
+				if err != nil || landed.State != workflow.ChangeShipped {
+					snap, _ := a.work.Snapshot(a.ctx, landing.RunID, workflow.DetailView)
+					t.Fatalf("static adoption did not land on the person's yes: %+v %v snapshot=%+v", landed, err, snap)
+				}
+				result, err := a.work.Snapshot(a.ctx, landing.RunID, workflow.DetailView)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, step := range result.Steps {
+					if step.Name == "approve-landing" {
+						ev, err := workflow.ReadApprovalEvidence(step.Evidence)
+						if err != nil || len(ev.Decisions) != 1 || ev.Decisions[0].Approver != taskAppTownAdministrator || ev.Decisions[0].InAdvance != landingSentence {
+							t.Fatalf("landing lost the person's yes: %s %v", step.Evidence, err)
+						}
+					}
+				}
 			}
 		})
 	}

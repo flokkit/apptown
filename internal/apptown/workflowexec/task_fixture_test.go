@@ -147,6 +147,7 @@ func startTaskAppTown(t *testing.T, db *database.DB, dir, image string, definiti
 	f.agents = f.agentExecutor(t)
 	f.work = workflow.New(context.Background(), db, workflow.Dependencies{
 		RunningImages: fixtureRunningImages{},
+		InAdvance:     f,
 		Fixes:         adopted,
 		Authority:     access.Checked{Authority: directory, Projects: project.New(db, directory)},
 		Resolve: func(_ context.Context, req workflow.StartRequest, source workflow.StartSource) (workflow.PreparedRun, error) {

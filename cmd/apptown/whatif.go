@@ -18,7 +18,7 @@ import (
 // it to its answer, as the pack page's What-if does. Without -p it runs on
 // every eligible project: one on an earlier version of the pack. A release
 // publishes stock versions without recommending them, so this is how a
-// person tries one from a terminal before `apptown pack recommend`. Model
+// person tries one from a terminal before adopting a pack version. Model
 // rubrics are judged only with --rubrics and a spend limit in dollars. It
 // reports and does not judge: a finished what-if exits zero whatever it
 // found; one that stopped or was interrupted does not.

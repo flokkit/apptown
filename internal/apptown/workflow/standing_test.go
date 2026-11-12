@@ -13,11 +13,8 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/schema"
-	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/fault"
@@ -436,118 +433,9 @@ func TestStandingAssessmentChecksCurrentAuthorityAndRuleAfterInspection(t *testi
 	}
 }
 
-type routineTargetParticipant struct {
-	owner     *adoption.Service
-	candidate adoption.Candidate
-}
-
-func (p routineTargetParticipant) RecordTargetIn(ctx context.Context, tx *database.Tx, in TargetChange) (RecordedTarget, error) {
-	r, err := p.owner.RecordTargetIn(ctx, tx, adoption.Target{ProjectID: in.ProjectID, ChangeID: in.ChangeID, Candidate: p.candidate, Actor: in.Actor})
-	return RecordedTarget{ID: r.ID, Candidate: r.Candidate}, err
-}
-
-type routineAdoptionInspection func(context.Context, Source, StandingCategories) (StandingInspection, error)
-
-func (f routineAdoptionInspection) InspectRoutine(context.Context, Source, StandingCategories) (StandingInspection, error) {
-	return StandingInspection{}, errors.New("uplift lost its checked adoption")
-}
-func (f routineAdoptionInspection) InspectRoutineWithAdoption(ctx context.Context, s Source, c StandingCategories) (StandingInspection, error) {
-	return f(ctx, s, c)
-}
-
-func TestStandingUpliftRechecksActualAdoptionConsentAfterSourceInspection(t *testing.T) {
-	a, s, _, ctx, definition := standingFixture(t)
-	caller, _ := access.CallerFrom(ctx)
-	caller.Receipt = "owner"
-	ctx = access.WithCaller(ctx, caller)
-	if err := project.New(a.DB, nil).SetDefaultBranch(ctx, a.ProjectID, "main"); err != nil {
-		t.Fatal(err)
-	}
-	boss := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: testAdmittedPrincipal(t, a.Access, "boss").ID, Name: "boss", Kind: "user", Via: "session"}, Verified: true})
-	publications := wow.NewRoutineTransitions(a.DB, a.Authorizer, a.Access, nil)
-	ways := wow.New(a.DB, wow.Dependencies{})
-	adoptions := adoption.New(a.DB, adoption.Dependencies{Ways: ways, Authority: a.Authorizer, RoutinePublications: publications})
-	block, err := ways.CreateBlock(ctx, "team/routine", "Original instructions.", "", "owner")
-	if err != nil {
-		t.Fatal(err)
-	}
-	receipt := adoption.EmptyReceipt()
-	receipt.Guidance = []adoption.ReceiptBlock{{Name: block.Name, BlockID: block.ID, Version: 1}}
-	if _, err = adoptions.Advance(ctx, a.ProjectID, adoption.AdoptionEdit, "fixture guidance", "owner", func(*database.Tx, *adoption.RecordedRevision, time.Time) (adoption.Receipt, error) {
-		return receipt, nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err = ways.BumpBlock(ctx, block.ID, "Clearer instructions.", "[]", "owner", block.Name); err != nil {
-		t.Fatal(err)
-	}
-	question, err := publications.Preview(boss, wow.RoutinePublicationTransition{Kind: "block", ID: block.ID, From: 1, To: 2})
-	if err != nil {
-		t.Fatal(err)
-	}
-	consent, err := publications.Classify(boss, wow.RoutinePublicationConsent{RequestID: ids.New(time.Now()), Transition: question.Transition, ShownDigest: question.Digest})
-	if err != nil {
-		t.Fatal(err)
-	}
-	candidate, err := adoptions.Prepare(ctx, a.ProjectID, adoption.Request{Additions: []string{block.Name + "@2"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	changes := NewChanges(a.DB, a.Authorizer, nil)
-	change, err := changes.Uplift(ctx, Uplift{ProjectID: a.ProjectID, ExpectedRevision: candidate.ExpectedRevision, Acceptance: Acceptance{TargetDigest: candidate.Digest}, Words: candidate.Words(), Target: routineTargetParticipant{owner: adoptions, candidate: *candidate}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}
-	admissions := newRunAdmissions(a.DB, NewStages(nil, func(string) bool { return false }), nil)
-	run, err := admissions.records.create(ctx, StartRequest{ProjectID: a.ProjectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", requestedBy: "owner"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: spec, AdoptionID: change.TargetAdoptionID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = admissions.records.prepared(ctx, run.ID); err != nil {
-		t.Fatal(err)
-	}
-	definition.Projects[0].Workflow = "test"
-	definition.Categories.WaysOfWorking = true
-	rule := enableStanding(t, s, ctx, definition)
-	s.deps.Adoptions = adoptions
-	s.deps.Presence = standingPresenceFixture{clear: true}
-	calls := 0
-	s.deps.Inspector = routineAdoptionInspection(func(_ context.Context, source Source, _ StandingCategories) (StandingInspection, error) {
-		calls++
-		if source.ChangeID != change.ID {
-			t.Fatal("wrong actual uplift")
-		}
-		return StandingInspection{Classification: "routine-adoption", Candidate: "exact-source"}, nil
-	})
-	got, err := s.Assess(ctx, rule.RuleID, run.ID)
-	if err != nil || got.Adoption == nil || len(got.Adoption.Classifications) != 1 || got.Adoption.Classifications[0].ID != consent.ID || !got.ProcessingAvailable || calls != 1 {
-		t.Fatalf("checked uplift: %+v %v calls=%d", got, err, calls)
-	}
-	outside := definition
-	outside.Categories.WaysOfWorking = false
-	outsideRule := enableStanding(t, s, ctx, outside)
-	beforeOutside := calls
-	if _, err = s.Assess(ctx, outsideRule.RuleID, run.ID); err == nil || calls != beforeOutside {
-		t.Fatalf("uplift escaped the selected ways-of-working category: %v calls=%d", err, calls)
-	}
-	s.deps.Inspector = routineAdoptionInspection(func(context.Context, Source, StandingCategories) (StandingInspection, error) {
-		calls++
-		_, e := publications.Revoke(boss, consent.ID)
-		return StandingInspection{Classification: "routine-adoption", Candidate: "exact-source"}, e
-	})
-	if _, err = s.Assess(ctx, rule.RuleID, run.ID); err == nil {
-		t.Fatal("revocation during source inspection left an eligible uplift")
-	}
-	beforeCalls := calls
-	if _, err = s.Assess(ctx, rule.RuleID, run.ID); err == nil || calls != beforeCalls {
-		t.Fatalf("revoked target reached source executor: %v calls=%d", err, calls)
-	}
-}
-
 func TestStandingMixedCategoryMeaningRequiresNewHumanConfirmation(t *testing.T) {
 	a, s, _, ctx, definition := standingFixture(t)
-	definition.Categories.WaysOfWorking = true
+	definition.Categories.BaseImages = true
 	question, err := s.Preview(ctx, definition)
 	if err != nil {
 		t.Fatal(err)
@@ -600,5 +488,13 @@ func TestStandingMixedCategoryMeaningRequiresNewHumanConfirmation(t *testing.T) 
 		if r.Revision == 1 && (r.Question.Shown != oldQuestion.Shown || r.Question.Digest != oldQuestion.Digest) {
 			t.Fatal("old meaning was rewritten")
 		}
+	}
+}
+
+func TestProjectPackConsentIsSeparateFromDependencyConsent(t *testing.T) {
+	_, s, _, ctx, in := standingFixture(t)
+	in.Categories.WaysOfWorking = true
+	if _, err := s.Preview(ctx, in); err == nil {
+		t.Fatal("pack consent also authorized dependencies")
 	}
 }

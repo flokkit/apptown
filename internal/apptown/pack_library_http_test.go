@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/ids"
@@ -58,11 +57,6 @@ func TestPackLibraryHTTPWarningsProtectionAndManifest(t *testing.T) {
 	w = authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"custom-pack","description":"Demo setup","versionName":"usable"}`)
 	if w.Code != 200 {
 		t.Fatalf("update pack: %d %s", w.Code, w.Body.String())
-	}
-	// Saving never moves the recommendation: new projects still get v1
-	// until the usable version is recommended.
-	if w := authzCall(h, "boss", "POST", "/api/v1/packs/custom-pack/recommended", `{"version":2}`); w.Code != 200 {
-		t.Fatalf("recommend: %d %s", w.Code, w.Body.String())
 	}
 	if _, err := a.Ways.PublishPack(t.Context(), "protected-pack", "Built in", `{}`, "stock"); err != nil {
 		t.Fatal(err)
@@ -263,7 +257,7 @@ func TestAPackOfYourOwnIsTakenBesideAStockPack(t *testing.T) {
 // authorization; their command-line token is not. It moves
 // no project; new projects get the recommended version's contents,
 // toolchain and services included.
-func TestRecommendingRefusesAgentTokensAndMovesNoProject(t *testing.T) {
+func TestNewestPublicationIsOfferedWithoutMovingExistingProjects(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
 	h := a.Handler()
@@ -283,10 +277,11 @@ func TestRecommendingRefusesAgentTokensAndMovesNoProject(t *testing.T) {
 	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"team","guidance":["base/a"],"toolchain":"go","services":[{"name":"postgres","image":"postgres:16"}]}`); w.Code != 200 {
 		t.Fatalf("save team v2: %d %s", w.Code, w.Body.String())
 	}
-	agent := tokenFor(t, a, "boss-agent", "boss", "admin", access.TokenAgent)
-	refusedAsAgent(t, "recommend", bearerCall(a, agent, "POST", "/api/v1/packs/team/recommended", `{"version":2}`))
-	if h, _ := a.Ways.PackHistory(t.Context(), "team"); h.Recommended != 1 {
-		t.Fatalf("a refused recommendation moved it: %+v", h)
+	if h, _ := a.Ways.PackHistory(t.Context(), "team"); h.Recommended != 2 {
+		t.Fatalf("newest not offered: %+v", h)
+	}
+	if w := authzCall(h, "boss", "POST", "/api/v1/packs/team/recommended", `{"version":1}`); w.Code != 404 {
+		t.Fatalf("removed door: %d %s", w.Code, w.Body)
 	}
 	w := authzCall(h, "owner", "GET", "/api/v1/packs", "")
 	var listed []struct {
@@ -299,13 +294,9 @@ func TestRecommendingRefusesAgentTokensAndMovesNoProject(t *testing.T) {
 		t.Fatalf("pack list: %d %v", w.Code, err)
 	}
 	for _, p := range listed {
-		if p.Name == "team" && (p.Version != 1 || p.Toolchain != "" || len(p.Services) != 0) {
+		if p.Name == "team" && (p.Version != 2 || p.Toolchain != "go" || len(p.Services) != 1) {
 			t.Fatalf("the list offers team's recommended contents, not its newest: %+v", p)
 		}
-	}
-	cli := tokenFor(t, a, "boss-cli", "boss", "admin", access.TokenCLI)
-	if w := bearerCall(a, cli, "POST", "/api/v1/packs/team/recommended", `{"version":2}`); w.Code != 200 {
-		t.Fatalf("recommend with a command-line token: %d %s", w.Code, w.Body.String())
 	}
 	after, err := a.Adoption.CurrentReceipt(t.Context(), idstest.N(1))
 	if err != nil || after.Revision != before.Revision {

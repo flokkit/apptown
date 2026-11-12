@@ -169,7 +169,7 @@ func (q *Queries) ClaimQueuedReview(ctx context.Context, arg ClaimQueuedReviewPa
 }
 
 const claimQueuedWhatIf = `-- name: ClaimQueuedWhatIf :one
-UPDATE what_if_reviews SET state='running' WHERE id=$1 AND state='queued' RETURNING id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs
+UPDATE what_if_reviews SET state='running' WHERE id=$1 AND state='queued' RETURNING id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs, rule_id, rule_revision
 `
 
 // One claimant wins: a what-if leaves queued once, for running.
@@ -196,6 +196,8 @@ func (q *Queries) ClaimQueuedWhatIf(ctx context.Context, id ids.ID) (WhatIfRevie
 		&i.Projects,
 		&i.AdvanceWorkflows,
 		&i.AlsoPacks,
+		&i.RuleID,
+		&i.RuleRevision,
 	)
 	return i, err
 }
@@ -1059,11 +1061,13 @@ func (q *Queries) InsertVerdict(ctx context.Context, arg InsertVerdictParams) (C
 }
 
 const insertWhatIf = `-- name: InsertWhatIf :one
-INSERT INTO what_if_reviews(id, pack,pack_version,requested_by,requested_by_principal,requested_by_via,rubrics,spend_limit_micros,advance_workflows,also_packs,created_at,projects,projects_total,state)
-VALUES($1, $2,$3,$4,$5,$6,$7,$8,$9,$10::text::jsonb,$11,$12::text::jsonb,$13,'queued') RETURNING id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs
+INSERT INTO what_if_reviews(rule_id,rule_revision,id, pack,pack_version,requested_by,requested_by_principal,requested_by_via,rubrics,spend_limit_micros,advance_workflows,also_packs,created_at,projects,projects_total,state)
+VALUES($1,$2,$3, $4,$5,$6,$7,$8,$9,$10,$11,$12::text::jsonb,$13,$14::text::jsonb,$15,'queued') RETURNING id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs, rule_id, rule_revision
 `
 
 type InsertWhatIfParams struct {
+	RuleID               ids.ID
+	RuleRevision         int64
 	ID                   ids.ID
 	Pack                 string
 	PackVersion          int64
@@ -1082,6 +1086,8 @@ type InsertWhatIfParams struct {
 // The selection is sent as text, as InsertReview's is.
 func (q *Queries) InsertWhatIf(ctx context.Context, arg InsertWhatIfParams) (WhatIfReview, error) {
 	row := q.db.QueryRowContext(ctx, insertWhatIf,
+		arg.RuleID,
+		arg.RuleRevision,
 		arg.ID,
 		arg.Pack,
 		arg.PackVersion,
@@ -1117,6 +1123,8 @@ func (q *Queries) InsertWhatIf(ctx context.Context, arg InsertWhatIfParams) (Wha
 		&i.Projects,
 		&i.AdvanceWorkflows,
 		&i.AlsoPacks,
+		&i.RuleID,
+		&i.RuleRevision,
 	)
 	return i, err
 }
@@ -1343,7 +1351,7 @@ func (q *Queries) LatestVerdictsForProject(ctx context.Context, projectID ids.ID
 }
 
 const latestWhatIf = `-- name: LatestWhatIf :one
-SELECT id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs FROM what_if_reviews WHERE pack=$1 AND pack_version=$2 ORDER BY id DESC LIMIT 1
+SELECT id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs, rule_id, rule_revision FROM what_if_reviews WHERE pack=$1 AND pack_version=$2 ORDER BY id DESC LIMIT 1
 `
 
 type LatestWhatIfParams struct {
@@ -1374,6 +1382,8 @@ func (q *Queries) LatestWhatIf(ctx context.Context, arg LatestWhatIfParams) (Wha
 		&i.Projects,
 		&i.AdvanceWorkflows,
 		&i.AlsoPacks,
+		&i.RuleID,
+		&i.RuleRevision,
 	)
 	return i, err
 }
@@ -1557,7 +1567,7 @@ func (q *Queries) ProjectScanObservations(ctx context.Context, projectID ids.ID)
 }
 
 const recentWhatIfs = `-- name: RecentWhatIfs :many
-SELECT id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs FROM what_if_reviews ORDER BY id DESC LIMIT $1
+SELECT id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs, rule_id, rule_revision FROM what_if_reviews ORDER BY id DESC LIMIT $1
 `
 
 // The most recent what-ifs, newest first, for the list under Conformance.
@@ -1590,6 +1600,8 @@ func (q *Queries) RecentWhatIfs(ctx context.Context, maxRows int32) ([]WhatIfRev
 			&i.Projects,
 			&i.AdvanceWorkflows,
 			&i.AlsoPacks,
+			&i.RuleID,
+			&i.RuleRevision,
 		); err != nil {
 			return nil, err
 		}
@@ -2177,7 +2189,7 @@ func (q *Queries) VerdictsForReviews(ctx context.Context, arg VerdictsForReviews
 }
 
 const whatIfByID = `-- name: WhatIfByID :one
-SELECT id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs FROM what_if_reviews WHERE id=$1
+SELECT id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs, rule_id, rule_revision FROM what_if_reviews WHERE id=$1
 `
 
 func (q *Queries) WhatIfByID(ctx context.Context, id ids.ID) (WhatIfReview, error) {
@@ -2203,6 +2215,8 @@ func (q *Queries) WhatIfByID(ctx context.Context, id ids.ID) (WhatIfReview, erro
 		&i.Projects,
 		&i.AdvanceWorkflows,
 		&i.AlsoPacks,
+		&i.RuleID,
+		&i.RuleRevision,
 	)
 	return i, err
 }

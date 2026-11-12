@@ -35,7 +35,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/gate"
 	"github.com/flokkit/apptown/internal/ids"
@@ -443,10 +442,6 @@ var cliOperations = map[string]described{
 	"POST /api/v1/auth/external/bindings":        {status: 200, request: httpapi.ExternalBindRequest{}, response: httpapi.Done{}},
 	"DELETE /api/v1/auth/external/bindings/{id}": {status: 200, response: httpapi.Done{}},
 
-	"POST /api/v1/routine-publications/preview":                     {request: wow.RoutinePublicationTransition{}, status: 200, response: wow.RoutinePublicationQuestion{}},
-	"POST /api/v1/routine-publications":                             {request: wow.RoutinePublicationConsent{}, status: 200, response: wow.RoutinePublicationClassification{}},
-	"GET /api/v1/routine-publications/{kind}/{id}/history":          {status: 200, response: []wow.RoutinePublicationClassification{}},
-	"POST /api/v1/routine-publications/{id}/revoke":                 {status: 200, response: wow.RoutinePublicationClassification{}},
 	"POST /api/v1/projects/{slug}/janitor/{queue}/skip":             {request: httpapi.QueueSkip{}, status: 200, response: map[string]bool{"ok": true}},
 	"GET /api/v1/projects/{slug}/janitor/attempts":                  {query: []string{"queue"}, status: 200, response: []workflow.AutomatedAttempt{}},
 	"GET /api/v1/standing-approvals":                                {query: []string{"projectId"}, status: 200, response: []workflow.StandingStatus{}},
@@ -827,7 +822,6 @@ func apiDescription() (map[string]any, error) {
 // it refuses in words. Nested types must be explicitly request-only; an
 // undescribed named type could share required fields with responses and is refused.
 var requestOnlyDescriptions = []wiregen.Named{
-	{Name: "RoutinePublicationTransition", Value: wow.RoutinePublicationTransition{}},
 	{Name: "StandingSchedule", Value: reflect.Zero(reflect.TypeOf(workflow.StandingDefinition{}.Schedules).Elem()).Interface()},
 	{Name: "StandingCategories", Value: workflow.StandingCategories{}},
 	{Name: "StandingEnvironment", Value: workflow.StandingEnvironment{}},
@@ -1147,7 +1141,7 @@ func TestEveryRouteAndToolDeclaresItsFeatureTier(t *testing.T) {
 		}
 	}
 	for _, r := range appRoutes(nil) {
-		if (r.pattern == "POST /api/v1/changes/{id}/check" || r.pattern == "POST /api/v1/steps/{id}/run" || r.pattern == "POST /api/v1/standing-approvals/preview" || r.pattern == "POST /api/v1/routine-publications/preview") && catalogue[r.area] != "always" {
+		if (r.pattern == "POST /api/v1/changes/{id}/check" || r.pattern == "POST /api/v1/steps/{id}/run" || r.pattern == "POST /api/v1/standing-approvals/preview") && catalogue[r.area] != "always" {
 			t.Errorf("workflow boundary %s became switchable", r.pattern)
 		}
 		if catalogue[r.area] == "" {

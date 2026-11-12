@@ -52,6 +52,29 @@ type jHarness struct {
 	previewChanges []ids.ID
 }
 
+// assertPackPublication checks the public offer separately from the project's
+// adoption: publishing offers the newest version; only pulling adopts it.
+func (h *jHarness) assertPackPublication(slug, pack string, adopted, offered int64) {
+	h.t.Helper()
+	var view struct {
+		Packs []struct {
+			Pack        string `json:"pack"`
+			Version     int64  `json:"version"`
+			Recommended int64  `json:"recommended"`
+		} `json:"packs"`
+	}
+	h.mustCall("GET", "/projects/"+slug+"/adoption", nil, &view)
+	for _, p := range view.Packs {
+		if p.Pack == pack {
+			if p.Version != adopted || p.Recommended != offered {
+				h.t.Fatalf("pack %s: want adopted v%d and offered v%d, got %+v", pack, adopted, offered, p)
+			}
+			return
+		}
+	}
+	h.t.Fatalf("pack %s missing from adoption: %+v", pack, view)
+}
+
 // removeMainAppAtCleanup removes the app container of the project's main
 // deployment when the test ends, by the name AppTown gave it (the
 // deployment's key), read from its record then: the deployment exists only
@@ -577,7 +600,7 @@ func kidStory(t *testing.T, h *jHarness, slug string, chosenReleases bool) {
 
 // TestJourneyPackEvolution — library workflows are runnable independently
 // of packs; recurring work begins only when a project pulls a pack version
-// that declares its schedule. Publishing and recommending do not adopt it.
+// that declares its schedule. Publication offers the update without adopting it.
 func TestJourneyPackEvolution(t *testing.T) {
 	h := newJourney(t)
 	h.app.Ways.SyncStockWorkflows(t.Context()) // the boot act: stock workflows into the library
@@ -661,11 +684,12 @@ func TestJourneyPackEvolution(t *testing.T) {
 	h.mustCall("POST", "/packs", map[string]any{
 		"name": "jp", "workflows": []string{"quick-change", "land", "dependency-uplift"},
 		"schedules": []string{"dependency-uplift"}}, &saved)
+	if saved.Version != 2 {
+		t.Fatalf("pack evolution must publish v2, got v%d", saved.Version)
+	}
 	assertAvailable()
 	assertSchedules(0)
-	h.mustCall("POST", "/packs/jp/recommended", map[string]int64{"version": saved.Version}, nil)
-	assertAvailable()
-	assertSchedules(0)
+	h.assertPackPublication(slug, "jp", 1, saved.Version)
 	var plan struct {
 		Additions []string `json:"additions"`
 		Removals  []string `json:"removals"`
@@ -675,6 +699,7 @@ func TestJourneyPackEvolution(t *testing.T) {
 		t.Fatalf("pack evolution must not change library workflow availability: %+v", plan)
 	}
 	h.mustCall("POST", "/projects/"+slug+"/pack/pull", map[string]string{"pack": "jp"}, nil)
+	h.assertPackPublication(slug, "jp", saved.Version, saved.Version)
 	assertAvailable()
 	assertSchedules(1)
 
@@ -1158,13 +1183,16 @@ func TestJourneyStackMigration(t *testing.T) {
 	}()
 
 	// The migration: the stack's next version (research removed, modified
-	// lanes kept) is recommended and pulled, then the porting change lands
+	// lanes kept) is offered immediately and pulled, then the porting change lands
 	// the new stack's page.
 	var next struct {
 		Version int64 `json:"version"`
 	}
 	h.mustCall("POST", "/packs", map[string]any{"name": "stack-a", "workflows": []string{"quick-change", "land"}}, &next)
-	h.mustCall("POST", "/packs/stack-a/recommended", map[string]int64{"version": next.Version}, nil)
+	if next.Version != 2 {
+		t.Fatalf("stack migration must publish v2, got v%d", next.Version)
+	}
+	h.assertPackPublication(slug, "stack-a", 1, next.Version)
 	var plan struct {
 		Removals []string `json:"removals"`
 	}
@@ -1173,6 +1201,7 @@ func TestJourneyStackMigration(t *testing.T) {
 		t.Fatalf("re-pack must retain library workflow availability: %+v", plan)
 	}
 	h.mustCall("POST", "/projects/"+slug+"/pack/pull", map[string]string{"pack": "stack-a"}, nil)
+	h.assertPackPublication(slug, "stack-a", next.Version, next.Version)
 	// Pulling a pack never rewinds customized library workflows. Removing
 	// research from the pack does not remove it from the project's library.
 	_, qcYAML, err := h.app.Ways.WorkflowVersion(t.Context(), "quick-change", 0)

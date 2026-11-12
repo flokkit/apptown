@@ -121,11 +121,9 @@ adoption revision and candidate it assessed for the project, refuses a
 what-if not `done` or with no candidate for the project, and refuses a
 candidate that is no longer the one assessed. The Change's brief names the
 what-if, the commit and the project's outcome; that line is context a person
-can edit with the brief, and the binding is the recorded target digest. A
-recommendation can name the finished what-if of its version it was decided
-on, which its `pack.recommended` receipt keeps. While a what-if is queued or
-running, a project it has not reached is "not yet judged", and "not
-evaluated" only once it has ended. Rows go to the what-if's own two tables,
+can edit with the brief, and the binding is the recorded target digest. While a
+what-if is queued or running, a project it has not reached is "not yet judged",
+and "not evaluated" only once it has ended. Rows go to the what-if's own two tables,
 which nothing that decides standing, gates, exceptions or remediation reads. A
 what-if begins no review and writes no verdict. A what-if is queued and claimed
 like a review. One stopped by shutdown or its two-hour budget, or found queued

@@ -793,7 +793,7 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 	if _, err := a.Work.Abandon(asPerson("boss"), workflow.StopWork{ChangeID: opened.ChangeID, Reason: "test"}); err != nil {
 		t.Fatal(err)
 	}
-	if code, body := adoptFrom("boss", "alpha", from(fresh.ID)); code != 409 || !strings.Contains(body, "prepare again") {
+	if code, body := adoptFrom("boss", "alpha", from(fresh.ID)); code != 409 || !strings.Contains(body, "changed since it was assessed") {
 		t.Fatalf("a project whose adoption moved since: %d %s", code, body)
 	}
 }
@@ -898,71 +898,7 @@ func TestAWhatIfMovesAProjectsOwnPackWithTheNamedOne(t *testing.T) {
 // is refused and nothing moves. Kills: the what-if's number recorded
 // unchecked; a refused recommendation moving the pointer; the receipt
 // without the what-if.
-func TestARecommendationNamesTheWhatIfItWasDecidedOn(t *testing.T) {
-	t.Parallel()
-	a := authzFixture(t)
-	setTestFeatureAs(t, a, "what-ifs", true, "boss")
-	setTestFeatureAs(t, a, "evals", true, "boss")
-	tgLocalSh(t, a)
-	ctx := testConformanceContext("boss")
-	h := a.Handler()
-	alpha, _, _ := fleetRepo(t, a, "alpha", map[string]string{"a.txt": "a"})
-	for _, spec := range []string{`{}`, `{"toolchain":"go"}`} {
-		if _, err := a.Ways.PublishPack(ctx, "team", "Team", spec, ""); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := a.Ways.PublishPack(ctx, "other", "Other", spec, ""); err != nil {
-			t.Fatal(err)
-		}
-	}
-	run := func(pack string, version int64) ids.ID {
-		id, err := fleetReviewsFor(a).StartWhatIf(ctx, conformance.WhatIfRequest{Pack: pack, Version: version, Projects: []ids.ID{alpha}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		return runWhatIf(t, a, ctx, id).ID
-	}
-	ofV1, ofOther := run("team", 1), run("other", 2)
-	queued, err := fleetReviewsFor(a).StartWhatIf(ctx, conformance.WhatIfRequest{Pack: "team", Version: 2, Projects: []ids.ID{alpha}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	recommend := func(whatIf ids.ID) (int, string) {
-		w := authzCall(h, "boss", "POST", "/api/v1/packs/team/recommended", fmt.Sprintf(`{"version":2,"whatIf":%q}`, whatIf))
-		return w.Code, w.Body.String()
-	}
-	for name, id := range map[string]ids.ID{"another version": ofV1, "another pack": ofOther, "not finished": queued} {
-		if code, body := recommend(id); code != 409 {
-			t.Fatalf("a what-if of %s: %d %s", name, code, body)
-		}
-	}
-	if p, err := a.Ways.Pack(ctx, "team"); err != nil || p.Version != 1 {
-		t.Fatalf("a refused recommendation moved the pointer: %+v %v", p, err)
-	}
-	if got := auditEntries(t, a.DB, "pack.recommended"); len(got) != 0 {
-		t.Fatalf("a refused recommendation left a receipt: %+v", got)
-	}
-	ofV2 := run("team", 2)
-	if code, body := recommend(ofV2); code != 200 {
-		t.Fatalf("recommending on a finished what-if of the version: %d %s", code, body)
-	}
-	got := auditEntries(t, a.DB, "pack.recommended")
-	if len(got) != 1 || !strings.Contains(string(got[0].Payload), fmt.Sprintf(`"whatIf":%q`, ofV2)) {
-		t.Fatalf("the receipt names the what-if: %+v", got)
-	}
-	// Again, on another finished what-if of v2: v2 is already recommended,
-	// so nothing moves, nothing is recorded, and AppTown says so rather
-	// than answer as if the second what-if were the basis.
-	if code, body := recommend(run("team", 2)); code != 409 || !strings.Contains(body, "already recommended") {
-		t.Fatalf("a second basis for a recommendation already made: %d %s", code, body)
-	}
-	if again := auditEntries(t, a.DB, "pack.recommended"); len(again) != 1 {
-		t.Fatalf("a no-op recommendation left a receipt: %+v", again)
-	}
-}
 
-// runWhatIf runs an admitted what-if's job, as the conformance queue's
-// worker would, and reads what it recorded.
 func runWhatIf(t *testing.T, a *App, ctx context.Context, id ids.ID) *conformance.WhatIf {
 	t.Helper()
 	runQueuedJobForTest(t, a, verification.WhatIfJob, fmt.Sprint(id))

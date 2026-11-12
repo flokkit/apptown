@@ -11,8 +11,13 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
+type packPublications interface {
+	PublishedPackIn(context.Context, *database.Tx, string, int64) error
+}
+
 type Dependencies struct {
-	Stock fs.FS // the release's shipped ways of working (stock/)
+	Publications packPublications
+	Stock        fs.FS // the release's shipped ways of working (stock/)
 	// Shipped is the name of the ways-of-working update Stock came from:
 	// the AppTown version that built it. Versions the stock sync publishes
 	// record it (source and signer, origin.go).
@@ -63,6 +68,7 @@ type Service struct {
 func New(db *database.DB, deps Dependencies) *Service {
 	s := &Service{db: db, deps: deps, library: NewLibrary(db), workflows: NewWorkflows(db), packs: NewPacks(db), policies: NewPolicies(db)}
 	s.library.clock, s.workflows.clock, s.packs.clock, s.policies.clock = deps.Now, deps.Now, deps.Now, deps.Now
+	s.packs.publicationReviews = deps.Publications
 	s.packs.lines, s.packs.shipped = deps.ToolLines, deps.Shipped
 	s.library.stock, s.workflows.stock = shippedOrigin(deps.Shipped), shippedOrigin(deps.Shipped)
 	return s
@@ -180,10 +186,6 @@ func (s *Service) DeletePack(ctx context.Context, name, who string) error {
 	return s.packs.delete(ctx, name, who)
 }
 
-// RecommendPack moves a pack's recommended version, with its receipt.
-func (s *Service) RecommendPack(ctx context.Context, name string, version int64, who string, whatIf ids.ID) error {
-	return s.packs.recommend(ctx, name, version, who, whatIf)
-}
 func (s *Service) PublishPackVersion(ctx context.Context, name, description, spec, origin, versionName string) (int, error) {
 	return s.packs.publishNamed(ctx, name, description, spec, origin, versionName)
 }

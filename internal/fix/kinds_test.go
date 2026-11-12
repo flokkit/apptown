@@ -27,3 +27,13 @@ func TestKindRegistrationDefinesDeclarations(t *testing.T) {
 		t.Fatal("unregistered kind accepted")
 	}
 }
+
+func TestAdoptIsDeclaredByThePublication(t *testing.T) {
+	kind, ok := Lookup("adopt")
+	if !ok || kind.Action != AdoptAction || kind.Classifier != AdoptClassifier || !kind.PublishedDeclaration {
+		t.Fatalf("adopt registration: %+v", kind)
+	}
+	if _, err := Parse(`[{"kind":"adopt","appliesTo":["part"]}]`); err == nil {
+		t.Fatal("guidance manufactured a pack adoption declaration")
+	}
+}

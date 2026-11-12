@@ -165,6 +165,16 @@ func (e *Execution) KeepProposal(main string, listing json.RawMessage, moved []f
 	}
 	hash := sha256.Sum256(body)
 	fingerprint := hex.EncodeToString(hash[:])
+	return e.keepProposal(fingerprint, moved)
+}
+
+// KeepPackProposal uses main and the assessed adoption candidate, independent
+// of this attempt's newly allocated target identity.
+func (e *Execution) KeepPackProposal(main, candidate string) (bool, string, error) {
+	return e.keepProposal(fix.ProposalFingerprint(main, candidate), nil)
+}
+
+func (e *Execution) keepProposal(fingerprint string, moved []fix.Move) (bool, string, error) {
 	packages, err := json.Marshal(moved)
 	if err != nil {
 		return false, "", err

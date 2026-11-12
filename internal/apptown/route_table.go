@@ -57,7 +57,6 @@ func appRoutes(a *App) []routeSpec {
 	var packPull httpapi.PackPull
 	var attachments httpapi.Attachments
 	var standingApprovals httpapi.StandingApprovals
-	var routinePublications httpapi.RoutinePublications
 	var guidanceBlocks httpapi.GuidanceBlocks
 	var guidance httpapi.Guidance
 	var packs httpapi.Packs
@@ -217,7 +216,6 @@ func appRoutes(a *App) []routeSpec {
 		guidanceBlocks = httpapi.NewGuidanceBlocks(a.Ways, a.Adoption, a.Access)
 		attachments = httpapi.NewAttachments(a.attachments, a.cfg.dataDir)
 		standingApprovals = httpapi.NewStandingApprovals(a.standingRules)
-		routinePublications = httpapi.NewRoutinePublications(a.routinePublications)
 		packPull = httpapi.NewPackPull(a.Adoption, a.lifecycle, a.Projects, a.Access, a.Ways, a.DB, a.cfg.clock.Now)
 		fleet = httpapi.NewFleet(a.Adoption, a.Ways)
 		adoptionCommands = httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle)
@@ -237,7 +235,7 @@ func appRoutes(a *App) []routeSpec {
 		changes = httpapi.NewChanges(a.Work, a.Projects, a.Access, a.DB, a.cfg.clock.Now)
 		instanceUpdates = httpapi.NewInstanceUpdates(a.InstanceUpdates)
 		systemWorkflows = httpapi.NewSystemWorkflows(a.Ways, a.Access)
-		packLibrary = httpapi.NewPackLibrary(a.Ways, a.conformance, a.Access, a.DB, a.cfg.clock.Now)
+		packLibrary = httpapi.NewPackLibrary(a.Ways, a.Access, a.DB, a.cfg.clock.Now)
 		policyLibrary = httpapi.NewPolicyLibrary(a.Ways, a.Adoption, a.DB)
 		projectPolicies = httpapi.NewProjectPolicies(a.Projects, a.Access, a.Ways, a.Adoption, a.DB)
 		jobs = httpapi.NewJobs(a.DB)
@@ -339,7 +337,6 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/packs", packLibrary.SavePack, access.CapStandardsPacks, "instance").inArea("ways"),
 		requireRoute("DELETE /api/v1/packs/{name}", packLibrary.DeletePack, access.CapStandardsPacks, "instance").inArea("ways"),
 		requireRoute("POST /api/v1/packs/{name}/enabled", packLibrary.SetPackEnabled, access.CapStandardsPacks, "instance").inArea("ways"),
-		requireRoute("POST /api/v1/packs/{name}/recommended", packLibrary.RecommendPackVersion, access.CapStandardsPacks, "instance").inArea("ways"),
 		publicRoute("GET /api/v1/packs/{name}", packs.PackHistory, "packs.PackHistory: a pack's declaration, versions and recommendation, like the shared pack library").inArea("ways"),
 		requireRoute("POST /api/v1/projects/{slug}/pack", packSetup.ApplyPack, access.CapProjectWayOfWorking, "project-slug").inArea("projects"),
 		requireRoute("GET /api/v1/projects/{slug}/pack/pull-plan", packPull.PackPullPlan, access.CapProjectRead, "project-slug").inArea("projects"),
@@ -464,10 +461,6 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/transcript/{chat}/pictures/{name}", chatHistory.ProjectPicture, access.CapEvidenceRead, "project-slug").inArea("projects"),
 		requireRoute("POST /api/v1/changes/{id}/runs", changes.StartChangeRun, access.CapChangeInvokeLane, "change").inArea("changes"),
 		requireRoute("POST /api/v1/changes/{id}/sendback", changes.SendBack, access.CapChangeSendBack, "change").inArea("changes"),
-		ownerRoute("POST /api/v1/routine-publications/preview", routinePublications.Preview, "routinePublications.Preview").inArea("record"),
-		ownerRoute("POST /api/v1/routine-publications", routinePublications.Classify, "routinePublications.Classify").inArea("setup"),
-		ownerRoute("GET /api/v1/routine-publications/{kind}/{id}/history", routinePublications.History, "routinePublications.History").inArea("setup"),
-		ownerRoute("POST /api/v1/routine-publications/{id}/revoke", routinePublications.Revoke, "routinePublications.Revoke").inArea("setup"),
 		ownerRoute("GET /api/v1/standing-approvals", standingApprovals.List, "standingApprovals.List").inArea("setup"),
 		ownerRoute("POST /api/v1/standing-approvals/preview", standingApprovals.Preview, "standingApprovals.Preview").inArea("landing"),
 		ownerRoute("POST /api/v1/standing-approvals", standingApprovals.Enable, "standingApprovals.Enable").inArea("setup"),

@@ -137,6 +137,8 @@ type WhatIfReview struct {
 	Projects             json.RawMessage
 	AdvanceWorkflows     bool
 	AlsoPacks            json.RawMessage
+	RuleID               ids.ID
+	RuleRevision         int64
 }
 
 type WhatIfRow struct {

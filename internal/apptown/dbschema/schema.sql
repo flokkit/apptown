@@ -705,9 +705,6 @@ CREATE TABLE IF NOT EXISTS packs (
   description TEXT NOT NULL DEFAULT '',
   spec_json   JSONB NOT NULL DEFAULT '{}'::jsonb,
   latest_version BIGINT NOT NULL DEFAULT 0,
-  -- The version new projects get and projects are offered as the update;
-  -- a person moves it (design/subsystems/ways-of-working-versions.md).
-  recommended_version BIGINT NOT NULL DEFAULT 0,
   origin      TEXT NOT NULL DEFAULT '',
   enabled     BOOLEAN NOT NULL DEFAULT true,
   updated_at  TIMESTAMPTZ NOT NULL
@@ -769,23 +766,6 @@ CREATE TABLE IF NOT EXISTS system_workflows (
   name       TEXT NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL
 );
-
--- Immutable local classification evidence; revocation never removes its meaning.
-CREATE TABLE IF NOT EXISTS routine_publication_classifications (
- id UUID PRIMARY KEY,
- publication_kind TEXT NOT NULL CHECK (publication_kind IN ('block','pack')),
- publication_id UUID NOT NULL,
- from_version BIGINT NOT NULL CHECK (from_version > 0),
- to_version BIGINT NOT NULL CHECK (to_version > from_version),
- digest TEXT NOT NULL CHECK (digest <> ''),
- issuer_id UUID NOT NULL,
- request_id UUID NOT NULL,
- created_at TIMESTAMPTZ NOT NULL,
- record_json JSONB NOT NULL,
- revocation_json JSONB NOT NULL DEFAULT 'null'::jsonb,
- UNIQUE(issuer_id,request_id)
-);
-CREATE UNIQUE INDEX IF NOT EXISTS routine_publication_active_digest ON routine_publication_classifications(digest) WHERE revocation_json = 'null'::jsonb;
 
 -- Source: internal/apptown/adoption/schema.sql
 -- Which pack versions a project is on (§1.1): placed at migration from the
@@ -1038,6 +1018,8 @@ CREATE TABLE IF NOT EXISTS what_if_reviews (
   also_packs         JSONB NOT NULL DEFAULT '[]'::jsonb,
   -- queued: admitted, waiting for the conformance queue's worker.
   -- interrupted: AppTown stopped before it finished; it is not resumed.
+  rule_id UUID,
+  rule_revision BIGINT NOT NULL DEFAULT 0,
   CONSTRAINT what_if_state CHECK (state IN ('queued','running','done','error','interrupted'))
 );
 CREATE INDEX IF NOT EXISTS what_if_reviews_version ON what_if_reviews(pack, pack_version, id);
