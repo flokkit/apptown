@@ -5,6 +5,52 @@ Fargate, in an AWS estate you already have, with an optional dedicated
 PostgreSQL RDS instance. This target is in beta. The samples below have not
 been applied or qualified against AWS.
 
+## Who owns what
+
+```mermaid
+flowchart LR
+  subgraph owner["Platform owner"]
+    direction TB
+    acct["AWS account and region"]
+    iam["IAM user and execution role, from the sample"]
+    vpc["VPC and subnets"]
+    cluster["ECS cluster"]
+    alb["load balancer, HTTPS listener, certificate"]
+    dns["wildcard DNS"]
+  end
+  subgraph apptown["AppTown, per deployment"]
+    direction TB
+    svc["ECS service, task definitions, tasks"]
+    tg["target group"]
+    rule["listener rule"]
+    ecr["ECR repository"]
+    ssm["SSM parameters, log group"]
+    sg["security groups"]
+    rds["RDS instance, subnet group"]
+  end
+  iam -->|"lets AppTown create"| svc
+  svc --> cluster
+  rule --> alb
+  rule --> tg
+  tg --> svc
+  sg --> vpc
+  rds --> vpc
+  class acct,iam,vpc,cluster,alb,dns owner
+  classDef owner stroke-dasharray: 5 5
+```
+
+| Platform owner | AppTown |
+|---|---|
+| The account and region, and the IAM user and execution role the sample makes | An ECS service (`ecs-service`), its task definitions (`task-definition`) and one-off tasks (`ecs-task`) |
+| The VPC, the task and database subnets | A target group (`target-group`) and a rule on your listener for the app's host name (`listener-rule`) |
+| The ECS cluster | An ECR repository with the release images (`ecr-repository`) |
+| The load balancer, its HTTPS listener and certificate, and its other rules | SSM parameters for secrets (`ssm-parameter`) and a log group (`log-group`) |
+| The wildcard DNS record | A security group for the app, and one for its database (`security-group`) |
+| The ECS and RDS service-linked roles | For Postgres: an RDS instance (`rds-instance`) and its subnet group (`rds-subnet-group`) |
+
+Everything AppTown creates carries the tags `apptown:instance` and
+`apptown:deployment`, and AppTown checks both before it changes anything.
+
 ## What you need
 
 - The **AWS ECS targets** feature turned on under **Setup → Features**
@@ -136,28 +182,78 @@ is recorded until you press **Add target**.
 Point a wildcard DNS record, `*.<apps domain>`, at the load balancer yourself.
 AppTown adds only its own rules to the listener.
 
+## What happens when you deploy
+
+AppTown checks the account, region, cluster, subnets, listener and roles
+each time it connects. Then, in this order:
+
+1. Create the app's security group, log group and ECR repository, if they
+   are not there. For Postgres, AppTown first records that a database is
+   being made.
+2. For Postgres: create the database's security group and subnet group,
+   create the RDS instance and wait until it is available. Then run a
+   one-off task that creates the app's user and database. The task copies
+   the Postgres image into the ECR repository, and its own task definition
+   and SSM parameters are deleted when it ends.
+3. Create the target group, let the load balancer reach the app's security
+   group, and add a listener rule for the app's host name.
+4. Copy each release image into the ECR repository by digest. Put the
+   release's secrets in SSM parameters of its own, and write the task
+   definitions.
+5. Run each `init` step once as a task. Each must succeed.
+6. Create or update the ECS service.
+7. Wait until the service is steady and the target group reports it
+   healthy, then check the app answers at its address. If not, AppTown
+   tries to put the previous task definition back, or scales the service to
+   zero on a first release; if that does not settle either, the release
+   says so.
+8. Delete the SSM parameters of releases older than the previous one.
+
+## What happens when you take down
+
+With a database and a backup store, the database is copied before it is
+deleted:
+
+1. Scale the service to zero, and delete the listener rule.
+2. Revoke the deployment's AI model keys.
+3. Take the final copy with one-off tasks. Check it by restoring it into a
+   scratch database on the same instance, then drop the scratch database.
+4. Delete the RDS instance and its automatic backups. Those are separate
+   from AppTown's backups.
+5. Delete the rest, in the order below.
+
+Without a database, or after step 4, AppTown deletes what it recorded
+creating, in this order. What a deployment does not have, or is already
+gone, is skipped.
+
+1. the listener rule;
+2. the ECS service, after scaling it to zero and waiting until it is
+   inactive;
+3. one-off tasks;
+4. the RDS instance;
+5. the RDS subnet group;
+6. task definitions;
+7. the target group;
+8. the ECR repository, with its images;
+9. SSM parameters;
+10. the log group;
+11. security groups, the database's first.
+
+A failure on the listener rule or the service stops the take-down. A failure
+on anything else is listed as left. Without a final copy, the RDS instance,
+its subnet group and its security group are kept, listed as retained; they
+keep costing money.
+
+If it stops part way, take it down again: what is already gone is skipped,
+and a service that is already draining is waited for. AppTown never changes
+the VPC, subnets, cluster, load balancer, its other listener rules, DNS or
+the sample's stack.
+
 ## Check it worked
 
 The target's page shows **Target check:** with the load balancer, and a line
 saying whether the wildcard apps address resolves to that load balancer, and
 when it was read.
-
-## What AppTown creates and deletes
-
-For each deployment AppTown creates an ECS service, task definitions, a target
-group, a listener rule, an ECR repository, SSM parameters, a log group and a
-security group, and for Postgres an RDS instance with its subnet group and
-security group. Runtime and init secrets are separate SSM paths for each
-release, so a rollback keeps the earlier values.
-
-A final take-down stops the app and removes its routing, then copies and checks
-the database before it deletes the RDS instance. A take-down without a final
-copy keeps the RDS instance, its subnet group and its security group, listed as
-retained resources. Deleting the instance also deletes its automatic
-snapshots; those are separate from AppTown's backups.
-
-AppTown never changes the VPC, subnets, cluster, load balancer, its other
-listener rules, DNS or the sample's stack.
 
 ## Costs and limits
 
@@ -175,11 +271,3 @@ listener rules, DNS or the sample's stack.
   upload or check keeps the instance. Fargate's default scratch space is 20 GB;
   a copy that fills it fails.
 - RDS's automatic snapshots are shown separately and are never AppTown backups.
-
-Every take-down runs as a background operation. Follow it on its operation
-page; closing the page does not stop it. While it runs, the deployment says
-"taking down". An unfinished take-down names what was deleted, left, or not
-confirmed removed. Take it down again to carry on while its record stands.
-If its data was already deleted, a new final copy cannot be taken: the
-operation names the original final set, and a maintainer must inspect the
-provider and settle its records by hand.

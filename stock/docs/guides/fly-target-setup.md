@@ -4,6 +4,46 @@ A Fly.io Machines target runs each deployment as a Fly app of its own, with
 one Machine per part. The app is reached at its `fly.dev` address. This target
 is experimental: no real app has been qualified on it yet.
 
+## Who owns what
+
+```mermaid
+flowchart LR
+  subgraph owner["Platform owner"]
+    direction TB
+    org["Fly organization and its token"]
+    reg["the project's container registry"]
+    store["backup store"]
+  end
+  subgraph apptown["AppTown, per deployment"]
+    direction TB
+    app["Fly app at-..."]
+    m["one Machine per part"]
+    pg["Postgres Machine"]
+    vol["volumes"]
+    ip["shared IPv4 and IPv6"]
+  end
+  org -->|"lets AppTown create"| app
+  reg -->|"images copied"| app
+  app --> m
+  app --> pg
+  app --> ip
+  m --> vol
+  pg --> vol
+  class org,reg,store owner
+  classDef owner stroke-dasharray: 5 5
+```
+
+| Platform owner | AppTown |
+|---|---|
+| The Fly.io organization, and the organization token AppTown uses | One Fly app per deployment, `at-…`, with its addresses, secrets and copied images (`fly-app`) |
+| The project's container registry, where releases are published | A Machine for each part, and for each `init` step while it runs |
+| The backup store | A Machine for Postgres (`fly-machine`) |
+| Other apps in the organization | A volume for each data folder and for Postgres (`fly-volume`) |
+
+Every Machine AppTown makes carries the installation and the deployment in
+its metadata. The app is reached at its `fly.dev` address, so there is no
+DNS to set up.
+
 ## What you need
 
 - The **Fly.io targets** feature turned on under **Setup → Features**
@@ -44,6 +84,60 @@ region. It answers with the organization and region, and reminds you what the
 token can reach. Nothing is recorded until you press **Add target**. Then set
 its offer and facts. Offer it with the **public** audience only (see below).
 
+## What happens when you deploy
+
+In this order, through Fly's Machines API:
+
+1. Refuse, before anything is made, what Fly cannot run (see "Costs and
+   limits").
+2. Create the Fly app, or reuse the one recorded. A name already taken is
+   refused.
+3. For Postgres: copy its image, create its volume, start its Machine or
+   keep the one running, and wait until it is ready.
+4. For each part, copy its image into Fly's registry for the app, by
+   digest, and create its data folder's volume or reuse the recorded one.
+   Then copy each `init` step's image.
+5. Set the app's secrets to the release's.
+6. Run each `init` step on a one-off Machine, then destroy it.
+7. Add a shared IPv4 and an IPv6 address, if the app has none.
+8. Start a new Machine for each part. A part with a data folder first has
+   its old Machine stopped and deleted, to free the volume.
+9. Check each Machine is started and passes its checks, and that the app
+   answers at its `fly.dev` address.
+10. Destroy the old Machines.
+
+If step 8 or a later one fails, AppTown destroys the new Machines and tries
+to bring back the previous Machine of each part with a data folder; if that
+fails too, the release says so. Secrets already set and `init` steps
+already run are not undone.
+
+Postgres runs as a stock container on its own Machine and volume. Its data
+lives in a `pgdata` folder inside the volume, because a Fly volume has a
+`lost+found` folder at its root and Postgres refuses to start in a folder that
+is not empty. Postgres keeps its Machine and volume across releases; a release
+with an incompatible Postgres image is refused.
+
+## What happens when you take down
+
+1. When the deployment holds data, stop the parts that write it, and take
+   the final backup into the backup store. Without a backup store the
+   take-down is refused, unless you choose to take it down without a final
+   copy.
+2. Check the app. If it is gone, or its name now belongs to another app,
+   it counts as already gone and the other app is left alone. Every Machine
+   in it must carry this deployment's mark, and every volume must be one
+   AppTown recorded. If not, stop and name what is there; AppTown deletes
+   nothing it did not make.
+3. Delete the Fly app. Its Machines, addresses and secrets go with it, and
+   Fly destroys its volumes.
+
+Without a final copy, an app with volumes keeps its data: the Postgres
+Machine is stopped, the part Machines are deleted, and the app and its
+volumes stay, listed as retained. A deployment that was never released
+holds nothing at Fly.
+
+If it stops part way, take it down again: an app already gone is skipped.
+
 ## Check it worked
 
 The target's page shows **Target check:** with the organization and region.
@@ -53,33 +147,6 @@ A deployment's **Status** tab shows each part's Machine: its state, image,
 when it started, and its CPU and memory use against its size, read from the
 organization's metrics with the same token. Out-of-memory kills come from
 Fly's Machine events.
-
-## What AppTown creates and deletes
-
-For each deployment AppTown creates:
-
-- a Fly app named `at-…`, with a shared IPv4 and an IPv6 address;
-- one Machine per part, carrying the installation and the deployment in its
-  metadata;
-- a 1 GB volume for each data folder, and one for Postgres;
-- the deployment's secrets, as the app's secrets.
-
-Postgres runs as a stock container on its own Machine and volume. Its data
-lives in a `pgdata` folder inside the volume, because a Fly volume has a
-`lost+found` folder at its root and Postgres refuses to start in a folder that
-is not empty. Postgres keeps its Machine and volume across releases; a release
-with an incompatible Postgres image is refused.
-
-Taking a deployment down stops the app, takes a final backup, then deletes the
-Fly app with its Machines and addresses, and its volumes. Without a backup
-store, or when the final backup fails, you can choose to keep the data: the
-app and its volumes stay, every Machine stopped, listed as retained. A
-deployment that was never released holds nothing at Fly.
-
-AppTown never adopts an app it did not create, even one with the same name;
-the release is refused instead. Before it deletes an app it checks that every
-Machine carries this deployment's mark and every volume is one it recorded,
-and stops if anything else is there.
 
 ## Costs and limits
 

@@ -37,6 +37,11 @@ func (d *Driver) ValidateTakeDown(ctx context.Context, p deploy.Placement, owned
 	return nil
 }
 
+// teardownOrder is the order a take-down deletes owned records in, by
+// kind: every kind this driver knows how to delete. The target's setup
+// guide names each one (TestSetupGuideNamesEveryOwnedKind).
+var teardownOrder = []string{"listener-rule", "ecs-service", "ecs-task", "rds-instance", "rds-subnet-group", "task-definition", "target-group", "ecr-repository", "ssm-parameter", "log-group", "security-group"}
+
 func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, _ int64, td deploy.TakeDown) (deploy.TakenDown, error) {
 	out := deploy.TakenDown{}
 	a, c, _, err := d.Client(ctx)
@@ -74,7 +79,10 @@ func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, _ int64, td d
 		}
 	}
 	owned := append([]deploy.Owned(nil), td.Owned...)
-	order := map[string]int{"listener-rule": 0, "ecs-service": 1, "ecs-task": 2, "rds-instance": 3, "rds-subnet-group": 4, "task-definition": 5, "target-group": 6, "ecr-repository": 7, "ssm-parameter": 8, "log-group": 9, "security-group": 10}
+	order := map[string]int{}
+	for i, kind := range teardownOrder {
+		order[kind] = i
+	}
 	// The database's group admits the app's group, and EC2 refuses to delete
 	// a group another group's rule names: the database's group goes first.
 	sort.SliceStable(owned, func(i, j int) bool {

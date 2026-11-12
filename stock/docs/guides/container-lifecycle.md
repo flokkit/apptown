@@ -176,14 +176,13 @@ and says which choice to make.
 A deployment that does not follow main has **Tear down** on its card under
 **Deployments**. Follows-main deployments go when their project is deleted.
 A take-down removes exactly what AppTown recorded creating for the
-deployment. What it does depends on the target:
-
-| Target | On take-down |
-|---|---|
-| Docker host (either kind) | Takes a final backup of its data, then deletes its containers, network, data volumes and images. If the final backup is incomplete, the parts are started again and nothing is removed. Stop anything outside the deployment that writes to its data first. |
-| App Platform | Deletes the app, takes a final copy of its database (and its bucket) when a copy runner and backup store are set, checks the copy comes back, and only then deletes the database and the bucket. Without a copy runner the take-down is refused unless you choose to go without a final copy; then, or when the copy falls short, the database stays at DigitalOcean, listed as retained. Its images go when no other deployment of the project on that account uses them. |
-| Portainer environment | Takes a final set through Portainer first, then deletes the stack AppTown made and the volumes its deploys made. A volume that was there before is copied and kept. |
-| Bucket website | Deletes every file and the bucket, and checks the address stops answering. |
+deployment. The shared steps are in [Deployment
+targets](deployment-targets.md). Each target's guide lists what it deletes,
+in order, and what it keeps: [Docker host](docker-host-target-setup.md),
+[Portainer](portainer-target-setup.md), [App
+Platform](app-platform-target-setup.md), [Fly.io](fly-target-setup.md),
+[bucket website](bucket-website-target-setup.md) and [AWS
+ECS](aws-target-setup.md).
 
 A deployment of an app that needs AI models also has its key revoked. The
 result names what was deleted, the final backup, and anything left at the

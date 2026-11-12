@@ -4,6 +4,49 @@ A Docker host target runs each deployment as containers on a machine with
 Docker. AppTown reaches an attached host over SSH. The built-in Docker host is
 AppTown's own Docker; it needs no setup.
 
+## Who owns what
+
+```mermaid
+flowchart LR
+  subgraph owner["Platform owner"]
+    direction TB
+    host["Linux machine with Docker"]
+    ssh["SSH user and key"]
+    traefik["Traefik, its traefik network"]
+    dns["wildcard DNS"]
+    fw["provider firewall"]
+  end
+  subgraph apptown["AppTown, per deployment"]
+    direction TB
+    img["images"]
+    net["network"]
+    svc["service containers"]
+    vol["volumes"]
+    appc["app container"]
+  end
+  ssh -->|"runs docker"| host
+  appc -->|"labels, main only"| traefik
+  svc --> net
+  appc --> net
+  svc --> vol
+  appc --> vol
+  class host,ssh,traefik,dns,fw owner
+  classDef owner stroke-dasharray: 5 5
+```
+
+| Platform owner | AppTown |
+|---|---|
+| The machine, Docker, and the SSH user AppTown signs in as | Containers for the app, its parts and its services (`container`) |
+| Traefik, its `traefik` network, `websecure` entrypoint and `letsencrypt` certificate resolver | The deployment's network (`network`) |
+| Wildcard DNS for the apps domain | A volume for the app's data folder and for each service that keeps data (`volume`) |
+| The firewall in front of the host | The release images it pulls or builds there (`image`) |
+| Containers, volumes and images AppTown did not create | Traefik labels on `main`'s container, when the host has an apps domain |
+
+Each thing AppTown creates carries its `apptown.instance` label and is
+recorded. The words in brackets are how a take-down's result names them.
+On the built-in host AppTown's own machine is both sides: AppTown runs it,
+and its apps' ports stay on the loopback address.
+
 ## The built-in Docker host
 
 AppTown adds the target `built-in-docker` when it starts, unless `apptownd`
@@ -60,6 +103,66 @@ you press **Add target**. Then set its offer and facts:
 - **Needs**: **emulators on the host** runs each declared service, such as
   Postgres, as a container beside the app.
 
+## What happens when you deploy
+
+In this order, on the host's Docker:
+
+1. Check that the containers' sizes fit the host, every secret the app
+   needs is set, and the disk has room. Nothing changes if one fails.
+2. Pull the release's images by digest, or build them, on the host.
+3. Create the deployment's network when the app needs one (it has
+   services, `init` steps or more than one part), if it is not there.
+4. For each service, such as Postgres: create its volume if it is not
+   there, and start its container or keep the one running. Then wait until
+   every service is healthy.
+5. Run each `init` step to completion; its container is then removed.
+6. Replace the app's other parts.
+7. Replace the app's public container: the old one is removed and the new
+   one starts under the same name, with a data volume when the app declares
+   a data folder. Expect a short gap. On an attached host with an apps
+   domain, `main`'s container gets Traefik labels.
+8. Check the app answers on its readiness address, and that the running
+   container is the one this release made.
+
+The other parts and the services change while the old public container
+still serves. If a step fails, the release fails at that step. AppTown
+does not put back what it already replaced: after step 7, the new public
+container stays under the deployment's name. Unused images are removed by a
+daily clean-up, not by a deploy.
+
+## What happens when you take down
+
+When the deployment holds data:
+
+1. Refuse, before anything stops, when a service keeps its data outside a
+   volume, or some data cannot be copied.
+2. Stop the app's containers. Its services keep running.
+3. Take the final backup: each data volume and each service's data, kept
+   on AppTown's disk, or in the backup store when one is attached. If it
+   does not cover everything, start the containers again and remove
+   nothing. A container that fails to start again is named in the result.
+
+Then, with or without data:
+
+4. Delete the public container, after checking its label names this
+   deployment.
+5. Delete, in this order, what AppTown recorded creating:
+   1. containers;
+   2. the network;
+   3. volumes;
+   4. images, unless another container still uses one.
+
+What is kept:
+- a volume AppTown did not create: it is copied into the final backup and
+  left on the host;
+- anything a delete failed on, listed as retained on the target's page.
+
+There is no "without a final copy" choice on a Docker host. If it stops
+part way, take it down again: what is already gone is skipped, and a new
+final backup is taken first. AppTown never deletes containers, volumes or
+images it did not create. A small `busybox` container reads the disk's free
+space; it is not part of any deployment.
+
 ## Check it worked
 
 The target's page shows **Target check:** with the Docker version, the
@@ -67,20 +170,6 @@ operating system and how many containers run. Its **Capacity** page shows
 memory, CPU and disk. An attached host does not report its own system's memory
 use, so that part of the bar reads "not read". A failed SSH connection is
 shown at the top of the page with the reason.
-
-## What AppTown creates and deletes
-
-For each deployment AppTown creates containers named `apptown-…`, a network
-`apptown-net-…`, a volume for the app's data folder and one for each service
-that keeps data, and it pulls the release's images. Each carries AppTown's
-labels, and each is recorded.
-
-Taking a deployment down takes a final backup, then deletes exactly what
-AppTown recorded creating for it. If the final backup is incomplete, the app
-is started again and nothing is removed. AppTown never deletes containers,
-volumes or images it did not create. Its own image clean-up removes only
-unused, untagged images it built itself. A small `busybox` container reads the
-disk's free space.
 
 ## The SSH connection
 

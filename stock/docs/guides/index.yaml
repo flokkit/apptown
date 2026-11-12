@@ -35,13 +35,6 @@ groups:
       - trial
       - server-setup
       - split-install
-      - deployment-targets
-      - docker-host-target-setup
-      - portainer-target-setup
-      - app-platform-target-setup
-      - fly-target-setup
-      - bucket-website-target-setup
-      - aws-target-setup
       - people-and-roles
       - apptown-backups
       - deployment-backups
@@ -50,6 +43,15 @@ groups:
       - monitoring
       - compatibility
       - cli-json
+  - title: Deployment targets
+    guides:
+      - deployment-targets
+      - docker-host-target-setup
+      - portainer-target-setup
+      - app-platform-target-setup
+      - fly-target-setup
+      - bucket-website-target-setup
+      - aws-target-setup
   - title: How AppTown works
     guides:
       - architecture

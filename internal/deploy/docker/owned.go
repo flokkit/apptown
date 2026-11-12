@@ -131,6 +131,12 @@ func createVolume(ctx context.Context, dk Scope, volume, stackID, need string, o
 	return own.created(deploy.Owned{Kind: "volume", ID: volume, Data: true, Need: need})
 }
 
+// teardownKinds are the kinds of owned record a Docker host deletes, in
+// the order its take-down deletes them: every kind this driver records. A
+// recorded kind not in it is reported left, never deleted. The target's
+// setup guide names each one (TestSetupGuideNamesEveryOwnedKind).
+var teardownKinds = []string{"container", "network", "volume", "image"}
+
 // tearDownOwned deletes what a deployment's list names, after its serving
 // container is gone (serving: its ID, not deleted again): containers, then
 // networks, then data volumes (only when backedUp), then images (only
@@ -149,7 +155,7 @@ func tearDownOwned(ctx context.Context, dk Scope, owned []deploy.Owned, serving 
 			Handle: map[string]any{"kind": o.Kind, "name": name, "id": o.ID, "need": o.Need}, Why: why})
 	}
 	inspect := map[string][]string{"container": {"inspect"}, "network": {"network", "inspect"}, "volume": {"volume", "inspect"}, "image": {"image", "inspect"}}
-	for _, kind := range []string{"container", "network", "volume", "image"} {
+	for _, kind := range teardownKinds {
 		for _, o := range owned {
 			if o.Kind != kind || (kind == "container" && o.ID == serving) {
 				continue
