@@ -42,7 +42,7 @@ describe("a target's capacity", () => {
     })
     expect(html).toContain('title="docker stats: cannot connect">unknown')
     expect(html).toContain('title="docker info: cannot connect">unknown')
-    expect(html).toContain('2 GB requested; host total 1 GB')
+    expect(html).toContain('limits add up to 2 GB; host total 1 GB')
     expect(html).toContain('low: under 10 GB free')
   })
   // A host's disk says which filesystem it is and when it was read; below
@@ -157,7 +157,7 @@ it('draws a Docker host as bars in view, with app details inline', () => {
   const front = html.split('<details')[0]
   expect(front).toContain('6 GB free of 8 GB')
   expect(front).toContain('23 GB free of 49 GB')
-  expect(front).toContain('10 GB requested; host total 8 GB')
+  expect(front).toContain('limits add up to 10 GB; host total 8 GB')
   expect(front).toContain('role="img"')
   expect(front).not.toContain('<dt>')
   expect(front).toContain('app-0</td>')
@@ -203,10 +203,10 @@ it('shows an old reading quietly and marks only a failed check red', () => {
   expect(render({ ...old, error: 'The host capacity check failed.' })).toContain('The host capacity check failed.')
 })
 
-it('puts requested and available memory beside a warning, and explains unreadable use', () => {
+it('puts the memory limits and available memory beside a warning, and explains unreadable use', () => {
  const memory = {total:fig(2*2**30), hostUsed:none('The attached daemon does not report whole-host memory use.'),promised:{sum:{apptown:fig(4*2**30),other:fig(0)},limited:count(9,0),unlimited:count(19,0),unread:count(0,0)},overcommitted:true}
  const html=render({memory})
- expect(html).toMatch(/capacity-warning[^>]*>[^<]*4 GB requested[^<]*2 GB/)
+ expect(html).toMatch(/capacity-warning[^>]*>[^<]*limits add up to 4 GB[^<]*2 GB/)
  expect(html).toContain('Some capacity readings could not be read: Memory use: The attached daemon does not report whole-host memory use.')
  expect(html).toContain('Memory use could not be read')
  expect(render({memory})).toContain('Memory use: The attached daemon does not report whole-host memory use.')
@@ -214,10 +214,10 @@ it('puts requested and available memory beside a warning, and explains unreadabl
 })
 
 
-it('does not renew old requested memory with a newer capacity wrapper', () => {
+it('does not renew old memory limits with a newer capacity wrapper', () => {
  const old = {stale:true,readAt:new Date(Date.now()-40*60000).toISOString()}
  const html=render({readAt:new Date().toISOString(),memory:{total:fig(2*2**30),promised:{sum:{apptown:{...fig(4*2**30),...old},other:fig(0)},limited:count(1,0),unlimited:count(0,0),unread:count(0,0)},overcommitted:true}})
- expect(html).toContain('4 GB requested (last seen 40m ago); host total 2 GB')
+ expect(html).toContain('limits add up to 4 GB (last seen 40m ago); host total 2 GB')
 })
 
 it('describes attached container readings and names failed tenants, including retained readings', () => {

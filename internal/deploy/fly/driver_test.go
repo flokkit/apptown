@@ -719,6 +719,7 @@ func TestEachPartRunsOnTheSmallestMachineThatCoversIt(t *testing.T) {
 	}{
 		{appcontract.Resources{}, "shared-cpu-1x (512 MB)"},
 		{appcontract.Resources{MemoryBytes: 300 << 20}, "shared-cpu-1x (512 MB)"},
+		{appcontract.Resources{MemoryBytes: 64 << 20}, "shared-cpu-1x (256 MB)"}, // a static part's default, raised to Fly's minimum
 		{appcontract.Resources{MemoryBytes: 3 << 30}, "shared-cpu-2x (3072 MB)"},
 		{appcontract.Resources{CPUs: 3}, "shared-cpu-4x (1024 MB)"},
 	} {

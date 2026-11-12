@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { post } from '../api'
 import { useAction, useGet } from '../data'
-import { fmtBytes, fmtStamp, fmtWhen } from '../format'
+import { fmtBytes, fmtCores, fmtStamp, fmtWhen } from '../format'
 import { ListTable, type ListColumn } from '../ListTable'
 import { MoreMenu, type MoreItem } from '../MoreMenu'
 import { RuntimeStatus, hostOnlyWords, type RuntimeObservation } from '../runtime'
@@ -61,7 +61,7 @@ function Usage({ row }: { row: DeploymentTableRow }) {
   const q = useGet<TargetCapacity>(row.targetName ? `/targets/${encodeURIComponent(row.targetName)}/capacity` : null, { poll: 30000 })
   const t = q.data?.tenants?.find(t => t.kind === 'deployment' && t.project === row.slug && t.deployment === row.deployment)
   if (!t || q.refreshFailed || t.stale || !t.used.known) return <span className="muted" title={t?.used.reason || q.reason || undefined}>—</span>
-  const cpu = t.cpuUsed?.known ? `${Number(t.cpuUsed.value.toFixed(2))} cores · ` : ''
+  const cpu = t.cpuUsed?.known ? `${fmtCores(t.cpuUsed.value)} cores · ` : ''
   return <span className="fleet-usage">{cpu}{fmtBytes(t.used.value)}</span>
 }
 

@@ -496,7 +496,7 @@ type HostShare struct {
 	Error         string    `json:"error,omitempty"`
 	Target        string    `json:"target"`
 	Elastic       bool      `json:"elastic"`
-	Requested     *Figure   `json:"requested,omitempty"`
+	Limits        *Figure   `json:"limits,omitempty"` // every container's memory limit on the host summed, AppTown's and others'; Docker reserves none of it
 	HostMemory    Figure    `json:"hostMemory"`
 	Declared      Figure    `json:"declared"` // the sum of its parts' and needs' memory limits; unknown when any has none
 	Used          Figure    `json:"used"`
@@ -526,7 +526,7 @@ func (s *Service) share(ctx context.Context, dep *Deployment, parts []PartResour
 	}
 	out := &HostShare{ReadAt: c.ReadAt, Stale: c.Stale, Error: c.Error, Target: t.Name, HostMemory: c.Memory.Total, Overcommitted: c.Memory.Overcommitted, LowDisk: c.Disk != nil && c.Disk.Low, DiskRefuses: c.Disk != nil && c.Disk.Refuses}
 	if c.Memory.Promised.Sum.AppTown.Known && c.Memory.Promised.Sum.Other.Known {
-		out.Requested = &Figure{Known: true, Value: c.Memory.Promised.Sum.AppTown.Value + c.Memory.Promised.Sum.Other.Value}
+		out.Limits = &Figure{Known: true, Value: c.Memory.Promised.Sum.AppTown.Value + c.Memory.Promised.Sum.Other.Value}
 	}
 
 	var declared, used float64

@@ -47,13 +47,13 @@ describe("a deployment's resources", () => {
     expect(html).toContain('size small')
     expect(html).toContain('256M')
   })
-  it('says whether the host takes new deploys and its memory against what is asked of it', () => {
+  it('says whether the host takes new deploys and what its memory limits add up to against its memory', () => {
     const fig = (value: number) => ({ known: true, value })
     const read = { readAt: '2026-11-09T01:00:00Z', target: 'lab', elastic: false, declared: fig(2 ** 30), used: fig(2 ** 20) }
-    const html = share({ ...read, hostMemory: fig(8 * 2 ** 30), requested: fig(10 * 2 ** 30), overcommitted: true, lowDisk: true, diskRefuses: false })
+    const html = share({ ...read, hostMemory: fig(8 * 2 ** 30), limits: fig(10 * 2 ** 30), overcommitted: true, lowDisk: true, diskRefuses: false })
     expect(html).toContain('href="/targets/lab"')
     expect(html).toContain('ready for deploys · low on disk')
-    expect(html).toContain('memory 10 GB requested of 8 GB')
+    expect(html).toContain('memory limits add up to 10 GB of 8 GB')
     const refused = share({ ...read, hostMemory: fig(8 * 2 ** 30), overcommitted: false, lowDisk: true, diskRefuses: true })
     expect(refused).toContain('new deploys blocked: low on disk')
     expect(share({ ...read, hostMemory: fig(8 * 2 ** 30), overcommitted: false, lowDisk: false, diskRefuses: false })).toContain('lab · ready for deploys')

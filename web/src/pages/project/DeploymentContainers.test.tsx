@@ -35,6 +35,21 @@ it('shows each container with its use and the deployment totals', () => {
   expect(html).toMatch(/<meter[^>]*aria-label="web CPU use"[^>]*max="1"[^>]*value="0.25"/)
 })
 
+// Fly sizes Machines in shared CPUs and says so; a Docker container's CPUs
+// carry no kind. Tiny real use reads as under 0.01, not idle.
+// Kills: the kind dropped, or the kind shown where the provider gave none.
+it('labels shared CPUs where the provider names them', () => {
+  const fly = render([
+    part('web', { part: 'web', usedBytes: 18 << 20, limitBytes: 256 << 20, cpuCores: 0.002, cpuLimit: 1, cpuKind: 'shared', known: true }),
+    part('api', { part: 'api', usedBytes: 64 << 20, limitBytes: 256 << 20, cpuCores: 0.01, cpuLimit: 1, cpuKind: 'shared', known: true }),
+  ])
+  expect(fly).toMatch(/>&lt;0\.01(<!-- -->)?<span class="muted"> \/ 1(<!-- -->)? shared/)
+  expect(fly).toContain('0.01 / 2 shared CPUs')
+  const docker = render([part('web', { part: 'web', usedBytes: 18 << 20, limitBytes: 64 << 20, cpuCores: 0.002, cpuLimit: 1, known: true })])
+  expect(docker).not.toContain('shared')
+  expect(docker).toContain('&lt;0.01 cores / 1 cores')
+})
+
 // A use the host did not report is unknown, in the row and in the totals,
 // never a zero that would read as idle.
 it('keeps an unreported use unknown, never zero', () => {

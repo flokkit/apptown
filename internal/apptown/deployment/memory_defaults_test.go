@@ -53,6 +53,26 @@ func TestFreshMemoryDefaultsKeepDeclarationsAndExplicitUnlimited(t *testing.T) {
 	}
 }
 
+// A static part's file server takes the static default whether its files
+// are still a folder or already packed; a code part keeps 512Mi and a
+// declared static part its declaration.
+func TestAStaticPartDefaultsToTheFileServersSize(t *testing.T) {
+	t.Parallel()
+	c := &appcontract.Contract{Parts: []appcontract.Part{{Name: "site", Static: "public", Public: true}, {Name: "packed", Image: "reg/site@sha256:x", ServesStatic: true}, {Name: "api", Build: "."}, {Name: "big", StaticBuild: &appcontract.StaticBuild{Context: "."}, Resources: appcontract.Resources{MemoryBytes: 128 << 20}}}}
+	out, applied, err := (&Environment{}).defaultMemory(t.Context(), c, AppliedProfile{Profile: "default"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []int64{64 << 20, 64 << 20, 512 << 20, 128 << 20} {
+		if got := out.Parts[i].Resources.MemoryBytes; got != want {
+			t.Errorf("%s: %d bytes, want %d", out.Parts[i].Name, got, want)
+		}
+	}
+	if applied.Parts["site"].MemoryDefault.Kind != "apptown" || applied.Parts["big"].MemoryDefault != nil {
+		t.Errorf("default sources: %+v", applied.Parts)
+	}
+}
+
 func TestACatalogueDefaultIsOnlyForItsActualNeed(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)

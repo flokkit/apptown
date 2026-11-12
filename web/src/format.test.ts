@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fmtCost, fmtPrice, fmtDuration, fmtLastRead, fmtTokens, fmtWhen, fmtStamp, lastSeen, relTime, stampDate } from './format'
+import { fmtCores, fmtCost, fmtPrice, fmtDuration, fmtLastRead, fmtTokens, fmtWhen, fmtStamp, lastSeen, relTime, stampDate } from './format'
 
 const NOW = Date.parse('2026-09-03T10:00:00Z')
 
@@ -80,6 +80,11 @@ describe('fmtTokens and fmtCost', () => {
       expect(shown(fmtCost(total)) + 1e-9, JSON.stringify(parts)).toBeGreaterThanOrEqual(sum)
     }
   })
+})
+
+// Kills: real use too small for two places shown as idle.
+it('says tiny real CPU use is under 0.01, not 0', () => {
+  expect([0, 0.003, 0.005, 0.25, 2].map(fmtCores)).toEqual(['0', '<0.01', '0.01', '0.25', '2'])
 })
 
 describe('fmtLastRead', () => {

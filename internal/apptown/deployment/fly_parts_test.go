@@ -161,7 +161,7 @@ func TestFlyDeploymentResourcesReportUse(t *testing.T) {
 	for _, part := range r.Parts {
 		use[part.Part] = part.Observed
 	}
-	if w := use["web"]; !w.Known || w.CPUCores != 0.25 || w.UsedBytes != 100<<20 || w.LimitBytes <= 0 || w.CPULimit != 1 || w.Image == "" {
+	if w := use["web"]; !w.Known || w.CPUCores != 0.25 || w.UsedBytes != 100<<20 || w.LimitBytes <= 0 || w.CPULimit != 1 || w.CPUKind != "shared" || w.Image == "" {
 		t.Errorf("web use %+v", w)
 	}
 	if n := use["postgres"]; !n.Known || n.UsedBytes != 40<<20 || n.LimitBytes != 256<<20 || !n.Need {

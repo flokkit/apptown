@@ -515,11 +515,12 @@ profiles:
   and refuses a part no size covers before anything is made. A bucket
   website has no runtime.
 - **A part that declares no memory still gets a cap** on a Docker host,
-  Portainer and in a preview: AppTown's default, 512Mi (a need's service
-  takes its catalogue kind's size, else 512Mi). A part's memory and CPU are
-  its deployment's override, else what the app declares for its profile,
-  else that default. A static part's file server gets a cap too. A cap is not
-  a declaration: the `deploy/memory-declared` check still asks each part
+  Portainer and in a preview: AppTown's default, 64Mi for a static part's
+  file server and 512Mi for any other part (a need's service takes its
+  catalogue kind's size, else 512Mi). A part's memory and CPU are its
+  deployment's override, else what the app declares for its profile, else
+  that default. A cap is not a declaration: the `deploy/memory-declared`
+  check still asks each part
   built or pulled to declare its memory, and that each part of the `main`
   deployment uses under 90% of its limit.
 - **A generation keeps what it applied.** A rebuild or recovery of it runs

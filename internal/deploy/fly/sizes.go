@@ -10,8 +10,9 @@ import (
 
 const (
 	mb = 1 << 20
-	// defaultMemoryMB is a part's memory when it declares none: App
-	// Platform's smallest default size has the same.
+	// defaultMemoryMB sizes what carries no memory: an init Machine, and a
+	// replay of a generation recorded before Fly parts took AppTown's
+	// default (fresh parts and needs always arrive sized).
 	defaultMemoryMB = 512
 	// A shared-cpu-Nx Machine takes 256 MB to 2 GB of memory per CPU, in
 	// steps of 256 MB, on 1, 2, 4 or 8 CPUs.
