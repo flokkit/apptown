@@ -80,18 +80,6 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
   // or a stage from building on. Before that the heading and the stage list
   // say everything, and an empty picture reads as a broken image.
   const pictured = outcome === 'failed' || current === 'backing-up' || index >= 2
-  const stageRows = () => stages.map((s, i) => {
-    const stopped = s === current && outcome === 'failed'
-    const finished = (current ? i < stages.indexOf(current) : false) || outcome === 'passed'
-    const running = s === current && outcome === 'running'
-    return <li key={s} aria-current={s === current ? 'step' : undefined}>
-      <span className={`deploy-stage-mark ${stopped ? 'bad' : finished ? 'ok' : running ? 'busy' : 'muted'}`}>
-        {running ? <Spinner /> : stopped ? '✗' : finished ? '✓' : '·'}
-      </span>
-      <span>{compactStages ? ['Code', 'Backup', 'Build', 'Start', 'Check', 'Live'][i] : deployWords[s][0].toUpperCase() + deployWords[s].slice(1)}</span>
-      <small className="muted">{stopped ? 'stopped' : running ? 'now' : ''}</small>
-    </li>
-  })
   return <div className={classes} onAnimationEnd={e => {
     if (e.animationName === 'deploy-burst') setCelebrated(true)
   }}>
@@ -178,7 +166,34 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
           })}</g>
     </svg></div>}
     {showStages && (current || compactStages) && <>
-      <ol className={`deploy-stages${compactStages ? ' deploy-stages-compact' : ''}`} aria-label="Deployment stages">{stageRows()}</ol>
+      <DeployStages stage={current} outcome={outcome} compact={compactStages} />
     </>}
   </div>
+}
+
+// The release's last stage is historical; uncertainty pauses the same progress on every page.
+export function releaseProgress(r: { state: string; progressUncertain?: boolean }, progressCurrent = true, stopped = false) {
+  const uncertain = r.state === 'releasing' && (!progressCurrent || !!r.progressUncertain)
+  const passed = !stopped && r.state === 'released'
+  const running = r.state === 'releasing' && !uncertain
+  const outcome: DeployOutcome = running ? 'running' : uncertain || stopped && r.state === 'released' || ['waiting for approval', 'cancelled', 'superseded'].includes(r.state) ? 'paused' : passed ? 'passed' : 'failed'
+  return { uncertain, passed, running, outcome }
+}
+
+export function DeployStages({ stage: current, outcome, compact = false }: { stage?: DeployStage; outcome: DeployOutcome; compact?: boolean }) {
+ const stages = Object.keys(deployWords) as DeployStage[]
+  const stageRows = () => stages.map((s, i) => {
+    const stopped = s === current && outcome === 'failed'
+    const finished = (current ? i < stages.indexOf(current) : false) || outcome === 'passed'
+    const running = s === current && outcome === 'running'
+    return <li key={s} aria-current={s === current ? 'step' : undefined}>
+      <span className={`deploy-stage-mark ${stopped ? 'bad' : finished ? 'ok' : running ? 'busy' : 'muted'}`}>
+        {running ? <Spinner /> : stopped ? '✗' : finished ? '✓' : '·'}
+      </span>
+      <span>{compact ? ['Code', 'Backup', 'Build', 'Start', 'Check', 'Live'][i] : deployWords[s][0].toUpperCase() + deployWords[s].slice(1)}</span>
+      <small className="muted">{stopped ? 'stopped' : running ? 'now' : ''}</small>
+    </li>
+  })
+
+ return <ol className={`deploy-stages${compact ? ' deploy-stages-compact' : ''}`} aria-label="Deployment stages">{stageRows()}</ol>
 }

@@ -1,3 +1,4 @@
+import { Elapsed } from '../../Elapsed'
 import { ProgressBar } from '../../ProgressBar'
 import { Spinner } from '../../Spinner'
 import { useCallback, useEffect, useState } from 'react'
@@ -28,7 +29,7 @@ function CalledRun({ id, receive }: { id: string; receive: (id: string, detail: 
   return <><ReadStatus q={q} what="called workflow" /><StaleNote q={q} /></>
 }
 
-function StepFact({ step: s }: { step: Step }) {
+function StepFact({ step: s, queued }: { step: Step; queued: boolean }) {
   const live = useGet<StepProgress>(s.status === 'running' && (s.type === 'build' || s.type === 'guidance/conformance') ? `/steps/${s.id}/live?from=0` : null, { poll: 3000 })
   const line = live.data?.lines?.at(-1)
   const standards = s.type === 'guidance/conformance' && s.status === 'running'
@@ -36,7 +37,7 @@ function StepFact({ step: s }: { step: Step }) {
   const current = position ? Number(position[1] || position[3]) : 0
   const total = position?.[2] ? Number(position[2]) : undefined
   const completed = position?.[5] === 'checking' ? current - 1 : current
-  const fact = standards ? line || s.name.replace(/[-_]/g, ' ')
+  const fact = queued ? 'waiting for a free slot' : standards ? line || s.name.replace(/[-_]/g, ' ')
     : s.type === 'approval' ? s.evidence.approver || approversOf(s)
     : s.type === 'build' ? live.data?.lines?.at(-1)?.slice(0, 180) || s.evidence.reason || (s.status === 'running' ? 'Building the accepted work' : s.status === 'pending' ? 'Waiting to build' : s.status === 'pass' ? 'Accepted work built' : 'Build stopped')
     : s.type === 'agent/pi' ? s.status === 'running' ? 'Agent working' : s.status === 'pending' ? 'Waiting to start' : s.evidence.reason || 'Agent finished'
@@ -49,6 +50,7 @@ function Timing({ steps }: { steps: Step[] }) {
   const starts = steps.map(s => s.startedAt).filter(Boolean).sort()
   const finishes = steps.map(s => s.finishedAt).filter(Boolean).sort()
   if (starts.length && finishes.length === steps.length) return <span>{fmtDuration(Math.max(0, Math.round((Date.parse(finishes.at(-1)!) - Date.parse(starts[0])) / 1000)))}</span>
+  if (starts.length && steps.some(s => s.status === 'running')) return <Elapsed startedAt={starts[0]} />
   return starts.length ? <time dateTime={starts[0]}>Started {fmtStamp(starts[0])}</time> : <span>—</span>
 }
 function Mark({ steps }: { steps: Step[] }) {
@@ -87,18 +89,19 @@ export function Now({ view }: { view: ChangeView }) {
   const children = [...new Set(steps.flatMap(s => s.type === 'workflow/call' && s.status === 'running' && s.evidence.childRunId ? [s.evidence.childRunId] : []))]
   const activeRun = details.find(d => d.run.id === view.waitingOn.run)
   const stageSteps = activeRun?.steps.filter(s => s.stage === activeRun.run.currentStage) ?? []
+  const started = stageSteps.map(s => s.startedAt).filter(Boolean).sort()[0]
   const position = stageSteps.findIndex(s => s.id === view.waitingOn.step) + 1
   const name = view.runs?.find(r => r.id === root.run.id)?.role === 'landing' ? 'Landing' : 'Work'
   return <section className="ch-now" aria-label="Now" aria-live="polite">
     <h2>Now</h2>
     <h3>{name}{position > 0 && ` — step ${position} of ${stageSteps.length}`}</h3>
-    {root.run.createdAt && <p className="small muted">Started {fmtStamp(root.run.createdAt)}</p>}
+    {started && <p className="small muted">Started {fmtStamp(started)}</p>}
     {children.map(id => <CalledRun key={id} id={id} receive={receive} />)}
     {details.map(d => <div key={d.run.id}>
       {d !== root && <p className="small muted">{d.run.workflowName}</p>}
       <ol className="ch-now-steps">{nowRows(currentSteps(d)).map(group => <li key={group[0].id}>
         <Mark steps={group} /><strong>{checks.has(group[0].type) && group.length > 1 ? 'Checks' : group[0].type === 'guidance/conformance' ? 'Standards check' : stepTitle(group[0])}</strong>
-        {group.length > 1 ? <span className="ch-now-fact">{group.map(s => `${stepTitle(s)}${s.status === 'not_applicable' ? ' (not applicable)' : s.status === 'skipped' ? ' (skipped)' : ''}`).join(', ')}</span> : <StepFact step={group[0]} />}
+        {group.length > 1 ? <span className="ch-now-fact">{group.map(s => `${stepTitle(s)}${s.status === 'not_applicable' ? ' (not applicable)' : s.status === 'skipped' ? ' (skipped)' : ''}`).join(', ')}</span> : <StepFact step={group[0]} queued={group[0].status === 'pending' && group[0].id === view.waitingOn.step && d.run.id === view.waitingOn.run} />}
         <Timing steps={group} />
       </li>)}</ol>
     </div>)}

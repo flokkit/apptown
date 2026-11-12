@@ -100,3 +100,29 @@ func TestChangeVerdictIncludesTheWorkingRunCarriedByLanding(t *testing.T) {
 		t.Fatalf("change verdict %+v %v", summary, err)
 	}
 }
+
+// Omitted checks are named without turning a conditional omission into a pass.
+func TestChecksSummaryCountsAndNamesSkippedChecks(t *testing.T) {
+	t.Parallel()
+	pass := &Step{Type: "script", Status: StatusPass}
+	na := &Step{Type: "scan", Name: "osv", Status: StatusNotApplicable}
+	advisory := false
+	noted := &Step{Type: "guidance/conformance", Status: StatusPass, CheckReading: &checkReading{Checks: []checkReceiptView{{CheckReceipt: CheckReceipt{Verdict: VerdictFail, Gates: &advisory}}}}}
+	skipped := &Step{Type: "script", Name: "optional check", Status: StatusSkipped}
+	for _, tc := range []struct {
+		steps      []*Step
+		tone, text string
+	}{
+		{[]*Step{pass, na}, "ok", "1 passed, 1 skipped: Dependency scan"},
+		{[]*Step{noted, na}, "ok", "1 passed, 1 skipped: Dependency scan · 1 note"},
+		{[]*Step{pass}, "ok", "All checks passed"},
+		{[]*Step{pass, skipped}, "unknown", "Checks not all known · 1 passed, 1 skipped: Optional check"},
+		{[]*Step{na}, "ok", "0 passed, 1 skipped: Dependency scan"},
+		{[]*Step{skipped}, "unknown", "Checks not all known · 0 passed, 1 skipped: Optional check"},
+	} {
+		got := summarizeChecks(tc.steps)
+		if got.Tone != tc.tone || got.Text != tc.text {
+			t.Fatalf("got %+v, want %s / %s", got, tc.tone, tc.text)
+		}
+	}
+}

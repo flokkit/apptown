@@ -206,7 +206,12 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, ChangeCockpit{Checks: checks, NotesDiff: notesDiff, WaitingOn: h.work.ChangeWaitingOn(r.Context(), item, detail), Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
+	destinations, err := h.deployment.Deployments.FollowingMain(r.Context(), item.ProjectID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, ChangeCockpit{GoesTo: ChangeDestination{Branch: slugMeta.DefaultBranch, Deployments: destinations}, Checks: checks, NotesDiff: notesDiff, WaitingOn: h.work.ChangeWaitingOn(r.Context(), item, detail), Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
 		Runs: runs, Commits: commits, Head: head, Diffstat: diffstat, CommittedDiff: comparison, Report: report, Editing: editing,
 		State: state, StateDetail: stateDetail, Approval: h.approvalStanding(r, detail), MainConflict: mainConflict,
 		Usage: ChangeUsage{Total: spend.Total, CostMicros: spend.CostMicros, Unpriced: spend.Unpriced}, Next: workflow.ChangeActs(item, detail, evidence.Merged, h.work.MayAbandon(r.Context(), id) == nil, mainConflict != nil)})
@@ -246,7 +251,12 @@ func (h ChangeDetail) approvalStanding(r *http.Request, detail *workflow.RunSnap
 // The Change page's cockpit (design/subsystems/dev-loop.md): every root run,
 // the branch's commits, a diff stat, and the latest change report.
 type (
+	ChangeDestination struct {
+		Branch      string                       `json:"branch"`
+		Deployments []deployment.MainDestination `json:"deployments"`
+	}
 	ChangeCockpit struct {
+		GoesTo      ChangeDestination      `json:"goesTo"`
 		Checks      workflow.ChecksSummary `json:"checks"`
 		WaitingOn   workflow.WaitingOn     `json:"waitingOn"`
 		NotesDiff   *projectnotes.Diff     `json:"notesDiff,omitempty"`

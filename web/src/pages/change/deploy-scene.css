@@ -109,6 +109,17 @@
 .deploy-stages .busy { color: var(--busy); }
 .deploy-stages .bad { color: var(--bad); }
 
+/* The same compact stage list accompanies releases on both pages. */
+.deploy-stages-compact { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin: var(--space-3) 0 0; }
+.deploy-stages-compact li { display: flex; gap: var(--space-1); }
+.deploy-stages-compact small:empty { display: none; }
+@media (width <= 800px) {
+  /* Stage words stay whole; their notes wrap underneath. */
+  .deploy-stages-compact { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .deploy-stages-compact li { flex-wrap: wrap; min-width: 0; }
+  .deploy-stages-compact li > * { white-space: nowrap; }
+}
+
 .deploy-scene.n4 .visitor { transform: translateX(4px); }
 .deploy-scene .sign-label { fill: var(--bad); font-size: var(--fs-scene); }
 .deploy-scene.fail.g4 .visitor { opacity: 1; transform: translateX(-38px) scaleX(-1); }

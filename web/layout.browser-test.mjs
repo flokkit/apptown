@@ -23,6 +23,8 @@ const fixture = await build({
     import { useState } from 'react'
     import { createRoot } from 'react-dom/client'
     import { MemoryRouter } from 'react-router-dom'
+    import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+    import { StatePanel } from './pages/change/StatePanel'
     import { ProjectListRow } from './ProjectListRow'
     import { DailyChart } from './pages/Usage'
     import { Disclosure } from './Popover'
@@ -49,7 +51,7 @@ const fixture = await build({
         <LibraryRows><LibraryRow name="Short policy" to="/policies/short" /><LibraryRow name={long} to="/policies/long" /></LibraryRows>
         <DailyChart days={Array.from({length:90},(_,i)=>new Date(Date.UTC(2026,7,i+1)).toISOString().slice(0,10))} perDay={new Map([['2026-10-29',{step:100,console:50,other:10,cost:0}]])} />
         <SplitButton compact icon="" label="Change" onMain={()=>{document.body.dataset.main='yes'}} items={[{label:'Catalog change',hint:'Choose a prepared change'}]} />
-        <div className="ch-page" style={{paddingInline:6}}><ChangeTabs /></div>
+        <div className="ch-page" style={{paddingInline:6}}><ChangeTabs /><QueryClientProvider client={new QueryClient()}><StatePanel view={{change:{id:"change",number:9,title:"Winter rides",state:"shipped"},waitingOn:{kind:"closed",says:"landed",tone:"ok"},goesTo:{branch:"main",deployments:[]},checks:{tone:"ok",text:"4 passed, 1 skipped: Dependency scan",started:true},next:[]}} /></QueryClientProvider></div>
         <div className="row console-head" style={{marginBottom:8}}><h1 style={{margin:0}}>Project chat</h1><span className="badge here">questions &amp; setup</span><span className="console-head-space" style={{flex:1}} /><AgentActivity connected busy={false} /><div className="head-menu"><button aria-label="Chat menu">⋯</button></div></div>
         <div className="ch-decision-choices"><button>Accept</button><button>Send back…</button><button>Abandon change</button></div>
         <section><ListRow identity={long} state="Waiting for you" action={<><button>Review change</button><MoreMenu label="Project" items={[{label:'Archive project',hint:'Keep its history'}]} /></>} /></section>
@@ -413,6 +415,8 @@ try {
     await page.setViewportSize({ width, height: 844 })
     for (const size of ['small', 'medium', 'large']) {
       await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
+      assert.ok(await page.locator('.ch-headline').evaluate(el => { const range = document.createRange(); range.selectNodeContents(el); return range.getClientRects().length === 1 }), `headline words stay whole at ${width}, ${size}`)
+      if (width === 390) assert.ok(await page.locator('.ch-state-head').evaluate(el => el.querySelector('.ch-shield').getBoundingClientRect().top >= el.querySelector('.ch-headline').getBoundingClientRect().bottom), `shield sits below headline at ${width}, ${size}`)
       assert.equal(await page.locator('.ch-tabs').evaluate(strip => new Set([...strip.children].map(tab => Math.round(tab.getBoundingClientRect().top))).size), 1, `change tabs stay on one row at ${width}, ${size}`)
       // The current tab is always wholly in view, whether or not the row scrolls.
       for (const label of ['Overview', 'Details', 'Overview']) {

@@ -2,20 +2,20 @@
 /* The change page keeps its headings and tab strip on the page. */
 .ch-page .ch-head { border-bottom: 0; padding-bottom: 0; }
 .ch-page .ch-byline { font-size: var(--fs-sm); color: var(--muted); font-family: var(--font-sans); }
-
 /* The state panel uses amber only for the viewer’s turn.
    Unknown keeps its dashed edge so it never reads as a settled state. */
 .ch-page section.ch-state { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-section); padding: 16px; box-shadow: none; display: flex; flex-direction: column; gap: 12px; }
 .ch-page section.ch-state.tone-unknown { border-style: dashed; border-color: var(--unknown); }
-.ch-page .ch-state-head { gap: 10px; flex-wrap: nowrap; align-items: flex-start; }
-.ch-page .ch-state-head .ch-dot { margin-top: 0.6em; width: 10px; height: 10px; }
+.ch-page .ch-state-head { gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+.ch-page .ch-state-head .ch-headline { overflow-wrap: normal; word-break: normal; }
+@media (width <= 600px) { .ch-page .ch-state-head .ch-shield { flex-basis: 100%; margin-left: 0; } }
+.ch-page .ch-state-head .ch-dot { flex-shrink: 0; margin-top: 0.6em; width: 10px; height: 10px; }
 .ch-page .ch-state-body, .ch-page .ch-quiet { padding-left: 0; }
 .ch-page .ch-quiet { border-top: 0; padding-top: 0; gap: 4px 8px; flex-wrap: wrap; }
 .ch-page section.ch-state button.subtle { padding-left: 0; padding-right: 0; margin-right: 12px; color: var(--muted); }
 .ch-page section.ch-state button.subtle:hover { color: var(--text); border-color: transparent; text-decoration: underline; }
 .ch-page .ch-quiet select { font-size: var(--fs-sm); }
 .ch-page .ch-primary { flex-wrap: wrap; }
-
 /* What failed: a section, its findings on the panel. */
 .ch-page .ch-verdict { padding: 12px 0; margin: 0; border-bottom: 1px solid var(--border); }
 .ch-page .ch-verdict:last-child { border-bottom: 0; }

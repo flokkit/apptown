@@ -11,7 +11,7 @@ import { ReadStatus, StaleNote } from '../../ReadGate'
 import type { ReleaseListed } from '../../wire.gen'
 import { fmtDuration, fmtStamp } from '../../format'
 import '../change/deploy-scene.css'
-import { DeployScene, deployWords } from '../change/DeployScene'
+import { DeployScene, deployWords, releaseProgress } from '../change/DeployScene'
 import { Status } from '../../Status'
 import { Section } from '../../Section'
 import './deployment-deploys.css'
@@ -116,13 +116,11 @@ function LatestDeployLine({ slug, release: r }: { slug: string; release: Release
 
 function ReleaseDeploy({ slug, release: r, url, current, progressCurrent, stopped }: { slug: string; release: ReleaseListed; url?: string; current: boolean; progressCurrent: boolean; stopped?: boolean }) {
   const ready = stopped && r.state === 'released'
-  const releasing = r.state === 'releasing'
-  const uncertain = releasing && (!progressCurrent || r.progressUncertain)
-  const running = releasing && !uncertain, passed = !stopped && r.state === 'released'
+  const { uncertain, running, passed, outcome } = releaseProgress(r, progressCurrent, stopped)
   const duration = r.releasedAt ? Date.parse(r.releasedAt) - Date.parse(r.createdAt) : undefined
   return <div className="ch-deploy-result">
     <div className="ch-deploy-heading"><strong className={passed ? 'ok' : undefined}>{ready ? `Release ${r.number} is ready to start` : passed ? "It's live!" : uncertain ? 'Deployment progress uncertain' : running ? 'Deploying' : r.state === 'waiting for approval' ? 'Waiting for approval' : r.state === 'cancelled' ? 'Release cancelled' : r.state === 'superseded' ? 'Release superseded' : r.state === 'failed' ? 'Deploy failed' : 'Deploy stopped'}</strong>{passed && <span> Release {r.number}</span>}</div>
-    <DeployScene stage={r.stage ?? r.lastStage} failedStage={r.failedStage} buildElapsedMs={r.stage === 'building' ? r.stageElapsedMs ?? undefined : undefined} outcome={running ? 'running' : uncertain || ready || r.state === 'waiting for approval' || r.state === 'cancelled' || r.state === 'superseded' ? 'paused' : passed ? 'passed' : 'failed'} compactStages />
+    <DeployScene stage={r.stage ?? r.lastStage} failedStage={r.failedStage} buildElapsedMs={r.stage === 'building' ? r.stageElapsedMs ?? undefined : undefined} outcome={outcome} compactStages />
     <ReleaseApprovalActions slug={slug} release={r} decision={r.decision} current={current} />
     <div className="ch-deploy-result-facts">
       {uncertain && <p className="ch-deploy-progress">{(r.stage ?? r.lastStage) ? `Last seen: ${deployWords[(r.stage ?? r.lastStage)!]} · ` : ''}{r.progressUncertain ? r.interruptedByRestart ? 'Interrupted by a restart — checking.' : 'Deployment interrupted; being checked.' : 'Current progress is unknown until releases can be read again.'}</p>}

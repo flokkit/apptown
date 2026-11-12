@@ -285,6 +285,32 @@ func (s *Deployments) ForProject(ctx context.Context, projectID ids.ID) ([]*Depl
 	return out, nil
 }
 
+// MainDestination describes the current standing feed, not a release promise.
+type MainDestination struct {
+	Name         string `json:"name"`
+	DisplayLabel string `json:"displayLabel"`
+	TargetLabel  string `json:"targetLabel"`
+	Audience     string `json:"audience"`
+}
+
+// FollowingMain uses the landing release selection, excluding previews and other feeds.
+func (s *Deployments) FollowingMain(ctx context.Context, projectID ids.ID) ([]MainDestination, error) {
+	q := deploymentsql.New(s.db.SQL())
+	rows, err := q.MainDeployments(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]MainDestination, 0, len(rows))
+	for _, row := range rows {
+		target, err := q.TargetByID(ctx, row.TargetID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, MainDestination{Name: row.Name, DisplayLabel: row.DisplayLabel, TargetLabel: target.DisplayLabel, Audience: row.Audience})
+	}
+	return out, nil
+}
+
 // lockDeploymentRecordIn reads a deployment under its row lock inside a caller's
 // transaction: the serialization point for admission and outcomes.
 func lockDeploymentRecordIn(ctx context.Context, tx *database.Tx, id ids.ID) (*Deployment, error) {

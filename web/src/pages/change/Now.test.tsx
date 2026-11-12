@@ -6,6 +6,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { expect, it, vi } from 'vitest'
 import type { ChangeView, Step } from '../../api'
 import { getKey, newQueryClient } from '../../data'
+import { fmtStamp } from '../../format'
 import { Now } from './Now'
 import { ContinueDecision, TurnDecision } from './Turn'
 
@@ -49,7 +50,7 @@ it('names work, keeps later stages out, and distinguishes pending deployment fro
  const text = html(v)
  expect(text).toContain('Work — step 2 of 2')
  expect(text).toContain('Agent finished')
- expect(text).toContain('Waiting to build')
+ expect(text).toContain('waiting for a free slot')
  expect(text).not.toContain('future')
  v.detail!.steps[1].status = 'pass'
  expect(html(v)).toContain('Accepted work built')
@@ -173,4 +174,26 @@ it('uses the owner’s failed verdict when a standards gate allowed existing fai
  const el = document.createElement('div'); el.innerHTML = html(v)
  expect(el.querySelector('[aria-label="failed"]')?.textContent).toBe('✗')
  expect(el.querySelector('.ok')).toBeNull()
+})
+
+it('uses stage step start times and ticks running durations', async () => {
+ vi.useFakeTimers()
+ vi.setSystemTime(new Date('2026-11-04T01:04:12Z'))
+ const v = view(), s = step('scan', 'scan', 'running')
+ v.detail!.run.createdAt = '2026-11-03T00:00:00Z'
+ v.detail!.steps = [s]
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<QueryClientProvider client={client}><Now view={v} /></QueryClientProvider>))
+  expect(el.querySelector('.ch-now > p')?.textContent).toBe(`Started ${fmtStamp(at)}`)
+  expect(el.querySelector('.ch-now > p')?.textContent).toContain('Started')
+  expect(el.textContent).toContain('4m 12s')
+  await act(async () => vi.advanceTimersByTime(1000))
+  expect(el.textContent).toContain('4m 13s')
+  s.status = 'pending'; s.startedAt = ''
+  v.waitingOn = {...v.waitingOn, step:s.id, says:'building · waiting for a free slot'}
+  await act(async () => root.render(<QueryClientProvider client={client}><Now view={{...v}} /></QueryClientProvider>))
+  expect(el.querySelector('.ch-now > p')).toBeNull()
+  expect(el.textContent).toContain('waiting for a free slot')
+ } finally { act(() => root.unmount()); client.clear(); vi.useRealTimers() }
 })

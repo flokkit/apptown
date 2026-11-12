@@ -255,6 +255,7 @@ export type ChangeBoard = {
 }
 
 export type ChangeCockpit = {
+  goesTo: ChangeDestination
   checks: ChecksSummary
   waitingOn: WaitingOn
   notesDiff?: Diff | null
@@ -289,6 +290,13 @@ export type ChangePreview = {
 }
 
 export type ChangeRelease = {
+  stage?: DeployStage
+  lastStage?: DeployStage
+  failedStage?: DeployStage
+  stageElapsedMs?: number | null
+  progressUncertain: boolean
+  url?: string
+  hostOnly: boolean
   statusLabel: ReleaseLabel
   failure?: string
   number: number
@@ -2686,6 +2694,11 @@ export type BoardColumn = {
   items: ChangeSummary[]
 }
 
+export type ChangeDestination = {
+  branch: string
+  deployments: MainDestination[]
+}
+
 export type ChecksSummary = {
   tone: string
   text: string
@@ -2777,6 +2790,8 @@ export type MainConflict = {
   files: string[]
   catchUp: string
 }
+
+export type DeployStage = "preparing" | "backing-up" | "building" | "starting" | "checking" | "live"
 
 export type ReleaseLabel = "deploying" | "deployed" | "failed" | "waiting for approval" | "cancelled" | "superseded"
 
@@ -4369,8 +4384,6 @@ export type ReleaseBundleView = {
   init: Record<string, string>
 }
 
-export type DeployStage = "preparing" | "backing-up" | "building" | "starting" | "checking" | "live"
-
 export type ReleaseApproval = {
   actor: StandingActor
   at: string
@@ -5020,6 +5033,13 @@ export type ChangeSummary = {
   stage: string
   runStatus: RunState | ""
   workflowName: string
+}
+
+export type MainDestination = {
+  name: string
+  displayLabel: string
+  targetLabel: string
+  audience: string
 }
 
 export type Decider = {

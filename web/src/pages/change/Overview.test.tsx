@@ -31,17 +31,18 @@ const id = '00000000-0009-7000-8000-000000000000'
 const step = (type: Step['type'], status = 'pass', evidence = {}, extra = {}) => ({ id: type, runId: 'run', stage: 'check', name: type, type, status, statusLabel: status === 'pass' ? 'passed' : status, isCheck: ['script','tests','scan','guidance/conformance','agent/review','scm/merged'].includes(type), checkAttention: type !== 'approval' && (!['pass','not_applicable'].includes(status) || type === 'tests'), config: {}, evidence, overrideBy: '', overrideReason: '', ...extra } as Step)
 const approval = step('approval', 'pending', {}, { config: { means: 'I accept this work in full.', instructions: 'Read every check.' } })
 const view = (): ChangeView => ({
+  goesTo: { branch: 'main', deployments: [] },
   waitingOn: { kind: 'approval', says: 'ready for your approval', tone: 'warn', run: 'run', step: 'approval', checks: 0, who: [], you: 'yes' }, change: { id, number: 9, title: 'Winter rides', body: 'Show all the winter ride times.\nKeep the dinner invitation.', summary: 'Adds the winter ride calendar.', state: 'landing', createdAt: '2026-11-01T10:00:00Z', branch: 'change-9', baseSha: 'abc', editRevision: 0, openedBy: 'sam', type: 'feature' },
   checks: { tone: 'ok', text: 'All checks passed', started: true }, projectSlug: 'club', state: 'waiting on you', statusLabel: 'waiting for you',
   detail: { run: { id: 'run', number: 2, currentStage: 'check', status: 'running', statusLabel: 'working', workflowName: 'work', workflowVersion: 1, createdAt: '' },
     stages: ['check'], steps: [step('script'), step('agent/review', 'pass', { verdict: 'approve', summary: 'The calendar matches the request.' }), approval],
     next: [{ act: 'approve', stepId: approval.id }, { act: 'rework', stepId: 'agent' }], landingMeans: ['Merge and release the accepted work.'], events: [],
     artifacts: [{ id: 'record', runId: 'run', name: 'supporting report', kind: 'report', body: 'The complete report is retained.', ref: 'https://example.test/report', createdAt: '' }] },
-  evidence: { targets: [{ title: 'Every ride has a start time', block: 'calendar', check: 'ride-times', expects: 'All times are shown.' }], merged: false, releases: [], mergeLabel: 'not merged', inAdvance: { approver: 'sam', at: '', shown: ['Acceptance recorded in advance.'] } },
+  evidence: { targets: [{ title: 'Every ride has a start time', block: 'calendar', check: 'ride-times', expects: 'All times are shown.' }], merged: false, landingReleases: [], releases: [], mergeLabel: 'not merged', inAdvance: { approver: 'sam', at: '', shown: ['Acceptance recorded in advance.'] } },
   approval: { stepId: approval.id, viewer: 'yes' }, next: [{ act: 'abandon' }], runs: [], adrs: [], editing: 0, commits: [], diffstat: '5 files changed, 35 insertions(+), 15 deletions(-)', usage: { total: 1200, costMicros: 1000 }, committedDiff: { status: 'changed' },
 } as unknown as ChangeView)
 const featureClient = () => { const client = newQueryClient(); client.setQueryData(getKey('/features'), enabledFeatures); return client }
-const render = (v: ChangeView) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={featureClient()}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
+const render = (v: ChangeView, client = featureClient()) => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
 afterEach(() => { vi.unstubAllGlobals(); vi.stubGlobal('IntersectionObserver', Observer); vi.stubGlobal('ResizeObserver', Observer) })
 
 it('leads with the preview, separates request from report and links every evidence row', () => {
@@ -281,12 +282,12 @@ it.each([[true, true], [true, false], [false, true], [false, false]])('states ac
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
   for (let j = 0; j < 3; j++) await act(async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)) })
-  expect(el.textContent).toContain('Landing puts the change on main. Deployments update separately.')
+  expect(el.textContent).toContain('Goes tomain (no deployment follows main)')
   const label = 'Accept'
   expect(el.querySelector('#decision button')).toBeNull()
   expect(el.querySelector<HTMLElement>('#decision')!.hidden).toBe(true)
   await act(async () => el.querySelector<HTMLButtonElement>('.ch-turn-floater button')!.click())
-  expect(el.querySelector('dialog[open]')?.textContent).toContain('Landing puts the change on main. Deployments update separately.')
+  expect(el.querySelector('dialog[open]')?.textContent).toContain('Goes tomain (no deployment follows main)')
   expect(el.querySelector('dialog[open]')).not.toBeNull()
   expect(el.querySelector('dialog .decision-meaning')!.compareDocumentPosition(el.querySelector('dialog .ch-decision-choices')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(el.querySelector('dialog .decision-meaning')?.textContent).toContain('By accepting, you confirm: “I accept this work in full.”')
@@ -327,7 +328,7 @@ it('keeps acceptance independent of deployment reads', async () => {
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
   for (let j = 0; j < 3; j++) await act(async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)) })
-  expect(el.textContent).toContain('Deployments update separately.')
+  expect(el.textContent).toContain('Goes tomain (no deployment follows main)')
   expect(el.querySelector('.decision-form')).not.toBeNull()
   expect(el.textContent).not.toContain('This adds it to the app’s main version.')
   await act(async () => root.unmount()); client.clear()
@@ -350,7 +351,7 @@ it('uses two named cards and separates the fixed label, value and evidence colum
   const el = document.createElement('div'); el.innerHTML = render(view())
   expect(el.querySelector('.ch-change-card')?.getAttribute('aria-label')).toBe('The change')
   expect([...el.querySelectorAll('.ch-overview > section > h2')].map(e => e.textContent)).toEqual(['Your decision'])
-  expect([...el.querySelectorAll('.ch-change-card .ch-row-label')].map(e => e.textContent)).toEqual(['Preview', 'You asked', 'What was made', 'Checks', 'Goes live', 'Reviewer', 'Release'])
+  expect([...el.querySelectorAll('.ch-change-card .ch-row-label')].map(e => e.textContent)).toEqual(['Release', 'Preview', 'You asked', 'What was made', 'Checks', 'Goes to', 'Reviewer'])
   for (const row of el.querySelectorAll('.ch-change-card .ch-overview-line')) {
     expect(row.children).toHaveLength(3)
     expect(row.children[1].classList.contains('ch-value')).toBe(true)
@@ -828,18 +829,20 @@ function landingResult(status: 'pass' | 'fail') {
   v.detail!.next = []
   v.next = []
   v.runs = [{ ...v.detail!.run, role: 'landing' }] as ChangeView['runs']
-  v.evidence!.landingReleases = [{ number: 7, deployment: 'main', state: status === 'pass' ? 'released' : 'failed', failure: 'starting the app' }] as NonNullable<ChangeView['evidence']>['releases']
+  v.evidence!.landingReleases = [{ number: 7, deployment: 'main', statusLabel: status === 'pass' ? 'deployed' : 'failed', progressUncertain: false, hostOnly: false, state: status === 'pass' ? 'released' : 'failed', failure: 'starting the app' }] as NonNullable<ChangeView['evidence']>['releases']
   return v
 }
 
 // A landed change leads with its release; the preview of the landed commit
 // follows it rather than opening the overview.
 it('puts a shipped change\'s Release row before its Preview row', () => {
-  const el = document.createElement('div'); el.innerHTML = render(landingResult('pass'))
-  const labels = [...el.querySelectorAll('.ch-change-card .ch-overview-line .ch-row-label')].map(l => l.textContent)
-  expect(labels.indexOf('Release')).toBeGreaterThanOrEqual(0)
-  expect(labels.indexOf('Release')).toBeLessThan(labels.indexOf('Preview'))
-  expect(labels.filter(l => l === 'Release')).toHaveLength(1)
+  const v = landingResult('pass')
+  v.detail!.steps.push(step('preview', 'pass', { screenshots: { shots: [], unavailable: 'No capture was recorded.' } }, { id: 'boot', runId: 'preview-run' }))
+  const el = document.createElement('div'); el.innerHTML = render(v)
+  const panel = el.querySelector('[aria-label="Landing releases"]')!
+  const preview = [...el.querySelectorAll('.ch-row-label')].find(label => label.textContent === 'Preview')!
+  expect(panel.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(el.querySelector('#decision, dialog')).toBeNull()
 })
 
 // A change whose release went out is tried there: the Preview row keeps its
@@ -861,11 +864,12 @@ it('offers no preview to try once the change\'s release went out', () => {
 it.each(['pass', 'fail'] as const)('keeps an unheld %s landing in the fixed Release row without a scene', status => {
  const el = document.createElement('div'); el.innerHTML = render(landingResult(status))
  expect(el.querySelector('.ch-deploy-result')).toBeNull()
- const rows = [...el.querySelectorAll('.ch-change-card .ch-overview-line')]
- const row = rows.find(row => row.querySelector('.ch-row-label')?.textContent === 'Release')!
+ const row = el.querySelector('[aria-label="Landing releases"]')!
  expect(row).toBeDefined()
- expect(row.textContent).toContain(status === 'pass' ? 'Release 7 · live' : 'Deploy failed: starting the app')
- expect(row.querySelector('a')?.getAttribute('href')).toBe('/projects/club/releases/7')
+ expect(row.textContent).toContain(status === 'pass' ? 'deployed' : 'failed')
+ expect(row.textContent).toContain('Release 7')
+ expect(row.querySelector('[aria-label="Deployment stages"]')).not.toBeNull()
+ expect(row.querySelector('a[href="/projects/club/releases/7"]')).not.toBeNull()
 })
 
 it('locks the page while a decision is open and restores styles on close and unmount', () => {
@@ -893,9 +897,10 @@ it('links the running Release row to its deployment without displaying a number 
  v.detail!.steps[0].status = 'running'
  v.waitingOn = { ...v.waitingOn, kind: 'work', you: 'no' }
  const el = document.createElement('div'); el.innerHTML = render(v)
- const row = [...el.querySelectorAll('.ch-overview-line')].find(row => row.querySelector('.ch-row-label')?.textContent === 'Release')!
- expect(row.textContent).toBe('ReleaseDeploying… · watch →')
- expect(row.querySelector('a')?.getAttribute('href')).toBe('/projects/club/releases/7')
+ const row = el.querySelector('[aria-label="Landing releases"]')!
+ expect(row.textContent).toContain('Release 7')
+ expect(row.querySelector('[aria-label="Deployment stages"]')).not.toBeNull()
+ expect(row.querySelector('a[href="/projects/club/releases/7"]')).not.toBeNull()
  expect(el.querySelector('.deploy-scene')).toBeNull()
 })
 
@@ -910,9 +915,9 @@ it('labels every approval fact, omits the internal step and keeps its meaning an
     await vi.waitFor(async () => { await act(async () => {}); expect(el.textContent).toContain('Adds the November newsletter.') })
     await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
     const dialog = el.querySelector('dialog')!
-    expect([...dialog.querySelectorAll('.ch-row-label')].map(row => row.textContent)).toEqual(['You asked', 'What it does', 'Checks', 'Goes live'])
+    expect([...dialog.querySelectorAll('.ch-row-label')].map(row => row.textContent)).toEqual(['You asked', 'What it does', 'Checks', 'Goes to'])
     const card = el.querySelector('.ch-change-card')!
-    for (const label of ['You asked', 'What it does', 'Checks', 'Goes live']) {
+    for (const label of ['You asked', 'What it does', 'Checks', 'Goes to']) {
       const value = (parent: Element) => {
         const cell = [...parent.querySelectorAll('.ch-overview-line')].find(row => row.querySelector('.ch-row-label')?.textContent === label)?.querySelector('.ch-value')?.cloneNode(true) as Element | undefined
         cell?.querySelectorAll('.ch-technical').forEach(e => e.remove())
@@ -923,7 +928,7 @@ it('labels every approval fact, omits the internal step and keeps its meaning an
     }
     expect(dialog.querySelector('.ch-accept-rows')?.textContent).not.toContain(v.change.body)
     expect(dialog.querySelector('a[href$="/records/request"]')?.textContent).toBe('full request →')
-    expect(dialog.textContent).toContain('Landing puts the change on main. Deployments update separately.')
+    expect(dialog.textContent).toContain('Goes tomain (no deployment follows main)')
     expect(dialog.textContent).not.toContain('· accept')
     expect(dialog.textContent).toContain('By accepting, you confirm: “I accept this work in full.”')
     expect([...dialog.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept', 'Send back…', 'Abandon change'])
@@ -996,12 +1001,13 @@ it('keeps acceptance on the change while deployment runs separately', async () =
 it.each(['waiting for approval', 'cancelled', 'superseded'] as const)('keeps a landed change release truthful while %s', state => {
  const v = landingResult('pass')
  v.evidence!.landingReleases![0].state = state
+ v.evidence!.landingReleases![0].statusLabel = state
  v.evidence!.landingReleases![0].deployment = 'production'
  const el = document.createElement('div'); el.innerHTML = render(v)
- const row = [...el.querySelectorAll('.ch-overview-line')].find(row => row.querySelector('.ch-row-label')?.textContent === 'Release')!
+ const row = el.querySelector('[aria-label="Landing releases"]')!
  expect(row.textContent?.toLowerCase()).toContain(state)
  expect(row.textContent).not.toContain('live')
- if (state === 'waiting for approval') expect(row.querySelector('a')?.getAttribute('href')).toBe('/projects/club/deployments/production')
+ expect(row.querySelector('a[href="/projects/club/deployments/production"]')).not.toBeNull()
 })
 
 it('keeps legacy step selectors from reopening evidence inside the timeline', async () => {
@@ -1031,15 +1037,30 @@ it('links preview logs only when a preview was recorded', () => {
 // The screenshots sentence speaks of a preview a run recorded; with no
 // preview step in the runs shown, the row says that instead of denying
 // screenshots of a preview no run made.
-it('says the latest run recorded no preview rather than missing screenshots', () => {
-  const html = render(view())
-  expect(html).toContain('The latest run recorded no preview.')
-  expect(html).not.toContain('No screenshots were recorded for this preview.')
-  const v = view()
-  v.detail!.steps.push(step('preview', 'pass', {}, {id: 'boot'}))
-  const recorded = render(v)
-  expect(recorded).toContain('No screenshots were recorded for this preview.')
-  expect(recorded).not.toContain('The latest run recorded no preview.')
+it('says no preview only after a successful live none reading', async () => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/preview') ? {state:'none'} : {})))))
+  const client = featureClient(), el = document.createElement('div'), root = createRoot(el), v = view()
+  const draw = () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
+  try {
+    expect(render(v)).not.toContain('The latest run recorded no preview.')
+    await act(async () => draw())
+    await vi.waitFor(() => expect(el.textContent).toContain('The latest run recorded no preview.'))
+    v.detail!.steps.push(step('preview', 'pass', {}, {id: 'boot'}))
+    await act(async () => draw())
+    expect(el.textContent).toContain('No screenshots were recorded for this preview.')
+    expect(el.textContent).not.toContain('The latest run recorded no preview.')
+    expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/preview'))).toHaveLength(1)
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response('failed', {status:503}))))
+    await act(async () => { await client.invalidateQueries({queryKey:getKey(`/changes/${id}/preview`)}) })
+    await vi.waitFor(() => expect(el.textContent).not.toContain('No screenshots were recorded'))
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response(JSON.stringify({state:'live',url:'https://preview.example.test'})))))
+    await act(async () => { await client.invalidateQueries({queryKey:getKey(`/changes/${id}/preview`)}) })
+    await vi.waitFor(() => expect(el.textContent).not.toContain('No screenshots were recorded'))
+    await vi.waitFor(() => expect(el.textContent).toContain('Open it and try it'))
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response('failed', {status:503}))))
+    await act(async () => { await client.invalidateQueries({queryKey:getKey(`/changes/${id}/preview`)}) })
+    await vi.waitFor(() => expect(el.textContent).not.toContain('No screenshots were recorded'))
+  } finally { act(() => root.unmount()); client.clear() }
 })
 
 it('retains the preview run in the logs link', () => {
@@ -1070,4 +1091,57 @@ it('links the code by its change size, not its short commit', () => {
   const el = document.createElement('div'); el.innerHTML = render(v)
   const code = [...el.querySelectorAll('a')].find(a => a.getAttribute('href')?.endsWith('?tab=changes'))!
   expect(code.textContent).toBe('5 files +35 −15 · code →')
+})
+
+it('closes the decision when a successful poll reports the change shipped', async () => {
+ const v = view(), client = featureClient(), el = document.createElement('div'), root = createRoot(el)
+ vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response('{}'))))
+ const draw = (value: ChangeView) => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={value} current steps={value.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
+ try {
+  await act(async () => draw(v))
+  await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
+  expect(el.querySelector('dialog[open]')).not.toBeNull()
+  await act(async () => draw(landingResult('pass')))
+  expect(el.querySelector('dialog, #decision')).toBeNull()
+  expect(el.querySelector('[aria-label="Landing releases"]')).not.toBeNull()
+  expect(el.textContent).not.toContain('Next steps')
+ } finally { act(() => root.unmount()); client.clear() }
+})
+
+
+it('omits the release panel before landing and labels it once landing starts', () => {
+  const v = view(); v.change.state = 'in_progress'
+  let el = document.createElement('div'); el.innerHTML = render(v)
+  expect(el.querySelector('[aria-label="Landing releases"]')).toBeNull()
+  v.change.state = 'landing'
+  el = document.createElement('div'); el.innerHTML = render(v)
+  const panel = el.querySelector('[aria-label="Landing releases"]')!
+  expect(panel.closest('.ch-overview-line')?.querySelector('.ch-row-label')?.textContent).toBe('Release')
+})
+
+it('a released change keeps its Preview row as unknown when the preview cannot be read, first or on refresh', async () => {
+  const v = landingResult('pass'), client = featureClient(), el = document.createElement('div'), root = createRoot(el)
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => String(url).endsWith('/preview') ? new Response(JSON.stringify({error:'Preview could not be read.'}), {status:500}) : new Response('{}'))))
+  const preview = () => [...el.querySelectorAll('.ch-overview-line')].find(row => row.querySelector('.ch-row-label')?.textContent === 'Preview')
+  try {
+    await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
+    await vi.waitFor(() => expect(preview()?.textContent).toContain('unknown'))
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => String(url).endsWith('/preview') ? new Response(JSON.stringify({state:'cold'})) : new Response('{}'))))
+    await act(async () => { await client.invalidateQueries({queryKey:getKey(`/changes/${id}/preview`)}) })
+    await vi.waitFor(() => expect(preview()).toBeUndefined())
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response(JSON.stringify({error:'Preview could not be read.'}), {status:400}))))
+    await act(async () => { await client.invalidateQueries({queryKey:getKey(`/changes/${id}/preview`)}) })
+    await vi.waitFor(() => expect(preview()?.textContent).toContain('unknown'))
+  } finally { act(() => root.unmount()); client.clear() }
+})
+
+it('a released change without screenshots has no empty Preview row; its Release row offers the app', async () => {
+  const v = landingResult('pass'), client = featureClient(), el = document.createElement('div'), root = createRoot(el)
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => String(url).endsWith('/preview') ? new Response(JSON.stringify({state:'cold'})) : new Response('{}'))))
+  try {
+    await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
+    const labels = [...el.querySelectorAll('.ch-overview-line .ch-row-label')].map(l => l.textContent)
+    expect(labels).not.toContain('Preview')
+    expect(labels).toContain('Release')
+  } finally { act(() => root.unmount()); client.clear() }
 })

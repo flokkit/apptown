@@ -1,3 +1,4 @@
+import { GoesTo } from './change/GoesTo'
 import { AgentActionsSwitch, useAgentActions } from '../AgentActions'
 import { ChangeStatus } from '../Status'
 import './Console.css'
@@ -139,6 +140,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           </div>
         </FormMenu>
       </div>
+      {shopId && change.data && <div className="small muted"><GoesTo view={change.data} /></div>}
       {/* Which chats exist: until it is read, nothing opens; a chat on the
           worker's save line already marks this same read when it is old. */}
       <ReadStatus q={list} what="this project's chats" />

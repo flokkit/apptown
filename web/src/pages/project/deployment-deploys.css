@@ -21,9 +21,6 @@
 .deployment-deploy-card { --deploy-scene-width: 300px; height: 660px; overflow: auto; position: relative; padding: var(--space-5); }
 .deployment-deploy-card .ch-deploy-result { max-width: none; min-height: 380px; margin: 0; }
 .deployment-deploy-card .deploy-scene-panel { height: 150px; width: var(--deploy-scene-width); max-width: 100%; margin-inline: auto; }
-.deployment-deploy-card .deploy-stages-compact { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin: var(--space-3) 0 0; }
-.deployment-deploy-card .deploy-stages-compact li { display: flex; gap: var(--space-1); }
-.deployment-deploy-card .deploy-stages-compact small:empty { display: none; }
 .deployment-deploy-card .ch-deploy-heading { justify-content: flex-start; align-items: baseline; flex-wrap: wrap; }
 .deployment-deploy-card .ch-deploy-heading > strong { font-size: var(--fs-lg); }
 .deployment-deploy-card .ch-deploy-heading > strong.ok { color: var(--ok); }
@@ -39,11 +36,6 @@
 @media (width <= 800px) {
   .deployment-deploy-card { height: auto; overflow: visible; padding-inline: 0; border-bottom: 0; }
   .deployment-deploy-card .ch-deploy-result { min-height: 0; }
-  .deployment-deploy-card .deploy-stages-compact { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  /* A stage's word and its note ("stopped") keep their words whole; the note
-     goes under the word when the column is too narrow for both. */
-  .deployment-deploy-card .deploy-stages-compact li { flex-wrap: wrap; min-width: 0; }
-  .deployment-deploy-card .deploy-stages-compact li > * { white-space: nowrap; }
 }
 
 @media not all and (max-width: 800px) {

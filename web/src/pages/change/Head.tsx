@@ -1,3 +1,4 @@
+import { GoesTo } from './GoesTo'
 import { ListRow } from '../../ListRow'
 import { ListTable } from '../../ListTable'
 import { WaitingStatus } from '../../Approvers'
@@ -69,7 +70,9 @@ export function ChangeHeader({ view, compact }: { view: ChangeView; compact?: bo
           shortDiffstat(view.diffstat),
           ch.externalRef,
         ].filter(Boolean).join(' · ')}
+        <GoesTo view={view} />
       </div>}
+      {compact && <div className="ch-byline"><GoesTo view={view} /></div>}
     </header>
   )
 }

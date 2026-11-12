@@ -97,6 +97,7 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 	}
 	var pendingAgent, pendingWork, pendingApproval, failing, rechecking string
 	var pendingApprovalID ids.ID
+	var queuedStep *workflowActivityStep
 	reworked := latestAgentWork(run.steps)
 	prerequisitesSettled := true
 	var held *workflowActivityStep
@@ -148,11 +149,13 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 			if !ready {
 				continue
 			}
-			if step.kind != "agent/review" {
+			if step.kind != "agent/review" && queuedStep == nil {
 				pendingAgent = step.name
 			}
 			if wait != nil {
-				if binding, ahead, waiting := wait(step.id); waiting {
+				if binding, ahead, waiting := wait(step.id); waiting && queuedStep == nil {
+					queued := step
+					queuedStep = &queued
 					pendingAgent = step.name + " — " + slotWaitWords(binding, ahead)
 				}
 			}
@@ -167,7 +170,7 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 		}
 	}
 	if pendingAgent != "" {
-		return Activity{State: activityQueued, Detail: pendingAgent}, nil
+		return Activity{State: activityQueued, Detail: pendingAgent, holdingStep: queuedStep}, nil
 	}
 	// Only work whose prerequisites permit dispatch counts as the next work.
 	if pendingWork != "" {

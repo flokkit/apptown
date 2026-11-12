@@ -1,3 +1,4 @@
+import { Elapsed } from '../../Elapsed'
 import { ListRow } from '../../ListRow'
 import './list-records.css'
 import { usePageName } from '../../chrome'
@@ -242,7 +243,7 @@ function CheckRow({ entry, technical, reload, preview }: { entry: StoryEntry; te
       {na && <TechnicalWords shown={technical}>{checkResult(s)}</TechnicalWords>}
       {!na && !s.overrideBy && ['fail', 'error', 'needs_human'].includes(s.status) && !!s.evidence.actions?.length && <p className="ch-story-reason">To satisfy this check: {s.evidence.actions?.join(' ')}</p>}
     </td>
-    <td className="ch-check-duration">{duration != null && `${Math.round(duration / 1000)}s`}</td>
+    <td className="ch-check-duration">{s.status === 'running' && s.startedAt ? <Elapsed startedAt={s.startedAt} /> : duration != null && `${Math.round(duration / 1000)}s`}</td>
     <td className="ch-check-actions"><div className="ch-check-links"><EvidenceLink id={`entry-${entry.key}`} runId={entry.detail.run.id!}>details</EvidenceLink>{entry.actionStep && <StepActions step={entry.actionStep} onChange={reload} />}</div></td>
   </tr>
 
