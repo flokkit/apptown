@@ -37,9 +37,6 @@ type standingPresence interface {
 }
 type StandingValidation struct {
 	Image             string `json:"image"`
-	Node              string `json:"node"`
-	NPM               string `json:"npm"`
-	Platform          string `json:"platform"`
 	ReportDigest      string `json:"reportDigest"`
 	ScratchSettlement string `json:"scratchSettlement"`
 }
@@ -53,23 +50,7 @@ type StandingImageObservation struct {
 	ReportDigest      string `json:"reportDigest"`
 	ScratchSettlement string `json:"scratchSettlement"`
 }
-type StandingAdvisoryFix struct {
-	ID         string `json:"id"`
-	Source     string `json:"source"`
-	Modified   string `json:"modified"`
-	BodyDigest string `json:"bodyDigest"`
-	Package    string `json:"package"`
-	Before     string `json:"before"`
-	After      string `json:"after"`
-}
-type StandingAdvisoryObservation struct {
-	Status string                `json:"status"`
-	Reason string                `json:"reason"`
-	Fixes  []StandingAdvisoryFix `json:"fixes"`
-}
 type StandingInspection struct {
-	Advisories *StandingAdvisoryObservation `json:"advisories,omitempty"`
-
 	Images []StandingImageObservation `json:"images,omitempty"`
 
 	Classification string              `json:"classification"`

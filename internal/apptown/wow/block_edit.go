@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/strs"
 )
 
@@ -21,6 +22,7 @@ type BlockPatch struct {
 	BodyMD *string              `json:"bodyMd"`
 	Tags   *string              `json:"tags"`
 	Checks *[]check.Declaration `json:"checks"`
+	Fixes  *[]fix.Declaration   `json:"fixes"`
 }
 
 var errStockBlock = fault.New(fault.Conflict, "an AppTown-shipped (stock) guidance block is read-only and auto-upgrades on release")
@@ -34,6 +36,15 @@ func (s *Service) EditBlock(ctx context.Context, id ids.ID, patch BlockPatch, ac
 			return nil, err
 		}
 		if err := s.checkAppliesToTools(*patch.Checks); err != nil {
+			return nil, err
+		}
+	}
+	if patch.Fixes != nil {
+		raw, err := json.Marshal(*patch.Fixes)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := fix.Parse(string(raw)); err != nil {
 			return nil, err
 		}
 	}
@@ -53,7 +64,7 @@ func (s *Service) EditBlock(ctx context.Context, id ids.ID, patch BlockPatch, ac
 				return err
 			}
 		}
-		if patch.BodyMD != nil || patch.Checks != nil {
+		if patch.BodyMD != nil || patch.Checks != nil || patch.Fixes != nil {
 			current, err := q.BlockVersion(ctx, wowsql.BlockVersionParams{BlockID: id, Version: held.LatestVersion})
 			if err != nil {
 				return err
@@ -84,8 +95,15 @@ func (s *Service) EditBlock(ctx context.Context, id ids.ID, patch BlockPatch, ac
 			if err != nil {
 				return err
 			}
-			if body != current.BodyMd || !bytes.Equal(priorChecks, nextChecks) {
-				if err := bumpBlockIn(ctx, tx, held, body, string(nextChecks), actor, now); err != nil {
+			nextFixes := current.FixesJson
+			if patch.Fixes != nil {
+				nextFixes, err = json.Marshal(*patch.Fixes)
+				if err != nil {
+					return err
+				}
+			}
+			if body != current.BodyMd || !bytes.Equal(priorChecks, nextChecks) || !bytes.Equal(current.FixesJson, nextFixes) {
+				if err := bumpBlockIn(ctx, tx, held, body, string(nextChecks), string(nextFixes), actor, now); err != nil {
 					return err
 				}
 			}
@@ -105,7 +123,7 @@ func (s *Service) EditBlock(ctx context.Context, id ids.ID, patch BlockPatch, ac
 
 // bumpBlockIn records the block's next version, stamped at (the owner's
 // clock: adoptions resolve blocks as of their own time by it).
-func bumpBlockIn(ctx context.Context, tx *database.Tx, r wowsql.GuidanceBlock, body, checks, who string, at time.Time) error {
+func bumpBlockIn(ctx context.Context, tx *database.Tx, r wowsql.GuidanceBlock, body, checks, fixes, who string, at time.Time) error {
 	if _, _, err := SplitContext(body); err != nil {
 		return err
 	}
@@ -114,7 +132,7 @@ func bumpBlockIn(ctx context.Context, tx *database.Tx, r wowsql.GuidanceBlock, b
 	}
 	q := wowsql.New(tx.SQL())
 	next := r.LatestVersion + 1
-	if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(at.UTC()), BlockID: r.ID, Version: next, Body: body, Checks: []byte(checks), At: at.UTC(), Source: authoredHere.Source, Signer: authoredHere.Signer}); err != nil {
+	if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(at.UTC()), BlockID: r.ID, Version: next, Body: body, Checks: []byte(checks), Fixes: []byte(fixes), At: at.UTC(), Source: authoredHere.Source, Signer: authoredHere.Signer}); err != nil {
 		return err
 	}
 	if err := oneEdit(q.AdvanceBlockVersion(ctx, wowsql.AdvanceBlockVersionParams{ID: r.ID, Version: next, At: at.UTC()})); err != nil {

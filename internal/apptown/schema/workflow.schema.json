@@ -185,7 +185,9 @@
                         "agent/review",
                         "guidance/conformance",
                         "tests",
-                        "reconcile"
+                        "reconcile",
+                        "fix",
+                        "routine"
                       ]
                     },
                     "with": {
@@ -249,7 +251,11 @@
                               "docker": {},
                               "mayChangeNothing": {},
                               "output": {},
-                              "timeoutMinutes": {}
+                              "timeoutMinutes": {},
+                              "repairRounds": {
+                                "type": "integer",
+                                "minimum": 1
+                              }
                             }
                           }
                         }
@@ -543,8 +549,66 @@
                             "additionalProperties": false,
                             "properties": {
                               "workflow": {},
-                              "with": {}
+                              "with": {},
+                              "whenFailed": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "findings": {
+                                "const": "fixable"
+                              }
                             }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "fix"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {
+                                "$comment": "fix-kind"
+                              },
+                              "for": {
+                                "const": "findings"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "routine"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {}
                           }
                         }
                       }
@@ -581,7 +645,9 @@
                         "agent/review",
                         "guidance/conformance",
                         "tests",
-                        "reconcile"
+                        "reconcile",
+                        "fix",
+                        "routine"
                       ]
                     },
                     "with": {
@@ -645,7 +711,11 @@
                               "docker": {},
                               "mayChangeNothing": {},
                               "output": {},
-                              "timeoutMinutes": {}
+                              "timeoutMinutes": {},
+                              "repairRounds": {
+                                "type": "integer",
+                                "minimum": 1
+                              }
                             }
                           }
                         }
@@ -939,8 +1009,66 @@
                             "additionalProperties": false,
                             "properties": {
                               "workflow": {},
-                              "with": {}
+                              "with": {},
+                              "whenFailed": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "findings": {
+                                "const": "fixable"
+                              }
                             }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "fix"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {
+                                "$comment": "fix-kind"
+                              },
+                              "for": {
+                                "const": "findings"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "uses": {
+                            "const": "routine"
+                          }
+                        },
+                        "required": [
+                          "uses"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "with": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {}
                           }
                         }
                       }

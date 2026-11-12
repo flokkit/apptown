@@ -286,6 +286,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/lanes", projectWorkflows.ProjectLanes, access.CapProjectRead, "project-slug").inArea("projects"),
 		requireRoute("GET /api/v1/projects/{slug}/schedules", projectSchedules.List, access.CapProjectRead, "project-slug").inArea("projects"),
 		requireRoute("GET /api/v1/projects/{slug}/scans", projectScans.List, access.CapProjectRead, "project-slug").inArea("projects"),
+		requireRoute("POST /api/v1/projects/{slug}/janitor/{queue}/skip", projectScans.Skip, access.CapChangeAbandon, "project-slug").inArea("projects"),
 		requireRoute("GET /api/v1/projects/{slug}/janitor/attempts", projectScans.Attempts, access.CapProjectRead, "project-slug").inArea("projects"),
 		requireRoute("GET /api/v1/instance-updates", instanceUpdates.Status, access.CapInstanceUpdates, "instance").inArea("updates"),
 		requireRoute("POST /api/v1/instance-updates/check", instanceUpdates.Check, access.CapInstanceUpdates, "instance").inArea("updates"),

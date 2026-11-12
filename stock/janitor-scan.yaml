@@ -19,3 +19,19 @@ spec:
         - name: scan-running
           uses: scan
           with: {on: running}
+        - name: fix
+          uses: workflow/call
+          with:
+            workflow: janitor-fix
+            whenFailed: [scan-source]
+            findings: fixable
+        - name: accept
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: I accept this dependency update and its application repairs after checking the evidence.
+            standing:
+              class: routine-update
+              means: The declared dependency update stays within the selected bound and every required check is met.
+      gate:
+        require: [fix, accept]

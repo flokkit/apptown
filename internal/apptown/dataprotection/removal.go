@@ -72,30 +72,30 @@ func (s *Service) takeDownActor(ctx context.Context, in RemoveDeployment, route 
 // at the target (data kept where there is no backup, and anything it failed
 // to delete), each also a retained-resources row.
 type removalResult struct {
-	Deleted       []string
-	Retained      []string
-	Left          []deploy.Left
-	Unconfirmed   []string
+	deleted       []string
+	retained      []string
+	left          []deploy.Left
+	unconfirmed   []string
 	providerError error
-	// FinalBackup is the set taken before the data was deleted; nil when
+	// finalBackup is the set taken before the data was deleted; nil when
 	// the deployment held no data AppTown backs up.
-	FinalBackup *FinalSet
+	finalBackup *FinalSet
 }
 
 func (r removalResult) detail() string {
 	words := []string{"no deletions confirmed"}
-	if len(r.Deleted) > 0 {
-		words[0] = "deleted (confirmed): " + strings.Join(r.Deleted, "; ")
+	if len(r.deleted) > 0 {
+		words[0] = "deleted (confirmed): " + strings.Join(r.deleted, "; ")
 	}
-	for _, l := range r.Left {
+	for _, l := range r.left {
 		name, _ := l.Handle["name"].(string)
 		if name == "" {
 			name, _ = l.Handle["id"].(string)
 		}
 		words = append(words, fmt.Sprintf("left: %s %s (%s)", l.What, name, l.Why))
 	}
-	if len(r.Unconfirmed) > 0 {
-		words = append(words, "not confirmed removed: "+strings.Join(r.Unconfirmed, "; "))
+	if len(r.unconfirmed) > 0 {
+		words = append(words, "not confirmed removed: "+strings.Join(r.unconfirmed, "; "))
 	}
 	return strings.Join(words, "; ")
 }
@@ -112,7 +112,7 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 	var final *Backup
 	defer func() {
 		if final != nil {
-			out.FinalBackup = &FinalSet{ID: final.ID, Bytes: final.Bytes}
+			out.finalBackup = &FinalSet{ID: final.ID, Bytes: final.Bytes}
 		}
 	}()
 	ask := func(done string) error {
@@ -239,7 +239,7 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 	if s.applied != nil {
 		s.applied(selected.TargetID)
 	}
-	out = removalResult{Deleted: taken.Deleted, Left: taken.Left}
+	out = removalResult{deleted: taken.Deleted, left: taken.Left}
 	if err != nil {
 		out.providerError = err
 		for _, o := range owned {
@@ -251,7 +251,7 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 				confirmed = confirmed || l.Handle["id"] == o.ID || l.Handle["name"] == o.Name && o.Name != ""
 			}
 			if !confirmed {
-				out.Unconfirmed = append(out.Unconfirmed, o.Label())
+				out.unconfirmed = append(out.unconfirmed, o.Label())
 			}
 		}
 		return out, fmt.Errorf("%s%s; %w (%s). Take it down again to carry on from here", finalDone(final), out.detail(), err, restartParts(ctx, parts))
@@ -260,7 +260,7 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 	// the teardown left, once each: the final copy's account of a volume
 	// (whether the set holds it) stands for the teardown's.
 	taken.Left = append(withoutLeft(taken.Left, kept), kept...)
-	out.Left = taken.Left
+	out.left = taken.Left
 	removedApp := "teardown finished; " + out.detail() + "; its keys and records were not removed: "
 	if err := ask(finalDone(final) + removedApp); err != nil {
 		return out, err
@@ -274,11 +274,11 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 		if err != nil {
 			return removalResult{}, err
 		}
-		out := removalResult{Deleted: taken.Deleted, Retained: retained, Left: taken.Left}
+		out := removalResult{deleted: taken.Deleted, retained: retained, left: taken.Left}
 		return out, nil
 	})
 	if err != nil {
-		out.Deleted, out.Left = taken.Deleted, taken.Left
+		out.deleted, out.left = taken.Deleted, taken.Left
 		detail := fmt.Sprintf("%steardown finished; %s; its records were not removed: %v.", finalDone(final), out.detail(), err)
 		if final != nil && target.DataAccess() == deployment.DataOnFlyMachines && len(taken.Left) == 0 {
 			detail += fmt.Sprintf(" Its data was deleted after set %d was taken. Taking it down again cannot take a new final copy. Set %d holds its data. Its records stay until a maintainer removes them by hand.", final.ID, final.ID)
@@ -355,11 +355,11 @@ func (s *Service) awaitTakeDown(ctx context.Context, op *operations.Operation) (
 	out := removalResult{}
 	switch deleted := done.Result["deleted"].(type) {
 	case []string:
-		out.Deleted = deleted
+		out.deleted = deleted
 	case []any:
 		for _, d := range deleted {
 			if text, ok := d.(string); ok {
-				out.Deleted = append(out.Deleted, text)
+				out.deleted = append(out.deleted, text)
 			}
 		}
 	}
@@ -370,7 +370,7 @@ func (s *Service) awaitTakeDown(ctx context.Context, op *operations.Operation) (
 		if err != nil {
 			return out, fmt.Errorf("its take-down (operation %d) ended verified, but its final copy, set %d, could not be read: %w", op.ID, id, err)
 		}
-		out.FinalBackup = &FinalSet{ID: final.ID, Bytes: final.Bytes}
+		out.finalBackup = &FinalSet{ID: final.ID, Bytes: final.Bytes}
 	}
 	return out, nil
 }

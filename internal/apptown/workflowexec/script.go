@@ -101,12 +101,28 @@ func (a *commands) RunScript(task *workflow.Execution) {
 		task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": err.Error()}, nil))
 		return
 	}
+	if step.Type == FixKind {
+		targets, err := runTargets(run)
+		if err == nil {
+			err = task.StartFix(targets)
+		}
+		if err != nil {
+			task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": err.Error()}, nil))
+			return
+		}
+	}
 	plan, err := a.planScript(task.Context(), step, run)
 	if err != nil {
 		task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": err.Error()}, nil))
 		return
 	}
 	defer plan.cleanup()
+	if step.Type == FixKind {
+		if plan.cfg.Run == "" {
+			task.Settle(workflow.EncodeOutcome(workflow.StatusNotApplicable, map[string]any{"reason": "no matching parts have targets to update"}, nil))
+			return
+		}
+	}
 	plan.folder = folder
 	if a.tasks != nil {
 		a.runScriptTask(task, step, run, plan)
@@ -155,6 +171,13 @@ func (a *commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 		ws, cleanup = staged, remove
 	}
 
+	if step.Type == FixKind {
+		cfg, err = a.fixScript(ctx, run, step, ws)
+		if err != nil {
+			cleanup()
+			return scriptPlan{}, err
+		}
+	}
 	image := cfg.Image
 	if image == "" {
 		image = a.cfg.Image
@@ -230,6 +253,9 @@ func (a *commands) settleScript(task *workflow.Execution, step *workflow.Step, r
 		}
 	} else if outcome.ExitCode > 0 {
 		status = workflow.StatusFail
+		if step.Type == FixKind && (outcome.ExitCode == 127 || outcome.ExitCode == 126) {
+			status = workflow.StatusError
+		}
 		exitCode = outcome.ExitCode
 		if strings.TrimSpace(log) == "" {
 			// The exit code is the verdict; what the script printed did
@@ -247,6 +273,9 @@ func (a *commands) settleScript(task *workflow.Execution, step *workflow.Step, r
 		"durationMs": took.Milliseconds(),
 		"command":    plan.cfg.Run,
 		"executor":   execution.Docker,
+	}
+	if step.Type == FixKind && (status == workflow.StatusError || status == workflow.StatusFail) {
+		evidence["reason"] = "the declared update did not complete: " + log
 	}
 	if len(plan.ambient.Bound) > 0 {
 		evidence["registries"] = plan.ambient.Bound
@@ -274,6 +303,30 @@ func (a *commands) settleScript(task *workflow.Execution, step *workflow.Step, r
 	if published != nil && status == workflow.StatusPass {
 		status = workflow.StatusError
 		evidence["reason"] = "the step's work could not be published: " + published.Error()
+	}
+	if step.Type == FixKind && status == workflow.StatusPass {
+		if err := task.Current(); err != nil {
+			return err
+		}
+		queue, err := task.IsQueue()
+		if err != nil {
+			return err
+		}
+		if queue {
+			same, reason, err := a.fixProposal(task)
+			if err != nil {
+				status = workflow.StatusError
+				evidence["reason"] = err.Error()
+			}
+			if same {
+				evidence["reason"] = reason
+				evidence["sameProposal"] = true
+				if err := task.Finish(workflow.EncodeOutcome(workflow.StatusSkipped, evidence, nil)); err != nil {
+					return err
+				}
+				return task.StopDuplicate(reason)
+			}
+		}
 	}
 	return task.Finish(workflow.EncodeOutcome(status, evidence, map[string]any{"exitCode": exitCode}))
 }

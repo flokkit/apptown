@@ -28,7 +28,7 @@ func imageRoutineRepository(t *testing.T, contracts ...string) (string, string, 
 		t.Fatal(err)
 	}
 	routineGit(t, repo, "init", "-b", "main")
-	contract := "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"
+	contract := "app:\n  web:\n    build: .\n    tools: [node]\n    ports: [\"8080\"]\n    public: true\n"
 	if len(contracts) > 0 {
 		contract = contracts[0]
 	}
@@ -80,7 +80,7 @@ func TestRoutineImageInspectionNeedsExactRuntimeAndCurrentSource(t *testing.T) {
 	}
 	*calls = 0
 	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
-	if err != nil || result.Classification != "requires-person" || *calls != 0 {
+	if err != nil || result.Classification != "cannot-assess" || *calls != 0 {
 		t.Fatalf("image ran without consent: %+v %v calls=%d", result, err, *calls)
 	}
 	baseRun := inspector.executor.Run
@@ -195,6 +195,8 @@ func TestRoutineMixedUpdatesRequireBothCategoriesAndBothWitnesses(t *testing.T) 
 	routineGit(t, repo, "commit", "-m", "dependency update")
 	for _, categories := range []workflow.StandingCategories{{BaseImages: true}, {Dependencies: "patch"}, {Dependencies: "patch", BaseImages: true}} {
 		inspector, calls := imageRoutineInspector(t, data)
+		configured := testRoutineInspector(t, data, nil, Executor{})
+		inspector.db, inspector.fixes = configured.db, configured.fixes
 		imageExec := inspector.executor
 		npmExec := routineExecutor(t, nil)
 		npmCalls := 0
@@ -207,7 +209,7 @@ func TestRoutineMixedUpdatesRequireBothCategoriesAndBothWitnesses(t *testing.T) 
 			return npmExec.Image(ctx, r)
 		}
 		inspector.executor.Run = func(ctx context.Context, r execution.Request) execution.Outcome {
-			if r.Files[0].Path == "/routine-image.cjs" {
+			if len(r.Files) > 0 && r.Files[0].Path == "/routine-image.cjs" {
 				return imageExec.Run(ctx, r)
 			}
 			npmCalls++
@@ -217,9 +219,13 @@ func TestRoutineMixedUpdatesRequireBothCategoriesAndBothWitnesses(t *testing.T) 
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !categories.BaseImages || categories.Dependencies == "" {
+		if categories.Dependencies == "" {
 			if got.Classification != "requires-person" || *calls != 0 || npmCalls != 0 {
 				t.Fatalf("mixed update partially executed: %+v image=%d npm=%d", got, *calls, npmCalls)
+			}
+		} else if !categories.BaseImages {
+			if got.Classification != "routine-dependency" || *calls != 0 || npmCalls != 2 {
+				t.Fatalf("dependency classification with code repair: %+v %d %d", got, *calls, npmCalls)
 			}
 		} else if got.Classification != "routine-dependency-and-image" || got.Validation == nil || len(got.Images) != 2 || len(got.ChangedFiles) != 3 || *calls != 6 || npmCalls != 2 {
 			t.Fatalf("missing combined witnesses: %+v image=%d npm=%d", got, *calls, npmCalls)

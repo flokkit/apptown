@@ -205,11 +205,26 @@ func deterministicSettled(steps []*Step, queue bool) bool {
 	}
 	observing, failed := true, false
 	for _, step := range steps {
-		if step.Type != "scan" {
-			observing = false
+		if step.Type == "approval" && step.Status == StatusPending {
+			continue
 		}
-		if step.Type == "agent/pi" || step.Type == "agent/review" {
+		if step.Type == "agent/pi" {
+			var cfg struct {
+				RepairRounds int `json:"repairRounds"`
+			}
+			if json.Unmarshal(step.Config, &cfg) != nil || cfg.RepairRounds == 0 || step.Status != StatusNotApplicable {
+				return false
+			}
+			continue
+		}
+		if step.Type == "agent/review" {
 			return false
+		}
+		var ev struct {
+			NotNeeded bool `json:"notNeeded"`
+		}
+		if step.Type != "scan" && !(step.Type == "workflow/call" && json.Unmarshal(step.Evidence, &ev) == nil && ev.NotNeeded) {
+			observing = false
 		}
 		switch step.Status {
 		case StatusPass, StatusNotApplicable:

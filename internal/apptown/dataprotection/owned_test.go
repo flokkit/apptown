@@ -60,7 +60,7 @@ func TestTakeDownRecordsWhatWasDeletedAndWhatWasLeft(t *testing.T) {
 		},
 	}
 	result, err := s.Remove(context.Background(), removeSelection(dep))
-	if err != nil || !reflect.DeepEqual(result.Deleted, driver.taken.Deleted) {
+	if err != nil || !reflect.DeepEqual(result.deleted, driver.taken.Deleted) {
 		t.Fatalf("removal: %+v %v", result, err)
 	}
 	rows, err := s.Retained.ForProject(context.Background(), dep.ProjectID)

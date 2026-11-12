@@ -235,7 +235,7 @@ FROM changes WHERE changes.id=$1 AND changes.project_id=$2;
 UPDATE changes SET automated=true, automated_origin=true WHERE id=$1;
 
 -- name: RecordAutomatedChange :exec
-INSERT INTO automated_changes(id,project_id,active_change_id,queue,what,opened_at) VALUES($1,$2,$1,$3,$4,$5);
+INSERT INTO automated_changes(id,project_id,active_change_id,queue,what,opened_at,schedule) VALUES($1,$2,$1,$3,$4,$5,$6);
 
 -- name: PromoteAutomatedChange :execrows
 UPDATE changes SET automated=false WHERE id=$1 AND project_id=$2 AND NOT purge_pending;
@@ -247,7 +247,7 @@ SELECT change_id FROM runs WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project
 SELECT * FROM automated_changes WHERE project_id=$1 AND ($2::text='' OR queue=$2) ORDER BY opened_at DESC LIMIT $3;
 
 -- name: EndAutomatedChange :exec
-UPDATE automated_changes SET outcome=$2, reason=$3, ended_at=$4 WHERE id=$1;
+UPDATE automated_changes SET outcome=CASE WHEN outcome IN ('held','skipped') AND sqlc.arg(outcome)::text='abandoned' THEN outcome ELSE sqlc.arg(outcome)::text END, reason=CASE WHEN (outcome IN ('held','skipped') AND sqlc.arg(outcome)::text='abandoned') OR sqlc.arg(reason)::text='' THEN reason ELSE sqlc.arg(reason)::text END, ended_at=sqlc.arg(ended_at) WHERE id=sqlc.arg(id);
 
 -- name: IsAutomatedQueueChange :one
 SELECT EXISTS(SELECT 1 FROM changes c JOIN automated_changes a ON a.id=c.id WHERE c.id=$1 AND c.automated AND a.queue<>'');
@@ -272,3 +272,31 @@ DELETE FROM changes WHERE id=$1 AND automated AND purge_pending AND state='aband
 
 -- name: ChangeTranscriptDigests :many
 SELECT DISTINCT t.digest FROM agent_transcripts t JOIN runs r ON r.id=t.run_id WHERE r.change_id=$1;
+
+-- name: PreviousHeldAttempt :many
+SELECT a.* FROM automated_changes a
+JOIN automated_changes current ON current.id=sqlc.arg(change_id)
+WHERE a.project_id=sqlc.arg(project_id) AND a.queue=current.queue AND a.id<>current.id
+AND a.outcome IN ('held','skipped') ORDER BY a.opened_at DESC LIMIT 1;
+
+-- name: StartQueueAttempt :exec
+UPDATE automated_changes SET attempted_at=COALESCE(attempted_at,sqlc.arg(at)::timestamptz),targets=sqlc.arg(targets)::jsonb
+WHERE id=sqlc.arg(id) AND queue<>'';
+
+-- name: RecordQueueProposal :exec
+UPDATE automated_changes SET fingerprint=sqlc.arg(fingerprint),packages=sqlc.arg(packages)::jsonb
+WHERE id=sqlc.arg(id) AND queue<>'';
+
+-- name: HoldQueueAttempt :exec
+UPDATE automated_changes SET outcome='held',reason=sqlc.arg(reason),failed_attempt=true
+WHERE id=sqlc.arg(id) AND attempted_at IS NOT NULL;
+
+-- name: QueueAttempts :many
+SELECT * FROM automated_changes WHERE project_id=sqlc.arg(project_id) AND queue=sqlc.arg(queue)
+ORDER BY opened_at DESC,id DESC;
+
+-- name: QueueAttempt :many
+SELECT * FROM automated_changes WHERE id=$1;
+
+-- name: SkipQueueAttempt :exec
+UPDATE automated_changes SET outcome='skipped',reason='Skipped this update' WHERE id=$1;

@@ -21,6 +21,7 @@ import (
 // after its existing capability guard; worker operations explicitly use system
 // ownership. Pinned acceptance is data, never a title convention or encoded map.
 type ChangeDraft struct {
+	Schedule                       string
 	Queue                          string
 	ProjectID                      ids.ID
 	Type, Title, Body, ExternalRef string
@@ -179,7 +180,7 @@ func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who st
 		if err := q.MarkAutomatedChange(ctx, row.ID); err != nil {
 			return CreatedChange{}, err
 		}
-		if err := q.RecordAutomatedChange(ctx, workflowsql.RecordAutomatedChangeParams{ID: row.ID, ProjectID: row.ProjectID, Queue: in.Queue, What: row.Title, OpenedAt: at}); err != nil {
+		if err := q.RecordAutomatedChange(ctx, workflowsql.RecordAutomatedChangeParams{ID: row.ID, ProjectID: row.ProjectID, Queue: in.Queue, What: row.Title, OpenedAt: at, Schedule: in.Schedule}); err != nil {
 			return CreatedChange{}, err
 		}
 	}

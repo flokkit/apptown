@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom'
-import { useGet } from '../../data'
+import { useGet, useAction } from '../../data'
+import { post } from '../../api'
+import { useHolds } from '../../instancePages'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { Section } from '../../Section'
 import { ListTable, type ListColumn } from '../../ListTable'
 import { Tech } from '../../Tech'
 import { fmtWhen } from '../../format'
-import type { ProjectScanView, ScanObservation, Finding } from '../../wire.gen'
+import type { ProjectScanView, ScanObservation, Finding, QueueStatus, AutomatedAttempt } from '../../wire.gen'
 
 function FindingList({ title, findings }: { title: string; findings: Finding[] }) {
   if (!findings.length) return null
@@ -44,6 +46,32 @@ const columns: ListColumn<ScanRow>[] = [
 
 const unique = (findings: Finding[]) => [...new Map(findings.map(f => [f.fingerprint, f])).values()]
 
+function QueueLine({ queue, slug, reload }: { queue: QueueStatus; slug: string; reload: () => void }) {
+  const action = useAction(reload)
+  const canSkip = useHolds('change:abandon', slug)
+  const name = queue.queue === 'updates' ? 'Weekly updates' : 'Security fixes'
+  const state = queue.state === 'stopped' ? `stopped after ${queue.failed} failed tries since ${fmtWhen(queue.since)}`
+    : queue.state === 'stuck' ? `stuck since ${fmtWhen(queue.since)}`
+      : queue.state === 'updating' ? 'updating' : queue.state === 'waiting' ? 'waiting for a person' : 'up to date'
+  return <div>
+    <p><strong>{name}</strong>: {state}{queue.reason && <> · {queue.reason}</>}{queue.packages.length > 0 && <> · moved: {queue.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ')}</>}</p>
+    {queue.changeId && <p>
+      <Link to={`/changes/${queue.changeId}`}>Try again</Link> · <Link to={`/changes/${queue.changeId}?tab=conversation`}>Open the chat</Link>
+      {canSkip && <> · <button type="button" className="link" disabled={action.busy} onClick={() => action.run(() => post(`/projects/${slug}/janitor/${queue.queue}/skip`, { changeId: queue.changeId }))}>Skip this update</button></>}
+    </p>}
+    {action.err && <p className="error">{action.err}</p>}
+  </div>
+}
+
+const tryColumns: ListColumn<AutomatedAttempt>[] = [
+  { key: 'what', label: 'Update', phone: 'name', render: a => a.changeId ? <Link to={`/changes/${a.changeId}`}>{a.what}</Link> : a.what },
+  { key: 'queue', label: 'Queue', render: a => a.queue === 'updates' ? 'Weekly updates' : 'Security fixes' },
+  { key: 'result', label: 'Result', phone: 'state', render: a => a.reason || (a.outcome === 'held' ? 'Waiting for a person' : a.outcome === 'shipped' ? 'Landed' : a.outcome === 'skipped' ? 'Skipped' : a.openChange ? 'In progress' : 'Closed') },
+  { key: 'packages', label: 'Packages', render: a => a.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') || '—' },
+  { key: 'origin', label: 'From', render: a => a.schedule ? `Schedule ${a.schedule}` : 'Not recorded' },
+  { key: 'when', label: 'When', kind: 'time', render: a => fmtWhen(a.when) },
+]
+
 export function LastScan({ slug, janitor = false }: { slug: string; janitor?: boolean }) {
   const q = useGet<ProjectScanView>(`/projects/${slug}/scans`, { poll: 10000 })
   const data = q.data
@@ -57,6 +85,7 @@ export function LastScan({ slug, janitor = false }: { slug: string; janitor?: bo
     <StaleNote q={q} />
     {scans && (janitor ? <>
       <p>Last scan: {scans.known && scans.lastScan && !scans.lastScan.startsWith('0001-') ? fmtWhen(scans.lastScan) : 'not known'}{(count > 0 || scans.known) && <> · {count ? `${count} ${count === 1 ? 'finding' : 'findings'}` : 'no findings'}</>}{scans.stale && <> · <span className="badge">older than three days</span></>}</p>
+      {data!.queues.map(queue => <QueueLine key={queue.queue} queue={queue} slug={slug} reload={q.reload} />)}
       <FindingList title="Project’s findings" findings={project} />
       <FindingList title="Running image only" findings={imageOnly} />
       <FindingList title="Not compared with project code" findings={unclassified} />
@@ -70,6 +99,7 @@ export function LastScan({ slug, janitor = false }: { slug: string; janitor?: bo
       {scans.stale && <p><span className="badge">older than three days</span></p>}
       {scans.historical.length > 0 && <><h3>Earlier</h3><ListTable label="Earlier scans" columns={columns} rows={[...scans.historical].sort((a, b) => b.observedAt.localeCompare(a.observedAt)).slice(0, 10)} rowKey={scan => scan.id!} /></>}
     </>)}
+    {janitor && data && data.recent.some(a => a.attempted) && <><h3>Recent tries</h3><ListTable label="Recent tries" rows={data.recent.filter(a => a.attempted)} columns={tryColumns} rowKey={a => a.id!} rowTo={a => a.changeId ? `/changes/${a.changeId}` : undefined} /></>}
     {janitor && <p><Link to={`/conformance/projects/${slug}`}>Scan history</Link></p>}
   </Section>
 }

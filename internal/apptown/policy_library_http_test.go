@@ -127,7 +127,7 @@ func policyLibraryUpgradeFixture(t *testing.T) *App {
 	}
 	// sql-guarantee: recreate the schema before automated summaries and
 	// retained scan observations, so their migrations run over their actual inputs.
-	if _, err := a.DB.SQL().ExecContext(t.Context(), `DROP TABLE automated_changes; DROP TABLE scan_observations; ALTER TABLE changes DROP COLUMN automated, DROP COLUMN purge_pending, DROP COLUMN automated_origin`); err != nil {
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE guidance_block_versions DROP COLUMN fixes_json; DROP TABLE automated_changes; DROP TABLE scan_observations; ALTER TABLE changes DROP COLUMN automated, DROP COLUMN purge_pending, DROP COLUMN automated_origin`); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: this data-only migration needs the pre-upgrade schema stamp.

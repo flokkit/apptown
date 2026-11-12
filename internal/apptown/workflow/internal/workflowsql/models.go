@@ -35,6 +35,12 @@ type AutomatedChange struct {
 	Reason         string
 	Fingerprint    string
 	Packages       json.RawMessage
+	Targets        json.RawMessage
+	AttemptedAt    sql.NullTime
+	FailedAttempt  bool
+	Schedule       string
+	RuleID         ids.ID
+	RuleRevision   int64
 }
 
 type Change struct {

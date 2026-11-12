@@ -36,14 +36,18 @@ const labelled = (c: { label: string; phone?: string }) => !!c.label && c.phone 
 
 // rowId gives a row an element id, for a page that links to one row by #hash.
 export function ListTable<T>({ label, columns, rows, rowKey, rowTo, rowId, className = '' }: {
-  label: string; columns: ListColumn<T>[]; rows: T[]; rowKey: (row: T) => string; rowTo?: (row: T) => string; rowId?: (row: T) => string; className?: string
+  label: string; columns: ListColumn<T>[]; rows: T[]; rowKey: (row: T) => string; rowTo?: (row: T) => string | undefined; rowId?: (row: T) => string; className?: string
 }) {
   const nav = useNavigate()
-  const open = (row: T) => rowTo && ((event: { target: EventTarget }) => {
-    if (!(event.target as Element).closest('a, button, input, select, [role=dialog]')) nav(rowTo(row))
-  })
+  const open = (row: T) => {
+    const to = rowTo?.(row)
+    if (!to) return undefined
+    return (event: { target: EventTarget }) => {
+      if (!(event.target as Element).closest('a, button, input, select, [role=dialog]')) nav(to)
+    }
+  }
   return <table className={`record-table${rowTo ? ' record-table-links' : ''} ${className}`} aria-label={label}>
     <thead><tr>{columns.map(c => <th key={c.key} scope="col" className={[c.kind, fits(c) && 'record-fit', c.phone === 'action' && 'record-action', c.wideOnly && 'record-wide', c.className].filter(Boolean).join(' ')}>{c.label}</th>)}</tr></thead>
-    <tbody>{rows.map(row => <tr key={rowKey(row)} id={rowId?.(row)} onClick={open(row) || undefined}>{columns.map(c => <td key={c.key} className={[c.kind, fits(c) && 'record-fit', c.phone === 'action' && 'record-action', `phone-${c.phone ?? 'value'}`, c.wideOnly && 'record-wide', c.className].filter(Boolean).join(' ')} data-label={labelled(c) ? c.label : undefined}>{c.render(row)}</td>)}</tr>)}</tbody>
+    <tbody>{rows.map(row => <tr key={rowKey(row)} id={rowId?.(row)} data-linked={rowTo?.(row) ? true : undefined} onClick={open(row) || undefined}>{columns.map(c => <td key={c.key} className={[c.kind, fits(c) && 'record-fit', c.phone === 'action' && 'record-action', `phone-${c.phone ?? 'value'}`, c.wideOnly && 'record-wide', c.className].filter(Boolean).join(' ')} data-label={labelled(c) ? c.label : undefined}>{c.render(row)}</td>)}</tr>)}</tbody>
   </table>
 }

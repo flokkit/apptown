@@ -189,7 +189,7 @@ by name, in any casing.
 
 | `uses` | What it does | Key `with` fields |
 |---|---|---|
-| `agent/pi` | an agent works in the workspace with a generated home and the project's compiled guidance | `prompt`, `skills` (`skill/*` blocks), `output` `{kind, name, file}` — the named file *is* the output, `model` (a slot name or provider/model), `thinking`, `executor`, `image`, `services` (sidecar containers on the step's network), `docker` (`true` gives the agent a private Docker daemon), `mayChangeNothing` (`true`: an empty result is a complete answer, see below), `scm` (a project-scoped token: `read` or `write`), `resources`, `requires` (artifact kinds that must exist first), `needs` (`true` starts the app's declared needs for the step), `timeoutMinutes` |
+| `agent/pi` | an agent works in the workspace with a generated home and the project's compiled guidance | `prompt`, `skills` (`skill/*` blocks), `output` `{kind, name, file}` — the named file *is* the output, `model` (a slot name or provider/model), `thinking`, `executor`, `image`, `services` (sidecar containers on the step's network), `docker` (`true` gives the agent a private Docker daemon), `mayChangeNothing` (`true`: an empty result is a complete answer, see below), `scm` (a project-scoped token: `read` or `write`), `resources`, `requires` (artifact kinds that must exist first), `needs` (`true` starts the app's declared needs for the step), `repairRounds` (dormant until failure; at most N sessions in the run), `timeoutMinutes` |
 | `agent/review` | an independent agent checks the implementer's claim against the real diff (see below) | `of` (the report artifact kind), `model`, `prompt` (a lens), `question` (replaces the shared first question, "does the diff fully satisfy the request?", for a step not asked to satisfy it, such as a reproduction), `thinking`, `timeoutMinutes` |
 | `approval` | people decide; one rejection stops it; every vote is kept | `approvers` (people or `group:` names), `quorum` (how many approvals settle it, default 1), `means` (the required standard of approval), `instructions`, `inAdvance` (what a yes given before the work means), `standing` (explicit bounded routine-update consent meaning; see [Janitor standing consent](../subsystems/janitor.md)) |
 | `artifact/require` | a required artifact exists on the run | `kind`, `name` |
@@ -202,7 +202,9 @@ by name, in any casing.
 | `build` | build the committed tree; record a runtime bundle or a clean-tree build without a runtime | none |
 | `scm/mr` | open a merge request on the attached mirror for people who review there | — |
 | `scm/merged` | the landing merge into `main` (engine-judged) | — |
-| `workflow/call` | run another library workflow as a child run in the same workspace | `workflow`, `with` (its inputs) |
+| `workflow/call` | run another library workflow as a child run in the same workspace | `workflow`, `with` (its inputs), `whenFailed` (named source steps), `findings: fixable` (new findings covered by adopted fixes) |
+| `fix` | apply adopted mechanical fixes and publish the result | `kind: update`, optional `for: findings` for the caller’s targets |
+| `routine` | independently classify a declared fix against its bound | none |
 | `script` | run a command; exit 0 passes | `run`, `env`, `executor`, `image`, `timeoutMinutes` |
 
 Results: `pass`, `fail`, `needs_human`, `error`, `skipped`, always with

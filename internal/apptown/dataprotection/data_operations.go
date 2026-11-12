@@ -611,7 +611,7 @@ func (s *Service) runTakeDown(ctx context.Context, t *tracker, withProject bool)
 		result["deleted"], result["left"] = taken.Deleted, taken.Left
 		if e != nil {
 			t.providerFailed(ctx, e)
-			return operationFailed, fmt.Sprintf("Set %d holds its data; %s; %v", final.ID, (removalResult{Deleted: taken.Deleted, Left: taken.Left}).detail(), e), result
+			return operationFailed, fmt.Sprintf("Set %d holds its data; %s; %v", final.ID, (removalResult{deleted: taken.Deleted, left: taken.Left}).detail(), e), result
 		}
 	}
 	result["deleted"] = taken.Deleted
@@ -744,14 +744,14 @@ func (s *Service) runRemoval(ctx context.Context, t *tracker, withProject bool) 
 	in := RemoveDeployment{ProjectID: t.op.ProjectID, Name: t.op.Deployment, withProject: withProject, WithoutFinalCopy: without, noCopy: noCopy}
 	t.begin(ctx, "taking "+t.op.Deployment+" down: its final backup, then what AppTown made for it")
 	res, err := s.remove(ctx, in, t.op.Authority, t.allowed, t.stop)
-	result := map[string]any{"deleted": res.Deleted, "retained": res.Retained, "left": res.Left, "notConfirmedRemoved": res.Unconfirmed}
+	result := map[string]any{"deleted": res.deleted, "retained": res.retained, "left": res.left, "notConfirmedRemoved": res.unconfirmed}
 	detail := "taken down; " + res.detail()
-	if len(res.Retained) > 0 {
-		detail += "; retained: " + strings.Join(res.Retained, "; ")
+	if len(res.retained) > 0 {
+		detail += "; retained: " + strings.Join(res.retained, "; ")
 	}
-	if res.FinalBackup != nil {
-		detail += fmt.Sprintf("; final backup set %d", res.FinalBackup.ID)
-		result["finalBackup"] = res.FinalBackup.ID
+	if res.finalBackup != nil {
+		detail += fmt.Sprintf("; final backup set %d", res.finalBackup.ID)
+		result["finalBackup"] = res.finalBackup.ID
 	}
 	if err != nil {
 		if res.providerError != nil {

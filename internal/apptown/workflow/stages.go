@@ -75,7 +75,17 @@ func (w stages) EnterIn(ctx context.Context, tx *database.Tx, runID ids.ID, spec
 	}
 	var auto []ReadyStep
 	for _, p := range plan {
-		row, err := workflowsql.New(tx.SQL()).InsertStageStep(ctx, workflowsql.InsertStageStepParams{ID: ids.New(at), RunID: runID, Stage: name, Name: p.check.Name, Type: p.check.Type, ConfigJson: json.RawMessage(p.configJSON), Status: StatusPending.String()})
+		status := StatusPending
+		var cfg struct {
+			RepairRounds int `json:"repairRounds"`
+		}
+		if err := json.Unmarshal([]byte(p.configJSON), &cfg); err != nil {
+			return nil, err
+		}
+		if p.check.Type == "agent/pi" && cfg.RepairRounds > 0 {
+			status = StatusNotApplicable
+		}
+		row, err := workflowsql.New(tx.SQL()).InsertStageStep(ctx, workflowsql.InsertStageStepParams{ID: ids.New(at), RunID: runID, Stage: name, Name: p.check.Name, Type: p.check.Type, ConfigJson: json.RawMessage(p.configJSON), Status: status.String()})
 		if err != nil {
 			return nil, err
 		}

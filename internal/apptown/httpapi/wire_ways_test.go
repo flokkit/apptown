@@ -7,6 +7,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
+	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/wiregen"
 )
 
@@ -25,6 +26,7 @@ func init() {
 		wiregen.Named{Name: "CatalogChangeDetail", Value: CatalogChangeDetail{}},
 		wiregen.Named{Name: "DocsIndex", Value: DocsIndex{}},
 		wiregen.Named{Name: "DocGuide", Value: DocGuide{}},
+		wiregen.Named{Name: "FixDeclaration", Value: fix.Declaration{}},
 		wiregen.Named{Name: "GuidanceBlockDetail", Value: GuidanceBlockDetail{}},
 		wiregen.Named{Name: "ProjectGuidance", Value: ProjectGuidance{}},
 		wiregen.Named{Name: "GeneratedGuidance", Value: GeneratedGuidance{}},

@@ -19,6 +19,8 @@ const TestsKind = "tests"
 // commands executes script and test steps. It shares Workflow's execution
 // contract with agent work but requires no model, identity or harness service.
 type commands struct {
+	bounds    updateBounds
+	fixes     fixDeclarations
 	db        *database.DB
 	cfg       CommandConfig
 	runner    execution.Runner
@@ -41,6 +43,8 @@ type CommandConfig struct {
 	AppTownVersion string
 }
 type CommandDependencies struct {
+	Bounds    updateBounds
+	Fixes     fixDeclarations
 	Runner    execution.Runner
 	Progress  *progress.Feeds
 	Publisher repositoryedit.Publisher
@@ -66,7 +70,7 @@ func NewCommands(db *database.DB, deps CommandDependencies, cfg CommandConfig) *
 	if cfg.AppTownVersion == "" {
 		cfg.AppTownVersion = "unknown"
 	}
-	c := &commands{db: db, cfg: cfg, runner: deps.Runner, progress: deps.Progress, publisher: deps.Publisher, branches: deps.Branches, tasks: deps.Tasks, panics: deps.Panics, docker: deps.Docker, checks: deps.Checks, catalog: deps.Catalog, clock: deps.Now}
+	c := &commands{db: db, fixes: deps.Fixes, bounds: deps.Bounds, cfg: cfg, runner: deps.Runner, progress: deps.Progress, publisher: deps.Publisher, branches: deps.Branches, tasks: deps.Tasks, panics: deps.Panics, docker: deps.Docker, checks: deps.Checks, catalog: deps.Catalog, clock: deps.Now}
 	if deps.Tasks != nil {
 		deps.Tasks.commands = c
 	}

@@ -15,7 +15,7 @@ import (
 // kind hold their configuration types to this list in their own tests
 // (they import this package, so it cannot ask them).
 var stepOptions = map[string][]string{
-	"agent/pi":             {"prompt", "model", "thinking", "executor", "image", "scm", "skills", "resources", "requires", "services", "needs", "docker", "mayChangeNothing", "output", "timeoutMinutes"},
+	"agent/pi":             {"prompt", "model", "thinking", "executor", "image", "scm", "skills", "resources", "requires", "services", "needs", "docker", "mayChangeNothing", "repairRounds", "output", "timeoutMinutes"},
 	"agent/review":         {"of", "prompt", "question", "model", "thinking", "timeoutMinutes"},
 	"approval":             {"approvers", "quorum", "means", "instructions", "inAdvance", "standing"},
 	"artifact/require":     {"kind", "name"},
@@ -25,7 +25,9 @@ var stepOptions = map[string][]string{
 	"tests":                {"require", "timeoutMinutes", "appliesTo"},
 	"scan":                 {"on", "scanner", "baseline", "failOn", "timeoutMinutes"},
 	"guidance/conformance": {"failOn"},
-	"workflow/call":        {"workflow", "with"},
+	"workflow/call":        {"workflow", "with", "whenFailed", "findings"},
+	"fix":                  {"kind", "for"},
+	"routine":              {},
 	"script":               {"run", "env", "executor", "image", "timeoutMinutes"},
 	"reconcile":            {},
 	"scm/mr":               {},

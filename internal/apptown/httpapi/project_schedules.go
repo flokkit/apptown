@@ -57,9 +57,12 @@ type ScheduleSource struct {
 // skip because the previous run was still active, a run that could not
 // start, or unknown (fired before outcomes were kept).
 type ScheduleFiringView struct {
-	At       string                   `json:"at"`
-	Outcome  workflow.ScheduleOutcome `json:"outcome"`
-	ChangeID ids.ID                   `json:"changeId,omitzero"`
+	Origin       string                   `json:"origin"`
+	RuleID       ids.ID                   `json:"ruleId,omitzero"`
+	RuleRevision int64                    `json:"ruleRevision"`
+	At           string                   `json:"at"`
+	Outcome      workflow.ScheduleOutcome `json:"outcome"`
+	ChangeID     ids.ID                   `json:"changeId,omitzero"`
 	// ChangeNumber names ChangeID within the project; 0 when none or gone.
 	ChangeNumber int64 `json:"changeNumber"`
 }
@@ -83,7 +86,7 @@ func (h ProjectSchedules) List(w http.ResponseWriter, r *http.Request) {
 			v.Next = s.Next.UTC().Format(time.RFC3339)
 		}
 		if s.Last != nil {
-			v.Last = &ScheduleFiringView{At: s.Last.At.UTC().Format(time.RFC3339), Outcome: s.Last.Outcome, ChangeID: s.Last.ChangeID, ChangeNumber: s.Last.ChangeNumber}
+			v.Last = &ScheduleFiringView{Origin: s.Last.Origin, RuleID: s.Last.RuleID, RuleRevision: s.Last.RuleRevision, At: s.Last.At.UTC().Format(time.RFC3339), Outcome: s.Last.Outcome, ChangeID: s.Last.ChangeID, ChangeNumber: s.Last.ChangeNumber}
 		}
 		out.Schedules = append(out.Schedules, v)
 	}

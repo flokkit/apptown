@@ -7,16 +7,23 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Service is the supported caller-facing Work API. Its stores and query plans
 // are private; actor strings in commands never establish permission.
+type fixDeclarations interface {
+	Fixes(context.Context, adoption.Source) ([]fix.Declaration, error)
+}
+
 type Service struct {
+	fixes          fixDeclarations
 	retention      workRetention
 	runningImages  runningImages
 	workspaceChats workspaceOwnership
@@ -80,6 +87,7 @@ type Service struct {
 // context, the sources it reads over time, and the recorders other
 // subsystems supply for the effects Work's transactions carry.
 type Dependencies struct {
+	Fixes          fixDeclarations
 	Retention      workRetention
 	RunningImages  runningImages
 	WorkspaceChats workspaceOwnership
@@ -163,7 +171,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	automatic := slices.Clone(deps.Automatic)
 	isAutomatic := func(kind string) bool { return slices.Contains(automatic, kind) }
 	authority := commandAuthority{db: db, checked: deps.Authority, visibility: deps.Authority, clocked: clocked{deps.Now}}
-	s := &Service{workspaceChats: deps.WorkspaceChats, heldSummaries: deps.HeldSummaries, life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.Placement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
+	s := &Service{fixes: deps.Fixes, workspaceChats: deps.WorkspaceChats, heldSummaries: deps.HeldSummaries, life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.Placement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
 	if s.attemptWatch <= 0 {
 		s.attemptWatch = defaultAttemptWatch
 	}

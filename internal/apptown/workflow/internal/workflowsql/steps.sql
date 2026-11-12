@@ -136,7 +136,8 @@ WHERE id=$2 AND attempt=$3;
 
 -- name: ReworkAgent :execrows
 UPDATE steps SET status='pending',started_at=NULL,finished_at=NULL,override_by='',override_reason='',
-  config_json=CASE WHEN sqlc.arg(feedback)::text = '' THEN jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true)
+  config_json=CASE WHEN attempt=0 THEN jsonb_set(config_json, '{sendback}', to_jsonb(sqlc.arg(feedback)::text), true)
+ WHEN sqlc.arg(feedback)::text = '' THEN jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true)
     ELSE jsonb_set(jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true), '{sendback}', to_jsonb(sqlc.arg(feedback)::text), true) END
 WHERE id=sqlc.arg(id) AND attempt=sqlc.arg(attempt);
 

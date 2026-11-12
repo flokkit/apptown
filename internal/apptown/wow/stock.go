@@ -24,16 +24,20 @@ type stockReader struct {
 // GuidanceKey is the canonical content a block is compared on across
 // releases: the body without trailing newlines and the re-serialised
 // checks ("[]" reads as none).
-func GuidanceKey(body, checksJSON string) string {
+func GuidanceKey(body, checksJSON string, fixesJSON ...string) string {
 	checks := canonJSON(checksJSON)
 	if checks == "[]" || strings.TrimSpace(checksJSON) == "" {
 		checks = ""
 	}
-	return strings.TrimRight(body, "\n") + "\x1f" + checks
+	key := strings.TrimRight(body, "\n") + "\x1f" + checks
+	if len(fixesJSON) > 0 && jsonOr(fixesJSON[0]) != "[]" {
+		key += "\x1f" + canonJSON(fixesJSON[0])
+	}
+	return key
 }
 
 // StockBlock is a shipped guidance block's parts.
-type StockBlock struct{ Name, Tags, ChecksJSON, Body, Tier, Conflicts string }
+type StockBlock struct{ Name, Tags, ChecksJSON, FixesJSON, Body, Tier, Conflicts string }
 
 func (s *library) StockCurrent(ctx context.Context, name string) (*stockReader, error) {
 	q := wowsql.New(s.db.SQL())
@@ -48,7 +52,7 @@ func (s *library) StockCurrent(ctx context.Context, name string) (*stockReader, 
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-	return &stockReader{Content: GuidanceKey(v.BodyMd, string(v.ChecksJson)), IsStock: b.Origin == "stock"}, nil
+	return &stockReader{Content: GuidanceKey(v.BodyMd, string(v.ChecksJson), string(v.FixesJson)), IsStock: b.Origin == "stock"}, nil
 }
 
 // StockInsert seeds a stock block at version 1 with its receipt.
@@ -60,7 +64,7 @@ func (s *library) StockInsert(ctx context.Context, b StockBlock) error {
 		if err != nil {
 			return err
 		}
-		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: 1, Body: b.Body, Checks: []byte(jsonOr(b.ChecksJSON)), At: now, Source: s.stock.Source, Signer: s.stock.Signer}); err != nil {
+		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: 1, Body: b.Body, Checks: []byte(jsonOr(b.ChecksJSON)), Fixes: []byte(jsonOr(b.FixesJSON)), At: now, Source: s.stock.Source, Signer: s.stock.Signer}); err != nil {
 			return err
 		}
 		return audit.At(now).RecordIn(ctx, tx, "apptown-system", ids.Nil, "guidance.stock.seeded", b.Name, nil)
@@ -85,7 +89,7 @@ func (s *library) stockUpdateIn(ctx context.Context, tx *database.Tx, b StockBlo
 		}
 		blockID = r.ID
 		version = int(r.LatestVersion) + 1
-		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: int64(version), Body: b.Body, Checks: []byte(jsonOr(b.ChecksJSON)), At: now, Source: s.stock.Source, Signer: s.stock.Signer}); err != nil {
+		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: int64(version), Body: b.Body, Checks: []byte(jsonOr(b.ChecksJSON)), Fixes: []byte(jsonOr(b.FixesJSON)), At: now, Source: s.stock.Source, Signer: s.stock.Signer}); err != nil {
 			return err
 		}
 		if _, err := q.AdvanceStockBlockVersion(ctx, wowsql.AdvanceStockBlockVersionParams{ID: r.ID, Version: int64(version), Tags: normalizeTags(b.Tags), Tier: b.Tier, Conflicts: normalizeTags(b.Conflicts), At: now}); err != nil {

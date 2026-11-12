@@ -101,6 +101,8 @@ func (a *calls) Run(task *workflow.Execution) {
 // callConfig is a workflow/call step's options: the workflow to run and
 // the inputs passed to it.
 type callConfig struct {
-	Workflow string            `json:"workflow"`
-	With     map[string]string `json:"with"`
+	WhenFailed []string          `json:"whenFailed"`
+	Findings   string            `json:"findings"`
+	Workflow   string            `json:"workflow"`
+	With       map[string]string `json:"with"`
 }

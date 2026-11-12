@@ -38,13 +38,13 @@ func (s *Service) Remove(ctx context.Context, in RemoveDeployment) (removalResul
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return out, err
 	}
-	out.Deleted, out.Retained = result.Deleted, result.Retained
+	out.deleted, out.retained = result.Deleted, result.Retained
 	if id := inputID(done.Result, "finalBackup"); !id.IsZero() {
 		b, err := s.backups.ByID(ctx, in.ProjectID, in.Name, id)
 		if err != nil {
 			return out, err
 		}
-		out.FinalBackup = &FinalSet{ID: b.ID, Bytes: b.Bytes}
+		out.finalBackup = &FinalSet{ID: b.ID, Bytes: b.Bytes}
 	}
 	if done.State != operations.Succeeded {
 		return out, fmt.Errorf("%s: %s", done.State, done.Detail)

@@ -40,7 +40,7 @@ import (
 // participants and executors; Work connects its own lifecycle components.
 func (a *App) workDependencies() workflow.Dependencies {
 	commands := workflowexec.NewCommands(a.DB, workflowexec.CommandDependencies{
-		Runner: projectProcesses(a), Progress: &a.progress,
+		Bounds: &a.standingRules, Fixes: a.Adoption, Runner: projectProcesses(a), Progress: &a.progress,
 		Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, Branches: a.branches, Tasks: a.tasks, Panics: jobReporter{}, Docker: &a.docker,
 		Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Catalog: a.Dependencies, Now: a.cfg.clock.Now,
 	}, workflowexec.CommandConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, AppTownVersion: version.String()})
@@ -59,12 +59,14 @@ func (a *App) workDependencies() workflow.Dependencies {
 	runners[workflowexec.BuildKind] = shipping.RunBuild
 	runners[workflowexec.PreviewKind] = shipping.RunPreview
 	runners[workflowexec.ScriptKind] = commands.RunScript
+	runners[workflowexec.FixKind] = commands.RunFix
+	runners[workflowexec.RoutineKind] = commands.RunRoutine
 	runners[workflowexec.TestsKind] = commands.RunTests
 	runners[verification.GuidanceKind] = a.guidance.RunGuidanceConformance
 	runners[verification.ScanKind] = a.scanSteps.RunScan
 	runners[workflowexec.AgentKind] = a.agents.Run
 	runners[workflowexec.ReviewKind] = a.agents.Review
-	return workflow.Dependencies{Retention: automatedRetention{}, RunningImages: scanSubjects{a.Deployment}, Jobs: jobQueue{},
+	return workflow.Dependencies{Fixes: a.Adoption, Retention: automatedRetention{}, RunningImages: scanSubjects{a.Deployment}, Jobs: jobQueue{},
 		WorkspaceChats: a.Console,
 		StepContext:    projectCacheScope(a.DB),
 		Masker:         a.Secrets.Masker,
@@ -85,7 +87,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 		Resolve:        a.preparation.Resolve,
 		LandingWork:    a.preparation,
 		Runners:        runners,
-		Recoverers:     map[string]workflow.Runner{workflowexec.ScriptKind: commands.RecoverScript, workflowexec.AgentKind: a.agents.RecoverAgent, workflowexec.ReviewKind: a.agents.RecoverAgent},
+		Recoverers:     map[string]workflow.Runner{workflowexec.ScriptKind: commands.RecoverScript, workflowexec.FixKind: commands.RecoverScript, workflowexec.AgentKind: a.agents.RecoverAgent, workflowexec.ReviewKind: a.agents.RecoverAgent},
 		Chats:          holderPresenceFor(a),
 		Report:         selfErrorsFor(a).Workflow,
 		Hold:           a.newWork.Wait,

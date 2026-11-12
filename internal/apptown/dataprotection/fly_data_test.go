@@ -329,7 +329,7 @@ func TestFlyKeepChoiceUsesTheRemovalDoorAndCannotDeleteDataAfterStoreAppears(t *
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(out.Retained) == 0 {
+			if len(out.retained) == 0 {
 				t.Fatalf("no retained resource recorded: %+v", out)
 			}
 			for _, name := range w.api.Apps() {
@@ -450,7 +450,7 @@ func TestFlyCanKeepDataWhenItsNeedCannotBeCopiedEvenWithAStore(t *testing.T) {
 		t.Fatalf("take-down did not require a keep-data choice: %v", err)
 	}
 	out, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
-	if err != nil || len(out.Retained) != 1 {
+	if err != nil || len(out.retained) != 1 {
 		t.Fatalf("keep-data take-down: %+v %v", out, err)
 	}
 }
@@ -482,7 +482,7 @@ func TestFlyKeepChoiceStandsAfterTheFinalBackupFailed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the choice to go without a final copy was refused after the final backup failed: %v", err)
 	}
-	if len(out.Retained) == 0 {
+	if len(out.retained) == 0 {
 		t.Fatalf("no retained resource recorded: %+v", out)
 	}
 	for _, name := range w.api.Apps() {
@@ -504,7 +504,7 @@ func TestFlyNeverReleasedDeploymentNeedsNoFinalCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a never-released deployment needed a final copy: %v", err)
 	}
-	if out.FinalBackup != nil || len(out.Retained) != 0 {
+	if out.finalBackup != nil || len(out.retained) != 0 {
 		t.Fatalf("take-down: %+v", out)
 	}
 	if len(w.api.Apps()) != 1 {

@@ -218,5 +218,11 @@ CREATE TABLE IF NOT EXISTS automated_changes (
  outcome TEXT NOT NULL DEFAULT '',
  reason TEXT NOT NULL DEFAULT '',
  fingerprint TEXT NOT NULL DEFAULT '',
- packages JSONB NOT NULL DEFAULT '[]'
+ packages JSONB NOT NULL DEFAULT '[]',
+ targets JSONB NOT NULL DEFAULT '[]',
+ attempted_at TIMESTAMPTZ,
+ failed_attempt BOOLEAN NOT NULL DEFAULT false,
+ schedule TEXT NOT NULL DEFAULT '',
+ rule_id UUID,
+ rule_revision BIGINT NOT NULL DEFAULT 0
 );

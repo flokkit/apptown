@@ -21,8 +21,8 @@ packs:
       - repo/project-notes
       - repo/no-build-artifacts
       - repo/contract-matches-code
-    workflows: [land, adopt-integration, retire-integration, janitor-scan]
-    schedules: [janitor-scan]
+    workflows: [land, adopt-integration, retire-integration, janitor-scan, janitor-fix, janitor-update]
+    schedules: [janitor-scan, janitor-update]
   - name: dependency-updates
     suggested: true
     description: |-
@@ -84,6 +84,7 @@ packs:
     extensions: [lsp]
     guidance:
       - lang/selection/go-for-services
+      - lang/go/dependency-updates
       - lang/go/formatting
       - lang/go/errors-are-values
       - lang/shell/fifty-line-budget
@@ -99,6 +100,7 @@ packs:
     extensions: [lsp]
     guidance:
       - lang/selection/node-fullstack
+      - lang/node/dependency-updates
   - name: django
     description: |-
       Django with forms, authentication, ORM and administration.
@@ -110,6 +112,7 @@ packs:
     extensions: [lsp]
     guidance:
       - lang/selection/django-fullstack
+      - lang/python/dependency-updates
   - name: rails
     description: |-
       Rails 8 with Puma and propshaft.
@@ -120,6 +123,7 @@ packs:
     toolchain: ruby
     guidance:
       - lang/selection/rails
+      - lang/ruby/dependency-updates
   - name: java
     description: |-
       Experimental Spring Boot services with Maven and Flyway.
@@ -192,6 +196,7 @@ packs:
       the app's server.
     tools: {node: "24"}
     guidance:
+      - lang/node/dependency-updates
       - frontend/vite-react
   - name: server-rendered
     description: |-

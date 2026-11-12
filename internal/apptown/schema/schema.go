@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/fix"
 	"gopkg.in/yaml.v3"
 )
 
@@ -121,6 +122,8 @@ type Gate struct {
 // (policy, agent/pi, scm/*, deploy, workflow) lands in later milestones.
 var SupportedSteps = map[string]bool{
 	"script":               true,
+	"fix":                  true,
+	"routine":              true,
 	"approval":             true,
 	"artifact/require":     true,
 	"adr/require":          true,
@@ -281,6 +284,23 @@ func (d *Doc) validate(strict bool) error {
 					return fmt.Errorf("stage %q step %q: docker must be true (a private Docker daemon for the agent) or false (got %v)", st.Name, s.Name, d)
 				}
 			}
+			if s.Uses == "agent/pi" {
+				if v, ok := s.With["repairRounds"]; ok {
+					n, valid := asInt(v)
+					if !valid || n < 1 {
+						return fmt.Errorf("step %s: repairRounds must be a positive whole number", s.Name)
+					}
+				}
+			}
+			if s.Uses == "fix" {
+				kind, _ := s.With["kind"].(string)
+				if _, ok := fix.Lookup(kind); !ok {
+					return fmt.Errorf("step %s: unsupported fix kind %q", s.Name, kind)
+				}
+				if v, ok := s.With["for"]; ok && v != "findings" {
+					return fmt.Errorf("step %s: fix for must be findings", s.Name)
+				}
+			}
 			if strict {
 				if err := checkOptions(st.Name, s); err != nil {
 					return err
@@ -289,6 +309,32 @@ func (d *Doc) validate(strict bool) error {
 					word, _ := v.(string)
 					if err := CheckExecutor(word); err != nil || word == "" {
 						return fmt.Errorf("stage %q step %q: %w", st.Name, s.Name, errExecutor(v))
+					}
+				}
+			}
+		}
+		for _, s := range all {
+			if s.Uses != "workflow/call" {
+				continue
+			}
+			if v, ok := s.With["findings"]; ok && v != "fixable" {
+				return fmt.Errorf("step %s: findings must be fixable", s.Name)
+			}
+			if v, ok := s.With["whenFailed"]; ok {
+				raw, err := yaml.Marshal(v)
+				if err != nil {
+					return err
+				}
+				var names []string
+				if err := yaml.Unmarshal(raw, &names); err != nil || len(names) == 0 {
+					return fmt.Errorf("step %s: whenFailed needs step names", s.Name)
+				}
+				if s.With["findings"] != "fixable" {
+					return fmt.Errorf("step %s: whenFailed needs findings: fixable", s.Name)
+				}
+				for _, name := range names {
+					if !seenStep[name] || name == s.Name {
+						return fmt.Errorf("step %s: whenFailed names unknown step %s", s.Name, name)
 					}
 				}
 			}

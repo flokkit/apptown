@@ -16,7 +16,7 @@ type ChecksSummary struct {
 
 func isCheck(kind string) bool {
 	switch kind {
-	case "tests", "scan", "script", "guidance/conformance", "agent/review", "scm/merged":
+	case "routine", "tests", "scan", "script", "guidance/conformance", "agent/review", "scm/merged":
 		return true
 	}
 	return false

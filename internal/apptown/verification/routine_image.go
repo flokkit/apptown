@@ -105,7 +105,7 @@ func (r routineInspector) validateImage(ctx context.Context, candidate routinech
 		if !r.executor.Local {
 			scratch = "worker scratch removal is unobserved here and retried by its sweep"
 		}
-		out = append(out, workflow.StandingImageObservation{Reference: ref, Manifest: observed.Manifest, ConfigDigest: observed.ConfigDigest, PreparedImage: prepared.ID, Node: report.Node, Platform: platform, ReportDigest: digestNPM(result.Report), ScratchSettlement: scratch})
+		out = append(out, workflow.StandingImageObservation{Reference: ref, Manifest: observed.Manifest, ConfigDigest: observed.ConfigDigest, PreparedImage: prepared.ID, Node: report.Node, Platform: platform, ReportDigest: observationDigest(result.Report), ScratchSettlement: scratch})
 	}
 	return out, nil
 }

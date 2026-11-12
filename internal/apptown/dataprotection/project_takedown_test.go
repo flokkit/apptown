@@ -96,7 +96,7 @@ func takeDownWithProject(t *testing.T, name string) {
 	if !once || dispatched != 1 {
 		t.Fatalf("deliveries of the operation's job while it ran: %d (dispatch reached: %v)", dispatched, once)
 	}
-	if res.FinalBackup == nil {
+	if res.finalBackup == nil {
 		t.Fatalf("project deletion took no final copy: %+v", res)
 	}
 	ops, err := w.ops.OnSubject(ctx, deployment.SubjectOf(dep), 10)
@@ -117,10 +117,10 @@ func takeDownWithProject(t *testing.T, name string) {
 		t.Fatalf("after the take-down: apps %d, deleted clusters %v", len(state.Apps), state.DeletedClusters)
 	}
 	finals, err := w.s.FinalCopies(ctx, w.project)
-	if err != nil || len(finals) != 1 || !finals[0].Verified || finals[0].Backup != res.FinalBackup.ID || finals[0].Deployment != name {
-		t.Fatalf("final copies: %+v %v (result %+v)", finals, err, res.FinalBackup)
+	if err != nil || len(finals) != 1 || !finals[0].Verified || finals[0].Backup != res.finalBackup.ID || finals[0].Deployment != name {
+		t.Fatalf("final copies: %+v %v (result %+v)", finals, err, res.finalBackup)
 	}
-	set, err := w.s.backups.ByID(ctx, w.project, name, res.FinalBackup.ID)
+	set, err := w.s.backups.ByID(ctx, w.project, name, res.finalBackup.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,8 +199,8 @@ func TestAnEvalCopysDeploymentGoesWithNoFinalCopy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.FinalBackup != nil {
-		t.Fatalf("a final copy of synthetic data: %+v", res.FinalBackup)
+	if res.finalBackup != nil {
+		t.Fatalf("a final copy of synthetic data: %+v", res.finalBackup)
 	}
 	if ops, err := w.ops.OnSubject(ctx, deployment.SubjectOf(dep), 10); err != nil || len(ops) != 1 || ops[0].State != operations.Succeeded {
 		t.Fatalf("an operation for an eval copy's take-down: %+v %v", ops, err)
@@ -301,7 +301,7 @@ func TestATakeDownThatCannotTakeAFinalCopyIsRefusedUnlessChosen(t *testing.T) {
 		t.Fatalf("a refused take-down deleted the app (%d apps, were %d)", got, apps)
 	}
 	res, err := w.s.Remove(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
-	if err != nil || res.FinalBackup != nil || len(res.Retained) == 0 {
+	if err != nil || res.finalBackup != nil || len(res.retained) == 0 {
 		t.Fatalf("the chosen take-down: %+v %v", res, err)
 	}
 	if deleted := w.api.Snapshot().DeletedClusters; len(deleted) != 0 {

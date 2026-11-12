@@ -78,7 +78,7 @@ func TestVerifiedStandaloneWithoutCopyKeepsDataAfterExplicitChoice(t *testing.T)
 		t.Fatal("unconfirmed teardown deleted stack")
 	}
 	result, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "lan", WithoutFinalCopy: "lan"})
-	if err != nil || result.FinalBackup != nil || deleted != 1 {
+	if err != nil || result.finalBackup != nil || deleted != 1 {
 		t.Fatalf("explicit choice: %+v %v deleted=%d", result, err, deleted)
 	}
 	retained, err := w.s.Retained.ForProject(t.Context(), w.project)

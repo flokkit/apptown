@@ -13,7 +13,7 @@ const finding = (name: string): Finding => ({ fingerprint: name, kind: 'vuln', s
 const observation = (id: string): ScanObservation => ({ id, projectId: 'project', runId: 'run', stepId: id, attempt: 1, subject: { on: 'source', commit: 'abcdef0123456789abcdef' }, scanner: 'osv', expectedScanners: ['osv'], bindingVersion: 3, configHash: 'config', configuration: '{}', stepConfig: {}, observedAt: '2026-11-12T05:00:00Z', verdict: 'pass', findings: [] })
 const fixture = (): ProjectScanView => {
   const npm = finding('lodash'), os = finding('libssl'), source = { ...observation('source'), verdict: 'fail', findings: [npm] }
-  return { scans: { main: source.subject.commit!, source: [source], running: [{ ...observation('image'), subject: { on: 'running', deployment: 'Production', part: 'web', digest: 'registry.example/app@sha256:012345abcdef67890123' }, scanner: 'trivy', verdict: 'fail', findings: [npm, os], projectFindings: [npm], imageOnlyFindings: [os], unclassifiedFindings: [] }], historical: [observation('old')], known: true, stale: false, lastScan: source.observedAt }, recent: [{ id: 'try', projectId: 'project', openChange: 'open-change', queue: 'security', what: 'Scan the project', when: source.observedAt, outcome: '', reason: '', observations: [], fingerprint: '', packages: [] }] }
+  return { queues: [{ queue: 'security', state: 'stuck', failed: 1, since: source.observedAt, reason: 'tests: failed', packages: [], changeId: 'open-change', changeNumber: 1 }, { queue: 'updates', state: 'up_to_date', failed: 0, since: '', reason: '', packages: [], changeNumber: 0 }], scans: { main: source.subject.commit!, source: [source], running: [{ ...observation('image'), subject: { on: 'running', deployment: 'Production', part: 'web', digest: 'registry.example/app@sha256:012345abcdef67890123' }, scanner: 'trivy', verdict: 'fail', findings: [npm, os], projectFindings: [npm], imageOnlyFindings: [os], unclassifiedFindings: [] }], historical: [observation('old')], known: true, stale: false, lastScan: source.observedAt }, recent: [{ schedule: 'janitor-scan', ruleRevision: 0, attempted: true, failed: true, changeId: 'open-change', id: 'try', projectId: 'project', openChange: 'open-change', queue: 'security', what: 'Scan the project', when: source.observedAt, outcome: '', reason: '', observations: [], fingerprint: '', packages: [] }] }
 }
 
 it('keeps an incomplete source comparison visibly unknown on Conformance', async () => {
@@ -40,16 +40,16 @@ async function render(data: ProjectScanView, janitor: boolean, check: (el: HTMLD
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 }
 
-it('keeps Janitor to a state line, current findings split, and Scan history', async () => {
+it('shows queue states, findings, and recent tries linked to their Changes', async () => {
   await render(fixture(), true, el => {
     expect(el.textContent).toContain('· 2 findings')
-    expect([...el.querySelectorAll('h3')].map(h => h.textContent)).toEqual(['Project’s findings', 'Running image only'])
+    expect([...el.querySelectorAll('h3')].map(h => h.textContent)).toEqual(['Project’s findings', 'Running image only', 'Recent tries'])
     expect(el.textContent?.match(/CVE-lodash/g)).toHaveLength(1)
     expect(el.textContent).toContain('CVE-libssl')
-    expect(el.querySelector('a')?.textContent).toBe('Scan history')
-    expect(el.querySelector('a')?.getAttribute('href')).toBe('/conformance/projects/project')
-    expect(el.querySelector('table, .list-row')).toBeNull()
-    expect(el.textContent).not.toMatch(/Earlier|Recent tries|Automatic updates|base-image|Scan the project/)
+    expect(el.querySelector('a')?.textContent).toBe('Try again')
+    expect(el.querySelector('a')?.getAttribute('href')).toBe('/changes/open-change')
+    expect(el.querySelector('table')?.getAttribute('aria-label')).toBe('Recent tries')
+    expect(el.textContent).not.toMatch(/Earlier|Automatic updates|base-image/)
   })
 })
 
@@ -94,7 +94,7 @@ it('puts unknown reasons, not applicable and no findings in result cells', async
   await render(data, true, el => {
     expect(el.textContent).toContain('Last scan: not known')
     expect(el.textContent).not.toContain('no findings')
-    expect(el.querySelector('h3')).toBeNull()
+    expect(el.querySelector('h3')?.textContent).toBe('Recent tries')
   })
 })
 

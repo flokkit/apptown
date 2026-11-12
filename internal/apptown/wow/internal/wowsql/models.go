@@ -32,6 +32,7 @@ type GuidanceBlockVersion struct {
 	CreatedAt  time.Time
 	Source     string
 	Signer     string
+	FixesJson  json.RawMessage
 }
 
 type LibWorkflow struct {

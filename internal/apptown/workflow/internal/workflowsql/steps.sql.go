@@ -1146,7 +1146,8 @@ func (q *Queries) RevisingAgentExists(ctx context.Context, arg RevisingAgentExis
 
 const reworkAgent = `-- name: ReworkAgent :execrows
 UPDATE steps SET status='pending',started_at=NULL,finished_at=NULL,override_by='',override_reason='',
-  config_json=CASE WHEN $1::text = '' THEN jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true)
+  config_json=CASE WHEN attempt=0 THEN jsonb_set(config_json, '{sendback}', to_jsonb($1::text), true)
+ WHEN $1::text = '' THEN jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true)
     ELSE jsonb_set(jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true), '{sendback}', to_jsonb($1::text), true) END
 WHERE id=$2 AND attempt=$3
 `

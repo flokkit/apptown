@@ -10,14 +10,21 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
 // AutomatedAttempt is one compact record of an automated Change, kept from admission.
 // OpenChange is empty after disposal; Observations retain exact subjects.
 type AutomatedAttempt struct {
+	Schedule     string                        `json:"schedule"`
+	RuleID       ids.ID                        `json:"ruleId,omitzero"`
+	RuleRevision int64                         `json:"ruleRevision"`
+	Attempted    bool                          `json:"attempted"`
+	Failed       bool                          `json:"failed"`
+	ChangeID     ids.ID                        `json:"changeId,omitzero"`
 	Fingerprint  string                        `json:"fingerprint"`
-	Packages     json.RawMessage               `json:"packages"`
+	Packages     []fix.Move                    `json:"packages"`
 	ID           ids.ID                        `json:"id"`
 	ProjectID    ids.ID                        `json:"projectId"`
 	OpenChange   ids.ID                        `json:"openChange,omitzero"`
@@ -46,7 +53,10 @@ func (s *Service) Attempts(ctx context.Context, project ids.ID, queue string, li
 	}
 	out := make([]AutomatedAttempt, 0, len(rows))
 	for _, row := range rows {
-		a := AutomatedAttempt{Fingerprint: row.Fingerprint, Packages: row.Packages, ID: row.ID, ProjectID: project, Queue: row.Queue, What: row.What, When: row.OpenedAt, Outcome: row.Outcome, Reason: row.Reason, Observations: []conformance.ScanObservation{}}
+		a := AutomatedAttempt{Schedule: row.Schedule, RuleID: row.RuleID, RuleRevision: row.RuleRevision, Attempted: row.AttemptedAt.Valid, Failed: row.FailedAttempt, ChangeID: row.ActiveChangeID, Fingerprint: row.Fingerprint, Packages: []fix.Move{}, ID: row.ID, ProjectID: project, Queue: row.Queue, What: row.What, When: row.OpenedAt, Outcome: row.Outcome, Reason: row.Reason, Observations: []conformance.ScanObservation{}}
+		if err := json.Unmarshal(row.Packages, &a.Packages); err != nil {
+			return nil, err
+		}
 		if !row.EndedAt.Valid {
 			a.OpenChange = row.ActiveChangeID
 		}

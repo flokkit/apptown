@@ -64,7 +64,7 @@ func TestRemoveRetainsManagedNeedsAndRecordsTogether(t *testing.T) {
 	// sql-guarantee: TestRemoveRetainsManagedNeedsAndRecordsTogether proves emulator rows are excluded from retention; RecordNeedIntent and RecordNeedFulfilled hardcode managed mode and cannot create this projection.
 	mustExec(t, s.db, `INSERT INTO need_instances(id,deployment_id,need,mode,status,updated_at) VALUES ($1,$2,'redis','emulator','ready','2026-10-01')`, ids.New(time.Now()), dep.ID)
 	result, err := s.Remove(context.Background(), removeSelection(dep))
-	if err != nil || len(result.Retained) != 1 || !strings.HasPrefix(result.Retained[0], "postgres: retained-pg") {
+	if err != nil || len(result.retained) != 1 || !strings.HasPrefix(result.retained[0], "postgres: retained-pg") {
 		t.Fatalf("removal: %+v %v", result, err)
 	}
 	if driver.calls.Load() != 1 {
@@ -116,7 +116,7 @@ func TestRemoveRefusesBeforeProviderWork(t *testing.T) {
 				cancel()
 			}
 			result, err := s.Remove(ctx, in)
-			if err == nil || result.Retained != nil {
+			if err == nil || result.retained != nil {
 				t.Fatalf("refused removal: %+v %v", result, err)
 			}
 			if driver.calls.Load() != 0 {
@@ -155,7 +155,7 @@ func TestRemoveIncompleteProviderOrReceiptPreservesRecords(t *testing.T) {
 				mustExec(t, s.db, `CREATE TRIGGER veto_removal BEFORE `+event+` ON `+table+` FOR EACH ROW`+when+` EXECUTE FUNCTION veto_removal()`)
 			}
 			result, err := s.Remove(ctx, removeSelection(dep))
-			if err == nil || result.Retained != nil {
+			if err == nil || result.retained != nil {
 				t.Fatalf("incomplete outcome: %+v %v", result, err)
 			}
 			if scenario != "provider" && scenario != "cancelled" && !strings.Contains(err.Error(), "records were not removed") {
@@ -218,7 +218,7 @@ func TestRemoveSettlementFailureCanBeExplicitlyRetried(t *testing.T) {
 		t.Fatal("hidden settlement failure")
 	}
 	result, err := s.Remove(context.Background(), removeSelection(dep))
-	if err != nil || len(result.Retained) != 1 {
+	if err != nil || len(result.retained) != 1 {
 		t.Fatalf("explicit retry: %+v %v", result, err)
 	}
 	if driver.calls.Load() != 2 {

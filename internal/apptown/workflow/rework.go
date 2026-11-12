@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -22,6 +23,7 @@ type reworkedResult struct {
 	runID   ids.ID
 	agentID ids.ID
 	refusal error
+	held    *Run
 }
 
 // requestIn records a single continuation. Pending agent state is the durable
@@ -38,7 +40,22 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 	if err != nil {
 		return result, err
 	}
-	if agent.Status != StatusPass && agent.Status != StatusFail && !(bounded != nil && agent.ID == source.ID && agent.Status == StatusNeedsHuman) {
+	var cfg struct {
+		RepairRounds int `json:"repairRounds"`
+	}
+	if err := json.Unmarshal(agent.Config, &cfg); err != nil {
+		return result, err
+	}
+	if !human && cfg.RepairRounds > 0 {
+		starts, err := workflowsql.New(tx.SQL()).AgentStartReceiptCount(ctx, workflowsql.AgentStartReceiptCountParams{RunID: run.ID, StepName: agent.Name})
+		if err != nil {
+			return result, err
+		}
+		if starts >= int64(cfg.RepairRounds) {
+			return result, nil
+		}
+	}
+	if agent.Status != StatusPass && agent.Status != StatusFail && !(cfg.RepairRounds > 0 && agent.Status == StatusNotApplicable) && !(bounded != nil && agent.ID == source.ID && agent.Status == StatusNeedsHuman) {
 		return result, nil
 	}
 	kind := "step.finished"
@@ -65,7 +82,7 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 		return result, nil
 	}
 	if !human {
-		if (bounded == nil && history.Rounds >= 3) || (bounded != nil && history.KeyRounds >= int64(bounded.Limit)) {
+		if (bounded == nil && cfg.RepairRounds == 0 && history.Rounds >= 3) || (bounded != nil && history.KeyRounds >= int64(bounded.Limit)) {
 			return result, nil
 		}
 		// A late verdict cannot start another revision of work it never examined.
@@ -95,6 +112,9 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 		return result, err
 	}
 	feedback := ""
+	if cfg.RepairRounds > 0 {
+		feedback = evidenceReason(source.Evidence)
+	}
 	if bounded != nil {
 		feedback = evidenceReason(source.Evidence)
 	}
@@ -127,7 +147,15 @@ func (s reworkStore) fail(ctx context.Context, claim *Step, outcome StepOutcome)
 		if outcome.Rework.Key != "" {
 			bounded = &outcome.Rework
 		}
-		return s.requestIn(ctx, tx, finished.Run, finished.Step, false, bounded)
+		result, err := s.requestIn(ctx, tx, finished.Run, finished.Step, false, bounded)
+		if err != nil {
+			return result, err
+		}
+		if result.agentID.IsZero() && (outcome.Status == StatusFail || outcome.Status == StatusError || outcome.Status == StatusNeedsHuman) {
+			err = workflowsql.New(tx.SQL()).HoldQueueAttempt(ctx, workflowsql.HoldQueueAttemptParams{ID: finished.Run.ChangeID, Reason: finished.Step.Name + ": " + evidenceReason(finished.Step.Evidence)})
+			result.held = finished.Run
+		}
+		return result, err
 	})
 }
 

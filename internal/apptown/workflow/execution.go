@@ -307,12 +307,21 @@ func (s *Service) finishAttempt(ctx context.Context, claim *Step, outcome StepOu
 		return fmt.Errorf("recording where the step ran: %w", err)
 	}
 	outcome.Evidence = s.masked(ctx, evidence)
-	if outcome.Status != StatusFail && outcome.Rework.Key == "" {
+	if outcome.Status != StatusFail && outcome.Status != StatusError && outcome.Status != StatusNeedsHuman && outcome.Rework.Key == "" {
 		return s.stepAttempts.finish(ctx, claim, outcome)
 	}
 	result, err := (reworkStore{s.db, s.clocked}).fail(ctx, claim, outcome)
 	if err == nil {
 		s.dispatchRework(result)
+		if result.held != nil {
+			rows, readErr := workflowsql.New(s.db.SQL()).QueueAttempt(ctx, result.held.ChangeID)
+			if readErr != nil {
+				return readErr
+			}
+			if len(rows) > 0 && rows[0].FailedAttempt {
+				return s.replaceUntouched(ctx, result.held)
+			}
+		}
 	}
 	return err
 }
