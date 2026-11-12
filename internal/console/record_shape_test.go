@@ -137,26 +137,71 @@ func TestModelErrorSurfacesInChat(t *testing.T) {
 }
 
 // Pressing stop aborts the helper's turn; the chat says so, and an aborted
-// turn is handed back like an error.
+// turn is handed back at once: pi never retries a turn the person stopped.
 func TestStopSurfacesInChat(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	rec := `{"type":"message","id":"a","timestamp":"2026-09-04T12:40:00.000Z","message":{"role":"user","content":[{"type":"text","text":"rewrite the game loop"}]}}
 {"type":"message","id":"b","timestamp":"2026-09-04T12:41:00.000Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"..."},{"type":"toolCall","name":"edit","arguments":{}}],"stopReason":"aborted","errorMessage":"Operation aborted"}}
 `
-	path := writeSessionRecord(t, dir, "2026-09-04T12-40-00-000Z_console.jsonl", rec)
+	writeSessionRecord(t, dir, "2026-09-04T12-40-00-000Z_console.jsonl", rec)
 	s := &Session{Dir: dir}
 	msgs := s.messages()
 	if len(msgs) != 2 || msgs[1].Role != "helper" || !msgs[1].Stopped || msgs[1].Error {
 		t.Fatalf("an abort is a helper 'stopped' bubble, not an error: %+v", msgs)
 	}
-	if !strings.Contains(msgs[1].Text, "I stopped") {
+	if !strings.Contains(msgs[1].Text, "You stopped me") {
 		t.Fatalf("plain words: %q", msgs[1].Text)
 	}
-	past := time.Date(2026, 9, 4, 12, 42, 0, 0, time.UTC)
-	_ = os.Chtimes(path, past, past)
 	if !s.HandedBack() {
-		t.Fatal("an aborted turn is handed back")
+		t.Fatal("an aborted turn is handed back without waiting for the record to settle")
+	}
+}
+
+// pi records a stop that lands while a tool runs as a model error whose
+// message is the abort's own (pi 1.5.0, recorded by
+// testdata/pisession/stops.mjs pressing Escape during a tool call). It is
+// the person's stop, never "my model call failed", and the turn is over.
+func TestStopDuringAToolIsThePersonsStop(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	rec, err := os.ReadFile("testdata/pisession/stop-during-tool.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeSessionRecord(t, dir, "2026-11-12T03-56-14-000Z_console.jsonl", string(rec))
+	s := &Session{Dir: dir}
+	msgs := s.messages()
+	if len(msgs) != 3 {
+		t.Fatalf("want the request, the tool call and the stop: %+v", msgs)
+	}
+	if last := msgs[2]; !last.Stopped || last.Error || strings.Contains(last.Text, "model") {
+		t.Fatalf("the stop reads as the person's, not a model failure: %+v", last)
+	}
+	if !s.HandedBack() {
+		t.Fatal("a stopped turn is handed back at once, not after the record settles")
+	}
+}
+
+// A stream cut mid-reply is a real passing fault: pi retries it on its own
+// (pi 1.5.0, recorded by testdata/pisession/stops.mjs) and the chat shows
+// the answer, never the dropped attempt.
+func TestStreamCutThatPiRetriesIsNotAStop(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	rec, err := os.ReadFile("testdata/pisession/stream-cut-retried.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := writeSessionRecord(t, dir, "2026-11-12T03-56-21-000Z_console.jsonl", string(rec))
+	settled(path)
+	s := &Session{Dir: dir}
+	msgs := s.messages()
+	if len(msgs) != 2 || msgs[1].Error || msgs[1].Stopped || msgs[1].Text != "Partial answer." {
+		t.Fatalf("the retried answer is the only reply: %+v", msgs)
+	}
+	if !s.HandedBack() {
+		t.Fatal("the answered retry hands back")
 	}
 }
 
@@ -170,7 +215,7 @@ func TestRetriedModelErrorIsNotAStop(t *testing.T) {
 	dir := t.TempDir()
 	path := writeSessionRecord(t, dir, "2026-11-12T00-11-00-000Z_console.jsonl",
 		`{"type":"message","id":"a","timestamp":"2026-11-12T00:11:00.000Z","message":{"role":"user","content":[{"type":"text","text":"add a login page"}]}}
-{"type":"message","id":"b","parentId":"a","timestamp":"2026-11-12T00:11:54.000Z","message":{"role":"assistant","content":[{"type":"text","text":"I'll start"}],"stopReason":"error","errorMessage":"This operation was aborted"}}
+{"type":"message","id":"b","parentId":"a","timestamp":"2026-11-12T00:11:54.000Z","message":{"role":"assistant","content":[{"type":"text","text":"I'll start"}],"stopReason":"error","errorMessage":"terminated"}}
 `)
 	s := &Session{Dir: dir}
 	if msgs := s.messages(); len(msgs) != 1 || s.HandedBack() {
@@ -184,13 +229,13 @@ func TestRetriedModelErrorIsNotAStop(t *testing.T) {
 	if s.HandedBack() {
 		t.Fatal("while pi waits to retry, the turn is still working")
 	}
-	appendRecord(t, path, `{"type":"message","id":"d","parentId":"c","timestamp":"2026-11-12T00:12:20.000Z","message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"This operation was aborted"}}`)
+	appendRecord(t, path, `{"type":"message","id":"d","parentId":"c","timestamp":"2026-11-12T00:12:20.000Z","message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"terminated"}}`)
 	settled(path)
 	msgs := s.messages()
 	if len(msgs) != 2 || !msgs[1].Error || msgs[1].I != 1 {
 		t.Fatalf("the failed retry is the one error bubble: %+v", msgs)
 	}
-	if !strings.Contains(msgs[1].Text, "failed again when I retried") || strings.Contains(msgs[1].Text, "reach") {
+	if !strings.Contains(msgs[1].Text, "failed again when I retried") || strings.Contains(msgs[1].Text, "reach") || strings.Contains(msgs[1].Text, "Wait a moment") {
 		t.Fatalf("the bubble says the turn was retried, not that the model was unreachable: %q", msgs[1].Text)
 	}
 	if !s.HandedBack() {

@@ -79,8 +79,16 @@ func (e entry) failed() bool {
 	return e.Role == "assistant" && (e.StopReason == "error" || e.StopReason == "aborted")
 }
 
-// aborted: the person stopped the turn.
-func (e entry) aborted() bool { return e.Role == "assistant" && e.StopReason == "aborted" }
+// aborted: the person stopped the turn (pressed stop, or Escape in the
+// terminal). pi 1.5 records that as stopReason "aborted", except when the
+// stop lands while a tool runs: it then starts the turn's next model call
+// on the aborted signal and records an "error" with the abort's own
+// message. That message is an in-process abort; a lost connection ends
+// "terminated", "socket hang up", "fetch failed" or a timeout instead.
+func (e entry) aborted() bool {
+	return e.Role == "assistant" && (e.StopReason == "aborted" ||
+		e.StopReason == "error" && e.ErrorMessage == "This operation was aborted")
+}
 
 // hasText: the entry says something visible (not just thinking or tools).
 func (e entry) hasText() bool { return strings.TrimSpace(e.Text) != "" }
@@ -291,7 +299,7 @@ type Message struct {
 	// what to do. The chat must never look busy over a helper that has
 	// stopped.
 	Error bool `json:"error,omitempty"`
-	// Stopped: the person pressed stop and the helper aborted its turn.
+	// Stopped: the person stopped the helper's turn.
 	Stopped bool `json:"stopped,omitempty"`
 }
 
@@ -321,10 +329,11 @@ func helperErrorText(raw string, retried bool) string {
 	if msg == "" {
 		msg = "the model call failed"
 	}
+	again := ""
 	if retried {
-		return "My model call failed, and failed again when I retried it, so I've stopped: " + msg + "\n\nWait a moment, then send your message again and I'll pick up from here."
+		again = ", and failed again when I retried it"
 	}
-	return "My model call failed, so I've stopped: " + msg + "\n\nOnce that's sorted, send your message again and I'll pick up from here."
+	return "My model call failed" + again + ", so I've stopped: " + msg + "\n\nOnce that's sorted, send your message again and I'll pick up from here."
 }
 
 // Transcript is one chat's record on disk, parsed and kept between polls:
@@ -474,7 +483,7 @@ func (t *Transcript) refresh() {
 			m := Message{I: len(t.msgs), Role: "helper", Text: helperErrorText(e.ErrorMessage, t.retried), Error: true}
 			if e.aborted() {
 				m = Message{I: len(t.msgs), Role: "helper", Stopped: true,
-					Text: "I stopped — you pressed stop. Say what you'd rather have and I'll carry on from here."}
+					Text: "You stopped me. Say what you'd rather have and I'll carry on from here."}
 			}
 			if !e.At.IsZero() {
 				m.At = e.At.UTC().Format("2006-01-02T15:04:05.000Z07:00")
@@ -536,7 +545,8 @@ func (t *Transcript) TurnHandedBack() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.refresh()
-	if t.retrying && !t.stoppedAt.IsZero() {
+	// pi never retries a turn the person stopped, so a stop needs no settling.
+	if t.retrying && !t.stoppedAt.IsZero() || t.last != nil && t.last.aborted() {
 		return true
 	}
 	if !t.quiet() {

@@ -166,6 +166,18 @@ describe('the conversation as read', () => {
     } finally { done() }
   })
 
+  it('says a stop was the person\'s and stops showing busy', async () => {
+    const record: Bubble[] = [
+      { i: 0, role: 'you', text: 'build it' },
+      { i: 1, role: 'helper', stopped: true, text: 'You stopped me.' },
+    ]
+    const { el, done } = await mount(() => new Response(JSON.stringify({ messages: record, turn: 'handed-back' })))
+    try {
+      await vi.waitFor(() => expect(el.textContent).toContain('stopped by you'))
+      expect(el.querySelector<HTMLElement>('.chat-working')!.hidden).toBe(true)
+    } finally { done() }
+  })
+
   it('says a conversation that could not be read could not be read, with no starters', async () => {
     const { el, done } = await mount(down)
     await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('data-help')).toContain('the worker cannot be reached'))

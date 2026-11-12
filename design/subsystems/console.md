@@ -76,9 +76,17 @@ for acting; no other instrument acts on a chat.
 `conversation.Chats` holds this rule at each operation, whichever door asks,
 and records each denial in the activity log; the routes check only
 that the caller can read the project (`project:read`, however it is held:
-a project role, an owning group's or an instance grant such as Auditor). A
-terminal opened to type asks again before each keystroke or resize, so
-someone made a viewer while their page stays open only watches. A viewer is refused in the chat's own
+a project role, an owning group's or an instance grant such as Auditor). The
+terminal opens read-only for everyone: a key pressed to look around (Escape
+to close what seems a menu) would otherwise stop the helper's turn. Someone
+who may act presses Take control to type; the server takes their keystrokes
+only on a terminal opened in control (`control=1`). Opening the terminal
+still wakes the chat and counts as a viewer, in control or not. In control,
+the keys are pi's: AppTown reports a stop only when pi records one. One
+exception follows from that: pi records nothing when Escape cancels its wait
+to retry a failed model call, so the chat keeps reading working until ⏹ stop
+or the next message. A terminal asks again before each keystroke or resize,
+so someone made a viewer while their page stays open only watches. A viewer is refused in the chat's own
 words, for example "Viewing only: saying something to this chat needs the
 Project contributor role."; a disabled account or a credential's narrower
 consent keeps its own reason.

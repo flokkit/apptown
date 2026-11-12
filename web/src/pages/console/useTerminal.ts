@@ -24,10 +24,11 @@ function termTheme() {
 }
 
 // useTerminal attaches the terminal in `into` to the session's PTY and
-// reconnects when the socket drops. It reconnects for another session or a
-// change in whether the reader may type, never for a new copy of the same
-// session's view.
-export function useTerminal(sessionId: string | null, mayAct: boolean, into: RefObject<HTMLDivElement | null>, visible = false): TerminalStatus {
+// reconnects when the socket drops. It reconnects for another session, a
+// change in whether the reader may act, or taking control, never for a new
+// copy of the same session's view. Keystrokes go to the helper only in
+// control; the server refuses them otherwise.
+export function useTerminal(sessionId: string | null, mayAct: boolean, into: RefObject<HTMLDivElement | null>, visible = false, control = false): TerminalStatus {
   const [connection, setConnection] = useState<{ id: string | null; status: TerminalStatus }>({ id: null, status: 'connecting' })
   const terminalRef = useRef<Terminal | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
@@ -48,6 +49,7 @@ export function useTerminal(sessionId: string | null, mayAct: boolean, into: Ref
       theme: termTheme(),
       scrollback: 5000,
       allowProposedApi: true,
+      disableStdin: !control,
     })
     terminalRef.current = term
     const fit = new FitAddon()
@@ -63,7 +65,7 @@ export function useTerminal(sessionId: string | null, mayAct: boolean, into: Ref
     const connect = () => {
       if (closed) return
       const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-      const ws = new WebSocket(`${proto}://${location.host}/api/v1/console/${sessionId}/pty`)
+      const ws = new WebSocket(`${proto}://${location.host}/api/v1/console/${sessionId}/pty${control ? '?control=1' : ''}`)
       ws.binaryType = 'arraybuffer'
       wsRef.current = ws
       ws.onopen = () => {
@@ -89,7 +91,7 @@ export function useTerminal(sessionId: string | null, mayAct: boolean, into: Ref
     connect()
 
     const dataSub = term.onData((d) => {
-      if (!mayAct) return
+      if (!control) return
       if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(enc.encode(d))
       else pending.push(enc.encode(d))
     })
@@ -118,7 +120,7 @@ export function useTerminal(sessionId: string | null, mayAct: boolean, into: Ref
       terminalRef.current = null
       term.dispose()
     }
-  }, [sessionId, mayAct, into])
+  }, [sessionId, mayAct, control, into])
 
   // Opening the hidden terminal must not take focus from a draft. Zooming
   // into the terminal still puts the cursor there, ready to type.

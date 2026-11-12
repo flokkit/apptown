@@ -48,7 +48,11 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   // the hood. Same pi, same conversation, two zooms — remembered per person.
   const [zoom, setZoom] = useState<'chat' | 'terminal'>(
     () => (localStorage.getItem('chat-zoom') === 'terminal' ? 'terminal' : 'chat'))
-  const setZoomKeep = (z: 'chat' | 'terminal') => { setZoom(z); localStorage.setItem('chat-zoom', z) }
+  // The terminal only shows until the person takes control: a key pressed
+  // to look around (Escape) must not stop the helper. Leaving it, or
+  // another chat, gives control back.
+  const [controlOf, setControlOf] = useState<string | null>(null)
+  const setZoomKeep = (z: 'chat' | 'terminal') => { setZoom(z); setControlOf(null); localStorage.setItem('chat-zoom', z) }
   const [robotBusy, setRobotBusy] = useState(false)
   const [showActions, setShowActions] = useAgentActions()
   // Context stays inline at both widths.
@@ -58,7 +62,8 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   const introKey = `chat-intro-seen-${slug}`
   const [introSeen, setIntroSeen] = useState(() => localStorage.getItem(introKey) === '1')
   const termRef = useRef<HTMLDivElement>(null)
-  const status = useTerminal(session?.id ?? null, !!session?.mayAct, termRef, zoom === 'terminal')
+  const mayType = !!session?.mayAct && controlOf === session.id && zoom === 'terminal'
+  const status = useTerminal(session?.id ?? null, !!session?.mayAct, termRef, zoom === 'terminal', mayType)
 
   // Two visually distinct kinds of chat:
   // the project chat (questions, setup, starting work) and the change chat
@@ -107,6 +112,9 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
         <span className="console-head-space grow" />
         {isWorkshop && changeId !== '' && session?.mayAct && zoom === 'chat' && change.data && <span className="console-strip"><WorkshopActions compact changeId={changeId} view={change.data} robotBusy={robotBusy} sessionId={session?.id} /></span>}
         {session?.mayAct && zoom === 'chat' && <AgentActivity busy={robotBusy} connected={status === 'attached'} />}
+        {zoom === 'terminal' && session?.mayAct && (mayType
+          ? <span className="badge here" title="Your keys go to the helper; Escape stops what it is doing.">you have control</span>
+          : <button className="subtle" title="Type into the helper's terminal. Until then it only shows." onClick={() => setControlOf(session.id)}>Take control</button>)}
         {(!narrow || zoom !== 'chat') && <button disabled={!session} className="subtle" onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
           {zoom === 'chat' ? 'Terminal ▾' : '← back to the chat'}
         </button>}

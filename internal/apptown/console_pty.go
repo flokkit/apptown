@@ -27,9 +27,10 @@ func (a *App) handleConsolePTY(w http.ResponseWriter, r *http.Request) {
 	if s == nil {
 		return
 	}
-	// Someone who may act on the chat types into it; anyone else who may
-	// look watches its screen (conversation.Chats.Terminal).
-	term, err := chatsFor(a).Terminal(r.Context(), s)
+	// Someone who may act on the chat types into it once they take control
+	// (?control=1); anyone else who may look watches its screen
+	// (conversation.Chats.Terminal).
+	term, err := chatsFor(a).Terminal(r.Context(), s, r.URL.Query().Get("control") == "1")
 	if err != nil {
 		httpapi.WriteFaultOr(w, err, 500)
 		return
