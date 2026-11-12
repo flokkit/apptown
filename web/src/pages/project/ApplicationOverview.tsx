@@ -20,31 +20,29 @@ import { ScheduleRows } from './Schedules'
 import { Section } from '../../Section'
 import './overview.css'
 
-type ActivityEntry = { waitingOn?: import('../../wire.gen').WaitingOn; id: string; when: string; number?: number; title: string; source: string; word: keyof typeof STATUS_LIGHT; to: string; help?: string; release?: { label: string; to: string } }
+type ActivityEntry = { id: string; when: string; number?: number; title: string; source: string; to: string } & (
+  { waitingOn: import('../../wire.gen').WaitingOn } | { word: keyof typeof STATUS_LIGHT; help?: string }
+)
 
 // Keep each recorded fact attached to its source. A runtime observation is
 // neither release evidence nor an approval.
 export function overviewActivity(data: OverviewData, deployments: DeploymentView[], backups: Backup[], releases: Release[], slug: string): ActivityEntry[] {
-  const released = new Set(releases.flatMap(r => (r.changes ?? []).map(c => c.id)))
-  return [
-    ...data.history.filter(c => !released.has(c.changeId)).map(c => ({ id: `change-${c.changeId}`, when: c.when, number: c.changeNumber, title: c.title, source: '', word: c.statusLabel, waitingOn: c.waitingOn, to: `/changes/${c.changeId}` })),
-    // A release reads as what it shipped: its change's title leads and opens
-    // the change; the release is its own link in the small print. A release
-    // of several changes opens the release, which lists them.
-    ...releases.map(r => {
-      const shipped = r.changes ?? []
-      const release = `/projects/${slug}/releases/${r.number}`
-      const one = shipped.length === 1 && shipped[0].id ? shipped[0] : undefined
-      return {
-        id: `release-${r.number}`, when: r.releasedAt || r.createdAt,
-        number: shipped.length === 1 ? shipped[0].number : undefined,
-        title: shipped.length === 0 ? `Release ${r.number}` : shipped.length === 1 ? shipped[0].title : `${shipped[0].title} and ${shipped.length - 1} more`,
-        source: r.deployment,
-        word: r.statusLabel, to: one ? `/changes/${one.id}` : release,
-        release: shipped.length > 0 ? { label: `Release ${r.number}`, to: release } : undefined,
-      }
-    }),
-  ].sort((a, b) => b.when.localeCompare(a.when))
+  const seen = new Set<string | null>()
+  const current: ActivityEntry[] = []
+  for (const c of [...data.active.filter(c => c.changeId), ...data.open]) {
+    if (!c.changeId || seen.has(c.changeId)) continue
+    seen.add(c.changeId)
+    current.push({ id: `change-${c.changeId}`, when: 'startedAt' in c ? c.startedAt : '', number: c.changeNumber, title: c.title, source: '', waitingOn: c.waitingOn, to: `/changes/${c.changeId}` })
+  }
+  const past: ActivityEntry[] = [
+    ...data.history.filter(c => !seen.has(c.changeId)).map(c => ({ id: `change-${c.changeId}`, when: c.when, number: c.changeNumber, title: c.title, source: '', waitingOn: c.waitingOn, to: `/changes/${c.changeId}` })),
+    ...releases.map(r => ({
+      id: `release-${r.number}`, when: r.releasedAt || r.createdAt,
+      title: `Release ${r.number} to ${r.deployment}`, source: '',
+      word: r.statusLabel, to: `/projects/${slug}/releases/${r.number}`,
+    })),
+  ]
+  return [...current, ...past.sort((a, b) => b.when.localeCompare(a.when))]
 }
 
 export function ApplicationOverview({ project }: { project: ProjectDetail }) {
@@ -73,12 +71,12 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       <ReadStatus q={activityQ} what="activity" /><StaleNote q={activityQ} />
       <ReadStatus q={releasesQ} what="releases" /><StaleNote q={releasesQ} />
       {events.slice(0, activityCount).map(e => (
-        <ListRow key={e.id} to={e.to} className="card row application-overview-card" state={<span className="row-status">{e.waitingOn ? <ChangeStatus waiting={e.waitingOn} /> : <Status word={e.word} help={e.help} />}</span>} identity={<>
+        <ListRow key={e.id} to={e.to} className="card row application-overview-card" state={<span className="row-status">{'waitingOn' in e ? <ChangeStatus waiting={e.waitingOn} /> : <Status word={e.word} help={e.help} />}</span>} identity={<>
           <Link to={e.to} className="row grow application-overview-link">
             <strong>{e.number !== undefined && <span className="muted">#{e.number} </span>}{e.title}</strong>
-            <span className="muted small">{fmtWhen(e.when)}</span>
+            <span className="muted small">{e.when && fmtWhen(e.when)}</span>
           </Link>
-          <span className="muted small">{e.release && <><Link to={e.release.to}>{e.release.label}</Link>{e.source ? ' · ' : ''}</>}{e.source}</span></>} />
+          {e.source && <span className="muted small">{e.source}</span>}</>} />
       ))}
       {events.length > activityCount && <div className="card"><button className="link" onClick={() => setActivityCount(n => n + 10)}>Show 10 more</button></div>}
       {data && !events.length && <p className="muted">No activity yet.{canStart && <> <Link to={`/projects/${slug}/changes`}>Start a change</Link></>}</p>}
@@ -134,9 +132,9 @@ export function ProjectChanges({ project }: { project: ProjectDetail }) {
     </Section>
 <Section title="Finished changes">
  {/* The same row as an open change: number and title, then how it ended and when. */}
- {data?.history.map(c => <ListRow to={`/changes/${c.changeId}`} className="card row application-overview-card" key={c.changeId} identity={<>
+ {data?.history.map(c => <ListRow to={`/changes/${c.changeId}`} className="card row application-overview-card" key={c.changeId} state={<ChangeStatus waiting={c.waitingOn} />} identity={<>
    <Link to={`/changes/${c.changeId}`} className="run-link"><strong><span className="muted">#{c.changeNumber} </span>{c.title}</strong></Link>
-   <div className="muted small">{c.statusLabel} · {fmtWhen(c.when)}</div>
+   <div className="muted small">{fmtWhen(c.when)}</div>
  </>} />)}
  </Section></>
 }

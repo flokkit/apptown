@@ -244,8 +244,8 @@ it.each([false, true])('Home lists landed changes by title, project and age, wit
  vi.stubGlobal('matchMedia', () => ({ matches: narrow, addEventListener() {}, removeEventListener() {} }))
  responses(() => json(known), {
   '/activity': { ...emptyActivity, history: [
-   { changeId: 'calendar', title: 'Add a shared calendar', project: 'Household', statusLabel: 'landed', when: at },
-   { changeId: 'photos', title: 'Fix photo uploads', project: 'Household', statusLabel: 'failed', when: at },
+   { changeId: 'calendar', title: 'Add a shared calendar', project: 'Household', state: 'shipped', merged: true, when: at },
+   { changeId: 'photos', title: 'Fix photo uploads', project: 'Household', state: 'in_progress', merged: false, when: at },
   ] },
   '/dashboard': emptyDashboard,
   '/projects?limit=5&order=mine': { projects: [{ id: 'project', slug: 'household', name: 'Household', hasDeployments: false }], total: 1 },

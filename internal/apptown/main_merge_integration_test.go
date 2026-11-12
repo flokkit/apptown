@@ -166,10 +166,10 @@ func TestIntegrationMainThatConflictsIsShownOnTheChange(t *testing.T) {
 	}
 	rec := changeRequest(w.a, "alice", "GET", "/api/v1/changes/"+w.run.ChangeID.String(), "")
 	var ended struct {
-		StatusLabel string `json:"statusLabel"`
-		StateDetail string `json:"stateDetail"`
+		WaitingOn   workflow.WaitingOn `json:"waitingOn"`
+		StateDetail string             `json:"stateDetail"`
 	}
-	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &ended) != nil || !strings.Contains(ended.StateDetail, "conflicts with this change in app.txt") || ended.StatusLabel == "abandoned" {
+	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &ended) != nil || !strings.Contains(ended.StateDetail, "conflicts with this change in app.txt") || ended.WaitingOn.Says != "building" {
 		t.Fatalf("the page after the ended landing: %d %s", rec.Code, rec.Body)
 	}
 	if view := read(); view.MainConflict == nil || offersLanding(view) {

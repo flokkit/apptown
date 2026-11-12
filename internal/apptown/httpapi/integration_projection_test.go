@@ -3,9 +3,11 @@ package httpapi
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -34,7 +36,7 @@ func TestProjectIntegrationReadBatchesAndContainsPrivateRecords(t *testing.T) {
 	work := workflow.New(context.Background(), db, workflow.Dependencies{Authority: access.Checked{Authority: accounts, Projects: projects}})
 	t.Cleanup(work.Stop)
 	integrations := integration.NewService(db, integration.Dependencies{Projects: projects})
-	handler := NewProjectAttachments(projects, integrations, accounts, changeactions.New(work, db), db, "", nil)
+	handler := NewProjectAttachments(projects, integrations, accounts, changeactions.New(work, db), work, db, "", nil)
 	var projectIDs, changeIDs []ids.ID
 	for _, spec := range []struct{ slug, name string }{{"shop", "Shop"}, {"other", "Other"}} {
 		projectIDs = append(projectIDs, httpTestProject(t, db, spec.slug, spec.name))
@@ -121,5 +123,40 @@ func TestProjectIntegrationReadBatchesAndContainsPrivateRecords(t *testing.T) {
 	t.Cleanup(dbtest.NextStatementFailure(db, "-- name: ProjectIntegration :one"))
 	if _, err := integration.Resource(ctx, db, projectIDs[0], "scm"); err == nil || errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("resource failure became absence: %v", err)
+	}
+}
+
+func TestWiringChangeUsesItsWorkflowWaitingOn(t *testing.T) {
+	t.Parallel()
+	f := newWorkflowHTTPFixture(t, true)
+	integrations := integration.NewService(f.DB, integration.Dependencies{Projects: f.Projects})
+	if err := integrations.Attachments.Attach(f.Context, f.ProjectID, "mailer", "", "{}", "fixture", nil); err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: Attach does not expose wire_change_id; this historical link supplies the projection with a real running change.
+	if _, err := f.DB.SQL().ExecContext(f.Context, "UPDATE project_integrations SET wire_change_id=$1 WHERE project_id=$2 AND capability='mailer'", f.ChangeID, f.ProjectID); err != nil {
+		t.Fatal(err)
+	}
+	ch, err := f.Work.Change(f.Context, f.ChangeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := f.Work.Snapshot(f.Context, f.RunID, workflow.DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := f.Work.ChangeWaitingOn(f.Context, ch, snapshot)
+	h := NewProjectAttachments(f.Projects, integrations, f.Access, changeactions.New(f.Work, f.DB), f.Work, f.DB, "", nil)
+	request := httptest.NewRequest("GET", "/", nil).WithContext(f.Context)
+	request.SetPathValue("slug", "shop")
+	out := httptest.NewRecorder()
+	h.ListProjectIntegrations(out, request)
+	var response AttachmentList
+	if err := json.Unmarshal(out.Body.Bytes(), &response); err != nil || out.Code != 200 || len(response.Attachments) != 1 {
+		t.Fatalf("attachments: %d %s: %v", out.Code, out.Body.String(), err)
+	}
+	wire := response.Attachments[0].Wire
+	if wire == nil || !reflect.DeepEqual(wire.WaitingOn, want) || wire.WaitingOn.Kind != "approval" {
+		t.Fatalf("wiring lost workflow facts: %+v, want %+v", wire, want)
 	}
 }

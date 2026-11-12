@@ -253,3 +253,19 @@ it('labels a connection’s settings with the kind’s field labels', async () =
     await vi.waitFor(() => expect([...el.querySelectorAll('.services-facts dt')].map(d => d.textContent)).toEqual(['Client ID', 'Client secret (secret name)']))
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+it('uses the wiring change status supplied by its workflow', async () => {
+  const client = newQueryClient()
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/attachables') ? { attachables: [] } : {
+    attachments: [{ capability: 'mailer', title: 'Mail', resource: {}, wirable: true, wire: {
+      changeId: 'wire-change', changeNumber: 3, title: 'Connect mail',
+      waitingOn: { says: 'going live', tone: 'busy' },
+    } }],
+  }))))
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectIntegrationsTab slug="demo" /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('.chip-word')?.textContent).toBe('going live'))
+    expect(el.querySelector('a[href="/changes/wire-change"]')?.textContent).toContain('wiring · change 3')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

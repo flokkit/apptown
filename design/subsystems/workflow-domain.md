@@ -132,9 +132,16 @@ It names the holding run and step, including a child's, counts current failed
 checks without stale or overridden verdicts, and supplies the phrase and tone
 shown on Home, project lists, the change head and `apptown show`, `changes`
 and `wait`. A failed check takes precedence over a later pending approval;
-an error says the check could not run. Other holds retain their explanation.
-Ready work says "ready to continue", accepted work awaiting its landing says
-"queued to land", and an open change without running work says "chat open".
+an error says the check could not run. Other holds name the stopped step;
+their recorded explanation stays in the change detail. All change chips use
+this projection, including the chat header and wiring changes in Services.
+An open change without running work says "building". Agent work says
+"building · helper working" or "building · waiting for a free slot".
+Other running work says "checking", except a landing's final pinned stage,
+which says "going live". This describes publication work, not deployment
+health. Accepted work awaiting its landing says "going live · queued";
+ready work says "ready to continue". Closed changes say "landed", "finished"
+for a record-only completion, or "abandoned".
 
 The projection's `you` answers the current reader's eligibility for relevant
 acts using command permissions. Approval eligibility includes current-round

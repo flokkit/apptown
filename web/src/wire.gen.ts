@@ -270,7 +270,6 @@ export type ChangeCockpit = {
   committedDiff: CommittedComparison
   report: string
   editing: number
-  statusLabel: DisplayStatus
   state: string
   stateDetail: string
   usage: ChangeUsage
@@ -1887,7 +1886,6 @@ export type RunRow = {
   title: string
   status: RunState
   stage: string
-  statusLabel: DisplayStatus
   state?: string
   detail?: string
   project?: string
@@ -2722,8 +2720,6 @@ export type CommittedComparison = {
   shipped?: ShippedComparison | null
 }
 
-export type DisplayStatus = "unknown" | "working" | "waiting" | "failed" | "stopped" | "landed" | "finished" | "waiting for you" | "waiting for checks" | "passed" | "excepted" | "not applicable" | "none" | "abandoned"
-
 export type ChangeUsage = {
   total: number
   costMicros: number
@@ -2795,6 +2791,8 @@ export type Target = {
   status: TargetState
   settingsRevision: number
 }
+
+export type DisplayStatus = "unknown" | "working" | "waiting" | "failed" | "stopped" | "landed" | "finished" | "waiting for you" | "waiting for checks" | "passed" | "excepted" | "not applicable" | "none" | "abandoned"
 
 export type AcceptanceCheck = {
   block: string
@@ -3046,10 +3044,9 @@ export type ConsoleChange = {
   title: string
   state: ChangeState
   closedAs?: string
-  stateLabel: string
-  statusLabel: DisplayStatus
-  doing: string
   detail: string
+  waitingOn: WaitingOn
+  stateLabel: string
 }
 
 export type Message = {
@@ -3702,7 +3699,6 @@ export type ChangeHistory = {
   type: string
   state: ChangeState
   closedAs?: string
-  statusLabel: DisplayStatus
   stateLabel: string
   project?: string
   workflows: string
@@ -4163,7 +4159,6 @@ export type OverviewRepo = {
 
 export type OpenChange = {
   waitingOn: WaitingOn
-  statusLabel: DisplayStatus
   changeId: string | null
   changeNumber: number
   title: string
@@ -4897,7 +4892,7 @@ export type AddsLine = {
 }
 
 export type IntegrationWire = {
-  statusLabel: DisplayStatus
+  waitingOn: WaitingOn
   changeId: string | null
   changeNumber: number
   state: string

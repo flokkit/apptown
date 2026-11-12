@@ -7,69 +7,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/status"
 )
 
-func TestChangeDisplayPreservesWaitingFailureAndLanding(t *testing.T) {
-	for _, tc := range []struct {
-		state  ChangeState
-		closed string
-		run    *RunSnapshot
-		want   status.DisplayStatus
-	}{
-		{ChangeInProgress, "", nil, status.DisplayWaiting},
-		{ChangeLanding, "", nil, status.DisplayUnknown},
-		{ChangeShipped, "", nil, status.DisplayFinished},
-		{ChangeShipped, ClosedShippedWith, nil, status.DisplayLanded},
-		{ChangeShipped, closedRecord, nil, status.DisplayFinished},
-		{ChangeAbandoned, "", nil, status.DisplayAbandoned},
-		{ChangeLanding, "", &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityWaiting}, status.DisplayWaitingForYou},
-		{ChangeInProgress, "", &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityBlocked}, status.DisplayFailed},
-		{ChangeInProgress, "", &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityWorking}, status.DisplayWorking},
-		// An in-progress change whose landing ended reads as the change,
-		// not as that run (the chat's header said "abandoned").
-		{ChangeInProgress, "", &RunSnapshot{Run: &Run{Status: RunAbandoned}, State: ActivityAbandoned}, status.DisplayWaiting},
-	} {
-		if got := (&Change{State: tc.state, ClosedAs: tc.closed}).Display(tc.run); got != tc.want {
-			t.Errorf("%s: got %s, want %s", tc.state, got, tc.want)
-		}
-	}
-	if got := (&Change{State: ChangeShipped, LandedSHA: "accepted-commit"}).Display(nil); got != status.DisplayLanded {
-		t.Fatalf("recorded merge: %s", got)
-	}
-
-}
-
-func TestActivityLabelsKeepWaitingPartyAndProgress(t *testing.T) {
-	for state, want := range map[ActivityState]string{ActivityWorking: "working", activityAgentWorking: "working", activityQueued: "waiting", ActivityWaiting: "waiting for you", ActivityReady: "waiting", ActivityBlocked: "failed"} {
-		if got := state.Display().String(); got != want {
-			t.Errorf("%s: %s, want %s", state, got, want)
-		}
-	}
-}
-func TestHistoryLabelsDescribeLandingWithoutChangingLifecycle(t *testing.T) {
-	for _, c := range []struct {
-		state  ChangeState
-		closed string
-		merged bool
-		want   status.DisplayStatus
-	}{{ChangeShipped, "", true, status.DisplayLanded}, {ChangeShipped, closedRecord, false, status.DisplayFinished}, {ChangeShipped, ClosedShippedWith, false, status.DisplayLanded}, {ChangeAbandoned, "", true, status.DisplayAbandoned}} {
-		if got := historyLabel(c.state, c.closed, c.merged); got != c.want {
-			t.Errorf("%+v: %s", c, got)
-		}
-	}
-}
-
-func TestSavedChangeDoesNotAssumeReaderMustAct(t *testing.T) {
-	for _, run := range []*RunSnapshot{nil, {Run: &Run{Status: RunDone}}} {
-		if got := (&Change{State: ChangeInProgress}).Display(run); got != status.DisplayWaiting {
-			t.Fatalf("saved change: %s", got)
-		}
-	}
-	for _, state := range []ChangeState{ChangeInProgress, ChangeLanding} {
-		if got := state.OpenDisplay(0); got == status.DisplayWaitingForYou {
-			t.Fatalf("open change assumes reader action: %s", got)
-		}
-	}
-}
-
 func TestStepLabelsPreserveUnreadEvidenceExceptionsAndEndedRuns(t *testing.T) {
 	for _, tc := range []struct {
 		s    Step

@@ -30,7 +30,7 @@ import type { ChangeView } from '../api'
 const CHANGE = '00000000-0049-7000-8000-000000000000'
 const ON_CHANGE = `?change=${CHANGE}`
 
-const firstPaint = (search: string, view: object = { statusLabel: 'waiting for you', change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }) => {
+const firstPaint = (search: string, view: object = { waitingOn: { says: 'waiting for you', tone: 'warn' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }) => {
   window.history.replaceState(null, '', `/projects/p/console${search}`)
   const client = newQueryClient()
   client.setQueryData(getKey(`/changes/${CHANGE}`), view)
@@ -102,14 +102,12 @@ describe('the chat keeps its input when the intro steps aside', () => {
 // the agent-actions switch sits on the line above the input.
 describe('a change chat keeps its head to two lines', () => {
   const parse = (html: string) => { const el = document.createElement('div'); el.innerHTML = html; return el }
-  it('names the change, and its state once a workflow has started', () => {
-    const view = { statusLabel: 'waiting for you', change: { id: CHANGE, number: 49, title: 'Let an admin edit the menu', state: 'in_progress' }, commits: [{}] }
+  it('names the change and shows its status before and during a workflow', () => {
+    const view = { waitingOn: { says: 'waiting for you', tone: 'warn' }, change: { id: CHANGE, number: 49, title: 'Let an admin edit the menu', state: 'in_progress' }, commits: [{}] }
     const page = parse(firstPaint(ON_CHANGE, view))
     expect(page.querySelector('.console-head h1')!.textContent).toBe('#49 Let an admin edit the menu')
     expect(page.querySelector('.console-head h1 a')!.getAttribute('href')).toBe(`/changes/${CHANGE}`)
-    // Before a workflow, the helper's turn says where things stand: the
-    // change's state is not shown beside it as a second status.
-    expect([...page.querySelectorAll('.console-head .chip')].filter(c => c.textContent?.includes('waiting for you'))).toHaveLength(0)
+    expect([...page.querySelectorAll('.console-head .chip')].filter(c => c.textContent?.includes('waiting for you'))).toHaveLength(1)
     const started = parse(firstPaint(ON_CHANGE, { ...view, detail: { run: { status: 'running' } } }))
     expect([...started.querySelectorAll('.console-head .chip')].filter(c => c.textContent?.includes('waiting for you'))).toHaveLength(1)
     expect(page.querySelector('section.console-about')).toBeNull()
@@ -127,7 +125,7 @@ describe('a change chat keeps its head to two lines', () => {
         return new Response(JSON.stringify({ sessions: [{ id: 's1', projectSlug: 'p', model: 'm', createdAt: '', state: 'unavailable',
           changeId: CHANGE, openedBy: 'ana', mayAct: false, placement: 'worker', recordAsOf: '2026-10-16T01:00:00Z' }] }))
       }
-      if (u === `/api/v1/changes/${CHANGE}`) return new Response(JSON.stringify({ change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }))
+      if (u === `/api/v1/changes/${CHANGE}`) return new Response(JSON.stringify({ waitingOn: { says: 'building', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }))
       if (u.includes('/messages')) return new Response(JSON.stringify({ messages: [{ i: 0, role: 'helper', text: 'Done.' }] }))
       if (u.endsWith('/changes')) return new Response(JSON.stringify({ changes: [] }))
       return new Response('{}')
@@ -177,7 +175,7 @@ describe('phone change controls', () => {
       const data = u.endsWith('/projects/p/console')
         ? { sessions: [{ id: 's1', projectSlug: 'p', state: 'detached', changeId: CHANGE, openedBy: 'ana', mayAct: true }] }
         : u.endsWith(`/changes/${CHANGE}`)
-          ? { statusLabel: 'in progress', change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }
+          ? { waitingOn: { says: 'building', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }
           : u.endsWith('/preview') ? { state: 'live', url: 'https://preview.example' }
             : u.includes('/messages') ? { messages: Array.from({ length: messageCount }, (_, i) => ({ i, role: 'you', text: 'Hello' })), turn: 'handed-back' }
               : { changes: [] }
@@ -378,5 +376,39 @@ describe('writing while the helper starts', () => {
       expect(el.querySelector('a')?.getAttribute('href')).toBe('/projects/p')
       expect(el.querySelector('.chat-starting')).toBeNull()
     } finally { done() }
+  })
+})
+
+describe('one status chip in a connected change chat', () => {
+  it.each([true, false])('shows the change label when helper busy is %s', async busy => {
+    const sockets: { onopen?: () => void }[] = []
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    vi.stubGlobal('WebSocket', class {
+      constructor() { sockets.push(this) }
+      send() {} close() {}
+      onopen?: () => void
+    })
+    localStorage.clear()
+    Element.prototype.scrollIntoView = () => {}
+    vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
+      const u = String(url)
+      const data = u.endsWith('/projects/p/console')
+        ? { sessions: [{ id: 'one-chip', changeId: CHANGE, mayAct: true, state: 'detached' }] }
+        : u.endsWith(`/changes/${CHANGE}`)
+          ? { waitingOn: { says: 'checking', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 'One label', state: 'in_progress' } }
+          : u.includes('/messages') ? { messages: [{ i: 0, role: 'you', text: 'Build it' }], turn: busy ? 'working' : 'handed-back' } : { changes: [] }
+      return new Response(JSON.stringify(data))
+    })))
+    const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+    try {
+      await act(async () => root.render(<MemoryRouter initialEntries={[`/projects/p/console${ON_CHANGE}`]}><QueryClientProvider client={client}><Routes><Route path="/projects/:slug/console" element={<Console />} /></Routes></QueryClientProvider></MemoryRouter>))
+      await vi.waitFor(() => expect(el.querySelector('.console-head .chip-word')?.textContent).toBe('checking'))
+      await vi.waitFor(() => expect(sockets.length).toBeGreaterThan(0))
+      await act(async () => sockets[sockets.length - 1].onopen!())
+      await vi.waitFor(() => expect(el.textContent).toContain('Build it'))
+      expect(el.querySelectorAll('.console-head .chip')).toHaveLength(1)
+    } finally {
+      act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
+    }
   })
 })

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/stock"
 )
 
 func TestWaitingOnNamesTheHoldingChild(t *testing.T) {
@@ -201,7 +203,7 @@ func TestFinishedRunsWithoutOpenChangesAreClosed(t *testing.T) {
 	transitionScopeChange(t, db, workflowsql.TransitionChangeParams{At: time.Now(), ID: run.ChangeID, RunID: run.ID})
 	changes, err := svc.Changes(t.Context(), run.ProjectID, ChangeList{})
 	// A change open in its chat is in progress: the busy tone, not neutral.
-	if err != nil || len(changes) != 1 || changes[0].WaitingOn.Kind != "chat" || changes[0].WaitingOn.Says != "chat open" || changes[0].WaitingOn.Tone != "busy" {
+	if err != nil || len(changes) != 1 || changes[0].WaitingOn.Kind != "chat" || changes[0].WaitingOn.Says != "building" || changes[0].WaitingOn.Tone != "busy" {
 		t.Fatalf("open change list: %+v %v", changes, err)
 	}
 	rows, err := svc.Runs(t.Context(), RunQuery{})
@@ -225,7 +227,7 @@ func TestFinishedRunsWithoutOpenChangesAreClosed(t *testing.T) {
 	for _, row := range rows {
 		if row.ID == system.ID {
 			found = true
-			if row.WaitingOn.Kind != "closed" || row.WaitingOn.Says == "chat open" {
+			if row.WaitingOn.Kind != "closed" || row.WaitingOn.Says == "building" {
 				t.Fatalf("system run: %+v", row)
 			}
 		}
@@ -254,6 +256,18 @@ func TestBoardKeepsUnreadableProjectionAsUnknown(t *testing.T) {
 			// sql-guarantee: corrupt recorded definitions cannot be admitted normally.
 			completionExec(t, db, `UPDATE runs SET definition_json='{"kind":"pipeline","stages":"unreadable"}' WHERE id=$1`, run.ID)
 			svc := newService(db, allowProject(run.ProjectID), Runtime{})
+			runs, err := svc.Runs(t.Context(), RunQuery{ProjectID: run.ProjectID})
+			if err != nil || len(runs) != 2 {
+				t.Fatalf("one row broke the run list: %+v %v", runs, err)
+			}
+			for _, row := range runs {
+				if row.ID == run.ID && (row.WaitingOn.Says != "unknown" || row.WaitingOn.Tone != "unknown") {
+					t.Fatalf("run list bad row: %+v", row.WaitingOn)
+				}
+				if row.ID == good.ID && row.WaitingOn.Tone == "unknown" {
+					t.Fatalf("run list good row: %+v", row.WaitingOn)
+				}
+			}
 			rows, err := svc.Changes(t.Context(), run.ProjectID, ChangeList{})
 			if err != nil || len(rows) != 2 {
 				t.Fatalf("one row broke the board: %+v %v", rows, err)
@@ -445,5 +459,70 @@ func TestWaitingOnFailedChecksUsePlainTitles(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// Every change label is short and comes from the same classified facts.
+func TestWaitingOnChangeLabels(t *testing.T) {
+	reason := "The helper stopped.\n" + strings.Repeat("A detailed blocker report.\n", 30)
+	heldAgent := &workflowActivityStep{kind: "agent/pi", name: "build", state: StatusNeedsHuman}
+	heldScript := &workflowActivityStep{kind: "script", name: "publish", state: StatusNeedsHuman}
+	raw, err := stock.FS.ReadFile("land.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := schema.ParseWorkflowStored(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	landing := &doc.Spec
+	for _, tc := range []struct {
+		name   string
+		change Change
+		run    *RunSnapshot
+		want   string
+	}{
+		{name: "chat", want: "building"},
+		{name: "ended run", run: &RunSnapshot{Run: &Run{Status: RunDone}}, want: "building"},
+		{name: "agent", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{State: activityAgentWorking}}, want: "building · helper working"},
+		{name: "slot", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{State: activityQueued}}, want: "building · waiting for a free slot"},
+		{name: "working check", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{State: ActivityWorking}}, want: "checking"},
+		{name: "landing gates before any approval row", run: &RunSnapshot{Run: &Run{Status: RunRunning, CurrentStage: "gates"}, Definition: landing}, want: "checking"},
+		{name: "landing penultimate stage", run: &RunSnapshot{Run: &Run{Status: RunRunning, CurrentStage: "approval"}, Definition: landing}, want: "checking"},
+		{name: "landing ship after approval", run: &RunSnapshot{Run: &Run{Status: RunRunning, CurrentStage: "ship"}, Definition: landing}, want: "going live"},
+		{name: "working final stage", run: &RunSnapshot{Run: &Run{Status: RunRunning, CurrentStage: "ship"}, Definition: &schema.Spec{Role: "working", Stages: landing.Stages}}, want: "checking"},
+		{name: "queued landing", run: &RunSnapshot{Run: &Run{Status: RunDone}, LandingQueued: true}, want: "going live · queued"},
+		{name: "held helper", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{Held: true, holdingStep: heldAgent, Detail: reason}}, want: "build stopped"},
+		{name: "held script", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{Held: true, holdingStep: heldScript, Detail: reason}}, want: "publish needs a person"},
+		{name: "held approval", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{Held: true, holdingStep: &workflowActivityStep{kind: "approval", state: StatusNeedsHuman}}}, want: "approval needs a person"},
+		{name: "held rules", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{Held: true, holdingStep: &workflowActivityStep{kind: "policy/current", state: StatusFail}}}, want: "rules still current needs a person"},
+		{name: "unmerged work", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{Held: true, holdingStep: &workflowActivityStep{kind: "scm/merged", state: StatusNeedsHuman}}}, want: "merged needs a person"},
+		{name: "failed check", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{Held: true, holdingStep: &workflowActivityStep{kind: "tests", state: StatusFail}, failedChecks: 1}}, want: "Tests failed"},
+		{name: "check could not run", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{Held: true, holdingStep: &workflowActivityStep{kind: "tests", state: StatusError}}}, want: "Tests could not run"},
+		{name: "multiple checks", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{Held: true, holdingStep: &workflowActivityStep{kind: "tests", state: StatusFail}, failedChecks: 3}}, want: "3 checks failed"},
+		{name: "approval", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{Approval: idstest.N(10)}}, want: "waiting for approval"},
+		{name: "ready", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{State: ActivityReady}}, want: "ready to continue"},
+		{name: "landed", change: Change{State: ChangeShipped}, want: "landed"},
+		{name: "recorded", change: Change{State: ChangeShipped, ClosedAs: closedRecord}, want: "finished"},
+		{name: "abandoned", change: Change{State: ChangeAbandoned}, want: "abandoned"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.change.State == 0 {
+				tc.change.State = ChangeInProgress
+			}
+			got := waitingOn(&tc.change, tc.run)
+			if got.Says != tc.want || strings.Contains(got.Says, "\n") {
+				t.Fatalf("label = %+v, want %q", got, tc.want)
+			}
+			if got.Kind == "work" || got.Kind == "chat" || got.Kind == "queued" {
+				if got.Tone != "busy" {
+					t.Fatalf("tone = %q", got.Tone)
+				}
+			}
+		})
+	}
+	w := sayWaitingOn(WaitingOn{Kind: "approval", You: "yes", Who: []Decider{{Kind: "person"}}}, Activity{}, nil)
+	if w.Says != "waiting for you" {
+		t.Fatalf("personal approval = %+v", w)
 	}
 }

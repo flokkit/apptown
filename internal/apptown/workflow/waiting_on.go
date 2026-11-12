@@ -90,14 +90,15 @@ func waitingOn(ch *Change, d *RunSnapshot) WaitingOn {
 	default:
 		w.Kind = "work"
 	}
-	w = sayWaitingOn(w, a, ch)
-	if w.Kind == "work" {
-		name := "Work"
-		if d.Definition != nil && d.Definition.Role == "landing" {
-			name = "Landing"
+	// A landing publishes during its final pinned stage. nextStage.Merge also
+	// describes leaving the penultimate stage, so it is not this predicate.
+	if w.Kind == "work" && d.Definition != nil && d.Definition.Role == "landing" {
+		stages := d.Definition.Stages
+		if len(stages) > 0 && d.Run.CurrentStage == stages[len(stages)-1].Name {
+			a.goingLive = true
 		}
-		w.Says = name + ": " + w.Says
 	}
+	w = sayWaitingOn(w, a, ch)
 	return w
 }
 
@@ -123,21 +124,32 @@ func sayWaitingOn(w WaitingOn, a Activity, ch *Change) WaitingOn {
 			w.Says = checkTitle(*a.holdingStep) + " failed"
 		}
 	case "person":
-		w.Says, w.Tone = a.Detail, "warn"
-	case "chat":
-		// The change is being worked on in its chat: in progress, not
-		// waiting on anyone, so it carries the busy tone.
-		w.Says, w.Tone = "chat open", "busy"
-	case "work":
-		w.Says = a.workPhrase
-		if w.Says == "" {
-			w.Says = a.Detail
+		w.Says, w.Tone = "work needs a person", "warn"
+		if a.holdingStep != nil {
+			title := strings.ToLower(checkTitle(*a.holdingStep))
+			if strings.HasPrefix(a.holdingStep.kind, "agent/") {
+				if a.holdingStep.kind == "agent/pi" {
+					title = "build"
+				}
+				w.Says = title + " stopped"
+			} else {
+				w.Says = title + " needs a person"
+			}
 		}
-		if w.Says == "" {
-			w.Says = "starting the run"
+	case "chat":
+		w.Says, w.Tone = "building", "busy"
+	case "work":
+		w.Says, w.Tone = "checking", "busy"
+		switch {
+		case a.goingLive:
+			w.Says = "going live"
+		case a.State == activityAgentWorking:
+			w.Says = "building · helper working"
+		case a.State == activityQueued:
+			w.Says = "building · waiting for a free slot"
 		}
 	case "queued":
-		w.Says = "queued to land"
+		w.Says, w.Tone = "going live · queued", "busy"
 	case "ready":
 		w.Says, w.Tone = "ready to continue", "warn"
 	case "approval":
@@ -161,6 +173,12 @@ func checkTitle(s workflowActivityStep) string {
 		return "Implementation"
 	case "agent/review":
 		return "Review"
+	case "approval":
+		return "Approval"
+	case "policy/current":
+		return "Rules still current"
+	case "scm/merged":
+		return "Merged"
 	case "tests":
 		return "Tests"
 	case "guidance/conformance":

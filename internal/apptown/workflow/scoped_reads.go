@@ -224,6 +224,11 @@ func (s *Service) Runs(ctx context.Context, in RunQuery) ([]RunSummary, error) {
 			r.WaitingOn = unknownWaitingOn()
 			continue
 		}
+		definition, err := run.Definition()
+		if err != nil {
+			r.WaitingOn = unknownWaitingOn()
+			continue
+		}
 		var ch *Change
 		if run.Status != RunRunning && !run.ChangeID.IsZero() {
 			ch, err = ReadChangeIn(ctx, s.db, run.ChangeID)
@@ -232,7 +237,7 @@ func (s *Service) Runs(ctx context.Context, in RunQuery) ([]RunSummary, error) {
 				continue
 			}
 		}
-		r.WaitingOn = s.readerWaitingOn(ctx, ch, &RunSnapshot{Run: run, State: r.State, StateDetail: r.StateDetail, activity: r.activity})
+		r.WaitingOn = s.readerWaitingOn(ctx, ch, &RunSnapshot{Run: run, Definition: definition, State: r.State, StateDetail: r.StateDetail, activity: r.activity})
 	}
 	return rows, nil
 }

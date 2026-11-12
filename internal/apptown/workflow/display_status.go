@@ -2,68 +2,6 @@ package workflow
 
 import "github.com/flokkit/apptown/internal/apptown/status"
 
-// Display labels the already classified activity. The reader retains Detail
-// and Next separately, so a short word loses neither the reason nor an action.
-func (s ActivityState) Display() status.DisplayStatus {
-	switch s {
-	case ActivityWorking, activityAgentWorking:
-		return status.DisplayWorking
-	case activityQueued:
-		return status.DisplayWaiting
-	case ActivityWaiting:
-		return status.DisplayWaitingForYou
-	case ActivityReady:
-		return status.DisplayWaiting
-	case ActivityBlocked:
-		return status.DisplayFailed
-	case ActivityAbandoned:
-		return status.DisplayAbandoned
-	case ActivityDone:
-		return status.DisplayFinished
-	default:
-		return status.DisplayUnknown
-	}
-}
-
-// Display describes a change using the owner's current snapshot. The
-// same label is shown to every reader; approval eligibility is a separate fact.
-func (c *Change) Display(run *RunSnapshot) status.DisplayStatus {
-	if c.State == ChangeAbandoned {
-		return status.DisplayAbandoned
-	}
-	if c.State == ChangeShipped {
-		if c.ClosedAs != closedRecord && (c.LandedSHA != "" || c.ClosedAs == ClosedShippedWith) {
-			return status.DisplayLanded
-		}
-		return status.DisplayFinished
-	}
-	if run == nil {
-		if c.State == ChangeLanding {
-			return status.DisplayUnknown
-		}
-		return status.DisplayWaiting
-	}
-	// A run that ended is not the change: an open change whose last run
-	// finished, or was abandoned (a landing that ended at its first step,
-	// an attempt someone stopped), is waiting for its next act. Only a
-	// closed change reads "abandoned".
-	if run.Run.Status == RunAbandoned || run.Run.Status == RunDone {
-		return status.DisplayWaiting
-	}
-	return run.State.Display()
-}
-
-// OpenDisplay describes work without a running workflow. It never assumes an approval is due.
-func (s ChangeState) OpenDisplay(editing int) status.DisplayStatus {
-	if editing > 0 {
-		return status.DisplayWorking
-	}
-	if s == ChangeLanding {
-		return status.DisplayWorking
-	}
-	return status.DisplayWaiting
-}
-
 func (s Step) displayLabel() status.DisplayStatus {
 	if s.OverrideBy != "" {
 		return status.DisplayExcepted

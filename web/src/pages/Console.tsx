@@ -1,5 +1,5 @@
 import { AgentActionsSwitch, useAgentActions } from '../AgentActions'
-import { Status } from '../Status'
+import { ChangeStatus } from '../Status'
 import './Console.css'
 import { FormMenu } from '../MoreMenu'
 import { PRODUCT } from '../brand'
@@ -103,15 +103,13 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           ? <h1 className="console-chat-page-h1 console-chat-title"><Link to={`/changes/${shopId}`} title="What you and the helper change here is saved onto this change.">{change.data ? <><span className="muted">#{change.data.change.number}</span> {change.data.change.title}</> : shopName.charAt(0).toUpperCase() + shopName.slice(1)}</Link></h1>
           : <h1 className="console-chat-page-h1">Project chat</h1>}
         {shopId
-          // Before a workflow starts the helper's turn says where things
-          // stand; the change's own state shows once checks or a decision do.
-          ? change.data?.detail && <Status word={change.data.statusLabel} />
+          ? change.data && <ChangeStatus waiting={change.data.waitingOn} />
           : <span className="badge here" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>}
         {/* The change's actions share the head's line: the page is the conversation's. */}
         {isWorkshop && change.data && zoom === 'chat' && (change.data.change.summary || change.data.report) && <Link className="small" to={`/changes/${change.data.change.id}/records/summary`}>What was made →</Link>}
         <span className="console-head-space grow" />
         {isWorkshop && changeId !== '' && session?.mayAct && zoom === 'chat' && change.data && <span className="console-strip"><WorkshopActions compact changeId={changeId} view={change.data} robotBusy={robotBusy} sessionId={session?.id} /></span>}
-        {session?.mayAct && zoom === 'chat' && <AgentActivity busy={robotBusy} connected={status === 'attached'} />}
+        {session?.mayAct && zoom === 'chat' && (!shopId || status !== 'attached') && <AgentActivity busy={robotBusy} connected={status === 'attached'} />}
         {zoom === 'terminal' && session?.mayAct && (mayType
           ? <span className="badge here" title="Your keys go to the helper; Escape stops what it is doing.">you have control</span>
           : <button className="subtle" title="Type into the helper's terminal. Until then it only shows." onClick={() => setControlOf(session.id)}>Take control</button>)}

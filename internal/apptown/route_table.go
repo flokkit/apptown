@@ -141,7 +141,7 @@ func appRoutes(a *App) []routeSpec {
 		tiers = httpapi.NewTiers(a.Projects, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir)
 		repositoryViews = httpapi.NewRepositoryViews(a.Projects, a.Access, a.DB, a.cfg.dataDir, repositoryedit.NewIntegrity(&a.repositories, a.processRunner, repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, a.DB, a.cfg.dataDir, a.cfg.clock.Now), a.Deployment.Releases)
 		releaseOperations = httpapi.NewReleaseOperations(a.Projects, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
-		projectAttachments = httpapi.NewProjectAttachments(a.Projects, a.Integrations, a.Access, a.changeActions, a.DB, a.cfg.publicHost, a.cfg.clock.Now)
+		projectAttachments = httpapi.NewProjectAttachments(a.Projects, a.Integrations, a.Access, a.changeActions, a.Work, a.DB, a.cfg.publicHost, a.cfg.clock.Now)
 		integrationListing = httpapi.NewIntegrationListing(a.Integrations, a.Deployment, connectorHealthFor(a), a.Access)
 		connectors = httpapi.NewConnectors(a.Integrations, a.Access, a.Deployment, connectorHealthFor(a), a.DB, agentenv.RegistryFormats())
 		scmRemotes = httpapi.NewSCMRemotes(a.Projects, repositoryProvider{secrets: a.Secrets}, a.repositoryAttachments)

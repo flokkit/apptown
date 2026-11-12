@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/apptown/status"
-
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -19,7 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
-func TestConsoleChangesUsesCurrentBatchedActivityAndPreservesHistory(t *testing.T) {
+func TestConsoleChangesUsesCurrentWaitingOnAndPreservesHistory(t *testing.T) {
 	t.Parallel()
 	a, pid := tv_ov_seed(t)
 	changes, err := a.Work.Changes(asPerson("bls"), pid, workflow.ChangeList{})
@@ -51,11 +49,11 @@ func TestConsoleChangesUsesCurrentBatchedActivityAndPreservesHistory(t *testing.
 	if err := json.Unmarshal(out.Body.Bytes(), &history); err != nil || out.Code != 200 || len(history.Changes) != 2 {
 		t.Fatalf("console history: %d %s (%v)", out.Code, out.Body.String(), err)
 	}
-	if history.Changes[0].ChangeID != active.ID || history.Changes[0].Doing != "waiting on you" || history.Changes[0].StatusLabel != status.DisplayWaitingForYou ||
-		history.Changes[1].ChangeID != shipped.ID || history.Changes[1].State != workflow.ChangeShipped || history.Changes[1].StateLabel != "shipped" || history.Changes[1].StatusLabel != status.DisplayFinished || history.Changes[1].Doing != "" {
+	if history.Changes[0].ChangeID != active.ID || history.Changes[0].WaitingOn.Kind != "approval" || history.Changes[0].WaitingOn.Says != "waiting for you" ||
+		history.Changes[1].ChangeID != shipped.ID || history.Changes[1].State != workflow.ChangeShipped || history.Changes[1].StateLabel != "shipped" || history.Changes[1].WaitingOn.Says != "landed" {
 		t.Fatalf("console labels changed lifecycle or hid waiting party: %s", out.Body.String())
 	}
-	dbtest.FailNextStatement(t, a.DB, "WITH RECURSIVE activity_tree")
+	dbtest.FailNextStatement(t, a.DB, "FROM runs WHERE id=")
 	if out := get(); out.Code != 500 {
 		t.Fatalf("console hid failed activity read: %d %s", out.Code, out.Body.String())
 	}
