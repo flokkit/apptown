@@ -219,7 +219,9 @@ func TestBrowserSecurityChromium(t *testing.T) {
 		t.Fatalf("browser attack mutated state: %d %v", unexpected, err)
 	}
 	if b := agent.Input(); b != "legitimate-terminal-input" {
-		t.Fatalf("terminal input was not restricted to legitimate origin: %q", b)
+		// Neither the key typed before Take control nor the other origin's
+		// key reaches the agent.
+		t.Fatalf("terminal input was not restricted to the controlling terminal on AppTown's origin: %q", b)
 	}
 }
 

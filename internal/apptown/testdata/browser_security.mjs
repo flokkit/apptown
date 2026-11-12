@@ -27,9 +27,27 @@ try {
   const cookie = (await context.cookies(apptown)).find(c => c.name === '__Host-apptown_session');
   assert.ok(cookie?.secure && cookie.httpOnly && cookie.path === '/' && !cookie.domain.startsWith('.'));
 
-  // The permitted terminal uses the actual handler and carries raw input.
-  const terminal = await page.evaluate(consoleID => new Promise(resolve => {
+  // A terminal opened without control shows the screen but takes no keys.
+  // The socket's close handshake follows the server's handling of the key,
+  // so a key that got through would already be recorded.
+  const watched = await page.evaluate(consoleID => new Promise(resolve => {
     const ws = new WebSocket(location.origin.replace('https:', 'wss:') + `/api/v1/console/${consoleID}/pty`);
+    let replay = '';
+    ws.onmessage = async e => {
+      if (replay) return;
+      replay = typeof e.data === 'string' ? e.data : await e.data.text();
+      ws.send(new TextEncoder().encode('input-before-control'));
+      ws.close();
+    };
+    ws.onclose = () => resolve(replay);
+    ws.onerror = () => resolve('failed');
+  }), consoleID);
+  assert.equal(watched, 'terminal-ready');
+
+  // Take control as the chat page does (?control=1): the permitted terminal
+  // uses the actual handler and carries raw input.
+  const terminal = await page.evaluate(consoleID => new Promise(resolve => {
+    const ws = new WebSocket(location.origin.replace('https:', 'wss:') + `/api/v1/console/${consoleID}/pty?control=1`);
     let replay = '';
     ws.onmessage = async e => {
       const text = typeof e.data === 'string' ? e.data : await e.data.text();
@@ -129,7 +147,7 @@ try {
       ws.on('framereceived', () => resolve('opened'));
     }));
     const wsResult = await attacker.evaluate(({ apptown, consoleID }) => new Promise(resolve => {
-      const ws = new WebSocket(apptown.replace('https:', 'wss:') + `/api/v1/console/${consoleID}/pty`);
+      const ws = new WebSocket(apptown.replace('https:', 'wss:') + `/api/v1/console/${consoleID}/pty?control=1`); // asks for control, so only the origin rule can stop its keys
       ws.onopen = () => { ws.send(new TextEncoder().encode('apptownd-terminal-input')); ws.close(); resolve('opened'); };
       ws.onerror = () => resolve('refused');
     }), { apptown, consoleID });
