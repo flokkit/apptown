@@ -30,11 +30,12 @@ import (
 //     repository's lock at the working run's act, and the vote names that
 //     commit; the landing needs no witness of its own, since carry counts a
 //     yes only where the landing's pinned candidate is the commit it named;
-//   - every step other than an approval passed, with no override and no
-//     skip, and every check it lists passed. A failure already on main, a
-//     check AppTown could not run, an error, an excused finding, a skipped
-//     check or an unclear answer is not a pass, whoever's fault it was; a
-//     review that left a finding is not either (passedOutright).
+//   - every step other than an approval passed or was not applicable, with
+//     no override and no skip, and every check it lists is met: passed, or
+//     not applicable with its reason (CheckReceipt.Met). A failure already
+//     on main, a check AppTown could not run, an error, an excused finding,
+//     a skipped check or an unclear answer is not met, whoever's fault it
+//     was; a review that left a finding is not either (passedOutright).
 //
 // Anything else leaves the approval for a person, with a receipt saying why.
 
@@ -113,10 +114,9 @@ func advanceYesFrom(ctx context.Context, q database.Queryer, who string, workflo
 }
 
 // passedOutright says why steps did not pass outright, or "" when every
-// step other than an approval did. admitsNotApplicable is the deciding
-// approval's InAdvanceAdmitsNotApplicable: only a sentence that says so
-// counts a not-applicable step or check as meeting the condition.
-func passedOutright(steps []*Step, admitsNotApplicable bool) string {
+// step other than an approval did: passed or was not applicable, and every
+// check it lists is met (CheckReceipt.Met).
+func passedOutright(steps []*Step) string {
 	for _, step := range steps {
 		if step.Type == "approval" {
 			continue
@@ -124,7 +124,7 @@ func passedOutright(steps []*Step, admitsNotApplicable bool) string {
 		if step.OverrideBy != "" {
 			return fmt.Sprintf("%s was overridden by %s", step.Name, step.OverrideBy)
 		}
-		if step.Status != StatusPass && !(admitsNotApplicable && step.Status == StatusNotApplicable) {
+		if step.Status != StatusPass && step.Status != StatusNotApplicable {
 			return fmt.Sprintf("%s is %s, not passed", step.Name, step.Status)
 		}
 		if step.Type == "agent/review" {
@@ -149,9 +149,9 @@ func passedOutright(steps []*Step, admitsNotApplicable bool) string {
 			return fmt.Sprintf("%s had %d check error(s)", step.Name, evidence.CheckErrors)
 		}
 		for _, c := range evidence.Checks {
-			// Only a pass: a failure already on main passes the gate, but
-			// the yes was given on condition every check passes.
-			if c.Verdict != VerdictPass && !(admitsNotApplicable && c.Verdict == VerdictNotApplicable) {
+			// A failure already on main passes the gate, but the yes was
+			// given on condition every check is met.
+			if !c.Met() {
 				return fmt.Sprintf("%s: %s was %s", step.Name, c.Check, c.Verdict)
 			}
 		}
@@ -252,7 +252,7 @@ func (s *Service) acceptInAdvance(ctx context.Context, expected *Run) (bool, err
 	case !slices.Contains(yes.Shown, cfg.InAdvance):
 		return withhold(fmt.Sprintf("%s was not shown what a yes in advance means here (“%s”)", yes.Approver, cfg.InAdvance))
 	}
-	if why := passedOutright(steps, cfg.InAdvanceAdmitsNotApplicable); why != "" {
+	if why := passedOutright(steps); why != "" {
 		return withhold(why)
 	}
 	// Eligibility reads policy on other connections: asked before the lock
@@ -326,7 +326,7 @@ func (s *Service) acceptInAdvance(ctx context.Context, expected *Run) (bool, err
 				current = st
 			}
 		}
-		if current == nil || current.Status != StatusPending || run.CurrentStage != step.Stage || !settled(all, run.CurrentStage) || passedOutright(all, cfg.InAdvanceAdmitsNotApplicable) != "" {
+		if current == nil || current.Status != StatusPending || run.CurrentStage != step.Stage || !settled(all, run.CurrentStage) || passedOutright(all) != "" {
 			return reworkedResult{}, ErrRunMoved
 		}
 		vote := ApprovalVote{Approver: yes.Approver, Principal: yes.Principal, Via: yes.Via, Decision: VoteApprove,
@@ -355,17 +355,4 @@ func containsAll(have, want []string) bool {
 		}
 	}
 	return true
-}
-
-// admitsNotApplicable reads whether the approval step id's yes in advance
-// counts not applicable as meeting its condition; a config that cannot be
-// read admits nothing more than a pass.
-func admitsNotApplicable(steps []*Step, id ids.ID) bool {
-	for _, st := range steps {
-		if st.ID == id {
-			cfg, err := ReadApprovalConfig(st.Config)
-			return err == nil && cfg.InAdvanceAdmitsNotApplicable
-		}
-	}
-	return false
 }

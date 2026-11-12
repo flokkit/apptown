@@ -67,9 +67,11 @@ an agent's token, OAuth or a chat is refused when the Change is opened.
 
 AppTown casts it as the person's vote on the working run's acceptance only
 where it witnesses, at the act: the change is empty against its base (read
-under the repository lock), every other step passed with no override or
-skip, every check receipt is a pass (a failure already on main, an excused,
-skipped, unclear or unassessed check is not), no review left a finding, the
+under the repository lock), every other step passed or was not applicable, with no override or
+skip, every check receipt is met (`CheckReceipt.Met`: a pass, or not
+applicable with its reason; a failure already on main, an error, an
+excused, skipped, unclear or unassessed check is not), no review left a
+finding, the
 step's `inAdvance` sentence was shown, and the person could approve the step
 now. The vote names the empty commit and records `inAdvance`, the sentence
 it meant; the round's `means` is unchanged. It carries to the landing by the

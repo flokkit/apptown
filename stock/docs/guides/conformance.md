@@ -135,8 +135,10 @@ static site, every part built from a Dockerfile). AppTown decides before
 anything runs. A check that applies to nothing here is **not applicable**,
 with the reason ("no part is built with go"). It is never a pass and never an
 error: it does not by itself stop a change landing, the change's record and
-approval panel name it so it is not read as passed, and it never satisfies a
-remediation. If the reason is wrong, declare the part's `tools:` in
+approval panel name it so it is not read as passed. Where a check must hold
+(an adoption's checks, a remediation's target, a yes given in advance), not
+applicable with its reason counts as met; an error or a check AppTown could
+not assess does not. If the reason is wrong, declare the part's `tools:` in
 `.apptown/app.yaml`.
 
 A check that applies runs in the folder of each part it matches, and finding

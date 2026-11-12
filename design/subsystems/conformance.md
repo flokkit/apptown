@@ -59,7 +59,11 @@ with its reason: recorded as conformance's `not-applicable` and the
 receipt's `not-applicable`, never a pass, never an error, outside a
 standing's total, and its own count in a what-if. A tests or scan step
 that applies to nothing finishes `not_applicable`, which lets a gate
-through and is not a pass. A contract that cannot be read is an error for
+through and is not a pass. Where a check must hold (an adoption's or a
+remediation's acceptance checks, a yes given in advance), not applicable
+with its reason counts as met: `workflow.CheckReceipt.Met` is that one
+rule. An error, a check that could not be assessed, a skip or an exception
+is not met. A contract that cannot be read is an error for
 a part check. A check that applies runs in each matching folder; nothing to
 judge there is its finding, since the declaration and the code disagree.
 A manual scanner may declare its own `appliesTo` limit. A tool check runs

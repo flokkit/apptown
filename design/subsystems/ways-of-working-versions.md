@@ -125,6 +125,7 @@ account, a person accepts it, and the landing's conformance gate judges the
 target's acceptance checks on the tree before the landing moves the revision.
 The person opening it may accept it in advance, on the condition AppTown
 witnesses that it needs no code and every step and check passes outright
+(a check not applicable with its reason counts as met)
 ([landing acceptance](../architecture/work-landing-acceptance.md)).
 
 When a project's pack set changes (an adoption or a pack pull), its open uplift Changes whose target takes a

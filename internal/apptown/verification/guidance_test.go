@@ -377,3 +377,35 @@ func TestGateJudgesTheMemoryContractAndSkipsTheStandingCheck(t *testing.T) {
 		t.Errorf("no tree to judge: %+v", res)
 	}
 }
+
+// An adoption's acceptance checks are met by the one rule
+// (workflow.CheckReceipt.Met): a pass, or not applicable with its reason (a
+// static site has no Dockerfile for the container checks to judge). An
+// error, a check that could not be assessed, not applicable with no reason
+// and a check that did not run are unmet, each by name.
+//
+// Kills: the gate requiring a pass where the check is not applicable, or
+// counting an error, an unassessed check or a reasonless not applicable.
+func TestAcceptanceIsMetByAPassOrNotApplicableWithItsReason(t *testing.T) {
+	t.Parallel()
+	target := workflow.AcceptanceScopeOf(&workflow.Change{AcceptanceJSON: `{"checks":[` +
+		`{"block":"deploy/health-declared","check":"front-page-answers"},{"block":"build/container-image","check":"runs-as-non-root"},` +
+		`{"block":"build/container-image","check":"no-volume"},{"block":"deploy/health-declared","check":"readiness-redirect-safe"},` +
+		`{"block":"deploy/memory-declared","check":"memory-declared"},{"block":"repo/project-notes","check":"project-notes-format"}]}`})
+	res := Results{
+		{Block: "deploy/health-declared", Check: "front-page-answers", Verdict: workflow.VerdictPass},
+		{Block: "build/container-image", Check: "runs-as-non-root", Verdict: workflow.VerdictNotApplicable, Detail: "no part is built from a Dockerfile"},
+		{Block: "build/container-image", Check: "no-volume", Verdict: workflow.VerdictError},
+		{Block: "deploy/health-declared", Check: "readiness-redirect-safe", Verdict: workflow.VerdictCannotAssess},
+		{Block: "deploy/memory-declared", Check: "memory-declared", Verdict: workflow.VerdictNotApplicable},
+	}
+	want := []string{
+		"build/container-image|no-volume: error",
+		"deploy/health-declared|readiness-redirect-safe: cannot-assess",
+		"deploy/memory-declared|memory-declared: not-applicable",
+		"repo/project-notes|project-notes-format: not evaluated",
+	}
+	if got := unmetAcceptance(res, target); !slices.Equal(got, want) {
+		t.Fatalf("unmet %q, want %q", got, want)
+	}
+}

@@ -131,6 +131,7 @@ func TestApprovalQuorumValidation(t *testing.T) {
 		{"a yes in advance says what it means", "            inAdvance: I accept it before it is worked, if it changes no code\n", ""},
 		{"a yes in advance with no sentence", "            inAdvance: \"  \"\n", "inAdvance must say"},
 		{"a yes in advance is one person's", "            inAdvance: I accept it in advance\n            quorum: 2\n            approvers: [a, b]\n", "quorum must be 1"},
+		{"not applicable is the one rule, not an approval's option", "            inAdvance: I accept it in advance\n            inAdvanceAdmitsNotApplicable: true\n", "has no option inAdvanceAdmitsNotApplicable"},
 	}
 	for _, c := range cases {
 		_, err := ParseWorkflow([]byte(doc(c.with)))

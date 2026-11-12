@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/status"
 	"github.com/flokkit/apptown/internal/check"
@@ -85,6 +86,15 @@ type CheckReceipt struct {
 	Preexisting bool   `json:"preexisting,omitempty"`
 	Undecided   bool   `json:"undecided,omitempty"`
 	Image       string `json:"image,omitempty"` // the image (by ID) an exec-image check ran in
+}
+
+// Met is the one rule for whether a check holds: it passed, or it was judged
+// not applicable with its stated reason (it applies to nothing the app
+// declares). An error, a check that could not be assessed, a skip, an
+// exception, an unclear answer or a failure is not met. The acceptance
+// gate, a yes given in advance and the adoption brief all mean this.
+func (c CheckReceipt) Met() bool {
+	return c.Verdict == VerdictPass || c.Verdict == VerdictNotApplicable && strings.TrimSpace(c.Detail) != ""
 }
 
 // UnmarshalJSON reads a receipt as written: evidence recorded before the

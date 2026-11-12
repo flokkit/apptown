@@ -38,7 +38,7 @@ func (s Step) checkAttention() bool {
 			return true
 		}
 		for _, c := range r.Checks {
-			if c.Verdict != VerdictPass && c.Verdict != VerdictNotApplicable && c.Verdict != VerdictSkipped && (c.Gates == nil || *c.Gates) {
+			if !c.Met() && c.Verdict != VerdictSkipped && (c.Gates == nil || *c.Gates) {
 				return true
 			}
 		}
@@ -77,7 +77,7 @@ func summarizeChecks(steps []*Step) ChecksSummary {
 		if r != nil {
 			for _, c := range r.Checks {
 				if c.Gates != nil && !*c.Gates {
-					if c.Verdict != VerdictPass && c.Verdict != VerdictNotApplicable && c.Verdict != VerdictSkipped {
+					if !c.Met() && c.Verdict != VerdictSkipped {
 						notes++
 					}
 				} else if c.Verdict == VerdictFail {
