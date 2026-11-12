@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/flokkit/apptown/internal/apptown/status"
-
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
@@ -41,7 +39,6 @@ func (h ConsoleChanges) ConsoleChanges(w http.ResponseWriter, r *http.Request) {
 	}
 	idList := conversation.Started(s)
 	out := []ConsoleChange{}
-	var runIDs []ids.ID
 	records, err := h.work.ChangeRecords(r.Context(), conversation.Of(s).ProjectID, idList)
 	if err != nil {
 		WriteFault(w, err)
@@ -56,20 +53,17 @@ func (h ConsoleChanges) ConsoleChanges(w http.ResponseWriter, r *http.Request) {
 		if ch == nil {
 			continue
 		}
-		out = append(out, ConsoleChange{ChangeID: id, Title: ch.Title, State: ch.State, ClosedAs: ch.ClosedAs, StateLabel: ch.StateLabel, StatusLabel: ch.Display(nil), runID: ch.RunID})
+		var snapshot *workflow.RunSnapshot
 		if !ch.RunID.IsZero() {
-			runIDs = append(runIDs, ch.RunID)
+			snapshot, err = h.work.Snapshot(r.Context(), ch.RunID, workflow.DetailView)
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
 		}
-	}
-	activities, err := h.work.Activities(r.Context(), runIDs)
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
-	for i := range out {
-		if activity, ok := activities[out[i].runID]; ok && activity.Active() {
-			out[i].Doing, out[i].Detail = string(activity.State), activity.Detail
-			out[i].StatusLabel = activity.State.Display()
+		out = append(out, ConsoleChange{ChangeID: id, Title: ch.Title, State: ch.State, ClosedAs: ch.ClosedAs, StateLabel: ch.StateLabel, WaitingOn: h.work.ChangeWaitingOn(r.Context(), ch, snapshot)})
+		if snapshot != nil {
+			out[len(out)-1].Detail = snapshot.StateDetail
 		}
 	}
 	WriteJSON(w, 200, ConsoleChangeList{Changes: out})
@@ -151,16 +145,14 @@ func recheckStarted(rechecked workflow.LandingRechecked) RecheckStarted {
 type (
 	// ConsoleChange is a Change a chat started, with what it is doing now.
 	ConsoleChange struct {
-		runID    ids.ID
-		ChangeID ids.ID               `json:"changeId"`
-		Title    string               `json:"title"`
-		State    workflow.ChangeState `json:"state"`
-		ClosedAs string               `json:"closedAs,omitempty"` // as workflow.Change.ClosedAs
+		ChangeID  ids.ID               `json:"changeId"`
+		Title     string               `json:"title"`
+		State     workflow.ChangeState `json:"state"`
+		ClosedAs  string               `json:"closedAs,omitempty"` // as workflow.Change.ClosedAs
+		Detail    string               `json:"detail"`
+		WaitingOn workflow.WaitingOn   `json:"waitingOn"`
 		// StateLabel is workflow.Change.StateLabel.
-		StateLabel  string               `json:"stateLabel"`
-		StatusLabel status.DisplayStatus `json:"statusLabel"`
-		Doing       string               `json:"doing"`
-		Detail      string               `json:"detail"`
+		StateLabel string `json:"stateLabel"`
 	}
 	ConsoleChangeList struct {
 		Changes []ConsoleChange `json:"changes"`

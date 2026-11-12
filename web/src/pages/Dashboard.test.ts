@@ -91,8 +91,10 @@ it('replaces empty labelled counts with All quiet only when every read is known 
 // The feed is what changed: landed only; a failed change that needs
 // something is already waiting on someone.
 it('keeps the activity feed to landed changes', () => {
-  const history = ['landed', 'failed', 'stopped', 'finished', 'unknown'].map(statusLabel => ({
-    statusLabel, title: statusLabel === 'stopped' ? 'Release check: a chat answers' : statusLabel,
-  })) as Activity['history']
-  expect(homeFinished(history).map(c => c.statusLabel)).toEqual(['landed'])
+  const history = [
+    { state: 'shipped', merged: true, title: 'Landed' },
+    { state: 'shipped', merged: false, closedAs: 'record', title: 'Recorded' },
+    { state: 'abandoned', merged: true, title: 'Abandoned' },
+  ] as Activity['history']
+  expect(homeFinished(history).map(c => c.title)).toEqual(['Landed'])
 })

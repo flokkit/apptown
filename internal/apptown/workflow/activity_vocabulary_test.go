@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -191,7 +192,7 @@ func TestDoneWorkWithAReservedLandingReadsAsQueued(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if reserved && (detail.WaitingOn.Kind != "queued" || detail.WaitingOn.Says != "queued to land") {
+		if reserved && (detail.WaitingOn.Kind != "queued" || detail.WaitingOn.Says != "going live · queued") {
 			t.Fatalf("queued: %+v", detail.WaitingOn)
 		}
 		// The queued landing is a stated fact, not only the words.
@@ -284,7 +285,7 @@ func TestTheSnapshotOffersTheActsAPersonCanTakeNow(t *testing.T) {
 			if c.name == "a check could not run" && w.Says != "Tests could not run" {
 				t.Fatalf("error: %+v", w)
 			}
-			if expected == "person" && w.Says != detail.StateDetail {
+			if expected == "person" && (detail.StateDetail == "" || strings.Contains(w.Says, "\n") || !strings.HasSuffix(w.Says, "needs a person")) {
 				t.Fatalf("hold explanation lost: %+v", w)
 			}
 			if expected == "ready" && w.Says != "ready to continue" {

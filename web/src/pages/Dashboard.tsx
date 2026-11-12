@@ -137,7 +137,7 @@ export function homeStatusParts({ needsYou, running, deployments, operations }: 
 export function homeFinished(history: ChangeRow[]): ChangeRow[] {
   // What changed lately, across everyone: landed changes only. A failed
   // change that needs something is already waiting on someone.
-  return history.filter(c => c.statusLabel === 'landed')
+  return history.filter(c => c.state === 'shipped' && c.merged)
 }
 
 export default function Dashboard() {

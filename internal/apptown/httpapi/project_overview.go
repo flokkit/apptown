@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/flokkit/apptown/internal/apptown/status"
-
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -126,7 +124,6 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 	for _, item := range available {
 		oc := OpenChange{WaitingOn: item.WaitingOn, ChangeID: item.ID, ChangeNumber: item.Number, Title: item.Title, State: item.State}
 		oc.Editing = item.Editing
-		oc.StatusLabel = oc.State.OpenDisplay(oc.Editing)
 		open = append(open, oc)
 	}
 
@@ -137,7 +134,6 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 // editing.
 type OpenChange struct {
 	WaitingOn    workflow.WaitingOn   `json:"waitingOn"`
-	StatusLabel  status.DisplayStatus `json:"statusLabel"`
 	ChangeID     ids.ID               `json:"changeId"`
 	ChangeNumber int64                `json:"changeNumber"` // within the project
 	Title        string               `json:"title"`

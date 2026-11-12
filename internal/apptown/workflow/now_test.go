@@ -8,18 +8,17 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// Every reader gets the run purpose and the actual running step, including a
-// child's position rather than the parent's workflow/call position.
+// Called workflows keep the holding child's identity and common change wording.
 func TestWaitingOnNamesRunningWork(t *testing.T) {
 	for _, tc := range []struct{ role, kind, want string }{
-		{"landing", "build", "Landing: building — step 3 of 4"},
-		{"working", "agent/pi", "Work: agent working"},
-		{"working", "preview", "Work: starting the preview"},
-		{"working", "tests", "Work: running tests"},
-		{"working", "scan", "Work: running security"},
-		{"working", "guidance/conformance", "Work: checking ways of working"},
-		{"working", "agent/review", "Work: reviewing the work"},
-		{"landing", "reconcile", "Landing: security"},
+		{"landing", "build", "checking"},
+		{"working", "agent/pi", "building · helper working"},
+		{"working", "preview", "checking"},
+		{"working", "tests", "checking"},
+		{"working", "scan", "checking"},
+		{"working", "guidance/conformance", "checking"},
+		{"working", "agent/review", "checking"},
+		{"landing", "reconcile", "checking"},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
 			root, child := ids.New(time.Now()), ids.New(time.Now())

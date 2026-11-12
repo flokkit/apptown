@@ -17,7 +17,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/status"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/stock/docs"
@@ -28,13 +27,14 @@ type ProjectAttachments struct {
 	integrations *integration.Service
 	access       *identity.Service
 	actions      *changeactions.Service
+	work         *workflow.Service
 	db           *database.DB
 	publicHost   string
 	now          func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
-func NewProjectAttachments(projects *project.Projects, integrations *integration.Service, access *identity.Service, actions *changeactions.Service, db *database.DB, publicHost string, now func() time.Time) ProjectAttachments {
-	return ProjectAttachments{projects: projects, integrations: integrations, access: access, actions: actions, db: db, publicHost: publicHost, now: now}
+func NewProjectAttachments(projects *project.Projects, integrations *integration.Service, access *identity.Service, actions *changeactions.Service, work *workflow.Service, db *database.DB, publicHost string, now func() time.Time) ProjectAttachments {
+	return ProjectAttachments{projects: projects, integrations: integrations, access: access, actions: actions, work: work, db: db, publicHost: publicHost, now: now}
 }
 
 // The project integration routes' responses.
@@ -278,7 +278,20 @@ func (h ProjectAttachments) ListProjectIntegrations(w http.ResponseWriter, r *ht
 				WriteFault(w, err)
 				return
 			}
-			x.Wire = &IntegrationWire{ChangeID: p.WireChangeID, ChangeNumber: p.WireChangeNumber, State: p.WireState, StateLabel: state.Label(p.WireClosedAs), StatusLabel: (&workflow.Change{State: state, ClosedAs: p.WireClosedAs}).Display(nil), Title: p.WireTitle}
+			ch, err := h.work.Change(r.Context(), p.WireChangeID)
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
+			var snapshot *workflow.RunSnapshot
+			if !ch.RunID.IsZero() {
+				snapshot, err = h.work.Snapshot(r.Context(), ch.RunID, workflow.DetailView)
+				if err != nil {
+					WriteFault(w, err)
+					return
+				}
+			}
+			x.Wire = &IntegrationWire{ChangeID: p.WireChangeID, ChangeNumber: p.WireChangeNumber, State: p.WireState, StateLabel: state.Label(p.WireClosedAs), WaitingOn: h.work.ChangeWaitingOn(r.Context(), ch, snapshot), Title: p.WireTitle}
 		}
 		out = append(out, x)
 	}
@@ -538,12 +551,12 @@ func integrationDocPath(capability string) string {
 }
 
 type IntegrationWire struct {
-	StatusLabel  status.DisplayStatus `json:"statusLabel"`
-	ChangeID     ids.ID               `json:"changeId"`
-	ChangeNumber int64                `json:"changeNumber"` // within the project
-	State        string               `json:"state"`
-	StateLabel   string               `json:"stateLabel"` // workflow.ChangeState.Label
-	Title        string               `json:"title"`
+	WaitingOn    workflow.WaitingOn `json:"waitingOn"`
+	ChangeID     ids.ID             `json:"changeId"`
+	ChangeNumber int64              `json:"changeNumber"` // within the project
+	State        string             `json:"state"`
+	StateLabel   string             `json:"stateLabel"` // workflow.ChangeState.Label
+	Title        string             `json:"title"`
 }
 
 // connectorNames is never nil: the picker reads it as a list.

@@ -208,7 +208,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 	}
 	WriteJSON(w, 200, ChangeCockpit{Checks: checks, NotesDiff: notesDiff, WaitingOn: h.work.ChangeWaitingOn(r.Context(), item, detail), Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
 		Runs: runs, Commits: commits, Head: head, Diffstat: diffstat, CommittedDiff: comparison, Report: report, Editing: editing,
-		StatusLabel: item.Display(detail), State: state, StateDetail: stateDetail, Approval: h.approvalStanding(r, detail), MainConflict: mainConflict,
+		State: state, StateDetail: stateDetail, Approval: h.approvalStanding(r, detail), MainConflict: mainConflict,
 		Usage: ChangeUsage{Total: spend.Total, CostMicros: spend.CostMicros, Unpriced: spend.Unpriced}, Next: workflow.ChangeActs(item, detail, evidence.Merged, h.work.MayAbandon(r.Context(), id) == nil, mainConflict != nil)})
 }
 
@@ -265,7 +265,6 @@ type (
 		CommittedDiff CommittedComparison    `json:"committedDiff"`
 		Report        string                 `json:"report"`
 		Editing       int                    `json:"editing"`
-		StatusLabel   status.DisplayStatus   `json:"statusLabel"`
 		State         workflow.ActivityState `json:"state"`
 		StateDetail   string                 `json:"stateDetail"`
 		Usage         ChangeUsage            `json:"usage"`

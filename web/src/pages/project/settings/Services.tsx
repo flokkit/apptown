@@ -4,7 +4,7 @@ import { Fragment } from 'react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { HttpError, del, post } from '../../../api'
-import { Status } from '../../../Status'
+import { ChangeStatus } from '../../../Status'
 import { FieldRow } from '../../../FieldRow'
 import { QuietConfirm } from '../../../QuietConfirm'
 import { useAction, useGet } from '../../../data'
@@ -332,7 +332,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability, canAttach = true 
             <div className="row mt-3 services-div-3">
               {i.wire ? (
                 <Link to={`/changes/${i.wire.changeId}`} className="row small" title={i.wire.title}>
-                  <Status word={i.wire.statusLabel} help={i.wire.title} /> wiring · change {i.wire.changeNumber}
+                  <ChangeStatus waiting={i.wire.waitingOn} /> wiring · change {i.wire.changeNumber}
                 </Link>
               ) : (
                 <span className="badge">not wired in yet</span>

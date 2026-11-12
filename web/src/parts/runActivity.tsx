@@ -16,7 +16,7 @@ export type RunRow = {
   // changeId is null, and changeNumber 0, for a run with no change (a
   // scheduled uplift, a system run).
   runId: string | null; runNumber: number; changeId: string | null; changeNumber: number; workflow: string; title: string
-  status: RunStatus; statusLabel: import('../wire.gen').DisplayStatus; stage: string; state?: Doing; detail?: string
+  status: RunStatus; stage: string; state?: Doing; detail?: string
   project?: string; startedAt: string; durationS: number
   // What the server offers the reader on the row's change (abandon, for a blocked one they may close).
   next: NextAct[]
@@ -27,7 +27,7 @@ export type RunRow = {
 // which workflows carried it, how it ended, total wall time. The change page
 // holds the runs for the drill-in.
 export type ChangeRow = {
-  changeId: string | null; changeNumber: number; title: string; type: string; state: ChangeState; closedAs?: string; stateLabel: string; statusLabel: import('../wire.gen').DisplayStatus; completedRuns?: number; merged?: boolean
+  changeId: string | null; changeNumber: number; title: string; type: string; state: ChangeState; closedAs?: string; stateLabel: string; completedRuns?: number; merged?: boolean
   waitingOn: import('../wire.gen').WaitingOn
   project?: string; workflows: string; runs: number; when: string; tookS: number
 }
