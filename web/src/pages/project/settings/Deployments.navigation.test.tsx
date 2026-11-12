@@ -25,7 +25,7 @@ function fixtures({ backup = 'none', lowDisk = false, readiness = 'reconciled' }
   return {
     '/projects/lunch': { slug: 'lunch', name: 'Lunch' },
     [base]: [{ ...env, readiness }, { ...env, name: 'preview-1', displayLabel: 'Fix lunch', kind: 'preview', backups: false, changeId: 'change-1', generation: 0, target: undefined }],
-    '/projects/lunch/targets': { targets: [{ name: 'local', kind: 'docker-host', kindInfo: { title: 'Docker host' }, address: {}, capabilities: {} }] },
+    '/projects/lunch/targets': { targets: [{ name: 'local', kind: 'docker-host', kindInfo: { title: 'Docker host' }, address: {}, capabilities: {}, reason: '', offer: { implicit: true, group: '*' } }] },
     '/changes/change-1': { change: { number: 12, title: 'Fix lunch' } },
     '/authz/roles': { roles: [{ name: 'release-manager', title: 'Release manager', scope: 'project' }], capabilities: {} },
     '/projects/lunch/secrets': { deployments: [], choosable: [] },
@@ -121,7 +121,7 @@ it('creates a follows-main deployment on the project Deployments page', async ()
   const { ProjectDeployments } = await import('../ProjectDeployments')
   const client = newQueryClient()
   for (const [path, value] of Object.entries(fixtures())) client.setQueryData(getKey(path), value)
-  client.setQueryData(getKey('/projects/lunch/targets'), { targets: [{ name: 'local', displayLabel: 'Local host', kind: 'docker-host', kindInfo: { title: 'Docker host' }, address: {}, capabilities: {} }] })
+  client.setQueryData(getKey('/projects/lunch/targets'), { targets: [{ name: 'local', displayLabel: 'Local host', kind: 'docker-host', kindInfo: { title: 'Docker host' }, address: {}, capabilities: {}, reason: '', offer: { implicit: true, group: '*' } }] })
   client.setQueryData(getKey('/projects/lunch/final-copies'), { copies: [] })
   client.setQueryData(getKey('/projects/lunch/release-preference'), {})
   const requests: unknown[] = []

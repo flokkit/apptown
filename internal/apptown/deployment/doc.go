@@ -24,6 +24,11 @@
 // receipts; [Service.OfferTarget] owns checked group and offer admission. Transports
 // decode these commands and render their results without constructing target policy.
 //
+// [Service.ProjectTargets] lists targets offered to an existing project's group,
+// including status and standing-limit refusals. Unoffered targets are omitted;
+// failed offer reads fail the list. [Service.CreationTargets] shares these rules
+// while also checking main's fixed classification and known starter contracts.
+//
 // [Service.InitializeProjectIn] joins project creation after ownership is
 // recorded. It creates main on the chosen target (empty chooses the default,
 // none chooses no deployment), checking offers and known starter contracts.

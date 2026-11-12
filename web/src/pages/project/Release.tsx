@@ -64,11 +64,11 @@ export function ReleasePermalinkPage({ slug, number, log = false }: { slug: stri
               ? <>This release attempt{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null} failed. See the log for the failed step.</>
               : <>Released {fmtStamp(when)}{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null}.</>}
           {r.deployment && r.state !== 'releasing' && (r.state === 'failed' || data.isLive) && (
-            <> <Link to={`/projects/${slug}/deployments/${r.deployment}`}>Check this deployment</Link></>
+            <> <Link to={`/projects/${slug}/deployments/${r.deployment}`}>Check this deployment</Link>.</>
           )}
           {r.origin === 'observed-after-restore' && r.notes && <> {r.notes}. Deploying the release {PRODUCT} last shipped here puts that back.</>}
           {r.state === 'released' && r.notes && r.notes.startsWith('http') && (
-            <> Open it at <a href={r.notes} target="_blank" rel="noreferrer"><strong>{r.notes}</strong></a></>
+            <> Open it at <a href={r.notes} target="_blank" rel="noreferrer"><strong>{r.notes}</strong></a>.</>
           )}
         </div>
         {r.rebuiltFrom ? <p>Rebuilt from commit <code>{r.rebuiltCommit}</code>, not the original image of release {r.rebuiltFrom}.</p> : null}

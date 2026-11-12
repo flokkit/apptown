@@ -17,6 +17,9 @@ export const familyRank = (f: string) => { const i = FAMILY_ORDER.indexOf(f); re
 export const AUDIENCES = ['team', 'organisation', 'partners', 'public'] as const
 export const DATA_CLASSES = ['synthetic', 'non-production', 'production'] as const
 
+export const AUDIENCE_WORDS: Record<string, string> = { team: 'Team only', organisation: 'Organisation', partners: 'Partners', public: 'Public' }
+export const DATA_WORDS: Record<string, string> = { synthetic: 'Test data', 'non-production': 'Not production', production: 'Production' }
+
 // Where a target is, in one phrase: "App Platform · DigitalOcean · syd".
 export const placeWords = (title: string, vendor: string, region: string) =>
   [title, vendor, region].filter(Boolean).join(' · ')
@@ -27,8 +30,8 @@ export const placeOf = (kindInfo: KindInfo, address: Record<string, unknown> | u
 export const capsWords = (c: OfferCaps | undefined) => {
   if (!c) return ''
   const parts: string[] = []
-  if (c.audiences?.length) parts.push(`for ${c.audiences.join('/')}`)
-  if (c.data?.length) parts.push(`${c.data.join('/')} data`)
+  if (c.audiences?.length) parts.push(`for ${c.audiences.map(a => AUDIENCE_WORDS[a]).join('/')}`)
+  if (c.data?.length) parts.push(c.data.map(d => DATA_WORDS[d]).join('/'))
   if (c.maxStanding) parts.push(`up to ${c.maxStanding} per project`)
   return parts.join(', ')
 }

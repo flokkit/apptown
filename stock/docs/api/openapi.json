@@ -3891,11 +3891,15 @@
           "origin": {
             "type": "string"
           },
+          "reason": {
+            "type": "string"
+          },
           "settingsRevision": {
             "type": "integer"
           }
         },
         "required": [
+          "reason",
           "settingsRevision",
           "name",
           "kind",

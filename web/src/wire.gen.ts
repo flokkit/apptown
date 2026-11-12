@@ -4238,6 +4238,7 @@ export type DeclaredNeed = {
 }
 
 export type OfferedTarget = {
+  reason: string
   displayLabel?: string
   id?: string | null
   settingsRevision: number

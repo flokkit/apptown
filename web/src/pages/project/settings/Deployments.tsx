@@ -1,8 +1,9 @@
+import { useHolds } from '../../../instancePages'
 import { useNotOff } from '../../../features'
 import './deployments.css'
 import { deploymentName } from '../../../deploymentName'
 import { DeploymentFeed, feedWords } from './DeploymentFeed'
-import { AUDIENCE_WORDS, DATA_WORDS, DeploymentClassification, PROTECTED_WORDS } from './DeploymentClassification'
+import { DeploymentClassification, PROTECTED_WORDS } from './DeploymentClassification'
 import '../../../overview-line.css'
 import { DeploymentDeploys, type DeploymentTab } from '../DeploymentDeploys'
 import { Tabs } from '../../../Tabs'
@@ -23,7 +24,7 @@ import { del, post, put, type ChangeView } from '../../../api'
 import { useAction, useGet, useRefresh } from '../../../data'
 import { ReadStatus, StaleNote } from '../../../ReadGate'
 import { fmtBytes, fmtWhen, fmtStamp } from '../../../format'
-import { AUDIENCES, DATA_CLASSES, OfferedTarget, Retained, capsWords, placeOf, placeWords } from '../../../targets'
+import { AUDIENCES, DATA_CLASSES, AUDIENCE_WORDS, DATA_WORDS, OfferedTarget, Retained, capsWords, placeOf, placeWords } from '../../../targets'
 import { ProtectionLines } from '../../DataProtection'
 import { Section } from '../../../Section'
 import { ListTable, type ListColumn } from '../../../ListTable'
@@ -272,7 +273,7 @@ function DeploymentFact({ env }: { env: DeploymentView }) {
   return <span className="muted">{env.url ? <AppAddress url={env.url} hostOnly={env.hostOnly} /> : 'no address yet'}</span>
 }
 
-function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choices: OfferedTarget[]; existing: DeploymentView[]; onDone: (added: boolean) => void }) {
+export function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choices: OfferedTarget[]; existing: DeploymentView[]; onDone: (added: boolean) => void }) {
   const [name, setName] = useState('')
   const [target, setTarget] = useState('')
   const [feed, setFeed] = useState('manual')
@@ -282,27 +283,37 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
   const [startFrom, setStartFrom] = useState('')
   const finalsQ = useGet<FinalCopies>(`/projects/${slug}/final-copies`)
   const { run, busy, err, setErr } = useAction()
-  const picked = choices.find((t) => t.name === target) ?? choices[0]
-  useEffect(() => { if (!target && choices[0]) setTarget(choices[0].name) }, [choices, target])
+  const canEditTargets = useHolds('platform:manage-deploy-targets')
+  const [submitted, setSubmitted] = useState(false)
+  const ordered = [...choices].sort((a, b) => Number(!!a.reason) - Number(!!b.reason))
+  const picked = choices.find(t => t.name === target) ?? ordered.find(t => !t.reason)
+  const allowedAudiences: readonly string[] = picked?.offer?.caps?.audiences?.length ? picked.offer.caps.audiences : AUDIENCES
+  const allowedData: readonly string[] = picked?.offer?.caps?.data?.length ? picked.offer.caps.data : DATA_CLASSES
+  const selectedAudience = allowedAudiences.includes(audience) ? audience : allowedAudiences[0]
+  const selectedData = allowedData.includes(data) ? data : allowedData[0]
+  useEffect(() => { setAudience(selectedAudience); setData(selectedData) }, [selectedAudience, selectedData])
+  const nameError = !name.trim() ? 'give it a name · lower-case letters, digits and dashes'
+    : existing.some(e => e.name === name.trim()) ? `there is already a deployment called ${name.trim()}` : ''
   const add = async () => {
-    if (!name.trim()) { setErr('give it a name · lower-case letters, digits and dashes'); return }
-    if (existing.some(e => e.name === name.trim())) { setErr(`there is already a deployment called ${name.trim()}`); return }
+    setSubmitted(true)
+    if (nameError) return
     const from = picked?.kind === 'do-app' ? startFrom : ''
-    const r = await run(() => post(`/projects/${slug}/deployments`, { name: name.trim(), target: picked?.name, feed, ...(feed === 'promotion' ? { from: source } : {}), audience, data, ...(from ? { startFrom: from } : {}) }))
+    const r = await run(() => post(`/projects/${slug}/deployments`, { name: name.trim(), target: picked?.name, feed, ...(feed === 'promotion' ? { from: source } : {}), audience: selectedAudience, data: selectedData, ...(from ? { startFrom: from } : {}) }))
     if (r) { setName(''); onDone(true) }
   }
-  const protectedPick = audience === 'partners' || audience === 'public' || data === 'production'
+  const protectedPick = selectedAudience === 'partners' || selectedAudience === 'public' || selectedData === 'production'
   return (
-    <div className="card deploy-new">
+    <div className="card deploy-new" onChange={() => setErr('')}>
       <strong>New deployment</strong>
       <div className="form-grid">
-        <label>Name</label>
-        <input aria-label="Deployment name" value={name} onChange={(e) => setName(e.target.value)} placeholder="staging, cloud, demo…" className="deployments-add-deployment-input" />
         <label>Deployment target</label>
         <div>
-          <select aria-label="Target" value={picked?.name ?? ''} onChange={(e) => setTarget(e.target.value)} disabled={choices.length === 0}>
-            {choices.map((t) => <option key={t.name} value={t.name}>{t.displayLabel || t.name} — {placeOf(t.kindInfo, t.address)}</option>)}
+          <select aria-label="Target" value={picked?.name ?? ''} onChange={(e) => setTarget(e.target.value)} disabled={!ordered.some(t => !t.reason)}>
+            {!picked && <option value="">No available target</option>}
+            {ordered.map((t) => <option key={t.name} value={t.name} disabled={!!t.reason}>{t.displayLabel || t.name} — {placeOf(t.kindInfo, t.address)}{t.reason ? ` — ${t.reason}` : ''}</option>)}
           </select>
+          {!picked && ordered.map(t => <div className="muted small" key={t.name}>{t.reason}</div>)}
+          <div className="muted small mt-1">Missing a target? {canEditTargets ? <Link to="/targets">Make it available to this project on the Targets page.</Link> : 'Ask a workspace admin to make it available to this project.'}</div>
           {picked?.offer && (
             <div className="muted small mt-1" >
               offered {picked.offer.implicit ? 'to everyone (built in)' : `to ${picked.offer.group === '*' ? 'everyone' : picked.offer.group}`}
@@ -312,6 +323,10 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
             </div>
           )}
         </div>
+        <label>Name</label>
+        <div><input aria-label="Deployment name" value={name} onChange={e => setName(e.target.value)} placeholder="staging, cloud, demo…" className="deployments-add-deployment-input" />
+          <div className="deployment-name-error error small" aria-live="polite">{submitted && nameError}</div>
+        </div>
         <label>Release feed</label>
         <select aria-label="Release feed" value={feed} onChange={e => setFeed(e.target.value)}>
           <option value="manual">By hand</option><option value="main">Follows main</option><option value="promotion">Promoted from a deployment</option>
@@ -320,13 +335,16 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
           <option value="">Choose a source</option>{existing.filter(e => e.kind === 'standing').map(e => <option key={e.id} value={e.name}>{e.displayLabel || e.name}</option>)}
         </select></>}
         <label title="who can reach it">Audience</label>
-        <select aria-label="Audience" value={audience} onChange={(e) => setAudience(e.target.value)}>
-          {AUDIENCES.map((x) => <option key={x} value={x}>{AUDIENCE_WORDS[x]}</option>)}
+        <select aria-label="Audience" value={selectedAudience} onChange={(e) => setAudience(e.target.value)}>
+          {allowedAudiences.map((x) => <option key={x} value={x}>{AUDIENCE_WORDS[x]}</option>)}
         </select>
         <label title="what kind of data it holds">Data</label>
-        <select aria-label="Data" value={data} onChange={(e) => setData(e.target.value)}>
-          {DATA_CLASSES.map((x) => <option key={x} value={x}>{DATA_WORDS[x]}</option>)}
+        <select aria-label="Data" value={selectedData} onChange={(e) => setData(e.target.value)}>
+          {allowedData.map((x) => <option key={x} value={x}>{DATA_WORDS[x]}</option>)}
         </select>
+        <div className="deployment-protected-slot muted small" aria-hidden={!protectedPick}>
+          <div className={protectedPick ? '' : 'deployment-protected-hidden'}>This deployment will be protected. {PROTECTED_WORDS}</div>
+        </div>
         {picked?.kind === 'do-app' && (finalsQ.data?.copies.length ?? 0) > 0 && <>
           <label title="its first release fills its database from this copy, and checks it, before the app starts">Start from</label>
           <div>
@@ -346,17 +364,12 @@ function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choi
           </div>
         </>}
       </div>
-      {protectedPick && (
-        <div className="muted small mt-2" >
-          This deployment will be protected. {PROTECTED_WORDS}
-        </div>
-      )}
       <div className="row deployments-add-deployment-div">
-        <button className="primary" disabled={busy || !picked || (feed === 'promotion' && !source)} onClick={add}>Create</button>
+        <button className="primary" disabled={busy || !picked || !!picked.reason || (feed === 'promotion' && !source)} onClick={add}>Create</button>
         <button className="subtle" disabled={busy} onClick={() => { setErr(''); onDone(false) }}>Cancel</button>
         {/* What the disabled Create waits for. */}
         {!busy && (!picked ? choices.length > 0 && <span className="muted small">Choose a deployment target</span> : feed === 'promotion' && !source && <span className="muted small">Choose the deployment to promote from</span>)}
-        {err && <span className="error small">{err}</span>}
+        <span className="deployment-create-error error small" aria-live="polite">{err}</span>
       </div>
     </div>
   )
