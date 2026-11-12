@@ -319,8 +319,19 @@ check-race:              ## the race detector on the default tier (CI runs this)
 # The image CI runs the rule in (a local semgrep, when installed, runs it
 # instead); pinned by version and digest.
 SEMGREP_IMAGE = semgrep/semgrep:1.178.0@sha256:32e459968daabe7ab86968184a29109b9564aa00392401156f9788452b42786b
+# The container gets only what the rule reads, read-only: Docker Desktop on
+# macOS keeps a host file handle for every file a container touches until it
+# restarts, and a whole-checkout mount left about 43,000 per worktree, most
+# of them web/node_modules. The scan root is "." so /src stays the project
+# root the rule's paths are matched against, as with the whole checkout.
 check-sql:               ## the silent-DB-write rule (uses local semgrep or docker)
-	@if command -v semgrep >/dev/null; then 		semgrep --config .semgrep/no-silent-db-write.yml --error internal/ ; 	else 		echo "semgrep not on PATH — running it via docker"; 		docker run --rm -v "$$PWD:/src" -w /src $(SEMGREP_IMAGE) 			semgrep --config .semgrep/no-silent-db-write.yml --error internal/ ; 	fi
+	@if command -v semgrep >/dev/null; then \
+		semgrep --config .semgrep/no-silent-db-write.yml --error internal/ ; \
+	else \
+		echo "semgrep not on PATH — running it via docker"; \
+		docker run --rm -v "$$PWD/internal:/src/internal:ro" -v "$$PWD/.semgrep:/src/.semgrep:ro" -w /src $(SEMGREP_IMAGE) \
+			semgrep --config .semgrep/no-silent-db-write.yml --error . ; \
+	fi
 
 check-vuln:              ## known-CVE scan of deps + the build toolchain (CI runs this)
 	@command -v govulncheck >/dev/null || { echo "govulncheck missing — run 'make tools'"; exit 1; }
