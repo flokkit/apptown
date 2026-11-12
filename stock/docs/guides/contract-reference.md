@@ -251,6 +251,10 @@ The URL is unset when the address is not yet known. A domainless preview gets
 its port after init, so its init steps, running parts and commands inheriting
 their environment keep this value unset for that boot. AppTown does not refresh
 it after the port becomes known. Need containers do not receive it.
+`apptown dev up` gives the same two values for the public part's published
+port, `http://<host>:<port>`, where `<host>` is where that port answers for you
+(localhost, or your session's Docker host): `APPTOWN_APP_URL` to every part and
+init step, `APPTOWN_ORIGINS` to the public part.
 
 So that an app runs the same everywhere:
 
