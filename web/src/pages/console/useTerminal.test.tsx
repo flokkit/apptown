@@ -4,7 +4,7 @@ import { act, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useTerminal } from './useTerminal'
 
-const terminal = vi.hoisted(() => ({ sizes: [] as number[], options: { fontSize: 0 }, fit: vi.fn(), focus: vi.fn() }))
+const terminal = vi.hoisted(() => ({ sizes: [] as number[], options: { fontSize: 0 }, fit: vi.fn(), focus: vi.fn(), type: (_: string) => {} }))
 
 // The terminal's socket belongs to a session: a page that renders again with
 // the same session keeps its connection; another session gets a new one.
@@ -18,7 +18,7 @@ vi.mock('@xterm/xterm', () => ({
       this.options = terminal.options = options
     }
     loadAddon() {} open() {} focus = terminal.focus; reset() {} write() {} dispose() {}
-    onData() { return { dispose() {} } }
+    onData(f: (d: string) => void) { terminal.type = f; return { dispose() {} } }
     onResize() { return { dispose() {} } }
   },
 }))
@@ -130,5 +130,39 @@ it('never reports the previous session as attached while rendering a new session
     expect(seen).not.toContain('s2:attached')
     await act(async () => attach())
     expect(seen).toContain('s2:attached')
+  } finally { act(() => root.unmount()) }
+})
+
+// The terminal only shows until its person takes control: what they type
+// before that is never sent (the server refuses it too), so Escape pressed
+// to look around cannot stop the helper.
+it('sends keystrokes only after taking control', async () => {
+  const opened: string[] = []
+  const sent: unknown[] = []
+  vi.stubGlobal('WebSocket', class {
+    static OPEN = 1
+    readyState = 1
+    onopen?: () => void
+    constructor(url: string) { opened.push(url) }
+    send(d: unknown) { if (typeof d !== 'string') sent.push(d) }
+    close() {}
+  })
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+  function T({ control }: { control: boolean }) {
+    const ref = useRef<HTMLDivElement>(null)
+    useTerminal('s1', true, ref, true, control)
+    return <div ref={ref} />
+  }
+  const root = createRoot(document.createElement('div'))
+  try {
+    await act(async () => root.render(<T control={false} />))
+    terminal.type('\x1b')
+    expect(sent).toHaveLength(0)
+    expect(opened[0]).not.toContain('control')
+    await act(async () => root.render(<T control />))
+    expect(opened).toHaveLength(2)
+    expect(opened[1]).toContain('/pty?control=1')
+    terminal.type('\x1b')
+    expect(sent).toHaveLength(1)
   } finally { act(() => root.unmount()) }
 })

@@ -153,12 +153,15 @@ func (c Chats) Messages(ctx context.Context, s *console.Session, from int) (cons
 	return c.Sessions.Messages(ctx, s.ID, from)
 }
 
-// Terminal opens the chat's terminal. Someone who may act on the chat gets
-// it to type into, waking the chat first; anyone else watches it: its
-// screen only, while it runs (console.Service.Watch). The typist's
-// authority is asked again before each keystroke or resize it sends, so a
-// terminal opened by someone who has since lost it only shows.
-func (c Chats) Terminal(ctx context.Context, s *console.Session) (console.Terminal, error) {
+// Terminal opens the chat's terminal. Someone who may act on the chat
+// attaches to it, waking the chat first; anyone else watches it: its screen
+// only, while it runs (console.Service.Watch). An attached terminal shows
+// until its person takes control: only then do keystrokes reach the helper,
+// so a key pressed to look around (Escape to close what seems a menu) never
+// stops its turn. The person's authority is asked again before each
+// keystroke or resize, so a terminal opened by someone who has since lost
+// it only shows.
+func (c Chats) Terminal(ctx context.Context, s *console.Session, control bool) (console.Terminal, error) {
 	if !c.MayAct(ctx, s) {
 		return c.Sessions.Watch(ctx, s.ID)
 	}
@@ -171,18 +174,21 @@ func (c Chats) Terminal(ctx context.Context, s *console.Session) (console.Termin
 		return nil, err
 	}
 	c.record(ctx, actor, s, "console.terminal", nil)
-	return typist{Terminal: term, may: func() bool { return c.MayAct(ctx, s) }}, nil
+	return typist{Terminal: term, control: control, may: func() bool { return c.MayAct(ctx, s) }}, nil
 }
 
-// typist is a terminal whose input goes through only while the person who
-// opened it may still act on the chat; otherwise it is a watcher's.
+// typist is a terminal whose input goes through only once its person has
+// taken control, and only while they may still act on the chat; otherwise
+// it is a watcher's. Resizing is not input: it follows their window either
+// way.
 type typist struct {
 	console.Terminal
-	may func() bool
+	control bool
+	may     func() bool
 }
 
 func (t typist) Write(p []byte) (int, error) {
-	if !t.may() {
+	if !t.control || !t.may() {
 		return 0, console.ErrWatching
 	}
 	return t.Terminal.Write(p)

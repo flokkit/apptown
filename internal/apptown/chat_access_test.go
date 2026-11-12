@@ -249,16 +249,17 @@ func TestActsOnAnotherMembersChatAreRecordedUnderWhoDidThem(t *testing.T) {
 	}
 }
 
-// The terminal: someone who may act types into it; a viewer watches its
-// screen, and their keystrokes go nowhere while the screen stays open.
-// Watching a chat that is not running does not start it.
+// The terminal: someone who may act types into it once they take control;
+// a viewer watches its screen, and their keystrokes go nowhere while the
+// screen stays open, control or not. Watching a chat that is not running
+// does not start it.
 func TestAViewerWatchesAChatsTerminalWithoutTyping(t *testing.T) {
 	t.Parallel()
 	w := newChatAccessWorld(t)
 	srv := httptest.NewServer(w.a.Handler())
 	defer srv.Close()
 	dial := func(who string) (*websocket.Conn, *http.Response, error) {
-		u := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/console/" + w.chat + "/pty"
+		u := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/console/" + w.chat + "/pty?control=1"
 		return websocket.DefaultDialer.Dial(u, http.Header{"Origin": {srv.URL}, "X-AppTown-Actor": {who}})
 	}
 	read := func(c *websocket.Conn) string {
@@ -303,6 +304,54 @@ func TestAViewerWatchesAChatsTerminalWithoutTyping(t *testing.T) {
 	}
 	if _, resp, err := dial("vic"); err == nil || resp == nil || resp.StatusCode != http.StatusConflict || w.agent.Running(w.chat) {
 		t.Fatalf("watching a stopped chat: %v %v, running %v", err, resp, w.agent.Running(w.chat))
+	}
+}
+
+// The terminal only shows until its person takes control: a key pressed
+// to look around, Escape included, never reaches the helper (Escape would
+// stop its turn). The same person in control types through.
+func TestATerminalTakesNoKeysUntilItsPersonTakesControl(t *testing.T) {
+	t.Parallel()
+	w := newChatAccessWorld(t)
+	srv := httptest.NewServer(w.a.Handler())
+	defer srv.Close()
+	dial := func(query string) *websocket.Conn {
+		u := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/console/" + w.chat + "/pty" + query
+		c, _, err := websocket.DefaultDialer.Dial(u, http.Header{"Origin": {srv.URL}, "X-AppTown-Actor": {"jenny"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	read := func(c *websocket.Conn) string {
+		_ = c.SetReadDeadline(time.Now().Add(5 * time.Second))
+		_, b, err := c.ReadMessage()
+		if err != nil {
+			t.Fatalf("reading the screen: %v", err)
+		}
+		return string(b)
+	}
+	w.agent.Screen(w.chat, []byte("screen"))
+	looking := dial("")
+	if got := read(looking); got != "screen" {
+		t.Fatalf("the terminal shows the screen before control: %q", got)
+	}
+	if err := looking.WriteMessage(websocket.BinaryMessage, []byte("\x1b")); err != nil {
+		t.Fatal(err)
+	}
+	// Closing waits until the server has read the socket to its end, so the
+	// Escape has been handled before the next terminal opens.
+	w.closeTerminals(t, looking)
+	in := dial("?control=1")
+	defer w.closeTerminals(t, in)
+	if got := read(in); got != "screen" {
+		t.Fatalf("a key reached the helper without control: %q", got)
+	}
+	if err := in.WriteMessage(websocket.BinaryMessage, []byte("+typed")); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(in); got != "+typed" {
+		t.Fatalf("in control the person types: %q", got)
 	}
 }
 
@@ -378,7 +427,7 @@ func TestATerminalStopsTakingInputWhenItsTypistLosesTheRole(t *testing.T) {
 	srv := httptest.NewServer(w.a.Handler())
 	defer srv.Close()
 	w.agent.Screen(w.chat, []byte("screen"))
-	u := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/console/" + w.chat + "/pty"
+	u := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/console/" + w.chat + "/pty?control=1"
 	conn, _, err := websocket.DefaultDialer.Dial(u, http.Header{"Origin": {srv.URL}, "X-AppTown-Actor": {"jenny"}})
 	if err != nil {
 		t.Fatal(err)

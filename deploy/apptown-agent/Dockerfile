@@ -168,35 +168,6 @@ LABEL apptown.lsp.servers=biome,ruff,gopls
 # renovate: datasource=npm depName=@earendil-works/pi-coding-agent versioning=semver
 ARG PI_VERSION=1.5.0
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm install -g --ignore-scripts @earendil-works/pi-coding-agent@${PI_VERSION} && npm cache clean --force
-# UPSTREAM PATCH (pi 1.5.x): pi retries a turn that failed on a passing
-# fault (settings.retry, on by default), and its classifier decides which
-# faults pass. It has no pattern for a model stream cut mid-reply, which
-# ends with the transport's "This operation was aborted", so the helper
-# stopped on the first blip; and a gateway's "Provider returned error"
-# wrapper made credit, auth and invalid-request refusals look transient.
-# The classifier is compiled into pi's bundle (what the pi binary runs) as
-# well as pi-ai's own module, so every copy is patched. The person's stop
-# is stopReason "aborted", which the classifier never retries. The node
-# line asserts the behaviour of each copy, and that the bundle was among
-# them, so a version that moves the lists fails the build instead of
-# dropping the fix. Drop when a release classifies these.
-RUN pkg="$(npm root -g)/@earendil-works/pi-coding-agent" && \
-    files=$(grep -rl --include='*.js' '"stream was interrupted",' "$pkg") && \
-    sed -i -e 's|"stream was interrupted",|"stream was interrupted","operation was aborted",|' \
-      -e 's|"billing",|"billing","invalid_request_error","authentication_error","permission_error","credit balance",|' $files && \
-    node --input-type=module -e ' \
-      const files = process.argv.slice(1); let bundle = false; \
-      const e = (m) => ({ stopReason: "error", errorMessage: m }); \
-      for (const f of files) { \
-        const r = (await import(f)).isRetryableAssistantError; if (!r) continue; \
-        bundle ||= f.includes("/dist/bundle/"); \
-        const ok = r(e("This operation was aborted")) && r(e("503 overloaded")) \
-          && !r(e("400 Provider returned error: invalid_request_error")) \
-          && !r(e("401 Provider returned error: authentication_error")) \
-          && !r(e("400 Provider returned error: Your credit balance is too low to access the Anthropic API.")) \
-          && !r({ stopReason: "aborted", errorMessage: "This operation was aborted" }); \
-        if (!ok) { console.error("pi retry patch did not take in " + f); process.exit(1) } } \
-      if (!bundle) { console.error("pi retry patch: no classifier in the bundle pi runs"); process.exit(1) }' $files
 # Runtime version surfaces in step evidence via this label (receipts).
 LABEL apptown.pi.version=${PI_VERSION}
 

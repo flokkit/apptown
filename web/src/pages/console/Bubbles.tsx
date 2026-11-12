@@ -200,7 +200,7 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
             return (
               <div key={m.i} className="bubble-row">
                 <div className="bubble bubbles-bubble">
-                  <div className="small bubbles-div-3">⏹ stopped</div>
+                  <div className="small bubbles-div-3">⏹ stopped by you</div>
                   <div className="bubbles-div-4">{m.text}</div>
                 </div>
               </div>
