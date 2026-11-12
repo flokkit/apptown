@@ -526,3 +526,31 @@ func TestWaitingOnChangeLabels(t *testing.T) {
 		t.Fatalf("personal approval = %+v", w)
 	}
 }
+
+// A slot wait belongs to the queued attempt, including inside a called workflow.
+func TestSlotWaitIdentifiesItsStepWithoutOfferingActs(t *testing.T) {
+	t.Parallel()
+	parent, child, call, queued, later := idstest.N(1), idstest.N(2), idstest.N(3), idstest.N(4), idstest.N(5)
+	for _, called := range []bool{false, true} {
+		steps := []workflowActivityStep{{id: queued, attempt: 2, name: "review", kind: "agent/review", state: StatusPending}, {id: later, name: "later", kind: "agent/pi", state: StatusPending}}
+		graph := workflowActivityGraph{parent: {id: parent, projectID: parent, state: RunRunning, steps: steps}}
+		holding := parent
+		if called {
+			holding = child
+			graph[parent].steps = []workflowActivityStep{{id: call, attempt: 1, kind: "workflow/call", state: StatusRunning, evidence: json.RawMessage(`{"childRunId":"00000000-0002-7000-8000-000000000000","workflow":"child"}`)}}
+			graph[child] = &workflowActivityRun{id: child, projectID: parent, parentID: parent, parentStepID: call, parentAttempt: 1, state: RunRunning, steps: steps}
+		}
+		a, err := graph.classify(parent, func(id ids.ID) (string, int, bool) { return "local", 1, id == queued }, map[ids.ID]bool{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		run := &Run{ID: parent, Status: RunRunning}
+		w := waitingOn(nil, &RunSnapshot{Run: run, activity: a})
+		if a.State != activityQueued || a.Held || w.Kind != "work" || w.Run != holding || w.Step != queued || w.Attempt != 2 {
+			t.Fatalf("wrong queued identity: %+v / %+v", a, w)
+		}
+		if acts := nextActs(run, []*Step{{ID: queued, Type: "agent/review", Status: StatusPending}}, a, nil, false); len(acts) > 0 {
+			t.Fatalf("queued work offers acts: %+v", acts)
+		}
+	}
+}

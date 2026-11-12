@@ -499,3 +499,17 @@ it('shows a landing result recording failure with its remedy in the change evide
     expect([...f.el.querySelectorAll('.ch-event-label')].filter(e => e.textContent === 'Check results')).toHaveLength(1)
   } finally { f.close() }
 })
+
+it('ticks elapsed time for a running check in Details', async () => {
+ vi.useFakeTimers()
+ vi.setSystemTime(new Date('2026-11-01T10:04:12Z'))
+ vi.stubGlobal('fetch', vi.fn(async () => new Response('[]')))
+ const v = view(); v.detail!.steps = [step('scan', 'scan', 'running', {finishedAt:''})]
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeDetails view={v} current reload={() => {}} /></QueryClientProvider></MemoryRouter>))
+  expect(el.querySelector('.ch-check-duration')?.textContent).toBe('4m 12s')
+  await act(async () => vi.advanceTimersByTime(1000))
+  expect(el.querySelector('.ch-check-duration')?.textContent).toBe('4m 13s')
+ } finally { act(() => root.unmount()); client.clear(); vi.useRealTimers() }
+})

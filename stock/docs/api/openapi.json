@@ -1351,6 +1351,9 @@
           "evidence": {
             "$ref": "#/components/schemas/changeEvidence"
           },
+          "goesTo": {
+            "$ref": "#/components/schemas/ChangeDestination"
+          },
           "head": {
             "type": "string"
           },
@@ -1406,6 +1409,7 @@
           }
         },
         "required": [
+          "goesTo",
           "checks",
           "waitingOn",
           "change",
@@ -1450,6 +1454,24 @@
           "sha",
           "subject",
           "when"
+        ],
+        "type": "object"
+      },
+      "ChangeDestination": {
+        "properties": {
+          "branch": {
+            "type": "string"
+          },
+          "deployments": {
+            "items": {
+              "$ref": "#/components/schemas/MainDestination"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "branch",
+          "deployments"
         ],
         "type": "object"
       },
@@ -3720,6 +3742,29 @@
           "main",
           "files",
           "catchUp"
+        ],
+        "type": "object"
+      },
+      "MainDestination": {
+        "properties": {
+          "audience": {
+            "type": "string"
+          },
+          "displayLabel": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "targetLabel": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "displayLabel",
+          "targetLabel",
+          "audience"
         ],
         "type": "object"
       },
@@ -7833,8 +7878,17 @@
           "deployment": {
             "type": "string"
           },
+          "failedStage": {
+            "$ref": "#/components/schemas/DeployStage"
+          },
           "failure": {
             "type": "string"
+          },
+          "hostOnly": {
+            "type": "boolean"
+          },
+          "lastStage": {
+            "$ref": "#/components/schemas/DeployStage"
           },
           "number": {
             "type": "integer"
@@ -7848,20 +7902,41 @@
           "observedAt": {
             "type": "string"
           },
+          "progressUncertain": {
+            "type": "boolean"
+          },
           "reason": {
             "type": "string"
           },
           "serving": {
             "type": "boolean"
           },
+          "stage": {
+            "$ref": "#/components/schemas/DeployStage"
+          },
+          "stageElapsedMs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "state": {
             "$ref": "#/components/schemas/ReleaseState"
           },
           "statusLabel": {
             "$ref": "#/components/schemas/ReleaseLabel"
+          },
+          "url": {
+            "type": "string"
           }
         },
         "required": [
+          "progressUncertain",
+          "hostOnly",
           "statusLabel",
           "number",
           "deployment",

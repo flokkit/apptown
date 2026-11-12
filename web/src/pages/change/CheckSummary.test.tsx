@@ -84,7 +84,7 @@ it('treats a skipped standing-deployment rule like Details and says the result o
 })
 it('states an unknown test count in one clear phrase', () => {
   const el = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[step('pass', { type: 'tests', checkAttention: true })]} />))
-  expect(el.textContent).toBe('Tests: number unknown')
+  expect(el.querySelector('.ch-check-exception')?.textContent).toBe('Tests: number unknown')
 })
 
 it.each(['fail', 'error', 'needs_human'])('labels a rejected review and leads with structured findings (%s)', status => {
@@ -99,7 +99,7 @@ it('keeps the review conclusion beyond its positive opening and removes the redu
   const el = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'unknown', text: 'Checks not all known', started: true }} steps={[step('fail', { type: 'agent/review', name: 'Review', evidence: {
     reason: 'reviewer rejected: The preview looked styled. The requested adoption is incomplete.',
   } })]} />))
-  expect(el.textContent).toBe('✗ Review failed The preview looked styled. The requested adoption is incomplete.')
+  expect(el.querySelector('.ch-check-exception')?.textContent).toBe('✗ Review failed The preview looked styled. The requested adoption is incomplete.')
 })
 
 it('bounds a long rejected review excerpt without selecting a sentence', () => {
@@ -108,7 +108,7 @@ it('bounds a long rejected review excerpt without selecting a sentence', () => {
   } })]} />))
   expect(el.textContent).toContain('✗ Review failed The preview looked styled. The adoption is incomplete.')
   expect(el.textContent?.endsWith('…')).toBe(true)
-  expect(el.textContent!.length).toBeLessThanOrEqual(260)
+  expect(el.querySelector('.ch-check-exception')!.textContent!.length).toBeLessThanOrEqual(260)
 })
 
 it('keeps unfinished execution unknown after the owner says its run stopped', () => {
@@ -127,10 +127,17 @@ it('separates running from not started, and drops not started after a failure', 
   expect(progress.textContent).toContain('Still running: Check layout')
   expect(progress.textContent).not.toContain('Still running: Check layout, Standards check')
   expect(progress.textContent).toContain('Not started: Standards check')
+  expect(progress.textContent).not.toContain('Checks not all known')
   const style = step('fail', { id: 'style', name: 'Style', evidence: { reason: 'Lines too long.' } })
   const scan = step('pending', { id: 'scan', name: 'Dependency scan' })
   const failed = dom(renderToStaticMarkup(<CheckSummary checks={{ tone: 'bad', text: 'A check failed', started: true }} steps={[style, scan]} />))
   expect(failed.textContent).not.toContain('Still running')
   expect(failed.textContent).not.toContain('Dependency scan')
   expect(failed.textContent).toContain('Style failed')
+})
+
+it('shows the server skip count without a pass mark', () => {
+ const el = dom(renderToStaticMarkup(<CheckSummary checks={{tone:'ok', text:'1 passed, 1 skipped: Dependency scan', started:true}} steps={[step('pass'), step('not_applicable')]} />))
+ expect(el.textContent).toBe('1 passed, 1 skipped: Dependency scan')
+ expect(el.textContent).not.toContain('✓')
 })

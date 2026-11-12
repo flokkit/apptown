@@ -30,7 +30,7 @@ import type { ChangeView } from '../api'
 const CHANGE = '00000000-0049-7000-8000-000000000000'
 const ON_CHANGE = `?change=${CHANGE}`
 
-const firstPaint = (search: string, view: object = { waitingOn: { says: 'waiting for you', tone: 'warn' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }) => {
+const firstPaint = (search: string, view: object = { goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'waiting for you', tone: 'warn' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }) => {
   window.history.replaceState(null, '', `/projects/p/console${search}`)
   const client = newQueryClient()
   client.setQueryData(getKey(`/changes/${CHANGE}`), view)
@@ -48,6 +48,8 @@ describe('a chat says which kind it is from its first paint', () => {
   // while it connects.
   it('a change chat names its change while it connects', () => {
     const html = firstPaint(ON_CHANGE)
+    expect(html).toContain('Goes to: ')
+    expect(html).toContain('(no deployment follows main)')
     expect(html).not.toContain('connecting…')
     expect(html).toContain('Loading…')
     expect(html).toContain('class="console-chat-page-h1 console-chat-title"')
@@ -103,7 +105,7 @@ describe('the chat keeps its input when the intro steps aside', () => {
 describe('a change chat keeps its head to two lines', () => {
   const parse = (html: string) => { const el = document.createElement('div'); el.innerHTML = html; return el }
   it('names the change and shows its status before and during a workflow', () => {
-    const view = { waitingOn: { says: 'waiting for you', tone: 'warn' }, change: { id: CHANGE, number: 49, title: 'Let an admin edit the menu', state: 'in_progress' }, commits: [{}] }
+    const view = { goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'waiting for you', tone: 'warn' }, change: { id: CHANGE, number: 49, title: 'Let an admin edit the menu', state: 'in_progress' }, commits: [{}] }
     const page = parse(firstPaint(ON_CHANGE, view))
     expect(page.querySelector('.console-head h1')!.textContent).toBe('#49 Let an admin edit the menu')
     expect(page.querySelector('.console-head h1 a')!.getAttribute('href')).toBe(`/changes/${CHANGE}`)
@@ -125,7 +127,7 @@ describe('a change chat keeps its head to two lines', () => {
         return new Response(JSON.stringify({ sessions: [{ id: 's1', projectSlug: 'p', model: 'm', createdAt: '', state: 'unavailable',
           changeId: CHANGE, openedBy: 'ana', mayAct: false, placement: 'worker', recordAsOf: '2026-10-16T01:00:00Z' }] }))
       }
-      if (u === `/api/v1/changes/${CHANGE}`) return new Response(JSON.stringify({ waitingOn: { says: 'building', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }))
+      if (u === `/api/v1/changes/${CHANGE}`) return new Response(JSON.stringify({ goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'building', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }))
       if (u.includes('/messages')) return new Response(JSON.stringify({ messages: [{ i: 0, role: 'helper', text: 'Done.' }] }))
       if (u.endsWith('/changes')) return new Response(JSON.stringify({ changes: [] }))
       return new Response('{}')
@@ -175,7 +177,7 @@ describe('phone change controls', () => {
       const data = u.endsWith('/projects/p/console')
         ? { sessions: [{ id: 's1', projectSlug: 'p', state: 'detached', changeId: CHANGE, openedBy: 'ana', mayAct: true }] }
         : u.endsWith(`/changes/${CHANGE}`)
-          ? { waitingOn: { says: 'building', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }
+          ? { goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'building', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }
           : u.endsWith('/preview') ? { state: 'live', url: 'https://preview.example' }
             : u.includes('/messages') ? { messages: Array.from({ length: messageCount }, (_, i) => ({ i, role: 'you', text: 'Hello' })), turn: 'handed-back' }
               : { changes: [] }
@@ -395,7 +397,7 @@ describe('one status chip in a connected change chat', () => {
       const data = u.endsWith('/projects/p/console')
         ? { sessions: [{ id: 'one-chip', changeId: CHANGE, mayAct: true, state: 'detached' }] }
         : u.endsWith(`/changes/${CHANGE}`)
-          ? { waitingOn: { says: 'checking', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 'One label', state: 'in_progress' } }
+          ? { goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'checking', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 'One label', state: 'in_progress' } }
           : u.includes('/messages') ? { messages: [{ i: 0, role: 'you', text: 'Build it' }], turn: busy ? 'working' : 'handed-back' } : { changes: [] }
       return new Response(JSON.stringify(data))
     })))

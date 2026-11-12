@@ -99,7 +99,7 @@ export default function ChangePage() {
         <div className="ch-tab-body">
 
           {tab === 'changes' && <ChangesTab view={view} run={view.detail?.run} />}
-          <ChangeOverview shown={tab === 'overview'} view={view} current={current} steps={steps} extraErr={workRunId && !work.detail ? work.err : undefined} onChange={reload} workTab={workTab} />
+          <ChangeOverview progressCurrent={!read.refreshFailed} shown={tab === 'overview'} view={view} current={current} steps={steps} extraErr={workRunId && !work.detail ? work.err : undefined} onChange={reload} workTab={workTab} />
           {tab === 'conversation' && (
             <ConversationLog earlierRuns={(view.runs ?? []).map(r => r.id!).filter(id => id !== view.detail?.run.id && id !== work.detail?.run.id)} rounds={[...(workRunId && work.detail ? runStory(work.detail) : []), ...(view.detail ? runStory(view.detail) : [])].filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-'))} request={view.change.body || view.change.title} report={changeReport(view)} changeId={view.change.id!} chatHref={view.change.state === 'in_progress' ? `/projects/${view.projectSlug}/console?change=${view.change.id}` : undefined} />
           )}

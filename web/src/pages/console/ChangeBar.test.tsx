@@ -40,7 +40,7 @@ describe('check and land in the chat', () => {
 // bar offers nothing on a change it has not read, and a status whose refresh
 // failed ("shipped", "needs you", the three verbs) stays, marked as old.
 describe("the change a chat works on", () => {
-  const view = (state: string, doing = '') => ({ change: { id: CHANGE, number: 1, title: 'Blue cat', state }, state: doing, waitingOn: { says: 'building', tone: 'busy' } })
+  const view = (state: string, doing = '') => ({ change: { id: CHANGE, number: 1, title: 'Blue cat', state }, state: doing, goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'building', tone: 'busy' } })
   let change: () => Response
   beforeEach(() => {
     Element.prototype.scrollIntoView = () => {}

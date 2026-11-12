@@ -70,6 +70,12 @@
 // a verified person's principal and credential; agent credentials cannot supply
 // this standing authority. ConfirmFeed uses the same write.
 //
+// Deployments.FollowingMain reads the same standing main-feed selection as
+// RequestLandingReleases. It describes current settings, not a frozen promise
+// of execution. Change reads retain each release's progress uncertainty and
+// resolve the deployment endpoint through Service.Reach, including host-only
+// reachability; an endpoint alone does not establish release success.
+//
 // RequestRelease promotes the bundle the source last deployed successfully,
 // refusing a changed source or a feed that is no longer promotion when
 // ExpectedSourceBundleID names the displayed bundle. Without that expectation,

@@ -42,6 +42,7 @@ func TestHandleGetChangeCockpit(t *testing.T) {
 	var body struct {
 		Change      map[string]any
 		ProjectSlug string
+		GoesTo      ChangeDestination
 		Detail      map[string]any
 		Adrs        []map[string]any
 		Runs        []map[string]any
@@ -52,7 +53,7 @@ func TestHandleGetChangeCockpit(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body.ProjectSlug != "shop" || body.Change["state"] != "in_progress" || body.State != "waiting on you" || body.Detail == nil || body.Detail["run"] == nil || len(body.Runs) != 1 || body.Runs[0]["workflowName"] != "test" || len(body.Adrs) != 1 || body.Adrs[0]["title"] != "pick sqlite" || body.Report != "the story so far" {
+	if body.GoesTo.Branch != "" || body.GoesTo.Deployments == nil || body.ProjectSlug != "shop" || body.Change["state"] != "in_progress" || body.State != "waiting on you" || body.Detail == nil || body.Detail["run"] == nil || len(body.Runs) != 1 || body.Runs[0]["workflowName"] != "test" || len(body.Adrs) != 1 || body.Adrs[0]["title"] != "pick sqlite" || body.Report != "the story so far" {
 		t.Fatalf("cockpit projection: %+v", body)
 	}
 }

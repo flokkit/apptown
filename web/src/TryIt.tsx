@@ -13,13 +13,16 @@ import { hostOnlyWords } from './runtime'
 // (previews run on a worker AppTown could not ask, with the reason). Every
 // boot path records that state, so what the rehearsal loop or another tab
 // did shows here too.
-type PreviewState = {
+export type PreviewState = {
   state: 'none' | 'cold' | 'starting' | 'live' | 'broken' | 'unavailable'; url?: string; hostOnly?: boolean; reason?: string; at?: string
   // built: when the running preview was booted from what it serves; commit:
   // the commit, only when it was booted from one (a change's working files
   // are not a commit, so they never claim one).
   built?: string; commit?: string
 }
+
+// All preview readers share the same request, answer and polling through useGet.
+export const usePreview = (changeId: string) => useGet<PreviewState>(`/changes/${changeId}/preview`, { poll: 5000 })
 
 // builtWords says what the running preview was built from, and when.
 export function builtWords(st?: PreviewState): string {
@@ -33,7 +36,7 @@ export function builtWords(st?: PreviewState): string {
 export function TryIt({ changeId, label, style, className, hideRestart = false, hideBuilt = false }: {
   changeId: string; label?: string; style?: CSSProperties; className?: string; hideRestart?: boolean; hideBuilt?: boolean
 }) {
-  const { data: st, reload: load } = useGet<PreviewState>(`/changes/${changeId}/preview`, { poll: 5000 })
+  const { data: st, reload: load } = usePreview(changeId)
   const { run, busy, err } = useAction()
 
   const boot = async (path: string) => {

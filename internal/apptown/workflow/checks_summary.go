@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // ChecksSummary is Workflow's display verdict. Readers never infer a pass from
@@ -59,7 +60,8 @@ func (s Step) checkAttention() bool {
 
 func summarizeChecks(steps []*Step) ChecksSummary {
 	out := ChecksSummary{Tone: "neutral", Text: "Not checked yet. Checks run when you press Check and land in the chat."}
-	failed, notes := 0, 0
+	failed, notes, passed := 0, 0, 0
+	var skipped []string
 	var failedTitle string
 	unknown, running := false, false
 	for _, s := range steps {
@@ -68,6 +70,9 @@ func summarizeChecks(steps []*Step) ChecksSummary {
 		}
 		if s.Status != StatusPending && s.Status != StatusSkipped {
 			out.Started = true
+		}
+		if s.Status == StatusNotApplicable || s.Status == StatusSkipped {
+			skipped = append(skipped, checkTitle(workflowActivityStep{kind: s.Type, name: s.Name, evidence: s.Evidence}))
 		}
 		r := s.CheckReading
 		if r == nil && carriesCheckEvidence(s.Type) {
@@ -86,6 +91,9 @@ func summarizeChecks(steps []*Step) ChecksSummary {
 			}
 		}
 		if !s.checkAttention() {
+			if s.Status == StatusPass {
+				passed++
+			}
 			continue
 		}
 		switch {
@@ -104,7 +112,7 @@ func summarizeChecks(steps []*Step) ChecksSummary {
 			unknown = true
 		}
 	}
-	if !out.Started {
+	if !out.Started && len(skipped) == 0 {
 		return out
 	}
 	switch {
@@ -126,6 +134,14 @@ func summarizeChecks(steps []*Step) ChecksSummary {
 				noun = "note"
 			}
 			out.Text += fmt.Sprintf(" · %d %s", notes, noun)
+		}
+	}
+	if len(skipped) > 0 {
+		counts := fmt.Sprintf("%d passed, %d skipped: %s", passed, len(skipped), strings.Join(skipped, ", "))
+		if out.Tone != "ok" {
+			out.Text += " · " + counts
+		} else {
+			out.Text = counts + strings.TrimPrefix(out.Text, "All checks passed")
 		}
 	}
 	return out

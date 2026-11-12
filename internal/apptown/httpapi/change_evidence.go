@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/deploy"
+
 	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -24,12 +27,19 @@ type changeEvidence struct {
 }
 
 type changeRelease struct {
-	StatusLabel deployment.ReleaseLabel `json:"statusLabel"`
-	Failure     string                  `json:"failure,omitempty"`
-	Number      int64                   `json:"number"`
-	Deployment  string                  `json:"deployment"`
-	State       deployment.ReleaseState `json:"state"`
-	Serving     bool                    `json:"serving"`
+	Stage             deploy.DeployStage      `json:"stage,omitempty"`
+	LastStage         deploy.DeployStage      `json:"lastStage,omitempty"`
+	FailedStage       deploy.DeployStage      `json:"failedStage,omitempty"`
+	StageElapsedMs    *int64                  `json:"stageElapsedMs,omitempty"`
+	ProgressUncertain bool                    `json:"progressUncertain"`
+	URL               string                  `json:"url,omitempty"`
+	HostOnly          bool                    `json:"hostOnly"`
+	StatusLabel       deployment.ReleaseLabel `json:"statusLabel"`
+	Failure           string                  `json:"failure,omitempty"`
+	Number            int64                   `json:"number"`
+	Deployment        string                  `json:"deployment"`
+	State             deployment.ReleaseState `json:"state"`
+	Serving           bool                    `json:"serving"`
 	// Observed is what the deployment serving this release's record was
 	// observed to be (deployment.ContainerPresence): running, stopped,
 	// missing, or unavailable/unknown with Reason. Only running is serving;
@@ -65,8 +75,18 @@ func (h ChangeDetail) evidenceForChange(ctx context.Context, ch *workflow.Change
 		return out, err
 	}
 	out.LandingReleases = make([]changeRelease, 0, len(requested))
-	for _, r := range requested {
-		out.LandingReleases = append(out.LandingReleases, changeRelease{Number: r.Number, Deployment: r.Deployment, State: r.State, StatusLabel: r.State.Display(), Failure: r.Failure})
+	if len(requested) > 0 {
+		pr, err := project.ByIDIn(ctx, h.db, ch.ProjectID)
+		if err != nil {
+			return out, err
+		}
+		for _, r := range requested {
+			release, err := h.landingRelease(ctx, pr.Slug, r)
+			if err != nil {
+				return out, err
+			}
+			out.LandingReleases = append(out.LandingReleases, release)
+		}
 	}
 	carried, err := h.deployment.Releases.ForChange(ctx, ch.ProjectID, ch.ID)
 	if err != nil {
@@ -116,4 +136,14 @@ func (h ChangeDetail) evidenceForChange(ctx context.Context, ch *workflow.Change
 		}
 	}
 	return out, nil
+}
+
+// landingRelease preserves release progress separately from the deployment endpoint.
+func (h ChangeDetail) landingRelease(ctx context.Context, slug string, r *deployment.Release) (changeRelease, error) {
+	dep, err := h.deployment.Deployments.ByID(ctx, r.DeploymentID)
+	if err != nil {
+		return changeRelease{}, err
+	}
+	url, hostOnly := h.deployment.Reach(ctx, slug, dep)
+	return changeRelease{Number: r.Number, Deployment: r.Deployment, State: r.State, StatusLabel: r.State.Display(), Failure: r.Failure, Stage: r.Stage, LastStage: r.LastStage, FailedStage: r.FailedStage, StageElapsedMs: r.StageElapsedMs, ProgressUncertain: r.ProgressUncertain, URL: url, HostOnly: hostOnly}, nil
 }

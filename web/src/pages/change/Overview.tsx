@@ -1,16 +1,18 @@
+import { GoesTo } from './GoesTo'
+import { LivePanel } from './LivePanel'
 import { renderMd } from '../../md'
 import { NotesDiff } from './NotesDiff'
 import { Now, nowRunning } from './Now'
 import { ContinueDecision, TurnDecision, viewerTurn } from './Turn'
 import { HeldDecision, heldLabels } from './HeldDecision'
-import { StaleNote } from '../../ReadGate'
+import { ReadStatus, StaleNote } from '../../ReadGate'
 import { InlineHelp } from '../../InlineHelp'
 import { Link, useNavigate } from 'react-router-dom'
 import { QuietConfirm } from '../../QuietConfirm'
 import { DecisionContextOnly } from '../../DecisionChoices'
 import { isStep, post, type AdvanceResult, type ChangeView, type Step } from '../../api'
 import { Screenshots } from '../../Screenshots'
-import { TryIt } from '../../TryIt'
+import { TryIt, usePreview } from '../../TryIt'
 import { DecisionForm, landingMeansFor } from '../../DecisionForm'
 import { useAction, useGet } from '../../data'
 import { fmtPrice } from '../../format'
@@ -46,7 +48,7 @@ export function CheckSummary({ steps, checks: verdict, contractNeedsAttention = 
   return <div className="ch-check-summary">
     {!!running.length && <p>Still running: {running.map(stepTitle).join(', ')}</p>}
     {!!pending.length && !failed && <p>Not started: {pending.map(stepTitle).join(', ')}</p>}
-    {verdict.tone === 'ok' && !contractNeedsAttention && <span><span className="ch-mark ok">✓</span> {verdict.text}</span>}
+    {!running.length && !(pending.length && !failed) && <span>{verdict.tone === 'ok' && verdict.text.startsWith('All checks passed') && !contractNeedsAttention && <span className="ch-mark ok">✓ </span>}{verdict.text}</span>}
     {attention.filter(s => !running.includes(s) && !pending.includes(s)).map((s, i) => {
       const problems = checkProblems(s).filter(c => c.gates !== false).map(c => c.detail || `${c.check}: ${c.verdict}`)
       const recorded = s.overrideBy ? `An exception was recorded by ${s.overrideBy}: ${s.overrideReason}` : s.checkReading?.unreadable ? `The result could not be read: ${s.checkReading.unreadable}` : ['unknown', 'excepted'].includes(s.statusLabel) ? `The result is ${s.statusLabel}: ${s.evidence.reason || 'The recorded result needs review.'}` : s.evidence.reason
@@ -73,13 +75,14 @@ export function CheckSummary({ steps, checks: verdict, contractNeedsAttention = 
 // to try the same work.
 export const previewReleased = (view: ChangeView) => view.change.state === 'shipped' && (view.evidence?.landingReleases ?? []).some(r => r.state === 'released')
 
-export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extraErr, current, shown = true }: {
+export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extraErr, current, progressCurrent = true, shown = true }: {
   view: ChangeView; onChange: () => void; workTab: (step?: string | null, run?: string | null) => string
-  steps: Step[]; extraErr?: string; current: boolean; shown?: boolean
+  steps: Step[]; extraErr?: string; current: boolean; progressCurrent?: boolean; shown?: boolean
 }) {
   const nav = useNavigate()
   const { run: act, busy: actionBusy, err: actionErr } = useAction(onChange)
   const turn = viewerTurn(view) && current && !extraErr && nextStep(view).primary !== 'open-decision'
+  const preview = usePreview(view.change.id!)
   const ch = view.change
   const d = view.detail
   const next = nextStep(view)
@@ -123,11 +126,15 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
   // only a recorded preview step has screenshots to miss. Absence is said
   // of the runs shown here, not of the change's whole history.
   const previewRecorded = steps.some(isStep('preview'))
-  const previewLine = <>
+  // A released change is tried at its deployment (the Release row's Open
+  // app); with no recorded preview its Preview row would have nothing to say,
+  // unless the preview could not be read, which stays visible as unknown.
+  const previewLine = (!released || !!boot || !!preview.err) && <>
     <div className="ch-overview-line"><div className="ch-row-label">Preview</div><div className="ch-value ch-preview">
       {!!boot?.evidence.screenshots?.shots?.length && <Screenshots hero shots={boot?.evidence.screenshots} head={view.head} at={boot?.finishedAt} />}
+      <ReadStatus q={preview} what="preview" /><StaleNote q={preview} />
       {!released && <TryIt changeId={ch.id!} label="Open it and try it" />}
-      {!boot?.evidence.screenshots?.shots?.length && <p className="small muted">{boot?.evidence.screenshots?.unavailable || (previewRecorded ? 'No screenshots were recorded for this preview.' : 'The latest run recorded no preview.')}</p>}
+      {!boot?.evidence.screenshots?.shots?.length && (boot?.evidence.screenshots?.unavailable || preview.current && preview.data?.state === 'none') && <p className="small muted">{boot?.evidence.screenshots?.unavailable || (previewRecorded ? 'No screenshots were recorded for this preview.' : 'The latest run recorded no preview.')}</p>}
     </div>{boot ? trailer(record('preview', boot.runId), `${boot.evidence.screenshots?.commit ? `built from ${boot.evidence.screenshots.commit.slice(0, 7)} · ` : ''}logs →`) : <span />}</div>
   </>
   return <div className="ch-overview">
@@ -136,7 +143,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
     {/* A shipped change leads with its release; trying the landed commit
         stays below it, so the overview never opens on a preview of work
         that is already live. */}
-    {ch.state === 'shipped' && <ReleaseRow view={view} />}
+    {(ch.state === 'shipped' || ch.state === 'landing' || !!view.evidence.landingReleases.length) && <div className="ch-overview-line"><div className="ch-row-label">Release</div><div className="ch-value"><LivePanel view={view} progressCurrent={progressCurrent} /></div><span /></div>}
     {previewLine}
     <NotesDiff diff={view.notesDiff} />
     <div className="ch-overview-line ch-request"><div className="ch-row-label">You asked</div><div className="ch-value">{ch.requestSummary || firstLine(ch.body || ch.title)}</div>{trailer(ch.chatRequest ? `/changes/${ch.id}?tab=conversation` : record('request'), !ch.chatRequest && (ch.body || ch.title) !== firstLine(ch.body || ch.title) ? 'full request →' : 'request →')}</div>
@@ -146,19 +153,18 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
     </div>{!summary && reply ? trailer(`/changes/${ch.id}?tab=conversation`, 'full conversation →') : trailer(`/changes/${ch.id}?tab=changes`, shortDiffstat(view.diffstat) ? `${shortDiffstat(view.diffstat).replace(/^(.*) in (\d+ files?)$/, '$2 $1')} · code →` : 'Code →')}</div>
     <div className={`ch-overview-line${view.checks.tone === 'bad' ? ' ch-line-bad' : ''}`}><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary checks={view.checks} technical={technical} steps={steps} contractNeedsAttention={contractUnread(adds)} /><TechnicalWords shown={technical}>{checks.filter(s => s.status !== 'not_applicable').map(s => s.name).join(' · ')}</TechnicalWords></div>{checked && trailer(record('checks'), 'details →')}</div>
     {approval && <>
-      <div className="ch-overview-line"><div className="ch-row-label">Goes live</div><div className="ch-value">Landing puts the change on main. Deployments update separately.</div><span /></div>
+      <div className="ch-overview-line"><div className="ch-row-label">Goes to</div><div className="ch-value"><GoesTo view={view} labelled /></div><span /></div>
     </>}
     {!approval && view.waitingOn.kind === 'approval' && view.waitingOn.step && <div className="ch-overview-line"><div className="ch-row-label">Who decides</div><div className="ch-value"><ApproversCard stepId={view.waitingOn.step} inline /></div><span /></div>}
     {review?.type === 'agent/review' && <div className="ch-overview-line"><div className="ch-row-label">Reviewer</div><p className="ch-value">{review.status === 'running' || review.status === 'pending' ? 'working' : review.checkReading?.unreadable ? 'could not be read' : review.evidence.verdict === 'approve' ? 'approves' : ['fail', 'error', 'needs_human'].includes(review.status) && !review.overrideBy ? <strong className="ch-bad-text"><span className="ch-mark bad">✗</span> Rejected</strong> : review.evidence.verdict || review.status} — {firstLine(review.evidence.reviewerSummary || review.evidence.summary || review.evidence.reason || 'No review conclusion recorded.').split(/(?<=[.!?])\s+/)[0]}</p>{trailer(record('review', review.runId), 'full review →')}</div>}
     {checked && contractChanged(adds) && adds && <div className="ch-overview-line"><div className="ch-row-label">App contract</div><div className="ch-value"><InlineHelp.Provider value={false}><AddsSection adds={adds} /></InlineHelp.Provider></div><span /></div>}
-    {ch.state !== 'shipped' && (ch.state === 'landing' || steps.some(s => s.type === 'approval' && s.status === 'pass')) && <ReleaseRow view={view} />}
     </section>
-    <TurnDecision progress={nowRunning(view) ? <Now view={view} /> : undefined} progressTitle={nowRunning(view) ? progressTitle(view, steps) : undefined} approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={approval && turn ? <div className="ch-accept-rows">
+    {ch.state !== 'shipped' && <TurnDecision progress={nowRunning(view) ? <Now view={view} /> : undefined} progressTitle={nowRunning(view) ? progressTitle(view, steps) : undefined} approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={approval && turn ? <div className="ch-accept-rows">
       <div className="ch-overview-line"><div className="ch-row-label">You asked</div><div className="ch-value">{ch.requestSummary || firstLine(ch.body || ch.title)} <Link className="ch-inline-link" to={ch.chatRequest ? `/changes/${ch.id}?tab=conversation` : record('request')}>full request →</Link></div></div>
       {!!briefParts?.length && <div className="ch-overview-line"><div className="ch-row-label">What it does</div><div className="ch-value">{briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}</div></div>}
       <NotesDiff diff={view.notesDiff} />
       <div className="ch-overview-line"><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary checks={view.checks} steps={steps} contractNeedsAttention={contractUnread(adds)} /></div></div>
-      <div className="ch-overview-line"><div className="ch-row-label">Goes live</div><div className="ch-value">Landing puts the change on main. Deployments update separately.</div></div>
+      <div className="ch-overview-line"><div className="ch-row-label">Goes to</div><div className="ch-value"><GoesTo view={view} labelled /></div></div>
     </div> : turn && !next.recovery ? <CheckSummary checks={view.checks} steps={steps} contractNeedsAttention={contractUnread(adds)} /> : undefined} actions={approval ? ['Accept', ...(offered(view.next, 'send-back') || offered(d?.next, 'rework') ? ['Send back…'] : []), ...(offered(view.next, 'abandon') ? ['Abandon change'] : [])] : heldLabels(view)}>
       {next.sentBack && <p>{next.sentBack.by} sent it back: “{next.sentBack.note}”</p>}
       {view.mainConflict && <p>{view.mainConflict.mainBranch} has moved and conflicts with this change in {view.mainConflict.files.join(', ')}, so it cannot land yet. Resolve it in the change's chat; <Link to={detail} onClick={e => e.currentTarget.closest('dialog')?.close()}>Details has the catch-up command</Link>.</p>}
@@ -166,7 +172,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
       {shortfall && <><p>The summary says this change falls short of the request: {shortfall}</p><p>Based on: “{ch.requestGapQuote}”</p></>}
       {unchecked && view.waitingOn.kind !== 'closed' && <p>The summary could not check all of the request: {unchecked}</p>}
       {steps.filter(s => s.type === 'workflow/call' && s.evidence.childRunId).map(s => <ChildOverview key={s.id} step={s} onChange={onChange} />)}
-      {!approval && (ch.state === 'shipped' ? <Landed view={view} /> : landingEnded ? <><p>{view.waitingOn.says}</p><p>The last landing ended: {view.stateDetail}</p></> : <p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>)}
+      {!approval && (landingEnded ? <><p>{view.waitingOn.says}</p><p>The last landing ended: {view.stateDetail}</p></> : <p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>)}
       {approval && !turn && current && !extraErr && <ApproversCard stepId={approval.id!} />}
       {approval && (!current || extraErr) && <p>Reading the current change before you can accept.</p>}
 
@@ -193,7 +199,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
         rework={offered(view.next, 'send-back') ? { label: 'Rework with comment', run: () => act(() => post(`/changes/${ch.id}/sendback`, { note })) } : undefined}
         abandon={offered(view.next, 'abandon') ? { label: 'Abandon change', run: () => act(() => post(`/changes/${ch.id}/abandon`, {})) } : undefined} />}
       {question.err && <p className="error">Changes to the app contract could not be read: {question.err}</p>}
-    </TurnDecision>
+    </TurnDecision>}
     <footer hidden={!shown} className="small muted"><Link to={`/changes/${ch.id}?tab=changes`}>{view.diffstat?.match(/\d+ files? changed/)?.[0] ? `Code: ${view.diffstat.match(/\d+ files? changed/)![0]} →` : 'Code →'}</Link> · <Link to={detail}>How it was done →</Link></footer>
   </div>
 }
@@ -232,30 +238,4 @@ export function approvalBrief(text?: string): string[] | undefined {
 export function progressTitle(view: ChangeView, steps: Step[]): string {
   if (steps.some(s => s.type === 'build' && s.status === 'running')) return 'Building'
   return view.runs?.find(r => r.id === view.detail?.run.id)?.role === 'landing' ? 'Landing' : 'Working'
-}
-
-// A landed change's next step is its deployment: where the release went, or
-// where to deploy from when none was asked for.
-function Landed({ view }: { view: ChangeView }) {
-  const deployments = [...new Set((view.evidence?.landingReleases ?? []).map(r => r.deployment))]
-  return <p>Landed on main{view.stateDetail && ` · ${view.stateDetail}`}. {deployments.length
-    ? <>Deployment: {deployments.map((d, i) => <span key={d}>{i > 0 && ', '}<Link to={`/projects/${view.projectSlug}/deployments/${d}`}>{d}</Link></span>)}</>
-    : <>No release was requested. <Link to={`/projects/${view.projectSlug}/deployments`}>Deployments</Link></>}</p>
-}
-
-export function ReleaseRow({ view }: { view: ChangeView;  }) {
-  const requests = view.evidence?.landingReleases ?? []
-  return <div className="ch-overview-line"><div className="ch-row-label">Release</div><div className="ch-value">
-    {requests.length === 0 ? 'No release requested' : requests.map(release => {
-      const running = release.state === 'releasing'
-      const failed = release.state === 'failed'
-      const waiting = release.state === 'waiting for approval'
-      const to = waiting ? `/projects/${view.projectSlug}/deployments/${release.deployment}` : `/projects/${view.projectSlug}/releases/${release.number}`
-      return <div key={release.number}>
-        {requests.length > 1 && <>{release.deployment}: </>}
-        {waiting ? 'Waiting for approval' : running ? 'Deploying…' : release.state === 'cancelled' || release.state === 'superseded' ? `Release ${release.number} · ${release.state}` : failed ? <>Deploy failed{release.failure && <>: {release.failure}</>}</> : <>Release {release.number} · live</>}
-        {' · '}<Link to={to}>{waiting ? 'review →' : running ? 'watch →' : failed ? 'see why →' : 'view →'}</Link>
-      </div>
-    })}
-  </div><span /></div>
 }

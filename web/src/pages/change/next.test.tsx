@@ -17,7 +17,7 @@ it.each([
   ['ready', 'ready to continue', 'warn', 'pending'],
 ])('prints the owner wording and tone for %s in the row and change head', (kind, says, tone, cls) => {
   const waitingOn: WaitingOn = { kind, says, tone, run: 'child', step: 'review', checks: 1, who: [], you: 'no' }
-  const v = { checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, waitingOn, change: { id: 'change', number: 9, title: 'Fix photos', state: 'in_progress' }, statusLabel: 'working', state: 'working', projectSlug: 'photos', runs: [], detail: null } as unknown as ChangeView
+  const v = { checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, goesTo: { branch: 'main', deployments: [] }, waitingOn, change: { id: 'change', number: 9, title: 'Fix photos', state: 'in_progress' }, statusLabel: 'working', state: 'working', projectSlug: 'photos', runs: [], detail: null } as unknown as ChangeView
   expect(changeChip(v)).toEqual({ text: says, cls })
   expect(nextStep(v).headline).toBe(says)
   const row = renderToStaticMarkup(<ChangeStatus waiting={waitingOn} />)
@@ -29,7 +29,7 @@ it.each([
 })
 
 it('places actions at the holding step supplied by the owner', () => {
-  const v = { checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, waitingOn: { kind: 'check', says: 'review failed', tone: 'bad', run: 'run', step: 'review', who: [], you: 'yes' }, change: { state: 'in_progress' }, next: [{ act: 'send-back' }], detail: {
+  const v = { checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, goesTo: { branch: 'main', deployments: [] }, waitingOn: { kind: 'check', says: 'review failed', tone: 'bad', run: 'run', step: 'review', who: [], you: 'yes' }, change: { state: 'in_progress' }, next: [{ act: 'send-back' }], detail: {
     run: { id: 'run' }, events: [], next: [{ act: 'retry', stepId: 'review' }], steps: [
       { id: 'old', type: 'script', status: 'fail', evidence: {} },
       { id: 'review', type: 'agent/review', status: 'fail', evidence: { reason: 'A real problem.' } },

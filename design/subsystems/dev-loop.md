@@ -27,6 +27,33 @@ preview execution. See [Changes](change-lifecycle.md), [console](console.md),
 [quality](quality.md) and [deployment](deployment.md) for those contracts.
 UI layout and action wording are not part of the domain state machine.
 
+## Destinations and outcomes
+
+The change and its chat show the project's default branch and deployments
+currently following main. Deployment owns this selection through
+`Deployments.FollowingMain`, using the landing release query. These settings
+can change before landing; they do not promise successful deployment.
+
+Overview keeps landing releases inline, with each release's stages, state,
+failure, deployment endpoint and release link. An empty release list says
+“No release requested”: requests arrive after landing commits. Only a successful
+feed read establishes that no deployment follows main. The existing cockpit
+poll keeps reading through that interval. Failed refreshes retain old facts
+marked old and pause execution progress. Historical stages never establish
+current execution when progress is uncertain.
+
+Endpoints come from Deployment's `Reach`. Host-only endpoints explain where
+they answer without an Open app action. A known endpoint does not prove that
+a particular release reached it.
+
+Workflow's check summary counts and names not-applicable and conditionally
+skipped checks. Conditional skips keep their unknown tone. Only the owner's
+verdict counts a check as passed. A running check shows elapsed time from its
+step start; the current stage's earliest step start supplies “Started”. Slot
+waits identify the queued run, step and attempt while remaining work without
+person actions. Preview absence is shown only after a successful `none` reading
+of the same live preview query used by Try it.
+
 ## Briefs, advice and summaries
 
 One shared `briefs.Service` builds approval briefs and failure advice. Workflow

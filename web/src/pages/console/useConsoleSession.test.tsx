@@ -43,7 +43,7 @@ function fakeAppTown(list: () => Reply, openReply: (body: { changeId?: string; p
     if (u === '/api/v1/auth/me') return json({ body: { user: 'bls' } })
     if (u.includes('/messages')) return json({ body: { messages: [] } })
     if (u.endsWith('/changes')) return json({ body: { changes: [] } })
-    if (u.startsWith('/api/v1/changes/')) return json({ body: { change: { id: C1, number: 1, title: 'a change', state: 'in progress' }, state: '', waitingOn: { kind: 'chat', says: 'building', tone: 'busy', you: 'no', who: [], run: '', step: '', checks: 0 } } })
+    if (u.startsWith('/api/v1/changes/')) return json({ body: { change: { id: C1, number: 1, title: 'a change', state: 'in progress' }, state: '', goesTo: { branch: 'main', deployments: [] }, waitingOn: { kind: 'chat', says: 'building', tone: 'busy', you: 'no', who: [], run: '', step: '', checks: 0 } } })
     return json({ body: {} })
   })))
   return opens
