@@ -102,6 +102,10 @@
                   "type": "string",
                   "description": "Five-field cron."
                 },
+                "standing": {
+                  "type": "boolean",
+                  "description": "Fire only under an enabled, eligible standing approval, using its cron."
+                },
                 "skipIfActive": {
                   "type": "boolean"
                 },

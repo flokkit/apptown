@@ -9,7 +9,7 @@ spec:
   kind: pipeline
   role: working
   on:
-    schedule: {cron: "0 5 * * *", queue: security}
+    schedule: {cron: "0 5 * * *", queue: security, standing: true}
   stages:
     - name: scan
       steps:

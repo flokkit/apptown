@@ -9,7 +9,7 @@ spec:
   kind: pipeline
   role: working
   on:
-    schedule: {cron: "0 6 * * 1", queue: updates}
+    schedule: {cron: "0 6 * * 1", queue: updates, standing: true}
   stages:
     - name: update
       onEnter:

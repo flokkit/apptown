@@ -104,6 +104,8 @@ type NeedSummary struct {
 	Status                                needState
 }
 type Summary struct {
+	RoutineUpdates                           RoutineUpdates
+	RoutineUpdatesRevision                   int64
 	RuntimeState, RuntimeActor, RuntimeError string
 	RuntimeAt                                stamp.Time
 	RuntimeControls                          map[string]string
@@ -316,7 +318,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 				needs = append(needs, NeedSummary{Need: o.Need, Name: o.Name, ID: o.ID, Status: NeedReady})
 			}
 		}
-		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{RuntimeState: e.RuntimeState, RuntimeActor: e.RuntimeActor, RuntimeAt: e.RuntimeAt, RuntimeError: e.RuntimeError, RuntimeControls: runtimeControls(byTarget[e.TargetID], e), RuntimeActions: runtimeActions(byTarget[e.TargetID]), ApprovalRole: e.ApprovalRole, FeedRevision: e.FeedRevision, FeedConfirmed: e.FeedConfirmed, LastApplied: e.LastApplied, DisplayLabel: e.DisplayLabel,
+		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{RoutineUpdates: e.RoutineUpdates, RoutineUpdatesRevision: e.RoutineUpdatesRevision, RuntimeState: e.RuntimeState, RuntimeActor: e.RuntimeActor, RuntimeAt: e.RuntimeAt, RuntimeError: e.RuntimeError, RuntimeControls: runtimeControls(byTarget[e.TargetID], e), RuntimeActions: runtimeActions(byTarget[e.TargetID]), ApprovalRole: e.ApprovalRole, FeedRevision: e.FeedRevision, FeedConfirmed: e.FeedConfirmed, LastApplied: e.LastApplied, DisplayLabel: e.DisplayLabel,
 			ID: e.ID, TargetID: e.TargetID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
 			Attributes: e.releaseAttributes(), Protected: e.Protected(), Generation: e.ObservedGeneration, Readiness: e.Readiness,
 			ChangeID: e.ChangeID, Target: summaries[e.TargetID], Needs: needs, AIModelsKeys: keys,

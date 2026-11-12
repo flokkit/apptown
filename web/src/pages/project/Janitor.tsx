@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet, useAction } from '../../data'
 import { post } from '../../api'
@@ -49,7 +50,7 @@ const unique = (findings: Finding[]) => [...new Map(findings.map(f => [f.fingerp
 function QueueLine({ queue, slug, reload }: { queue: QueueStatus; slug: string; reload: () => void }) {
   const action = useAction(reload)
   const canSkip = useHolds('change:abandon', slug)
-  const name = queue.queue === 'updates' ? 'Weekly updates' : 'Security fixes'
+  const name = queue.queue === 'updates' ? 'Updates' : 'Security fixes'
   const state = queue.state === 'stopped' ? `stopped after ${queue.failed} failed tries since ${fmtWhen(queue.since)}`
     : queue.state === 'stuck' ? `stuck since ${fmtWhen(queue.since)}`
       : queue.state === 'updating' ? 'updating' : queue.state === 'waiting' ? 'waiting for a person' : 'up to date'
@@ -65,10 +66,10 @@ function QueueLine({ queue, slug, reload }: { queue: QueueStatus; slug: string; 
 
 const tryColumns: ListColumn<AutomatedAttempt>[] = [
   { key: 'what', label: 'Update', phone: 'name', render: a => a.changeId ? <Link to={`/changes/${a.changeId}`}>{a.what}</Link> : a.what },
-  { key: 'queue', label: 'Queue', render: a => a.queue === 'updates' ? 'Weekly updates' : 'Security fixes' },
+  { key: 'queue', label: 'Queue', render: a => a.queue === 'updates' ? 'Updates' : 'Security fixes' },
   { key: 'result', label: 'Result', phone: 'state', render: a => a.reason || (a.outcome === 'held' ? 'Waiting for a person' : a.outcome === 'shipped' ? 'Landed' : a.outcome === 'skipped' ? 'Skipped' : a.openChange ? 'In progress' : 'Closed') },
   { key: 'packages', label: 'Packages', render: a => a.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') || '—' },
-  { key: 'origin', label: 'From', render: a => a.schedule ? `Schedule ${a.schedule}` : 'Not recorded' },
+  { key: 'origin', label: 'From', render: a => a.ruleId ? `The janitor, under approval ${a.ruleId} (rev ${a.ruleRevision})` : a.schedule ? `Schedule ${a.schedule}` : 'Not recorded' },
   { key: 'when', label: 'When', kind: 'time', render: a => fmtWhen(a.when) },
 ]
 
@@ -84,6 +85,7 @@ export function LastScan({ slug, janitor = false }: { slug: string; janitor?: bo
     <ReadStatus q={q} what="the last scan" />
     <StaleNote q={q} />
     {scans && (janitor ? <>
+      <JanitorChoice slug={slug} data={data!} current={q.current} reload={q.reload} />
       <p>Last scan: {scans.known && scans.lastScan && !scans.lastScan.startsWith('0001-') ? fmtWhen(scans.lastScan) : 'not known'}{(count > 0 || scans.known) && <> · {count ? `${count} ${count === 1 ? 'finding' : 'findings'}` : 'no findings'}</>}{scans.stale && <> · <span className="badge">older than three days</span></>}</p>
       {data!.queues.map(queue => <QueueLine key={queue.queue} queue={queue} slug={slug} reload={q.reload} />)}
       <FindingList title="Project’s findings" findings={project} />
@@ -102,4 +104,27 @@ export function LastScan({ slug, janitor = false }: { slug: string; janitor?: bo
     {janitor && data && data.recent.some(a => a.attempted) && <><h3>Recent tries</h3><ListTable label="Recent tries" rows={data.recent.filter(a => a.attempted)} columns={tryColumns} rowKey={a => a.id!} rowTo={a => a.changeId ? `/changes/${a.changeId}` : undefined} /></>}
     {janitor && <p><Link to={`/conformance/projects/${slug}`}>Scan history</Link></p>}
   </Section>
+}
+
+function JanitorChoice({ slug, data, current, reload }: { slug: string; data: ProjectScanView; current: boolean; reload: () => Promise<void> }) {
+  const canManage = useHolds('project:manage-standing-approval', slug)
+  const [reason, setReason] = useState<string | null>(null)
+  const action = useAction(reload)
+  const [level, setLevel] = useState('routine')
+  const off = data.standing?.level === 'off'
+  return <>
+    {data.heldBack?.map(hold => <div key={hold.deploymentId}>
+      <p><strong>Stopped: release {hold.releaseNumber} to {hold.displayLabel} {hold.reason === 'release failed' ? 'failed' : hold.reason}.</strong></p>
+      <p><Link to={`/projects/${slug}/deployments/${hold.deployment}?tab=history&rollbackBefore=${hold.releaseNumber}`}>Roll back</Link> · <Link to={`/projects/${slug}/deployments/${hold.deployment}?tab=history`}>Try again</Link></p>
+    </div>)}
+    {data.standing?.enabled && <p>{off ? 'Turned off for this project' : `Kept updated by the janitor · ${data.standing.level}`}{data.standing.choice && <> · {data.standing.choice.person.name}, {fmtWhen(data.standing.choice.at)}</>}
+      {canManage && <> · <button type="button" className="link" disabled={!current || action.busy} onClick={() => { setLevel(off ? 'routine' : 'off'); setReason('') }}>{off ? 'Turn back on' : 'turn off'}</button> · <button type="button" className="link" disabled={!current || action.busy} onClick={() => { setLevel(data.standing.level); setReason('') }}>Change level</button></>}
+    </p>}
+    {reason !== null && <form className="stack stack-2" onSubmit={async event => { event.preventDefault(); if (await action.run(() => post(`/projects/${slug}/janitor/settings`, { level, reason }))) setReason(null) }}>
+      <label>Update level<select aria-label="Janitor update level" value={level} onChange={event => setLevel(event.target.value)} disabled={action.busy}><option value="routine">Routine · weekly patch and minor updates</option><option value="aggressive">Aggressive · nightly updates including majors</option><option value="off">Off</option></select></label>
+      <label>Reason<input aria-label="Reason for janitor setting" value={reason} onChange={event => setReason(event.target.value)} required disabled={action.busy} /></label>
+      <div className="row row-2"><button type="submit" disabled={action.busy || !current || !reason.trim()}>{level === 'off' ? 'Turn off for this project' : 'Save update level'}</button><button type="button" onClick={() => setReason(null)} disabled={action.busy}>Cancel</button></div>
+    </form>}
+    {action.err && <p className="error" role="alert">{action.err}</p>}
+  </>
 }

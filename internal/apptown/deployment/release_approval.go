@@ -90,6 +90,29 @@ func (s *Service) approvalCaller(ctx context.Context, r *Release, consequential 
 	if s.release.Authority == nil {
 		return access.Caller{}, access.ErrAuthorityUnavailable
 	}
+	metadata, err := s.Releases.RequestMetadata(ctx, r.ID)
+	if err != nil {
+		return access.Caller{}, err
+	}
+	if metadata != nil && metadata.Routine && r.ApprovalRole == "" {
+		caller, err := s.release.Authority.Require(ctx, access.Permission{Capability: access.CapDeploymentDeploy, Resource: access.Resource{Type: "release-target", ID: r.Deployment, ProjectID: r.ProjectID}, Context: access.Context{Consequential: consequential, Route: "release.approve"}})
+		if err != nil {
+			return caller, err
+		}
+		if !caller.Verified || caller.Principal.Kind != "user" || !caller.Principal.Actor().Assents() {
+			return caller, fault.New(fault.Forbidden, "a person starts a waiting routine release")
+		}
+		dep, err := s.Deployments.ByID(ctx, r.DeploymentID)
+		if err != nil {
+			return caller, err
+		}
+		if dep.Protected() {
+			if _, err := s.release.Authority.Require(ctx, access.Permission{Capability: access.CapReleasePromote, Resource: access.Resource{Type: "release-target", ID: r.Deployment, ProjectID: r.ProjectID}, Context: access.Context{Consequential: consequential, Route: "release.approve"}}); err != nil {
+				return caller, err
+			}
+		}
+		return caller, nil
+	}
 	caller, err := s.release.Authority.Require(ctx, access.Permission{Capability: access.CapReleaseApprove, Resource: access.Resource{Type: "release-target", ID: r.Deployment, ProjectID: r.ProjectID}, Context: access.Context{Consequential: consequential, Route: "release.approve"}})
 	if err != nil {
 		return caller, err
@@ -100,7 +123,7 @@ func (s *Service) approvalCaller(ctx context.Context, r *Release, consequential 
 	if err := s.requireApprovalRole(ctx, caller.Principal, r); err != nil {
 		return caller, err
 	}
-	metadata, err := s.Releases.RequestMetadata(ctx, r.ID)
+	metadata, err = s.Releases.RequestMetadata(ctx, r.ID)
 	if err != nil {
 		return caller, err
 	}
@@ -237,7 +260,7 @@ func (s *Service) decideRelease(ctx context.Context, projectID ids.ID, number in
 			return err
 		}
 		if !cancel {
-			return s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID)
+			return s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID, time.Time{})
 		}
 		return nil
 	})
@@ -252,6 +275,20 @@ func (s *Service) checkReleaseApproval(ctx context.Context, rel *Release) error 
 		return fault.New(fault.Conflict, "deployment approval rule changed; request a new release")
 	}
 	if rel.ApprovalRole == "" {
+		if rel.Approval == nil {
+			return nil
+		}
+		if s.release.Still == nil {
+			return access.ErrAuthorityUnavailable
+		}
+		pr := rel.Approval.Authority.Principal()
+		resource := access.Resource{Type: "release-target", ID: rel.Deployment, ProjectID: rel.ProjectID}
+		if err := s.release.Still.RequireStill(ctx, pr, access.Permission{Capability: access.CapDeploymentDeploy, Resource: resource, Context: access.Context{Consequential: true, Route: "release.execute"}}); err != nil {
+			return err
+		}
+		if dep.Protected() {
+			return s.release.Still.RequireStill(ctx, pr, access.Permission{Capability: access.CapReleasePromote, Resource: resource, Context: access.Context{Consequential: true, Route: "release.execute"}})
+		}
 		return nil
 	}
 	if rel.Approval == nil || rel.Approval.Meaning == "" {

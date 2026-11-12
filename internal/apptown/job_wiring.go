@@ -72,6 +72,7 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 
 	descriptions := projectlifecycle.Descriptions{Service: a.lifecycle, Models: a.modelSelection, Completion: a.inference, Changes: a.Work}
 	kinds := map[string]jobs.Kind{
+		standingAcceptanceJob:        {Run: work.RunStandingAcceptance},
 		project.DescriptionJob:       {Run: descriptions.Run},
 		deployment.ReleaseJob:        {Run: jobErrors(deployments.Release), Timeout: 20 * time.Minute},
 		workflowCompletionJob:        {Run: jobErrors(followups.Complete)},
@@ -175,6 +176,7 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 // and the budget every enqueue of it records. It is the one source for both,
 // so they cannot drift.
 var jobBudgets = map[string]int{
+	standingAcceptanceJob:                   3,
 	project.DescriptionJob:                  1,
 	deployment.ReleaseJob:                   1,
 	workflowCompletionJob:                   3,
@@ -349,4 +351,12 @@ func (jobReporter) Panic(where string, value any, stack []byte) {
 	if selfPanicReporter != nil {
 		selfPanicReporter(where, value, stack)
 	}
+}
+
+const standingAcceptanceJob = "standing-acceptance"
+
+type standingAcceptanceRequests struct{}
+
+func (standingAcceptanceRequests) EnqueueStandingAcceptanceIn(ctx context.Context, tx *database.Tx, key string) error {
+	return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: standingAcceptanceJob, Key: key})
 }

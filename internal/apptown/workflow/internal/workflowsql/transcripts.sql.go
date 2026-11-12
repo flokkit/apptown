@@ -149,14 +149,16 @@ func (q *Queries) RecordAgentTranscript(ctx context.Context, arg RecordAgentTran
 }
 
 const recordWorkflowScheduleFiring = `-- name: RecordWorkflowScheduleFiring :exec
-UPDATE workflow_schedules SET last_fired_at=$1, last_outcome=$2, last_change_id=$3
-WHERE project_id=$4 AND workflow_name=$5
+UPDATE workflow_schedules SET last_fired_at=$1, last_outcome=$2, last_change_id=$3, rule_id=$4, rule_revision=$5
+WHERE project_id=$6 AND workflow_name=$7
 `
 
 type RecordWorkflowScheduleFiringParams struct {
 	LastFiredAt  sql.NullTime
 	LastOutcome  string
 	LastChangeID ids.ID
+	RuleID       ids.ID
+	RuleRevision int64
 	ProjectID    ids.ID
 	WorkflowName string
 }
@@ -166,6 +168,8 @@ func (q *Queries) RecordWorkflowScheduleFiring(ctx context.Context, arg RecordWo
 		arg.LastFiredAt,
 		arg.LastOutcome,
 		arg.LastChangeID,
+		arg.RuleID,
+		arg.RuleRevision,
 		arg.ProjectID,
 		arg.WorkflowName,
 	)
@@ -185,7 +189,7 @@ func (q *Queries) TranscriptReferenced(ctx context.Context, digest string) (bool
 
 const workflowScheduleByIdentity = `-- name: WorkflowScheduleByIdentity :many
 
-SELECT project_id, workflow_name, last_fired_at, last_outcome, last_change_id FROM workflow_schedules WHERE project_id=$1 AND workflow_name=$2
+SELECT project_id, workflow_name, last_fired_at, last_outcome, last_change_id, rule_id, rule_revision FROM workflow_schedules WHERE project_id=$1 AND workflow_name=$2
 `
 
 type WorkflowScheduleByIdentityParams struct {
@@ -209,6 +213,8 @@ func (q *Queries) WorkflowScheduleByIdentity(ctx context.Context, arg WorkflowSc
 			&i.LastFiredAt,
 			&i.LastOutcome,
 			&i.LastChangeID,
+			&i.RuleID,
+			&i.RuleRevision,
 		); err != nil {
 			return nil, err
 		}
@@ -224,12 +230,14 @@ func (q *Queries) WorkflowScheduleByIdentity(ctx context.Context, arg WorkflowSc
 }
 
 const workflowSchedulesOfProject = `-- name: WorkflowSchedulesOfProject :many
-SELECT s.workflow_name,s.last_fired_at,s.last_outcome,s.last_change_id,COALESCE(c.number,0)::bigint AS last_change_number
+SELECT s.rule_id,s.rule_revision,s.workflow_name,s.last_fired_at,s.last_outcome,s.last_change_id,COALESCE(c.number,0)::bigint AS last_change_number
 FROM workflow_schedules s LEFT JOIN changes c ON c.id=s.last_change_id AND c.project_id=s.project_id
 WHERE s.project_id=$1 ORDER BY s.workflow_name
 `
 
 type WorkflowSchedulesOfProjectRow struct {
+	RuleID           ids.ID
+	RuleRevision     int64
 	WorkflowName     string
 	LastFiredAt      time.Time
 	LastOutcome      string
@@ -247,6 +255,8 @@ func (q *Queries) WorkflowSchedulesOfProject(ctx context.Context, projectID ids.
 	for rows.Next() {
 		var i WorkflowSchedulesOfProjectRow
 		if err := rows.Scan(
+			&i.RuleID,
+			&i.RuleRevision,
 			&i.WorkflowName,
 			&i.LastFiredAt,
 			&i.LastOutcome,

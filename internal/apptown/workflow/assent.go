@@ -66,7 +66,7 @@ func assentEvidenceIn(ctx context.Context, q database.Queryer, runID, projectID 
 			return err
 		}
 		for _, step := range steps {
-			if approvedByAPerson(step) {
+			if approvedByAPerson(step) || approvedUnderStanding(step) {
 				return nil
 			}
 		}
@@ -101,7 +101,7 @@ func approvedByAPerson(step *Step) bool {
 // through a chat or an agent is not one. A vote naming no principal or no
 // way is no one's assent.
 func votedInPerson(vote ApprovalVote) bool {
-	return !vote.Principal.IsZero() && vote.Via != "" && access.Actor{Principal: vote.Principal, Via: vote.Via}.Assents()
+	return vote.Standing == nil && !vote.Principal.IsZero() && vote.Via != "" && access.Actor{Principal: vote.Principal, Via: vote.Via}.Assents()
 }
 
 // isPerson: attribution naming a person, not AppTown itself, a step run

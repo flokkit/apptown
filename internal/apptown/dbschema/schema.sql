@@ -1331,6 +1331,8 @@ CREATE TABLE IF NOT EXISTS workflow_schedules (
   last_fired_at TIMESTAMPTZ NOT NULL,
   last_outcome TEXT NOT NULL DEFAULT 'unknown',
   last_change_id UUID,
+  rule_id UUID,
+  rule_revision BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (project_id, workflow_name),
   CONSTRAINT workflow_schedule_outcome CHECK (last_outcome IN ('armed','opened','skipped','failed','unknown')
     AND (last_outcome = 'opened') = (last_change_id IS NOT NULL))
@@ -1395,6 +1397,15 @@ CREATE TABLE IF NOT EXISTS automated_changes (
  schedule TEXT NOT NULL DEFAULT '',
  rule_id UUID,
  rule_revision BIGINT NOT NULL DEFAULT 0
+);
+
+-- Project choices are human acts; their history survives rule revisions.
+CREATE TABLE IF NOT EXISTS standing_project_choices (
+ id UUID PRIMARY KEY,
+ project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+ level TEXT NOT NULL CHECK (level IN ('off','routine','aggressive')),
+ record_json JSONB NOT NULL,
+ at TIMESTAMPTZ NOT NULL
 );
 
 -- Source: internal/apptown/deployment/schema.sql
@@ -1507,6 +1518,8 @@ CREATE TABLE IF NOT EXISTS deployments (
   serving_release_id UUID,
   serving_attempt_id UUID,
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
+  routine_updates JSONB NOT NULL DEFAULT '{"mode":"automatic"}',
+  routine_updates_revision BIGINT NOT NULL DEFAULT 1,
   UNIQUE(project_id, name)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_host_key ON deployments ((right(id::text, 12)));
@@ -1704,7 +1717,8 @@ CREATE TABLE IF NOT EXISTS release_requests (
   landing_approvers TEXT NOT NULL DEFAULT '',
   backup_evidence_json JSONB,
   uncopied_acceptance_json JSONB,
-  rebuild_pending BOOLEAN NOT NULL DEFAULT false
+  rebuild_pending BOOLEAN NOT NULL DEFAULT false,
+ routine BOOLEAN NOT NULL DEFAULT false
 );
 -- An operator's override of one part's resources on one deployment
 -- (design/subsystems/deployment.md): set as a recorded act,

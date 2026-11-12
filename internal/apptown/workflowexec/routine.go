@@ -76,10 +76,17 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		return
 	}
 	executor := verification.Executor{Run: a.checks.Run, AgentImage: a.checks.Image}
+	var inputs [2]map[string]any
 	var listings [2][]verification.UpdateListing
 	for i, commit := range []string{base, sel.Commit} {
 		tree, remove, err := verification.StageCommittedTree(task.Context(), a.cfg.DataDir, sel.Repo, commit)
 		if err != nil {
+			finish(workflow.StatusError, err.Error(), nil)
+			return
+		}
+		inputs[i], err = verification.UpdateInputs(tree)
+		if err != nil {
+			remove()
 			finish(workflow.StatusError, err.Error(), nil)
 			return
 		}
@@ -89,6 +96,10 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 			finish(workflow.StatusError, err.Error(), nil)
 			return
 		}
+	}
+	if err := verification.CompareUpdateInputs(inputs[0], inputs[1]); err != nil {
+		finish(workflow.StatusFail, err.Error(), nil)
+		return
 	}
 	if len(listings[0]) != len(listings[1]) {
 		finish(workflow.StatusFail, "the parts or fix declarations changed", nil)

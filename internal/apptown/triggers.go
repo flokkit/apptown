@@ -20,7 +20,7 @@ func (a *App) RunScheduler(ctx context.Context) {
 	lastReap := time.Time{}
 	for ctx.Err() == nil {
 		now := a.cfg.clock.Now()
-		changeactions.Schedules{Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}.FireDueSchedules(ctx, now)
+		changeactions.Schedules{Standing: &a.standingRules, Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}.FireDueSchedules(ctx, now)
 		if now.Sub(lastReap) > reapEvery {
 			lastReap = now
 			for _, duty := range []func(){

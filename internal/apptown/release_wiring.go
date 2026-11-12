@@ -2,6 +2,7 @@ package apptown
 
 import (
 	"context"
+	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -46,6 +47,6 @@ func (d releaseSecrets) ResolveRestoredCopy(ctx context.Context, p deployment.Ap
 
 type releaseJobs struct{}
 
-func (releaseJobs) EnqueueReleaseIn(ctx context.Context, tx *database.Tx, id ids.ID) error {
-	return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.ReleaseJob, Key: id.String()})
+func (releaseJobs) EnqueueReleaseIn(ctx context.Context, tx *database.Tx, id ids.ID, after time.Time) error {
+	return insertJobIn(ctx, tx, jobs.Request{Operation: deployment.ReleaseJob, Key: id.String()}, after)
 }

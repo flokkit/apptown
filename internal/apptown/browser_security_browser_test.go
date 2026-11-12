@@ -4827,7 +4827,7 @@ app:
 			Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Identity: a.Access,
 			Procedures: cameraStandingProcedure{}, Now: a.cfg.clock.Now,
 		})
-		in := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: project.ID, Workflow: "design-review"}}, Categories: workflow.StandingCategories{Dependencies: "patch", SecurityFixes: true}, Delivery: "land-only"}
+		in := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: project.ID, Workflow: "design-review"}}, Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "land-only"}
 		person := access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, a.DB, "sam"), Kind: "user", Name: "sam", Via: "session"}})
 		q, err := consent.Preview(person, in)
 		if err != nil {
@@ -4843,6 +4843,32 @@ app:
 		if _, err = failed.Finish(ctx, conformance.Completion{Projects: 2, Errors: 1}, conformance.ReviewError); err != nil {
 			t.Fatal(err)
 		}
+	}
+	// A saved rule and a failed follows-main deployment make both janitor
+	// states visible through the real owners; no fixing workflow is started.
+	personForJanitor := access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, a.DB, "sam"), Kind: "user", Name: "sam", Via: "session"}})
+	janitorRaw, err := fs.ReadFile(stock.FS, "janitor-update.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	janitorBody := strings.Replace(strings.Replace(string(janitorRaw), "name: janitor-update", "name: camera-janitor", 1), "  tier: core\n", "", 1)
+	if _, _, err := a.Ways.PublishWorkflow(personForJanitor, janitorBody, "sam"); err != nil {
+		t.Fatal(err)
+	}
+	janitorDefinition := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: project.ID, Workflow: "camera-janitor", Environments: []workflow.StandingEnvironment{{DeploymentID: prod.ID, TargetID: prod.TargetID}}}}, Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	janitorQuestion, err := a.standingRules.Preview(personForJanitor, janitorDefinition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.standingRules.Enable(personForJanitor, workflow.StandingCommand{Definition: janitorDefinition, ShownDigest: janitorQuestion.Digest}); err != nil {
+		t.Fatal(err)
+	}
+	janitorFailedRelease, err := a.Deployment.Releases.Start(ctx, deployment.ReleaseDraft{Source: deployment.ReleaseFromBundle, BundleID: last.BundleID, ProjectID: project.ID, DeploymentID: prod.ID, Deployment: prod.Name, Revision: strings.TrimSpace(string(head)), Actor: "sam"}, "Update could not start")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.Outcomes.FailUnstartedRelease(ctx, janitorFailedRelease.ID, errors.New("The app container exited during startup.")); err != nil {
+		t.Fatal(err)
 	}
 	if err := a.diskObserver.Run(ctx); err != nil {
 		t.Logf("worker disks remain unknown: %v", err)

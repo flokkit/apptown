@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/releasesql"
@@ -15,7 +16,7 @@ import (
 // RequestLandingReleases runs after completion committed. Each request selects
 // that run's bundle and its destination's standing authorization. No provider
 // preparation or landing approver supplies deployment authority here.
-func (s *Service) RequestLandingReleases(ctx context.Context, projectID, runID, changeID ids.ID, approvers string) error {
+func (s *Service) RequestLandingReleases(ctx context.Context, projectID, runID, changeID ids.ID, approvers string, routine bool) error {
 	bundle, err := s.Bundles.OfRun(ctx, projectID, runID)
 	if err != nil {
 		return err
@@ -97,6 +98,15 @@ func (s *Service) RequestLandingReleases(ctx context.Context, projectID, runID, 
 			if err := appendReleaseEvent(ctx, tx, rel.ID, fmt.Sprintf("follows main, set by %s; landing approvers: %s", setter, approvers), s.now()); err != nil {
 				return err
 			}
+			if routine {
+				n, err := q.MarkRoutineRelease(ctx, rel.ID)
+				if err != nil {
+					return err
+				}
+				if n != 1 {
+					return fmt.Errorf("routine release provenance was not recorded")
+				}
+			}
 			state, err := s.admitApprovalIn(ctx, tx, dep, rel)
 			if err != nil {
 				return err
@@ -104,7 +114,26 @@ func (s *Service) RequestLandingReleases(ctx context.Context, projectID, runID, 
 			if state == releaseWaiting {
 				return nil
 			}
-			return s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID)
+			after := time.Time{}
+			if routine {
+				wait, next, reason, err := s.routineReleaseIn(ctx, tx, dep)
+				if err != nil {
+					return err
+				}
+				if wait {
+					if _, err = q.WaitRoutineRelease(ctx, rel.ID); err != nil {
+						return err
+					}
+					return appendReleaseEvent(ctx, tx, rel.ID, reason, s.now())
+				}
+				after = next
+				if next.After(s.now()) {
+					if err := appendReleaseEvent(ctx, tx, rel.ID, "waiting for the release window at "+next.Format(time.RFC3339), s.now()); err != nil {
+						return err
+					}
+				}
+			}
+			return s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID, after)
 		})
 		if err != nil {
 			return err

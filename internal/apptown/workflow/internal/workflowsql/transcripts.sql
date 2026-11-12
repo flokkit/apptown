@@ -9,11 +9,11 @@ VALUES (sqlc.arg(project_id),sqlc.arg(workflow_name),sqlc.arg(last_fired_at),'ar
 ON CONFLICT (project_id,workflow_name) DO UPDATE SET last_fired_at=excluded.last_fired_at, last_outcome='armed', last_change_id=NULL;
 
 -- name: RecordWorkflowScheduleFiring :exec
-UPDATE workflow_schedules SET last_fired_at=sqlc.narg(last_fired_at), last_outcome=sqlc.arg(last_outcome), last_change_id=sqlc.narg(last_change_id)
+UPDATE workflow_schedules SET last_fired_at=sqlc.narg(last_fired_at), last_outcome=sqlc.arg(last_outcome), last_change_id=sqlc.narg(last_change_id), rule_id=sqlc.narg(rule_id), rule_revision=sqlc.arg(rule_revision)
 WHERE project_id=sqlc.arg(project_id) AND workflow_name=sqlc.arg(workflow_name);
 
 -- name: WorkflowSchedulesOfProject :many
-SELECT s.workflow_name,s.last_fired_at,s.last_outcome,s.last_change_id,COALESCE(c.number,0)::bigint AS last_change_number
+SELECT s.rule_id,s.rule_revision,s.workflow_name,s.last_fired_at,s.last_outcome,s.last_change_id,COALESCE(c.number,0)::bigint AS last_change_number
 FROM workflow_schedules s LEFT JOIN changes c ON c.id=s.last_change_id AND c.project_id=s.project_id
 WHERE s.project_id=$1 ORDER BY s.workflow_name;
 

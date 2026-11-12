@@ -379,3 +379,6 @@ func middleware(opts Options) []rivertype.Middleware {
 	}
 	return out
 }
+
+// Snooze defers eligible work without consuming a failure attempt.
+func Snooze(delay time.Duration) error { return river.JobSnooze(delay) }

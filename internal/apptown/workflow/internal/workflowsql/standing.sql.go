@@ -8,6 +8,7 @@ package workflowsql
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -92,6 +93,33 @@ func (q *Queries) InsertStandingRule(ctx context.Context, id ids.ID) error {
 	return err
 }
 
+const latestStandingProjectChoice = `-- name: LatestStandingProjectChoice :many
+SELECT record_json FROM standing_project_choices WHERE project_id=$1 ORDER BY at DESC,id DESC LIMIT 1
+`
+
+func (q *Queries) LatestStandingProjectChoice(ctx context.Context, projectID ids.ID) ([]json.RawMessage, error) {
+	rows, err := q.db.QueryContext(ctx, latestStandingProjectChoice, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []json.RawMessage
+	for rows.Next() {
+		var record_json json.RawMessage
+		if err := rows.Scan(&record_json); err != nil {
+			return nil, err
+		}
+		items = append(items, record_json)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockStandingRule = `-- name: LockStandingRule :one
 SELECT current_revision FROM standing_rules WHERE id=$1 FOR UPDATE
 `
@@ -101,6 +129,46 @@ func (q *Queries) LockStandingRule(ctx context.Context, id ids.ID) (int64, error
 	var current_revision int64
 	err := row.Scan(&current_revision)
 	return current_revision, err
+}
+
+const recordStandingProjectChoice = `-- name: RecordStandingProjectChoice :exec
+INSERT INTO standing_project_choices(id,project_id,level,record_json,at) VALUES($1,$2,$3,$4,$5)
+`
+
+type RecordStandingProjectChoiceParams struct {
+	ID         ids.ID
+	ProjectID  ids.ID
+	Level      string
+	RecordJson json.RawMessage
+	At         time.Time
+}
+
+func (q *Queries) RecordStandingProjectChoice(ctx context.Context, arg RecordStandingProjectChoiceParams) error {
+	_, err := q.db.ExecContext(ctx, recordStandingProjectChoice,
+		arg.ID,
+		arg.ProjectID,
+		arg.Level,
+		arg.RecordJson,
+		arg.At,
+	)
+	return err
+}
+
+const standingConsidered = `-- name: StandingConsidered :one
+SELECT EXISTS(SELECT 1 FROM run_events WHERE run_id=$1 AND kind IN ('acceptance.standing.applied','acceptance.standing.withheld') AND payload_json->>'stepId'=$2::text AND (payload_json->>'retryRevision')::bigint=$3::bigint)
+`
+
+type StandingConsideredParams struct {
+	RunID    ids.ID
+	Step     string
+	Revision int64
+}
+
+func (q *Queries) StandingConsidered(ctx context.Context, arg StandingConsideredParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, standingConsidered, arg.RunID, arg.Step, arg.Revision)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const standingHistory = `-- name: StandingHistory :many

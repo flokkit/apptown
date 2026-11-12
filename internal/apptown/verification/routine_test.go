@@ -113,7 +113,7 @@ func TestRoutineInspectionUsesTheCompleteDiffAndCaughtUpBase(t *testing.T) {
 	routineGit(t, repo, "checkout", "change")
 	routineGit(t, repo, "merge", "main", "--no-edit")
 	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
-	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
 	if err != nil || result.Classification != "routine-dependency" || result.Base != main || len(result.ChangedFiles) != 2 {
 		t.Fatalf("wrong caught-up source: %+v %v", result, err)
 	}
@@ -121,7 +121,7 @@ func TestRoutineInspectionUsesTheCompleteDiffAndCaughtUpBase(t *testing.T) {
 	routineGit(t, repo, "add", ".")
 	routineGit(t, repo, "commit", "-m", "mixed change")
 
-	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
+	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
 	if err != nil || result.Classification != "routine-dependency" || len(result.ChangedFiles) != 3 {
 		t.Fatalf("mixed diff concealed: %+v %v", result, err)
 	}
@@ -138,7 +138,7 @@ func TestRoutineInspectionRefusesSourceMovementAndDirtyWorkspace(t *testing.T) {
 		routineGit(t, repo, "add", ".")
 		routineGit(t, repo, "commit", "-m", "moved")
 	}))
-	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
 	if err != nil || result.Classification != "cannot-assess" || !strings.Contains(result.Reason, "moved") {
 		t.Fatalf("moved source qualified: %+v %v", result, err)
 	}
@@ -159,7 +159,7 @@ func TestRoutineInspectionRefusesSourceMovementAndDirtyWorkspace(t *testing.T) {
 		t.Fatal("dirty source executed validator")
 		return execution.Outcome{}
 	}
-	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
+	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
 	if err != nil || result.Classification != "cannot-assess" || !strings.Contains(result.Reason, "dirty") {
 		t.Fatalf("dirty source qualified: %+v %v", result, err)
 	}
@@ -179,7 +179,7 @@ func TestRoutineRefusesUnchangedShrinkwrap(t *testing.T) {
 	routineGit(t, repo, "merge", "main", "--no-edit")
 	calls := 0
 	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, func() { calls++ }))
-	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestRoutineReportsAllMixedFiles(t *testing.T) {
 	routineGit(t, repo, "add", ".")
 	routineGit(t, repo, "commit", "-m", "mixed source")
 	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
-	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,5 +277,43 @@ func TestSecurityAssessmentUsesDeclaredListingsAndRecordedFixedTargets(t *testin
 	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{SecurityFixes: true})
 	if err != nil || result.Classification != "routine-dependency" {
 		t.Fatalf("fixed security target: %+v %v", result, err)
+	}
+}
+
+func TestUpdateLevelsBoundMajorsAndProtectBuildInputs(t *testing.T) {
+	for _, level := range []string{"routine", "aggressive"} {
+		for _, change := range []string{"major", "root tool", "part tool", "base image", "contract image"} {
+			t.Run(level+"/"+change, func(t *testing.T) {
+				data, repo, source := routineRepository(t)
+				files := map[string]string{
+					"major": "package-lock.json", "root tool": "mise.toml", "part tool": "web/mise.toml", "base image": "Dockerfile", "contract image": ".apptown/app.yaml",
+				}
+				path := filepath.Join(repo, files[change])
+				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+					t.Fatal(err)
+				}
+				raw := []byte("[tools]\nnode = '26'\n")
+				switch change {
+				case "major":
+					raw = routineFixture("2.0.0").Lock
+				case "base image":
+					raw = []byte("FROM node:26\n")
+				case "contract image":
+					raw = []byte("app:\n  web:\n    image: node:26\n    public: true\n")
+				}
+				routineWrite(t, path, raw)
+				routineGit(t, repo, "add", ".")
+				routineGit(t, repo, "commit", "-m", change)
+				inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
+				got, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: level})
+				want := "requires-person"
+				if change == "major" && level == "aggressive" {
+					want = "routine-dependency"
+				}
+				if err != nil || got.Classification != want {
+					t.Fatalf("%+v %v; want %s", got, err, want)
+				}
+			})
+		}
 	}
 }

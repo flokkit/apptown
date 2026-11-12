@@ -36,7 +36,7 @@ func TestUpdateBoundsAndFixedTargets(t *testing.T) {
 					if tc.attrs {
 						after[0].Attributes = map[string]any{"installScript": true}
 					}
-					_, err := CompareUpdate(before, after, "minor", targets)
+					_, err := CompareUpdate(before, after, "routine", targets)
 					if tc.want == "" && err != nil || tc.want != "" && (err == nil || !strings.Contains(err.Error(), tc.want)) {
 						t.Fatalf("got %v, want %q", err, tc.want)
 					}
@@ -60,12 +60,12 @@ func TestTargetedCommandNeverUsesWholeUpdate(t *testing.T) {
 	}
 }
 
-func TestPatchZeroAndRemovedPackages(t *testing.T) {
+func TestRoutineZeroAndRemovedPackages(t *testing.T) {
 	for _, tc := range []struct{ name, before, after, bound, want string }{
-		{"patch cannot advance minor", "1.2.3", "1.3.0", "patch", "bound"},
-		{"zero cannot advance minor", "0.2.3", "0.3.0", "minor", "bound"},
-		{"zero patch", "0.2.3", "0.2.4", "minor", ""},
-		{"removed", "1.2.3", "", "minor", "package set"},
+		{"routine advances minor", "1.2.3", "1.3.0", "routine", ""},
+		{"zero cannot advance minor", "0.2.3", "0.3.0", "routine", "bound"},
+		{"zero patch", "0.2.3", "0.2.4", "routine", ""},
+		{"removed", "1.2.3", "", "routine", "package set"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			before := []Listing{{Ecosystem: "npm", Package: "example", Version: tc.before, Source: "registry", Attributes: map[string]any{}}}
@@ -91,7 +91,7 @@ func TestDuplicateInstallationsKeepTheirOwnAttributes(t *testing.T) {
 		{Ecosystem: "npm", Package: "example", Version: "1.1.1", Source: "registry", Attributes: map[string]any{"dev": false}},
 		{Ecosystem: "npm", Package: "example", Version: "1.2.0", Source: "registry", Attributes: map[string]any{"dev": true}},
 	}
-	moves, err := CompareUpdate(before, after, "minor", nil)
+	moves, err := CompareUpdate(before, after, "routine", nil)
 	if err != nil || len(moves) != 2 {
 		t.Fatalf("independent installations: %+v %v", moves, err)
 	}

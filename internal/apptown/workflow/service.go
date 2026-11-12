@@ -23,12 +23,14 @@ type fixDeclarations interface {
 }
 
 type Service struct {
-	fixes          fixDeclarations
-	retention      workRetention
-	runningImages  runningImages
-	workspaceChats workspaceOwnership
-	stepCtx        func(context.Context, ids.ID) context.Context
-	heldSummaries  heldSummaryRequests
+	standing         *StandingRules
+	standingRequests standingAcceptanceRequests
+	fixes            fixDeclarations
+	retention        workRetention
+	runningImages    runningImages
+	workspaceChats   workspaceOwnership
+	stepCtx          func(context.Context, ids.ID) context.Context
+	heldSummaries    heldSummaryRequests
 	// attemptWatch is how often a running step's run is looked at.
 	attemptWatch time.Duration
 	// beforeFence is a test seam: it runs after a fenced transaction's
@@ -87,11 +89,13 @@ type Service struct {
 // context, the sources it reads over time, and the recorders other
 // subsystems supply for the effects Work's transactions carry.
 type Dependencies struct {
-	Fixes          fixDeclarations
-	Retention      workRetention
-	RunningImages  runningImages
-	WorkspaceChats workspaceOwnership
-	HeldSummaries  heldSummaryRequests
+	StandingAcceptance standingAcceptanceRequests
+	Standing           *StandingRules
+	Fixes              fixDeclarations
+	Retention          workRetention
+	RunningImages      runningImages
+	WorkspaceChats     workspaceOwnership
+	HeldSummaries      heldSummaryRequests
 
 	Jobs         jobs.Enqueuer
 	Authority    access.ReadAuthorizer
@@ -171,7 +175,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	automatic := slices.Clone(deps.Automatic)
 	isAutomatic := func(kind string) bool { return slices.Contains(automatic, kind) }
 	authority := commandAuthority{db: db, checked: deps.Authority, visibility: deps.Authority, clocked: clocked{deps.Now}}
-	s := &Service{fixes: deps.Fixes, workspaceChats: deps.WorkspaceChats, heldSummaries: deps.HeldSummaries, life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.Placement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
+	s := &Service{standing: deps.Standing, standingRequests: deps.StandingAcceptance, fixes: deps.Fixes, workspaceChats: deps.WorkspaceChats, heldSummaries: deps.HeldSummaries, life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.Placement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
 	if s.attemptWatch <= 0 {
 		s.attemptWatch = defaultAttemptWatch
 	}
@@ -188,6 +192,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	s.landingWork = deps.LandingWork
 	s.landings = newLandings(db, deps.Landings)
 	s.landings.clocked = s.clocked
+	s.landings.standing = deps.Standing
 	s.landings.eligible = authority.mayApprove
 	s.narratives = newNarratives(db, deps.Narratives)
 	s.narratives.clocked = s.clocked
@@ -204,6 +209,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	s.adds = approvalAdds{reader: deps.ChangeAdds, pins: s.pins}
 	s.landings.adds = s.adds
 	s.creator = NewCreator(db, s.prepareCreated)
+	s.creator.standing = deps.Standing
 	s.creator.records.clocked = s.clocked
 	s.importer = newImporter(db, deps.Git, deps.Repositories, s.prepareCreated)
 	s.importer.creator.records.clocked = s.clocked
@@ -213,6 +219,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 		s.scmService = scm.New(db, work, deps.Repositories, s.clocked.clock)
 		s.merges = NewMerges(db, deps.DataDir, deps.Laws, s.scmService, deps.Merge)
 		s.merges.evals, s.merges.clocked = deps.EvalGate, s.clocked
+		s.merges.standing = deps.Standing
 	}
 	var assertions mergeObserver
 	var checks advanceChecks

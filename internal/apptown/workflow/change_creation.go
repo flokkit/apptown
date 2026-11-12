@@ -15,12 +15,15 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fault"
 )
 
 // This command is private Work admission. Composition supplies the initiator
 // after its existing capability guard; worker operations explicitly use system
 // ownership. Pinned acceptance is data, never a title convention or encoded map.
 type ChangeDraft struct {
+	RuleID                         ids.ID
+	RuleRevision                   int64
 	Schedule                       string
 	Queue                          string
 	ProjectID                      ids.ID
@@ -40,8 +43,9 @@ type changeCreatedReceipt struct {
 }
 
 type creator struct {
-	records changeStore
-	prepare func(context.Context, CreatedChange) error
+	standing *StandingRules
+	records  changeStore
+	prepare  func(context.Context, CreatedChange) error
 }
 
 func (c creator) Create(ctx context.Context, in ChangeDraft, who string) (*Change, error) {
@@ -52,7 +56,33 @@ func (c creator) Create(ctx context.Context, in ChangeDraft, who string) (*Chang
 // transaction; see AdmissionParticipant. The workspace is prepared only after
 // both commit.
 func (c creator) createWith(ctx context.Context, in ChangeDraft, who string, join admissionParticipant) (*Change, error) {
-	created, err := c.records.create(ctx, in, who, join)
+	checked := join
+	if !in.RuleID.IsZero() {
+		checked = func(ctx context.Context, tx *database.Tx, ch *Change) error {
+			caller, ok := access.CallerFrom(ctx)
+			if !ok || !caller.Verified || caller.Principal.Instrument != access.SystemInstrument || caller.Principal.Via != "schedule" || c.standing == nil {
+				return fault.New(fault.Forbidden, "only an eligible schedule may record standing firing authority")
+			}
+			if _, err := workflowsql.New(tx.SQL()).LockStandingRule(ctx, in.RuleID); err != nil {
+				return err
+			}
+			rule, err := currentStanding(ctx, tx, in.RuleID)
+			if err != nil {
+				return err
+			}
+			if rule.Revision != in.RuleRevision {
+				return errStandingRevision
+			}
+			if _, err = c.standing.eligibleForIn(ctx, tx, rule, in.ProjectID, in.Schedule); err != nil {
+				return err
+			}
+			if join != nil {
+				return join(ctx, tx, ch)
+			}
+			return nil
+		}
+	}
+	created, err := c.records.create(ctx, in, who, checked)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +210,7 @@ func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who st
 		if err := q.MarkAutomatedChange(ctx, row.ID); err != nil {
 			return CreatedChange{}, err
 		}
-		if err := q.RecordAutomatedChange(ctx, workflowsql.RecordAutomatedChangeParams{ID: row.ID, ProjectID: row.ProjectID, Queue: in.Queue, What: row.Title, OpenedAt: at, Schedule: in.Schedule}); err != nil {
+		if err := q.RecordAutomatedChange(ctx, workflowsql.RecordAutomatedChangeParams{ID: row.ID, ProjectID: row.ProjectID, Queue: in.Queue, What: row.Title, OpenedAt: at, Schedule: in.Schedule, RuleID: in.RuleID, RuleRevision: in.RuleRevision}); err != nil {
 			return CreatedChange{}, err
 		}
 	}

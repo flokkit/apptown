@@ -5,7 +5,7 @@ import { ReleaseApprovalActions, ReleaseAssent } from './ReleaseApproval'
 import { ChooseRelease, RollbackBefore, type ReleaseChoice } from './ChooseRelease'
 import { useState, type ReactNode } from 'react'
 import { DeploymentMenu } from './DeploymentMenu'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import type { ReleaseListed } from '../../wire.gen'
@@ -45,6 +45,7 @@ export function DeploymentDeploys(props: DeployHistoryProps) {
 }
 function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload, facts, body, below, settings, tabs, tab = 'status' }: DeployHistoryProps) {
   const releases = useGet<ReleaseListed[]>(`/projects/${slug}/releases`, { poll: 3000 })
+  const [search, setSearch] = useSearchParams()
   const [pending, setPending] = useState<string>()
   const shown = pending ? { ...env, runtimeState: pending } : env
   const [choice, setChoice] = useState<ReleaseChoice | 'list' | null>(null)
@@ -84,7 +85,10 @@ function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload
         {r.state === 'failed' && r.bundleId && <button disabled={!current || !releases.current} onClick={() => setChoice({ release: r })}>Try again</button>}
         {r.state === 'released' && r.number !== history.find(h => h.state === 'released')?.number && r.bundleId && <button disabled={!releases.current} onClick={() => setChoice({ release: r })}>Deploy this again</button>}
         {r.changes.map(c => <div key={c.id}><Link to={`/changes/${c.id}`}>Change {c.number}: {c.title}</Link></div>)}
-        {r.backupId && <><Link to={`/backups#backup-${r.backupId}`}>Backup →</Link> <RollbackBefore slug={slug} name={name} release={r} current={current && releases.current} onChoose={() => setChoice({ before: r })} /></>}
+        {r.backupId && <><Link to={`/backups#backup-${r.backupId}`}>Backup →</Link> <RollbackBefore slug={slug} name={name} release={r} current={current && releases.current} requested={search.get('rollbackBefore') === String(r.number)} onChoose={() => {
+          setChoice({ before: r })
+          if (search.has('rollbackBefore')) setSearch(params => { const next = new URLSearchParams(params); next.delete('rollbackBefore'); return next }, { replace: true })
+        }} /></>}
       </div>)}
       {history.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
       {releases.data && history.length === 0 && <p className="muted">No deploys yet.</p>}

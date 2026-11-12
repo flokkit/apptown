@@ -1,3 +1,4 @@
+import { RoutineUpdates } from './RoutineUpdates'
 import { useHolds } from '../../../instancePages'
 import { useNotOff } from '../../../features'
 import './deployments.css'
@@ -143,6 +144,7 @@ const DEPLOYMENT_TABS: { key: DeploymentTab; label: string }[] = [{ key: 'status
 // releases come from and who approves them, its limits, and its name.
 export function DeploymentSettings({ slug, env: e, onChanged }: { slug: string; env: DeploymentView; onChanged: () => void }) {
   return <>
+    <RoutineUpdates key={`${slug}/${e.name}/routine-updates`} slug={slug} name={e.name} />
     <DeploymentFeed key={`${slug}/${e.name}/feed`} slug={slug} name={e.name} />
     {e.kind === 'standing' && <DeploymentClassification key={`${slug}/${e.name}/classification`} slug={slug} name={e.name} onChanged={onChanged} />}
     <div className="card deploy-entry"><div className="deploy-lines">

@@ -271,7 +271,7 @@ func TestNewProjectGetsDefaultFollowsMain(t *testing.T) {
 				if _, err := a.Deployment.Bundles.Cut(t.Context(), p.ID, "first-tree", map[string]string{"web": "test-image"}, nil, []byte("contract"), deployment.BundleOrigin{ChangeID: change.ID, RunID: run.ID}); err != nil {
 					t.Fatal(err)
 				}
-				if err := a.Deployment.RequestLandingReleases(t.Context(), p.ID, run.ID, change.ID, ""); err != nil {
+				if err := a.Deployment.RequestLandingReleases(t.Context(), p.ID, run.ID, change.ID, "", false); err != nil {
 					t.Fatal(err)
 				}
 				requests, err := a.Deployment.Releases.LandingRequests(t.Context(), p.ID, change.ID)

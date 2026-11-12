@@ -26,6 +26,7 @@ type Schedules struct {
 	Adoption *adoption.Service
 	Projects *project.Projects
 	DB       *database.DB
+	Standing *workflow.StandingRules
 }
 
 // FireDueSchedules fires each pack-supplied schedule that is due at now, reading
@@ -78,6 +79,21 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 		if ctx.Err() != nil {
 			return
 		}
+		if c.trigger.Standing {
+			if s.Standing == nil {
+				continue
+			}
+			rule, cron, err := s.Standing.StandingForWorkflow(ctx, c.projectID, c.workflow)
+			if err != nil {
+				log.Printf("schedule eligibility: %v", err)
+				continue
+			}
+			if rule.RuleID.IsZero() {
+				continue
+			}
+			c.rule = rule
+			c.trigger.Cron = cron
+		}
 		spec, err := schema.ParseCron(c.trigger.Cron)
 		if err != nil {
 			continue
@@ -105,13 +121,13 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 				continue
 			}
 			if state.Stopped() && !c.discoversTargets {
-				if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil); err != nil {
+				if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil, c.rule.RuleID, c.rule.Revision); err != nil {
 					log.Printf("recording stopped queue: %v", err)
 				}
 				continue
 			}
 			if state.State == "updating" {
-				if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil); err != nil {
+				if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil, c.rule.RuleID, c.rule.Revision); err != nil {
 					log.Printf("recording busy queue: %v", err)
 				}
 				continue
@@ -124,7 +140,7 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 				continue
 			}
 			if active > 0 {
-				if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil); err != nil {
+				if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil, c.rule.RuleID, c.rule.Revision); err != nil {
 					log.Printf("recording the skipped firing of %s: %v", c.workflow, err)
 				}
 				audit.At(now).BestEffort(ctx, s.DB, "apptown-system", c.projectID, "trigger.skipped", c.workflow,
@@ -139,15 +155,15 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 			return
 		}
 		outcome, changeID := workflow.ScheduleFailed, ids.Nil
-		item, run, err := s.Actions.work.CreateAndRun(asSchedule(ctx, c.projectID), workflow.InvokeChange{Change: workflow.ChangeDraft{ProjectID: p.ID, Type: "scheduled", Title: title, Queue: c.trigger.Queue, Schedule: c.workflow}, Workflow: c.workflow})
+		item, run, err := s.Actions.work.CreateAndRun(asSchedule(ctx, c.projectID), workflow.InvokeChange{Change: workflow.ChangeDraft{ProjectID: p.ID, Type: "scheduled", Title: title, Queue: c.trigger.Queue, Schedule: c.workflow, RuleID: c.rule.RuleID, RuleRevision: c.rule.Revision}, Workflow: c.workflow})
 		if err == nil {
 			outcome, changeID = workflow.ScheduleOpened, item.ID
 			audit.At(now).BestEffort(ctx, s.DB, "apptown-system", c.projectID, "change.triggered", title,
-				map[string]any{"changeId": item.ID, "runId": run.ID, "trigger": "schedule", "cron": c.trigger.Cron})
+				map[string]any{"changeId": item.ID, "runId": run.ID, "trigger": "schedule", "cron": c.trigger.Cron, "ruleId": c.rule.RuleID, "ruleRevision": c.rule.Revision})
 		}
 		// The firing is recorded even when the run could not be created:
 		// a schedule retries next tick, not every tick.
-		if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, outcome, changeID); err != nil {
+		if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, outcome, changeID, c.rule.RuleID, c.rule.Revision); err != nil {
 			log.Printf("recording the firing of %s: %v", c.workflow, err)
 		}
 	}
@@ -157,6 +173,7 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 // resolved version declares on.schedule. err says why the
 // workflow could not be read, so whether it carries one is unknown.
 type carried struct {
+	rule             workflow.StandingRevision
 	discoversTargets bool
 	workflow         string
 	version          int
@@ -266,6 +283,24 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (pr
 			ps.Problem = "its workflow could not be read: " + c.err.Error()
 			out.Schedules = append(out.Schedules, ps)
 			continue
+		}
+		if c.trigger.Standing {
+			if s.Standing == nil {
+				ps.Problem = "the janitor is turned off"
+				out.Schedules = append(out.Schedules, ps)
+				continue
+			}
+			rule, cron, err := s.Standing.StandingForWorkflow(ctx, projectID, c.workflow)
+			if err != nil {
+				return out, err
+			}
+			if rule.RuleID.IsZero() {
+				ps.Problem = "no eligible standing approval covers this project"
+				out.Schedules = append(out.Schedules, ps)
+				continue
+			}
+			c.trigger.Cron = cron
+			ps.Cron = cron
 		}
 		spec, err := schema.ParseCron(c.trigger.Cron)
 		if err != nil {

@@ -42,7 +42,7 @@ func standingFixture(t *testing.T) (*stepAuthorityTestRig, StandingRules, *stand
 	p := &standingProcedureFixture{means: "accept bounded routine updates after all checks pass"}
 	s := NewStandingRules(a.DB, StandingDependencies{Authority: a.Authorizer, Identity: a.Access, Procedures: p})
 	ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "owner"))
-	in := StandingDefinition{Projects: []StandingProject{{ProjectID: a.ProjectID, Workflow: "quick-change"}}, Categories: StandingCategories{Dependencies: "patch", SecurityFixes: true}, Delivery: "land-only"}
+	in := StandingDefinition{Projects: []StandingProject{{ProjectID: a.ProjectID, Workflow: "quick-change"}}, Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "land-only"}
 	return a, s, p, ctx, in
 }
 func enableStanding(t *testing.T, s StandingRules, ctx context.Context, in StandingDefinition) StandingRevision {
@@ -214,7 +214,7 @@ func TestRestoredStandingConsentIsDisabledOnceWithHistoryPreserved(t *testing.T)
 	}
 }
 func TestStandingDefinitionNeverSelectsImplicitOrForeignIdentity(t *testing.T) {
-	valid := StandingDefinition{Projects: []StandingProject{{ProjectID: idstest.N(1), Workflow: "quick-change", Environments: []StandingEnvironment{{DeploymentID: idstest.N(2), TargetID: idstest.N(3)}}}}, Categories: StandingCategories{Dependencies: "patch"}, Delivery: "full"}
+	valid := StandingDefinition{Projects: []StandingProject{{ProjectID: idstest.N(1), Workflow: "quick-change", Environments: []StandingEnvironment{{DeploymentID: idstest.N(2), TargetID: idstest.N(3)}}}}, Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"}
 	for i, change := range []func(*StandingDefinition){func(d *StandingDefinition) { d.Projects[0].Environments = nil }, func(d *StandingDefinition) { d.Projects[0].Environments[0].TargetID = ids.Nil }, func(d *StandingDefinition) { d.Delivery = "land-only" }, func(d *StandingDefinition) { d.Categories.Dependencies = "major" }, func(d *StandingDefinition) { d.Projects = append(d.Projects, d.Projects[0]) }, func(d *StandingDefinition) { d.Projects[0].Workflow = "" }} {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
 			d := valid
@@ -258,7 +258,7 @@ func TestStandingDeliveryRequiresCapturedPromotionAndCurrentIssuerGrant(t *testi
 	}
 	r := enableStanding(t, s, ctx, in)
 	statuses, err := s.List(ctx, a.ProjectID)
-	if err != nil || len(statuses) != 1 || !statuses[0].Eligible || statuses[0].ProcessingAvailable {
+	if err != nil || len(statuses) != 1 || !statuses[0].Eligible || !statuses[0].ProcessingAvailable {
 		t.Fatalf("saved consent eligibility: %+v %v", statuses, err)
 	}
 	if _, err = a.Access.Revoke(t.Context(), grant, "boss"); err != nil {
@@ -377,7 +377,7 @@ func TestStandingAssessmentChecksCurrentAuthorityAndRuleAfterInspection(t *testi
 	calls := 0
 	s.deps.Inspector = standingInspectorFunc(func(_ context.Context, source Source, bounds StandingCategories) (StandingInspection, error) {
 		calls++
-		if source.RunID != a.RunID || source.ChangeID != a.ChangeID || bounds.Dependencies != "patch" {
+		if source.RunID != a.RunID || source.ChangeID != a.ChangeID || bounds.Dependencies != "routine" {
 			t.Fatalf("wrong admitted inspection %+v %+v", source, bounds)
 		}
 		return StandingInspection{Classification: "routine-dependency", Candidate: "exact-candidate"}, nil
@@ -387,7 +387,7 @@ func TestStandingAssessmentChecksCurrentAuthorityAndRuleAfterInspection(t *testi
 		t.Fatalf("unauthorized inspection ran: %v calls=%d", err, calls)
 	}
 	result, err := s.Assess(ctx, rule.RuleID, a.RunID)
-	if err != nil || calls != 1 || result.ProcessingAvailable || result.RuleRevision != rule.Revision {
+	if err != nil || calls != 1 || !result.ProcessingAvailable || result.RuleRevision != rule.Revision {
 		t.Fatalf("authorized inspection: %+v %v calls=%d", result, err, calls)
 	}
 
@@ -521,7 +521,7 @@ func TestStandingUpliftRechecksActualAdoptionConsentAfterSourceInspection(t *tes
 		return StandingInspection{Classification: "routine-adoption", Candidate: "exact-source"}, nil
 	})
 	got, err := s.Assess(ctx, rule.RuleID, run.ID)
-	if err != nil || got.Adoption == nil || len(got.Adoption.Classifications) != 1 || got.Adoption.Classifications[0].ID != consent.ID || got.ProcessingAvailable || calls != 1 {
+	if err != nil || got.Adoption == nil || len(got.Adoption.Classifications) != 1 || got.Adoption.Classifications[0].ID != consent.ID || !got.ProcessingAvailable || calls != 1 {
 		t.Fatalf("checked uplift: %+v %v calls=%d", got, err, calls)
 	}
 	outside := definition

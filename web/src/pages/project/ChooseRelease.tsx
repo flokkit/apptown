@@ -1,5 +1,5 @@
 import { PRODUCT } from '../../brand'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { post, type ChangeView } from '../../api'
 import { useAction, useGet } from '../../data'
@@ -81,10 +81,21 @@ function ConfirmRelease({ slug, name, label, deployment, choice, running, curren
 
 // The paired door belongs to the pre-deploy backup, and requires recorded
 // backup-time release evidence rather than adjacent release numbers.
-export function RollbackBefore({ slug, name, release, current, onChoose }: { slug: string; name: string; release: ReleaseListed; current: boolean; onChoose: () => void }) {
+export function RollbackBefore({ slug, name, release, current, requested = false, onChoose }: { slug: string; name: string; release: ReleaseListed; current: boolean; requested?: boolean; onChoose: () => void }) {
   const backups = useGet<DeploymentBackups>(`/projects/${slug}/deployments/${name}/backups`)
   const backup = backups.data?.backups.find(b => b.id === release.backupId)
-  return backup?.runningReleaseId && backup.status === 'ok' ? <button disabled={!current || !backups.current} onClick={onChoose}>Roll back to before release {release.number}</button> : null
+  const eligible = !!backup?.runningReleaseId && backup.status === 'ok'
+  const backupsCurrent = backups.current
+  // Opening the confirmation must not repeat while the URL change is pending.
+  const opened = useRef(false)
+  useEffect(() => {
+    if (!requested) opened.current = false
+    if (requested && !opened.current && eligible && current && backupsCurrent) {
+      opened.current = true
+      onChoose()
+    }
+  }, [requested, eligible, current, backupsCurrent, onChoose])
+  return eligible ? <button disabled={!current || !backups.current} onClick={onChoose}>Roll back to before release {release.number}</button> : null
 }
 
 function noBackupReason(reason?: string) {

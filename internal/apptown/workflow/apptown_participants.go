@@ -138,9 +138,9 @@ type ScheduleRecord struct {
 // failed firings, with what the firing did; changeID is the change an
 // opened firing made and 0 otherwise. Arming a new schedule is a separate
 // operation.
-func RecordScheduleFiringIn(ctx context.Context, q database.Queryer, projectID ids.ID, workflow string, at time.Time, outcome ScheduleOutcome, changeID ids.ID) error {
+func RecordScheduleFiringIn(ctx context.Context, q database.Queryer, projectID ids.ID, workflow string, at time.Time, outcome ScheduleOutcome, changeID, ruleID ids.ID, ruleRevision int64) error {
 	return workflowsql.New(q.SQL()).RecordWorkflowScheduleFiring(ctx, workflowsql.RecordWorkflowScheduleFiringParams{LastFiredAt: stamp.Of(at).NullTime,
-		LastOutcome: string(outcome), LastChangeID: changeID, ProjectID: projectID, WorkflowName: workflow})
+		RuleID: ruleID, RuleRevision: ruleRevision, LastOutcome: string(outcome), LastChangeID: changeID, ProjectID: projectID, WorkflowName: workflow})
 }
 
 // ScheduleRecordsIn are a project's schedule records by workflow name; a
@@ -152,7 +152,7 @@ func ScheduleRecordsIn(ctx context.Context, q database.Queryer, project ids.ID) 
 	}
 	out := make(map[string]ScheduleRecord, len(rows))
 	for _, r := range rows {
-		out[r.WorkflowName] = ScheduleRecord{Origin: r.WorkflowName, Workflow: r.WorkflowName, At: r.LastFiredAt, Outcome: ScheduleOutcome(r.LastOutcome), ChangeID: r.LastChangeID, ChangeNumber: r.LastChangeNumber}
+		out[r.WorkflowName] = ScheduleRecord{RuleID: r.RuleID, RuleRevision: r.RuleRevision, Origin: r.WorkflowName, Workflow: r.WorkflowName, At: r.LastFiredAt, Outcome: ScheduleOutcome(r.LastOutcome), ChangeID: r.LastChangeID, ChangeNumber: r.LastChangeNumber}
 	}
 	return out, nil
 }

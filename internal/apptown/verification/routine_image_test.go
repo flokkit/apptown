@@ -79,7 +79,7 @@ func TestRoutineImageInspectionNeedsExactRuntimeAndCurrentSource(t *testing.T) {
 		t.Fatalf("exact image-only classification: %+v %v calls=%d", result, err, *calls)
 	}
 	*calls = 0
-	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
+	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
 	if err != nil || result.Classification != "cannot-assess" || *calls != 0 {
 		t.Fatalf("image ran without consent: %+v %v calls=%d", result, err, *calls)
 	}
@@ -177,7 +177,7 @@ func TestRoutineImageInspectionRefusesStorageAndUnexplainedFilesBeforeEffects(t 
 	}
 }
 
-func TestRoutineMixedUpdatesRequireBothCategoriesAndBothWitnesses(t *testing.T) {
+func TestDependencyConsentRefusesMixedBaseImageUpdates(t *testing.T) {
 	data, repo, source := imageRoutineRepository(t)
 	routineGit(t, repo, "checkout", "main")
 	before := routineFixture("1.0.0")
@@ -193,7 +193,7 @@ func TestRoutineMixedUpdatesRequireBothCategoriesAndBothWitnesses(t *testing.T) 
 	routineWrite(t, filepath.Join(repo, "package-lock.json"), after.Lock)
 	routineGit(t, repo, "add", ".")
 	routineGit(t, repo, "commit", "-m", "dependency update")
-	for _, categories := range []workflow.StandingCategories{{BaseImages: true}, {Dependencies: "patch"}, {Dependencies: "patch", BaseImages: true}} {
+	for _, categories := range []workflow.StandingCategories{{BaseImages: true}, {Dependencies: "routine"}, {Dependencies: "routine", BaseImages: true}} {
 		inspector, calls := imageRoutineInspector(t, data)
 		configured := testRoutineInspector(t, data, nil, Executor{})
 		inspector.db, inspector.fixes = configured.db, configured.fixes
@@ -223,12 +223,9 @@ func TestRoutineMixedUpdatesRequireBothCategoriesAndBothWitnesses(t *testing.T) 
 			if got.Classification != "requires-person" || *calls != 0 || npmCalls != 0 {
 				t.Fatalf("mixed update partially executed: %+v image=%d npm=%d", got, *calls, npmCalls)
 			}
-		} else if !categories.BaseImages {
-			if got.Classification != "routine-dependency" || *calls != 0 || npmCalls != 2 {
-				t.Fatalf("dependency classification with code repair: %+v %d %d", got, *calls, npmCalls)
-			}
-		} else if got.Classification != "routine-dependency-and-image" || got.Validation == nil || len(got.Images) != 2 || len(got.ChangedFiles) != 3 || *calls != 6 || npmCalls != 2 {
-			t.Fatalf("missing combined witnesses: %+v image=%d npm=%d", got, *calls, npmCalls)
+		} else if got.Classification != "requires-person" || *calls != 0 || npmCalls != 2 {
+			t.Fatalf("dependency level accepted an image change: %+v image=%d npm=%d", got, *calls, npmCalls)
+
 		}
 	}
 }

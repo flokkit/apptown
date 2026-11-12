@@ -16,7 +16,17 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
+type standingPortfolio interface {
+	StandingPortfolio(context.Context, database.Queryer, ids.ID, StandingCategories) ([]StandingProjectPreview, error)
+	StandingHold(context.Context, database.Queryer, ids.ID) (string, error)
+}
+
+type standingInstanceProcedures interface {
+	InstanceStandingProcedure(context.Context, database.Queryer, string) (StandingProcedure, error)
+}
+
 type StandingDependencies struct {
+	Portfolio    standingPortfolio
 	Adoptions    standingAdoptions
 	Inspector    standingInspector
 	Presence     standingPresence
@@ -64,7 +74,7 @@ func (s StandingRules) require(ctx context.Context, capability access.Capability
 	return err
 }
 func (s StandingRules) manage(ctx context.Context, q database.Queryer, in StandingDefinition) error {
-	if in.Administrative {
+	if in.Administrative || in.Scope == "instance" {
 		if err := s.require(ctx, access.CapInstanceStandingApproval, access.Resource{Type: "instance"}); err != nil {
 			return err
 		}
@@ -83,6 +93,9 @@ func (s StandingRules) manage(ctx context.Context, q database.Queryer, in Standi
 	return nil
 }
 func (s StandingRules) question(ctx context.Context, q database.Queryer, in StandingDefinition, actor access.Actor, admission bool) (StandingQuestion, error) {
+	if in.Scope == "instance" {
+		return s.instanceQuestion(ctx, q, in)
+	}
 	if s.deps.Procedures == nil || s.deps.Identity == nil {
 		return StandingQuestion{}, access.ErrAuthorityUnavailable
 	}
@@ -248,7 +261,10 @@ func (s StandingRules) Enable(ctx context.Context, in StandingCommand) (Standing
 	})
 }
 func (s StandingRules) readable(ctx context.Context, q database.Queryer, in StandingDefinition) error {
-	if in.Administrative {
+	if in.Scope == "instance" {
+		return s.require(ctx, access.CapInstanceStandingApproval, access.Resource{Type: "instance"})
+	}
+	if in.Administrative || in.Scope == "instance" {
 		err := s.require(ctx, access.CapInstanceStandingApproval, access.Resource{Type: "instance"})
 		if err == nil {
 			return nil
@@ -299,9 +315,13 @@ func standingRefusal(err error) bool {
 	return errors.As(err, &denied) || errors.As(err, &decision) || fault.KindOf(err) == fault.Forbidden || fault.KindOf(err) == fault.Conflict || fault.KindOf(err) == fault.NotFound || fault.KindOf(err) == fault.Unprocessable || errors.Is(err, access.ErrPrincipalRequired)
 }
 func (s StandingRules) status(ctx context.Context, r StandingRevision) (StandingStatus, error) {
-	status := StandingStatus{Rule: r, Reason: "automatic processing is not available yet"}
+	status := StandingStatus{Rule: r, ProcessingAvailable: true}
 	if !r.Enabled {
 		status.Reason = r.Reason
+		return status, nil
+	}
+	if _, err := normalizeStanding(r.Question.Definition); err != nil {
+		status.Reason = "the standing approval's bounds changed; preview and confirm its current meaning"
 		return status, nil
 	}
 	name, err := identity.PersonNameIn(ctx, s.db, r.Issuer.Principal)
@@ -310,6 +330,10 @@ func (s StandingRules) status(ctx context.Context, r StandingRevision) (Standing
 	}
 	if name == "" {
 		status.Reason = "the enabling person's account no longer exists"
+		return status, nil
+	}
+	if r.Question.Definition.Scope == "instance" {
+		status.Eligible = true
 		return status, nil
 	}
 	current := r.Issuer
@@ -353,10 +377,15 @@ func (s StandingRules) List(ctx context.Context, projectID ids.ID) ([]StandingSt
 		if err != nil {
 			return nil, err
 		}
-		if !projectID.IsZero() && !slices.ContainsFunc(r.Question.Definition.Projects, func(p StandingProject) bool { return p.ProjectID == projectID }) {
+		if !projectID.IsZero() && r.Question.Definition.Scope != "instance" && !slices.ContainsFunc(r.Question.Definition.Projects, func(p StandingProject) bool { return p.ProjectID == projectID }) {
 			continue
 		}
-		if err = s.readable(ctx, s.db, r.Question.Definition); err != nil {
+		if err = func() error {
+			if !projectID.IsZero() && r.Question.Definition.Scope == "instance" {
+				return nil
+			}
+			return s.readable(ctx, s.db, r.Question.Definition)
+		}(); err != nil {
 			if standingRefusal(err) {
 				continue
 			}
@@ -365,6 +394,24 @@ func (s StandingRules) List(ctx context.Context, projectID ids.ID) ([]StandingSt
 		status, err := s.status(ctx, r)
 		if err != nil {
 			return nil, err
+		}
+		if !projectID.IsZero() && r.Question.Definition.Scope == "instance" {
+			status.Rule.Question.Portfolio = slices.DeleteFunc(slices.Clone(r.Question.Portfolio), func(p StandingProjectPreview) bool { return p.ProjectID != projectID })
+			status.Rule.Question.BaseImageFindings = standingBaseImagePreview{}
+			if r.Enabled {
+				status.Eligible = false
+				for _, schedule := range r.Question.Definition.Schedules {
+					if _, err := s.eligibleForIn(ctx, s.db, r, projectID, schedule.Workflow); err == nil {
+						status.Eligible = true
+						status.Reason = ""
+						break
+					} else if standingRefusal(err) {
+						status.Reason = err.Error()
+					} else {
+						return nil, err
+					}
+				}
+			}
 		}
 		out = append(out, status)
 	}
@@ -390,6 +437,9 @@ func (s StandingRules) Disable(ctx context.Context, id ids.ID, expected int64) (
 			return nil
 		}
 		if !standingRefusal(err) {
+			return err
+		}
+		if old.Question.Definition.Scope == "instance" {
 			return err
 		}
 		projects := old.Question.Definition

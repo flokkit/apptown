@@ -17,7 +17,7 @@ function runtimeClient() {
   return client
 }
 function DeploymentDeploys(props: Omit<ComponentProps<typeof ActualDeploymentDeploys>, 'env' | 'current' | 'reload'>) {
-  const env = { status: { word: 'working', reason: '', stale: false }, id: 'deployment', name: props.name, generation: 1, kind: 'standing', backups: true, runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { deploy: '', start: '', stop: '', restart: '' }, runtimeActions: ['start', 'stop', 'restart'], observation: 'running', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, displayLabel: 'Lunch Orders', url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView
+  const env = { status: { word: 'working', reason: '', stale: false }, id: 'deployment', name: props.name, generation: 1, kind: 'standing', routineUpdates: { mode: 'automatic' }, routineUpdatesRevision: 1, backups: true, runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { deploy: '', start: '', stop: '', restart: '' }, runtimeActions: ['start', 'stop', 'restart'], observation: 'running', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, displayLabel: 'Lunch Orders', url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView
   // The status tab, then the history tab: the page shows them one at a time.
   return <><ActualDeploymentDeploys {...props} env={env} current reload={async () => {}} tab="status" /><ActualDeploymentDeploys {...props} env={env} current reload={async () => {}} tab="history" /></>
 }
@@ -215,7 +215,7 @@ it.each([[true, 'failed'], [true, 'released'], [false, 'released']] as const)('s
 it.each([['main', true, 'It deploys when a change lands on main.'], ['manual', false, 'Deploy a release to put it live.']] as const)('says a never-deployed %s deployment is not deployed yet', (feed, confirmed, how) => {
   const client = runtimeClient()
   client.setQueryData(getKey('/projects/lunch/releases'), [])
-  const env = { status: { word: 'stopped', reason: '', stale: false }, id: 'd', name: 'main', generation: 0, kind: 'standing', feed, feedConfirmed: confirmed, runtimeState: 'stopped', runtimeControls: {}, observation: 'stopped' } as unknown as DeploymentView
+  const env = { status: { word: 'stopped', reason: '', stale: false }, id: 'd', name: 'main', generation: 0, kind: 'standing', routineUpdates: { mode: 'automatic' }, routineUpdatesRevision: 1, feed, feedConfirmed: confirmed, runtimeState: 'stopped', runtimeControls: {}, observation: 'stopped' } as unknown as DeploymentView
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><ActualDeploymentDeploys slug="lunch" name="main" env={env} current reload={async () => {}} /></QueryClientProvider></MemoryRouter>)
   expect(el.textContent).toContain(`Not deployed yet. ${how}`)

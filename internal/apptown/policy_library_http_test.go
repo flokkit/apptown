@@ -130,6 +130,16 @@ func policyLibraryUpgradeFixture(t *testing.T) *App {
 	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE guidance_block_versions DROP COLUMN fixes_json; DROP TABLE automated_changes; DROP TABLE scan_observations; ALTER TABLE changes DROP COLUMN automated, DROP COLUMN purge_pending, DROP COLUMN automated_origin`); err != nil {
 		t.Fatal(err)
 	}
+	// sql-guarantee: recreate schedules before migration 235 retained firing
+	// attribution; migration 233 adds these columns only to automated_changes.
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE workflow_schedules DROP COLUMN rule_id, DROP COLUMN rule_revision`); err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: recreate deployment settings before migration 236 and
+	// choices before 234; replaying 237 requires the original boolean column.
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE deployments DROP COLUMN routine_updates, DROP COLUMN routine_updates_revision; ALTER TABLE release_requests DROP COLUMN routine; DROP TABLE standing_project_choices`); err != nil {
+		t.Fatal(err)
+	}
 	// sql-guarantee: this data-only migration needs the pre-upgrade schema stamp.
 	if _, err := a.DB.SQL().ExecContext(t.Context(), `UPDATE schema_version SET version=214`); err != nil {
 		t.Fatal(err)

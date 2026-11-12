@@ -1123,7 +1123,7 @@ func TestHoldingsReportTheActsTheWebOffers(t *testing.T) {
 		return out
 	}
 	boss, outsider := read("boss"), read("outsider")
-	for _, cap := range []string{"deployment:operate", "deployment:deploy"} {
+	for _, cap := range []string{"deployment:operate", "deployment:deploy", "project:manage-standing-approval"} {
 		if !boss.Project[cap] || outsider.Project[cap] {
 			t.Errorf("project %s: administrator %v, outsider %v", cap, boss.Project[cap], outsider.Project[cap])
 		}

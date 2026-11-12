@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -61,8 +62,20 @@ func (d *ApprovalDecision) UnmarshalJSON(raw []byte) error {
 	return nil
 }
 
+// standingVote preserves the authority and independently assessed work behind
+// the janitor's decision. Its display attribution grants nothing.
+type standingVote struct {
+	Level            string       `json:"level"`
+	RuleID           ids.ID       `json:"ruleId"`
+	Revision         int64        `json:"revision"`
+	Issuer           access.Actor `json:"issuer"`
+	Means            string       `json:"means"`
+	AssessmentDigest string       `json:"assessmentDigest"`
+}
+
 // ApprovalVote is one person's decision on the current round.
 type ApprovalVote struct {
+	Standing *standingVote `json:"standing,omitempty"`
 	original json.RawMessage
 	Approver string `json:"approver"`
 	// Principal is the person who voted and Via how (access.Actor); a vote
@@ -140,15 +153,15 @@ type ApprovalEvidence struct {
 	EvalAuthorised string `json:"evalAuthorised,omitempty"`
 }
 
-// StandingApproval names the bounded alternative an approval purpose permits.
+// standingApproval names the bounded alternative an approval purpose permits.
 // Declaring it supplies no consent and never casts a human vote.
-type StandingApproval struct {
+type standingApproval struct {
 	Class string `json:"class"`
 	Means string `json:"means"`
 }
 
 type ApprovalConfig struct {
-	Standing  *StandingApproval `json:"standing,omitempty"`
+	Standing  *standingApproval `json:"standing,omitempty"`
 	Quorum    int               `json:"quorum"`
 	Means     string            `json:"means"`
 	Approvers []string          `json:"approvers"`

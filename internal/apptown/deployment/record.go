@@ -35,32 +35,34 @@ type AppliedAttempt struct {
 
 // Deployment includes its serving attempt's finish time.
 type Deployment struct {
-	RuntimeState       string          `json:"runtimeState"`
-	RuntimeActor       string          `json:"runtimeActor"`
-	RuntimeAt          stamp.Time      `json:"runtimeAt,omitzero"`
-	RuntimeError       string          `json:"runtimeError,omitempty"`
-	actAt              time.Time       // the end of its last other act (see MarkActed)
-	LastApplied        *AppliedAttempt `json:"lastApplied,omitempty"`
-	DisplayLabel       string          `json:"displayLabel"`
-	ID                 ids.ID          `json:"id"`
-	ProjectID          ids.ID          `json:"projectId"`
-	Kind               Kind            `json:"kind"`
-	Name               string          `json:"name"`
-	ChangeID           ids.ID          `json:"changeId,omitzero"`
-	TargetID           ids.ID          `json:"targetId"`
-	Handle             map[string]any  `json:"handle"`
-	DesiredGeneration  int64           `json:"desiredGeneration"`
-	ObservedGeneration int64           `json:"observedGeneration"`
-	Readiness          Readiness       `json:"readiness"`
-	PromotedFromID     ids.ID          `json:"promotedFromId,omitzero"`
-	ApprovalRole       string          `json:"approvalRole"`
-	FeedRevision       int64           `json:"feedRevision"`
-	FeedConfirmed      bool            `json:"feedConfirmed"`
-	feedAuthority      json.RawMessage
-	Feed               string `json:"feed"`
-	Audience           string `json:"audience"`
-	DataClass          string `json:"data"`
-	URL                string `json:"url"`
+	RoutineUpdates         RoutineUpdates  `json:"routineUpdates"`
+	RoutineUpdatesRevision int64           `json:"routineUpdatesRevision"`
+	RuntimeState           string          `json:"runtimeState"`
+	RuntimeActor           string          `json:"runtimeActor"`
+	RuntimeAt              stamp.Time      `json:"runtimeAt,omitzero"`
+	RuntimeError           string          `json:"runtimeError,omitempty"`
+	actAt                  time.Time       // the end of its last other act (see MarkActed)
+	LastApplied            *AppliedAttempt `json:"lastApplied,omitempty"`
+	DisplayLabel           string          `json:"displayLabel"`
+	ID                     ids.ID          `json:"id"`
+	ProjectID              ids.ID          `json:"projectId"`
+	Kind                   Kind            `json:"kind"`
+	Name                   string          `json:"name"`
+	ChangeID               ids.ID          `json:"changeId,omitzero"`
+	TargetID               ids.ID          `json:"targetId"`
+	Handle                 map[string]any  `json:"handle"`
+	DesiredGeneration      int64           `json:"desiredGeneration"`
+	ObservedGeneration     int64           `json:"observedGeneration"`
+	Readiness              Readiness       `json:"readiness"`
+	PromotedFromID         ids.ID          `json:"promotedFromId,omitzero"`
+	ApprovalRole           string          `json:"approvalRole"`
+	FeedRevision           int64           `json:"feedRevision"`
+	FeedConfirmed          bool            `json:"feedConfirmed"`
+	feedAuthority          json.RawMessage
+	Feed                   string `json:"feed"`
+	Audience               string `json:"audience"`
+	DataClass              string `json:"data"`
+	URL                    string `json:"url"`
 	// The built-in host's handle, as columns (the Docker driver reads them).
 	HostPort  int    `json:"-"`
 	Container string `json:"-"`
@@ -233,6 +235,10 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		ServingReleaseID:   r.ServingReleaseID,
 		ServingAttemptID:   r.ServingAttemptID,
 	}
+	if err := json.Unmarshal(r.RoutineUpdates, &e.RoutineUpdates); err != nil {
+		return nil, err
+	}
+	e.RoutineUpdatesRevision = r.RoutineUpdatesRevision
 	if err := e.Kind.Scan(r.Kind); err != nil {
 		return nil, err
 	}

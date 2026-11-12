@@ -77,7 +77,7 @@ func TestShippedGoUVAndRubyConvertersEmitStandardListings(t *testing.T) {
 				}
 			}
 			target := check.Finding{Package: &check.PackageRef{Name: sides[0][0].Package, Ecosystem: tc.ecosystem, FixedIn: "1.2.4"}}
-			if moves, err := fix.CompareUpdate(sides[0], sides[1], "patch", []check.Finding{target}); err != nil || len(moves) != 1 {
+			if moves, err := fix.CompareUpdate(sides[0], sides[1], "routine", []check.Finding{target}); err != nil || len(moves) != 1 {
 				t.Fatalf("moves %+v %v", moves, err)
 			}
 		})
@@ -95,6 +95,7 @@ func TestFixCommandFailuresKeepToolAndPart(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "fix", Steps: []schema.Step{{Name: "update", Uses: FixKind, With: map[string]any{"kind": "update"}}}}}}
 			f, _ := newNodeFixFixture(t, "command", spec)
+			f.bound = "aggressive" // With no runMajor declaration the ordinary command still runs.
 			block, err := f.ways.CreateBlock(f.ctx, "fixture/update-command", "Update dependencies.\n", "", taskAppTownAdministrator)
 			if err != nil {
 				t.Fatal(err)

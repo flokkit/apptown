@@ -11,7 +11,6 @@ import (
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fix"
-	"github.com/flokkit/apptown/internal/routinechange"
 )
 
 // WithFixes binds classification to the run's exact adopted guidance. Missing
@@ -31,7 +30,7 @@ func (r routineInspector) WithFixes(db *database.DB, ad *adoption.Service) routi
 		if err != nil {
 			return nil, nil, err
 		}
-		targets, err := fix.Targets(run.InputsJSON)
+		targets, err := source.UpdateTargetsIn(ctx, db)
 		return ds, targets, err
 	}
 	return r
@@ -40,7 +39,7 @@ func (r routineInspector) WithFixes(db *database.DB, ad *adoption.Service) routi
 func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (out workflow.StandingInspection, err error) {
 	out.Classifier = "declared-update-v1"
 	out.Classification = "cannot-assess"
-	before, err := r.observe(ctx, source, categories.BaseImages)
+	before, err := r.observe(ctx, source, false)
 	out.Base, out.Candidate, out.Tree = before.base, before.tip, before.tree
 	for _, f := range before.files {
 		out.ChangedFiles = append(out.ChangedFiles, f.Path)
@@ -67,10 +66,17 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 	if err != nil {
 		return out, err
 	}
+	var inputs [2]map[string]any
 	var lists [2][]UpdateListing
 	for i, commit := range []string{before.base, before.tip} {
 		tree, remove, err := StageCommittedTree(ctx, r.dataDir, repo, commit)
 		if err != nil {
+			out.Reason = err.Error()
+			return out, nil
+		}
+		inputs[i], err = UpdateInputs(tree)
+		if err != nil {
+			remove()
 			out.Reason = err.Error()
 			return out, nil
 		}
@@ -86,12 +92,18 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 		out.Reason = reason
 		return out, nil
 	}
+	if err := CompareUpdateInputs(inputs[0], inputs[1]); err != nil {
+		return refuse(err.Error())
+	}
 	if len(lists[0]) != len(lists[1]) {
 		return refuse("the declared parts changed")
 	}
+	if len(targets) > 0 && !categories.SecurityFixes {
+		return refuse("security fixes are not permitted by this rule")
+	}
 	bound := categories.Dependencies
 	if bound == "" && categories.SecurityFixes {
-		bound = "minor"
+		bound = "routine"
 	}
 	var beforePackages, afterPackages []fix.Listing
 	for i, b := range lists[0] {
@@ -108,22 +120,7 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 	if _, err := fix.CompareUpdate(beforePackages, afterPackages, bound, targets); err != nil {
 		return refuse(err.Error())
 	}
-	if before.image && categories.BaseImages {
-		candidate, err := routinechange.CompareImage(before.dockerBefore, before.dockerAfter)
-		if err != nil {
-			return refuse(err.Error())
-		}
-		if err := eligibleImageContract(before.contractBefore, before.contractAfter); err != nil {
-			return refuse(err.Error())
-		}
-		evidence, err := r.validateImage(ctx, candidate)
-		if err != nil {
-			out.Reason = err.Error()
-			return out, nil
-		}
-		out.Images = evidence
-	}
-	after, err := r.observe(ctx, source, categories.BaseImages)
+	after, err := r.observe(ctx, source, false)
 	if err != nil {
 		out.Reason = err.Error()
 		return out, nil
@@ -138,9 +135,6 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 	}
 	out.Validation = &workflow.StandingValidation{Image: r.executor.AgentImage, ReportDigest: observationDigest(raw), ScratchSettlement: "local staging removed; executor scratch cleanup is not observed here"}
 	out.Classification = "routine-dependency"
-	if before.image && categories.BaseImages {
-		out.Classification = "routine-dependency-and-image"
-	}
 	out.Reason = "the declared update is within the selected bound; classification does not accept, land or deploy it"
 	return out, nil
 }

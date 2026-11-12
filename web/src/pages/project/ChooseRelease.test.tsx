@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, expect, it, vi } from 'vitest'
 import { getKey, newQueryClient } from '../../data'
 import { fmtStamp } from '../../format'
 import { settled } from '../../settled'
+import { LastScan } from './Janitor'
 import { DeploymentDeploys } from './DeploymentDeploys'
 import type { DeploymentView } from '../../wire.gen'
 
@@ -19,10 +20,11 @@ const releases = [
   { id: 'r2', number: 2, deployment: 'staging', state: 'released', bundleId: 'b1', createdAt: stamp, changes: [], serving: true },
   { id: 'r1', number: 1, deployment: 'production', state: 'released', bundleId: 'b1', createdAt: stamp, changes: [{ id: 'c1', number: 1, title: 'Show delivery times' }], serving: false },
 ]
-async function fixture(recorded = true, options: { backup?: boolean; reason?: string; approvalRole?: string; data?: boolean; feed?: string; unknown?: boolean; failed?: boolean; kind?: string } = {}) {
+async function fixture(recorded = true, options: { backup?: boolean; reason?: string; approvalRole?: string; data?: boolean; feed?: string; unknown?: boolean; failed?: boolean; kind?: string; janitor?: boolean } = {}) {
   const sent: { path: string; body: unknown }[] = []
   const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST') { sent.push({ path: url, body: JSON.parse(String(init.body)) }); return new Response('{"number":4,"state":"waiting for approval"}', { status: 202 }) }
+    if (url.endsWith('/scans')) return new Response(JSON.stringify({ standing: { enabled: true, level: 'routine' }, heldBack: [{ deploymentId: 'production', deployment: 'production', displayLabel: 'Customer office', releaseNumber: 3, reason: 'release failed' }], scans: { source: [], running: [], historical: [], known: true, stale: false }, queues: [], recent: [] }))
     if (url.endsWith('/deployments')) return new Response(JSON.stringify([{ name: 'production', displayLabel: 'Customer office', approvalRole: options.approvalRole || '', feed: options.feed || 'manual', target: { kind: options.kind || 'docker-host' } }, { name: 'staging', displayLabel: 'Team trial' }]))
     if (url.endsWith('/protection')) return new Response(JSON.stringify({ items: options.data ? [{ need: 'postgres' }] : [], operations: { copy: { available: true } } }))
     if (url.includes('/authz/me')) return new Response(JSON.stringify({ instance: {}, project: { 'deployment:deploy': true, 'deployment:operate': true } }))
@@ -41,7 +43,7 @@ async function fixture(recorded = true, options: { backup?: boolean; reason?: st
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   document.body.appendChild(el)
   cleanups.push(() => { act(() => root.unmount()); client.clear(); el.remove() })
-  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><DeploymentDeploys slug="shop" name="production" displayLabel="Customer office" env={{ id: 'production', name: 'production', status: { word: 'working', reason: '', stale: false }, runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { deploy: '', start: '', stop: '', restart: '' }, runtimeActions: ['start', 'stop', 'restart'], observation: 'running', generation: 0, kind: 'standing', displayLabel: 'Customer office', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false, backups: true } as DeploymentView} current reload={async () => {}} tab="history" /></MemoryRouter></QueryClientProvider>))
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[options.janitor ? "/projects/shop" : "/projects/shop/deployments/production?tab=history"]}><Routes><Route path="/projects/shop" element={<LastScan slug="shop" janitor />} /><Route path="/projects/shop/deployments/:name" element={<DeploymentDeploys slug="shop" name="production" displayLabel="Customer office" env={{ id: 'production', name: 'production', status: { word: 'working', reason: '', stale: false }, runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { deploy: '', start: '', stop: '', restart: '' }, runtimeActions: ['start', 'stop', 'restart'], observation: 'running', generation: 0, kind: 'standing', routineUpdates: { mode: 'automatic' }, routineUpdatesRevision: 1, displayLabel: 'Customer office', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false, backups: true } as DeploymentView} current reload={async () => {}} tab="history" />} /></Routes></MemoryRouter></QueryClientProvider>))
   await settled(client)
   // A deployment's less common acts sit behind its ⋯ menu, which opens in a
   // popover: a label not on the page is looked for there.
@@ -152,4 +154,27 @@ it('reads protection for a Fly release and says when its backup goes first', asy
   await h.click('Deploy this again')
   expect(h.fetcher.mock.calls.some(([url]) => url.endsWith('/protection'))).toBe(true)
   expect(h.el.textContent).toContain('A backup is taken first.')
+})
+
+
+it.each([true, false])('opens the Janitor rollback confirmation only with backup-time release evidence: %s', async recorded => {
+  const h = await fixture(recorded, { janitor: true })
+  expect(h.el.textContent).toContain('Stopped: release 3 to Customer office failed.')
+  const link = [...h.el.querySelectorAll('a')].find(a => a.textContent === 'Roll back')!
+  await act(async () => { link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })) })
+  await settled(h.client)
+  if (!recorded) {
+    expect(document.querySelector('[role=dialog]')).toBeNull()
+    expect(h.sent).toEqual([])
+    return
+  }
+  const dialog = document.querySelector('[role=dialog]')!
+  expect(dialog).not.toBeNull()
+  expect(dialog.textContent).toContain('Roll back to before release 3 on Customer office')
+  expect(dialog.textContent).toContain('the restored data stays and the app stays stopped')
+  expect(h.sent).toEqual([])
+  await h.click('Roll back to before release 3 on Customer office')
+  expect(h.sent[0]).toEqual({ path: '/api/v1/projects/shop/deployments/production/deploy', body: { beforeRelease: 3 } })
+  await h.click('✕')
+  expect(document.querySelector('[role=dialog]')).toBeNull()
 })

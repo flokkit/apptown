@@ -35,7 +35,7 @@ const JOB_WORDS: Record<string, string> = {
   narrative: 'Write a change summary', 'protection-observation': 'Check backups', 'capacity-observation': 'Check server memory',
   'worker-observation': 'Check worker', 'disk-observation': 'Check storage', operation: 'Copy or restore data', 'remediation-pass': 'Fix findings', 'what-if': 'Compare rules',
   'eval-pass': 'Compare changes', 'project-description': 'Describe a project', 'workflow-completion': 'Finish a workflow',
-  'workflow-abandonment': 'Stop a workflow', 'conformance-review': 'Review projects',
+  'standing-acceptance': 'Check standing approval', 'workflow-abandonment': 'Stop a workflow', 'conformance-review': 'Review projects',
   'deployment-release': 'Release an app', 'deployment-recovery': 'Restore an app', 'restore-check': 'Check restored apps', 'restored-copy-sweep': 'Remove expired test copies',
   'installation-marks': 'Record installed resources', 'project-cleanup': 'Clean up project files',
   'infrastructure-check': 'Check servers and deployments', 'hourly-infrastructure-check': 'Check backups and connections',

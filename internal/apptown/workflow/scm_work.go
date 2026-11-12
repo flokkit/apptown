@@ -18,15 +18,17 @@ type scmInspectionKey struct{}
 type scmInspection struct{ db *database.DB }
 
 type scmWork struct {
-	jobs    jobs.Enqueuer
-	rules   LawRules
-	db      *database.DB
-	dataDir string
+	standing *StandingRules
+	jobs     jobs.Enqueuer
+	rules    LawRules
+	db       *database.DB
+	dataDir  string
 
 	evals evalGate
 	clocked
 }
 type scmClaim struct {
+	standing *StandingRules
 	jobs     jobs.Enqueuer
 	rules    LawRules
 	db       *database.DB
@@ -97,7 +99,7 @@ func (w scmWork) claim(run Run, source MergeSource, call *MergeCall, attribution
 		}
 		selected.DefaultBranch = source.DefaultBranch
 	}
-	return &scmClaim{w.jobs, w.rules, w.db, run, source, selected, call, w.evals, w.clocked}, nil
+	return &scmClaim{standing: w.standing, jobs: w.jobs, rules: w.rules, db: w.db, run: run, source: source, selected: selected, call: call, evals: w.evals, clocked: w.clocked}, nil
 }
 func (c *scmClaim) Source() scm.Source { return c.selected }
 func (c *scmClaim) CheckIn(ctx context.Context, tx *database.Tx, purpose scm.Purpose) (scm.Refusal, error) {
@@ -131,7 +133,7 @@ func (c *scmClaim) CheckIn(ctx context.Context, tx *database.Tx, purpose scm.Pur
 				return scm.Refusal{Reason: reason}, err
 			}
 		}
-		permission, err := (mergeAdmission{c.db, c.rules, c.evals, c.clocked}).evaluateMergePermissionIn(ctx, tx, *c.call)
+		permission, err := (mergeAdmission{standing: c.standing, db: c.db, rules: c.rules, evals: c.evals, clocked: c.clocked}).evaluateMergePermissionIn(ctx, tx, *c.call)
 		refusal := scm.Refusal{Reason: permission.Reason}
 		if permission.Blocking != nil {
 			refusal.CheckID = permission.Blocking.ID

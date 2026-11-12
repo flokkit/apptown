@@ -7,7 +7,7 @@ import (
 )
 
 // UpdateBoundForRun is classification input for an admitted run, never assent.
-// Eligibility is read afresh from the rule owner; automatic processing remains off.
+// Eligibility is read afresh from the rule owner; the bound is never assent.
 func (s StandingRules) UpdateBoundForRun(ctx context.Context, runID ids.ID) (string, error) {
 	run, err := readRun(ctx, s.db, runID)
 	if err != nil {
@@ -30,28 +30,18 @@ func (s StandingRules) UpdateBoundForRun(ctx context.Context, runID ids.ID) (str
 		if err != nil {
 			return "", err
 		}
-		if !r.Enabled {
-			continue
-		}
-		matches := false
-		for _, p := range r.Question.Definition.Projects {
-			if p.ProjectID == run.ProjectID && p.Workflow == root.WorkflowName {
-				matches = true
+		if _, err := s.eligibleForIn(ctx, s.db, r, run.ProjectID, root.WorkflowName); err != nil {
+			if standingRefusal(err) {
+				continue
 			}
+			return "", err
 		}
-		if !matches {
-			continue
-		}
-		status, err := s.status(ctx, r)
+		bound, err := s.effectiveLevelIn(ctx, s.db, r.Question.Definition, run.ProjectID)
 		if err != nil {
 			return "", err
 		}
-		if !status.Eligible {
-			continue
-		}
-		bound := r.Question.Definition.Categories.Dependencies
 		if bound == "" && r.Question.Definition.Categories.SecurityFixes && !run.ParentRunID.IsZero() {
-			bound = "minor"
+			bound = "routine"
 		}
 		if bound != "" {
 			return bound, nil

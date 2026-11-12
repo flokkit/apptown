@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -57,7 +58,7 @@ type ReleaseSources interface {
 	Contract(context.Context, ReleaseProject, string) (*appcontract.Contract, string, error)
 }
 type releaseQueue interface {
-	EnqueueReleaseIn(context.Context, *database.Tx, ids.ID) error
+	EnqueueReleaseIn(context.Context, *database.Tx, ids.ID, time.Time) error
 }
 
 type AcceptedRelease struct {
@@ -452,7 +453,7 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 			return err
 		}
 		if state == Releasing {
-			if err := s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID); err != nil {
+			if err := s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID, time.Time{}); err != nil {
 				return err
 			}
 		}

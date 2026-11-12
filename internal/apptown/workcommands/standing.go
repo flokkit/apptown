@@ -18,6 +18,9 @@ import (
 // StandingProcedures reads current governed declarations. It does not infer a
 // fallback workflow from failed selection or reuse accept-in-advance sentences.
 type StandingProcedures struct {
+	Publications interface {
+		PublishedWorkflow(context.Context, database.Queryer, string) (*adoption.ResolvedWorkflow, error)
+	}
 	Lanes *projectlifecycle.Service
 	Laws  workflow.LawRules
 }
@@ -89,4 +92,25 @@ func standingPurpose(w *adoption.ResolvedWorkflow, working bool) (workflow.Stand
 		return out, fault.New(fault.Conflict, fmt.Sprintf("%s v%d / %s requires a person's decision for each change", w.Name, w.Version, approvals[0].Name))
 	}
 	return workflow.StandingPurpose{Workflow: w.Name, Version: int64(w.Version), Step: approvals[0].Name, Means: cfg.Standing.Means, Approvers: cfg.Approvers}, nil
+}
+
+// InstanceStandingProcedure pins the library declarations without selecting a
+// project's adopted version. Eligibility later compares its adopted meanings.
+func (s StandingProcedures) InstanceStandingProcedure(ctx context.Context, q database.Queryer, name string) (workflow.StandingProcedure, error) {
+	var out workflow.StandingProcedure
+	purposes := []*workflow.StandingPurpose{&out.Acceptance, &out.Landing}
+	for i, n := range []string{name, "land"} {
+		if s.Publications == nil {
+			return out, fault.New(fault.Unavailable, "published standing procedures are unavailable")
+		}
+		resolved, err := s.Publications.PublishedWorkflow(ctx, q, n)
+		if err != nil {
+			return out, err
+		}
+		*purposes[i], err = standingPurpose(resolved, i == 0)
+		if err != nil {
+			return out, err
+		}
+	}
+	return out, nil
 }

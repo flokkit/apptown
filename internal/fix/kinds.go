@@ -26,7 +26,7 @@ type Kind struct {
 // kinds is the registration point for mechanical fixes. Consumers use the
 // selected mechanisms and fields rather than recognizing individual kind names.
 var kinds = map[string]Kind{
-	"update": {Action: ScriptAction, Classifier: UpdateClassifier, DeclarationFields: []DeclarationField{{"ecosystem", true}, {"run", true}, {"runFor", false}, {"list", false}, {"files", false}}},
+	"update": {Action: ScriptAction, Classifier: UpdateClassifier, DeclarationFields: []DeclarationField{{"ecosystem", true}, {"run", true}, {"runMajor", false}, {"runFor", false}, {"list", false}, {"files", false}}},
 }
 
 func Lookup(kind string) (Kind, bool) {

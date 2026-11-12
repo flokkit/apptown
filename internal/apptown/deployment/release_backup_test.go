@@ -147,7 +147,7 @@ func TestAutomaticReleaseNeverAcceptsUncopiedData(t *testing.T) {
 	}
 	p.s.copyCheck = copyCheckSays("uncopyable data")
 	p.s.release.Data = &backupBeforeRelease{}
-	if err = p.s.RequestLandingReleases(t.Context(), p.project, bundle.BuiltFrom.RunID, bundle.BuiltFrom.ChangeID, "approver"); err != nil {
+	if err = p.s.RequestLandingReleases(t.Context(), p.project, bundle.BuiltFrom.RunID, bundle.BuiltFrom.ChangeID, "approver", false); err != nil {
 		t.Fatal(err)
 	}
 	requests, err := p.s.Releases.ForProject(t.Context(), p.project, 50)

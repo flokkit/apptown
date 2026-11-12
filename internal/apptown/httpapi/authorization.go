@@ -329,7 +329,7 @@ func (h Authorization) AuthzMe(w http.ResponseWriter, r *http.Request) {
 			}
 			pc := map[string]bool{}
 			for _, c := range []access.Capability{access.CapChangeCreate, access.CapChangeRequestLand, access.CapChangeLand, access.CapChangeApprove, access.CapChangeOverride,
-				access.CapChangeAbandon, access.CapProjectManageMembers, access.CapProjectConfigure, access.CapProjectModelProfile, access.CapProjectGuidance,
+				access.CapChangeAbandon, access.CapProjectStandingApproval, access.CapProjectManageMembers, access.CapProjectConfigure, access.CapProjectModelProfile, access.CapProjectGuidance,
 				access.CapProjectIntegrations, access.CapProjectServices, access.CapReleasePromote, access.CapSecretBind, access.CapDeploymentOperate, access.CapDeploymentDeploy} {
 				may, err := h.holds(r.Context(), pr, c, res)
 				if err != nil {

@@ -14,7 +14,7 @@ func TestReviewConfirmedFollowsMainReleasesToPortainer(t *testing.T) {
 	if _, err := p.s.ConfirmFeed(t.Context(), p.project, dep.Name, dep.FeedRevision); err != nil {
 		t.Fatal(err)
 	}
-	if err := p.s.RequestLandingReleases(t.Context(), p.project, bundle.BuiltFrom.RunID, bundle.BuiltFrom.ChangeID, "approver"); err != nil {
+	if err := p.s.RequestLandingReleases(t.Context(), p.project, bundle.BuiltFrom.RunID, bundle.BuiltFrom.ChangeID, "approver", false); err != nil {
 		t.Fatal(err)
 	}
 	requests, err := p.s.Releases.ForProject(t.Context(), p.project, 50)
