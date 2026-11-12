@@ -101,6 +101,7 @@ env:
 	}{
 		{"bad-capability-slug", "capability: Not A Slug\ntitle: X", "slug"},
 		{"reserved-capability", "capability: scm\ntitle: X", "built in"},
+		{"reserved-notifier", "capability: notifier\ntitle: X", "built in"},
 		{"missing-title", "capability: ok-thing", "title is required"},
 		{"bad-field-key", "capability: ok\ntitle: X\nconnector:\n  fields:\n    - {key: \"1bad!\", label: L}", "field key"},
 		{"bad-field-type", "capability: ok\ntitle: X\nconnector:\n  fields:\n    - {key: h, label: L, type: nope}", "unknown type"},

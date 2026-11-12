@@ -76,6 +76,7 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 		// readings (often a refusal while its first deploy runs) say nothing.
 		applied := d.ObservedGeneration > 0 || d.LastApplied != nil
 		if applied {
+			out.Withheld = out.Withheld || withheld || late
 			out.Known = out.Known && (!unknown || late || down)
 			out.Stale = out.Stale || (r.Stale && !late)
 			if r.ObservedAt.IsZero() || r.ObservedAt.Before(out.ObservedAt) {

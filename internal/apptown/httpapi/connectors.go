@@ -204,7 +204,12 @@ func (h Connectors) SaveIntegration(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.deployment.SeedCloudTargets(r.Context(), actor(r)) // a new cloud account offers its target; a changed one refreshes it
-		WriteJSON(w, 200, IntegrationSaved{OK: true, Health: integration.Health{Automatic: true, StateLabel: integration.HealthUnknown, Detail: "Waiting for the first background check."}})
+		health := integration.Health{Automatic: true, StateLabel: integration.HealthUnknown, Detail: "Waiting for the first background check."}
+		if in.Capability == integration.CapNotifier {
+			health.Automatic = false
+			health.Detail = "Send a test from Notifications to check this channel."
+		}
+		WriteJSON(w, 200, IntegrationSaved{OK: true, Health: health})
 	})
 }
 

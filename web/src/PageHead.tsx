@@ -23,6 +23,7 @@ export type PageHelp = {
 }
 
 export const PAGE_HELP = {
+ notifications: {title: 'Notifications', line: 'Attention items sent by webhook or email.', help: <p>Warnings arrive within about two minutes. Other items arrive in a daily digest at each channel’s UTC hour. Channels receive attention items from every project.</p>, guide: 'notifications'},
   waysOfWorking: {
     title: 'Ways of working',
     line: 'The tech stack your apps are built with, and how changes to them get made and checked.',
@@ -85,6 +86,7 @@ export const PAGE_HELP = {
     help: <>
       <p>An <strong>integration</strong> is a named connection to an outside service, such as GitLab, Infisical or a model provider. Its settings hold the names of secrets, never their values.</p>
       <ul>
+        <li><strong>Notifications:</strong> attention items sent by webhook or email.</li>
         <li><strong>Source control:</strong> where project code lives.</li>
         <li><strong>Executor:</strong> where workflow steps run.</li>
         <li><strong>Model providers:</strong> the model accounts agents use.</li>

@@ -205,6 +205,12 @@ func TestRuntimeItemsWaitForAReadingBegunAfterTheAct(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				if now.Sub(acted) < runtimeGrace && !got.Withheld {
+					t.Fatal("runtime grace must withhold recovery assessment")
+				}
+				if now.Sub(acted) >= runtimeGrace && got.Withheld {
+					t.Fatal("withheld assessment outlived runtime grace")
+				}
 				return got.Items
 			}
 			var runtime, holds int

@@ -5,6 +5,7 @@ import type { ConnectorEntry, IntegrationEntry, IntegrationHealth, IntegrationUs
 // A kind AppTown learns at run time (a service kind) takes its title from
 // the connector catalogue instead.
 const CAP_META: Record<string, { title: string; blurb: string }> = {
+  notifier: { title: 'Notifications', blurb: 'Attention items sent by webhook or email' },
   scm: { title: 'Source control', blurb: 'Repositories, branches and merge requests' },
   secrets: { title: 'Secrets', blurb: `Where ${PRODUCT} reads credentials from` },
   executor: { title: 'Executor', blurb: 'Where workflow steps run' },
@@ -34,6 +35,7 @@ export const INTEGRATION_MENU: { key: Area; heading: string; items: MenuItem[] }
     { key: 'profiles', title: 'Model profiles', blurb: 'Which AI model does each task, for each kind of project' },
     ...['deploy', 'cloud-account'].map(menuKind),
     ...['registry', 'scanner', 'secrets'].map(menuKind),
+    { key: 'notifications', title: 'Notifications', blurb: 'Attention items sent by webhook or email', kinds: ['notifier'] },
   ] },
   { key: 'services', heading: 'Services', items: [
     ...['llm', 'errors'].map(menuKind),

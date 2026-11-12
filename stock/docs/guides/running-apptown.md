@@ -101,6 +101,8 @@ first project if you can: moving later is in [Split install](split-install.md).
 
 ## Looking after it
 
+- [Notifications](notifications.md): attention items by webhook or email.
+
 - [Deployment targets](deployment-targets.md): where apps run, how
   full each target is, disk space, logs and diagnostics.
 - [People, invites, roles and grants](people-and-roles.md).

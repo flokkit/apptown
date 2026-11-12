@@ -18,6 +18,7 @@ import (
 
 // The compiled-in capabilities.
 const (
+	CapNotifier = "notifier"
 	CapSCM      = "scm"
 	CapSecrets  = "secrets"
 	CapExecutor = "executor"
@@ -25,7 +26,7 @@ const (
 	CapDeploy   = "deploy"
 	CapRegistry = "registry"
 	// Scanner bindings are supplied by Verification.
-	// Coming with later phases: notifier, intake, artifacts (publish).
+	// Coming with later phases: intake, artifacts (publish).
 )
 
 // SeedConfig is AppTown runtime configuration the seed bindings record.

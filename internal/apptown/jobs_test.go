@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
+	"github.com/flokkit/apptown/internal/apptown/notification"
 	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/remediation"
@@ -718,5 +719,52 @@ func TestImageRetentionRunsDailyAfterTheBackupSweep(t *testing.T) {
 	}
 	if image.IsZero() || image.Hour() != 3 || image.Minute() != 30 || !image.After(backup) {
 		t.Fatalf("backup=%s image retention=%s", backup, image)
+	}
+}
+
+// Use the queue constructed by New, rather than rebuilding its kind registry:
+// method values must bind a constructed notification owner at registration.
+func TestNotificationJobsBindTheConstructedOwner(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	id, err := a.Jobs().Enqueue(ctx, notification.EvaluateJob, "assembly", nil, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- a.Jobs().Run(ctx) }()
+	t.Cleanup(func() {
+		cancel()
+		stop, release := context.WithTimeout(context.Background(), 10*time.Second)
+		defer release()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Error(err)
+			}
+		case <-stop.Done():
+			t.Error("notification job consumer did not stop")
+		}
+	})
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		row, err := a.Jobs().Client.JobGet(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if row.State == rivertype.JobStateCompleted {
+			return
+		}
+		if len(row.Errors) > 0 {
+			t.Fatalf("notification evaluator was not bound to its owner: %+v", row.Errors)
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal("notification evaluation did not finish")
+		case <-ticker.C:
+		}
 	}
 }

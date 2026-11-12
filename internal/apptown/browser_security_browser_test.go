@@ -47,6 +47,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
+	"github.com/flokkit/apptown/internal/apptown/notification"
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -5327,6 +5328,7 @@ spec:
 		return runtime, res.Reading.ObservedAt, inv.ObservedAt
 	}
 	cameraJanitorQueue(t, a, project.ID)
+	cameraNotifications(t, a)
 	phases.mark("records")
 	runtimeBefore, resourcesBefore, inventoryBefore := readAt()
 	moveClock(a, time.Minute)
@@ -6298,5 +6300,40 @@ func cameraJanitorQueue(t *testing.T, a *App, project ids.ID) {
 	}
 	if state, err := a.Work.QueueState(ctx, project, "updates"); err != nil || state.State != "stopped" {
 		t.Fatal(fmt.Sprintf("camera stopped state: %+v %v", state, err))
+	}
+}
+
+func cameraNotifications(t *testing.T, a *App) {
+	t.Helper()
+	ctx := verifiedContext(context.Background(), access.Principal{ID: testPrincipalOf(t, a.DB, "sam"), Kind: "user", Name: "sam", Via: "header", Credential: identity.HeaderCredential("sam")})
+	// The camera records real sends to a disposable receiver. No destination or
+	// delivery state is asserted without the notifier actually observing it.
+	var status atomic.Int32
+	status.Store(http.StatusNoContent)
+	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(int(status.Load())) }))
+	defer receiver.Close()
+	if err := a.Secrets.SetInstance(ctx, "NOTIFICATION_WEBHOOK", receiver.URL+"/club-notices", "sam"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Integrations.Bindings.Save(ctx, "club-notices", integration.CapNotifier, "webhook", `{"urlFrom":["NOTIFICATION_WEBHOOK"],"format":"ntfy","digestHour":8}`, "sam"); err != nil {
+		t.Fatal(err)
+	}
+	for _, state := range []string{"sent", "retrying", "failed"} {
+		if state != "sent" {
+			status.Store(http.StatusServiceUnavailable)
+		}
+		d, err := a.Notifications.Test(ctx, "club-notices")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if state == "failed" {
+			for n := 1; n < notification.Attempts; n++ {
+				_, err = a.Notifications.Deliver(ctx, d.ID.String(), nil)
+				if n < notification.Attempts-1 && err == nil {
+					t.Fatal("failed receiver did not retry")
+				}
+			}
+		}
+		moveClock(a, time.Second)
 	}
 }

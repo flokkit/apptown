@@ -30,6 +30,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/adrs"
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/attention"
+	"github.com/flokkit/apptown/internal/apptown/notification"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflowexec"
 	"github.com/flokkit/apptown/internal/console"
@@ -159,6 +160,7 @@ type App struct {
 	disks              maintenance.Disks
 	diskObserver       *maintenance.DiskObserver
 	attention          *attention.Service
+	Notifications      *notification.Service
 	workerObserver     *maintenance.WorkerObserver
 	capacityObserver   *deployment.CapacityObserver
 	protectionObserver *dataprotection.ProtectionObserver
@@ -427,6 +429,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.capacityObserver = deployment.NewCapacityObserver(a.Deployment)
 	a.protectionObserver = dataprotection.NewProtectionObserver(a.DataProtection, protectionObservationRequests{db: db})
 	*a.infrastructure = infrastructureChecksFor(a)
+	a.Notifications = notification.New(notification.Dependencies{DB: a.DB, Jobs: jobQueue{}, Secrets: a.Secrets, Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Now: cfg.clock.Now, Origin: cfg.publicOrigin(), ReadAttention: func(ctx context.Context) (attention.View, error) { return a.attention.Read(ctx) }})
 	a.jobs, err = jobs.New(jobs.Options{Tracer: a.telemetry.tracer, Hold: a.newWork.Wait}, db.Pool(), apptownJobKinds(a), jobReporter{}, apptownJobSchedules()...)
 	if err != nil {
 		return nil, fmt.Errorf("constructing job queue: %w", err)
