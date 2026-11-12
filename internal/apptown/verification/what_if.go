@@ -49,26 +49,29 @@ func (f Fleet) StartWhatIf(ctx context.Context, in conformance.WhatIfRequest) (i
 	if f.candidates == nil {
 		return ids.Nil, errors.New("what-if needs Adoption's candidate preparation")
 	}
-	return database.Transact(ctx, f.db, func(tx *database.Tx) (ids.ID, error) {
-		id, err := f.checks.AdmitWhatIfIn(ctx, tx, in, func() ([]ids.ID, error) {
-			below, err := belowAny(in.Pack, in.Version, in.Also, func(pack string, version int64) ([]adoption.ProjectRef, error) {
-				return adoption.ProjectsBelowIn(ctx, tx, pack, version)
-			})
-			if err != nil {
-				return nil, err
-			}
-			active, err := activeOnly(ctx, tx, below)
-			idList := make([]ids.ID, 0, len(active))
-			for _, p := range active {
-				idList = append(idList, p.ID)
-			}
-			return idList, err
+	return database.Transact(ctx, f.db, func(tx *database.Tx) (ids.ID, error) { return f.StartWhatIfIn(ctx, tx, in) })
+}
+
+// StartWhatIfIn admits the same assessment in a publication or consent transaction.
+func (f Fleet) StartWhatIfIn(ctx context.Context, tx *database.Tx, in conformance.WhatIfRequest) (ids.ID, error) {
+	id, err := f.checks.AdmitWhatIfIn(ctx, tx, in, func() ([]ids.ID, error) {
+		below, err := belowAny(in.Pack, in.Version, in.Also, func(pack string, version int64) ([]adoption.ProjectRef, error) {
+			return adoption.ProjectsBelowIn(ctx, tx, pack, version)
 		})
 		if err != nil {
-			return ids.Nil, err
+			return nil, err
 		}
-		return id, f.jobs.EnqueueIn(ctx, tx, jobs.Request{Operation: WhatIfJob, Key: id.String()})
+		active, err := activeOnly(ctx, tx, below)
+		idList := make([]ids.ID, 0, len(active))
+		for _, p := range active {
+			idList = append(idList, p.ID)
+		}
+		return idList, err
 	})
+	if err != nil {
+		return ids.Nil, err
+	}
+	return id, f.jobs.EnqueueIn(ctx, tx, jobs.Request{Operation: WhatIfJob, Key: id.String()})
 }
 
 // EligibleForWhatIf is who a what-if of the version runs on when it names
@@ -159,7 +162,7 @@ func (f Fleet) RunWhatIfJob(ctx context.Context, key string, _ map[string]any) (
 	}
 	run, in, err := f.checks.ClaimWhatIf(ctx, id)
 	if errors.Is(err, conformance.ErrNotQueued) {
-		return map[string]any{"whatIf": id, "ran": false}, nil
+		return map[string]any{"whatIf": id, "ran": false}, f.adoptFinishedWhatIf(ctx, id)
 	}
 	if err != nil {
 		return nil, err
@@ -174,6 +177,11 @@ func (f Fleet) RunWhatIfJob(ctx context.Context, key string, _ map[string]any) (
 	if err := run.Finish(context.WithoutCancel(ctx), walkErr); err != nil {
 		f.reporting.Report("what-if", "conformance/what-if", "settling: "+err.Error(), map[string]string{"whatIf": fmt.Sprint(id)}, "")
 		return nil, err
+	}
+	if walkErr == nil {
+		if err := f.adoptFinishedWhatIf(ctx, id); err != nil {
+			return nil, err
+		}
 	}
 	return map[string]any{"whatIf": id, "ran": true}, nil
 }
@@ -364,6 +372,7 @@ func (f Fleet) whatIfProject(ctx context.Context, run *conformance.WhatIfRun, in
 	}
 	if len(rows) == 0 {
 		rows = whole(head.SHA, conformance.NotAssessedNoEvaluator, "neither today's checks nor the version's apply to this project")
+		rows[0].AdoptionRevision, rows[0].CandidateDigest = cand.ExpectedRevision, cand.Digest
 	}
 	// Every rule whose version the candidate changes is a row of its own, so
 	// a version that takes a rule back, drops it or moves a workflow is
@@ -473,4 +482,15 @@ func budgetedRubrics(prior conformance.WhatIfSpend, limit int64, spend *conforma
 		meta.Cost = meta.Usage.Cost
 		return by, meta, nil
 	}
+}
+
+func (f Fleet) adoptFinishedWhatIf(ctx context.Context, id ids.ID) error {
+	if f.packAdoptions == nil {
+		return nil
+	}
+	assessment, err := f.checks.FinishedPackWhatIf(ctx, id)
+	if err != nil || assessment == nil {
+		return err
+	}
+	return f.packAdoptions.AdoptWhatIf(ctx, assessment)
 }

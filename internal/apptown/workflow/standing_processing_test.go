@@ -773,3 +773,41 @@ func (r reviewClaimLaws) ViolationsIn(ctx context.Context, q database.Queryer, p
 	r.before()
 	return (policyLawRules{}).ViolationsIn(ctx, q, pid, spec)
 }
+
+// Pack consent is independent of dependency levels and declarations. Release
+// health and the project's off choice still apply at every use.
+func TestKeepPacksCurrentHasItsOwnCategoryAndEligibility(t *testing.T) {
+	a, s, _, _, _ := standingFixture(t)
+	ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
+	portfolio := &standingPortfolioFixture{uncovered: true}
+	s.deps.Portfolio = portfolio
+	in := StandingDefinition{Scope: "instance", Delivery: "full", Categories: StandingCategories{WaysOfWorking: true}, Schedules: []standingSchedule{{Workflow: "test"}}}
+	rule := enableStanding(t, s, ctx, in)
+	if rule.Question.Definition.Categories.Dependencies != "" || !strings.Contains(rule.Question.Shown, "newly published") || !strings.Contains(rule.Question.Shown, "not applicable") {
+		t.Fatalf("pack meaning: %+v", rule.Question)
+	}
+	eligible := func(want bool) {
+		t.Helper()
+		got, _, err := s.StandingForWorkflow(ctx, a.ProjectID, "test")
+		if err != nil || (!got.RuleID.IsZero()) != want {
+			t.Fatalf("eligible=%t: %+v %v", want, got, err)
+		}
+	}
+	eligible(true)
+	portfolio.hold = "release 2 failed"
+	eligible(false)
+	portfolio.hold = ""
+	if err := s.SetProjectChoice(ctx, a.ProjectID, "off", "pause packs"); err != nil {
+		t.Fatal(err)
+	}
+	eligible(false)
+	if err := s.SetProjectChoice(ctx, a.ProjectID, "aggressive", "resume packs"); err != nil {
+		t.Fatal(err)
+	}
+	eligible(true)
+	mixed := in
+	mixed.Categories.Dependencies = "routine"
+	if _, err := s.Preview(ctx, mixed); err == nil {
+		t.Fatal("packs became a dependency level")
+	}
+}

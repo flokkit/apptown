@@ -223,7 +223,7 @@ func TestRoutineEmptySourceRequiresSeparatelyCheckedAdoption(t *testing.T) {
 	routineGit(t, repo, "add", ".")
 	routineGit(t, repo, "commit", "-m", "unrelated")
 	mixed, err := inspector.InspectRoutineWithAdoption(t.Context(), source, workflow.StandingCategories{WaysOfWorking: true})
-	if err != nil || mixed.Classification != "requires-person" {
+	if err != nil || mixed.Classification != "routine-adoption" || len(mixed.ChangedFiles) != 1 {
 		t.Fatalf("adoption erased unrelated source: %+v %v", mixed, err)
 	}
 }

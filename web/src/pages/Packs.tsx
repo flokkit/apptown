@@ -1,3 +1,4 @@
+import { KeepPacksCurrent } from './KeepPacksCurrent'
 import { ListRow } from '../ListRow'
 import { Link } from 'react-router-dom'
 import './Packs.css'
@@ -113,6 +114,7 @@ export default function Packs() {
     <div>
       {msg && <div className="muted small mb-2" >{msg}</div>}
       <StaleNote q={packsQ} />
+      <KeepPacksCurrent />
 
       <Section title="Packs" count={packs.length} action={<button className="primary" onClick={() => setEditing({ draft: blank(), existing: false })}>New pack</button>}>
       <LibraryRows>
@@ -181,7 +183,7 @@ export function PackEditor({ draft, existing, onDone }: { draft: Draft; existing
         <label>Version name</label>
         <input aria-label="Version name" value={p.versionName} onChange={(e) => setP({ ...p, versionName: e.target.value })} placeholder="optional, e.g. stricter deps" />
       </div>
-      {existing && <div className="muted small mb-2" >Saving creates a version. Recommend it on the pack page.</div>}
+      {existing && <div className="muted small mb-2" >Saving publishes a new version.</div>}
       {keptAsWritten(p).length > 0 && <div className="muted small mb-2" >Kept as written, not edited here: {keptAsWritten(p).join('; ')}.</div>}
 
       <h2>Workflows ({p.workflows.length})</h2>

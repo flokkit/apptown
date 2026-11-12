@@ -19,6 +19,8 @@ func (a *commands) RunFix(task *workflow.Execution) {
 		return
 	}
 	switch handler.Action {
+	case fix.AdoptAction:
+		a.runAdopt(task, false)
 	case fix.ScriptAction:
 		a.RunScript(task)
 	default:
@@ -52,6 +54,8 @@ func (a *commands) RunRoutine(task *workflow.Execution) {
 		return
 	}
 	switch handler.Classifier {
+	case fix.AdoptClassifier:
+		a.runAdopt(task, true)
 	case fix.UpdateClassifier:
 		a.runUpdateRoutine(task)
 	default:

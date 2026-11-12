@@ -892,7 +892,7 @@ func (q *Queries) ProjectIdentity(ctx context.Context, id ids.ID) (Project, erro
 }
 
 const projectPacks = `-- name: ProjectPacks :many
-SELECT p.id, p.name, p.description, p.spec_json, p.latest_version, p.recommended_version, p.origin, p.enabled, p.updated_at,pp.id, pp.project_id, pp.pack_id, pp.version, pp.reason, pp.adopted_by, pp.adopted_by_principal, pp.adopted_by_via, pp.adopted_at,COALESCE(v.spec_json,'{}'::jsonb) AS version_spec
+SELECT p.id, p.name, p.description, p.spec_json, p.latest_version, p.origin, p.enabled, p.updated_at,pp.id, pp.project_id, pp.pack_id, pp.version, pp.reason, pp.adopted_by, pp.adopted_by_principal, pp.adopted_by_via, pp.adopted_at,COALESCE(v.spec_json,'{}'::jsonb) AS version_spec
 FROM project_packs pp JOIN packs p ON p.id=pp.pack_id
 LEFT JOIN pack_versions v ON v.pack_id=pp.pack_id AND v.version=pp.version WHERE pp.project_id=$1 ORDER BY p.name
 `
@@ -918,7 +918,6 @@ func (q *Queries) ProjectPacks(ctx context.Context, projectID ids.ID) ([]Project
 			&i.Pack.Description,
 			&i.Pack.SpecJson,
 			&i.Pack.LatestVersion,
-			&i.Pack.RecommendedVersion,
 			&i.Pack.Origin,
 			&i.Pack.Enabled,
 			&i.Pack.UpdatedAt,

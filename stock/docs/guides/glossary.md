@@ -388,12 +388,10 @@ pack off under Ways of working › Packs: it stays in the store but is not
 offered when a project is made. Stock packs cannot be deleted; they can be
 turned off. To change a stock pack, copy it into a pack of your own.
 
-**Recommended version** — the version of a pack that new projects get and
-that projects on another version are offered. Saving a pack makes a new
-version without recommending it; it is recommended on the pack's page or with
-`apptown pack recommend`.
-An AppTown release's new stock versions wait the same way. No project moves
-until its owner adopts the version.
+**Recommended version** — the newest published version of a pack. New projects
+get it, and existing projects are offered it. Publishing changes no project's
+adoption. With **Keep packs current** enabled, the janitor assesses publications
+and moves eligible projects through checked adoption Changes.
 
 **What-if** — a pack version's checks run on projects' main beside the
 checks they adopted, to see what would newly fail or pass; by default on

@@ -77,20 +77,18 @@ ON CONFLICT(stock_name) DO UPDATE SET name=excluded.name,updated_at=excluded.upd
 -- name: ResetSystemWorkflow :execrows
 DELETE FROM system_workflows WHERE stock_name=$1;
 -- name: InsertPack :one
-INSERT INTO packs(id, name,description,spec_json,origin,updated_at,latest_version,recommended_version)
-VALUES(sqlc.arg(id), sqlc.arg(name),sqlc.arg(description),sqlc.arg(spec),sqlc.arg(origin),sqlc.arg(at),1,1) RETURNING *;
+INSERT INTO packs(id, name,description,spec_json,origin,updated_at,latest_version)
+VALUES(sqlc.arg(id), sqlc.arg(name),sqlc.arg(description),sqlc.arg(spec),sqlc.arg(origin),sqlc.arg(at),1) RETURNING *;
 -- name: InsertPackVersion :one
 INSERT INTO pack_versions(id, pack_id,version,spec_json,note,created_at,pins_json,declaration_json,name,based_on,source,signer)
 VALUES(sqlc.arg(id), sqlc.arg(pack_id),sqlc.arg(version),sqlc.arg(spec),sqlc.arg(note),sqlc.arg(at),sqlc.arg(pins),sqlc.arg(declaration),sqlc.arg(name),sqlc.arg(based_on),sqlc.arg(source),sqlc.arg(signer)) RETURNING *;
--- name: RecommendPackVersion :execrows
-UPDATE packs SET recommended_version=sqlc.arg(version),updated_at=sqlc.arg(at) WHERE id=sqlc.arg(id);
 -- name: OfferedPacks :many
 -- Each pack with the resolved contents of the publication it offers.
 SELECT sqlc.embed(p),COALESCE(v.spec_json,p.spec_json) AS offered_spec,COALESCE(v.version,0)::bigint AS offered_version
-FROM packs p LEFT JOIN pack_versions v ON v.pack_id=p.id AND v.version=p.recommended_version ORDER BY p.origin DESC,p.name;
+FROM packs p LEFT JOIN pack_versions v ON v.pack_id=p.id AND v.version=p.latest_version ORDER BY p.origin DESC,p.name;
 -- name: OfferedPack :one
 SELECT sqlc.embed(p),COALESCE(v.spec_json,p.spec_json) AS offered_spec,COALESCE(v.version,0)::bigint AS offered_version
-FROM packs p LEFT JOIN pack_versions v ON v.pack_id=p.id AND v.version=p.recommended_version WHERE p.name=$1;
+FROM packs p LEFT JOIN pack_versions v ON v.pack_id=p.id AND v.version=p.latest_version WHERE p.name=$1;
 -- name: RefreshPackContents :execrows
 UPDATE packs SET description=sqlc.arg(description),spec_json=sqlc.arg(spec) WHERE id=sqlc.arg(id);
 -- name: AdvancePackVersion :execrows
@@ -143,23 +141,3 @@ WHERE (b.name,v.version) IN (SELECT unnest(sqlc.arg(blocks)::text[]),unnest(sqlc
 
 -- name: PackByID :one
 SELECT * FROM packs WHERE id=$1;
-
--- name: RoutineClassification :one
-SELECT * FROM routine_publication_classifications WHERE id=$1;
--- name: RoutineClassificationForShare :one
-SELECT * FROM routine_publication_classifications WHERE id=$1 FOR SHARE;
--- name: ActiveRoutineClassification :one
-SELECT * FROM routine_publication_classifications WHERE digest=$1 AND revocation_json = 'null'::jsonb;
--- name: RoutineClassificationHistory :many
-SELECT * FROM routine_publication_classifications WHERE publication_kind=$1 AND publication_id=$2 ORDER BY created_at DESC,id DESC;
--- name: InsertRoutineClassification :one
-INSERT INTO routine_publication_classifications(id,publication_kind,publication_id,from_version,to_version,digest,issuer_id,request_id,created_at,record_json)
-VALUES(sqlc.arg(id),sqlc.arg(publication_kind),sqlc.arg(publication_id),sqlc.arg(from_version),sqlc.arg(to_version),sqlc.arg(digest),sqlc.arg(issuer_id),sqlc.arg(request_id),sqlc.arg(at),sqlc.arg(record_json))
-ON CONFLICT DO NOTHING RETURNING *;
--- name: RevokeRoutineClassification :execrows
-UPDATE routine_publication_classifications SET revocation_json=$2 WHERE id=$1 AND revocation_json = 'null'::jsonb;
--- name: ActiveRoutineClassificationsForUpdate :many
-SELECT * FROM routine_publication_classifications WHERE revocation_json = 'null'::jsonb ORDER BY id FOR UPDATE;
-
--- name: RoutineClassificationByRequest :one
-SELECT * FROM routine_publication_classifications WHERE issuer_id=$1 AND request_id=$2;

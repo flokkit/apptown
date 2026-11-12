@@ -15,7 +15,7 @@ import type { AdoptionUpliftOpened, InAdvanceQuestion, WhatIf, WhatIfCheck, What
 // One what-if on a pack version (design/subsystems/conformance.md):
 // one row per project saying what taking the version would change, worst
 // first, with its score and every rule it moves, then the decision through
-// the existing doors: recommend the version, or try it in an eval. Unknown
+// the existing doors: read the publication, or try it in an eval. Unknown
 // is never shown as clear, and a rule moved back is never shown as nothing.
 
 // REASON_SHORT says why checks were not judged in a few words, for a
@@ -91,7 +91,7 @@ function State({ w }: { w: WhatIf }) {
 
 function Decide({ w }: { w: WhatIf }) {
   return <div className="row what-if-page-decide-div">
-    <Link to={`/packs/${w.pack}?whatIf=${w.id}`}>Recommend v{w.version} on the pack page →</Link>
+    <Link to={`/packs/${w.pack}?whatIf=${w.id}`}>Read v{w.version} on the pack page →</Link>
     <FeatureOnly area="evals"><Link className="button subtle" to={`/evals/new?pack=${encodeURIComponent(w.pack)}&version=${w.version}`}>Try in an eval</Link></FeatureOnly>
   </div>
 }

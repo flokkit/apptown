@@ -145,22 +145,29 @@ func (r routineInspector) observe(ctx context.Context, source workflow.Source, i
 }
 
 func (r routineInspector) InspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (workflow.StandingInspection, error) {
-	return r.inspectRoutine(ctx, source, categories, false)
+	return r.inspectRoutine(ctx, source, categories)
 }
 
 // InspectRoutineWithAdoption is used only after Adoption verified a nonempty,
-// completely classified target. An empty Git diff alone remains insufficient.
+// assessed target. An empty Git diff alone remains insufficient.
 func (r routineInspector) InspectRoutineWithAdoption(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (workflow.StandingInspection, error) {
-	return r.inspectRoutine(ctx, source, categories, true)
+	out := workflow.StandingInspection{Classifier: "assessed-adoption-v1", Classification: "cannot-assess"}
+	before, err := r.observe(ctx, source, false)
+	if err != nil {
+		out.Reason = err.Error()
+		return out, nil
+	}
+	out.Base, out.Candidate, out.Tree = before.base, before.tip, before.tree
+	for _, file := range before.files {
+		out.ChangedFiles = append(out.ChangedFiles, file.Path)
+	}
+	out.Classification = "routine-adoption"
+	return out, nil
 }
 
-func (r routineInspector) inspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories, adoption bool) (out workflow.StandingInspection, err error) {
+func (r routineInspector) inspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (out workflow.StandingInspection, err error) {
 	if categories.Dependencies != "" || categories.SecurityFixes {
-		out, err := r.inspectUpdates(ctx, source, categories)
-		if adoption && out.Classification == "not-applicable" {
-			out.Classification = "routine-adoption"
-		}
-		return out, err
+		return r.inspectUpdates(ctx, source, categories)
 	}
 	out.Classifier = "node-digest-v1"
 	out.Classification = "cannot-assess"
@@ -181,7 +188,7 @@ func (r routineInspector) inspectRoutine(ctx context.Context, source workflow.So
 	if before.unsupported != "" {
 		return refuse(before.unsupported)
 	}
-	if len(before.files) == 0 && !adoption {
+	if len(before.files) == 0 {
 		return refuse("the candidate has no supported update")
 	}
 	for _, file := range before.files {
@@ -224,9 +231,6 @@ func (r routineInspector) inspectRoutine(ctx context.Context, source workflow.So
 		return out, nil
 	}
 	out.Classification = "routine-dependency"
-	if len(before.files) == 0 {
-		out.Classification = "routine-adoption"
-	}
 	if before.image {
 		out.Classification = "routine-image"
 

@@ -30,9 +30,6 @@ type packRow struct {
 	Origin        string // "stock" = vendor (read-only, re-synced); "" = custom
 	Enabled       bool
 	LatestVersion int64
-	// RecommendedVersion is what new projects get and what projects are
-	// offered as the update; only a person moves it.
-	RecommendedVersion int64
 }
 
 // Platform reports whether the spec declares AppTown's own tier.
@@ -71,8 +68,9 @@ func packByNameIn(ctx context.Context, q *wowsql.Queries, name string) (wowsql.P
 
 // packs is the supported API over pack rows and their publications.
 type packs struct {
-	db    *database.DB
-	clock func() time.Time // AppTown's clock; nil is the real one
+	publicationReviews packPublications
+	db                 *database.DB
+	clock              func() time.Time // AppTown's clock; nil is the real one
 	// lines is the tool versions list a pack's tools are held to; nil
 	// refuses every line.
 	lines toolLines
@@ -179,10 +177,8 @@ func (s *packs) Publish(ctx context.Context, name, description, declaration, ori
 	return s.publishNamed(ctx, name, description, declaration, origin, "")
 }
 
-// publishNamed publishes like Publish and names the new version. A new
-// pack's first version is its recommended one; a later version, stock or
-// not, is not recommended until a person says so, so a what-if can judge it
-// before projects are offered it.
+// publishNamed publishes like Publish and names the new version. The
+// newest publication is offered immediately.
 func (s *packs) publishNamed(ctx context.Context, name, description, declaration, origin, versionName string) (int, error) {
 	var version int
 	now := s.now()
@@ -275,6 +271,11 @@ func (s *packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, n
 	}
 	if _, err := q.AdvancePackVersion(ctx, wowsql.AdvancePackVersionParams{ID: p.ID, Version: version, Description: description, Spec: []byte(declaration), At: now}); err != nil {
 		return 0, err
+	}
+	if s.publicationReviews != nil {
+		if err := s.publicationReviews.PublishedPackIn(ctx, tx, name, version); err != nil {
+			return 0, err
+		}
 	}
 	return version, nil
 }
@@ -402,7 +403,7 @@ func (s *packs) publications(ctx context.Context, packID ids.ID) ([]publicationR
 }
 
 func packRecord(r wowsql.Pack) packRow {
-	return packRow{ID: r.ID, Name: r.Name, Description: r.Description, SpecJSON: string(r.SpecJson), Origin: r.Origin, Enabled: r.Enabled, LatestVersion: r.LatestVersion, RecommendedVersion: r.RecommendedVersion}
+	return packRow{ID: r.ID, Name: r.Name, Description: r.Description, SpecJSON: string(r.SpecJson), Origin: r.Origin, Enabled: r.Enabled, LatestVersion: r.LatestVersion}
 }
 
 // PackByNameIn reads catalog identity within a caller's transaction.
@@ -432,4 +433,14 @@ func checkPackSchedules(ctx context.Context, q database.Queryer, spec PackSpec) 
 		}
 	}
 	return nil
+}
+
+// PacksIn reads the publication feed in a consent transaction.
+func PacksIn(ctx context.Context, q database.Queryer) ([]packRow, error) {
+	rows, err := wowsql.New(q.SQL()).Packs(ctx)
+	out := make([]packRow, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, packRecord(row))
+	}
+	return out, err
 }

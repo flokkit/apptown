@@ -59,7 +59,7 @@ func TestPinnedPackReadersShareExactContents(t *testing.T) {
 	counted := &countedQueries{Handle: db.SQL()}
 	// Publication reads are tested in Adoption; this view still takes one read.
 	packs, err := readProjectPacks(t.Context(), counted, projectID)
-	if err != nil || len(packs) != 1 || !packs[0].Platform || packs[0].Recommended != 1 || !packGuidance(packs)["rule"] || counted.reads != 1 {
+	if err != nil || len(packs) != 1 || !packs[0].Platform || packs[0].Recommended != 2 || !packGuidance(packs)["rule"] || counted.reads != 1 {
 		t.Fatalf("membership snapshot: %+v, reads=%d, err=%v", packs, counted.reads, err)
 	}
 	body, err := json.Marshal(packs)

@@ -2,7 +2,6 @@ package apptown
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -11,25 +10,25 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
+	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
-	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/dbtest"
-	"github.com/flokkit/apptown/internal/execution"
-	"github.com/flokkit/apptown/internal/fix"
-	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/stock"
 )
 
 func TestStepApprovalHTTPKeepsActorAndDistinguishesConflictsFromWriteFailures(t *testing.T) {
@@ -335,255 +334,6 @@ spec:
 
 }
 
-func TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry(t *testing.T) {
-	a := authzActors(t)
-	block, err := a.Ways.CreateBlock(t.Context(), "team/routine", "Original guidance.", "", "boss")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = a.Ways.BumpBlock(t.Context(), block.ID, "Clarified guidance.", "[]", "boss", block.Name); err != nil {
-		t.Fatal(err)
-	}
-	transition := fmt.Sprintf(`{"kind":"block","id":%q,"from":1,"to":2}`, block.ID.String())
-	h := a.Handler()
-	denied := authzCall(h, "outsider", "POST", "/api/v1/routine-publications/preview", transition)
-	if denied.Code != http.StatusForbidden {
-		t.Fatalf("unscoped preview: %d %s", denied.Code, denied.Body)
-	}
-	preview := authzCall(h, "boss", "POST", "/api/v1/routine-publications/preview", transition)
-	if preview.Code != http.StatusOK {
-		t.Fatalf("preview: %d %s", preview.Code, preview.Body)
-	}
-	var question wow.RoutinePublicationQuestion
-	if err = json.Unmarshal(preview.Body.Bytes(), &question); err != nil {
-		t.Fatal(err)
-	}
-	if !question.Eligible || len(question.Before) == 0 || len(question.After) == 0 {
-		t.Fatalf("incomplete shown meaning: %+v", question)
-	}
-	requestID := ids.New(time.Now())
-	command := fmt.Sprintf(`{"transition":%s,"shownDigest":%q,"requestId":%q,"issuer":"outsider"}`, transition, question.Digest, requestID.String())
-	if denied := authzCall(h, "outsider", "POST", "/api/v1/routine-publications", command); denied.Code != http.StatusForbidden {
-		t.Fatalf("unscoped classification: %d %s", denied.Code, denied.Body)
-	}
-	saved := authzCall(h, "boss", "POST", "/api/v1/routine-publications", command)
-	if saved.Code != http.StatusOK {
-		t.Fatalf("classify: %d %s", saved.Code, saved.Body)
-	}
-	var consent wow.RoutinePublicationClassification
-	if err = json.Unmarshal(saved.Body.Bytes(), &consent); err != nil {
-		t.Fatal(err)
-	}
-	if consent.Issuer.Name != "boss" || consent.Issuer.Principal.IsZero() {
-		t.Fatalf("client replaced verified issuer: %+v", consent)
-	}
-	if denied := authzCall(h, "outsider", "POST", "/api/v1/routine-publications/"+consent.ID.String()+"/revoke", `{}`); denied.Code != http.StatusForbidden {
-		t.Fatalf("unscoped revocation: %d %s", denied.Code, denied.Body)
-	}
-	if denied := authzCall(h, "outsider", "GET", "/api/v1/routine-publications/block/"+block.ID.String()+"/history", ""); denied.Code != http.StatusForbidden {
-		t.Fatalf("unscoped history: %d %s", denied.Code, denied.Body)
-	}
-	revoked := authzCall(h, "boss", "POST", "/api/v1/routine-publications/"+consent.ID.String()+"/revoke", `{}`)
-	if revoked.Code != http.StatusOK {
-		t.Fatalf("revoke: %d %s", revoked.Code, revoked.Body)
-	}
-	retry := authzCall(h, "boss", "POST", "/api/v1/routine-publications", command)
-	if retry.Code != http.StatusOK {
-		t.Fatalf("retry: %d %s", retry.Code, retry.Body)
-	}
-	var replay wow.RoutinePublicationClassification
-	if err = json.Unmarshal(retry.Body.Bytes(), &replay); err != nil {
-		t.Fatal(err)
-	}
-	if replay.ID != consent.ID || replay.Revocation == nil {
-		t.Fatalf("lost-response retry renewed consent: %+v", replay)
-	}
-	history := authzCall(h, "boss", "GET", "/api/v1/routine-publications/block/"+block.ID.String()+"/history", "")
-	if history.Code != http.StatusOK {
-		t.Fatalf("history: %d %s", history.Code, history.Body)
-	}
-}
-
-func TestRoutineUpliftCombinesActualAdoptionAndCommittedNPMSource(t *testing.T) {
-	a := authzActors(t)
-	person, err := a.Access.EnsurePerson(t.Context(), "boss")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Name: "boss", Kind: "user", Via: "session"}, Receipt: "boss", Verified: true})
-	for _, role := range []string{"working", "landing"} {
-		name, system := "routine-work", false
-		if role == "landing" {
-			name, system = "routine-land", true
-		}
-		body := fmt.Sprintf("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: %s, system: %t}\nspec:\n  kind: pipeline\n  role: %s\n  stages:\n    - name: accept\n      steps:\n        - name: approve\n          uses: approval\n          with:\n            means: I reviewed this update\n            standing: {class: routine-update, means: Bounded routine updates with complete evidence}\n", name, system, role)
-		if _, _, err = a.Ways.PublishWorkflow(ctx, body, "boss"); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err = a.Ways.BindSystemWorkflow(ctx, "land", "routine-land", "boss"); err != nil {
-		t.Fatal(err)
-	}
-	p, err := a.Projects.BySlug(ctx, "game")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = a.Projects.SetDefaultBranch(ctx, p.ID, "main"); err != nil {
-		t.Fatal(err)
-	}
-	repo, err := p.Repository(a.cfg.dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = os.MkdirAll(repo, 0755); err != nil {
-		t.Fatal(err)
-	}
-	git := func(folder string, args ...string) string {
-		t.Helper()
-		argv := append([]string{"-C", folder, "-c", "user.name=fixture", "-c", "user.email=fixture@example.test"}, args...)
-		out, e := gittest.Command(argv...).CombinedOutput()
-		if e != nil {
-			t.Fatalf("git %v: %v %s", args, e, out)
-		}
-		return strings.TrimSpace(string(out))
-	}
-	write := func(folder, name, body string) {
-		t.Helper()
-		if e := os.WriteFile(filepath.Join(folder, name), []byte(body), 0644); e != nil {
-			t.Fatal(e)
-		}
-	}
-	snapshot := func(version string) (string, string) {
-		return fmt.Sprintf(`{"name":"app","dependencies":{"example":"%s"}}`, version), fmt.Sprintf(`{"name":"app","lockfileVersion":3,"packages":{"":{"name":"app","dependencies":{"example":"%s"}},"node_modules/example":{"version":"%s","resolved":"https://registry.npmjs.org/example/-/example-%s.tgz","integrity":"sha512-%s"}}}`, version, version, version, base64.StdEncoding.EncodeToString(make([]byte, 64)))
-	}
-	beforeManifest, beforeLock := snapshot("1.0.0")
-	afterManifest, afterLock := snapshot("1.0.1")
-	git(repo, "init", "-b", "main")
-	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	write(repo, ".apptown/app.yaml", "app:\n  web:\n    build: .\n    public: true\n    tools: [node]\n")
-	write(repo, "package.json", beforeManifest)
-	write(repo, "package-lock.json", beforeLock)
-	git(repo, "add", ".")
-	git(repo, "commit", "-m", "initial source")
-	if err = recordCatalogFixture(a.Adoption, ctx, p.ID, "boss"); err != nil {
-		t.Fatal(err)
-	}
-	current, err := a.Adoption.RecordCurrent(ctx, p.ID, adoption.AdoptionEdit, "standing procedure fixture", "boss")
-	if err != nil {
-		t.Fatal(err)
-	}
-	block, err := a.Ways.CreateBlock(ctx, "team/mixed", "Original guidance.", "", "boss")
-	if err != nil {
-		t.Fatal(err)
-	}
-	a.Ways.SyncStockGuidance(ctx)
-	node, err := a.Ways.BlockByName(ctx, "lang/node/dependency-updates")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = a.Adoption.ReplaceGuidance(ctx, p.ID, &current.Revision, []wow.ResolvedPin{{Name: block.Name, BlockID: block.ID, Version: 1}, {Name: node.Name, BlockID: node.ID, Version: node.LatestVersion}}, "adopt guidance", "boss"); err != nil {
-		t.Fatal(err)
-	}
-	if err = a.Ways.BumpBlock(ctx, block.ID, "Clearer guidance.", "[]", "boss", block.Name); err != nil {
-		t.Fatal(err)
-	}
-	question, err := a.routinePublications.Preview(ctx, wow.RoutinePublicationTransition{Kind: "block", ID: block.ID, From: 1, To: 2})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = a.routinePublications.Classify(ctx, wow.RoutinePublicationConsent{RequestID: ids.New(time.Now()), Transition: question.Transition, ShownDigest: question.Digest}); err != nil {
-		t.Fatal(err)
-	}
-	candidate, err := a.Adoption.Prepare(ctx, p.ID, adoption.Request{Additions: []string{block.Name + "@2", fmt.Sprintf("%s@%d", node.Name, node.LatestVersion)}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	uplift, err := a.Adoption.OpenUplift(ctx, p.ID, *candidate, "boss", "mixed update fixture", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: uplift.ID, Workflow: "routine-work"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	a.Work.Wait()
-	source, err := workflow.ReadSourceIn(ctx, a.DB, workflow.RunRef{ID: run.ID, ProjectID: p.ID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	workspace, err := source.Workspace(a.cfg.dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	write(workspace, "package.json", afterManifest)
-	write(workspace, "package-lock.json", afterLock)
-	git(workspace, "add", ".")
-	git(workspace, "commit", "-m", "bounded dependency update")
-	git(workspace, "push", repo, "HEAD:refs/heads/"+source.Branch)
-	executions := 0
-	executor := verification.Executor{Local: true, AgentImage: "test-agent", Image: func(context.Context, execution.ImageRequest) execution.ImageAnswer {
-		return execution.ImageAnswer{ID: "sha256:" + strings.Repeat("a", 64)}
-	}, Run: func(_ context.Context, req execution.Request) execution.Outcome {
-		executions++
-		raw, err := os.ReadFile(filepath.Join(req.Workspace, "package-lock.json"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		var lock struct {
-			Packages map[string]struct {
-				Version string `json:"version"`
-			} `json:"packages"`
-		}
-		if err := json.Unmarshal(raw, &lock); err != nil {
-			t.Fatal(err)
-		}
-		report, err := json.Marshal(fix.Listing{Ecosystem: "npm", Package: "example", Version: lock.Packages["node_modules/example"].Version, Source: "registry", Attributes: map[string]any{}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		return execution.Outcome{Termination: execution.Exited, ExitCode: 0, Report: report}
-	}}
-	standing := workflow.NewStandingRules(a.DB, workflow.StandingDependencies{Adoptions: a.Adoption, Inspector: verification.NewRoutineInspector(a.cfg.dataDir, &a.repositories, executor).WithFixes(a.DB, a.Adoption), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Lanes: a.lifecycle, Laws: workflowLawRules{}}, Destinations: standingDestinations{}})
-	definition := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: p.ID, Workflow: "routine-work"}}, Categories: workflow.StandingCategories{Dependencies: "routine", WaysOfWorking: true}, Delivery: "land-only"}
-	preview, err := standing.Preview(ctx, definition)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rule, err := standing.Enable(ctx, workflow.StandingCommand{Definition: definition, ShownDigest: preview.Digest})
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := standing.Assess(ctx, rule.RuleID, run.ID)
-	if err != nil || result.Inspection.Classification != "routine-dependency-and-adoption" || result.Adoption == nil || len(result.Adoption.Classifications) != 1 || !result.ProcessingAvailable || executions != 2 {
-		t.Fatalf("assembled mixed update: %+v %v executions=%d", result, err, executions)
-	}
-	definition.Categories.Dependencies = ""
-	preview, err = standing.Preview(ctx, definition)
-	if err != nil {
-		t.Fatal(err)
-	}
-	restricted, err := standing.Enable(ctx, workflow.StandingCommand{Definition: definition, ShownDigest: preview.Digest})
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err = standing.Assess(ctx, restricted.RuleID, run.ID)
-	if err != nil || result.Inspection.Classification != "requires-person" || executions != 2 {
-		t.Fatalf("disabled source category escaped: %+v %v executions=%d", result, err, executions)
-	}
-	write(workspace, "repair.txt", "application repair judged by the workflow checks")
-	git(workspace, "add", ".")
-	git(workspace, "commit", "-m", "unrelated edit")
-	git(workspace, "push", repo, "HEAD:refs/heads/"+source.Branch)
-	result, err = standing.Assess(ctx, rule.RuleID, run.ID)
-	if err != nil || result.Inspection.Classification != "routine-dependency-and-adoption" || executions != 4 {
-		t.Fatalf("application repair was refused: %+v %v executions=%d", result, err, executions)
-	}
-}
-
-// The preview uses main's app contract, adopted declarations and current
-// deployment settings. Instance consent never infers coverage from a language.
 func TestJanitorInstancePreviewReadsMainAndReleaseSettings(t *testing.T) {
 	a := authzActors(t)
 	person, err := a.Access.EnsurePerson(t.Context(), "boss")
@@ -668,6 +418,42 @@ func TestJanitorInstancePreviewReadsMainAndReleaseSettings(t *testing.T) {
 			}
 		}
 	}
+	// This project really has a Java part and its pack declares no dependency
+	// fixes. Dependency consent cannot fire there, while pack consent can.
+	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest}); err != nil {
+		t.Fatal(err)
+	}
+	if dependency, _, err := a.standingRules.StandingForWorkflow(ctx, java, "janitor-update"); err != nil || !dependency.RuleID.IsZero() {
+		t.Fatalf("uncovered Java got dependency work: %+v %v", dependency, err)
+	}
+	packRule := enablePackRule(t, a, ctx)
+	declaration, err := a.Ways.PackDeclaration(ctx, "java")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := declaration.Spec()
+	spec.Suggested = !spec.Suggested
+	raw, err := json.Marshal(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, err := a.Ways.PublishPack(ctx, "java", declaration.Description, string(raw), declaration.Origin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assessment, err := a.conformance.LatestWhatIf(ctx, "java", int64(version))
+	if err != nil || assessment == nil {
+		t.Fatalf("Java assessment: %+v %v", assessment, err)
+	}
+	if _, err := fleetReviewsFor(a).RunWhatIfJob(ctx, assessment.ID.String(), nil); err != nil {
+		t.Fatal(err)
+	}
+	a.Work.Wait()
+	attempts, err := a.Work.Attempts(ctx, java, "packs", 10)
+	if err != nil || len(attempts) != 1 || attempts[0].RuleID != packRule.RuleID || !attempts[0].Attempted {
+		t.Fatalf("uncovered Java got no pack attempt: %+v %v", attempts, err)
+	}
+
 }
 
 // Settings changes require current permission on the selected project, and a
@@ -755,4 +541,358 @@ func TestJanitorSettingsHTTPChecksCurrentProjectAuthority(t *testing.T) {
 	if after.Level != state.Level || after.Choice == nil || after.Choice.Reason != state.Choice.Reason || after.Choice.At != state.Choice.At {
 		t.Fatal("refused write changed choice")
 	}
+}
+
+func packRuleDefinition(t *testing.T) workflow.StandingDefinition {
+	t.Helper()
+	var in workflow.StandingDefinition
+	if err := json.Unmarshal([]byte(`{"scope":"instance","delivery":"full","categories":{"waysOfWorking":true},"schedules":[{"workflow":"janitor-adopt","crons":{}}]}`), &in); err != nil {
+		t.Fatal(err)
+	}
+	return in
+}
+func enablePackRule(t *testing.T, a *App, ctx context.Context) workflow.StandingRevision {
+	t.Helper()
+	q, err := a.standingRules.Preview(ctx, packRuleDefinition(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rule, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rule
+}
+
+// Both entry points start fresh assessments, even when a person already finished
+// one. A static project on an old pack without fixes is eligible for packs alone.
+func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
+	for _, scenario := range []struct {
+		before bool
+		kind   string
+	}{{true, "empty"}, {false, "empty"}, {true, "guidance"}, {true, "passing-check"}, {true, "repair"}, {true, "repair-exhausted"}, {false, "two-packs"}, {false, "two-packs-reverse"}} {
+		t.Run(fmt.Sprintf("%t/%s", scenario.before, scenario.kind), func(t *testing.T) {
+			enableBefore := scenario.before
+			a := authzActors(t)
+			ctx := verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, a))
+			a.SyncStock(ctx)
+			verification.SyncStockScanners(ctx, a.Integrations, stock.FS)
+			tgLocalSh(t, a)
+			pid, _, _ := fleetRepo(t, a, "pack-static", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+			block, err := a.Ways.CreateBlock(ctx, "team/rules", "Original guidance.", "", "boss")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := a.Ways.PublishPack(ctx, "old-language", "Old language", `{"guidance":["team/rules"]}`, ""); err != nil {
+				t.Fatal(err)
+			}
+			if err := recordCatalogFixture(a.Adoption, ctx, pid, "boss"); err != nil {
+				t.Fatal(err)
+			}
+			picks := []adoption.PackPick{{Pack: "old-language", Version: 1}}
+			twoPacks := strings.HasPrefix(scenario.kind, "two-packs")
+			if twoPacks {
+				if _, err := a.Ways.PublishPack(ctx, "second-language", "Second language", `{}`, ""); err != nil {
+					t.Fatal(err)
+				}
+				picks = append(picks, adoption.PackPick{Pack: "second-language", Version: 1})
+			}
+			cand, err := a.Adoption.Prepare(ctx, pid, adoption.Request{Packs: picks})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = a.lifecycle.Adopt(adoption.WithSystemAuthority(ctx, pid), a.projectByID(ctx, pid), cand, "boss", "start on v1"); err != nil {
+				t.Fatal(err)
+			}
+			repairs := 0
+			// The session runner is an external seam; repair scheduling, committed code,
+			// real guidance checks, standing votes and landing stay in the product.
+			// Retain the real fix and routine runners; substitute external tests/boot/scans.
+			rebuildWork(t, a, func(d *workflow.Dependencies) {
+				d.Runners["agent/pi"] = func(e *workflow.Execution) {
+					if _, err := e.Claim(); err != nil {
+						return
+					}
+					repairs++
+					source, err := workflow.ReadSourceIn(e.Context(), a.DB, workflow.RunRef{ID: e.Run().ID, ProjectID: e.Run().ProjectID})
+					if err != nil {
+						t.Fatal(err)
+					}
+					folder, err := source.Workspace(a.cfg.dataDir)
+					if err != nil {
+						t.Fatal(err)
+					}
+					file := "fixed.html"
+					if scenario.kind == "repair-exhausted" {
+						file = "still-broken.html"
+					}
+					if err := os.WriteFile(filepath.Join(folder, "site", file), []byte("repaired by the session"), 0644); err != nil {
+						t.Fatal(err)
+					}
+					if err := repositoryedit.CommitStep(e.Context(), a.DB, a.cfg.dataDir, a.branches, repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, e.Run(), e.Step(), a.cfg.clock.Now()); err != nil {
+						t.Fatal(err)
+					}
+					e.Settle(workflow.EncodeOutcome(workflow.StatusPass, map[string]any{"reason": "repaired application code"}, nil))
+				}
+				for _, kind := range []string{"tests", "preview", "scan", "build"} {
+					d.Runners[kind] = func(e *workflow.Execution) {
+						if _, err := e.Claim(); err != nil {
+							return
+						}
+						source, err := workflow.ReadSourceIn(e.Context(), a.DB, workflow.RunRef{ID: e.Run().ID, ProjectID: e.Run().ProjectID})
+						if err != nil {
+							t.Fatal(err)
+						}
+						sel, err := verification.SelectCommit(e.Context(), a.DB, a.cfg.dataDir, e.Run(), source)
+						if err != nil {
+							t.Fatal(err)
+						}
+						if e.Step().Type == "build" {
+							outcome, err := workflow.EncodeOutcome(workflow.StatusPass, map[string]any{"commit": sel.Commit, "runtime": false, "cleanTreeBuild": "pass"}, nil)
+							if err != nil {
+								t.Fatal(err)
+							}
+							outcome.Artifacts = []workflow.StepArtifact{{ArtifactDraft: workflow.ArtifactDraft{Kind: "build", Name: "no-runtime", Ref: sel.Commit, Body: "External build substituted in the adoption test."}}}
+							e.Settle(outcome, nil)
+							return
+						}
+						e.Settle((workflow.CheckEvidence{Checks: []workflow.CheckReceipt{{Check: e.Step().Name, Verdict: workflow.VerdictNotApplicable, Detail: "static site has no container"}}}).Outcome(workflow.StatusNotApplicable, map[string]any{"commit": sel.Commit, "candidate": sel.Candidate}))
+					}
+				}
+			})
+			var rule workflow.StandingRevision
+			if enableBefore {
+				rule = enablePackRule(t, a, ctx)
+			}
+			// Use the shipped container declarations from the demo case, without
+			// the unrelated front-page runtime probe, which needs a running preview.
+			var containerChecks []json.RawMessage
+			for _, name := range []string{"deploy/health-declared", "deploy/memory-declared"} {
+				b, err := a.Ways.BlockByName(ctx, name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				observed, err := a.Ways.Block(ctx, wow.BlockRef{Name: name, Version: b.LatestVersion})
+				if err != nil {
+					t.Fatal(err)
+				}
+				var checks []json.RawMessage
+				if err := json.Unmarshal([]byte(observed.ChecksJSON), &checks); err != nil {
+					t.Fatal(err)
+				}
+				for _, check := range checks {
+					var c struct{ Name string }
+					if err := json.Unmarshal(check, &c); err != nil {
+						t.Fatal(err)
+					}
+					if c.Name == "readiness-declared" || c.Name == "memory-declared" {
+						containerChecks = append(containerChecks, check)
+					}
+				}
+			}
+			staticBlock, err := a.Ways.CreateBlock(ctx, "team/static-container", "Container declarations.", "", "boss")
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, _ := json.Marshal(containerChecks)
+			if err := a.Ways.BumpBlock(ctx, staticBlock.ID, "Container declarations.", string(raw), "boss", staticBlock.Name); err != nil {
+				t.Fatal(err)
+			}
+			checks := "[]"
+			if scenario.kind == "passing-check" {
+				checks = checksJSON(shCheck("site-exists", "test -f site/index.html", "high"))
+			}
+			if strings.HasPrefix(scenario.kind, "repair") {
+				checks = checksJSON(shCheck("repair-exists", "test -f site/fixed.html", "high"))
+			}
+			if err := a.Ways.BumpBlock(ctx, block.ID, "Published guidance.", checks, "boss", block.Name); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := a.Ways.PublishPack(ctx, "old-language", "Old language", `{"guidance":["team/rules","build/container-image","team/static-container"]}`, ""); err != nil {
+				t.Fatal(err)
+			}
+			if twoPacks {
+				if _, err := a.Ways.PublishPack(ctx, "second-language", "Second language", `{"description":"second publication"}`, ""); err != nil {
+					t.Fatal(err)
+				}
+			}
+			// PackSpec drops unknown fields in resolution, but the authored declaration
+			// itself is versioned; publishing unchanged data never starts a second review.
+			if !enableBefore {
+				id, err := fleetReviewsFor(a).StartWhatIf(ctx, conformance.WhatIfRequest{Pack: "old-language", Version: 2})
+				if err != nil {
+					t.Fatal(err)
+				}
+				runWhatIf(t, a, ctx, id)
+				rule = enablePackRule(t, a, ctx)
+			}
+			// The named pack is the first outdated publication; the other
+			// updates live in Also. Find automatic work whichever pack leads.
+			names := []string{"old-language"}
+			if twoPacks {
+				names = append(names, "second-language")
+			}
+			var latest *conformance.WhatIf
+			var assessments []ids.ID
+			for _, name := range names {
+				w, err := a.conformance.LatestWhatIf(ctx, name, 2)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if w == nil || w.RuleID != rule.RuleID {
+					continue
+				}
+				if w.RuleRevision != rule.Revision || w.RequestedBy != "apptown-system" {
+					t.Fatalf("automatic assessment: %+v", w)
+				}
+				latest = w
+				assessments = append(assessments, w.ID)
+			}
+			if latest == nil {
+				t.Fatal("no automatic assessment for the project's outdated packs")
+			}
+			// Deliver all work in either order, including the separate per-pack
+			// assessments produced if the whole-project guard regresses.
+			if scenario.kind == "two-packs-reverse" {
+				slices.Reverse(assessments)
+			}
+			for _, id := range assessments {
+				if _, err := fleetReviewsFor(a).RunWhatIfJob(ctx, id.String(), nil); err != nil {
+					t.Fatal(err)
+				}
+				a.Work.Wait()
+			}
+			finished, err := a.conformance.WhatIf(ctx, latest.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, project := range finished.Projects {
+				if project.ProjectID == pid {
+					want := conformance.WhatIfNoNewFailures
+					if strings.HasPrefix(scenario.kind, "repair") {
+						want = conformance.WhatIfNewFailures
+					}
+					if project.Outcome != want || project.Score.NotApplicable < 4 {
+						t.Fatalf("static what-if disagrees with adoption: %+v", project)
+					}
+				}
+			}
+			attempts, err := a.Work.Attempts(ctx, pid, "packs", 10)
+			if err != nil || len(attempts) != 1 || attempts[0].RuleID != rule.RuleID || attempts[0].RuleRevision != rule.Revision || !attempts[0].Attempted || attempts[0].Fingerprint == "" {
+				fresh, _ := a.conformance.WhatIf(ctx, latest.ID)
+				eligible, _, _ := a.standingRules.StandingForWorkflow(ctx, pid, "janitor-adopt")
+				t.Fatalf("packs attempt: %+v %v; assessment=%+v rule=%+v", attempts, err, fresh, eligible)
+			}
+			if scenario.kind == "repair-exhausted" {
+				if repairs != 2 || !attempts[0].Failed {
+					t.Fatalf("repair limit: sessions=%d attempt=%+v", repairs, attempts[0])
+				}
+				return
+			}
+			wantRepairs := 0
+			if scenario.kind == "repair" {
+				wantRepairs = 1
+			}
+			if repairs != wantRepairs {
+				ch, _ := a.Work.Change(ctx, attempts[0].ChangeID)
+				snap, _ := a.Work.Snapshot(ctx, ch.RunID, workflow.DetailView)
+				for _, step := range snap.Steps {
+					if step.Status == workflow.StatusFail || step.Status == workflow.StatusError {
+						t.Logf("failed %s: %s", step.Name, step.Evidence)
+					}
+				}
+				t.Fatalf("repair sessions=%d want %d", repairs, wantRepairs)
+			}
+			if dep, _, err := a.standingRules.StandingForWorkflow(ctx, pid, "janitor-update"); err != nil || !dep.RuleID.IsZero() {
+				t.Fatalf("pack consent granted dependencies: %+v %v", dep, err)
+			}
+			// A person's earlier review cannot suppress catch-up, and job redelivery
+			// cannot open a second Change for this assessed candidate.
+			if _, err := fleetReviewsFor(a).RunWhatIfJob(ctx, latest.ID.String(), nil); err != nil {
+				t.Fatal(err)
+			}
+			again, err := a.Work.Attempts(ctx, pid, "packs", 10)
+			if err != nil || len(again) != 1 {
+				t.Fatalf("repeated delivery: %+v %v", again, err)
+			}
+			for _, job := range operationJobs(t, a, standingAcceptanceJob) {
+				result, err := a.Work.RunStandingAcceptance(ctx, job.Key, nil)
+				if err != nil || result["cast"] != true {
+					ch, _ := a.Work.Change(ctx, attempts[0].ChangeID)
+					snap, _ := a.Work.Snapshot(ctx, ch.RunID, workflow.DetailView)
+					t.Fatalf("standing acceptance: %+v %v snapshot=%+v", result, err, snap)
+				}
+			}
+			ch, _ := a.Work.Change(ctx, attempts[0].ChangeID)
+			if _, err := a.Work.Advance(ctx, ch.RunID); err != nil {
+				t.Fatal(err)
+			}
+			a.Work.Wait()
+
+			// Run the durable landing follow-up through the ordinary merge and adoption settlement.
+			for _, job := range operationJobs(t, a, workflowCompletionJob) {
+				if strings.HasSuffix(job.Key, "/land") {
+					if _, err := workflowFollowUps(a).Complete(ctx, job.Key, nil); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			a.Work.Wait()
+			// The daemon advances a newly entered approval stage on its next turn.
+			for i := 0; i < 3; i++ {
+				current, err := a.Work.Change(ctx, attempts[0].ChangeID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if current.State == workflow.ChangeShipped {
+					break
+				}
+				if _, err := a.Work.Advance(ctx, current.RunID); err != nil {
+					t.Fatal(err)
+				}
+				a.Work.Wait()
+			}
+			for _, job := range operationJobs(t, a, workflowCompletionJob) {
+				if strings.HasSuffix(job.Key, "/adopt") {
+					if _, err := workflowFollowUps(a).Complete(ctx, job.Key, nil); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			landed, err := a.Work.Change(ctx, attempts[0].ChangeID)
+			if err != nil || landed.State != workflow.ChangeShipped {
+				snap, _ := a.Work.Snapshot(ctx, landed.RunID, workflow.DetailView)
+				t.Fatalf("adoption did not land: state=%s %v run=%+v events=%+v jobs=%+v", landed.State, err, snap.Run, snap.Events, operationJobs(t, a, workflowCompletionJob))
+			}
+			members, err := adoption.ProjectPacksIn(ctx, a.DB, pid)
+			if err != nil || !slices.ContainsFunc(members, func(p adoption.ProjectPackRecord) bool { return p.Pack == "old-language" && p.Version == 2 }) {
+				t.Fatalf("target not adopted: %+v %v", members, err)
+			}
+			if twoPacks && !slices.ContainsFunc(members, func(p adoption.ProjectPackRecord) bool { return p.Pack == "second-language" && p.Version == 2 }) {
+				t.Fatalf("second target not adopted: %+v", members)
+			}
+			// The job uses current authority, not the publication's saved issuer label.
+			if err := a.standingRules.SetProjectChoice(ctx, pid, "off", "pause pack updates"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := a.Ways.PublishPack(ctx, "old-language", "Old language", `{"description":"third publication"}`, ""); err != nil {
+				t.Fatal(err)
+			}
+			third, err := a.conformance.LatestWhatIf(ctx, "old-language", 3)
+			if err != nil || third == nil {
+				t.Fatalf("third review: %+v %v", third, err)
+			}
+			if _, err := fleetReviewsFor(a).RunWhatIfJob(ctx, third.ID.String(), nil); err != nil {
+				t.Fatal(err)
+			}
+			now, err := a.Work.Attempts(ctx, pid, "packs", 10)
+			if err != nil || len(now) != 1 {
+				t.Fatalf("off project got work: %+v %v", now, err)
+			}
+		})
+	}
+}
+
+func testAdmittedPrincipalForPacks(t *testing.T, a *App) access.Principal {
+	return access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}
 }

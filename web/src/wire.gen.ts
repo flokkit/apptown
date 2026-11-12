@@ -1861,51 +1861,6 @@ export type RoutineAdoptionTarget = {
   currentId: string | null
   targetId: string | null
   candidateDigest: string
-  classifications: RoutineConsentRef[]
-}
-
-export type RoutineConsentRef = {
-  id: string | null
-  digest: string
-  shown: string
-}
-
-export type RoutinePublicationClassification = {
-  id: string | null
-  requestId: string | null
-  question: RoutinePublicationQuestion
-  issuer: StandingActor
-  at: string
-  revocation?: RoutinePublicationRevocation | null
-}
-
-export type RoutinePublicationConsent = {
-  requestId: string | null
-  transition: RoutinePublicationTransition
-  shownDigest: string
-}
-
-export type RoutinePublicationQuestion = {
-  transition: RoutinePublicationTransition
-  before: unknown
-  after: unknown
-  eligible: boolean
-  reason: string
-  shown: string
-  digest: string
-}
-
-export type RoutinePublicationRevocation = {
-  actor: StandingActor
-  at: string
-  reason: string
-}
-
-export type RoutinePublicationTransition = {
-  kind: string
-  id: string | null
-  from: number
-  to: number
 }
 
 export type RunFindingsView = {
@@ -2408,6 +2363,8 @@ export type Verdict = {
 }
 
 export type WhatIf = {
+  ruleId?: string | null
+  ruleRevision: number
   statusLabel: WhatIfLabel
   statusHelp: string
   outcomeLabels: Record<string, CheckLabel>

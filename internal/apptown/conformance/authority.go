@@ -38,6 +38,7 @@ type systemScope struct {
 	run          RunScope
 	verification verificationScope
 	adoption     AdoptionScope
+	packs        PackReviewScope
 }
 
 func WithRun(ctx context.Context, run RunScope) context.Context {
@@ -68,7 +69,7 @@ func (a commandAuthority) Actor(ctx context.Context) (string, error) {
 	}
 
 	caller, _ := ctx.Value(scopeKey{}).(systemScope)
-	if caller.run != nil || caller.verification != nil || caller.adoption != nil {
+	if caller.run != nil || caller.verification != nil || caller.adoption != nil || caller.packs != nil {
 		return "apptown-system", nil
 	}
 	c, ok := access.CallerFrom(ctx)
@@ -136,6 +137,15 @@ func (a commandAuthority) Require(ctx context.Context, permission permission) (s
 		}
 		return who, nil
 	}
+	if caller.packs != nil {
+		if permission.Action != runWhatIf {
+			return deny("publication authority only starts a what-if")
+		}
+		if err := caller.packs.RequirePackReview(ctx); err != nil {
+			return "", err
+		}
+		return "apptown-system", nil
+	}
 	asked, _ := access.CallerFrom(ctx)
 	pr := asked.Principal
 	var capability access.Capability
@@ -169,4 +179,11 @@ func (a commandAuthority) Require(ctx context.Context, permission permission) (s
 		return "", err
 	}
 	return who, nil
+}
+
+// PackReviewScope is the standing owner's current human authority for a pack assessment.
+type PackReviewScope interface{ RequirePackReview(context.Context) error }
+
+func WithPackReview(ctx context.Context, scope PackReviewScope) context.Context {
+	return context.WithValue(ctx, scopeKey{}, systemScope{packs: scope})
 }

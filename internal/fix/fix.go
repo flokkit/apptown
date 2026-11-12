@@ -59,6 +59,9 @@ func Parse(raw string) ([]Declaration, error) {
 		if !ok {
 			return nil, fmt.Errorf("fix kind %q is not supported", d.Kind)
 		}
+		if k.PublishedDeclaration {
+			return nil, fmt.Errorf("fix %s is declared by a published pack version, not guidance", d.Kind)
+		}
 		fields := map[string]any{"ecosystem": d.Ecosystem, "run": d.Run, "runMajor": d.RunMajor, "runFor": d.RunFor, "list": d.List, "files": d.Files}
 		for name, value := range fields {
 			if !reflect.ValueOf(value).IsZero() && !slices.ContainsFunc(k.DeclarationFields, func(f DeclarationField) bool { return f.Name == name }) {

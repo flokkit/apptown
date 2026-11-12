@@ -2,6 +2,7 @@ package projectlifecycle
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -106,5 +107,60 @@ func TestCreatingWithAPackNotOfferedCreatesNothing(t *testing.T) {
 	}
 	if _, err := f.lifecycle.Create(context.Background(), Draft{Slug: "packed", Name: "Packed", Actor: "bls", Packs: []string{"server-base", "django", "postgres", "server-rendered"}}); err != nil {
 		t.Fatalf("an offered pack's creation: %v", err)
+	}
+}
+
+// A fresh instance needs no janitor rule or assessment history for current
+// publications to be offered and installed on its first project.
+func TestFirstProjectGetsNewestStockPublicationsWithJanitorOff(t *testing.T) {
+	t.Parallel()
+	f := newOwnerFixture(t, true)
+	packs, err := f.ways.Packs(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, pack := range packs {
+		declaration, err := f.ways.PackDeclaration(t.Context(), pack.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		spec := declaration.Spec()
+		spec.Suggested = !spec.Suggested
+		raw, err := json.Marshal(spec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		version, err := f.ways.PublishPack(t.Context(), pack.Name, pack.Description, string(raw), pack.Origin)
+		if err != nil {
+			t.Fatal(err)
+		}
+		offered, err := f.ways.Pack(t.Context(), pack.Name)
+		if err != nil || offered.Version != int64(version) || version <= int(pack.Version) {
+			t.Fatalf("newest %s: %+v %v", pack.Name, offered, err)
+		}
+	}
+	p, err := f.lifecycle.Create(t.Context(), Draft{Slug: "first-current", Name: "First current", Actor: "bls", Packs: []string{"go"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.lifecycle.InitializeRepository(t.Context(), p, "main", ""); err != nil {
+		t.Fatal(err)
+	}
+	pack, err := f.ways.Pack(t.Context(), "go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.lifecycle.ApplyPack(adoption.WithSystemAuthority(t.Context(), p.ID), p, []*wow.Pack{pack}, "bls"); err != nil {
+		t.Fatal(err)
+	}
+	memberships, err := adoption.ProjectPacksIn(t.Context(), f.db, p.ID)
+	if err != nil || len(memberships) != 2 {
+		t.Fatalf("initial packs: %+v %v", memberships, err)
+	}
+	for _, member := range memberships {
+		newest, err := f.ways.Pack(t.Context(), member.Pack)
+		if err != nil || member.Version != newest.LatestVersion {
+			t.Fatalf("first project got an older %s: %+v %+v %v", member.Pack, member, newest, err)
+		}
 	}
 }

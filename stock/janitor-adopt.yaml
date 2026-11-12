@@ -1,0 +1,46 @@
+apiVersion: apptown.dev/v1
+kind: Workflow
+metadata:
+  name: janitor-adopt
+  tier: core
+  category: maintenance
+  description: Adopt an assessed pack publication and check the result.
+spec:
+  kind: pipeline
+  role: working
+  stages:
+    - name: adopt
+      onEnter:
+        - name: adopt
+          uses: fix
+          with: {kind: adopt}
+      steps:
+        - name: repair
+          uses: agent/pi
+          with:
+            repairRounds: 2
+            mayChangeNothing: true
+            skills: [skill/janitor]
+            prompt: Make the failing check pass within this change’s intent. Write the code this update needs and run its checks. Never widen the change.
+        - name: tests
+          uses: tests
+        - name: boot
+          uses: preview
+        - name: scan-source
+          uses: scan
+          with: {on: source}
+        - name: scan-image
+          uses: scan
+          with: {on: image}
+        - name: guidance-conformance
+          uses: guidance/conformance
+        - name: routine
+          uses: routine
+        - name: accept
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: I accept this pack adoption and its application repairs after checking the evidence.
+            standing:
+              class: routine-update
+              means: The adoption target is still the assessed candidate and every required check is met.

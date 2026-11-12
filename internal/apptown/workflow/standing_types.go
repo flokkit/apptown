@@ -155,6 +155,9 @@ func normalizeStanding(in StandingDefinition) (StandingDefinition, error) {
 		return invalid("select an exact project set; multiple projects require administrative management")
 	}
 	c := in.Categories
+	if c.WaysOfWorking && (c.Dependencies != "" || c.BaseImages || c.SecurityFixes) {
+		return invalid("keep packs current is its own category; enable it separately from dependency and image fixes")
+	}
 	if c.Dependencies != "" && c.Dependencies != "routine" && c.Dependencies != "aggressive" {
 		return invalid("dependency update level must be routine or aggressive")
 	}
@@ -219,7 +222,7 @@ func standingQuestion(in StandingDefinition, projects []StandingProjectMeaning) 
 		}
 	}
 	b.WriteString("Mixed supported updates require every component to belong to an enabled category and pass its complete independent check. Any unsupported component requires a person. ")
-	b.WriteString("An agent writes any application code the declared fix needs; every required check must be met. New packages exceed dependency-update consent. The selected level bounds version changes. Missing, skipped, not-applicable, waived, failed or unknown evidence is not a pass. Current authority is required at each effect. Disabling stops future claims; an already claimed effect may finish. Automatic processing checks the current rule, project choice and release health at every effect.")
+	b.WriteString("An agent writes any application code the declared fix needs; every required check must be met. New packages exceed dependency-update consent. The selected level bounds version changes. A check AppTown judges not applicable with a reason is met. Missing, skipped, waived, failed or unknown evidence is not met. Current authority is required at each effect. Disabling stops future claims; an already claimed effect may finish. Automatic processing checks the current rule, project choice and release health at every effect.")
 	q.Shown = b.String()
 	raw, err := json.Marshal(q)
 	if err != nil {

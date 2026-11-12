@@ -45,7 +45,7 @@ func (h ProjectScans) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	queues := []workflow.QueueStatus{}
-	for _, queue := range []string{"security", "updates"} {
+	for _, queue := range []string{"security", "updates", "packs"} {
 		state, err := h.work.QueueState(r.Context(), p.ID, queue)
 		if err != nil {
 			WriteFault(w, err)

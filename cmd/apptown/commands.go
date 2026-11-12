@@ -112,7 +112,6 @@ var sections = []section{
 			{[]string{"purge"}, `  purge <slug>                          admin: purge a deleted project now (its backups, repository and records)`, cmdPurge},
 			{[]string{"pack"}, `  pack -p <slug> <pack-name>...         apply packs, together, to an existing project
   pack versions <pack>                  a pack's versions: names, what each was made from, which is recommended
-  pack recommend <pack> <version> [--what-if <id>]
                                         make a version the one new projects get and others are offered (a person's act),
                                         naming the what-if it was decided on`, cmdPack},
 			{[]string{"workflows"}, `  workflows -p <slug>                   list a project's workflows`, cmdWorkflows},
@@ -161,7 +160,7 @@ var sections = []section{
                                         already on them): every project on an earlier version, or those -p names; one line
                                         per project (new failures, could not assess and why). Never changes
                                         standing; model rubrics only with --rubrics and a spend limit. Run it
-                                        before apptown pack recommend
+                                        before adopting a pack version
   whatif show <id>                      a what-if's answer again
   whatif adopt <id> -p p1[,p2]          open one adoption Change per named project, taking what the what-if
                                         assessed for it (exit 0 only when every one opened); --accept-in-advance

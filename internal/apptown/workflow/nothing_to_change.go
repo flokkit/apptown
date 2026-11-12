@@ -123,6 +123,15 @@ func ChangeIsEmpty(ctx context.Context, dataDir string, source Source) (bool, er
 // that closes it. A run that moved, or a change that is no longer empty,
 // is ErrRunMoved and stays open; a read failure is an error, never empty.
 func (s *Service) endNothingToChange(ctx context.Context, expected *Run) error {
+	// An adoption changes governed data even when it needs no source edits.
+	ch, err := readChangeInProject(ctx, s.db, expected.ChangeID, expected.ProjectID)
+	if err != nil {
+		return err
+	}
+	if ch.LandsWithoutCode() {
+		return ErrRunMoved
+	}
+
 	closure, err := scm.PrepareClosure(ctx, s.abandonments.locks, expected.ProjectID)
 	if err != nil {
 		return err

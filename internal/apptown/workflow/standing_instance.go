@@ -29,21 +29,27 @@ func normalizeInstanceStanding(in StandingDefinition) (StandingDefinition, error
 	if in.Delivery != "full" {
 		return bad("instance consent includes releases under each deployment's setting")
 	}
-	if in.Categories.Dependencies == "" {
+	if in.Categories.Dependencies == "" && !in.Categories.WaysOfWorking {
 		in.Categories.Dependencies = "routine"
 	}
-	if in.Categories.Dependencies != "routine" && in.Categories.Dependencies != "aggressive" {
+	if in.Categories.Dependencies != "" && in.Categories.Dependencies != "routine" && in.Categories.Dependencies != "aggressive" {
 		return bad("select a dependency update bound")
 	}
-	if in.Categories.BaseImages || in.Categories.WaysOfWorking {
-		return bad("select only declared dependency fixes for scheduled instance consent")
+	if in.Categories.BaseImages || in.Categories.WaysOfWorking && (in.Categories.Dependencies != "" || in.Categories.SecurityFixes) {
+		return bad("keep packs current is its own category; enable it separately from dependency fixes")
 	}
 	in.Administrative = true
 	in.Schedules = slices.Clone(in.Schedules)
 	slices.SortFunc(in.Schedules, func(a, b standingSchedule) int { return strings.Compare(a.Workflow, b.Workflow) })
 	for i, schedule := range in.Schedules {
 		if schedule.Workflow == "" || i > 0 && in.Schedules[i-1].Workflow == schedule.Workflow {
-			return bad("select each workflow once")
+			return bad("choose each workflow once")
+		}
+		if in.Categories.WaysOfWorking {
+			if len(schedule.Crons) != 0 {
+				return bad("pack updates follow publications, not a schedule")
+			}
+			continue
 		}
 		if len(schedule.Crons) != 2 {
 			return bad("select only routine and aggressive crons for each workflow")
@@ -61,6 +67,9 @@ func (s StandingRules) instanceQuestion(ctx context.Context, q database.Queryer,
 	shown := "Update level: " + in.Categories.Dependencies + ". " + janitorConsent
 	if in.Categories.Dependencies == "aggressive" {
 		shown = strings.Replace(shown, "each Monday applies patch and minor dependency updates", "every night applies dependency updates, including major versions", 1)
+	}
+	if in.Categories.WaysOfWorking {
+		shown = packConsent
 	}
 	out := StandingQuestion{Definition: in, Shown: shown}
 	procedures, ok := s.deps.Procedures.(standingInstanceProcedures)
@@ -110,7 +119,7 @@ func (s StandingRules) instanceQuestion(ctx context.Context, q database.Queryer,
 	return out, nil
 }
 
-func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, rule StandingRevision, pid ids.ID, workflow string) (StandingProcedure, error) {
+func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, rule StandingRevision, pid ids.ID, workflow string, target ...ids.ID) (StandingProcedure, error) {
 	var out StandingProcedure
 	if s.deps.Identity == nil || s.deps.Procedures == nil {
 		return out, access.ErrAuthorityUnavailable
@@ -169,7 +178,24 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 	if independent {
 		return refuse("independent approval requires a person")
 	}
-	proc, err := s.deps.Procedures.StandingProcedure(ctx, q, pid, workflow)
+	var proc StandingProcedure
+	if in.Categories.WaysOfWorking && in.Scope == "instance" {
+		if len(target) > 0 {
+			reader, ok := s.deps.Procedures.(standingTargetProcedures)
+			if !ok {
+				return refuse("target procedure observation is unavailable")
+			}
+			proc, err = reader.StandingTargetProcedure(ctx, q, pid, target[0], workflow)
+		} else {
+			reader, ok := s.deps.Procedures.(standingInstanceProcedures)
+			if !ok {
+				return refuse("published procedure observation is unavailable")
+			}
+			proc, err = reader.InstanceStandingProcedure(ctx, q, workflow)
+		}
+	} else {
+		proc, err = s.deps.Procedures.StandingProcedure(ctx, q, pid, workflow)
+	}
 	if err != nil {
 		return out, err
 	}
@@ -207,7 +233,7 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 	if err != nil {
 		return out, err
 	}
-	if len(portfolio) != 1 || !portfolio[0].Covered {
+	if len(portfolio) != 1 || !in.Categories.WaysOfWorking && !portfolio[0].Covered {
 		return refuse("this project needs a pack upgrade")
 	}
 	if in.Scope != "instance" {
@@ -247,6 +273,15 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 // StandingForWorkflow is the scheduler's current eligibility read. The returned
 // revision is attribution for this firing; it is never an acceptance vote.
 func (s StandingRules) StandingForWorkflow(ctx context.Context, pid ids.ID, workflow string) (StandingRevision, string, error) {
+	return s.standingForWorkflow(ctx, pid, workflow, ids.Nil)
+}
+
+// Execution uses its frozen adoption when matching approval meanings.
+func (s StandingRules) standingForWorkflow(ctx context.Context, pid ids.ID, workflow string, target ids.ID) (StandingRevision, string, error) {
+	var targets []ids.ID
+	if !target.IsZero() {
+		targets = []ids.ID{target}
+	}
 	rows, err := workflowsql.New(s.db.SQL()).CurrentStandingRules(ctx)
 	if err != nil {
 		return StandingRevision{}, "", err
@@ -256,7 +291,7 @@ func (s StandingRules) StandingForWorkflow(ctx context.Context, pid ids.ID, work
 		if err != nil {
 			return StandingRevision{}, "", err
 		}
-		if _, err = s.eligibleForIn(ctx, s.db, rule, pid, workflow); err != nil {
+		if _, err = s.eligibleForIn(ctx, s.db, rule, pid, workflow, targets...); err != nil {
 			if standingRefusal(err) {
 				continue
 			}
@@ -271,6 +306,7 @@ func (s StandingRules) StandingForWorkflow(ctx context.Context, pid ids.ID, work
 				return rule, schedule.Crons[level], nil
 			}
 		}
+		return rule, "", nil
 	}
 	return StandingRevision{}, "", nil
 }
@@ -397,4 +433,8 @@ func (s StandingRules) effectiveLevelIn(ctx context.Context, q database.Queryer,
 		return act.Level, nil
 	}
 	return "", fault.New(fault.Conflict, "project janitor level is invalid")
+}
+
+type standingTargetProcedures interface {
+	StandingTargetProcedure(context.Context, database.Queryer, ids.ID, ids.ID, string) (StandingProcedure, error)
 }

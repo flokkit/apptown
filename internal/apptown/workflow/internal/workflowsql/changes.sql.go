@@ -658,6 +658,25 @@ func (q *Queries) EndAutomatedChange(ctx context.Context, arg EndAutomatedChange
 	return err
 }
 
+const hasBlockingPackUplift = `-- name: HasBlockingPackUplift :one
+SELECT EXISTS(SELECT 1 FROM changes c
+LEFT JOIN automated_changes a ON a.active_change_id=c.id
+WHERE c.project_id=$1 AND c.type='uplift' AND c.state=$2
+AND (NOT c.automated OR COALESCE(a.queue,'') <> 'packs'))
+`
+
+type HasBlockingPackUpliftParams struct {
+	ProjectID ids.ID
+	State     string
+}
+
+func (q *Queries) HasBlockingPackUplift(ctx context.Context, arg HasBlockingPackUpliftParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasBlockingPackUplift, arg.ProjectID, arg.State)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const hasOpenUplift = `-- name: HasOpenUplift :one
 SELECT EXISTS(SELECT 1 FROM changes WHERE project_id=$1 AND type='uplift' AND state=$2)
 `

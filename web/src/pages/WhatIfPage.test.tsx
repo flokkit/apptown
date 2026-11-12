@@ -161,7 +161,7 @@ describe('the what-if page', () => {
 
   it('links to the pack recommendation with the assessed what-if', async () => {
     const { el, done } = await render(() => whatIf)
-    expect(el.querySelector(`a[href="/packs/team?whatIf=${WHAT_IF}"]`)?.textContent).toContain('Recommend v2')
+    expect(el.querySelector(`a[href="/packs/team?whatIf=${WHAT_IF}"]`)?.textContent).toContain('Read v2')
     expect(button(el, 'Recommend')).toBeUndefined()
     done()
   })

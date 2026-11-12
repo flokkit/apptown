@@ -31,7 +31,7 @@ func (s Scans) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, error)
 	if !scans.Known {
 		out.Items = append(out.Items, Item{Key: "scans/" + id.String(), Severity: SeverityWarning, Title: fmt.Sprintf("%s: scan not known", p.Name), Detail: "A scan is missing, could not run, or is older than three days.", Href: href, Unknown: true, Stale: scans.Stale, ObservedAt: scans.LastScan})
 	}
-	for _, queue := range []string{"security", "updates"} {
+	for _, queue := range []string{"security", "updates", "packs"} {
 		state, err := s.Work.QueueState(ctx, id, queue)
 		if err != nil {
 			return Snapshot{}, err

@@ -25,7 +25,12 @@ type standingInstanceProcedures interface {
 	InstanceStandingProcedure(context.Context, database.Queryer, string) (StandingProcedure, error)
 }
 
+type packRuleEnabler interface {
+	PackRuleEnabledIn(context.Context, *database.Tx, StandingRevision) error
+}
+
 type StandingDependencies struct {
+	Packs        packRuleEnabler
 	Portfolio    standingPortfolio
 	Adoptions    standingAdoptions
 	Inspector    standingInspector
@@ -256,6 +261,11 @@ func (s StandingRules) Enable(ctx context.Context, in StandingCommand) (Standing
 		r := StandingRevision{RuleID: id, Revision: in.ExpectedRevision + 1, Enabled: true, Question: question, Issuer: actor, EnabledAt: at, ChangedBy: actor, ChangedAt: at, Reason: "explicit human consent"}
 		if err = writeStandingRevision(ctx, tx, r, in.RuleID.IsZero()); err != nil {
 			return StandingRevision{}, err
+		}
+		if definition.Categories.WaysOfWorking && s.deps.Packs != nil {
+			if err := s.deps.Packs.PackRuleEnabledIn(ctx, tx, r); err != nil {
+				return StandingRevision{}, err
+			}
 		}
 		return r, nil
 	})

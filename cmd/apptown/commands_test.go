@@ -1299,56 +1299,10 @@ func TestShowSaysWhatTheWaitingApprovalAdds(t *testing.T) {
 	}
 }
 
-// `apptown pack recommend` sends the version a person chose and says that no
-// project moved; `apptown pack versions` shows each version's name and base,
-// marking the recommended one. A bare pack name still applies.
-func TestPackRecommendAndVersions(t *testing.T) {
-	history := `{"name":"team","recommended":2,"latest":3,"versions":[
-	 {"version":3,"name":"tidied","basedOn":2,"note":"its items moved in the library"},
-	 {"version":2,"basedOn":1,"note":"published contents"}]}`
-	alreadyRecommended := false
-	seen := fakeAppTown(t, func(_, path string) (int, string) {
-		if path == "/packs/team/recommended" && alreadyRecommended {
-			return 409, `{"error":"that version is already recommended; nothing changed and the what-if was not recorded"}`
-		}
-		if path == "/packs/team/recommended" || path == "/packs/team" {
-			return 200, history
-		}
-		return 404, `{"error":"no"}`
-	})
-	out, err := run(t, "pack", "recommend", "team", "v3")
-	if err != nil || !strings.Contains(out, "team v3 is recommended. No project moved") {
-		t.Fatalf("recommend: %v\n%s", err, out)
-	}
-	last := (*seen)[len(*seen)-1]
-	if last.Method != "POST" || last.Path != "/packs/team/recommended" || last.Body["version"] != float64(3) {
-		t.Fatalf("recommend sent %+v", last)
-	}
-	out, err = run(t, "pack", "versions", "team")
-	if err != nil || !strings.Contains(out, `  v3 "tidied" from v2`) || !strings.Contains(out, "* v2 from v1") ||
-		!strings.Contains(out, "its items moved in the library") {
-		t.Fatalf("versions: %v\n%s", err, out)
-	}
-	if _, err := run(t, "pack", "recommend", "team", "latest"); err == nil {
-		t.Fatal("a version that is not a number was sent")
-	}
-	if last.Body["whatIf"] != nil {
-		t.Fatalf("a recommendation named a what-if it was not given: %+v", last.Body)
-	}
-	out, err = run(t, "pack", "recommend", "team", "3", "--what-if", "00000000-000c-7000-8000-000000000000")
-	if last := (*seen)[len(*seen)-1]; err != nil || last.Body["whatIf"] != "00000000-000c-7000-8000-000000000000" || !strings.Contains(out, "as assessed in what-if 00000000-000c-7000-8000-000000000000") {
-		t.Fatalf("recommend --what-if: %v %+v\n%s", err, last.Body, out)
-	}
-	// AppTown refuses a what-if on the version already recommended
-	// (nothing moved, nothing recorded): the command fails with its words
-	// and never says the what-if was recorded.
-	alreadyRecommended = true
-	out, err = run(t, "pack", "recommend", "team", "2", "--what-if", "00000000-000d-7000-8000-000000000000")
-	if err == nil || !strings.Contains(err.Error(), "already recommended") || strings.Contains(out, "as assessed in what-if 00000000-000d") {
-		t.Fatalf("recommending the recommended version on a what-if: %v\n%s", err, out)
-	}
-	if _, err := run(t, "pack", "recommend", "team", "2", "--what-if", "x"); err == nil {
-		t.Fatal("a what-if that is not a number was sent")
+func TestPackRecommendationCommandIsGone(t *testing.T) {
+	seen := fakeAppTown(t, func(_, path string) (int, string) { t.Fatalf("removed command called %s", path); return 500, "" })
+	if _, err := run(t, "pack", "recommend", "team", "2"); err == nil || len(*seen) > 0 {
+		t.Fatalf("removed command: %v %+v", err, seen)
 	}
 }
 

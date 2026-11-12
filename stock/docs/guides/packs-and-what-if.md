@@ -25,14 +25,14 @@ Every run records the version it used.
 - **Stop offering** a pack and new projects cannot pick it; projects on it
   keep it. Stock packs cannot be deleted. To change a stock pack, **Include
   in a new pack** and change your copy.
-- Saving a pack makes a new version. On the pack's page, **Recommend** a
-  version to make it the one new projects get and the one others are
-  offered (or `apptown pack recommend <pack> <version>`; `apptown pack versions
-  <pack>` lists them). No project moves until its owner adopts the version.
-  A new AppTown release publishes its stock packs' new versions without
-  recommending them; AppTown's start-up log names each one waiting
-  (`stock pack <name>: vN published, vM recommended`).
-- Before recommending, run **What-if** on that version (or `apptown whatif
+- Saving a pack publishes the version new projects get and existing projects
+  are offered. `apptown pack versions <pack>` lists publications. Existing
+  projects move through adoption Changes. **Keep packs current** under Packs
+  lets the janitor assess new publications, repair any code they need, and
+  land and release them when every required check is met. It also catches up
+  projects when enabled. The project level `off` and release holds still apply;
+  dependency update coverage does not.
+- Run **What-if** on a version (or `apptown whatif
   <pack> <version>`): by default it runs on every eligible project, one on
   an earlier version of the pack, or on projects you choose (on the pack,
   or not yet on it, with `-p <project>[,<project>…]`). Its checks run on
@@ -59,8 +59,8 @@ Every run records the version it used.
   projects already on those packs. Eligible projects then include those
   current on this pack but behind on their own.
   Every what-if is listed under **Conformance → Pack upgrades**, which also
-  lists the projects behind on a pack and can start a what-if itself. Its recommendation
-  link opens the pack page. Recommend the version there, or tick projects and
+  lists the projects behind on a pack and can start a what-if itself. Its pack
+  link opens the publication. Tick projects and
   **Adopt** to open one adoption Change per project with exactly what was
   assessed (or `apptown whatif adopt <id> -p <project>[,<project>…]`). Each
   Change starts its working run (quick-change, or implement) at once: the
@@ -76,10 +76,8 @@ Every run records the version it used.
   person. A project whose quick-change or landing does not say what such a
   yes means offers none.
   Adopting takes the right to choose a project's way of working, which
-  maintainers and owners hold. Following the what-if’s link and recommending on the pack
-  page, or using `apptown pack recommend <pack> <version> --what-if <id>`,
-  records the what-if on the recommendation it makes; naming a what-if for
-  the version already recommended is refused, as nothing would change. Model
+  maintainers and owners hold. A what-if is impact information, shown on
+  the pack page beside its newest version. It does not gate publication. Model
   rubrics cost money, so they run only if you include them with a spend
   limit (on the page, or `--rubrics <dollars>`); spend is read before each
   project, and once it reaches the limit no more are sent, so one project's

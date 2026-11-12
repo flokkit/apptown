@@ -538,8 +538,6 @@ func cmdPack(args []string) error {
 		switch args[0] {
 		case "versions":
 			return cmdPackVersions(args[1:])
-		case "recommend":
-			return cmdPackRecommend(args[1:])
 		}
 	}
 	fs := newFlags("pack")
@@ -739,38 +737,6 @@ func printPackHistory(h packHistory) {
 			fmt.Println("      " + v.Note)
 		}
 	}
-}
-
-// cmdPackRecommend moves a pack's recommendation; --what-if names the
-// what-if the person decided on, which AppTown checks is a finished one
-// of that version and records on the recommendation.
-func cmdPackRecommend(args []string) error {
-	fs := newFlags("pack recommend")
-	whatIf := fs.String("what-if", "", "the what-if of this version the recommendation was decided on")
-	pos := parseArgs(fs, args)
-	if len(pos) != 2 {
-		return usagef("usage: apptown pack recommend <pack> <version> [--what-if <id>]")
-	}
-	version, err := strconv.ParseInt(strings.TrimPrefix(pos[1], "v"), 10, 64)
-	if err != nil || version < 1 {
-		return usagef("version must be a number such as 3 or v3, not %q", pos[1])
-	}
-	body := map[string]any{"version": version}
-	basis := ""
-	if *whatIf != "" {
-		id, err := parseID(*whatIf, "--what-if")
-		if err != nil {
-			return err
-		}
-		body["whatIf"], basis = id, fmt.Sprintf(", as assessed in what-if %s", id)
-	}
-	var h packHistory
-	if err := api.post("/packs/"+pos[0]+"/recommended", body, &h); err != nil {
-		return fmt.Errorf("recommend: %w", err)
-	}
-	fmt.Printf("%s v%d is recommended%s. No project moved: each is offered it on its Settings page.\n", h.Name, version, basis)
-	printPackHistory(h)
-	return nil
 }
 
 // cmdSchedules lists what a project's schedules will do and last did, in

@@ -247,6 +247,11 @@ func (s StandingRules) assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 	if err != nil {
 		return out, err
 	}
+	if rule.Question.Definition.Scope == "instance" && categories.WaysOfWorking {
+		if _, err := s.eligibleForIn(ctx, s.db, rule, first.source.ProjectID, first.source.WorkflowName, first.run.AdoptionID); err != nil {
+			return out, err
+		}
+	}
 	var inspection StandingInspection
 	if target != nil {
 		inspector, ok := s.deps.Inspector.(standingAdoptionInspector)
@@ -311,6 +316,13 @@ func (s StandingRules) assessmentAdoption(ctx context.Context, observed standing
 	}
 	if !categories.WaysOfWorking {
 		return nil, fault.New(fault.Conflict, "ways-of-working updates are not permitted by this rule")
+	}
+	origin, err := workflowsql.New(s.db.SQL()).QueueAttempt(ctx, ch.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(origin) != 1 || origin[0].Queue != "packs" || origin[0].RuleID.IsZero() {
+		return nil, fault.New(fault.Conflict, "standing pack adoption needs a Change opened from a finished what-if")
 	}
 	if ch.TargetAdoptionID.IsZero() || s.deps.Adoptions == nil {
 		return nil, fault.New(fault.Unavailable, "the recorded adoption target cannot be checked")

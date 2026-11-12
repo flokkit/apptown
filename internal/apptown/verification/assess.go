@@ -3,8 +3,6 @@ package verification
 import (
 	"context"
 
-	"github.com/flokkit/apptown/internal/apptown/workflow"
-
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/strs"
@@ -64,7 +62,7 @@ func (f Fleet) assessChecks(ctx context.Context, checks []conformance.DeclaredCh
 		checks, more = splitApplicable(checks, "llm", src, check.Posture)
 		for _, d := range append(settled, more...) {
 			state := conformance.NotApplicable
-			if d.Receipt.Verdict == workflow.VerdictError {
+			if !d.Receipt.Met() {
 				state = conformance.EvaluationError
 			}
 			out = append(out, treeAssessment{Check: d.Check, State: state, Detail: d.Receipt.Detail})

@@ -18,6 +18,7 @@ import (
 // StandingProcedures reads current governed declarations. It does not infer a
 // fallback workflow from failed selection or reuse accept-in-advance sentences.
 type StandingProcedures struct {
+	Adoptions    *adoption.Service
 	Publications interface {
 		PublishedWorkflow(context.Context, database.Queryer, string) (*adoption.ResolvedWorkflow, error)
 	}
@@ -110,6 +111,39 @@ func (s StandingProcedures) InstanceStandingProcedure(ctx context.Context, q dat
 		*purposes[i], err = standingPurpose(resolved, i == 0)
 		if err != nil {
 			return out, err
+		}
+	}
+	return out, nil
+}
+
+// StandingTargetProcedure reads the candidate's frozen procedures; publishing a
+// new approval meaning cannot silently replace the one the person consented to.
+func (s StandingProcedures) StandingTargetProcedure(ctx context.Context, q database.Queryer, pid, target ids.ID, name string) (workflow.StandingProcedure, error) {
+	var out workflow.StandingProcedure
+	ad, err := adoption.ProjectAdoptionIn(ctx, q, pid, target)
+	if err != nil {
+		return out, err
+	}
+	for i, n := range []string{name, "land"} {
+		w, err := s.Adoptions.Workflow(ctx, adoption.WorkflowRequest{Source: adoption.Source{ProjectID: pid, Revision: ad}, Name: n})
+		if err != nil {
+			return out, err
+		}
+		violations, err := s.Laws.ViolationsIn(ctx, q, pid, &w.Doc.Spec)
+		if err != nil {
+			return out, err
+		}
+		if len(violations) > 0 {
+			return out, fault.New(fault.Conflict, "the target workflow does not satisfy current project law")
+		}
+		purpose, err := standingPurpose(w, i == 0)
+		if err != nil {
+			return out, err
+		}
+		if i == 0 {
+			out.Acceptance = purpose
+		} else {
+			out.Landing = purpose
 		}
 	}
 	return out, nil

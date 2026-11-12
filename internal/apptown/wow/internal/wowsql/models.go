@@ -55,15 +55,14 @@ type LibWorkflowVersion struct {
 }
 
 type Pack struct {
-	ID                 ids.ID
-	Name               string
-	Description        string
-	SpecJson           json.RawMessage
-	LatestVersion      int64
-	RecommendedVersion int64
-	Origin             string
-	Enabled            bool
-	UpdatedAt          time.Time
+	ID            ids.ID
+	Name          string
+	Description   string
+	SpecJson      json.RawMessage
+	LatestVersion int64
+	Origin        string
+	Enabled       bool
+	UpdatedAt     time.Time
 }
 
 type PackVersion struct {
@@ -89,20 +88,6 @@ type PolicyLibrary struct {
 	ConfigJson  json.RawMessage
 	Origin      string
 	UpdatedAt   time.Time
-}
-
-type RoutinePublicationClassification struct {
-	ID              ids.ID
-	PublicationKind string
-	PublicationID   ids.ID
-	FromVersion     int64
-	ToVersion       int64
-	Digest          string
-	IssuerID        ids.ID
-	RequestID       ids.ID
-	CreatedAt       time.Time
-	RecordJson      json.RawMessage
-	RevocationJson  json.RawMessage
 }
 
 type SystemWorkflow struct {

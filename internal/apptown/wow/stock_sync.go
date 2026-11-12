@@ -311,27 +311,7 @@ func (s *Service) SyncStockPacks(ctx context.Context) SyncCounts {
 	if _, err := s.packs.CutOnPinChange(ctx); err != nil {
 		log.Printf("packs: cutting on moved contents: %v", err)
 	}
-	for _, line := range s.waitingStockVersions(ctx) {
-		log.Print(line)
-	}
 	return c
-}
-
-// waitingStockVersions names each stock pack whose latest version is not
-// the recommended one: a release publishes, and the version is recommended
-// after a what-if. The boot log says what waits and the command that moves it.
-func (s *Service) waitingStockVersions(ctx context.Context) []string {
-	packs, err := s.packs.published(ctx)
-	if err != nil {
-		return []string{fmt.Sprintf("stock packs: reading which versions wait for a recommendation: %v", err)}
-	}
-	var out []string
-	for _, p := range packs {
-		if p.Origin == "stock" && p.LatestVersion != p.RecommendedVersion {
-			out = append(out, fmt.Sprintf("stock pack %s: v%d published, v%d recommended (apptown pack recommend %s %d)", p.Name, p.LatestVersion, p.RecommendedVersion, p.Name, p.LatestVersion))
-		}
-	}
-	return out
 }
 
 func (s *Service) syncPacks(ctx context.Context) SyncCounts {

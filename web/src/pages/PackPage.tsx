@@ -1,18 +1,18 @@
 import { ListRow } from '../ListRow'
 import './PackPage.css'
 import { Switch } from '../Switch'
-import { BetaChip, FeatureOnly, FeatureGate, useFeature } from '../features'
+import { BetaChip, FeatureOnly } from '../features'
 import { usePageName } from '../chrome'
 
 import { useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { del, post } from '../api'
 import { Section } from '../Section'
 import { QuietConfirm } from '../QuietConfirm'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
-import type { LibraryWorkflow, PackHistory, PolicyLibraryList, Publication, PackView, WhatIf } from '../wire.gen'
+import type { LibraryWorkflow, PackHistory, PolicyLibraryList, Publication, PackView } from '../wire.gen'
 import { PackEditor } from './Packs'
 import { draftFrom } from './packDraft'
 import { useHolds } from '../instancePages'
@@ -21,15 +21,11 @@ import { WhatIfPanel } from './PackWhatIf'
 // One pack: what its author
 // wrote, every version with where it came from, and which version is
 // recommended — what new projects get and what projects on other versions
-// are offered. Moving the recommendation moves no project.
+// are offered. The newest publication is recommended immediately.
 
 export default function PackPage() {
   const { name = '', version } = useParams()
   const nav = useNavigate()
-  const [params] = useSearchParams()
-  const feature = useFeature()
-  const whatIfId = params.get('whatIf')
-  const whatIfQ = useGet<WhatIf>(whatIfId && feature('what-ifs') ? `/conformance/what-if/${whatIfId}` : null)
   const packsQ = useGet<PackView[]>('/packs', { kind: 'config' })
   const canManage = useHolds('standards:manage-packs')
   const [editing, setEditing] = useState(false)
@@ -42,7 +38,6 @@ export default function PackPage() {
   const h = q.data
   usePageName(`/packs/${name}`, h?.name)
   if (!h) return <ReadStatus q={q} what="the pack" />
-  const recommend = (version: number) => run(() => post(`/packs/${name}/recommended`, { version, ...(whatIfQ.data?.pack === name && whatIfQ.data.version === version ? { whatIf: whatIfQ.data.id } : {}) }))
   const enabled = packsQ.data?.find(p => p.name === name)?.enabled
   const d = h.declaration
   if (editing) return <PackEditor draft={draftFrom(h.name, h.description, d)} existing onDone={() => { setEditing(false); void q.reload() }} />
@@ -62,13 +57,12 @@ export default function PackPage() {
         {/^experimental\b/i.test(h.description.trim()) && <span className="badge">experimental</span>}
         {h.origin !== 'stock' && <span className="badge">yours</span>}
         <span className="badge" title="New projects get this version; projects on other versions are offered it">v{h.recommended} · recommended</span>
-        {h.latest !== h.recommended && <span className="badge" title="The newest version is not recommended yet">v{h.latest} available</span>}
       </div>
+      <FeatureOnly area="what-ifs"><WhatIfPanel pack={h.name} version={h.latest} /></FeatureOnly>
       {h.description && <p className="muted">{h.description}</p>}
       {d.toolchain && <p className="small">Toolchain: <code>{d.toolchain}</code></p>}
       <StaleNote q={[q, packsQ]} />
       <ReadStatus q={packsQ} what="pack availability" className="small" />
-      {whatIfId && <FeatureGate area="what-ifs"><ReadStatus q={whatIfQ} what="the assessed what-if" className="small" /></FeatureGate>}
       {actErr && <div className="error">{actErr}</div>}
 
       {canManage && <div className="row mb-3">
@@ -110,11 +104,7 @@ export default function PackPage() {
               <span className="muted small">{lineage(v)}</span>
               <span className="muted small" title={v.at}>{relTime(v.at)}</span></div>} action={<>
               <Link to={`/packs/${encodeURIComponent(name)}/versions/${v.version}`}>Contents</Link>
-              {canManage && v.version !== h.recommended && (
-                <QuietConfirm label={`Recommend v${v.version}`} className="subtle" yes="Recommend it" disabled={busy || !q.current || !!whatIfId && (!whatIfQ.current || whatIfQ.data?.pack !== name)}
-                  ask={`New projects will get v${v.version}, and projects on other versions will be offered it. No project moves.`}
-                  onYes={() => recommend(v.version)} />
-              )}
+
             </>} detail={v.note && v.note !== 'published contents' && v.note !== v.name && <div className="small mt-1">{v.note}</div>} />
         ))}
       </Section>
@@ -143,7 +133,7 @@ function Contents({ v }: { v: Publication }) {
 }
 
 // Limits are what adopting a version does not do, stated where a person
-// decides whether to recommend it: a project keeps the workflows and
+// reads its impact before adopting: a project keeps the workflows and
 // policies it has, and a named policy is the library's text when it is
 // installed.
 function Limits({ v, base }: { v: Publication; base?: Publication }) {

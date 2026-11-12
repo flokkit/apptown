@@ -48,7 +48,7 @@ func (s StandingRules) checkStandingLanding(ctx context.Context, q database.Quer
 	if err != nil {
 		return "", err
 	}
-	if _, err = s.eligibleForIn(ctx, q, rule, run.ProjectID, work.WorkflowName); err != nil {
+	if _, err = s.eligibleForIn(ctx, q, rule, run.ProjectID, work.WorkflowName, work.AdoptionID); err != nil {
 		if standingRefusal(err) {
 			return err.Error(), nil
 		}
