@@ -100,7 +100,7 @@ func takeDownWithProject(t *testing.T, name string) {
 		t.Fatalf("project deletion took no final copy: %+v", res)
 	}
 	ops, err := w.ops.OnSubject(ctx, deployment.SubjectOf(dep), 10)
-	if err != nil || len(ops) != 1 || ops[0].Kind != OperationTakeDown || !endedAs(&ops[0], operationVerified) {
+	if err != nil || len(ops) != 1 || ops[0].Kind != deployment.OperationTakeDown || !endedAs(&ops[0], operationVerified) {
 		t.Fatalf("the take-down operation: %+v %v", ops, err)
 	}
 	var names []string
@@ -202,7 +202,7 @@ func TestAnEvalCopysDeploymentGoesWithNoFinalCopy(t *testing.T) {
 	if res.FinalBackup != nil {
 		t.Fatalf("a final copy of synthetic data: %+v", res.FinalBackup)
 	}
-	if ops, err := w.ops.OnSubject(ctx, deployment.SubjectOf(dep), 10); err != nil || len(ops) != 0 {
+	if ops, err := w.ops.OnSubject(ctx, deployment.SubjectOf(dep), 10); err != nil || len(ops) != 1 || ops[0].State != operations.Succeeded {
 		t.Fatalf("an operation for an eval copy's take-down: %+v %v", ops, err)
 	}
 	if sets, err := w.s.backups.ForDeployment(ctx, w.project, "main", 10); err != nil || len(sets) != 0 {
@@ -226,7 +226,7 @@ func TestTheTakeDownDoorQueuesItsOperation(t *testing.T) {
 		t.Fatalf("first release %s:\n%s", rel.State, log)
 	}
 	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-	if err != nil || res.Operation == nil {
+	if err != nil || res == nil {
 		t.Fatalf("take-down door: %+v %v", res, err)
 	}
 	var keys []string
@@ -237,11 +237,11 @@ func TestTheTakeDownDoorQueuesItsOperation(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if res.Operation.State != operations.Queued {
-		t.Fatalf("the door's operation reads %s", res.Operation.State)
+	if res.State != operations.Queued {
+		t.Fatalf("the door's operation reads %s", res.State)
 	}
-	if len(keys) != 1 || keys[0] != fmt.Sprint(res.Operation.ID) {
-		t.Fatalf("operation jobs waiting: %v, want operation %d's", keys, res.Operation.ID)
+	if len(keys) != 1 || keys[0] != fmt.Sprint(res.ID) {
+		t.Fatalf("operation jobs waiting: %v, want operation %d's", keys, res.ID)
 	}
 }
 
@@ -300,8 +300,8 @@ func TestATakeDownThatCannotTakeAFinalCopyIsRefusedUnlessChosen(t *testing.T) {
 	if got := len(w.api.Snapshot().Apps); got != apps {
 		t.Fatalf("a refused take-down deleted the app (%d apps, were %d)", got, apps)
 	}
-	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
-	if err != nil || res.Removed == nil || res.Removed.FinalBackup != nil || len(res.Removed.Retained) == 0 {
+	res, err := w.s.Remove(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
+	if err != nil || res.FinalBackup != nil || len(res.Retained) == 0 {
 		t.Fatalf("the chosen take-down: %+v %v", res, err)
 	}
 	if deleted := w.api.Snapshot().DeletedClusters; len(deleted) != 0 {
@@ -337,7 +337,7 @@ func TestAChoiceToKeepTheDataIsRefusedOnceAFinalCopyIsPossible(t *testing.T) {
 	}
 	w.nameRunner("local") // an administrator fixes it while the choice is open
 	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
-	if !errors.Is(err, errFinalCopyPossible) || fault.CodeOf(err) != "final-copy-possible" || res.Operation != nil || res.Removed != nil {
+	if !errors.Is(err, errFinalCopyPossible) || fault.CodeOf(err) != "final-copy-possible" || res != nil {
 		t.Fatalf("a stale choice to keep the data: %+v %v", res, err)
 	}
 	if ops, err := w.opsOn("prod"); err != nil || len(ops) != 0 {
@@ -607,7 +607,7 @@ func TestARestoreUnderWayHoldsADeletionsTakeDown(t *testing.T) {
 	}
 	// Once the restore has ended the take-down is no longer held (this
 	// world's daemon does not model the teardown itself).
-	if _, err := w.s.remove(ctx, RemoveDeployment{ProjectID: w.pid, Name: "main", withProject: true}, alice, nil, nil); err != nil && strings.Contains(err.Error(), "under way") {
+	if _, err := w.s.remove(ctx, RemoveDeployment{ProjectID: w.pid, Name: "main", withProject: true}, alice, func(context.Context) error { return nil }, func(context.Context) bool { return false }); err != nil && strings.Contains(err.Error(), "under way") {
 		t.Fatalf("the take-down once the restore ended: %v", err)
 	}
 }

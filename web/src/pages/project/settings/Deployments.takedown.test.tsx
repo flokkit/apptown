@@ -3,11 +3,14 @@ import { withFeatures } from '../../../features.fixture'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../../data'
 import type { DeploymentView } from '../../../wire.gen'
 import { TakeDown } from '../TakeDown'
+import { DeploymentMenu } from '../DeploymentMenu'
+
+function Location() { return <output>{useLocation().pathname}</output> }
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -27,11 +30,12 @@ const protection = (takeDown: string, finalCopy: boolean) => ({
 describe('taking down a deployment that holds data', () => {
   afterEach(() => vi.unstubAllGlobals())
   // cached: an earlier answer already read, which opening must not trust.
-  const mount = async (prot: unknown, cached?: unknown, selected: DeploymentView = env) => {
+  const mount = async (prot: unknown, cached?: unknown, selected: DeploymentView = env, menu = false) => {
     const deletes: (string | undefined)[] = []
+    const closed = vi.fn()
     const reads = { protection: prot as unknown, failing: false }
     vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
-      if (init?.method === 'DELETE') { deletes.push(init.body as string | undefined); return new Response(JSON.stringify({ ok: true, deleted: [], orphans: [] })) }
+      if (init?.method === 'DELETE') { deletes.push(init.body as string | undefined); return new Response(JSON.stringify({ operationId: "op-takedown", state: "queued", url: "/operations/op-takedown" })) }
       if (String(url).includes('/protection') && reads.failing) return new Response(JSON.stringify({ error: 'AppTown is restarting' }), { status: 503 })
       return new Response(JSON.stringify(String(url).includes('/protection') ? reads.protection : { user: 'bls', instance: {} }))
     })))
@@ -39,11 +43,32 @@ describe('taking down a deployment that holds data', () => {
     if (cached) client.setQueryData(getKey('/projects/shop/deployments/prod/protection'), cached)
     const el = document.body.appendChild(document.createElement('div'))
     const root = createRoot(el)
-    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><TakeDown slug="shop" env={selected} onClose={() => {}} /></MemoryRouter></QueryClientProvider>) })
+    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter>{menu ? <><DeploymentMenu slug="shop" env={selected} current reload={async () => {}} onDeployRelease={() => {}} /><Location /></> : <TakeDown slug="shop" env={selected} onClose={closed} />}</MemoryRouter></QueryClientProvider>) })
     await vi.waitFor(() => expect(el.textContent).not.toContain('Reading what a take-down'))
-    const button = (label: string) => Array.from(el.querySelectorAll('button')).find((b) => b.textContent === label)
-    return { el, deletes, button, reads, client, done: () => { act(() => root.unmount()); client.clear(); el.remove() } }
+    const button = (label: string) => Array.from(document.body.querySelectorAll('button')).find((b) => b.textContent === label)
+    return { el, deletes, closed, button, reads, client, done: () => { act(() => root.unmount()); client.clear(); el.remove() } }
   }
+
+  it('navigates from the deployment menu to the admitted operation', async () => {
+    const ecs = { ...env, target: { ...env.target, kind: 'aws-ecs' }, needs: [] } as unknown as DeploymentView
+    const { el, button, done } = await mount(undefined, undefined, ecs, true)
+    await act(async () => { button('⋯')!.click() })
+    await act(async () => { button('Take down…')!.click() })
+    await act(async () => { button('Take it down')!.click() })
+    await vi.waitFor(() => expect(el.querySelector('output')?.textContent).toBe('/operations/op-takedown'))
+    done()
+  })
+
+  it('takes down an ECS deployment without data and opens its operation', async () => {
+    const ecs = { ...env, target: { ...env.target, kind: 'aws-ecs' }, needs: [] } as unknown as DeploymentView
+    const { el, button, closed, done } = await mount(undefined, undefined, ecs)
+    expect(el.textContent).toContain('It holds no data, so nothing is backed up.')
+    expect(el.textContent).not.toContain('RDS')
+    await act(async () => { button('Take it down')!.click() })
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledWith({ operationId: 'op-takedown', state: 'queued', url: '/operations/op-takedown' }))
+    expect(el.textContent).not.toContain('Taken down.')
+    done()
+  })
 
   it('asks for the choice to go without a final copy, and sends it, when none can be taken', async () => {
     const { el, deletes, button, done } = await mount({ ...protection(refused, false), reading: { unknown: true, waiting: true } })

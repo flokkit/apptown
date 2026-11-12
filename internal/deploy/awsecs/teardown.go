@@ -109,18 +109,34 @@ func (d *Driver) remove(ctx context.Context, a *API, c Config, o deploy.Owned) e
 	case "listener-rule":
 		_, err = a.ELB.DeleteRule(ctx, &elasticloadbalancingv2.DeleteRuleInput{RuleArn: aws.String(o.ID)})
 	case "ecs-service":
-		_, err = a.ECS.UpdateService(ctx, &ecs.UpdateServiceInput{Cluster: aws.String(c.Cluster), Service: aws.String(o.ID), DesiredCount: aws.Int32(0)})
-		if err != nil {
-			return err
+		service, e := a.ECS.DescribeServices(ctx, &ecs.DescribeServicesInput{Cluster: aws.String(c.Cluster), Services: []string{o.ID}})
+		if e != nil {
+			return e
 		}
-		_, err = a.ECS.DeleteService(ctx, &ecs.DeleteServiceInput{Cluster: aws.String(c.Cluster), Service: aws.String(o.ID), Force: aws.Bool(true)})
-		if err != nil {
-			return err
+		for _, f := range service.Failures {
+			if aws.ToString(f.Reason) != "MISSING" {
+				return fmt.Errorf("describing service: %v", service.Failures)
+			}
+		}
+		if len(service.Services) > 0 && aws.ToString(service.Services[0].Status) == "ACTIVE" {
+			_, err = a.ECS.UpdateService(ctx, &ecs.UpdateServiceInput{Cluster: aws.String(c.Cluster), Service: aws.String(o.ID), DesiredCount: aws.Int32(0)})
+			if err != nil {
+				return err
+			}
+			_, err = a.ECS.DeleteService(ctx, &ecs.DeleteServiceInput{Cluster: aws.String(c.Cluster), Service: aws.String(o.ID), Force: aws.Bool(true)})
+			if err != nil {
+				return err
+			}
 		}
 		for {
 			out, e := a.ECS.DescribeServices(ctx, &ecs.DescribeServicesInput{Cluster: aws.String(c.Cluster), Services: []string{o.ID}})
 			if e != nil {
 				return e
+			}
+			for _, f := range out.Failures {
+				if aws.ToString(f.Reason) != "MISSING" {
+					return fmt.Errorf("waiting for service: %v", out.Failures)
+				}
 			}
 			if len(out.Services) == 0 || aws.ToString(out.Services[0].Status) == "INACTIVE" {
 				break
@@ -153,6 +169,8 @@ func (d *Driver) remove(ctx context.Context, a *API, c Config, o deploy.Owned) e
 		_, err = a.SSM.DeleteParameters(ctx, &ssm.DeleteParametersInput{Names: []string{o.Name}})
 	case "log-group":
 		_, err = a.Logs.DeleteLogGroup(ctx, &cloudwatchlogs.DeleteLogGroupInput{LogGroupName: aws.String(o.Name)})
+	case "rds-instance":
+		err = d.deleteInstance(ctx, a, o.Name)
 	case "rds-subnet-group":
 		_, err = a.RDS.DeleteDBSubnetGroup(ctx, &rds.DeleteDBSubnetGroupInput{DBSubnetGroupName: aws.String(o.Name)})
 	case "security-group":

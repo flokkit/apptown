@@ -46,8 +46,7 @@ export function DeploymentMenu({ slug, env, current, reload, onDeployRelease }: 
     {restoring && <RestoreFromBackup slug={slug} env={env} onClose={operation => { setRestoring(false); if (operation) nav(`/operations/${operation}`) }} />}
     {takingDown && <TakeDown slug={slug} env={env} onClose={done => {
       setTakingDown(false)
-      if (done && 'operationId' in done && done.operationId) nav(`/operations/${done.operationId}`)
-      else if (done) nav(`/projects/${slug}/deployments`)
+      if (done?.operationId) nav(`/operations/${done.operationId}`)
     }} />}
     {err && <span className="error small" role="alert">{err}</span>}
   </div>

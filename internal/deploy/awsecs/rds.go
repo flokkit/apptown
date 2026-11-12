@@ -375,12 +375,16 @@ func (m ManagedData) DeleteInstance(ctx context.Context, instance string) error 
 	if err != nil {
 		return err
 	}
-	_, err = a.RDS.DeleteDBInstance(ctx, &rds.DeleteDBInstanceInput{DBInstanceIdentifier: db.DBInstanceIdentifier, SkipFinalSnapshot: aws.Bool(true), DeleteAutomatedBackups: aws.Bool(true)})
+	return d.deleteInstance(ctx, a, aws.ToString(db.DBInstanceIdentifier))
+}
+
+func (d *Driver) deleteInstance(ctx context.Context, a *API, instance string) error {
+	_, err := a.RDS.DeleteDBInstance(ctx, &rds.DeleteDBInstanceInput{DBInstanceIdentifier: aws.String(instance), SkipFinalSnapshot: aws.Bool(true), DeleteAutomatedBackups: aws.Bool(true)})
 	if err != nil {
 		return err
 	}
 	for {
-		_, err = a.RDS.DescribeDBInstances(ctx, &rds.DescribeDBInstancesInput{DBInstanceIdentifier: db.DBInstanceIdentifier})
+		_, err = a.RDS.DescribeDBInstances(ctx, &rds.DescribeDBInstancesInput{DBInstanceIdentifier: aws.String(instance)})
 		if missing(err) {
 			return nil
 		}

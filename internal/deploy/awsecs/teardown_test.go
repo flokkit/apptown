@@ -157,3 +157,74 @@ func TestFinalTakeDownDeletesTheDatabaseGroupBeforeTheAppGroup(t *testing.T) {
 		t.Fatalf("take-down: %+v %v", out, err)
 	}
 }
+
+func TestTakeDownResumesADrainingService(t *testing.T) {
+	for _, status := range []string{"ACTIVE", "DRAINING", "INACTIVE"} {
+		t.Run(status, func(t *testing.T) {
+			p := deploy.Placement{ID: idstest.N(32)}
+			a := &awsfake.Account{}
+			describes, updates, deletes := 0, 0, 0
+			a.DescribeServicesFunc = func(context.Context, *ecs.DescribeServicesInput) (*ecs.DescribeServicesOutput, error) {
+				describes++
+				state := status
+				if describes > 3 {
+					state = "INACTIVE"
+				}
+				return &ecs.DescribeServicesOutput{Services: []ecstypes.Service{{ServiceArn: aws.String("service"), Status: aws.String(state), Tags: []ecstypes.Tag{{Key: aws.String("apptown:instance"), Value: aws.String("installation")}, {Key: aws.String("apptown:deployment"), Value: aws.String(p.ID.String())}}}}}, nil
+			}
+			a.UpdateServiceFunc = func(context.Context, *ecs.UpdateServiceInput) (*ecs.UpdateServiceOutput, error) {
+				updates++
+				if status != "ACTIVE" {
+					return nil, &smithy.GenericAPIError{Code: "ServiceNotActiveException"}
+				}
+				return &ecs.UpdateServiceOutput{}, nil
+			}
+			a.DeleteServiceFunc = func(context.Context, *ecs.DeleteServiceInput) (*ecs.DeleteServiceOutput, error) {
+				deletes++
+				return &ecs.DeleteServiceOutput{}, nil
+			}
+			d := awsecs.NewDriver(awsecs.Dependencies{Installation: "installation", Client: func(context.Context) (*awsecs.API, awsecs.Config, awsecs.Estate, error) {
+				return a.API(), awsecs.Config{Cluster: "cluster"}, awsecs.Estate{}, nil
+			}})
+			d.PollInterval = time.Millisecond
+			out, err := d.Teardown(t.Context(), p, 1, deploy.TakeDown{Owned: []deploy.Owned{{Kind: "ecs-service", ID: "service"}}})
+			want := 0
+			if status == "ACTIVE" {
+				want = 1
+			}
+			if err != nil || len(out.Deleted) != 1 || updates != want || deletes != want || describes < 3 {
+				t.Fatalf("resume: %+v %v describe=%d update=%d delete=%d", out, err, describes, updates, deletes)
+			}
+		})
+	}
+}
+
+func TestSyntheticTakeDownDeletesAndWaitsForRDS(t *testing.T) {
+	p := deploy.Placement{ID: idstest.N(33)}
+	a := &awsfake.Account{}
+	deleted, waited := false, false
+	a.RDSListTagsForResourceFunc = func(context.Context, *rds.ListTagsForResourceInput) (*rds.ListTagsForResourceOutput, error) {
+		return &rds.ListTagsForResourceOutput{TagList: []rdstypes.Tag{{Key: aws.String("apptown:instance"), Value: aws.String("installation")}, {Key: aws.String("apptown:deployment"), Value: aws.String(p.ID.String())}}}, nil
+	}
+	a.DeleteDBInstanceFunc = func(_ context.Context, in *rds.DeleteDBInstanceInput) (*rds.DeleteDBInstanceOutput, error) {
+		if aws.ToString(in.DBInstanceIdentifier) != "database" || !aws.ToBool(in.SkipFinalSnapshot) || !aws.ToBool(in.DeleteAutomatedBackups) {
+			t.Fatalf("wrong delete: %+v", in)
+		}
+		deleted = true
+		return &rds.DeleteDBInstanceOutput{}, nil
+	}
+	a.DescribeDBInstancesFunc = func(context.Context, *rds.DescribeDBInstancesInput) (*rds.DescribeDBInstancesOutput, error) {
+		if !deleted {
+			t.Fatal("wait before delete")
+		}
+		waited = true
+		return nil, &smithy.GenericAPIError{Code: "DBInstanceNotFound"}
+	}
+	d := awsecs.NewDriver(awsecs.Dependencies{Installation: "installation", Client: func(context.Context) (*awsecs.API, awsecs.Config, awsecs.Estate, error) {
+		return a.API(), awsecs.Config{}, awsecs.Estate{}, nil
+	}})
+	out, err := d.Teardown(t.Context(), p, 1, deploy.TakeDown{Synthetic: true, Owned: []deploy.Owned{{Kind: "rds-instance", ID: "arn:database", Name: "database", Data: true}}})
+	if err != nil || !deleted || !waited || len(out.Deleted) != 1 || len(out.Left) != 0 {
+		t.Fatalf("synthetic data: %+v %v deleted=%v waited=%v", out, err, deleted, waited)
+	}
+}

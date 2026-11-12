@@ -346,8 +346,14 @@ func TestReleaseApprovalRequiresCurrentIndependentHumanAssent(t *testing.T) {
 					if _, err := a.operations.RunHere(t.Context(), op.ID); err != nil {
 						t.Fatal(err)
 					}
-				} else if _, err := a.DataProtection.TakeDown(verifiedContext(t.Context(), admin), dataprotection.RemoveDeployment{ProjectID: p.ID, Name: dep.Name}); err != nil {
-					t.Fatal(err)
+				} else {
+					op, err := a.DataProtection.TakeDown(verifiedContext(t.Context(), admin), dataprotection.RemoveDeployment{ProjectID: p.ID, Name: dep.Name})
+					if err != nil {
+						t.Fatal(err)
+					}
+					if _, err := a.operations.RunHere(t.Context(), op.ID); err != nil {
+						t.Fatal(err)
+					}
 				}
 				requireReleaseWord(t, a, p.ID, accepted.Number, "cancelled")
 				events, err := a.Deployment.Releases.Events(t.Context(), accepted.ID)

@@ -116,10 +116,10 @@ func TestATakeDownCopiesAndChecksTheBucketBeforeDeletingIt(t *testing.T) {
 	appsAtExport := -1
 	w.buckets.atExport = func() { appsAtExport = len(w.api.Snapshot().Apps) }
 	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-	if err != nil || res.Operation == nil {
+	if err != nil || res == nil {
 		t.Fatalf("take-down door: %+v %v", res, err)
 	}
-	op := w.run(res.Operation)
+	op := w.run(res)
 	if !endedAs(op, operationVerified) || !strings.Contains(op.Detail, "holds its data") || strings.Contains(op.Detail, "Kept") {
 		t.Fatalf("take-down %s: %s", op.State, op.Detail)
 	}
@@ -185,10 +185,10 @@ func TestATakeDownKeepsABucketWhoseCopyFellShort(t *testing.T) {
 			putObjects(w, bucketOf(w, "prod"))
 			w.buckets.failExport, w.buckets.failCheck = failure == "export", failure == "check"
 			res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-			if err != nil || res.Operation == nil {
+			if err != nil || res == nil {
 				t.Fatalf("take-down door: %+v %v", res, err)
 			}
-			op := w.run(res.Operation)
+			op := w.run(res)
 			if endedAs(op, operationVerified) || !strings.Contains(op.Detail, "data kept") {
 				t.Fatalf("take-down %s: %s", op.State, op.Detail)
 			}
@@ -288,9 +288,9 @@ func TestAnObjectOnlyDeploymentWithNoStoreKeepsItsBucket(t *testing.T) {
 	}) {
 		t.Fatalf("the recorded inventory: %+v %v", recorded, err)
 	}
-	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
-	if err != nil || res.Removed == nil {
-		t.Fatalf("take-down: %+v %v", res, err)
+	_, err = w.s.Remove(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
+	if err != nil {
+		t.Fatalf("take-down: %v", err)
 	}
 	if got := w.store.Buckets(); !slices.Contains(got, bucketOf(w, "prod")) || len(w.api.Snapshot().SpacesKeys) != 0 {
 		t.Fatalf("after the take-down: buckets %v keys %v", got, w.api.Snapshot().SpacesKeys)
@@ -402,17 +402,17 @@ func TestABucketsTakeDownAsksAgainBeforeDeletingIt(t *testing.T) {
 			ctx := context.Background()
 			putObjects(w, bucketOf(w, "prod"))
 			res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-			if err != nil || res.Operation == nil {
+			if err != nil || res == nil {
 				t.Fatalf("take-down door: %+v %v", res, err)
 			}
 			w.buckets.atCheck = func() {
 				if when == "authority withdrawn" {
 					w.auth.revoke("token:alice")
-				} else if _, err := w.ops.Cancel(ctx, res.Operation.ID); err != nil {
+				} else if _, err := w.ops.Cancel(ctx, res.ID); err != nil {
 					t.Errorf("cancelling the running take-down: %v", err)
 				}
 			}
-			got := w.run(res.Operation)
+			got := w.run(res)
 			if when == "authority withdrawn" {
 				withdrawn(t, got)
 			} else if got.State != operations.Cancelled || !strings.Contains(got.Detail, "stopped as asked before deleting the bucket") {

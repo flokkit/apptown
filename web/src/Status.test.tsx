@@ -79,7 +79,7 @@ it('renders every status chip through the shared component', () => {
  }
 })
 
-it.each([['waiting for you','pending'],['excepted','overridden'],['landed','pass'],['available','pending'],['stopped',''],['deploying','running'],['low','pending']] as const)('preserves %s and its tone', (word,tone) => {
+it.each([['waiting for you','pending'],['excepted','overridden'],['landed','pass'],['available','pending'],['stopped',''],['deploying','running'],['taking down','running'],['low','pending']] as const)('preserves %s and its tone', (word,tone) => {
  const html = renderToStaticMarkup(<Status word={word} />)
  expect(html).toContain(`${word === 'available' ? 'update available' : word}</span>`)
  expect(html).toContain(`chip ${tone}`)

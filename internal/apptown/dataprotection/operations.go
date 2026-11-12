@@ -28,9 +28,8 @@ import (
 
 // Deployment's operation kinds.
 const (
-	operationCopy     = "deployment.copy"
-	operationDrill    = "deployment.drill"
-	OperationTakeDown = "deployment.take-down"
+	operationCopy  = "deployment.copy"
+	operationDrill = "deployment.drill"
 	// operationRehearsal is a restore rehearsal.
 	operationRehearsal = "deployment.rehearsal"
 	// operationRestore starts a restored copy; OperationRestoredCopyEnd
@@ -81,7 +80,7 @@ func (s *Service) registerKinds() {
 		// A take-down stops as asked at the boundaries between its phases:
 		// before the app is deleted, before the final copy, before the
 		// copy is checked and before each cluster is deleted.
-		{Name: OperationTakeDown, Capability: access.CapDeploymentTeardown, Cancellable: true, Execute: body(func(ctx context.Context, t *tracker) (runEnd, string, map[string]any) {
+		{Name: deployment.OperationTakeDown, Capability: access.CapDeploymentTeardown, Cancellable: true, Execute: body(func(ctx context.Context, t *tracker) (runEnd, string, map[string]any) {
 			// A restored copy is taken down by its own rule: no final copy.
 			if dep, err := s.deployments.ByName(ctx, t.op.ProjectID, t.op.Deployment); err == nil && dep.Kind == deployment.Restored {
 				return s.runRestoredTakeDown(ctx, t)
@@ -263,7 +262,7 @@ func (s *Service) admit(ctx context.Context, dep *deployment.Deployment, kind st
 				return nil, err
 			}
 		}
-		if kind == OperationTakeDown {
+		if kind == deployment.OperationTakeDown {
 			if err := deployment.CancelWaitingForRemovalIn(ctx, tx, dep.ID, actor, s.now()); err != nil {
 				return nil, err
 			}
@@ -277,7 +276,7 @@ func (s *Service) admit(ctx context.Context, dep *deployment.Deployment, kind st
 // its deployments down is what a deletion does); anything else needs an
 // active project.
 func refuseUnlessAdmittedIn(ctx context.Context, tx *database.Tx, projectID ids.ID, kind string) error {
-	if kind == OperationTakeDown || kind == OperationRestoredCopyEnd {
+	if kind == deployment.OperationTakeDown || kind == OperationRestoredCopyEnd {
 		l, err := project.LifecycleIn(ctx, tx, projectID)
 		if err != nil {
 			return err

@@ -79,10 +79,10 @@ func TestAStartFromACopyWhoseDatabaseDidNotComeBackAsksAPerson(t *testing.T) {
 			w.clusters.put(id+".fake", "app", "ledger: 41, 42")
 			w.clusters.importSays = "ERROR: duplicate key value violates unique constraint"
 			res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-			if err != nil || res.Operation == nil {
+			if err != nil || res == nil {
 				t.Fatalf("take-down door: %+v %v", res, err)
 			}
-			if op := w.run(res.Operation); endedAs(op, operationVerified) {
+			if op := w.run(res); endedAs(op, operationVerified) {
 				t.Fatalf("a take-down whose database did not come back: %s", op.Detail)
 			}
 			w.clusters.mu.Lock()

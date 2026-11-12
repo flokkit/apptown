@@ -2,7 +2,6 @@ package dataprotection
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -72,14 +71,14 @@ func TestVerifiedStandaloneWithoutCopyKeepsDataAfterExplicitChoice(t *testing.T)
 			t.Fatal(err)
 		}
 	}
-	if _, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "lan"}); !errors.Is(err, errNoFinalCopy) {
+	if _, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "lan"}); err == nil || !strings.Contains(err.Error(), "cannot take a final copy") {
 		t.Fatalf("no-copy refusal: %v", err)
 	}
 	if deleted != 0 {
 		t.Fatal("unconfirmed teardown deleted stack")
 	}
-	result, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "lan", WithoutFinalCopy: "lan"})
-	if err != nil || result.Removed == nil || result.Removed.FinalBackup != nil || deleted != 1 {
+	result, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "lan", WithoutFinalCopy: "lan"})
+	if err != nil || result.FinalBackup != nil || deleted != 1 {
 		t.Fatalf("explicit choice: %+v %v deleted=%d", result, err, deleted)
 	}
 	retained, err := w.s.Retained.ForProject(t.Context(), w.project)
@@ -253,7 +252,7 @@ func TestDefaultPortainerReleaseRemovalRevokesOnlyItsIssuedKey(t *testing.T) {
 	if ownedKeys[0].ID == ownedKeys[1].ID || keys.CallsOf("POST") != 2 {
 		t.Fatal("customer releases shared an issued key")
 	}
-	if _, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: deps[0].Name}); err == nil {
+	if _, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: deps[0].Name}); err == nil {
 		t.Fatal("provider deletion refusal reported removal")
 	}
 	for i, dep := range deps {
@@ -275,8 +274,8 @@ func TestDefaultPortainerReleaseRemovalRevokesOnlyItsIssuedKey(t *testing.T) {
 	mu.Lock()
 	refuseDelete = false
 	mu.Unlock()
-	removed, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: deps[0].Name})
-	if err != nil || removed.Removed == nil {
+	removed, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: deps[0].Name})
+	if err != nil {
 		t.Fatalf("default deployment removal: %+v %v", removed, err)
 	}
 	if keys.CallsOf("DELETE") != 1 || len(keys.Keys()) != 1 {

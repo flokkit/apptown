@@ -10,10 +10,13 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
 
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 // The fake provider is injected at the service boundary; ordinary bindings and
@@ -30,7 +33,7 @@ func (d *removalDriver) Teardown(ctx context.Context, p deploy.Placement, g int6
 	d.calls.Add(1)
 	d.got = td
 	if d.remove != nil {
-		return deploy.TakenDown{}, d.remove(ctx, p, g)
+		return d.taken, d.remove(ctx, p, g)
 	}
 	return d.taken, nil
 }
@@ -50,7 +53,7 @@ func removalFixture(t *testing.T) (*both, *configurationWorld, *removalDriver, *
 	return s, w, driver, dep
 }
 func removeSelection(dep *deployment.Deployment) RemoveDeployment {
-	return RemoveDeployment{ProjectID: dep.ProjectID, Name: dep.Name}
+	return RemoveDeployment{ProjectID: dep.ProjectID, Name: dep.Name, WithoutFinalCopy: dep.Name}
 }
 
 func TestRemoveRetainsManagedNeedsAndRecordsTogether(t *testing.T) {
@@ -127,7 +130,7 @@ func TestRemoveRefusesBeforeProviderWork(t *testing.T) {
 	}
 }
 func TestRemoveIncompleteProviderOrReceiptPreservesRecords(t *testing.T) {
-	for _, scenario := range []string{"provider", "cancelled", "retention", "delete", "audit"} {
+	for _, scenario := range []string{"provider", "retention", "delete", "audit"} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
 			s, _, driver, dep := removalFixture(t)
@@ -145,15 +148,18 @@ func TestRemoveIncompleteProviderOrReceiptPreservesRecords(t *testing.T) {
 					event = "DELETE"
 				}
 				mustExec(t, s.db, `CREATE FUNCTION veto_removal() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
-				mustExec(t, s.db, `CREATE TRIGGER veto_removal BEFORE `+event+` ON `+table+` FOR EACH ROW EXECUTE FUNCTION veto_removal()`)
+				when := ""
+				if scenario == "audit" {
+					when = " WHEN (NEW.kind = 'deployment.torn-down')"
+				}
+				mustExec(t, s.db, `CREATE TRIGGER veto_removal BEFORE `+event+` ON `+table+` FOR EACH ROW`+when+` EXECUTE FUNCTION veto_removal()`)
 			}
 			result, err := s.Remove(ctx, removeSelection(dep))
-			var incomplete *deployment.RemovalIncompleteError
-			if !errors.As(err, &incomplete) || result.Retained != nil {
+			if err == nil || result.Retained != nil {
 				t.Fatalf("incomplete outcome: %+v %v", result, err)
 			}
-			if incomplete.ProviderAccepted != (scenario != "provider") {
-				t.Fatalf("provider result: %+v", incomplete)
+			if scenario != "provider" && scenario != "cancelled" && !strings.Contains(err.Error(), "records were not removed") {
+				t.Fatalf("settlement detail: %v", err)
 			}
 			if !deploymentExists(t, s.db, dep.ID) {
 				t.Fatal("incomplete removal deleted the deployment")
@@ -193,12 +199,8 @@ func TestRemoveRejectsChangedSelectionAfterProviderCall(t *testing.T) {
 				return nil
 			}
 			_, err := s.Remove(context.Background(), removeSelection(dep))
-			var incomplete *deployment.RemovalIncompleteError
-			if !errors.As(err, &incomplete) || !incomplete.ProviderAccepted {
+			if err == nil || !(strings.Contains(err.Error(), "deployment changed during removal") || strings.Contains(err.Error(), "deployment.take-down is running")) {
 				t.Fatalf("stale completion: %v", err)
-			}
-			if !errors.Is(err, deployment.ErrRemovalChanged) && !errors.Is(err, deployment.ErrRemovalBusy) {
-				t.Fatalf("wrong stale refusal: %v", err)
 			}
 			if _, err := s.Deployments.ByName(t.Context(), dep.ProjectID, dep.Name); err != nil {
 				t.Fatalf("changed selection lost its deployment: %v", err)
@@ -273,4 +275,102 @@ func TestPromotionSourceRemovalRefusesBeforeEffects(t *testing.T) {
 	}
 	wantN(t, "need instances", needInstances(t, s.db, dep.ID), 1)
 	wantN(t, "torn-down receipts", receipts(t, s.db, "deployment.torn-down", bySubject(dep.Name)), 0)
+}
+
+// A lost answer is uncertainty, not proof the resource is still present.
+// Retrying while the deployment stands uses the same removal operation.
+func TestRemovalRecordsPartialEffectsAndResumes(t *testing.T) {
+	for _, refused := range []bool{false, true} {
+		t.Run(map[bool]string{false: "lost answer", true: "refused"}[refused], func(t *testing.T) {
+			s, _, driver, dep := removalFixture(t)
+			ops, _ := takeDownOps(t, s)
+			owned := []deploy.Owned{{Kind: "app", ID: "deleted"}, {Kind: "network", ID: "left"}, {Kind: "route", ID: "uncertain"}}
+			for _, o := range owned {
+				if err := s.Deployments.OwnerOf(dep).Created(t.Context(), o); err != nil {
+					t.Fatal(err)
+				}
+			}
+			driver.taken = deploy.TakenDown{Deleted: []string{owned[0].Label()}, Left: []deploy.Left{{What: "network", Handle: map[string]any{"id": "left"}, Why: "in use"}}}
+			driver.remove = func(context.Context, deploy.Placement, int64) error {
+				if refused {
+					return deploy.Terminal(errors.New("provider refused deletion"))
+				}
+				return errors.New("lost delete response")
+			}
+			op, err := s.TakeDown(t.Context(), removeSelection(dep))
+			if err != nil {
+				t.Fatal(err)
+			}
+			done, err := ops.RunHere(t.Context(), op.ID)
+			want := operations.Unknown
+			if refused {
+				want = operations.Failed
+			}
+			if err != nil || done.State != want {
+				t.Fatalf("outcome: %+v %v", done, err)
+			}
+			for _, words := range []string{"deleted (confirmed): app deleted", "left: network", "in use", "not confirmed removed: route uncertain", "Take it down again"} {
+				if !strings.Contains(done.Detail, words) {
+					t.Errorf("missing %q in %s", words, done.Detail)
+				}
+			}
+			if !deploymentExists(t, s.db, dep.ID) {
+				t.Fatal("partial failure lost record")
+			}
+			driver.remove = nil
+			op, err = s.TakeDown(t.Context(), removeSelection(dep))
+			if err != nil {
+				t.Fatal(err)
+			}
+			done, err = ops.RunHere(t.Context(), op.ID)
+			if err != nil || done.State != operations.Succeeded || deploymentExists(t, s.db, dep.ID) || !strings.Contains(done.Detail, "in use") {
+				t.Fatalf("retry: %+v %v", done, err)
+			}
+		})
+	}
+}
+
+func TestRemovalSettlementFailureKeepsItsFinalSet(t *testing.T) {
+	t.Parallel()
+	s, client, dep := takeDownWorld(t, "settlement-final")
+	setCopies(client, func(req docker.Command) ([]byte, error) {
+		_, err := containerresulttest.WriteString(req.Stdout, "copy")
+		return nil, err
+	})
+	ops, _ := takeDownOps(t, s)
+	s.applied = func(ids.ID) { dbtest.FailNextStatement(t, s.db, "-- name: DeleteDeployment") }
+	op, err := s.TakeDown(t.Context(), removeSelection(dep))
+	if err != nil {
+		t.Fatal(err)
+	}
+	done, err := ops.RunHere(t.Context(), op.ID)
+	if err != nil || done.State != operations.Failed || !strings.Contains(done.Detail, "teardown finished") || !strings.Contains(done.Detail, "records were not removed") {
+		t.Fatalf("settlement: %+v %v", done, err)
+	}
+	id := inputID(done.Result, "finalBackup")
+	if id.IsZero() || !strings.Contains(done.Detail, id.String()) {
+		t.Fatalf("lost final-set evidence: %+v", done)
+	}
+	if _, err := s.backups.ByID(t.Context(), dep.ProjectID, dep.Name, id); err != nil {
+		t.Fatalf("final set lost: %v", err)
+	}
+	if !deploymentExists(t, s.db, dep.ID) {
+		t.Fatal("failed settlement lost record")
+	}
+}
+
+func TestAClosedRequestCannotStopItsTakeDown(t *testing.T) {
+	t.Parallel()
+	s, _, driver, dep := removalFixture(t)
+	ops, _ := takeDownOps(t, s)
+	ctx, cancel := context.WithCancel(t.Context())
+	op, err := s.TakeDown(ctx, removeSelection(dep))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancel()
+	done, err := ops.RunHere(t.Context(), op.ID)
+	if err != nil || done.State != operations.Succeeded || driver.calls.Load() != 1 {
+		t.Fatalf("closed request stopped operation: %+v %v", done, err)
+	}
 }

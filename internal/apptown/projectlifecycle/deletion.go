@@ -506,7 +506,7 @@ func (d *Deletion) latestTakeDown(ctx context.Context, projectID ids.ID, l proje
 	}
 	for i := range ops {
 		op := &ops[i]
-		if (op.Kind == dataprotection.OperationTakeDown || op.Kind == dataprotection.OperationRestoredCopyEnd) && op.Authority.Credential == identity.BindingCredential(l.BindingID) {
+		if (op.Kind == deployment.OperationTakeDown || op.Kind == dataprotection.OperationRestoredCopyEnd) && op.Authority.Credential == identity.BindingCredential(l.BindingID) {
 			return op, nil
 		}
 	}

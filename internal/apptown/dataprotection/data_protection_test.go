@@ -599,10 +599,10 @@ func TestATakenDownDeploymentComesBackFromItsFinalCopy(t *testing.T) {
 
 	setDataFeature(t, w.db, "backups", false)
 	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-	if err != nil || res.Operation == nil || res.Removed != nil {
+	if err != nil || res == nil {
 		t.Fatalf("take-down door: %+v %v", res, err)
 	}
-	op := w.run(res.Operation)
+	op := w.run(res)
 	if !endedAs(op, operationVerified) {
 		t.Fatalf("take-down %s: %s\n%+v", op.State, op.Detail, op.Steps)
 	}

@@ -81,7 +81,7 @@ func TestAnUnverifiedAsyncEdgeRefusesEvenExplicitNoCopy(t *testing.T) {
 		t.Fatalf("a backup there: %v", err)
 	}
 	for _, choice := range []string{"", "lan"} {
-		if _, err := s.TakeDown(ctx, RemoveDeployment{ProjectID: pid, Name: "lan", WithoutFinalCopy: choice}); err == nil {
+		if _, err := s.Remove(ctx, RemoveDeployment{ProjectID: pid, Name: "lan", WithoutFinalCopy: choice}); err == nil {
 			t.Fatalf("unverified teardown accepted no-copy choice %q", choice)
 		}
 	}

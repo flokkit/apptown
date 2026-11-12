@@ -203,10 +203,10 @@ func TestIntegrationTheRoundTripKeepsTheRecords(t *testing.T) {
 		// sql-guarantee: another tenant's data on the stand-in cluster, not AppTown's database.
 		pg.admin(k.make, "defaultdb")
 		res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-		if err != nil || res.Operation == nil {
+		if err != nil || res == nil {
 			t.Fatalf("%s: take-down: %+v %v", k.what, res, err)
 		}
-		if op := w.run(res.Operation); op.State != operations.Failed || !strings.Contains(op.Detail, "defaultdb (not shown empty") {
+		if op := w.run(res); op.State != operations.Failed || !strings.Contains(op.Detail, "defaultdb (not shown empty") {
 			t.Errorf("take-down with %s in defaultdb %s: %s", k.what, op.State, op.Detail)
 		}
 		if got := appDatabases(); got != "1" {
@@ -215,10 +215,10 @@ func TestIntegrationTheRoundTripKeepsTheRecords(t *testing.T) {
 		pg.admin(k.clear, "defaultdb")
 	}
 	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-	if err != nil || res.Operation == nil {
+	if err != nil || res == nil {
 		t.Fatalf("take-down again: %+v %v", res, err)
 	}
-	op := w.run(res.Operation)
+	op := w.run(res)
 	if !endedAs(op, operationVerified) {
 		t.Fatalf("take-down %s: %s\n%+v", op.State, op.Detail, op.Steps)
 	}

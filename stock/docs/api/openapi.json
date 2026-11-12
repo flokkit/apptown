@@ -4114,7 +4114,8 @@
           "waiting",
           "excepted",
           "unreachable",
-          "not deployed"
+          "not deployed",
+          "taking down"
         ],
         "type": "string"
       },

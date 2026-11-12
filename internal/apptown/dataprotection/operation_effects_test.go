@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/operations"
+	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -114,7 +115,7 @@ func TestATakeDownAsksAgainBeforeEachLaterEffect(t *testing.T) {
 			t.Parallel()
 			w, _, _ := releasedProd(t)
 			res, err := w.s.TakeDown(context.Background(), RemoveDeployment{ProjectID: w.project, Name: "prod"})
-			if err != nil || res.Operation == nil {
+			if err != nil || res == nil {
 				t.Fatalf("take-down: %+v %v", res, err)
 			}
 			revoke := func() { w.auth.revoke("token:alice") }
@@ -123,7 +124,7 @@ func TestATakeDownAsksAgainBeforeEachLaterEffect(t *testing.T) {
 			} else {
 				w.clusters.atFill = revoke
 			}
-			withdrawn(t, w.run(res.Operation))
+			withdrawn(t, w.run(res))
 			if deleted := w.api.Snapshot().DeletedClusters; len(deleted) != 0 {
 				t.Fatalf("clusters deleted after authority was withdrawn: %v", deleted)
 			}
@@ -151,15 +152,15 @@ func TestATakeDownStopsAsAskedBeforeDeletingTheCluster(t *testing.T) {
 	w, _, _ := releasedProd(t)
 	ctx := context.Background()
 	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-	if err != nil || res.Operation == nil {
+	if err != nil || res == nil {
 		t.Fatalf("take-down: %+v %v", res, err)
 	}
 	w.clusters.atFill = func() {
-		if _, err := w.ops.Cancel(ctx, res.Operation.ID); err != nil {
+		if _, err := w.ops.Cancel(ctx, res.ID); err != nil {
 			t.Errorf("cancelling the running take-down: %v", err)
 		}
 	}
-	got := w.run(res.Operation)
+	got := w.run(res)
 	if got.State != operations.Cancelled || !strings.Contains(got.Detail, "app removed, data kept") || !strings.Contains(got.Detail, "stopped as asked before deleting the cluster") {
 		t.Fatalf("a take-down asked to stop: %s %q", got.State, got.Detail)
 	}
@@ -177,7 +178,7 @@ func TestATakeDownWhoseDeleteGotNoAnswerIsUnknown(t *testing.T) {
 	t.Parallel()
 	w, _, _ := releasedProd(t)
 	res, err := w.s.TakeDown(context.Background(), RemoveDeployment{ProjectID: w.project, Name: "prod"})
-	if err != nil || res.Operation == nil {
+	if err != nil || res == nil {
 		t.Fatalf("take-down: %+v %v", res, err)
 	}
 	apps := w.api.Snapshot().Apps
@@ -185,7 +186,7 @@ func TestATakeDownWhoseDeleteGotNoAnswerIsUnknown(t *testing.T) {
 		t.Fatalf("apps: %v", apps)
 	}
 	w.api.LoseAnswer("DELETE", "/v2/apps/"+fmt.Sprint(apps[0]["id"]))
-	got := w.run(res.Operation)
+	got := w.run(res)
 	last := got.Steps[len(got.Steps)-1]
 	if got.State != operations.Unknown || !last.Unknown || !strings.Contains(got.Detail, "not known") || strings.Contains(got.Detail, "could not be deleted") {
 		t.Fatalf("a delete that got no answer: %s %q, last step %+v", got.State, got.Detail, last)
@@ -464,6 +465,43 @@ func TestQueuedCopyStartRechecksBothProjectsBeforeEffects(t *testing.T) {
 				if strings.HasSuffix(when, "before execution") && len(after.Databases) != len(before.Databases) {
 					t.Fatal("made a cluster after restore authority was withdrawn")
 				}
+			}
+		})
+	}
+}
+
+func TestTakeDownPreservesTheFinalSetAfterDataDeletion(t *testing.T) {
+	for _, scenario := range []string{"lost database answer", "settlement"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+			w, dep, cluster := releasedProd(t)
+			if scenario == "settlement" {
+				dbtest.FailNextStatement(t, w.db, "-- name: DeleteDeployment")
+			} else {
+				w.api.LoseAnswer("DELETE", "/v2/databases/"+cluster)
+			}
+			op, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: dep.Name})
+			if err != nil {
+				t.Fatal(err)
+			}
+			done := w.run(op)
+			id := inputID(done.Result, "finalBackup")
+			if id.IsZero() || !strings.Contains(done.Detail, id.String()) {
+				t.Fatalf("lost final-set evidence: %+v", done)
+			}
+			final, err := w.s.backups.ByID(t.Context(), w.project, dep.Name, id)
+			if err != nil || final.Status != BackupOK {
+				t.Fatalf("final set: %+v %v", final, err)
+			}
+			if _, err := w.s.Deployments.ByID(t.Context(), dep.ID); err != nil {
+				t.Fatalf("unfinished deployment lost: %v", err)
+			}
+			if scenario == "settlement" {
+				if done.State != operations.Failed || !strings.Contains(done.Detail, "taking it down again cannot take a new final copy") || !strings.Contains(done.Detail, "maintainer removes them by hand") {
+					t.Fatalf("confirmed deletion: %+v", done)
+				}
+			} else if done.State != operations.Unknown || !strings.Contains(done.Detail, "not known") || strings.Contains(done.Detail, "Its data was deleted") {
+				t.Fatalf("uncertain deletion: %+v", done)
 			}
 		})
 	}

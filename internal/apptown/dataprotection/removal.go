@@ -72,11 +72,32 @@ func (s *Service) takeDownActor(ctx context.Context, in RemoveDeployment, route 
 // at the target (data kept where there is no backup, and anything it failed
 // to delete), each also a retained-resources row.
 type removalResult struct {
-	Deleted  []string
-	Retained []string
+	Deleted       []string
+	Retained      []string
+	Left          []deploy.Left
+	Unconfirmed   []string
+	providerError error
 	// FinalBackup is the set taken before the data was deleted; nil when
 	// the deployment held no data AppTown backs up.
 	FinalBackup *FinalSet
+}
+
+func (r removalResult) detail() string {
+	words := []string{"no deletions confirmed"}
+	if len(r.Deleted) > 0 {
+		words[0] = "deleted (confirmed): " + strings.Join(r.Deleted, "; ")
+	}
+	for _, l := range r.Left {
+		name, _ := l.Handle["name"].(string)
+		if name == "" {
+			name, _ = l.Handle["id"].(string)
+		}
+		words = append(words, fmt.Sprintf("left: %s %s (%s)", l.What, name, l.Why))
+	}
+	if len(r.Unconfirmed) > 0 {
+		words = append(words, "not confirmed removed: "+strings.Join(r.Unconfirmed, "; "))
+	}
+	return strings.Join(words, "; ")
 }
 
 // FinalSet names a take-down's final backup: what to restore from and its
@@ -86,35 +107,15 @@ type FinalSet struct {
 	Bytes int64  `json:"bytes"`
 }
 
-// Remove is the checked teardown door. Preflight and settlement are short
-// transactions; the provider call holds no database transaction. A stale response
-// cannot delete a newer binding or transfer its needs into the retained ledger.
-// This does not fence external provider mutation between those transactions.
-func (s *Service) Remove(ctx context.Context, in RemoveDeployment) (removalResult, error) {
-	if err := ctx.Err(); err != nil {
-		return removalResult{}, err
-	}
-	principal, err := s.takeDownActor(ctx, in, "deployment.remove")
-	if err != nil {
-		return removalResult{}, err
-	}
-	return s.remove(ctx, in, principal, nil, nil)
-}
-
-// remove is the removal, as principal. allowed, when set (a take-down
-// operation's check), is asked again before each consequential effect:
-// the final backup, the teardown, and the keys' revocation with the
-// records, which follow it at once.
-// Refused, nothing more is done and the error says what already was.
-// stop, when set (a take-down operation a person asked to stop), is asked
-// before the final backup and before the teardown, the safe boundaries:
-// stopping there keeps the backup taken and starts stopped parts again.
-func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal access.Principal, allowed func(context.Context) error, stop func(context.Context) bool) (removalResult, error) {
-	stopped := func() bool { return stop != nil && stop(ctx) }
-	ask := func(done string) error {
-		if allowed == nil {
-			return nil
+// remove performs the operation's final backup, provider teardown and settlement.
+func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal access.Principal, allowed func(context.Context) error, stop func(context.Context) bool) (out removalResult, err error) {
+	var final *Backup
+	defer func() {
+		if final != nil {
+			out.FinalBackup = &FinalSet{ID: final.ID, Bytes: final.Bytes}
 		}
+	}()
+	ask := func(done string) error {
 		if err := allowed(ctx); err != nil {
 			return fmt.Errorf("%s%w", done, err)
 		}
@@ -168,10 +169,9 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 		return removalResult{}, err
 	}
 	synthetic := !purpose.KeepsData()
-	var final *Backup
 	var parts stoppedParts
 	var kept []deploy.Left
-	if stopped() {
+	if stop(ctx) {
 		return removalResult{}, fault.New(fault.Conflict, "stopped as asked before its final backup; nothing was changed")
 	}
 	if err := ask(""); err != nil {
@@ -228,7 +228,7 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 	if err != nil {
 		return removalResult{}, fmt.Errorf("reading the project's other deployments on this account (%s): %w", restartParts(ctx, parts), err)
 	}
-	if stopped() {
+	if stop(ctx) {
 		return removalResult{}, fault.New(fault.Conflict, "stopped as asked before its teardown; "+finalDone(final)+restartParts(ctx, parts))
 	}
 	if err := ask(finalDone(final)); err != nil {
@@ -239,17 +239,31 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 	if s.applied != nil {
 		s.applied(selected.TargetID)
 	}
+	out = removalResult{Deleted: taken.Deleted, Left: taken.Left}
 	if err != nil {
-		// The serving container stands; so should its parts.
-		return removalResult{}, &deployment.RemovalIncompleteError{Cause: fmt.Errorf("%w (%s)", err, restartParts(ctx, parts))}
+		out.providerError = err
+		for _, o := range owned {
+			confirmed := false
+			for _, name := range taken.Deleted {
+				confirmed = confirmed || name == o.Label()
+			}
+			for _, l := range taken.Left {
+				confirmed = confirmed || l.Handle["id"] == o.ID || l.Handle["name"] == o.Name && o.Name != ""
+			}
+			if !confirmed {
+				out.Unconfirmed = append(out.Unconfirmed, o.Label())
+			}
+		}
+		return out, fmt.Errorf("%s%s; %w (%s). Take it down again to carry on from here", finalDone(final), out.detail(), err, restartParts(ctx, parts))
 	}
 	// Held data off the list is kept, and retained with the rest of what
 	// the teardown left, once each: the final copy's account of a volume
 	// (whether the set holds it) stands for the teardown's.
 	taken.Left = append(withoutLeft(taken.Left, kept), kept...)
-	const removedApp = "the app was taken down; its keys and records were not changed: "
+	out.Left = taken.Left
+	removedApp := "teardown finished; " + out.detail() + "; its keys and records were not removed: "
 	if err := ask(finalDone(final) + removedApp); err != nil {
-		return removalResult{}, err
+		return out, err
 	}
 	s.releaseDeploymentKeys(ctx, selected, keys, &taken)
 	if synthetic && others == 0 {
@@ -260,14 +274,18 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 		if err != nil {
 			return removalResult{}, err
 		}
-		out := removalResult{Deleted: taken.Deleted, Retained: retained}
-		if final != nil {
-			out.FinalBackup = &FinalSet{ID: final.ID, Bytes: final.Bytes}
-		}
+		out := removalResult{Deleted: taken.Deleted, Retained: retained, Left: taken.Left}
 		return out, nil
 	})
 	if err != nil {
-		return removalResult{}, &deployment.RemovalIncompleteError{Cause: err, ProviderAccepted: true}
+		out.Deleted, out.Left = taken.Deleted, taken.Left
+		detail := fmt.Sprintf("%steardown finished; %s; its records were not removed: %v.", finalDone(final), out.detail(), err)
+		if final != nil && target.DataAccess() == deployment.DataOnFlyMachines && len(taken.Left) == 0 {
+			detail += fmt.Sprintf(" Its data was deleted after set %d was taken. Taking it down again cannot take a new final copy. Set %d holds its data. Its records stay until a maintainer removes them by hand.", final.ID, final.ID)
+		} else {
+			detail += " Take it down again to carry on from here."
+		}
+		return out, errors.New(detail)
 	}
 	return result, nil
 }
@@ -311,30 +329,11 @@ func settleRemovalIn(ctx context.Context, tx *database.Tx, in RemoveDeployment, 
 	return deployment.RemoveRecordedIn(ctx, tx, selected, in.withProject, s)
 }
 
-// TakeDownWithProject takes a deployment down because its project is being
-// deleted: main too, under the same authority, through the same routing as
-// TakeDown. A deployment the take-down operation protects (App Platform data
-// AppTown copies, with a store attached and a copy runner named) gets its
-// final copy to the store, filled into a new place and checked, before its
-// cluster is deleted; the deletion runs that operation here and waits for
-// it, and one that does not end verified refuses the deletion with what the
-// operation says it left. Anything else is removed now, by Remove: a final
-// backup where AppTown backs the data up, then only what AppTown
-// recorded creating.
-//
-// An eval copy is the exception, on purpose: its data is synthetic and
-// nothing will restore it, so its deployments go with no final copy on any
-// target. beginManagedTakeDown never starts the operation for a copy, and
-// Remove takes no final backup of one (evals.go).
+// TakeDownWithProject admits and awaits a project's take-down, including main.
 func (s *Service) TakeDownWithProject(ctx context.Context, projectID ids.ID, name string) (removalResult, error) {
-	in := RemoveDeployment{ProjectID: projectID, Name: name, withProject: true}
-	op, noCopy, err := s.beginManagedTakeDown(ctx, in)
+	op, err := s.TakeDown(ctx, RemoveDeployment{ProjectID: projectID, Name: name, withProject: true})
 	if err != nil {
 		return removalResult{}, err
-	}
-	if op == nil {
-		in.noCopy = noCopy
-		return s.Remove(ctx, in)
 	}
 	return s.awaitTakeDown(ctx, op)
 }
@@ -350,8 +349,8 @@ func (s *Service) awaitTakeDown(ctx context.Context, op *operations.Operation) (
 	if err != nil {
 		return removalResult{}, fmt.Errorf("its take-down (operation %d) was not recorded as it ended: %w", op.ID, err)
 	}
-	if done.State != operations.Succeeded || done.Verification != operations.Verified {
-		return removalResult{}, fault.New(fault.Conflict, fmt.Sprintf("its take-down with a final copy (operation %d) ended %s: %s", op.ID, done.State, done.Detail))
+	if done.State != operations.Succeeded {
+		return removalResult{}, fault.New(fault.Conflict, fmt.Sprintf("its take-down (operation %d) ended %s: %s", op.ID, done.State, done.Detail))
 	}
 	out := removalResult{}
 	switch deleted := done.Result["deleted"].(type) {
