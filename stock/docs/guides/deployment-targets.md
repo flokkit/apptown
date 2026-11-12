@@ -16,8 +16,115 @@ set it under **Integrations › Secrets**, or with
 | AWS ECS on Fargate (beta) | one public part on Fargate | a dedicated RDS Postgres | none | none (sizes listed) | [AWS ECS](aws-target-setup.md) |
 
 A project's deployments are made on the project's **Deployments**.
-What each kind runs, and what a deployment owns and deletes when taken
-down, is in [Previews and deployments](container-lifecycle.md).
+What each kind runs is in [Previews and deployments](container-lifecycle.md).
+
+## Who owns what
+
+Every target splits the same way. The platform owner runs the place apps run.
+AppTown makes, for each deployment, only what that deployment needs there.
+
+```mermaid
+flowchart LR
+  subgraph owner["Platform owner"]
+    direction TB
+    acct["account, server or Portainer"]
+    net["network, cluster or Docker host"]
+    lb["load balancer or Traefik"]
+    dns["DNS and certificates"]
+    cred["the credential AppTown uses"]
+  end
+  subgraph apptown["AppTown, per deployment"]
+    direction TB
+    app["the app: containers, stack, app or service"]
+    data["its data: volumes, databases, buckets"]
+    route["its route: labels or a listener rule"]
+  end
+  cred -->|"lets AppTown create"| app
+  app --> net
+  data --> net
+  route --> lb
+  class acct,net,lb,dns,cred owner
+  classDef owner stroke-dasharray: 5 5
+```
+
+| Platform owner | AppTown |
+|---|---|
+| The account, server or Portainer, and who may use it | What it creates for each deployment, recorded as soon as the provider confirms it, and what is inside those (a Fly app's Machines, a bucket's files) |
+| The network, cluster or Docker host | The app's containers, stack, app or service, and its images |
+| The load balancer or Traefik, DNS and certificates | The app's route: Traefik labels, or a rule on your listener |
+| The credential, with the rights the setup guide lists | The app's data: volumes, databases and buckets, and their final backup |
+
+A take-down deletes what AppTown recorded creating for the deployment,
+with what is inside it: deleting a Fly app deletes its Machines, and
+deleting a bucket website's bucket deletes its files first.
+
+AppTown also marks what it creates with this installation's id: a Docker
+label, a stack variable, a tag, a file or Machine metadata, depending on
+the target. The target's page uses the mark to list what it finds there:
+something that carries the mark but has no record is listed under **Not
+accounted for**, and something without it is shown only to confirm a
+record. Each target's guide says what it checks before it deletes.
+
+## What happens when you deploy
+
+A deploy goes through the same stages on every target. The deployment's
+page shows the one it is in.
+
+| Stage | What happens |
+|---|---|
+| getting the code ready | AppTown checks who asked and that they still may, and that nothing else holds the deployment. It checks the release fits the target before changing anything. |
+| backing up the data | A copy of the deployment's data, before anything changes. Skipped, with the reason recorded, on a first release, when there is no data, or on App Platform and AWS, which keep their own. An incomplete copy stops the deploy, unless a person accepts that for a release they started by hand. |
+| building the app | Services are made ready, images are pulled, built or copied to where the target runs them, and the target's configuration is written. |
+| starting the app | AppTown creates or updates what runs. |
+| checking the app answers | AppTown asks the app's readiness address. A deployment kept stopped skips this. |
+| live | The deployment serves the new release. |
+
+Each target's guide lists what it creates and changes, in order, and what
+happens when a deploy fails part way.
+
+## What happens when you take down
+
+A take-down runs as a background operation. Follow it on its page; closing
+the page does not stop it. While it runs, the deployment reads **taking
+down**.
+
+1. **Refused before anything changes** when the deployment is `main`, has
+   a release in progress, is the source another deployment promotes from,
+   is a restored copy, or has restored copies still standing.
+2. **Final backup**, when the deployment holds data. The app's parts stop,
+   and its services keep running so their data can be copied. If the
+   backup does not cover all the data, AppTown starts the parts again and
+   removes nothing.
+3. **Delete** what AppTown recorded creating, in the target's order.
+4. **Keep**, listed as retained resources on the target's page:
+   - data with no final backup, where you chose to take it down without
+     one;
+   - anything that was there before AppTown's deploy;
+   - anything a delete failed on.
+5. **Revoke** the deployment's AI model keys.
+6. **Remove** the deployment's records.
+
+On App Platform, and on AWS with a database, the database is copied after
+the app stops serving:
+
+1. App Platform deletes the app. AWS stops the service and removes its
+   listener rule.
+2. The deployment's AI model keys are revoked.
+3. The final copy is taken, and checked by filling it into a new database.
+4. The database is deleted, then the rest of what AppTown created.
+
+**If it stops part way**, the operation lists what was deleted, what was
+left and what was not confirmed removed. The deployment reads **take-down
+did not finish**. Take it down again to carry on: each target skips what is
+already gone, and a new final backup is taken of data that is still there.
+Two cases cannot be carried on this way. A maintainer inspects the provider
+and removes the deployment's records by hand:
+- the data was already deleted after its final copy: a new copy cannot be
+  taken, and the operation names the backup set that holds the data;
+- on Portainer, the stack was already deleted: the final backup cannot read
+  it ([Portainer](portainer-target-setup.md)).
+
+## Capacity, disks and logs
 
 Each target opens with its status, a capacity strip, deployments and their
 resource counts, resources not accounted for, settings and offers. Its

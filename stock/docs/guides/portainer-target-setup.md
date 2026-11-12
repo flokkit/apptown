@@ -5,6 +5,45 @@ existing Portainer. AppTown talks only to Portainer's API; it never connects
 to the Docker machine itself. This target is experimental: no real app has
 been qualified on it yet.
 
+## Who owns what
+
+```mermaid
+flowchart LR
+  subgraph owner["Platform owner"]
+    direction TB
+    port["Portainer and its access token"]
+    env["standalone Docker environment"]
+    host["the Docker machine"]
+    traefik["Traefik"]
+    dns["wildcard DNS"]
+    other["other stacks"]
+  end
+  subgraph apptown["AppTown, per deployment"]
+    direction TB
+    stack["stack apptown-dep-..."]
+    vol["volumes"]
+    reader["readiness reader container"]
+  end
+  port -->|"API only"| env
+  env --> host
+  stack --> env
+  vol --> env
+  stack -->|"labels"| traefik
+  class port,env,host,traefik,dns,other owner
+  classDef owner stroke-dasharray: 5 5
+```
+
+| Platform owner | AppTown |
+|---|---|
+| Portainer, and the user whose access token AppTown uses | One stack per deployment, when AppTown's own create made it (`stack`) |
+| The environment and the Docker machine behind it | A volume for each data folder and service that keeps data, when the deploy made it (`volume`) |
+| Traefik, and wildcard DNS for the apps domain | A small container per deployment that checks the app answers |
+| Other stacks, environments and Portainer's settings | Traefik labels on the app's public container |
+
+Each stack AppTown creates carries the stack variable `APPTOWN_INSTANCE` and
+names its deployment inside the stack file. A stack AppTown did not create
+stays the Portainer administrator's to remove.
+
 ## What you need
 
 - The **Portainer targets** feature turned on under **Setup → Features**
@@ -56,20 +95,66 @@ Once added, the target stays on that environment's Docker daemon. Renaming the
 environment in Portainer cannot move it elsewhere. To use another
 environment, add another target.
 
+## What happens when you deploy
+
+In this order, through Portainer's API:
+
+1. Write the stack file: the app, its parts and services, and their
+   volumes. Images must be in the project's container registry by digest,
+   and built for the environment's platform.
+2. Check Docker's disk on the environment has room.
+3. Label each service with the release, and record which stack the release
+   goes to before sending anything.
+4. Run a throwaway container on the environment, to check AppTown can.
+5. Note which of the stack's volumes are already there.
+6. Create the stack, or update it after checking it names this deployment.
+   A stack of that name that names another deployment is refused.
+7. Record the stack, and each volume that was not there before.
+8. Check the app answers, from a small reader container on the app's
+   network.
+
+If a step fails, the release fails at that step. AppTown does not put the
+previous stack back.
+
+## What happens when you take down
+
+1. Read the stack file, and plan a copy of every volume it names and every
+   volume AppTown recorded. Refuse if a recorded volume cannot be copied.
+2. Stop the stack's containers. Its services keep running.
+3. Take the final backup through Portainer. If it does not cover every
+   recorded volume, start the containers again and remove nothing.
+
+Then:
+
+4. Check the stack still has the recorded id and environment, and still
+   names this deployment.
+5. Delete the stack.
+6. Delete the volumes AppTown recorded creating.
+7. Remove the readiness reader container.
+
+What is kept:
+- a volume that was there before AppTown's deploy: it is copied into the
+  final backup and left in place;
+- with no final backup, the data volumes, listed as retained. That is
+  offered only when AppTown cannot reach the environment's Docker, and you
+  choose to take it down without a final copy.
+
+AppTown refuses to take down a stack it did not record creating; remove that
+one in Portainer. AppTown never changes other stacks, environments or
+Portainer's settings.
+
+If it stops part way before the stack is deleted, take it down again. If it
+stops after the stack was deleted (removing the reader container failed, for
+example), taking it down again stops at the final backup, which cannot read
+the deleted stack. The final backup already taken holds the data. Delete what is
+left in Portainer, and ask a maintainer to remove the deployment's records.
+
 ## Check it worked
 
 The target's page shows **Target check:** "Portainer answers" with the
 environment's number. Its **Capacity** page is read through Portainer, as for
 a Docker host. Other stacks in the environment count as containers AppTown did
 not start.
-
-## What AppTown creates and deletes
-
-For each deployment AppTown creates one stack, `apptown-dep-…`, and a volume
-for each service that keeps data. Taking a deployment down takes a final
-backup through Portainer, then deletes the stack and the volumes its deploys
-made. A volume that existed before is copied and kept. AppTown never changes
-other stacks, environments or Portainer's settings.
 
 ## Costs and limits
 

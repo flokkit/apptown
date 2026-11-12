@@ -6,6 +6,42 @@ bucket of its own. DigitalOcean Spaces is the store AppTown has been built
 against. This target is experimental: no real app has been qualified on it
 yet.
 
+## Who owns what
+
+```mermaid
+flowchart LR
+  subgraph owner["Platform owner"]
+    direction TB
+    store["S3-compatible store and its team"]
+    key["full-access key"]
+    web["the store's website address"]
+    reg["the project's container registry"]
+    other["other buckets"]
+  end
+  subgraph apptown["AppTown, per deployment"]
+    direction TB
+    bucket["bucket apptown-..."]
+    files["the site's files"]
+  end
+  key -->|"lets AppTown create"| bucket
+  bucket --> store
+  files --> bucket
+  web -->|"serves"| files
+  reg -->|"site read from image"| files
+  class store,key,web,reg,other owner
+  classDef owner stroke-dasharray: 5 5
+```
+
+| Platform owner | AppTown |
+|---|---|
+| The store, its team, and the full-access key AppTown uses | One bucket per deployment, `apptown-…`, private |
+| The website address the store serves buckets at | Every file in that bucket, each readable by anyone |
+| The project's container registry | A private `_apptown/instance` file that marks the bucket as this installation's |
+| Other buckets in the team | |
+
+The bucket is recorded with the deployment, not in its list of created
+things, so a take-down's result names it as `bucket <name>`.
+
 ## What you need
 
 - The **Bucket-site targets** feature turned on under **Setup → Features**
@@ -45,21 +81,41 @@ key can see. It creates nothing. Nothing is recorded until you press **Add
 target**. Then set its offer: tick only **public** under **Audiences**.
 Anyone with a site's address can read every file in it.
 
+## What happens when you deploy
+
+In this order, through the store's S3 API:
+
+1. Refuse an app that is not one public `static` part with no `init` steps
+   and no `needs`.
+2. Read the site's files from the release image, by digest.
+3. On the first release, create the bucket, private, and record it before
+   writing to it. A name already taken is refused.
+4. Turn on the bucket's website setting, and write the installation mark.
+5. Upload the files, each readable by anyone: assets first, then pages,
+   then the file naming the release, last.
+6. Check the site answers with the new release.
+7. Delete files that are in neither this release nor the one before.
+
+If an upload fails before the release marker is written, files already
+uploaded stay in place, so the site may serve a mix of the previous and the
+new release. Release again to finish publishing.
+
+## What happens when you take down
+
+There is no backup: the site is rebuilt from its release.
+
+1. Delete every file in the bucket.
+2. Delete the bucket.
+3. Check the address stops answering.
+
+If it stops part way, take it down again: a bucket already gone is skipped.
+Keep nothing else in a deployment's bucket. AppTown never adopts a bucket
+whose name is taken, and never touches other buckets.
+
 ## Check it worked
 
 The target's page shows **Target check:** with the endpoint, the region and
 how many buckets the key sees.
-
-## What AppTown creates and deletes
-
-For each deployment AppTown creates one bucket, named `apptown-…`, and records
-it before writing to it. The bucket is private; each file AppTown uploads is
-public. A release uploads the new files and then checks the site answers with
-the new release. Old files are removed one release later.
-
-Taking a deployment down deletes every file and the bucket, and checks the
-address stops answering. Keep nothing else in a deployment's bucket. AppTown
-never adopts a bucket whose name is taken, and never touches other buckets.
 
 ## Costs and limits
 
