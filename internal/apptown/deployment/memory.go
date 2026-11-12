@@ -71,7 +71,8 @@ type PartMemory struct {
 }
 
 // observedMemory is each part's memory use now, asked of the deployment's
-// own target: a Docker host's daemon reports each part's container. A
+// own target: a Docker host's daemon reports each part's container, a
+// target that reports parts (Fly) its driver's reading. A
 // target that does not report it (App Platform, Portainer), a daemon that
 // cannot be asked, or a part it does not report is unknown with the
 // reason: never zero, and never "within its limit". A part whose container
@@ -99,6 +100,15 @@ func (s *Service) observedMemory(ctx context.Context, d *Deployment) ([]PartMemo
 			out[i] = PartMemory{Part: p, Need: applied.Parts[p].Need, Reason: reason}
 		}
 		return out
+	}
+	var target *Target
+	if !d.TargetID.IsZero() {
+		if target, err = s.Targets.ByID(ctx, d.TargetID); err != nil {
+			return nil, err
+		}
+	}
+	if target.reportsParts() {
+		return s.reportedUse(ctx, target, d, parts, applied, unknown)
 	}
 	if d.Container == "" {
 		return unknown("its target does not report memory use to AppTown"), nil

@@ -8,6 +8,7 @@
 package flyfake
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,6 +32,10 @@ type Machine struct {
 	Events     []map[string]any `json:"-"`
 	Secrets    int64            `json:"-"` // the secrets version it was made with
 	Restarts   int              `json:"-"`
+	// withheld: Fly cannot reach its host, so it answers config null and
+	// the last known config as incomplete_config, or neither when
+	// forgotten.
+	withheld, forgotten bool
 }
 
 // Metadata is the Machine's config metadata.
@@ -103,11 +108,57 @@ type API struct {
 	// HoldDeletes answers every Machine deletion 503, as a Fly that does
 	// not answer: a test's stand-in for AppTown stopping mid-release.
 	HoldDeletes bool
+	// cpu and memory are each Machine's metrics, by Machine id.
+	cpu     map[string]float64
+	memory  map[string][2]int64
+	queries []string
+}
+
+// SetCPU makes the metrics report the Machine's CPU use: the rate of
+// fly_instance_cpu over its guest's own modes, summed over its CPUs, in
+// centiseconds per second, as Fly counts it.
+func (f *API) SetCPU(id string, centisecondsPerSecond float64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.cpu[id] = centisecondsPerSecond
+}
+
+// SetMemory makes the metrics report the Machine's guest memory, in bytes.
+func (f *API) SetMemory(id string, total, available int64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.memory[id] = [2]int64{total, available}
+}
+
+// Queries are the metrics queries asked, in order.
+func (f *API) Queries() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.queries)
+}
+
+// Unreachable makes Fly lose the Machine's host: it answers host_status
+// unreachable and config null, with its last known config as
+// incomplete_config unless forgotten.
+func (f *API) Unreachable(app, id string, forgotten bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	m := f.apps[app].Machines[id]
+	m.HostStatus, m.withheld, m.forgotten = "unreachable", true, forgotten
+}
+
+// AddEvent records an event of a Machine, as Fly keeps them; a Machine
+// answer carries the newest five.
+func (f *API) AddEvent(app, id string, e map[string]any) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	m := f.apps[app].Machines[id]
+	m.Events = append(m.Events, e)
 }
 
 // New is a world with one org the token reaches.
 func New(org string) *API {
-	return &API{apps: map[string]*App{}, idem: map[string]string{}, failing: map[Request]int{}, Orgs: []string{org},
+	return &API{apps: map[string]*App{}, idem: map[string]string{}, failing: map[Request]int{}, cpu: map[string]float64{}, memory: map[string][2]int64{}, Orgs: []string{org},
 		Regions: map[string]bool{"syd": true, "iad": true, "jnb": false}}
 }
 
@@ -244,6 +295,10 @@ func refuse(w http.ResponseWriter, status int, code, msg string) {
 }
 
 func (f *API) serve(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/prometheus/") {
+		f.metrics(w, r)
+		return
+	}
 	if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
 		refuse(w, 401, "", "unauthorized")
 		return
@@ -465,11 +520,15 @@ func (f *API) machines(w http.ResponseWriter, r *http.Request, a *App, rest []st
 			f.createMachine(w, a, body)
 			return
 		}
-		out := []*Machine{}
+		var ms []*Machine
 		for _, m := range a.Machines {
-			out = append(out, m)
+			ms = append(ms, m)
 		}
-		slices.SortFunc(out, func(x, y *Machine) int { return strings.Compare(x.ID, y.ID) })
+		slices.SortFunc(ms, func(x, y *Machine) int { return strings.Compare(x.ID, y.ID) })
+		out := []map[string]any{}
+		for _, m := range ms {
+			out = append(out, answered(m))
+		}
 		write(w, 200, out)
 		return
 	}
@@ -510,7 +569,7 @@ func (f *API) machines(w http.ResponseWriter, r *http.Request, a *App, rest []st
 		}
 		write(w, status, answer)
 	case len(rest) == 1 && r.Method == "GET":
-		write(w, 200, m)
+		write(w, 200, answered(m))
 	case len(rest) == 1 && r.Method == "DELETE" && f.HoldDeletes:
 		refuse(w, 503, "", "held")
 	case len(rest) == 1 && r.Method == "DELETE":
@@ -628,11 +687,131 @@ func PathOf(app string, rest ...string) string {
 }
 
 // Adopt puts a copy of m into the app named to, as a person might add a
-// Machine of their own to an app.
-func (f *API) Adopt(to string, m *Machine) {
+// Machine of their own to an app, and answers the copy's id.
+func (f *API) Adopt(to string, m *Machine) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	cp := *m
 	cp.ID = f.id("m")
 	f.apps[to].Machines[cp.ID] = &cp
+	return cp.ID
+}
+
+// SetMetadata sets one metadata key of a Machine's config.
+func (f *API) SetMetadata(app, id, key, value string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	m := f.apps[app].Machines[id]
+	cfg := map[string]any{}
+	for k, v := range m.Config {
+		cfg[k] = v
+	}
+	md := map[string]any{}
+	if old, ok := cfg["metadata"].(map[string]any); ok {
+		for k, v := range old {
+			md[k] = v
+		}
+	}
+	md[key] = value
+	cfg["metadata"] = md
+	m.Config = cfg
+}
+
+// answered is a Machine as Fly answers it: with up to five of its newest
+// events, newest first.
+func answered(m *Machine) map[string]any {
+	raw, _ := json.Marshal(m)
+	var out map[string]any
+	_ = json.Unmarshal(raw, &out)
+	events := slices.Clone(m.Events)
+	slices.SortStableFunc(events, func(x, y map[string]any) int { return cmpTimestamp(y, x) })
+	if len(events) > 5 {
+		events = events[:5]
+	}
+	out["events"] = events
+	if m.withheld {
+		out["config"] = nil
+		if !m.forgotten {
+			out["incomplete_config"] = m.Config
+		}
+	}
+	return out
+}
+
+func cmpTimestamp(x, y map[string]any) int {
+	stamp := func(e map[string]any) int64 {
+		switch v := e["timestamp"].(type) {
+		case int:
+			return int64(v)
+		case int64:
+			return v
+		case float64:
+			return int64(v)
+		}
+		return 0
+	}
+	return cmp.Compare(stamp(x), stamp(y))
+}
+
+// metrics serves GET /prometheus/{org}/api/v1/query for the two series
+// the driver asks for, from the metrics a test set (SetCPU, SetMemory), scoped to the app the
+// query names. It answers only a token in Fly's forms and an org the token
+// reaches. Fail can make it refuse.
+func (f *API) metrics(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	req := Request{r.Method, r.URL.Path}
+	f.requests = append(f.requests, req)
+	auth := r.Header.Get("Authorization")
+	if !strings.HasPrefix(auth, "Bearer ") && !strings.HasPrefix(auth, "FlyV1 ") {
+		refuse(w, 401, "", "unauthorized")
+		return
+	}
+	if v, ok := f.failing[req]; ok {
+		status, n := v/1000, v%1000
+		if n <= 1 {
+			delete(f.failing, req)
+		} else {
+			f.failing[req] = status*1000 + n - 1
+		}
+		refuse(w, status, "", "failing as the test asked")
+		return
+	}
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) != 5 || parts[2] != "api" || parts[4] != "query" || !slices.Contains(f.Orgs, parts[1]) {
+		refuse(w, 404, "", "no such metrics endpoint in the fake")
+		return
+	}
+	q := r.URL.Query().Get("query")
+	f.queries = append(f.queries, q)
+	app := ""
+	if _, rest, ok := strings.Cut(q, `app="`); ok {
+		app, _, _ = strings.Cut(rest, `"`)
+	}
+	result := []map[string]any{}
+	if a := f.apps[app]; a != nil {
+		for id := range a.Machines {
+			var v float64
+			if strings.Contains(q, "fly_instance_memory_mem_total") {
+				mem, ok := f.memory[id]
+				if !ok {
+					continue
+				}
+				v = float64(mem[0] - mem[1])
+			} else {
+				rate, ok := f.cpu[id]
+				if !ok {
+					continue
+				}
+				// The fake keeps no series: it answers the rate, and
+				// divides it as the query does.
+				v = rate
+				if strings.HasSuffix(strings.TrimSpace(q), "/ 100") {
+					v /= 100
+				}
+			}
+			result = append(result, map[string]any{"metric": map[string]string{"app": app, "instance": id}, "value": []any{1, strconv.FormatFloat(v, 'f', -1, 64)}})
+		}
+	}
+	write(w, 200, map[string]any{"status": "success", "data": map[string]any{"resultType": "vector", "result": result}})
 }

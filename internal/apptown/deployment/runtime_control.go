@@ -44,17 +44,19 @@ func (e *Deployment) lastActAt() time.Time {
 
 // kindRuntime is what each target kind can do with a deployment's runtime:
 // the acts (start, stop, restart) it can ever take, the sentence that
-// refuses the others, and whether it runs any container at all. A kind not
+// refuses the others, whether it runs any container at all, and whether
+// its observations report each part (deploy.Observation.Parts). A kind not
 // listed takes no act.
 var kindRuntime = map[string]struct {
 	acts         []string
 	never        string
 	noContainers bool
+	reportsParts bool
 }{
 	KindDockerHost:  {acts: []string{"start", "stop", "restart"}},
 	KindPortainer:   {acts: []string{"start", "stop", "restart"}},
 	KindDOApp:       {acts: []string{"restart"}, never: "App Platform cannot keep an app stopped"},
-	kindFlyMachines: {acts: []string{"restart"}, never: "This Fly target does not keep an app stopped yet"},
+	kindFlyMachines: {acts: []string{"restart"}, never: "This Fly target does not keep an app stopped yet", reportsParts: true},
 	KindS3Bucket:    {never: "Bucket websites cannot be started, stopped or restarted", noContainers: true},
 }
 

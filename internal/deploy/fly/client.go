@@ -32,6 +32,8 @@ const (
 	Platform = "linux/amd64"
 	// apiBase is the public Machines API.
 	apiBase = "https://api.machines.dev"
+	// metricsBase serves each org's Prometheus under /prometheus/<org>.
+	metricsBase = "https://api.fly.io"
 	// registryHost is Fly's registry: a Machine pulls only from here or
 	// from a public registry, so release images are copied into it.
 	registryHost = "registry.fly.io"
@@ -51,17 +53,20 @@ type Config struct {
 type Client struct {
 	Token string
 	Base  string
-	HTTP  *http.Client
+	// MetricsBase serves the org's metrics; a test's base serves both.
+	MetricsBase string
+	HTTP        *http.Client
 }
 
 var apiTransport = trust.Lazy(trust.AppTown)
 
 // NewClient talks to the API with token; an empty base is the public API.
 func NewClient(token, base string) *Client {
+	metrics := strings.TrimRight(base, "/")
 	if base == "" {
-		base = apiBase
+		base, metrics = apiBase, metricsBase
 	}
-	return &Client{Token: token, Base: strings.TrimRight(base, "/"), HTTP: &http.Client{Timeout: 60 * time.Second, Transport: apiTransport}}
+	return &Client{Token: token, Base: strings.TrimRight(base, "/"), MetricsBase: metrics, HTTP: &http.Client{Timeout: 60 * time.Second, Transport: apiTransport}}
 }
 
 // apiError is a non-2xx answer, in Fly's words.

@@ -203,13 +203,23 @@ func (s *Service) observeDetails(ctx context.Context, id ids.ID) error {
 	if err != nil {
 		return err
 	}
+	// A part's unknown use is the reading's failure where the target
+	// reports use at all: a Docker host's container, or reported parts.
+	reportsUse := dep.Container != ""
+	if !reportsUse && !dep.TargetID.IsZero() {
+		t, err := s.Targets.ByID(ctx, dep.TargetID)
+		if err != nil {
+			return err
+		}
+		reportsUse = t.reportsParts()
+	}
 	var errs [2]error
 	var workers sync.WaitGroup
 	workers.Add(2)
 	go func() {
 		defer workers.Done()
 		errs[0] = collectDeploymentDetail(ctx, s, dep, identity, "Resources", s.collectResources, func(r DeploymentResources) string {
-			if dep.Container == "" {
+			if !reportsUse {
 				return ""
 			}
 			for _, p := range r.Parts {

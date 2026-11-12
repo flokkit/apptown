@@ -177,10 +177,10 @@ capabilities (`StockCapabilities`), and fails if a cell here differs.
 | Declared resources | exact: each part's container gets its memory (swap included) and cpus | exact: each part's service gets mem_limit, memswap_limit and cpus | rounded up to the cheapest current instance size that covers each part; one no size covers is refused before any effect | rounded up to the smallest shared-CPU Machine that covers each part; one none covers is refused before any effect | none: a site has no runtime | rounded up to the smallest Fargate CPU and memory pair |
 | A need's declared resources | exact on the need's service; a standing need takes a new size in place, or is remade on its volume when a limit is lifted | exact: the need's service gets mem_limit, memswap_limit and cpus | refused: the managed Postgres is made at the integration's database size | rounded up to a shared-CPU Machine; the standing need is updated in place on its volume | refused: static-only | refused: fixed dedicated RDS class |
 | A part or need larger than the host | refused before any effect, previews included; the sum of limits may exceed the host | not checked: Portainer's endpoint is read for the capacity view only | rounds to a size, or is refused | rounds to a Machine size, or is refused | none: a site has no runtime | rounds to a Fargate size, or is refused |
-| Capacity shown | fixed: memory and CPUs it has, the limits Docker enforces, whole-host memory and CPU use, the containers' use, and the disk holding Docker's data (its folder, when it was read, and whether new releases are refused) | fixed: as a Docker host, read through the endpoint's Docker proxy | elastic: each part's size and listed price, and an estimated monthly cost | elastic: each part's Machine size; prices are not read, Fly lists none AppTown can ask | none: a site has no runtime | elastic: each part’s Fargate size; cost not read |
+| Capacity shown | fixed: memory and CPUs it has, the limits Docker enforces, whole-host memory and CPU use, the containers' use, and the disk holding Docker's data (its folder, when it was read, and whether new releases are refused) | fixed: as a Docker host, read through the endpoint's Docker proxy | elastic: each part's size and listed price, and an estimated monthly cost | elastic: each part's Machine size, and each Machine's CPU and memory use from the org's metrics; prices are not read, Fly lists none AppTown can ask | none: a site has no runtime | elastic: each part’s Fargate size; cost not read |
 | A host short of disk | a release or preview is refused before anything is pulled or started while Docker's data folder has less than 5% free (at least 1 GiB, at most 20 GiB) or cannot be read, read when it starts; what runs is not touched | as a Docker host: a release is refused before any stack is sent while the endpoint's Docker data folder has less than 5% free (at least 1 GiB, at most 20 GiB) or cannot be read, read through Portainer when it starts; what runs is not touched | not applicable: the platform's disks | not applicable: the platform's disks | not applicable | not applicable: the platform’s disks |
 | Container logs | every container AppTown starts from this release on logs through `json-file`, rotated at 10 MiB, three files kept; one started earlier keeps its own until it is made again | the endpoint daemon's default; not set by AppTown in 1.0 | the platform's | the platform's | none: a site has no runtime | CloudWatch log group per deployment, retained 14 days |
-| Limit events | out-of-memory kills and exits of every standing deployment's parts and needs, from the daemon's events | not read | not reported to AppTown | not reported to AppTown | none: a site has no runtime | stopped task reason, including out of memory |
+| Limit events | out-of-memory kills and exits of every standing deployment's parts and needs, from the daemon's events | not read | not reported to AppTown | out-of-memory kills and exits nobody asked for, from the newest few events Fly keeps of each Machine; one can be missed when a Machine restarts often or a failed release's Machines are removed before AppTown looks | none: a site has no runtime | stopped task reason, including out of memory |
 | Releases after a landing | each follows-main deployment requests the landing’s bundle | follows-main or manual release of a digest bundle | as App Platform | as App Platform | as App Platform | as App Platform |
 | Readiness witnessed | the container AppTown started; a static site's release identity | the stack was accepted; health unknown | the platform's deployment is active (its own probe); AppTown asks the front door only for a declared HTTP readiness path or a static site's release identity | each new Machine is started and passes its checks; AppTown asks the front door for a declared HTTP readiness path and a static site's release identity | the published files answer this release's identity | every running task is on the recorded revision and the target is healthy; the declared front-door path or static identity answers |
 | An earlier release again | yes, its bundle by digest; data is not rolled back | yes; data is not rolled back | yes; data is not rolled back | yes, its images copied again by digest; data is not rolled back | yes | yes, its images copied by digest; data is not rolled back |
@@ -615,7 +615,25 @@ with one Machine per part.
   started with a failing check is unhealthy; one stopped or failed is
   failed (nothing on this target asks for a stop). A Machine on a host Fly
   cannot reach is unknown, never stopped or healthy, and a read Fly did
-  not answer is an error, not an empty app.
+  not answer is an error, not an empty app. The same answer gives each
+  part's and need's Machine to the Status tab: its state, image, size,
+  when it last started (the newest `started` event Fly returns) and how it
+  last exited; a Machine Fly cannot reach is known by its last known config
+  and reads unknown, and one Fly cannot name makes any part not listed
+  unknown, not absent.
+- **Use** is read with the deployment's other details, not on every
+  observation: the Machine list again and two instant queries to the org's
+  Prometheus (`https://api.fly.io/prometheus/<org>/api/v1/query`, the same
+  token): CPU cores as the rate of `fly_instance_cpu` over the guest's own
+  modes (not idle, iowait or steal) over one minute, divided by 100 (Fly
+  counts centiseconds), and memory in use as `fly_instance_memory_mem_total`
+  less `fly_instance_memory_mem_available`, matched to Machines by their
+  `instance` label. A query Fly does not answer, or a Machine without both
+  samples, is unknown with the reason, never zero.
+- **Limit events**: the health sweep records each out-of-memory kill and
+  each exit nobody asked for (`requested_stop` false) of every generation's
+  Machines in the latest observation; the event table's key keeps one seen
+  again from being recorded twice.
 - **Inventory** lists the org's apps and Machines. An app is this
   installation's only when one of its Machines carries the mark; any other
   app (another installation's, one a person made) is reported only to

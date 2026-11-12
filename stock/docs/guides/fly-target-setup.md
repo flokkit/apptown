@@ -49,6 +49,10 @@ its offer and facts. Offer it with the **public** audience only (see below).
 The target's page shows **Target check:** with the organization and region.
 Its **Capacity** page lists the Machine size each part runs on, such as
 `shared-cpu-1x (512 MB)`. Fly's prices are not read, so no cost is shown.
+A deployment's **Status** tab shows each part's Machine: its state, image,
+when it started, and its CPU and memory use against its size, read from the
+organization's metrics with the same token. Out-of-memory kills come from
+Fly's Machine events.
 
 ## What AppTown creates and deletes
 

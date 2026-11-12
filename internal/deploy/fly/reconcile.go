@@ -386,29 +386,33 @@ func (d *Driver) awaitExit(ctx context.Context, c *Client, app, id string) (exit
 func exitOf(events []event) (exit, bool) {
 	sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp > events[j].Timestamp })
 	for _, e := range events {
-		raw, ok := e.Request["exit_event"].(map[string]any)
-		if !ok {
-			if mon, ok := e.Request["MonitorEvent"].(map[string]any); ok {
-				raw, ok = mon["exit_event"].(map[string]any)
-				if !ok {
-					continue
-				}
-			} else {
-				continue
-			}
+		if ex, ok := eventExit(e); ok {
+			return ex, true
 		}
-		code, ok := raw["exit_code"].(float64)
-		if !ok {
-			continue
-		}
-		ex := exit{Code: int(code)}
-		if signal, ok := raw["signal"].(float64); ok {
-			ex.Signal = int(signal)
-		}
-		ex.OOM, _ = raw["oom_killed"].(bool)
-		return ex, true
 	}
 	return exit{}, false
+}
+
+// eventExit is the exit one event reports, if it reports one.
+func eventExit(e event) (exit, bool) {
+	raw, ok := e.Request["exit_event"].(map[string]any)
+	if !ok {
+		mon, _ := e.Request["MonitorEvent"].(map[string]any)
+		if raw, ok = mon["exit_event"].(map[string]any); !ok {
+			return exit{}, false
+		}
+	}
+	code, ok := raw["exit_code"].(float64)
+	if !ok {
+		return exit{}, false
+	}
+	ex := exit{Code: int(code)}
+	if signal, ok := raw["signal"].(float64); ok {
+		ex.Signal = int(signal)
+	}
+	ex.OOM, _ = raw["oom_killed"].(bool)
+	ex.Requested, _ = raw["requested_stop"].(bool)
+	return ex, true
 }
 
 // awaitReady waits for a part's new Machine to be started and its checks
