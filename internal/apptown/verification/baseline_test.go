@@ -123,3 +123,68 @@ func TestEveryGateComparesTheCheckedCommitWithItsFork(t *testing.T) {
 		t.Fatalf("ancestor: on=%v is=%v", on, is)
 	}
 }
+
+// A diff rubric judges the change's own work from its fork, in a working run
+// and a landing alike. A landing's own run starts at the change's tip, so
+// its recorded base left nothing to judge and the rubric could never be met
+// there (demo-smoke#33); after catching up, main's work is not the change's.
+//
+// Kills: the diff read from the root run's recorded base.
+func TestDiffRubricsJudgeTheChangeFromItsFork(t *testing.T) {
+	t.Parallel()
+	pid := idstest.N(7)
+	dataDir := t.TempDir()
+	repo := filepath.Join(dataDir, "workspaces", "project-"+pid.String())
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	git := func(args ...string) string {
+		cmd := gittest.Command(args...)
+		cmd.Dir = repo
+		cmd.Env = append(cmd.Env, "GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.invalid", "GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.invalid")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v: %s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	write := func(name, body string) {
+		if err := os.WriteFile(filepath.Join(repo, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		git("add", name)
+	}
+	git("init", "-q", "-b", "main")
+	write("README.md", "base\n")
+	git("commit", "-q", "-m", "base")
+	forked := git("rev-parse", "HEAD")
+	git("checkout", "-q", "-b", "change")
+	write("game.js", "the change's work\n")
+	git("commit", "-q", "-m", "the change's work")
+	tip := git("rev-parse", "HEAD")
+	git("checkout", "-q", "main")
+	write("main.txt", "main moved on\n")
+	git("commit", "-q", "-m", "main moved on")
+	git("checkout", "-q", "--detach", "change")
+	git("merge", "-q", "--no-edit", "-m", "catch up", "main")
+	caughtUp := git("rev-parse", "HEAD")
+	git("checkout", "-q", "main")
+
+	for _, tc := range []struct {
+		role, rootBase, commit string
+	}{
+		{"working", forked, tip},
+		// The landing's run was prepared at the change's tip, and checks the
+		// candidate that caught up with main.
+		{"landing", tip, caughtUp},
+	} {
+		source := workflow.Source{ProjectID: pid, ChangeID: idstest.N(1), Slug: "diff", DefaultBranch: "main", Branch: "change", RootRole: tc.role, RootBaseSHA: tc.rootBase, ChangeBaseSHA: forked}
+		diff, err := workflowDiffText(t.Context(), dataDir, source, checked{Repo: repo, Commit: tc.commit})
+		if err != nil {
+			t.Fatalf("%s: %v", tc.role, err)
+		}
+		if !strings.Contains(diff, "the change's work") || strings.Contains(diff, "main moved on") {
+			t.Fatalf("%s run: the diff judged is not the change's own work:\n%s", tc.role, diff)
+		}
+	}
+}

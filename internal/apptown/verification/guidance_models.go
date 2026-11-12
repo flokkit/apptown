@@ -48,7 +48,7 @@ func (a *Guidance) runLLMChecklist(ctx context.Context, source workflow.Source, 
 	}
 	if needDiff {
 		var err error
-		diff, err = workflowDiffText(ctx, source, at)
+		diff, err = workflowDiffText(ctx, a.dataDir, source, at)
 		if err != nil {
 			skipAll("reading work diff: " + err.Error())
 			return results, nil, nil
@@ -186,17 +186,29 @@ func (a *Guidance) llmBaseline(ctx context.Context, source workflow.Source, chec
 	return out
 }
 
-// workflowDiffText is the checked commit's diff from the root's recorded
-// fork point, as the diff API compares, read from the repository that holds
-// the commit: never the moving branch, and never a project copy that has not
-// been given the run's work. Storage errors cannot become an empty diff.
-func workflowDiffText(ctx context.Context, source workflow.Source, at checked) (string, error) {
+// workflowDiffText is the checked commit's diff: on a change, from the
+// change's fork from main (workflowProvenanceBase), the one base every gate
+// subtracts, so a working run and a landing judge the same work — a
+// landing's own run starts at the change's tip, so its recorded base would
+// leave nothing to judge, and after catching up, main's work is not the
+// change's. Off a change, from the root's recorded fork point. Read from the
+// repository that holds the commit: never the moving branch, and never a
+// project copy that has not been given the run's work. Storage errors cannot
+// become an empty diff.
+func workflowDiffText(ctx context.Context, dataDir string, source workflow.Source, at checked) (string, error) {
 	if !source.RepoBacked() {
 		return "", nil
 	}
+	base, err := workflowProvenanceBase(ctx, dataDir, source, at.Commit)
+	if err != nil {
+		return "", err
+	}
+	if base == "" {
+		base = source.RootBaseSHA
+	}
 	comparison := source.DefaultBranch + "..." + at.Commit
-	if source.RootBaseSHA != "" {
-		comparison = source.RootBaseSHA + ".." + at.Commit
+	if base != "" {
+		comparison = base + ".." + at.Commit
 	}
 	return gitexec.Run(ctx, at.Repo, "diff", comparison)
 }
