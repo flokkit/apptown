@@ -121,3 +121,10 @@ it('says it is reading before the first answer, never nothing', async () => {
   act(() => root.unmount())
   client.clear()
 })
+
+it('shows a standing schedule waiting for consent without unknown or a promised firing', async () => {
+  const waiting = await rows(list({ evalCopy: false, schedules: [{ ...schedule, waiting: 'waits for a standing approval' }] }))
+  expect(waiting.text).toContain('waits for a standing approval')
+  expect(waiting.text).not.toContain('unknown')
+  expect(waiting.text).not.toContain('due now')
+})

@@ -211,7 +211,11 @@ The project page shows queue state, moved packages, recent tries linked to their
 Changes, and paths to retry, chat or skip the update. Stuck and stopped queues
 each contribute one attention item. A skip retains its fingerprint and targets.
 Schedules declaring `standing: true` fire only under an enabled, currently
-eligible rule. Each workflow's rule schedule has `crons: {routine: CRON, aggressive: CRON}`.
+eligible rule. Without one, the schedule read says it waits for a standing
+approval, with no next firing; its last recorded firing remains visible. This
+is a normal off state. Unreadable workflows
+and invalid cron expressions remain schedule problems. Each workflow's rule
+schedule has `crons: {routine: CRON, aggressive: CRON}`.
 The effective level selects its cron: weekly for routine updates and nightly for
 aggressive updates; security uses the same daily cron at both levels. This read
 also supplies the routine check and standing assessment's bound. A vote records
@@ -243,8 +247,12 @@ person. The project page shows the deployment and failed release with **Roll
 back** first, then **Try again**, using the deployment’s display label. Roll back
 opens that release’s existing rollback confirmation only when its backup has
 recorded running-release evidence. Links retain the deployment’s stable name.
-A person can approve a waiting routine release;
-current release and promotion authority still apply.
+A waiting release names the approval role and offers **Approve** and **Cancel**
+when a role is required. Otherwise it shows why a person is needed (the routine
+update setting or a release hold) and offers **Release** and **Cancel**. Both
+paths show the assent sentence; current release and promotion authority still
+apply. A newer failed release does not hide an older waiting decision. Release
+history and the release page show the same waiting reason.
 
 ## Scan observations and disposal
 

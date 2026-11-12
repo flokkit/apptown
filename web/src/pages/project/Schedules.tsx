@@ -67,6 +67,7 @@ function LastFiring({ s, slug }: { s: ScheduleView; slug: string }) {
 }
 
 function NextFiring({ s }: { s: ScheduleView }) {
+  if (!s.problem && s.waiting) return <span>{s.waiting}</span>
   if (s.problem || !s.next) return <span>next unknown</span>
   if (s.due) return <span className="badge">due now</span>
   return <span>next {fmtStamp(s.next)}</span>

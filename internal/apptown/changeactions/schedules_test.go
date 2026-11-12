@@ -578,6 +578,34 @@ spec:
 		t.Fatal(err)
 	}
 	base := time.Date(2026, 11, 12, 0, 0, 0, 0, time.UTC)
+	for _, configured := range []bool{false, true} {
+		reader := w.schedules
+		if !configured {
+			reader.Standing = nil
+		}
+		got, err := reader.Of(t.Context(), w.project, base)
+		if err != nil || len(got.Schedules) != 1 {
+			t.Fatalf("standing schedule read: %+v %v", got, err)
+		}
+		s := got.Schedules[0]
+		if s.Problem != "" || s.Waiting != "waits for a standing approval" || !s.Next.IsZero() || s.Due {
+			t.Fatalf("consent off is a normal wait: %+v", s)
+		}
+	}
+	// Publishing rejects invalid cron expressions; only corrupt stored content
+	// can exercise a broken schedule while consent is off.
+	broken := strings.Replace(body, "0 0 1 1 *", "not a cron", 1)
+	// sql-guarantee: no owner operation stores a workflow with an invalid cron.
+	if _, err := w.schedules.DB.SQL().ExecContext(t.Context(), `UPDATE lib_workflow_versions SET yaml=$1 WHERE yaml=$2`, broken, body); err != nil {
+		t.Fatal(err)
+	}
+	if s := w.schedule(t, base); s.Problem == "" || !s.Next.IsZero() {
+		t.Fatalf("a broken cron is still a problem with consent off: %+v", s)
+	}
+	// sql-guarantee: restore the valid publication corrupted above.
+	if _, err := w.schedules.DB.SQL().ExecContext(t.Context(), `UPDATE lib_workflow_versions SET yaml=$1 WHERE yaml=$2`, body, broken); err != nil {
+		t.Fatal(err)
+	}
 	w.schedules.FireDueSchedules(t.Context(), base)
 	if _, armed, err := workflow.ScheduleLastFiredIn(t.Context(), w.schedules.DB, w.project.ID, "standing-clock"); err != nil || armed {
 		t.Fatalf("standing schedule armed without consent: %t %v", armed, err)
@@ -600,6 +628,9 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
+	if s := w.schedule(t, base); s.Problem != "" || s.Waiting != "" || !s.Next.Equal(base.Add(time.Minute)) || s.Cron != "* * * * *" {
+		t.Fatalf("enabled schedule: %+v", s)
+	}
 	w.schedules.FireDueSchedules(t.Context(), base)
 	w.schedules.FireDueSchedules(t.Context(), base.Add(time.Minute))
 	select {
@@ -614,6 +645,15 @@ spec:
 	records, err := workflow.ScheduleRecordsIn(t.Context(), w.schedules.DB, w.project.ID)
 	if err != nil || records["standing-clock"].RuleID != rule.RuleID || records["standing-clock"].RuleRevision != 1 {
 		t.Fatalf("firing attribution: %+v %v", records, err)
+	}
+	paused := w.schedules
+	paused.Standing = nil
+	read, err := paused.Of(t.Context(), w.project, base.Add(time.Minute))
+	if err != nil || len(read.Schedules) != 1 {
+		t.Fatalf("paused schedule read: %+v %v", read, err)
+	}
+	if s := read.Schedules[0]; s.Waiting == "" || s.Problem != "" || !s.Next.IsZero() || s.Last == nil || s.Last.RuleID != rule.RuleID {
+		t.Fatalf("turning off keeps the recorded last firing: %+v", s)
 	}
 	in.Schedules[0].Crons = map[string]string{"routine": "*/2 * * * *", "aggressive": "*/2 * * * *"}
 	q, err = w.schedules.Standing.Preview(human, in)

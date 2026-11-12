@@ -538,7 +538,18 @@ try {
             } else if (await scene.locator('svg').getAttribute('aria-label') !== 'The app is live') throw new Error('released deployment is not live');
           }
           if (screen === 'deployment') {
-            if (await page.getByRole('button', { name: 'Approve', exact: true }).count() !== 1 || !(await page.locator('main').innerText()).includes('running on Production')) throw new Error('waiting release is missing its approval meaning or doors');
+            const waiting = facts.releases.find(r => r.deployment === 'main' && r.state === 'waiting for approval');
+            if (!waiting || !waiting.decision.canApprove || !waiting.decision.canCancel) throw new Error('deployment scene needs a waiting release the viewer can decide');
+            const words = await page.locator('main').innerText();
+            const action = waiting.approvalRole ? 'Approve' : 'Release';
+            if (!words.includes(waiting.decision.meaning) || !waiting.decision.meaning.includes('running on Production') ||
+                await page.getByRole('button', { name: action, exact: true }).count() !== 1 ||
+                await page.getByRole('button', { name: 'Cancel', exact: true }).count() !== 1) throw new Error('waiting release is missing its meaning or doors');
+            if (waiting.approvalRole) {
+              if (!words.includes(`Waiting for approval from ${waiting.approvalRoleTitle || waiting.approvalRole}.`)) throw new Error('approval wait is missing its required role');
+            } else if (!waiting.decision.waitReason || !words.includes(waiting.decision.waitReason) || words.includes('Waiting for approval from')) {
+              throw new Error('personal release wait is missing its reason');
+            }
             if (!process.env.DESIGN_BASELINE) {
               // Restoring is on the deployment's ⋯ menu: pick a copy, then the question.
               await page.getByRole('button', { name: /^More actions for /, exact: false }).first().click();
