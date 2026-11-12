@@ -42,8 +42,8 @@ esac
 
 `apptown wait --json` does not cover a release (`-r`); follow one with
 `apptown wait -p <slug> -r <number>` and its exit code. Inside a change's chat,
-a bare `apptown land` (no change named) answers in words only; with `--json`
-it refuses before starting anything.
+`apptown land` (bare, or naming that chat's own change) answers in words only;
+with `--json` it refuses before starting anything.
 
 ## Fields
 

@@ -596,3 +596,33 @@ func mustID(t *testing.T, s string) ids.ID {
 	}
 	return id
 }
+
+// In a change chat, `apptown land <its own change>` takes the chat's door,
+// as bare `apptown land` does: the general door is closed on the chat's
+// read-only port (demo complaint #30). Another change is refused before
+// anything is posted.
+func TestLandInAChatNamingItsOwnChangeTakesTheChatsDoor(t *testing.T) {
+	const other = "00000000-0062-7000-8000-000000000000"
+	t.Setenv("APPTOWN_SESSION_ID", "sess-1")
+	t.Setenv("APPTOWN_SESSION_TOKEN", "tok")
+	t.Setenv("APPTOWN_CHANGE", changeUUID)
+	seen := fakeAppTown(t, func(method, path string) (int, string) {
+		if method == "POST" && path == "/console/sess-1/land" {
+			return 202, `{"run":{"id":"` + runUUID + `","number":813}}`
+		}
+		return 403, `{"error":"read-only console API: not available on this port"}`
+	})
+	if _, err := run(t, "land", changeUUID); err != nil {
+		t.Fatalf("land naming the chat's own change: %v", err)
+	}
+	if len(*seen) != 1 || (*seen)[0].Path != "/console/sess-1/land" {
+		t.Fatalf("posted %+v, want only the chat's door", *seen)
+	}
+	*seen = nil
+	if _, err := run(t, "land", other); err == nil || !strings.Contains(err.Error(), "a chat lands only its own change") {
+		t.Fatalf("land naming another change: %v", err)
+	}
+	if len(*seen) != 0 {
+		t.Fatalf("another change's landing reached AppTown: %+v", *seen)
+	}
+}
