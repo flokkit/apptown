@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -217,7 +218,7 @@ func TestUnmanagedProviderHealthDoesNotRequireMaintenanceEntry(t *testing.T) {
 	now := time.Now()
 	record := listingRecord{deployment: &Deployment{ID: ids.New(now), Kind: Standing, Readiness: Reconciled}, target: &Target{Kind: KindDOApp, Status: TargetReady}}
 	observed := RuntimeObservation{Health: "healthy", ObservedAt: now}
-	if got := overlayReadiness(observed, record, readinessEntry{}, now); got != observed {
+	if got := overlayReadiness(observed, record, readinessEntry{}, now); !reflect.DeepEqual(got, observed) {
 		t.Fatalf("provider health replaced without managed sample: %+v", got)
 	}
 }

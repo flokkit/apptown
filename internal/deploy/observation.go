@@ -1,6 +1,7 @@
 package deploy
 
 import (
+	"context"
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -30,6 +31,60 @@ type Observation struct {
 	// deployed yet, or the app is gone). After a restore it says whether the
 	// deployment still runs what AppTown recorded.
 	Running string `json:"running,omitempty"`
+	// Parts is what runs each part and need, every generation of it the
+	// provider lists, read from the same answer, from a provider with no
+	// Docker daemon AppTown can ask. Nil: the provider does not report
+	// them. Never stored in a receipt.
+	Parts []PartRuntime `json:"-"`
+}
+
+// PartRuntime is one part's or need's runtime as its provider reports it.
+type PartRuntime struct {
+	// Part is the part's or need's name; "" when the provider cannot say
+	// which it runs (its host cannot be reached and it named none before).
+	Part   string
+	ID     string // the provider's id for what runs it (a Fly Machine)
+	Status string // the provider's word: started, stopped, ...
+	// Running is true only when the provider says it runs.
+	Running bool
+	// Unreachable: the provider cannot reach its host, so what it does
+	// now is not known.
+	Unreachable bool
+	Health      string // healthy, unhealthy, or "" when it has no checks
+	Image       string
+	StartedAt   time.Time // zero: not reported
+	// Generation is the part's generation it runs; 0 when it carries none:
+	// a need, which serves every generation.
+	Generation  int64
+	CPULimit    float64 // the CPUs it is sized to
+	MemoryLimit int64   // the memory it is sized to, in bytes
+	Exits       []PartExit
+	// Use is what it uses now, nil when not read: Observe never reads it,
+	// and UseReason says why a UsageReader could not.
+	Use       *PartUse
+	UseReason string
+}
+
+// PartExit is one exit the provider reports. Requested: a stop someone
+// asked for (a deploy replacing it, a restart), not the process ending.
+type PartExit struct {
+	At        time.Time
+	Code      int
+	OOM       bool
+	Requested bool
+}
+
+// PartUse is a part's CPU and memory use, sampled once.
+type PartUse struct {
+	CPUCores    float64
+	MemoryBytes int64
+}
+
+// UsageReader is a driver that reads each part's use now: the parts as
+// Observe reports them, each with its Use or why it is unknown. It is
+// asked on the detail reader's cadence, not every observation.
+type UsageReader interface {
+	ReadUsage(ctx context.Context, p Placement) ([]PartRuntime, error)
 }
 
 // Checkpoint durably records provider identities before execution can proceed.

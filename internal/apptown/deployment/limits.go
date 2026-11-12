@@ -214,10 +214,13 @@ func (s *Service) recordTargetLimitEvents(ctx context.Context, targetID ids.ID, 
 	if err != nil {
 		return err
 	}
-	// Only a Docker host's daemon is read, whether or not anything has
-	// settled there yet (a first release's boot is when a kill matters):
-	// App Platform reports none to AppTown, and Portainer's are not read
-	// in 1.0.
+	if t.reportsParts() {
+		return s.recordReportedExits(ctx, deps)
+	}
+	// Otherwise only a Docker host's daemon is read, whether or not
+	// anything has settled there yet (a first release's boot is when a
+	// kill matters): App Platform reports none to AppTown, and Portainer's
+	// are not read in 1.0.
 	dk, err := s.hosts.DockerScope(ctx, t)
 	if errors.Is(err, errNotDockerHost) {
 		return nil
@@ -425,7 +428,7 @@ func (s *Service) limitEventsSource(ctx context.Context, d *Deployment) (known b
 	case KindDOApp:
 		return false, "App Platform does not report them to AppTown"
 	case kindFlyMachines:
-		return false, "Fly does not report them to AppTown"
+		return true, "recorded from Fly's Machine events, which keep only each Machine's newest few; an exit can be missed when one restarts often, when a failed release's Machines are removed before AppTown looks, or while AppTown is down"
 	case KindPortainer:
 		return false, "not read through Portainer in 1.0"
 	}

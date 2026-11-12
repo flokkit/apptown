@@ -94,6 +94,8 @@ type RuntimeObservation struct {
 	healthArtifact   string
 	Health           string
 	url              string
+	// parts is what the provider reported of each part (Observation.Parts).
+	parts []deploy.PartRuntime
 }
 
 type targetSummary struct{ Name, DisplayLabel, Kind, Origin, Region string }

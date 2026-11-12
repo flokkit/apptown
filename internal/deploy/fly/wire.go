@@ -38,8 +38,13 @@ type machine struct {
 	HostStatus string         `json:"host_status"`
 	Version    string         `json:"version"`
 	Config     answeredConfig `json:"config"`
-	Checks     []checkStatus  `json:"checks"`
-	Events     []event        `json:"events"`
+	// IncompleteConfig is the last known config, answered in place of
+	// Config when Fly cannot reach the Machine's host.
+	IncompleteConfig *struct {
+		Metadata map[string]string `json:"metadata"`
+	} `json:"incomplete_config"`
+	Checks []checkStatus `json:"checks"`
+	Events []event       `json:"events"`
 }
 
 type answeredConfig struct {
@@ -63,9 +68,10 @@ type event struct {
 
 // exit is a Machine's exit as an event reports it.
 type exit struct {
-	Code   int  `json:"exit_code"`
-	OOM    bool `json:"oom_killed"`
-	Signal int  `json:"signal"`
+	Code      int  `json:"exit_code"`
+	OOM       bool `json:"oom_killed"`
+	Signal    int  `json:"signal"`
+	Requested bool `json:"requested_stop"` // a stop someone asked for
 }
 
 // failed says whether the exit is anything but a clean finish. Fly reports

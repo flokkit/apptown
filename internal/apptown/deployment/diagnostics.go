@@ -228,6 +228,9 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 		}
 		return nil
 	}
+	if target.reportsParts() {
+		return s.diagnoseReportedParts(ctx, dep, applied, out)
+	}
 	if dep.Container == "" {
 		_, words := s.limitEventsSource(ctx, dep)
 		out.Unsupported = "its target does not report each part's container to AppTown (" + words + ")"
@@ -311,9 +314,14 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 			p.Presence, p.Reason, p.Stale = presenceUnknown, whyRead, true
 		}
 	}
-	// Read after the containers were: a deployment still settled on its
-	// recorded generation, with no attempt open, was settled while they
-	// were read, so its other parts are that generation's.
+	return s.settledParts(ctx, dep, out)
+}
+
+// settledParts says, read after the parts were, whether the deployment is
+// still settled on its recorded generation with no attempt open: then it
+// was settled while they were read, so its other parts are that
+// generation's.
+func (s *Service) settledParts(ctx context.Context, dep *Deployment, out *Diagnostics) error {
 	why, err := s.unsettledReason(ctx, dep)
 	if err != nil {
 		return err

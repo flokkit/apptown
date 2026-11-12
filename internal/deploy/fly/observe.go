@@ -13,7 +13,8 @@ import (
 // Observe reads the deployment's Machines from one answer of Fly's and says
 // what they are, keeping unknown apart from stopped: a Machine whose host
 // Fly cannot reach is unknown, never stopped or healthy, and an answer Fly
-// did not give is an error, not an empty app.
+// did not give is an error, not an empty app. Parts is each part's and
+// need's Machine from the same answer.
 func (d *Driver) Observe(ctx context.Context, p deploy.Placement) (deploy.Observation, error) {
 	o := deploy.Observation{Generation: p.Generation, Rollout: "absent", Health: "unknown", URL: p.URL, Handle: p.Handle}
 	app, _ := p.Handle["appName"].(string)
@@ -43,6 +44,7 @@ func (d *Driver) Observe(ctx context.Context, p deploy.Placement) (deploy.Observ
 	o.URL = appURL(app)
 	g, _ := handleGeneration(p.Handle)
 	o.Rollout, o.Health = state(d.current(ms, p, g), expectedParts(p.Handle))
+	o.Parts = d.parts(ms, p)
 	if o.Rollout == "active" || o.Rollout == "failed" {
 		o.Running = generationWord(g)
 	}
