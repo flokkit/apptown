@@ -1,3 +1,4 @@
+import { Notifications } from './integrations/Notifications'
 import { FeatureGate } from '../features'
 import { ProjectCount } from './DependentProjects'
 
@@ -58,6 +59,7 @@ function EnabledIntegrations() {
   if (area === 'integrations' && name === 'services') return <Navigate to="/services/shared" replace />
   // Model profiles were at /integrations/slots.
   if (name === 'slots') return <Navigate to="/integrations/profiles" replace />
+  if (area === 'integrations' && name === 'notifications') return <Notifications />
   if (name && SECTIONS.includes(name)) return <SectionPage which={name} />
   return <IntegrationsBook name={name} area={area} />
 }
@@ -160,6 +162,7 @@ function IntegrationsBook({ name, area }: { name?: string; area: Area }) {
 // What each menu page is for, behind its "?": the area's help would only
 // repeat the list of pages. Each names the shipped guide that says more.
 export const KIND_HELP: Record<string, { body: ReactNode; guide: string }> = {
+ notifications: {guide:'notifications',body:<p>Send attention items to a webhook or email channel. Warnings arrive within about two minutes; other items wait for a daily digest.</p>},
   scm: { guide: 'quickstart', body: <>
     <p>Connect a code hosting service, such as GitLab. Each project's code is mirrored there, as a backup and to work with your other development tools.</p>
     <p>Optional: {PRODUCT} keeps each project's code itself either way.</p>

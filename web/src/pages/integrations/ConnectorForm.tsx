@@ -242,7 +242,7 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
                   onChange={(e) => setCfg({ ...cfg, [f.key]: e.target.checked })} /> {f.help}</label></span>
               ) : f.type === 'number' ? (
                 <span>
-                  <input aria-label={f.label} type="number" min={1} step={1} value={typeof cfg[f.key] === 'number' ? String(cfg[f.key]) : ''} placeholder={f.placeholder}
+                  <input aria-label={f.label} type="number" min={f.min ?? 1} max={f.max ?? undefined} step={1} value={typeof cfg[f.key] === 'number' ? String(cfg[f.key]) : ''} placeholder={f.placeholder}
                     onChange={(e) => setCfg({ ...cfg, [f.key]: asNumber(e.target.value) })} className="connector-form-input-2" />
                   {f.help && <HelpButton about={f.label || f.key} guide="server-setup">{f.help}</HelpButton>}
                 </span>
@@ -279,7 +279,7 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
       {invalidDefault && <div className="error">{builtIn || enabled.length ? 'Choose a default model from Enabled models.' : 'Browse the live catalog and choose a default model.'}</div>}
       {err && <div className="error">{err}</div>}
       <div className="row mt-3" >
-        <button onClick={runTest} disabled={testing}>{testing ? 'Testing…' : 'Test connection'}</button>
+        {spec.capability !== 'notifier' && <button onClick={runTest} disabled={testing}>{testing ? 'Testing…' : 'Test connection'}</button>}
         <span className="grow" />
         <button onClick={() => onDone()}>Cancel</button>
         <button className="primary" onClick={save} disabled={saver.busy || !name.trim() || invalidDefault}>Save</button>

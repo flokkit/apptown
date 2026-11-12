@@ -55,7 +55,7 @@ type Definition struct {
 
 // reservedCapabilities are compiled-in: a service kind may not shadow them.
 var reservedCapabilities = map[string]bool{
-	CapSCM: true, CapSecrets: true, CapExecutor: true, CapModel: true,
+	CapNotifier: true, CapSCM: true, CapSecrets: true, CapExecutor: true, CapModel: true,
 	CapDeploy: true, "scanner": true, CapRegistry: true, "errors": true, "llm": true,
 }
 

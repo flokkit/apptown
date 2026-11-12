@@ -1014,7 +1014,7 @@ func TestAttentionHTTPFiltersSourcesAndCountsBeforeCurrentGrantReads(t *testing.
 	}
 	grant := a.addGrant("user", "outsider", "", string(access.CapDeploymentRead), access.ScopeInstance, "", "boss", "")
 	expanded := read("outsider")
-	if len(expanded.Items) != 3 || len(expanded.Sources) != 11 || global.calls != 1 {
+	if len(expanded.Items) != 3 || len(expanded.Sources) != 12 || global.calls != 1 {
 		t.Fatal("explicit instance grant did not expose full authorized snapshot", expanded, global.calls)
 	}
 	if _, err := a.Access.Revoke(t.Context(), grant, "boss"); err != nil {

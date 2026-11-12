@@ -2095,6 +2095,9 @@
           },
           "unknown": {
             "type": "boolean"
+          },
+          "withheld": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -13290,6 +13293,68 @@
         },
         "x-apptown-feature": {
           "area": "models",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "operationId": "getNotifications",
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "notifications"
+        ],
+        "x-apptown-access": {
+          "capability": "integration:manage-connectors",
+          "kind": "capability",
+          "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/notifications/channels/{name}/test": {
+      "post": {
+        "operationId": "postNotificationsChannelsNameTest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "notifications"
+        ],
+        "x-apptown-access": {
+          "capability": "integration:manage-connectors",
+          "kind": "capability",
+          "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
           "tier": "always"
         },
         "x-apptown-stability": "experimental"

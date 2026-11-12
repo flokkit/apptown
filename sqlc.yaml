@@ -401,3 +401,15 @@ sql:
           - db_type: uuid
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
+  - engine: postgresql
+    schema: internal/apptown/dbschema/schema.sql
+    queries: internal/apptown/notification/internal/notificationsql/queries.sql
+    gen:
+      go:
+        package: notificationsql
+        out: internal/apptown/notification/internal/notificationsql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: github.com/flokkit/apptown/internal/ids.ID
+        omit_unused_structs: true

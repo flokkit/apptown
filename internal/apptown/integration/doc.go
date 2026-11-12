@@ -1,5 +1,7 @@
 // Package integration owns provider bindings, service-kind definitions and project
-// attachments. [Service] assembles those stores and their environment rendering.
+// attachments. Notifier bindings configure instance webhook and SMTP channels;
+// notification owns their delivery records and real send tests.
+// [Service] assembles those stores and their environment rendering.
 // Callers authorize configuration changes and redact private configuration before
 // returning it through an API.
 //

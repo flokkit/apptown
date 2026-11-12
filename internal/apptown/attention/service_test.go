@@ -97,7 +97,7 @@ func TestUnknownCoverageRetainsStaleConditionsWithoutRawErrors(t *testing.T) {
 	disks := &instanceSource{snapshot: Snapshot{Known: true, ObservedAt: observed, Items: []Item{{Key: "disk-a", Title: "disk low", ObservedAt: observed}}}, err: errors.New("secret-provider-address-and-token")}
 	svc := New(&authority{instance: true}, Sources{Disks: disks})
 	got, err := svc.Read(t.Context())
-	if err != nil || len(got.Items) != 1 || !got.Items[0].Stale || got.Items[0].ObservedAt != observed || len(got.Sources) != 5 {
+	if err != nil || len(got.Items) != 1 || !got.Items[0].Stale || got.Items[0].ObservedAt != observed || len(got.Sources) != 6 {
 		t.Fatalf("failed source: %+v %v", got, err)
 	}
 	for _, source := range got.Sources {

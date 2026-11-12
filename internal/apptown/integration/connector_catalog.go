@@ -22,6 +22,8 @@ type ConnectorPreset struct {
 }
 
 type ConnectorField struct {
+	Min         *int   `json:"min,omitempty"`
+	Max         *int   `json:"max,omitempty"`
 	Key         string `json:"key"`
 	Label       string `json:"label"`
 	Type        string `json:"type"` // string | number (a JSON number; empty is absent) | bool | secretRef | modelList | command (space-split) | select
@@ -43,7 +45,7 @@ type ConnectorSpec struct {
 }
 
 func ConnectorCatalog() []ConnectorSpec {
-	return []ConnectorSpec{
+	return append(notifierSpecs(), []ConnectorSpec{
 		// The hub replaces the runtime-defined container-registry kind's form
 		// (provider "service", as existing hubs are recorded), so the same
 		// form creates and edits it, retention numbers included. Multi only
@@ -280,8 +282,7 @@ func ConnectorCatalog() []ConnectorSpec {
 				{Key: "region", Label: "Region", Type: "string", Placeholder: "syd", Help: "The Fly region Machines run in; one where Fly offers Managed Postgres."},
 			},
 		},
-	}
-
+	}...)
 }
 
 // catalogDefaults: the facts that vary per installation and used to be

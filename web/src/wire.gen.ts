@@ -130,6 +130,7 @@ export type AttachmentList = {
 }
 
 export type AttentionCoverage = {
+  withheld?: boolean
   href: string
   nextStep: string
   reason?: string
@@ -1149,6 +1150,31 @@ export type ModelSlotMatrix = {
 export type NarrativeRefreshed = {
   ok: boolean
   summary: string
+}
+
+export type NotificationChannel = {
+  name: string
+  label: string
+  kind: string
+  format: string
+  digestHour: number
+  state: string
+}
+
+export type NotificationDelivery = {
+  id: string | null
+  channel: string
+  kind: string
+  title: string
+  state: string
+  attempts: number
+  reason: string
+  createdAt: string
+}
+
+export type NotificationView = {
+  channels: NotificationChannel[]
+  deliveries: NotificationDelivery[]
 }
 
 export type OpenVEXDocument = {
@@ -5130,6 +5156,8 @@ export type UnknownCheck = {
 export type DispositionKind = "accepted" | "false_positive"
 
 export type ConnectorField = {
+  min?: number | null
+  max?: number | null
   key: string
   label: string
   type: string

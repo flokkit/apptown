@@ -1,6 +1,7 @@
 // Package attention composes current, authorized operational observations.
-// Source owners retain observation, freshness and recovery semantics. Reads here
-// must use their nonblocking snapshot ports, never provider calls or HTTP handlers.
+// Source owners retain observation, freshness and recovery semantics, including
+// notification channel failures. Reads use their nonblocking snapshot ports,
+// never provider calls or HTTP handlers.
 package attention
 
 import (
@@ -54,6 +55,8 @@ type Snapshot struct {
 	AttemptedAt time.Time
 	Known       bool
 	Stale       bool
+	// Withheld means some subjects are deliberately not assessed yet.
+	Withheld bool
 }
 
 // instanceReader reads an already-authorized instance snapshot. Cold/expired
@@ -75,6 +78,7 @@ type hostReachabilityReader interface {
 // Sources is the complete finite source set. Missing sources remain unassessed,
 // rather than silently shrinking what an empty Attention view claims to cover.
 type Sources struct {
+	Notifications    instanceReader
 	ReleaseApprovals instanceReader
 	Integrations     instanceReader
 	Checks           interface {
@@ -92,6 +96,7 @@ type Sources struct {
 // Coverage reports source availability separately from the visible item count.
 // No underlying error strings or provider details cross this boundary.
 type Coverage struct {
+	Withheld    bool      `json:"withheld,omitempty"`
 	Href        string    `json:"href"`
 	NextStep    string    `json:"nextStep"`
 	Reason      string    `json:"reason,omitempty"`
@@ -159,6 +164,7 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 			key, name string
 			source    instanceReader
 		}{
+			{"notifications", "Notifications", s.sources.Notifications},
 			{"disks", "AppTown and worker disks", s.sources.Disks},
 			{"capacity", "Deployment host capacity", s.sources.Capacity},
 			{"inventory", "Deployment resources", s.sources.Inventory},
@@ -268,7 +274,7 @@ func (v *View) add(key, name string, snapshot Snapshot, err error) {
 		name = snapshot.Name
 	}
 	coverage := Coverage{Href: snapshot.Href, NextStep: snapshot.NextStep, Reason: snapshot.Reason, Key: key, Name: name, ObservedAt: snapshot.ObservedAt, AttemptedAt: snapshot.AttemptedAt,
-		Unknown: !snapshot.Known || err != nil, Stale: snapshot.Stale || err != nil}
+		Unknown: !snapshot.Known || err != nil, Stale: snapshot.Stale || err != nil, Withheld: snapshot.Withheld}
 	if err != nil {
 		coverage.Reason = "The source check failed."
 	}

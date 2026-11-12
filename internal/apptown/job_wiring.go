@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/evals"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
+	"github.com/flokkit/apptown/internal/apptown/notification"
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -72,6 +73,8 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 
 	descriptions := projectlifecycle.Descriptions{Service: a.lifecycle, Models: a.modelSelection, Completion: a.inference, Changes: a.Work}
 	kinds := map[string]jobs.Kind{
+		notification.EvaluateJob:     {Run: a.Notifications.Evaluate},
+		notification.DeliverJob:      {Run: a.Notifications.Deliver},
 		standingAcceptanceJob:        {Run: work.RunStandingAcceptance},
 		project.DescriptionJob:       {Run: descriptions.Run},
 		deployment.ReleaseJob:        {Run: jobErrors(deployments.Release), Timeout: 20 * time.Minute},
@@ -176,6 +179,8 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 // and the budget every enqueue of it records. It is the one source for both,
 // so they cannot drift.
 var jobBudgets = map[string]int{
+	notification.EvaluateJob:                1,
+	notification.DeliverJob:                 notification.Attempts,
 	standingAcceptanceJob:                   3,
 	project.DescriptionJob:                  1,
 	deployment.ReleaseJob:                   1,
@@ -329,6 +334,7 @@ func apptownJobSchedules() []jobs.Schedule {
 	var schedules []jobs.Schedule
 	for _, spec := range []struct{ operation, cron, key string }{{"db-backup", "0 2 * * *", ""}, {"backup-sweep", "0 3 * * *", ""}, {deployment.ImageRetentionJob, "30 3 * * *", ""}, {dataprotection.RestoredCopySweepJob, "*/5 * * * *", ""},
 		{projectlifecycle.DeletionPassJob, "*/5 * * * *", ""}, {projectlifecycle.PurgePassJob, "0 4 * * *", ""},
+		{notification.EvaluateJob, "* * * * *", passScheduledKey},
 		{remediation.PassJob, "* * * * *", passScheduledKey}, {evals.PassJob, "* * * * *", passScheduledKey},
 		{restoreCheckJob, "* * * * *", passScheduledKey}, {infrastructureCheckJob, "*/5 * * * *", passScheduledKey}, {hourlyInfrastructureCheckJob, "0 * * * *", passScheduledKey}} {
 		when, err := schema.ParseCron(spec.cron)

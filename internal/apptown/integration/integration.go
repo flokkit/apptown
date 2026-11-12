@@ -161,6 +161,11 @@ func (s *Bindings) Upsert(ctx context.Context, name, capability, provider, confi
 // upsertAt is Upsert at the operation's time, now, with receipt (when not
 // nil) written in the same transaction.
 func (s *Bindings) upsertAt(ctx context.Context, now time.Time, name, capability, provider, configJSON string, managed bool, receipt func(*database.Tx) error) (int, error) {
+	if capability == CapNotifier {
+		if err := validateNotifierConfig(provider, configJSON); err != nil {
+			return 0, err
+		}
+	}
 	if err := validateHubConfig(capability, provider, configJSON); err != nil {
 		return 0, err
 	}
@@ -231,6 +236,11 @@ func (s *Bindings) Save(ctx context.Context, name, capability, provider, configJ
 // in the caller's transaction. Any existing name is a conflict; this never
 // edits a binding. The caller owns commit and rollback.
 func (s *Bindings) CreateIn(ctx context.Context, tx *database.Tx, name, capability, provider, configJSON, who string) error {
+	if capability == CapNotifier {
+		if err := validateNotifierConfig(provider, configJSON); err != nil {
+			return err
+		}
+	}
 	if err := validateHubConfig(capability, provider, configJSON); err != nil {
 		return err
 	}

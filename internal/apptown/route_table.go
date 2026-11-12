@@ -90,6 +90,7 @@ func appRoutes(a *App) []routeSpec {
 	var activity httpapi.Activity
 	var dashboard httpapi.Dashboard
 	var attention httpapi.Attention
+	var notifications httpapi.Notifications
 	var changeDetail httpapi.ChangeDetail
 	var administratorNetworks httpapi.AdministratorNetworks
 	var stepInterruption httpapi.StepInterruption
@@ -183,6 +184,7 @@ func appRoutes(a *App) []routeSpec {
 		changeDetail = httpapi.NewChangeDetail(a.Work, a.ADRs, a.Deployment, a.DB, a.Usage.Ledger, a.cfg.dataDir)
 		dashboard = httpapi.NewDashboard(a.ADRs, a.operations)
 		attention = httpapi.NewAttention(a.attention)
+		notifications = httpapi.NewNotifications(a.Notifications)
 		activity = httpapi.NewActivity(a.Work, a.Deployment)
 		projectOverview = httpapi.NewProjectOverview(a.Projects, a.Work, a.cfg.dataDir, a.Access)
 		modelDiscovery = httpapi.NewModelDiscovery(a.providers)
@@ -259,6 +261,8 @@ func appRoutes(a *App) []routeSpec {
 		publicRoute("GET /api/v1/features", features.List, "features.List: area names and current switches, no secrets").inArea("setup"),
 		adminRoute("PUT /api/v1/features/{area}", features.Set).inArea("setup"),
 		filteredRoute("GET /api/v1/dashboard", dashboard.Dashboard, "dashboard.Dashboard").inArea("setup"),
+		requireRoute("GET /api/v1/notifications", notifications.Read, access.CapIntegrationConnector, "instance").inArea("setup"),
+		requireRoute("POST /api/v1/notifications/channels/{name}/test", notifications.Test, access.CapIntegrationConnector, "instance").inArea("setup"),
 		filteredRoute("GET /api/v1/attention", attention.Read, "attention.Read").inArea("setup"),
 
 		filteredRoute("GET /api/v1/projects", projectViews.ListProjects, "projectViews.ListProjects").inArea("projects"),

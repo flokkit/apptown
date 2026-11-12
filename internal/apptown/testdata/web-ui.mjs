@@ -243,7 +243,7 @@ try {
     'memory-decisions-empty': '/projects/shared-notes/memory/decisions', 'target-cloud': '/targets/design-cloud', infrastructure: '/targets', jobs: '/jobs', 'infrastructure-new': '/targets/new',
     conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews', 'text-roles': '/text-roles',
     'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations',
-    integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets',
+    integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets', notifications: '/integrations/notifications',
     packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
     'people-groups': '/people/groups', 'people-group': '/people/groups/reviewers', 'people-account': '/people/accounts/sam', 'people-roles': '/people/roles', 'people-signin': '/people/sign-in', 'people-agents': '/people/agents-and-tokens',
     evals: '/evals', 'eval-new': '/evals/new', people: '/people/accounts', account: '/account', usage: '/usage',
