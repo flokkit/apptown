@@ -66,6 +66,11 @@ type entry struct {
 	// provider message. Without surfacing this the chat looks busy forever.
 	StopReason   string
 	ErrorMessage string
+	// ID names the entry; a "context_edit" entry names the one it edits in
+	// TargetID. Omits: the edit drops its target from what the model sees,
+	// which is how pi marks a failed attempt it is retrying.
+	ID, TargetID string
+	Omits        bool
 }
 
 // failed: the helper's turn ended without an answer, a model error or the
@@ -205,12 +210,15 @@ func parseLine(line string) (entry, bool) {
 		return entry{}, false
 	}
 	var raw struct {
-		Type      string `json:"type"`
-		Timestamp string `json:"timestamp"`
-		Provider  string `json:"provider"`
-		Model     string `json:"model"`
-		Usage     Usage  `json:"usage"`
-		Message   struct {
+		Type        string          `json:"type"`
+		ID          string          `json:"id"`
+		TargetID    string          `json:"targetId"`
+		Replacement json.RawMessage `json:"replacement"`
+		Timestamp   string          `json:"timestamp"`
+		Provider    string          `json:"provider"`
+		Model       string          `json:"model"`
+		Usage       Usage           `json:"usage"`
+		Message     struct {
 			Role         string          `json:"role"`
 			Provider     string          `json:"provider"`
 			Model        string          `json:"model"`
@@ -225,7 +233,8 @@ func parseLine(line string) (entry, bool) {
 	}
 	e := entry{Type: raw.Type, Role: raw.Message.Role, Provider: raw.Message.Provider,
 		Model: raw.Message.Model, Usage: raw.Message.Usage,
-		StopReason: raw.Message.StopReason, ErrorMessage: raw.Message.ErrorMessage}
+		StopReason: raw.Message.StopReason, ErrorMessage: raw.Message.ErrorMessage,
+		ID: raw.ID, TargetID: raw.TargetID, Omits: raw.Type == "context_edit" && string(raw.Replacement) == "null"}
 	if raw.Type == "usage" {
 		e.Provider, e.Model, e.Usage = raw.Provider, raw.Model, raw.Usage
 	}
@@ -287,9 +296,11 @@ type Message struct {
 }
 
 // helperErrorText turns a provider's error into a sentence a person can
-// act on. Provider JSON ({"error":{"message":…}}) is unwrapped; anything
+// act on; retried says pi already tried the turn again (it retries only
+// what it judges a passing fault: a dropped stream, an overloaded or
+// unreachable provider). Provider JSON ({"error":{"message":…}}) is unwrapped; anything
 // else is shown trimmed.
-func helperErrorText(raw string) string {
+func helperErrorText(raw string, retried bool) string {
 	msg := strings.TrimSpace(raw)
 	if i := strings.Index(msg, "{"); i >= 0 {
 		var body struct {
@@ -310,7 +321,10 @@ func helperErrorText(raw string) string {
 	if msg == "" {
 		msg = "the model call failed"
 	}
-	return "I couldn't reach my model, so I've stopped: " + msg + "\n\nOnce that's sorted, send your message again and I'll pick up from here."
+	if retried {
+		return "My model call failed, and failed again when I retried it, so I've stopped: " + msg + "\n\nWait a moment, then send your message again and I'll pick up from here."
+	}
+	return "My model call failed, so I've stopped: " + msg + "\n\nOnce that's sorted, send your message again and I'll pick up from here."
 }
 
 // Transcript is one chat's record on disk, parsed and kept between polls:
@@ -330,6 +344,55 @@ type Transcript struct {
 	msgs []Message
 	last *entry
 	err  error // the last read's failure, nil when it read
+	// failed is a turn that ended in a model error, held back until the
+	// record settles: pi may still drop it to retry (failedID names its
+	// entry). retrying: pi dropped one and nothing has followed yet;
+	// retried: the next failure is a retry's. stoppedAt: when the person
+	// pressed stop, until they start new work; pi records nothing when a
+	// stop cancels a retry, and a worker's record can reach AppTown after
+	// the stop did.
+	failed            *Message
+	failedID          string
+	retrying, retried bool
+	stoppedAt         time.Time
+}
+
+// settle is how long the record stays unchanged before the helper's turn
+// counts as over: the hand-back, and a failed turn's bubble, wait for it.
+const settle = 8 * time.Second
+
+// quiet reports whether the newest record file has been unchanged for the
+// settle time.
+func (t *Transcript) quiet() bool {
+	files, err := t.sessionFiles()
+	if err != nil || len(files) == 0 {
+		return false
+	}
+	fi, err := os.Lstat(files[len(files)-1])
+	return err == nil && fi.Mode().IsRegular() && clock.System().Sub(fi.ModTime()) >= settle // an mtime: the system clock
+}
+
+// bubbles is the conversation so far, with a failed turn once the record
+// has settled without pi retrying it. Caller holds t.mu.
+func (t *Transcript) bubbles() []Message {
+	out := make([]Message, len(t.msgs), len(t.msgs)+1)
+	copy(out, t.msgs)
+	if t.failed != nil && t.quiet() {
+		m := *t.failed
+		m.I = len(out)
+		out = append(out, m)
+	}
+	return out
+}
+
+// interrupted tells the transcript the person pressed stop. While pi waits
+// to retry a failed attempt, a stop cancels the retry and pi writes
+// nothing, so the stop is how that turn ends, whenever its record arrives.
+// A message the person sends after the stop starts new work.
+func (t *Transcript) interrupted() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.stoppedAt = clock.System() // compared with the record's timestamps
 }
 
 // sessionFiles is every record file this chat owns, oldest first: the
@@ -373,15 +436,30 @@ func (t *Transcript) refresh() {
 	latest := files[len(files)-1]
 	if t.file != latest {
 		t.file, t.rd, t.msgs, t.last = latest, Reader{Path: latest}, nil, nil
+		t.failed, t.failedID, t.retrying, t.retried = nil, "", false, false
 	}
 	entries, err := t.rd.Next()
 	t.err = err
 	for i := range entries {
 		e := entries[i]
+		if e.Omits && e.TargetID != "" && e.TargetID == t.failedID {
+			// pi is retrying the failed attempt: it was a blip, not where
+			// the helper stopped, so it is neither a bubble nor the end of
+			// the turn. The terminal keeps it.
+			t.failed, t.failedID, t.last, t.retrying, t.retried = nil, "", nil, true, true
+			continue
+		}
 		if e.Type != "message" {
 			continue
 		}
-		t.last = &e
+		// Anything after a failed turn means pi did not retry it.
+		if t.failed != nil {
+			t.failed.I, t.msgs, t.failed, t.failedID = len(t.msgs), append(t.msgs, *t.failed), nil, ""
+		}
+		t.last, t.retrying = &e, false
+		if e.Role == "user" && e.At.After(t.stoppedAt) {
+			t.stoppedAt = time.Time{}
+		}
 		if !t.since.IsZero() && e.At.Before(t.since) {
 			continue // the lane's turns, before this chat existed
 		}
@@ -393,7 +471,7 @@ func (t *Transcript) refresh() {
 			// the person pressed stop. Say so in the chat, as the helper, so
 			// the "building…" state clears and the person knows where things
 			// stand.
-			m := Message{I: len(t.msgs), Role: "helper", Text: helperErrorText(e.ErrorMessage), Error: true}
+			m := Message{I: len(t.msgs), Role: "helper", Text: helperErrorText(e.ErrorMessage, t.retried), Error: true}
 			if e.aborted() {
 				m = Message{I: len(t.msgs), Role: "helper", Stopped: true,
 					Text: "I stopped — you pressed stop. Say what you'd rather have and I'll carry on from here."}
@@ -401,7 +479,12 @@ func (t *Transcript) refresh() {
 			if !e.At.IsZero() {
 				m.At = e.At.UTC().Format("2006-01-02T15:04:05.000Z07:00")
 			}
-			t.msgs = append(t.msgs, m)
+			if e.aborted() {
+				t.msgs = append(t.msgs, m)
+			} else {
+				t.failed, t.failedID = &m, e.ID
+			}
+			t.retried = false
 			continue
 		}
 		if !e.hasText() && len(e.Tools) == 0 {
@@ -417,7 +500,7 @@ func (t *Transcript) refresh() {
 				Detail string `json:"detail,omitempty"`
 			}{tc.Name, strs.Truncate(tc.detail(), 80)})
 		}
-		t.msgs = append(t.msgs, m)
+		t.msgs, t.retried = append(t.msgs, m), false
 	}
 }
 
@@ -429,9 +512,7 @@ func (t *Transcript) messages() []Message {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.refresh()
-	out := make([]Message, len(t.msgs))
-	copy(out, t.msgs)
-	return out
+	return t.bubbles()
 }
 
 // readMessages is Messages, with the failure to read the record when there
@@ -443,9 +524,7 @@ func (t *Transcript) readMessages() ([]Message, error) {
 	if t.err != nil {
 		return nil, fmt.Errorf("reading the chat's record in %s: %w", t.Dir, t.err)
 	}
-	out := make([]Message, len(t.msgs))
-	copy(out, t.msgs)
-	return out, nil
+	return t.bubbles(), nil
 }
 
 // TurnHandedBack reports whether the helper has finished its turn: the
@@ -454,17 +533,15 @@ func (t *Transcript) readMessages() ([]Message, error) {
 // same structural signal the UI's green bubble uses; the moment the
 // helper claims "done" is exactly the moment worth verifying.
 func (t *Transcript) TurnHandedBack() bool {
-	files, err := t.sessionFiles()
-	if err != nil || len(files) == 0 {
-		return false
-	}
-	fi, err := os.Lstat(files[len(files)-1])
-	if err != nil || !fi.Mode().IsRegular() || clock.System().Sub(fi.ModTime()) < 8*time.Second { // an mtime: the system clock
-		return false
-	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.refresh()
+	if t.retrying && !t.stoppedAt.IsZero() {
+		return true
+	}
+	if !t.quiet() {
+		return false
+	}
 	last := t.last
 	return last != nil && last.Role == "assistant" && (last.failed() || (last.hasText() && len(last.Tools) == 0))
 }

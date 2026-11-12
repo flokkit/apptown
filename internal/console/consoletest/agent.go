@@ -269,6 +269,17 @@ func (f *Agent) Working(id string) {
 		"content": []map[string]any{{"type": "toolCall", "id": "c1", "name": "bash", "arguments": map[string]any{"command": "ls"}}}}, time.Now())
 }
 
+// WaitingToRetry is pi after a model call failed on a passing fault: the
+// failed attempt, then its edit dropping that attempt from what the model
+// sees, while it waits to try again.
+func (f *Agent) WaitingToRetry(id string) {
+	l := f.Started(id)
+	at := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	_ = appendLine(l.Dir, l.AgentSession, map[string]any{"type": "message", "id": "failed", "timestamp": at,
+		"message": map[string]any{"role": "assistant", "content": []any{}, "stopReason": "error", "errorMessage": "503 overloaded"}})
+	_ = appendLine(l.Dir, l.AgentSession, map[string]any{"type": "context_edit", "id": "retry", "timestamp": at, "targetId": "failed", "replacement": nil})
+}
+
 // EndScreen ends the agent's screen, as a terminal whose process exits:
 // its viewers read what is left, then the end.
 func (f *Agent) EndScreen(id string) {
@@ -297,10 +308,14 @@ func recordPath(dir, piSession string) string {
 }
 
 func appendEntry(dir, piSession string, message map[string]any, at time.Time) error {
+	return appendLine(dir, piSession, map[string]any{"type": "message", "timestamp": at.UTC().Format("2006-01-02T15:04:05.000Z"), "message": message})
+}
+
+func appendLine(dir, piSession string, entry map[string]any) error {
 	if err := os.MkdirAll(filepath.Join(dir, "sessions"), 0o755); err != nil {
 		return err
 	}
-	line, err := json.Marshal(map[string]any{"type": "message", "timestamp": at.UTC().Format("2006-01-02T15:04:05.000Z"), "message": message})
+	line, err := json.Marshal(entry)
 	if err != nil {
 		return err
 	}

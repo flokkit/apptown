@@ -277,6 +277,9 @@ func TestTheContractMatchesTheCode(t *testing.T) {
 			".apptown/app.yaml": "version: 2\napp:\n  web: {build: ., ports: [\"8080\"], public: true}\n",
 			"pyproject.toml":    ""}, workflow.VerdictFail, []string{"pyproject.toml: no part built with python holds ."}},
 		{"no contract", map[string]string{"go.mod": ""}, workflow.VerdictFail, []string{"go.mod: there is no .apptown/app.yaml"}},
+		{"a Python app with only requirements.txt and no tools", map[string]string{
+			".apptown/app.yaml": "version: 2\napp:\n  web: {build: ., ports: [\"8080\"], public: true}\n",
+			"requirements.txt":  "django\n"}, workflow.VerdictFail, []string{"requirements.txt: no part built with python holds .: add python to the tools of the part"}},
 		{"no manifests", map[string]string{".apptown/app.yaml": "version: 2\napp:\n  game: {static: ., public: true}\n", "index.html": "<p>"}, workflow.VerdictPass, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -473,5 +476,71 @@ func TestHTMLOnlyAppHasNoDockerfileFindings(t *testing.T) {
 		if ev.Outcome != check.NotApplicable || len(ev.Findings) != 0 {
 			t.Errorf("%s: %+v", ev.Name, ev)
 		}
+	}
+}
+
+// A Django app built from a Dockerfile with only requirements.txt, whose
+// part names no tools, is the contract check's failure, saying to add
+// python to the part's tools; once the part names python, the contract
+// check passes and every check of the shipped Django way of working
+// applies to it (the Django and semgrep checks read not applicable before).
+//
+// Kills: requirements.txt left out of the manifests the contract check
+// reads, so such an app passes it while its Python checks are not
+// applicable.
+func TestADjangoAppWithOnlyRequirementsIsHeldToDeclarePython(t *testing.T) {
+	t.Parallel()
+	contract := sourcedNamed(t, "repo/contract-matches-code", "contract-matches-code")
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
+	scanners := loadScannerManifests(stock.FS)
+	judge := &check.Judge{ShImage: stock.Images().Sh,
+		Run:      func(execution.Request) execution.Outcome { return execution.Outcome{} },
+		RunImage: func(string, []string, []string) (int, string) { return 0, "" },
+		Probe:    check.ProberFunc(func(context.Context, string) (int, error) { return 200, nil }),
+		Scanners: check.ScannersFunc(func(name string) (check.Scanner, bool) {
+			i := slices.IndexFunc(scanners, func(m check.Scanner) bool { return m.Name == name })
+			if i < 0 {
+				return check.Scanner{}, false
+			}
+			return scanners[i], true
+		}),
+	}
+	var django []check.Declared
+	for _, sc := range shippedChecks(t) {
+		if sc.Block == "lang/selection/django-fullstack" {
+			django = append(django, sc.Declared())
+		}
+	}
+	if len(django) < 5 {
+		t.Fatalf("read %d Django checks", len(django))
+	}
+	for _, tc := range []struct {
+		tools   string
+		applies bool
+	}{{"", false}, {", tools: [python]", true}} {
+		t.Run("tools"+tc.tools, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			writeTree(t, dir, map[string]string{
+				".apptown/app.yaml": "version: 2\napp:\n  web: {build: ., ports: [\"8080\"], public: true" + tc.tools + "}\n",
+				"Dockerfile":        "FROM python:3.12-slim\nCOPY . /app\nRUN pip install -r requirements.txt\n",
+				"requirements.txt":  "django\n", "manage.py": "import django\n", "app/settings.py": "ALLOWED_HOSTS = ['*']\n"})
+			results, _, _ := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{contract}, dir, "t-requirements")
+			if want := map[bool]workflow.CheckVerdict{false: workflow.VerdictFail, true: workflow.VerdictPass}[tc.applies]; results[0].Verdict != want {
+				t.Fatalf("contract check %s %q", results[0].Verdict, results[0].Output)
+			}
+			if !tc.applies && !strings.Contains(results[0].Output, "add python to the tools of the part that builds it") {
+				t.Errorf("the finding does not say what to do: %q", results[0].Output)
+			}
+			evs, err := judge.Evaluate(context.Background(), django, CheckSource(dir), check.Gate)
+			if err != nil || len(evs) != len(django) {
+				t.Fatalf("%d evaluations of %d checks: %v", len(evs), len(django), err)
+			}
+			for _, ev := range evs {
+				if (ev.Outcome == check.NotApplicable) == tc.applies {
+					t.Errorf("%s with tools %q: %s %q", ev.Name, tc.tools, ev.Outcome, ev.Detail)
+				}
+			}
+		})
 	}
 }

@@ -61,7 +61,7 @@ func TestReaderParsesAndResumes(t *testing.T) {
 	if _, ok := parseLine("not json"); ok {
 		t.Fatal("a corrupt line is skipped")
 	}
-	if !strings.Contains(helperErrorText(`x {"error":{"message":"no credit"}}`), "no credit") || !strings.Contains(helperErrorText(""), "the model call failed") {
+	if !strings.Contains(helperErrorText(`x {"error":{"message":"no credit"}}`, false), "no credit") || !strings.Contains(helperErrorText("", false), "the model call failed") {
 		t.Fatal("helper error text")
 	}
 }

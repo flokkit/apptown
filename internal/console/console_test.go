@@ -61,8 +61,15 @@ func TestAConsoleFromOpenToEnd(t *testing.T) {
 	if err := chats.Send(ctx, s.ID, "and?"); err != nil {
 		t.Fatal(err)
 	}
+	// A stop while pi waits to retry a failed call ends the turn: pi
+	// cancels the retry and writes nothing, so the stop itself says so,
+	// even when the worker's record of the retry arrives after the stop.
 	if err := chats.Interrupt(ctx, s.ID); err != nil || !agent.Interrupted(s.ID) {
 		t.Fatal("interrupt did not reach the agent")
+	}
+	agent.WaitingToRetry(s.ID)
+	if page, _ := chats.Messages(ctx, s.ID, 0); page.Turn != console.HandedBack {
+		t.Fatalf("a stop while pi waits to retry leaves the turn %v", page.Turn)
 	}
 
 	// The token is the one credential the agent inside holds: its own session, its own project.

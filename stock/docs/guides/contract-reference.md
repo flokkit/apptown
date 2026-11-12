@@ -129,8 +129,9 @@ notAppCode: [docs/site]
 - **`notAppCode`** lists folders whose code is not the app's
   (documentation, tooling, examples), relative to the root. The platform
   check "the contract matches the code" asks for every package manifest
-  (package.json, go.mod, pyproject.toml, Gemfile, Cargo.toml, pom.xml, a
-  .csproj, composer.json, project.godot) to be inside the folder of a part
+  (package.json, go.mod, pyproject.toml, requirements.txt, Gemfile,
+  Cargo.toml, pom.xml, a .csproj, composer.json, project.godot) to be
+  inside the folder of a part
   that names its tool, or under one of these. A part's own folder, or one
   holding it, is refused.
 - **`profiles`** and **`resources`**: see "Resources and profiles" below.
