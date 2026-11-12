@@ -5436,6 +5436,9 @@
           },
           "meaning": {
             "type": "string"
+          },
+          "waitReason": {
+            "type": "string"
           }
         },
         "required": [

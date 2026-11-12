@@ -33,3 +33,32 @@ it.each(['approve', 'cancel'])('sends the displayed release decision and keeps a
     client.clear(); vi.unstubAllGlobals()
   }
 })
+
+// Routine settings and release holds ask a person to release, with no approval role.
+it.each(['waiting for a person to release this update', 'waiting for a person: the latest release failed'])('shows the release reason and personal door: %s', async waitReason => {
+  const calls: { path: string; body: unknown }[] = []
+  vi.stubGlobal('fetch', vi.fn(async (path: string, init: RequestInit) => {
+    calls.push({ path, body: JSON.parse(String(init.body)) })
+    return new Response('{}')
+  }))
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  const client = newQueryClient()
+  const release = { number: 12, state: 'waiting for approval', approvalRole: '' } as Release
+  const decision = { meaning: 'I accept release 12 running on production', canApprove: true, canCancel: true, waitReason }
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><ReleaseApprovalActions slug="lunch" release={release} decision={decision} /></QueryClientProvider>))
+    expect(el.textContent).toContain(waitReason)
+    expect(el.textContent).not.toContain('Waiting for approval from')
+    expect(el.textContent).toContain(decision.meaning)
+    const buttons = [...el.querySelectorAll('button')]
+    expect(buttons.map(b => b.textContent)).toEqual(['Release', 'Cancel'])
+    await act(async () => { buttons[0].click() })
+    expect(calls).toEqual([{ path: '/api/v1/projects/lunch/releases/12/approve', body: { meaning: decision.meaning } }])
+    await act(async () => root.render(<QueryClientProvider client={client}><ReleaseApprovalActions slug="lunch" release={release} decision={decision} current={false} /></QueryClientProvider>))
+    expect([...el.querySelectorAll('button')].every(b => b.disabled)).toBe(true)
+  } finally {
+    await act(async () => root.unmount())
+    client.clear(); vi.unstubAllGlobals()
+  }
+})

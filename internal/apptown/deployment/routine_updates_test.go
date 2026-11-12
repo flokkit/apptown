@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -117,6 +118,12 @@ func TestRoutineWindowUsesSettledReleasesAndRechecksBeforeExecution(t *testing.T
 			}
 			if fail && latest.State != releaseWaiting || !fail && latest.State != Released {
 				t.Fatalf("second release ignored current health: %+v", latest)
+			}
+			if fail {
+				decision, err := w.s.ReleaseDecision(t.Context(), latest)
+				if err != nil || !decision.CanApprove || !strings.Contains(decision.WaitReason, "failed") {
+					t.Fatalf("held release must explain its wait and offer a person release: %+v %v", decision, err)
+				}
 			}
 			wantJanitorHold(t, w, fail)
 		})
@@ -263,7 +270,7 @@ func TestRoutinePersonWaitsForAnExplicitPersonalRelease(t *testing.T) {
 		t.Fatalf("person setting released automatically: %+v", rel)
 	}
 	decision, err := w.s.ReleaseDecision(t.Context(), rel)
-	if err != nil || !decision.CanApprove {
+	if err != nil || !decision.CanApprove || decision.WaitReason != "waiting for a person to release this update" {
 		t.Fatalf("a person cannot start the waiting release: %+v %v", decision, err)
 	}
 	if err := w.s.ApproveRelease(t.Context(), w.project, rel.Number, decision.Meaning); err != nil {

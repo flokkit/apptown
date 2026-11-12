@@ -1,7 +1,7 @@
 import { usePageName } from '../../chrome'
 
 import './Release.css'
-import { ReleaseAssent } from './ReleaseApproval'
+import { ReleaseAssent, ReleaseWaitingReason } from './ReleaseApproval'
 import { Status } from '../../Status'
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -53,12 +53,12 @@ export function ReleasePermalinkPage({ slug, number, log = false }: { slug: stri
         {/* The page heading names the release; this row is its deployment and state. */}
         <div className="row">
           {r.deployment && <span className="badge">{data.deploymentLabel || r.deployment}</span>}
-          {data.replacedBy ? <Status word="replaced" help={`Release ${data.replacedBy} replaced it on this deployment.`} /> : <Status word={data.statusLabel} />}
+          {data.replacedBy ? <Status word="replaced" help={`Release ${data.replacedBy} replaced it on this deployment.`} /> : <Status word={r.state === 'waiting for approval' ? 'waiting' : data.statusLabel} />}
           {data.isLive && <span className="badge">current release</span>}
           {r.origin === 'observed-after-restore' && <span className="badge" title={`found running after ${PRODUCT} was restored; ${PRODUCT} did not ship it`}>found after restore</span>}
         </div>
         <div className="release-facts">
-          {r.state === 'waiting for approval' ? <>Waiting for approval from {r.approvalRoleTitle || r.approvalRole}. <Link to={`/projects/${slug}/deployments/${r.deployment}`}>Review on the deployment page →</Link></> : r.state === 'cancelled' || r.state === 'superseded' ? <>Release {r.state}.</> : r.state === 'releasing'
+          {r.state === 'waiting for approval' ? <><ReleaseWaitingReason release={r} decision={data.decision} /> <Link to={`/projects/${slug}/deployments/${r.deployment}`}>Review on the deployment page →</Link></> : r.state === 'cancelled' || r.state === 'superseded' ? <>Release {r.state}.</> : r.state === 'releasing'
             ? <>Deploying{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null}.</>
             : r.state === 'failed'
               ? <>This release attempt{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null} failed. See the log for the failed step.</>

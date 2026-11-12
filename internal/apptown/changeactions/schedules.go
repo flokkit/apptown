@@ -245,7 +245,8 @@ type projectSchedules struct {
 // from its own record and its own cron parser; Due says that time has
 // passed and the next tick fires it. Last is the last firing, nil when it
 // never fired. Problem says why the schedule could not be read; Next and
-// Last are then unknown, not absent.
+// Last are then unknown, not absent. Waiting is a normal pause for consent;
+// no next firing is scheduled while it waits.
 type projectSchedule struct {
 	Workflow     string
 	Version      int
@@ -255,6 +256,7 @@ type projectSchedule struct {
 	Due          bool
 	Last         *workflow.ScheduleRecord
 	Problem      string
+	Waiting      string
 }
 
 // Of is the project's schedules at now (AppTown's clock): each schedule
@@ -285,22 +287,18 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (pr
 			continue
 		}
 		if c.trigger.Standing {
-			if s.Standing == nil {
-				ps.Problem = "the janitor is turned off"
-				out.Schedules = append(out.Schedules, ps)
-				continue
+			ps.Waiting = "waits for a standing approval"
+			if s.Standing != nil {
+				rule, cron, err := s.Standing.StandingForWorkflow(ctx, projectID, c.workflow)
+				if err != nil {
+					return out, err
+				}
+				if !rule.RuleID.IsZero() {
+					ps.Waiting = ""
+					c.trigger.Cron = cron
+					ps.Cron = cron
+				}
 			}
-			rule, cron, err := s.Standing.StandingForWorkflow(ctx, projectID, c.workflow)
-			if err != nil {
-				return out, err
-			}
-			if rule.RuleID.IsZero() {
-				ps.Problem = "no eligible standing approval covers this project"
-				out.Schedules = append(out.Schedules, ps)
-				continue
-			}
-			c.trigger.Cron = cron
-			ps.Cron = cron
 		}
 		spec, err := schema.ParseCron(c.trigger.Cron)
 		if err != nil {
@@ -317,6 +315,10 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (pr
 				last := rec
 				ps.Last = &last
 			}
+		}
+		if ps.Waiting != "" {
+			out.Schedules = append(out.Schedules, ps)
+			continue
 		}
 		ps.Next = spec.Next(from)
 		ps.Due = !ps.Next.After(now)

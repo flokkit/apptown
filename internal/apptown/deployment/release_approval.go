@@ -134,9 +134,11 @@ func (s *Service) approvalCaller(ctx context.Context, r *Release, consequential 
 }
 
 // ReleaseDecision is the current question and the caller's permitted doors.
-// Clients display Meaning before submitting it to ApproveRelease.
+// Clients display Meaning before submitting it to ApproveRelease. WaitReason
+// explains a personal release wait without a required approval role.
 type ReleaseDecision struct {
 	Meaning    string `json:"meaning"`
+	WaitReason string `json:"waitReason,omitempty"`
 	CanApprove bool   `json:"canApprove"`
 	CanCancel  bool   `json:"canCancel"`
 }
@@ -158,6 +160,20 @@ func (s *Service) releaseEligibility(ctx context.Context, r *Release) (ReleaseDe
 		return ReleaseDecision{}, err
 	}
 	out := ReleaseDecision{Meaning: meaning}
+	if r.ApprovalRole == "" {
+		dep, err := s.Deployments.ByID(ctx, r.DeploymentID)
+		if err != nil {
+			return out, err
+		}
+		_, _, reason, err := s.routineReleaseIn(ctx, s.db, dep)
+		if err != nil {
+			return out, err
+		}
+		out.WaitReason = reason
+		if out.WaitReason == "" {
+			out.WaitReason = "waiting for a person to release this update"
+		}
+	}
 	_, err = s.approvalCaller(ctx, r, false)
 	if err == nil {
 		out.CanApprove, out.CanCancel = true, true

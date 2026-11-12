@@ -1,7 +1,7 @@
 import { DeploymentRuntimeActions } from './DeploymentRuntimeActions'
 import { deploymentStatus } from '../../deploymentStatus'
 import type { DeploymentView } from '../../wire.gen'
-import { ReleaseApprovalActions, ReleaseAssent } from './ReleaseApproval'
+import { ReleaseApprovalActions, ReleaseAssent, ReleaseWaitingReason } from './ReleaseApproval'
 import { ChooseRelease, RollbackBefore, type ReleaseChoice } from './ChooseRelease'
 import { useState, type ReactNode } from 'react'
 import { DeploymentMenu } from './DeploymentMenu'
@@ -73,6 +73,10 @@ function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload
       <ReadStatus q={releases} what="latest deploy" /><StaleNote q={releases} />
       {latest ? <ReleaseDeploy key={latest.number} slug={slug} release={latest} url={url} current={current && releases.current} progressCurrent={!releases.refreshFailed} stopped={env.runtimeState === 'stopped'} /> : releases.data && <div className="ch-deploy-result"><div className="ch-deploy-heading"><strong>No deploys yet.</strong></div><DeployScene outcome="paused" compactStages /></div>}
     </section>}
+    {history.filter(r => r.state === 'waiting for approval' && r.number !== latest?.number).map(r => <section className="card" key={r.number} aria-label="Waiting release">
+      <Link to={`/projects/${slug}/releases/${r.number}`}>Release {r.number}</Link>
+      <ReleaseApprovalActions slug={slug} release={r} decision={r.decision} current={current && releases.current} />
+    </section>)}
     {below}
     </>}
     {tab === 'settings' && settings}
@@ -80,8 +84,8 @@ function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload
     {tab === 'history' && <Section title="Deploy history">
       <ReadStatus q={releases} what="releases" />
       {history.slice(0, count).map(r => <div className="card" key={r.number}>
-        <Link to={`/projects/${slug}/releases/${r.number}`}>Release {r.number}</Link> · {r.statusLabel || r.state} · {fmtStamp(r.releasedAt || r.createdAt)}
-        {r.state === 'waiting for approval' ? <p>Waiting for approval from {r.approvalRoleTitle || r.approvalRole}.</p> : <ReleaseAssent approval={r.approval} />}
+        <Link to={`/projects/${slug}/releases/${r.number}`}>Release {r.number}</Link> · {r.state === 'waiting for approval' ? 'waiting' : r.statusLabel || r.state} · {fmtStamp(r.releasedAt || r.createdAt)}
+        {r.state === 'waiting for approval' ? <p><ReleaseWaitingReason release={r} decision={r.decision} /></p> : <ReleaseAssent approval={r.approval} />}
         {r.state === 'failed' && r.bundleId && <button disabled={!current || !releases.current} onClick={() => setChoice({ release: r })}>Try again</button>}
         {r.state === 'released' && r.number !== history.find(h => h.state === 'released')?.number && r.bundleId && <button disabled={!releases.current} onClick={() => setChoice({ release: r })}>Deploy this again</button>}
         {r.changes.map(c => <div key={c.id}><Link to={`/changes/${c.id}`}>Change {c.number}: {c.title}</Link></div>)}
@@ -119,7 +123,7 @@ function ReleaseDeploy({ slug, release: r, url, current, progressCurrent, stoppe
   const { uncertain, running, passed, outcome } = releaseProgress(r, progressCurrent, stopped)
   const duration = r.releasedAt ? Date.parse(r.releasedAt) - Date.parse(r.createdAt) : undefined
   return <div className="ch-deploy-result">
-    <div className="ch-deploy-heading"><strong className={passed ? 'ok' : undefined}>{ready ? `Release ${r.number} is ready to start` : passed ? "It's live!" : uncertain ? 'Deployment progress uncertain' : running ? 'Deploying' : r.state === 'waiting for approval' ? 'Waiting for approval' : r.state === 'cancelled' ? 'Release cancelled' : r.state === 'superseded' ? 'Release superseded' : r.state === 'failed' ? 'Deploy failed' : 'Deploy stopped'}</strong>{passed && <span> Release {r.number}</span>}</div>
+    <div className="ch-deploy-heading"><strong className={passed ? 'ok' : undefined}>{ready ? `Release ${r.number} is ready to start` : passed ? "It's live!" : uncertain ? 'Deployment progress uncertain' : running ? 'Deploying' : r.state === 'waiting for approval' ? r.approvalRole ? 'Waiting for approval' : 'Waiting for a person' : r.state === 'cancelled' ? 'Release cancelled' : r.state === 'superseded' ? 'Release superseded' : r.state === 'failed' ? 'Deploy failed' : 'Deploy stopped'}</strong>{passed && <span> Release {r.number}</span>}</div>
     <DeployScene stage={r.stage ?? r.lastStage} failedStage={r.failedStage} buildElapsedMs={r.stage === 'building' ? r.stageElapsedMs ?? undefined : undefined} outcome={outcome} compactStages />
     <ReleaseApprovalActions slug={slug} release={r} decision={r.decision} current={current} />
     <div className="ch-deploy-result-facts">

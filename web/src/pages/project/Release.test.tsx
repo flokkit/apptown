@@ -279,3 +279,19 @@ it('separates checking the deployment and opening its address into sentences', a
   expect(el.textContent).toContain('Check this deployment. Open it at https://shop.example.test.')
  } finally { act(() => root.unmount()); client.clear() }
 })
+
+it.each(['waiting for a person to release this update', 'waiting for a person: the latest release failed'])('keeps a personal release wait honest on its permalink: %s', async waitReason => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/projects/shop/releases/14'), {
+    release: { id: B14, number: 14, state: 'waiting for approval', approvalRole: '', deployment: 'main', createdAt: '2026-10-13T04:34:46Z' },
+    decision: { waitReason, meaning: 'I accept release 14 running on production', canApprove: true, canCancel: true },
+    statusLabel: 'waiting for approval', isLive: false, changes: [], events: [],
+  })
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="14" /></MemoryRouter></QueryClientProvider>))
+    expect(el.textContent).toContain(waitReason)
+    expect(el.textContent).not.toContain('waiting for approval')
+    expect(el.querySelector('a[href="/projects/shop/deployments/main"]')?.textContent).toContain('Review')
+  } finally { act(() => root.unmount()); client.clear() }
+})

@@ -4339,6 +4339,7 @@ export type BundleOrigin = {
 
 export type ReleaseDecision = {
   meaning: string
+  waitReason?: string
   canApprove: boolean
   canCancel: boolean
 }
@@ -4558,6 +4559,7 @@ export type ScheduleView = {
   due: boolean
   last?: ScheduleFiringView | null
   problem?: string
+  waiting?: string
 }
 
 export type EnvironmentEntry = {

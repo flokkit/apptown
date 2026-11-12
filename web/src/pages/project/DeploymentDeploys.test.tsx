@@ -236,3 +236,33 @@ it('calls a failed deploy failed, not stopped', () => {
   expect(el.textContent).not.toContain('Deploy stopped')
   client.clear()
 })
+
+it.each(['waiting for a person to release this update', 'waiting for a person: the latest release failed'])('shows a personal wait in the deployment and history: %s', waitReason => {
+  const client = runtimeClient()
+  client.setQueryData(getKey('/projects/lunch/releases'), [{ number: 12, deployment: 'production', state: 'waiting for approval', statusLabel: 'waiting for approval', approvalRole: '', createdAt: '2026-11-05T01:00:00Z', changes: [], decision: { waitReason, meaning: 'I accept release 12 running on production', canApprove: true, canCancel: true } }])
+  try {
+    const el = document.createElement('div')
+    el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="production" /></QueryClientProvider></MemoryRouter>)
+    expect(el.textContent?.split(waitReason)).toHaveLength(3)
+    expect(el.textContent?.toLowerCase()).not.toContain('waiting for approval')
+    expect([...el.querySelectorAll('button')].filter(b => b.textContent === 'Release')).toHaveLength(1)
+  } finally { client.clear() }
+})
+
+it.each(['release-manager', ''])('keeps an older waiting decision available after a newer release fails: %s', approvalRole => {
+  const client = runtimeClient()
+  const waitReason = approvalRole ? undefined : 'waiting for a person: the latest release failed'
+  client.setQueryData(getKey('/projects/lunch/releases'), [
+    { number: 13, deployment: 'production', state: 'failed', createdAt: '2026-11-05T02:00:00Z', changes: [], failure: 'The app exited during startup.' },
+    { number: 12, deployment: 'production', state: 'waiting for approval', approvalRole, createdAt: '2026-11-05T01:00:00Z', changes: [], decision: { waitReason, meaning: 'I accept release 12 running on production', canApprove: true, canCancel: true } },
+  ])
+  try {
+    const el = document.createElement('div')
+    el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="production" /></QueryClientProvider></MemoryRouter>)
+    const pending = el.querySelector('[aria-label="Waiting release"]')!
+    expect(pending.textContent).toContain(approvalRole ? 'Waiting for approval from release-manager.' : waitReason)
+    expect(pending.textContent).toContain('I accept release 12 running on production')
+    expect([...pending.querySelectorAll('button')].map(b => b.textContent)).toEqual([approvalRole ? 'Approve' : 'Release', 'Cancel'])
+    expect(el.querySelector('.deployment-deploy-card')?.textContent).toContain('The app exited during startup.')
+  } finally { client.clear() }
+})

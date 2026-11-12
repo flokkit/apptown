@@ -34,7 +34,8 @@ type ScheduleList struct {
 // UTC, AppTown's time. Next is when the scheduler next fires it; Due says
 // that time has passed and its next tick fires it. Last is absent when it
 // never fired. Problem says why the schedule could not be read; Next and
-// Last are then unknown, not absent.
+// Last are then unknown, not absent. Waiting describes a normal pause for
+// consent, with no next firing scheduled.
 type ScheduleView struct {
 	Source       ScheduleSource      `json:"source"`
 	Cron         string              `json:"cron"`
@@ -44,6 +45,7 @@ type ScheduleView struct {
 	Due          bool                `json:"due"`
 	Last         *ScheduleFiringView `json:"last,omitempty"`
 	Problem      string              `json:"problem,omitempty"`
+	Waiting      string              `json:"waiting,omitempty"`
 }
 
 // ScheduleSource is the workflow, and its adopted version, that declares a
@@ -81,7 +83,7 @@ func (h ProjectSchedules) List(w http.ResponseWriter, r *http.Request) {
 	out := ScheduleList{EvalCopy: got.EvalCopy, Schedules: []ScheduleView{}}
 	for _, s := range got.Schedules {
 		v := ScheduleView{Source: ScheduleSource{Workflow: s.Workflow, Version: s.Version}, Cron: s.Cron, TimeZone: "UTC",
-			SkipIfActive: s.SkipIfActive, Due: s.Due, Problem: s.Problem}
+			SkipIfActive: s.SkipIfActive, Due: s.Due, Problem: s.Problem, Waiting: s.Waiting}
 		if !s.Next.IsZero() {
 			v.Next = s.Next.UTC().Format(time.RFC3339)
 		}
