@@ -20,11 +20,13 @@ import (
 // either as its own top-level test or, for a helper, through
 // TestRegisteredPolicyEvidence.
 var policyEvidence = map[string]func(*testing.T){
-	"attention.Read":               TestAttentionHTTPFiltersSourcesAndCountsBeforeCurrentGrantReads,
-	"routinePublications.Preview":  TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
-	"routinePublications.Classify": TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
-	"routinePublications.History":  TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
-	"routinePublications.Revoke":   TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
+	"deployments.SetRoutineUpdates": TestRoutineUpdateSettingsHTTPChecksCurrentProjectAuthority,
+	"projectScans.SetChoice":        TestJanitorSettingsHTTPChecksCurrentProjectAuthority,
+	"attention.Read":                TestAttentionHTTPFiltersSourcesAndCountsBeforeCurrentGrantReads,
+	"routinePublications.Preview":   TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
+	"routinePublications.Classify":  TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
+	"routinePublications.History":   TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
+	"routinePublications.Revoke":    TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
 
 	"standingApprovals.Assess": TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
 	"external.Save":            TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,

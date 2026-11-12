@@ -17,6 +17,7 @@ import (
 var errLandingAcceptanceChanged = errors.New("accepted Work or its pinned landing handoff changed")
 
 type landings struct {
+	standing  *StandingRules
 	db        *database.DB
 	adoptions landingAdoptions
 	// eligible decides whether the accepter's yes counts for a landing
@@ -150,6 +151,7 @@ func (s landings) apply(ctx context.Context, workID, landingID ids.ID) (*Run, er
 // acceptance is who accepted the work and what they were shown the landing
 // would ask of them.
 type acceptance struct {
+	Standing *standingVote
 	Accepter string
 	// Who is the person who accepted and Via how, from their vote; neither
 	// when AppTown could not tie the vote to a person.
@@ -187,6 +189,10 @@ func acceptanceIn(ctx context.Context, tx *database.Tx, workID ids.ID) (acceptan
 		if vote.Approver == evidence.Approver && vote.Decision == VoteApprove {
 			out.Shown, out.Source, out.Adds, out.InAdvance = vote.AlsoApproves, vote.Candidate, vote.Adds, vote.InAdvance != ""
 			out.Who = access.Actor{Principal: vote.Principal, Name: vote.Approver, Via: vote.Via}
+			out.Standing = vote.Standing
+			if vote.Standing != nil {
+				out.Who = vote.Standing.Issuer
+			}
 		}
 	}
 	return out, nil

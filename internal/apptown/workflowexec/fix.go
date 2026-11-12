@@ -59,6 +59,13 @@ func (a *commands) fixScript(ctx context.Context, run *workflow.Run, step *workf
 	if src.NoContract {
 		return scriptConfig{}, fmt.Errorf("the app declares no parts: no .apptown/app.yaml")
 	}
+	level := ""
+	if a.bounds != nil {
+		level, err = a.bounds.UpdateBoundForRun(ctx, run.ID)
+		if err != nil {
+			return scriptConfig{}, err
+		}
+	}
 	var commands []string
 	for _, p := range src.Parts {
 		matched := false
@@ -82,6 +89,9 @@ func (a *commands) fixScript(ctx context.Context, run *workflow.Run, step *workf
 			}
 			if cfg.For == "findings" && len(names) == 0 {
 				continue
+			}
+			if level == "aggressive" && cfg.For != "findings" && d.RunMajor != "" {
+				d.Run = d.RunMajor
 			}
 			cmd, err := fix.UpdateCommand(d, names, cfg.For == "findings")
 			if err != nil {

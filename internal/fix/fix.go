@@ -21,6 +21,7 @@ type Declaration struct {
 	AppliesTo []string `json:"appliesTo" yaml:"appliesTo"`
 	Ecosystem string   `json:"ecosystem" yaml:"ecosystem"`
 	Run       string   `json:"run" yaml:"run"`
+	RunMajor  string   `json:"runMajor" yaml:"runMajor"`
 	RunFor    string   `json:"runFor" yaml:"runFor"`
 	List      string   `json:"list" yaml:"list"`
 	Files     []string `json:"files" yaml:"files"`
@@ -58,7 +59,7 @@ func Parse(raw string) ([]Declaration, error) {
 		if !ok {
 			return nil, fmt.Errorf("fix kind %q is not supported", d.Kind)
 		}
-		fields := map[string]any{"ecosystem": d.Ecosystem, "run": d.Run, "runFor": d.RunFor, "list": d.List, "files": d.Files}
+		fields := map[string]any{"ecosystem": d.Ecosystem, "run": d.Run, "runMajor": d.RunMajor, "runFor": d.RunFor, "list": d.List, "files": d.Files}
 		for name, value := range fields {
 			if !reflect.ValueOf(value).IsZero() && !slices.ContainsFunc(k.DeclarationFields, func(f DeclarationField) bool { return f.Name == name }) {
 				return nil, fmt.Errorf("fix %s does not support %s", d.Kind, name)
@@ -129,7 +130,7 @@ func version(v string) (string, error) {
 	return v, nil
 }
 func CompareUpdate(before, after []Listing, bound string, targets []check.Finding) ([]Move, error) {
-	if bound != "patch" && bound != "minor" {
+	if bound != "routine" && bound != "aggressive" {
 		return nil, fmt.Errorf("no dependency update bound")
 	}
 	old := map[string]Listing{}
@@ -210,7 +211,7 @@ func CompareUpdate(before, after []Listing, bound string, targets []check.Findin
 		if semver.Compare(v, bv) <= 0 {
 			return nil, fmt.Errorf("%s did not move forward", p.Package)
 		}
-		if semver.Major(v) != semver.Major(bv) || ((bound == "patch" || semver.Major(bv) == "v0") && semver.MajorMinor(v) != semver.MajorMinor(bv)) {
+		if bound != "aggressive" && (semver.Major(v) != semver.Major(bv) || (semver.Major(bv) == "v0" && semver.MajorMinor(v) != semver.MajorMinor(bv))) {
 			return nil, fmt.Errorf("%s exceeds the %s update bound", p.Package, bound)
 		}
 		moved = append(moved, Move{p.Ecosystem, p.Package, b.Version, p.Version})

@@ -16,12 +16,13 @@ type mergeEffects interface {
 }
 
 type Merges struct {
-	db      *database.DB
-	dataDir string
-	rules   LawRules
-	service *scm.Service
-	effects mergeEffects
-	evals   evalGate
+	standing *StandingRules
+	db       *database.DB
+	dataDir  string
+	rules    LawRules
+	service  *scm.Service
+	effects  mergeEffects
+	evals    evalGate
 	clocked
 }
 
@@ -89,6 +90,7 @@ func (m *Merges) execute(ctx context.Context, call MergeCall) (MergeObservation,
 	}
 	admission := NewMergeAdmission(m.db, m.rules).withEvalGate(m.evals)
 	admission.clocked = m.clocked
+	admission.standing = m.standing
 	permission, err := admission.Prepare(ctx, call)
 	if err != nil {
 		return MergeObservation{}, nil, err

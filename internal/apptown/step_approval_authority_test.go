@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/database"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -27,6 +29,7 @@ import (
 	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 func TestStepApprovalHTTPKeepsActorAndDistinguishesConflictsFromWriteFailures(t *testing.T) {
@@ -203,7 +206,7 @@ spec:
 	if _, err := a.Adoption.RecordCurrent(t.Context(), projectID, adoption.AdoptionEdit, "explicit standing declaration fixture", "boss"); err != nil {
 		t.Fatal(err)
 	}
-	definition := fmt.Sprintf(`{"projects":[{"projectId":%q,"workflow":"janitor-work","environments":[]}],"categories":{"dependencies":"patch","securityFixes":true},"delivery":"land-only"}`, projectID.String())
+	definition := fmt.Sprintf(`{"projects":[{"projectId":%q,"workflow":"janitor-work","environments":[]}],"categories":{"dependencies":"routine","securityFixes":true},"delivery":"land-only"}`, projectID.String())
 	h := a.Handler()
 	refused := authzCall(h, "outsider", "POST", "/api/v1/standing-approvals/preview", definition)
 	if refused.Code != http.StatusForbidden {
@@ -267,7 +270,7 @@ spec:
 	if e = json.Unmarshal(assessed.Body.Bytes(), &inspection); e != nil {
 		t.Fatal(e)
 	}
-	if inspection.ProcessingAvailable || inspection.Inspection.Classification != "cannot-assess" || inspection.Inspection.Candidate == "untrusted-candidate" {
+	if !inspection.ProcessingAvailable || inspection.Inspection.Classification != "cannot-assess" || inspection.Inspection.Candidate == "untrusted-candidate" {
 		t.Fatalf("untrusted assessment accepted: %+v", inspection)
 	}
 	// This fixture seeds transparent instance reads. Remove that explicit
@@ -543,7 +546,7 @@ func TestRoutineUpliftCombinesActualAdoptionAndCommittedNPMSource(t *testing.T) 
 		return execution.Outcome{Termination: execution.Exited, ExitCode: 0, Report: report}
 	}}
 	standing := workflow.NewStandingRules(a.DB, workflow.StandingDependencies{Adoptions: a.Adoption, Inspector: verification.NewRoutineInspector(a.cfg.dataDir, &a.repositories, executor).WithFixes(a.DB, a.Adoption), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Lanes: a.lifecycle, Laws: workflowLawRules{}}, Destinations: standingDestinations{}})
-	definition := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: p.ID, Workflow: "routine-work"}}, Categories: workflow.StandingCategories{Dependencies: "patch", WaysOfWorking: true}, Delivery: "land-only"}
+	definition := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: p.ID, Workflow: "routine-work"}}, Categories: workflow.StandingCategories{Dependencies: "routine", WaysOfWorking: true}, Delivery: "land-only"}
 	preview, err := standing.Preview(ctx, definition)
 	if err != nil {
 		t.Fatal(err)
@@ -553,7 +556,7 @@ func TestRoutineUpliftCombinesActualAdoptionAndCommittedNPMSource(t *testing.T) 
 		t.Fatal(err)
 	}
 	result, err := standing.Assess(ctx, rule.RuleID, run.ID)
-	if err != nil || result.Inspection.Classification != "routine-dependency-and-adoption" || result.Adoption == nil || len(result.Adoption.Classifications) != 1 || result.ProcessingAvailable || executions != 2 {
+	if err != nil || result.Inspection.Classification != "routine-dependency-and-adoption" || result.Adoption == nil || len(result.Adoption.Classifications) != 1 || !result.ProcessingAvailable || executions != 2 {
 		t.Fatalf("assembled mixed update: %+v %v executions=%d", result, err, executions)
 	}
 	definition.Categories.Dependencies = ""
@@ -576,5 +579,180 @@ func TestRoutineUpliftCombinesActualAdoptionAndCommittedNPMSource(t *testing.T) 
 	result, err = standing.Assess(ctx, rule.RuleID, run.ID)
 	if err != nil || result.Inspection.Classification != "routine-dependency-and-adoption" || executions != 4 {
 		t.Fatalf("application repair was refused: %+v %v executions=%d", result, err, executions)
+	}
+}
+
+// The preview uses main's app contract, adopted declarations and current
+// deployment settings. Instance consent never infers coverage from a language.
+func TestJanitorInstancePreviewReadsMainAndReleaseSettings(t *testing.T) {
+	a := authzActors(t)
+	person, err := a.Access.EnsurePerson(t.Context(), "boss")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "boss", Via: "session"}, Verified: true})
+	a.SyncStock(ctx)
+	pid, _, _ := fleetRepo(t, a, "janitor-covered", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	java, _, _ := fleetRepo(t, a, "janitor-java", map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    public: true\n    tools: [java]\n", "Dockerfile": "FROM scratch\n"})
+	pack, err := a.Ways.Pack(ctx, "java")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.DB.InTx(ctx, func(tx *database.Tx) error {
+		return adoption.SetMembershipIn(ctx, tx, java, []adoption.Membership{{Pack: "java", Version: pack.Version}}, "language selection", "boss", time.Now())
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordCatalogFixture(a.Adoption, ctx, pid, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordCatalogFixture(a.Adoption, ctx, java, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	target, err := a.Deployment.Targets.Put(ctx, &deployment.Target{Name: "janitor-preview", Kind: deployment.KindDockerHost, Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"automatic", "window", "person", "protected", "manual"} {
+		attrs := deployment.Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"}
+		if name == "protected" {
+			attrs.Audience = "public"
+		}
+		if name == "manual" {
+			attrs.Feed = "manual"
+		}
+		dep, err := a.Deployment.Deployments.EnsureStanding(ctx, pid, name, target.ID, attrs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if name == "person" || name == "window" {
+			setting := deployment.RoutineUpdates{Mode: name}
+			if name == "window" {
+				setting.Days = "sun"
+				setting.From = "02:00"
+				setting.To = "04:00"
+				setting.Zone = "UTC"
+			}
+			if _, err := a.Deployment.SetRoutineUpdates(ctx, pid, name, deployment.RoutineUpdateSettings{Revision: dep.RoutineUpdatesRevision, RoutineUpdates: setting}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	if err := json.Unmarshal([]byte(`{"schedules":[{"workflow":"janitor-update","crons":{"routine":"0 6 * * 1","aggressive":"0 6 * * *"}},{"workflow":"janitor-scan","crons":{"routine":"0 5 * * *","aggressive":"0 5 * * *"}}]}`), &in); err != nil {
+		t.Fatal(err)
+	}
+	q, err := a.standingRules.Preview(ctx, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(q.Shown, "releases it to the running app") || !strings.Contains(q.Shown, "including ones created later") {
+		t.Fatalf("missing consent: %s", q.Shown)
+	}
+	if len(q.Portfolio) != 2 {
+		t.Fatalf("preview omitted active repository projects: %+v", q.Portfolio)
+	}
+	for _, p := range q.Portfolio {
+		if p.ProjectID == pid {
+			if !p.Covered || !p.OnlyChecksStarts || len(p.Deployments) != 2 {
+				t.Fatalf("covered preview: %+v", p)
+			}
+			for _, dep := range p.Deployments {
+				if dep.Deployment != "automatic" && dep.Deployment != "window" {
+					t.Fatalf("deployment should not get automatic releases: %+v", dep)
+				}
+			}
+		} else if p.ProjectID == java {
+			if p.Covered || len(p.NeedsPackUpgrade) != 1 || p.NeedsPackUpgrade[0] != "java" || len(p.PackOffers) != 1 {
+				t.Fatalf("Java without a declared fix was covered: %+v", p)
+			}
+		}
+	}
+}
+
+// Settings changes require current permission on the selected project, and a
+// refused retry must leave the last authorized choice intact.
+func TestRoutineUpdateSettingsHTTPChecksCurrentProjectAuthority(t *testing.T) {
+	a := authzActors(t)
+	pid := idstest.N(1)
+	target, err := a.Deployment.Targets.Put(t.Context(), &deployment.Target{Name: "routine-settings", Kind: deployment.KindDockerHost, Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), pid, "main", target.ID, deployment.Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := a.Handler()
+	path := "/api/v1/projects/game/deployments/main/routine-updates"
+	body := fmt.Sprintf(`{"revision":%d,"routineUpdates":{"mode":"person"}}`, dep.RoutineUpdatesRevision)
+	if w := authzCall(h, "outsider", "PUT", path, body); w.Code != 403 {
+		t.Fatalf("unscoped write: %d %s", w.Code, w.Body)
+	}
+	grant, err := a.Access.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "outsider", Capability: string(access.CapDeploymentBind), Scope: access.ScopeProject, ScopeID: pid.String(), By: "boss"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := authzCall(h, "outsider", "PUT", path, body); w.Code != 200 {
+		t.Fatalf("authorized write: %d %s", w.Code, w.Body)
+	}
+	current, err := a.Deployment.Deployments.ByID(t.Context(), dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.RoutineUpdates.Mode != "person" || current.RoutineUpdatesRevision != dep.RoutineUpdatesRevision+1 {
+		t.Fatalf("settings not saved: %+v", current)
+	}
+	if _, err := a.Access.Revoke(t.Context(), grant, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	body = fmt.Sprintf(`{"revision":%d,"routineUpdates":{"mode":"automatic"}}`, current.RoutineUpdatesRevision)
+	if w := authzCall(h, "outsider", "PUT", path, body); w.Code != 403 {
+		t.Fatalf("revoked write: %d %s", w.Code, w.Body)
+	}
+	after, err := a.Deployment.Deployments.ByID(t.Context(), dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.RoutineUpdates != current.RoutineUpdates || after.RoutineUpdatesRevision != current.RoutineUpdatesRevision {
+		t.Fatal("refused write changed settings")
+	}
+}
+
+func TestJanitorSettingsHTTPChecksCurrentProjectAuthority(t *testing.T) {
+	a := authzActors(t)
+	pid := idstest.N(1)
+	h := a.Handler()
+	path := "/api/v1/projects/game/janitor/settings"
+	body := `{"level":"off","reason":"inspect updates"}`
+	if w := authzCall(h, "outsider", "POST", path, body); w.Code != 403 {
+		t.Fatalf("unscoped write: %d %s", w.Code, w.Body)
+	}
+	grant, err := a.Access.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "outsider", Capability: string(access.CapProjectStandingApproval), Scope: access.ScopeProject, ScopeID: pid.String(), By: "boss"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := authzCall(h, "outsider", "POST", path, body); w.Code != 200 {
+		t.Fatalf("authorized write: %d %s", w.Code, w.Body)
+	}
+	state, err := a.standingRules.ProjectState(asPerson("owner"), pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Level != "off" || state.Choice == nil || state.Choice.Person.Name != "outsider" || state.Choice.Reason != "inspect updates" {
+		t.Fatalf("choice lost attribution: %+v", state)
+	}
+	if _, err := a.Access.Revoke(t.Context(), grant, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	if w := authzCall(h, "outsider", "POST", path, `{"level":"aggressive","reason":"resume"}`); w.Code != 403 {
+		t.Fatalf("revoked write: %d %s", w.Code, w.Body)
+	}
+	after, err := a.standingRules.ProjectState(asPerson("owner"), pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Level != state.Level || after.Choice == nil || after.Choice.Reason != state.Choice.Reason || after.Choice.At != state.Choice.At {
+		t.Fatal("refused write changed choice")
 	}
 }

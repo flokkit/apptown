@@ -819,6 +819,14 @@ WHERE NOT (o.receipt ? 'expectedScanners');
 	}},
 	{n: 232, note: "declare fixes in immutable guidance versions", stmts: []string{`ALTER TABLE guidance_block_versions ADD COLUMN fixes_json JSONB NOT NULL DEFAULT '[]'::jsonb`}},
 	{n: 233, note: "retain queue attempts and schedule origins", stmts: []string{`ALTER TABLE automated_changes ADD COLUMN targets JSONB NOT NULL DEFAULT '[]', ADD COLUMN attempted_at TIMESTAMPTZ, ADD COLUMN failed_attempt BOOLEAN NOT NULL DEFAULT false, ADD COLUMN schedule TEXT NOT NULL DEFAULT '', ADD COLUMN rule_id UUID, ADD COLUMN rule_revision BIGINT NOT NULL DEFAULT 0`}},
+	{n: 234, note: "record project janitor choices", stmts: []string{`CREATE TABLE IF NOT EXISTS standing_project_choices (id UUID PRIMARY KEY, project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE, off BOOLEAN NOT NULL, record_json JSONB NOT NULL, at TIMESTAMPTZ NOT NULL)`}},
+	{n: 235, note: "retain firing approval attribution", stmts: []string{`ALTER TABLE workflow_schedules ADD COLUMN rule_id UUID, ADD COLUMN rule_revision BIGINT NOT NULL DEFAULT 0`}},
+	{n: 236, note: "govern routine deployment updates", stmts: []string{`ALTER TABLE deployments ADD COLUMN routine_updates JSONB NOT NULL DEFAULT '{"mode":"automatic"}', ADD COLUMN routine_updates_revision BIGINT NOT NULL DEFAULT 1`, `ALTER TABLE release_requests ADD COLUMN routine BOOLEAN NOT NULL DEFAULT false`}},
+	{n: 237, note: "replace janitor opt-outs with project update levels", stmts: []string{
+		`ALTER TABLE standing_project_choices RENAME COLUMN off TO level`,
+		`ALTER TABLE standing_project_choices ALTER COLUMN level TYPE TEXT USING CASE WHEN level THEN 'off' ELSE 'routine' END, ADD CHECK (level IN ('off','routine','aggressive'))`,
+		`UPDATE standing_project_choices SET record_json=(record_json-'off') || jsonb_build_object('level',level)`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

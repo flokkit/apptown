@@ -24,3 +24,12 @@ SELECT r.* FROM standing_rule_revisions r JOIN standing_rules h ON h.id=r.rule_i
 
 -- name: StandingIndependentApproval :one
 SELECT require_independent_approval FROM projects WHERE id=$1;
+
+-- name: StandingConsidered :one
+SELECT EXISTS(SELECT 1 FROM run_events WHERE run_id=sqlc.arg(run_id) AND kind IN ('acceptance.standing.applied','acceptance.standing.withheld') AND payload_json->>'stepId'=sqlc.arg(step)::text AND (payload_json->>'retryRevision')::bigint=sqlc.arg(revision)::bigint);
+
+-- name: RecordStandingProjectChoice :exec
+INSERT INTO standing_project_choices(id,project_id,level,record_json,at) VALUES($1,$2,$3,$4,$5);
+
+-- name: LatestStandingProjectChoice :many
+SELECT record_json FROM standing_project_choices WHERE project_id=$1 ORDER BY at DESC,id DESC LIMIT 1;

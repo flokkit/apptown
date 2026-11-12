@@ -2338,6 +2338,12 @@
           "restoreCheck": {
             "type": "string"
           },
+          "routineUpdates": {
+            "$ref": "#/components/schemas/RoutineUpdates"
+          },
+          "routineUpdatesRevision": {
+            "type": "integer"
+          },
           "runtimeActor": {
             "type": "string"
           },
@@ -2391,6 +2397,8 @@
           }
         },
         "required": [
+          "routineUpdates",
+          "routineUpdatesRevision",
           "runtimeState",
           "runtimeActor",
           "displayLabel",
@@ -2697,6 +2705,12 @@
           "restoreLabel": {
             "$ref": "#/components/schemas/ProgressLabel"
           },
+          "routineUpdates": {
+            "$ref": "#/components/schemas/RoutineUpdates"
+          },
+          "routineUpdatesRevision": {
+            "type": "integer"
+          },
           "running": {
             "anyOf": [
               {
@@ -2786,6 +2800,8 @@
           }
         },
         "required": [
+          "routineUpdates",
+          "routineUpdatesRevision",
           "runtimeState",
           "runtimeActor",
           "runtimeControls",
@@ -3544,6 +3560,37 @@
           "href",
           "observedAt",
           "stale"
+        ],
+        "type": "object"
+      },
+      "JanitorHold": {
+        "properties": {
+          "deployment": {
+            "type": "string"
+          },
+          "deploymentId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "displayLabel": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "releaseNumber": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deploymentId",
+          "deployment",
+          "displayLabel",
+          "releaseNumber",
+          "reason"
         ],
         "type": "object"
       },
@@ -4835,6 +4882,12 @@
       },
       "ProjectScanView": {
         "properties": {
+          "heldBack": {
+            "items": {
+              "$ref": "#/components/schemas/JanitorHold"
+            },
+            "type": "array"
+          },
           "queues": {
             "items": {
               "$ref": "#/components/schemas/QueueStatus"
@@ -4849,9 +4902,14 @@
           },
           "scans": {
             "$ref": "#/components/schemas/MainScans"
+          },
+          "standing": {
+            "$ref": "#/components/schemas/projectStandingState"
           }
         },
         "required": [
+          "standing",
+          "heldBack",
           "queues",
           "scans",
           "recent"
@@ -5774,6 +5832,9 @@
           "feed": {
             "type": "string"
           },
+          "routine": {
+            "type": "boolean"
+          },
           "setBy": {
             "type": "string"
           },
@@ -5790,6 +5851,7 @@
           "uncopiedAcceptance": {}
         },
         "required": [
+          "routine",
           "feed",
           "settingsRevision",
           "setBy",
@@ -6025,6 +6087,29 @@
           "targetId",
           "candidateDigest",
           "classifications"
+        ],
+        "type": "object"
+      },
+      "RoutineUpdates": {
+        "properties": {
+          "days": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "zone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
         ],
         "type": "object"
       },
@@ -6785,6 +6870,9 @@
           "inspection": {
             "$ref": "#/components/schemas/StandingInspection"
           },
+          "level": {
+            "type": "string"
+          },
           "processingAvailable": {
             "type": "boolean"
           },
@@ -6823,6 +6911,7 @@
           }
         },
         "required": [
+          "level",
           "ruleId",
           "ruleRevision",
           "questionDigest",
@@ -6892,6 +6981,15 @@
               "$ref": "#/components/schemas/StandingProject"
             },
             "type": "array"
+          },
+          "schedules": {
+            "items": {
+              "$ref": "#/components/schemas/StandingSchedule"
+            },
+            "type": "array"
+          },
+          "scope": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -6906,7 +7004,20 @@
       },
       "StandingEnvironment": {
         "properties": {
+          "deployment": {
+            "type": "string"
+          },
           "deploymentId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project": {
+            "type": "string"
+          },
+          "projectId": {
             "format": "uuid",
             "type": [
               "string",
@@ -6915,6 +7026,9 @@
           },
           "promotion": {
             "type": "boolean"
+          },
+          "setting": {
+            "type": "string"
           },
           "targetId": {
             "format": "uuid",
@@ -7074,6 +7188,94 @@
         ],
         "type": "object"
       },
+      "StandingProjectPreview": {
+        "properties": {
+          "baseImageFindings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "baseImages": {
+            "type": "integer"
+          },
+          "covered": {
+            "type": "boolean"
+          },
+          "deployments": {
+            "items": {
+              "$ref": "#/components/schemas/StandingEnvironment"
+            },
+            "type": "array"
+          },
+          "followsMain": {
+            "items": {
+              "$ref": "#/components/schemas/StandingEnvironment"
+            },
+            "type": "array"
+          },
+          "group": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "needsPackUpgrade": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "noMajorCommand": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "onlyChecksStarts": {
+            "type": "boolean"
+          },
+          "overridesInstance": {
+            "type": "boolean"
+          },
+          "packOffers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "problem": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "level",
+          "overridesInstance",
+          "noMajorCommand",
+          "followsMain",
+          "group",
+          "packOffers",
+          "baseImageFindings",
+          "projectId",
+          "project",
+          "covered",
+          "needsPackUpgrade",
+          "onlyChecksStarts",
+          "deployments",
+          "baseImages"
+        ],
+        "type": "object"
+      },
       "StandingPurpose": {
         "properties": {
           "approvers": {
@@ -7106,11 +7308,20 @@
       },
       "StandingQuestion": {
         "properties": {
+          "baseImageFindings": {
+            "$ref": "#/components/schemas/standingBaseImagePreview"
+          },
           "definition": {
             "$ref": "#/components/schemas/StandingDefinition"
           },
           "digest": {
             "type": "string"
+          },
+          "portfolio": {
+            "items": {
+              "$ref": "#/components/schemas/StandingProjectPreview"
+            },
+            "type": "array"
           },
           "projects": {
             "items": {
@@ -7123,6 +7334,7 @@
           }
         },
         "required": [
+          "baseImageFindings",
           "definition",
           "projects",
           "shown",
@@ -7177,6 +7389,20 @@
           "changedAt",
           "reason"
         ],
+        "type": "object"
+      },
+      "StandingSchedule": {
+        "properties": {
+          "crons": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "workflow": {
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "StandingStatus": {
@@ -7842,6 +8068,50 @@
         ],
         "type": "string"
       },
+      "projectStandingChoice": {
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "person": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "person",
+          "at",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "projectStandingState": {
+        "properties": {
+          "choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/projectStandingChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "level": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "level"
+        ],
+        "type": "object"
+      },
       "runRowView": {
         "properties": {
           "changeId": {
@@ -7914,6 +8184,25 @@
           "startedAt",
           "durationS",
           "next"
+        ],
+        "type": "object"
+      },
+      "standingBaseImagePreview": {
+        "properties": {
+          "images": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "projects": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "images",
+          "projects",
+          "message"
         ],
         "type": "object"
       }
@@ -15558,6 +15847,49 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/projects/{slug}/deployments/{name}/routine-updates": {
+      "put": {
+        "operationId": "putProjectsSlugDeploymentsNameRoutineUpdates",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.SetRoutineUpdates",
+          "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/api/v1/projects/{slug}/deployments/{name}/start": {
       "post": {
         "operationId": "postProjectsSlugDeploymentsNameStart",
@@ -16184,6 +16516,41 @@
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/projects/{slug}/janitor/settings": {
+      "post": {
+        "operationId": "postProjectsSlugJanitorSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "projectScans.SetChoice",
+          "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "landing",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/janitor/{queue}/skip": {

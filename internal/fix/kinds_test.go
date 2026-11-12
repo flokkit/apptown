@@ -7,8 +7,8 @@ import "testing"
 func TestKindRegistrationDefinesDeclarations(t *testing.T) {
 	kinds["test-kind"] = kinds["update"]
 	defer delete(kinds, "test-kind")
-	ds, err := Parse(`[{"kind":"test-kind","appliesTo":["part"],"ecosystem":"npm","run":"update"}]`)
-	if err != nil || len(ds) != 1 || !SupportsTargets(ds[0]) {
+	ds, err := Parse(`[{"kind":"test-kind","appliesTo":["part"],"ecosystem":"npm","run":"update","runMajor":"major"}]`)
+	if err != nil || len(ds) != 1 || ds[0].RunMajor != "major" || !SupportsTargets(ds[0]) {
 		t.Fatalf("registered kind refused: %+v %v", ds, err)
 	}
 	k := kinds["test-kind"]

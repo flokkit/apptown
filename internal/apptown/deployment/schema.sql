@@ -107,6 +107,8 @@ CREATE TABLE IF NOT EXISTS deployments (
   serving_release_id UUID,
   serving_attempt_id UUID,
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
+  routine_updates JSONB NOT NULL DEFAULT '{"mode":"automatic"}',
+  routine_updates_revision BIGINT NOT NULL DEFAULT 1,
   UNIQUE(project_id, name)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_host_key ON deployments ((right(id::text, 12)));
@@ -304,7 +306,8 @@ CREATE TABLE IF NOT EXISTS release_requests (
   landing_approvers TEXT NOT NULL DEFAULT '',
   backup_evidence_json JSONB,
   uncopied_acceptance_json JSONB,
-  rebuild_pending BOOLEAN NOT NULL DEFAULT false
+  rebuild_pending BOOLEAN NOT NULL DEFAULT false,
+ routine BOOLEAN NOT NULL DEFAULT false
 );
 -- An operator's override of one part's resources on one deployment
 -- (design/subsystems/deployment.md): set as a recorded act,

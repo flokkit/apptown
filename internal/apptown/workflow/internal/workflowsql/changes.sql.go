@@ -1584,16 +1584,18 @@ func (q *Queries) QueueAttempts(ctx context.Context, arg QueueAttemptsParams) ([
 }
 
 const recordAutomatedChange = `-- name: RecordAutomatedChange :exec
-INSERT INTO automated_changes(id,project_id,active_change_id,queue,what,opened_at,schedule) VALUES($1,$2,$1,$3,$4,$5,$6)
+INSERT INTO automated_changes(id,project_id,active_change_id,queue,what,opened_at,schedule,rule_id,rule_revision) VALUES($1,$2,$1,$3,$4,$5,$6,$7,$8)
 `
 
 type RecordAutomatedChangeParams struct {
-	ID        ids.ID
-	ProjectID ids.ID
-	Queue     string
-	What      string
-	OpenedAt  time.Time
-	Schedule  string
+	ID           ids.ID
+	ProjectID    ids.ID
+	Queue        string
+	What         string
+	OpenedAt     time.Time
+	Schedule     string
+	RuleID       ids.ID
+	RuleRevision int64
 }
 
 func (q *Queries) RecordAutomatedChange(ctx context.Context, arg RecordAutomatedChangeParams) error {
@@ -1604,6 +1606,8 @@ func (q *Queries) RecordAutomatedChange(ctx context.Context, arg RecordAutomated
 		arg.What,
 		arg.OpenedAt,
 		arg.Schedule,
+		arg.RuleID,
+		arg.RuleRevision,
 	)
 	return err
 }

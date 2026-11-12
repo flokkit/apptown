@@ -2,6 +2,7 @@ package changeactions_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -35,7 +36,7 @@ type scheduleWorld struct {
 	engine    context.Context
 }
 
-func newScheduleWorld(t *testing.T) scheduleWorld {
+func newScheduleWorld(t *testing.T, runners ...map[string]workflow.Runner) scheduleWorld {
 	t.Helper()
 	db := changeactions.DatabaseSuite.New(t)
 	dataDir := t.TempDir()
@@ -54,11 +55,20 @@ func newScheduleWorld(t *testing.T) scheduleWorld {
 		t.Fatal(err)
 	}
 	preparation := workcommands.NewPreparation(db, adopt, scm.NewBranches(db, locks), dataDir, nil, nil, nil, nil)
-	work := workflow.New(context.Background(), db, workflow.Dependencies{Authority: authority, Repositories: locks, Resolve: preparation.Resolve, LandingWork: preparation,
+	rules := workflow.NewStandingRules(db, workflow.StandingDependencies{Authority: authority, Identity: ids, Procedures: scheduleStandingProcedure{}, Portfolio: &scheduleStandingPortfolio{}})
+	var selected map[string]workflow.Runner
+	var automatic []string
+	if len(runners) > 0 {
+		selected = runners[0]
+		for kind := range selected {
+			automatic = append(automatic, kind)
+		}
+	}
+	work := workflow.New(context.Background(), db, workflow.Dependencies{Standing: &rules, Abandonment: scheduleAbandonment{}, Retention: scheduleRetention{}, Automatic: automatic, Runners: selected, Authority: authority, Repositories: locks, Resolve: preparation.Resolve, LandingWork: preparation,
 		Git: workflow.GitWorkspace{DataDir: dataDir}, DataDir: dataDir})
 	t.Cleanup(work.Stop)
 	engine := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "engine"}, Verified: true, Receipt: "system"})
-	return scheduleWorld{schedules: changeactions.Schedules{Actions: changeactions.New(work, db), Adoption: adopt, Projects: projects, DB: db},
+	return scheduleWorld{schedules: changeactions.Schedules{Standing: &rules, Actions: changeactions.New(work, db), Adoption: adopt, Projects: projects, DB: db},
 		work: work, ways: ways, adoption: adopt, project: *p, engine: engine}
 }
 
@@ -497,4 +507,160 @@ func TestSchedulesRequireDeclarationInAdoptedVersion(t *testing.T) {
 			}
 		})
 	}
+}
+
+type scheduleStandingProcedure struct{}
+
+func (scheduleStandingProcedure) StandingProcedure(_ context.Context, _ database.Queryer, _ ids.ID, name string) (workflow.StandingProcedure, error) {
+	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: "the declared fix is within the bound and checks are met"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "approve", Means: "land the checked fix"}}, nil
+}
+func (p scheduleStandingProcedure) InstanceStandingProcedure(ctx context.Context, q database.Queryer, name string) (workflow.StandingProcedure, error) {
+	return p.StandingProcedure(ctx, q, ids.Nil, name)
+}
+
+type scheduleStandingPortfolio struct{ held, uncovered bool }
+
+func (p *scheduleStandingPortfolio) StandingPortfolio(_ context.Context, _ database.Queryer, pid ids.ID, _ workflow.StandingCategories) ([]workflow.StandingProjectPreview, error) {
+	return []workflow.StandingProjectPreview{{ProjectID: pid, Covered: !p.uncovered}}, nil
+}
+func (p *scheduleStandingPortfolio) StandingHold(context.Context, database.Queryer, ids.ID) (string, error) {
+	if p.held {
+		return "release failed", nil
+	}
+	return "", nil
+}
+
+type scheduleRetention struct{}
+
+func (scheduleRetention) RetainsWorkIn(context.Context, database.Queryer, ids.ID, []ids.ID) (bool, error) {
+	return false, nil
+}
+
+func TestStandingScheduleUsesTheRulesCronAndKeepsItsOriginalAuthorityAfterPurge(t *testing.T) {
+	started := make(chan struct{}, 1)
+	w := newScheduleWorld(t, map[string]workflow.Runner{"script": func(task *workflow.Execution) {
+		if _, err := task.Claim(); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := task.StartFix(nil); err != nil {
+			t.Error(err)
+			return
+		}
+		task.Settle(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{"reason": "the declared command failed before acceptance"}, nil))
+		started <- struct{}{}
+	}})
+	body := `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata: {name: standing-clock}
+spec:
+  kind: pipeline
+  role: working
+  on:
+    schedule: {cron: "0 0 1 1 *", queue: updates, standing: true}
+  stages:
+    - name: update
+      steps:
+        - name: command
+          uses: script
+          with: {run: "false"}
+        - name: accept
+          uses: approval
+          with:
+            means: I reviewed the declared fix
+            standing: {class: routine-update, means: the declared fix is within the bound and checks are met}
+`
+	if _, _, err := w.ways.PublishWorkflow(t.Context(), body, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	w.packWorkflow(t, w.project.ID, "standing-clock")
+	if err := recordCatalogFixture(w.adoption, t.Context(), w.project.ID, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	base := time.Date(2026, 11, 12, 0, 0, 0, 0, time.UTC)
+	w.schedules.FireDueSchedules(t.Context(), base)
+	if _, armed, err := workflow.ScheduleLastFiredIn(t.Context(), w.schedules.DB, w.project.ID, "standing-clock"); err != nil || armed {
+		t.Fatalf("standing schedule armed without consent: %t %v", armed, err)
+	}
+	directory := identity.New(w.schedules.DB, identity.Config{Projects: project.NewCatalogue(w.schedules.DB)})
+	person, err := directory.EnsurePerson(t.Context(), "bls")
+	if err != nil {
+		t.Fatal(err)
+	}
+	human := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "bls", Via: "session"}, Verified: true})
+	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine"}, Delivery: "full"}
+	if err := json.Unmarshal([]byte(`{"schedules":[{"workflow":"standing-clock","crons":{"routine":"* * * * *","aggressive":"* * * * *"}}]}`), &in); err != nil {
+		t.Fatal(err)
+	}
+	q, err := w.schedules.Standing.Preview(human, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rule, err := w.schedules.Standing.Enable(human, workflow.StandingCommand{Definition: in, ShownDigest: q.Digest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.schedules.FireDueSchedules(t.Context(), base)
+	w.schedules.FireDueSchedules(t.Context(), base.Add(time.Minute))
+	select {
+	case <-started:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the rule's cron did not fire the workflow")
+	}
+	attempts, err := w.work.Attempts(w.engine, w.project.ID, "updates", 20)
+	if err != nil || len(attempts) != 1 || attempts[0].RuleID != rule.RuleID || attempts[0].RuleRevision != 1 || !attempts[0].Attempted || !attempts[0].Failed {
+		t.Fatalf("failed firing lost its rule: %+v %v", attempts, err)
+	}
+	records, err := workflow.ScheduleRecordsIn(t.Context(), w.schedules.DB, w.project.ID)
+	if err != nil || records["standing-clock"].RuleID != rule.RuleID || records["standing-clock"].RuleRevision != 1 {
+		t.Fatalf("firing attribution: %+v %v", records, err)
+	}
+	in.Schedules[0].Crons = map[string]string{"routine": "*/2 * * * *", "aggressive": "*/2 * * * *"}
+	q, err = w.schedules.Standing.Preview(human, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.schedules.Standing.Enable(human, workflow.StandingCommand{RuleID: rule.RuleID, ExpectedRevision: 1, Definition: in, ShownDigest: q.Digest}); err != nil {
+		t.Fatal(err)
+	}
+	scope, err := w.work.PrepareStop(w.engine, w.project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = w.schedules.DB.InTx(w.engine, func(tx *database.Tx) error {
+		_, err := scope.AbandonIn(w.engine, tx, workflow.StopWork{ChangeID: attempts[0].ChangeID, Reason: "untouched failed try replaced"})
+		return err
+	})
+	scope.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.schedules.FireDueSchedules(t.Context(), base.Add(2*time.Minute))
+	select {
+	case <-started:
+	case <-time.After(10 * time.Second):
+		t.Fatal("revised schedule did not fire")
+	}
+	if err := w.work.PurgeAutomatedChanges(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	kept, err := w.work.Attempts(w.engine, w.project.ID, "updates", 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var original *workflow.AutomatedAttempt
+	for i := range kept {
+		if kept[i].ID == attempts[0].ID {
+			original = &kept[i]
+		}
+	}
+	if original == nil || !original.ChangeID.IsZero() || original.RuleID != rule.RuleID || original.RuleRevision != 1 {
+		t.Fatalf("revision or purge rewrote firing authority: %+v %v", kept, err)
+	}
+}
+
+type scheduleAbandonment struct{}
+
+func (scheduleAbandonment) RecordAbandonIn(context.Context, *database.Tx, workflow.AbandonEffects) error {
+	return nil
 }

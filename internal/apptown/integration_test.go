@@ -315,7 +315,7 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 	if out, err := a.Work.AdvanceFrom(creator, run); err != nil || !out.Advanced {
 		t.Fatalf("complete first landing: %+v %v", out, err)
 	}
-	if err := a.Deployment.RequestLandingReleases(ctx, p.ID, run.ID, change.ID, caller.Principal.Name); err != nil {
+	if err := a.Deployment.RequestLandingReleases(ctx, p.ID, run.ID, change.ID, caller.Principal.Name, false); err != nil {
 		t.Fatal(err)
 	}
 	requests, err := a.Deployment.Releases.LandingRequests(ctx, p.ID, change.ID)
@@ -633,7 +633,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	}
 	consentCtx := access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, db, "restore-fixture"), Kind: "user", Name: "restore-fixture", Via: "session"}})
 	consentOwner := workflow.NewStandingRules(db, workflow.StandingDependencies{Authority: access.Checked{Authority: app.Access, Projects: app.Projects}, Identity: app.Access, Procedures: restoreStandingProcedure{}})
-	consentInput := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: pid, Workflow: "restore-fixture"}}, Categories: workflow.StandingCategories{Dependencies: "patch"}, Delivery: "land-only"}
+	consentInput := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: pid, Workflow: "restore-fixture"}}, Categories: workflow.StandingCategories{Dependencies: "routine"}, Delivery: "land-only"}
 	question, err := consentOwner.Preview(consentCtx, consentInput)
 	if err != nil {
 		t.Fatal(err)

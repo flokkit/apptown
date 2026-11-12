@@ -13,42 +13,44 @@ import (
 )
 
 type Deployment struct {
-	ID                 ids.ID
-	ProjectID          ids.ID
-	Name               string
-	HostLabel          string
-	HostPort           int64
-	Container          string
-	ReleaseRun         ids.ID
-	UpdatedAt          time.Time
-	ReleaseSha         string
-	ImageDigest        string
-	Kind               string
-	ChangeID           ids.ID
-	TargetID           ids.ID
-	HandleJson         json.RawMessage
-	DesiredGeneration  int64
-	ObservedGeneration int64
-	Readiness          string
-	Feed               string
-	Audience           string
-	DataClass          string
-	Url                string
-	StartFromBackup    ids.ID
-	StartedFromAt      sql.NullTime
-	RestoreCheck       string
-	DisplayLabel       string
-	FeedRevision       int64
-	FeedAuthorityJson  *json.RawMessage
-	PromotedFromID     ids.ID
-	ApprovalRole       string
-	RuntimeState       string
-	RuntimeActor       string
-	RuntimeAt          sql.NullTime
-	RuntimeError       string
-	ActAt              sql.NullTime
-	ServingReleaseID   ids.ID
-	ServingAttemptID   ids.ID
+	ID                     ids.ID
+	ProjectID              ids.ID
+	Name                   string
+	HostLabel              string
+	HostPort               int64
+	Container              string
+	ReleaseRun             ids.ID
+	UpdatedAt              time.Time
+	ReleaseSha             string
+	ImageDigest            string
+	Kind                   string
+	ChangeID               ids.ID
+	TargetID               ids.ID
+	HandleJson             json.RawMessage
+	DesiredGeneration      int64
+	ObservedGeneration     int64
+	Readiness              string
+	Feed                   string
+	Audience               string
+	DataClass              string
+	Url                    string
+	StartFromBackup        ids.ID
+	StartedFromAt          sql.NullTime
+	RestoreCheck           string
+	DisplayLabel           string
+	FeedRevision           int64
+	FeedAuthorityJson      *json.RawMessage
+	PromotedFromID         ids.ID
+	ApprovalRole           string
+	RuntimeState           string
+	RuntimeActor           string
+	RuntimeAt              sql.NullTime
+	RuntimeError           string
+	ActAt                  sql.NullTime
+	ServingReleaseID       ids.ID
+	ServingAttemptID       ids.ID
+	RoutineUpdates         json.RawMessage
+	RoutineUpdatesRevision int64
 }
 
 type DeploymentAddressSetting struct {
@@ -231,6 +233,7 @@ type ReleaseRequest struct {
 	BackupEvidenceJson     *json.RawMessage
 	UncopiedAcceptanceJson *json.RawMessage
 	RebuildPending         bool
+	Routine                bool
 }
 
 type RetainedResource struct {

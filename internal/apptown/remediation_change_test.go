@@ -102,7 +102,7 @@ func completeEvidenceRelease(t *testing.T, a *App, ctx context.Context, changeID
 	if _, err := a.Deployment.Configure(verifiedContext(t.Context(), principal), deployment.ConfigureDeployment{ProjectID: run.ProjectID, Name: "main", Target: deployment.BuiltInTargetName, Attributes: deployment.Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Deployment.RequestLandingReleases(t.Context(), run.ProjectID, run.ID, run.ChangeID, "test"); err != nil {
+	if err := a.Deployment.RequestLandingReleases(t.Context(), run.ProjectID, run.ID, run.ChangeID, "test", false); err != nil {
 		t.Fatal(err)
 	}
 	return run

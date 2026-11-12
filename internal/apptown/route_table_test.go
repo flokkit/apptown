@@ -828,6 +828,7 @@ func apiDescription() (map[string]any, error) {
 // undescribed named type could share required fields with responses and is refused.
 var requestOnlyDescriptions = []wiregen.Named{
 	{Name: "RoutinePublicationTransition", Value: wow.RoutinePublicationTransition{}},
+	{Name: "StandingSchedule", Value: reflect.Zero(reflect.TypeOf(workflow.StandingDefinition{}.Schedules).Elem()).Interface()},
 	{Name: "StandingCategories", Value: workflow.StandingCategories{}},
 	{Name: "StandingEnvironment", Value: workflow.StandingEnvironment{}},
 	{Name: "StandingProject", Value: workflow.StandingProject{}},

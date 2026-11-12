@@ -640,6 +640,8 @@ export type DeploymentResources = {
 }
 
 export type DeploymentView = {
+  routineUpdates: RoutineUpdates
+  routineUpdatesRevision: number
   runtimeState: string
   runtimeActor: string
   runtimeAt?: string
@@ -877,6 +879,7 @@ export type FixDeclaration = {
   appliesTo: string[]
   ecosystem: string
   run: string
+  runMajor: string
   runFor: string
   list: string
   files: string[]
@@ -1529,6 +1532,8 @@ export type ProjectRow = {
 }
 
 export type ProjectScanView = {
+  standing: StandingProjectState
+  heldBack: JanitorHold[]
   queues: QueueStatus[]
   scans: MainScans
   recent: AutomatedAttempt[]
@@ -2025,6 +2030,7 @@ export type StandingActor = {
 }
 
 export type StandingAssessment = {
+  level: string
   adoption?: RoutineAdoptionTarget | null
   ruleId: string | null
   ruleRevision: number
@@ -2055,6 +2061,8 @@ export type StandingCommand = {
 }
 
 export type StandingDefinition = {
+  scope?: string
+  schedules?: StandingSchedule[]
   administrative: boolean
   projects: StandingProject[]
   categories: StandingCategories
@@ -2066,6 +2074,10 @@ export type StandingDisable = {
 }
 
 export type StandingEnvironment = {
+  projectId?: string | null
+  project?: string
+  deployment?: string
+  setting?: string
   deploymentId: string | null
   targetId: string | null
   promotion: boolean
@@ -2105,9 +2117,21 @@ export type StandingProject = {
   environments: StandingEnvironment[]
 }
 
+export type StandingProjectAct = {
+  person: StandingActor
+  at: string
+  reason: string
+}
+
 export type StandingProjectMeaning = {
   projectId: string | null
   procedure: StandingProcedure
+}
+
+export type StandingProjectState = {
+  enabled: boolean
+  level: string
+  choice?: StandingProjectAct | null
 }
 
 export type StandingPurpose = {
@@ -2119,6 +2143,8 @@ export type StandingPurpose = {
 }
 
 export type StandingQuestion = {
+  baseImageFindings: standingBaseImagePreview
+  portfolio?: StandingProjectPreview[]
   definition: StandingDefinition
   projects: StandingProjectMeaning[]
   shown: string
@@ -2135,6 +2161,11 @@ export type StandingRevision = {
   changedBy: StandingActor
   changedAt: string
   reason: string
+}
+
+export type StandingSchedule = {
+  workflow: string
+  crons: Record<string, string>
 }
 
 export type StandingStatus = {
@@ -3321,6 +3352,14 @@ export type LimitCount = {
   last: string
 }
 
+export type RoutineUpdates = {
+  mode: string
+  days?: string
+  from?: string
+  to?: string
+  zone?: string
+}
+
 export type Release = {
   rebuiltFrom?: number
   rebuiltCommit?: string
@@ -4172,6 +4211,14 @@ export type Violation = {
   detail: string
 }
 
+export type JanitorHold = {
+  deploymentId: string | null
+  deployment: string
+  displayLabel: string
+  releaseNumber: number
+  reason: string
+}
+
 export type QueueStatus = {
   queue: string
   state: string
@@ -4282,6 +4329,7 @@ export type ReleaseDecision = {
 }
 
 export type RequestMetadata = {
+  routine: boolean
   feed: string
   settingsRevision: number
   setBy: string
@@ -4523,6 +4571,30 @@ export type ServiceKindEntry = {
 export type NeedSelection = {
   capability: string
   params: Record<string, unknown>
+}
+
+export type standingBaseImagePreview = {
+  images: number
+  projects: number
+  message: string
+}
+
+export type StandingProjectPreview = {
+  level: string
+  overridesInstance: boolean
+  noMajorCommand: string[]
+  followsMain: StandingEnvironment[]
+  group: string
+  problem?: string
+  packOffers: string[]
+  baseImageFindings: string[]
+  projectId: string | null
+  project: string
+  covered: boolean
+  needsPackUpgrade: string[]
+  onlyChecksStarts: boolean
+  deployments: StandingEnvironment[]
+  baseImages: number
 }
 
 export type StepState = "pending" | "running" | "pass" | "fail" | "needs_human" | "error" | "skipped" | "not_applicable"
@@ -5679,6 +5751,7 @@ export type CheckRow = {
 }
 
 export type ScheduleTrigger = {
+  standing?: boolean
   queue?: string
   cron: string
   skipIfActive?: boolean | null

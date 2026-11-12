@@ -52,9 +52,10 @@ func (c MergeCall) validate() error {
 }
 
 type mergeAdmission struct {
-	db    *database.DB
-	rules LawRules
-	evals evalGate // an eval's rule for a merge into one of its copies; nil: none
+	standing *StandingRules
+	db       *database.DB
+	rules    LawRules
+	evals    evalGate // an eval's rule for a merge into one of its copies; nil: none
 	clocked
 }
 
@@ -70,6 +71,7 @@ func NewMergeAdmission(db *database.DB, rules LawRules) mergeAdmission {
 }
 
 type admittedMerge struct {
+	standing   *StandingRules
 	db         *database.DB
 	evals      evalGate // asked again at the SCM claim that performs the merge
 	rules      LawRules
@@ -145,6 +147,11 @@ func (a mergeAdmission) evaluateMergePermissionIn(ctx context.Context, tx *datab
 			return result, errMergeCaller
 		}
 	}
+	if why, err := standingMergeRefusalIn(ctx, tx, run, a.standing); err != nil {
+		return result, err
+	} else if why != "" {
+		return MergePermission{Reason: why}, nil
+	}
 	// Landing is an effect a person answers for (assent.go), whatever the
 	// project's source.
 	if err := assentEvidenceIn(ctx, tx, run.ID, run.ProjectID); errors.Is(err, errNoAssent) {
@@ -217,7 +224,7 @@ func (a mergeAdmission) evaluateMergePermissionIn(ctx context.Context, tx *datab
 	if err != nil {
 		return result, err
 	}
-	result.Admitted = &admittedMerge{db: a.db, evals: a.evals, rules: a.rules, call: call, gate: gate, completing: next.Completing, attribution: attribution, clocked: a.clocked}
+	result.Admitted = &admittedMerge{standing: a.standing, db: a.db, evals: a.evals, rules: a.rules, call: call, gate: gate, completing: next.Completing, attribution: attribution, clocked: a.clocked}
 	return result, nil
 }
 
@@ -226,7 +233,7 @@ func (a *admittedMerge) Context(ctx context.Context, dataDir string) (context.Co
 	if a == nil || a.gate == nil || a.db == nil {
 		return nil, errMergeCaller
 	}
-	claim, err := (scmWork{db: a.db, dataDir: dataDir, rules: a.rules, evals: a.evals, clocked: a.clocked}).claim(a.call.Run, a.call.Source, &a.call, a.attribution)
+	claim, err := (scmWork{standing: a.standing, db: a.db, dataDir: dataDir, rules: a.rules, evals: a.evals, clocked: a.clocked}).claim(a.call.Run, a.call.Source, &a.call, a.attribution)
 	if err != nil {
 		return nil, err
 	}

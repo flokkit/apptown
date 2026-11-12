@@ -1416,7 +1416,7 @@ func executeBootFixture(t *testing.T, a *App, ctx context.Context, stepID ids.ID
 	if _, err = a.Deployment.ConfirmFeed(verifiedContext(t.Context(), person), run.ProjectID, dep.Name, dep.FeedRevision); err != nil {
 		t.Fatal(err)
 	}
-	if err = a.Deployment.RequestLandingReleases(t.Context(), run.ProjectID, run.ID, run.ChangeID, ""); err != nil {
+	if err = a.Deployment.RequestLandingReleases(t.Context(), run.ProjectID, run.ID, run.ChangeID, "", false); err != nil {
 		t.Fatal(err)
 	}
 	releases, err := a.Deployment.Releases.LandingRequests(t.Context(), run.ProjectID, run.ChangeID)

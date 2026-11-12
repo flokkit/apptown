@@ -629,7 +629,7 @@ SELECT r.* FROM releases r JOIN release_requests q ON q.release_id=r.id JOIN run
 WHERE r.project_id=$1 AND w.change_id=$2 AND q.feed_revision IS NOT NULL ORDER BY r.number DESC;
 
 -- name: ReleaseRequestMetadata :one
-SELECT authority_json,feed_revision,landing_approvers,backup_evidence_json,uncopied_acceptance_json FROM release_requests WHERE release_id=$1;
+SELECT routine,authority_json,feed_revision,landing_approvers,backup_evidence_json,uncopied_acceptance_json FROM release_requests WHERE release_id=$1;
 
 -- name: RecordUncopiedAcceptance :execrows
 UPDATE release_requests SET uncopied_acceptance_json=$2 WHERE release_id=$1;
@@ -736,3 +736,20 @@ UPDATE release_requests SET rebuild_pending=true WHERE release_id=sqlc.arg(relea
 
 -- name: RetainsAutomatedWork :one
 SELECT EXISTS(SELECT 1 WHERE EXISTS(SELECT 1 FROM releases retained0 WHERE retained0.run_id=ANY(sqlc.arg(run_ids)::uuid[])) OR EXISTS(SELECT 1 FROM release_changes retained1 WHERE retained1.change_id=sqlc.arg(change_id)) OR EXISTS(SELECT 1 FROM deployments retained2 WHERE retained2.change_id=sqlc.arg(change_id)) OR EXISTS(SELECT 1 FROM release_bundles retained3 WHERE retained3.run_id=ANY(sqlc.arg(run_ids)::uuid[])));
+
+-- name: JanitorReleaseLedger :many
+SELECT r.id, r.number, r.state, r.bundle_id, b.created_at AS bundle_created_at
+FROM releases r LEFT JOIN release_bundles b ON b.id=r.bundle_id
+WHERE r.deployment_id=$1 ORDER BY r.number DESC;
+
+-- name: SetRoutineUpdates :execrows
+UPDATE deployments SET routine_updates=sqlc.arg(routine_updates), routine_updates_revision=routine_updates_revision+1 WHERE id=sqlc.arg(id) AND routine_updates_revision=sqlc.arg(revision);
+
+-- name: MarkRoutineRelease :execrows
+UPDATE release_requests SET routine=true WHERE release_id=$1;
+
+-- name: WaitRoutineRelease :execrows
+UPDATE releases SET state='waiting for approval' WHERE id=$1 AND state='releasing';
+
+-- name: RefreshRoutineGeneration :execrows
+UPDATE release_requests SET base_generation=$2 WHERE release_id=$1 AND routine AND claimed_at IS NULL;

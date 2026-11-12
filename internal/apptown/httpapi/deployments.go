@@ -408,3 +408,18 @@ func (h Deployments) RestartRuntime(w http.ResponseWriter, r *http.Request) {
 	r.SetPathValue("action", "restart")
 	h.controlRuntime(w, r)
 }
+
+func (h Deployments) SetRoutineUpdates(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	jsonCommand(w, r, jsonBody{strict: true}, func(in deployment.RoutineUpdateSettings) {
+		out, err := h.deployment.SetRoutineUpdates(r.Context(), p.ID, r.PathValue("name"), in)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		WriteJSON(w, 200, out)
+	})
+}

@@ -10,12 +10,15 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/wiregen"
+	"reflect"
 )
 
 // The Work routes' responses: Changes, runs, chats and the activity pages.
 func init() {
 	registerWireMapped(workflow.ScheduleOutcome(""), `"opened" | "skipped" | "failed" | "unknown"`)
 	registerWire(
+		wiregen.Named{Name: "StandingProjectState", Value: projectStandingState{}},
+		wiregen.Named{Name: "StandingProjectAct", Value: projectStandingChoice{}},
 		wiregen.Named{Name: "RoutinePublicationTransition", Value: wow.RoutinePublicationTransition{}},
 		wiregen.Named{Name: "RoutinePublicationQuestion", Value: wow.RoutinePublicationQuestion{}},
 		wiregen.Named{Name: "RoutinePublicationConsent", Value: wow.RoutinePublicationConsent{}},
@@ -23,6 +26,7 @@ func init() {
 		wiregen.Named{Name: "RoutinePublicationClassification", Value: wow.RoutinePublicationClassification{}},
 		wiregen.Named{Name: "RoutineConsentRef", Value: adoption.RoutineConsentRef{}},
 		wiregen.Named{Name: "RoutineAdoptionTarget", Value: adoption.RoutineTarget{}},
+		wiregen.Named{Name: "StandingSchedule", Value: reflect.Zero(reflect.TypeOf(workflow.StandingDefinition{}.Schedules).Elem()).Interface()},
 		wiregen.Named{Name: "StandingCategories", Value: workflow.StandingCategories{}},
 		wiregen.Named{Name: "StandingEnvironment", Value: workflow.StandingEnvironment{}},
 		wiregen.Named{Name: "StandingProject", Value: workflow.StandingProject{}},

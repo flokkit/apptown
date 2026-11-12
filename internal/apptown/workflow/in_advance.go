@@ -193,7 +193,10 @@ func (s *Service) answerFromAcceptance(ctx context.Context, run *Run) (bool, err
 	if cast, err := s.landings.carryOrSettleForEval(ctx, run); cast || err != nil {
 		return cast, err
 	}
-	return s.acceptInAdvance(ctx, run)
+	if cast, err := s.acceptInAdvance(ctx, run); cast || err != nil {
+		return cast, err
+	}
+	return s.acceptStanding(ctx, run)
 }
 
 // acceptInAdvance casts a Change's yes in advance on its working run's

@@ -259,8 +259,12 @@ func approvedByIn(ctx context.Context, tx *database.Tx, run *Run) (string, error
 			return "", err
 		}
 		for _, vote := range evidence.Decisions {
-			if vote.Decision == VoteApprove && vote.Approver != "" && !slices.Contains(names, vote.Approver) {
-				names = append(names, vote.Approver)
+			name := vote.Approver
+			if vote.Standing != nil {
+				name = standingAttribution(vote.Standing)
+			}
+			if vote.Decision == VoteApprove && name != "" && !slices.Contains(names, name) {
+				names = append(names, name)
 			}
 		}
 	}

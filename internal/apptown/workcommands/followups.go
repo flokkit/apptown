@@ -17,7 +17,7 @@ type FollowUps struct {
 	Work     *workflow.Service
 	Landings AcceptedLandings
 	Releases interface {
-		RequestLandingReleases(context.Context, ids.ID, ids.ID, ids.ID, string) error
+		RequestLandingReleases(context.Context, ids.ID, ids.ID, ids.ID, string, bool) error
 		ResumeRebuiltRelease(context.Context, ids.ID, ids.ID) error
 	}
 	Uplifts   UpliftSettlement

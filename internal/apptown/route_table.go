@@ -205,8 +205,8 @@ func appRoutes(a *App) []routeSpec {
 		workflowCatalog = httpapi.NewWorkflowCatalog(a.DB, a.Ways)
 		projectManifest = httpapi.NewProjectManifest(a.Projects, a.Adoption, a.DB, a.cfg.dataDir, a.Secrets)
 		projectWorkflows = httpapi.NewProjectWorkflows(a.Projects, a.Adoption, a.Work, a.DB)
-		projectScans = httpapi.NewProjectScans(a.Projects, a.Work)
-		projectSchedules = httpapi.NewProjectSchedules(a.Projects, changeactions.Schedules{Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}, a.cfg.clock.Now)
+		projectScans = httpapi.NewProjectScans(a.Projects, a.Work, a.standingRules, a.Deployment)
+		projectSchedules = httpapi.NewProjectSchedules(a.Projects, changeactions.Schedules{Standing: &a.standingRules, Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}, a.cfg.clock.Now)
 		runProgress = httpapi.NewRunProgress(a.Work, &a.progress)
 		catalogChanges = httpapi.NewCatalogChanges(a.Ways, a.Adoption, a.Projects, a.Access, a.changeActions, a.authModeName())
 		changeAdmission = httpapi.NewChangeAdmission(a.Projects, a.Access, a.Work, a.changeActions, a.DB, a.authModeName())
@@ -364,6 +364,8 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("PUT /api/v1/integrations/{id}/label", connectors.EditConnectionLabel, access.CapIntegrationConnector, "instance").inArea("setup"),
 		ownerRoute("POST /api/v1/deployments/confirm-feed", deployments.ConfirmAllFeeds, "deployments.ConfirmAllFeeds").inArea("deployments"),
 		ownerRoute("POST /api/v1/projects/{slug}/deployments/{name}/confirm-feed", deployments.ConfirmFeed, "deployments.ConfirmFeed").inArea("deployments"),
+		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{name}/routine-updates", deployments.SetRoutineUpdates, "deployments.SetRoutineUpdates").inArea("deployments"),
+		ownerRoute("POST /api/v1/projects/{slug}/janitor/settings", projectScans.SetChoice, "projectScans.SetChoice").inArea("landing"),
 		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{name}/feed", deployments.SetFeed, "deployments.SetFeed").inArea("deployments"),
 		requireRoute("GET /api/v1/projects/{slug}/deployments/{name}/classification", deployments.Classification, access.CapDeploymentRead, "project-slug").inArea("deployments"),
 		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{name}/classification", deployments.SetClassification, "deployments.SetClassification").inArea("deployments"),

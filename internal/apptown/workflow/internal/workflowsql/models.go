@@ -187,4 +187,6 @@ type WorkflowSchedule struct {
 	LastFiredAt  time.Time
 	LastOutcome  string
 	LastChangeID ids.ID
+	RuleID       ids.ID
+	RuleRevision int64
 }

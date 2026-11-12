@@ -41,7 +41,7 @@ func npmRegistry(t *testing.T) (string, *atomic.Bool) {
 	tarballs := map[string][]byte{}
 	integrities := map[string]string{}
 	for _, name := range []string{"example", "untargeted"} {
-		for _, version := range []string{"1.0.0", "1.0.1"} {
+		for _, version := range []string{"1.0.0", "1.0.1", "2.0.0"} {
 			raw := []byte(fmt.Sprintf(`{"name":%q,"version":%q}`, name, version))
 			var buf bytes.Buffer
 			gz := gzip.NewWriter(&buf)
@@ -84,8 +84,8 @@ func npmRegistry(t *testing.T) (string, *atomic.Bool) {
 		}
 		versions := map[string]any{}
 		latest := "1.0.0"
-		for _, v := range []string{"1.0.0", "1.0.1"} {
-			if v == "1.0.1" && !published.Load() {
+		for _, v := range []string{"1.0.0", "1.0.1", "2.0.0"} {
+			if v != "1.0.0" && !published.Load() {
 				continue
 			}
 			latest = v
@@ -255,7 +255,7 @@ func newNodeFixFixture(t *testing.T, name string, spec schema.Spec) (*taskAppTow
 	t.Helper()
 	registry, published := npmRegistry(t)
 	f, _ := newTaskAppTown(t, name, spec)
-	f.bound = "minor"
+	f.bound = "routine"
 	f.ways.SyncStockGuidance(t.Context())
 	node, err := f.ways.BlockByName(t.Context(), "lang/node/dependency-updates")
 	if err != nil {
@@ -422,9 +422,9 @@ func TestRoutineJudgesTheIndependentListingAndLeavesCodeToChecks(t *testing.T) {
 		want         workflow.StepState
 		reason       string
 	}{
-		{"code beside update", true, "minor", "1.0.1", workflow.StatusPass, ""},
-		{"target below FixedIn", true, "minor", "2.0.0", workflow.StatusFail, "example"},
-		{"empty candidate", false, "minor", "", workflow.StatusNotApplicable, "nothing to change"},
+		{"code beside update", true, "routine", "1.0.1", workflow.StatusPass, ""},
+		{"target below FixedIn", true, "routine", "2.0.0", workflow.StatusFail, "example"},
+		{"empty candidate", false, "routine", "", workflow.StatusNotApplicable, "nothing to change"},
 		{"no eligible rule", false, "", "", workflow.StatusNotApplicable, "no eligible update rule"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -543,6 +543,42 @@ func TestNodeAssessFixturesUseTheShippedListing(t *testing.T) {
 			}
 			if state, ev := stepStatus(t, f, steps["routine"].ID); state != tc.want {
 				t.Fatalf("%s: %+v", state, ev)
+			}
+		})
+	}
+}
+
+func TestAggressiveFixUsesShippedMajorCommandAndRoutineChecksItsLevel(t *testing.T) {
+	for _, level := range []string{"aggressive", "routine"} {
+		t.Run(level, func(t *testing.T) {
+			spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "fix", Steps: []schema.Step{{Name: "update", Uses: FixKind, With: map[string]any{"kind": "update"}}, {Name: "routine", Uses: RoutineKind}}}}}
+			f, _ := newNodeFixFixture(t, "major", spec)
+			// Create the same aggressive candidate at both levels, then narrow the
+			// effective level before the independent routine check in one case.
+			f.bound = "aggressive"
+			run := f.startChangeRun(t, "major", f.ctx)
+			steps := queueSteps(t, f, run)
+			if err := f.work.ExecuteStep(f.ctx, steps["update"].ID); err != nil {
+				t.Fatal(err)
+			}
+			if status, ev := stepStatus(t, f, steps["update"].ID); status != workflow.StatusPass {
+				t.Fatalf("update %s: %+v", status, ev)
+			}
+			source := f.source(t, run)
+			locked := gittest.Run(t, f.hub, "show", source.Branch+":package-lock.json")
+			if !strings.Contains(locked, `"version": "2.0.0"`) {
+				t.Fatalf("major command did not install latest: %s", locked)
+			}
+			f.bound = level
+			if err := f.work.ExecuteStep(f.ctx, steps["routine"].ID); err != nil {
+				t.Fatal(err)
+			}
+			want := workflow.StatusPass
+			if level == "routine" {
+				want = workflow.StatusFail
+			}
+			if status, ev := stepStatus(t, f, steps["routine"].ID); status != want {
+				t.Fatalf("routine %s: %+v; want %s", status, ev, want)
 			}
 		})
 	}

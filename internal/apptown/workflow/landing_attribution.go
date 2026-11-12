@@ -105,7 +105,12 @@ func attributeStep(a *scm.Attribution, step *Step, landing bool) error {
 		if vote.Decision != VoteApprove {
 			continue
 		}
-		a.Approvals = append(a.Approvals, scm.AttributedApproval{Step: step.Name, By: vote.Approver, At: vote.At, Means: means,
+		by := vote.Approver
+		if vote.Standing != nil {
+			by = standingAttribution(vote.Standing)
+			means = vote.Standing.Means
+		}
+		a.Approvals = append(a.Approvals, scm.AttributedApproval{Step: step.Name, By: by, At: vote.At, Means: means,
 			Declared: slices.Clone(cfg.Approvers), AlsoApproves: slices.Clone(vote.AlsoApproves), Candidate: vote.Candidate})
 	}
 	return nil

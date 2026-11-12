@@ -398,6 +398,7 @@ func (s *Releases) LandingRequests(ctx context.Context, projectID, changeID ids.
 // RequestMetadata is the recorded authority and data evidence of a queued
 // release. Credential names a credential record, never its secret value.
 type RequestMetadata struct {
+	Routine            bool            `json:"routine"`
 	Feed               string          `json:"feed"`
 	SettingsRevision   int64           `json:"settingsRevision"`
 	SetBy              string          `json:"setBy"`
@@ -413,7 +414,7 @@ func (s *Releases) RequestMetadata(ctx context.Context, releaseID ids.ID) (*Requ
 	if found, e := database.Lookup(err); e != nil || !found {
 		return nil, e
 	}
-	out := &RequestMetadata{Approvers: row.LandingApprovers}
+	out := &RequestMetadata{Routine: row.Routine, Approvers: row.LandingApprovers}
 	if row.FeedRevision.Valid {
 		out.Feed = "main"
 		out.SettingsRevision = row.FeedRevision.Int64

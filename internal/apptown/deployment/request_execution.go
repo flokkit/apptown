@@ -14,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
+	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -53,7 +54,14 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	var placement deploymentsql.ReleaseRequest
 	claimed := false
 	rebuilding := false
-	err := s.db.InTx(ctx, func(tx *database.Tx) error {
+	snapshot, err := s.Releases.ByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	err = s.db.InTx(ctx, func(tx *database.Tx) error {
+		if err := LockProjectIn(ctx, tx, snapshot.ProjectID); err != nil {
+			return err
+		}
 		q := deploymentsql.New(tx.SQL())
 		row, err := q.RequestedReleaseForUpdate(ctx, id)
 		if err != nil {
@@ -66,6 +74,40 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		placement = row.ReleaseRequest
 		if rel.State != Releasing {
 			return nil
+		}
+		if placement.ClaimedAt.Valid && !placement.RebuildPending {
+			return nil
+		}
+		if placement.Routine {
+			dep, err := lockDeploymentRecordIn(ctx, tx, rel.DeploymentID)
+			if err != nil {
+				return err
+			}
+			if rel.Approval == nil {
+				wait, next, why, err := s.routineReleaseIn(ctx, tx, dep)
+				if err != nil {
+					return err
+				}
+				if wait {
+					if _, err := q.WaitRoutineRelease(ctx, id); err != nil {
+						return err
+					}
+					return appendReleaseEvent(ctx, tx, id, why, s.now())
+				}
+				if next.After(s.now()) {
+					return jobs.Snooze(next.Sub(s.now()))
+				}
+			}
+
+			// A preceding healthy window release may have advanced the generation.
+			// Destination, feed authority and attributes still have to match at admission.
+			if dep.TargetID != placement.TargetID || !placement.FeedRevision.Valid || dep.FeedRevision != placement.FeedRevision.Int64 {
+				return errPlacementChanged
+			}
+			if _, err := q.RefreshRoutineGeneration(ctx, deploymentsql.RefreshRoutineGenerationParams{ReleaseID: id, BaseGeneration: dep.DesiredGeneration}); err != nil {
+				return err
+			}
+			placement.BaseGeneration = dep.DesiredGeneration
 		}
 		if placement.RebuildPending {
 			claimed = true

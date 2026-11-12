@@ -58,7 +58,7 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]DeploymentView, 0, len(summaries))
 	for _, e := range summaries {
-		v := DeploymentView{RuntimeState: e.RuntimeState, RuntimeActor: e.RuntimeActor, RuntimeAt: e.RuntimeAt, RuntimeError: e.RuntimeError, RuntimeControls: e.RuntimeControls, RuntimeActions: e.RuntimeActions, ServingRelease: e.ServingRelease, LastApplied: e.LastApplied, ID: e.ID, TargetID: e.TargetID, DisplayLabel: e.DisplayLabel, Name: e.Name, Kind: e.Kind.String(), URL: e.URL, HostOnly: e.HostOnly, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt, Static: isStatic,
+		v := DeploymentView{RoutineUpdates: e.RoutineUpdates, RoutineUpdatesRevision: e.RoutineUpdatesRevision, RuntimeState: e.RuntimeState, RuntimeActor: e.RuntimeActor, RuntimeAt: e.RuntimeAt, RuntimeError: e.RuntimeError, RuntimeControls: e.RuntimeControls, RuntimeActions: e.RuntimeActions, ServingRelease: e.ServingRelease, LastApplied: e.LastApplied, ID: e.ID, TargetID: e.TargetID, DisplayLabel: e.DisplayLabel, Name: e.Name, Kind: e.Kind.String(), URL: e.URL, HostOnly: e.HostOnly, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt, Static: isStatic,
 			PromotedFromID: e.PromotedFromID, PromotionSource: e.PromotionSource, PromotionRelease: e.PromotionRelease, PromotionBundleID: e.PromotionBundleID, Feed: e.Feed, FeedRevision: e.FeedRevision, ApprovalRole: e.ApprovalRole, FeedConfirmed: e.FeedConfirmed, Audience: e.Audience, Data: e.DataClass, Protected: e.Protected, Generation: e.Generation,
 			Readiness: e.Readiness.String(), ReadinessLabel: e.Readiness.Display(), RestoreLabel: e.RestoreCheck.Display(), ChangeID: e.ChangeID, AIModels: e.AIModelsKeys, Running: e.Observation.Running(), RuntimeObservationView: runtimeObservationView(e.Observation)}
 		if e.Observation.Err != nil {
@@ -84,11 +84,13 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 // DeploymentView is one row of GET /projects/{slug}/deployments: a
 // deployment as the project's pages show it.
 type DeploymentView struct {
-	RuntimeState    string            `json:"runtimeState"`
-	RuntimeActor    string            `json:"runtimeActor"`
-	RuntimeAt       stamp.Time        `json:"runtimeAt,omitzero"`
-	RuntimeError    string            `json:"runtimeError,omitempty"`
-	RuntimeControls map[string]string `json:"runtimeControls"`
+	RoutineUpdates         deployment.RoutineUpdates `json:"routineUpdates"`
+	RoutineUpdatesRevision int64                     `json:"routineUpdatesRevision"`
+	RuntimeState           string                    `json:"runtimeState"`
+	RuntimeActor           string                    `json:"runtimeActor"`
+	RuntimeAt              stamp.Time                `json:"runtimeAt,omitzero"`
+	RuntimeError           string                    `json:"runtimeError,omitempty"`
+	RuntimeControls        map[string]string         `json:"runtimeControls"`
 	// RuntimeActions are the acts (start, stop, restart) its target can
 	// ever take: a page offers no other.
 	RuntimeActions    []string                   `json:"runtimeActions"`

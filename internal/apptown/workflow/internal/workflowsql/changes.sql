@@ -235,7 +235,7 @@ FROM changes WHERE changes.id=$1 AND changes.project_id=$2;
 UPDATE changes SET automated=true, automated_origin=true WHERE id=$1;
 
 -- name: RecordAutomatedChange :exec
-INSERT INTO automated_changes(id,project_id,active_change_id,queue,what,opened_at,schedule) VALUES($1,$2,$1,$3,$4,$5,$6);
+INSERT INTO automated_changes(id,project_id,active_change_id,queue,what,opened_at,schedule,rule_id,rule_revision) VALUES($1,$2,$1,$3,$4,$5,$6,$7,$8);
 
 -- name: PromoteAutomatedChange :execrows
 UPDATE changes SET automated=false WHERE id=$1 AND project_id=$2 AND NOT purge_pending;

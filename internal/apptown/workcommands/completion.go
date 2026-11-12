@@ -27,7 +27,11 @@ func (a FollowUps) Complete(ctx context.Context, key string, values map[string]a
 			break
 		}
 		approvers, _ := values["approvedBy"].(string)
-		err = a.Releases.RequestLandingReleases(ctx, run.ProjectID, run.ID, run.ChangeID, approvers)
+		routine, readErr := a.Work.StandingLanding(engineCaller(ctx), workflow.RunRef{ID: run.ID, ProjectID: run.ProjectID})
+		if readErr != nil {
+			return nil, readErr
+		}
+		err = a.Releases.RequestLandingReleases(ctx, run.ProjectID, run.ID, run.ChangeID, approvers, routine)
 	case workflow.CompletionLand:
 		err = a.Landings.Advance(ctx, run.ID)
 	case workflow.CompletionAdopt:

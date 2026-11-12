@@ -63,6 +63,7 @@ type StandingInspection struct {
 	Validation     *StandingValidation `json:"validation,omitempty"`
 }
 type StandingAssessment struct {
+	Level               string                  `json:"level"`
 	Adoption            *adoption.RoutineTarget `json:"adoption,omitempty"`
 	RuleID              ids.ID                  `json:"ruleId"`
 	RuleRevision        int64                   `json:"ruleRevision"`
@@ -110,6 +111,20 @@ func (s StandingRules) assessmentSource(ctx context.Context, runID ids.ID) (stan
 	if err = s.require(ctx, access.CapChangeRunChecks, resource); err != nil {
 		return out, err
 	}
+	return s.observeAssessmentSource(ctx, runID)
+}
+
+func (s StandingRules) observeAssessmentSource(ctx context.Context, runID ids.ID) (standingObservation, error) {
+	var out standingObservation
+	run, err := readRun(ctx, s.db, runID)
+	if err != nil {
+		return out, err
+	}
+	pid := run.ProjectID
+	source, err := ReadSourceIn(ctx, s.db, RunRef{ID: runID, ProjectID: pid})
+	if err != nil {
+		return out, err
+	}
 	if source.ChangeID.IsZero() || !source.RepoBacked() || source.RootRole == "landing" {
 		return out, fault.New(fault.Conflict, "routine inspection needs an ordinary repository-backed change")
 	}
@@ -120,7 +135,7 @@ func (s StandingRules) assessmentSource(ctx context.Context, runID ids.ID) (stan
 	if ch.State != ChangeInProgress {
 		return out, fault.New(fault.Conflict, "this change is not an ordinary change awaiting inspection")
 	}
-	run, err := readRun(ctx, s.db, runID)
+	run, err = readRun(ctx, s.db, runID)
 	if err != nil {
 		return out, err
 	}
@@ -172,8 +187,27 @@ func (s StandingRules) assessmentSource(ctx context.Context, runID ids.ID) (stan
 // Assess is classification only. It neither stores reusable assent nor accepts
 // caller-provided evidence. A future effect owner must obtain fresh evidence.
 func (s StandingRules) Assess(ctx context.Context, ruleID, runID ids.ID) (StandingAssessment, error) {
+	if _, err := s.assessmentSource(ctx, runID); err != nil {
+		return StandingAssessment{}, err
+	}
+	rule, err := currentStanding(ctx, s.db, ruleID)
+	if err != nil {
+		return StandingAssessment{}, err
+	}
+	if err = func() error {
+		if rule.Question.Definition.Scope == "instance" {
+			return nil
+		}
+		return s.readable(ctx, s.db, rule.Question.Definition)
+	}(); err != nil {
+		return StandingAssessment{}, err
+	}
+	return s.assess(ctx, ruleID, runID)
+}
+
+func (s StandingRules) assess(ctx context.Context, ruleID, runID ids.ID) (StandingAssessment, error) {
 	var out StandingAssessment
-	first, err := s.assessmentSource(ctx, runID)
+	first, err := s.observeAssessmentSource(ctx, runID)
 	if err != nil {
 		return out, err
 	}
@@ -181,10 +215,8 @@ func (s StandingRules) Assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 	if err != nil {
 		return out, err
 	}
-	if err = s.readable(ctx, s.db, rule.Question.Definition); err != nil {
-		return out, err
-	}
-	selected := false
+
+	selected := rule.Question.Definition.Scope == "instance" && slices.ContainsFunc(rule.Question.Definition.Schedules, func(sc standingSchedule) bool { return sc.Workflow == first.source.WorkflowName })
 	for _, p := range rule.Question.Definition.Projects {
 		if p.ProjectID == first.source.ProjectID && p.Workflow == first.source.WorkflowName {
 			selected = true
@@ -203,7 +235,15 @@ func (s StandingRules) Assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 	if s.deps.Inspector == nil {
 		return out, fault.New(fault.Unavailable, "routine inspection is unavailable")
 	}
-	target, err := s.assessmentAdoption(ctx, first, rule.Question.Definition.Categories)
+	categories := rule.Question.Definition.Categories
+	categories.Dependencies, err = s.effectiveLevelIn(ctx, s.db, rule.Question.Definition, first.source.ProjectID)
+	if err != nil {
+		return out, err
+	}
+	if categories.Dependencies == "off" {
+		return out, fault.New(fault.Conflict, "the janitor is turned off")
+	}
+	target, err := s.assessmentAdoption(ctx, first, categories)
 	if err != nil {
 		return out, err
 	}
@@ -213,14 +253,14 @@ func (s StandingRules) Assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 		if !ok {
 			return out, fault.New(fault.Unavailable, "adoption source inspection is unavailable")
 		}
-		inspection, err = inspector.InspectRoutineWithAdoption(ctx, first.source, rule.Question.Definition.Categories)
+		inspection, err = inspector.InspectRoutineWithAdoption(ctx, first.source, categories)
 	} else {
-		inspection, err = s.deps.Inspector.InspectRoutine(ctx, first.source, rule.Question.Definition.Categories)
+		inspection, err = s.deps.Inspector.InspectRoutine(ctx, first.source, categories)
 	}
 	if err != nil {
 		return out, err
 	}
-	last, err := s.assessmentSource(ctx, runID)
+	last, err := s.observeAssessmentSource(ctx, runID)
 	if err != nil {
 		return out, err
 	}
@@ -230,6 +270,13 @@ func (s StandingRules) Assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 	}
 	if !reflect.DeepEqual(first, last) || current.Revision != rule.Revision {
 		return out, fault.New(fault.Conflict, "the rule or change moved during inspection; inspect it again")
+	}
+	lastLevel, err := s.effectiveLevelIn(ctx, s.db, current.Question.Definition, last.source.ProjectID)
+	if err != nil {
+		return out, err
+	}
+	if lastLevel != categories.Dependencies {
+		return out, fault.New(fault.Conflict, "project update level changed during inspection")
 	}
 	lastTarget, err := s.assessmentAdoption(ctx, last, current.Question.Definition.Categories)
 	if err != nil {
@@ -251,7 +298,7 @@ func (s StandingRules) Assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 	if !status.Eligible {
 		return out, fault.New(fault.Conflict, fmt.Sprintf("standing eligibility changed during inspection: %s", status.Reason))
 	}
-	return StandingAssessment{Adoption: target, RuleID: ruleID, RuleRevision: rule.Revision, QuestionDigest: rule.Question.Digest, ProjectID: first.source.ProjectID, ChangeID: first.source.ChangeID, RunID: runID, Stage: first.run.CurrentStage, RetryRevision: first.run.RetryRevision, AdoptionID: first.run.AdoptionID, AdoptionRevision: first.source.AdoptionRevision, Inspection: inspection}, nil
+	return StandingAssessment{Level: categories.Dependencies, ProcessingAvailable: true, Adoption: target, RuleID: ruleID, RuleRevision: rule.Revision, QuestionDigest: rule.Question.Digest, ProjectID: first.source.ProjectID, ChangeID: first.source.ChangeID, RunID: runID, Stage: first.run.CurrentStage, RetryRevision: first.run.RetryRevision, AdoptionID: first.run.AdoptionID, AdoptionRevision: first.source.AdoptionRevision, Inspection: inspection}, nil
 }
 
 func (s StandingRules) assessmentAdoption(ctx context.Context, observed standingObservation, categories StandingCategories) (*adoption.RoutineTarget, error) {

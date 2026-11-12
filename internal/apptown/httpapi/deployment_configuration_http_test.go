@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -40,7 +41,7 @@ func (s configurationHTTPSource) Contract(ctx context.Context, _ deployment.Rele
 // The feed check rejects a landing deployment before these release effects.
 type admittedReleaseQueue struct{ ids []ids.ID }
 
-func (q *admittedReleaseQueue) EnqueueReleaseIn(_ context.Context, _ *database.Tx, id ids.ID) error {
+func (q *admittedReleaseQueue) EnqueueReleaseIn(_ context.Context, _ *database.Tx, id ids.ID, _ time.Time) error {
 	q.ids = append(q.ids, id)
 	return nil
 }

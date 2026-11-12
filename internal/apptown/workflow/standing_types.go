@@ -27,6 +27,11 @@ type StandingCategories struct {
 // StandingEnvironment preserves exactly which environment and release purposes
 // a person selected. Names and mutable project defaults cannot substitute.
 type StandingEnvironment struct {
+	// These labels describe a preview; authority always uses the exact IDs.
+	ProjectID    ids.ID `json:"projectId,omitzero"`
+	Project      string `json:"project,omitempty"`
+	Deployment   string `json:"deployment,omitempty"`
+	Setting      string `json:"setting,omitempty"`
 	DeploymentID ids.ID `json:"deploymentId"`
 	TargetID     ids.ID `json:"targetId"`
 	Promotion    bool   `json:"promotion"`
@@ -36,7 +41,14 @@ type StandingProject struct {
 	ProjectID    ids.ID                `json:"projectId"`
 	Environments []StandingEnvironment `json:"environments"`
 }
+type standingSchedule struct {
+	Workflow string            `json:"workflow"`
+	Crons    map[string]string `json:"crons"`
+}
+
 type StandingDefinition struct {
+	Scope          string             `json:"scope,omitempty"`
+	Schedules      []standingSchedule `json:"schedules,omitempty"`
 	Administrative bool               `json:"administrative"`
 	Projects       []StandingProject  `json:"projects"`
 	Categories     StandingCategories `json:"categories"`
@@ -77,11 +89,38 @@ type StandingProjectMeaning struct {
 	ProjectID ids.ID            `json:"projectId"`
 	Procedure StandingProcedure `json:"procedure"`
 }
+
+type StandingProjectPreview struct {
+	Level             string                `json:"level"`
+	OverridesInstance bool                  `json:"overridesInstance"`
+	NoMajorCommand    []string              `json:"noMajorCommand"`
+	FollowsMain       []StandingEnvironment `json:"followsMain"`
+	Group             string                `json:"group"`
+	Problem           string                `json:"problem,omitempty"`
+	PackOffers        []string              `json:"packOffers"`
+	BaseImageFindings []string              `json:"baseImageFindings"`
+	ProjectID         ids.ID                `json:"projectId"`
+	Project           string                `json:"project"`
+	Covered           bool                  `json:"covered"`
+	NeedsPackUpgrade  []string              `json:"needsPackUpgrade"`
+	OnlyChecksStarts  bool                  `json:"onlyChecksStarts"`
+	Deployments       []StandingEnvironment `json:"deployments"`
+	BaseImages        int                   `json:"baseImages"`
+}
+
+type standingBaseImagePreview struct {
+	Images   int    `json:"images"`
+	Projects int    `json:"projects"`
+	Message  string `json:"message"`
+}
+
 type StandingQuestion struct {
-	Definition StandingDefinition       `json:"definition"`
-	Projects   []StandingProjectMeaning `json:"projects"`
-	Shown      string                   `json:"shown"`
-	Digest     string                   `json:"digest"`
+	BaseImageFindings standingBaseImagePreview `json:"baseImageFindings"`
+	Portfolio         []StandingProjectPreview `json:"portfolio,omitempty"`
+	Definition        StandingDefinition       `json:"definition"`
+	Projects          []StandingProjectMeaning `json:"projects"`
+	Shown             string                   `json:"shown"`
+	Digest            string                   `json:"digest"`
 }
 type StandingCommand struct {
 	RuleID           ids.ID             `json:"ruleId"`
@@ -102,6 +141,12 @@ type StandingRevision struct {
 }
 
 func normalizeStanding(in StandingDefinition) (StandingDefinition, error) {
+	if in.Scope == "instance" {
+		return normalizeInstanceStanding(in)
+	}
+	if in.Scope != "" {
+		return in, fault.New(fault.Invalid, "standing scope must be instance or an exact project selection")
+	}
 	invalid := func(why string) (StandingDefinition, error) { return in, fault.New(fault.Invalid, why) }
 	if in.Delivery != "full" && in.Delivery != "land-only" {
 		return invalid("select full delivery or accept and land only")
@@ -110,8 +155,8 @@ func normalizeStanding(in StandingDefinition) (StandingDefinition, error) {
 		return invalid("select an exact project set; multiple projects require administrative management")
 	}
 	c := in.Categories
-	if c.Dependencies != "" && c.Dependencies != "patch" && c.Dependencies != "minor" {
-		return invalid("dependency updates must be patch or patch and minor")
+	if c.Dependencies != "" && c.Dependencies != "routine" && c.Dependencies != "aggressive" {
+		return invalid("dependency update level must be routine or aggressive")
 	}
 	if c.Dependencies == "" && !c.BaseImages && !c.WaysOfWorking {
 		return invalid("select at least one bounded update category")
@@ -137,6 +182,12 @@ func normalizeStanding(in StandingDefinition) (StandingDefinition, error) {
 			return invalid("accept and land only cannot include deployment consent")
 		}
 		p.Environments = slices.Clone(p.Environments)
+		for j := range p.Environments {
+			p.Environments[j].ProjectID = ids.Nil
+			p.Environments[j].Project = ""
+			p.Environments[j].Deployment = ""
+			p.Environments[j].Setting = ""
+		}
 		slices.SortFunc(p.Environments, func(a, b StandingEnvironment) int {
 			return strings.Compare(a.DeploymentID.String(), b.DeploymentID.String())
 		})
@@ -168,7 +219,7 @@ func standingQuestion(in StandingDefinition, projects []StandingProjectMeaning) 
 		}
 	}
 	b.WriteString("Mixed supported updates require every component to belong to an enabled category and pass its complete independent check. Any unsupported component requires a person. ")
-	b.WriteString("Application source, migrations, major versions, new dependencies/capabilities/permissions/needs/secrets, weaker checks, unsupported changes and storage-engine transitions require a person. Missing, skipped, not-applicable, waived, failed or unknown evidence is not a pass. Current authority is required at each effect. Disabling stops future claims; an already claimed effect may finish. Automatic processing is not available yet.")
+	b.WriteString("An agent writes any application code the declared fix needs; every required check must be met. New packages exceed dependency-update consent. The selected level bounds version changes. Missing, skipped, not-applicable, waived, failed or unknown evidence is not a pass. Current authority is required at each effect. Disabling stops future claims; an already claimed effect may finish. Automatic processing checks the current rule, project choice and release health at every effect.")
 	q.Shown = b.String()
 	raw, err := json.Marshal(q)
 	if err != nil {

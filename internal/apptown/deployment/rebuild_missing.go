@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -193,7 +194,7 @@ func (s *Service) ResumeRebuiltRelease(ctx context.Context, releaseID, runID ids
 		if state == releaseWaiting {
 			return appendReleaseEvent(ctx, tx, releaseID, "rebuilt image is waiting for approval", s.now())
 		}
-		return s.release.Queue.EnqueueReleaseIn(ctx, tx, releaseID)
+		return s.release.Queue.EnqueueReleaseIn(ctx, tx, releaseID, time.Time{})
 	})
 	if err != nil {
 		return err

@@ -13,7 +13,7 @@ const finding = (name: string): Finding => ({ fingerprint: name, kind: 'vuln', s
 const observation = (id: string): ScanObservation => ({ id, projectId: 'project', runId: 'run', stepId: id, attempt: 1, subject: { on: 'source', commit: 'abcdef0123456789abcdef' }, scanner: 'osv', expectedScanners: ['osv'], bindingVersion: 3, configHash: 'config', configuration: '{}', stepConfig: {}, observedAt: '2026-11-12T05:00:00Z', verdict: 'pass', findings: [] })
 const fixture = (): ProjectScanView => {
   const npm = finding('lodash'), os = finding('libssl'), source = { ...observation('source'), verdict: 'fail', findings: [npm] }
-  return { queues: [{ queue: 'security', state: 'stuck', failed: 1, since: source.observedAt, reason: 'tests: failed', packages: [], changeId: 'open-change', changeNumber: 1 }, { queue: 'updates', state: 'up_to_date', failed: 0, since: '', reason: '', packages: [], changeNumber: 0 }], scans: { main: source.subject.commit!, source: [source], running: [{ ...observation('image'), subject: { on: 'running', deployment: 'Production', part: 'web', digest: 'registry.example/app@sha256:012345abcdef67890123' }, scanner: 'trivy', verdict: 'fail', findings: [npm, os], projectFindings: [npm], imageOnlyFindings: [os], unclassifiedFindings: [] }], historical: [observation('old')], known: true, stale: false, lastScan: source.observedAt }, recent: [{ schedule: 'janitor-scan', ruleRevision: 0, attempted: true, failed: true, changeId: 'open-change', id: 'try', projectId: 'project', openChange: 'open-change', queue: 'security', what: 'Scan the project', when: source.observedAt, outcome: '', reason: '', observations: [], fingerprint: '', packages: [] }] }
+  return { standing: { enabled: false, level: 'routine' }, heldBack: [], queues: [{ queue: 'security', state: 'stuck', failed: 1, since: source.observedAt, reason: 'tests: failed', packages: [], changeId: 'open-change', changeNumber: 1 }, { queue: 'updates', state: 'up_to_date', failed: 0, since: '', reason: '', packages: [], changeNumber: 0 }], scans: { main: source.subject.commit!, source: [source], running: [{ ...observation('image'), subject: { on: 'running', deployment: 'Production', part: 'web', digest: 'registry.example/app@sha256:012345abcdef67890123' }, scanner: 'trivy', verdict: 'fail', findings: [npm, os], projectFindings: [npm], imageOnlyFindings: [os], unclassifiedFindings: [] }], historical: [observation('old')], known: true, stale: false, lastScan: source.observedAt }, recent: [{ schedule: 'janitor-scan', ruleRevision: 0, attempted: true, failed: true, changeId: 'open-change', id: 'try', projectId: 'project', openChange: 'open-change', queue: 'security', what: 'Scan the project', when: source.observedAt, outcome: '', reason: '', observations: [], fingerprint: '', packages: [] }] }
 }
 
 it('keeps an incomplete source comparison visibly unknown on Conformance', async () => {
@@ -30,7 +30,7 @@ it('keeps an incomplete source comparison visibly unknown on Conformance', async
   })
 })
 async function render(data: ProjectScanView, janitor: boolean, check: (el: HTMLDivElement) => void) {
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(data))))
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.includes('/authz/me') ? { project: { 'project:manage-standing-approval': true } } : data))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><LastScan slug="project" janitor={janitor} /></MemoryRouter></QueryClientProvider>))
@@ -121,3 +121,40 @@ it('keeps unclassified running findings separate when comparison is unavailable'
   expect(el.querySelector('table')?.textContent).toContain('osv')
  })
  })
+
+it('puts rollback first when releases hold back a project kept by the janitor', async () => {
+  const data = fixture()
+  data.standing = { enabled: true, level: 'routine' }
+  data.heldBack = [{ deploymentId: 'main', deployment: 'production', displayLabel: 'Production', releaseNumber: 12, reason: 'release failed' }]
+  data.recent[0].ruleId = 'original-rule'
+  data.recent[0].ruleRevision = 3
+  await render(data, true, el => {
+    expect(el.textContent).toContain('Kept updated by the janitor · routine')
+    expect([...el.querySelectorAll('button')].some(b => b.textContent === 'turn off')).toBe(true)
+    expect(el.textContent).toContain('Stopped: release 12 to Production failed.')
+    const links = [...el.querySelectorAll('a')]
+    expect(links.slice(0, 2).map(a => a.textContent)).toEqual(['Roll back', 'Try again'])
+    expect(links[0].getAttribute('href')).toBe('/projects/project/deployments/production?tab=history&rollbackBefore=12')
+    expect(links[1].getAttribute('href')).toBe('/projects/project/deployments/production?tab=history')
+    expect(el.textContent).toContain('approval original-rule (rev 3)')
+  })
+})
+
+it('shows the off level with its recorded person and time', async () => {
+  const data = fixture()
+  data.standing = { enabled: true, level: 'off', choice: { person: { name: 'Sam', principal: 'person', via: '' }, at: '2026-11-12T00:00:00Z', reason: 'Recovery' } }
+  await render(data, true, el => {
+    expect(el.textContent).toContain('Turned off for this project · Sam')
+    expect(el.textContent).not.toContain('Kept updated by the janitor · routine')
+  })
+})
+
+it('names the aggressive level without calling its update queue weekly', async () => {
+  const data = fixture()
+  data.standing = { enabled: true, level: 'aggressive' }
+  await render(data, true, el => {
+    expect(el.textContent).toContain('Kept updated by the janitor · aggressive')
+    expect(el.textContent).toContain('Updates')
+    expect(el.textContent).not.toContain('Weekly updates')
+  })
+})

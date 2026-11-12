@@ -38,7 +38,9 @@ func (s doReleaseSource) Contract(context.Context, ReleaseProject, string) (*app
 
 type doReleaseQueue struct{}
 
-func (doReleaseQueue) EnqueueReleaseIn(context.Context, *database.Tx, ids.ID) error { return nil }
+func (doReleaseQueue) EnqueueReleaseIn(context.Context, *database.Tx, ids.ID, time.Time) error {
+	return nil
+}
 
 type doReleaseSecrets struct{}
 

@@ -161,6 +161,8 @@ CREATE TABLE IF NOT EXISTS workflow_schedules (
   last_fired_at TIMESTAMPTZ NOT NULL,
   last_outcome TEXT NOT NULL DEFAULT 'unknown',
   last_change_id UUID,
+  rule_id UUID,
+  rule_revision BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (project_id, workflow_name),
   CONSTRAINT workflow_schedule_outcome CHECK (last_outcome IN ('armed','opened','skipped','failed','unknown')
     AND (last_outcome = 'opened') = (last_change_id IS NOT NULL))
@@ -225,4 +227,13 @@ CREATE TABLE IF NOT EXISTS automated_changes (
  schedule TEXT NOT NULL DEFAULT '',
  rule_id UUID,
  rule_revision BIGINT NOT NULL DEFAULT 0
+);
+
+-- Project choices are human acts; their history survives rule revisions.
+CREATE TABLE IF NOT EXISTS standing_project_choices (
+ id UUID PRIMARY KEY,
+ project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+ level TEXT NOT NULL CHECK (level IN ('off','routine','aggressive')),
+ record_json JSONB NOT NULL,
+ at TIMESTAMPTZ NOT NULL
 );
