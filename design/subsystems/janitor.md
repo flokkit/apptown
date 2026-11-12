@@ -8,9 +8,8 @@ and the person who enabled it. Changes create new revisions; history is retained
 Automatic processing is not available. Saving consent does not update, accept,
 land or deploy software. No existing approval or imported rule enables it.
 
-The CLI and API manage saved consent and its history. The project page shows
-the current scan summary and findings, with a link to Conformance for scan
-history. Consent can be disabled, revised or read with its history. A revision
+The CLI and API manage saved consent and its history. The project page shows the two update queues, recent tries, and the current scan
+summary and findings, with a link to Conformance for scan history. Consent can be disabled, revised or read with its history. A revision
 previews the exact consent before saving. Full delivery
 requires explicit environments for every selected project, deployment authority
 and promotion consent where required. Nothing selects a default environment on
@@ -28,12 +27,11 @@ declaration provides no authority and changes no ordinary human vote.
 
 A rule names bounded patch/minor dependencies, verified same-version base-image
 updates, security fixes within those limits, or governed routine way-of-working
-transitions. Application source, migrations, major versions, new capabilities,
-needs or secrets, weaker checks, unsupported changes and storage-engine
-transitions require a person. A mixed supported update needs every category enabled
-and every component independently covered. A saved rule with different shown
-meaning becomes ineligible until a person previews and confirms the new meaning;
-its original history remains unchanged. Missing or nonpassing evidence is never success.
+transitions. Dependency classification keeps the package set, sources and
+attributes equal and versions inside the selected bound. Application repairs
+are judged by the workflow's checks. A saved rule with different shown meaning
+becomes ineligible until a person previews and confirms the new meaning; its
+original history remains unchanged. Missing or nonpassing evidence is never success.
 
 The enabling principal is recorded by UUID. A renamed person retains identity;
 a new account with the old name cannot inherit consent. Current eligibility is
@@ -62,21 +60,21 @@ permission. The rule must still be eligible for that project and workflow.
 Active writers, unsettled tasks, dirty or unpublished work, changed source and
 changed consent refuse an assessment. Inspection never repairs or saves source.
 
-The supported dependency classifier reads the complete committed diff. Its
-initial npm contract accepts root `package.json` and version-3
-`package-lock.json` with a fixed package graph, canonical public-registry sources
-and stable forward patch/minor versions within the rule's bounds. New packages,
-graph changes, unrelated files or modes, lifecycle/platform changes and unsupported
-ranges require a person. Unknown fields remain part of the comparison.
+Dependency inspection runs each adopted `fixes` entry's `list` command on separate
+copies of the committed base and candidate, using the check executor. The
+standard listing carries ecosystem, package, version, source and attributes.
+The package set and sources stay equal, attributes stay equal, and moved
+versions advance within the selected patch or minor bound. A 0.x version stays
+in its minor line. A targeted security fix also reaches each finding's `FixedIn`.
+A major, new package, changed source or changed attribute fails classification.
+A missing or failed listing, malformed output or non-semver version is an error.
+Application files beside the update are judged by checks, not a file allowlist.
+An empty candidate is not applicable.
 
-Both exact inputs undergo frozen installation with scripts disabled in the
-observed immutable agent image. Installed package manifests, rather than the
-lock's claims alone, establish package identity and install behavior. The result
-records source commits, tree, rule and run revisions, tool versions, image and
-report digest. Failure or incomplete evidence is `cannot-assess`, never routine
-success. Worker scratch-directory removal is not observed in this response; its
-owner retries removal through the existing sweep. Container settlement is
-required. Classification is historical evidence only, not reusable assent.
+The result records the source commits, tree, rule and run revisions, and a digest
+of the observed listings. The source is checked again after execution. Missing
+or incomplete observations cannot qualify a candidate. Classification does not
+accept, land or deploy it.
 
 Base-image inspection supports one root Dockerfile selected by an unchanged
 application contract: one app build at `.`, no needs, durable app data, init,
@@ -98,20 +96,9 @@ Existing executor tool caches remain available, and remote scratch cleanup is
 still unobserved. A matching tag or publisher label alone is insufficient.
 Other images and storage-engine transitions are unsupported.
 
-An enabled security-fix category can add OSV evidence to a supported npm update.
-Each attributed fix records the advisory identity, source, modified timestamp,
-body digest and exact affected-to-fixed package versions. Supported npm SEMVER
-ranges and all explicit affected versions participate. A withdrawn record,
-unsupported range, changed identity or absent fixed boundary cannot establish a
-fix. Unavailable, unsupported and no-supported-fix observations remain distinct;
-none means the software is free of vulnerabilities. Image OS advisory mapping
-is unsupported. Advisory evidence never broadens the underlying update category
-or substitutes for normal checks.
-
-Combined npm and image changes must satisfy both enabled categories and explain
-the complete diff. A governed adoption transition must also satisfy the separate
-ways-of-working category and cover its entire recorded target. No inspection
-result enables automatic acceptance, landing or deployment.
+Security targets come from the failed source scan. An observing running-image
+scan cannot start a fix. Classification never substitutes for the required tests,
+start-up or scans, and no inspection result enables automatic acceptance.
 
 ## Classifying publication transitions
 
@@ -155,16 +142,42 @@ cover unrelated application edits. The source, rule and adoption consent are
 checked again after inspection. These short-lived checks produce observations,
 not authority held until a later effect. `processingAvailable` remains false.
 
-## Scheduled observations
+## Scheduled scans and updates
 
-The platform pack carries `janitor-scan`. It runs only after a project adopts a
-version that schedules it. Its daily `security` queue scans project source and
-the images in each deployment's serving bundle. It does not update, accept,
-land or release anything. Source scans with `baseline: none` count existing
-findings as well as new ones, except active exceptions. A missing scanner is
-an error. Running scans pull each distinct digest with the project's registry
-credential and scan it once with every attached image scanner. An unknown
-serving bundle or a bundle of local image IDs is not known, never clean.
+The platform pack carries `janitor-scan` and `janitor-update`. A project runs the
+versions its adoption pins. The security schedule observes source and running
+images, and calls `janitor-fix` only for a new finding that an adopted update fix
+covers. Scanner errors never trigger the call. The weekly schedule updates the
+parts through the language packs' declared commands. Node, Go, Python with uv,
+and Ruby ship update declarations and standard-list converters.
+
+The `fix` step dispatches by `kind`; `update` is the supported kind. Whole updates
+use `run`; targeted updates use `runFor` with the caller's targets, never `run`.
+Each command runs after `mise install` in its part's folder and publishes its
+commit through the script-step path. Missing coverage or commands are errors;
+an ordinary nonzero exit is a failure naming its part.
+
+A repair agent with `repairRounds: N` stays dormant until a check fails. Its
+session count is bounded over the run's lifetime. The stock workflows allow two
+sessions, then leave the Change for a person. Every acceptance waits for a person.
+`processingAvailable` remains false.
+
+The `security` and `updates` queues keep separate histories. A proposal records
+main, the adopted versions, the listing after the declared change, and its
+targets. A proposal identical to the queue's last held or skipped one stops
+before tests. A distinct proposal replaces earlier untouched work; human-touched
+work remains ordinary. A landed Change, a person's skip, or a person's touch of
+held work ends the failure episode; quiet scans and repeated proposals do not.
+Three uninterrupted failed tries stop the queue. A stopped security queue can
+try a new fixable finding at the scan's failure threshold.
+
+The project page shows queue state, moved packages, recent tries linked to their
+Changes, and paths to retry, chat or skip the update. Stuck and stopped queues
+each contribute one attention item. A skip retains its fingerprint and targets.
+Attempts and firing records name the schedule as origin. Rule IDs and revisions
+remain empty until standing processing supplies that authority.
+
+## Scan observations and disposal
 
 The project's Janitor section shows the current scan summary and findings.
 Conformance's Last scan lists each scanner subject, result and observation time,

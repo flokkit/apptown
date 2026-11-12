@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS guidance_block_versions (
   -- Where it came from, as lib_workflow_versions says.
   source      TEXT NOT NULL CONSTRAINT guidance_block_version_source CHECK (source <> ''),
   signer      TEXT NOT NULL,
+  fixes_json JSONB NOT NULL DEFAULT '[]'::jsonb,
   UNIQUE(block_id, version)
 );
 CREATE TABLE IF NOT EXISTS system_workflows (

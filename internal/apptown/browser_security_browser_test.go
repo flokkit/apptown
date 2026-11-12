@@ -5300,6 +5300,7 @@ spec:
 		}
 		return runtime, res.Reading.ObservedAt, inv.ObservedAt
 	}
+	cameraJanitorQueue(t, a, project.ID)
 	phases.mark("records")
 	runtimeBefore, resourcesBefore, inventoryBefore := readAt()
 	moveClock(a, time.Minute)
@@ -6221,4 +6222,55 @@ func cameraQueuedJob(t *testing.T, a *App, kind, key string) int64 {
 		t.Fatalf("no queued %s job for %s", kind, key)
 	}
 	return id
+}
+
+// The scene's command really fails. Admission, attempt recording, holding and
+// skipping use the same owners the page reads; no queue state is seeded.
+func cameraJanitorQueue(t *testing.T, a *App, project ids.ID) {
+	t.Helper()
+	rebuildWork(t, a, func(deps *workflow.Dependencies) {
+		resolve := deps.Resolve
+		deps.Resolve = func(ctx context.Context, in workflow.StartRequest, source workflow.StartSource) (workflow.PreparedRun, error) {
+			if in.WorkflowName != "camera-update" {
+				return resolve(ctx, in, source)
+			}
+			return workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: in.WorkflowName, Version: 1}, AdoptionID: source.AdoptionID, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "update", Steps: []schema.Step{{Name: "update", Uses: "fix", With: map[string]any{"kind": "update"}}}}}}}, nil
+		}
+		deps.Runners["fix"] = func(task *workflow.Execution) {
+			if _, err := task.Claim(); err != nil {
+				t.Error(err)
+				return
+			}
+			if err := task.StartFix(nil); err != nil {
+				t.Error(err)
+				return
+			}
+			result := (execution.Runner{}).Run(task.Context(), execution.Local, execution.Request{Argv: []string{"sh", "-c", "printf 'Package registry is unavailable in this local scene\\n'; exit 1"}, Timeout: time.Minute})
+			if result.ExitCode != 1 {
+				t.Errorf("camera command: %+v", result)
+				return
+			}
+			task.Finish(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{"reason": string(result.Output)}, nil))
+		}
+	})
+	ctx := access.WithCaller(context.Background(), access.Caller{Verified: true, Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: project}})
+	for n := 0; n < 3; n++ {
+		ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: project, Type: "scheduled", Title: "Update dependencies", Queue: "updates", Schedule: "weekly-updates"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "camera-update"})
+		if err != nil && !errors.Is(err, workflow.ErrDispatchStopped) {
+			t.Fatal(err)
+		}
+		a.Work.Wait()
+		state, err := a.Work.QueueState(ctx, project, "updates")
+		if err != nil || state.Failed != n+1 {
+			t.Fatalf("camera try %d: %+v %v", n, state, err)
+		}
+		moveClock(a, time.Hour)
+	}
+	if state, err := a.Work.QueueState(ctx, project, "updates"); err != nil || state.State != "stopped" {
+		t.Fatal(fmt.Sprintf("camera stopped state: %+v %v", state, err))
+	}
 }

@@ -231,7 +231,7 @@ func readingOf(raw json.RawMessage) *checkReading {
 func carriesCheckEvidence(kind string) bool { return kind == "script" || isCheckKind(kind) }
 
 // checkKinds are the step types that run on the check executor.
-var checkKinds = []string{"tests", "scan", "guidance/conformance"}
+var checkKinds = []string{"tests", "scan", "guidance/conformance", "routine"}
 
 // isCheckKind reports whether steps of this type run on the check executor
 // and so carry check evidence.

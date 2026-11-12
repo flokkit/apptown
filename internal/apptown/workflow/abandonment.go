@@ -114,6 +114,7 @@ func (s *StopScope) AbandonIn(ctx context.Context, tx *database.Tx, in StopWork)
 
 // Exactly one target: stop a run tree, or close an entire change.
 type Abandonment struct {
+	untouchedOnly     bool
 	failedLandingOnly bool
 	RunID             ids.ID
 	ChangeID          ids.ID
@@ -228,6 +229,9 @@ func (s abandonments) abandonIn(ctx context.Context, tx *database.Tx, req Abando
 		change, err := q.ChangeForUpdate(ctx, workflowsql.ChangeForUpdateParams{ID: changeID, ProjectID: projectID})
 		if err != nil {
 			return nil, err
+		}
+		if req.untouchedOnly && !change.Automated {
+			return &Abandoned{RunIDs: []ids.ID{}}, nil
 		}
 		state, err := ParseChangeState(change.State)
 		if err != nil {

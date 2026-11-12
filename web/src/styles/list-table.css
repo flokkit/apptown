@@ -35,8 +35,8 @@
    a viewer with no act on the row keeps it empty. */
 .record-table td.record-action { height: calc(var(--row-action-size) + 2 * var(--space-2)); }
 .record-table .time { color: var(--muted); }
-.record-table-links tbody tr { cursor: pointer; }
-.record-table-links tbody tr:hover { background: var(--hover); }
+.record-table-links tbody tr[data-linked] { cursor: pointer; }
+.record-table-links tbody tr[data-linked]:hover { background: var(--hover); }
 .record-phone { display: none; }
 @media (width <= 800px) {
   .record-phone { display: inline; }

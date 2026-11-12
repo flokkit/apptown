@@ -2,6 +2,8 @@ package verification
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +12,9 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/oci"
 	"github.com/flokkit/apptown/internal/routinechange"
@@ -18,27 +23,27 @@ import (
 // routineInspector uses committed objects and the existing check executor; it
 // never prepares a workspace or changes source to make it assessable.
 type routineInspector struct {
-	dataDir      string
-	locks        *scm.RepositoryLocks
-	executor     Executor
-	imageReader  func(context.Context, oci.Source) (oci.Observation, error)
-	advisoryRead func(context.Context, string, string, []byte) ([]byte, error)
+	db          *database.DB
+	fixes       func(context.Context, workflow.Source) ([]fix.Declaration, []check.Finding, error)
+	dataDir     string
+	locks       *scm.RepositoryLocks
+	executor    Executor
+	imageReader func(context.Context, oci.Source) (oci.Observation, error)
 }
 
 func NewRoutineInspector(dataDir string, locks *scm.RepositoryLocks, executor Executor) routineInspector {
-	return routineInspector{dataDir: dataDir, locks: locks, executor: executor, imageReader: oci.Observe, advisoryRead: readRoutineAdvisory}
+	return routineInspector{dataDir: dataDir, locks: locks, executor: executor, imageReader: oci.Observe}
 }
 
 type routineTree struct {
 	base, tip, tree                                          string
 	unsupported                                              string
 	files                                                    []scm.ObjectChange
-	before, after                                            routinechange.NPMSnapshot
 	dockerBefore, dockerAfter, contractBefore, contractAfter []byte
-	npm, image                                               bool
+	image                                                    bool
 }
 
-func (r routineInspector) observe(ctx context.Context, source workflow.Source) (out routineTree, err error) {
+func (r routineInspector) observe(ctx context.Context, source workflow.Source, inspectImage bool) (out routineTree, err error) {
 	repo, err := source.Repository(r.dataDir)
 	if err != nil {
 		return out, err
@@ -82,9 +87,7 @@ func (r routineInspector) observe(ctx context.Context, source workflow.Source) (
 			if file.Path == "Dockerfile" {
 				out.image = true
 			}
-			if file.Path == "package.json" || file.Path == "package-lock.json" {
-				out.npm = true
-			}
+
 		}
 		blob := func(commit, name string) ([]byte, error) {
 			raw, e := gitexec.HubOutput(ctx, repo, nil, "ls-tree", "-z", commit, "--", name)
@@ -103,30 +106,8 @@ func (r routineInspector) observe(ctx context.Context, source workflow.Source) (
 			return gitexec.HubOutput(ctx, repo, nil, "cat-file", "blob", fields[2])
 		}
 		for i, commit := range []string{out.base, out.tip} {
-			if out.npm {
-				competing, e := gitexec.HubOutput(ctx, repo, nil, "ls-tree", "-z", commit, "--", "npm-shrinkwrap.json", ".npmrc", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb")
-				if e != nil {
-					return e
-				}
-				if len(competing) != 0 {
-					out.unsupported = "the committed source contains npm configuration or a competing lock format requiring a person"
-				}
-				manifest, e := blob(commit, "package.json")
-				if e != nil {
-					return e
-				}
-				lock, e := blob(commit, "package-lock.json")
-				if e != nil {
-					return e
-				}
-				snapshot := routinechange.NPMSnapshot{Manifest: manifest, Lock: lock}
-				if i == 0 {
-					out.before = snapshot
-				} else {
-					out.after = snapshot
-				}
-			}
-			if out.image {
+
+			if out.image && inspectImage {
 				dockerfile, e := blob(commit, "Dockerfile")
 				if e != nil {
 					return e
@@ -174,9 +155,16 @@ func (r routineInspector) InspectRoutineWithAdoption(ctx context.Context, source
 }
 
 func (r routineInspector) inspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories, adoption bool) (out workflow.StandingInspection, err error) {
-	out.Classifier = routinechange.Version + "+node-digest-v1+osv-npm-v1"
+	if categories.Dependencies != "" || categories.SecurityFixes {
+		out, err := r.inspectUpdates(ctx, source, categories)
+		if adoption && out.Classification == "not-applicable" {
+			out.Classification = "routine-adoption"
+		}
+		return out, err
+	}
+	out.Classifier = "node-digest-v1"
 	out.Classification = "cannot-assess"
-	before, err := r.observe(ctx, source)
+	before, err := r.observe(ctx, source, true)
 	out.Base, out.Candidate, out.Tree = before.base, before.tip, before.tree
 	for _, file := range before.files {
 		out.ChangedFiles = append(out.ChangedFiles, file.Path)
@@ -197,19 +185,12 @@ func (r routineInspector) inspectRoutine(ctx context.Context, source workflow.So
 		return refuse("the candidate has no supported update")
 	}
 	for _, file := range before.files {
-		allowed := file.Path == "package.json" || file.Path == "package-lock.json" || file.Path == "Dockerfile"
+		allowed := file.Path == "Dockerfile"
 		if !allowed || file.Status != "M" || file.BeforeMode != "100644" || file.AfterMode != "100644" {
 			return refuse("the complete diff includes files or modes outside supported updates")
 		}
 	}
-	var npm routinechange.NPMCandidate
 	var image routinechange.ImageCandidate
-	if before.npm {
-		npm, err = routinechange.CompareNPM(before.before, before.after, categories.Dependencies)
-		if err != nil {
-			return refuse(err.Error())
-		}
-	}
 	if before.image {
 		if !categories.BaseImages {
 			return refuse("base-image updates are not permitted by this rule")
@@ -223,14 +204,7 @@ func (r routineInspector) inspectRoutine(ctx context.Context, source workflow.So
 		}
 	}
 	// Explain the entire diff before any external observation or execution.
-	if before.npm {
-		evidence, e := validateNPM(ctx, r.executor, r.dataDir, before.before, before.after, npm)
-		if e != nil {
-			out.Reason = e.Error()
-			return out, nil
-		}
-		out.Validation = &workflow.StandingValidation{Image: evidence.Image, Node: evidence.Node, NPM: evidence.NPM, Platform: evidence.Platform, ReportDigest: evidence.ReportDigest, ScratchSettlement: evidence.ScratchSettlement}
-	}
+
 	if before.image {
 		evidence, e := r.validateImage(ctx, image)
 		if e != nil {
@@ -239,17 +213,8 @@ func (r routineInspector) inspectRoutine(ctx context.Context, source workflow.So
 		}
 		out.Images = evidence
 	}
-	if categories.SecurityFixes {
-		advisory := workflow.StandingAdvisoryObservation{Status: "unsupported", Reason: "image OS advisory mapping is not supported"}
-		if before.npm {
-			advisory = r.observeAdvisories(ctx, npm)
-		}
-		if before.image && before.npm {
-			advisory.Reason += "; image OS advisory mapping is not supported"
-		}
-		out.Advisories = &advisory
-	}
-	after, err := r.observe(ctx, source)
+
+	after, err := r.observe(ctx, source, true)
 	if err != nil {
 		out.Reason = fmt.Sprintf("source cannot be confirmed after validation: %v", err)
 		return out, nil
@@ -264,10 +229,13 @@ func (r routineInspector) inspectRoutine(ctx context.Context, source workflow.So
 	}
 	if before.image {
 		out.Classification = "routine-image"
-		if before.npm {
-			out.Classification = "routine-dependency-and-image"
-		}
+
 	}
 	out.Reason = "the exact update is within the selected bounds; classification does not accept, land or deploy it"
 	return out, nil
+}
+
+func observationDigest(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }

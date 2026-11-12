@@ -29,6 +29,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
@@ -48,6 +49,11 @@ import (
 // database and directory. The composition root keeps the test that its own
 // startup does the same (TestARestartNeverStartsARecordedTaskAgain).
 type taskAppTown struct {
+	ways     *wow.Service
+	commands *commands
+	scan     workflow.Runner
+	bound    string
+	preview  workflow.Runner
 	// Historical-request tests admit a legacy plan through the real task owner,
 	// then restart with the current cache scope; production has no override.
 	scriptRunner workflow.Runner
@@ -120,7 +126,11 @@ func startTaskAppTown(t *testing.T, db *database.DB, dir, image string, definiti
 	f.branches = scm.NewBranches(db, locks)
 	f.tasks = &TaskRunner{Records: tasks.New(db), Driver: &executionfake.Tasks{}, Requests: filepath.Join(dir, "tasks"),
 		Profile: TaskProfile{Name: "local-docker", Network: execution.NetworkDefault}, Backend: "local-docker fixture on the fake"}
+	ways := wow.New(db, wow.Dependencies{Stock: stock.FS})
+	f.ways = ways
+	adopted := adoption.New(db, adoption.Dependencies{Ways: ways})
 	commands := NewCommands(db, CommandDependencies{
+		Fixes: adopted, Bounds: fixtureUpdateBound{f},
 		Runner: execution.Runner{Scratch: filepath.Join(dir, "generated")}, Progress: &progress.Feeds{}, Publisher: noPublisher{},
 		Branches: f.branches, Tasks: f.tasks, Docker: &docker.Scope{Client: newDockerFake()}, Catalog: dependency.NewCatalog(db, nil),
 		// The check executor runs a tests step's command: here the test's,
@@ -133,15 +143,22 @@ func startTaskAppTown(t *testing.T, db *database.DB, dir, image string, definiti
 			return f.checks(req)
 		}, Image: "apptown-agent:test"},
 	}, CommandConfig{DataDir: dir, Image: image, AppTownVersion: "1.2.3-test"})
+	f.commands = commands
 	f.agents = f.agentExecutor(t)
 	f.work = workflow.New(context.Background(), db, workflow.Dependencies{
-		Authority: access.Checked{Authority: directory, Projects: project.New(db, directory)},
+		RunningImages: fixtureRunningImages{},
+		Fixes:         adopted,
+		Authority:     access.Checked{Authority: directory, Projects: project.New(db, directory)},
 		Resolve: func(_ context.Context, req workflow.StartRequest, source workflow.StartSource) (workflow.PreparedRun, error) {
 			spec, ok := f.definitions[req.WorkflowName]
 			if !ok {
 				return workflow.PreparedRun{}, fmt.Errorf("the fixture has no workflow %q", req.WorkflowName)
 			}
-			return workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: req.WorkflowName, Version: 1}, Spec: spec, AdoptionID: source.AdoptionID}, nil
+			var events []workflow.StartEvent
+			if spec.Role == "landing" && !req.IsChild() {
+				events = append(events, workflow.LandingPinRequired())
+			}
+			return workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: req.WorkflowName, Version: 1}, Spec: spec, AdoptionID: source.AdoptionID, Events: events}, nil
 		},
 		StepContext: func(ctx context.Context, _ ids.ID) context.Context {
 			if f.cacheProject.IsZero() {
@@ -160,12 +177,20 @@ func startTaskAppTown(t *testing.T, db *database.DB, dir, image string, definiti
 				return
 			}
 			commands.RunScript(task)
-		}, TestsKind: commands.RunTests,
+		}, TestsKind: commands.RunTests, FixKind: commands.RunFix, RoutineKind: commands.RunRoutine, CallKind: NewCalls(db, nil).Run, "preview": func(task *workflow.Execution) {
+			if f.preview != nil {
+				f.preview(task)
+			}
+		}, "scan": func(task *workflow.Execution) {
+			if f.scan != nil {
+				f.scan(task)
+			}
+		},
 			AgentKind: f.agents.Run, ReviewKind: f.agents.Review},
 		Recoverers:   map[string]workflow.Runner{ScriptKind: commands.RecoverScript, AgentKind: f.agents.RecoverAgent, ReviewKind: f.agents.RecoverAgent},
 		Git:          workflow.GitWorkspace{DataDir: dir},
 		Repositories: locks,
-		Automatic:    []string{ScriptKind, TestsKind, AgentKind, ReviewKind},
+		Automatic:    []string{ScriptKind, TestsKind, AgentKind, ReviewKind, FixKind, RoutineKind, CallKind, "scan", "preview"},
 		DataDir:      dir,
 		// Work notices a run abandoned under a running step within a
 		// fraction of a second: quick for the tests that abandon one, and
@@ -490,4 +515,10 @@ func (f *taskAppTown) source(t *testing.T, run *workflow.Run) workflow.Source {
 
 func newDockerFake() *dockerfake.Daemon {
 	return dockerfake.New()
+}
+
+type fixtureUpdateBound struct{ f *taskAppTown }
+
+func (b fixtureUpdateBound) UpdateBoundForRun(context.Context, ids.ID) (string, error) {
+	return b.f.bound, nil
 }

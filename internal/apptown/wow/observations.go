@@ -25,6 +25,7 @@ type BlockObservation struct {
 	Version    int
 	Body       string
 	ChecksJSON string
+	FixesJSON  string
 }
 
 // Block reads the catalog fact requested by Adoption without choosing a newer
@@ -55,6 +56,7 @@ func (s *Service) Block(ctx context.Context, ref BlockRef) (BlockObservation, er
 	if err != nil {
 		return out, err
 	}
+	out.FixesJSON = string(version.FixesJson)
 	out.Version, out.Body, out.ChecksJSON = int(version.Version), version.BodyMd, string(version.ChecksJson)
 	return out, nil
 }

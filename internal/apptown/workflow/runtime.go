@@ -87,7 +87,12 @@ func (s *Service) advanceCommitted(ref RunRef) {
 
 func (s *Service) dispatchAdvanced(runID ids.ID, out *AdvanceResult, err error) {
 	if err == nil && out != nil && out.Advanced && out.RunStatus != RunDone && s.dispatcher != nil {
-		s.dispatcher.dispatch(DispatchPlan{RunID: runID, Steps: out.Ready}, false)
+		plan, readErr := s.dispatchPlans.Plan(s.life, runID)
+		if readErr != nil {
+			s.dispatcher.report(readErr)
+			return
+		}
+		s.dispatcher.dispatch(plan, false)
 	}
 }
 

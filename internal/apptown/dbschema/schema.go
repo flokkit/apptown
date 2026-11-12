@@ -817,6 +817,8 @@ WHERE NOT (o.receipt ? 'expectedScanners');
 		`UPDATE lib_workflow_versions SET yaml=regexp_replace(yaml, E'\\n[ \\t]*inAdvanceAdmitsNotApplicable:[^\\n]*', '', 'g') WHERE yaml LIKE '%inAdvanceAdmitsNotApplicable%'`,
 		`UPDATE lib_workflow_versions SET yaml=replace(yaml, 'with every check passing, none excused.', 'with every check passing or not applicable, none excused.') WHERE yaml LIKE '%with every check passing, none excused.%'`,
 	}},
+	{n: 232, note: "declare fixes in immutable guidance versions", stmts: []string{`ALTER TABLE guidance_block_versions ADD COLUMN fixes_json JSONB NOT NULL DEFAULT '[]'::jsonb`}},
+	{n: 233, note: "retain queue attempts and schedule origins", stmts: []string{`ALTER TABLE automated_changes ADD COLUMN targets JSONB NOT NULL DEFAULT '[]', ADD COLUMN attempted_at TIMESTAMPTZ, ADD COLUMN failed_attempt BOOLEAN NOT NULL DEFAULT false, ADD COLUMN schedule TEXT NOT NULL DEFAULT '', ADD COLUMN rule_id UUID, ADD COLUMN rule_revision BIGINT NOT NULL DEFAULT 0`}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

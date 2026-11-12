@@ -7,6 +7,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/ids"
 
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/database"
 )
 
@@ -62,6 +63,65 @@ func (s *Service) callFrom(ctx context.Context, parent *Run, step *Step, in Work
 	}
 	if err := s.touchChange(ctx, parent.ProjectID, parent.ChangeID); err != nil {
 		return nil, err
+	}
+	var condition struct {
+		WhenFailed []string `json:"whenFailed"`
+		Findings   string   `json:"findings"`
+	}
+	if err := DecodeStepConfig(step.Config, &condition); err != nil {
+		return nil, err
+	}
+	if len(condition.WhenFailed) > 0 {
+		if condition.Findings != "fixable" {
+			return nil, fmt.Errorf("conditional call needs findings: fixable")
+		}
+		if s.fixes == nil {
+			return nil, fmt.Errorf("fix declarations are unavailable")
+		}
+		revision, err := adoption.ByIDIn(ctx, s.db, parent.AdoptionID)
+		if err != nil {
+			return nil, err
+		}
+		ds, err := s.fixes.Fixes(ctx, adoption.Source{ProjectID: parent.ProjectID, Revision: revision})
+		if err != nil {
+			return nil, err
+		}
+		execution := &Execution{service: s, ctx: ctx, run: parent, step: step}
+		targets, why, err := execution.fixableTargets(ctx, condition.WhenFailed, ds)
+		if err != nil {
+			return nil, err
+		}
+		if len(targets) == 0 {
+			claim, err := s.stepAttempts.start(ctx, step, "workflow/call", ids.Nil)
+			if err != nil {
+				return nil, err
+			}
+			outcome, err := EncodeOutcome(StatusPass, map[string]any{"notNeeded": true, "reason": why}, nil)
+			if err != nil {
+				return nil, err
+			}
+			return nil, s.finishAttempt(ctx, claim, outcome)
+		}
+		var inputs map[string]json.RawMessage
+		if err := json.Unmarshal(in.Inputs, &inputs); err != nil {
+			return nil, err
+		}
+		if inputs == nil {
+			inputs = map[string]json.RawMessage{}
+		}
+		raw, err := json.Marshal(targets)
+		if err != nil {
+			return nil, err
+		}
+		encoded, err := json.Marshal(string(raw))
+		if err != nil {
+			return nil, err
+		}
+		inputs["targets"] = encoded
+		in.Inputs, err = json.Marshal(inputs)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return s.starter.start(ctx, StartRequest{
 		ProjectID: parent.ProjectID, ChangeID: parent.ChangeID, WorkflowName: in.Workflow, InputsJSON: string(in.Inputs),

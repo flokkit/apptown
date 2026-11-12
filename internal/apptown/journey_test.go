@@ -630,12 +630,15 @@ func TestJourneyPackEvolution(t *testing.T) {
 		h.mustCall("GET", "/projects/"+slug+"/schedules", nil, &got)
 		// A newly initialized project adopts the current platform pack, whose
 		// observing schedule is independent of this custom pack's evolution.
-		if len(got.Schedules) != wantDependency+1 {
-			t.Fatalf("want platform scan plus %d dependency schedules, got %+v", wantDependency, got)
+		if len(got.Schedules) != wantDependency+2 {
+			t.Fatalf("want platform scan and weekly update plus %d dependency schedules, got %+v", wantDependency, got)
 		}
 		counts := map[string]int{}
 		for _, schedule := range got.Schedules {
 			counts[schedule.Source.Workflow]++
+			if schedule.Source.Workflow == "janitor-update" && schedule.Cron != "0 6 * * 1" {
+				t.Fatalf("weekly update schedule changed: %+v", schedule)
+			}
 			if schedule.Cron == "" || schedule.Problem != "" {
 				t.Fatalf("pack must supply a readable schedule: %+v", schedule)
 			}
@@ -643,7 +646,7 @@ func TestJourneyPackEvolution(t *testing.T) {
 				t.Fatalf("platform scan schedule changed: %+v", schedule)
 			}
 		}
-		if counts["janitor-scan"] != 1 || counts["dependency-uplift"] != wantDependency {
+		if counts["janitor-scan"] != 1 || counts["janitor-update"] != 1 || counts["dependency-uplift"] != wantDependency {
 			t.Fatalf("adopted schedules: %+v", got)
 		}
 	}
@@ -901,6 +904,8 @@ func TestJourneyLedgerComplete(t *testing.T) {
 		"build": "journey:TestJourneyKidStory", "workflow/call": "unit:TestPackPullKeepsCalledWorkflows (reference scan); run-path gap tracked",
 		"scan": "backing:scanner binaries", "agent/review": "unit:autoRework path w/ fake verdicts; fake-pi review supported",
 		"guidance/conformance": "unit:guidance_conformance_test",
+		"fix":                  "unit:workflowexec.TestShippedTargetedUpdatePublishesOnlyItsTargetAndIsIndependentlyClassified (real npm registry)",
+		"routine":              "unit:workflowexec.TestRoutineJudgesTheIndependentListingAndLeavesCodeToChecks",
 		"tests":                "unit:TestDetectTestCommand; proven live both directions (pass receipt + sabotaged tree blocked landing)",
 		"reconcile":            "unit:TestReconcilePreflight (up-to-date, catch-up, conflict); land preflight",
 	}

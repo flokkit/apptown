@@ -744,6 +744,19 @@
       },
       "AutomatedAttempt": {
         "properties": {
+          "attempted": {
+            "type": "boolean"
+          },
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failed": {
+            "type": "boolean"
+          },
           "fingerprint": {
             "type": "string"
           },
@@ -770,7 +783,12 @@
           "outcome": {
             "type": "string"
           },
-          "packages": {},
+          "packages": {
+            "items": {
+              "$ref": "#/components/schemas/Move"
+            },
+            "type": "array"
+          },
           "projectId": {
             "format": "uuid",
             "type": [
@@ -784,6 +802,19 @@
           "reason": {
             "type": "string"
           },
+          "ruleId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ruleRevision": {
+            "type": "integer"
+          },
+          "schedule": {
+            "type": "string"
+          },
           "what": {
             "type": "string"
           },
@@ -793,6 +824,10 @@
           }
         },
         "required": [
+          "schedule",
+          "ruleRevision",
+          "attempted",
+          "failed",
           "fingerprint",
           "packages",
           "id",
@@ -3697,6 +3732,29 @@
         ],
         "type": "object"
       },
+      "Move": {
+        "properties": {
+          "ecosystem": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "package": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ecosystem",
+          "package",
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
       "NextAct": {
         "properties": {
           "act": {
@@ -4781,6 +4839,12 @@
       },
       "ProjectScanView": {
         "properties": {
+          "queues": {
+            "items": {
+              "$ref": "#/components/schemas/QueueStatus"
+            },
+            "type": "array"
+          },
           "recent": {
             "items": {
               "$ref": "#/components/schemas/AutomatedAttempt"
@@ -4792,6 +4856,7 @@
           }
         },
         "required": [
+          "queues",
           "scans",
           "recent"
         ],
@@ -4875,6 +4940,64 @@
         "required": [
           "targets",
           "group"
+        ],
+        "type": "object"
+      },
+      "QueueSkip": {
+        "properties": {
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "QueueStatus": {
+        "properties": {
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changeNumber": {
+            "type": "integer"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "packages": {
+            "items": {
+              "$ref": "#/components/schemas/Move"
+            },
+            "type": "array"
+          },
+          "queue": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "since": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "state",
+          "since",
+          "failed",
+          "reason",
+          "packages",
+          "changeNumber"
         ],
         "type": "object"
       },
@@ -6622,63 +6745,6 @@
         },
         "type": "object"
       },
-      "StandingAdvisoryFix": {
-        "properties": {
-          "after": {
-            "type": "string"
-          },
-          "before": {
-            "type": "string"
-          },
-          "bodyDigest": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "modified": {
-            "type": "string"
-          },
-          "package": {
-            "type": "string"
-          },
-          "source": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "source",
-          "modified",
-          "bodyDigest",
-          "package",
-          "before",
-          "after"
-        ],
-        "type": "object"
-      },
-      "StandingAdvisoryObservation": {
-        "properties": {
-          "fixes": {
-            "items": {
-              "$ref": "#/components/schemas/StandingAdvisoryFix"
-            },
-            "type": "array"
-          },
-          "reason": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "status",
-          "reason",
-          "fixes"
-        ],
-        "type": "object"
-      },
       "StandingAssess": {
         "properties": {
           "runId": {
@@ -6905,16 +6971,6 @@
       },
       "StandingInspection": {
         "properties": {
-          "advisories": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/StandingAdvisoryObservation"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "base": {
             "type": "string"
           },
@@ -7155,15 +7211,6 @@
           "image": {
             "type": "string"
           },
-          "node": {
-            "type": "string"
-          },
-          "npm": {
-            "type": "string"
-          },
-          "platform": {
-            "type": "string"
-          },
           "reportDigest": {
             "type": "string"
           },
@@ -7173,9 +7220,6 @@
         },
         "required": [
           "image",
-          "node",
-          "npm",
-          "platform",
           "reportDigest",
           "scratchSettlement"
         ],
@@ -16139,6 +16183,71 @@
         ],
         "x-apptown-access": {
           "capability": "project:read",
+          "kind": "capability",
+          "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/projects/{slug}/janitor/{queue}/skip": {
+      "post": {
+        "operationId": "postProjectsSlugJanitorQueueSkip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "queue",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueSkip"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "change:abandon",
           "kind": "capability",
           "scope": "project-slug"
         },

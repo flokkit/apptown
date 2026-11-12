@@ -113,7 +113,7 @@ func TestOnlyDependencyUpdatesPackSuppliesScheduledDependencyUplift(t *testing.T
 			}
 		} else {
 			if p.Name == "apptown" {
-				if !slices.Equal(p.Schedules, []string{"janitor-scan"}) {
+				if !slices.Equal(p.Schedules, []string{"janitor-scan", "janitor-update"}) {
 					t.Errorf("platform schedules: %v", p.Schedules)
 				}
 			} else if len(p.Schedules) != 0 {
@@ -167,7 +167,7 @@ func TestStockSendBackInstructionsNameTheButton(t *testing.T) {
 }
 
 // The platform schedule observes only; repair and acceptance are separate work.
-func TestPlatformPackSuppliesOnlyObservingJanitorScan(t *testing.T) {
+func TestPlatformPackSuppliesSecurityFixesAndWeeklyUpdates(t *testing.T) {
 	packs, err := ReadStockPacks(stock.FS)
 	if err != nil {
 		t.Fatal(err)
@@ -175,7 +175,7 @@ func TestPlatformPackSuppliesOnlyObservingJanitorScan(t *testing.T) {
 	found := false
 	for _, p := range packs {
 		if p.Name == "apptown" {
-			found = slices.Contains(p.Workflows, "janitor-scan") && slices.Equal(p.Schedules, []string{"janitor-scan"})
+			found = slices.Contains(p.Workflows, "janitor-scan") && slices.Equal(p.Schedules, []string{"janitor-scan", "janitor-update"})
 		}
 	}
 	if !found {
@@ -197,8 +197,12 @@ func TestPlatformPackSuppliesOnlyObservingJanitorScan(t *testing.T) {
 		if schedule == nil || schedule.Cron != "0 5 * * *" || schedule.Queue != "security" {
 			t.Fatalf("observing schedule: %+v", schedule)
 		}
-		if len(doc.Spec.Stages) != 1 || len(doc.Spec.Stages[0].OnEnter) != 0 || len(doc.Spec.Stages[0].Steps) != 2 {
+		if len(doc.Spec.Stages) != 1 || len(doc.Spec.Stages[0].OnEnter) != 0 || len(doc.Spec.Stages[0].Steps) != 4 {
 			t.Fatalf("observing stages: %+v", doc.Spec.Stages)
+		}
+		call, accept := doc.Spec.Stages[0].Steps[2], doc.Spec.Stages[0].Steps[3]
+		if call.Uses != "workflow/call" || call.With["findings"] != "fixable" || accept.Uses != "approval" {
+			t.Fatalf("security fixing and acceptance: %+v", doc.Spec.Stages[0].Steps)
 		}
 		source, running := doc.Spec.Stages[0].Steps[0], doc.Spec.Stages[0].Steps[1]
 		if source.Name != "scan-source" || source.Uses != "scan" || source.With["on"] != "source" || source.With["baseline"] != "none" || running.Name != "scan-running" || running.Uses != "scan" || running.With["on"] != "running" {

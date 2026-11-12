@@ -167,3 +167,22 @@ func TestPinnedGuidanceDeclaresContextWithoutUpgradingExistingProjects(t *testin
 		t.Fatalf("old=%+v new=%+v", old, current)
 	}
 }
+
+func TestRuntimeFixesUseOnlyEnabledPinnedVersions(t *testing.T) {
+	cat := &runtimeCatalog{blocks: map[int]wow.BlockObservation{
+		1: {Version: 1, FixesJSON: `[{"kind":"update","appliesTo":["tool:node"],"ecosystem":"npm","run":"npm update","runFor":"npm update {packages}","list":"npm ls --all --json"}]`},
+		2: {Version: 2, FixesJSON: `[{"kind":"update","appliesTo":["tool:node"],"ecosystem":"npm","run":"wrong version"}]`},
+	}}
+	revision := &RecordedRevision{ProjectID: idstest.N(3), Revision: 11, Receipt: Receipt{Guidance: []ReceiptBlock{
+		{Name: "lang/node/updates", BlockID: idstest.N(7), Version: 1},
+		{Name: "disabled", BlockID: idstest.N(9), Version: 99, Disabled: true},
+	}}}
+	s := New(nil, Dependencies{Ways: cat})
+	fixes, err := s.Fixes(t.Context(), Source{ProjectID: idstest.N(3), Revision: revision})
+	if err != nil || len(fixes) != 1 || fixes[0].Run != "npm update" {
+		t.Fatalf("pinned fixes=%+v err=%v", fixes, err)
+	}
+	if _, err := s.Fixes(t.Context(), Source{ProjectID: idstest.N(4), Revision: revision}); err == nil {
+		t.Fatal("foreign receipt accepted")
+	}
+}

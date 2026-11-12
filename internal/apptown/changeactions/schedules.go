@@ -98,7 +98,26 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 			continue
 		}
 
-		if c.skipIfActive() {
+		if c.trigger.Queue != "" {
+			state, err := s.Actions.work.QueueState(asSchedule(ctx, c.projectID), c.projectID, c.trigger.Queue)
+			if err != nil {
+				log.Printf("reading queue %s: %v", c.trigger.Queue, err)
+				continue
+			}
+			if state.Stopped() && !c.discoversTargets {
+				if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil); err != nil {
+					log.Printf("recording stopped queue: %v", err)
+				}
+				continue
+			}
+			if state.State == "updating" {
+				if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil); err != nil {
+					log.Printf("recording busy queue: %v", err)
+				}
+				continue
+			}
+		}
+		if c.skipIfActive() && c.trigger.Queue == "" {
 			active, err := workflow.RunningWorkflowCountIn(ctx, s.DB, c.projectID, c.workflow)
 			if err != nil {
 				log.Printf("checking scheduled workflow %s on project %d: %v", c.workflow, c.projectID, err)
@@ -120,7 +139,7 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 			return
 		}
 		outcome, changeID := workflow.ScheduleFailed, ids.Nil
-		item, run, err := s.Actions.work.CreateAndRun(asSchedule(ctx, c.projectID), workflow.InvokeChange{Change: workflow.ChangeDraft{ProjectID: p.ID, Type: "scheduled", Title: title, Queue: c.trigger.Queue}, Workflow: c.workflow})
+		item, run, err := s.Actions.work.CreateAndRun(asSchedule(ctx, c.projectID), workflow.InvokeChange{Change: workflow.ChangeDraft{ProjectID: p.ID, Type: "scheduled", Title: title, Queue: c.trigger.Queue, Schedule: c.workflow}, Workflow: c.workflow})
 		if err == nil {
 			outcome, changeID = workflow.ScheduleOpened, item.ID
 			audit.At(now).BestEffort(ctx, s.DB, "apptown-system", c.projectID, "change.triggered", title,
@@ -138,10 +157,11 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 // resolved version declares on.schedule. err says why the
 // workflow could not be read, so whether it carries one is unknown.
 type carried struct {
-	workflow string
-	version  int
-	trigger  schema.ScheduleTrigger
-	err      error
+	discoversTargets bool
+	workflow         string
+	version          int
+	trigger          schema.ScheduleTrigger
+	err              error
 }
 
 func (c carried) skipIfActive() bool {
@@ -181,7 +201,15 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID) ([]carried, 
 		if doc.Metadata.System || doc.Spec.On.Schedule == nil || doc.Spec.On.Schedule.Cron == "" {
 			continue
 		}
-		out = append(out, carried{workflow: name, version: version, trigger: *doc.Spec.On.Schedule})
+		discovers := false
+		for _, stage := range doc.Spec.Stages {
+			for _, step := range stage.Steps {
+				if step.Uses == "workflow/call" && step.With["findings"] == "fixable" {
+					discovers = true
+				}
+			}
+		}
+		out = append(out, carried{workflow: name, version: version, trigger: *doc.Spec.On.Schedule, discoversTargets: discovers})
 	}
 	return out, nil
 }

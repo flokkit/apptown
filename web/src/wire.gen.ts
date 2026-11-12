@@ -873,6 +873,16 @@ export type FinalCopies = {
   copies: FinalCopy[]
 }
 
+export type FixDeclaration = {
+  kind: string
+  appliesTo: string[]
+  ecosystem: string
+  run: string
+  runFor: string
+  list: string
+  files: string[]
+}
+
 export type FleetView = {
   packs: FleetPack[]
 }
@@ -901,6 +911,7 @@ export type GuidanceBlockDetail = {
   versions: BlockVersion[]
   usedBy: BlockUse[]
   checks: Declaration[]
+  fixes: FixDeclaration[]
 }
 
 export type InAdvanceQuestion = {
@@ -1519,6 +1530,7 @@ export type ProjectRow = {
 }
 
 export type ProjectScanView = {
+  queues: QueueStatus[]
   scans: MainScans
   recent: AutomatedAttempt[]
 }
@@ -2014,22 +2026,6 @@ export type StandingActor = {
   via?: string
 }
 
-export type StandingAdvisoryFix = {
-  id: string
-  source: string
-  modified: string
-  bodyDigest: string
-  package: string
-  before: string
-  after: string
-}
-
-export type StandingAdvisoryObservation = {
-  status: string
-  reason: string
-  fixes: StandingAdvisoryFix[]
-}
-
 export type StandingAssessment = {
   adoption?: RoutineAdoptionTarget | null
   ruleId: string | null
@@ -2089,7 +2085,6 @@ export type StandingImageObservation = {
 }
 
 export type StandingInspection = {
-  advisories?: StandingAdvisoryObservation | null
   images?: StandingImageObservation[]
   classification: string
   reason: string
@@ -2153,9 +2148,6 @@ export type StandingStatus = {
 
 export type StandingValidation = {
   image: string
-  node: string
-  npm: string
-  platform: string
   reportDigest: string
   scratchSettlement: string
 }
@@ -4185,6 +4177,17 @@ export type Violation = {
   detail: string
 }
 
+export type QueueStatus = {
+  queue: string
+  state: string
+  since: string
+  failed: number
+  reason: string
+  packages: Move[]
+  changeId?: string | null
+  changeNumber: number
+}
+
 export type MainScans = {
   main: string
   source: ScanObservation[]
@@ -4197,8 +4200,14 @@ export type MainScans = {
 }
 
 export type AutomatedAttempt = {
+  schedule: string
+  ruleId?: string | null
+  ruleRevision: number
+  attempted: boolean
+  failed: boolean
+  changeId?: string | null
   fingerprint: string
-  packages: unknown
+  packages: Move[]
   id: string | null
   projectId: string | null
   openChange?: string | null
@@ -5276,6 +5285,13 @@ export type OverviewHead = {
   when: string
 }
 
+export type Move = {
+  ecosystem: string
+  package: string
+  from: string
+  to: string
+}
+
 export type ScanObservation = {
   id: string | null
   projectId: string | null
@@ -5381,6 +5397,9 @@ export type ScheduleSource = {
 }
 
 export type ScheduleFiringView = {
+  origin: string
+  ruleId?: string | null
+  ruleRevision: number
   at: string
   outcome: "opened" | "skipped" | "failed" | "unknown"
   changeId?: string | null

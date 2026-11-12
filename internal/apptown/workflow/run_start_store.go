@@ -299,7 +299,18 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 		if err := requireRunWrite(queries.SetParentStepAttempt(ctx, workflowsql.SetParentStepAttemptParams{ParentStepAttempt: req.parentStepAttempt + 1, ID: id})); err != nil {
 			return nil, err
 		}
-		evidence := calledRunEvidence{id, number, def.Workflow.Name, def.Workflow.Version, at.UnixMilli()}
+		evidence := calledRunEvidence{ChildRunID: id, ChildRunNumber: number, Workflow: def.Workflow.Name, WorkflowVersion: def.Workflow.Version, StartedAtMS: at.UnixMilli()}
+		var inputs map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(req.InputsJSON), &inputs); err != nil {
+			return nil, err
+		}
+		if raw, ok := inputs["targets"]; ok {
+			var targets string
+			if err := json.Unmarshal(raw, &targets); err != nil {
+				return nil, err
+			}
+			evidence.Targets = json.RawMessage(targets)
+		}
 		evidenceJSON, err := json.Marshal(evidence)
 		if err != nil {
 			return nil, err

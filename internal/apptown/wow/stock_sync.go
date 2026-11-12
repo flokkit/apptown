@@ -9,6 +9,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -131,6 +132,11 @@ func parseStockGuidance(raw string) (StockBlock, error) {
 			b.Tags = normalizeTags(value)
 		case "checks":
 			b.ChecksJSON = value
+		case "fixes":
+			b.FixesJSON = value
+			if _, err := fix.Parse(value); err != nil {
+				return b, fmt.Errorf("fixes: %w", err)
+			}
 		case "tier":
 			b.Tier = value
 		case "conflicts":
@@ -140,7 +146,7 @@ func parseStockGuidance(raw string) (StockBlock, error) {
 				return b, fmt.Errorf("frontmatter line %d: %w", i+2, err)
 			}
 		default:
-			return b, fmt.Errorf("frontmatter line %d: unknown key %q (known: apiVersion, name, tags, checks, tier, conflicts)", i+2, key)
+			return b, fmt.Errorf("frontmatter line %d: unknown key %q (known: apiVersion, name, tags, checks, fixes, tier, conflicts)", i+2, key)
 		}
 	}
 	b.Body = strings.TrimLeft(rest[end+len("\n---\n"):], "\n")
@@ -210,7 +216,7 @@ func (s *Service) SyncStockGuidance(ctx context.Context) SyncCounts {
 func (s *Service) syncGuidance(ctx context.Context, blocks []StockBlock) SyncCounts {
 	items := make([]SyncItem, 0, len(blocks))
 	for _, b := range blocks {
-		items = append(items, SyncItem{Name: b.Name, Content: GuidanceKey(b.Body, b.ChecksJSON), Data: b})
+		items = append(items, SyncItem{Name: b.Name, Content: GuidanceKey(b.Body, b.ChecksJSON, b.FixesJSON), Data: b})
 	}
 	block := func(it SyncItem) StockBlock { return it.Data.(StockBlock) }
 	kind := SyncKind{

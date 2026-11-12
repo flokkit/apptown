@@ -47,6 +47,7 @@ type routinePublication struct {
 	Source        string               `json:"source"`
 	Signer        string               `json:"signer"`
 	Body          string               `json:"body,omitempty"`
+	Fixes         json.RawMessage      `json:"fixes,omitempty"`
 	Checks        json.RawMessage      `json:"checks,omitempty"`
 	Spec          json.RawMessage      `json:"spec,omitempty"`
 	Declaration   json.RawMessage      `json:"declaration,omitempty"`
@@ -93,6 +94,10 @@ func routinePublicationIn(ctx context.Context, q database.Queryer, kind string, 
 			return p, database.Missing(err)
 		}
 		p.Name, p.PublicationID, p.Source, p.Signer, p.Body = owner.Name, row.ID, row.Source, row.Signer, row.BodyMd
+		p.Fixes, err = routineJSONBytes(row.FixesJson)
+		if err != nil {
+			return p, err
+		}
 		p.Checks, err = routineJSONBytes(row.ChecksJson)
 		if err != nil {
 			return p, err
@@ -204,6 +209,9 @@ func routinePublicationDelta(before, after routinePublication) (bool, string) {
 	}
 	switch before.Kind {
 	case "block":
+		if !bytes.Equal(before.Fixes, after.Fixes) {
+			return false, "executable fix definitions changed"
+		}
 		if !bytes.Equal(before.Checks, after.Checks) {
 			return false, "executable check definitions changed"
 		}

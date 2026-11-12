@@ -64,8 +64,8 @@ func TestTakeDownRevokesTheDeploymentsKey(t *testing.T) {
 			}
 			switch scenario {
 			case "revoked":
-				if len(f.Keys()) != 0 || len(keyRows) != 0 || !strings.Contains(strings.Join(result.Deleted, ","), "AI models key forge-config-prod-") {
-					t.Fatalf("revoked: keys %d, rows %+v, deleted %v", len(f.Keys()), keyRows, result.Deleted)
+				if len(f.Keys()) != 0 || len(keyRows) != 0 || !strings.Contains(strings.Join(result.deleted, ","), "AI models key forge-config-prod-") {
+					t.Fatalf("revoked: keys %d, rows %+v, deleted %v", len(f.Keys()), keyRows, result.deleted)
 				}
 				if _, _, err := s.secrets.Vault.Get(t.Context(), "llm:deployment:"+itoa(dep.ID), integration.LLMKeyName); !errors.Is(err, secret.ErrNotStored) {
 					t.Fatalf("the stored key goes with it: %v", err)
@@ -74,7 +74,7 @@ func TestTakeDownRevokesTheDeploymentsKey(t *testing.T) {
 				if len(f.Keys()) != 1 || len(keyRows) != 1 || keyRows[0].Handle["hash"] == "" || !strings.Contains(keyRows[0].Handle["why"].(string), "500") {
 					t.Fatalf("a failed revoke is left: keys %d, rows %+v", len(f.Keys()), keyRows)
 				}
-				if strings.Contains(strings.Join(result.Deleted, ","), "AI models key") {
+				if strings.Contains(strings.Join(result.deleted, ","), "AI models key") {
 					t.Fatal("a key not revoked was called deleted")
 				}
 			}
@@ -93,8 +93,8 @@ func TestACopysTakeDownDeletesItsDataWithoutABackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.FinalBackup != nil {
-		t.Fatalf("a final backup of synthetic data: %+v", result.FinalBackup)
+	if result.finalBackup != nil {
+		t.Fatalf("a final backup of synthetic data: %+v", result.finalBackup)
 	}
 	cmds := commandsOf(client)
 	if slices.IndexFunc(cmds, func(c string) bool { return strings.Contains(c, "c-pg sh -c pg_dump") }) >= 0 {

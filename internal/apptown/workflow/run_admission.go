@@ -132,7 +132,8 @@ type changeLandingReceipt struct {
 	Change ids.ID `json:"change"`
 }
 type calledRunEvidence struct {
-	ChildRunID ids.ID `json:"childRunId"`
+	Targets    json.RawMessage `json:"targets,omitempty"`
+	ChildRunID ids.ID          `json:"childRunId"`
 	// ChildRunNumber names the child to people; evidence written before
 	// runs were numbered does not carry it.
 	ChildRunNumber  int64  `json:"childRunNumber"`

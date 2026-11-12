@@ -69,7 +69,7 @@ const list = (l: ScheduleList) => new Response(JSON.stringify(l))
 const schedule = { source: { workflow: 'dependency-uplift', version: 3 }, cron: '0 6 1 * *', timeZone: 'UTC', skipIfActive: true, due: false }
 
 it('shows each schedule\'s cadence, next firing and last firing, and no last firing before the first', async () => {
-  const opened = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z', last: { at: '2026-10-01T06:00:00Z', outcome: 'opened', changeId: CHANGE, changeNumber: 12 } }] }))
+  const opened = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z', last: { origin: 'dependency-uplift', ruleRevision: 0, at: '2026-10-01T06:00:00Z', outcome: 'opened', changeId: CHANGE, changeNumber: 12 } }] }))
   expect(opened.text).toContain('dependency-uplift')
   expect(opened.text).toContain('monthly, 1st at 17:00')
   expect(opened.html).toContain('title="cron 0 6 1 * * (UTC)"')
@@ -77,9 +77,9 @@ it('shows each schedule\'s cadence, next firing and last firing, and no last fir
   expect(opened.html).toContain(`href="/changes/${CHANGE}"`)
   expect(opened.text).toContain('1 Oct, 16:00 · change 12')
 
-  const skipped = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z', last: { at: '2026-10-01T06:00:00Z', outcome: 'skipped', changeNumber: 0 } }] }))
+  const skipped = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z', last: { origin: 'dependency-uplift', ruleRevision: 0, at: '2026-10-01T06:00:00Z', outcome: 'skipped', changeNumber: 0 } }] }))
   expect(skipped.text).toContain('skipped: previous run still active')
-  const failed = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z', last: { at: '2026-10-01T06:00:00Z', outcome: 'failed', changeNumber: 0 } }] }))
+  const failed = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z', last: { origin: 'dependency-uplift', ruleRevision: 0, at: '2026-10-01T06:00:00Z', outcome: 'failed', changeNumber: 0 } }] }))
   expect(failed.details).toContain('could not start')
   const never = await rows(list({ evalCopy: false, schedules: [{ ...schedule, next: '2026-11-01T06:00:00Z' }] }))
   expect(never.text).not.toContain('last')

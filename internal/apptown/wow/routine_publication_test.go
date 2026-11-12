@@ -26,6 +26,7 @@ func TestRoutinePublicationOnlyChangesDisplayedGuidance(t *testing.T) {
 		name   string
 		mutate func(*routinePublication)
 	}{
+		{"fix command", func(p *routinePublication) { p.Fixes = json.RawMessage(`[{"kind":"update","run":"touch changed"}]`) }},
 		{"owner", func(p *routinePublication) { p.ID = idstest.N(9) }},
 		{"source", func(p *routinePublication) { p.Source = "another-publisher" }},
 		{"check removed", func(p *routinePublication) { p.Checks = json.RawMessage(`[]`) }},

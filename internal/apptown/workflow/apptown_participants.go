@@ -123,10 +123,13 @@ const (
 // ScheduleRecord is a schedule's firing record: when it last fired (or was
 // armed) and what that did. ChangeID is the change an opened firing made.
 type ScheduleRecord struct {
-	Workflow string
-	At       time.Time
-	Outcome  ScheduleOutcome
-	ChangeID ids.ID
+	Origin       string
+	RuleID       ids.ID
+	RuleRevision int64
+	Workflow     string
+	At           time.Time
+	Outcome      ScheduleOutcome
+	ChangeID     ids.ID
 	// ChangeNumber names ChangeID within the project; 0 when none or gone.
 	ChangeNumber int64
 }
@@ -149,7 +152,7 @@ func ScheduleRecordsIn(ctx context.Context, q database.Queryer, project ids.ID) 
 	}
 	out := make(map[string]ScheduleRecord, len(rows))
 	for _, r := range rows {
-		out[r.WorkflowName] = ScheduleRecord{Workflow: r.WorkflowName, At: r.LastFiredAt, Outcome: ScheduleOutcome(r.LastOutcome), ChangeID: r.LastChangeID, ChangeNumber: r.LastChangeNumber}
+		out[r.WorkflowName] = ScheduleRecord{Origin: r.WorkflowName, Workflow: r.WorkflowName, At: r.LastFiredAt, Outcome: ScheduleOutcome(r.LastOutcome), ChangeID: r.LastChangeID, ChangeNumber: r.LastChangeNumber}
 	}
 	return out, nil
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/yamlkeys"
 )
 
@@ -122,6 +123,56 @@ func TestWorkflowSchemaGivesEachStepKindItsOptions(t *testing.T) {
 		}
 		if len(described) != len(SupportedSteps) {
 			t.Errorf("%s: schema describes %d kinds, AppTown runs %d", list, len(described), len(SupportedSteps))
+		}
+	}
+}
+
+// Editors and save-time validation consume the same kind registration.
+func TestFixKindsComeFromRegistration(t *testing.T) {
+	t.Parallel()
+	var document any
+	if err := json.Unmarshal(WorkflowJSONSchema, &document); err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	var visit func(any)
+	visit = func(value any) {
+		switch v := value.(type) {
+		case map[string]any:
+			if properties, ok := v["properties"].(map[string]any); ok {
+				if _, targeted := properties["for"]; targeted {
+					if kind, ok := properties["kind"].(map[string]any); ok {
+						raw, _ := json.Marshal(kind["enum"])
+						var names []string
+						if err := json.Unmarshal(raw, &names); err != nil {
+							t.Fatal(err)
+						}
+						if !slices.Equal(names, fix.Names()) {
+							t.Fatalf("editor kinds %v, registered %v", names, fix.Names())
+						}
+						found++
+					}
+				}
+			}
+			for _, child := range v {
+				visit(child)
+			}
+		case []any:
+			for _, child := range v {
+				visit(child)
+			}
+		}
+	}
+	visit(document)
+	if found != 2 {
+		t.Fatalf("found %d fix declarations, want onEnter and steps", found)
+	}
+	for _, kind := range append(fix.Names(), "unregistered") {
+		spec := Spec{Kind: "pipeline", Role: "working", Stages: []Stage{{Name: "work", Steps: []Step{{Name: "fix", Uses: "fix", With: map[string]any{"kind": kind}}}}}}
+		err := (&Doc{APIVersion: "apptown/v1", Kind: "Workflow", Metadata: Metadata{Name: "test"}, Spec: spec}).Validate()
+		_, registered := fix.Lookup(kind)
+		if (err == nil) != registered {
+			t.Fatalf("kind %q: registered=%v error=%v", kind, registered, err)
 		}
 	}
 }

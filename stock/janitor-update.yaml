@@ -1,0 +1,46 @@
+apiVersion: apptown.dev/v1
+kind: Workflow
+metadata:
+  name: janitor-update
+  tier: core
+  category: maintenance
+  description: Apply declared dependency updates and check the result.
+spec:
+  kind: pipeline
+  role: working
+  on:
+    schedule: {cron: "0 6 * * 1", queue: updates}
+  stages:
+    - name: update
+      onEnter:
+        - name: update
+          uses: fix
+          with: {kind: update}
+      steps:
+        - name: repair
+          uses: agent/pi
+          with:
+            repairRounds: 2
+            mayChangeNothing: true
+            skills: [skill/janitor]
+            prompt: Make the failing check pass within this change’s intent. Write the code this update needs and run its checks. Never widen the change.
+        - name: tests
+          uses: tests
+        - name: boot
+          uses: preview
+        - name: scan-source
+          uses: scan
+          with: {on: source}
+        - name: scan-image
+          uses: scan
+          with: {on: image}
+        - name: routine
+          uses: routine
+        - name: accept
+          uses: approval
+          with:
+            approvers: ["role:project-approver"]
+            means: I accept this dependency update and its application repairs after checking the evidence.
+            standing:
+              class: routine-update
+              means: The declared dependency update stays within the selected bound and every required check is met.

@@ -232,7 +232,7 @@ func (d *dispatcher) execute(plan DispatchPlan) bool {
 				go func() {
 					defer wg.Done()
 					defer d.reportPanic("workflow scan dispatch")
-					ok[j] = d.executeStep(plan.RunID, step, plan.ObserveOnly)
+					ok[j] = d.executeStep(plan.RunID, step, plan.ObserveOnly || plan.ObservedSteps[step.ID])
 				}()
 			}
 			wg.Wait()
@@ -244,7 +244,7 @@ func (d *dispatcher) execute(plan DispatchPlan) bool {
 			i += len(group) - 1
 			continue
 		}
-		ok := d.executeStep(plan.RunID, step, plan.ObserveOnly)
+		ok := d.executeStep(plan.RunID, step, plan.ObserveOnly || plan.ObservedSteps[step.ID])
 		if !ok {
 			return false
 		}

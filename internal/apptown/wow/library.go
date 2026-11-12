@@ -191,7 +191,7 @@ func (s *library) Create(ctx context.Context, name, body, tags, who string) (*Bl
 			return err
 		}
 		block = blockRecord(r)
-		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: 1, Body: body, Checks: []byte("[]"), At: now, Source: authoredHere.Source, Signer: authoredHere.Signer}); err != nil {
+		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: 1, Body: body, Checks: []byte("[]"), Fixes: []byte("[]"), At: now, Source: authoredHere.Source, Signer: authoredHere.Signer}); err != nil {
 			return err
 		}
 		return audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "guidance.block.created", name, map[string]any{"blockId": r.ID})
@@ -225,7 +225,11 @@ func (s *library) Bump(ctx context.Context, id ids.ID, body, checksJSON, who, na
 		if err != nil {
 			return err
 		}
-		return bumpBlockIn(ctx, tx, r, body, checksJSON, who, s.now())
+		v, err := q.BlockVersion(ctx, wowsql.BlockVersionParams{BlockID: id, Version: r.LatestVersion})
+		if err != nil {
+			return err
+		}
+		return bumpBlockIn(ctx, tx, r, body, checksJSON, string(v.FixesJson), who, s.now())
 	})
 }
 

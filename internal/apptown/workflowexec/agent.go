@@ -39,14 +39,15 @@ const agentTimeout = 15 * time.Minute
 const maxAgentOutput = 24 * 1024
 
 type agentConfig struct {
-	Prompt    string               `json:"prompt"`
-	Model     string               `json:"model"`    // "provider/model-pattern"; empty = workflow default, then apptownd default, then pi default
-	Thinking  string               `json:"thinking"` // off|minimal|low|medium|high
-	Executor  string               `json:"executor"` // docker, the only value; validation refuses any other
-	Image     string               `json:"image"`    // docker image; empty = apptownd default
-	Scm       integration.SCMGrant `json:"scm"`      // false | true(=read) | "read" | "write" — project-scoped GitLab token
-	Skills    []string             `json:"skills"`   // guidance block names, conventionally skill/*
-	Resources []string             `json:"resources"`
+	RepairRounds int                  `json:"repairRounds"`
+	Prompt       string               `json:"prompt"`
+	Model        string               `json:"model"`    // "provider/model-pattern"; empty = workflow default, then apptownd default, then pi default
+	Thinking     string               `json:"thinking"` // off|minimal|low|medium|high
+	Executor     string               `json:"executor"` // docker, the only value; validation refuses any other
+	Image        string               `json:"image"`    // docker image; empty = apptownd default
+	Scm          integration.SCMGrant `json:"scm"`      // false | true(=read) | "read" | "write" — project-scoped GitLab token
+	Skills       []string             `json:"skills"`   // guidance block names, conventionally skill/*
+	Resources    []string             `json:"resources"`
 	// Requires names project-scoped artifact kinds that MUST exist before this
 	// step runs — the same kinds a ${{latest.<kind>}} prompt reference reads.
 	// Absent, the step fails loudly before spawning the agent instead of

@@ -2,9 +2,7 @@ package apptown
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -26,6 +24,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -457,6 +456,10 @@ func TestRoutineUpliftCombinesActualAdoptionAndCommittedNPMSource(t *testing.T) 
 	beforeManifest, beforeLock := snapshot("1.0.0")
 	afterManifest, afterLock := snapshot("1.0.1")
 	git(repo, "init", "-b", "main")
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	write(repo, ".apptown/app.yaml", "app:\n  web:\n    build: .\n    public: true\n    tools: [node]\n")
 	write(repo, "package.json", beforeManifest)
 	write(repo, "package-lock.json", beforeLock)
 	git(repo, "add", ".")
@@ -472,7 +475,12 @@ func TestRoutineUpliftCombinesActualAdoptionAndCommittedNPMSource(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = a.Adoption.ReplaceGuidance(ctx, p.ID, &current.Revision, []wow.ResolvedPin{{Name: block.Name, BlockID: block.ID, Version: 1}}, "adopt guidance", "boss"); err != nil {
+	a.Ways.SyncStockGuidance(ctx)
+	node, err := a.Ways.BlockByName(ctx, "lang/node/dependency-updates")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = a.Adoption.ReplaceGuidance(ctx, p.ID, &current.Revision, []wow.ResolvedPin{{Name: block.Name, BlockID: block.ID, Version: 1}, {Name: node.Name, BlockID: node.ID, Version: node.LatestVersion}}, "adopt guidance", "boss"); err != nil {
 		t.Fatal(err)
 	}
 	if err = a.Ways.BumpBlock(ctx, block.ID, "Clearer guidance.", "[]", "boss", block.Name); err != nil {
@@ -485,7 +493,7 @@ func TestRoutineUpliftCombinesActualAdoptionAndCommittedNPMSource(t *testing.T) 
 	if _, err = a.routinePublications.Classify(ctx, wow.RoutinePublicationConsent{RequestID: ids.New(time.Now()), Transition: question.Transition, ShownDigest: question.Digest}); err != nil {
 		t.Fatal(err)
 	}
-	candidate, err := a.Adoption.Prepare(ctx, p.ID, adoption.Request{Additions: []string{block.Name + "@2"}})
+	candidate, err := a.Adoption.Prepare(ctx, p.ID, adoption.Request{Additions: []string{block.Name + "@2", fmt.Sprintf("%s@%d", node.Name, node.LatestVersion)}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -511,23 +519,30 @@ func TestRoutineUpliftCombinesActualAdoptionAndCommittedNPMSource(t *testing.T) 
 	git(workspace, "add", ".")
 	git(workspace, "commit", "-m", "bounded dependency update")
 	git(workspace, "push", repo, "HEAD:refs/heads/"+source.Branch)
-	hash := func(s string) string { sum := sha256.Sum256([]byte(s)); return hex.EncodeToString(sum[:]) }
-	side := func(manifest, lock, version string) map[string]any {
-		hashes := []string{hash(manifest), hash(lock)}
-		return map[string]any{"input": hashes, "output": hashes, "installed": map[string]string{"node_modules/example": fmt.Sprintf(`{"name":"example","version":"%s"}`, version)}}
-	}
-	report, err := json.Marshal(map[string]any{"node": "v24.0.0", "npm": "11.0.0", "platform": "linux/arm64", "before": side(beforeManifest, beforeLock, "1.0.0"), "after": side(afterManifest, afterLock, "1.0.1")})
-	if err != nil {
-		t.Fatal(err)
-	}
 	executions := 0
 	executor := verification.Executor{Local: true, AgentImage: "test-agent", Image: func(context.Context, execution.ImageRequest) execution.ImageAnswer {
 		return execution.ImageAnswer{ID: "sha256:" + strings.Repeat("a", 64)}
-	}, Run: func(context.Context, execution.Request) execution.Outcome {
+	}, Run: func(_ context.Context, req execution.Request) execution.Outcome {
 		executions++
+		raw, err := os.ReadFile(filepath.Join(req.Workspace, "package-lock.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var lock struct {
+			Packages map[string]struct {
+				Version string `json:"version"`
+			} `json:"packages"`
+		}
+		if err := json.Unmarshal(raw, &lock); err != nil {
+			t.Fatal(err)
+		}
+		report, err := json.Marshal(fix.Listing{Ecosystem: "npm", Package: "example", Version: lock.Packages["node_modules/example"].Version, Source: "registry", Attributes: map[string]any{}})
+		if err != nil {
+			t.Fatal(err)
+		}
 		return execution.Outcome{Termination: execution.Exited, ExitCode: 0, Report: report}
 	}}
-	standing := workflow.NewStandingRules(a.DB, workflow.StandingDependencies{Adoptions: a.Adoption, Inspector: verification.NewRoutineInspector(a.cfg.dataDir, &a.repositories, executor), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Lanes: a.lifecycle, Laws: workflowLawRules{}}, Destinations: standingDestinations{}})
+	standing := workflow.NewStandingRules(a.DB, workflow.StandingDependencies{Adoptions: a.Adoption, Inspector: verification.NewRoutineInspector(a.cfg.dataDir, &a.repositories, executor).WithFixes(a.DB, a.Adoption), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Lanes: a.lifecycle, Laws: workflowLawRules{}}, Destinations: standingDestinations{}})
 	definition := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: p.ID, Workflow: "routine-work"}}, Categories: workflow.StandingCategories{Dependencies: "patch", WaysOfWorking: true}, Delivery: "land-only"}
 	preview, err := standing.Preview(ctx, definition)
 	if err != nil {
@@ -538,7 +553,7 @@ func TestRoutineUpliftCombinesActualAdoptionAndCommittedNPMSource(t *testing.T) 
 		t.Fatal(err)
 	}
 	result, err := standing.Assess(ctx, rule.RuleID, run.ID)
-	if err != nil || result.Inspection.Classification != "routine-dependency-and-adoption" || result.Adoption == nil || len(result.Adoption.Classifications) != 1 || result.ProcessingAvailable || executions != 1 {
+	if err != nil || result.Inspection.Classification != "routine-dependency-and-adoption" || result.Adoption == nil || len(result.Adoption.Classifications) != 1 || result.ProcessingAvailable || executions != 2 {
 		t.Fatalf("assembled mixed update: %+v %v executions=%d", result, err, executions)
 	}
 	definition.Categories.Dependencies = ""
@@ -551,15 +566,15 @@ func TestRoutineUpliftCombinesActualAdoptionAndCommittedNPMSource(t *testing.T) 
 		t.Fatal(err)
 	}
 	result, err = standing.Assess(ctx, restricted.RuleID, run.ID)
-	if err != nil || result.Inspection.Classification != "requires-person" || executions != 1 {
+	if err != nil || result.Inspection.Classification != "requires-person" || executions != 2 {
 		t.Fatalf("disabled source category escaped: %+v %v executions=%d", result, err, executions)
 	}
-	write(workspace, "unrelated.txt", "application behavior outside the classified update")
+	write(workspace, "repair.txt", "application repair judged by the workflow checks")
 	git(workspace, "add", ".")
 	git(workspace, "commit", "-m", "unrelated edit")
 	git(workspace, "push", repo, "HEAD:refs/heads/"+source.Branch)
 	result, err = standing.Assess(ctx, rule.RuleID, run.ID)
-	if err != nil || result.Inspection.Classification != "requires-person" || executions != 1 {
-		t.Fatalf("adoption hid unrelated source: %+v %v executions=%d", result, err, executions)
+	if err != nil || result.Inspection.Classification != "routine-dependency-and-adoption" || executions != 4 {
+		t.Fatalf("application repair was refused: %+v %v executions=%d", result, err, executions)
 	}
 }

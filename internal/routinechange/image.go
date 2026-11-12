@@ -1,3 +1,4 @@
+// Package routinechange classifies supported changes to pinned container images.
 package routinechange
 
 import (

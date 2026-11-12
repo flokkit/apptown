@@ -46,8 +46,8 @@ LOCK TABLE packs IN SHARE ROW EXCLUSIVE MODE;
 INSERT INTO guidance_blocks(id, name,tags,latest_version,origin,created_at,updated_at,tier,conflicts)
 VALUES(sqlc.arg(id), sqlc.arg(name),sqlc.arg(tags),1,sqlc.arg(origin),sqlc.arg(at),sqlc.arg(at),sqlc.arg(tier),sqlc.arg(conflicts)) RETURNING *;
 -- name: InsertBlockVersion :one
-INSERT INTO guidance_block_versions(id, block_id,version,body_md,checks_json,created_at,source,signer)
-VALUES(sqlc.arg(id), sqlc.arg(block_id),sqlc.arg(version),sqlc.arg(body),sqlc.arg(checks),sqlc.arg(at),sqlc.arg(source),sqlc.arg(signer)) RETURNING *;
+INSERT INTO guidance_block_versions(id, block_id,version,body_md,checks_json,fixes_json,created_at,source,signer)
+VALUES(sqlc.arg(id), sqlc.arg(block_id),sqlc.arg(version),sqlc.arg(body),sqlc.arg(checks),sqlc.arg(fixes),sqlc.arg(at),sqlc.arg(source),sqlc.arg(signer)) RETURNING *;
 -- name: SetBlockTags :execrows
 UPDATE guidance_blocks SET tags=sqlc.arg(tags),updated_at=sqlc.arg(at) WHERE id=sqlc.arg(id);
 -- name: AdvanceBlockVersion :execrows

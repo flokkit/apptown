@@ -29,6 +29,7 @@ func newDispatchPlans(db *database.DB, automatic []string) dispatchPlans {
 }
 
 type DispatchPlan struct {
+	ObservedSteps    map[ids.ID]bool
 	RunID            ids.ID
 	Steps            []ReadyStep
 	Pending          int
@@ -119,6 +120,10 @@ func (w dispatchPlans) Plan(ctx context.Context, runID ids.ID) (DispatchPlan, er
 			plan.ObserveOnly = false
 		}
 	}
+	plan.ObservedSteps, err = observedSteps(stage, steps)
+	if err != nil {
+		return plan, err
+	}
 	for _, step := range steps {
 		if step.Stage != run.CurrentStage || !slices.Contains(w.automatic, step.Type) {
 			continue
@@ -202,6 +207,46 @@ func restartOrphan(step *Step) bool {
 	return step.Status == StatusError && json.Unmarshal(step.Evidence, &evidence) == nil && evidence.Reason == "orphaned by apptownd restart"
 }
 
+// observedSteps identifies discovery checks whose verdicts inform later work.
+func observedSteps(stage *schema.Stage, steps []*Step) (map[ids.ID]bool, error) {
+	observations := map[ids.ID]bool{}
+	if stage.Gate != nil && len(stage.Gate.Require) > 0 {
+		for _, observed := range steps {
+			if observed.Type != "scan" {
+				continue
+			}
+			required := false
+			for _, name := range stage.Gate.Require {
+				if observed.Name == name || strings.HasPrefix(observed.Name, name+":") {
+					required = true
+				}
+			}
+			if !required {
+				observations[observed.ID] = true
+			}
+		}
+	}
+	for _, caller := range steps {
+		if caller.Type != "workflow/call" {
+			continue
+		}
+		var cfg struct {
+			WhenFailed []string `json:"whenFailed"`
+		}
+		if err := json.Unmarshal(caller.Config, &cfg); err != nil {
+			return nil, err
+		}
+		for _, name := range cfg.WhenFailed {
+			for _, observed := range steps {
+				if observed.Name == name || strings.HasPrefix(observed.Name, name+":") {
+					observations[observed.ID] = true
+				}
+			}
+		}
+	}
+	return observations, nil
+}
+
 // dispatchSettled is the dispatcher's prerequisite rule. A conditional skip has
 // no work to finish, just as a step whose subject does not apply has none.
 func dispatchSettled(status StepState) bool { return status.passesGate() }
@@ -212,11 +257,27 @@ func dispatchReady(ctx context.Context, db database.Queryer, step *Step) (bool, 
 	if err != nil {
 		return false, err
 	}
+	run, err := readRun(ctx, db, step.RunID)
+	if err != nil {
+		return false, err
+	}
+	spec, err := run.Definition()
+	if err != nil {
+		return false, err
+	}
+	stage, _ := spec.Stage(step.Stage)
+	if stage == nil {
+		return false, fmt.Errorf("stage %q is missing from the pinned definition", step.Stage)
+	}
+	observed, err := observedSteps(stage, steps)
+	if err != nil {
+		return false, err
+	}
 	for _, earlier := range steps {
 		if earlier.ID == step.ID {
 			return true, nil
 		}
-		if !dispatchSettled(earlier.Status) {
+		if !dispatchSettled(earlier.Status) && !(observed[earlier.ID] && (earlier.Status == StatusFail || earlier.Status == StatusError)) {
 			return false, nil
 		}
 	}

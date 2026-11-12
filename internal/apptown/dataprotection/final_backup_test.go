@@ -121,10 +121,10 @@ func TestTakeDownBacksUpWhatTheDeploymentHoldsThenDeletesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.FinalBackup == nil || result.FinalBackup.Bytes == 0 {
+	if result.finalBackup == nil || result.finalBackup.Bytes == 0 {
 		t.Fatalf("no final set: %+v", result)
 	}
-	b, err := s.backups.ByID(context.Background(), dep.ProjectID, dep.Name, result.FinalBackup.ID)
+	b, err := s.backups.ByID(context.Background(), dep.ProjectID, dep.Name, result.finalBackup.ID)
 	if err != nil || b.Trigger != triggerTakeDown || b.Status != BackupOK || b.goodCopy("need", "postgres") == nil || b.goodCopy("volume", hostNamesOf(t, dep, "fbk").DataVolume()) == nil {
 		t.Fatalf("final set: %+v %v", b, err)
 	}
@@ -263,7 +263,7 @@ func TestFinalBackupsAreKeptUntilTheProjectIsPurged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, _ := s.backups.ByID(context.Background(), dep.ProjectID, dep.Name, result.FinalBackup.ID)
+	b, _ := s.backups.ByID(context.Background(), dep.ProjectID, dep.Name, result.finalBackup.ID)
 	// Newer sets under the same name (a deployment made again) push out
 	// the old ones past BackupKeep, never the final set.
 	root := filepath.Dir(filepath.Dir(filepath.Dir(b.Path)))
@@ -395,7 +395,7 @@ func TestAFinalSetRestoresIntoAnotherDeploymentByRole(t *testing.T) {
 				}
 				return nil, nil, false
 			})
-			res, err := s.restoreBackup(context.Background(), nil, dep.ProjectID, "main", result.FinalBackup.ID, "alice", false)
+			res, err := s.restoreBackup(context.Background(), nil, dep.ProjectID, "main", result.finalBackup.ID, "alice", false)
 			if scenario == "no postgres" {
 				if !errors.Is(err, errRestoreMismatch) || !strings.Contains(err.Error(), "postgres") {
 					t.Fatalf("restore into a deployment without postgres: %v %v", res, err)
@@ -657,10 +657,10 @@ func TestAVolumeOffTheListIsCopiedKeptAndRetained(t *testing.T) {
 				return nil, err
 			})
 			result, err := s.Remove(context.Background(), removeSelection(dep))
-			if err != nil || result.FinalBackup == nil {
+			if err != nil || result.finalBackup == nil {
 				t.Fatalf("take-down: %+v %v", result, err)
 			}
-			b, err := s.backups.ByID(context.Background(), dep.ProjectID, dep.Name, result.FinalBackup.ID)
+			b, err := s.backups.ByID(context.Background(), dep.ProjectID, dep.Name, result.finalBackup.ID)
 			if err != nil {
 				t.Fatal(err)
 			}

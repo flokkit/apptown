@@ -277,7 +277,7 @@ func (q *Queries) BlockByNameForUpdate(ctx context.Context, name string) (Guidan
 }
 
 const blockVersion = `-- name: BlockVersion :one
-SELECT id, block_id, version, body_md, checks_json, created_at, source, signer FROM guidance_block_versions WHERE block_id=$1 AND version=$2
+SELECT id, block_id, version, body_md, checks_json, created_at, source, signer, fixes_json FROM guidance_block_versions WHERE block_id=$1 AND version=$2
 `
 
 type BlockVersionParams struct {
@@ -297,12 +297,13 @@ func (q *Queries) BlockVersion(ctx context.Context, arg BlockVersionParams) (Gui
 		&i.CreatedAt,
 		&i.Source,
 		&i.Signer,
+		&i.FixesJson,
 	)
 	return i, err
 }
 
 const blockVersionAsOf = `-- name: BlockVersionAsOf :one
-SELECT id, block_id, version, body_md, checks_json, created_at, source, signer FROM guidance_block_versions WHERE block_id=$1 AND created_at<=$2 ORDER BY version DESC LIMIT 1
+SELECT id, block_id, version, body_md, checks_json, created_at, source, signer, fixes_json FROM guidance_block_versions WHERE block_id=$1 AND created_at<=$2 ORDER BY version DESC LIMIT 1
 `
 
 type BlockVersionAsOfParams struct {
@@ -322,6 +323,7 @@ func (q *Queries) BlockVersionAsOf(ctx context.Context, arg BlockVersionAsOfPara
 		&i.CreatedAt,
 		&i.Source,
 		&i.Signer,
+		&i.FixesJson,
 	)
 	return i, err
 }
@@ -580,8 +582,8 @@ func (q *Queries) InsertBlock(ctx context.Context, arg InsertBlockParams) (Guida
 }
 
 const insertBlockVersion = `-- name: InsertBlockVersion :one
-INSERT INTO guidance_block_versions(id, block_id,version,body_md,checks_json,created_at,source,signer)
-VALUES($1, $2,$3,$4,$5,$6,$7,$8) RETURNING id, block_id, version, body_md, checks_json, created_at, source, signer
+INSERT INTO guidance_block_versions(id, block_id,version,body_md,checks_json,fixes_json,created_at,source,signer)
+VALUES($1, $2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, block_id, version, body_md, checks_json, created_at, source, signer, fixes_json
 `
 
 type InsertBlockVersionParams struct {
@@ -590,6 +592,7 @@ type InsertBlockVersionParams struct {
 	Version int64
 	Body    string
 	Checks  json.RawMessage
+	Fixes   json.RawMessage
 	At      time.Time
 	Source  string
 	Signer  string
@@ -602,6 +605,7 @@ func (q *Queries) InsertBlockVersion(ctx context.Context, arg InsertBlockVersion
 		arg.Version,
 		arg.Body,
 		arg.Checks,
+		arg.Fixes,
 		arg.At,
 		arg.Source,
 		arg.Signer,
@@ -616,6 +620,7 @@ func (q *Queries) InsertBlockVersion(ctx context.Context, arg InsertBlockVersion
 		&i.CreatedAt,
 		&i.Source,
 		&i.Signer,
+		&i.FixesJson,
 	)
 	return i, err
 }

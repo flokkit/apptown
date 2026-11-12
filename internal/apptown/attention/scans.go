@@ -3,6 +3,7 @@ package attention
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -30,5 +31,30 @@ func (s Scans) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, error)
 	if !scans.Known {
 		out.Items = append(out.Items, Item{Key: "scans/" + id.String(), Severity: SeverityWarning, Title: fmt.Sprintf("%s: scan not known", p.Name), Detail: "A scan is missing, could not run, or is older than three days.", Href: href, Unknown: true, Stale: scans.Stale, ObservedAt: scans.LastScan})
 	}
+	for _, queue := range []string{"security", "updates"} {
+		state, err := s.Work.QueueState(ctx, id, queue)
+		if err != nil {
+			return Snapshot{}, err
+		}
+		if state.State == "stuck" || state.State == "stopped" {
+			title := fmt.Sprintf("%s: %s stuck since %s", p.Name, queue, state.Since.Format("2 Jan"))
+			if state.State == "stopped" {
+				title = fmt.Sprintf("%s: %s stopped after %d failed tries", p.Name, queue, state.Failed)
+			}
+			out.Items = append(out.Items, Item{Key: "queue/" + id.String() + "/" + queue, Severity: SeverityWarning, Title: title, Detail: queueDetail(state), Href: href, ObservedAt: state.Since})
+		}
+	}
 	return out, nil
+}
+
+func queueDetail(state workflow.QueueStatus) string {
+	detail := state.Reason
+	var packages []string
+	for _, p := range state.Packages {
+		packages = append(packages, fmt.Sprintf("%s %s → %s", p.Package, p.From, p.To))
+	}
+	if len(packages) > 0 {
+		detail += " · moved: " + strings.Join(packages, ", ")
+	}
+	return detail
 }

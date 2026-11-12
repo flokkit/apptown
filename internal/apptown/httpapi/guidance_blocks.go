@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/fix"
 )
 
 type GuidanceBlocks struct {
@@ -92,7 +93,20 @@ func (h GuidanceBlocks) GetBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	checks, _ := h.blockVersionChecks(r.Context(), id, version)
-	WriteJSON(w, 200, GuidanceBlockDetail{Block: *b, ShownVersion: version, Versions: versions, UsedBy: uses, Checks: checks})
+	publication, err := h.ways.Block(r.Context(), wow.BlockRef{ID: id, Version: version})
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	fixes, err := fix.Parse(publication.FixesJSON)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	if fixes == nil {
+		fixes = []fix.Declaration{}
+	}
+	WriteJSON(w, 200, GuidanceBlockDetail{Block: *b, ShownVersion: version, Versions: versions, UsedBy: uses, Checks: checks, Fixes: fixes})
 }
 
 // PatchBlock updates tags in place; a body or checks change appends a
@@ -125,6 +139,7 @@ func (h GuidanceBlocks) PatchBlock(w http.ResponseWriter, r *http.Request) {
 		BodyMD     *string                         `json:"bodyMd"`
 		Tags       *string                         `json:"tags"`
 		Checks     *[]conformance.CheckDeclaration `json:"checks"`
+		Fixes      *[]fix.Declaration              `json:"fixes"`
 	}) {
 		if err := schema.CheckAPIVersion(in.APIVersion); err != nil {
 			WriteError(w, 400, "%v", err)
@@ -136,7 +151,7 @@ func (h GuidanceBlocks) PatchBlock(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		out, err := h.ways.EditBlock(r.Context(), id, wow.BlockPatch{Tags: in.Tags, BodyMD: in.BodyMD, Checks: in.Checks}, actor(r))
+		out, err := h.ways.EditBlock(r.Context(), id, wow.BlockPatch{Tags: in.Tags, BodyMD: in.BodyMD, Checks: in.Checks, Fixes: in.Fixes}, actor(r))
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -169,4 +184,5 @@ type GuidanceBlockDetail struct {
 	Versions     []wow.BlockVersion             `json:"versions"`
 	UsedBy       []adoption.BlockUse            `json:"usedBy"`
 	Checks       []conformance.CheckDeclaration `json:"checks"`
+	Fixes        []fix.Declaration              `json:"fixes"`
 }
