@@ -46,39 +46,31 @@ func TestPassedOutrightIsEveryCheckPassing(t *testing.T) {
 		{"skipped by a person", &Step{Name: "scan", Type: "scan", Status: StatusSkipped}, false},
 		{"failed", &Step{Name: "scan", Type: "scan", Status: StatusFail}, false},
 	} {
-		if got := passedOutright([]*Step{tc.step}, false) == ""; got != tc.outright {
-			t.Errorf("%s: outright %v, want %v (%q)", tc.name, got, tc.outright, passedOutright([]*Step{tc.step}, false))
+		if got := passedOutright([]*Step{tc.step}) == ""; got != tc.outright {
+			t.Errorf("%s: outright %v, want %v (%q)", tc.name, got, tc.outright, passedOutright([]*Step{tc.step}))
 		}
 	}
 }
 
-// Not applicable meets the condition of a yes in advance only under an
-// approval whose sentence says so (inAdvanceAdmitsNotApplicable): a yes
-// given on a sentence written before not applicable existed keeps the
-// condition it was given on, every check passing.
+// Not applicable with its stated reason meets the condition of a yes in
+// advance, whatever the approval's sentence: it is the one rule
+// (CheckReceipt.Met). A check, or a step, not applicable for no stated
+// reason does not; nor does anything else that is not a pass.
 //
-// Kills: admitting not applicable whatever the approval says, or never.
-func TestNotApplicableMeetsAYesInAdvanceOnlyWhereItsSentenceSaysSo(t *testing.T) {
+// Kills: admitting not applicable only under some sentences, never, or
+// without its reason.
+func TestNotApplicableWithItsReasonMeetsAYesInAdvance(t *testing.T) {
 	t.Parallel()
 	na := &Step{Name: "guidance", Type: "guidance/conformance", Status: StatusPass, Evidence: json.RawMessage(`{"checks":[{"check":"health","verdict":"pass"},{"check":"go-vet","verdict":"not-applicable","detail":"no part is built with go"}]}`)}
 	naStep := &Step{Name: "scan-image:trivy", Type: "scan", Status: StatusNotApplicable, Evidence: json.RawMessage(`{"notApplicable":"the public part is a static site"}`)}
 	for _, steps := range [][]*Step{{na}, {naStep}} {
-		if why := passedOutright(steps, false); why == "" {
-			t.Errorf("%s: not applicable met the old sentence's condition", steps[0].Name)
-		}
-		if why := passedOutright(steps, true); why != "" {
-			t.Errorf("%s: not applicable under a sentence that admits it: %s", steps[0].Name, why)
+		if why := passedOutright(steps); why != "" {
+			t.Errorf("%s: not applicable with its reason did not meet the condition: %s", steps[0].Name, why)
 		}
 	}
-	// Admitting not applicable admits nothing else.
-	if why := passedOutright([]*Step{{Name: "scan", Type: "scan", Status: StatusSkipped}}, true); why == "" {
-		t.Error("a skip met the condition")
-	}
-	cfg := json.RawMessage(`{"means":"m","inAdvance":"every check passing or not applicable","inAdvanceAdmitsNotApplicable":true}`)
-	old := json.RawMessage(`{"means":"m","inAdvance":"every check passing"}`)
-	steps := []*Step{{ID: ids.New(time.Now()), Type: "approval", Config: cfg}, {ID: ids.New(time.Now()), Type: "approval", Config: old}}
-	if !admitsNotApplicable(steps, steps[0].ID) || admitsNotApplicable(steps, steps[1].ID) {
-		t.Error("the deciding approval's own config says whether not applicable is admitted")
+	reasonless := &Step{Name: "guidance", Type: "guidance/conformance", Status: StatusPass, Evidence: json.RawMessage(`{"checks":[{"check":"go-vet","verdict":"not-applicable","detail":"  "}]}`)}
+	if why := passedOutright([]*Step{reasonless}); why == "" {
+		t.Error("not applicable with no reason met the condition")
 	}
 }
 
@@ -165,28 +157,44 @@ func inAdvanceLandingFixture(t *testing.T, declared string, gates ...*Step) (lan
 
 // A yes given in advance counts for the landing's approval only where that
 // approval says what such a yes means and every gate passed outright; the
-// carried vote keeps that meaning.
+// carried vote keeps that meaning. A static site's adoption, whose container
+// checks and image scan are not applicable with their reasons, lands on the
+// yes; a check that errored or could not be assessed still waits for a
+// person. The fixture's sentence does not mention not applicable: the rule
+// is the same under every sentence.
+//
+// Kills: counting not applicable only where the approval opts in, and
+// counting an error or an unassessed check as met.
 func TestAYesInAdvanceCarriesOnlyToAnOutrightLanding(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	passed := &Step{Name: "guidance", Type: "guidance/conformance", Status: StatusPass, Evidence: json.RawMessage(`{"checks":[{"check":"health","verdict":"pass"}]}`)}
 	onMain := &Step{Name: "guidance", Type: "guidance/conformance", Status: StatusPass, Evidence: json.RawMessage(`{"checks":[{"check":"health","verdict":"fail","preexisting":true}]}`)}
 	unassessed := &Step{Name: "guidance", Type: "guidance/conformance", Status: StatusPass, Evidence: json.RawMessage(`{"checks":[{"check":"front-page","verdict":"cannot-assess","apptownFault":true}]}`)}
+	errored := &Step{Name: "guidance", Type: "guidance/conformance", Status: StatusPass, Evidence: json.RawMessage(`{"checks":[{"check":"health","verdict":"pass"},{"check":"dockerfile-lint","verdict":"error"}]}`)}
+	checkErrors := &Step{Name: "guidance", Type: "guidance/conformance", Status: StatusPass, Evidence: json.RawMessage(`{"checks":[{"check":"health","verdict":"pass"}],"checkErrors":1}`)}
+	staticSite := &Step{Name: "guidance", Type: "guidance/conformance", Status: StatusPass, Evidence: json.RawMessage(`{"checks":[{"check":"front-page-answers","verdict":"pass"},` +
+		`{"check":"runs-as-non-root","verdict":"not-applicable","detail":"no part is built from a Dockerfile"},` +
+		`{"check":"memory-declared","verdict":"not-applicable","detail":"no part runs from a build or an image"}]}`)}
+	imageScan := &Step{Name: "scan-image:trivy", Type: "scan", Status: StatusNotApplicable, Evidence: json.RawMessage(`{"notApplicable":"the public part is a static site"}`)}
 	for _, tc := range []struct {
 		name     string
 		declared string
-		gate     *Step
+		gates    []*Step
 		carried  bool
 		reason   string
 	}{
-		{"every gate passed outright", landingInAdvance, passed, true, ""},
-		{"a failure already on main", landingInAdvance, onMain, false, "health was fail"},
-		{"a check AppTown could not run", landingInAdvance, unassessed, false, "front-page was cannot-assess"},
-		{"the approval says nothing of a yes in advance", "", passed, false, "did not show what this approval means"},
+		{"every gate passed outright", landingInAdvance, []*Step{passed}, true, ""},
+		{"a static site's container checks are not applicable", landingInAdvance, []*Step{staticSite, imageScan}, true, ""},
+		{"a failure already on main", landingInAdvance, []*Step{onMain}, false, "health was fail"},
+		{"a check AppTown could not run", landingInAdvance, []*Step{unassessed}, false, "front-page was cannot-assess"},
+		{"a check that errored", landingInAdvance, []*Step{errored}, false, "dockerfile-lint was error"},
+		{"checks that could not run", landingInAdvance, []*Step{checkErrors}, false, "had 1 check error(s)"},
+		{"the approval says nothing of a yes in advance", "", []*Step{passed}, false, "did not show what this approval means"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			store, work, landing := inAdvanceLandingFixture(t, tc.declared, tc.gate)
+			store, work, landing := inAdvanceLandingFixture(t, tc.declared, tc.gates...)
 			if _, err := store.apply(ctx, work.ID, landing.ID); err != nil {
 				t.Fatal(err)
 			}

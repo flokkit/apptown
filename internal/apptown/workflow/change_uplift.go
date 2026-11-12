@@ -145,8 +145,10 @@ func upliftBrief(in Uplift) (string, string) {
 	}
 	body := fmt.Sprintf(`Bring this app onto: %s.
 %s
-WHAT MUST HOLD — every check below re-evaluates to CONFORMS against your change's tree,
-judged outright (they are what the new way of working brings):
+WHAT MUST HOLD — every check below is met on your change's tree: it CONFORMS, or AppTown
+judges it NOT APPLICABLE and says why (a static part has no container to declare). An error
+or a check AppTown could not assess is not met. Never make a check not applicable by removing
+what it judges. These checks are what the new way of working brings:
 %s
 
 NOTHING TO CHANGE is a correct result: when every check above already holds on the base,

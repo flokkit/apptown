@@ -160,7 +160,7 @@ func (s landings) judgeCarry(ctx context.Context, run *Run, steps, all []*Step, 
 		if accepted.InAdvance {
 			// Given before any of it existed, the yes holds only where every
 			// gate passed outright; news alone is not the bar.
-			if why := passedOutright(all, cfg.InAdvanceAdmitsNotApplicable); why != "" {
+			if why := passedOutright(all); why != "" {
 				out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the yes was given in advance, on condition every gate passes outright: " + why + "; a person must look and approve this step"}
 				continue
 			}
@@ -361,10 +361,9 @@ func (s landings) carry(ctx context.Context, run *Run) (bool, error) {
 				}
 			}
 		}
-		if accepted.InAdvance {
+		if why := passedOutright(all); accepted.InAdvance && why != "" {
 			for id, refused := range decisions {
-				why := passedOutright(all, admitsNotApplicable(all, id))
-				if refused == nil && why != "" {
+				if refused == nil {
 					decisions[id] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the yes was given in advance, on condition every gate passes outright: " + why + "; a person must look and approve this step"}
 				}
 			}

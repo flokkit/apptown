@@ -808,6 +808,15 @@ UPDATE scan_observations o SET receipt = jsonb_set(o.receipt, '{expectedScanners
  ELSE '[]'::jsonb END)
 WHERE NOT (o.receipt ? 'expectedScanners');
 `}},
+	// Not applicable with its reason counts as met everywhere, so an
+	// approval no longer opts in to it: the option goes from every stored
+	// workflow version, and the stock sentences written before not
+	// applicable existed say what AppTown now applies. A run's snapshot and
+	// a person's recorded yes keep what they were.
+	{n: 231, note: "count not applicable as met in every yes given in advance", stmts: []string{
+		`UPDATE lib_workflow_versions SET yaml=regexp_replace(yaml, E'\\n[ \\t]*inAdvanceAdmitsNotApplicable:[^\\n]*', '', 'g') WHERE yaml LIKE '%inAdvanceAdmitsNotApplicable%'`,
+		`UPDATE lib_workflow_versions SET yaml=replace(yaml, 'with every check passing, none excused.', 'with every check passing or not applicable, none excused.') WHERE yaml LIKE '%with every check passing, none excused.%'`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

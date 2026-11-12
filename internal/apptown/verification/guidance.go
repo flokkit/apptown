@@ -211,8 +211,9 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 		facts.CheckErrors = shErrors
 	}
 	// Acceptance (§2, §5.2): a remediation's target and an uplift's checks
-	// must PASS — not merely be absent from the findings. An error, a skip
-	// or an exception on one of them fails the gate with its name.
+	// must be met (pass, or not applicable with its reason) — not merely be
+	// absent from the findings. An error, a skip or an exception on one of
+	// them fails the gate with its name.
 	var changed []repositoryedit.ChangedFile
 	if ch != nil {
 		// The checked commit's own diff and ignore rules, never the folder's
@@ -239,7 +240,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 				finish(workflow.StatusError, evidence)
 				return
 			}
-			evidence["reason"] = "the change's own acceptance checks must pass outright: " + strings.Join(unmet, "; ")
+			evidence["reason"] = "the change's own acceptance checks must pass, or be not applicable with their reason: " + strings.Join(unmet, "; ")
 			finish(workflow.StatusFail, evidence)
 			return
 		}

@@ -48,3 +48,22 @@ func TestAnUpliftBriefSaysWhatEachCheckExpectsAndThatEmptyIsCorrect(t *testing.T
 		}
 	}
 }
+
+// The brief states the one rule the acceptance gate applies: a check is met
+// when it conforms or AppTown judges it not applicable and says why; an
+// error or an unassessed check is not (cool-water-demo#4: a static site's
+// agent was told every check must CONFORM "judged outright" and stopped for
+// a person over container checks that had nothing to judge). Kills: the
+// brief demanding CONFORMS outright again, or dropping what is not met.
+func TestAnUpliftBriefCountsNotApplicableAsMet(t *testing.T) {
+	t.Parallel()
+	_, body := upliftBrief(Uplift{Words: []string{"apptown v32"}, Acceptance: Acceptance{Checks: []AcceptanceCheck{{Block: "build/container-image", Check: "runs-as-non-root"}}}})
+	if strings.Contains(body, "outright") {
+		t.Errorf("the brief still demands checks judged outright:\n%s", body)
+	}
+	for _, want := range []string{"it CONFORMS, or AppTown\njudges it NOT APPLICABLE and says why", "An error\nor a check AppTown could not assess is not met"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the brief lacks %q:\n%s", want, body)
+		}
+	}
+}

@@ -8,7 +8,8 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
-// unmetAcceptance names every acceptance check whose result is not a pass.
+// unmetAcceptance names every acceptance check whose result is not met
+// (workflow.CheckReceipt.Met).
 func unmetAcceptance(results Results, target workflow.AcceptanceScope) []string {
 	want := map[string]bool{}
 
@@ -18,17 +19,17 @@ func unmetAcceptance(results Results, target workflow.AcceptanceScope) []string 
 	if len(want) == 0 {
 		return nil
 	}
-	seen := map[string]workflow.CheckVerdict{}
+	seen := map[string]workflow.CheckReceipt{}
 	for _, r := range results {
-		seen[r.Block+"|"+r.Check] = r.Verdict
+		seen[r.Block+"|"+r.Check] = r
 	}
 	var out []string
 	for k := range want {
-		v, ok := seen[k]
+		r, ok := seen[k]
 		if !ok {
 			out = append(out, k+": not evaluated")
-		} else if v != workflow.VerdictPass {
-			out = append(out, k+": "+v.String())
+		} else if !r.Met() {
+			out = append(out, k+": "+r.Verdict.String())
 		}
 	}
 	sort.Strings(out)

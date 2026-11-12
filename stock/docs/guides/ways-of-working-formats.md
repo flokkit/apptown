@@ -54,8 +54,9 @@ step names, gates naming steps that exist).
   need no code. Whatever sentence the author writes, AppTown casts that yes
   only when the change is empty against its base and every step other than
   an approval, and every check, passed outright (no override, skip, error,
-  excused finding or check it could not run). Such a yes is the person's one
-  vote; it never stands in for another approval the workflow requires.
+  excused finding or check it could not run). A check that is not
+  applicable, with its reason, counts as met. Such a yes is the person's
+  one vote; it never stands in for another approval the workflow requires.
 - `failOn`, on a `scan` or `guidance/conformance` step, is `low`, `medium`,
   `high` or `critical`; anything else is refused by name. Left out, a scan
   fails on every finding it may gate on (whatever its scanner looks at; the
