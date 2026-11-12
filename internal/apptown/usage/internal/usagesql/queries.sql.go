@@ -316,6 +316,17 @@ func (q *Queries) RecordUsageOnce(ctx context.Context, arg RecordUsageOnceParams
 	return err
 }
 
+const retainsAutomatedWork = `-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM token_usage WHERE run_id=ANY($1::uuid[]) OR root_run_id=ANY($1::uuid[]))
+`
+
+func (q *Queries) RetainsAutomatedWork(ctx context.Context, runIds []ids.ID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, retainsAutomatedWork, pq.Array(runIds))
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const runTotal = `-- name: RunTotal :one
 SELECT COALESCE(SUM(total),0)::bigint AS total, COALESCE(SUM(cost_micros),0)::bigint AS cost_micros, COALESCE(SUM(unpriced),0)::bigint AS unpriced FROM token_usage WHERE root_run_id=ANY($1::uuid[])
 `

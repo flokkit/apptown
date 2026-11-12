@@ -92,12 +92,12 @@ try {
     const changes = await read('/projects/club-newsletter/changes');
     const integrations = await read('/integrations');
     const reviews = await Promise.all(activity.active.map(r => read('/changes/' + r.changeId)));
-    return { releases, registryConfigured: integrations.integrations.some(i => i.capability === 'container-registry'), idleSeconds: activity.history.find(c => c.title === "Replace the old ride archive")?.tookS, history: activity.history.length, backups: backups.backups, stoppedCheck: changes.some(c => c.title === "Fix the broken ride calendar link" && c.state === "abandoned"), deployments, backupBytes: backups.backups.find(b => b.bytes > 0)?.bytes, failingCheck: reviews.some(v => v.detail?.steps.some(s => s.status === 'fail')) };
+    return { releases, registryConfigured: integrations.integrations.some(i => i.capability === 'container-registry'), idleSeconds: activity.history.find(c => c.title === "Replace the old ride archive")?.tookS, history: activity.history.filter(c => c.closedAs !== 'nothing-to-change').length, quietChanges: activity.history.filter(c => c.closedAs === 'nothing-to-change').map(c => c.title), historyItems: activity.history.map(c => ({title: c.title, closedAs: c.closedAs})), backups: backups.backups, stoppedCheck: changes.some(c => c.title === "Fix the broken ride calendar link" && c.state === "abandoned"), deployments, backupBytes: backups.backups.find(b => b.bytes > 0)?.bytes, failingCheck: reviews.some(v => v.detail?.steps.some(s => s.status === 'fail')) };
   });
   await mkdir(out, { recursive: true });
   phase('login and facts');
   await writeFile(`${out}/facts.json`, JSON.stringify(facts, null, 2));
-  if (!facts.registryConfigured || facts.history < 8 || facts.history > 12 || !facts.failingCheck || !facts.backupBytes || !facts.stoppedCheck || facts.backups.length < 16 || facts.releases.length < 16 || !(facts.idleSeconds >= 458640) || !facts.releases.some(r => r.serving && r.notes?.startsWith("Adds the winter ride times page"))) throw new Error('incomplete design seed: ' + JSON.stringify(facts));
+  if (!facts.quietChanges.includes('Check the spring notice') || !facts.registryConfigured || facts.history < 8 || facts.history > 12 || !facts.failingCheck || !facts.backupBytes || !facts.stoppedCheck || facts.backups.length < 16 || facts.releases.length < 16 || !(facts.idleSeconds >= 458640) || !facts.releases.some(r => r.serving && r.notes?.startsWith("Adds the winter ride times page"))) throw new Error('incomplete design seed: ' + JSON.stringify(facts));
   if (!facts.deployments.some(d => d.displayLabel === 'Production' && d.running === true) || !facts.deployments.some(d => d.name === 'noticeboard' && d.running === null && d.observation === 'unreachable')) throw new Error('deployment seed is not running production + an unreachable copy: ' + JSON.stringify(facts.deployments));
   const infraCases = await page.evaluate(async () => {
     const read = async path => { const r = await fetch('/api/v1' + path); if (!r.ok) throw new Error(path + ': ' + r.status); return r.json(); };
@@ -922,6 +922,10 @@ try {
           timer.lap('checks');
           // A dialog covers the screen; the page under it is not part of the shot.
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}.png`, fullPage: !(screen === 'overview-navigation' && size.startsWith('phone')) && !(await page.locator('[role="dialog"]:visible').count()) });
+          if (screen === 'overview' || screen === 'conformance-project') {
+            const section = screen === 'overview' ? 'Janitor' : 'Last scan';
+            await page.getByRole('region', { name: section, exact: true }).screenshot({ path: `${out}/${screen}/${size}-${theme}-scan-section.png`, style: ".topbar { visibility: hidden !important; }" });
+          }
           timer.lap('screenshot');
           finalPaths.add(new URL(page.url()).pathname);
           captures.push({ screen, path, finalPath: new URL(page.url()).pathname, size, theme, words: words.trim().split(/\s+/).filter(Boolean).length, text: words, headings, overflow, headerOverflow, clipped, fonts });

@@ -29,6 +29,9 @@ func TestRunLifecycleFromYAML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// This lifecycle lands real work; an empty deterministic run closes as
+	// nothing to change once its checks finish.
+	publishChangeWorkForTest(t, a, workflow.MergeSource{Source: workflowSourceForTest(t, a, run)}, "work.txt", "the change\n", "Make the change")
 	if run.Status != workflow.RunRunning || run.CurrentStage != "decide" {
 		t.Fatalf("birth: %+v", run)
 	}

@@ -75,9 +75,131 @@ func (q *Queries) AttachUpliftTarget(ctx context.Context, arg AttachUpliftTarget
 	return result.RowsAffected()
 }
 
+const automatedChangeRecords = `-- name: AutomatedChangeRecords :many
+SELECT id, project_id, active_change_id, queue, what, opened_at, ended_at, outcome, reason, fingerprint, packages FROM automated_changes WHERE project_id=$1 AND ($2::text='' OR queue=$2) ORDER BY opened_at DESC LIMIT $3
+`
+
+type AutomatedChangeRecordsParams struct {
+	ProjectID ids.ID
+	Column2   string
+	Limit     int32
+}
+
+func (q *Queries) AutomatedChangeRecords(ctx context.Context, arg AutomatedChangeRecordsParams) ([]AutomatedChange, error) {
+	rows, err := q.db.QueryContext(ctx, automatedChangeRecords, arg.ProjectID, arg.Column2, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AutomatedChange
+	for rows.Next() {
+		var i AutomatedChange
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.ActiveChangeID,
+			&i.Queue,
+			&i.What,
+			&i.OpenedAt,
+			&i.EndedAt,
+			&i.Outcome,
+			&i.Reason,
+			&i.Fingerprint,
+			&i.Packages,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const automatedPurgeBusy = `-- name: AutomatedPurgeBusy :one
+SELECT EXISTS(SELECT 1 WHERE EXISTS(SELECT 1 FROM runs r WHERE r.change_id=$1 AND (r.status='running'
+ OR EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.status='running')
+ OR EXISTS(SELECT 1 FROM runs child WHERE child.parent_run_id=r.id AND child.change_id IS DISTINCT FROM r.change_id)))
+ OR EXISTS(SELECT 1 FROM workflow_schedules WHERE last_change_id=$1))
+`
+
+func (q *Queries) AutomatedPurgeBusy(ctx context.Context, changeID ids.ID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, automatedPurgeBusy, changeID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const automatedPurgeCandidates = `-- name: AutomatedPurgeCandidates :many
+SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote, automated, purge_pending, automated_origin FROM changes WHERE automated AND state='abandoned' ORDER BY closed_at
+`
+
+func (q *Queries) AutomatedPurgeCandidates(ctx context.Context) ([]Change, error) {
+	rows, err := q.db.QueryContext(ctx, automatedPurgeCandidates)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Change
+	for rows.Next() {
+		var i Change
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Number,
+			&i.Type,
+			&i.Title,
+			&i.Body,
+			&i.RunID,
+			&i.State,
+			&i.Branch,
+			&i.BaseSha,
+			&i.LandedSha,
+			&i.ExternalRef,
+			&i.Summary,
+			&i.Provenance,
+			&i.TitleOwnership,
+			&i.CreatedAt,
+			&i.ClosedAt,
+			&i.TargetAdoptionID,
+			&i.AcceptanceJson,
+			&i.ExpectedRevision,
+			&i.AdoptedRevision,
+			&i.TargetCandidateJson,
+			&i.EditRevision,
+			&i.OpenedBy,
+			&i.OpenedByPrincipal,
+			&i.OpenedByVia,
+			&i.RequestMet,
+			&i.RequestGap,
+			&i.ClosedAs,
+			&i.ChatRequest,
+			&i.RequestSummary,
+			&i.RequestGapQuote,
+			&i.Automated,
+			&i.PurgePending,
+			&i.AutomatedOrigin,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const changeByID = `-- name: ChangeByID :one
 
-SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote FROM changes WHERE id=$1 AND ($2::uuid IS NULL OR project_id=$2)
+SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote, automated, purge_pending, automated_origin FROM changes WHERE id=$1 AND ($2::uuid IS NULL OR project_id=$2)
 `
 
 type ChangeByIDParams struct {
@@ -122,12 +244,15 @@ func (q *Queries) ChangeByID(ctx context.Context, arg ChangeByIDParams) (Change,
 		&i.ChatRequest,
 		&i.RequestSummary,
 		&i.RequestGapQuote,
+		&i.Automated,
+		&i.PurgePending,
+		&i.AutomatedOrigin,
 	)
 	return i, err
 }
 
 const changeForUpdate = `-- name: ChangeForUpdate :one
-SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote FROM changes WHERE id=$1 AND ($2::uuid IS NULL OR project_id=$2) FOR UPDATE
+SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote, automated, purge_pending, automated_origin FROM changes WHERE id=$1 AND ($2::uuid IS NULL OR project_id=$2) FOR UPDATE
 `
 
 type ChangeForUpdateParams struct {
@@ -171,6 +296,9 @@ func (q *Queries) ChangeForUpdate(ctx context.Context, arg ChangeForUpdateParams
 		&i.ChatRequest,
 		&i.RequestSummary,
 		&i.RequestGapQuote,
+		&i.Automated,
+		&i.PurgePending,
+		&i.AutomatedOrigin,
 	)
 	return i, err
 }
@@ -265,7 +393,7 @@ wi.state,wi.branch,wi.base_sha,wi.external_ref,wi.summary,wi.closed_at,wi.closed
 COALESCE(r.current_stage,'')::text AS stage,COALESCE(r.status,'')::text AS run_status,COALESCE(r.workflow_name,'')::text AS workflow_name,
 GREATEST(wi.created_at,wi.closed_at,r.updated_at)::timestamptz AS updated_at
 FROM changes wi LEFT JOIN runs r ON wi.run_id=r.id AND r.project_id=wi.project_id
-WHERE wi.project_id=$2 AND ($3::text='' OR wi.state=$3) ORDER BY wi.number DESC LIMIT NULLIF($4::integer,0)
+WHERE wi.project_id=$2 AND NOT wi.purge_pending AND NOT (wi.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=wi.id AND a.queue<>'')) AND ($3::text='' OR wi.state=$3) ORDER BY wi.number DESC LIMIT NULLIF($4::integer,0)
 `
 
 type ChangeSummariesParams struct {
@@ -363,6 +491,33 @@ func (q *Queries) ChangeTargetAdoptionMeta(ctx context.Context, arg ChangeTarget
 	return target_adoption_id, err
 }
 
+const changeTranscriptDigests = `-- name: ChangeTranscriptDigests :many
+SELECT DISTINCT t.digest FROM agent_transcripts t JOIN runs r ON r.id=t.run_id WHERE r.change_id=$1
+`
+
+func (q *Queries) ChangeTranscriptDigests(ctx context.Context, changeID ids.ID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, changeTranscriptDigests, changeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var digest string
+		if err := rows.Scan(&digest); err != nil {
+			return nil, err
+		}
+		items = append(items, digest)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const changeWorkspaceSourceMeta = `-- name: ChangeWorkspaceSourceMeta :one
 SELECT p.slug,p.default_branch,c.branch,c.base_sha,c.landed_sha,c.state,c.run_id
 FROM changes c JOIN projects p ON p.id=c.project_id WHERE c.id=$1 AND c.project_id=$2
@@ -398,6 +553,18 @@ func (q *Queries) ChangeWorkspaceSourceMeta(ctx context.Context, arg ChangeWorks
 		&i.RunID,
 	)
 	return i, err
+}
+
+const claimAutomatedPurge = `-- name: ClaimAutomatedPurge :execrows
+UPDATE changes SET purge_pending=true WHERE id=$1 AND automated AND state='abandoned'
+`
+
+func (q *Queries) ClaimAutomatedPurge(ctx context.Context, id ids.ID) (int64, error) {
+	result, err := q.db.ExecContext(ctx, claimAutomatedPurge, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const deleteProjectChanges = `-- name: DeleteProjectChanges :exec
@@ -464,6 +631,27 @@ func (q *Queries) EditChangeTitle(ctx context.Context, arg EditChangeTitleParams
 	return result.RowsAffected()
 }
 
+const endAutomatedChange = `-- name: EndAutomatedChange :exec
+UPDATE automated_changes SET outcome=$2, reason=$3, ended_at=$4 WHERE id=$1
+`
+
+type EndAutomatedChangeParams struct {
+	ID      ids.ID
+	Outcome string
+	Reason  string
+	EndedAt sql.NullTime
+}
+
+func (q *Queries) EndAutomatedChange(ctx context.Context, arg EndAutomatedChangeParams) error {
+	_, err := q.db.ExecContext(ctx, endAutomatedChange,
+		arg.ID,
+		arg.Outcome,
+		arg.Reason,
+		arg.EndedAt,
+	)
+	return err
+}
+
 const hasOpenUplift = `-- name: HasOpenUplift :one
 SELECT EXISTS(SELECT 1 FROM changes WHERE project_id=$1 AND type='uplift' AND state=$2)
 `
@@ -482,7 +670,7 @@ func (q *Queries) HasOpenUplift(ctx context.Context, arg HasOpenUpliftParams) (b
 
 const insertChange = `-- name: InsertChange :one
 INSERT INTO changes(id,number,project_id,type,title,body,external_ref,acceptance_json,state,title_ownership,chat_request,branch,base_sha,provenance,expected_revision,opened_by,opened_by_principal,opened_by_via,created_at)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::timestamptz) RETURNING id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::timestamptz) RETURNING id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote, automated, purge_pending, automated_origin
 `
 
 type InsertChangeParams struct {
@@ -563,8 +751,22 @@ func (q *Queries) InsertChange(ctx context.Context, arg InsertChangeParams) (Cha
 		&i.ChatRequest,
 		&i.RequestSummary,
 		&i.RequestGapQuote,
+		&i.Automated,
+		&i.PurgePending,
+		&i.AutomatedOrigin,
 	)
 	return i, err
+}
+
+const isAutomatedQueueChange = `-- name: IsAutomatedQueueChange :one
+SELECT EXISTS(SELECT 1 FROM changes c JOIN automated_changes a ON a.id=c.id WHERE c.id=$1 AND c.automated AND a.queue<>'')
+`
+
+func (q *Queries) IsAutomatedQueueChange(ctx context.Context, id ids.ID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, isAutomatedQueueChange, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const lastLandedTitles = `-- name: LastLandedTitles :many
@@ -596,6 +798,15 @@ func (q *Queries) LastLandedTitles(ctx context.Context, projectID ids.ID) ([]str
 		return nil, err
 	}
 	return items, nil
+}
+
+const markAutomatedChange = `-- name: MarkAutomatedChange :exec
+UPDATE changes SET automated=true, automated_origin=true WHERE id=$1
+`
+
+func (q *Queries) MarkAutomatedChange(ctx context.Context, id ids.ID) error {
+	_, err := q.db.ExecContext(ctx, markAutomatedChange, id)
+	return err
 }
 
 const markChangeClosedAs = `-- name: MarkChangeClosedAs :execrows
@@ -874,7 +1085,7 @@ WITH change_counts AS (
  COUNT(*) FILTER(WHERE c.state IN ($3::text,$4::text))::bigint AS open_changes,
  COUNT(*) FILTER(WHERE c.type='uplift' AND c.state=$3::text)::bigint AS open_uplifts
  FROM changes c LEFT JOIN runs current ON current.id=c.run_id AND current.project_id=c.project_id
- WHERE c.project_id=ANY($1::uuid[]) GROUP BY c.project_id
+ WHERE c.project_id=ANY($1::uuid[]) AND NOT c.purge_pending AND NOT (c.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=c.id AND a.queue<>'')) GROUP BY c.project_id
 ), run_counts AS (
  SELECT project_id,COUNT(*) FILTER(WHERE status=$5::text AND parent_run_id IS NULL)::bigint AS done_runs,
  COUNT(*) FILTER(WHERE status=$2::text)::bigint AS running_runs,MAX(updated_at) AS last_run_at
@@ -884,7 +1095,7 @@ SELECT p.id,COALESCE(c.changes,0)::bigint AS changes,COALESCE(c.active_items,0):
  COALESCE(r.done_runs,0)::bigint AS done_runs,COALESCE(r.running_runs,0)::bigint AS running_runs,
  COALESCE(r.last_run_at,'epoch'::timestamptz)::timestamptz AS last_run_at,(r.last_run_at IS NOT NULL)::boolean AS has_last_run_at,
  COALESCE(c.open_changes,0)::bigint AS open_changes,COALESCE(c.open_uplifts,0)::bigint AS open_uplifts,
- COALESCE((SELECT latest.title FROM changes latest WHERE latest.project_id=p.id ORDER BY latest.created_at DESC,latest.id DESC LIMIT 1),'')::text AS last_change_title
+ COALESCE((SELECT latest.title FROM changes latest WHERE latest.project_id=p.id AND NOT latest.purge_pending AND NOT (latest.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=latest.id AND a.queue<>'')) ORDER BY latest.created_at DESC,latest.id DESC LIMIT 1),'')::text AS last_change_title
 FROM projects p LEFT JOIN change_counts c ON c.project_id=p.id LEFT JOIN run_counts r ON r.project_id=p.id
 WHERE p.id=ANY($1::uuid[])
 `
@@ -1097,6 +1308,23 @@ func (q *Queries) ProjectWorkBlockers(ctx context.Context, arg ProjectWorkBlocke
 	return items, nil
 }
 
+const promoteAutomatedChange = `-- name: PromoteAutomatedChange :execrows
+UPDATE changes SET automated=false WHERE id=$1 AND project_id=$2 AND NOT purge_pending
+`
+
+type PromoteAutomatedChangeParams struct {
+	ID        ids.ID
+	ProjectID ids.ID
+}
+
+func (q *Queries) PromoteAutomatedChange(ctx context.Context, arg PromoteAutomatedChangeParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, promoteAutomatedChange, arg.ID, arg.ProjectID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const publishChangeNarrative = `-- name: PublishChangeNarrative :execrows
 UPDATE changes SET summary=$1,request_met=$2,request_gap=$3,request_gap_quote=$4 WHERE id=$5 AND project_id=$6 AND body=$7 AND state=$8 AND run_id IS NOT DISTINCT FROM $9 AND branch=$10 AND base_sha=$11 AND summary IS NOT DISTINCT FROM $12
 `
@@ -1162,6 +1390,50 @@ func (q *Queries) PublishRequestSummary(ctx context.Context, arg PublishRequestS
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const purgeAutomatedChange = `-- name: PurgeAutomatedChange :execrows
+DELETE FROM changes WHERE id=$1 AND automated AND purge_pending AND state='abandoned'
+`
+
+func (q *Queries) PurgeAutomatedChange(ctx context.Context, id ids.ID) (int64, error) {
+	result, err := q.db.ExecContext(ctx, purgeAutomatedChange, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const purgeAutomatedRuns = `-- name: PurgeAutomatedRuns :exec
+DELETE FROM runs WHERE change_id=$1
+`
+
+func (q *Queries) PurgeAutomatedRuns(ctx context.Context, changeID ids.ID) error {
+	_, err := q.db.ExecContext(ctx, purgeAutomatedRuns, changeID)
+	return err
+}
+
+const recordAutomatedChange = `-- name: RecordAutomatedChange :exec
+INSERT INTO automated_changes(id,project_id,active_change_id,queue,what,opened_at) VALUES($1,$2,$1,$3,$4,$5)
+`
+
+type RecordAutomatedChangeParams struct {
+	ID        ids.ID
+	ProjectID ids.ID
+	Queue     string
+	What      string
+	OpenedAt  time.Time
+}
+
+func (q *Queries) RecordAutomatedChange(ctx context.Context, arg RecordAutomatedChangeParams) error {
+	_, err := q.db.ExecContext(ctx, recordAutomatedChange,
+		arg.ID,
+		arg.ProjectID,
+		arg.Queue,
+		arg.What,
+		arg.OpenedAt,
+	)
+	return err
 }
 
 const recordSupersededChange = `-- name: RecordSupersededChange :execrows
@@ -1257,6 +1529,22 @@ func (q *Queries) RequestSummaryOpen(ctx context.Context, arg RequestSummaryOpen
 	var open sql.NullBool
 	err := row.Scan(&open)
 	return open, err
+}
+
+const runChangeMeta = `-- name: RunChangeMeta :one
+SELECT change_id FROM runs WHERE id=$1 AND project_id=$2
+`
+
+type RunChangeMetaParams struct {
+	ID        ids.ID
+	ProjectID ids.ID
+}
+
+func (q *Queries) RunChangeMeta(ctx context.Context, arg RunChangeMetaParams) (ids.ID, error) {
+	row := q.db.QueryRowContext(ctx, runChangeMeta, arg.ID, arg.ProjectID)
+	var change_id ids.ID
+	err := row.Scan(&change_id)
+	return change_id, err
 }
 
 const setChangeBranch = `-- name: SetChangeBranch :execrows
@@ -1519,7 +1807,7 @@ func (q *Queries) TransitionChange(ctx context.Context, arg TransitionChangePara
 }
 
 const visibleChanges = `-- name: VisibleChanges :many
-SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote FROM changes WHERE project_id=ANY($1::uuid[]) AND id=ANY($2::uuid[]) ORDER BY id
+SELECT id, project_id, number, type, title, body, run_id, state, branch, base_sha, landed_sha, external_ref, summary, provenance, title_ownership, created_at, closed_at, target_adoption_id, acceptance_json, expected_revision, adopted_revision, target_candidate_json, edit_revision, opened_by, opened_by_principal, opened_by_via, request_met, request_gap, closed_as, chat_request, request_summary, request_gap_quote, automated, purge_pending, automated_origin FROM changes WHERE project_id=ANY($1::uuid[]) AND id=ANY($2::uuid[]) ORDER BY id
 `
 
 type VisibleChangesParams struct {
@@ -1569,6 +1857,9 @@ func (q *Queries) VisibleChanges(ctx context.Context, arg VisibleChangesParams) 
 			&i.ChatRequest,
 			&i.RequestSummary,
 			&i.RequestGapQuote,
+			&i.Automated,
+			&i.PurgePending,
+			&i.AutomatedOrigin,
 		); err != nil {
 			return nil, err
 		}

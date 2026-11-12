@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/flokkit/apptown/internal/version"
 
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/console"
@@ -18,12 +19,16 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/changeadds"
+	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/evals"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/apptown/remediation"
 	"github.com/flokkit/apptown/internal/apptown/scm"
+	"github.com/flokkit/apptown/internal/apptown/tasks"
+	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -59,7 +64,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 	runners[verification.ScanKind] = a.scanSteps.RunScan
 	runners[workflowexec.AgentKind] = a.agents.Run
 	runners[workflowexec.ReviewKind] = a.agents.Review
-	return workflow.Dependencies{Jobs: jobQueue{},
+	return workflow.Dependencies{Retention: automatedRetention{}, RunningImages: scanSubjects{a.Deployment}, Jobs: jobQueue{},
 		WorkspaceChats: a.Console,
 		StepContext:    projectCacheScope(a.DB),
 		Masker:         a.Secrets.Masker,
@@ -304,4 +309,33 @@ func (r releaseData) ReleaseBefore(ctx context.Context, projectID ids.ID, name s
 }
 func (r releaseData) RestoreForRelease(ctx context.Context, projectID ids.ID, name string, backup, release ids.ID, principal access.Principal) error {
 	return r.data.RestoreForRelease(ctx, projectID, name, backup, release, principal)
+}
+
+// scanSubjects translates the deployment owner's current identities for Work's
+// observation projection; deployment retains the rules for what is serving.
+type scanSubjects struct{ deployment *deployment.Service }
+
+func (s scanSubjects) RunningImages(ctx context.Context, project ids.ID) ([]workflow.RunningImages, error) {
+	rows, err := s.deployment.RunningImages(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]workflow.RunningImages, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, workflow.RunningImages{DeploymentID: row.DeploymentID, BundleID: row.BundleID, Images: row.Images})
+	}
+	return out, nil
+}
+
+// Each owner decides whether it still refers to disposable execution material.
+type automatedRetention struct{}
+
+func (automatedRetention) RetainsWorkIn(ctx context.Context, db database.Queryer, change ids.ID, runs []ids.ID) (bool, error) {
+	for _, read := range []func(context.Context, database.Queryer, ids.ID, []ids.ID) (bool, error){tasks.RetainsWorkIn, adoption.RetainsWorkIn, integration.RetainsWorkIn, remediation.RetainsWorkIn, deployment.RetainsWorkIn, scm.RetainsWorkIn, evals.RetainsWorkIn, usage.RetainsWorkIn, conformance.RetainsWorkIn} {
+		retained, err := read(ctx, db, change, runs)
+		if err != nil || retained {
+			return retained, err
+		}
+	}
+	return false, nil
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/lib/pq"
 )
 
 const admitRepositoryAttachment = `-- name: AdmitRepositoryAttachment :execrows
@@ -617,6 +618,17 @@ func (q *Queries) RepositoryAttachmentIntent(ctx context.Context, projectID ids.
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const retainsAutomatedWork = `-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 WHERE EXISTS(SELECT 1 FROM run_merges WHERE run_id=ANY($1::uuid[])) OR EXISTS(SELECT 1 FROM project_main WHERE run_id=ANY($1::uuid[])))
+`
+
+func (q *Queries) RetainsAutomatedWork(ctx context.Context, runIds []ids.ID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, retainsAutomatedWork, pq.Array(runIds))
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const settlePublication = `-- name: SettlePublication :execrows

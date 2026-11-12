@@ -190,6 +190,9 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 	defer c.sessions.Hold(id)()
 	if change != nil {
 		if err := c.db.InTx(ctx, func(tx *database.Tx) error {
+			if err := workflow.TouchChangeIn(ctx, tx, p.ID, change.ID); err != nil {
+				return err
+			}
 			_, err := workflow.TakeChangeIn(ctx, tx, p.ID, change.Branch, scm.ChatHolder(id), c.presence, c.work.Now())
 			return err
 		}); err != nil {

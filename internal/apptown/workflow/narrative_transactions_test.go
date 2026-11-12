@@ -113,7 +113,7 @@ func TestNarrativeSourceReadFailuresReturnNoPartialResult(t *testing.T) {
 			s, source := narrativeFixture(t)
 			switch failure {
 			case "change":
-				dbtest.FailNextStatement(t, s.db, "SELECT id, project_id, number, type, title")
+				dbtest.FailNextStatement(t, s.db, "-- name: ChangeByID")
 			case "project":
 				dbtest.FailNextStatement(t, s.db, "-- name: ProjectByID")
 			case "runs":

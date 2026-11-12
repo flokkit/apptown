@@ -57,6 +57,7 @@ export function ChangeHeader({ view, compact }: { view: ChangeView; compact?: bo
     <header className="ch-head">
       <div className="ch-title-row">
         <h1><span className="ch-number">Change #{ch.number}:</span> {changeTitle(ch)}</h1>
+ {ch.automatedOrigin && <span className="small muted">Scheduled change</span>}
         {!compact && <><WaitingStatus waiting={view.waitingOn} changeId={view.change.id} />{advice.text && advice.recommend && <span>{recommendationWords(advice.recommend)}</span>}</>}
         {ch.provenance && <span className="badge" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
       </div>

@@ -86,6 +86,7 @@ type Sources struct {
 	Workers     instanceReader
 	Deployments projectReader
 	Protection  projectReader
+	Scans       projectReader
 }
 
 // Coverage reports source availability separately from the visible item count.
@@ -198,6 +199,7 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 		}{
 			{"deployments", "Deployment health", s.sources.Deployments},
 			{"protection", "Data protection", s.sources.Protection},
+			{"scans", "Scans", s.sources.Scans},
 		} {
 			snapshot, readErr := Snapshot{}, error(nil)
 			if source.source != nil {

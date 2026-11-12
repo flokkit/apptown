@@ -46,6 +46,9 @@ func (s *Service) SendBack(ctx context.Context, in SendBack) (retried, error) {
 	if err != nil {
 		return retried{}, err
 	}
+	if err := s.touchChange(ctx, project, in.ChangeID); err != nil {
+		return retried{}, err
+	}
 	landingBy := s.landingBy(ctx, StartRequest{ProjectID: project, ChangeID: in.ChangeID})
 	result, err := s.sendbacks.sendBack(ctx, in.ChangeID, in.Note, actor.Receipt, landingBy, project)
 	if err == nil && !result.RunID.IsZero() {

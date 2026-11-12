@@ -69,6 +69,11 @@ func (a Attachments) Add(ctx context.Context, id ids.ID, name string, body []byt
 	if err != nil {
 		return attachmentAdded{}, err
 	}
+	if humanTouch(ctx) {
+		if err := promoteChange(ctx, a.changes.db, project, id); err != nil {
+			return attachmentAdded{}, err
+		}
+	}
 	ch, err := readChangeInProject(ctx, a.changes.db, id, project)
 	if err != nil {
 		return attachmentAdded{}, err
@@ -135,6 +140,11 @@ func (a Attachments) Remove(ctx context.Context, id ids.ID, name string) error {
 	project, who, err := a.admit(ctx, id, actionAttachChange)
 	if err != nil {
 		return err
+	}
+	if humanTouch(ctx) {
+		if err := promoteChange(ctx, a.changes.db, project, id); err != nil {
+			return err
+		}
 	}
 	name, err = attachmentName(name)
 	if err != nil {

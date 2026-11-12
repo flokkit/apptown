@@ -33,6 +33,7 @@ type DispatchPlan struct {
 	Steps            []ReadyStep
 	Pending          int
 	NeedsPreparation bool
+	ObserveOnly      bool
 	AdvanceEmpty     bool
 }
 type dispatchState struct {
@@ -101,6 +102,22 @@ func (w dispatchPlans) Plan(ctx context.Context, runID ids.ID) (DispatchPlan, er
 	steps, err := readStageSteps(ctx, tx, runID, run.CurrentStage)
 	if err != nil {
 		return plan, err
+	}
+	all, err := readSteps(ctx, tx, runID)
+	if err != nil {
+		return plan, err
+	}
+	queue, err := workflowsql.New(tx.SQL()).IsAutomatedQueueChange(ctx, run.ChangeID)
+	if err != nil {
+		return plan, err
+	}
+	// Collect every observation despite findings or errors; any other work
+	// keeps the ordinary failure stop rule.
+	plan.ObserveOnly = queue && len(all) > 0
+	for _, step := range all {
+		if step.Type != "scan" {
+			plan.ObserveOnly = false
+		}
 	}
 	for _, step := range steps {
 		if step.Stage != run.CurrentStage || !slices.Contains(w.automatic, step.Type) {

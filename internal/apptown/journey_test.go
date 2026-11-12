@@ -619,7 +619,7 @@ func TestJourneyPackEvolution(t *testing.T) {
 			t.Fatalf("library workflow must be runnable without a pack offer: %+v", e)
 		}
 	}
-	assertSchedules := func(want int) {
+	assertSchedules := func(wantDependency int) {
 		t.Helper()
 		var got struct {
 			Schedules []struct {
@@ -628,11 +628,23 @@ func TestJourneyPackEvolution(t *testing.T) {
 			} `json:"schedules"`
 		}
 		h.mustCall("GET", "/projects/"+slug+"/schedules", nil, &got)
-		if len(got.Schedules) != want {
-			t.Fatalf("want %d adopted schedules, got %+v", want, got)
+		// A newly initialized project adopts the current platform pack, whose
+		// observing schedule is independent of this custom pack's evolution.
+		if len(got.Schedules) != wantDependency+1 {
+			t.Fatalf("want platform scan plus %d dependency schedules, got %+v", wantDependency, got)
 		}
-		if want == 1 && (got.Schedules[0].Source.Workflow != "dependency-uplift" || got.Schedules[0].Cron == "" || got.Schedules[0].Problem != "") {
-			t.Fatalf("pack must supply a readable dependency-uplift schedule: %+v", got)
+		counts := map[string]int{}
+		for _, schedule := range got.Schedules {
+			counts[schedule.Source.Workflow]++
+			if schedule.Cron == "" || schedule.Problem != "" {
+				t.Fatalf("pack must supply a readable schedule: %+v", schedule)
+			}
+			if schedule.Source.Workflow == "janitor-scan" && schedule.Cron != "0 5 * * *" {
+				t.Fatalf("platform scan schedule changed: %+v", schedule)
+			}
+		}
+		if counts["janitor-scan"] != 1 || counts["dependency-uplift"] != wantDependency {
+			t.Fatalf("adopted schedules: %+v", got)
 		}
 	}
 	assertAvailable()

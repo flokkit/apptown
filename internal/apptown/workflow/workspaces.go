@@ -326,5 +326,8 @@ func (s *Service) PrepareWorkspace(ctx context.Context, changeID ids.ID) error {
 	if err != nil {
 		return err
 	}
+	if err := s.touchChange(ctx, project, changeID); err != nil {
+		return err
+	}
 	return s.workspaces.prepareChange(ctx, ChangeRef{ID: changeID, ProjectID: project})
 }

@@ -146,3 +146,6 @@ SELECT project_id FROM project_integrations WHERE capability='errors' AND proven
 
 -- name: LockHubRegistry :exec
 SELECT pg_advisory_xact_lock(872103);
+
+-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM project_integrations WHERE wire_change_id=sqlc.arg(change_id));

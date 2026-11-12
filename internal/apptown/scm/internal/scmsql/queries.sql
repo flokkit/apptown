@@ -93,3 +93,6 @@ INSERT INTO repository_mr_identities(artifact_id,identity_json) VALUES ($1,$2);
 
 -- name: MergeRequestIdentity :one
 SELECT identity_json FROM repository_mr_identities WHERE artifact_id=$1;
+
+-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 WHERE EXISTS(SELECT 1 FROM run_merges WHERE run_id=ANY(sqlc.arg(run_ids)::uuid[])) OR EXISTS(SELECT 1 FROM project_main WHERE run_id=ANY(sqlc.arg(run_ids)::uuid[])));

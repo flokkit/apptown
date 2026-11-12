@@ -738,6 +738,17 @@ func (q *Queries) ResourceReading(ctx context.Context, arg ResourceReadingParams
 	return i, err
 }
 
+const retainsAutomatedWork = `-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM project_integrations WHERE wire_change_id=$1)
+`
+
+func (q *Queries) RetainsAutomatedWork(ctx context.Context, changeID ids.ID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, retainsAutomatedWork, changeID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const retireConnector = `-- name: RetireConnector :one
 WITH selected AS MATERIALIZED (
  SELECT i.id FROM integrations i WHERE i.name=$1 AND i.capability=$2

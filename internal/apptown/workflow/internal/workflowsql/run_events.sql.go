@@ -42,7 +42,7 @@ COALESCE(SUM(EXTRACT(EPOCH FROM r.updated_at)-EXTRACT(EPOCH FROM r.created_at)),
 COUNT(*) FILTER(WHERE r.status=$2) AS completed
 FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.parent_run_id IS NULL
 ) history
-WHERE c.project_id=ANY($3::uuid[]) AND c.state IN ($4,$5)
+WHERE c.project_id=ANY($3::uuid[]) AND NOT c.purge_pending AND NOT (c.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=c.id AND a.queue<>'')) AND c.state IN ($4,$5)
 ORDER BY 8 DESC,c.number DESC LIMIT NULLIF($6::integer,0)
 `
 

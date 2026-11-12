@@ -1,6 +1,7 @@
 package wow
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -111,7 +112,11 @@ func TestOnlyDependencyUpdatesPackSuppliesScheduledDependencyUplift(t *testing.T
 				t.Fatalf("maintenance description: %s", p.Description)
 			}
 		} else {
-			if len(p.Schedules) != 0 {
+			if p.Name == "apptown" {
+				if !slices.Equal(p.Schedules, []string{"janitor-scan"}) {
+					t.Errorf("platform schedules: %v", p.Schedules)
+				}
+			} else if len(p.Schedules) != 0 {
 				t.Errorf("%s declares schedules: %v", p.Name, p.Schedules)
 			}
 			for _, name := range p.Workflows {
@@ -159,4 +164,47 @@ func TestStockSendBackInstructionsNameTheButton(t *testing.T) {
 	if count == 0 {
 		t.Fatal("no send-back instructions checked")
 	}
+}
+
+// The platform schedule observes only; repair and acceptance are separate work.
+func TestPlatformPackSuppliesOnlyObservingJanitorScan(t *testing.T) {
+	packs, err := ReadStockPacks(stock.FS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, p := range packs {
+		if p.Name == "apptown" {
+			found = slices.Contains(p.Workflows, "janitor-scan") && slices.Equal(p.Schedules, []string{"janitor-scan"})
+		}
+	}
+	if !found {
+		t.Fatal("platform pack does not carry its observing schedule")
+	}
+	workflows, skipped := readStockWorkflows(stock.FS)
+	if skipped != 0 {
+		t.Fatalf("unreadable stock workflows: %d", skipped)
+	}
+	for _, wf := range workflows {
+		if wf.Name != "janitor-scan" {
+			continue
+		}
+		doc, err := schema.ParseWorkflow([]byte(wf.Content))
+		if err != nil {
+			t.Fatal(err)
+		}
+		schedule := doc.Spec.On.Schedule
+		if schedule == nil || schedule.Cron != "0 5 * * *" || schedule.Queue != "security" {
+			t.Fatalf("observing schedule: %+v", schedule)
+		}
+		if len(doc.Spec.Stages) != 1 || len(doc.Spec.Stages[0].OnEnter) != 0 || len(doc.Spec.Stages[0].Steps) != 2 {
+			t.Fatalf("observing stages: %+v", doc.Spec.Stages)
+		}
+		source, running := doc.Spec.Stages[0].Steps[0], doc.Spec.Stages[0].Steps[1]
+		if source.Name != "scan-source" || source.Uses != "scan" || source.With["on"] != "source" || source.With["baseline"] != "none" || running.Name != "scan-running" || running.Uses != "scan" || running.With["on"] != "running" {
+			t.Fatalf("observing steps: %+v", doc.Spec.Stages[0].Steps)
+		}
+		return
+	}
+	t.Fatal("janitor-scan is missing")
 }

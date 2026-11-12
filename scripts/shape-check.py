@@ -70,7 +70,7 @@ ALLOWED = {
     "agentenv":    {"integration", "project"},
     "adoption":    {"wow", "integration"},
     "adrs":        {"project"},
-    "workflow":    {"project", "adoption", "integration", "scm", "adrs"},
+    "workflow":    {"project", "adoption", "integration", "scm", "adrs", "conformance"},
     "scm":         {"project"},
     "conformance": set(),
     "model":       {"integration", "project"},

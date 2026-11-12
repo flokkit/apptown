@@ -277,7 +277,16 @@ func remediationFollowsLanding(t *testing.T, useLanding bool) {
 	if err != nil || len(work.Steps) != 1 {
 		t.Fatalf("declared remediation approval: %+v %v", work, err)
 	}
-	if _, err := a.Work.Approve(asPerson("t"), workflow.Approval{StepID: work.Steps[0].ID, Decision: workflow.VoteApprove}); err != nil {
+	runForFix, err := a.Work.Run(asPerson("t"), it.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceForFix := workflowSourceForTest(t, a, runForFix)
+	if _, err := (workflow.GitWorkspace{DataDir: a.cfg.dataDir}).EnsureClone(t.Context(), workflow.CloneRequest{Repository: requireLocation(t)(sourceForFix.Repository(a.cfg.dataDir)), Workspace: requireLocation(t)(sourceForFix.Workspace(a.cfg.dataDir)), Branch: sourceForFix.Branch, DefaultBranch: sourceForFix.DefaultBranch}); err != nil {
+		t.Fatal(err)
+	}
+	publishChangeWorkForTest(t, a, workflow.MergeSource{Source: sourceForFix}, "fix.txt", "the checked fix\n", "Apply the fix")
+	if _, err := a.Work.Approve(asPerson("t"), workflow.Approval{StepID: work.Steps[0].ID, Decision: workflow.VoteApprove, Adds: shownAdds(t, a, asPerson("t"), work.Steps[0].ID)}); err != nil {
 		t.Fatal(err)
 	}
 	a.Work.Wait()

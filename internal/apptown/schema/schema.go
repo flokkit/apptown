@@ -86,7 +86,8 @@ type On struct {
 }
 
 type ScheduleTrigger struct {
-	Cron string `yaml:"cron" json:"cron"` // standard 5-field cron
+	Queue string `yaml:"queue,omitempty" json:"queue,omitempty"`
+	Cron  string `yaml:"cron" json:"cron"` // standard 5-field cron
 	// SkipIfActive (default true): don't fire while a run of this workflow is
 	// still running in the project — prevents pileup of long-lived runs.
 	SkipIfActive *bool `yaml:"skipIfActive,omitempty" json:"skipIfActive,omitempty"`

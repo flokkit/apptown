@@ -66,6 +66,7 @@ func appRoutes(a *App) []routeSpec {
 	var runProgress httpapi.RunProgress
 	var projectWorkflows httpapi.ProjectWorkflows
 	var projectSchedules httpapi.ProjectSchedules
+	var projectScans httpapi.ProjectScans
 	var projectManifest httpapi.ProjectManifest
 	var workflowCatalog httpapi.WorkflowCatalog
 	var projectServices httpapi.ProjectServices
@@ -204,6 +205,7 @@ func appRoutes(a *App) []routeSpec {
 		workflowCatalog = httpapi.NewWorkflowCatalog(a.DB, a.Ways)
 		projectManifest = httpapi.NewProjectManifest(a.Projects, a.Adoption, a.DB, a.cfg.dataDir, a.Secrets)
 		projectWorkflows = httpapi.NewProjectWorkflows(a.Projects, a.Adoption, a.Work, a.DB)
+		projectScans = httpapi.NewProjectScans(a.Projects, a.Work)
 		projectSchedules = httpapi.NewProjectSchedules(a.Projects, changeactions.Schedules{Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}, a.cfg.clock.Now)
 		runProgress = httpapi.NewRunProgress(a.Work, &a.progress)
 		catalogChanges = httpapi.NewCatalogChanges(a.Ways, a.Adoption, a.Projects, a.Access, a.changeActions, a.authModeName())
@@ -283,6 +285,8 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/workflows", projectWorkflows.ListWorkflows, access.CapProjectRead, "project-slug").inArea("projects"),
 		requireRoute("GET /api/v1/projects/{slug}/lanes", projectWorkflows.ProjectLanes, access.CapProjectRead, "project-slug").inArea("projects"),
 		requireRoute("GET /api/v1/projects/{slug}/schedules", projectSchedules.List, access.CapProjectRead, "project-slug").inArea("projects"),
+		requireRoute("GET /api/v1/projects/{slug}/scans", projectScans.List, access.CapProjectRead, "project-slug").inArea("projects"),
+		requireRoute("GET /api/v1/projects/{slug}/janitor/attempts", projectScans.Attempts, access.CapProjectRead, "project-slug").inArea("projects"),
 		requireRoute("GET /api/v1/instance-updates", instanceUpdates.Status, access.CapInstanceUpdates, "instance").inArea("updates"),
 		requireRoute("POST /api/v1/instance-updates/check", instanceUpdates.Check, access.CapInstanceUpdates, "instance").inArea("updates"),
 		publicRoute("GET /api/v1/system-workflows", systemWorkflows.SystemWorkflows, "systemWorkflows.SystemWorkflows: shared system workflow declarations").inArea("ways"),

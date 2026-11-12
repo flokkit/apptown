@@ -1905,6 +1905,7 @@ SELECT r.id,r.number,r.status,r.current_stage,r.workflow_name,r.workflow_version
 COALESCE(c.number,0)::bigint AS change_number,COALESCE(c.title,'')::text AS item_title,p.slug AS project_slug,r.created_at,r.updated_at
 FROM runs r JOIN projects p ON p.id=r.project_id LEFT JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
 WHERE ($1::uuid IS NULL OR r.project_id=$1)
+AND (c.id IS NULL OR (NOT c.purge_pending AND NOT (c.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=c.id AND a.queue<>''))))
 AND ($2::text='' OR r.status=$2) AND (NOT $3::boolean OR r.parent_run_id IS NULL)
 AND ($4::uuid[] IS NULL OR r.project_id=ANY($4::uuid[]))
 ORDER BY r.updated_at DESC,r.id DESC LIMIT NULLIF($5::integer,0)

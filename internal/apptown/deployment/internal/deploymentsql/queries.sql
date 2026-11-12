@@ -733,3 +733,6 @@ UPDATE release_requests SET claimed_at=NULL,rebuild_pending=false WHERE release_
 
 -- name: MarkReleaseRebuilding :execrows
 UPDATE release_requests SET rebuild_pending=true WHERE release_id=sqlc.arg(release_id);
+
+-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 WHERE EXISTS(SELECT 1 FROM releases retained0 WHERE retained0.run_id=ANY(sqlc.arg(run_ids)::uuid[])) OR EXISTS(SELECT 1 FROM release_changes retained1 WHERE retained1.change_id=sqlc.arg(change_id)) OR EXISTS(SELECT 1 FROM deployments retained2 WHERE retained2.change_id=sqlc.arg(change_id)) OR EXISTS(SELECT 1 FROM release_bundles retained3 WHERE retained3.run_id=ANY(sqlc.arg(run_ids)::uuid[])));

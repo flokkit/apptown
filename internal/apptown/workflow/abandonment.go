@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,6 +42,13 @@ func (s *Service) Abandon(ctx context.Context, in StopWork) (*Abandoned, error) 
 		project, actor, err = s.changeScope(ctx, in.ChangeID, actionCloseChange)
 	}
 	if err != nil {
+		return nil, err
+	}
+	if !in.ChangeID.IsZero() {
+		if err := s.touchChange(ctx, project, in.ChangeID); err != nil {
+			return nil, err
+		}
+	} else if err := s.touchRun(ctx, in.RunID); err != nil {
 		return nil, err
 	}
 	command.Who = actor.Receipt
@@ -88,6 +96,19 @@ func (s *Service) PrepareStop(ctx context.Context, project ids.ID) (*StopScope, 
 
 func (s *StopScope) Close() { s.closure.Close() }
 func (s *StopScope) AbandonIn(ctx context.Context, tx *database.Tx, in StopWork) (*Abandoned, error) {
+	change := in.ChangeID
+	if change.IsZero() && !in.RunID.IsZero() && humanTouch(ctx) {
+		var err error
+		change, err = workflowsql.New(tx.SQL()).RunChangeMeta(ctx, workflowsql.RunChangeMetaParams{ID: in.RunID, ProjectID: s.project})
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !change.IsZero() {
+		if err := TouchChangeIn(ctx, tx, s.project, change); err != nil {
+			return nil, err
+		}
+	}
 	return s.owner.abandonIn(ctx, tx, Abandonment{RunID: in.RunID, ChangeID: in.ChangeID, Who: s.who, Reason: in.Reason}, s.project, s.closure)
 }
 
@@ -281,6 +302,9 @@ func (s abandonments) abandonIn(ctx context.Context, tx *database.Tx, req Abando
 			if n != 1 {
 				return nil, fmt.Errorf("change %s: closed as %s marked %d rows", changeID, req.closedAs, n)
 			}
+		}
+		if err := q.EndAutomatedChange(ctx, workflowsql.EndAutomatedChangeParams{ID: changeID, Outcome: "abandoned", Reason: req.Reason, EndedAt: sql.NullTime{Time: now, Valid: true}}); err != nil {
+			return nil, err
 		}
 		if err := audit.At(now).RecordIn(ctx, tx, req.Who, projectID, "change.abandoned", fmt.Sprintf("change %d", changeID), abandonAudit{Reason: req.Reason, ClosedAs: req.closedAs}); err != nil {
 			return nil, err

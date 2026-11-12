@@ -2,10 +2,12 @@ package workflow
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
+	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/gitexec"
 )
@@ -154,6 +156,27 @@ func (s *Service) endNothingToChange(ctx context.Context, expected *Run) error {
 			return nil, err
 		}
 		account, ok := decision.nothingToChange(steps)
+		queue, err := workflowsql.New(tx.SQL()).IsAutomatedQueueChange(ctx, run.ChangeID)
+		if err != nil {
+			return nil, err
+		}
+		spec, err := run.Definition()
+		if err != nil {
+			return nil, err
+		}
+		_, index := spec.Stage(run.CurrentStage)
+		// Deterministic closure judges the complete run, not merely an
+		// early stage whose later work has not started.
+		if index == len(spec.Stages)-1 && len(decision.Missing) == 0 {
+			all, err := readSteps(ctx, tx, run.ID)
+			if err != nil {
+				return nil, err
+			}
+			if deterministicSettled(all, queue) {
+				ok = true
+				account = "nothing to change"
+			}
+		}
 		if !ok || run.ChangeID != expected.ChangeID || !run.ParentRunID.IsZero() {
 			return nil, ErrRunMoved
 		}
@@ -161,7 +184,58 @@ func (s *Service) endNothingToChange(ctx context.Context, expected *Run) error {
 			account = "nothing to change"
 		}
 		reason := strings.ToUpper(account[:1]) + account[1:]
-		return s.abandonments.abandonIn(ctx, tx, Abandonment{ChangeID: run.ChangeID, Who: "apptown-system", Reason: reason, closedAs: ClosedNothingToChange}, run.ProjectID, closure)
+		result, err := s.abandonments.abandonIn(ctx, tx, Abandonment{ChangeID: run.ChangeID, Who: "apptown-system", Reason: reason, closedAs: ClosedNothingToChange}, run.ProjectID, closure)
+		if err != nil {
+			return nil, err
+		}
+		outcome, why := quietOutcome(steps)
+		if err := workflowsql.New(tx.SQL()).EndAutomatedChange(ctx, workflowsql.EndAutomatedChangeParams{ID: run.ChangeID, Outcome: outcome, Reason: why, EndedAt: sql.NullTime{Time: s.now(), Valid: true}}); err != nil {
+			return nil, err
+		}
+		return result, nil
 	})
 	return err
+}
+
+// Queue observation-only runs close with their actual verdict, even findings or
+// an unavailable scanner. Any started work leaves failure for a person.
+func deterministicSettled(steps []*Step, queue bool) bool {
+	if len(steps) == 0 {
+		return false
+	}
+	observing, failed := true, false
+	for _, step := range steps {
+		if step.Type != "scan" {
+			observing = false
+		}
+		if step.Type == "agent/pi" || step.Type == "agent/review" {
+			return false
+		}
+		switch step.Status {
+		case StatusPass, StatusNotApplicable:
+		case StatusFail, StatusError:
+			failed = true
+		default:
+			return false
+		}
+	}
+	return !failed || queue && observing
+}
+
+func quietOutcome(steps []*Step) (string, string) {
+	outcome, reason := "pass", "nothing to change"
+	for _, step := range steps {
+		if step.Status == StatusError || step.Status == StatusFail && outcome != "error" {
+			outcome = step.Status.String()
+			var evidence struct {
+				Reason string `json:"reason"`
+			}
+			if json.Unmarshal(step.Evidence, &evidence) == nil {
+				reason = step.Name + ": " + evidence.Reason
+			} else {
+				reason = step.Name + ": result could not be read"
+			}
+		}
+	}
+	return outcome, reason
 }

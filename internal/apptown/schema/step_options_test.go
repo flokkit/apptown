@@ -137,3 +137,14 @@ func TestEveryStockWorkflowSavesUnderTheOptionRule(t *testing.T) {
 		t.Fatal("no stock workflows found")
 	}
 }
+
+func TestAnAbsoluteScanHasOneBaselineOption(t *testing.T) {
+	if _, err := ParseWorkflow([]byte(workflowWithStep("scan", "{on: source, baseline: none}"))); err != nil {
+		t.Fatal(err)
+	}
+	for _, baseline := range []string{"main", "false", "null", "[none]"} {
+		if _, err := ParseWorkflow([]byte(workflowWithStep("scan", "{on: source, baseline: "+baseline+"}"))); err == nil {
+			t.Errorf("accepted baseline: %s", baseline)
+		}
+	}
+}

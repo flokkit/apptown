@@ -97,3 +97,6 @@ UPDATE token_usage SET incomplete=sqlc.arg(incomplete), pending_until=NULL WHERE
 SELECT step_id, COALESCE(SUM(cost_micros),0)::bigint AS cost_micros,
   COUNT(*) FILTER (WHERE incomplete<>'')::bigint AS incomplete
 FROM token_usage WHERE step_id=ANY(sqlc.arg(step_ids)::uuid[]) GROUP BY step_id;
+
+-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM token_usage WHERE run_id=ANY(sqlc.arg(run_ids)::uuid[]) OR root_run_id=ANY(sqlc.arg(run_ids)::uuid[]));

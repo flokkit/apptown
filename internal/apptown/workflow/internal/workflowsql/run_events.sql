@@ -57,7 +57,7 @@ COALESCE(SUM(EXTRACT(EPOCH FROM r.updated_at)-EXTRACT(EPOCH FROM r.created_at)),
 COUNT(*) FILTER(WHERE r.status=sqlc.arg(done)) AS completed
 FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.parent_run_id IS NULL
 ) history
-WHERE c.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND c.state IN (sqlc.arg(shipped),sqlc.arg(abandoned))
+WHERE c.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND NOT c.purge_pending AND NOT (c.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=c.id AND a.queue<>'')) AND c.state IN (sqlc.arg(shipped),sqlc.arg(abandoned))
 ORDER BY 8 DESC,c.number DESC LIMIT NULLIF(sqlc.arg(limit_count)::integer,0);
 
 -- name: ChangeMergedReceipt :one

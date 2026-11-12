@@ -115,6 +115,9 @@ func (s *Service) Override(ctx context.Context, in Override) (*Step, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := s.touchChange(ctx, expected.scope.ProjectID, expected.scope.ChangeID); err != nil {
+		return nil, err
+	}
 	step, err := (stepDecisionStore{s.db, s.clocked}).override(ctx, expected, who, in.Reason)
 	if err != nil {
 		return nil, err
@@ -130,6 +133,9 @@ func (s *Service) Approve(ctx context.Context, in Approval) (*Step, error) {
 	}
 	expected, who, err := s.prepareDecision(ctx, in.StepID, actionApproveStep)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.touchChange(ctx, expected.scope.ProjectID, expected.scope.ChangeID); err != nil {
 		return nil, err
 	}
 	var also []string

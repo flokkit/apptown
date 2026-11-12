@@ -120,7 +120,7 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 			return
 		}
 		outcome, changeID := workflow.ScheduleFailed, ids.Nil
-		item, run, err := s.Actions.CreateAndStart(asSchedule(ctx, c.projectID), p, "scheduled", title, "", c.workflow)
+		item, run, err := s.Actions.work.CreateAndRun(asSchedule(ctx, c.projectID), workflow.InvokeChange{Change: workflow.ChangeDraft{ProjectID: p.ID, Type: "scheduled", Title: title, Queue: c.trigger.Queue}, Workflow: c.workflow})
 		if err == nil {
 			outcome, changeID = workflow.ScheduleOpened, item.ID
 			audit.At(now).BestEffort(ctx, s.DB, "apptown-system", c.projectID, "change.triggered", title,

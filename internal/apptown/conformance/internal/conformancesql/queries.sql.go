@@ -1529,6 +1529,33 @@ func (q *Queries) PriorReviewBefore(ctx context.Context, arg PriorReviewBeforePa
 	return i, err
 }
 
+const projectScanObservations = `-- name: ProjectScanObservations :many
+SELECT receipt FROM scan_observations WHERE project_id=$1 ORDER BY observed_at DESC, id DESC
+`
+
+func (q *Queries) ProjectScanObservations(ctx context.Context, projectID ids.ID) ([]json.RawMessage, error) {
+	rows, err := q.db.QueryContext(ctx, projectScanObservations, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []json.RawMessage
+	for rows.Next() {
+		var receipt json.RawMessage
+		if err := rows.Scan(&receipt); err != nil {
+			return nil, err
+		}
+		items = append(items, receipt)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const recentWhatIfs = `-- name: RecentWhatIfs :many
 SELECT id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs FROM what_if_reviews ORDER BY id DESC LIMIT $1
 `
@@ -1575,6 +1602,57 @@ func (q *Queries) RecentWhatIfs(ctx context.Context, maxRows int32) ([]WhatIfRev
 		return nil, err
 	}
 	return items, nil
+}
+
+const recordScanObservation = `-- name: RecordScanObservation :exec
+INSERT INTO scan_observations (id, project_id, change_id, run_id, step_id, attempt, subject, scanner, observed_at, receipt)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+ON CONFLICT (step_id, attempt, subject, scanner) DO NOTHING
+`
+
+type RecordScanObservationParams struct {
+	ID         ids.ID
+	ProjectID  ids.ID
+	ChangeID   ids.ID
+	RunID      ids.ID
+	StepID     ids.ID
+	Attempt    int64
+	Subject    string
+	Scanner    string
+	ObservedAt time.Time
+	Receipt    json.RawMessage
+}
+
+func (q *Queries) RecordScanObservation(ctx context.Context, arg RecordScanObservationParams) error {
+	_, err := q.db.ExecContext(ctx, recordScanObservation,
+		arg.ID,
+		arg.ProjectID,
+		arg.ChangeID,
+		arg.RunID,
+		arg.StepID,
+		arg.Attempt,
+		arg.Subject,
+		arg.Scanner,
+		arg.ObservedAt,
+		arg.Receipt,
+	)
+	return err
+}
+
+const retainsAutomatedWork = `-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 WHERE EXISTS(SELECT 1 FROM conformance_reviews WHERE source_run=ANY($1::uuid[])) OR EXISTS(SELECT 1 FROM conformance_fixes WHERE change_ids_json @> jsonb_build_array($2::uuid::text)))
+`
+
+type RetainsAutomatedWorkParams struct {
+	RunIds   []ids.ID
+	ChangeID ids.ID
+}
+
+func (q *Queries) RetainsAutomatedWork(ctx context.Context, arg RetainsAutomatedWorkParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, retainsAutomatedWork, pq.Array(arg.RunIds), arg.ChangeID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const reviewByID = `-- name: ReviewByID :one

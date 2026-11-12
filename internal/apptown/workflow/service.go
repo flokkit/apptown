@@ -17,6 +17,8 @@ import (
 // Service is the supported caller-facing Work API. Its stores and query plans
 // are private; actor strings in commands never establish permission.
 type Service struct {
+	retention      workRetention
+	runningImages  runningImages
 	workspaceChats workspaceOwnership
 	stepCtx        func(context.Context, ids.ID) context.Context
 	heldSummaries  heldSummaryRequests
@@ -78,6 +80,8 @@ type Service struct {
 // context, the sources it reads over time, and the recorders other
 // subsystems supply for the effects Work's transactions carry.
 type Dependencies struct {
+	Retention      workRetention
+	RunningImages  runningImages
 	WorkspaceChats workspaceOwnership
 	HeldSummaries  heldSummaryRequests
 
@@ -211,6 +215,8 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	s.assertions = NewAssertions(db, assertions)
 	s.assertions.dispatchRework = s.dispatchRework
 	s.assertions.clocked = s.clocked
+	s.retention = deps.Retention
+	s.runningImages = deps.RunningImages
 	s.advancer = newAdvancer(db, advanceRuntime{stages: s.stages, assertions: s.assertions, checks: checks, completion: deps.Completion, heldSummaries: deps.HeldSummaries, carry: s.answerFromAcceptance, endNothing: s.endNothingToChange, clocked: s.clocked})
 	s.starter = newStarter(db, s.stages, deps.Chats, startRuntime{
 		source: s.runAdmissions.Source,

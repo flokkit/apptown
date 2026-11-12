@@ -62,6 +62,9 @@ func (a FollowUps) Abandon(ctx context.Context, key string, args map[string]any)
 		if err := errors.Join(failed...); err != nil {
 			return nil, err
 		}
+		if err := a.Work.PurgeAutomatedChanges(ctx); err != nil {
+			return nil, err
+		}
 	case parts[0] == "run" && parts[2] == "ended":
 		run, err := workflow.ReadRunIn(ctx, a.DB, id)
 		if errors.Is(err, sql.ErrNoRows) {

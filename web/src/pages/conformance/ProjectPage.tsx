@@ -1,3 +1,4 @@
+import { LastScan } from '../project/Janitor'
 import { ListTable } from '../../ListTable'
 import './list-migrations.css'
 import { QuietPrompt } from '../../QuietConfirm'
@@ -182,7 +183,7 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
       <LaneSection {...sectionProps} lane="unassessed" title="No current judgement" hint="Checks not run yet, waiting for something, or judged on an older commit" />
       <LaneSection {...sectionProps} lane="na" title="Not applicable" hint="checks that apply to nothing this app declares, or that judge one change and run when a change lands; each says why" />
       <LaneSection {...sectionProps} lane="conforms" title="Conforms" />
-      {!readOnly && <><FixedSection slug={slug} /><ProjectReviews slug={slug} /></>}
+      {!readOnly && <><LastScan slug={slug} /><FixedSection slug={slug} /><ProjectReviews slug={slug} /></>}
     </div>
   )
 }

@@ -37,6 +37,11 @@ func (s *Service) AttachArtifact(ctx context.Context, runID ids.ID, in ArtifactD
 		if run.ProjectID != project {
 			return ids.Nil, ErrRunMoved
 		}
+		if !run.ChangeID.IsZero() {
+			if err := TouchChangeIn(ctx, tx, run.ProjectID, run.ChangeID); err != nil {
+				return ids.Nil, err
+			}
+		}
 		id, err := AddArtifactIn(ctx, tx, runID, in.Kind, in.Name, in.Ref, in.Body, s.now())
 		if err != nil {
 			return ids.Nil, err

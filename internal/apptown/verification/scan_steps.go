@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
@@ -20,6 +21,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/progress"
 	"github.com/flokkit/apptown/internal/strs"
 )
@@ -30,9 +32,10 @@ const maxReportBody = 4 * 1024 * 1024
 // ScanSteps orders scanner preparation, evidence recording and workflow settlement.
 type ScanSteps struct {
 	db           *database.DB
+	deployments  runningDeployments
 	scanners     *Scanners
 	conformance  *conformance.Service
-	integrations *integration.Service
+	integrations registryCredentials
 	progress     *progress.Feeds
 	exec         Executor
 	dataDir      string
@@ -41,9 +44,10 @@ type ScanSteps struct {
 }
 type ScanDependencies struct {
 	DB           *database.DB
+	Deployments  runningDeployments
 	Scanners     *Scanners
 	Conformance  *conformance.Service
-	Integrations *integration.Service
+	Integrations registryCredentials
 	Progress     *progress.Feeds
 	Executor     Executor
 	DataDir      string
@@ -55,7 +59,7 @@ type ScanDependencies struct {
 func (a *ScanSteps) now() time.Time { return clock.Or(a.clock)() }
 
 func NewScanSteps(d ScanDependencies) *ScanSteps {
-	return &ScanSteps{db: d.DB, scanners: d.Scanners, conformance: d.Conformance, integrations: d.Integrations, progress: d.Progress, exec: d.Executor, dataDir: d.DataDir, panics: d.Panics, clock: d.Now}
+	return &ScanSteps{db: d.DB, deployments: d.Deployments, scanners: d.Scanners, conformance: d.Conformance, integrations: d.Integrations, progress: d.Progress, exec: d.Executor, dataDir: d.DataDir, panics: d.Panics, clock: d.Now}
 }
 
 func (a *ScanSteps) logPanic(where string) {
@@ -78,11 +82,39 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	// scanner looks at: a policy ceiling reads the step, not the binding,
 	// so the step's words must be the whole threshold. The stock image
 	// scans write failOn: high.
+	observation := conformance.ScanObservation{ProjectID: run.ProjectID, ChangeID: run.ChangeID, RunID: run.ID, StepID: step.ID, StepConfig: step.Config, Subject: conformance.ScanSubject{On: cfg.On}}
+	if observation.Subject.On == "" {
+		observation.Subject.On = "source"
+	}
 	finish := func(status workflow.StepState, evidence map[string]any) {
+		observation.Verdict, observation.ObservedAt = status.String(), a.now()
+		observation.ID = ids.New(observation.ObservedAt)
+		evidence["scanObservationId"] = observation.ID
+		observation.Reason, _ = evidence["reason"].(string)
+		if err := task.InAttempt(ScanKind, func(tx *database.Tx, attempt int64) error {
+			observation.Attempt = attempt
+			return conformance.RecordScanObservationIn(context.WithoutCancel(task.Context()), tx, observation)
+		}); err != nil {
+			status = workflow.StatusError
+			delete(evidence, "scanObservationId")
+			evidence["reason"] = "recording the scan observation: " + err.Error()
+		}
 		task.Settle(workflow.EncodeOutcome(status, evidence, nil))
 	}
 	if _, err := task.Claim(); err != nil {
 		return
+	}
+	if cfg.On == "running" && cfgErr == nil {
+		a.runRunningScan(task, cfg)
+		return
+	}
+	if observation.Subject.On == "source" {
+		expected, err := task.SourceScanScanners()
+		if err != nil {
+			finish(workflow.StatusError, map[string]any{"reason": "reading expected scanners: " + err.Error()})
+			return
+		}
+		observation.ExpectedScanners = expected
 	}
 	if cfgErr != nil {
 		finish(workflow.StatusError, map[string]any{"reason": cfgErr.Error()})
@@ -104,16 +136,29 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		}
 	}
 	if cfg.None {
-		finish(workflow.StatusPass, map[string]any{"note": fmt.Sprintf("no scanner attached for %s — attach one under Integrations › Scanners", cfg.On)})
+		status := cfg.unattachedStatus()
+		key := "note"
+		if status == workflow.StatusError {
+			key = "reason"
+		}
+		finish(status, map[string]any{key: fmt.Sprintf("no scanner attached for %s — attach one under Integrations › Scanners", cfg.On)})
 		return
 	}
 	stopHB := a.progress.Heartbeat(stepID, "scanning")
 	defer stopHB()
 
 	binding, m, version, rawCfg, err := a.scanners.binding(task.Context(), cfg.Scanner)
+	observation.Scanner, observation.BindingVersion = binding, version
+	if observation.Scanner == "" {
+		observation.Scanner = cfg.Scanner
+	}
+	observation.Configuration, observation.ConfigHash = rawCfg, deploy.ConfigHash(rawCfg)
 	if err != nil {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
+	}
+	if cfg.On == "" {
+		observation.Subject.On = m.Looks()
 	}
 	evidence := map[string]any{
 		"binding": binding, "provider": "tool", "bindingVersion": version,
@@ -153,6 +198,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	}
 	repo := sel.Repo
 	rev = sel.Commit
+	observation.Subject.Commit = rev
 	if !pinned {
 		evidence["commit"] = sel.Commit
 	}
@@ -209,15 +255,18 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		// is the image of the commit this change forked from — its OS CVEs
 		// are carried debt, not this change's. Scanned first, with the same
 		// binding, in the same workspace (the report path is shared).
-		baseSHA, err := workflowProvenanceBase(task.Context(), a.dataDir, source, rev)
-		if err != nil {
-			evidence["reason"] = "reading the commit this change is compared with: " + strs.Truncate(err.Error(), 300)
-			finish(workflow.StatusError, evidence)
-			return
+		if cfg.comparesBaseline() {
+			baseSHA, err := workflowProvenanceBase(task.Context(), a.dataDir, source, rev)
+			if err != nil {
+				evidence["reason"] = "reading the commit this change is compared with: " + strs.Truncate(err.Error(), 300)
+				finish(workflow.StatusError, evidence)
+				return
+			}
+			imageBase = a.scanners.baseImageFingerprints(task.Context(), run.ProjectID, ws, baseSHA, m, binding, scanSrc, argv, execution.StepContainer(stepID, "scan"))
 		}
-		imageBase = a.scanners.baseImageFingerprints(task.Context(), run.ProjectID, ws, baseSHA, m, binding, scanSrc, argv, execution.StepContainer(stepID, "scan"))
 		exportImage = ref // saved into the tree where the scan runs
 		evidence["image"] = ref
+		observation.Subject.Digest = ref
 		// What this receipt covers, and what it does not: the public part's
 		// image, never the release's digest, and not the other parts.
 		if c, err := docker.ReadWorkspaceContract(scanSrc); err == nil {
@@ -239,7 +288,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	// A landing's history scan reads every commit the landing adds, from
 	// the project's repository, mounted read-only.
 	var history *execution.History
-	if pinned && len(m.HistoryCommand) > 0 && m.Looks() == "source" {
+	if pinned && cfg.comparesBaseline() && len(m.HistoryCommand) > 0 && m.Looks() == "source" {
 		commits, err := landingRange(task.Context(), a.db, run.ID)
 		if err != nil {
 			evidence["reason"] = err.Error()
@@ -267,6 +316,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 			argv = append(argv, strings.ReplaceAll(arg, "${HISTORY_RANGE}", commits))
 		}
 		history = &execution.History{Repository: repository, Commits: strings.Split(commits, "..")}
+		observation.Subject.History = commits
 		evidence["history"] = commits
 		evidence["historyCommits"] = strings.TrimSpace(count)
 	}
@@ -284,6 +334,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	evidence["durationMs"] = a.now().Sub(start).Milliseconds()
 
 	answer := readScan(outcome, m, binding)
+	observation.Findings = answer.findings
 	exitCode := answer.exit
 	evidence["exitCode"] = exitCode
 
@@ -308,7 +359,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	switch {
 	case answer.empty:
 		evidence["reason"] = check.EmptyExitDetail(binding, check.Place{Folder: "."})
-		finish(workflow.StatusFail, evidence)
+		finish(workflow.StatusError, evidence)
 		return
 	case answer.failure != "":
 		tailBytes := outcome.Output
@@ -339,6 +390,9 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		var base scanBase
 		compared := true
 		switch {
+		case !cfg.comparesBaseline():
+			base.Note = "the whole tree is judged"
+			compared = false
 		case history != nil:
 			// A history scan reads only the commits main does not have, so
 			// each finding is in what this landing publishes. Comparing it
@@ -359,7 +413,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		default:
 			compared = false
 		}
-		actionable, gating, carried := scanGate(findings, dispositions, base, compared)
+		actionable, gating, carried := cfg.gate(findings, dispositions, base, compared)
 		failing := 0
 		var failingFindings []conformance.Finding
 		bySev := map[string]int{}
@@ -440,8 +494,31 @@ func (a *ScanSteps) imageForScan(ctx context.Context, run *workflow.Run, tree, c
 // when a scan point expanded to no scanner.
 type scanConfig struct {
 	Scanner        string `json:"scanner"`
+	Baseline       string `json:"baseline"`
 	FailOn         string `json:"failOn"` // severity threshold over ACTIONABLE findings; "" = any
 	TimeoutMinutes int    `json:"timeoutMinutes"`
 	On             string `json:"on"`   // a scan point that expanded to nothing
-	None           bool   `json:"none"` // … says so and passes
+	None           bool   `json:"none"` // no attached scanner at this scan point
 }
+
+// An absolute observation without a scanner cannot judge its subject.
+func (c scanConfig) unattachedStatus() workflow.StepState {
+	if c.Baseline == "none" {
+		return workflow.StatusError
+	}
+	return workflow.StatusPass
+}
+
+func (c scanConfig) gate(findings []conformance.Finding, ds []conformance.Disposition, base scanBase, compared bool) (actionable, gating, carried []conformance.Finding) {
+	return scanGate(findings, ds, base, compared && c.comparesBaseline())
+}
+
+type runningDeployments interface {
+	RunningImages(context.Context, ids.ID) ([]deployment.RunningImages, error)
+}
+
+type registryCredentials interface {
+	Registry(context.Context, ids.ID) (*integration.Registry, error)
+}
+
+func (c scanConfig) comparesBaseline() bool { return c.Baseline != "none" && c.On != "running" }

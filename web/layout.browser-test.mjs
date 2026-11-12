@@ -115,7 +115,7 @@ const conformanceProjectFixture = await build({
     const view = {projects:[{slug:'shop',name:'Shop',sentence:'Review incomplete',lanes:{broken:3}}],
       byProject:{shop:checks.map(check=>({id:check,projectSlug:'shop',evaluator:'llm',lane:'broken',state:'error',statusLabel:'unknown',severity:'medium',block:'tools',version:2,check,detail:'check did not finish: token limit reached'}))},
       exceptions:{},adjudications:{},priorConfirmations:{},checkDefs:{},openRemediations:[],reviews:[]}
-    window.fetch = async () => new Response('{}')
+    window.fetch = async path => new Response(JSON.stringify(String(path).endsWith('/scans') ? {scans:{main:'main',source:[],running:[],historical:[],known:false,stale:false,lastScan:'0001-01-01T00:00:00Z'},recent:[]} : {}))
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main style={{padding:18}}><ProjectPage view={view} slug="shop" readOnly={false} onRunOne={()=>{}} /></main></MemoryRouter></QueryClientProvider>)
   ` },
 })

@@ -96,3 +96,6 @@ ORDER BY a.eval_id;
 -- The record people name by its number ("eval 9").
 -- name: EvalIDByNumber :one
 SELECT id FROM evals WHERE number = $1;
+
+-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM eval_arms WHERE source_change_id=sqlc.arg(change_id) OR change_id=sqlc.arg(change_id) OR run_id=ANY(sqlc.arg(run_ids)::uuid[]) OR landing_run_id=ANY(sqlc.arg(run_ids)::uuid[]));
