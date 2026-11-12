@@ -309,7 +309,7 @@ gap and AppTown's exclusive-startup settlement. It kills a worker and waits for
 confirmed exit, without waiting for rescue or shortening timeouts, and adds no
 subprocess to the default suite.
 
-Go's compilation cache stays on; local gates run tests with `-count=1`.
+Go's compilation cache stays on; local `make check` and precheck run tests with `-count=1`.
 CI's unit tests on pull requests and queue commits reuse a package's result
 from main's run when its inputs are identical. Heavy tests run fresh after merge and by hand; every push to
 main also runs the unit tests fresh, and only main's results are stored ([GitHub
@@ -319,21 +319,21 @@ child process (a script, a `docker build` context, a binary it builds) is
 read first through `internal/execution/executiontest`, and a test whose outcome depends
 on what it downloads while it runs gets a line in
 `scripts/ci-uncached-tests.txt`. The images tests start and the tools on the
-runner are recorded by `scripts/ci-test-environment.sh`. The local push
-gate (`make check`) and precheck keep `-count=1`: a developer machine keeps
+runner are recorded by `scripts/ci-test-environment.sh`. Local `make check`
+and precheck keep `-count=1`: a developer machine keeps
 a long-lived test database and whatever images it last pulled, and records
 neither. Local targeted runs (`go test ./internal/apptown/scm`) use the
 cache; add `-count=1` to re-run on purpose: chasing a flake, timing a run, or
 after changing something outside Go such as the installed `git` or the test
 database.
 
-Use `make check` for the full local gate. Its dependency ordering also makes
+`make check` runs the whole local suite. Its dependency ordering also makes
 `make -j2 check` safe: Vite finishes replacing `web/dist` before Go compiles the
 embedded assets. These two builds cannot overlap; tests within Go still do.
 To check scheduling changes, run
 `go test -race -shuffle=on -count=1 ./internal/apptown`. For timings, use
 `go test -json -count=1 ./internal/apptown`, or `make check GO_TEST_FLAGS=-json`
-to retain the full gate while collecting timing events. Compare the package's elapsed time,
+to run the whole suite while collecting timing events. Compare the package's elapsed time,
 not the sum of parallel tests' durations. Keep database-heavy benchmark runs
 separate so they do not compete for the same server.
 
@@ -351,8 +351,7 @@ the root package is glue over everything, and the ownership boundaries in
 
 `make check-journeys` uses the Linux CI runner through `scripts/ci-heavy.sh`,
 including its agent image build and cleanup. It gives an unnamed local run a
-unique job ID and passes `GOMAXPROCS` into the runner (default 4). On a shared
-machine, run this target and `precheck` through the gate queue.
+unique job ID and passes `GOMAXPROCS` into the runner (default 4).
 
 The heavy runner checks that a container using host networking can reach a
 port published on the Docker host's loopback before building or running tests.

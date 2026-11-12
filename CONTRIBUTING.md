@@ -26,10 +26,11 @@ would like to change something:
 ## Working on the code
 
 - Build: [Building from source](#building-from-source) below.
-- Check: `make tools` once (the pinned analyzers), then `make check`, which runs
-  the same checks as CI ([.github/workflows/ci.yml](.github/workflows/ci.yml))
-  plus the web tests. It needs Docker: the database tests start their own
-  PostgreSQL.
+- Check: run the tests that prove your change and name them in the pull
+  request; CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) and the
+  merge queue are the gate. For the whole local suite, run `make tools` once
+  (the pinned analyzers), then `make check`. It needs Docker: the database
+  tests start their own PostgreSQL.
 - Read [CLAUDE.md](CLAUDE.md) for the design rules the code follows and
   [design/README.md](design/README.md) for where each part is described.
 

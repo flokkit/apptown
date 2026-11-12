@@ -68,10 +68,10 @@ check:                   ## run the fast CI gates locally
 	@echo "== check-gate (alone, after the other stages) =="
 	@$(MAKE) --no-print-directory check-gate
 
-# precheck: what a branch should pass before it asks for the gate. The gate's
-# fast stages that need no test database, and the tests of every package the
+# precheck: an optional local run before opening a pull request. The fast
+# stages that need no test database, and the tests of every package the
 # branch's changes can affect (scripts/affected.py), concurrently. It saves a
-# failed gate cycle; the gate's full run stays the witness. BASE is what the
+# failed CI cycle; CI and the merge queue stay the gate. BASE is what the
 # branch will merge onto.
 BASE ?= origin/main
 PRECHECK_STAGES = check-pins check-npm-scripts check-build-artifacts check-docs check-public check-go-source check-vet check-staticcheck check-lint check-shape check-sqlnow check-exec check-container-output check-reachability check-migrations check-web-css check-web-inline-style check-web-type check-web-layout check-web-tsc check-web-lint check-web-test check-test-affected check-journeys check-sql
@@ -85,14 +85,13 @@ precheck:               ## the fast gates and the tests of affected packages, be
 -include private/scripts/maintainer.mk
 
 # Journeys use the same Linux runner as CI, including its pinned agent image
-# build and cleanup. Run precheck through the gate queue on a shared machine.
+# build and cleanup.
 check-journeys:         ## the journey tier: the user stories end to end (-tags journey)
 	CI_HEAVY_ID="$${CI_HEAVY_ID:-journeys-$$$$}" sh scripts/ci-heavy.sh test -tags journey ./internal/apptown -run TestJourney -count=1 $(AFFECTED_TEST_FLAGS) $(GO_TEST_FLAGS)
 
 # The affected tests can be most of the suite (a change to a central package),
-# and they share the test database with the gate: on a machine where several
-# branches run gates, run precheck through the same queue as the gate. They run
-# at reduced parallelism by default (AFFECTED_TEST_FLAGS).
+# and they share the local test database with any other run on the machine, so
+# they run at reduced parallelism by default (AFFECTED_TEST_FLAGS).
 AFFECTED_TEST_FLAGS ?= -p 2
 check-test-affected:    ## tests of the packages a branch's changes can affect (scripts/affected.py)
 	@pkgs=$$(python3 scripts/affected.py $(BASE)) || { echo "could not tell which packages are affected"; exit 1; }; \

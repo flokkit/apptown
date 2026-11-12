@@ -228,8 +228,8 @@ queue run tests what `main` becomes and is the run that decides. GitHub
 requires `ci-ok` on a pull request before it can join the queue, so a pull
 request starts only `ci-ok`, which reports that it checked nothing; running
 every job there too repeated the queue's work and added about eight minutes
-to each landing. Landing runs `make check` locally before it opens the pull
-request. A pull request's newer run cancels its older one; main's runs, and
+to each landing. The author runs the tests that prove the change and names them in the pull
+request; CI and the merge queue are the gate. A pull request's newer run cancels its older one; main's runs, and
 runs by hand, are each kept. Main runs after merge so that each landed
 commit has its own result and so that main writes the caches every queue
 run restores. Jobs:
