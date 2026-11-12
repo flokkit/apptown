@@ -454,6 +454,7 @@ func (s *Service) Interrupt(ctx context.Context, id string) error {
 	if err := s.agent.Interrupt(ctx, sess.ID); err != nil {
 		return err
 	}
+	sess.record().interrupted()
 	sess.Touch()
 	return sess.persist()
 }

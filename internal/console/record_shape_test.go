@@ -101,8 +101,9 @@ func TestRecordFollowsARenamedFile(t *testing.T) {
 }
 
 // A turn that ends in a model error becomes a helper bubble saying so, in
-// plain words, and counts as handed back: the chat must never look busy
-// over a helper that has stopped.
+// plain words, once the record has settled (pi may still retry it), and
+// counts as handed back: the chat must never look busy over a helper that
+// has stopped.
 func TestModelErrorSurfacesInChat(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -111,6 +112,11 @@ func TestModelErrorSurfacesInChat(t *testing.T) {
 `
 	path := writeSessionRecord(t, dir, "2026-09-04T09-57-00-000Z_console.jsonl", rec)
 	s := &Session{Dir: dir}
+	if msgs := s.messages(); len(msgs) != 1 {
+		t.Fatalf("before the record settles, the failure may yet be retried: %+v", msgs)
+	}
+	past := time.Date(2026, 9, 4, 9, 58, 0, 0, time.UTC)
+	_ = os.Chtimes(path, past, past)
 	msgs := s.messages()
 	if len(msgs) != 2 {
 		t.Fatalf("want the user turn and the helper's error, got %+v", msgs)
@@ -125,8 +131,6 @@ func TestModelErrorSurfacesInChat(t *testing.T) {
 	if strings.Contains(last.Text, `{"type"`) {
 		t.Fatalf("raw JSON must not leak into the bubble: %q", last.Text)
 	}
-	past := time.Date(2026, 9, 4, 9, 58, 0, 0, time.UTC)
-	_ = os.Chtimes(path, past, past)
 	if !s.HandedBack() {
 		t.Fatal("a turn that ended in an error is handed back — nothing is running")
 	}
@@ -156,6 +160,89 @@ func TestStopSurfacesInChat(t *testing.T) {
 	}
 }
 
+// A dropped model stream that pi retries is a blip, not a stop. Read as pi
+// writes it: the failed attempt alone says nothing yet; pi's edit dropping
+// it leaves the turn working through the backoff; when the retry fails
+// too, the one bubble says it was retried, and never that the model could
+// not be reached.
+func TestRetriedModelErrorIsNotAStop(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := writeSessionRecord(t, dir, "2026-11-12T00-11-00-000Z_console.jsonl",
+		`{"type":"message","id":"a","timestamp":"2026-11-12T00:11:00.000Z","message":{"role":"user","content":[{"type":"text","text":"add a login page"}]}}
+{"type":"message","id":"b","parentId":"a","timestamp":"2026-11-12T00:11:54.000Z","message":{"role":"assistant","content":[{"type":"text","text":"I'll start"}],"stopReason":"error","errorMessage":"This operation was aborted"}}
+`)
+	s := &Session{Dir: dir}
+	if msgs := s.messages(); len(msgs) != 1 || s.HandedBack() {
+		t.Fatalf("a failed attempt pi has not settled is not a stop: %+v", msgs)
+	}
+	appendRecord(t, path, `{"type":"context_edit","id":"c","parentId":"b","timestamp":"2026-11-12T00:11:54.100Z","targetId":"b","replacement":null}`)
+	settled(path)
+	if msgs := s.messages(); len(msgs) != 1 || msgs[0].Role != "you" {
+		t.Fatalf("an attempt pi is retrying is not a bubble: %+v", msgs)
+	}
+	if s.HandedBack() {
+		t.Fatal("while pi waits to retry, the turn is still working")
+	}
+	appendRecord(t, path, `{"type":"message","id":"d","parentId":"c","timestamp":"2026-11-12T00:12:20.000Z","message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"This operation was aborted"}}`)
+	settled(path)
+	msgs := s.messages()
+	if len(msgs) != 2 || !msgs[1].Error || msgs[1].I != 1 {
+		t.Fatalf("the failed retry is the one error bubble: %+v", msgs)
+	}
+	if !strings.Contains(msgs[1].Text, "failed again when I retried") || strings.Contains(msgs[1].Text, "reach") {
+		t.Fatalf("the bubble says the turn was retried, not that the model was unreachable: %q", msgs[1].Text)
+	}
+	if !s.HandedBack() {
+		t.Fatal("a failed retry ends the turn")
+	}
+}
+
+// Pressing stop while pi waits to retry cancels the retry, and pi writes
+// nothing for it: the stop itself ends the turn, so the chat does not stay
+// working; a message the person sends after the stop starts new work.
+func TestStopWhileWaitingToRetryEndsTheTurn(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := writeSessionRecord(t, dir, "2026-11-12T00-11-00-000Z_console.jsonl",
+		`{"type":"message","id":"a","timestamp":"2026-11-12T00:11:00.000Z","message":{"role":"user","content":[{"type":"text","text":"add a login page"}]}}
+{"type":"message","id":"b","parentId":"a","timestamp":"2026-11-12T00:11:54.000Z","message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"503 overloaded"}}
+{"type":"context_edit","id":"c","parentId":"b","timestamp":"2026-11-12T00:11:54.100Z","targetId":"b","replacement":null}
+`)
+	s := &Session{Dir: dir}
+	if s.HandedBack() {
+		t.Fatal("waiting to retry is working")
+	}
+	s.record().interrupted()
+	if !s.HandedBack() {
+		t.Fatal("a stop while pi waits to retry ends the turn")
+	}
+	appendRecord(t, path, `{"type":"message","id":"d","parentId":"c","timestamp":"2099-01-01T00:00:00.000Z","message":{"role":"user","content":[{"type":"text","text":"try again"}]}}`)
+	appendRecord(t, path, `{"type":"message","id":"e","parentId":"d","timestamp":"2099-01-01T00:00:05.000Z","message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"503 overloaded"}}`)
+	appendRecord(t, path, `{"type":"context_edit","id":"f","parentId":"e","timestamp":"2099-01-01T00:00:05.100Z","targetId":"e","replacement":null}`)
+	if s.HandedBack() {
+		t.Fatal("the stop belongs to the turn it ended, not the next one's retry")
+	}
+}
+
+func appendRecord(t *testing.T, path, line string) {
+	t.Helper()
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if _, err := f.WriteString(line + "\n"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// settled ages the record past the settle time.
+func settled(path string) {
+	past := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	_ = os.Chtimes(path, past, past)
+}
+
 func writeSessionRecord(t *testing.T, dir, name, body string) string {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(dir, "sessions"), 0o755); err != nil {
@@ -166,4 +253,27 @@ func writeSessionRecord(t *testing.T, dir, name, body string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+// A split install copies the worker record every two seconds. The stop
+// can succeed on the worker before its retry omission reaches AppTown.
+func TestStopBeforeRetryRecordCopyEndsTheTurn(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := writeSessionRecord(t, dir, "2026-11-12T00-11-00-000Z_console.jsonl",
+		`{"type":"message","id":"a","timestamp":"2026-11-12T00:11:00.000Z","message":{"role":"user","content":[{"type":"text","text":"add a login page"}]}}
+`)
+	s := &Session{Dir: dir}
+	if s.HandedBack() {
+		t.Fatal("the turn has started")
+	}
+	// Escape already cancelled pi's backoff on the worker. No further
+	// messages will be written there. AppTown's copy still has only a.
+	s.record().interrupted()
+	appendRecord(t, path, `{"type":"message","id":"b","timestamp":"2026-11-12T00:11:54.000Z","message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"503 overloaded"}}`)
+	appendRecord(t, path, `{"type":"context_edit","id":"c","timestamp":"2026-11-12T00:11:54.100Z","targetId":"b","replacement":null}`)
+	settled(path)
+	if !s.HandedBack() {
+		t.Fatal("stopped retry stays working after its delayed worker record arrives")
+	}
 }

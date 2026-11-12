@@ -27,8 +27,8 @@ middleware right after `SecurityMiddleware` and
 `uv run python manage.py test --settings=app.test_settings`: keep it running the whole suite. The
 starter's Makefile ships its `make test` target commented out until the app
 exists; the change that writes the app uncomments it and declares
-`test: ["make test"]` on the part in `.apptown/app.yaml` (the landing's tests
-step fails for a part built with python while it declares no tests).
+`tools: [python]` (it turns these checks on) and `test: ["make test"]` on
+the part in `.apptown/app.yaml` (landing needs its tests).
 Each command must work in a clean checkout: landing uses a fresh folder, so
 `make test` starts with `uv sync --frozen`, including the test dependencies.
 
