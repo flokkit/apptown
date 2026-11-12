@@ -94,6 +94,30 @@ func TestCancellationStopsLocalChildren(t *testing.T) {
 	}
 }
 
+// A command that succeeded is reported as exiting 0 with all of its output,
+// however far its reader falls behind: OnLine may record each line, and on a
+// loaded machine the goroutine copying output can run long after the process
+// exited. Here OnLine takes its first line three seconds late, with about
+// 49 KB behind it: little enough to wait in the pipes, so the process exits
+// while its output is still being copied (os/exec's WaitDelay counts from
+// the exit too, so a bound on the pipes cut this short and failed it).
+func TestOutputReadLateIsStillASuccessfulExit(t *testing.T) {
+	t.Parallel()
+	req := shell(`seq 1 10000`)
+	late := true
+	req.OnLine = func(string) {
+		if late {
+			late = false
+			<-time.After(3 * time.Second)
+		}
+	}
+	out := (Runner{}).Run(context.Background(), Local, req)
+	lines := strings.Split(strings.TrimSuffix(string(out.Output), "\n"), "\n")
+	if out.Termination != Exited || out.ExitCode != 0 || out.RunErr != nil || len(lines) != 10000 || lines[9999] != "10000" {
+		t.Fatalf("a late reader turned success into %s, exit %d, %v, with %d lines", out.Termination, out.ExitCode, out.RunErr, len(lines))
+	}
+}
+
 func TestCaptureIsBoundedWithoutNewlines(t *testing.T) {
 	req := shell("head -c 18000000 /dev/zero")
 	streamed := 0

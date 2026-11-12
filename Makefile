@@ -85,9 +85,11 @@ precheck:               ## the fast gates and the tests of affected packages, be
 -include private/scripts/maintainer.mk
 
 # Journeys use the same Linux runner as CI, including its pinned agent image
-# build and cleanup.
+# build and cleanup, and the same 30 minutes as heavy-main's journeys job: the
+# tier takes most of Go's default 10 alone, so a busy machine ran it out of
+# time with no test stuck. A -timeout in GO_TEST_FLAGS still wins.
 check-journeys:         ## the journey tier: the user stories end to end (-tags journey)
-	CI_HEAVY_ID="$${CI_HEAVY_ID:-journeys-$$$$}" sh scripts/ci-heavy.sh test -tags journey ./internal/apptown -run TestJourney -count=1 $(AFFECTED_TEST_FLAGS) $(GO_TEST_FLAGS)
+	CI_HEAVY_ID="$${CI_HEAVY_ID:-journeys-$$$$}" sh scripts/ci-heavy.sh test -tags journey ./internal/apptown -run TestJourney -count=1 -timeout 30m $(AFFECTED_TEST_FLAGS) $(GO_TEST_FLAGS)
 
 # The affected tests can be most of the suite (a change to a central package),
 # and they share the local test database with any other run on the machine, so

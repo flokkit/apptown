@@ -2,10 +2,8 @@
 
 package execution
 
-import (
-	"os/exec"
-	"time"
-)
+import "os/exec"
 
-// Non-Unix hosts retain CommandContext's direct-child cancellation semantics.
-func configureCancellation(cmd *exec.Cmd) { cmd.WaitDelay = 2 * time.Second }
+// Non-Unix hosts retain CommandContext's direct-child cancellation, and read
+// output to its end as Unix hosts do (cancel_unix.go).
+func configureCancellation(*exec.Cmd) {}

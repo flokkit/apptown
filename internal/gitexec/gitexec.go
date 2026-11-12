@@ -33,14 +33,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/flokkit/apptown/internal/trust"
 )
-
-// waitDelay bounds how long a canceled git's pipes may stay open, so a child
-// that inherited them cannot hold the caller past cancellation.
-const waitDelay = time.Second
 
 // Environ is the environment AppTown starts git (or any local process
 // that may run git) with: the process's own without one GIT_* variable it
@@ -93,16 +88,20 @@ var RepositoryConfigOnly = []string{"GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=
 // ssh, a hook) form a process group of their own, and canceling ctx kills
 // the whole group, as execution.Runner does: killing git alone would leave
 // a helper running, holding git's pipes or still talking to a remote.
+//
+// Canceling reaches git only while git itself runs: once it has exited,
+// os/exec stops watching ctx. git's output is read to its end, however long
+// after git exits that comes (no WaitDelay): os/exec starts a WaitDelay when
+// git exits as well as when ctx is canceled, so with one a git that succeeded
+// failed, its output cut short, whenever the goroutine copying that output
+// was not scheduled within the delay, as on a loaded machine. So anything
+// still holding git's output after git has exited (a background child, a
+// process that left the group) holds the caller until it lets go, canceled
+// or not. git's own background helpers close their output when they detach.
 func Command(ctx context.Context, dir string, env []string, args ...string) *exec.Cmd {
 	argv := Argv(args...)
 	cmd := exec.CommandContext(ctx, "git", argv[1:]...)
 	ownGroup(cmd)
-	// Only a cancellable call bounds its pipes. An uncancellable one waits for
-	// them as a plain exec would: a push can leave a helper holding a pipe
-	// after git itself has finished, and that is not a failure.
-	if ctx.Done() != nil {
-		cmd.WaitDelay = waitDelay
-	}
 	cmd.Dir = dir
 	cmd.Env = append([]string{}, env...)
 	return cmd
@@ -270,7 +269,6 @@ func ExtractCommit(ctx context.Context, repo, revision, dst string) error {
 		return &ExtractError{Step: "archive", Err: err, Output: strings.TrimSpace(string(out))}
 	}
 	tar := exec.CommandContext(ctx, "tar", "-x", "-f", archive, "-C", dst)
-	tar.WaitDelay = waitDelay
 	if out, err := tar.CombinedOutput(); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()

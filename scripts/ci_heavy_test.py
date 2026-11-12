@@ -236,7 +236,7 @@ class RequiredTests(unittest.TestCase):
                 self.assertIn("build -q -t apptown-agent deploy/apptown-agent", commands)
                 self.assertIn("build -q -t apptown-ci-heavy", commands)
                 self.assertIn("-e GOMAXPROCS=3", commands)
-                self.assertIn("apptown-ci-heavy go test -tags journey ./internal/apptown -run TestJourney -count=1 -p 2 -timeout 7m", commands)
+                self.assertIn("apptown-ci-heavy go test -tags journey ./internal/apptown -run TestJourney -count=1 -timeout 30m -p 2 -timeout 7m", commands)
 
     def test_network_preflight_refuses_before_build_and_cleans_owned_probes(self):
         for failure in ('server', 'start', 'mapping', 'malformed', 'client', 'unreachable', 'wrong'):
