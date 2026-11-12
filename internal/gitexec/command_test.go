@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
 )
@@ -41,4 +42,39 @@ func TestCommandEnvironmentIsExactlyTheOneGiven(t *testing.T) {
 	if strings.Contains(string(out), "APPTOWN_INHERITED_PROBE") || strings.Contains(string(out), "GIT_DIR") {
 		t.Fatalf("a nil environment let the process's own through:\n%s", out)
 	}
+}
+
+// A git that succeeded succeeds with all of its output, however late the
+// caller reads it: on a loaded machine the goroutine copying git's output
+// can run long after git has exited. The writer here stands in for that
+// reader, a second behind (os/exec's WaitDelay counts from git's exit too, so
+// a bound on the pipes failed exactly this). The context is cancellable, as a
+// request's is.
+func TestCommandOutputReadLateIsStillGitsSuccess(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := Command(ctx, t.TempDir(), Environ(), "--version")
+	var out lateWriter
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git --version, read late: %v", err)
+	}
+	if !strings.HasPrefix(out.String(), "git version ") {
+		t.Fatalf("git's output was cut short: %q", out.String())
+	}
+}
+
+// lateWriter takes its first write two seconds late.
+type lateWriter struct {
+	strings.Builder
+	waited bool
+}
+
+func (w *lateWriter) Write(p []byte) (int, error) {
+	if !w.waited {
+		w.waited = true
+		<-time.After(2 * time.Second)
+	}
+	return w.Builder.Write(p)
 }
