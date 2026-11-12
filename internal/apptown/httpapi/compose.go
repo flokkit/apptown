@@ -25,7 +25,13 @@ import (
 //
 // It is GENERATED, never authored: `apptown dev` writes it gitignored and rebuilds
 // it every time, so it cannot drift from the contract.
-func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Contract, secretSpec string) (string, []string, error) {
+//
+// host is where the public part's published port answers for the person
+// (localhost, or their session's Docker host). The app's address there is
+// given as AppTown gives it on every deployment: APPTOWN_APP_URL to each
+// part and init step, APPTOWN_ORIGINS to the public part, so a boot that builds
+// its links from them rehearses as it deploys.
+func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Contract, secretSpec, host string) (string, []string, error) {
 	var delivery secret.Delivery
 	var withheld []string
 	if strings.TrimSpace(secretSpec) != "" {
@@ -55,6 +61,12 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 
 	services := map[string]any{}
 	volumes := map[string]any{}
+	appURL := ""
+	for _, p := range parts {
+		if p.Public && p.Port != 0 {
+			appURL = fmt.Sprintf("http://%s:%d", host, p.Port)
+		}
+	}
 
 	// depends_on for the app parts: wait for each need to be healthy (or at
 	// least started) and for every init container to complete successfully. This
@@ -93,6 +105,9 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 			return "", nil, err
 		}
 		env := appcontract.MergeEnv(appcontract.MergeEnv(own, plan.Env), delivery.EnvFor("init-"+in.Name))
+		if appURL != "" {
+			env["APPTOWN_APP_URL"] = appURL
+		}
 		if len(env) > 0 {
 			svc["environment"] = composeEnv(env)
 		}
@@ -143,6 +158,12 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 		env := appcontract.MergeEnv(appcontract.MergeEnv(own, plan.Env), delivery.EnvFor(p.Name))
 		if p.Port != 0 {
 			env["PORT"] = fmt.Sprint(p.Port)
+		}
+		if appURL != "" {
+			env["APPTOWN_APP_URL"] = appURL
+			if p.Public {
+				env["APPTOWN_ORIGINS"] = appURL
+			}
 		}
 		if len(env) > 0 {
 			svc["environment"] = composeEnv(env)

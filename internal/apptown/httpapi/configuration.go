@@ -166,10 +166,21 @@ func (h Configuration) DevCompose(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 400, "%v", err)
 			return
 		}
+		// Published ports answer on the caller's Docker host: the needs for
+		// a process on that machine (process mode), and the app's own address
+		// (container mode).
+		host := in.Host
+		if host == "" {
+			host = "localhost"
+		}
+		if !devHostName.MatchString(host) {
+			WriteError(w, 400, "host %q is not a plain host name", host)
+			return
+		}
 		var compose string
 		var withheld []string
 		if in.Mode == "full" {
-			compose, withheld, err = h.generateDevCompose(r.Context(), c, in.SecretSpec)
+			compose, withheld, err = h.generateDevCompose(r.Context(), c, in.SecretSpec, host)
 		} else {
 			compose, err = h.generateNeedsCompose(r.Context(), c)
 		}
@@ -179,14 +190,6 @@ func (h Configuration) DevCompose(w http.ResponseWriter, r *http.Request) {
 		}
 		// Process-mode env: the app runs on the host, so the needs are reached at
 		// localhost:<published-port>. Plus a Procfile when the app is multi-process.
-		host := in.Host
-		if host == "" {
-			host = "localhost"
-		}
-		if !devHostName.MatchString(host) {
-			WriteError(w, 400, "host %q is not a plain host name", host)
-			return
-		}
 		env := h.catalog.ResolveLocal(r.Context(), c.Needs, c.NeedParams, host).Env
 		// The parts' need references, wired with the same localhost values,
 		// join the one env file every process reads (dev.env).

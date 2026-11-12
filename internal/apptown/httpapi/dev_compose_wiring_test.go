@@ -34,7 +34,7 @@ func TestContainerDevResolvesNeedReferences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _, err := h.generateDevCompose(t.Context(), c, "")
+	raw, _, err := h.generateDevCompose(t.Context(), c, "", "localhost")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,6 +125,52 @@ func TestWordPressDevDeliversScopedFreshSecrets(t *testing.T) {
 		previous = install["WP_ADMIN_PASSWORD"]
 		if !reflect.DeepEqual(out.Withheld, []string{"WP_HOME"}) {
 			t.Fatalf("withheld: %v", out.Withheld)
+		}
+	}
+}
+
+// apptown dev up gives the app its address as every deployment does: an app
+// made from the WordPress seed that requires an explicit address exited in
+// its install step without it (demo complaint #39). The address is where the public part's
+// published port answers for the person: their session's Docker host.
+func TestDevUpGivesTheAppItsLocalAddress(t *testing.T) {
+	t.Parallel()
+	h := configurationFixture(t)
+	app, err := os.ReadFile("../../../stock/seeds/wordpress/.apptown/app.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for host, want := range map[string]string{"": "http://localhost:8080", "dind": "http://dind:8080"} {
+		body, err := json.Marshal(map[string]string{"appYaml": string(app), "mode": "full", "host": host})
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := httptest.NewRecorder()
+		h.DevCompose(w, httptest.NewRequest("POST", "/api/v1/dev-compose", bytes.NewReader(body)))
+		if w.Code != 200 {
+			t.Fatalf("dev compose: %d %s", w.Code, w.Body.String())
+		}
+		var out DevComposition
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+			t.Fatal(err)
+		}
+		var compose struct {
+			Services map[string]struct {
+				Environment map[string]string `yaml:"environment"`
+			} `yaml:"services"`
+		}
+		if err := yaml.Unmarshal([]byte(out.Compose), &compose); err != nil {
+			t.Fatal(err)
+		}
+		web, install := compose.Services["web"].Environment, compose.Services["install"].Environment
+		if got := deploy.ComposeRead(install["APPTOWN_APP_URL"]); got != want {
+			t.Errorf("host %q: install APPTOWN_APP_URL = %q, want %q", host, got, want)
+		}
+		if got := deploy.ComposeRead(web["APPTOWN_APP_URL"]); got != want {
+			t.Errorf("host %q: web APPTOWN_APP_URL = %q, want %q", host, got, want)
+		}
+		if got := deploy.ComposeRead(web["APPTOWN_ORIGINS"]); got != want {
+			t.Errorf("host %q: web APPTOWN_ORIGINS = %q, want %q", host, got, want)
 		}
 	}
 }

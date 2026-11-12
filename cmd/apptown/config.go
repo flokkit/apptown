@@ -268,6 +268,14 @@ func devUpStart(builds []devStaticBuild, docker func(quiet bool, args ...string)
 	compose := func(dcArgs ...string) error { return composeWith(docker, dcArgs...) }
 	fmt.Println("$ docker compose up -d --build")
 	if err := compose("up", "-d", "--build"); err != nil {
+		// A detached up shows no container's output, so an init step that
+		// exited would fail with only its exit code. Its last lines say why;
+		// the up's failure is still what this returns, whether or not the
+		// logs could be read.
+		fmt.Println("$ docker compose logs --no-color --tail 50")
+		if logErr := compose("logs", "--no-color", "--tail", "50"); logErr != nil {
+			fmt.Fprintf(os.Stderr, "the containers' logs could not be read: %v\n", logErr)
+		}
 		return err
 	}
 	if parts := staticParts(builds); len(parts) > 0 {

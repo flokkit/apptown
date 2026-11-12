@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -247,5 +248,27 @@ func TestDevSendsSecretDeclarationAndPrintsWithheldNames(t *testing.T) {
 		if !strings.Contains(out, "EXTERNAL_TOKEN") {
 			t.Fatalf("withheld name missing: %s", out)
 		}
+	}
+}
+
+// A failed `apptown dev up` shows the containers' last log lines: a detached
+// up prints none, and an init step that exited said only its exit code
+// (demo complaint #39).
+func TestDevUpShowsLogsWhenComposeFails(t *testing.T) {
+	t.Chdir(t.TempDir())
+	var ran []string
+	docker := func(quiet bool, args ...string) error {
+		ran = append(ran, strings.Join(args, " "))
+		if slices.Contains(args, "up") {
+			return errors.New("exit status 1")
+		}
+		return nil
+	}
+	if err := devUpStart(nil, docker); err == nil {
+		t.Fatal("a failed compose up was not reported")
+	}
+	compose := "compose --project-directory . -f " + devComposePath + " "
+	if want := compose + "logs --no-color --tail 50"; !slices.Contains(ran, want) {
+		t.Fatalf("ran %q, want the logs (%q) after the failed up", ran, want)
 	}
 }

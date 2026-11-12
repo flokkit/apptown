@@ -19,7 +19,7 @@ func TestBothDevComposeModesUseTheCatalogueSize(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, generate := range []func(*appcontract.Contract) (string, error){func(c *appcontract.Contract) (string, error) {
-		raw, _, err := h.generateDevCompose(t.Context(), c, "")
+		raw, _, err := h.generateDevCompose(t.Context(), c, "", "localhost")
 		return raw, err
 	}, func(c *appcontract.Contract) (string, error) { return h.generateNeedsCompose(t.Context(), c) }} {
 		out, err := generate(c)
@@ -88,7 +88,7 @@ func TestBothDevComposeModesGiveANeedItsDataFolder(t *testing.T) {
 	}
 	for name, generate := range map[string]func(*appcontract.Contract) (string, error){
 		"container": func(c *appcontract.Contract) (string, error) {
-			raw, _, err := h.generateDevCompose(t.Context(), c, "")
+			raw, _, err := h.generateDevCompose(t.Context(), c, "", "localhost")
 			return raw, err
 		},
 		"process": func(c *appcontract.Contract) (string, error) { return h.generateNeedsCompose(t.Context(), c) },

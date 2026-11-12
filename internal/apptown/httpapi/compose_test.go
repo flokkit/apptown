@@ -30,7 +30,7 @@ needs:
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, _, err := h.generateDevCompose(t.Context(), c, "")
+	out, _, err := h.generateDevCompose(t.Context(), c, "", "localhost")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ needs:
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, _, err := h.generateDevCompose(t.Context(), c, "")
+	out, _, err := h.generateDevCompose(t.Context(), c, "", "localhost")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestCanonicalPublicPortUsedByDevCompose(t *testing.T) {
 		if c.PublicPart().Port != tc.port || c.Parts[1].Port != 0 {
 			t.Fatalf("canonical ports: %+v", c.Parts)
 		}
-		raw, _, err := h.generateDevCompose(t.Context(), c, "")
+		raw, _, err := h.generateDevCompose(t.Context(), c, "", "localhost")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -116,7 +116,7 @@ func TestDevComposeServesABuiltStaticSiteFromItsExportedBuild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _, err := configurationFixture(t).generateDevCompose(t.Context(), c, "")
+	raw, _, err := configurationFixture(t).generateDevCompose(t.Context(), c, "", "localhost")
 	if err != nil {
 		t.Fatalf("dev compose of a built static site: %v", err)
 	}
@@ -174,7 +174,7 @@ init:
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _, err := h.generateDevCompose(t.Context(), c, "")
+	raw, _, err := h.generateDevCompose(t.Context(), c, "", "localhost")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +237,7 @@ init:
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _, err := configurationFixture(t).generateDevCompose(t.Context(), c, "")
+	raw, _, err := configurationFixture(t).generateDevCompose(t.Context(), c, "", "localhost")
 	if err != nil {
 		t.Fatal(err)
 	}
