@@ -1,4 +1,4 @@
-import { fmtBytes } from './format'
+import { fmtBytes, fmtCores } from './format'
 import './styles/capacity-strip.css'
 import type { TargetCapacity } from './wire.gen'
 
@@ -37,7 +37,7 @@ export function targetCapacityReadings(c?: TargetCapacity): CapacityReading[] {
   const reading = (label: string, host: number | undefined, containers: number | undefined, total: number | undefined, format?: (v: number) => string): CapacityReading =>
     host !== undefined ? { label, used: host, total, format } : { label, used: containers, total, format, basis: containers !== undefined ? 'by containers' : undefined }
   return [
-    reading('CPU', current(c?.cpu?.hostUsed), containersCPU, current(c?.cpu?.total), v => `${Number(v.toFixed(2))}`),
+    reading('CPU', current(c?.cpu?.hostUsed), containersCPU, current(c?.cpu?.total), fmtCores),
     reading('MEMORY', current(c?.memory?.hostUsed), containersMemory, current(c?.memory?.total)),
     { label: 'DISK', used: diskTotal !== undefined && diskFree !== undefined ? diskTotal - diskFree : undefined, total: diskTotal },
   ]

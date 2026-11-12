@@ -57,7 +57,7 @@ func partRuntime(m machine, md map[string]string) deploy.PartRuntime {
 		}
 	}
 	if cfg, err := m.Config.requestConfig(); err == nil {
-		r.Image, r.CPULimit, r.MemoryLimit = cfg.Image, float64(cfg.Guest.CPUs), int64(cfg.Guest.MemoryMB)<<20
+		r.Image, r.CPULimit, r.CPUKind, r.MemoryLimit = cfg.Image, float64(cfg.Guest.CPUs), cfg.Guest.CPUKind, int64(cfg.Guest.MemoryMB)<<20
 	}
 	for _, e := range m.Events {
 		at := time.UnixMilli(e.Timestamp).UTC()

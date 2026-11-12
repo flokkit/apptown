@@ -9,7 +9,8 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
-const appTownDefaultMemory int64 = 512 << 20
+// staticPartMemory caps AppTown's file server (it uses about 18 MB).
+const appTownDefaultMemory, staticPartMemory int64 = 512 << 20, 64 << 20
 
 // MemoryDefaultSource identifies the default that supplied the effective cap:
 // AppTown's ("apptown"), or for a service need its catalogue kind's
@@ -21,8 +22,9 @@ type MemoryDefaultSource struct {
 
 // defaultMemory resolves a fresh container generation's third level: a part
 // or need with no override and no declaration for its profile gets AppTown's
-// default (a service need its catalogue kind's size, else 512Mi). Replay must
-// use AppliedProfile.On instead; a default is not a declaration.
+// default (a static part 64Mi, a code part 512Mi, a service need its
+// catalogue kind's size, else 512Mi). Replay must use AppliedProfile.On
+// instead; a default is not a declaration.
 func (e *Environment) defaultMemory(ctx context.Context, c *appcontract.Contract, a AppliedProfile) (*appcontract.Contract, AppliedProfile, error) {
 	out := *c
 	out.Parts = append([]appcontract.Part(nil), c.Parts...)
@@ -38,6 +40,9 @@ func (e *Environment) defaultMemory(ctx context.Context, c *appcontract.Contract
 			p.Resources.MemoryBytes = 0
 		} else if p.Resources.MemoryBytes == 0 {
 			p.Resources.MemoryBytes = appTownDefaultMemory
+			if p.IsStatic() {
+				p.Resources.MemoryBytes = staticPartMemory
+			}
 			ap.MemoryDefault = &MemoryDefaultSource{Kind: "apptown"}
 		}
 		ap.Resources = p.Resources

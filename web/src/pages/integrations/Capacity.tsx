@@ -57,7 +57,7 @@ function ResourceRow({ label, r, format }: { label: string; r: Resource; format:
 }
 
 // A warning requires a witnessed sum and total. A provider flag alone is
-// insufficient evidence; unlimited apps are not a numeric request.
+// insufficient evidence; unlimited apps add no number to the limits.
 function overcommit(r: Resource, format: (v: number) => string): string {
   const sum = r.promised.sum
   if (!r.total.known || !sum.apptown.known || !sum.other.known) return ''
@@ -65,7 +65,7 @@ function overcommit(r: Resource, format: (v: number) => string): string {
   const oldRequests = [sum.apptown, sum.other].filter(f => f.stale && f.readAt).sort((a,b) => Date.parse(a.readAt!) - Date.parse(b.readAt!))
   const requestAge = oldRequests[0]?.readAt ? ` (${lastSeen(oldRequests[0].readAt)})` : ''
   const totalAge = r.total.stale && r.total.readAt ? ` (${lastSeen(r.total.readAt)})` : ''
-  return requested > r.total.value ? `${format(requested)} requested${requestAge}; host total ${format(r.total.value)}${totalAge}. Review app limits or use a larger host.` : ''
+  return requested > r.total.value ? `limits add up to ${format(requested)}${requestAge}; host total ${format(r.total.value)}${totalAge}. Review app limits or use a larger host.` : ''
 }
 
 // Container readings do not include the host's other processes or establish free RAM.

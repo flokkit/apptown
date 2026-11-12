@@ -547,7 +547,7 @@ export function LimitEventLines({ r }: { r: DeploymentResources }) {
 }
 
 // HostLine is always present, so the page keeps its shape: whether the host
-// takes new deploys, and its memory against what its apps ask for. A host
+// takes new deploys, and what its containers' memory limits add up to against its memory. A host
 // check that failed is the host's own problem, shown on its page; here the
 // facts it could not read are unknown.
 export function HostLine({ share, target, old }: { share?: DeploymentResources['share']; target: string; old?: boolean }) {
@@ -559,8 +559,8 @@ export function HostLine({ share, target, old }: { share?: DeploymentResources['
     : share!.diskRefuses ? <span className="error">new deploys blocked: low on disk</span>
     : share!.lowDisk ? <span className="deploy-warning">ready for deploys · low on disk</span>
     : <>ready for deploys</>
-  const memory = current && share!.requested?.known && share!.hostMemory.known
-    ? <span className={share!.overcommitted ? 'deploy-warning' : undefined}>memory {fmtBytes(share!.requested.value)} requested of {fmtBytes(share!.hostMemory.value)}</span>
+  const memory = current && share!.limits?.known && share!.hostMemory.known
+    ? <span className={share!.overcommitted ? 'deploy-warning' : undefined}>memory limits add up to {fmtBytes(share!.limits.value)} of {fmtBytes(share!.hostMemory.value)}</span>
     : null
   return <DeploymentLine label="Host" trailer={link}>
     {target} · {deploys}{memory && <> · {memory}</>}{' '}

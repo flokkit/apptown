@@ -32,9 +32,10 @@ app checks. Each unknown reading gives its reason and a next step. Only a failed
 status is red; an old usable reading shows when it was last seen.
 
 Infrastructure shows resource presence, health where it applies, and recorded
-ownership separately. An overcommit warning states the app limits requested and
-the host total. Unreadable memory use names the missing measurement and points
-to host diagnostics; it does not establish that the host lacks memory.
+ownership separately. An overcommit warning states what the app limits add up
+to and the host total; limits are caps, not reservations. Unreadable memory
+use names the missing measurement and points to host diagnostics; it does not
+establish that the host lacks memory.
 
 Integrations show the last check's age and result. A connection that is unused
 and unconfigured says not set up. Ask an administrator to set it up when needed,

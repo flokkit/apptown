@@ -50,6 +50,10 @@ export const fmtBytes = (n: number): string =>
   n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(0)} KB` : n < 1024 * 1024 * 1024 ? `${Number((n / 1024 / 1024).toFixed(1))} MB` : `${Number((n / 1024 / 1024 / 1024).toFixed(2))} GB`
 
 // Guidance sizes: what a block costs an agent's context. 812 B · 4.2k · 21k.
+// fmtCores: CPU cores to two places; real use too small to round to 0.01
+// says so instead of reading as idle.
+export const fmtCores = (n: number): string => n > 0 && n < 0.005 ? '<0.01' : `${Number(n.toFixed(2))}`
+
 export const fmtSize = (bytes: number): string =>
   bytes < 1024 ? `${bytes} B` : bytes < 10 * 1024 ? `${(bytes / 1024).toFixed(1)}k` : `${Math.round(bytes / 1024)}k`
 

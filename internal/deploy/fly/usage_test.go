@@ -73,8 +73,8 @@ func TestObserveReportsEachPartsMachine(t *testing.T) {
 	if got.ID != web.ID || got.Status != "started" || !got.Running || got.Unreachable || got.Generation != 1 || got.Health != "healthy" {
 		t.Errorf("web %+v", got)
 	}
-	if got.Image != web.Config["image"] || got.CPULimit != 1 || got.MemoryLimit != 512<<20 {
-		t.Errorf("web image %q, size %v CPUs %d bytes; want %v, 1 CPU, 512 MiB", got.Image, got.CPULimit, got.MemoryLimit, web.Config["image"])
+	if got.Image != web.Config["image"] || got.CPULimit != 1 || got.CPUKind != "shared" || got.MemoryLimit != 512<<20 {
+		t.Errorf("web image %q, size %v %s CPUs %d bytes; want %v, 1 shared CPU, 512 MiB", got.Image, got.CPULimit, got.CPUKind, got.MemoryLimit, web.Config["image"])
 	}
 	if !got.StartedAt.Equal(time.UnixMilli(1_700_000_101_000)) {
 		t.Errorf("web started %v, want its newest start", got.StartedAt)

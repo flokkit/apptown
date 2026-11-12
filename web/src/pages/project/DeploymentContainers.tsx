@@ -6,7 +6,7 @@ import { Status } from '../../Status'
 import { CapacityStrip } from '../../CapacityStrip'
 import { ListTable, type ListColumn } from '../../ListTable'
 import { MoreMenu } from '../../MoreMenu'
-import { fmtBytes, fmtWhen } from '../../format'
+import { fmtBytes, fmtCores, fmtWhen } from '../../format'
 import { DiagnosticsDetail, HoldLine, LogView, nextStep, trouble } from './settings/Diagnostics'
 import { LimitEventLines } from './settings/Deployments'
 import { TechnicalWords, useTechnicalDetail } from '../change/TechnicalDetail'
@@ -23,14 +23,14 @@ import './deployment-containers.css'
 
 type Row = { part: string; label: string; role?: string; diag?: DeploymentDiagnostics['parts'][number]; use?: PartMemory }
 
-const cores = (n: number) => `${Number(n.toFixed(2))}`
 // An image run by its ID reads as Docker's short ID; a named one in full.
 const shortImage = (image: string) => image.startsWith('sha256:') ? image.slice(7, 19) : image
 
-function Gauge({ used, limit, format, what }: { used: number; limit: number; format: (n: number) => string; what: string }) {
+// kind names what the limit counts (Fly's "shared" CPUs), after it.
+function Gauge({ used, limit, format, what, kind }: { used: number; limit: number; format: (n: number) => string; what: string; kind?: string }) {
   const percent = limit > 0 ? Math.min(100, used / limit * 100) : 0
   return <span className={`container-gauge${percent > 80 ? ' container-gauge-high' : ''}`}>
-    <span className="container-gauge-words">{format(used)}{limit > 0 ? <span className="muted"> / {format(limit)}</span> : <span className="muted"> · no limit</span>}</span>
+    <span className="container-gauge-words">{format(used)}{limit > 0 ? <span className="muted"> / {format(limit)}{kind && ` ${kind}`}</span> : <span className="muted"> · no limit</span>}</span>
     {limit > 0 && <meter className="container-gauge-track" aria-label={`${what} use`} min={0} max={limit} value={Math.min(used, limit)} />}
   </span>
 }
@@ -71,6 +71,7 @@ export function DeploymentContainers({ slug, name, stopped = false }: { slug: st
   const all = known.length > 0 && known.every(Boolean)
   const sum = (f: (u: PartMemory) => number) => all ? known.reduce((n, u) => n + f(u!), 0) : undefined
   const limited = (f: (u: PartMemory) => number) => all && known.every(u => f(u!) > 0) ? sum(f) : undefined
+  const shared = all && known.every(u => u!.cpuKind === 'shared')
   const readLog = async (part: string) => {
     setReading(part); setErr(''); setLog(null)
     try { setLog(await get<PartLog>(`${base}/logs?part=${encodeURIComponent(part)}`)) }
@@ -100,7 +101,7 @@ export function DeploymentContainers({ slug, name, stopped = false }: { slug: st
       return <><Status observation word={t ? 'failed' : 'running'} />{t && <span className="muted small"> {t}</span>}</>
     } },
     { key: 'image', label: 'Image', kind: 'technical', render: r => <span title={usage(r)?.image}>{usage(r)?.image ? shortImage(usage(r)!.image!) : '—'}</span> },
-    { key: 'cpu', label: 'CPU', render: r => { const u = usage(r); return u ? <Gauge used={u.cpuCores} limit={u.cpuLimit} format={cores} what={`${r.label} CPU`} /> : <span className="muted" title={r.use?.reason}>unknown</span> } },
+    { key: 'cpu', label: 'CPU', render: r => { const u = usage(r); return u ? <Gauge used={u.cpuCores} limit={u.cpuLimit} format={fmtCores} what={`${r.label} CPU`} kind={u.cpuKind} /> : <span className="muted" title={r.use?.reason}>unknown</span> } },
     { key: 'memory', label: 'Memory', render: r => { const u = usage(r); return u ? <Gauge used={u.usedBytes} limit={u.limitBytes} format={fmtBytes} what={`${r.label} memory`} /> : <span className="muted" title={r.use?.reason}>unknown</span> } },
     { key: 'started', label: 'Started', kind: 'time', render: r => r.diag?.facts?.running && r.diag.facts.startedAt ? fmtWhen(r.diag.facts.startedAt) : '—' },
     { key: 'more', label: '', phone: 'action', render: r => diagnostics.data?.containers && r.diag && r.diag.presence !== 'absent'
@@ -110,7 +111,7 @@ export function DeploymentContainers({ slug, name, stopped = false }: { slug: st
   ]
   return <section className="deployment-containers" aria-label={noContainers ? 'Parts' : 'Containers'}>
     {showUse && <div className="deployment-containers-strip">
-      <CapacityStrip name="CPU" used={sum(u => u.cpuCores)} total={limited(u => u.cpuLimit)} unlimited format={v => `${cores(v)} cores`} />
+      <CapacityStrip name="CPU" used={sum(u => u.cpuCores)} total={limited(u => u.cpuLimit)} unlimited {...shared ? { format: fmtCores, basis: 'shared CPUs' } : { format: v => `${fmtCores(v)} cores` }} />
       <CapacityStrip name="MEMORY" used={sum(u => u.usedBytes)} total={limited(u => u.limitBytes)} unlimited />
     </div>}
     <ListTable label={noContainers ? 'Parts' : 'Containers'} className="deployment-containers-table" columns={columns} rows={rows} rowKey={r => r.part || 'app'} />

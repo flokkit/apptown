@@ -167,11 +167,11 @@ func (s *Service) reportedUse(ctx context.Context, t *Target, d *Deployment, par
 			pm.Reason = "it is " + m.Status
 		case !m.Running:
 			// What is there and stopped uses nothing now.
-			pm.LimitBytes, pm.CPULimit, pm.Image, pm.Known, pm.Stopped = m.MemoryLimit, m.CPULimit, m.Image, true, true
+			pm.LimitBytes, pm.CPULimit, pm.CPUKind, pm.Image, pm.Known, pm.Stopped = m.MemoryLimit, m.CPULimit, m.CPUKind, m.Image, true, true
 		case m.Use == nil:
 			pm.Reason = m.UseReason
 		default:
-			pm.UsedBytes, pm.CPUCores, pm.LimitBytes, pm.CPULimit, pm.Image, pm.Known = m.Use.MemoryBytes, m.Use.CPUCores, m.MemoryLimit, m.CPULimit, m.Image, true
+			pm.UsedBytes, pm.CPUCores, pm.LimitBytes, pm.CPULimit, pm.CPUKind, pm.Image, pm.Known = m.Use.MemoryBytes, m.Use.CPUCores, m.MemoryLimit, m.CPULimit, m.CPUKind, m.Image, true
 		}
 		out = append(out, pm)
 	}

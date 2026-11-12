@@ -57,6 +57,7 @@ type PartRuntime struct {
 	// a need, which serves every generation.
 	Generation  int64
 	CPULimit    float64 // the CPUs it is sized to
+	CPUKind     string  // the provider's kind of those CPUs ("shared" on Fly); "" when it names none
 	MemoryLimit int64   // the memory it is sized to, in bytes
 	Exits       []PartExit
 	// Use is what it uses now, nil when not read: Observe never reads it,

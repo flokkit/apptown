@@ -62,6 +62,7 @@ type PartMemory struct {
 	LimitBytes int64   `json:"limitBytes"`
 	CPUCores   float64 `json:"cpuCores"`
 	CPULimit   float64 `json:"cpuLimit"`
+	CPUKind    string  `json:"cpuKind,omitempty"` // the provider's kind of those CPUs: "shared" on Fly
 	Image      string  `json:"image,omitempty"`
 	Known      bool    `json:"known"`
 	// Stopped: its container is there and not running, so it uses nothing

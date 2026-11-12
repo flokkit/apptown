@@ -3310,7 +3310,7 @@ export type HostShare = {
   error?: string
   target: string
   elastic: boolean
-  requested?: Figure | null
+  limits?: Figure | null
   hostMemory: Figure
   declared: Figure
   used: Figure
@@ -5110,6 +5110,7 @@ export type PartMemory = {
   limitBytes: number
   cpuCores: number
   cpuLimit: number
+  cpuKind?: string
   image?: string
   known: boolean
   stopped?: boolean
