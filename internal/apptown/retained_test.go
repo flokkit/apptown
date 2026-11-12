@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -37,10 +38,10 @@ func TestRetainedSettlementChecksAuthorityAndHTTPOutcome(t *testing.T) {
 	starter := dataprotection.NewStarter(a.DB, starterDependenciesFor(a))
 	deps.CopyStarter = starter
 	a.Deployment = deployment.New(context.Background(), a.DB, deps)
-	// The app's data protection registered the operation kinds with its
-	// ledger; this removal is a direct take-down, which needs none.
+	// Rebuild the ledger with the take-down worker over these provider fakes.
 	dataDeps := dataProtectionDependencies(a)
-	dataDeps.Operations = nil
+	a.operations = operations.New(a.DB, access.Checked{Authority: a.Access, Projects: a.Projects}, a.Access, a.cfg.clock.Now)
+	dataDeps.Operations = a.operations
 	a.DataProtection = dataprotection.New(starter, dataDeps)
 	rebuildConsoleOwners(a)
 	a.health = a.Deployment.HealthController()
@@ -51,7 +52,7 @@ func TestRetainedSettlementChecksAuthorityAndHTTPOutcome(t *testing.T) {
 	for _, cap := range []access.Capability{access.CapDeploymentBind, access.CapDeploymentTeardown} {
 		a.addGrant("user", "owner", "", string(cap), access.ScopeProject, idstest.N(1).String(), "boss", "")
 	}
-	ctx := verifiedContext(context.Background(), access.Principal{Kind: "user", Name: "owner", Via: "session"})
+	ctx := verifiedContext(context.Background(), access.Principal{Kind: "user", Name: "owner", Via: "session", Credential: identity.HeaderCredential("owner")})
 	configured, err := a.Deployment.Configure(ctx, deployment.ConfigureDeployment{ProjectID: idstest.N(1), Name: "staging", Target: target.Name})
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +60,11 @@ func TestRetainedSettlementChecksAuthorityAndHTTPOutcome(t *testing.T) {
 	if err := deployment.NewNeedStore(a.DB, a.cfg.clock.Now).RecordIntent(ctx, configured.Deployment.ID, "postgres", map[string]any{"name": "demo-db"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.DataProtection.Remove(ctx, dataprotection.RemoveDeployment{ProjectID: idstest.N(1), Name: "staging"}); err != nil {
+	op, err := a.DataProtection.TakeDown(ctx, dataprotection.RemoveDeployment{ProjectID: idstest.N(1), Name: "staging"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done, err := a.operations.RunHere(ctx, op.ID); err != nil || done.State != operations.Succeeded {
 		t.Fatal(err)
 	}
 	rows, err := a.Deployment.Retained.ForProject(ctx, idstest.N(1))

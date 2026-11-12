@@ -1353,8 +1353,13 @@ func TestARecreatedDeploymentDoesNotReviveATakenDownRelease(t *testing.T) {
 	if err != nil || first.State != deployment.Released {
 		t.Fatalf("first promotion: %+v %v", first, err)
 	}
-	if out := authzCall(w.a.Handler(), "boss", "DELETE", "/api/v1/projects/p/deployments/review", ""); out.Code != 200 {
-		t.Fatalf("delete: %d %s", out.Code, out.Body.String())
+	taken := authzCall(w.a.Handler(), "boss", "DELETE", "/api/v1/projects/p/deployments/review", "")
+	var admitted struct{ OperationID ids.ID }
+	if err := json.Unmarshal(taken.Body.Bytes(), &admitted); err != nil || taken.Code != 202 {
+		t.Fatalf("delete: %d %s", taken.Code, taken.Body.String())
+	}
+	if done, err := w.a.operations.RunHere(t.Context(), admitted.OperationID); err != nil || done.State != operations.Succeeded {
+		t.Fatalf("take-down: %+v %v", done, err)
 	}
 	second, err := w.promote(t, b.ID, "review", w.lab2)
 	if err != nil || second.State != deployment.Released || second.DeploymentID == first.DeploymentID {

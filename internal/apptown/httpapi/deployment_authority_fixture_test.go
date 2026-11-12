@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/jobs"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/stock"
 
@@ -60,7 +62,11 @@ func newDeploymentAuthorityWorld(t *testing.T, drivers map[string]deployment.Dri
 	deps := shared
 	deps.Authority = checked
 	service := deployment.New(context.Background(), db, deps)
-	data := dataprotection.New(starter, dataprotection.Dependencies{Deployments: service.Deployments, Releases: service.Releases, Bundles: service.Bundles, Retained: service.Retained, Outcomes: service.Outcomes, Projects: projects})
+	if err := jobs.Migrate(context.Background(), db.Pool()); err != nil {
+		t.Fatal(err)
+	}
+	ops := operations.New(db, checked, identity, nil)
+	data := dataprotection.New(starter, dataprotection.Dependencies{Operations: ops, Deployments: service.Deployments, Releases: service.Releases, Bundles: service.Bundles, Retained: service.Retained, Outcomes: service.Outcomes, Projects: projects})
 	return &deploymentAuthorityWorld{db: db, projects: projects, identity: identity, service: service, data: data, project: projectID, shared: shared}
 }
 
@@ -89,7 +95,7 @@ func deploymentRequest(handler http.HandlerFunc, who, method, path string, value
 func deploymentBodyRequest(handler http.HandlerFunc, who, method, path, body string, values map[string]string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(method, path, strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
-	r = r.WithContext(access.WithCaller(r.Context(), access.Caller{Principal: access.Principal{Kind: "user", Name: who, Via: "session"}, Verified: true, Receipt: who}))
+	r = r.WithContext(access.WithCaller(r.Context(), access.Caller{Principal: access.Principal{Kind: "user", Name: who, Via: "session", Credential: identity.HeaderCredential(who)}, Verified: true, Receipt: who}))
 	for name, value := range values {
 		r.SetPathValue(name, value)
 	}
@@ -99,5 +105,5 @@ func deploymentBodyRequest(handler http.HandlerFunc, who, method, path, body str
 }
 
 func deploymentCaller(who string) context.Context {
-	return access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: who, Via: "session"}, Verified: true, Receipt: who})
+	return access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: who, Via: "session", Credential: identity.HeaderCredential(who)}, Verified: true, Receipt: who})
 }

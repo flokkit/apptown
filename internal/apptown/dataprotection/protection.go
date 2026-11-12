@@ -345,7 +345,7 @@ func (s *Service) protection(ctx context.Context, projectID ids.ID, name string)
 	}
 	out.Operations = s.operationsOf(ctx, dep, t, items, nil)
 	// An eval copy's data is synthetic: its take-down takes no final copy
-	// and is never refused for it (beginManagedTakeDown).
+	// and is never refused for it (TakeDown).
 	purpose, err := s.env.Purpose(ctx, projectID)
 	if err != nil {
 		return nil, err

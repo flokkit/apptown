@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
@@ -64,7 +63,7 @@ func (s *scriptedDeployments) TakeDownForDeletion(_ context.Context, project ids
 	}
 	if s.ops != nil {
 		return database.Transact(context.Background(), s.db, func(tx *database.Tx) (*operations.Operation, error) {
-			return s.ops.AdmitIn(context.Background(), tx, operations.Spec{Kind: dataprotection.OperationTakeDown, ProjectID: project,
+			return s.ops.AdmitIn(context.Background(), tx, operations.Spec{Kind: deployment.OperationTakeDown, ProjectID: project,
 				Subject: "project:" + project.String() + "/deployment:" + name, Authority: binding, Input: map[string]any{"deployment": name}})
 		})
 	}
@@ -76,7 +75,7 @@ func (s *scriptedDeployments) TakeDownForDeletion(_ context.Context, project ids
 
 // takeDownKind is a take-down operation that ends as the script says.
 func (s *scriptedDeployments) takeDownKind() operations.Kind {
-	return operations.Kind{Name: dataprotection.OperationTakeDown, Capability: access.CapDeploymentTeardown, Read: access.CapDeploymentRead,
+	return operations.Kind{Name: deployment.OperationTakeDown, Capability: access.CapDeploymentTeardown, Read: access.CapDeploymentRead,
 		Execute: func(_ context.Context, op operations.Operation, _ *operations.StepLog) operations.Outcome {
 			if s.end == operations.Succeeded {
 				s.mu.Lock()

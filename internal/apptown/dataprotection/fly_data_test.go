@@ -3,7 +3,6 @@ package dataprotection
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -314,13 +313,13 @@ func TestFlyKeepChoiceUsesTheRemovalDoorAndCannotDeleteDataAfterStoreAppears(t *
 	for _, store := range []bool{false, true} {
 		t.Run(fmt.Sprint(store), func(t *testing.T) {
 			w := newFlyDataWorld(t)
-			if _, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, errNoFinalCopy) {
+			if _, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod"}); err == nil || !strings.Contains(err.Error(), "cannot take a final copy") {
 				t.Fatalf("missing store was not refused: %v", err)
 			}
 			if store {
 				w.attach(t)
 			}
-			out, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
+			out, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
 			if store {
 				if err == nil || !strings.Contains(err.Error(), "confirm the take-down again") {
 					t.Fatalf("stale keep choice changed to deleting data: %v", err)
@@ -330,7 +329,7 @@ func TestFlyKeepChoiceUsesTheRemovalDoorAndCannotDeleteDataAfterStoreAppears(t *
 			if err != nil {
 				t.Fatal(err)
 			}
-			if out.Removed == nil || len(out.Removed.Retained) == 0 {
+			if len(out.Retained) == 0 {
 				t.Fatalf("no retained resource recorded: %+v", out)
 			}
 			for _, name := range w.api.Apps() {
@@ -447,11 +446,11 @@ func TestFlyCanKeepDataWhenItsNeedCannotBeCopiedEvenWithAStore(t *testing.T) {
 	if p.Operations.FinalCopy.Available || !strings.Contains(p.TakeDown, "keeps the Fly app") {
 		t.Fatalf("an unavailable export was offered as a final copy: %+v", p)
 	}
-	if _, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, errNoFinalCopy) {
+	if _, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod"}); err == nil || !strings.Contains(err.Error(), "cannot take a final copy") {
 		t.Fatalf("take-down did not require a keep-data choice: %v", err)
 	}
-	out, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
-	if err != nil || out.Removed == nil || len(out.Removed.Retained) != 1 {
+	out, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
+	if err != nil || len(out.Retained) != 1 {
 		t.Fatalf("keep-data take-down: %+v %v", out, err)
 	}
 }
@@ -464,26 +463,26 @@ func TestFlyKeepChoiceStandsAfterTheFinalBackupFailed(t *testing.T) {
 	w := newFlyDataWorld(t)
 	w.attach(t)
 	w.failUpload = true
-	_, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod"})
-	if !errors.Is(err, errFinalBackupIncomplete) || !strings.Contains(err.Error(), "without a final copy") {
+	_, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod"})
+	if (err == nil || !strings.Contains(err.Error(), errFinalBackupIncomplete.Error())) || !strings.Contains(err.Error(), "without a final copy") {
 		t.Fatalf("failed final backup did not refuse with the way out: %v", err)
 	}
 	w.failUpload = false
 	if _, err := w.s.TakeBackup(t.Context(), w.project, "prod", "alice"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"}); err == nil || !strings.Contains(err.Error(), "confirm the take-down again") {
+	if _, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"}); err == nil || !strings.Contains(err.Error(), "confirm the take-down again") {
 		t.Fatalf("a whole set newer than the failed final one did not make a copy possible: %v", err)
 	}
 	w.failUpload = true
-	if _, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod"}); !errors.Is(err, errFinalBackupIncomplete) {
+	if _, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod"}); err == nil || !strings.Contains(err.Error(), errFinalBackupIncomplete.Error()) {
 		t.Fatalf("failed final backup: %v", err)
 	}
-	out, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
+	out, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "prod", WithoutFinalCopy: "prod"})
 	if err != nil {
 		t.Fatalf("the choice to go without a final copy was refused after the final backup failed: %v", err)
 	}
-	if out.Removed == nil || len(out.Removed.Retained) == 0 {
+	if len(out.Retained) == 0 {
 		t.Fatalf("no retained resource recorded: %+v", out)
 	}
 	for _, name := range w.api.Apps() {
@@ -501,12 +500,12 @@ func TestFlyNeverReleasedDeploymentNeedsNoFinalCopy(t *testing.T) {
 	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "staging", w.dep.TargetID, deployment.Attributes{}.WithDefaults()); err != nil {
 		t.Fatal(err)
 	}
-	out, err := w.s.TakeDown(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "staging"})
+	out, err := w.s.Remove(t.Context(), RemoveDeployment{ProjectID: w.project, Name: "staging"})
 	if err != nil {
 		t.Fatalf("a never-released deployment needed a final copy: %v", err)
 	}
-	if out.Removed == nil || out.Removed.FinalBackup != nil || len(out.Removed.Retained) != 0 {
-		t.Fatalf("take-down: %+v", out.Removed)
+	if out.FinalBackup != nil || len(out.Retained) != 0 {
+		t.Fatalf("take-down: %+v", out)
 	}
 	if len(w.api.Apps()) != 1 {
 		t.Fatal("the other deployment's app was touched")

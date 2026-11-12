@@ -175,3 +175,11 @@ listener rules, DNS or the sample's stack.
   upload or check keeps the instance. Fargate's default scratch space is 20 GB;
   a copy that fills it fails.
 - RDS's automatic snapshots are shown separately and are never AppTown backups.
+
+Every take-down runs as a background operation. Follow it on its operation
+page; closing the page does not stop it. While it runs, the deployment says
+"taking down". An unfinished take-down names what was deleted, left, or not
+confirmed removed. Take it down again to carry on while its record stands.
+If its data was already deleted, a new final copy cannot be taken: the
+operation names the original final set, and a maintainer must inspect the
+provider and settle its records by hand.

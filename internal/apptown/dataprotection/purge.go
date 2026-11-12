@@ -10,40 +10,16 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection/internal/protectionsql"
-	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/operations"
-	"github.com/flokkit/apptown/internal/database"
 )
 
 // A project's backup sets belong to the project: they are kept while it is
 // kept deleted, and go when it is purged, on disk and in the store
 // (design/subsystems/project-deletion.md).
 
-// TakeDownForDeletion takes one deployment down for its project's
-// deletion, under the deletion's scoped system binding, main included. A
-// take-down that is an operation (App Platform data with a final copy) is
-// admitted and returned; anything else is removed now and nil returned.
+// TakeDownForDeletion admits a take-down under the deletion's scoped binding.
 func (s *Service) TakeDownForDeletion(ctx context.Context, projectID ids.ID, name string, binding access.Principal) (*operations.Operation, error) {
-	in := RemoveDeployment{ProjectID: projectID, Name: name, withProject: true, binding: &binding}
-	op, _, err := s.beginManagedTakeDown(ctx, in)
-	if err != nil || op != nil {
-		return op, err
-	}
-	// Every other take-down runs as an operation too, under the binding,
-	// asking it again before each effect (runRemoval).
-	actor, err := s.takeDownActor(ctx, in, "deployment.remove")
-	if err != nil {
-		return nil, err
-	}
-	dep, err := s.deployments.ByName(ctx, projectID, name)
-	if err != nil {
-		return nil, err
-	}
-	admit := func(tx *database.Tx) error {
-		_, err := selectRemovalIn(ctx, tx, in)
-		return err
-	}
-	return s.admit(ctx, dep, OperationTakeDown, actor, []string{deployment.SubjectOf(dep)}, map[string]any{"withProject": true, "removal": true}, admit)
+	return s.TakeDown(ctx, RemoveDeployment{ProjectID: projectID, Name: name, withProject: true, binding: &binding})
 }
 
 // PurgeProjectBackups removes every backup set of a project being purged:

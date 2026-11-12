@@ -420,6 +420,8 @@ func (s *Service) limitEventsSource(ctx context.Context, d *Deployment) (known b
 	switch t.Kind {
 	case KindDockerHost:
 		return true, "recorded from the Docker host's events; Docker replays only its recent events, so a gap is possible while AppTown or the daemon was down"
+	case KindAWSECS:
+		return false, "ECS does not report them to AppTown"
 	case KindDOApp:
 		return false, "App Platform does not report them to AppTown"
 	case kindFlyMachines:

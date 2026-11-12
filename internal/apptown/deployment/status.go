@@ -7,10 +7,13 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
 )
+
+const OperationTakeDown = "deployment.take-down"
 
 // DeploymentStatus is Deployment's single display answer. Runtime evidence and
 // desired intent remain separate; this answer never authorizes an operation.
@@ -27,6 +30,25 @@ type DeploymentStatus struct {
 
 func (s *Service) displayObservation(ctx context.Context, r listingRecord) (RuntimeObservation, error) {
 	o := s.observations.read(r, s.now())
+	if s.operations != nil {
+		subject := SubjectOf(r.deployment)
+		live, err := s.operations.LiveOn(ctx, subject)
+		if err != nil {
+			return o, err
+		}
+		if live != nil && live.Kind == OperationTakeDown {
+			o.Status = DeploymentStatus{Word: progressLabelTakingDown, Reason: fmt.Sprintf("taking it down (operation %d)", live.ID)}
+			return o, nil
+		}
+		ended, err := s.operations.LatestEnded(ctx, subject, OperationTakeDown)
+		if err != nil {
+			return o, err
+		}
+		if ended != nil && ended.State != operations.Succeeded && ended.FinishedAt.Time.After(r.deployment.lastActAt()) {
+			o.Status = DeploymentStatus{Word: progressLabelFailed, Reason: "take-down did not finish: " + ended.Detail}
+			return o, nil
+		}
+	}
 	// What serves, also while a newer release is on its way.
 	applied, err := s.servingRelease(ctx, r.deployment)
 	if err != nil {

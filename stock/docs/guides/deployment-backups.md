@@ -119,3 +119,11 @@ deployment's records name a need volume that no running service mounts:
 "no running postgres container mounts it". Before 21 October 2026 a
 service made again could start on new storage and leave its data in such
 a volume. Look at it before deleting it.
+
+Every take-down runs as a background operation. Follow it on its operation
+page; closing the page does not stop it. While it runs, the deployment says
+"taking down". An unfinished take-down names what was deleted, left, or not
+confirmed removed. Take it down again to carry on while its record stands.
+If its data was already deleted, a new final copy cannot be taken: the
+operation names the original final set, and a maintainer must inspect the
+provider and settle its records by hand.

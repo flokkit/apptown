@@ -7,6 +7,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
@@ -19,6 +20,7 @@ import (
 // execution operations with their configured drivers and collaborators. Its
 // exposed record owners are not independently authenticated user entry points.
 type Service struct {
+	operations     *operations.Service
 	backupImages   backupImageKeeper
 	imageRebuilder imageRebuilder
 
@@ -76,6 +78,7 @@ type Service struct {
 // Docker, providers or registered needs (a standalone tool or a test):
 // New builds empty ones over the same records.
 type Dependencies struct {
+	Operations     *operations.Service
 	BackupImages   backupImageKeeper
 	ImageRebuilder imageRebuilder
 
@@ -134,6 +137,7 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		providers = NewProviders(ctx, db, ProviderRecords{Targets: targets, Deployments: deployments}, hosts, env, ProviderDependencies{Projects: deps.Projects, Now: deps.Now})
 	}
 	s := &Service{
+		operations:         deps.Operations,
 		records:            context.WithoutCancel(ctx),
 		backupImages:       deps.BackupImages,
 		imageRebuilder:     deps.ImageRebuilder,

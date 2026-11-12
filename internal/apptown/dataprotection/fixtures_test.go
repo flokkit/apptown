@@ -11,6 +11,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
@@ -84,7 +85,7 @@ type configurationWorld struct {
 }
 
 func (w *configurationWorld) Require(context.Context, access.Permission) (access.Caller, error) {
-	return access.Caller{Principal: access.Principal{Name: w.actor.Name}, Verified: true, Receipt: w.actor.Name}, w.denial
+	return access.Caller{Principal: access.Principal{Kind: "instrument", Name: w.actor.Name, Credential: "fixture:alice"}, Verified: true, Receipt: w.actor.Name}, w.denial
 }
 
 func (w *configurationWorld) Project(_ context.Context, id ids.ID) (deployment.ReleaseProject, error) {
@@ -102,6 +103,9 @@ func (w *configurationWorld) CurrentContract(context.Context, string) (*appcontr
 func configurationFixtureWith(t *testing.T, rt testRuntime) (*both, *configurationWorld, deployment.ConfigureDeployment, *deployment.Target) {
 	t.Helper()
 	db := testDB(t)
+	if rt.Needs == nil {
+		rt.Needs = dependency.NewCatalog(db, nil)
+	}
 	// Project is an external prerequisite; this suite owns only Deployment setup.
 	project := createTestProject(t, db, "config", "Configuration")
 	w := &configurationWorld{actor: configurationIdentity{Name: "alice", ProjectSlug: "config", OwnerGroup: "team"}, contract: &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true}}}}

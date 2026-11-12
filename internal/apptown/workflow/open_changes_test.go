@@ -174,7 +174,11 @@ func TestPersonalOpenChangesBoundAndOrderAfterVisibility(t *testing.T) {
 		t.Fatalf("bounds/order: %+v %d %v", rows, total, err)
 	}
 	for i := 1; i < len(rows); i++ {
-		if rows[i-1].UpdatedAt < rows[i].UpdatedAt {
+		// Parsed, not compared as text: RFC 3339 drops trailing zeros, so
+		// ".02Z" sorts after ".023229Z" as a string.
+		prev, err1 := time.Parse(time.RFC3339Nano, rows[i-1].UpdatedAt)
+		next, err2 := time.Parse(time.RFC3339Nano, rows[i].UpdatedAt)
+		if err1 != nil || err2 != nil || prev.Before(next) {
 			t.Fatalf("activity order: %+v", rows)
 		}
 	}

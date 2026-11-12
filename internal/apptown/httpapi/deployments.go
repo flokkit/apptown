@@ -28,19 +28,6 @@ func NewDeployments(deployment *deployment.Service, data *dataprotection.Service
 
 // The deployment routes' responses.
 type (
-	// DeploymentRemoved is what a take-down did: what it deleted, the final
-	// backup taken before the data went, and what it left at the target
-	// (data kept where there is no backup, and deletes that failed).
-	//
-	// An App Platform deployment that holds data is taken down by an
-	// operation instead (final copy, check, then the cluster): the answer
-	// is then 202 with OperationAdmitted.
-	DeploymentRemoved struct {
-		OK          bool                     `json:"ok"`
-		Deleted     []string                 `json:"deleted"`
-		FinalBackup *dataprotection.FinalSet `json:"finalBackup,omitempty"`
-		Orphans     []string                 `json:"orphans"`
-	}
 	// deploymentChecked records repairs made during a status refresh.
 	deploymentChecked struct {
 		Deployment string                      `json:"deployment"`
@@ -126,16 +113,7 @@ func (h Deployments) DeleteDeployment(w http.ResponseWriter, r *http.Request) {
 			WriteFault(w, err)
 			return
 		}
-		if taken.Operation != nil {
-			writeAdmitted(w, taken.Operation)
-			return
-		}
-		result := *taken.Removed
-		deleted := result.Deleted
-		if deleted == nil {
-			deleted = []string{}
-		}
-		WriteJSON(w, 200, DeploymentRemoved{OK: true, Deleted: deleted, FinalBackup: result.FinalBackup, Orphans: result.Retained})
+		writeAdmitted(w, taken)
 	})
 }
 

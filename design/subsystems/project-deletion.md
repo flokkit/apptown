@@ -112,7 +112,9 @@ Each take-down is the one every deployment gets
 then exactly what AppTown recorded creating for it deleted. The deletion
 admits every one, on any target, as a `deployment.take-down` operation
 under its binding, which asks it again before each effect (the final
-backup, the teardown, the keys and records); its receipt names the binding
+backup, the teardown, the keys and records). Follow it on its operation page;
+an unfinished attempt names what was deleted, left or not confirmed removed,
+and taking it down again carries on while its record stands. Its receipt names the binding
 and the deleter. A take-down
 that is refused (a final copy that falls short, a host that cannot be
 reached, a Portainer stack AppTown did not record creating) stalls the

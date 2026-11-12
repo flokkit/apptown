@@ -36,30 +36,6 @@ var ErrRemovalBusy = fault.New(fault.Conflict, "deployment has unfinished work; 
 // card, by its own rule, not as a deployment.
 var ErrRestoredCopyDoor = fault.New(fault.Conflict, "a restored copy is taken down from its source deployment's card")
 
-// RemovalIncompleteError never reports successful local removal. The provider
-// may have changed even though its call or the later database settlement failed.
-// ProviderAccepted means Teardown returned success, not an external fencing guarantee.
-type RemovalIncompleteError struct {
-	Cause            error
-	ProviderAccepted bool
-}
-
-func (e *RemovalIncompleteError) Error() string {
-	return fmt.Sprintf("removal was not recorded; inspect the provider before retrying: %v", e.Cause)
-}
-func (e *RemovalIncompleteError) Unwrap() error { return e.Cause }
-
-// FaultKind: a removal the provider refused, or one that raced a change, a
-// vanished record or another removal, is a conflict the caller can resolve by
-// reading the deployment again. Any other incomplete removal is unexplained.
-// The kind is decided here, before any classified cause it wraps.
-func (e *RemovalIncompleteError) FaultKind() fault.Kind {
-	if !e.ProviderAccepted || errors.Is(e.Cause, ErrRemovalChanged) || errors.Is(e.Cause, ErrDeploymentMissing) || errors.Is(e.Cause, ErrRemovalBusy) {
-		return fault.Conflict
-	}
-	return fault.Internal
-}
-
 func (e *Deployment) removableNow(withProject bool) error {
 	if err := e.removable(); err != nil && !withProject {
 		return err

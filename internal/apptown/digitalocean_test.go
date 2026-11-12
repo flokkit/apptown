@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/deploy"
 )
 
@@ -236,10 +237,16 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	if w.Code != 409 || w.Header().Get("X-AppTown-Deny-Code") != "no-final-copy" || len(f.Snapshot().Apps) != 1 {
 		t.Fatalf("a take-down with no final copy possible, unchosen: %d %s", w.Code, w.Body.String())
 	}
-	w = tgReq(httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects, a.Access).DeleteDeployment, "DELETE", "/api/v1/projects/expense/deployments/cloud", `{"withoutFinalCopy":"cloud"}`, map[string]string{"slug": "expense", "name": "cloud"})
+	// The chosen take-down is a recorded operation, run here to its end.
+	w = authzCall(a.Handler(), "bls", "DELETE", "/api/v1/projects/expense/deployments/cloud", `{"withoutFinalCopy":"cloud"}`)
+	var admitted httpapi.OperationAdmitted
+	if err := json.Unmarshal(w.Body.Bytes(), &admitted); err != nil || w.Code != 202 {
+		t.Fatalf("teardown admitted: %d %s", w.Code, w.Body.String())
+	}
+	done, err := a.operations.RunHere(t.Context(), admitted.OperationID)
 	state = f.Snapshot()
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "apptown-db-"+deploy.HostKey(env.ID)) || len(state.Apps) != 0 || len(state.Databases) != 3 {
-		t.Fatalf("teardown: %d %s apps %d dbs %d", w.Code, w.Body.String(), len(state.Apps), len(state.Databases))
+	if err != nil || done.State != operations.Succeeded || !strings.Contains(done.Detail, "apptown-db-"+deploy.HostKey(env.ID)) || len(state.Apps) != 0 || len(state.Databases) != 3 {
+		t.Fatalf("teardown: %v %+v apps %d dbs %d", err, done, len(state.Apps), len(state.Databases))
 	}
 	// The release it served is ended: its log says who took it down, and it
 	// no longer reads as live, in the owner's read or on its permalink.
@@ -313,10 +320,14 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	if got := f.Snapshot().RepositoryManifests["expense"]; len(got) != 1 {
 		t.Fatalf("a repository another deployment still runs from was emptied: %v", got)
 	}
-	w = tgReq(httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects, a.Access).DeleteDeployment, "DELETE", "/api/v1/projects/expense/deployments/staging", "", map[string]string{"slug": "expense", "name": "staging"})
+	w = authzCall(a.Handler(), "bls", "DELETE", "/api/v1/projects/expense/deployments/staging", "")
+	if err := json.Unmarshal(w.Body.Bytes(), &admitted); err != nil || w.Code != 202 {
+		t.Fatalf("staging teardown admitted: %d %s", w.Code, w.Body.String())
+	}
+	done, err = a.operations.RunHere(t.Context(), admitted.OperationID)
 	state = f.Snapshot()
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "1 images in the image repository forge-test/expense") || len(state.RepositoryManifests["expense"]) != 0 || state.GarbageCollections != 0 {
-		t.Fatalf("staging teardown: %d %s manifests %v gc %d", w.Code, w.Body.String(), state.RepositoryManifests["expense"], state.GarbageCollections)
+	if err != nil || done.State != operations.Succeeded || !strings.Contains(done.Detail, "1 images in the image repository forge-test/expense") || len(state.RepositoryManifests["expense"]) != 0 || state.GarbageCollections != 0 {
+		t.Fatalf("staging teardown: %v %+v manifests %v gc %d", err, done, state.RepositoryManifests["expense"], state.GarbageCollections)
 	}
 	all, err := a.Deployment.Retained.ForProject(context.Background(), p.ID)
 	if err != nil {

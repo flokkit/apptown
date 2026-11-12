@@ -25,6 +25,7 @@ func (a *App) deploymentDependencies() deployment.Dependencies {
 		// AppTown's one clock, the one project deletion reads too: an
 		// orphaned copy's age is its taking against the deletion's.
 		Now:               a.cfg.clock.Now,
+		Operations:        a.operations,
 		BackupImages:      data,
 		ImageRebuilder:    a.imageRebuilds,
 		Authority:         authority,

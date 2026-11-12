@@ -212,7 +212,7 @@ func TestATakeDownWhoseFinalBackupFallsShortRemovesNothing(t *testing.T) {
 				})
 			}
 			_, err := s.Remove(context.Background(), removeSelection(dep))
-			if !errors.Is(err, errFinalBackupIncomplete) {
+			if err == nil || !strings.Contains(err.Error(), errFinalBackupIncomplete.Error()) {
 				t.Fatalf("take-down went on: %v", err)
 			}
 			cmds := commandsOf(client)
@@ -475,7 +475,7 @@ func TestARemovalAsksAgainBeforeEachEffect(t *testing.T) {
 				}
 				return nil
 			}
-			_, err := s.remove(context.Background(), removeSelection(dep), binding, allowed, nil)
+			_, err := s.remove(context.Background(), removeSelection(dep), binding, allowed, func(context.Context) bool { return false })
 			stands := func() bool { _, err := s.Deployments.ByName(t.Context(), dep.ProjectID, dep.Name); return err == nil }
 			receipts, rerr := audit.Recent(context.Background(), s.db, audit.Filter{ProjectID: dep.ProjectID, KindPrefix: "deployment.torn-down"})
 			if rerr != nil {
@@ -495,7 +495,7 @@ func TestARemovalAsksAgainBeforeEachEffect(t *testing.T) {
 					t.Fatalf("an effect after withdrawal: web running=%v record=%v receipts=%d", client.Running("c-web"), stands(), len(receipts))
 				}
 			case "teardown":
-				if !errors.Is(err, operations.ErrAuthorityWithdrawn) || !strings.Contains(err.Error(), "the app was taken down") {
+				if !errors.Is(err, operations.ErrAuthorityWithdrawn) || !strings.Contains(err.Error(), "teardown finished") {
 					t.Fatalf("withdrawn during the teardown: %v", err)
 				}
 				if !stands() || len(receipts) != 0 {
@@ -542,7 +542,7 @@ func TestARemovalOperationStopsAsAskedBeforeItsTeardown(t *testing.T) {
 			s, client, dep := takeDownWorld(t, "stop"+start)
 			ops, _ := takeDownOps(t, s)
 			ctx := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "alice", Credential: "token:alice"}, Verified: true})
-			op, err := s.admit(ctx, dep, OperationTakeDown, access.Principal{Kind: "user", Name: "alice", Credential: "token:alice"}, []string{deployment.SubjectOf(dep)}, map[string]any{"removal": true}, nil)
+			op, err := s.admit(ctx, dep, deployment.OperationTakeDown, access.Principal{Kind: "user", Name: "alice", Credential: "token:alice"}, []string{deployment.SubjectOf(dep)}, map[string]any{"removal": true}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -606,7 +606,7 @@ func TestARestoreAndATakeDownOfOneDeploymentExcludeEachOther(t *testing.T) {
 		t.Fatal(err)
 	}
 	client.ResetCommands()
-	if _, err := s.remove(context.Background(), removeSelection(dep), access.Principal{Kind: "user", Name: "alice", Credential: "token:alice"}, nil, nil); err == nil || !strings.Contains(err.Error(), "a restore of staging is under way") {
+	if _, err := s.remove(context.Background(), removeSelection(dep), access.Principal{Kind: "user", Name: "alice", Credential: "token:alice"}, func(context.Context) error { return nil }, func(context.Context) bool { return false }); err == nil || !strings.Contains(err.Error(), "a restore of staging is under way") {
 		t.Fatalf("a take-down during a restore: %v", err)
 	}
 	if cmds := client.Commands(); len(cmds) != 0 {
@@ -617,7 +617,7 @@ func TestARestoreAndATakeDownOfOneDeploymentExcludeEachOther(t *testing.T) {
 		_, err := containerresulttest.WriteString(req.Stdout, "copy")
 		return nil, err
 	})
-	if _, err := s.remove(context.Background(), removeSelection(dep), access.Principal{Kind: "user", Name: "alice", Credential: "token:alice"}, nil, nil); err != nil {
+	if _, err := s.remove(context.Background(), removeSelection(dep), access.Principal{Kind: "user", Name: "alice", Credential: "token:alice"}, func(context.Context) error { return nil }, func(context.Context) bool { return false }); err != nil {
 		t.Fatalf("the take-down once the restore ended: %v", err)
 	}
 }
@@ -744,7 +744,7 @@ func TestATakeDownRefusesToDeleteAContainerHoldingUncopiedData(t *testing.T) {
 				t.Fatal(err)
 			}
 			client.ResetCommands()
-			if _, err := s.Remove(context.Background(), removeSelection(dep)); !errors.Is(err, errFinalBackupIncomplete) || !strings.Contains(err.Error(), tc.says) {
+			if _, err := s.Remove(context.Background(), removeSelection(dep)); (err == nil || !strings.Contains(err.Error(), errFinalBackupIncomplete.Error())) || !strings.Contains(err.Error(), tc.says) {
 				t.Fatalf("take-down: %v", err)
 			}
 			for _, c := range commandsOf(client) {

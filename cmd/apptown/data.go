@@ -80,33 +80,11 @@ func takeDown(w io.Writer, proj, name string, without bool) error {
 	if err != nil {
 		return err
 	}
-	// An App Platform take-down with a final copy is an operation: 202
-	// with its handle.
-	var out struct {
-		OperationID ids.ID   `json:"operationId"`
-		Deleted     []string `json:"deleted"`
-		Orphans     []string `json:"orphans"`
-		FinalBackup *struct {
-			ID ids.ID `json:"id"`
-		} `json:"finalBackup"`
-	}
+	var out operationAdmitted
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return err
 	}
-	if !out.OperationID.IsZero() {
-		return followOperation(w, out.OperationID, 2*time.Second)
-	}
-	fmt.Fprintf(w, "%s taken down\n", name)
-	for _, d := range out.Deleted {
-		fmt.Fprintf(w, "  deleted %s\n", d)
-	}
-	if out.FinalBackup != nil {
-		fmt.Fprintf(w, "  final backup: set %s\n", out.FinalBackup.ID)
-	}
-	for _, o := range out.Orphans {
-		fmt.Fprintf(w, "  kept, under retained resources: %s\n", o)
-	}
-	return nil
+	return followOperation(w, out.OperationID, 2*time.Second)
 }
 
 // dataOperation is one operation as GET /operations/{id} answers it.

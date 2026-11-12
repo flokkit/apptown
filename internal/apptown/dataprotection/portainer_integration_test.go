@@ -423,8 +423,8 @@ needs:
 	}
 	release.apply(t, s, pid, dep.Name, "first-secret-updated")
 	verifySibling(false)
-	removed, err := s.TakeDown(ctx, RemoveDeployment{ProjectID: pid, Name: "customer-a"})
-	if err != nil || removed.Removed == nil || removed.Removed.FinalBackup == nil {
+	removed, err := s.Remove(ctx, RemoveDeployment{ProjectID: pid, Name: "customer-a"})
+	if err != nil || removed.FinalBackup == nil {
 		t.Fatalf("take-down: %+v %v", removed, err)
 	}
 	for v, want := range map[string]bool{stack + "_apptown-need-" + base + "-postgres": false, stack + "_apptown-need-" + base + "-s3": false, stack + "_apptown-data-" + base: true} {

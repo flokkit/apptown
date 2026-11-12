@@ -200,6 +200,12 @@ func TestObservationSweepBoundsConcurrencyAndHonorsCancellation(t *testing.T) {
 				return deploy.Observation{}, ctx.Err()
 			})
 			s.observationTimeout = 200 * time.Millisecond
+			if cancelCaller {
+				// The caller's cancel ends this case; a short per-reading
+				// timeout could end the first worker before the fourth starts
+				// on a slow machine.
+				s.observationTimeout = 10 * time.Second
+			}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			done := make(chan struct{})

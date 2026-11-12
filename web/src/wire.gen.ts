@@ -627,13 +627,6 @@ export type DeploymentProtection = {
   coverage: Coverage
 }
 
-export type DeploymentRemoved = {
-  ok: boolean
-  deleted: string[]
-  finalBackup?: FinalSet | null
-  orphans: string[]
-}
-
 export type DeploymentResources = {
   reading: DetailReading
   recorded: boolean
@@ -3294,11 +3287,6 @@ export type RestoredCopy = {
   protection?: string
 }
 
-export type FinalSet = {
-  id: string | null
-  bytes: number
-}
-
 export type PartResource = {
   overrideLabel: ProgressLabel
   size?: string
@@ -3381,7 +3369,7 @@ export type AppliedAttempt = {
   generation: number
 }
 
-export type ProgressLabel = "unknown" | "deployed" | "deploying" | "failed" | "passed" | "working" | "stopped" | "waiting" | "excepted" | "unreachable" | "not deployed"
+export type ProgressLabel = "unknown" | "deployed" | "deploying" | "failed" | "passed" | "working" | "stopped" | "waiting" | "excepted" | "unreachable" | "not deployed" | "taking down"
 
 export type DeploymentTargetView = {
   displayLabel: string

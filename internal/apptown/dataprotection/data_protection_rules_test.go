@@ -37,10 +37,10 @@ func (w *dataWorld) finalSet() *Backup {
 	id, _ := w.clusterOf(dep)["id"].(string)
 	w.clusters.put(id+".fake", "app", "ledger: 41, 42")
 	res, err := w.s.TakeDown(context.Background(), RemoveDeployment{ProjectID: w.project, Name: "prod"})
-	if err != nil || res.Operation == nil {
+	if err != nil || res == nil {
 		w.t.Fatalf("take-down: %+v %v", res, err)
 	}
-	if op := w.run(res.Operation); !endedAs(op, operationVerified) {
+	if op := w.run(res); !endedAs(op, operationVerified) {
 		w.t.Fatalf("take-down %s: %s", op.State, op.Detail)
 	}
 	finals, err := w.s.FinalCopies(context.Background(), w.project)
@@ -178,10 +178,10 @@ func TestATakeDownNeverDeletesAClusterHoldingOtherData(t *testing.T) {
 				}
 			}
 			res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-			if err != nil || res.Operation == nil {
+			if err != nil || res == nil {
 				t.Fatalf("take-down: %+v %v", res, err)
 			}
-			op := w.run(res.Operation)
+			op := w.run(res)
 			if op.State != operations.Failed || !strings.Contains(op.Detail, "app removed, data kept; deploy again to serve") || !strings.Contains(op.Detail, "the cluster "+clusterOf(w, "prod")+" stays") {
 				t.Fatalf("take-down %s: %s", op.State, op.Detail)
 			}
@@ -196,10 +196,10 @@ func TestATakeDownNeverDeletesAClusterHoldingOtherData(t *testing.T) {
 			}
 			settle()
 			res, err = w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-			if err != nil || res.Operation == nil {
+			if err != nil || res == nil {
 				t.Fatalf("take-down again: %+v %v", res, err)
 			}
-			if op := w.run(res.Operation); !endedAs(op, operationVerified) {
+			if op := w.run(res); !endedAs(op, operationVerified) {
 				t.Fatalf("take-down again %s: %s", op.State, op.Detail)
 			}
 			if state := w.api.Snapshot(); len(state.DeletedClusters) != 1 {
@@ -231,10 +231,10 @@ func TestAFailedFinalCopyKeepsTheData(t *testing.T) {
 	w.clusters.put(id+".fake", "app", "ledger: 41, 42")
 	w.clusters.failExport = true
 	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-	if err != nil || res.Operation == nil {
+	if err != nil || res == nil {
 		t.Fatalf("take-down: %+v %v", res, err)
 	}
-	op := w.run(res.Operation)
+	op := w.run(res)
 	if op.State != operations.Failed || !strings.HasPrefix(op.Detail, "app removed, data kept; deploy again to serve.") {
 		t.Fatalf("take-down %s: %s", op.State, op.Detail)
 	}
@@ -291,7 +291,7 @@ func TestADataOperationIsSingleAndKeepsReleasesAwayFromATakeDown(t *testing.T) {
 	}
 	// A take-down that is live keeps releases away.
 	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-	if err != nil || res.Operation == nil {
+	if err != nil || res == nil {
 		t.Fatalf("take-down: %+v %v", res, err)
 	}
 	if _, err := w.s.RequestRelease(ctx, deployment.DeploySelection{ProjectID: w.project, DeploymentName: "prod", BundleID: w.bundle.ID}); !errors.As(err, &running) {
@@ -649,10 +649,10 @@ func TestATakeDownAndAReleaseNeverBothGetIn(t *testing.T) {
 	var started *operations.Operation
 	w.during = func() {
 		res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-		if err != nil || res.Operation == nil {
+		if err != nil || res == nil {
 			t.Errorf("take-down in the middle: %+v %v", res, err)
 		}
-		started = res.Operation
+		started = res
 	}
 	_, err := w.s.RequestRelease(ctx, deployment.DeploySelection{ProjectID: w.project, DeploymentName: "prod", BundleID: w.bundle.ID})
 	var running *operations.HeldError
@@ -673,7 +673,7 @@ func TestATakeDownAndAReleaseNeverBothGetIn(t *testing.T) {
 	if _, err := w.s.RequestRelease(ctx, deployment.DeploySelection{ProjectID: w.project, DeploymentName: "next", BundleID: w.bundle.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "next"}); err == nil || res.Operation != nil {
+	if res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "next"}); err == nil || res != nil {
 		t.Fatalf("a take-down admitted beside a release in flight: %+v", res)
 	}
 }
@@ -854,12 +854,12 @@ func TestATakeDownWhoseAuthorityWasWithdrawnDeletesNothing(t *testing.T) {
 		t.Fatalf("the copy: %s %s", got.State, got.Detail)
 	}
 	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-	if err != nil || res.Operation == nil {
+	if err != nil || res == nil {
 		t.Fatalf("take-down: %+v %v", res, err)
 	}
 	apps := len(w.api.Snapshot().Apps)
 	w.auth.revoke("token:alice")
-	got := w.run(res.Operation)
+	got := w.run(res)
 	if got.State != operations.Failed || !strings.Contains(got.Detail, "authority withdrawn") || !strings.Contains(got.Detail, "nothing was changed") {
 		t.Fatalf("a take-down whose credential was revoked: %s %q", got.State, got.Detail)
 	}

@@ -471,7 +471,7 @@ func runtimeUrgency(o RuntimeObservation) int {
 	if o.Status.Word == progressLabelStopped {
 		return 3
 	}
-	if o.Status.Word == progressLabelDeploying {
+	if o.Status.Word == progressLabelDeploying || o.Status.Word == progressLabelTakingDown {
 		return 3
 	}
 	if o.Status.Word == progressLabelUnknown {

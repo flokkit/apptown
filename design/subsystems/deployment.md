@@ -575,17 +575,18 @@ keeps its receipts; removing it drops the disposable resources and its row.
 Needs keep disposable anonymous volumes, removed with their containers.
 
 `DELETE /api/v1/projects/{slug}/deployments/{name}` (`deployment:teardown`)
-takes the deployment down. An App Platform deployment holding a managed
-database AppTown copies, with a backup store attached and a copy runner
-named on its target, is taken down by a data operation instead (answered
-202 with `Location` and `{operationId, state, url}`; see **Protecting data
-off-host** below). Project deletion admits such a deployment's take-down
-the same way, `main` included, and runs it itself when it claims it first
-(else waits for the worker that has it): one that does not end succeeded
-and verified refuses the deletion with what the operation left
-(`TakeDownWithProject`). An eval copy's deployments get no final copy or
-backup on any target: their data is synthetic. Any other
-deployment, App Platform without a store included, goes as follows:
+admits a `deployment.take-down` operation and returns 202 with `Location`
+and `{operationId, state, url}`. Every target uses this door; closing the
+page does not stop the operation. Follow it on its operation page. The
+deployment page and list show "taking down" while it runs. An unfinished
+attempt shows "take-down did not finish" until a later deploy or runtime act;
+ordinary observations do not clear it.
+
+Managed data is copied to the store and checked before deletion (see
+**Protecting data off-host** below). Project deletion admits the same
+operation under its binding, including `main`, and waits for success.
+An eval copy's data is synthetic and gets no final copy on any target;
+its dedicated RDS instance is deleted too. Other removals run as follows:
 
 1. **Final backup** (Docker hosts; `dataprotection/final_backup.go`). It is planned by the
    same held-data planner as ordinary backups ("Backups and restore"): each
@@ -633,8 +634,23 @@ deployment, App Platform without a store included, goes as follows:
    teardown left (kept data, failed deletes, each with why) become retained
    rows, and `deployment.torn-down` names what was deleted and the final set.
 
-The response names what was deleted, the final set (its size) and what was
-left. A final set (trigger `take-down`) is not counted in the newest-seven
+The operation names confirmed deletions, driver-reported leftovers with
+reasons, and the rest of the recorded list as "not confirmed removed".
+An ambiguous provider answer ends unknown. While the deployment record
+stands, take it down again to carry on. Intentional keeps and cleanup
+leftovers remain successful take-downs, recorded under retained resources
+for manual settlement. A settlement failure says teardown finished and the
+records were not removed, separately naming anything left.
+
+If data was deleted before a provider answer was lost or record settlement
+failed, a retry may be unable to take a new final copy (Fly, App Platform,
+or AWS with a managed database). The original final set remains named in
+the operation. Confirmed deletion is distinguished from an uncertain provider
+answer. The deployment stays visibly unfinished; a maintainer must inspect
+the provider and remove the records by hand. No automatic recovery skips
+the final-copy requirement.
+
+A final set (trigger `take-down`) is not counted in the newest-seven
 rule; like every set of the project it is kept with the project and goes
 when the project is purged ([project-deletion.md](project-deletion.md)), and
 it restores into any deployment of the project:
