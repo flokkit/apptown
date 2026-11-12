@@ -1,3 +1,4 @@
+import { AUDIENCE_WORDS, DATA_WORDS } from '../../../targets'
 import { useState } from 'react'
 import './deployments.css'
 import { put } from '../../../api'
@@ -11,9 +12,6 @@ import type { ClassificationView } from '../../../wire.gen'
 // and data). The owner says which values the target and its offer refuse,
 // what a change adds or removes, and the sentence a person accepts to lower
 // protection; this form shows them before saving.
-
-export const AUDIENCE_WORDS: Record<string, string> = { team: 'Team only', organisation: 'Organisation', partners: 'Partners', public: 'Public' }
-export const DATA_WORDS: Record<string, string> = { synthetic: 'Test data', 'non-production': 'Not production', production: 'Production' }
 
 // PROTECTED_WORDS explains protection wherever a person picks audience or data.
 export const PROTECTED_WORDS = 'Protected means it reaches people outside the organisation or holds production data: only people with release permission can deploy there. Lowering its audience or data later asks you to confirm. A deployment that has run stays on its target.'

@@ -167,7 +167,7 @@ function StepChips({ step }: { step: number }) {
     <ol className="wiz-steps">
       {['Software', 'Way of working', 'Repository'].map((label, i) => (
         <li key={label} className={step === i + 1 ? 'current' : step > i + 1 ? 'done' : ''} aria-current={step === i + 1 ? 'step' : undefined}>
-          {label}
+          {label}{step > i + 1 && <span className="sr-only"> completed</span>}
         </li>
       ))}
     </ol>

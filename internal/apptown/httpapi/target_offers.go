@@ -77,28 +77,16 @@ func (h Targets) ProjectTargets(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ts, err := h.deployment.Targets.All(r.Context())
+	offered, err := h.deployment.ProjectTargets(r.Context(), *p)
 	if err != nil {
 		WriteFault(w, err)
 		return
 	}
 	out := []OfferedTarget{}
-	for _, t := range ts {
-		if !t.Status.Offerable() {
-			continue
-		}
-		o, why := h.deployment.Targets.OfferFor(r.Context(), t, p.OwnerGroup)
-		if o == nil {
-			_ = why
-			continue
-		}
-		n, err := h.deployment.Deployments.StandingCount(r.Context(), p.ID, t.ID, "")
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
+	for _, item := range offered {
+		t := item.Target
 		out = append(out, OfferedTarget{DisplayLabel: t.DisplayLabel, ID: t.ID, SettingsRevision: t.SettingsRevision, Name: t.Name, Kind: t.Kind, KindInfo: deployment.DescribeTarget(t), Address: t.Address, Capabilities: t.Capabilities,
-			Ingress: t.Ingress, NeedsMode: t.NeedsMode, Origin: t.Origin, Offer: o, Bound: n})
+			Ingress: t.Ingress, NeedsMode: t.NeedsMode, Origin: t.Origin, Offer: item.Offer, Bound: item.Bound, Reason: item.Reason})
 	}
 	WriteJSON(w, 200, ProjectTargets{Targets: out, Group: p.OwnerGroup})
 }
@@ -127,6 +115,7 @@ type ProjectTargets struct {
 // OfferedTarget is a target offered to a project, with the offer it comes
 // through and how many of the project's deployments stand on it.
 type OfferedTarget struct {
+	Reason           string                        `json:"reason"`
 	DisplayLabel     string                        `json:"displayLabel,omitempty"`
 	ID               ids.ID                        `json:"id,omitzero"`
 	SettingsRevision int64                         `json:"settingsRevision"`

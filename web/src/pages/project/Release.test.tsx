@@ -269,3 +269,13 @@ it('does not repeat the release number under the page heading', async () => {
     expect(badges).toEqual(['Production', 'current release'])
   } finally { act(() => view.root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+it('separates checking the deployment and opening its address into sentences', async () => {
+ const client = newQueryClient()
+ client.setQueryData(getKey('/projects/shop/releases/14'), { release: { id: B14, number: 14, state: 'released', deployment: 'main', notes: 'https://shop.example.test', createdAt: '2026-10-13T04:34:46Z' }, isLive: true, changes: [], events: [] })
+ const el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ReleasePermalinkPage slug="shop" number="14" /></MemoryRouter></QueryClientProvider>))
+  expect(el.textContent).toContain('Check this deployment. Open it at https://shop.example.test.')
+ } finally { act(() => root.unmount()); client.clear() }
+})

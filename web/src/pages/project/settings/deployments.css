@@ -12,6 +12,12 @@
 /* The form sits above the deployments list; its foot keeps a gap from the
    first deployment so the two do not read as one block. */
 .deploy-new { margin-bottom: var(--space-4); }
+/* Keep the exact protection text in flow at both widths, even when hidden. */
+.deployment-protected-slot { grid-column: 1 / -1; }
+.deployment-protected-hidden { visibility: hidden; }
+.deployment-name-error { block-size: 3em; overflow: auto; }
+.deployments-add-deployment-div { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: start; }
+.deployment-create-error { grid-column: 1 / -1; min-height: 3em; }
 .release-default { padding: 12px 0; }
 .release-default select { max-width: 100%; }
 

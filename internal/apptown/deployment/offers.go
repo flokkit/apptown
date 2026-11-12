@@ -2,8 +2,11 @@ package deployment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -53,17 +56,6 @@ func (s *Targets) OfferedByConstruction(t *Target) bool {
 	return t.Origin == OriginBuiltIn || contains(s.implicit, t.Name)
 }
 
-// OfferFor is the offer a project binds to a target through, given the
-// project's owner group, or the sentence saying there is none. An offer to
-// the group beats one to everyone.
-func (s *Targets) OfferFor(ctx context.Context, t *Target, ownerGroup string) (*Offer, string) {
-	offer, err := s.offerFor(ctx, deploymentsql.New(s.db.SQL()), t, ownerGroup)
-	if err != nil {
-		return nil, err.Error()
-	}
-	return offer, ""
-}
-
 func (s *Targets) offerFor(ctx context.Context, q *deploymentsql.Queries, t *Target, ownerGroup string) (*Offer, error) {
 	if s.OfferedByConstruction(t) {
 		return &Offer{TargetID: t.ID, Group: "*", Implicit: true}, nil
@@ -109,15 +101,64 @@ func (o *Offer) permits(t *Target, projectSlug string, attrs Attributes, standin
 	if len(o.Caps.Data) > 0 && !contains(o.Caps.Data, attrs.DataClass) {
 		return fmt.Sprintf("%s is offered for %s data, not %s", t.Name, strings.Join(o.Caps.Data, "/"), attrs.DataClass)
 	}
-	if o.Caps.MaxStanding > 0 && standing >= o.Caps.MaxStanding {
+	return o.permitsStanding(t, projectSlug, standing)
+}
+
+func (o *Offer) permitsStanding(t *Target, projectSlug string, standing int) string {
+	if !o.Implicit && o.Caps.MaxStanding > 0 && standing >= o.Caps.MaxStanding {
 		return fmt.Sprintf("%s is offered for %d standing deployment(s) per project; %s already has %d", t.Name, o.Caps.MaxStanding, projectSlug, standing)
 	}
 	return ""
 }
 
-// StandingCount is how many standing deployments a project has on a target,
+// standingCount is how many standing deployments a project has on a target,
 // leaving out one by name (the one being bound or rebound).
-func (s *Deployments) StandingCount(ctx context.Context, projectID, targetID ids.ID, excluding string) (int, error) {
+func (s *Deployments) standingCount(ctx context.Context, projectID, targetID ids.ID, excluding string) (int, error) {
 	n, err := deploymentsql.New(s.db.SQL()).StandingCount(ctx, deploymentsql.StandingCountParams{ProjectID: projectID, TargetID: targetID, Kind: Standing.String(), Excluding: excluding})
 	return int(n), err
+}
+
+// projectTarget is an offered target and its current availability for another binding.
+type projectTarget struct {
+	Target *Target
+	Offer  *Offer
+	Bound  int
+	Reason string
+}
+
+// ProjectTargets keeps offered but unavailable targets visible with a reason.
+// An offer denial omits the target; failed reads fail the entire list.
+func (s *Service) ProjectTargets(ctx context.Context, p project.Project) ([]projectTarget, error) {
+	targets, err := targetsIn(ctx, s.db)
+	if err != nil {
+		return nil, err
+	}
+	out := []projectTarget{}
+	for _, t := range targets {
+		offer, err := s.Targets.offerFor(ctx, deploymentsql.New(s.db.SQL()), t, p.OwnerGroup)
+		if err != nil {
+			var denied *offerDeniedError
+			if errors.As(err, &denied) {
+				continue
+			}
+			return nil, err
+		}
+		n, err := s.Deployments.standingCount(ctx, p.ID, t.ID, "")
+		if err != nil {
+			return nil, err
+		}
+		why := targetStatusReason(t)
+		if why == "" {
+			why = offer.permitsStanding(t, p.Slug, n)
+		}
+		out = append(out, projectTarget{Target: t, Offer: offer, Bound: n, Reason: why})
+	}
+	return out, nil
+}
+
+func targetStatusReason(t *Target) string {
+	if !t.Status.Offerable() {
+		return fmt.Sprintf("%s is %s. Check the target before choosing it.", t.Name, t.Status)
+	}
+	return ""
 }

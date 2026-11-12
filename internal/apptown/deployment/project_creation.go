@@ -70,7 +70,7 @@ func (s *Service) CreationTargets(ctx context.Context, group string, contracts [
 		}
 		why := offer.permits(t, "new project", attrs, 0)
 		if !t.Status.Offerable() {
-			why = fmt.Sprintf("%s is %s. Check the target before choosing it.", t.Name, t.Status)
+			why = targetStatusReason(t)
 		}
 		if why == "" {
 			why = creationContractIssue(t, contracts)

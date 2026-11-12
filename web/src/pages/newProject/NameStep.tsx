@@ -16,6 +16,7 @@ export function NameStep({ d, act }: { d: Draft; act: Dispatch<DraftAct> }) {
       <label className="np-field mt-3">
         <strong>Name</strong>
         <input value={d.name} onChange={(e) => act({ type: 'name', name: e.target.value })}
+          onPaste={e => { if (!d.nameEdited) { e.preventDefault(); act({ type: 'name', name: e.clipboardData.getData('text') }) } }}
           placeholder="Suggested from your description" onKeyDown={(e) => e.key === 'Enter' && nameReady(d) && next()} />
       </label>
       {(slug || d.address !== null || editingSlug) && (
