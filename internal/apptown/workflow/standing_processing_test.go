@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,11 +26,16 @@ type standingPortfolioFixture struct {
 	uncovered bool
 	projectID ids.ID
 	hold      string
+	// failFor names a project whose coverage cannot be read.
+	failFor ids.ID
 }
 
 func (f *standingPortfolioFixture) StandingPortfolio(_ context.Context, _ database.Queryer, id ids.ID, _ StandingCategories) ([]StandingProjectPreview, error) {
 	if id.IsZero() {
 		id = f.projectID
+	}
+	if !f.failFor.IsZero() && id == f.failFor {
+		return nil, errors.New("deployment requires a selected revision")
 	}
 	return []StandingProjectPreview{{ProjectID: id, Covered: !f.uncovered, OnlyChecksStarts: true, NeedsPackUpgrade: []string{"language"}, Deployments: []StandingEnvironment{{ProjectID: id, Deployment: "main", Setting: "automatic"}}}}, nil
 }

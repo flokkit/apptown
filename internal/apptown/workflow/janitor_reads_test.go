@@ -358,3 +358,33 @@ func TestJanitorVoteIdentityOnChangeEvidenceReads(t *testing.T) {
 		}
 	}
 }
+
+// One project whose eligibility cannot be judged is not known on its own row;
+// the instance read still answers for every other project.
+func TestJanitorInstanceReadKeepsOtherProjectsWhenOneEligibilityFails(t *testing.T) {
+	s, rules, ctx, _ := janitorReadFixture(t)
+	visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pid := visible[0]
+	broken := workflowTestProject(t, s.db, "broken-project", "Broken project", "")
+	s.authority = aggregateAuthority{operationAuthority: s.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return []ids.ID{pid, broken}, nil }}
+	in := StandingDefinition{Scope: "instance", Schedules: []standingSchedule{{Workflow: "janitor-update", Crons: map[string]string{"routine": "0 6 * * 1", "aggressive": "0 6 * * *"}}, {Workflow: "janitor-scan", Crons: map[string]string{"routine": "0 5 * * *", "aggressive": "0 5 * * *"}}}, Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	enableStanding(t, *rules, ctx, in)
+	rules.deps.Portfolio.(*standingPortfolioFixture).failFor = broken
+	rows, err := s.JanitorProjects(ctx)
+	if err != nil {
+		t.Fatalf("one project's eligibility failed the whole read: %v", err)
+	}
+	byID := map[ids.ID]janitorProject{}
+	for _, p := range rows {
+		byID[p.ProjectID] = p
+	}
+	if p, ok := byID[broken]; !ok || !strings.Contains(p.Problem, "Eligibility not known") {
+		t.Fatalf("broken project not shown as not known: %+v", p)
+	}
+	if p, ok := byID[pid]; !ok || p.Problem != "" {
+		t.Fatalf("healthy project: %+v", p)
+	}
+}

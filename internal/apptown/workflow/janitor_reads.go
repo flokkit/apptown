@@ -102,8 +102,9 @@ func ruleCovers(rule StandingRevision, pid ids.ID) bool {
 }
 
 // JanitorProjects reads all caller-visible projects through the same queue and
-// scan owners used by the project view. A failed scan read stays unknown on its
-// row; a database failure in queue or consent reads fails the read as a whole.
+// scan owners used by the project view. A failed scan or eligibility read stays
+// unknown on its row; a database failure in queue or consent reads fails the
+// read as a whole.
 func (s *Service) JanitorProjects(ctx context.Context) ([]janitorProject, error) {
 	visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
 	if err != nil {
@@ -160,11 +161,13 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]janitorProject, error)
 		}
 		securityActive := false
 		if item.Enabled && item.Level != "off" {
+			// One project whose eligibility cannot be judged is not known on its
+			// own row; it does not hide every other project.
 			rule, _, err := s.standing.StandingForWorkflow(ctx, p.ID, "janitor-scan")
 			if err != nil {
-				return nil, err
+				item.Problem = "Eligibility not known: " + err.Error()
 			}
-			securityActive = !rule.RuleID.IsZero() && rule.Question.Definition.Categories.SecurityFixes
+			securityActive = err == nil && !rule.RuleID.IsZero() && rule.Question.Definition.Categories.SecurityFixes
 		}
 		item.QueueSentences = janitorQueueSentences(item.Queues, item.Level, securityActive)
 		if err := s.janitorProcedures(ctx, &item); err != nil {
@@ -306,7 +309,8 @@ func (s *Service) janitorProcedures(ctx context.Context, p *janitorProject) erro
 		if doc.Spec.On.Schedule.Standing {
 			rule, selected, err := s.standing.StandingForWorkflow(ctx, p.ProjectID, name)
 			if err != nil {
-				return err
+				p.NextReason = "Update time not known: " + err.Error()
+				continue
 			}
 			if rule.RuleID.IsZero() {
 				p.NextReason = "Waiting for approval or a pack upgrade"

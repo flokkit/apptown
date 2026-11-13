@@ -107,7 +107,11 @@ func (p standingPortfolio) StandingPortfolio(ctx context.Context, q database.Que
 		if err != nil {
 			return nil, err
 		}
-		projects = append(projects, item)
+		// A project with no repository yet has no main to read or update; it
+		// is outside coverage, exactly as the instance listing above skips it.
+		if item.DefaultBranch != "" {
+			projects = append(projects, item)
+		}
 	}
 	out := []workflow.StandingProjectPreview{}
 	for _, item := range projects {
