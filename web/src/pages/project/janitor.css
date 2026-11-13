@@ -1,0 +1,5 @@
+@layer pages {
+/* A queue's reason can be a tool's error output with long unbroken paths; it
+   breaks anywhere rather than pushing the section past the page. */
+.janitor-queue-line { overflow-wrap: anywhere; }
+}

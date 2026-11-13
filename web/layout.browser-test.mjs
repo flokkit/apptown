@@ -125,6 +125,28 @@ const conformanceProjectFixture = await build({
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main style={{padding:18}}><ProjectPage view={view} slug="shop" readOnly={false} onRunOne={()=>{}} /></main></MemoryRouter></QueryClientProvider>)
   ` },
 })
+// The project Overview's Janitor section with a failed try whose reason is a
+// long npm error: its first line carries an unbroken path, as on the demo
+// (14 Nov), where it widened Recent tries and squeezed the other columns to
+// a letter per line.
+const janitorTriesFixture = await build({
+  absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
+  stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
+    import { createRoot } from 'react-dom/client'
+    import { MemoryRouter } from 'react-router-dom'
+    import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+    import { LastScan } from './pages/project/Janitor'
+    const error = 'update: part web: npm listing failed (exit 1): /work/web/node_modules/@typescript/typescript-aix-ppc64/lib/node_modules/missing-installed-path/package.json\\nnpm notice New major version of npm available! 11.19.1 -> 12.2.2\\nError: missing installed path @typescript/typescript-aix-ppc64\\n    at walk ([eval]:8:34)'
+    const rule = {kind:'Dependency updates',scope:'all projects'}
+    const attempt = (id, what, queue, outcome, reason) => ({id,changeId:id,what,queue,outcome,reason,attempted:true,failed:!!reason,packages:[],observations:[],ruleId:'r',rule,ruleRevision:1,ruleIssuer:{name:'sam'},when:'2026-11-13T06:00:34Z'})
+    const view = {standing:{enabled:true,level:'aggressive'},heldBack:[],
+      queues:[{title:'Pack updates',queue:'packs',words:'up to date',reason:'',packages:[]},{title:'Dependency updates',queue:'updates',words:'stuck since 13 Nov',reason:error,packages:[],changeId:'c2'}],
+      recent:[attempt('c1','Adopt the way of working: apptown v37, dependency-updates v8, frontend-only v37','packs','shipped',''),attempt('c2','janitor-update @ 2026-11-13 06:00','updates','held',error)],
+      scans:{main:'main',source:[],running:[],historical:[],known:true,stale:false,lastScan:'2026-11-13T08:27:49Z'}}
+    window.fetch = async path => new Response(JSON.stringify(String(path).endsWith('/scans') ? view : {}), {headers:{'Content-Type':'application/json'}})
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><div className="layout"><aside className="sidebar"><div className="sidebar-inner">Ways of working</div></aside><main className="main"><LastScan slug="window-garden" janitor /></main></div></MemoryRouter></QueryClientProvider>)
+  ` },
+})
 const targetFixture = await build({
   absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
   stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
@@ -1079,6 +1101,28 @@ try {
         await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `notes in fit cells keep the janitor's project table within ${width}px at ${size}`)
       }
+    }
+  }
+  // Recent tries keeps a long error inside the page, and its other columns
+  // keep their words whole, on a desktop beside the sidebar and on a phone.
+  for (const width of [390, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    for (const size of ['small', 'medium', 'large']) {
+      await page.goto('http://layout.test/')
+      await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
+      await page.addScriptTag({ content: janitorTriesFixture.outputFiles[0].text })
+      await page.locator('table[aria-label="Recent tries"] tbody tr').nth(1).waitFor()
+      await fontsReady(page)
+      if (out) await page.screenshot({ path: `${out}/janitor-tries-${width}-${size}.png`, fullPage: true })
+      const fit = await page.locator('table[aria-label="Recent tries"]').evaluate(table => ({ table: table.getBoundingClientRect().right, page: document.documentElement.scrollWidth, view: innerWidth }))
+      assert.ok(fit.page <= fit.view && fit.table <= fit.view, `a long error keeps the Janitor section and Recent tries within the page at ${width}, ${size}: ${JSON.stringify(fit)}`)
+      // A squeezed column is a sliver a letter or two wide; the narrowest
+      // honest cell here is a short time or a dash.
+      const squeezed = await page.locator('table[aria-label="Recent tries"] td').evaluateAll(cells => cells.filter(td => td.textContent.trim().length > 1 && td.getBoundingClientRect().width < 3 * parseFloat(getComputedStyle(td).fontSize)).map(td => td.textContent.trim().slice(0, 40)))
+      assert.deepEqual(squeezed, [], `no Recent tries column is squeezed to a sliver at ${width}, ${size}`)
+      // Only the error itself may break inside a word: it is a path.
+      const split = (await page.evaluate(splitWords)).filter(s => !s.in.includes('record-note'))
+      assert.deepEqual(split, [], `Recent tries keeps its words whole beside a long error at ${width}, ${size}`)
     }
   }
   assert.deepEqual(misses, [], 'phone round 3')
