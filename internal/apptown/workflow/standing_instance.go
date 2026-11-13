@@ -233,6 +233,9 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 	if err != nil {
 		return out, err
 	}
+	if len(portfolio) == 0 {
+		return refuse("this project has no repository for the janitor to update")
+	}
 	if len(portfolio) != 1 || !in.Categories.WaysOfWorking && !portfolio[0].Covered {
 		return refuse("this project needs a pack upgrade")
 	}

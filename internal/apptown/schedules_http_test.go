@@ -10,6 +10,7 @@ import (
 
 	"encoding/json"
 	"github.com/flokkit/apptown/internal/database"
+	"strings"
 	"testing"
 	"time"
 
@@ -147,4 +148,58 @@ type janitorPageProcedure struct{}
 
 func (janitorPageProcedure) StandingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
 	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: "restore-fixture", Version: 1, Step: "accept", Means: "accept bounded updates after required checks"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
+}
+
+// A project with no repository yet (no main branch) is outside the janitor's
+// coverage; enabling the instance rule must not turn the page into an error.
+func TestJanitorPageReadsWithAnInstanceRuleAndAProjectWithoutARepository(t *testing.T) {
+	a := authzActors(t)
+	person, err := a.Access.EnsurePerson(t.Context(), "boss")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "boss", Via: "session"}, Verified: true})
+	a.SyncStock(ctx)
+	covered, _, _ := fleetRepo(t, a, "janitor-covered", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	empty, err := a.Projects.BySlug(t.Context(), "game")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if empty.DefaultBranch != "" {
+		t.Fatalf("fixture project unexpectedly has a repository: %q", empty.DefaultBranch)
+	}
+	for _, pid := range []ids.ID{covered, empty.ID} {
+		if err := recordCatalogFixture(a.Adoption, ctx, pid, "boss"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	if err := json.Unmarshal([]byte(`{"schedules":[{"workflow":"janitor-update","crons":{"routine":"0 6 * * 1","aggressive":"0 6 * * *"}},{"workflow":"janitor-scan","crons":{"routine":"0 5 * * *","aggressive":"0 5 * * *"}}]}`), &in); err != nil {
+		t.Fatal(err)
+	}
+	q, err := a.standingRules.Preview(ctx, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest}); err != nil {
+		t.Fatal(err)
+	}
+	if rule, _, err := a.standingRules.StandingForWorkflow(ctx, empty.ID, "janitor-update"); err != nil || !rule.RuleID.IsZero() {
+		t.Fatalf("a project without a repository: rule=%+v err=%v", rule, err)
+	}
+	w := authzCall(a.Handler(), "boss", "GET", "/api/v1/janitor", "")
+	var got httpapi.JanitorView
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &got) != nil {
+		t.Fatalf("janitor page: %d %s", w.Code, w.Body)
+	}
+	rows := map[ids.ID]httpapi.JanitorProject{}
+	for _, p := range got.Projects {
+		rows[p.ProjectID] = p
+	}
+	if _, ok := rows[empty.ID]; !ok {
+		t.Fatalf("project without a repository missing: %s", w.Body)
+	}
+	if p, ok := rows[covered]; !ok || !p.Enabled || strings.HasPrefix(p.Problem, "Eligibility not known") {
+		t.Fatalf("covered project: %+v", p)
+	}
 }
