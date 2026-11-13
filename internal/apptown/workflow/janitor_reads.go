@@ -214,6 +214,20 @@ func janitorQueueSentences(queues []QueueStatus, level string, securityActive bo
 	return out
 }
 
+// scanNowReason is why the adopted janitor-scan cannot fire now, from its
+// schedule as the scheduler reads it: a standing schedule keeps standing,
+// the reason its janitor approval gives; one that is not standing fires
+// without an approval.
+func scanNowReason(doc *schema.Doc, standing string) string {
+	if doc.Metadata.System || doc.Spec.On.Schedule == nil || doc.Spec.On.Schedule.Cron == "" {
+		return "No scan schedule adopted"
+	}
+	if !doc.Spec.On.Schedule.Standing {
+		return ""
+	}
+	return standing
+}
+
 // Stop rules describe queue admission; current failures stay on the project row.
 func janitorStopRule(workflow, level string) string {
 	name := map[string]string{"janitor-fix": "Security fixes", "janitor-update": "Weekly updates", "janitor-adopt": "Pack updates"}[workflow]
@@ -270,8 +284,16 @@ func (s *Service) janitorProcedures(ctx context.Context, p *janitorProject) erro
 	if err != nil {
 		return err
 	}
+	// Scan now fires the adopted janitor-scan as the scheduler does: an
+	// adopted version that is not standing fires without a janitor approval.
 	if !names["janitor-scan"] {
 		p.ScanNow = "No scan schedule adopted"
+	} else if _, body, err := s.janitorDefinitions.WorkflowVersion(ctx, source, "janitor-scan"); err != nil {
+		p.ScanNow = "Not known: " + err.Error()
+	} else if doc, err := schema.ParseWorkflowStored([]byte(body)); err != nil {
+		p.ScanNow = "Not known: " + err.Error()
+	} else {
+		p.ScanNow = scanNowReason(doc, p.ScanNow)
 	}
 	records, err := ScheduleRecordsIn(ctx, s.db, p.ProjectID)
 	if err != nil {
