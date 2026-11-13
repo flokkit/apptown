@@ -210,6 +210,31 @@ it.each([[true, 'failed'], [true, 'released'], [false, 'released']] as const)('s
   }
 })
 
+// How long a deploy took starts at its approval when it waited for one: a
+// release cut fifteen hours before a person approved it still deployed in
+// 75 seconds. Kills: the duration measured from when the release was cut.
+it.each([true, false])('counts a deploy from its approval, not the wait for it (ended long ago: %s)', async (old) => {
+  const client = runtimeClient()
+  const live = Date.now() - (old ? 60 : 1) * 60 * 1000
+  const iso = (ms: number) => new Date(ms).toISOString()
+  const releases = [{ number: 8, deployment: 'main', state: 'released', statusLabel: 'deployed', createdAt: iso(live - 15 * 3600 * 1000), releasedAt: iso(live), changes: [], approval: { actor: { name: 'Priya', via: 'web' }, at: iso(live - 75 * 1000), meaning: 'I accept release 8 running on main' } }]
+  vi.stubGlobal('fetch', vi.fn(async (path: string) => new Response(JSON.stringify(path.endsWith('/releases') ? releases : []), { headers: { 'Content-Type': 'application/json' } })))
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  try {
+    await act(async () => { root.render(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="main" /></QueryClientProvider></MemoryRouter>) })
+    await vi.waitFor(() => expect(el.querySelector('[aria-label="Latest deploy"]')?.textContent).toContain('Approved by Priya'))
+    const text = el.querySelector('[aria-label="Latest deploy"]')!.textContent
+    expect(text).toContain(old ? 'took 75s' : 'Deploy took 75s')
+    expect(text).not.toContain('15.0h')
+  } finally {
+    await act(async () => root.unmount())
+    client.clear()
+    vi.unstubAllGlobals()
+  }
+})
+
 // A deployment nothing has run on says so and how it will go live, with no
 // empty deploy scene and no start, stop or restart.
 it.each([['main', true, 'It deploys when a change lands on main.'], ['manual', false, 'Deploy a release to put it live.']] as const)('says a never-deployed %s deployment is not deployed yet', (feed, confirmed, how) => {

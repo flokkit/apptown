@@ -119,10 +119,20 @@ func readDeploymentDetail[T any](ctx context.Context, s *Service, project ids.ID
 	switch v := any(&stored.Value).(type) {
 	case *DeploymentResources:
 		v.Reading = reading
-		if !reading.Waiting && (reading.Unknown || reading.Failure != "") {
+		// The stored value is the last good reading, kept for its date.
+		// When it is not this deployment's use now (its latest read
+		// failed, it is too old, or it was read before the deployment
+		// changed), each part's use is unknown in the same shape as one
+		// the target could not report: no numbers or image of an earlier
+		// reading beside known:false.
+		if reading.Unknown || reading.Failure != "" {
+			why := reading.Failure
+			if why == "" {
+				why = "it has not been read since the deployment changed"
+			}
 			for i := range v.Parts {
-				v.Parts[i].Observed.Known = false
-				v.Parts[i].Observed.Reason = reading.Failure
+				o := v.Parts[i].Observed
+				v.Parts[i].Observed = PartMemory{Part: o.Part, Need: o.Need, Reason: why}
 			}
 		}
 	case *[]AIModelsKey:
