@@ -388,3 +388,26 @@ func TestJanitorInstanceReadKeepsOtherProjectsWhenOneEligibilityFails(t *testing
 		t.Fatalf("healthy project: %+v", p)
 	}
 }
+
+// Scan now follows the adopted janitor-scan as the scheduler does: a version
+// that is not standing fires without a janitor approval, a standing one waits
+// for its approval, and one without a schedule cannot fire.
+func TestJanitorScanNowReadsTheAdoptedSchedule(t *testing.T) {
+	scan := func(on string) *schema.Doc {
+		doc, err := schema.ParseWorkflowStored([]byte("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: janitor-scan}\nspec:\n  kind: pipeline\n" + on + "  stages:\n    - name: scan\n      steps:\n        - name: scan-source\n          uses: scan\n          with: {on: source}\n"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return doc
+	}
+	for _, tc := range []struct{ on, standing, want string }{
+		{"  on:\n    schedule: {cron: \"0 5 * * *\"}\n", "Waiting for approval", ""},
+		{"  on:\n    schedule: {cron: \"0 5 * * *\", queue: security, standing: true}\n", "Waiting for approval", "Waiting for approval"},
+		{"  on:\n    schedule: {cron: \"0 5 * * *\", queue: security, standing: true}\n", "", ""},
+		{"", "", "No scan schedule adopted"},
+	} {
+		if got := scanNowReason(scan(tc.on), tc.standing); got != tc.want {
+			t.Errorf("%q with %q: %q, want %q", tc.on, tc.standing, got, tc.want)
+		}
+	}
+}

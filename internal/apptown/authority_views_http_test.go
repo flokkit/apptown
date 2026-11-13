@@ -32,7 +32,7 @@ func TestAuthorizationHTTPViewsReflectScopedGrantsAndCurrentCaller(t *testing.T)
 			User              string
 			Instance, Project map[string]bool
 		}
-		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != 200 || out.User != tc.who || out.Project[string(access.CapProjectIntegrations)] != tc.can || out.Instance[string(access.CapSecretReveal)] {
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != 200 || out.User != tc.who || out.Project[string(access.CapProjectIntegrations)] != tc.can || out.Project[string(access.CapChangeInvokeLane)] != tc.can || out.Instance[string(access.CapSecretReveal)] {
 			t.Fatalf("capability view: %d %s %v", w.Code, w.Body.String(), err)
 		}
 	}
