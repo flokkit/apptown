@@ -17,7 +17,7 @@ import type { LibraryWorkflow as GeneratedLibraryWorkflow } from './wire.gen'
 
 // A change's lifecycle (design/subsystems/change-lifecycle.md).
 import type { Finding as WireFinding } from './wire.gen'
-import type { ChangeAdds } from './wire.gen'
+import type { ChangeAdds, StandingVote } from './wire.gen'
 
 export type ChangeState = WireChangeState
 // A run's stored status, generated from the server's run states (there is no
@@ -64,7 +64,7 @@ export type ApprovalEvidence = EvidenceBase & {
   // adds: what the commit added as this vote was shown it, recorded with
   // the vote (an approval of a commit).
   // via: the way the vote was cast (a CLI token's name, a session).
-  decisions?: { approver: string; via?: string; decision: string; comment?: string; at?: string; adds?: ChangeAdds }[]
+  decisions?: { approver: string; via?: string; decision: string; comment?: string; at?: string; adds?: ChangeAdds; standing?: StandingVote | null }[]
   quorum?: number; approvals?: number
   means?: string
   // Set when an eval's start settled this approval in one of its throwaway

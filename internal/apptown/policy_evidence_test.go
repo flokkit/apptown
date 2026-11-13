@@ -20,6 +20,8 @@ import (
 // either as its own top-level test or, for a helper, through
 // TestRegisteredPolicyEvidence.
 var policyEvidence = map[string]func(*testing.T){
+	"janitor.List":                  TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement,
+	"janitor.History":               TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement,
 	"deployments.SetRoutineUpdates": TestRoutineUpdateSettingsHTTPChecksCurrentProjectAuthority,
 	"projectScans.SetChoice":        TestJanitorSettingsHTTPChecksCurrentProjectAuthority,
 	"attention.Read":                TestAttentionHTTPFiltersSourcesAndCountsBeforeCurrentGrantReads,

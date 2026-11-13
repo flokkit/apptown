@@ -13,13 +13,13 @@ func (s *Service) changeScope(ctx context.Context, id ids.ID, act commandAction)
 	if s == nil {
 		return ids.Nil, commandActor{}, ErrCallerRequired
 	}
-	return (Changes{db: s.db, authority: s.authority, clocked: s.clocked}).scope(ctx, id, act)
+	return (Changes{db: s.db, checked: s.checked, authority: s.authority, clocked: s.clocked}).scope(ctx, id, act)
 }
 func (s *Service) Change(ctx context.Context, id ids.ID) (*Change, error) {
 	if s == nil {
 		return nil, ErrCallerRequired
 	}
-	return (Changes{db: s.db, authority: s.authority, clocked: s.clocked}).Change(ctx, id)
+	return (Changes{db: s.db, checked: s.checked, authority: s.authority, clocked: s.clocked}).Change(ctx, id)
 }
 func (s *Service) Changes(ctx context.Context, project ids.ID, in ChangeList) ([]ChangeSummary, error) {
 	if project.IsZero() {
@@ -81,5 +81,5 @@ func (s *Service) Uplift(ctx context.Context, in Uplift) (*Change, error) {
 	if s == nil {
 		return nil, ErrCallerRequired
 	}
-	return (Changes{db: s.db, authority: s.authority, clocked: s.clocked}).Uplift(ctx, in)
+	return (Changes{db: s.db, checked: s.checked, authority: s.authority, clocked: s.clocked}).Uplift(ctx, in)
 }

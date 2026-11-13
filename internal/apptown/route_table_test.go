@@ -444,6 +444,8 @@ var cliOperations = map[string]described{
 
 	"POST /api/v1/projects/{slug}/janitor/{queue}/skip":             {request: httpapi.QueueSkip{}, status: 200, response: map[string]bool{"ok": true}},
 	"GET /api/v1/projects/{slug}/janitor/attempts":                  {query: []string{"queue"}, status: 200, response: []workflow.AutomatedAttempt{}},
+	"GET /api/v1/janitor":                                           {status: 200, response: httpapi.JanitorView{}},
+	"GET /api/v1/janitor/history":                                   {query: []string{"before", "offset", "period"}, status: 200, response: httpapi.JanitorHistoryView{}},
 	"GET /api/v1/standing-approvals":                                {query: []string{"projectId"}, status: 200, response: []workflow.StandingStatus{}},
 	"GET /api/v1/standing-approvals/{id}/history":                   {status: 200, response: []workflow.StandingRevision{}},
 	"POST /api/v1/standing-approvals/preview":                       {request: workflow.StandingDefinition{}, status: 200, response: workflow.StandingQuestion{}},

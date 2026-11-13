@@ -127,7 +127,9 @@ it('puts rollback first when releases hold back a project kept by the janitor', 
   data.standing = { enabled: true, level: 'routine' }
   data.heldBack = [{ deploymentId: 'main', deployment: 'production', displayLabel: 'Production', releaseNumber: 12, reason: 'release failed' }]
   data.recent[0].ruleId = 'original-rule'
+  data.recent[0].rule = { kind: 'Dependency updates', scope: 'all projects' }
   data.recent[0].ruleRevision = 3
+  data.recent[0].ruleIssuer = { name: 'Priya', principal: 'issuer', via: 'session' }
   await render(data, true, el => {
     expect(el.textContent).toContain('Kept updated by the janitor · routine')
     expect([...el.querySelectorAll('button')].some(b => b.textContent === 'turn off')).toBe(true)
@@ -136,7 +138,7 @@ it('puts rollback first when releases hold back a project kept by the janitor', 
     expect(links.slice(0, 2).map(a => a.textContent)).toEqual(['Roll back', 'Try again'])
     expect(links[0].getAttribute('href')).toBe('/projects/project/deployments/production?tab=history&rollbackBefore=12')
     expect(links[1].getAttribute('href')).toBe('/projects/project/deployments/production?tab=history')
-    expect(el.textContent).toContain('approval original-rule (rev 3)')
+    expect(el.textContent).toContain('Dependency updates approval for all projects (revision 3), granted by Priya')
   })
 })
 
@@ -157,4 +159,14 @@ it('names the aggressive level without calling its update queue weekly', async (
     expect(el.textContent).toContain('Updates')
     expect(el.textContent).not.toContain('Weekly updates')
   })
+})
+
+it('names pack work in the queue and recent tries reached from the janitor page', async () => {
+ const data = fixture()
+ data.queues.push({ ...data.queues[0], queue: 'packs', state: 'up_to_date', failed: 0, reason: '', changeId: undefined })
+ data.recent[0].queue = 'packs'
+ await render(data, true, el => {
+  expect(el.querySelector('table[aria-label="Recent tries"] tbody tr td:nth-child(2)')?.textContent).toBe('Pack updates')
+  expect(el.textContent?.match(/Pack updates/g)?.length).toBe(2)
+ })
 })

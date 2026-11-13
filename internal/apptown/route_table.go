@@ -66,6 +66,7 @@ func appRoutes(a *App) []routeSpec {
 	var projectWorkflows httpapi.ProjectWorkflows
 	var projectSchedules httpapi.ProjectSchedules
 	var projectScans httpapi.ProjectScans
+	var janitor httpapi.Janitor
 	var projectManifest httpapi.ProjectManifest
 	var workflowCatalog httpapi.WorkflowCatalog
 	var projectServices httpapi.ProjectServices
@@ -206,6 +207,7 @@ func appRoutes(a *App) []routeSpec {
 		workflowCatalog = httpapi.NewWorkflowCatalog(a.DB, a.Ways)
 		projectManifest = httpapi.NewProjectManifest(a.Projects, a.Adoption, a.DB, a.cfg.dataDir, a.Secrets)
 		projectWorkflows = httpapi.NewProjectWorkflows(a.Projects, a.Adoption, a.Work, a.DB)
+		janitor = httpapi.NewJanitor(a.Work, a.standingRules, a.Deployment, a.cfg.clock.Now)
 		projectScans = httpapi.NewProjectScans(a.Projects, a.Work, a.standingRules, a.Deployment)
 		projectSchedules = httpapi.NewProjectSchedules(a.Projects, changeactions.Schedules{Standing: &a.standingRules, Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}, a.cfg.clock.Now)
 		runProgress = httpapi.NewRunProgress(a.Work, &a.progress)
@@ -461,6 +463,8 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/transcript/{chat}/pictures/{name}", chatHistory.ProjectPicture, access.CapEvidenceRead, "project-slug").inArea("projects"),
 		requireRoute("POST /api/v1/changes/{id}/runs", changes.StartChangeRun, access.CapChangeInvokeLane, "change").inArea("changes"),
 		requireRoute("POST /api/v1/changes/{id}/sendback", changes.SendBack, access.CapChangeSendBack, "change").inArea("changes"),
+		ownerRoute("GET /api/v1/janitor", janitor.List, "janitor.List").inArea("projects"),
+		ownerRoute("GET /api/v1/janitor/history", janitor.History, "janitor.History").inArea("projects"),
 		ownerRoute("GET /api/v1/standing-approvals", standingApprovals.List, "standingApprovals.List").inArea("setup"),
 		ownerRoute("POST /api/v1/standing-approvals/preview", standingApprovals.Preview, "standingApprovals.Preview").inArea("landing"),
 		ownerRoute("POST /api/v1/standing-approvals", standingApprovals.Enable, "standingApprovals.Enable").inArea("setup"),

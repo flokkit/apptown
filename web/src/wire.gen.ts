@@ -1101,6 +1101,65 @@ export type Item = {
   doing?: string
 }
 
+export type JanitorAttribution = {
+  rule?: { kind: string; scope: string } | null
+  schedule: string
+  ruleId?: string | null
+  ruleRevision: number
+  issuer: StandingActor
+  grantedAt: string
+}
+
+export type JanitorChoice = {
+  level: string
+  person: StandingActor
+  at: string
+  reason: string
+}
+
+export type JanitorHistoryView = {
+  history: JanitorHistory
+  releases: JanitorChangeRelease[]
+  since: string
+  until: string
+  offset: number
+}
+
+export type JanitorLandedChange = {
+  rule?: { kind: string; scope: string } | null
+  slug: string
+  project: string
+  packVersions: PackPick[]
+  changeId: string | null
+  projectId: string | null
+  number: number
+  title: string
+  landedAt: string
+  queue: string
+  packages: Move[]
+  ruleId?: string | null
+  ruleRevision: number
+  issuer: StandingActor
+  grantedAt: string
+  schedule: string
+}
+
+export type JanitorProcedure = {
+  workflow: string
+  version: number
+  repairRounds: number
+  stopRule: string
+  sentence: string
+  problem: string
+}
+
+export type JanitorView = {
+  rules: StandingRevision[]
+  projects: JanitorProject[]
+  deployments: JanitorDeployment[]
+  releaseHold: string
+}
+
 export type JobList = {
   jobs: Job[]
 }
@@ -2170,6 +2229,16 @@ export type StandingValidation = {
   scratchSettlement: string
 }
 
+export type StandingVote = {
+  rule?: { kind: string; scope: string } | null
+  level: string
+  ruleId: string | null
+  revision: number
+  issuer: StandingActor
+  means: string
+  assessmentDigest: string
+}
+
 export type Step = {
   isCheck: boolean
   checkAttention: boolean
@@ -2592,6 +2661,7 @@ export type BackupStore = {
 }
 
 export type Change = {
+  janitor?: JanitorAttribution | null
   automatedOrigin: boolean
   chatRequest?: boolean
   requestSummary?: string
@@ -3804,6 +3874,62 @@ export type Waiting = {
   remediationNumber?: number
 }
 
+export type JanitorHistory = {
+  changes: JanitorLandedChange[]
+  more: boolean
+}
+
+export type JanitorChangeRelease = {
+  changeId: string | null
+  projectId: string | null
+  number: number
+  state: string
+  deployment: string
+  displayLabel: string
+}
+
+export type PackPick = {
+  pack: string
+  version: number
+}
+
+export type Move = {
+  ecosystem: string
+  package: string
+  from: string
+  to: string
+}
+
+export type JanitorProject = {
+  projectId: string | null
+  slug: string
+  name: string
+  enabled: boolean
+  level: string
+  choice?: JanitorChoice | null
+  issuer: StandingActor
+  grantedAt: string
+  queues: QueueStatus[]
+  scans: MainScans
+  problem: string
+  procedures: JanitorProcedure[]
+  queueSentences: string[]
+  nextUpdate: string
+  nextReason: string
+}
+
+export type JanitorDeployment = {
+  projectId: string | null
+  deploymentId: string | null
+  name: string
+  displayLabel: string
+  setting: RoutineUpdates
+  protected: boolean
+  automatic: boolean
+  sentence: string
+  hold?: JanitorHold | null
+}
+
 export type Job = {
   id: number
   kind: string
@@ -4240,6 +4366,9 @@ export type MainScans = {
 }
 
 export type AutomatedAttempt = {
+  rule?: { kind: string; scope: string } | null
+  ruleIssuer?: StandingActor | null
+  ruleGrantedAt?: string | null
   schedule: string
   ruleId?: string | null
   ruleRevision: number
@@ -4916,11 +5045,6 @@ export type WorkflowStagePreview = {
   steps: string[]
 }
 
-export type PackPick = {
-  pack: string
-  version: number
-}
-
 export type Receipt = {
   resolver: number
   packs?: string[]
@@ -4984,6 +5108,7 @@ export type CatalogParam = {
 
 export type ChangeSummary = {
   waitingOn: WaitingOn
+  janitor?: JanitorAttribution | null
   automatedOrigin: boolean
   chatRequest?: boolean
   requestSummary?: string
@@ -5358,13 +5483,6 @@ export type OverviewHead = {
   sha: string
   subject: string
   when: string
-}
-
-export type Move = {
-  ecosystem: string
-  package: string
-  from: string
-  to: string
 }
 
 export type ScanObservation = {

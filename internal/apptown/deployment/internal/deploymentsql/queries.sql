@@ -753,3 +753,13 @@ UPDATE releases SET state='waiting for approval' WHERE id=$1 AND state='releasin
 
 -- name: RefreshRoutineGeneration :execrows
 UPDATE release_requests SET base_generation=$2 WHERE release_id=$1 AND routine AND claimed_at IS NULL;
+
+-- name: JanitorDeployments :many
+SELECT * FROM deployments WHERE project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND kind='standing' AND feed='main' ORDER BY project_id,id;
+
+-- name: JanitorChangeReleases :many
+SELECT rc.change_id,r.project_id,r.number,r.state,d.name AS deployment,d.display_label
+FROM release_changes rc JOIN releases r ON r.id=rc.release_id
+JOIN deployments d ON d.id=r.deployment_id
+WHERE r.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND rc.change_id=ANY(sqlc.arg(change_ids)::uuid[])
+ORDER BY r.number DESC;

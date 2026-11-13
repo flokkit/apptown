@@ -1,3 +1,4 @@
+import { JanitorAttribution } from '../../janitorAttribution'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet, useAction } from '../../data'
@@ -50,7 +51,7 @@ const unique = (findings: Finding[]) => [...new Map(findings.map(f => [f.fingerp
 function QueueLine({ queue, slug, reload }: { queue: QueueStatus; slug: string; reload: () => void }) {
   const action = useAction(reload)
   const canSkip = useHolds('change:abandon', slug)
-  const name = queue.queue === 'updates' ? 'Updates' : 'Security fixes'
+  const name = queue.queue === 'updates' ? 'Updates' : queue.queue === 'packs' ? 'Pack updates' : 'Security fixes'
   const state = queue.state === 'stopped' ? `stopped after ${queue.failed} failed tries since ${fmtWhen(queue.since)}`
     : queue.state === 'stuck' ? `stuck since ${fmtWhen(queue.since)}`
       : queue.state === 'updating' ? 'updating' : queue.state === 'waiting' ? 'waiting for a person' : 'up to date'
@@ -66,10 +67,10 @@ function QueueLine({ queue, slug, reload }: { queue: QueueStatus; slug: string; 
 
 const tryColumns: ListColumn<AutomatedAttempt>[] = [
   { key: 'what', label: 'Update', phone: 'name', render: a => a.changeId ? <Link to={`/changes/${a.changeId}`}>{a.what}</Link> : a.what },
-  { key: 'queue', label: 'Queue', render: a => a.queue === 'updates' ? 'Updates' : 'Security fixes' },
+  { key: 'queue', label: 'Queue', render: a => a.queue === 'updates' ? 'Updates' : a.queue === 'packs' ? 'Pack updates' : 'Security fixes' },
   { key: 'result', label: 'Result', phone: 'state', render: a => a.reason || (a.outcome === 'held' ? 'Waiting for a person' : a.outcome === 'shipped' ? 'Landed' : a.outcome === 'skipped' ? 'Skipped' : a.openChange ? 'In progress' : 'Closed') },
   { key: 'packages', label: 'Packages', render: a => a.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') || '—' },
-  { key: 'origin', label: 'From', render: a => a.ruleId ? `The janitor, under approval ${a.ruleId} (rev ${a.ruleRevision})` : a.schedule ? `Schedule ${a.schedule}` : 'Not recorded' },
+  { key: 'origin', label: 'From', render: a => a.ruleId ? <JanitorAttribution rule={a.rule!} revision={a.ruleRevision} issuer={a.ruleIssuer!.name} /> : a.schedule ? `Schedule ${a.schedule}` : 'Not recorded' },
   { key: 'when', label: 'When', kind: 'time', render: a => fmtWhen(a.when) },
 ]
 
@@ -102,7 +103,7 @@ export function LastScan({ slug, janitor = false }: { slug: string; janitor?: bo
       {scans.historical.length > 0 && <><h3>Earlier</h3><ListTable label="Earlier scans" columns={columns} rows={[...scans.historical].sort((a, b) => b.observedAt.localeCompare(a.observedAt)).slice(0, 10)} rowKey={scan => scan.id!} /></>}
     </>)}
     {janitor && data && data.recent.some(a => a.attempted) && <><h3>Recent tries</h3><ListTable label="Recent tries" rows={data.recent.filter(a => a.attempted)} columns={tryColumns} rowKey={a => a.id!} rowTo={a => a.changeId ? `/changes/${a.changeId}` : undefined} /></>}
-    {janitor && <p><Link to={`/conformance/projects/${slug}`}>Scan history</Link></p>}
+    {janitor && <p><Link to="/janitor">Janitor</Link> · <Link to={`/conformance/projects/${slug}`}>Scan history</Link></p>}
   </Section>
 }
 

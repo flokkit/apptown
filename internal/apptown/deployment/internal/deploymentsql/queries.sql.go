@@ -2254,6 +2254,124 @@ func (q *Queries) InvalidateReading(ctx context.Context, arg InvalidateReadingPa
 	return err
 }
 
+const janitorChangeReleases = `-- name: JanitorChangeReleases :many
+SELECT rc.change_id,r.project_id,r.number,r.state,d.name AS deployment,d.display_label
+FROM release_changes rc JOIN releases r ON r.id=rc.release_id
+JOIN deployments d ON d.id=r.deployment_id
+WHERE r.project_id=ANY($1::uuid[]) AND rc.change_id=ANY($2::uuid[])
+ORDER BY r.number DESC
+`
+
+type JanitorChangeReleasesParams struct {
+	ProjectIds []ids.ID
+	ChangeIds  []ids.ID
+}
+
+type JanitorChangeReleasesRow struct {
+	ChangeID     ids.ID
+	ProjectID    ids.ID
+	Number       int64
+	State        string
+	Deployment   string
+	DisplayLabel string
+}
+
+func (q *Queries) JanitorChangeReleases(ctx context.Context, arg JanitorChangeReleasesParams) ([]JanitorChangeReleasesRow, error) {
+	rows, err := q.db.QueryContext(ctx, janitorChangeReleases, pq.Array(arg.ProjectIds), pq.Array(arg.ChangeIds))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []JanitorChangeReleasesRow
+	for rows.Next() {
+		var i JanitorChangeReleasesRow
+		if err := rows.Scan(
+			&i.ChangeID,
+			&i.ProjectID,
+			&i.Number,
+			&i.State,
+			&i.Deployment,
+			&i.DisplayLabel,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const janitorDeployments = `-- name: JanitorDeployments :many
+SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, url, start_from_backup, started_from_at, restore_check, display_label, feed_revision, feed_authority_json, promoted_from_id, approval_role, runtime_state, runtime_actor, runtime_at, runtime_error, act_at, serving_release_id, serving_attempt_id, routine_updates, routine_updates_revision FROM deployments WHERE project_id=ANY($1::uuid[]) AND kind='standing' AND feed='main' ORDER BY project_id,id
+`
+
+func (q *Queries) JanitorDeployments(ctx context.Context, projectIds []ids.ID) ([]Deployment, error) {
+	rows, err := q.db.QueryContext(ctx, janitorDeployments, pq.Array(projectIds))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Deployment
+	for rows.Next() {
+		var i Deployment
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.HostLabel,
+			&i.HostPort,
+			&i.Container,
+			&i.ReleaseRun,
+			&i.UpdatedAt,
+			&i.ReleaseSha,
+			&i.ImageDigest,
+			&i.Kind,
+			&i.ChangeID,
+			&i.TargetID,
+			&i.HandleJson,
+			&i.DesiredGeneration,
+			&i.ObservedGeneration,
+			&i.Readiness,
+			&i.Feed,
+			&i.Audience,
+			&i.DataClass,
+			&i.Url,
+			&i.StartFromBackup,
+			&i.StartedFromAt,
+			&i.RestoreCheck,
+			&i.DisplayLabel,
+			&i.FeedRevision,
+			&i.FeedAuthorityJson,
+			&i.PromotedFromID,
+			&i.ApprovalRole,
+			&i.RuntimeState,
+			&i.RuntimeActor,
+			&i.RuntimeAt,
+			&i.RuntimeError,
+			&i.ActAt,
+			&i.ServingReleaseID,
+			&i.ServingAttemptID,
+			&i.RoutineUpdates,
+			&i.RoutineUpdatesRevision,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const janitorReleaseLedger = `-- name: JanitorReleaseLedger :many
 SELECT r.id, r.number, r.state, r.bundle_id, b.created_at AS bundle_created_at
 FROM releases r LEFT JOIN release_bundles b ON b.id=r.bundle_id

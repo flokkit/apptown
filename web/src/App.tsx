@@ -24,6 +24,7 @@ import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'rea
 import { useQueryClient } from '@tanstack/react-query'
 import { currentUser, setCurrentUser } from './api'
 import Dashboard from './pages/Dashboard'
+import Janitor from './pages/Janitor'
 import AttentionPage from './pages/Attention'
 import Projects from './pages/Projects'
 import Deployments from './pages/Deployments'
@@ -145,6 +146,7 @@ export function SidebarNav() {
         { to: '/conformance/remediations', label: 'Remediations', active: pathname.startsWith('/conformance/remediations') },
         ...(feature('what-ifs') ? [{ to: '/conformance/what-ifs', label: 'Pack upgrades', active: pathname.startsWith('/conformance/what-ifs') }] : []),
       ]} />}
+      {permission("janitor") && <NavLink to="/janitor" className={cls}><RefreshCw aria-hidden size={16} />Janitor</NavLink>}
       <div className="nav-group">Setup</div>
  <NavLink to="/features" className={cls}><Settings aria-hidden size={16} />Features</NavLink>
       <Drawer label="Ways of working" icon={<BookOpen aria-hidden size={16} />} to="/packs" active={wow} items={[
@@ -357,6 +359,7 @@ export default function App() {
           <Route path="/services" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
           <Route path="/services/:name" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
           <Route path="/policies" element={<CoreArea area="ways"><WaysOfWorking tab="policies" /></CoreArea>} />
+          <Route path="/janitor" element={<CoreArea area="projects"><InstanceGate page="janitor"><Janitor /></InstanceGate></CoreArea>} />
           <Route path="/packs" element={<CoreArea area="ways"><WaysOfWorking tab="packs" /></CoreArea>} />
           <Route path="/packs/:name" element={<CoreArea area="ways"><PackPage /></CoreArea>} />
           <Route path="/account" element={<CoreArea area="people"><MyExternalSignIn /></CoreArea>} />

@@ -71,6 +71,34 @@ Disable also requires the expected revision. Commands emit JSON and never start
 a release. If a save response is lost, inspect current rules before submitting
 another new rule; an unknown response is not proof the save failed.
 
+## Janitor page
+
+`/janitor` is the home for standing rules and their existing preview, enable and
+revoke operations. Instance readers can read the rules; management retains its
+verified-person and capability checks. The Packs page links here. Project rows
+open the project's Janitor section, which links back to this page.
+
+The page shows each rule's bounds, current scope, automatic release destinations
+and original grant. Project choices retain the person, time and reason under
+their rule. Repair sentences read the adopted `janitor-fix`, `janitor-update`
+and `janitor-adopt` definitions. Queue sentences use the same stop bound as
+admission, separately for security, dependency and pack work. Shared queue rules
+appear once per adopted version; current stopped work appears with project state.
+The release settings table lists automatic destinations covered by an enabled
+rule and reads their current settings; release holds use the existing ledger
+classifier.
+
+Workflow owns the instance project-state and landed-Change reads, fenced by the
+caller's readable project set before paging. Deployment owns the instance settings,
+holds and Change-release membership reads. The HTTP handler joins owner results;
+it reads no tables and owns the response types. Last-seven-days history and paged
+older history use landing time, with deterministic identity ordering for
+simultaneous landings. Package
+moves come from retained attempts; pack versions come from the Change's immutable
+adoption candidate. Original grant attribution reads the recorded rule revision,
+including for failed work whose Change is purged. Every attribution names the recorded rule’s kind and scope, its revision and issuer, with a link to Janitor. Project scopes name only projects the caller can read and count the other projects. The Change heading shows that original firing grant separately from later acceptance votes, including when the votes use a different rule. Vote labels read the referenced revision from the standing-rule history. Missing or stale scan evidence
+and failed refreshes remain visibly different from clean or empty answers.
+
 ## Inspecting a candidate
 
 `apptown janitor assess RULE --run RUN` inspects an exact run without accepting,

@@ -17,13 +17,14 @@ import (
 type Changes struct {
 	db        *database.DB
 	authority operationAuthority
+	checked   access.Authorizer
 	clocked
 }
 
 // NewChanges is change commands outside Work's runs; now is AppTown's
 // clock (nil the real one).
 func NewChanges(db *database.DB, authority access.Authorizer, now func() time.Time) Changes {
-	return Changes{db: db, authority: commandAuthority{db: db, checked: authority, clocked: clocked{now}}, clocked: clocked{now}}
+	return Changes{db: db, checked: authority, authority: commandAuthority{db: db, checked: authority, clocked: clocked{now}}, clocked: clocked{now}}
 }
 func (s Changes) scope(ctx context.Context, id ids.ID, act commandAction) (ids.ID, commandActor, error) {
 	if _, err := requireActor(ctx, s.authority, operationPermission{Action: actionIdentify}); err != nil {
@@ -54,6 +55,12 @@ func (s Changes) Change(ctx context.Context, id ids.ID) (*Change, error) {
 	}
 	if ch.ProjectID != project {
 		return nil, &access.Denied{Reason: "Work scope changed during read"}
+	}
+	if ch.AutomatedOrigin {
+		ch.Janitor, err = janitorAttributionIn(ctx, s.db, s.checked, ch.ID)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return ch, nil
 }

@@ -1,4 +1,3 @@
-import { KeepPacksCurrent } from './KeepPacksCurrent'
 import { ListRow } from '../ListRow'
 import { Link } from 'react-router-dom'
 import './Packs.css'
@@ -114,7 +113,7 @@ export default function Packs() {
     <div>
       {msg && <div className="muted small mb-2" >{msg}</div>}
       <StaleNote q={packsQ} />
-      <KeepPacksCurrent />
+      <p><Link to="/janitor">Janitor update approvals</Link></p>
 
       <Section title="Packs" count={packs.length} action={<button className="primary" onClick={() => setEditing({ draft: blank(), existing: false })}>New pack</button>}>
       <LibraryRows>

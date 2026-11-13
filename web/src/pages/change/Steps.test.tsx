@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../data'
@@ -229,4 +230,11 @@ it.each([false, true])('shows how a scan ran only with the technical switch (%s)
     for (const r of raw) expect(el.textContent?.includes(r)).toBe(technical)
     expect(el.textContent).toContain('0 actionable / 0 findings')
   } finally { act(() => root.unmount()); client.clear(); localStorage.clear() }
+})
+
+it('shows the person and revision behind a janitor vote without exposing its internal rule identity', () => {
+ const step = { id: STEP, runId: RUN, stage: 'accept', name: 'accept', type: 'approval', status: 'pass', overrideBy: '', config: {}, evidence: { approver: 'the janitor', decision: 'approve', comment: 'the janitor under standing approval hidden-rule', decisions: [{ approver: 'the janitor', via: 'standing', decision: 'approve', standing: { rule: { kind: 'Dependency updates', scope: 'all projects' }, ruleId: 'hidden-rule', revision: 5, issuer: { name: 'Nina' } } }] } } as unknown as Step
+ const html = renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}><MemoryRouter><StepCard step={step} onChange={() => {}} /></MemoryRouter></QueryClientProvider>)
+ expect(html).toContain('Dependency updates approval for all projects (revision 5), granted by Nina')
+ expect(html).not.toContain('hidden-rule')
 })

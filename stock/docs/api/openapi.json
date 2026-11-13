@@ -802,11 +802,54 @@
           "reason": {
             "type": "string"
           },
+          "rule": {
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "scope"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ruleGrantedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "ruleId": {
             "format": "uuid",
             "type": [
               "string",
               "null"
+            ]
+          },
+          "ruleIssuer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Actor"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "ruleRevision": {
@@ -1157,6 +1200,16 @@
             "type": [
               "string",
               "null"
+            ]
+          },
+          "janitor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/janitorAttribution"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "landedSha": {
@@ -1694,6 +1747,16 @@
             "type": [
               "string",
               "null"
+            ]
+          },
+          "janitor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/janitorAttribution"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "landedSha": {
@@ -3588,6 +3651,152 @@
         ],
         "type": "object"
       },
+      "JanitorChangeRelease": {
+        "properties": {
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deployment": {
+            "type": "string"
+          },
+          "displayLabel": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "changeId",
+          "projectId",
+          "number",
+          "state",
+          "deployment",
+          "displayLabel"
+        ],
+        "type": "object"
+      },
+      "JanitorDeployment": {
+        "properties": {
+          "automatic": {
+            "type": "boolean"
+          },
+          "deploymentId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "displayLabel": {
+            "type": "string"
+          },
+          "hold": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JanitorHold"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "protected": {
+            "type": "boolean"
+          },
+          "sentence": {
+            "type": "string"
+          },
+          "setting": {
+            "$ref": "#/components/schemas/RoutineUpdates"
+          }
+        },
+        "required": [
+          "projectId",
+          "deploymentId",
+          "name",
+          "displayLabel",
+          "setting",
+          "protected",
+          "automatic",
+          "sentence"
+        ],
+        "type": "object"
+      },
+      "JanitorHistory": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/janitorLandedChange"
+            },
+            "type": "array"
+          },
+          "more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "changes",
+          "more"
+        ],
+        "type": "object"
+      },
+      "JanitorHistoryView": {
+        "properties": {
+          "history": {
+            "$ref": "#/components/schemas/JanitorHistory"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "releases": {
+            "items": {
+              "$ref": "#/components/schemas/JanitorChangeRelease"
+            },
+            "type": "array"
+          },
+          "since": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "until": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "history",
+          "releases",
+          "since",
+          "until",
+          "offset"
+        ],
+        "type": "object"
+      },
       "JanitorHold": {
         "properties": {
           "deployment": {
@@ -3616,6 +3825,126 @@
           "displayLabel",
           "releaseNumber",
           "reason"
+        ],
+        "type": "object"
+      },
+      "JanitorProject": {
+        "properties": {
+          "choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/janitorChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "grantedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "issuer": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "level": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nextReason": {
+            "type": "string"
+          },
+          "nextUpdate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "problem": {
+            "type": "string"
+          },
+          "procedures": {
+            "items": {
+              "$ref": "#/components/schemas/janitorProcedure"
+            },
+            "type": "array"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "queueSentences": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "queues": {
+            "items": {
+              "$ref": "#/components/schemas/QueueStatus"
+            },
+            "type": "array"
+          },
+          "scans": {
+            "$ref": "#/components/schemas/MainScans"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectId",
+          "slug",
+          "name",
+          "enabled",
+          "level",
+          "issuer",
+          "grantedAt",
+          "queues",
+          "scans",
+          "problem",
+          "procedures",
+          "queueSentences",
+          "nextUpdate",
+          "nextReason"
+        ],
+        "type": "object"
+      },
+      "JanitorView": {
+        "properties": {
+          "deployments": {
+            "items": {
+              "$ref": "#/components/schemas/JanitorDeployment"
+            },
+            "type": "array"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/JanitorProject"
+            },
+            "type": "array"
+          },
+          "releaseHold": {
+            "type": "string"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/StandingRevision"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "rules",
+          "projects",
+          "deployments",
+          "releaseHold"
         ],
         "type": "object"
       },
@@ -4290,6 +4619,21 @@
             "type": "array"
           }
         },
+        "type": "object"
+      },
+      "PackPick": {
+        "properties": {
+          "pack": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack",
+          "version"
+        ],
         "type": "object"
       },
       "PackPolicy": {
@@ -7950,6 +8294,221 @@
           "evaluator",
           "verdict",
           "statusLabel"
+        ],
+        "type": "object"
+      },
+      "janitorAttribution": {
+        "properties": {
+          "grantedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "issuer": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "scope"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ruleId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ruleRevision": {
+            "type": "integer"
+          },
+          "schedule": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule",
+          "ruleRevision",
+          "issuer",
+          "grantedAt"
+        ],
+        "type": "object"
+      },
+      "janitorChoice": {
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "person": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "level",
+          "person",
+          "at",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "janitorLandedChange": {
+        "properties": {
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "grantedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "issuer": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "landedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          },
+          "packVersions": {
+            "items": {
+              "$ref": "#/components/schemas/PackPick"
+            },
+            "type": "array"
+          },
+          "packages": {
+            "items": {
+              "$ref": "#/components/schemas/Move"
+            },
+            "type": "array"
+          },
+          "project": {
+            "type": "string"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "queue": {
+            "type": "string"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "scope"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ruleId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ruleRevision": {
+            "type": "integer"
+          },
+          "schedule": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "project",
+          "packVersions",
+          "changeId",
+          "projectId",
+          "number",
+          "title",
+          "landedAt",
+          "queue",
+          "packages",
+          "ruleRevision",
+          "issuer",
+          "grantedAt",
+          "schedule"
+        ],
+        "type": "object"
+      },
+      "janitorProcedure": {
+        "properties": {
+          "problem": {
+            "type": "string"
+          },
+          "repairRounds": {
+            "type": "integer"
+          },
+          "sentence": {
+            "type": "string"
+          },
+          "stopRule": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "workflow": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow",
+          "version",
+          "repairRounds",
+          "stopRule",
+          "sentence",
+          "problem"
         ],
         "type": "object"
       },
@@ -13004,6 +13563,95 @@
           "tier": "always"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/janitor": {
+      "get": {
+        "operationId": "getJanitor",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JanitorView"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "janitor"
+        ],
+        "x-apptown-access": {
+          "contract": "janitor.List",
+          "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/janitor/history": {
+      "get": {
+        "operationId": "getJanitorHistory",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JanitorHistoryView"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "janitor"
+        ],
+        "x-apptown-access": {
+          "contract": "janitor.History",
+          "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/jobs": {

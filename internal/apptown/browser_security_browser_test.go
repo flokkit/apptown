@@ -53,6 +53,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
+	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
@@ -5327,7 +5328,7 @@ spec:
 		}
 		return runtime, res.Reading.ObservedAt, inv.ObservedAt
 	}
-	cameraJanitorQueue(t, a, project.ID)
+	cameraJanitorProjects(t, a, scene)
 	cameraNotifications(t, a)
 	phases.mark("records")
 	runtimeBefore, resourcesBefore, inventoryBefore := readAt()
@@ -6336,4 +6337,76 @@ func cameraNotifications(t *testing.T, a *App) {
 		}
 		moveClock(a, time.Second)
 	}
+}
+
+// The camera's second maintained project keeps a stopped queue separate from
+// the newsletter's release hold. The historical Change really passes the tour's
+// checks, is accepted by a person and lands through SCM; its schedule is its
+// origin because it has no covering rule.
+func cameraJanitorProjects(t *testing.T, a *App, scene *tourScene) {
+	t.Helper()
+	p, err := a.Projects.BySlug(t.Context(), "rocket-garden")
+	if err != nil {
+		t.Fatal(err)
+	}
+	system := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: p.ID}})
+	ch, err := a.Work.Create(system, workflow.ChangeDraft{ProjectID: p.ID, Type: "scheduled", Queue: "updates", Schedule: "Weekly upkeep", Title: "Update the rocket garden instructions"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &tourChange{ID: ch.ID, slug: p.Slug, title: ch.Title, folder: (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID)}
+	scene.write(c, map[string]string{"maintenance.txt": "Rocket Garden: launch after the fuel counter fills.\n"})
+	scene.commit(c, "", "Update rocket garden instructions")
+	// This maintenance procedure declares tests and source scans, then a
+	// person's approval. It makes no image or release claim.
+	historyWorkflow := tourWorkflow
+	historyWorkflow.Workflow = workflow.DefinitionRef{Name: "camera-history", Version: 1}
+	historyWorkflow.Spec.Stages = historyWorkflow.Spec.Stages[:1]
+	rebuildWork(t, a, func(deps *workflow.Dependencies) {
+		original := deps.Resolve
+		resolver := workcommands.NewPreparation(a.DB, definedWorkflows{Service: a.Adoption, definitions: []workflow.PreparedRun{historyWorkflow}}, a.branches, a.cfg.dataDir, holderPresenceFor(a), a.chatSaves, a.Secrets, nil).Resolve
+		deps.Resolve = func(ctx context.Context, in workflow.StartRequest, source workflow.StartSource) (workflow.PreparedRun, error) {
+			if in.WorkflowName == "camera-history" {
+				return resolver(ctx, in, source)
+			}
+			return original(ctx, in, source)
+		}
+	})
+	run, err := a.Work.StartRun(asPerson("sam"), workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "camera-history"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Work.Wait()
+	accept := scene.steps(run.ID)["accept"]
+	adds := shownAdds(t, a, asPerson("sam"), accept.ID)
+	scene.call("sam", "POST", "/api/v1/steps/"+accept.ID.String()+"/approve", map[string]string{"decision": "approve", "adds": adds})
+	a.Work.Wait()
+	landed, err := a.Work.Change(asPerson("sam"), ch.ID)
+	if err != nil || landed.State != workflow.ChangeShipped || landed.LandedSHA == "" {
+		t.Fatalf("camera janitor landing: %+v %v", landed, err)
+	}
+	person := verifiedContext(t.Context(), access.Principal{ID: testPrincipalOf(t, a.DB, "sam"), Kind: "user", Name: "sam", Via: "header", Credential: identity.HeaderCredential("sam")})
+	deps, err := a.Deployment.Deployments.ForProject(t.Context(), p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	environments := []workflow.StandingEnvironment{}
+	for _, dep := range deps {
+		if dep.Feed == "main" {
+			environments = append(environments, workflow.StandingEnvironment{DeploymentID: dep.ID, TargetID: dep.TargetID})
+		}
+	}
+	delivery := "full"
+	if len(environments) == 0 {
+		delivery = "land-only"
+	}
+	definition := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: p.ID, Workflow: "camera-janitor", Environments: environments}}, Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: delivery}
+	question, err := a.standingRules.Preview(person, definition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.standingRules.Enable(person, workflow.StandingCommand{Definition: definition, ShownDigest: question.Digest}); err != nil {
+		t.Fatal(err)
+	}
+	cameraJanitorQueue(t, a, p.ID)
 }

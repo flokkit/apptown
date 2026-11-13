@@ -129,26 +129,27 @@ type requestSummary struct {
 }
 
 type Change struct {
-	AutomatedOrigin      bool            `json:"automatedOrigin"`
-	ChatRequest          bool            `json:"chatRequest,omitempty"`
-	RequestSummary       string          `json:"requestSummary,omitempty"`
-	RequestSummarySource *requestSummary `json:"-"`
-	ID                   ids.ID          `json:"id"`
-	Number               int64           `json:"number"` // within its project
-	ProjectID            ids.ID          `json:"projectId"`
-	Type                 string          `json:"type"`
-	Title                string          `json:"title"`
-	Body                 string          `json:"body"`
-	RunID                ids.ID          `json:"runId"`
-	State                ChangeState     `json:"state"`
-	Branch               string          `json:"branch,omitempty"`
-	BaseSHA              string          `json:"baseSha,omitempty"`
-	LandedSHA            string          `json:"landedSha,omitempty"` // the commit the landing merged as, written with its merge receipt; "" until landed
-	ExternalRef          string          `json:"externalRef,omitempty"`
-	Summary              string          `json:"summary,omitempty"`
-	Provenance           string          `json:"provenance,omitempty"`
-	CreatedAt            string          `json:"createdAt"`
-	ClosedAt             stamp.Time      `json:"closedAt,omitzero"`
+	Janitor              *janitorAttribution `json:"janitor,omitempty"`
+	AutomatedOrigin      bool                `json:"automatedOrigin"`
+	ChatRequest          bool                `json:"chatRequest,omitempty"`
+	RequestSummary       string              `json:"requestSummary,omitempty"`
+	RequestSummarySource *requestSummary     `json:"-"`
+	ID                   ids.ID              `json:"id"`
+	Number               int64               `json:"number"` // within its project
+	ProjectID            ids.ID              `json:"projectId"`
+	Type                 string              `json:"type"`
+	Title                string              `json:"title"`
+	Body                 string              `json:"body"`
+	RunID                ids.ID              `json:"runId"`
+	State                ChangeState         `json:"state"`
+	Branch               string              `json:"branch,omitempty"`
+	BaseSHA              string              `json:"baseSha,omitempty"`
+	LandedSHA            string              `json:"landedSha,omitempty"` // the commit the landing merged as, written with its merge receipt; "" until landed
+	ExternalRef          string              `json:"externalRef,omitempty"`
+	Summary              string              `json:"summary,omitempty"`
+	Provenance           string              `json:"provenance,omitempty"`
+	CreatedAt            string              `json:"createdAt"`
+	ClosedAt             stamp.Time          `json:"closedAt,omitzero"`
 	// ClosedAs is how a closed change was closed, when that is more than its
 	// state: ClosedNothingToChange, ClosedShippedWith, closedRecord, or "".
 	ClosedAs string `json:"closedAs,omitempty"`

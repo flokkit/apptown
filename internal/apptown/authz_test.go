@@ -1128,7 +1128,7 @@ func TestHoldingsReportTheActsTheWebOffers(t *testing.T) {
 			t.Errorf("project %s: administrator %v, outsider %v", cap, boss.Project[cap], outsider.Project[cap])
 		}
 	}
-	for _, cap := range []string{"conformance:review", "conformance:remediate"} {
+	for _, cap := range []string{"conformance:review", "conformance:remediate", "instance:manage-standing-approval"} {
 		if !boss.Instance[cap] || outsider.Instance[cap] {
 			t.Errorf("instance %s: administrator %v, outsider %v", cap, boss.Instance[cap], outsider.Instance[cap])
 		}

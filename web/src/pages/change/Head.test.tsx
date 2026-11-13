@@ -3,6 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import type { ChangeView } from '../../api'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../data'
+import { StepCard } from './Steps'
+import type { Step } from '../../api'
 import { MemoryRouter } from 'react-router-dom'
 import { ChangeHeader, ChangesTab, RequestEntry } from './Head'
 
@@ -92,4 +94,30 @@ it("says the latest run changed nothing of its own rather than showing an empty 
   expect(html).toContain('What run 14 changed')
   expect(html).toContain('Run 14 changed no files of its own.')
   expect(html).not.toContain('(empty diff)')
+})
+
+it('attributes the original janitor grant separately from later work and names uncovered schedules', () => {
+ const v = view('landing')
+ v.change.automatedOrigin = true
+ v.change.openedBy = 'apptown-system'
+ v.change.janitor = { rule: { kind: 'Dependency updates', scope: 'all projects' }, ruleId: 'original', ruleRevision: 2, issuer: { name: 'Priya', principal: 'issuer', via: 'session' }, grantedAt: '2026-11-01T10:00:00Z', schedule: 'janitor-update' }
+ const head = () => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeHeader view={v} /></QueryClientProvider></MemoryRouter>)
+ expect(head()).toContain('the janitor, under the Dependency updates approval for all projects (revision 2), granted by Priya')
+ expect(head()).not.toContain('Asked by apptown-system')
+ v.change.janitor = { ...v.change.janitor, ruleId: undefined, ruleRevision: 0, schedule: 'Weekly updates' }
+ expect(head()).toContain('The janitor, from schedule Weekly updates')
+})
+
+
+it('shows distinct firing and acceptance rules with the same issuer and revision on a Change', () => {
+ const v = view('landing')
+ const issuer = { name: 'Sam', principal: 'sam', via: 'session' }
+ v.change.janitor = { ruleId: 'dependency-rule', ruleRevision: 1, issuer, grantedAt: '2026-11-01T10:00:00Z', schedule: 'janitor-update', rule: { kind: 'Dependency updates', scope: 'Garden roster' } }
+ const step = { id: 'accept', type: 'approval', status: 'pass', config: {}, evidence: { approver: 'the janitor', decision: 'approve', decisions: [{ approver: 'the janitor', decision: 'approve', via: 'standing', standing: { ruleId: 'pack-rule', revision: 1, issuer, rule: { kind: 'Keep packs current', scope: 'all projects' } } }] } } as unknown as Step
+ const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeHeader view={v} /><StepCard step={step} onChange={() => {}} /></QueryClientProvider></MemoryRouter>)
+ expect(html).toContain('Dependency updates approval for Garden roster (revision 1), granted by Sam')
+ expect(html).toContain('Keep packs current approval for all projects (revision 1), granted by Sam')
+ expect(html.match(/href="\/janitor"/g)?.length).toBeGreaterThanOrEqual(2)
+ expect(html).not.toContain('dependency-rule')
+ expect(html).not.toContain('pack-rule')
 })
