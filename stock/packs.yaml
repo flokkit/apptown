@@ -136,6 +136,7 @@ packs:
     guidance:
       - lang/selection/java-spring-boot
       - lang/java/spring-conventions
+      - lang/java/dependency-updates
   - name: dotnet
     description: |-
       Experimental ASP.NET Core APIs with EF Core.
@@ -248,6 +249,7 @@ packs:
     tools: {node: "24"}
     toolchain: node
     guidance:
+      - lang/node/dependency-updates
       - game/open-toolchain
       - game/player-first
       - game/playable-everywhere
@@ -269,6 +271,7 @@ packs:
     toolchain: node
     extensions: [lsp]
     guidance:
+      - lang/node/dependency-updates
       - frontend/browser-only
       - frontend/vite-react
       - data/large-data-files
