@@ -47,10 +47,16 @@ they answer without an Open app action. A known endpoint does not prove that
 a particular release reached it.
 
 Workflow's check summary counts and names not-applicable and conditionally
-skipped checks. Conditional skips keep their unknown tone. Only the owner's
+skipped checks once per distinct displayed name, in first-seen order across
+the working and landing runs. Passed counts retain each run's evidence.
+Conditional skips keep their unknown tone. Only the owner's
 verdict counts a check as passed. A running check shows elapsed time from its
-step start; the current stage's earliest step start supplies “Started”. Slot
-waits identify the queued run, step and attempt while remaining work without
+step start and the last live log line in both Now and the Checks table; no
+line yet is neither failure nor completion. A failed progress read says so.
+The current stage's earliest step start supplies “Started”. Slot waits carry
+the binding, position and server-formatted words in `WaitingOn.queue`, and
+identify the queued run, step and attempt (`Step.attempt` is read-only
+identity, not an execution claim) while remaining work without
 person actions. Preview absence is shown only after a successful `none` reading
 of the same live preview query used by Try it.
 

@@ -88,6 +88,11 @@ func TestChangeVerdictIncludesTheWorkingRunCarriedByLanding(t *testing.T) {
 	finishedStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: work.ID, Stage: "finish", Name: "privacy", Type: "script"}, StatusFail)
 	landing := insertStoredRun(t, q.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: work.ProjectID, ChangeID: work.ChangeID, WorkflowName: "land", WorkflowVersion: 1, Kind: "pipeline", Status: RunDone.String(), CurrentStage: "finish", DefinitionJson: json.RawMessage(`{"kind":"pipeline","role":"landing","stages":[{"name":"finish"}]}`)})
 	finishedStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: landing.ID, Stage: "finish", Name: "land-check", Type: "script"}, StatusPass)
+	for _, run := range []*Run{work, landing} {
+		for _, name := range []string{"security", "license"} {
+			finishedStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: name, Type: "scan"}, StatusNotApplicable)
+		}
+	}
 	s := newService(q.db, allowProject(work.ProjectID), Runtime{})
 	latest, err := s.Snapshot(t.Context(), landing.ID, DetailView)
 	if err != nil {
@@ -97,7 +102,7 @@ func TestChangeVerdictIncludesTheWorkingRunCarriedByLanding(t *testing.T) {
 		t.Fatal(latest.Checks)
 	}
 	summary, err := s.ChangeChecks(t.Context(), latest)
-	if err != nil || summary.Tone != "bad" || summary.Text != "Privacy failed" {
+	if err != nil || summary.Tone != "bad" || summary.Text != "Privacy failed · 1 passed, 2 skipped: Security scan, Licence scan" {
 		t.Fatalf("change verdict %+v %v", summary, err)
 	}
 }
@@ -114,6 +119,7 @@ func TestChecksSummaryCountsAndNamesSkippedChecks(t *testing.T) {
 		steps      []*Step
 		tone, text string
 	}{
+		{[]*Step{{Type: "scan", Name: "security", Status: StatusNotApplicable}, {Type: "scan", Name: "license", Status: StatusSkipped}, {Type: "scan", Name: "security", Status: StatusSkipped}, {Type: "scan", Name: "license", Status: StatusNotApplicable}}, "unknown", "Checks not all known · 0 passed, 2 skipped: Security scan, Licence scan"},
 		{[]*Step{pass, na}, "ok", "1 passed, 1 skipped: Dependency scan"},
 		{[]*Step{noted, na}, "ok", "1 passed, 1 skipped: Dependency scan · 1 note"},
 		{[]*Step{pass}, "ok", "All checks passed"},

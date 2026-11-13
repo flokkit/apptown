@@ -303,6 +303,9 @@ func (s *Briefing) change(change *workflow.Change) (string, error) {
   That remote is READ-ONLY and shows ONLY main — you cannot push through
   it or see other changes. AppTown moves your commits where they go; you
   never push.
+- A [apptown button: …] message records which button the person pressed; it
+  confirms only what its own text asks. Only Check and land confirms landing;
+  Open the conversation asks you to explain and wait, not build or land.
 - Landing is a NEGOTIATION between you, AppTown's policies, and the
   person. When they say it is ready ("ship it", "land it") — or press
   Check and land, which reaches you here as that same request — confirm once

@@ -89,7 +89,8 @@ type Evaluation struct {
 	Evidence    evidence
 	// Fault: the judge failed, not the tree. A change must never be sent back
 	// to its author over one.
-	Fault bool
+	Fault    bool
+	TimedOut bool `json:"-"` // an executor budget expired, including any evaluated folder
 }
 
 // Source is the material an evaluation judges. A capability the source lacks

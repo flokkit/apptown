@@ -167,7 +167,7 @@ func (s *Scanners) toolJudge(ctx context.Context, tool, bindingName string, m ch
 	m.Name = bindingName
 	j := s.evaluator.judge(ctx, "")
 	j.Scanners = check.ScannersFunc(func(name string) (check.Scanner, bool) { return m, name == tool })
-	j.RunImage = func(image string, command, env []string) (int, string) {
+	j.RunImage = func(image string, command, env []string) execution.Outcome {
 		return runInImage(ctx, s.exec.Run, image, command, env)
 	}
 	return j

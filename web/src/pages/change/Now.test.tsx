@@ -50,7 +50,8 @@ it('names work, keeps later stages out, and distinguishes pending deployment fro
  const text = html(v)
  expect(text).toContain('Work — step 2 of 2')
  expect(text).toContain('Helper finished')
- expect(text).toContain('waiting for a free slot')
+ expect(text).toContain('Waiting to build')
+ expect(text).not.toContain('waiting for a free slot')
  expect(text).not.toContain('future')
  v.detail!.steps[1].status = 'pass'
  expect(html(v)).toContain('Accepted work built')
@@ -178,9 +179,10 @@ it('uses stage step start times and ticks running durations', async () => {
   await act(async () => vi.advanceTimersByTime(1000))
   expect(el.textContent).toContain('4m 13s')
   s.status = 'pending'; s.startedAt = ''
-  v.waitingOn = {...v.waitingOn, step:s.id, says:'building · waiting for a free slot'}
+  s.attempt = 2
+  v.waitingOn = {...v.waitingOn, step:s.id, attempt:2, queue:{binding:'checks',ahead:0,says:'waiting for a slot on checks, next in line'}, says:'building · waiting for a free slot'}
   await act(async () => root.render(<QueryClientProvider client={client}><Now view={{...v}} /></QueryClientProvider>))
   expect(el.querySelector('.ch-now > p')).toBeNull()
-  expect(el.textContent).toContain('waiting for a free slot')
+  expect(el.textContent).toContain('waiting for a slot on checks, next in line')
  } finally { act(() => root.unmount()); client.clear(); vi.useRealTimers() }
 })

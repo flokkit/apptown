@@ -59,8 +59,8 @@ func TestWorkflowStepReadSurfacesShareSnapshot(t *testing.T) {
 		}
 	}
 	body, err := json.Marshal(steps)
-	if err != nil || !strings.Contains(string(body), `"config":{"value":9007199254740993}`) || !strings.Contains(string(body), `"evidence":{"number":9007199254740993}`) || strings.Contains(strings.ToLower(string(body)), "attempt") {
-		t.Fatalf("wire JSON lost precision or exposed ownership: %s %v", body, err)
+	if err != nil || !strings.Contains(string(body), `"config":{"value":9007199254740993}`) || !strings.Contains(string(body), `"evidence":{"number":9007199254740993}`) || !strings.Contains(string(body), `"attempt":5`) || strings.Contains(strings.ToLower(string(body)), "owned") {
+		t.Fatalf("wire JSON lost observed identity/precision or exposed ownership: %s %v", body, err)
 	}
 	dbtest.FailNextStatement(t, db, "RunSteps")
 	if d, err := work.Snapshot(context.Background(), runID, DetailView); d != nil || err == nil {

@@ -26,7 +26,7 @@ func TestAnExecImageCheckWhoseCleanupFailedIsAnError(t *testing.T) {
 	}
 	j := check.Judge{Scanners: check.ScannersFunc(func(string) (check.Scanner, bool) {
 		return check.Scanner{Target: "exec-image", Command: []string{"true"}}, true
-	}), RunImage: func(image string, argv, env []string) (int, string) {
+	}), RunImage: func(image string, argv, env []string) execution.Outcome {
 		return runInImage(context.Background(), run, image, argv, env)
 	}}
 	got := j.EvaluateTool(check.Declared{Declaration: check.Declaration{AppliesTo: []string{"repository"}, Tool: "app"}}, check.Source{Image: "sha256:app", Parts: []check.Part{{Name: "web", Folder: ".", Kinds: []string{check.KindBuild, check.KindContainer}, Public: true}}}, check.Gate, "review")

@@ -59,6 +59,7 @@ func summarizeChecks(steps []*Step) ChecksSummary {
 	out := ChecksSummary{Tone: "neutral", Text: "Not checked yet. Checks run when you press Check and land in the chat."}
 	failed, notes, passed := 0, 0, 0
 	var skipped []string
+	seenSkipped := map[string]bool{}
 	var failedTitle string
 	unknown, running := false, false
 	for _, s := range steps {
@@ -69,7 +70,11 @@ func summarizeChecks(steps []*Step) ChecksSummary {
 			out.Started = true
 		}
 		if s.Status == StatusNotApplicable || s.Status == StatusSkipped {
-			skipped = append(skipped, checkTitle(workflowActivityStep{kind: s.Type, name: s.Name, evidence: s.Evidence}))
+			title := checkTitle(workflowActivityStep{kind: s.Type, name: s.Name, evidence: s.Evidence})
+			if !seenSkipped[title] {
+				skipped = append(skipped, title)
+				seenSkipped[title] = true
+			}
 		}
 		r := s.CheckReading
 		if r == nil && carriesCheckEvidence(s.Type) {

@@ -211,9 +211,9 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: str
 // change's request in the person's own words.
 export function kickoffText(kickoff: string, request: string): string {
   const asked = request.trim()
-  if (kickoff === 'stuck') return 'The lane stopped — where and why is in your briefing under "Where the lane stopped". Say where things stand and what you think went wrong, in plain words; then we go from there.'
-  if (kickoff === 'go') return asked ? `Please do this:\n\n${asked}\n\nTell me what you changed and when I can try it.` : 'Please do what this change asks. Tell me what you changed and when I can try it.'
-  return asked ? `Please build the first version:\n\n${asked}\n\nKeep it simple, get it working, and tell me as soon as I can try it.` : 'Please build the first version. Nothing was written about what it should do: ask me first.'
+  if (kickoff === 'stuck') return '[apptown button: Open the conversation] The lane stopped — where and why is in your briefing under "Where the lane stopped". Say where things stand and what you think went wrong, in plain words; then we go from there.'
+  if (kickoff === 'go') return '[apptown button: Do it in a chat] ' + (asked ? `Please do this:\n\n${asked}\n\nTell me what you changed and when I can try it.` : 'Please do what this change asks. Tell me what you changed and when I can try it.')
+  return '[apptown button: Build the first version] ' + (asked ? `Please build the first version:\n\n${asked}\n\nKeep it simple, get it working, and tell me as soon as I can try it.` : 'Please build the first version. Nothing was written about what it should do: ask me first.')
 }
 
 // The opening message carries the change's request in the person's own

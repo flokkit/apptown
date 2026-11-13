@@ -2300,6 +2300,7 @@ export type Step = {
   isCheck: boolean
   checkAttention: boolean
   statusLabel: DisplayStatus
+  attempt?: number
   id: string | null
   runId: string | null
   stage: string
@@ -2823,6 +2824,7 @@ export type ChecksSummary = {
 }
 
 export type WaitingOn = {
+  queue?: slotQueue | null
   kind: string
   run: string | null
   step: string | null
@@ -5222,6 +5224,12 @@ export type MainDestination = {
   displayLabel: string
   targetLabel: string
   audience: string
+}
+
+export type slotQueue = {
+  binding: string
+  ahead: number
+  says: string
 }
 
 export type Decider = {

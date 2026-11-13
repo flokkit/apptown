@@ -1,14 +1,13 @@
 import { Elapsed } from '../../Elapsed'
-import { ProgressBar } from '../../ProgressBar'
 import { Spinner } from '../../Spinner'
 import { useCallback, useEffect, useState } from 'react'
 import type { ChangeView, RunDetail, Step } from '../../api'
-import type { RunTrace, StepProgress } from '../../wire.gen'
+import type { RunTrace } from '../../wire.gen'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { fmtDuration, fmtStamp } from '../../format'
-import { stepTitle, testsNote } from './Evidence'
-import { approversOf } from './next'
+import { stepTitle } from './Evidence'
+import { StepProgressFact } from './StepProgressFact'
 
 const checks = new Set(['scan', 'tests', 'guidance/conformance'])
 const failed = (s: Step) => s.statusLabel === 'failed' || ['fail', 'error', 'needs_human'].includes(s.status)
@@ -29,21 +28,6 @@ function CalledRun({ id, receive }: { id: string; receive: (id: string, detail: 
   return <><ReadStatus q={q} what="called workflow" /><StaleNote q={q} /></>
 }
 
-function StepFact({ step: s, queued }: { step: Step; queued: boolean }) {
-  const live = useGet<StepProgress>(s.status === 'running' && (s.type === 'build' || s.type === 'guidance/conformance') ? `/steps/${s.id}/live?from=0` : null, { poll: 3000 })
-  const line = live.data?.lines?.at(-1)
-  const standards = s.type === 'guidance/conformance' && s.status === 'running'
-  const position = standards ? line?.match(/^(?:(\d+) of (\d+)|check (\d+)) · ([^·]+) · ([^·]+?)(?: · [\d.]+s)?$/) : null
-  const current = position ? Number(position[1] || position[3]) : 0
-  const total = position?.[2] ? Number(position[2]) : undefined
-  const completed = position?.[5] === 'checking' ? current - 1 : current
-  const fact = queued ? 'waiting for a free slot' : standards ? line || s.name.replace(/[-_]/g, ' ')
-    : s.type === 'approval' ? s.evidence.approver || approversOf(s)
-    : s.type === 'build' ? live.data?.lines?.at(-1)?.slice(0, 180) || s.evidence.reason || (s.status === 'running' ? 'Building the accepted work' : s.status === 'pending' ? 'Waiting to build' : s.status === 'pass' ? 'Accepted work built' : 'Build stopped')
-    : s.type === 'agent/pi' ? s.status === 'running' ? 'Helper working' : s.status === 'pending' ? 'Waiting to start' : s.evidence.reason || 'Helper finished'
-    : checks.has(s.type) ? s.status === 'not_applicable' ? `Not applicable: ${(s.type === 'scan' && s.evidence.notApplicable) || s.evidence.reason || 'No applicable check'}` : s.status === 'skipped' ? `Skipped: ${s.evidence.reason || 'Not run'}` : s.type === 'tests' && s.status === 'pass' ? testsNote(s.evidence).note : '' : s.evidence.reason
-  return <span className="ch-now-fact">{fact}{standards && position && <ProgressBar label="Standards check" value={completed} total={total} />}<StaleNote q={live} />{live.err && <span className="error">Progress could not be read: {live.err}</span>}</span>
-}
 
 function Timing({ steps }: { steps: Step[] }) {
   if (steps.every(s => ['not_applicable', 'skipped'].includes(s.status))) return <span>—</span>
@@ -101,7 +85,7 @@ export function Now({ view }: { view: ChangeView }) {
       {d !== root && <p className="small muted">{d.run.workflowName}</p>}
       <ol className="ch-now-steps">{nowRows(currentSteps(d)).map(group => <li key={group[0].id}>
         <Mark steps={group} /><strong>{checks.has(group[0].type) && group.length > 1 ? 'Checks' : group[0].type === 'guidance/conformance' ? 'Standards check' : stepTitle(group[0])}</strong>
-        {group.length > 1 ? <span className="ch-now-fact">{group.map(s => `${stepTitle(s)}${s.status === 'not_applicable' ? ' (not applicable)' : s.status === 'skipped' ? ' (skipped)' : ''}`).join(', ')}</span> : <StepFact step={group[0]} queued={group[0].status === 'pending' && group[0].id === view.waitingOn.step && d.run.id === view.waitingOn.run} />}
+        {group.length > 1 ? <span className="ch-now-fact">{group.map(s => `${stepTitle(s)}${s.status === 'not_applicable' ? ' (not applicable)' : s.status === 'skipped' ? ' (skipped)' : ''}`).join(', ')}</span> : <StepProgressFact step={group[0]} waitingOn={view.waitingOn} />}
         <Timing steps={group} />
       </li>)}</ol>
     </div>)}

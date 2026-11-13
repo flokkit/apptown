@@ -56,6 +56,7 @@ func (v *CheckVerdict) UnmarshalJSON(data []byte) error { return checkVerdictCod
 // Pointer scalars distinguish an actual exit 0 / zero duration / non-gating
 // judgment from fields that do not apply to an evaluator.
 type CheckReceipt struct {
+	TimedOut      bool                 `json:"-"` // transient executor signal used to hold required checks
 	AgentEvidence *check.AgentEvidence `json:"agentEvidence,omitempty"`
 	Scanner       string               `json:"scanner,omitempty"`
 	Carried       int                  `json:"carried,omitempty"`

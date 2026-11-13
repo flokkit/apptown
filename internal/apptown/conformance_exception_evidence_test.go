@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 func TestGuidanceGateCannotPassWithoutExceptionEvidence(t *testing.T) {
@@ -99,5 +100,72 @@ func TestGuidanceGateRecordsCheckErrorsAndUndecidedForOtherOwners(t *testing.T) 
 	}
 	if len(facts.Undecided) != 1 || !strings.Contains(facts.Undecided[0], "no-fixme") {
 		t.Fatalf("undecided: %+v: %s", facts.Undecided, saved.Evidence)
+	}
+}
+
+// An ordinary change with a timed-out required shell check keeps its error
+// receipt and offers retry through the enclosing Standards step.
+func TestGuidanceTimeoutOffersRetry(t *testing.T) {
+	for _, tc := range []struct {
+		name, severity string
+		termination    execution.Termination
+		want           workflow.StepState
+	}{
+		{"required timeout", "high", execution.TimedOut, workflow.StatusError},
+		{"advisory timeout", "low", execution.TimedOut, workflow.StatusPass},
+		{"other error", "high", execution.Exited, workflow.StatusPass},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := testApp(t)
+			pid, _, _ := fleetRepo(t, a, "timeout", map[string]string{"README.md": "A small app\n"})
+			adopt(t, a, pid, "timeout", 1, `[{"appliesTo":["repository"],"name":"slow-rule","evaluator":"sh","sh":"true","severity":"`+tc.severity+`"}]`)
+			defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "check", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{{Name: "standards", Uses: "guidance/conformance"}}}}}})
+			recordFixtureAdoptions(t, a)
+			calls := 0
+			installCheckEffects(t, a, checkOverrides{run: func(execRequest) execOutcome { calls++; return execOutcome{Termination: tc.termination, ExitCode: 2} }})
+			ctx := a.asEngine(t.Context())
+			change, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: pid, Title: "Tidy the app"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: change.ID, Workflow: "check"})
+			if !errors.Is(err, workflow.ErrDispatchStopped) {
+				t.Fatal(err)
+			}
+			before, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+			if err != nil || len(before.Steps) != 1 {
+				t.Fatalf("admission: %+v %v", before, err)
+			}
+			ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(change.ID)
+			if err := mirrorBranchForTest(a.projectRepoPath("timeout"), ws, change.Branch); err != nil {
+				t.Fatal(err)
+			}
+			if err := a.Work.ExecuteStep(ctx, before.Steps[0].ID); err != nil {
+				t.Fatal(err)
+			}
+			after, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+			if err != nil {
+				t.Fatal(err)
+			}
+			step := after.Steps[0]
+			facts, err := workflow.ReadCheckEvidence(step.Evidence)
+			if err != nil || calls == 0 || step.Status != tc.want || facts.CheckErrors != 1 || len(facts.Checks) != 1 || facts.Checks[0].Verdict != workflow.VerdictError {
+				t.Fatalf("timeout result: %+v facts=%+v calls=%d err=%v evidence=%s", step, facts, calls, err, step.Evidence)
+			}
+			summary, err := a.Work.ChangeChecks(ctx, after)
+			if err != nil || summary.Tone == "ok" {
+				t.Fatalf("unknown result passed: %+v %v", summary, err)
+			}
+			retry := false
+			for _, act := range after.Next {
+				retry = retry || string(act.Act) == "retry" && act.StepID == step.ID
+			}
+			if retry != (tc.want == workflow.StatusError) {
+				t.Fatalf("wrong recovery: %+v", after.Next)
+			}
+			if tc.want == workflow.StatusError && (!strings.Contains(string(step.Evidence), "slow-rule timed out") || !strings.Contains(string(step.Evidence), "run this step again")) {
+				t.Fatalf("missing recovery reason: %s", step.Evidence)
+			}
+		})
 	}
 }

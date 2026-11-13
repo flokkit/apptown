@@ -26,7 +26,7 @@ type Judge struct {
 	// RunImage runs a command INSIDE an already-built image, with nothing
 	// mounted: the exec-image self-check, which must see the app as the app
 	// sees itself. nil: those checks cannot be assessed.
-	RunImage func(image string, argv, env []string) (exitCode int, output string)
+	RunImage func(image string, argv, env []string) execution.Outcome
 	// readiness resolves what path a `readiness` probe means for this source —
 	// the app's own declaration, which only the caller can read. nil or false:
 	// the check reports does-not-conform, as an app that is served while

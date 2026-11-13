@@ -7760,6 +7760,9 @@
       },
       "Step": {
         "properties": {
+          "attempt": {
+            "type": "integer"
+          },
           "checkAttention": {
             "type": "boolean"
           },
@@ -8016,6 +8019,16 @@
           },
           "kind": {
             "type": "string"
+          },
+          "queue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/slotQueue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "run": {
             "format": "uuid",
@@ -8755,6 +8768,25 @@
           "startedAt",
           "durationS",
           "next"
+        ],
+        "type": "object"
+      },
+      "slotQueue": {
+        "properties": {
+          "ahead": {
+            "type": "integer"
+          },
+          "binding": {
+            "type": "string"
+          },
+          "says": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "binding",
+          "ahead",
+          "says"
         ],
         "type": "object"
       },

@@ -45,6 +45,13 @@ that declares `evidenceUse: "wording"` may judge the documents themselves.
 The declaration's `evidenceUse` is included in the agent prompt and evaluator
 identity; changing it prevents reuse.
 
+A required shell or tool check that times out at or above the step's
+`failOn` severity retains its error verdict and holds an ordinary change's
+Standards step as `error`. The existing retry action offers Try again.
+Timeout identity comes from the executor, including checks across several
+folders; printed output does not establish it. Other check errors retain
+their existing treatment.
+
 Verification's `CheckJudge.JudgeCheck` claims and settles no workflow or review.
 Guidance retains its claimed step and receipts; Fleet retains its admitted
 conformance execution. Failing tree checks are separately judged on the base

@@ -24,6 +24,7 @@ const fixture = await build({
     import { createRoot } from 'react-dom/client'
     import { MemoryRouter } from 'react-router-dom'
     import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+    import { ResultMark } from './pages/change/CheckTable'
     import { StatePanel } from './pages/change/StatePanel'
     import { ProjectListRow } from './ProjectListRow'
     import { DailyChart } from './pages/Usage'
@@ -60,7 +61,7 @@ const fixture = await build({
         <section><ListRow identity={long} state="Waiting for you" action={<><button>Review change</button><MoreMenu label="Project" items={[{label:'Archive project',hint:'Keep its history'}]} /></>} /></section>
         <section role="list"><div className="int-row"><ListRow className="int-list-row" identity={long} state="Not checked yet" action={<button>Check connection</button>} /></div></section>
         <section><ListRow className="deployment-row" identity={long} state="Running" detail={long} action={<button>Open deployment</button>} /></section>
-        <div className="ch-details"><div className="ch-detail-row"><time>Today</time><strong>Checks</strong><div className="ch-detail-facts ch-check-facts"><table className="ch-items-table"><tbody><tr><th>{long}</th><td><div className="ch-check-result">Passed</div></td><td className="ch-check-duration">2s</td><td className="ch-check-actions"><div className="ch-check-links"><button className="link">Re-check</button><a href="#record">View record</a></div></td></tr></tbody></table></div></div></div>
+        <div className="ch-details"><div className="ch-detail-row"><time>Today</time><strong>Checks</strong><div className="ch-detail-facts ch-check-facts"><table className="ch-items-table"><tbody><tr><th>{long}</th><td><div className="ch-check-result" id="long-check-result"><ResultMark text={"✓ passed · "+long+" "+long} /></div></td><td className="ch-check-duration">2s</td><td className="ch-check-actions"><div className="ch-check-links"><button className="link">Re-check</button><a href="#record">View record</a></div></td></tr></tbody></table></div></div></div>
         <MoreMenu label="Long project" items={Array.from({length:60},(_,index)=>({label:"Long action "+index,hint:"A long explanatory hint with an-unbroken-identifier-abcdefghijklmnopqrstuvwxyz0123456789",onClick:()=>{}}))} />
         <Disclosure className="account-corner" placement="above" closeOnAction={false} trigger={<button>Account</button>}><a href="#account">Your account</a><button>Theme</button></Disclosure>
         <Disclosure className="account-actions" closeOnAction={false} trigger={<button>Manage</button>}><label>Role<select><option>Member</option></select></label><button>Set password</button></Disclosure>
@@ -421,6 +422,20 @@ try {
   await page.addScriptTag({ content: fixture.outputFiles[0].text })
   await fontsReady(page)
   await page.getByRole('button', { name: 'Review change', exact: true }).waitFor()
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    const aligned = await page.locator('#long-check-result').evaluate(el => {
+      const mark = el.querySelector('.ch-mark')
+      const words = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+      let text
+      while ((text = words.nextNode()) && !text.textContent.includes('passed')) {}
+      const range = document.createRange()
+      range.setStart(text, text.textContent.indexOf('passed'))
+      range.setEnd(text, text.textContent.indexOf('passed') + 6)
+      return Math.abs(mark.getBoundingClientRect().top - range.getBoundingClientRect().top) < 2
+    })
+    assert.ok(aligned, `check mark and passed share a line at ${width}px`)
+  }
   await page.locator('.split-button > button').click()
   assert.equal(await page.evaluate(() => document.body.dataset.main), 'yes')
   assert.equal(await page.locator('.popover').count(), 0, 'primary action stays separate')

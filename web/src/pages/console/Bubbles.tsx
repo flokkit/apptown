@@ -18,6 +18,7 @@ import type { ChatUpload } from '../../wire.gen'
 
 // The mark on AppTown's own check messages in a chat, either spelling.
 const CHECK_MARK = /^\[(?:apptown|forge) check\]/
+const BUTTON_MARK = /^\[apptown button: ([^\]]+)\]/
 type DraftFile = { file: File; name: string; path: string; thumb: string }
 
 export type Bubble = { i: number; role: 'you' | 'helper'; text?: string; tools?: { name: string; detail?: string }[]; error?: boolean; stopped?: boolean }
@@ -216,6 +217,11 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
               </div>
             )
           }
+          const button = m.role === 'you' && m.text?.match(BUTTON_MARK)
+          if (button) return <div key={m.i} className="bubble-row"><div className="bubble check">
+            <div>{button[1]}</div>
+            <div className="small muted bubbles-div-4">{m.text!.slice(button[0].length).trim()}</div>
+          </div></div>
           if (isCheck(m)) {
             return (
               <div key={m.i} className="bubble-row">
