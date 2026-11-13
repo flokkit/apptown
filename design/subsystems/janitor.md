@@ -27,6 +27,10 @@ the current publication's titles, descriptions, cadence and repair sessions so a
 person can inspect those values. A project on an older version runs that version.
 Recorded revisions, sentences and digests remain unchanged.
 
+Workflow owns queue state words, shared by Attention and both Janitor views.
+Stuck dates use the UTC day. The Janitor page shows deployment holds beside
+the project state; a hold does not hide queue activity.
+
 Queues take their names and titles from adopted standing triggers. Procedures
 show the repair limits of those workflows and the workflows they call. Pack
 maintenance selects its publication workflow and queue from the prepared target
@@ -331,8 +335,9 @@ it ordinary work permanently. Automated queue Changes stay out of the Change
 list. Their existing Change pages remain reachable through
 `apptown janitor attempts -p SLUG`. An observation-only
 queue Change runs every scan even after findings or scanner errors, then closes
-when its scans settle, retaining their actual outcomes. Ordinary runs stop on
-failure.
+when its scans settle, retaining their actual outcomes. A conditional call with
+no fixable targets records not applicable with its reason. It needs no child
+run to qualify as standing evidence. Ordinary runs stop on failure.
 
 The Change owner purges untouched abandoned automated Changes after references
 and unreleased tasks no longer retain them. Disposal is claimed before removing

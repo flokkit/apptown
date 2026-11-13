@@ -64,7 +64,7 @@ func standingEvidence(ctx context.Context, q database.Queryer, run *Run, called 
 				continue
 			}
 			var control struct {
-				NotNeeded    bool   `json:"notNeeded"`
+				Reason       string `json:"reason"`
 				ChildRunID   ids.ID `json:"childRunId"`
 				RepairRounds int    `json:"repairRounds"`
 			}
@@ -75,7 +75,7 @@ func standingEvidence(ctx context.Context, q database.Queryer, run *Run, called 
 				if err := json.Unmarshal(step.Evidence, &control); err != nil {
 					return step.Name + " has unreadable call evidence", nil
 				}
-				if control.NotNeeded && step.Status == StatusPass && step.OverrideBy == "" {
+				if strings.TrimSpace(control.Reason) != "" && step.Status == StatusNotApplicable && step.OverrideBy == "" {
 					continue
 				}
 				if control.ChildRunID.IsZero() {
@@ -141,14 +141,10 @@ func updateTargetsIn(ctx context.Context, q database.Queryer, run *Run, depth in
 			continue
 		}
 		var call struct {
-			NotNeeded  bool   `json:"notNeeded"`
 			ChildRunID ids.ID `json:"childRunId"`
 		}
 		if err := json.Unmarshal(step.Evidence, &call); err != nil {
 			return nil, err
-		}
-		if call.NotNeeded {
-			continue
 		}
 		child, err := readRun(ctx, q, call.ChildRunID)
 		if err != nil {

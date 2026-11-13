@@ -445,7 +445,7 @@ func TestSeedsDeclareTheirMemory(t *testing.T) {
 }
 
 // The janitor updates a project only when every part with tools is covered
-// by an adopted update fix (UpdateCoverage). A seed is the contract a new
+// by an adopted update fix (updateCoverage). A seed is the contract a new
 // project starts with, so its pack's own guidance must cover it, or every
 // project made from the pack waits for a pack upgrade from its first day.
 func TestSeedsAreCoveredByTheirPacksUpdateFixes(t *testing.T) {
@@ -485,7 +485,7 @@ func TestSeedsAreCoveredByTheirPacksUpdateFixes(t *testing.T) {
 			}
 			ds = append(ds, declared...)
 		}
-		missing, err := UpdateCoverage(seed, ds)
+		missing, err := updateCoverage(seed, ds)
 		if err != nil {
 			t.Fatal(err)
 		}

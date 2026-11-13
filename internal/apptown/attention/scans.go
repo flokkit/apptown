@@ -37,10 +37,7 @@ func (s Scans) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, error)
 	}
 	for _, state := range queues {
 		if state.State == "stuck" || state.State == "stopped" {
-			title := fmt.Sprintf("%s: %s stuck since %s", p.Name, state.Title, state.Since.Format("2 Jan"))
-			if state.State == "stopped" {
-				title = fmt.Sprintf("%s: %s stopped after %d failed tries", p.Name, state.Title, state.Failed)
-			}
+			title := p.Name + ": " + state.Title + " " + state.Words
 			out.Items = append(out.Items, Item{Key: "queue/" + id.String() + "/" + state.Queue, Severity: SeverityWarning, Title: title, Detail: queueDetail(state), Href: href, ObservedAt: state.Since})
 		}
 	}

@@ -96,7 +96,7 @@ func (s *Service) callFrom(ctx context.Context, parent *Run, step *Step, in Work
 			if err != nil {
 				return nil, err
 			}
-			outcome, err := EncodeOutcome(StatusPass, map[string]any{"notNeeded": true, "reason": why}, nil)
+			outcome, err := EncodeOutcome(StatusNotApplicable, map[string]any{"reason": why}, nil)
 			if err != nil {
 				return nil, err
 			}

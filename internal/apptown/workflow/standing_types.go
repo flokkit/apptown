@@ -89,7 +89,6 @@ type StandingProjectPreview struct {
 	OverridesInstance bool                  `json:"overridesInstance"`
 	NoMajorCommand    []string              `json:"noMajorCommand"`
 	FollowsMain       []StandingEnvironment `json:"followsMain"`
-	Group             string                `json:"group"`
 	Problem           string                `json:"problem,omitempty"`
 	PackOffers        []string              `json:"packOffers"`
 	BaseImageFindings []string              `json:"baseImageFindings"`

@@ -31,7 +31,7 @@ func TestUpdateCoverageRequiresCompleteFixDeclarationsForEveryToolPart(t *testin
 			if field == "absent" {
 				declarations = declarations[:1]
 			}
-			missing, err := UpdateCoverage(contract, declarations)
+			missing, err := updateCoverage(contract, declarations)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -52,8 +52,27 @@ func TestPreviewNamesPartsWithoutMajorCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	ds := []fix.Declaration{{Kind: "update", AppliesTo: []string{"tool:go"}, Ecosystem: "Go", Run: "go get -u=patch ./..."}, {Kind: "update", AppliesTo: []string{"tool:node"}, Ecosystem: "npm", Run: "npm update", RunMajor: "npm install example@latest"}}
-	got, err := PartsWithoutMajorCommand(c, ds)
+	got, err := partsWithoutMajorCommand(c, ds)
 	if err != nil || len(got) != 1 || !strings.Contains(got[0], "api (Go)") || !strings.Contains(got[0], "major versions not offered") {
 		t.Fatalf("preview %+v %v", got, err)
+	}
+}
+
+func TestOnlyChecksStartsInspectsPartsWithoutToolsToo(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		parts []appcontract.Part
+		want  bool
+	}{
+		{"empty", nil, true},
+		{"starts only", []appcontract.Part{{Name: "api", Tools: []string{"go"}}, {Name: "static"}}, true},
+		{"test without tools", []appcontract.Part{{Name: "api", Tools: []string{"go"}}, {Name: "static", Test: []string{"check"}}}, false},
+		{"test with tools", []appcontract.Part{{Name: "api", Tools: []string{"go"}, Test: []string{"check"}}}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := onlyChecksStarts(&appcontract.Contract{Parts: tc.parts}); got != tc.want {
+				t.Fatalf("onlyChecksStarts=%t, want %t", got, tc.want)
+			}
+		})
 	}
 }

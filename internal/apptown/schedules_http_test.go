@@ -353,7 +353,7 @@ func TestStandingConsentReadsPublishedLibraryOnce(t *testing.T) {
 	// Standing consent must use the same bulk publication read, including the
 	// version it pins, rather than fetching each workflow again by name.
 	counted.reads = 0
-	published, err := (standingPortfolio{}).PublishedWorkflows(t.Context(), counted)
+	published, err := (&adoption.Service{}).PublishedWorkflows(t.Context(), counted)
 	if err != nil || counted.reads != 1 || len(published) != 12 {
 		t.Fatalf("standing library: %d reads, %d workflows: %v", counted.reads, len(published), err)
 	}

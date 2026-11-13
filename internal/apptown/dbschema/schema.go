@@ -863,6 +863,9 @@ WHERE NOT (o.receipt ? 'expectedScanners');
 		`DROP TABLE routine_publication_classifications`,
 		`ALTER TABLE what_if_reviews ADD COLUMN rule_id UUID, ADD COLUMN rule_revision BIGINT NOT NULL DEFAULT 0`,
 	}},
+	{n: 240, note: "record unneeded workflow calls as not applicable", stmts: []string{
+		`UPDATE steps SET status='not_applicable', evidence_json=evidence_json - 'notNeeded' WHERE type='workflow/call' AND status='pass' AND evidence_json->>'notNeeded'='true'`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

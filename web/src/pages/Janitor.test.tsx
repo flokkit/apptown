@@ -14,14 +14,14 @@ import type { JanitorView, JanitorHistoryView, JanitorProject, StandingRevision 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const at = '2026-11-12T10:00:00Z'
 const actor = { name: 'Sam', principal: 'person', via: 'session' }
-const queue = (name: string, stopped = false) => ({ title: name === 'updates' ? 'Dependency updates' : name === 'packs' ? 'Pack updates' : 'Security fixes', queue: name, state: stopped ? 'stopped' : 'up_to_date', failed: stopped ? 3 : 0, reason: '', since: at, packages: [], changeNumber: 0 })
-const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name: `${id} app`, enabled: true, level: 'routine', issuer: actor, grantedAt: at,
+const queue = (name: string, stopped = false) => ({ title: name === 'updates' ? 'Dependency updates' : name === 'packs' ? 'Pack updates' : 'Security fixes', queue: name, state: stopped ? 'stopped' : 'up_to_date', words: stopped ? 'stopped after 3 failed tries' : 'up to date', failed: stopped ? 3 : 0, reason: '', since: at, packages: [], changeNumber: 0 })
+const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name: `${id} app`, enabled: true, level: 'routine', state: { word: 'up to date', unknown: false, help: '' }, issuer: actor, grantedAt: at,
  queues: [queue('security'), queue('updates'), queue('packs')], scans: { main: 'abc', source: [], running: [], historical: [], noRepository: false, known: true, stale: false, lastScan: at },
  problem: '', procedures: [{ title: 'Declared dependency care', workflow: 'janitor-update', version: 7, repairRounds: 4, stopRule: 'Weekly updates stop after 3 failed tries; security fixes can still run.', sentence: 'Up to 4 repair sessions; then asks Sam.', problem: '' }], queueSentences: ['Security fixes stop after 3 failed tries.', 'Weekly updates stopped after 3 failed tries. Security fixes can still run.'], nextUpdate: at, nextReason: '', scanWorkflow: 'discover-issues', scanChangeNumber: 0, scanNow: '' })
 const rule = (packs = false, enabled = true): StandingRevision => ({ ruleId: packs ? 'pack-rule' : 'dependency-rule', revision: 3, enabled, issuer: actor, enabledAt: at, changedBy: actor, changedAt: at, reason: '', question: { definition: packs ? packDefinition : dependencyDefinition(), shown: 'The exact approval meaning.', digest: 'meaning', projects: [], baseImageFindings: { images: 0, projects: 0, message: '' } } })
 function fixture(): JanitorView {
- const stopped = project('Stopped'); stopped.queues[1] = queue('updates', true)
- const off = { ...project('Off'), level: 'off', nextReason: 'Turned off for this project', choice: { level: 'off', person: actor, at, reason: 'Waiting for a release' } }
+ const stopped = project('Stopped'); stopped.queues[1] = queue('updates', true); stopped.state.word = stopped.queueSentences[1]
+ const off = { ...project('Off'), level: 'off', state: { word: 'turned off for this project', unknown: false, help: '' }, nextReason: 'Turned off for this project', choice: { level: 'off', person: actor, at, reason: 'Waiting for a release' } }
  return { rules: [rule(), rule(true)], projects: [stopped, project('Held'), off], releaseHold: 'Stops after a failed release and never releases over a rollback.', deployments: [{ projectId: 'Held', deploymentId: 'dep', name: 'production', displayLabel: 'Customer office', setting: { mode: 'automatic' }, protected: false, automatic: true, sentence: 'Releases accepted updates automatically.', hold: { deploymentId: 'dep', deployment: 'production', displayLabel: 'Customer office', releaseNumber: 9, reason: 'release failed' } }] }
 }
 const history = (): JanitorHistoryView => ({ history: { changes: [{ changeId: 'landed', projectId: 'Held', slug: 'Held', project: 'Held app', number: 2, title: 'Update library', queue: 'updates', landedAt: at, packages: [{ ecosystem: 'npm', package: 'library', from: '1.0.0', to: '1.1.0' }], packVersions: [], rule: { kind: 'Dependency updates', scope: 'all projects' }, ruleId: 'original', ruleRevision: 1, issuer: actor, grantedAt: at, schedule: 'janitor-update' }], more: false }, releases: [{ changeId: 'landed', projectId: 'Held', number: 8, state: 'released', deployment: 'production', displayLabel: 'Customer office' }], since: at, until: at, offset: 0 })
@@ -88,7 +88,7 @@ it('shows old scans and unknown findings separately from a clean result', async 
 })
 
 it('reads a project with no repository as outside the janitor, not as unknown', async () => {
- const data = fixture(); data.projects[0].scans = { ...data.projects[0].scans, main: '', known: false, noRepository: true, reason: 'no repository yet, so there is nothing to scan' }
+ const data = fixture(); data.projects[0].scans = { ...data.projects[0].scans, main: '', known: false, noRepository: true, reason: 'no repository yet, so there is nothing to scan' }; data.projects[0].state.word = 'no repository'
  const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data), false)
  await settled(client)
  const row = [...el.querySelectorAll('tr')].find(r => r.textContent?.includes(data.projects[0].name))
@@ -295,3 +295,14 @@ it('preserves an exact project pack approval when previewing its categories', as
  await act(async () => row.querySelector<HTMLButtonElement>('button')!.click())
  expect(posted).toMatchObject({ scope: '', categories: { waysOfWorking: true, dependencies: '' }, projects: [{ projectId: 'Held', workflow: 'keep-packs' }] })
 })
+
+ it('shows the owner’s state beside a deployment hold', async () => {
+ const data = fixture()
+ data.projects[1].state = { word: 'waiting for a person', unknown: false, help: '' }
+ const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data))
+ await settled(client)
+ const row = el.querySelector('table[aria-label="Projects’ janitor state"] a[href="/projects/Held#janitor"]')!.closest('tr')!
+ const state = row.querySelector('td[data-label="State"]')!
+ expect(state.textContent).toContain('waiting for a person')
+ expect(state.textContent).toContain('stopped: release 9 to Customer office failed')
+ })

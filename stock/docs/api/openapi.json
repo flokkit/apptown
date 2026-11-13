@@ -3922,9 +3922,13 @@
           },
           "slug": {
             "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/janitorState"
           }
         },
         "required": [
+          "state",
           "projectId",
           "slug",
           "name",
@@ -5470,12 +5474,16 @@
           },
           "title": {
             "type": "string"
+          },
+          "words": {
+            "type": "string"
           }
         },
         "required": [
           "title",
           "queue",
           "state",
+          "words",
           "since",
           "failed",
           "reason",
@@ -7500,9 +7508,6 @@
             },
             "type": "array"
           },
-          "group": {
-            "type": "string"
-          },
           "level": {
             "type": "string"
           },
@@ -7549,7 +7554,6 @@
           "overridesInstance",
           "noMajorCommand",
           "followsMain",
-          "group",
           "packOffers",
           "baseImageFindings",
           "projectId",
@@ -8556,6 +8560,25 @@
           "stopRule",
           "sentence",
           "problem"
+        ],
+        "type": "object"
+      },
+      "janitorState": {
+        "properties": {
+          "help": {
+            "type": "string"
+          },
+          "unknown": {
+            "type": "boolean"
+          },
+          "word": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "word",
+          "unknown",
+          "help"
         ],
         "type": "object"
       },

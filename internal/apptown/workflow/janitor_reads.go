@@ -38,7 +38,14 @@ type janitorProcedure struct {
 	Problem      string `json:"problem"`
 }
 
+type janitorState struct {
+	Word    string `json:"word"`
+	Unknown bool   `json:"unknown"`
+	Help    string `json:"help"`
+}
+
 type JanitorProject struct {
+	State          janitorState       `json:"state"`
 	ProjectID      ids.ID             `json:"projectId"`
 	Slug           string             `json:"slug"`
 	Name           string             `json:"name"`
@@ -161,6 +168,7 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, error)
 		}
 		item.QueueSentences = janitorQueueSentences(item.Queues, item.Enabled && item.Level != "off")
 		janitorProcedures(&item, definitions)
+		item.State = janitorProjectState(item)
 		out = append(out, item)
 	}
 	return out, nil
@@ -179,7 +187,7 @@ func janitorQueueSentences(queues []QueueStatus, enabled bool) []string {
 	for _, q := range queues {
 		sentence := fmt.Sprintf("%s stop after %d failed tries.", q.Title, queueStopAfter)
 		if q.Stopped() {
-			sentence = fmt.Sprintf("%s stopped after %d failed tries.", q.Title, q.Failed)
+			sentence = q.Title + " " + queueWords(QueueStatus{State: "stopped", Failed: q.Failed}) + "."
 			if len(active) > 0 {
 				sentence += " " + strings.Join(active, " and ") + " can still run."
 			}
@@ -244,4 +252,56 @@ func janitorProcedures(p *JanitorProject, definitions []adoptedProcedure) {
 			StopRule: fmt.Sprintf("%s stop after %d failed tries.", title, queueStopAfter),
 			Sentence: fmt.Sprintf("Makes the declared change; if a check fails, up to %d repair sessions; then asks a person.", rounds)})
 	}
+}
+
+// janitorProjectState classifies the completed read, including procedure problems.
+func janitorProjectState(p JanitorProject) janitorState {
+	state := janitorState{}
+	active, stopped, stuck, waiting := false, -1, -1, false
+	for i, q := range p.Queues {
+		switch q.State {
+		case "updating":
+			active = true
+		case "stopped":
+			if stopped < 0 {
+				stopped = i
+			}
+		case "stuck":
+			if stuck < 0 {
+				stuck = i
+			}
+		case "waiting":
+			waiting = true
+		}
+	}
+	switch {
+	case p.Level == "off":
+		state.Word = "turned off for this project"
+	case !p.Enabled:
+		state.Word = "turned off"
+	case p.Scans.NoRepository:
+		state.Word = "no repository"
+	case stopped >= 0:
+		state.Word = p.QueueSentences[stopped]
+		if active {
+			state.Word += " · " + queueWords(QueueStatus{State: "updating"})
+		}
+	case active:
+		state.Word = queueWords(QueueStatus{State: "updating"})
+	case stuck >= 0:
+		state.Word = p.Queues[stuck].Words
+	case p.Problem != "" || !p.Scans.Known:
+		state.Word, state.Unknown, state.Help = "unknown", true, p.Problem
+		if state.Help == "" {
+			state.Help = p.Scans.Reason
+		}
+		if state.Help == "" {
+			state.Help = "Scan not known"
+		}
+	case waiting:
+		state.Word = queueWords(QueueStatus{State: "waiting"})
+	default:
+		state.Word = queueWords(QueueStatus{State: "up_to_date"})
+	}
+	return state
 }
