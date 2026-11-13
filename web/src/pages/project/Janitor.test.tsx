@@ -36,7 +36,9 @@ async function render(data: ProjectScanView, janitor: boolean, check: (el: HTMLD
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><LastScan slug="project" janitor={janitor} /></MemoryRouter></QueryClientProvider>))
     await vi.waitFor(() => expect(client.getQueryCache().getAll()[0]?.state.status).toBe('success'))
     await vi.waitFor(() => expect(el.textContent).not.toContain('Loading…'))
-    check(el)
+    // The page reads the scan and, separately, what the viewer may do; its
+    // controls appear when the second answers: wait for what the test asserts.
+    await vi.waitFor(() => check(el))
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 }
 

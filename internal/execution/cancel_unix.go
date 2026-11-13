@@ -7,18 +7,22 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
 // The process owns a group: cancellation reaches children as well as their
-// shell, while the process itself runs; once it has exited, os/exec stops
-// watching the context. Processes that deliberately create a new session
-// escape that group; local execution is not a sandbox. Output is read to its
-// end (no WaitDelay): os/exec starts a WaitDelay when the process exits as
-// well as when its context is canceled, so with one a command that succeeded
-// failed, its output cut short, whenever the copying goroutine or a slow
-// OnLine fell behind by the delay. So anything still holding the output after
-// the process has exited (a background child, a process that left the group)
-// holds the run until it lets go, canceled or not.
+// shell, while the process itself runs. Processes that deliberately create a
+// new session escape that group; local execution is not a sandbox. Output is
+// read to its end unless something still holds it pipeWait after the process
+// has exited or its context is done (os/exec's WaitDelay, which starts at
+// whichever comes first); then the process is killed if it still runs, its
+// pipes are closed and the run fails. The bound keeps cancellation and the
+// run's timeout guarantees: a process that left the group still holding the
+// output cannot hold a canceled run past it (that process is not killed;
+// only the pipes are closed). It is a minute because it also
+// runs from a successful exit: a 2 s bound turned succeeding commands into
+// failures whenever the copying goroutine or a slow OnLine fell that far
+// behind on a loaded machine.
 func configureCancellation(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error {
@@ -28,4 +32,9 @@ func configureCancellation(cmd *exec.Cmd) {
 		}
 		return err
 	}
+	cmd.WaitDelay = pipeWait
 }
+
+// pipeWait is a command's bound on its output (its WaitDelay). A variable so
+// a test can show the bound without waiting a minute.
+var pipeWait = time.Minute

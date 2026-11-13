@@ -33,6 +33,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/flokkit/apptown/internal/trust"
 )
@@ -89,23 +90,30 @@ var RepositoryConfigOnly = []string{"GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=
 // the whole group, as execution.Runner does: killing git alone would leave
 // a helper running, holding git's pipes or still talking to a remote.
 //
-// Canceling reaches git only while git itself runs: once it has exited,
-// os/exec stops watching ctx. git's output is read to its end, however long
-// after git exits that comes (no WaitDelay): os/exec starts a WaitDelay when
-// git exits as well as when ctx is canceled, so with one a git that succeeded
-// failed, its output cut short, whenever the goroutine copying that output
-// was not scheduled within the delay, as on a loaded machine. So anything
-// still holding git's output after git has exited (a background child, a
-// process that left the group) holds the caller until it lets go, canceled
-// or not. git's own background helpers close their output when they detach.
+// git's output is read to its end unless something still holds it pipeWait
+// after git has exited or ctx is done (os/exec's WaitDelay, which starts at
+// whichever comes first); then git is killed if it still runs, its pipes are
+// closed and the call fails. The bound keeps cancellation a guarantee: a
+// process that left git's group (killing the group does not reach it) and
+// still holds git's output cannot hold a canceled caller past it (that
+// process is not killed; only the pipes are closed). It is a
+// minute because it also runs from a successful exit: a 1 s bound turned
+// succeeding gits into failures whenever a loaded machine left the goroutine
+// copying their output unscheduled that long. git's own background helpers
+// close their output when they detach, so nothing in normal use comes near.
 func Command(ctx context.Context, dir string, env []string, args ...string) *exec.Cmd {
 	argv := Argv(args...)
 	cmd := exec.CommandContext(ctx, "git", argv[1:]...)
 	ownGroup(cmd)
+	cmd.WaitDelay = pipeWait
 	cmd.Dir = dir
 	cmd.Env = append([]string{}, env...)
 	return cmd
 }
+
+// pipeWait is Command's bound on git's output (its WaitDelay). A variable so
+// a test can show the bound without waiting a minute.
+var pipeWait = time.Minute
 
 // Argv constructs an independent command line for execution.Runner callers.
 // It shares Command's maintenance policy without replacing the runner's
