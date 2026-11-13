@@ -12,7 +12,10 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/adrs"
+	"github.com/flokkit/apptown/internal/apptown/complaint"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -318,5 +321,85 @@ func TestAutomatedPurgeWaitsForARunningTaskAndItsRelease(t *testing.T) {
 	}
 	if _, err := s.Change(t.Context(), ch.ID); err == nil {
 		t.Fatal("released task still retains the untouched Change")
+	}
+}
+
+type recordRetention struct{}
+
+func (recordRetention) RetainsWorkIn(ctx context.Context, db database.Queryer, change ids.ID, runs []ids.ID) (bool, error) {
+	held, err := adrs.RetainsWorkIn(ctx, db, change, runs)
+	if held || err != nil {
+		return held, err
+	}
+	return complaint.RetainsWorkIn(ctx, db, change, runs)
+}
+
+func TestAutomatedPurgeKeepsWorkNamedByDecisionsAndComplaints(t *testing.T) {
+	for _, kind := range []string{"decision", "complaint change", "complaint run", "unreferenced"} {
+		t.Run(kind, func(t *testing.T) {
+			s, ch, _, _, _ := automatedFixture(t)
+			run := admitAutomatedRun(t, s, ch)
+			ctx := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: ch.ProjectID}})
+			accounts := identity.New(s.db, identity.Config{Projects: project.NewCatalogue(s.db)})
+			if err := accounts.SeedAdministrator(t.Context(), "retention-reader"); err != nil {
+				t.Fatal(err)
+			}
+			person := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{Kind: "user", Name: "retention-reader", Via: "session"}})
+			records := adrs.New(s.db, access.Checked{Authority: accounts, Projects: project.New(s.db, accounts)}, nil, nil)
+			complaints := complaint.NewBox(s.db, nil, nil)
+			var recordID ids.ID
+			switch kind {
+			case "decision":
+				r, err := records.Create(person, adrs.Create{ProjectID: ch.ProjectID, Title: "Keep the decision's context", ChangeID: ch.ID})
+				if err != nil {
+					t.Fatal(err)
+				}
+				recordID = r.ID
+			case "complaint change", "complaint run":
+				e := complaint.Entry{ProjectID: ch.ProjectID, Text: "Keep this complaint's context", Actor: "system"}
+				if kind == "complaint change" {
+					e.ChangeID = ch.ID
+				} else {
+					e.RunID = run.ID
+				}
+				if _, err := complaints.File(ctx, e); err != nil {
+					t.Fatal(err)
+				}
+			}
+			s.retention = recordRetention{}
+			if _, err := s.Abandon(ctx, StopWork{ChangeID: ch.ID, Reason: "observation finished"}); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.PurgeAutomatedChanges(ctx); err != nil {
+				t.Fatal(err)
+			}
+			_, err := s.Change(ctx, ch.ID)
+			if kind == "unreferenced" {
+				if err == nil {
+					t.Fatal("unreferenced work survived")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("referenced work was purged: %v", err)
+			}
+			if _, err := s.Run(ctx, run.ID); err != nil {
+				t.Fatal("referenced run was purged: ", err)
+			}
+			if kind == "decision" {
+				r, err := records.Get(person, recordID)
+				if err != nil || r.ADR.ChangeNumber != ch.Number {
+					t.Fatalf("decision context: %+v %v", r, err)
+				}
+			} else {
+				rs, err := complaints.All(ctx, 10)
+				if err != nil || len(rs) != 1 {
+					t.Fatalf("complaints: %+v %v", rs, err)
+				}
+				if kind == "complaint change" && rs[0].ChangeNumber != ch.Number || kind == "complaint run" && rs[0].RunNumber != run.Number {
+					t.Fatalf("complaint lost context: %+v", rs[0])
+				}
+			}
+		})
 	}
 }

@@ -127,27 +127,6 @@ type Gate struct {
 	Require []string `yaml:"require,omitempty" json:"require,omitempty"`
 }
 
-// SupportedSteps is the v0 step-type set. The full set from the spec
-// (policy, agent/pi, scm/*, deploy, workflow) lands in later milestones.
-var SupportedSteps = map[string]bool{
-	"script":               true,
-	"fix":                  true,
-	"routine":              true,
-	"approval":             true,
-	"artifact/require":     true,
-	"adr/require":          true,
-	"agent/pi":             true,
-	"scm/mr":               true,
-	"preview":              true,
-	"build":                true,
-	"workflow/call":        true, // composition.md §2: call a pipeline workflow as a step
-	"scan":                 true, // integrations.md §5: tool-provider check against the workspace
-	"agent/review":         true, // the cop model: independent claim-vs-diff verification
-	"guidance/conformance": true,
-	"tests":                true, // run the committed tree's tests; evidence is the receipt (teststep.go) // guidance-checks.md: imported blocks' checks vs the workspace
-	"reconcile":            true, // land preflight: bring main into the change branch before gating (reconcile.go)
-}
-
 // ParseWorkflow validates a NEW or edited document — the save-time
 // constitution. What it accepts defines what a workflow can BE.
 func ParseWorkflow(src []byte) (*Doc, error) { return parseWorkflow(src, true) }
@@ -294,8 +273,8 @@ func (d *Doc) validate(strict bool) error {
 				return fmt.Errorf("stage %q: duplicate step name %q", st.Name, s.Name)
 			}
 			seenStep[s.Name] = true
-			if !SupportedSteps[s.Uses] {
-				return fmt.Errorf("stage %q step %q: unsupported uses %q (supported: script, approval, artifact/require, adr/require, agent/pi, scm/mr, preview, build, workflow/call, scan, tests, agent/review, guidance/conformance)", st.Name, s.Name, s.Uses)
+			if !StepTypes[s.Uses].Authored {
+				return fmt.Errorf("stage %q step %q: unsupported uses %q", st.Name, s.Name, s.Uses)
 			}
 			if s.Uses == "approval" {
 				if err := validateApproval(st.Name, s, strict); err != nil {

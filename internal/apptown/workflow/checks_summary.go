@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"strings"
 )
 
@@ -16,11 +17,7 @@ type ChecksSummary struct {
 }
 
 func isCheck(kind string) bool {
-	switch kind {
-	case "routine", "tests", "scan", "script", "guidance/conformance", "agent/review", "scm/merged":
-		return true
-	}
-	return false
+	return schema.StepTypes[kind].Check
 }
 
 func (s Step) checkAttention() bool {

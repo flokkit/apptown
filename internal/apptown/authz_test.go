@@ -1123,12 +1123,35 @@ func TestHoldingsReportTheActsTheWebOffers(t *testing.T) {
 		return out
 	}
 	boss, outsider := read("boss"), read("outsider")
-	for _, cap := range []string{"deployment:operate", "deployment:deploy", "project:manage-standing-approval"} {
+	owner := read("owner")
+	for label, holdings := range map[string]httpapi.AuthzHoldings{"boss": boss, "owner": owner, "outsider": outsider} {
+		for resource, held := range map[string]map[access.Capability]bool{"instance": holdings.Instance, "project": holdings.Project} {
+			if len(held) != len(access.Definitions) {
+				t.Errorf("%s %s has %d keys, catalogue has %d", label, resource, len(held), len(access.Definitions))
+			}
+			for capability := range access.Definitions {
+				if _, ok := held[capability]; !ok {
+					t.Errorf("%s %s missing %s", label, resource, capability)
+				}
+			}
+		}
+	}
+	for _, capability := range []access.Capability{access.CapChangeCreate, access.CapChangeInvokeLane, access.CapChangeAttach} {
+		if !owner.Project[capability] || owner.Instance[capability] {
+			t.Errorf("owner %s: project %v instance %v", capability, owner.Project[capability], owner.Instance[capability])
+		}
+	}
+	for _, capability := range []access.Capability{access.CapAuthzGrants, access.CapIdentityUsers, access.CapProjectConfigure} {
+		if owner.Project[capability] || owner.Instance[capability] {
+			t.Errorf("owner unexpectedly holds %s", capability)
+		}
+	}
+	for _, cap := range []access.Capability{"deployment:operate", "deployment:deploy", "project:manage-standing-approval"} {
 		if !boss.Project[cap] || outsider.Project[cap] {
 			t.Errorf("project %s: administrator %v, outsider %v", cap, boss.Project[cap], outsider.Project[cap])
 		}
 	}
-	for _, cap := range []string{"conformance:review", "conformance:remediate", "instance:manage-standing-approval"} {
+	for _, cap := range []access.Capability{"conformance:review", "conformance:remediate", "instance:manage-standing-approval"} {
 		if !boss.Instance[cap] || outsider.Instance[cap] {
 			t.Errorf("instance %s: administrator %v, outsider %v", cap, boss.Instance[cap], outsider.Instance[cap])
 		}

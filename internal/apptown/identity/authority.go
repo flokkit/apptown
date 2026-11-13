@@ -78,6 +78,22 @@ func (s *Service) Explain(ctx context.Context, pr access.Principal, p access.Per
 	return s.explain(ctx, pr, access.DelegationOf(pr), p, s.now())
 }
 
+// Holdings answers every catalogue capability for one resource using one set
+// of cached authority facts. Unavailable facts fail the entire read.
+func (s *Service) Holdings(ctx context.Context, pr access.Principal, res access.Resource) (map[access.Capability]bool, error) {
+	facts := &serviceFacts{ctx: ctx, q: s.db, at: s.now()}
+	delegation := access.DelegationOf(pr)
+	out := make(map[access.Capability]bool, len(access.Definitions))
+	for capability := range access.Definitions {
+		decision, err := explainWithFacts(ctx, pr, delegation, access.Permission{Capability: capability, Resource: res}, facts)
+		if err != nil {
+			return nil, err
+		}
+		out[capability] = decision.Allow
+	}
+	return out, nil
+}
+
 func (s *Service) explain(ctx context.Context, pr access.Principal, d access.Channel, p access.Permission, now time.Time) (access.Decision, error) {
 	return explainWithFacts(ctx, pr, d, p, &serviceFacts{ctx: ctx, q: s.db, at: now})
 }

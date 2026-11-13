@@ -85,9 +85,12 @@ infrastructure, jobs, backups and retained data, integrations, model slots,
 secret names, the complaint box, and the fleet conformance view with its
 remediations and workers. A project's own conformance, deployments, targets,
 retained data and secrets have project-scoped reads. `GET /api/v1/authz/me`
-reports which instance reads the caller holds, so the web leaves pages the
-caller cannot open out of the menu and shows "not available to you" when one
-is reached by its address. That report is presentation, never the boundary.
+reports every catalogue capability for the instance and, when requested, the
+project. Identity evaluates each resource with one cached set of current facts,
+including credential restrictions; unreadable facts fail the read. The web
+leaves pages the caller cannot open out of the menu and shows "not available
+to you" when one is reached by its address. That report is presentation, never
+the boundary.
 A refusal on a project says "this project" and never its name, so guessing a
 project's address reveals nothing about it.
 

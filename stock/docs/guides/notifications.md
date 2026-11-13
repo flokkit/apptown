@@ -11,8 +11,8 @@ addresses. Project members are not emailed automatically.
    an instance secret. Secret values are write-only; pages show their names.
 2. Open **Notifications → Add channel**. Choose a format or Email (SMTP).
 3. Choose the secret’s name, enter the channel’s settings and save.
-4. Use **Send test**. The result appears in recent deliveries. Open the channel
-   row to edit or remove it.
+4. Use **Send test**. The queued delivery appears in recent deliveries and
+   updates as the job sends it. Open the channel row to edit or remove it.
 
 For Slack, use an incoming webhook URL. For Discord, use the channel webhook
 URL. For Microsoft Teams, use a Workflows incoming webhook URL that accepts an
@@ -43,7 +43,7 @@ and its next digest.
 
 ## Failed deliveries
 
-Recent deliveries show sent, retrying or failed, with attempts and a safe reason.
+Recent deliveries show pending, sent, retrying or failed, with attempts and a safe reason.
 AppTown retries up to six attempts through its job queue. A channel’s latest
 finished delivery failing becomes an attention item; a later successful delivery
 clears it. Check the channel’s settings and send a test.

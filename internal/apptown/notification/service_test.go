@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 var suite = dbtest.NewSuite(dbschema.Open)
@@ -325,7 +327,7 @@ func TestDeliveryRecordsOutcomeAndSkipsCompletedJobs(t *testing.T) {
 	}
 	status.Store(204)
 	d, err := f.s.Test(t.Context(), "phone")
-	if err != nil || d.State != "sent" {
+	if err != nil || d.State != "pending" {
 		t.Fatalf("test: %+v %v", d, err)
 	}
 	if _, err := f.s.Deliver(t.Context(), d.ID.String(), nil); err != nil {
@@ -455,5 +457,120 @@ func TestDigestRunsAtEachChannelsHourOncePerUTCDate(t *testing.T) {
 	}
 	if digests["phone"] != 2 || digests["chat"] != 1 {
 		t.Fatalf("digest schedule: %+v", digests)
+	}
+}
+
+func TestBlockedDeliveryAllowsSettlementAndDoesNotOverwriteIt(t *testing.T) {
+	t.Parallel()
+	for _, state := range []string{"failed", "retrying"} {
+		t.Run(state, func(t *testing.T) {
+			f := setup(t)
+			entered, release := make(chan struct{}), make(chan struct{})
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(entered); <-release; w.WriteHeader(204) }))
+			defer server.Close()
+			defer close(release)
+			f.secrets.values["URL"] = server.URL
+			f.channel(t, "phone", 8)
+			f.evaluate(t)
+			f.view.Items = []attention.Item{warning("new")}
+			f.evaluate(t)
+			d := f.deliveries(t)[0]
+			done := make(chan error, 1)
+			go func() { _, err := f.s.Deliver(t.Context(), d.ID.String(), nil); done <- err }()
+			select {
+			case <-entered:
+			case <-time.After(5 * time.Second):
+				t.Fatal("send did not start")
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			// Simulate a competing attempt's settlement through this owner's query;
+			// there is no public operation for settling an in-flight delivery.
+			err := f.db.InTx(ctx, func(tx *database.Tx) error {
+				n, err := q.New(tx.SQL()).SetDeliveryState(ctx, q.SetDeliveryStateParams{ID: d.ID, State: state, Reason: "HTTP 503"})
+				if err == nil && n != 1 {
+					t.Errorf("settled %d rows", n)
+				}
+				return err
+			})
+			if err != nil {
+				t.Fatal("blocked send held the delivery row: ", err)
+			}
+			release <- struct{}{}
+			if err := <-done; err != nil {
+				t.Fatal(err)
+			}
+			v, err := f.s.Read(t.Context())
+			if err != nil || len(v.Deliveries) != 1 || v.Deliveries[0].State != state || v.Deliveries[0].Attempts != 1 || v.Deliveries[0].Reason != "HTTP 503" {
+				t.Fatalf("overwrote settlement: %+v %v", v, err)
+			}
+		})
+	}
+}
+
+func TestTestReturnsQueuedDeliveryWhileRiverSendsOnce(t *testing.T) {
+	t.Parallel()
+	f := setup(t)
+	entered, release := make(chan struct{}, 4), make(chan struct{})
+	unblock := sync.OnceFunc(func() { close(release) })
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		entered <- struct{}{}
+		<-release
+		w.WriteHeader(204)
+	}))
+	defer server.Close()
+	defer unblock()
+	f.secrets.values["URL"] = server.URL
+	f.channel(t, "phone", 8)
+	consumer, err := jobs.New(jobs.Options{}, f.db.Pool(), map[string]jobs.Kind{DeliverJob: {Run: f.s.Deliver, MaxAttempts: Attempts}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := consumer.Client.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := consumer.Client.StopAndCancel(context.Background()); err != nil {
+			t.Error(err)
+		}
+	}()
+	type result struct {
+		d   Delivery
+		err error
+	}
+	returned := make(chan result, 1)
+	go func() { d, err := f.s.Test(t.Context(), "phone"); returned <- result{d, err} }()
+	var d Delivery
+	select {
+	case r := <-returned:
+		if r.err != nil {
+			t.Fatal(r.err)
+		}
+		d = r.d
+	case <-time.After(3 * time.Second):
+		t.Fatal("Test waited for the endpoint")
+	}
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("River did not send")
+	}
+	unblock()
+	if !poll.Until(t.Context(), 5*time.Second, 10*time.Millisecond, func() bool {
+		v, err := f.s.Read(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(v.Deliveries) == 1 && v.Deliveries[0].ID == d.ID && v.Deliveries[0].State == "sent"
+	}) {
+		t.Fatal("queued delivery was not sent")
+	}
+	if err := consumer.Client.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("Test sent %d requests", calls.Load())
 	}
 }

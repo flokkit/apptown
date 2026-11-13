@@ -163,7 +163,7 @@ func TestSMTPRejectionEndsFailedWithSafeReason(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for n := 1; n < Attempts; n++ {
+	for n := 0; n < Attempts; n++ {
 		_, _ = f.s.Deliver(ctx, d.ID.String(), nil)
 	}
 	r := f.deliveries(t)[0]

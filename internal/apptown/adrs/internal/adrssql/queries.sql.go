@@ -462,6 +462,17 @@ func (q *Queries) ProjectForUpdate(ctx context.Context, id ids.ID) (Project, err
 	return i, err
 }
 
+const retainsAutomatedWork = `-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM adrs WHERE change_id=$1)
+`
+
+func (q *Queries) RetainsAutomatedWork(ctx context.Context, changeID ids.ID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, retainsAutomatedWork, changeID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const successorID = `-- name: SuccessorID :one
 SELECT (SELECT id FROM adrs WHERE supersedes_id IS NOT DISTINCT FROM $1 AND project_id=$2 ORDER BY (status=$3) DESC,id DESC LIMIT 1)::uuid AS id
 `

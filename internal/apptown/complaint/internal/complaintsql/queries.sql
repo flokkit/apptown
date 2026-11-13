@@ -63,3 +63,6 @@ WHERE e.eval_id = $1 ORDER BY c.id;
 -- The record people name by its number ("complaint 9").
 -- name: ComplaintIDByNumber :one
 SELECT id FROM complaints WHERE number = $1;
+
+-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM complaints WHERE change_id=sqlc.arg(change_id) OR run_id=ANY(sqlc.arg(run_ids)::uuid[]));

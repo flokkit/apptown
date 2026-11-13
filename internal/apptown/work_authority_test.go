@@ -2,7 +2,13 @@ package apptown
 
 import (
 	"context"
+	"encoding/json"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"reflect"
+	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -79,4 +85,52 @@ func TestWorkAbandonHTTPRejectsUnverifiedActor(t *testing.T) {
 		t.Fatalf("unverified stop: %d %s", out.Code, out.Body.String())
 	}
 	requireRuns(t, a, 1, func(r workflow.RunSummary) bool { return r.ID == fx.Run && r.Status == workflow.RunRunning })
+}
+
+func TestAutomatedRetentionWiresEveryOwnerQuery(t *testing.T) {
+	data, err := os.ReadFile("dbschema/fragments.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fragments []string
+	if err := json.Unmarshal(data, &fragments); err != nil {
+		t.Fatal(err)
+	}
+	expected := map[string]bool{}
+	for _, fragment := range fragments {
+		owner := filepath.Base(filepath.Dir(fragment))
+		paths, err := filepath.Glob(filepath.Join(owner, "internal", "*", "*.sql"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, path := range paths {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(data), "-- name: RetainsAutomatedWork :one") {
+				expected[owner] = true
+			}
+		}
+	}
+	actual := map[string]bool{}
+	for _, read := range retentionOwners {
+		name := runtime.FuncForPC(reflect.ValueOf(read).Pointer()).Name()
+		owner := strings.Split(filepath.Base(name), ".")[0]
+		if actual[owner] {
+			t.Errorf("duplicate retention owner %s", owner)
+		}
+		actual[owner] = true
+	}
+	keys := func(m map[string]bool) []string {
+		out := []string{}
+		for k := range m {
+			out = append(out, k)
+		}
+		slices.Sort(out)
+		return out
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("retention owners %v; queries belong to %v", keys(actual), keys(expected))
+	}
 }

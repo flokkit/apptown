@@ -8,7 +8,9 @@ import (
 	"github.com/flokkit/apptown/internal/version"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/adrs"
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
+	"github.com/flokkit/apptown/internal/apptown/complaint"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/console"
 
@@ -332,8 +334,10 @@ func (s scanSubjects) RunningImages(ctx context.Context, project ids.ID) ([]work
 // Each owner decides whether it still refers to disposable execution material.
 type automatedRetention struct{}
 
+var retentionOwners = []func(context.Context, database.Queryer, ids.ID, []ids.ID) (bool, error){tasks.RetainsWorkIn, adoption.RetainsWorkIn, integration.RetainsWorkIn, remediation.RetainsWorkIn, deployment.RetainsWorkIn, scm.RetainsWorkIn, evals.RetainsWorkIn, usage.RetainsWorkIn, conformance.RetainsWorkIn, adrs.RetainsWorkIn, complaint.RetainsWorkIn}
+
 func (automatedRetention) RetainsWorkIn(ctx context.Context, db database.Queryer, change ids.ID, runs []ids.ID) (bool, error) {
-	for _, read := range []func(context.Context, database.Queryer, ids.ID, []ids.ID) (bool, error){tasks.RetainsWorkIn, adoption.RetainsWorkIn, integration.RetainsWorkIn, remediation.RetainsWorkIn, deployment.RetainsWorkIn, scm.RetainsWorkIn, evals.RetainsWorkIn, usage.RetainsWorkIn, conformance.RetainsWorkIn} {
+	for _, read := range retentionOwners {
 		retained, err := read(ctx, db, change, runs)
 		if err != nil || retained {
 			return retained, err

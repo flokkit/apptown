@@ -421,7 +421,7 @@ func TestProjectModelProfileHoldingsMatchTheOperation(t *testing.T) {
 		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != http.StatusOK {
 			t.Fatalf("capability view: %d %s %v", w.Code, w.Body.String(), err)
 		}
-		if allowed, present := out.Project[string(access.CapProjectModelProfile)]; !present || allowed != tc.can {
+		if allowed, present := out.Project[access.CapProjectModelProfile]; !present || allowed != tc.can {
 			t.Fatalf("%s model-profile capability = %v (present %v), want %v", tc.who, allowed, present, tc.can)
 		}
 		moved := authzCall(h, tc.who, "PUT", "/api/v1/projects/game/model-profile", `{"profile":"standard"}`)
