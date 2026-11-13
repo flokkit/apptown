@@ -41,7 +41,7 @@ it('opens a focused comment step, disables sending empty text, cancels exactly a
   expect(el.querySelector('h3')?.textContent).toBe('What should change?')
   const field = el.querySelector('textarea')!
   expect(document.activeElement).toBe(field)
-  expect([...el.querySelectorAll('button')].find(b => b.textContent === 'Send to agent')!.disabled).toBe(true)
+  expect([...el.querySelectorAll('button')].find(b => b.textContent === 'Send back')!.disabled).toBe(true)
   expect(el.querySelector('[role=alert]')).toBeNull()
   click('Cancel')
   expect(el.querySelector('.ch-decision-choices')!.innerHTML).toBe(buttons)
@@ -51,7 +51,7 @@ it('opens a focused comment step, disables sending empty text, cancels exactly a
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(field, 'Show the winter start time')
     field.dispatchEvent(new Event('input', { bubbles: true }))
   })
-  click('Send to agent')
+  click('Send back')
   expect(reworked).toHaveBeenCalledWith('Show the winter start time')
 })
 it('asks inline before abandoning and lets the viewer keep it', () => {

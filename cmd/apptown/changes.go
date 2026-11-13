@@ -162,6 +162,7 @@ func cmdShow(args []string) error {
 		Report      string
 		State       string
 		StateDetail string
+		ReturnedBy  *ReturnedBy
 		WaitingOn   Waiting
 		Next        []nextAct
 		Runs        []struct {
@@ -198,7 +199,7 @@ func cmdShow(args []string) error {
 	ch := view.Change
 	if *asJSON {
 		d := ChangeDetail{Change: changeRefOf(view.ProjectSlug, ch.Number, ch.ID), Title: ch.Title, State: ch.State, ClosedAs: ch.ClosedAs, StateLabel: ch.StateLabel,
-			StateDetail: view.StateDetail, WaitingOn: view.WaitingOn, Branch: ch.Branch, Runs: []RunDetail{}, Commits: []Commit{}}
+			ReturnedBy: view.ReturnedBy, StateDetail: view.StateDetail, WaitingOn: view.WaitingOn, Branch: ch.Branch, Runs: []RunDetail{}, Commits: []Commit{}}
 		for _, r := range view.Runs {
 			d.Runs = append(d.Runs, RunDetail{Run: RunRef{ID: r.ID, Number: r.Number}, Workflow: r.WorkflowName,
 				Role: r.Role, Status: r.Status, Stage: r.CurrentStage})
@@ -209,6 +210,9 @@ func cmdShow(args []string) error {
 		return printJSON(d)
 	}
 	fmt.Printf("%s %s  %s\n", bold("change "+changeName(view.ProjectSlug, ch.Number, ch.ID)), ch.Title, view.WaitingOn.Says)
+	if view.ReturnedBy != nil {
+		fmt.Println(view.ReturnedBy.line())
+	}
 	meta := []string{view.ProjectSlug}
 	if ch.Branch != "" {
 		meta = append(meta, ch.Branch)

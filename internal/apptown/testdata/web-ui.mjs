@@ -755,11 +755,12 @@ try {
           }
           if ((screen === 'change' || screen === 'change-non-approver') && !process.env.DESIGN_BASELINE) {
             const eligible = screen === 'change';
-            if (await page.getByRole('button', { name: 'Decide…', exact: true }).count() !== (eligible ? 1 : 0)) throw new Error(screen + ': wrong approval eligibility');
+            for (const name of [/^Accept(?: and put live)?$/, 'Send back…']) {
+              if (await page.locator('#decision').getByRole('button', { name, exact: true }).count() !== (eligible ? 1 : 0)) throw new Error(screen + ': wrong approval eligibility for ' + name);
+            }
           }
           if (screen === 'change' && !process.env.DESIGN_BASELINE) {
-            await page.getByRole('button', { name: 'Decide…', exact: true }).click();
-            const decision = page.getByRole('dialog', { name: 'Accept this change?', exact: true });
+            const decision = page.locator('#decision');
             await decision.waitFor();
             const covered = await decision.locator('.decision-form').evaluate(form => {
               const choices = form.querySelector('.ch-decision-choices').getBoundingClientRect();
@@ -767,10 +768,7 @@ try {
             });
             if (covered) throw new Error('decision controls cover the approval meaning');
             if (await decision.evaluate(el => el.scrollWidth > el.clientWidth)) throw new Error('decision screen overflows');
-            // The decision is a full-screen sheet on a phone: shoot the screen, not the page under it.
             await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-decision.png` });
-            await decision.getByRole('button', { name: 'Close', exact: true }).click();
-            await decision.waitFor({ state: 'hidden' });
           }
           if (!process.env.DESIGN_BASELINE) {
             const clipped = await page.locator('.topbar > .account-menu > button').evaluateAll(els => els.some(el => {
@@ -844,12 +842,6 @@ try {
             if (currentTab !== 'Overview' || await page.locator('.diff').count()) throw new Error('change first view must show Overview; Code stays one tap away');
           }
           if (!process.env.DESIGN_BASELINE && size.startsWith('phone') && screen.startsWith('change') && await page.locator('.ch-line-by:visible, .ch-line-when:visible').count()) throw new Error('phone receipts must keep extra state and timestamps in the full record');
-          // On a phone Decide is a bar across the screen's foot, with the page's
-          // height kept free under it so it covers nothing at the end.
-          if (size.startsWith('phone') && screen.startsWith('change') && await page.locator('.ch-turn-floater:visible').count()) {
-            const bar = await page.locator('.ch-turn-floater').evaluate(el => { const r = el.getBoundingClientRect(), pad = parseFloat(getComputedStyle(el.ownerDocument.querySelector('.ch-page')).paddingBottom); return { left: r.left, width: r.width, height: r.height, pad } });
-            if (bar.left > 0.5 || bar.width < variants[size].width - 0.5 || bar.pad + 0.5 < bar.height) throw new Error(`${screen}: Decide is not a bar with its space kept at ${size}: ${JSON.stringify(bar)}`);
-          }
           if (!process.env.DESIGN_BASELINE && screen.startsWith('change')) {
             const hidden = await page.locator('.ch-tabs [aria-current="page"]').evaluateAll(els => els.some(el => {
               const r = el.getBoundingClientRect(), nav = el.parentElement.getBoundingClientRect();

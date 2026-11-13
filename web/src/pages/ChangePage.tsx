@@ -1,3 +1,4 @@
+import { viewerTurn } from './change/Turn'
 import './change/deploy-scene.css'
 import '../overview-line.css'
 import { runStory } from './change/story'
@@ -88,6 +89,7 @@ export default function ChangePage() {
   return (
     <InlineHelp.Provider value><div className="ch-page">
       <StatePanel view={view} reading={read} />
+      {tab !== 'overview' && current && viewerTurn(view) && <p>Your decision is waiting · <Link to={href('overview')}>Overview</Link></p>}
 
 
       <section className="ch-tabs-sheet">

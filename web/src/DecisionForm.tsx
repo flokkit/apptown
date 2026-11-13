@@ -1,5 +1,5 @@
 import { InlineHelp } from './InlineHelp'
-import { useContext, useRef, useState } from 'react'
+import { useContext, useState } from 'react'
 import { DecisionChoices, type DecisionChoice } from './DecisionChoices'
 import { PRODUCT } from './brand'
 import { currentUser, post } from './api'
@@ -51,7 +51,7 @@ export function landingMeansFor(detail: { stages: string[]; landingMeans: string
   return step.type === 'approval' && step.stage === last && detail.landingMeans.length > 0 ? detail.landingMeans : undefined
 }
 
-export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, approveLabel = 'Approve', rejectLabel = 'Reject', placeholder = 'comment (optional)', compact, overview, canSendBack, abandon, externalBusy = false, onAccepted }: {
+export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, approveLabel = 'Approve', rejectLabel = 'Reject', placeholder = 'comment (optional)', compact, overview, abandon, externalBusy = false, onAccepted }: {
   onAccepted?: () => void
   stepId: string
   means?: string; instructions?: string
@@ -63,15 +63,12 @@ export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, a
   rejectLabel?: string
   placeholder?: string
   // compact: inline in a list row — subtle buttons, no headline.
-  canSendBack?: boolean
   abandon?: DecisionChoice
   externalBusy?: boolean
   overview?: boolean
   compact?: boolean
 }) {
   const [comment, setComment] = useState('')
-  const meaning = useRef<HTMLDivElement>(null)
-  const [readMeaning, setReadMeaning] = useState(false)
   const { run, busy, err } = useAction(onDone)
   // What approving agrees to, read before deciding: for an approval of a
   // commit, what that commit adds. Approving waits until it has been read.
@@ -109,24 +106,17 @@ export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, a
       </>}
       {instructions && <div style={{ marginTop: 2 }}>{instructions}</div>}
       {question.err && <div className="error small">What approving agrees to could not be read: {question.err}</div>}
-      {overview && <div className="decision-bottom"><div ref={meaning} className="small muted decision-meaning">By accepting, you confirm: “{means}”{alsoMeans?.map(m => <span key={m}> You also confirm: “{m}”</span>)}{contractChanged(adds) && ' and the app contract changes above'}</div></div>}
+      {overview && <div className="decision-bottom"><div className="small muted decision-meaning">By accepting, you confirm: “{means}”{alsoMeans?.map(m => <span key={m}> You also confirm: “{m}”</span>)}{contractChanged(adds) && ' and the app contract changes above'}</div></div>}
 
       {overview ? <DecisionChoices note={comment} setNote={setComment} busy={busy || externalBusy}
-        accept={{ label: approveLabel, run: () => {
-          const bounds = meaning.current?.getBoundingClientRect()
-          if (bounds && (bounds.top < 70 || bounds.bottom > window.innerHeight)) {
-            meaning.current?.scrollIntoView({ block: 'end' }); setReadMeaning(true); return
-          }
-          decide('approve')
-        }, disabled: unread }}
-        rework={canSendBack ? { label: 'Send back…', run: () => decide('reject') } : undefined} abandon={abandon} /> : <div className={compact ? 'row' : 'row decision-bar'} style={compact ? { gap: 4 } : { marginTop: 8 }}>
+        accept={{ label: approveLabel, run: () => decide('approve'), disabled: unread }}
+        rework={{ label: 'Send back…', run: () => decide('reject') }} abandon={abandon} /> : <div className={compact ? 'row' : 'row decision-bar'} style={compact ? { gap: 4 } : { marginTop: 8 }}>
         <input placeholder={placeholder} value={comment} onChange={(e) => setComment(e.target.value)}
           style={compact ? { width: 180 } : undefined} aria-label="comment" />
         <button className={compact ? 'subtle' : 'primary'} disabled={busy || unread} onClick={() => decide('approve')}
           title={unread ? 'Reading what approving agrees to' : undefined}>{approveLabel}</button>
         <button className={compact ? 'subtle danger' : 'danger'} disabled={busy} onClick={() => decide('reject')}>{rejectLabel}</button>
       </div>}
-      {readMeaning && <p role="status">Read what accepting records, then choose {approveLabel}.</p>}
       {err && <span className="error small">{err}</span>}
 
     </div>

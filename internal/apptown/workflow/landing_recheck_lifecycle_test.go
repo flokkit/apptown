@@ -2,8 +2,10 @@ package workflow
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -67,9 +69,14 @@ func TestRecheckLandingRearmsFailedGatesOnly(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := a.Work.Approve(ctx, Approval{StepID: snapshot.Steps[3].ID, Decision: VoteReject}); err != nil {
+	// A historical failed approval cannot be created by rejecting a landing:
+	// rejection now stops it. Store that historical state to prove recheck
+	// still cannot turn a recorded rejection into assent.
+	old := snapshot.Steps[3]
+	if _, err := workflowsql.New(a.DB.SQL()).RecordApproval(ctx, workflowsql.RecordApprovalParams{ID: old.ID, Attempt: old.Attempt, ExpectedStatus: old.Status.String(), Status: "fail", At: time.Now(), EvidenceJson: []byte(`{"decisions":[{"approver":"owner","decision":"reject"}],"decision":"reject"}`)}); err != nil {
 		t.Fatal(err)
 	}
+
 	rechecked, err := a.Work.RecheckLanding(ctx, LandingRecheck{ChangeID: a.ChangeID})
 	if err != nil {
 		t.Fatal(err)

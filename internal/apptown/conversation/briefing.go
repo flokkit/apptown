@@ -346,6 +346,9 @@ func (s *Briefing) change(change *workflow.Change) (string, error) {
   operator is: %s
 %s`, change.ID, change.Title, console.WorkMount, change.Branch, console.WorkMount, console.WorkMount,
 		change.ID, change.ID, change.ID, intentLine(change), changeactions.URL(s.publicHost, change.ID), attachments)
+	if returned := change.ReturnedBy; returned != nil {
+		fmt.Fprintf(&b, "\nSent back by %s: %s\n", returned.By, returned.Note)
+	}
 	// A change console is an implementation surface — the same engine
 	// topology run agents get (agent.go) applies here, or the helper
 	// builds apps AppTown cannot run (change 97: a whole Django app,

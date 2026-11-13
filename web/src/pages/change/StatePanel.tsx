@@ -28,6 +28,7 @@ export function StatePanel({ view, reading }: { view: ChangeView; reading?: Gate
           <ChecksShield view={view} />
         </div>}
         {stale && <div className="ch-sentence">Last recorded state: {next.headline}</div>}
+        {view.returnedBy && <div className="ch-sentence">Sent back by {view.returnedBy.by}: {view.returnedBy.note}</div>}
         {reading && <StaleNote q={reading} />}
       </div>}
 

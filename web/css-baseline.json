@@ -28,7 +28,7 @@
     "apptown/pixel-spacing": 3
   },
   "web/src/pages/change/change.css": {
-    "apptown/pixel-spacing": 129,
+    "apptown/pixel-spacing": 121,
     "declaration-no-important": 1
   },
   "web/src/pages/change/deploy-scene.css": {

@@ -75,6 +75,7 @@ with `--json` it refuses before starting anything.
 
 | Field | Type | Meaning |
 |---|---|---|
+| `returnedBy` | `ReturnedBy` or null | latest send-back while in progress, until later landing or agent work starts |
 | `change` | `ChangeRef` | the change |
 | `title` | string | its title |
 | `state` | string | in_progress, landing, shipped or abandoned |
@@ -149,6 +150,15 @@ with `--json` it refuses before starting anything.
 |---|---|---|
 | `id` | UUID string | the run's UUID |
 | `number` | number | its number within its project |
+
+### `ReturnedBy`
+
+| Field | Type | Meaning |
+|---|---|---|
+| `by` | string | who sent it back |
+| `at` | string | when it was sent back |
+| `note` | string | the full requested changes |
+| `rejectedStep` | UUID string | rejected approval step, when returned by a rejection |
 
 ### `RunDetail`
 

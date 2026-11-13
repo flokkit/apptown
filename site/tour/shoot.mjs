@@ -92,6 +92,11 @@ try {
         });
         if (trouble) throw new Error(`happy stop ${shot.id} (${shot.path}) shows ${trouble}`);
       }
+      if (shot.id === 'change' || shot.id === 'decide') {
+        for (const name of [/^Accept(?: and put live)?$/, 'Send back…']) {
+          await page.locator('#decision').getByRole('button', { name, exact: true }).waitFor();
+        }
+      }
       if (shot.click) {
         await page.getByRole('button', { name: shot.click, exact: true }).first().click();
         await page.getByRole('dialog').first().waitFor();

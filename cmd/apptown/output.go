@@ -49,6 +49,7 @@ type LandingRequested struct {
 
 // ChangeDetail is what show prints.
 type ChangeDetail struct {
+	ReturnedBy  *ReturnedBy `json:"returnedBy,omitempty" doc:"latest send-back while in progress, until later landing or agent work starts"`
 	Change      ChangeRef   `json:"change" doc:"the change"`
 	Title       string      `json:"title" doc:"its title"`
 	State       string      `json:"state" doc:"in_progress, landing, shipped or abandoned"`
@@ -224,3 +225,13 @@ func printJSON(v any) error {
 func changeRefOf(project string, number int64, id ids.ID) ChangeRef {
 	return ChangeRef{ID: id, Number: number, Name: changeName(project, number, id), Project: project}
 }
+
+// ReturnedBy is the change owner's reading of its latest send-back receipt.
+type ReturnedBy struct {
+	By           string `json:"by" doc:"who sent it back"`
+	At           string `json:"at" doc:"when it was sent back"`
+	Note         string `json:"note" doc:"the full requested changes"`
+	RejectedStep ids.ID `json:"rejectedStep,omitzero" doc:"rejected approval step, when returned by a rejection"`
+}
+
+func (r *ReturnedBy) line() string { return fmt.Sprintf("Sent back by %s: %s", r.By, r.Note) }

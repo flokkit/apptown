@@ -313,3 +313,29 @@ func TestPreviewInWorkflowExplainsBootRehearsalWithoutRequest(t *testing.T) {
 		t.Fatalf("preview contacted server: %+v", *seen)
 	}
 }
+
+func TestShowAndWaitCarryTheFullSendBackRecord(t *testing.T) {
+	previousExit := exitProcess
+	exitProcess = func(int) {}
+	t.Cleanup(func() { exitProcess = previousExit })
+	note := strings.Repeat("Keep the invitation. ", 30)
+	fakeAppTown(t, func(_, path string) (int, string) {
+		if strings.Contains(path, "/changes/") {
+			return 200, `{"projectSlug":"club","change":{"id":"00000000-0004-7000-8000-000000000000","number":4,"state":"in_progress","title":"Calendar"},"waitingOn":{"says":"in progress"},"returnedBy":{"by":"alice","note":"` + note + `"},"runs":[]}`
+		}
+		return 200, `{}`
+	})
+	for _, cmd := range []string{"show", "wait"} {
+		args := []string{cmd, "-c", "00000000-0004-7000-8000-000000000000"}
+		if cmd == "wait" {
+			args = append(args, "-i", "0")
+		}
+		out, err := run(t, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "Sent back by alice: "+note) {
+			t.Fatalf("%s lost feedback: %s", cmd, out)
+		}
+	}
+}

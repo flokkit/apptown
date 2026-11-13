@@ -359,7 +359,7 @@ func TestTour(t *testing.T) {
 	}
 	w.settle()
 	shoot("")
-	// Priya accepts the makeover as the Decide dialog does; its landing
+	// Priya accepts the makeover as the inline decision card does; its landing
 	// merges it and main's release deploys it on the scene's host (approve).
 	// The camera comes back within the deploy page's ten minutes
 	// (DeploymentDeploys), so the release still shows its stages.
@@ -5702,8 +5702,8 @@ func (s *tourScene) fieldnotes() {
 	t.Logf("fieldnotes recorded rejection: /changes/%s", c.ID)
 }
 
-// assertFieldnotesDecision protects the signed-in data used by Decide… and
-// its decision screen, without opening or driving a browser.
+// assertFieldnotesDecision protects the signed-in data used by the inline
+// decision card, without opening or driving a browser.
 func assertFieldnotesDecision(t *testing.T, s *tourScene) {
 	t.Helper()
 	assertFieldnotesProject(t, s)

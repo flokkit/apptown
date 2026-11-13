@@ -1305,11 +1305,34 @@ func (q *Queries) RunningSteps(ctx context.Context, arg RunningStepsParams) ([]R
 }
 
 const sendBackBusy = `-- name: SendBackBusy :one
-SELECT EXISTS(SELECT 1 FROM steps s JOIN runs r ON r.id=s.run_id WHERE r.change_id IS NOT DISTINCT FROM $1 AND r.status='running' AND s.status='running')
+WITH RECURSIVE rejected AS (
+ SELECT r.id,r.project_id,r.change_id,r.status,r.parent_run_id,r.parent_step_id,r.parent_step_attempt
+ FROM runs r JOIN steps s ON s.run_id=r.id WHERE s.id=$2
+ UNION ALL
+ SELECT parent.id,parent.project_id,parent.change_id,parent.status,parent.parent_run_id,parent.parent_step_id,parent.parent_step_attempt
+ FROM runs parent JOIN rejected child ON child.parent_run_id=parent.id
+), waiting AS (
+ SELECT call.id FROM rejected child JOIN steps call ON call.id=child.parent_step_id
+ JOIN runs parent ON parent.id=call.run_id
+ WHERE call.type='workflow/call' AND child.status='running'
+ AND child.parent_run_id=parent.id AND child.parent_step_attempt=call.attempt
+ AND child.project_id=parent.project_id AND child.change_id=parent.change_id
+ AND child.id::text=call.evidence_json->>'childRunId'
+)
+SELECT EXISTS(SELECT 1 FROM steps s JOIN runs r ON r.id=s.run_id
+ WHERE r.change_id IS NOT DISTINCT FROM $1 AND r.status='running' AND s.status='running'
+ AND NOT EXISTS(SELECT 1 FROM waiting WHERE waiting.id=s.id))
 `
 
-func (q *Queries) SendBackBusy(ctx context.Context, changeID ids.ID) (bool, error) {
-	row := q.db.QueryRowContext(ctx, sendBackBusy, changeID)
+type SendBackBusyParams struct {
+	ChangeID     ids.ID
+	RejectedStep ids.ID
+}
+
+// Only the bound calls waiting on this rejected workflow are idle. Other
+// running steps still prevent send-back, including calls without a live child.
+func (q *Queries) SendBackBusy(ctx context.Context, arg SendBackBusyParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, sendBackBusy, arg.ChangeID, arg.RejectedStep)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err

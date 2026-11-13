@@ -13,11 +13,10 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { getKey, newQueryClient } from '../../data'
 import type { ChangeView, Step } from '../../api'
 import ChangePage from '../ChangePage'
-import { CheckSummary, ChangeOverview, approvalBrief, checkAttention, progressTitle } from './Overview'
+import { CheckSummary, ChangeOverview, approvalBrief, checkAttention } from './Overview'
 import { Evidence } from './Evidence'
 import { nextStep, checksRunning } from './next'
 import { TurnDecision, viewerTurn } from './Turn'
-import { DecisionChoices } from '../../DecisionChoices'
 import { heldLabels } from './HeldDecision'
 import { StatePanel } from './StatePanel'
 
@@ -25,8 +24,6 @@ import { StatePanel } from './StatePanel'
 class Observer { observe() {} disconnect() {} }
 vi.stubGlobal('IntersectionObserver', Observer)
 vi.stubGlobal('ResizeObserver', Observer)
-HTMLDialogElement.prototype.showModal = function () { this.open = true }
-HTMLDialogElement.prototype.close = function () { if (this.open) { this.open = false; this.dispatchEvent(new Event('close')) } }
 const id = '00000000-0009-7000-8000-000000000000'
 const step = (type: Step['type'], status = 'pass', evidence = {}, extra = {}) => ({ id: type, runId: 'run', stage: 'check', name: type, type, status, statusLabel: status === 'pass' ? 'passed' : status, isCheck: ['script','tests','scan','guidance/conformance','agent/review','scm/merged'].includes(type), checkAttention: type !== 'approval' && (!['pass','not_applicable'].includes(status) || type === 'tests'), config: {}, evidence, overrideBy: '', overrideReason: '', ...extra } as Step)
 const approval = step('approval', 'pending', {}, { config: { means: 'I accept this work in full.', instructions: 'Read every check.' } })
@@ -47,7 +44,7 @@ afterEach(() => { vi.unstubAllGlobals(); vi.stubGlobal('IntersectionObserver', O
 
 it('leads with the preview, separates request from report and links every evidence row', () => {
   const html = render(view())
-  const facts = ['The change', 'Preview', 'Open it and try it', 'You asked', 'What was made', 'Checks', 'Reviewer', 'Your decision']
+  const facts = ['Your decision', 'You asked', 'Checks', 'The change', 'Preview', 'Open it and try it', 'What was made', 'Reviewer']
   for (let i = 1; i < facts.length; i++) expect(html.indexOf(facts[i])).toBeGreaterThan(html.indexOf(facts[i - 1]))
   for (const fact of ['/records/checks', '/records/review', '?tab=changes', 'How it was done']) expect(html).toContain(fact)
   expect(html).not.toContain('Keep the dinner invitation.')
@@ -101,23 +98,22 @@ it('opens Overview by default and keeps code, conversation, full records and edi
   await settle()
   expect([...el.querySelectorAll('.ch-tabs a')].map(a => a.textContent)).toEqual(['Overview', 'Code', 'Conversation', 'Details'])
   expect(el.querySelector('.ch-tabs [aria-current]')?.textContent).toBe('Overview')
-  expect(el.querySelector('.ch-change-card')?.textContent).toContain('Project notes: adds 1, removes 1')
-  expect(el.querySelector('.ch-change-card ins')?.textContent).toBe(v.notesDiff!.added[0])
+  expect(el.querySelector('#decision')?.textContent).toContain('Project notes: adds 1, removes 1')
+  expect(el.querySelector('#decision ins')?.textContent).toBe(v.notesDiff!.added[0])
   expect(el.querySelectorAll('.step-card')).toHaveLength(0)
   expect(el.querySelector('details')).toBeNull()
   expect(el.querySelector('.ch-state .ch-quiet')).toBeNull()
   expect(el.querySelector('.ch-state a')).toBeNull()
-  expect(el.querySelector('#decision button')).toBeNull()
-  expect(el.querySelector('.ch-turn-floater button')?.textContent).toBe('Decide…')
-  expect(el.querySelector('.ch-overview')?.textContent).toContain('Changes to the app contract need checking.')
+  expect(el.querySelector('#decision button')).not.toBeNull()
+  expect(el.querySelector('dialog')).toBeNull()
+  expect(el.querySelector('.ch-overview')?.textContent).toContain('Not checked yet: changes to the app contract')
   expect(el.querySelector('.decision-form')?.textContent).not.toContain('Changes to the app contract need checking.')
   v.change.summary = ''
   await act(async () => { await client.invalidateQueries({ queryKey: getKey(`/changes/${id}`) }) })
   await settle()
   expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/distill'))).toHaveLength(0)
   const click = async (name: string) => { await act(async () => [...el.querySelectorAll('.ch-tabs a')].find(a => a.textContent === name)!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }))); await settle() }
-  await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
-  const catchUp = [...el.querySelectorAll('dialog a')].find(a => a.textContent === 'Details has the catch-up command')!
+  const catchUp = [...el.querySelectorAll('#decision a')].find(a => a.textContent === 'Details has the catch-up command')!
   await act(async () => catchUp.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })))
   await settle()
   expect(el.querySelector('.ch-tabs [aria-current]')?.textContent).toBe('Details')
@@ -142,22 +138,12 @@ it('opens Overview by default and keeps code, conversation, full records and edi
   expect(el.textContent).not.toContain('No chat yet.')
   await click('Code')
   expect(el.querySelector('.ch-tabs [aria-current]')?.textContent).toBe('Code')
-  expect(el.querySelector('.ch-turn-floater button')?.textContent).toBe('Decide…')
-  await act(async () => el.querySelector<HTMLButtonElement>('.ch-turn-floater button')!.click())
-  await settle()
-  expect(el.querySelector('.ch-tabs [aria-current]')?.textContent).toBe('Code')
-  expect(el.querySelector('dialog[open] h2')?.textContent).toBe('Accept this change?')
-  expect(el.querySelector('dialog[open]')?.textContent).toContain('Project notes: adds 1, removes 1')
-  expect(el.querySelector('dialog[open] ins')?.textContent).toBe(v.notesDiff!.added[0])
-  expect(el.querySelector('dialog[open] del')?.textContent).toBe(v.notesDiff!.removed[0])
-  expect([...el.querySelectorAll('dialog .ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept', 'Send back…', 'Abandon change'])
-  expect(el.querySelector('#decision button')).toBeNull()
-  expect(el.querySelector('dialog a[href$="tab=conversation"]')).toBeNull()
-  expect(vi.mocked(fetch).mock.calls.some(([url, init]) => init?.method === 'POST' && /approve|abandon|console/.test(String(url)))).toBe(false)
+  expect(el.querySelector('dialog')).toBeNull()
   for (const name of ['Overview', 'Conversation', 'Details', 'Code']) {
     await click(name)
-    expect(el.querySelector('.ch-turn-floater button')?.textContent).toBe('Decide…')
-    expect(el.querySelectorAll('.ch-turn-floater')).toHaveLength(1)
+    expect(el.querySelector('dialog')).toBeNull()
+    expect(el.querySelector<HTMLElement>('#decision')!.hidden).toBe(name !== 'Overview')
+    expect(el.textContent).toContain(name === 'Overview' ? 'Your decision' : 'Your decision is waiting · Overview')
   }
   await act(async () => root.unmount()); el.remove(); client.clear()
 })
@@ -233,8 +219,6 @@ it('shows a missing report honestly and uses the request once', () => {
   expect(el.querySelector('.ch-request')?.textContent).toContain('Show all the winter ride times.')
   expect(el.textContent).toContain('Reading the conversation…')
   expect(el.querySelector('.ch-change-card')?.textContent).not.toContain('Keep the dinner invitation.')
-  // Once where it can be seen: the hidden decision card is the Decide… screen's source.
-  el.querySelectorAll('[hidden]').forEach(n => n.remove())
   expect(el.textContent?.split('Show all the winter ride times.').length).toBe(2)
   expect(el.textContent).not.toContain('No summary recorded')
   expect(el.textContent).not.toContain('The request:')
@@ -284,18 +268,17 @@ it.each([[true, true], [true, false], [false, true], [false, false]])('states ac
   for (let j = 0; j < 3; j++) await act(async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)) })
   expect(el.textContent).toContain('Goes tomain (no deployment follows main)')
   const label = 'Accept'
-  expect(el.querySelector('#decision button')).toBeNull()
-  expect(el.querySelector<HTMLElement>('#decision')!.hidden).toBe(true)
-  await act(async () => el.querySelector<HTMLButtonElement>('.ch-turn-floater button')!.click())
-  expect(el.querySelector('dialog[open]')?.textContent).toContain('Goes tomain (no deployment follows main)')
-  expect(el.querySelector('dialog[open]')).not.toBeNull()
-  expect(el.querySelector('dialog .decision-meaning')!.compareDocumentPosition(el.querySelector('dialog .ch-decision-choices')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  expect(el.querySelector('dialog .decision-meaning')?.textContent).toContain('By accepting, you confirm: “I accept this work in full.”')
-  expect([...el.querySelectorAll('dialog .ch-decision-choices button')].map(b => b.textContent)).toEqual([label, 'Send back…', ...(abandon ? ['Abandon change'] : [])])
+  expect(el.querySelector('#decision button')).not.toBeNull()
+  expect(el.querySelector<HTMLElement>('#decision')!.hidden).toBe(false)
+  expect(el.querySelector('#decision')?.textContent).toContain('Goes tomain (no deployment follows main)')
+  expect(el.querySelector('#decision')).not.toBeNull()
+  expect(el.querySelector('#decision .decision-meaning')!.compareDocumentPosition(el.querySelector('#decision .ch-decision-choices')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(el.querySelector('#decision .decision-meaning')?.textContent).toContain('By accepting, you confirm: “I accept this work in full.”')
+  expect([...el.querySelectorAll('#decision .ch-decision-choices button')].map(b => b.textContent)).toEqual([label, 'Send back…', ...(abandon ? ['Abandon change'] : [])])
   for (let i = 0; i < 8; i++) await act(async () => { await new Promise(r => setTimeout(r, 0)) })
-  expect(el.querySelector<HTMLButtonElement>('dialog .primary')!.disabled).toBe(false)
-  expect(el.querySelector('dialog textarea, dialog input')).toBeNull()
-  const click = async (text: string) => act(async () => [...el.querySelectorAll<HTMLButtonElement>('dialog button')].find(b => b.textContent === text)!.click())
+  expect(el.querySelector<HTMLButtonElement>('#decision .primary')!.disabled).toBe(false)
+  expect(el.querySelector('#decision textarea, #decision input')).toBeNull()
+  const click = async (text: string) => act(async () => [...el.querySelectorAll<HTMLButtonElement>('#decision button')].find(b => b.textContent === text)!.click())
   await click('Send back…')
   await act(async () => {
     const field = el.querySelector('textarea')!
@@ -303,7 +286,7 @@ it.each([[true, true], [true, false], [false, true], [false, false]])('states ac
     field.dispatchEvent(new Event('input', { bubbles: true }))
   })
   await click('Cancel')
-  el.querySelector<HTMLElement>('dialog .decision-meaning')!.getBoundingClientRect = () => ({ top: 100, bottom: 150 }) as DOMRect
+  el.querySelector<HTMLElement>('#decision .decision-meaning')!.getBoundingClientRect = () => ({ top: 100, bottom: 150 }) as DOMRect
   await click(label)
   const request = vi.mocked(fetch).mock.calls.find(([url, init]) => String(url).endsWith('/approve') && init?.method === 'POST')
   expect(JSON.parse(String(request![1]!.body))).toMatchObject({ decision: 'approve', comment: '' })
@@ -351,7 +334,7 @@ it('uses two named cards and separates the fixed label, value and evidence colum
   const el = document.createElement('div'); el.innerHTML = render(view())
   expect(el.querySelector('.ch-change-card')?.getAttribute('aria-label')).toBe('The change')
   expect([...el.querySelectorAll('.ch-overview > section > h2')].map(e => e.textContent)).toEqual(['Your decision'])
-  expect([...el.querySelectorAll('.ch-change-card .ch-row-label')].map(e => e.textContent)).toEqual(['Release', 'Preview', 'You asked', 'What was made', 'Checks', 'Goes to', 'Reviewer'])
+  expect([...el.querySelectorAll('.ch-change-card .ch-row-label')].map(e => e.textContent)).toEqual(['Release', 'Preview', 'What was made', 'Reviewer'])
   for (const row of el.querySelectorAll('.ch-change-card .ch-overview-line')) {
     expect(row.children).toHaveLength(3)
     expect(row.children[1].classList.contains('ch-value')).toBe(true)
@@ -385,59 +368,18 @@ it('identifies offered held recovery and keeps its action labels in decision ord
   expect(html).toContain('agent/pi (needs_human)')
 })
 
-it('keeps one decision screen measured to the content column and closes without deciding', async () => {
-  const bounds = { height: 84, left: 234, width: 900, top: 120 }
-  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => bounds as DOMRect)
-  const action = vi.fn(), el = document.createElement('div'), root = createRoot(el)
-  document.body.append(el)
-  const labels = ['Accept', 'Send back…', 'Abandon change']
-  const draw = (active: boolean) => act(() => root.render(<div className="ch-page"><section className="ch-tabs-sheet"><TurnDecision active={active} actions={labels} ready={<p>Ready: checks passed</p>}><p>Accepting puts this live.</p><DecisionChoices note="" setNote={() => {}} busy={false} accept={{ label: labels[0], run: action }} conversation={{ href: '?tab=conversation', run: action }} rework={{ label: labels[1], run: action }} abandon={{ label: labels[2], run: action }} /></TurnDecision></section></div>))
-  draw(true)
-  const page = el.querySelector<HTMLElement>('.ch-page')!, floater = el.querySelector<HTMLElement>('.ch-turn-floater')!, screen = el.querySelector<HTMLDialogElement>('dialog')!
-  const sheet = page.querySelector<HTMLElement>('.ch-tabs-sheet')!
-  expect(page.style.paddingBottom).toBe('84px')
-  expect(sheet.style.maxHeight).toBe('')
-  expect(sheet.style.overflowY).toBe('')
-  expect(floater.style.left).toBe('234px'); expect(floater.style.width).toBe('900px')
-  expect(screen.style.getPropertyValue('--page-left')).toBe('234px')
-  expect(screen.style.getPropertyValue('--page-width')).toBe('900px')
-  expect(el.querySelector<HTMLElement>('#decision')!.hidden).toBe(true)
-  expect(el.querySelector('#decision button, #decision input')).toBeNull()
-  expect(el.querySelectorAll('dialog')).toHaveLength(1)
-  expect([...el.querySelectorAll('button')].map(b => b.textContent)).toEqual(['Decide…'])
-  act(() => floater.querySelector('button')!.click())
-  expect(action).not.toHaveBeenCalled()
-  expect(screen.open).toBe(true)
-  expect(floater.style.visibility).toBe('hidden')
-  expect(screen.textContent).toContain('Ready: checks passed')
-  expect(screen.textContent).toContain('Accepting puts this live.')
-  expect([...screen.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(labels)
-  expect([...screen.querySelectorAll('.ch-decision-choices button')].map(b => b.className)).toEqual(['primary', '', 'danger'])
-  act(() => screen.querySelector<HTMLButtonElement>('header button')!.click())
-  expect(screen.open).toBe(false)
-  expect(screen.querySelector('button, input')).toBeNull()
-  expect(floater.style.visibility).toBe('')
-  expect(action).not.toHaveBeenCalled()
-  Object.assign(bounds, { left: 0, width: 390, height: 96 })
-  act(() => window.dispatchEvent(new Event('resize')))
-  expect(page.style.paddingBottom).toBe('96px')
-  // The document keeps normal page scrolling with room below its last content.
-  bounds.top = 40
-  act(() => window.dispatchEvent(new Event('scroll')))
-  expect(page.style.paddingBottom).toBe('96px')
-  expect(sheet.style.maxHeight).toBe('')
-  expect(sheet.style.overflowY).toBe('')
-  expect(floater.style.left).toBe('0px'); expect(floater.style.width).toBe('390px')
-  expect(screen.style.getPropertyValue('--page-left')).toBe('0px')
-  expect(screen.style.getPropertyValue('--page-width')).toBe('390px')
-  draw(false)
-  expect(el.querySelector('.ch-turn-floater, dialog')).toBeNull()
-  expect(page.style.paddingBottom).toBe('')
-  expect(sheet.style.maxHeight).toBe('')
-  expect(sheet.style.overflowY).toBe('')
-  expect(el.querySelector<HTMLElement>('#decision')!.hidden).toBe(false)
-  expect(el.querySelector('#decision h2')?.textContent).toBe('Next steps')
-  act(() => root.unmount()); el.remove(); vi.restoreAllMocks()
+it.each([390, 1280])('renders the decision inline at width %s without measuring or locking the page', width => {
+  vi.stubGlobal('innerWidth', width)
+  const measure = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    act(() => root.render(<TurnDecision active ready={<p>Checks</p>}><button>Accept</button></TurnDecision>))
+    expect(el.querySelector<HTMLElement>('#decision')!.hidden).toBe(false)
+    expect(el.querySelector('dialog')).toBeNull()
+    expect(el.textContent).toContain('Your decisionChecksAccept')
+    expect(document.body.style.position).toBe('')
+    expect(measure).not.toHaveBeenCalled()
+  } finally { act(() => root.unmount()); measure.mockRestore() }
 })
 
 it('shows the latest chat reply and Continue chat as the only action before any run', async () => {
@@ -526,7 +468,7 @@ it('shows both approval paragraphs in the decision screen', async () => {
   await act(async () => root.unmount()); client.clear()
 })
 
-it('opens held recovery buttons only in Decide and shows the complete reason once there', async () => {
+it('shows held recovery inline with the complete reason once', async () => {
   const v = view()
   v.change.state = 'in_progress'
   v.waitingOn = { ...v.waitingOn, kind: 'check', step: 'preview', says: 'preview failed', tone: 'bad', you: 'yes' }; v.detail!.steps = [step('agent/pi'), step('preview', 'fail', { reason: 'The page never loaded. The screen stayed blank.' }), approval]
@@ -536,10 +478,9 @@ it('opens held recovery buttons only in Decide and shows the complete reason onc
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
-    expect(el.querySelector('#decision button')).toBeNull()
+    expect(el.querySelector('#decision button')).not.toBeNull()
     expect(viewerTurn(v)).toBe(true)
-    await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
-    const dialog = el.querySelector('dialog[open]')!
+      const dialog = el.querySelector('#decision')!
     expect(dialog.textContent?.match(/The page never loaded\./g)).toHaveLength(1)
     expect(dialog.textContent?.match(/The screen stayed blank\./g)).toHaveLength(1)
     expect([...dialog.querySelectorAll('.ch-decision-choices button')].map(b => b.textContent)).toEqual(['Accept anyway', 'Send back…', 'Abandon change'])
@@ -553,7 +494,7 @@ it('opens held recovery buttons only in Decide and shows the complete reason onc
 })
 
 
-it.each([undefined, 'Malformed app declaration', 'Starting app declaration unread'])('shows the accepted contract and submits its digest inside Decide (unread=%s)', async unread => {
+it.each([undefined, 'Malformed app declaration', 'Starting app declaration unread'])('shows the accepted contract and submits its digest beside the inline decision (unread=%s)', async unread => {
   const v = view()
   const adds = { digest: 'shown-digest', rows: [
     { name: 'secrets', added: ['PAYMENT_KEY'], removed: [] },
@@ -568,10 +509,9 @@ it.each([undefined, 'Malformed app declaration', 'Starting app declaration unrea
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
     for (let j = 0; j < 3; j++) await act(async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)) })
-    await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
-    for (let j = 0; j < 3; j++) await act(async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)) })
-    expect(el.querySelector<HTMLButtonElement>('dialog .primary')?.disabled).toBe(false)
-    const dialog = el.querySelector('dialog[open]')!
+      for (let j = 0; j < 3; j++) await act(async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)) })
+    expect(el.querySelector<HTMLButtonElement>('#decision .primary')?.disabled).toBe(false)
+    const dialog = el.querySelector('#decision')!
     expect(dialog.textContent).toContain('PAYMENT_KEY')
     if (unread) expect(dialog.textContent).toContain(unread)
     expect(dialog.querySelector('details')).toBeNull()
@@ -585,12 +525,13 @@ it.each([undefined, 'Malformed app declaration', 'Starting app declaration unrea
   } finally { await act(async () => root.unmount()); client.clear() }
 })
 
-it.each(['send-back', 'rework'])('records the approver’s rejection and note when %s offers Send back', async offeredAct => {
+it.each(['send-back', 'rework', 'none'])('records the approver’s rejection and note when %s offers Send back', async offeredAct => {
   const v = view()
   if (offeredAct === 'send-back') {
     v.next.push({ act: 'send-back' } as ChangeView['next'][number])
     v.detail!.next = v.detail!.next.filter(a => a.act !== 'rework')
   }
+  if (offeredAct === 'none') { v.detail!.next = v.detail!.next.filter(a => a.act !== 'rework'); v.next = v.next.filter(a => a.act !== 'send-back') }
   const sent: { url: string; body: unknown }[] = []
   vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST') sent.push({ url: String(url), body: JSON.parse(String(init.body)) })
@@ -602,15 +543,14 @@ it.each(['send-back', 'rework'])('records the approver’s rejection and note wh
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
     await settle()
-    await click('Decide…')
     await settle()
     await click('Send back…')
-    const field = el.querySelector<HTMLTextAreaElement>('dialog textarea')!
+    const field = el.querySelector<HTMLTextAreaElement>('#decision textarea')!
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(field, 'Keep the dinner invitation.')
       field.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    await click('Send to agent')
+    await click('Send back')
     expect(sent).toEqual([{ url: `/api/v1/steps/${approval.id}/approve`, body: expect.objectContaining({ decision: 'reject', comment: 'Keep the dinner invitation.' }) }])
   } finally { await act(async () => root.unmount()); client.clear() }
 })
@@ -696,7 +636,6 @@ it('keeps a called approval on the approval path without parent recovery control
   expect(nextStep(v).primary).toBe('open-decision')
   const html = render(v)
   expect(html).toContain('Reading the called workflow’s checks…')
-  expect(html).not.toContain('ch-turn-floater')
   expect(html).not.toContain('Accept anyway')
 })
 
@@ -725,8 +664,6 @@ it('uses WaitingOn for decision status and hides Next steps during landing deplo
   v.waitingOn = { ...v.waitingOn, kind: 'work', run: 'run', step: 'build', says: 'Landing: deploying — step 1 of 2', you: 'no' }
   let el = document.createElement('div'); el.innerHTML = render(v)
   expect(el.querySelector('[aria-label="Now"]')).not.toBeNull()
-  expect(progressTitle(v, v.detail!.steps)).toBe('Building')
-  expect(progressTitle(v, [step('tests', 'running')])).toBe('Landing')
   expect(el.querySelector('#decision')?.hasAttribute('hidden')).toBe(true)
   expect(el.textContent).not.toContain('Checks are running; you can accept when they finish.')
   v.detail!.steps[0].status = 'error'
@@ -872,24 +809,6 @@ it.each(['pass', 'fail'] as const)('keeps an unheld %s landing in the fixed Rele
  expect(row.querySelector('a[href="/projects/club/releases/7"]')).not.toBeNull()
 })
 
-it('locks the page while a decision is open and restores styles on close and unmount', () => {
-  document.documentElement.style.overflow = 'auto'
-  const el = document.createElement('div'), root = createRoot(el)
-  try {
-    act(() => root.render(<div className="ch-page"><TurnDecision active actions={[]}><p>Decision</p></TurnDecision></div>))
-    act(() => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
-    expect(document.documentElement.style.overflow).toBe('hidden')
-    expect(document.body.style.position).toBe('fixed')
-    expect(document.body.style.top).toBe('0px')
-    act(() => el.querySelector<HTMLDialogElement>('dialog')!.close())
-    expect(document.documentElement.style.overflow).toBe('auto')
-    expect(document.body.style.position).toBe('')
-    act(() => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
-  } finally { act(() => root.unmount()) }
-  expect(document.documentElement.style.overflow).toBe('auto')
-  expect(document.body.style.position).toBe('')
-  document.documentElement.style.overflow = ''
-})
 
 it('links the running Release row to its deployment without displaying a number or scene', () => {
  const v = landingResult('pass')
@@ -913,18 +832,10 @@ it('labels every approval fact, omits the internal step and keeps its meaning an
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
     await vi.waitFor(async () => { await act(async () => {}); expect(el.textContent).toContain('Adds the November newsletter.') })
-    await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
-    const dialog = el.querySelector('dialog')!
+      const dialog = el.querySelector('#decision')!
     expect([...dialog.querySelectorAll('.ch-row-label')].map(row => row.textContent)).toEqual(['You asked', 'What it does', 'Checks', 'Goes to'])
-    const card = el.querySelector('.ch-change-card')!
     for (const label of ['You asked', 'What it does', 'Checks', 'Goes to']) {
-      const value = (parent: Element) => {
-        const cell = [...parent.querySelectorAll('.ch-overview-line')].find(row => row.querySelector('.ch-row-label')?.textContent === label)?.querySelector('.ch-value')?.cloneNode(true) as Element | undefined
-        cell?.querySelectorAll('.ch-technical').forEach(e => e.remove())
-        return cell?.textContent
-      }
-      if (label === 'You asked') expect(value(dialog)).toContain(value(card))
-      else expect(value(card), label).toBe(value(dialog))
+      expect([...el.querySelectorAll('.ch-row-label')].filter(row => row.textContent === label)).toHaveLength(1)
     }
     expect(dialog.querySelector('.ch-accept-rows')?.textContent).not.toContain(v.change.body)
     expect(dialog.querySelector('a[href$="/records/request"]')?.textContent).toBe('full request →')
@@ -949,18 +860,18 @@ it('keeps project notes beside the short conversation request and first Markdown
   try {
     await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
     await vi.waitFor(async () => { await act(async () => {}); expect(el.querySelector('.ch-chat-excerpt a')?.getAttribute('href')).toBe('https://example.test/review') })
-    const card = el.querySelector('.ch-change-card')!
+    const card = el.querySelector('.ch-overview')!
     expect(card.querySelectorAll('ins')).toHaveLength(1)
     expect(card.querySelectorAll('del')).toHaveLength(1)
     expect(card.querySelector('ins')?.textContent).toBe(v.notesDiff!.added[0])
     expect(card.querySelector('del')?.textContent).toBe(v.notesDiff!.removed[0])
-    expect(card.querySelector('.ch-request .ch-value')?.textContent).toBe('Make distant cards easy to reach.')
+    expect(card.querySelector('.ch-request .ch-value')?.textContent).toBe('Make distant cards easy to reach. full request →')
     expect(card.querySelector('.ch-request a')?.getAttribute('href')).toBe(`/changes/${id}?tab=conversation`)
     expect(card.textContent).toContain('What it doesBrings distant cards into view.')
     expect(card.textContent).toContain('The agent saysAll checks passed.')
     expect(card.textContent).not.toContain('[Review the approval]')
     expect(card.textContent).not.toContain('More implementation detail.')
-    expect(card.querySelector('a.ch-trailer[href$="tab=conversation"]')?.textContent).toBe('request →')
+    expect(card.querySelector('.ch-request a')?.textContent).toBe('full request →')
     expect([...card.querySelectorAll('a')].some(a => a.textContent === 'full conversation →')).toBe(true)
   } finally { await act(async () => root.unmount()); client.clear() }
 })
@@ -986,14 +897,13 @@ it('keeps acceptance on the change while deployment runs separately', async () =
    <Route path="/changes/:id" element={<ChangeOverview view={v} current steps={v.detail!.steps} onChange={()=>{}} workTab={()=>'?tab=details'} />} />
    <Route path="/projects/club/deployments/staff" element={<p>Watching the staff deployment</p>} />
   </Routes></QueryClientProvider></MemoryRouter>))
-  expect(el.querySelector('.ch-request .ch-value')?.textContent).toBe('Keep cards reachable.')
+  expect(el.querySelector('.ch-request .ch-value')?.textContent).toBe('Keep cards reachable. full request →')
   expect(el.querySelector('.ch-request a')?.getAttribute('href')).toBe(`/changes/${id}?tab=conversation`)
-  await act(async()=>el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
-  await vi.waitFor(()=>expect(el.querySelector<HTMLButtonElement>('dialog .primary')?.disabled).toBe(false))
-  vi.spyOn(el.querySelector<HTMLElement>('dialog .decision-meaning')!,'getBoundingClientRect').mockReturnValue({top:100,bottom:140} as DOMRect)
-  await act(async()=>el.querySelector<HTMLButtonElement>('dialog .primary')!.click())
+  await vi.waitFor(()=>expect(el.querySelector<HTMLButtonElement>('#decision .primary')?.disabled).toBe(false))
+  vi.spyOn(el.querySelector<HTMLElement>('#decision .decision-meaning')!,'getBoundingClientRect').mockReturnValue({top:100,bottom:140} as DOMRect)
+  await act(async()=>el.querySelector<HTMLButtonElement>('#decision .primary')!.click())
   await vi.waitFor(()=>expect(vi.mocked(fetch).mock.calls.some(([url, init]) => String(url).endsWith('/approve') && init?.method === 'POST')).toBe(true))
-  expect(el.querySelector('dialog[open]')).not.toBeNull()
+  expect(el.querySelector('#decision')).not.toBeNull()
  } finally {act(()=>root.unmount());client.clear()}
 })
 
@@ -1099,8 +1009,7 @@ it('closes the decision when a successful poll reports the change shipped', asyn
  const draw = (value: ChangeView) => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={value} current steps={value.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
  try {
   await act(async () => draw(v))
-  await act(async () => el.querySelector<HTMLButtonElement>('.ch-decide')!.click())
-  expect(el.querySelector('dialog[open]')).not.toBeNull()
+  expect(el.querySelector('#decision')).not.toBeNull()
   await act(async () => draw(landingResult('pass')))
   expect(el.querySelector('dialog, #decision')).toBeNull()
   expect(el.querySelector('[aria-label="Landing releases"]')).not.toBeNull()
@@ -1144,4 +1053,41 @@ it('a released change without screenshots has no empty Preview row; its Release 
     expect(labels).not.toContain('Preview')
     expect(labels).toContain('Release')
   } finally { act(() => root.unmount()); client.clear() }
+})
+
+it('shows every check beside the inline decision, with skipped and non-applicable reasons and detail links', () => {
+ const v = view()
+ v.detail!.steps.push(step('scan', 'skipped', { reason: 'No manifest was supplied.' }, {name:'dependency-scan', id:'skip'}))
+ v.detail!.steps.push(step('script', 'not_applicable', { reason: 'No matching files.' }, {name:'style-check', id:'na'}))
+ const el = document.createElement('div'); el.innerHTML = render(v)
+ const decision = el.querySelector<HTMLElement>('#decision')!
+ expect(decision.hidden).toBe(false)
+ const rows = [...decision.querySelectorAll('table[aria-label="Checks"] tr')]
+ expect(rows).toHaveLength(v.detail!.steps.filter(s => s.isCheck).length)
+ expect(rows.find(r => r.textContent?.includes('No manifest was supplied.'))?.textContent).toContain('not run')
+ expect(rows.find(r => r.textContent?.includes('No matching files.'))?.textContent).toContain("doesn't apply")
+ for (const row of rows) expect(row.querySelector('a[href*="records/checks"]')).not.toBeNull()
+ expect(decision.textContent).toContain('All checks passed')
+ expect(el.querySelector('dialog')).toBeNull()
+})
+
+it('shows the full return-to-person note and its author in the state panel', () => {
+ const v = view(); v.change.state = 'in_progress'; v.detail = null
+ v.returnedBy = {by:'alice', at:'2026-11-13T00:00:00Z', note:'Keep the invitation.\n'+ 'Every word matters. '.repeat(50)}
+ const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={featureClient()}><StatePanel view={v} /></QueryClientProvider></MemoryRouter>)
+ const el = document.createElement('div'); el.innerHTML = html
+ expect(el.textContent).toContain(`Sent back by alice: ${v.returnedBy.note}`)
+})
+
+it('shows who decides with no decision buttons for a viewer who cannot approve', async () => {
+ const v = view(); v.waitingOn.you = 'no'; v.approval!.viewer = 'no'; v.next = []; v.detail!.next = []
+ vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/approvers') ? {approvers:[{kind:'person',name:'alice',label:'Alice',people:['alice']}]} : {})))))
+ const client = featureClient(), el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
+  await vi.waitFor(async () => { await act(async () => {}); expect(el.textContent).toContain('alice') })
+  expect(el.textContent).toContain('Who can approve')
+  expect(el.querySelector('#decision .ch-decision-choices button')).toBeNull()
+  expect(el.querySelector('dialog')).toBeNull()
+ } finally {act(() => root.unmount());client.clear()}
 })

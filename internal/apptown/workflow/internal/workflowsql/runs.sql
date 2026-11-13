@@ -344,3 +344,13 @@ ORDER BY kind,id;
 
 -- name: RebuildRun :one
 SELECT * FROM runs WHERE project_id=sqlc.arg(project_id) AND rebuild_release_id=sqlc.arg(release_id);
+
+-- A return-to-work receipt describes now only until a later landing or agent
+-- round begins. Run and event IDs retain ordering within the same clock tick.
+-- name: WorkStartedAfterReturn :one
+SELECT EXISTS (
+ SELECT 1 FROM runs r WHERE r.project_id=sqlc.arg(project_id) AND r.change_id=sqlc.arg(change_id)
+ AND ((r.definition_json @> '{"role":"landing"}' AND r.id>sqlc.arg(receipt_id))
+ OR EXISTS (SELECT 1 FROM run_events e WHERE e.run_id=r.id AND e.id>sqlc.arg(receipt_id)
+ AND e.kind='step.started' AND e.payload_json @> '{"type":"agent/pi"}'))
+);

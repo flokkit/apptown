@@ -257,6 +257,7 @@ export type ChangeBoard = {
 
 export type ChangeCockpit = {
   goesTo: ChangeDestination
+  returnedBy?: ReturnedBy | null
   checks: ChecksSummary
   waitingOn: WaitingOn
   notesDiff?: Diff | null
@@ -2755,6 +2756,13 @@ export type BoardColumn = {
 export type ChangeDestination = {
   branch: string
   deployments: MainDestination[]
+}
+
+export type ReturnedBy = {
+  by: string
+  at: string
+  note: string
+  rejectedStep?: string | null
 }
 
 export type ChecksSummary = {

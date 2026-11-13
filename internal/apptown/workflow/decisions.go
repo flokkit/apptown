@@ -2,13 +2,15 @@ package workflow
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
-	"github.com/flokkit/apptown/internal/ids"
-
+	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 var (
@@ -184,9 +186,21 @@ func (s *Service) Approve(ctx context.Context, in Approval) (*Step, error) {
 			return nil, err
 		}
 	}
-	result, err := (stepDecisionStore{s.db, s.clocked}).approve(ctx, expected, who, in, also, accepted, shown)
+	var landingBy string
+	if in.Decision == VoteReject {
+		_, err := workflowsql.New(s.db.SQL()).StageAgentForUpdate(ctx, workflowsql.StageAgentForUpdateParams{RunID: expected.scope.RunID, Stage: expected.stage})
+		if errors.Is(err, sql.ErrNoRows) {
+			landingBy = s.landingBy(ctx, StartRequest{ProjectID: expected.scope.ProjectID, ChangeID: expected.scope.ChangeID})
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	result, err := (stepDecisionStore{s.db, s.clocked}).approve(ctx, expected, who, in, also, accepted, shown, s.sendbacks, landingBy)
 	if err != nil {
 		return nil, err
+	}
+	if !result.returned.RunID.IsZero() {
+		s.DispatchCommittedRetry(result.returned.RunID)
 	}
 	s.dispatchRework(result.rework)
 	if result.step.Status == StatusPass {

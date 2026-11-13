@@ -151,22 +151,18 @@ it('shows full meaning and instructions even inside a child decision', () => {
   expect(html).not.toContain('font-style:italic')
 })
 
-it('brings the recorded acceptance meaning on screen before casting an overview decision', async () => {
+it('keeps meaning beside the inline buttons and accepts without measuring', async () => {
   const sent: unknown[] = []
   vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => { if (init?.body) sent.push(init.body); return new Response('{}') }))
   const el = document.createElement('div'), root = createRoot(el), client = newQueryClient()
-  await act(async () => root.render(<QueryClientProvider client={client}><DecisionForm overview stepId={STEP} means="I read it" onDone={() => {}} approveLabel="Accept and put live" /></QueryClientProvider>))
-  await settle()
-  const meaning = el.querySelector<HTMLElement>('.decision-meaning')!
-  const scroll = vi.fn(); meaning.scrollIntoView = scroll
-  const bounds = vi.spyOn(meaning, 'getBoundingClientRect').mockReturnValue({ top: 900, bottom: 1000 } as DOMRect)
-  const accept = el.querySelector<HTMLButtonElement>('.ch-decision-choices button')!
-  await act(async () => accept.click())
-  expect(sent).toHaveLength(0)
-  expect(scroll).toHaveBeenCalled()
-  expect(el.querySelector('[role=status]')?.textContent).toContain('Read what accepting records')
-  bounds.mockReturnValue({ top: 300, bottom: 350 } as DOMRect)
-  await act(async () => accept.click())
-  expect(sent).toHaveLength(1)
-  act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><DecisionForm overview stepId={STEP} means="I read it" onDone={() => {}} approveLabel="Accept and put live" /></QueryClientProvider>))
+    await settle()
+    const meaning = el.querySelector<HTMLElement>('.decision-meaning')!
+    const bounds = vi.spyOn(meaning, 'getBoundingClientRect')
+    expect(meaning.textContent).toContain('I read it')
+    await act(async () => el.querySelector<HTMLButtonElement>('.ch-decision-choices button')!.click())
+    expect(sent).toHaveLength(1)
+    expect(bounds).not.toHaveBeenCalled()
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

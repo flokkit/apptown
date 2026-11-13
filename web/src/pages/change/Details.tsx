@@ -1,4 +1,4 @@
-import { Elapsed } from '../../Elapsed'
+import { CheckRow, EvidenceLink, Records, ResultMark } from './CheckTable'
 import { ListRow } from '../../ListRow'
 import './list-records.css'
 import { usePageName } from '../../chrome'
@@ -18,7 +18,7 @@ import { StepActions, StepCard } from './Steps'
 import { AddArtifact, AdrLinks, ArtifactBody } from './Tabs'
 import { stepTitle } from './Evidence'
 import { workRecordHref } from './WorkRecord'
-import { checkResult, recordLabel, runStory, StoryEntry } from './story'
+import { recordLabel, runStory, StoryEntry } from './story'
 import { previewReleased } from './Overview'
 import { TryIt } from '../../TryIt'
 
@@ -36,21 +36,6 @@ function ReleaseRead({ slug, number, receive }: { slug: string; number: number; 
   return <><ReadStatus q={q} what={`release #${number}`} /><StaleNote q={q} /></>
 }
 
-// Evidence has its own page so opening a record never expands the list.
-function EvidenceLink({ id, runId, children }: { id: string; runId?: string; children: ReactNode }) {
-  const { pathname } = useLocation()
-  const base = pathname.match(/^\/changes\/[^/]+/)?.[0] ?? pathname
-  return <Link to={`${base}/records/${encodeURIComponent(id)}${runId ? `?run=${encodeURIComponent(runId)}` : ''}`}>{children}</Link>
-}
-
-function RecordLink({ artifact, runId }: { artifact: Artifact; runId: string }) {
-  const label = recordLabel(artifact)
-  return <div className="ch-story-record" id={`record-${artifact.id}`}>
-    <EvidenceLink id={`record-${artifact.id}`} runId={runId}>{label}</EvidenceLink>
-
-  </div>
-}
-
 // A record's page is titled with the words its link in the story uses.
 const recordTitle = (artifact: Artifact) => { const label = recordLabel(artifact); return label.charAt(0).toUpperCase() + label.slice(1) }
 
@@ -62,12 +47,6 @@ function RecordBody({ artifact }: { artifact: Artifact }) {
       {artifact.ref && <a href={artifact.ref} target="_blank" rel="noreferrer">Open record</a>}
       {artifact.binary ? <Screenshots shots={{ shots: [{ artifact: artifact.id!, path: artifact.name, view: "record" }] }} /> : artifact.body && <ArtifactBody artifact={artifact} />}
   </div>
-}
-
-function Records({ records, runId }: { records: Artifact[]; runId: string }) {
-  // A record written again (an approval brief asked for twice) shows once: its latest copy.
-  const latest = [...new Map([...records].sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? '')).map(a => [`${a.kind}/${a.name}`, a])).values()]
-  return <>{latest.map(a => <RecordLink key={a.id} artifact={a} runId={runId} />)}</>
 }
 
 type Phase = { key: string; title: string; entries: StoryEntry[]; landing: boolean }
@@ -199,7 +178,7 @@ export function ChangeDetails({ recordId, view, current, reload, runId }: { reco
         if (!e.text.startsWith('Checks:')) { rows.push({ at: e.at, render: () => entryRow(e) }); continue }
         const checks = phase.entries.filter(e => e.text.startsWith('Checks:'))
         if (e !== checks[0]) continue
-        rows.push({ at: e.at, render: () => <li key={e.key} className="ch-detail-row ch-story-entry" id={!phases.slice(0, i).some(p => p.entries.some(e => e.text.startsWith('Checks:'))) && e === phase.entries.find(e => e.text.startsWith('Checks:')) ? 'checks' : undefined}>{time(e.at)}<div className="ch-event-label">Checks</div><div className="ch-detail-facts ch-check-facts"><table className="ch-items-table" aria-label="Checks"><tbody>{checks.map(check => <CheckRow key={check.key} entry={check} technical={technical} reload={reload} preview={check === previewEntry} />)}</tbody></table></div></li> })
+        rows.push({ at: e.at, render: () => <li key={e.key} className="ch-detail-row ch-story-entry" id={!phases.slice(0, i).some(p => p.entries.some(e => e.text.startsWith('Checks:'))) && e === phase.entries.find(e => e.text.startsWith('Checks:')) ? 'checks' : undefined}>{time(e.at)}<div className="ch-event-label">Checks</div><div className="ch-detail-facts ch-check-facts"><table className="ch-items-table" aria-label="Checks"><tbody>{checks.map(check => <CheckRow key={check.key} entry={check} runNumber={check.detail.run.number} technical={technical} reload={reload} preview={check === previewEntry} />)}</tbody></table></div></li> })
       }
       for (const row of extraRows) {
         const target = row.key === 'advance' ? (phases.map((p, index) => (p.entries[0]?.at || view.change.createdAt) <= row.at ? index : -1).filter(index => index >= 0).at(-1) ?? 0) : phases.length - 1
@@ -220,34 +199,6 @@ export function ChangeDetails({ recordId, view, current, reload, runId }: { reco
       <Attachments changeId={view.change.id!} readOnly={['shipped', 'abandoned'].includes(view.change.state)} />
     </tbody></table></section>
   </div>
-}
-
-// The pass/fail mark carries the result colour; the words after it stay plain.
-function ResultMark({ text }: { text: string }) {
-  const tone = text.startsWith('✓') ? 'ok' : text.startsWith('✗') ? 'bad' : text.startsWith('unknown') ? 'warn' : undefined
-  if (!tone) return <>{text}</>
-  return <><span className={`ch-mark ${tone}`}>{tone === 'warn' ? 'unknown' : text[0]}</span>{text.slice(tone === 'warn' ? 7 : 1)}</>
-}
-
-// A pass with nothing more to say and no report beside it would be a lone
-// tick; it says "passed", so the row never reads as empty.
-const passedWords = (result: string, records: number) => result === '✓' && records === 0 ? '✓ passed' : result
-
-function CheckRow({ entry, technical, reload, preview }: { entry: StoryEntry; technical: boolean; reload: () => void; preview: boolean }) {
-  const s = entry.step!
-  const na = s.status === 'not_applicable' && !s.overrideBy
-  const duration = s.startedAt && s.finishedAt ? Math.max(0, Date.parse(s.finishedAt) - Date.parse(s.startedAt)) : undefined
-  return <><tr id={`entry-${entry.key}`} className={na ? 'muted' : undefined}>
-    <th scope="row">{preview && <span id="preview" />}{stepTitle(s)}<TechnicalWords shown={technical}>{s.name} · {s.type} · run {entry.detail.run.number}</TechnicalWords></th>
-    <td><div className="ch-check-result">{na ? "doesn't apply: no matching part" : <ResultMark text={passedWords(checkResult(s), entry.records.length)} />}<Records records={entry.records} runId={entry.detail.run.id!} /></div>
-      {na && <TechnicalWords shown={technical}>{checkResult(s)}</TechnicalWords>}
-      {!na && !s.overrideBy && ['fail', 'error', 'needs_human'].includes(s.status) && !!s.evidence.actions?.length && <p className="ch-story-reason">To satisfy this check: {s.evidence.actions?.join(' ')}</p>}
-    </td>
-    <td className="ch-check-duration">{s.status === 'running' && s.startedAt ? <Elapsed startedAt={s.startedAt} /> : duration != null && `${Math.round(duration / 1000)}s`}</td>
-    <td className="ch-check-actions"><div className="ch-check-links"><EvidenceLink id={`entry-${entry.key}`} runId={entry.detail.run.id!}>details</EvidenceLink>{entry.actionStep && <StepActions step={entry.actionStep} onChange={reload} />}</div></td>
-  </tr>
-
-  </>
 }
 
 function EntryEvidence({ entry, view, reload }: { entry: StoryEntry; view: ChangeView; reload: () => void }) {

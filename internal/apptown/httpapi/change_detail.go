@@ -211,7 +211,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, ChangeCockpit{GoesTo: ChangeDestination{Branch: slugMeta.DefaultBranch, Deployments: destinations}, Checks: checks, NotesDiff: notesDiff, WaitingOn: h.work.ChangeWaitingOn(r.Context(), item, detail), Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
+	WriteJSON(w, 200, ChangeCockpit{ReturnedBy: item.ReturnedBy, GoesTo: ChangeDestination{Branch: slugMeta.DefaultBranch, Deployments: destinations}, Checks: checks, NotesDiff: notesDiff, WaitingOn: h.work.ChangeWaitingOn(r.Context(), item, detail), Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
 		Runs: runs, Commits: commits, Head: head, Diffstat: diffstat, CommittedDiff: comparison, Report: report, Editing: editing,
 		State: state, StateDetail: stateDetail, Approval: h.approvalStanding(r, detail), MainConflict: mainConflict,
 		Usage: ChangeUsage{Total: spend.Total, CostMicros: spend.CostMicros, Unpriced: spend.Unpriced}, Next: workflow.ChangeActs(item, detail, evidence.Merged, h.work.MayAbandon(r.Context(), id) == nil, mainConflict != nil)})
@@ -257,6 +257,7 @@ type (
 	}
 	ChangeCockpit struct {
 		GoesTo      ChangeDestination      `json:"goesTo"`
+		ReturnedBy  *workflow.ReturnedBy   `json:"returnedBy,omitempty"`
 		Checks      workflow.ChecksSummary `json:"checks"`
 		WaitingOn   workflow.WaitingOn     `json:"waitingOn"`
 		NotesDiff   *projectnotes.Diff     `json:"notesDiff,omitempty"`

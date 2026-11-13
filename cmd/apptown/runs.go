@@ -181,6 +181,7 @@ func cmdWait(args []string) error {
 				Change       struct{ State string }
 				State        string
 				StateDetail  string
+				ReturnedBy   *ReturnedBy
 				WaitingOn    Waiting
 				Detail       *runDetail
 				MainConflict *mainConflict
@@ -190,6 +191,9 @@ func cmdWait(args []string) error {
 			} else if !ok {
 				pause(time.Duration(*interval) * time.Second)
 				continue
+			}
+			if v.ReturnedBy != nil {
+				note(v.ReturnedBy.line())
 			}
 			if v.MainConflict != nil {
 				note(v.MainConflict.line(id))

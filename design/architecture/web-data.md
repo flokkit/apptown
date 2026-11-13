@@ -65,13 +65,15 @@ state. A tests step with no reported test count shows an explicit unknown marker
 with the reason, including on a folded card. An omitted gating flag means blocking. Script and scan steps retain
 their recorded outcome.
 
-Change pages show help without disclosures. The decision screen shows the app-contract
+Change pages show help without disclosures. The inline decision card shows the app-contract
 comparison from the approval question whose digest the vote submits, including
 known changes alongside unread declarations or starting commits. Overview's
-Next steps and the Decide… screen show at most three equal decision buttons:
-one highlighted forward act, Send back… when send-back or rework is offered,
-and Abandon change last and red when offered. The acts come from `view.next`
-and `detail.next`; the page only words and places them. When several forward
+decision card and Next steps show at most three equal decision buttons:
+one highlighted forward act, Send back… for every eligible approval or when
+send-back or rework is offered for held recovery,
+and Abandon change last and red when offered. Recovery and change acts come from `view.next`
+and `detail.next`; approval decisions use the viewer’s approval eligibility.
+The page only words and places those acts. When several forward
 acts are offered, the existing next primary chooses one. Acceptance says
 Accept and put live when there is a landing destination, otherwise Accept;
 advance says Continue, a failed check's exception says Accept anyway, an
@@ -108,10 +110,9 @@ During backing up, a box moves from the lit house to a shed that stays in later 
 Release results read the release request’s backup evidence: only a complete set says “Backed up”,
 with its size and a link to the recorded copy. Incomplete or absent copies keep
 the reason and any person who accepted proceeding; no data says so.
-Reduced motion keeps the scene still. The
-decision dialog owns scrolling while open; closing it restores the page position.
-A plain conversation link sits below the acceptance choices and closes the
-screen; deploying and deployment results omit it. When the Conversation tab cannot resume a stuck agent, that link opens
+Reduced motion keeps the scene still. Decisions keep normal page scrolling.
+A held recovery may link to the conversation below its choices; acceptance,
+deploying and deployment results omit that link. When the Conversation tab cannot resume a stuck agent, that link opens
 the existing worker console continuation. Stop this attempt stays only in
 non-decision Next steps for a running run.
 Details keeps conflict catch-up commands and
@@ -323,6 +324,8 @@ land.” Unread app-contract comparisons do not create a separate heading then. 
 reviews say “Review: rejected” and show a bounded excerpt of the complete review,
 with structured findings first and the redundant “reviewer rejected:” prefix
 omitted. Review excerpts do not select a first sentence. Commands appear only under Technical detail.
+While the viewer decides, request, approval brief, checks and destination appear
+once in the decision card; the supporting change card retains the other facts.
 On phones, each label sits above its value and evidence link. Failures,
 exceptions and unknown results remain visible with what would satisfy them.
 Grey trailers link to addressable phase entries or Code; browser Back returns
@@ -332,21 +335,34 @@ Hidden words leave no blank gap. The choice is remembered per viewer and works
 without browser storage.
 
 The context card is “Your decision” when an eligible approval waits for the viewer,
-and “Next steps” otherwise. For the viewer's turn, the context card shows what is
-ready, failed checks and the acceptance meaning without its own buttons. The
-prototype Decision switch beside Technical detail selects a bar or floating
-Decide… button, remembered per browser. Both appear on every change tab only
-while it is the viewer's turn. The pinned bar aligns with the content column,
-leaves the sidebar usable and reserves its measured height below the page.
-Phones use one equal-width row: Accept, Chat, Rework, Abandon. Desktop uses full
-labels; acceptance says Accept when releases are manual, otherwise Accept and
-put live. Bar choices open a confirmation for that choice with the full meaning.
-The floating button opens a decision screen with the readiness, checks and
-acceptance meaning before four equal buttons: Accept, Go to chat, Rework with
-comment, Abandon change, using the full acceptance label. It fills the screen on
-phones. Closing returns to the same tab and scroll position. Acceptance is
-primary, abandonment red and the other choices secondary. Rework requires a
-comment; abandonment and stopping a landing for chat retain their confirmations.
+and “Next steps” otherwise. Decisions render inline at the top of Overview,
+under the state panel: You asked, What it does, Checks, Goes to, the acceptance
+meaning and the buttons. Checks retain the summary and the full shared check
+table: name, result, duration and details link, including skipped,
+non-applicable, failed and excepted results with their reasons. Details uses
+the same rows. Held recoveries and running progress stay inline. Other tabs
+show “Your decision is waiting · Overview” while it is the viewer's turn.
+There is no decision dialog, floating button or pinned bar.
+
+Acceptance says Accept when releases are manual, otherwise Accept and put live.
+Every approval the viewer may decide offers Send back…: a focused “What should
+change?” field, Send back disabled until text is entered, and Cancel. It records
+the approver's rejection and note through the approval operation. When the
+stage has an agent it reworks as before; without one, the landing stops and
+work resumes with its agent or returns to its person. Abandon change remains
+available only when offered, with its inline confirmation. A viewer who cannot
+decide sees who decides and no decision buttons.
+
+The change view's `returnedBy` describes the latest `change.sendback` receipt:
+who, when, full note and rejected approval step when present. The state panel
+shows “Sent back by <who>: <note>”. It appears only while the change is in
+progress and no later landing or agent round has begun. It is distinct from
+`detail.sentBack`, which describes an agent currently reworking with feedback.
+The CLI show/wait output and a newly opened change chat's briefing read the
+same owner fact. This does not post into a live chat: wait commonly ends at the
+approval before rejection, so the helper learns the note on its next read or
+when the person tells it.
+
 Step recovery operations remain beside their steps in Details. Existing changes
 do not offer Run a workflow. Request-started changes with no chat show the request and agent
 report as conversation messages.
