@@ -64,7 +64,16 @@ func (s *Service) RunSteps(ctx context.Context, id ids.ID) ([]*Step, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ReadScopedStepsIn(ctx, s.db, RunRef{ID: id, ProjectID: project})
+	rows, err := ReadScopedStepsIn(ctx, s.db, RunRef{ID: id, ProjectID: project})
+	if err != nil {
+		return nil, err
+	}
+	for _, step := range rows {
+		if err := standingEvidenceIdentityIn(ctx, s.db, s.checked, step); err != nil {
+			return nil, err
+		}
+	}
+	return rows, nil
 }
 
 type StepContext struct {
@@ -114,6 +123,9 @@ func (s *Service) Step(ctx context.Context, id ids.ID) (StepContext, error) {
 	if err != nil {
 		return StepContext{}, err
 	}
+	if err := standingEvidenceIdentityIn(ctx, tx, s.checked, out.Step); err != nil {
+		return StepContext{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return StepContext{}, err
 	}
@@ -131,6 +143,11 @@ func (s *Service) Snapshot(ctx context.Context, id ids.ID, view ReadView) (*RunS
 	}
 	if out.Run.ProjectID != project {
 		return nil, &access.Denied{Reason: "Work scope changed during read"}
+	}
+	for _, step := range out.Steps {
+		if err := standingEvidenceIdentityIn(ctx, s.db, s.checked, step); err != nil {
+			return nil, err
+		}
 	}
 	if view != TraceView {
 		out.WaitingOn = s.readerWaitingOn(ctx, nil, out)

@@ -17,23 +17,26 @@ import (
 // AutomatedAttempt is one compact record of an automated Change, kept from admission.
 // OpenChange is empty after disposal; Observations retain exact subjects.
 type AutomatedAttempt struct {
-	Schedule     string                        `json:"schedule"`
-	RuleID       ids.ID                        `json:"ruleId,omitzero"`
-	RuleRevision int64                         `json:"ruleRevision"`
-	Attempted    bool                          `json:"attempted"`
-	Failed       bool                          `json:"failed"`
-	ChangeID     ids.ID                        `json:"changeId,omitzero"`
-	Fingerprint  string                        `json:"fingerprint"`
-	Packages     []fix.Move                    `json:"packages"`
-	ID           ids.ID                        `json:"id"`
-	ProjectID    ids.ID                        `json:"projectId"`
-	OpenChange   ids.ID                        `json:"openChange,omitzero"`
-	Queue        string                        `json:"queue"`
-	What         string                        `json:"what"`
-	When         time.Time                     `json:"when"`
-	Outcome      string                        `json:"outcome"`
-	Reason       string                        `json:"reason"`
-	Observations []conformance.ScanObservation `json:"observations"`
+	Rule          *standingRuleIdentity         `json:"rule,omitempty"`
+	RuleIssuer    *access.Actor                 `json:"ruleIssuer,omitempty"`
+	RuleGrantedAt *time.Time                    `json:"ruleGrantedAt,omitempty"`
+	Schedule      string                        `json:"schedule"`
+	RuleID        ids.ID                        `json:"ruleId,omitzero"`
+	RuleRevision  int64                         `json:"ruleRevision"`
+	Attempted     bool                          `json:"attempted"`
+	Failed        bool                          `json:"failed"`
+	ChangeID      ids.ID                        `json:"changeId,omitzero"`
+	Fingerprint   string                        `json:"fingerprint"`
+	Packages      []fix.Move                    `json:"packages"`
+	ID            ids.ID                        `json:"id"`
+	ProjectID     ids.ID                        `json:"projectId"`
+	OpenChange    ids.ID                        `json:"openChange,omitzero"`
+	Queue         string                        `json:"queue"`
+	What          string                        `json:"what"`
+	When          time.Time                     `json:"when"`
+	Outcome       string                        `json:"outcome"`
+	Reason        string                        `json:"reason"`
+	Observations  []conformance.ScanObservation `json:"observations"`
 }
 
 func (s *Service) Attempts(ctx context.Context, project ids.ID, queue string, limit int) ([]AutomatedAttempt, error) {
@@ -54,6 +57,22 @@ func (s *Service) Attempts(ctx context.Context, project ids.ID, queue string, li
 	out := make([]AutomatedAttempt, 0, len(rows))
 	for _, row := range rows {
 		a := AutomatedAttempt{Schedule: row.Schedule, RuleID: row.RuleID, RuleRevision: row.RuleRevision, Attempted: row.AttemptedAt.Valid, Failed: row.FailedAttempt, ChangeID: row.ActiveChangeID, Fingerprint: row.Fingerprint, Packages: []fix.Move{}, ID: row.ID, ProjectID: project, Queue: row.Queue, What: row.What, When: row.OpenedAt, Outcome: row.Outcome, Reason: row.Reason, Observations: []conformance.ScanObservation{}}
+		if !row.RuleID.IsZero() {
+			revision, err := workflowsql.New(s.db.SQL()).StandingRevision(ctx, workflowsql.StandingRevisionParams{RuleID: row.RuleID, Revision: row.RuleRevision})
+			if err != nil {
+				return nil, err
+			}
+			rule, err := readStandingRevision(revision)
+			if err != nil {
+				return nil, err
+			}
+			a.Rule, err = standingRuleIdentityIn(ctx, s.db, s.checked, rule)
+			if err != nil {
+				return nil, err
+			}
+			a.RuleIssuer = &rule.Issuer
+			a.RuleGrantedAt = &rule.EnabledAt
+		}
 		if err := json.Unmarshal(row.Packages, &a.Packages); err != nil {
 			return nil, err
 		}
@@ -135,4 +154,44 @@ func (s *Service) touchRun(ctx context.Context, run ids.ID) error {
 		return err
 	}
 	return s.touchChange(ctx, project, change)
+}
+
+// janitorAttribution is a read of the firing's original grant, distinct from
+// any later acceptance vote. The system opener remains recorded on Change.
+type janitorAttribution struct {
+	Rule         *standingRuleIdentity `json:"rule,omitempty"`
+	Schedule     string                `json:"schedule"`
+	RuleID       ids.ID                `json:"ruleId,omitzero"`
+	RuleRevision int64                 `json:"ruleRevision"`
+	Issuer       access.Actor          `json:"issuer"`
+	GrantedAt    time.Time             `json:"grantedAt"`
+}
+
+func janitorAttributionIn(ctx context.Context, db database.Queryer, authority access.Authorizer, change ids.ID) (*janitorAttribution, error) {
+	rows, err := workflowsql.New(db.SQL()).QueueAttempt(ctx, change)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) != 1 {
+		return nil, fmt.Errorf("the automated Change has no firing record")
+	}
+	row := rows[0]
+	out := &janitorAttribution{Schedule: row.Schedule, RuleID: row.RuleID, RuleRevision: row.RuleRevision}
+	if !row.RuleID.IsZero() {
+		revision, err := workflowsql.New(db.SQL()).StandingRevision(ctx, workflowsql.StandingRevisionParams{RuleID: row.RuleID, Revision: row.RuleRevision})
+		if err != nil {
+			return nil, err
+		}
+		rule, err := readStandingRevision(revision)
+		if err != nil {
+			return nil, err
+		}
+		out.Rule, err = standingRuleIdentityIn(ctx, db, authority, rule)
+		if err != nil {
+			return nil, err
+		}
+		out.Issuer = rule.Issuer
+		out.GrantedAt = rule.EnabledAt
+	}
+	return out, nil
 }

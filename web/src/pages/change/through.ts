@@ -1,3 +1,6 @@
+import type { ApprovalEvidence } from '../../api'
+import { janitorWords } from '../../janitorAttribution'
+
 // How an act came to AppTown, in words, from the way of acting a vote
 // records (access.Actor.Via: "token-cli:laptop", "session", …). Acting
 // directly says nothing more; a token is named, since a person's token may
@@ -23,5 +26,13 @@ export const voterWords = (approver: string, via?: string) => {
 
 // closingVia is the way the step's deciding vote was cast: the last vote
 // by the approver the step records.
-export const closingVia = (ev: { approver?: string; decisions?: { approver: string; via?: string }[] }) =>
-  [...(ev.decisions ?? [])].reverse().find((d) => d.approver === ev.approver)?.via
+export const closingVote = <V extends { approver: string }>(ev: { approver?: string; decisions?: V[] }) =>
+  [...(ev.decisions ?? [])].reverse().find(d => d.approver === ev.approver)
+
+export const closingVia = (ev: { approver?: string; decisions?: { approver: string; via?: string }[] }) => closingVote(ev)?.via
+
+// A typed automatic vote names the grant it actually used; the Change heading
+// separately names the firing's original grant.
+export const voteWords = (vote: Pick<NonNullable<ApprovalEvidence['decisions']>[number], 'approver' | 'via' | 'standing'>) => vote.standing
+  ? janitorWords(vote.standing.rule!, vote.standing.revision, vote.standing.issuer.name)
+  : voterWords(vote.approver, vote.via)

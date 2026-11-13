@@ -864,6 +864,19 @@ func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
 				snap, _ := a.Work.Snapshot(ctx, landed.RunID, workflow.DetailView)
 				t.Fatalf("adoption did not land: state=%s %v run=%+v events=%+v jobs=%+v", landed.State, err, snap.Run, snap.Events, operationJobs(t, a, workflowCompletionJob))
 			}
+			history, err := a.Work.LandedJanitorChanges(ctx, a.cfg.clock.Now().Add(-7*24*time.Hour), a.cfg.clock.Now().Add(time.Nanosecond), 0, 20)
+			if err != nil {
+				t.Fatal(err)
+			}
+			recorded := false
+			for _, entry := range history.Changes {
+				if entry.ChangeID == landed.ID {
+					recorded = entry.RuleID == rule.RuleID && entry.RuleRevision == rule.Revision && entry.Issuer.Principal == rule.Issuer.Principal && slices.ContainsFunc(entry.PackVersions, func(p adoption.PackPick) bool { return p.Pack == "old-language" && p.Version == 2 })
+				}
+			}
+			if !recorded {
+				t.Fatalf("landed pack versions or original grant missing: %+v", history)
+			}
 			members, err := adoption.ProjectPacksIn(ctx, a.DB, pid)
 			if err != nil || !slices.ContainsFunc(members, func(p adoption.ProjectPackRecord) bool { return p.Pack == "old-language" && p.Version == 2 }) {
 				t.Fatalf("target not adopted: %+v %v", members, err)

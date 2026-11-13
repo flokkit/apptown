@@ -16,6 +16,13 @@ import (
 func init() {
 	registerWireMapped(workflow.ScheduleOutcome(""), `"opened" | "skipped" | "failed" | "unknown"`)
 	registerWire(
+		wiregen.Named{Name: "StandingVote", Value: reflect.Zero(reflect.TypeOf(workflow.ApprovalVote{}.Standing).Elem()).Interface()},
+		wiregen.Named{Name: "JanitorAttribution", Value: reflect.Zero(reflect.TypeOf(workflow.Change{}.Janitor).Elem()).Interface()},
+		wiregen.Named{Name: "JanitorChoice", Value: janitorChoice{}},
+		wiregen.Named{Name: "JanitorProcedure", Value: janitorProcedure{}},
+		wiregen.Named{Name: "JanitorLandedChange", Value: janitorLandedChange{}},
+		wiregen.Named{Name: "JanitorView", Value: JanitorView{}},
+		wiregen.Named{Name: "JanitorHistoryView", Value: JanitorHistoryView{}},
 		wiregen.Named{Name: "StandingProjectState", Value: projectStandingState{}},
 		wiregen.Named{Name: "StandingProjectAct", Value: projectStandingChoice{}},
 		wiregen.Named{Name: "RoutineAdoptionTarget", Value: adoption.RoutineTarget{}},

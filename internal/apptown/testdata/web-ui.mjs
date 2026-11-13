@@ -94,6 +94,17 @@ try {
     const reviews = await Promise.all(activity.active.map(r => read('/changes/' + r.changeId)));
     return { releases, registryConfigured: integrations.integrations.some(i => i.capability === 'container-registry'), idleSeconds: activity.history.find(c => c.title === "Replace the old ride archive")?.tookS, history: activity.history.filter(c => c.closedAs !== 'nothing-to-change' && c.type !== 'scheduled').length, quietChanges: activity.history.filter(c => c.closedAs === 'nothing-to-change').map(c => c.title), historyItems: activity.history.map(c => ({title: c.title, closedAs: c.closedAs})), backups: backups.backups, stoppedCheck: changes.some(c => c.title === "Fix the broken ride calendar link" && c.state === "abandoned"), deployments, backupBytes: backups.backups.find(b => b.bytes > 0)?.bytes, failingCheck: reviews.some(v => v.detail?.steps.some(s => s.status === 'fail')) };
   });
+  if (process.env.DESIGN_PAGES?.split(',').includes('janitor')) {
+    const janitor = await page.evaluate(async () => {
+      const current = await (await fetch('/api/v1/janitor')).json();
+      const history = await (await fetch('/api/v1/janitor/history')).json();
+      return { current, history };
+    });
+    if (!janitor.current.projects.some(p => p.queues.some(q => q.state === 'stopped')) ||
+        !janitor.current.deployments.some(d => d.hold) || !janitor.history.history.changes.length)
+      throw new Error('incomplete janitor scene: ' + JSON.stringify(janitor));
+    await writeFile(`${out}/janitor-facts.json`, JSON.stringify(janitor, null, 2));
+  }
   await mkdir(out, { recursive: true });
   phase('login and facts');
   await writeFile(`${out}/facts.json`, JSON.stringify(facts, null, 2));
@@ -244,7 +255,7 @@ try {
     conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews', 'text-roles': '/text-roles',
     'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations',
     integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets', notifications: '/integrations/notifications',
-    packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
+    janitor: '/janitor', packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
     'people-groups': '/people/groups', 'people-group': '/people/groups/reviewers', 'people-account': '/people/accounts/sam', 'people-roles': '/people/roles', 'people-signin': '/people/sign-in', 'people-agents': '/people/agents-and-tokens',
     evals: '/evals', 'eval-new': '/evals/new', people: '/people/accounts', account: '/account', usage: '/usage',
     complaints: '/complaints', 'complaints-answered': '/complaints/answered', 'complaints-archive': '/complaints/archive',
@@ -711,6 +722,15 @@ try {
           await page.addStyleTag({ content: '*,*::before,*::after { animation: none !important; transition: none !important; caret-color: transparent !important; }' });
           const words = await page.locator('body').innerText();
           await writeFile(`${out}/${screen}/${size}-${theme}.txt`, words);
+          if (screen === 'janitor') {
+            const approvals = page.getByRole('table', { name: 'Janitor approvals', exact: true });
+            for (const name of ['Dependency updates', 'Keep packs current']) {
+              const row = approvals.getByRole('row').filter({ hasText: name }).filter({ hasText: 'All projects, including new ones' });
+              await row.getByRole('button', { name: 'Preview', exact: true }).waitFor({ state: 'visible' });
+              if (await row.getByRole('button', { name: 'Preview', exact: true }).isDisabled()) throw new Error(name + ': owner cannot preview an off rule');
+            }
+
+          }
           if (screen === 'target' && await page.locator('.capacity-strip-track').count() !== 3) throw new Error('target capacity strip is missing');
           if (screen === 'target-capacity' && !words.includes('over by')) throw new Error('capacity limit warning missing');
           // The scene's host reports what it runs, so these pages show readings

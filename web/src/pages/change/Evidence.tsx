@@ -6,7 +6,7 @@ import type { ChangeView, Run, Step, TestsEvidence } from '../../api'
 import { fmtStamp } from '../../format'
 import { checkedWords } from '../../runtime'
 import { approversOf, decisionStatus } from './next'
-import { closingVia, voterWords } from './through'
+import { closingVia, closingVote, voterWords, voteWords } from './through'
 
 // The evidence as receipts: one ruled line per recorded fact — what was
 // checked, its result, who or what did it, when — each linking to its full
@@ -14,6 +14,7 @@ import { closingVia, voterWords } from './through'
 // top of the page is an AI's narrative, and the two never mix.
 
 export type Receipt = {
+  standing?: boolean
   key: string
   statusLabel: Step['statusLabel']
   result: string   // the stamp's words
@@ -171,6 +172,8 @@ function sentence(s: Step, live: boolean): string {
       if (s.status === 'pending') return ''
       if (ev.evalAuthorised) return `Eval-authorised, not a person's approval: ${ev.evalAuthorised}.`
       const decided = ev.decision === 'reject' ? 'Rejected' : 'Approved'
+      const closing = closingVote(ev)
+      if (closing?.standing) return `${decided} by ${voteWords(closing)}.`
       const who = ev.approver ? voterWords(ev.approver, closingVia(ev)) : 'a person'
       return `${decided} by ${who}${ev.comment ? `: “${clip(ev.comment, 160)}”` : '.'}`
     }
@@ -197,7 +200,7 @@ function by(s: Step): string {
     case 'agent/review':
       return join(s.evidence.model && `${s.evidence.model}`, secs(s.evidence.durationMs))
     case 'approval': {
-      const names = (s.evidence.decisions ?? []).map((d) => voterWords(d.approver, d.via))
+      const names = (s.evidence.decisions ?? []).map(voteWords)
       if (s.status === 'pending') return `needed from ${approversOf(s)}`
       if (s.evidence.evalAuthorised) return 'eval-authorised'
       return names.length ? [...new Set(names)].join(', ') : s.evidence.approver ?? ''
@@ -217,6 +220,8 @@ function brief(s: Step): string | undefined {
     if (s.evidence.withdrawal) return `Approval withdrawn by ${s.evidence.withdrawal.by}`
     if (s.evidence.evalAuthorised) return 'Comparison run; no personal approval'
     if (s.status !== 'pass' && s.status !== 'fail') return undefined
+    const vote = closingVote(s.evidence)
+    if (vote?.standing) return `${s.status === 'fail' || s.evidence.decision === 'reject' ? 'Rejected' : 'Approved'} by ${voteWords(vote)}`
     if (s.evidence.approver) return `${s.status === 'fail' || s.evidence.decision === 'reject' ? 'Rejected' : 'Approved'} by ${s.evidence.approver}`
   }
   if (s.type === 'tests' && (s.status === 'pass' || s.status === 'fail')) {
@@ -231,6 +236,7 @@ export function receiptOf(s: Step, live = true, awaitingDecision = false): Recei
   const title = stepTitle(s)
   const name = s.name && s.name.toLowerCase() !== title.toLowerCase() ? s.name : undefined
   return {
+    standing: s.type === 'approval' && !!closingVote(s.evidence)?.standing,
     key: `step-${s.id}`, statusLabel: decisionStatus(s, live && awaitingDecision), ...r, title, name, kind: TITLE[s.type] || s.type, brief: brief(s), sentence: sentence(s, live), by: by(s),
     when: fmtStamp(s.finishedAt || s.startedAt), stepId: s.id ?? undefined,
   }
@@ -363,7 +369,7 @@ function Line({ r, to }: { r: Receipt; to: string }) {
         <span className="receipt-state"><Status word={r.statusLabel} /></span>
         <span className="ch-line-what">
           <span className="ch-line-title">{r.title}</span>
-          {r.brief && <span className="ch-line-sentence">{r.brief}</span>}
+          {r.brief && <span className="ch-line-sentence">{r.standing ? <Link to="/janitor">{r.brief}</Link> : r.brief}</span>}
         </span>
         <span className="ch-line-by" />
         <span className="ch-line-when">{r.when}</span>

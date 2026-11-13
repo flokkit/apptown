@@ -105,7 +105,7 @@ describe('pages about the whole AppTown', () => {
     const again = await render(<SidebarNav />)
     const all = () => [...again.el.querySelectorAll('a.nav')].map((a) => a.textContent)
     await vi.waitFor(() => expect(all()).toContain('People'))
-    expect(all()).toEqual(['Home', 'Projects', 'Deployments', 'Conformance', 'Features', 'Ways of working', 'Integrations', 'Services', 'Evals', 'People', 'Usage', 'Docs', 'Complaints'])
+    expect(all()).toEqual(['Home', 'Projects', 'Deployments', 'Conformance', 'Janitor', 'Features', 'Ways of working', 'Integrations', 'Services', 'Evals', 'People', 'Usage', 'Docs', 'Complaints'])
     await act(async () => { (again.el.querySelector('button[aria-label="Open Deployments"]') as HTMLButtonElement).click() })
     expect(all()).toContain('Targets')
     expect(all()).toContain('Backups')

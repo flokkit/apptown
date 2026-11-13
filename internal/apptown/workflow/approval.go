@@ -65,12 +65,13 @@ func (d *ApprovalDecision) UnmarshalJSON(raw []byte) error {
 // standingVote preserves the authority and independently assessed work behind
 // the janitor's decision. Its display attribution grants nothing.
 type standingVote struct {
-	Level            string       `json:"level"`
-	RuleID           ids.ID       `json:"ruleId"`
-	Revision         int64        `json:"revision"`
-	Issuer           access.Actor `json:"issuer"`
-	Means            string       `json:"means"`
-	AssessmentDigest string       `json:"assessmentDigest"`
+	Rule             *standingRuleIdentity `json:"rule,omitempty"`
+	Level            string                `json:"level"`
+	RuleID           ids.ID                `json:"ruleId"`
+	Revision         int64                 `json:"revision"`
+	Issuer           access.Actor          `json:"issuer"`
+	Means            string                `json:"means"`
+	AssessmentDigest string                `json:"assessmentDigest"`
 }
 
 // ApprovalVote is one person's decision on the current round.

@@ -1,3 +1,4 @@
+import { JanitorAttribution } from '../../janitorAttribution'
 import { GoesTo } from './GoesTo'
 import { ListRow } from '../../ListRow'
 import { ListTable } from '../../ListTable'
@@ -58,13 +59,14 @@ export function ChangeHeader({ view, compact }: { view: ChangeView; compact?: bo
     <header className="ch-head">
       <div className="ch-title-row">
         <h1><span className="ch-number">Change #{ch.number}:</span> {changeTitle(ch)}</h1>
- {ch.automatedOrigin && <span className="small muted">Scheduled change</span>}
+ {ch.automatedOrigin && <span className="small muted">Janitor</span>}
         {!compact && <><WaitingStatus waiting={view.waitingOn} changeId={view.change.id} />{advice.text && advice.recommend && <span>{recommendationWords(advice.recommend)}</span>}</>}
         {ch.provenance && <span className="badge" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
       </div>
       {!compact && <div className="ch-byline">
+        {ch.janitor?.ruleId && <><JanitorAttribution rule={ch.janitor.rule!} revision={ch.janitor.ruleRevision} issuer={ch.janitor.issuer.name} /> · </>}
         {[
-          ch.openedBy && `Asked by ${ch.openedBy}`,
+          ch.janitor ? ch.janitor.ruleId ? null : ch.janitor.schedule ? `The janitor, from schedule ${ch.janitor.schedule}` : 'The janitor · origin not recorded' : ch.automatedOrigin ? 'Janitor origin not known' : ch.openedBy && `Asked by ${ch.openedBy}`,
           `Opened ${fmtStamp(ch.createdAt)}`,
           ch.closedAt && `${ch.state === 'abandoned' && !closedNothingToChange(ch.closedAs) ? 'Abandoned' : 'Closed'} ${fmtStamp(ch.closedAt)}`,
           shortDiffstat(view.diffstat),
