@@ -5,6 +5,11 @@
    the row's menu) fits its content; the rest share what is left and wrap. */
 .record-table th, .record-table td { padding: var(--space-2); border-bottom: 1px solid var(--border); min-width: 0; overflow-wrap: anywhere; }
 .record-table .record-fit { width: 1%; white-space: nowrap; }
+/* A note in a fit cell (why a state holds, why an action is unavailable) is
+   a sentence: it wraps instead of widening the column past the page. Its
+   measure keeps a few words to a line and shrinks with the viewport, so two
+   notes in one row still fit a 1024px desktop at large text. */
+.record-table .record-fit .record-note { white-space: normal; min-width: min(12em, 10vw); overflow-wrap: break-word; }
 /* A column of short words (a kind, a state, a project) keeps them whole, so
    a wide neighbour (an image digest, a sentence) cannot squeeze it to a
    letter per line. Other cells may break anywhere, so a long name never
@@ -55,6 +60,8 @@
   /* A fitted column's 1% width is a table rule; in the phone stack it would
      shrink a status to a sliver of its line. */
   .record-table .record-fit { width: auto; white-space: normal; }
+  /* A note's reading measure is for a table column; a stacked row gives it the line. */
+  .record-table .record-fit .record-note { min-width: 0; }
   /* The phone stack spaces its cells apart, so hover colours the whole row,
      not each cell. */
   .record-table tbody tr:hover { background: var(--hover); }

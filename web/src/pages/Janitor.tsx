@@ -22,8 +22,8 @@ function ProjectState({ project: p, data, stale }: { project: JanitorProject; da
   if (stale) return <Status word="unknown" help="The latest refresh failed. This is the last answer read." />
   const hold = data.deployments.find(d => d.projectId === p.projectId && d.hold)?.hold
   return <span className="row row-2">
-    {p.state.unknown ? <Status word="unknown" help={p.state.help} /> : <span className="badge">{p.state.word}</span>}
-    {hold && <span className="badge">{hold.reason === 'release failed' ? `stopped: release ${hold.releaseNumber} to ${hold.displayLabel} failed` : `held back · ${hold.displayLabel}: ${hold.reason}`}</span>}
+    {p.state.unknown ? <Status word="unknown" help={p.state.help} /> : <span className="badge record-note">{p.state.word}</span>}
+    {hold && <span className="badge record-note">{hold.reason === 'release failed' ? `stopped: release ${hold.releaseNumber} to ${hold.displayLabel} failed` : `held back · ${hold.displayLabel}: ${hold.reason}`}</span>}
   </span>
 }
 
@@ -35,8 +35,8 @@ function ScanNow({ project: p, current, reload }: { project: JanitorProject; cur
   return <>
     <button type="button" disabled={!!reason || !current || action.busy} title={reason || undefined}
       onClick={() => action.run(() => post(`/projects/${encodeURIComponent(p.slug)}/schedules/${encodeURIComponent(p.scanWorkflow)}/run`, {}))}>Scan now</button>
-    {reason && <div className="muted">{reason}{p.scanChangeId && <> · <Link to={`/changes/${p.scanChangeId}`}>change #{p.scanChangeNumber}</Link></>}</div>}
-    {action.err && <div className="error">{action.err}</div>}
+    {reason && <div className="muted record-note">{reason}{p.scanChangeId && <> · <Link to={`/changes/${p.scanChangeId}`}>change #{p.scanChangeNumber}</Link></>}</div>}
+    {action.err && <div className="error record-note">{action.err}</div>}
   </>
 }
 
