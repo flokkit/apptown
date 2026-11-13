@@ -90,27 +90,14 @@ it('polls called work and deploy facts inside the same block', async () => {
  } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
 
-it.each(['Accept', 'Continue'])('keeps the decision open after %s through progress and outcome, with Close available', async label => {
- class Observer { observe() {} disconnect() {} }
- vi.stubGlobal('ResizeObserver', Observer)
- HTMLDialogElement.prototype.showModal = function () { this.open = true }
- HTMLDialogElement.prototype.close = function () { this.open = false }
- const el = document.createElement('div'), root = createRoot(el)
- const draw = (active: boolean, progress?: string, outcome?: string) => act(() => root.render(<div className="ch-page"><TurnDecision active={active} actions={[label]} progress={progress && <p>{progress}</p>} outcome={<p>{outcome}</p>}>{label === 'Continue' ? <ContinueDecision busy={false} run={() => {}} /> : <button>{label}</button>}</TurnDecision></div>))
+it('continues inline without opening a dialog', () => {
+ const run = vi.fn(), el = document.createElement('div'), root = createRoot(el)
  try {
-  draw(label === 'Accept')
-  act(() => [...el.querySelectorAll('button')].find(b => b.textContent === (label === 'Accept' ? 'Decide…' : 'Continue'))!.click())
-  const dialog = el.querySelector('dialog')!
-  expect(dialog.open).toBe(true)
-  draw(false, 'Landing — step 3 of 4')
-  expect(dialog.open).toBe(true); expect(dialog.textContent).toContain('Landing — step 3 of 4')
-  draw(false, undefined, 'landed')
-  expect(dialog.open).toBe(true); expect(dialog.textContent).toContain('landed')
-  draw(true, undefined, 'deploy failed')
-  expect(dialog.open).toBe(true); expect(dialog.querySelector('button')).not.toBeNull()
-  act(() => [...dialog.querySelectorAll('button')].find(b => b.textContent === 'Close')!.click())
-  expect(el.querySelector('dialog')?.open ?? false).toBe(false)
- } finally { act(() => root.unmount()); vi.unstubAllGlobals() }
+  act(() => root.render(<TurnDecision active={false}><ContinueDecision busy={false} run={run} /></TurnDecision>))
+  act(() => el.querySelector('button')!.click())
+  expect(run).toHaveBeenCalledOnce()
+  expect(el.querySelector('dialog')).toBeNull()
+ } finally { act(() => root.unmount()) }
 })
 
 // Seed the completed response so rendering must read it, independent of fetch timing.

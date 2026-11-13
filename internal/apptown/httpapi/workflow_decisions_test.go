@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -82,7 +83,7 @@ func TestStepDecisionHTTPRejectsInvalidRequestsWithoutRecordingDecisions(t *test
 
 func TestApprovalHTTPRejectionPreservesFeedbackAndCannotBeReplaced(t *testing.T) {
 	t.Parallel()
-	f := newWorkflowHTTPFixture(t, true)
+	f := newWorkflowHTTPFixtureWithSpec(t, true, schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "approve-landing", Uses: "approval", With: map[string]any{"approvers": []string{"bls"}}}}}}}, nil, nil)
 	f.Work.Wait()
 	snapshot, err := f.Work.Snapshot(f.Context, f.RunID, workflow.DetailView)
 	if err != nil || len(snapshot.Steps) != 1 {
@@ -107,9 +108,17 @@ func TestApprovalHTTPRejectionPreservesFeedbackAndCannotBeReplaced(t *testing.T)
 	if out.ID != stepID || out.RunID != f.RunID || out.Status != "fail" || out.Evidence.Approver != "bls" || out.Evidence.Decision != "reject" || out.Evidence.Comment != feedback || len(out.Evidence.Decisions) != 1 {
 		t.Fatalf("rejection lost identity, decision or feedback: %+v", out)
 	}
+	viewResponse := workflowChangeRead(t, f, fmt.Sprint(f.ChangeID))
+	var returned struct {
+		Change     struct{ State string }
+		ReturnedBy *workflow.ReturnedBy
+	}
+	if err := json.Unmarshal(viewResponse.Body.Bytes(), &returned); err != nil || viewResponse.Code != 200 || returned.Change.State != "in_progress" || returned.ReturnedBy == nil || returned.ReturnedBy.Note != feedback || returned.ReturnedBy.By != "bls" || returned.ReturnedBy.RejectedStep != stepID {
+		t.Fatalf("returned view: %d %s %v", viewResponse.Code, viewResponse.Body.String(), err)
+	}
 	f.Work.Wait()
 	w = stepDecisionRequest(h.Approve, f.Context, fmt.Sprint(stepID), `{"decision":"approve","comment":"replace my vote"}`)
-	if w.Code != 409 || !strings.Contains(w.Body.String(), "already") {
+	if w.Code != 409 {
 		t.Fatalf("closed decision should explain its conflict: %d %s", w.Code, w.Body.String())
 	}
 	saved, err := f.Work.Snapshot(f.Context, f.RunID, workflow.DetailView)

@@ -47,7 +47,6 @@ stops:
     title: Decide
     caption: Priya sees what she's agreeing to before she accepts. AppTown keeps a record of who said yes, and to what.
     path: /changes/{story}
-    click: Decide…
     happy: true
   - id: landed
     title: Accepted

@@ -189,7 +189,7 @@ it.each(['preview', 'review', 'checks'])('opens a shareable %s page with its evi
   f.close()
 })
 
-it('groups checks into one aligned table and keeps full non-applicability reasons technical', async () => {
+it('groups checks into one aligned table and keeps full non-applicability reasons visible', async () => {
   const v = view()
   v.detail!.steps.push(step('scan', 'scan', 'not_applicable', { evidence: { notApplicable: 'Full scan explanation about the absent package.' } }), step('pending', 'script', 'pending'))
   const f = await mount(v)
@@ -199,7 +199,7 @@ it('groups checks into one aligned table and keeps full non-applicability reason
   expect(rows).toHaveLength(3)
   expect(rows.every(r => r.children.length === 4)).toBe(true)
   expect(rows[0].children[2].textContent).toBe('60s')
-  expect(rows[1].textContent).toContain("doesn't apply: no matching part")
+  expect(rows[1].textContent).toContain("doesn't apply: Full scan explanation about the absent package.")
   expect(rows[1].querySelector('.ch-technical[aria-hidden="true"]')).not.toBeNull()
   expect(rows[2].children[1].textContent).toBe('not run')
   await act(async () => f.el.querySelector<HTMLButtonElement>('button.ch-goggles')!.click())

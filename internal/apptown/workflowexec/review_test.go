@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -272,17 +273,16 @@ func TestAppTownsFileCheckFailureIsNotPresentedAsTheReviewers(t *testing.T) {
 func TestTheReviewerIsShownThePersonsSendBackNote(t *testing.T) {
 	t.Parallel()
 	var executor *Executor
-	work, ctx, stepIDs, run, _ := reviewFixtureSteps(t, []schema.Step{{Name: "review", Uses: ReviewKind}, {Name: "accept", Uses: "approval", With: map[string]any{"means": "I would ship this"}}},
+	work, ctx, stepIDs, run, _ := reviewFixtureStages(t, project.Ordinary, []schema.Stage{
+		{Name: "implement", Steps: []schema.Step{{Name: "agent", Uses: "agent/pi"}}},
+		{Name: "review", Steps: []schema.Step{{Name: "review", Uses: ReviewKind}, {Name: "accept", Uses: "approval", With: map[string]any{"means": "I would ship this"}}}},
+	},
 		func(req execution.Request) execution.Outcome {
 			return reviewFile(t, req, `{"verdict":"fail","summary":"the machine's own words","findings":["x"]}`)
 		}, func(e *Executor) { executor = e })
-	brief := func() reviewBrief {
+	brief := func(runID ids.ID) reviewBrief {
 		t.Helper()
-		got, err := work.Step(ctx, stepIDs["review"])
-		if err != nil {
-			t.Fatal(err)
-		}
-		r, err := workflow.ReadRunIn(ctx, executor.db, got.Step.RunID)
+		r, err := workflow.ReadRunIn(ctx, executor.db, runID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -292,18 +292,30 @@ func TestTheReviewerIsShownThePersonsSendBackNote(t *testing.T) {
 		}
 		return b
 	}
-	if b := brief(); strings.Contains(b.request, "SENT THIS WORK BACK") {
+	original, err := work.Step(ctx, stepIDs["review"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b := brief(original.Step.RunID); strings.Contains(b.request, "SENT THIS WORK BACK") {
 		t.Fatalf("no person has sent the work back, yet the request says one did:\n%s", b.request)
 	}
 	run("review")
-	if b := brief(); strings.Contains(b.request, "SENT THIS WORK BACK") || strings.Contains(b.request, "the machine's own words") {
+	if b := brief(original.Step.RunID); strings.Contains(b.request, "SENT THIS WORK BACK") || strings.Contains(b.request, "the machine's own words") {
 		t.Fatalf("a reviewer's verdict was presented as a person's note:\n%s", b.request)
 	}
+	work.Stop()
 	const note = "also upgrade the logging library to 2.x"
 	if _, err := work.Approve(ctx, workflow.Approval{StepID: stepIDs["accept"], Decision: workflow.VoteReject, Comment: note}); err != nil {
 		t.Fatal(err)
 	}
-	if b := brief(); !strings.Contains(b.request, "Review the change") || !strings.Contains(b.request, "SENT THIS WORK BACK") || !strings.Contains(b.request, note+" (— reviewer)") {
+	change, err := work.Change(ctx, original.Run.ChangeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if change.RunID.IsZero() || change.RunID == original.Step.RunID {
+		t.Fatalf("send-back did not continue the work: %+v", change)
+	}
+	if b := brief(change.RunID); !strings.Contains(b.request, "Review the change") || !strings.Contains(b.request, "SENT THIS WORK BACK") || !strings.Contains(b.request, note+" (— reviewer)") {
 		t.Fatalf("the person's note is not part of the request:\n%s", b.request)
 	}
 }

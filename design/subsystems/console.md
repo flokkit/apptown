@@ -189,7 +189,10 @@ is the catch-up to do. When a landing merges main into the change itself,
 the chat is told once, and told how to take the merge when its folder could
 not. A chat that cannot be told fails that job,
 where the failure is kept. `apptown wait -c` reads the same `Ending` when no run
-is going. The briefing does not state the change's state: it is written once
+is going. A new change chat's briefing includes the workflow owner's latest
+`returnedBy` note in full, with who sent it back, while no later landing or
+agent round has started. It does not post feedback into an already open chat.
+The briefing does not state the change's state: it is written once
 at opening and would go stale, so the chat queries AppTown instead.
 
 ## Retention and recovery

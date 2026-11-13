@@ -3,13 +3,15 @@ package workflow
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
-
-	"github.com/flokkit/apptown/internal/ids"
+	"errors"
 
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 type stepDecisionStore struct {
@@ -82,13 +84,27 @@ func (s stepDecisionStore) override(ctx context.Context, expected stepDecisionSn
 }
 
 type stepApprovalResult struct {
-	step   *Step
-	rework reworkedResult
+	step     *Step
+	rework   reworkedResult
+	returned retried
 }
 
 // approve records a vote. accepted is the commit an acceptance was given
 // on; a vote in a checked landing is bound to its candidate instead.
-func (s stepDecisionStore) approve(ctx context.Context, expected stepDecisionSnapshot, who string, request Approval, alsoApproves []string, accepted string, adds *ChangeAdds) (stepApprovalResult, error) {
+func (s stepDecisionStore) approve(ctx context.Context, expected stepDecisionSnapshot, who string, request Approval, alsoApproves []string, accepted string, adds *ChangeAdds, sendbacks sendBackStore, landingBy string) (stepApprovalResult, error) {
+	var closure *scm.Closure
+	if request.Decision == VoteReject {
+		_, err := workflowsql.New(s.db.SQL()).StageAgentForUpdate(ctx, workflowsql.StageAgentForUpdateParams{RunID: expected.scope.RunID, Stage: expected.stage})
+		if errors.Is(err, sql.ErrNoRows) {
+			closure, err = scm.PrepareClosure(ctx, sendbacks.abandonments.locks, expected.scope.ProjectID)
+			if err != nil {
+				return stepApprovalResult{}, err
+			}
+			defer closure.Close()
+		} else if err != nil {
+			return stepApprovalResult{}, err
+		}
+	}
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (stepApprovalResult, error) {
 		run, step, err := expected.lock(ctx, tx)
 		if err != nil {
@@ -114,7 +130,22 @@ func (s stepDecisionStore) approve(ctx context.Context, expected stepDecisionSna
 		if err != nil {
 			return stepApprovalResult{}, err
 		}
+		var returned retried
+		if request.Decision == VoteReject {
+			_, agentErr := workflowsql.New(tx.SQL()).StageAgentForUpdate(ctx, workflowsql.StageAgentForUpdateParams{RunID: run.ID, Stage: step.Stage})
+			if errors.Is(agentErr, sql.ErrNoRows) {
+				if closure == nil {
+					return stepApprovalResult{}, errStepDecisionConflict
+				}
+				returned, err = sendbacks.sendBackIn(ctx, tx, closure, run.ChangeID, request.Comment, who, landingBy, run.ProjectID, expected.scope.ProjectID, step.ID)
+				if err != nil {
+					return stepApprovalResult{}, err
+				}
+			} else if agentErr != nil {
+				return stepApprovalResult{}, agentErr
+			}
+		}
 		updated, err := stepResult(workflowsql.New(tx.SQL()).StepByID(ctx, step.ID))
-		return stepApprovalResult{updated, result}, err
+		return stepApprovalResult{updated, result, returned}, err
 	})
 }

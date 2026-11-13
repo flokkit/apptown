@@ -37,6 +37,9 @@ func readChangeInProject(ctx context.Context, db database.Queryer, id ids.ID, pr
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, missingChange{id}
 	}
+	if err == nil {
+		ch.ReturnedBy, err = returnedByIn(ctx, db, ch)
+	}
 	return ch, err
 }
 

@@ -129,6 +129,7 @@ type requestSummary struct {
 }
 
 type Change struct {
+	ReturnedBy           *ReturnedBy         `json:"-"`
 	Janitor              *janitorAttribution `json:"janitor,omitempty"`
 	AutomatedOrigin      bool                `json:"automatedOrigin"`
 	ChatRequest          bool                `json:"chatRequest,omitempty"`

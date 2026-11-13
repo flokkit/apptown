@@ -237,6 +237,11 @@ do not hide them behind a new exported fixture API or silently weaken them.
 
 ## Stop work at the merge boundary
 
+Rejecting an approval with no stage agent ignores its bound ancestor calls
+waiting on that workflow when checking for running work. Other running steps
+still refuse send-back. The vote, send-back receipt and abandonment share one
+transaction.
+
 `Abandon` and `SendBack` acquire SCM's repository lock before opening their
 transaction. Under the project row lock, they check every run of the change
 against SCM's durable intents. Pending intent requires inspection; a recorded

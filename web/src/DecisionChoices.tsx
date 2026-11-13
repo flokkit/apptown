@@ -1,6 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
-
-export const DecisionContextOnly = createContext(false)
+import { useState, type ReactNode } from 'react'
 
 // Keep the offered choices equal in size, with full rows at each width.
 export function DecisionGrid({ children }: { children: ReactNode }) {
@@ -21,15 +19,13 @@ export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, 
 }) {
   const [mode, setMode] = useState<'choices' | 'comment' | 'abandon' | 'reason'>('choices')
   const [reason, setReason] = useState('')
-  const contextOnly = useContext(DecisionContextOnly)
-  if (contextOnly) return null
   return <>
     <div className="ch-decision-slot">
     {mode === 'comment' ? <div className="ch-send-back">
       <h3>What should change?</h3>
       <textarea className="prose" rows={2} autoFocus aria-label="What should change?" value={note} onChange={e => setNote(e.target.value)} />
       <div className="row">
-        <button className="primary" disabled={busy || !note.trim()} onClick={rework?.run}>Send to agent</button>
+        <button className="primary" disabled={busy || !note.trim()} onClick={rework?.run}>Send back</button>
         <button disabled={busy} onClick={() => setMode('choices')}>Cancel</button>
       </div>
     </div> : mode === 'abandon' ? <div className="ch-inline-confirm">
@@ -57,7 +53,6 @@ export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, 
     </DecisionGrid>}
     </div>
     {showConversation && conversation && !chat && <p>Want to talk it through first? <a href={conversation.href} onClick={e => {
-      e.currentTarget.closest('dialog')?.close()
       if (conversation.run) { e.preventDefault(); conversation.run() }
     }}>Open the conversation →</a></p>}
   </>

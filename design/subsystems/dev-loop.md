@@ -70,7 +70,7 @@ prose as `failure-advice`, named `step-<id>-attempt-<n>`. Every read checks the
 recommendation against current offered acts for that check. Missing models,
 failed calls or failed persistence may allow a later build.
 
-The decision screen leads with “AppTown's summary”, then the recorded words, and
+The inline decision card keeps “AppTown's summary” beside the recorded words and
 highlights the recommended act. The change head keeps the shared factual `says`
 beside the recommendation. Without advice, existing wording and highlighting
 remain. Advice never changes the check result or decides for the person.
@@ -83,6 +83,16 @@ title and a newer summary. No model leaves the summary unchanged; errors retain
 the existing failure behavior. “What was made” shows the summary. Without one,
 “The agent says” shows the agent's report with self-reported “Verified with …”
 lines removed. Identifier underscores are preserved.
+
+A person rejects an approval through the approval operation. With an agent in
+its stage, the existing rework resumes that agent. Without one, rejection joins
+the change send-back transaction: the landing stops and its working agent
+continues with the note, or the change returns to its person in progress.
+The rejection retains its vote, actor and credential; the `change.sendback`
+receipt separately names the rejected approval. This grants no independent
+change send-back or landing authority. The change's `returnedBy` reading keeps
+the receipt's full note until another landing or agent round starts; web,
+CLI show/wait and new change-chat briefings share that reading.
 
 ## Implementation references
 

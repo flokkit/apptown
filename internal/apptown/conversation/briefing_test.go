@@ -122,3 +122,12 @@ func TestAChatsRulesAndSkillsComeFromOneSelection(t *testing.T) {
 		t.Errorf("files: %v", files)
 	}
 }
+
+func TestChangeBriefingCarriesTheFullSendBackRecord(t *testing.T) {
+	steering := NewBriefing(nil, nil, BriefingConfig{DataDir: t.TempDir()})
+	note := strings.Repeat("Keep this detail. ", 50)
+	text, err := steering.change(&workflow.Change{ID: idstest.N(7), Title: "heading", ReturnedBy: &workflow.ReturnedBy{By: "alice", Note: note}})
+	if err != nil || !strings.Contains(text, "Sent back by alice: "+note) {
+		t.Fatalf("send-back briefing: %s %v", text, err)
+	}
+}

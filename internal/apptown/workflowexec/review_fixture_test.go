@@ -23,6 +23,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/usage"
+	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
@@ -126,7 +127,14 @@ func reviewFixtureSteps(t *testing.T, steps []schema.Step, process reviewProcess
 // reviewFixtureFor is reviewFixtureSteps in a project made with purpose.
 func reviewFixtureFor(t *testing.T, purpose project.Purpose, steps []schema.Step, process reviewProcess, adjust func(*Executor), preview ...workflow.Runner) (*workflow.Service, context.Context, map[string]ids.ID, func(string), *usage.Ledger) {
 	t.Helper()
-	boot := slices.ContainsFunc(steps, func(s schema.Step) bool { return s.Uses == "preview" })
+	return reviewFixtureStages(t, purpose, []schema.Stage{{Name: "work", Steps: steps}}, process, adjust, preview...)
+}
+
+func reviewFixtureStages(t *testing.T, purpose project.Purpose, stages []schema.Stage, process reviewProcess, adjust func(*Executor), preview ...workflow.Runner) (*workflow.Service, context.Context, map[string]ids.ID, func(string), *usage.Ledger) {
+	t.Helper()
+	boot := slices.ContainsFunc(stages, func(stage schema.Stage) bool {
+		return slices.ContainsFunc(stage.Steps, func(s schema.Step) bool { return s.Uses == "preview" })
+	})
 	db := databaseSuite.New(t)
 	dir := t.TempDir()
 	directory := identity.New(db, identity.Config{Projects: project.NewCatalogue(db)})
@@ -151,7 +159,7 @@ func reviewFixtureFor(t *testing.T, purpose project.Purpose, steps []schema.Step
 	if adjust != nil {
 		adjust(executor)
 	}
-	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: steps}}}
+	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: stages}
 	runners := map[string]workflow.Runner{ReviewKind: executor.Review, "preview": func(task *workflow.Execution) {
 		if _, err := task.Claim(); err != nil {
 			t.Error(err)
@@ -171,8 +179,20 @@ func reviewFixtureFor(t *testing.T, purpose project.Purpose, steps []schema.Step
 		Resolve: func(_ context.Context, _ workflow.StartRequest, source workflow.StartSource) (workflow.PreparedRun, error) {
 			return workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "review", Version: 1}, Spec: spec, AdoptionID: source.AdoptionID}, nil
 		},
-		Automatic: []string{ReviewKind, "preview"},
+		Abandonment: noEffects{},
+		Laws:        noLaws{},
+		Merge:       workcommands.LandingEffects{DB: db, DataDir: dir},
+		Automatic:   []string{ReviewKind, "preview", "agent/pi"},
 		Runners: map[string]workflow.Runner{
+			"agent/pi": func(task *workflow.Execution) {
+				if _, err := task.Claim(); err != nil {
+					t.Error(err)
+					return
+				}
+				if err := task.Finish(workflow.StepOutcome{Status: workflow.StatusPass}, nil); err != nil {
+					t.Error(err)
+				}
+			},
 			ReviewKind: func(task *workflow.Execution) {
 				if armed {
 					runners[ReviewKind](task)

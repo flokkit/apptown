@@ -337,7 +337,7 @@ func TestAbandonmentCleanupSurvivesRestartAndRetries(t *testing.T) {
 
 func TestAbandonmentFailureStopsSendBack(t *testing.T) {
 	t.Parallel()
-	for _, action := range []string{"send back"} {
+	for _, action := range []string{"send back", "reject"} {
 		t.Run(action, func(t *testing.T) {
 			working := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "agent", Uses: "agent/pi"}}}}}
 			landing := workflow.PreparedRun{
@@ -387,12 +387,29 @@ func TestAbandonmentFailureStopsSendBack(t *testing.T) {
 				t.Fatalf("landing run: %+v %v", landingSnapshot, err)
 			}
 			gate := landingSnapshot.Steps[0].ID
-			if _, err := a.Work.Approve(ctx, workflow.Approval{StepID: gate, Decision: workflow.VoteReject, Comment: "try again"}); err != nil {
-				t.Fatal(err)
-			}
+			// The pending landing approval holds the run without any rejection.
+			// Rejection now performs send-back itself, so fault that command too.
 			dbtest.FailNextStatement(t, a.DB, "INSERT INTO audit_log")
-			if _, err := a.Work.SendBack(asPerson("alice"), workflow.SendBack{ChangeID: ch.ID, Note: "try again"}); err == nil {
+			if action == "reject" {
+				_, err = a.Work.Approve(ctx, workflow.Approval{StepID: gate, Decision: workflow.VoteReject, Comment: "try again"})
+			} else {
+				_, err = a.Work.SendBack(asPerson("alice"), workflow.SendBack{ChangeID: ch.ID, Note: "try again"})
+			}
+			if err == nil {
 				t.Fatal("send back survived failure")
+			}
+			step := readStep(t, a, gate)
+			evidence, err := workflow.ReadApprovalEvidence(step.Evidence)
+			if err != nil || step.Status != workflow.StatusPending || len(evidence.Decisions) != 0 || evidence.LastRejection != nil {
+				t.Fatalf("failed send-back retained a vote: %+v %+v %v", step, evidence, err)
+			}
+			if n := runEventCount(t, a, root.ID, "run.abandoned"); n != 0 {
+				t.Fatalf("failed send-back retained %d abandonment events", n)
+			}
+			for _, kind := range []string{"change.sendback", "run.abandoned"} {
+				if n := len(ledgerEntries(t, a, ids.Nil, kind)); n != 0 {
+					t.Fatalf("failed send-back retained %d %s receipts", n, kind)
+				}
 			}
 
 			requireRunStatus(t, a, workflow.RunRunning, root.ID)

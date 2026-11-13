@@ -1656,6 +1656,30 @@ func (q *Queries) TransitionRun(ctx context.Context, arg TransitionRunParams) (i
 	return result.RowsAffected()
 }
 
+const workStartedAfterReturn = `-- name: WorkStartedAfterReturn :one
+SELECT EXISTS (
+ SELECT 1 FROM runs r WHERE r.project_id=$1 AND r.change_id=$2
+ AND ((r.definition_json @> '{"role":"landing"}' AND r.id>$3)
+ OR EXISTS (SELECT 1 FROM run_events e WHERE e.run_id=r.id AND e.id>$3
+ AND e.kind='step.started' AND e.payload_json @> '{"type":"agent/pi"}'))
+)
+`
+
+type WorkStartedAfterReturnParams struct {
+	ProjectID ids.ID
+	ChangeID  ids.ID
+	ReceiptID ids.ID
+}
+
+// A return-to-work receipt describes now only until a later landing or agent
+// round begins. Run and event IDs retain ordering within the same clock tick.
+func (q *Queries) WorkStartedAfterReturn(ctx context.Context, arg WorkStartedAfterReturnParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, workStartedAfterReturn, arg.ProjectID, arg.ChangeID, arg.ReceiptID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const workflowActivity = `-- name: WorkflowActivity :many
 WITH RECURSIVE activity_tree(id,project_id,parent_run_id,parent_step_id,parent_step_attempt,status,current_stage) AS (
 SELECT seed.id,seed.project_id,seed.parent_run_id,seed.parent_step_id,seed.parent_step_attempt,seed.status,seed.current_stage FROM runs seed WHERE seed.id=ANY($2::uuid[])

@@ -116,7 +116,7 @@ describe('held runs offer recovery rather than an approval', () => {
       expect(document.activeElement).toBe(el.querySelector('textarea'))
       await click('Cancel')
       expect(el.querySelector('.ch-decision-choices')!.innerHTML).toBe(initial)
-      await click('Send back…'); await click('Send to agent')
+      await click('Send back…'); await click('Send back')
       expect(sent.pop()).toEqual({ url: `/api/v1/changes/${CHANGE}/sendback`, body: { note: recoveryNote(v.detail!) } })
       await click('Cancel')
       await click('Accept anyway')
@@ -133,7 +133,7 @@ describe('held runs offer recovery rather than an approval', () => {
       expect(sent.pop()).toEqual({ url: '/api/v1/projects/fieldnotes/console', body: { changeId: CHANGE, continueStep: 'agent' } })
       // A rework-only offer uses the existing step-run feedback contract.
       v.next = []
-      await draw(); await click('Send back…'); await click('Send to agent')
+      await draw(); await click('Send back…'); await click('Send back')
       expect(sent.pop()).toEqual({ url: '/api/v1/steps/agent/run', body: { feedback: recoveryNote(v.detail!) } })
       await click('Cancel')
       v.detail!.next = [{ act: 'retry', stepId: 'review' }] as ChangeView['next']

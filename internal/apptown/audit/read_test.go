@@ -77,3 +77,19 @@ func TestRecentFilters(t *testing.T) {
 		t.Fatalf("empty reading: %v %v", err, none)
 	}
 }
+
+// A bounded latest reading selects the complete subject family before its
+// limit; change 12 must never select change 123 or be crowded out by it.
+func TestRecentSubjectFamilyFiltersBeforeTheLimit(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	for _, subject := range []string{"change 12", "change 12 run 4", "change 123"} {
+		if err := audit.At(time.Now()).Record(t.Context(), db, "alice", ids.Nil, "change.sendback", subject, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rows, err := audit.Recent(t.Context(), db, audit.Filter{SubjectFamily: "change 12", KindPrefix: "change.sendback", Limit: 1})
+	if err != nil || len(rows) != 1 || rows[0].Subject != "change 12 run 4" {
+		t.Fatalf("family: %+v %v", rows, err)
+	}
+}

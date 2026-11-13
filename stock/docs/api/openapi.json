@@ -1442,6 +1442,16 @@
           "report": {
             "type": "string"
           },
+          "returnedBy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReturnedBy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "runs": {
             "items": {
               "$ref": "#/components/schemas/ChangeRunSummary"
@@ -6297,6 +6307,32 @@
         "required": [
           "state",
           "updatedAt"
+        ],
+        "type": "object"
+      },
+      "ReturnedBy": {
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "by": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "rejectedStep": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "by",
+          "at",
+          "note"
         ],
         "type": "object"
       },

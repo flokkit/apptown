@@ -187,7 +187,7 @@ const trailFixture = await build({
 })
 // Overlays on a phone: help and status details open as sized dialogs, row
 // menus keep their place and close when their control scrolls away, dialog
-// buttons and the close button stay on screen, and Decide is a bottom bar.
+// buttons and the close button stay on screen. Change decisions stay inline.
 // window.overlayCase picks one scene so only one dialog is open at a time.
 const overlayFixture = await build({
   absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
@@ -207,7 +207,7 @@ const overlayFixture = await build({
     const scenes = {
       page: <>
         <div className="page-head"><div className="page-head-row"><h1>Things</h1><HelpButton about="Things" guide="things"><p>What things are.</p></HelpButton></div></div>
-        <p><Status word="unknown" help="No runtime reading." /></p>
+        <div><Status word="unknown" help="No runtime reading." /></div>
         <LibraryRows><LibraryRow name="A policy with a name" purpose="What it is for." to="/policies/one" menu={<MoreMenu label="Policy" items={[{label:'Copy',hint:'Make your own copy',onClick:()=>{}}]} />} /></LibraryRows>
         <div style={{height: 3000}} />
       </>,
@@ -215,8 +215,8 @@ const overlayFixture = await build({
       'modal-long': <Modal title="Restore Production from a backup" onClose={()=>{}} actions={<><button className="danger">Restore</button><button>Cancel</button></>}>{copies}</Modal>,
       'modal-search': <Modal title="New integration" onClose={()=>{}} head={<input placeholder="Search…" aria-label="search" style={{ width: 220 }} />}><p>Tiles.</p></Modal>,
       'modal-tabs': <Modal title={<h2>GitLab docs</h2>} onClose={()=>{}} head={<Tabs className="tabs"><button className="tab active">Developer</button><button className="tab">Admin</button></Tabs>}><p>Docs.</p></Modal>,
-      decide: <div className="ch-page">{Array.from({length: 40}, (_, i) => <p key={i}>Line {i} of the change.</p>)}<p id="last-line">The last line of the change.</p>
-        <TurnDecision active actions={['approve']}><p>Accept this change?</p></TurnDecision></div>,
+      decision: <div className="ch-page"><TurnDecision active><p>Accept this change?</p><div className="ch-decision-choices"><button>Accept</button><button>Send back</button></div></TurnDecision>
+        {Array.from({length: 40}, (_, i) => <p key={i}>Line {i} of the change.</p>)}<p id="last-line">The last line of the change.</p></div>,
     }
     createRoot(document.getElementById('root')).render(<MemoryRouter><Where /><main style={{padding: 12}}>{scenes[window.overlayCase]}</main></MemoryRouter>)
   ` },
@@ -702,15 +702,22 @@ try {
       const titleBox = await dialog.locator('.modal-title').boundingBox()
       assert.ok(titleBox.width >= 120, `${scene}: the title keeps its width beside the ✕ at ${size}: ${JSON.stringify(titleBox)}`)
     }
-    await overlay('decide', size)
-    const bar = page.locator('.ch-turn-floater')
-    await bar.waitFor()
-    const barLook = await bar.evaluate(el => { const r = el.getBoundingClientRect(); return { left: r.left, width: r.width, background: getComputedStyle(el).backgroundColor } })
-    assert.ok(barLook.left <= 0.5 && barLook.width >= 389.5 && barLook.background !== 'rgba(0, 0, 0, 0)', `Decide is an opaque full-width bar at ${size}: ${JSON.stringify(barLook)}`)
+    await overlay('decision', size)
+    const card = page.locator('#decision')
+    await card.waitFor()
+    const cardLook = await card.evaluate(el => {
+      const r = el.getBoundingClientRect(), column = el.parentElement.getBoundingClientRect()
+      return { left: r.left, right: r.right, width: r.width, columnLeft: column.left, columnRight: column.right, position: getComputedStyle(el).position }
+    })
+    assert.ok(cardLook.left >= cardLook.columnLeft && cardLook.right <= cardLook.columnRight + 0.5 && cardLook.width > 300, `the inline decision fits the content column at ${size}: ${JSON.stringify(cardLook)}`)
+    assert.equal(cardLook.position, 'static', `the decision stays in the page flow at ${size}`)
+    for (const name of ['Accept', 'Send back']) assert.ok(inView(await card.getByRole('button', { name, exact: true }).boundingBox()), `${name} fits the inline card at ${size}`)
+    assert.equal(await page.getByRole('dialog').count(), 0, `the decision is inline at ${size}`)
+    if (out) await page.screenshot({ path: `${out}/inline-decision-390-${size}.png` })
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-    const [last, barBox] = await Promise.all([page.locator('#last-line').boundingBox(), bar.boundingBox()])
-    assert.ok(last.y + last.height <= barBox.y + 0.5, `the last line scrolls clear of the Decide bar at ${size}: ${JSON.stringify({ last, barBox })}`)
-    if (out) await page.screenshot({ path: `${out}/overlay-decide-390-${size}.png` })
+    const last = await page.locator('#last-line').boundingBox()
+    assert.ok(inView(last), `the last line can scroll fully into view at ${size}: ${JSON.stringify(last)}`)
+    assert.ok((await card.boundingBox()).y < 0, `the decision scrolls with the page at ${size}`)
   }
   // Wide screens keep the help popover.
   await overlay('page', 'small', 1440)
@@ -962,6 +969,7 @@ try {
   // The drawer has one spacer: the one inside SidebarNav, before its foot.
   want(!/<SidebarNav \/>\s*<div className="spacer" \/>/.test(app), 'the drawer has no second spacer after SidebarNav')
   assert.deepEqual(misses, [], 'phone round 3')
+  assert.deepEqual(consoleLines.filter(line => line.includes('validateDOMNesting')), [], 'layout fixtures use valid HTML nesting')
   console.log('layout: label fixtures, rows, disclosures and phone composer passed')
 } catch (error) {
   // A step that timed out says whether the page itself was stuck (a script
