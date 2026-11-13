@@ -94,6 +94,56 @@ func TestCancellationStopsLocalChildren(t *testing.T) {
 	}
 }
 
+// A canceled run returns within the bound on its output even when a process
+// that left the run's group still holds that output: killing the group does
+// not reach it, and without the bound the run waits until it lets go. Not
+// parallel: it sets the bound.
+func TestACanceledRunReturnsWhileAnEscapedChildHoldsItsOutput(t *testing.T) {
+	bound := pipeWait
+	pipeWait = 100 * time.Millisecond
+	t.Cleanup(func() { pipeWait = bound })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// The child starts a group of its own (setpgrp) and keeps the shell's
+	// stdout; the shell prints its pid and waits.
+	req := shell(`perl -e 'setpgrp(0, 0); exec @ARGV' sleep 300 & printf '%s\n' $!; wait`)
+	req.Timeout = time.Minute
+	var escaped atomic.Int64
+	var left atomic.Bool
+	req.OnLine = func(line string) {
+		pid, err := strconv.Atoi(strings.TrimSpace(line))
+		if err != nil {
+			return
+		}
+		escaped.Store(int64(pid))
+		// Cancel only once the child has left the group, so that killing
+		// the group cannot reach it.
+		left.Store(poll.Until(context.Background(), 5*time.Second, 10*time.Millisecond, func() bool {
+			group, err := syscall.Getpgid(pid)
+			return err == nil && group == pid
+		}))
+		cancel()
+	}
+	t.Cleanup(func() {
+		if pid := int(escaped.Load()); pid > 0 {
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+		}
+	})
+	done := make(chan Outcome, 1)
+	go func() { done <- (Runner{}).Run(ctx, Local, req) }()
+	select {
+	case out := <-done:
+		if !left.Load() {
+			t.Fatal("the shell's child never left its group")
+		}
+		if out.Termination != Canceled {
+			t.Fatalf("canceled outcome: %+v", out)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("a canceled run held its caller while an escaped child held its output")
+	}
+}
+
 // A command that succeeded is reported as exiting 0 with all of its output,
 // however far its reader falls behind: OnLine may record each line, and on a
 // loaded machine the goroutine copying output can run long after the process
