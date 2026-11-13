@@ -216,7 +216,7 @@ func (s StandingRules) assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 		return out, err
 	}
 
-	selected := rule.Question.Definition.Scope == "instance" && slices.ContainsFunc(rule.Question.Definition.Schedules, func(sc standingSchedule) bool { return sc.Workflow == first.source.WorkflowName })
+	selected := rule.Question.Definition.Scope == "instance" && pinsWorkflow(rule, first.source.WorkflowName)
 	for _, p := range rule.Question.Definition.Projects {
 		if p.ProjectID == first.source.ProjectID && p.Workflow == first.source.WorkflowName {
 			selected = true
@@ -321,7 +321,7 @@ func (s StandingRules) assessmentAdoption(ctx context.Context, observed standing
 	if err != nil {
 		return nil, err
 	}
-	if len(origin) != 1 || origin[0].Queue != "packs" || origin[0].RuleID.IsZero() {
+	if len(origin) != 1 || origin[0].RuleID.IsZero() {
 		return nil, fault.New(fault.Conflict, "standing pack adoption needs a Change opened from a finished what-if")
 	}
 	if ch.TargetAdoptionID.IsZero() || s.deps.Adoptions == nil {

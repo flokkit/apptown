@@ -207,7 +207,7 @@ func appRoutes(a *App) []routeSpec {
 		workflowCatalog = httpapi.NewWorkflowCatalog(a.DB, a.Ways)
 		projectManifest = httpapi.NewProjectManifest(a.Projects, a.Adoption, a.DB, a.cfg.dataDir, a.Secrets)
 		projectWorkflows = httpapi.NewProjectWorkflows(a.Projects, a.Adoption, a.Work, a.DB)
-		janitor = httpapi.NewJanitor(a.Work, a.standingRules, a.Deployment, a.cfg.clock.Now)
+		janitor = httpapi.NewJanitor(changeactions.Schedules{Standing: &a.standingRules, Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}, a.Work, a.standingRules, a.Deployment, a.cfg.clock.Now)
 		projectScans = httpapi.NewProjectScans(a.Projects, a.Work, a.standingRules, a.Deployment)
 		projectSchedules = httpapi.NewProjectSchedules(a.Projects, changeactions.Schedules{Standing: &a.standingRules, Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}, a.cfg.clock.Now)
 		runProgress = httpapi.NewRunProgress(a.Work, &a.progress)

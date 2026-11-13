@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"net/http/httptest"
 	"strings"
@@ -75,20 +74,7 @@ func TestLibraryCatalogReadsDoNotGrowWithWorkflowCount(t *testing.T) {
 			t.Fatalf("catalog mixed workflow versions: %+v", wf)
 		}
 	}
-	for _, version := range []int{0, 1, 2} {
-		counted.reads = 0
-		gotVersion, yaml, err := wow.WorkflowVersionIn(t.Context(), counted, "wf-00", version)
-		wantVersion, wantYAML := 2, declaration("wf-00", "current")
-		if version == 1 {
-			wantVersion, wantYAML = 1, declaration("wf-00", "original")
-		}
-		if err != nil || counted.reads != 1 || gotVersion != wantVersion || yaml != wantYAML {
-			t.Fatalf("version %d: got %d %q in %d reads: %v", version, gotVersion, yaml, counted.reads, err)
-		}
-	}
-	if _, _, err := wow.WorkflowVersionIn(t.Context(), db, "wf-00", 99); !errors.Is(err, sql.ErrNoRows) {
-		t.Fatalf("missing historical version silently fell back: %v", err)
-	}
+
 }
 
 func TestWorkflowLibraryDoesNotClaimEveryProjectUsesEveryWorkflow(t *testing.T) {

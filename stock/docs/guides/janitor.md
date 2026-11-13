@@ -6,8 +6,8 @@ has landed. Nothing runs until a person grants permission.
 
 ## What it may change
 
-**Dependency updates** cover weekly patch and minor updates, or nightly updates
-including major versions. Security fixes run on their own daily schedule within
+**Dependency updates** cover routine patch and minor updates, or aggressive updates
+including major versions. Security fixes run on their adopted workflow’s schedule within
 the same version limits. Neither level changes language versions or base images.
 **Keep packs current** moves projects to newly published pack versions and makes
 any application changes those updates need.
@@ -31,7 +31,7 @@ person; a missing or unknown check never counts as success.
 Security fixes, dependency updates and pack updates have separate failure counts.
 Each queue shows its workflow version, repair limit and stop rule once. Projects
 are listed where they use different adopted versions. Current stopped queues
-appear with the project's state. Stopping weekly updates leaves security
+appear with the project's state. Stopping dependency updates leaves security
 fixes able to run unless their own failure count has also stopped them.
 
 A failed release, uncertain release progress or a rollback holds the project
@@ -48,12 +48,12 @@ next dependency update and recorded level. Missing scans and old scans stay
 visible; neither means the project is up to date. Findings confined to running
 images have their own count: the janitor does not update base images yet.
 
-**Scan now** runs the project's daily scan straight away, as the schedule would:
+**Scan now** runs the project's target-discovering scan straight away, as its schedule would:
 the Change is the janitor's, under the same approval, and AppTown records who
 asked. It needs permission to open and start work in the project. It is greyed,
 with the reason beside it, while a scan or security fix is running, when the
 janitor is off or waiting for approval, or when the project has not adopted the
-scan. The next daily scan follows its schedule from then.
+scan. The next scan follows its declared schedule from then.
 
 **Last 7 days** lists landed Changes, package moves or pack versions and the
 releases that contain them. Each Change links to its checks and approval.
@@ -61,3 +61,9 @@ releases that contain them. Each Change links to its checks and approval.
 the person who granted the original approval and its revision, on the Janitor page and on the Change itself. Work without a
 covering approval names its schedule instead. History does not replace the
 current deployment or scan evidence.
+
+The approval sentence shows the current published workflows' titles, cadence in
+UTC and repair limits. It authorizes what each project's adopted packs declare;
+new values apply when the project adopts a newer pack version. The Next update
+column and Scan now action read the scheduler's current answer. Queue and
+procedure labels come from the adopted workflows' titles.

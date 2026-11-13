@@ -44,14 +44,10 @@ func (h ProjectScans) List(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	queues := []workflow.QueueStatus{}
-	for _, queue := range []string{"security", "updates", "packs"} {
-		state, err := h.work.QueueState(r.Context(), p.ID, queue)
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		queues = append(queues, state)
+	queues, err := h.work.Queues(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
 	}
 	standing, err := h.standing.ProjectState(r.Context(), p.ID)
 	if err != nil {

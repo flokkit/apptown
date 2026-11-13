@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -17,6 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/stock"
 )
 
 func janitorReadFixture(t *testing.T) (*Service, *StandingRules, context.Context, string) {
@@ -29,10 +31,24 @@ func janitorReadFixture(t *testing.T) (*Service, *StandingRules, context.Context
 	projects := project.New(s.db, identity.Scoped(directory, "project"))
 	auth := access.Checked{Authority: directory, Projects: projects}
 	s.checked = auth
-	rules := NewStandingRules(s.db, StandingDependencies{Authority: auth, Identity: directory, Procedures: &standingProcedureFixture{means: "accept qualified changes"}, Portfolio: &standingPortfolioFixture{}})
+	rules := NewStandingRules(s.db, StandingDependencies{Authority: auth, Identity: directory, Procedures: &standingProcedureFixture{means: "accept qualified changes"}, Publications: &standingProcedureFixture{}, Portfolio: &standingPortfolioFixture{}})
 	s.standing = &rules
 	principal := testAdmittedPrincipal(t, directory, "boss")
 	ctx := stepVerifiedContext(t.Context(), principal)
+	s.janitorDefinitions = janitorReadDefinitions{}
+	visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt := adoption.EmptyReceipt()
+	for _, name := range []string{"janitor-scan", "janitor-update", "janitor-adopt", "janitor-fix"} {
+		receipt.Workflows = append(receipt.Workflows, adoption.ReceiptWorkflow{Name: name, Version: 1})
+	}
+	if err := s.db.InTx(ctx, func(tx *database.Tx) error {
+		return adoption.RecordIn(ctx, tx, visible[0], 1, adoption.AdoptionCreate, "fixture", receipt, "boss", time.Now())
+	}); err != nil {
+		t.Fatal(err)
+	}
 	return s, &rules, ctx, repo
 }
 
@@ -79,7 +95,7 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	pid := idsVisible[0]
-	in := StandingDefinition{Scope: "instance", Schedules: []standingSchedule{{Workflow: "janitor-update", Crons: map[string]string{"routine": "0 6 * * 1", "aggressive": "0 6 * * *"}}, {Workflow: "janitor-scan", Crons: map[string]string{"routine": "0 5 * * *", "aggressive": "0 5 * * *"}}}, Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
 	rule := enableStanding(t, *rules, ctx, in)
 	if _, err := rules.deps.Identity.EnsurePerson(t.Context(), "reader"); err != nil {
 		t.Fatal(err)
@@ -111,7 +127,7 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("rows=%+v", rows)
 	}
-	byID := map[ids.ID]janitorProject{}
+	byID := map[ids.ID]JanitorProject{}
 	for _, p := range rows {
 		byID[p.ProjectID] = p
 	}
@@ -123,7 +139,7 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 	if stopped.Queues[1].State != "stopped" || stopped.Queues[0].Stopped() {
 		t.Fatalf("queues=%+v", stopped.Queues)
 	}
-	if !strings.Contains(strings.Join(stopped.QueueSentences, " "), "Weekly updates stopped after 3 failed tries. Security fixes can still run.") {
+	if !strings.Contains(strings.Join(stopped.QueueSentences, " "), "Dependency updates stopped after 3 failed tries. Security fixes and Pack updates can still run.") {
 		t.Fatal(stopped.QueueSentences)
 	}
 	dbtest.FailNextStatement(t, s.db, "-- name: JanitorProjectChoices")
@@ -220,12 +236,12 @@ func TestJanitorLandedHistoryWindowsPagingAndVisibility(t *testing.T) {
 
 func TestJanitorRepairSentenceReadsDefinition(t *testing.T) {
 	for _, rounds := range []int{1, 4} {
-		doc, err := schema.ParseWorkflowStored([]byte(fmt.Sprintf("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: janitor-update}\nspec:\n  kind: pipeline\n  stages:\n    - name: fix\n      steps:\n        - name: repair\n          uses: agent/pi\n          with: {repairRounds: %d}\n", rounds)))
+		doc, err := schema.ParseWorkflowStored([]byte(fmt.Sprintf("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: team-updates}\nspec:\n  kind: pipeline\n  on:\n    schedule: {cron: '0 6 * * 1', standing: true}\n  stages:\n    - name: fix\n      steps:\n        - name: repair\n          uses: agent/pi\n          with: {repairRounds: %d}\n", rounds)))
 		if err != nil {
 			t.Fatal(err)
 		}
-		got := repairProcedure("janitor-update", 9, doc)
-		if got.RepairRounds != rounds || !strings.Contains(got.Sentence, fmt.Sprintf("up to %d repair sessions", rounds)) || !strings.Contains(got.Sentence, "asks a person") {
+		got := standingConsent(StandingCategories{Dependencies: "routine"}, []*schema.Doc{doc}, []*schema.Doc{doc})
+		if doc.RepairRounds() != rounds || !strings.Contains(got, fmt.Sprintf("up to %d repair sessions", rounds)) {
 			t.Fatal(got)
 		}
 	}
@@ -233,24 +249,21 @@ func TestJanitorRepairSentenceReadsDefinition(t *testing.T) {
 
 func TestJanitorNeverSaysSecurityCanRunWhenItIsOffOrStopped(t *testing.T) {
 	queues := []QueueStatus{{Queue: "updates", Failed: queueStopAfter}, {Queue: "security", Failed: queueStopAfter}}
-	if got := strings.Join(janitorQueueSentences(queues, "routine", true), " "); strings.Contains(got, "can still run") {
+	if got := strings.Join(janitorQueueSentences(queues, true), " "); strings.Contains(got, "can still run") {
 		t.Fatal(got)
 	}
 	queues[1].Failed = 0
-	if got := strings.Join(janitorQueueSentences(queues, "off", false), " "); strings.Contains(got, "can still run") {
+	if got := strings.Join(janitorQueueSentences(queues, false), " "); strings.Contains(got, "can still run") {
 		t.Fatal(got)
 	}
+
 }
 
 func TestJanitorQueueStopRulesUseAdmissionBound(t *testing.T) {
-	for _, tc := range []struct{ workflow, level, want string }{
-		{"janitor-fix", "routine", "Security fixes stop after %d failed tries."},
-		{"janitor-update", "routine", "Weekly updates stop after %d failed tries; security fixes can still run."},
-		{"janitor-update", "aggressive", "Nightly updates stop after %d failed tries; security fixes can still run."},
-		{"janitor-adopt", "routine", "Pack updates stop after %d failed tries."},
-	} {
-		if got, want := janitorStopRule(tc.workflow, tc.level), fmt.Sprintf(tc.want, queueStopAfter); got != want {
-			t.Errorf("%s/%s: %q, want %q", tc.workflow, tc.level, got, want)
+	for _, title := range []string{"Security fixes", "Dependency updates", "Pack updates", "Base images"} {
+		got := janitorQueueSentences([]QueueStatus{{Title: title}}, true)
+		if len(got) != 1 || got[0] != fmt.Sprintf("%s stop after %d failed tries.", title, queueStopAfter) {
+			t.Fatal(got)
 		}
 	}
 }
@@ -359,55 +372,23 @@ func TestJanitorVoteIdentityOnChangeEvidenceReads(t *testing.T) {
 	}
 }
 
-// One project whose eligibility cannot be judged is not known on its own row;
-// the instance read still answers for every other project.
-func TestJanitorInstanceReadKeepsOtherProjectsWhenOneEligibilityFails(t *testing.T) {
+// Eligibility belongs to the scheduler; this read still lists both projects
+// when the eligibility observer would fail for one of them.
+func TestJanitorInstanceReadLeavesEligibilityToScheduler(t *testing.T) {
 	s, rules, ctx, _ := janitorReadFixture(t)
-	visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pid := visible[0]
+	visible, _ := s.authority.VisibleProjects(ctx, actionReadProject)
 	broken := workflowTestProject(t, s.db, "broken-project", "Broken project", "")
-	s.authority = aggregateAuthority{operationAuthority: s.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return []ids.ID{pid, broken}, nil }}
-	in := StandingDefinition{Scope: "instance", Schedules: []standingSchedule{{Workflow: "janitor-update", Crons: map[string]string{"routine": "0 6 * * 1", "aggressive": "0 6 * * *"}}, {Workflow: "janitor-scan", Crons: map[string]string{"routine": "0 5 * * *", "aggressive": "0 5 * * *"}}}, Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
-	enableStanding(t, *rules, ctx, in)
+	s.authority = aggregateAuthority{operationAuthority: s.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return append(visible, broken), nil }}
 	rules.deps.Portfolio.(*standingPortfolioFixture).failFor = broken
 	rows, err := s.JanitorProjects(ctx)
-	if err != nil {
-		t.Fatalf("one project's eligibility failed the whole read: %v", err)
-	}
-	byID := map[ids.ID]janitorProject{}
-	for _, p := range rows {
-		byID[p.ProjectID] = p
-	}
-	if p, ok := byID[broken]; !ok || !strings.Contains(p.Problem, "Eligibility not known") {
-		t.Fatalf("broken project not shown as not known: %+v", p)
-	}
-	if p, ok := byID[pid]; !ok || p.Problem != "" {
-		t.Fatalf("healthy project: %+v", p)
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("%+v %v", rows, err)
 	}
 }
 
-// Scan now follows the adopted janitor-scan as the scheduler does: a version
-// that is not standing fires without a janitor approval, a standing one waits
-// for its approval, and one without a schedule cannot fire.
-func TestJanitorScanNowReadsTheAdoptedSchedule(t *testing.T) {
-	scan := func(on string) *schema.Doc {
-		doc, err := schema.ParseWorkflowStored([]byte("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: janitor-scan}\nspec:\n  kind: pipeline\n" + on + "  stages:\n    - name: scan\n      steps:\n        - name: scan-source\n          uses: scan\n          with: {on: source}\n"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return doc
-	}
-	for _, tc := range []struct{ on, standing, want string }{
-		{"  on:\n    schedule: {cron: \"0 5 * * *\"}\n", "Waiting for approval", ""},
-		{"  on:\n    schedule: {cron: \"0 5 * * *\", queue: security, standing: true}\n", "Waiting for approval", "Waiting for approval"},
-		{"  on:\n    schedule: {cron: \"0 5 * * *\", queue: security, standing: true}\n", "", ""},
-		{"", "", "No scan schedule adopted"},
-	} {
-		if got := scanNowReason(scan(tc.on), tc.standing); got != tc.want {
-			t.Errorf("%q with %q: %q, want %q", tc.on, tc.standing, got, tc.want)
-		}
-	}
+type janitorReadDefinitions struct{}
+
+func (janitorReadDefinitions) WorkflowVersion(_ context.Context, _ adoption.Source, name string) (int, string, error) {
+	body, err := stock.FS.ReadFile(name + ".yaml")
+	return 1, string(body), err
 }

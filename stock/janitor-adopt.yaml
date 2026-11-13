@@ -2,12 +2,15 @@ apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: janitor-adopt
+  title: Pack updates
   tier: core
   category: maintenance
   description: Adopt an assessed pack publication and check the result.
 spec:
   kind: pipeline
   role: working
+  on:
+    publication: {queue: packs, standing: true}
   stages:
     - name: adopt
       onEnter:

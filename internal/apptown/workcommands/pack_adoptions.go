@@ -29,13 +29,6 @@ func (a PackAdoptions) AdoptWhatIf(ctx context.Context, assessed *conformance.Wh
 		if p.CandidateDigest == "" {
 			continue
 		}
-		rule, _, err := a.Rules.StandingForWorkflow(ctx, p.ProjectID, "janitor-adopt")
-		if err != nil {
-			return err
-		}
-		if rule.RuleID.IsZero() || !rule.Question.Definition.Categories.WaysOfWorking {
-			continue
-		}
 		call := access.WithCaller(ctx, access.Caller{Verified: true, Receipt: "apptown-system", Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: p.ProjectID}})
 		call = adoption.WithSystemAuthority(call, p.ProjectID)
 		picks, err := a.Adoption.PicksWith(call, p.ProjectID, assessed.Pack, assessed.Version, verification.AlsoPicks(assessed.Also)...)
@@ -52,16 +45,40 @@ func (a PackAdoptions) AdoptWhatIf(ctx context.Context, assessed *conformance.Wh
 		if len(candidate.Problems) > 0 {
 			continue
 		}
+		name, queue := "", ""
+		var rule workflow.StandingRevision
+		for _, pin := range candidate.Receipt.Workflows {
+			w, err := a.Adoption.CandidateWorkflow(call, pin)
+			if err != nil {
+				return err
+			}
+			trigger, publication := w.Doc.Standing()
+			if !publication || !trigger.Publication {
+				continue
+			}
+			eligible, _, _, err := a.Rules.StandingForWorkflow(ctx, p.ProjectID, pin.Name)
+			if err != nil {
+				return err
+			}
+			if eligible.RuleID.IsZero() || !eligible.Question.Definition.Categories.WaysOfWorking {
+				continue
+			}
+			name, queue, rule = pin.Name, trigger.Queue, eligible
+			break
+		}
+		if name == "" {
+			continue
+		}
 		fingerprint, err := candidate.Fingerprint()
 		if err != nil {
 			return err
 		}
-		state, err := a.Work.QueueState(call, p.ProjectID, "packs")
+		state, err := a.Work.QueueState(call, p.ProjectID, queue)
 		if err != nil {
 			return err
 		}
 		if !state.ChangeID.IsZero() {
-			tries, err := a.Work.Attempts(call, p.ProjectID, "packs", 1)
+			tries, err := a.Work.Attempts(call, p.ProjectID, queue, 1)
 			if err != nil {
 				return err
 			}
@@ -69,14 +86,14 @@ func (a PackAdoptions) AdoptWhatIf(ctx context.Context, assessed *conformance.Wh
 				continue
 			}
 		}
-		ch, err := a.Work.OpenPackUplift(call, workflow.Uplift{ProjectID: p.ProjectID, ExpectedRevision: candidate.ExpectedRevision, Acceptance: workflow.Acceptance{TargetDigest: candidate.Digest, Checks: workAcceptanceChecks(candidate.NewChecks)}, Words: candidate.Words(), Target: upliftTarget{service: a.Adoption, candidate: *candidate}, Basis: fmt.Sprintf("Assessed in what-if %s at %s.", assessed.ID, p.SHA), RuleID: rule.RuleID, RuleRevision: rule.Revision, Workflow: "janitor-adopt"})
+		ch, err := a.Work.OpenPackUplift(call, workflow.Uplift{ProjectID: p.ProjectID, ExpectedRevision: candidate.ExpectedRevision, Acceptance: workflow.Acceptance{TargetDigest: candidate.Digest, Checks: workAcceptanceChecks(candidate.NewChecks)}, Words: candidate.Words(), Target: upliftTarget{service: a.Adoption, candidate: *candidate}, Basis: fmt.Sprintf("Assessed in what-if %s at %s.", assessed.ID, p.SHA), RuleID: rule.RuleID, RuleRevision: rule.Revision, Workflow: name, Queue: queue})
 		if fault.KindOf(err) == fault.Conflict {
 			continue
 		}
 		if err != nil {
 			return err
 		}
-		if _, err := a.Work.StartRun(call, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "janitor-adopt"}); err != nil {
+		if _, err := a.Work.StartRun(call, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: name}); err != nil {
 			return err
 		}
 	}

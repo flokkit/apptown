@@ -20,6 +20,7 @@ import (
 const queueStopAfter = 3
 
 type QueueStatus struct {
+	Title        string     `json:"title"`
 	Queue        string     `json:"queue"`
 	State        string     `json:"state"`
 	Since        time.Time  `json:"since"`
@@ -297,4 +298,44 @@ func (s *Service) replaceUntouched(ctx context.Context, run *Run) error {
 // IsQueue reports whether this admitted execution belongs to disposable queue work.
 func (e *Execution) IsQueue() (bool, error) {
 	return workflowsql.New(e.service.db.SQL()).IsAutomatedQueueChange(e.ctx, e.run.ChangeID)
+}
+
+// Queues lists standing queues in adoption order, with their authored titles.
+// An unreadable adopted definition fails the read because its queues are unknown.
+func (s *Service) Queues(ctx context.Context, project ids.ID) ([]QueueStatus, error) {
+	if _, err := s.require(ctx, operationPermission{Action: actionReadProject, ProjectID: project}); err != nil {
+		return nil, err
+	}
+	definitions, err := s.adoptedProcedures(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range definitions {
+		if d.problem != "" {
+			return nil, fmt.Errorf("workflow %q: %s", d.name, d.problem)
+		}
+	}
+	return s.queues(ctx, project, definitions)
+}
+
+func (s *Service) queues(ctx context.Context, project ids.ID, definitions []adoptedProcedure) ([]QueueStatus, error) {
+	out := []QueueStatus{}
+	seen := map[string]bool{}
+	for _, d := range definitions {
+		if d.doc == nil {
+			continue
+		}
+		trigger, ok := d.doc.Standing()
+		if !ok || trigger.Queue == "" || seen[trigger.Queue] {
+			continue
+		}
+		seen[trigger.Queue] = true
+		state, err := queueStateIn(ctx, s.db, project, trigger.Queue)
+		if err != nil {
+			return nil, err
+		}
+		state.Title = d.doc.Metadata.DisplayTitle()
+		out = append(out, state)
+	}
+	return out, nil
 }

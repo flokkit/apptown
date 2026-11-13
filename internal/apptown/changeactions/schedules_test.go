@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -55,7 +56,7 @@ func newScheduleWorld(t *testing.T, runners ...map[string]workflow.Runner) sched
 		t.Fatal(err)
 	}
 	preparation := workcommands.NewPreparation(db, adopt, scm.NewBranches(db, locks), dataDir, nil, nil, nil, nil)
-	rules := workflow.NewStandingRules(db, workflow.StandingDependencies{Authority: authority, Identity: ids, Procedures: scheduleStandingProcedure{}, Portfolio: &scheduleStandingPortfolio{}})
+	rules := workflow.NewStandingRules(db, workflow.StandingDependencies{Authority: authority, Identity: ids, Procedures: scheduleStandingProcedure{}, Publications: scheduleStandingProcedure{}, Portfolio: &scheduleStandingPortfolio{}})
 	var selected map[string]workflow.Runner
 	var automatic []string
 	if len(runners) > 0 {
@@ -64,7 +65,7 @@ func newScheduleWorld(t *testing.T, runners ...map[string]workflow.Runner) sched
 			automatic = append(automatic, kind)
 		}
 	}
-	work := workflow.New(context.Background(), db, workflow.Dependencies{Standing: &rules, Abandonment: scheduleAbandonment{}, Retention: scheduleRetention{}, Automatic: automatic, Runners: selected, Authority: authority, Repositories: locks, Resolve: preparation.Resolve, LandingWork: preparation,
+	work := workflow.New(context.Background(), db, workflow.Dependencies{JanitorDefinitions: adopt, Standing: &rules, Abandonment: scheduleAbandonment{}, Retention: scheduleRetention{}, Automatic: automatic, Runners: selected, Authority: authority, Repositories: locks, Resolve: preparation.Resolve, LandingWork: preparation,
 		Git: workflow.GitWorkspace{DataDir: dataDir}, DataDir: dataDir})
 	t.Cleanup(work.Stop)
 	engine := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "engine"}, Verified: true, Receipt: "system"})
@@ -298,7 +299,7 @@ func TestAScheduleShowsItsNextAndLastFiringAsTheSchedulerRecordedThem(t *testing
 	base := time.Date(2026, 9, 10, 0, 10, 0, 0, time.UTC)
 
 	s := w.schedule(t, base)
-	if s.Workflow != "hourly" || s.Version != 1 || s.Cron != "0 * * * *" || !s.SkipIfActive || s.Problem != "" {
+	if s.Source.Workflow != "hourly" || s.Source.Version != 1 || s.Cron != "0 * * * *" || !s.SkipIfActive || s.Problem != "" {
 		t.Fatalf("unarmed schedule: %+v", s)
 	}
 	if want := time.Date(2026, 9, 10, 1, 0, 0, 0, time.UTC); !s.Next.Equal(want) || s.Due || s.Last != nil {
@@ -417,8 +418,12 @@ func TestAnUnreadableWorkflowIsShownAsUnknownNotAsNoSchedule(t *testing.T) {
 	}
 	base := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)
 	s := w.schedule(t, base)
-	if s.Workflow != "hourly" || s.Version != 1 || s.Problem == "" || !s.Next.IsZero() || s.Last != nil {
+	if s.Refused != "" || s.Source.Workflow != "hourly" || s.Source.Version != 1 || s.Problem == "" || !s.Next.IsZero() || s.Last != nil {
 		t.Fatalf("an unreadable workflow: %+v", s)
+	}
+	view, err := w.schedules.Of(t.Context(), w.project, base)
+	if err != nil || !strings.HasPrefix(view.Janitor().ScanNow, "Not known:") || !strings.HasPrefix(view.Janitor().NextReason, "Update time not known:") {
+		t.Fatalf("%+v %v", view, err)
 	}
 	w.schedules.FireDueSchedules(t.Context(), base)
 	if _, armed, err := workflow.ScheduleLastFiredIn(t.Context(), w.schedules.DB, w.project.ID, "hourly"); err != nil || armed {
@@ -514,8 +519,8 @@ type scheduleStandingProcedure struct{}
 func (scheduleStandingProcedure) StandingProcedure(_ context.Context, _ database.Queryer, _ ids.ID, name string) (workflow.StandingProcedure, error) {
 	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: "the declared fix is within the bound and checks are met"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "approve", Means: "land the checked fix"}}, nil
 }
-func (p scheduleStandingProcedure) InstanceStandingProcedure(ctx context.Context, q database.Queryer, name string) (workflow.StandingProcedure, error) {
-	return p.StandingProcedure(ctx, q, ids.Nil, name)
+func (p scheduleStandingProcedure) InstanceStandingProcedure(name string, _ []*adoption.ResolvedWorkflow) (workflow.StandingProcedure, error) {
+	return p.StandingProcedure(context.Background(), nil, ids.Nil, name)
 }
 
 type scheduleStandingPortfolio struct{ held, uncovered bool }
@@ -536,7 +541,7 @@ func (scheduleRetention) RetainsWorkIn(context.Context, database.Queryer, ids.ID
 	return false, nil
 }
 
-func TestStandingScheduleUsesTheRulesCronAndKeepsItsOriginalAuthorityAfterPurge(t *testing.T) {
+func TestStandingScheduleUsesDeclaredCronAndKeepsItsOriginalAuthorityAfterPurge(t *testing.T) {
 	started := make(chan struct{}, 1)
 	w := newScheduleWorld(t, map[string]workflow.Runner{"script": func(task *workflow.Execution) {
 		if _, err := task.Claim(); err != nil {
@@ -557,7 +562,7 @@ spec:
   kind: pipeline
   role: working
   on:
-    schedule: {cron: "0 0 1 1 *", queue: updates, standing: true}
+    schedule: {cron: "* * * * *", aggressiveCron: "*/2 * * * *", queue: updates, standing: true}
   stages:
     - name: update
       steps:
@@ -594,7 +599,7 @@ spec:
 	}
 	// Publishing rejects invalid cron expressions; only corrupt stored content
 	// can exercise a broken schedule while consent is off.
-	broken := strings.Replace(body, "0 0 1 1 *", "not a cron", 1)
+	broken := strings.Replace(body, "* * * * *", "not a cron", 1)
 	// sql-guarantee: no owner operation stores a workflow with an invalid cron.
 	if _, err := w.schedules.DB.SQL().ExecContext(t.Context(), `UPDATE lib_workflow_versions SET yaml=$1 WHERE yaml=$2`, broken, body); err != nil {
 		t.Fatal(err)
@@ -655,7 +660,7 @@ spec:
 	if s := read.Schedules[0]; s.Waiting == "" || s.Problem != "" || !s.Next.IsZero() || s.Last == nil || s.Last.RuleID != rule.RuleID {
 		t.Fatalf("turning off keeps the recorded last firing: %+v", s)
 	}
-	in.Schedules[0].Crons = map[string]string{"routine": "*/2 * * * *", "aggressive": "*/2 * * * *"}
+	in.Categories.Dependencies = "aggressive"
 	q, err = w.schedules.Standing.Preview(human, in)
 	if err != nil {
 		t.Fatal(err)
@@ -703,4 +708,20 @@ type scheduleAbandonment struct{}
 
 func (scheduleAbandonment) RecordAbandonIn(context.Context, *database.Tx, workflow.AbandonEffects) error {
 	return nil
+}
+
+func (scheduleStandingProcedure) PublishedWorkflows(ctx context.Context, q database.Queryer) ([]*adoption.ResolvedWorkflow, error) {
+	catalog, err := wow.ReadWorkflowCatalogIn(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	var docs []*adoption.ResolvedWorkflow
+	for _, wf := range catalog.Workflows {
+		doc, err := schema.ParseWorkflowStored([]byte(wf.Yaml))
+		if err != nil {
+			return nil, err
+		}
+		docs = append(docs, &adoption.ResolvedWorkflow{Name: wf.Name, Version: int(wf.LatestVersion), Doc: doc})
+	}
+	return docs, nil
 }

@@ -51,7 +51,7 @@ const unique = (findings: Finding[]) => [...new Map(findings.map(f => [f.fingerp
 function QueueLine({ queue, slug, reload }: { queue: QueueStatus; slug: string; reload: () => void }) {
   const action = useAction(reload)
   const canSkip = useHolds('change:abandon', slug)
-  const name = queue.queue === 'updates' ? 'Updates' : queue.queue === 'packs' ? 'Pack updates' : 'Security fixes'
+  const name = queue.title
   const state = queue.state === 'stopped' ? `stopped after ${queue.failed} failed tries since ${fmtWhen(queue.since)}`
     : queue.state === 'stuck' ? `stuck since ${fmtWhen(queue.since)}`
       : queue.state === 'updating' ? 'updating' : queue.state === 'waiting' ? 'waiting for a person' : 'up to date'
@@ -65,9 +65,9 @@ function QueueLine({ queue, slug, reload }: { queue: QueueStatus; slug: string; 
   </div>
 }
 
-const tryColumns: ListColumn<AutomatedAttempt>[] = [
+const tryColumns = (queues: QueueStatus[]): ListColumn<AutomatedAttempt>[] => [
   { key: 'what', label: 'Update', phone: 'name', render: a => a.changeId ? <Link to={`/changes/${a.changeId}`}>{a.what}</Link> : a.what },
-  { key: 'queue', label: 'Queue', render: a => a.queue === 'updates' ? 'Updates' : a.queue === 'packs' ? 'Pack updates' : 'Security fixes' },
+  { key: 'queue', label: 'Queue', render: a => queues.find(q => q.queue === a.queue)?.title || a.queue },
   { key: 'result', label: 'Result', phone: 'state', render: a => a.reason || (a.outcome === 'held' ? 'Waiting for a person' : a.outcome === 'shipped' ? 'Landed' : a.outcome === 'skipped' ? 'Skipped' : a.openChange ? 'In progress' : 'Closed') },
   { key: 'packages', label: 'Packages', render: a => a.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') || '—' },
   { key: 'origin', label: 'From', render: a => a.ruleId ? <JanitorAttribution rule={a.rule!} revision={a.ruleRevision} issuer={a.ruleIssuer!.name} /> : a.schedule ? `Schedule ${a.schedule}` : 'Not recorded' },
@@ -102,7 +102,7 @@ export function LastScan({ slug, janitor = false }: { slug: string; janitor?: bo
       {scans.stale && <p><span className="badge">older than three days</span></p>}
       {scans.historical.length > 0 && <><h3>Earlier</h3><ListTable label="Earlier scans" columns={columns} rows={[...scans.historical].sort((a, b) => b.observedAt.localeCompare(a.observedAt)).slice(0, 10)} rowKey={scan => scan.id!} /></>}
     </>)}
-    {janitor && data && data.recent.some(a => a.attempted) && <><h3>Recent tries</h3><ListTable label="Recent tries" rows={data.recent.filter(a => a.attempted)} columns={tryColumns} rowKey={a => a.id!} rowTo={a => a.changeId ? `/changes/${a.changeId}` : undefined} /></>}
+    {janitor && data && data.recent.some(a => a.attempted) && <><h3>Recent tries</h3><ListTable label="Recent tries" rows={data.recent.filter(a => a.attempted)} columns={tryColumns(data.queues)} rowKey={a => a.id!} rowTo={a => a.changeId ? `/changes/${a.changeId}` : undefined} /></>}
     {janitor && <p><Link to="/janitor">Janitor</Link> · <Link to={`/conformance/projects/${slug}`}>Scan history</Link></p>}
   </Section>
 }
@@ -122,7 +122,7 @@ function JanitorChoice({ slug, data, current, reload }: { slug: string; data: Pr
       {canManage && <> · <button type="button" className="link" disabled={!current || action.busy} onClick={() => { setLevel(off ? 'routine' : 'off'); setReason('') }}>{off ? 'Turn back on' : 'turn off'}</button> · <button type="button" className="link" disabled={!current || action.busy} onClick={() => { setLevel(data.standing.level); setReason('') }}>Change level</button></>}
     </p>}
     {reason !== null && <form className="stack stack-2" onSubmit={async event => { event.preventDefault(); if (await action.run(() => post(`/projects/${slug}/janitor/settings`, { level, reason }))) setReason(null) }}>
-      <label>Update level<select aria-label="Janitor update level" value={level} onChange={event => setLevel(event.target.value)} disabled={action.busy}><option value="routine">Routine · weekly patch and minor updates</option><option value="aggressive">Aggressive · nightly updates including majors</option><option value="off">Off</option></select></label>
+      <label>Update level<select aria-label="Janitor update level" value={level} onChange={event => setLevel(event.target.value)} disabled={action.busy}><option value="routine">Routine · patch and minor</option><option value="aggressive">Aggressive · including major</option><option value="off">Off</option></select></label>
       <label>Reason<input aria-label="Reason for janitor setting" value={reason} onChange={event => setReason(event.target.value)} required disabled={action.busy} /></label>
       <div className="row row-2"><button type="submit" disabled={action.busy || !current || !reason.trim()}>{level === 'off' ? 'Turn off for this project' : 'Save update level'}</button><button type="button" onClick={() => setReason(null)} disabled={action.busy}>Cancel</button></div>
     </form>}

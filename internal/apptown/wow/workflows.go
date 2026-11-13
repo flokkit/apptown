@@ -75,7 +75,7 @@ func (s *workflows) now() time.Time { return clock.Or(s.clock)() }
 func NewWorkflows(db *database.DB) *workflows { return &workflows{db: db, stock: shippedOrigin("")} }
 
 // Version is one version's YAML (0 = the latest), through q.
-func WorkflowVersionIn(ctx context.Context, q database.Queryer, name string, version int) (int, string, error) {
+func workflowVersionIn(ctx context.Context, q database.Queryer, name string, version int) (int, string, error) {
 	r, err := wowsql.New(q.SQL()).WorkflowVersion(ctx, wowsql.WorkflowVersionParams{Name: name, Version: int64(version)})
 	if err != nil {
 		return 0, "", fmt.Errorf("library workflow %q version %d: %w", name, version, err)
@@ -84,7 +84,7 @@ func WorkflowVersionIn(ctx context.Context, q database.Queryer, name string, ver
 }
 
 func (s *workflows) version(ctx context.Context, name string, version int) (int, string, error) {
-	return WorkflowVersionIn(ctx, s.db, name, version)
+	return workflowVersionIn(ctx, s.db, name, version)
 }
 
 // origin is a workflow's origin word; absence is sql.ErrNoRows.

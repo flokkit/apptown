@@ -71,12 +71,6 @@ func (h WorkflowCatalog) ValidateWorkflow(w http.ResponseWriter, r *http.Request
 			WriteJSON(w, 200, WorkflowInvalid{OK: false, Error: err.Error()})
 			return
 		}
-		if sch := doc.Spec.On.Schedule; sch != nil {
-			if _, err := schema.ParseCron(sch.Cron); err != nil {
-				WriteJSON(w, 200, WorkflowInvalid{OK: false, Error: "on.schedule.cron: " + err.Error()})
-				return
-			}
-		}
 		preview := []WorkflowStagePreview{}
 		for _, st := range doc.Spec.Stages {
 			var steps []string

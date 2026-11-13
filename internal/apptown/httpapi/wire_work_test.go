@@ -4,6 +4,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/adrs"
+	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -18,22 +19,21 @@ func init() {
 	registerWire(
 		wiregen.Named{Name: "StandingVote", Value: reflect.Zero(reflect.TypeOf(workflow.ApprovalVote{}.Standing).Elem()).Interface()},
 		wiregen.Named{Name: "JanitorAttribution", Value: reflect.Zero(reflect.TypeOf(workflow.Change{}.Janitor).Elem()).Interface()},
-		wiregen.Named{Name: "JanitorChoice", Value: janitorChoice{}},
-		wiregen.Named{Name: "JanitorProcedure", Value: janitorProcedure{}},
-		wiregen.Named{Name: "JanitorLandedChange", Value: janitorLandedChange{}},
+		wiregen.Named{Name: "JanitorChoice", Value: reflect.Zero(reflect.TypeOf(workflow.JanitorProject{}.Choice).Elem()).Interface()},
+		wiregen.Named{Name: "JanitorProcedure", Value: reflect.Zero(reflect.TypeOf(workflow.JanitorProject{}.Procedures).Elem()).Interface()},
+		wiregen.Named{Name: "JanitorLandedChange", Value: reflect.Zero(reflect.TypeOf(workflow.JanitorHistory{}.Changes).Elem()).Interface()},
 		wiregen.Named{Name: "JanitorView", Value: JanitorView{}},
 		wiregen.Named{Name: "JanitorHistoryView", Value: JanitorHistoryView{}},
 		wiregen.Named{Name: "StandingProjectState", Value: projectStandingState{}},
 		wiregen.Named{Name: "StandingProjectAct", Value: projectStandingChoice{}},
 		wiregen.Named{Name: "RoutineAdoptionTarget", Value: adoption.RoutineTarget{}},
-		wiregen.Named{Name: "StandingSchedule", Value: reflect.Zero(reflect.TypeOf(workflow.StandingDefinition{}.Schedules).Elem()).Interface()},
 		wiregen.Named{Name: "StandingCategories", Value: workflow.StandingCategories{}},
 		wiregen.Named{Name: "StandingEnvironment", Value: workflow.StandingEnvironment{}},
 		wiregen.Named{Name: "StandingProject", Value: workflow.StandingProject{}},
 		wiregen.Named{Name: "StandingDefinition", Value: workflow.StandingDefinition{}},
 		wiregen.Named{Name: "StandingPurpose", Value: workflow.StandingPurpose{}},
 		wiregen.Named{Name: "StandingProcedure", Value: workflow.StandingProcedure{}},
-		wiregen.Named{Name: "StandingProjectMeaning", Value: workflow.StandingProjectMeaning{}},
+		wiregen.Named{Name: "StandingProjectMeaning", Value: reflect.Zero(reflect.TypeOf(workflow.StandingQuestion{}.Projects).Elem()).Interface()},
 		wiregen.Named{Name: "StandingQuestion", Value: workflow.StandingQuestion{}},
 		wiregen.Named{Name: "StandingCommand", Value: workflow.StandingCommand{}},
 		wiregen.Named{Name: "StandingRevision", Value: workflow.StandingRevision{}},
@@ -45,7 +45,11 @@ func init() {
 		wiregen.Named{Name: "StandingActor", Value: access.Actor{}},
 		wiregen.Named{Name: "StandingDisable", Value: StandingDisable{}},
 		wiregen.Named{Name: "ChangeRun", Value: ChangeRun{}},
-		wiregen.Named{Name: "ScheduleList", Value: ScheduleList{}},
+		wiregen.Named{Name: "ScheduleList", Value: changeactions.ProjectSchedules{}},
+		wiregen.Named{Name: "ScheduleView", Value: changeactions.ProjectSchedule{}},
+		wiregen.Named{Name: "ScheduleSource", Value: changeactions.ProjectSchedule{}.Source},
+		wiregen.Named{Name: "ScheduleFiringView", Value: workflow.ScheduleRecord{}},
+		wiregen.Named{Name: "RunningScan", Value: reflect.Zero(reflect.TypeOf(workflow.MainScans{}.Running).Elem()).Interface()},
 		wiregen.Named{Name: "ScheduleRunView", Value: ScheduleRunView{}},
 		wiregen.Named{Name: "ProjectScanView", Value: ProjectScanView{}},
 		wiregen.Named{Name: "ChangeEnvelope", Value: ChangeEnvelope{}},

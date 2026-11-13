@@ -2,6 +2,7 @@ apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: janitor-scan
+  title: Security fixes
   tier: core
   category: maintenance
   description: Scan the project's code and running images for findings.

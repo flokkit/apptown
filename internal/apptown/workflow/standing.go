@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
@@ -22,7 +23,11 @@ type standingPortfolio interface {
 }
 
 type standingInstanceProcedures interface {
-	InstanceStandingProcedure(context.Context, database.Queryer, string) (StandingProcedure, error)
+	InstanceStandingProcedure(string, []*adoption.ResolvedWorkflow) (StandingProcedure, error)
+}
+
+type standingPublications interface {
+	PublishedWorkflows(context.Context, database.Queryer) ([]*adoption.ResolvedWorkflow, error)
 }
 
 type packRuleEnabler interface {
@@ -30,6 +35,7 @@ type packRuleEnabler interface {
 }
 
 type StandingDependencies struct {
+	Publications standingPublications
 	Packs        packRuleEnabler
 	Portfolio    standingPortfolio
 	Adoptions    standingAdoptions
@@ -104,7 +110,7 @@ func (s StandingRules) question(ctx context.Context, q database.Queryer, in Stan
 	if s.deps.Procedures == nil || s.deps.Identity == nil {
 		return StandingQuestion{}, access.ErrAuthorityUnavailable
 	}
-	var meanings []StandingProjectMeaning
+	var meanings []standingProjectMeaning
 	permission := func(capability access.Capability, r access.Resource) error {
 		if admission {
 			return s.require(ctx, capability, r)
@@ -165,7 +171,7 @@ func (s StandingRules) question(ctx context.Context, q database.Queryer, in Stan
 				}
 			}
 		}
-		meanings = append(meanings, StandingProjectMeaning{ProjectID: p.ProjectID, Procedure: proc})
+		meanings = append(meanings, standingProjectMeaning{ProjectID: p.ProjectID, Procedure: proc})
 	}
 	return standingQuestion(in, meanings)
 }
@@ -410,8 +416,8 @@ func (s StandingRules) List(ctx context.Context, projectID ids.ID) ([]StandingSt
 			status.Rule.Question.BaseImageFindings = standingBaseImagePreview{}
 			if r.Enabled {
 				status.Eligible = false
-				for _, schedule := range r.Question.Definition.Schedules {
-					if _, err := s.eligibleForIn(ctx, s.db, r, projectID, schedule.Workflow); err == nil {
+				for _, meaning := range r.Question.Projects {
+					if _, err := s.eligibleForIn(ctx, s.db, r, projectID, meaning.Procedure.Acceptance.Workflow); err == nil {
 						status.Eligible = true
 						status.Reason = ""
 						break

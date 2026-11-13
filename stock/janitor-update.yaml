@@ -2,6 +2,7 @@ apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: janitor-update
+  title: Dependency updates
   tier: core
   category: maintenance
   description: Apply declared dependency updates and check the result.
@@ -9,7 +10,7 @@ spec:
   kind: pipeline
   role: working
   on:
-    schedule: {cron: "0 6 * * 1", queue: updates, standing: true}
+    schedule: {cron: "0 6 * * 1", aggressiveCron: "0 6 * * *", queue: updates, standing: true}
   stages:
     - name: update
       onEnter:

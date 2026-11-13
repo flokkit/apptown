@@ -60,6 +60,9 @@
             "core",
             "extra"
           ]
+        },
+        "title": {
+          "type": "string"
         }
       }
     },
@@ -104,7 +107,7 @@
                 },
                 "standing": {
                   "type": "boolean",
-                  "description": "Fire only under an enabled, eligible standing approval, using its cron."
+                  "description": "Fire only under an enabled, eligible standing approval."
                 },
                 "skipIfActive": {
                   "type": "boolean"
@@ -112,6 +115,26 @@
                 "queue": {
                   "type": "string",
                   "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "aggressiveCron": {
+                  "type": "string"
+                }
+              }
+            },
+            "publication": {
+              "type": "object",
+              "required": [
+                "queue",
+                "standing"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "queue": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "standing": {
+                  "const": true
                 }
               }
             }

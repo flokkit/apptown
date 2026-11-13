@@ -121,32 +121,35 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 }
 
 // firing is one carried schedule of one project, resolved for firing: a
-// standing schedule carries its eligible rule and the rule's cron.
+// standing schedule carries its eligible rule and declared cadence.
 type firing struct {
 	carried
 	projectID ids.ID
 	slug      string
+	waiting   string
 }
 
-// resolve reads a standing schedule's current eligible rule and cron into c.
+// resolve reads current consent and chooses the adopted cadence into c.
 // false: no eligible rule, so the schedule does not fire. A schedule that
 // is not standing is always eligible.
 func (s Schedules) resolve(ctx context.Context, c *firing) (bool, error) {
-	if !c.trigger.Standing {
+	if c.standing == nil {
 		return true, nil
 	}
 	if s.Standing == nil {
+		c.waiting = "waits for a standing approval"
 		return false, nil
 	}
-	rule, cron, err := s.Standing.StandingForWorkflow(ctx, c.projectID, c.workflow)
+	rule, level, refused, err := s.Standing.StandingForWorkflow(ctx, c.projectID, c.workflow)
 	if err != nil {
 		return false, err
 	}
 	if rule.RuleID.IsZero() {
+		c.waiting = refused
 		return false, nil
 	}
 	c.rule = rule
-	c.trigger.Cron = cron
+	c.trigger.Cron = c.standing.CronFor(level)
 	return true, nil
 }
 
@@ -185,26 +188,9 @@ type fired struct {
 // committed but not prepared or dispatched (the error names it), and a
 // firing record that failed after the run started (outcome fireOpened).
 func (s Schedules) fire(ctx context.Context, c firing, now time.Time, requestedBy string) (fired, error) {
-	if c.trigger.Queue != "" {
-		state, err := s.Actions.work.QueueState(asSchedule(ctx, c.projectID), c.projectID, c.trigger.Queue)
-		if err != nil {
-			return fired{}, fmt.Errorf("reading queue %s: %w", c.trigger.Queue, err)
-		}
-		if state.Stopped() && !c.discoversTargets {
-			return fired{outcome: fireStopped}, nil
-		}
-		if state.State == "updating" {
-			return fired{outcome: fireBusy, busy: state.ChangeID, busyNumber: state.ChangeNumber}, nil
-		}
-	}
-	if c.skipIfActive() && c.trigger.Queue == "" {
-		active, err := workflow.RunningWorkflowCountIn(ctx, s.DB, c.projectID, c.workflow)
-		if err != nil {
-			return fired{}, fmt.Errorf("checking for an active run of %s: %w", c.workflow, err)
-		}
-		if active > 0 {
-			return fired{outcome: fireBusy}, nil
-		}
+	admitted, err := s.admit(ctx, c)
+	if err != nil || admitted.outcome != fireNone {
+		return admitted, err
 	}
 	title := fmt.Sprintf("%s @ %s", c.workflow, now.Format("2006-01-02 15:04"))
 	if err := ctx.Err(); err != nil {
@@ -235,6 +221,45 @@ func (s Schedules) fire(ctx context.Context, c firing, now time.Time, requestedB
 		return out, fmt.Errorf("change %s started; %w", item.ID, rerr)
 	}
 	return out, err
+}
+
+// admit is shared by firing and reads of current operational admission.
+func (s Schedules) admit(ctx context.Context, c firing) (fired, error) {
+	if c.trigger.Queue != "" {
+		state, err := s.Actions.work.QueueState(asSchedule(ctx, c.projectID), c.projectID, c.trigger.Queue)
+		if err != nil {
+			return fired{}, fmt.Errorf("reading queue %s: %w", c.trigger.Queue, err)
+		}
+		if state.Stopped() && !c.discoversTargets {
+			return fired{outcome: fireStopped}, nil
+		}
+		if state.State == "updating" {
+			return fired{outcome: fireBusy, busy: state.ChangeID, busyNumber: state.ChangeNumber}, nil
+		}
+	}
+	if c.skipIfActive() && c.trigger.Queue == "" {
+		active, err := workflow.RunningWorkflowCountIn(ctx, s.DB, c.projectID, c.workflow)
+		if err != nil {
+			return fired{}, fmt.Errorf("checking for an active run of %s: %w", c.workflow, err)
+		}
+		if active > 0 {
+			return fired{outcome: fireBusy}, nil
+		}
+	}
+	return fired{}, nil
+}
+
+func (f fired) refusal(queue string) string {
+	switch f.outcome {
+	case fireBusy:
+		if f.busyNumber > 0 {
+			return fmt.Sprintf("Already running: change #%d", f.busyNumber)
+		}
+		return "Already running"
+	case fireStopped:
+		return fmt.Sprintf("the %s queue stopped after failed tries", queue)
+	}
+	return ""
 }
 
 // RunNow fires one schedule the project carries now, at the caller's
@@ -274,7 +299,7 @@ func (s Schedules) RunNow(ctx context.Context, p project.Project, workflowName s
 		return nil, err
 	}
 	if !eligible {
-		return nil, fault.New(fault.Unprocessable, fmt.Sprintf("%s waits for a standing approval", workflowName))
+		return nil, fault.New(fault.Unprocessable, c.waiting)
 	}
 	// A schedule the tick has not seen yet is armed here, so its firing is
 	// recorded and the tick follows its cron from now.
@@ -300,14 +325,8 @@ func (s Schedules) RunNow(ctx context.Context, p project.Project, workflowName s
 	if err != nil {
 		return got.change, err
 	}
-	switch got.outcome {
-	case fireBusy:
-		if got.busyNumber > 0 {
-			return nil, fault.New(fault.Conflict, fmt.Sprintf("Already running: change #%d", got.busyNumber))
-		}
-		return nil, fault.New(fault.Conflict, "Already running")
-	case fireStopped:
-		return nil, fault.New(fault.Conflict, fmt.Sprintf("the %s queue stopped after failed tries", c.trigger.Queue))
+	if why := got.refusal(c.trigger.Queue); why != "" {
+		return nil, fault.New(fault.Conflict, why)
 	}
 	return got.change, nil
 }
@@ -316,6 +335,7 @@ func (s Schedules) RunNow(ctx context.Context, p project.Project, workflowName s
 // resolved version declares on.schedule. err says why the
 // workflow could not be read, so whether it carries one is unknown.
 type carried struct {
+	standing         *schema.StandingTrigger
 	rule             workflow.StandingRevision
 	discoversTargets bool
 	workflow         string
@@ -369,20 +389,24 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID) ([]carried, 
 				}
 			}
 		}
-		out = append(out, carried{workflow: name, version: version, trigger: *doc.Spec.On.Schedule, discoversTargets: discovers})
+		one := carried{workflow: name, version: version, trigger: *doc.Spec.On.Schedule, discoversTargets: discovers}
+		if trigger, ok := doc.Standing(); ok {
+			one.standing = &trigger
+		}
+		out = append(out, one)
 	}
 	return out, nil
 }
 
-// projectSchedules is what a project's schedules will do and last did.
+// ProjectSchedules is what a project's schedules will do and last did.
 // EvalCopy: the project is an eval's throwaway copy, which runs no
 // schedule, so none is listed.
-type projectSchedules struct {
-	EvalCopy  bool
-	Schedules []projectSchedule
+type ProjectSchedules struct {
+	EvalCopy  bool              `json:"evalCopy"`
+	Schedules []ProjectSchedule `json:"schedules"`
 }
 
-// projectSchedule is one schedule a project carries, named by its source:
+// ProjectSchedule is one schedule a project carries, named by its source:
 // today always the adopted workflow version that declares it. Cron is read
 // in UTC, AppTown's time. Next is when the scheduler will next fire it,
 // from its own record and its own cron parser; Due says that time has
@@ -390,16 +414,27 @@ type projectSchedules struct {
 // never fired. Problem says why the schedule could not be read; Next and
 // Last are then unknown, not absent. Waiting is a normal pause for consent;
 // no next firing is scheduled while it waits.
-type projectSchedule struct {
-	Workflow     string
-	Version      int
-	Cron         string
-	SkipIfActive bool
-	Next         time.Time
-	Due          bool
-	Last         *workflow.ScheduleRecord
-	Problem      string
-	Waiting      string
+type ProjectSchedule struct {
+	Busy             ids.ID                   `json:"-"`
+	BusyNumber       int64                    `json:"-"`
+	Queue            string                   `json:"-"`
+	Standing         bool                     `json:"-"`
+	DiscoversTargets bool                     `json:"-"`
+	Refused          string                   `json:"-"`
+	Source           scheduleSource           `json:"source"`
+	Cron             string                   `json:"cron"`
+	TimeZone         string                   `json:"timeZone"`
+	SkipIfActive     bool                     `json:"skipIfActive"`
+	Next             time.Time                `json:"next,omitzero"`
+	Due              bool                     `json:"due"`
+	Last             *workflow.ScheduleRecord `json:"last,omitempty"`
+	Problem          string                   `json:"problem,omitempty"`
+	Waiting          string                   `json:"waiting,omitempty"`
+}
+
+type scheduleSource struct {
+	Workflow string `json:"workflow"`
+	Version  int    `json:"version"`
 }
 
 // Of is the project's schedules at now (AppTown's clock): each schedule
@@ -407,43 +442,51 @@ type projectSchedule struct {
 // schedule not yet armed is armed at the scheduler's next tick and fires
 // first at its next time after that. Missed firings are never replayed, so
 // a past Next means one firing at the next tick, not a backlog.
-func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (projectSchedules, error) {
+func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (ProjectSchedules, error) {
 	// An eval's throwaway copy runs only what its eval starts in it.
 	if !p.Purpose.Schedules() {
-		return projectSchedules{EvalCopy: true, Schedules: []projectSchedule{}}, nil
+		return ProjectSchedules{EvalCopy: true, Schedules: []ProjectSchedule{}}, nil
 	}
 	projectID := p.ID
 	carried, err := s.carriedBy(ctx, projectID)
 	if err != nil {
-		return projectSchedules{}, err
+		return ProjectSchedules{}, err
 	}
 	records, err := workflow.ScheduleRecordsIn(ctx, s.DB, projectID)
 	if err != nil {
-		return projectSchedules{}, err
+		return ProjectSchedules{}, err
 	}
-	out := projectSchedules{Schedules: []projectSchedule{}}
+	out := ProjectSchedules{Schedules: []ProjectSchedule{}}
 	for _, c := range carried {
-		ps := projectSchedule{Workflow: c.workflow, Version: c.version, Cron: c.trigger.Cron, SkipIfActive: c.skipIfActive()}
+		ps := ProjectSchedule{Queue: c.trigger.Queue, Standing: c.standing != nil, DiscoversTargets: c.discoversTargets, Source: scheduleSource{Workflow: c.workflow, Version: c.version}, TimeZone: "UTC", Cron: c.trigger.Cron, SkipIfActive: c.skipIfActive()}
 		if c.err != nil {
 			ps.Problem = "its workflow could not be read: " + c.err.Error()
 			out.Schedules = append(out.Schedules, ps)
 			continue
 		}
-		if c.trigger.Standing {
-			ps.Waiting = "waits for a standing approval"
-			if s.Standing != nil {
-				rule, cron, err := s.Standing.StandingForWorkflow(ctx, projectID, c.workflow)
-				if err != nil {
-					return out, err
-				}
-				if !rule.RuleID.IsZero() {
-					ps.Waiting = ""
-					c.trigger.Cron = cron
-					ps.Cron = cron
-				}
-			}
+		firing := firing{carried: c, projectID: projectID, slug: p.Slug}
+		eligible, err := s.resolve(ctx, &firing)
+		if err != nil {
+			ps.Problem = err.Error()
+			out.Schedules = append(out.Schedules, ps)
+			continue
 		}
-		spec, err := schema.ParseCron(c.trigger.Cron)
+		ps.Cron = firing.trigger.Cron
+		ps.Waiting = firing.waiting
+		ps.Refused = firing.waiting
+		stopped := false
+		if eligible {
+			admitted, err := s.admit(ctx, firing)
+			if err != nil {
+				ps.Problem = err.Error()
+				out.Schedules = append(out.Schedules, ps)
+				continue
+			}
+			ps.Refused = admitted.refusal(c.trigger.Queue)
+			ps.Busy, ps.BusyNumber = admitted.busy, admitted.busyNumber
+			stopped = admitted.outcome == fireStopped
+		}
+		spec, err := schema.ParseCron(ps.Cron)
 		if err != nil {
 			ps.Problem = "its cron is not understood, so it never fires: " + err.Error()
 			out.Schedules = append(out.Schedules, ps)
@@ -459,7 +502,7 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (pr
 				ps.Last = &last
 			}
 		}
-		if ps.Waiting != "" {
+		if ps.Waiting != "" || stopped {
 			out.Schedules = append(out.Schedules, ps)
 			continue
 		}
@@ -473,4 +516,47 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (pr
 // asSchedule is AppTown acting for itself in a project, through a schedule.
 func asSchedule(ctx context.Context, projectID ids.ID) context.Context {
 	return access.WithCaller(ctx, access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: projectID}, Verified: true, Receipt: "system"})
+}
+
+// JanitorSchedule is the maintenance page's view of scheduler reads.
+type JanitorSchedule struct {
+	ScanChangeID     ids.ID    `json:"scanChangeId,omitzero"`
+	ScanChangeNumber int64     `json:"scanChangeNumber"`
+	NextUpdate       time.Time `json:"nextUpdate"`
+	NextReason       string    `json:"nextReason"`
+	ScanNow          string    `json:"scanNow"`
+	ScanWorkflow     string    `json:"scanWorkflow"`
+}
+
+// Janitor selects discovery and update roles from the schedules' declarations.
+func (p ProjectSchedules) Janitor() JanitorSchedule {
+	out := JanitorSchedule{ScanNow: "No scan schedule adopted", NextReason: "No update schedule adopted"}
+	var problem string
+	for _, schedule := range p.Schedules {
+		if schedule.Problem != "" {
+			problem = schedule.Problem
+			continue
+		}
+		if !schedule.Standing {
+			continue
+		}
+		if schedule.DiscoversTargets {
+			if out.ScanWorkflow == "" {
+				out.ScanWorkflow, out.ScanNow = schedule.Source.Workflow, schedule.Refused
+				out.ScanChangeID, out.ScanChangeNumber = schedule.Busy, schedule.BusyNumber
+			}
+		} else if !schedule.Next.IsZero() {
+			if out.NextUpdate.IsZero() || schedule.Next.Before(out.NextUpdate) {
+				out.NextUpdate = schedule.Next
+				out.NextReason = ""
+			}
+		} else if out.NextUpdate.IsZero() {
+			out.NextReason = schedule.Refused
+		}
+	}
+	if problem != "" {
+		out.ScanNow = "Not known: " + problem
+		out.NextReason = "Update time not known: " + problem
+	}
+	return out
 }

@@ -19,7 +19,7 @@ import (
 type MainScans struct {
 	Main       string                        `json:"main"`
 	Source     []conformance.ScanObservation `json:"source"`
-	Running    []RunningScan                 `json:"running"`
+	Running    []runningScan                 `json:"running"`
 	Historical []conformance.ScanObservation `json:"historical"`
 	Reason     string                        `json:"reason,omitempty"`
 	// NoRepository: the project has no repository yet, so there is nothing
@@ -30,7 +30,7 @@ type MainScans struct {
 	LastScan     time.Time `json:"lastScan"`
 }
 
-type RunningScan struct {
+type runningScan struct {
 	conformance.ScanObservation
 	ProjectFindings      []conformance.Finding `json:"projectFindings"`
 	ImageOnlyFindings    []conformance.Finding `json:"imageOnlyFindings"`
@@ -60,7 +60,7 @@ func (s *Service) LatestMainScans(ctx context.Context, projectID ids.ID) (MainSc
 	// A project with no repository has no main to read: Git is never asked
 	// for an empty branch name in a folder that does not exist.
 	if p.DefaultBranch == "" {
-		return MainScans{Source: []conformance.ScanObservation{}, Running: []RunningScan{}, Historical: []conformance.ScanObservation{}, NoRepository: true, Reason: "no repository yet, so there is nothing to scan"}, nil
+		return MainScans{Source: []conformance.ScanObservation{}, Running: []runningScan{}, Historical: []conformance.ScanObservation{}, NoRepository: true, Reason: "no repository yet, so there is nothing to scan"}, nil
 	}
 	repo, err := (project.RepositoryRef{ID: p.ID, Slug: p.Slug}).Path(s.dataDir)
 	if err != nil {
@@ -93,7 +93,7 @@ func (s *Service) LatestMainScans(ctx context.Context, projectID ids.ID) (MainSc
 }
 
 func latestMainScans(main string, running []RunningImages, observations []conformance.ScanObservation, now time.Time, sourceComplete bool) MainScans {
-	out := MainScans{Main: main, Source: []conformance.ScanObservation{}, Running: []RunningScan{}, Historical: []conformance.ScanObservation{}, Known: sourceComplete}
+	out := MainScans{Main: main, Source: []conformance.ScanObservation{}, Running: []runningScan{}, Historical: []conformance.ScanObservation{}, Known: sourceComplete}
 	sourceRun, runningRun := ids.Nil, ids.Nil
 	for _, o := range observations {
 		if o.Subject.On == "source" && o.Subject.History == "" && currentSourceSubject(o.Subject.Commit, main) && sourceRun.IsZero() {
@@ -150,7 +150,7 @@ func latestMainScans(main string, running []RunningImages, observations []confor
 		if o.Subject.On == "source" {
 			out.Source = append(out.Source, o)
 		} else {
-			out.Running = append(out.Running, RunningScan{ScanObservation: o, ProjectFindings: []conformance.Finding{}, ImageOnlyFindings: []conformance.Finding{}, UnclassifiedFindings: []conformance.Finding{}})
+			out.Running = append(out.Running, runningScan{ScanObservation: o, ProjectFindings: []conformance.Finding{}, ImageOnlyFindings: []conformance.Finding{}, UnclassifiedFindings: []conformance.Finding{}})
 		}
 	}
 	if len(out.Source) == 0 || len(out.Running) == 0 || len(currentDeployments) != len(running) {

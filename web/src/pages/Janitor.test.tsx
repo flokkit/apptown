@@ -14,14 +14,14 @@ import type { JanitorView, JanitorHistoryView, JanitorProject, StandingRevision 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const at = '2026-11-12T10:00:00Z'
 const actor = { name: 'Sam', principal: 'person', via: 'session' }
-const queue = (name: string, stopped = false) => ({ queue: name, state: stopped ? 'stopped' : 'up_to_date', failed: stopped ? 3 : 0, reason: '', since: at, packages: [], changeNumber: 0 })
+const queue = (name: string, stopped = false) => ({ title: name === 'updates' ? 'Dependency updates' : name === 'packs' ? 'Pack updates' : 'Security fixes', queue: name, state: stopped ? 'stopped' : 'up_to_date', failed: stopped ? 3 : 0, reason: '', since: at, packages: [], changeNumber: 0 })
 const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name: `${id} app`, enabled: true, level: 'routine', issuer: actor, grantedAt: at,
  queues: [queue('security'), queue('updates'), queue('packs')], scans: { main: 'abc', source: [], running: [], historical: [], noRepository: false, known: true, stale: false, lastScan: at },
- problem: '', procedures: [{ workflow: 'janitor-update', version: 7, repairRounds: 4, stopRule: 'Weekly updates stop after 3 failed tries; security fixes can still run.', sentence: 'Up to 4 repair sessions; then asks Sam.', problem: '' }], queueSentences: ['Security fixes stop after 3 failed tries.', 'Weekly updates stopped after 3 failed tries. Security fixes can still run.'], nextUpdate: at, nextReason: '', scanNow: '' })
+ problem: '', procedures: [{ title: 'Declared dependency care', workflow: 'janitor-update', version: 7, repairRounds: 4, stopRule: 'Weekly updates stop after 3 failed tries; security fixes can still run.', sentence: 'Up to 4 repair sessions; then asks Sam.', problem: '' }], queueSentences: ['Security fixes stop after 3 failed tries.', 'Weekly updates stopped after 3 failed tries. Security fixes can still run.'], nextUpdate: at, nextReason: '', scanWorkflow: 'discover-issues', scanChangeNumber: 0, scanNow: '' })
 const rule = (packs = false, enabled = true): StandingRevision => ({ ruleId: packs ? 'pack-rule' : 'dependency-rule', revision: 3, enabled, issuer: actor, enabledAt: at, changedBy: actor, changedAt: at, reason: '', question: { definition: packs ? packDefinition : dependencyDefinition(), shown: 'The exact approval meaning.', digest: 'meaning', projects: [], baseImageFindings: { images: 0, projects: 0, message: '' } } })
 function fixture(): JanitorView {
  const stopped = project('Stopped'); stopped.queues[1] = queue('updates', true)
- const off = { ...project('Off'), level: 'off', choice: { level: 'off', person: actor, at, reason: 'Waiting for a release' } }
+ const off = { ...project('Off'), level: 'off', nextReason: 'Turned off for this project', choice: { level: 'off', person: actor, at, reason: 'Waiting for a release' } }
  return { rules: [rule(), rule(true)], projects: [stopped, project('Held'), off], releaseHold: 'Stops after a failed release and never releases over a rollback.', deployments: [{ projectId: 'Held', deploymentId: 'dep', name: 'production', displayLabel: 'Customer office', setting: { mode: 'automatic' }, protected: false, automatic: true, sentence: 'Releases accepted updates automatically.', hold: { deploymentId: 'dep', deployment: 'production', displayLabel: 'Customer office', releaseNumber: 9, reason: 'release failed' } }] }
 }
 const history = (): JanitorHistoryView => ({ history: { changes: [{ changeId: 'landed', projectId: 'Held', slug: 'Held', project: 'Held app', number: 2, title: 'Update library', queue: 'updates', landedAt: at, packages: [{ ecosystem: 'npm', package: 'library', from: '1.0.0', to: '1.1.0' }], packVersions: [], rule: { kind: 'Dependency updates', scope: 'all projects' }, ruleId: 'original', ruleRevision: 1, issuer: actor, grantedAt: at, schedule: 'janitor-update' }], more: false }, releases: [{ changeId: 'landed', projectId: 'Held', number: 8, state: 'released', deployment: 'production', displayLabel: 'Customer office' }], since: at, until: at, offset: 0 })
@@ -42,7 +42,7 @@ it('answers all four questions from records, with row links, grant attribution a
  const { client, el } = await mount(async url => json(url.includes('/history') ? history() : fixture()))
  await settled(client)
  expect([...el.querySelectorAll('h2')].map(h => h.textContent)).toEqual(['What it is allowed to do', 'How it handles problems', 'What it is doing and waiting on', 'What it has done'])
- for (const text of ['Keep packs current', 'Weekly · patch and minor', 'Up to 4 repair sessions', 'Security fixes can still run', 'Weekly updates stopped after 3 failed tries.', 'stopped: release 9 to Customer office failed', 'Waiting for a person to recover the release', 'turned off for this project', 'Waiting for a release', 'library 1.0.0 → 1.1.0', 'Customer office · release 8', 'Dependency updates approval for all projects (revision 1), granted by Sam']) expect(el.textContent).toContain(text)
+ for (const text of ['Keep packs current', 'Routine · patch and minor', 'Up to 4 repair sessions', 'Security fixes can still run', 'Weekly updates stopped after 3 failed tries.', 'stopped: release 9 to Customer office failed', 'turned off for this project', 'Waiting for a release', 'library 1.0.0 → 1.1.0', 'Customer office · release 8', 'Dependency updates approval for all projects (revision 1), granted by Sam']) expect(el.textContent).toContain(text)
  expect(el.querySelector('a[href="/docs/guides/janitor"]')).not.toBeNull()
  expect(el.querySelector('table[aria-label="Projects’ janitor state"] a[href="/projects/Stopped#janitor"]')?.closest('tr')?.dataset.linked).toBe('true')
  expect(el.querySelector('a[href="/changes/landed?tab=details"]')).not.toBeNull()
@@ -109,7 +109,7 @@ it('previews and enables the shown pack meaning, then revokes its exact revision
  await settled(client)
  const packs = el.querySelector('table[aria-label="Janitor approvals"] tbody tr:last-child')!
  await act(async () => packs.querySelector('button')!.click())
- expect(calls[0][1]).toMatchObject({ categories: { waysOfWorking: true, dependencies: '' }, schedules: [{ workflow: 'janitor-adopt', crons: {} }] })
+ expect(calls[0][1]).toMatchObject({ categories: { waysOfWorking: true, dependencies: '' } }); expect(calls[0][1]).not.toHaveProperty('schedules')
  expect(el.textContent).toContain('The janitor will move these projects when Keep packs current is on.')
  const button = (word: string) => [...el.querySelectorAll('button')].find(b => b.textContent === word)!
  await act(async () => button('Enable').click()); await settled(client)
@@ -188,7 +188,7 @@ it('previews a changed dependency level against the existing disabled rule', asy
  await act(async () => el.querySelector<HTMLButtonElement>('table[aria-label="Janitor approvals"] tbody tr button')!.click())
  expect(commands[0]).toMatchObject({ categories: { dependencies: 'aggressive', waysOfWorking: false } })
  expect(el.textContent).toContain('Covered projects')
- expect(el.textContent).toContain('Go code · weekly patch and minor updates')
+ expect(el.textContent).toContain('Go code · routine patch and minor updates')
  expect(el.textContent).toContain('major versions are not offered for server part')
 })
 
@@ -231,7 +231,7 @@ it('shows queue rules once, version exceptions and only eligible release setting
  expect(settings.textContent).not.toContain('Manual copy')
  expect(settings.textContent).not.toContain('Releases accepted updates')
  const off = el.querySelector('table[aria-label="Projects’ janitor state"] a[href="/projects/Off#janitor"]')!.closest('tr')!
- expect(off.querySelector('td[data-label="Next update"]')?.textContent).toBe('—')
+ expect(off.querySelector('td[data-label="Next update"]')?.textContent).toBe('Turned off for this project')
 })
 
 it('omits identical project lists from shared queue policy and shows both off-rule preview doors', async () => {
@@ -249,7 +249,7 @@ it('omits identical project lists from shared queue policy and shows both off-ru
 it('starts a project’s scan from its row and greys the action with the reason it cannot', async () => {
  const data = fixture()
  data.projects[1].scanNow = 'Turned off'
- data.projects[2] = { ...data.projects[2], level: 'routine', choice: undefined, queues: [{ ...queue('security'), state: 'updating', changeId: 'scan-change', changeNumber: 9 }, queue('updates'), queue('packs')] }
+ data.projects[2] = { ...data.projects[2], level: 'routine', choice: undefined, scanNow: 'Already running: change #9', scanChangeId: 'scan-change', scanChangeNumber: 9, queues: [{ ...queue('security'), state: 'updating', changeId: 'scan-change', changeNumber: 9 }, queue('updates'), queue('packs')] }
  const posts: string[] = []
  let refuse = false
  const { client, el } = await mount(async (url, init) => {
@@ -265,7 +265,7 @@ it('starts a project’s scan from its row and greys the action with the reason 
  expect(row('Off').querySelector('a[href="/changes/scan-change"]')?.textContent).toBe('change #9')
  expect(scan('Stopped').disabled).toBe(false)
  await act(async () => scan('Stopped').click()); await settled(client)
- expect(posts).toEqual(['/api/v1/projects/Stopped/schedules/janitor-scan/run'])
+ expect(posts).toEqual(['/api/v1/projects/Stopped/schedules/discover-issues/run'])
  refuse = true
  await act(async () => scan('Stopped').click()); await settled(client)
  await vi.waitFor(() => expect(row('Stopped').textContent).toContain('already running: change #4'))
@@ -280,4 +280,18 @@ it('greys the scan action when the person lacks either permission to start work'
   expect(row.textContent).toContain('Needs permission to start work')
   cleanup.splice(0).forEach(f => f())
  }
+})
+
+it('preserves an exact project pack approval when previewing its categories', async () => {
+ const exact = rule(true, false)
+ exact.question.definition = { ...exact.question.definition, scope: '', projects: [{ projectId: 'Held', workflow: 'keep-packs', environments: [] }] }
+ let posted: unknown
+ const { client, el } = await mount(async (url, init) => {
+  if (init?.method === 'POST') { posted = JSON.parse(String(init.body)); return json({ ...exact.question, definition: posted }) }
+  return json(url.includes('/history') ? history() : { ...fixture(), rules: [exact] })
+ })
+ await settled(client)
+ const row = [...el.querySelectorAll('table[aria-label="Janitor approvals"] tbody tr')].find(r => r.textContent?.includes('Keep packs current'))!
+ await act(async () => row.querySelector<HTMLButtonElement>('button')!.click())
+ expect(posted).toMatchObject({ scope: '', categories: { waysOfWorking: true, dependencies: '' }, projects: [{ projectId: 'Held', workflow: 'keep-packs' }] })
 })

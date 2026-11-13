@@ -41,14 +41,8 @@ type StandingProject struct {
 	ProjectID    ids.ID                `json:"projectId"`
 	Environments []StandingEnvironment `json:"environments"`
 }
-type standingSchedule struct {
-	Workflow string            `json:"workflow"`
-	Crons    map[string]string `json:"crons"`
-}
-
 type StandingDefinition struct {
 	Scope          string             `json:"scope,omitempty"`
-	Schedules      []standingSchedule `json:"schedules,omitempty"`
 	Administrative bool               `json:"administrative"`
 	Projects       []StandingProject  `json:"projects"`
 	Categories     StandingCategories `json:"categories"`
@@ -85,7 +79,7 @@ type StandingDestination struct {
 type standingDestinations interface {
 	StandingDestination(context.Context, database.Queryer, ids.ID, StandingEnvironment) (StandingDestination, error)
 }
-type StandingProjectMeaning struct {
+type standingProjectMeaning struct {
 	ProjectID ids.ID            `json:"projectId"`
 	Procedure StandingProcedure `json:"procedure"`
 }
@@ -118,7 +112,7 @@ type StandingQuestion struct {
 	BaseImageFindings standingBaseImagePreview `json:"baseImageFindings"`
 	Portfolio         []StandingProjectPreview `json:"portfolio,omitempty"`
 	Definition        StandingDefinition       `json:"definition"`
-	Projects          []StandingProjectMeaning `json:"projects"`
+	Projects          []standingProjectMeaning `json:"projects"`
 	Shown             string                   `json:"shown"`
 	Digest            string                   `json:"digest"`
 }
@@ -203,7 +197,7 @@ func normalizeStanding(in StandingDefinition) (StandingDefinition, error) {
 	return in, nil
 }
 
-func standingQuestion(in StandingDefinition, projects []StandingProjectMeaning) (StandingQuestion, error) {
+func standingQuestion(in StandingDefinition, projects []standingProjectMeaning) (StandingQuestion, error) {
 	q := StandingQuestion{Definition: in, Projects: projects}
 	var b strings.Builder
 	b.WriteString("I authorize the Janitor to accept and land only classified routine updates within these bounds, after every required check passes outright. This is standing consent, not a vote on work I have personally read.\n")
