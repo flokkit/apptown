@@ -54,7 +54,7 @@ function QueueLine({ queue, slug, reload }: { queue: QueueStatus; slug: string; 
   const action = useAction(reload)
   const canSkip = useHolds('change:abandon', slug)
   return <div>
-    <p className="janitor-queue-line"><strong>{queue.title}</strong>: {queue.words}{queue.reason && <> · {queue.reason}</>}{queue.packages.length > 0 && <> · moved: {queue.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ')}</>}</p>
+    <p className="janitor-queue-line"><strong>{queue.title}</strong>: {queue.words}{queue.reason && <> · {firstLine(queue.reason)}</>}{queue.packages.length > 0 && <> · moved: {queue.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ')}</>}</p>
     {queue.changeId && <p>
       <Link to={`/changes/${queue.changeId}`}>Try again</Link> · <Link to={`/changes/${queue.changeId}?tab=conversation`}>Open the chat</Link>
       {canSkip && <> · <button type="button" className="link" disabled={action.busy} onClick={() => action.run(() => post(`/projects/${slug}/janitor/${queue.queue}/skip`, { changeId: queue.changeId }))}>Skip this update</button></>}

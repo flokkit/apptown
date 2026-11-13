@@ -172,3 +172,17 @@ it('names pack work in the queue and recent tries reached from the janitor page'
   expect(el.textContent?.match(/Pack updates/g)?.length).toBe(2)
  })
 })
+
+it('shows a stuck queue and a failed try by their error’s first line; the change holds the whole error', async () => {
+  const data = fixture()
+  const error = 'update: part web: npm listing failed (exit 1): npm notice\nError: missing installed path @typescript/typescript-aix-ppc64\n    at walk ([eval]:8:34)'
+  data.queues[0].reason = error
+  data.recent[0].reason = error
+  await render(data, true, el => {
+    const queue = el.querySelector('.janitor-queue-line')!
+    expect(queue.textContent).toBe('Security fixes: stuck since 12 Nov · update: part web: npm listing failed (exit 1): npm notice')
+    expect(el.querySelector('table[aria-label="Recent tries"] .record-note')?.textContent).toBe('update: part web: npm listing failed (exit 1): npm notice')
+    expect(el.textContent).not.toContain('missing installed path')
+    expect(queue.nextElementSibling?.querySelector('a')?.getAttribute('href')).toBe('/changes/open-change')
+  })
+})
