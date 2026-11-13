@@ -1146,6 +1146,7 @@ export type JanitorLandedChange = {
 }
 
 export type JanitorProcedure = {
+  title: string
   workflow: string
   version: number
   repairRounds: number
@@ -1968,9 +1969,42 @@ export type RunTrace = {
   guidance: unknown
 }
 
+export type RunningScan = {
+  id: string | null
+  projectId: string | null
+  changeId?: string | null
+  runId: string | null
+  stepId: string | null
+  attempt: number
+  subject: ScanSubject
+  expectedScanners: string[]
+  scanner: string
+  bindingVersion: number
+  configHash: string
+  configuration: string
+  stepConfig: unknown
+  observedAt: string
+  verdict: string
+  findings: Finding[]
+  reason?: string
+  projectFindings: Finding[]
+  imageOnlyFindings: Finding[]
+  unclassifiedFindings: Finding[]
+}
+
 export type RunsAbandoned = {
   ok: boolean
   abandoned: (string | null)[]
+}
+
+export type ScheduleFiringView = {
+  origin: string
+  ruleId?: string | null
+  ruleRevision: number
+  at: string
+  outcome: "opened" | "skipped" | "failed" | "unknown"
+  changeId?: string | null
+  changeNumber: number
 }
 
 export type ScheduleList = {
@@ -1981,6 +2015,23 @@ export type ScheduleList = {
 export type ScheduleRunView = {
   changeId: string | null
   changeNumber: number
+}
+
+export type ScheduleSource = {
+  workflow: string
+  version: number
+}
+
+export type ScheduleView = {
+  source: ScheduleSource
+  cron: string
+  timeZone: string
+  skipIfActive: boolean
+  next?: string
+  due: boolean
+  last?: ScheduleFiringView | null
+  problem?: string
+  waiting?: string
 }
 
 export type SecretBound = {
@@ -2116,7 +2167,6 @@ export type StandingCommand = {
 
 export type StandingDefinition = {
   scope?: string
-  schedules?: StandingSchedule[]
   administrative: boolean
   projects: StandingProject[]
   categories: StandingCategories
@@ -2215,11 +2265,6 @@ export type StandingRevision = {
   changedBy: StandingActor
   changedAt: string
   reason: string
-}
-
-export type StandingSchedule = {
-  workflow: string
-  crons: Record<string, string>
 }
 
 export type StandingStatus = {
@@ -3927,9 +3972,12 @@ export type JanitorProject = {
   problem: string
   procedures: JanitorProcedure[]
   queueSentences: string[]
+  scanChangeId?: string | null
+  scanChangeNumber: number
   nextUpdate: string
   nextReason: string
   scanNow: string
+  scanWorkflow: string
 }
 
 export type JanitorDeployment = {
@@ -4358,6 +4406,7 @@ export type JanitorHold = {
 }
 
 export type QueueStatus = {
+  title: string
   queue: string
   state: string
   since: string
@@ -4677,16 +4726,15 @@ export type Artifact = {
   binary?: boolean
 }
 
-export type ScheduleView = {
-  source: ScheduleSource
-  cron: string
-  timeZone: string
-  skipIfActive: boolean
-  next?: string
-  due: boolean
-  last?: ScheduleFiringView | null
-  problem?: string
-  waiting?: string
+export type ScanSubject = {
+  on: string
+  commit?: string
+  history?: string
+  deploymentId?: string | null
+  deployment?: string
+  bundleId?: string | null
+  part?: string
+  digest?: string
 }
 
 export type EnvironmentEntry = {
@@ -5520,29 +5568,6 @@ export type ScanObservation = {
   reason?: string
 }
 
-export type RunningScan = {
-  id: string | null
-  projectId: string | null
-  changeId?: string | null
-  runId: string | null
-  stepId: string | null
-  attempt: number
-  subject: ScanSubject
-  expectedScanners: string[]
-  scanner: string
-  bindingVersion: number
-  configHash: string
-  configuration: string
-  stepConfig: unknown
-  observedAt: string
-  verdict: string
-  findings: Finding[]
-  reason?: string
-  projectFindings: Finding[]
-  imageOnlyFindings: Finding[]
-  unclassifiedFindings: Finding[]
-}
-
 export type SecretStatus = {
   agentVisible: boolean
   agentEligible: boolean
@@ -5597,21 +5622,6 @@ export type Spec = {
   workspace?: string
   defaults?: Defaults
   stages: SpecStage[]
-}
-
-export type ScheduleSource = {
-  workflow: string
-  version: number
-}
-
-export type ScheduleFiringView = {
-  origin: string
-  ruleId?: string | null
-  ruleRevision: number
-  at: string
-  outcome: "opened" | "skipped" | "failed" | "unknown"
-  changeId?: string | null
-  changeNumber: number
 }
 
 export type CheckReceipt = {
@@ -5809,17 +5819,6 @@ export type ProviderDeployment = {
   target: string
 }
 
-export type ScanSubject = {
-  on: string
-  commit?: string
-  history?: string
-  deploymentId?: string | null
-  deployment?: string
-  bundleId?: string | null
-  part?: string
-  digest?: string
-}
-
 export type workflowStepSummary = {
   name: string
   uses: string
@@ -5850,6 +5849,7 @@ export type WorkerProfile = {
 export type On = {
   manual?: Record<string, unknown>
   schedule?: ScheduleTrigger | null
+  publication?: PublicationTrigger | null
 }
 
 export type Defaults = {
@@ -5891,8 +5891,14 @@ export type CheckRow = {
 }
 
 export type ScheduleTrigger = {
+  aggressiveCron?: string
   standing?: boolean
   queue?: string
   cron: string
   skipIfActive?: boolean | null
+}
+
+export type PublicationTrigger = {
+  queue: string
+  standing: boolean
 }

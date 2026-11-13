@@ -31,7 +31,7 @@ type janitorLandedChange struct {
 	Schedule     string                `json:"schedule"`
 }
 
-type janitorHistory struct {
+type JanitorHistory struct {
 	Changes []janitorLandedChange `json:"changes"`
 	More    bool                  `json:"more"`
 }
@@ -39,8 +39,8 @@ type janitorHistory struct {
 // LandedJanitorChanges pages by landing time within an explicit half-open
 // window. Visibility is fenced before LIMIT so hidden rows cannot crowd out
 // readable history. Original authority comes from the immutable revision.
-func (s *Service) LandedJanitorChanges(ctx context.Context, since, until time.Time, offset, limit int) (janitorHistory, error) {
-	out := janitorHistory{Changes: []janitorLandedChange{}}
+func (s *Service) LandedJanitorChanges(ctx context.Context, since, until time.Time, offset, limit int) (JanitorHistory, error) {
+	out := JanitorHistory{Changes: []janitorLandedChange{}}
 	visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
 	if err != nil {
 		return out, err
@@ -64,7 +64,7 @@ func (s *Service) LandedJanitorChanges(ctx context.Context, since, until time.Ti
 		if err := json.Unmarshal(row.Packages, &item.Packages); err != nil {
 			return out, err
 		}
-		if row.Queue == "packs" && len(row.TargetCandidateJson) > 0 {
+		if len(row.TargetCandidateJson) > 0 {
 			var candidate adoption.Candidate
 			if err := json.Unmarshal(row.TargetCandidateJson, &candidate); err != nil {
 				return out, err

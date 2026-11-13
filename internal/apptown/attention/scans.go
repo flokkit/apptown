@@ -31,17 +31,17 @@ func (s Scans) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, error)
 	if !scans.Known && !scans.NoRepository {
 		out.Items = append(out.Items, Item{Key: "scans/" + id.String(), Severity: SeverityWarning, Title: fmt.Sprintf("%s: scan not known", p.Name), Detail: "A scan is missing, could not run, or is older than three days.", Href: href, Unknown: true, Stale: scans.Stale, ObservedAt: scans.LastScan})
 	}
-	for _, queue := range []string{"security", "updates", "packs"} {
-		state, err := s.Work.QueueState(ctx, id, queue)
-		if err != nil {
-			return Snapshot{}, err
-		}
+	queues, err := s.Work.Queues(ctx, id)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	for _, state := range queues {
 		if state.State == "stuck" || state.State == "stopped" {
-			title := fmt.Sprintf("%s: %s stuck since %s", p.Name, queue, state.Since.Format("2 Jan"))
+			title := fmt.Sprintf("%s: %s stuck since %s", p.Name, state.Title, state.Since.Format("2 Jan"))
 			if state.State == "stopped" {
-				title = fmt.Sprintf("%s: %s stopped after %d failed tries", p.Name, queue, state.Failed)
+				title = fmt.Sprintf("%s: %s stopped after %d failed tries", p.Name, state.Title, state.Failed)
 			}
-			out.Items = append(out.Items, Item{Key: "queue/" + id.String() + "/" + queue, Severity: SeverityWarning, Title: title, Detail: queueDetail(state), Href: href, ObservedAt: state.Since})
+			out.Items = append(out.Items, Item{Key: "queue/" + id.String() + "/" + state.Queue, Severity: SeverityWarning, Title: title, Detail: queueDetail(state), Href: href, ObservedAt: state.Since})
 		}
 	}
 	return out, nil

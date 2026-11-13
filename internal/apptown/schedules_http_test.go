@@ -4,12 +4,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids"
 
+	"database/sql"
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/database/query"
 	"strings"
 	"testing"
 	"time"
@@ -67,14 +71,14 @@ spec:
 		t.Fatalf("outsider: %d %s", w.Code, w.Body.String())
 	}
 	w := authzCall(h, "owner", "GET", "/api/v1/projects/game/schedules", "")
-	var got httpapi.ScheduleList
+	var got changeactions.ProjectSchedules
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &got) != nil {
 		t.Fatalf("owner: %d %s", w.Code, w.Body.String())
 	}
 	if len(got.Schedules) != 1 || got.EvalCopy {
 		t.Fatalf("schedules: %s", w.Body.String())
 	}
-	if s := got.Schedules[0]; s.Source.Workflow != "monthly" || s.Cron != "0 6 1 * *" || s.TimeZone != "UTC" || s.Next == "" || s.Last != nil {
+	if s := got.Schedules[0]; s.Source.Workflow != "monthly" || s.Cron != "0 6 1 * *" || s.TimeZone != "UTC" || s.Next.IsZero() || s.Last != nil {
 		t.Fatalf("schedule: %+v", s)
 	}
 	dbtest.FailNextStatement(t, a.DB, "name: WorkflowSchedulesOfProject :many")
@@ -184,7 +188,7 @@ func TestJanitorPageReadsWithAnInstanceRuleAndAProjectWithoutARepository(t *test
 	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest}); err != nil {
 		t.Fatal(err)
 	}
-	if rule, _, err := a.standingRules.StandingForWorkflow(ctx, empty.ID, "janitor-update"); err != nil || !rule.RuleID.IsZero() {
+	if rule, _, _, err := a.standingRules.StandingForWorkflow(ctx, empty.ID, "janitor-update"); err != nil || !rule.RuleID.IsZero() {
 		t.Fatalf("a project without a repository: rule=%+v err=%v", rule, err)
 	}
 	w := authzCall(a.Handler(), "boss", "GET", "/api/v1/janitor", "")
@@ -253,7 +257,7 @@ func TestScanNowFiresTheJanitorScanScheduleForAPersonWhoMayOpenWork(t *testing.T
 		return ""
 	}
 	const run = "/api/v1/projects/janitor-scan-now/schedules/janitor-scan/run"
-	if got := scanNow(); got != "Turned off" {
+	if got := scanNow(); got != "waits for a standing approval" {
 		t.Fatalf("scan without a janitor approval: %q", got)
 	}
 	if w := authzCall(h, "boss", "POST", run, ""); w.Code != 422 {
@@ -277,9 +281,9 @@ func TestScanNowFiresTheJanitorScanScheduleForAPersonWhoMayOpenWork(t *testing.T
 	if w := authzCall(h, "outsider", "POST", run, ""); w.Code != 403 {
 		t.Fatalf("starting work without opening it: %d %s", w.Code, w.Body)
 	}
-	last := func() *httpapi.ScheduleFiringView {
+	last := func() *workflow.ScheduleRecord {
 		w := authzCall(h, "boss", "GET", "/api/v1/projects/janitor-scan-now/schedules", "")
-		var got httpapi.ScheduleList
+		var got changeactions.ProjectSchedules
 		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &got) != nil {
 			t.Fatalf("schedules: %d %s", w.Code, w.Body)
 		}
@@ -305,4 +309,58 @@ func TestScanNowFiresTheJanitorScanScheduleForAPersonWhoMayOpenWork(t *testing.T
 	if l := last(); l == nil || l.Outcome != workflow.ScheduleOpened || l.ChangeID != started.ChangeID {
 		t.Fatalf("the firing was not recorded: %+v", l)
 	}
+}
+
+// Count real database round trips at the same interface generated code uses.
+type standingCountedQueries struct {
+	query.Handle
+	reads  int
+	writes int
+}
+
+func (d *standingCountedQueries) SQL() query.Handle {
+	return dbtest.WithExecutor(d.Handle, d)
+}
+func (d *standingCountedQueries) ExecContext(ctx context.Context, q string, args ...any) (sql.Result, error) {
+	d.writes++
+	return d.Executor.ExecContext(ctx, q, args...)
+}
+func (d *standingCountedQueries) QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error) {
+	d.reads++
+	return d.Executor.QueryContext(ctx, q, args...)
+}
+func (d *standingCountedQueries) QueryRowContext(ctx context.Context, q string, args ...any) *sql.Row {
+	d.reads++
+	return d.Executor.QueryRowContext(ctx, q, args...)
+}
+
+func TestStandingConsentReadsPublishedLibraryOnce(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	declaration := func(name, description string) string {
+		return fmt.Sprintf("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: %s, description: %s}\nspec: {kind: pipeline, stages: [{name: work, steps: [{name: work, uses: script, with: {run: 'true'}}]}]}\n", name, description)
+	}
+	library := wow.NewWorkflows(db)
+	for i := range 12 {
+		name := fmt.Sprintf("wf-%02d", i)
+		for _, description := range []string{"original", "current"} {
+			if _, _, err := library.Put(t.Context(), declaration(name, description), "alice"); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	counted := &standingCountedQueries{Handle: db.SQL()}
+	// Standing consent must use the same bulk publication read, including the
+	// version it pins, rather than fetching each workflow again by name.
+	counted.reads = 0
+	published, err := (standingPortfolio{}).PublishedWorkflows(t.Context(), counted)
+	if err != nil || counted.reads != 1 || len(published) != 12 {
+		t.Fatalf("standing library: %d reads, %d workflows: %v", counted.reads, len(published), err)
+	}
+	for _, wf := range published {
+		if wf.Version != 2 || wf.Name != wf.Doc.Metadata.Name || wf.Doc.Metadata.Description != "current" {
+			t.Fatalf("standing library mixed publication versions: %+v", wf)
+		}
+	}
+
 }

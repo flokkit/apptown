@@ -18,6 +18,7 @@ apiVersion: apptown.dev/v1
 kind: Workflow
 metadata:
   name: quick-change
+  title: Small changes   # optional display name; defaults to the name
   description: Small change, one glance.
   tier: core            # core | extras — how the library shows it; system workflows have none
   category: change
@@ -77,6 +78,16 @@ visible where people look. Not built: webhooks, `scm` triggers (no SCM
 adapter) and
 `workflow` as a trigger kind — calling a workflow from another is a
 *step* (§2.5 `workflow/call`), not a trigger.
+
+A standing schedule declares `standing: true` and its Change's `queue`.
+It fires only under eligible standing consent. Its optional `aggressiveCron`
+selects a second five-field UTC cron for aggressive update bounds; otherwise
+`cron` applies. `aggressiveCron` is valid only on standing schedules.
+
+`on.publication: {queue: pack-moves, standing: true}` runs maintenance when an
+assessed pack publication is ready. Both fields are required. A workflow chooses
+either a schedule or a publication trigger. Pack adoption selects this declaration
+from the prepared candidate whose procedures the Change will execute.
 
 ### 2.3 Interpolation
 

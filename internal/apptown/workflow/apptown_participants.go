@@ -123,15 +123,15 @@ const (
 // ScheduleRecord is a schedule's firing record: when it last fired (or was
 // armed) and what that did. ChangeID is the change an opened firing made.
 type ScheduleRecord struct {
-	Origin       string
-	RuleID       ids.ID
-	RuleRevision int64
-	Workflow     string
-	At           time.Time
-	Outcome      ScheduleOutcome
-	ChangeID     ids.ID
+	Origin       string          `json:"origin"`
+	RuleID       ids.ID          `json:"ruleId,omitzero"`
+	RuleRevision int64           `json:"ruleRevision"`
+	Workflow     string          `json:"-"`
+	At           time.Time       `json:"at"`
+	Outcome      ScheduleOutcome `json:"outcome"`
+	ChangeID     ids.ID          `json:"changeId,omitzero"`
 	// ChangeNumber names ChangeID within the project; 0 when none or gone.
-	ChangeNumber int64
+	ChangeNumber int64 `json:"changeNumber"`
 }
 
 // RecordScheduleFiringIn advances an armed schedule, including skipped or

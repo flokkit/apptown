@@ -18,6 +18,22 @@ with base-image findings. Projects whose main contract declares no tests are
 marked as checking only that the app starts. Dynamic project membership does
 not change the saved consent's meaning.
 
+Instance consent selects published standing schedules for dependency maintenance,
+and published standing publication triggers for Keep packs current. It pins their
+approval purposes, rather than a separate workflow or cron list. One generated
+sentence grants the schedules and repair limits each project's adopted packs
+declare, including changes when a project adopts a new pack version. It shows
+the current publication's titles, descriptions, cadence and repair sessions so a
+person can inspect those values. A project on an older version runs that version.
+Recorded revisions, sentences and digests remain unchanged.
+
+Queues take their names and titles from adopted standing triggers. Procedures
+show the repair limits of those workflows and the workflows they call. Pack
+maintenance selects its publication workflow and queue from the prepared target
+candidate, so an older adoption without a publication trigger can acquire one
+through a governed adoption Change.
+
+
 At every use AppTown reads the project's current adoption, approval purposes,
 issuer permissions, effective update level and release health. Every tool part needs a declared
 update fix with whole-update, targeted-update and listing commands. Unsupported
@@ -223,7 +239,7 @@ current consent again at the merge claim. The approver is recorded as “the
 janitor, under standing approval <rule> (rev N), granted by <issuer>”; the same
 attribution follows the release event.
 
-The `security` and `updates` queues keep separate histories. A proposal records
+Each queue declared by an adopted standing workflow keeps its own history. A proposal records
 main, the adopted versions, the listing after the declared change, and its
 targets. A proposal identical to the queue's last held or skipped one stops
 before tests. A distinct proposal replaces earlier untouched work; human-touched
@@ -237,7 +253,7 @@ Changes, and paths to retry, chat or skip the update. Stuck and stopped queues
 each contribute one attention item. A skip retains its fingerprint and targets.
 A person who may open and start work in a project can fire one of its
 carried schedules now (`POST /api/v1/projects/{slug}/schedules/{workflow}/run`;
-the Janitor page's Scan now uses `janitor-scan`). The firing is the scheduler's
+the Janitor page selects the standing schedule that discovers fixable targets). The firing is the scheduler's
 own: the Change is opened through the schedule under the eligible rule, and
 `schedule.run-requested` records the person. A busy or stopped queue, a missing
 schedule or a missing eligible rule is refused and records no firing.
@@ -245,11 +261,15 @@ Schedules declaring `standing: true` fire only under an enabled, currently
 eligible rule. Without one, the schedule read says it waits for a standing
 approval, with no next firing; its last recorded firing remains visible. This
 is a normal off state. Unreadable workflows
-and invalid cron expressions remain schedule problems. Each workflow's rule
-schedule has `crons: {routine: CRON, aggressive: CRON}`.
-The effective level selects its cron: weekly for routine updates and nightly for
-aggressive updates; security uses the same daily cron at both levels. This read
-also supplies the routine check and standing assessment's bound. A vote records
+and invalid cron expressions remain schedule problems. The scheduler reads each project's adopted standing declaration. Its
+`cron` applies at routine level; `aggressiveCron`, when declared, applies at
+aggressive level. Both are read in UTC. The scheduler's own admission read
+supplies Scan now's refusal and the earliest next firing of other standing
+schedules for Next update. Busy queues retain their future firing time; stopped
+queues have none. Target-discovering schedules can still scan a stopped queue.
+Project-scoped rules also authorize their selected workflows' declared schedules.
+The effective level also supplies the routine check and standing assessment's bound.
+A vote records
 the assessed level; a changed level refuses acceptance or landing. Firing and
 attempt records capture its rule ID and revision before acceptance, preserving
 them through rule revision and Change disposal.

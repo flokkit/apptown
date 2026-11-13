@@ -127,7 +127,7 @@ func (s *Service) processStanding(ctx context.Context, runID, stepID ids.ID, rev
 	if cfg.Standing == nil {
 		return false, nil
 	}
-	rule, _, err := s.standing.standingForWorkflow(ctx, run.ProjectID, run.WorkflowName, run.AdoptionID)
+	rule, _, _, err := s.standing.standingForWorkflow(ctx, run.ProjectID, run.WorkflowName, run.AdoptionID)
 	if err != nil {
 		return false, err
 	}

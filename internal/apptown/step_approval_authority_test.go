@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -430,7 +431,7 @@ func TestJanitorInstancePreviewReadsMainAndReleaseSettings(t *testing.T) {
 	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest}); err != nil {
 		t.Fatal(err)
 	}
-	if dependency, _, err := a.standingRules.StandingForWorkflow(ctx, java, "janitor-update"); err != nil || !dependency.RuleID.IsZero() {
+	if dependency, _, _, err := a.standingRules.StandingForWorkflow(ctx, java, "janitor-update"); err != nil || !dependency.RuleID.IsZero() {
 		t.Fatalf("uncovered Java got dependency work: %+v %v", dependency, err)
 	}
 	packRule := enablePackRule(t, a, ctx)
@@ -789,7 +790,7 @@ func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
 			attempts, err := a.Work.Attempts(ctx, pid, "packs", 10)
 			if err != nil || len(attempts) != 1 || attempts[0].RuleID != rule.RuleID || attempts[0].RuleRevision != rule.Revision || !attempts[0].Attempted || attempts[0].Fingerprint == "" {
 				fresh, _ := a.conformance.WhatIf(ctx, latest.ID)
-				eligible, _, _ := a.standingRules.StandingForWorkflow(ctx, pid, "janitor-adopt")
+				eligible, _, _, _ := a.standingRules.StandingForWorkflow(ctx, pid, "janitor-adopt")
 				t.Fatalf("packs attempt: %+v %v; assessment=%+v rule=%+v", attempts, err, fresh, eligible)
 			}
 			if scenario.kind == "repair-exhausted" {
@@ -812,7 +813,7 @@ func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
 				}
 				t.Fatalf("repair sessions=%d want %d", repairs, wantRepairs)
 			}
-			if dep, _, err := a.standingRules.StandingForWorkflow(ctx, pid, "janitor-update"); err != nil || !dep.RuleID.IsZero() {
+			if dep, _, _, err := a.standingRules.StandingForWorkflow(ctx, pid, "janitor-update"); err != nil || !dep.RuleID.IsZero() {
 				t.Fatalf("pack consent granted dependencies: %+v %v", dep, err)
 			}
 			// A person's earlier review cannot suppress catch-up, and job redelivery
@@ -981,4 +982,154 @@ func platformPick(t *testing.T, a *App, ctx context.Context) adoption.PackPick {
 
 func testAdmittedPrincipalForPacks(t *testing.T, a *App) access.Principal {
 	return access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}
+}
+
+// A candidate supplies the procedure that its run will execute. The current
+// adoption may still pin the actual triggerless declaration from the old release.
+func TestPackPublicationBootstrapsOldTriggerlessPinAndUsesDeclaredQueue(t *testing.T) {
+	for _, name := range []string{"janitor-adopt", "keep-packs"} {
+		t.Run(name, func(t *testing.T) {
+			a := authzActors(t)
+			ctx := verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, a))
+			a.SyncStock(ctx)
+			q, err := a.standingRules.Preview(ctx, workflow.StandingDefinition{Scope: "instance", Delivery: "full", Categories: workflow.StandingCategories{WaysOfWorking: true}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i := range q.Projects {
+				q.Projects[i].Procedure.Acceptance.Workflow = name
+			}
+			body, err := stock.FS.ReadFile("janitor-adopt.yaml")
+			if err != nil {
+				t.Fatal(err)
+			}
+			current := strings.ReplaceAll(string(body), "janitor-adopt", name)
+			current = strings.Replace(current, "queue: packs", "queue: pack-moves", 1)
+			old := strings.Replace(current, "  on:\n    publication: {queue: pack-moves, standing: true}\n", "", 1)
+			old = strings.Replace(old, "  title: Pack updates\n", "", 1)
+			oldStock := strings.Replace(string(body), "  on:\n    publication: {queue: packs, standing: true}\n", "", 1)
+			oldStock = strings.Replace(oldStock, "  title: Pack updates\n", "", 1)
+			initial := fstest.MapFS{"janitor-adopt.yaml": &fstest.MapFile{Data: []byte(oldStock)}}
+			initial[name+".yaml"] = &fstest.MapFile{Data: []byte(old)}
+			release := wow.New(a.DB, wow.Dependencies{Stock: initial})
+			release.SyncStockWorkflows(ctx)
+			platform, err := a.Ways.Pack(ctx, adoption.PlatformPack)
+			if err != nil {
+				t.Fatal(err)
+			}
+			spec := platform.Spec()
+			spec.Guidance = nil
+			for i, n := range spec.Workflows {
+				if n == "janitor-adopt" {
+					spec.Workflows[i] = name
+				}
+			}
+			raw, err := json.Marshal(spec)
+			if err != nil {
+				t.Fatal(err)
+			}
+			version, err := a.Ways.PublishPack(ctx, adoption.PlatformPack, platform.Description, string(raw), "stock")
+			if err != nil {
+				t.Fatal(err)
+			}
+			pid, _, _ := fleetRepo(t, a, "bootstrap", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+			if err := recordCatalogFixture(a.Adoption, ctx, pid, "boss"); err != nil {
+				t.Fatal(err)
+			}
+			candidate, err := a.Adoption.Prepare(ctx, pid, adoption.Request{Packs: []adoption.PackPick{{Pack: adoption.PlatformPack, Version: int64(version)}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(ctx, pid), a.projectByID(ctx, pid), candidate, "boss", "old publication"); err != nil {
+				t.Fatal(err)
+			}
+			q.Shown = "Keep packs current. AppTown moves projects to newly published versions of the packs they use, with up to two repair sessions."
+			q.Digest = "old-recorded-pack-consent"
+			rule := workflow.StandingRevision{RuleID: ids.New(time.Now()), Revision: 1, Enabled: true, Question: q, Issuer: workflow.StandingRevision{}.Issuer, EnabledAt: time.Now()}
+			rule.Issuer.Name = "boss"
+			rule.Issuer.Principal = testPrincipalOf(t, a.DB, "boss")
+			rule.Issuer.Via = "session"
+			record, err := json.Marshal(rule)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var legacy map[string]any
+			if err := json.Unmarshal(record, &legacy); err != nil {
+				t.Fatal(err)
+			}
+			legacy["question"].(map[string]any)["definition"].(map[string]any)["schedules"] = []any{map[string]any{"workflow": name, "crons": map[string]string{}}}
+			record, err = json.Marshal(legacy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// sql-guarantee: no current operation can create retired consent JSON.
+			if _, err := a.DB.SQL().ExecContext(ctx, `INSERT INTO standing_rules(id,current_revision) VALUES($1,1)`, rule.RuleID); err != nil {
+				t.Fatal(err)
+			}
+			// sql-guarantee: preserve the old sentence and definition as recorded evidence.
+			if _, err := a.DB.SQL().ExecContext(ctx, `INSERT INTO standing_rule_revisions(rule_id,revision,enabled,record_json) VALUES($1,1,true,$2)`, rule.RuleID, record); err != nil {
+				t.Fatal(err)
+			}
+			for publication := 1; publication <= 2; publication++ {
+				release = wow.New(a.DB, wow.Dependencies{Stock: fstest.MapFS{fmt.Sprintf("%s.yaml", name): &fstest.MapFile{Data: []byte(current)}}})
+				release.SyncStockWorkflows(ctx)
+				// A changed publication captures the candidate's current workflow pins.
+
+				raw, err = json.Marshal(spec)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var published map[string]any
+				if err := json.Unmarshal(raw, &published); err != nil {
+					t.Fatal(err)
+				}
+				published["description"] = fmt.Sprintf("Publication %d", publication)
+				raw, err = json.Marshal(published)
+				if err != nil {
+					t.Fatal(err)
+				}
+				version, err = a.Ways.PublishPack(ctx, adoption.PlatformPack, platform.Description, string(raw), "stock")
+				if err != nil {
+					t.Fatal(err)
+				}
+				assessment, err := a.conformance.LatestWhatIf(ctx, adoption.PlatformPack, int64(version))
+				if err != nil || assessment == nil {
+					t.Fatalf("%+v %v", assessment, err)
+				}
+				finished := runWhatIf(t, a, ctx, assessment.ID)
+				if finished.State != conformance.WhatIfDone {
+					t.Fatal(finished.State)
+				}
+				attempts, err := a.Work.Attempts(ctx, pid, "pack-moves", 10)
+				if err != nil || len(attempts) != publication {
+					t.Fatalf("attempts %+v %v", attempts, err)
+				}
+				change, err := a.Work.Change(ctx, attempts[0].ChangeID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				runs, err := a.Work.ChangeRuns(ctx, change.ID, workflow.ChangeRuns{})
+				if err != nil || len(runs) == 0 || runs[0].WorkflowName != name {
+					t.Fatalf("runs %+v %v", runs, err)
+				}
+				if _, err := a.Work.Abandon(ctx, workflow.StopWork{ChangeID: change.ID, Reason: "test adopts the prepared publication"}); err != nil {
+					t.Fatal(err)
+				}
+				// The opened run was dispatched; let it settle before the
+				// next publication and before the App shuts down.
+				a.Work.Wait()
+				picks := []adoption.PackPick{{Pack: adoption.PlatformPack, Version: int64(version)}}
+				candidate, err = a.Adoption.Prepare(ctx, pid, adoption.Request{Packs: picks})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := a.DB.InTx(ctx, func(tx *database.Tx) error {
+					_, err := a.Adoption.AdoptIn(ctx, tx, pid, *candidate, candidate.ExpectedRevision, "boss", "prepared publication", adoption.OperationSelect)
+					return err
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
 }

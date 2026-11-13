@@ -328,3 +328,16 @@ func storedChecks(raw string) ([]CheckDeclaration, error) {
 	}
 	return checks, nil
 }
+
+// CandidateWorkflow reads an exact workflow pin from a prepared candidate.
+func (s *Service) CandidateWorkflow(ctx context.Context, pin ReceiptWorkflow) (*ResolvedWorkflow, error) {
+	wf, err := s.deps.Ways.Workflow(ctx, wow.WorkflowRef{Name: pin.Name, Version: pin.Version})
+	if err != nil {
+		return nil, err
+	}
+	doc, err := schema.ParseWorkflowStored([]byte(wf.YAML))
+	if err != nil {
+		return nil, err
+	}
+	return &ResolvedWorkflow{Name: pin.Name, Version: pin.Version, Doc: doc}, nil
+}

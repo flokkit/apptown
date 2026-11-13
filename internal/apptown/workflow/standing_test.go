@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/fault"
@@ -23,6 +24,7 @@ import (
 )
 
 type standingProcedureFixture struct {
+	docs  []*schema.Doc
 	means string
 	err   error
 }
@@ -37,7 +39,7 @@ func standingFixture(t *testing.T) (*stepAuthorityTestRig, StandingRules, *stand
 		t.Fatal(err)
 	}
 	p := &standingProcedureFixture{means: "accept bounded routine updates after all checks pass"}
-	s := NewStandingRules(a.DB, StandingDependencies{Authority: a.Authorizer, Identity: a.Access, Procedures: p})
+	s := NewStandingRules(a.DB, StandingDependencies{Authority: a.Authorizer, Identity: a.Access, Procedures: p, Publications: p})
 	ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "owner"))
 	in := StandingDefinition{Projects: []StandingProject{{ProjectID: a.ProjectID, Workflow: "quick-change"}}, Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "land-only"}
 	return a, s, p, ctx, in

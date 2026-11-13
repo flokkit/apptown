@@ -11,8 +11,6 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-const packConsent = "Keep packs current. AppTown moves projects to newly published versions of the packs they use. An agent writes any code the change needs, with up to two repair sessions. When every required check is met, tests and start-up pass and scans find no new failures, it lands the change and releases it like any janitor change: to deployments that follow main and allow automatic or window releases, unless protected. A check AppTown judges not applicable with a reason is met; errors and checks it could not assess are not. This covers every project, including ones created later, until turned off. Problems are shown in AppTown only."
-
 // PackRuleIn selects current human authority for starting an assessment. Project
 // eligibility and approval meanings are checked again before opening any Change.
 func (s StandingRules) PackRuleIn(ctx context.Context, q database.Queryer) (StandingRevision, error) {
@@ -81,7 +79,7 @@ func (s *Service) OpenPackUplift(ctx context.Context, in Uplift) (*Change, error
 		if _, err := s.standing.eligibleForIn(ctx, tx, rule, in.ProjectID, in.Workflow); err != nil {
 			return err
 		}
-		state, err := queueStateIn(ctx, tx, in.ProjectID, "packs")
+		state, err := queueStateIn(ctx, tx, in.ProjectID, in.Queue)
 		if err != nil {
 			return err
 		}
@@ -100,7 +98,7 @@ func (e *Execution) CheckAdoptionTarget() (adoption.RoutineTarget, error) {
 		return adoption.RoutineTarget{}, fault.New(fault.Unavailable, "pack maintenance authority is unavailable")
 	}
 	rules := e.service.standing
-	rule, _, err := rules.standingForWorkflow(e.ctx, e.run.ProjectID, e.run.WorkflowName, e.run.AdoptionID)
+	rule, _, _, err := rules.standingForWorkflow(e.ctx, e.run.ProjectID, e.run.WorkflowName, e.run.AdoptionID)
 	if err != nil {
 		return adoption.RoutineTarget{}, err
 	}

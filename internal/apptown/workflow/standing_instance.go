@@ -19,12 +19,10 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-const janitorConsent = "Every night AppTown scans each project's code and running images. It fixes security findings in project dependencies one package at a time, and each Monday applies patch and minor dependency updates. When tests, start-up and scans pass, it lands the change and releases it to the running app on every deployment that follows main and is set to automatic or a window, unless the deployment is protected. An agent writes any code a change needs; nothing lands unless every check, the tests and the start-up pass. It never changes toolchain versions or base images. This covers every project, including ones created later, until a project is turned off. Problems are shown in AppTown only."
-
 func normalizeInstanceStanding(in StandingDefinition) (StandingDefinition, error) {
 	bad := func(why string) (StandingDefinition, error) { return in, fault.New(fault.Invalid, why) }
-	if len(in.Projects) != 0 || len(in.Schedules) == 0 {
-		return bad("instance consent selects workflows and schedules, not projects")
+	if len(in.Projects) != 0 {
+		return bad("instance consent selects categories, not projects")
 	}
 	if in.Delivery != "full" {
 		return bad("instance consent includes releases under each deployment's setting")
@@ -39,51 +37,36 @@ func normalizeInstanceStanding(in StandingDefinition) (StandingDefinition, error
 		return bad("keep packs current is its own category; enable it separately from dependency fixes")
 	}
 	in.Administrative = true
-	in.Schedules = slices.Clone(in.Schedules)
-	slices.SortFunc(in.Schedules, func(a, b standingSchedule) int { return strings.Compare(a.Workflow, b.Workflow) })
-	for i, schedule := range in.Schedules {
-		if schedule.Workflow == "" || i > 0 && in.Schedules[i-1].Workflow == schedule.Workflow {
-			return bad("choose each workflow once")
-		}
-		if in.Categories.WaysOfWorking {
-			if len(schedule.Crons) != 0 {
-				return bad("pack updates follow publications, not a schedule")
-			}
-			continue
-		}
-		if len(schedule.Crons) != 2 {
-			return bad("select only routine and aggressive crons for each workflow")
-		}
-		for _, level := range []string{"routine", "aggressive"} {
-			if _, err := schema.ParseCron(schedule.Crons[level]); err != nil {
-				return bad("select routine and aggressive crons for each workflow")
-			}
-		}
-	}
 	return in, nil
 }
 
 func (s StandingRules) instanceQuestion(ctx context.Context, q database.Queryer, in StandingDefinition) (StandingQuestion, error) {
-	shown := "Update level: " + in.Categories.Dependencies + ". " + janitorConsent
-	if in.Categories.Dependencies == "aggressive" {
-		shown = strings.Replace(shown, "each Monday applies patch and minor dependency updates", "every night applies dependency updates, including major versions", 1)
-	}
-	if in.Categories.WaysOfWorking {
-		shown = packConsent
-	}
-	out := StandingQuestion{Definition: in, Shown: shown}
+	out := StandingQuestion{Definition: in}
 	procedures, ok := s.deps.Procedures.(standingInstanceProcedures)
-	if !ok || s.deps.Portfolio == nil {
+	if !ok || s.deps.Portfolio == nil || s.deps.Publications == nil {
 		return out, fault.New(fault.Unavailable, "instance standing approval observations are unavailable")
 	}
-	for _, schedule := range in.Schedules {
-		proc, err := procedures.InstanceStandingProcedure(ctx, q, schedule.Workflow)
+	library, err := s.deps.Publications.PublishedWorkflows(ctx, q)
+	if err != nil {
+		return out, err
+	}
+	var covered, docs []*schema.Doc
+	for _, w := range library {
+		docs = append(docs, w.Doc)
+	}
+	for _, doc := range docs {
+		trigger, ok := doc.Standing()
+		if !ok || trigger.Publication != in.Categories.WaysOfWorking {
+			continue
+		}
+		proc, err := procedures.InstanceStandingProcedure(doc.Metadata.Name, library)
 		if err != nil {
 			return out, err
 		}
-		out.Projects = append(out.Projects, StandingProjectMeaning{Procedure: proc})
+		out.Projects = append(out.Projects, standingProjectMeaning{Procedure: proc})
+		covered = append(covered, doc)
 	}
-	var err error
+	out.Shown = standingConsent(in.Categories, covered, docs)
 	out.Portfolio, err = s.deps.Portfolio.StandingPortfolio(ctx, q, ids.Nil, in.Categories)
 	if err != nil {
 		return out, err
@@ -108,7 +91,7 @@ func (s StandingRules) instanceQuestion(ctx context.Context, q database.Queryer,
 	// The dynamic preview is information, not the consent's project scope.
 	raw, err := json.Marshal(struct {
 		Definition StandingDefinition
-		Purposes   []StandingProjectMeaning
+		Purposes   []standingProjectMeaning
 		Shown      string
 	}{in, out.Projects, out.Shown})
 	if err != nil {
@@ -156,11 +139,7 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 	}
 	selected := false
 	if in.Scope == "instance" {
-		for _, schedule := range in.Schedules {
-			if schedule.Workflow == workflow {
-				selected = true
-			}
-		}
+		selected = pinsWorkflow(rule, workflow)
 	} else {
 		for _, p := range in.Projects {
 			if p.ProjectID == pid && p.Workflow == workflow {
@@ -188,10 +167,14 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 			proc, err = reader.StandingTargetProcedure(ctx, q, pid, target[0], workflow)
 		} else {
 			reader, ok := s.deps.Procedures.(standingInstanceProcedures)
-			if !ok {
+			if !ok || s.deps.Publications == nil {
 				return refuse("published procedure observation is unavailable")
 			}
-			proc, err = reader.InstanceStandingProcedure(ctx, q, workflow)
+			library, readErr := s.deps.Publications.PublishedWorkflows(ctx, q)
+			if readErr != nil {
+				return out, readErr
+			}
+			proc, err = reader.InstanceStandingProcedure(workflow, library)
 		}
 	} else {
 		proc, err = s.deps.Procedures.StandingProcedure(ctx, q, pid, workflow)
@@ -275,43 +258,50 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 
 // StandingForWorkflow is the scheduler's current eligibility read. The returned
 // revision is attribution for this firing; it is never an acceptance vote.
-func (s StandingRules) StandingForWorkflow(ctx context.Context, pid ids.ID, workflow string) (StandingRevision, string, error) {
+// The level belongs to the eligible rule. A refusal describes the first
+// covered rule when none is eligible; errors mean eligibility is unknown.
+func (s StandingRules) StandingForWorkflow(ctx context.Context, pid ids.ID, workflow string) (StandingRevision, string, string, error) {
 	return s.standingForWorkflow(ctx, pid, workflow, ids.Nil)
 }
 
+func pinsWorkflow(rule StandingRevision, name string) bool {
+	return slices.ContainsFunc(rule.Question.Projects, func(p standingProjectMeaning) bool { return p.Procedure.Acceptance.Workflow == name })
+}
+
 // Execution uses its frozen adoption when matching approval meanings.
-func (s StandingRules) standingForWorkflow(ctx context.Context, pid ids.ID, workflow string, target ids.ID) (StandingRevision, string, error) {
+func (s StandingRules) standingForWorkflow(ctx context.Context, pid ids.ID, workflow string, target ids.ID) (StandingRevision, string, string, error) {
 	var targets []ids.ID
 	if !target.IsZero() {
 		targets = []ids.ID{target}
 	}
 	rows, err := workflowsql.New(s.db.SQL()).CurrentStandingRules(ctx)
 	if err != nil {
-		return StandingRevision{}, "", err
+		return StandingRevision{}, "", "", err
 	}
+	refused := "waits for a standing approval"
+	covered := false
 	for _, row := range rows {
 		rule, err := readStandingRevision(row)
 		if err != nil {
-			return StandingRevision{}, "", err
+			return StandingRevision{}, "", "", err
+		}
+		if !pinsWorkflow(rule, workflow) {
+			continue
 		}
 		if _, err = s.eligibleForIn(ctx, s.db, rule, pid, workflow, targets...); err != nil {
-			if standingRefusal(err) {
-				continue
+			if !standingRefusal(err) {
+				return StandingRevision{}, "", "", err
 			}
-			return rule, "", err
-		}
-		for _, schedule := range rule.Question.Definition.Schedules {
-			if schedule.Workflow == workflow {
-				level, err := s.effectiveLevelIn(ctx, s.db, rule.Question.Definition, pid)
-				if err != nil {
-					return rule, "", err
-				}
-				return rule, schedule.Crons[level], nil
+			if !covered {
+				refused = err.Error()
+				covered = true
 			}
+			continue
 		}
-		return rule, "", nil
+		level, err := s.effectiveLevelIn(ctx, s.db, rule.Question.Definition, pid)
+		return rule, level, "", err
 	}
-	return StandingRevision{}, "", nil
+	return StandingRevision{}, "", refused, nil
 }
 
 type standingProjectChoice struct {

@@ -80,6 +80,24 @@ func TestThreeUninterruptedFailuresStopOnlyTheirQueue(t *testing.T) {
 func testQueueProposals(t *testing.T, skip bool) {
 	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "update", OnEnter: []schema.Step{{Name: "update", Uses: FixKind, With: map[string]any{"kind": "update"}}}, Steps: []schema.Step{{Name: "tests", Uses: TestsKind}}}}}
 	f, _ := newNodeFixFixture(t, "updates", spec)
+	// Attention lists the queues the project's adopted workflows declare: pin
+	// the stock update workflow, whose schedule declares queue "updates".
+	f.ways.SyncStockWorkflows(t.Context())
+	version, _, err := f.ways.WorkflowVersion(t.Context(), "janitor-update", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adopted, err := adoption.CurrentReceiptIn(t.Context(), f.db, f.projectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt := adopted.Receipt
+	receipt.Workflows = append(receipt.Workflows, adoption.ReceiptWorkflow{Name: "janitor-update", Version: version, Origin: "stock"})
+	if err := f.db.InTx(t.Context(), func(tx *database.Tx) error {
+		return adoption.RecordIn(f.ctx, tx, f.projectID, adopted.Revision+1, adoption.AdoptionEdit, "adopt the update workflow", receipt, taskAppTownAdministrator, time.Now())
+	}); err != nil {
+		t.Fatal(err)
+	}
 	// Weekly updates move both packages; the targeted security path leaves the
 	// unrelated package alone and therefore passes this same real test command.
 	contract := `app:

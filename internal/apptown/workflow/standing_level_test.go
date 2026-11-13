@@ -10,12 +10,9 @@ func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
 	a, s, _, _, _ := standingFixture(t)
 	s.deps.Portfolio = &standingPortfolioFixture{projectID: a.ProjectID}
 	boss := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
-	in := StandingDefinition{Scope: "instance", Schedules: []standingSchedule{
-		{Workflow: "test", Crons: map[string]string{"routine": "0 6 * * 1", "aggressive": "0 6 * * *"}},
-		{Workflow: "security", Crons: map[string]string{"routine": "0 5 * * *", "aggressive": "0 5 * * *"}},
-	}, Categories: StandingCategories{Dependencies: "aggressive", SecurityFixes: true}, Delivery: "full"}
+	in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "aggressive", SecurityFixes: true}, Delivery: "full"}
 	rule := enableStanding(t, s, boss, in)
-	if !strings.Contains(rule.Question.Shown, "Update level: aggressive") || !strings.Contains(rule.Question.Shown, "every night applies dependency updates, including major versions") {
+	if !strings.Contains(rule.Question.Shown, "Update level: aggressive") || !strings.Contains(rule.Question.Shown, "applies dependency updates, including major versions") {
 		t.Fatal(rule.Question.Shown)
 	}
 	for _, level := range []string{"", "routine", "off", "aggressive"} {
@@ -24,27 +21,27 @@ func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		got, cron, err := s.StandingForWorkflow(t.Context(), a.ProjectID, "test")
+		got, cron, _, err := s.StandingForWorkflow(t.Context(), a.ProjectID, "test")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if level == "off" {
-			if security, _, err := s.StandingForWorkflow(t.Context(), a.ProjectID, "security"); err != nil || !security.RuleID.IsZero() {
+			if security, _, _, err := s.StandingForWorkflow(t.Context(), a.ProjectID, "security"); err != nil || !security.RuleID.IsZero() {
 				t.Fatalf("off security fired: %+v %v", security, err)
 			}
-			if !got.RuleID.IsZero() || cron != "" {
+			if !got.RuleID.IsZero() {
 				t.Fatalf("off fired: %+v %s", got, cron)
 			}
 		} else {
-			want := "0 6 * * *"
+			want := "aggressive"
 			if level == "routine" {
-				want = "0 6 * * 1"
+				want = "routine"
 			}
 			if got.RuleID != rule.RuleID || cron != want {
 				t.Fatalf("%s: %+v %s", level, got, cron)
 			}
-			_, security, err := s.StandingForWorkflow(t.Context(), a.ProjectID, "security")
-			if err != nil || security != "0 5 * * *" {
+			_, security, _, err := s.StandingForWorkflow(t.Context(), a.ProjectID, "security")
+			if err != nil || security != want {
 				t.Fatalf("security cadence %s: %s %v", level, security, err)
 			}
 		}
@@ -75,7 +72,7 @@ func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
 	}
 	in.Categories.Dependencies = "routine"
 	preview, err = s.Preview(boss, in)
-	if err != nil || !strings.Contains(preview.Shown, "Update level: routine") || !strings.Contains(preview.Shown, "each Monday applies patch and minor dependency updates") {
+	if err != nil || !strings.Contains(preview.Shown, "Update level: routine") || !strings.Contains(preview.Shown, "applies patch and minor dependency updates") {
 		t.Fatalf("routine preview %+v %v", preview, err)
 	}
 

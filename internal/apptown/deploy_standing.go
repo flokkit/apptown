@@ -84,37 +84,27 @@ func (p standingPortfolio) StandingHold(ctx context.Context, q database.Queryer,
 	return strings.Join(reasons, "; "), nil
 }
 func (p standingPortfolio) StandingPortfolio(ctx context.Context, q database.Queryer, pid ids.ID, _ workflow.StandingCategories) ([]workflow.StandingProjectPreview, error) {
-	var projects []project.Project
+	owners := []project.RepositoryOwner{{Ref: project.RepositoryRef{ID: pid}}}
 	if pid.IsZero() {
-		owners, err := project.RepositoryOwnersIn(ctx, q)
+		var err error
+		owners, err = project.RepositoryOwnersIn(ctx, q)
 		if err != nil {
 			return nil, err
-		}
-		for _, owner := range owners {
-			if owner.DefaultBranch == "" || owner.Retained || owner.Lifecycle != "" {
-				continue
-			}
-			item, err := project.ByIDIn(ctx, q, owner.Ref.ID)
-			if err != nil {
-				return nil, err
-			}
-			if item.Purpose.Schedules() {
-				projects = append(projects, item)
-			}
-		}
-	} else {
-		item, err := project.ByIDIn(ctx, q, pid)
-		if err != nil {
-			return nil, err
-		}
-		// A project with no repository yet has no main to read or update; it
-		// is outside coverage, exactly as the instance listing above skips it.
-		if item.DefaultBranch != "" {
-			projects = append(projects, item)
 		}
 	}
 	out := []workflow.StandingProjectPreview{}
-	for _, item := range projects {
+	for _, owner := range owners {
+		if owner.Retained || owner.Lifecycle != "" {
+			continue
+		}
+		item, err := project.ByIDIn(ctx, q, owner.Ref.ID)
+		if err != nil {
+			return nil, err
+		}
+		// A project with no repository yet has no main to read or update.
+		if item.DefaultBranch == "" || (pid.IsZero() && !item.Purpose.Schedules()) {
+			continue
+		}
 		preview := workflow.StandingProjectPreview{ProjectID: item.ID, Project: item.Slug, Deployments: []workflow.StandingEnvironment{}, NeedsPackUpgrade: []string{}, PackOffers: []string{}, BaseImageFindings: []string{}}
 		revision, err := adoption.CurrentReceiptIn(ctx, q, item.ID)
 		if err != nil {
@@ -207,14 +197,19 @@ func (p standingPortfolio) StandingPortfolio(ctx context.Context, q database.Que
 	return out, nil
 }
 
-func (standingPortfolio) PublishedWorkflow(ctx context.Context, q database.Queryer, name string) (*adoption.ResolvedWorkflow, error) {
-	version, raw, err := wow.WorkflowVersionIn(ctx, q, name, 0)
+// PublishedWorkflows reads the current library declarations in one read.
+func (standingPortfolio) PublishedWorkflows(ctx context.Context, q database.Queryer) ([]*adoption.ResolvedWorkflow, error) {
+	catalog, err := wow.ReadWorkflowCatalogIn(ctx, q)
 	if err != nil {
 		return nil, err
 	}
-	doc, err := schema.ParseWorkflowStored([]byte(raw))
-	if err != nil {
-		return nil, err
+	var out []*adoption.ResolvedWorkflow
+	for _, entry := range catalog.Workflows {
+		doc, err := schema.ParseWorkflowStored([]byte(entry.Yaml))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, &adoption.ResolvedWorkflow{Name: entry.Name, Version: int(entry.LatestVersion), Doc: doc})
 	}
-	return &adoption.ResolvedWorkflow{Name: name, Version: version, Doc: doc}, nil
+	return out, nil
 }

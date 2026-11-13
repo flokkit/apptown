@@ -417,7 +417,7 @@ var errPackSchedule = fault.New(fault.Invalid, "a pack schedules only known work
 // checkPackSchedules validates explicit recurring work against the workflow library.
 func checkPackSchedules(ctx context.Context, q database.Queryer, spec PackSpec) error {
 	for _, name := range spec.Schedules {
-		_, src, err := WorkflowVersionIn(ctx, q, name, 0)
+		_, src, err := workflowVersionIn(ctx, q, name, 0)
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("%w: workflow %q is unknown; add it to the library first", errPackSchedule, name)
 		}

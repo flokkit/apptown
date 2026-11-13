@@ -13,10 +13,10 @@ import { RuleConsent } from './janitor/RuleConsent'
 import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, StandingRevision } from '../wire.gen'
 
 const projectTo = (p: JanitorProject) => `/projects/${p.slug}#janitor`
-const levelName = (level: string) => level === 'aggressive' ? 'Nightly · including major' : level === 'routine' ? 'Weekly · patch and minor' : level === 'off' ? 'Turned off for this project' : 'Not recorded'
+const levelName = (level: string) => level === 'aggressive' ? 'Aggressive · including major' : level === 'routine' ? 'Routine · patch and minor' : level === 'off' ? 'Turned off for this project' : 'Not recorded'
 const date = (value?: string) => value && !value.startsWith('0001-') ? fmtWhen(value) : 'Not known'
 const covers = (r: StandingRevision, p: JanitorProject) => r.question.definition.scope === 'instance' || r.question.definition.projects.some(scope => scope.projectId === p.projectId)
-const workName = (name: string) => name === 'janitor-fix' ? 'Security fixes' : name === 'janitor-update' ? 'Dependency updates' : name === 'janitor-adopt' ? 'Pack updates' : name
+
 
 function ProjectState({ project: p, data, stale }: { project: JanitorProject; data: JanitorView; stale: boolean }) {
   if (stale) return <Status word="unknown" help="The latest refresh failed. This is the last answer read." />
@@ -36,18 +36,15 @@ function ProjectState({ project: p, data, stale }: { project: JanitorProject; da
   return <span className="badge">Up to date</span>
 }
 
-// The scan is the project's janitor-scan schedule fired now; AppTown decides
-// at the act, and the row reads its running state from the polled queues.
 function ScanNow({ project: p, current, reload }: { project: JanitorProject; current: boolean; reload: () => Promise<void> }) {
   const action = useAction(() => { void reload() })
   const mayCreate = useHolds('change:create', p.slug)
   const mayStart = useHolds('change:invoke-lane', p.slug)
-  const security = p.queues.find(q => q.queue === 'security')
-  const reason = security?.state === 'updating' ? 'Running' : p.scanNow || (!mayCreate || !mayStart ? 'Needs permission to start work' : '')
+  const reason = p.scanNow || (!mayCreate || !mayStart ? 'Needs permission to start work' : '')
   return <>
     <button type="button" disabled={!!reason || !current || action.busy} title={reason || undefined}
-      onClick={() => action.run(() => post(`/projects/${encodeURIComponent(p.slug)}/schedules/janitor-scan/run`, {}))}>Scan now</button>
-    {reason && <div className="muted">{reason}{reason === 'Running' && security?.changeId && <> · <Link to={`/changes/${security.changeId}`}>change #{security.changeNumber}</Link></>}</div>}
+      onClick={() => action.run(() => post(`/projects/${encodeURIComponent(p.slug)}/schedules/${encodeURIComponent(p.scanWorkflow)}/run`, {}))}>Scan now</button>
+    {reason && <div className="muted">{reason}{p.scanChangeId && <> · <Link to={`/changes/${p.scanChangeId}`}>change #{p.scanChangeNumber}</Link></>}</div>}
     {action.err && <div className="error">{action.err}</div>}
   </>
 }
@@ -87,11 +84,11 @@ function releasingDeployments(data: JanitorView) {
 }
 
 function Problems({ data }: { data: JanitorView }) {
-  const policies = new Map<string, { key: string; workflow: string; version: number; sentence: string; stopRule: string; projects: JanitorProject[] }>()
+  const policies = new Map<string, { key: string; workflow: string; title: string; version: number; sentence: string; stopRule: string; projects: JanitorProject[] }>()
   for (const p of data.projects) for (const proc of p.procedures) {
     const sentence = proc.problem ? `Not known: ${proc.problem}` : proc.sentence
     const key = `${proc.workflow}/${proc.version}/${sentence}/${proc.stopRule}`
-    const row = policies.get(key) ?? { key, workflow: proc.workflow, version: proc.version, sentence, stopRule: proc.stopRule, projects: [] }
+    const row = policies.get(key) ?? { key, workflow: proc.workflow, title: proc.title, version: proc.version, sentence, stopRule: proc.stopRule, projects: [] }
     row.projects.push(p); policies.set(key, row)
   }
   const rows = [...policies.values()]
@@ -104,7 +101,7 @@ function Problems({ data }: { data: JanitorView }) {
   return <>
     {!data.projects.length && <p>No project settings yet.</p>}
     {rows.length > 0 ? <ListTable label="Repair limits" rows={rows} rowKey={p => p.key} columns={[
-      { key: 'work', label: 'Queue and workflow', phone: 'name', render: p => <><strong>{workName(p.workflow)}</strong><div>{p.workflow} · version {p.version}</div>{p.version !== sharedVersions.get(p.workflow)!.version && p.projects.map(project => <div key={project.projectId}><Link to={projectTo(project)}>{project.name}</Link></div>)}</> },
+      { key: 'work', label: 'Queue and workflow', phone: 'name', render: p => <><strong>{p.title}</strong><div>{p.workflow} · version {p.version}</div>{p.version !== sharedVersions.get(p.workflow)!.version && p.projects.map(project => <div key={project.projectId}><Link to={projectTo(project)}>{project.name}</Link></div>)}</> },
       { key: 'handling', label: 'If checks fail', render: p => p.sentence },
       { key: 'stop', label: 'When it stops', render: p => p.stopRule },
     ]} /> : data.projects.length > 0 && <p>No janitor procedure adopted.</p>}
@@ -116,7 +113,7 @@ function Problems({ data }: { data: JanitorView }) {
   </>
 }
 
-function History() {
+function History({ projects }: { projects: JanitorProject[] }) {
   const [page, setPage] = useState({ older: false, before: '', offset: 0 })
   const params = new URLSearchParams({ period: page.older ? 'older' : 'recent', offset: String(page.offset) })
   if (page.before) params.set('before', page.before)
@@ -124,12 +121,12 @@ function History() {
   const data = q.data
   const columns: ListColumn<JanitorLandedChange>[] = [
     { key: 'change', label: 'Change', phone: 'name', render: c => <Link to={`/changes/${c.changeId}`}>{c.project} · {c.title}</Link> },
-    { key: 'packages', label: 'Updated', render: c => c.queue === 'packs' ? c.packVersions.map(p => `${p.pack} version ${p.version}`).join(', ') || 'Pack versions not recorded' : c.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') || 'Package versions not recorded' },
+    { key: 'packages', label: 'Updated', render: c => c.packVersions.length > 0 ? c.packVersions.map(p => `${p.pack} version ${p.version}`).join(', ') || 'Pack versions not recorded' : c.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') || 'Package versions not recorded' },
     { key: 'releases', label: 'Released to', render: c => {
       const releases = data?.releases.filter(r => r.changeId === c.changeId) || []
             return releases.length ? releases.map(r => <div key={`${r.deployment}-${r.number}`}><Link to={`/projects/${c.slug}/releases/${r.number}/log`}>{r.displayLabel} · release {r.number}</Link> · {r.state}</div>) : 'No releases recorded'
     } },
-    { key: 'origin', label: 'By', render: c => c.ruleId ? <><JanitorAttribution rule={c.rule!} revision={c.ruleRevision} issuer={c.issuer.name} /> · {date(c.grantedAt)}</> : <>The janitor · schedule {workName(c.schedule)}</> },
+    { key: 'origin', label: 'By', render: c => c.ruleId ? <><JanitorAttribution rule={c.rule!} revision={c.ruleRevision} issuer={c.issuer.name} /> · {date(c.grantedAt)}</> : <>The janitor · schedule {projects.find(p => p.projectId === c.projectId)?.queues.find(q => q.queue === c.queue)?.title || c.schedule}</> },
     { key: 'evidence', label: 'Evidence', render: c => <Link to={`/changes/${c.changeId}?tab=details`}>Checks and approval</Link> },
     { key: 'when', label: 'Landed', kind: 'time', render: c => date(c.landedAt) },
   ]
@@ -155,7 +152,7 @@ export default function Janitor() {
     { key: 'state', label: 'State', phone: 'state', render: p => <ProjectState project={p} data={data!} stale={q.refreshFailed} /> },
     { key: 'scan', label: 'Last scan', kind: 'time', render: p => <>{date(p.scans.lastScan)}{p.scans.stale && <span className="badge">Old scan</span>}</> },
     { key: 'findings', label: 'Findings', kind: 'number', render: p => p.scans.known ? new Set([...p.scans.source.flatMap(s => s.findings), ...p.scans.running.flatMap(s => s.findings)].map(f => f.fingerprint)).size : 'Not known' },
-    { key: 'next', label: 'Next update', render: p => !p.enabled || p.level === 'off' ? '—' : data?.deployments.some(d => d.projectId === p.projectId && d.hold) ? 'Waiting for a person to recover the release' : p.nextReason || date(p.nextUpdate) },
+    { key: 'next', label: 'Next update', render: p => p.nextReason || date(p.nextUpdate) },
     { key: 'level', label: 'Level', render: p => <>{levelName(p.level)}<div>{p.choice ? `${p.choice.person.name} · ${date(p.choice.at)}` : p.issuer.name ? `${p.issuer.name} · ${date(p.grantedAt)}` : 'Nobody has enabled updates'}</div></> },
     { key: 'scan-now', label: '', phone: 'action', render: p => <ScanNow project={p} current={q.current} reload={q.reload} /> },
   ]
@@ -168,6 +165,6 @@ export default function Janitor() {
       {data.projects.length ? <ListTable label="Projects’ janitor state" columns={columns} rows={data.projects} rowKey={p => p.projectId!} rowTo={projectTo} /> : <p>No projects yet.</p>}
       {images > 0 && <p>{images} apps’ images need a base-image update; the janitor does not do this yet.</p>}
     </>}</Section>
-    <Section title="What it has done"><History /></Section>
+    <Section title="What it has done"><History projects={data?.projects || []} /></Section>
   </div>
 }

@@ -30,6 +30,7 @@ type RecordedTarget struct {
 	Candidate json.RawMessage
 }
 type Uplift struct {
+	Queue            string
 	RuleID           ids.ID
 	RuleRevision     int64
 	Workflow         string
@@ -98,12 +99,7 @@ func (s changeStore) openUplift(ctx context.Context, in Uplift, who string) (*Ch
 			in.Acceptance.InAdvance = yes
 		}
 		title, body := upliftBrief(in)
-		created, err := insertChangeIn(ctx, tx, ChangeDraft{RuleID: in.RuleID, RuleRevision: in.RuleRevision, Schedule: in.Workflow, Queue: func() string {
-			if !in.RuleID.IsZero() {
-				return "packs"
-			}
-			return ""
-		}(), ProjectID: in.ProjectID, Type: "uplift", Title: title, Body: body, Acceptance: &in.Acceptance}, who, current, changeOrigin{expectedRevision: in.ExpectedRevision}, now)
+		created, err := insertChangeIn(ctx, tx, ChangeDraft{RuleID: in.RuleID, RuleRevision: in.RuleRevision, Schedule: in.Workflow, Queue: in.Queue, ProjectID: in.ProjectID, Type: "uplift", Title: title, Body: body, Acceptance: &in.Acceptance}, who, current, changeOrigin{expectedRevision: in.ExpectedRevision}, now)
 		if err != nil {
 			return nil, err
 		}

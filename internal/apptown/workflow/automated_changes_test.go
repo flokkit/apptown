@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -223,7 +224,11 @@ func admitAutomatedRun(t *testing.T, s *Service, ch *Change, kinds ...string) *R
 	for i, kind := range kinds {
 		steps = append(steps, schema.Step{Name: fmt.Sprintf("observe-%d", i), Uses: kind})
 	}
-	run, err := s.runAdmissions.records.create(t.Context(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "scan", InputsJSON: "{}", requestedBy: "apptown-system"}, PreparedRun{Workflow: DefinitionRef{Name: "scan", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "scan", Steps: steps}}}})
+	adopted, err := adoption.CurrentReceiptIDIn(t.Context(), s.db, ch.ProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, err := s.runAdmissions.records.create(t.Context(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "scan", InputsJSON: "{}", requestedBy: "apptown-system"}, PreparedRun{AdoptionID: adopted, Workflow: DefinitionRef{Name: "scan", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "scan", Steps: steps}}}})
 	if err != nil {
 		t.Fatal(err)
 	}

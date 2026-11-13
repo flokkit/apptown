@@ -7,15 +7,12 @@ import { Modal } from '../../Modal'
 import type { StandingDefinition, StandingQuestion, StandingRevision } from '../../wire.gen'
 
 export const dependencyDefinition = (level = 'routine'): StandingDefinition => ({
-  scope: 'instance', schedules: [
-    { workflow: 'janitor-scan', crons: { routine: '0 5 * * *', aggressive: '0 5 * * *' } },
-    { workflow: 'janitor-update', crons: { routine: '0 6 * * 1', aggressive: '0 6 * * *' } },
-  ],
+  scope: 'instance',
   categories: { dependencies: level, securityFixes: true, baseImages: false, waysOfWorking: false },
   projects: [], administrative: true, delivery: 'full',
 })
 export const packDefinition: StandingDefinition = {
-  scope: 'instance', schedules: [{ workflow: 'janitor-adopt', crons: {} }],
+  scope: 'instance',
   categories: { dependencies: '', securityFixes: false, baseImages: false, waysOfWorking: true },
   projects: [], administrative: true, delivery: 'full',
 }
@@ -28,11 +25,11 @@ export function RuleConsent({ rule, packs, current, reload, project }: { rule?: 
   const action = useAction(reload)
   if (!instance && !(project && local)) return null
   const saved = rule?.question.definition
-  const definition = saved ? packs ? saved : { ...saved, categories: { ...saved.categories, dependencies: level } } : packs ? packDefinition : dependencyDefinition(level)
+  const definition = saved?.scope !== 'instance' && saved ? packs ? saved : { ...saved, categories: { ...saved.categories, dependencies: level } } : packs ? packDefinition : dependencyDefinition(level)
   return <>
     {rule?.enabled ? <button disabled={action.busy || !current} onClick={() => action.run(() => post(`/standing-approvals/${rule.ruleId}/disable`, { expectedRevision: rule.revision }))}>Revoke</button> : <div className="stack stack-2">
       {!packs && <select aria-label="Dependency update level" value={level} onChange={e => setLevel(e.target.value)} disabled={!current || action.busy}>
-        <option value="routine">Weekly · patch and minor</option><option value="aggressive">Nightly · including major</option>
+        <option value="routine">Routine · patch and minor</option><option value="aggressive">Aggressive · including major</option>
       </select>}
       <button disabled={action.busy || !current} onClick={() => action.run(async () => setPreview({ question: await post<StandingQuestion>('/standing-approvals/preview', definition), ruleId: rule?.ruleId ?? null, revision: rule?.revision ?? 0 }))}>Preview</button>
     </div>}
@@ -43,7 +40,7 @@ export function RuleConsent({ rule, packs, current, reload, project }: { rule?: 
       catch (error) { await reload(); throw error }
     })}>Enable</button></>}>
       <p>{preview.question.shown}</p>
-      {(preview.question.portfolio ?? []).some(p => p.covered) && <><h3>Covered projects</h3>{(preview.question.portfolio ?? []).filter(p => p.covered).map(p => <p key={p.projectId}><Link to={`/projects/${p.project}`}>{p.project}</Link>{p.overridesInstance && <> · {p.level === 'off' ? 'turned off for this project' : p.level === 'aggressive' ? 'nightly updates including major versions' : 'weekly patch and minor updates'}</>}</p>)}</>}
+      {(preview.question.portfolio ?? []).some(p => p.covered) && <><h3>Covered projects</h3>{(preview.question.portfolio ?? []).filter(p => p.covered).map(p => <p key={p.projectId}><Link to={`/projects/${p.project}`}>{p.project}</Link>{p.overridesInstance && <> · {p.level === 'off' ? 'turned off for this project' : p.level === 'aggressive' ? 'aggressive updates including major versions' : 'routine patch and minor updates'}</>}</p>)}</>}
       {preview.question.definition.categories.dependencies === 'aggressive' && (preview.question.portfolio ?? []).filter(p => p.noMajorCommand?.length).map(p => <p key={p.projectId}>{p.project}: major versions are not offered for {p.noMajorCommand.join(', ')}.</p>)}
       {(preview.question.portfolio ?? []).filter(p => !p.covered).length > 0 && <><h3>Needs a pack upgrade</h3>{packs && <p>The janitor will move these projects when Keep packs current is on.</p>}
         {(preview.question.portfolio ?? []).filter(p => !p.covered).map(p => <p key={p.projectId}><Link to={`/projects/${p.project}`}>{p.project}</Link> · {p.needsPackUpgrade.join(', ')}</p>)}</>}

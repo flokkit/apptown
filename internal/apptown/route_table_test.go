@@ -637,6 +637,15 @@ func apiDescription() (map[string]any, error) {
 	schemas.Map(stamp.Time{}, map[string]any{"anyOf": []any{when, map[string]any{"const": ""}}})
 	schemas.Map(time.Time{}, when)
 	schemas.Map(json.RawMessage{}, map[string]any{})
+	// Keep the API component name when only the owner's Go visibility changes.
+	if _, err := schemas.Named("RunningScan", reflect.Zero(reflect.TypeOf(workflow.MainScans{}.Running).Elem()).Interface()); err != nil {
+		return nil, err
+	}
+
+	if _, err := schemas.Named("StandingProjectMeaning", reflect.Zero(reflect.TypeOf(workflow.StandingQuestion{}.Projects).Elem()).Interface()); err != nil {
+		return nil, err
+	}
+
 	runState, err := schemas.Ref(workflow.RunState(0))
 	if err != nil {
 		return nil, err
@@ -824,7 +833,6 @@ func apiDescription() (map[string]any, error) {
 // it refuses in words. Nested types must be explicitly request-only; an
 // undescribed named type could share required fields with responses and is refused.
 var requestOnlyDescriptions = []wiregen.Named{
-	{Name: "StandingSchedule", Value: reflect.Zero(reflect.TypeOf(workflow.StandingDefinition{}.Schedules).Elem()).Interface()},
 	{Name: "StandingCategories", Value: workflow.StandingCategories{}},
 	{Name: "StandingEnvironment", Value: workflow.StandingEnvironment{}},
 	{Name: "StandingProject", Value: workflow.StandingProject{}},

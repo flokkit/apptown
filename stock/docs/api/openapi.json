@@ -3901,7 +3901,20 @@
             },
             "type": "array"
           },
+          "scanChangeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scanChangeNumber": {
+            "type": "integer"
+          },
           "scanNow": {
+            "type": "string"
+          },
+          "scanWorkflow": {
             "type": "string"
           },
           "scans": {
@@ -3924,9 +3937,11 @@
           "problem",
           "procedures",
           "queueSentences",
+          "scanChangeNumber",
           "nextUpdate",
           "nextReason",
-          "scanNow"
+          "scanNow",
+          "scanWorkflow"
         ],
         "type": "object"
       },
@@ -5452,9 +5467,13 @@
           },
           "state": {
             "type": "string"
+          },
+          "title": {
+            "type": "string"
           }
         },
         "required": [
+          "title",
           "queue",
           "state",
           "since",
@@ -7255,12 +7274,6 @@
             },
             "type": "array"
           },
-          "schedules": {
-            "items": {
-              "$ref": "#/components/schemas/StandingSchedule"
-            },
-            "type": "array"
-          },
           "scope": {
             "type": "string"
           }
@@ -7662,20 +7675,6 @@
           "changedAt",
           "reason"
         ],
-        "type": "object"
-      },
-      "StandingSchedule": {
-        "properties": {
-          "crons": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object"
-          },
-          "workflow": {
-            "type": "string"
-          }
-        },
         "type": "object"
       },
       "StandingStatus": {
@@ -8539,6 +8538,9 @@
           "stopRule": {
             "type": "string"
           },
+          "title": {
+            "type": "string"
+          },
           "version": {
             "type": "integer"
           },
@@ -8547,6 +8549,7 @@
           }
         },
         "required": [
+          "title",
           "workflow",
           "version",
           "repairRounds",

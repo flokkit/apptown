@@ -23,6 +23,7 @@ type Doc struct {
 
 type Metadata struct {
 	Name        string `yaml:"name" json:"name"`
+	Title       string `yaml:"title,omitempty" json:"title,omitempty"`
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	// Category shelves the library (closed set): change | landing |
 	// maintenance | integration | knowledge. Display only — matching a
@@ -82,14 +83,21 @@ type Spec struct {
 
 // On declares a workflow's triggers. `manual` is always allowed regardless.
 type On struct {
-	Manual   map[string]any   `yaml:"manual,omitempty" json:"manual,omitempty"`
-	Schedule *ScheduleTrigger `yaml:"schedule,omitempty" json:"schedule,omitempty"`
+	Manual      map[string]any      `yaml:"manual,omitempty" json:"manual,omitempty"`
+	Schedule    *ScheduleTrigger    `yaml:"schedule,omitempty" json:"schedule,omitempty"`
+	Publication *PublicationTrigger `yaml:"publication,omitempty" json:"publication,omitempty"`
+}
+
+type PublicationTrigger struct {
+	Queue    string `yaml:"queue" json:"queue"`
+	Standing bool   `yaml:"standing" json:"standing"`
 }
 
 type ScheduleTrigger struct {
-	Standing bool   `yaml:"standing,omitempty" json:"standing,omitempty"`
-	Queue    string `yaml:"queue,omitempty" json:"queue,omitempty"`
-	Cron     string `yaml:"cron" json:"cron"` // standard 5-field cron
+	AggressiveCron string `yaml:"aggressiveCron,omitempty" json:"aggressiveCron,omitempty"`
+	Standing       bool   `yaml:"standing,omitempty" json:"standing,omitempty"`
+	Queue          string `yaml:"queue,omitempty" json:"queue,omitempty"`
+	Cron           string `yaml:"cron" json:"cron"` // standard 5-field cron
 	// SkipIfActive (default true): don't fire while a run of this workflow is
 	// still running in the project — prevents pileup of long-lived runs.
 	SkipIfActive *bool `yaml:"skipIfActive,omitempty" json:"skipIfActive,omitempty"`
@@ -233,6 +241,27 @@ func (d *Doc) validate(strict bool) error {
 	}
 	if d.Spec.Workspace != "" && d.Spec.Workspace != "run" && d.Spec.Workspace != "project" {
 		return fmt.Errorf("spec.workspace must be \"run\" or \"project\", got %q", d.Spec.Workspace)
+	}
+	if sch := d.Spec.On.Schedule; strict && sch != nil {
+		if _, err := ParseCron(sch.Cron); err != nil {
+			return fmt.Errorf("on.schedule.cron: %w", err)
+		}
+	}
+	if sch := d.Spec.On.Schedule; sch != nil && sch.AggressiveCron != "" {
+		if !sch.Standing {
+			return fmt.Errorf("on.schedule.aggressiveCron requires a standing schedule")
+		}
+		if _, err := ParseCron(sch.AggressiveCron); err != nil {
+			return fmt.Errorf("on.schedule.aggressiveCron: %w", err)
+		}
+	}
+	if pub := d.Spec.On.Publication; pub != nil {
+		if !pub.Standing || strings.TrimSpace(pub.Queue) == "" {
+			return fmt.Errorf("on.publication requires a queue and standing: true")
+		}
+		if d.Spec.On.Schedule != nil {
+			return fmt.Errorf("choose a schedule or publication trigger")
+		}
 	}
 	if len(d.Spec.Stages) == 0 {
 		return fmt.Errorf("spec.stages: at least one stage is required")

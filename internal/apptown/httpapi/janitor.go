@@ -5,86 +5,27 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
 type Janitor struct {
-	work     *workflow.Service
-	standing workflow.StandingRules
-	releases *deployment.Service
-	now      func() time.Time
+	schedules changeactions.Schedules
+	work      *workflow.Service
+	standing  workflow.StandingRules
+	releases  *deployment.Service
+	now       func() time.Time
 }
 
-func NewJanitor(work *workflow.Service, standing workflow.StandingRules, releases *deployment.Service, now func() time.Time) Janitor {
-	return Janitor{work: work, standing: standing, releases: releases, now: now}
-}
-
-type janitorChoice struct {
-	Level  string       `json:"level"`
-	Person access.Actor `json:"person"`
-	At     string       `json:"at"`
-	Reason string       `json:"reason"`
-}
-
-type janitorProcedure struct {
-	Workflow     string `json:"workflow"`
-	Version      int    `json:"version"`
-	RepairRounds int    `json:"repairRounds"`
-	StopRule     string `json:"stopRule"`
-	Sentence     string `json:"sentence"`
-	Problem      string `json:"problem"`
+func NewJanitor(schedules changeactions.Schedules, work *workflow.Service, standing workflow.StandingRules, releases *deployment.Service, now func() time.Time) Janitor {
+	return Janitor{schedules: schedules, work: work, standing: standing, releases: releases, now: now}
 }
 
 type JanitorProject struct {
-	ProjectID      ids.ID                 `json:"projectId"`
-	Slug           string                 `json:"slug"`
-	Name           string                 `json:"name"`
-	Enabled        bool                   `json:"enabled"`
-	Level          string                 `json:"level"`
-	Choice         *janitorChoice         `json:"choice,omitempty"`
-	Issuer         access.Actor           `json:"issuer"`
-	GrantedAt      time.Time              `json:"grantedAt"`
-	Queues         []workflow.QueueStatus `json:"queues"`
-	Scans          workflow.MainScans     `json:"scans"`
-	Problem        string                 `json:"problem"`
-	Procedures     []janitorProcedure     `json:"procedures"`
-	QueueSentences []string               `json:"queueSentences"`
-	NextUpdate     time.Time              `json:"nextUpdate"`
-	NextReason     string                 `json:"nextReason"`
-	// ScanNow is why the scan schedule cannot be fired now; "" when it can.
-	ScanNow string `json:"scanNow"`
-}
-
-type janitorLandedChange struct {
-	Rule *struct {
-		Kind  string `json:"kind"`
-		Scope string `json:"scope"`
-	} `json:"rule,omitempty"`
-	Slug         string              `json:"slug"`
-	Project      string              `json:"project"`
-	PackVersions []adoption.PackPick `json:"packVersions"`
-	ChangeID     ids.ID              `json:"changeId"`
-	ProjectID    ids.ID              `json:"projectId"`
-	Number       int64               `json:"number"`
-	Title        string              `json:"title"`
-	LandedAt     time.Time           `json:"landedAt"`
-	Queue        string              `json:"queue"`
-	Packages     []fix.Move          `json:"packages"`
-	RuleID       ids.ID              `json:"ruleId,omitzero"`
-	RuleRevision int64               `json:"ruleRevision"`
-	Issuer       access.Actor        `json:"issuer"`
-	GrantedAt    time.Time           `json:"grantedAt"`
-	Schedule     string              `json:"schedule"`
-}
-
-type JanitorHistory struct {
-	Changes []janitorLandedChange `json:"changes"`
-	More    bool                  `json:"more"`
+	workflow.JanitorProject
+	changeactions.JanitorSchedule
 }
 
 type JanitorView struct {
@@ -109,13 +50,17 @@ func (h Janitor) List(w http.ResponseWriter, r *http.Request) {
 	ids := make([]ids.ID, 0, len(projects))
 	for _, p := range projects {
 		ids = append(ids, p.ProjectID)
-		row := JanitorProject{ProjectID: p.ProjectID, Slug: p.Slug, Name: p.Name, Enabled: p.Enabled, Level: p.Level, Issuer: p.Issuer, GrantedAt: p.GrantedAt, Queues: p.Queues, Scans: p.Scans, Problem: p.Problem, QueueSentences: p.QueueSentences, NextUpdate: p.NextUpdate, NextReason: p.NextReason, ScanNow: p.ScanNow, Procedures: []janitorProcedure{}}
-		if c := p.Choice; c != nil {
-			row.Choice = &janitorChoice{Level: c.Level, Person: c.Person, At: c.At, Reason: c.Reason}
+		project, err := h.schedules.Projects.ByID(r.Context(), p.ProjectID)
+		if err != nil {
+			WriteFault(w, err)
+			return
 		}
-		for _, proc := range p.Procedures {
-			row.Procedures = append(row.Procedures, janitorProcedure(proc))
+		schedules, err := h.schedules.Of(r.Context(), project, h.now())
+		if err != nil {
+			WriteFault(w, err)
+			return
 		}
+		row := JanitorProject{JanitorProject: p, JanitorSchedule: schedules.Janitor()}
 		rows = append(rows, row)
 	}
 	deployments, err := h.releases.JanitorDeployments(r.Context(), ids)
@@ -127,7 +72,7 @@ func (h Janitor) List(w http.ResponseWriter, r *http.Request) {
 }
 
 type JanitorHistoryView struct {
-	History  JanitorHistory                    `json:"history"`
+	History  workflow.JanitorHistory           `json:"history"`
 	Releases []deployment.JanitorChangeRelease `json:"releases"`
 	Since    time.Time                         `json:"since"`
 	Until    time.Time                         `json:"until"`
@@ -179,9 +124,5 @@ func (h Janitor) History(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	view := JanitorHistory{More: history.More, Changes: []janitorLandedChange{}}
-	for _, c := range history.Changes {
-		view.Changes = append(view.Changes, janitorLandedChange(c))
-	}
-	WriteJSON(w, 200, JanitorHistoryView{History: view, Releases: releases, Since: since, Until: until, Offset: offset})
+	WriteJSON(w, 200, JanitorHistoryView{History: history, Releases: releases, Since: since, Until: until, Offset: offset})
 }
