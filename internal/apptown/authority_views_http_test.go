@@ -223,7 +223,7 @@ func TestEveryMutatingRouteRefusesWhatItsRuleDoesNotGrant(t *testing.T) {
 	adr := made("/api/v1/projects/game/adrs", `{"title":"a decision","bodyMd":"why"}`, "id")
 	disposition := made("/api/v1/projects/game/dispositions", `{"fingerprint":"fp","status":"accepted","justification":"known"}`, "id")
 	sid := made("/api/v1/projects/game/console", `{"model":"fake/model"}`, "session.id")
-	values := map[string]string{"queue": "updates", "slug": "game", "number": "1", "name": "x", "capability": "x", "deployment": "main", "attempt": "1", "path": "x", "grantee": "x", "id": "1"}
+	values := map[string]string{"queue": "updates", "workflow": "janitor-scan", "slug": "game", "number": "1", "name": "x", "capability": "x", "deployment": "main", "attempt": "1", "path": "x", "grantee": "x", "id": "1"}
 	byResolver := map[string]string{"change": work.Change.String(), "run": work.Run.String(), "step": work.Gate.String(), "adr": adr, "disposition": disposition, "console-session": sid}
 	mux, err := newRouteMux(a, appRoutes(a))
 	if err != nil {

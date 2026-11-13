@@ -1977,6 +1977,11 @@ export type ScheduleList = {
   schedules: ScheduleView[]
 }
 
+export type ScheduleRunView = {
+  changeId: string | null
+  changeNumber: number
+}
+
 export type SecretBound = {
   deployment: string
   name: string
@@ -3916,6 +3921,7 @@ export type JanitorProject = {
   queueSentences: string[]
   nextUpdate: string
   nextReason: string
+  scanNow: string
 }
 
 export type JanitorDeployment = {

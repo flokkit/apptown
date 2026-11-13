@@ -56,6 +56,8 @@ type JanitorProject struct {
 	QueueSentences []string               `json:"queueSentences"`
 	NextUpdate     time.Time              `json:"nextUpdate"`
 	NextReason     string                 `json:"nextReason"`
+	// ScanNow is why the scan schedule cannot be fired now; "" when it can.
+	ScanNow string `json:"scanNow"`
 }
 
 type janitorLandedChange struct {
@@ -107,7 +109,7 @@ func (h Janitor) List(w http.ResponseWriter, r *http.Request) {
 	ids := make([]ids.ID, 0, len(projects))
 	for _, p := range projects {
 		ids = append(ids, p.ProjectID)
-		row := JanitorProject{ProjectID: p.ProjectID, Slug: p.Slug, Name: p.Name, Enabled: p.Enabled, Level: p.Level, Issuer: p.Issuer, GrantedAt: p.GrantedAt, Queues: p.Queues, Scans: p.Scans, Problem: p.Problem, QueueSentences: p.QueueSentences, NextUpdate: p.NextUpdate, NextReason: p.NextReason, Procedures: []janitorProcedure{}}
+		row := JanitorProject{ProjectID: p.ProjectID, Slug: p.Slug, Name: p.Name, Enabled: p.Enabled, Level: p.Level, Issuer: p.Issuer, GrantedAt: p.GrantedAt, Queues: p.Queues, Scans: p.Scans, Problem: p.Problem, QueueSentences: p.QueueSentences, NextUpdate: p.NextUpdate, NextReason: p.NextReason, ScanNow: p.ScanNow, Procedures: []janitorProcedure{}}
 		if c := p.Choice; c != nil {
 			row.Choice = &janitorChoice{Level: c.Level, Person: c.Person, At: c.At, Reason: c.Reason}
 		}

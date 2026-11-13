@@ -46,6 +46,7 @@ func init() {
 		wiregen.Named{Name: "StandingDisable", Value: StandingDisable{}},
 		wiregen.Named{Name: "ChangeRun", Value: ChangeRun{}},
 		wiregen.Named{Name: "ScheduleList", Value: ScheduleList{}},
+		wiregen.Named{Name: "ScheduleRunView", Value: ScheduleRunView{}},
 		wiregen.Named{Name: "ProjectScanView", Value: ProjectScanView{}},
 		wiregen.Named{Name: "ChangeEnvelope", Value: ChangeEnvelope{}},
 		wiregen.Named{Name: "SendBackAccepted", Value: SendBackAccepted{}},

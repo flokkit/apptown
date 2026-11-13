@@ -17,7 +17,7 @@ const actor = { name: 'Sam', principal: 'person', via: 'session' }
 const queue = (name: string, stopped = false) => ({ queue: name, state: stopped ? 'stopped' : 'up_to_date', failed: stopped ? 3 : 0, reason: '', since: at, packages: [], changeNumber: 0 })
 const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name: `${id} app`, enabled: true, level: 'routine', issuer: actor, grantedAt: at,
  queues: [queue('security'), queue('updates'), queue('packs')], scans: { main: 'abc', source: [], running: [], historical: [], known: true, stale: false, lastScan: at },
- problem: '', procedures: [{ workflow: 'janitor-update', version: 7, repairRounds: 4, stopRule: 'Weekly updates stop after 3 failed tries; security fixes can still run.', sentence: 'Up to 4 repair sessions; then asks Sam.', problem: '' }], queueSentences: ['Security fixes stop after 3 failed tries.', 'Weekly updates stopped after 3 failed tries. Security fixes can still run.'], nextUpdate: at, nextReason: '' })
+ problem: '', procedures: [{ workflow: 'janitor-update', version: 7, repairRounds: 4, stopRule: 'Weekly updates stop after 3 failed tries; security fixes can still run.', sentence: 'Up to 4 repair sessions; then asks Sam.', problem: '' }], queueSentences: ['Security fixes stop after 3 failed tries.', 'Weekly updates stopped after 3 failed tries. Security fixes can still run.'], nextUpdate: at, nextReason: '', scanNow: '' })
 const rule = (packs = false, enabled = true): StandingRevision => ({ ruleId: packs ? 'pack-rule' : 'dependency-rule', revision: 3, enabled, issuer: actor, enabledAt: at, changedBy: actor, changedAt: at, reason: '', question: { definition: packs ? packDefinition : dependencyDefinition(), shown: 'The exact approval meaning.', digest: 'meaning', projects: [], baseImageFindings: { images: 0, projects: 0, message: '' } } })
 function fixture(): JanitorView {
  const stopped = project('Stopped'); stopped.queues[1] = queue('updates', true)
@@ -27,8 +27,9 @@ function fixture(): JanitorView {
 const history = (): JanitorHistoryView => ({ history: { changes: [{ changeId: 'landed', projectId: 'Held', slug: 'Held', project: 'Held app', number: 2, title: 'Update library', queue: 'updates', landedAt: at, packages: [{ ecosystem: 'npm', package: 'library', from: '1.0.0', to: '1.1.0' }], packVersions: [], rule: { kind: 'Dependency updates', scope: 'all projects' }, ruleId: 'original', ruleRevision: 1, issuer: actor, grantedAt: at, schedule: 'janitor-update' }], more: false }, releases: [{ changeId: 'landed', projectId: 'Held', number: 8, state: 'released', deployment: 'production', displayLabel: 'Customer office' }], since: at, until: at, offset: 0 })
 const cleanup: (() => void)[] = []
 afterEach(() => { cleanup.splice(0).forEach(f => f()); vi.unstubAllGlobals() })
-async function mount(fetcher: (url: string, init?: RequestInit) => Promise<Response>, manage = true) {
- vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => url.endsWith('/authz/me') ? new Response(JSON.stringify({ instance: { 'instance:manage-standing-approval': manage } })) : fetcher(url, init)))
+async function mount(fetcher: (url: string, init?: RequestInit) => Promise<Response>, manage = true, project: Record<string, boolean> = { 'change:create': true, 'change:invoke-lane': true }) {
+ vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => url.endsWith('/authz/me') ? new Response(JSON.stringify({ instance: { 'instance:manage-standing-approval': manage } }))
+  : url.includes('/authz/me?project=') ? new Response(JSON.stringify({ instance: {}, project })) : fetcher(url, init)))
  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
  client.setDefaultOptions({ queries: { retry: false } })
  cleanup.push(() => { act(() => root.unmount()); client.clear() })
@@ -234,5 +235,41 @@ it('omits identical project lists from shared queue policy and shows both off-ru
  expect(policies.querySelectorAll('a')).toHaveLength(0)
  for (const row of el.querySelectorAll('table[aria-label="Janitor approvals"] tbody tr')) {
   expect([...row.querySelectorAll('button')].find(b => b.textContent === 'Preview')?.disabled).toBe(false)
+ }
+})
+
+it('starts a project’s scan from its row and greys the action with the reason it cannot', async () => {
+ const data = fixture()
+ data.projects[1].scanNow = 'Turned off'
+ data.projects[2] = { ...data.projects[2], level: 'routine', choice: undefined, queues: [{ ...queue('security'), state: 'updating', changeId: 'scan-change', changeNumber: 9 }, queue('updates'), queue('packs')] }
+ const posts: string[] = []
+ let refuse = false
+ const { client, el } = await mount(async (url, init) => {
+  if (init?.method === 'POST') { posts.push(url); return refuse ? new Response(JSON.stringify({ error: 'already running: change #4' }), { status: 409 }) : json({ changeId: 'new', changeNumber: 10 }) }
+  return json(url.includes('/history') ? history() : data)
+ })
+ await settled(client)
+ const row = (slug: string) => el.querySelector(`table[aria-label="Projects’ janitor state"] a[href="/projects/${slug}#janitor"]`)!.closest('tr')!
+ const scan = (slug: string) => [...row(slug).querySelectorAll('button')].find(b => b.textContent === 'Scan now')!
+ expect(scan('Held').disabled).toBe(true)
+ expect(row('Held').textContent).toContain('Turned off')
+ expect(scan('Off').disabled).toBe(true)
+ expect(row('Off').querySelector('a[href="/changes/scan-change"]')?.textContent).toBe('change #9')
+ expect(scan('Stopped').disabled).toBe(false)
+ await act(async () => scan('Stopped').click()); await settled(client)
+ expect(posts).toEqual(['/api/v1/projects/Stopped/schedules/janitor-scan/run'])
+ refuse = true
+ await act(async () => scan('Stopped').click()); await settled(client)
+ await vi.waitFor(() => expect(row('Stopped').textContent).toContain('already running: change #4'))
+})
+
+it('greys the scan action when the person lacks either permission to start work', async () => {
+ for (const project of [{ 'change:create': false, 'change:invoke-lane': true }, { 'change:create': true, 'change:invoke-lane': false }]) {
+  const { client, el } = await mount(async url => json(url.includes('/history') ? history() : fixture()), true, project)
+  await settled(client)
+  const row = el.querySelector('table[aria-label="Projects’ janitor state"] a[href="/projects/Stopped#janitor"]')!.closest('tr')!
+  expect([...row.querySelectorAll('button')].find(b => b.textContent === 'Scan now')!.disabled).toBe(true)
+  expect(row.textContent).toContain('Needs permission to start work')
+  cleanup.splice(0).forEach(f => f())
  }
 })
