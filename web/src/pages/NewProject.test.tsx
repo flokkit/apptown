@@ -327,7 +327,7 @@ describe('the new project summary', () => {
     })
     await vi.waitFor(() => expect(el.textContent).toContain('secrets → built-in-secrets v1'))
     expect(el.textContent).toContain('secrets → infisical v1')
-    for (const fact of ['trunk', 'https://example.org/shop.git', 'make v3', '1 blocks', 'complete-guidance-hash', 'Another person checks', 'config sha256:h']) expect(el.textContent).toContain(fact)
+    for (const fact of ['trunk', 'https://example.org/shop.git', '1 blocks', 'complete-guidance-hash', 'config sha256:h']) expect(el.textContent).toContain(fact)
     expect(el.querySelector('a[href="/integrations"]')).toBeTruthy()
     expect(errors.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false)
     act(() => root.unmount())
@@ -437,7 +437,7 @@ describe('a late way-of-working suggestion', () => {
       expect(el.textContent).not.toContain('late-choice')
       expect(el.textContent).not.toContain('stale recommendation')
       if (edit === 'description') expect((el.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Dinner orders')
-      else expect(el.textContent).toContain('bare project')
+      else expect(el.textContent).toContain('No packs')
     } finally { act(() => root.unmount()) }
   })
 })

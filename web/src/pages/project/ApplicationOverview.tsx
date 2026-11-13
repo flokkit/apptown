@@ -26,7 +26,7 @@ type ActivityEntry = { id: string; when: string; number?: number; title: string;
 
 // Keep each recorded fact attached to its source. A runtime observation is
 // neither release evidence nor an approval.
-export function overviewActivity(data: OverviewData, deployments: DeploymentView[], backups: Backup[], releases: Release[], slug: string): ActivityEntry[] {
+export function overviewActivity(data: OverviewData, deployments: DeploymentView[], backups: Backup[], releases: Release[], slug: string): { current: ActivityEntry[]; past: ActivityEntry[] } {
   const seen = new Set<string | null>()
   const current: ActivityEntry[] = []
   for (const c of [...data.active.filter(c => c.changeId), ...data.open]) {
@@ -42,7 +42,16 @@ export function overviewActivity(data: OverviewData, deployments: DeploymentView
       word: r.statusLabel, to: `/projects/${slug}/releases/${r.number}`,
     })),
   ]
-  return [...current, ...past.sort((a, b) => b.when.localeCompare(a.when))]
+  return { current, past: past.sort((a, b) => b.when.localeCompare(a.when)) }
+}
+
+function ActivityRow({ e }: { e: ActivityEntry }) {
+  return <ListRow to={e.to} className="card row application-overview-card" state={<span className="row-status">{'waitingOn' in e ? <ChangeStatus waiting={e.waitingOn} /> : <Status word={e.word} help={e.help} />}</span>} identity={<>
+    <Link to={e.to} className="row grow application-overview-link">
+      <strong>{e.number !== undefined && <span className="muted">#{e.number} </span>}{e.title}</strong>
+      <span className="muted small">{e.when && fmtWhen(e.when)}</span>
+    </Link>
+    {e.source && <span className="muted small">{e.source}</span>}</>} />
 }
 
 export function ApplicationOverview({ project }: { project: ProjectDetail }) {
@@ -59,28 +68,16 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
   const data = activityQ.data
   const app = deployments.find(d => d.running && !d.hostOnly) ?? deployments.find(d => d.url)
   const canStart = useHolds('change:create', slug) && (project.lifecycle?.state ?? 'active') === 'active'
-  const events = data ? overviewActivity(data, deployments, backups, releasesQ.data ?? [], slug) : []
+  const { current, past } = data ? overviewActivity(data, deployments, backups, releasesQ.data ?? [], slug) : { current: [], past: [] }
   return <div className="application-overview">
     <header className="application-heading">
       <PageHead page="projectOverview" title={project.name} actions={app?.url && <AppAddress className="btn primary application-open" url={app.url} hostOnly={app.hostOnly}>Open app ↗</AppAddress>} />
       {project.blurb && <p className="muted">{project.blurb}</p>}
       {app?.url && <AppAddress url={app.url} hostOnly={app.hostOnly} />}
     </header>
-    <ScheduleRows slug={slug} />
-    <Section title="Activity">
-      <ReadStatus q={activityQ} what="activity" /><StaleNote q={activityQ} />
-      <ReadStatus q={releasesQ} what="releases" /><StaleNote q={releasesQ} />
-      {events.slice(0, activityCount).map(e => (
-        <ListRow key={e.id} to={e.to} className="card row application-overview-card" state={<span className="row-status">{'waitingOn' in e ? <ChangeStatus waiting={e.waitingOn} /> : <Status word={e.word} help={e.help} />}</span>} identity={<>
-          <Link to={e.to} className="row grow application-overview-link">
-            <strong>{e.number !== undefined && <span className="muted">#{e.number} </span>}{e.title}</strong>
-            <span className="muted small">{e.when && fmtWhen(e.when)}</span>
-          </Link>
-          {e.source && <span className="muted small">{e.source}</span>}</>} />
-      ))}
-      {events.length > activityCount && <div className="card"><button className="link" onClick={() => setActivityCount(n => n + 10)}>Show 10 more</button></div>}
-      {data && !events.length && <p className="muted">No activity yet.{canStart && <> <Link to={`/projects/${slug}/changes`}>Start a change</Link></>}</p>}
-    </Section>
+    {current.length > 0 && <Section title="Open changes" count={current.length}>
+      {current.map(e => <ActivityRow key={e.id} e={e} />)}
+    </Section>}
     {/* Every deployment, named, with its state and address: what used to be
         an unlabelled strip under the title. */}
     <Section title="Deployments" count={deployments.length || undefined}
@@ -89,6 +86,13 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       {deploymentsQ.data && !deployments.length && <p className="muted">Not deployed yet.</p>}
       {deployments.length > 0 && <DeploymentTable rows={deployments.map(d => ({ ...d, slug, app: project.name, deployment: d.name, label: d.displayLabel || d.name, static: d.static, url: d.url, hostOnly: d.hostOnly, backups: d.backups }))} />}
       <ReleaseRows slug={slug} releases={releasesQ.data ?? []} />
+    </Section>
+    <Section title="Activity">
+      <ReadStatus q={activityQ} what="activity" /><StaleNote q={activityQ} />
+      <ReadStatus q={releasesQ} what="releases" /><StaleNote q={releasesQ} />
+      {past.slice(0, activityCount).map(e => <ActivityRow key={e.id} e={e} />)}
+      {past.length > activityCount && <div className="card"><button className="link" onClick={() => setActivityCount(n => n + 10)}>Show 10 more</button></div>}
+      {data && !current.length && !past.length && <p className="muted">No activity yet.{canStart && <> <Link to={`/projects/${slug}/changes`}>Start a change</Link></>}</p>}
     </Section>
     {/* Omitted while there is nothing to back up: no deployment, or one
         whose backup plan is empty and which has no copies. A failed read
@@ -100,6 +104,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
         <ListRow key={b.id} className="card row application-overview-card" state={<span className="row-status"><Status word={b.statusLabel} help={b.error} /></span>} identity={<span>{b.deployment} · {fmtWhen(b.takenAt)}</span>} />
       ))}
     </Section>}
+    <ScheduleRows slug={slug} />
     <Section title="About" action={<><Link to={`/projects/${slug}/settings/working`}>Way of working →</Link><Link to={`/projects/${slug}/settings`}>Settings →</Link></>}>
       {project.originalRequest
         ? <p className="application-overview-p"><span className="muted small mb-1 application-overview-span-2">What was first asked for</span>{project.originalRequest}</p>

@@ -263,8 +263,10 @@ with the same operation and subject collapse; failures and open jobs stay apart.
 The change page keeps its full evidence in Details, after the tab navigation.
 
 The project sidebar orders Overview, Changes, Deployments, Security and Settings.
-Changes owns the project's change list; Overview links to it. Deployments lists
-placements with their live state, serving release and last deploy outcome.
+Changes owns the project's change list. Project Overview orders the heading and
+app address, Open changes, Deployments and releases, Activity, Backups, Schedules
+and About. Open changes keeps each current change once; Activity holds history.
+Deployments lists placements with their live state, serving release and last deploy outcome.
 The serving release comes from the deployment listing’s own release record,
 independently of bounded project history. Unknown or stale runtime observations
 keep serving status unknown; a stopped deployment retains its recorded release.
@@ -390,8 +392,13 @@ offers an inline fix; other refusals keep their reason. Creation defaults to
 team and test data. A successful setup with no warnings opens the first
 change's Conversation tab with kickoff; warnings keep the log and build button.
 Saved-setup and unknown-outcome recovery retain the submitted request.
-Settings › Way of working reads current setup facts from the project manifest;
-a failed manifest read stays distinct from empty facts.
+Settings › Way of working reads repository, compiled guidance and bindings from
+the project manifest; a failed manifest read stays distinct from empty facts.
+Current pack links, including the platform pack, come from adoption. Workflows
+and rules keep their descriptions and origins in their respective lists;
+workflows also show versions and system workflows. The creation recommendation
+leads with the chosen packs’ first description paragraphs, followed by the
+reason and pack identifiers. Pick differently reopens the choice.
 
 Project scope belongs to the current pathname and identity. Change, work-record,
 change-record, decision and operation pages establish it from their own current

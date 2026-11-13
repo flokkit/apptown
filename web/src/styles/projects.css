@@ -31,7 +31,7 @@
 .application-title h1 { margin: 0 0 8px; }
 .application-open { white-space: nowrap; }
 /* A host-only address is words, not a link: framed, but not a button. */
-span.application-open { color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 8px 14px; font-size: var(--fs-base); }
+span.application-open { white-space: normal; overflow-wrap: anywhere; min-width: 0; color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 8px 14px; font-size: var(--fs-base); }
 .application-status { border-block: 1px solid var(--border-strong); padding: 8px 0; display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; }
 .application-section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0 12px; }
 .application-section-head h2 { margin: 0; }

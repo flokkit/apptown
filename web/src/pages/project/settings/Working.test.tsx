@@ -51,7 +51,7 @@ describe("a project's way of working", () => {
       await vi.waitFor(() => expect(el.textContent).toContain('This project uses: django · postgres'))
       expect(el.textContent).toContain('2 instructions its coding helpers follow')
       // Every workflow the project can run, not only the ones once ticked.
-      expect(el.textContent).toContain('quick-change, research')
+      expect(el.textContent).toContain('2 workflows')
       expect(el.querySelector('input[type=checkbox]')).toBeNull()
       expect([...el.querySelectorAll('button')].some((b) => /Save|Add|remove/.test(b.textContent ?? ''))).toBe(false)
       expect(el.querySelector('a[href="/guidance/house-style"]')).not.toBeNull()
@@ -92,4 +92,72 @@ it('keeps an unreadable manifest distinct from an empty setup', async () => {
     expect(el.textContent).not.toContain('No packs')
     expect(el.querySelector('dl')).toBeNull()
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+it('lists current adopted packs and moved workflow and policy facts once', async () => {
+  const client = newQueryClient()
+  // Creation applied two packs in one audit subject. A later adoption replaced
+  // one: membership comes from adoption, never that historical subject.
+  const packs = ['frontend-only', 'dependency-updates', 'apptown']
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (url.endsWith('/manifest')) return Response.json({ repo: { backed: true, defaultBranch: 'main', remote: 'https://example.com/app.git' }, packs: [{ name: 'frontend-only, old-pack', at: '2026-10-01' }], workflows: [{ name: 'implement', version: 2, origin: 'stock' }], policies: [{ name: 'Review required' }], guidance: [{}], guidanceHash: 'compiled-hash', bindings: [{ capability: 'model', binding: 'helper', version: 3, configHash: 'config-hash' }] })
+    if (url.endsWith('/adoption')) return Response.json({ current: { revision: 2, createdAt: '2026-11-01T00:00:00Z', createdBy: 'sam', reason: 'Monthly maintenance adopted', digest: 'digest' }, packs: packs.map(pack => ({ pack, version: 1, recommended: 1, platform: pack === 'apptown', reason: '' })), additions: [], exclusions: [], conditions: [] })
+    if (url.endsWith('/lanes')) return Response.json({ lanes: [{ name: 'implement', description: 'Build the requested change', tier: 'core', version: 2, origin: 'stock' }, { name: 'legacy-build', description: 'Build with the retained workflow', tier: 'extra', version: 7, origin: 'pack:frontend-only', withdrawn: true }], system: [{ name: 'maintenance', description: 'Maintain the project', tier: 'system', version: 4, origin: 'custom' }] })
+    if (url.endsWith('/policies')) return Response.json({ policies: [{ id: 'review', name: 'Review required', description: 'A person accepts', origin: 'stock' }, { id: 'limit', name: 'Limit size', rule: 'changes < 100', origin: 'custom' }], violations: [] })
+    if (url.endsWith(path)) return Response.json(guidance())
+    return otherReads(url)
+  }))
+  const { el, unmount } = mount(client)
+  try {
+    await vi.waitFor(() => expect(el.textContent).toContain('compiled-hash'))
+    await vi.waitFor(() => expect(el.textContent).toContain('maintenance'))
+    const setup = el.querySelector('section[aria-label="Project setup"]')!
+    expect([...setup.querySelectorAll('dt')].map(e => e.textContent)).toEqual(['Repository', 'Guidance', 'Bindings'])
+    for (const fact of ['main', 'https://example.com/app.git', '1 blocks', 'compiled-hash', 'model → helper v3', 'config-hash']) expect(setup.textContent).toContain(fact)
+    expect(setup.querySelector('a[href="/integrations"]')).not.toBeNull()
+    const section = el.querySelector('section[aria-label="Packs"]')!
+    expect([...section.querySelectorAll('a')].map(e => [e.textContent, e.getAttribute('href')])).toEqual(packs.map(p => [p, `/packs/${p}`]))
+    expect(section.textContent).toContain('platform')
+    expect(el.textContent).not.toContain('old-pack')
+    const inventory = el.querySelector('section[aria-label="What that gives it"]')!
+    expect(inventory.textContent).toContain('3 workflows')
+    for (const [name, facts] of [['implement', ['Build the requested change', 'v2', 'stock']], ['maintenance', ['Maintain the project', 'v4', 'custom', 'system']], ['legacy-build', ['Build with the retained workflow', 'v7', 'pack:frontend-only', 'withdrawn']]] as const) {
+      const links = inventory.querySelectorAll(`a[href="/workflows?open=${name}"]`)
+      expect(links).toHaveLength(1)
+      for (const fact of facts) expect(links[0].closest('li')?.textContent).toContain(fact)
+      expect(inventory.textContent?.split(name)).toHaveLength(2)
+    }
+    for (const [name, description, origin] of [['Review required', 'A person accepts', 'stock'], ['Limit size', 'changes < 100', 'custom']]) {
+      const items = [...inventory.querySelectorAll('li')].filter(e => e.textContent?.includes(name))
+      expect(items).toHaveLength(1)
+      expect(items[0].textContent).toContain(description)
+      expect(items[0].textContent).toContain(origin)
+    }
+  } finally { unmount(); client.clear(); vi.unstubAllGlobals() }
+})
+
+// A successful absence of adoption is a known choice; a failed read is unknown.
+it.each([false, true])('distinguishes a bare project from an adoption read failure (failed: %s)', async failed => {
+  const client = newQueryClient()
+  client.setDefaultOptions({ queries: { retry: false } })
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (url.endsWith('/adoption')) return failed
+      ? Response.json({ error: 'Adoption unavailable' }, { status: 500 })
+      : Response.json({ current: null, packs: [], additions: [], exclusions: [], conditions: [] })
+    if (url.endsWith(path)) return Response.json(guidance())
+    return otherReads(url)
+  }))
+  const { el, unmount } = mount(client)
+  try {
+    const section = el.querySelector('section[aria-label="Packs"]')!
+    if (failed) {
+      await vi.waitFor(() => expect(section.textContent).toContain('unknown'))
+      expect(section.querySelector('[aria-label*="Adoption unavailable"]')).not.toBeNull()
+      expect(section.textContent).not.toContain('No packs')
+    } else {
+      await vi.waitFor(() => expect(section.textContent).toContain('No packs'))
+      expect(el.textContent?.match(/No packs/g)).toHaveLength(1)
+      expect(section.textContent).not.toContain('unknown')
+    }
+  } finally { unmount(); client.clear(); vi.unstubAllGlobals() }
 })
