@@ -193,7 +193,10 @@ versions its adoption pins. The security schedule observes source and running
 images, and calls `janitor-fix` only for a new finding that an adopted update fix
 covers. Scanner errors never trigger the call. The update schedule updates the
 parts through the language packs' declared commands. Node, Go, Python with uv,
-and Ruby ship update declarations and standard-list converters.
+Ruby and Java with Maven ship update declarations and standard-list converters;
+the frontend-only and video-game packs adopt Node's. WordPress has none yet:
+the update executor has no PHP or Composer, so a WordPress project waits for
+a pack that supplies them.
 
 The `fix` step dispatches by `kind`: `update` (below) and `adopt` (above). Whole updates
 use `run` at routine level and `runMajor` where declared at aggressive level,
