@@ -65,7 +65,7 @@ func (q *Queries) CreateDelivery(ctx context.Context, arg CreateDeliveryParams) 
 }
 
 const delivery = `-- name: Delivery :one
-SELECT id, channel, kind, item_key, opened_at, digest_date, body, state, attempts, reason, created_at, next_at, finished_at FROM notification_deliveries WHERE id=$1 FOR UPDATE
+SELECT id, channel, kind, item_key, opened_at, digest_date, body, state, attempts, reason, created_at, next_at, finished_at FROM notification_deliveries WHERE id=$1
 `
 
 func (q *Queries) Delivery(ctx context.Context, id ids.ID) (NotificationDelivery, error) {
@@ -368,8 +368,8 @@ func (q *Queries) RetainItems(ctx context.Context, resolvedAt sql.NullTime) erro
 	return err
 }
 
-const setDeliveryState = `-- name: SetDeliveryState :exec
-UPDATE notification_deliveries SET state=$2,attempts=$3,reason=$4,next_at=$5,finished_at=$6 WHERE id=$1
+const setDeliveryState = `-- name: SetDeliveryState :execrows
+UPDATE notification_deliveries SET state=$2,attempts=attempts+1,reason=$4,next_at=$5,finished_at=$6 WHERE id=$1 AND state IN ('pending','retrying') AND attempts=$3
 `
 
 type SetDeliveryStateParams struct {
@@ -381,8 +381,8 @@ type SetDeliveryStateParams struct {
 	FinishedAt sql.NullTime
 }
 
-func (q *Queries) SetDeliveryState(ctx context.Context, arg SetDeliveryStateParams) error {
-	_, err := q.db.ExecContext(ctx, setDeliveryState,
+func (q *Queries) SetDeliveryState(ctx context.Context, arg SetDeliveryStateParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setDeliveryState,
 		arg.ID,
 		arg.State,
 		arg.Attempts,
@@ -390,5 +390,8 @@ func (q *Queries) SetDeliveryState(ctx context.Context, arg SetDeliveryStatePara
 		arg.NextAt,
 		arg.FinishedAt,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

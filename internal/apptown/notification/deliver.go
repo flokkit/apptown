@@ -10,7 +10,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	q "github.com/flokkit/apptown/internal/apptown/notification/internal/notificationsql"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -19,31 +18,17 @@ func (s *Service) Deliver(ctx context.Context, key string, _ map[string]any) (ma
 	if err != nil {
 		return nil, jobs.Permanent(errors.New("invalid delivery id"))
 	}
-	err = s.d.DB.InTx(ctx, func(tx *database.Tx) error { return s.deliverIn(ctx, tx, id) })
-	if err != nil {
-		return nil, err
-	}
-	r, err := q.New(s.d.DB.SQL()).Delivery(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if r.State == "retrying" {
-		return nil, retryError(r.Reason)
-	}
-	return nil, nil
-}
-func (s *Service) deliverIn(ctx context.Context, tx *database.Tx, id ids.ID) error {
-	db := q.New(tx.SQL())
+	db := q.New(s.d.DB.SQL())
 	r, err := db.Delivery(ctx, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if r.State == "sent" || r.State == "failed" {
-		return nil
+		return nil, nil
 	}
-	cs, err := channels(ctx, tx)
+	cs, err := channels(ctx, s.d.DB)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	reason := "channel removed"
 	for _, b := range cs {
@@ -89,11 +74,15 @@ func (s *Service) deliverIn(ctx context.Context, tx *database.Tx, id ids.ID) err
 			next.Valid = false
 		}
 	}
-	if err := db.SetDeliveryState(ctx, q.SetDeliveryStateParams{ID: id, State: state, Attempts: r.Attempts + 1, Reason: reason, NextAt: next, FinishedAt: finished}); err != nil {
-		return err
+	n, err := db.SetDeliveryState(ctx, q.SetDeliveryStateParams{ID: id, State: state, Attempts: r.Attempts, Reason: reason, NextAt: next, FinishedAt: finished})
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	if n > 0 && state == "retrying" {
+		return nil, retryError(reason)
+	}
+	return nil, nil
 }
 
 // River's default retry delay is attempt^4 seconds plus jitter.

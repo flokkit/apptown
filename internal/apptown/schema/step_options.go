@@ -8,29 +8,34 @@ import (
 	"github.com/flokkit/apptown/internal/check"
 )
 
-// stepOptions is each step kind's authored options: the keys a saved
-// workflow may put in a step's with. A save refuses any other key by name,
-// so a misspelt or invented option (minApprovals for quorum) is an error
-// rather than a key the runner never reads. The runners that decode each
-// kind hold their configuration types to this list in their own tests
-// (they import this package, so it cannot ask them).
-var stepOptions = map[string][]string{
-	"agent/pi":             {"prompt", "model", "thinking", "executor", "image", "scm", "skills", "resources", "requires", "services", "needs", "docker", "mayChangeNothing", "repairRounds", "output", "timeoutMinutes"},
-	"agent/review":         {"of", "prompt", "question", "model", "thinking", "timeoutMinutes"},
-	"approval":             {"approvers", "quorum", "means", "instructions", "inAdvance", "standing"},
-	"artifact/require":     {"kind", "name"},
-	"adr/require":          {"status", "tags"},
-	"preview":              {"services"},
-	"build":                {},
-	"tests":                {"require", "timeoutMinutes", "appliesTo"},
-	"scan":                 {"on", "scanner", "baseline", "failOn", "timeoutMinutes"},
-	"guidance/conformance": {"failOn"},
-	"workflow/call":        {"workflow", "with", "whenFailed", "findings"},
-	"fix":                  {"kind", "for"},
-	"routine":              {},
-	"script":               {"run", "env", "executor", "image", "timeoutMinutes"},
-	"reconcile":            {},
-	"scm/mr":               {},
+// stepType describes a step's authored options and execution classifications.
+type stepType struct {
+	Authored      bool
+	Options       []string
+	Check         bool
+	CheckExecutor bool
+}
+
+// StepTypes is the catalogue consumed by validation, editors and check readers.
+// Internal steps may count as checks without being valid authored workflow steps.
+var StepTypes = map[string]stepType{
+	"agent/pi":             {Authored: true, Options: []string{"prompt", "model", "thinking", "executor", "image", "scm", "skills", "resources", "requires", "services", "needs", "docker", "mayChangeNothing", "repairRounds", "output", "timeoutMinutes"}},
+	"agent/review":         {Authored: true, Options: []string{"of", "prompt", "question", "model", "thinking", "timeoutMinutes"}, Check: true},
+	"approval":             {Authored: true, Options: []string{"approvers", "quorum", "means", "instructions", "inAdvance", "standing"}},
+	"artifact/require":     {Authored: true, Options: []string{"kind", "name"}},
+	"adr/require":          {Authored: true, Options: []string{"status", "tags"}},
+	"preview":              {Authored: true, Options: []string{"services"}},
+	"build":                {Authored: true, Options: []string{}},
+	"tests":                {Authored: true, Options: []string{"require", "timeoutMinutes", "appliesTo"}, Check: true, CheckExecutor: true},
+	"scan":                 {Authored: true, Options: []string{"on", "scanner", "baseline", "failOn", "timeoutMinutes"}, Check: true, CheckExecutor: true},
+	"guidance/conformance": {Authored: true, Options: []string{"failOn"}, Check: true, CheckExecutor: true},
+	"workflow/call":        {Authored: true, Options: []string{"workflow", "with", "whenFailed", "findings"}},
+	"fix":                  {Authored: true, Options: []string{"kind", "for"}},
+	"routine":              {Authored: true, Options: []string{}, Check: true, CheckExecutor: true},
+	"script":               {Authored: true, Options: []string{"run", "env", "executor", "image", "timeoutMinutes"}, Check: true},
+	"reconcile":            {Authored: true, Options: []string{}},
+	"scm/mr":               {Authored: true, Options: []string{}},
+	"scm/merged":           {Check: true},
 }
 
 // writtenByAppTown is the keys AppTown itself writes into a step's stored
@@ -42,10 +47,10 @@ var writtenByAppTown = map[string][]string{
 }
 
 // StepOptions is the options a saved workflow may give a step of kind, and
-// whether the kind is one AppTown runs.
+// whether the kind may be authored.
 func StepOptions(kind string) ([]string, bool) {
-	o, ok := stepOptions[kind]
-	return slices.Clone(o), ok
+	t, ok := StepTypes[kind]
+	return slices.Clone(t.Options), ok && t.Authored
 }
 
 // WrittenByAppTown is the keys AppTown records in a stored step of kind

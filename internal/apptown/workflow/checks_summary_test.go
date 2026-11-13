@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/ids"
 	"testing"
@@ -124,5 +125,25 @@ func TestChecksSummaryCountsAndNamesSkippedChecks(t *testing.T) {
 		if got.Tone != tc.tone || got.Text != tc.text {
 			t.Fatalf("got %+v, want %s / %s", got, tc.tone, tc.text)
 		}
+	}
+}
+
+func TestStepRegistrationOwnsSummaryAttentionAndExecutor(t *testing.T) {
+	schema.StepTypes["synthetic/check"] = schema.StepTypes["tests"]
+	defer delete(schema.StepTypes, "synthetic/check")
+	for _, kind := range []string{"synthetic/check", "scm/merged"} {
+		step := Step{Type: kind, Status: StatusFail}
+		if !summarizeChecks([]*Step{&step}).Started || !step.checkAttention() {
+			t.Errorf("%s missing from summary or attention", kind)
+		}
+	}
+	if !isCheckKind("synthetic/check") || !carriesCheckEvidence("synthetic/check") {
+		t.Fatal("registered check did not reach executor/evidence")
+	}
+	if !carriesCheckEvidence("script") || isCheckKind("script") {
+		t.Fatal("script lost placement evidence or became a check executor type")
+	}
+	if isCheckKind("scm/merged") {
+		t.Fatal("internal merge gate became a check executor type")
 	}
 }

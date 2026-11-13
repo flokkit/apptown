@@ -57,3 +57,6 @@ SELECT EXISTS(SELECT 1 FROM adrs WHERE project_id=$1);
 -- Existing same-transaction Change ownership check; see ledger boundary exception.
 -- name: ChangeBelongsToProject :one
 SELECT EXISTS(SELECT 1 FROM changes WHERE id=$1 AND project_id=$2);
+
+-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM adrs WHERE change_id=sqlc.arg(change_id));

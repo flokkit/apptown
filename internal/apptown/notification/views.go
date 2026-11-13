@@ -118,12 +118,6 @@ func (s *Service) Test(ctx context.Context, name string) (Delivery, error) {
 	if err != nil {
 		return Delivery{}, err
 	}
-	_, err = s.Deliver(ctx, id.String(), nil)
-	// Delivery failures are recorded and safe to show as state in the response.
-	var retry retryError
-	if err != nil && !errors.As(err, &retry) {
-		return Delivery{}, err
-	}
 	r, err := q.New(s.d.DB.SQL()).Delivery(ctx, id)
 	if err != nil {
 		return Delivery{}, err

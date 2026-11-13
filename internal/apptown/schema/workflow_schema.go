@@ -3,6 +3,7 @@ package schema
 import (
 	_ "embed"
 	"encoding/json"
+	"slices"
 
 	"github.com/flokkit/apptown/internal/fix"
 )
@@ -21,10 +22,43 @@ func workflowJSONSchema() []byte {
 	if err := json.Unmarshal(workflowSchemaTemplate, &document); err != nil {
 		panic(err)
 	}
+	root := document.(map[string]any)
+	constraints := root["$defs"].(map[string]any)["stepOptionValues"].(map[string]any)
+	kinds := []string{}
+	for kind, step := range StepTypes {
+		if step.Authored {
+			kinds = append(kinds, kind)
+		}
+	}
+	slices.Sort(kinds)
 	var expand func(any)
 	expand = func(value any) {
 		switch v := value.(type) {
 		case map[string]any:
+			if v["$comment"] == "step-types" {
+				delete(v, "$comment")
+				v["enum"] = kinds
+			}
+			if v["$comment"] == "step-options" {
+				delete(v, "$comment")
+				conditions := []any{}
+				for _, kind := range kinds {
+					properties := map[string]any{}
+					values, _ := constraints[kind].(map[string]any)
+					for _, option := range StepTypes[kind].Options {
+						value := values[option]
+						if value == nil {
+							value = map[string]any{}
+						}
+						properties[option] = value
+					}
+					conditions = append(conditions, map[string]any{
+						"if":   map[string]any{"properties": map[string]any{"uses": map[string]any{"const": kind}}, "required": []string{"uses"}},
+						"then": map[string]any{"properties": map[string]any{"with": map[string]any{"type": "object", "additionalProperties": false, "properties": properties}}},
+					})
+				}
+				v["allOf"] = conditions
+			}
 			if v["$comment"] == "fix-kind" {
 				delete(v, "$comment")
 				v["enum"] = fix.Names()
@@ -39,6 +73,7 @@ func workflowJSONSchema() []byte {
 		}
 	}
 	expand(document)
+	delete(root["$defs"].(map[string]any), "stepOptionValues")
 	raw, err := json.Marshal(document)
 	if err != nil {
 		panic(err)

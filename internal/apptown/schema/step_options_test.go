@@ -2,7 +2,6 @@ package schema
 
 import (
 	"io/fs"
-	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -94,18 +93,12 @@ func TestDataValuedOptionsTakeAnyKeys(t *testing.T) {
 	}
 }
 
-// Every kind AppTown runs says which options it takes, and only those
-// kinds do.
-func TestEveryStepKindDeclaresItsOptions(t *testing.T) {
+// Recorded options cannot also be authored by a workflow.
+func TestRecordedOptionsAreNotAuthored(t *testing.T) {
 	t.Parallel()
-	kinds := slices.Sorted(maps.Keys(SupportedSteps))
-	declared := slices.Sorted(maps.Keys(stepOptions))
-	if !slices.Equal(kinds, declared) {
-		t.Fatalf("step kinds %v, kinds with declared options %v", kinds, declared)
-	}
 	for kind, recorded := range writtenByAppTown {
 		for _, k := range recorded {
-			if slices.Contains(stepOptions[kind], k) {
+			if slices.Contains(StepTypes[kind].Options, k) {
 				t.Errorf("%s: %s is both authored and recorded by AppTown", kind, k)
 			}
 		}

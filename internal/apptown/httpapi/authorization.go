@@ -31,22 +31,15 @@ func (h Authorization) groupsWhereCanCreate(ctx context.Context, pr access.Princ
 	}
 	var out []string
 	for _, g := range names {
-		may, err := h.holds(ctx, pr, access.CapProjectCreate, access.Resource{Type: "group", ID: g})
+		decision, err := h.access.Explain(ctx, pr, access.Permission{Capability: access.CapProjectCreate, Resource: access.Resource{Type: "group", ID: g}})
 		if err != nil {
 			return nil, err
 		}
-		if may {
+		if decision.Allow {
 			out = append(out, g)
 		}
 	}
 	return out, nil
-}
-
-// holds answers whether pr may, as a question: no receipt, and a
-// fact that cannot be read is an error.
-func (h Authorization) holds(ctx context.Context, pr access.Principal, c access.Capability, res access.Resource) (bool, error) {
-	dec, err := h.access.Explain(ctx, pr, access.Permission{Capability: c, Resource: res})
-	return dec.Allow, err
 }
 
 // AuthzRoles: GET /api/v1/authz/roles — the catalog. Surfaced roles are
@@ -282,18 +275,10 @@ func (h Authorization) AuthzMe(w http.ResponseWriter, r *http.Request) {
 	if caller, ok := access.CallerFrom(r.Context()); ok && caller.Verified && pr.Kind == "user" && !pr.ID.IsZero() {
 		out.ActorID = &pr.ID
 	}
-	inst := map[string]bool{}
-	// The instance reads say which instance-wide pages the person can open,
-	// so the menu can leave the others out.
-	for _, c := range []access.Capability{access.CapAuthzGrants, access.CapIdentityUsers, access.CapIdentityGroups, access.CapIdentityAuth, access.CapProjectCreate,
-		access.CapStandardsGuidance, access.CapExecWorkflows, access.CapReleasePromote, access.CapAuditRead, access.CapSecretReveal,
-		access.CapInstanceStandingApproval, access.CapInstitutionRead, access.CapProjectRead, access.CapDeploymentRead, access.CapConformanceRead, access.CapConformanceRev, access.CapConformanceFix, access.CapStandardsPacks, access.CapPlatformTargets, access.CapInstanceUpdates} {
-		may, err := h.holds(r.Context(), pr, c, access.Resource{Type: "instance"})
-		if err != nil {
-			WriteFaultOr(w, err, http.StatusServiceUnavailable)
-			return
-		}
-		inst[string(c)] = may
+	inst, err := h.access.Holdings(r.Context(), pr, access.Resource{Type: "instance"})
+	if err != nil {
+		WriteFaultOr(w, err, http.StatusServiceUnavailable)
+		return
 	}
 	out.Instance = inst
 	// Where this person may create projects, and where one goes by default —
@@ -327,16 +312,10 @@ func (h Authorization) AuthzMe(w http.ResponseWriter, r *http.Request) {
 				WriteFault(w, err)
 				return
 			}
-			pc := map[string]bool{}
-			for _, c := range []access.Capability{access.CapChangeCreate, access.CapChangeInvokeLane, access.CapChangeRequestLand, access.CapChangeLand, access.CapChangeApprove, access.CapChangeOverride,
-				access.CapChangeAbandon, access.CapProjectStandingApproval, access.CapProjectManageMembers, access.CapProjectConfigure, access.CapProjectModelProfile, access.CapProjectGuidance,
-				access.CapProjectIntegrations, access.CapProjectServices, access.CapReleasePromote, access.CapSecretBind, access.CapDeploymentOperate, access.CapDeploymentDeploy} {
-				may, err := h.holds(r.Context(), pr, c, res)
-				if err != nil {
-					WriteFaultOr(w, err, http.StatusServiceUnavailable)
-					return
-				}
-				pc[string(c)] = may
+			pc, err := h.access.Holdings(r.Context(), pr, res)
+			if err != nil {
+				WriteFaultOr(w, err, http.StatusServiceUnavailable)
+				return
 			}
 			out.Project = pc
 		}
@@ -362,10 +341,10 @@ type AuthzExplanation struct {
 // hide controls. The project-creation fields are present for people only;
 // project is present when one was asked about and exists.
 type AuthzHoldings struct {
-	User         string          `json:"user"`
-	ActorID      *ids.ID         `json:"actorId,omitempty"`
-	Instance     map[string]bool `json:"instance"`
-	CreateIn     *[]string       `json:"createIn,omitempty"`
-	DefaultGroup *string         `json:"defaultGroup,omitempty"`
-	Project      map[string]bool `json:"project,omitempty"`
+	User         string                     `json:"user"`
+	ActorID      *ids.ID                    `json:"actorId,omitempty"`
+	Instance     map[access.Capability]bool `json:"instance"`
+	CreateIn     *[]string                  `json:"createIn,omitempty"`
+	DefaultGroup *string                    `json:"defaultGroup,omitempty"`
+	Project      map[access.Capability]bool `json:"project,omitempty"`
 }

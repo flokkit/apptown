@@ -934,7 +934,10 @@ func TestJourneyLedgerComplete(t *testing.T) {
 		"tests":                "unit:TestDetectTestCommand; proven live both directions (pass receipt + sabotaged tree blocked landing)",
 		"reconcile":            "unit:TestReconcilePreflight (up-to-date, catch-up, conflict); land preflight",
 	}
-	for st := range schema.SupportedSteps {
+	for st, typ := range schema.StepTypes {
+		if !typ.Authored {
+			continue
+		}
 		if _, ok := stepTier[st]; !ok {
 			t.Errorf("step type %q has no test disposition", st)
 		}

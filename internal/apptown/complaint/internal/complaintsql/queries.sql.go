@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/lib/pq"
 )
 
 const answerComplaint = `-- name: AnswerComplaint :one
@@ -458,4 +459,20 @@ func (q *Queries) NextComplaintNumber(ctx context.Context) (int64, error) {
 	var last int64
 	err := row.Scan(&last)
 	return last, err
+}
+
+const retainsAutomatedWork = `-- name: RetainsAutomatedWork :one
+SELECT EXISTS(SELECT 1 FROM complaints WHERE change_id=$1 OR run_id=ANY($2::uuid[]))
+`
+
+type RetainsAutomatedWorkParams struct {
+	ChangeID ids.ID
+	RunIds   []ids.ID
+}
+
+func (q *Queries) RetainsAutomatedWork(ctx context.Context, arg RetainsAutomatedWorkParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, retainsAutomatedWork, arg.ChangeID, pq.Array(arg.RunIds))
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }

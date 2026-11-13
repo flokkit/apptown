@@ -340,7 +340,9 @@ no fixable targets records not applicable with its reason. It needs no child
 run to qualify as standing evidence. Ordinary runs stop on failure.
 
 The Change owner purges untouched abandoned automated Changes after references
-and unreleased tasks no longer retain them. Disposal is claimed before removing
+and unreleased tasks no longer retain them. ADR and complaint links keep their
+referenced Changes and Runs available. Each owner supplies its retention query;
+schema reference coverage and root wiring are checked for completeness. Disposal is claimed before removing
 branches, workspaces, transcripts and execution rows. Failed cleanup is retried
 by settlement and the reaper. Conformance keeps scan observations independently,
 including exact subjects, scanner binding version, configuration and hash,

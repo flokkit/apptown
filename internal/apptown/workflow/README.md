@@ -89,9 +89,11 @@ receipts, check errors, undecided findings and placement are typed in
 `CheckEvidence.Outcome`, every reader uses `ReadCheckEvidence`, and evidence
 it cannot read is reported as unreadable, never as nothing. The run snapshot
 gives the page that reading as `Step.CheckReading`.
-Workflow supplies `isCheck` and `checkAttention` on each step. Tests, scans,
-scripts, conformance, agent reviews and merge checks are verification checks;
-implementation, preview, build and called-workflow execution are work.
+Workflow supplies `isCheck` and `checkAttention` on each step from
+`schema.StepTypes`. That catalogue also owns authored step options and check
+executor membership; the served workflow schema derives its kinds and options
+from it. Internal merge checks count in summaries but cannot be authored.
+Scripts carry placement evidence without running on the check executor.
 `ChangeChecks` supplies the change verdict, including the preceding working run
 when the current run is a landing. Overview, the checks shield and Evidence show
 that verdict. A passing step with a failed blocking check is a failed check;

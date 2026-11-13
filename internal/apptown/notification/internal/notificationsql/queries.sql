@@ -17,7 +17,7 @@ UPDATE notification_items SET resolved_at=$2 WHERE id=$1;
 -- name: CreateDelivery :execrows
 INSERT INTO notification_deliveries(id,channel,kind,item_key,opened_at,digest_date,body,state,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8) ON CONFLICT DO NOTHING;
 -- name: Delivery :one
-SELECT * FROM notification_deliveries WHERE id=$1 FOR UPDATE;
+SELECT * FROM notification_deliveries WHERE id=$1;
 -- name: Recent :many
 SELECT * FROM notification_deliveries ORDER BY created_at DESC,id DESC LIMIT 50;
 -- name: LatestFinished :many
@@ -26,8 +26,8 @@ SELECT DISTINCT ON (channel) * FROM notification_deliveries WHERE finished_at IS
 SELECT DISTINCT ON (channel) channel,state FROM notification_deliveries ORDER BY channel,created_at DESC,id DESC;
 -- name: LastDigest :one
 SELECT COALESCE(MAX(created_at),'epoch'::timestamptz)::timestamptz AS at FROM notification_deliveries WHERE channel=$1 AND kind='digest';
--- name: SetDeliveryState :exec
-UPDATE notification_deliveries SET state=$2,attempts=$3,reason=$4,next_at=$5,finished_at=$6 WHERE id=$1;
+-- name: SetDeliveryState :execrows
+UPDATE notification_deliveries SET state=$2,attempts=attempts+1,reason=$4,next_at=$5,finished_at=$6 WHERE id=$1 AND state IN ('pending','retrying') AND attempts=$3;
 -- name: RetainDeliveries :exec
 DELETE FROM notification_deliveries WHERE created_at < $1;
 -- name: RetainItems :exec

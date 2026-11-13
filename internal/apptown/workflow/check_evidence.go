@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/status"
@@ -231,9 +231,4 @@ func readingOf(raw json.RawMessage) *checkReading {
 // the check executor's kinds, and scripts, which record their placement.
 func carriesCheckEvidence(kind string) bool { return kind == "script" || isCheckKind(kind) }
 
-// checkKinds are the step types that run on the check executor.
-var checkKinds = []string{"tests", "scan", "guidance/conformance", "routine"}
-
-// isCheckKind reports whether steps of this type run on the check executor
-// and so carry check evidence.
-func isCheckKind(kind string) bool { return slices.Contains(checkKinds, kind) }
+func isCheckKind(kind string) bool { return schema.StepTypes[kind].CheckExecutor }

@@ -51,7 +51,10 @@ func TestWorkflowSchemaDescribesExactlyWhatASaveAccepts(t *testing.T) {
 		t.Fatal(err)
 	}
 	var supported []string
-	for k := range SupportedSteps {
+	for k, typ := range StepTypes {
+		if !typ.Authored {
+			continue
+		}
 		supported = append(supported, k)
 	}
 	got := s.Properties.Spec.Properties.Stages.Items.Properties.Steps.Items.Properties.Uses.Enum
@@ -113,7 +116,12 @@ func TestWorkflowSchemaGivesEachStepKindItsOptions(t *testing.T) {
 			keys := slices.Sorted(maps.Keys(with.Properties))
 			described[c.If.Properties.Uses.Const] = keys
 		}
-		for kind := range SupportedSteps {
+		authored := 0
+		for kind, typ := range StepTypes {
+			if !typ.Authored {
+				continue
+			}
+			authored++
 			want, _ := StepOptions(kind)
 			slices.Sort(want)
 			got, ok := described[kind]
@@ -121,8 +129,8 @@ func TestWorkflowSchemaGivesEachStepKindItsOptions(t *testing.T) {
 				t.Errorf("%s %s: schema describes %v, a save takes %v", list, kind, got, want)
 			}
 		}
-		if len(described) != len(SupportedSteps) {
-			t.Errorf("%s: schema describes %d kinds, AppTown runs %d", list, len(described), len(SupportedSteps))
+		if len(described) != authored {
+			t.Errorf("%s: schema describes %d kinds, AppTown runs %d", list, len(described), authored)
 		}
 	}
 }
@@ -174,5 +182,41 @@ func TestFixKindsComeFromRegistration(t *testing.T) {
 		if (err == nil) != registered {
 			t.Fatalf("kind %q: registered=%v error=%v", kind, registered, err)
 		}
+	}
+}
+
+func TestAuthoredStepRegistrationReachesParserAndServedSchema(t *testing.T) {
+	StepTypes["synthetic/check"] = stepType{Authored: true, Options: []string{"finding"}, Check: true, CheckExecutor: true}
+	defer delete(StepTypes, "synthetic/check")
+	src := []byte("kind: Workflow\nmetadata:\n  name: synthetic\nspec:\n  kind: pipeline\n  stages:\n    - name: check\n      steps:\n        - name: check\n          uses: synthetic/check\n          with:\n            finding: yes\n")
+	if _, err := ParseWorkflow(src); err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(workflowJSONSchema(), &doc); err != nil {
+		t.Fatal(err)
+	}
+	stage := doc["properties"].(map[string]any)["spec"].(map[string]any)["properties"].(map[string]any)["stages"].(map[string]any)["items"].(map[string]any)["properties"].(map[string]any)
+	for _, list := range []string{"steps", "onEnter"} {
+		item := stage[list].(map[string]any)["items"].(map[string]any)
+		kinds := item["properties"].(map[string]any)["uses"].(map[string]any)["enum"].([]any)
+		if !slices.Contains(kinds, any("synthetic/check")) || slices.Contains(kinds, any("scm/merged")) {
+			t.Fatalf("%s kinds: %v", list, kinds)
+		}
+		found := false
+		for _, raw := range item["allOf"].([]any) {
+			c := raw.(map[string]any)
+			if c["if"].(map[string]any)["properties"].(map[string]any)["uses"].(map[string]any)["const"] != "synthetic/check" {
+				continue
+			}
+			with := c["then"].(map[string]any)["properties"].(map[string]any)["with"].(map[string]any)
+			_, found = with["properties"].(map[string]any)["finding"]
+		}
+		if !found {
+			t.Errorf("%s has no registered options", list)
+		}
+	}
+	if _, err := ParseWorkflow([]byte(strings.ReplaceAll(string(src), "synthetic/check", "scm/merged"))); err == nil {
+		t.Fatal("internal merge gate accepted in authored workflow")
 	}
 }
