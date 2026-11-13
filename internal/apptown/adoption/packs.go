@@ -235,3 +235,25 @@ func SupersededBy(set []ProjectPackRecord) (superseded func(target json.RawMessa
 		return false, nil
 	}, reason
 }
+
+// PacksWithTools names each adopted pack whose tools cover any requested tool.
+func PacksWithTools(ctx context.Context, q database.Queryer, project ids.ID, tools []string) ([]string, error) {
+	packs, err := ProjectPacksIn(ctx, q, project)
+	if err != nil {
+		return nil, err
+	}
+	out := []string{}
+	for _, pack := range packs {
+		var spec wow.PackSpec
+		if err := json.Unmarshal([]byte(pack.SpecJSON), &spec); err != nil {
+			return nil, err
+		}
+		for _, tool := range tools {
+			if _, ok := spec.Tools[tool]; ok {
+				out = append(out, pack.Pack)
+				break
+			}
+		}
+	}
+	return out, nil
+}

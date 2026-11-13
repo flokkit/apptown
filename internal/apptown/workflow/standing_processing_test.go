@@ -1019,3 +1019,33 @@ func TestRecordedInstanceConsentKeepsOldJSONMeaningAndDigest(t *testing.T) {
 		t.Fatalf("recorded revision changed: %s", stored)
 	}
 }
+
+func TestStandingEvidenceAcceptsReasonedUnneededCall(t *testing.T) {
+	for _, reason := range []string{"nothing fixable", ""} {
+		t.Run(reason, func(t *testing.T) {
+			rig := stepAuthoritySpecFixture(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "scan", Steps: []schema.Step{{Name: "call", Uses: "workflow/call"}}, Gate: &schema.Gate{Require: []string{"call"}}}}})
+			ctx := t.Context()
+			run := rigRun(t, rig)
+			steps, err := readSteps(ctx, rig.DB, run.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			attempts := newStepAttempts(rig.DB, func(string) bool { return true })
+			attempt, err := attempts.start(ctx, steps[0], steps[0].Type, ids.Nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			outcome, err := EncodeOutcome(StatusNotApplicable, map[string]any{"reason": reason}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := attempts.finish(ctx, attempt, outcome); err != nil {
+				t.Fatal(err)
+			}
+			why, err := standingEvidence(ctx, rig.DB, run, false, 0)
+			if err != nil || (why == "") != (reason != "") {
+				t.Fatalf("standing evidence: %q %v", why, err)
+			}
+		})
+	}
+}

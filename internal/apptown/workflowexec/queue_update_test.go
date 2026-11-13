@@ -396,10 +396,9 @@ func testQueueProposals(t *testing.T, skip bool) {
 	queueExecute(t, f, as["fix"])
 	as = queueSteps(t, f, again)
 	var notNeeded struct {
-		NotNeeded bool   `json:"notNeeded"`
-		Reason    string `json:"reason"`
+		Reason string `json:"reason"`
 	}
-	if err := json.Unmarshal(as["fix"].Evidence, &notNeeded); err != nil || !notNeeded.NotNeeded || !strings.Contains(notNeeded.Reason, "nothing new since") || as["scan-source"].Status != workflow.StatusFail {
+	if err := json.Unmarshal(as["fix"].Evidence, &notNeeded); err != nil || as["fix"].Status != workflow.StatusNotApplicable || !strings.Contains(notNeeded.Reason, "nothing new since") || as["scan-source"].Status != workflow.StatusFail {
 		t.Fatalf("skipped target called again: %s %v", as["fix"].Evidence, err)
 	}
 
@@ -439,12 +438,11 @@ func testQueueProposals(t *testing.T, skip bool) {
 		steps = queueSteps(t, f, run)
 		var result struct {
 			ChildRunID ids.ID `json:"childRunId"`
-			NotNeeded  bool   `json:"notNeeded"`
 		}
 		if err := json.Unmarshal(steps["fix"].Evidence, &result); err != nil {
 			t.Fatal(err)
 		}
-		if severity == "low" && !result.NotNeeded || severity == "high" && result.ChildRunID.IsZero() {
+		if severity == "low" && (steps["fix"].Status != workflow.StatusNotApplicable || !strings.Contains(string(steps["fix"].Evidence), "reason")) || severity == "high" && result.ChildRunID.IsZero() {
 			t.Fatalf("stopped severity %s: %s", severity, steps["fix"].Evidence)
 		}
 	}

@@ -23,6 +23,7 @@ type QueueStatus struct {
 	Title        string     `json:"title"`
 	Queue        string     `json:"queue"`
 	State        string     `json:"state"`
+	Words        string     `json:"words"`
 	Since        time.Time  `json:"since"`
 	Failed       int        `json:"failed"`
 	Reason       string     `json:"reason"`
@@ -124,7 +125,23 @@ func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queu
 			out.State = "waiting"
 		}
 	}
+	out.Words = queueWords(out)
 	return out, nil
+}
+
+func queueWords(q QueueStatus) string {
+	switch q.State {
+	case "updating":
+		return "updating"
+	case "waiting":
+		return "waiting for a person"
+	case "stuck":
+		return "stuck since " + q.Since.UTC().Format("2 Jan")
+	case "stopped":
+		return fmt.Sprintf("stopped after %d failed tries", q.Failed)
+	default:
+		return "up to date"
+	}
 }
 
 // StartFix records the attempted work at the first declared command, not at a

@@ -6,9 +6,9 @@ import (
 	"github.com/flokkit/apptown/internal/fix"
 )
 
-// UpdateCoverage uses the same part applicability as fix execution and listing.
+// updateCoverage uses the same part applicability as fix execution and listing.
 // Every tool part needs a complete declaration, including targeted execution.
-func UpdateCoverage(c *appcontract.Contract, ds []fix.Declaration) ([]check.Part, error) {
+func updateCoverage(c *appcontract.Contract, ds []fix.Declaration) ([]check.Part, error) {
 	var missing []check.Part
 	for _, p := range contractParts(c) {
 		if len(p.Tools) == 0 {
@@ -35,9 +35,9 @@ func UpdateCoverage(c *appcontract.Contract, ds []fix.Declaration) ([]check.Part
 	return missing, nil
 }
 
-// PartsWithoutMajorCommand reports adopted update declarations without a major
+// partsWithoutMajorCommand reports adopted update declarations without a major
 // command. These parts still receive their ordinary update at either level.
-func PartsWithoutMajorCommand(c *appcontract.Contract, ds []fix.Declaration) ([]string, error) {
+func partsWithoutMajorCommand(c *appcontract.Contract, ds []fix.Declaration) ([]string, error) {
 	var out []string
 	for _, p := range contractParts(c) {
 		for _, d := range ds {
@@ -55,4 +55,14 @@ func PartsWithoutMajorCommand(c *appcontract.Contract, ds []fix.Declaration) ([]
 		}
 	}
 	return out, nil
+}
+
+// onlyChecksStarts reports whether no contract part declares a test command.
+func onlyChecksStarts(c *appcontract.Contract) bool {
+	for _, part := range c.Parts {
+		if len(part.Test) > 0 {
+			return false
+		}
+	}
+	return true
 }

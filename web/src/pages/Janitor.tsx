@@ -21,19 +21,10 @@ const covers = (r: StandingRevision, p: JanitorProject) => r.question.definition
 function ProjectState({ project: p, data, stale }: { project: JanitorProject; data: JanitorView; stale: boolean }) {
   if (stale) return <Status word="unknown" help="The latest refresh failed. This is the last answer read." />
   const hold = data.deployments.find(d => d.projectId === p.projectId && d.hold)?.hold
-  if (p.level === 'off') return <span className="badge">turned off for this project</span>
-  if (!p.enabled) return <span className="badge">turned off</span>
-  if (p.scans.noRepository) return <span className="badge">no repository</span>
-  if (hold) return <span className="badge">{hold.reason === 'release failed' ? `stopped: release ${hold.releaseNumber} to ${hold.displayLabel} failed` : `held back · ${hold.displayLabel}: ${hold.reason}`}</span>
-  const active = p.queues.find(q => q.state === 'updating')
-  const stopped = p.queues.find(q => q.state === 'stopped')
-  const stuck = p.queues.find(q => q.state === 'stuck')
-  if (stopped) return <>{active && <span className="badge">updating</span>}{p.queueSentences[p.queues.indexOf(stopped)]}</>
-  if (active) return <span className="badge">updating</span>
-  if (stuck) return <span className="badge">stuck since {date(stuck.since)}</span>
-  if (p.problem || !p.scans.known) return <Status word="unknown" help={p.problem || p.scans.reason || 'Scan not known'} />
-  if (p.queues.some(q => q.state === 'waiting')) return <span className="badge">Waiting for a person</span>
-  return <span className="badge">Up to date</span>
+  return <span className="row row-2">
+    {p.state.unknown ? <Status word="unknown" help={p.state.help} /> : <span className="badge">{p.state.word}</span>}
+    {hold && <span className="badge">{hold.reason === 'release failed' ? `stopped: release ${hold.releaseNumber} to ${hold.displayLabel} failed` : `held back · ${hold.displayLabel}: ${hold.reason}`}</span>}
+  </span>
 }
 
 function ScanNow({ project: p, current, reload }: { project: JanitorProject; current: boolean; reload: () => Promise<void> }) {

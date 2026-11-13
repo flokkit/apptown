@@ -10,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -248,8 +249,12 @@ func TestJanitorRepairSentenceReadsDefinition(t *testing.T) {
 }
 
 func TestJanitorNeverSaysSecurityCanRunWhenItIsOffOrStopped(t *testing.T) {
-	queues := []QueueStatus{{Queue: "updates", Failed: queueStopAfter}, {Queue: "security", Failed: queueStopAfter}}
+	queues := []QueueStatus{{Queue: "updates", Failed: queueStopAfter, Words: "stopped after 3 failed tries"}, {Queue: "security", Failed: queueStopAfter, Words: "stopped after 3 failed tries"}}
 	if got := strings.Join(janitorQueueSentences(queues, true), " "); strings.Contains(got, "can still run") {
+		t.Fatal(got)
+	}
+	queues[0].State, queues[0].Words = "updating", "updating"
+	if got := janitorQueueSentences(queues, true)[0]; !strings.Contains(got, "stopped after 3 failed tries") {
 		t.Fatal(got)
 	}
 	queues[1].Failed = 0
@@ -391,4 +396,90 @@ type janitorReadDefinitions struct{}
 func (janitorReadDefinitions) WorkflowVersion(_ context.Context, _ adoption.Source, name string) (int, string, error) {
 	body, err := stock.FS.ReadFile(name + ".yaml")
 	return 1, string(body), err
+}
+
+func TestJanitorProjectsClassifiesCompletedFacts(t *testing.T) {
+	for _, tc := range []struct {
+		name, word   string
+		enabled, off bool
+		failures     int
+		active       bool
+	}{
+		{name: "off for project", word: "turned off for this project", enabled: true, off: true},
+		{name: "off", word: "turned off"},
+		{name: "unknown", word: "unknown", enabled: true},
+		{name: "no repository", word: "no repository", enabled: true},
+		{name: "up to date", word: "up to date", enabled: true},
+		{name: "waiting", word: "waiting for a person", enabled: true},
+		{name: "stuck", word: "stuck since 2 Jan", enabled: true, failures: 1},
+		{name: "stopped", word: "Dependency updates stopped after 3 failed tries. Security fixes and Pack updates can still run.", enabled: true, failures: 3},
+		{name: "updating", word: "updating", enabled: true, active: true},
+		{name: "stopped and updating", word: "Dependency updates stopped after 3 failed tries. Security fixes and Pack updates can still run. · updating", enabled: true, failures: 3, active: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, rules, ctx, repo := janitorReadFixture(t)
+			visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pid := visible[0]
+			var rule StandingRevision
+			if tc.enabled {
+				rule = enableStanding(t, *rules, ctx, StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"})
+			}
+			if tc.off {
+				if err := rules.SetProjectChoice(ctx, pid, "off", "paused"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for i := 0; i < tc.failures; i++ {
+				janitorTry(t, s, pid, rule, time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC), true)
+			}
+			if tc.name == "no repository" {
+				if err := project.New(s.db, nil).SetDefaultBranch(ctx, pid, ""); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.name == "up to date" || tc.name == "waiting" {
+				attempts, err := s.Attempts(ctx, pid, "security", 10)
+				if err != nil {
+					t.Fatal(err)
+				}
+				ch, err := s.Change(ctx, attempts[0].ChangeID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				recordObservations(t, s, ch, []conformance.ScanObservation{{RunID: ids.New(time.Now()), Subject: conformance.ScanSubject{On: "source", Commit: gittest.Run(t, repo, "rev-parse", "HEAD")}, Scanner: "osv", Verdict: "pass", ObservedAt: time.Now().UTC()}, {RunID: ids.New(time.Now()), Subject: conformance.ScanSubject{On: "running"}, Verdict: "not_applicable", Reason: "no running images", ObservedAt: time.Now().UTC()}})
+				if tc.name == "waiting" {
+					admitAutomatedRun(t, s, ch, "approval")
+				}
+			}
+			if tc.active {
+				// The fixture's initial security change is a separate queue from updates.
+				changes, err := s.Attempts(ctx, pid, "security", 10)
+				if err != nil {
+					t.Fatal(err)
+				}
+				ch, err := s.Change(ctx, changes[0].ChangeID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				run := admitAutomatedRun(t, s, ch, "script")
+				steps, err := s.RunSteps(ctx, run.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := newStepAttempts(s.db, func(string) bool { return true }).start(ctx, steps[0], "script", pid); err != nil {
+					t.Fatal(err)
+				}
+			}
+			rows, err := s.JanitorProjects(ctx)
+			if err != nil || len(rows) != 1 {
+				t.Fatalf("rows=%+v: %v", rows, err)
+			}
+			if rows[0].State.Word != tc.word || rows[0].State.Unknown != (tc.name == "unknown") {
+				t.Fatalf("state=%+v, want %s", rows[0].State, tc.word)
+			}
+		})
+	}
 }

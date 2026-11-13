@@ -3967,6 +3967,7 @@ export type Move = {
 }
 
 export type JanitorProject = {
+  state: janitorState
   projectId: string | null
   slug: string
   name: string
@@ -4417,6 +4418,7 @@ export type QueueStatus = {
   title: string
   queue: string
   state: string
+  words: string
   since: string
   failed: number
   reason: string
@@ -4782,7 +4784,6 @@ export type StandingProjectPreview = {
   overridesInstance: boolean
   noMajorCommand: string[]
   followsMain: StandingEnvironment[]
-  group: string
   problem?: string
   packOffers: string[]
   baseImageFindings: string[]
@@ -5486,6 +5487,12 @@ export type ProjectBlocker = {
   id: string | null
   number: number
   kind: string
+}
+
+export type janitorState = {
+  word: string
+  unknown: boolean
+  help: string
 }
 
 export type JobLabel = "unknown" | "waiting" | "working" | "finished" | "failed" | "stopped"

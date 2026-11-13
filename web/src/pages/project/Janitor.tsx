@@ -51,12 +51,8 @@ const unique = (findings: Finding[]) => [...new Map(findings.map(f => [f.fingerp
 function QueueLine({ queue, slug, reload }: { queue: QueueStatus; slug: string; reload: () => void }) {
   const action = useAction(reload)
   const canSkip = useHolds('change:abandon', slug)
-  const name = queue.title
-  const state = queue.state === 'stopped' ? `stopped after ${queue.failed} failed tries since ${fmtWhen(queue.since)}`
-    : queue.state === 'stuck' ? `stuck since ${fmtWhen(queue.since)}`
-      : queue.state === 'updating' ? 'updating' : queue.state === 'waiting' ? 'waiting for a person' : 'up to date'
   return <div>
-    <p><strong>{name}</strong>: {state}{queue.reason && <> · {queue.reason}</>}{queue.packages.length > 0 && <> · moved: {queue.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ')}</>}</p>
+    <p><strong>{queue.title}</strong>: {queue.words}{queue.reason && <> · {queue.reason}</>}{queue.packages.length > 0 && <> · moved: {queue.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ')}</>}</p>
     {queue.changeId && <p>
       <Link to={`/changes/${queue.changeId}`}>Try again</Link> · <Link to={`/changes/${queue.changeId}?tab=conversation`}>Open the chat</Link>
       {canSkip && <> · <button type="button" className="link" disabled={action.busy} onClick={() => action.run(() => post(`/projects/${slug}/janitor/${queue.queue}/skip`, { changeId: queue.changeId }))}>Skip this update</button></>}

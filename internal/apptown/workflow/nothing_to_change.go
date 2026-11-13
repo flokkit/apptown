@@ -229,10 +229,7 @@ func deterministicSettled(steps []*Step, queue bool) bool {
 		if step.Type == "agent/review" {
 			return false
 		}
-		var ev struct {
-			NotNeeded bool `json:"notNeeded"`
-		}
-		if step.Type != "scan" && !(step.Type == "workflow/call" && json.Unmarshal(step.Evidence, &ev) == nil && ev.NotNeeded) {
+		if step.Type != "scan" && !(step.Type == "workflow/call" && step.Status == StatusNotApplicable) {
 			observing = false
 		}
 		switch step.Status {
