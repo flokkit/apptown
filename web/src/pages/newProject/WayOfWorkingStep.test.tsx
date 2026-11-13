@@ -77,3 +77,38 @@ it('describes each pack, offers no packs as a marked choice and counts the packs
     expect(actions.find(a => a.type === 'packs')).toMatchObject({ packs: [] })
   } finally { await act(async () => root.unmount()); client.clear() }
 })
+
+it.each([{ bare: false, failed: false, missing: false }, { bare: true, failed: false, missing: false }, { bare: true, failed: true, missing: false }, { bare: false, failed: false, missing: true }])('leads the chosen recommendation with known pack choices and reopens selection (%j)', async ({ bare, failed, missing }) => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => failed && url.endsWith('/packs') ? Response.json({ error: 'Pack library unavailable' }, { status: 500 }) : Response.json(url.endsWith('/packs') ? [
+    { name: 'frontend-only', description: 'Browser apps with local data and offline support.\n\nMore detail.', requires: [], services: [] },
+    { name: 'dependency-updates', description: 'Monthly dependency\n updates', requires: [], services: [] },
+  ] : { dependencies: [] })))
+  const { useReducer } = await import('react')
+  const { draftReducer } = await import('./draft')
+  function Wizard() {
+    const [d, dispatch] = useReducer(draftReducer, { ...newDraft(), packs: bare ? [] : ['frontend-only', missing ? 'missing-pack' : 'dependency-updates'], packWhy: 'Fits your request' })
+    return <WayOfWorkingStep d={d} act={dispatch} />
+  }
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  client.setDefaultOptions({ queries: { retry: false } })
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><Wizard /></MemoryRouter></QueryClientProvider>))
+    const lead = bare ? 'No packs' : `Browser apps with local data and offline support · ${missing ? 'missing-pack' : 'Monthly dependency updates'}`
+    await vi.waitFor(() => expect(el.textContent).toContain(lead))
+    const strong = [...el.querySelectorAll('strong')].find(e => e.textContent === lead)!
+    expect(strong.compareDocumentPosition([...el.querySelectorAll('div')].find(e => e.textContent === 'Fits your request')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect([...el.querySelectorAll('.badge')].map(e => e.textContent)).toEqual(bare ? [] : ['frontend-only', missing ? 'missing-pack' : 'dependency-updates'])
+    expect([...el.querySelectorAll('span')].filter(e => e.textContent === 'Packs')).toHaveLength(bare ? 0 : 1)
+    if (failed) {
+      await vi.waitFor(() => expect(el.textContent).toContain('unknown'))
+      expect(el.querySelector('[aria-label*="Pack library unavailable"]')).not.toBeNull()
+    }
+    if (!bare) expect(strong.compareDocumentPosition(el.querySelector('.badge')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const pick = [...el.querySelectorAll('button')].find(e => e.textContent === 'Pick differently')!
+    expect(pick.classList.contains('subtle')).toBe(false)
+    await act(async () => pick.click())
+    expect(el.querySelector('textarea[aria-label="Software description"]')).not.toBeNull()
+    await act(async () => [...el.querySelectorAll('button')].find(e => e.textContent === 'Choose a way of working myself →')!.click())
+    expect(el.querySelectorAll('.pack-card')).toHaveLength(failed ? 1 : 3)
+  } finally { await act(async () => root.unmount()); client.clear() }
+})

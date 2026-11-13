@@ -111,16 +111,14 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
       )}
       {chosen !== null && !choosing && (
         <div className="mt-1">
-          {chosen.length === 0 && <div className="row"><span className="badge">bare project</span></div>}
-          {chosen.map((name) => (
-            <div key={name} className="row mb-1">
-              <span className="badge">{name}</span>
-
-            </div>
-          ))}
+          <strong>{chosen.length === 0 ? 'No packs' : chosen.map(name => packs.find(p => p.name === name)?.description?.split(/\n\s*\n/)[0].replace(/\s+/g, ' ').trim().replace(/\.$/, '') || name).join(' · ')}</strong>
           {packWhy && <div className="small mt-2">{packWhy}</div>}
-          <div className="muted small mt-2">
-            <button className="subtle" onClick={() => { setTicked(chosen); act({ type: 'repick' }) }}>pick differently</button>
+          {chosen.length > 0 && <div className="row muted small mt-2">
+            <span>Packs</span>
+            {chosen.map(name => <span key={name} className="badge">{name}</span>)}
+          </div>}
+          <div className="mt-2">
+            <button onClick={() => { setTicked(chosen); act({ type: 'repick' }) }}>Pick differently</button>
           </div>
 
           {selected.some((p) => p.staticStarter) ? (

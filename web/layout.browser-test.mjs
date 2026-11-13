@@ -241,7 +241,8 @@ const roundFixture = await build({
     import { ListTable } from './ListTable'
     import { ListRow } from './ListRow'
     import { LibraryRow, LibraryRows } from './LibraryRow'
-    import { HelpButton } from './PageHead'
+    import { HelpButton, PageHead } from './PageHead'
+    import { AppAddress } from './runtime'
     import { ReleaseRows } from './pages/project/Overview'
     import { CapacityTable } from './pages/integrations/CapacityBars'
     import { InfrastructureNew } from './pages/InfrastructureNew'
@@ -284,6 +285,7 @@ const roundFixture = await build({
           <ListTable label="nested" rows={['Home Assistant']} rowKey={r => r} columns={[{ key: 'n', label: 'Agent', phone: 'name', render: r => r }, { key: 'a', label: 'Account', render: () => 'sam' }]} /></div></div></Section>,
       direct: <Section title="Direct"><ListTable label="direct" rows={['Home Assistant']} rowKey={r => r} columns={[{ key: 'n', label: 'Agent', phone: 'name', render: r => r }, { key: 'a', label: 'Account', render: () => 'sam' }]} /></Section>,
       help: <div className="page-head"><div className="page-head-row"><span className="page-head-title"><h1>Club Newsletter</h1><HelpButton about="Overview" guide="overview"><p>What the overview shows.</p></HelpButton></span></div></div>,
+      hostOnly: <header className="application-heading"><PageHead page="projectOverview" title="Club Newsletter" actions={<AppAddress className="btn primary application-open" url="http://localhost:8000" hostOnly>Open app ↗</AppAddress>} /></header>,
       overview: <div><ListRow to="/changes/1" className="card row application-overview-card" state={<span className="row-status">deployed</span>} identity={<>
           <Link to="/changes/1" className="row grow application-overview-link"><strong>Put up the October newsletter and 9 more</strong><span className="muted small">9 Nov, 22:14</span></Link>
           <span className="muted small"><Link to="/r">Release 18</Link> · members-preview</span></>} /></div>,
@@ -886,6 +888,14 @@ try {
     want(await page.locator('.cap-table').evaluate(t => t.getBoundingClientRect().right <= document.documentElement.clientWidth + 0.5 && [...t.querySelectorAll('td')].every(td => td.getBoundingClientRect().right <= document.documentElement.clientWidth + 0.5)), `the capacity table fits the screen at ${where}`)
     if (out) await page.screenshot({ path: `${out}/round-capacity-${size}.png` })
     want(await page.locator('.cap-in').evaluate(el => el.scrollHeight <= el.clientHeight && el.getBoundingClientRect().bottom <= el.closest('.cap-bar').getBoundingClientRect().bottom + 0.5), `a bar label is not cut at ${where}`)
+  }
+  for (const size of ['small', 'medium', 'large']) {
+    await round('hostOnly', size)
+    want(await page.locator('.application-open').evaluate(el => {
+      const range = document.createRange(); range.selectNodeContents(el)
+      const bounds = el.getBoundingClientRect()
+      return bounds.left >= 0 && bounds.right <= innerWidth && [...range.getClientRects()].every(r => r.left >= 0 && r.right <= innerWidth) && document.documentElement.scrollWidth <= innerWidth
+    }), `the host-only Open app label wraps within 390px at ${size}`)
   }
   // Wide screens: an overview row still leads with its state; releases run on.
   await round('overview', 'small', 1440)

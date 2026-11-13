@@ -174,13 +174,16 @@ export function GuidanceTab({ slug }: { slug: string }) {
   const [changing, setChanging] = useState(false)
   const adoption = adoptionQ.data
   const packs = adoption?.packs ?? []
-  // The platform pack every project carries is not a choice; it is not listed.
+  // The platform pack is shown, but is not an optional choice.
   const chosen = packs.filter((p) => !p.platform)
   const guidance = (guidanceQ.data?.imports ?? []).filter((im) => !im.disabled)
   const policies = policiesQ.data?.policies ?? []
   const warnings = policiesQ.data?.violations ?? []
   // Every core and extra workflow the project can run; the system ones run themselves.
-  const workflows = (lanesQ.data?.lanes ?? []).filter((l) => !l.withdrawn).sort((a, b) => Number(b.tier === 'core') - Number(a.tier === 'core'))
+  const workflows = [...(lanesQ.data?.lanes ?? [])].sort((a, b) => Number(b.tier === 'core') - Number(a.tier === 'core'))
+
+  const system = lanesQ.data?.system ?? []
+  const allWorkflows = [...workflows, ...system]
 
   return (
     <div className="wow-page">
@@ -189,9 +192,10 @@ export function GuidanceTab({ slug }: { slug: string }) {
         action={adoption && <button onClick={() => setChanging(!changing)} aria-expanded={changing}>{changing ? 'Close' : 'Change…'}</button>}>
         <ReadStatus q={adoptionQ} what="the way of working" className="small" />
         <StaleNote q={adoptionQ} />
-        {adoption?.current && (chosen.length === 0
+        {adoption && (chosen.length === 0
           ? <p className="muted">No packs chosen yet: choose them with Change….</p>
-          : <p>This project uses: <strong>{chosen.map((p) => p.pack).join(' · ')}</strong></p>)}
+          : <p>This project uses: <strong>{chosen.map((p, i) => <span key={p.pack}>{i > 0 && ' · '}<Link to={`/packs/${encodeURIComponent(p.pack)}`}>{p.pack}</Link></span>)}</strong></p>)}
+        {packs.filter(p => p.platform).map(p => <div key={p.pack} className="muted small"><Link to={`/packs/${encodeURIComponent(p.pack)}`}>{p.pack}</Link> <span className="badge">platform</span></div>)}
         {adoption && <AdoptionFacts v={adoption} />}
         {changing && adoption && <AdoptPanel slug={slug} packs={packs} onChanged={() => setChanging(false)} />}
       </Section>
@@ -203,11 +207,11 @@ export function GuidanceTab({ slug }: { slug: string }) {
             items={guidance.map((im) => ({ key: im.name, label: im.name, note: im.summary, to: `/guidance/${encodeURIComponent(im.name)}` }))} />
           <GivesRow title="Rules" q={policiesQ} what="the rules"
             summary={policies.length === 0 ? 'No rules' : `${policies.length} polic${policies.length === 1 ? 'y' : 'ies'}${warnings.length ? ` · ${warnings.length} warning${warnings.length === 1 ? '' : 's'}` : ''}`}
-            items={[...policies.map((p) => ({ key: p.id ?? p.name, label: p.name, note: p.description || p.rule })), ...warnings.map((v, i) => ({ key: `w${i}`, label: `⚠ ${v.workflow}`, note: v.detail }))]} />
+            items={[...policies.map((p) => ({ key: p.id ?? p.name, label: p.name, note: [p.description || p.rule, p.origin].filter(Boolean).join(' · ') })), ...warnings.map((v, i) => ({ key: `w${i}`, label: `⚠ ${v.workflow}`, note: v.detail }))]} />
           <ChecksRow slug={slug} />
           <GivesRow title="Workflows" q={lanesQ} what="the workflows"
-            summary={workflows.length <= 3 ? workflows.map((l) => l.name).join(', ') : `${workflows.slice(0, 3).map((l) => l.name).join(', ')} and ${workflows.length - 3} more`}
-            items={workflows.map((l) => ({ key: l.name, label: l.name, note: l.summary?.description || l.description, to: `/workflows?open=${encodeURIComponent(l.name)}` }))} />
+            summary={`${allWorkflows.length} workflow${allWorkflows.length === 1 ? '' : 's'}`}
+            items={allWorkflows.map((l) => ({ key: l.name, label: l.name, note: [l.summary?.description || l.description, `v${l.version}`, l.origin, l.withdrawn ? 'withdrawn' : '', system.includes(l) ? 'system' : ''].filter(Boolean).join(' · '), to: `/workflows?open=${encodeURIComponent(l.name)}` }))} />
         </div>
       </Section>
     </div>
@@ -215,7 +219,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
 }
 
 // GivesRow: one thing the packs give the project, as a count or a short
-// list, with the full list opening in place.
+// list, with every item visible.
 function GivesRow({ title, summary, items, q, what }: {
   title: string; summary: string; items: { key: string; label: string; note?: string; to?: string }[]
   q: Gated & { data?: unknown }; what: string
