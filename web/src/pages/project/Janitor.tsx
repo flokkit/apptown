@@ -9,6 +9,8 @@ import { Section } from '../../Section'
 import { ListTable, type ListColumn } from '../../ListTable'
 import { Tech } from '../../Tech'
 import { fmtWhen } from '../../format'
+import { firstLine } from '../change/Head'
+import './janitor.css'
 import type { ProjectScanView, ScanObservation, Finding, QueueStatus, AutomatedAttempt } from '../../wire.gen'
 
 function FindingList({ title, findings }: { title: string; findings: Finding[] }) {
@@ -52,7 +54,7 @@ function QueueLine({ queue, slug, reload }: { queue: QueueStatus; slug: string; 
   const action = useAction(reload)
   const canSkip = useHolds('change:abandon', slug)
   return <div>
-    <p><strong>{queue.title}</strong>: {queue.words}{queue.reason && <> · {queue.reason}</>}{queue.packages.length > 0 && <> · moved: {queue.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ')}</>}</p>
+    <p className="janitor-queue-line"><strong>{queue.title}</strong>: {queue.words}{queue.reason && <> · {queue.reason}</>}{queue.packages.length > 0 && <> · moved: {queue.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ')}</>}</p>
     {queue.changeId && <p>
       <Link to={`/changes/${queue.changeId}`}>Try again</Link> · <Link to={`/changes/${queue.changeId}?tab=conversation`}>Open the chat</Link>
       {canSkip && <> · <button type="button" className="link" disabled={action.busy} onClick={() => action.run(() => post(`/projects/${slug}/janitor/${queue.queue}/skip`, { changeId: queue.changeId }))}>Skip this update</button></>}
@@ -63,10 +65,10 @@ function QueueLine({ queue, slug, reload }: { queue: QueueStatus; slug: string; 
 
 const tryColumns = (queues: QueueStatus[]): ListColumn<AutomatedAttempt>[] => [
   { key: 'what', label: 'Update', phone: 'name', render: a => a.changeId ? <Link to={`/changes/${a.changeId}`}>{a.what}</Link> : a.what },
-  { key: 'queue', label: 'Queue', render: a => queues.find(q => q.queue === a.queue)?.title || a.queue },
-  { key: 'result', label: 'Result', phone: 'state', render: a => a.reason || (a.outcome === 'held' ? 'Waiting for a person' : a.outcome === 'shipped' ? 'Landed' : a.outcome === 'skipped' ? 'Skipped' : a.openChange ? 'In progress' : 'Closed') },
-  { key: 'packages', label: 'Packages', render: a => a.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') || '—' },
-  { key: 'origin', label: 'From', render: a => a.ruleId ? <JanitorAttribution rule={a.rule!} revision={a.ruleRevision} issuer={a.ruleIssuer!.name} /> : a.schedule ? `Schedule ${a.schedule}` : 'Not recorded' },
+  { key: 'queue', label: 'Queue', className: 'record-words', render: a => queues.find(q => q.queue === a.queue)?.title || a.queue },
+  { key: 'result', label: 'Result', phone: 'state', render: a => a.reason ? <div className="record-note">{firstLine(a.reason)}</div> : (a.outcome === 'held' ? 'Waiting for a person' : a.outcome === 'shipped' ? 'Landed' : a.outcome === 'skipped' ? 'Skipped' : a.openChange ? 'In progress' : 'Closed') },
+  { key: 'packages', label: 'Packages', className: 'record-words', render: a => a.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') || '—' },
+  { key: 'origin', label: 'From', className: 'record-words', render: a => a.ruleId ? <JanitorAttribution rule={a.rule!} revision={a.ruleRevision} issuer={a.ruleIssuer!.name} /> : a.schedule ? `Schedule ${a.schedule}` : 'Not recorded' },
   { key: 'when', label: 'When', kind: 'time', render: a => fmtWhen(a.when) },
 ]
 

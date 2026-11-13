@@ -8,8 +8,10 @@
 /* A note in a fit cell (why a state holds, why an action is unavailable) is
    a sentence: it wraps instead of widening the column past the page. Its
    measure keeps a few words to a line and shrinks with the viewport, so two
-   notes in one row still fit a 1024px desktop at large text. */
-.record-table .record-fit .record-note { white-space: normal; min-width: min(12em, 10vw); overflow-wrap: break-word; }
+   notes in one row still fit a 1024px desktop at large text. A note can be
+   a tool's error with a long unbroken path; it breaks anywhere, so the path
+   cannot widen the column and squeeze its neighbours to a letter a line. */
+.record-table .record-fit .record-note { white-space: normal; min-width: min(12em, 10vw); overflow-wrap: anywhere; }
 /* A column of short words (a kind, a state, a project) keeps them whole, so
    a wide neighbour (an image digest, a sentence) cannot squeeze it to a
    letter per line. Other cells may break anywhere, so a long name never
