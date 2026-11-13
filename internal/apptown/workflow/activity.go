@@ -37,6 +37,7 @@ type Activity struct {
 	holdingRun   ids.ID
 	holdingStep  *workflowActivityStep
 	failedChecks int
+	queue        *slotQueue
 	goingLive    bool // the current stage is the landing definition's final stage
 }
 
@@ -98,6 +99,7 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 	var pendingAgent, pendingWork, pendingApproval, failing, rechecking string
 	var pendingApprovalID ids.ID
 	var queuedStep *workflowActivityStep
+	var queue *slotQueue
 	reworked := latestAgentWork(run.steps)
 	prerequisitesSettled := true
 	var held *workflowActivityStep
@@ -156,7 +158,8 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 				if binding, ahead, waiting := wait(step.id); waiting && queuedStep == nil {
 					queued := step
 					queuedStep = &queued
-					pendingAgent = step.name + " — " + slotWaitWords(binding, ahead)
+					queue = &slotQueue{Binding: binding, Ahead: ahead, Says: slotWaitWords(binding, ahead)}
+					pendingAgent = step.name + " — " + queue.Says
 				}
 			}
 		case step.stale(reworked):
@@ -170,7 +173,7 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 		}
 	}
 	if pendingAgent != "" {
-		return Activity{State: activityQueued, Detail: pendingAgent, holdingStep: queuedStep}, nil
+		return Activity{State: activityQueued, Detail: pendingAgent, holdingStep: queuedStep, queue: queue}, nil
 	}
 	// Only work whose prerequisites permit dispatch counts as the next work.
 	if pendingWork != "" {

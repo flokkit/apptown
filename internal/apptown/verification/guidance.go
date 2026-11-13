@@ -265,16 +265,16 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 		finish(workflow.StatusFail, evidence)
 		return
 	}
-	// A required runtime check AppTown probed and could not judge holds the
+	// A timed-out required shell/tool check or runtime check AppTown could not judge holds the
 	// step for a person: counting findings alone would let a static page
 	// served no values pass. An exception
 	// accepts a known finding, never an unknown. A landing boots its
 	// candidate's preview for these, and holds the same way when it cannot
 	// judge them; a lane with no preview to probe records them unjudged.
 	if len(unjudged) > 0 {
-		evidence["summary"] = fmt.Sprintf("Standards check: AppTown could not judge %d required runtime check(s)", len(unjudged))
+		evidence["summary"] = fmt.Sprintf("Standards check: AppTown could not judge %d required check(s)", len(unjudged))
 		evidence["findings"] = unjudged
-		evidence["reason"] = "AppTown could not judge the running preview (" + strings.Join(unjudged, "; ") + ") — not the change's fault; run this step again, or ask AppTown's operator"
+		evidence["reason"] = "AppTown could not judge required checks (" + strings.Join(unjudged, "; ") + ") — not the change's fault; run this step again, or ask AppTown's operator"
 		finish(workflow.StatusError, evidence)
 		return
 	}
@@ -292,7 +292,7 @@ type evaluatorsSaid struct {
 	results  Results
 	findings []conformance.Finding
 	errors   int      // sh and tool checks that errored
-	unjudged []string // required runtime checks AppTown could not judge
+	unjudged []string // required checks AppTown could not judge
 	llm      map[string]any
 }
 
@@ -323,7 +323,7 @@ func (a *Guidance) judgeDeclared(ctx context.Context, scope conformance.RunScope
 	rtResults, rtFindings, unjudged := a.runRuntimeChecksForRun(ctx, run, once, at.Src, at.Commit, failOn, at.Candidate)
 	j.results = append(j.results, rtResults...)
 	j.findings = append(j.findings, rtFindings...)
-	j.unjudged = unjudged
+	j.unjudged = append(j.unjudged, unjudged...)
 
 	// tool checks (design/subsystems/conformance.md §13): source scanners run against the
 	// staged tree; exec-image self-checks run inside the app image, shared
@@ -333,6 +333,14 @@ func (a *Guidance) judgeDeclared(ctx context.Context, scope conformance.RunScope
 		toolContext{Context: conformance.WithRun(ctx, scope), ProjectID: run.ProjectID, SHA: at.Commit, BuildDir: at.Src, AllowBuild: true}, prefix)
 	j.results = append(j.results, toolResults...)
 	j.findings = append(j.findings, toolFindings...)
+	for _, r := range j.results {
+		if r.TimedOut {
+			d := adoptedFor(checks, check.Declared{Namespace: r.Block, Version: r.Version, Declaration: check.Declaration{Name: r.Check}})
+			if check.SeverityRank(d.Check.Severity) >= check.SeverityRank(failOn) {
+				j.unjudged = append(j.unjudged, r.Check+" timed out")
+			}
+		}
+	}
 	j.errors += toolErrors
 
 	llmResults, llmFindings, llmMeta := a.runLLMChecklist(ctx, source, once, at)

@@ -546,6 +546,23 @@ func TestSlotWaitIdentifiesItsStepWithoutOfferingActs(t *testing.T) {
 		}
 		run := &Run{ID: parent, Status: RunRunning}
 		w := waitingOn(nil, &RunSnapshot{Run: run, activity: a})
+		raw, err := json.Marshal(w)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var wire struct {
+			Queue *struct {
+				Binding string
+				Ahead   int
+				Says    string
+			}
+		}
+		if err := json.Unmarshal(raw, &wire); err != nil {
+			t.Fatal(err)
+		}
+		if wire.Queue == nil || wire.Queue.Binding != "local" || wire.Queue.Ahead != 1 || wire.Queue.Says != slotWaitWords("local", 1) {
+			t.Fatalf("missing queue facts: %s", raw)
+		}
 		if a.State != activityQueued || a.Held || w.Kind != "work" || w.Run != holding || w.Step != queued || w.Attempt != 2 {
 			t.Fatalf("wrong queued identity: %+v / %+v", a, w)
 		}

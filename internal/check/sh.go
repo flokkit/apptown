@@ -86,7 +86,7 @@ func (j *Judge) shAt(d Declared, src Source, pl Place, mode Mode, image, namePre
 		exitCode = outcome.ExitCode
 	}
 	msg := strings.TrimSpace(string(outcome.Output))
-	ev := Evaluation{Declared: d, Mode: mode,
+	ev := Evaluation{Declared: d, Mode: mode, TimedOut: outcome.Termination == execution.TimedOut,
 		Evidence: evidence{ExitCode: &exitCode, Duration: now().Sub(start)}}
 	switch {
 	case exitCode == 0:

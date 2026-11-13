@@ -109,8 +109,19 @@ func (j *Judge) toolInImage(d Declared, s Scanner, src Source, mode Mode) Evalua
 	if j.RunImage == nil || strings.TrimSpace(src.Image) == "" {
 		return cannot(d, mode, "no built app image to run this check inside")
 	}
-	code, output := j.RunImage(src.Image, s.Command, src.Env)
-	ev := Evaluation{Declared: d, Mode: mode, Evidence: evidence{ExitCode: &code, Image: src.Image}}
+	out := j.RunImage(src.Image, s.Command, src.Env)
+	code, output := -1, string(out.Output)
+	if out.Answered() {
+		code = out.ExitCode
+	} else {
+		reason := fmt.Sprintf("%s (%v)", out.Termination, errors.Join(out.RunErr, out.CleanupErr))
+		output = strings.TrimSpace(reason + "\n" + output)
+	}
+	ev := Evaluation{Declared: d, Mode: mode, Evidence: evidence{ExitCode: &code, Image: src.Image}, TimedOut: out.Termination == execution.TimedOut}
+	if ev.TimedOut {
+		ev.Outcome, ev.Detail = Error, s.Name+" timed out"
+		return ev
+	}
 	switch {
 	case code == 0:
 		ev.Outcome = Conforms
@@ -161,7 +172,7 @@ func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, pl Place, mode M
 	outcome := j.Run(req)
 	ev := Evaluation{Declared: d, Mode: mode}
 	if outcome.Termination == execution.TimedOut {
-		ev.Outcome, ev.Detail = Error, s.Name+" timed out"
+		ev.Outcome, ev.Detail, ev.TimedOut = Error, s.Name+" timed out", true
 		return ev
 	}
 	exitCode := -1 // a run that gives no answer is an error

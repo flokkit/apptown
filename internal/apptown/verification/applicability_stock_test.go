@@ -91,9 +91,9 @@ func panickingJudge(t *testing.T, scanners []check.Scanner) *check.Judge {
 			t.Error("ran a check against an empty project")
 			return execution.Outcome{}
 		},
-		RunImage: func(string, []string, []string) (int, string) {
+		RunImage: func(string, []string, []string) execution.Outcome {
 			t.Error("ran an image check against an empty project")
-			return 0, ""
+			return execution.Outcome{Termination: execution.Exited}
 		},
 		Probe: check.ProberFunc(func(context.Context, string) (int, error) { t.Error("probed an empty project"); return 0, nil }),
 		Scanners: check.ScannersFunc(func(name string) (check.Scanner, bool) {
@@ -494,9 +494,11 @@ func TestADjangoAppWithOnlyRequirementsIsHeldToDeclarePython(t *testing.T) {
 	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	scanners := loadScannerManifests(stock.FS)
 	judge := &check.Judge{ShImage: stock.Images().Sh,
-		Run:      func(execution.Request) execution.Outcome { return execution.Outcome{} },
-		RunImage: func(string, []string, []string) (int, string) { return 0, "" },
-		Probe:    check.ProberFunc(func(context.Context, string) (int, error) { return 200, nil }),
+		Run: func(execution.Request) execution.Outcome { return execution.Outcome{} },
+		RunImage: func(string, []string, []string) execution.Outcome {
+			return execution.Outcome{Termination: execution.Exited}
+		},
+		Probe: check.ProberFunc(func(context.Context, string) (int, error) { return 200, nil }),
 		Scanners: check.ScannersFunc(func(name string) (check.Scanner, bool) {
 			i := slices.IndexFunc(scanners, func(m check.Scanner) bool { return m.Name == name })
 			if i < 0 {

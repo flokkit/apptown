@@ -16,18 +16,26 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
+// slotQueue is the model-capacity wait for one identified step attempt.
+type slotQueue struct {
+	Binding string `json:"binding"`
+	Ahead   int    `json:"ahead"`
+	Says    string `json:"says"`
+}
+
 // WaitingOn describes attention, after workflow classification. It is not a
 // lifecycle or permission to execute an act; commands check current authority.
 type WaitingOn struct {
-	Kind    string    `json:"kind"`
-	Run     ids.ID    `json:"run"`
-	Step    ids.ID    `json:"step"`
-	Attempt int64     `json:"attempt,omitempty"`
-	Checks  int       `json:"checks"`
-	Who     []Decider `json:"who"`
-	You     string    `json:"you"`
-	Says    string    `json:"says"`
-	Tone    string    `json:"tone"`
+	Queue   *slotQueue `json:"queue,omitempty"`
+	Kind    string     `json:"kind"`
+	Run     ids.ID     `json:"run"`
+	Step    ids.ID     `json:"step"`
+	Attempt int64      `json:"attempt,omitempty"`
+	Checks  int        `json:"checks"`
+	Who     []Decider  `json:"who"`
+	You     string     `json:"you"`
+	Says    string     `json:"says"`
+	Tone    string     `json:"tone"`
 }
 
 // Decider retains whether an effective approval expression names a person,
@@ -67,6 +75,7 @@ func waitingOn(ch *Change, d *RunSnapshot) WaitingOn {
 	a := d.activity
 	if a.holdingStep != nil {
 		w.Step, w.Attempt = a.holdingStep.id, a.holdingStep.attempt
+		w.Queue = a.queue
 	}
 	w.Run = a.holdingRun
 	if w.Run.IsZero() {

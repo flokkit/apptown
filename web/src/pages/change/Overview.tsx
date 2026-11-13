@@ -143,7 +143,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
       <div className="ch-overview-line ch-request"><div className="ch-row-label">You asked</div><div className="ch-value">{ch.requestSummary || firstLine(ch.body || ch.title)} <Link className="ch-inline-link" to={ch.chatRequest ? `/changes/${ch.id}?tab=conversation` : record('request')}>full request →</Link></div></div>
       {!!briefParts?.length && <div className="ch-overview-line"><div className="ch-row-label">What it does</div><div className="ch-value">{briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}<StaleNote q={brief} /></div></div>}
       <NotesDiff diff={view.notesDiff} />
-      <div className="ch-overview-line"><div className="ch-row-label">Checks</div><div className="ch-value"><span>{view.checks.text}</span><CheckTable steps={checks} technical={technical} />{!approval && contractUnread(adds) && <p className="ch-check-exception">Changes to the app contract need checking.</p>}</div></div>
+      <div className="ch-overview-line"><div className="ch-row-label">Checks</div><div className="ch-value"><span>{view.checks.text}</span><CheckTable waitingOn={view.waitingOn} steps={checks} technical={technical} />{!approval && contractUnread(adds) && <p className="ch-check-exception">Changes to the app contract need checking.</p>}</div></div>
       <div className="ch-overview-line"><div className="ch-row-label">Goes to</div><div className="ch-value"><GoesTo view={view} labelled /></div></div>
     </div> : undefined}>
       {next.sentBack && <p>{next.sentBack.by} sent it back: “{next.sentBack.note}”</p>}

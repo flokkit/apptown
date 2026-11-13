@@ -367,3 +367,24 @@ describe('files in the composer', () => {
   f.done()
  })
 })
+
+it('shows a button request as an AppTown event and leaves ordinary words in their own voice', async () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/console/s1/messages?from=0'), { messages: [
+    { i: 0, role: 'helper', text: 'Ready.' },
+    { i: 1, role: 'you', text: '[apptown button: Check and land] Please check and land this change now.' },
+    { i: 2, role: 'you', text: 'My own words' },
+  ], turn: 'handed-back' })
+  vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><Bubbles sessionId="s1" readOnly="sam" /></QueryClientProvider>))
+    const event = el.querySelector('.bubble.check')!
+    expect(event).not.toBeNull()
+    expect(event.children[0].textContent).toBe('Check and land')
+    expect(event.children[1].textContent).toBe('Please check and land this change now.')
+    expect(event.children[1].className).toContain('small muted')
+    expect([...el.querySelectorAll('.bubble.you')].map(e => e.textContent)).toEqual(['My own words'])
+    expect(el.querySelector('.bubble.working')).toBeNull()
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router-dom'
 import { getKey, newQueryClient } from '../data'
-import { ChatPage } from './Console'
+import { ChatPage, kickoffText } from './Console'
 
 function Console() {
  const [params] = useSearchParams()
@@ -417,4 +417,11 @@ describe('the surrounding page owns the change status', () => {
       act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
     }
   })
+})
+
+// The door records its own request; opening a stopped conversation grants no work.
+it('marks each kickoff with its button and preserves the request', () => {
+  expect(kickoffText('build', 'A calendar')).toBe('[apptown button: Build the first version] Please build the first version:\n\nA calendar\n\nKeep it simple, get it working, and tell me as soon as I can try it.')
+  expect(kickoffText('go', 'Add dates')).toBe('[apptown button: Do it in a chat] Please do this:\n\nAdd dates\n\nTell me what you changed and when I can try it.')
+  expect(kickoffText('stuck', 'Build everything')).toBe('[apptown button: Open the conversation] The lane stopped — where and why is in your briefing under "Where the lane stopped". Say where things stand and what you think went wrong, in plain words; then we go from there.')
 })

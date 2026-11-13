@@ -104,6 +104,14 @@ the opener beside them (`console.say`, `console.upload`, `console.interrupt`,
 `console.terminal`, `console.end`); an end also records what became of the
 chat's work, for example "sam ended alex's chat; its work was saved".
 
+Button requests keep the transcript role `you` and start with
+`[apptown button: <label>]`. The chat shows the label as an AppTown event,
+with the request underneath. The mark records the button press; it confirms
+only what the request asks. Check and land confirms checking and landing;
+build kickoffs request building; Open the conversation asks for an explanation
+and waits. Unmarked messages keep the person's bubble. Button events do not
+cancel the helper's preceding answer as a failed boot check does.
+
 An ended chat's words stay readable from its record on disk
 (`console.Service.Transcript`, which says whether each chat has ended). A
 change's chats, live and ended, are on the change page

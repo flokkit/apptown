@@ -27,7 +27,8 @@ type Results []workflow.CheckReceipt
 // not: they are decisions, not judgements.
 func resultOf(ev check.Evaluation) workflow.CheckReceipt {
 	res := workflow.CheckReceipt{
-		Block: ev.Namespace, Version: ev.Version, Check: ev.Name,
+		TimedOut: ev.TimedOut,
+		Block:    ev.Namespace, Version: ev.Version, Check: ev.Name,
 		Evaluator:    check.Evaluator(ev.Declaration),
 		ExitCode:     ev.Evidence.ExitCode,
 		Output:       ev.Evidence.Output,

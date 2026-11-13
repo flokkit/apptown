@@ -71,7 +71,7 @@ func TestChangeBriefingAsksForShortfallsFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"measure the work against what was ASKED", "say that FIRST", `Never say
+	for _, want := range []string{"measure the work against what was ASKED", "say that FIRST", "[apptown button: …]", "confirms only what its own text asks", "Only Check and land confirms landing", "Open the conversation asks you to explain and wait, not build or land", `Never say
   "done" or "verified"`} {
 		if !strings.Contains(text, want) {
 			t.Errorf("change briefing must contain %q", want)

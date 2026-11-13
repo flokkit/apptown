@@ -358,6 +358,7 @@ func combine(d Declared, mode Mode, places []Place, evs []Evaluation) Evaluation
 			out.Evidence.Report = ev.Evidence.Report
 		}
 		out.Fault = out.Fault || ev.Fault
+		out.TimedOut = out.TimedOut || ev.TimedOut
 		for _, f := range ev.Findings {
 			if f.Kind != "conformance" {
 				out.Findings = append(out.Findings, f)

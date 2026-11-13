@@ -42,6 +42,7 @@ describe('held runs offer recovery rather than an approval', () => {
     ['review rejection', 'agent/review', 'fail', 'override', 'Accept anyway'],
     ['failed check', 'script', 'fail', 'override', 'Accept anyway'],
     ['could not run', 'script', 'error', 'retry', 'Try again'],
+    ['Standards check timed out', 'guidance/conformance', 'error', 'retry', 'Try again'],
     ['record required', 'artifact/require', 'needs_human', 'retry', 'Re-check'],
     ['decision required', 'adr/require', 'fail', 'retry', 'Re-check'],
     ['merge required', 'scm/merged', 'fail', 'retry', 'Re-check'],

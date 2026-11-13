@@ -24,7 +24,7 @@ import { TryIt } from '../../TryIt'
 // carries the confirmation (the click), so the agent doesn't re-ask, and points
 // it at its negotiation protocol (steering).
 export const LAND_REQUEST =
-  'Please check and land this change now. I pressed Check and land, so treat this as my ' +
+  '[apptown button: Check and land] Please check and land this change now. I pressed Check and land, so treat this as my ' +
   'confirmation — no need to ask again. Run the full checks first (apptown check), fix ' +
   'anything with a clear fix, then land it and follow it through. If something needs a ' +
   'decision only I can make, stop and ask me.'

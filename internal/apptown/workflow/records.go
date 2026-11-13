@@ -43,7 +43,8 @@ type Step struct {
 	runEnded       bool
 	StatusLabel    status.DisplayStatus `json:"statusLabel"`
 
-	Attempt                                 int64 `json:"-"`
+	// Attempt is observed identity, not an execution claim (OwnedAttempt).
+	Attempt                                 int64 `json:"attempt,omitempty"`
 	ownedStepID, ownedRunID, ownedProjectID ids.ID
 	ownedAttempt                            int64           // only assigned by committed admission, never by a read
 	ownedSourceGeneration                   int64           // the branch authority the attempt was admitted under

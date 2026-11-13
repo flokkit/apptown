@@ -13,9 +13,6 @@ package verification
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -35,19 +32,12 @@ func toolImageReady(ctx context.Context, images CheckImage, image string) {
 }
 
 // runInImage runs a command INSIDE an already-resolved app image (by ID) and
-// returns the exit code and output: nothing is mounted and there is no
+// returns the execution outcome: nothing is mounted and there is no
 // network, so the app is seen as the app sees itself, for at most the scan
 // timeout. The image is resolved separately (and shared) via imageForCommit.
-func runInImage(ctx context.Context, run checkRun, imageID string, command, env []string) (exitCode int, output string) {
-	out := run(ctx, execution.Request{Image: imageID, Argv: command, Env: env, Network: "none",
+func runInImage(ctx context.Context, run checkRun, imageID string, command, env []string) execution.Outcome {
+	return run(ctx, execution.Request{Image: imageID, Argv: command, Env: env, Network: "none",
 		Timeout: check.ScanTimeout, Name: execution.UniqueName("apptown-exec-image")})
-	if !out.Answered() {
-		// No answer (it timed out, did not run, or its cleanup failed):
-		// an errored check, with the reason.
-		reason := fmt.Sprintf("%s (%v)", out.Termination, errors.Join(out.RunErr, out.CleanupErr))
-		return -1, strings.TrimSpace(reason + "\n" + string(out.Output))
-	}
-	return out.ExitCode, string(out.Output)
 }
 
 // toolContext carries what a tool check needs beyond its definition: the staged

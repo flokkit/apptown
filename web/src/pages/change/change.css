@@ -272,6 +272,9 @@
 .ch-check-summary p { margin: 0 0 4px; }
 
 .ch-detail-row .ch-items-table td:nth-child(2) { overflow-wrap: anywhere; }
+.ch-result-mark { display: inline-flex; align-items: baseline; gap: var(--space-1); }
+.ch-result-mark > .ch-mark { flex: none; }
+.ch-result-mark > span:last-child { min-width: 0; }
 .ch-check-result { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .ch-check-result .ch-story-record > a { font-size: var(--fs-xs); white-space: nowrap; }
 @container change-details (max-width: 48rem) {

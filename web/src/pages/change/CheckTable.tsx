@@ -1,3 +1,5 @@
+import { StepProgressFact } from './StepProgressFact'
+import type { WaitingOn } from '../../wire.gen'
 import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import type { Artifact, Step } from '../../api'
@@ -31,19 +33,20 @@ export function Records({ records, runId }: { records: Artifact[]; runId: string
 export function ResultMark({ text }: { text: string }) {
   const tone = text.startsWith('✓') ? 'ok' : text.startsWith('✗') ? 'bad' : text.startsWith('unknown') ? 'warn' : undefined
   if (!tone) return <>{text}</>
-  return <><span className={`ch-mark ${tone}`}>{tone === 'warn' ? 'unknown' : text[0]}</span>{text.slice(tone === 'warn' ? 7 : 1)}</>
+  return <span className="ch-result-mark"><span className={`ch-mark ${tone}`}>{tone === 'warn' ? 'unknown' : text[0]}</span><span>{text.slice(tone === 'warn' ? 7 : 1)}</span></span>
 }
 
 // Every result carries a word as well as its mark.
 const resultWords = (result: string) => result.replace(/^✓/, '✓ passed').replace(/^✗/, '✗ failed').replace(/^overridden by /, 'excepted by ')
 
-export function CheckRow({ entry, technical, reload, preview, detailId, runNumber }: { entry: Pick<StoryEntry, 'step' | 'key' | 'records' | 'actionStep'>; technical: boolean; reload: () => void; preview: boolean; detailId?: string; runNumber?: number }) {
+export function CheckRow({ entry, technical, reload, preview, detailId, runNumber, waitingOn }: { entry: Pick<StoryEntry, 'step' | 'key' | 'records' | 'actionStep'>; technical: boolean; reload: () => void; preview: boolean; detailId?: string; runNumber?: number; waitingOn?: WaitingOn }) {
   const s = entry.step!
   const na = s.status === 'not_applicable' && !s.overrideBy
   const duration = s.startedAt && s.finishedAt ? Math.max(0, Date.parse(s.finishedAt) - Date.parse(s.startedAt)) : undefined
   return <><tr id={`entry-${entry.key}`} className={na ? 'muted' : undefined}>
     <th scope="row">{preview && <span id="preview" />}{stepTitle(s)}<TechnicalWords shown={technical}>{s.name} · {s.type}{runNumber != null && ` · run ${runNumber}`}</TechnicalWords></th>
     <td><div className="ch-check-result">{na ? checkResult(s) : <ResultMark text={resultWords(checkResult(s))} />}<Records records={entry.records} runId={s.runId!} /></div>
+      {['running', 'pending'].includes(s.status) && <StepProgressFact step={s} waitingOn={waitingOn} />}
       {!na && !s.overrideBy && ['fail', 'error', 'needs_human'].includes(s.status) && !!s.evidence.actions?.length && <p className="ch-story-reason">To satisfy this check: {s.evidence.actions?.join(' ')}</p>}
     </td>
     <td className="ch-check-duration">{s.status === 'running' && s.startedAt ? <Elapsed startedAt={s.startedAt} /> : duration != null && `${Math.round(duration / 1000)}s`}</td>
@@ -53,6 +56,6 @@ export function CheckRow({ entry, technical, reload, preview, detailId, runNumbe
 }
 
 // Overview shows every current check, including skipped and non-applicable ones.
-export function CheckTable({ steps, technical }: { steps: Step[]; technical: boolean }) {
- return <table className="ch-items-table" aria-label="Checks"><tbody>{steps.map(s => <CheckRow key={s.id} detailId="checks" technical={technical} reload={() => {}} preview={false} entry={{key: `${s.id}-0`, step: s, records: []}} />)}</tbody></table>
+export function CheckTable({ steps, technical, waitingOn }: { steps: Step[]; technical: boolean; waitingOn: WaitingOn }) {
+ return <table className="ch-items-table" aria-label="Checks"><tbody>{steps.map(s => <CheckRow key={s.id} waitingOn={waitingOn} detailId="checks" technical={technical} reload={() => {}} preview={false} entry={{key: `${s.id}-0`, step: s, records: []}} />)}</tbody></table>
 }

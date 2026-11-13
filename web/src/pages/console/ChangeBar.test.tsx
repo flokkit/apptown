@@ -31,6 +31,7 @@ vi.mock('@xterm/addon-fit', () => ({ FitAddon: class { fit() {} } }))
 // they pressed, not another one.
 describe('check and land in the chat', () => {
   it('says the button the person pressed', () => {
+    expect(LAND_REQUEST).toMatch(/^\[apptown button: Check and land\]/)
     expect(LAND_REQUEST).toContain('I pressed Check and land')
     expect(LAND_REQUEST).not.toMatch(/Land button/)
   })

@@ -123,9 +123,9 @@ func panicking(t *testing.T) *check.Judge {
 			t.Fatal("ran a check that does not apply")
 			return execution.Outcome{}
 		},
-		RunImage: func(string, []string, []string) (int, string) {
+		RunImage: func(string, []string, []string) execution.Outcome {
 			t.Fatal("ran an image check that does not apply")
-			return 0, ""
+			return execution.Outcome{Termination: execution.Exited}
 		},
 		Probe: check.ProberFunc(func(context.Context, string) (int, error) {
 			t.Fatal("probed for a check that does not apply")
