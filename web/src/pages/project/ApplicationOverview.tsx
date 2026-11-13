@@ -127,7 +127,7 @@ export function ProjectChanges({ project }: { project: ProjectDetail }) {
           <Link to={`/changes/${c.changeId}`} className="row grow application-overview-link">
             <strong><span className="muted">#{c.changeNumber} </span>{c.title}</strong>
             {c.editing > 0 && <span className="muted small">{c.editing} file{c.editing === 1 ? '' : 's'} being edited</span>}
-          </Link>} action={c.waitingOn.kind === 'chat' && <span className="row-action"><Link to={`/projects/${slug}/console?change=${c.changeId}`} className="btn">Continue chat</Link></span>} />
+          </Link>} action={c.waitingOn.kind === 'chat' && <span className="row-action"><Link to={`/changes/${c.changeId}?tab=conversation`} className="btn">Continue chat</Link></span>} />
       ))}
     </Section>
 <Section title="Finished changes">

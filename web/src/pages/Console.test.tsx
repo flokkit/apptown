@@ -7,9 +7,14 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router-dom'
 import { getKey, newQueryClient } from '../data'
-import Console from './Console'
+import { ChatPage } from './Console'
+
+function Console() {
+ const [params] = useSearchParams()
+ return <ChatPage slug="p" changeId={params.get('change') ?? ''} forcedSession={params.get('session') ?? ''} kickoff={params.get('kickoff') ?? ''} />
+}
 
 // The terminal stands still: no canvas, no socket.
 vi.mock('@xterm/xterm', () => ({
@@ -46,13 +51,13 @@ describe('a chat says which kind it is from its first paint', () => {
   // Before the session answers, a change chat already says it works on
   // that change; it never shows the project chat's "nothing is built here"
   // while it connects.
-  it('a change chat names its change while it connects', () => {
+  it('a change chat leaves its title and state to the surrounding page while it connects', () => {
     const html = firstPaint(ON_CHANGE)
-    expect(html).toContain('Goes to: ')
-    expect(html).toContain('(no deployment follows main)')
+    expect(html).not.toContain('Goes to: ')
+    expect(html).not.toContain('(no deployment follows main)')
     expect(html).not.toContain('connecting…')
     expect(html).toContain('Loading…')
-    expect(html).toContain('class="console-chat-page-h1 console-chat-title"')
+    expect(html).not.toContain('<h1')
     expect(html).toContain('Starting your helper…')
     expect(html).toContain('aria-label="your message"')
     // A change chat carries no intro card: its box says what to do.
@@ -104,14 +109,13 @@ describe('the chat keeps its input when the intro steps aside', () => {
 // the agent-actions switch sits on the line above the input.
 describe('a change chat keeps its head to two lines', () => {
   const parse = (html: string) => { const el = document.createElement('div'); el.innerHTML = html; return el }
-  it('names the change and shows its status before and during a workflow', () => {
+  it('keeps the title and status on the change page before and during a workflow', () => {
     const view = { goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'waiting for you', tone: 'warn' }, change: { id: CHANGE, number: 49, title: 'Let an admin edit the menu', state: 'in_progress' }, commits: [{}] }
     const page = parse(firstPaint(ON_CHANGE, view))
-    expect(page.querySelector('.console-head h1')!.textContent).toBe('#49 Let an admin edit the menu')
-    expect(page.querySelector('.console-head h1 a')!.getAttribute('href')).toBe(`/changes/${CHANGE}`)
-    expect([...page.querySelectorAll('.console-head .chip')].filter(c => c.textContent?.includes('waiting for you'))).toHaveLength(1)
+    expect(page.querySelector('.console-head h1')).toBeNull()
+    expect([...page.querySelectorAll('.console-head .chip')].filter(c => c.textContent?.includes('waiting for you'))).toHaveLength(0)
     const started = parse(firstPaint(ON_CHANGE, { ...view, detail: { run: { status: 'running' } } }))
-    expect([...started.querySelectorAll('.console-head .chip')].filter(c => c.textContent?.includes('waiting for you'))).toHaveLength(1)
+    expect([...started.querySelectorAll('.console-head .chip')].filter(c => c.textContent?.includes('waiting for you'))).toHaveLength(0)
     expect(page.querySelector('section.console-about')).toBeNull()
     expect(renderToStaticMarkup(<ChangeFacts view={view as unknown as ChangeView} />)).toContain('1 commit')
   })
@@ -259,7 +263,7 @@ describe('phone change controls', () => {
     try {
       expect(el.querySelector('.change-controls-toggle')).toBeNull()
       expect(el.querySelector<HTMLDetailsElement>('.head-menu')!.hidden).toBe(false)
-      expect(el.querySelector('.console-chat-title')?.textContent).toContain('#49')
+      expect(el.querySelector('.console-chat-title')).toBeNull()
       mainActions(el)
     } finally { done() }
   })
@@ -381,8 +385,8 @@ describe('writing while the helper starts', () => {
   })
 })
 
-describe('one status chip in a connected change chat', () => {
-  it.each([true, false])('shows the change label when helper busy is %s', async busy => {
+describe('the surrounding page owns the change status', () => {
+  it.each([true, false])('keeps the change label outside the chat when helper busy is %s', async busy => {
     const sockets: { onopen?: () => void }[] = []
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
     vi.stubGlobal('WebSocket', class {
@@ -404,11 +408,11 @@ describe('one status chip in a connected change chat', () => {
     const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
     try {
       await act(async () => root.render(<MemoryRouter initialEntries={[`/projects/p/console${ON_CHANGE}`]}><QueryClientProvider client={client}><Routes><Route path="/projects/:slug/console" element={<Console />} /></Routes></QueryClientProvider></MemoryRouter>))
-      await vi.waitFor(() => expect(el.querySelector('.console-head .chip-word')?.textContent).toBe('checking'))
+      await vi.waitFor(() => expect(el.textContent).toContain('Check and land'))
       await vi.waitFor(() => expect(sockets.length).toBeGreaterThan(0))
       await act(async () => sockets[sockets.length - 1].onopen!())
       await vi.waitFor(() => expect(el.textContent).toContain('Build it'))
-      expect(el.querySelectorAll('.console-head .chip')).toHaveLength(1)
+      expect(el.querySelectorAll('.console-head .chip')).toHaveLength(0)
     } finally {
       act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
     }

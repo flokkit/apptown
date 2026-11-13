@@ -110,7 +110,7 @@ export function SidebarNav() {
         <NavLink to={`${base}/deployments`} className={cls}><Rocket aria-hidden size={16} />Deployments</NavLink>
         {project?.chatAvailable && canCreate && canChat && <button className="nav" disabled={chat.busy} onClick={() => void chat.run(async () => {
           const r = await createChatChange(slug)
-          nav(`${base}/console?change=${r.change.id}`)
+          nav(`/changes/${r.change.id}?tab=conversation`)
         })}><MessageSquare aria-hidden size={16} />Chat</button>}
         {chat.err && <p className="error small">{chat.err}</p>}
         <Drawer label="Security" icon={<Shield aria-hidden size={16} />} to={`${base}/security`} active={pathname.startsWith(`${base}/security`)} items={SECURITY_TABS.map(t => (

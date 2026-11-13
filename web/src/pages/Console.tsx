@@ -1,11 +1,10 @@
-import { GoesTo } from './change/GoesTo'
+import { PreviewBesideChat } from './console/PreviewBesideChat'
 import { AgentActionsSwitch, useAgentActions } from '../AgentActions'
-import { ChangeStatus } from '../Status'
 import './Console.css'
 import { FormMenu } from '../MoreMenu'
 import { PRODUCT } from '../brand'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { ChangeView, post } from '../api'
 import AgentActivity from '../AgentActivity'
 import { useChatViewport, useNarrow } from '../chrome'
@@ -34,6 +33,11 @@ export default function Console() {
   const [params] = useSearchParams()
   const change = params.get('change') ?? ''
   const forced = params.get('session') ?? ''
+  if (change) {
+    const target = new URLSearchParams({ tab: 'conversation' })
+    for (const name of ['kickoff', 'session']) if (params.has(name)) target.set(name, params.get(name)!)
+    return <Navigate replace to={`/changes/${encodeURIComponent(change)}?${target}`} />
+  }
   return <ChatPage key={`${slug}\n${change}\n${forced}`} slug={slug!} changeId={change}
     forcedSession={forced} kickoff={params.get('kickoff') ?? ''} />
 }
@@ -43,7 +47,7 @@ export default function Console() {
 // continues a lane that stopped. ?session=<id> lands on one exact session
 // ("take it to chat" made it server-side, continuing the lane agent) instead
 // of the remembered one.
-function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; changeId: string; forcedSession: string; kickoff: string }) {
+export function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; changeId: string; forcedSession: string; kickoff: string }) {
   const { session, list, openErr, appTownInstead, open, startFresh, end } = useConsoleSession({ slug, changeId, forcedSession })
   // The layering principle: bubbles are the story, the terminal is under
   // the hood. Same pi, same conversation, two zooms — remembered per person.
@@ -72,8 +76,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   // which it is before a word is typed.
   const shopId = session?.changeId || changeId
   const isWorkshop = shopId !== ''
-  // One read of the change feeds the action bar and the status card; its
-  // status shows once, above both.
+  // The action bar shares the change reading with the surrounding page.
   const change = useGet<ChangeView>(shopId ? `/changes/${shopId}` : null, { poll: 4000 })
   useKickoff(kickoff, slug, changeId, session, status === 'attached', change.data?.change.body)
   // A change is named by its number, known once the change is read.
@@ -81,7 +84,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
   // A chat that cannot open says why in one line and goes back where the
   // person came from: the change, or the project for its own chat.
   if (!session && openErr) return <div>
-    <h1>{isWorkshop ? 'Change chat' : 'Project chat'}</h1>
+    {!isWorkshop && <h1>Project chat</h1>}
     <p className="row console-chat-page-p">
       <span>Chat can't open here: {openErr}</span>
       <Link to={shopId ? `/changes/${shopId}` : `/projects/${slug}`}>{shopId ? `Back to ${change.data ? shopName : 'the change'}` : 'Back to the project'}</Link>
@@ -89,6 +92,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
     </p>
   </div>
   return (
+    <PreviewBesideChat changeId={changeId}>{previewToggle =>
     <div className={`console ${isWorkshop ? 'console-workshop' : 'console-desk'}`}>
       <div className="console-controls">
       {/* One row, three zones (layering: story left, escape hatches right):
@@ -96,19 +100,14 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           The robot buddy owns the turn state; plumbing (model, session, reset
           actions) lives behind ⋯ where those who need it can find it. */}
       <div className="row console-head mb-2" >
-        {/* The chat's space is the conversation's: a change chat's head is the
-            change itself (its number and title, linking to it, and its
-            state), and the change chat says it is one from its first paint,
-            never the project chat while it connects. */}
-        {shopId
-          ? <h1 className="console-chat-page-h1 console-chat-title"><Link to={`/changes/${shopId}`} title="What you and the helper change here is saved onto this change.">{change.data ? <><span className="muted">#{change.data.change.number}</span> {change.data.change.title}</> : shopName.charAt(0).toUpperCase() + shopName.slice(1)}</Link></h1>
-          : <h1 className="console-chat-page-h1">Project chat</h1>}
-        {shopId
-          ? change.data && <ChangeStatus waiting={change.data.waitingOn} />
-          : <span className="badge here" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>}
+        {!isWorkshop && <>
+          <h1 className="console-chat-page-h1">Project chat</h1>
+          <span className="badge here" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>
+        </>}
         {/* The change's actions share the head's line: the page is the conversation's. */}
         {isWorkshop && change.data && zoom === 'chat' && (change.data.change.summary || change.data.report) && <Link className="small" to={`/changes/${change.data.change.id}/records/summary`}>What was made →</Link>}
         <span className="console-head-space grow" />
+        {previewToggle}
         {isWorkshop && changeId !== '' && session?.mayAct && zoom === 'chat' && change.data && <span className="console-strip"><WorkshopActions compact changeId={changeId} view={change.data} robotBusy={robotBusy} sessionId={session?.id} /></span>}
         {session?.mayAct && zoom === 'chat' && (!shopId || status !== 'attached') && <AgentActivity busy={robotBusy} connected={status === 'attached'} />}
         {zoom === 'terminal' && session?.mayAct && (mayType
@@ -140,7 +139,6 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           </div>
         </FormMenu>
       </div>
-      {shopId && change.data && <div className="small muted"><GoesTo view={change.data} /></div>}
       {/* Which chats exist: until it is read, nothing opens; a chat on the
           worker's save line already marks this same read when it is old. */}
       <ReadStatus q={list} what="this project's chats" />
@@ -202,6 +200,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           ]} />
       <div className={`console-term${zoom === 'terminal' ? '' : ' console-term-offscreen'}`} ref={termRef} />
     </div>
+    }</PreviewBesideChat>
   )
 }
 

@@ -41,7 +41,7 @@ it('starts an ordinary chat change and navigates straight to its conversation', 
   }))
   const init = h.fetch.mock.calls.find(([, init]) => init?.method === 'POST')![1]!
   expect(JSON.parse(init.body as string)).toEqual({ title: expect.stringMatching(/^Chat change /), titleFromChat: true, type: 'feature', body: '', workflow: '' })
-  expect(h.el.querySelector('output')?.textContent).toBe('/projects/library/console?change=chat-one')
+  expect(h.el.querySelector('output')?.textContent).toBe('/changes/chat-one?tab=conversation')
   expect(h.el.querySelector('[role=dialog]')).toBeNull()
 })
 

@@ -18,7 +18,7 @@ func (a *App) browserSecurity(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		dsn, _, _ := selfErrorsFor(a).BrowserConfig(r.Context())
-		w.Header().Set("Content-Security-Policy", browserResourcePolicy(a.browserOrigin(r), dsn))
+		w.Header().Set("Content-Security-Policy", browserResourcePolicy(a.browserOrigin(r), dsn, a.cfg.routing().PreviewDomain))
 		w.Header().Set("Referrer-Policy", "same-origin")
 		// An invite or password reset link carries its token in the path;
 		// the page it opens sends no referrer at all.
@@ -57,8 +57,9 @@ func (c configuration) browserSession() httpapi.BrowserSession {
 }
 
 // Only AppTown's configured diagnostic attachment can add a connect origin.
+// Frames are confined to the configured preview tier, never the public host.
 // An already open document keeps its policy until refreshed after a change.
-func browserResourcePolicy(origin, dsn string) string {
+func browserResourcePolicy(origin, dsn, previewDomain string) string {
 	connect := "'self' " + strings.Replace(origin, "http", "ws", 1)
 	if d, ok := parseSentryDSN(dsn); ok {
 		_, reportingOrigin, valid := d.browserDestination()
@@ -66,5 +67,9 @@ func browserResourcePolicy(origin, dsn string) string {
 			connect += " " + reportingOrigin
 		}
 	}
-	return "default-src 'none'; script-src 'self'; font-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: " + strings.Join(web.ImageOrigins(), " ") + "; connect-src " + connect + "; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+	frame := ""
+	if previewDomain != "" {
+		frame = "; frame-src https://*." + previewDomain
+	}
+	return "default-src 'none'; script-src 'self'; font-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: " + strings.Join(web.ImageOrigins(), " ") + "; connect-src " + connect + frame + "; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
 }

@@ -18,7 +18,7 @@ export function ChangeButton({ slug, chatAvailable, compact = false, primary = f
   const { run, busy, err } = useAction()
   const startChat = async () => {
     const r = await run(() => createChatChange(slug))
-    if (r) nav(`/projects/${slug}/console?change=${r.change.id}`)
+    if (r) nav(`/changes/${r.change.id}?tab=conversation`)
   }
   return <>
     <SplitButton icon="" label="Change" compact={compact}

@@ -51,7 +51,7 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
       const r = await post<CreatedChange>(`/projects/${slug}/changes`, {
         title: 'First version', type: 'feature', body, workflow: '',
       })
-      nav(`/projects/${slug}/console?change=${r.change.id}&kickoff=1`)
+      nav(`/changes/${r.change.id}?tab=conversation&kickoff=1`)
     } catch (e) { setErr((e as Error).message); setBusy(false) }
   }
 

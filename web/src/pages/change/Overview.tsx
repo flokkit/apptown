@@ -174,7 +174,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
       {actionErr && <p className="error">{actionErr}</p>}
       {!approval && !turn && !deciding && !['shipped', 'abandoned'].includes(ch.state) && <DecisionChoices note={note} setNote={setNote} busy={actionBusy || !current}
         accept={d && offered(view.next, 'land') ? { label: 'Check and land', run: () => act(() => post(`/changes/${ch.id}/land`, {})) } : undefined}
-        chat={!d || view.mainConflict ? { label: view.mainConflict ? 'Resolve in chat' : 'Continue chat', run: () => nav(`/projects/${view.projectSlug}/console?change=${ch.id}`) } : undefined}
+        chat={!d || view.mainConflict ? { label: view.mainConflict ? 'Resolve in chat' : 'Continue chat', run: () => nav(`/changes/${ch.id}?tab=conversation`) } : undefined}
         rework={offered(view.next, 'send-back') ? { label: 'Rework with comment', run: () => act(() => post(`/changes/${ch.id}/sendback`, { note })) } : undefined}
         abandon={offered(view.next, 'abandon') ? { label: 'Abandon change', run: () => act(() => post(`/changes/${ch.id}/abandon`, {})) } : undefined} />}
       {question.err && <p className="error">Changes to the app contract could not be read: {question.err}</p>}

@@ -42,7 +42,7 @@ export function HeldDecision({ view, onChange, resultShown = false }: { view: Ch
   const agent = offered(d?.next, 'rework')
   const takeToChat = () => run(async () => {
     const r = await post<ConsoleOpened>(`/projects/${view.projectSlug}/console`, { changeId: view.change.id, continueStep: agent!.stepId })
-    nav(`/projects/${view.projectSlug}/console?change=${view.change.id}&session=${r.session.id}&kickoff=stuck`)
+    nav(`/changes/${view.change.id}?tab=conversation&session=${r.session.id}&kickoff=stuck`)
   })
   const accept: DecisionChoice | undefined = a ? {
     label: a.act === 'override' ? 'Accept anyway' : a.act === 'advance' ? 'Continue' : rerunLabel(target!),

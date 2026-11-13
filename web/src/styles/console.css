@@ -27,10 +27,10 @@ button.chat-starter { border: 1px solid var(--border); padding: 6px 14px; border
 
 /* The layout bounds the chat at every width; padding participates in its
    flex sizing instead of being subtracted from a viewport calculation. */
-html:has(.console) { height: 100%; overflow: clip; }
-body:has(.console) { position: fixed; inset: 0; overflow: clip; }
-.layout:has(.console) { height: 100dvh; min-height: 0; overflow: clip; }
-.main:has(.console) { display: flex; flex-direction: column; min-height: 0; overflow: clip; }
+html:has(.console-desk, .ch-page-chat) { height: 100%; overflow: clip; }
+body:has(.console-desk, .ch-page-chat) { position: fixed; inset: 0; overflow: clip; }
+.layout:has(.console-desk, .ch-page-chat) { height: 100dvh; min-height: 0; overflow: clip; }
+.main:has(.console-desk, .ch-page-chat) { display: flex; flex-direction: column; min-height: 0; overflow: clip; }
 .console { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .console-controls { display: contents; }
 .console > :not(.chat-pane):not(.console-term) { flex-shrink: 0; }
@@ -81,14 +81,14 @@ details.console-about { margin: 0; }
   .md, .bubble { font-size: var(--fs-base); }
   /* Hidden overflow still permits programmatic scrolling. Fix the body and
      clip the page; the visual viewport positions the chat shell below. */
-  html:has(.console) { height: 100%; overflow: clip; }
-  body:has(.console) { position: fixed; inset: 0; overflow: clip; }
-  .layout:has(.console) {
+  html:has(.console-desk, .ch-page-chat) { height: 100%; overflow: clip; }
+  body:has(.console-desk, .ch-page-chat) { position: fixed; inset: 0; overflow: clip; }
+  .layout:has(.console-desk, .ch-page-chat) {
     position: fixed; top: var(--viewport-top, 0px); left: 0; right: 0;
     height: var(--viewport-h, 100dvh); min-height: 0; overflow: hidden;
   }
-  .layout:has(.console) .topbar { top: var(--viewport-top, 0px); }
-  .main:has(.console) { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; overflow: clip; }
+  .layout:has(.console-desk, .ch-page-chat) .topbar { top: var(--viewport-top, 0px); }
+  .main:has(.console-desk, .ch-page-chat) { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; overflow: clip; }
   .console > :not(.chat-pane):not(.console-term) { flex-shrink: 0; }
   /* The head is one line: the chip gives way first. */
   .console-head h1 { font-size: var(--fs-lg); overflow-wrap: anywhere; }
@@ -171,31 +171,6 @@ details.console-about { margin: 0; }
   }
   .console .chat-input button { min-height: 44px; padding: 4px 10px; font-size: var(--fs-sm); }
   .console-controls { display: block; min-height: 0; max-height: 45%; overflow-y: auto; }
-  .console-controls:is(.controls-open, .controls-folded) { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-  .console-controls:is(.controls-open, .controls-folded) .console-head,
-  .console-controls:is(.controls-open, .controls-folded) .console-primary-actions,
-  .console-controls:is(.controls-open, .controls-folded) .console-actions,
-  .console-controls:is(.controls-open, .controls-folded) .workshop-actions,
-  .console-controls:is(.controls-open, .controls-folded) .tryit { display: contents; }
-  .console-controls:is(.controls-open, .controls-folded) .console-head h1 { flex: 1 1 8rem; min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-xs); }
-  .console-controls:is(.controls-open, .controls-folded) .console-state .chip { padding: 0; border: 0; font-size: var(--fs-xs); white-space: nowrap; }
-  .console-controls:is(.controls-open, .controls-folded) button { min-height: 44px; min-width: 44px; padding: 3px 5px; white-space: nowrap; font-size: var(--fs-xs); }
-  .console-controls:is(.controls-open, .controls-folded) .change-controls-title { padding: 3px 0; background: none; border: 0; font: inherit; color: inherit; }
-  .console-controls:is(.controls-open, .controls-folded) > :not(.console-head):not(.console-primary-actions),
-  .console-controls:is(.controls-open, .controls-folded) .console-actions > *,
-  .console-controls:is(.controls-open, .controls-folded) .console-head > .status-help,
-  .console-controls:is(.controls-open, .controls-folded) .workshop-actions > .small,
-  .console-controls:is(.controls-open, .controls-folded) .workshop-actions > .error,
-  .console-controls:is(.controls-open, .controls-folded) .tryit > .status-help,
-  .console-controls:is(.controls-open, .controls-folded) .tryit > span { flex-basis: 100%; }
-  .console-controls:is(.controls-open, .controls-folded) .console-secondary { max-height: none; overflow: visible; }
-  .console-controls:is(.controls-open, .controls-folded) .console-head-space,
-  .console-controls:is(.controls-open, .controls-folded) .console-head > .agent-activity { display: none; }
-  .controls-folded .head-menu,
-  .controls-folded .tryit-restart,
-  .controls-folded .console-secondary { display: none; }
-  .console-controls.controls-open .head-menu { flex: 0 0 auto; }
-
 }
 .agent-actions-switch input { width: auto; margin: 0; }
 /* The change chat's head and strip: two lines, so the conversation keeps the page. */
@@ -208,4 +183,19 @@ details.console-about { margin: 0; }
 .console-strip .workshop-actions { margin: 0; padding: 0; border: 0; background: none; gap: var(--space-2); }
 .console-workshop { padding-top: var(--space-1); }
 .chat-working[hidden] { display: none; }
+/* The state panel and tabs share the bounded conversation page. */
+.ch-page-chat, .ch-page-chat .ch-tabs-sheet, .ch-page-chat .ch-tab-body {
+  display: flex; flex-direction: column; flex: 1; min-height: 0;
+}
+/* Keep the composer's intrinsic height before allocating room to history.
+   Short viewports scroll the surrounding content instead of clipping controls. */
+.ch-page-chat .ch-tab-body { overflow-y: auto; }
+.ch-page-chat :is(.conversation-split, .conversation-chat, .console, .chat-pane) { min-height: auto; }
+.ch-page-chat .ch-tab-body > .page-section { max-height: 20dvh; min-height: 0; overflow-y: auto; flex-shrink: 0; }
+.conversation-split, .conversation-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+/* The preview component mounts these only above 1100px. */
+.preview-toggle { display: flex; align-items: center; gap: var(--space-2); }
+.conversation-split.with-preview { flex-direction: row; gap: var(--space-4); }
+.conversation-preview { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: var(--space-2); }
+.conversation-preview iframe { flex: 1; min-height: 0; width: 100%; border: 1px solid var(--border); }
 }
