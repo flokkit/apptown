@@ -57,12 +57,10 @@ bottom. The working indicator and stop button have a reserved row above the
 composer, so pauses between tool calls do not change the conversation's height.
 Tool folds keep their place and open state when the helper's busy state changes.
 
-On phones, a change chat's head folds after its first message. Its title, state,
-preview action and Check and land stay visible. The title or disclosure button
-opens restart, the session menu, About this change and Show agent actions in
-place. About this change has its own disclosure. An empty chat starts expanded;
-the reader's choice lasts for that page view. Focusing the composer folds the
-head while typing. Expanded controls scroll within the available space.
+On phones, the change's state panel, tab strip and chat stack in the available
+viewport. The chat's actions and session menu remain above the conversation;
+only the conversation and bounded history rows scroll, keeping the input
+reachable while the keyboard is open.
 
 A chat is not private to the person who opened it.
 Anyone who can read its project may look at it: its conversation, its
@@ -351,3 +349,34 @@ and non-regular entries fail session preparation. Files describe project claims;
 the adopted guidance and workflow take precedence. The declaration itself is
 removed from the guidance prose. See the [project notes guide](../../stock/docs/guides/project-notes.md)
 for the stock convention using this capability.
+
+## Change conversation page
+
+A change's live chat is its Conversation tab at
+`/changes/:id?tab=conversation`. It opens on in-progress changes; landing,
+shipped and abandoned changes show their recorded conversation. Without an
+explicit tab, open work leads with Conversation unless the viewer has a
+decision to make; other states lead with Overview. Project chat remains at
+`/projects/:slug/console`. Change chat links using that project address redirect
+to Conversation, retaining kickoff and the selected session.
+
+The change's state panel supplies its title, status and destination. The chat
+keeps its actions, terminal, session menu, worker save reading and started
+changes. Its address key includes the project, change and explicit session,
+so navigation never reuses another change's session selection. The first-build
+kickoff uses the same once-only guard across refreshes.
+
+Ended sessions appear as rows below the live chat alongside agent work records.
+Selecting a session with `chat=<id>` reads the change transcript and its picture
+endpoints without mounting the live session opener. The selected conversation
+is read-only and links back to the current chat. Incomplete transcript readings
+continue to warn about unreadable records.
+
+Above 1100px, a live HTTPS preview that is not host-only offers Preview beside
+chat. The browser remembers the choice when storage is available. The pane
+shows the build facts, a sandboxed iframe and Open in new tab. Phones keep the
+chat alone. HTTP and host-only previews retain Try it's existing behavior.
+AppTown permits frames only from its configured preview tier domain (including
+its configured port). Preview applications keep their own framing headers;
+a refusal to frame remains visible in the browser, with the separate-tab link
+available beside it.

@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { getKey, newQueryClient } from '../../data'
-import Console from '../Console'
+import { ChatPage } from '../Console'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { LAND_REQUEST, StartedChanges, WorkshopActions } from './ChangeBar'
 
@@ -67,7 +67,7 @@ describe("the change a chat works on", () => {
     await act(async () => {
       root.render(<MemoryRouter initialEntries={[`/projects/p/console?change=${CHANGE}`]}>
         <QueryClientProvider client={client}>
-          <Routes><Route path="/projects/:slug/console" element={<Console />} /></Routes>
+          <Routes><Route path="/projects/:slug/console" element={<ChatPage slug="p" changeId={CHANGE} forcedSession="" kickoff="" />} /></Routes>
         </QueryClientProvider>
       </MemoryRouter>)
     })
@@ -99,7 +99,7 @@ describe("the change a chat works on", () => {
       await vi.waitFor(() => {
         expect([...el.querySelectorAll('.chip.unknown')].some(chip => chip.getAttribute('aria-label')?.includes('(database unavailable)'))).toBe(true)
         expect(el.textContent).toContain(shows)
-        expect(el.textContent).toContain('Blue cat')
+        expect(el.querySelector('.console-head h1')).toBeNull()
       })
       done()
     })

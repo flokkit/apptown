@@ -352,13 +352,26 @@ func TestBrowserResourcePolicy(t *testing.T) {
 		r := httptest.NewRequest("GET", "http://untrusted.test/", nil)
 		r.Header.Set("X-Forwarded-Host", "attacker.test")
 		r.Header.Set("X-Forwarded-Proto", "https")
-		policy := browserResourcePolicy(a.browserOrigin(r), "")
+		policy := browserResourcePolicy(a.browserOrigin(r), "", "")
 		for _, directive := range []string{"default-src 'none'", "script-src 'self'", "font-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data: https://apptown.dev", "connect-src 'self' " + strings.Replace(origin, "http", "ws", 1)} {
 			if !strings.Contains(policy, directive+";") {
 				t.Fatalf("missing %q: %s", directive, policy)
 			}
 		}
 		if strings.Contains(policy, "untrusted") || strings.Contains(policy, "attacker") {
+			t.Fatal(policy)
+		}
+	}
+}
+
+func TestPreviewFramePolicy(t *testing.T) {
+	for _, domain := range []string{"", "preview.example.org", "preview.example.org:8443"} {
+		policy := browserResourcePolicy("https://town.example.org", "", domain)
+		if domain == "" {
+			if strings.Contains(policy, "frame-src") {
+				t.Fatal(policy)
+			}
+		} else if !strings.Contains(policy, "frame-src https://*."+domain+";") {
 			t.Fatal(policy)
 		}
 	}

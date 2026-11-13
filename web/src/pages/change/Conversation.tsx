@@ -20,28 +20,33 @@ import { pastedPictures } from '../../pictures'
 // The change's conversations: what was said to the helper and what it said
 // back, across every chat session this change has had. Sessions end; the
 // words are part of the change's story and read back from the record.
-export function ConversationLog({ changeId, chatHref, request, report, rounds = [], earlierRuns = [] }: { earlierRuns?: string[]; rounds?: StoryEntry[]; changeId: string; chatHref?: string; request?: string; report?: string }) {
+export function ConversationLog({ changeId, live = false, selectedChat, request, report, rounds = [], earlierRuns = [] }: { earlierRuns?: string[]; rounds?: StoryEntry[]; changeId: string; live?: boolean; selectedChat?: string; request?: string; report?: string }) {
   // Read when the tab opens; the tab is where a person asks for it.
-  const q = useGet<ChatHistoryView>(`/changes/${changeId}/transcript`)
+  const q = useGet<ChatHistoryView>(`/changes/${changeId}/transcript`, { poll: 4000 })
   const data = q.data
   const sessions = data ? data.sessions ?? [] : null
   const none = sessions?.length === 0 && !data?.unreadable
-  // chatHref: where this change's chat opens, given only where a chat can
-  // start on it.
-  const action = chatHref ? <Link to={chatHref}>{none ? 'Start a chat' : 'Open the chat'}</Link> : undefined
+  const selected = sessions?.find(se => se.id === selectedChat)
+  if (selectedChat) return <section>
+    <Link to={`/changes/${changeId}?tab=conversation`}>Back to the current chat</Link>
+    <ReadStatus q={q} what="the conversation" /><StaleNote q={q} />
+    {data && <UnreadableNote view={data} />}
+    {selected ? <><p className="muted small">{chatByline(selected)}</p><ChatMessages chat={selected} pictures={`/api/v1/changes/${changeId}/transcript/${selected.id}/pictures/`} /></> : data && <p>This chat is not recorded.</p>}
+  </section>
+  if (live && none && !q.refreshFailed && !rounds.length && !earlierRuns.length) return null
   return (
-    <Section title="Conversation" count={sessions?.length || undefined} action={action}>
+    <Section title={live ? "Earlier conversations" : "Conversation"} count={sessions?.length || undefined} >
       <ReadStatus q={q} what="the conversation" className="small" />
       <StaleNote q={q} />
       {data && <UnreadableNote view={data} />}
-      {none && (request ? <>
+      {!live && none && (request ? <>
         <div className="bubble-row you"><div className="bubble you conversation-conversation-log-bubble-you">{firstLine(request)} <Link to={`/changes/${changeId}/records/request`}>full request →</Link></div></div>
         {report ? <div className="bubble-row"><div className="bubble"><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(report) }} /></div></div>
           : rounds.length > 0 && <p className="muted">{rounds.length === 1 ? 'The agent left no messages in this round.' : 'The agent left no messages.'}</p>}
       </> : <p className="muted">No chat yet.</p>)}
       {earlierRuns.map(id => <RunRounds key={id} id={id} changeId={changeId} />)}
       {rounds.map((e, i) => <ListRow to={workRecordHref(changeId, e)} className="conversation-record-row" key={e.key} identity={<Link to={workRecordHref(changeId, e)}>Agent round {i + 1} · work record</Link>} />)}
-      {sessions?.map((se) => (
+      {live ? sessions?.filter(se => se.ended || se.imported).map(se => <ListRow key={se.id} to={`/changes/${changeId}?tab=conversation&chat=${se.id}`} identity={<><Link to={`/changes/${changeId}?tab=conversation&chat=${se.id}`}>{chatOpening(se)}</Link> · {chatByline(se)}</>} />) : sessions?.map((se) => (
         <div key={se.id} className="conversation-div">
           <div className="muted small conversation-div-2">{chatByline(se)}</div>
           <ChatMessages chat={se} pictures={`/api/v1/changes/${changeId}/transcript/${se.id}/pictures/`} />

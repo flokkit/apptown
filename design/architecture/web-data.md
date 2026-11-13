@@ -290,6 +290,20 @@ missing copies, host-only retention and the declared-needs coverage limit once;
 provider names and assessed-item detail use Techno Goggles.
 Creation, release preferences and old resources stay on the list page.
 
+The change page's Conversation tab owns its live chat. An explicit tab wins;
+otherwise in-progress work opens Conversation unless the viewer has a decision.
+Landing and closed changes show the transcript. Earlier sessions are selected
+with `chat=` from the change transcript; that selection never mounts the live
+chat or sends console-create or say requests. The live chat's address key keeps
+change and explicit-session navigation isolated. A failed or stale session-list
+read never opens a new chat. Old project-console change URLs redirect to the
+change page, retaining kickoff and session; project chat stays at its own URL.
+
+The preview pane uses the shared preview reading. Only a current, live HTTPS
+preview that is not host-only offers the desktop split. Its build line and
+separate-tab link stay beside the sandboxed frame; browser storage remembers
+the choice when available.
+
 The Conversation tab and chat view show the person's messages and the agent's
 text replies, including its final report. Agent actions fold into quiet summaries
 between replies. Each summary opens only its own run. “Show agent actions” opens

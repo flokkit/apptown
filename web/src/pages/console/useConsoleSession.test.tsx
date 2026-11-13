@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useParams, useSearchParams, useNavigate, type NavigateFunction } from 'react-router-dom'
 import { getKey, newQueryClient } from '../../data'
-import Console from '../Console'
+import { ChatPage } from '../Console'
 
 // Record ids are UUIDv7 strings.
 const C1 = '00000000-0001-7000-8000-000000000000'
@@ -49,6 +49,11 @@ function fakeAppTown(list: () => Reply, openReply: (body: { changeId?: string; p
   return opens
 }
 
+function ChatAddress() {
+ const { slug = '' } = useParams()
+ const [params] = useSearchParams()
+ return <ChatPage key={`${slug}\n${params.get('change')}`} slug={slug} changeId={params.get('change') ?? ''} forcedSession={params.get('session') ?? ''} kickoff={params.get('kickoff') ?? ''} />
+}
 let navigate: NavigateFunction
 function Nav() { navigate = useNavigate(); return null }
 
@@ -60,7 +65,7 @@ async function page(search: string, client: QueryClient = newQueryClient()) {
       <MemoryRouter initialEntries={[`/projects/p/console${search}`]}>
         <QueryClientProvider client={client}>
           <Nav />
-          <Routes><Route path="/projects/:slug/console" element={<Console />} /></Routes>
+          <Routes><Route path="/projects/:slug/console" element={<ChatAddress />} /></Routes>
         </QueryClientProvider>
       </MemoryRouter>)
   })

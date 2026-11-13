@@ -269,7 +269,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability, canAttach = true 
     setWiring(capability)
     const r = await run(() => post<IntegrationWiring>(`/projects/${slug}/integrations/${capability}/wire`, { mode }))
     if (!r) { setWiring(''); return }
-    if (mode === 'chat') nav(`/projects/${slug}/console?change=${r.change.id}&kickoff=go`)
+    if (mode === 'chat') nav(`/changes/${r.change.id}?tab=conversation&kickoff=go`)
     else nav(`/changes/${r.change.id}`)
   }
   const detach = (capability: string) => run(() => del(`/projects/${slug}/integrations/${capability}`))

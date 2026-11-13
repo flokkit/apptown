@@ -328,6 +328,30 @@ const roundFixture = await build({
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main className="main" style={{ padding: 12 }}>{scenes[window.roundCase]}</main></MemoryRouter></QueryClientProvider>)
   ` },
 })
+// Ended and current chats share the real change page at keyboard height.
+const changeChatFixture = await build({
+  absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
+  stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
+    import { createRoot } from 'react-dom/client'
+    import { MemoryRouter, Routes, Route } from 'react-router-dom'
+    import { QueryClientProvider } from '@tanstack/react-query'
+    import { newQueryClient } from './data'
+    import { withFeatures } from './features.fixture'
+    import ChangePage from './pages/ChangePage'
+    const session = {id:'current',changeId:'X',mayAct:true,state:'detached',openedBy:'sam'}
+    window.fetch = withFeatures(async url => {
+      const path = String(url)
+      const body = path === '/api/v1/changes/X'
+        ? {change:{id:'X',number:1,title:'Update the club contact details',state:'in_progress'},projectSlug:'club',runs:[],evidence:{landingReleases:[],releases:[],targets:[]},commits:[],adrs:[],usage:{total:0,costMicros:0},editing:0,waitingOn:{kind:'chat',says:'Building in the chat',tone:'busy'},goesTo:{branch:'main',deployments:[]},checks:{started:false},next:[]}
+        : path.endsWith('/transcript') ? {sessions:[{id:'old',ended:true,actor:'sam',createdAt:'2026-11-13T00:00:00Z',messages:[{i:0,role:'you',text:'Earlier conversation'}]},{...session,messages:[]}],unreadable:0}
+        : path === '/api/v1/projects/club/console' ? {session,sessions:[session]}
+        : path.includes('/messages') ? {messages:[]}
+        : path.endsWith('/changes') ? {changes:[]} : {}
+      return new Response(JSON.stringify(body))
+    })
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={newQueryClient()}><MemoryRouter initialEntries={['/changes/X?tab=conversation']}><div className="layout"><header className="topbar">AppTown</header><main className="main"><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></main></div></MemoryRouter></QueryClientProvider>)
+  ` },
+})
 const browser = await chromium.launch({ headless: true })
 const out = process.env.APPTOWN_LAYOUT_OUT
 if (out) await mkdir(out, { recursive: true })
@@ -350,6 +374,44 @@ try {
   page.on('console', m => consoleLines.push(`${m.type()}: ${m.text()}`))
   page.on('pageerror', e => consoleLines.push(`pageerror: ${e.message}`))
   await page.route('http://layout.test/**', route => route.fulfill({ contentType: 'text/html', body: `<style>@layer tokens, base, type, components, pages, utilities; ${css}</style><div id="root"></div>` }))
+  for (const [width, height] of [[390, 450], [390, 844], [1440, 900]]) {
+    await page.setViewportSize({ width, height })
+    await page.goto('http://layout.test/')
+    await page.evaluate(() => { document.documentElement.dataset.size = 'medium' })
+    await page.addScriptTag({ content: changeChatFixture.outputFiles[0].text })
+    await page.locator('a[href*="chat=old"]').waitFor()
+    await page.locator('.workshop-actions .finish').waitFor({ state: 'attached' })
+    await fontsReady(page)
+    const geometry = await page.evaluate(() => {
+      const rect = selector => document.querySelector(selector).getBoundingClientRect().toJSON()
+      return { composer: rect('.chat-input'), pane: rect('.chat-pane'), history: rect('.ch-tab-body > .page-section') }
+    })
+    const { composer, pane, history } = geometry
+    assert.ok((width === 390 ? composer.height >= 44 : composer.height > 0) && composer.top >= pane.top - 1 && composer.bottom <= pane.bottom + 1,
+      `composer fits inside its chat pane at ${width}×${height}: ${JSON.stringify(geometry)}`)
+    assert.ok(composer.bottom <= history.top + 1 || composer.top >= history.bottom - 1,
+      `composer does not intersect history at ${width}×${height}: ${JSON.stringify(geometry)}`)
+    // Scrolling the surrounding content must expose each control in full.
+    for (const selector of ['.chat-input textarea', '.chat-attach', '.chat-input .primary', '.console-strip .workshop-actions button']) {
+      for (const control of await page.locator(selector).all()) {
+        await control.scrollIntoViewIfNeeded()
+        assert.ok(await control.evaluate((el, width) => {
+          const r = el.getBoundingClientRect()
+          if (r.top < 0 || r.bottom > innerHeight + 1 || (width === 390 && r.height < 44)) return false
+          for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+            if (['auto', 'scroll', 'hidden', 'clip'].includes(getComputedStyle(parent).overflowY)) {
+              const p = parent.getBoundingClientRect()
+              if (r.top < p.top - 1 || r.bottom > p.bottom + 1) return false
+            }
+          }
+          return true
+        }, width), `chat control stays reachable at ${width}×${height}: ${selector}`)
+      }
+    }
+    await page.locator('a[href*="chat=old"]').scrollIntoViewIfNeeded()
+    await page.locator('.chat-input textarea').scrollIntoViewIfNeeded()
+    if (out) await page.screenshot({ path: `${out}/change-chat-${width}-${height}.png` })
+  }
   await page.goto('http://layout.test/')
   await page.addScriptTag({ content: fixture.outputFiles[0].text })
   await fontsReady(page)
@@ -635,7 +697,7 @@ try {
   // keyboard viewport; controls retain touch targets rather than shrinking.
   await page.setViewportSize({ width: 390, height: 844 })
   await page.setContent(`<style>@layer tokens, base, type, components, pages, utilities; ${css}</style>
-    <div class="layout" style="--viewport-h:450px"><main class="main"><div class="console"><div class="console-controls controls-open"><div class="console-head"><h1>Change chat</h1><button>Open preview</button><button>Check and land</button><button>Restart preview</button></div></div><div class="chat-pane"><div class="chat-scroll" style="flex:1;min-height:0;overflow:auto">Conversation</div><div class="chat-input row"><textarea aria-label="Message"></textarea><button>Send</button></div></div></div></main></div>`)
+    <div class="layout" style="--viewport-h:450px"><main class="main"><div class="console"><div class="console-controls"><div class="console-head"><h1>Change chat</h1><button>Open preview</button><button>Check and land</button><button>Restart preview</button></div></div><div class="chat-pane"><div class="chat-scroll" style="flex:1;min-height:0;overflow:auto">Conversation</div><div class="chat-input row"><textarea aria-label="Message"></textarea><button>Send</button></div></div></div></main></div>`)
   await fontsReady(page)
   for (const size of ['small', 'medium', 'large']) {
     await page.evaluate(size => { document.documentElement.dataset.size = size }, size)

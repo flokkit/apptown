@@ -94,7 +94,7 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
   const buildV0 = () => run(async () => {
     try {
       const result = await buildFirstVersion(context())
-      nav(`/projects/${result.slug}/console?change=${result.change.change.id}&kickoff=1`)
+      nav(`/changes/${result.change.change.id}?tab=conversation&kickoff=1`)
     } finally { refreshSaved() }
   })
   if (storageError) return <div className="error">{storageError} The saved setup has not been replaced.</div>

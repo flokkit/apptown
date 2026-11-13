@@ -4,7 +4,7 @@ import '../overview-line.css'
 import { runStory } from './change/story'
 import { InlineHelp } from '../InlineHelp'
 import { Tabs, revealActiveTab } from '../Tabs'
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { setProjectScope } from '../projectScope'
 import { setPageContext } from '../chrome'
@@ -20,6 +20,9 @@ import './change/change.css'
 
 // Overview contains the change and its decision; Details keeps the complete
 // run, records and reference material. A step is addressable with tab=details.
+// Keep the terminal's code out of pages that only read the change record.
+const ChatPage = lazy(() => import('./Console').then(m => ({ default: m.ChatPage })))
+
 export const CHANGE_TABS = ['overview', 'changes', 'conversation', 'details'] as const
 export type ChangeTab = typeof CHANGE_TABS[number]
 
@@ -28,12 +31,13 @@ export default function ChangePage() {
   const location = useLocation()
   const [params] = useSearchParams()
   const rawTab = params.get('tab') ?? ''
-  const tab: ChangeTab = (CHANGE_TABS as readonly string[]).includes(rawTab) ? rawTab as ChangeTab : 'overview'
   const runParam = params.get('run') || undefined
 
   // The address names the change by its id or its friendly form (slug#n).
   const read = useGet<ChangeView>(`/changes/${encodeURIComponent(id ?? '')}`, { poll: 3000 })
   const { data: view, err, reload, current } = read
+  const tab = changeDefaultTab(rawTab, view)
+  const liveChat = view?.change.state === 'in_progress' && !params.has('chat')
 
   useEffect(() => { if (view) setProjectScope(view.projectSlug) }, [view?.projectSlug]) // eslint-disable-line react-hooks/exhaustive-deps
   // The bar's sentence: what you are DOING, not just what you see.
@@ -71,7 +75,7 @@ export default function ChangePage() {
 
   const href = (t: ChangeTab, extra: Record<string, string | null | undefined> = {}) => {
     const q = new URLSearchParams()
-    if (t !== 'overview') q.set('tab', t)
+    q.set('tab', t)
     for (const [k, v] of Object.entries(extra)) if (v != null) q.set(k, String(v))
     const s = q.toString()
     return `/changes/${view.change.id}${s ? `?${s}` : ''}`
@@ -87,7 +91,7 @@ export default function ChangePage() {
   ]
 
   return (
-    <InlineHelp.Provider value><div className="ch-page">
+    <InlineHelp.Provider value><div className={`ch-page${tab === 'conversation' && liveChat ? ' ch-page-chat' : ''}`}>
       <StatePanel view={view} reading={read} />
       {tab !== 'overview' && current && viewerTurn(view) && <p>Your decision is waiting · <Link to={href('overview')}>Overview</Link></p>}
 
@@ -103,7 +107,10 @@ export default function ChangePage() {
           {tab === 'changes' && <ChangesTab view={view} run={view.detail?.run} />}
           <ChangeOverview progressCurrent={!read.refreshFailed} shown={tab === 'overview'} view={view} current={current} steps={steps} extraErr={workRunId && !work.detail ? work.err : undefined} onChange={reload} workTab={workTab} />
           {tab === 'conversation' && (
-            <ConversationLog earlierRuns={(view.runs ?? []).map(r => r.id!).filter(id => id !== view.detail?.run.id && id !== work.detail?.run.id)} rounds={[...(workRunId && work.detail ? runStory(work.detail) : []), ...(view.detail ? runStory(view.detail) : [])].filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-'))} request={view.change.body || view.change.title} report={changeReport(view)} changeId={view.change.id!} chatHref={view.change.state === 'in_progress' ? `/projects/${view.projectSlug}/console?change=${view.change.id}` : undefined} />
+            <>
+            {liveChat && <Suspense fallback={<p className="muted">Loading the chat…</p>}><ChatPage key={`${view.projectSlug}\n${view.change.id}\n${params.get('session') ?? ''}`} slug={view.projectSlug} changeId={view.change.id!} forcedSession={params.get('session') ?? ''} kickoff={params.get('kickoff') ?? ''} /></Suspense>}
+            <ConversationLog live={liveChat} selectedChat={params.get('chat') ?? undefined} earlierRuns={(view.runs ?? []).map(r => r.id!).filter(id => id !== view.detail?.run.id && id !== work.detail?.run.id)} rounds={[...(workRunId && work.detail ? runStory(work.detail) : []), ...(view.detail ? runStory(view.detail) : [])].filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-'))} request={view.change.body || view.change.title} report={changeReport(view)} changeId={view.change.id!} />
+            </>
           )}
           {tab === 'details' && <ChangeDetails key={view.change.id} view={view} current={current} reload={reload} runId={runParam} />}
 
@@ -112,4 +119,9 @@ export default function ChangePage() {
 
     </div></InlineHelp.Provider>
   )
+}
+
+export function changeDefaultTab(raw: string, view?: ChangeView | null): ChangeTab {
+  if ((CHANGE_TABS as readonly string[]).includes(raw)) return raw as ChangeTab
+  return !raw && view?.change.state === 'in_progress' && !viewerTurn(view) ? 'conversation' : 'overview'
 }

@@ -152,6 +152,7 @@ try {
     await request('/projects/club-newsletter/members', { grantee: 'sam', role: 'project-approver' });
     await request('/projects', { slug: 'shared-notes', name: 'Shared Notes', blurb: 'Notes for the household.' });
     if (!audit) await request('/projects/shared-notes/repo', { defaultBranch: 'main' });
+    const chatChange = await request('/projects/club-newsletter/changes', { title: 'Update the club contact details', type: 'feature', body: 'Put the membership secretary’s new contact details on the newsletter.', workflow: '' });
     const blocks = await request('/guidance/blocks');
     const adr = await request('/projects/club-newsletter/adrs', { title: 'Keep newsletter pages static', tags: 'delivery' });
     await request('/users', { username: 'retired', password: 'disposable-password' });
@@ -177,7 +178,7 @@ try {
     const remediation = await request('/conformance/remediations', { scope: 'all', concurrency: 1 });
     const backups = await request('/projects/club-newsletter/deployments/main/backups');
     const operation = await request('/projects/club-newsletter/deployments/main/backups/' + backups.backups.find(b => b.bytes > 0).id + '/restore', { confirm: 'main' });
-    return { guidance: encodeURIComponent(blocks[0].name), advisory: advisory?.change.id, delivered: delivered.change.id, review: review.reviewId, adr: adr.id, invite: new URL(invite.link).pathname, failed: failed.change.id, evaluation: evaluation.id, whatif: whatif.id, remediation: remediation.remediation.id, operation: operation.operationId };
+    return { chat: chatChange.change.id, guidance: encodeURIComponent(blocks[0].name), advisory: advisory?.change.id, delivered: delivered.change.id, review: review.reviewId, adr: adr.id, invite: new URL(invite.link).pathname, failed: failed.change.id, evaluation: evaluation.id, whatif: whatif.id, remediation: remediation.remediation.id, operation: operation.operationId };
   }, !!process.env.DESIGN_AUDIT);
   phase('seeding');
   // The scene runs the work just seeded (the what-if, the restore, the
@@ -264,7 +265,7 @@ try {
     services: '/services', 'services-shared': '/services/shared', 'deployment': '/projects/club-newsletter/deployments/main', 'deployment-settings': '/projects/club-newsletter/deployments/main?tab=settings',
     'camera-not-found': '/camera-missing-page',
     'new-project': '/projects/_new', docs: '/docs', invite: '/invite',
-    overview: '/projects/club-newsletter', 'project-changes': '/projects/club-newsletter/changes', console: '/projects/club-newsletter/console',
+    overview: '/projects/club-newsletter', 'project-changes': '/projects/club-newsletter/changes', 'project-console': '/projects/club-newsletter/console', console: `/changes/${seeded.chat}?tab=conversation`,
     'memory-notes': '/projects/club-newsletter/memory/notes',
     'memory-decisions': '/projects/club-newsletter/memory/decisions',
     'overview-help': '/projects/club-newsletter',
@@ -272,7 +273,7 @@ try {
     release: '/projects/club-newsletter/release',
     'change-delivery': `/changes/${seeded.delivered}`,
     change: `/changes/${process.env.DESIGN_CHANGE}`,
-    'change-progress': `/changes/${process.env.DESIGN_PROGRESS}`,
+    'change-progress': `/changes/${process.env.DESIGN_PROGRESS}?tab=overview`,
     'change-non-approver': `/changes/${process.env.DESIGN_CHANGE}`,
     'change-failed': `/changes/${seeded.failed}`, 'overview-empty': '/projects/shared-notes',
     'eval-scorecard': `/evals/${seeded.evaluation}`, 'what-if': `/conformance/what-ifs/${seeded.whatif}`,

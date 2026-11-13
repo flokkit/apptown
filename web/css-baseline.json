@@ -94,7 +94,7 @@
     "apptown/pixel-spacing": 7
   },
   "web/src/styles/console.css": {
-    "apptown/pixel-spacing": 47,
+    "apptown/pixel-spacing": 44,
     "declaration-no-important": 4
   },
   "web/src/styles/decision.css": {
