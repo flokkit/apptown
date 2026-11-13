@@ -94,3 +94,26 @@ func (h ProjectSchedules) List(w http.ResponseWriter, r *http.Request) {
 	}
 	WriteJSON(w, 200, out)
 }
+
+// ScheduleRunView is the change a schedule fired at a person's request opened.
+type ScheduleRunView struct {
+	ChangeID     ids.ID `json:"changeId"`
+	ChangeNumber int64  `json:"changeNumber"`
+}
+
+// Run: POST /api/v1/projects/{slug}/schedules/{workflow}/run fires the
+// schedule now. The owner checks the caller may open work in the project
+// and refuses a busy, stopped or ineligible schedule; a failure after the
+// change was committed names it.
+func (h ProjectSchedules) Run(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	ch, err := h.schedules.RunNow(r.Context(), *p, r.PathValue("workflow"), h.now())
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusCreated, ScheduleRunView{ChangeID: ch.ID, ChangeNumber: ch.Number})
+}

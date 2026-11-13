@@ -48,6 +48,13 @@ next dependency update and recorded level. Missing scans and old scans stay
 visible; neither means the project is up to date. Findings confined to running
 images have their own count: the janitor does not update base images yet.
 
+**Scan now** runs the project's daily scan straight away, as the schedule would:
+the Change is the janitor's, under the same approval, and AppTown records who
+asked. It needs permission to open and start work in the project. It is greyed,
+with the reason beside it, while a scan or security fix is running, when the
+janitor is off or waiting for approval, or when the project has not adopted the
+scan. The next daily scan follows its schedule from then.
+
 **Last 7 days** lists landed Changes, package moves or pack versions and the
 releases that contain them. Each Change links to its checks and approval.
 **Older history** pages through earlier landings. The janitor's attribution names

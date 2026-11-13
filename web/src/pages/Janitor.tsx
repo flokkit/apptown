@@ -1,7 +1,9 @@
 import { JanitorAttribution } from '../janitorAttribution'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useGet } from '../data'
+import { useGet, useAction } from '../data'
+import { post } from '../api'
+import { useHolds } from '../instancePages'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { Section } from '../Section'
 import { ListTable, type ListColumn } from '../ListTable'
@@ -31,6 +33,22 @@ function ProjectState({ project: p, data, stale }: { project: JanitorProject; da
   if (p.problem || !p.scans.known) return <Status word="unknown" help={p.problem || p.scans.reason || 'Scan not known'} />
   if (p.queues.some(q => q.state === 'waiting')) return <span className="badge">Waiting for a person</span>
   return <span className="badge">Up to date</span>
+}
+
+// The scan is the project's janitor-scan schedule fired now; AppTown decides
+// at the act, and the row reads its running state from the polled queues.
+function ScanNow({ project: p, current, reload }: { project: JanitorProject; current: boolean; reload: () => Promise<void> }) {
+  const action = useAction(() => { void reload() })
+  const mayCreate = useHolds('change:create', p.slug)
+  const mayStart = useHolds('change:invoke-lane', p.slug)
+  const security = p.queues.find(q => q.queue === 'security')
+  const reason = security?.state === 'updating' ? 'Running' : p.scanNow || (!mayCreate || !mayStart ? 'Needs permission to start work' : '')
+  return <>
+    <button type="button" disabled={!!reason || !current || action.busy} title={reason || undefined}
+      onClick={() => action.run(() => post(`/projects/${encodeURIComponent(p.slug)}/schedules/janitor-scan/run`, {}))}>Scan now</button>
+    {reason && <div className="muted">{reason}{reason === 'Running' && security?.changeId && <> · <Link to={`/changes/${security.changeId}`}>change #{security.changeNumber}</Link></>}</div>}
+    {action.err && <div className="error">{action.err}</div>}
+  </>
 }
 
 function Rules({ data, current, reload }: { data: JanitorView; current: boolean; reload: () => Promise<void> }) {
@@ -138,6 +156,7 @@ export default function Janitor() {
     { key: 'findings', label: 'Findings', kind: 'number', render: p => p.scans.known ? new Set([...p.scans.source.flatMap(s => s.findings), ...p.scans.running.flatMap(s => s.findings)].map(f => f.fingerprint)).size : 'Not known' },
     { key: 'next', label: 'Next update', render: p => !p.enabled || p.level === 'off' ? '—' : data?.deployments.some(d => d.projectId === p.projectId && d.hold) ? 'Waiting for a person to recover the release' : p.nextReason || date(p.nextUpdate) },
     { key: 'level', label: 'Level', render: p => <>{levelName(p.level)}<div>{p.choice ? `${p.choice.person.name} · ${date(p.choice.at)}` : p.issuer.name ? `${p.issuer.name} · ${date(p.grantedAt)}` : 'Nobody has enabled updates'}</div></> },
+    { key: 'scan-now', label: '', phone: 'action', render: p => <ScanNow project={p} current={q.current} reload={q.reload} /> },
   ]
   const images = data?.projects.filter(p => p.scans.running.some(s => s.imageOnlyFindings.length > 0)).length ?? 0
   return <div>

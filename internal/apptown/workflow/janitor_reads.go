@@ -53,6 +53,9 @@ type janitorProject struct {
 	QueueSentences []string           `json:"queueSentences"`
 	NextUpdate     time.Time          `json:"nextUpdate"`
 	NextReason     string             `json:"nextReason"`
+	// ScanNow is why janitor-scan cannot be fired now; "" when it can. It
+	// says nothing about the reader's own authority to ask.
+	ScanNow string `json:"scanNow"`
 }
 
 // JanitorRules is the read-only home for consent. Managing consent still uses
@@ -160,12 +163,19 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]janitorProject, error)
 			item.Scans = MainScans{Reason: err.Error()}
 		}
 		securityActive := false
+		item.ScanNow = "Turned off"
 		if item.Enabled && item.Level != "off" {
 			// One project whose eligibility cannot be judged is not known on its
 			// own row; it does not hide every other project.
 			rule, _, err := s.standing.StandingForWorkflow(ctx, p.ID, "janitor-scan")
-			if err != nil {
+			switch {
+			case err != nil:
 				item.Problem = "Eligibility not known: " + err.Error()
+				item.ScanNow = "Not known: " + err.Error()
+			case rule.RuleID.IsZero():
+				item.ScanNow = "Waiting for approval"
+			default:
+				item.ScanNow = ""
 			}
 			securityActive = err == nil && !rule.RuleID.IsZero() && rule.Question.Definition.Categories.SecurityFixes
 		}
@@ -249,6 +259,7 @@ func (s *Service) janitorProcedures(ctx context.Context, p *janitorProject) erro
 	}
 	if receipt == nil {
 		p.NextReason = "Needs a pack upgrade"
+		p.ScanNow = "Needs a pack upgrade"
 		return nil
 	}
 	if s.janitorDefinitions == nil {
@@ -258,6 +269,9 @@ func (s *Service) janitorProcedures(ctx context.Context, p *janitorProject) erro
 	names, err := s.janitorDefinitions.ScheduledWorkflowNames(ctx, p.ProjectID)
 	if err != nil {
 		return err
+	}
+	if !names["janitor-scan"] {
+		p.ScanNow = "No scan schedule adopted"
 	}
 	records, err := ScheduleRecordsIn(ctx, s.db, p.ProjectID)
 	if err != nil {

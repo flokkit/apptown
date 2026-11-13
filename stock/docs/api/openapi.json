@@ -3891,6 +3891,9 @@
             },
             "type": "array"
           },
+          "scanNow": {
+            "type": "string"
+          },
           "scans": {
             "$ref": "#/components/schemas/MainScans"
           },
@@ -3912,7 +3915,8 @@
           "procedures",
           "queueSentences",
           "nextUpdate",
-          "nextReason"
+          "nextReason",
+          "scanNow"
         ],
         "type": "object"
       },
@@ -18689,6 +18693,50 @@
         ],
         "x-apptown-access": {
           "capability": "project:read",
+          "kind": "capability",
+          "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/schedules/{workflow}/run": {
+      "post": {
+        "operationId": "postProjectsSlugSchedulesWorkflowRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "workflow",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "change:create",
           "kind": "capability",
           "scope": "project-slug"
         },

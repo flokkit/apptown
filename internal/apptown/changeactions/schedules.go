@@ -2,6 +2,7 @@ package changeactions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fault"
 )
 
 // Schedules fires workflows with on.schedule for projects whose adopted packs
@@ -41,12 +43,7 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 	if ctx.Err() != nil {
 		return
 	}
-	type sched struct {
-		carried
-		projectID ids.ID
-		slug      string
-	}
-	var candidates []sched
+	var candidates []firing
 	projects := map[ids.ID]string{}
 	all, err := s.Projects.All(ctx)
 	if err != nil {
@@ -71,7 +68,7 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 				log.Printf("schedule %s/%s: %v", slug, c.workflow, c.err)
 				continue
 			}
-			candidates = append(candidates, sched{carried: c, projectID: pid, slug: slug})
+			candidates = append(candidates, firing{carried: c, projectID: pid, slug: slug})
 		}
 	}
 
@@ -79,22 +76,16 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 		if ctx.Err() != nil {
 			return
 		}
-		if c.trigger.Standing {
-			if s.Standing == nil {
-				continue
-			}
-			rule, cron, err := s.Standing.StandingForWorkflow(ctx, c.projectID, c.workflow)
-			if err != nil {
-				log.Printf("schedule eligibility: %v", err)
-				continue
-			}
-			if rule.RuleID.IsZero() {
-				continue
-			}
-			c.rule = rule
-			c.trigger.Cron = cron
+		due := c
+		eligible, err := s.resolve(ctx, &due)
+		if err != nil {
+			log.Printf("schedule eligibility: %v", err)
+			continue
 		}
-		spec, err := schema.ParseCron(c.trigger.Cron)
+		if !eligible {
+			continue
+		}
+		spec, err := schema.ParseCron(due.trigger.Cron)
 		if err != nil {
 			continue
 		}
@@ -113,60 +104,212 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 		if spec.Next(last.Time).After(now) {
 			continue
 		}
-
-		if c.trigger.Queue != "" {
-			state, err := s.Actions.work.QueueState(asSchedule(ctx, c.projectID), c.projectID, c.trigger.Queue)
-			if err != nil {
-				log.Printf("reading queue %s: %v", c.trigger.Queue, err)
-				continue
-			}
-			if state.Stopped() && !c.discoversTargets {
-				if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil, c.rule.RuleID, c.rule.Revision); err != nil {
-					log.Printf("recording stopped queue: %v", err)
-				}
-				continue
-			}
-			if state.State == "updating" {
-				if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil, c.rule.RuleID, c.rule.Revision); err != nil {
-					log.Printf("recording busy queue: %v", err)
-				}
-				continue
-			}
+		fired, err := s.fire(ctx, due, now, "")
+		if err != nil {
+			log.Printf("schedule %s/%s: %v", c.slug, c.workflow, err)
 		}
-		if c.skipIfActive() && c.trigger.Queue == "" {
-			active, err := workflow.RunningWorkflowCountIn(ctx, s.DB, c.projectID, c.workflow)
-			if err != nil {
-				log.Printf("checking scheduled workflow %s on project %d: %v", c.workflow, c.projectID, err)
-				continue
+		if fired.outcome == fireStopped || fired.outcome == fireBusy {
+			if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil, due.rule.RuleID, due.rule.Revision); err != nil {
+				log.Printf("recording the skipped firing of %s: %v", c.workflow, err)
 			}
-			if active > 0 {
-				if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, workflow.ScheduleSkipped, ids.Nil, c.rule.RuleID, c.rule.Revision); err != nil {
-					log.Printf("recording the skipped firing of %s: %v", c.workflow, err)
-				}
+			if fired.outcome == fireBusy && due.trigger.Queue == "" {
 				audit.At(now).BestEffort(ctx, s.DB, "apptown-system", c.projectID, "trigger.skipped", c.workflow,
 					map[string]any{"reason": "previous run still active"})
-				continue
 			}
 		}
+	}
+}
 
-		p := &project.Project{ID: c.projectID, Slug: c.slug}
-		title := fmt.Sprintf("%s @ %s", c.workflow, now.Format("2006-01-02 15:04"))
-		if ctx.Err() != nil {
-			return
+// firing is one carried schedule of one project, resolved for firing: a
+// standing schedule carries its eligible rule and the rule's cron.
+type firing struct {
+	carried
+	projectID ids.ID
+	slug      string
+}
+
+// resolve reads a standing schedule's current eligible rule and cron into c.
+// false: no eligible rule, so the schedule does not fire. A schedule that
+// is not standing is always eligible.
+func (s Schedules) resolve(ctx context.Context, c *firing) (bool, error) {
+	if !c.trigger.Standing {
+		return true, nil
+	}
+	if s.Standing == nil {
+		return false, nil
+	}
+	rule, cron, err := s.Standing.StandingForWorkflow(ctx, c.projectID, c.workflow)
+	if err != nil {
+		return false, err
+	}
+	if rule.RuleID.IsZero() {
+		return false, nil
+	}
+	c.rule = rule
+	c.trigger.Cron = cron
+	return true, nil
+}
+
+type fireOutcome int
+
+const (
+	// fireNone: the firing could not be judged or its change was not opened;
+	// the error says why.
+	fireNone fireOutcome = iota
+	fireOpened
+	// fireStopped: the schedule's queue stopped after failed tries and the
+	// workflow does not discover new targets.
+	fireStopped
+	// fireBusy: the queue's change is still working, or a queue-less
+	// schedule's previous run is still active.
+	fireBusy
+)
+
+// fired is what one firing did. Busy names the queue's working change when
+// there is one.
+type fired struct {
+	outcome    fireOutcome
+	change     *workflow.Change
+	run        *workflow.Run
+	busy       ids.ID
+	busyNumber int64
+}
+
+// fire opens the schedule's change and starts its run now, as AppTown
+// acting through the schedule, whatever the last firing time: the tick
+// decides when a schedule is due, a request fires it early. A stopped or
+// busy queue opens nothing and records nothing; the caller decides what to
+// record. An opened or failed firing is recorded. requestedBy is the
+// receipt of the person who asked for this firing, "" for the tick. Errors
+// are returned, not logged: a failed admission (outcome fireNone), a change
+// committed but not prepared or dispatched (the error names it), and a
+// firing record that failed after the run started (outcome fireOpened).
+func (s Schedules) fire(ctx context.Context, c firing, now time.Time, requestedBy string) (fired, error) {
+	if c.trigger.Queue != "" {
+		state, err := s.Actions.work.QueueState(asSchedule(ctx, c.projectID), c.projectID, c.trigger.Queue)
+		if err != nil {
+			return fired{}, fmt.Errorf("reading queue %s: %w", c.trigger.Queue, err)
 		}
-		outcome, changeID := workflow.ScheduleFailed, ids.Nil
-		item, run, err := s.Actions.work.CreateAndRun(asSchedule(ctx, c.projectID), workflow.InvokeChange{Change: workflow.ChangeDraft{ProjectID: p.ID, Type: "scheduled", Title: title, Queue: c.trigger.Queue, Schedule: c.workflow, RuleID: c.rule.RuleID, RuleRevision: c.rule.Revision}, Workflow: c.workflow})
-		if err == nil {
-			outcome, changeID = workflow.ScheduleOpened, item.ID
-			audit.At(now).BestEffort(ctx, s.DB, "apptown-system", c.projectID, "change.triggered", title,
-				map[string]any{"changeId": item.ID, "runId": run.ID, "trigger": "schedule", "cron": c.trigger.Cron, "ruleId": c.rule.RuleID, "ruleRevision": c.rule.Revision})
+		if state.Stopped() && !c.discoversTargets {
+			return fired{outcome: fireStopped}, nil
 		}
-		// The firing is recorded even when the run could not be created:
-		// a schedule retries next tick, not every tick.
-		if err := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, outcome, changeID, c.rule.RuleID, c.rule.Revision); err != nil {
-			log.Printf("recording the firing of %s: %v", c.workflow, err)
+		if state.State == "updating" {
+			return fired{outcome: fireBusy, busy: state.ChangeID, busyNumber: state.ChangeNumber}, nil
 		}
 	}
+	if c.skipIfActive() && c.trigger.Queue == "" {
+		active, err := workflow.RunningWorkflowCountIn(ctx, s.DB, c.projectID, c.workflow)
+		if err != nil {
+			return fired{}, fmt.Errorf("checking for an active run of %s: %w", c.workflow, err)
+		}
+		if active > 0 {
+			return fired{outcome: fireBusy}, nil
+		}
+	}
+	title := fmt.Sprintf("%s @ %s", c.workflow, now.Format("2006-01-02 15:04"))
+	if err := ctx.Err(); err != nil {
+		return fired{}, err
+	}
+	outcome, changeID := workflow.ScheduleFailed, ids.Nil
+	item, run, err := s.Actions.work.CreateAndRun(asSchedule(ctx, c.projectID), workflow.InvokeChange{Change: workflow.ChangeDraft{ProjectID: c.projectID, Type: "scheduled", Title: title, Queue: c.trigger.Queue, Schedule: c.workflow, RuleID: c.rule.RuleID, RuleRevision: c.rule.Revision}, Workflow: c.workflow})
+	// A change committed before preparation or dispatch failed is kept in the
+	// result, so the caller can name it and its requester.
+	out := fired{change: item, run: run}
+	if err == nil {
+		outcome, changeID = workflow.ScheduleOpened, item.ID
+		out.outcome = fireOpened
+		receipt := map[string]any{"changeId": item.ID, "runId": run.ID, "trigger": "schedule", "cron": c.trigger.Cron, "ruleId": c.rule.RuleID, "ruleRevision": c.rule.Revision}
+		if requestedBy != "" {
+			receipt["requestedBy"] = requestedBy
+		}
+		audit.At(now).BestEffort(ctx, s.DB, "apptown-system", c.projectID, "change.triggered", title,
+			receipt)
+	}
+	// The firing is recorded even when the run could not be created:
+	// a schedule retries next tick, not every tick.
+	if rerr := workflow.RecordScheduleFiringIn(ctx, s.DB, c.projectID, c.workflow, now, outcome, changeID, c.rule.RuleID, c.rule.Revision); rerr != nil {
+		rerr = fmt.Errorf("recording the firing of %s: %w", c.workflow, rerr)
+		if err != nil {
+			return out, errors.Join(err, rerr)
+		}
+		return out, fmt.Errorf("change %s started; %w", item.ID, rerr)
+	}
+	return out, err
+}
+
+// RunNow fires one schedule the project carries now, at the caller's
+// request, through the same firing as the tick: the change is AppTown's,
+// opened through the schedule under its standing rule, and the request is
+// the caller's, recorded under their receipt. The caller must be allowed to
+// open work in the project. It fires whenever the schedule last fired and
+// arms a schedule the tick has not seen yet; the firing is recorded, so the
+// next scheduled firing follows its cron from now. A busy or stopped queue
+// is refused and records nothing. now is AppTown's clock.
+func (s Schedules) RunNow(ctx context.Context, p project.Project, workflowName string, now time.Time) (*workflow.Change, error) {
+	receiptActor, err := s.Actions.work.MayOpenWork(ctx, p.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !p.Purpose.Schedules() {
+		return nil, fault.New(fault.Unprocessable, "an eval copy runs no schedule")
+	}
+	carried, err := s.carriedBy(ctx, p.ID)
+	if err != nil {
+		return nil, err
+	}
+	var c *firing
+	for _, one := range carried {
+		if one.workflow == workflowName {
+			c = &firing{carried: one, projectID: p.ID, slug: p.Slug}
+		}
+	}
+	if c == nil {
+		return nil, fault.New(fault.NotFound, fmt.Sprintf("the project's packs do not schedule %s", workflowName))
+	}
+	if c.err != nil {
+		return nil, fmt.Errorf("its workflow could not be read: %w", c.err)
+	}
+	eligible, err := s.resolve(ctx, c)
+	if err != nil {
+		return nil, err
+	}
+	if !eligible {
+		return nil, fault.New(fault.Unprocessable, fmt.Sprintf("%s waits for a standing approval", workflowName))
+	}
+	// A schedule the tick has not seen yet is armed here, so its firing is
+	// recorded and the tick follows its cron from now.
+	if _, found, err := workflow.ScheduleLastFiredIn(ctx, s.DB, p.ID, workflowName); err != nil {
+		return nil, err
+	} else if !found {
+		if err := workflow.ArmScheduleIn(ctx, s.DB, p.ID, workflowName, now); err != nil {
+			return nil, err
+		}
+	}
+	got, err := s.fire(ctx, *c, now, receiptActor)
+	if got.change != nil {
+		// A change committed, whether or not its run started: the request is
+		// recorded though the caller has gone.
+		receipt := map[string]any{"changeId": got.change.ID, "ruleId": c.rule.RuleID, "ruleRevision": c.rule.Revision}
+		if got.run != nil {
+			receipt["runId"] = got.run.ID
+		}
+		if rerr := audit.At(now).Record(context.WithoutCancel(ctx), s.DB, receiptActor, p.ID, "schedule.run-requested", workflowName, receipt); rerr != nil {
+			err = errors.Join(err, fmt.Errorf("change %s started; recording the request: %w", got.change.ID, rerr))
+		}
+	}
+	if err != nil {
+		return got.change, err
+	}
+	switch got.outcome {
+	case fireBusy:
+		if got.busyNumber > 0 {
+			return nil, fault.New(fault.Conflict, fmt.Sprintf("Already running: change #%d", got.busyNumber))
+		}
+		return nil, fault.New(fault.Conflict, "Already running")
+	case fireStopped:
+		return nil, fault.New(fault.Conflict, fmt.Sprintf("the %s queue stopped after failed tries", c.trigger.Queue))
+	}
+	return got.change, nil
 }
 
 // carried is a schedule from a workflow scheduled by an adopted pack, whose

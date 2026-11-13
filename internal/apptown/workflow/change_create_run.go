@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // InvokeChange admits a new Change and its first Run as one operation.
@@ -49,6 +50,18 @@ func (s *Service) CreateIntegrationWiring(ctx context.Context, draft ChangeDraft
 // the integration owner's facts in the admission transaction.
 func (s *Service) CreateIntegrationRetirement(ctx context.Context, draft ChangeDraft, join admissionParticipant) (*Change, *Run, error) {
 	return s.CreateAndRun(ctx, InvokeChange{Change: draft, Workflow: "retire-integration", join: join, integrationWork: true})
+}
+
+// MayOpenWork checks that the caller may open a Change and start its run in
+// the project, the two acts CreateAndRun requires of a person, and returns
+// the caller's receipt. Asking records nothing; a refusal is the error. A
+// schedule fired at a person's request checks this before acting as the
+// schedule.
+func (s *Service) MayOpenWork(ctx context.Context, projectID ids.ID) (string, error) {
+	if _, err := s.requireActor(ctx, operationPermission{Action: actionCreateChange, ProjectID: projectID}); err != nil {
+		return "", err
+	}
+	return s.require(ctx, operationPermission{Action: actionStartRun, ProjectID: projectID})
 }
 
 // CreateAndRun composes governed Change creation and Run admission.

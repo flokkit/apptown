@@ -203,3 +203,101 @@ func TestJanitorPageReadsWithAnInstanceRuleAndAProjectWithoutARepository(t *test
 		t.Fatalf("covered project: %+v", p)
 	}
 }
+
+// Scan now fires the project's janitor-scan schedule through the HTTP route:
+// a caller who may start work but not open it is refused with nothing fired,
+// a schedule without its standing approval is refused, and an eligible one
+// opens the schedule's change and records the firing. The Janitor read names
+// why a scan cannot start.
+func TestScanNowFiresTheJanitorScanScheduleForAPersonWhoMayOpenWork(t *testing.T) {
+	a := authzActors(t)
+	person, err := a.Access.EnsurePerson(t.Context(), "boss")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "boss", Via: "session"}, Verified: true})
+	a.SyncStock(ctx)
+	covered, _, _ := fleetRepo(t, a, "janitor-scan-now", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	platform, err := a.Ways.Pack(t.Context(), "apptown")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The adoption owner's membership participant puts the project on the
+	// platform pack, which schedules janitor-scan, without a repository change.
+	if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+		return adoption.SetMembershipIn(t.Context(), tx, covered, []adoption.Membership{{Pack: platform.Name, Version: platform.Version}}, "fixture", "fixture", time.Now())
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordCatalogFixture(a.Adoption, ctx, covered, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	h := a.Handler()
+	scanNow := func() string {
+		w := authzCall(h, "boss", "GET", "/api/v1/janitor", "")
+		var got httpapi.JanitorView
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &got) != nil {
+			t.Fatalf("janitor page: %d %s", w.Code, w.Body)
+		}
+		for _, p := range got.Projects {
+			if p.ProjectID == covered {
+				return p.ScanNow
+			}
+		}
+		t.Fatalf("project missing: %s", w.Body)
+		return ""
+	}
+	const run = "/api/v1/projects/janitor-scan-now/schedules/janitor-scan/run"
+	if got := scanNow(); got != "Turned off" {
+		t.Fatalf("scan without a janitor approval: %q", got)
+	}
+	if w := authzCall(h, "boss", "POST", run, ""); w.Code != 422 {
+		t.Fatalf("fired without a standing approval: %d %s", w.Code, w.Body)
+	}
+	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	if err := json.Unmarshal([]byte(`{"schedules":[{"workflow":"janitor-update","crons":{"routine":"0 6 * * 1","aggressive":"0 6 * * *"}},{"workflow":"janitor-scan","crons":{"routine":"0 5 * * *","aggressive":"0 5 * * *"}}]}`), &in); err != nil {
+		t.Fatal(err)
+	}
+	q, err := a.standingRules.Preview(ctx, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest}); err != nil {
+		t.Fatal(err)
+	}
+	if got := scanNow(); got != "" {
+		t.Fatalf("an eligible scan: %q", got)
+	}
+	a.addGrant("user", "outsider", "", string(access.CapChangeInvokeLane), access.ScopeProject, covered.String(), "boss", "")
+	if w := authzCall(h, "outsider", "POST", run, ""); w.Code != 403 {
+		t.Fatalf("starting work without opening it: %d %s", w.Code, w.Body)
+	}
+	last := func() *httpapi.ScheduleFiringView {
+		w := authzCall(h, "boss", "GET", "/api/v1/projects/janitor-scan-now/schedules", "")
+		var got httpapi.ScheduleList
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &got) != nil {
+			t.Fatalf("schedules: %d %s", w.Code, w.Body)
+		}
+		for _, s := range got.Schedules {
+			if s.Source.Workflow == "janitor-scan" {
+				return s.Last
+			}
+		}
+		t.Fatalf("janitor-scan not scheduled: %s", w.Body)
+		return nil
+	}
+	if l := last(); l != nil {
+		t.Fatalf("a refused request fired: %+v", l)
+	}
+	if w := authzCall(h, "boss", "POST", "/api/v1/projects/janitor-scan-now/schedules/no-such/run", ""); w.Code != 404 {
+		t.Fatalf("an unscheduled workflow: %d %s", w.Code, w.Body)
+	}
+	w := authzCall(h, "boss", "POST", run, "")
+	var started httpapi.ScheduleRunView
+	if w.Code != 201 || json.Unmarshal(w.Body.Bytes(), &started) != nil || started.ChangeID.IsZero() || started.ChangeNumber == 0 {
+		t.Fatalf("scan now: %d %s", w.Code, w.Body)
+	}
+	if l := last(); l == nil || l.Outcome != workflow.ScheduleOpened || l.ChangeID != started.ChangeID {
+		t.Fatalf("the firing was not recorded: %+v", l)
+	}
+}

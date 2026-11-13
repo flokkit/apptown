@@ -227,6 +227,12 @@ try a new fixable finding at the scan's failure threshold.
 The project page shows queue state, moved packages, recent tries linked to their
 Changes, and paths to retry, chat or skip the update. Stuck and stopped queues
 each contribute one attention item. A skip retains its fingerprint and targets.
+A person who may open and start work in a project can fire one of its
+carried schedules now (`POST /api/v1/projects/{slug}/schedules/{workflow}/run`;
+the Janitor page's Scan now uses `janitor-scan`). The firing is the scheduler's
+own: the Change is opened through the schedule under the eligible rule, and
+`schedule.run-requested` records the person. A busy or stopped queue, a missing
+schedule or a missing eligible rule is refused and records no firing.
 Schedules declaring `standing: true` fire only under an enabled, currently
 eligible rule. Without one, the schedule read says it waits for a standing
 approval, with no next firing; its last recorded firing remains visible. This
