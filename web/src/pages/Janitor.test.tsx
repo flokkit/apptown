@@ -16,7 +16,7 @@ const at = '2026-11-12T10:00:00Z'
 const actor = { name: 'Sam', principal: 'person', via: 'session' }
 const queue = (name: string, stopped = false) => ({ queue: name, state: stopped ? 'stopped' : 'up_to_date', failed: stopped ? 3 : 0, reason: '', since: at, packages: [], changeNumber: 0 })
 const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name: `${id} app`, enabled: true, level: 'routine', issuer: actor, grantedAt: at,
- queues: [queue('security'), queue('updates'), queue('packs')], scans: { main: 'abc', source: [], running: [], historical: [], known: true, stale: false, lastScan: at },
+ queues: [queue('security'), queue('updates'), queue('packs')], scans: { main: 'abc', source: [], running: [], historical: [], noRepository: false, known: true, stale: false, lastScan: at },
  problem: '', procedures: [{ workflow: 'janitor-update', version: 7, repairRounds: 4, stopRule: 'Weekly updates stop after 3 failed tries; security fixes can still run.', sentence: 'Up to 4 repair sessions; then asks Sam.', problem: '' }], queueSentences: ['Security fixes stop after 3 failed tries.', 'Weekly updates stopped after 3 failed tries. Security fixes can still run.'], nextUpdate: at, nextReason: '', scanNow: '' })
 const rule = (packs = false, enabled = true): StandingRevision => ({ ruleId: packs ? 'pack-rule' : 'dependency-rule', revision: 3, enabled, issuer: actor, enabledAt: at, changedBy: actor, changedAt: at, reason: '', question: { definition: packs ? packDefinition : dependencyDefinition(), shown: 'The exact approval meaning.', digest: 'meaning', projects: [], baseImageFindings: { images: 0, projects: 0, message: '' } } })
 function fixture(): JanitorView {
@@ -85,6 +85,14 @@ it('shows old scans and unknown findings separately from a clean result', async 
  expect(el.textContent).toContain('Old scan')
  expect(el.textContent).toContain('Not known')
  expect([...el.querySelectorAll('button')].some(b => b.textContent === 'Revoke')).toBe(false)
+})
+
+it('reads a project with no repository as outside the janitor, not as unknown', async () => {
+ const data = fixture(); data.projects[0].scans = { ...data.projects[0].scans, main: '', known: false, noRepository: true, reason: 'no repository yet, so there is nothing to scan' }
+ const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data), false)
+ await settled(client)
+ const row = [...el.querySelectorAll('tr')].find(r => r.textContent?.includes(data.projects[0].name))
+ expect(row?.textContent).toContain('no repository')
 })
 
 it('previews and enables the shown pack meaning, then revokes its exact revision', async () => {

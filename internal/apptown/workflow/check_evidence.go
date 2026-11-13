@@ -28,8 +28,9 @@ const (
 	VerdictSkipped
 	VerdictExcepted
 	_ // Reserved for stored unclear receipts. New AI receipts use Judgement outcomes.
-	// VerdictNotApplicable: the check applies to nothing this app declares;
-	// Detail says why. Never a pass, never an error, never gating.
+	// VerdictNotApplicable: the check applies to nothing this app declares,
+	// or its subject is not what this run judges; Detail says why. Never a
+	// pass, never an error, never gating.
 	VerdictNotApplicable
 )
 
@@ -90,7 +91,7 @@ type CheckReceipt struct {
 
 // Met is the one rule for whether a check holds: it passed, or it was judged
 // not applicable with its stated reason (it applies to nothing the app
-// declares). An error, a check that could not be assessed, a skip, an
+// declares, or its subject is not what the run judges). An error, a check that could not be assessed, a skip, an
 // exception, an unclear answer or a failure is not met. The acceptance
 // gate, a yes given in advance and the adoption brief all mean this.
 func (c CheckReceipt) Met() bool {

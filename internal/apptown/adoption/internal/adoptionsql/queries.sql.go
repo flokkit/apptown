@@ -1019,16 +1019,19 @@ func (q *Queries) ProjectPoliciesForShare(ctx context.Context, projectID ids.ID)
 }
 
 const projectsOnPackBelow = `-- name: ProjectsOnPackBelow :many
-SELECT pr.id, pr.slug FROM project_packs pp
-JOIN packs pk ON pk.id=pp.pack_id JOIN projects pr ON pr.id=pp.project_id
-WHERE pk.name=$1 AND pp.version < $2::bigint
-AND pr.purpose = 'ordinary' AND pr.default_branch <> ''
+SELECT pr.id, pr.slug FROM projects pr
+WHERE pr.purpose = 'ordinary' AND pr.default_branch <> ''
+AND (EXISTS (SELECT 1 FROM project_packs pp JOIN packs pk ON pk.id=pp.pack_id
+        WHERE pp.project_id=pr.id AND pk.name=$1 AND pp.version < $2::bigint)
+    OR ($3::boolean AND NOT EXISTS (SELECT 1 FROM project_packs pp JOIN packs pk ON pk.id=pp.pack_id
+        WHERE pp.project_id=pr.id AND pk.name=$1)))
 ORDER BY pr.slug
 `
 
 type ProjectsOnPackBelowParams struct {
-	Pack    string
-	Version int64
+	Pack           string
+	Version        int64
+	MissingIsBelow bool
 }
 
 type ProjectsOnPackBelowRow struct {
@@ -1037,7 +1040,7 @@ type ProjectsOnPackBelowRow struct {
 }
 
 func (q *Queries) ProjectsOnPackBelow(ctx context.Context, arg ProjectsOnPackBelowParams) ([]ProjectsOnPackBelowRow, error) {
-	rows, err := q.db.QueryContext(ctx, projectsOnPackBelow, arg.Pack, arg.Version)
+	rows, err := q.db.QueryContext(ctx, projectsOnPackBelow, arg.Pack, arg.Version, arg.MissingIsBelow)
 	if err != nil {
 		return nil, err
 	}

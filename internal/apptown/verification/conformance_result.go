@@ -46,8 +46,8 @@ func resultOf(ev check.Evaluation) workflow.CheckReceipt {
 	case check.Error:
 		res.Verdict = workflow.VerdictError
 	case check.NotApplicable:
-		// Not a judgement of the tree and never gating: the reason is the
-		// receipt's words.
+		// Not a judgement of the tree or of the check's subject, and never
+		// gating: the reason is the receipt's words.
 		res.Verdict, res.Detail, res.Gates = workflow.VerdictNotApplicable, ev.Detail, new(false)
 	default:
 		res.Verdict = workflow.VerdictCannotAssess

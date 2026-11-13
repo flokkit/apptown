@@ -145,13 +145,14 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 		start := a.now()
 		ps, perr := check.ParseProbe(sc.Check.Probe)
 		if perr == nil && ps.Standing() {
-			// Answered only by a standing deployment's steady use, which a
-			// preview booted for this change does not have: judged in
-			// reviews, and never a reason to hold a landing.
-			ev := check.Evaluation{Declared: sc.Declared(), Mode: check.Gate, Outcome: check.CannotAssess}
+			// Its subject is the standing main deployment's running use,
+			// which a change's run does not have: a preview booted for the
+			// change is not it, and main before the change says nothing of
+			// the change. Reviews judge it, and keep use they cannot observe
+			// unknown. Here it does not apply, with that reason; never a
+			// reason to hold a landing.
+			ev := check.Evaluation{Declared: sc.Declared(), Mode: check.Gate, Outcome: check.NotApplicable, Detail: standingOnlyReason}
 			res := resultOf(ev)
-			res.Verdict = workflow.VerdictSkipped
-			res.Detail = "judged on the standing deployment in reviews, not on a preview"
 			res.DurationMs = new(a.now().Sub(start).Milliseconds())
 			results = append(results, res)
 			finish(res)
@@ -212,6 +213,10 @@ func (a *Guidance) runRuntimeChecksForRun(ctx context.Context, run *workflow.Run
 	}
 	return results, findings, unjudged
 }
+
+// standingOnlyReason is the not-applicable reason of a standing-only check
+// in a change's run.
+const standingOnlyReason = "judges the standing main deployment's running use, in reviews; a change's run has no standing deployment to judge"
 
 // previewBooted says whether this run has already started its preview: a
 // preview step of the run passed. Such a run requires that preview for its

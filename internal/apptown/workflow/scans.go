@@ -22,9 +22,12 @@ type MainScans struct {
 	Running    []RunningScan                 `json:"running"`
 	Historical []conformance.ScanObservation `json:"historical"`
 	Reason     string                        `json:"reason,omitempty"`
-	Known      bool                          `json:"known"`
-	Stale      bool                          `json:"stale"`
-	LastScan   time.Time                     `json:"lastScan"`
+	// NoRepository: the project has no repository yet, so there is nothing
+	// to scan or update; it is outside the janitor's reach, not unknown.
+	NoRepository bool      `json:"noRepository"`
+	Known        bool      `json:"known"`
+	Stale        bool      `json:"stale"`
+	LastScan     time.Time `json:"lastScan"`
 }
 
 type RunningScan struct {
@@ -53,6 +56,11 @@ func (s *Service) LatestMainScans(ctx context.Context, projectID ids.ID) (MainSc
 	p, err := workflowsql.New(s.db.SQL()).ProjectByID(ctx, projectID)
 	if err != nil {
 		return MainScans{}, err
+	}
+	// A project with no repository has no main to read: Git is never asked
+	// for an empty branch name in a folder that does not exist.
+	if p.DefaultBranch == "" {
+		return MainScans{Source: []conformance.ScanObservation{}, Running: []RunningScan{}, Historical: []conformance.ScanObservation{}, NoRepository: true, Reason: "no repository yet, so there is nothing to scan"}, nil
 	}
 	repo, err := (project.RepositoryRef{ID: p.ID, Slug: p.Slug}).Path(s.dataDir)
 	if err != nil {

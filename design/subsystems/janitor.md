@@ -156,7 +156,9 @@ It has no dependency update level or cron. Publication starts a what-if as
 `apptown-system`, recording the rule and revision. Enabling starts a fresh
 assessment for each project below a newest publication, even when a person
 already assessed it. Each candidate moves all of that project’s outdated packs
-to their newest publications together. A later publication assesses the whole
+to their newest publications together. Every project with a repository belongs
+on the platform pack, so one that holds none of it is below every platform
+publication and gets it the same way. A later publication assesses the whole
 outstanding set again, so replacement work retains the other pack updates. A
 what-if reports impact; it grants no acceptance.
 
@@ -165,7 +167,10 @@ A finished assessment opens an automated adoption Change in queue `packs`.
 scans, guidance checks, `routine` and standing acceptance. Its declaration is
 the publication, and its classifier checks that the immutable target remains
 the assessed candidate. New checks and agent-written application code use the
-same acceptance and landing ladder as other fixes. There is no separate
+same acceptance and landing ladder as other fixes. A check that judges only
+the standing deployment (`memory-within`) does not apply to a Change's run and
+records not-applicable with that reason; reviews judge it. A standing vote
+advances the run as a person's vote does. There is no separate
 classification of publication intervals.
 
 Eligibility requires an active project below the publication, current issuer

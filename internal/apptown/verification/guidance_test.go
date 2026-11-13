@@ -345,9 +345,10 @@ func TestLLMCheckCannotAssessWithoutModel(t *testing.T) {
 
 // At the gate the contract check is judged from the checked tree with no
 // preview, and fails as a finding of its own severity; the standing-only
-// check is skipped with its reason, never probed against a preview and
-// never a reason to hold the landing, whatever its severity.
-func TestGateJudgesTheMemoryContractAndSkipsTheStandingCheck(t *testing.T) {
+// check does not apply to a change's run, with its reason: never probed
+// against a preview, never a reason to hold the landing whatever its
+// severity, and met for a yes given in advance (CheckReceipt.Met).
+func TestGateJudgesTheMemoryContractAndRecordsTheStandingCheckNotApplicable(t *testing.T) {
 	t.Parallel()
 	a := &Guidance{runtime: &Runtime{}}
 	tree := t.TempDir()
@@ -368,8 +369,8 @@ func TestGateJudgesTheMemoryContractAndSkipsTheStandingCheck(t *testing.T) {
 	if res[0].Verdict != workflow.VerdictFail || len(findings) != 1 || findings[0].Severity != "medium" || !strings.Contains(findings[0].Detail, "part web declares no memory") {
 		t.Errorf("the contract check fails on the tree with no preview: %+v %+v", res[0], findings)
 	}
-	if res[1].Verdict != workflow.VerdictSkipped || !strings.Contains(res[1].Detail, "standing deployment") {
-		t.Errorf("the standing check is skipped at the gate: %+v", res[1])
+	if res[1].Verdict != workflow.VerdictNotApplicable || !strings.Contains(res[1].Detail, "standing deployment") || !res[1].Met() || res[1].Gates == nil || *res[1].Gates {
+		t.Errorf("the standing check does not apply at the gate, with its reason, and is met: %+v", res[1])
 	}
 	// No tree is unknown, never judged on another commit.
 	res, _, _ = a.runRuntimeChecksForRun(t.Context(), &workflow.Run{ID: idstest.N(1), ProjectID: idstest.N(1), ChangeID: ids.Nil}, checks[:1], "", "", "medium", "")
