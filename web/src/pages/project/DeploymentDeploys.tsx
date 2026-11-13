@@ -84,11 +84,12 @@ function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload
     {tab === 'history' && <Section title="Deploy history">
       <ReadStatus q={releases} what="releases" />
       {history.slice(0, count).map(r => <div className="card" key={r.number}>
+        {r.changes.map(c => <div key={c.id}><Link to={`/changes/${c.id}`}>#{c.number} {c.title}</Link></div>)}
+        {r.commitSha && <code>{r.commitSha.slice(0, 12)} </code>}
         <Link to={`/projects/${slug}/releases/${r.number}`}>Release {r.number}</Link> · {r.state === 'waiting for approval' ? 'waiting' : r.statusLabel || r.state} · {fmtStamp(r.releasedAt || r.createdAt)}
         {r.state === 'waiting for approval' ? <p><ReleaseWaitingReason release={r} decision={r.decision} /></p> : <ReleaseAssent approval={r.approval} />}
         {r.state === 'failed' && r.bundleId && <button disabled={!current || !releases.current} onClick={() => setChoice({ release: r })}>Try again</button>}
         {r.state === 'released' && r.number !== history.find(h => h.state === 'released')?.number && r.bundleId && <button disabled={!releases.current} onClick={() => setChoice({ release: r })}>Deploy this again</button>}
-        {r.changes.map(c => <div key={c.id}><Link to={`/changes/${c.id}`}>Change {c.number}: {c.title}</Link></div>)}
         {r.backupId && <><Link to={`/backups#backup-${r.backupId}`}>Backup →</Link> <RollbackBefore slug={slug} name={name} release={r} current={current && releases.current} requested={search.get('rollbackBefore') === String(r.number)} onChoose={() => {
           setChoice({ before: r })
           if (search.has('rollbackBefore')) setSearch(params => { const next = new URLSearchParams(params); next.delete('rollbackBefore'); return next }, { replace: true })

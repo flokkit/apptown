@@ -1,3 +1,4 @@
+import { useSetProjectScope } from '../../projectScope'
 import { CheckRow, EvidenceLink, Records, ResultMark } from './CheckTable'
 import { ListRow } from '../../ListRow'
 import './list-records.css'
@@ -43,7 +44,7 @@ function RecordBody({ artifact }: { artifact: Artifact }) {
   return <div className="ch-story-evidence">
       {/* A name that only repeats the kind says nothing new. */}
       <p className="small muted">{artifact.name !== artifact.kind && `${artifact.name} · `}{artifact.kind.replace(/-/g, ' ')} · {fmtStamp(artifact.createdAt)}</p>
-      {artifact.kind === 'agent-reported' && <p>Reported by the agent.</p>}
+      {artifact.kind === 'agent-reported' && <p>Reported by the helper.</p>}
       {artifact.ref && <a href={artifact.ref} target="_blank" rel="noreferrer">Open record</a>}
       {artifact.binary ? <Screenshots shots={{ shots: [{ artifact: artifact.id!, path: artifact.name, view: "record" }] }} /> : artifact.body && <ArtifactBody artifact={artifact} />}
   </div>
@@ -75,6 +76,7 @@ export function ChangeRecordPage() {
   const { id = '', recordId = '' } = useParams()
   const [params] = useSearchParams()
   const q = useGet<ChangeView>(`/changes/${id}`, { poll: 3000 })
+  useSetProjectScope(q.current ? q.data?.projectSlug : null)
   usePageName(`/changes/${id}`, q.data ? `Change ${q.data.change.number} · ${q.data.change.title}` : undefined)
   return <><ReadStatus q={q} what="the change record" /><StaleNote q={q} />
     {q.data && <ChangeDetails view={q.data} recordId={recordId} current={q.current} reload={q.reload} runId={params.get('run') || undefined} />}
@@ -149,10 +151,10 @@ export function ChangeDetails({ recordId, view, current, reload, runId }: { reco
     const key = `entry-${e.key}`, s = e.step
     const agentWork = s?.type === 'agent/pi' || e.key.startsWith('work-')
     const facts = e.key.startsWith('work-') ? (e.detail.run.id === latest?.run.id && view.diffstat?.match(/\d+ files? changed/)?.[0]) || 'no report' : e.text
-    const label = e.key.startsWith('event-') && e.events.some(event => event.kind === 'conformance.recording-failed') ? 'Check results' : e.key.startsWith('event-') && e.events.some(event => event.kind === 'main.merged') ? 'Brought up to date with main' : s?.type === 'agent/pi' ? 'Agent worked' : s?.type === 'agent/review' ? 'Reviewer' : s?.type === 'approval' ? 'Approval' : s?.type === 'scm/merged' ? 'Merged' : s?.type === 'build' ? 'Built' : e.text.startsWith('Abandoned') ? 'Abandoned' : e.text.startsWith('Checks:') ? 'Checks' : 'Agent worked'
+    const label = e.key.startsWith('event-') && e.events.some(event => event.kind === 'conformance.recording-failed') ? 'Check results' : e.key.startsWith('event-') && e.events.some(event => event.kind === 'main.merged') ? 'Brought up to date with main' : s?.type === 'agent/pi' ? 'Helper worked' : s?.type === 'agent/review' ? 'Reviewer' : s?.type === 'approval' ? 'Approval' : s?.type === 'scm/merged' ? 'Merged' : s?.type === 'build' ? 'Built' : e.text.startsWith('Abandoned') ? 'Abandoned' : e.text.startsWith('Checks:') ? 'Checks' : 'Helper worked'
     return <li key={key} id={key} className="ch-detail-row ch-story-entry">
       {time(e.at)}<div className="ch-event-label">{label}</div>
-      <div className="ch-detail-facts"><div className={`ch-story-line${s?.type === 'agent/review' ? ' ch-review-text' : ''}`}>{s?.type === 'agent/review' ? <ResultMark text={facts.replace(/^Reviewer: /, '')} /> : e === mergedEntry && view.change.landedSha ? `merged at ${view.change.landedSha.slice(0, 12)}` : facts.replace(/^(Reviewer|Approval|Landing): |^Agent worked,? ?|^Abandoned ?/, '') || 'Finished'}</div>
+      <div className="ch-detail-facts"><div className={`ch-story-line${s?.type === 'agent/review' ? ' ch-review-text' : ''}`}>{s?.type === 'agent/review' ? <ResultMark text={facts.replace(/^Reviewer: /, '')} /> : e === mergedEntry && view.change.landedSha ? `merged at ${view.change.landedSha.slice(0, 12)}` : facts.replace(/^(Reviewer|Approval|Landing): |^Helper worked,? ?|^Abandoned ?/, '') || 'Finished'}</div>
         {e === previewEntry && <span id="preview" />}{e === reviewEntry && <span id="review" />}
         <TechnicalWords shown={technical}>{e.detail.run.workflowName} v{e.detail.run.workflowVersion} · run {e.detail.run.number}{s && ` · ${s.name} · ${s.type}`}{s?.type === 'agent/pi' && s.evidence.model && ` · ${s.evidence.model}`}{s?.type === 'approval' && s.config.means && ` · ${s.config.means}`}</TechnicalWords>
       </div>

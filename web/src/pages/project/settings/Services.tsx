@@ -370,7 +370,7 @@ export function ProjectIntegrationsTab({ slug, onlyCapability, canAttach = true 
           <div className="row integ-foot">
             {i.docs && <Link to={i.docs} className="small">Guide: how it is wired in and how to test it</Link>}
             <span className="grow" />
-            <QuietConfirm label="Detach" ask={`Detach ${i.capability}? The app and agents stop receiving its settings; nothing is deleted at the provider.`} onYes={() => detach(i.capability)} />
+            <QuietConfirm label="Detach" ask={`Detach ${i.capability}? The app and helpers stop receiving its settings; nothing is deleted at the provider.`} onYes={() => detach(i.capability)} />
           </div>
         </div>
         )

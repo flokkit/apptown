@@ -9,7 +9,7 @@ export type StoryEntry = {
 }
 // What a kind of record is called on the page.
 const RECORD_KIND: Record<string, string> = {
-  'agent-log': 'agent log', steering: 'agent instructions', 'scan-report': 'security scan report',
+  'agent-log': 'helper log', steering: 'helper instructions', 'scan-report': 'security scan report',
   sbom: 'software inventory', 'approval-brief': 'approval brief', screenshot: 'screenshots',
 }
 export function recordKindName(kind: string): string {
@@ -45,7 +45,7 @@ export function stepSentence(s: Step): string {
     const duration = s.evidence.durationMs
     const took = duration != null ? `, ${duration < 60000 ? `${Math.round(duration / 1000)}s` : `${Math.round(duration / 60000)} min`}` : ''
     const files = s.evidence.files
-    return `Agent ${s.status === 'running' ? 'working' : s.status === 'pending' ? 'not started' : 'worked'}${took}${files ? ` · ${files.length} ${files.length === 1 ? 'file' : 'files'} changed` : ''}${['fail', 'error', 'needs_human'].includes(s.status) ? ` · ${s.evidence.reason || 'stopped without finishing'}` : ''}`
+    return `Helper ${s.status === 'running' ? 'working' : s.status === 'pending' ? 'not started' : 'worked'}${took}${files ? ` · ${files.length} ${files.length === 1 ? 'file' : 'files'} changed` : ''}${['fail', 'error', 'needs_human'].includes(s.status) ? ` · ${s.evidence.reason || 'stopped without finishing'}` : ''}`
   }
   if (s.type === 'agent/review' && ['fail', 'error', 'needs_human'].includes(s.status) && !s.overrideBy) return `Reviewer: ✗ Rejected · ${reviewText(s)}`
   if (s.type === 'agent/review') return `Reviewer: ${s.evidence.verdict || checkResult(s)}${s.status !== 'pass' && s.evidence.verdict ? ` · ${checkResult(s)}` : ''}${s.evidence.summary ? ` · ${firstLine(s.evidence.summary)}` : ''}`

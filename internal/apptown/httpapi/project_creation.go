@@ -21,7 +21,7 @@ func NewProjectCreation(lifecycle *projectlifecycle.Service, authority *identity
 func (h ProjectCreation) Create(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{}, func(in ProjectDraft) {
 		if !in.RequestID.IsZero() || in.AutomaticAddress || in.Setup != nil {
-			p, err := h.lifecycle.Create(r.Context(), projectlifecycle.Draft{RequestID: in.RequestID, AutomaticAddress: in.AutomaticAddress, Setup: in.Setup, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, Group: in.Group, Packs: in.Packs, Target: in.Target})
+			p, err := h.lifecycle.Create(r.Context(), projectlifecycle.Draft{RequestID: in.RequestID, AutomaticAddress: in.AutomaticAddress, Setup: in.Setup, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, Group: in.Group, Packs: in.Packs, Target: in.Target, Audience: in.Audience, DataClass: in.DataClass})
 			if err != nil {
 				WriteFault(w, err)
 				return
@@ -41,7 +41,7 @@ func (h ProjectCreation) Create(w http.ResponseWriter, r *http.Request) {
 		if _, ok := AuthorizeRequest(h.access, w, r, access.CapProjectCreate, access.Resource{Type: "group", ID: group}, access.Context{}); !ok {
 			return
 		}
-		p, err := h.lifecycle.Create(r.Context(), projectlifecycle.Draft{Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, Group: group, Actor: actor(r), Packs: in.Packs, Target: in.Target})
+		p, err := h.lifecycle.Create(r.Context(), projectlifecycle.Draft{Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, Group: group, Actor: actor(r), Packs: in.Packs, Target: in.Target, Audience: in.Audience, DataClass: in.DataClass})
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -62,7 +62,9 @@ type ProjectDraft struct {
 	Icon             string                          `json:"icon"`
 	Group            string                          `json:"group"`
 	// Target selects main: empty keeps the default, none creates no deployment.
-	Target string `json:"target,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Audience  string `json:"audience,omitempty"`
+	DataClass string `json:"data,omitempty"`
 	// Packs are the packs the caller applies next; one not offered, or
 	// packs that cannot be taken together, refuse the creation before
 	// anything is made.
@@ -75,7 +77,7 @@ func (h ProjectCreation) CreationTargets(w http.ResponseWriter, r *http.Request)
 	if raw := r.URL.Query().Get("packs"); raw != "" {
 		packs = strings.Split(raw, ",")
 	}
-	out, err := h.lifecycle.CreationTargets(r.Context(), packs)
+	out, err := h.lifecycle.CreationTargets(r.Context(), packs, r.URL.Query().Get("audience"), r.URL.Query().Get("data"))
 	if err != nil {
 		WriteFault(w, err)
 		return

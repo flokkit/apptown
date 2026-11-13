@@ -13,7 +13,4 @@
 .new-project-project-setup-primary { font-size: var(--fs-base); padding: calc(var(--space-1) * 2.5) calc(var(--space-1) * 6.5); }
 .new-project-project-setup-div-2 { max-width: 720px; }
 .new-project-project-setup-h1 { margin: 0; }
-.new-project-manifest-view-div { gap: var(--space-1); }
-.new-project-manifest-view-div-2 { line-height: 1.5; }
-.new-project-manifest-view-primary { font-size: var(--fs-lg); padding: var(--space-3) calc(var(--space-1) * 7.5); }
 }

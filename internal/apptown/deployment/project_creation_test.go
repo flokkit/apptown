@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -106,7 +107,7 @@ func TestNewProjectTargetChoiceIsEnforcedByOwner(t *testing.T) {
 				}
 				contracts = []*appcontract.Contract{c}
 			}
-			options, err := s.CreationTargets(ctx, "", contracts)
+			options, err := s.CreationTargets(ctx, "", contracts, "", "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -158,4 +159,84 @@ func TestNewProjectTargetChoiceIsEnforcedByOwner(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The wizard can repair an offer mismatch without choosing another target;
+// the creation transaction must record exactly the repaired classification.
+func TestCreationClassificationControlsOffersAndMain(t *testing.T) {
+	t.Parallel()
+	s, world, in, cloud := configurationFixture(t)
+	s.creationAuthority = creationDecision{}
+	if err := s.Targets.Offer(t.Context(), cloud, "*", OfferCaps{Audiences: []string{"public"}, Data: []string{"synthetic"}}, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	caller, err := world.Require(t.Context(), access.Permission{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := access.WithCaller(t.Context(), caller)
+	for _, audience := range []string{"team", "public"} {
+		choices, err := s.CreationTargets(ctx, "", nil, audience, "synthetic")
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, c := range choices {
+			if c.Name == cloud.Name {
+				found = true
+				if (c.Reason == "") != (audience == "public") || c.AttributeFix != (audience == "team") {
+					t.Fatalf("%s: %+v", audience, c)
+				}
+				if audience == "team" && !strings.Contains(c.Reason, "audiences public, not team") {
+					t.Fatalf("offer reason lost: %+v", c)
+				}
+				if len(c.Audiences) != 1 || c.Audiences[0] != "public" || len(c.Data) != 1 || c.Data[0] != "synthetic" {
+					t.Fatalf("offer choices lost: %+v", c)
+				}
+			}
+		}
+		if !found {
+			t.Fatal("offered target missing")
+		}
+	}
+	if _, err := s.CreationTargets(ctx, "", nil, "everyone", "synthetic"); err == nil {
+		t.Fatal("invalid audience accepted")
+	}
+	if err := s.db.InTx(ctx, func(tx *database.Tx) error {
+		return s.InitializeProjectIn(ctx, tx, in.ProjectID, CreationPlacement{Target: "none", Audience: "everyone"})
+	}); err == nil {
+		t.Fatal("invalid audience accepted with nowhere yet")
+	}
+	if err := s.db.InTx(ctx, func(tx *database.Tx) error {
+		return s.InitializeProjectIn(ctx, tx, in.ProjectID, CreationPlacement{Target: cloud.Name, Audience: "public", DataClass: "synthetic"})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	deps, err := s.Deployments.ForProject(ctx, in.ProjectID)
+	if err != nil || len(deps) != 1 || deps[0].Audience != "public" || deps[0].DataClass != "synthetic" || deps[0].Name != "main" || !deps[0].Protected() {
+		t.Fatalf("chosen main: %+v %v", deps, err)
+	}
+	// A classification mismatch must not mask a retired target's own reason.
+	retired := *cloud
+	retired.Status = TargetRetired
+	if _, err := s.Targets.Put(ctx, &retired); err != nil {
+		t.Fatal(err)
+	}
+	choices, err := s.CreationTargets(ctx, "", nil, "team", "synthetic")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, c := range choices {
+		if c.Name == cloud.Name {
+			found = true
+			if c.AttributeFix || !strings.Contains(c.Reason, "retired") {
+				t.Fatalf("retired reason lost: %+v", c)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("retired offered target disappeared")
+	}
+
 }

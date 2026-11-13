@@ -105,3 +105,12 @@ it('shows a release on the next cockpit poll and pauses retained facts after a f
   expect(el.textContent).not.toContain('No release requested')
  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+it('puts the change and short commit before the deployment and release', () => {
+ const v = view()
+ v.evidence.landingReleases[0].commitSha = 'abcdef1234567890'
+ const text = dom(v).textContent!
+ expect(text.indexOf('#1 Calendar')).toBeLessThan(text.indexOf('abcdef123456'))
+ expect(text.indexOf('abcdef123456')).toBeLessThan(text.indexOf('docker'))
+ expect(text.indexOf('docker')).toBeLessThan(text.indexOf('Release 1'))
+})

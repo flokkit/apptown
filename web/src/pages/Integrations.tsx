@@ -168,12 +168,12 @@ export const KIND_HELP: Record<string, { body: ReactNode; guide: string }> = {
     <p>Optional: {PRODUCT} keeps each project's code itself either way.</p>
   </> },
   executor: { guide: 'runtime-environments', body: <>
-    <p>Choose where {PRODUCT} does its work: agents writing code, checks, and previews (trial runs of an app). Each runs in its own container, an isolated environment that is thrown away afterwards.</p>
+    <p>Choose where {PRODUCT} does its work: helpers writing code, checks, and previews (trial runs of an app). Each runs in its own container, an isolated environment that is thrown away afterwards.</p>
     <p>Required. The built-in executor uses {PRODUCT}'s own server; a worker (a second server set up for this) can take the load instead.</p>
   </> },
   model: { guide: 'architecture', body: <>
-    <p>Connect the AI model accounts coding agents use, such as Anthropic, OpenAI or your own model server.</p>
-    <p>Required: agents cannot work without one.</p>
+    <p>Connect the AI model accounts coding helpers use, such as Anthropic, OpenAI or your own model server.</p>
+    <p>Required: helpers cannot work without one.</p>
   </> },
   profiles: { guide: 'architecture', body: <>
     <p>Choose which AI model does each task, such as planning, writing code or reviewing. Workflows ask for a task, not a model, so a change here applies to every workflow at once.</p>

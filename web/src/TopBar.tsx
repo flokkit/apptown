@@ -39,10 +39,8 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu, s
   const trail = routeAncestors(pathname, {
     ...page.names,
     ...(projectCrumb ? { [projectCrumb.to]: projectCrumb.label } : {}),
-  }, search).filter(c => c.to !== '/')
-  // A page whose address names no parent (a change, an operation) but which
-  // is inside a project has that project as its parent.
-  const crumbs = trail.length === 0 && projectCrumb ? [projectCrumb] : trail
+  }, search, slug ? { slug, name: proj?.name ?? slug } : undefined).filter(c => c.to !== '/')
+  const crumbs = trail
   // A phone has room for one link: back to the parent, in the logo's place.
   // Home stays the first item of the menu.
   const parent = crumbs.at(-1)

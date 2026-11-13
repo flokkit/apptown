@@ -595,7 +595,7 @@ describe('model provider settings', () => {
     })
     const page = await mount('/integrations/openai')
     await vi.waitFor(() => expect(page.text()).toContain('OPENAI_API_KEY'))
-    expect(page.text()).toContain('The models agents call, from OpenAI.')
+    expect(page.text()).toContain('The models helpers call, from OpenAI.')
     expect([...page.el.querySelectorAll('dt')].map(d => d.textContent)).toEqual(['Name', 'Credentials', 'Enabled models', 'Default model', 'Calls at once'])
     for (const raw of ['secretEnv', 'apiKeyFrom', 'modelsJson', 'Configuration hash', 'not set']) expect(page.text()).not.toContain(raw)
     expect(page.el.querySelectorAll('.int-state .chip')).toHaveLength(1)

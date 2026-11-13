@@ -8,7 +8,7 @@ import { newQueryClient } from './data'
 import TopBar from './TopBar'
 import { PAGE_ROUTES, TAB_ROUTES, routeAncestors } from './breadcrumbs'
 import app from './App.tsx?raw'
-import { setProjectScope } from './projectScope'
+import { useSetProjectScope } from './projectScope'
 
 vi.mock('./data', async original => ({ ...await original<typeof import('./data')>(), useGet: (path: string | null) => ({ data: path === '/projects/club' ? { name: 'Club Newsletter' } : null }) }))
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -62,11 +62,11 @@ it('leads a scoped page whose parent is home back to its project', () => {
   for (const path of ['/operations/x', '/changes/x']) {
     const client = newQueryClient(), doc = document.createElement('div'), root = createRoot(doc)
     try {
-      act(() => setProjectScope('club'))
-      act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><TopBar me={null} narrow /></MemoryRouter></QueryClientProvider>))
+      function Scope() { useSetProjectScope('club'); return null }
+      act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><Scope /><TopBar me={null} narrow /></MemoryRouter></QueryClientProvider>))
       const links = [...doc.querySelectorAll('nav[aria-label="Breadcrumb"] a')]
-      expect(links.map(a => [a.getAttribute('href'), a.textContent]), path).toEqual([['/projects/club', '‹Club Newsletter']])
-    } finally { act(() => root.unmount()); act(() => setProjectScope(null)); client.clear() }
+      expect(links.map(a => [a.getAttribute('href'), a.textContent]), path).toEqual([path.startsWith('/changes') ? ['/projects/club/changes', '‹Changes'] : ['/projects/club', '‹Club Newsletter']])
+    } finally { act(() => root.unmount()); client.clear() }
   }
 })
 

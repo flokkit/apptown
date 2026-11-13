@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { newQueryClient } from '../data'
 import NewProject from './NewProject'
 
@@ -36,12 +36,13 @@ function stubAppTown(admin: boolean, featuresUnavailable = false) {
   return calls
 }
 
+function Address() { const l = useLocation(); return <output data-address>{l.pathname}{l.search}</output> }
 async function mount() {
   const el = document.createElement('div')
   document.body.appendChild(el)
   const root = createRoot(el)
   await act(async () => {
-    root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><NewProject /></MemoryRouter></QueryClientProvider>)
+    root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><NewProject /><Address /></MemoryRouter></QueryClientProvider>)
   })
   await settle()
   return { el, root }
@@ -69,6 +70,16 @@ async function toStep3(el: HTMLElement) {
   await settle()
 }
 
+async function placement(el: HTMLElement) {
+  await act(async () => { button(el, 'Next →')!.click() })
+  await settle()
+}
+async function create(el: HTMLElement) {
+  if (!button(el, 'Create project')) await placement(el)
+  await act(async () => { button(el, 'Create project')!.click() })
+  await settle()
+}
+
 describe('new project from existing code', () => {
   afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = ''; sessionStorage.clear() })
 
@@ -83,12 +94,12 @@ describe('new project from existing code', () => {
     expect(el.querySelector('label[for=project-description]')?.textContent).toBe('What does the app do?')
     await toStep3(el)
     await act(async () => { radio(el, 'Existing code').click() })
-    expect(button(el, 'Create project')!.disabled).toBe(true)
+    expect(button(el, 'Next →')!.disabled).toBe(true)
     const file = new File([new Uint8Array([35, 32, 118, 50])], 'code.bundle')
     const input = el.querySelector('input[type=file]') as HTMLInputElement
     Object.defineProperty(input, 'files', { value: [file] })
     await act(async () => { input.dispatchEvent(new Event('change', { bubbles: true })) })
-    await act(async () => { button(el, 'Create project')!.click() })
+    await create(el)
     for (let i = 0; i < 20 && !el.textContent?.includes('STRIPE_KEY'); i++) await settle()
     const writes = calls.filter((c) => c.method === 'POST').map((c) => c.path)
     expect(writes).toEqual(['/projects', '/projects/moved/repo/from-bundle?branch='])
@@ -122,7 +133,7 @@ describe('new project from existing code', () => {
       select.dispatchEvent(new Event('change', { bubbles: true }))
     })
     await type(m.el.querySelector('input[aria-label="https Git URL"]') as HTMLInputElement, 'https://gitlab.example/team/app.git')
-    await act(async () => { button(m.el, 'Create project')!.click() })
+    await create(m.el)
     for (let i = 0; i < 20 && !calls.some((c) => c.path === '/projects/moved/repo/from-url'); i++) await settle()
     const sent = calls.find((c) => c.path === '/projects/moved/repo/from-url')!
     expect(JSON.parse(String(sent.body))).toEqual({ url: 'https://gitlab.example/team/app.git', branch: '', credentialSecret: 'GITLAB_TOKEN' })
@@ -213,7 +224,7 @@ describe('choosing several packs', () => {
       await act(async () => { button(el, 'Next →')!.click() })
       await settle()
       await settle()
-      await act(async () => { button(el, 'Create project')!.click() })
+      await create(el)
       await settle()
       const created = calls.find((c) => c.method === 'POST' && c.path === '/projects')
       expect(JSON.parse(String(created?.body)).packs).toEqual(['server-base', 'go', 'postgres'])
@@ -284,7 +295,7 @@ describe('pack suggestions wait for the offered packs', () => {
       await act(async () => { button(el, 'Next →')!.click() })
       await settle()
       await settle()
-      await act(async () => { button(el, 'Create project')!.click() })
+      await create(el)
       await settle()
       const creation = calls.find(c => c.method === 'POST' && c.path === '/projects')
       expect(JSON.parse(String(creation?.body)).packs).toEqual(['web-server', 'dependency-updates'])
@@ -301,20 +312,23 @@ describe('pack suggestions wait for the offered packs', () => {
 describe('the new project summary', () => {
   it('shows every secrets store this AppTown can use', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const { ManifestView } = await import('./NewProject')
+    const { SetupFacts } = await import('./project/settings/SetupFacts')
     const bind = (binding: string, provider: string) => ({ capability: 'secrets', binding, provider, version: 1, configHash: 'h' })
     const m = {
-      project: { slug: 'shop', name: 'Shop' }, repo: { backed: true }, packs: [], workflows: [], guidance: [], guidanceHash: 'x',
-      policies: [], bindings: [bind('built-in-secrets', 'internal'), bind('infisical', 'infisical')],
+      project: { slug: 'shop', name: 'Shop' }, repo: { backed: true, defaultBranch: 'trunk', remote: 'https://example.org/shop.git' }, packs: [{ name: 'ledger' }], workflows: [{ name: 'make', version: 3, origin: 'ledger' }], guidance: [{ name: 'style' }], guidanceHash: 'complete-guidance-hash',
+      policies: [{ id: 'p', name: 'review', description: 'Another person checks', origin: 'ledger' }], bindings: [bind('built-in-secrets', 'internal'), bind('infisical', 'infisical')],
     }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(m))))
     const el = document.createElement('div')
     document.body.appendChild(el)
     const root = createRoot(el)
     await act(async () => {
-      root.render(<MemoryRouter><ManifestView m={m} onBuildV0={() => {}} onConsole={() => {}} /></MemoryRouter>)
+      root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><SetupFacts slug="shop" /></MemoryRouter></QueryClientProvider>)
     })
-    expect(el.textContent).toContain('secrets → built-in-secrets v1')
+    await vi.waitFor(() => expect(el.textContent).toContain('secrets → built-in-secrets v1'))
     expect(el.textContent).toContain('secrets → infisical v1')
+    for (const fact of ['trunk', 'https://example.org/shop.git', 'make v3', '1 blocks', 'complete-guidance-hash', 'Another person checks', 'config sha256:h']) expect(el.textContent).toContain(fact)
+    expect(el.querySelector('a[href="/integrations"]')).toBeTruthy()
     expect(errors.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false)
     act(() => root.unmount())
     el.remove()
@@ -445,7 +459,7 @@ describe('retained creation on navigation', () => {
     })))
     let m = await mount()
     await toStep3(m.el)
-    await act(async () => { button(m.el, 'Create project')!.click() })
+    await create(m.el)
     await settle()
     expect(m.el.textContent).toContain('Saved project setup')
     expect(m.el.textContent).toContain('creation response lost')
@@ -472,7 +486,7 @@ describe('retained creation on navigation', () => {
     })))
     let m = await mount()
     await toStep3(m.el)
-    await act(async () => { button(m.el, 'Create project')!.click() })
+    await create(m.el)
     await settle()
     act(() => m.root.unmount()); document.body.innerHTML = ''
     actorId = '00000000-0003-7000-8000-000000000000'
@@ -493,11 +507,12 @@ describe('new project deployment choice', () => {
     const calls = stubAppTown(false)
     const { el, root } = await mount()
     await toStep3(el)
+    await placement(el)
     expect(radio(el, 'Default target').checked).toBe(true)
     expect(radio(el, 'bucket').disabled).toBe(true)
     expect(el.textContent).toContain('This app needs a container target.')
     await act(async () => { radio(el, label).click() })
-    await act(async () => { button(el, 'Create project')!.click() })
+    await create(el)
     await settle()
     const sent = calls.find(c => c.method === 'POST' && c.path === '/projects')
     expect(JSON.parse(sent!.body as string).target).toBe(target)
@@ -513,4 +528,72 @@ it('lets a person choose a way of working without reading feature switches', asy
   const { el, root } = await mount()
   try { await toStep3(el); expect(el.textContent).toContain('Where does the code live?') }
   finally { act(() => root.unmount()); el.remove(); sessionStorage.clear() }
+})
+
+
+describe('creation handoff and classification', () => {
+  afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = ''; sessionStorage.clear() })
+  it('asks audience and data on step four and fixes a public-only offer without changing the other choices', async () => {
+    const calls = stubAppTown(false)
+    const normal = globalThis.fetch
+    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+      const url = String(args[0])
+      if (url.includes('/project-creation-targets?')) return new Response(JSON.stringify([{ name: 'fly', label: 'Fly', default: false, audiences: ['public'], data: ['synthetic'], attributeFix: !url.includes('audience=public'), reason: url.includes('audience=public') ? '' : 'Fly is offered for audiences public, not team' }]))
+      return normal(...args)
+    }))
+    const { el, root } = await mount()
+    try {
+      await toStep3(el)
+      await act(async () => radio(el, 'Existing code').click())
+      await act(async () => radio(el, 'an https Git URL').click())
+      await type(el.querySelector('input[aria-label="https Git URL"]')!, 'https://example.org/ledger.git')
+      await placement(el)
+      expect(el.querySelector('[aria-current="step"]')?.textContent).toBe('Where it runs')
+      const legends = [...el.querySelectorAll('legend')].map(n => n.textContent)
+      expect(legends).toEqual(['Who is it for?', 'What data will it hold?', 'Where it runs'])
+      expect(radio(el, 'Team only').checked).toBe(true)
+      expect(radio(el, 'Test data').checked).toBe(true)
+      await act(async () => button(el, 'Use Public')!.click())
+      await settle()
+      expect(radio(el, 'Public').checked).toBe(true)
+      await create(el)
+      const request = JSON.parse(String(calls.find(c => c.path === '/projects' && c.method === 'POST')!.body))
+      expect(request).toMatchObject({ name: 'moved', packs: [], audience: 'public', data: 'synthetic', target: 'fly', setup: { origin: 'url', sourceURL: 'https://example.org/ledger.git' } })
+      expect(el.textContent).toContain('STRIPE_KEY')
+      expect(button(el, 'Build the first version →')).toBeTruthy()
+      expect(calls.some(c => c.path === '/projects/moved/changes')).toBe(false)
+    } finally { act(() => root.unmount()) }
+  })
+  it('carries the default GitLab copy from Code into the submitted setup', async () => {
+    const calls = stubAppTown(false)
+    const normal = globalThis.fetch
+    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+      if (String(args[0]).endsWith('/scm/namespaces')) return new Response(JSON.stringify({ configured: true, namespaces: [{ id: 12, path: 'team' }] }))
+      return normal(...args)
+    }))
+    const { el, root } = await mount()
+    try {
+      await toStep3(el)
+      expect(radio(el, 'Yes, create a GitLab copy').checked).toBe(true)
+      await create(el)
+      const request = JSON.parse(String(calls.find(c => c.path === '/projects' && c.method === 'POST')!.body))
+      expect(request.setup.upstream).toMatchObject({ enabled: true, namespaceId: 12, repositoryName: 'moved' })
+    } finally { act(() => root.unmount()) }
+  })
+  it('opens the first change conversation with kickoff when no step is skipped', async () => {
+    stubAppTown(false)
+    const normal = globalThis.fetch
+    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+      const url = String(args[0])
+      if (url.endsWith('/projects/moved/repo')) return new Response('{}')
+      if (url.endsWith('/projects/moved/changes')) return new Response(JSON.stringify({ change: { id: 'first' } }))
+      return normal(...args)
+    }))
+    const { el, root } = await mount()
+    try {
+      await toStep3(el)
+      await create(el)
+      await vi.waitFor(() => expect(el.querySelector('[data-address]')?.textContent).toBe('/changes/first?tab=conversation&kickoff=1'))
+    } finally { act(() => root.unmount()) }
+  })
 })

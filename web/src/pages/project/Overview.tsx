@@ -102,7 +102,7 @@ export function ReleaseRows({ slug, releases }: { slug: string; releases: Releas
             {live.length > 0 && <span className="badge">live: {live.map(r => `${r.deploymentLabel} #${r.number}`).join(' · ')}</span>}
             <ul className="release-strip">
               {releases.slice(0, 5).map((r) => (
-                <li key={r.number}><Link to={`/projects/${slug}/releases/${r.number}`}>#{r.number} <span className="muted small">{fmtWhen(r.releasedAt || r.createdAt)}{r.origin === 'observed-after-restore' ? ' · observed after restore' : ''}</span></Link></li>
+                <li key={r.number}>{r.changes?.map(c => <span key={c.id}><Link to={`/changes/${c.id}`}>#{c.number} {c.title}</Link> </span>)}{r.commitSha && <code>{r.commitSha.slice(0, 12)} </code>}{r.deploymentLabel || r.deployment} <Link to={`/projects/${slug}/releases/${r.number}`}>#{r.number} <span className="muted small">{fmtWhen(r.releasedAt || r.createdAt)}{r.origin === 'observed-after-restore' ? ' · observed after restore' : ''}</span></Link></li>
               ))}
             </ul>
           </div>

@@ -32,7 +32,7 @@ export const PAGE_HELP = {
       <ul>
         <li><strong>The stack:</strong> language, framework, database and build.</li>
         <li><strong>Workflows:</strong> the steps from request to release.</li>
-        <li><strong>Guidance:</strong> instructions the coding agents read.</li>
+        <li><strong>Guidance:</strong> instructions the coding helpers read.</li>
         <li><strong>Policies:</strong> rules every change has to pass.</li>
       </ul>
       <p>New projects start from a pack. Packs marked <span className="badge">yours</span> were made here; the rest come with {PRODUCT}. To change one of those, make your own pack based on it.</p>
@@ -52,7 +52,7 @@ export const PAGE_HELP = {
     guide: 'packs-and-what-if',
   },
   deployments: {
-    title: 'Deployments',
+    title: 'All deployments',
     line: 'Where your apps run.',
     help: <p>A deployment chooses its release feed: follows main, promotion from another deployment, or by hand. A change can have a preview while it is worked on, and a project can be released to more deployments.</p>,
     guide: 'container-lifecycle',
@@ -63,7 +63,7 @@ export const PAGE_HELP = {
     help: <><p>A deployment is a named copy of this app on a target. Choose New deployment to select its target and release feed: Follows main, promotion from another deployment, or By hand.</p><p>The release preference is here. Open a deployment to change its settings and review its releases. Old resources link to their target, where they are settled.</p></>,
   },
   releases: {
-    title: 'Releases',
+    title: 'All releases',
     help: <p>Recent releases across projects, including those waiting for approval. Open a release to read its outcome and approval record.</p>,
     guide: 'container-lifecycle',
   },
@@ -77,7 +77,7 @@ export const PAGE_HELP = {
     line: 'The places your apps run.',
     help: <>
       <p>A deployment target is a place deployments run, such as a Docker host, a Portainer environment or a DigitalOcean account. Each target's page shows what runs there and how full it is.</p>
-      <p>Previews, the trial copies of an app made while a change is worked on, run on the <Link to="/integrations/executor">executor</Link> instead: the machine that also runs agents and checks.</p>
+      <p>Previews, the trial copies of an app made while a change is worked on, run on the <Link to="/integrations/executor">executor</Link> instead: the machine that also runs helpers and checks.</p>
     </>,
     guide: 'deployment-targets',
   },
@@ -89,7 +89,7 @@ export const PAGE_HELP = {
         <li><strong>Notifications:</strong> attention items sent by webhook or email.</li>
         <li><strong>Source control:</strong> where project code lives.</li>
         <li><strong>Executor:</strong> where workflow steps run.</li>
-        <li><strong>Model providers:</strong> the model accounts agents use.</li>
+        <li><strong>Model providers:</strong> the model accounts helpers use.</li>
         <li><strong>Model profiles:</strong> which model does each task.</li>
         <li><strong>Deploy connectors:</strong> how {PRODUCT} reaches the machines apps run on.</li>
         <li><strong>Cloud accounts:</strong> accounts whose deployment targets are under Targets.</li>
@@ -126,7 +126,7 @@ export const PAGE_HELP = {
     title: 'Usage',
     line: 'AI model use and cost, by model and project.',
     help: <><p>It counts the projects you can read. If you can read all of {PRODUCT}, it counts all of it. Workflow use comes from runs. Interactive use comes from chats.</p>
-      <p>Costs are estimates, not your provider's bill. The coding agent reports a price for each message: the provider's own, or one worked out from the model's list price. Use with no known price shows as not priced.</p></>,
+      <p>Costs are estimates, not your provider's bill. The coding helper reports a price for each message: the provider's own, or one worked out from the model's list price. Use with no known price shows as not priced.</p></>,
     guide: 'monitoring',
   },
   evals: {
@@ -153,7 +153,7 @@ export const PAGE_HELP = {
   },
   projectMemory: {
     title: 'Memory',
-    help: <p>Memory is what agents carry into their work on this project: its notes and records of decisions.</p>,
+    help: <p>Memory is what helpers carry into their work on this project: its notes and records of decisions.</p>,
     guide: 'project-notes',
   },
   projectSettings: {
@@ -190,7 +190,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
       <p>Administrators can act in every project and can approve their own changes, unless a project asks for someone else's approval. Roles inside one project are in that project's Settings › Members.</p>
     </> },
     'Sign-in': { guide: 'people-and-roles', body: <p>How people sign in, and the networks administrators may sign in from.</p> },
-    'Agents and tokens': { guide: 'people-and-roles', body: <p>Coding agents connected to {PRODUCT}, and the tokens they use. Disconnecting one stops it at once.</p> },
+    'Agents and tokens': { guide: 'people-and-roles', body: <p>Coding helpers connected to {PRODUCT}, and the tokens they use. Disconnecting one stops it at once.</p> },
   },
   projectSecurity: {
     'Security findings': { guide: 'monitoring', body: <>
@@ -206,7 +206,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
   },
   projectMemory: {
     Notes: { guide: 'project-notes', body: <>
-      <p><code>PROJECT-NOTES.md</code> records durable facts and preferences about this project. Agents read it in every session.</p>
+      <p><code>PROJECT-NOTES.md</code> records durable facts and preferences about this project. Helpers read it in every session.</p>
       <p>Notes are edited through a change, so every edit has an author and a change number. An AI check can't count a note alone as proof of how the app behaves.</p>
     </> },
     Decisions: { guide: 'glossary', body: <>
@@ -256,7 +256,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
       <p>A project gets its workflows from its packs; a run keeps the version it started with.</p>
     </> },
     Guidance: { guide: 'ways-of-working-formats', body: <>
-      <p>Read and write the instructions coding agents follow. Some guidance also carries checks that run when a change lands and in reviews.</p>
+      <p>Read and write the instructions coding helpers follow. Some guidance also carries checks that run when a change lands and in reviews.</p>
     </> },
     Policies: { guide: 'ways-of-working-formats', body: <>
       <p>Set rules every workflow must follow, such as "a deploy needs a scan first". A policy is checked whenever a workflow is saved.</p>

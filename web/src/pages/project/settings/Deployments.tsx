@@ -184,7 +184,7 @@ export function DeploymentPage() {
 export function DeploymentFacts({ slug, env: e }: { slug: string; env: DeploymentView }) {
   return <div className="deployment-page-facts muted">
     <span className="deployment-address"><DeploymentFact env={e} /></span>{e.kind === 'standing' && <> · <ServingRelease slug={slug} env={e} /></>}
-    {e.protected && <> <span className="badge" title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span></>}
+    {e.protected && <> <span className="badge" title="reaches partners or the public, or holds production data · deploys need the release permission">protected</span></>}
     <FeedPause env={e} />
   </div>
 }
@@ -208,7 +208,7 @@ export function EnvCard({ slug, env: e }: { slug: string; env: DeploymentView; o
     `${place}${e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}`,
     feedWords(e),
     e.audience === 'team' ? 'team only' : e.audience,
-    `${e.data === 'synthetic' ? 'test' : e.data} data`,
+    e.data && DATA_WORDS[e.data],
   ].filter(Boolean).join(' · ')
   // Follows main deploys on landing; other feeds can release here.
   const action = e.feed === 'main'

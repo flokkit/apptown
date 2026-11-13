@@ -232,7 +232,7 @@ func TestStockLandingUsesFeedAuthorityAndSurvivesReleaseRefusals(t *testing.T) {
 						t.Fatalf("revoked authority: %v", err)
 					}
 				case "unconfirmed":
-					if err == nil || !strings.Contains(err.Error(), "follows main is not confirmed for this deployment") {
+					if err == nil || !strings.Contains(err.Error(), "Not yet set to follow main") {
 						t.Fatalf("unconfirmed: %v", err)
 					}
 				}

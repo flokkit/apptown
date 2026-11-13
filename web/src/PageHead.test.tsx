@@ -41,7 +41,7 @@ describe('page help', () => {
 
   it('shows the title with introductions behind help', () => {
     const el = render(<PageHead page="deployments" />)
-    expect(el.querySelector('h1')?.textContent).toBe('Deployments')
+    expect(el.querySelector('h1')?.textContent).toBe('All deployments')
     expect(el.textContent).not.toContain(PAGE_HELP.deployments.line)
     expect(q(el).getAttribute('aria-expanded')).toBe('false')
     expect(pop(el)).toBeNull()
@@ -154,7 +154,7 @@ it.each([['Remediations', 'A remediation fixes findings'], ['this check', "This 
 it('explains Memory as project context and leaves decisions out of Settings help', () => {
   const memory = render(<PageHead page="projectMemory" />)
   act(() => q(memory).click())
-  expect(pop(memory)?.textContent).toContain('what agents carry into their work on this project')
+  expect(pop(memory)?.textContent).toContain('what helpers carry into their work on this project')
   expect(pop(memory)?.querySelector('a')?.getAttribute('href')).toBe('/docs/guides/project-notes')
   const settings = render(<PageHead page="projectSettings" />)
   act(() => q(settings).click())

@@ -17,7 +17,7 @@ import (
 )
 
 var errFeedMoved = fault.New(fault.Conflict, "deployment feed changed; read its settings again")
-var errFeedUnconfirmed = errors.New("follows main is not confirmed for this deployment")
+var errFeedUnconfirmed = errors.New("Not yet set to follow main")
 
 // ConfirmFeed is the feed settings write for follows-main standing authority.
 // The revision is the one the person saw; confirmation never reuses a past vote.

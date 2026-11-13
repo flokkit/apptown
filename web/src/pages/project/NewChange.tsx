@@ -46,7 +46,7 @@ export function NewChangeButton({ slug, external, request }: { slug: string; req
               <input aria-label="Title" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} />
               <label>For</label>
               <textarea aria-label="For" className="prose" rows={4} value={body} onChange={(e) => setBody(e.target.value)}
-                placeholder={START_OPTIONS.find((l) => l.wf === wf)?.bodyHint ?? 'Why this change exists · agents work from this text.'} />
+                placeholder={START_OPTIONS.find((l) => l.wf === wf)?.bodyHint ?? 'Why this change exists · helpers work from this text.'} />
               <label>Reference</label>
               <input aria-label="Reference" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Jira key / ticket URL (optional)" />
             </div>

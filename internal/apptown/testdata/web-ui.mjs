@@ -328,7 +328,7 @@ try {
   routes['change-code'] = `/changes/${process.env.DESIGN_CHANGE}?tab=changes`;
   routes['change-findings'] = `/changes/${process.env.DESIGN_CHANGE}/records/checks`;
   for (const tab of ['overview', 'conversation', 'details']) routes['change-' + tab] = `/changes/${process.env.DESIGN_CHANGE}?tab=${tab}`;
-  Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies/new', 'workflow-new': '/workflows', 'infrastructure-connection': '/targets/new' });
+  Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'new-project-runs': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies/new', 'workflow-new': '/workflows', 'infrastructure-connection': '/targets/new' });
   if (process.env.DESIGN_AUDIT) routes['change-advisory'] = `/changes/${seeded.advisory}`;
   if (process.env.DESIGN_AUDIT) routes['reviews-running'] = '/conformance/reviews?cameraRunning=1';
   Object.assign(routes, { features: '/features', 'feature-off': '/evals' });
@@ -649,29 +649,16 @@ try {
             await page.getByRole('button', { name: 'Next →', exact: true }).click();
             await page.getByRole('button', { name: 'Choose a way of working myself →', exact: true }).click();
             await page.locator('.pack-card').filter({ hasText: 'conventions-only' }).waitFor();
-            if (screen === 'new-project-repository') {
+            if (screen === 'new-project-repository' || screen === 'new-project-runs') {
               await page.locator('.pack-card').filter({ hasText: 'No packs' }).click();
               await page.getByRole('button', { name: 'Use no packs', exact: true }).click();
               await page.getByRole('button', { name: 'Next →', exact: true }).click();
-              await page.getByRole('radio', { name: /Default target/ }).waitFor();
-              // Both sections use the same divider, inset and heading-to-options gap.
-              const sections = await page.evaluate(() => {
-                const measure = text => {
-                  const heading = [...document.querySelectorAll('.np-panel strong')].find(el => el.textContent === text);
-                  const section = heading.parentElement.tagName === 'LEGEND'
-                    ? heading.parentElement.parentElement.parentElement : heading.parentElement.parentElement;
-                  const box = heading.getBoundingClientRect();
-                  const option = section.querySelector('label').getBoundingClientRect();
-                  const style = getComputedStyle(section);
-                  return { left: box.left, inset: box.top - section.getBoundingClientRect().top,
-                    gap: option.top - box.bottom, border: style.borderTopWidth, borderStyle: style.borderTopStyle };
-                };
-                return { start: measure('Start from'), target: measure('Where it runs') };
-              });
-              if (sections.start.borderStyle !== 'solid' || sections.target.borderStyle !== 'solid' ||
-                  sections.start.border !== sections.target.border ||
-                  ['left', 'inset', 'gap'].some(key => Math.abs(sections.start[key] - sections.target[key]) > 1)) {
-                throw new Error('repository sections differ in divider, alignment or spacing: ' + JSON.stringify(sections));
+              await page.getByText('Where does the code live?', { exact: true }).waitFor();
+              if (screen === 'new-project-runs') {
+                await page.getByRole('button', { name: 'Next →', exact: true }).click();
+                await page.getByRole('radio', { name: 'Team only', exact: true }).waitFor();
+                await page.getByRole('radio', { name: 'Test data', exact: true }).waitFor();
+                await page.getByRole('radio', { name: 'Nowhere yet' }).waitFor();
               }
             }
           }

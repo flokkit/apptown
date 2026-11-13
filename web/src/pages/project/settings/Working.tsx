@@ -1,3 +1,4 @@
+import { SetupFacts } from './SetupFacts'
 import { inlineCode } from '../../../LibraryRow'
 import { ListRow } from '../../../ListRow'
 import { useEffect, useState } from 'react'
@@ -183,6 +184,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
 
   return (
     <div className="wow-page">
+      <SetupFacts slug={slug} />
       <Section title="Packs" note={adoption ? recordedLine(adoption) : undefined}
         action={adoption && <button onClick={() => setChanging(!changing)} aria-expanded={changing}>{changing ? 'Close' : 'Change…'}</button>}>
         <ReadStatus q={adoptionQ} what="the way of working" className="small" />
@@ -197,7 +199,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
       <Section title="What that gives it">
         <div role="list">
           <GivesRow title="Guidance" q={guidanceQ} what="the guidance"
-            summary={`${guidance.length} instruction${guidance.length === 1 ? '' : 's'} its coding agents follow`}
+            summary={`${guidance.length} instruction${guidance.length === 1 ? '' : 's'} its coding helpers follow`}
             items={guidance.map((im) => ({ key: im.name, label: im.name, note: im.summary, to: `/guidance/${encodeURIComponent(im.name)}` }))} />
           <GivesRow title="Rules" q={policiesQ} what="the rules"
             summary={policies.length === 0 ? 'No rules' : `${policies.length} polic${policies.length === 1 ? 'y' : 'ies'}${warnings.length ? ` · ${warnings.length} warning${warnings.length === 1 ? '' : 's'}` : ''}`}

@@ -400,7 +400,7 @@ func TestLandingRequestsUseStandingFeedAuthorityAfterCompletion(t *testing.T) {
 			if err == nil {
 				t.Fatal("invalid execution unexpectedly succeeded")
 			}
-			if scenario == "unconfirmed migration" && !strings.Contains(err.Error(), "follows main is not confirmed for this deployment") {
+			if scenario == "unconfirmed migration" && !strings.Contains(err.Error(), "Not yet set to follow main") {
 				t.Fatal(err)
 			}
 			if scenario == "revoked setter" && !strings.Contains(err.Error(), "confirm follows main again") {

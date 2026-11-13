@@ -11,7 +11,7 @@ import type { RunTrace } from '../../wire.gen'
 import { useGet, useGetText } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { fmtStamp } from '../../format'
-import { setProjectScope } from '../../projectScope'
+import { useSetProjectScope } from '../../projectScope'
 import { parseUnifiedDiff } from '../../DiffView'
 import { changeTitle, firstLine } from './Head'
 import { recordKindName, runStory, StoryEntry } from './story'
@@ -60,7 +60,7 @@ function RecordText({ artifact, session = false, code, fullHref }: { artifact: A
     {session ? <>
       <div className="work-mini"><span>{[...counts].map(([kind, count]) => `${count} ${kind}`).join(' · ')}</span><div role="group" aria-label="Session view"><button aria-pressed={messages} onClick={() => setMessages(true)}>messages only</button><button aria-pressed={!messages} onClick={() => setMessages(false)}>everything</button></div></div>
       <ol className="work-events" aria-label="Session events">{rows.map((r, i) => (!messages || r.kind === 'said') && <li key={i} className="work-event">
-        <span className="muted" title="The agent log does not expose event times">—</span><strong>{r.kind}</strong><div><div className="work-line">{firstLine(r.text)}</div>{r.text.length > 180 && <><pre>{r.text.slice(0, 400).split('\n').slice(0, 3).join('\n')}</pre><Link to={fullHref}>full text</Link></>}{r.kind === 'edited' && (() => { const path = r.text.match(/"path"\s*:\s*"([^"]+)"/)?.[1]; return path && <Link to={`${code}#diff-${path}`}>{path} in Code</Link> })()}</div><span className="muted">{r.kind === 'said' ? 'recorded' : '—'}</span>
+        <span className="muted" title="The helper log does not expose event times">—</span><strong>{r.kind}</strong><div><div className="work-line">{firstLine(r.text)}</div>{r.text.length > 180 && <><pre>{r.text.slice(0, 400).split('\n').slice(0, 3).join('\n')}</pre><Link to={fullHref}>full text</Link></>}{r.kind === 'edited' && (() => { const path = r.text.match(/"path"\s*:\s*"([^"]+)"/)?.[1]; return path && <Link to={`${code}#diff-${path}`}>{path} in Code</Link> })()}</div><span className="muted">{r.kind === 'said' ? 'recorded' : '—'}</span>
       </li>)}</ol>
     </> : <pre className="work-full">{body || 'No text was recorded.'}</pre>}
     {artifact.ref && <a href={artifact.ref}>Open record</a>}
@@ -82,7 +82,7 @@ export default function WorkRecordPage({ section }: { section?: RecordSection })
   const trace = useGet<RunTrace>(run ? `/runs/${encodeURIComponent(run)}/trace` : null, { poll: 3000 })
   const [technical] = useTechnicalDetail()
   const location = useLocation()
-  useEffect(() => { if (change.data) setProjectScope(change.data.projectSlug) }, [change.data])
+  useSetProjectScope(change.current ? change.data?.projectSlug : null)
   useEffect(() => { if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({ block: 'start' }) }, [location.hash, trace.data])
   const v = change.data, t = trace.data
   const detail: RunDetail | undefined = t?.run ? { checks: t.checks, run: t.run, steps: t.steps.filter(Boolean) as RunDetail['steps'], events: t.events as RunDetail['events'], artifacts: t.artifacts, stages: t.stages, next: [], landingMeans: [] } : undefined
@@ -131,7 +131,7 @@ function WorkRecord({ view: v, trace, entry, technical, notes, section, artifact
       <p className="work-byline">{[
         // A run-level entry (a run with no agent step, such as landing) is the
         // run's record, not an agent's.
-        !entry.step ? 'Run' : entry.step.type === 'agent/review' ? 'Reviewer' : 'Agent',
+        !entry.step ? 'Run' : entry.step.type === 'agent/review' ? 'Reviewer' : 'Helper',
         evidence && 'provider' in evidence && evidence.provider,
         evidence && 'model' in evidence && evidence.model,
         entry.at && fmtStamp(entry.at),
@@ -140,7 +140,7 @@ function WorkRecord({ view: v, trace, entry, technical, notes, section, artifact
         entry.step?.status || entry.detail.run.status,
       ].filter(Boolean).join(' · ')}</p>
     </header>
-    <section className="ch-change-card"><h2>What the agent was given</h2><table className="ch-facts-table"><tbody>
+    <section className="ch-change-card"><h2>What the helper was given</h2><table className="ch-facts-table"><tbody>
       <tr><th>Request</th><td>{firstLine(v.change.body || v.change.title)} <Link to={link('request')}>full request</Link><span className="small muted"> · Change request</span></td></tr>
       <tr><th>Instructions</th><td>{instructions.length ? instructions.map(a => <div key={a.id}><Link to={recordLink(a)}>{a.name}</Link></div>) : <span className="muted">not recorded</span>}</td></tr>
       <tr><th>Pinned guidance</th><td>{guidance?.imports?.length ? guidance.imports.map(g => <div key={g.name}><Link to={`/guidance/${encodeURIComponent(g.name)}?version=${g.version}`}>{g.name}{'\u00a0'}v{g.version}</Link></div>) : <span className="muted">not recorded</span>}</td></tr>
@@ -152,7 +152,7 @@ function WorkRecord({ view: v, trace, entry, technical, notes, section, artifact
     <section className="ch-change-card"><h2>What it produced</h2><table className="ch-facts-table"><tbody>
       {!entry.step ? <tr><th>Code</th><td><Link to={code}>code for the whole change →</Link></td></tr>
       : <tr><th>Files changed</th><td>{changed ? changed.length ? changed.map(path => { const f = files.find(f => f.path === path); return <div key={path}><Link to={`${code}#diff-${path}`}>{path}</Link> <span className="mono small">{f ? `+${f.adds} −${f.dels} (whole change)` : '—'}</span></div> }) : 'No files changed.' : <span className="muted">—</span>}<ReadStatus q={diff} what="file counts" /><StaleNote q={diff} /> · <Link to={code}>code for the whole change →</Link></td></tr>}
-      <tr><th>Records</th><td>{[...logs, ...records].map(a => <div key={a.id}><Link to={recordLink(a)}>{a.kind === 'agent-log' ? 'agent log' : a.name || a.kind}</Link></div>)}{!logs.length && !records.length && <span className="muted">not recorded</span>}</td></tr>
+      <tr><th>Records</th><td>{[...logs, ...records].map(a => <div key={a.id}><Link to={recordLink(a)}>{a.kind === 'agent-log' ? 'helper log' : a.name || a.kind}</Link></div>)}{!logs.length && !records.length && <span className="muted">not recorded</span>}</td></tr>
       {evidence && 'output' in evidence && evidence.output && <tr><th>Report</th><td>{firstLine(evidence.output)} <Link to={link('report')}>full report</Link></td></tr>}
       <tr><th>Blockers reported</th><td>{evidence?.reason || evidence?.blockedBy || <span className="muted">not recorded</span>}</td></tr>
     </tbody></table><h3>Chats on this change</h3><Link to={`/changes/${v.change.id}?tab=conversation`}>Read the conversation</Link><ChangeWorkerChats changeId={v.change.id!} /></section>

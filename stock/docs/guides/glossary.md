@@ -46,7 +46,9 @@ workflow, or a desktop checkout) works in it, one at a time.
 lives. `main` moves only when a change lands; nobody can push to it
 directly.
 
-**Chat (helper)** — a conversational agent session on a project or a change.
+**Helper** — the AI that works on a change.
+
+**Chat** — a conversation on a project or a change.
 A change chat edits that change's working tree directly. A
 project chat has three jobs: answer questions, help set
 the project up, and start work — a change, or a catalog change — handing
@@ -226,8 +228,8 @@ attaches targets and makes each usable through a **deployment offer**.
 **Deployment offer** — how an administrator makes a deployment target
 usable by one group's projects or by everyone's. An offer may set limits:
 at most so many standing deployments per project, and which audiences
-(team, organisation, partners, public) and kinds of data (synthetic,
-non-production, production) its deployments may have. A project uses the
+(team, organisation, partners, public) and kinds of data (test data,
+not production, production) its deployments may have. A project uses the
 offer to its own group when there is one, otherwise the offer to everyone;
 AppTown's own built-in host needs no offer.
 

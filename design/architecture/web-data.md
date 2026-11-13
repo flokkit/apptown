@@ -82,7 +82,7 @@ A reviewer rejection has no reviewer retry button. Failure advice keeps these
 choices and moves only their highlight. A recommendation for an act outside
 those shown keeps the default highlight. Advice polls until it has a non-empty
 answer and reads again when the holding step or attempt changes. Send back… replaces the
-buttons in place with What should change?, a focused field, Send to agent and
+buttons in place with What should change?, a focused field, Send back and
 Cancel. Sending stays disabled until there is text; held decisions prefill the
 failure reason. Cancel restores the choices. Sending back an approval records the approver’s rejection and comment on the approval step; held recovery uses the offered send-back or rework operation. Acceptance has no optional note.
 Abandon asks inline: “Abandon this change? The branch is kept; the workspace is
@@ -112,7 +112,7 @@ with its size and a link to the recorded copy. Incomplete or absent copies keep
 the reason and any person who accepted proceeding; no data says so.
 Reduced motion keeps the scene still. Decisions keep normal page scrolling.
 A held recovery may link to the conversation below its choices; acceptance,
-deploying and deployment results omit that link. When the Conversation tab cannot resume a stuck agent, that link opens
+deploying and deployment results omit that link. When the Conversation tab cannot resume a stuck helper, that link opens
 the existing worker console continuation. Stop this attempt stays only in
 non-decision Next steps for a running run.
 Details keeps conflict catch-up commands and
@@ -122,7 +122,7 @@ followed by About this change. A sent-back round names the person and their note
 Each event has fixed time, label, facts and action columns. Dates appear only
 when the day changes. On phones, time sits above the label, facts use the full
 width and actions follow. Checks use an aligned title, result, duration and action
-table inside their phase. Check actions share one line; produced records link beside the result. Failures retain their reason and any recorded action that would satisfy them. Run-level work shows its changed-file count when available, with session and code links; missing output says “no report”. Session links open a separate work record at `/changes/:id/work/:stepId`, with the run and attempt in the query string. It shows recorded inputs, the retained agent-log summary in order, produced files and records, and change-level worker chats. Unknown facts use — or not recorded; the header omits missing facts. Each section keeps at most one muted context line. Workflow facts omit empty separators. File counts from the committed diff are labelled as whole-change counts. Only Technical detail shows the trace JSON. Agent work rows link Code to the whole change and keep session evidence on the work record page.
+table inside their phase. Check actions share one line; produced records link beside the result. Failures retain their reason and any recorded action that would satisfy them. Run-level work shows its changed-file count when available, with session and code links; missing output says “no report”. Session links open a separate work record at `/changes/:id/work/:stepId`, with the run and attempt in the query string. It shows recorded inputs, the retained agent-log summary in order, produced files and records, and change-level worker chats. Unknown facts use — or not recorded; the header omits missing facts. Each section keeps at most one muted context line. Workflow facts omit empty separators. File counts from the committed diff are labelled as whole-change counts. Only Technical detail shows the trace JSON. Helper work rows link Code to the whole change and keep session evidence on the work record page.
 Evidence links stay on the row that produced the evidence; plain links open the
 record in place. Attach a record ends the Work card. About this change contains
 only valued Branch, Started from, Kind, Cost and Attachments rows, with an attach
@@ -142,7 +142,7 @@ green, in that order. Only a check reading with `gates: false` is advisory.
 Advisory problems appear as plain notes below the Checks row’s pass and add a
 note count to the green shield; they do not make passing checks unknown.
 Conversation action summaries
-are plain text; the Show agent actions switch reveals their commands and files.
+are plain text; the Show helper actions switch reveals their commands and files.
 Security results from before a change to main cannot claim main has passed.
 
 The authorization response exposes `actorId` only for a verified person with a
@@ -304,12 +304,12 @@ preview that is not host-only offers the desktop split. Its build line and
 separate-tab link stay beside the sandboxed frame; browser storage remembers
 the choice when available.
 
-The Conversation tab and chat view show the person's messages and the agent's
-text replies, including its final report. Agent actions fold into quiet summaries
-between replies. Each summary opens only its own run. “Show agent actions” opens
+The Conversation tab and chat view show the person's messages and the helper's
+text replies, including its final report. Helper actions fold into quiet summaries
+between replies. Each summary opens only its own run. “Show helper actions” opens
 all actions in record order; the browser remembers the choice for each viewer.
 The switch works when browser storage is unavailable. Full tool results remain
-reachable in the chat terminal and the change's recorded agent activity.
+reachable in the chat terminal and the change's recorded helper activity.
 While the current change run is working, Overview leads with Now: Work or
 Landing, the active step position, start time and ordered current-stage rows.
 The position uses WaitingOn’s run and step within that run’s current stage,
@@ -331,10 +331,10 @@ Overview has two bordered cards: The change and an action card. The change uses
 shared label, value and evidence-link columns, with preview thumbnails first,
 followed by the request, approval brief when available, report, checks, landing destination and approver when approval waits, reviewer when present and app contract
 when checked and changed. Without a report, the latest chat reply appears as
-“The agent says”, with its first paragraph rendered as sanitized Markdown and a full conversation link. The approval brief uses the same source as the acceptance screen and does not replace the agent’s report. Only an
-empty report and empty chat show “No report from the agent”. Before any checks
+“The helper says”, with its first paragraph rendered as sanitized Markdown and a full conversation link. The approval brief uses the same source as the acceptance screen and does not replace the helper’s report. Only an
+empty report and empty chat show “No report from the helper”. Before any checks
 run, the check row says “Not checked yet. Checks run when you press Check and
-land.” Unread app-contract comparisons do not create a separate heading then. Once checks start, unfinished checks and an unread app contract share one “Still running” line. Failed checks show their title and the first sentence of the recorded finding, with a Details link; evaluator instructions stay out of the summary. Rejected agent
+land.” Unread app-contract comparisons do not create a separate heading then. Once checks start, unfinished checks and an unread app contract share one “Still running” line. Failed checks show their title and the first sentence of the recorded finding, with a Details link; evaluator instructions stay out of the summary. Rejected helper
 reviews say “Review: rejected” and show a bounded excerpt of the complete review,
 with structured findings first and the redundant “reviewer rejected:” prefix
 omitted. Review excerpts do not select a first sentence. Commands appear only under Technical detail.
@@ -362,23 +362,40 @@ Acceptance says Accept when releases are manual, otherwise Accept and put live.
 Every approval the viewer may decide offers Send back…: a focused “What should
 change?” field, Send back disabled until text is entered, and Cancel. It records
 the approver's rejection and note through the approval operation. When the
-stage has an agent it reworks as before; without one, the landing stops and
-work resumes with its agent or returns to its person. Abandon change remains
+stage has a helper it reworks as before; without one, the landing stops and
+work resumes with its helper or returns to its person. Abandon change remains
 available only when offered, with its inline confirmation. A viewer who cannot
 decide sees who decides and no decision buttons.
 
 The change view's `returnedBy` describes the latest `change.sendback` receipt:
 who, when, full note and rejected approval step when present. The state panel
 shows “Sent back by <who>: <note>”. It appears only while the change is in
-progress and no later landing or agent round has begun. It is distinct from
-`detail.sentBack`, which describes an agent currently reworking with feedback.
+progress and no later landing or helper round has begun. It is distinct from
+`detail.sentBack`, which describes a helper currently reworking with feedback.
 The CLI show/wait output and a newly opened change chat's briefing read the
 same owner fact. This does not post into a live chat: wait commonly ends at the
 approval before rejection, so the helper learns the note on its next read or
 when the person tells it.
 
 Step recovery operations remain beside their steps in Details. Existing changes
-do not offer Run a workflow. Request-started changes with no chat show the request and agent
+do not offer Run a workflow. Request-started changes with no chat show the request and helper
 report as conversation messages.
 Approvals appear in the decision card. A placeholder summary (“Project work”)
-uses the agent's change report. The change section links its diffstat to Code.
+uses the helper's change report. The change section links its diffstat to Code.
+
+Project creation has four steps: What it does, Way of working, Code and Where
+it runs. The last step asks audience and data before reading offers for the
+chosen packs and classification. Only a refusal caused by those attributes
+offers an inline fix; other refusals keep their reason. Creation defaults to
+team and test data. A successful setup with no warnings opens the first
+change's Conversation tab with kickoff; warnings keep the log and build button.
+Saved-setup and unknown-outcome recovery retain the submitted request.
+Settings › Way of working reads current setup facts from the project manifest;
+a failed manifest read stays distinct from empty facts.
+
+Project scope belongs to the current pathname and identity. Change, work-record,
+change-record, decision and operation pages establish it from their own current
+read. A new address, failed read or identity change cannot display the preceding
+project's menu. Breadcrumbs use that same scope, with Projects, the project and
+Changes before a change page. Workspace headings say All deployments and All
+releases; project headings retain Deployments and Releases.

@@ -23,9 +23,12 @@ type creationAuthority interface {
 }
 
 // CreationPlacement selects main's target. Empty keeps the instance default;
-// none creates no deployment. Contracts are known starter declarations.
+// none creates no deployment. Empty audience and data mean team and synthetic.
+// Contracts are known starter declarations.
 type CreationPlacement struct {
 	Target    string
+	Audience  string
+	DataClass string
 	Contracts []*appcontract.Contract
 }
 
@@ -36,28 +39,34 @@ type CreationTarget struct {
 	// Label is what people call the target: its display label, or its kind
 	// when nobody changed the label from the name. Name stays the value a
 	// choice records.
-	Label       string `json:"label"`
-	Description string `json:"description"`
-	Default     bool   `json:"default"`
-	Reason      string `json:"reason"`
+	Label        string   `json:"label"`
+	Description  string   `json:"description"`
+	Default      bool     `json:"default"`
+	Reason       string   `json:"reason"`
+	Audiences    []string `json:"audiences"`
+	Data         []string `json:"data"`
+	AttributeFix bool     `json:"attributeFix"`
 }
 
 // CreationTargets lists current offers, keeping incompatible choices visible.
 // The caller resolves the new project's owning group before calling.
-func (s *Service) CreationTargets(ctx context.Context, group string, contracts []*appcontract.Contract) ([]CreationTarget, error) {
+func (s *Service) CreationTargets(ctx context.Context, group string, contracts []*appcontract.Contract, audience, data string) ([]CreationTarget, error) {
 	targets, err := targetsIn(ctx, s.db)
 	if err != nil {
 		return nil, err
 	}
 	p := project.Project{OwnerGroup: group}
-	attrs := Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"}
+	attrs, err := creationAttributes(audience, data)
+	if err != nil {
+		return nil, err
+	}
 	def, err := s.landingTargetIn(ctx, s.db, p, "main", attrs)
 	if err != nil && !errors.Is(err, ErrNoTarget) && !errors.Is(err, ErrReleaseRefused) {
 		return nil, err
 	}
 	out := []CreationTarget{}
 	for _, t := range targets {
-		if t.Status == TargetRetired || t.reserved() != "" {
+		if t.reserved() != "" {
 			continue
 		}
 		offer, err := s.Targets.offerFor(ctx, deploymentsql.New(s.db.SQL()), t, group)
@@ -68,12 +77,17 @@ func (s *Service) CreationTargets(ctx context.Context, group string, contracts [
 			}
 			return nil, err
 		}
-		why := offer.permits(t, "new project", attrs, 0)
-		if !t.Status.Offerable() {
-			why = targetStatusReason(t)
-		}
+		why := targetStatusReason(t)
 		if why == "" {
 			why = creationContractIssue(t, contracts)
+		}
+		if why == "" {
+			why = offer.permitsStanding(t, "new project", 0)
+		}
+		attributeFix := false
+		if why == "" {
+			why = offer.permits(t, "new project", attrs, 0)
+			attributeFix = why != ""
 		}
 		kind := DescribeTarget(t)
 		description := kind.creationDescription
@@ -86,7 +100,7 @@ func (s *Service) CreationTargets(ctx context.Context, group string, contracts [
 		if label == "" || label == t.Name {
 			label = kind.Title
 		}
-		out = append(out, CreationTarget{Area: TargetFeatureArea(t.Kind), Name: t.Name, Label: label, Description: description, Default: def != nil && t.ID == def.ID, Reason: why})
+		out = append(out, CreationTarget{Area: TargetFeatureArea(t.Kind), Name: t.Name, Label: label, Description: description, Default: def != nil && t.ID == def.ID, Reason: why, Audiences: offer.Caps.Audiences, Data: offer.Caps.Data, AttributeFix: attributeFix})
 	}
 	return out, nil
 }
@@ -106,6 +120,10 @@ func creationContractIssue(t *Target, contracts []*appcontract.Contract) string 
 // create an unconfirmed placement but never supply standing human authority.
 // Read or write failures abort creation rather than silently losing the default.
 func (s *Service) InitializeProjectIn(ctx context.Context, tx *database.Tx, projectID ids.ID, choice CreationPlacement) error {
+	attrs, err := creationAttributes(choice.Audience, choice.DataClass)
+	if err != nil {
+		return err
+	}
 	if choice.Target == "none" {
 		return nil
 	}
@@ -123,7 +141,6 @@ func (s *Service) InitializeProjectIn(ctx context.Context, tx *database.Tx, proj
 	if err != nil {
 		return err
 	}
-	attrs := Attributes{Feed: "main", Audience: "team", DataClass: "synthetic"}
 	var target *Target
 	if choice.Target == "" {
 		target, err = s.landingTargetIn(ctx, tx, p, "main", attrs)
@@ -204,4 +221,19 @@ func confirmedFeedAuthority(caller access.Caller) (json.RawMessage, error) {
 		return nil, err
 	}
 	return raw, nil
+}
+
+// Creation keeps test data as its default; ordinary deployment defaults differ.
+func creationAttributes(audience, data string) (Attributes, error) {
+	if audience == "" {
+		audience = "team"
+	}
+	if data == "" {
+		data = "synthetic"
+	}
+	attrs := Attributes{Feed: "main", Audience: audience, DataClass: data}
+	if err := attrs.Validate(); err != nil {
+		return Attributes{}, &configurationInputError{err}
+	}
+	return attrs, nil
 }

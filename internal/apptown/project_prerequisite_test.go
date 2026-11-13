@@ -278,7 +278,7 @@ func TestNewProjectGetsDefaultFollowsMain(t *testing.T) {
 				if err != nil || len(requests) != 1 {
 					t.Fatalf("agent landing: %+v %v", requests, err)
 				}
-				if err := a.Deployment.ExecuteRelease(a.asEngine(t.Context()), requests[0].ID); err == nil || !strings.Contains(err.Error(), "not confirmed") {
+				if err := a.Deployment.ExecuteRelease(a.asEngine(t.Context()), requests[0].ID); err == nil || !strings.Contains(err.Error(), "Not yet set to follow main") {
 					t.Fatalf("agent landing was not refused as unconfirmed: %v", err)
 				}
 

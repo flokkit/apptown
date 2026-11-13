@@ -9,7 +9,7 @@ const CAP_META: Record<string, { title: string; blurb: string }> = {
   scm: { title: 'Source control', blurb: 'Repositories, branches and merge requests' },
   secrets: { title: 'Secrets', blurb: `Where ${PRODUCT} reads credentials from` },
   executor: { title: 'Executor', blurb: 'Where workflow steps run' },
-  model: { title: 'Model providers', blurb: 'The models agents call' },
+  model: { title: 'Model providers', blurb: 'The models helpers call' },
   deploy: { title: 'Deploy connectors', blurb: `How ${PRODUCT} reaches the machines it deploys to` },
   'cloud-account': { title: 'Cloud accounts', blurb: 'Accounts whose deployment targets are managed under Targets' },
   scanner: { title: 'Scanners', blurb: 'Checks run against a project’s code' },
@@ -101,7 +101,7 @@ export const specFor = (catalog: ConnectorEntry[], b: { capability: string; prov
 export function usedFor(b: Pick<IntegrationEntry, 'name' | 'capability' | 'config'>, spec?: ConnectorEntry): string {
   if (b.capability === 'model') {
     const source = b.config.baseUrl || b.config.providerDef ? 'from your own server' : ({ openai: 'from OpenAI', anthropic: 'from Anthropic', openrouter: 'through OpenRouter' }[b.name] ?? 'from your own server')
-    return `The models agents call, ${source}.`
+    return `The models helpers call, ${source}.`
   }
   const own = typeof b.config.description === 'string' ? b.config.description.trim() : ''
   if (own) return own

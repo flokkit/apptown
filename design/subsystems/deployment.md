@@ -140,10 +140,17 @@ its own bugs. See the [contract reference](../../stock/docs/guides/contract-refe
 
 ## Choosing a new project's target
 
-The Create project wizard chooses where `main` runs. The instance's default
-is preselected; the other choices are targets offered to the creator's owning
-group and **Nowhere yet**. Each target shows its kind and location. Known
-starter contracts determine compatibility: an incompatible target remains visible
+The Create project wizard asks who the app is for and what data it holds, then
+chooses where `main` runs. Audience defaults to team and data to synthetic
+(shown as Test data). Both use the ordinary deployment attribute validation.
+The creation target listing accepts `audience` and `data`, checks each offer
+against them, and returns its offered audience/data lists. A refusal caused
+only by those choices offers an inline fix without losing the other setup
+choices. Status, contract and standing-limit refusals retain their own reason.
+
+The instance's default is preselected; the other choices are targets offered to the creator's owning
+group and **Nowhere yet**. Retired offered targets stay visible with their reason.
+Each target shows its kind and location. Known starter contracts determine compatibility: an incompatible target remains visible
 with a reason and cannot be selected. A pack without a starter contract leaves
 compatibility unknown until the project's code declares it.
 

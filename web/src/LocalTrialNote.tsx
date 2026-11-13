@@ -15,7 +15,7 @@ export function LocalTrialNote({ hostname = window.location.hostname }: { hostna
   if (!onThisComputer(hostname)) return null
   return (
     <div className="small muted">
-      {PRODUCT} controls this computer's Docker. Agents and apps run here. For shared use, follow <a href={RUNNING_GUIDE}>Running {PRODUCT}</a>.
+      {PRODUCT} controls this computer's Docker. Helpers and apps run here. For shared use, follow <a href={RUNNING_GUIDE}>Running {PRODUCT}</a>.
     </div>
   )
 }

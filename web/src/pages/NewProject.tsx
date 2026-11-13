@@ -1,4 +1,3 @@
-import { PRODUCT } from '../brand'
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAction, useGet } from '../data'
@@ -11,21 +10,10 @@ import { RepositoryAttachment } from './project/settings/RepositoryAttachment'
 import { NameStep } from './newProject/NameStep'
 import { WayOfWorkingStep } from './newProject/WayOfWorkingStep'
 import { RepositoryStep } from './newProject/RepositoryStep'
+import { PlacementStep } from './newProject/PlacementStep'
 import './NewProject.css'
 
-// The new-project wizard: next → next → done, ONE
-// decision per screen, defaults that are almost always right.
-//   1. Description — a working name and address follow, with optional overrides.
-//   2. Way of working — "pick for me" leads; the card wall only appears if
-//      someone asks to choose themselves.
-//   3. Repository — every project GETS a repo (not a question); the only
-//      choices include a GitLab copy, starting code and where main runs.
-// Then Create runs the whole assembly with a progress log and lands on the
-// manifest — the receipt of what was wired.
-//
-// The wizard's state is one draft (newProject/draft.ts); each step is its
-// own component; the assembly is newProject/create.ts.
-
+// One retained draft carries the four decisions through creation and recovery.
 type Manifest = ProjectManifestView
 
 export default function NewProject() {
@@ -68,14 +56,21 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
   }
   // The assembly log: what was wired (ok) and what was skipped (warn).
   const [progress, setProgress] = useState<ProgressLine[]>([])
-  const [showManifest, setShowManifest] = useState(false)
   const [manifest, setManifest] = useState<Manifest | null>(null)
   const { run, busy, err } = useAction()
 
   const create = (where: { remote: boolean; namespaceId: string }) => {
     setProgress([])
     void run(async () => {
-      try { setManifest(await createProject(d, where, (line) => setProgress((p) => [...p, line]), context())) }
+      try {
+        let skipped = false
+        const m = await createProject(d, where, line => { skipped ||= !!line.warn; setProgress(p => [...p, line]) }, context())
+        setManifest(m)
+        if (!skipped) {
+          const result = await buildFirstVersion(context())
+          nav(`/changes/${result.change.change.id}?tab=conversation&kickoff=1`)
+        }
+      }
       finally { refreshSaved() }
     })
   }
@@ -89,7 +84,7 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
     act({ type: 'restore', draft: saved?.pending === 'rejected'
       ? { ...saved.draft, creationRequestId: fresh.creationRequestId, attachmentRequestId: fresh.attachmentRequestId, step: 1, bundleFile: file ?? d.bundleFile }
       : fresh })
-    setSaved(null); setFile(null); setProgress([]); setManifest(null); setShowManifest(false)
+    setSaved(null); setFile(null); setProgress([]); setManifest(null)
   })
   const buildV0 = () => run(async () => {
     try {
@@ -98,12 +93,6 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
     } finally { refreshSaved() }
   })
   if (storageError) return <div className="error">{storageError} The saved setup has not been replaced.</div>
-  if (manifest && showManifest) {
-    return <>
-      <ManifestView m={manifest} onBuildV0={() => void buildV0()} onConsole={() => nav(`/projects/${manifest.project.slug}/console`)} />
-      {err && <div className="error">{err}</div>}
-    </>
-  }
   if (manifest) {
     return (
       <div className="new-project-project-setup-div">
@@ -113,8 +102,10 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
         </div>
         <div className="row mt-4">
           <button className="primary new-project-project-setup-primary"
-            onClick={() => setShowManifest(true)}>Continue →</button>
+            disabled={busy} onClick={() => void buildV0()}>Build the first version →</button>
+          <Link to={`/projects/${manifest.project.slug}`}>Project page</Link>
         </div>
+        {err && <div className="error">{err}</div>}
       </div>
     )
   }
@@ -140,20 +131,18 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
   return (
     <div className="new-project-project-setup-div-2">
       <h1 className="new-project-project-setup-h1">Create project</h1>
-      <p>Start a new app or import existing code.{d.step < 3 && ' Choose the code in the Repository step.'}</p>
+      <p>Start a new app or import existing code.{d.step < 3 && ' Choose the code in the Code step.'}</p>
       <fieldset disabled={busy} className="new-project-fieldset">
       <StepChips step={d.step} />
       {d.step === 1 && <NameStep d={d} act={act} />}
       {d.step === 2 && <WayOfWorkingStep d={d} act={act} />}
       {d.step === 3 && (
-        <RepositoryStep d={d} act={act} busy={busy} onCreate={create}>
-          {progress.length > 0 && (
-            <div className="card mt-3">
-              <ProgressLog lines={progress} />
-            </div>
-          )}
-        </RepositoryStep>
+        <RepositoryStep d={d} act={act} busy={busy} onNext={where => { act({ type: 'repo', set: { remoteChoice: where.remote, namespaceId: where.namespaceId } }); act({ type: 'step', step: 4 }) }} />
       )}
+      {d.step === 4 && <>
+        <PlacementStep d={d} act={act} busy={busy} onCreate={() => create({ remote: !!d.remoteChoice, namespaceId: d.namespaceId })} />
+        {progress.length > 0 && <div className="card mt-3"><ProgressLog lines={progress} /></div>}
+      </>}
       </fieldset>
       {err && <div className="error">{err}</div>}
     </div>
@@ -161,11 +150,11 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
 }
 
 // The assembly log: one line per step, a skipped step drawn as a warning.
-// The three steps of making a project, the current one marked.
+// The four steps of making a project, the current one marked.
 function StepChips({ step }: { step: number }) {
   return (
     <ol className="wiz-steps">
-      {['Software', 'Way of working', 'Repository'].map((label, i) => (
+      {['What it does', 'Way of working', 'Code', 'Where it runs'].map((label, i) => (
         <li key={label} className={step === i + 1 ? 'current' : step > i + 1 ? 'done' : ''} aria-current={step === i + 1 ? 'step' : undefined}>
           {label}{step > i + 1 && <span className="sr-only"> completed</span>}
         </li>
@@ -176,80 +165,4 @@ function StepChips({ step }: { step: number }) {
 
 function ProgressLog({ lines }: { lines: { text: string; warn?: boolean }[] }) {
   return <>{lines.map((l, i) => <div key={i} className={'small' + (l.warn ? ' warn-line' : '')}>{l.text}</div>)}</>
-}
-
-// The landing view: everything the project is wired to, pinned. Reads like a
-// receipt because it is one: the same wiring a run records when it is
-// admitted (what was available then, not what the run read).
-export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuildV0: () => void; onConsole: () => void }) {
-  return (
-    <div className="new-project-project-setup-div">
-      <h1>{m.project.name} <span className="badge">created</span></h1>
-
-      <div className="card">
-        <strong>Repository</strong>
-        <div className="muted small mt-1">
-          {m.repo.backed
-            ? <>branch <code>{m.repo.defaultBranch}</code>{m.repo.remote && <> · remote <code>{m.repo.remote}</code></>}</>
-            : 'not repo-backed'}
-        </div>
-      </div>
-
-      <div className="card">
-        <strong>Way of working</strong>
-        {m.packs.length === 0 && <div className="muted small mt-1">no pack · bare project</div>}
-        {m.packs.map((p) => <div key={p.name} className="muted small mt-1">pack <code>{p.name}</code></div>)}
-        <div className="row mt-2 new-project-manifest-view-div">
-          {m.workflows.map((w) => (
-            <span key={w.name} className="badge" title={w.origin}>{w.name} v{w.version}</span>
-          ))}
-        </div>
-        {m.guidance.length > 0 && (
-          <div className="muted small mt-2">
-            {m.guidance.length} guidance blocks pinned · compiled sha256:{m.guidanceHash.slice(0, 12)}…
-          </div>
-        )}
-      </div>
-
-      <div className="card">
-        <strong>Policies</strong>
-        {m.policies.length === 0 && <div className="muted small mt-1">none · add a pack that includes them, or add them under Settings › Way of working</div>}
-        {m.policies.map((p) => (
-          <div key={p.id} className="muted small mt-1">
-            <span className="badge">✓</span> <strong>{p.name}</strong> — {p.description || p.rule}{p.origin ? ` · ${p.origin}` : ''}
-          </div>
-        ))}
-      </div>
-
-      <div className="card">
-        <strong>Bindings</strong>
-        <div className="row mt-2 new-project-manifest-view-div">
-          {m.bindings.map((b) => (
-            <span key={`${b.capability}/${b.binding}`} className="badge" title={`config sha256:${b.configHash}`}>
-              {b.capability} → {b.binding} v{b.version}
-            </span>
-          ))}
-        </div>
-        {/* Which integration each kind would use, not whether it is set up:
-            a trial lists GitLab though no GitLab is configured. */}
-        <div className="muted small mt-1">Whether each is set up: <Link to="/integrations">Integrations</Link></div>
-      </div>
-
-      <div className="card tone-accent mt-5" >
-        <strong>Next</strong>
-        <div className="small mt-2 new-project-manifest-view-div-2">
-          <strong>Build the first version</strong> opens a chat on a new change with what you wrote
-          about {m.project.name}, and the helper starts building. Try it when the helper says it is
-          ready; {PRODUCT} checks the work before it goes live.
-        </div>
-      </div>
-
-      <div className="row mt-4">
-        <button className="primary new-project-manifest-view-primary"
-          onClick={onBuildV0}>🔨 Build the first version →</button>
-        <button onClick={onConsole}>Open the chat</button>
-        <Link to={`/projects/${m.project.slug}`}><button className="subtle">project page</button></Link>
-      </div>
-    </div>
-  )
 }

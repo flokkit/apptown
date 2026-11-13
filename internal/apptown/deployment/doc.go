@@ -27,7 +27,9 @@
 // [Service.ProjectTargets] lists targets offered to an existing project's group,
 // including status and standing-limit refusals. Unoffered targets are omitted;
 // failed offer reads fail the list. [Service.CreationTargets] shares these rules
-// while also checking main's fixed classification and known starter contracts.
+// while also checking main's chosen classification and known starter contracts.
+// Creation defaults to team and synthetic data. Invalid attributes refuse the
+// listing and creation; offer-only mismatches expose the permitted choices.
 //
 // [Service.InitializeProjectIn] joins project creation after ownership is
 // recorded. It creates main on the chosen target (empty chooses the default,

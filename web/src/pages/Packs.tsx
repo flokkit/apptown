@@ -195,7 +195,7 @@ export function PackEditor({ draft, existing, onDone }: { draft: Draft; existing
 
       <h2>Guidance blocks ({p.guidance.length}, {fmtSize(allGuidance.filter((g) => p.guidance.includes(g.name)).reduce((n, g) => n + (g.bytes ?? 0), 0))})</h2>
       <div className="muted small packs-editor-label">
-        Selected blocks go to every project agent. Sizes show their context cost.
+        Selected blocks go to every project helper. Sizes show their context cost.
       </div>
       <div className="row packs-editor-actions">
         {allGuidance.map((g) => (

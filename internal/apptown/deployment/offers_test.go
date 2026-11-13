@@ -13,7 +13,7 @@ func TestOfferCapsRefuseInWords(t *testing.T) {
 	if why := o.permits(target, "app", Attributes{Audience: "public", DataClass: "synthetic"}, 0); !strings.Contains(why, "audiences team, not public") {
 		t.Fatalf("audience: %q", why)
 	}
-	if why := o.permits(target, "app", Attributes{Audience: "team", DataClass: "production"}, 0); !strings.Contains(why, "synthetic data, not production") {
+	if why := o.permits(target, "app", Attributes{Audience: "team", DataClass: "production"}, 0); !strings.Contains(why, "test data, not production") {
 		t.Fatalf("data: %q", why)
 	}
 	if why := o.permits(target, "app", Attributes{Audience: "team", DataClass: "synthetic"}, 1); !strings.Contains(why, "1 standing deployment(s) per project; app already has 1") {

@@ -92,7 +92,7 @@ function Claim({ artifact }: { artifact: Artifact }) {
   const body = full.data?.body ?? artifact.body
   return (
     <div className="ch-dispute-side">
-      <div className="ch-claim-label">What the agent says ({artifact.kind})</div>
+      <div className="ch-claim-label">What the helper says ({artifact.kind})</div>
       {full.err && <div className="error small">Showing the first part only; the rest could not be read: {full.err}</div>}
       {body ? <div className="md ch-claim" dangerouslySetInnerHTML={{ __html: renderMd(body) }} /> : <div className="muted small">The report is empty.</div>}
     </div>

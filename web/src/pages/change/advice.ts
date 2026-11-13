@@ -17,5 +17,5 @@ export function useFailureAdvice(view: ChangeView) {
   return { text: a?.text ?? '', recommend }
 }
 export function recommendationWords(act: string) {
-  return ({ 'send-back': 'Send it back to the agent', rework: 'Ask the agent to fix it', override: 'Accept it with an exception', retry: 'Try the check again' } as Record<string, string>)[act] ?? ''
+  return ({ 'send-back': 'Send it back to the helper', rework: 'Ask the helper to fix it', override: 'Accept it with an exception', retry: 'Try the check again' } as Record<string, string>)[act] ?? ''
 }

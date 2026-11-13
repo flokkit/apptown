@@ -389,9 +389,9 @@ it('shows the latest chat reply and Continue chat as the only action before any 
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   await act(async () => root.render(<MemoryRouter><QueryClientProvider client={client}><ChangeOverview view={v} current steps={[]} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>))
   await act(async () => { for (let i = 0; i < 12; i++) await new Promise(r => setTimeout(r, 0)) })
-  expect(el.textContent).toContain('The agent saysThe menu can be edited.')
+  expect(el.textContent).toContain('The helper saysThe menu can be edited.')
   expect(el.textContent).not.toContain('Old answer.')
-  expect(el.textContent).not.toContain('No report from the agent')
+  expect(el.textContent).not.toContain('No report from the helper')
   expect(el.querySelector('a[href$="tab=conversation"]')?.textContent).toBe('full conversation →')
   expect(el.textContent).toContain('Not checked yet. Checks run when you press Check and land in the chat.')
   for (const absent of ['0 checks', 'Read the app declarations', 'App contract', 'Run a workflow']) expect(el.textContent).not.toContain(absent)
@@ -642,7 +642,7 @@ it('keeps a called approval on the approval path without parent recovery control
 it('labels an unsummarized agent report and excludes verification claims while keeping identifiers', () => {
   const v = view(); v.checks = { tone: 'neutral', text: 'Not checked yet. Checks run when you press Check and land in the chat.', started: false }; v.change.summary = ''; v.report = 'Set WP_HOME for HTTPS.\nVerified with curl.\nKept WP_SITEURL unchanged.'
   const el = document.createElement('div'); el.innerHTML = render(v)
-  const row = [...el.querySelectorAll('.ch-change-card .ch-overview-line')].find(r => r.querySelector('.ch-row-label')?.textContent === 'The agent says')!
+  const row = [...el.querySelectorAll('.ch-change-card .ch-overview-line')].find(r => r.querySelector('.ch-row-label')?.textContent === 'The helper says')!
   expect(row.textContent).toContain('WP_HOME')
   expect(row.textContent).toContain('WP_SITEURL')
   expect(row.textContent).not.toContain('Verified with')
@@ -868,7 +868,7 @@ it('keeps project notes beside the short conversation request and first Markdown
     expect(card.querySelector('.ch-request .ch-value')?.textContent).toBe('Make distant cards easy to reach. full request →')
     expect(card.querySelector('.ch-request a')?.getAttribute('href')).toBe(`/changes/${id}?tab=conversation`)
     expect(card.textContent).toContain('What it doesBrings distant cards into view.')
-    expect(card.textContent).toContain('The agent saysAll checks passed.')
+    expect(card.textContent).toContain('The helper saysAll checks passed.')
     expect(card.textContent).not.toContain('[Review the approval]')
     expect(card.textContent).not.toContain('More implementation detail.')
     expect(card.querySelector('.ch-request a')?.textContent).toBe('full request →')

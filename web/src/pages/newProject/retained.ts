@@ -28,7 +28,7 @@ function validDraft(value: unknown): value is RetainedCreation['draft'] {
   const strings = ['name', 'description', 'packWhy', 'icon', 'target', 'namespaceId', 'sourceURL', 'sourceBranch', 'gitSecret']
   return strings.every((field) => typeof value[field] === 'string')
     && ['nameEdited', 'choosing', 'servicesEdited'].every((field) => typeof value[field] === 'boolean')
-    && [1, 2, 3].includes(Number(value.step)) && typeof value.step === 'number'
+    && [1, 2, 3, 4].includes(Number(value.step)) && typeof value.step === 'number'
     && typeof value.interviewRevision === 'number' && Number.isSafeInteger(value.interviewRevision) && value.interviewRevision >= 0
     && validID(value.creationRequestId) && validID(value.attachmentRequestId) && value.creationRequestId !== value.attachmentRequestId
     && ['address', 'repositoryName'].every((field) => value[field] === null || typeof value[field] === 'string')

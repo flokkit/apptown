@@ -5,15 +5,17 @@ import { MemoryRouter } from 'react-router-dom'
 import { ReleaseRows } from './Overview'
 import type { Release } from '../../api'
 
-it('keeps release notes and change narratives out of the overview release list', () => {
+it('leads with the change and commit while keeping release notes out of the list', () => {
   const release = { number: 5, serving: true, deployment: 'main', deploymentLabel: 'Production', createdAt: '2026-10-31',
-    notes: 'To satisfy it: provide the independent review report', changes: [{ title: 'A check narrative' }] } as Release
+    notes: 'To satisfy it: provide the independent review report', changes: [{ id: 'c', number: 9, title: 'Keep the date' }], commitSha: 'abcdef1234567890' } as Release
   const html = renderToStaticMarkup(<MemoryRouter><ReleaseRows slug="club" releases={[release]} /></MemoryRouter>)
   expect(html).toContain('live: Production #5')
   expect(html).toContain('href="/projects/club/releases/5"')
   expect(html).not.toContain('<button')
   expect(html).not.toContain('To satisfy it')
-  expect(html).not.toContain('A check narrative')
+  expect(html).toContain('#9 Keep the date')
+  expect(html.indexOf('#9 Keep the date')).toBeLessThan(html.indexOf('abcdef123456'))
+  expect(html.indexOf('abcdef123456')).toBeLessThan(html.lastIndexOf('Production'))
 })
 
 it('names the release live on each deployment, not only the newest one', () => {
