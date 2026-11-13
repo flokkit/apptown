@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { renderMd } from '../md'
 import { Adr, HttpError, patch, post } from '../api'
-import { setProjectScope } from '../projectScope'
+import { useSetProjectScope } from '../projectScope'
 import { setPageContext } from '../chrome'
 import { QuietConfirm } from '../QuietConfirm'
 import { useAction, useGet } from '../data'
@@ -24,6 +24,7 @@ export default function AdrPage() {
   const nav = useNavigate()
   const adrQ = useGet<{ adr: Adr; supersededById: string | null; options: AdrOptions }>(`/adrs/${id}`)
   const adr = adrQ.data?.adr ?? null
+  useSetProjectScope(adrQ.current ? adr?.projectSlug : null)
   const supersededBy = adrQ.data?.supersededById ?? null
   const options = adrQ.data?.options ?? null
   const load = adrQ.reload
@@ -40,7 +41,6 @@ export default function AdrPage() {
   const moved = failure instanceof HttpError && failure.code === 'adr-text-moved'
   useEffect(() => {
     if (!adr) return
-    setProjectScope(adr.projectSlug ?? null)
     setPageContext({ names: { [`/adrs/${id}`]: `Decision ${String(adr.number).padStart(3, '0')} · ${adr.title}` } })
   }, [adr, id])
   // The editor starts only from an answer this page read itself (a held one

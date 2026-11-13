@@ -40,9 +40,10 @@ function DeparturesBoard() {
       return <Section title="" label="Deploys">
         <ListTable label="Releases" rows={shown} rowKey={d => `${d.slug}/${d.tier}/${d.releaseNumber}/${d.at}`}
           rowTo={d => `/projects/${d.slug}/releases/${d.releaseNumber}`} columns={[
-            { key: 'project', label: 'Project', phone: 'name', render: d => <><ProjectMark small name={d.name || d.slug} slug={d.slug} icon={d.icon} /><Link className="int-name" to={`/projects/${d.slug}`}>{d.name || d.slug}</Link></> },
-            { key: 'release', label: 'Release', render: d => <Link to={`/projects/${d.slug}/releases/${d.releaseNumber}`}>#{d.releaseNumber}</Link> },
+            { key: 'change', label: 'Change', phone: 'name', render: d => <>{d.changes?.length ? d.changes.map(c => <div key={c.id}><Link to={`/changes/${c.id}`}>#{c.number} {c.title}</Link></div>) : 'No change recorded'}{d.commitSha && <code>{d.commitSha.slice(0, 12)}</code>}</> },
+            { key: 'project', label: 'Project', render: d => <><ProjectMark small name={d.name || d.slug} slug={d.slug} icon={d.icon} /><Link className="int-name" to={`/projects/${d.slug}`}>{d.name || d.slug}</Link></> },
             { key: 'deployment', label: 'Deployment', render: d => <>{d.tier.replace(/ deployment$/, '')}{d.url && <> <a href={d.url} target="_blank" rel="noreferrer" title={d.url} aria-label={`open ${d.name || d.slug} ${d.tier}`}>↗</a></>}</> },
+            { key: 'release', label: 'Release', render: d => <Link to={`/projects/${d.slug}/releases/${d.releaseNumber}`}>#{d.releaseNumber}</Link> },
             { key: 'by', label: 'By', render: d => <span className="muted">{d.who || '—'}</span> },
             { key: 'status', label: 'Status', phone: 'state', render: d => <Status word={d.state} help={d.reason && d.reason.toLowerCase() !== d.state ? d.reason : undefined} /> },
             { key: 'when', label: 'When', kind: 'time', render: d => d.at ? fmtStamp(d.at) : 'not yet' },
@@ -66,7 +67,7 @@ function FleetTable() {
     .sort((a, b) => a.app.localeCompare(b.app) || a.label.localeCompare(b.label))
   return <div>
     <StaleNote q={q} />
-    <Section title="All deployments" count={rows.length} action={<SectionFilter value={filter} onChange={setFilter} placeholder="Filter deployments" />}>
+    <Section title="Deployments" count={rows.length} action={<SectionFilter value={filter} onChange={setFilter} placeholder="Filter deployments" />}>
       {rows.length ? <DeploymentTable rows={rows} withApp /> : <p className="muted small">{search ? `Nothing matches “${filter}”.` : 'No deployments yet.'}</p>}
     </Section>
   </div>

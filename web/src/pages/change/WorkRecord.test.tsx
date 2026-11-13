@@ -41,7 +41,7 @@ async function mount(t = trace(), address = '/changes/change/work/step?run=run&a
 
 it('gives the session its own address, named inputs, produced files and explicit data gaps', async () => {
   const f = await mount()
-  for (const text of ['Work record', 'test-model', '90s', 'What the agent was given', 'The session', 'What it produced', 'Needs a key.', '+1 −1 (whole change)']) expect(f.el.textContent).toContain(text)
+  for (const text of ['Work record', 'test-model', '90s', 'What the helper was given', 'The session', 'What it produced', 'Needs a key.', '+1 −1 (whole change)']) expect(f.el.textContent).toContain(text)
   // The version never sits on a line of its own: it is joined to the name.
   expect(f.el.querySelector('a[href="/guidance/rules%2Fshared?version=4"]')?.textContent).toBe('rules/shared\u00a0v4')
   expect(f.el.querySelector('a[href="/changes/change?tab=changes#diff-app.ts"]')).not.toBeNull()
@@ -54,7 +54,7 @@ it('gives the session its own address, named inputs, produced files and explicit
   const full = [...f.el.querySelectorAll('a')].find(a => a.textContent === 'full text')!
   await f.click(full)
   // The heading names the kind of record; its own name follows.
-  expect(f.el.querySelector('h1')?.textContent).toBe('Agent log')
+  expect(f.el.querySelector('h1')?.textContent).toBe('Helper log')
   expect(f.el.querySelector('.work-byline')?.textContent).toBe('step-step')
   expect(f.el.querySelector('.work-full pre')?.textContent).toBe(trace().artifacts[0].body)
   expect(f.el.querySelector('.work-events')).toBeNull()
@@ -128,7 +128,7 @@ it.each([
   ['request','Change request','Keep the time.\nKeep the invitation.'],
   ['workflow','Workflow','kind: pipeline'],
   ['report','Report','The report'],
-  ['records/instructions','Agent instructions','Use the shared rules.'],
+  ['records/instructions','Helper instructions','Use the shared rules.'],
 ])('reads %s on its own page with one title', async (part,title,text) => {
   const f = await mount(trace(), `/changes/change/work/step/${part}?run=run&attempt=step-0`)
   try {

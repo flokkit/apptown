@@ -27,6 +27,7 @@ type changeEvidence struct {
 }
 
 type changeRelease struct {
+	CommitSHA         string                  `json:"commitSha,omitempty"`
 	Stage             deploy.DeployStage      `json:"stage,omitempty"`
 	LastStage         deploy.DeployStage      `json:"lastStage,omitempty"`
 	FailedStage       deploy.DeployStage      `json:"failedStage,omitempty"`
@@ -93,7 +94,7 @@ func (h ChangeDetail) evidenceForChange(ctx context.Context, ch *workflow.Change
 		return out, err
 	}
 	for _, r := range carried {
-		out.Releases = append(out.Releases, changeRelease{Number: r.Number, Deployment: r.Deployment, State: r.State, StatusLabel: r.State.Display(), release: r})
+		out.Releases = append(out.Releases, changeRelease{CommitSHA: r.CommitSHA, Number: r.Number, Deployment: r.Deployment, State: r.State, StatusLabel: r.State.Display(), release: r})
 	}
 	if len(out.Releases) > 0 {
 		deployments, err := h.deployment.Deployments.ForProject(ctx, ch.ProjectID)
@@ -145,5 +146,5 @@ func (h ChangeDetail) landingRelease(ctx context.Context, slug string, r *deploy
 		return changeRelease{}, err
 	}
 	url, hostOnly := h.deployment.Reach(ctx, slug, dep)
-	return changeRelease{Number: r.Number, Deployment: r.Deployment, State: r.State, StatusLabel: r.State.Display(), Failure: r.Failure, Stage: r.Stage, LastStage: r.LastStage, FailedStage: r.FailedStage, StageElapsedMs: r.StageElapsedMs, ProgressUncertain: r.ProgressUncertain, URL: url, HostOnly: hostOnly}, nil
+	return changeRelease{CommitSHA: r.CommitSHA, Number: r.Number, Deployment: r.Deployment, State: r.State, StatusLabel: r.State.Display(), Failure: r.Failure, Stage: r.Stage, LastStage: r.LastStage, FailedStage: r.FailedStage, StageElapsedMs: r.StageElapsedMs, ProgressUncertain: r.ProgressUncertain, URL: url, HostOnly: hostOnly}, nil
 }

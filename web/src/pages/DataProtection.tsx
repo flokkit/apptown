@@ -7,7 +7,7 @@ import { BackgroundReading } from '../BackgroundReading'
 import { ListTable } from '../ListTable'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { del, post, put } from '../api'
 import { useAction, useGet } from '../data'
@@ -16,7 +16,7 @@ import { fmtBytes, fmtWhen, readingAge } from '../format'
 import type { BackupStoreState, Coverage, DeploymentProtection, ItemProtection, Operation, OperationAdmitted, OperationView, RehearsalRef, RestoredCopy } from '../wire.gen'
 import { useNow } from '../hooks'
 import { useHolds } from '../instancePages'
-import { setProjectScope } from '../projectScope'
+import { useSetProjectScope } from '../projectScope'
 
 // Protecting deployment data off-host (design/subsystems/deployment.md):
 // for each data-holding item of a cloud deployment, how
@@ -333,7 +333,7 @@ export function OperationPage() {
   // The operation's project is the page's scope, so the menu and the back
   // link lead to it; a project the reader cannot see sets none.
   const scope = q.data ? q.data.project?.slug ?? null : undefined
-  useEffect(() => { if (scope !== undefined) setProjectScope(scope) }, [scope])
+  useSetProjectScope(q.current ? scope : null)
   if (!q.data) return <ReadStatus q={q} what="the operation" />
   const op = q.data
   const old = q.refreshFailed

@@ -121,7 +121,7 @@ export function TimingView({ days }: { days: number }) {
               <h3 className="usage-h3">{wf.workflow === 'land' ? 'Landing a change' : wf.workflow.replaceAll('-', ' ')}</h3>
               <span className="muted small">
                 {wf.runs} run{wf.runs === 1 ? '' : 's'}{wf.totalMedianMs != null && ` · a typical run takes ${sec(wf.totalMedianMs)} from open to its last step`}
-                {cost ? ` · ${cost} in agent time` : ''}
+                {cost ? ` · ${cost} in helper time` : ''}
               </span>
             </div>
             {[...wf.steps].sort((a, b) => (b.waitMedianMs + b.medianMs) - (a.waitMedianMs + a.medianMs)).slice(0, 3).map((s) => {

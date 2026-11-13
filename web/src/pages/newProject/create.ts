@@ -15,7 +15,7 @@ export function creationRequest(saved: RetainedCreation): ProjectDraft {
   if (remote && (!Number.isSafeInteger(namespace) || namespace <= 0)) throw new Error('Choose a GitLab group before creating the project.')
   return {
     requestId: d.creationRequestId, automaticAddress: d.address === null,
-    slug: slugOf(d), name: d.name || slugOf(d), namespace: '', group: '', blurb: d.description.trim(), icon: d.icon, target: d.target, packs: d.packs ?? [],
+    slug: slugOf(d), name: d.name || slugOf(d), namespace: '', group: '', blurb: d.description.trim(), icon: d.icon, target: d.target, audience: d.audience, data: d.data, packs: d.packs ?? [],
     setup: {
       origin: d.origin, sourceURL: d.sourceURL.trim(), sourceBranch: d.sourceBranch.trim(), credentialSecret: d.gitSecret,
       bundleSHA256: saved.bundleDigest ?? '', services: d.services.map((s) => ({ capability: s.capability, params: { ...s.params } })),

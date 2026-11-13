@@ -2,7 +2,7 @@ import type { DependencyKind, PackView } from '../../wire.gen'
 import type { NeedPick } from '../project/settings/Services'
 
 // The new-project wizard's state as one object, and the acts that change
-// it. Pure, so the rules of the three steps are tested without a page:
+// it. Pure, so the rules of the four steps are tested without a page:
 // the address follows the name until someone types their own, a step is
 // left only once its one decision is made, and picking a way of working
 // starts from the services it proposes.
@@ -10,7 +10,7 @@ import type { NeedPick } from '../project/settings/Services'
 export type Origin = 'empty' | 'bundle' | 'url'
 
 export type Draft = {
-  step: 1 | 2 | 3
+  step: 1 | 2 | 3 | 4
   name: string
   nameEdited: boolean
   // Local creation handoff; not sent until the owner supports replay.
@@ -38,7 +38,6 @@ export type Draft = {
   // step 3 — a GitLab copy (null until someone picks: the default follows
   // whether this AppTown has a connection), its group ('' = the first listed),
   // and where the code starts from.
-  target: string
   remoteChoice: boolean | null
   namespaceId: string
   repositoryName: string | null
@@ -48,12 +47,16 @@ export type Draft = {
   sourceURL: string
   sourceBranch: string
   gitSecret: string
+  // Step 4: main's audience, data and one target (empty selects the default).
+  audience: string
+  data: string
+  target: string
 }
 
 export const newDraft = (): Draft => ({
   step: 1, name: '', nameEdited: false, address: null, creationRequestId: crypto.randomUUID(), interviewRevision: 0,
   description: '', questions: [], answers: {}, packs: null, packWhy: '', icon: '', choosing: false, services: [], servicesEdited: false,
-  target: '', remoteChoice: null, namespaceId: '', repositoryName: null, attachmentRequestId: crypto.randomUUID(), origin: 'empty', bundleFile: null, sourceURL: '', sourceBranch: '', gitSecret: '',
+  audience: 'team', data: 'synthetic', target: '', remoteChoice: null, namespaceId: '', repositoryName: null, attachmentRequestId: crypto.randomUUID(), origin: 'empty', bundleFile: null, sourceURL: '', sourceBranch: '', gitSecret: '',
 })
 
 // slugify is the address a name gets when nobody types one.
@@ -85,7 +88,7 @@ export function servicesFor(chosen: string[], packs: PackView[], catalog: Depend
     })
 }
 
-type RepoField = 'target' | 'repositoryName' | 'remoteChoice' | 'namespaceId' | 'origin' | 'bundleFile' | 'sourceURL' | 'sourceBranch' | 'gitSecret'
+type RepoField = 'audience' | 'data' | 'target' | 'repositoryName' | 'remoteChoice' | 'namespaceId' | 'origin' | 'bundleFile' | 'sourceURL' | 'sourceBranch' | 'gitSecret'
 
 export type DraftAct =
   | { type: 'restore'; draft: Draft }
@@ -111,6 +114,7 @@ export function draftReducer(d: Draft, a: DraftAct): Draft {
     case 'restore': return a.draft
     case 'step':
       if (a.step === 2 && !nameReady(d)) return d
+      if (a.step === 4 && (!nameReady(d) || !wayReady(d) || !originReady(d))) return d
       if (a.step === 3 && (!nameReady(d) || !wayReady(d))) return d
       return { ...d, step: a.step, interviewRevision: d.interviewRevision + 1 }
     case 'name':

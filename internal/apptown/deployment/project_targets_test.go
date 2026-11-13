@@ -42,7 +42,7 @@ func TestProjectTargetsExplainsOnlyOfferedTargets(t *testing.T) {
 	if len(got) != 3 {
 		t.Fatalf("offered targets: %+v", got)
 	}
-	wizard, err := s.CreationTargets(ctx, "", nil)
+	wizard, err := s.CreationTargets(ctx, "", nil, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

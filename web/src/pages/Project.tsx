@@ -1,3 +1,4 @@
+import { useInstancePages } from '../instancePages'
 import { LastScan } from './project/Janitor'
 import { PageHead } from '../PageHead'
 import { PRODUCT } from '../brand'
@@ -62,6 +63,7 @@ function IntegrityBanner({ slug, files, onResolved }: {
 }
 
 export default function Project() {
+  const mayReadTargets = useInstancePages()('infrastructure')
   const { slug, tab: rawTab, stab: rawStab } = useParams()
   const { tab, secTab, setTab, memTab } = resolveProjectTabs(rawTab, rawStab)
   const q = useGet<ProjectT>(slug ? `/projects/${slug}` : null, { poll: 5000 })
@@ -76,7 +78,7 @@ export default function Project() {
     <div>
       <StaleNote q={q} />
       {tab === 'changes' && <h1>Changes</h1>}
-      {tab === 'deployments' && <PageHead page="projectDeployments" />}
+      {tab === 'deployments' && <PageHead page="projectDeployments" actions={mayReadTargets && <Link to="/targets">Targets</Link>} />}
       {tab === 'releases' && <h1>Release #{rawStab}</h1>}
       <LifecycleNote slug={project.slug} lifecycle={project.lifecycle} />
       <IntegrityBanner slug={project.slug} files={project.outOfBandEdits} onResolved={load} />

@@ -1,21 +1,17 @@
 import './RepositoryStep.css'
 import { PRODUCT } from '../../brand'
-import { type Dispatch, type ReactNode } from 'react'
+import { type Dispatch } from 'react'
 import { useGet } from '../../data'
-import { ReadStatus } from '../../ReadGate'
 import { useHolds } from '../../instancePages'
-import type { CreationTarget, RemoteNamespaces, SecretNameList } from '../../wire.gen'
+import type { RemoteNamespaces, SecretNameList } from '../../wire.gen'
 import { originReady, slugOf, type Draft, type DraftAct } from './draft'
 
-// Step 3 — Repository: every project gets a repository on AppTown (not a
-// question); the choices are a GitLab copy too, and whether the code starts
-// empty or from existing code, and where main runs. Create runs the assembly here.
-export function RepositoryStep({ d, act, busy, onCreate, children }: {
+// Code starts in AppTown, with an optional GitLab copy or imported source.
+export function RepositoryStep({ d, act, busy, onNext }: {
   d: Draft
   act: Dispatch<DraftAct>
   busy: boolean
-  onCreate: (where: { remote: boolean; namespaceId: string }) => void
-  children?: ReactNode // the assembly log, under the Create button
+  onNext: (where: { remote: boolean; namespaceId: string }) => void
 }) {
   // A GitLab copy is offered only when this AppTown has a GitLab connection
   // (the namespaces answer says so), and then it is the default. Until
@@ -37,11 +33,6 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
   const admin = useHolds('identity:manage-auth')
   const secretNamesQ = useGet<SecretNameList>(admin && origin === 'url' ? '/secrets/names' : null)
   const slug = slugOf(d)
-  const targetsQ = useGet<CreationTarget[]>(`/project-creation-targets?packs=${encodeURIComponent((d.packs ?? []).join(','))}`, { kind: 'config' })
-  const targets = targetsQ.data ?? []
-  const defaultTarget = targets.find(t => t.default)
-  const selectedTarget = d.target === '' ? defaultTarget : targets.find(t => t.name === d.target)
-  const targetReady = d.target === 'none' || (targetsQ.current && (d.target === '' ? !selectedTarget?.reason : !!selectedTarget && !selectedTarget.reason))
 
   return (
     <div className="np-panel">
@@ -145,35 +136,6 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
         )}
       </div>
 
-      <div className="repository-step-div-2">
-        <fieldset className="repository-step-targets">
-          <legend className="mb-2"><strong>Where it runs</strong></legend>
-          <ReadStatus q={targetsQ} what="deployment targets" />
-          {targetsQ.current && <>
-            <label className="row repository-step-label">
-              <input type="radio" name="target" checked={d.target === ''} disabled={!!defaultTarget?.reason} onChange={() => setRepo({ target: '' })} />
-              <span><strong>Default target{defaultTarget ? ` · ${defaultTarget.label || defaultTarget.name}` : ''}</strong><br />
-                <span className="muted small">{defaultTarget?.description ?? 'No default target is available.'}</span>
-                {defaultTarget?.reason && <span className="small"> · {defaultTarget.reason}</span>}
-                {defaultTarget && <code className="tech-line muted">{defaultTarget.name}</code>}
-              </span>
-            </label>
-            {targets.filter(t => !t.default).map(t => <label key={t.name} className="row repository-step-label">
-              <input type="radio" name="target" checked={d.target === t.name} disabled={!!t.reason} onChange={() => setRepo({ target: t.name })} />
-              <span><strong>{t.label || t.name}</strong><br /><span className="muted small">{t.description}</span>
-                {t.reason && <span className="small"> · {t.reason}</span>}
-                <code className="tech-line muted">{t.name}</code>
-              </span>
-            </label>)}
-          </>}
-          <label className="row repository-step-label">
-            <input type="radio" name="target" checked={d.target === 'none'} onChange={() => setRepo({ target: 'none' })} />
-            <span><strong>Nowhere yet</strong><br /><span className="muted small">Land changes without deploying them.</span></span>
-          </label>
-          {d.target !== '' && d.target !== 'none' && targetsQ.current && !selectedTarget && <p className="error">This target is no longer offered. Choose where the project runs.</p>}
-        </fieldset>
-      </div>
-
       <div className="muted small repository-step-div-6">
         Creating: <strong>{d.name || slug}</strong> at <code>/{slug}</code>
         {origin !== 'empty' ? ' · from existing code' : ''}
@@ -184,10 +146,9 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
       <div className="row mt-3">
         <button className="subtle" onClick={() => act({ type: 'step', step: 2 })} disabled={busy}>← back</button>
         <span className="grow" />
-        <button className="primary repository-step-primary" onClick={() => onCreate({ remote, namespaceId })} disabled={busy || !slug || !originReady(d) || !targetReady}
->{busy ? 'Creating…' : 'Create project'}</button>
+        <button className="primary repository-step-primary" onClick={() => onNext({ remote, namespaceId })} disabled={busy || !slug || !originReady(d)}
+>Next →</button>
       </div>
-      {children}
     </div>
   )
 }

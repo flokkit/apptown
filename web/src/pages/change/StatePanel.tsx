@@ -119,7 +119,7 @@ export function StateRecord({ view }: { view: ChangeView }) {
     {next.sentBack && <p>{next.sentBack.by} sent it back: “{next.sentBack.note}”</p>}
     {next.sentence && <p>{next.sentence}</p>}
     {!!handover?.actions.length && <ul>{handover.actions.map((a, i) => <li key={i}>{a}</li>)}</ul>}
-    {!!handover?.attempts.length && <section><h4>What the agent tried ({handover.attempts.length})</h4><ol>{handover.attempts.map((a, i) => <li key={i}>{a}</li>)}</ol></section>}
+    {!!handover?.attempts.length && <section><h4>What the helper tried ({handover.attempts.length})</h4><ol>{handover.attempts.map((a, i) => <li key={i}>{a}</li>)}</ol></section>}
     {view.mainConflict && <MainConflictLine conflict={view.mainConflict} />}
   </div>
 }

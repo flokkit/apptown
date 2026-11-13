@@ -42,10 +42,10 @@ export function ConversationLog({ changeId, live = false, selectedChat, request,
       {!live && none && (request ? <>
         <div className="bubble-row you"><div className="bubble you conversation-conversation-log-bubble-you">{firstLine(request)} <Link to={`/changes/${changeId}/records/request`}>full request →</Link></div></div>
         {report ? <div className="bubble-row"><div className="bubble"><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(report) }} /></div></div>
-          : rounds.length > 0 && <p className="muted">{rounds.length === 1 ? 'The agent left no messages in this round.' : 'The agent left no messages.'}</p>}
+          : rounds.length > 0 && <p className="muted">{rounds.length === 1 ? 'The helper left no messages in this round.' : 'The helper left no messages.'}</p>}
       </> : <p className="muted">No chat yet.</p>)}
       {earlierRuns.map(id => <RunRounds key={id} id={id} changeId={changeId} />)}
-      {rounds.map((e, i) => <ListRow to={workRecordHref(changeId, e)} className="conversation-record-row" key={e.key} identity={<Link to={workRecordHref(changeId, e)}>Agent round {i + 1} · work record</Link>} />)}
+      {rounds.map((e, i) => <ListRow to={workRecordHref(changeId, e)} className="conversation-record-row" key={e.key} identity={<Link to={workRecordHref(changeId, e)}>Helper round {i + 1} · work record</Link>} />)}
       {live ? sessions?.filter(se => se.ended || se.imported).map(se => <ListRow key={se.id} to={`/changes/${changeId}?tab=conversation&chat=${se.id}`} identity={<><Link to={`/changes/${changeId}?tab=conversation&chat=${se.id}`}>{chatOpening(se)}</Link> · {chatByline(se)}</>} />) : sessions?.map((se) => (
         <div key={se.id} className="conversation-div">
           <div className="muted small conversation-div-2">{chatByline(se)}</div>
@@ -61,7 +61,7 @@ function RunRounds({ id, changeId }: { id: string; changeId: string }) {
   const q = useGet<RunTrace>(`/runs/${id}/trace`)
   const t = q.data
   const d: RunDetail | undefined = t?.run ? { checks: t.checks, run: t.run, steps: t.steps.filter(Boolean) as RunDetail['steps'], events: t.events as RunDetail['events'], artifacts: t.artifacts, stages: t.stages, next: [], landingMeans: [] } : undefined
-  return <><ReadStatus q={q} what="agent rounds" /><StaleNote q={q} />{d && runStory(d).filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-')).map(e => <ListRow to={workRecordHref(changeId, e)} className="conversation-record-row" key={e.key} identity={<Link to={workRecordHref(changeId, e)}>Run {d.run.number} · {e.step?.name || 'work'} · {fmtWhen(e.at)} · work record</Link>} />)}</>
+  return <><ReadStatus q={q} what="helper rounds" /><StaleNote q={q} />{d && runStory(d).filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-')).map(e => <ListRow to={workRecordHref(changeId, e)} className="conversation-record-row" key={e.key} identity={<Link to={workRecordHref(changeId, e)}>Run {d.run.number} · {e.step?.name || 'work'} · {fmtWhen(e.at)} · work record</Link>} />)}</>
 }
 
 // Who opened a chat and when; a chat moved from another AppTown says so.

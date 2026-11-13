@@ -292,6 +292,7 @@ export type ChangePreview = {
 }
 
 export type ChangeRelease = {
+  commitSha?: string
   stage?: DeployStage
   lastStage?: DeployStage
   failedStage?: DeployStage
@@ -510,6 +511,9 @@ export type CreationTarget = {
   description: string
   default: boolean
   reason: string
+  audiences: string[]
+  data: string[]
+  attributeFix: boolean
 }
 
 export type DashboardView = {
@@ -1526,6 +1530,8 @@ export type ProjectDraft = {
   icon: string
   group: string
   target?: string
+  audience?: string
+  data?: string
   packs?: string[]
 }
 
@@ -3245,6 +3251,8 @@ export type Delegation = {
 
 export type Departure = {
   releaseNumber?: number
+  commitSha?: string
+  changes: ReleaseChangeTitle[]
   reason?: string
   at: string
   slug: string

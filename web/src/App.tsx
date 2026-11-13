@@ -132,8 +132,8 @@ export function SidebarNav() {
       <NavLink to="/" end className={cls}><House aria-hidden size={16} />Home</NavLink>
       <NavLink to="/projects" end className={cls}><FolderKanban aria-hidden size={16} />Projects</NavLink>
       <Drawer label="Deployments" icon={<Rocket aria-hidden size={16} />} to="/deployments" active={dep} items={[
-        { to: '/releases', label: 'Releases', active: pathname === '/releases' },
-        { to: '/deployments', label: 'Deployments', active: pathname === '/deployments' },
+        { to: '/releases', label: 'All releases', active: pathname === '/releases' },
+        { to: '/deployments', label: 'All deployments', active: pathname === '/deployments' },
         ...(infra ? [
           { to: '/targets', label: 'Targets', active: pathname.startsWith('/targets') },
           ...(feature('backups') ? [{ to: '/backups', label: 'Backups', active: pathname === '/backups' }] : []),

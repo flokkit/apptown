@@ -36,7 +36,7 @@ func (s *Service) creationContracts(packs []string) ([]*appcontract.Contract, er
 }
 
 // CreationTargets resolves offers for the creator's owning group, before a project exists.
-func (s *Service) CreationTargets(ctx context.Context, packs []string) ([]deployment.CreationTarget, error) {
+func (s *Service) CreationTargets(ctx context.Context, packs []string, audience, data string) ([]deployment.CreationTarget, error) {
 	caller, ok := access.CallerFrom(ctx)
 	if !ok || !caller.Verified {
 		return nil, access.ErrPrincipalRequired
@@ -57,7 +57,7 @@ func (s *Service) CreationTargets(ctx context.Context, packs []string) ([]deploy
 	if err != nil {
 		return nil, err
 	}
-	choices, err := s.deployments.CreationTargets(ctx, group, contracts)
+	choices, err := s.deployments.CreationTargets(ctx, group, contracts, audience, data)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func (s *Service) requireCreationFeature(ctx context.Context, in Draft) error {
 	if err != nil {
 		return err
 	}
-	choices, err := s.deployments.CreationTargets(ctx, group, nil)
+	choices, err := s.deployments.CreationTargets(ctx, group, nil, in.Audience, in.DataClass)
 	if err != nil {
 		return err
 	}

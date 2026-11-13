@@ -122,9 +122,14 @@ export const TAB_ROUTES = [
 export type Breadcrumb = { to: string; label: string }
 // A grouping only appears when it is itself a page. Routes such as
 // /docs/guides/:slug have no /docs/guides page to link to.
-export function routeAncestors(pathname: string, names: Record<string, string> = {}, search = ''): Breadcrumb[] {
+export function routeAncestors(pathname: string, names: Record<string, string> = {}, search = '', project?: { slug: string; name: string }): Breadcrumb[] {
   const parts = pathname.split('/').filter(Boolean)
   const paths = ['/']
+  if (project && /^\/(changes|adrs|operations)\//.test(pathname)) {
+    paths.push('/projects', `/projects/${project.slug}`)
+    if (parts[0] === 'changes') paths.push(`/projects/${project.slug}/changes`)
+    names = { ...names, [`/projects/${project.slug}`]: project.name }
+  }
   for (let n = 1; n < parts.length; n++) {
     const path = '/' + parts.slice(0, n).join('/')
     // Release records are read under the project, but it has no releases

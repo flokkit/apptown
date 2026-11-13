@@ -117,10 +117,10 @@ function DeploymentSection({ env, slug, declared, onEdit, onUnbind, canReveal, c
               {env.name === 'preview' && s.bound && (
                 <div className="secret-agent-access small">
                   {s.agentEligible ? <>
-                    <label><Switch label={`${s.name}: agents working on changes can see this`} checked={s.agentVisible} disabled={!canBind} onChange={checked => onAgentVisible(s.name, checked)} /> Agents working on changes can see this</label>
-                    {s.agentVisible && <><div>agents can see this</div><p className="muted">{agentWarning}</p></>}
+                    <label><Switch label={`${s.name}: helpers working on changes can see this`} checked={s.agentVisible} disabled={!canBind} onChange={checked => onAgentVisible(s.name, checked)} /> Helpers working on changes can see this</label>
+                    {s.agentVisible && <><div>helpers can see this</div><p className="muted">{agentWarning}</p></>}
                   </> : <>
-                    <p className="muted">This value is shared with main. Give previews their own value to let agents see it</p>
+                    <p className="muted">This value is shared with main. Give previews their own value to let helpers see it</p>
                     <button className="link" disabled={!canBind} onClick={() => s.generated ? onSeparate(s.name) : onEdit(s.name)}>Give previews their own value</button>
                   </>}
                 </div>
@@ -159,7 +159,7 @@ function Source({ s }: { s: SecretStatus }) {
   return <Status word="failed" help="A required secret is missing. Set or bind this secret before deploying." />
 }
 
-const agentWarning = "Agents working on changes can see this value. Don’t reuse a password from a real deployment."
+const agentWarning = "Helpers working on changes can see this value. Don’t reuse a password from a real deployment."
 
 function BindModal({ slug, env, name, stores, agentVisible, onClose, onDone }: {
   slug: string; env: string; name: string; stores: SecretStore[]; agentVisible: boolean; onClose: () => void; onDone: () => void

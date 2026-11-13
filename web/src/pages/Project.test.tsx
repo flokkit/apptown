@@ -271,7 +271,7 @@ it.each([false, true])('Memory Notes keeps attributed notes and governed actions
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/a/memory/notes']}><Routes><Route path="/projects/:slug/:tab/:stab" element={<Project />} /></Routes></MemoryRouter></QueryClientProvider>))
-    await vi.waitFor(() => expect(el.textContent).toContain('What agents know about this project'))
+    await vi.waitFor(() => expect(el.textContent).toContain('What helpers know about this project'))
     if (present) {
       expect(el.textContent).toContain('Credit photos.')
       expect(el.textContent).toContain('Sam · change 4')

@@ -15,6 +15,7 @@ export function LivePanel({ view, progressCurrent = true }: { view: ChangeView; 
    {!releases.length ? <p>No release requested{view.change.state === 'landing' ? ' yet' : ''}. <Link to={`/projects/${view.projectSlug}/deployments`}>Deployments</Link></p> : releases.map(r => {
     const progress = releaseProgress(r, progressCurrent)
     return <div className="card stack stack-2" key={r.number}>
+     <div className="row row-2"><Link to={`/changes/${view.change.id}`}>#{view.change.number} {view.change.title}</Link>{r.commitSha && <code>{r.commitSha.slice(0, 12)}</code>}</div>
      <div className="row row-2"><Link to={`/projects/${view.projectSlug}/deployments/${r.deployment}`}>{r.deployment}</Link><Status word={r.statusLabel} old={!progressCurrent} />
       {r.url ? r.hostOnly ? <span><Tech>{r.url}</Tech> · {hostOnlyWords(r.url)}</span> : <><span><Tech>{r.url}</Tech></span><a className="btn primary" href={r.url}>Open app</a></> : <span>Address not known yet</span>}
      </div>

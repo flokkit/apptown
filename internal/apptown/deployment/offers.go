@@ -99,7 +99,7 @@ func (o *Offer) permits(t *Target, projectSlug string, attrs Attributes, standin
 		return fmt.Sprintf("%s is offered for audiences %s, not %s", t.Name, strings.Join(o.Caps.Audiences, "/"), attrs.Audience)
 	}
 	if len(o.Caps.Data) > 0 && !contains(o.Caps.Data, attrs.DataClass) {
-		return fmt.Sprintf("%s is offered for %s data, not %s", t.Name, strings.Join(o.Caps.Data, "/"), attrs.DataClass)
+		return fmt.Sprintf("%s is offered for %s data, not %s", t.Name, strings.ReplaceAll(strings.Join(o.Caps.Data, "/"), "synthetic", "test"), strings.ReplaceAll(attrs.DataClass, "synthetic", "test"))
 	}
 	return o.permitsStanding(t, projectSlug, standing)
 }

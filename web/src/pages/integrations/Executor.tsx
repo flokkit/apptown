@@ -30,7 +30,7 @@ export function ExecutorObservation() {
         <dt>Version</dt><dd>{e.version || 'unknown'}{e.versionMismatch && <span className="small"> · differs from {PRODUCT} ({e.appTownVersion})</span>}</dd>
       </dl> : <p>Work runs on {PRODUCT}’s own server.</p>}
       {e.failure && <p>{e.failure}</p>}
-      <p>Change and release previews, checks, test and agent steps, and release builds run here.</p>
+      <p>Change and release previews, checks, test and helper steps, and release builds run here.</p>
       {host ? !capacity.data ? <ReadStatus q={capacity} what={`${host}'s CPU and memory`} /> : <>
         <div className="stack stack-3">{targetCapacityReadings(capacity.refreshFailed ? undefined : capacity.data).filter(r => r.label !== 'DISK').map(r => <CapacityStrip key={r.label} name={r.label} used={r.used} total={r.total} format={r.format} basis={r.basis} />)}</div>
         <p className="muted small">CPU and memory of the Docker host <Link to={`/targets/${encodeURIComponent(host)}`}>{host}</Link>.</p>

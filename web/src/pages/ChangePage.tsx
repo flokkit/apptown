@@ -6,7 +6,7 @@ import { InlineHelp } from '../InlineHelp'
 import { Tabs, revealActiveTab } from '../Tabs'
 import { lazy, Suspense, useEffect } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
-import { setProjectScope } from '../projectScope'
+import { useSetProjectScope } from '../projectScope'
 import { setPageContext } from '../chrome'
 import { ChangeView } from '../api'
 import { useGet } from '../data'
@@ -39,7 +39,7 @@ export default function ChangePage() {
   const tab = changeDefaultTab(rawTab, view)
   const liveChat = view?.change.state === 'in_progress' && !params.has('chat')
 
-  useEffect(() => { if (view) setProjectScope(view.projectSlug) }, [view?.projectSlug]) // eslint-disable-line react-hooks/exhaustive-deps
+  useSetProjectScope(current ? view?.projectSlug : null)
   // The bar's sentence: what you are DOING, not just what you see.
   useEffect(() => {
     if (!view) return

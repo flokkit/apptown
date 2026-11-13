@@ -72,19 +72,19 @@ function SetupCard() {
       )}
       {setup.agentImage === 'building' && (
         <div className="card dashboard-setup-card-card-tone-warn">
-          <Status word={"working"} /> Building the agent image (first run only) · a few
-          minutes; agents queue until it finishes.
+          <Status word={"working"} /> Building the helper image (first run only) · a few
+          minutes; helpers queue until it finishes.
         </div>
       )}
       {setup.agentImage === 'pulling' && (
         <div className="card dashboard-setup-card-card-tone-warn">
-          <Status word={"working"} /> Downloading the agent image (first run only) · a few
-          minutes; agents queue until it finishes.
+          <Status word={"working"} /> Downloading the helper image (first run only) · a few
+          minutes; helpers queue until it finishes.
         </div>
       )}
       {(setup.agentImage === 'failed' || setup.agentImage === 'missing') && (
         <div className="card tone-bad dashboard-setup-card-card-tone-warn">
-          ✗ The agent image is not available: {setup.agentImageError || 'unknown reason'}
+          ✗ The helper image is not available: {setup.agentImageError || 'unknown reason'}
         </div>
       )}
     </>

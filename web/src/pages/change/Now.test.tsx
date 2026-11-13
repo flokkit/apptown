@@ -49,7 +49,7 @@ it('names work, keeps later stages out, and distinguishes pending deployment fro
  v.detail!.steps = [step('agent', 'agent/pi', 'pass'), step('build', 'build', 'pending'), { ...step('future', 'tests', 'pending'), stage: 'later' }]
  const text = html(v)
  expect(text).toContain('Work — step 2 of 2')
- expect(text).toContain('Agent finished')
+ expect(text).toContain('Helper finished')
  expect(text).toContain('waiting for a free slot')
  expect(text).not.toContain('future')
  v.detail!.steps[1].status = 'pass'

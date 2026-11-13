@@ -52,7 +52,8 @@ type Draft struct {
 	ID                                               ids.ID
 	Slug, Name, Namespace, Blurb, Icon, Group, Actor string
 	// Target is main's deployment target: empty for the default, none to deploy nothing.
-	Target string
+	Target              string
+	Audience, DataClass string
 	// Packs are the packs the caller will apply next, when it names any.
 	// They are not applied here; Create refuses one the instance does not
 	// offer, or packs that cannot be taken together, before making
@@ -72,7 +73,7 @@ type publisher interface {
 }
 type initialDeployment interface {
 	InitializeProjectIn(context.Context, *database.Tx, ids.ID, deployment.CreationPlacement) error
-	CreationTargets(context.Context, string, []*appcontract.Contract) ([]deployment.CreationTarget, error)
+	CreationTargets(context.Context, string, []*appcontract.Contract, string, string) ([]deployment.CreationTarget, error)
 }
 
 type Dependencies struct {
@@ -231,7 +232,7 @@ func (s *Service) createIn(ctx context.Context, tx *database.Tx, in Draft, group
 		if err != nil {
 			return out, err
 		}
-		if err := s.deployments.InitializeProjectIn(ctx, tx, id, deployment.CreationPlacement{Target: in.Target, Contracts: contracts}); err != nil {
+		if err := s.deployments.InitializeProjectIn(ctx, tx, id, deployment.CreationPlacement{Target: in.Target, Contracts: contracts, Audience: in.Audience, DataClass: in.DataClass}); err != nil {
 			return out, err
 		}
 	}

@@ -15,8 +15,8 @@ export function ProjectNotes({ slug, notes, writable }: { slug: string; notes: P
     const result = await run(() => post<CatalogApplied>(`/catalog-apply/${name}`, { project: slug, params }))
     if (result) nav(`/changes/${result.change.id}`)
   }
-  return <section className="card" aria-label="What agents know about this project">
-    <h2>What agents know about this project</h2>
+  return <section className="card" aria-label="What helpers know about this project">
+    <h2>What helpers know about this project</h2>
     {notes.error ? <p className="error">{notes.error}</p> : <>
       {notes.notes.length === 0 ? <p>No notes yet</p> : <ul>{notes.notes.map((note, i) => <li key={`${note.line}-${i}`}>
         <p>{note.text} <span className="muted">({note.author} · {note.changeId ? <Link to={`/changes/${note.changeId}`}>change {note.change}</Link> : `change ${note.change}`})</span></p>

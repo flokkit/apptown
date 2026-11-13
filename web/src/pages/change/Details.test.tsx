@@ -68,11 +68,11 @@ it('keeps the earlier rounds evidence, log and sender beside that round', () => 
   d.artifacts = [{ id: 'old-log', name: 'step-agent', kind: 'agent-log', createdAt: '2026-11-01T09:01:00Z' }, { id: 'new-log', name: 'step-agent', kind: 'agent-log', createdAt: '2026-11-01T10:01:00Z' }] as RunDetail['artifacts']
   const entries = runStory(d)
   expect(entries).toHaveLength(2)
-  expect(entries[0].text).toBe('Agent worked, 1 min · 2 files changed · Sent back by priya: “Keep the invitation.”')
+  expect(entries[0].text).toBe('Helper worked, 1 min · 2 files changed · Sent back by priya: “Keep the invitation.”')
   expect(entries.map(e => e.session)).toEqual(['first-session', 'second-session'])
   expect(entries.map(e => e.records.map(a => a.id))).toEqual([['old-log'], ['new-log']])
   expect(entries[0].current).toBe(false)
-  expect(entries[1].text).toBe('Agent worked, 2 min · 1 file changed')
+  expect(entries[1].text).toBe('Helper worked, 2 min · 1 file changed')
 })
 
 it('reads earlier and called work into the same chronological timeline and puts releases after landing', async () => {
@@ -112,7 +112,7 @@ it('keeps a finished round intact while its replacement is queued', () => {
   ]
   const entries = runStory(d)
   expect(entries).toHaveLength(1)
-  expect(entries[0].text).toBe('Agent worked, 1 min · 1 file changed')
+  expect(entries[0].text).toBe('Helper worked, 1 min · 1 file changed')
   expect(entries[0].actionStep?.status).toBe('pending')
   expect(entries[0].current).toBe(false)
 })
@@ -212,7 +212,7 @@ it('moves agent records to its own session page', async () => {
   const v = view()
   v.detail!.artifacts = [
     { id: 'one', name: 'Agent notes', kind: 'report', body: 'Recorded notes.', createdAt: '2026-11-01T10:00:00Z' },
-    { id: 'two', name: 'Agent instructions', kind: 'steering', body: 'Keep the invitation.', createdAt: '2026-11-01T10:00:00Z' },
+    { id: 'two', name: 'Helper instructions', kind: 'steering', body: 'Keep the invitation.', createdAt: '2026-11-01T10:00:00Z' },
   ] as RunDetail['artifacts']
   const f = await mount(v)
   expect(f.el.querySelector('table[aria-label="Records"]')).toBeNull()
@@ -265,7 +265,7 @@ it('places advance acceptance at its recorded time inside the work phase', async
   const v = view(); v.evidence.inAdvance = { approver: 'sam', principal: null, workflow: 'make-it', at: '2026-11-01T09:30:00Z', shown: ['Accepted before checking.'] }
   const f = await mount(v)
   const labels = [...f.el.querySelectorAll('.ch-phase .ch-event-label')].map(e => e.textContent)
-  expect(labels.slice(0, 3)).toEqual(['Asked', 'Approval', 'Agent worked'])
+  expect(labels.slice(0, 3)).toEqual(['Asked', 'Approval', 'Helper worked'])
   const times = [...f.el.querySelectorAll('.ch-detail-row > time')].map(e => e.getAttribute('datetime')!)
   expect(times).toEqual([...times].sort())
   f.close()

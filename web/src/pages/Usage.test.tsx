@@ -177,7 +177,7 @@ describe('where the time goes', () => {
       expect(rows[1]).toContain('· spend unknown')
       expect(rows[2]).toContain('· $0.02')
       expect(rows[2]).not.toContain('at least')
-      expect(el.textContent).toContain('at least $0.05 in agent time')
+      expect(el.textContent).toContain('at least $0.05 in helper time')
     } finally {
       act(() => root.unmount())
       client.clear()

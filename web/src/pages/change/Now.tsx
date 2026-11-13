@@ -40,7 +40,7 @@ function StepFact({ step: s, queued }: { step: Step; queued: boolean }) {
   const fact = queued ? 'waiting for a free slot' : standards ? line || s.name.replace(/[-_]/g, ' ')
     : s.type === 'approval' ? s.evidence.approver || approversOf(s)
     : s.type === 'build' ? live.data?.lines?.at(-1)?.slice(0, 180) || s.evidence.reason || (s.status === 'running' ? 'Building the accepted work' : s.status === 'pending' ? 'Waiting to build' : s.status === 'pass' ? 'Accepted work built' : 'Build stopped')
-    : s.type === 'agent/pi' ? s.status === 'running' ? 'Agent working' : s.status === 'pending' ? 'Waiting to start' : s.evidence.reason || 'Agent finished'
+    : s.type === 'agent/pi' ? s.status === 'running' ? 'Helper working' : s.status === 'pending' ? 'Waiting to start' : s.evidence.reason || 'Helper finished'
     : checks.has(s.type) ? s.status === 'not_applicable' ? `Not applicable: ${(s.type === 'scan' && s.evidence.notApplicable) || s.evidence.reason || 'No applicable check'}` : s.status === 'skipped' ? `Skipped: ${s.evidence.reason || 'Not run'}` : s.type === 'tests' && s.status === 'pass' ? testsNote(s.evidence).note : '' : s.evidence.reason
   return <span className="ch-now-fact">{fact}{standards && position && <ProgressBar label="Standards check" value={completed} total={total} />}<StaleNote q={live} />{live.err && <span className="error">Progress could not be read: {live.err}</span>}</span>
 }

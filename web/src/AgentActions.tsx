@@ -29,8 +29,8 @@ export function useAgentActions(): [boolean, (shown: boolean) => void] {
 
 export function AgentActionsSwitch({ shown, onChange }: { shown: boolean; onChange: (shown: boolean) => void }) {
   return <label className="agent-actions-switch small muted">
-    <Switch label="Show agent actions" checked={shown} onChange={onChange} />
-    Show agent actions
+    <Switch label="Show helper actions" checked={shown} onChange={onChange} />
+    Show helper actions
   </label>
 }
 

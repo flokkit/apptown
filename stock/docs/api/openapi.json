@@ -2213,6 +2213,21 @@
           "area": {
             "type": "string"
           },
+          "attributeFix": {
+            "type": "boolean"
+          },
+          "audiences": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "default": {
             "type": "boolean"
           },
@@ -2235,7 +2250,10 @@
           "label",
           "description",
           "default",
-          "reason"
+          "reason",
+          "audiences",
+          "data",
+          "attributeFix"
         ],
         "type": "object"
       },
@@ -5076,10 +5094,16 @@
       },
       "ProjectDraft": {
         "properties": {
+          "audience": {
+            "type": "string"
+          },
           "automaticAddress": {
             "type": "boolean"
           },
           "blurb": {
+            "type": "string"
+          },
+          "data": {
             "type": "string"
           },
           "group": {
@@ -8102,6 +8126,9 @@
       },
       "changeRelease": {
         "properties": {
+          "commitSha": {
+            "type": "string"
+          },
           "deployment": {
             "type": "string"
           },
@@ -14464,6 +14491,20 @@
           {
             "in": "query",
             "name": "packs",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "audience",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "data",
             "schema": {
               "type": "string"
             }

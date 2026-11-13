@@ -79,11 +79,11 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
         <Link to="/complaints/archive" className={`tab${tab === 'archived' ? ' active' : ''}`}>Archived{archived.length > 0 && <span className="section-count"> {archived.length}</span>}</Link>
       </Tabs>
       <Section title={tab === 'archived' ? 'Archived' : tab === 'answered' ? 'Answered' : 'New'} count={shown.length}
-        note={`Agents file these when ${PRODUCT} gets in their way. Filing one does not start any work.`}
+        note={`Helpers file these when ${PRODUCT} gets in their way. Filing one does not start any work.`}
         action={<button className="link" onClick={toggleSteering}>{showSteering ? 'Hide instructions' : 'Instructions for reporting problems'}</button>}>
       {showSteering && (
         <div className="card complaint-steering">
-          {!steering && <ReadStatus q={steeringQ} what="the instructions agents are given" />}
+          {!steering && <ReadStatus q={steeringQ} what="the instructions helpers are given" />}
           {steering && (
             <>
               <p className="muted small mt-0" >{steering.note}</p>
@@ -98,7 +98,7 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
       {shown.length === 0 && (
         tab === 'archived' ? <p className="muted">Nothing archived. Archived complaints are deleted after ninety days.</p>
         : tab === 'answered' ? <p className="muted">Nothing answered and waiting to be read. Answers stay here until someone archives them.</p>
-        : <p className="muted">{rows.length === 0 ? 'No complaints. Agents have not reported a problem.' : 'No new complaints.'}</p>)}
+        : <p className="muted">{rows.length === 0 ? 'No complaints. Helpers have not reported a problem.' : 'No new complaints.'}</p>)}
       {shown.slice(0, limit).map((c) => (
         <div key={c.id} className={`card complaint${c.seen ? '' : ' complaint-unread'}`}>
           <div className="row">

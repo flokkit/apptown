@@ -97,7 +97,7 @@ describe('pages about the whole AppTown', () => {
     expect(links()).toEqual(['Home', 'Projects', 'Deployments', 'Features', 'Ways of working', 'Usage', 'Docs'])
     // Inside the Deployments drawer, a member sees only their own pages.
     await act(async () => { (el.querySelector('button[aria-label="Open Deployments"]') as HTMLButtonElement).click() })
-    expect(links().slice(2, 5)).toEqual(['Deployments', 'Releases', 'Deployments'])
+    expect(links().slice(2, 5)).toEqual(['Deployments', 'All releases', 'All deployments'])
     expect(links()).not.toContain('Targets')
     expect(links()).not.toContain('Backups')
     unmount()

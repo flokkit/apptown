@@ -143,3 +143,42 @@ it('opens the change Conversation with actions and starts the first build once a
   }
  } finally { vi.unstubAllGlobals(); localStorage.clear(); sessionStorage.clear() }
 })
+
+it('uses only the current change read for scope across projects, failed reads and identity changes', async () => {
+ const { useSetProjectScope, useProjectScope } = await import('../projectScope')
+ const { identityChanged } = await import('../data')
+ const { useNavigate } = await import('react-router-dom')
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ let deliver: ((r: Response) => void) | undefined
+ vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
+  if (url.endsWith('/changes/A')) return new Response(JSON.stringify({ ...view('shipped'), change: { id: 'A', state: 'shipped', title: 'First', number: 1 }, projectSlug: 'first', runs: [], goesTo: { branch: 'main', deployments: [] } }))
+  if (url.endsWith('/changes/B')) return new Promise<Response>(resolve => { deliver = resolve })
+  return new Response('{}', { status: 404 })
+ })))
+ const observed: (string | null)[] = []
+ function Scope() { const scope = useProjectScope(); observed.push(scope); return <output>{scope ?? 'no project'}</output> }
+ function Project() { useSetProjectScope('earlier'); return <p>Earlier project</p> }
+ function Navigation() { const nav = useNavigate(); return <><button onClick={() => nav('/changes/A?tab=overview')}>A</button><button onClick={() => nav('/changes/B?tab=overview')}>B</button></> }
+ await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/earlier']}><Scope /><Navigation /><Routes><Route path="/projects/:slug" element={<Project />} /><Route path="/changes/:id" element={<ChangePage />} /></Routes></MemoryRouter></QueryClientProvider>))
+ try {
+  expect(el.querySelector('output')?.textContent).toBe('earlier')
+  observed.length = 0
+  await act(async () => (el.querySelectorAll('button')[0] as HTMLButtonElement).click())
+  await act(async () => { await new Promise(r => setTimeout(r, 10)) })
+  expect(observed).not.toContain('earlier')
+  expect(el.querySelector('output')?.textContent).toBe('first')
+  observed.length = 0
+  await act(async () => (el.querySelectorAll('button')[1] as HTMLButtonElement).click())
+  expect(observed).not.toContain('first')
+  expect(el.querySelector('output')?.textContent).toBe('no project')
+  await act(async () => deliver!(new Response(JSON.stringify({ error: 'Cannot read change' }), { status: 403 })))
+  expect(el.querySelector('output')?.textContent).toBe('no project')
+  await act(async () => (el.querySelectorAll('button')[0] as HTMLButtonElement).click())
+  await act(async () => { await new Promise(r => setTimeout(r, 10)) })
+  expect(el.querySelector('output')?.textContent).toBe('first')
+  // End this identity while its replacement read is pending.
+  vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})))
+  await act(async () => identityChanged(client))
+  expect(el.querySelector('output')?.textContent).toBe('no project')
+ } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

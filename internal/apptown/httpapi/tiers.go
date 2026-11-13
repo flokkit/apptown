@@ -199,6 +199,16 @@ func (h Tiers) Departures(w http.ResponseWriter, r *http.Request) {
 		}
 		d := Departure{At: r.At(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, Who: r.ApprovedBy, State: r.State.DepartureLabel(),
 			Tier: labels[r.Deployment] + " deployment", Label: fmt.Sprintf("release #%d", r.Number), ReleaseNumber: r.Number}
+		d.CommitSHA = r.CommitSHA
+		changes, err := h.work.ReleaseChanges(ctx, p.ID, []ids.ID{r.ID})
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		d.Changes = []ReleaseChangeTitle{}
+		for _, c := range changes[r.ID] {
+			d.Changes = append(d.Changes, ReleaseChangeTitle{Number: c.Number, ID: c.ID, Title: c.Title})
+		}
 		if r.State == deployment.ReleaseFailed {
 			d.Reason = r.Failure
 		}
@@ -276,12 +286,14 @@ type Departures struct {
 
 // Departure is one arrival on a tier.
 type Departure struct {
-	ReleaseNumber int64  `json:"releaseNumber,omitempty"`
-	Reason        string `json:"reason,omitempty"`
-	At            string `json:"at"`
-	Slug          string `json:"slug"`
-	Name          string `json:"name"`
-	Icon          string `json:"icon,omitempty"`
+	ReleaseNumber int64                `json:"releaseNumber,omitempty"`
+	CommitSHA     string               `json:"commitSha,omitempty"`
+	Changes       []ReleaseChangeTitle `json:"changes"`
+	Reason        string               `json:"reason,omitempty"`
+	At            string               `json:"at"`
+	Slug          string               `json:"slug"`
+	Name          string               `json:"name"`
+	Icon          string               `json:"icon,omitempty"`
 	// Tier is where it went: the deployment's name with its kind ("main
 	// deployment", "intranet deployment"), or "preview".
 	Tier  string                    `json:"tier"`

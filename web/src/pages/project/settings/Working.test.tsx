@@ -17,6 +17,7 @@ const path = '/projects/demo/guidance'
 // Everything the tab reads besides the project's guidance, in the shapes the
 // server sends when a project has adopted nothing.
 function otherReads(url: string): Response {
+  if (url.endsWith('/manifest')) return new Response(JSON.stringify({ repo: { backed: false }, packs: [], workflows: [], guidance: [], guidanceHash: '', policies: [], bindings: [] }))
   if (url.endsWith('/adoption')) return new Response(JSON.stringify({ packs: [], additions: [], exclusions: [], conditions: [] }))
   if (url.endsWith('/guidance/blocks')) return new Response(JSON.stringify([{ id: '00000000-0003-7000-8000-000000000000', name: 'plain-words', tags: '', latestVersion: 1, origin: 'stock', createdAt: '', updatedAt: '', bytes: 10 }]))
   if (url.endsWith('/lanes')) return new Response(JSON.stringify({ lanes: [], system: [] }))
@@ -48,7 +49,7 @@ describe("a project's way of working", () => {
     const { el, unmount } = mount(client)
     try {
       await vi.waitFor(() => expect(el.textContent).toContain('This project uses: django · postgres'))
-      expect(el.textContent).toContain('2 instructions its coding agents follow')
+      expect(el.textContent).toContain('2 instructions its coding helpers follow')
       // Every workflow the project can run, not only the ones once ticked.
       expect(el.textContent).toContain('quick-change, research')
       expect(el.querySelector('input[type=checkbox]')).toBeNull()
@@ -79,4 +80,16 @@ describe("a project's way of working", () => {
       client.clear()
     }
   })
+})
+
+it('keeps an unreadable manifest distinct from an empty setup', async () => {
+  const { SetupFacts } = await import('./SetupFacts')
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'Setup is unavailable' }), { status: 403 })))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><SetupFacts slug="demo" /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.textContent).toContain('Not available to you: project setup.'))
+    expect(el.textContent).not.toContain('No packs')
+    expect(el.querySelector('dl')).toBeNull()
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

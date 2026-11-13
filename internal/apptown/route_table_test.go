@@ -456,7 +456,7 @@ var cliOperations = map[string]described{
 	"GET /api/v1/projects/{slug}/targets":                           {status: 200, response: httpapi.ProjectTargets{}},
 	"GET /api/v1/projects/{slug}/release/plan":                      {status: 200, response: httpapi.ReleasePlan{}},
 	"GET /api/v1/projects":                                          {status: 200, response: []httpapi.ProjectRow{}, also: httpapi.ProjectPage{}, alsoWhen: "with limit, offset or q"},
-	"GET /api/v1/project-creation-targets":                          {query: []string{"packs"}, status: 200, response: []deployment.CreationTarget{}},
+	"GET /api/v1/project-creation-targets":                          {query: []string{"packs", "audience", "data"}, status: 200, response: []deployment.CreationTarget{}},
 	"POST /api/v1/projects":                                         {request: httpapi.ProjectDraft{}, status: 201, response: project.Project{}},
 	"POST /api/v1/projects/{slug}/repo":                             {request: httpapi.RepositoryStart{}, status: 200, response: project.Project{}},
 	"POST /api/v1/projects/{slug}/repo/from-url":                    {request: httpapi.RepositoryFromURL{}, status: 200, response: project.Project{}},

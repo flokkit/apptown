@@ -1,3 +1,4 @@
+import { clearProjectScope } from './projectScope'
 import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
 import { CancelledError, QueryCache, QueryClient, onlineManager, useMutation, useQuery, useQueryClient, type Query, type QueryKey } from '@tanstack/react-query'
 import { HttpError, get, getText, writeListeners } from './api'
@@ -74,6 +75,7 @@ const isAuth = (key: QueryKey) => key.length === authKey.length && key.every((k,
 let identityEpoch = 0
 export function identityChanged(client: QueryClient) {
   identityEpoch++
+  clearProjectScope()
   const others = { predicate: (q: Query) => !isAuth(q.queryKey) }
   void client.cancelQueries(others)
   void client.resetQueries(others)

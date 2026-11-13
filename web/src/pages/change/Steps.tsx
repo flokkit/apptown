@@ -364,9 +364,9 @@ export function LiveFeed({ stepId, label }: { stepId: string; label?: string }) 
 
   return (
     <section className="mt-2">
-      <h4>Agent activity</h4>
+      <h4>Helper activity</h4>
       <div className="muted small">
-        {label ?? 'agent working'}… {Math.round(elapsed / 1000)}s{total > 0 ? ` · ${total} line${total === 1 ? '' : 's'}` : ''}
+        {label ?? 'helper working'}… {Math.round(elapsed / 1000)}s{total > 0 ? ` · ${total} line${total === 1 ? '' : 's'}` : ''}
       </div>
       {lines.length > 0 && (
         <pre className="log step-live-log"  ref={(el) => { if (el) el.scrollTop = el.scrollHeight }}>

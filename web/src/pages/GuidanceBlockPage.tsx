@@ -76,7 +76,7 @@ export default function GuidanceBlockPage() {
             <input aria-label="Tags" value={tags} onChange={(e) => setTags(e.target.value)} />
           </div>
           <textarea aria-label="Guidance" rows={16} value={body} onChange={(e) => setBody(e.target.value)}
-            placeholder="One convention, stated plainly. Agents receive this text exactly as written." />
+            placeholder="One convention, stated plainly. Helpers receive this text exactly as written." />
           <div className="row mt-2" >
             <button className="primary" disabled={busy} onClick={() => void save()}>Save as v{block.latestVersion + 1}</button>
             <button onClick={() => { setEditing(false); load() }}>Cancel</button>

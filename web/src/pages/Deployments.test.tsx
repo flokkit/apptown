@@ -22,6 +22,7 @@ it('lists every deployment separately by display name, including stopped copies,
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><Deployments /></MemoryRouter></QueryClientProvider>))
     await vi.waitFor(() => expect(el.querySelectorAll('tbody tr')).toHaveLength(3))
+    expect(el.querySelector('h1')?.textContent).toBe('All deployments')
     expect([...el.querySelectorAll('thead th')].map(th => th.textContent)).toEqual(['Project', 'Deployment', 'Target', 'Status', 'Resources', 'Last backup', ''])
     expect(el.textContent).toContain('East office')
     expect(el.textContent).toContain('West office')
@@ -48,13 +49,16 @@ it('lists every deployment separately by display name, including stopped copies,
 
 it('lists releases waiting for approval with their own dates and deployment names', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ departures: [
-    { releaseNumber: 7, at: '2026-11-04T07:41:00Z', slug: 'ledger', name: 'Ledger', tier: 'East office deployment', state: 'waiting for approval' },
+    { releaseNumber: 7, at: '2026-11-04T07:41:00Z', slug: 'ledger', name: 'Ledger', tier: 'East office deployment', state: 'waiting for approval', changes: [{ id: 'fix', number: 3, title: 'Keep the date' }], commitSha: 'abc123def4567890' },
   ] }))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><Deployments page="releases" /></MemoryRouter></QueryClientProvider>))
     await vi.waitFor(() => expect(el.querySelector('tbody tr')).not.toBeNull())
     const cells = [...el.querySelectorAll('tbody tr td')].map(td => td.textContent)
+    expect(el.querySelector('h1')?.textContent).toBe('All releases')
+    expect(cells[0]).toBe('#3 Keep the dateabc123def456')
+    expect(cells.indexOf('East office')).toBeLessThan(cells.indexOf('#7'))
     expect(cells).toContain('#7')
     expect(cells).toContain('East office')
     expect(el.textContent).toContain('waiting for approval')

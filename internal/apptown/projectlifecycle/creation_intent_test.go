@@ -37,3 +37,18 @@ func TestCreationIntentBindsDeploymentTarget(t *testing.T) {
 		hashes[hash] = true
 	}
 }
+
+func TestCreationIntentBindsClassification(t *testing.T) {
+	t.Parallel()
+	seen := map[string]bool{}
+	for _, draft := range []Draft{{Audience: "team", DataClass: "synthetic"}, {Audience: "public", DataClass: "synthetic"}, {Audience: "team", DataClass: "production"}} {
+		hash, err := creationHash(draft, "team")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if seen[hash] {
+			t.Fatal("different classification reused the creation intent")
+		}
+		seen[hash] = true
+	}
+}

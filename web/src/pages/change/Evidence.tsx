@@ -397,7 +397,7 @@ export function checkPurpose(s: Step): string | undefined {
       if (title === 'Licence scan') return 'Checks that the licences of the software the app uses are allowed.'
       return 'Lists the software the app is built from and looks for known security problems in it.'
     case 'guidance/conformance': return 'Checks the change against the project’s written rules.'
-    case 'agent/review': return 'A second agent reads the change and judges whether it does what was asked.'
+    case 'agent/review': return 'A second helper reads the change and judges whether it does what was asked.'
     case 'preview': return 'Starts the app the way it will run, so it can be tried.'
     case 'scm/merged': return 'Confirms the change merged into the main version.'
     case 'script': return undefined

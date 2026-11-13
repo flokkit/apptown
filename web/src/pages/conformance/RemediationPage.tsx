@@ -72,7 +72,7 @@ export function RemediationPage({ id }: { id: string }) {
                   </span>
                   } action={<span className="row remediation-page-span">
                     {it.state === 'stuck' && <QuietPrompt label="Retry" yes="Retry" disabled={busy}
-                      ask={`Retry ${it.check} on ${slug}. Add a note for the agent if needed.`}
+                      ask={`Retry ${it.check} on ${slug}. Add a note for the helper if needed.`}
                       fields={[{ key: 'note', label: 'Retry note (optional)', placeholder: 'Note (optional)' }]}
                       onYes={({ note }) => record(`/conformance/remediations/${m.id}/items/${it.id}/retry`, { note })} />}
                     {(it.state === 'stuck' || it.state === 'queued') && <QuietPrompt label="Skip" yes="Skip" disabled={busy}
