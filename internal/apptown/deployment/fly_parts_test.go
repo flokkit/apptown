@@ -137,8 +137,9 @@ func TestFlyDeploymentDiagnosesEachPartFromItsObservation(t *testing.T) {
 // A Fly deployment's use is its Machines' use from Fly's metrics, against
 // the size each runs on, through the stored Resources reading. When the
 // metrics stop answering, the stored reading says so and no earlier use is
-// shown as current. Kills: the Fly branch in observedMemory, the reading's
-// failure ignored for a Fly deployment.
+// shown as current, nor carried beside known:false. Kills: the Fly branch in
+// observedMemory, the reading's failure ignored for a Fly deployment, the
+// earlier reading's numbers kept on an unknown part.
 func TestFlyDeploymentResourcesReportUse(t *testing.T) {
 	t.Parallel()
 	p, app, web, pg := flyDeployment(t)
@@ -183,6 +184,10 @@ func TestFlyDeploymentResourcesReportUse(t *testing.T) {
 	for _, part := range r.Parts {
 		if part.Observed.Known || !strings.Contains(part.Observed.Reason, "Fly's metrics did not answer") {
 			t.Errorf("%s reads %+v after the metrics stopped answering, want unknown with why", part.Part, part.Observed)
+		}
+		// Unknown carries no earlier reading's numbers or image.
+		if o := part.Observed; o.UsedBytes != 0 || o.CPUCores != 0 || o.LimitBytes != 0 || o.Image != "" {
+			t.Errorf("%s's unknown use still carries the earlier reading %+v", part.Part, o)
 		}
 	}
 

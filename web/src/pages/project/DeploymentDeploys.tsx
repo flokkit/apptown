@@ -109,8 +109,14 @@ const settledRelease = (r: ReleaseListed, now = Date.now()) =>
   ['released', 'failed', 'cancelled', 'superseded'].includes(r.state) && !r.progressUncertain &&
   now - Date.parse(r.releasedAt || r.stageEnteredAt || r.createdAt) > sceneAfterMs
 
+// deployTook is how long the deploy itself took: from the moment it could
+// start to live. A release that waited for a person starts when it was
+// approved, not when it was cut; the wait is the approval's, not the deploy's.
+const deployTook = (r: ReleaseListed) =>
+  r.releasedAt ? Date.parse(r.releasedAt) - Date.parse(r.approval?.at || r.createdAt) : undefined
+
 function LatestDeployLine({ slug, release: r }: { slug: string; release: ReleaseListed }) {
-  const duration = r.releasedAt ? Date.parse(r.releasedAt) - Date.parse(r.createdAt) : undefined
+  const duration = deployTook(r)
   return <section className="deployment-latest-line" aria-label="Latest deploy">
     <span>Latest deploy: <Link to={`/projects/${slug}/releases/${r.number}`}>release {r.number}</Link> <Status word={r.statusLabel || (r.state === 'released' ? 'deployed' : r.state === 'failed' ? 'failed' : 'stopped')} />{r.failedStage && <> while {deployWords[r.failedStage]}</>} <span className="muted">{fmtStamp(r.releasedAt || r.createdAt)}{duration != null && duration >= 0 && r.state === 'released' ? ` · took ${fmtDuration(duration / 1000)}` : ''}</span></span>
     {r.failure && <span className="deployment-latest-failure">{r.failure}</span>}
@@ -122,7 +128,7 @@ function LatestDeployLine({ slug, release: r }: { slug: string; release: Release
 function ReleaseDeploy({ slug, release: r, url, current, progressCurrent, stopped }: { slug: string; release: ReleaseListed; url?: string; current: boolean; progressCurrent: boolean; stopped?: boolean }) {
   const ready = stopped && r.state === 'released'
   const { uncertain, running, passed, outcome } = releaseProgress(r, progressCurrent, stopped)
-  const duration = r.releasedAt ? Date.parse(r.releasedAt) - Date.parse(r.createdAt) : undefined
+  const duration = deployTook(r)
   return <div className="ch-deploy-result">
     <div className="ch-deploy-heading"><strong className={passed ? 'ok' : undefined}>{ready ? `Release ${r.number} is ready to start` : passed ? "It's live!" : uncertain ? 'Deployment progress uncertain' : running ? 'Deploying' : r.state === 'waiting for approval' ? r.approvalRole ? 'Waiting for approval' : 'Waiting for a person' : r.state === 'cancelled' ? 'Release cancelled' : r.state === 'superseded' ? 'Release superseded' : r.state === 'failed' ? 'Deploy failed' : 'Deploy stopped'}</strong>{passed && <span> Release {r.number}</span>}</div>
     <DeployScene stage={r.stage ?? r.lastStage} failedStage={r.failedStage} buildElapsedMs={r.stage === 'building' ? r.stageElapsedMs ?? undefined : undefined} outcome={outcome} compactStages />
