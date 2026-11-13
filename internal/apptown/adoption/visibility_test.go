@@ -180,3 +180,54 @@ func TestTheProjectsANewPackVersionIsTriedOn(t *testing.T) {
 		t.Fatalf("the reader's eligible projects: %v %v", mine, err)
 	}
 }
+
+// Every project with a repository is on the platform pack, so one holding
+// none of it is below every platform publication: Keep packs current and a
+// what-if reach it. Only the platform pack is missing-is-below; a project
+// with no repository is still outside. Kills: the missing case dropped (the
+// project is never reached), or widened to every pack.
+func TestAProjectWithoutThePlatformPackIsBelowItsPublication(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	ways := wow.New(db, wow.Dependencies{})
+	for _, name := range []string{PlatformPack, "team"} {
+		if _, err := ways.PublishPack(t.Context(), name, name, `{}`, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	byName := map[string]ids.ID{}
+	for _, p := range []struct {
+		slug, branch string
+		packs        []Membership
+	}{
+		{"packless", "main", nil}, {"team-only", "main", []Membership{{Pack: "team", Version: 1}}},
+		{"current", "main", []Membership{{Pack: PlatformPack, Version: 1}}}, {"no-repo", "", nil},
+	} {
+		id, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
+			id, err := project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: p.slug})
+			if err != nil {
+				return ids.Nil, err
+			}
+			if p.branch != "" {
+				if err := project.SetDefaultBranchIn(t.Context(), tx, id, p.branch); err != nil {
+					return ids.Nil, err
+				}
+			}
+			if len(p.packs) == 0 {
+				return id, nil
+			}
+			return id, SetMembershipIn(t.Context(), tx, id, p.packs, "test", "boss", time.Now())
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		byName[p.slug] = id
+	}
+	got, err := ProjectsBelowIn(t.Context(), db, PlatformPack, 1)
+	if err != nil || !slices.Equal(got, []ProjectRef{{byName["packless"], "packless"}, {byName["team-only"], "team-only"}}) {
+		t.Fatalf("below the platform publication: %v %v", got, err)
+	}
+	if got, err := ProjectsBelowIn(t.Context(), db, "team", 2); err != nil || len(got) != 1 || got[0].Slug != "team-only" {
+		t.Fatalf("another pack's missing members are not below it: %v %v", got, err)
+	}
+}

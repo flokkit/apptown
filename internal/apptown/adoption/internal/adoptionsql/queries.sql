@@ -92,10 +92,12 @@ JOIN projects pr ON pr.id=pp.project_id
 WHERE pr.id=ANY(sqlc.arg(project_ids)::uuid[]) AND pr.purpose = 'ordinary'
 ORDER BY pp.pack_id,pp.version,pr.slug;
 -- name: ProjectsOnPackBelow :many
-SELECT pr.id, pr.slug FROM project_packs pp
-JOIN packs pk ON pk.id=pp.pack_id JOIN projects pr ON pr.id=pp.project_id
-WHERE pk.name=sqlc.arg(pack) AND pp.version < sqlc.arg(version)::bigint
-AND pr.purpose = 'ordinary' AND pr.default_branch <> ''
+SELECT pr.id, pr.slug FROM projects pr
+WHERE pr.purpose = 'ordinary' AND pr.default_branch <> ''
+AND (EXISTS (SELECT 1 FROM project_packs pp JOIN packs pk ON pk.id=pp.pack_id
+        WHERE pp.project_id=pr.id AND pk.name=sqlc.arg(pack) AND pp.version < sqlc.arg(version)::bigint)
+    OR (sqlc.arg(missing_is_below)::boolean AND NOT EXISTS (SELECT 1 FROM project_packs pp JOIN packs pk ON pk.id=pp.pack_id
+        WHERE pp.project_id=pr.id AND pk.name=sqlc.arg(pack))))
 ORDER BY pr.slug;
 -- name: PolicyAdoptions :many
 SELECT DISTINCT pol.name,pol.project_id,pr.slug,pr.name AS project_name FROM policies pol JOIN projects pr ON pr.id=pol.project_id ORDER BY pr.name;

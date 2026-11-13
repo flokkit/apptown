@@ -67,11 +67,21 @@ func (f Fleet) startPackAssessmentsIn(ctx context.Context, tx *database.Tx, rule
 		var outdated []conformance.PackVersion
 		platform := false
 		for _, publication := range publications {
+			held := false
+			for _, member := range members {
+				if member.Pack == publication.Name {
+					held = true
+					if member.Version < publication.Version {
+						outdated = append(outdated, conformance.PackVersion{Pack: publication.Name, Version: publication.Version})
+					}
+				}
+			}
 			if publication.Name == adoption.PlatformPack {
 				platform = true
-			}
-			for _, member := range members {
-				if member.Pack == publication.Name && member.Version < publication.Version {
+				// Every project with a repository is on the platform pack: one
+				// that holds none of it is below this publication
+				// (adoption.ProjectsBelowIn selected it for that).
+				if !held {
 					outdated = append(outdated, conformance.PackVersion{Pack: publication.Name, Version: publication.Version})
 				}
 			}

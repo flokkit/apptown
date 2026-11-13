@@ -144,12 +144,13 @@ type ProjectRef struct {
 
 // ProjectsBelowIn is every ordinary project with a repository that directly
 // holds pack at a version below version, by slug: who a new version is tried
-// on by default. A project on that version has nothing to try; the default
+// on by default. Every project with a repository is on the platform pack, so
+// one that holds none of it is below every platform publication. A project on that version has nothing to try; the default
 // is upgrade-only, so one on a later version is left out.
 // Whether a project is active is its owner's answer, asked by the caller.
 // It checks no authority: the caller holds its own (a what-if's admission).
 func ProjectsBelowIn(ctx context.Context, q database.Queryer, pack string, version int64) ([]ProjectRef, error) {
-	rows, err := adoptionsql.New(q.SQL()).ProjectsOnPackBelow(ctx, adoptionsql.ProjectsOnPackBelowParams{Pack: pack, Version: version})
+	rows, err := adoptionsql.New(q.SQL()).ProjectsOnPackBelow(ctx, adoptionsql.ProjectsOnPackBelowParams{Pack: pack, Version: version, MissingIsBelow: pack == PlatformPack})
 	if err != nil {
 		return nil, err
 	}

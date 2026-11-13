@@ -34,7 +34,9 @@ const (
 	CannotAssess // not mechanically answerable, or the source lacks the capability
 	Error        // the evaluator failed, timed out, or returned malformed output
 	// NotApplicable: the check applies to nothing this app declares
-	// (Applies); never a pass and never an error. Detail is the reason.
+	// (Applies), or its subject is not what this run judges (a check of
+	// the standing deployment in a change's run); never a pass and never
+	// an error. Detail is the reason.
 	NotApplicable
 )
 

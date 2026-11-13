@@ -265,6 +265,9 @@ func (s *Service) processStanding(ctx context.Context, runID, stepID ids.ID, rev
 	}
 	if err == nil && cast {
 		s.dispatchRework(result)
+		// The vote is cast after the advancer moved on, so nothing else
+		// advances the run: as after a person's vote (Approve).
+		s.advanceCommitted(RunRef{ID: run.ID, ProjectID: run.ProjectID})
 	}
 	return cast, err
 }

@@ -23,6 +23,7 @@ function ProjectState({ project: p, data, stale }: { project: JanitorProject; da
   const hold = data.deployments.find(d => d.projectId === p.projectId && d.hold)?.hold
   if (p.level === 'off') return <span className="badge">turned off for this project</span>
   if (!p.enabled) return <span className="badge">turned off</span>
+  if (p.scans.noRepository) return <span className="badge">no repository</span>
   if (hold) return <span className="badge">{hold.reason === 'release failed' ? `stopped: release ${hold.releaseNumber} to ${hold.displayLabel} failed` : `held back · ${hold.displayLabel}: ${hold.reason}`}</span>
   const active = p.queues.find(q => q.state === 'updating')
   const stopped = p.queues.find(q => q.state === 'stopped')

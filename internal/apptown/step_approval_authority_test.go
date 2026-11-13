@@ -19,6 +19,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -348,8 +349,14 @@ func TestJanitorInstancePreviewReadsMainAndReleaseSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	platform, err := a.Ways.Pack(ctx, adoption.PlatformPack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// On the current platform publication, as every project with a
+	// repository is, so only its language pack moves.
 	if err := a.DB.InTx(ctx, func(tx *database.Tx) error {
-		return adoption.SetMembershipIn(ctx, tx, java, []adoption.Membership{{Pack: "java", Version: pack.Version}}, "language selection", "boss", time.Now())
+		return adoption.SetMembershipIn(ctx, tx, java, []adoption.Membership{{Pack: adoption.PlatformPack, Version: platform.Version}, {Pack: "java", Version: pack.Version}}, "language selection", "boss", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -589,7 +596,9 @@ func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
 			if err := recordCatalogFixture(a.Adoption, ctx, pid, "boss"); err != nil {
 				t.Fatal(err)
 			}
-			picks := []adoption.PackPick{{Pack: "old-language", Version: 1}}
+			// Every project with a repository is on the platform pack; this one is
+			// on its current publication, so only its language pack is outdated.
+			picks := []adoption.PackPick{platformPick(t, a, ctx), {Pack: "old-language", Version: 1}}
 			twoPacks := strings.HasPrefix(scenario.kind, "two-packs")
 			if twoPacks {
 				if _, err := a.Ways.PublishPack(ctx, "second-language", "Second language", `{}`, ""); err != nil {
@@ -823,11 +832,13 @@ func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
 					t.Fatalf("standing acceptance: %+v %v snapshot=%+v", result, err, snap)
 				}
 			}
-			ch, _ := a.Work.Change(ctx, attempts[0].ChangeID)
-			if _, err := a.Work.Advance(ctx, ch.RunID); err != nil {
-				t.Fatal(err)
-			}
+			// The standing vote advances the run itself, as a person's vote
+			// does: nothing else would.
 			a.Work.Wait()
+			ch, _ := a.Work.Change(ctx, attempts[0].ChangeID)
+			if snap, err := a.Work.Snapshot(ctx, ch.RunID, workflow.DetailView); err != nil || snap.Run.Status == workflow.RunRunning {
+				t.Fatalf("the run did not advance after the standing vote: %+v %v", snap.Run, err)
+			}
 
 			// Run the durable landing follow-up through the ordinary merge and adoption settlement.
 			for _, job := range operationJobs(t, a, workflowCompletionJob) {
@@ -904,6 +915,68 @@ func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Switching Keep packs current on reaches a repository-backed project that
+// holds no pack at all: every such project belongs on the platform pack, so
+// the rule assesses it for the platform publication with no per-project
+// step. A project with no repository stays outside.
+func TestKeepPacksCurrentReachesAProjectWithoutThePlatformPack(t *testing.T) {
+	a := authzActors(t)
+	ctx := verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, a))
+	a.SyncStock(ctx)
+	pid, _, _ := fleetRepo(t, a, "packless", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	var noRepo ids.ID
+	if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+		var err error
+		noRepo, err = project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "no-repo", Name: "no-repo"})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// Both have an adoption record that names no pack, as projects created
+	// without one do.
+	for _, id := range []ids.ID{pid, noRepo} {
+		if err := recordCatalogFixture(a.Adoption, ctx, id, "boss"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	platform := platformPick(t, a, ctx)
+	rule := enablePackRule(t, a, ctx)
+	w, err := a.conformance.LatestWhatIf(ctx, adoption.PlatformPack, platform.Version)
+	if err != nil || w == nil || w.RuleID != rule.RuleID || w.RequestedBy != "apptown-system" {
+		t.Fatalf("no automatic platform assessment: %+v %v", w, err)
+	}
+	found := map[ids.ID]bool{}
+	for _, p := range w.Projects {
+		found[p.ProjectID] = true
+	}
+	if !found[pid] || found[noRepo] {
+		t.Fatalf("assessed projects: %+v", w.Projects)
+	}
+}
+
+// platformPick publishes the platform pack again without its guidance and
+// returns that publication: its workflows (janitor-adopt among them) stay,
+// while its runtime probes, which need a running preview this harness
+// substitutes, would leave checks unknown and hold every standing vote.
+func platformPick(t *testing.T, a *App, ctx context.Context) adoption.PackPick {
+	t.Helper()
+	pack, err := a.Ways.Pack(ctx, adoption.PlatformPack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := pack.Spec()
+	spec.Guidance = []string{}
+	raw, err := json.Marshal(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, err := a.Ways.PublishPack(ctx, adoption.PlatformPack, pack.Description, string(raw), "stock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return adoption.PackPick{Pack: adoption.PlatformPack, Version: int64(version)}
 }
 
 func testAdmittedPrincipalForPacks(t *testing.T, a *App) access.Principal {

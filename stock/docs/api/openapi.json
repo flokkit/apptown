@@ -4122,6 +4122,9 @@
           "main": {
             "type": "string"
           },
+          "noRepository": {
+            "type": "boolean"
+          },
           "reason": {
             "type": "string"
           },
@@ -4146,6 +4149,7 @@
           "source",
           "running",
           "historical",
+          "noRepository",
           "known",
           "stale",
           "lastScan"

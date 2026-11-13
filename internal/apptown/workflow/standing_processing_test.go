@@ -817,3 +817,122 @@ func TestKeepPacksCurrentHasItsOwnCategoryAndEligibility(t *testing.T) {
 		t.Fatal("packs became a dependency level")
 	}
 }
+
+// A standing decision withheld over a receipt that is not met stays recorded
+// for that retry revision; running the check step again through the
+// ordinary retry moves the revision, and the fresh evidence gets a fresh
+// decision under current authority. This is how a Change withheld over a
+// skipped standing-only check recovers once that check records
+// not-applicable with its reason: no reconciliation of its own.
+func TestRetryingAWithheldCheckGetsAFreshStandingDecision(t *testing.T) {
+	const meaning = "declared fix in range and every check met"
+	memory := CheckReceipt{Block: "deploy/memory-declared", Version: 8, Check: "memory-within", Evaluator: "runtime", Verdict: VerdictSkipped, Detail: "judged on the standing deployment in reviews, not on a preview"}
+	// The check's runner as it now is: the standing-only check does not
+	// apply to a change's run, with its reason.
+	fixed := memory
+	fixed.Verdict, fixed.Detail = VerdictNotApplicable, "judges the standing main deployment's running use, in reviews; a change's run has no standing deployment to judge"
+	runner := func(e *Execution) {
+		if _, err := e.Claim(); err != nil {
+			return
+		}
+		e.Settle((CheckEvidence{Checks: []CheckReceipt{fixed}}).Outcome(StatusPass, nil))
+	}
+	rig := stepAuthorityRunnerFixture(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "adopt", Steps: []schema.Step{{Name: "guidance-conformance", Uses: "tests"}, {Name: "accept", Uses: "approval", With: map[string]any{"standing": map[string]any{"class": "routine-update", "means": meaning}}}}}}}, map[string]Runner{"tests": runner})
+	ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, rig.Access, "boss"))
+	if err := project.New(rig.DB, nil).SetDefaultBranch(ctx, rig.ProjectID, "main"); err != nil {
+		t.Fatal(err)
+	}
+	source, err := ReadSourceIn(ctx, rig.DB, RunRef{ID: rig.RunID, ProjectID: rig.ProjectID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	folder, err := source.Workspace(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.MkdirAll(folder, 0755); err != nil {
+		t.Fatal(err)
+	}
+	gittest.Run(t, folder, "init", "-q", "-b", source.Branch)
+	gittest.RunAsTester(t, folder, "commit", "-q", "--allow-empty", "-m", "base")
+	gittest.Run(t, folder, "branch", "main")
+	gittest.RunAsTester(t, folder, "commit", "-q", "--allow-empty", "-m", "adopt the new pack")
+	tip := gittest.Run(t, folder, "rev-parse", "HEAD")
+	if _, err := database.Transact(ctx, rig.DB, func(tx *database.Tx) (scm.Authority, error) {
+		return scm.AdvanceAuthorityIn(ctx, tx, rig.ProjectID, source.Branch, scm.RunHolder(rig.RunID))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	checkStep := rig.StepID
+	settle := func(receipt CheckReceipt) {
+		t.Helper()
+		attempts := newStepAttempts(rig.DB, func(string) bool { return true })
+		attempt, err := attempts.start(ctx, mustStandingStep(t, rig.DB, checkStep), "tests", ids.Nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		outcome, err := (CheckEvidence{Checks: []CheckReceipt{receipt}}).Outcome(StatusPass, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := attempts.finish(ctx, attempt, outcome); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The receipt the run recorded before the fix.
+	settle(memory)
+	var accept ids.ID
+	steps, err := readSteps(ctx, rig.DB, rig.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range steps {
+		if step.Name == "accept" {
+			accept = step.ID
+		}
+	}
+	procedures := &standingProcedureFixture{means: meaning}
+	rules := NewStandingRules(rig.DB, StandingDependencies{Identity: rig.Access, Authority: rig.Authorizer, Procedures: procedures, Portfolio: &standingPortfolioFixture{}, Presence: standingPresenceFixture{clear: true}, Inspector: standingInspectorFunc(func(context.Context, Source, StandingCategories) (StandingInspection, error) {
+		return StandingInspection{Classification: "routine-dependency", Candidate: tip}, nil
+	})})
+	enableStanding(t, rules, ctx, StandingDefinition{Scope: "instance", Schedules: []standingSchedule{{Workflow: "test", Crons: map[string]string{"routine": "0 6 * * 1", "aggressive": "0 6 * * *"}}}, Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"})
+	rig.Work.standing = &rules
+	rig.Work.abandonments.locks = &scm.RepositoryLocks{}
+	rig.Work.pins = landingPins{db: rig.DB, dataDir: dir}
+	queue := &standingQueuedFixture{}
+	rig.Work.standingRequests = queue
+	decide := func() bool {
+		t.Helper()
+		if _, err := rig.Work.answerFromAcceptance(t.Context(), rigRun(t, rig)); err != nil || len(queue.keys) == 0 {
+			t.Fatalf("standing acceptance was not queued: %v %+v", err, queue.keys)
+		}
+		result, err := rig.Work.RunStandingAcceptance(t.Context(), queue.keys[len(queue.keys)-1], nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cast, _ := result["cast"].(bool)
+		return cast
+	}
+	if decide() {
+		t.Fatal("a skipped check was accepted")
+	}
+	// The withheld decision stands for that revision: asking again changes nothing.
+	if _, err := rig.Work.answerFromAcceptance(t.Context(), rigRun(t, rig)); err != nil || len(queue.keys) != 1 {
+		t.Fatalf("a considered decision was queued again: %v %+v", err, queue.keys)
+	}
+	if _, err := rig.Work.RetryStep(ctx, RetryCommand{StepID: checkStep}); err != nil {
+		t.Fatal(err)
+	}
+	rig.Work.Wait()
+	if !decide() || queue.keys[len(queue.keys)-1] != fmt.Sprintf("%s/%s/1", rig.RunID, accept) {
+		t.Fatalf("no fresh standing decision for the retried evidence: %+v", queue.keys)
+	}
+	read, err := rig.Work.Step(ctx, accept)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ev, err := ReadApprovalEvidence(read.Step.Evidence); err != nil || len(ev.Decisions) != 1 || ev.Decisions[0].Standing == nil {
+		t.Fatalf("standing vote missing: %s %v", read.Step.Evidence, err)
+	}
+}
