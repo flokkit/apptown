@@ -2,9 +2,12 @@
 /* Project overview: rows wrap their meta under the title on a phone. */
 .application-overview .card.row { flex-wrap: wrap; gap: 4px 12px; }
 .application-overview a.card.row { color: var(--text); }
-/* A project's latest releases: one run of "#N date" on a wide screen, one
-   release per line on a phone, so a date always sits with its number. */
-.release-strip { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); margin: 0; padding: 0; list-style: none; }
-.release-strip li { white-space: nowrap; }
+/* A project's latest releases: a run of releases on a wide screen, one
+   release per line on a phone. A release leads with its change titles, so
+   it wraps; its "#N date" link stays whole, so a date always sits with its
+   number. */
+.release-strip { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); margin: 0; padding: 0; list-style: none; min-width: 0; }
+.release-strip li { min-width: 0; overflow-wrap: break-word; }
+.release-strip li > a:last-child { white-space: nowrap; }
 @media (width <= 800px) { .release-strip { flex-direction: column; } }
 }

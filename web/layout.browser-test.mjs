@@ -33,6 +33,7 @@ const fixture = await build({
     import { MoreMenu, FormMenu } from './MoreMenu'
     import { ListRow } from './ListRow'
     import { ListTable } from './ListTable'
+    import { ReleaseRows } from './pages/project/Overview'
     import { LibraryRow, LibraryRows } from './LibraryRow'
     import AgentActivity from './AgentActivity'
     import { Tabs } from './Tabs'
@@ -48,6 +49,8 @@ const fixture = await build({
         <div className="row"><span className="row-status"><Status word="unknown" help="No runtime reading." /></span><span className="row-status"><Status word="unknown" help="No current inventory confirms presence. Ask an administrator to check this target." /></span></div>
         <div className="project-rows">{['Short description', long].map((blurb,i)=><ProjectListRow key={i} project={{slug:'project-'+i,name:i?'A project with more words':'Short name',blurb,hasDeployments:false,canChange:false,observation:'unknown'}} />)}</div>
         <ListTable label="Wrapping records" rows={["Short",long]} rowKey={r=>r} columns={[{key:"name",label:"Name",phone:"name",render:r=><a href="#record">{r}</a>},{key:"detail",label:"Description",phone:"detail",render:r=>r}]} />
+        {/* A release leads with its change titles; on a phone the row wraps instead of widening the page. */}
+        <ReleaseRows slug="club-newsletter" releases={[33,32,31].map(n=>({number:n,deployment:"archive-migration",deploymentLabel:"archive-migration",serving:n===33,commitSha:"544542f0c33d8e1a",releasedAt:"2026-11-13T09:26:00Z",createdAt:"2026-11-13T09:26:00Z",changes:[{id:"c"+n,number:14,title:"Publish the winter ride times"}]}))} />
         <LibraryRows><LibraryRow name="Short policy" to="/policies/short" /><LibraryRow name={long} to="/policies/long" /></LibraryRows>
         <DailyChart days={Array.from({length:90},(_,i)=>new Date(Date.UTC(2026,7,i+1)).toISOString().slice(0,10))} perDay={new Map([['2026-10-29',{step:100,console:50,other:10,cost:0}]])} />
         <SplitButton compact icon="" label="Change" onMain={()=>{document.body.dataset.main='yes'}} items={[{label:'Catalog change',hint:'Choose a prepared change'}]} />
@@ -460,6 +463,7 @@ try {
     document.querySelector('main').append(box)
   })
   // Source in a list row's detail scrolls in its box; it never widens the row.
+  assert.ok(await page.locator('.release-strip').evaluate(strip => strip.getBoundingClientRect().right <= document.documentElement.clientWidth + 0.5), 'release rows that lead with change titles wrap within the phone')
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'workflow source in a row detail keeps the page within the phone')
   assert.ok(await page.locator('#phone-content-fixtures .list-detail').evaluate(el => {
     const row = el.closest('.list-row')
@@ -1030,6 +1034,28 @@ try {
   want(names.length === 1 && names[0].word === 'built-in-docker', `the detector finds exactly the split name: ${JSON.stringify(names)}`)
   // The drawer has one spacer: the one inside SidebarNav, before its foot.
   want(!/<SidebarNav \/>\s*<div className="spacer" \/>/.test(app), 'the drawer has no second spacer after SidebarNav')
+  // A note in a fit cell wraps. The Janitor's project table is the widest
+  // case: seven columns beside the sidebar, a held or stopped state and a
+  // Scan now reason in one row. One unwrapped sentence pushed it past the
+  // page at 1440px (heavy CI, 13 Nov); the narrowest desktop with the
+  // sidebar at large text bounds the notes' measure.
+  {
+    const cell = (cls, html) => `<td class="${cls}">${html}</td>`
+    const badge = text => `<span class="badge record-note">${text}</span>`
+    const stopped = 'Dependency updates stopped after 3 failed tries. Pack updates and Security fixes can still run. · updating'
+    const states = [badge('up to date'), badge('stopped: release 34 to Production failed'), badge('held back · Production: release progress is uncertain'), badge(stopped), badge(stopped) + badge('held back · Production: release progress is uncertain')].map(state => `<span class="row row-2">${state}</span>`)
+    const rows = states.map(state => `<tr>${cell('phone-name', '<a href="#project">Neighbourhood tool-lending library</a>')}${cell('record-fit phone-state', state)}${cell('time record-fit phone-value', '13 Nov, 12:34')}${cell('number record-fit phone-value', 'Not known')}${cell('phone-value', 'waits for a standing approval')}${cell('phone-value', 'Routine · patch and minor<div>sam · 13 Nov, 12:34</div>')}${cell('record-fit record-action phone-action', '<button disabled>Scan now</button><div class="muted record-note">waits for a standing approval · <a href="#change">change #12</a></div>')}</tr>`).join('')
+    for (const width of [1024, 1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto('http://layout.test/')
+      await page.evaluate(rows => { document.getElementById('root').innerHTML = `<div class="layout"><aside class="sidebar"><div class="sidebar-inner">Ways of working</div></aside><main class="main"><section class="section"><div class="section-body"><table class="record-table"><tbody>${rows}</tbody></table></div></section></main></div>` }, rows)
+      await fontsReady(page)
+      for (const size of ['small', 'medium', 'large']) {
+        await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `notes in fit cells keep the janitor's project table within ${width}px at ${size}`)
+      }
+    }
+  }
   assert.deepEqual(misses, [], 'phone round 3')
   assert.deepEqual(consoleLines.filter(line => line.includes('validateDOMNesting')), [], 'layout fixtures use valid HTML nesting')
   console.log('layout: label fixtures, rows, disclosures and phone composer passed')
