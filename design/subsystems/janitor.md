@@ -326,7 +326,17 @@ scanner before running findings can be classified; disposable workflow steps
 do not establish completeness. A partial source scan or a scanner that found nothing it could judge classifies nothing;
 the latter records an error observation. Observations of older commits or
 digests remain historical; a landing never proves a running finding fixed.
+The current source scan is the newest run that scanned main's whole tree. A
+landing scans only the commits it adds with a scanner that declares a
+`historyCommand`. For such a scanner, the answer is its newest whole-tree
+observation of the same commit, so a landing does not hide a complete earlier
+scan. The landing's own errors stay current, and no other scanner takes an
+older answer.
 Missing scans and scans older than three days appear in Attention as not known.
+The detail names the case: the code not scanned, the scanner without a result,
+the deployment whose image is not scanned, or the date of the last scan.
+A stuck or stopped queue's Attention item carries the first line of its error
+and opens its change, which holds the rest.
 Running-image-only findings do not create Attention items.
 
 Scheduled Changes record their origin and a compact summary at creation. A

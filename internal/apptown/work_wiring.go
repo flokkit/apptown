@@ -326,7 +326,7 @@ func (s scanSubjects) RunningImages(ctx context.Context, project ids.ID) ([]work
 	}
 	out := make([]workflow.RunningImages, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, workflow.RunningImages{DeploymentID: row.DeploymentID, BundleID: row.BundleID, Images: row.Images})
+		out = append(out, workflow.RunningImages{DeploymentID: row.DeploymentID, BundleID: row.BundleID, Deployment: row.Deployment, Images: row.Images})
 	}
 	return out, nil
 }
