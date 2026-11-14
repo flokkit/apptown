@@ -346,6 +346,7 @@ func (a *App) vHost(next http.Handler) http.Handler {
 			// stale files for hours after a deploy.
 			if docker.IsPreviewName(container) {
 				resp.Header.Set("Cache-Control", "no-cache")
+				framedOnlyBy(resp.Header, a.browserOrigin(r))
 			} else if resp.Header.Get("Cache-Control") == "" {
 				resp.Header.Set("Cache-Control", "no-cache")
 			}
@@ -361,6 +362,41 @@ func (a *App) vHost(next http.Handler) http.Handler {
 		}
 		proxy.ServeHTTP(w, r)
 	})
+}
+
+// framedOnlyBy makes a preview response drawable inside AppTown's own page
+// (Preview beside chat) and nowhere else. A preview is AppTown's view of
+// work in progress, not the app's production: an app's own refusal to be
+// framed (Django, Rails and helmet send X-Frame-Options: DENY by default)
+// would leave that panel blank. X-Frame-Options goes, every frame-ancestors
+// directive in every policy goes, and one more policy names AppTown's origin
+// as the only ancestor; a browser enforces every policy, so this covers no
+// CSP, one, or several alike. The app's other CSP rules are kept, and
+// Report-Only policies, which never block, are left alone. Standing
+// deployments keep the app's headers as sent.
+func framedOnlyBy(h http.Header, origin string) {
+	h.Del("X-Frame-Options")
+	var kept []string
+	for _, value := range h.Values("Content-Security-Policy") {
+		var policies []string
+		for _, policy := range strings.Split(value, ",") {
+			var directives []string
+			for _, d := range strings.Split(policy, ";") {
+				words := strings.Fields(d)
+				if len(words) == 0 || strings.EqualFold(words[0], "frame-ancestors") {
+					continue
+				}
+				directives = append(directives, strings.Join(words, " "))
+			}
+			if len(directives) > 0 {
+				policies = append(policies, strings.Join(directives, "; "))
+			}
+		}
+		if len(policies) > 0 {
+			kept = append(kept, strings.Join(policies, ", "))
+		}
+	}
+	h["Content-Security-Policy"] = append(kept, "frame-ancestors "+origin)
 }
 
 // publicScheme: how apps are reached from a browser — the tier domains'

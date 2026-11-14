@@ -183,6 +183,8 @@ details.console-about { margin: 0; }
 .console-strip .workshop-actions { margin: 0; padding: 0; border: 0; background: none; gap: var(--space-2); }
 .console-workshop { padding-top: var(--space-1); }
 .chat-working[hidden] { display: none; }
+/* The live chat kept mounted across tabs lays out as if unwrapped. */
+.conversation-kept:not([hidden]) { display: contents; }
 /* The state panel and tabs share the bounded conversation page. */
 .ch-page-chat, .ch-page-chat .ch-tabs-sheet, .ch-page-chat .ch-tab-body {
   display: flex; flex-direction: column; flex: 1; min-height: 0;

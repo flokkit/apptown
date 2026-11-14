@@ -17,6 +17,7 @@ import { PreviewBesideChat, canEmbedPreview } from './console/PreviewBesideChat'
 
 vi.mock('./change/StatePanel', () => ({ StatePanel: () => <header>Change state</header> }))
 vi.mock('./change/Overview', () => ({ ChangeOverview: () => null }))
+vi.mock('./change/Details', () => ({ ChangeDetails: () => <p>Run details</p> }))
 vi.mock('./console/useTerminal', () => ({ useTerminal: () => 'attached' }))
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const view = (state = 'in_progress', decision = false) => ({ change: { state }, waitingOn: { you: decision ? 'yes' : 'no', kind: 'approval' } }) as ChangeView
@@ -141,6 +142,66 @@ it('opens the change Conversation with actions and starts the first build once a
    expect(writes).toEqual([])
    page.done()
   }
+ } finally { vi.unstubAllGlobals(); localStorage.clear(); sessionStorage.clear() }
+})
+
+// Session admission stays real: reading another tab never opens a helper,
+// and a chat once shown is the same chat (same DOM, same session, no second
+// open) after the person reads Details and comes back.
+it('keeps a shown live chat mounted across tabs and opens none from another tab', async () => {
+ Element.prototype.scrollIntoView = () => {}
+ localStorage.clear(); sessionStorage.clear()
+ const chosen = { id: 'chosen', changeId: 'X', mayAct: true, state: 'detached', openedBy: 'sam' }
+ let sessions: typeof chosen[] = []
+ const opens: string[] = []
+ vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
+  const path = String(url)
+  if (init?.method === 'POST' && path === '/api/v1/projects/s/console') { opens.push(path); sessions = [{ ...chosen, id: 'opened' }] }
+  const body = path === '/api/v1/changes/X' ? { ...view(), change: { id: 'X', state: 'in_progress', title: 'Build a calendar', number: 1 }, projectSlug: 's', runs: [], goesTo: { branch: 'main', deployments: [] } }
+   : path.endsWith('/transcript') ? { sessions: [] }
+   : path === '/api/v1/projects/s/console' ? (init?.method === 'POST' ? { session: sessions[0] } : { sessions })
+   : path.endsWith('/messages') ? { messages: [] }
+   : path.endsWith('/changes') ? { changes: [] } : {}
+  return new Response(JSON.stringify(body))
+ })))
+ function Address() { const l = useLocation(); return <output>{l.search}</output> }
+ const mount = async (address: string) => {
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[address]}><Address /><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></MemoryRouter></QueryClientProvider>))
+  return { el, done: () => { act(() => root.unmount()); client.clear() } }
+ }
+ const tab = (el: HTMLElement, name: string) => act(async () => [...el.querySelectorAll<HTMLAnchorElement>('.ch-tabs a')].find(a => a.textContent === name)!.click())
+ try {
+  let page = await mount('/changes/X?tab=overview')
+  await vi.waitFor(() => expect(page.el.querySelector('.ch-tabs')).not.toBeNull())
+  await act(async () => { await new Promise(r => setTimeout(r, 50)) })
+  expect(page.el.querySelector('textarea')).toBeNull()
+  await tab(page.el, 'Details')
+  await act(async () => { await new Promise(r => setTimeout(r, 50)) })
+  expect(opens).toEqual([])
+  await tab(page.el, 'Conversation')
+  await vi.waitFor(() => expect(page.el.querySelector('textarea[aria-label="your message"]')).not.toBeNull())
+  const shown = page.el.querySelector('textarea')
+  await tab(page.el, 'Details')
+  expect(page.el.textContent).toContain('Run details')
+  expect(page.el.querySelector('.conversation-kept')?.hasAttribute('hidden')).toBe(true)
+  // The chat knows it is away, so coming back follows the newest message.
+  expect(page.el.querySelector('.chat-pane')?.hasAttribute('hidden')).toBe(true)
+  await tab(page.el, 'Conversation')
+  expect(page.el.querySelector('textarea')).toBe(shown)
+  expect(page.el.querySelector('.chat-pane')?.hasAttribute('hidden')).toBe(false)
+  expect(opens).toHaveLength(1)
+  page.done(); opens.length = 0
+  sessions = [chosen, { ...chosen, id: 'other' }]
+  page = await mount('/changes/X?tab=conversation&session=chosen')
+  await vi.waitFor(() => expect(page.el.querySelector('textarea[aria-label="your message"]')).not.toBeNull())
+  const chosenChat = page.el.querySelector('textarea')
+  await tab(page.el, 'Details')
+  expect(page.el.querySelector('output')?.textContent).toBe('?tab=details&session=chosen')
+  await tab(page.el, 'Conversation')
+  expect(page.el.querySelector('textarea')).toBe(chosenChat)
+  expect(opens).toEqual([])
+  page.done()
  } finally { vi.unstubAllGlobals(); localStorage.clear(); sessionStorage.clear() }
 })
 

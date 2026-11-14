@@ -157,12 +157,19 @@ func TestTierDomainWithAPortRoutesByHostname(t *testing.T) {
 // With previews on a worker, a change's and a run's preview are forwarded
 // there, with the visitor's Host and request target, and still never
 // cached; a release preview AppTown did not boot there and a standing
-// deployment stay on this machine.
+// deployment stay on this machine. Every preview, on either path, may be
+// framed by AppTown's own page and nothing else, whatever the app says; a
+// standing deployment keeps the app's own framing headers.
 func TestChangeAndRunPreviewsAreForwardedToTheWorker(t *testing.T) {
 	t.Parallel()
 	// AppTown has a worker for previews (Deployment decides what is served
 	// there); its forwarding client is pointed at this test's plain server.
-	a := testApp(t, withPreviewWorker(t, &fakePreviewWorker{}, Config{TierDomains: []string{"preview=preview.example.com", "main=main.example.com"}}))
+	a := testApp(t, withPreviewWorker(t, &fakePreviewWorker{}, Config{PublicHost: "https://apptown.example.com", TierDomains: []string{"preview=preview.example.com", "main=main.example.com"}}))
+	// Django's default refusal plus an app policy of its own.
+	refuseFraming := func(w http.ResponseWriter) {
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'")
+	}
 	shop := createReadTestProject(t, a, "shop")
 	change := struct{ ID ids.ID }{createReadTestChange(t, a, shop, "previewed")}
 	run := startReadTestRun(t, a, createReadTestChange(t, a, shop, "run"), waitingStage).Run
@@ -172,11 +179,12 @@ func TestChangeAndRunPreviewsAreForwardedToTheWorker(t *testing.T) {
 		mu.Lock()
 		atWorker = append(atWorker, r.URL.Path+" "+r.Header.Get(worker.PreviewHostHeader)+" "+r.Header.Get(worker.PreviewTargetHeader))
 		mu.Unlock()
+		refuseFraming(w)
 		fmt.Fprint(w, "from the worker")
 	}))
 	defer fake.Close()
 	a.workerPreviews = &worker.Previews{URL: fake.URL, Client: fake.Client()}
-	local := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "from here") }))
+	local := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { refuseFraming(w); fmt.Fprint(w, "from here") }))
 	defer local.Close()
 	port := local.Listener.Addr().(*net.TCPAddr).Port
 	a.vhostMu.Lock()
@@ -199,6 +207,14 @@ func TestChangeAndRunPreviewsAreForwardedToTheWorker(t *testing.T) {
 		if want == "from the worker" && w.Header().Get("Cache-Control") != "no-cache" {
 			t.Errorf("%s: a preview from the worker may be cached: %q", host, w.Header().Get("Cache-Control"))
 		}
+		framing := [2]string{w.Header().Get("X-Frame-Options"), strings.Join(w.Header().Values("Content-Security-Policy"), " | ")}
+		wantFraming := [2]string{"", "default-src 'self' | frame-ancestors https://apptown.example.com"}
+		if host == "shop.main.example.com" {
+			wantFraming = [2]string{"DENY", "default-src 'self'; frame-ancestors 'none'"}
+		}
+		if framing != wantFraming {
+			t.Errorf("%s: framing headers %q, want %q", host, framing, wantFraming)
+		}
 	}
 	mu.Lock()
 	defer mu.Unlock()
@@ -210,6 +226,37 @@ func TestChangeAndRunPreviewsAreForwardedToTheWorker(t *testing.T) {
 	sort.Strings(want)
 	if !slices.Equal(atWorker, want) {
 		t.Fatalf("the worker was asked %q, want %q", atWorker, want)
+	}
+}
+
+// The preview rewrite removes every frame-ancestors directive, in every
+// header value and every comma-separated policy, whatever its case, keeps
+// the app's other rules, adds one policy naming AppTown, and leaves
+// Report-Only policies alone.
+func TestAPreviewMayBeFramedOnlyByAppTown(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		csp  []string
+		want []string
+	}{
+		{"no policy", nil, []string{"frame-ancestors https://a.example"}},
+		{"one policy", []string{"default-src 'self'; frame-ancestors 'none'; img-src *"}, []string{"default-src 'self'; img-src *", "frame-ancestors https://a.example"}},
+		{"only frame-ancestors", []string{"frame-ancestors 'self'"}, []string{"frame-ancestors https://a.example"}},
+		{"two values", []string{"script-src 'self'", "Frame-Ancestors\t'none'"}, []string{"script-src 'self'", "frame-ancestors https://a.example"}},
+		{"comma-combined", []string{"default-src 'self'; frame-ancestors 'none', FRAME-ANCESTORS https://x.example; style-src 'self'"}, []string{"default-src 'self', style-src 'self'", "frame-ancestors https://a.example"}},
+	} {
+		h := http.Header{"X-Frame-Options": {"SAMEORIGIN"}, "Content-Security-Policy-Report-Only": {"frame-ancestors 'none'"}}
+		if tc.csp != nil {
+			h["Content-Security-Policy"] = tc.csp
+		}
+		framedOnlyBy(h, "https://a.example")
+		if got := h.Values("Content-Security-Policy"); !slices.Equal(got, tc.want) {
+			t.Errorf("%s: policies %q, want %q", tc.name, got, tc.want)
+		}
+		if h.Get("X-Frame-Options") != "" || h.Get("Content-Security-Policy-Report-Only") != "frame-ancestors 'none'" {
+			t.Errorf("%s: X-Frame-Options %q, Report-Only %q", tc.name, h.Get("X-Frame-Options"), h.Get("Content-Security-Policy-Report-Only"))
+		}
 	}
 }
 
