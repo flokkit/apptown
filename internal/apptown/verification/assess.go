@@ -26,8 +26,9 @@ type assessInput struct {
 	// running is the app serving exactly this commit, when one does:
 	// runtime probes are judged against it. Without it they are not
 	// assessed, for NoApp's reason and detail.
-	running *runningApp
-	noApp   string
+	running              *runningApp
+	noApp                string
+	noStandingDeployment bool
 	// judge invokes one session per model rubric; nil leaves
 	// them not assessed for NoJudge. Diff is the change a diff rubric
 	// judges; without one a diff rubric judges nothing here.
@@ -95,6 +96,10 @@ func (f Fleet) assessChecks(ctx context.Context, checks []conformance.DeclaredCh
 		if ps, err := check.ParseProbe(sc.Check.Probe); err == nil && !ps.NeedsApp() && in.tool.BuildDir != "" && probe != nil {
 			// The tree being assessed answers it; no running app is needed.
 			out = append(out, probeRunning(ctx, sc, runningApp{target: guidanceTarget{ProjectID: in.tool.ProjectID, ContractDir: in.tool.BuildDir}, still: func() bool { return true }}, probe))
+			continue
+		}
+		if in.noStandingDeployment {
+			out = append(out, treeAssessment{Check: sc, State: conformance.NotApplicable, Detail: in.noApp})
 			continue
 		}
 		if in.running == nil {

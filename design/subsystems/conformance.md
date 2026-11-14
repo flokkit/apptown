@@ -82,6 +82,14 @@ Conformance judges the version a project adopted, never the recommended one:
 moving the recommendation, or publishing a stricter version, changes no project's
 standing until the project adopts it through Adoption.
 
+Runtime checks that need an app record not-applicable, with the reason
+"no standing deployment serves this project", when the deployment owner
+confirms that no main deployment exists. Reviews and what-ifs use the same
+absence fact. A failed deployment lookup, an empty container, stopped or unknown
+state, or a deployment serving another commit remains unassessed. Contract-only
+checks such as `memory-declared` still judge the committed tree before app
+availability is considered.
+
 A **what-if** answers "what would happen to these projects on this pack version?"
 before anyone adopts it, for projects on the pack or not yet on it (they would
 join). It needs the same authority as a fleet review over the selected projects.

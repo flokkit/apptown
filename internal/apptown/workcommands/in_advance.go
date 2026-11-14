@@ -4,40 +4,33 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/flokkit/apptown/internal/ids"
-
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/remediation"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
-// InAdvance answers what a yes given in advance on an adoption of the
-// project would mean, from the workflows its way of working pins now.
-func (l LandingSentences) InAdvance(ctx context.Context, projectID ids.ID) (workflow.InAdvanceQuestion, error) {
-	record, err := project.ByIDIn(ctx, l.DB, projectID)
+// InAdvance reads the candidate's publication procedure and the project's
+// landing procedure, which the landing resolves when it starts.
+func (l LandingSentences) InAdvance(ctx context.Context, c adoption.Candidate) (workflow.InAdvanceQuestion, error) {
+	record, err := project.ByIDIn(ctx, l.DB, c.ProjectID)
 	if err != nil {
 		return workflow.InAdvanceQuestion{}, err
 	}
-	return inAdvanceQuestion(ctx, l.Lanes, &record)
+	working, _, err := adoptionProcedure(ctx, l.Adoption, c)
+	if err != nil {
+		return workflow.InAdvanceQuestion{}, err
+	}
+	landing, err := l.Adoption.Workflow(ctx, adoption.WorkflowRequest{Source: adoption.Source{ProjectID: c.ProjectID, Revision: &adoption.RecordedRevision{ProjectID: c.ProjectID, Receipt: c.Receipt}}, Name: "land", ProjectSlug: record.Slug})
+	if err != nil {
+		return workflow.InAdvanceQuestion{}, err
+	}
+	return inAdvanceQuestion(working, landing), nil
 }
 
-// inAdvanceQuestion reads the lane an adoption Change runs (the one
-// Uplift starts) and the landing: the sentence each of their approvals
-// gives a yes in advance. The lane's acceptance is its last stage's one
-// approval; an approval that gives no such sentence means none is offered.
-func inAdvanceQuestion(ctx context.Context, lanes remediation.WorkflowResolver, p *project.Project) (workflow.InAdvanceQuestion, error) {
-	q := workflow.InAdvanceQuestion{Landing: []string{}}
-	lane := remediation.WorkflowFor(ctx, lanes, p)
-	if lane == "" {
-		q.NotOffered = "this project has no quick-change or implement workflow to work an adoption on"
-		return q, nil
-	}
-	q.Workflow = lane
-	working, err := lanes.ResolveWorkflow(ctx, p, lane)
-	if err != nil {
-		return q, err
-	}
+func inAdvanceQuestion(working, landing *adoption.ResolvedWorkflow) workflow.InAdvanceQuestion {
+	lane := working.Name
+	q := workflow.InAdvanceQuestion{Workflow: lane, Landing: []string{}}
 	stages := working.Doc.Spec.Stages
 	var accepts []schema.Step
 	if len(stages) > 0 {
@@ -50,15 +43,11 @@ func inAdvanceQuestion(ctx context.Context, lanes remediation.WorkflowResolver, 
 	}
 	if len(accepts) != 1 {
 		q.NotOffered = fmt.Sprintf("%s v%d has no single acceptance to give a yes in advance to", lane, working.Version)
-		return q, nil
+		return q
 	}
 	if q.Acceptance, _ = accepts[0].With["inAdvance"].(string); q.Acceptance == "" {
 		q.NotOffered = fmt.Sprintf("%s v%d's %s approval does not say what a yes given in advance means", lane, working.Version, accepts[0].Name)
-		return q, nil
-	}
-	landing, err := lanes.ResolveWorkflow(ctx, p, "land")
-	if err != nil {
-		return q, err
+		return q
 	}
 	for _, stage := range landing.Doc.Spec.Stages {
 		for _, step := range append(append([]schema.Step{}, stage.OnEnter...), stage.Steps...) {
@@ -68,10 +57,10 @@ func inAdvanceQuestion(ctx context.Context, lanes remediation.WorkflowResolver, 
 			s, _ := step.With["inAdvance"].(string)
 			if s == "" {
 				q.NotOffered = fmt.Sprintf("the landing (%s v%d)'s %s approval does not say what a yes given in advance means", landing.Name, landing.Version, step.Name)
-				return q, nil
+				return q
 			}
 			q.Landing = append(q.Landing, s)
 		}
 	}
-	return q, nil
+	return q
 }

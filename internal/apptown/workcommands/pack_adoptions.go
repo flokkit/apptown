@@ -45,28 +45,17 @@ func (a PackAdoptions) AdoptWhatIf(ctx context.Context, assessed *conformance.Wh
 		if len(candidate.Problems) > 0 {
 			continue
 		}
-		name, queue := "", ""
-		var rule workflow.StandingRevision
-		for _, pin := range candidate.Receipt.Workflows {
-			w, err := a.Adoption.CandidateWorkflow(call, pin)
-			if err != nil {
-				return err
-			}
-			trigger, publication := w.Doc.Standing()
-			if !publication || !trigger.Publication {
-				continue
-			}
-			eligible, _, _, err := a.Rules.StandingForWorkflow(ctx, p.ProjectID, pin.Name)
-			if err != nil {
-				return err
-			}
-			if eligible.RuleID.IsZero() || !eligible.Question.Definition.Categories.WaysOfWorking {
-				continue
-			}
-			name, queue, rule = pin.Name, trigger.Queue, eligible
-			break
+
+		procedure, queue, err := adoptionProcedure(call, a.Adoption, *candidate)
+		if err != nil {
+			return err
 		}
-		if name == "" {
+		name := procedure.Name
+		rule, _, _, err := a.Rules.StandingForWorkflow(ctx, p.ProjectID, name)
+		if err != nil {
+			return err
+		}
+		if rule.RuleID.IsZero() || !rule.Question.Definition.Categories.WaysOfWorking {
 			continue
 		}
 		fingerprint, err := candidate.Fingerprint()

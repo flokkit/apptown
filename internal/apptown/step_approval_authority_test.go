@@ -18,6 +18,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/attention"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -574,11 +575,20 @@ func enablePackRule(t *testing.T, a *App, ctx context.Context) workflow.Standing
 
 // Both entry points start fresh assessments, even when a person already finished
 // one. A static project on an old pack without fixes is eligible for packs alone.
-func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
+func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) { testPackAdoption(t, "") }
+func TestAManualAdoptionRepairsWithoutAStandingRule(t *testing.T) {
+	testPackAdoption(t, "manual-repair")
+}
+func TestAYesInAdvanceIsTheCandidatesQuestion(t *testing.T) { testPackAdoption(t, "manual-advance") }
+
+func testPackAdoption(t *testing.T, only string) {
 	for _, scenario := range []struct {
 		before bool
 		kind   string
-	}{{true, "empty"}, {false, "empty"}, {true, "guidance"}, {true, "passing-check"}, {true, "repair"}, {true, "repair-exhausted"}, {false, "two-packs"}, {false, "two-packs-reverse"}} {
+	}{{false, "manual-repair"}, {false, "manual-advance"}, {true, "empty"}, {false, "empty"}, {true, "guidance"}, {true, "passing-check"}, {true, "repair"}, {true, "repair-exhausted"}, {false, "two-packs"}, {false, "two-packs-reverse"}} {
+		if only != "" && scenario.kind != only || only == "" && strings.HasPrefix(scenario.kind, "manual-") {
+			continue
+		}
 		t.Run(fmt.Sprintf("%t/%s", scenario.before, scenario.kind), func(t *testing.T) {
 			enableBefore := scenario.before
 			a := authzActors(t)
@@ -597,6 +607,30 @@ func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
 			if err := recordCatalogFixture(a.Adoption, ctx, pid, "boss"); err != nil {
 				t.Fatal(err)
 			}
+
+			manual := strings.HasPrefix(scenario.kind, "manual-")
+			if scenario.kind == "manual-advance" {
+				body, _ := stock.FS.ReadFile("janitor-adopt.yaml")
+				lines := strings.Split(string(body), "\n")
+				var old []string
+				for _, line := range lines {
+					if !strings.Contains(line, "inAdvance:") {
+						old = append(old, line)
+					}
+				}
+				if _, err := wow.NewWorkflows(a.DB).StockUpdate(ctx, "janitor-adopt", "Pack updates", strings.Join(old, "\n")); err != nil {
+					t.Fatal(err)
+				}
+				landing, err := stock.FS.ReadFile("land.yaml")
+				if err != nil {
+					t.Fatal(err)
+				}
+				oldLanding := strings.Replace(string(landing), `inAdvance: "`, `inAdvance: "OLDER: `, 1)
+				if _, err := wow.NewWorkflows(a.DB).StockUpdate(ctx, "land", "Land", oldLanding); err != nil {
+					t.Fatal(err)
+				}
+				a.Ways.SyncStockPacks(ctx)
+			}
 			// Every project with a repository is on the platform pack; this one is
 			// on its current publication, so only its language pack is outdated.
 			picks := []adoption.PackPick{platformPick(t, a, ctx), {Pack: "old-language", Version: 1}}
@@ -613,6 +647,10 @@ func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
 			}
 			if _, err = a.lifecycle.Adopt(adoption.WithSystemAuthority(ctx, pid), a.projectByID(ctx, pid), cand, "boss", "start on v1"); err != nil {
 				t.Fatal(err)
+			}
+
+			if scenario.kind == "manual-advance" {
+				a.SyncStock(ctx)
 			}
 			repairs := 0
 			// The session runner is an external seam; repair scheduling, committed code,
@@ -712,7 +750,7 @@ func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
 			if scenario.kind == "passing-check" {
 				checks = checksJSON(shCheck("site-exists", "test -f site/index.html", "high"))
 			}
-			if strings.HasPrefix(scenario.kind, "repair") {
+			if strings.Contains(scenario.kind, "repair") {
 				checks = checksJSON(shCheck("repair-exists", "test -f site/fixed.html", "high"))
 			}
 			if err := a.Ways.BumpBlock(ctx, block.ID, "Published guidance.", checks, "boss", block.Name); err != nil {
@@ -725,6 +763,77 @@ func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
 				if _, err := a.Ways.PublishPack(ctx, "second-language", "Second language", `{"description":"second publication"}`, ""); err != nil {
 					t.Fatal(err)
 				}
+			}
+
+			if manual {
+				setTestFeatureAs(t, a, "what-ifs", true, "boss")
+				id, err := fleetReviewsFor(a).StartWhatIf(ctx, conformance.WhatIfRequest{Pack: "old-language", Version: 2, Projects: []ids.ID{pid}, Also: []conformance.PackVersion{{Pack: "apptown", Version: platformPick(t, a, ctx).Version}}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				runWhatIf(t, a, ctx, id)
+				shown := []string(nil)
+				if scenario.kind == "manual-advance" {
+					response := authzCall(a.Handler(), "boss", "GET", "/api/v1/projects/pack-static/adoption/in-advance?fromWhatIf="+id.String(), "")
+					var question workflow.InAdvanceQuestion
+					if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &question) != nil || question.Workflow != "janitor-adopt" || question.NotOffered != "" {
+						t.Fatalf("candidate question: %d %s", response.Code, response.Body.String())
+					}
+					if len(question.Landing) == 0 || strings.Contains(strings.Join(question.Landing, " "), "OLDER:") {
+						t.Fatalf("landing question used current receipt: %+v", question)
+					}
+					shown = question.Shown()
+				}
+				input := map[string]any{"fromWhatIf": id, "viaChange": true}
+				if len(shown) > 0 {
+					input["inAdvance"] = map[string]any{"shown": shown}
+				}
+				raw, _ := json.Marshal(input)
+				response := authzCall(a.Handler(), "boss", "POST", "/api/v1/projects/pack-static/adoption/adopt", string(raw))
+				var opened struct {
+					ChangeID ids.ID
+					RunID    ids.ID
+					Workflow string
+				}
+				if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &opened) != nil || opened.Workflow != "janitor-adopt" || opened.RunID.IsZero() {
+					t.Fatalf("manual adoption: %d %s", response.Code, response.Body.String())
+				}
+				a.Work.Wait()
+				snapshot, err := a.Work.Snapshot(ctx, opened.RunID, workflow.DetailView)
+				if err != nil {
+					t.Fatal(err)
+				}
+				wantRepairs := 0
+				if scenario.kind == "manual-repair" {
+					wantRepairs = 1
+				}
+				if repairs != wantRepairs {
+					t.Fatalf("manual repair sessions=%d want=%d: %+v", repairs, wantRepairs, snapshot)
+				}
+				accept := false
+				for _, step := range snapshot.Steps {
+					if step.Name == "routine" && step.Status != workflow.StatusPass {
+						t.Fatalf("ordinary routine: %+v", step)
+					}
+					if step.Name == "accept" {
+						accept = true
+						want := workflow.StatusPending
+						if len(shown) > 0 {
+							want = workflow.StatusPass
+						}
+						if step.Status != want {
+							t.Fatalf("person's acceptance: %+v", step)
+						}
+					}
+				}
+				if !accept {
+					t.Fatal("no acceptance step")
+				}
+				attempts, err := a.Work.Attempts(ctx, pid, "packs", 10)
+				if err != nil || len(attempts) != 0 {
+					t.Fatalf("manual work entered queue: %+v %v", attempts, err)
+				}
+				return
 			}
 			// PackSpec drops unknown fields in resolution, but the authored declaration
 			// itself is versioned; publishing unchanged data never starts a second review.
@@ -779,7 +888,7 @@ func TestJanitorPackPublicationAndEnableCatchUp(t *testing.T) {
 			for _, project := range finished.Projects {
 				if project.ProjectID == pid {
 					want := conformance.WhatIfNoNewFailures
-					if strings.HasPrefix(scenario.kind, "repair") {
+					if strings.Contains(scenario.kind, "repair") {
 						want = conformance.WhatIfNewFailures
 					}
 					if project.Outcome != want || project.Score.NotApplicable < 4 {
@@ -1131,5 +1240,107 @@ func TestPackPublicationBootstrapsOldTriggerlessPinAndUsesDeclaredQueue(t *testi
 				}
 			}
 		})
+	}
+}
+
+func TestJanitorNightlyCatchUpUsesCurrentRule(t *testing.T) {
+	a := authzActors(t)
+	ctx := verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, a))
+	a.SyncStock(ctx)
+	enablePackRule(t, a, ctx)
+	// These projects appear after enablement and publication, so neither event
+	// can be responsible for the nightly handler's work.
+	behind, _, _ := fleetRepo(t, a, "behind", map[string]string{"x": "x"})
+	current, _, _ := fleetRepo(t, a, "current", map[string]string{"x": "x"})
+	for _, id := range []ids.ID{behind, current} {
+		if err := recordCatalogFixture(a.Adoption, ctx, id, "boss"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	candidate, err := a.Adoption.Prepare(ctx, current, adoption.Request{Packs: []adoption.PackPick{platformPick(t, a, ctx)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(ctx, current), a.projectByID(ctx, current), candidate, "boss", "fixture current"); err != nil {
+		t.Fatal(err)
+	}
+	midnight := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	scheduled := false
+	for _, schedule := range apptownJobSchedules() {
+		if schedule.Operation == "packs-catch-up" {
+			scheduled = true
+			if got := schedule.When.Next(midnight); !got.Equal(midnight.Add(4*time.Hour + 30*time.Minute)) {
+				t.Fatalf("catch-up schedule: %s", got)
+			}
+		}
+	}
+	if !scheduled {
+		t.Fatal("no nightly pack catch-up schedule")
+	}
+	job, ok := apptownJobKinds(a)["packs-catch-up"]
+	if !ok {
+		t.Fatal("no catch-up handler")
+	}
+	before, err := a.conformance.RecentWhatIfs(ctx, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := job.Run(ctx, "daily", nil); err != nil {
+		t.Fatal(err)
+	}
+	after, err := a.conformance.RecentWhatIfs(ctx, 100)
+	if err != nil || len(after) != len(before)+1 {
+		t.Fatalf("nightly assessments: before=%d after=%d err=%v", len(before), len(after), err)
+	}
+	w, err := a.conformance.WhatIf(ctx, after[0].ID)
+	if err != nil || len(w.Projects) != 1 || w.Projects[0].ProjectID != behind || w.RuleID.IsZero() {
+		t.Fatalf("behind project under consent: %+v %v", w, err)
+	}
+	// A fresh instance has no standing rule; the same registered handler starts nothing.
+	off := authzActors(t)
+	offCtx := verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, off))
+	off.SyncStock(offCtx)
+	fleetRepo(t, off, "off", map[string]string{"x": "x"})
+	if _, err := apptownJobKinds(off)["packs-catch-up"].Run(offCtx, "daily", nil); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := off.conformance.RecentWhatIfs(offCtx, 100); err != nil || len(got) != 0 {
+		t.Fatalf("rule off started work: %+v %v", got, err)
+	}
+}
+
+func TestJanitorAttentionUsesTheJanitorProjectSet(t *testing.T) {
+	a := authzActors(t)
+	ctx := verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, a))
+	a.SyncStock(ctx)
+	active, _, _ := fleetRepo(t, a, "active", map[string]string{"x": "x"})
+	deleted, _, _ := fleetRepo(t, a, "deleted", map[string]string{"x": "x"})
+	copy, _, _ := fleetRepo(t, a, "copy", map[string]string{"x": "x"})
+	evalCopyForTest(t, a, copy)
+	if _, err := a.deletion.Request(ctx, deleted); err != nil {
+		t.Fatal(err)
+	}
+	if state := passDeletion(t, a, deleted); state.State != project.Deleted || !state.KeptUntil.Valid {
+		t.Fatalf("deleted project retained for inspection: %+v", state)
+	}
+	source := attention.Scans{Work: a.Work, Projects: a.Projects}
+	t.Run("unscheduled active project", func(t *testing.T) {
+		got, err := source.ProjectSnapshot(ctx, active)
+		if err != nil || !got.Known || len(got.Items) != 1 || got.Items[0].Detail != "Its packs schedule no scan. Adopting the platform pack would scan it." {
+			t.Fatalf("active project's scans: %+v %v", got, err)
+		}
+	})
+	for _, id := range []ids.ID{deleted, copy} {
+		t.Run(id.String(), func(t *testing.T) {
+			got, err := source.ProjectSnapshot(ctx, id)
+			if err != nil || !got.Known || len(got.Items) != 0 {
+				t.Fatalf("excluded project's scans coverage: %+v %v", got, err)
+			}
+		})
+	}
+
+	dbtest.FailNextStatement(t, a.DB, "-- name: JanitorProjectLabels :many")
+	if _, err := source.ProjectSnapshot(ctx, active); err == nil {
+		t.Fatal("eligibility read failure became exclusion")
 	}
 }

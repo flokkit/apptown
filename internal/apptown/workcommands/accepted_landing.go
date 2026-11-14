@@ -6,6 +6,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/ids"
 
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -40,8 +41,9 @@ func (a AcceptedLandings) CanLand(ctx context.Context, projectID ids.ID) (bool, 
 // LandingSentences reads what a project's landing approvals would say if its
 // landing started now, from the landing its way of working pins.
 type LandingSentences struct {
-	DB    *database.DB
-	Lanes *projectlifecycle.Service
+	Adoption *adoption.Service
+	DB       *database.DB
+	Lanes    *projectlifecycle.Service
 }
 
 func (l LandingSentences) LandingMeans(ctx context.Context, projectID ids.ID) ([]string, error) {

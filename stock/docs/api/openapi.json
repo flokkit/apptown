@@ -4211,6 +4211,9 @@
           },
           "stale": {
             "type": "boolean"
+          },
+          "unscheduled": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -4218,6 +4221,7 @@
           "source",
           "running",
           "historical",
+          "unscheduled",
           "noRepository",
           "known",
           "stale",

@@ -413,7 +413,7 @@ func TestAWhatIfComparesAVersionAndLeavesStandingAlone(t *testing.T) {
 	if r := rows["strict-docs/tone"]; r.Result != conformance.WhatIfNotAssessed || r.Reason != conformance.NotAssessedJudgesAChange || !strings.HasPrefix(r.Detail, r.Reason.Words()) {
 		t.Errorf("a diff rubric says it judges a change: %+v", r)
 	}
-	if r := rows["strict-docs/up"]; r.Result != conformance.WhatIfNotAssessed || r.Reason != conformance.NotAssessedNoRunningApp {
+	if r := rows["strict-docs/up"]; r.Proposed != conformance.NotApplicable.String() || r.Detail != "no standing deployment serves this project" {
 		t.Errorf("a runtime probe with no deployment serving main: %+v", r)
 	}
 	for _, r := range got.Rows {
@@ -648,6 +648,7 @@ func TestAWhatIfSaysWhichExceptionsTheVersionLeavesUncovered(t *testing.T) {
 func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	a.SyncStock(t.Context())
 	setTestFeatureAs(t, a, "what-ifs", true, "boss")
 	setTestFeatureAs(t, a, "evals", true, "boss")
 	tgLocalSh(t, a)
@@ -663,7 +664,7 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 	if err := wow.NewLibrary(a.DB).StockInsert(ctx, wow.StockBlock{Name: "strict-docs", Body: "body", ChecksJSON: checksJSON(shCheck("has-readme", "test -f README.md", "high"))}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Ways.PublishPack(ctx, "team", "Team", `{"guidance":["hygiene"]}`, ""); err != nil {
+	if _, err := a.Ways.PublishPack(ctx, "team", "Team", `{"guidance":["hygiene"],"workflows":["janitor-adopt","land"]}`, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := wow.NewLibrary(a.DB).StockInsert(ctx, wow.StockBlock{Name: "own-notes", Body: "body", ChecksJSON: checksJSON(shCheck("notes", "exit 0", "low"))}); err != nil {
@@ -680,7 +681,7 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 		t.Fatal(err)
 	}
 	adopt(t, a, alpha, "loose", 1, checksJSON(shCheck("loose", "exit 0", "low")))
-	if _, err := a.Ways.PublishPack(ctx, "team", "Team", `{"guidance":["hygiene","strict-docs"]}`, ""); err != nil {
+	if _, err := a.Ways.PublishPack(ctx, "team", "Team", `{"guidance":["hygiene","strict-docs"],"workflows":["janitor-adopt","land"]}`, ""); err != nil {
 		t.Fatal(err)
 	}
 	whatIf := func(projects ...ids.ID) *conformance.WhatIf {
@@ -725,7 +726,7 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 		// is offered only where the project's lanes say what it means.
 		{"a yes in advance naming nothing", "boss", "alpha", fmt.Sprintf(`{"fromWhatIf":%q,"viaChange":true,"inAdvance":{"shown":[]}}`, got.ID), "names the sentences it was shown", 400},
 		{"a yes in advance without a Change", "boss", "alpha", fmt.Sprintf(`{"fromWhatIf":%q,"inAdvance":{"shown":["yes"]}}`, got.ID), "through a Change", 400},
-		{"a yes in advance where none is offered", "boss", "alpha", fmt.Sprintf(`{"fromWhatIf":%q,"viaChange":true,"inAdvance":{"shown":["yes"]}}`, got.ID), "no yes in advance on alpha: this project has no quick-change or implement workflow", 409},
+		{"a yes to sentences never shown", "boss", "alpha", fmt.Sprintf(`{"fromWhatIf":%q,"viaChange":true,"inAdvance":{"shown":["yes"]}}`, got.ID), "has changed since it was shown", 409},
 		// A page loaded before fromWhatIf sends the older move/expectedDigest request:
 		// refused, not read as adopting the current selection.
 		{"the old page's request", "boss", "alpha", fmt.Sprintf(`{"move":{"pack":"team","version":2},"expectedRevision":%d,"expectedDigest":%q,"viaChange":true}`, assessed.AdoptionRevision, assessed.CandidateDigest), "", 400},
@@ -734,8 +735,8 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 			t.Fatalf("%s: %d %s", c.name, code, body)
 		}
 	}
-	// The question says why no yes in advance is offered on alpha.
-	if w := authzCall(h, "boss", "GET", "/api/v1/projects/alpha/adoption/in-advance", ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"notOffered":"this project has no quick-change or implement workflow`) {
+	// The question names the assessed candidate's adoption procedure.
+	if w := authzCall(h, "boss", "GET", "/api/v1/projects/alpha/adoption/in-advance?fromWhatIf="+got.ID.String(), ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"workflow":"janitor-adopt"`) {
 		t.Fatalf("the in-advance question: %d %s", w.Code, w.Body.String())
 	}
 	// A candidate other than the one prepared now, at the same revision. No
@@ -762,9 +763,9 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 	if code != 200 || json.Unmarshal([]byte(body), &opened) != nil || opened.ChangeID.IsZero() {
 		t.Fatalf("adopting what was assessed: %d %s", code, body)
 	}
-	// alpha has no working lane: the Change stands, and the answer says
-	// why no run was started rather than leaving it silently idle.
-	if !opened.RunID.IsZero() || !strings.Contains(opened.NotStarted, "no quick-change or implement workflow") {
+	// This fixture substitutes run definitions; admission still selects the
+	// candidate procedure and reports the unavailable test definition.
+	if opened.Workflow != "janitor-adopt" || !strings.Contains(opened.NotStarted, `no definition "janitor-adopt"`) {
 		t.Fatalf("an adoption Change on a project with no working lane: %s", body)
 	}
 	ch, err := a.changeByID(context.Background(), opened.ChangeID)
@@ -808,6 +809,7 @@ func TestAdoptingFromAWhatIfOpensWhatItAssessed(t *testing.T) {
 func TestAWhatIfMovesAProjectsOwnPackWithTheNamedOne(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	a.SyncStock(t.Context())
 	setTestFeatureAs(t, a, "what-ifs", true, "boss")
 	setTestFeatureAs(t, a, "evals", true, "boss")
 	tgLocalSh(t, a)
@@ -822,7 +824,7 @@ func TestAWhatIfMovesAProjectsOwnPackWithTheNamedOne(t *testing.T) {
 		}
 	}
 	for _, p := range []struct{ name, spec string }{
-		{"team", `{"guidance":["hygiene"]}`},
+		{"team", `{"guidance":["hygiene"],"workflows":["janitor-adopt","land"]}`},
 		{"extra", `{"guidance":["own-notes"]}`},
 	} {
 		if _, err := a.Ways.PublishPack(ctx, p.name, p.name, p.spec, ""); err != nil {
@@ -1057,7 +1059,7 @@ func TestAnEvalComparisonJudgesBothArmsChecksOnTheArmAndItsBase(t *testing.T) {
 	if r := rows["has-readme"]; r.NotComparable == "" || r.New != nil {
 		t.Errorf("a boolean check failing on both: %+v", r)
 	}
-	if r := rows["up"]; !strings.HasPrefix(r.NotComparable, "on this arm: needs the app running") {
+	if r := rows["up"]; !strings.HasPrefix(r.NotComparable, "on this arm:") {
 		t.Errorf("a probe with no deployment serving the arm: %+v", r)
 	}
 	if r := rows["tone"]; !strings.Contains(r.NotComparable, "no judge model") {
@@ -1184,6 +1186,7 @@ func TestAWhatIfStoppedWhileItRunsEndsInterrupted(t *testing.T) {
 func TestAWhatIfRecordsTheRulesItMovesBack(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
+	a.SyncStock(t.Context())
 	setTestFeatureAs(t, a, "what-ifs", true, "boss")
 	setTestFeatureAs(t, a, "evals", true, "boss")
 	tgLocalSh(t, a)
@@ -1195,7 +1198,7 @@ func TestAWhatIfRecordsTheRulesItMovesBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	// team v1 pins notes v1; alpha then takes notes v2 as its own block.
-	if _, err := a.Ways.PublishPack(ctx, "team", "Team", `{"guidance":["notes"]}`, ""); err != nil {
+	if _, err := a.Ways.PublishPack(ctx, "team", "Team", `{"guidance":["notes"],"workflows":["janitor-adopt","land"]}`, ""); err != nil {
 		t.Fatal(err)
 	}
 	adopt(t, a, alpha, "notes", 2, "[]")

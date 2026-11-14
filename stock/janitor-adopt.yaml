@@ -44,6 +44,7 @@ spec:
           with:
             approvers: ["role:project-approver"]
             means: I accept this pack adoption and its application repairs after checking the evidence.
+            inAdvance: "I accept this change before it is worked, on a condition AppTown checks: it changes no code, and every step of its run passes with every check passing or not applicable, none excused."
             standing:
               class: routine-update
               means: The adoption target is still the assessed candidate and every required check is met.

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -191,7 +192,43 @@ func (h AdoptionCommands) InAdvance(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	q, err := h.work.InAdvanceQuestion(r.Context(), p.ID)
+	var candidate *adoption.Candidate
+	var err error
+	if raw := r.URL.Query().Get("fromWhatIf"); raw != "" {
+		id, parseErr := ids.Parse(raw)
+		if parseErr != nil {
+			WriteError(w, 400, "invalid what-if: %v", parseErr)
+			return
+		}
+		assessed, readErr := h.assessedIn(r, id, p.ID)
+		if readErr != nil {
+			WriteFault(w, readErr)
+			return
+		}
+		picks, readErr := h.adoption.PicksWith(r.Context(), p.ID, assessed.pack, assessed.version, assessed.also...)
+		if readErr != nil {
+			WriteFault(w, readErr)
+			return
+		}
+		candidate, err = h.adoption.PrepareAssessed(r.Context(), p.ID, adoption.Request{Packs: picks, AdvanceWorkflows: assessed.advance}, assessed.revision, assessed.digest)
+	} else {
+		var selection adoption.Request
+		raw := r.URL.Query().Get("selection")
+		if raw == "" {
+			WriteError(w, 400, "name the adoption selection or fromWhatIf")
+			return
+		}
+		if err := json.Unmarshal([]byte(raw), &selection); err != nil {
+			WriteError(w, 400, "invalid adoption selection: %v", err)
+			return
+		}
+		candidate, err = h.adoption.Prepare(r.Context(), p.ID, selection)
+	}
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	q, err := h.work.InAdvanceQuestion(r.Context(), *candidate)
 	if err != nil {
 		WriteFault(w, err)
 		return

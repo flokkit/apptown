@@ -29,6 +29,7 @@ type Service struct {
 	fixes              fixDeclarations
 	retention          workRetention
 	runningImages      runningImages
+	scanSchedules      scanSchedules
 	workspaceChats     workspaceOwnership
 	stepCtx            func(context.Context, ids.ID) context.Context
 	heldSummaries      heldSummaryRequests
@@ -97,6 +98,7 @@ type Dependencies struct {
 	Fixes              fixDeclarations
 	Retention          workRetention
 	RunningImages      runningImages
+	ScanSchedules      scanSchedules
 	WorkspaceChats     workspaceOwnership
 	HeldSummaries      heldSummaryRequests
 
@@ -235,6 +237,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	s.assertions.clocked = s.clocked
 	s.retention = deps.Retention
 	s.runningImages = deps.RunningImages
+	s.scanSchedules = deps.ScanSchedules
 	s.advancer = newAdvancer(db, advanceRuntime{stages: s.stages, assertions: s.assertions, checks: checks, completion: deps.Completion, heldSummaries: deps.HeldSummaries, carry: s.answerFromAcceptance, endNothing: s.endNothingToChange, clocked: s.clocked})
 	s.starter = newStarter(db, s.stages, deps.Chats, startRuntime{
 		source: s.runAdmissions.Source,

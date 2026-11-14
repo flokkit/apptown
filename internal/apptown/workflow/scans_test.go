@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,6 +25,7 @@ func TestRunningFindingsRemainBoundToTheirScannedSoftware(t *testing.T) {
 	osFinding := conformance.Finding{Finding: check.Finding{Identifiers: []string{"CVE-OS"}, Package: &check.PackageRef{Name: "libssl", Ecosystem: "Debian"}}}
 	npmFinding := conformance.Finding{Finding: check.Finding{Identifiers: []string{"CVE-NPM"}, Package: &check.PackageRef{Name: "lodash", Ecosystem: "npm"}}}
 	s, ch, repo, _, runningState := automatedFixture(t)
+	s.scanSchedules = noScanSchedule{}
 	main := gittest.Run(t, repo, "rev-parse", "HEAD")
 	running := []RunningImages{{DeploymentID: dep, BundleID: bundle, Images: map[string]string{"web": "digest-a"}}}
 	observations := []conformance.ScanObservation{
@@ -36,7 +38,7 @@ func TestRunningFindingsRemainBoundToTheirScannedSoftware(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.Known || len(got.Running) != 1 || len(got.Running[0].ProjectFindings) != 1 || len(got.Running[0].ImageOnlyFindings) != 1 {
+	if !got.Known || got.Unscheduled || len(got.Running) != 1 || len(got.Running[0].ProjectFindings) != 1 || len(got.Running[0].ImageOnlyFindings) != 1 {
 		t.Fatalf("split: %+v", got)
 	}
 	if got.Running[0].ProjectFindings[0].Package.Name != "lodash" || got.Running[0].ImageOnlyFindings[0].Package.Name != "libssl" {
@@ -349,3 +351,21 @@ func TestNotKnownReasonsNameTheirCase(t *testing.T) {
 		})
 	}
 }
+
+// Missing evidence is actionable only when the reader knows whether anything scans.
+func TestUnknownScansSayWhenNoScheduleScansSource(t *testing.T) {
+	s, ch, _, _, _ := automatedFixture(t)
+	s.scanSchedules = noScanSchedule{}
+	got, err := s.LatestMainScans(t.Context(), ch.ProjectID)
+	if err != nil || !got.Unscheduled || got.Known || got.Reason != "its packs schedule no scan" {
+		t.Fatalf("unscheduled: %+v %v", got, err)
+	}
+	s.scanSchedules = noScanSchedule{err: errors.New("cannot read schedule")}
+	if _, err := s.LatestMainScans(t.Context(), ch.ProjectID); err == nil {
+		t.Fatal("read failure became no schedule")
+	}
+}
+
+type noScanSchedule struct{ err error }
+
+func (s noScanSchedule) ScansSource(context.Context, ids.ID) (bool, error) { return false, s.err }

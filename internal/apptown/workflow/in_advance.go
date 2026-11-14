@@ -2,8 +2,10 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"log"
 	"slices"
 
@@ -62,19 +64,19 @@ func (q InAdvanceQuestion) Shown() []string {
 // inAdvanceQuestions answers the question for a project as its adoption
 // would run now.
 type inAdvanceQuestions interface {
-	InAdvance(ctx context.Context, projectID ids.ID) (InAdvanceQuestion, error)
+	InAdvance(ctx context.Context, candidate adoption.Candidate) (InAdvanceQuestion, error)
 }
 
 // InAdvanceQuestion answers what a yes in advance on an adoption of the
 // project would mean now.
-func (s *Service) InAdvanceQuestion(ctx context.Context, projectID ids.ID) (InAdvanceQuestion, error) {
-	if _, err := s.require(ctx, operationPermission{Action: actionReadProject, ProjectID: projectID}); err != nil {
+func (s *Service) InAdvanceQuestion(ctx context.Context, candidate adoption.Candidate) (InAdvanceQuestion, error) {
+	if _, err := s.require(ctx, operationPermission{Action: actionReadProject, ProjectID: candidate.ProjectID}); err != nil {
 		return InAdvanceQuestion{}, err
 	}
 	if s.inAdvance == nil {
 		return InAdvanceQuestion{Landing: []string{}, NotOffered: "AppTown cannot read what a yes in advance means here"}, nil
 	}
-	return s.inAdvance.InAdvance(ctx, projectID)
+	return s.inAdvance.InAdvance(ctx, candidate)
 }
 
 // errInAdvanceNotAssent refuses a yes in advance from a way of acting that
@@ -271,7 +273,12 @@ func (s *Service) acceptInAdvance(ctx context.Context, expected *Run) (bool, err
 	// those are the sentences the person was shown.
 	var also []string
 	if s.inAdvance != nil {
-		q, err := s.inAdvance.InAdvance(ctx, expected.ProjectID)
+		var candidate adoption.Candidate
+		if err := json.Unmarshal([]byte(ch.TargetCandidateJSON), &candidate); err != nil {
+			return false, err
+		}
+		candidate.ProjectID = expected.ProjectID
+		q, err := s.inAdvance.InAdvance(ctx, candidate)
 		if err != nil {
 			log.Printf("run %d: reading what the landing asks in advance: %v", expected.ID, err)
 		} else if q.NotOffered == "" && len(q.Landing) > 0 && containsAll(yes.Shown, q.Landing) {

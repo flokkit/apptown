@@ -68,7 +68,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 	runners[verification.ScanKind] = a.scanSteps.RunScan
 	runners[workflowexec.AgentKind] = a.agents.Run
 	runners[workflowexec.ReviewKind] = a.agents.Review
-	return workflow.Dependencies{JanitorDefinitions: a.Adoption, StandingAcceptance: standingAcceptanceRequests{}, Standing: &a.standingRules, Fixes: a.Adoption, Retention: automatedRetention{}, RunningImages: scanSubjects{a.Deployment}, Jobs: jobQueue{},
+	return workflow.Dependencies{JanitorDefinitions: a.Adoption, StandingAcceptance: standingAcceptanceRequests{}, Standing: &a.standingRules, Fixes: a.Adoption, Retention: automatedRetention{}, RunningImages: scanSubjects{a.Deployment}, ScanSchedules: changeactions.Schedules{Adoption: a.Adoption, DB: a.DB}, Jobs: jobQueue{},
 		WorkspaceChats: a.Console,
 		StepContext:    projectCacheScope(a.DB),
 		Masker:         a.Secrets.Masker,
@@ -80,7 +80,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 		Merge:          mergeEffectsFor(a),
 		Landings:       landingAdoptions{},
 		LandingMeans:   workcommands.LandingSentences{DB: a.DB, Lanes: a.lifecycle},
-		InAdvance:      workcommands.LandingSentences{DB: a.DB, Lanes: a.lifecycle},
+		InAdvance:      workcommands.LandingSentences{DB: a.DB, Lanes: a.lifecycle, Adoption: a.Adoption},
 		ChangeAdds:     changeadds.Comparer{},
 		Budget:         remediation.LandingRetryBudget{Now: a.cfg.clock.Now},
 		EvalGate:       evalStepGate{a.evalGate},

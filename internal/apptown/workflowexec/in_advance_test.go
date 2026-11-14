@@ -47,7 +47,7 @@ func stockInAdvance(t *testing.T) (means, inAdvance string) {
 
 // InAdvance supplies the fixture's declared landing sentences, just as the
 // adopted procedure owner supplies them to the assembled application.
-func (f *taskAppTown) InAdvance(context.Context, ids.ID) (workflow.InAdvanceQuestion, error) {
+func (f *taskAppTown) InAdvance(context.Context, adoption.Candidate) (workflow.InAdvanceQuestion, error) {
 	q := workflow.InAdvanceQuestion{}
 	for _, stage := range f.definitions["land"].Stages {
 		for _, step := range stage.Steps {

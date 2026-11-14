@@ -12,6 +12,22 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
+const PacksCatchUpJob = "packs-catch-up"
+
+// RunPacksCatchUp reassesses behind projects under the current pack rule.
+func (f Fleet) RunPacksCatchUp(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
+	return nil, f.db.InTx(ctx, func(tx *database.Tx) error {
+		if f.standing == nil {
+			return nil
+		}
+		rule, err := f.standing.PackRuleIn(ctx, tx)
+		if err != nil || rule.RuleID.IsZero() {
+			return err
+		}
+		return f.startPackAssessmentsIn(ctx, tx, rule, "")
+	})
+}
+
 // PublishedPackIn starts an assessment under current human consent, atomically
 // with publication. The assessment reports impact even for ineligible projects.
 func (f Fleet) PublishedPackIn(ctx context.Context, tx *database.Tx, pack string, version int64) error {

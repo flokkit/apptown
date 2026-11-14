@@ -69,15 +69,19 @@ func TestTheInAdvanceQuestionIsEachProjectsOwn(t *testing.T) {
 	}{
 		{"quick-change and a landing", lanesOf{"quick-change": quick, "land": approvalWorkflow("land", "landing", "approve-landing", "I answer for it in advance")}, "quick-change", []string{"I accept it in advance", "I answer for it in advance"}, ""},
 		{"another project's landing", lanesOf{"quick-change": quick, "land": approvalWorkflow("land", "landing", "approve-landing", "Ship it if it is clean")}, "quick-change", []string{"I accept it in advance", "Ship it if it is clean"}, ""},
-		{"implement when there is no quick-change", lanesOf{"implement": approvalWorkflow("implement", "working", "accept", "I accept it in advance"), "land": approvalWorkflow("land", "landing", "approve-landing", "I answer for it in advance")}, "implement", []string{"I accept it in advance", "I answer for it in advance"}, ""},
+
 		{"the acceptance says nothing", lanesOf{"quick-change": approvalWorkflow("quick-change", "working", "accept", ""), "land": approvalWorkflow("land", "landing", "approve-landing", "I answer for it in advance")}, "quick-change", nil, "quick-change v3's accept approval does not say"},
 		{"the landing says nothing", lanesOf{"quick-change": quick, "land": approvalWorkflow("land", "landing", "approve-landing", "")}, "quick-change", nil, "approve-landing approval does not say"},
-		{"no lane", lanesOf{"land": approvalWorkflow("land", "landing", "approve-landing", "x")}, "", nil, "no quick-change or implement workflow"},
 	} {
-		q, err := inAdvanceQuestion(ctx, tc.lanes, p)
+		working, err := tc.lanes.ResolveWorkflow(ctx, p, "quick-change")
 		if err != nil {
-			t.Fatalf("%s: %v", tc.name, err)
+			t.Fatal(err)
 		}
+		landing, err := tc.lanes.ResolveWorkflow(ctx, p, "land")
+		if err != nil {
+			t.Fatal(err)
+		}
+		q := inAdvanceQuestion(working, landing)
 		if q.Workflow != tc.workflow || !slices.Equal(q.Shown(), tc.shown) || (tc.notOffered == "") != (q.NotOffered == "") || !strings.Contains(q.NotOffered, tc.notOffered) {
 			t.Fatalf("%s: %+v", tc.name, q)
 		}
@@ -96,5 +100,12 @@ func TestTheInAdvanceQuestionIsEachProjectsOwn(t *testing.T) {
 				t.Fatalf("%s: a yes to %q counted: %v", tc.name, other, err)
 			}
 		}
+	}
+}
+
+func TestAnAdoptionWithoutAProcedureSaysWhatToInclude(t *testing.T) {
+	_, _, err := adoptionProcedure(t.Context(), nil, adoption.Candidate{})
+	if err == nil || err.Error() != "this adoption brings no adoption procedure; include the platform pack" {
+		t.Fatalf("missing adoption procedure: %v", err)
 	}
 }

@@ -341,6 +341,7 @@ type carried struct {
 	standing         *schema.StandingTrigger
 	rule             workflow.StandingRevision
 	discoversTargets bool
+	scansSource      bool
 	workflow         string
 	version          int
 	trigger          schema.ScheduleTrigger
@@ -384,15 +385,18 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID) ([]carried, 
 		if doc.Metadata.System || doc.Spec.On.Schedule == nil || doc.Spec.On.Schedule.Cron == "" {
 			continue
 		}
-		discovers := false
+		discovers, scansSource := false, false
 		for _, stage := range doc.Spec.Stages {
-			for _, step := range stage.Steps {
+			for _, step := range append(append([]schema.Step{}, stage.OnEnter...), stage.Steps...) {
+				if step.Uses == "scan" && step.With["on"] == "source" {
+					scansSource = true
+				}
 				if step.Uses == "workflow/call" && step.With["findings"] == "fixable" {
 					discovers = true
 				}
 			}
 		}
-		one := carried{workflow: name, version: version, trigger: *doc.Spec.On.Schedule, discoversTargets: discovers}
+		one := carried{workflow: name, version: version, trigger: *doc.Spec.On.Schedule, discoversTargets: discovers, scansSource: scansSource}
 		if trigger, ok := doc.Standing(); ok {
 			one.standing = &trigger
 		}
@@ -562,4 +566,21 @@ func (p ProjectSchedules) Janitor() JanitorSchedule {
 		out.NextReason = "Update time not known: " + problem
 	}
 	return out
+}
+
+// ScansSource reports whether an adopted schedule scans source. Unreadable
+// definitions leave that answer unknown, even if another schedule scans.
+func (s Schedules) ScansSource(ctx context.Context, projectID ids.ID) (bool, error) {
+	carried, err := s.carriedBy(ctx, projectID)
+	if err != nil {
+		return false, err
+	}
+	scans := false
+	for _, c := range carried {
+		if c.err != nil {
+			return false, c.err
+		}
+		scans = scans || c.scansSource
+	}
+	return scans, nil
 }

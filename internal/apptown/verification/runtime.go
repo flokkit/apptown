@@ -165,12 +165,13 @@ func (o Runtime) judgeBrowser(ctx context.Context, t guidanceTarget) check.Probe
 
 // guidanceTarget is where a project's standing main deployment answers.
 type guidanceTarget struct {
-	ProjectID ids.ID
-	Slug      string
-	Container string
-	HostPort  int
-	FrontDoor string // the public URL: through AppTown's proxy, or an attached host's own
-	Naked     string // the mapped port directly: loopback here, the attached host by address
+	NoStandingDeployment bool
+	ProjectID            ids.ID
+	Slug                 string
+	Container            string
+	HostPort             int
+	FrontDoor            string // the public URL: through AppTown's proxy, or an attached host's own
+	Naked                string // the mapped port directly: loopback here, the attached host by address
 	// Host is the daemon a standing deployment's container runs on, its
 	// own target's; nil is AppTown's own.
 	Host        *docker.Scope
@@ -205,7 +206,14 @@ func (o Runtime) standingTarget(ctx context.Context, projectID ids.ID) (guidance
 		p := projectOrEmpty(ctx, o.db, projectID)
 		t.Slug, t.Revision, t.Container, t.HostPort, t.ReleaseSHA = p.Slug, p.DefaultBranch, e.Container, e.HostPort, e.ReleaseSHA
 	}
-	if err != nil || t.Container == "" {
+	if found, lookupErr := database.Lookup(err); !found && lookupErr == nil {
+		t.NoStandingDeployment = true
+		return t, nil, "no standing deployment serves this project", false
+	}
+	if err != nil {
+		return t, nil, "the main deployment could not be read: " + err.Error(), false
+	}
+	if t.Container == "" {
 		return t, nil, "no standing main deployment — deploy the app to be judged at runtime", false
 	}
 	switch observed := o.deployment.ObserveContainerNow(ctx, e); observed.State {
@@ -310,6 +318,9 @@ func (o Runtime) observe(ctx context.Context, projectID ids.ID, source, probe st
 		return outcomeOf(v.Outcome), v.Detail
 	}
 	t, _, why, ok := o.standingTarget(ctx, projectID)
+	if t.NoStandingDeployment {
+		return conformance.NotApplicable, why
+	}
 	if !ok {
 		// A deployment AppTown cannot run because the app declares no
 		// contract is the app's gap, not AppTown's inability.

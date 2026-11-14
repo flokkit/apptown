@@ -305,3 +305,12 @@ func janitorProjectState(p JanitorProject) janitorState {
 	}
 	return state
 }
+
+// JanitorReaches uses the same ordinary, active project set as the Janitor page.
+func (s *Service) JanitorReaches(ctx context.Context, id ids.ID) (bool, error) {
+	if _, err := s.require(ctx, operationPermission{Action: actionReadProject, ProjectID: id}); err != nil {
+		return false, err
+	}
+	labels, err := workflowsql.New(s.db.SQL()).JanitorProjectLabels(ctx, []ids.ID{id})
+	return len(labels) != 0, err
+}

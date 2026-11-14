@@ -45,6 +45,19 @@ func TestAnAssessmentSaysWhyEachCheckWasNotJudged(t *testing.T) {
 		t.Errorf("the reason keeps the detail: %+v", got["page"])
 	}
 
+	absent := reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{probe}, assessInput{noStandingDeployment: true, noApp: "no standing deployment serves this project"}))
+	if a := absent["page"]; a.State != conformance.NotApplicable || a.Detail != "no standing deployment serves this project" {
+		t.Fatalf("confirmed absence: %+v", a)
+	}
+	contract := projectTree(t)
+	writeTree(t, contract, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"})
+	memory := probe
+	memory.Check.Name, memory.Check.Probe = "memory", "memory-declared"
+	declared := reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{memory}, assessInput{noStandingDeployment: true, tool: toolContext{BuildDir: contract}}))
+	if a := declared["memory"]; a.State != conformance.DoesNotConform {
+		t.Fatalf("no deployment excused missing memory declaration: %+v", a)
+	}
+
 	failing := func(err error) func([]check.Item, string) (map[int]check.Verdict, *llmMetadata, error) {
 		return func([]check.Item, string) (map[int]check.Verdict, *llmMetadata, error) { return nil, nil, err }
 	}

@@ -17,7 +17,7 @@ func runtimeCheckJSON(name, probe string) string {
 }
 
 // A runtime expectation is evaluated by a probe against the booted app; with no
-// standing deployment (a read-only sweep), it is cannot-assess, never silently passed.
+// standing deployment it does not apply, and says so; it is never silently passed.
 func TestRuntimePostureMode(t *testing.T) {
 	t.Parallel()
 	a := conformanceTestApp(t)
@@ -26,13 +26,14 @@ func TestRuntimePostureMode(t *testing.T) {
 	id, _, _ := fleetRepo(t, a, "svc", map[string]string{"a.txt": "x"})
 	adopt(t, a, id, "health", 1, checksJSON(runtimeCheckJSON("healthz", "GET /healthz")))
 
-	// No standing deployment → the default probe cannot assess this check.
+	// No standing deployment serves the project → the check does not apply,
+	// with that reason.
 	_, verdicts, err := fleetReviewsFor(a).RunFleetReviewWith(testConformanceContext("t"), "manual", conformance.ReviewOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(verdicts) != 1 || verdicts[0].State != conformance.CannotAssess || verdicts[0].Mode != "runtime" {
-		t.Fatalf("no-deployment runtime check should be cannot-assess in mode runtime: %+v", verdicts)
+	if len(verdicts) != 1 || verdicts[0].State != conformance.NotApplicable || verdicts[0].Detail != "no standing deployment serves this project" || verdicts[0].Mode != "runtime" {
+		t.Fatalf("no-deployment runtime check should be not applicable with its reason in mode runtime: %+v", verdicts)
 	}
 
 	// With a probe wired, the runtime check is really evaluated, and is

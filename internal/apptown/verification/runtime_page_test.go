@@ -14,7 +14,10 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 )
 
 // The runtime "page" probe asks the app's root through its front door, the
@@ -114,5 +117,54 @@ func TestStandingOwnAddressUsesConfiguredNamespaces(t *testing.T) {
 	state, detail := runtime.observe(t.Context(), f.ProjectID, "", "page-own-address")
 	if state != conformance.DoesNotConform || !strings.Contains(detail, "https://old.preview.test/app.css") {
 		t.Fatalf("%s: %s", state, detail)
+	}
+}
+
+func TestAssessmentDistinguishesAbsentStoppedAndAnotherCommit(t *testing.T) {
+	f := newScannerOwnerFixture(t)
+	targets := deployment.NewTargets(f.DB, nil)
+	target, err := targets.Put(t.Context(), &deployment.Target{Name: "runtime", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deployments := deployment.NewDeployments(f.DB)
+	hosts := deployment.NewHosts(targets, nil, deployment.HostSettings{Scope: docker.Scope{Client: f.Daemon}})
+	environment := deployment.NewEnvironment(deployment.EnvironmentDependencies{Projects: project.New(f.DB, nil)})
+	service := deployment.New(t.Context(), f.DB, deployment.Dependencies{Targets: targets, Deployments: deployments, Hosts: hosts, Environment: environment})
+	runtime := NewRuntime(RuntimeDependencies{DB: f.DB, Deployment: service, Hosts: hosts, Environment: environment})
+	fleet := Fleet{runtime: runtime}
+	if app, why, absent := fleet.servingCommit(t.Context(), f.ProjectID, "next"); app != nil || !absent || why != "no standing deployment serves this project" {
+		t.Fatalf("absent: %v %q %t", app, why, absent)
+	}
+	dbtest.FailNextStatement(t, f.DB, "-- name: DeploymentByName :one")
+	if app, why, absent := fleet.servingCommit(t.Context(), f.ProjectID, "next"); app != nil || absent || !strings.Contains(why, "could not be read") {
+		t.Fatalf("read failed: %v %q %t", app, why, absent)
+	}
+	dep, err := deployments.EnsureStanding(t.Context(), f.ProjectID, "main", target.ID, (deployment.Attributes{}).WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if app, why, absent := fleet.servingCommit(t.Context(), f.ProjectID, "next"); app != nil || absent || why == "" {
+		t.Fatalf("no container: %v %q %t", app, why, absent)
+	}
+	at, _, err := service.Outcomes.Admit(t.Context(), deployment.Start{DeploymentID: dep.ID, TargetID: target.ID, Key: "fixture", Inputs: deployment.Inputs{Revision: "served", ImageDigest: "fixture", ArtifactHash: "fixture"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Outcomes.Complete(t.Context(), deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active", Health: "healthy", Handle: map[string]any{"container": "runtime-main", "hostPort": 40001}}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Daemon.Run(t.Context(), "", docker.Command{Args: []string{"run", "-d", "--name", "runtime-main", "--label", dockerlabel.Deployment + "=" + dep.ID.String(), "--label", dockerlabel.Generation + "=" + strconv.FormatInt(at.Generation, 10), "fixture"}}); err != nil {
+		t.Fatal(err)
+	}
+	if app, why, absent := fleet.servingCommit(t.Context(), f.ProjectID, "next"); app != nil || absent || !strings.Contains(why, "not next") {
+		t.Fatalf("other commit: %v %q %t", app, why, absent)
+	}
+	if app, why, absent := fleet.servingCommit(t.Context(), f.ProjectID, "served"); app == nil || absent || why != "" {
+		t.Fatalf("same commit: %v %q %t", app, why, absent)
+	}
+	f.Daemon.SetRunning("runtime-main", false)
+	if app, why, absent := fleet.servingCommit(t.Context(), f.ProjectID, "served"); app != nil || absent || !strings.Contains(why, "not running") {
+		t.Fatalf("stopped: %v %q %t", app, why, absent)
 	}
 }

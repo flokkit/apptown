@@ -292,7 +292,7 @@ func (f Fleet) whatIfProject(ctx context.Context, run *conformance.WhatIfRun, in
 		assess := assessInput{sh: sh, repository: repo, tool: toolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: head.SHA, BuildDir: src, AllowBuild: allowBuild},
 			label: fmt.Sprintf("apptown-what-if-%d-%d", run.ID(), p.ID)}
 		if runtime > 0 {
-			assess.running, assess.noApp = f.servingCommit(ctx, p.ID, head.SHA)
+			assess.running, assess.noApp, assess.noStandingDeployment = f.servingCommit(ctx, p.ID, head.SHA)
 		}
 		assess.judge, assess.noJudge, err = f.whatIfJudge(ctx, run, in, p.ID, &spend)
 		if err != nil {
@@ -404,18 +404,18 @@ func joinsPack(ctx context.Context, f Fleet, projectID ids.ID, pack string) (boo
 // exactly sha, or why it is not there to probe. The app a version would
 // run is the same app: a pack carries no build or runtime declaration (the
 // app's contract is in its tree), so one probe answers for both sides.
-func (f Fleet) servingCommit(ctx context.Context, projectID ids.ID, sha string) (*runningApp, string) {
+func (f Fleet) servingCommit(ctx context.Context, projectID ids.ID, sha string) (*runningApp, string, bool) {
 	if f.runtime == nil {
-		return nil, "AppTown cannot observe deployments here"
+		return nil, "AppTown cannot observe deployments here", false
 	}
 	t, commit, still, why := f.runtime.mainAt(ctx, projectID)
 	switch {
 	case why != "":
-		return nil, why
+		return nil, why, t.NoStandingDeployment
 	case commit != sha:
-		return nil, fmt.Sprintf("main's deployment runs %s, not %s", strs.ShortSHA(commit), strs.ShortSHA(sha))
+		return nil, fmt.Sprintf("main's deployment runs %s, not %s", strs.ShortSHA(commit), strs.ShortSHA(sha)), false
 	}
-	return &runningApp{target: t, still: still}, ""
+	return &runningApp{target: t, still: still}, "", false
 }
 
 // whatIfJudge admits model rubrics only when requested, under the what-if's
