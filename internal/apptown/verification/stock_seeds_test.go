@@ -17,7 +17,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -441,65 +440,5 @@ func TestSeedsDeclareTheirMemory(t *testing.T) {
 	}
 	if seeded == 0 {
 		t.Fatal("no seed was read")
-	}
-}
-
-// The janitor updates a project only when every part with tools is covered
-// by an adopted update fix (updateCoverage). A seed is the contract a new
-// project starts with, so its pack's own guidance must cover it, or every
-// project made from the pack waits for a pack upgrade from its first day.
-func TestSeedsAreCoveredByTheirPacksUpdateFixes(t *testing.T) {
-	t.Parallel()
-	// Packs whose seeds name a tool that no update fix can serve yet.
-	uncovered := map[string]string{
-		"wordpress": "the update executor has no PHP or Composer, and the pack names no toolchain",
-		"godot-3d":  "a Godot project has no package manager; its engine is the toolchain, which updates never change",
-	}
-	packs, err := wow.ReadStockPacks(stock.FS)
-	if err != nil {
-		t.Fatal(err)
-	}
-	blocks, skipped := wow.ReadStockGuidance(stock.FS, nil)
-	if skipped != 0 {
-		t.Fatalf("skipped guidance: %d", skipped)
-	}
-	fixes := map[string]string{}
-	for _, b := range blocks {
-		fixes[b.Name] = b.FixesJSON
-	}
-	compared := 0
-	for _, p := range packs {
-		raw, err := stock.FS.ReadFile("seeds/" + p.Name + "/.apptown/app.yaml")
-		if err != nil {
-			continue
-		}
-		seed, err := appcontract.Parse(raw)
-		if err != nil {
-			t.Fatalf("%s: %v", p.Name, err)
-		}
-		var ds []fix.Declaration
-		for _, name := range p.Guidance {
-			declared, err := fix.Parse(fixes[name])
-			if err != nil {
-				t.Fatalf("%s: %v", name, err)
-			}
-			ds = append(ds, declared...)
-		}
-		missing, err := updateCoverage(seed, ds)
-		if err != nil {
-			t.Fatal(err)
-		}
-		reason, excused := uncovered[p.Name]
-		switch {
-		case excused && len(missing) == 0:
-			t.Errorf("pack %s now covers its seed; remove its exception (%s)", p.Name, reason)
-		case !excused && len(missing) > 0:
-			t.Errorf("pack %s adopts no update fix for its seed's parts %+v", p.Name, missing)
-		case !excused:
-			compared++
-		}
-	}
-	if compared == 0 {
-		t.Fatal("no seeded pack has tool parts; the check has nothing to compare")
 	}
 }

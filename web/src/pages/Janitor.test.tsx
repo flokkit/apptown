@@ -14,7 +14,7 @@ import type { JanitorView, JanitorHistoryView, JanitorProject, StandingRevision 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const at = '2026-11-12T10:00:00Z'
 const actor = { name: 'Sam', principal: 'person', via: 'session' }
-const queue = (name: string, stopped = false) => ({ title: name === 'updates' ? 'Dependency updates' : name === 'packs' ? 'Pack updates' : 'Security fixes', queue: name, state: stopped ? 'stopped' : 'up_to_date', words: stopped ? 'stopped after 3 failed tries' : 'up to date', failed: stopped ? 3 : 0, reason: '', since: at, packages: [], changeNumber: 0 })
+const queue = (name: string, stopped = false) => ({ title: name === 'updates' ? 'Dependency updates' : name === 'packs' ? 'Pack updates' : 'Security fixes', queue: name, state: stopped ? 'stopped' : 'up_to_date', words: stopped ? 'stopped after 3 failed tries' : 'up to date', failed: stopped ? 3 : 0, reason: '', since: at, files: [], packages: [], changeNumber: 0 })
 const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name: `${id} app`, enabled: true, level: 'routine', state: { word: 'up to date', unknown: false, help: '' }, issuer: actor, grantedAt: at,
  queues: [queue('security'), queue('updates'), queue('packs')], scans: { main: 'abc', source: [], running: [], historical: [], noRepository: false, known: true, stale: false, lastScan: at },
  problem: '', procedures: [{ title: 'Declared dependency care', workflow: 'janitor-update', version: 7, repairRounds: 4, stopRule: 'Weekly updates stop after 3 failed tries; security fixes can still run.', sentence: 'Up to 4 repair sessions; then asks Sam.', problem: '' }], queueSentences: ['Security fixes stop after 3 failed tries.', 'Weekly updates stopped after 3 failed tries. Security fixes can still run.'], nextUpdate: at, nextReason: '', scanWorkflow: 'discover-issues', scanChangeNumber: 0, scanNow: '' })
@@ -24,7 +24,7 @@ function fixture(): JanitorView {
  const off = { ...project('Off'), level: 'off', state: { word: 'turned off for this project', unknown: false, help: '' }, nextReason: 'Turned off for this project', choice: { level: 'off', person: actor, at, reason: 'Waiting for a release' } }
  return { rules: [rule(), rule(true)], projects: [stopped, project('Held'), off], releaseHold: 'Stops after a failed release and never releases over a rollback.', deployments: [{ projectId: 'Held', deploymentId: 'dep', name: 'production', displayLabel: 'Customer office', setting: { mode: 'automatic' }, protected: false, automatic: true, sentence: 'Releases accepted updates automatically.', hold: { deploymentId: 'dep', deployment: 'production', displayLabel: 'Customer office', releaseNumber: 9, reason: 'release failed' } }] }
 }
-const history = (): JanitorHistoryView => ({ history: { changes: [{ changeId: 'landed', projectId: 'Held', slug: 'Held', project: 'Held app', number: 2, title: 'Update library', queue: 'updates', landedAt: at, packages: [{ ecosystem: 'npm', package: 'library', from: '1.0.0', to: '1.1.0' }], packVersions: [], rule: { kind: 'Dependency updates', scope: 'all projects' }, ruleId: 'original', ruleRevision: 1, issuer: actor, grantedAt: at, schedule: 'janitor-update' }], more: false }, releases: [{ changeId: 'landed', projectId: 'Held', number: 8, state: 'released', deployment: 'production', displayLabel: 'Customer office' }], since: at, until: at, offset: 0 })
+const history = (): JanitorHistoryView => ({ history: { changes: [{ changeId: 'landed', projectId: 'Held', slug: 'Held', project: 'Held app', number: 2, title: 'Update library', queue: 'updates', landedAt: at, files: [], packages: [{ ecosystem: 'npm', package: 'library', from: '1.0.0', to: '1.1.0' }], packVersions: [], rule: { kind: 'Dependency updates', scope: 'all projects' }, ruleId: 'original', ruleRevision: 1, issuer: actor, grantedAt: at, schedule: 'janitor-update' }], more: false }, releases: [{ changeId: 'landed', projectId: 'Held', number: 8, state: 'released', deployment: 'production', displayLabel: 'Customer office' }], since: at, until: at, offset: 0 })
 const cleanup: (() => void)[] = []
 afterEach(() => { cleanup.splice(0).forEach(f => f()); vi.unstubAllGlobals() })
 async function mount(fetcher: (url: string, init?: RequestInit) => Promise<Response>, manage = true, project: Record<string, boolean> = { 'change:create': true, 'change:invoke-lane': true }) {
@@ -101,7 +101,7 @@ it('previews and enables the shown pack meaning, then revokes its exact revision
  const { client, el } = await mount(async (url, init) => {
   if (init?.method === 'POST') {
    const body = JSON.parse(String(init.body)); calls.push([url, body])
-   if (url.endsWith('/preview')) return json({ ...rule(true).question, definition: body, portfolio: [{ projectId: 'Held', project: 'Held', covered: false, needsPackUpgrade: ['language'], onlyChecksStarts: true, deployments: [] }] })
+   if (url.endsWith('/preview')) return json({ ...rule(true).question, definition: body, portfolio: [{ projectId: 'Held', project: 'Held', onlyChecksStarts: true, deployments: [] }] })
    data = { ...data, rules: url.endsWith('/disable') ? [] : [rule(true)] }; return json({})
   }
   return json(url.includes('/history') ? history() : data)
@@ -110,7 +110,7 @@ it('previews and enables the shown pack meaning, then revokes its exact revision
  const packs = el.querySelector('table[aria-label="Janitor approvals"] tbody tr:last-child')!
  await act(async () => packs.querySelector('button')!.click())
  expect(calls[0][1]).toMatchObject({ categories: { waysOfWorking: true, dependencies: '' } }); expect(calls[0][1]).not.toHaveProperty('schedules')
- expect(el.textContent).toContain('The janitor will move these projects when Keep packs current is on.')
+ expect(el.textContent).toContain('ProjectsHeld')
  const button = (word: string) => [...el.querySelectorAll('button')].find(b => b.textContent === word)!
  await act(async () => button('Enable').click()); await settled(client)
  expect(calls[1][1]).toMatchObject({ shownDigest: 'meaning', expectedRevision: 0 })
@@ -168,7 +168,7 @@ it('counts apps with image-only findings once and shows landed pack versions', a
  const scan = { findings: [], projectFindings: [], unclassifiedFindings: [], imageOnlyFindings: [{ fingerprint: 'base-one' }, { fingerprint: 'base-two' }] } as unknown as JanitorProject['scans']['running'][number]
  data.projects[0].scans.running = [scan, scan]
  data.projects[1].scans.running = [scan]
- h.history.changes[0] = { ...h.history.changes[0], queue: 'packs', title: 'Update packs', packages: [], packVersions: [{ pack: 'language', version: 3 }] }
+ h.history.changes[0] = { ...h.history.changes[0], queue: 'packs', title: 'Update packs', files: [], packages: [], packVersions: [{ pack: 'language', version: 3 }] }
  const { client, el } = await mount(async url => json(url.includes('/history') ? h : data))
  await settled(client)
  expect(el.textContent).toContain('2 apps’ images need a base-image update; the janitor does not do this yet.')
@@ -179,7 +179,7 @@ it('previews a changed dependency level against the existing disabled rule', asy
  const commands: unknown[] = []
  const data = { ...fixture(), rules: [rule(false, false)] }
  const { client, el } = await mount(async (url, init) => {
-  if (init?.method === 'POST') { const body = JSON.parse(String(init.body)); commands.push(body); return json({ ...rule().question, definition: body, portfolio: [{ projectId: 'Held', project: 'Go code', covered: true, overridesInstance: true, level: 'routine', noMajorCommand: ['server part'], deployments: [], needsPackUpgrade: [] }] }) }
+  if (init?.method === 'POST') { const body = JSON.parse(String(init.body)); commands.push(body); return json({ ...rule().question, definition: body, portfolio: [{ projectId: 'Held', project: 'Go code', overridesInstance: true, level: 'routine', deployments: [] }] }) }
   return json(url.includes('/history') ? history() : data)
  })
  await settled(client)
@@ -187,9 +187,9 @@ it('previews a changed dependency level against the existing disabled rule', asy
  await act(async () => { select.value = 'aggressive'; select.dispatchEvent(new Event('change', { bubbles: true })) })
  await act(async () => el.querySelector<HTMLButtonElement>('table[aria-label="Janitor approvals"] tbody tr button')!.click())
  expect(commands[0]).toMatchObject({ categories: { dependencies: 'aggressive', waysOfWorking: false } })
- expect(el.textContent).toContain('Covered projects')
+ expect(el.textContent).toContain('Projects')
  expect(el.textContent).toContain('Go code · routine patch and minor updates')
- expect(el.textContent).toContain('major versions are not offered for server part')
+ expect(el.textContent).not.toContain('major versions are not offered')
 })
 
 it('reads current rules after a lost save reply before offering another enable', async () => {

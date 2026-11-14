@@ -5,7 +5,7 @@ metadata:
   title: Dependency updates
   tier: core
   category: maintenance
-  description: Apply declared dependency updates and check the result.
+  description: An agent updates dependencies; AppTown checks the result.
 spec:
   kind: pipeline
   role: working
@@ -15,8 +15,20 @@ spec:
     - name: update
       onEnter:
         - name: update
-          uses: fix
-          with: {kind: update}
+          uses: agent/pi
+          with:
+            mayChangeNothing: true
+            skills: [skill/janitor]
+            prompt: |
+              Update this project's dependencies at level ${{inputs.level}}: routine
+              means patch and minor releases (a 0.x package stays within its minor);
+              aggressive means the newest releases, including major versions. Cover every
+              ecosystem and every workspace or sub-project in the repository, following
+              the dependency guidance for each. Do not change toolchain versions (mise,
+              .tool-versions, version files), Dockerfile base images or
+              .apptown/app.yaml. Change application code only where a moved package
+              needs it, as little as possible. Run each part's declared tests, then
+              commit. If nothing can move within the level, change nothing.
       steps:
         - name: repair
           uses: agent/pi
@@ -25,6 +37,26 @@ spec:
             mayChangeNothing: true
             skills: [skill/janitor]
             prompt: Make the failing check pass within this change’s intent. Write the code this update needs and run its checks. Never widen the change.
+        - name: routine
+          uses: routine
+          with:
+            rubric: |
+              Judge whether this change is a dependency update within its approved level.
+              AppTown's facts below name the level, any security findings it must fix,
+              and how each changed file is classified; read the complete diff, including
+              dependency files. Pass only when all of these hold. (1) Every version change
+              in manifests and lockfiles stays within the level: at routine, patch and
+              minor releases only, and a 0.x package stays within its minor; at
+              aggressive, any newer release including majors. Never a downgrade, never a
+              new registry or source, never a pre-release unless the package already was
+              one. (2) No new direct dependency, unless it replaces one the update
+              removed or renamed. (3) Every change outside dependency files is the
+              smallest change a moved package needs: a renamed API, a changed import, a
+              configuration key the new version requires. (4) Nothing else changes: no
+              features, refactors, formatting, unrelated fixes, weakened or removed
+              tests, toolchain or runtime changes. Fail when any change falls outside
+              these, and name it. Answer unclear when you cannot tell whether a code
+              change is needed by a moved package.
         - name: tests
           uses: tests
         - name: boot
@@ -35,8 +67,6 @@ spec:
         - name: scan-image
           uses: scan
           with: {on: image}
-        - name: routine
-          uses: routine
         - name: accept
           uses: approval
           with:
@@ -44,4 +74,4 @@ spec:
             means: I accept this dependency update and its application repairs after checking the evidence.
             standing:
               class: routine-update
-              means: The declared dependency update stays within the selected bound and every required check is met.
+              means: An AI model judged the dependency update within the selected level and limited to dependencies and the code they need, AppTown saw toolchain versions and base images unchanged, and every required check is met.

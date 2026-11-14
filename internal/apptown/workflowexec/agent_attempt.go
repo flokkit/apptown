@@ -165,7 +165,7 @@ type workerAttempt struct {
 // hub at that commit (the change's diff and scope to it);
 // and what the step needs and the worker's image promises are checked
 // there, before anything is published or rewound.
-func (a *Executor) runOnWorker(task *workflow.Execution, attempt *stepAttempt, review *reviewCall, queuedMs int64, fail func(workflow.StepState, map[string]any)) {
+func (a *Executor) runOnWorker(task *workflow.Execution, attempt *stepAttempt, review *reviewCall, queuedMs int64, claimStep func() (*workflow.Step, error), fail func(workflow.StepState, map[string]any)) {
 	step, run := task.Step(), task.Run()
 	ctx := context.WithoutCancel(task.Context())
 	ref := workflow.RunRef{ID: run.ID, ProjectID: run.ProjectID}
@@ -187,7 +187,7 @@ func (a *Executor) runOnWorker(task *workflow.Execution, attempt *stepAttempt, r
 	}
 	folder := gitexec.LockFolder(workspace)
 	defer folder.Release()
-	claim, err := task.Claim()
+	claim, err := claimStep()
 	if err != nil {
 		attempt.settle("unclaimed")
 		return

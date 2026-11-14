@@ -115,7 +115,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 	queuedMs := a.now().Sub(queuedAt).Milliseconds()
 	attempt.queued(queuedAt, binding)
 	if a.worker != nil {
-		a.runOnWorker(task, attempt, &reviewCall{cfg: cfg}, queuedMs, finish)
+		a.runOnWorker(task, attempt, &reviewCall{cfg: cfg}, queuedMs, task.Claim, finish)
 		return
 	}
 

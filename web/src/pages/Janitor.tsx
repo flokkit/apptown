@@ -1,3 +1,4 @@
+import { changedFiles } from './janitor/files'
 import { JanitorAttribution } from '../janitorAttribution'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -112,7 +113,7 @@ function History({ projects }: { projects: JanitorProject[] }) {
   const data = q.data
   const columns: ListColumn<JanitorLandedChange>[] = [
     { key: 'change', label: 'Change', phone: 'name', render: c => <Link to={`/changes/${c.changeId}`}>{c.project} · {c.title}</Link> },
-    { key: 'packages', label: 'Updated', render: c => c.packVersions.length > 0 ? c.packVersions.map(p => `${p.pack} version ${p.version}`).join(', ') || 'Pack versions not recorded' : c.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') || 'Package versions not recorded' },
+    { key: 'packages', label: 'Updated', render: c => c.packVersions.length > 0 ? c.packVersions.map(p => `${p.pack} version ${p.version}`).join(', ') || 'Pack versions not recorded' : changedFiles(c.packages, c.files) || 'Files not recorded' },
     { key: 'releases', label: 'Released to', render: c => {
       const releases = data?.releases.filter(r => r.changeId === c.changeId) || []
             return releases.length ? releases.map(r => <div key={`${r.deployment}-${r.number}`}><Link to={`/projects/${c.slug}/releases/${r.number}/log`}>{r.displayLabel} · release {r.number}</Link> · {r.state}</div>) : 'No releases recorded'

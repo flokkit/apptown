@@ -5,7 +5,7 @@ metadata:
   title: Security fixes
   tier: core
   category: maintenance
-  description: Apply declared dependency updates and check the result.
+  description: An agent updates dependencies; AppTown checks the result.
 spec:
   kind: pipeline
   role: working
@@ -13,8 +13,16 @@ spec:
     - name: update
       onEnter:
         - name: update
-          uses: fix
-          with: {kind: update, for: findings}
+          uses: agent/pi
+          with:
+            mayChangeNothing: true
+            skills: [skill/janitor]
+            prompt: |
+              Fix these security findings by moving each named package to the smallest
+              version that fixes it: ${{inputs.targets}}. Keep within patch and minor
+              releases unless no such release fixes it. Do not change toolchain versions,
+              Dockerfile base images or .apptown/app.yaml. Change application code only
+              where a moved package needs it. Run each part's declared tests, then commit.
       steps:
         - name: repair
           uses: agent/pi
@@ -23,6 +31,29 @@ spec:
             mayChangeNothing: true
             skills: [skill/janitor]
             prompt: Make the failing check pass within this change’s intent. Write the code this update needs and run its checks. Never widen the change.
+        - name: routine
+          uses: routine
+          with:
+            rubric: |
+              Judge whether this change is a dependency update within its approved level.
+              AppTown's facts below name the level, any security findings it must fix,
+              and how each changed file is classified; read the complete diff, including
+              dependency files. Pass only when all of these hold. (1) Every version change
+              in manifests and lockfiles stays within the level: at routine, patch and
+              minor releases only, and a 0.x package stays within its minor; at
+              aggressive, any newer release including majors. Never a downgrade, never a
+              new registry or source, never a pre-release unless the package already was
+              one. (2) No new direct dependency, unless it replaces one the update
+              removed or renamed. (3) Every change outside dependency files is the
+              smallest change a moved package needs: a renamed API, a changed import, a
+              configuration key the new version requires. (4) Nothing else changes: no
+              features, refactors, formatting, unrelated fixes, weakened or removed
+              tests, toolchain or runtime changes. Fail when any change falls outside
+              these, and name it. Answer unclear when you cannot tell whether a code
+              change is needed by a moved package.
+              Each named finding's package must have moved to a
+              version that fixes it; whether the scanner still reports it is checked
+              separately.
         - name: tests
           uses: tests
         - name: boot
@@ -33,5 +64,3 @@ spec:
         - name: scan-image
           uses: scan
           with: {on: image}
-        - name: routine
-          uses: routine

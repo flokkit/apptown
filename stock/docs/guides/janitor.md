@@ -8,7 +8,12 @@ has landed. Nothing runs until a person grants permission.
 
 **Dependency updates** cover routine patch and minor updates, or aggressive updates
 including major versions. Security fixes run on their adopted workflow’s schedule within
-the same version limits. Neither level changes language versions or base images.
+the same version limits. An agent updates every ecosystem, workspace and
+sub-project it finds, following adopted dependency guidance. An AI model reads
+the complete diff and judges its level and scope, including the smallest code
+changes a moved package needs. When it cannot decide, the Change waits for a
+person. AppTown checks that toolchain versions and base images stay unchanged
+and, for security fixes, that the source scanner no longer reports the target.
 **Keep packs current** moves projects to newly published pack versions and makes
 any application changes those updates need.
 
@@ -55,7 +60,7 @@ with the reason beside it, while a scan or security fix is running, when the
 janitor is off or waiting for approval, or when the project has not adopted the
 scan. The next scan follows its declared schedule from then.
 
-**Last 7 days** lists landed Changes, package moves or pack versions and the
+**Last 7 days** lists landed Changes, changed dependency files or pack versions (older attempts retain package moves) and the
 releases that contain them. Each Change links to its checks and approval.
 **Older history** pages through earlier landings. The janitor's attribution names
 the person who granted the original approval and its revision, on the Janitor page and on the Change itself. Work without a
@@ -67,3 +72,7 @@ UTC and repair limits. It authorizes what each project's adopted packs declare;
 new values apply when the project adopts a newer pack version. The Next update
 column and Scan now action read the scheduler's current answer. Queue and
 procedure labels come from the adopted workflows' titles.
+
+When an adopted workflow changes the approval’s meaning, its existing approval
+stops qualifying. Revoke it, then Preview and Enable to grant the current meaning.
+Approvals keep their original meaning and history.

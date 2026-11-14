@@ -1378,7 +1378,8 @@ CREATE TABLE IF NOT EXISTS automated_changes (
  failed_attempt BOOLEAN NOT NULL DEFAULT false,
  schedule TEXT NOT NULL DEFAULT '',
  rule_id UUID,
- rule_revision BIGINT NOT NULL DEFAULT 0
+ rule_revision BIGINT NOT NULL DEFAULT 0,
+ files JSONB NOT NULL DEFAULT '[]'
 );
 
 -- Project choices are human acts; their history survives rule revisions.

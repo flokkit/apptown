@@ -40,10 +40,7 @@ export function RuleConsent({ rule, packs, current, reload, project }: { rule?: 
       catch (error) { await reload(); throw error }
     })}>Enable</button></>}>
       <p>{preview.question.shown}</p>
-      {(preview.question.portfolio ?? []).some(p => p.covered) && <><h3>Covered projects</h3>{(preview.question.portfolio ?? []).filter(p => p.covered).map(p => <p key={p.projectId}><Link to={`/projects/${p.project}`}>{p.project}</Link>{p.overridesInstance && <> · {p.level === 'off' ? 'turned off for this project' : p.level === 'aggressive' ? 'aggressive updates including major versions' : 'routine patch and minor updates'}</>}</p>)}</>}
-      {preview.question.definition.categories.dependencies === 'aggressive' && (preview.question.portfolio ?? []).filter(p => p.noMajorCommand?.length).map(p => <p key={p.projectId}>{p.project}: major versions are not offered for {p.noMajorCommand.join(', ')}.</p>)}
-      {(preview.question.portfolio ?? []).filter(p => !p.covered).length > 0 && <><h3>Needs a pack upgrade</h3>{packs && <p>The janitor will move these projects when Keep packs current is on.</p>}
-        {(preview.question.portfolio ?? []).filter(p => !p.covered).map(p => <p key={p.projectId}><Link to={`/projects/${p.project}`}>{p.project}</Link> · {p.needsPackUpgrade.join(', ')}</p>)}</>}
+      {(preview.question.portfolio ?? []).length > 0 && <><h3>Projects</h3>{(preview.question.portfolio ?? []).map(p => <p key={p.projectId}><Link to={`/projects/${p.project}`}>{p.project}</Link>{p.overridesInstance && <> · {p.level === 'off' ? 'turned off for this project' : p.level === 'aggressive' ? 'aggressive updates including major versions' : 'routine patch and minor updates'}</>}</p>)}</>}
       {(preview.question.portfolio ?? []).some(p => p.deployments.length > 0) && <><h3>Automatic releases</h3>
         {(preview.question.portfolio ?? []).flatMap(p => p.deployments.map(d => <p key={d.deploymentId}><Link to={`/projects/${p.project}/deployments/${d.deployment}`}>{p.project} / {d.deployment}</Link> · {d.setting}</p>))}</>}
       {(preview.question.portfolio ?? []).filter(p => p.onlyChecksStarts).map(p => <p key={p.projectId}>{p.project}: only checks that it starts.</p>)}

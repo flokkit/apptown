@@ -2,6 +2,7 @@ package changeactions
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -127,6 +128,7 @@ type firing struct {
 	projectID ids.ID
 	slug      string
 	waiting   string
+	level     string
 }
 
 // resolve reads current consent and chooses the adopted cadence into c.
@@ -149,6 +151,7 @@ func (s Schedules) resolve(ctx context.Context, c *firing) (bool, error) {
 		return false, nil
 	}
 	c.rule = rule
+	c.level = level
 	c.trigger.Cron = c.standing.CronFor(level)
 	return true, nil
 }
@@ -197,7 +200,7 @@ func (s Schedules) fire(ctx context.Context, c firing, now time.Time, requestedB
 		return fired{}, err
 	}
 	outcome, changeID := workflow.ScheduleFailed, ids.Nil
-	item, run, err := s.Actions.work.CreateAndRun(asSchedule(ctx, c.projectID), workflow.InvokeChange{Change: workflow.ChangeDraft{ProjectID: c.projectID, Type: "scheduled", Title: title, Queue: c.trigger.Queue, Schedule: c.workflow, RuleID: c.rule.RuleID, RuleRevision: c.rule.Revision}, Workflow: c.workflow})
+	item, run, err := s.Actions.work.CreateAndRun(asSchedule(ctx, c.projectID), workflow.InvokeChange{Change: workflow.ChangeDraft{ProjectID: c.projectID, Type: "scheduled", Title: title, Queue: c.trigger.Queue, Schedule: c.workflow, RuleID: c.rule.RuleID, RuleRevision: c.rule.Revision}, Workflow: c.workflow, Inputs: json.RawMessage(fmt.Sprintf(`{"level":%q}`, c.level))})
 	// A change committed before preparation or dispatch failed is kept in the
 	// result, so the caller can name it and its requester.
 	out := fired{change: item, run: run}

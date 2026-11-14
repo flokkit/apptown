@@ -16,7 +16,7 @@ import (
 )
 
 const janitorLandedChanges = `-- name: JanitorLandedChanges :many
-SELECT a.id, a.project_id, a.active_change_id, a.queue, a.what, a.opened_at, a.ended_at, a.outcome, a.reason, a.fingerprint, a.packages, a.targets, a.attempted_at, a.failed_attempt, a.schedule, a.rule_id, a.rule_revision,c.number,c.title,c.target_candidate_json,c.closed_at,p.slug,p.name
+SELECT a.id, a.project_id, a.active_change_id, a.queue, a.what, a.opened_at, a.ended_at, a.outcome, a.reason, a.fingerprint, a.packages, a.targets, a.attempted_at, a.failed_attempt, a.schedule, a.rule_id, a.rule_revision, a.files,c.number,c.title,c.target_candidate_json,c.closed_at,p.slug,p.name
 FROM automated_changes a JOIN changes c ON c.id=a.active_change_id AND c.project_id=a.project_id
 JOIN projects p ON p.id=a.project_id
 WHERE a.project_id=ANY($1::uuid[]) AND a.outcome='shipped' AND a.queue<>''
@@ -51,6 +51,7 @@ type JanitorLandedChangesRow struct {
 	Schedule            string
 	RuleID              ids.ID
 	RuleRevision        int64
+	Files               json.RawMessage
 	Number              int64
 	Title               string
 	TargetCandidateJson json.RawMessage
@@ -92,6 +93,7 @@ func (q *Queries) JanitorLandedChanges(ctx context.Context, arg JanitorLandedCha
 			&i.Schedule,
 			&i.RuleID,
 			&i.RuleRevision,
+			&i.Files,
 			&i.Number,
 			&i.Title,
 			&i.TargetCandidateJson,

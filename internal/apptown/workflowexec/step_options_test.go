@@ -14,7 +14,7 @@ func TestTheRunnersReadExactlyTheirKindsOptions(t *testing.T) {
 	t.Parallel()
 	for kind, decoded := range map[string]any{
 		FixKind:     fixConfig{},
-		RoutineKind: struct{}{},
+		RoutineKind: routineConfig{},
 		AgentKind:   agentConfig{},
 		ReviewKind:  reviewConfig{},
 		ScriptKind:  scriptConfig{},

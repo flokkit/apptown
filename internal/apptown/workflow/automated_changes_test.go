@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -401,5 +403,39 @@ func TestAutomatedPurgeKeepsWorkNamedByDecisionsAndComplaints(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestQueueStartRetainsTheTargetsOfAFailedProducer(t *testing.T) {
+	s, ch, _, _, _ := automatedFixture(t)
+	run := admitAutomatedRun(t, s, ch, "agent/pi")
+	steps, err := s.RunSteps(t.Context(), run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &Execution{service: s, ctx: t.Context(), step: steps[0], run: run}
+	claim, err := newStepAttempts(s.db, func(string) bool { return true }).start(t.Context(), steps[0], "agent/pi", ch.ProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.claim = claim
+	targets := []check.Finding{{Source: "osv", Identifiers: []string{"CVE-example"}, Package: &check.PackageRef{Name: "example", Version: "1.0.0", Ecosystem: "npm"}}}
+	if err := e.StartFix(targets); err != nil {
+		t.Fatal(err)
+	}
+	outcome, err := EncodeOutcome(StatusError, map[string]any{"reason": "producer failed before routine"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (reworkStore{db: s.db}).fail(t.Context(), claim, outcome); err != nil {
+		t.Fatal(err)
+	}
+	records, err := workflowsql.New(s.db.SQL()).QueueAttempt(t.Context(), ch.ID)
+	if err != nil || len(records) != 1 {
+		t.Fatalf("retained attempt: %+v %v", records, err)
+	}
+	var got []check.Finding
+	if err := json.Unmarshal(records[0].Targets, &got); err != nil || !reflect.DeepEqual(got, targets) || !records[0].AttemptedAt.Valid || !records[0].FailedAttempt {
+		t.Fatalf("lost attempted targets: %+v %v", records[0], err)
 	}
 }

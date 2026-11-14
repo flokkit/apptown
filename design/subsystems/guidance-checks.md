@@ -170,3 +170,10 @@ Not every stock check follows this yet; do not assume one does. See
 - [internal/apptown/verification/baseline.go](../../internal/apptown/verification/baseline.go)
 - [internal/check/provenance.go](../../internal/check/provenance.go)
 - [internal/apptown/wow/check_versions.go](../../internal/apptown/wow/check_versions.go)
+
+The dependency-update `routine` step reuses `CheckJudge.JudgeCheck` and the checks
+model slot for the workflow's diff rubric. It appends the approved level, targets
+and classified paths and sends the complete diff. Unlike guidance's calibration
+receipts, routine gates standing acceptance: pass is met, fail may request repair,
+and unclear or unavailable errors without rework. Its session, model, rubric and
+diff identities remain in the receipt. A person's acceptance remains available.

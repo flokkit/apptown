@@ -7,23 +7,23 @@ import "testing"
 func TestKindRegistrationDefinesDeclarations(t *testing.T) {
 	kinds["test-kind"] = kinds["update"]
 	defer delete(kinds, "test-kind")
-	ds, err := Parse(`[{"kind":"test-kind","appliesTo":["part"],"ecosystem":"npm","run":"update","runMajor":"major"}]`)
-	if err != nil || len(ds) != 1 || ds[0].RunMajor != "major" || !SupportsTargets(ds[0]) {
+	ds, err := Parse(`[{"kind":"test-kind","ecosystem":"npm"}]`)
+	if err != nil || len(ds) != 1 || !SupportsTargets(ds[0]) {
 		t.Fatalf("registered kind refused: %+v %v", ds, err)
 	}
 	k := kinds["test-kind"]
-	k.DeclarationFields = []DeclarationField{{"ecosystem", true}, {"run", false}}
+	k.DeclarationFields = []DeclarationField{{"ecosystem", true}}
 	kinds["test-kind"] = k
-	if _, err := Parse(`[{"kind":"test-kind","appliesTo":["part"],"ecosystem":"npm","run":"update","list":"list"}]`); err == nil {
+	if _, err := Parse(`[{"kind":"test-kind","ecosystem":"npm","files":["package.json"]}]`); err == nil {
 		t.Fatal("declaration accepted a field its kind does not declare")
 	}
-	if _, err := Parse(`[{"kind":"test-kind","appliesTo":["part"],"ecosystem":"npm"}]`); err != nil {
+	if _, err := Parse(`[{"kind":"test-kind","ecosystem":"npm"}]`); err != nil {
 		t.Fatalf("optional registered field required: %v", err)
 	}
-	if _, err := Parse(`[{"kind":"test-kind","appliesTo":["part"]}]`); err == nil {
+	if _, err := Parse(`[{"kind":"test-kind"}]`); err == nil {
 		t.Fatal("required registered field omitted")
 	}
-	if _, err := Parse(`[{"kind":"unknown","appliesTo":["part"],"ecosystem":"npm","run":"update"}]`); err == nil {
+	if _, err := Parse(`[{"kind":"unknown","ecosystem":"npm"}]`); err == nil {
 		t.Fatal("unregistered kind accepted")
 	}
 }
@@ -33,7 +33,7 @@ func TestAdoptIsDeclaredByThePublication(t *testing.T) {
 	if !ok || kind.Action != AdoptAction || kind.Classifier != AdoptClassifier || !kind.PublishedDeclaration {
 		t.Fatalf("adopt registration: %+v", kind)
 	}
-	if _, err := Parse(`[{"kind":"adopt","appliesTo":["part"]}]`); err == nil {
+	if _, err := Parse(`[{"kind":"adopt"}]`); err == nil {
 		t.Fatal("guidance manufactured a pack adoption declaration")
 	}
 }

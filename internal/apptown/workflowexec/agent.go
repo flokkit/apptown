@@ -11,6 +11,7 @@ import (
 	"time"
 
 	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
@@ -108,13 +109,36 @@ func (a *Executor) Run(task *workflow.Execution) {
 	var cfg agentConfig
 	cfgErr := workflow.DecodeStepConfig(step.Config, &cfg)
 
+	// Every claimed queue producer retains its targets before preparing a
+	// session. Preflight failures count too; waiting for a slot still precedes
+	// the normal claim, as for every agent step.
+	claimStep := func() (*workflow.Step, error) {
+		claim, err := task.Claim()
+		if err != nil {
+			return nil, err
+		}
+		queue, err := task.IsQueue()
+		if err == nil && queue {
+			var targets []check.Finding
+			targets, err = runTargets(run)
+			if err == nil {
+				err = task.StartFix(targets)
+			}
+		}
+		if err != nil {
+			task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": err.Error()}, nil))
+			return nil, err
+		}
+		return claim, nil
+	}
+
 	attempt := a.obs.begin(task.Context(), run.ID, step.ID, "agent/pi", run.WorkflowName, run.ProjectID)
 	defer attempt.settle("abandoned")
 	fail := func(status workflow.StepState, evidence map[string]any) {
 		attempt.settle(settlementOutcome(status, task.Finish(workflow.EncodeOutcome(status, evidence, nil))))
 	}
 	if cfgErr != nil {
-		if _, claimErr := task.Claim(); claimErr == nil {
+		if _, claimErr := claimStep(); claimErr == nil {
 			fail(workflow.StatusError, map[string]any{"reason": cfgErr.Error()})
 		}
 		return
@@ -127,14 +151,14 @@ func (a *Executor) Run(task *workflow.Execution) {
 	// prerequisite fails instantly and holds a slot for real work.
 	missing, err := workflow.MissingArtifactKindsIn(task.Context(), a.db, run.ProjectID, cfg.Requires)
 	if err != nil {
-		if _, claimErr := task.Claim(); claimErr == nil {
+		if _, claimErr := claimStep(); claimErr == nil {
 			attempt.settle(settlementOutcome(workflow.StatusError, task.Finish(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": fmt.Sprintf("checking required artifacts: %v", err)}, nil))))
 		}
 		return
 	}
 	if len(missing) > 0 {
 		kind := missing[0]
-		if _, claimErr := task.Claim(); claimErr == nil {
+		if _, claimErr := claimStep(); claimErr == nil {
 			attempt.settle(settlementOutcome(workflow.StatusFail, task.Finish(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{
 				"reason":   fmt.Sprintf("this step needs a %q artifact and the project has none yet — accept one first (product-spec produces spec-final), then re-run. Nothing was dispatched, so no work was lost.", kind),
 				"requires": kind}, nil))))
@@ -149,7 +173,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 	// (model_slots.go), and queues only when that backend is full.
 	k := a.resolveAgentKnobs(run, &cfg)
 	if reason := strs.FirstNonBlank(executorRefusal(run, &cfg), a.dockerRefusal(k)); reason != "" {
-		if _, claimErr := task.Claim(); claimErr == nil {
+		if _, claimErr := claimStep(); claimErr == nil {
 			fail(workflow.StatusError, map[string]any{"reason": reason})
 		}
 		return
@@ -158,7 +182,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 	// on another model or under another limit.
 	model, modelSlot, modelProfile, err := a.modelSelection.Resolve(task.Context(), run.ProjectID, k.model)
 	if err != nil {
-		if _, claimErr := task.Claim(); claimErr == nil {
+		if _, claimErr := claimStep(); claimErr == nil {
 			fail(workflow.StatusError, map[string]any{"reason": fmt.Sprintf("choosing the step's model: %v", err)})
 		}
 		return
@@ -167,7 +191,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 	queuedAt := a.now()
 	releaseSlot, waited, err := a.capacity.Acquire(task.Context(), binding, step.ID)
 	if err != nil {
-		if _, claimErr := task.Claim(); claimErr == nil {
+		if _, claimErr := claimStep(); claimErr == nil {
 			fail(workflow.StatusError, map[string]any{"reason": err.Error()})
 		}
 		return
@@ -179,7 +203,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 	queuedMs := a.now().Sub(queuedAt).Milliseconds()
 	attempt.queued(queuedAt, binding)
 	if a.worker != nil {
-		a.runOnWorker(task, attempt, nil, queuedMs, fail)
+		a.runOnWorker(task, attempt, nil, queuedMs, claimStep, fail)
 		return
 	}
 
@@ -201,7 +225,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 	}
 	folder := gitexec.LockFolder(ws)
 	defer folder.Release()
-	if claim, err := task.Claim(); err != nil {
+	if claim, err := claimStep(); err != nil {
 		attempt.settle("unclaimed")
 		return
 	} else {

@@ -87,15 +87,11 @@ type standingProjectMeaning struct {
 type StandingProjectPreview struct {
 	Level             string                `json:"level"`
 	OverridesInstance bool                  `json:"overridesInstance"`
-	NoMajorCommand    []string              `json:"noMajorCommand"`
 	FollowsMain       []StandingEnvironment `json:"followsMain"`
 	Problem           string                `json:"problem,omitempty"`
-	PackOffers        []string              `json:"packOffers"`
 	BaseImageFindings []string              `json:"baseImageFindings"`
 	ProjectID         ids.ID                `json:"projectId"`
 	Project           string                `json:"project"`
-	Covered           bool                  `json:"covered"`
-	NeedsPackUpgrade  []string              `json:"needsPackUpgrade"`
 	OnlyChecksStarts  bool                  `json:"onlyChecksStarts"`
 	Deployments       []StandingEnvironment `json:"deployments"`
 	BaseImages        int                   `json:"baseImages"`

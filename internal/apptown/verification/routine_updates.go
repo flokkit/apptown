@@ -3,7 +3,6 @@ package verification
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -14,7 +13,7 @@ import (
 )
 
 // WithFixes binds classification to the run's exact adopted guidance. Missing
-// declarations are an error, never a request to infer an ecosystem from files.
+// declarations do not restrict which ecosystems the agent may update.
 func (r routineInspector) WithFixes(db *database.DB, ad *adoption.Service) routineInspector {
 	r.db = db
 	r.fixes = func(ctx context.Context, source workflow.Source) ([]fix.Declaration, []check.Finding, error) {
@@ -37,7 +36,7 @@ func (r routineInspector) WithFixes(db *database.DB, ad *adoption.Service) routi
 }
 
 func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (out workflow.StandingInspection, err error) {
-	out.Classifier = "declared-update-v1"
+	out.Classifier = "agent-update-v1"
 	out.Classification = "cannot-assess"
 	before, err := r.observe(ctx, source, false)
 	out.Base, out.Candidate, out.Tree = before.base, before.tip, before.tree
@@ -67,7 +66,6 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 		return out, err
 	}
 	var inputs [2]map[string]any
-	var lists [2][]UpdateListing
 	for i, commit := range []string{before.base, before.tip} {
 		tree, remove, err := StageCommittedTree(ctx, r.dataDir, repo, commit)
 		if err != nil {
@@ -80,12 +78,7 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 			out.Reason = err.Error()
 			return out, nil
 		}
-		lists[i], err = ListUpdates(ctx, r.db, r.executor, tree, ds)
 		remove()
-		if err != nil {
-			out.Reason = err.Error()
-			return out, nil
-		}
 	}
 	refuse := func(reason string) (workflow.StandingInspection, error) {
 		out.Classification = "requires-person"
@@ -95,30 +88,8 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 	if err := CompareUpdateInputs(inputs[0], inputs[1]); err != nil {
 		return refuse(err.Error())
 	}
-	if len(lists[0]) != len(lists[1]) {
-		return refuse("the declared parts changed")
-	}
 	if len(targets) > 0 && !categories.SecurityFixes {
 		return refuse("security fixes are not permitted by this rule")
-	}
-	bound := categories.Dependencies
-	if bound == "" && categories.SecurityFixes {
-		bound = "routine"
-	}
-	var beforePackages, afterPackages []fix.Listing
-	for i, b := range lists[0] {
-		a := lists[1][i]
-		if b.Part != a.Part || b.Declaration != a.Declaration {
-			return refuse("the declared parts changed")
-		}
-		if _, err := fix.CompareUpdate(b.Packages, a.Packages, bound, nil); err != nil {
-			return refuse(fmt.Sprintf("part %s: %v", b.Part, err))
-		}
-		beforePackages = append(beforePackages, b.Packages...)
-		afterPackages = append(afterPackages, a.Packages...)
-	}
-	if _, err := fix.CompareUpdate(beforePackages, afterPackages, bound, targets); err != nil {
-		return refuse(err.Error())
 	}
 	after, err := r.observe(ctx, source, false)
 	if err != nil {
@@ -129,12 +100,12 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 		out.Reason = "source moved while dependency validation ran"
 		return out, nil
 	}
-	raw, err := json.Marshal(lists)
+	raw, err := json.Marshal(fix.Classify(out.ChangedFiles, ds, inputs[:]...))
 	if err != nil {
 		return out, err
 	}
 	out.Validation = &workflow.StandingValidation{Image: r.executor.AgentImage, ReportDigest: observationDigest(raw), ScratchSettlement: "local staging removed; executor scratch cleanup is not observed here"}
 	out.Classification = "routine-dependency"
-	out.Reason = "the declared update is within the selected bound; classification does not accept, land or deploy it"
+	out.Reason = "toolchain versions and base-image inputs are unchanged; the routine model receipt and required checks govern standing acceptance"
 	return out, nil
 }

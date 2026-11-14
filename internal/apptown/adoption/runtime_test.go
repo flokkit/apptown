@@ -170,8 +170,8 @@ func TestPinnedGuidanceDeclaresContextWithoutUpgradingExistingProjects(t *testin
 
 func TestRuntimeFixesUseOnlyEnabledPinnedVersions(t *testing.T) {
 	cat := &runtimeCatalog{blocks: map[int]wow.BlockObservation{
-		1: {Version: 1, FixesJSON: `[{"kind":"update","appliesTo":["tool:node"],"ecosystem":"npm","run":"npm update","runFor":"npm update {packages}","list":"npm ls --all --json"}]`},
-		2: {Version: 2, FixesJSON: `[{"kind":"update","appliesTo":["tool:node"],"ecosystem":"npm","run":"wrong version"}]`},
+		1: {Version: 1, FixesJSON: `[{"kind":"update","ecosystem":"npm","files":["package.json"]}]`},
+		2: {Version: 2, FixesJSON: `[{"kind":"update","ecosystem":"npm"}]`},
 	}}
 	revision := &RecordedRevision{ProjectID: idstest.N(3), Revision: 11, Receipt: Receipt{Guidance: []ReceiptBlock{
 		{Name: "lang/node/updates", BlockID: idstest.N(7), Version: 1},
@@ -179,7 +179,7 @@ func TestRuntimeFixesUseOnlyEnabledPinnedVersions(t *testing.T) {
 	}}}
 	s := New(nil, Dependencies{Ways: cat})
 	fixes, err := s.Fixes(t.Context(), Source{ProjectID: idstest.N(3), Revision: revision})
-	if err != nil || len(fixes) != 1 || fixes[0].Run != "npm update" {
+	if err != nil || len(fixes) != 1 || len(fixes[0].Files) != 1 || fixes[0].Files[0] != "package.json" {
 		t.Fatalf("pinned fixes=%+v err=%v", fixes, err)
 	}
 	if _, err := s.Fixes(t.Context(), Source{ProjectID: idstest.N(4), Revision: revision}); err == nil {

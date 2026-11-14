@@ -9,7 +9,9 @@
 // Fleet runs synchronous or queued reviews of current project declarations.
 // Scanners prepares images and executes tools; Evaluator interprets shell
 // judgments through Effects. CheckJudge runs isolated AI sessions. Runtime
-// observes deployments and probes.
+// observes deployments and probes. Guidance also supplies routine’s gating
+// dependency-update judgement through the same checks-slot diff evaluator.
+// The scan step witnesses targeted findings independently of scope judgement.
 // ScanSteps and Guidance accept admitted Workflow executions and order claims,
 // artifacts and settlement through Workflow's capabilities. StageScanners reads
 // the admission inventory in its caller's transaction. SyncStockScanners binds
