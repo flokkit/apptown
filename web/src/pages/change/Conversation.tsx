@@ -33,21 +33,26 @@ export function ConversationLog({ changeId, live = false, selectedChat, request,
     {data && <UnreadableNote view={data} />}
     {selected ? <><p className="muted small">{chatByline(selected)}</p><ChatMessages chat={selected} pictures={`/api/v1/changes/${changeId}/transcript/${selected.id}/pictures/`} /></> : data && <p>This chat is not recorded.</p>}
   </section>
-  if (live && none && !q.refreshFailed && !rounds.length && !earlierRuns.length) return null
+  // Live, earlier chats read inside the chat itself (EarlierChats); only work records stay here.
+  if (live) return earlierRuns.length || rounds.length ? <>
+    {earlierRuns.map(id => <RunRounds key={id} id={id} changeId={changeId} />)}
+    {rounds.map((e, i) => <ListRow to={workRecordHref(changeId, e)} className="conversation-record-row" key={e.key} identity={<Link to={workRecordHref(changeId, e)}>Helper round {i + 1} · work record</Link>} />)}
+  </> : null
   return (
-    <Section title={live ? "Earlier conversations" : "Conversation"} count={sessions?.length || undefined} >
+    <Section title="Conversation" count={sessions?.length || undefined} >
       <ReadStatus q={q} what="the conversation" className="small" />
       <StaleNote q={q} />
       {data && <UnreadableNote view={data} />}
-      {!live && none && (request ? <>
+      {none && (request ? <>
         <div className="bubble-row you"><div className="bubble you conversation-conversation-log-bubble-you">{firstLine(request)} <Link to={`/changes/${changeId}/records/request`}>full request →</Link></div></div>
         {report ? <div className="bubble-row"><div className="bubble"><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(report) }} /></div></div>
           : rounds.length > 0 && <p className="muted">{rounds.length === 1 ? 'The helper left no messages in this round.' : 'The helper left no messages.'}</p>}
       </> : <p className="muted">No chat yet.</p>)}
       {earlierRuns.map(id => <RunRounds key={id} id={id} changeId={changeId} />)}
       {rounds.map((e, i) => <ListRow to={workRecordHref(changeId, e)} className="conversation-record-row" key={e.key} identity={<Link to={workRecordHref(changeId, e)}>Helper round {i + 1} · work record</Link>} />)}
-      {live ? sessions?.filter(se => se.ended || se.imported).map(se => <ListRow key={se.id} to={`/changes/${changeId}?tab=conversation&chat=${se.id}`} identity={<><Link to={`/changes/${changeId}?tab=conversation&chat=${se.id}`}>{chatOpening(se)}</Link> · {chatByline(se)}</>} />) : sessions?.map((se) => (
+      {sessions?.map((se, i) => (
         <div key={se.id} className="conversation-div">
+          {i > 0 && <ChatDivider se={se} />}
           <div className="muted small conversation-div-2">{chatByline(se)}</div>
           <ChatMessages chat={se} pictures={`/api/v1/changes/${changeId}/transcript/${se.id}/pictures/`} />
         </div>
@@ -80,12 +85,12 @@ export function chatOpening(se: ChatHistoryEntry): string {
 
 // ChatMessages shows a chat's words and its pasted pictures, read from
 // pictures + the picture's own name; a picture opens full size on its own.
-export function ChatMessages({ chat, pictures }: { chat: ChatHistoryEntry; pictures: string }) {
+export function ChatMessages({ chat, pictures, noSwitch = false }: { chat: ChatHistoryEntry; pictures: string; noSwitch?: boolean }) {
   const [showActions, setShowActions] = useAgentActions()
   const messages = showActions ? chat.messages : foldTools(chat.messages)
   return (
     <>
-      <AgentActionsSwitch shown={showActions} onChange={setShowActions} />
+      {!noSwitch && <AgentActionsSwitch shown={showActions} onChange={setShowActions} />}
       {messages.map((m) => !m.text && m.tools?.length ?
         <ToolFold key={`${m.i}-${showActions}`} tools={m.tools} show={showActions} /> : (
         <div key={m.i} className={'bubble-row' + (m.role === 'you' ? ' you' : '')}>
@@ -152,4 +157,28 @@ export function UnreadableNote({ view }: { view: ChatHistoryView }) {
       {(view.unreadableFolders?.length ?? 0) > 0 && <> Folders: {view.unreadableFolders!.join(', ')}.</>}
     </div>
   )
+}
+
+// Where one chat session ended and the next began: a change has one conversation,
+// so the restart is a quiet line in it, not a section.
+export function ChatDivider({ se }: { se: { createdAt: string; imported?: boolean } }) {
+  return <div className="chat-divider muted small" role="separator">{se.imported ? `moved from another ${PRODUCT}, history only` : `chat restarted · ${fmtWhen(se.createdAt)}`}</div>
+}
+
+// The change's finished or moved chats, shown above the open chat's own messages in
+// the same scroll. The open chat is not in this list (ended is false), so nothing repeats.
+// The transcript read keeps its status lines: unreadable or failed history is not "no history".
+export function EarlierChats({ changeId, currentOpenedAt }: { changeId: string; currentOpenedAt?: string }) {
+  const q = useGet<ChatHistoryView>(`/changes/${changeId}/transcript`, { poll: 4000 })
+  const earlier = (q.data?.sessions ?? []).filter(se => se.ended || se.imported)
+  return <>
+    <ReadStatus q={q} what="the earlier conversation" className="small" />
+    <StaleNote q={q} />
+    {q.data && <UnreadableNote view={q.data} />}
+    {earlier.map((se, i) => <div key={se.id}>
+      {(i > 0 || se.imported) && <ChatDivider se={se} />}
+      <ChatMessages noSwitch chat={se} pictures={`/api/v1/changes/${changeId}/transcript/${se.id}/pictures/`} />
+    </div>)}
+    {earlier.length > 0 && currentOpenedAt && <ChatDivider se={{ createdAt: currentOpenedAt }} />}
+  </>
 }

@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../data'
 import type { ChatHistoryEntry } from '../../wire.gen'
-import { ConversationLog, PastChatsPage, chatByline, chatOpening } from './Conversation'
+import { ConversationLog, EarlierChats, PastChatsPage, chatByline, chatOpening } from './Conversation'
 
 // Record ids are UUIDv7 strings.
 const CHANGE = '00000000-0007-7000-8000-000000000000'
@@ -94,4 +94,41 @@ it('says past chats come from Project chat when there are none', () => {
   const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/notes/chats']}><Routes><Route path="/projects/:slug/chats" element={<PastChatsPage />} /></Routes></MemoryRouter></QueryClientProvider>)
   expect(html).toContain('No ended chats yet.')
   expect(html).toMatch(/<a href="\/projects\/notes\/console"[^>]*>Project chat<\/a>/)
+})
+
+describe('a change reads as one conversation', () => {
+  const html = (node: React.ReactNode, data: unknown) => {
+    const client = newQueryClient()
+    client.setQueryData(getKey(`/changes/${CHANGE}/transcript`), data)
+    return renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}>{node}</QueryClientProvider></MemoryRouter>)
+  }
+  it('lays earlier chats out oldest first with a restart divider, never repeating the open chat', () => {
+    const out = html(<EarlierChats changeId={CHANGE} currentOpenedAt="2026-10-03T09:00:00Z" />, { sessions: [
+      chat({ id: 'a', messages: [{ i: 0, role: 'you', text: 'first words' }] } as Partial<ChatHistoryEntry>),
+      chat({ id: 'b', createdAt: '2026-10-02T09:00:00Z', messages: [{ i: 0, role: 'you', text: 'second words' }] } as Partial<ChatHistoryEntry>),
+      chat({ id: 'open', ended: false, messages: [{ i: 0, role: 'you', text: 'open words' }] } as Partial<ChatHistoryEntry>)] })
+    expect(out.indexOf('first words')).toBeLessThan(out.indexOf('second words'))
+    expect(out).not.toContain('open words')
+    expect(out).toContain(`chat restarted · ${fmtWhen('2026-10-02T09:00:00Z')}`)
+    expect(out).toContain(`chat restarted · ${fmtWhen('2026-10-03T09:00:00Z')}`)
+    expect(out).not.toContain('Earlier conversations')
+  })
+  it('says a moved chat is history only', () => {
+    expect(html(<EarlierChats changeId={CHANGE} />, { sessions: [chat({ id: 'x', messages: [{ i: 0, role: 'you', text: 'x' }] } as Partial<ChatHistoryEntry>), chat({ id: 'm', imported: true, messages: [{ i: 0, role: 'you', text: 'moved words' }] } as Partial<ChatHistoryEntry>)] })).toContain('moved from another AppTown, history only')
+  })
+  it('shows nothing for a change with only its open chat', () => {
+    expect(html(<EarlierChats changeId={CHANGE} currentOpenedAt="2026-10-03T09:00:00Z" />, { sessions: [chat({ id: 'open', ended: false })] })).not.toContain('chat restarted')
+  })
+  it('does not present unreadable history as no history', () => {
+    expect(html(<EarlierChats changeId={CHANGE} />, { sessions: [], unreadable: 1 })).toMatch(/unreadable|could not be read|may be missing/i)
+  })
+  it('the live log has no heading or session rows but keeps work-record rows', () => {
+    const out = html(<ConversationLog changeId={CHANGE} live rounds={[{ key: 'work-1', detail: { run: { id: 'r1' } } } as never]} />, { sessions: [chat({ id: 'old' }), chat({ id: 'open', ended: false })] })
+    expect(out).not.toContain('<h2')
+    expect(out).not.toContain('chat=old')
+    expect(out).toContain('Helper round 1')
+  })
+  it('the finished view puts a divider between chats', () => {
+    expect(html(<ConversationLog changeId={CHANGE} />, { sessions: [chat({ id: 'a', messages: [{ i: 0, role: 'you', text: 'a' }] } as Partial<ChatHistoryEntry>), chat({ id: 'b', messages: [{ i: 0, role: 'you', text: 'b' }] } as Partial<ChatHistoryEntry>)] })).toContain('chat restarted')
+  })
 })

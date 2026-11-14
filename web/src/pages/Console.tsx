@@ -1,4 +1,5 @@
 import { PreviewBesideChat } from './console/PreviewBesideChat'
+import { EarlierChats } from './change/Conversation'
 import { AgentActionsSwitch, useAgentActions } from '../AgentActions'
 import './Console.css'
 import { FormMenu } from '../MoreMenu'
@@ -188,7 +189,7 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: str
         {session?.changeId ? <WorkerSaveLine slug={slug} session={session} /> : null}
         {session && <StartedChanges sessionId={session.id} />}
       </div>
-      <Bubbles hidden={zoom !== 'chat'} sessionId={session?.id ?? null} attached={status === 'attached'}
+      <Bubbles before={shopId ? <EarlierChats changeId={shopId} currentOpenedAt={session?.createdAt} /> : undefined} hidden={zoom !== 'chat'} sessionId={session?.id ?? null} attached={status === 'attached'}
           starting={status !== 'attached' || !session ? <StartingLine opening={!session} /> : undefined} onBusy={setRobotBusy}
           readOnly={!session || session.mayAct ? undefined : session.openedBy}
           starters={shopId ? undefined : [
