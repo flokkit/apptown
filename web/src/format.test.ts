@@ -42,6 +42,12 @@ describe('fmtDuration', () => {
     expect(fmtDuration(300)).toBe('5m')
     expect(fmtDuration(7200)).toBe('2.0h')
   })
+  // A deploy that took 74.664 seconds reads 75s, not the milliseconds.
+  it('shows whole seconds', () => {
+    expect(fmtDuration(74.664)).toBe('75s')
+    expect(fmtDuration(0.4)).toBe('0s')
+    expect(fmtDuration(89.6)).toBe('1m')
+  })
 })
 
 describe('fmtTokens and fmtCost', () => {

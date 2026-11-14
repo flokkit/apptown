@@ -26,8 +26,10 @@ export function fmtWhen(iso: string, _now = Date.now()): string {
   return fmtStamp(iso)
 }
 
+// fmtDuration takes seconds, which callers often derive from milliseconds:
+// whole seconds are the finest unit shown.
 export const fmtDuration = (s: number): string => {
-  if (s < 90) return `${s}s`
+  if (s < 89.5) return `${Math.round(s)}s`
   if (s < 5400) return `${Math.round(s / 60)}m`
   return `${(s / 3600).toFixed(1)}h`
 }
