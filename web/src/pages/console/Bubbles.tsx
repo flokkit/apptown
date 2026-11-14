@@ -32,7 +32,7 @@ export function retired(sent: { at: number } | null, msgs: Bubble[]): boolean {
 
 // readOnly names whose chat it is when the reader may look but not act:
 // the conversation shows, the ways to act on it do not.
-export function Bubbles({ sessionId, attached = true, starting, hidden = false, onBusy, onHasMessages, footer, starters, readOnly }: { sessionId: string | null; attached?: boolean; starting?: React.ReactNode; hidden?: boolean; onHasMessages?: (hasMessages: boolean) => void; onBusy?: (b: boolean) => void; footer?: React.ReactNode; starters?: string[]; readOnly?: string }) {
+export function Bubbles({ sessionId, attached = true, starting, hidden = false, onBusy, onHasMessages, footer, starters, readOnly, before }: { before?: React.ReactNode; sessionId: string | null; attached?: boolean; starting?: React.ReactNode; hidden?: boolean; onHasMessages?: (hasMessages: boolean) => void; onBusy?: (b: boolean) => void; footer?: React.ReactNode; starters?: string[]; readOnly?: string }) {
   // The conversation is the record's answer; the only local message is the
   // queued message and the one just sent, until the record holds it.
   const [sent, setSent] = useState<{ text: string; at: number } | null>(null)
@@ -152,6 +152,17 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
     if (box && stick.current) box.scrollTop = box.scrollHeight
   }, [record.data?.messages, pending, queued, showActions, hidden])
 
+  // History shown above the live messages can arrive after them; it grows the
+  // scroller, so keep a reader who has not scrolled up at the bottom.
+  const beforeRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = beforeRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const watch = new ResizeObserver(() => { const box = scrollRef.current; if (box && stick.current) box.scrollTop = box.scrollHeight })
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [])
+
   const working = <>
     <span className="small robot-busy bubbles-robot-busy">Working…</span>
     {readOnly === undefined && <button className="subtle" title="Stop what it's doing right now · then tell it what you'd rather have"
@@ -168,6 +179,7 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
         }}
         className="chat-scroll grow bubbles-chat-scroll">
+        {before && <div ref={beforeRef}>{before}</div>}
         {starting}
         {(!starting || !record.loading) && <ReadStatus q={record} what="the conversation" className="small" />}
         <StaleNote q={record} />

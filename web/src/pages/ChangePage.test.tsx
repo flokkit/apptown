@@ -9,7 +9,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { expect, it, vi } from 'vitest'
 import Console, { ChatPage } from './Console'
 import ChangePage, { changeDefaultTab } from './ChangePage'
-import { ConversationLog } from './change/Conversation'
+import { ConversationLog, EarlierChats } from './change/Conversation'
 import { withFeatures } from '../features.fixture'
 import { getKey, newQueryClient } from '../data'
 import type { ChangeView } from '../api'
@@ -41,8 +41,8 @@ it('lists ended sessions and reads a selected session with pictures without open
  const client = newQueryClient()
  const sessions = [{ id: 'old', ended: true, actor: 'sam', createdAt: '', messages: [{ i: 0, role: 'you', text: 'Earlier words (I pasted a picture — look at /console/uploads/picture-1.png)' }] }, { id: 'current', ended: false, messages: [] }]
  client.setQueryData(getKey('/changes/X/transcript'), { sessions, unreadable: 1 })
- const rows = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><ConversationLog changeId="X" live /></MemoryRouter></QueryClientProvider>)
- expect(rows).toContain('/changes/X?tab=conversation&amp;chat=old')
+ const rows = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EarlierChats changeId="X" /></MemoryRouter></QueryClientProvider>)
+ expect(rows).toContain('Earlier words')
  expect(rows).not.toContain('chat=current')
  const fetcher = vi.fn(async (_url: unknown, _init?: RequestInit) => new Response(JSON.stringify({ sessions, unreadable: 1 })))
  vi.stubGlobal('fetch', fetcher)
@@ -127,7 +127,7 @@ it('opens the change Conversation with actions and starts the first build once a
   expect(page.el.querySelector('textarea[aria-label="your message"]')).not.toBeNull()
   expect(page.el.textContent).toContain('Try it')
   expect(page.el.textContent).toContain('Check and land')
-  expect(page.el.querySelector('a[href="/changes/X?tab=conversation&chat=old"]')).not.toBeNull()
+  expect(page.el.textContent).toContain('Recorded words')
   page.done()
   page = await mount('/changes/X?tab=conversation&kickoff=1')
   await vi.waitFor(() => expect(page.el.textContent).toContain('Check and land'))

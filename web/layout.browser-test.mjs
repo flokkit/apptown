@@ -407,18 +407,16 @@ try {
     await page.goto('http://layout.test/')
     await page.evaluate(() => { document.documentElement.dataset.size = 'medium' })
     await page.addScriptTag({ content: changeChatFixture.outputFiles[0].text })
-    await page.locator('a[href*="chat=old"]').waitFor()
+    await page.locator('.chat-pane').getByText('Earlier conversation', { exact: true }).waitFor()
     await page.locator('.workshop-actions .finish').waitFor({ state: 'attached' })
     await fontsReady(page)
     const geometry = await page.evaluate(() => {
       const rect = selector => document.querySelector(selector).getBoundingClientRect().toJSON()
-      return { composer: rect('.chat-input'), pane: rect('.chat-pane'), history: rect('.ch-tab-body > .page-section') }
+      return { composer: rect('.chat-input'), pane: rect('.chat-pane') }
     })
-    const { composer, pane, history } = geometry
+    const { composer, pane } = geometry
     assert.ok((width === 390 ? composer.height >= 44 : composer.height > 0) && composer.top >= pane.top - 1 && composer.bottom <= pane.bottom + 1,
       `composer fits inside its chat pane at ${width}×${height}: ${JSON.stringify(geometry)}`)
-    assert.ok(composer.bottom <= history.top + 1 || composer.top >= history.bottom - 1,
-      `composer does not intersect history at ${width}×${height}: ${JSON.stringify(geometry)}`)
     // Scrolling the surrounding content must expose each control in full.
     for (const selector of ['.chat-input textarea', '.chat-attach', '.chat-input .primary', '.console-strip .workshop-actions button']) {
       for (const control of await page.locator(selector).all()) {
@@ -436,7 +434,7 @@ try {
         }, width), `chat control stays reachable at ${width}×${height}: ${selector}`)
       }
     }
-    await page.locator('a[href*="chat=old"]').scrollIntoViewIfNeeded()
+    await page.locator('.chat-pane').getByText('Earlier conversation', { exact: true }).scrollIntoViewIfNeeded()
     await page.locator('.chat-input textarea').scrollIntoViewIfNeeded()
     if (out) await page.screenshot({ path: `${out}/change-chat-${width}-${height}.png` })
   }
