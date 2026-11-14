@@ -15,6 +15,10 @@ WHERE run_id=sqlc.arg(run_id) AND state=sqlc.arg(previous_state) AND operation=s
 -- name: PendingMerges :many
 SELECT * FROM run_merges WHERE state=$1 ORDER BY run_id;
 
+-- name: LockProjectKey :exec
+-- The project before its branch: see lockAuthorityIn.
+SELECT 1 FROM projects WHERE id=$1 FOR KEY SHARE;
+
 -- name: AuthorityForUpdate :one
 SELECT generation, holder FROM branch_authority WHERE project_id=$1 AND branch=$2 FOR UPDATE;
 

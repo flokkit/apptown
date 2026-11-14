@@ -313,6 +313,16 @@ func (q *Queries) InsertMain(ctx context.Context, arg InsertMainParams) (int64, 
 	return result.RowsAffected()
 }
 
+const lockProjectKey = `-- name: LockProjectKey :exec
+SELECT 1 FROM projects WHERE id=$1 FOR KEY SHARE
+`
+
+// The project before its branch: see lockAuthorityIn.
+func (q *Queries) LockProjectKey(ctx context.Context, id ids.ID) error {
+	_, err := q.db.ExecContext(ctx, lockProjectKey, id)
+	return err
+}
+
 const markPublicationUnknown = `-- name: MarkPublicationUnknown :execrows
 UPDATE branch_publications SET state='unknown' WHERE id=$1
 `

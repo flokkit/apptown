@@ -367,6 +367,46 @@ func TestTheFirstPublicationAndTheFirstHandoverAreSerialized(t *testing.T) {
 	}
 }
 
+// A publication admission never holds the branch while it waits for its
+// project. Taking a change locks the project first (a person's touch) and
+// then the branch; an admission that locked the branch first and then waited
+// for the project (its record's foreign key) closed a cycle with it, and
+// Postgres aborted one of them as a deadlock.
+func TestAPublicationWaitsForItsProjectBeforeTheBranch(t *testing.T) {
+	f := newPublicationFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	initial := f.advance("request:checkout")
+	w := f.writer("first")
+	proposed := commitIn(t, w, "publication beside a take")
+	expected := f.tip()
+	taker, err := f.db.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer taker.Rollback()
+	if _, err := project.LockedLifecycleIn(ctx, taker, f.projectID); err != nil {
+		t.Fatal(err)
+	}
+	begun := make(chan error, 1)
+	go func() {
+		_, err := f.publisher.begin(ctx, Publication{ProjectID: f.projectID, Repository: f.hub, Branch: "work", Grant: Grant{Generation: initial.Generation}}, expected, proposed)
+		begun <- err
+	}()
+	// Any statement: the admission is the only other transaction in this
+	// test's database, waiting on the taker's project lock.
+	dbtest.WaitForLock(t, f.db, "")
+	if _, err := LockAuthorityIn(ctx, taker, f.projectID, "work"); err != nil {
+		t.Fatalf("the take could not lock the branch beside a waiting publication: %v", err)
+	}
+	if err := taker.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-begun; err != nil {
+		t.Fatalf("the publication beside a take: %v", err)
+	}
+}
+
 // A publication of a commit already in the hub (a restart's rewind to its
 // base) is a compare-and-swap of the ref there: it fetches from no writer,
 // refuses a commit the hub does not have, and runs no hook of the hub's,
