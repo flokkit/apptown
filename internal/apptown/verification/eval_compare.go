@@ -127,7 +127,7 @@ func (f Fleet) CompareArm(ctx context.Context, in ArmComparison) (*ArmCompared, 
 	}
 	arm := assessInput{sh: sh, diff: diff, judge: judge, label: fmt.Sprintf("apptown-eval-%d-%d", in.EvalID, in.ProjectID)}
 	if hasRuntime(checks) {
-		arm.running, arm.noApp = f.servingCommit(ctx, in.ProjectID, cmp.Head)
+		arm.running, arm.noApp, arm.noStandingDeployment = f.servingCommit(ctx, in.ProjectID, cmp.Head)
 	}
 	if out.Arm, err = f.answersAt(ctx, repo, cmp.Head, checks, arm, in.ProjectID); err != nil {
 		return nil, err

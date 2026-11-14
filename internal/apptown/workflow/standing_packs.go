@@ -97,6 +97,20 @@ func (e *Execution) CheckAdoptionTarget() (adoption.RoutineTarget, error) {
 	if e.service.standing == nil {
 		return adoption.RoutineTarget{}, fault.New(fault.Unavailable, "pack maintenance authority is unavailable")
 	}
+
+	queue, err := e.IsQueue()
+	if err != nil {
+		return adoption.RoutineTarget{}, err
+	}
+	if !queue {
+		ch, err := readChangeInProject(e.ctx, e.service.db, e.run.ChangeID, e.run.ProjectID)
+		if err != nil {
+			return adoption.RoutineTarget{}, err
+		}
+		return database.Transact(e.ctx, e.service.db, func(tx *database.Tx) (adoption.RoutineTarget, error) {
+			return e.service.standing.deps.Adoptions.CheckRoutineTargetIn(e.ctx, tx, ch.ProjectID, ch.ID, ch.TargetAdoptionID, ch.ExpectedRevision, []byte(ch.TargetCandidateJSON))
+		})
+	}
 	rules := e.service.standing
 	rule, _, _, err := rules.standingForWorkflow(e.ctx, e.run.ProjectID, e.run.WorkflowName, e.run.AdoptionID)
 	if err != nil {

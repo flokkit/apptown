@@ -1202,6 +1202,9 @@ func TestWhatIfAdoptSendsEachProjectItsOwnWordsInAdvance(t *testing.T) {
 		t.Fatalf("a yes in advance the person did not give: %v", err)
 	}
 	for _, r := range *seen {
+		if r.Method == "GET" && strings.HasSuffix(r.Path, "/adoption/in-advance") && r.Query != "fromWhatIf=00000000-0007-7000-8000-000000000000" {
+			t.Fatalf("question did not name assessed candidate: %+v", r)
+		}
 		if r.Method == "POST" {
 			t.Fatalf("a Change was opened without the yes: %+v", r)
 		}

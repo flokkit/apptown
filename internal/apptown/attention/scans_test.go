@@ -34,12 +34,15 @@ func TestAStuckQueueItemIsOneLineAndOpensItsChange(t *testing.T) {
 // answer it, instead of one sentence for every case.
 func TestANotKnownScanSaysItsCase(t *testing.T) {
 	t.Parallel()
+	if got := scanDetail("its packs schedule no scan", true); got != "Its packs schedule no scan. Adopting the platform pack would scan it." {
+		t.Fatal(got)
+	}
 	for reason, want := range map[string]string{
 		"gitleaks gave no result for the current code (5c406e206353)": "Gitleaks gave no result for the current code (5c406e206353). A new scan would answer it.",
 		"osv: the database could not be read.\nstack":                 "Osv: the database could not be read. A new scan would answer it.",
 		"": "AppTown has no complete current scan. A new scan would answer it.",
 	} {
-		if got := scanDetail(reason); got != want || strings.Contains(got, "\n") {
+		if got := scanDetail(reason, false); got != want || strings.Contains(got, "\n") {
 			t.Fatalf("%q became %q", reason, got)
 		}
 	}

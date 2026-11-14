@@ -38,6 +38,23 @@ candidate, so an older adoption without a publication trigger can acquire one
 through a governed adoption Change.
 
 
+Keep packs current reassesses behind active projects nightly at 04:30 UTC,
+as well as on enablement and publication. The `packs-catch-up` job reads the
+current rule and calls Verification's existing pack-assessment operation.
+Without an enabled rule it starts nothing. Projects with no packs can acquire
+the platform pack. Identical queued candidates remain suppressed and stopped
+queues remain stopped; nightly assessment does not grant another repair attempt.
+
+A person's adoption Change uses the same publication procedure selected from
+the candidate's exact workflow pins as automated pack work. A candidate without
+an adoption procedure is refused before a Change opens, with a request to include
+the platform pack. Ordinary adoption checks the recorded target in both its fix
+and routine steps, without queue bookkeeping or standing consent. Its checks can
+start the procedure's repair sessions. A yes in advance is asked and validated
+against that candidate procedure and the landing procedure its Change resolves.
+It counts only when no code changes and every required step passes outright.
+
+
 At every use AppTown reads the project's current adoption, approval purposes,
 issuer permissions, effective update level and release health. An agent updates every ecosystem it finds; adopted dependency guidance supplies
 conventions and file classification, without restricting eligibility. The project choice records `off`, `routine` or `aggressive`, with the project,
@@ -117,6 +134,15 @@ moves come from retained attempts; pack versions come from the Change's immutabl
 adoption candidate. Original grant attribution reads the recorded rule revision,
 including for failed work whose Change is purged. Every attribution names the recorded rule’s kind and scope, its revision and issuer, with a link to Janitor. Project scopes name only projects the caller can read and count the other projects. The Change heading shows that original firing grant separately from later acceptance votes, including when the votes use a different rule. Vote labels read the referenced revision from the standing-rule history. Missing or stale scan evidence
 and failed refreshes remain visibly different from clean or empty answers.
+
+The Janitor project set contains ordinary projects with no lifecycle row.
+Attention's Scans source uses the same set, returning known empty coverage for
+deleted projects and eval copies. An eligibility read failure remains an error.
+When a scan is not known, Workflow asks the scheduler whether the adopted
+schedules scan source. Unreadable definitions remain errors. If none scans,
+the reason says that the packs schedule no scan, and Attention explains that
+adopting the platform pack would scan it. A current complete scan remains known
+regardless of whether the project still schedules scans.
 
 ## Inspecting a candidate
 

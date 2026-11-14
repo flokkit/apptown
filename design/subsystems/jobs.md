@@ -122,6 +122,7 @@ River's elected leader runs these schedules (`apptownJobSchedules` in
 | `restored-copy-sweep` | every 5 minutes | Takes down restored copies a restore test left standing. |
 | `project-deletion-pass` | every 5 minutes (and queued for a project when its deletion is asked) | Moves each project being deleted one step: one take-down, main last, or deleted and kept ([project-deletion.md](project-deletion.md)). |
 | `project-purge-pass` | 04:00 (`0 4 * * *`) | Admits a `project.purge` operation for each deleted project whose kept period has ended, and removes the backup sets of projects deleted before projects were kept, 30 days after each deletion. |
+| `packs-catch-up` | 04:30 (`30 4 * * *`) | Under an enabled Keep packs current rule, starts the same assessment enabling it does for each active project below a newest pack publication. With the rule off it starts nothing. |
 
 The daily duties do not run merely because the daemon restarted. Downtime may miss a tick; the
 next scheduled run is the next opportunity. Ordinary workflow schedules retain

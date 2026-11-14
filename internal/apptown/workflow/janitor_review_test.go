@@ -154,7 +154,7 @@ func TestReviewQuietQueueFinishesAfterFinding(t *testing.T) {
 						s := New(context.Background(), fixture.db, Dependencies{
 							Merge:   mergeEffectsTest{},
 							DataDir: fixture.dataDir, Repositories: &scm.RepositoryLocks{},
-							Abandonment: abandonRecorderFunc(noAbandonEffects), Retention: retention, RunningImages: running,
+							Abandonment: abandonRecorderFunc(noAbandonEffects), Retention: retention, ScanSchedules: scheduledScans{}, RunningImages: running,
 							Automatic: []string{"scan", "script"}, Runners: map[string]Runner{"scan": runner, "script": runner},
 						})
 						s.authority = allowProject(ch.ProjectID)

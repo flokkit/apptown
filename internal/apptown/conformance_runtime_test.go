@@ -9,18 +9,23 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/wow"
+	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
 // With a standing deployment missing, the production evaluator says so
-// (cannot-assess), never pass — and the default probe IS wired.
+// (not-applicable), never pass — and the default probe IS wired.
 func TestRuntimeEvaluatorWithoutAnDeployment(t *testing.T) {
 	t.Parallel()
 	a := conformanceTestApp(t)
 	pid, _, _ := fleetRepo(t, a, "rt", map[string]string{"a.txt": "x"})
 	st, why := a.evaluator.Observe(t.Context(), pid, "", "readiness")
-	if st != conformance.CannotAssess || !strings.Contains(why, "no standing main deployment") {
-		t.Fatalf("no env → cannot-assess with the reason: %s %q", st, why)
+	if st != conformance.NotApplicable || why != "no standing deployment serves this project" {
+		t.Fatalf("no deployment → not-applicable with the reason: %s %q", st, why)
+	}
+	dbtest.FailNextStatement(t, a.DB, "-- name: DeploymentByName :one")
+	if state, detail := a.evaluator.Observe(t.Context(), pid, "", "readiness"); state != conformance.CannotAssess || !strings.Contains(detail, "could not be read") {
+		t.Fatalf("failed lookup is unknown: %s %q", state, detail)
 	}
 	if st, _ := a.evaluator.Observe(t.Context(), pid, "", "nonsense"); st != conformance.EvaluationError {
 		t.Fatalf("a bad probe spec is an evaluator error, got %s", st)
@@ -121,7 +126,7 @@ func TestPlatformGuidanceIsNotAppendedAtBoot(t *testing.T) {
 
 // A main deployment whose container is not running because the app
 // declares no contract is the app's gap: does-not-conform, with the words
-// to fix it. A project never deployed stays "cannot assess".
+// to fix it. Runtime checks do not apply to a project never deployed.
 func TestMainDeploymentWithoutAContractDoesNotConform(t *testing.T) {
 	t.Parallel()
 	a := conformanceTestApp(t, Config{DockerClient: newFakeDocker()})
@@ -141,7 +146,7 @@ func TestMainDeploymentWithoutAContractDoesNotConform(t *testing.T) {
 		t.Fatalf("want does-not-conform naming the contract, got %s: %s", state, detail)
 	}
 	pid2, _, _ := fleetRepo(t, a, "nd", map[string]string{"README.md": "# never deployed"})
-	if state, _ := a.evaluator.Observe(t.Context(), pid2, "", "readiness"); state != conformance.CannotAssess {
+	if state, _ := a.evaluator.Observe(t.Context(), pid2, "", "readiness"); state != conformance.NotApplicable {
 		t.Fatalf("a project never deployed is not judged at runtime: %s", state)
 	}
 }

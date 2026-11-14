@@ -214,7 +214,7 @@ function Table({ w }: { w: WhatIf }) {
         <QuietConfirm label={`Adopt v${w.version} on ${chosen.length} project${chosen.length === 1 ? '' : 's'}`} className="subtle" yes="Open the Changes"
           disabled={asking || chosen.length === 0}
           ask={`Opens one adoption Change per project, taking ${w.pack} v${w.version}${(w.also ?? []).length > 0 ? ` with ${alsoWords(w)} where the project is on them` : ''} as assessed in this what-if${w.advanceWorkflows ? ", with each project's other workflows at the newest version" : ''}. ${inAdvance ? 'Where a project offers it, you accept it now, in the words below; any other Change waits for a person.' : 'Each lands through its own review.'}${backWords}`}
-          prepare={inAdvance ? () => askInAdvance(chosen.map((p) => p.projectSlug), asked.current) : undefined}
+          prepare={inAdvance ? () => askInAdvance(chosen.map((p) => p.projectSlug), w.id, asked.current) : undefined}
           onYes={adopt} />
         <label className="small muted" title="Accept now each adoption that turns out to need no code and passes every check; the rest wait for a person">
           <input type="checkbox" checked={inAdvance} onChange={(e) => { asked.current = {}; setInAdvance(e.target.checked) }} disabled={asking} /> Approve now if no code needs changing
@@ -264,11 +264,12 @@ function alsoWords(w: WhatIf): string {
 // askInAdvance reads each project's question for a yes in advance into
 // asked and says it: the sentences once for the projects that share them,
 // and why each other project offers none.
-async function askInAdvance(slugs: string[], asked: Record<string, InAdvanceQuestion>) {
+async function askInAdvance(slugs: string[], whatIf: string | null, asked: Record<string, InAdvanceQuestion>) {
+  if (!whatIf) throw new Error('This what-if is unavailable. Run it again before adopting.')
   const groups = new Map<string, string[]>()
   const none: string[] = []
   for (const slug of slugs) {
-    const q = await get<InAdvanceQuestion>(`/projects/${encodeURIComponent(slug)}/adoption/in-advance`)
+    const q = await get<InAdvanceQuestion>(`/projects/${encodeURIComponent(slug)}/adoption/in-advance?fromWhatIf=${encodeURIComponent(whatIf)}`)
     asked[slug] = q
     if (q.notOffered) { none.push(`${slug}: ${q.notOffered}`); continue }
     const words = [q.acceptance, ...q.landing].join('\n')

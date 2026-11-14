@@ -223,7 +223,10 @@ describe('the what-if page', () => {
         return { changeId: CHANGE, candidate: {}, workflow: 'quick-change', runId: RUN }
       }
       const asked = url.match(/projects\/([^/]+)\/adoption\/in-advance/)
-      if (asked) return words[asked[1]]
+      if (asked) {
+        expect(new URL(url, 'http://localhost').searchParams.get('fromWhatIf')).toBe(WHAT_IF)
+        return words[asked[1]]
+      }
       return url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : whatIf
     })
     const box = (slug: string) => el.querySelector(`input[aria-label="adopt on ${slug}"]`) as HTMLInputElement

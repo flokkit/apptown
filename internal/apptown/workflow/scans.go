@@ -24,6 +24,9 @@ type MainScans struct {
 	Running    []runningScan                 `json:"running"`
 	Historical []conformance.ScanObservation `json:"historical"`
 	Reason     string                        `json:"reason,omitempty"`
+	// Unscheduled: the scans are not known and no schedule the project's
+	// packs carry scans its source, so a new scan will not come by itself.
+	Unscheduled bool `json:"unscheduled"`
 	// NoRepository: the project has no repository yet, so there is nothing
 	// to scan or update; it is outside the janitor's reach, not unknown.
 	NoRepository bool      `json:"noRepository"`
@@ -44,6 +47,10 @@ type RunningImages struct {
 	// Deployment is the name a reason uses for this deployment.
 	Deployment string
 	Images     map[string]string
+}
+
+type scanSchedules interface {
+	ScansSource(context.Context, ids.ID) (bool, error)
 }
 
 type runningImages interface {
@@ -85,7 +92,20 @@ func (s *Service) LatestMainScans(ctx context.Context, projectID ids.ID) (MainSc
 	if err != nil {
 		return MainScans{}, err
 	}
-	return latestMainScans(main, running, observations, s.now()), nil
+	out := latestMainScans(main, running, observations, s.now())
+	if !out.Known {
+		if s.scanSchedules == nil {
+			return MainScans{}, fmt.Errorf("scan schedules are unavailable")
+		}
+		scheduled, err := s.scanSchedules.ScansSource(ctx, projectID)
+		if err != nil {
+			return MainScans{}, err
+		}
+		if !scheduled {
+			out.Unscheduled, out.Reason = true, "its packs schedule no scan"
+		}
+	}
+	return out, nil
 }
 
 // currentSource is the newest run's scan of the whole current code, so its

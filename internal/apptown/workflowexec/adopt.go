@@ -29,7 +29,12 @@ func (a *commands) runAdopt(task *workflow.Execution, classify bool) {
 		finish(workflow.StatusFail, err.Error())
 		return
 	}
-	if !classify {
+	queue, err := task.IsQueue()
+	if err != nil {
+		finish(workflow.StatusError, err.Error())
+		return
+	}
+	if !classify && queue {
 		if err := task.StartFix(nil); err != nil {
 			finish(workflow.StatusError, err.Error())
 			return

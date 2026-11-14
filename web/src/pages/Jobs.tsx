@@ -41,7 +41,7 @@ const JOB_WORDS: Record<string, string> = {
   'infrastructure-check': 'Check servers and deployments', 'hourly-infrastructure-check': 'Check backups and connections',
   'integration-health': 'Check a connection', 'error-report-observation': 'Check error reports', 'backup-store-observation': 'Check the backup store',
   'target-observation': 'Check a target', 'preview-observation': 'Check previews', 'deployment-detail-observation': 'Check a deployment',
-  'project-deletion-pass': 'Remove deleted apps', 'project-purge-pass': 'Remove expired projects',
+  'project-deletion-pass': 'Remove deleted apps', 'packs-catch-up': 'Bring projects onto current packs', 'project-purge-pass': 'Remove expired projects',
 }
 const jobReceipt = (j: Job) => {
   if (j.error) return ''

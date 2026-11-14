@@ -20,6 +20,13 @@ type Scans struct {
 }
 
 func (s Scans) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, error) {
+	reaches, err := s.Work.JanitorReaches(ctx, id)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	if !reaches {
+		return Snapshot{Name: "Scans", Known: true, Items: []Item{}}, nil
+	}
 	scans, err := s.Work.LatestMainScans(ctx, id)
 	if err != nil {
 		return Snapshot{}, err
@@ -31,7 +38,7 @@ func (s Scans) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, error)
 	href := "/projects/" + p.Slug + "#janitor"
 	out := Snapshot{Name: "Scans", Href: href, Known: true, ObservedAt: scans.LastScan, Items: []Item{}}
 	if !scans.Known && !scans.NoRepository {
-		out.Items = append(out.Items, Item{Key: "scans/" + id.String(), Severity: SeverityWarning, Title: fmt.Sprintf("%s: scan not known", p.Name), Detail: scanDetail(scans.Reason), Href: href, Unknown: true, Stale: scans.Stale, ObservedAt: scans.LastScan})
+		out.Items = append(out.Items, Item{Key: "scans/" + id.String(), Severity: SeverityWarning, Title: fmt.Sprintf("%s: scan not known", p.Name), Detail: scanDetail(scans.Reason, scans.Unscheduled), Href: href, Unknown: true, Stale: scans.Stale, ObservedAt: scans.LastScan})
 	}
 	queues, err := s.Work.Queues(ctx, id)
 	if err != nil {
@@ -56,7 +63,10 @@ func queueItem(id ids.ID, name, href string, state workflow.QueueStatus) Item {
 
 // scanDetail is the owner's reason for the scans being not known, which names
 // the case, and what would answer it.
-func scanDetail(reason string) string {
+func scanDetail(reason string, unscheduled bool) string {
+	if unscheduled {
+		return "Its packs schedule no scan. Adopting the platform pack would scan it."
+	}
 	reason = strings.TrimRight(firstLine(reason), ".")
 	if reason == "" {
 		return "AppTown has no complete current scan. A new scan would answer it."

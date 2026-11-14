@@ -154,8 +154,9 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 		projectlifecycle.PurgePassJob:    {Run: a.deletion.PurgePass},
 		// A fleet review or what-if someone asked for runs once, one at a
 		// time, for up to two hours; its record says how far it got.
-		verification.ReviewJob: {Run: fleet.RunReviewJob, Timeout: jobs.OperationsTimeout},
-		verification.WhatIfJob: {Run: fleet.RunWhatIfJob, Timeout: jobs.OperationsTimeout},
+		verification.PacksCatchUpJob: {Run: fleet.RunPacksCatchUp},
+		verification.ReviewJob:       {Run: fleet.RunReviewJob, Timeout: jobs.OperationsTimeout},
+		verification.WhatIfJob:       {Run: fleet.RunWhatIfJob, Timeout: jobs.OperationsTimeout},
 		// One remediation pass, every minute and when a person acts.
 		remediation.PassJob: {Run: a.Fixes.RunPassJob, Timeout: jobs.DefaultTimeout},
 		// One eval pass, every minute and when an eval is started or
@@ -209,6 +210,7 @@ var jobBudgets = map[string]int{
 	dataprotection.RestoredCopySweepJob:     1,
 	operations.Job:                          1,
 	"db-backup":                             1,
+	verification.PacksCatchUpJob:            1,
 	projectlifecycle.CleanupJob:             projectlifecycle.CleanupAttempts,
 	projectlifecycle.DeletionPassJob:        1,
 	projectlifecycle.PurgePassJob:           1,
@@ -333,7 +335,7 @@ const (
 func apptownJobSchedules() []jobs.Schedule {
 	var schedules []jobs.Schedule
 	for _, spec := range []struct{ operation, cron, key string }{{"db-backup", "0 2 * * *", ""}, {"backup-sweep", "0 3 * * *", ""}, {deployment.ImageRetentionJob, "30 3 * * *", ""}, {dataprotection.RestoredCopySweepJob, "*/5 * * * *", ""},
-		{projectlifecycle.DeletionPassJob, "*/5 * * * *", ""}, {projectlifecycle.PurgePassJob, "0 4 * * *", ""},
+		{projectlifecycle.DeletionPassJob, "*/5 * * * *", ""}, {projectlifecycle.PurgePassJob, "0 4 * * *", ""}, {verification.PacksCatchUpJob, "30 4 * * *", ""},
 		{notification.EvaluateJob, "* * * * *", passScheduledKey},
 		{remediation.PassJob, "* * * * *", passScheduledKey}, {evals.PassJob, "* * * * *", passScheduledKey},
 		{restoreCheckJob, "* * * * *", passScheduledKey}, {infrastructureCheckJob, "*/5 * * * *", passScheduledKey}, {hourlyInfrastructureCheckJob, "0 * * * *", passScheduledKey}} {

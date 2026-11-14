@@ -66,7 +66,7 @@ func automatedFixture(t *testing.T) (*Service, *Change, string, *automatedRetent
 	ch := created.Change
 	gittest.Run(t, repo, "branch", ch.Branch)
 	retention, running := &automatedRetentionFake{}, &runningImagesFake{}
-	s := New(context.Background(), db, Dependencies{DataDir: data, Repositories: &scm.RepositoryLocks{}, Abandonment: abandonRecorderFunc(noAbandonEffects), Retention: retention, RunningImages: running})
+	s := New(context.Background(), db, Dependencies{DataDir: data, Repositories: &scm.RepositoryLocks{}, Abandonment: abandonRecorderFunc(noAbandonEffects), Retention: retention, ScanSchedules: scheduledScans{}, RunningImages: running})
 	s.authority = allowProject(pid)
 	t.Cleanup(s.Stop)
 	return s, ch, repo, retention, running
@@ -192,7 +192,7 @@ func TestAutomatedPurgeKeepsExactScanSubjectsAfterRestart(t *testing.T) {
 		t.Fatalf("branch remains: %s", branch)
 	}
 	// Reconstruct the owner from persistent state, as a process restart does.
-	restarted := New(context.Background(), s.db, Dependencies{DataDir: s.dataDir, RunningImages: running})
+	restarted := New(context.Background(), s.db, Dependencies{DataDir: s.dataDir, ScanSchedules: scheduledScans{}, RunningImages: running})
 	restarted.authority = allowProject(ch.ProjectID)
 	defer restarted.Stop()
 	scans, err := restarted.LatestMainScans(t.Context(), ch.ProjectID)
@@ -439,3 +439,7 @@ func TestQueueStartRetainsTheTargetsOfAFailedProducer(t *testing.T) {
 		t.Fatalf("lost attempted targets: %+v %v", records[0], err)
 	}
 }
+
+type scheduledScans struct{}
+
+func (scheduledScans) ScansSource(context.Context, ids.ID) (bool, error) { return true, nil }

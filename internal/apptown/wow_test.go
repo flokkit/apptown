@@ -415,15 +415,15 @@ func TestOpeningAnAdoptionChangeStartsItsWorkingRun(t *testing.T) {
 			if code != 200 || json.Unmarshal([]byte(body), &opened) != nil || opened.ChangeID.IsZero() {
 				t.Fatalf("via change: %d %s", code, body)
 			}
-			if opened.RunID.IsZero() || opened.Workflow != "quick-change" || opened.NotStarted != "" {
+			if opened.RunID.IsZero() || opened.Workflow != "janitor-adopt" || opened.NotStarted != "" {
 				t.Fatalf("the adoption Change's working run: %s", body)
 			}
 			if c.started != (opened.RunError == "") {
 				t.Fatalf("an admitted run that did not get going keeps the run and says why: %s", body)
 			}
 			snap, err := a.Work.Snapshot(asPerson("bls"), opened.RunID, workflow.DetailView)
-			if err != nil || snap.Run.ChangeID != opened.ChangeID || snap.Run.WorkflowName != "quick-change" {
-				t.Fatalf("the run is quick-change on the adoption Change: %+v %v", snap.Run, err)
+			if err != nil || snap.Run.ChangeID != opened.ChangeID || snap.Run.WorkflowName != "janitor-adopt" {
+				t.Fatalf("the run is janitor-adopt on the adoption Change: %+v %v", snap.Run, err)
 			}
 			// Stop the stock lane's agent work before the app stops.
 			if _, err := a.Work.Abandon(asPerson("bls"), workflow.StopWork{ChangeID: opened.ChangeID, Reason: "test"}); err != nil {

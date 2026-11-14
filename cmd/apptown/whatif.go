@@ -389,7 +389,7 @@ func cmdWhatIfAdopt(args []string) error {
 	}
 	shown := map[string][]string{}
 	if *inAdvance {
-		if shown, err = askInAdvance(slugs, *yes); err != nil {
+		if shown, err = askInAdvance(slugs, id.String(), *yes); err != nil {
 			return err
 		}
 	}
@@ -435,7 +435,7 @@ func cmdWhatIfAdopt(args []string) error {
 // its words (once for projects that share them) and why any project offers
 // none, and asks once unless the person said they read them. It returns the
 // words shown per project that offers a yes.
-func askInAdvance(slugs []string, read bool) (map[string][]string, error) {
+func askInAdvance(slugs []string, whatIf string, read bool) (map[string][]string, error) {
 	shown := map[string][]string{}
 	var order []string
 	groups := map[string][]string{}
@@ -445,7 +445,7 @@ func askInAdvance(slugs []string, read bool) (map[string][]string, error) {
 			Landing    []string `json:"landing"`
 			NotOffered string   `json:"notOffered"`
 		}
-		if err := api.get("/projects/"+slug+"/adoption/in-advance", &q); err != nil {
+		if err := api.get("/projects/"+slug+"/adoption/in-advance?fromWhatIf="+url.QueryEscape(whatIf), &q); err != nil {
 			return nil, fmt.Errorf("%s: reading what a yes in advance means: %w", slug, err)
 		}
 		if q.NotOffered != "" {

@@ -4437,6 +4437,7 @@ export type MainScans = {
   running: RunningScan[]
   historical: ScanObservation[]
   reason?: string
+  unscheduled: boolean
   noRepository: boolean
   known: boolean
   stale: boolean

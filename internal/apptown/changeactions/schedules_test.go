@@ -735,3 +735,38 @@ func (scheduleStandingProcedure) PublishedWorkflows(ctx context.Context, q datab
 	}
 	return docs, nil
 }
+
+func TestSourceScanReadUsesTheCarriedSchedules(t *testing.T) {
+	w := newScheduleWorld(t)
+	if got, err := w.schedules.ScansSource(t.Context(), w.project.ID); err != nil || got {
+		t.Fatalf("no schedule: %t %v", got, err)
+	}
+	body := `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata: {name: source-clock}
+spec:
+  kind: pipeline
+  on:
+    schedule: {cron: "* * * * *"}
+  stages:
+    - name: observe
+      steps:
+        - name: source
+          uses: scan
+          with: {on: source}
+`
+	if _, _, err := w.ways.PublishWorkflow(t.Context(), body, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	w.packWorkflow(t, w.project.ID, "source-clock")
+	if got, err := w.schedules.ScansSource(t.Context(), w.project.ID); err != nil || !got {
+		t.Fatalf("carried source scan: %t %v", got, err)
+	}
+	// sql-guarantee: publication rejects unreadable definitions; exercise stored-content damage.
+	if _, err := w.schedules.DB.SQL().ExecContext(t.Context(), `UPDATE lib_workflow_versions SET yaml='spec: [' WHERE yaml=$1`, body); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.schedules.ScansSource(t.Context(), w.project.ID); err == nil {
+		t.Fatal("unreadable definition became no schedule")
+	}
+}

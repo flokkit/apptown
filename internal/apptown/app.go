@@ -336,7 +336,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.Complaints = complaint.NewBox(db, complaintPackVersions{db}, cfg.clock.Now)
 	a.Ways = wow.New(db, wow.Dependencies{Publications: packPublicationReviews{fleet: func() *verification.Fleet { return fleetReviewsFor(a) }}, Stock: cfg.stock.FS, Shipped: cfg.stock.Name, ToolLines: cfg.stock.Tools, Importers: waysImporters{db}, Checks: waysChecks{}, Now: cfg.clock.Now})
 	changes := workflow.NewChanges(db, access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects}, cfg.clock.Now)
-	a.Adoption = adoption.New(db, adoption.Dependencies{Authority: access.Checked{Authority: identity.Scoped(a.Access, "adoption"), Projects: a.Projects}, Ways: a.Ways, Capabilities: adoptionCapabilities{}, Uplift: workcommands.Uplift{Changes: changes, DB: db, Lanes: func() remediation.WorkflowResolver { return a.lifecycle }, Runs: func() workcommands.RunStarter { return a.Work }}, Reviews: adoptionReviews{fleet: func() *verification.Fleet { return fleetReviewsFor(a) }}, Copies: project.Copies{}, Now: cfg.clock.Now})
+	a.Adoption = adoption.New(db, adoption.Dependencies{Authority: access.Checked{Authority: identity.Scoped(a.Access, "adoption"), Projects: a.Projects}, Ways: a.Ways, Capabilities: adoptionCapabilities{}, Uplift: workcommands.Uplift{Changes: changes, DB: db, Adoption: func() *adoption.Service { return a.Adoption }, Runs: func() workcommands.RunStarter { return a.Work }}, Reviews: adoptionReviews{fleet: func() *verification.Fleet { return fleetReviewsFor(a) }}, Copies: project.Copies{}, Now: cfg.clock.Now})
 	var extensionNames []string
 	for _, ext := range piharness.Extensions() {
 		extensionNames = append(extensionNames, ext.Name)
