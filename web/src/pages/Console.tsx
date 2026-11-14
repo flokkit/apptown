@@ -48,7 +48,9 @@ export default function Console() {
 // continues a lane that stopped. ?session=<id> lands on one exact session
 // ("take it to chat" made it server-side, continuing the lane agent) instead
 // of the remembered one.
-export function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; changeId: string; forcedSession: string; kickoff: string }) {
+// shown is false while the change page shows another tab: the chat stays
+// mounted, and coming back follows the newest message like a fresh view.
+export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true }: { slug: string; changeId: string; forcedSession: string; kickoff: string; shown?: boolean }) {
   const { session, list, openErr, appTownInstead, open, startFresh, end } = useConsoleSession({ slug, changeId, forcedSession })
   // The layering principle: bubbles are the story, the terminal is under
   // the hood. Same pi, same conversation, two zooms — remembered per person.
@@ -189,7 +191,7 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: str
         {session?.changeId ? <WorkerSaveLine slug={slug} session={session} /> : null}
         {session && <StartedChanges sessionId={session.id} />}
       </div>
-      <Bubbles before={shopId ? <EarlierChats changeId={shopId} currentOpenedAt={session?.createdAt} /> : undefined} hidden={zoom !== 'chat'} sessionId={session?.id ?? null} attached={status === 'attached'}
+      <Bubbles before={shopId ? <EarlierChats changeId={shopId} currentOpenedAt={session?.createdAt} /> : undefined} hidden={zoom !== 'chat' || !shown} sessionId={session?.id ?? null} attached={status === 'attached'}
           starting={status !== 'attached' || !session ? <StartingLine opening={!session} /> : undefined} onBusy={setRobotBusy}
           readOnly={!session || session.mayAct ? undefined : session.openedBy}
           starters={shopId ? undefined : [

@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -262,10 +263,13 @@ func TestAppTownPagesCannotBeFramed(t *testing.T) {
 	}
 }
 
+// AppTown's own page policy (never framed) does not reach a hosted app: a
+// preview keeps the app's own rules and gets only the preview framing rule,
+// AppTown's origin as the one ancestor (framedOnlyBy).
 func TestBrowserPolicyLeavesHostedAppPolicy(t *testing.T) {
 	t.Parallel()
 	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Security-Policy", "frame-ancestors https://embed.example.test")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; frame-ancestors https://embed.example.test")
 		w.WriteHeader(201)
 	}))
 	defer app.Close()
@@ -286,7 +290,7 @@ func TestBrowserPolicyLeavesHostedAppPolicy(t *testing.T) {
 	r.Header.Set("Sec-Fetch-Site", "cross-site")
 	w := httptest.NewRecorder()
 	a.Handler().ServeHTTP(w, r)
-	if w.Code != 201 || w.Header().Get("X-Frame-Options") != "" || w.Header().Get("Content-Security-Policy") != "frame-ancestors https://embed.example.test" {
+	if w.Code != 201 || w.Header().Get("X-Frame-Options") != "" || !slices.Equal(w.Header().Values("Content-Security-Policy"), []string{"default-src 'self'", "frame-ancestors https://forge.example.test"}) {
 		t.Fatalf("AppTown policy leaked into hosted app: %d %v", w.Code, w.Header())
 	}
 }

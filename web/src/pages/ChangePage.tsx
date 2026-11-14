@@ -4,7 +4,7 @@ import '../overview-line.css'
 import { runStory } from './change/story'
 import { InlineHelp } from '../InlineHelp'
 import { Tabs, revealActiveTab } from '../Tabs'
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { useSetProjectScope } from '../projectScope'
 import { setPageContext } from '../chrome'
@@ -38,6 +38,14 @@ export default function ChangePage() {
   const { data: view, err, reload, current } = read
   const tab = changeDefaultTab(rawTab, view)
   const liveChat = view?.change.state === 'in_progress' && !params.has('chat')
+  // A live chat, once shown, stays mounted while other tabs are read, so
+  // coming back does not reconnect, replay its history or reload the
+  // preview. Only showing Conversation opens it: reading another tab of an
+  // open change never starts a helper.
+  const [chatOpenedFor, setChatOpenedFor] = useState<string>()
+  const changeId = view?.change.id
+  if (liveChat && tab === 'conversation' && changeId && chatOpenedFor !== changeId) setChatOpenedFor(changeId)
+  const keepChat = liveChat && !!changeId && chatOpenedFor === changeId
 
   useSetProjectScope(current ? view?.projectSlug : null)
   // The bar's sentence: what you are DOING, not just what you see.
@@ -76,6 +84,9 @@ export default function ChangePage() {
   const href = (t: ChangeTab, extra: Record<string, string | null | undefined> = {}) => {
     const q = new URLSearchParams()
     q.set('tab', t)
+    // The chosen chat session is part of the chat's identity: keep it.
+    const session = params.get('session')
+    if (session) q.set('session', session)
     for (const [k, v] of Object.entries(extra)) if (v != null) q.set(k, String(v))
     const s = q.toString()
     return `/changes/${view.change.id}${s ? `?${s}` : ''}`
@@ -106,9 +117,9 @@ export default function ChangePage() {
 
           {tab === 'changes' && <ChangesTab view={view} run={view.detail?.run} />}
           <ChangeOverview progressCurrent={!read.refreshFailed} shown={tab === 'overview'} view={view} current={current} steps={steps} extraErr={workRunId && !work.detail ? work.err : undefined} onChange={reload} workTab={workTab} />
+          {keepChat && <div className="conversation-kept" hidden={tab !== 'conversation'}><Suspense fallback={<p className="muted">Loading the chat…</p>}><ChatPage key={`${view.projectSlug}\n${view.change.id}\n${params.get('session') ?? ''}`} slug={view.projectSlug} changeId={view.change.id!} forcedSession={params.get('session') ?? ''} kickoff={params.get('kickoff') ?? ''} shown={tab === 'conversation'} /></Suspense></div>}
           {tab === 'conversation' && (
             <>
-            {liveChat && <Suspense fallback={<p className="muted">Loading the chat…</p>}><ChatPage key={`${view.projectSlug}\n${view.change.id}\n${params.get('session') ?? ''}`} slug={view.projectSlug} changeId={view.change.id!} forcedSession={params.get('session') ?? ''} kickoff={params.get('kickoff') ?? ''} /></Suspense>}
             <ConversationLog live={liveChat} selectedChat={params.get('chat') ?? undefined} earlierRuns={(view.runs ?? []).map(r => r.id!).filter(id => id !== view.detail?.run.id && id !== work.detail?.run.id)} rounds={[...(workRunId && work.detail ? runStory(work.detail) : []), ...(view.detail ? runStory(view.detail) : [])].filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-'))} request={view.change.body || view.change.title} report={changeReport(view)} changeId={view.change.id!} />
             </>
           )}
