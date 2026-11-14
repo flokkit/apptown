@@ -33,6 +33,6 @@ spec:
             means: I accept this dependency update and its application repairs after checking the evidence.
             standing:
               class: routine-update
-              means: The declared dependency update stays within the selected bound and every required check is met.
+              means: An AI model judged the security fix within the selected level and limited to dependencies and the code they need, AppTown saw toolchain versions and base images unchanged and the scanner no longer reporting the finding, and every required check is met.
       gate:
         require: [fix, accept]
