@@ -6,9 +6,10 @@ tags: skill,maintenance
 Make the failing check pass within this change's intent. Keep to the selected
 level (routine: patch and minor, a 0.x package within its minor; aggressive:
 majors too) and each ecosystem's dependency guidance. Never downgrade, change
-sources or add a direct dependency the update does not need. Keep toolchain
-versions, base images and `.apptown/app.yaml` unchanged. Change application
-code only where a moved package needs it. Run declared tests, start-up and
+sources, take a pre-release (including indirect packages) or add a direct
+dependency the update does not need. Keep toolchain versions, base images and
+`.apptown/app.yaml` unchanged. Change application code only where a moved
+package needs it. Run declared tests, start-up and
 scans; if they cannot pass, report what needs a person.
 
 npm: `npm update` at the root (`--workspaces` for workspaces); for majors,

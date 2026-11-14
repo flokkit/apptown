@@ -27,8 +27,14 @@ spec:
               the dependency guidance for each. Do not change toolchain versions (mise,
               .tool-versions, version files), Dockerfile base images or
               .apptown/app.yaml. Change application code only where a moved package
-              needs it, as little as possible. Run each part's declared tests, then
-              commit. If nothing can move within the level, change nothing.
+              needs it, as little as possible. Take stable releases only, never a
+              pre-release (alpha, beta, rc, dev, canary), including packages the update
+              pulls in indirectly. When a newer version of a package needs a
+              pre-release, hold that package at the newest version that does not. Pin an
+              indirect package with overrides or resolutions only where that is the
+              ecosystem's normal way, and say so in the commit message. Run each part's
+              declared tests, then commit. If nothing can move within the level, change
+              nothing.
       steps:
         - name: repair
           uses: agent/pi
@@ -48,8 +54,8 @@ spec:
               in manifests and lockfiles stays within the level: at routine, patch and
               minor releases only, and a 0.x package stays within its minor; at
               aggressive, any newer release including majors. Never a downgrade, never a
-              new registry or source, never a pre-release unless the package already was
-              one. (2) No new direct dependency, unless it replaces one the update
+              new registry or source, never a pre-release, including indirect packages in
+              lockfiles. (2) No new direct dependency, unless it replaces one the update
               removed or renamed. (3) Every change outside dependency files is the
               smallest change a moved package needs: a renamed API, a changed import, a
               configuration key the new version requires. (4) Nothing else changes: no
