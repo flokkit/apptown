@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
@@ -12,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // MainScans distinguishes current subjects from retained historical software.
@@ -39,7 +41,9 @@ type runningScan struct {
 
 type RunningImages struct {
 	DeploymentID, BundleID ids.ID
-	Images                 map[string]string
+	// Deployment is the name a reason uses for this deployment.
+	Deployment string
+	Images     map[string]string
 }
 
 type runningImages interface {
@@ -81,38 +85,69 @@ func (s *Service) LatestMainScans(ctx context.Context, projectID ids.ID) (MainSc
 	if err != nil {
 		return MainScans{}, err
 	}
-	source := []conformance.ScanObservation{}
-	for _, o := range observations {
-		if o.Subject.On == "source" && o.Subject.History == "" && currentSourceSubject(o.Subject.Commit, main) {
-			if len(source) == 0 || source[0].RunID == o.RunID {
-				source = append(source, o)
-			}
-		}
-	}
-	return latestMainScans(main, running, observations, s.now(), sourceScansComplete(source)), nil
+	return latestMainScans(main, running, observations, s.now()), nil
 }
 
-func latestMainScans(main string, running []RunningImages, observations []conformance.ScanObservation, now time.Time, sourceComplete bool) MainScans {
-	out := MainScans{Main: main, Source: []conformance.ScanObservation{}, Running: []runningScan{}, Historical: []conformance.ScanObservation{}, Known: sourceComplete}
-	sourceRun, runningRun := ids.Nil, ids.Nil
+// currentSource is the newest run's scan of the whole current code, so its
+// errors and missing answers stay current. A landing scans only the commits it
+// adds with a scanner that has a history command (stock gitleaks); for a
+// scanner that run answered only that way on this commit, the answer is the
+// scanner's newest whole-tree observation of the same commit from an earlier
+// run. Without one, it stays unanswered. No other scanner is filled.
+func currentSource(main string, observations []conformance.ScanObservation) []bool {
+	current := make([]bool, len(observations))
+	run := ids.Nil
 	for _, o := range observations {
-		if o.Subject.On == "source" && o.Subject.History == "" && currentSourceSubject(o.Subject.Commit, main) && sourceRun.IsZero() {
-			sourceRun = o.RunID
+		if o.Subject.On == "source" && o.Subject.History == "" && currentSourceSubject(o.Subject.Commit, main) {
+			run = o.RunID
+			break
+		}
+	}
+	if run.IsZero() {
+		return current
+	}
+	answered, historyOnly := map[string]bool{}, map[string]bool{}
+	for i, o := range observations {
+		if o.Subject.On != "source" || o.RunID != run || !currentSourceSubject(o.Subject.Commit, main) {
+			continue
+		}
+		if o.Subject.History == "" {
+			current[i], answered[o.Scanner] = true, true
+		} else {
+			historyOnly[o.Scanner] = true
+		}
+	}
+	for i, o := range observations {
+		if o.Subject.On == "source" && o.Subject.History == "" && o.RunID != run && historyOnly[o.Scanner] && !answered[o.Scanner] && currentSourceSubject(o.Subject.Commit, main) {
+			current[i], answered[o.Scanner] = true, true
+		}
+	}
+	return current
+}
+
+func latestMainScans(main string, running []RunningImages, observations []conformance.ScanObservation, now time.Time) MainScans {
+	sourceCurrent, runningRun := currentSource(main, observations), ids.Nil
+	var source []conformance.ScanObservation
+	for i, o := range observations {
+		if sourceCurrent[i] {
+			source = append(source, o)
 		}
 		if o.Subject.On == "running" && runningRun.IsZero() {
 			runningRun = o.RunID
 		}
 	}
+	unanswered, sourceComplete := unansweredScanners(source)
+	out := MainScans{Main: main, Source: []conformance.ScanObservation{}, Running: []runningScan{}, Historical: []conformance.ScanObservation{}, Known: sourceComplete}
 	seen := map[string]bool{}
 	currentDeployments := map[ids.ID]bool{}
-	for _, o := range observations {
+	for i, o := range observations {
 		if o.Subject.On != "source" && o.Subject.On != "running" {
 			continue
 		}
 		current := false
 		switch o.Subject.On {
 		case "source":
-			current = o.Subject.History == "" && o.RunID == sourceRun && currentSourceSubject(o.Subject.Commit, main)
+			current = sourceCurrent[i]
 		case "running":
 			if o.RunID == runningRun {
 				if len(running) == 0 && o.Subject.DeploymentID.IsZero() && o.Verdict == StatusNotApplicable.String() {
@@ -156,18 +191,33 @@ func latestMainScans(main string, running []RunningImages, observations []confor
 	if len(out.Source) == 0 || len(out.Running) == 0 || len(currentDeployments) != len(running) {
 		out.Known = false
 	}
+	// Each reason names the case and its subject, so a reader knows what a
+	// new scan has to answer.
 	if !out.Known && out.Reason == "" {
+		code := "the current code (" + strs.ShortSHA(main) + ")"
 		switch {
 		case len(out.Source) == 0:
-			out.Reason = "no scan of the current project code"
+			out.Reason = code + " has not been scanned"
+		case !sourceComplete && len(unanswered) > 0:
+			out.Reason = strings.Join(unanswered, " and ") + " gave no result for " + code
 		case !sourceComplete:
-			out.Reason = "scan not finished"
+			out.Reason = "the scan of " + code + " did not say which scanners it ran"
 		case len(out.Running) == 0 || len(currentDeployments) != len(running):
-			out.Reason = "no running image scan"
+			var unscanned []string
+			for _, dep := range running {
+				if !currentDeployments[dep.DeploymentID] {
+					unscanned = append(unscanned, strs.FirstNonBlank(dep.Deployment, "a deployment"))
+				}
+			}
+			if len(unscanned) == 0 {
+				out.Reason = "the running images have not been scanned"
+			} else {
+				out.Reason = "the image " + strings.Join(unscanned, " and ") + " runs has not been scanned since it was deployed"
+			}
 		case out.Stale:
-			out.Reason = "scan older than three days"
+			out.Reason = "the last scan was on " + out.LastScan.UTC().Format("2 Jan") + ", more than three days ago"
 		default:
-			out.Reason = "scanner could not judge the software"
+			out.Reason = "the scanner could not judge the software"
 		}
 	}
 	// One unavailable source scanner makes the source answer incomplete.
@@ -221,13 +271,17 @@ func currentSourceSubject(commit, main string) bool {
 
 // A receipt from one scanner cannot answer for its unfinished peers. Only
 // retained observations establish completeness; execution rows are disposable.
-func sourceScansComplete(observations []conformance.ScanObservation) bool {
+// unansweredScanners names the expected scanners without a usable answer;
+// a run that named none is incomplete with nothing to name.
+func unansweredScanners(observations []conformance.ScanObservation) ([]string, bool) {
 	if len(observations) == 0 {
-		return false
+		return nil, false
 	}
+	var missing []string
+	complete := true
 	for _, o := range observations {
 		if len(o.ExpectedScanners) == 0 {
-			return false
+			complete = false
 		}
 		for _, scanner := range o.ExpectedScanners {
 			found := false
@@ -238,9 +292,12 @@ func sourceScansComplete(observations []conformance.ScanObservation) bool {
 				}
 			}
 			if !found {
-				return false
+				complete = false
+				if scanner != "" && !slices.Contains(missing, scanner) {
+					missing = append(missing, scanner)
+				}
 			}
 		}
 	}
-	return true
+	return missing, complete
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -204,7 +205,9 @@ func recordObservations(t *testing.T, s *Service, ch *Change, observations []con
 				transitionStoredRunForTest(t, s.db, run.ID, "", RunDone)
 			}
 			o.StepID, o.RunID = steps[o.RunID].ID, runs[o.RunID].ID
-			o.ExpectedScanners = []string{o.Scanner}
+			if o.ExpectedScanners == nil {
+				o.ExpectedScanners = []string{o.Scanner}
+			}
 		} else {
 			o.StepID = o.RunID
 		}
@@ -238,8 +241,110 @@ func TestSourceCompletenessUsesOnlyRetainedExpectedScanners(t *testing.T) {
 			if tc.peer {
 				observations = append(observations, conformance.ScanObservation{Scanner: "gitleaks", ExpectedScanners: tc.expected, Verdict: "pass"})
 			}
-			if got := sourceScansComplete(observations); got != tc.known {
+			if _, got := unansweredScanners(observations); got != tc.known {
 				t.Fatalf("complete=%v, want %v", got, tc.known)
+			}
+		})
+	}
+}
+
+// A landing scans only the commits it adds with gitleaks, so for gitleaks its
+// run says nothing about the whole code. On the demo, landings whose main did
+// not move hid the complete scheduled scan of that same commit as "scan not
+// finished".
+func TestALandingScanTakesItsHistoryScannerFromTheLastWholeScan(t *testing.T) {
+	t.Parallel()
+	now := time.Now().UTC()
+	both := []string{"osv", "gitleaks"}
+	for _, tc := range []struct {
+		name       string
+		earlier    bool
+		history    bool
+		landingOSV string
+		donor      string        // the earlier whole scan's gitleaks verdict
+		donorAge   time.Duration // and how long ago it was observed
+		known      bool
+		reason     string
+	}{
+		{"an earlier whole scan answers gitleaks", true, true, "pass", "pass", 3 * time.Hour, true, ""},
+		{"the landing's own error stays current", true, true, "error", "pass", 3 * time.Hour, false, "osv could not read its database"},
+		{"no earlier whole scan of gitleaks", false, true, "pass", "pass", 3 * time.Hour, false, "gitleaks gave no result for the current code"},
+		// The earlier answer keeps its own verdict and age.
+		{"an earlier gitleaks error stays an error", true, true, "pass", "error", 3 * time.Hour, false, "gitleaks could not run"},
+		{"an earlier gitleaks answer keeps its age", true, true, "pass", "pass", 80 * time.Hour, false, "the last scan was on"},
+		// A scanner that never answered is unfinished, not a history scan:
+		// an older answer does not stand in for it.
+		{"an unfinished scanner is not filled", true, false, "pass", "pass", 3 * time.Hour, false, "gitleaks gave no result for the current code"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s, ch, repo, _, _ := automatedFixture(t)
+			main := gittest.Run(t, repo, "rev-parse", "HEAD")
+			var observations []conformance.ScanObservation
+			if tc.earlier {
+				observations = append(observations,
+					conformance.ScanObservation{RunID: idstest.N(1), Subject: conformance.ScanSubject{On: "source", Commit: main}, ExpectedScanners: both, Scanner: "osv", Verdict: "pass", ObservedAt: now.Add(-tc.donorAge)},
+					conformance.ScanObservation{RunID: idstest.N(1), Subject: conformance.ScanSubject{On: "source", Commit: main}, ExpectedScanners: both, Scanner: "gitleaks", Verdict: tc.donor, Reason: map[string]string{"error": "gitleaks could not run"}[tc.donor], ObservedAt: now.Add(-tc.donorAge)})
+			}
+			landingOSV := conformance.ScanObservation{RunID: idstest.N(2), Subject: conformance.ScanSubject{On: "source", Commit: main}, ExpectedScanners: both, Scanner: "osv", Verdict: tc.landingOSV, ObservedAt: now.Add(-time.Hour)}
+			if tc.landingOSV == "error" {
+				landingOSV.Reason = "osv could not read its database"
+			}
+			observations = append(observations,
+				conformance.ScanObservation{RunID: idstest.N(3), Subject: conformance.ScanSubject{On: "running"}, Verdict: StatusNotApplicable.String(), ObservedAt: now.Add(-time.Hour)},
+				landingOSV)
+			if tc.history {
+				observations = append(observations, conformance.ScanObservation{RunID: idstest.N(2), Subject: conformance.ScanSubject{On: "source", Commit: main, History: main + ".." + main}, ExpectedScanners: both, Scanner: "gitleaks", Verdict: "pass", ObservedAt: now.Add(-time.Hour)})
+			}
+			recordObservations(t, s, ch, observations)
+			got, err := s.LatestMainScans(t.Context(), ch.ProjectID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Known != tc.known || !strings.HasPrefix(got.Reason, tc.reason) || tc.reason == "" && got.Reason != "" {
+				t.Fatalf("known=%v reason=%q, want %v %q; source=%+v", got.Known, got.Reason, tc.known, tc.reason, got.Source)
+			}
+			for _, o := range got.Source {
+				if o.Subject.History != "" {
+					t.Fatalf("a history observation became current: %+v", o)
+				}
+				// The landing's own whole-tree osv stays its answer; only
+				// gitleaks comes from the earlier scan.
+				if o.Scanner == "osv" && o.Verdict != tc.landingOSV || o.Scanner == "gitleaks" && (o.Verdict != tc.donor || !o.ObservedAt.Before(now.Add(-2*time.Hour))) {
+					t.Fatalf("wrong answer for %s: %+v", o.Scanner, o)
+				}
+			}
+		})
+	}
+}
+
+// Each reason names its case and subject, so a reader knows what a new scan
+// has to answer.
+func TestNotKnownReasonsNameTheirCase(t *testing.T) {
+	t.Parallel()
+	now := time.Now().UTC()
+	dep, bundle := idstest.N(10), idstest.N(11)
+	running := []RunningImages{{DeploymentID: dep, BundleID: bundle, Deployment: "main", Images: map[string]string{"web": "digest-a"}}}
+	const main = "5c406e206353120f72fb285835c7bf9b0cac0048"
+	source := func(run uint64, scanner string, at time.Time) conformance.ScanObservation {
+		return conformance.ScanObservation{RunID: idstest.N(run), Subject: conformance.ScanSubject{On: "source", Commit: main}, ExpectedScanners: []string{"osv", "gitleaks"}, Scanner: scanner, Verdict: "pass", ObservedAt: at}
+	}
+	image := conformance.ScanObservation{RunID: idstest.N(2), Subject: conformance.ScanSubject{On: "running", DeploymentID: dep, BundleID: bundle, Part: "web", Digest: "digest-a"}, Scanner: "trivy", Verdict: "pass", ObservedAt: now}
+	old := now.Add(-80 * time.Hour)
+	for _, tc := range []struct {
+		name         string
+		observations []conformance.ScanObservation
+		want         string
+	}{
+		{"no source scan", []conformance.ScanObservation{image}, "the current code (5c406e206353) has not been scanned"},
+		{"a scanner without a result", []conformance.ScanObservation{source(1, "osv", now), image}, "gitleaks gave no result for the current code (5c406e206353)"},
+		{"running image not scanned", []conformance.ScanObservation{source(1, "osv", now), source(1, "gitleaks", now)}, "the image main runs has not been scanned since it was deployed"},
+		{"older than three days", []conformance.ScanObservation{source(1, "osv", old), source(1, "gitleaks", old), image}, "the last scan was on " + old.Format("2 Jan") + ", more than three days ago"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := latestMainScans(main, running, tc.observations, now)
+			if got.Known || got.Reason != tc.want {
+				t.Fatalf("known=%v reason=%q, want %q", got.Known, got.Reason, tc.want)
 			}
 		})
 	}

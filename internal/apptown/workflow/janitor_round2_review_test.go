@@ -15,7 +15,7 @@ func TestReviewPurgePreservesUsableSourceComparison(t *testing.T) {
 	s, ch, repo, _, running := automatedFixture(t)
 	main := gittest.Run(t, repo, "rev-parse", "HEAD")
 	dep, bundle := idstest.N(100), idstest.N(101)
-	running.rows = []RunningImages{{DeploymentID: dep, BundleID: bundle, Images: map[string]string{"web": "digest-a"}}}
+	running.rows = []RunningImages{{DeploymentID: dep, BundleID: bundle, Deployment: "main", Images: map[string]string{"web": "digest-a"}}}
 	now := time.Now().UTC()
 	recordObservations(t, s, ch, []conformance.ScanObservation{
 		{RunID: idstest.N(102), Subject: conformance.ScanSubject{On: "source", Commit: main}, Scanner: "osv", Verdict: "pass", ObservedAt: now},
@@ -47,7 +47,7 @@ func TestReviewPurgePreservesUsableSourceComparison(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Known || got.Reason != "no running image scan" {
+	if got.Known || got.Reason != "the image main runs has not been scanned since it was deployed" {
 		t.Fatalf("missing current running scan: %+v", got)
 	}
 	// No deployments still needs the running scan's explicit answer that
@@ -57,7 +57,7 @@ func TestReviewPurgePreservesUsableSourceComparison(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Known || got.Reason != "no running image scan" {
+	if got.Known || got.Reason != "the running images have not been scanned" {
 		t.Fatalf("missing running scan with no deployments: %+v", got)
 	}
 }
