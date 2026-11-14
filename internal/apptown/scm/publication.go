@@ -147,11 +147,20 @@ func ReadAuthorityIn(ctx context.Context, q database.Queryer, projectID ids.ID, 
 // the one ordering point for publication admission, handover and attempt
 // admission: a branch nobody was handed yet gets its row here, so the first
 // handover and the first publication queue on the same lock.
+//
+// The project's row is locked before the branch's: taking a change locks
+// the project and then the branch, and a transaction that held the branch
+// while waiting for the project (a publication's foreign key) would close a
+// cycle with it. The key lock is the one that foreign key takes; it waits
+// only for a transaction holding the whole project.
 func lockAuthorityIn(ctx context.Context, tx *database.Tx, projectID ids.ID, branch string) (Authority, error) {
 	if projectID.IsZero() || branch == "" {
 		return Authority{}, fmt.Errorf("branch authority needs its project and branch")
 	}
 	q := scmsql.New(tx.SQL())
+	if err := q.LockProjectKey(ctx, projectID); err != nil {
+		return Authority{}, err
+	}
 	if err := q.EnsureAuthority(ctx, scmsql.EnsureAuthorityParams{ProjectID: projectID, Branch: branch}); err != nil {
 		return Authority{}, err
 	}
