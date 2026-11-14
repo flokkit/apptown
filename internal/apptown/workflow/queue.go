@@ -19,17 +19,27 @@ import (
 
 const queueStopAfter = 3
 
+// PackageMove is a historical observation from a dependency listing.
+// New proposals record classified files instead.
+type PackageMove struct {
+	Ecosystem string `json:"ecosystem"`
+	Package   string `json:"package"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+}
+
 type QueueStatus struct {
-	Title        string     `json:"title"`
-	Queue        string     `json:"queue"`
-	State        string     `json:"state"`
-	Words        string     `json:"words"`
-	Since        time.Time  `json:"since"`
-	Failed       int        `json:"failed"`
-	Reason       string     `json:"reason"`
-	Packages     []fix.Move `json:"packages"`
-	ChangeID     ids.ID     `json:"changeId,omitzero"`
-	ChangeNumber int64      `json:"changeNumber"`
+	Title        string        `json:"title"`
+	Queue        string        `json:"queue"`
+	State        string        `json:"state"`
+	Words        string        `json:"words"`
+	Since        time.Time     `json:"since"`
+	Failed       int           `json:"failed"`
+	Reason       string        `json:"reason"`
+	Files        []fix.File    `json:"files"`
+	Packages     []PackageMove `json:"packages"`
+	ChangeID     ids.ID        `json:"changeId,omitzero"`
+	ChangeNumber int64         `json:"changeNumber"`
 }
 
 // Stopped reports whether this queue’s episode has exhausted its attempts.
@@ -45,7 +55,7 @@ func (s *Service) QueueState(ctx context.Context, project ids.ID, queue string) 
 	return queueStateIn(ctx, s.db, project, queue)
 }
 func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queue string) (QueueStatus, error) {
-	out := QueueStatus{Queue: queue, State: "up_to_date", Packages: []fix.Move{}}
+	out := QueueStatus{Queue: queue, State: "up_to_date", Files: []fix.File{}, Packages: []PackageMove{}}
 	rows, err := workflowsql.New(db.SQL()).QueueAttempts(ctx, workflowsql.QueueAttemptsParams{ProjectID: project, Queue: queue})
 	if err != nil {
 		return out, err
@@ -72,6 +82,9 @@ func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queu
 		}
 		if out.Reason == "" && r.Outcome == "held" {
 			out.Reason = r.Reason
+			if err := json.Unmarshal(r.Files, &out.Files); err != nil {
+				return out, err
+			}
 			if err := json.Unmarshal(r.Packages, &out.Packages); err != nil {
 				return out, err
 			}
@@ -144,7 +157,7 @@ func queueWords(q QueueStatus) string {
 	}
 }
 
-// StartFix records the attempted work at the first declared command, not at a
+// StartFix records the attempted work at the producer session, not at a
 // quiet observing firing. Targets remain after its Change is purged.
 func (e *Execution) StartFix(targets []check.Finding) error {
 	raw, err := json.Marshal(targets)
@@ -163,7 +176,7 @@ func (e *Execution) StartFix(targets []check.Finding) error {
 // KeepProposal fingerprints the independently observed candidate before tests.
 // Only the latest held or skipped proposal suppresses work. Its history and
 // failed count stay intact when a later quiet firing proposes the same thing.
-func (e *Execution) KeepProposal(main string, listing json.RawMessage, moved []fix.Move) (bool, string, error) {
+func (e *Execution) KeepProposal(main string, tree string, files []fix.File) (bool, string, error) {
 	revision, err := adoption.ByIDIn(e.ctx, e.service.db, e.run.AdoptionID)
 	if err != nil {
 		return false, "", err
@@ -175,15 +188,15 @@ func (e *Execution) KeepProposal(main string, listing json.RawMessage, moved []f
 	body, err := json.Marshal(struct {
 		Main     string
 		Adoption any
-		Listing  json.RawMessage
+		Tree     string
 		Targets  json.RawMessage
-	}{main, revision, listing, inputs["targets"]})
+	}{main, revision, tree, inputs["targets"]})
 	if err != nil {
 		return false, "", err
 	}
 	hash := sha256.Sum256(body)
 	fingerprint := hex.EncodeToString(hash[:])
-	return e.keepProposal(fingerprint, moved)
+	return e.keepProposal(fingerprint, files)
 }
 
 // KeepPackProposal uses main and the assessed adoption candidate, independent
@@ -192,18 +205,25 @@ func (e *Execution) KeepPackProposal(main, candidate string) (bool, string, erro
 	return e.keepProposal(fix.ProposalFingerprint(main, candidate), nil)
 }
 
-func (e *Execution) keepProposal(fingerprint string, moved []fix.Move) (bool, string, error) {
-	packages, err := json.Marshal(moved)
+func (e *Execution) keepProposal(fingerprint string, files []fix.File) (bool, string, error) {
+	raw, err := json.Marshal(files)
 	if err != nil {
 		return false, "", err
 	}
-	if moved == nil {
-		packages = []byte(`[]`)
+	if files == nil {
+		raw = []byte(`[]`)
 	}
 	same, why := false, ""
 	err = e.InAttempt(e.step.Type, func(tx *database.Tx, _ int64) error {
 		ctx := e.ctx
 		q := workflowsql.New(tx.SQL())
+		current, err := q.QueueAttempt(ctx, e.run.ChangeID)
+		if err != nil {
+			return err
+		}
+		if len(current) == 0 || current[0].Fingerprint != "" {
+			return nil
+		}
 		prev, err := q.PreviousHeldAttempt(ctx, workflowsql.PreviousHeldAttemptParams{ProjectID: e.run.ProjectID, ChangeID: e.run.ChangeID})
 		if err != nil {
 			return err
@@ -212,7 +232,7 @@ func (e *Execution) keepProposal(fingerprint string, moved []fix.Move) (bool, st
 			same = true
 			why = "same as the try of " + prev[0].OpenedAt.Format("2 Jan")
 		}
-		return q.RecordQueueProposal(ctx, workflowsql.RecordQueueProposalParams{ID: e.run.ChangeID, Fingerprint: fingerprint, Packages: packages})
+		return q.RecordQueueProposal(ctx, workflowsql.RecordQueueProposalParams{ID: e.run.ChangeID, Fingerprint: fingerprint, Files: raw})
 	})
 	if err == nil && !same {
 		err = e.replaceUntouched()

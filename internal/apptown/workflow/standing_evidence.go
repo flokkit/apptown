@@ -112,7 +112,7 @@ func standingConsidered(ctx context.Context, q database.Queryer, run, step ids.I
 }
 
 // UpdateTargetsIn reads the findings the current call tree actually acted on.
-// Fresh standing classification must judge FixedIn for those same targets,
+// Fresh standing classification must require security permission for those targets,
 // even when the root is the observing scan and the fix ran in a child.
 func (s Source) UpdateTargetsIn(ctx context.Context, q database.Queryer) ([]check.Finding, error) {
 	run, err := readRun(ctx, q, s.RunID)

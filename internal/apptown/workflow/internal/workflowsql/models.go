@@ -41,6 +41,7 @@ type AutomatedChange struct {
 	Schedule       string
 	RuleID         ids.ID
 	RuleRevision   int64
+	Files          json.RawMessage
 }
 
 type Change struct {

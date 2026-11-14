@@ -8,9 +8,9 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
-	"net/url"
 	"strings"
 )
 
@@ -55,15 +55,7 @@ func (p Portfolio) StandingPortfolio(ctx context.Context, q database.Queryer, pi
 		if item.DefaultBranch == "" || (pid.IsZero() && !item.Purpose.Schedules()) {
 			continue
 		}
-		preview := workflow.StandingProjectPreview{ProjectID: item.ID, Project: item.Slug, Deployments: []workflow.StandingEnvironment{}, NeedsPackUpgrade: []string{}, PackOffers: []string{}, BaseImageFindings: []string{}}
-		revision, err := adoption.CurrentReceiptIn(ctx, q, item.ID)
-		if err != nil {
-			return nil, err
-		}
-		ds, err := p.Adoptions.Fixes(ctx, adoption.Source{ProjectID: item.ID, Revision: revision})
-		if err != nil {
-			return nil, err
-		}
+		preview := workflow.StandingProjectPreview{ProjectID: item.ID, Project: item.Slug, Deployments: []workflow.StandingEnvironment{}, BaseImageFindings: []string{}}
 		repo, err := item.Repository(p.DataDir)
 		if err != nil {
 			return nil, err
@@ -71,28 +63,6 @@ func (p Portfolio) StandingPortfolio(ctx context.Context, q database.Queryer, pi
 		contract, err := docker.ReadContractAt(ctx, repo, item.DefaultBranch)
 		if err != nil {
 			return nil, err
-		}
-		missing, err := updateCoverage(contract, ds)
-		if err != nil {
-			return nil, err
-		}
-		preview.NoMajorCommand, err = partsWithoutMajorCommand(contract, ds)
-		if err != nil {
-			return nil, err
-		}
-		preview.Covered = len(missing) == 0
-		if !preview.Covered {
-			var tools []string
-			for _, part := range missing {
-				tools = append(tools, part.Tools...)
-			}
-			preview.NeedsPackUpgrade, err = adoption.PacksWithTools(ctx, q, item.ID, tools)
-			if err != nil {
-				return nil, err
-			}
-			for _, pack := range preview.NeedsPackUpgrade {
-				preview.PackOffers = append(preview.PackOffers, "/packs/"+url.PathEscape(pack)+"/projects")
-			}
 		}
 		preview.OnlyChecksStarts = onlyChecksStarts(contract)
 		deps, err := p.Releases.Deployments.ForProject(ctx, item.ID)
@@ -127,4 +97,14 @@ func (p Portfolio) StandingPortfolio(ctx context.Context, q database.Queryer, pi
 		out = append(out, preview)
 	}
 	return out, nil
+}
+
+// onlyChecksStarts reports whether no contract part declares a test command.
+func onlyChecksStarts(c *appcontract.Contract) bool {
+	for _, part := range c.Parts {
+		if len(part.Test) > 0 {
+			return false
+		}
+	}
+	return true
 }

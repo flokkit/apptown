@@ -890,12 +890,7 @@ export type FinalCopies = {
 
 export type FixDeclaration = {
   kind: string
-  appliesTo: string[]
   ecosystem: string
-  run: string
-  runMajor: string
-  runFor: string
-  list: string
   files: string[]
 }
 
@@ -1141,7 +1136,8 @@ export type JanitorLandedChange = {
   title: string
   landedAt: string
   queue: string
-  packages: Move[]
+  files: File[]
+  packages: PackageMove[]
   ruleId?: string | null
   ruleRevision: number
   issuer: StandingActor
@@ -3961,7 +3957,12 @@ export type PackPick = {
   version: number
 }
 
-export type Move = {
+export type File = {
+  path: string
+  class: string
+}
+
+export type PackageMove = {
   ecosystem: string
   package: string
   from: string
@@ -4424,7 +4425,8 @@ export type QueueStatus = {
   since: string
   failed: number
   reason: string
-  packages: Move[]
+  files: File[]
+  packages: PackageMove[]
   changeId?: string | null
   changeNumber: number
 }
@@ -4452,7 +4454,8 @@ export type AutomatedAttempt = {
   failed: boolean
   changeId?: string | null
   fingerprint: string
-  packages: Move[]
+  files: File[]
+  packages: PackageMove[]
   id: string | null
   projectId: string | null
   openChange?: string | null
@@ -4784,15 +4787,11 @@ export type standingBaseImagePreview = {
 export type StandingProjectPreview = {
   level: string
   overridesInstance: boolean
-  noMajorCommand: string[]
   followsMain: StandingEnvironment[]
   problem?: string
-  packOffers: string[]
   baseImageFindings: string[]
   projectId: string | null
   project: string
-  covered: boolean
-  needsPackUpgrade: string[]
   onlyChecksStarts: boolean
   deployments: StandingEnvironment[]
   baseImages: number

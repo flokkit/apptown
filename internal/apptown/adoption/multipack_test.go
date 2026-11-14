@@ -14,7 +14,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/wow"
-	"github.com/flokkit/apptown/stock"
 )
 
 func multipackService(t *testing.T) (*Service, *wow.Service) {
@@ -238,25 +237,5 @@ func TestSavingGuidanceUnchangedRecordsThePacksAndKeepsEveryPin(t *testing.T) {
 	}
 	if got.Revision != 3 || !slices.Equal(got.Receipt.Packs, []string{"house"}) || len(got.Receipt.Guidance) != 1 || got.Receipt.Guidance[0].Version != 2 {
 		t.Fatalf("re-recorded revision %d: packs %v, guidance %+v; want revision 3 naming house with house-rule v2", got.Revision, got.Receipt.Packs, got.Receipt.Guidance)
-	}
-}
-
-func TestPacksWithToolsNamesEachCoveringPackOnce(t *testing.T) {
-	t.Parallel()
-	s, _ := multipackService(t)
-	ways := wow.New(s.db, wow.Dependencies{ToolLines: stock.Versions()})
-	pid := multipackProject(t, s.db)
-	publishFixturePack(t, ways, "languages", `{"tools":{"node":"24","go":"1.27"}}`)
-	publishFixturePack(t, ways, "empty", `{}`)
-	c, err := s.PreparePack(t.Context(), pid, []PackPick{{Pack: "languages", Version: 1}, {Pack: "empty", Version: 1}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := settleServiceCandidate(s.db, s, pid, *c, OperationApplyPack); err != nil {
-		t.Fatal(err)
-	}
-	packs, err := PacksWithTools(t.Context(), s.db, pid, []string{"node", "go", "node", "absent"})
-	if err != nil || !slices.Equal(packs, []string{"languages"}) {
-		t.Fatalf("covering packs %v: %v", packs, err)
 	}
 }

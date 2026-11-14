@@ -866,6 +866,10 @@ WHERE NOT (o.receipt ? 'expectedScanners');
 	{n: 240, note: "record unneeded workflow calls as not applicable", stmts: []string{
 		`UPDATE steps SET status='not_applicable', evidence_json=evidence_json - 'notNeeded' WHERE type='workflow/call' AND status='pass' AND evidence_json->>'notNeeded'='true'`,
 	}},
+	{n: 241, note: "classify agent dependency proposals and remove executable fix declarations", stmts: []string{
+		`ALTER TABLE automated_changes ADD COLUMN files JSONB NOT NULL DEFAULT '[]'`,
+		`UPDATE guidance_block_versions SET fixes_json=COALESCE((SELECT jsonb_agg(value - 'list' - 'run' - 'runMajor' - 'runFor' - 'appliesTo' ORDER BY ord) FROM jsonb_array_elements(fixes_json) WITH ORDINALITY AS f(value,ord)), '[]'::jsonb)`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

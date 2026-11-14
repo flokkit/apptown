@@ -23,7 +23,8 @@ type janitorLandedChange struct {
 	Title        string                `json:"title"`
 	LandedAt     time.Time             `json:"landedAt"`
 	Queue        string                `json:"queue"`
-	Packages     []fix.Move            `json:"packages"`
+	Files        []fix.File            `json:"files"`
+	Packages     []PackageMove         `json:"packages"`
 	RuleID       ids.ID                `json:"ruleId,omitzero"`
 	RuleRevision int64                 `json:"ruleRevision"`
 	Issuer       access.Actor          `json:"issuer"`
@@ -60,7 +61,10 @@ func (s *Service) LandedJanitorChanges(ctx context.Context, since, until time.Ti
 		rows = rows[:limit]
 	}
 	for _, row := range rows {
-		item := janitorLandedChange{Slug: row.Slug, Project: row.Name, PackVersions: []adoption.PackPick{}, ChangeID: row.ID, ProjectID: row.ProjectID, Number: row.Number, Title: row.Title, LandedAt: row.ClosedAt.Time, Queue: row.Queue, Packages: []fix.Move{}, RuleID: row.RuleID, RuleRevision: row.RuleRevision, Schedule: row.Schedule}
+		item := janitorLandedChange{Slug: row.Slug, Project: row.Name, PackVersions: []adoption.PackPick{}, ChangeID: row.ID, ProjectID: row.ProjectID, Number: row.Number, Title: row.Title, LandedAt: row.ClosedAt.Time, Queue: row.Queue, Packages: []PackageMove{}, RuleID: row.RuleID, RuleRevision: row.RuleRevision, Schedule: row.Schedule}
+		if err := json.Unmarshal(row.Files, &item.Files); err != nil {
+			return out, err
+		}
 		if err := json.Unmarshal(row.Packages, &item.Packages); err != nil {
 			return out, err
 		}

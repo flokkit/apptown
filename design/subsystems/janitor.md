@@ -13,7 +13,7 @@ No rule is enabled by default.
 Instance consent covers present and future projects. Only an instance
 administrator acting as a verified person can enable it. Its preview shows the
 consent sentence, deployments that would receive automatic releases, projects
-with complete fix coverage, projects needing a pack upgrade, and running images
+with repositories, and running images
 with base-image findings. Projects whose main contract declares no tests are
 marked as checking only that the app starts. Dynamic project membership does
 not change the saved consent's meaning.
@@ -39,9 +39,8 @@ through a governed adoption Change.
 
 
 At every use AppTown reads the project's current adoption, approval purposes,
-issuer permissions, effective update level and release health. Every tool part needs a declared
-update fix with whole-update, targeted-update and listing commands. Unsupported
-fix kinds cannot qualify a project. The project choice records `off`, `routine` or `aggressive`, with the project,
+issuer permissions, effective update level and release health. An agent updates every ecosystem it finds; adopted dependency guidance supplies
+conventions and file classification, without restricting eligibility. The project choice records `off`, `routine` or `aggressive`, with the project,
 person, time and reason, under the standing-approval capability. With no record,
 the instance level applies. Setting `off` stops both schedules. The project
 Janitor section shows the effective level beside “turn off” and the recorded choice.
@@ -127,23 +126,26 @@ permission. The rule must still be eligible for that project and workflow.
 Active writers, unsettled tasks, dirty or unpublished work, changed source and
 changed consent refuse an assessment. Inspection never repairs or saves source.
 
-Dependency inspection runs each adopted `fixes` entry's `list` command on separate
-copies of the committed base and candidate, using the check executor. The
-standard listing carries ecosystem, package, version, source and attributes.
-The package set and sources stay equal, attributes stay equal, and moved
-versions advance within the effective level. Routine keeps a 0.x version in
-its minor line; aggressive permits forward moves across majors. Both dependency
-levels refuse changes to mise tool declarations and base-image inputs. A targeted security fix also reaches each finding's `FixedIn`.
-A major at the routine level, new package, changed source or changed attribute
-fails classification.
-A missing or failed listing, malformed output or non-semver version is an error.
-Application files beside the update are judged by checks, not a file allowlist.
-An empty candidate is not applicable.
+Dependency inspection compares toolchain and runtime inputs on the committed base
+and candidate, including mise declarations, version files, Dockerfile base
+operands and contract image/build inputs. Changes require a person. It classifies
+every changed path using adopted dependency-file globs and the observed input
+paths. An empty candidate is not applicable. The classifier is `agent-update-v1`.
 
-The result records the source commits, tree, rule and run revisions, and a digest
-of the observed listings. The source is checked again after execution. Missing
-or incomplete observations cannot qualify a candidate. The read-only assessment does not accept, land or deploy it. Standing
-processing uses a fresh assessment before casting a typed vote.
+The routine check sends the complete diff, the approved level, any security
+targets and the classified paths to the checks model through the diff-rubric
+evaluator. The workflow supplies the rubric. Pass and fail record the model's
+judgement and reasoning; unclear or unavailable is an error, never met and never
+sent to repair. A failure can go to the dormant repair agent. The receipt keeps
+session, model, rubric and diff identities. Every required check must still be
+met for standing acceptance; a person may accept work that routine refuses.
+
+The assessment records source commits, tree, rule and run revisions, and a digest
+of the classified paths. It re-observes the source before returning. Standing
+processing uses a fresh assessment before casting a typed vote; assessment does
+not accept, land or deploy. Targeted fixes require security permission and the
+source scanner's parsed observation that the named target is gone. Missing,
+failed, detached or not-applicable scanners leave that target unassessed.
 
 Base-image inspection supports one root Dockerfile selected by an unchanged
 application contract: one app build at `.`, no needs, durable app data, init,
@@ -195,8 +197,7 @@ classification of publication intervals.
 
 Eligibility requires an active project below the publication, current issuer
 authority, matching approval meanings, a project level other than `off` and no
-release hold. Dependency fix coverage does not apply. The preview's projects
-needing a pack upgrade will be moved when this rule is on. Attempts retain rule
+release hold. Projects move to newer published packs when this rule is on. Attempts retain rule
 attribution; the queue fingerprints main's commit and the adoption candidate.
 An empty source diff still has its adoption to land.
 
@@ -212,18 +213,25 @@ The platform pack carries `janitor-scan` and `janitor-update`. A project runs th
 versions its adoption pins. The security schedule observes source and running
 images, and calls `janitor-fix` only for a new finding that an adopted update fix
 covers. Scanner errors never trigger the call. The update schedule updates the
-parts through the language packs' declared commands. Node, Go, Python with uv,
-Ruby and Java with Maven ship update declarations and standard-list converters;
-the frontend-only and video-game packs adopt Node's. WordPress has none yet:
-the update executor has no PHP or Composer, so a WordPress project waits for
-a pack that supplies them.
+repository through an `agent/pi` update session. Node, Go, Python with uv,
+Ruby and Maven guidance describes commands for every workspace and sub-project.
+A project without a declaration for its ecosystem still updates; its changed
+files are labelled other and judged with the complete diff.
 
-The `fix` step dispatches by `kind`: `update` (below) and `adopt` (above). Whole updates
-use `run` at routine level and `runMajor` where declared at aggressive level,
-otherwise `run`; targeted updates use `runFor` with the caller's targets, never `run`.
-Each command runs after `mise install` in its part's folder and publishes its
-commit through the script-step path. Missing coverage or commands are errors;
-an ordinary nonzero exit is a failure naming its part.
+The producer starts the queue attempt and retains its targets before its session.
+Routine runs after the producer and before tests, start-up and scans. Routine
+permits patch and minor releases, keeping 0.x packages within their minor;
+aggressive permits newer majors. The model judges every version and source
+change, direct dependencies and the minimum application repairs a moved package
+needs. AppTown independently witnesses protected inputs and required checks.
+A targeted fix fails while its source scanner still reports the package and any
+shared identifier, regardless of severity, baseline or exceptions.
+
+A `fix` step dispatches pack adoption. A pinned workflow's dependency `fix` step
+errors: this pack version’s dependency update is no longer supported; adopt the
+current platform pack. Existing approvals keep their recorded meaning. After a
+project adopts a workflow with a different meaning, its old approval is ineligible;
+a person uses Revoke, Preview and Enable on the Janitor page to consent again.
 
 A repair agent with `repairRounds: N` stays dormant until a check fails. Its
 session count is bounded over the run's lifetime. The stock workflows allow two
@@ -244,8 +252,8 @@ janitor, under standing approval <rule> (rev N), granted by <issuer>”; the sam
 attribution follows the release event.
 
 Each queue declared by an adopted standing workflow keeps its own history. A proposal records
-main, the adopted versions, the listing after the declared change, and its
-targets. A proposal identical to the queue's last held or skipped one stops
+main, the adopted versions, its first candidate tree, classified files and
+targets. Repair keeps that first fingerprint. A proposal identical to the queue's last held or skipped one stops
 before tests. A distinct proposal replaces earlier untouched work; human-touched
 work remains ordinary. A landed Change, a person's skip, or a person's touch of
 held work ends the failure episode; quiet scans and repeated proposals do not.

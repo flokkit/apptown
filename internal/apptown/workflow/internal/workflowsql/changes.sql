@@ -284,7 +284,7 @@ UPDATE automated_changes SET attempted_at=COALESCE(attempted_at,sqlc.arg(at)::ti
 WHERE id=sqlc.arg(id) AND queue<>'';
 
 -- name: RecordQueueProposal :exec
-UPDATE automated_changes SET fingerprint=sqlc.arg(fingerprint),packages=sqlc.arg(packages)::jsonb
+UPDATE automated_changes SET fingerprint=sqlc.arg(fingerprint),files=sqlc.arg(files)::jsonb
 WHERE id=sqlc.arg(id) AND queue<>'';
 
 -- name: HoldQueueAttempt :exec

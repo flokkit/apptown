@@ -412,7 +412,7 @@ func TestJanitorInstancePreviewReadsMainAndReleaseSettings(t *testing.T) {
 	}
 	for _, p := range q.Portfolio {
 		if p.ProjectID == pid {
-			if !p.Covered || !p.OnlyChecksStarts || len(p.Deployments) != 2 {
+			if !p.OnlyChecksStarts || len(p.Deployments) != 2 {
 				t.Fatalf("covered preview: %+v", p)
 			}
 			for _, dep := range p.Deployments {
@@ -421,18 +421,18 @@ func TestJanitorInstancePreviewReadsMainAndReleaseSettings(t *testing.T) {
 				}
 			}
 		} else if p.ProjectID == java {
-			if p.Covered || len(p.NeedsPackUpgrade) != 1 || p.NeedsPackUpgrade[0] != "java" || len(p.PackOffers) != 1 {
-				t.Fatalf("Java without a declared fix was covered: %+v", p)
+			if !p.OnlyChecksStarts {
+				t.Fatalf("Java preview: %+v", p)
 			}
 		}
 	}
 	// This project really has a Java part and its pack declares no dependency
-	// fixes. Dependency consent cannot fire there, while pack consent can.
+	// fixes. Both dependency and pack consent apply there.
 	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest}); err != nil {
 		t.Fatal(err)
 	}
-	if dependency, _, _, err := a.standingRules.StandingForWorkflow(ctx, java, "janitor-update"); err != nil || !dependency.RuleID.IsZero() {
-		t.Fatalf("uncovered Java got dependency work: %+v %v", dependency, err)
+	if dependency, _, _, err := a.standingRules.StandingForWorkflow(ctx, java, "janitor-update"); err != nil || dependency.RuleID.IsZero() {
+		t.Fatalf("Java without declarations did not get dependency work: %+v %v", dependency, err)
 	}
 	packRule := enablePackRule(t, a, ctx)
 	declaration, err := a.Ways.PackDeclaration(ctx, "java")

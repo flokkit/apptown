@@ -27,6 +27,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/usage"
+	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
@@ -117,7 +118,7 @@ const taskAppTownAdministrator = "fixture"
 // run their tasks on the local profile, on the fake driver until a test
 // names another, with image as the default image. definitions are the
 // workflows its runs are admitted under.
-func startTaskAppTown(t *testing.T, db *database.DB, dir, image string, definitions map[string]schema.Spec) *taskAppTown {
+func startTaskAppTown(t *testing.T, db *database.DB, dir, image string, definitions map[string]schema.Spec, options ...func(*workflow.Dependencies)) *taskAppTown {
 	t.Helper()
 	directory := identity.New(db, identity.Config{Projects: project.NewCatalogue(db)})
 	ctx := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: taskAppTownAdministrator, Via: "session"}, Verified: true})
@@ -145,8 +146,9 @@ func startTaskAppTown(t *testing.T, db *database.DB, dir, image string, definiti
 	}, CommandConfig{DataDir: dir, Image: image, AppTownVersion: "1.2.3-test"})
 	f.commands = commands
 	f.agents = f.agentExecutor(t)
-	f.work = workflow.New(context.Background(), db, workflow.Dependencies{
+	deps := workflow.Dependencies{
 		RunningImages:      fixtureRunningImages{},
+		Scanners:           verification.StageScanners{},
 		InAdvance:          f,
 		Fixes:              adopted,
 		JanitorDefinitions: adopted,
@@ -199,7 +201,11 @@ func startTaskAppTown(t *testing.T, db *database.DB, dir, image string, definiti
 		// light enough (two reads per running step) for the package's
 		// parallel tests sharing one database.
 		AttemptWatch: 200 * time.Millisecond,
-	})
+	}
+	for _, option := range options {
+		option(&deps)
+	}
+	f.work = workflow.New(context.Background(), db, deps)
 	t.Cleanup(func() {
 		f.work.Stop()
 		f.work.Wait()
@@ -316,14 +322,14 @@ var taskHubTemplate = gittest.NewTemplate(func(t testing.TB, dir string) {
 // newTaskAppTown is an AppTown on a fresh database and directory with one
 // project, adopted and with a repository on main, whose runs are admitted
 // under the named workflow. Its tasks run on the returned fake.
-func newTaskAppTown(t *testing.T, name string, spec schema.Spec) (*taskAppTown, *executionfake.Tasks) {
+func newTaskAppTown(t *testing.T, name string, spec schema.Spec, options ...func(*workflow.Dependencies)) (*taskAppTown, *executionfake.Tasks) {
 	t.Helper()
 	db := databaseSuite.New(t)
 	dir := t.TempDir()
 	if err := identity.New(db, identity.Config{Projects: project.NewCatalogue(db)}).SeedAdministrator(context.Background(), taskAppTownAdministrator); err != nil {
 		t.Fatal(err)
 	}
-	f := startTaskAppTown(t, db, dir, "apptown-agent", map[string]schema.Spec{name: spec})
+	f := startTaskAppTown(t, db, dir, "apptown-agent", map[string]schema.Spec{name: spec}, options...)
 	const slug = "fake-tasks"
 	projectID, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
 		id, err := project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: slug, Name: "Fake Tasks"})

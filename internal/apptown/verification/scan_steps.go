@@ -3,10 +3,12 @@ package verification
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/fix"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"time"
 
@@ -108,6 +110,11 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		a.runRunningScan(task, cfg)
 		return
 	}
+	targets, err := fix.Targets(run.InputsJSON)
+	if err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+		return
+	}
 	if observation.Subject.On == "source" {
 		expected, err := task.SourceScanScanners()
 		if err != nil {
@@ -115,6 +122,12 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 			return
 		}
 		observation.ExpectedScanners = expected
+		for _, target := range targets {
+			if !slices.Contains(expected, target.Source) {
+				finish(workflow.StatusError, map[string]any{"reason": "the scanner that reported the target did not assess the candidate: " + target.Source})
+				return
+			}
+		}
 	}
 	if cfgErr != nil {
 		finish(workflow.StatusError, map[string]any{"reason": cfgErr.Error()})
@@ -218,6 +231,13 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		return
 	case why != "":
 		evidence["notApplicable"] = why
+		for _, target := range targets {
+			if target.Source == binding {
+				evidence["reason"] = "the scanner that reported the target did not assess the candidate"
+				finish(workflow.StatusError, evidence)
+				return
+			}
+		}
 		finish(workflow.StatusNotApplicable, evidence)
 		return
 	}
@@ -369,6 +389,33 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		evidence["reason"] = answer.failure
 		evidence["logTail"] = string(tailBytes)
 		finish(workflow.StatusError, evidence)
+		return
+	}
+
+	var remaining []string
+	for _, target := range targets {
+		if target.Source != binding {
+			continue
+		}
+		if m.Format == "" || m.Report == "" {
+			evidence["reason"] = "the scanner that reported the target did not assess the candidate"
+			finish(workflow.StatusError, evidence)
+			return
+		}
+		for _, found := range answer.findings {
+			if target.Package == nil || found.Package == nil || found.Source != target.Source || found.Package.Name != target.Package.Name || found.Package.Ecosystem != target.Package.Ecosystem {
+				continue
+			}
+			if slices.ContainsFunc(target.Identifiers, func(id string) bool { return slices.Contains(found.Identifiers, id) }) {
+				remaining = append(remaining, target.Package.Name+" ("+strings.Join(target.Identifiers, ", ")+")")
+				break
+			}
+		}
+	}
+
+	if len(remaining) > 0 {
+		evidence["reason"] = "the scanner still reports the targets: " + strings.Join(remaining, "; ")
+		finish(workflow.StatusFail, evidence)
 		return
 	}
 

@@ -15,7 +15,6 @@ type Classifier string
 const (
 	AdoptAction      Action     = "adoption"
 	AdoptClassifier  Classifier = "assessed-adoption"
-	ScriptAction     Action     = "script"
 	UpdateClassifier Classifier = "dependency-update"
 )
 
@@ -35,7 +34,7 @@ type Kind struct {
 // selected mechanisms and fields rather than recognizing individual kind names.
 var kinds = map[string]Kind{
 	"adopt":  {PublishedDeclaration: true, Action: AdoptAction, Classifier: AdoptClassifier},
-	"update": {Action: ScriptAction, Classifier: UpdateClassifier, DeclarationFields: []DeclarationField{{"ecosystem", true}, {"run", true}, {"runMajor", false}, {"runFor", false}, {"list", false}, {"files", false}}},
+	"update": {Classifier: UpdateClassifier, DeclarationFields: []DeclarationField{{"ecosystem", true}, {"files", false}}},
 }
 
 func Lookup(kind string) (Kind, bool) {

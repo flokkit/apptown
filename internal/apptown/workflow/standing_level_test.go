@@ -12,7 +12,7 @@ func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
 	boss := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
 	in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "aggressive", SecurityFixes: true}, Delivery: "full"}
 	rule := enableStanding(t, s, boss, in)
-	if !strings.Contains(rule.Question.Shown, "Update level: aggressive") || !strings.Contains(rule.Question.Shown, "applies dependency updates, including major versions") {
+	if !strings.Contains(rule.Question.Shown, "Update level: aggressive") || !strings.Contains(rule.Question.Shown, "dependency updates, including major versions") {
 		t.Fatal(rule.Question.Shown)
 	}
 	for _, level := range []string{"", "routine", "off", "aggressive"} {
@@ -72,7 +72,7 @@ func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
 	}
 	in.Categories.Dependencies = "routine"
 	preview, err = s.Preview(boss, in)
-	if err != nil || !strings.Contains(preview.Shown, "Update level: routine") || !strings.Contains(preview.Shown, "applies patch and minor dependency updates") {
+	if err != nil || !strings.Contains(preview.Shown, "Update level: routine") || !strings.Contains(preview.Shown, "patch and minor dependency updates") {
 		t.Fatalf("routine preview %+v %v", preview, err)
 	}
 

@@ -523,10 +523,10 @@ func (p scheduleStandingProcedure) InstanceStandingProcedure(name string, _ []*a
 	return p.StandingProcedure(context.Background(), nil, ids.Nil, name)
 }
 
-type scheduleStandingPortfolio struct{ held, uncovered bool }
+type scheduleStandingPortfolio struct{ held bool }
 
 func (p *scheduleStandingPortfolio) StandingPortfolio(_ context.Context, _ database.Queryer, pid ids.ID, _ workflow.StandingCategories) ([]workflow.StandingProjectPreview, error) {
-	return []workflow.StandingProjectPreview{{ProjectID: pid, Covered: !p.uncovered}}, nil
+	return []workflow.StandingProjectPreview{{ProjectID: pid}}, nil
 }
 func (p *scheduleStandingPortfolio) StandingHold(context.Context, database.Queryer, ids.ID) (string, error) {
 	if p.held {
@@ -542,18 +542,22 @@ func (scheduleRetention) RetainsWorkIn(context.Context, database.Queryer, ids.ID
 }
 
 func TestStandingScheduleUsesDeclaredCronAndKeepsItsOriginalAuthorityAfterPurge(t *testing.T) {
-	started := make(chan struct{}, 1)
+	started := make(chan string, 1)
 	w := newScheduleWorld(t, map[string]workflow.Runner{"script": func(task *workflow.Execution) {
 		if _, err := task.Claim(); err != nil {
 			t.Error(err)
 			return
+		}
+		var inputs map[string]string
+		if err := json.Unmarshal([]byte(task.Run().InputsJSON), &inputs); err != nil {
+			t.Errorf("effective level missing: %s (%v)", task.Run().InputsJSON, err)
 		}
 		if err := task.StartFix(nil); err != nil {
 			t.Error(err)
 			return
 		}
 		task.Settle(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{"reason": "the declared command failed before acceptance"}, nil))
-		started <- struct{}{}
+		started <- inputs["level"]
 	}})
 	body := `apiVersion: apptown.dev/v1
 kind: Workflow
@@ -639,7 +643,10 @@ spec:
 	w.schedules.FireDueSchedules(t.Context(), base)
 	w.schedules.FireDueSchedules(t.Context(), base.Add(time.Minute))
 	select {
-	case <-started:
+	case level := <-started:
+		if level != "routine" {
+			t.Fatalf("effective level %q, want routine", level)
+		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("the rule's cron did not fire the workflow")
 	}
@@ -682,7 +689,10 @@ spec:
 	}
 	w.schedules.FireDueSchedules(t.Context(), base.Add(2*time.Minute))
 	select {
-	case <-started:
+	case level := <-started:
+		if level != "aggressive" {
+			t.Fatalf("effective level %q, want aggressive", level)
+		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("revised schedule did not fire")
 	}

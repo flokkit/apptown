@@ -20,13 +20,11 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
 type standingPortfolioFixture struct {
-	uncovered bool
 	projectID ids.ID
 	hold      string
 	// failFor names a project whose coverage cannot be read.
@@ -40,7 +38,7 @@ func (f *standingPortfolioFixture) StandingPortfolio(_ context.Context, _ databa
 	if !f.failFor.IsZero() && id == f.failFor {
 		return nil, errors.New("deployment requires a selected revision")
 	}
-	return []StandingProjectPreview{{ProjectID: id, Covered: !f.uncovered, OnlyChecksStarts: true, NeedsPackUpgrade: []string{"language"}, Deployments: []StandingEnvironment{{ProjectID: id, Deployment: "main", Setting: "automatic"}}}}, nil
+	return []StandingProjectPreview{{ProjectID: id, OnlyChecksStarts: true, Deployments: []StandingEnvironment{{ProjectID: id, Deployment: "main", Setting: "automatic"}}}}, nil
 }
 func (f *standingPortfolioFixture) StandingHold(context.Context, database.Queryer, ids.ID) (string, error) {
 	return f.hold, nil
@@ -61,7 +59,7 @@ func TestInstanceStandingConsentRechecksEveryProjectAtUse(t *testing.T) {
 	}
 	boss := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
 	rule := enableStanding(t, s, boss, in)
-	if !strings.Contains(rule.Question.Shown, "releases it to the running app") || !strings.Contains(rule.Question.Shown, "including ones created later") || !strings.Contains(rule.Question.Shown, "An agent writes any code") || len(rule.Question.Portfolio) != 1 || !rule.Question.Portfolio[0].OnlyChecksStarts {
+	if !strings.Contains(rule.Question.Shown, "releases it to the running app") || !strings.Contains(rule.Question.Shown, "including ones created later") || !strings.Contains(rule.Question.Shown, "it writes any code") || len(rule.Question.Portfolio) != 1 || !rule.Question.Portfolio[0].OnlyChecksStarts {
 		t.Fatalf("incomplete question: %+v", rule.Question)
 	}
 	later, err := database.Transact(t.Context(), a.DB, func(tx *database.Tx) (ids.ID, error) {
@@ -90,9 +88,6 @@ func TestInstanceStandingConsentRechecksEveryProjectAtUse(t *testing.T) {
 		t.Fatal(err)
 	}
 	use(true)
-	portfolio.uncovered = true
-	use(false)
-	portfolio.uncovered = false
 	portfolio.hold = "release 2 failed"
 	use(false)
 	portfolio.hold = ""
@@ -202,7 +197,7 @@ func TestStandingVotePreservesAuthorityWithoutClaimingHumanAssent(t *testing.T) 
 }
 
 func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T) {
-	for _, mode := range []string{"revoke within claim", "checked code", "aggressive major", "routine major", "routine during assessment", "routine at merge", "held back", "hold during assessment", "off during assessment", "purpose changed", "candidate moved", "rule disabled", "rule revised", "failed check", "off at merge", "hold at merge", "disabled at merge"} {
+	for _, mode := range []string{"revoke within claim", "checked code", "aggressive major", "routine during assessment", "routine at merge", "held back", "hold during assessment", "off during assessment", "purpose changed", "candidate moved", "rule disabled", "rule revised", "failed check", "model failed", "model unclear", "off at merge", "hold at merge", "disabled at merge"} {
 		t.Run(mode, func(t *testing.T) {
 			held := mode != "revoke within claim" && mode != "checked code" && mode != "aggressive major" && !strings.HasSuffix(mode, "at merge")
 			const meaning = "declared fix in range and every check met"
@@ -242,10 +237,13 @@ func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T)
 				t.Fatal(err)
 			}
 			verdict := VerdictPass
-			if mode == "failed check" {
+			if mode == "failed check" || mode == "model failed" {
 				verdict = VerdictFail
 			}
-			outcome, err := (CheckEvidence{Checks: []CheckReceipt{{Check: "tests", Verdict: verdict, Preexisting: true}}}).Outcome(StatusPass, nil)
+			if mode == "model unclear" {
+				verdict = VerdictError
+			}
+			outcome, err := (CheckEvidence{Checks: []CheckReceipt{{Check: "routine", Evaluator: "routine", Verdict: verdict, Preexisting: true}}}).Outcome(StatusPass, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -272,13 +270,7 @@ func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T)
 			procedures := &standingProcedureFixture{means: meaning}
 			var rules StandingRules
 			rules = NewStandingRules(rig.DB, StandingDependencies{Identity: rig.Access, Authority: rig.Authorizer, Procedures: procedures, Publications: procedures, Portfolio: portfolio, Presence: standingPresenceFixture{clear: true}, Inspector: standingInspectorFunc(func(_ context.Context, _ Source, categories StandingCategories) (StandingInspection, error) {
-				if strings.Contains(mode, "major") || strings.Contains(mode, "routine during") {
-					before := []fix.Listing{{Ecosystem: "npm", Package: "example", Version: "1.0.0", Source: "registry", Attributes: map[string]any{}}}
-					after := []fix.Listing{{Ecosystem: "npm", Package: "example", Version: "2.0.0", Source: "registry", Attributes: map[string]any{}}}
-					if _, err := fix.CompareUpdate(before, after, categories.Dependencies, nil); err != nil {
-						return StandingInspection{Classification: "requires-person", Reason: err.Error()}, nil
-					}
-				}
+
 				switch mode {
 				case "routine during assessment":
 					if err := rules.SetProjectChoice(ctx, rig.ProjectID, "routine", "reduce update level"); err != nil {
@@ -788,7 +780,7 @@ func (r reviewClaimLaws) ViolationsIn(ctx context.Context, q database.Queryer, p
 func TestKeepPacksCurrentHasItsOwnCategoryAndEligibility(t *testing.T) {
 	a, s, _, _, _ := standingFixture(t)
 	ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
-	portfolio := &standingPortfolioFixture{uncovered: true}
+	portfolio := &standingPortfolioFixture{}
 	s.deps.Portfolio = portfolio
 	in := StandingDefinition{Scope: "instance", Delivery: "full", Categories: StandingCategories{WaysOfWorking: true}}
 	rule := enableStanding(t, s, ctx, in)

@@ -507,3 +507,38 @@ func TestGuidanceTaskWithoutInferenceRetainsAppTownInability(t *testing.T) {
 		t.Fatalf("task that never called a provider lost execution failure: %+v", receipts)
 	}
 }
+
+func TestRoutineUsesTheCheckJudgeAsAGate(t *testing.T) {
+	for _, mode := range []string{"pass", "fail", "unclear", "unavailable"} {
+		t.Run(mode, func(t *testing.T) {
+			j, d, pid := fixtureCheckJudge(t)
+			in := fixtureInvocation(t, pid)
+			d.unclear = mode == "unclear"
+			d.fail = mode == "unavailable"
+			a := Guidance{evaluator: NewEvaluator(nil, nil, stock.Versions()).WithCheckJudge(j), selection: selectionWithDefault(t, d.db, "fixture/judge")}
+			item := check.Item{Repository: in.Repository, Commit: in.Commit, Declared: in.Rubric, Scope: check.ScopeDiff, Hash: check.BundleHash(in.Diff)}
+			if mode == "fail" {
+				item.Commit = strings.TrimSpace(gittest.Run(t, in.Repository, "rev-parse", in.Commit+"^"))
+			}
+			receipt, err := a.JudgeUpdate(t.Context(), workflow.Source{ProjectID: pid}, item, in.Diff)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if mode == "fail" && (receipt.Verdict != workflow.VerdictFail || receipt.Met()) {
+				t.Fatalf("failure met: %+v", receipt)
+			}
+			if mode == "pass" && !receipt.Met() {
+				t.Fatalf("pass: %+v", receipt)
+			}
+			if (mode == "unclear" || mode == "unavailable") && (receipt.Verdict != workflow.VerdictError || receipt.Met()) {
+				t.Fatalf("unknown met: %+v", receipt)
+			}
+			if receipt.Gates != nil && !*receipt.Gates {
+				t.Fatalf("routine inherited calibration: %+v", receipt)
+			}
+			if receipt.AgentEvidence == nil || receipt.Evaluator != "routine" {
+				t.Fatalf("evidence missing: %+v", receipt)
+			}
+		})
+	}
+}

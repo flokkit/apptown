@@ -3,7 +3,6 @@ package verification
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -67,39 +66,7 @@ func routineExecutor(t *testing.T, after func()) Executor {
 	return Executor{Local: true, AgentImage: "test-agent", Image: func(context.Context, execution.ImageRequest) execution.ImageAnswer {
 		return execution.ImageAnswer{ID: "sha256:" + strings.Repeat("a", 64)}
 	}, Run: func(_ context.Context, req execution.Request) execution.Outcome {
-		if req.Report == ".apptown-update-list.jsonl" {
-			if _, err := os.Stat(filepath.Join(req.Workspace, "npm-shrinkwrap.json")); err == nil {
-				return execution.Outcome{Termination: execution.Exited, ExitCode: 1}
-			}
-			raw, err := os.ReadFile(filepath.Join(req.Workspace, "package-lock.json"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			var lock struct {
-				Packages map[string]struct {
-					Version string `json:"version"`
-				}
-			}
-			if err := json.Unmarshal(raw, &lock); err != nil {
-				t.Fatal(err)
-			}
-			rows := []byte{}
-			for path, p := range lock.Packages {
-				if path == "" {
-					continue
-				}
-				row, err := json.Marshal(fix.Listing{Ecosystem: "npm", Package: strings.TrimPrefix(path, "node_modules/"), Version: p.Version, Source: "https://registry.npmjs.org/example", Attributes: map[string]any{}})
-				if err != nil {
-					t.Fatal(err)
-				}
-				rows = append(rows, append(row, '\n')...)
-			}
-			if after != nil {
-				after()
-			}
-			return execution.Outcome{Termination: execution.Exited, ExitCode: 0, Report: rows}
-		}
-		t.Fatalf("unexpected listing request: %+v", req)
+		t.Fatalf("standing assessment must not execute dependency commands: %+v", req)
 		return execution.Outcome{}
 	}}
 }
@@ -128,21 +95,20 @@ func TestRoutineInspectionUsesTheCompleteDiffAndCaughtUpBase(t *testing.T) {
 }
 func TestRoutineInspectionRefusesSourceMovementAndDirtyWorkspace(t *testing.T) {
 	data, repo, source := routineRepository(t)
-	moved := false
-	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, func() {
-		if moved {
-			return
-		}
-		moved = true
+	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
+	declarations := inspector.fixes
+	inspector.fixes = func(ctx context.Context, source workflow.Source) ([]fix.Declaration, []check.Finding, error) {
+		ds, targets, err := declarations(ctx, source)
 		routineWrite(t, filepath.Join(repo, "moved.txt"), []byte("new work"))
 		routineGit(t, repo, "add", ".")
 		routineGit(t, repo, "commit", "-m", "moved")
-	}))
+		return ds, targets, err
+	}
 	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
 	if err != nil || result.Classification != "cannot-assess" || !strings.Contains(result.Reason, "moved") {
 		t.Fatalf("moved source qualified: %+v %v", result, err)
 	}
-	// Return to the published pure candidate, then create its own local checkout.
+	inspector.fixes = declarations
 	routineGit(t, repo, "reset", "--hard", "HEAD~1")
 	workspace, err := source.Workspace(data)
 	if err != nil {
@@ -166,25 +132,6 @@ func TestRoutineInspectionRefusesSourceMovementAndDirtyWorkspace(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join(workspace, "dirty.txt"))
 	if err != nil || string(raw) != "unsaved work" {
 		t.Fatalf("inspection modified source: %q %v", raw, err)
-	}
-}
-
-func TestRoutineRefusesUnchangedShrinkwrap(t *testing.T) {
-	data, repo, source := routineRepository(t)
-	routineGit(t, repo, "checkout", "main")
-	routineWrite(t, filepath.Join(repo, "npm-shrinkwrap.json"), routineFixture("1.0.0").Lock)
-	routineGit(t, repo, "add", ".")
-	routineGit(t, repo, "commit", "-m", "existing shrinkwrap")
-	routineGit(t, repo, "checkout", "change")
-	routineGit(t, repo, "merge", "main", "--no-edit")
-	calls := 0
-	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, func() { calls++ }))
-	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Classification != "cannot-assess" || calls != 0 {
-		t.Fatalf("unsupported shrinkwrap must refuse before validation: classification=%s calls=%d", result.Classification, calls)
 	}
 }
 
@@ -258,28 +205,6 @@ func routineFixture(version string) npmFixture {
 	return npmFixture{Manifest: []byte(fmt.Sprintf(`{"name":"app","dependencies":{"example":"%s"}}`, version)), Lock: []byte(fmt.Sprintf(`{"name":"app","lockfileVersion":3,"packages":{"":{"name":"app","dependencies":{"example":"%s"}},"node_modules/example":{"version":"%s","resolved":"https://registry.npmjs.org/example/-/example-%s.tgz","integrity":"sha512-%s"}}}`, version, version, version, base64.StdEncoding.EncodeToString(make([]byte, 64))))}
 }
 
-func TestSecurityAssessmentUsesDeclaredListingsAndRecordedFixedTargets(t *testing.T) {
-	data, _, source := routineRepository(t)
-	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
-	declarations := inspector.fixes
-	inspector.fixes = func(ctx context.Context, source workflow.Source) ([]fix.Declaration, []check.Finding, error) {
-		ds, _, err := declarations(ctx, source)
-		return ds, []check.Finding{{Package: &check.PackageRef{Name: "example", Ecosystem: "npm", FixedIn: "1.0.2"}}}, err
-	}
-	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{SecurityFixes: true})
-	if err != nil || result.Classification != "requires-person" || !strings.Contains(result.Reason, "example") || !strings.Contains(result.Reason, "FixedIn") {
-		t.Fatalf("below fixed version: %+v %v", result, err)
-	}
-	inspector.fixes = func(ctx context.Context, source workflow.Source) ([]fix.Declaration, []check.Finding, error) {
-		ds, _, err := declarations(ctx, source)
-		return ds, []check.Finding{{Package: &check.PackageRef{Name: "example", Ecosystem: "npm", FixedIn: "1.0.1"}}}, err
-	}
-	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{SecurityFixes: true})
-	if err != nil || result.Classification != "routine-dependency" {
-		t.Fatalf("fixed security target: %+v %v", result, err)
-	}
-}
-
 func TestUpdateLevelsBoundMajorsAndProtectBuildInputs(t *testing.T) {
 	for _, level := range []string{"routine", "aggressive"} {
 		for _, change := range []string{"major", "root tool", "part tool", "base image", "contract image"} {
@@ -307,7 +232,7 @@ func TestUpdateLevelsBoundMajorsAndProtectBuildInputs(t *testing.T) {
 				inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
 				got, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: level})
 				want := "requires-person"
-				if change == "major" && level == "aggressive" {
+				if change == "major" {
 					want = "routine-dependency"
 				}
 				if err != nil || got.Classification != want {

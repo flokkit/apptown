@@ -27,7 +27,8 @@ type AutomatedAttempt struct {
 	Failed        bool                          `json:"failed"`
 	ChangeID      ids.ID                        `json:"changeId,omitzero"`
 	Fingerprint   string                        `json:"fingerprint"`
-	Packages      []fix.Move                    `json:"packages"`
+	Files         []fix.File                    `json:"files"`
+	Packages      []PackageMove                 `json:"packages"`
 	ID            ids.ID                        `json:"id"`
 	ProjectID     ids.ID                        `json:"projectId"`
 	OpenChange    ids.ID                        `json:"openChange,omitzero"`
@@ -56,7 +57,7 @@ func (s *Service) Attempts(ctx context.Context, project ids.ID, queue string, li
 	}
 	out := make([]AutomatedAttempt, 0, len(rows))
 	for _, row := range rows {
-		a := AutomatedAttempt{Schedule: row.Schedule, RuleID: row.RuleID, RuleRevision: row.RuleRevision, Attempted: row.AttemptedAt.Valid, Failed: row.FailedAttempt, ChangeID: row.ActiveChangeID, Fingerprint: row.Fingerprint, Packages: []fix.Move{}, ID: row.ID, ProjectID: project, Queue: row.Queue, What: row.What, When: row.OpenedAt, Outcome: row.Outcome, Reason: row.Reason, Observations: []conformance.ScanObservation{}}
+		a := AutomatedAttempt{Schedule: row.Schedule, RuleID: row.RuleID, RuleRevision: row.RuleRevision, Attempted: row.AttemptedAt.Valid, Failed: row.FailedAttempt, ChangeID: row.ActiveChangeID, Fingerprint: row.Fingerprint, Packages: []PackageMove{}, ID: row.ID, ProjectID: project, Queue: row.Queue, What: row.What, When: row.OpenedAt, Outcome: row.Outcome, Reason: row.Reason, Observations: []conformance.ScanObservation{}}
 		if !row.RuleID.IsZero() {
 			revision, err := workflowsql.New(s.db.SQL()).StandingRevision(ctx, workflowsql.StandingRevisionParams{RuleID: row.RuleID, Revision: row.RuleRevision})
 			if err != nil {
@@ -72,6 +73,9 @@ func (s *Service) Attempts(ctx context.Context, project ids.ID, queue string, li
 			}
 			a.RuleIssuer = &rule.Issuer
 			a.RuleGrantedAt = &rule.EnabledAt
+		}
+		if err := json.Unmarshal(row.Files, &a.Files); err != nil {
+			return nil, err
 		}
 		if err := json.Unmarshal(row.Packages, &a.Packages); err != nil {
 			return nil, err

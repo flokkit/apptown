@@ -42,7 +42,7 @@ import (
 // participants and executors; Work connects its own lifecycle components.
 func (a *App) workDependencies() workflow.Dependencies {
 	commands := workflowexec.NewCommands(a.DB, workflowexec.CommandDependencies{
-		Bounds: &a.standingRules, Fixes: a.Adoption, Runner: projectProcesses(a), Progress: &a.progress,
+		Judge: a.guidance, Bounds: &a.standingRules, Fixes: a.Adoption, Runner: projectProcesses(a), Progress: &a.progress,
 		Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, Branches: a.branches, Tasks: a.tasks, Panics: jobReporter{}, Docker: &a.docker,
 		Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Catalog: a.Dependencies, Now: a.cfg.clock.Now,
 	}, workflowexec.CommandConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, AppTownVersion: version.String()})
@@ -89,7 +89,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 		Resolve:        a.preparation.Resolve,
 		LandingWork:    a.preparation,
 		Runners:        runners,
-		Recoverers:     map[string]workflow.Runner{workflowexec.ScriptKind: commands.RecoverScript, workflowexec.FixKind: commands.RecoverScript, workflowexec.AgentKind: a.agents.RecoverAgent, workflowexec.ReviewKind: a.agents.RecoverAgent},
+		Recoverers:     map[string]workflow.Runner{workflowexec.ScriptKind: commands.RecoverScript, workflowexec.AgentKind: a.agents.RecoverAgent, workflowexec.ReviewKind: a.agents.RecoverAgent},
 		Chats:          holderPresenceFor(a),
 		Report:         selfErrorsFor(a).Workflow,
 		Hold:           a.newWork.Wait,

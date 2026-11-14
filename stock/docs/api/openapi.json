@@ -757,6 +757,12 @@
           "failed": {
             "type": "boolean"
           },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/File"
+            },
+            "type": "array"
+          },
           "fingerprint": {
             "type": "string"
           },
@@ -785,7 +791,7 @@
           },
           "packages": {
             "items": {
-              "$ref": "#/components/schemas/Move"
+              "$ref": "#/components/schemas/PackageMove"
             },
             "type": "array"
           },
@@ -872,6 +878,7 @@
           "attempted",
           "failed",
           "fingerprint",
+          "files",
           "packages",
           "id",
           "projectId",
@@ -3478,6 +3485,21 @@
         ],
         "type": "object"
       },
+      "File": {
+        "properties": {
+          "class": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "class"
+        ],
+        "type": "object"
+      },
       "Finding": {
         "properties": {
           "detail": {
@@ -4203,29 +4225,6 @@
         ],
         "type": "object"
       },
-      "Move": {
-        "properties": {
-          "ecosystem": {
-            "type": "string"
-          },
-          "from": {
-            "type": "string"
-          },
-          "package": {
-            "type": "string"
-          },
-          "to": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "ecosystem",
-          "package",
-          "from",
-          "to"
-        ],
-        "type": "object"
-      },
       "NextAct": {
         "properties": {
           "act": {
@@ -4887,6 +4886,29 @@
         ],
         "type": "object"
       },
+      "PackageMove": {
+        "properties": {
+          "ecosystem": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "package": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ecosystem",
+          "package",
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
       "PackageRef": {
         "properties": {
           "ecosystem": {
@@ -5477,9 +5499,15 @@
           "failed": {
             "type": "integer"
           },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/File"
+            },
+            "type": "array"
+          },
           "packages": {
             "items": {
-              "$ref": "#/components/schemas/Move"
+              "$ref": "#/components/schemas/PackageMove"
             },
             "type": "array"
           },
@@ -5511,6 +5539,7 @@
           "since",
           "failed",
           "reason",
+          "files",
           "packages",
           "changeNumber"
         ],
@@ -7517,9 +7546,6 @@
           "baseImages": {
             "type": "integer"
           },
-          "covered": {
-            "type": "boolean"
-          },
           "deployments": {
             "items": {
               "$ref": "#/components/schemas/StandingEnvironment"
@@ -7535,29 +7561,11 @@
           "level": {
             "type": "string"
           },
-          "needsPackUpgrade": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "noMajorCommand": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
           "onlyChecksStarts": {
             "type": "boolean"
           },
           "overridesInstance": {
             "type": "boolean"
-          },
-          "packOffers": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
           },
           "problem": {
             "type": "string"
@@ -7576,14 +7584,10 @@
         "required": [
           "level",
           "overridesInstance",
-          "noMajorCommand",
           "followsMain",
-          "packOffers",
           "baseImageFindings",
           "projectId",
           "project",
-          "covered",
-          "needsPackUpgrade",
           "onlyChecksStarts",
           "deployments",
           "baseImages"
@@ -8469,6 +8473,12 @@
               "null"
             ]
           },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/File"
+            },
+            "type": "array"
+          },
           "grantedAt": {
             "format": "date-time",
             "type": "string"
@@ -8491,7 +8501,7 @@
           },
           "packages": {
             "items": {
-              "$ref": "#/components/schemas/Move"
+              "$ref": "#/components/schemas/PackageMove"
             },
             "type": "array"
           },
@@ -8560,6 +8570,7 @@
           "title",
           "landedAt",
           "queue",
+          "files",
           "packages",
           "ruleRevision",
           "issuer",

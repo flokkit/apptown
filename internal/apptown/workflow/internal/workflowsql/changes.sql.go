@@ -76,7 +76,7 @@ func (q *Queries) AttachUpliftTarget(ctx context.Context, arg AttachUpliftTarget
 }
 
 const automatedChangeRecords = `-- name: AutomatedChangeRecords :many
-SELECT id, project_id, active_change_id, queue, what, opened_at, ended_at, outcome, reason, fingerprint, packages, targets, attempted_at, failed_attempt, schedule, rule_id, rule_revision FROM automated_changes WHERE project_id=$1 AND ($2::text='' OR queue=$2) ORDER BY opened_at DESC LIMIT $3
+SELECT id, project_id, active_change_id, queue, what, opened_at, ended_at, outcome, reason, fingerprint, packages, targets, attempted_at, failed_attempt, schedule, rule_id, rule_revision, files FROM automated_changes WHERE project_id=$1 AND ($2::text='' OR queue=$2) ORDER BY opened_at DESC LIMIT $3
 `
 
 type AutomatedChangeRecordsParams struct {
@@ -112,6 +112,7 @@ func (q *Queries) AutomatedChangeRecords(ctx context.Context, arg AutomatedChang
 			&i.Schedule,
 			&i.RuleID,
 			&i.RuleRevision,
+			&i.Files,
 		); err != nil {
 			return nil, err
 		}
@@ -1119,7 +1120,7 @@ func (q *Queries) PreviewObservationChanges(ctx context.Context, arg PreviewObse
 }
 
 const previousHeldAttempt = `-- name: PreviousHeldAttempt :many
-SELECT a.id, a.project_id, a.active_change_id, a.queue, a.what, a.opened_at, a.ended_at, a.outcome, a.reason, a.fingerprint, a.packages, a.targets, a.attempted_at, a.failed_attempt, a.schedule, a.rule_id, a.rule_revision FROM automated_changes a
+SELECT a.id, a.project_id, a.active_change_id, a.queue, a.what, a.opened_at, a.ended_at, a.outcome, a.reason, a.fingerprint, a.packages, a.targets, a.attempted_at, a.failed_attempt, a.schedule, a.rule_id, a.rule_revision, a.files FROM automated_changes a
 JOIN automated_changes current ON current.id=$1
 WHERE a.project_id=$2 AND a.queue=current.queue AND a.id<>current.id
 AND a.outcome IN ('held','skipped') ORDER BY a.opened_at DESC LIMIT 1
@@ -1157,6 +1158,7 @@ func (q *Queries) PreviousHeldAttempt(ctx context.Context, arg PreviousHeldAttem
 			&i.Schedule,
 			&i.RuleID,
 			&i.RuleRevision,
+			&i.Files,
 		); err != nil {
 			return nil, err
 		}
@@ -1507,7 +1509,7 @@ func (q *Queries) PurgeAutomatedRuns(ctx context.Context, changeID ids.ID) error
 }
 
 const queueAttempt = `-- name: QueueAttempt :many
-SELECT id, project_id, active_change_id, queue, what, opened_at, ended_at, outcome, reason, fingerprint, packages, targets, attempted_at, failed_attempt, schedule, rule_id, rule_revision FROM automated_changes WHERE id=$1
+SELECT id, project_id, active_change_id, queue, what, opened_at, ended_at, outcome, reason, fingerprint, packages, targets, attempted_at, failed_attempt, schedule, rule_id, rule_revision, files FROM automated_changes WHERE id=$1
 `
 
 func (q *Queries) QueueAttempt(ctx context.Context, id ids.ID) ([]AutomatedChange, error) {
@@ -1537,6 +1539,7 @@ func (q *Queries) QueueAttempt(ctx context.Context, id ids.ID) ([]AutomatedChang
 			&i.Schedule,
 			&i.RuleID,
 			&i.RuleRevision,
+			&i.Files,
 		); err != nil {
 			return nil, err
 		}
@@ -1552,7 +1555,7 @@ func (q *Queries) QueueAttempt(ctx context.Context, id ids.ID) ([]AutomatedChang
 }
 
 const queueAttempts = `-- name: QueueAttempts :many
-SELECT id, project_id, active_change_id, queue, what, opened_at, ended_at, outcome, reason, fingerprint, packages, targets, attempted_at, failed_attempt, schedule, rule_id, rule_revision FROM automated_changes WHERE project_id=$1 AND queue=$2
+SELECT id, project_id, active_change_id, queue, what, opened_at, ended_at, outcome, reason, fingerprint, packages, targets, attempted_at, failed_attempt, schedule, rule_id, rule_revision, files FROM automated_changes WHERE project_id=$1 AND queue=$2
 ORDER BY opened_at DESC,id DESC
 `
 
@@ -1588,6 +1591,7 @@ func (q *Queries) QueueAttempts(ctx context.Context, arg QueueAttemptsParams) ([
 			&i.Schedule,
 			&i.RuleID,
 			&i.RuleRevision,
+			&i.Files,
 		); err != nil {
 			return nil, err
 		}
@@ -1632,18 +1636,18 @@ func (q *Queries) RecordAutomatedChange(ctx context.Context, arg RecordAutomated
 }
 
 const recordQueueProposal = `-- name: RecordQueueProposal :exec
-UPDATE automated_changes SET fingerprint=$1,packages=$2::jsonb
+UPDATE automated_changes SET fingerprint=$1,files=$2::jsonb
 WHERE id=$3 AND queue<>''
 `
 
 type RecordQueueProposalParams struct {
 	Fingerprint string
-	Packages    json.RawMessage
+	Files       json.RawMessage
 	ID          ids.ID
 }
 
 func (q *Queries) RecordQueueProposal(ctx context.Context, arg RecordQueueProposalParams) error {
-	_, err := q.db.ExecContext(ctx, recordQueueProposal, arg.Fingerprint, arg.Packages, arg.ID)
+	_, err := q.db.ExecContext(ctx, recordQueueProposal, arg.Fingerprint, arg.Files, arg.ID)
 	return err
 }
 

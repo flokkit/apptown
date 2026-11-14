@@ -223,7 +223,7 @@ func TestDependencyConsentRefusesMixedBaseImageUpdates(t *testing.T) {
 			if got.Classification != "requires-person" || *calls != 0 || npmCalls != 0 {
 				t.Fatalf("mixed update partially executed: %+v image=%d npm=%d", got, *calls, npmCalls)
 			}
-		} else if got.Classification != "requires-person" || *calls != 0 || npmCalls != 2 {
+		} else if got.Classification != "requires-person" || *calls != 0 || npmCalls != 0 {
 			t.Fatalf("dependency level accepted an image change: %+v image=%d npm=%d", got, *calls, npmCalls)
 
 		}

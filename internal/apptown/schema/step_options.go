@@ -31,7 +31,7 @@ var StepTypes = map[string]stepType{
 	"guidance/conformance": {Authored: true, Options: []string{"failOn"}, Check: true, CheckExecutor: true},
 	"workflow/call":        {Authored: true, Options: []string{"workflow", "with", "whenFailed", "findings"}},
 	"fix":                  {Authored: true, Options: []string{"kind", "for"}},
-	"routine":              {Authored: true, Options: []string{}, Check: true, CheckExecutor: true},
+	"routine":              {Authored: true, Options: []string{"rubric"}, Check: true, CheckExecutor: true},
 	"script":               {Authored: true, Options: []string{"run", "env", "executor", "image", "timeoutMinutes"}, Check: true},
 	"reconcile":            {Authored: true, Options: []string{}},
 	"scm/mr":               {Authored: true, Options: []string{}},

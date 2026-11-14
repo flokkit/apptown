@@ -14,8 +14,8 @@ import (
 )
 
 // UpdateInputs records the tool declarations and image inputs from a committed
-// tree before listing commands can modify it. Both the routine check and the
-// standing assessment compare these independently of package listings.
+// tree. The routine check and standing assessment compare these independently
+// of the model’s scope judgement.
 func UpdateInputs(tree string) (map[string]any, error) {
 	out := map[string]any{}
 	err := filepath.WalkDir(tree, func(name string, entry fs.DirEntry, err error) error {
