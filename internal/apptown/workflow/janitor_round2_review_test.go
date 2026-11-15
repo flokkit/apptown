@@ -18,7 +18,7 @@ func TestReviewPurgePreservesUsableSourceComparison(t *testing.T) {
 	running.rows = []RunningImages{{DeploymentID: dep, BundleID: bundle, Deployment: "main", Images: map[string]string{"web": "digest-a"}}}
 	now := time.Now().UTC()
 	recordObservations(t, s, ch, []conformance.ScanObservation{
-		{RunID: idstest.N(102), Subject: conformance.ScanSubject{On: "source", Commit: main}, Scanner: "osv", Verdict: "pass", ObservedAt: now},
+		{RunID: idstest.N(102), Subject: conformance.ScanSubject{On: "source", Commit: main, Tree: gittest.Run(t, repo, "rev-parse", main+"^{tree}")}, Scanner: "osv", Verdict: "pass", ObservedAt: now},
 		{RunID: idstest.N(103), Subject: conformance.ScanSubject{On: "running", DeploymentID: dep, BundleID: bundle, Part: "web", Digest: "digest-a"}, Scanner: "trivy", Verdict: "fail", ObservedAt: now, Findings: []conformance.Finding{{Finding: check.Finding{Identifiers: []string{"CVE-OS"}, Package: &check.PackageRef{Name: "libssl", Ecosystem: "Debian"}}}}},
 	})
 	assertKnown := func() {
@@ -50,14 +50,13 @@ func TestReviewPurgePreservesUsableSourceComparison(t *testing.T) {
 	if got.Known || got.Reason != "the image running on main has not been scanned since it was deployed" {
 		t.Fatalf("missing current running scan: %+v", got)
 	}
-	// No deployments still needs the running scan's explicit answer that
-	// nothing is deployed; absence of an observation is not that answer.
+	// With no deployments, the complete source scan is the whole answer.
 	running.rows = nil
 	got, err = s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Known || got.Reason != "the running images have not been scanned" {
+	if !got.Known || got.Reason != "" {
 		t.Fatalf("missing running scan with no deployments: %+v", got)
 	}
 }

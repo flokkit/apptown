@@ -422,8 +422,10 @@ work is published first (the holding chat's grant, or a momentary request's
 when nobody holds the change). A run or a ticket holding the change refuses
 the landing, and so does uncommitted work with nothing committed. The
 candidate is the branch as published; it must already contain the default
-branch (the reconcile step only checks and pins). Scripts, tests and scans,
-in the landing and in workflows it calls, check copies of the candidate.
+branch (the reconcile step only checks and pins). Scripts, tests and source
+or image scans, in the landing and in workflows it calls, check copies of the
+candidate. Scans configured with `on: bundle` or `on: running` do not read
+the change's source and neither require nor record a candidate.
 Agent steps and workflow calls cannot be bound to the candidate, so a
 passed one refuses the merge ([scm](../scm/README.md#checked-landing)). A
 source scanner that declares a `historyCommand`, as stock gitleaks does,

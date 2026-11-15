@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -51,6 +52,7 @@ type RunningImages struct {
 	DeploymentID, BundleID ids.ID
 	// Deployment is the name a reason uses for this deployment.
 	Deployment string
+	Reason     string
 	Images     map[string]string
 }
 
@@ -102,7 +104,11 @@ func (s *Service) latestMainScans(ctx context.Context, projectID ids.ID, earlier
 	if err != nil {
 		return MainScans{}, err
 	}
-	selection := selectScanHeads(main, heads)
+	mainTree, err := gitexec.HubReadRef(ctx, repo, main+"^{tree}")
+	if err != nil {
+		return MainScans{}, err
+	}
+	selection := selectScanHeads(mainTree, running, heads)
 	observations, err := conformance.ScanObservationsByIDIn(ctx, s.db, projectID, selection.candidates)
 	if err != nil {
 		return MainScans{}, err
@@ -118,7 +124,7 @@ func (s *Service) latestMainScans(ctx context.Context, projectID ids.ID, earlier
 		}
 		selected := []ids.ID{}
 		for _, h := range heads {
-			if (h.Subject.On == "source" || h.Subject.On == "running") && !current[h.ID] {
+			if (h.Subject.On == "source" || h.Subject.On == "running" || h.Subject.On == "bundle") && !current[h.ID] {
 				selected = append(selected, h.ID)
 				if len(selected) == earlier {
 					break
@@ -173,14 +179,14 @@ func (s *Service) latestMainScans(ctx context.Context, projectID ids.ID, earlier
 // currentSource is the newest run's scan of the whole current code, so its
 // errors and missing answers stay current. A landing scans only the commits it
 // adds with a scanner that has a history command (stock gitleaks); for a
-// scanner that run answered only that way on this commit, the answer is the
-// scanner's newest whole-tree observation of the same commit from an earlier
-// run. Without one, it stays unanswered. No other scanner is filled.
+// scanner that run answered only that way on this tree, the answer is the
+// scanner's newest whole-tree observation of the same tree and scanner binding
+// from an earlier run. Without one, it stays unanswered. No other scanner is filled.
 func currentSource(main string, observations []conformance.ScanHead) []bool {
 	current := make([]bool, len(observations))
 	run := ids.Nil
 	for _, o := range observations {
-		if o.Subject.On == "source" && o.Subject.History == "" && currentSourceSubject(o.Subject.Commit, main) {
+		if o.Subject.On == "source" && o.Subject.History == "" && currentSourceSubject(o.Subject, main) {
 			run = o.RunID
 			break
 		}
@@ -188,19 +194,22 @@ func currentSource(main string, observations []conformance.ScanHead) []bool {
 	if run.IsZero() {
 		return current
 	}
-	answered, historyOnly := map[string]bool{}, map[string]bool{}
+	answered, historyOnly := map[string]bool{}, map[string]conformance.ScanHead{}
 	for i, o := range observations {
-		if o.Subject.On != "source" || o.RunID != run || !currentSourceSubject(o.Subject.Commit, main) {
+		if o.Subject.On != "source" || o.RunID != run || !currentSourceSubject(o.Subject, main) {
 			continue
 		}
 		if o.Subject.History == "" {
 			current[i], answered[o.Scanner] = true, true
 		} else {
-			historyOnly[o.Scanner] = true
+			if _, seen := historyOnly[o.Scanner]; !seen {
+				historyOnly[o.Scanner] = o
+			}
 		}
 	}
 	for i, o := range observations {
-		if o.Subject.On == "source" && o.Subject.History == "" && o.RunID != run && historyOnly[o.Scanner] && !answered[o.Scanner] && currentSourceSubject(o.Subject.Commit, main) {
+		history, ok := historyOnly[o.Scanner]
+		if ok && o.Subject.On == "source" && o.Subject.History == "" && o.RunID != run && history.Scanner == o.Scanner && history.BindingVersion == o.BindingVersion && history.ConfigHash == o.ConfigHash && !answered[o.Scanner] && currentSourceSubject(o.Subject, main) {
 			current[i], answered[o.Scanner] = true, true
 		}
 	}
@@ -209,24 +218,33 @@ func currentSource(main string, observations []conformance.ScanHead) []bool {
 
 type scanSelection struct {
 	source     map[ids.ID]bool
-	runningRun ids.ID
+	digestRuns map[string]ids.ID
 	candidates []ids.ID
 }
 
-func selectScanHeads(main string, heads []conformance.ScanHead) scanSelection {
+func selectScanHeads(main string, running []RunningImages, heads []conformance.ScanHead) scanSelection {
 	source := currentSource(main, heads)
-	out := scanSelection{source: map[ids.ID]bool{}}
+	out := scanSelection{source: map[ids.ID]bool{}, digestRuns: map[string]ids.ID{}}
+	digests := map[string]bool{}
+	for _, dep := range running {
+		for _, digest := range dep.Images {
+			if digest != "" {
+				digests[digest] = true
+			}
+		}
+	}
 	for _, h := range heads {
-		if h.Subject.On == "running" {
-			out.runningRun = h.RunID
-			break
+		if digests[h.Subject.Digest] && (h.Subject.On == "running" || h.Subject.On == "bundle") && h.Subject.Digest != "" {
+			if _, ok := out.digestRuns[h.Subject.Digest]; !ok {
+				out.digestRuns[h.Subject.Digest] = h.RunID
+			}
 		}
 	}
 	for i, h := range heads {
 		if source[i] {
 			out.source[h.ID] = true
 		}
-		if source[i] || h.Subject.On == "running" && h.RunID == out.runningRun {
+		if source[i] || (h.Subject.On == "running" || h.Subject.On == "bundle") && h.Subject.Digest != "" && h.RunID == out.digestRuns[h.Subject.Digest] {
 			out.candidates = append(out.candidates, h.ID)
 		}
 	}
@@ -244,34 +262,40 @@ func latestMainScans(main string, running []RunningImages, observations []confor
 	out := MainScans{Main: main, Source: []conformance.ScanObservation{}, Running: []runningScan{}, Historical: []conformance.ScanObservation{}, Known: sourceComplete}
 	seen := map[string]bool{}
 	currentDeployments := map[ids.ID]bool{}
+	projected := []conformance.ScanObservation{}
 	for _, o := range observations {
-		if o.Subject.On != "source" && o.Subject.On != "running" {
-			continue
+		if o.Subject.On == "source" && selection.source[o.ID] && !seen["source/"+o.Scanner] {
+			seen["source/"+o.Scanner] = true
+			projected = append(projected, o)
 		}
-		current := false
-		switch o.Subject.On {
-		case "source":
-			current = selection.source[o.ID]
-		case "running":
-			if o.RunID == selection.runningRun {
-				if len(running) == 0 && o.Subject.DeploymentID.IsZero() && o.Verdict == StatusNotApplicable.String() {
-					current = true
+	}
+	for _, dep := range running {
+		complete := len(dep.Images) > 0 && dep.Reason == ""
+		if dep.Reason != "" {
+			out.Reason = dep.Reason
+		}
+		for _, part := range slices.Sorted(maps.Keys(dep.Images)) {
+			digest := dep.Images[part]
+			answered := false
+			for _, o := range observations {
+				if (o.Subject.On != "running" && o.Subject.On != "bundle") || digest == "" || o.Subject.Digest != digest || o.RunID != selection.digestRuns[digest] {
+					continue
 				}
-				for _, dep := range running {
-					if dep.DeploymentID == o.Subject.DeploymentID && dep.BundleID == o.Subject.BundleID && (dep.Images[o.Subject.Part] == o.Subject.Digest) {
-						current = true
-						currentDeployments[dep.DeploymentID] = true
-						break
-					}
+				key := fmt.Sprintf("%s/%s/%s", dep.DeploymentID, part, o.Scanner)
+				if seen[key] {
+					continue
 				}
+				seen[key], answered = true, true
+				o.Subject.DeploymentID, o.Subject.Deployment, o.Subject.Part = dep.DeploymentID, dep.Deployment, part
+				projected = append(projected, o)
 			}
+			complete = complete && answered
 		}
-		key := fmt.Sprintf("%s/%s/%s/%s", o.Subject.On, o.Subject.DeploymentID, o.Subject.Part, o.Scanner)
-		if !current || seen[key] {
-			out.Historical = append(out.Historical, o)
-			continue
+		if complete {
+			currentDeployments[dep.DeploymentID] = true
 		}
-		seen[key] = true
+	}
+	for _, o := range projected {
 		if out.LastScan.IsZero() || o.ObservedAt.Before(out.LastScan) {
 			out.LastScan = o.ObservedAt
 		}
@@ -292,7 +316,7 @@ func latestMainScans(main string, running []RunningImages, observations []confor
 			out.Running = append(out.Running, runningScan{ScanObservation: o, ProjectFindings: []conformance.Finding{}, ImageOnlyFindings: []conformance.Finding{}, UnclassifiedFindings: []conformance.Finding{}})
 		}
 	}
-	if len(out.Source) == 0 || len(out.Running) == 0 || len(currentDeployments) != len(running) {
+	if len(out.Source) == 0 || len(currentDeployments) != len(running) {
 		out.Known = false
 	}
 	// Each reason names the case and its subject, so a reader knows what a
@@ -306,21 +330,17 @@ func latestMainScans(main string, running []RunningImages, observations []confor
 			out.Reason = strings.Join(unanswered, " and ") + " gave no result for " + code
 		case !sourceComplete:
 			out.Reason = "the scan of " + code + " did not say which scanners it ran"
-		case len(out.Running) == 0 || len(currentDeployments) != len(running):
+		case len(currentDeployments) != len(running):
 			var unscanned []string
 			for _, dep := range running {
 				if !currentDeployments[dep.DeploymentID] {
 					unscanned = append(unscanned, strs.FirstNonBlank(dep.Deployment, "a deployment"))
 				}
 			}
-			if len(unscanned) == 0 {
-				out.Reason = "the running images have not been scanned"
+			if len(unscanned) == 1 {
+				out.Reason = "the image running on " + unscanned[0] + " has not been scanned since it was deployed"
 			} else {
-				if len(unscanned) == 1 {
-					out.Reason = "the image running on " + unscanned[0] + " has not been scanned since it was deployed"
-				} else {
-					out.Reason = "the images running on " + strings.Join(unscanned, " and ") + " have not been scanned since they were deployed"
-				}
+				out.Reason = "the images running on " + strings.Join(unscanned, " and ") + " have not been scanned since they were deployed"
 			}
 		case out.Stale:
 			out.Reason = "the last scan was on " + out.LastScan.UTC().Format("2 Jan") + ", more than three days ago"
@@ -373,8 +393,8 @@ func samePackageFinding(a, b check.Finding) bool {
 	return false
 }
 
-func currentSourceSubject(commit, main string) bool {
-	return main != "" && (commit == main || commit == "")
+func currentSourceSubject(subject conformance.ScanSubject, main string) bool {
+	return main != "" && (subject.Tree == main || subject.Commit == "" && subject.Tree == "")
 }
 
 // A receipt from one scanner cannot answer for its unfinished peers. Only

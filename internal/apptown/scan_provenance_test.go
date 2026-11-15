@@ -132,7 +132,7 @@ func TestAScannersEmptyExitRemainsUnableToJudgeInTheScanRead(t *testing.T) {
 func TestProjectScansReturnsTenNewestEarlierObservations(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
-	pid, sha, _ := fleetRepo(t, a, "scan-history", map[string]string{"README.md": "hello"})
+	pid, sha, git := fleetRepo(t, a, "scan-history", map[string]string{"README.md": "hello"})
 	now := time.Now().UTC()
 	ordered := []ids.ID{}
 	for i := 0; i < 12; i++ {
@@ -141,7 +141,7 @@ func TestProjectScansReturnsTenNewestEarlierObservations(t *testing.T) {
 		if i == 0 {
 			commit = sha
 		}
-		o := conformance.ScanObservation{ID: id, ProjectID: pid, RunID: ids.New(now), StepID: ids.New(now), Attempt: 1, Subject: conformance.ScanSubject{On: "source", Commit: commit}, Scanner: "osv", Verdict: "pass", ObservedAt: now.Add(-time.Duration(i) * time.Minute)}
+		o := conformance.ScanObservation{ID: id, ProjectID: pid, RunID: ids.New(now), StepID: ids.New(now), Attempt: 1, Subject: conformance.ScanSubject{On: "source", Commit: commit, Tree: map[string]string{sha: strings.TrimSpace(git("rev-parse", sha+"^{tree}"))}[commit]}, Scanner: "osv", Verdict: "pass", ObservedAt: now.Add(-time.Duration(i) * time.Minute)}
 		if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error { return conformance.RecordScanObservationIn(t.Context(), tx, o) }); err != nil {
 			t.Fatal(err)
 		}

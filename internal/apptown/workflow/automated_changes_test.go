@@ -127,7 +127,7 @@ func TestAutomatedPurgeKeepsExactScanSubjectsAfterRestart(t *testing.T) {
 	running.rows = []RunningImages{{DeploymentID: dep, BundleID: bundle, Images: map[string]string{"web": "registry.example/p@sha256:a"}}, {DeploymentID: idstest.N(12), Images: map[string]string{}}}
 	now := time.Now().UTC()
 	observations := []conformance.ScanObservation{
-		{Subject: conformance.ScanSubject{On: "source", Commit: main}, Scanner: "osv", Verdict: "pass"},
+		{Subject: conformance.ScanSubject{On: "source", Commit: main, Tree: gittest.Run(t, repo, "rev-parse", main+"^{tree}")}, Scanner: "osv", Verdict: "pass"},
 		{Subject: conformance.ScanSubject{On: "running", DeploymentID: dep, BundleID: bundle, Part: "web", Digest: "registry.example/p@sha256:a"}, Scanner: "trivy", Verdict: "fail", Findings: []conformance.Finding{{Finding: check.Finding{Identifiers: []string{"CVE-OS"}, Package: &check.PackageRef{Name: "libssl", Ecosystem: "Debian"}}}}},
 		{Subject: conformance.ScanSubject{On: "running", DeploymentID: idstest.N(12)}, Verdict: "error", Reason: "the running bundle is not known"},
 	}
@@ -200,7 +200,7 @@ func TestAutomatedPurgeKeepsExactScanSubjectsAfterRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if scans.Known || len(scans.Source) != 1 || len(scans.Running) != 2 {
+	if scans.Known || len(scans.Source) != 1 || len(scans.Running) != 1 || len(scans.Historical) != 1 {
 		t.Fatalf("lost one of clean, finding, unknown: %+v", scans)
 	}
 	if scans.Source[0].Subject.Commit != main || scans.Source[0].BindingVersion != 7 || scans.Source[0].ConfigHash != "exact-config-hash" || scans.Source[0].Configuration != observations[0].Configuration {
@@ -210,7 +210,11 @@ func TestAutomatedPurgeKeepsExactScanSubjectsAfterRestart(t *testing.T) {
 	if err != nil || len(attempts) != 1 || len(attempts[0].Observations) != 3 || !attempts[0].OpenChange.IsZero() {
 		t.Fatalf("lost one-line record: %+v %v", attempts, err)
 	}
-	gittest.Run(t, repo, "-c", "user.name=test", "-c", "user.email=test@example.org", "commit", "--allow-empty", "-qm", "unrelated landing")
+	if err := os.WriteFile(filepath.Join(repo, "changed.txt"), []byte("different tree"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gittest.Run(t, repo, "add", "changed.txt")
+	gittest.Run(t, repo, "-c", "user.name=test", "-c", "user.email=test@example.org", "commit", "-qm", "unrelated landing")
 	running.rows[0].Images["web"] = "registry.example/p@sha256:b"
 	scans, err = restarted.LatestMainScans(t.Context(), ch.ProjectID, 10)
 	if err != nil {

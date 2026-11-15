@@ -1915,15 +1915,17 @@ func (q *Queries) ReviewsTouchingProject(ctx context.Context, arg ReviewsTouchin
 }
 
 const scanObservationHeads = `-- name: ScanObservationHeads :many
-SELECT id, run_id, subject, scanner, observed_at FROM scan_observations WHERE project_id=$1 ORDER BY observed_at DESC, id DESC
+SELECT id, run_id, subject, scanner, observed_at, (receipt->>'bindingVersion')::integer AS binding_version, (receipt->>'configHash')::text AS config_hash FROM scan_observations WHERE project_id=$1 ORDER BY observed_at DESC, id DESC
 `
 
 type ScanObservationHeadsRow struct {
-	ID         ids.ID
-	RunID      ids.ID
-	Subject    string
-	Scanner    string
-	ObservedAt time.Time
+	ID             ids.ID
+	RunID          ids.ID
+	Subject        string
+	Scanner        string
+	ObservedAt     time.Time
+	BindingVersion int32
+	ConfigHash     string
 }
 
 func (q *Queries) ScanObservationHeads(ctx context.Context, projectID ids.ID) ([]ScanObservationHeadsRow, error) {
@@ -1941,6 +1943,8 @@ func (q *Queries) ScanObservationHeads(ctx context.Context, projectID ids.ID) ([
 			&i.Subject,
 			&i.Scanner,
 			&i.ObservedAt,
+			&i.BindingVersion,
+			&i.ConfigHash,
 		); err != nil {
 			return nil, err
 		}

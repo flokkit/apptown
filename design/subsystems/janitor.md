@@ -388,14 +388,26 @@ Each source observation retains the scanner bindings expected by its run,
 captured when execution starts. Retained usable answers must cover every expected
 scanner before running findings can be classified; disposable workflow steps
 do not establish completeness. A partial source scan or a scanner that found nothing it could judge classifies nothing;
-the latter records an error observation. Observations of older commits or
-digests remain historical; a landing never proves a running finding fixed.
+the latter records an error observation. Observations of different trees or
+digests remain historical; a source scan alone never proves a running finding fixed.
 The current source scan is the newest run that scanned main's whole tree. A
 landing scans only the commits it adds with a scanner that declares a
 `historyCommand`. For such a scanner, the answer is its newest whole-tree
-observation of the same commit, so a landing does not hide a complete earlier
-scan. The landing's own errors stay current, and no other scanner takes an
-older answer.
+observation of the same tree with the same scanner name, binding version and
+configuration hash, so a landing does not hide a complete earlier scan.
+Source observations record both the commit and its tree; equal trees answer
+main even when landing creates a new merge commit. Observations without a tree
+stay historical until a new scan answers main. The landing's own errors stay
+current, and no other scanner takes an older answer. If catch-up changes the
+tree, the history scanner stays unanswered until a whole-tree scan of that tree.
+After building its release bundle, the landing scans every part and init image
+by digest in one `scan-bundle` step. A bundle with local image IDs, or a run
+without a bundle, records not applicable with its reason. Findings and scanner
+errors do not block the release, but the step finishes before the run completes.
+Each running part takes its answers from the newest run that observed its exact
+digest, whether in a bundle scan or a running scan. Answers for a digest are
+never combined across runs. A project without deployments needs only a complete
+source scan. Local image-ID bundles remain not known with their reason.
 A scan whose scanner could not judge the software, and a last scan older than
 three days, appear in Attention as not known; the detail names the scanner's
 reason or the date of the last scan. Code or images newer than the last scan

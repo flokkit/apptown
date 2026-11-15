@@ -315,7 +315,7 @@ VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 ON CONFLICT (step_id, attempt, subject, scanner) DO NOTHING;
 
 -- name: ScanObservationHeads :many
-SELECT id, run_id, subject, scanner, observed_at FROM scan_observations WHERE project_id=$1 ORDER BY observed_at DESC, id DESC;
+SELECT id, run_id, subject, scanner, observed_at, (receipt->>'bindingVersion')::integer AS binding_version, (receipt->>'configHash')::text AS config_hash FROM scan_observations WHERE project_id=$1 ORDER BY observed_at DESC, id DESC;
 
 -- name: ScanObservationsByID :many
 SELECT receipt FROM scan_observations WHERE project_id=$1 AND id=ANY(sqlc.arg(ids)::uuid[]) ORDER BY observed_at DESC, id DESC;

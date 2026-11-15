@@ -48,9 +48,9 @@ func planStage(stage *schema.Stage, scanners []Scanner) ([]plannedStep, error) {
 			return nil, fmt.Errorf("check %q configuration: %w", step.Name, err)
 		}
 		target := scanTarget(step)
-		// A running scan observes all deployments and deduplicates image pulls
-		// across its scanners in one execution.
-		if target == "" || target == "running" {
+		// Bundle and running scans observe all their image digests and
+		// deduplicate pulls across scanners in one execution.
+		if target == "" || target == "running" || target == "bundle" {
 			if err := add(step.Name, step.Name, step.Uses, encoded, onEnter); err != nil {
 				return nil, err
 			}

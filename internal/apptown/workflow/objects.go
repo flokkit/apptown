@@ -51,6 +51,15 @@ func (run *Run) advance(steps []*Step, recorded []Check) (advancement, error) {
 	if err != nil {
 		return advancement{}, err
 	}
+	if next.Completing {
+		// Completion cancels unfinished attempts and refuses their observations.
+		// Let executable work finish; optional approvals may keep waiting for a person.
+		for _, step := range steps {
+			if step.Type != "approval" && (step.Status == StatusPending || step.Status == StatusRunning) {
+				a.Blocked = append(a.Blocked, step)
+			}
+		}
+	}
 	a.Merge, a.Complete, a.Next = next.Merge, next.Completing, next.Stage
 	return a, nil
 }

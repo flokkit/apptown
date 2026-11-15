@@ -4729,6 +4729,7 @@ export type Artifact = {
 export type ScanSubject = {
   on: string
   commit?: string
+  tree?: string
   history?: string
   deploymentId?: string | null
   deployment?: string

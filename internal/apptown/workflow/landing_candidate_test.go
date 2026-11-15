@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
+	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
@@ -23,6 +24,8 @@ func TestANewLandingCandidateRerunsItsSourceGates(t *testing.T) {
 	admissions := newRunAdmissions(db, NewStages(nil, every), nil)
 	run, err := admissions.records.create(ctx, StartRequest{ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "land", InputsJSON: "{}", requestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{
 		{Name: "catch-up", Uses: "reconcile"}, {Name: "tests", Uses: "tests"}, {Name: "scan-source", Uses: "scan"},
+		{Name: "scan-bundle", Uses: "scan", With: map[string]any{"on": "bundle"}},
+		{Name: "scan-running", Uses: "scan", With: map[string]any{"on": "running"}},
 	}}}}})
 	if err != nil {
 		t.Fatal(err)
@@ -65,6 +68,8 @@ func TestANewLandingCandidateRerunsItsSourceGates(t *testing.T) {
 	if reset := pin(x); len(reset) != 0 {
 		t.Fatalf("the first candidate reset %v", reset)
 	}
+	finish(start("scan-bundle"), StatusNotApplicable, "")
+	finish(start("scan-running"), StatusPass, "")
 	finish(start("tests"), StatusPass, x)
 	finish(start("scan-source"), StatusFail, x)
 	if refusal, err := landingCandidateRefusal(ctx, db, run.ID, LandingCandidate{Candidate: y}); err != nil || refusal == "" {
@@ -81,6 +86,12 @@ func TestANewLandingCandidateRerunsItsSourceGates(t *testing.T) {
 		step, err := readStep(ctx, db, admittedStepID(t, queries{db: db}, run, name))
 		if err != nil || step.Status != StatusPending {
 			t.Fatalf("%s after a new candidate: %+v %v", name, step, err)
+		}
+	}
+	for _, name := range []string{"scan-bundle", "scan-running"} {
+		step, err := readStep(ctx, db, admittedStepID(t, queries{db: db}, run, name))
+		if err != nil || !step.Status.judged() {
+			t.Fatalf("%s was reset by a new source candidate: %+v %v", name, step, err)
 		}
 	}
 	finish(start("tests"), StatusPass, y)
@@ -192,4 +203,41 @@ func TestAMergeRefusesUnboundChecksAndApprovalsLeftBehind(t *testing.T) {
 			t.Fatalf("an approval left undecided behind the run did not refuse the merge: %q %v", refusal, err)
 		}
 	})
+}
+
+// Only scans that read the change's source must name the merge candidate.
+// Evidence cannot exempt a source scan by claiming to observe a bundle.
+func TestLandingScanCandidateRequirementUsesStepConfig(t *testing.T) {
+	t.Parallel()
+	for _, on := range []string{"", "source", "image", "bundle", "running"} {
+		t.Run("on="+on, func(t *testing.T) {
+			t.Parallel()
+			ctx := t.Context()
+			q, run := admitWorkflowSpec(t, schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{{Name: "scan", Uses: "scan", With: map[string]any{"on": on}}}}}})
+			snapshot, err := readStep(ctx, q.db, admittedStepID(t, q, run, "scan"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			attempts := newStepAttempts(q.db, func(string) bool { return true })
+			claim, err := attempts.start(ctx, snapshot, snapshot.Type, ids.Nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := attempts.finish(ctx, claim, StepOutcome{Status: StatusPass, Evidence: json.RawMessage(`{"subject":{"on":"bundle"}}`)}); err != nil {
+				t.Fatal(err)
+			}
+			wantGate := on != "bundle" && on != "running"
+			refusal, err := landingCandidateRefusal(ctx, q.db, run.ID, LandingCandidate{Candidate: "c1", Target: "m1"})
+			if err != nil || (refusal != "") != wantGate {
+				t.Fatalf("candidate refusal: %q %v; want gate=%v", refusal, err, wantGate)
+			}
+			attributed := &scm.Attribution{}
+			if err := attributeStep(attributed, snapshot, true); err != nil {
+				t.Fatal(err)
+			}
+			if (len(attributed.Checks) != 0) != wantGate {
+				t.Fatalf("candidate checks: %+v; want gate=%v", attributed.Checks, wantGate)
+			}
+		})
+	}
 }

@@ -45,10 +45,25 @@ const (
 // or merging the live workspace.
 var ErrLandingUnpinned = errors.New("this landing has no pinned candidate yet; its checks and merge wait for one")
 
-// candidateGates are the step types that check the change's source against
-// the candidate. Each records the candidate it checked in its evidence, and
-// a merge requires every one that passed to name the pinned candidate.
-var candidateGates = []string{"tests", "scan", "guidance/conformance", "script"}
+// candidateGate identifies steps that check the change's source against the
+// candidate. Bundle and running scans observe images without reading that source.
+func candidateGate(step *Step) bool {
+	switch step.Type {
+	case "tests", "guidance/conformance", "script":
+		return true
+	case "scan":
+		var cfg struct {
+			On string `json:"on"`
+		}
+		// An unreadable configuration cannot exempt a scan from provenance.
+		if err := DecodeStepConfig(step.Config, &cfg); err != nil {
+			return true
+		}
+		return cfg.On != "bundle" && cfg.On != "running"
+	default:
+		return false
+	}
+}
 
 // unboundGates read the change's source but cannot be bound to a candidate.
 // A checked landing that passed one is refused: its result says nothing
@@ -162,7 +177,7 @@ func resetForCandidateIn(ctx context.Context, tx *database.Tx, run *Run, pinning
 		if step.ID == pinning || step.Status == StatusRunning {
 			continue
 		}
-		gate := slices.Contains(candidateGates, step.Type) && (step.Status != StatusPending || step.OverrideBy != "")
+		gate := candidateGate(step) && (step.Status != StatusPending || step.OverrideBy != "")
 		approval := step.Type == "approval" && (step.Status != StatusPending || hasVotes(step))
 		if !gate && !approval {
 			continue
@@ -216,7 +231,7 @@ func landingCandidateRefusal(ctx context.Context, q database.Queryer, runID ids.
 			return fmt.Sprintf("step %s (%s) read the change's source but cannot be bound to the landing's candidate; checked landings support tests, scans, Standards checks and scripts", step.Name, step.Type), nil
 		}
 		earlier := stageIndex[step.Stage] < stageIndex[run.CurrentStage]
-		if earlier && slices.Contains(candidateGates, step.Type) && !step.Status.judged() && step.Status != StatusSkipped {
+		if earlier && candidateGate(step) && !step.Status.judged() && step.Status != StatusSkipped {
 			// A new candidate put this earlier check back to pending, and
 			// nothing runs an earlier stage again.
 			return fmt.Sprintf("check %s in stage %s has not checked the landing's candidate %s; restart the landing to check it again", step.Name, step.Stage, strs.ShortSHA(c.Candidate)), nil
@@ -237,7 +252,7 @@ func landingCandidateRefusal(ctx context.Context, q database.Queryer, runID ids.
 			}
 			continue
 		}
-		if !slices.Contains(candidateGates, step.Type) || !step.Status.judged() {
+		if !candidateGate(step) || !step.Status.judged() {
 			continue
 		}
 		var evidence struct {

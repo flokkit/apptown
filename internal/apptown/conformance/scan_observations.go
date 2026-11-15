@@ -16,6 +16,7 @@ import (
 type ScanSubject struct {
 	On           string `json:"on"`
 	Commit       string `json:"commit,omitempty"`
+	Tree         string `json:"tree,omitempty"`
 	History      string `json:"history,omitempty"`
 	DeploymentID ids.ID `json:"deploymentId,omitzero"`
 	Deployment   string `json:"deployment,omitempty"`
@@ -78,11 +79,13 @@ func RecordScanObservationIn(ctx context.Context, tx *database.Tx, o ScanObserva
 
 // ScanHead carries selection facts without decoding retained receipts.
 type ScanHead struct {
-	ID         ids.ID
-	RunID      ids.ID
-	Subject    ScanSubject
-	Scanner    string
-	ObservedAt time.Time
+	BindingVersion int
+	ConfigHash     string
+	ID             ids.ID
+	RunID          ids.ID
+	Subject        ScanSubject
+	Scanner        string
+	ObservedAt     time.Time
 }
 
 // ScanObservationHeadsIn returns selection facts newest first. The surrounding
@@ -94,7 +97,7 @@ func ScanObservationHeadsIn(ctx context.Context, db database.Queryer, project id
 	}
 	out := make([]ScanHead, 0, len(rows))
 	for _, r := range rows {
-		o := ScanHead{ID: r.ID, RunID: r.RunID, Scanner: r.Scanner, ObservedAt: r.ObservedAt}
+		o := ScanHead{ID: r.ID, RunID: r.RunID, Scanner: r.Scanner, BindingVersion: int(r.BindingVersion), ConfigHash: r.ConfigHash, ObservedAt: r.ObservedAt}
 		if err := json.Unmarshal([]byte(r.Subject), &o.Subject); err != nil {
 			return nil, err
 		}

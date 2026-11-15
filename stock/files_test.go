@@ -174,3 +174,36 @@ func TestStockUsesCurrentModelNames(t *testing.T) {
 		}
 	}
 }
+
+func TestLandingObservesItsReleaseBundleAfterBuild(t *testing.T) {
+	t.Parallel()
+	body, err := FS.ReadFile("land.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Spec struct {
+			Stages []struct {
+				Name    string
+				OnEnter []struct{ Name, Uses string } `yaml:"onEnter"`
+				Steps   []struct {
+					Name, Uses string
+					With       map[string]any
+				}
+				Gate struct{ Require []string }
+			}
+		}
+	}
+	if err := yaml.Unmarshal(body, &doc); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range doc.Spec.Stages {
+		if s.Name == "ship" {
+			if len(s.OnEnter) != 1 || s.OnEnter[0].Uses != "build" || len(s.Steps) != 2 || s.Steps[0].Name != "build-exists" || s.Steps[1].Name != "scan-bundle" || s.Steps[1].Uses != "scan" || s.Steps[1].With["on"] != "bundle" || !slices.Equal(s.Gate.Require, []string{"build-exists"}) {
+				t.Fatalf("ship: %+v", s)
+			}
+			return
+		}
+	}
+	t.Fatal("missing ship stage")
+}

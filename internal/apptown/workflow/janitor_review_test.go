@@ -44,7 +44,7 @@ func TestReviewIncompleteSourceCannotClassifyRunningFindings(t *testing.T) {
 			running.rows = []RunningImages{{DeploymentID: dep, BundleID: bundle, Images: map[string]string{"web": "digest-a"}}}
 			finding := conformance.Finding{Finding: check.Finding{Identifiers: []string{"CVE-NPM"}, Package: &check.PackageRef{Name: "lodash", Ecosystem: "npm"}}}
 			observations := []conformance.ScanObservation{
-				{RunID: run.ID, StepID: steps[0].ID, Subject: conformance.ScanSubject{On: "source", Commit: gittest.Run(t, repo, "rev-parse", "HEAD")}, ExpectedScanners: []string{"gitleaks", "osv"}, Scanner: "gitleaks", Verdict: "pass", ObservedAt: now},
+				{RunID: run.ID, StepID: steps[0].ID, Subject: conformance.ScanSubject{On: "source", Commit: gittest.Run(t, repo, "rev-parse", "HEAD"), Tree: gittest.Run(t, repo, "rev-parse", "HEAD^{tree}")}, ExpectedScanners: []string{"gitleaks", "osv"}, Scanner: "gitleaks", Verdict: "pass", ObservedAt: now},
 				{RunID: idstest.N(82), StepID: idstest.N(83), Subject: conformance.ScanSubject{On: "running", DeploymentID: dep, BundleID: bundle, Part: "web", Digest: "digest-a"}, Scanner: "trivy", Verdict: "fail", ObservedAt: now.Add(-time.Minute), Findings: []conformance.Finding{finding}},
 			}
 			for _, o := range observations {
@@ -111,7 +111,7 @@ func TestReviewSourceWithNothingToJudgeIsNotKnown(t *testing.T) {
 	// RunScan records inability to judge as error for answer.empty
 	// (the scanner's declared EmptyExit, e.g. OSV's exit 128).
 	recordObservations(t, s, ch, []conformance.ScanObservation{
-		{RunID: idstest.N(92), Subject: conformance.ScanSubject{On: "source", Commit: gittest.Run(t, repo, "rev-parse", "HEAD")}, Scanner: "osv", Verdict: "error", Reason: "osv found nothing to judge", ObservedAt: now},
+		{RunID: idstest.N(92), Subject: conformance.ScanSubject{On: "source", Commit: gittest.Run(t, repo, "rev-parse", "HEAD"), Tree: gittest.Run(t, repo, "rev-parse", "HEAD^{tree}")}, Scanner: "osv", Verdict: "error", Reason: "osv found nothing to judge", ObservedAt: now},
 		{RunID: idstest.N(93), Subject: conformance.ScanSubject{On: "running", DeploymentID: dep, BundleID: bundle, Part: "web", Digest: "digest-a"}, Scanner: "trivy", Verdict: "fail", ObservedAt: now, Findings: []conformance.Finding{finding}},
 	})
 	got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
