@@ -164,6 +164,19 @@ export const PAGE_HELP = {
     </>,
     guide: 'project-settings',
   },
+  janitor: {
+    title: 'Janitor',
+    help: <>
+      <p>The janitor keeps projects' dependencies and packs up to date, and fixes security findings, without anyone asking. It makes each update as an ordinary change: the change is checked, and lands and releases on its own only when a person has granted that permission in Janitor settings.</p>
+      <p><strong>Needs you</strong> lists work it could not finish. Open a project for its scans, findings and Run now.</p>
+    </>,
+    guide: 'janitor',
+  },
+  janitorSettings: {
+    title: 'Janitor settings',
+    help: <p>What the janitor may change and land without asking, for which projects, and what it does when checks fail. Each project can also lower its update level or turn the janitor off on its own Janitor tab.</p>,
+    guide: 'janitor',
+  },
 } satisfies Record<string, PageHelp>
 
 export type HelpPage = keyof typeof PAGE_HELP

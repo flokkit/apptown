@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { Section } from '../../Section'
+import { PageHead } from '../../PageHead'
 import { ListTable, type ListColumn } from '../../ListTable'
 import { fmtWhen } from '../../format'
 import { RuleConsent } from './RuleConsent'
@@ -67,7 +68,7 @@ function Problems({ data }: { data: JanitorView }) {
 
 export default function JanitorSettings() {
   const q = useGet<JanitorView>('/janitor', { poll: 10000 })
-  return <div><h1>Janitor settings</h1>
+  return <div><PageHead page="janitorSettings" />
     <ReadStatus q={q} what="janitor settings" /><StaleNote q={q} />
     {q.data && <><Section title="What it is allowed to do"><Rules data={q.data} current={q.current} reload={q.reload} /></Section>
       <Section title="How it handles problems"><Problems data={q.data} /></Section></>}
