@@ -139,8 +139,8 @@ Attention's Scans source uses the same set, returning known empty coverage for
 deleted projects and eval copies. An eligibility read failure remains an error.
 When a scan is not known, Workflow asks the scheduler whether the adopted
 schedules scan source. Unreadable definitions remain errors. If none scans,
-the reason says that the packs schedule no scan, and Attention explains that
-adopting the platform pack would scan it. A current complete scan remains known
+the reason says that the packs schedule no scan; the Janitor page shows it and
+Attention does not, since the project chose it. A current complete scan remains known
 regardless of whether the project still schedules scans.
 
 ## Inspecting a candidate
@@ -389,9 +389,11 @@ landing scans only the commits it adds with a scanner that declares a
 observation of the same commit, so a landing does not hide a complete earlier
 scan. The landing's own errors stay current, and no other scanner takes an
 older answer.
-Missing scans and scans older than three days appear in Attention as not known.
-The detail names the case: the code not scanned, the scanner without a result,
-the deployment whose image is not scanned, or the date of the last scan.
+A scan whose scanner could not judge the software, and a last scan older than
+three days, appear in Attention as not known; the detail names the scanner's
+reason or the date of the last scan. Code or images newer than the last scan
+are not an Attention item: the next scheduled scan answers them, and the
+Janitor page shows them as not known meanwhile.
 A stuck or stopped queue's Attention item carries the first line of its error
 and opens its change, which holds the rest.
 Running-image-only findings do not create Attention items.

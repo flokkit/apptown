@@ -34,16 +34,36 @@ func TestAStuckQueueItemIsOneLineAndOpensItsChange(t *testing.T) {
 // answer it, instead of one sentence for every case.
 func TestANotKnownScanSaysItsCase(t *testing.T) {
 	t.Parallel()
-	if got := scanDetail("its packs schedule no scan", true); got != "Its packs schedule no scan. Adopting the platform pack would scan it." {
-		t.Fatal(got)
-	}
 	for reason, want := range map[string]string{
 		"gitleaks gave no result for the current code (5c406e206353)": "Gitleaks gave no result for the current code (5c406e206353). A new scan would answer it.",
 		"osv: the database could not be read.\nstack":                 "Osv: the database could not be read. A new scan would answer it.",
 		"": "AppTown has no complete current scan. A new scan would answer it.",
 	} {
-		if got := scanDetail(reason, false); got != want || strings.Contains(got, "\n") {
+		if got := scanDetail(reason); got != want || strings.Contains(got, "\n") {
 			t.Fatalf("%q became %q", reason, got)
+		}
+	}
+}
+
+// Only a failed or overdue scan needs a person. Code or images newer than the
+// last scan wait for the next scheduled scan, and a project that schedules no
+// scan chose that; neither is an attention item.
+func TestOnlyFailedOrOverdueScansNeedAttention(t *testing.T) {
+	t.Parallel()
+	for name, c := range map[string]struct {
+		scans workflow.MainScans
+		item  bool
+	}{
+		"newer than the last scan": {workflow.MainScans{Reason: "the image running on main has not been scanned since it was deployed"}, false},
+		"no scan scheduled":        {workflow.MainScans{Unscheduled: true, Reason: "its packs schedule no scan"}, false},
+		"scanner failed":           {workflow.MainScans{Failed: true, Reason: "osv: the database could not be read"}, true},
+		"overdue":                  {workflow.MainScans{Stale: true, Reason: "the last scan was on 1 Nov, more than three days ago"}, true},
+		"overdue but unscheduled":  {workflow.MainScans{Stale: true, Unscheduled: true}, false},
+		"known":                    {workflow.MainScans{Known: true}, false},
+	} {
+		got := scanSnapshot(workflow.ScanAttentionProject{ProjectID: idstest.N(1), Slug: "p", Name: "P", Reaches: true, Scans: c.scans})
+		if (len(got.Items) == 1) != c.item || len(got.Items) > 1 {
+			t.Errorf("%s: items %+v", name, got.Items)
 		}
 	}
 }
