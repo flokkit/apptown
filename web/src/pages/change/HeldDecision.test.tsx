@@ -89,6 +89,12 @@ describe('held runs offer recovery rather than an approval', () => {
     expect(heldLabels(v)).toEqual(['Re-check', 'Send back…'])
   })
 
+  it('writes the send-back note for a failed scan whose findings are a count summary', () => {
+    const v = held()
+    v.detail!.steps[1] = { ...v.detail!.steps[1], type: 'scan', evidence: { reason: 'scan-source:osv: the scanner still reports stdlib', findings: { total: 1, actionable: 1 } } } as Step
+    expect(recoveryNote(v.detail!)).toBe('review-change:\nscan-source:osv: the scanner still reports stdlib')
+  })
+
   it('keeps the full failure output and requested human actions in the send-back note', () => {
     const v = held()
     v.detail!.steps[1] = { ...v.detail!.steps[1], type: 'script', evidence: { log: 'The form failed validation.\n' + 'full log\n'.repeat(60) } } as Step
