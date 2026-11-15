@@ -55,24 +55,25 @@ func cmdCheck(args []string) error {
 		return usagef("no change: pass -c <id> (or run inside an agent step, where $APPTOWN_CHANGE is set)")
 	}
 
+	const durationHint = "; this check usually takes several minutes: give it at least 10 minutes, or run it in the background to a file"
 	body := map[string]any{}
 	var asked string
 	switch {
 	case *published:
 		body["published"] = true
-		fmt.Println(dim(fmt.Sprintf("--published: checking the published tip of change %s's branch on AppTown, not this folder's work", cid)))
+		fmt.Println(dim(fmt.Sprintf("--published: checking the published tip of change %s's branch on AppTown, not this folder's work", cid) + durationHint))
 	default:
 		head, dirty, err := folderHead()
 		if err != nil {
 			return err
 		}
 		if head == "" {
-			fmt.Println(dim(fmt.Sprintf("not in a Git repository: checking change %s's latest commit on AppTown", cid)))
+			fmt.Println(dim(fmt.Sprintf("not in a Git repository: checking change %s's latest commit on AppTown", cid) + durationHint))
 			break
 		}
 		asked = head
 		body["commit"] = head
-		fmt.Println(dim("checking commit " + head + " (this folder's HEAD)"))
+		fmt.Println(dim("checking commit " + head + " (this folder's HEAD)" + durationHint))
 		if dirty {
 			fmt.Println(yellow("  uncommitted changes here are not checked — commit them first"))
 		}
@@ -144,6 +145,9 @@ func cmdCheck(args []string) error {
 			mark = green("✓")
 		case "fail":
 			mark = red("✗")
+			if c.Note != "" {
+				mark = dim("✗")
+			}
 		case "skipped":
 			mark = dim("–")
 		case "not-applicable":
@@ -168,7 +172,7 @@ func cmdCheck(args []string) error {
 		if c.Verdict == "fail" && c.Output != "" {
 			fmt.Println("      " + dim(c.Output))
 		}
-		if c.Verdict == "fail" && (c.Undecided || c.Preexisting) && c.Note != "" {
+		if c.Verdict == "fail" && c.Note != "" {
 			fmt.Println("      " + dim(c.Note))
 		}
 		if c.Verdict == "error" && c.Output != "" {

@@ -278,6 +278,14 @@ func TestDiffChecksReuseOnlyTheExactTransition(t *testing.T) {
 	in.Repository, in.Commit = repo, commits[2]
 	in.Diff = gittest.Run(t, repo, "diff", commits[0], in.Commit)
 	_ = j.JudgeCheck(t.Context(), check.Item{Repository: in.Repository, Commit: in.Commit, Declared: in.Rubric, Recheck: in.Recheck}, in.Call, in.Diff)
+	for _, spec := range d.specs {
+		prompt := strings.Join(spec.Argv, "\n")
+		for _, want := range []string{"cite repository paths and lines in the committed tree at /src (path:line)", "never cite /apptown/in/change.diff", "the agent revising the change does not have that input file"} {
+			if !strings.Contains(prompt, want) {
+				t.Fatalf("diff prompt omitted %q: %s", want, prompt)
+			}
+		}
+	}
 	// The candidate stays fixed while its comparison base changes.
 	in.Diff = gittest.Run(t, repo, "diff", commits[1], in.Commit)
 	r := j.JudgeCheck(t.Context(), check.Item{Repository: in.Repository, Commit: in.Commit, Declared: in.Rubric, Recheck: in.Recheck}, in.Call, in.Diff)

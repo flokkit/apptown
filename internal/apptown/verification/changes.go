@@ -145,6 +145,13 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 	for _, f := range own {
 		if check.SeverityRank(f.Severity) >= check.SeverityRank(failOn) {
 			failing++
+			continue
+		}
+		for i := range results {
+			r := &results[i]
+			if r.Verdict == workflow.VerdictFail && !r.Preexisting && !r.Undecided && matchesFinding(*r, f) {
+				r.Note = fmt.Sprintf("severity %s is below %s: shown, does not block", f.Severity, failOn)
+			}
 		}
 	}
 	out := map[string]any{

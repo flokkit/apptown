@@ -17,6 +17,8 @@ spec:
         - name: update
           uses: agent/pi
           with:
+            docker: true
+            needs: true
             mayChangeNothing: true
             skills: [skill/janitor]
             prompt: |
@@ -41,6 +43,8 @@ spec:
         - name: repair
           uses: agent/pi
           with:
+            docker: true
+            needs: true
             repairRounds: 2
             mayChangeNothing: true
             skills: [skill/janitor]
