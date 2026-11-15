@@ -291,10 +291,32 @@ Changes, and paths to retry, chat or skip the update. Stuck and stopped queues
 each contribute one attention item. A skip retains its fingerprint and targets.
 A person who may open and start work in a project can fire one of its
 carried schedules now (`POST /api/v1/projects/{slug}/schedules/{workflow}/run`;
-the Janitor page selects the standing schedule that discovers fixable targets). The firing is the scheduler's
+the general entry for any carried schedule). The firing is the scheduler's
 own: the Change is opened through the schedule under the eligible rule, and
 `schedule.run-requested` records the person. A busy or stopped queue, a missing
 schedule or a missing eligible rule is refused and records no firing.
+The Janitor page's **Run now** fires every adopted standing queue in that project
+through its nightly start. **Run now for all projects** requests each eligible
+project, two at a time; leaving the page leaves remaining projects unstarted.
+`POST /api/v1/projects/{slug}/janitor/run` selects all queues or one named queue.
+`apptown janitor run -p PROJECT [-queue QUEUE] [-again]` uses this operation.
+Publication queues use the nightly pack catch-up, restricted to that project,
+after the standing owner checks project eligibility. The request records the
+person and the assessment. Nightly cadence and consent remain the default.
+
+**Try again** is offered for stuck or stopped queues and ends the named queue's
+current episode without suppressing its proposals. Waiting and updating queues
+keep their Change links and progress. A refused **Run now** can explicitly offer
+closure of the busy Change. **Close and try again** also closes that queue's open automated
+Change, requiring current close authority and the exact Change shown. Retained
+attempts keep their reasons, fingerprints and failed flags as history with
+outcome `retried`; Skip still suppresses the same proposal. A failed subsequent
+start leaves the episode ended; the next nightly firing uses normal admission.
+The request resolves all matching eligible starts before resetting the named
+queue once, then runs those starts. No eligible start means no reset.
+Ordinary adoption Changes are not closed by this act. Their existing land or
+abandon action remains necessary when they block pack updates.
+
 Schedules declaring `standing: true` fire only under an enabled, currently
 eligible rule. Without one, the schedule read says it waits for a standing
 approval, with no next firing; its last recorded firing remains visible. This
@@ -302,8 +324,7 @@ is a normal off state. Unreadable workflows
 and invalid cron expressions remain schedule problems. The scheduler reads each project's adopted standing declaration. Its
 `cron` applies at routine level; `aggressiveCron`, when declared, applies at
 aggressive level. Both are read in UTC. The scheduler's own admission read
-supplies Scan now's refusal and the earliest next firing of other standing
-schedules for Next update. Busy queues retain their future firing time; stopped
+supplies the queue admission and the earliest next update firing. Busy queues retain their future firing time; stopped
 queues have none. Target-discovering schedules can still scan a stopped queue.
 Project-scoped rules also authorize their selected workflows' declared schedules.
 The effective level also supplies the routine check and standing assessment's bound.

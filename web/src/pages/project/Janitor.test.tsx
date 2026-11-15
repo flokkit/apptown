@@ -48,7 +48,7 @@ it('shows queue states, findings, and recent tries linked to their Changes', asy
     expect([...el.querySelectorAll('h3')].map(h => h.textContent)).toEqual(['Project’s findings', 'Running image only', 'Recent tries'])
     expect(el.textContent?.match(/CVE-lodash/g)).toHaveLength(1)
     expect(el.textContent).toContain('CVE-libssl')
-    expect(el.querySelector('a')?.textContent).toBe('Try again')
+    expect(el.querySelector('a')?.textContent).toBe('change #1')
     expect(el.querySelector('a')?.getAttribute('href')).toBe('/changes/open-change')
     expect(el.querySelector('table')?.getAttribute('aria-label')).toBe('Recent tries')
     expect(el.textContent).not.toMatch(/Earlier|Automatic updates|base-image/)
@@ -185,4 +185,14 @@ it('shows a stuck queue and a failed try by their error’s first line; the chan
     expect(el.textContent).not.toContain('missing installed path')
     expect(queue.nextElementSibling?.querySelector('a')?.getAttribute('href')).toBe('/changes/open-change')
   })
+})
+
+it.each(['waiting', 'updating', 'stuck', 'stopped'])('keeps progress and change links while reserving recovery: %s', async state => {
+ const data = fixture()
+ data.queues = [{ ...data.queues[0], state, words: `${state} progress` }]
+ await render(data, true, el => {
+  expect(el.textContent).toContain(`${state} progress`)
+  expect(el.querySelector('a[href="/changes/open-change"]')).not.toBeNull()
+  expect([...el.querySelectorAll('button')].filter(b => b.textContent === 'Close and try again')).toHaveLength(state === 'stuck' || state === 'stopped' ? 1 : 0)
+ })
 })

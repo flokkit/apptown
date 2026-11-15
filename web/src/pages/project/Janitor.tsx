@@ -1,3 +1,4 @@
+import { TryAgain } from '../janitor/TryAgain'
 import { changedFiles } from '../janitor/files'
 import { JanitorAttribution } from '../../janitorAttribution'
 import { useState } from 'react'
@@ -51,15 +52,16 @@ const columns: ListColumn<ScanRow>[] = [
 
 const unique = (findings: Finding[]) => [...new Map(findings.map(f => [f.fingerprint, f])).values()]
 
-function QueueLine({ queue, slug, reload }: { queue: QueueStatus; slug: string; reload: () => void }) {
+function QueueLine({ queue, slug, current, reload }: { queue: QueueStatus; slug: string; current: boolean; reload: () => void }) {
   const action = useAction(reload)
   const canSkip = useHolds('change:abandon', slug)
   return <div>
     <p className="janitor-queue-line"><strong>{queue.title}</strong>: {queue.words}{queue.reason && <> · {firstLine(queue.reason)}</>}{(queue.packages.length > 0 || queue.files?.length > 0) && <> · {changedFiles(queue.packages, queue.files)}</>}</p>
     {queue.changeId && <p>
-      <Link to={`/changes/${queue.changeId}`}>Try again</Link> · <Link to={`/changes/${queue.changeId}?tab=conversation`}>Open the chat</Link>
-      {canSkip && <> · <button type="button" className="link" disabled={action.busy} onClick={() => action.run(() => post(`/projects/${slug}/janitor/${queue.queue}/skip`, { changeId: queue.changeId }))}>Skip this update</button></>}
+      <Link to={`/changes/${queue.changeId}`}>change #{queue.changeNumber}</Link> · <Link to={`/changes/${queue.changeId}?tab=conversation`}>Open the chat</Link>
+      {canSkip && <> · <button type="button" className="link" disabled={!current || action.busy} onClick={() => action.run(() => post(`/projects/${slug}/janitor/${queue.queue}/skip`, { changeId: queue.changeId }))}>Skip this update</button></>}
     </p>}
+    <TryAgain queue={queue} slug={slug} current={current} reload={reload} />
     {action.err && <p className="error">{action.err}</p>}
   </div>
 }
@@ -87,7 +89,7 @@ export function LastScan({ slug, janitor = false }: { slug: string; janitor?: bo
     {scans && (janitor ? <>
       <JanitorChoice slug={slug} data={data!} current={q.current} reload={q.reload} />
       <p>Last scan: {scans.known && scans.lastScan && !scans.lastScan.startsWith('0001-') ? fmtWhen(scans.lastScan) : 'not known'}{(count > 0 || scans.known) && <> · {count ? `${count} ${count === 1 ? 'finding' : 'findings'}` : 'no findings'}</>}{scans.stale && <> · <span className="badge">older than three days</span></>}</p>
-      {data!.queues.map(queue => <QueueLine key={queue.queue} queue={queue} slug={slug} reload={q.reload} />)}
+      {data!.queues.map(queue => <QueueLine key={queue.queue} queue={queue} slug={slug} current={q.current} reload={q.reload} />)}
       <FindingList title="Project’s findings" findings={project} />
       <FindingList title="Running image only" findings={imageOnly} />
       <FindingList title="Not compared with project code" findings={unclassified} />
@@ -121,9 +123,9 @@ function JanitorChoice({ slug, data, current, reload }: { slug: string; data: Pr
       {canManage && <> · <button type="button" className="link" disabled={!current || action.busy} onClick={() => { setLevel(off ? 'routine' : 'off'); setReason('') }}>{off ? 'Turn back on' : 'turn off'}</button> · <button type="button" className="link" disabled={!current || action.busy} onClick={() => { setLevel(data.standing.level); setReason('') }}>Change level</button></>}
     </p>}
     {reason !== null && <form className="stack stack-2" onSubmit={async event => { event.preventDefault(); if (await action.run(() => post(`/projects/${slug}/janitor/settings`, { level, reason }))) setReason(null) }}>
-      <label>Update level<select aria-label="Janitor update level" value={level} onChange={event => setLevel(event.target.value)} disabled={action.busy}><option value="routine">Routine · patch and minor</option><option value="aggressive">Aggressive · including major</option><option value="off">Off</option></select></label>
-      <label>Reason<input aria-label="Reason for janitor setting" value={reason} onChange={event => setReason(event.target.value)} required disabled={action.busy} /></label>
-      <div className="row row-2"><button type="submit" disabled={action.busy || !current || !reason.trim()}>{level === 'off' ? 'Turn off for this project' : 'Save update level'}</button><button type="button" onClick={() => setReason(null)} disabled={action.busy}>Cancel</button></div>
+      <label>Update level<select aria-label="Janitor update level" value={level} onChange={event => setLevel(event.target.value)} disabled={!current || action.busy}><option value="routine">Routine · patch and minor</option><option value="aggressive">Aggressive · including major</option><option value="off">Off</option></select></label>
+      <label>Reason<input aria-label="Reason for janitor setting" value={reason} onChange={event => setReason(event.target.value)} required disabled={!current || action.busy} /></label>
+      <div className="row row-2"><button type="submit" disabled={action.busy || !current || !reason.trim()}>{level === 'off' ? 'Turn off for this project' : 'Save update level'}</button><button type="button" onClick={() => setReason(null)} disabled={!current || action.busy}>Cancel</button></div>
     </form>}
     {action.err && <p className="error" role="alert">{action.err}</p>}
   </>

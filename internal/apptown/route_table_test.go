@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -431,6 +432,7 @@ type described struct {
 // check every request its --json commands send is one of these (jsonAppTown
 // in cmd/apptown/output_test.go).
 var cliOperations = map[string]described{
+	"GET /api/v1/projects/{slug}/scans":          {status: 200, response: httpapi.ProjectScanView{}},
 	"GET /api/v1/features":                       {status: 200, response: []identity.Feature{}},
 	"PUT /api/v1/features/{area}":                {status: 200, strict: true, request: httpapi.FeatureChange{}, response: identity.Feature{}},
 	"GET /api/v1/attention":                      {status: 200, response: attention.View{}},
@@ -442,6 +444,7 @@ var cliOperations = map[string]described{
 	"POST /api/v1/auth/external/bindings":        {status: 200, request: httpapi.ExternalBindRequest{}, response: httpapi.Done{}},
 	"DELETE /api/v1/auth/external/bindings/{id}": {status: 200, response: httpapi.Done{}},
 
+	"POST /api/v1/projects/{slug}/janitor/run":                      {strict: true, request: changeactions.JanitorRun{}, status: 200, response: httpapi.JanitorRunView{}},
 	"POST /api/v1/projects/{slug}/janitor/{queue}/skip":             {request: httpapi.QueueSkip{}, status: 200, response: map[string]bool{"ok": true}},
 	"GET /api/v1/projects/{slug}/janitor/attempts":                  {query: []string{"queue"}, status: 200, response: []workflow.AutomatedAttempt{}},
 	"GET /api/v1/janitor":                                           {status: 200, response: httpapi.JanitorView{}},
@@ -494,7 +497,6 @@ var cliOperations = map[string]described{
 // describedOperations add full schemas at existing non-CLI API doors. They
 // share reflection with CLI descriptions, without claiming CLI usage.
 var describedOperations = map[string]described{
-	"GET /api/v1/projects/{slug}/scans":        {status: 200, response: httpapi.ProjectScanView{}},
 	"GET /api/v1/executor":                     {status: 200, response: httpapi.ExecutorView{}},
 	"GET /api/v1/activity":                     {status: 200, response: httpapi.InstanceActivity{}},
 	"POST /api/v1/projects/{slug}/deployments": {request: httpapi.DeploymentConfigurationRequest{}, strict: true, status: 200, response: deployment.Deployment{}},

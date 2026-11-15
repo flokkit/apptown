@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/database"
@@ -47,7 +48,7 @@ func (q QueueStatus) Stopped() bool { return q.Failed >= queueStopAfter }
 
 // QueueState derives the current episode from retained attempts. Quiet scans and
 // duplicate proposals neither fail an episode nor end it; landed work and a
-// person’s skip or takeover end it.
+// person’s skip, try again or takeover end it.
 func (s *Service) QueueState(ctx context.Context, project ids.ID, queue string) (QueueStatus, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionReadProject, ProjectID: project}); err != nil {
 		return QueueStatus{}, err
@@ -62,7 +63,7 @@ func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queu
 	}
 	currentFailed := false
 	for _, r := range rows {
-		if r.Outcome == "shipped" || r.Outcome == "skipped" {
+		if r.Outcome == "shipped" || r.Outcome == "skipped" || r.Outcome == "retried" {
 			break
 		}
 		if !r.ActiveChangeID.IsZero() {
@@ -317,6 +318,74 @@ func (s *Service) SkipUpdate(ctx context.Context, project ids.ID, queue string, 
 			return err
 		}
 		return workflowsql.New(tx.SQL()).SkipQueueAttempt(ctx, state.ChangeID)
+	})
+}
+
+// TryQueueAgain ends the current automated episode without suppressing its
+// proposals. Closing open work requires the caller's current close authority.
+func (s *Service) TryQueueAgain(ctx context.Context, project ids.ID, queue string, expectedChange ids.ID) error {
+	actor, err := s.MayOpenWork(ctx, project)
+	if err != nil {
+		return err
+	}
+	state, err := s.QueueState(ctx, project, queue)
+	if err != nil {
+		return err
+	}
+	if state.ChangeID != expectedChange {
+		return fault.New(fault.Conflict, "the queue has a different update; read it again before trying again")
+	}
+	if !expectedChange.IsZero() {
+		if _, _, err := s.changeScope(ctx, expectedChange, actionCloseChange); err != nil {
+			return err
+		}
+	}
+	scope, err := s.PrepareStop(ctx, project)
+	if err != nil {
+		return err
+	}
+	defer scope.Close()
+	return s.db.InTx(ctx, func(tx *database.Tx) error {
+		q := workflowsql.New(tx.SQL())
+		if _, err := q.ProjectForUpdate(ctx, project); err != nil {
+			return err
+		}
+		current, err := queueStateIn(ctx, tx, project, queue)
+		if err != nil {
+			return err
+		}
+		if current.ChangeID != expectedChange {
+			return fault.New(fault.Conflict, "the queue has a different update; read it again before trying again")
+		}
+		rows, err := q.QueueAttempts(ctx, workflowsql.QueueAttemptsParams{ProjectID: project, Queue: queue})
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			if row.Outcome == "shipped" || row.Outcome == "skipped" || row.Outcome == "retried" {
+				break
+			}
+			if !row.ActiveChangeID.IsZero() {
+				ch, err := q.ChangeByID(ctx, workflowsql.ChangeByIDParams{ID: row.ActiveChangeID, ProjectID: project})
+				if err != nil {
+					return err
+				}
+				if !ch.Automated {
+					break
+				}
+			}
+			if row.Outcome == "held" || row.ID == expectedChange {
+				if err := q.RetryQueueAttempt(ctx, row.ID); err != nil {
+					return err
+				}
+			}
+		}
+		if !expectedChange.IsZero() {
+			if _, err := scope.AbandonIn(ctx, tx, StopWork{ChangeID: expectedChange, Reason: "Closed to try again"}); err != nil {
+				return err
+			}
+		}
+		return audit.At(s.now()).RecordIn(ctx, tx, actor, project, "queue.try-again", queue, map[string]any{"changeId": expectedChange})
 	})
 }
 

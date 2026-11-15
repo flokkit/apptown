@@ -247,7 +247,7 @@ SELECT change_id FROM runs WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project
 SELECT * FROM automated_changes WHERE project_id=$1 AND ($2::text='' OR queue=$2) ORDER BY opened_at DESC LIMIT $3;
 
 -- name: EndAutomatedChange :exec
-UPDATE automated_changes SET outcome=CASE WHEN outcome IN ('held','skipped') AND sqlc.arg(outcome)::text='abandoned' THEN outcome ELSE sqlc.arg(outcome)::text END, reason=CASE WHEN (outcome IN ('held','skipped') AND sqlc.arg(outcome)::text='abandoned') OR sqlc.arg(reason)::text='' THEN reason ELSE sqlc.arg(reason)::text END, ended_at=sqlc.arg(ended_at) WHERE id=sqlc.arg(id);
+UPDATE automated_changes SET outcome=CASE WHEN outcome IN ('held','skipped','retried') AND sqlc.arg(outcome)::text='abandoned' THEN outcome ELSE sqlc.arg(outcome)::text END, reason=CASE WHEN (outcome IN ('held','skipped','retried') AND sqlc.arg(outcome)::text='abandoned') OR sqlc.arg(reason)::text='' THEN reason ELSE sqlc.arg(reason)::text END, ended_at=sqlc.arg(ended_at) WHERE id=sqlc.arg(id);
 
 -- name: IsAutomatedQueueChange :one
 SELECT EXISTS(SELECT 1 FROM changes c JOIN automated_changes a ON a.id=c.id WHERE c.id=$1 AND c.automated AND a.queue<>'');
@@ -306,3 +306,6 @@ SELECT EXISTS(SELECT 1 FROM changes c
 LEFT JOIN automated_changes a ON a.active_change_id=c.id
 WHERE c.project_id=$1 AND c.type='uplift' AND (c.state='landing' OR (c.state=$2
 AND (NOT c.automated OR COALESCE(a.queue,'') <> 'packs'))));
+
+-- name: RetryQueueAttempt :exec
+UPDATE automated_changes SET outcome='retried' WHERE id=$1;

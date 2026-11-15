@@ -1,6 +1,7 @@
 import { changedFiles } from './janitor/files'
 import { JanitorAttribution } from '../janitorAttribution'
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { TryAgain } from './janitor/TryAgain'
 import { Link } from 'react-router-dom'
 import { useGet, useAction } from '../data'
 import { post } from '../api'
@@ -11,7 +12,7 @@ import { ListTable, type ListColumn } from '../ListTable'
 import { Status } from '../Status'
 import { fmtWhen } from '../format'
 import { RuleConsent } from './janitor/RuleConsent'
-import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, StandingRevision } from '../wire.gen'
+import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, StandingRevision, JanitorRunView } from '../wire.gen'
 
 const projectTo = (p: JanitorProject) => `/projects/${p.slug}#janitor`
 const levelName = (level: string) => level === 'aggressive' ? 'Aggressive · including major' : level === 'routine' ? 'Routine · patch and minor' : level === 'off' ? 'Turned off for this project' : 'Not recorded'
@@ -23,21 +24,34 @@ function ProjectState({ project: p, data, stale }: { project: JanitorProject; da
   if (stale) return <Status word="unknown" help="The latest refresh failed. This is the last answer read." />
   const hold = data.deployments.find(d => d.projectId === p.projectId && d.hold)?.hold
   return <span className="row row-2">
-    {p.state.unknown ? <Status word="unknown" help={p.state.help} /> : <span className="badge record-note">{p.state.word}</span>}
+    {p.state.unknown ? <Status word="unknown" help={p.state.help} /> : (!p.queues.some(q => q.changeId || q.failed) || !p.enabled || p.level === 'off' || p.scans.noRepository) && <span className="badge record-note">{p.state.word}</span>}
     {hold && <span className="badge record-note">{hold.reason === 'release failed' ? `stopped: release ${hold.releaseNumber} to ${hold.displayLabel} failed` : `held back · ${hold.displayLabel}: ${hold.reason}`}</span>}
   </span>
 }
 
-function ScanNow({ project: p, current, reload }: { project: JanitorProject; current: boolean; reload: () => Promise<void> }) {
-  const action = useAction(() => { void reload() })
+type RunRegistration = (slug: string, run?: () => Promise<void>) => void
+
+function RunNow({ project: p, current, reload, register, bulk }: { project: JanitorProject; current: boolean; reload: () => Promise<void>; register: RunRegistration; bulk: boolean }) {
+  const { run: runAction, busy, err } = useAction(() => { void reload() })
+  const [result, setResult] = useState<JanitorRunView>()
   const mayCreate = useHolds('change:create', p.slug)
   const mayStart = useHolds('change:invoke-lane', p.slug)
-  const reason = p.scanNow || (!mayCreate || !mayStart ? 'Needs permission to start work' : '')
+  const reason = p.runNow || (!mayCreate || !mayStart ? 'Needs permission to start work' : '')
+  const run = useCallback(async () => {
+    await runAction(async () => { setResult(undefined); setResult(await post<JanitorRunView>(`/projects/${encodeURIComponent(p.slug)}/janitor/run`, { queue: '', again: false, changeId: '' })) })
+  }, [runAction, p.slug])
+  useEffect(() => {
+    register(p.slug, !reason && current && !busy ? run : undefined)
+    return () => register(p.slug)
+  }, [register, p.slug, reason, current, busy, run])
   return <>
-    <button type="button" disabled={!!reason || !current || action.busy} title={reason || undefined}
-      onClick={() => action.run(() => post(`/projects/${encodeURIComponent(p.slug)}/schedules/${encodeURIComponent(p.scanWorkflow)}/run`, {}))}>Scan now</button>
-    {reason && <div className="muted record-note">{reason}{p.scanChangeId && <> · <Link to={`/changes/${p.scanChangeId}`}>change #{p.scanChangeNumber}</Link></>}</div>}
-    {action.err && <div className="error record-note">{action.err}</div>}
+    <button type="button" disabled={!!reason || !current || busy || bulk} title={reason || undefined} onClick={run}>Run now</button>
+    {reason && <div className="muted record-note">{reason}</div>}
+    {result?.starts.filter(s => s.refused || s.whatIfId || s.current).map((s, i) => <div className="record-note" key={i}>
+      {p.queues.find(q => q.queue === s.queue)?.title || s.queue}: {s.refused || (s.whatIfId ? <Link to={`/conformance/what-ifs/${s.whatIfId}`}>assessment started</Link> : 'up to date')}
+      {s.busyChangeId && p.queues.filter(q => q.queue === s.queue).map(queue => <span key={queue.queue}> · <Link to={`/changes/${s.busyChangeId}`}>change #{s.busyChangeNumber}</Link> · <TryAgain refusedRun queue={{ ...queue, changeId: s.busyChangeId, changeNumber: s.busyChangeNumber }} slug={p.slug} current={current && !bulk} reload={reload} /></span>)}
+    </div>)}
+    {err && <div className="error record-note">{err}</div>}
   </>
 }
 
@@ -139,21 +153,36 @@ function History({ projects }: { projects: JanitorProject[] }) {
 export default function Janitor() {
   const q = useGet<JanitorView>('/janitor', { poll: 10000 })
   const data = q.data
+  const runs = useRef(new Map<string, () => Promise<void>>())
+  const [ready, setReady] = useState(0)
+  const [bulk, setBulk] = useState(false)
+  const register = useCallback<RunRegistration>((slug, run) => {
+    if (run) runs.current.set(slug, run); else runs.current.delete(slug)
+    setReady(runs.current.size)
+  }, [])
+  const runAll = async () => {
+    setBulk(true)
+    const pending = [...runs.current.keys()]
+    const worker = async () => { while (pending.length) { const slug = pending.shift()!; await runs.current.get(slug)?.() } }
+    try { await Promise.all([worker(), worker()]) } finally { setBulk(false) }
+  }
   const columns: ListColumn<JanitorProject>[] = [
     { key: 'project', label: 'Project', phone: 'name', render: p => <Link to={projectTo(p)}>{p.name}</Link> },
-    { key: 'state', label: 'State', phone: 'state', render: p => <ProjectState project={p} data={data!} stale={q.refreshFailed} /> },
+    { key: 'state', label: 'State', phone: 'state', className: 'record-note small', render: p => <><ProjectState project={p} data={data!} stale={q.refreshFailed} />{p.queues.filter(queue => queue.changeId || queue.failed).map(queue => <div key={queue.queue} className="record-note">
+      {queue.title}: {queue.words}{queue.changeId && <> · <Link to={`/changes/${queue.changeId}`}>change #{queue.changeNumber}</Link></>} <TryAgain queue={queue} slug={p.slug} current={q.current && !bulk} reload={q.reload} />
+    </div>)}</> },
     { key: 'scan', label: 'Last scan', kind: 'time', render: p => <>{date(p.scans.lastScan)}{p.scans.stale && <span className="badge">Old scan</span>}</> },
     { key: 'findings', label: 'Findings', kind: 'number', render: p => p.scans.known ? new Set([...p.scans.source.flatMap(s => s.findings), ...p.scans.running.flatMap(s => s.findings)].map(f => f.fingerprint)).size : 'Not known' },
     { key: 'next', label: 'Next update', render: p => p.nextReason || date(p.nextUpdate) },
     { key: 'level', label: 'Level', render: p => <>{levelName(p.level)}<div>{p.choice ? `${p.choice.person.name} · ${date(p.choice.at)}` : p.issuer.name ? `${p.issuer.name} · ${date(p.grantedAt)}` : 'Nobody has enabled updates'}</div></> },
-    { key: 'scan-now', label: '', phone: 'action', render: p => <ScanNow project={p} current={q.current} reload={q.reload} /> },
+    { key: 'run-now', label: '', phone: 'action', render: p => <RunNow project={p} current={q.current} reload={q.reload} register={register} bulk={bulk} /> },
   ]
   const images = data?.projects.filter(p => p.scans.running.some(s => s.imageOnlyFindings.length > 0)).length ?? 0
   return <div>
     <h1>Janitor</h1><p>Keeps projects updated within the limits people grant. <Link to="/docs/guides/janitor">Janitor guide</Link></p>
     <Section title="What it is allowed to do"><ReadStatus q={q} what="janitor approvals" /><StaleNote q={q} />{data && <Rules data={data} current={q.current} reload={q.reload} />}</Section>
     <Section title="How it handles problems"><ReadStatus q={q} what="janitor settings" /><StaleNote q={q} />{data && <Problems data={data} /> }</Section>
-    <Section title="What it is doing and waiting on"><ReadStatus q={q} what="projects’ janitor state" /><StaleNote q={q} />{data && <>
+    <Section title="What it is doing and waiting on" action={<button disabled={!q.current || !ready || bulk} onClick={runAll}>Run now for all projects</button>}><ReadStatus q={q} what="projects’ janitor state" /><StaleNote q={q} />{data && <>
       {data.projects.length ? <ListTable label="Projects’ janitor state" columns={columns} rows={data.projects} rowKey={p => p.projectId!} rowTo={projectTo} /> : <p>No projects yet.</p>}
       {images > 0 && <p>{images} apps’ images need a base-image update; the janitor does not do this yet.</p>}
     </>}</Section>

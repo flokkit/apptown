@@ -17,7 +17,7 @@ const actor = { name: 'Sam', principal: 'person', via: 'session' }
 const queue = (name: string, stopped = false) => ({ title: name === 'updates' ? 'Dependency updates' : name === 'packs' ? 'Pack updates' : 'Security fixes', queue: name, state: stopped ? 'stopped' : 'up_to_date', words: stopped ? 'stopped after 3 failed tries' : 'up to date', failed: stopped ? 3 : 0, reason: '', since: at, files: [], packages: [], changeNumber: 0 })
 const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name: `${id} app`, enabled: true, level: 'routine', state: { word: 'up to date', unknown: false, help: '' }, issuer: actor, grantedAt: at,
  queues: [queue('security'), queue('updates'), queue('packs')], scans: { main: 'abc', source: [], running: [], historical: [], unscheduled: false, noRepository: false, known: true, stale: false, lastScan: at },
- problem: '', procedures: [{ title: 'Declared dependency care', workflow: 'janitor-update', version: 7, repairRounds: 4, stopRule: 'Weekly updates stop after 3 failed tries; security fixes can still run.', sentence: 'Up to 4 repair sessions; then asks Sam.', problem: '' }], queueSentences: ['Security fixes stop after 3 failed tries.', 'Weekly updates stopped after 3 failed tries. Security fixes can still run.'], nextUpdate: at, nextReason: '', scanWorkflow: 'discover-issues', scanChangeNumber: 0, scanNow: '' })
+ problem: '', procedures: [{ title: 'Declared dependency care', workflow: 'janitor-update', version: 7, repairRounds: 4, stopRule: 'Weekly updates stop after 3 failed tries; security fixes can still run.', sentence: 'Up to 4 repair sessions; then asks Sam.', problem: '' }], queueSentences: ['Security fixes stop after 3 failed tries.', 'Weekly updates stopped after 3 failed tries. Security fixes can still run.'], nextUpdate: at, nextReason: '', runNow: '' })
 const rule = (packs = false, enabled = true): StandingRevision => ({ ruleId: packs ? 'pack-rule' : 'dependency-rule', revision: 3, enabled, issuer: actor, enabledAt: at, changedBy: actor, changedAt: at, reason: '', question: { definition: packs ? packDefinition : dependencyDefinition(), shown: 'The exact approval meaning.', digest: 'meaning', projects: [], baseImageFindings: { images: 0, projects: 0, message: '' } } })
 function fixture(): JanitorView {
  const stopped = project('Stopped'); stopped.queues[1] = queue('updates', true); stopped.state.word = stopped.queueSentences[1]
@@ -42,7 +42,7 @@ it('answers all four questions from records, with row links, grant attribution a
  const { client, el } = await mount(async url => json(url.includes('/history') ? history() : fixture()))
  await settled(client)
  expect([...el.querySelectorAll('h2')].map(h => h.textContent)).toEqual(['What it is allowed to do', 'How it handles problems', 'What it is doing and waiting on', 'What it has done'])
- for (const text of ['Keep packs current', 'Routine · patch and minor', 'Up to 4 repair sessions', 'Security fixes can still run', 'Weekly updates stopped after 3 failed tries.', 'stopped: release 9 to Customer office failed', 'turned off for this project', 'Waiting for a release', 'library 1.0.0 → 1.1.0', 'Customer office · release 8', 'Dependency updates approval for all projects (revision 1), granted by Sam']) expect(el.textContent).toContain(text)
+ for (const text of ['Keep packs current', 'Routine · patch and minor', 'Up to 4 repair sessions', 'security fixes can still run', 'Dependency updates: stopped after 3 failed tries', 'stopped: release 9 to Customer office failed', 'turned off for this project', 'Waiting for a release', 'library 1.0.0 → 1.1.0', 'Customer office · release 8', 'Dependency updates approval for all projects (revision 1), granted by Sam']) expect(el.textContent).toContain(text)
  expect(el.querySelector('a[href="/docs/guides/janitor"]')).not.toBeNull()
  expect(el.querySelector('table[aria-label="Projects’ janitor state"] a[href="/projects/Stopped#janitor"]')?.closest('tr')?.dataset.linked).toBe('true')
  expect(el.querySelector('a[href="/changes/landed?tab=details"]')).not.toBeNull()
@@ -248,24 +248,24 @@ it('omits identical project lists from shared queue policy and shows both off-ru
 
 it('starts a project’s scan from its row and greys the action with the reason it cannot', async () => {
  const data = fixture()
- data.projects[1].scanNow = 'Turned off'
- data.projects[2] = { ...data.projects[2], level: 'routine', choice: undefined, scanNow: 'Already running: change #9', scanChangeId: 'scan-change', scanChangeNumber: 9, queues: [{ ...queue('security'), state: 'updating', changeId: 'scan-change', changeNumber: 9 }, queue('updates'), queue('packs')] }
+ data.projects[1].runNow = 'Turned off'
+ data.projects[2] = { ...data.projects[2], level: 'routine', choice: undefined, runNow: '', queues: [{ ...queue('security'), state: 'updating', changeId: 'scan-change', changeNumber: 9 }, queue('updates'), queue('packs')] }
  const posts: string[] = []
  let refuse = false
  const { client, el } = await mount(async (url, init) => {
-  if (init?.method === 'POST') { posts.push(url); return refuse ? new Response(JSON.stringify({ error: 'already running: change #4' }), { status: 409 }) : json({ changeId: 'new', changeNumber: 10 }) }
+  if (init?.method === 'POST') { posts.push(url); return refuse ? new Response(JSON.stringify({ error: 'already running: change #4' }), { status: 409 }) : json({ starts: [] }) }
   return json(url.includes('/history') ? history() : data)
  })
  await settled(client)
  const row = (slug: string) => el.querySelector(`table[aria-label="Projects’ janitor state"] a[href="/projects/${slug}#janitor"]`)!.closest('tr')!
- const scan = (slug: string) => [...row(slug).querySelectorAll('button')].find(b => b.textContent === 'Scan now')!
+ const scan = (slug: string) => [...row(slug).querySelectorAll('button')].find(b => b.textContent === 'Run now')!
  expect(scan('Held').disabled).toBe(true)
  expect(row('Held').textContent).toContain('Turned off')
- expect(scan('Off').disabled).toBe(true)
+ expect(scan('Off').disabled).toBe(false)
  expect(row('Off').querySelector('a[href="/changes/scan-change"]')?.textContent).toBe('change #9')
  expect(scan('Stopped').disabled).toBe(false)
  await act(async () => scan('Stopped').click()); await settled(client)
- expect(posts).toEqual(['/api/v1/projects/Stopped/schedules/discover-issues/run'])
+ expect(posts).toEqual(['/api/v1/projects/Stopped/janitor/run'])
  refuse = true
  await act(async () => scan('Stopped').click()); await settled(client)
  await vi.waitFor(() => expect(row('Stopped').textContent).toContain('already running: change #4'))
@@ -276,7 +276,7 @@ it('greys the scan action when the person lacks either permission to start work'
   const { client, el } = await mount(async url => json(url.includes('/history') ? history() : fixture()), true, project)
   await settled(client)
   const row = el.querySelector('table[aria-label="Projects’ janitor state"] a[href="/projects/Stopped#janitor"]')!.closest('tr')!
-  expect([...row.querySelectorAll('button')].find(b => b.textContent === 'Scan now')!.disabled).toBe(true)
+  expect([...row.querySelectorAll('button')].find(b => b.textContent === 'Run now')!.disabled).toBe(true)
   expect(row.textContent).toContain('Needs permission to start work')
   cleanup.splice(0).forEach(f => f())
  }
@@ -306,3 +306,90 @@ it('preserves an exact project pack approval when previewing its categories', as
  expect(state.textContent).toContain('waiting for a person')
  expect(state.textContent).toContain('stopped: release 9 to Customer office failed')
  })
+
+it('tries the named queue again with the open change it showed and reports a failed restart', async () => {
+ const data = fixture()
+ data.projects[0].queues[1] = { ...queue('updates', true), changeId: 'blocked-change', changeNumber: 16 }
+ const posts: unknown[] = []
+ const { client, el } = await mount(async (url, init) => {
+  if (init?.method === 'POST') {
+   posts.push(JSON.parse(String(init.body)))
+   return json({ starts: [{ queue: 'updates', refused: 'The update could not start' }] })
+  }
+  return json(url.includes('/history') ? history() : data)
+ }, true, { 'change:create': true, 'change:invoke-lane': true, 'change:abandon': true })
+ await settled(client)
+ const row = el.querySelector('a[href="/projects/Stopped#janitor"]')!.closest('tr')!
+ expect(row.textContent).toContain('Dependency updates: stopped after 3 failed tries')
+ expect(row.querySelector('a[href="/changes/blocked-change"]')?.textContent).toBe('change #16')
+ const again = [...row.querySelectorAll('button')].find(b => b.textContent === 'Close and try again')!
+ await act(async () => again.click()); await settled(client)
+ expect(posts).toEqual([{ queue: 'updates', again: true, changeId: 'blocked-change' }])
+ expect(row.textContent).toContain('The update could not start')
+})
+
+it('runs each enabled row once with at most two projects in flight and keeps results on the rows', async () => {
+ const data = fixture()
+ data.projects = [project('one'), project('two'), project('three'), { ...project('off'), runNow: 'Turned off for this project' }]
+ const posts: { url: string; body: unknown }[] = []
+ let active = 0, most = 0
+ const release: (() => void)[] = []
+ const { client, el } = await mount(async (url, init) => {
+  if (init?.method === 'POST') {
+   posts.push({ url, body: JSON.parse(String(init.body)) }); active++; most = Math.max(most, active)
+   await new Promise<void>(resolve => release.push(resolve))
+   active--
+   return json({ starts: [{ queue: 'packs', current: true }] })
+  }
+  return json(url.includes('/history') ? history() : data)
+ })
+ await settled(client)
+ await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Run now for all projects')!.click())
+ expect(posts).toHaveLength(2)
+ await act(async () => release.splice(0).forEach(done => done()))
+ await vi.waitFor(() => expect(posts).toHaveLength(3))
+ await act(async () => release.splice(0).forEach(done => done()))
+ await settled(client)
+ expect(most).toBe(2)
+ expect(posts.map(p => p.url).sort()).toEqual(['one', 'two', 'three'].map(s => `/api/v1/projects/${s}/janitor/run`).sort())
+ for (const p of posts) expect(p.body).toEqual({ queue: '', again: false, changeId: '' })
+ expect(el.textContent?.match(/Pack updates: up to date/g)).toHaveLength(3)
+})
+
+it.each(['waiting', 'updating', 'stuck', 'stopped'])('reserves ordinary recovery for failed queues: %s', async state => {
+ const data = fixture(); data.projects = [project('one')]
+ data.projects[0].queues = [{ ...queue('updates'), state, words: `${state} progress`, failed: state === 'stopped' ? 3 : 0, changeId: 'current', changeNumber: 5 }]
+ data.projects[0].state.word = 'Aggregate queue sentence'
+ const posts: unknown[] = []
+ const { client, el } = await mount(async (url, init) => {
+  if (init?.method === 'POST') { posts.push(JSON.parse(String(init.body))); return json({ starts: [{ queue: 'updates', refused: 'Already running', busyChangeId: 'current', busyChangeNumber: 5 }] }) }
+  return json(url.includes('/history') ? history() : data)
+ }, true, { 'change:create': true, 'change:invoke-lane': true, 'change:abandon': true })
+ await settled(client)
+ const row = el.querySelector('a[href="/projects/one#janitor"]')!.closest('tr')!
+ expect(row.textContent).toContain(`${state} progress`)
+ expect(row.textContent).not.toContain('Aggregate queue sentence')
+ expect(row.querySelector('a[href="/changes/current"]')).not.toBeNull()
+ const retries = () => [...row.querySelectorAll('button')].filter(b => b.textContent === 'Close and try again')
+ expect(retries()).toHaveLength(state === 'stuck' || state === 'stopped' ? 1 : 0)
+ if (state === 'waiting' || state === 'updating') {
+  await act(async () => [...row.querySelectorAll('button')].find(b => b.textContent === 'Run now')!.click()); await settled(client)
+  expect(retries()).toHaveLength(1)
+  await act(async () => retries()[0].click()); await settled(client)
+  expect(posts[1]).toEqual({ queue: 'updates', again: true, changeId: 'current' })
+ }
+})
+
+it.each(['off', 'disabled', 'no repository', 'unknown'])('preserves %s words alongside queue details', async state => {
+ const data = fixture(); data.projects = [data.projects[0]]
+ const p = data.projects[0]
+ p.state = { word: state, unknown: state === 'unknown', help: 'Read failed' }
+ if (state === 'off') p.level = 'off'
+ if (state === 'disabled') p.enabled = false
+ if (state === 'no repository') p.scans.noRepository = true
+ const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data))
+ await settled(client)
+ const cell = el.querySelector('td[data-label="State"]')!
+ expect(cell.textContent).toContain(state)
+ expect(cell.textContent).toContain('Dependency updates: stopped after 3 failed tries')
+})

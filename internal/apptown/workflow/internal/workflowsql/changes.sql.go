@@ -639,7 +639,7 @@ func (q *Queries) EditChangeTitle(ctx context.Context, arg EditChangeTitleParams
 }
 
 const endAutomatedChange = `-- name: EndAutomatedChange :exec
-UPDATE automated_changes SET outcome=CASE WHEN outcome IN ('held','skipped') AND $1::text='abandoned' THEN outcome ELSE $1::text END, reason=CASE WHEN (outcome IN ('held','skipped') AND $1::text='abandoned') OR $2::text='' THEN reason ELSE $2::text END, ended_at=$3 WHERE id=$4
+UPDATE automated_changes SET outcome=CASE WHEN outcome IN ('held','skipped','retried') AND $1::text='abandoned' THEN outcome ELSE $1::text END, reason=CASE WHEN (outcome IN ('held','skipped','retried') AND $1::text='abandoned') OR $2::text='' THEN reason ELSE $2::text END, ended_at=$3 WHERE id=$4
 `
 
 type EndAutomatedChangeParams struct {
@@ -1744,6 +1744,15 @@ func (q *Queries) RequestSummaryOpen(ctx context.Context, arg RequestSummaryOpen
 	var open sql.NullBool
 	err := row.Scan(&open)
 	return open, err
+}
+
+const retryQueueAttempt = `-- name: RetryQueueAttempt :exec
+UPDATE automated_changes SET outcome='retried' WHERE id=$1
+`
+
+func (q *Queries) RetryQueueAttempt(ctx context.Context, id ids.ID) error {
+	_, err := q.db.ExecContext(ctx, retryQueueAttempt, id)
+	return err
 }
 
 const runChangeMeta = `-- name: RunChangeMeta :one
