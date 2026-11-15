@@ -1,3 +1,4 @@
+import { fmtStamp } from '../../format'
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { ChangeView } from '../../api'
@@ -104,6 +105,10 @@ it('attributes the original janitor grant separately from later work and names u
  const head = () => renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeHeader view={v} /></QueryClientProvider></MemoryRouter>)
  expect(head()).toContain('the janitor, under the Dependency updates approval for all projects (revision 2), granted by Priya')
  expect(head()).not.toContain('Asked by apptown-system')
+ expect(head()).toContain(fmtStamp(v.change.janitor.grantedAt))
+ const compact = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeHeader view={v} compact /></QueryClientProvider></MemoryRouter>)
+ expect(compact).toContain('granted by Priya')
+ expect(compact).toContain(fmtStamp(v.change.janitor.grantedAt))
  v.change.janitor = { ...v.change.janitor, ruleId: undefined, ruleRevision: 0, schedule: 'Weekly updates' }
  expect(head()).toContain('The janitor, from schedule Weekly updates')
 })

@@ -28,8 +28,8 @@ person can inspect those values. A project on an older version runs that version
 Recorded revisions, sentences and digests remain unchanged.
 
 Workflow owns queue state words, shared by Attention and both Janitor views.
-Stuck dates use the UTC day. The Janitor page shows deployment holds beside
-the project state; a hold does not hide queue activity.
+Stuck dates use the UTC day. The Janitor overview lists deployment holds and
+queue problems in Needs you; a hold does not hide queue activity.
 
 Queues take their names and titles from adopted standing triggers. Procedures
 show the repair limits of those workflows and the workflows they call. Pack
@@ -109,20 +109,19 @@ another new rule; an unknown response is not proof the save failed.
 
 ## Janitor page
 
-`/janitor` is the home for standing rules and their existing preview, enable and
-revoke operations. Instance readers can read the rules; management retains its
-verified-person and capability checks. The Packs page links here. Project rows
-open the project's Janitor section, which links back to this page.
+`/janitor` shows what is on, work that needs a person, each project's short
+state and last checked time, and recent landed Changes. Queue problems, release
+holds and base-image findings appear in Needs you. Unknown scan or schedule
+reads remain visibly not known, including beside work that needs a person.
+Project rows open the project's Janitor section; recent work opens the Change's
+Changes tab, and its release summary opens Details. Only successful releases
+count as released.
 
-The page shows each rule's bounds, current scope, automatic release destinations
-and original grant. Project choices retain the person, time and reason under
-their rule. Repair sentences read the adopted `janitor-fix`, `janitor-update`
-and `janitor-adopt` definitions. Queue sentences use the same stop bound as
-admission, separately for security, dependency and pack work. Shared queue rules
-appear once per adopted version; current stopped work appears with project state.
-The release settings table lists automatic destinations covered by an enabled
-rule and reads their current settings; release holds use the existing ledger
-classifier.
+`/janitor/settings` holds standing approvals and their preview, enable and
+revoke operations, project choices with person, time and reason, adopted repair
+limits and release holds. Automatic release destinations name only exceptions
+to all deployments; release settings list only time windows. Instance readers
+can read the rules; management retains its verified-person and capability checks.
 
 Workflow owns the instance project-state and landed-Change reads, fenced by the
 caller's readable project set before paging. Deployment owns the instance settings,
@@ -132,7 +131,7 @@ older history use landing time, with deterministic identity ordering for
 simultaneous landings. Package
 moves come from retained attempts; pack versions come from the Change's immutable
 adoption candidate. Original grant attribution reads the recorded rule revision,
-including for failed work whose Change is purged. Every attribution names the recorded rule’s kind and scope, its revision and issuer, with a link to Janitor. Project scopes name only projects the caller can read and count the other projects. The Change heading shows that original firing grant separately from later acceptance votes, including when the votes use a different rule. Vote labels read the referenced revision from the standing-rule history. Missing or stale scan evidence
+including for failed work whose Change is purged. Every attribution names the recorded rule’s kind and scope, its revision and issuer, with a link to Janitor. Project scopes name only projects the caller can read and count the other projects. The Change heading shows that original firing grant and its time on every tab, separately from later acceptance votes, including when the votes use a different rule. Vote labels read the referenced revision from the standing-rule history. Missing or stale scan evidence
 and failed refreshes remain visibly different from clean or empty answers.
 
 The Janitor project set contains ordinary projects with no lifecycle row.
@@ -260,7 +259,7 @@ A `fix` step dispatches pack adoption. A pinned workflow's dependency `fix` step
 errors: this pack version’s dependency update is no longer supported; adopt the
 current platform pack. Existing approvals keep their recorded meaning. After a
 project adopts a workflow with a different meaning, its old approval is ineligible;
-a person uses Revoke, Preview and Enable on the Janitor page to consent again.
+a person uses Revoke, Preview and Enable in Janitor settings to consent again.
 
 A repair agent with `repairRounds: N` stays dormant until a check fails. Its
 session count is bounded over the run's lifetime. The stock workflows allow two
@@ -298,7 +297,7 @@ the general entry for any carried schedule). The firing is the scheduler's
 own: the Change is opened through the schedule under the eligible rule, and
 `schedule.run-requested` records the person. A busy or stopped queue, a missing
 schedule or a missing eligible rule is refused and records no firing.
-The Janitor page's **Run now** fires every adopted standing queue in that project
+**Run now** in the project's Janitor section fires every adopted standing queue
 through its nightly start. **Run now for all projects** requests each eligible
 project, two at a time; leaving the page leaves remaining projects unstarted.
 `POST /api/v1/projects/{slug}/janitor/run` selects all queues or one named queue.

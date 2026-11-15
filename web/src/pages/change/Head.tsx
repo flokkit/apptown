@@ -63,8 +63,9 @@ export function ChangeHeader({ view, compact }: { view: ChangeView; compact?: bo
         {!compact && <><WaitingStatus waiting={view.waitingOn} changeId={view.change.id} />{advice.text && advice.recommend && <span>{recommendationWords(advice.recommend)}</span>}</>}
         {ch.provenance && <span className="badge" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
       </div>
+      {ch.janitor?.ruleId && <div className="ch-byline"><JanitorAttribution rule={ch.janitor.rule!} revision={ch.janitor.ruleRevision} issuer={ch.janitor.issuer.name} /> · {fmtStamp(ch.janitor.grantedAt)}</div>}
       {!compact && <div className="ch-byline">
-        {ch.janitor?.ruleId && <><JanitorAttribution rule={ch.janitor.rule!} revision={ch.janitor.ruleRevision} issuer={ch.janitor.issuer.name} /> · </>}
+
         {[
           ch.janitor ? ch.janitor.ruleId ? null : ch.janitor.schedule ? `The janitor, from schedule ${ch.janitor.schedule}` : 'The janitor · origin not recorded' : ch.automatedOrigin ? 'Janitor origin not known' : ch.openedBy && `Asked by ${ch.openedBy}`,
           `Opened ${fmtStamp(ch.createdAt)}`,

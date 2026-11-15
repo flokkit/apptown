@@ -3,7 +3,6 @@ package deployment
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
@@ -17,18 +16,13 @@ type JanitorDeployment struct {
 	Name         string         `json:"name"`
 	DisplayLabel string         `json:"displayLabel"`
 	Setting      RoutineUpdates `json:"setting"`
-	Protected    bool           `json:"protected"`
 	Automatic    bool           `json:"automatic"`
-	Sentence     string         `json:"sentence"`
 	Hold         *JanitorHold   `json:"hold,omitempty"`
 }
 
 type JanitorChangeRelease struct {
 	ChangeID     ids.ID `json:"changeId"`
-	ProjectID    ids.ID `json:"projectId"`
-	Number       int64  `json:"number"`
 	State        string `json:"state"`
-	Deployment   string `json:"deployment"`
 	DisplayLabel string `json:"displayLabel"`
 }
 
@@ -80,29 +74,13 @@ func (s *Service) JanitorDeployments(ctx context.Context, projects []ids.ID) ([]
 			return nil, err
 		}
 		protected := (&Deployment{Audience: row.Audience, DataClass: row.DataClass}).Protected()
-		item := JanitorDeployment{ProjectID: row.ProjectID, DeploymentID: row.ID, Name: row.Name, DisplayLabel: row.DisplayLabel, Setting: setting, Protected: protected, Automatic: !protected && setting.Mode != "person", Sentence: janitorReleaseSentence(setting, protected)}
+		item := JanitorDeployment{ProjectID: row.ProjectID, DeploymentID: row.ID, Name: row.Name, DisplayLabel: row.DisplayLabel, Setting: setting, Automatic: !protected && setting.Mode != "person"}
 		if hold, ok := holds[row.ID]; ok {
 			item.Hold = &hold
 		}
 		out = append(out, item)
 	}
 	return out, nil
-}
-
-func janitorReleaseSentence(setting RoutineUpdates, protected bool) string {
-	sentence := "Release setting not known."
-	switch setting.Mode {
-	case "automatic":
-		sentence = "Releases accepted updates automatically."
-	case "person":
-		sentence = "Releases accepted updates when a person says."
-	case "window":
-		sentence = fmt.Sprintf("Releases accepted updates on %s, %s–%s (%s).", setting.Days, setting.From, setting.To, setting.Zone)
-	}
-	if protected {
-		return "Selected setting: " + sentence + " A person must approve each release to this protected deployment."
-	}
-	return sentence
 }
 
 // JanitorReleaseHoldSentence describes the same release-health rule used by
@@ -121,7 +99,7 @@ func (s *Service) JanitorChangeReleases(ctx context.Context, projects, changes [
 	}
 	out := make([]JanitorChangeRelease, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, JanitorChangeRelease{ChangeID: r.ChangeID, ProjectID: r.ProjectID, Number: r.Number, State: r.State, Deployment: r.Deployment, DisplayLabel: r.DisplayLabel})
+		out = append(out, JanitorChangeRelease{ChangeID: r.ChangeID, State: r.State, DisplayLabel: r.DisplayLabel})
 	}
 	return out, nil
 }

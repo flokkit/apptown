@@ -1,122 +1,41 @@
-import { changedFiles } from './janitor/files'
-import { JanitorAttribution } from '../janitorAttribution'
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { TryAgain } from './janitor/TryAgain'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet, useAction } from '../data'
 import { post } from '../api'
-import { useHolds } from '../instancePages'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { Section } from '../Section'
 import { ListTable, type ListColumn } from '../ListTable'
 import { Status } from '../Status'
 import { fmtWhen } from '../format'
-import { RuleConsent } from './janitor/RuleConsent'
-import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, StandingRevision, JanitorRunView } from '../wire.gen'
+import { TryAgain } from './janitor/TryAgain'
+import { firstLine } from './change/Head'
+import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, JanitorRunView, QueueStatus } from '../wire.gen'
 
 const projectTo = (p: JanitorProject) => `/projects/${p.slug}#janitor`
-const levelName = (level: string) => level === 'aggressive' ? 'Aggressive · including major' : level === 'routine' ? 'Routine · patch and minor' : level === 'off' ? 'Turned off for this project' : 'Not recorded'
 const date = (value?: string) => value && !value.startsWith('0001-') ? fmtWhen(value) : 'Not known'
-const covers = (r: StandingRevision, p: JanitorProject) => r.question.definition.scope === 'instance' || r.question.definition.projects.some(scope => scope.projectId === p.projectId)
 
-
-function ProjectState({ project: p, data, stale }: { project: JanitorProject; data: JanitorView; stale: boolean }) {
-  if (stale) return <Status word="unknown" help="The latest refresh failed. This is the last answer read." />
-  const hold = data.deployments.find(d => d.projectId === p.projectId && d.hold)?.hold
-  return <span className="row row-2">
-    {p.state.unknown ? <Status word="unknown" help={p.state.help} /> : (!p.queues.some(q => q.changeId || q.failed) || !p.enabled || p.level === 'off' || p.scans.noRepository) && <span className="badge record-note">{p.state.word}</span>}
-    {hold && <span className="badge record-note">{hold.reason === 'release failed' ? `stopped: release ${hold.releaseNumber} to ${hold.displayLabel} failed` : `held back · ${hold.displayLabel}: ${hold.reason}`}</span>}
-  </span>
-}
-
-type RunRegistration = (slug: string, run?: () => Promise<void>) => void
-
-function RunNow({ project: p, current, reload, register, bulk }: { project: JanitorProject; current: boolean; reload: () => Promise<void>; register: RunRegistration; bulk: boolean }) {
-  const { run: runAction, busy, err } = useAction(() => { void reload() })
-  const [result, setResult] = useState<JanitorRunView>()
-  const mayCreate = useHolds('change:create', p.slug)
-  const mayStart = useHolds('change:invoke-lane', p.slug)
-  const reason = p.runNow || (!mayCreate || !mayStart ? 'Needs permission to start work' : '')
-  const run = useCallback(async () => {
-    await runAction(async () => { setResult(undefined); setResult(await post<JanitorRunView>(`/projects/${encodeURIComponent(p.slug)}/janitor/run`, { queue: '', again: false, changeId: '' })) })
-  }, [runAction, p.slug])
-  useEffect(() => {
-    register(p.slug, !reason && current && !busy ? run : undefined)
-    return () => register(p.slug)
-  }, [register, p.slug, reason, current, busy, run])
-  return <>
-    <button type="button" disabled={!!reason || !current || busy || bulk} title={reason || undefined} onClick={run}>Run now</button>
-    {reason && <div className="muted record-note">{reason}</div>}
-    {result?.starts.filter(s => s.refused || s.whatIfId || s.current).map((s, i) => <div className="record-note" key={i}>
-      {p.queues.find(q => q.queue === s.queue)?.title || s.queue}: {s.refused || (s.whatIfId ? <Link to={`/conformance/what-ifs/${s.whatIfId}`}>assessment started</Link> : 'up to date')}
-      {s.busyChangeId && p.queues.filter(q => q.queue === s.queue).map(queue => <span key={queue.queue}> · <Link to={`/changes/${s.busyChangeId}`}>change #{s.busyChangeNumber}</Link> · <TryAgain refusedRun queue={{ ...queue, changeId: s.busyChangeId, changeNumber: s.busyChangeNumber }} slug={p.slug} current={current && !bulk} reload={reload} /></span>)}
-    </div>)}
-    {err && <div className="error record-note">{err}</div>}
-  </>
-}
-
-function Rules({ data, current, reload }: { data: JanitorView; current: boolean; reload: () => Promise<void> }) {
-  const rows: { key: string; packs: boolean; rule?: StandingRevision }[] = data.rules.map(rule => ({ key: rule.ruleId!, packs: rule.question.definition.categories.waysOfWorking, rule }))
-  for (const packs of [false, true]) if (!rows.some(r => r.packs === packs && r.rule?.question.definition.scope === 'instance')) rows.push({ key: packs ? 'packs-off' : 'dependencies-off', packs })
-  const columns: ListColumn<typeof rows[number]>[] = [
-    { key: 'what', label: 'Change and limit', phone: 'name', render: r => <><strong>{r.packs ? 'Keep packs current' : 'Dependency updates'}</strong><div>{r.packs ? 'Newest published pack versions' : levelName(r.rule?.question.definition.categories.dependencies || 'routine')}</div>{r.rule?.question.definition.categories.securityFixes && <div>Security fixes within the same limits</div>}<span className="badge">{r.rule?.enabled ? 'On' : 'Turned off'}</span></> },
-    { key: 'scope', label: 'Projects', render: r => <>
-      {!r.rule || r.rule.question.definition.scope === 'instance' ? 'All projects, including new ones' : data.projects.filter(p => covers(r.rule!, p)).map(p => p.name).join(', ')}
-      {data.projects.filter(p => p.choice && (!r.packs || p.level === 'off') && (!r.rule || covers(r.rule, p))).map(p => <div key={p.projectId}><Link to={projectTo(p)}>{p.name}</Link> · {levelName(p.level)} · {p.choice!.person.name}, {date(p.choice!.at)} · {p.choice!.reason}</div>)}
-    </> },
-    { key: 'releases', label: 'Automatic releases', render: r => {
-      const projects = data.projects.filter(p => r.rule && covers(r.rule, p) && p.level !== 'off')
-      const definition = r.rule?.question.definition
-      const selected = definition?.projects.flatMap(p => p.environments.map(e => e.deploymentId)) ?? []
-      const deps = data.deployments.filter(d => r.rule?.enabled && definition?.delivery === 'full' && d.automatic && projects.some(p => p.projectId === d.projectId) && (definition.scope === 'instance' || selected.includes(d.deploymentId)))
-      return deps.length ? deps.map(d => { const p = projects.find(p => p.projectId === d.projectId)!; return <div key={d.deploymentId}><Link to={`/projects/${p.slug}/deployments/${d.name}`}>{p.name} / {d.displayLabel}</Link></div> }) : 'None'
-    } },
-    { key: 'by', label: 'Granted by', render: r => r.rule?.issuer.name || 'Nobody' },
-    { key: 'when', label: 'When', kind: 'time', render: r => r.rule ? date(r.rule.enabledAt) : '—' },
-    { key: 'action', label: '', phone: 'action', render: r => <RuleConsent rule={r.rule} packs={r.packs} current={current} reload={reload} project={r.rule?.question.definition.scope === 'instance' ? undefined : data.projects.find(p => r.rule && covers(r.rule, p))?.slug} /> },
-  ]
-  return <ListTable label="Janitor approvals" rows={rows} columns={columns} rowKey={r => r.key} />
-}
-
-function releasingDeployments(data: JanitorView) {
-  return data.deployments.filter(d => {
-    const project = data.projects.find(p => p.projectId === d.projectId)
-    if (!d.automatic || !project || project.level === 'off') return false
-    return data.rules.some(r => {
-      const definition = r.question.definition
-      return r.enabled && covers(r, project) && definition.delivery === 'full' && (definition.scope === 'instance' || definition.projects.some(p => p.projectId === d.projectId && p.environments.some(e => e.deploymentId === d.deploymentId)))
-    })
-  })
-}
-
-function Problems({ data }: { data: JanitorView }) {
-  const policies = new Map<string, { key: string; workflow: string; title: string; version: number; sentence: string; stopRule: string; projects: JanitorProject[] }>()
-  for (const p of data.projects) for (const proc of p.procedures) {
-    const sentence = proc.problem ? `Not known: ${proc.problem}` : proc.sentence
-    const key = `${proc.workflow}/${proc.version}/${sentence}/${proc.stopRule}`
-    const row = policies.get(key) ?? { key, workflow: proc.workflow, title: proc.title, version: proc.version, sentence, stopRule: proc.stopRule, projects: [] }
-    row.projects.push(p); policies.set(key, row)
+function summary(data: JanitorView) {
+  const rules = data.rules.filter(r => r.enabled)
+  if (!rules.length) return 'Turned off'
+  const groups = new Map<string, Set<string>>()
+  for (const { question: { definition: d } } of rules) {
+    const scope = d.scope === 'instance' ? 'all projects' : data.projects.filter(p => d.projects.some(scope => scope.projectId === p.projectId)).map(p => p.name).join(', ')
+    const kinds = groups.get(scope) ?? new Set<string>()
+    if (d.categories.dependencies && d.categories.dependencies !== 'off') kinds.add(`Dependency updates (${d.categories.dependencies === 'aggressive' ? 'aggressive, including major' : 'routine, patch and minor'})`)
+    if (d.categories.securityFixes) kinds.add('security fixes')
+    if (d.categories.waysOfWorking) kinds.add('pack updates')
+    groups.set(scope, kinds)
   }
-  const rows = [...policies.values()]
-  const sharedVersions = new Map<string, typeof rows[number]>()
-  for (const row of rows) {
-    const shared = sharedVersions.get(row.workflow)
-    if (!shared || row.projects.length > shared.projects.length || row.projects.length === shared.projects.length && row.version > shared.version) sharedVersions.set(row.workflow, row)
-  }
-  const deployments = releasingDeployments(data)
-  return <>
-    {!data.projects.length && <p>No project settings yet.</p>}
-    {rows.length > 0 ? <ListTable label="Repair limits" rows={rows} rowKey={p => p.key} columns={[
-      { key: 'work', label: 'Queue and workflow', phone: 'name', render: p => <><strong>{p.title}</strong><div>{p.workflow} · version {p.version}</div>{p.version !== sharedVersions.get(p.workflow)!.version && p.projects.map(project => <div key={project.projectId}><Link to={projectTo(project)}>{project.name}</Link></div>)}</> },
-      { key: 'handling', label: 'If checks fail', render: p => p.sentence },
-      { key: 'stop', label: 'When it stops', render: p => p.stopRule },
-    ]} /> : data.projects.length > 0 && <p>No janitor procedure adopted.</p>}
-    <p>{data.releaseHold}</p>
-    {deployments.length > 0 && <ListTable label="Release settings" rows={deployments} rowKey={d => d.deploymentId!} columns={[
-      { key: 'deployment', label: 'Deployment', phone: 'name', render: d => { const p = data.projects.find(p => p.projectId === d.projectId)!; return <Link to={`/projects/${p.slug}/deployments/${d.name}`}>{p.name} / {d.displayLabel}</Link> } },
-      { key: 'setting', label: 'Accepted updates', render: d => d.setting.mode === 'window' ? `${d.setting.days}, ${d.setting.from}–${d.setting.to} (${d.setting.zone})` : 'Automatic' },
-    ]} />}
-  </>
+  return [...groups].map(([scope, kinds]) => `${[...kinds].join(', ')} · ${scope}`).join('; ')
+}
+
+type Need = { key: string; project: JanitorProject; what: string; reason: string; to: string; queue?: QueueStatus }
+function needs(data: JanitorView): Need[] {
+  return data.projects.flatMap(project => [
+    ...project.queues.filter(q => ['stuck', 'stopped', 'waiting'].includes(q.state)).map(queue => ({ key: `${project.projectId}/${queue.queue}`, project, what: queue.title, reason: [queue.words, firstLine(queue.reason)].filter(Boolean).join(' · '), to: queue.changeId ? `/changes/${queue.changeId}` : projectTo(project), queue })),
+    ...data.deployments.filter(d => d.projectId === project.projectId && d.hold).map(d => ({ key: d.deploymentId!, project, what: d.displayLabel, reason: `Release ${d.hold!.releaseNumber} to ${d.displayLabel} ${d.hold!.reason === 'release failed' ? 'failed' : d.hold!.reason}`, to: `/projects/${project.slug}/deployments/${d.name}?tab=history` })),
+    ...(project.scans.imageUpdates ? [{ key: `${project.projectId}/image`, project, what: 'Base image', reason: 'Base image needs an update; the janitor cannot do this', to: projectTo(project) }] : []),
+  ])
 }
 
 function History({ projects }: { projects: JanitorProject[] }) {
@@ -126,20 +45,18 @@ function History({ projects }: { projects: JanitorProject[] }) {
   const q = useGet<JanitorHistoryView>(`/janitor/history?${params}`, { poll: page.older ? undefined : 10000 })
   const data = q.data
   const columns: ListColumn<JanitorLandedChange>[] = [
-    { key: 'change', label: 'Change', phone: 'name', render: c => <Link to={`/changes/${c.changeId}`}>{c.project} · {c.title}</Link> },
-    { key: 'packages', label: 'Updated', render: c => c.packVersions.length > 0 ? c.packVersions.map(p => `${p.pack} version ${p.version}`).join(', ') || 'Pack versions not recorded' : changedFiles(c.packages, c.files) || 'Files not recorded' },
-    { key: 'releases', label: 'Released to', render: c => {
-      const releases = data?.releases.filter(r => r.changeId === c.changeId) || []
-            return releases.length ? releases.map(r => <div key={`${r.deployment}-${r.number}`}><Link to={`/projects/${c.slug}/releases/${r.number}/log`}>{r.displayLabel} · release {r.number}</Link> · {r.state}</div>) : 'No releases recorded'
+    { key: 'project', label: 'Project', phone: 'name', render: c => <Link to={`/changes/${c.changeId}?tab=changes`}>{c.project}</Link> },
+    { key: 'summary', label: 'Change', render: c => c.packVersions.length ? `Pack versions: ${c.packVersions.map(p => `${p.pack} v${p.version}`).join(', ')}` : c.packages.length ? c.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') : projects.find(p => p.projectId === c.projectId)?.queues.find(q => q.queue === c.queue)?.title || c.title },
+    { key: 'releases', label: 'Released', render: c => {
+      const names = [...new Set(data?.releases.filter(r => r.changeId === c.changeId && r.state === 'released').map(r => r.displayLabel))]
+      return <Link to={`/changes/${c.changeId}?tab=details`}>{names.length ? `Released to ${names.join(', ')}` : 'Not released'}</Link>
     } },
-    { key: 'origin', label: 'By', render: c => c.ruleId ? <><JanitorAttribution rule={c.rule!} revision={c.ruleRevision} issuer={c.issuer.name} /> · {date(c.grantedAt)}</> : <>The janitor · schedule {projects.find(p => p.projectId === c.projectId)?.queues.find(q => q.queue === c.queue)?.title || c.schedule}</> },
-    { key: 'evidence', label: 'Evidence', render: c => <Link to={`/changes/${c.changeId}?tab=details`}>Checks and approval</Link> },
     { key: 'when', label: 'Landed', kind: 'time', render: c => date(c.landedAt) },
   ]
   return <>
     <h3>{page.older ? 'Older history' : 'Last 7 days'}</h3>
     <ReadStatus q={q} what="landed janitor Changes" /><StaleNote q={q} />
-    {data && <>{data.history.changes.length ? <ListTable label="Landed janitor Changes" columns={columns} rows={data.history.changes} rowKey={c => c.changeId!} rowTo={c => `/changes/${c.changeId}`} /> : <p>{page.older ? 'No older janitor Changes.' : 'No janitor Changes landed in the last 7 days.'}</p>}
+    {data && <>{data.history.changes.length ? <ListTable label="Landed janitor Changes" columns={columns} rows={data.history.changes} rowKey={c => c.changeId!} rowTo={c => `/changes/${c.changeId}?tab=changes`} /> : <p>{page.older ? 'No older janitor Changes.' : 'No janitor Changes landed in the last 7 days.'}</p>}
       <div className="row row-2">
         {page.offset > 0 && <button disabled={!q.current} onClick={() => setPage({ ...page, offset: Math.max(0, page.offset - 20) })}>Previous</button>}
         {data.history.more && <button disabled={!q.current} onClick={() => setPage({ ...page, before: data.until, offset: page.offset + 20 })}>Next 20</button>}
@@ -153,39 +70,51 @@ function History({ projects }: { projects: JanitorProject[] }) {
 export default function Janitor() {
   const q = useGet<JanitorView>('/janitor', { poll: 10000 })
   const data = q.data
-  const runs = useRef(new Map<string, () => Promise<void>>())
-  const [ready, setReady] = useState(0)
-  const [bulk, setBulk] = useState(false)
-  const register = useCallback<RunRegistration>((slug, run) => {
-    if (run) runs.current.set(slug, run); else runs.current.delete(slug)
-    setReady(runs.current.size)
-  }, [])
-  const runAll = async () => {
-    setBulk(true)
-    const pending = [...runs.current.keys()]
-    const worker = async () => { while (pending.length) { const slug = pending.shift()!; await runs.current.get(slug)?.() } }
-    try { await Promise.all([worker(), worker()]) } finally { setBulk(false) }
-  }
+  const mounted = useRef(true)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  const action = useAction(() => { void q.reload() })
+  const [refusals, setRefusals] = useState<string[]>([])
+  const runAll = () => action.run(async () => {
+    setRefusals([])
+    const pending = data!.projects.filter(p => !p.runNow)
+    const worker = async () => {
+      while (mounted.current && pending.length) {
+        const p = pending.shift()!
+        try {
+          const result = await post<JanitorRunView>(`/projects/${encodeURIComponent(p.slug)}/janitor/run`, { queue: '', again: false, changeId: '' })
+          for (const s of result.starts) if (s.refused) setRefusals(rows => [...rows, `${p.name} · ${s.refused}`])
+        } catch (err) { setRefusals(rows => [...rows, `${p.name} · ${err instanceof Error ? err.message : String(err)}`]) }
+      }
+    }
+    await Promise.all([worker(), worker()])
+  })
+  const items = data ? needs(data) : []
   const columns: ListColumn<JanitorProject>[] = [
     { key: 'project', label: 'Project', phone: 'name', render: p => <Link to={projectTo(p)}>{p.name}</Link> },
-    { key: 'state', label: 'State', phone: 'state', className: 'record-note small', render: p => <><ProjectState project={p} data={data!} stale={q.refreshFailed} />{p.queues.filter(queue => queue.changeId || queue.failed).map(queue => <div key={queue.queue} className="record-note">
-      {queue.title}: {queue.words}{queue.changeId && <> · <Link to={`/changes/${queue.changeId}`}>change #{queue.changeNumber}</Link></>} <TryAgain queue={queue} slug={p.slug} current={q.current && !bulk} reload={q.reload} />
-    </div>)}</> },
-    { key: 'scan', label: 'Last scan', kind: 'time', render: p => <>{date(p.scans.lastScan)}{p.scans.stale && <span className="badge">Old scan</span>}</> },
-    { key: 'findings', label: 'Findings', kind: 'number', render: p => p.scans.known ? p.scans.findings : 'Not known' },
-    { key: 'next', label: 'Next update', render: p => p.nextReason || date(p.nextUpdate) },
-    { key: 'level', label: 'Level', render: p => <>{levelName(p.level)}<div>{p.choice ? `${p.choice.person.name} · ${date(p.choice.at)}` : p.issuer.name ? `${p.issuer.name} · ${date(p.grantedAt)}` : 'Nobody has enabled updates'}</div></> },
-    { key: 'run-now', label: '', phone: 'action', render: p => <RunNow project={p} current={q.current} reload={q.reload} register={register} bulk={bulk} /> },
+    { key: 'state', label: 'State', phone: 'state', render: p => {
+      const word = items.some(n => n.project === p) ? 'needs you' : p.scheduleProblem ? 'not known' : p.state.word
+      return <>{q.refreshFailed ? <Status word="unknown" reason="not known" help="The latest refresh failed. This is the last answer read." /> : <>
+        <Status word={word === 'not known' ? 'unknown' : word === 'needs you' ? 'waiting for you' : word === 'working' ? 'working' : word === 'up to date' ? 'current' : 'none'} reason={word} help={p.scheduleProblem && word === 'not known' ? p.scheduleProblem : p.state.help} />
+        {p.scheduleProblem && word === 'needs you' && <Status word="unknown" reason="not known" help={p.scheduleProblem} />}
+      </>}</>
+    } },
+    { key: 'scan', label: 'Last checked', kind: 'time', render: p => date(p.scans.lastScan) },
   ]
-  const images = data?.projects.filter(p => p.scans.imageUpdates).length ?? 0
   return <div>
-    <h1>Janitor</h1><p>Keeps projects updated within the limits people grant. <Link to="/docs/guides/janitor">Janitor guide</Link></p>
-    <Section title="What it is allowed to do"><ReadStatus q={q} what="janitor approvals" /><StaleNote q={q} />{data && <Rules data={data} current={q.current} reload={q.reload} />}</Section>
-    <Section title="How it handles problems"><ReadStatus q={q} what="janitor settings" /><StaleNote q={q} />{data && <Problems data={data} /> }</Section>
-    <Section title="What it is doing and waiting on" action={<button disabled={!q.current || !ready || bulk} onClick={runAll}>Run now for all projects</button>}><ReadStatus q={q} what="projects’ janitor state" /><StaleNote q={q} />{data && <>
-      {data.projects.length ? <ListTable label="Projects’ janitor state" columns={columns} rows={data.projects} rowKey={p => p.projectId!} rowTo={projectTo} /> : <p>No projects yet.</p>}
-      {images > 0 && <p>{images} apps’ images need a base-image update; the janitor does not do this yet.</p>}
-    </>}</Section>
-    <Section title="What it has done"><History projects={data?.projects || []} /></Section>
+    <h1>Janitor</h1>
+    <ReadStatus q={q} what="janitor" /><StaleNote q={q} />
+    {data && <>
+      <p>{summary(data)} · <Link to="/janitor/settings">Settings</Link></p>
+      <button disabled={!q.current || action.busy || !data.projects.some(p => !p.runNow)} onClick={runAll}>Run now for all projects</button>
+      {refusals.map((reason, i) => <div className="record-note" key={i}>{reason}</div>)}
+      {items.length > 0 && <Section title="Needs you"><ListTable label="Needs you" rows={items} rowKey={n => n.key} rowTo={n => n.to} columns={[
+        { key: 'project', label: 'Project', phone: 'name', render: n => <Link to={n.to}>{n.project.name}</Link> },
+        { key: 'what', label: 'What', render: n => n.what },
+        { key: 'reason', label: 'Reason', render: n => n.reason },
+        { key: 'action', label: '', phone: 'action', render: n => n.queue && <TryAgain queue={n.queue} slug={n.project.slug} current={q.current && !action.busy} reload={q.reload} /> },
+      ]} /></Section>}
+      <Section title="Projects">{data.projects.length ? <ListTable label="Projects’ janitor state" columns={columns} rows={data.projects} rowKey={p => p.projectId!} rowTo={projectTo} /> : <p>No projects yet.</p>}</Section>
+    </>}
+    <Section title="Recent work"><History projects={data?.projects || []} /></Section>
   </div>
 }

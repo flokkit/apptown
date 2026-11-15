@@ -196,3 +196,20 @@ it.each(['waiting', 'updating', 'stuck', 'stopped'])('keeps progress and change 
   expect([...el.querySelectorAll('button')].filter(b => b.textContent === 'Close and try again')).toHaveLength(state === 'stuck' || state === 'stopped' ? 1 : 0)
  })
 })
+
+
+it('offers one Run now and retains attribution for disposed and schedule-only tries', async () => {
+  const data = fixture(), original = data.recent[0]
+  data.recent = [
+    {...original, id:'disposed', changeId:undefined, openChange:undefined, ruleId:'grant', ruleRevision:2, ruleIssuer:{name:'Priya',principal:'person',via:'session'}, rule:{kind:'Dependency updates',scope:'all projects'}},
+    {...original, id:'scheduled', changeId:undefined, openChange:undefined, schedule:'nightly-scan'},
+  ]
+  await render(data, true, el => {
+    expect([...el.querySelectorAll('button')].filter(b=>b.textContent==='Run now')).toHaveLength(1)
+    const table=el.querySelector('table[aria-label="Recent tries"]')!
+    expect(table.textContent).toContain('From')
+    expect(table.textContent).toContain('Dependency updates approval for all projects (revision 2), granted by Priya')
+    expect(table.textContent).toContain('Schedule nightly-scan')
+    expect(table.querySelector('a[href^="/changes/"]')).toBeNull()
+  })
+})
