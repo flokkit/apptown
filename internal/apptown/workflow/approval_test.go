@@ -12,7 +12,7 @@ import (
 func TestApprovalModelQuorumAndReopenedRounds(t *testing.T) {
 	t.Parallel()
 	cfg := ApprovalConfig{Quorum: 2, Means: "reviewed this revision"}
-	initial := ApprovalEvidence{Approvals: 999}
+	initial := approvalEvidence{Approvals: 999}
 	first, status, pending, err := initial.cast(StatusPending, cfg, ApprovalVote{Approver: "alice", Principal: idstest.N(11), Via: "session", Decision: VoteApprove, At: "first"})
 	if err != nil || !pending || status != StatusPending || first.Approvals != 1 || first.Decision != 0 || first.Means != cfg.Means {
 		t.Fatalf("first vote: %+v %s %v %v", first, status, pending, err)
@@ -54,7 +54,7 @@ func TestApprovalModelQuorumAndReopenedRounds(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, cfg := range []ApprovalConfig{named, {}} {
-		one, status, pending, err := ApprovalEvidence{}.cast(StatusPending, cfg, ApprovalVote{Approver: "bls", Principal: idstest.N(14), Via: "session", Decision: VoteApprove, At: "only"})
+		one, status, pending, err := approvalEvidence{}.cast(StatusPending, cfg, ApprovalVote{Approver: "bls", Principal: idstest.N(14), Via: "session", Decision: VoteApprove, At: "only"})
 		if err != nil || pending || status != StatusPass || one.Quorum != 1 || one.Approvals != 1 || one.Approver != "bls" {
 			t.Fatalf("default quorum %+v: %+v %s %v %v", cfg, one, status, pending, err)
 		}
@@ -67,19 +67,19 @@ func TestApprovalModelRejectsInvalidVotesAndContradictoryRounds(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		state    StepState
-		evidence ApprovalEvidence
+		evidence approvalEvidence
 		vote     ApprovalVote
 	}{
-		{"missing decision", StatusPending, ApprovalEvidence{}, ApprovalVote{Approver: "alice"}},
-		{"invalid decision", StatusPending, ApprovalEvidence{}, ApprovalVote{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: 255}},
-		{"missing actor", StatusPending, ApprovalEvidence{}, ApprovalVote{Decision: VoteApprove}},
-		{"duplicate voter", StatusPending, ApprovalEvidence{Decisions: []ApprovalVote{valid}}, valid},
-		{"duplicate saved votes", StatusPending, ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "old", Principal: idstest.N(23), Via: "session", Decision: VoteApprove}, {Approver: "old", Principal: idstest.N(23), Via: "session", Decision: VoteApprove}}}, valid},
-		{"rejected current round", StatusPending, ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "old", Principal: idstest.N(23), Via: "session", Decision: VoteReject}}}, valid},
-		{"quorum already met", StatusPending, ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "old", Principal: idstest.N(23), Via: "session", Decision: VoteApprove}, {Approver: "other", Principal: idstest.N(24), Via: "session", Decision: VoteApprove}}}, valid},
-		{"running", StatusRunning, ApprovalEvidence{}, valid},
-		{"error", StatusError, ApprovalEvidence{}, valid},
-		{"skipped", StatusSkipped, ApprovalEvidence{}, valid},
+		{"missing decision", StatusPending, approvalEvidence{}, ApprovalVote{Approver: "alice"}},
+		{"invalid decision", StatusPending, approvalEvidence{}, ApprovalVote{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: 255}},
+		{"missing actor", StatusPending, approvalEvidence{}, ApprovalVote{Decision: VoteApprove}},
+		{"duplicate voter", StatusPending, approvalEvidence{Decisions: []ApprovalVote{valid}}, valid},
+		{"duplicate saved votes", StatusPending, approvalEvidence{Decisions: []ApprovalVote{{Approver: "old", Principal: idstest.N(23), Via: "session", Decision: VoteApprove}, {Approver: "old", Principal: idstest.N(23), Via: "session", Decision: VoteApprove}}}, valid},
+		{"rejected current round", StatusPending, approvalEvidence{Decisions: []ApprovalVote{{Approver: "old", Principal: idstest.N(23), Via: "session", Decision: VoteReject}}}, valid},
+		{"quorum already met", StatusPending, approvalEvidence{Decisions: []ApprovalVote{{Approver: "old", Principal: idstest.N(23), Via: "session", Decision: VoteApprove}, {Approver: "other", Principal: idstest.N(24), Via: "session", Decision: VoteApprove}}}, valid},
+		{"running", StatusRunning, approvalEvidence{}, valid},
+		{"error", StatusError, approvalEvidence{}, valid},
+		{"skipped", StatusSkipped, approvalEvidence{}, valid},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, _, _, err := tc.evidence.cast(tc.state, ApprovalConfig{Quorum: 2}, tc.vote)
@@ -92,12 +92,12 @@ func TestApprovalModelRejectsInvalidVotesAndContradictoryRounds(t *testing.T) {
 
 func TestApprovalDecisionAndConfigurationDecodeStrictly(t *testing.T) {
 	t.Parallel()
-	for _, d := range []ApprovalDecision{VoteApprove, VoteReject} {
+	for _, d := range []approvalDecision{VoteApprove, VoteReject} {
 		raw, err := json.Marshal(d)
 		if err != nil {
 			t.Fatal(err)
 		}
-		var back ApprovalDecision
+		var back approvalDecision
 		if err := json.Unmarshal(raw, &back); err != nil || back != d {
 			t.Fatalf("decision roundtrip: %s %v", back, err)
 		}
@@ -108,7 +108,7 @@ func TestApprovalDecisionAndConfigurationDecodeStrictly(t *testing.T) {
 			t.Fatalf("invalid %s changed vote: %s %v", raw, old, err)
 		}
 	}
-	if _, err := json.Marshal(ApprovalDecision(0)); !errors.Is(err, errApprovalDecision) {
+	if _, err := json.Marshal(approvalDecision(0)); !errors.Is(err, errApprovalDecision) {
 		t.Fatalf("invalid decision serialized: %v", err)
 	}
 	for _, raw := range []string{`{"quorum":"2"}`, `{"quorum":-1}`, `{"quorum":1.5}`, `{"approvers":"alice"}`, `{"means":false}`, `null`, `[]`} {
@@ -181,7 +181,7 @@ func TestApprovalCodecPreservesOpaqueMetadataAcrossRounds(t *testing.T) {
 // The typed shapes write exactly the keys the readers look for.
 func TestApprovalEvidenceWireShape(t *testing.T) {
 	t.Parallel()
-	ev := ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "bls", Principal: idstest.N(27), Via: "session", Decision: VoteApprove, Comment: "ok", At: "t1"}}, Quorum: 1, Approvals: 1,
+	ev := approvalEvidence{Decisions: []ApprovalVote{{Approver: "bls", Principal: idstest.N(27), Via: "session", Decision: VoteApprove, Comment: "ok", At: "t1"}}, Quorum: 1, Approvals: 1,
 		Means: "I looked", Approver: "bls", Decision: VoteApprove, Comment: "ok", At: "t1"}
 	raw, err := json.Marshal(ev)
 	if err != nil {
@@ -223,7 +223,7 @@ func TestApprovalEvidenceWireShape(t *testing.T) {
 func TestApprovalQuorumIsForOneCommitButAnyRejectionCloses(t *testing.T) {
 	t.Parallel()
 	cfg := ApprovalConfig{Quorum: 2, Means: "reviewed this revision"}
-	first, status, _, err := ApprovalEvidence{}.cast(StatusPending, cfg, ApprovalVote{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteApprove, Candidate: "x"})
+	first, status, _, err := approvalEvidence{}.cast(StatusPending, cfg, ApprovalVote{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteApprove, Candidate: "x"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,25 +274,25 @@ func TestAQuorumCountsPeopleNotNames(t *testing.T) {
 	t.Parallel()
 	cfg := ApprovalConfig{Quorum: 2}
 	alice := idstest.N(1)
-	first, status, _, err := ApprovalEvidence{}.cast(StatusPending, cfg, ApprovalVote{Approver: "alice", Principal: alice, Via: "session", Decision: VoteApprove})
+	first, status, _, err := approvalEvidence{}.cast(StatusPending, cfg, ApprovalVote{Approver: "alice", Principal: alice, Via: "session", Decision: VoteApprove})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, _, _, err := first.cast(status, cfg, ApprovalVote{Approver: "alicia", Principal: alice, Via: "session", Decision: VoteApprove}); !errors.Is(err, errStepDecisionConflict) {
 		t.Fatalf("one person voted twice under two names: %v", err)
 	}
-	unresolved := ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "ghost", Decision: VoteApprove}}}
+	unresolved := approvalEvidence{Decisions: []ApprovalVote{{Approver: "ghost", Decision: VoteApprove}}}
 	after, status, pending, err := unresolved.cast(StatusPending, cfg, ApprovalVote{Approver: "bob", Principal: idstest.N(2), Via: "session", Decision: VoteApprove})
 	if err != nil || !pending || status != StatusPending || after.Approvals != 1 {
 		t.Fatalf("an unresolved vote counted as a second person: %+v %s %v %v", after, status, pending, err)
 	}
-	duplicate := ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "alice", Principal: alice, Decision: VoteApprove}, {Approver: "alicia", Principal: alice, Decision: VoteApprove}}}
+	duplicate := approvalEvidence{Decisions: []ApprovalVote{{Approver: "alice", Principal: alice, Decision: VoteApprove}, {Approver: "alicia", Principal: alice, Decision: VoteApprove}}}
 	if err := duplicate.validate(); err == nil {
 		t.Fatal("saved evidence with one principal's two votes validated")
 	}
 	// Two people who voted under one name, either side of its reuse, are
 	// two votes.
-	twoAlices := ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "alice", Principal: alice, Decision: VoteApprove}, {Approver: "alice", Principal: idstest.N(3), Decision: VoteApprove}}}
+	twoAlices := approvalEvidence{Decisions: []ApprovalVote{{Approver: "alice", Principal: alice, Decision: VoteApprove}, {Approver: "alice", Principal: idstest.N(3), Decision: VoteApprove}}}
 	if err := twoAlices.validate(); err != nil || twoAlices.people() != 2 {
 		t.Fatalf("two people under one name: %d %v", twoAlices.people(), err)
 	}

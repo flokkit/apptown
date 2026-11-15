@@ -33,6 +33,35 @@ func requireApprover(ctx context.Context, db database.Queryer, scope operationPe
 	if err != nil {
 		return err
 	}
+	var groups []string
+	var grants []access.Grant
+	needGroups, needRoles := false, false
+	for _, item := range approvalExpressions(approvers, policy.DefaultApprovers) {
+		needGroups = needGroups || strings.HasPrefix(item, "group:")
+		needRoles = needRoles || strings.HasPrefix(item, "role:")
+	}
+	if !root {
+		if needGroups {
+			if voter.IsZero() {
+				groups, err = identity.ApproverGroupsIn(ctx, db, user, now)
+			} else {
+				groups, err = identity.PrincipalGroupsIn(ctx, db, voter, now)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		if needRoles {
+			grants, err = identity.ActiveGrantsIn(ctx, db, who, now)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return judgeApprover(scope, approvers, user, voter, root, policy, groups, grants)
+}
+
+func judgeApprover(scope operationPermission, approvers []string, user string, voter ids.ID, root bool, policy workflowsql.ApproverEligibilityRow, groups []string, grants []access.Grant) error {
 	defaults, independent, author := policy.DefaultApprovers, policy.RequireIndependentApproval, policy.Author
 	if root {
 		return nil
@@ -61,29 +90,6 @@ func requireApprover(ctx context.Context, db database.Queryer, scope operationPe
 	for _, item := range expr {
 		if item == user || item == "group:"+identity.GroupAllUsers && user != "" && user != "anonymous" {
 			return nil
-		}
-	}
-	var groups []string
-	var grants []access.Grant
-	needGroups, needRoles := false, false
-	for _, item := range expr {
-		needGroups = needGroups || strings.HasPrefix(item, "group:")
-		needRoles = needRoles || strings.HasPrefix(item, "role:")
-	}
-	if needGroups {
-		if voter.IsZero() {
-			groups, err = identity.ApproverGroupsIn(ctx, db, user, now)
-		} else {
-			groups, err = identity.PrincipalGroupsIn(ctx, db, voter, now)
-		}
-		if err != nil {
-			return err
-		}
-	}
-	if needRoles {
-		grants, err = identity.ActiveGrantsIn(ctx, db, who, now)
-		if err != nil {
-			return err
 		}
 	}
 	for _, item := range expr {

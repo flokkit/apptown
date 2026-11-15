@@ -430,7 +430,7 @@ func TestWorkflowLandingReusesRunAndPinsAcceptanceScope(t *testing.T) {
 	if len(start) != 1 {
 		t.Fatalf("start stage steps: %d", len(start))
 	}
-	var approval ApprovalEvidence
+	var approval approvalEvidence
 	if err := json.Unmarshal(start[0].Evidence, &approval); err != nil {
 		t.Fatal(err)
 	}

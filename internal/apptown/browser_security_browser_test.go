@@ -5590,7 +5590,7 @@ var cameraOtherContainers = []string{"uptime-monitor", "backup-agent", "log-ship
 // authority, immutable history and current eligibility still use their owners.
 type cameraStandingProcedure struct{}
 
-func (cameraStandingProcedure) StandingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
+func (cameraStandingProcedure) standingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
 	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: "design-review", Version: 1, Step: "accept", Means: "accept small dependency fixes after checks pass"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
 }
 
@@ -6409,4 +6409,13 @@ func cameraJanitorProjects(t *testing.T, a *App, scene *tourScene) {
 		t.Fatal(err)
 	}
 	cameraJanitorQueue(t, a, p.ID)
+}
+
+func (f cameraStandingProcedure) StandingProcedures(ctx context.Context, q database.Queryer, id ids.ID, names []string) (map[string]workflow.StandingProcedureResult, error) {
+	out := map[string]workflow.StandingProcedureResult{}
+	for _, name := range names {
+		proc, err := f.standingProcedure(ctx, q, id, name)
+		out[name] = workflow.StandingProcedureResult{Procedure: proc, Err: err}
+	}
+	return out, nil
 }

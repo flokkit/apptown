@@ -77,6 +77,11 @@ type hostReachabilityReader interface {
 
 // Sources is the complete finite source set. Missing sources remain unassessed,
 // rather than silently shrinking what an empty Attention view claims to cover.
+type ScanSnapshot struct {
+	Snapshot Snapshot
+	Err      error
+}
+
 type Sources struct {
 	Notifications    instanceReader
 	ReleaseApprovals instanceReader
@@ -88,9 +93,13 @@ type Sources struct {
 	Capacity    instanceReader
 	Inventory   instanceReader
 	Workers     instanceReader
-	Deployments projectReader
-	Protection  projectReader
-	Scans       projectReader
+	Deployments interface {
+		Snapshot(context.Context, []ids.ID) (map[ids.ID]ScanSnapshot, error)
+	}
+	Protection projectReader
+	Scans      interface {
+		Snapshot(context.Context, []ids.ID) (map[ids.ID]ScanSnapshot, error)
+	}
 }
 
 // Coverage reports source availability separately from the visible item count.
@@ -183,29 +192,38 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 	// Visibility is an owner decision. Deduplicate IDs defensively so a repeated
 	// grant/subject never duplicates a condition or a background refresh request.
 	seen := make(map[ids.ID]bool)
+	distinctProjects := []ids.ID{}
 	for _, project := range projects {
 		if project.IsZero() || seen[project] {
 			continue
 		}
 		seen[project] = true
-		// Recheck this project at the consequential read boundary, not only when the
-		// initial visible-project list was assembled.
-		_, err := s.authority.Require(ctx, access.Permission{Capability: access.CapDeploymentRead,
-			Resource: access.Resource{Type: "project", ID: project.String(), ProjectID: project},
-			Context:  access.Context{Route: "attention.project"}})
-		if fault.KindOf(err) == fault.Forbidden {
-			continue
-		}
+		distinctProjects = append(distinctProjects, project)
+	}
+	if s.sources.Deployments != nil {
+		snapshots, err := s.sources.Deployments.Snapshot(ctx, distinctProjects)
 		if err != nil {
 			return empty, err
 		}
+		for _, id := range distinctProjects {
+			if snap, ok := snapshots[id]; ok {
+				if kind := fault.KindOf(snap.Err); kind == fault.Forbidden || kind == fault.Unauthenticated {
+					return empty, snap.Err
+				}
+				out.add("deployments/"+id.String(), "Deployment health", snap.Snapshot, snap.Err)
+			}
+		}
+	} else {
+		for _, id := range distinctProjects {
+			out.add("deployments/"+id.String(), "Deployment health", Snapshot{}, nil)
+		}
+	}
+	for _, project := range distinctProjects {
 		for _, source := range []struct {
 			key, name string
 			source    projectReader
 		}{
-			{"deployments", "Deployment health", s.sources.Deployments},
 			{"protection", "Data protection", s.sources.Protection},
-			{"scans", "Scans", s.sources.Scans},
 		} {
 			snapshot, readErr := Snapshot{}, error(nil)
 			if source.source != nil {
@@ -215,6 +233,25 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 				return empty, readErr
 			}
 			out.add(source.key+"/"+project.String(), source.name, snapshot, readErr)
+		}
+	}
+	// Scans has its own project-read visibility decision and is collected once.
+	if s.sources.Scans != nil {
+		snapshots, err := s.sources.Scans.Snapshot(ctx, distinctProjects)
+		if err != nil {
+			return empty, err
+		}
+		for _, project := range distinctProjects {
+			if snapshot, ok := snapshots[project]; ok {
+				if kind := fault.KindOf(snapshot.Err); kind == fault.Forbidden || kind == fault.Unauthenticated {
+					return empty, snapshot.Err
+				}
+				out.add("scans/"+project.String(), "Scans", snapshot.Snapshot, snapshot.Err)
+			}
+		}
+	} else {
+		for project := range seen {
+			out.add("scans/"+project.String(), "Scans", Snapshot{}, nil)
 		}
 	}
 	// Integration visibility is the same instance permission as its list, not
@@ -240,13 +277,6 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 			continue
 		}
 		checked[id] = true
-		_, err := s.authority.Require(ctx, access.Permission{Capability: access.CapConformanceRead, Resource: access.Resource{Type: "project", ID: id.String(), ProjectID: id}, Context: access.Context{Route: "attention.checks"}})
-		if fault.KindOf(err) == fault.Forbidden {
-			continue
-		}
-		if err != nil {
-			return empty, err
-		}
 		authorized = append(authorized, id)
 	}
 	if len(authorized) > 0 {

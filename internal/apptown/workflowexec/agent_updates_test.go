@@ -508,7 +508,7 @@ func (p *agentUpdateStanding) EnqueueStandingAcceptanceIn(_ context.Context, _ *
 	p.keys = append(p.keys, key)
 	return nil
 }
-func (p *agentUpdateStanding) StandingProcedure(_ context.Context, _ database.Queryer, _ ids.ID, name string) (workflow.StandingProcedure, error) {
+func (p *agentUpdateStanding) standingProcedure(_ context.Context, _ database.Queryer, _ ids.ID, name string) (workflow.StandingProcedure, error) {
 	var means string
 	for _, step := range p.doc.Spec.Stages[0].Steps {
 		if step.Name == "accept" {
@@ -518,7 +518,7 @@ func (p *agentUpdateStanding) StandingProcedure(_ context.Context, _ database.Qu
 	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: means, Approvers: []string{"role:project-approver"}}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked candidate", Approvers: []string{"role:project-approver"}}}, nil
 }
 func (p *agentUpdateStanding) InstanceStandingProcedure(name string, _ []*adoption.ResolvedWorkflow) (workflow.StandingProcedure, error) {
-	return p.StandingProcedure(context.Background(), nil, p.project, name)
+	return p.standingProcedure(context.Background(), nil, p.project, name)
 }
 func (p *agentUpdateStanding) PublishedWorkflows(context.Context, database.Queryer) ([]*adoption.ResolvedWorkflow, error) {
 	return []*adoption.ResolvedWorkflow{{Name: p.doc.Metadata.Name, Version: 1, Doc: p.doc}}, nil
@@ -690,4 +690,13 @@ func TestEmptyAgentUpdateClosesOnlyAfterItsReportPasses(t *testing.T) {
 
 func (p *agentUpdateStanding) StandingReach(context.Context, database.Queryer, ids.ID) (workflow.StandingReach, error) {
 	return workflow.StandingReach{Repository: true}, nil
+}
+
+func (p *agentUpdateStanding) StandingProcedures(ctx context.Context, q database.Queryer, id ids.ID, names []string) (map[string]workflow.StandingProcedureResult, error) {
+	out := map[string]workflow.StandingProcedureResult{}
+	for _, name := range names {
+		proc, err := p.standingProcedure(ctx, q, id, name)
+		out[name] = workflow.StandingProcedureResult{Procedure: proc, Err: err}
+	}
+	return out, nil
 }

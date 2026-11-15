@@ -117,7 +117,7 @@ func TestWaitingOnApprovalNamesDefaultsAndTheNextEligibleVoter(t *testing.T) {
 		if person == "boss" {
 			want, says = "yes", "waiting for approval"
 		}
-		if w.You != want || w.Says != says || len(w.Who) != 1 || w.Who[0] != (Decider{Kind: "group", Name: "reviewers"}) {
+		if w.You != want || w.Says != says || len(w.Who) != 1 || w.Who[0] != (decider{Kind: "group", Name: "reviewers"}) {
 			t.Fatalf("%s: %+v", person, w)
 		}
 	}
@@ -407,25 +407,25 @@ func TestWaitingOnApprovalDisplaysTheRoleTitleAndRetainsItsID(t *testing.T) {
 // Summaries stay short while every effective decider remains available to clients.
 func TestWaitingOnApprovalSummarizesCompleteDeciders(t *testing.T) {
 	t.Parallel()
-	person := Decider{Kind: "person", Name: "Alex"}
-	role := Decider{Kind: "role", Name: "project-approver", DisplayName: "Project approver"}
-	group := Decider{Kind: "group", Name: "reviewers"}
+	person := decider{Kind: "person", Name: "Alex"}
+	role := decider{Kind: "role", Name: "project-approver", DisplayName: "Project approver"}
+	group := decider{Kind: "group", Name: "reviewers"}
 	for _, tc := range []struct {
 		name, you string
-		who       []Decider
+		who       []decider
 		want      string
 	}{
-		{"sole person", "yes", []Decider{person}, "waiting for you"},
-		{"several people", "yes", []Decider{person, {Kind: "person", Name: "Sam"}}, "waiting for approval"},
-		{"role", "yes", []Decider{role}, "waiting for approval"},
-		{"group", "yes", []Decider{group}, "waiting for approval"},
-		{"roles", "yes", []Decider{role, {Kind: "role", Name: "project-owner", DisplayName: "Project owner"}}, "waiting for approval"},
-		{"other person", "no", []Decider{person}, "waiting for approval"},
-		{"other role", "no", []Decider{role}, "waiting for approval"},
-		{"other group", "no", []Decider{group}, "waiting for approval"},
-		{"other people", "no", []Decider{person, role, group}, "waiting for approval"},
-		{"other roles", "no", []Decider{role, person}, "waiting for approval"},
-		{"unknown reader", "unknown", []Decider{role, person}, "waiting for approval"},
+		{"sole person", "yes", []decider{person}, "waiting for you"},
+		{"several people", "yes", []decider{person, {Kind: "person", Name: "Sam"}}, "waiting for approval"},
+		{"role", "yes", []decider{role}, "waiting for approval"},
+		{"group", "yes", []decider{group}, "waiting for approval"},
+		{"roles", "yes", []decider{role, {Kind: "role", Name: "project-owner", DisplayName: "Project owner"}}, "waiting for approval"},
+		{"other person", "no", []decider{person}, "waiting for approval"},
+		{"other role", "no", []decider{role}, "waiting for approval"},
+		{"other group", "no", []decider{group}, "waiting for approval"},
+		{"other people", "no", []decider{person, role, group}, "waiting for approval"},
+		{"other roles", "no", []decider{role, person}, "waiting for approval"},
+		{"unknown reader", "unknown", []decider{role, person}, "waiting for approval"},
 		{"unspecified", "no", nil, "waiting for approval"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -521,7 +521,7 @@ func TestWaitingOnChangeLabels(t *testing.T) {
 			}
 		})
 	}
-	w := sayWaitingOn(WaitingOn{Kind: "approval", You: "yes", Who: []Decider{{Kind: "person"}}}, Activity{}, nil)
+	w := sayWaitingOn(WaitingOn{Kind: "approval", You: "yes", Who: []decider{{Kind: "person"}}}, Activity{}, nil)
 	if w.Says != "waiting for you" {
 		t.Fatalf("personal approval = %+v", w)
 	}

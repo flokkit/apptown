@@ -256,7 +256,7 @@ type approvalReceipt struct {
 	// Via is how the vote was cast (access.Actor.Via): a CLI token's name
 	// says which credential pressed it, which "by" alone does not.
 	Via      string           `json:"via,omitempty"`
-	Decision ApprovalDecision `json:"decision"`
+	Decision approvalDecision `json:"decision"`
 	Progress string           `json:"progress,omitempty"`
 }
 

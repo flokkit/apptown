@@ -13,7 +13,7 @@ func attentionFor(a *App) *attention.Service {
 	hosts := attention.Hosts{Authority: authority, Observer: a.Deployment}
 	return attention.New(authority, attention.Sources{
 		Notifications:    a.Notifications,
-		Scans:            attention.Scans{Work: a.Work, Projects: a.Projects},
+		Scans:            attention.Scans{Work: a.Work},
 		ReleaseApprovals: attention.Approvals{Releases: a.Deployment, Now: a.cfg.clock.Now},
 		Integrations:     attention.Integrations{Deployments: a.Deployment, Service: a.Integrations, Bindings: a.Integrations.Bindings, Attachments: a.Integrations.Attachments},
 		Checks:           attention.Checks{Conformance: a.conformance},

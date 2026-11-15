@@ -486,7 +486,8 @@ func TestOperationalReadKeepsCurrentAuthorityAndUsesOnlyCachedRuntime(t *testing
 		calls.Add(1)
 		return deploy.Observation{Generation: p.Generation, Rollout: "active"}, nil
 	})
-	cold, err := s.Operational(t.Context(), projectID)
+	coldSet, err := s.Operational(t.Context(), []ids.ID{projectID})
+	cold := coldSet[projectID]
 	if err != nil || len(cold) != 1 || cold[0].Runtime.State != RuntimeUnknown || calls.Load() != 0 {
 		t.Fatalf("cold operational read %+v %v calls%d", cold, err, calls.Load())
 	}
@@ -494,12 +495,14 @@ func TestOperationalReadKeepsCurrentAuthorityAndUsesOnlyCachedRuntime(t *testing
 		t.Fatal(err)
 	}
 	before := calls.Load()
-	warm, err := s.Operational(t.Context(), projectID)
+	warmSet, err := s.Operational(t.Context(), []ids.ID{projectID})
+	warm := warmSet[projectID]
 	if err != nil || len(warm) != 1 || warm[0].Runtime.State != RuntimeRunning || warm[0].ID != envs[0].ID || warm[0].DesiredGeneration != envs[0].DesiredGeneration || calls.Load() != before {
 		t.Fatalf("cached operational read %+v %v calls%d", warm, err, calls.Load())
 	}
 	authority.err = errors.New("revoked")
-	denied, err := s.Operational(t.Context(), projectID)
+	deniedSet, err := s.Operational(t.Context(), []ids.ID{projectID})
+	denied := deniedSet[projectID]
 	if err == nil || len(denied) != 0 || calls.Load() != before {
 		t.Fatalf("revoked scope read %+v %v", denied, err)
 	}

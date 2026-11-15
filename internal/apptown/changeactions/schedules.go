@@ -147,7 +147,15 @@ func (s Schedules) resolve(ctx context.Context, c *firing) (bool, error) {
 		c.waiting = "waits for a standing approval"
 		return false, nil
 	}
-	rule, level, refused, err := s.Standing.StandingForWorkflow(ctx, c.projectID, c.workflow)
+	results, err := s.Standing.StandingEligibility(ctx, []workflow.ProjectWorkflows{{ProjectID: c.projectID, Workflows: []string{c.workflow}}})
+	if err != nil {
+		return false, err
+	}
+	return applyEligibility(c, results[c.projectID][c.workflow])
+}
+
+func applyEligibility(c *firing, result workflow.StandingEligibilityResult) (bool, error) {
+	rule, level, refused, err := result.Rule, result.Level, result.Refused, result.Err
 	if err != nil {
 		return false, err
 	}
@@ -238,12 +246,7 @@ func (s Schedules) admit(ctx context.Context, c firing) (fired, error) {
 		if err != nil {
 			return fired{}, fmt.Errorf("reading queue %s: %w", c.trigger.Queue, err)
 		}
-		if state.Stopped() && !c.discoversTargets {
-			return fired{outcome: fireStopped}, nil
-		}
-		if state.State == "updating" {
-			return fired{outcome: fireBusy, busy: state.ChangeID, busyNumber: state.ChangeNumber}, nil
-		}
+		return queueAdmission(c, state), nil
 	}
 	if c.skipIfActive() && c.trigger.Queue == "" {
 		active, err := workflow.RunningWorkflowCountIn(ctx, s.DB, c.projectID, c.workflow)
@@ -255,6 +258,16 @@ func (s Schedules) admit(ctx context.Context, c firing) (fired, error) {
 		}
 	}
 	return fired{}, nil
+}
+
+func queueAdmission(c firing, state workflow.QueueStatus) fired {
+	if state.Stopped() && !c.discoversTargets {
+		return fired{outcome: fireStopped}
+	}
+	if state.State == "updating" {
+		return fired{outcome: fireBusy, busy: state.ChangeID, busyNumber: state.ChangeNumber}
+	}
+	return fired{}
 }
 
 func (f fired) refusal(queue string) string {
@@ -381,6 +394,34 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID, publications
 	if err != nil {
 		return nil, err
 	}
+	selected := []string{}
+	for name := range names {
+		selected = append(selected, name)
+	}
+	if publications {
+		for _, pin := range ad.Receipt.Workflows {
+			if _, ok := names[pin.Name]; !ok {
+				names[pin.Name] = false
+			}
+			selected = append(selected, pin.Name)
+		}
+	}
+	items, err := s.Adoption.AdoptedWorkflows(ctx, adoption.Source{ProjectID: projectID, Revision: ad}, selected...)
+	if err != nil {
+		return nil, err
+	}
+	return s.carriedFrom(ctx, projectID, publications, workflow.ProcedureFacts{Receipt: ad, Workflows: items, Scheduled: names})
+}
+
+func (s Schedules) carriedFrom(ctx context.Context, projectID ids.ID, publications bool, facts workflow.ProcedureFacts) ([]carried, error) {
+	ad := facts.Receipt
+	if ad == nil {
+		return nil, nil
+	}
+	names := map[string]bool{}
+	for name, scheduled := range facts.Scheduled {
+		names[name] = scheduled
+	}
 	if publications {
 		for _, wf := range ad.Receipt.Workflows {
 			if _, exists := names[wf.Name]; !exists {
@@ -388,13 +429,7 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID, publications
 			}
 		}
 	}
-	if len(names) == 0 {
-		return nil, nil
-	}
-	items, err := s.Adoption.AdoptedWorkflows(ctx, adoption.Source{ProjectID: ad.ProjectID, Revision: ad})
-	if err != nil {
-		return nil, err
-	}
+	items := facts.Workflows
 	pinned := make(map[string]adoption.AdoptedWorkflow, len(items))
 	for _, item := range items {
 		pinned[item.Name] = item
@@ -501,9 +536,49 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (Pr
 	return s.of(ctx, p, now, false)
 }
 
-// ForJanitor includes adopted publication starts needed by the Janitor read.
-func (s Schedules) ForJanitor(ctx context.Context, p project.Project, now time.Time) (ProjectSchedules, error) {
-	return s.of(ctx, p, now, true)
+// ForJanitor derives each visible project's schedules from the facts
+// already read by workflow. These observations convey no command authority.
+func (s Schedules) ForJanitor(ctx context.Context, projects []workflow.JanitorProject, now time.Time) (map[ids.ID]ProjectSchedules, error) {
+	carried := map[ids.ID][]carried{}
+	set := []workflow.ProjectWorkflows{}
+	for _, p := range projects {
+		items, err := s.carriedFrom(ctx, p.ProjectID, true, p.Facts)
+		if err != nil {
+			return nil, err
+		}
+		carried[p.ProjectID] = items
+		request := workflow.ProjectWorkflows{ProjectID: p.ProjectID}
+		for _, c := range items {
+			if c.standing != nil {
+				request.Workflows = append(request.Workflows, c.workflow)
+			}
+		}
+		set = append(set, request)
+	}
+	eligibility := map[ids.ID]map[string]workflow.StandingEligibilityResult{}
+	if s.Standing != nil {
+		var err error
+		eligibility, err = s.Standing.StandingEligibility(ctx, set)
+		if err != nil {
+			eligibility = map[ids.ID]map[string]workflow.StandingEligibilityResult{}
+			for _, request := range set {
+				results := map[string]workflow.StandingEligibilityResult{}
+				for _, name := range request.Workflows {
+					results[name] = workflow.StandingEligibilityResult{Err: err}
+				}
+				eligibility[request.ProjectID] = results
+			}
+		}
+	}
+	out := map[ids.ID]ProjectSchedules{}
+	for _, p := range projects {
+		row, err := s.scheduleView(ctx, project.Project{ID: p.ProjectID, Slug: p.Slug, Purpose: project.Ordinary}, now, carried[p.ProjectID], eligibility[p.ProjectID], p.Queues)
+		if err != nil {
+			return nil, err
+		}
+		out[p.ProjectID] = row
+	}
+	return out, nil
 }
 
 func (s Schedules) of(ctx context.Context, p project.Project, now time.Time, publications bool) (ProjectSchedules, error) {
@@ -516,6 +591,11 @@ func (s Schedules) of(ctx context.Context, p project.Project, now time.Time, pub
 	if err != nil {
 		return ProjectSchedules{}, err
 	}
+	return s.scheduleView(ctx, p, now, carried, nil, nil)
+}
+
+func (s Schedules) scheduleView(ctx context.Context, p project.Project, now time.Time, carried []carried, eligibility map[string]workflow.StandingEligibilityResult, queues []workflow.QueueStatus) (ProjectSchedules, error) {
+	projectID := p.ID
 	records, err := workflow.ScheduleRecordsIn(ctx, s.DB, projectID)
 	if err != nil {
 		return ProjectSchedules{}, err
@@ -533,7 +613,13 @@ func (s Schedules) of(ctx context.Context, p project.Project, now time.Time, pub
 			continue
 		}
 		firing := firing{carried: c, projectID: projectID, slug: p.Slug}
-		eligible, err := s.resolve(ctx, &firing)
+		var eligible bool
+		var err error
+		if eligibility != nil && c.standing != nil {
+			eligible, err = applyEligibility(&firing, eligibility[c.workflow])
+		} else {
+			eligible, err = s.resolve(ctx, &firing)
+		}
 		if err != nil {
 			ps.Problem = err.Error()
 			*rows = append(*rows, ps)
@@ -544,7 +630,23 @@ func (s Schedules) of(ctx context.Context, p project.Project, now time.Time, pub
 		ps.Refused = firing.waiting
 		stopped := false
 		if eligible {
-			admitted, err := s.admit(ctx, firing)
+			var admitted fired
+			var err error
+			if queues != nil && c.trigger.Queue != "" {
+				found := false
+				for _, q := range queues {
+					if q.Queue == c.trigger.Queue {
+						admitted = queueAdmission(firing, q)
+						found = true
+						break
+					}
+				}
+				if !found {
+					err = fmt.Errorf("queue %s was not read", c.trigger.Queue)
+				}
+			} else {
+				admitted, err = s.admit(ctx, firing)
+			}
 			if err != nil {
 				ps.Problem = err.Error()
 				*rows = append(*rows, ps)
@@ -645,6 +747,18 @@ func (s Schedules) ScansSource(ctx context.Context, projectID ids.ID) (bool, err
 	if err != nil {
 		return false, err
 	}
+	return scansSource(carried)
+}
+
+func (s Schedules) ScansSourceFrom(ctx context.Context, projectID ids.ID, facts workflow.ProcedureFacts) (bool, error) {
+	items, err := s.carriedFrom(ctx, projectID, false, facts)
+	if err != nil {
+		return false, err
+	}
+	return scansSource(items)
+}
+
+func scansSource(carried []carried) (bool, error) {
 	scans := false
 	for _, c := range carried {
 		if !c.scheduled {

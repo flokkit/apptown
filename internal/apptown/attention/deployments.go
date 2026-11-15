@@ -26,7 +26,7 @@ type Deployments struct {
 		ByID(context.Context, ids.ID) (project.Project, error)
 	}
 	Runtime interface {
-		Operational(context.Context, ids.ID) ([]deployment.OperationalObservation, error)
+		Operational(context.Context, []ids.ID) (map[ids.ID][]deployment.OperationalObservation, error)
 	}
 	Hosts hostReachabilityReader
 	Now   func() time.Time
@@ -40,10 +40,41 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 	if err != nil {
 		return Snapshot{}, err
 	}
-	rows, err := s.Runtime.Operational(ctx, id)
+	rows, err := s.Runtime.Operational(ctx, []ids.ID{id})
 	if err != nil {
 		return Snapshot{}, err
 	}
+	return s.projectSnapshot(ctx, p, rows[id])
+}
+
+// Snapshot collects authorized deployment observations once for the fleet.
+func (s Deployments) Snapshot(ctx context.Context, projects []ids.ID) (map[ids.ID]ScanSnapshot, error) {
+	out := map[ids.ID]ScanSnapshot{}
+	if s.Projects == nil || s.Runtime == nil {
+		for _, id := range projects {
+			out[id] = ScanSnapshot{}
+		}
+		return out, nil
+	}
+	rows, err := s.Runtime.Operational(ctx, projects)
+	if err != nil {
+		for _, id := range projects {
+			out[id] = ScanSnapshot{Err: err}
+		}
+		return out, nil
+	}
+	for _, id := range projects {
+		p, err := s.Projects.ByID(ctx, id)
+		var snap Snapshot
+		if err == nil {
+			snap, err = s.projectSnapshot(ctx, p, rows[id])
+		}
+		out[id] = ScanSnapshot{Snapshot: snap, Err: err}
+	}
+	return out, nil
+}
+
+func (s Deployments) projectSnapshot(ctx context.Context, p project.Project, rows []deployment.OperationalObservation) (Snapshot, error) {
 	projectName := p.Name
 	if projectName == "" {
 		projectName = p.Slug

@@ -7,7 +7,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
-	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -33,16 +33,21 @@ type JanitorChangeRelease struct {
 }
 
 func (s *Service) requireJanitorProjects(ctx context.Context, projects []ids.ID) error {
-	if s.authority == nil {
+	authority, ok := s.authority.(access.ReadAuthorizer)
+	if !ok {
 		return access.ErrAuthorityUnavailable
 	}
-	for _, pid := range projects {
-		resource, err := project.AuthorityResourceIn(ctx, s.db, pid)
-		if err != nil {
-			return err
-		}
-		if _, err := s.authority.Require(ctx, access.Permission{Capability: access.CapProjectRead, Resource: resource}); err != nil {
-			return err
+	visible, err := authority.VisibleProjects(ctx, access.CapProjectRead)
+	if err != nil {
+		return err
+	}
+	allowed := map[ids.ID]bool{}
+	for _, id := range visible {
+		allowed[id] = true
+	}
+	for _, id := range projects {
+		if !allowed[id] {
+			return fault.New(fault.Forbidden, "project is not readable")
 		}
 	}
 	return nil

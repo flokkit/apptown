@@ -195,7 +195,7 @@ func TestAutomatedPurgeKeepsExactScanSubjectsAfterRestart(t *testing.T) {
 	restarted := New(context.Background(), s.db, Dependencies{DataDir: s.dataDir, ScanSchedules: scheduledScans{}, RunningImages: running})
 	restarted.authority = allowProject(ch.ProjectID)
 	defer restarted.Stop()
-	scans, err := restarted.LatestMainScans(t.Context(), ch.ProjectID)
+	scans, err := restarted.LatestMainScans(t.Context(), ch.ProjectID, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +211,7 @@ func TestAutomatedPurgeKeepsExactScanSubjectsAfterRestart(t *testing.T) {
 	}
 	gittest.Run(t, repo, "-c", "user.name=test", "-c", "user.email=test@example.org", "commit", "--allow-empty", "-qm", "unrelated landing")
 	running.rows[0].Images["web"] = "registry.example/p@sha256:b"
-	scans, err = restarted.LatestMainScans(t.Context(), ch.ProjectID)
+	scans, err = restarted.LatestMainScans(t.Context(), ch.ProjectID, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -443,3 +443,7 @@ func TestQueueStartRetainsTheTargetsOfAFailedProducer(t *testing.T) {
 type scheduledScans struct{}
 
 func (scheduledScans) ScansSource(context.Context, ids.ID) (bool, error) { return true, nil }
+
+func (scheduledScans) ScansSourceFrom(context.Context, ids.ID, ProcedureFacts) (bool, error) {
+	return true, nil
+}

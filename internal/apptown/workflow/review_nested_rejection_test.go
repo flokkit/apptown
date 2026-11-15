@@ -59,7 +59,7 @@ func TestReviewRejectionOfCalledApprovalKeepsVote(t *testing.T) {
 				t.Fatalf("rejection not retained: %+v %v", saved, err)
 			}
 
-			var evidence ApprovalEvidence
+			var evidence approvalEvidence
 			if err := json.Unmarshal(saved.Evidence, &evidence); err != nil {
 				t.Fatal(err)
 			}

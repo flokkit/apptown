@@ -263,7 +263,7 @@ func evaluateAssertionIn(ctx context.Context, tx *database.Tx, run *Run, step *S
 			return assertionOutcome{}, fmt.Errorf("missing merge observation")
 		}
 		if merged.Refusal != "" {
-			return assertionResult(StatusNeedsHuman, MergeEvidence{Reason: merged.Refusal})
+			return assertionResult(StatusNeedsHuman, mergeEvidence{Reason: merged.Refusal})
 		}
 		if merged.Merged {
 			return assertionResult(StatusPass, mergedEvidence{true})

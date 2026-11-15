@@ -17,6 +17,7 @@ import (
 )
 
 // MainScans distinguishes current subjects from retained historical software.
+// Historical contains at most the requested number of newest non-current rows.
 // Known means every subject could be judged, never that it had no findings.
 type MainScans struct {
 	Main       string                        `json:"main"`
@@ -51,6 +52,7 @@ type RunningImages struct {
 
 type scanSchedules interface {
 	ScansSource(context.Context, ids.ID) (bool, error)
+	ScansSourceFrom(context.Context, ids.ID, ProcedureFacts) (bool, error)
 }
 
 type runningImages interface {
@@ -60,10 +62,14 @@ type runningImages interface {
 // LatestMainScans reads software observations without starting work. Only exact
 // current subjects support current claims; a scan that could not run classifies
 // no running findings. Missing or older-than-three-days evidence is not known.
-func (s *Service) LatestMainScans(ctx context.Context, projectID ids.ID) (MainScans, error) {
+func (s *Service) LatestMainScans(ctx context.Context, projectID ids.ID, earlier int) (MainScans, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionReadProject, ProjectID: projectID}); err != nil {
 		return MainScans{}, err
 	}
+	return s.latestMainScans(ctx, projectID, earlier, nil)
+}
+
+func (s *Service) latestMainScans(ctx context.Context, projectID ids.ID, earlier int, scheduled func() (bool, error)) (MainScans, error) {
 	p, err := workflowsql.New(s.db.SQL()).ProjectByID(ctx, projectID)
 	if err != nil {
 		return MainScans{}, err
@@ -88,20 +94,72 @@ func (s *Service) LatestMainScans(ctx context.Context, projectID ids.ID) (MainSc
 	if err != nil {
 		return MainScans{}, err
 	}
-	observations, err := conformance.ScanObservationsIn(ctx, s.db, projectID)
+	heads, err := conformance.ScanObservationHeadsIn(ctx, s.db, projectID)
 	if err != nil {
 		return MainScans{}, err
 	}
-	out := latestMainScans(main, running, observations, s.now())
-	if !out.Known {
-		if s.scanSchedules == nil {
-			return MainScans{}, fmt.Errorf("scan schedules are unavailable")
+	selection := selectScanHeads(main, heads)
+	observations, err := conformance.ScanObservationsByIDIn(ctx, s.db, projectID, selection.candidates)
+	if err != nil {
+		return MainScans{}, err
+	}
+	out := latestMainScans(main, running, observations, selection, s.now())
+	if earlier > 0 {
+		current := map[ids.ID]bool{}
+		for _, o := range out.Source {
+			current[o.ID] = true
 		}
-		scheduled, err := s.scanSchedules.ScansSource(ctx, projectID)
+		for _, o := range out.Running {
+			current[o.ID] = true
+		}
+		selected := []ids.ID{}
+		for _, h := range heads {
+			if (h.Subject.On == "source" || h.Subject.On == "running") && !current[h.ID] {
+				selected = append(selected, h.ID)
+				if len(selected) == earlier {
+					break
+				}
+			}
+		}
+		loaded := map[ids.ID]conformance.ScanObservation{}
+		for _, o := range observations {
+			loaded[o.ID] = o
+		}
+		missing := []ids.ID{}
+		for _, id := range selected {
+			if _, ok := loaded[id]; !ok {
+				missing = append(missing, id)
+			}
+		}
+		older, err := conformance.ScanObservationsByIDIn(ctx, s.db, projectID, missing)
 		if err != nil {
 			return MainScans{}, err
 		}
-		if !scheduled {
+		for _, o := range older {
+			loaded[o.ID] = o
+		}
+		out.Historical = []conformance.ScanObservation{}
+		for _, id := range selected {
+			if o, ok := loaded[id]; ok {
+				out.Historical = append(out.Historical, o)
+			}
+		}
+
+	} else {
+		out.Historical = []conformance.ScanObservation{}
+	}
+	if !out.Known {
+		if scheduled == nil && s.scanSchedules == nil {
+			return MainScans{}, fmt.Errorf("scan schedules are unavailable")
+		}
+		if scheduled == nil {
+			scheduled = func() (bool, error) { return s.scanSchedules.ScansSource(ctx, projectID) }
+		}
+		hasSchedule, err := scheduled()
+		if err != nil {
+			return MainScans{}, err
+		}
+		if !hasSchedule {
 			out.Unscheduled, out.Reason = true, "its packs schedule no scan"
 		}
 	}
@@ -114,7 +172,7 @@ func (s *Service) LatestMainScans(ctx context.Context, projectID ids.ID) (MainSc
 // scanner that run answered only that way on this commit, the answer is the
 // scanner's newest whole-tree observation of the same commit from an earlier
 // run. Without one, it stays unanswered. No other scanner is filled.
-func currentSource(main string, observations []conformance.ScanObservation) []bool {
+func currentSource(main string, observations []conformance.ScanHead) []bool {
 	current := make([]bool, len(observations))
 	run := ids.Nil
 	for _, o := range observations {
@@ -145,31 +203,53 @@ func currentSource(main string, observations []conformance.ScanObservation) []bo
 	return current
 }
 
-func latestMainScans(main string, running []RunningImages, observations []conformance.ScanObservation, now time.Time) MainScans {
-	sourceCurrent, runningRun := currentSource(main, observations), ids.Nil
-	var source []conformance.ScanObservation
-	for i, o := range observations {
-		if sourceCurrent[i] {
-			source = append(source, o)
+type scanSelection struct {
+	source     map[ids.ID]bool
+	runningRun ids.ID
+	candidates []ids.ID
+}
+
+func selectScanHeads(main string, heads []conformance.ScanHead) scanSelection {
+	source := currentSource(main, heads)
+	out := scanSelection{source: map[ids.ID]bool{}}
+	for _, h := range heads {
+		if h.Subject.On == "running" {
+			out.runningRun = h.RunID
+			break
 		}
-		if o.Subject.On == "running" && runningRun.IsZero() {
-			runningRun = o.RunID
+	}
+	for i, h := range heads {
+		if source[i] {
+			out.source[h.ID] = true
+		}
+		if source[i] || h.Subject.On == "running" && h.RunID == out.runningRun {
+			out.candidates = append(out.candidates, h.ID)
+		}
+	}
+	return out
+}
+
+func latestMainScans(main string, running []RunningImages, observations []conformance.ScanObservation, selection scanSelection, now time.Time) MainScans {
+	var source []conformance.ScanObservation
+	for _, o := range observations {
+		if selection.source[o.ID] {
+			source = append(source, o)
 		}
 	}
 	unanswered, sourceComplete := unansweredScanners(source)
 	out := MainScans{Main: main, Source: []conformance.ScanObservation{}, Running: []runningScan{}, Historical: []conformance.ScanObservation{}, Known: sourceComplete}
 	seen := map[string]bool{}
 	currentDeployments := map[ids.ID]bool{}
-	for i, o := range observations {
+	for _, o := range observations {
 		if o.Subject.On != "source" && o.Subject.On != "running" {
 			continue
 		}
 		current := false
 		switch o.Subject.On {
 		case "source":
-			current = sourceCurrent[i]
+			current = selection.source[o.ID]
 		case "running":
-			if o.RunID == runningRun {
+			if o.RunID == selection.runningRun {
 				if len(running) == 0 && o.Subject.DeploymentID.IsZero() && o.Verdict == StatusNotApplicable.String() {
 					current = true
 				}
@@ -326,8 +406,8 @@ func unansweredScanners(observations []conformance.ScanObservation) ([]string, b
 	return missing, complete
 }
 
-// JanitorScans carries only the scan facts shown in the fleet view.
-type JanitorScans struct {
+// janitorScans carries only the scan facts shown in the fleet view.
+type janitorScans struct {
 	Known        bool      `json:"known"`
 	Stale        bool      `json:"stale"`
 	NoRepository bool      `json:"noRepository"`
@@ -336,8 +416,8 @@ type JanitorScans struct {
 	ImageUpdates bool      `json:"imageUpdates"`
 }
 
-func (s MainScans) janitorSummary() JanitorScans {
-	out := JanitorScans{Known: s.Known, Stale: s.Stale, NoRepository: s.NoRepository, LastScan: s.LastScan}
+func (s MainScans) janitorSummary() janitorScans {
+	out := janitorScans{Known: s.Known, Stale: s.Stale, NoRepository: s.NoRepository, LastScan: s.LastScan}
 	fingerprints := map[string]bool{}
 	for _, scan := range s.Source {
 		for _, f := range scan.Findings {

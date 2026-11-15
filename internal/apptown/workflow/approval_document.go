@@ -8,9 +8,9 @@ import (
 
 // Unknown producer metadata is opaque to the approval model. Keep it private
 // to this storage codec as raw JSON, so round changes neither drop it nor round
-// large integers. Ordinary approval facts always use ApprovalEvidence.
+// large integers. Ordinary approval facts always use approvalEvidence.
 type approvalDocument struct {
-	evidence ApprovalEvidence
+	evidence approvalEvidence
 	extra    map[string]json.RawMessage
 }
 
@@ -28,7 +28,7 @@ func readApprovalDocument(raw []byte) (approvalDocument, error) {
 	}
 	return approvalDocument{evidence, extra}, nil
 }
-func (d approvalDocument) encode(evidence ApprovalEvidence) (json.RawMessage, error) {
+func (d approvalDocument) encode(evidence approvalEvidence) (json.RawMessage, error) {
 	body, err := json.Marshal(evidence)
 	if err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func (v *approvalRejection) UnmarshalJSON(raw []byte) error {
 	type fields approvalRejection
 	var value struct {
 		fields
-		Decision ApprovalDecision `json:"decision"`
+		Decision approvalDecision `json:"decision"`
 	}
 	if err := approvalObject(raw, &value); err != nil {
 		return err

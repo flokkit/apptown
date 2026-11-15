@@ -32,23 +32,23 @@ type WaitingOn struct {
 	Step    ids.ID     `json:"step"`
 	Attempt int64      `json:"attempt,omitempty"`
 	Checks  int        `json:"checks"`
-	Who     []Decider  `json:"who"`
+	Who     []decider  `json:"who"`
 	You     string     `json:"you"`
 	Says    string     `json:"says"`
 	Tone    string     `json:"tone"`
 }
 
-// Decider retains whether an effective approval expression names a person,
+// decider retains whether an effective approval expression names a person,
 // group or role. Name retains the expression without its kind prefix; roles
 // also carry the title from the role catalog for display.
-type Decider struct {
+type decider struct {
 	Kind        string `json:"kind"`
 	Name        string `json:"name"`
 	DisplayName string `json:"displayName,omitempty"`
 }
 
 func unknownWaitingOn() WaitingOn {
-	return WaitingOn{Kind: "unknown", You: "unknown", Says: "unknown", Tone: "unknown", Who: []Decider{}}
+	return WaitingOn{Kind: "unknown", You: "unknown", Says: "unknown", Tone: "unknown", Who: []decider{}}
 }
 
 func checkHold(s workflowActivityStep) bool {
@@ -57,7 +57,7 @@ func checkHold(s workflowActivityStep) bool {
 
 // waitingOn applies lifecycle and classification precedence before wording it.
 func waitingOn(ch *Change, d *RunSnapshot) WaitingOn {
-	w := WaitingOn{Kind: "chat", You: "no", Who: []Decider{}, Tone: "neutral"}
+	w := WaitingOn{Kind: "chat", You: "no", Who: []decider{}, Tone: "neutral"}
 	if ch != nil && ch.State.Closed() {
 		w.Kind = "closed"
 		return sayWaitingOn(w, Activity{}, ch)
@@ -273,7 +273,7 @@ func (s *Service) readerWaitingOn(ctx context.Context, ch *Change, d *RunSnapsho
 			return w
 		}
 		for _, expression := range approvalExpressions(cfg.Approvers, policy.DefaultApprovers) {
-			who := Decider{Kind: "person", Name: expression}
+			who := decider{Kind: "person", Name: expression}
 			if name, ok := strings.CutPrefix(expression, "group:"); ok {
 				who.Kind, who.Name = "group", name
 			}
@@ -356,7 +356,7 @@ func (s *Service) ChangeWaitingOn(ctx context.Context, ch *Change, d *RunSnapsho
 	return waitingOn(ch, d)
 }
 
-// mayVote includes current-round person identity, just as ApprovalEvidence.cast.
+// mayVote includes current-round person identity, just as approvalEvidence.cast.
 func (s *Service) mayVote(ctx context.Context, id ids.ID) error {
 	expected, who, err := s.prepareDecision(ctx, id, actionApproveStep)
 	if err != nil {

@@ -2249,24 +2249,6 @@
         ],
         "type": "object"
       },
-      "Decider": {
-        "properties": {
-          "displayName": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "name"
-        ],
-        "type": "object"
-      },
       "DeclaredSecret": {
         "properties": {
           "allParts": {
@@ -3931,7 +3913,7 @@
             "type": "string"
           },
           "scans": {
-            "$ref": "#/components/schemas/JanitorScans"
+            "$ref": "#/components/schemas/janitorScans"
           },
           "slug": {
             "type": "string"
@@ -3990,38 +3972,6 @@
         },
         "required": [
           "starts"
-        ],
-        "type": "object"
-      },
-      "JanitorScans": {
-        "properties": {
-          "findings": {
-            "type": "integer"
-          },
-          "imageUpdates": {
-            "type": "boolean"
-          },
-          "known": {
-            "type": "boolean"
-          },
-          "lastScan": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "noRepository": {
-            "type": "boolean"
-          },
-          "stale": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "known",
-          "stale",
-          "noRepository",
-          "lastScan",
-          "findings",
-          "imageUpdates"
         ],
         "type": "object"
       },
@@ -8148,7 +8098,7 @@
           },
           "who": {
             "items": {
-              "$ref": "#/components/schemas/Decider"
+              "$ref": "#/components/schemas/decider"
             },
             "type": "array"
           },
@@ -8495,6 +8445,24 @@
         ],
         "type": "object"
       },
+      "decider": {
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
+        ],
+        "type": "object"
+      },
       "janitorAttribution": {
         "properties": {
           "grantedAt": {
@@ -8718,6 +8686,38 @@
           "stopRule",
           "sentence",
           "problem"
+        ],
+        "type": "object"
+      },
+      "janitorScans": {
+        "properties": {
+          "findings": {
+            "type": "integer"
+          },
+          "imageUpdates": {
+            "type": "boolean"
+          },
+          "known": {
+            "type": "boolean"
+          },
+          "lastScan": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "noRepository": {
+            "type": "boolean"
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "known",
+          "stale",
+          "noRepository",
+          "lastScan",
+          "findings",
+          "imageUpdates"
         ],
         "type": "object"
       },

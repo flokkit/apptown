@@ -42,7 +42,7 @@ type Override struct {
 }
 type Approval struct {
 	StepID   ids.ID
-	Decision ApprovalDecision
+	Decision approvalDecision
 	Comment  string
 	// Shown is what the client displayed of the landing's approvals beside
 	// this acceptance (ApprovalQuestion). The vote records them only if they

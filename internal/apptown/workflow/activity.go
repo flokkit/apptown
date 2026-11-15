@@ -41,10 +41,6 @@ type Activity struct {
 	goingLive    bool // the current stage is the landing definition's final stage
 }
 
-func (a Activity) Active() bool {
-	return a.State != ActivityAbandoned && a.State != ActivityDone
-}
-
 type slotWait func(ids.ID) (binding string, ahead int, waiting bool)
 type workflowActivityStep struct {
 	id                   ids.ID

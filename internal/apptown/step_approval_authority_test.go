@@ -435,7 +435,7 @@ func TestJanitorInstancePreviewReadsMainAndReleaseSettings(t *testing.T) {
 	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest}); err != nil {
 		t.Fatal(err)
 	}
-	if dependency, _, _, err := a.standingRules.StandingForWorkflow(ctx, java, "janitor-update"); err != nil || dependency.RuleID.IsZero() {
+	if dependency, _, _, err := standingEligibilityOne(a.standingRules, ctx, java, "janitor-update"); err != nil || dependency.RuleID.IsZero() {
 		t.Fatalf("Java without declarations did not get dependency work: %+v %v", dependency, err)
 	}
 	packRule := enablePackRule(t, a, ctx)
@@ -902,7 +902,7 @@ func testPackAdoption(t *testing.T, only string) {
 			attempts, err := a.Work.Attempts(ctx, pid, "packs", 10)
 			if err != nil || len(attempts) != 1 || attempts[0].RuleID != rule.RuleID || attempts[0].RuleRevision != rule.Revision || !attempts[0].Attempted || attempts[0].Fingerprint == "" {
 				fresh, _ := a.conformance.WhatIf(ctx, latest.ID)
-				eligible, _, _, _ := a.standingRules.StandingForWorkflow(ctx, pid, "janitor-adopt")
+				eligible, _, _, _ := standingEligibilityOne(a.standingRules, ctx, pid, "janitor-adopt")
 				t.Fatalf("packs attempt: %+v %v; assessment=%+v rule=%+v", attempts, err, fresh, eligible)
 			}
 			if scenario.kind == "repair-exhausted" {
@@ -925,7 +925,7 @@ func testPackAdoption(t *testing.T, only string) {
 				}
 				t.Fatalf("repair sessions=%d want %d", repairs, wantRepairs)
 			}
-			if dep, _, _, err := a.standingRules.StandingForWorkflow(ctx, pid, "janitor-update"); err != nil || !dep.RuleID.IsZero() {
+			if dep, _, _, err := standingEligibilityOne(a.standingRules, ctx, pid, "janitor-update"); err != nil || !dep.RuleID.IsZero() {
 				t.Fatalf("pack consent granted dependencies: %+v %v", dep, err)
 			}
 			// A person's earlier review cannot suppress catch-up, and job redelivery
@@ -1326,16 +1326,16 @@ func TestJanitorAttentionUsesTheJanitorProjectSet(t *testing.T) {
 	if state := passDeletion(t, a, deleted); state.State != project.Deleted || !state.KeptUntil.Valid {
 		t.Fatalf("deleted project retained for inspection: %+v", state)
 	}
-	source := attention.Scans{Work: a.Work, Projects: a.Projects}
+	source := attention.Scans{Work: a.Work}
 	t.Run("unscheduled active project", func(t *testing.T) {
-		got, err := source.ProjectSnapshot(ctx, active)
+		got, err := readScanSnapshot(source, ctx, active)
 		if err != nil || !got.Known || len(got.Items) != 1 || got.Items[0].Detail != "Its packs schedule no scan. Adopting the platform pack would scan it." {
 			t.Fatalf("active project's scans: %+v %v", got, err)
 		}
 	})
 	for _, id := range []ids.ID{deleted, copy} {
 		t.Run(id.String(), func(t *testing.T) {
-			got, err := source.ProjectSnapshot(ctx, id)
+			got, err := readScanSnapshot(source, ctx, id)
 			if err != nil || !got.Known || len(got.Items) != 0 {
 				t.Fatalf("excluded project's scans coverage: %+v %v", got, err)
 			}
@@ -1343,7 +1343,7 @@ func TestJanitorAttentionUsesTheJanitorProjectSet(t *testing.T) {
 	}
 
 	dbtest.FailNextStatement(t, a.DB, "-- name: JanitorProjectLabels :many")
-	if _, err := source.ProjectSnapshot(ctx, active); err == nil {
+	if _, err := readScanSnapshot(source, ctx, active); err == nil {
 		t.Fatal("eligibility read failure became exclusion")
 	}
 }
@@ -1421,4 +1421,23 @@ func TestJanitorRunPacksChecksProjectChoiceAndRecordsRequester(t *testing.T) {
 	if err != nil || !id.IsZero() {
 		t.Fatalf("current project: %s %v", id, err)
 	}
+}
+
+func readScanSnapshot(source attention.Scans, ctx context.Context, pid ids.ID) (attention.Snapshot, error) {
+	rows, err := source.Snapshot(ctx, []ids.ID{pid})
+	if err != nil {
+		return attention.Snapshot{}, err
+	}
+	return rows[pid].Snapshot, rows[pid].Err
+}
+
+func standingEligibilityOne(s interface {
+	StandingEligibility(context.Context, []workflow.ProjectWorkflows) (map[ids.ID]map[string]workflow.StandingEligibilityResult, error)
+}, ctx context.Context, pid ids.ID, name string) (workflow.StandingRevision, string, string, error) {
+	results, err := s.StandingEligibility(ctx, []workflow.ProjectWorkflows{{ProjectID: pid, Workflows: []string{name}}})
+	if err != nil {
+		return workflow.StandingRevision{}, "", "", err
+	}
+	r := results[pid][name]
+	return r.Rule, r.Level, r.Refused, r.Err
 }

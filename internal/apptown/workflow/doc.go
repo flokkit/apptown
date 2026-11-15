@@ -23,6 +23,14 @@
 // remains best effort. Missing attachment directories are empty; unavailable
 // directories or selected entries are errors, including when building steering.
 //
+// Fleet reads make their own visibility decision before private project reads.
+// Scan selection uses receipt heads, then loads only current candidates; the
+// project view can request a bounded number of earlier receipts. Classification
+// keeps the selection over all heads, including whole-tree history donors.
+// StandingEligibility reads shared authority and project facts for a set while
+// preserving independent workflow judgments and per-rule fallback levels.
+// Nothing from these reads grants authority to a later command.
+//
 // Stores and SQLC queries stay private. Named transaction participants allow
 // Deployment, jobs, policy and adoption owners to contribute their own receipts or
 // observations without giving Work a general repository or an App dependency.

@@ -600,7 +600,7 @@ func TestAnAbsoluteLandingScanJudgesTheWholeTree(t *testing.T) {
 			if result.Status != workflow.StatusFail || calls != 1 {
 				t.Fatalf("tree finding: %s %s calls=%d", result.Status, result.Evidence, calls)
 			}
-			receipts, err := a.Work.LatestMainScans(a.asAppTown(t.Context(), run.ProjectID, "fixture"), run.ProjectID)
+			receipts, err := a.Work.LatestMainScans(a.asAppTown(t.Context(), run.ProjectID, "fixture"), run.ProjectID, 10)
 			if err != nil {
 				t.Fatal(err)
 			}

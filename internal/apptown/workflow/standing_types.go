@@ -65,7 +65,7 @@ type StandingProcedure struct {
 // standingProcedures resolves declarations and current law under the caller's
 // project lock. The workflow owner separately checks approval eligibility.
 type standingProcedures interface {
-	StandingProcedure(context.Context, database.Queryer, ids.ID, string) (StandingProcedure, error)
+	StandingProcedures(context.Context, database.Queryer, ids.ID, []string) (map[string]StandingProcedureResult, error)
 }
 type StandingDestination struct {
 	Resource          access.Resource
@@ -220,4 +220,9 @@ func standingQuestion(in StandingDefinition, projects []standingProjectMeaning) 
 	digest := sha256.Sum256(raw)
 	q.Digest = hex.EncodeToString(digest[:])
 	return q, nil
+}
+
+type StandingProcedureResult struct {
+	Procedure StandingProcedure
+	Err       error
 }

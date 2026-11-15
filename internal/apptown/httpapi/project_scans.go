@@ -34,7 +34,7 @@ func (h ProjectScans) List(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	scans, err := h.work.LatestMainScans(r.Context(), p.ID)
+	scans, err := h.work.LatestMainScans(r.Context(), p.ID, 10)
 	if err != nil {
 		WriteFault(w, err)
 		return

@@ -216,3 +216,31 @@ func TestHoldExclusiveRefusesASecondHolder(t *testing.T) {
 	}
 	again()
 }
+
+func TestStatementObserverCountsPoolAndExistingTransactionOnly(t *testing.T) {
+	t.Parallel()
+	db, other := testDB(t), testDB(t)
+	tx, err := db.Begin(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	count, stop := db.CountStatements("SELECT 42")
+	defer stop()
+	var n int
+	for _, q := range []database.Queryer{db, tx, other} {
+		if err := q.SQL().QueryRowContext(t.Context(), "SELECT 42").Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if count() != 2 {
+		t.Fatalf("statements=%d, want pool and transaction", count())
+	}
+	stop()
+	if err := db.SQL().QueryRowContext(t.Context(), "SELECT 42").Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if count() != 2 {
+		t.Fatal("stopped observer counted another statement")
+	}
+}

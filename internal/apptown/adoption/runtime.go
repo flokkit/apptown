@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -243,7 +245,34 @@ func (s *Service) WorkflowVersion(ctx context.Context, source Source, name strin
 	return metadata.Version, metadata.YAML, nil
 }
 
+// workflowPolicies is the checked project law for one procedure resolution set.
+// It is read by the adoption owner and never retained across operations.
+type workflowPolicies struct{ evaluations []evaluation }
+
+func ReadWorkflowPoliciesIn(ctx context.Context, q database.Queryer, pid ids.ID) (*workflowPolicies, error) {
+	policies, err := ReadProjectPolicies(ctx, q, pid)
+	if err != nil {
+		return nil, err
+	}
+	evaluations, err := PrepareEvaluations(ctx, q, policies)
+	if err != nil {
+		return nil, err
+	}
+	return &workflowPolicies{evaluations: evaluations}, nil
+}
+
+func (p *workflowPolicies) violations(name string, spec *schema.Spec) []Violation {
+	var out []Violation
+	for _, e := range p.evaluations {
+		if detail := e.Detail(spec); detail != "" {
+			out = append(out, Violation{Policy: e.Name, Workflow: name, Detail: detail})
+		}
+	}
+	return out
+}
+
 type WorkflowRequest struct {
+	Policies          *workflowPolicies
 	Source            Source
 	Name, ProjectSlug string
 }
@@ -254,9 +283,44 @@ type ResolvedWorkflow struct {
 	System                   bool
 }
 
-// Workflow checks catalog and pack availability and current policies before
-// resolving the procedure version.
+// workflowResult keeps a procedure failure separate from the other selections.
+type workflowResult struct {
+	Workflow *ResolvedWorkflow
+	Err      error
+}
+
+// Workflows resolves a procedure set from one read of its recorded versions.
+// The caller supplies law read for that source.
+func (s *Service) Workflows(ctx context.Context, source Source, names []string, policies *workflowPolicies) []workflowResult {
+	out := make([]workflowResult, len(names))
+	if len(names) == 0 {
+		return out
+	}
+	pins, err := s.AdoptedWorkflows(ctx, source, names...)
+	if err != nil {
+		for i := range out {
+			out[i].Err = err
+		}
+		return out
+	}
+	byName := map[string]AdoptedWorkflow{}
+	for _, pin := range pins {
+		byName[pin.Name] = pin
+	}
+	for i, name := range names {
+		in := WorkflowRequest{Source: source, Name: name, Policies: policies}
+		out[i].Workflow, out[i].Err = s.workflow(ctx, in, byName[name])
+	}
+	return out
+}
+
+// Workflow checks catalog and pack availability and current law before
+// resolving the recorded procedure version.
 func (s *Service) Workflow(ctx context.Context, in WorkflowRequest) (*ResolvedWorkflow, error) {
+	return s.workflow(ctx, in, AdoptedWorkflow{})
+}
+
+func (s *Service) workflow(ctx context.Context, in WorkflowRequest, pinned AdoptedWorkflow) (*ResolvedWorkflow, error) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
 		return nil, fmt.Errorf("no workflow named")
@@ -272,7 +336,10 @@ func (s *Service) Workflow(ctx context.Context, in WorkflowRequest) (*ResolvedWo
 		return nil, err
 	}
 	name = metadata.Name
-	version, yaml, err := s.WorkflowVersion(ctx, in.Source, name)
+	version, yaml, err := pinned.Version, pinned.YAML, pinned.Err
+	if pinned.Name == "" {
+		version, yaml, err = s.WorkflowVersion(ctx, in.Source, name)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -289,10 +356,14 @@ func (s *Service) Workflow(ctx context.Context, in WorkflowRequest) (*ResolvedWo
 			return nil, fault.New(fault.Unprocessable, fmt.Sprintf("workflow %q is not available to this project", name))
 		}
 	}
-	violations, err := s.CheckWorkflow(ctx, s.db, in.Source.ProjectID, name, &doc.Spec)
-	if err != nil {
-		return nil, err
+	policies := in.Policies
+	if policies == nil {
+		policies, err = ReadWorkflowPoliciesIn(ctx, s.db, in.Source.ProjectID)
+		if err != nil {
+			return nil, err
+		}
 	}
+	violations := policies.violations(name, &doc.Spec)
 	if len(violations) > 0 {
 		return nil, fault.New(fault.Conflict, fmt.Sprintf("policy violation: %s", FormatViolations(violations)))
 	}
@@ -342,12 +413,21 @@ type AdoptedWorkflow struct {
 }
 
 // AdoptedWorkflows reads the receipt's exact procedures in one catalog set read.
-func (s *Service) AdoptedWorkflows(ctx context.Context, source Source) ([]AdoptedWorkflow, error) {
+func (s *Service) AdoptedWorkflows(ctx context.Context, source Source, names ...string) ([]AdoptedWorkflow, error) {
 	revision, err := source.receipt("adopted workflows")
 	if err != nil {
 		return nil, err
 	}
-	return s.readWorkflowPins(ctx, revision.Receipt.Workflows), nil
+	pins := revision.Receipt.Workflows
+	if names != nil {
+		pins = nil
+		for _, pin := range revision.Receipt.Workflows {
+			if slices.Contains(names, pin.Name) {
+				pins = append(pins, pin)
+			}
+		}
+	}
+	return s.readWorkflowPins(ctx, pins), nil
 }
 
 func (s *Service) readWorkflowPins(ctx context.Context, pins []ReceiptWorkflow) []AdoptedWorkflow {

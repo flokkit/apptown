@@ -2853,7 +2853,7 @@ export type WaitingOn = {
   step: string | null
   attempt?: number
   checks: number
-  who: Decider[]
+  who: decider[]
   you: string
   says: string
   tone: string
@@ -4007,7 +4007,7 @@ export type JanitorProject = {
   issuer: StandingActor
   grantedAt: string
   queues: QueueStatus[]
-  scans: JanitorScans
+  scans: janitorScans
   problem: string
   procedures: JanitorProcedure[]
   queueSentences: string[]
@@ -5251,7 +5251,7 @@ export type slotQueue = {
   says: string
 }
 
-export type Decider = {
+export type decider = {
   kind: string
   name: string
   displayName?: string
@@ -5522,7 +5522,7 @@ export type janitorState = {
   help: string
 }
 
-export type JanitorScans = {
+export type janitorScans = {
   known: boolean
   stale: boolean
   noRepository: boolean

@@ -2,10 +2,16 @@ package apptown
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"github.com/flokkit/apptown/internal/apptown/conformance"
+	"github.com/flokkit/apptown/internal/apptown/httpapi"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
@@ -103,7 +109,7 @@ func TestAScannersEmptyExitRemainsUnableToJudgeInTheScanRead(t *testing.T) {
 	if result.Status != workflow.StatusError || calls != 1 {
 		t.Fatalf("nothing-to-judge settlement: %s calls=%d evidence=%s", result.Status, calls, result.Evidence)
 	}
-	observations, err := a.Work.LatestMainScans(a.asAppTown(t.Context(), run.ProjectID, "fixture"), run.ProjectID)
+	observations, err := a.Work.LatestMainScans(a.asAppTown(t.Context(), run.ProjectID, "fixture"), run.ProjectID, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,11 +120,44 @@ func TestAScannersEmptyExitRemainsUnableToJudgeInTheScanRead(t *testing.T) {
 	// Make the scanned commit the current source subject in this disposable repository.
 	repo := requireLocation(t)(source.Repository(a.cfg.dataDir))
 	gittest.Run(t, repo, "update-ref", "refs/heads/"+source.DefaultBranch, source.Landing.Candidate)
-	got, err := a.Work.LatestMainScans(a.asAppTown(t.Context(), run.ProjectID, "fixture"), run.ProjectID)
+	got, err := a.Work.LatestMainScans(a.asAppTown(t.Context(), run.ProjectID, "fixture"), run.ProjectID, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.Known || len(got.Source) != 1 || got.Source[0].Verdict != "error" || !strings.Contains(got.Source[0].Reason, "found nothing to judge") {
 		t.Fatalf("nothing-to-judge read: %+v", got)
+	}
+}
+
+func TestProjectScansReturnsTenNewestEarlierObservations(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t)
+	pid, sha, _ := fleetRepo(t, a, "scan-history", map[string]string{"README.md": "hello"})
+	now := time.Now().UTC()
+	ordered := []ids.ID{}
+	for i := 0; i < 12; i++ {
+		id := ids.New(now)
+		commit := "old"
+		if i == 0 {
+			commit = sha
+		}
+		o := conformance.ScanObservation{ID: id, ProjectID: pid, RunID: ids.New(now), StepID: ids.New(now), Attempt: 1, Subject: conformance.ScanSubject{On: "source", Commit: commit}, Scanner: "osv", Verdict: "pass", ObservedAt: now.Add(-time.Duration(i) * time.Minute)}
+		if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error { return conformance.RecordScanObservationIn(t.Context(), tx, o) }); err != nil {
+			t.Fatal(err)
+		}
+		ordered = append(ordered, id)
+	}
+	w := authzCall(a.Handler(), "boss", "GET", "/api/v1/projects/scan-history/scans", "")
+	var view httpapi.ProjectScanView
+	if err := json.Unmarshal(w.Body.Bytes(), &view); err != nil || w.Code != 200 {
+		t.Fatalf("%d %s: %v", w.Code, w.Body.String(), err)
+	}
+	if len(view.Scans.Source) != 1 || view.Scans.Source[0].ID != ordered[0] || len(view.Scans.Historical) != 10 {
+		t.Fatalf("scans: %+v", view.Scans)
+	}
+	for i, o := range view.Scans.Historical {
+		if o.ID != ordered[i+1] {
+			t.Errorf("earlier %d: %s, want %s", i, o.ID, ordered[i+1])
+		}
 	}
 }

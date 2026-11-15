@@ -48,7 +48,7 @@ func (f *standingPortfolioFixture) StandingHold(context.Context, database.Querye
 	return f.hold, nil
 }
 func (f *standingProcedureFixture) InstanceStandingProcedure(name string, _ []*adoption.ResolvedWorkflow) (StandingProcedure, error) {
-	return f.StandingProcedure(context.Background(), nil, ids.Nil, name)
+	return f.standingProcedure(context.Background(), nil, ids.Nil, name)
 }
 
 // One instance consent applies to future projects, but each use reads current
@@ -74,7 +74,7 @@ func TestInstanceStandingConsentRechecksEveryProjectAtUse(t *testing.T) {
 	}
 	use := func(want bool) {
 		t.Helper()
-		got, cron, _, err := s.StandingForWorkflow(t.Context(), later, "test")
+		got, cron, _, err := standingEligibilityOne(s, t.Context(), later, "test")
 		if err != nil || (!got.RuleID.IsZero()) != want || want && (got.RuleID != rule.RuleID || cron != "routine") {
 			t.Fatalf("eligible=%t: %+v %s %v", want, got, cron, err)
 		}
@@ -82,7 +82,7 @@ func TestInstanceStandingConsentRechecksEveryProjectAtUse(t *testing.T) {
 	portfolio.forbidPreview = t
 	use(true)
 	portfolio.noRepository = true
-	if got, _, why, err := s.StandingForWorkflow(t.Context(), later, "test"); err != nil || !got.RuleID.IsZero() || why != "this project has no repository for the janitor to update" {
+	if got, _, why, err := standingEligibilityOne(s, t.Context(), later, "test"); err != nil || !got.RuleID.IsZero() || why != "this project has no repository for the janitor to update" {
 		t.Fatalf("no repository refusal: %+v %q %v", got, why, err)
 	}
 	portfolio.noRepository = false
@@ -604,13 +604,13 @@ func TestInstanceStandingRefusesAnIssuerWhoLostLandingAuthority(t *testing.T) {
 	}
 	in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"}
 	enableStanding(t, rules, owner, in)
-	if rule, _, _, err := rules.StandingForWorkflow(t.Context(), pid, "test"); err != nil || rule.RuleID.IsZero() {
+	if rule, _, _, err := standingEligibilityOne(rules, t.Context(), pid, "test"); err != nil || rule.RuleID.IsZero() {
 		t.Fatalf("current issuer refused: %+v %v", rule, err)
 	}
 	if _, err := a.Access.Revoke(t.Context(), grant, "boss"); err != nil {
 		t.Fatal(err)
 	}
-	if rule, _, _, err := rules.StandingForWorkflow(t.Context(), pid, "test"); err != nil || !rule.RuleID.IsZero() {
+	if rule, _, _, err := standingEligibilityOne(rules, t.Context(), pid, "test"); err != nil || !rule.RuleID.IsZero() {
 		t.Fatalf("revoked land authority was reused: %+v %v", rule, err)
 	}
 }
@@ -644,7 +644,11 @@ func standingCheckedCodeLanding(t *testing.T, rig *stepAuthorityTestRig, rules S
 	if err := (advanceStore{db: rig.DB, stages: rig.Work.stages, completion: completed}).complete(ctx, work); err != nil {
 		t.Fatal(err)
 	}
-	proc, err := rules.deps.Procedures.StandingProcedure(ctx, rig.DB, rig.ProjectID, "test")
+	procedures, err := rules.deps.Procedures.StandingProcedures(ctx, rig.DB, rig.ProjectID, []string{"test"})
+	proc := procedures["test"].Procedure
+	if err == nil {
+		err = procedures["test"].Err
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -799,7 +803,7 @@ func TestKeepPacksCurrentHasItsOwnCategoryAndEligibility(t *testing.T) {
 	}
 	eligible := func(want bool) {
 		t.Helper()
-		got, _, _, err := s.StandingForWorkflow(ctx, a.ProjectID, "test")
+		got, _, _, err := standingEligibilityOne(s, ctx, a.ProjectID, "test")
 		if err != nil || (!got.RuleID.IsZero()) != want {
 			t.Fatalf("eligible=%t: %+v %v", want, got, err)
 		}
@@ -998,7 +1002,7 @@ func TestRecordedInstanceConsentKeepsOldJSONMeaningAndDigest(t *testing.T) {
 	if _, err = a.DB.SQL().ExecContext(t.Context(), `INSERT INTO standing_rule_revisions(rule_id,revision,enabled,record_json) VALUES($1,1,true,$2)`, rule.RuleID, raw); err != nil {
 		t.Fatal(err)
 	}
-	got, level, _, err := s.StandingForWorkflow(t.Context(), a.ProjectID, "test")
+	got, level, _, err := standingEligibilityOne(s, t.Context(), a.ProjectID, "test")
 	if err != nil || got.RuleID != rule.RuleID || level != "aggressive" || got.Question.Shown != q.Shown || got.Question.Digest != q.Digest {
 		t.Fatalf("%+v %s %v", got, level, err)
 	}
@@ -1075,7 +1079,7 @@ func TestStandingReachPreservesReleaseScopeRefusals(t *testing.T) {
 			enableStanding(t, rules, ctx, in)
 			check := func(want string) {
 				t.Helper()
-				got, _, why, err := rules.StandingForWorkflow(t.Context(), a.ProjectID, "quick-change")
+				got, _, why, err := standingEligibilityOne(rules, t.Context(), a.ProjectID, "quick-change")
 				if err != nil || !got.RuleID.IsZero() || why != want {
 					t.Fatalf("scope refusal: %+v %q %v", got, why, err)
 				}
