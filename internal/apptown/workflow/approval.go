@@ -106,9 +106,9 @@ type ApprovalVote struct {
 	InAdvance string `json:"inAdvance,omitempty"`
 }
 
-// ApprovalRejection is the feedback retained when a rejected round reopens.
+// approvalRejection is the feedback retained when a rejected round reopens.
 // Its kind is implicit; it cannot accidentally carry an approving vote.
-type ApprovalRejection struct {
+type approvalRejection struct {
 	original json.RawMessage
 	Approver string `json:"approver"`
 	Comment  string `json:"comment"`
@@ -145,7 +145,7 @@ type ApprovalEvidence struct {
 	Decision            ApprovalDecision     `json:"decision,omitempty"`
 	Comment             string               `json:"comment,omitempty"`
 	At                  string               `json:"at,omitempty"`
-	LastRejection       *ApprovalRejection   `json:"lastRejection,omitempty"`
+	LastRejection       *approvalRejection   `json:"lastRejection,omitempty"`
 	// Candidate is the landing candidate the deciding round approved.
 	Candidate string `json:"candidate,omitempty"`
 	// EvalAuthorised names the eval whose start settled this approval in one
@@ -372,7 +372,7 @@ func (e ApprovalEvidence) reopen(status StepState) (ApprovalEvidence, error) {
 		next.PreviousWithdrawals = append(next.PreviousWithdrawals, *e.Withdrawal)
 		next.Withdrawal = nil
 	} else {
-		next.LastRejection = &ApprovalRejection{Approver: e.Approver, Comment: e.Comment, At: e.At}
+		next.LastRejection = &approvalRejection{Approver: e.Approver, Comment: e.Comment, At: e.At}
 	}
 	next.PreviousDecisions = append(next.PreviousDecisions, next.Decisions...)
 	next.Decisions = nil

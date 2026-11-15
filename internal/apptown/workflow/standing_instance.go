@@ -67,7 +67,7 @@ func (s StandingRules) instanceQuestion(ctx context.Context, q database.Queryer,
 		covered = append(covered, doc)
 	}
 	out.Shown = standingConsent(in.Categories, covered, docs)
-	out.Portfolio, err = s.deps.Portfolio.StandingPortfolio(ctx, q, ids.Nil, in.Categories)
+	out.Portfolio, err = s.deps.Portfolio.StandingPortfolio(ctx, q, in.Categories)
 	if err != nil {
 		return out, err
 	}
@@ -212,15 +212,12 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 	if s.deps.Portfolio == nil {
 		return refuse("project coverage and release health are unavailable")
 	}
-	portfolio, err := s.deps.Portfolio.StandingPortfolio(ctx, q, pid, in.Categories)
+	reach, err := s.deps.Portfolio.StandingReach(ctx, q, pid)
 	if err != nil {
 		return out, err
 	}
-	if len(portfolio) == 0 {
+	if !reach.Repository {
 		return refuse("this project has no repository for the janitor to update")
-	}
-	if len(portfolio) != 1 {
-		return refuse("this project needs a pack upgrade")
 	}
 	if in.Scope != "instance" {
 		var selected []StandingEnvironment
@@ -229,7 +226,7 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 				selected = p.Environments
 			}
 		}
-		follows := portfolio[0].FollowsMain
+		follows := reach.FollowsMain
 		if in.Delivery == "land-only" && len(follows) > 0 {
 			return refuse("accept and land only cannot release to a deployment following main")
 		}

@@ -558,8 +558,8 @@ func TestEndedLandingWakesOnlyOldestQueuedWork(t *testing.T) {
 // queue/attention answers still come from their real owners.
 type queueAttentionDefinition struct{}
 
-func (queueAttentionDefinition) WorkflowVersion(context.Context, adoption.Source, string) (int, string, error) {
-	return 1, `apiVersion: apptown.dev/v1
+func (queueAttentionDefinition) AdoptedWorkflows(context.Context, adoption.Source) ([]adoption.AdoptedWorkflow, error) {
+	return []adoption.AdoptedWorkflow{{Name: "test", Version: 1, YAML: `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: test, title: Dependency updates}
 spec:
@@ -571,7 +571,7 @@ spec:
     - name: work
       steps:
         - {name: build, uses: build}
-`, nil
+`}}, nil
 }
 
 func TestAcceptedQueueWorkRemovesEarlierFailureFromAttention(t *testing.T) {

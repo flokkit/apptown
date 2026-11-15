@@ -39,6 +39,11 @@ export type AddressSnapshot = {
   ingress: Ingress
 }
 
+export type AddsLine = {
+  kind: string
+  text: string
+}
+
 export type AdministratorNetworksView = {
   networks: string[]
   you: string
@@ -4002,7 +4007,7 @@ export type JanitorProject = {
   issuer: StandingActor
   grantedAt: string
   queues: QueueStatus[]
-  scans: MainScans
+  scans: JanitorScans
   problem: string
   procedures: JanitorProcedure[]
   queueSentences: string[]
@@ -5174,11 +5179,6 @@ export type AddsRow = {
   baseUnread?: string
 }
 
-export type AddsLine = {
-  kind: string
-  text: string
-}
-
 export type IntegrationWire = {
   waitingOn: WaitingOn
   changeId: string | null
@@ -5520,6 +5520,15 @@ export type janitorState = {
   word: string
   unknown: boolean
   help: string
+}
+
+export type JanitorScans = {
+  known: boolean
+  stale: boolean
+  noRepository: boolean
+  lastScan: string
+  findings: number
+  imageUpdates: boolean
 }
 
 export type JobLabel = "unknown" | "waiting" | "working" | "finished" | "failed" | "stopped"

@@ -388,6 +388,17 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID, publications
 			}
 		}
 	}
+	if len(names) == 0 {
+		return nil, nil
+	}
+	items, err := s.Adoption.AdoptedWorkflows(ctx, adoption.Source{ProjectID: ad.ProjectID, Revision: ad})
+	if err != nil {
+		return nil, err
+	}
+	pinned := make(map[string]adoption.AdoptedWorkflow, len(items))
+	for _, item := range items {
+		pinned[item.Name] = item
+	}
 	var out []carried
 	ordered := make([]string, 0, len(names))
 	for name := range names {
@@ -396,7 +407,11 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID, publications
 	slices.Sort(ordered)
 	for _, name := range ordered {
 		scheduled := names[name]
-		version, yaml, err := s.Adoption.WorkflowVersion(ctx, adoption.Source{ProjectID: ad.ProjectID, Revision: ad}, name)
+		item, adopted := pinned[name]
+		version, yaml, err := item.Version, item.YAML, item.Err
+		if !adopted {
+			version, yaml, err = s.Adoption.WorkflowVersion(ctx, adoption.Source{ProjectID: ad.ProjectID, Revision: ad}, name)
+		}
 		if err != nil {
 			out = append(out, carried{workflow: name, scheduled: scheduled, err: err})
 			continue

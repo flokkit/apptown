@@ -18,7 +18,7 @@ import (
 // janitorDefinitions reads the project's adopted procedures, never the latest
 // stock copy. It has no execution or admission operation.
 type janitorDefinitions interface {
-	WorkflowVersion(context.Context, adoption.Source, string) (int, string, error)
+	AdoptedWorkflows(context.Context, adoption.Source) ([]adoption.AdoptedWorkflow, error)
 }
 
 type janitorChoice struct {
@@ -55,7 +55,7 @@ type JanitorProject struct {
 	Issuer         access.Actor       `json:"issuer"`
 	GrantedAt      time.Time          `json:"grantedAt"`
 	Queues         []QueueStatus      `json:"queues"`
-	Scans          MainScans          `json:"scans"`
+	Scans          JanitorScans       `json:"scans"`
 	Problem        string             `json:"problem"`
 	Procedures     []janitorProcedure `json:"procedures"`
 	QueueSentences []string           `json:"queueSentences"`
@@ -161,14 +161,15 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, error)
 		if err != nil {
 			return nil, err
 		}
-		item.Scans, err = s.LatestMainScans(ctx, p.ID)
+		scans, err := s.LatestMainScans(ctx, p.ID)
 		if err != nil {
 			item.Problem = err.Error()
-			item.Scans = MainScans{Reason: err.Error()}
+			scans = MainScans{Reason: err.Error()}
 		}
 		item.QueueSentences = janitorQueueSentences(item.Queues, item.Enabled && item.Level != "off")
 		janitorProcedures(&item, definitions)
-		item.State = janitorProjectState(item)
+		item.State = janitorProjectState(item, scans)
+		item.Scans = scans.janitorSummary()
 		out = append(out, item)
 	}
 	return out, nil
@@ -213,8 +214,12 @@ func (s *Service) adoptedProcedures(ctx context.Context, pid ids.ID) ([]adoptedP
 		return nil, fmt.Errorf("procedure observations are unavailable")
 	}
 	var out []adoptedProcedure
-	for _, wf := range receipt.Receipt.Workflows {
-		version, body, err := s.janitorDefinitions.WorkflowVersion(ctx, adoption.Source{ProjectID: pid, Revision: receipt}, wf.Name)
+	items, err := s.janitorDefinitions.AdoptedWorkflows(ctx, adoption.Source{ProjectID: pid, Revision: receipt})
+	if err != nil {
+		return nil, err
+	}
+	for _, wf := range items {
+		version, body, err := wf.Version, wf.YAML, wf.Err
 		var doc *schema.Doc
 		if err == nil {
 			doc, err = schema.ParseWorkflowStored([]byte(body))
@@ -255,7 +260,7 @@ func janitorProcedures(p *JanitorProject, definitions []adoptedProcedure) {
 }
 
 // janitorProjectState classifies the completed read, including procedure problems.
-func janitorProjectState(p JanitorProject) janitorState {
+func janitorProjectState(p JanitorProject, scans MainScans) janitorState {
 	state := janitorState{}
 	active, stopped, stuck, waiting := false, -1, -1, false
 	for i, q := range p.Queues {
@@ -279,7 +284,7 @@ func janitorProjectState(p JanitorProject) janitorState {
 		state.Word = "turned off for this project"
 	case !p.Enabled:
 		state.Word = "turned off"
-	case p.Scans.NoRepository:
+	case scans.NoRepository:
 		state.Word = "no repository"
 	case stopped >= 0:
 		state.Word = p.QueueSentences[stopped]
@@ -290,10 +295,10 @@ func janitorProjectState(p JanitorProject) janitorState {
 		state.Word = queueWords(QueueStatus{State: "updating"})
 	case stuck >= 0:
 		state.Word = p.Queues[stuck].Words
-	case p.Problem != "" || !p.Scans.Known:
+	case p.Problem != "" || !scans.Known:
 		state.Word, state.Unknown, state.Help = "unknown", true, p.Problem
 		if state.Help == "" {
-			state.Help = p.Scans.Reason
+			state.Help = scans.Reason
 		}
 		if state.Help == "" {
 			state.Help = "Scan not known"

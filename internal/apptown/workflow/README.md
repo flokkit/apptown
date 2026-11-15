@@ -5,6 +5,14 @@ being proposed; a Run executes a pinned workflow definition against it; a Step i
 one task or check in that run. The records and their state types live here, along
 with the rules and transactions that change them.
 
+The fleet Janitor read carries a scan summary: freshness, repository presence,
+distinct current finding fingerprints and whether running images have image-only
+findings. Project state is classified from the full scan read before summarizing.
+The project scans read retains current observations and historical scans.
+Standing eligibility reads repository presence and every deployment following main;
+contract inspection and scan history belong to the consent preview and their own
+execution checks.
+
 Approval briefs and failure advice read their evidence here through
 `Service.ApprovalBrief` and `Service.FailureAdvice`. The latter requires the
 classifier's current held check, includes acts for that target and uses an

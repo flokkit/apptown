@@ -25,16 +25,20 @@ import (
 )
 
 type standingPortfolioFixture struct {
-	projectID ids.ID
-	hold      string
+	projectID     ids.ID
+	forbidPreview *testing.T
+	noRepository  bool
+	follows       []StandingEnvironment
+	hold          string
 	// failFor names a project whose coverage cannot be read.
 	failFor ids.ID
 }
 
-func (f *standingPortfolioFixture) StandingPortfolio(_ context.Context, _ database.Queryer, id ids.ID, _ StandingCategories) ([]StandingProjectPreview, error) {
-	if id.IsZero() {
-		id = f.projectID
+func (f *standingPortfolioFixture) StandingPortfolio(_ context.Context, _ database.Queryer, _ StandingCategories) ([]StandingProjectPreview, error) {
+	if f.forbidPreview != nil {
+		f.forbidPreview.Fatal("eligibility called the consent preview")
 	}
+	id := f.projectID
 	if !f.failFor.IsZero() && id == f.failFor {
 		return nil, errors.New("deployment requires a selected revision")
 	}
@@ -75,7 +79,13 @@ func TestInstanceStandingConsentRechecksEveryProjectAtUse(t *testing.T) {
 			t.Fatalf("eligible=%t: %+v %s %v", want, got, cron, err)
 		}
 	}
+	portfolio.forbidPreview = t
 	use(true)
+	portfolio.noRepository = true
+	if got, _, why, err := s.StandingForWorkflow(t.Context(), later, "test"); err != nil || !got.RuleID.IsZero() || why != "this project has no repository for the janitor to update" {
+		t.Fatalf("no repository refusal: %+v %q %v", got, why, err)
+	}
+	portfolio.noRepository = false
 	if err := s.SetProjectChoice(boss, later, "off", "working on recovery"); err != nil {
 		t.Fatal(err)
 	}
@@ -1037,6 +1047,46 @@ func TestStandingEvidenceAcceptsReasonedUnneededCall(t *testing.T) {
 			why, err := standingEvidence(ctx, rig.DB, run, false, 0)
 			if err != nil || (why == "") != (reason != "") {
 				t.Fatalf("standing evidence: %q %v", why, err)
+			}
+		})
+	}
+}
+
+func (f *standingPortfolioFixture) StandingReach(_ context.Context, _ database.Queryer, id ids.ID) (StandingReach, error) {
+	if !f.failFor.IsZero() && id == f.failFor {
+		return StandingReach{}, errors.New("deployment requires a selected revision")
+	}
+	return StandingReach{Repository: !f.noRepository, FollowsMain: f.follows}, nil
+}
+
+func TestStandingReachPreservesReleaseScopeRefusals(t *testing.T) {
+	for _, delivery := range []string{"land-only", "full"} {
+		t.Run(delivery, func(t *testing.T) {
+			t.Parallel()
+			a, rules, _, ctx, in := standingFixture(t)
+			portfolio := &standingPortfolioFixture{forbidPreview: t}
+			rules.deps.Portfolio = portfolio
+			rules.deps.Destinations = standingDestinationFixture{project: a.ProjectID}
+			in.Delivery = delivery
+			selected := StandingEnvironment{DeploymentID: a.ProjectID, TargetID: a.ProjectID}
+			if delivery == "full" {
+				in.Projects[0].Environments = []StandingEnvironment{selected}
+			}
+			enableStanding(t, rules, ctx, in)
+			check := func(want string) {
+				t.Helper()
+				got, _, why, err := rules.StandingForWorkflow(t.Context(), a.ProjectID, "quick-change")
+				if err != nil || !got.RuleID.IsZero() || why != want {
+					t.Fatalf("scope refusal: %+v %q %v", got, why, err)
+				}
+			}
+			if delivery == "land-only" {
+				portfolio.follows = []StandingEnvironment{selected}
+				check("accept and land only cannot release to a deployment following main")
+			} else {
+				check("the deployments following main changed; a person must confirm the exact release scope again")
+				portfolio.follows = []StandingEnvironment{{DeploymentID: selected.DeploymentID, TargetID: ids.Nil}}
+				check("a deployment following main is outside the selected release scope")
 			}
 		})
 	}

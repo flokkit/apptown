@@ -387,3 +387,22 @@ func TestUnscannedRunningImagesUseSingularAndPlural(t *testing.T) {
 		}
 	}
 }
+
+func TestJanitorSummaryCountsDistinctCurrentFindingsAndImageOnlyUpdates(t *testing.T) {
+	t.Parallel()
+	finding := func(fp string) conformance.Finding { return conformance.Finding{Fingerprint: fp} }
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	scans := MainScans{Known: true, Stale: true, NoRepository: true, LastScan: at,
+		Source:     []conformance.ScanObservation{{Findings: []conformance.Finding{finding("shared"), finding("source")}}},
+		Running:    []runningScan{{ScanObservation: conformance.ScanObservation{Findings: []conformance.Finding{finding("shared"), finding("running")}}, ProjectFindings: []conformance.Finding{finding("shared")}, UnclassifiedFindings: []conformance.Finding{finding("running")}}},
+		Historical: []conformance.ScanObservation{{Findings: []conformance.Finding{finding("old")}}},
+	}
+	got := scans.janitorSummary()
+	if got.Findings != 3 || got.ImageUpdates || !got.Known || !got.Stale || !got.NoRepository || got.LastScan != at {
+		t.Fatalf("summary: %+v", got)
+	}
+	scans.Running[0].ImageOnlyFindings = []conformance.Finding{finding("running")}
+	if !scans.janitorSummary().ImageUpdates {
+		t.Fatal("image-only findings lost")
+	}
+}

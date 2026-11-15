@@ -393,9 +393,13 @@ func TestJanitorInstanceReadLeavesEligibilityToScheduler(t *testing.T) {
 
 type janitorReadDefinitions struct{}
 
-func (janitorReadDefinitions) WorkflowVersion(_ context.Context, _ adoption.Source, name string) (int, string, error) {
-	body, err := stock.FS.ReadFile(name + ".yaml")
-	return 1, string(body), err
+func (janitorReadDefinitions) AdoptedWorkflows(_ context.Context, source adoption.Source) ([]adoption.AdoptedWorkflow, error) {
+	var out []adoption.AdoptedWorkflow
+	for _, pin := range source.Revision.Receipt.Workflows {
+		body, err := stock.FS.ReadFile(pin.Name + ".yaml")
+		out = append(out, adoption.AdoptedWorkflow{Name: pin.Name, Version: pin.Version, YAML: string(body), Err: err})
+	}
+	return out, nil
 }
 
 func TestJanitorProjectsClassifiesCompletedFacts(t *testing.T) {

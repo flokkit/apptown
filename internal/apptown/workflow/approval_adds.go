@@ -38,7 +38,7 @@ type ChangeAdds struct {
 	// something is added or nothing could be read. Never a bare "Nothing new".
 	NothingNew string `json:"nothingNew"`
 	// Lines is the list as shown, in order.
-	Lines []AddsLine `json:"lines"`
+	Lines []addsLine `json:"lines"`
 }
 
 // AddsRow is one kind of declaration compared at two commits. Unknown says
@@ -55,9 +55,9 @@ type AddsRow struct {
 	BaseUnread string   `json:"baseUnread,omitempty"`
 }
 
-// AddsLine is one line of the section: what is added, what is no longer
+// addsLine is one line of the section: what is added, what is no longer
 // needed, or a row that could not be read.
-type AddsLine struct {
+type addsLine struct {
 	Kind string `json:"kind"` // added | removed | unknown
 	Text string `json:"text"`
 }
@@ -138,7 +138,7 @@ func (a ChangeAdds) finish() (ChangeAdds, error) {
 	a.Digest = hex.EncodeToString(sum[:])
 	var read []string
 	added := false
-	a.Lines = []AddsLine{}
+	a.Lines = []addsLine{}
 	for _, r := range a.Rows {
 		if r.Unknown != "" {
 			continue
@@ -150,22 +150,22 @@ func (a ChangeAdds) finish() (ChangeAdds, error) {
 			if r.BaseUnread != "" {
 				text += " (everything the change declares; main's could not be read, so some may already be there)"
 			}
-			a.Lines = append(a.Lines, AddsLine{"added", text})
+			a.Lines = append(a.Lines, addsLine{"added", text})
 		}
 	}
 	for _, r := range a.Rows {
 		if r.Unknown == "" && len(r.Removed) > 0 {
-			a.Lines = append(a.Lines, AddsLine{"removed", fmt.Sprintf("%s removed: %s", capital(r.Name), strings.Join(r.Removed, ", "))})
+			a.Lines = append(a.Lines, addsLine{"removed", fmt.Sprintf("%s removed: %s", capital(r.Name), strings.Join(r.Removed, ", "))})
 		}
 	}
 	for _, r := range a.Rows {
 		if r.Unknown == "" && r.BaseUnread != "" {
-			a.Lines = append(a.Lines, AddsLine{"unknown", fmt.Sprintf("%s removed: unknown, %s", capital(r.Name), r.BaseUnread)})
+			a.Lines = append(a.Lines, addsLine{"unknown", fmt.Sprintf("%s removed: unknown, %s", capital(r.Name), r.BaseUnread)})
 		}
 	}
 	for _, r := range a.Rows {
 		if r.Unknown != "" {
-			a.Lines = append(a.Lines, AddsLine{"unknown", fmt.Sprintf("%s: unknown, %s", capital(r.Name), r.Unknown)})
+			a.Lines = append(a.Lines, addsLine{"unknown", fmt.Sprintf("%s: unknown, %s", capital(r.Name), r.Unknown)})
 		}
 	}
 	a.ReadFrom = list(read, "and")

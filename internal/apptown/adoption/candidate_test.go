@@ -194,3 +194,16 @@ func TestACandidateSaysWhatMovesBackAndKeepsWorkflowPinsUnlessAsked(t *testing.T
 		t.Fatalf("a pack's workflow pin lost to AdvanceWorkflows: %+v %v", kept, err)
 	}
 }
+
+func (f candidateCatalogFake) WorkflowVersions(ctx context.Context, refs []wow.WorkflowRef) ([]wow.WorkflowObservation, error) {
+	var out []wow.WorkflowObservation
+	for _, ref := range refs {
+		row, err := f.Workflow(ctx, ref)
+		if err == nil {
+			out = append(out, row)
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
+	return out, nil
+}

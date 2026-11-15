@@ -525,8 +525,8 @@ func (p scheduleStandingProcedure) InstanceStandingProcedure(name string, _ []*a
 
 type scheduleStandingPortfolio struct{ held bool }
 
-func (p *scheduleStandingPortfolio) StandingPortfolio(_ context.Context, _ database.Queryer, pid ids.ID, _ workflow.StandingCategories) ([]workflow.StandingProjectPreview, error) {
-	return []workflow.StandingProjectPreview{{ProjectID: pid}}, nil
+func (p *scheduleStandingPortfolio) StandingPortfolio(_ context.Context, _ database.Queryer, _ workflow.StandingCategories) ([]workflow.StandingProjectPreview, error) {
+	return []workflow.StandingProjectPreview{{ProjectID: ids.Nil}}, nil
 }
 func (p *scheduleStandingPortfolio) StandingHold(context.Context, database.Queryer, ids.ID) (string, error) {
 	if p.held {
@@ -769,4 +769,8 @@ spec:
 	if _, err := w.schedules.ScansSource(t.Context(), w.project.ID); err == nil {
 		t.Fatal("unreadable definition became no schedule")
 	}
+}
+
+func (p *scheduleStandingPortfolio) StandingReach(context.Context, database.Queryer, ids.ID) (workflow.StandingReach, error) {
+	return workflow.StandingReach{Repository: true}, nil
 }

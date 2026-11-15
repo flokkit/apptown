@@ -16,7 +16,7 @@ const at = '2026-11-12T10:00:00Z'
 const actor = { name: 'Sam', principal: 'person', via: 'session' }
 const queue = (name: string, stopped = false) => ({ title: name === 'updates' ? 'Dependency updates' : name === 'packs' ? 'Pack updates' : 'Security fixes', queue: name, state: stopped ? 'stopped' : 'up_to_date', words: stopped ? 'stopped after 3 failed tries' : 'up to date', failed: stopped ? 3 : 0, reason: '', since: at, files: [], packages: [], changeNumber: 0 })
 const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name: `${id} app`, enabled: true, level: 'routine', state: { word: 'up to date', unknown: false, help: '' }, issuer: actor, grantedAt: at,
- queues: [queue('security'), queue('updates'), queue('packs')], scans: { main: 'abc', source: [], running: [], historical: [], unscheduled: false, noRepository: false, known: true, stale: false, lastScan: at },
+ queues: [queue('security'), queue('updates'), queue('packs')], scans: { findings: 0, imageUpdates: false, noRepository: false, known: true, stale: false, lastScan: at },
  problem: '', procedures: [{ title: 'Declared dependency care', workflow: 'janitor-update', version: 7, repairRounds: 4, stopRule: 'Weekly updates stop after 3 failed tries; security fixes can still run.', sentence: 'Up to 4 repair sessions; then asks Sam.', problem: '' }], queueSentences: ['Security fixes stop after 3 failed tries.', 'Weekly updates stopped after 3 failed tries. Security fixes can still run.'], nextUpdate: at, nextReason: '', runNow: '' })
 const rule = (packs = false, enabled = true): StandingRevision => ({ ruleId: packs ? 'pack-rule' : 'dependency-rule', revision: 3, enabled, issuer: actor, enabledAt: at, changedBy: actor, changedAt: at, reason: '', question: { definition: packs ? packDefinition : dependencyDefinition(), shown: 'The exact approval meaning.', digest: 'meaning', projects: [], baseImageFindings: { images: 0, projects: 0, message: '' } } })
 function fixture(): JanitorView {
@@ -79,7 +79,7 @@ it('shows errors without claiming an empty or up-to-date result', async () => {
 })
 
 it('shows old scans and unknown findings separately from a clean result', async () => {
- const data = fixture(); data.projects[0].scans = { ...data.projects[0].scans, known: false, stale: true, reason: 'Scan older than three days' }
+ const data = fixture(); data.projects[0].scans = { ...data.projects[0].scans, known: false, stale: true }
  const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data), false)
  await settled(client)
  expect(el.textContent).toContain('Old scan')
@@ -88,7 +88,7 @@ it('shows old scans and unknown findings separately from a clean result', async 
 })
 
 it('reads a project with no repository as outside the janitor, not as unknown', async () => {
- const data = fixture(); data.projects[0].scans = { ...data.projects[0].scans, main: '', known: false, noRepository: true, reason: 'no repository yet, so there is nothing to scan' }; data.projects[0].state.word = 'no repository'
+ const data = fixture(); data.projects[0].scans = { ...data.projects[0].scans, known: false, noRepository: true }; data.projects[0].state.word = 'no repository'
  const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data), false)
  await settled(client)
  const row = [...el.querySelectorAll('tr')].find(r => r.textContent?.includes(data.projects[0].name))
@@ -163,11 +163,10 @@ it('enables against the revision that was previewed when a poll brings a newer g
  await vi.waitFor(() => expect(el.textContent).toContain('The approval changed. Preview it again.'))
 })
 
-it('counts apps with image-only findings once and shows landed pack versions', async () => {
+it('counts apps with image updates from the summary and shows landed pack versions', async () => {
  const data = fixture(), h = history()
- const scan = { findings: [], projectFindings: [], unclassifiedFindings: [], imageOnlyFindings: [{ fingerprint: 'base-one' }, { fingerprint: 'base-two' }] } as unknown as JanitorProject['scans']['running'][number]
- data.projects[0].scans.running = [scan, scan]
- data.projects[1].scans.running = [scan]
+ data.projects[0].scans.imageUpdates = true
+ data.projects[1].scans.imageUpdates = true
  h.history.changes[0] = { ...h.history.changes[0], queue: 'packs', title: 'Update packs', files: [], packages: [], packVersions: [{ pack: 'language', version: 3 }] }
  const { client, el } = await mount(async url => json(url.includes('/history') ? h : data))
  await settled(client)
@@ -392,4 +391,19 @@ it.each(['off', 'disabled', 'no repository', 'unknown'])('preserves %s words alo
  const cell = el.querySelector('td[data-label="State"]')!
  expect(cell.textContent).toContain(state)
  expect(cell.textContent).toContain('Dependency updates: stopped after 3 failed tries')
+})
+
+it('renders summary findings and image updates while keeping unknown counts unknown', async () => {
+ const data = fixture()
+ data.projects[0].scans.findings = 7
+ data.projects[0].scans.imageUpdates = true
+ data.projects[1].scans.known = false
+ data.projects[1].scans.findings = 99
+ const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data))
+ await settled(client)
+ const row = (slug: string) => el.querySelector(`a[href="/projects/${slug}#janitor"]`)!.closest('tr')!
+ expect(row('Stopped').querySelector('td[data-label="Findings"]')?.textContent).toBe('7')
+ expect(row('Held').querySelector('td[data-label="Findings"]')?.textContent).toBe('Not known')
+ expect(el.textContent).toContain('1 apps’ images need a base-image update; the janitor does not do this yet.')
+ expect(el.textContent).toContain('base-image')
 })

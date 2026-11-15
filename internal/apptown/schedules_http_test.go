@@ -115,6 +115,24 @@ func TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement(t *testi
 	if len(got.Projects) != 2 || len(got.Rules) != 1 || got.Rules[0].RuleID != rule.RuleID {
 		t.Fatalf("view=%s", w.Body)
 	}
+	var shape struct {
+		Projects []struct {
+			Scans map[string]json.RawMessage `json:"scans"`
+		} `json:"projects"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &shape); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range shape.Projects {
+		if len(p.Scans) != 6 {
+			t.Fatalf("fleet scan payload: %v", p.Scans)
+		}
+		for _, key := range []string{"known", "stale", "lastScan", "noRepository", "findings", "imageUpdates"} {
+			if _, ok := p.Scans[key]; !ok {
+				t.Fatalf("fleet scans missing %s: %v", key, p.Scans)
+			}
+		}
+	}
 	found := false
 	for _, p := range got.Projects {
 		if p.ProjectID == idstest.N(1) {

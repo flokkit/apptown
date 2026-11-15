@@ -141,7 +141,7 @@ func previewValue(ctx context.Context, q database.Queryer, run *Run, key string)
 // one runner's schema (scan findings, for example, are an object).
 func renderFeedback(step *Step) string {
 	var ev struct {
-		LastRejection *ApprovalRejection  `json:"lastRejection"`
+		LastRejection *approvalRejection  `json:"lastRejection"`
 		Withdrawal    *ApprovalWithdrawal `json:"withdrawal"`
 		Comment       string              `json:"comment"`
 		Approver      string              `json:"approver"`

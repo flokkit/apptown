@@ -37,6 +37,7 @@ type authorization struct {
 type catalog interface {
 	Block(context.Context, wow.BlockRef) (wow.BlockObservation, error)
 	Workflow(context.Context, wow.WorkflowRef) (wow.WorkflowObservation, error)
+	WorkflowVersions(context.Context, []wow.WorkflowRef) ([]wow.WorkflowObservation, error)
 	Workflows(ctx context.Context) ([]wow.WorkflowEntry, error)
 	PackPublication(context.Context, string, int64) (wow.PackVersion, error)
 	// Withdrawn says whether a stored stock entry is one the running release

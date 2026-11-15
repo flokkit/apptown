@@ -1126,3 +1126,7 @@ func (s testSecretProjectScope) Slug(ctx context.Context, id ids.ID) (string, er
 	p, err := project.ByIDIn(ctx, s.db, id)
 	return p.Slug, err
 }
+
+func (agentCatalog) WorkflowVersions(context.Context, []wow.WorkflowRef) ([]wow.WorkflowObservation, error) {
+	return nil, nil
+}

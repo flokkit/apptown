@@ -106,3 +106,24 @@ func (s *Service) Workflow(ctx context.Context, ref WorkflowRef) (WorkflowObserv
 func (s *Service) PackPublication(ctx context.Context, name string, version int64) (PackVersion, error) {
 	return PackVersionIn(ctx, s.db, name, version)
 }
+
+// WorkflowVersions reads exact publications together. Absent pins are omitted;
+// the receipt owner reports their individual errors. No alias or latest lookup occurs.
+func (s *Service) WorkflowVersions(ctx context.Context, refs []WorkflowRef) ([]WorkflowObservation, error) {
+	if len(refs) == 0 {
+		return nil, nil
+	}
+	names, versions := make([]string, len(refs)), make([]int64, len(refs))
+	for i, ref := range refs {
+		names[i], versions[i] = ref.Name, int64(ref.Version)
+	}
+	rows, err := wowsql.New(s.db.SQL()).WorkflowsAtVersions(ctx, wowsql.WorkflowsAtVersionsParams{Names: names, Versions: versions})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]WorkflowObservation, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, WorkflowObservation{Name: row.Name, Origin: row.Origin, Version: int(row.Version), YAML: row.Yaml})
+	}
+	return out, nil
+}
