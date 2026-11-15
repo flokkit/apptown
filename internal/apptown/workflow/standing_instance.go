@@ -19,6 +19,9 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
+// errStandingMeaningChanged requires renewed consent to the current meaning.
+var errStandingMeaningChanged = fault.New(fault.Conflict, "the standing approval meaning changed; a person must enable it again")
+
 func normalizeInstanceStanding(in StandingDefinition) (StandingDefinition, error) {
 	bad := func(why string) (StandingDefinition, error) { return in, fault.New(fault.Invalid, why) }
 	if len(in.Projects) != 0 {
@@ -133,15 +136,6 @@ func (s StandingRules) judgeStanding(ctx context.Context, q database.Queryer, ru
 		return refuse("turned off for this project")
 	}
 	in := rule.Question.Definition
-	if in.Scope != "instance" {
-		fresh, err := s.question(ctx, q, in, rule.Issuer, false)
-		if err != nil {
-			return out, err
-		}
-		if fresh.Digest != rule.Question.Digest {
-			return refuse("the governing meaning changed; a person must enable this approval again")
-		}
-	}
 	selected := false
 	if in.Scope == "instance" {
 		selected = pinsWorkflow(rule, workflow)
@@ -154,6 +148,15 @@ func (s StandingRules) judgeStanding(ctx context.Context, q database.Queryer, ru
 	}
 	if !selected {
 		return refuse("the workflow is outside this standing approval")
+	}
+	if in.Scope != "instance" {
+		fresh, err := s.question(ctx, q, in, rule.Issuer, false)
+		if err != nil {
+			return out, err
+		}
+		if fresh.Digest != rule.Question.Digest {
+			return out, errStandingMeaningChanged
+		}
 	}
 	if facts.independentErr != nil {
 		return out, facts.independentErr
@@ -177,7 +180,7 @@ func (s StandingRules) judgeStanding(ctx context.Context, q database.Queryer, ru
 		}
 	}
 	if !pinned {
-		return refuse("the standing approval meaning changed; a person must enable it again")
+		return out, errStandingMeaningChanged
 	}
 	if facts.resourceErr != nil {
 		return out, facts.resourceErr
@@ -256,10 +259,14 @@ type StandingEligibilityResult struct {
 	Rule           StandingRevision
 	Level, Refused string
 	Err            error
+	MeaningChanged []ids.ID
+	// Unassessed names pinning rules whose judgement failed without a refusal.
+	Unassessed []ids.ID
 }
 
 // StandingEligibility reads current rules and issuer facts once for the set.
 // Each workflow retains its first eligible rule or first covered refusal.
+// MeaningChanged and Unassessed include diagnostics after that decision settles.
 func (s StandingRules) StandingEligibility(ctx context.Context, set []ProjectWorkflows) (map[ids.ID]map[string]StandingEligibilityResult, error) {
 	rows, err := workflowsql.New(s.db.SQL()).CurrentStandingRules(ctx)
 	if err != nil {
@@ -280,16 +287,26 @@ func (s StandingRules) StandingEligibility(ctx context.Context, set []ProjectWor
 		out[project.ProjectID] = results
 		for _, name := range project.Workflows {
 			result := StandingEligibilityResult{Refused: "waits for a standing approval"}
-			covered := false
+			covered, settled := false, false
 			for _, rule := range rules {
 				if !pinsWorkflow(rule, name) {
 					continue
 				}
 				_, err := s.judgeStanding(ctx, s.db, rule, project.ProjectID, name, facts[i], facts[i].issuers[rule.Issuer.Principal])
+				if errors.Is(err, errStandingMeaningChanged) {
+					result.MeaningChanged = append(result.MeaningChanged, rule.RuleID)
+				}
+				if err != nil && !standingRefusal(err) {
+					result.Unassessed = append(result.Unassessed, rule.RuleID)
+				}
+				if settled {
+					continue
+				}
 				if err != nil {
 					if !standingRefusal(err) {
 						result.Err = err
-						break
+						settled = true
+						continue
 					}
 					if !covered {
 						result.Refused = err.Error()
@@ -300,7 +317,7 @@ func (s StandingRules) StandingEligibility(ctx context.Context, set []ProjectWor
 				result.Rule = rule
 				result.Level, result.Err = facts[i].level(rule.Question.Definition)
 				result.Refused = ""
-				break
+				settled = true
 			}
 			results[name] = result
 		}

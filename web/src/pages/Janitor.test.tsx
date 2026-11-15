@@ -23,7 +23,7 @@ const rule = (packs = false, enabled = true): StandingRevision => ({ ruleId: pac
 function fixture(): JanitorView {
  const stopped = project('Stopped'); stopped.queues[1] = queue('updates', true); stopped.state.word = 'needs you'
  const off = { ...project('Off'), level: 'off', state: { word: 'off', unknown: false, help: '' }, choice: { level: 'off', person: actor, at, reason: 'Waiting for a release' } }
- return { rules: [rule(), rule(true)], projects: [stopped, project('Held'), off], releaseHold: 'Stops after a failed release and never releases over a rollback.', deployments: [{ projectId: 'Held', deploymentId: 'dep', name: 'production', displayLabel: 'Customer office', setting: { mode: 'automatic' }, automatic: true, hold: { deploymentId: 'dep', deployment: 'production', displayLabel: 'Customer office', releaseNumber: 9, reason: 'release failed' } }] }
+ return { unknownRules: [], changedRules: [], rules: [rule(), rule(true)], projects: [stopped, project('Held'), off], releaseHold: 'Stops after a failed release and never releases over a rollback.', deployments: [{ projectId: 'Held', deploymentId: 'dep', name: 'production', displayLabel: 'Customer office', setting: { mode: 'automatic' }, automatic: true, hold: { deploymentId: 'dep', deployment: 'production', displayLabel: 'Customer office', releaseNumber: 9, reason: 'release failed' } }] }
 }
 const history = (): JanitorHistoryView => ({ history: { changes: [{ changeId: 'landed', projectId: 'Held', project: 'Held app', title: 'Update library', queue: 'updates', landedAt: at, packages: [{ ecosystem: 'npm', package: 'library', from: '1.0.0', to: '1.1.0' }], packVersions: [] }], more: false }, releases: [{ changeId: 'landed', state: 'released', displayLabel: 'Customer office' }], since: at, until: at })
 const cleanup: (() => void)[] = []
@@ -348,4 +348,58 @@ it('retries the exact stuck change and reports the refusal on its Needs-you row'
  await act(async()=>[...row.querySelectorAll('button')].find(b=>b.textContent==='Close and try again')!.click());await settled(client)
  expect(posts).toEqual([{queue:'updates',again:true,changeId:'blocked-change'}])
  expect(row.textContent).toContain('The update could not start')
+})
+
+
+it('shows one changed approval for two refused projects in the summary and Needs you', async () => {
+ const data = fixture(); data.changedRules = [data.rules[0].ruleId!]
+ data.projects = [project('one'), project('two')]; data.deployments = []
+ for (const p of data.projects) p.state.word = 'needs you'
+ const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data))
+ await settled(client)
+ expect(el.querySelector('.page-head-line')?.textContent).toContain('Dependency updates approval changed meaning; enable it again in Settings')
+ const rows = el.querySelectorAll('table[aria-label="Needs you"] tbody tr')
+ expect(rows).toHaveLength(1)
+ expect(rows[0].textContent).toBe('All projectsDependency updates approvalchanged meaning; enable it again in Settings')
+ expect(rows[0].querySelector('a')?.getAttribute('href')).toBe('/janitor/settings')
+ expect(el.querySelector('table[aria-label="Projects’ janitor state"]')?.textContent).not.toContain('up to date')
+})
+
+it('previews and enables a changed approval beside Revoke with its current revision', async () => {
+ const data = fixture(); data.changedRules = [data.rules[0].ruleId!]
+ const posts: unknown[] = []
+ const { client, el } = await mount(async (url, init) => {
+  if (init?.method === 'POST') {
+   const body = JSON.parse(String(init.body)); posts.push(body)
+   return json(url.endsWith('/preview') ? { ...rule().question, definition: body } : {})
+  }
+  return json(data)
+ }, true, undefined, true)
+ await settled(client)
+ const row = el.querySelector('table[aria-label="Janitor approvals"] tbody tr')!
+ expect(row.textContent).toContain('Changed meaning; enable it again')
+ expect(row.querySelector('select')).not.toBeNull()
+ expect(row.textContent).toContain('Revoke')
+ await act(async () => [...row.querySelectorAll('button')].find(b => b.textContent === 'Preview')!.click())
+ await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Enable')!.click())
+ expect(posts[1]).toMatchObject({ ruleId: 'dependency-rule', expectedRevision: 3, shownDigest: 'meaning' })
+})
+
+it('shows an unassessed enabled approval as Not known', async () => {
+ const data = fixture(); data.unknownRules = [data.rules[0].ruleId!]
+ const { client, el } = await mount(async () => json(data), true, undefined, true)
+ await settled(client)
+ const row = el.querySelector('table[aria-label="Janitor approvals"] tbody tr')!
+ expect(row.querySelector('.badge')?.textContent).toBe('Not known')
+ expect(row.textContent).toContain('Revoke')
+ expect([...row.querySelectorAll('button')].some(b => b.textContent === 'Preview')).toBe(false)
+})
+
+it('shows changed meaning when the same approval is also unassessed', async () => {
+ const data = fixture(); data.unknownRules = data.changedRules = [data.rules[0].ruleId!]
+ const { client, el } = await mount(async () => json(data), true, undefined, true)
+ await settled(client)
+ const row = el.querySelector('table[aria-label="Janitor approvals"] tbody tr')!
+ expect(row.querySelector('.badge')?.textContent).toBe('Changed meaning; enable it again')
+ expect([...row.querySelectorAll('button')].some(b => b.textContent === 'Preview')).toBe(true)
 })

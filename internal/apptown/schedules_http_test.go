@@ -497,7 +497,7 @@ func TestFleetReadsAuthorityFactsOnceForTheSet(t *testing.T) {
 			}
 		}
 	}
-	facts, _, err := a.Work.JanitorProjects(ctx)
+	facts, _, _, _, err := a.Work.JanitorProjects(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -509,8 +509,8 @@ func TestFleetReadsAuthorityFactsOnceForTheSet(t *testing.T) {
 		t.Fatalf("shared eligibility failure lost the page: %v", err)
 	}
 	for _, id := range projects {
-		if !strings.HasPrefix(views[id].Janitor().RunNow, "Not known:") {
-			t.Fatalf("shared eligibility failure became a normal pause: %+v", views[id])
+		if views[id].Janitor().ScheduleProblem != "" {
+			t.Fatalf("schedule read repeated eligibility: %+v", views[id])
 		}
 	}
 

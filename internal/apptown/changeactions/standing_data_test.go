@@ -92,7 +92,7 @@ spec:
 		if err != nil || len(queues) != 1 || queues[0].Queue != "deps" || queues[0].Title != "Night deps" {
 			t.Fatalf("%+v %v", queues, err)
 		}
-		projects, _, err := w.work.JanitorProjects(human)
+		projects, _, _, _, err := w.work.JanitorProjects(human)
 		if err != nil || len(projects) != 1 || len(projects[0].Procedures) != 1 || projects[0].Procedures[0].Title != "Night deps" || projects[0].Procedures[0].RepairRounds != rounds {
 			t.Fatalf("%+v %v", projects, err)
 		}

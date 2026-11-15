@@ -73,6 +73,31 @@ spec:
 	if err := recordCatalogFixture(w.adoption, t.Context(), w.project.ID, "bls"); err != nil {
 		t.Fatal(err)
 	}
+	// The Janitor read supplies the eligibility answer; schedule shaping must
+	// neither reread rules nor replace it with its own judgment.
+	receipt, err := adoption.CurrentReceiptIn(t.Context(), w.schedules.DB, w.project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, err := w.adoption.AdoptedWorkflows(t.Context(), adoption.Source{ProjectID: w.project.ID, Revision: receipt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scheduled, err := w.adoption.ScheduledWorkflowNames(t.Context(), w.project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	supplied := map[string]workflow.StandingEligibilityResult{}
+	for _, name := range []string{"nightly-scan", "dependency-care", "pack-care"} {
+		supplied[name] = workflow.StandingEligibilityResult{Refused: "supplied eligibility refusal"}
+	}
+	rows, err := w.schedules.ForJanitor(t.Context(), []workflow.JanitorProject{{ProjectID: w.project.ID, Slug: w.project.Slug, Facts: workflow.ProcedureFacts{Receipt: receipt, Workflows: items, Scheduled: scheduled}, Eligibility: supplied, Queues: []workflow.QueueStatus{}}}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[w.project.ID].Janitor().RunNow != "supplied eligibility refusal" {
+		t.Fatalf("supplied eligibility lost: %+v", rows)
+	}
 	person, err := identity.New(w.schedules.DB, identity.Config{}).EnsurePerson(t.Context(), "bls")
 	if err != nil {
 		t.Fatal(err)

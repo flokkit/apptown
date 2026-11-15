@@ -3975,6 +3975,16 @@
       },
       "JanitorView": {
         "properties": {
+          "changedRules": {
+            "items": {
+              "format": "uuid",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": "array"
+          },
           "deployments": {
             "items": {
               "$ref": "#/components/schemas/JanitorDeployment"
@@ -3995,9 +4005,21 @@
               "$ref": "#/components/schemas/StandingRevision"
             },
             "type": "array"
+          },
+          "unknownRules": {
+            "items": {
+              "format": "uuid",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": "array"
           }
         },
         "required": [
+          "unknownRules",
+          "changedRules",
           "rules",
           "projects",
           "deployments",

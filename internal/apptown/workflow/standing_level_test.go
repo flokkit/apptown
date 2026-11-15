@@ -1,10 +1,17 @@
 package workflow
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/schema"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
@@ -92,24 +99,167 @@ func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
 // Refusals and absent project choices belong to each workflow/rule judgment.
 func TestStandingEligibilityKeepsMixedResultsAndEachRulesFallbackLevel(t *testing.T) {
 	t.Parallel()
-	a, s, p, _, _ := standingFixture(t)
-	s.deps.Portfolio = &standingPortfolioFixture{projectID: a.ProjectID}
-	boss := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
-	in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
-	enableStanding(t, s, boss, in)
-	p.means = "a newly approved purpose"
-	p.docs = []*schema.Doc{{Metadata: schema.Metadata{Name: "test"}, Spec: schema.Spec{On: schema.On{Schedule: &schema.ScheduleTrigger{Standing: true, Cron: "0 6 * * 1", AggressiveCron: "0 6 * * *"}}}}}
-	in.Categories.Dependencies = "aggressive"
-	second := enableStanding(t, s, boss, in)
-	results, err := s.StandingEligibility(t.Context(), []ProjectWorkflows{{ProjectID: a.ProjectID, Workflows: []string{"security", "test"}}})
-	if err != nil {
-		t.Fatal(err)
+	for _, staleFirst := range []bool{true, false} {
+		t.Run(fmt.Sprint(staleFirst), func(t *testing.T) {
+			a, s, p, _, _ := standingFixture(t)
+			s.deps.Portfolio = &standingPortfolioFixture{projectID: a.ProjectID}
+			boss := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
+			in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+			var stale, winner StandingRevision
+			enableStale := func() { p.means = "old purpose"; p.docs = nil; stale = enableStanding(t, s, boss, in) }
+			enableWinner := func() {
+				p.means = "current purpose"
+				p.docs = []*schema.Doc{{Metadata: schema.Metadata{Name: "test"}, Spec: schema.Spec{On: schema.On{Schedule: &schema.ScheduleTrigger{Standing: true, Cron: "0 6 * * 1", AggressiveCron: "0 6 * * *"}}}}}
+				in.Categories.Dependencies = "aggressive"
+				winner = enableStanding(t, s, boss, in)
+				in.Categories.Dependencies = "routine"
+			}
+			if staleFirst {
+				enableStale()
+				enableWinner()
+			} else {
+				enableWinner()
+				enableStale()
+			}
+			p.means = "current purpose"
+			results, err := s.StandingEligibility(t.Context(), []ProjectWorkflows{{ProjectID: a.ProjectID, Workflows: []string{"security", "test"}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			refused := results[a.ProjectID]["security"]
+			if refused.Err != nil || refused.Refused != errStandingMeaningChanged.Error() || !refused.Rule.RuleID.IsZero() || !slices.Equal(refused.MeaningChanged, []ids.ID{stale.RuleID}) {
+				t.Fatalf("refused workflow: %+v", refused)
+			}
+			got := results[a.ProjectID]["test"]
+			if got.Err != nil || got.Refused != "" || got.Rule.RuleID != winner.RuleID || got.Level != "aggressive" || !slices.Equal(got.MeaningChanged, []ids.ID{stale.RuleID}) {
+				t.Fatalf("fallback: %+v", got)
+			}
+		})
 	}
-	refused, eligible := results[a.ProjectID]["security"], results[a.ProjectID]["test"]
-	if refused.Err != nil || refused.Refused != "the standing approval meaning changed; a person must enable it again" || !refused.Rule.RuleID.IsZero() {
-		t.Fatalf("refused workflow: %+v", refused)
+}
+
+// Runtime meaning diagnostics respect project/workflow scope and unchanged adopters.
+func TestStandingMeaningChangeRespectsProjectScope(t *testing.T) {
+	for _, instance := range []bool{true, false} {
+		t.Run(fmt.Sprint(instance), func(t *testing.T) {
+			a, rules, p, owner, in := standingFixture(t)
+			rules.deps.Portfolio = &standingPortfolioFixture{projectID: a.ProjectID}
+			second := workflowTestProject(t, a.DB, "unchanged", "Unchanged", "")
+			ctx := owner
+			if instance {
+				in = StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"}
+				ctx = stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
+			}
+			name := "quick-change"
+			if instance {
+				name = "test"
+			}
+			rule := enableStanding(t, rules, ctx, in)
+			p.projectMeans = map[ids.ID]string{a.ProjectID: "changed meaning"}
+			_, err := rules.eligibleForIn(t.Context(), a.DB, rule, a.ProjectID, name)
+			if !errors.Is(err, errStandingMeaningChanged) {
+				t.Fatalf("typed refusal: %v", err)
+			}
+			results, err := rules.StandingEligibility(t.Context(), []ProjectWorkflows{{ProjectID: a.ProjectID, Workflows: []string{name}}, {ProjectID: second, Workflows: []string{name}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			changed, unchanged := results[a.ProjectID][name], results[second][name]
+			if !slices.Equal(changed.MeaningChanged, []ids.ID{rule.RuleID}) || !changed.Rule.RuleID.IsZero() {
+				t.Fatalf("changed: %+v", changed)
+			}
+			if len(unchanged.MeaningChanged) != 0 || instance && unchanged.Rule.RuleID != rule.RuleID {
+				t.Fatalf("unchanged: %+v", unchanged)
+			}
+		})
 	}
-	if eligible.Err != nil || eligible.Refused != "" || eligible.Rule.RuleID != second.RuleID || eligible.Level != "aggressive" {
-		t.Fatalf("eligible workflow: %+v", eligible)
+}
+
+func TestJanitorReadsChangedRulesWithoutOverridingEligibleFallback(t *testing.T) {
+	for _, scope := range []string{"instance", "project"} {
+		for _, fallback := range []string{"none", "before", "after"} {
+			t.Run(scope+"/"+fallback, func(t *testing.T) {
+				service, rules, ctx, _ := janitorReadFixture(t)
+				visible, err := service.authority.VisibleProjects(ctx, actionReadProject)
+				if err != nil {
+					t.Fatal(err)
+				}
+				pid := visible[0]
+				second := workflowTestProject(t, service.db, "unchanged", "Unchanged", "")
+				receipt, err := adoption.CurrentReceiptIn(ctx, service.db, pid)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := service.db.InTx(ctx, func(tx *database.Tx) error {
+					return adoption.RecordIn(ctx, tx, second, 1, adoption.AdoptionCreate, "fixture", receipt.Receipt, "boss", time.Now())
+				}); err != nil {
+					t.Fatal(err)
+				}
+				service.authority = aggregateAuthority{operationAuthority: service.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return []ids.ID{pid, second}, nil }}
+
+				in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"}
+				if scope == "project" {
+					in = StandingDefinition{Projects: []StandingProject{{ProjectID: pid, Workflow: "janitor-update"}}, Categories: StandingCategories{Dependencies: "routine"}, Delivery: "land-only"}
+				}
+				p := rules.deps.Procedures.(*standingProcedureFixture)
+				rules.deps.Portfolio = &standingPortfolioFixture{projectID: pid}
+				enableFresh := func() {
+					p.means = "current purpose"
+					in.Categories.Dependencies = "aggressive"
+					enableStanding(t, *rules, ctx, in)
+					in.Categories.Dependencies = "routine"
+				}
+				if fallback == "before" {
+					enableFresh()
+				}
+				p.means = "old purpose"
+				stale := enableStanding(t, *rules, ctx, in)
+				if fallback == "after" {
+					enableFresh()
+				}
+				p.means = "current purpose"
+				p.projectMeans = map[ids.ID]string{second: "old purpose"}
+				if fallback != "none" {
+					if err := rules.SetProjectChoice(ctx, second, "off", "fixture"); err != nil {
+						t.Fatal(err)
+					}
+				}
+				rows, _, changedIDs, _, err := service.JanitorProjects(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(rows) != 2 {
+					t.Fatalf("rows: %+v", rows)
+				}
+				var affected, unchanged JanitorProject
+				for _, row := range rows {
+					if row.ProjectID == pid {
+						affected = row
+					} else {
+						unchanged = row
+					}
+				}
+				if unchanged.State.Word == "needs you" || len(unchanged.Eligibility["janitor-update"].MeaningChanged) != 0 {
+					t.Fatalf("unaffected project: %+v", unchanged)
+				}
+				if !slices.Contains(changedIDs, stale.RuleID) {
+					t.Fatalf("changed rule missing: %+v", changedIDs)
+				}
+				if (affected.State.Word == "needs you") != (fallback == "none") {
+					t.Fatalf("fallback %s: %+v", fallback, affected.State)
+				}
+				changed, err := service.ChangedStandingApprovals(ctx)
+				if err != nil || len(changed) != 1 || changed[0].RuleID != stale.RuleID {
+					t.Fatalf("changed read: %+v %v", changed, err)
+				}
+				p.means = "old purpose"
+				if fallback == "none" {
+					changed, err = service.ChangedStandingApprovals(ctx)
+					if err != nil || len(changed) != 0 {
+						t.Fatalf("unchanged read: %+v %v", changed, err)
+					}
+				}
+			})
+		}
 	}
 }

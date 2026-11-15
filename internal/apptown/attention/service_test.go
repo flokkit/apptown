@@ -100,7 +100,7 @@ func TestUnknownCoverageRetainsStaleConditionsWithoutRawErrors(t *testing.T) {
 	disks := &instanceSource{snapshot: Snapshot{Known: true, ObservedAt: observed, Items: []Item{{Key: "disk-a", Title: "disk low", ObservedAt: observed}}}, err: errors.New("secret-provider-address-and-token")}
 	svc := New(&authority{instance: true}, Sources{Disks: disks})
 	got, err := svc.Read(t.Context())
-	if err != nil || len(got.Items) != 1 || !got.Items[0].Stale || got.Items[0].ObservedAt != observed || len(got.Sources) != 6 {
+	if err != nil || len(got.Items) != 1 || !got.Items[0].Stale || got.Items[0].ObservedAt != observed || len(got.Sources) != 7 {
 		t.Fatalf("failed source: %+v %v", got, err)
 	}
 	for _, source := range got.Sources {
@@ -606,9 +606,10 @@ func TestAttentionCollectsIntegrationsAndChecksUnderTheirOwnPermissions(t *testi
 	checks := &batchChecks{}
 	deployments := &projectSource{}
 	auth := scopedAuthority{project: id, allow: map[access.Capability]bool{access.CapProjectRead: true, access.CapConformanceRead: true}}
-	svc := New(auth, Sources{Integrations: integration, Checks: checks, Deployments: deployments})
+	janitor := &instanceSource{snapshot: Snapshot{Known: true}}
+	svc := New(auth, Sources{Integrations: integration, JanitorApprovals: janitor, Checks: checks, Deployments: deployments})
 	got, err := svc.Read(t.Context())
-	if err != nil || len(got.Items) != 2 || integration.calls != 1 || len(checks.calls) != 1 || len(deployments.calls) != 0 {
+	if err != nil || len(got.Items) != 2 || integration.calls != 1 || janitor.calls != 1 || len(checks.calls) != 1 || len(deployments.calls) != 0 {
 		t.Fatalf("new sources: %+v %v calls=%d/%v/%v", got, err, integration.calls, checks.calls, deployments.calls)
 	}
 	for _, s := range got.Sources {
@@ -619,7 +620,7 @@ func TestAttentionCollectsIntegrationsAndChecksUnderTheirOwnPermissions(t *testi
 	auth.allow[access.CapProjectRead] = false
 	auth.allow[access.CapConformanceRead] = false
 	got, err = svc.Read(t.Context())
-	if err != nil || len(got.Items) != 0 || len(got.Sources) != 0 || integration.calls != 1 || len(checks.calls) != 1 {
+	if err != nil || len(got.Items) != 0 || len(got.Sources) != 0 || integration.calls != 1 || janitor.calls != 1 || len(checks.calls) != 1 {
 		t.Fatalf("revoked new sources: %+v %v", got, err)
 	}
 }

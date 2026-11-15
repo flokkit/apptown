@@ -31,6 +31,13 @@ In Janitor settings, each approval shows its limits, projects, automatic release
 granted it and when. An administrator uses **Preview** to read the exact meaning
 and affected deployments, then **Enable** to grant it. **Revoke** stops new work
 under that approval. Work that has already claimed permission may finish.
+An enabled approval that cannot be checked says **Not known**, unless its meaning
+changed on another project. An approval whose meaning changed says
+**Changed meaning; enable it again**.
+Use **Preview**, then **Enable** to approve the current meaning, or **Revoke**
+to stop work under that approval. The overview and Attention show one item for
+each changed approval, linking to Settings. Affected projects show **needs you**
+when no other approval lets that work run.
 The Packs page links here for pack update approvals.
 
 A project's own Janitor section controls its update level. Turning it off stops
