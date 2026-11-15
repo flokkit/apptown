@@ -13,8 +13,7 @@ No rule is enabled by default.
 Instance consent covers present and future projects. Only an instance
 administrator acting as a verified person can enable it. Its preview shows the
 consent sentence, deployments that would receive automatic releases, projects
-with repositories, and running images
-with base-image findings. Projects whose main contract declares no tests are
+with repositories. Projects whose main contract declares no tests are
 marked as checking only that the app starts. Dynamic project membership does
 not change the saved consent's meaning.
 
@@ -78,8 +77,9 @@ The working and landing workflow each declare one supported purpose with
 `standing: {class: routine-update, means: ...}` on their approval step. This
 declaration provides no authority and changes no ordinary human vote.
 
-A rule names routine (patch and minor) or aggressive (including major) dependencies, verified same-version base-image
-updates, security fixes within those limits, or governed routine way-of-working
+A rule names routine (patch and minor) or aggressive (including major)
+dependencies and base-image updates of the same image and variant, security
+fixes within those limits, or governed routine way-of-working
 transitions. Dependency classification keeps the package set, sources and
 attributes equal and versions inside the selected bound. Application repairs
 are judged by the workflow's checks. A saved rule with different shown meaning
@@ -111,7 +111,7 @@ another new rule; an unknown response is not proof the save failed.
 
 `/janitor` shows what is on, work that needs a person, each project's short
 state and last checked time, and recent landed Changes. Queue problems, release
-holds and base-image findings appear in Needs you. Unknown scan or schedule
+holds appear in Needs you. Unknown scan or schedule
 reads remain visibly not known, including beside work that needs a person.
 Project rows open the project's Janitor section; recent work opens the Change's
 Changes tab, and its release summary opens Details. Only successful releases
@@ -153,7 +153,13 @@ changed consent refuse an assessment. Inspection never repairs or saves source.
 
 Dependency inspection compares toolchain and runtime inputs on the committed base
 and candidate, including mise declarations, version files, Dockerfile base
-operands and contract image/build inputs. Changes require a person. It classifies
+operands and contract image/build inputs. External-image FROM operands may
+change version or digest while keeping the repository and tag variant unchanged.
+Flags, aliases, stage count and order, ARGs and parser directives stay unchanged.
+Stage references, scratch and operands containing `$` remain byte-identical.
+Complex Dockerfiles are compared byte for byte. Exact three-part toolchain
+versions may move within their minor only for runs with security targets.
+Other toolchain and build input changes require a person. It classifies
 every changed path using adopted dependency-file globs and the observed input
 paths. An empty candidate is not applicable. The classifier is `agent-update-v1`.
 
@@ -161,7 +167,16 @@ The routine check sends the complete diff, the approved level, any security
 targets and the classified paths to the checks model through the diff-rubric
 evaluator. The workflow supplies the rubric. Pass and fail record the model's
 judgement and reasoning; unclear or unavailable is an error, never met and never
-sent to repair. A failure can go to the dormant repair agent. The receipt keeps
+sent to repair. For an empty change it judges every passing agent step's final
+message that declared nothing to change, labelled in step order. A report must
+include each part's release-listing command and output and every FROM's tag
+listing; an uncommitted report file cannot supply that account.
+A finished judge session without a valid known verdict is an AppTown fault.
+Queue check errors whose receipts are all AppTown faults retry through the
+step-retry operation at most twice per step. Retry receipts name the engine,
+retain each error's evidence and explain why. The third error holds the queue;
+errors concerning the candidate or its bounds hold immediately.
+A failure can go to the dormant repair agent. The receipt keeps
 session, model, rubric and diff identities. Every required check must still be
 met for standing acceptance; a person may accept work that routine refuses.
 
@@ -169,34 +184,26 @@ The assessment records source commits, tree, rule and run revisions, and a diges
 of the classified paths. It re-observes the source before returning. Standing
 processing uses a fresh assessment before casting a typed vote; assessment does
 not accept, land or deploy. Targeted fixes require security permission and the
-source scanner's parsed observation that the named target is gone. Missing,
+reporting scanner's parsed observation that the named target is gone. Missing,
 failed, detached or not-applicable scanners leave that target unassessed.
 
-Base-image inspection supports one root Dockerfile selected by an unchanged
-application contract: one app build at `.`, no needs, durable app data, init,
-static build or profile overrides. Its single `FROM` names an explicit
-`linux/amd64` or `linux/arm64` platform and
-`docker.io/library/node:VERSION-VARIANT@sha256:DIGEST`. The stable three-part
-Node version and variant must remain identical; only the digest may change.
-Multiple stages, arguments, parser directives, continuations and heredocs
-require a person. Every other Dockerfile byte is compared.
-
-The image owner reads both immutable manifests and configurations, refuses
-indexes and changed runtime configuration, and confirms the platform. The
-existing check executor observes Node's actual version in both prepared images,
-with entrypoints cleared, network disabled and no project files or commands.
-The prepared image ID must match the verified configuration digest. Pulls use
-request-owned anonymous authentication configuration on the selected daemon;
-an executing host with `DOCKER_AUTH_CONFIG` set cannot supply this observation.
-Existing executor tool caches remain available, and remote scratch cleanup is
-still unobserved. A matching tag or publisher label alone is insufficient.
-Other images and storage-engine transitions are unsupported.
-
-Security targets come from the failed source scan. An observing running-image
-scan cannot start a fix. Classification never substitutes for the required tests,
+Security targets come from failed source and running-image scans selected by
+the adopted call's `whenFailed` with `findings: fixable`. Source findings require
+an adopted ecosystem update declaration. Running-image findings must meet the
+step's severity threshold, belong to the project's public part, and have no
+matching package and identifier in the stage's source observations. Findings
+from other parts remain for a person. Targets retain the reporting binding and
+scan point. Source targets require their source scanner; image targets require
+their image scanner at the candidate image check. A detached or inapplicable
+scanner cannot clear a target. A remaining target fails regardless of baseline
+subtraction or severity. Classification never substitutes for required tests,
 start-up or scans, and an inspection result alone provides no authority.
 
 ## Keeping packs current
+
+Pack adoption repairs may change the declarations in `.apptown/app.yaml` that
+the new pack's failing checks require. Dependency updates and security fixes
+keep that file unchanged. The repair skill distinguishes these intents.
 
 “Keep packs current” is a separate standing rule with category `waysOfWorking`.
 It has no dependency update level or cron. Publication starts a what-if as

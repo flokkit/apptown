@@ -2,7 +2,6 @@ package verification
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -19,7 +18,6 @@ type Portfolio struct {
 	Adoptions *adoption.Service
 	Releases  *deployment.Service
 	DataDir   string
-	Work      *workflow.Service
 }
 
 func (p Portfolio) StandingHold(ctx context.Context, q database.Queryer, pid ids.ID) (string, error) {
@@ -51,7 +49,7 @@ func (p Portfolio) StandingPortfolio(ctx context.Context, q database.Queryer, _ 
 		if item.DefaultBranch == "" || !item.Purpose.Schedules() {
 			continue
 		}
-		preview := workflow.StandingProjectPreview{ProjectID: item.ID, Project: item.Slug, Deployments: []workflow.StandingEnvironment{}, BaseImageFindings: []string{}}
+		preview := workflow.StandingProjectPreview{ProjectID: item.ID, Project: item.Slug, Deployments: []workflow.StandingEnvironment{}}
 		repo, err := item.Repository(p.DataDir)
 		if err != nil {
 			return nil, err
@@ -72,23 +70,6 @@ func (p Portfolio) StandingPortfolio(ctx context.Context, q database.Queryer, _ 
 			if dep.Feed == "main" && !dep.Protected() && dep.RoutineUpdates.Mode != "person" {
 				preview.Deployments = append(preview.Deployments, workflow.StandingEnvironment{DeploymentID: dep.ID, TargetID: dep.TargetID, ProjectID: item.ID, Project: item.Slug, Deployment: dep.Name, Setting: dep.RoutineUpdates.Mode})
 			}
-		}
-		if p.Work != nil {
-			readCtx := access.WithCaller(ctx, access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "engine", ProjectID: item.ID}, Verified: true})
-			scans, err := p.Work.LatestMainScans(readCtx, item.ID, 0)
-			if err != nil {
-				return nil, err
-			}
-			images := map[string]bool{}
-			for _, scan := range scans.Running {
-				if len(scan.ImageOnlyFindings) > 0 && scan.Subject.Digest != "" {
-					images[scan.Subject.Digest] = true
-				}
-			}
-			for digest := range images {
-				preview.BaseImageFindings = append(preview.BaseImageFindings, digest)
-			}
-			preview.BaseImages = len(images)
 		}
 		out = append(out, preview)
 	}

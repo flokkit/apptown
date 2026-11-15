@@ -213,8 +213,12 @@ func TestRestoredStandingConsentIsDisabledOnceWithHistoryPreserved(t *testing.T)
 	}
 }
 func TestStandingDefinitionNeverSelectsImplicitOrForeignIdentity(t *testing.T) {
+	var removed StandingCategories
+	if err := json.Unmarshal([]byte(`{"baseImages":true}`), &removed); err != nil {
+		t.Fatal(err)
+	}
 	valid := StandingDefinition{Projects: []StandingProject{{ProjectID: idstest.N(1), Workflow: "quick-change", Environments: []StandingEnvironment{{DeploymentID: idstest.N(2), TargetID: idstest.N(3)}}}}, Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"}
-	for i, change := range []func(*StandingDefinition){func(d *StandingDefinition) { d.Projects[0].Environments = nil }, func(d *StandingDefinition) { d.Projects[0].Environments[0].TargetID = ids.Nil }, func(d *StandingDefinition) { d.Delivery = "land-only" }, func(d *StandingDefinition) { d.Categories.Dependencies = "major" }, func(d *StandingDefinition) { d.Projects = append(d.Projects, d.Projects[0]) }, func(d *StandingDefinition) { d.Projects[0].Workflow = "" }} {
+	for i, change := range []func(*StandingDefinition){func(d *StandingDefinition) { d.Projects[0].Environments = nil }, func(d *StandingDefinition) { d.Projects[0].Environments[0].TargetID = ids.Nil }, func(d *StandingDefinition) { d.Delivery = "land-only" }, func(d *StandingDefinition) { d.Categories.Dependencies = "major" }, func(d *StandingDefinition) { d.Categories = StandingCategories{SecurityFixes: true} }, func(d *StandingDefinition) { d.Categories = removed }, func(d *StandingDefinition) { d.Projects = append(d.Projects, d.Projects[0]) }, func(d *StandingDefinition) { d.Projects[0].Workflow = "" }} {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
 			d := valid
 			d.Projects = append([]StandingProject(nil), valid.Projects...)
@@ -442,7 +446,6 @@ func TestStandingAssessmentChecksCurrentAuthorityAndRuleAfterInspection(t *testi
 
 func TestStandingMixedCategoryMeaningRequiresNewHumanConfirmation(t *testing.T) {
 	a, s, _, ctx, definition := standingFixture(t)
-	definition.Categories.BaseImages = true
 	question, err := s.Preview(ctx, definition)
 	if err != nil {
 		t.Fatal(err)

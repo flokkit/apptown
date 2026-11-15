@@ -3,6 +3,10 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -172,5 +176,108 @@ func TestConditionalCallsRunAfterObservationsWithoutChangingTheirVerdicts(t *tes
 		if s.Name == "source" && s.Status != StatusFail || s.Name == "running" && s.Status != StatusError || s.Name == "accept" && s.Status != StatusPending {
 			t.Fatalf("observation or acceptance was reinterpreted: %+v", s)
 		}
+	}
+}
+
+func TestRunningTargetsAreImageOnlyPublicPartFindingsAboveThreshold(t *testing.T) {
+	for _, tc := range []struct {
+		name, part, severity string
+		shared               bool
+		want                 int
+	}{
+		{"public image", "web", "high", false, 1},
+		{"another part", "worker", "high", false, 0},
+		{"below threshold", "web", "medium", false, 0},
+		{"source package", "web", "high", true, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var got []check.Finding
+			finding := check.Finding{Fingerprint: "image-only", Source: "trivy", Severity: tc.severity, Identifiers: []string{"CVE-image"}, Package: &check.PackageRef{Name: "libc", Ecosystem: "Alpine"}}
+			rig := stepAuthorityRunnerFixture(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "scan", Steps: []schema.Step{
+				{Name: "source", Uses: "scan"}, {Name: "running", Uses: "scan", With: map[string]any{"on": "running", "failOn": "high"}},
+				{Name: "fix", Uses: "workflow/call"},
+			}}}}, map[string]Runner{
+				"scan": func(task *Execution) {
+					if _, err := task.Claim(); err != nil {
+						t.Error(err)
+						return
+					}
+					subject := conformance.ScanSubject{On: "source"}
+					var findings []check.Finding
+					status := StatusPass
+					if task.Step().Name == "running" {
+						subject = conformance.ScanSubject{On: "running", Part: tc.part}
+						findings = []check.Finding{finding}
+						status = StatusFail
+					} else if tc.shared {
+						findings = []check.Finding{finding}
+					}
+					if err := task.InAttempt("scan", func(tx *database.Tx, attempt int64) error {
+						return conformance.RecordScanObservationIn(task.Context(), tx, conformance.ScanObservation{ProjectID: task.Run().ProjectID, RunID: task.Run().ID, StepID: task.Step().ID, Attempt: attempt, Subject: subject, Scanner: finding.Source, Verdict: status.String(), ObservedAt: time.Now(), Findings: conformance.WrapFindings(findings)})
+					}); err != nil {
+						t.Error(err)
+						return
+					}
+					task.Settle(EncodeOutcome(status, map[string]any{"reason": "observed"}, nil))
+				},
+				"workflow/call": func(task *Execution) {
+					var err error
+					got, _, err = task.fixableTargets(task.Context(), []string{"source", "running"}, nil)
+					if err != nil {
+						t.Error(err)
+					}
+					if _, err := task.Claim(); err != nil {
+						t.Error(err)
+						return
+					}
+					task.Settle(EncodeOutcome(StatusPass, nil, nil))
+				},
+			})
+			rig.Work.Stop()
+			rig.Work.dataDir = t.TempDir()
+			source, err := ReadSourceIn(t.Context(), rig.DB, RunRef{ID: rig.RunID, ProjectID: rig.ProjectID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			repo, err := source.Repository(rig.Work.dataDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			gittest.Run(t, repo, "init", "-q", "-b", "main")
+			if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    public: true\n  worker:\n    build: worker\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			gittest.Run(t, repo, "add", ".")
+			gittest.Run(t, repo, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "contract")
+			// This fixture normally represents a project without a repository. Set its
+			// default through the project owner before the source is read by the call.
+			if err := rig.DB.InTx(t.Context(), func(tx *database.Tx) error {
+				if err := project.SetDefaultBranchIn(t.Context(), tx, rig.ProjectID, "main"); err != nil {
+					return err
+				}
+				return takeChangeForRunIn(t.Context(), tx, RunRef{ID: rig.RunID, ProjectID: rig.ProjectID}, nil, time.Now())
+			}); err != nil {
+				t.Fatal(err)
+			}
+			ctx := stepVerifiedContext(t.Context(), access.Principal{Kind: "user", Name: "owner", Via: "token"})
+			snapshot, err := rig.Work.Snapshot(ctx, rig.RunID, DetailView)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, s := range snapshot.Steps {
+				if err := rig.Work.ExecuteStep(ctx, s.ID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if len(got) != tc.want {
+				t.Fatalf("targets: %+v want %d", got, tc.want)
+			}
+			if len(got) > 0 && (got[0].ScanPoint != "image" || got[0].Source != "trivy") {
+				t.Fatalf("target lost scan point/binding: %+v", got)
+			}
+		})
 	}
 }

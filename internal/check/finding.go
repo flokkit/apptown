@@ -33,6 +33,8 @@ type Location struct {
 }
 
 type Finding struct {
+	// ScanPoint identifies the source or image assessment required for a fix target.
+	ScanPoint   string      `json:"scanPoint,omitempty"`
 	Fingerprint string      `json:"fingerprint"`
 	Kind        string      `json:"kind"`     // vuln | secret | sast | license
 	Severity    string      `json:"severity"` // critical|high|medium|low|unknown

@@ -8,6 +8,7 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/stock"
@@ -590,7 +591,10 @@ func TestEmptyAgentUpdateClosesOnlyAfterItsReportPasses(t *testing.T) {
 			f, _ := newNodeFixFixture(t, "janitor-update", doc.Spec)
 			// The distinguishing last line must survive the shortened reason.
 			report := strings.Repeat("Checked root dependencies. ", 50) + "root: npm outdated --json showed {}; nothing can move within routine."
-			installFakePi(f, func(_ int, _ execution.Request) execution.Outcome {
+			installFakePi(f, func(n int, _ execution.Request) execution.Outcome {
+				if n > 1 {
+					return execution.Outcome{Termination: execution.Exited, Output: piSays("Repair checked the tag listing; complete findings remain in REPORT.md")}
+				}
 				return execution.Outcome{Termination: execution.Exited, Output: piSays(report)}
 			})
 			answerCheck := func(task *workflow.Execution) {
@@ -615,6 +619,9 @@ func TestEmptyAgentUpdateClosesOnlyAfterItsReportPasses(t *testing.T) {
 					t.Fatal(item.Expects)
 				}
 				if called > 1 {
+					if !strings.Contains(item.Rubric, "Step update:") || !strings.Contains(item.Rubric, "Step repair:") || !strings.Contains(item.Rubric, "Repair checked the tag listing") || strings.Index(item.Rubric, "Step update:") > strings.Index(item.Rubric, "Step repair:") {
+						t.Fatalf("reports not judged together in order: %s", item.Rubric)
+					}
 					return workflow.CheckReceipt{Verdict: workflow.VerdictPass, Detail: "repaired report judged"}, nil
 				}
 				return workflow.CheckReceipt{Verdict: verdict, Detail: "report judged"}, nil
@@ -628,7 +635,7 @@ func TestEmptyAgentUpdateClosesOnlyAfterItsReportPasses(t *testing.T) {
 			if verdict == workflow.VerdictFail {
 				want = workflow.StatusFail
 			}
-			if status != want || called != 1 || ev["judgedReport"] != "update" {
+			if status != want || called != 1 || fmt.Sprint(ev["judgedReports"]) != "[update]" {
 				t.Fatalf("routine %s, calls %d: %+v", status, called, ev)
 			}
 			if verdict == workflow.VerdictPass {
@@ -699,4 +706,60 @@ func (p *agentUpdateStanding) StandingProcedures(ctx context.Context, q database
 		out[name] = workflow.StandingProcedureResult{Procedure: proc, Err: err}
 	}
 	return out, nil
+}
+
+func TestRoutineToolchainPatchNeedsSecurityTargets(t *testing.T) {
+	for _, security := range []bool{false, true} {
+		t.Run(fmt.Sprint(security), func(t *testing.T) {
+			raw, _ := stock.FS.ReadFile("janitor-fix.yaml")
+			doc, err := schema.ParseWorkflow(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f, _ := newNodeFixFixture(t, "patch", doc.Spec)
+			updateWrite(t, f.hub, "mise.toml", "[tools]\ngo='1.27.3'\n")
+			updateWrite(t, f.hub, "Dockerfile", "FROM golang:1.27.3 AS build\nFROM scratch\n")
+			updateCommit(t, f.hub, "toolchain declarations")
+			installFakePi(f, func(_ int, req execution.Request) execution.Outcome {
+				updateWrite(t, req.Workspace, "mise.toml", "[tools]\ngo='1.27.4'\n")
+				updateWrite(t, req.Workspace, "Dockerfile", "FROM golang:1.27.4 AS build\nFROM scratch\n")
+				updateCommit(t, req.Workspace, "security patch")
+				return execution.Outcome{Termination: execution.Exited, Output: piSays("patched toolchain")}
+			})
+			called := false
+			f.commands.judge = updateJudgeFunc(func(context.Context, workflow.Source, check.Item, string) (workflow.CheckReceipt, error) {
+				called = true
+				return workflow.CheckReceipt{Verdict: workflow.VerdictPass, Detail: "smallest patch fixes stdlib"}, nil
+			})
+			ch, err := f.work.Create(f.ctx, workflow.ChangeDraft{ProjectID: f.projectID, Title: "toolchain patch"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := f.work.PrepareWorkspace(f.ctx, ch.ID); err != nil {
+				t.Fatal(err)
+			}
+			values := map[string]string{"level": "routine"}
+			if security {
+				targets, _ := json.Marshal([]check.Finding{{Source: "osv", Package: &check.PackageRef{Name: "stdlib", Ecosystem: "Go"}, Identifiers: []string{"GO-example"}}})
+				values["targets"] = string(targets)
+			}
+			inputs, _ := json.Marshal(values)
+			f.work.Stop()
+			run, err := f.work.StartRun(f.ctx, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "patch", Inputs: inputs})
+			if !errors.Is(err, workflow.ErrDispatchStopped) {
+				t.Fatal(err)
+			}
+			steps := queueSteps(t, f, run)
+			queueExecute(t, f, steps["update"])
+			queueExecute(t, f, steps["routine"])
+			status, ev := stepStatus(t, f, steps["routine"].ID)
+			want := workflow.StatusFail
+			if security {
+				want = workflow.StatusPass
+			}
+			if status != want || called != security {
+				t.Fatalf("%s judge=%t: %+v", status, called, ev)
+			}
+		})
+	}
 }

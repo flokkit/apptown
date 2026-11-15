@@ -17,9 +17,9 @@ const at = '2026-11-12T10:00:00Z'
 const actor = { name: 'Sam', principal: 'person', via: 'session' }
 const queue = (name: string, stopped = false) => ({ title: name === 'updates' ? 'Dependency updates' : name === 'packs' ? 'Pack updates' : 'Security fixes', queue: name, state: stopped ? 'stopped' : 'up_to_date', words: stopped ? 'stopped after 3 failed tries' : 'up to date', failed: stopped ? 3 : 0, reason: '', since: at, files: [], packages: [], changeNumber: 0 })
 const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name: `${id} app`, level: 'routine', state: { word: 'up to date', unknown: false, help: '' },
- queues: [queue('security'), queue('updates'), queue('packs')], scans: { imageUpdates: false, lastScan: at },
+ queues: [queue('security'), queue('updates'), queue('packs')], scans: { lastScan: at },
  procedures: [{ title: 'Declared dependency care', workflow: 'janitor-update', version: 7, stopRule: 'Weekly updates stop after 3 failed tries; security fixes can still run.', sentence: 'Up to 4 repair sessions; then asks Sam.', problem: '' }], scheduleProblem: '', runNow: '' })
-const rule = (packs = false, enabled = true): StandingRevision => ({ ruleId: packs ? 'pack-rule' : 'dependency-rule', revision: 3, enabled, issuer: actor, enabledAt: at, changedBy: actor, changedAt: at, reason: '', question: { definition: packs ? packDefinition : dependencyDefinition(), shown: 'The exact approval meaning.', digest: 'meaning', projects: [], baseImageFindings: { images: 0, projects: 0, message: '' } } })
+const rule = (packs = false, enabled = true): StandingRevision => ({ ruleId: packs ? 'pack-rule' : 'dependency-rule', revision: 3, enabled, issuer: actor, enabledAt: at, changedBy: actor, changedAt: at, reason: '', question: { definition: packs ? packDefinition : dependencyDefinition(), shown: 'The exact approval meaning.', digest: 'meaning', projects: [] } })
 function fixture(): JanitorView {
  const stopped = project('Stopped'); stopped.queues[1] = queue('updates', true); stopped.state.word = 'needs you'
  const off = { ...project('Off'), level: 'off', state: { word: 'off', unknown: false, help: '' }, choice: { level: 'off', person: actor, at, reason: 'Waiting for a release' } }
@@ -174,17 +174,16 @@ it('preserves an exact project pack approval when previewing its categories', as
 })
 
 it('shows only decisions on the overview and opens evidence by row and release link', async () => {
- const data = fixture(); data.projects[0].queues[1].changeId = 'stuck-change'; data.projects[0].queues[1].reason = 'Checks failed\nLong evidence'; data.projects[2].scans.imageUpdates = true
+ const data = fixture(); data.projects[0].queues[1].changeId = 'stuck-change'; data.projects[0].queues[1].reason = 'Checks failed\nLong evidence'
  const {client, el} = await mount(async url => json(url.includes('/history') ? history() : data))
  await settled(client)
  expect([...el.querySelectorAll('h2')].map(h => h.textContent)).toEqual(['Needs you', 'Projects', 'Recent work'])
  const needs = el.querySelector('table[aria-label="Needs you"]')!
- expect(needs.querySelectorAll('tbody tr')).toHaveLength(3)
+ expect(needs.querySelectorAll('tbody tr')).toHaveLength(2)
  expect(needs.textContent).toContain('Checks failed')
  expect(needs.textContent).not.toContain('Long evidence')
  expect(needs.textContent).toContain('Close and try again')
  expect(needs.textContent).toContain('Release 9 to Customer office failed')
- expect(needs.textContent).toContain('Base image needs an update; the janitor cannot do this')
  expect(needs.querySelector('a[href="/changes/stuck-change"]')?.closest('tr')?.dataset.linked).toBe('true')
  expect(needs.querySelector('a[href="/projects/Held/deployments/production?tab=history"]')).not.toBeNull()
  const projects = el.querySelector('table[aria-label="Projects’ janitor state"]')!
@@ -204,7 +203,7 @@ it('shows only decisions on the overview and opens evidence by row and release l
 it.each([false, true])('keeps scheduler uncertainty visible beside attention=%s', async attention => {
  const data = fixture(); data.projects = [project('one')]; data.deployments = []
  data.projects[0].scheduleProblem = 'queue security was not read'
- data.projects[0].scans.imageUpdates = attention
+ if (attention) data.projects[0].queues[0] = queue('security', true)
  const {client, el} = await mount(async url => json(url.includes('/history') ? history() : data))
  await settled(client)
  const state = el.querySelector('td[data-label="State"]')!

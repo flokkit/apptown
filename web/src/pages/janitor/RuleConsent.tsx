@@ -8,12 +8,12 @@ import type { StandingDefinition, StandingQuestion, StandingRevision } from '../
 
 export const dependencyDefinition = (level = 'routine'): StandingDefinition => ({
   scope: 'instance',
-  categories: { dependencies: level, securityFixes: true, baseImages: false, waysOfWorking: false },
+  categories: { dependencies: level, securityFixes: true, waysOfWorking: false },
   projects: [], administrative: true, delivery: 'full',
 })
 export const packDefinition: StandingDefinition = {
   scope: 'instance',
-  categories: { dependencies: '', securityFixes: false, baseImages: false, waysOfWorking: true },
+  categories: { dependencies: '', securityFixes: false, waysOfWorking: true },
   projects: [], administrative: true, delivery: 'full',
 }
 
@@ -44,7 +44,6 @@ export function RuleConsent({ rule, packs, current, reload, project }: { rule?: 
       {(preview.question.portfolio ?? []).some(p => p.deployments.length > 0) && <><h3>Automatic releases</h3>
         {(preview.question.portfolio ?? []).flatMap(p => p.deployments.map(d => <p key={d.deploymentId}><Link to={`/projects/${p.project}/deployments/${d.deployment}`}>{p.project} / {d.deployment}</Link> · {d.setting}</p>))}</>}
       {(preview.question.portfolio ?? []).filter(p => p.onlyChecksStarts).map(p => <p key={p.projectId}>{p.project}: only checks that it starts.</p>)}
-      {!!preview.question.baseImageFindings?.projects && <p>{preview.question.baseImageFindings.projects} apps’ images need a base-image update; the janitor does not do this yet.</p>}
     </Modal>}
   </>
 }

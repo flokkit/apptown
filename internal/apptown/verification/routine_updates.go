@@ -38,7 +38,7 @@ func (r routineInspector) WithFixes(db *database.DB, ad *adoption.Service) routi
 func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (out workflow.StandingInspection, err error) {
 	out.Classifier = "agent-update-v1"
 	out.Classification = "cannot-assess"
-	before, err := r.observe(ctx, source, false)
+	before, err := r.observe(ctx, source)
 	out.Base, out.Candidate, out.Tree = before.base, before.tip, before.tree
 	for _, f := range before.files {
 		out.ChangedFiles = append(out.ChangedFiles, f.Path)
@@ -85,13 +85,13 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 		out.Reason = reason
 		return out, nil
 	}
-	if err := CompareUpdateInputs(inputs[0], inputs[1]); err != nil {
+	if err := CompareUpdateInputs(inputs[0], inputs[1], len(targets) > 0); err != nil {
 		return refuse(err.Error())
 	}
 	if len(targets) > 0 && !categories.SecurityFixes {
 		return refuse("security fixes are not permitted by this rule")
 	}
-	after, err := r.observe(ctx, source, false)
+	after, err := r.observe(ctx, source)
 	if err != nil {
 		out.Reason = err.Error()
 		return out, nil
@@ -106,6 +106,6 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 	}
 	out.Validation = &workflow.StandingValidation{Image: r.executor.AgentImage, ReportDigest: observationDigest(raw), ScratchSettlement: "local staging removed; executor scratch cleanup is not observed here"}
 	out.Classification = "routine-dependency"
-	out.Reason = "toolchain versions and base-image inputs are unchanged; the routine model receipt and required checks govern standing acceptance"
+	out.Reason = "toolchain and base-image inputs stay within the permitted bounds; the routine model receipt and required checks govern standing acceptance"
 	return out, nil
 }

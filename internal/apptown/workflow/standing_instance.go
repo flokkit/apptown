@@ -33,7 +33,7 @@ func normalizeInstanceStanding(in StandingDefinition) (StandingDefinition, error
 	if in.Categories.Dependencies != "" && in.Categories.Dependencies != "routine" && in.Categories.Dependencies != "aggressive" {
 		return bad("select a dependency update bound")
 	}
-	if in.Categories.BaseImages || in.Categories.WaysOfWorking && (in.Categories.Dependencies != "" || in.Categories.SecurityFixes) {
+	if in.Categories.WaysOfWorking && (in.Categories.Dependencies != "" || in.Categories.SecurityFixes) {
 		return bad("keep packs current is its own category; enable it separately from dependency fixes")
 	}
 	in.Administrative = true
@@ -71,7 +71,6 @@ func (s StandingRules) instanceQuestion(ctx context.Context, q database.Queryer,
 	if err != nil {
 		return out, err
 	}
-	images := map[string]bool{}
 	for i := range out.Portfolio {
 		project := &out.Portfolio[i]
 		project.Level, err = s.effectiveLevelIn(ctx, q, in, project.ProjectID)
@@ -79,15 +78,7 @@ func (s StandingRules) instanceQuestion(ctx context.Context, q database.Queryer,
 			return out, err
 		}
 		project.OverridesInstance = project.Level != in.Categories.Dependencies
-		if project.BaseImages > 0 {
-			out.BaseImageFindings.Projects++
-		}
-		for _, digest := range project.BaseImageFindings {
-			images[digest] = true
-		}
 	}
-	out.BaseImageFindings.Images = len(images)
-	out.BaseImageFindings.Message = "Images with base-image findings the janitor cannot fix yet"
 	// The dynamic preview is information, not the consent's project scope.
 	raw, err := json.Marshal(struct {
 		Definition StandingDefinition

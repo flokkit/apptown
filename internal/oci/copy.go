@@ -65,14 +65,14 @@ func Copy(ctx context.Context, from Source, to Repository, tag, platform string)
 	if err != nil {
 		return Image{}, fmt.Errorf("%w: tag %q: %w", errMalformed, tag, err)
 	}
-	// Only immutable sources can be satisfied by the spoke. Observe validates
+	// Only immutable sources can be satisfied by the spoke. Validate
 	// the manifest and config identity as well as the requested platform.
 	if digest, ok := src.(name.Digest); ok {
 		held := Source{Reference: repo.Name() + "@" + digest.DigestStr(), Credential: to.Credential}
-		observation, err := Observe(ctx, held)
+		got, err := retainedImagePlatform(ctx, held)
 		if err == nil {
-			if observation.Platform != platform {
-				return Image{}, fmt.Errorf("%w: retained image is for %s, not %s", errUnsupported, observation.Platform, platform)
+			if got != platform {
+				return Image{}, fmt.Errorf("%w: retained image is for %s, not %s", errUnsupported, got, platform)
 			}
 			if err := Tag(ctx, to, digest.DigestStr(), tag); err != nil {
 				return Image{}, err

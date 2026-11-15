@@ -412,16 +412,10 @@ func unansweredScanners(observations []conformance.ScanObservation) ([]string, b
 
 // janitorScans carries only the scan facts shown in the fleet view.
 type janitorScans struct {
-	LastScan     time.Time `json:"lastScan"`
-	ImageUpdates bool      `json:"imageUpdates"`
+	LastScan time.Time `json:"lastScan"`
 }
 
 func (s MainScans) janitorSummary() janitorScans {
 	out := janitorScans{LastScan: s.LastScan}
-	for _, scan := range s.Running {
-		if len(scan.ImageOnlyFindings) > 0 {
-			out.ImageUpdates = true
-		}
-	}
 	return out
 }

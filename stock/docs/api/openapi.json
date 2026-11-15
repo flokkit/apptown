@@ -3537,6 +3537,9 @@
           "regression": {
             "type": "string"
           },
+          "scanPoint": {
+            "type": "string"
+          },
           "severity": {
             "type": "string"
           },
@@ -7267,9 +7270,6 @@
       },
       "StandingCategories": {
         "properties": {
-          "baseImages": {
-            "type": "boolean"
-          },
           "dependencies": {
             "type": "string"
           },
@@ -7372,45 +7372,6 @@
         },
         "type": "object"
       },
-      "StandingImageObservation": {
-        "properties": {
-          "configDigest": {
-            "type": "string"
-          },
-          "manifest": {
-            "type": "string"
-          },
-          "node": {
-            "type": "string"
-          },
-          "platform": {
-            "type": "string"
-          },
-          "preparedImage": {
-            "type": "string"
-          },
-          "reference": {
-            "type": "string"
-          },
-          "reportDigest": {
-            "type": "string"
-          },
-          "scratchSettlement": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "reference",
-          "manifest",
-          "configDigest",
-          "preparedImage",
-          "node",
-          "platform",
-          "reportDigest",
-          "scratchSettlement"
-        ],
-        "type": "object"
-      },
       "StandingInspection": {
         "properties": {
           "base": {
@@ -7430,12 +7391,6 @@
           },
           "classifier": {
             "type": "string"
-          },
-          "images": {
-            "items": {
-              "$ref": "#/components/schemas/StandingImageObservation"
-            },
-            "type": "array"
           },
           "reason": {
             "type": "string"
@@ -7522,15 +7477,6 @@
       },
       "StandingProjectPreview": {
         "properties": {
-          "baseImageFindings": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "baseImages": {
-            "type": "integer"
-          },
           "deployments": {
             "items": {
               "$ref": "#/components/schemas/StandingEnvironment"
@@ -7570,12 +7516,10 @@
           "level",
           "overridesInstance",
           "followsMain",
-          "baseImageFindings",
           "projectId",
           "project",
           "onlyChecksStarts",
-          "deployments",
-          "baseImages"
+          "deployments"
         ],
         "type": "object"
       },
@@ -7611,9 +7555,6 @@
       },
       "StandingQuestion": {
         "properties": {
-          "baseImageFindings": {
-            "$ref": "#/components/schemas/standingBaseImagePreview"
-          },
           "definition": {
             "$ref": "#/components/schemas/StandingDefinition"
           },
@@ -7637,7 +7578,6 @@
           }
         },
         "required": [
-          "baseImageFindings",
           "definition",
           "projects",
           "shown",
@@ -8569,17 +8509,13 @@
       },
       "janitorScans": {
         "properties": {
-          "imageUpdates": {
-            "type": "boolean"
-          },
           "lastScan": {
             "format": "date-time",
             "type": "string"
           }
         },
         "required": [
-          "lastScan",
-          "imageUpdates"
+          "lastScan"
         ],
         "type": "object"
       },
@@ -8767,25 +8703,6 @@
           "binding",
           "ahead",
           "says"
-        ],
-        "type": "object"
-      },
-      "standingBaseImagePreview": {
-        "properties": {
-          "images": {
-            "type": "integer"
-          },
-          "message": {
-            "type": "string"
-          },
-          "projects": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "images",
-          "projects",
-          "message"
         ],
         "type": "object"
       }

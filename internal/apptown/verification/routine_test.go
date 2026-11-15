@@ -242,3 +242,40 @@ func TestUpdateLevelsBoundMajorsAndProtectBuildInputs(t *testing.T) {
 		}
 	}
 }
+
+func TestStandingAssessmentAllowsImagesAndOnlyTargetedToolchainPatches(t *testing.T) {
+	for _, security := range []bool{false, true} {
+		t.Run(fmt.Sprint(security), func(t *testing.T) {
+			data, repo, source := routineRepository(t)
+			routineGit(t, repo, "checkout", "main")
+			routineWrite(t, filepath.Join(repo, "Dockerfile"), []byte("FROM golang:1.27.3 AS build\nFROM scratch\n"))
+			routineWrite(t, filepath.Join(repo, "mise.toml"), []byte("[tools]\ngo='1.27.3'\n"))
+			routineGit(t, repo, "add", ".")
+			routineGit(t, repo, "commit", "-m", "toolchain")
+			source.ChangeBaseSHA = routineGit(t, repo, "rev-parse", "HEAD")
+			routineGit(t, repo, "checkout", "change")
+			routineGit(t, repo, "merge", "main", "--no-edit")
+			routineWrite(t, filepath.Join(repo, "Dockerfile"), []byte("FROM golang:1.27.4 AS build\nFROM scratch\n"))
+			routineWrite(t, filepath.Join(repo, "mise.toml"), []byte("[tools]\ngo='1.27.4'\n"))
+			routineGit(t, repo, "add", ".")
+			routineGit(t, repo, "commit", "-m", "patch")
+			inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
+			declarations := inspector.fixes
+			inspector.fixes = func(ctx context.Context, s workflow.Source) ([]fix.Declaration, []check.Finding, error) {
+				ds, targets, err := declarations(ctx, s)
+				if security {
+					targets = []check.Finding{{Package: &check.PackageRef{Name: "stdlib", Ecosystem: "Go"}, Identifiers: []string{"GO-example"}}}
+				}
+				return ds, targets, err
+			}
+			result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true})
+			want := "requires-person"
+			if security {
+				want = "routine-dependency"
+			}
+			if err != nil || result.Classification != want {
+				t.Fatalf("%+v %v", result, err)
+			}
+		})
+	}
+}

@@ -40,19 +40,7 @@ type StandingValidation struct {
 	ReportDigest      string `json:"reportDigest"`
 	ScratchSettlement string `json:"scratchSettlement"`
 }
-type StandingImageObservation struct {
-	Reference         string `json:"reference"`
-	Manifest          string `json:"manifest"`
-	ConfigDigest      string `json:"configDigest"`
-	PreparedImage     string `json:"preparedImage"`
-	Node              string `json:"node"`
-	Platform          string `json:"platform"`
-	ReportDigest      string `json:"reportDigest"`
-	ScratchSettlement string `json:"scratchSettlement"`
-}
 type StandingInspection struct {
-	Images []StandingImageObservation `json:"images,omitempty"`
-
 	Classification string              `json:"classification"`
 	Reason         string              `json:"reason"`
 	Classifier     string              `json:"classifier"`
@@ -292,7 +280,7 @@ func (s StandingRules) assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 	}
 	if target != nil {
 		switch inspection.Classification {
-		case "routine-dependency", "routine-image", "routine-dependency-and-image":
+		case "routine-dependency":
 			inspection.Classification += "-and-adoption"
 		}
 	}

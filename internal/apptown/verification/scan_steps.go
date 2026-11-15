@@ -115,15 +115,15 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
 	}
-	if observation.Subject.On == "source" {
-		expected, err := task.SourceScanScanners()
+	if observation.Subject.On == "source" || observation.Subject.On == "image" {
+		expected, err := task.ScanScanners(observation.Subject.On)
 		if err != nil {
 			finish(workflow.StatusError, map[string]any{"reason": "reading expected scanners: " + err.Error()})
 			return
 		}
 		observation.ExpectedScanners = expected
 		for _, target := range targets {
-			if !slices.Contains(expected, target.Source) {
+			if (target.ScanPoint == "image") == (observation.Subject.On == "image") && !slices.Contains(expected, target.Source) {
 				finish(workflow.StatusError, map[string]any{"reason": "the scanner that reported the target did not assess the candidate: " + target.Source})
 				return
 			}
@@ -232,7 +232,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	case why != "":
 		evidence["notApplicable"] = why
 		for _, target := range targets {
-			if target.Source == binding {
+			if target.Source == binding && (target.ScanPoint == "image") == (observation.Subject.On == "image") {
 				evidence["reason"] = "the scanner that reported the target did not assess the candidate"
 				finish(workflow.StatusError, evidence)
 				return
@@ -394,7 +394,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 
 	var remaining []string
 	for _, target := range targets {
-		if target.Source != binding {
+		if target.Source != binding || (target.ScanPoint == "image") != (observation.Subject.On == "image") {
 			continue
 		}
 		if m.Format == "" || m.Report == "" {

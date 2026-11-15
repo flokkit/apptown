@@ -26,9 +26,10 @@ spec:
               means patch and minor releases (a 0.x package stays within its minor);
               aggressive means the newest releases, including major versions. Cover every
               ecosystem and every workspace or sub-project in the repository, following
-              the dependency guidance for each. Do not change toolchain versions (mise,
-              .tool-versions, version files), Dockerfile base images or
-              .apptown/app.yaml. Change application code only where a moved package
+              the dependency guidance for each. Move each Dockerfile FROM to the
+              newest build or release of the same image and variant within the level,
+              following the janitor skill. Do not change toolchain versions
+              (mise, .tool-versions, version files) or .apptown/app.yaml. Change application code only where a moved package
               needs it, as little as possible. Direct dependencies take stable releases
               only, never a pre-release (alpha, beta, rc, dev, canary). An indirect
               package may be a pre-release when a stable direct dependency's own
@@ -37,8 +38,10 @@ spec:
               the ecosystem's normal way, never to a pre-release, and say so in the
               commit message. Run each part's
               declared tests, then commit. If nothing can move within the level, change
-              nothing. Report for every part the command run to list newer releases
-              and what it showed.
+              nothing. Your final message is what AppTown judges; files you write and do
+              not commit are not seen. For every part, give the command you ran to
+              list newer releases and the lines of its output that show the result;
+              for every FROM, give the tag listing you read.
       steps:
         - name: repair
           uses: agent/pi
@@ -64,14 +67,19 @@ spec:
               pinned by an override or resolution. An indirect package in a lockfile
               may be a pre-release when a stable direct dependency's declared range
               requires it. (2) No new direct dependency, unless it replaces one the update
-              removed or renamed. (3) Every change outside dependency files is the
+              removed or renamed. (3) Except for the image and toolchain moves below, every change
+              outside dependency files is the
               smallest change a moved package needs: a renamed API, a changed import, a
               configuration key the new version requires. (4) Nothing else changes: no
               features, refactors, formatting, unrelated fixes, weakened or removed
-              tests, toolchain or runtime changes. Fail when any change falls outside
+              tests or .apptown/app.yaml changes. Dockerfile FROM may move within the
+              level, keeping the same image and variant. Toolchain versions stay
+              unchanged. Fail when any change falls outside
               these, and name it. Answer unclear when you cannot tell whether a code
               change is needed by a moved package. When the change is empty, pass only
-              if the report shows nothing can move within the level for every part;
+              if the report names, for every part and every FROM, the command and
+              output showing nothing can move within the level. A reference to a
+              file is not a report;
               a truncated report cannot show that. Fail otherwise.
         - name: tests
           uses: tests
@@ -90,4 +98,4 @@ spec:
             means: I accept this dependency update and its application repairs after checking the evidence.
             standing:
               class: routine-update
-              means: An AI model judged the dependency update within the selected level and limited to dependencies and the code they need, AppTown saw toolchain versions and base images unchanged, and every required check is met.
+              means: An AI model judged the dependency update within the selected level and limited to dependencies and the code they need, AppTown saw no change outside dependencies and base-image versions of the same image and variant (and, for a security fix, toolchain patch releases), and every required check is met.

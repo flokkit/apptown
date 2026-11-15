@@ -124,10 +124,10 @@ func TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement(t *testi
 		t.Fatal(err)
 	}
 	for _, p := range shape.Projects {
-		if len(p.Scans) != 2 {
+		if len(p.Scans) != 1 {
 			t.Fatalf("fleet scan payload: %v", p.Scans)
 		}
-		for _, key := range []string{"lastScan", "imageUpdates"} {
+		for _, key := range []string{"lastScan"} {
 			if _, ok := p.Scans[key]; !ok {
 				t.Fatalf("fleet scans missing %s: %v", key, p.Scans)
 			}

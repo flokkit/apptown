@@ -2,9 +2,9 @@ package workflow
 
 import "slices"
 
-// SourceScanScanners captures the bindings expected by this run's source scan
+// ScanScanners captures the bindings expected by this run's selected scan
 // points at execution start. The retained receipts keep this set after purge.
-func (e *Execution) SourceScanScanners() ([]string, error) {
+func (e *Execution) ScanScanners(point string) ([]string, error) {
 	steps, err := readSteps(e.Context(), e.service.db, e.run.ID)
 	if err != nil {
 		return nil, err
@@ -21,7 +21,10 @@ func (e *Execution) SourceScanScanners() ([]string, error) {
 		if err := DecodeStepConfig(step.Config, &cfg); err != nil {
 			return nil, err
 		}
-		if cfg.On != "" && cfg.On != "source" {
+		if cfg.On == "" {
+			cfg.On = "source"
+		}
+		if cfg.On != point {
 			continue
 		}
 		if !slices.Contains(scanners, cfg.Scanner) {
