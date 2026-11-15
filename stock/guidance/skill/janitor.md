@@ -6,8 +6,9 @@ tags: skill,maintenance
 Make the failing check pass within this change's intent. Keep to the selected
 level (routine: patch and minor, a 0.x package within its minor; aggressive:
 majors too) and each ecosystem's dependency guidance. Never downgrade, change
-sources, take a pre-release (including indirect packages) or add a direct
-dependency the update does not need. Keep toolchain versions, base images and
+sources, make a direct dependency a pre-release, pin an indirect package to
+one, or add a direct dependency the update does not need. An indirect
+pre-release that a stable direct dependency itself requires is allowed. Keep toolchain versions, base images and
 `.apptown/app.yaml` unchanged. Change application code only where a moved
 package needs it. Run declared tests, start-up and
 scans; if they cannot pass, report what needs a person.
