@@ -159,6 +159,45 @@ func (q *Queries) LandingSuperseded(ctx context.Context, sourceRunID ids.ID) (bo
 	return exists, err
 }
 
+const oldestQueuedAcceptedWork = `-- name: OldestQueuedAcceptedWork :many
+SELECT r.id FROM workflow_landings l JOIN runs r ON r.id=l.work_run_id
+JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
+WHERE r.project_id=$1 AND ($2::uuid IS NULL OR c.id=$2)
+AND l.landing_run_id IS NULL AND c.state='in_progress'
+AND NOT EXISTS(SELECT 1 FROM workflow_continuations WHERE source_run_id=r.id)
+ORDER BY r.id LIMIT 1
+`
+
+type OldestQueuedAcceptedWorkParams struct {
+	ProjectID ids.ID
+	ChangeID  ids.ID
+}
+
+// Oldest accepted work waiting for a project's landing slot. An absent change
+// selects across the project; a named change uses the same queue rule.
+func (q *Queries) OldestQueuedAcceptedWork(ctx context.Context, arg OldestQueuedAcceptedWorkParams) ([]ids.ID, error) {
+	rows, err := q.db.QueryContext(ctx, oldestQueuedAcceptedWork, arg.ProjectID, arg.ChangeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ids.ID
+	for rows.Next() {
+		var id ids.ID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const reserveLanding = `-- name: ReserveLanding :exec
 INSERT INTO workflow_landings(work_run_id) VALUES ($1) ON CONFLICT DO NOTHING
 `

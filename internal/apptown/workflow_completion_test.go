@@ -23,10 +23,15 @@ import (
 	"github.com/riverqueue/river/rivertype"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/attention"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/schema"
+	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fault"
 )
 
 // A completion whose run receipt, change move, release, release change or
@@ -417,5 +422,239 @@ func TestLandingRequestsUseStandingFeedAuthorityAfterCompletion(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Completion and both abandonment doors must record a durable wake, even
+// while the refused work's final job is still running and cannot be retried.
+func TestEndedLandingWakesOnlyOldestQueuedWork(t *testing.T) {
+	for _, end := range []string{"complete", "abandon run", "abandon change"} {
+		t.Run(end, func(t *testing.T) {
+			landing := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "approve", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}
+			work := workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "work", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "accept", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}}
+			a, ctx, first := completionScenario(t, landing, work, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: landing})
+			a.Ways.SyncStockWorkflows(t.Context())
+			if _, err := a.recordAdoption(a.projectByID(ctx, first.ProjectID), "edit", "landing available", "alice"); err != nil {
+				t.Fatal(err)
+			}
+			// Keep dispatcher timing out of the ending transaction and job delivery.
+			a.Work.Stop()
+			var queued []*workflow.Run
+			for _, title := range []string{"Oldest", "Newest"} {
+				ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: first.ProjectID, Title: title})
+				if err != nil {
+					t.Fatal(err)
+				}
+				run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "work"})
+				if err != nil && !errors.Is(err, workflow.ErrDispatchStopped) {
+					t.Fatal(err)
+				}
+				steps, err := a.Work.RunSteps(ctx, run.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := a.Work.Approve(ctx, workflow.Approval{StepID: steps[0].ID, Decision: workflow.VoteApprove}); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := a.Work.Advance(ctx, run.ID); err != nil {
+					t.Fatal(err)
+				}
+				queued = append(queued, run)
+			}
+			followups := workflowFollowUps(a)
+			refused := make(chan struct{})
+			settle := make(chan struct{})
+			var once sync.Once
+			release := func() { once.Do(func() { close(settle) }) }
+			t.Cleanup(release)
+			kinds := apptownJobKinds(a)
+			kinds[workflowCompletionJob] = jobs.Kind{Run: jobErrors(func(ctx context.Context, key string, values map[string]any) (map[string]any, error) {
+				_, err := followups.Complete(ctx, key, values)
+				if fault.CodeOf(err) != "landing-occupied" {
+					t.Errorf("expected occupied refusal: %v", err)
+				}
+				close(refused)
+				<-settle
+				return nil, err
+			})}
+			var jobID int64
+			for _, job := range operationJobs(t, a, workflowCompletionJob) {
+				if job.Key == fmt.Sprintf("%s/land", queued[0].ID) {
+					jobID = job.ID
+				}
+			}
+			if jobID == 0 {
+				t.Fatal("work has no land request")
+			}
+			if _, err := riverdatabasesql.New(a.DB.Pool()).GetExecutor().JobUpdateFull(ctx, &riverdriver.JobUpdateFullParams{ID: jobID, MaxAttemptsDoUpdate: true, MaxAttempts: 1}); err != nil {
+				t.Fatal(err)
+			}
+			ended, stop := startJobForTest(t, a, jobID, kinds)
+			defer stop()
+			defer release()
+			select {
+			case <-refused:
+			case <-time.After(10 * time.Second):
+				t.Fatal("occupied attempt did not return")
+			}
+			switch end {
+			case "complete":
+				steps, err := a.Work.RunSteps(ctx, first.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := a.Work.Approve(ctx, workflow.Approval{StepID: steps[0].ID, Decision: workflow.VoteApprove}); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := a.Work.Advance(ctx, first.ID); err != nil {
+					t.Fatal(err)
+				}
+			case "abandon run":
+				if _, err := a.Work.Abandon(ctx, workflow.StopWork{RunID: first.ID, Reason: "stop"}); err != nil {
+					t.Fatal(err)
+				}
+			case "abandon change":
+				if _, err := a.Work.Abandon(ctx, workflow.StopWork{ChangeID: first.ChangeID, Reason: "stop"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			wakes := operationJobs(t, a, workcommands.LandingNextJob)
+			if len(wakes) != 1 || wakes[0].Key != fmt.Sprintf("%s/next", first.ID) {
+				t.Fatalf("missing or duplicate wake: %+v", wakes)
+			}
+			release()
+			if job := <-ended; job.State != rivertype.JobStateDiscarded {
+				t.Fatalf("refused request: %+v", job)
+			}
+			rebuildWork(t, a, func(*workflow.Dependencies) {})
+			// Deliver the new operation, after the old attempt has exhausted its budget.
+			job := runQueuedJobForTest(t, a, workcommands.LandingNextJob, wakes[0].Key)
+			if job.State != rivertype.JobStateCompleted {
+				t.Fatalf("wake: %+v", job)
+			}
+			// A delivery that finds the slot occupied ends; that landing's
+			// own ending is responsible for the next durable wake.
+			if _, err := apptownJobKinds(a)[workcommands.LandingNextJob].Run(ctx, wakes[0].Key, nil); err != nil {
+				t.Fatalf("occupied wake retried: %v", err)
+			}
+			for i, run := range queued {
+				snap, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if snap.LandingQueued != (i == 1) {
+					t.Fatalf("queue entry %d: %+v", i, snap)
+				}
+				runs, err := a.Work.ChangeRuns(ctx, run.ChangeID, workflow.ChangeRuns{RootsOnly: true, Limit: 20})
+				if err != nil || len(runs) != 2-i {
+					t.Fatalf("queue entry %d runs: %+v %v", i, runs, err)
+				}
+			}
+		})
+	}
+}
+
+// The definition observer is external to Work; retained attempts and the
+// queue/attention answers still come from their real owners.
+type queueAttentionDefinition struct{}
+
+func (queueAttentionDefinition) WorkflowVersion(context.Context, adoption.Source, string) (int, string, error) {
+	return 1, `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata: {name: test, title: Dependency updates}
+spec:
+  kind: pipeline
+  role: working
+  on:
+    schedule: {cron: "0 4 * * *", standing: true, queue: updates}
+  stages:
+    - name: work
+      steps:
+        - {name: build, uses: build}
+`, nil
+}
+
+func TestAcceptedQueueWorkRemovesEarlierFailureFromAttention(t *testing.T) {
+	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "build", Uses: "build"}}}}}
+	a, ctx, ch := changeScenario(t, spec)
+	if _, err := a.Adoption.Record(ctx, ch.ProjectID, adoption.AdoptionEdit, "queue procedure", "alice", func(*database.Tx, *adoption.RecordedRevision, time.Time) (adoption.Receipt, error) {
+		receipt := adoption.EmptyReceipt()
+		receipt.Workflows = []adoption.ReceiptWorkflow{{Name: "test", Version: 1}}
+		return receipt, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	fail := true
+	rebuildWork(t, a, func(d *workflow.Dependencies) {
+		d.JanitorDefinitions = queueAttentionDefinition{}
+		d.Runners = map[string]workflow.Runner{"build": func(task *workflow.Execution) {
+			if _, err := task.Claim(); err != nil {
+				t.Error(err)
+				return
+			}
+			if err := task.StartFix(nil); err != nil {
+				t.Error(err)
+				return
+			}
+			state := workflow.StatusPass
+			if fail {
+				state = workflow.StatusFail
+			}
+			if err := task.Finish(workflow.StepOutcome{Status: state, Evidence: json.RawMessage(`{"reason":"registry unavailable"}`)}, nil); err != nil {
+				t.Error(err)
+			}
+		}}
+	})
+	a.Work.Stop()
+	scheduled := verifiedContext(t.Context(), access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: ch.ProjectID})
+	source := attention.Scans{Work: a.Work, Projects: a.Projects}
+	for i := 0; i < 2; i++ {
+		created, err := database.Transact(scheduled, a.DB, func(tx *database.Tx) (workflow.CreatedChange, error) {
+			return workflow.CreateChangeIn(scheduled, tx, workflow.ChangeDraft{ProjectID: ch.ProjectID, Title: "Dependency updates", Queue: "updates"}, "apptown-system", time.Now())
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		run, err := a.Work.StartRun(scheduled, workflow.StartChangeRun{ChangeID: created.Change.ID, Workflow: "test"})
+		if !errors.Is(err, workflow.ErrDispatchStopped) {
+			t.Fatalf("admission: %v", err)
+		}
+		steps, err := a.Work.RunSteps(ctx, run.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := a.Work.ExecuteStep(scheduled, steps[0].ID); err != nil {
+			t.Fatal(err)
+		}
+		if !fail {
+			if _, err := a.Work.Advance(scheduled, run.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
+		state, err := a.Work.QueueState(ctx, ch.ProjectID, "updates")
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "stuck"
+		if !fail {
+			want = "landing"
+		}
+		if state.State != want {
+			t.Fatalf("queue: %+v", state)
+		}
+		snapshot, err := source.ProjectSnapshot(ctx, ch.ProjectID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, item := range snapshot.Items {
+			if strings.HasPrefix(item.Key, "queue/") {
+				found = true
+			}
+		}
+		if found != fail {
+			t.Fatalf("attention did not follow current work: %+v", snapshot)
+		}
+		fail = false
 	}
 }

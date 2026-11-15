@@ -2992,7 +2992,8 @@
           "excepted",
           "not applicable",
           "none",
-          "abandoned"
+          "abandoned",
+          "waiting for approval"
         ],
         "type": "string"
       },

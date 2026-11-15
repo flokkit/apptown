@@ -47,7 +47,7 @@ func TestReviewPurgePreservesUsableSourceComparison(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Known || got.Reason != "the image main runs has not been scanned since it was deployed" {
+	if got.Known || got.Reason != "the image running on main has not been scanned since it was deployed" {
 		t.Fatalf("missing current running scan: %+v", got)
 	}
 	// No deployments still needs the running scan's explicit answer that

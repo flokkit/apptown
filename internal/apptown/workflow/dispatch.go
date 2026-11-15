@@ -269,6 +269,13 @@ func dispatchReady(ctx context.Context, db database.Queryer, step *Step) (bool, 
 	if stage == nil {
 		return false, fmt.Errorf("stage %q is missing from the pinned definition", step.Stage)
 	}
+	return dispatchReadySteps(stage, steps, step)
+}
+
+func dispatchReadySteps(stage *schema.Stage, steps []*Step, step *Step) (bool, error) {
+	if stage == nil {
+		return false, fmt.Errorf("stage %q is missing from the pinned definition", step.Stage)
+	}
 	observed, err := observedSteps(stage, steps)
 	if err != nil {
 		return false, err

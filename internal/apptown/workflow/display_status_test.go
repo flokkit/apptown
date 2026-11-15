@@ -2,6 +2,9 @@ package workflow
 
 import (
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/apptown/schema"
+	"github.com/flokkit/apptown/internal/ids"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/status"
@@ -119,4 +122,35 @@ func TestPassingStepOnlyDisplaysUnmetBlockingRules(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A ready decision and a decision behind unfinished checks have different words.
+func TestPendingApprovalLabelUsesReadiness(t *testing.T) {
+	q, run := admitWorkflowSpec(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{{Name: "check", Uses: "script"}, {Name: "accept", Uses: "approval"}}}}})
+	service := newService(q.db, allowProject(run.ProjectID), Runtime{})
+	read := func(want status.DisplayStatus) {
+		t.Helper()
+		snapshot, err := service.Snapshot(t.Context(), run.ID, DetailView)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := json.Marshal(snapshot.Steps[1])
+		if err != nil || !strings.Contains(string(body), `"statusLabel":"`+want.String()+`"`) {
+			t.Fatalf("approval label: %s %v", body, err)
+		}
+	}
+	read(status.DisplayWaitingForChecks)
+	steps, err := service.RunSteps(t.Context(), run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attempts := newStepAttempts(q.db, func(string) bool { return true })
+	attempt, err := attempts.start(t.Context(), steps[0], "script", ids.Nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := attempts.finish(t.Context(), attempt, StepOutcome{Status: StatusPass}); err != nil {
+		t.Fatal(err)
+	}
+	read(status.DisplayWaitingForApproval)
 }

@@ -152,7 +152,12 @@ and phrase without inferring a person's turn from global offered acts.
 
 An open change without a run, or with a completed or abandoned last run, reads
 "chat open". Finished runs without an open change read as closed. A queued
-landing reads "queued to land". `ChangeActs` offers
+landing reads "queued to land". When a root landing completes or is
+abandoned, its transaction records one durable request to start the project's
+oldest queued accepted work after commit. That request uses the same accepted
+landing operation as completion and a person's Land request, preserving the
+accepted-work link and the approval's scope. A landing that takes the slot first
+records the next request when it ends. `ChangeActs` offers
 abandon for a no-run chat change when the reader may abandon it; landing that
 change starts from its chat.
 

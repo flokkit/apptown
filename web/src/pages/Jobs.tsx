@@ -34,7 +34,7 @@ const JOB_WORDS: Record<string, string> = {
   backup: 'Back up apps', inventory: 'Check resources', rebuild: 'Rebuild an app', 'image-retention': 'Keep release images', 'backup-sweep': 'Check backups', 'db-backup': `Back up ${PRODUCT}`,
   narrative: 'Write a change summary', 'notify-evaluate': 'Check what to notify', 'notify-deliver': 'Send a notification', 'protection-observation': 'Check backups', 'capacity-observation': 'Check server memory',
   'worker-observation': 'Check worker', 'disk-observation': 'Check storage', operation: 'Copy or restore data', 'remediation-pass': 'Fix findings', 'what-if': 'Compare rules',
-  'eval-pass': 'Compare changes', 'project-description': 'Describe a project', 'workflow-completion': 'Finish a workflow',
+  'eval-pass': 'Compare changes', 'project-description': 'Describe a project', 'workflow-completion': 'Finish a workflow', 'landing-next': 'Start the next landing',
   'standing-acceptance': 'Check standing approval', 'workflow-abandonment': 'Stop a workflow', 'conformance-review': 'Review projects',
   'deployment-release': 'Release an app', 'deployment-recovery': 'Restore an app', 'restore-check': 'Check restored apps', 'restored-copy-sweep': 'Remove expired test copies',
   'installation-marks': 'Record installed resources', 'project-cleanup': 'Clean up project files',

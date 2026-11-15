@@ -330,6 +330,18 @@ func (s abandonments) abandonIn(ctx context.Context, tx *database.Tx, req Abando
 		}
 	}
 	effects := AbandonEffects{ProjectID: projectID, RunID: req.RunID, ChangeID: changeID, RunIDs: append([]ids.ID{}, result.RunIDs...), CloseChange: !req.ChangeID.IsZero(), Root: root != nil && root.ParentRunID.IsZero()}
+	for _, run := range active {
+		if !run.ParentRunID.IsZero() {
+			continue
+		}
+		spec, err := run.Definition()
+		if err != nil {
+			return nil, err
+		}
+		if spec.Role == "landing" {
+			effects.EndedLandings = append(effects.EndedLandings, run.ID)
+		}
+	}
 	if err := s.effects.RecordAbandonIn(ctx, tx, effects); err != nil {
 		return nil, err
 	}
@@ -339,6 +351,7 @@ func (s abandonments) abandonIn(ctx context.Context, tx *database.Tx, req Abando
 type AbandonEffects struct {
 	ProjectID, RunID, ChangeID ids.ID
 	RunIDs                     []ids.ID
+	EndedLandings              []ids.ID
 	CloseChange, Root          bool
 }
 

@@ -23,6 +23,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/remediation"
 	"github.com/flokkit/apptown/internal/apptown/verification"
+	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
@@ -79,6 +80,7 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 		project.DescriptionJob:       {Run: descriptions.Run},
 		deployment.ReleaseJob:        {Run: jobErrors(deployments.Release), Timeout: 20 * time.Minute},
 		workflowCompletionJob:        {Run: jobErrors(followups.Complete)},
+		workcommands.LandingNextJob:  {Run: jobErrors(followups.Landings.Next)},
 		deployment.RecoveryJob:       {Run: jobErrors(deployments.Recover), Timeout: 20 * time.Minute},
 		workflowAbandonmentJob:       {Run: jobErrors(followups.Abandon)},
 		"backup":                     {Run: jobErrors(data.Backup)},
@@ -186,6 +188,7 @@ var jobBudgets = map[string]int{
 	project.DescriptionJob:                  1,
 	deployment.ReleaseJob:                   1,
 	workflowCompletionJob:                   3,
+	workcommands.LandingNextJob:             3,
 	deployment.RecoveryJob:                  3,
 	workflowAbandonmentJob:                  3,
 	"backup":                                1,

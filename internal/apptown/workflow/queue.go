@@ -70,9 +70,10 @@ func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queu
 			if err != nil {
 				return out, err
 			}
-			// Promotion records a person's takeover. Its retained failure is
-			// history, just like a skipped attempt, rather than this episode.
-			if !ch.Automated {
+			// A landing also promotes its change so it is retained. It still
+			// belongs to this queue until it ends. A person's takeover of
+			// working changes ends the episode.
+			if !ch.Automated && ch.State != ChangeLanding.String() {
 				break
 			}
 		}
@@ -110,10 +111,26 @@ func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queu
 		if err != nil {
 			return out, err
 		}
+		queued, err := oldestQueuedAcceptedWork(ctx, db, project, out.ChangeID)
+		if err != nil {
+			return out, err
+		}
+		landing := !queued.IsZero()
 		active, waiting := false, false
 		for _, run := range runs {
 			if run.Status != RunRunning.String() {
 				continue
+			}
+			definition, err := runRecord(run, nil)
+			if err != nil {
+				return out, err
+			}
+			spec, err := definition.Definition()
+			if err != nil {
+				return out, err
+			}
+			if run.ParentRunID.IsZero() && spec.Role == "landing" {
+				landing = true
 			}
 			steps, err := readStageSteps(ctx, db, run.ID, run.CurrentStage)
 			if err != nil {
@@ -132,7 +149,9 @@ func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queu
 				}
 			}
 		}
-		if active {
+		if landing && !currentFailed {
+			out.State = "landing"
+		} else if active {
 			out.State = "updating"
 		} else if waiting && !currentFailed && !out.Stopped() {
 			out.State = "waiting"
@@ -144,6 +163,8 @@ func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queu
 
 func queueWords(q QueueStatus) string {
 	switch q.State {
+	case "landing":
+		return "waiting to land"
 	case "updating":
 		return "updating"
 	case "waiting":

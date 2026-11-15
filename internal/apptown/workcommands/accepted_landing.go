@@ -3,7 +3,10 @@ package workcommands
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/flokkit/apptown/internal/apptown/jobs"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -67,4 +70,30 @@ func (l LandingSentences) LandingMeans(ctx context.Context, projectID ids.ID) ([
 		}
 	}
 	return means, nil
+}
+
+const LandingNextJob = "landing-next"
+
+// Next delivers one ended landing's wake after its transaction commits.
+func (a AcceptedLandings) Next(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
+	text, suffix, ok := strings.Cut(key, "/")
+	id, err := ids.Parse(text)
+	if err != nil || id.IsZero() || !ok || suffix != "next" {
+		return nil, jobs.Permanent(fmt.Errorf("invalid next landing key %q", key))
+	}
+	ctx = engineCaller(ctx)
+	run, err := a.Work.Run(ctx, id)
+	if found, lookupErr := database.Lookup(err); lookupErr != nil || !found {
+		return nil, lookupErr
+	}
+	work, err := a.Work.OldestQueuedAcceptedWork(ctx, run.ProjectID)
+	if err != nil || work.IsZero() {
+		return nil, err
+	}
+	err = a.Advance(ctx, work)
+	// The occupying landing will record another wake when it ends.
+	if fault.CodeOf(err) == "landing-occupied" {
+		return nil, nil
+	}
+	return nil, err
 }

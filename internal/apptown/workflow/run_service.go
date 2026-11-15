@@ -3,11 +3,13 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 )
 
@@ -131,6 +133,28 @@ func (s *Service) callFrom(ctx context.Context, parent *Run, step *Step, in Work
 }
 
 func (s *Service) RequestLanding(ctx context.Context, changeID ids.ID) (*Run, error) {
+	project, _, err := s.changeScope(ctx, changeID, actionRequestLanding)
+	if err != nil {
+		return nil, err
+	}
+	work, err := oldestQueuedAcceptedWork(ctx, s.db, project, changeID)
+	if err != nil {
+		return nil, err
+	}
+	if !work.IsZero() {
+		if err := s.touchChange(ctx, project, changeID); err != nil {
+			return nil, err
+		}
+		out, err := s.AdvanceAcceptedLanding(ctx, work, requestedLanding{})
+		if err != nil {
+			if out.RunID.IsZero() {
+				return nil, err
+			}
+			run, readErr := readScopedRun(ctx, s.db, out.RunID, project)
+			return run, errors.Join(err, readErr)
+		}
+		return runRecord(workflowsql.New(s.db.SQL()).StartedLanding(ctx, workflowsql.StartedLandingParams{WorkRunID: work, ProjectID: project, ChangeID: changeID}))
+	}
 	return s.startChangeRun(ctx, StartChangeRun{ChangeID: changeID, Workflow: "land"}, actionRequestLanding)
 }
 
