@@ -14,6 +14,9 @@ the complete diff and judges its level and scope, including the smallest code
 changes a moved package needs. When it cannot decide, the Change waits for a
 person. AppTown checks that toolchain versions and base images stay unchanged
 and, for security fixes, that the source scanner no longer reports the target.
+Direct dependencies move to stable releases only. A package they pull in may be
+a pre-release (alpha, beta, rc) when the stable release itself requires it; the
+janitor never pins one.
 **Keep packs current** moves projects to newly published pack versions and makes
 any application changes those updates need.
 

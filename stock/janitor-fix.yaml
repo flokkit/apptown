@@ -19,11 +19,13 @@ spec:
             skills: [skill/janitor]
             prompt: |
               Fix these security findings by moving each named package to the smallest
-              stable release that fixes it without pulling in a pre-release (alpha,
-              beta, rc, dev, canary), directly or indirectly: ${{inputs.targets}}. Keep
-              within patch and minor releases unless no such release fixes it. Pin an
-              indirect package with overrides or resolutions only where that is the
-              ecosystem's normal way, and say so in the commit message. If no stable
+              stable release that fixes it: ${{inputs.targets}}. Direct dependencies
+              take stable releases only, never a pre-release (alpha, beta, rc, dev,
+              canary); an indirect package may be a pre-release when a stable direct
+              dependency's own declared range requires it. Keep within patch and minor
+              releases unless no such release fixes it. Pin an indirect package with
+              overrides or resolutions only where that is the ecosystem's normal way,
+              never to a pre-release, and say so in the commit message. If no stable
               release fixes a finding, leave that package unchanged and say so. Do not
               change toolchain versions, Dockerfile base images or .apptown/app.yaml.
               Change application code only where a moved package needs it. Run each
@@ -49,8 +51,10 @@ spec:
               in manifests and lockfiles stays within the level: at routine, patch and
               minor releases only, and a 0.x package stays within its minor; at
               aggressive, any newer release including majors. Never a downgrade, never a
-              new registry or source, never a pre-release, including indirect packages in
-              lockfiles. (2) No new direct dependency, unless it replaces one the update
+              new registry or source, never a pre-release for a direct dependency or one
+              pinned by an override or resolution. An indirect package in a lockfile
+              may be a pre-release when a stable direct dependency's declared range
+              requires it. (2) No new direct dependency, unless it replaces one the update
               removed or renamed. (3) Every change outside dependency files is the
               smallest change a moved package needs: a renamed API, a changed import, a
               configuration key the new version requires. (4) Nothing else changes: no
