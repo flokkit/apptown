@@ -450,7 +450,7 @@ func TestIntegrationRestoredStartupCompletesRelocationAndIntent(t *testing.T) {
 	}
 	binary := filepath.Join(t.TempDir(), "apptownd")
 	testinputs.GoBuild(t, "", []string{"GOOS=linux", "CGO_ENABLED=0"}, "../../cmd/apptownd")
-	if out := (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{Argv: []string{"go", "build", "-o", binary, "../../cmd/apptownd"}, Env: []string{"GOOS=linux", "CGO_ENABLED=0"}, Timeout: 3 * time.Minute}); !out.Exited0() {
+	if out := (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{Argv: []string{"go", "build", "-o", binary, "../../cmd/apptownd"}, Env: []string{"GOOS=linux", "CGO_ENABLED=0"}, Timeout: 10 * time.Minute}); !out.Exited0() {
 		t.Fatalf("build restore daemon: %v %s", out.RunErr, out.Output)
 	}
 	shipped := stockupdatetest.Dir(t)
