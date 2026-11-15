@@ -20,7 +20,8 @@ import (
 //
 //   - the change is still empty against its base, read under the
 //     repository's lock (a later step in the stage may have changed it);
-//   - an independent review of that step's report passed, and no review in
+//   - an independent judgement of that step's report passed: an agent/review
+//     of its output kind or a routine naming it in judgedReport; no review in
 //     the stage left a finding: a deferred major or a reverted update is a
 //     finding, and leaves the decision to a person, whichever review
 //     raised it;
@@ -42,7 +43,7 @@ func (a advancement) nothingToChange(steps []*Step) (string, bool) {
 			return "", false
 		}
 	}
-	var account, kind string
+	var account, kind, name string
 	for _, s := range steps {
 		switch {
 		case s.Type == "approval" && s.Status == StatusPending:
@@ -58,23 +59,35 @@ func (a advancement) nothingToChange(steps []*Step) (string, bool) {
 				Kind string `json:"kind"`
 			} `json:"output"`
 		}
-		if s.Status == StatusPass && json.Unmarshal(s.Evidence, &ev) == nil && ev.NothingToChange &&
-			json.Unmarshal(s.Config, &cfg) == nil && cfg.Output.Kind != "" {
-			account, kind = ev.Reason, cfg.Output.Kind
+		if s.Status == StatusPass && json.Unmarshal(s.Evidence, &ev) == nil && ev.NothingToChange {
+			account, name = ev.Reason, s.Name
+			kind = ""
+			if json.Unmarshal(s.Config, &cfg) == nil {
+				kind = cfg.Output.Kind
+			}
 		}
 	}
-	if kind == "" || !reviewedWithoutFindings(steps, kind) {
+	if name == "" || !reviewedWithoutFindings(steps, kind, name) {
 		return "", false
 	}
 	return account, true
 }
 
-// reviewedWithoutFindings: an agent/review of the report kind passed, and
+// reviewedWithoutFindings: an agent/review of the report kind or a routine
+// naming the producer passed, and
 // no review of the stage left anything for a person. A review whose
 // evidence cannot be read has not said it left nothing.
-func reviewedWithoutFindings(steps []*Step, kind string) bool {
+func reviewedWithoutFindings(steps []*Step, kind, name string) bool {
 	reviewed := false
 	for _, s := range steps {
+		if s.Type == "routine" && s.Status == StatusPass {
+			var ev struct {
+				JudgedReport string `json:"judgedReport"`
+			}
+			if json.Unmarshal(s.Evidence, &ev) == nil && ev.JudgedReport == name {
+				reviewed = true
+			}
+		}
 		if s.Type != "agent/review" {
 			continue
 		}
@@ -87,7 +100,7 @@ func reviewedWithoutFindings(steps []*Step, kind string) bool {
 		if json.Unmarshal(s.Evidence, &ev) != nil || len(ev.Findings) > 0 {
 			return false
 		}
-		if s.Status == StatusPass && json.Unmarshal(s.Config, &cfg) == nil && cfg.Of == kind {
+		if kind != "" && s.Status == StatusPass && json.Unmarshal(s.Config, &cfg) == nil && cfg.Of == kind {
 			reviewed = true
 		}
 	}

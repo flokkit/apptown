@@ -573,3 +573,117 @@ func TestAgentUpdateDoesNotRequireAnEcosystemDeclarationOrSemver(t *testing.T) {
 		t.Fatalf("undeclared ecosystem refused: %s %+v", status, ev)
 	}
 }
+
+// The shipped update closes an empty change only after routine independently
+// judges the producer's full report; failure instead selects bounded repair.
+func TestEmptyAgentUpdateClosesOnlyAfterItsReportPasses(t *testing.T) {
+	for _, verdict := range []workflow.CheckVerdict{workflow.VerdictPass, workflow.VerdictFail} {
+		t.Run(verdict.String(), func(t *testing.T) {
+			raw, err := stock.FS.ReadFile("janitor-update.yaml")
+			if err != nil {
+				t.Fatal(err)
+			}
+			doc, err := schema.ParseWorkflow(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f, _ := newNodeFixFixture(t, "janitor-update", doc.Spec)
+			// The distinguishing last line must survive the shortened reason.
+			report := strings.Repeat("Checked root dependencies. ", 50) + "root: npm outdated --json showed {}; nothing can move within routine."
+			installFakePi(f, func(_ int, _ execution.Request) execution.Outcome {
+				return execution.Outcome{Termination: execution.Exited, Output: piSays(report)}
+			})
+			answerCheck := func(task *workflow.Execution) {
+				if _, err := task.Claim(); err == nil {
+					task.Settle((workflow.CheckEvidence{Checks: []workflow.CheckReceipt{{Check: task.Step().Name, Verdict: workflow.VerdictPass}}}).Outcome(workflow.StatusPass, nil))
+				}
+			}
+			f.scan, f.preview = answerCheck, answerCheck
+			f.checks = func(execution.Request) execution.Outcome { return execution.Outcome{Termination: execution.Exited} }
+			called := 0
+			f.commands.judge = updateJudgeFunc(func(_ context.Context, _ workflow.Source, item check.Item, diff string) (workflow.CheckReceipt, error) {
+				called++
+				if item.Scope != check.ScopeTree || check.Scope(item.Declaration) != check.ScopeTree || diff != "" || item.Repository == "" || item.Commit == "" {
+					t.Fatalf("empty update not tree scoped: %+v, diff %q", item, diff)
+				}
+				for _, want := range []string{report, "Changed files: none; the change is empty", "Update agent's report (a claim, not evidence):", "Approved level: routine", "a truncated report cannot show that"} {
+					if !strings.Contains(item.Rubric, want) {
+						t.Fatalf("rubric missing %q: %s", want, item.Rubric)
+					}
+				}
+				if item.Expects != "The update step's account that nothing can move within the level holds for the committed tree." {
+					t.Fatal(item.Expects)
+				}
+				if called > 1 {
+					return workflow.CheckReceipt{Verdict: workflow.VerdictPass, Detail: "repaired report judged"}, nil
+				}
+				return workflow.CheckReceipt{Verdict: verdict, Detail: "report judged"}, nil
+			})
+			run := queueRun(t, f, "janitor-update", "updates")
+			steps := queueSteps(t, f, run)
+			queueExecute(t, f, steps["update"])
+			queueExecute(t, f, steps["routine"])
+			status, ev := stepStatus(t, f, steps["routine"].ID)
+			want := workflow.StatusPass
+			if verdict == workflow.VerdictFail {
+				want = workflow.StatusFail
+			}
+			if status != want || called != 1 || ev["judgedReport"] != "update" {
+				t.Fatalf("routine %s, calls %d: %+v", status, called, ev)
+			}
+			if verdict == workflow.VerdictPass {
+				for _, name := range []string{"tests", "boot", "scan-source", "scan-image"} {
+					queueExecute(t, f, steps[name])
+				}
+			}
+			if _, err := f.work.Advance(f.ctx, run.ID); err != nil {
+				t.Fatal(err)
+			}
+			current, err := f.work.Run(f.ctx, run.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			change, err := workflow.ReadChangeIn(f.ctx, f.db, run.ChangeID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if verdict == workflow.VerdictPass {
+				if current.Status != workflow.RunAbandoned || change.ClosedAs != workflow.ClosedNothingToChange {
+					t.Fatalf("empty update stayed open: run %s, change %+v", current.Status, change)
+				}
+			} else {
+				if current.Status == workflow.RunAbandoned || change.ClosedAs != "" {
+					t.Fatalf("failed report closed: run %s, change %+v", current.Status, change)
+				}
+				if repair := queueSteps(t, f, run)["repair"]; repair.Status != workflow.StatusPending {
+					t.Fatalf("repair not dispatched: %+v", repair)
+				}
+			}
+			accept := queueSteps(t, f, run)["accept"]
+			if accept.Status != workflow.StatusPending || accept.StartedAt.Valid {
+				t.Fatalf("approval asked: %+v", accept)
+			}
+			if verdict == workflow.VerdictFail {
+				queueExecute(t, f, queueSteps(t, f, run)["repair"])
+				queueExecute(t, f, queueSteps(t, f, run)["routine"])
+				status, ev := stepStatus(t, f, steps["routine"].ID)
+				if status != workflow.StatusPass {
+					t.Fatalf("rejudgement: %s %+v", status, ev)
+				}
+				for _, name := range []string{"tests", "boot", "scan-source", "scan-image"} {
+					queueExecute(t, f, queueSteps(t, f, run)[name])
+				}
+				if _, err := f.work.Advance(f.ctx, run.ID); err != nil {
+					t.Fatal(err)
+				}
+				change, err := workflow.ReadChangeIn(f.ctx, f.db, run.ChangeID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if change.ClosedAs != workflow.ClosedNothingToChange {
+					t.Fatalf("passing empty repair stayed open; routine evidence %+v; change %+v", ev, change)
+				}
+			}
+		})
+	}
+}
