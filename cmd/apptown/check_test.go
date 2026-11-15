@@ -89,6 +89,7 @@ func newCheckWorld(t *testing.T, answerFor func(asked string) string) checkWorld
 		}
 		httpapi.WriteJSON(rw, 200, map[string]any{"ok": true, "commit": checked, "failOn": "high",
 			"checks": []map[string]any{{"block": "b", "version": 1, "check": "builds", "verdict": "pass"},
+				{"block": "b", "version": 1, "check": "style", "verdict": "fail", "note": "severity medium is below high: shown, does not block"},
 				{"block": "b", "version": 1, "check": "go-vet-clean", "verdict": "not-applicable", "detail": "no part is built with go"}}})
 	}))
 	t.Cleanup(srv.Close)
@@ -107,13 +108,20 @@ func TestAppTownCheckAsksAboutThisFoldersHead(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, err := run(t, "check", "-c", "00000000-0007-7000-8000-000000000000")
+	first, _, _ := strings.Cut(out, "\n")
+	for _, want := range []string{"usually takes several minutes", "at least 10 minutes", "background to a file"} {
+		if !strings.Contains(first, want) {
+			t.Fatalf("first line omitted %q: %s", want, first)
+		}
+	}
+
 	if err != nil || (*w.bodies)[0]["commit"] != w.published || len((*w.bodies)[0]) != 1 {
 		t.Fatalf("a published HEAD: %v, sent %v\n%s", err, *w.bodies, out)
 	}
 	// A check that is not applicable is listed with its reason and counted
 	// apart: never among the checks that pass.
 	for _, words := range []string{"checking commit " + w.published + " (this folder's HEAD)", "commit " + w.published + "\n", "gate clear for commit " + w.published + " — 1 check(s) pass",
-		"○ go-vet-clean", "not applicable: no part is built with go", "1 check(s) not applicable"} {
+		"✗ style", "severity medium is below high: shown, does not block", "○ go-vet-clean", "not applicable: no part is built with go", "1 check(s) not applicable"} {
 		if !strings.Contains(out, words) {
 			t.Fatalf("the output does not say %q:\n%s", words, out)
 		}
@@ -143,6 +151,13 @@ func TestAppTownCheckAsksAboutThisFoldersHead(t *testing.T) {
 func TestAppTownCheckPublishedSaysWhatItChecks(t *testing.T) {
 	w := newCheckWorld(t, nil)
 	out, err := run(t, "check", "-c", "00000000-0007-7000-8000-000000000000", "--published")
+	first, _, _ := strings.Cut(out, "\n")
+	for _, want := range []string{"usually takes several minutes", "at least 10 minutes", "background to a file"} {
+		if !strings.Contains(first, want) {
+			t.Fatalf("first line omitted %q: %s", want, first)
+		}
+	}
+
 	if err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
@@ -180,6 +195,13 @@ func TestAppTownCheckOutsideARepositoryNamesNoCommit(t *testing.T) {
 	withoutInheritedGit(t)
 	t.Chdir(t.TempDir())
 	out, err := run(t, "check", "-c", "00000000-0007-7000-8000-000000000000")
+	first, _, _ := strings.Cut(out, "\n")
+	for _, want := range []string{"usually takes several minutes", "at least 10 minutes", "background to a file"} {
+		if !strings.Contains(first, want) {
+			t.Fatalf("first line omitted %q: %s", want, first)
+		}
+	}
+
 	if err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
@@ -318,5 +340,21 @@ func TestASendRefusedBySizeSaysSo(t *testing.T) {
 	err = sendFailure(errors.New("exit status 128"), "fatal: unable to access: Could not resolve host\n")
 	if err.Error() != "exit status 128: fatal: unable to access: Could not resolve host" {
 		t.Fatalf("another failure: %v", err)
+	}
+}
+
+func TestAppTownCheckDimsAndExplainsNonblockingFailures(t *testing.T) {
+	newCheckWorld(t, nil)
+	prev := isTTY
+	isTTY = true
+	t.Cleanup(func() { isTTY = prev })
+	out, err := run(t, "check", "-c", "00000000-0007-7000-8000-000000000000", "--published")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{dim("✗") + " style", dim("severity medium is below high: shown, does not block"), "gate clear"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output omitted %q:\n%s", want, out)
+		}
 	}
 }

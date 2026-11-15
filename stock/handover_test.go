@@ -183,3 +183,46 @@ func TestEveryCodeChangeStageRunsTheLandingTestsBeforeHandover(t *testing.T) {
 		})
 	}
 }
+
+// Janitor agents build and test with the same declared environment as other code-writing agents.
+func TestJanitorAgentsGetTheDeclaredEnvironment(t *testing.T) {
+	t.Parallel()
+	for name, count := range map[string]int{"janitor-update": 2, "janitor-fix": 2, "janitor-adopt": 1} {
+		t.Run(name, func(t *testing.T) {
+			raw, err := FS.ReadFile(name + ".yaml")
+			if err != nil {
+				t.Fatal(err)
+			}
+			type step struct {
+				Name, Uses string
+				With       struct{ Docker, Needs bool }
+			}
+			var doc struct {
+				Spec struct {
+					Stages []struct {
+						OnEnter []step `yaml:"onEnter"`
+						Steps   []step
+					}
+				}
+			}
+			if err := yaml.Unmarshal(raw, &doc); err != nil {
+				t.Fatal(err)
+			}
+			found := 0
+			for _, stage := range doc.Spec.Stages {
+				for _, s := range append(stage.OnEnter, stage.Steps...) {
+					if s.Uses != "agent/pi" {
+						continue
+					}
+					found++
+					if !s.With.Docker || !s.With.Needs {
+						t.Errorf("%s: docker=%v needs=%v; want both true", s.Name, s.With.Docker, s.With.Needs)
+					}
+				}
+			}
+			if found != count {
+				t.Fatalf("checked %d agent steps, want %d", found, count)
+			}
+		})
+	}
+}
