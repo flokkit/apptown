@@ -256,7 +256,7 @@ try {
     conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews', 'text-roles': '/text-roles',
     'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations',
     integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets', notifications: '/integrations/notifications',
-    janitor: '/janitor', 'project-janitor': '/projects/rocket-garden#janitor', packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
+    janitor: '/janitor', 'janitor-settings': '/janitor/settings', 'project-janitor': '/projects/rocket-garden#janitor', packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
     'people-groups': '/people/groups', 'people-group': '/people/groups/reviewers', 'people-account': '/people/accounts/sam', 'people-roles': '/people/roles', 'people-signin': '/people/sign-in', 'people-agents': '/people/agents-and-tokens',
     evals: '/evals', 'eval-new': '/evals/new', people: '/people/accounts', account: '/account', usage: '/usage',
     complaints: '/complaints', 'complaints-answered': '/complaints/answered', 'complaints-archive': '/complaints/archive',
@@ -710,7 +710,8 @@ try {
           await page.addStyleTag({ content: '*,*::before,*::after { animation: none !important; transition: none !important; caret-color: transparent !important; }' });
           const words = await page.locator('body').innerText();
           await writeFile(`${out}/${screen}/${size}-${theme}.txt`, words);
-          if (screen === 'janitor') {
+          // Approvals live on the Janitor settings page, not the overview.
+          if (screen === 'janitor-settings') {
             const approvals = page.getByRole('table', { name: 'Janitor approvals', exact: true });
             for (const name of ['Dependency updates', 'Keep packs current']) {
               const row = approvals.getByRole('row').filter({ hasText: name }).filter({ hasText: 'All projects, including new ones' });
