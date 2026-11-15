@@ -1,6 +1,6 @@
 # Stock workflow: land — the landing contract (design/subsystems/dev-loop.md). The ONLY
 # path a Change's branch takes to main: gates, approval,
-# merge (on entry to ship, role: landing), build, landing record. Working
+# merge (on entry to ship, role: landing), build, bundle scan, landing record. Working
 # workflows (quick-change, implement, ...) accrue commits to the branch and
 # never merge; hardening every landing means editing this file once.
 apiVersion: apptown.dev/v1
@@ -81,3 +81,10 @@ spec:
         - name: build-exists
           uses: artifact/require
           with: { kind: build }
+        - name: scan-bundle
+          # Observe every part and init image by the digest the release ships.
+          # Findings or scanner outages do not block work already merged.
+          uses: scan
+          with: { on: bundle }
+      gate:
+        require: [build-exists]

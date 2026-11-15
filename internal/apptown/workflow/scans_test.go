@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -31,7 +33,7 @@ func TestRunningFindingsRemainBoundToTheirScannedSoftware(t *testing.T) {
 	main := gittest.Run(t, repo, "rev-parse", "HEAD")
 	running := []RunningImages{{DeploymentID: dep, BundleID: bundle, Images: map[string]string{"web": "digest-a"}}}
 	observations := []conformance.ScanObservation{
-		{RunID: sourceRun, Subject: conformance.ScanSubject{On: "source", Commit: main}, Scanner: "osv", Verdict: "fail", ObservedAt: now, Findings: []conformance.Finding{npmFinding}},
+		{RunID: sourceRun, Subject: conformance.ScanSubject{On: "source", Commit: main, Tree: gittest.Run(t, repo, "rev-parse", main+"^{tree}")}, Scanner: "osv", Verdict: "fail", ObservedAt: now, Findings: []conformance.Finding{npmFinding}},
 		{RunID: imageRun, Subject: conformance.ScanSubject{On: "running", DeploymentID: dep, BundleID: bundle, Part: "web", Digest: "digest-a"}, Scanner: "trivy", Verdict: "fail", ObservedAt: now, Findings: []conformance.Finding{osFinding, npmFinding}},
 	}
 	runningState.rows = running
@@ -50,6 +52,7 @@ func TestRunningFindingsRemainBoundToTheirScannedSoftware(t *testing.T) {
 	// cannot account for an OS finding in the unchanged running image.
 	gittest.Run(t, repo, "-c", "user.name=test", "-c", "user.email=test@example.org", "commit", "--allow-empty", "-qm", "unrelated landing")
 	observations[0].Subject.Commit = gittest.Run(t, repo, "rev-parse", "HEAD")
+	observations[0].Subject.Tree = gittest.Run(t, repo, "rev-parse", "HEAD^{tree}")
 	observations[0].RunID = idstest.N(6)
 	observations[0].ObservedAt = now.Add(time.Second)
 	recordObservations(t, s, ch, observations[:1])
@@ -74,7 +77,11 @@ func TestRunningFindingsRemainBoundToTheirScannedSoftware(t *testing.T) {
 	// A new commit and a different serving image leave the old observations
 	// historical, never a clean observation of the new subjects.
 	running[0].Images["web"] = "digest-b"
-	gittest.Run(t, repo, "-c", "user.name=test", "-c", "user.email=test@example.org", "commit", "--allow-empty", "-qm", "unrelated landing")
+	if err := os.WriteFile(filepath.Join(repo, "new-file"), []byte("new tree"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gittest.Run(t, repo, "add", "new-file")
+	gittest.Run(t, repo, "-c", "user.name=test", "-c", "user.email=test@example.org", "commit", "-qm", "unrelated landing")
 	got, err = s.LatestMainScans(t.Context(), ch.ProjectID, 10)
 	if err != nil {
 		t.Fatal(err)
@@ -88,7 +95,7 @@ func TestScansOlderThanThreeDaysAreNotKnown(t *testing.T) {
 	now := time.Now().UTC()
 	s, ch, repo, _, _ := automatedFixture(t)
 	main := gittest.Run(t, repo, "rev-parse", "HEAD")
-	o := conformance.ScanObservation{RunID: idstest.N(1), Subject: conformance.ScanSubject{On: "source", Commit: main}, Scanner: "osv", Verdict: "pass", ObservedAt: now.Add(-73 * time.Hour)}
+	o := conformance.ScanObservation{RunID: idstest.N(1), Subject: conformance.ScanSubject{On: "source", Commit: main, Tree: gittest.Run(t, repo, "rev-parse", main+"^{tree}")}, Scanner: "osv", Verdict: "pass", ObservedAt: now.Add(-73 * time.Hour)}
 	recordObservations(t, s, ch, []conformance.ScanObservation{o})
 	got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 	if err != nil {
@@ -289,10 +296,10 @@ func TestALandingScanTakesItsHistoryScannerFromTheLastWholeScan(t *testing.T) {
 			var observations []conformance.ScanObservation
 			if tc.earlier {
 				observations = append(observations,
-					conformance.ScanObservation{RunID: idstest.N(1), Subject: conformance.ScanSubject{On: "source", Commit: main}, ExpectedScanners: both, Scanner: "osv", Verdict: "pass", ObservedAt: now.Add(-tc.donorAge)},
-					conformance.ScanObservation{RunID: idstest.N(1), Subject: conformance.ScanSubject{On: "source", Commit: main}, ExpectedScanners: both, Scanner: "gitleaks", Verdict: tc.donor, Reason: map[string]string{"error": "gitleaks could not run"}[tc.donor], ObservedAt: now.Add(-tc.donorAge)})
+					conformance.ScanObservation{RunID: idstest.N(1), Subject: conformance.ScanSubject{On: "source", Commit: main, Tree: gittest.Run(t, repo, "rev-parse", main+"^{tree}")}, ExpectedScanners: both, Scanner: "osv", Verdict: "pass", ObservedAt: now.Add(-tc.donorAge)},
+					conformance.ScanObservation{RunID: idstest.N(1), Subject: conformance.ScanSubject{On: "source", Commit: main, Tree: gittest.Run(t, repo, "rev-parse", main+"^{tree}")}, ExpectedScanners: both, Scanner: "gitleaks", Verdict: tc.donor, Reason: map[string]string{"error": "gitleaks could not run"}[tc.donor], ObservedAt: now.Add(-tc.donorAge)})
 			}
-			landingOSV := conformance.ScanObservation{RunID: idstest.N(2), Subject: conformance.ScanSubject{On: "source", Commit: main}, ExpectedScanners: both, Scanner: "osv", Verdict: tc.landingOSV, ObservedAt: now.Add(-time.Hour)}
+			landingOSV := conformance.ScanObservation{RunID: idstest.N(2), Subject: conformance.ScanSubject{On: "source", Commit: main, Tree: gittest.Run(t, repo, "rev-parse", main+"^{tree}")}, ExpectedScanners: both, Scanner: "osv", Verdict: tc.landingOSV, ObservedAt: now.Add(-time.Hour)}
 			if tc.landingOSV == "error" {
 				landingOSV.Reason = "osv could not read its database"
 			}
@@ -300,7 +307,7 @@ func TestALandingScanTakesItsHistoryScannerFromTheLastWholeScan(t *testing.T) {
 				conformance.ScanObservation{RunID: idstest.N(3), Subject: conformance.ScanSubject{On: "running"}, Verdict: StatusNotApplicable.String(), ObservedAt: now.Add(-time.Hour)},
 				landingOSV)
 			if tc.history {
-				observations = append(observations, conformance.ScanObservation{RunID: idstest.N(2), Subject: conformance.ScanSubject{On: "source", Commit: main, History: main + ".." + main}, ExpectedScanners: both, Scanner: "gitleaks", Verdict: "pass", ObservedAt: now.Add(-time.Hour)})
+				observations = append(observations, conformance.ScanObservation{RunID: idstest.N(2), Subject: conformance.ScanSubject{On: "source", Commit: main, Tree: gittest.Run(t, repo, "rev-parse", main+"^{tree}"), History: main + ".." + main}, ExpectedScanners: both, Scanner: "gitleaks", Verdict: "pass", ObservedAt: now.Add(-time.Hour)})
 			}
 			for i := range observations {
 				observations[i].ID = ids.New(now)
@@ -361,7 +368,7 @@ func TestNotKnownReasonsNameTheirCase(t *testing.T) {
 	running := []RunningImages{{DeploymentID: dep, BundleID: bundle, Deployment: "main", Images: map[string]string{"web": "digest-a"}}}
 	const main = "5c406e206353120f72fb285835c7bf9b0cac0048"
 	source := func(run uint64, scanner string, at time.Time) conformance.ScanObservation {
-		return conformance.ScanObservation{RunID: idstest.N(run), Subject: conformance.ScanSubject{On: "source", Commit: main}, ExpectedScanners: []string{"osv", "gitleaks"}, Scanner: scanner, Verdict: "pass", ObservedAt: at}
+		return conformance.ScanObservation{RunID: idstest.N(run), Subject: conformance.ScanSubject{On: "source", Commit: main, Tree: main}, ExpectedScanners: []string{"osv", "gitleaks"}, Scanner: scanner, Verdict: "pass", ObservedAt: at}
 	}
 	image := conformance.ScanObservation{RunID: idstest.N(2), Subject: conformance.ScanSubject{On: "running", DeploymentID: dep, BundleID: bundle, Part: "web", Digest: "digest-a"}, Scanner: "trivy", Verdict: "pass", ObservedAt: now}
 	old := now.Add(-80 * time.Hour)
@@ -404,7 +411,7 @@ func (s noScanSchedule) ScansSource(context.Context, ids.ID) (bool, error) { ret
 
 func TestUnscannedRunningImagesUseSingularAndPlural(t *testing.T) {
 	now := time.Now()
-	source := conformance.ScanObservation{RunID: idstest.N(1), Subject: conformance.ScanSubject{On: "source", Commit: "main"}, Scanner: "osv", ExpectedScanners: []string{"osv"}, Verdict: "pass", ObservedAt: now}
+	source := conformance.ScanObservation{RunID: idstest.N(1), Subject: conformance.ScanSubject{On: "source", Commit: "main", Tree: "main"}, Scanner: "osv", ExpectedScanners: []string{"osv"}, Verdict: "pass", ObservedAt: now}
 	running := []RunningImages{{DeploymentID: idstest.N(2), Deployment: "main"}, {DeploymentID: idstest.N(3), Deployment: "fly"}}
 	for _, tc := range []struct {
 		n    int
@@ -442,9 +449,9 @@ func classifyTestScans(main string, running []RunningImages, observations []conf
 			observations[i].ID = ids.New(now)
 		}
 		o := observations[i]
-		heads = append(heads, conformance.ScanHead{ID: o.ID, RunID: o.RunID, Subject: o.Subject, Scanner: o.Scanner, ObservedAt: o.ObservedAt})
+		heads = append(heads, conformance.ScanHead{ID: o.ID, RunID: o.RunID, Subject: o.Subject, Scanner: o.Scanner, BindingVersion: o.BindingVersion, ConfigHash: o.ConfigHash, ObservedAt: o.ObservedAt})
 	}
-	return latestMainScans(main, running, observations, selectScanHeads(main, heads), now)
+	return latestMainScans(main, running, observations, selectScanHeads(main, running, heads), now)
 }
 func (s noScanSchedule) ScansSourceFrom(context.Context, ids.ID, ProcedureFacts) (bool, error) {
 	return false, s.err
@@ -453,8 +460,9 @@ func (s noScanSchedule) ScansSourceFrom(context.Context, ids.ID, ProcedureFacts)
 // The head selector alone decides which receipts the current view loads.
 func TestCurrentScansLoadOnlySelectedReceiptCandidates(t *testing.T) {
 	t.Parallel()
-	s, ch, repo, _, _ := automatedFixture(t)
+	s, ch, repo, _, running := automatedFixture(t)
 	main := gittest.Run(t, repo, "rev-parse", "HEAD")
+	running.rows = []RunningImages{{Images: map[string]string{"web": "digest"}}}
 	now := time.Now().UTC()
 	observations := []conformance.ScanObservation{}
 	for i := 0; i < 99; i++ {
@@ -468,7 +476,7 @@ func TestCurrentScansLoadOnlySelectedReceiptCandidates(t *testing.T) {
 			on = "running"
 			run = idstest.N(2)
 		}
-		observations = append(observations, conformance.ScanObservation{ID: idstest.N(uint64(i + 1000)), RunID: run, Subject: conformance.ScanSubject{On: on, Commit: commit}, Scanner: scanner, Verdict: "pass", ObservedAt: now.Add(-time.Duration(i) * time.Minute)})
+		observations = append(observations, conformance.ScanObservation{ID: idstest.N(uint64(i + 1000)), RunID: run, Subject: conformance.ScanSubject{On: on, Commit: commit, Tree: map[string]string{main: gittest.Run(t, repo, "rev-parse", main+"^{tree}")}[commit], Digest: map[string]string{"running": "digest"}[on]}, Scanner: scanner, Verdict: "pass", ObservedAt: now.Add(-time.Duration(i) * time.Minute)})
 	}
 	recordObservations(t, s, ch, observations)
 	calls := 0
@@ -506,9 +514,10 @@ func TestCurrentScansKeepNewestRunningRunWithoutFillingFromAnOlderRun(t *testing
 	dep, bundle := idstest.N(201), idstest.N(202)
 	running.rows = []RunningImages{{DeploymentID: dep, BundleID: bundle, Images: map[string]string{"web": "digest"}}}
 	subject := conformance.ScanSubject{On: "running", DeploymentID: dep, BundleID: bundle, Part: "web", Digest: "digest"}
-	current, old := ids.New(now), ids.New(now)
+	current, old, olderPeer := ids.New(now), ids.New(now), ids.New(now)
 	recordObservations(t, s, ch, []conformance.ScanObservation{
-		{RunID: idstest.N(10), Subject: conformance.ScanSubject{On: "source", Commit: main}, Scanner: "osv", Verdict: "pass", ObservedAt: now},
+		{RunID: idstest.N(10), Subject: conformance.ScanSubject{On: "source", Commit: main, Tree: gittest.Run(t, repo, "rev-parse", main+"^{tree}")}, Scanner: "osv", Verdict: "pass", ObservedAt: now},
+		{ID: olderPeer, RunID: idstest.N(11), Subject: subject, Scanner: "licenses", Verdict: "pass", ObservedAt: now.Add(-2 * time.Hour)},
 		{ID: old, RunID: idstest.N(11), Subject: subject, Scanner: "trivy", Verdict: "pass", ObservedAt: now.Add(-time.Hour)},
 		{ID: current, RunID: idstest.N(12), Subject: subject, Scanner: "trivy", Verdict: "error", Reason: "newest running scan failed", ObservedAt: now.Add(-time.Minute)},
 	})
@@ -517,7 +526,97 @@ func TestCurrentScansKeepNewestRunningRunWithoutFillingFromAnOlderRun(t *testing
 		t.Fatalf("current scans: %+v %v", got, err)
 	}
 	older, err := s.LatestMainScans(t.Context(), ch.ProjectID, 10)
-	if err != nil || !reflect.DeepEqual(got.Running, older.Running) || len(older.Historical) != 1 || older.Historical[0].ID != old {
+	if err != nil || !reflect.DeepEqual(got.Running, older.Running) || len(older.Historical) != 2 || older.Historical[0].ID != old || older.Historical[1].ID != olderPeer {
 		t.Fatalf("older run changed current: %+v %v", older, err)
+	}
+}
+
+func TestMainScansReuseOnlyExactTreesAndScannerBindings(t *testing.T) {
+	for _, mismatch := range []string{"", "tree", "version", "config", "missing tree", "whole missing tree", "whole different tree"} {
+		t.Run(mismatch, func(t *testing.T) {
+			t.Parallel()
+			s, ch, repo, _, _ := automatedFixture(t)
+			donorCommit := gittest.Run(t, repo, "rev-parse", "HEAD")
+			gittest.Run(t, repo, "-c", "user.name=test", "-c", "user.email=test@example.org", "commit", "--allow-empty", "-qm", "candidate with the same tree")
+			candidate := gittest.Run(t, repo, "rev-parse", "HEAD")
+			tree := gittest.Run(t, repo, "rev-parse", "HEAD^{tree}")
+			gittest.Run(t, repo, "-c", "user.name=test", "-c", "user.email=test@example.org", "commit", "--allow-empty", "-qm", "merge with the same tree")
+			main := gittest.Run(t, repo, "rev-parse", "HEAD")
+			if main == candidate {
+				t.Fatal("fixture needs different commits")
+			}
+			now := time.Now().UTC()
+			donor := conformance.ScanObservation{RunID: idstest.N(501), Subject: conformance.ScanSubject{On: "source", Commit: donorCommit, Tree: tree}, Scanner: "gitleaks", BindingVersion: 1, ConfigHash: "config", ExpectedScanners: []string{"osv", "gitleaks"}, Verdict: "pass", ObservedAt: now.Add(-time.Hour)}
+			if mismatch == "tree" {
+				donor.Subject.Tree = "different"
+			}
+			if mismatch == "missing tree" {
+				donor.Subject.Tree = ""
+			}
+			if mismatch == "version" {
+				donor.BindingVersion++
+			}
+			if mismatch == "config" {
+				donor.ConfigHash = "different"
+			}
+			whole := donor
+			whole.RunID, whole.Scanner, whole.Subject, whole.ObservedAt = idstest.N(502), "osv", conformance.ScanSubject{On: "source", Commit: candidate, Tree: tree}, now
+			if mismatch == "whole missing tree" {
+				whole.Subject.Tree, donor.Subject.Tree = "", ""
+			}
+			if mismatch == "whole different tree" {
+				whole.Subject.Tree, donor.Subject.Tree = "other", "other"
+			}
+			history := whole
+			history.Scanner, history.BindingVersion, history.ConfigHash, history.Subject.History = "gitleaks", 1, "config", "base..candidate"
+			retry := whole
+			retry.ObservedAt, retry.Verdict = now.Add(-time.Minute), "error"
+			recordObservations(t, s, ch, []conformance.ScanObservation{donor, whole, history, retry})
+			got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
+			if err != nil || got.Known != (mismatch == "") {
+				t.Fatalf("scans: %+v %v", got, err)
+			}
+			if strings.HasPrefix(mismatch, "whole ") {
+				if len(got.Source) != 0 {
+					t.Fatalf("different or absent tree answered main: %+v", got)
+				}
+				return
+			}
+			if len(got.Source) == 0 || got.Source[0].Subject.Commit != candidate {
+				t.Fatalf("landing tree did not answer merge: %+v", got)
+			}
+		})
+	}
+}
+
+func TestRunningScansReuseNewestRunOfEachExactDigest(t *testing.T) {
+	t.Parallel()
+	s, ch, repo, _, running := automatedFixture(t)
+	main := gittest.Run(t, repo, "rev-parse", "HEAD")
+	now := time.Now().UTC()
+	running.rows = []RunningImages{{DeploymentID: idstest.N(601), Deployment: "production", BundleID: idstest.N(602), Images: map[string]string{"web": "digest-a", "init/db": "digest-b"}}}
+	recordObservations(t, s, ch, []conformance.ScanObservation{
+		{RunID: idstest.N(603), Subject: conformance.ScanSubject{On: "source", Commit: main, Tree: gittest.Run(t, repo, "rev-parse", "HEAD^{tree}")}, Scanner: "osv", Verdict: "pass", ObservedAt: now},
+		{RunID: idstest.N(604), Subject: conformance.ScanSubject{On: "bundle", BundleID: idstest.N(605), Part: "other", Digest: "digest-a"}, Scanner: "trivy", Verdict: "pass", ObservedAt: now.Add(-time.Hour)},
+		{RunID: idstest.N(606), Subject: conformance.ScanSubject{On: "running", Digest: "digest-b"}, Scanner: "trivy", Verdict: "pass", ObservedAt: now},
+	})
+	got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
+	if err != nil || !got.Known || len(got.Running) != 2 {
+		t.Fatalf("reused bundle: %+v %v", got, err)
+	}
+	for _, o := range got.Running {
+		if o.Subject.Deployment != "production" || o.Subject.DeploymentID != running.rows[0].DeploymentID {
+			t.Fatalf("deployment label: %+v", o)
+		}
+	}
+	running.rows[0].Images["init/db"] = "different"
+	got, err = s.LatestMainScans(t.Context(), ch.ProjectID, 0)
+	if err != nil || got.Known {
+		t.Fatalf("different digest: %+v %v", got, err)
+	}
+	running.rows = nil
+	got, err = s.LatestMainScans(t.Context(), ch.ProjectID, 0)
+	if err != nil || !got.Known || len(got.Running) != 0 {
+		t.Fatalf("source only: %+v %v", got, err)
 	}
 }

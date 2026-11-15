@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -158,5 +159,55 @@ func TestWorkflowStageReceiptSurvivesInventoryChangesAndMissingSteps(t *testing.
 	}
 	if completionCalls != 0 {
 		t.Fatalf("incomplete gate invoked completion %d times", completionCalls)
+	}
+}
+
+func TestAdvanceWaitsForBundleObservationAndRetainsEverySettledVerdict(t *testing.T) {
+	for _, verdict := range []StepState{StatusPass, StatusFail, StatusError} {
+		t.Run(verdict.String(), func(t *testing.T) {
+			t.Parallel()
+			spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "ship", Steps: []schema.Step{{Name: "build-exists", Uses: "approval"}, {Name: "scan-bundle", Uses: "scan", With: map[string]any{"on": "bundle"}}}, Gate: &schema.Gate{Require: []string{"build-exists"}}}}}
+			q, run := admitWorkflowSpec(t, spec)
+			buildID, scanID := admittedStepID(t, q, run, "build-exists"), admittedStepID(t, q, run, "scan-bundle")
+			calls := 0
+			s := newService(q.db, allowProject(run.ProjectID), Runtime{Advancement: policyEngine(q.db, &calls), Starter: newStarter(q.db, stages{}, nil, startRuntime{}, clocked{})})
+			if n, err := workflowsql.New(q.db.SQL()).RecordApproval(t.Context(), workflowsql.RecordApprovalParams{At: time.Now(), Status: "pass", EvidenceJson: json.RawMessage(`{}`), ID: buildID, ExpectedStatus: "pending"}); err != nil || n != 1 {
+				t.Fatalf("build: %d %v", n, err)
+			}
+			assertWaiting := func(status StepState) {
+				t.Helper()
+				got, err := s.Advance(t.Context(), run.ID)
+				if err != nil || got.Advanced || got.RunStatus == RunDone || len(got.Blocking) != 1 || got.Blocking[0].Name != "scan-bundle" || got.Blocking[0].Status != status {
+					t.Fatalf("advanced before observation: %+v %v", got, err)
+				}
+				wantRunState(t, q.db, run.ID, RunRunning)
+			}
+			assertWaiting(StatusPending)
+			owner := newStepAttempts(q.db, func(string) bool { return true })
+			step, err := readStep(t.Context(), q.db, scanID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			claim, err := owner.start(t.Context(), step, "scan", run.ProjectID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertWaiting(StatusRunning)
+			o := conformance.ScanObservation{ID: ids.New(time.Now()), ProjectID: run.ProjectID, RunID: run.ID, StepID: scanID, Subject: conformance.ScanSubject{On: "bundle", Digest: "digest"}, Verdict: verdict.String(), ObservedAt: time.Now()}
+			if err := q.db.InTx(t.Context(), func(tx *database.Tx) error { return conformance.RecordScanObservationIn(t.Context(), tx, o) }); err != nil {
+				t.Fatal(err)
+			}
+			if err := owner.finish(t.Context(), claim, StepOutcome{Status: verdict, Evidence: json.RawMessage(`{}`)}); err != nil {
+				t.Fatal(err)
+			}
+			got, err := s.Advance(t.Context(), run.ID)
+			if err != nil || !got.Advanced || got.RunStatus != RunDone {
+				t.Fatalf("settled scan blocked completion: %+v %v", got, err)
+			}
+			retained, err := conformance.ScanObservationsByIDIn(t.Context(), q.db, run.ProjectID, []ids.ID{o.ID})
+			if err != nil || len(retained) != 1 || retained[0].Verdict != verdict.String() {
+				t.Fatalf("lost observation: %+v %v", retained, err)
+			}
+		})
 	}
 }

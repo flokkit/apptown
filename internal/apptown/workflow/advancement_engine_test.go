@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -431,4 +432,31 @@ func (w advanceEngine) advance(ctx context.Context, runID ids.ID, who string) (*
 		return nil, err
 	}
 	return w.advanceRun(ctx, run, who)
+}
+
+// Optional work delays completion only when it is executable work in the final stage.
+func TestWorkflowEngineWaitsForOptionalWorkOnlyAtCompletion(t *testing.T) {
+	t.Parallel()
+	for _, final := range []bool{false, true} {
+		for _, kind := range []string{"approval", "script", "scan", "agent/review"} {
+			for _, status := range []StepState{StatusPending, StatusRunning} {
+				t.Run(fmt.Sprintf("final=%t/%s/%s", final, kind, status), func(t *testing.T) {
+					spec := schema.Spec{Role: "working", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{{Name: "required", Uses: "approval"}, {Name: "optional", Uses: kind}}, Gate: &schema.Gate{Require: []string{"required"}}}}}
+					if !final {
+						spec.Stages = append(spec.Stages, schema.Stage{Name: "finish"})
+					}
+					w, s := testWorkflowEngine(t, spec, "check")
+					s.steps = []*Step{{Name: "required", Type: "approval", Status: StatusPass}, {Name: "optional", Type: kind, Status: status}}
+					got, err := w.advance(t.Context(), s.run.ID, "alice")
+					waiting := final && kind != "approval"
+					if err != nil || got.Advanced == waiting {
+						t.Fatalf("advance = %+v, err = %v, want waiting %t", got, err, waiting)
+					}
+					if waiting && (len(got.Blocking) != 1 || got.Blocking[0] != s.steps[1]) {
+						t.Fatalf("missing unfinished work: %+v", got)
+					}
+				})
+			}
+		}
+	}
 }

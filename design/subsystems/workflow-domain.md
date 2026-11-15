@@ -183,8 +183,13 @@ its budgeted transition together with the failed verdict. Resets invalidate only
 what the operation's dependency rules require. Historical definitions and evidence
 are not silently replaced by the current project defaults.
 
-Advancement checks the recorded gate and revision. Completion, required receipts,
-parent-call handoff and required follow-up intent commit together. Parent handoff
+Advancement checks the recorded gate and revision. A run also waits for every
+pending or running non-approval step in its final stage before completing, so
+completion does not cancel unfinished attempts and refuse their observations.
+Optional approvals waiting for a person do not delay completion. This completion
+rule does not change merge admission or advancement from non-final stages.
+Completion, required receipts, parent-call handoff and required follow-up intent
+commit together. Parent handoff
 checks the exact child/call identity so a stale child cannot finish a newer call.
 Git and provider effects are outside these database transactions. SCM and
 Deployment retain their own effect identities and settlement fences.

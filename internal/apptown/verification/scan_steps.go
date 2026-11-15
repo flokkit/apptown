@@ -35,6 +35,7 @@ const maxReportBody = 4 * 1024 * 1024
 type ScanSteps struct {
 	db           *database.DB
 	deployments  runningDeployments
+	bundles      bundleReader
 	scanners     *Scanners
 	conformance  *conformance.Service
 	integrations registryCredentials
@@ -47,6 +48,7 @@ type ScanSteps struct {
 type ScanDependencies struct {
 	DB           *database.DB
 	Deployments  runningDeployments
+	Bundles      bundleReader
 	Scanners     *Scanners
 	Conformance  *conformance.Service
 	Integrations registryCredentials
@@ -61,7 +63,7 @@ type ScanDependencies struct {
 func (a *ScanSteps) now() time.Time { return clock.Or(a.clock)() }
 
 func NewScanSteps(d ScanDependencies) *ScanSteps {
-	return &ScanSteps{db: d.DB, deployments: d.Deployments, scanners: d.Scanners, conformance: d.Conformance, integrations: d.Integrations, progress: d.Progress, exec: d.Executor, dataDir: d.DataDir, panics: d.Panics, clock: d.Now}
+	return &ScanSteps{db: d.DB, deployments: d.Deployments, bundles: d.Bundles, scanners: d.Scanners, conformance: d.Conformance, integrations: d.Integrations, progress: d.Progress, exec: d.Executor, dataDir: d.DataDir, panics: d.Panics, clock: d.Now}
 }
 
 func (a *ScanSteps) logPanic(where string) {
@@ -106,8 +108,8 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	if _, err := task.Claim(); err != nil {
 		return
 	}
-	if cfg.On == "running" && cfgErr == nil {
-		a.runRunningScan(task, cfg)
+	if (cfg.On == "running" || cfg.On == "bundle") && cfgErr == nil {
+		a.runImageScan(task, cfg)
 		return
 	}
 	targets, err := fix.Targets(run.InputsJSON)
@@ -212,6 +214,15 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	repo := sel.Repo
 	rev = sel.Commit
 	observation.Subject.Commit = rev
+	if observation.Subject.On == "source" {
+		tree, err := gitexec.Run(task.Context(), repo, "rev-parse", rev+"^{tree}")
+		if err != nil {
+			evidence["reason"] = "reading the scanned tree: " + err.Error()
+			finish(workflow.StatusError, evidence)
+			return
+		}
+		observation.Subject.Tree = strings.TrimSpace(tree)
+	}
 	if !pinned {
 		evidence["commit"] = sel.Commit
 	}
@@ -558,6 +569,10 @@ func (c scanConfig) unattachedStatus() workflow.StepState {
 
 func (c scanConfig) gate(findings []conformance.Finding, ds []conformance.Disposition, base scanBase, compared bool) (actionable, gating, carried []conformance.Finding) {
 	return scanGate(findings, ds, base, compared && c.comparesBaseline())
+}
+
+type bundleReader interface {
+	OfRun(context.Context, ids.ID, ids.ID) (*deployment.ReleaseBundle, error)
 }
 
 type runningDeployments interface {

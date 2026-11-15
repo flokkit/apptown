@@ -59,7 +59,8 @@ func TestRunningScansObserveEachDeploymentAndPullEachDigestOnce(t *testing.T) {
 			return execution.Outcome{Termination: execution.Exited, ExitCode: 1, Report: []byte(`{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"trivy"}},"results":[{"ruleId":"CVE-RUNNING","level":"error","message":{"text":"vulnerable running package"}}]}]}`)}
 		},
 	}}
-	observations, status, _ := steps.observeRunningImages(t.Context(), &workflow.Run{ID: idstest.N(5), ProjectID: f.ProjectID}, &workflow.Step{ID: idstest.N(6), Config: []byte(`{"on":"running"}`)}, scanConfig{}, nil)
+	subjects, _, _ := steps.imageSubjects(t.Context(), &workflow.Run{ProjectID: f.ProjectID}, "running")
+	observations, status, _ := steps.observeImages(t.Context(), &workflow.Run{ID: idstest.N(5), ProjectID: f.ProjectID}, &workflow.Step{ID: idstest.N(6), Config: []byte(`{"on":"running"}`)}, scanConfig{On: "running"}, subjects, nil)
 	if pulls != 1 || scans != 2 || len(observations) != 5 || status != workflow.StatusError {
 		t.Fatalf("pulls=%d scans=%d observations=%+v status=%s", pulls, scans, observations, status)
 	}
@@ -76,8 +77,8 @@ func TestRunningScansObserveEachDeploymentAndPullEachDigestOnce(t *testing.T) {
 
 func TestRunningScanWithNoDeploymentsIsNotApplicable(t *testing.T) {
 	s := ScanSteps{deployments: runningDeploymentsFake{}}
-	observations, status, _ := s.observeRunningImages(t.Context(), &workflow.Run{}, &workflow.Step{}, scanConfig{}, nil)
-	if status != workflow.StatusNotApplicable || len(observations) != 1 {
-		t.Fatalf("%s %+v", status, observations)
+	subjects, status, reason := s.imageSubjects(t.Context(), &workflow.Run{}, "running")
+	if status != workflow.StatusNotApplicable || len(subjects) != 0 || reason != "no deployments" {
+		t.Fatalf("%s %+v %s", status, subjects, reason)
 	}
 }

@@ -428,7 +428,7 @@ func TestJanitorProjectsClassifiesCompletedFacts(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				recordObservations(t, s, ch, []conformance.ScanObservation{{RunID: ids.New(time.Now()), Subject: conformance.ScanSubject{On: "source", Commit: gittest.Run(t, repo, "rev-parse", "HEAD")}, Scanner: "osv", Verdict: "pass", ObservedAt: time.Now().UTC()}, {RunID: ids.New(time.Now()), Subject: conformance.ScanSubject{On: "running"}, Verdict: "not_applicable", Reason: "no running images", ObservedAt: time.Now().UTC()}})
+				recordObservations(t, s, ch, []conformance.ScanObservation{{RunID: ids.New(time.Now()), Subject: conformance.ScanSubject{On: "source", Commit: gittest.Run(t, repo, "rev-parse", "HEAD"), Tree: gittest.Run(t, repo, "rev-parse", "HEAD^{tree}")}, Scanner: "osv", Verdict: "pass", ObservedAt: time.Now().UTC()}, {RunID: ids.New(time.Now()), Subject: conformance.ScanSubject{On: "running"}, Verdict: "not_applicable", Reason: "no running images", ObservedAt: time.Now().UTC()}})
 				if tc.name == "waiting" {
 					admitAutomatedRun(t, s, ch, "approval")
 				}

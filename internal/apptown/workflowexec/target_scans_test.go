@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
@@ -17,6 +20,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/progress"
 	"github.com/flokkit/apptown/stock"
@@ -83,6 +87,24 @@ func TestTargetScanMustWitnessTheFindingGone(t *testing.T) {
 			if mode == "fixed" {
 				want = workflow.StatusPass
 			}
+			if mode == "fixed" || mode == "remaining" || mode == "malformed" || mode == "not applicable" {
+				heads, err := conformance.ScanObservationHeadsIn(t.Context(), f.db, f.projectID)
+				if err != nil || len(heads) != 1 || heads[0].Subject.Tree == "" || heads[0].Subject.Commit == "" {
+					t.Fatalf("source identity: %+v %v", heads, err)
+				}
+				source, err := workflow.ReadSourceIn(t.Context(), f.db, workflow.RunRef{ID: run.ID, ProjectID: f.projectID})
+				if err != nil {
+					t.Fatal(err)
+				}
+				repo, err := source.Repository(f.dir)
+				if err != nil {
+					t.Fatal(err)
+				}
+				tree, err := gitexec.Run(t.Context(), repo, "rev-parse", heads[0].Subject.Commit+"^{tree}")
+				if err != nil || heads[0].Subject.Tree != strings.TrimSpace(tree) {
+					t.Fatalf("scanned tree: %+v want %s: %v", heads[0], tree, err)
+				}
+			}
 			if status != want {
 				t.Fatalf("%s: got %s want %s: %+v", mode, status, want, ev)
 			}
@@ -100,6 +122,113 @@ func (targetScanEffects) Run(context.Context, execution.Request) execution.Outco
 func (targetScanEffects) Observe(context.Context, ids.ID, string, string) (conformance.Outcome, string) {
 	return conformance.DoesNotConform, "base target"
 }
+
+// The scan step records the immutable bundle subjects through its live attempt;
+// reading Conformance afterwards proves they survive independently of the step.
+func TestBundleScanRetainsTheRunBundleSubjects(t *testing.T) {
+	for _, mode := range []string{"digests", "local IDs", "no bundle"} {
+		t.Run(mode, func(t *testing.T) {
+			spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "ship", Steps: []schema.Step{{Name: "scan-bundle", Uses: "scan", With: map[string]any{"on": "bundle"}}}}}}
+			f, _ := newNodeFixFixture(t, "bundle-scan", spec)
+			cfg := `{"image":"scanner:test","command":["scan","${IMAGE_TAR}"],"target":"image"}`
+			if _, err := integration.NewWithClock(f.db, nil).Upsert(f.ctx, "image-scanner", "scanner", "tool", cfg, true); err != nil {
+				t.Fatal(err)
+			}
+			directory := identity.New(f.db, identity.Config{Projects: project.NewCatalogue(f.db)})
+			owner := conformance.New(f.db, access.Checked{Authority: directory, Projects: project.New(f.db, directory)}, nil, nil, nil)
+			bundles := &scanBundleFake{project: f.projectID}
+			if mode != "no bundle" {
+				bundles.bundle = &deployment.ReleaseBundle{ID: ids.New(time.Now()), Parts: map[string]string{"web": "registry.example/p@sha256:" + strings.Repeat("a", 64)}, Init: map[string]string{"db": "registry.example/p@sha256:" + strings.Repeat("b", 64)}, BuiltFrom: deployment.BundleOrigin{Registry: "registry.example"}}
+				if mode == "local IDs" {
+					bundles.bundle.BuiltFrom.Registry = ""
+				}
+			}
+			pulled, scanned := map[string]int{}, map[string]int{}
+			scan := verification.NewScanSteps(verification.ScanDependencies{DB: f.db, Bundles: bundles, Scanners: verification.NewScanners(verification.ScannerDependencies{DB: f.db}), Conformance: owner, Integrations: scanRegistry{}, Progress: &progress.Feeds{}, DataDir: f.dir, Executor: verification.Executor{
+				Image: func(_ context.Context, r execution.ImageRequest) execution.ImageAnswer {
+					pulled[r.Pull]++
+					if r.Registry == nil || r.Registry.Username != "robot" || r.AllowBuild {
+						t.Fatalf("pull: %+v", r)
+					}
+					return execution.ImageAnswer{ID: "local"}
+				},
+				Run: func(_ context.Context, r execution.Request) execution.Outcome {
+					scanned[r.ExportImage]++
+					return execution.Outcome{Termination: execution.Exited}
+				},
+			}})
+			f.scan = scan.RunScan
+			ch, err := f.work.Create(f.ctx, workflow.ChangeDraft{ProjectID: f.projectID, Title: "Observe the release bundle"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := f.work.PrepareWorkspace(f.ctx, ch.ID); err != nil {
+				t.Fatal(err)
+			}
+			f.work.Stop()
+			run, err := f.work.StartRun(f.ctx, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "bundle-scan"})
+			if !errors.Is(err, workflow.ErrDispatchStopped) {
+				t.Fatal(err)
+			}
+			bundles.run = run.ID
+			steps := queueSteps(t, f, run)
+			if len(steps) != 1 || steps["scan-bundle"] == nil {
+				t.Fatalf("expanded bundle scan: %+v", steps)
+			}
+			queueExecute(t, f, steps["scan-bundle"])
+			status, _ := stepStatus(t, f, steps["scan-bundle"].ID)
+			heads, err := conformance.ScanObservationHeadsIn(t.Context(), f.db, f.projectID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var selected []ids.ID
+			for _, h := range heads {
+				selected = append(selected, h.ID)
+			}
+			observations, err := conformance.ScanObservationsByIDIn(t.Context(), f.db, f.projectID, selected)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if mode != "digests" {
+				if status != workflow.StatusNotApplicable || len(observations) != 1 || observations[0].Subject.On != "bundle" || observations[0].Reason == "" || len(pulled) != 0 {
+					t.Fatalf("not applicable: %s %+v pulls=%v", status, observations, pulled)
+				}
+				return
+			}
+			if status != workflow.StatusPass || len(observations) != 2 {
+				t.Fatalf("bundle: %s %+v", status, observations)
+			}
+			for _, o := range observations {
+				want := bundles.bundle.Parts[o.Subject.Part]
+				if strings.HasPrefix(o.Subject.Part, "init/") {
+					want = bundles.bundle.Init[strings.TrimPrefix(o.Subject.Part, "init/")]
+				}
+				if o.Subject.On != "bundle" || o.Subject.BundleID != bundles.bundle.ID || !o.Subject.DeploymentID.IsZero() || o.Subject.Digest != want || want == "" || pulled[want] != 1 || scanned[want] != 1 || o.Scanner != "image-scanner" || o.Attempt == 0 {
+					t.Fatalf("wrong retained subject: %+v", o)
+				}
+			}
+		})
+	}
+}
+
+type scanBundleFake struct {
+	project, run ids.ID
+	bundle       *deployment.ReleaseBundle
+}
+
+func (f *scanBundleFake) OfRun(_ context.Context, project, run ids.ID) (*deployment.ReleaseBundle, error) {
+	if project != f.project || run != f.run {
+		return nil, fmt.Errorf("wrong bundle scope")
+	}
+	return f.bundle, nil
+}
+
+type scanRegistry struct{}
+
+func (scanRegistry) Registry(context.Context, ids.ID) (*integration.Registry, error) {
+	return &integration.Registry{Host: "registry.example", Username: "robot", Token: "token"}, nil
+}
+
 func TestImageTargetPassesSourceAndRequiresCandidateImageAssessment(t *testing.T) {
 	for _, mode := range []string{"remaining", "not applicable", "detached", "fixed", "malformed"} {
 		t.Run(mode, func(t *testing.T) {

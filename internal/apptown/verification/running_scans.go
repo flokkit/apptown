@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/database"
@@ -17,18 +18,27 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// Running scans only pull and observe. No build or release operation is used.
-func (a *ScanSteps) runRunningScan(task *workflow.Execution, cfg scanConfig) {
+// Bundle and running scans only pull and observe. No build or release operation is used.
+func (a *ScanSteps) runImageScan(task *workflow.Execution, cfg scanConfig) {
 	ctx := task.Context()
-	dispositions, err := a.conformance.Dispositions(conformance.WithRun(ctx, task.RunScope()), task.Run().ProjectID, true)
+	run, step := task.Run(), task.Step()
+	subjects, status, reason := a.imageSubjects(ctx, run, cfg.On)
 	var observations []conformance.ScanObservation
-	status, reason := workflow.StatusError, ""
-	if err != nil {
-		reason = "reading exceptions: " + err.Error()
-		run, step := task.Run(), task.Step()
-		observations = []conformance.ScanObservation{{ProjectID: run.ProjectID, ChangeID: run.ChangeID, RunID: run.ID, StepID: step.ID, Subject: conformance.ScanSubject{On: "running"}, StepConfig: step.Config, ObservedAt: a.now(), Verdict: status.String(), Reason: reason}}
-	} else {
-		observations, status, reason = a.observeRunningImages(ctx, task.Run(), task.Step(), cfg, dispositions)
+	if status == workflow.StatusPass {
+		dispositions, err := a.conformance.Dispositions(conformance.WithRun(ctx, task.RunScope()), run.ProjectID, true)
+		if err != nil {
+			status, reason = workflow.StatusError, "reading exceptions: "+err.Error()
+		} else {
+			observations, status, reason = a.observeImages(ctx, run, step, cfg, subjects, dispositions)
+		}
+	}
+	if observations == nil {
+		if len(subjects) == 0 {
+			subjects = []imageSubject{{subject: conformance.ScanSubject{On: cfg.On}}}
+		}
+		for _, input := range subjects {
+			observations = append(observations, conformance.ScanObservation{ID: ids.New(a.now()), ProjectID: run.ProjectID, ChangeID: run.ChangeID, RunID: run.ID, StepID: step.ID, Subject: input.subject, StepConfig: step.Config, ObservedAt: a.now(), Verdict: status.String(), Reason: reason})
+		}
 	}
 	if err := task.InAttempt(ScanKind, func(tx *database.Tx, attempt int64) error {
 		for _, o := range observations {
@@ -45,7 +55,7 @@ func (a *ScanSteps) runRunningScan(task *workflow.Execution, cfg scanConfig) {
 	task.Settle(workflow.EncodeOutcome(status, map[string]any{"reason": reason, "observations": observations}, nil))
 }
 
-func (a *ScanSteps) observeRunningImages(ctx context.Context, run *workflow.Run, step *workflow.Step, cfg scanConfig, dispositions []conformance.Disposition) ([]conformance.ScanObservation, workflow.StepState, string) {
+func (a *ScanSteps) observeImages(ctx context.Context, run *workflow.Run, step *workflow.Step, cfg scanConfig, subjects []imageSubject, dispositions []conformance.Disposition) ([]conformance.ScanObservation, workflow.StepState, string) {
 	status := workflow.StatusPass
 	observations := []conformance.ScanObservation{}
 	add := func(subject conformance.ScanSubject, scanner string, version int, raw string, verdict workflow.StepState, findings []conformance.Finding, reason string) {
@@ -54,19 +64,11 @@ func (a *ScanSteps) observeRunningImages(ctx context.Context, run *workflow.Run,
 			status = verdict
 		}
 	}
-	deps, err := a.deployments.RunningImages(ctx, run.ProjectID)
-	if err != nil {
-		add(conformance.ScanSubject{On: "running"}, "", 0, "{}", workflow.StatusError, nil, err.Error())
-		return observations, status, err.Error()
-	}
-	if len(deps) == 0 {
-		add(conformance.ScanSubject{On: "running"}, "", 0, "{}", workflow.StatusNotApplicable, nil, "no deployments")
-		status = workflow.StatusNotApplicable
-		return observations, status, "no deployments"
-	}
 	attached, err := a.scanners.attachedScanners(ctx)
 	if err != nil {
-		add(conformance.ScanSubject{On: "running"}, "", 0, "{}", workflow.StatusError, nil, err.Error())
+		for _, input := range subjects {
+			add(input.subject, "", 0, "{}", workflow.StatusError, nil, err.Error())
+		}
 		return observations, status, err.Error()
 	}
 	scanners := []string{}
@@ -83,112 +85,161 @@ func (a *ScanSteps) observeRunningImages(ctx context.Context, run *workflow.Run,
 		findings             []conformance.Finding
 	}
 	cache := map[string][]answer{}
-	for _, dep := range deps {
-		subject := conformance.ScanSubject{On: "running", DeploymentID: dep.DeploymentID, Deployment: dep.Deployment, BundleID: dep.BundleID}
-		if dep.Reason != "" {
-			add(subject, "", 0, "{}", workflow.StatusError, nil, dep.Reason)
+	for _, input := range subjects {
+		subject := input.subject
+		if input.reason != "" {
+			add(subject, "", 0, "{}", workflow.StatusError, nil, input.reason)
 			continue
 		}
 		if len(scanners) == 0 {
 			add(subject, "", 0, "{}", workflow.StatusError, nil, "no image scanner attached — attach one under Integrations › Scanners")
 			continue
 		}
-		parts := make([]string, 0, len(dep.Images))
-		for part := range dep.Images {
-			parts = append(parts, part)
-		}
-		sort.Strings(parts)
-		for _, part := range parts {
-			digest := dep.Images[part]
-			subject.Part, subject.Digest = part, digest
-			if _, ok := cache[digest]; !ok {
-				answers := []answer{}
-				dir, err := os.MkdirTemp(a.dataDir, "running-scan-")
-				if err != nil {
-					add(subject, "", 0, "{}", workflow.StatusError, nil, err.Error())
-					continue
-				}
-				// Preparation uses this project's existing per-request login, never an
-				// ambient credential. The executor handles the same request on a worker.
-				ri, rerr := a.integrations.Registry(ctx, run.ProjectID)
-				var login *execution.RegistryLogin
-				if rerr == nil && ri != nil {
-					login = &execution.RegistryLogin{Host: ri.Host, Username: ri.Username, Token: ri.Token}
-				}
-				image := execution.ImageAnswer{}
+		digest := subject.Digest
+		if _, ok := cache[digest]; !ok {
+			answers := []answer{}
+			dir, err := os.MkdirTemp(a.dataDir, "running-scan-")
+			if err != nil {
+				add(subject, "", 0, "{}", workflow.StatusError, nil, err.Error())
+				continue
+			}
+			// Preparation uses this project's existing per-request login, never an
+			// ambient credential. The executor handles the same request on a worker.
+			ri, rerr := a.integrations.Registry(ctx, run.ProjectID)
+			var login *execution.RegistryLogin
+			if rerr == nil && ri != nil {
+				login = &execution.RegistryLogin{Host: ri.Host, Username: ri.Username, Token: ri.Token}
+			}
+			image := execution.ImageAnswer{}
+			switch {
+			case rerr != nil:
+				image.Err = rerr.Error()
+			case login == nil:
+				image.Err = "no registry credential for this project"
+			default:
+				image = a.exec.Image(ctx, execution.ImageRequest{Pull: digest, Registry: login, Scratch: dir})
+			}
+			for _, name := range scanners {
+				binding, m, version, raw, err := a.scanners.binding(ctx, name)
+				ans := answer{scanner: binding, raw: raw, version: version, verdict: workflow.StatusError}
 				switch {
-				case rerr != nil:
-					image.Err = rerr.Error()
-				case login == nil:
-					image.Err = "no registry credential for this project"
+				case err != nil:
+					ans.reason = err.Error()
+				case image.Err != "":
+					ans.reason = image.Err
+				case image.ID == "":
+					ans.reason = "the running image could not be pulled"
 				default:
-					image = a.exec.Image(ctx, execution.ImageRequest{Pull: digest, Registry: login, Scratch: dir})
-				}
-				for _, name := range scanners {
-					binding, m, version, raw, err := a.scanners.binding(ctx, name)
-					ans := answer{scanner: binding, raw: raw, version: version, verdict: workflow.StatusError}
-					switch {
-					case err != nil:
+					argv := append([]string{}, m.Command...)
+					for i := range argv {
+						argv[i] = strings.ReplaceAll(argv[i], "${IMAGE_TAR}", "/work/.apptown/image.tar")
+					}
+					if err := clearForScan(dir, m); err != nil {
 						ans.reason = err.Error()
-					case image.Err != "":
-						ans.reason = image.Err
-					case image.ID == "":
-						ans.reason = "the running image could not be pulled"
+						break
+					}
+					req := m.Request(dir, argv)
+					req.ExportImage, req.Report, req.Name = digest, m.Report, execution.UniqueName(execution.StepContainer(step.ID, "running-scan"))
+					req.Timeout = check.ScanTimeout
+					if cfg.TimeoutMinutes > 0 {
+						req.Timeout = time.Duration(cfg.TimeoutMinutes) * time.Minute
+					}
+					scanned := readScan(a.exec.Run(ctx, req), m, name)
+					ans.findings = scanned.findings
+					switch {
+					case scanned.failure != "":
+						ans.reason = scanned.failure
+					case scanned.empty:
+						ans.reason = "the scanner could not judge the running image"
 					default:
-						argv := append([]string{}, m.Command...)
-						for i := range argv {
-							argv[i] = strings.ReplaceAll(argv[i], "${IMAGE_TAR}", "/work/.apptown/image.tar")
-						}
-						if err := clearForScan(dir, m); err != nil {
-							ans.reason = err.Error()
-							break
-						}
-						req := m.Request(dir, argv)
-						req.ExportImage, req.Report, req.Name = digest, m.Report, execution.UniqueName(execution.StepContainer(step.ID, "running-scan"))
-						req.Timeout = check.ScanTimeout
-						if cfg.TimeoutMinutes > 0 {
-							req.Timeout = time.Duration(cfg.TimeoutMinutes) * time.Minute
-						}
-						scanned := readScan(a.exec.Run(ctx, req), m, name)
-						ans.findings = scanned.findings
-						switch {
-						case scanned.failure != "":
-							ans.reason = scanned.failure
-						case scanned.empty:
-							ans.reason = "the scanner could not judge the running image"
-						default:
-							ans.verdict = workflow.StatusPass
-							if m.Format == "" || m.Report == "" {
-								if scanned.exit != 0 {
+						ans.verdict = workflow.StatusPass
+						if m.Format == "" || m.Report == "" {
+							if scanned.exit != 0 {
+								ans.verdict = workflow.StatusFail
+								ans.reason = name + " reported findings"
+							}
+						} else {
+							_, gating, _ := scanGate(ans.findings, dispositions, scanBase{}, false)
+							for _, finding := range gating {
+								if check.FailsAt(cfg.FailOn, finding.Severity) {
 									ans.verdict = workflow.StatusFail
-									ans.reason = name + " reported findings"
-								}
-							} else {
-								_, gating, _ := scanGate(ans.findings, dispositions, scanBase{}, false)
-								for _, finding := range gating {
-									if check.FailsAt(cfg.FailOn, finding.Severity) {
-										ans.verdict = workflow.StatusFail
-										ans.reason = "the running image has findings"
-										break
-									}
+									ans.reason = "the running image has findings"
+									break
 								}
 							}
 						}
 					}
-					answers = append(answers, ans)
 				}
-				if err := os.RemoveAll(dir); err != nil {
-					for i := range answers {
-						answers[i].verdict = workflow.StatusError
-						answers[i].reason = fmt.Sprintf("removing the scan workspace: %v", err)
-					}
+				answers = append(answers, ans)
+			}
+			if err := os.RemoveAll(dir); err != nil {
+				for i := range answers {
+					answers[i].verdict = workflow.StatusError
+					answers[i].reason = fmt.Sprintf("removing the scan workspace: %v", err)
 				}
-				cache[digest] = answers
 			}
-			for _, ans := range cache[digest] {
-				add(subject, ans.scanner, ans.version, ans.raw, ans.verdict, ans.findings, ans.reason)
-			}
+			cache[digest] = answers
+		}
+		for _, ans := range cache[digest] {
+			add(subject, ans.scanner, ans.version, ans.raw, ans.verdict, ans.findings, ans.reason)
 		}
 	}
-	return observations, status, "running images observed"
+	return observations, status, "images observed"
+}
+
+// Both scan points observe exact digests through the same executor and receipts.
+type imageSubject struct {
+	subject conformance.ScanSubject
+	reason  string
+}
+
+func (a *ScanSteps) imageSubjects(ctx context.Context, run *workflow.Run, on string) ([]imageSubject, workflow.StepState, string) {
+	var rows []deployment.RunningImages
+	if on == "bundle" {
+		bundle, err := a.bundles.OfRun(ctx, run.ProjectID, run.ID)
+		if err != nil {
+			return nil, workflow.StatusError, err.Error()
+		}
+		if bundle == nil {
+			return nil, workflow.StatusNotApplicable, "this run has no release bundle"
+		}
+		if !bundle.ByDigest() {
+			return nil, workflow.StatusNotApplicable, "the bundle uses local image IDs"
+		}
+		images := map[string]string{}
+		for part, digest := range bundle.Parts {
+			images[part] = digest
+		}
+		for part, digest := range bundle.Init {
+			images["init/"+part] = digest
+		}
+		rows = []deployment.RunningImages{{BundleID: bundle.ID, Images: images}}
+	} else {
+		var err error
+		rows, err = a.deployments.RunningImages(ctx, run.ProjectID)
+		if err != nil {
+			return nil, workflow.StatusError, err.Error()
+		}
+		if len(rows) == 0 {
+			return nil, workflow.StatusNotApplicable, "no deployments"
+		}
+	}
+	out := []imageSubject{}
+	for _, row := range rows {
+		subject := conformance.ScanSubject{On: on, DeploymentID: row.DeploymentID, Deployment: row.Deployment, BundleID: row.BundleID}
+		if row.Reason != "" {
+			out = append(out, imageSubject{subject, row.Reason})
+			continue
+		}
+		parts := make([]string, 0, len(row.Images))
+		for part := range row.Images {
+			parts = append(parts, part)
+		}
+		sort.Strings(parts)
+		for _, part := range parts {
+			subject.Part, subject.Digest = part, row.Images[part]
+			out = append(out, imageSubject{subject: subject})
+		}
+	}
+	return out, workflow.StatusPass, ""
 }

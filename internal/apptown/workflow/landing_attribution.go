@@ -79,7 +79,7 @@ func attributeStep(a *scm.Attribution, step *Step, landing bool) error {
 	if step.OverrideBy != "" {
 		a.Overrides = append(a.Overrides, scm.AttributedOverride{Step: step.Name, By: step.OverrideBy, Reason: step.OverrideReason})
 	}
-	if landing && slices.Contains(candidateGates, step.Type) {
+	if landing && candidateGate(step) {
 		a.Checks = append(a.Checks, scm.AttributedCheck{Step: step.Name, StepID: step.ID, Attempt: step.Attempt, Result: checkResult(step)})
 	}
 	if step.Type != "approval" || step.Status != StatusPass || step.OverrideBy != "" {

@@ -188,6 +188,15 @@ func TestStockLandingUsesFeedAuthorityAndSurvivesReleaseRefusals(t *testing.T) {
 				if err != nil || snapshot.Run.Status != workflow.RunDone {
 					t.Fatalf("stock landing: %+v %v", snapshot, err)
 				}
+				var bundleScan *workflow.Step
+				for _, step := range snapshot.Steps {
+					if step.Name == "scan-bundle" {
+						bundleScan = step
+					}
+				}
+				if bundleScan == nil || bundleScan.Status != workflow.StatusNotApplicable {
+					t.Fatalf("stock landing did not settle its bundle scan: %+v", bundleScan)
+				}
 				stored, err := a.Work.Change(approverCtx, ch.ID)
 				if err != nil || stored.State != workflow.ChangeShipped {
 					t.Fatalf("change: %+v %v", stored, err)
