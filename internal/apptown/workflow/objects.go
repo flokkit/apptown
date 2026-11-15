@@ -113,7 +113,7 @@ func (c changeLifecycle) apply(move ChangeMove) (changeLifecycle, error) {
 // approvalOutcome is a vote's effect: the round after it, the evidence to
 // save, the step's status, and whether the round is still open.
 type approvalOutcome struct {
-	Round    ApprovalEvidence
+	Round    approvalEvidence
 	Evidence json.RawMessage
 	Status   StepState
 	Pending  bool

@@ -12,18 +12,18 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// ApprovalDecision is one person's immutable vote, not a step lifecycle state.
+// approvalDecision is one person's immutable vote, not a step lifecycle state.
 // A round may remain pending after an approval; any rejection closes the round.
-type ApprovalDecision uint8
+type approvalDecision uint8
 
 const (
-	VoteApprove ApprovalDecision = iota + 1
+	VoteApprove approvalDecision = iota + 1
 	VoteReject
 )
 
 var errApprovalDecision = fault.New(fault.Invalid, "decision must be approve or reject")
 
-func (d ApprovalDecision) String() string {
+func (d approvalDecision) String() string {
 	switch d {
 	case VoteApprove:
 		return "approve"
@@ -33,7 +33,7 @@ func (d ApprovalDecision) String() string {
 		return "invalid-approval-decision"
 	}
 }
-func ParseApprovalDecision(text string) (ApprovalDecision, error) {
+func ParseApprovalDecision(text string) (approvalDecision, error) {
 	switch text {
 	case "approve":
 		return VoteApprove, nil
@@ -43,13 +43,13 @@ func ParseApprovalDecision(text string) (ApprovalDecision, error) {
 		return 0, errApprovalDecision
 	}
 }
-func (d ApprovalDecision) MarshalJSON() ([]byte, error) {
+func (d approvalDecision) MarshalJSON() ([]byte, error) {
 	if d != VoteApprove && d != VoteReject {
 		return nil, errApprovalDecision
 	}
 	return json.Marshal(d.String())
 }
-func (d *ApprovalDecision) UnmarshalJSON(raw []byte) error {
+func (d *approvalDecision) UnmarshalJSON(raw []byte) error {
 	var text string
 	if err := json.Unmarshal(raw, &text); err != nil {
 		return err
@@ -83,7 +83,7 @@ type ApprovalVote struct {
 	// AppTown could not tie to a person has neither and counts for no one.
 	Principal ids.ID           `json:"principal,omitzero"`
 	Via       string           `json:"via,omitempty"`
-	Decision  ApprovalDecision `json:"decision"`
+	Decision  approvalDecision `json:"decision"`
 	Comment   string           `json:"comment"`
 	At        string           `json:"at"`
 	// AlsoApproves is what the project's landing approvals said when this
@@ -102,7 +102,7 @@ type ApprovalVote struct {
 	// InAdvance is what this yes meant when it was given before the work
 	// existed: the step's declared inAdvance sentence, which the person was
 	// shown. Empty for a yes given to the work itself, which means the
-	// round's sentence (ApprovalEvidence.Means).
+	// round's sentence (approvalEvidence.Means).
 	InAdvance string `json:"inAdvance,omitempty"`
 }
 
@@ -130,10 +130,10 @@ func (w ApprovalWithdrawal) validate() error {
 	return nil
 }
 
-// ApprovalEvidence records current and previous rounds. The top-level decision
+// approvalEvidence records current and previous rounds. The top-level decision
 // identifies the closing vote. LastRejection remains available to feedback while
 // fresh votes are collected; it is not a vote in the new round.
-type ApprovalEvidence struct {
+type approvalEvidence struct {
 	Withdrawal          *ApprovalWithdrawal  `json:"withdrawal,omitempty"`
 	PreviousWithdrawals []ApprovalWithdrawal `json:"previousWithdrawals,omitempty"`
 	PreviousDecisions   []ApprovalVote       `json:"previousDecisions,omitempty"`
@@ -142,7 +142,7 @@ type ApprovalEvidence struct {
 	Approvals           int                  `json:"approvals"`
 	Means               string               `json:"means,omitempty"`
 	Approver            string               `json:"approver,omitempty"`
-	Decision            ApprovalDecision     `json:"decision,omitempty"`
+	Decision            approvalDecision     `json:"decision,omitempty"`
 	Comment             string               `json:"comment,omitempty"`
 	At                  string               `json:"at,omitempty"`
 	LastRejection       *approvalRejection   `json:"lastRejection,omitempty"`
@@ -209,14 +209,14 @@ func (cfg ApprovalConfig) normalized() (ApprovalConfig, error) {
 	}
 	return cfg, nil
 }
-func ReadApprovalEvidence(raw []byte) (ApprovalEvidence, error) {
-	var evidence ApprovalEvidence
+func ReadApprovalEvidence(raw []byte) (approvalEvidence, error) {
+	var evidence approvalEvidence
 	if err := approvalObject(raw, &evidence); err != nil {
 		return evidence, fmt.Errorf("invalid approval evidence: %w", err)
 	}
 	return evidence, evidence.validate()
 }
-func (e ApprovalEvidence) validate() error {
+func (e approvalEvidence) validate() error {
 	if e.Withdrawal != nil {
 		if err := e.Withdrawal.validate(); err != nil {
 			return err
@@ -256,14 +256,14 @@ func (e ApprovalEvidence) validate() error {
 }
 
 // HasVoted is whether the person has voted in this round.
-func (e ApprovalEvidence) HasVoted(person ids.ID) bool {
+func (e approvalEvidence) HasVoted(person ids.ID) bool {
 	return e.hasVoted(ApprovalVote{Principal: person})
 }
 
 // hasVoted is whether the vote's person has voted in this round: the same
 // principal, whatever name either vote was written with. A vote AppTown
 // could not tie to a person matches no one.
-func (e ApprovalEvidence) hasVoted(vote ApprovalVote) bool {
+func (e approvalEvidence) hasVoted(vote ApprovalVote) bool {
 	if vote.Principal.IsZero() {
 		return false
 	}
@@ -279,7 +279,7 @@ func (e ApprovalEvidence) hasVoted(vote ApprovalVote) bool {
 // principal. A vote whose name AppTown could not tie to a person (a chat's
 // label, an account it could not place) may be anyone's, so it does not
 // count as a person.
-func (e ApprovalEvidence) people() int {
+func (e approvalEvidence) people() int {
 	principals := map[ids.ID]bool{}
 	for _, vote := range e.Decisions {
 		if vote.Decision == VoteApprove && !vote.Principal.IsZero() {
@@ -289,7 +289,7 @@ func (e ApprovalEvidence) people() int {
 	return len(principals)
 }
 
-func (e ApprovalEvidence) clone() ApprovalEvidence {
+func (e approvalEvidence) clone() approvalEvidence {
 	e.PreviousWithdrawals = slices.Clone(e.PreviousWithdrawals)
 	if e.Withdrawal != nil {
 		copy := *e.Withdrawal
@@ -314,29 +314,29 @@ func (e ApprovalEvidence) clone() ApprovalEvidence {
 // cast is the one rule for a vote's effect. Counts come from distinct saved
 // votes, never a caller's cached count. Returned evidence shares no mutable round
 // state with the input. Storage commits it with the vote receipt and any rework.
-func (e ApprovalEvidence) cast(status StepState, cfg ApprovalConfig, vote ApprovalVote) (ApprovalEvidence, StepState, bool, error) {
+func (e approvalEvidence) cast(status StepState, cfg ApprovalConfig, vote ApprovalVote) (approvalEvidence, StepState, bool, error) {
 	if vote.Decision != VoteApprove && vote.Decision != VoteReject {
-		return ApprovalEvidence{}, 0, false, errApprovalDecision
+		return approvalEvidence{}, 0, false, errApprovalDecision
 	}
 	if strings.TrimSpace(vote.Approver) == "" {
-		return ApprovalEvidence{}, 0, false, errStepDecisionCaller
+		return approvalEvidence{}, 0, false, errStepDecisionCaller
 	}
 	if _, err := status.transition(moveStepVote, status); err != nil {
-		return ApprovalEvidence{}, 0, false, fmt.Errorf("this approval is already decided: %w: %w", errStepDecisionConflict, err)
+		return approvalEvidence{}, 0, false, fmt.Errorf("this approval is already decided: %w: %w", errStepDecisionConflict, err)
 	}
 	previous := status
 	cfg, _, err := e.openRound(cfg)
 	if err != nil {
-		return ApprovalEvidence{}, 0, false, err
+		return approvalEvidence{}, 0, false, err
 	}
 	if e.hasVoted(vote) {
-		return ApprovalEvidence{}, 0, false, fmt.Errorf("%s has already decided on this step: %w", vote.Approver, errStepDecisionConflict)
+		return approvalEvidence{}, 0, false, fmt.Errorf("%s has already decided on this step: %w", vote.Approver, errStepDecisionConflict)
 	}
 	for _, earlier := range e.Decisions {
 		// Approvals that form a quorum must all be for one commit. A
 		// rejection closes the round whatever the earlier votes named.
 		if vote.Decision == VoteApprove && earlier.Candidate != vote.Candidate {
-			return ApprovalEvidence{}, 0, false, fmt.Errorf("earlier votes on this approval were for another landing candidate; it must be asked again: %w", errStepDecisionConflict)
+			return approvalEvidence{}, 0, false, fmt.Errorf("earlier votes on this approval were for another landing candidate; it must be asked again: %w", errStepDecisionConflict)
 		}
 	}
 	next := e.clone()
@@ -353,19 +353,19 @@ func (e ApprovalEvidence) cast(status StepState, cfg ApprovalConfig, vote Approv
 		}
 	}
 	if _, err := previous.transition(moveStepVote, status); err != nil {
-		return ApprovalEvidence{}, 0, false, err
+		return approvalEvidence{}, 0, false, err
 	}
 	return next, status, pending, nil
 }
 
 // reopen retains the rejected round as history and feedback, with no votes
 // counting toward the next round. Only a failed approval can be reopened.
-func (e ApprovalEvidence) reopen(status StepState) (ApprovalEvidence, error) {
+func (e approvalEvidence) reopen(status StepState) (approvalEvidence, error) {
 	if _, err := status.transition(moveStepReopen, StatusPending); err != nil {
-		return ApprovalEvidence{}, fmt.Errorf("only a rejected approval can reopen: %w", err)
+		return approvalEvidence{}, fmt.Errorf("only a rejected approval can reopen: %w", err)
 	}
 	if err := e.validate(); err != nil {
-		return ApprovalEvidence{}, err
+		return approvalEvidence{}, err
 	}
 	next := e.clone()
 	if e.Withdrawal != nil {
@@ -381,17 +381,17 @@ func (e ApprovalEvidence) reopen(status StepState) (ApprovalEvidence, error) {
 	return next, nil
 }
 
-func (e ApprovalEvidence) withdraw(status StepState, cfg ApprovalConfig, withdrawal ApprovalWithdrawal) (ApprovalEvidence, StepState, error) {
+func (e approvalEvidence) withdraw(status StepState, cfg ApprovalConfig, withdrawal ApprovalWithdrawal) (approvalEvidence, StepState, error) {
 	nextState, err := status.transition(moveStepWithdraw, StatusFail)
 	if err != nil {
-		return ApprovalEvidence{}, 0, err
+		return approvalEvidence{}, 0, err
 	}
 	if err := withdrawal.validate(); err != nil {
-		return ApprovalEvidence{}, 0, err
+		return approvalEvidence{}, 0, err
 	}
 	cfg, approvals, err := e.openRound(cfg)
 	if err != nil {
-		return ApprovalEvidence{}, 0, err
+		return approvalEvidence{}, 0, err
 	}
 	next := e.clone()
 	next.Withdrawal = &withdrawal
@@ -402,7 +402,7 @@ func (e ApprovalEvidence) withdraw(status StepState, cfg ApprovalConfig, withdra
 
 // Current votes and the step lifecycle define an open round. The top-level
 // closing vote is a display summary, not a second source of lifecycle authority.
-func (e ApprovalEvidence) openRound(cfg ApprovalConfig) (ApprovalConfig, int, error) {
+func (e approvalEvidence) openRound(cfg ApprovalConfig) (ApprovalConfig, int, error) {
 	if err := e.validate(); err != nil {
 		return cfg, 0, err
 	}

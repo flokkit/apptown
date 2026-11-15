@@ -36,12 +36,12 @@ type JanitorView struct {
 }
 
 func (h Janitor) List(w http.ResponseWriter, r *http.Request) {
-	projects, err := h.work.JanitorProjects(r.Context())
+	projects, rules, err := h.work.JanitorProjects(r.Context())
 	if err != nil {
 		WriteFault(w, err)
 		return
 	}
-	rules, err := h.standing.JanitorRules(r.Context())
+	schedules, err := h.schedules.ForJanitor(r.Context(), projects, h.now())
 	if err != nil {
 		WriteFault(w, err)
 		return
@@ -50,17 +50,7 @@ func (h Janitor) List(w http.ResponseWriter, r *http.Request) {
 	ids := make([]ids.ID, 0, len(projects))
 	for _, p := range projects {
 		ids = append(ids, p.ProjectID)
-		project, err := h.schedules.Projects.ByID(r.Context(), p.ProjectID)
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		schedules, err := h.schedules.ForJanitor(r.Context(), project, h.now())
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		row := JanitorProject{JanitorProject: p, JanitorSchedule: schedules.Janitor()}
+		row := JanitorProject{JanitorProject: p, JanitorSchedule: schedules[p.ProjectID].Janitor()}
 		rows = append(rows, row)
 	}
 	deployments, err := h.releases.JanitorDeployments(r.Context(), ids)

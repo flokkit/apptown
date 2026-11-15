@@ -27,8 +27,9 @@ import (
 )
 
 type requestAuthority struct {
-	deny error
-	seen []access.Permission
+	visible []ids.ID
+	deny    error
+	seen    []access.Permission
 }
 
 func (a *requestAuthority) Require(_ context.Context, p access.Permission) (access.Caller, error) {
@@ -602,4 +603,8 @@ func TestExecuteReleaseInterruptedPreparationSettlesFailure(t *testing.T) {
 		t.Fatalf("interrupted release: %s", r.State)
 	}
 	wantN(t, "attempts", attemptsIn(t, s.db), 0)
+}
+
+func (a *requestAuthority) VisibleProjects(context.Context, access.Capability) ([]ids.ID, error) {
+	return a.visible, a.deny
 }

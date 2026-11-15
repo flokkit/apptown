@@ -25,7 +25,14 @@ import (
 // A failure belongs to one pool and its transactions, never to the process.
 // Tests arm the next matching statement; production leaves the slot empty.
 // Compare-and-swap makes "next" mean exactly once even for concurrent callers.
-type statementFault struct{ next atomic.Pointer[pendingFault] }
+type statementFault struct {
+	next     atomic.Pointer[pendingFault]
+	observer atomic.Pointer[statementObserver]
+}
+type statementObserver struct {
+	fragment string
+	observe  func([]any)
+}
 
 // pendingFault fails the first statement containing fragment after skip
 // earlier matching statements have run.
@@ -38,8 +45,11 @@ type pendingFault struct {
 
 var ErrInjectedFailure = fmt.Errorf("injected statement failure")
 
-func (f *statementFault) check(query string) error {
+func (f *statementFault) check(query string, args ...any) error {
 	if f != nil {
+		if observer := f.observer.Load(); observer != nil && strings.Contains(query, observer.fragment) {
+			observer.observe(args)
+		}
 		if next := f.next.Load(); next != nil && next.fragment != "" && strings.Contains(query, next.fragment) && next.skip.Add(-1) < 0 {
 			if next.more.Add(-1) >= 0 || f.next.CompareAndSwap(next, nil) {
 				return ErrInjectedFailure
@@ -371,4 +381,20 @@ func (d *DB) FailStatementAfter(fragment string, skip int) func() {
 	fault.skip.Store(int64(skip))
 	d.faults.next.Store(fault)
 	return func() { d.faults.next.CompareAndSwap(fault, nil) }
+}
+
+// ObserveStatements installs a test observer on this pool and its transactions.
+// The callback runs synchronously and must be safe for concurrent statements.
+// Production leaves the observer empty, like statement failure injection.
+func (d *DB) ObserveStatements(fragment string, observe func([]any)) func() {
+	observer := &statementObserver{fragment: fragment, observe: observe}
+	d.faults.observer.Store(observer)
+	return func() { d.faults.observer.CompareAndSwap(observer, nil) }
+}
+
+// CountStatements counts matching statements until stop, for query shape tests.
+func (d *DB) CountStatements(fragment string) (count func() int, stop func()) {
+	var n atomic.Int64
+	stop = d.ObserveStatements(fragment, func([]any) { n.Add(1) })
+	return func() int { return int(n.Load()) }, stop
 }

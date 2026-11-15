@@ -53,7 +53,7 @@ func TestReviewIncompleteSourceCannotClassifyRunningFindings(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			got, err := s.LatestMainScans(t.Context(), ch.ProjectID)
+			got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -76,7 +76,7 @@ func TestReviewIncompleteSourceCannotClassifyRunningFindings(t *testing.T) {
 			} else {
 				settle()
 			}
-			got, err = s.LatestMainScans(t.Context(), ch.ProjectID)
+			got, err = s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -90,7 +90,7 @@ func TestReviewIncompleteSourceCannotClassifyRunningFindings(t *testing.T) {
 			} else {
 				record()
 			}
-			got, err = s.LatestMainScans(t.Context(), ch.ProjectID)
+			got, err = s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -114,7 +114,7 @@ func TestReviewSourceWithNothingToJudgeIsNotKnown(t *testing.T) {
 		{RunID: idstest.N(92), Subject: conformance.ScanSubject{On: "source", Commit: gittest.Run(t, repo, "rev-parse", "HEAD")}, Scanner: "osv", Verdict: "error", Reason: "osv found nothing to judge", ObservedAt: now},
 		{RunID: idstest.N(93), Subject: conformance.ScanSubject{On: "running", DeploymentID: dep, BundleID: bundle, Part: "web", Digest: "digest-a"}, Scanner: "trivy", Verdict: "fail", ObservedAt: now, Findings: []conformance.Finding{finding}},
 	})
-	got, err := s.LatestMainScans(t.Context(), ch.ProjectID)
+	got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

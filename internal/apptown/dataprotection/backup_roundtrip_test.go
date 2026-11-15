@@ -50,7 +50,7 @@ func backupWorldFor(t *testing.T, purpose project.Purpose, slug string, port int
 	client := newDockerFake()
 	// Restores run through the operations ledger, as bls, whose grants
 	// the test may change.
-	who := &grants{who: "bls", deny: map[string]bool{}}
+	who := &grants{who: "bls", deny: map[string]bool{}, visible: []ids.ID{pid}}
 	ops := operations.New(db, who, who, nil)
 	s := assembled(db, testRuntime{Scope: docker.Scope{Client: client}, Probe: &docker.Probe{Settle: time.Millisecond}, DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), ChownImage: "test-helper", BuiltInTarget: "local", Operations: ops}, deployment.Dependencies{Authority: who, Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
 	target, err := s.Targets.Put(context.Background(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
@@ -335,7 +335,8 @@ func TestRestoreBackup(t *testing.T) {
 	}
 	// The restore stopped and started the app: readings begun before it ended
 	// cannot witness the deployment's parts.
-	rows, err := s.deploymentOwner.Operational(context.Background(), pid)
+	byProject, err := s.deploymentOwner.Operational(context.Background(), []ids.ID{pid})
+	rows := byProject[pid]
 	if err != nil || len(rows) != 1 || rows[0].LastActAt.Before(beforeRestore) {
 		t.Fatalf("the restore recorded no act on its deployment: %+v %v", rows, err)
 	}

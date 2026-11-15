@@ -1539,33 +1539,6 @@ func (q *Queries) PriorReviewBefore(ctx context.Context, arg PriorReviewBeforePa
 	return i, err
 }
 
-const projectScanObservations = `-- name: ProjectScanObservations :many
-SELECT receipt FROM scan_observations WHERE project_id=$1 ORDER BY observed_at DESC, id DESC
-`
-
-func (q *Queries) ProjectScanObservations(ctx context.Context, projectID ids.ID) ([]json.RawMessage, error) {
-	rows, err := q.db.QueryContext(ctx, projectScanObservations, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []json.RawMessage
-	for rows.Next() {
-		var receipt json.RawMessage
-		if err := rows.Scan(&receipt); err != nil {
-			return nil, err
-		}
-		items = append(items, receipt)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const recentWhatIfs = `-- name: RecentWhatIfs :many
 SELECT id, pack, pack_version, requested_by, requested_by_principal, requested_by_via, state, detail, projects_total, projects_done, created_at, finished_at, rubrics, spend_limit_micros, cost_micros, incomplete, projects, advance_workflows, also_packs, rule_id, rule_revision FROM what_if_reviews ORDER BY id DESC LIMIT $1
 `
@@ -1931,6 +1904,79 @@ func (q *Queries) ReviewsTouchingProject(ctx context.Context, arg ReviewsTouchin
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const scanObservationHeads = `-- name: ScanObservationHeads :many
+SELECT id, run_id, subject, scanner, observed_at FROM scan_observations WHERE project_id=$1 ORDER BY observed_at DESC, id DESC
+`
+
+type ScanObservationHeadsRow struct {
+	ID         ids.ID
+	RunID      ids.ID
+	Subject    string
+	Scanner    string
+	ObservedAt time.Time
+}
+
+func (q *Queries) ScanObservationHeads(ctx context.Context, projectID ids.ID) ([]ScanObservationHeadsRow, error) {
+	rows, err := q.db.QueryContext(ctx, scanObservationHeads, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ScanObservationHeadsRow
+	for rows.Next() {
+		var i ScanObservationHeadsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.RunID,
+			&i.Subject,
+			&i.Scanner,
+			&i.ObservedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const scanObservationsByID = `-- name: ScanObservationsByID :many
+SELECT receipt FROM scan_observations WHERE project_id=$1 AND id=ANY($2::uuid[]) ORDER BY observed_at DESC, id DESC
+`
+
+type ScanObservationsByIDParams struct {
+	ProjectID ids.ID
+	Ids       []ids.ID
+}
+
+func (q *Queries) ScanObservationsByID(ctx context.Context, arg ScanObservationsByIDParams) ([]json.RawMessage, error) {
+	rows, err := q.db.QueryContext(ctx, scanObservationsByID, arg.ProjectID, pq.Array(arg.Ids))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []json.RawMessage
+	for rows.Next() {
+		var receipt json.RawMessage
+		if err := rows.Scan(&receipt); err != nil {
+			return nil, err
+		}
+		items = append(items, receipt)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

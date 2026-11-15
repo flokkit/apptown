@@ -18,7 +18,8 @@ import (
 // janitorDefinitions reads the project's adopted procedures, never the latest
 // stock copy. It has no execution or admission operation.
 type janitorDefinitions interface {
-	AdoptedWorkflows(context.Context, adoption.Source) ([]adoption.AdoptedWorkflow, error)
+	ScheduledWorkflowNames(context.Context, ids.ID) (map[string]bool, error)
+	AdoptedWorkflows(context.Context, adoption.Source, ...string) ([]adoption.AdoptedWorkflow, error)
 }
 
 type janitorChoice struct {
@@ -44,7 +45,16 @@ type janitorState struct {
 	Help    string `json:"help"`
 }
 
+// ProcedureFacts is the adoption read shared by queue, scan and schedule reads.
+// It carries observations only, never authority for a later command.
+type ProcedureFacts struct {
+	Scheduled map[string]bool
+	Receipt   *adoption.RecordedRevision
+	Workflows []adoption.AdoptedWorkflow
+}
+
 type JanitorProject struct {
+	Facts          ProcedureFacts     `json:"-"`
 	State          janitorState       `json:"state"`
 	ProjectID      ids.ID             `json:"projectId"`
 	Slug           string             `json:"slug"`
@@ -55,15 +65,15 @@ type JanitorProject struct {
 	Issuer         access.Actor       `json:"issuer"`
 	GrantedAt      time.Time          `json:"grantedAt"`
 	Queues         []QueueStatus      `json:"queues"`
-	Scans          JanitorScans       `json:"scans"`
+	Scans          janitorScans       `json:"scans"`
 	Problem        string             `json:"problem"`
 	Procedures     []janitorProcedure `json:"procedures"`
 	QueueSentences []string           `json:"queueSentences"`
 }
 
-// JanitorRules is the read-only home for consent. Managing consent still uses
+// janitorRules is the read-only home for consent. Managing consent still uses
 // Preview, Enable and Disable, with their existing verified-person checks.
-func (s StandingRules) JanitorRules(ctx context.Context) ([]StandingRevision, error) {
+func (s StandingRules) janitorRules(ctx context.Context) ([]StandingRevision, error) {
 	if err := s.require(ctx, access.CapProjectRead, access.Resource{Type: "instance"}); err != nil {
 		return nil, err
 	}
@@ -111,28 +121,28 @@ func ruleCovers(rule StandingRevision, pid ids.ID) bool {
 // scan owners used by the project view. A failed scan or eligibility read stays
 // unknown on its row; a database failure in queue or consent reads fails the
 // read as a whole.
-func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, error) {
+func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, []StandingRevision, error) {
 	visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	labels, err := workflowsql.New(s.db.SQL()).JanitorProjectLabels(ctx, visible)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	rules, err := s.standing.JanitorRules(ctx)
+	rules, err := s.standing.janitorRules(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	choices, err := workflowsql.New(s.db.SQL()).JanitorProjectChoices(ctx, visible)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	byProject := map[ids.ID]janitorChoice{}
 	for _, row := range choices {
 		var c janitorChoice
 		if err := json.Unmarshal(row.RecordJson, &c); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		byProject[row.ProjectID] = c
 	}
@@ -153,15 +163,17 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, error)
 			item.Choice = &choice
 			item.Level = choice.Level
 		}
-		definitions, err := s.adoptedProcedures(ctx, p.ID)
+		facts, err := s.procedureFacts(ctx, p.ID)
+		definitions := parseProcedures(facts)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		item.Queues, err = s.queues(ctx, p.ID, definitions)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		scans, err := s.LatestMainScans(ctx, p.ID)
+		item.Facts = facts
+		scans, err := s.latestMainScans(ctx, p.ID, 0, func() (bool, error) { return s.scanSchedules.ScansSourceFrom(ctx, p.ID, facts) })
 		if err != nil {
 			item.Problem = err.Error()
 			scans = MainScans{Reason: err.Error()}
@@ -172,7 +184,7 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, error)
 		item.Scans = scans.janitorSummary()
 		out = append(out, item)
 	}
-	return out, nil
+	return out, rules, nil
 }
 
 // These are the only templates for queue policy on the janitor page. The stop
@@ -205,32 +217,42 @@ type adoptedProcedure struct {
 	problem string
 }
 
-func (s *Service) adoptedProcedures(ctx context.Context, pid ids.ID) ([]adoptedProcedure, error) {
+func (s *Service) procedureFacts(ctx context.Context, pid ids.ID) (ProcedureFacts, error) {
 	receipt, err := adoption.CurrentReceiptIn(ctx, s.db, pid)
 	if _, err := database.Lookup(err); err != nil || receipt == nil {
-		return nil, err
+		return ProcedureFacts{}, err
 	}
 	if s.janitorDefinitions == nil {
-		return nil, fmt.Errorf("procedure observations are unavailable")
+		return ProcedureFacts{}, fmt.Errorf("procedure observations are unavailable")
 	}
-	var out []adoptedProcedure
-	items, err := s.janitorDefinitions.AdoptedWorkflows(ctx, adoption.Source{ProjectID: pid, Revision: receipt})
+	scheduled, err := s.janitorDefinitions.ScheduledWorkflowNames(ctx, pid)
 	if err != nil {
-		return nil, err
+		return ProcedureFacts{}, err
 	}
-	for _, wf := range items {
-		version, body, err := wf.Version, wf.YAML, wf.Err
+	items, err := s.janitorDefinitions.AdoptedWorkflows(ctx, adoption.Source{ProjectID: pid, Revision: receipt})
+	return ProcedureFacts{Receipt: receipt, Workflows: items, Scheduled: scheduled}, err
+}
+
+func (s *Service) adoptedProcedures(ctx context.Context, pid ids.ID) ([]adoptedProcedure, error) {
+	facts, err := s.procedureFacts(ctx, pid)
+	return parseProcedures(facts), err
+}
+
+func parseProcedures(facts ProcedureFacts) []adoptedProcedure {
+	var out []adoptedProcedure
+	for _, wf := range facts.Workflows {
 		var doc *schema.Doc
+		err := wf.Err
 		if err == nil {
-			doc, err = schema.ParseWorkflowStored([]byte(body))
+			doc, err = schema.ParseWorkflowStored([]byte(wf.YAML))
 		}
-		item := adoptedProcedure{name: wf.Name, version: version, doc: doc}
+		item := adoptedProcedure{name: wf.Name, version: wf.Version, doc: doc}
 		if err != nil {
 			item.problem = err.Error()
 		}
 		out = append(out, item)
 	}
-	return out, nil
+	return out
 }
 
 func janitorProcedures(p *JanitorProject, definitions []adoptedProcedure) {
@@ -311,11 +333,74 @@ func janitorProjectState(p JanitorProject, scans MainScans) janitorState {
 	return state
 }
 
-// JanitorReaches uses the same ordinary, active project set as the Janitor page.
-func (s *Service) JanitorReaches(ctx context.Context, id ids.ID) (bool, error) {
-	if _, err := s.require(ctx, operationPermission{Action: actionReadProject, ProjectID: id}); err != nil {
-		return false, err
+// ScanAttentionProject contains project-read facts for one Attention source.
+// Err leaves this project's source unknown without losing other observations.
+type ScanAttentionProject struct {
+	ProjectID  ids.ID
+	Name, Slug string
+	Reaches    bool
+	Scans      MainScans
+	Queues     []QueueStatus
+	Err        error
+}
+
+// ScanAttention intersects requested IDs with its own project-read decision.
+// Deployment visibility supplied by another owner is never project authority.
+func (s *Service) ScanAttention(ctx context.Context, requested []ids.ID) ([]ScanAttentionProject, error) {
+	visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
+	if err != nil {
+		return nil, err
 	}
-	labels, err := workflowsql.New(s.db.SQL()).JanitorProjectLabels(ctx, []ids.ID{id})
-	return len(labels) != 0, err
+	allowed := map[ids.ID]bool{}
+	for _, id := range visible {
+		allowed[id] = true
+	}
+	selected := []ids.ID{}
+	for _, id := range requested {
+		if allowed[id] {
+			selected = append(selected, id)
+			delete(allowed, id)
+		}
+	}
+	labels, err := workflowsql.New(s.db.SQL()).JanitorProjectLabels(ctx, selected)
+	if err != nil {
+		out := make([]ScanAttentionProject, 0, len(selected))
+		for _, id := range selected {
+			out = append(out, ScanAttentionProject{ProjectID: id, Err: err})
+		}
+		return out, nil
+	}
+	out := []ScanAttentionProject{}
+	for _, id := range selected {
+		item := ScanAttentionProject{ProjectID: id}
+		for _, p := range labels {
+			if p.ID == id {
+				item.Reaches = true
+				item.Name = p.Name
+				item.Slug = p.Slug
+				break
+			}
+		}
+		if item.Reaches {
+			facts, err := s.procedureFacts(ctx, id)
+			definitions := parseProcedures(facts)
+			if err == nil {
+				for _, d := range definitions {
+					if d.problem != "" {
+						err = fmt.Errorf("workflow %q: %s", d.name, d.problem)
+						break
+					}
+				}
+			}
+			if err == nil {
+				item.Queues, err = s.queues(ctx, id, definitions)
+			}
+			if err == nil {
+				item.Scans, err = s.latestMainScans(ctx, id, 0, func() (bool, error) { return s.scanSchedules.ScansSourceFrom(ctx, id, facts) })
+			}
+			item.Err = err
+		}
+		out = append(out, item)
+	}
+	return out, nil
 }

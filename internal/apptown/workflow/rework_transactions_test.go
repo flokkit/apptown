@@ -197,7 +197,7 @@ func TestWorkflowReworkRejectionHistoryAndConcurrentVotes(t *testing.T) {
 	// sql-guarantee: isolate vote history after the external review has passed.
 	transitionStoredStepForTest(t, s.db, review, StatusPass)
 	people(t, s.db, "alice", "bob", "carol")
-	cast := func(who string, decision ApprovalDecision, comment string) error {
+	cast := func(who string, decision approvalDecision, comment string) error {
 		service := newService(s.db, authorityFunc(func(context.Context, operationPermission) (string, error) { return who, nil }), Runtime{})
 		_, err := service.Approve(context.Background(), Approval{StepID: approval, Decision: decision, Comment: comment})
 		return err
@@ -249,7 +249,7 @@ func TestWorkflowReworkRejectionHistoryAndConcurrentVotes(t *testing.T) {
 	}
 	gate := storedStep(t, s.db, approval)
 	raw := string(gate.Evidence)
-	var evidence ApprovalEvidence
+	var evidence approvalEvidence
 	if err := json.Unmarshal(gate.Evidence, &evidence); err != nil {
 		t.Fatal(err)
 	}

@@ -76,14 +76,44 @@ func RecordScanObservationIn(ctx context.Context, tx *database.Tx, o ScanObserva
 	return conformancesql.New(tx.SQL()).RecordScanObservation(ctx, conformancesql.RecordScanObservationParams{ID: o.ID, ProjectID: o.ProjectID, ChangeID: o.ChangeID, RunID: o.RunID, StepID: o.StepID, Attempt: o.Attempt, Subject: string(subject), Scanner: o.Scanner, ObservedAt: o.ObservedAt, Receipt: body})
 }
 
-// ScanObservationsIn is retained evidence, newest first. The caller authorizes
-// the surrounding project read. A historical subject never becomes a new one.
-func ScanObservationsIn(ctx context.Context, db database.Queryer, project ids.ID) ([]ScanObservation, error) {
-	rows, err := conformancesql.New(db.SQL()).ProjectScanObservations(ctx, project)
+// ScanHead carries selection facts without decoding retained receipts.
+type ScanHead struct {
+	ID         ids.ID
+	RunID      ids.ID
+	Subject    ScanSubject
+	Scanner    string
+	ObservedAt time.Time
+}
+
+// ScanObservationHeadsIn returns selection facts newest first. The surrounding
+// owner authorizes the project read.
+func ScanObservationHeadsIn(ctx context.Context, db database.Queryer, project ids.ID) ([]ScanHead, error) {
+	rows, err := conformancesql.New(db.SQL()).ScanObservationHeads(ctx, project)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ScanObservation, 0, len(rows))
+	out := make([]ScanHead, 0, len(rows))
+	for _, r := range rows {
+		o := ScanHead{ID: r.ID, RunID: r.RunID, Scanner: r.Scanner, ObservedAt: r.ObservedAt}
+		if err := json.Unmarshal([]byte(r.Subject), &o.Subject); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, nil
+}
+
+// ScanObservationsByIDIn loads only the requested project's selected receipts,
+// ordered by observed_at DESC, id DESC. Empty selection reads no receipts.
+func ScanObservationsByIDIn(ctx context.Context, db database.Queryer, project ids.ID, selected []ids.ID) ([]ScanObservation, error) {
+	out := []ScanObservation{}
+	if len(selected) == 0 {
+		return out, nil
+	}
+	rows, err := conformancesql.New(db.SQL()).ScanObservationsByID(ctx, conformancesql.ScanObservationsByIDParams{ProjectID: project, Ids: selected})
+	if err != nil {
+		return nil, err
+	}
 	for _, body := range rows {
 		var o ScanObservation
 		if err := json.Unmarshal(body, &o); err != nil {

@@ -314,8 +314,11 @@ INSERT INTO scan_observations (id, project_id, change_id, run_id, step_id, attem
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 ON CONFLICT (step_id, attempt, subject, scanner) DO NOTHING;
 
--- name: ProjectScanObservations :many
-SELECT receipt FROM scan_observations WHERE project_id=$1 ORDER BY observed_at DESC, id DESC;
+-- name: ScanObservationHeads :many
+SELECT id, run_id, subject, scanner, observed_at FROM scan_observations WHERE project_id=$1 ORDER BY observed_at DESC, id DESC;
+
+-- name: ScanObservationsByID :many
+SELECT receipt FROM scan_observations WHERE project_id=$1 AND id=ANY(sqlc.arg(ids)::uuid[]) ORDER BY observed_at DESC, id DESC;
 
 -- name: RetainsAutomatedWork :one
 SELECT EXISTS(SELECT 1 WHERE EXISTS(SELECT 1 FROM conformance_reviews WHERE source_run=ANY(sqlc.arg(run_ids)::uuid[])) OR EXISTS(SELECT 1 FROM conformance_fixes WHERE change_ids_json @> jsonb_build_array(sqlc.arg(change_id)::uuid::text)));

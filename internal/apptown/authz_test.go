@@ -1157,3 +1157,12 @@ func TestHoldingsReportTheActsTheWebOffers(t *testing.T) {
 		}
 	}
 }
+
+func (s *attentionProjectEvidence) Snapshot(ctx context.Context, projects []ids.ID) (map[ids.ID]attention.ScanSnapshot, error) {
+	out := map[ids.ID]attention.ScanSnapshot{}
+	for _, id := range projects {
+		snap, err := s.ProjectSnapshot(ctx, id)
+		out[id] = attention.ScanSnapshot{Snapshot: snap, Err: err}
+	}
+	return out, nil
+}

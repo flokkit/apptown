@@ -6,8 +6,6 @@ import (
 	"fmt"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
-	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
@@ -19,42 +17,41 @@ import (
 // fallback workflow from failed selection or reuse accept-in-advance sentences.
 type StandingProcedures struct {
 	Adoptions *adoption.Service
-	Lanes     *projectlifecycle.Service
 	Laws      workflow.LawRules
 }
 
-func (s StandingProcedures) StandingProcedure(ctx context.Context, q database.Queryer, id ids.ID, name string) (workflow.StandingProcedure, error) {
-	var out workflow.StandingProcedure
-	if s.Lanes == nil || s.Laws == nil {
-		return out, fault.New(fault.Unavailable, "standing workflow observation is unavailable")
+// StandingProcedures reads adoption, versions and law once for the project.
+func (s StandingProcedures) StandingProcedures(ctx context.Context, q database.Queryer, id ids.ID, names []string) (map[string]workflow.StandingProcedureResult, error) {
+	if s.Adoptions == nil || s.Laws == nil {
+		return nil, fault.New(fault.Unavailable, "standing workflow observation is unavailable")
 	}
-	p, err := project.ByIDIn(ctx, q, id)
+	receipt, err := adoption.CurrentReceiptIn(ctx, q, id)
+	if _, err := database.Lookup(err); err != nil {
+		return nil, err
+	}
+	policies, err := adoption.ReadWorkflowPoliciesIn(ctx, q, id)
 	if err != nil {
-		return out, err
+		return nil, err
 	}
-	working, err := s.Lanes.ResolveWorkflow(ctx, &p, name)
-	if err != nil {
-		return out, err
-	}
-	landing, err := s.Lanes.ResolveWorkflow(ctx, &p, "land")
-	if err != nil {
-		return out, err
-	}
-	for _, w := range []*adoption.ResolvedWorkflow{working, landing} {
-		violations, err := s.Laws.ViolationsIn(ctx, q, id, &w.Doc.Spec)
-		if err != nil {
-			return out, err
+	source := adoption.Source{ProjectID: id, Revision: receipt}
+	resolved := s.Adoptions.Workflows(ctx, source, append(append([]string{}, names...), "land"), policies)
+	out := map[string]workflow.StandingProcedureResult{}
+	landing := resolved[len(resolved)-1]
+	for i, name := range names {
+		var proc workflow.StandingProcedure
+		err := resolved[i].Err
+		if err == nil {
+			proc.Acceptance, err = standingPurpose(resolved[i].Workflow, true)
 		}
-		if len(violations) > 0 {
-			return out, fault.New(fault.Conflict, "the selected workflow does not satisfy current project law")
+		if err == nil {
+			err = landing.Err
 		}
+		if err == nil {
+			proc.Landing, err = standingPurpose(landing.Workflow, false)
+		}
+		out[name] = workflow.StandingProcedureResult{Procedure: proc, Err: err}
 	}
-	out.Acceptance, err = standingPurpose(working, true)
-	if err != nil {
-		return out, err
-	}
-	out.Landing, err = standingPurpose(landing, false)
-	return out, err
+	return out, nil
 }
 func standingPurpose(w *adoption.ResolvedWorkflow, working bool) (workflow.StandingPurpose, error) {
 	var out workflow.StandingPurpose

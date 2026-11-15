@@ -75,7 +75,7 @@ func (p Portfolio) StandingPortfolio(ctx context.Context, q database.Queryer, _ 
 		}
 		if p.Work != nil {
 			readCtx := access.WithCaller(ctx, access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "engine", ProjectID: item.ID}, Verified: true})
-			scans, err := p.Work.LatestMainScans(readCtx, item.ID)
+			scans, err := p.Work.LatestMainScans(readCtx, item.ID, 0)
 			if err != nil {
 				return nil, err
 			}

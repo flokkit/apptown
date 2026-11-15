@@ -54,11 +54,11 @@ type failingQueueDefinition struct {
 	fail bool
 }
 
-func (d *failingQueueDefinition) AdoptedWorkflows(ctx context.Context, source adoption.Source) ([]adoption.AdoptedWorkflow, error) {
+func (d *failingQueueDefinition) AdoptedWorkflows(ctx context.Context, source adoption.Source, names ...string) ([]adoption.AdoptedWorkflow, error) {
 	if d.fail {
 		return []adoption.AdoptedWorkflow{{Name: "clock", Err: fmt.Errorf("workflow definition unavailable")}}, nil
 	}
-	return d.Service.AdoptedWorkflows(ctx, source)
+	return d.Service.AdoptedWorkflows(ctx, source, names...)
 }
 
 // Queue enumeration must distinguish an unreadable adoption from a readable
@@ -79,10 +79,10 @@ func TestQueueDefinitionFailureStaysUnknownForCallers(t *testing.T) {
 	if queues, err := work.Queues(w.engine, w.project.ID); err == nil || !strings.Contains(err.Error(), "workflow definition unavailable") {
 		t.Errorf("definition failure returned successful queues: %+v %v", queues, err)
 	}
-	if snapshot, err := (attention.Scans{Work: work, Projects: w.schedules.Projects}).ProjectSnapshot(w.engine, w.project.ID); err == nil || !strings.Contains(err.Error(), "workflow definition unavailable") {
+	if snapshot, err := readScanSnapshot(attention.Scans{Work: work}, w.engine, w.project.ID); err == nil || !strings.Contains(err.Error(), "workflow definition unavailable") {
 		t.Errorf("attention lost definition failure: %+v %v", snapshot, err)
 	}
-	rows, err := work.JanitorProjects(w.engine)
+	rows, _, err := work.JanitorProjects(w.engine)
 	if err != nil || len(rows) != 1 || rows[0].ProjectID != w.project.ID || !strings.Contains(rows[0].Problem, "workflow definition unavailable") {
 		t.Fatalf("portfolio must keep unknown on the project row: %+v %v", rows, err)
 	}

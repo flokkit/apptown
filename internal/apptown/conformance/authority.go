@@ -38,7 +38,7 @@ type systemScope struct {
 	run          RunScope
 	verification verificationScope
 	adoption     AdoptionScope
-	packs        PackReviewScope
+	packs        packReviewScope
 }
 
 func WithRun(ctx context.Context, run RunScope) context.Context {
@@ -82,6 +82,22 @@ func (a commandAuthority) Require(ctx context.Context, permission permission) (s
 	who, err := a.Actor(ctx)
 	if err != nil {
 		return "", err
+	}
+	if permission.Action == readProject && permission.Projects != nil {
+		visible, err := a.visibleProjects(ctx)
+		if err != nil {
+			return "", err
+		}
+		allowed := map[ids.ID]bool{}
+		for _, id := range visible {
+			allowed[id] = true
+		}
+		for _, id := range permission.Projects {
+			if !allowed[id] {
+				return "", &access.Denied{Code: access.DenyOutsideScope, Reason: "this project is outside the readable conformance selection"}
+			}
+		}
+		return who, nil
 	}
 	caller, _ := ctx.Value(scopeKey{}).(systemScope)
 	deny := func(reason string) (string, error) {
@@ -181,9 +197,35 @@ func (a commandAuthority) Require(ctx context.Context, permission permission) (s
 	return who, nil
 }
 
-// PackReviewScope is the standing owner's current human authority for a pack assessment.
-type PackReviewScope interface{ RequirePackReview(context.Context) error }
+// packReviewScope is the standing owner's current human authority for a pack assessment.
+type packReviewScope interface{ RequirePackReview(context.Context) error }
 
-func WithPackReview(ctx context.Context, scope PackReviewScope) context.Context {
+func WithPackReview(ctx context.Context, scope packReviewScope) context.Context {
 	return context.WithValue(ctx, scopeKey{}, systemScope{packs: scope})
+}
+
+// VisibleProjects uses the same capability and scoped read bounds as Require.
+func (a commandAuthority) visibleProjects(ctx context.Context) ([]ids.ID, error) {
+	if _, err := a.Actor(ctx); err != nil {
+		return nil, err
+	}
+	scope, _ := ctx.Value(scopeKey{}).(systemScope)
+	if scope.run != nil {
+		id, err := scope.run.ProjectID(ctx)
+		return []ids.ID{id}, err
+	}
+	if scope.verification != nil {
+		if err := scope.verification.RequireRead(ctx); err != nil {
+			return nil, err
+		}
+		return []ids.ID{scope.verification.ProjectID()}, nil
+	}
+	if scope.adoption != nil || scope.packs != nil {
+		return nil, &access.Denied{Code: access.DenyOutsideScope, Reason: "this scope cannot read conformance"}
+	}
+	reader, ok := a.checked.(access.ReadAuthorizer)
+	if !ok {
+		return nil, access.ErrAuthorityUnavailable
+	}
+	return reader.VisibleProjects(ctx, access.CapConformanceRead)
 }

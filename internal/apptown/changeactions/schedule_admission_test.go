@@ -101,7 +101,7 @@ spec:
 				t.Fatalf("queues %+v %v", queues, err)
 			}
 			if state == "stopped" {
-				snapshot, err := (attention.Scans{Work: w.work, Projects: w.schedules.Projects}).ProjectSnapshot(human, w.project.ID)
+				snapshot, err := readScanSnapshot(attention.Scans{Work: w.work}, human, w.project.ID)
 				if err != nil {
 					t.Fatal(err)
 				}

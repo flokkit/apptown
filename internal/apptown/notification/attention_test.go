@@ -33,10 +33,6 @@ type runtimeEvidence struct {
 	rows []deployment.OperationalObservation
 }
 
-func (r *runtimeEvidence) Operational(context.Context, ids.ID) ([]deployment.OperationalObservation, error) {
-	return r.rows, nil
-}
-
 type protectedDeployment struct{}
 
 func (protectedDeployment) ForProject(context.Context, ids.ID) ([]*deployment.Deployment, error) {
@@ -126,4 +122,12 @@ func TestRestartWithPreActRuntimeReadingCannotResolve(t *testing.T) {
 	if !strings.Contains(string(rs[0].Body), "https://apps.example/") {
 		t.Fatal("public origin missing from notice")
 	}
+}
+
+func (r *runtimeEvidence) Operational(ctx context.Context, projects []ids.ID) (map[ids.ID][]deployment.OperationalObservation, error) {
+	out := map[ids.ID][]deployment.OperationalObservation{}
+	for _, id := range projects {
+		out[id] = r.rows
+	}
+	return out, nil
 }

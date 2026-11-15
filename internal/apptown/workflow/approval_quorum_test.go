@@ -16,11 +16,11 @@ import (
 )
 
 // Quorum is a Work model rule; authorization policy is covered by AppTown's authority tests.
-func voteForTest(db *database.DB, id ids.ID, who string, decision ApprovalDecision, comment string) (*Step, error) {
+func voteForTest(db *database.DB, id ids.ID, who string, decision approvalDecision, comment string) (*Step, error) {
 	s := newService(db, authorityFunc(func(context.Context, operationPermission) (string, error) { return who, nil }), Runtime{})
 	return s.Approve(context.Background(), Approval{StepID: id, Decision: decision, Comment: comment})
 }
-func mustApprovalEvidence(t *testing.T, body json.RawMessage) ApprovalEvidence {
+func mustApprovalEvidence(t *testing.T, body json.RawMessage) approvalEvidence {
 	t.Helper()
 	e, err := ReadApprovalEvidence(body)
 	if err != nil {

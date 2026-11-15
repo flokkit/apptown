@@ -67,7 +67,7 @@ func (m *Merges) Merge(ctx context.Context, run *Run) (MergeResult, error) {
 		if err != nil {
 			return MergeResult{}, err
 		}
-		step, err := gate.block(ctx, MergeEvidence{Reason: observation.Refusal})
+		step, err := gate.block(ctx, mergeEvidence{Reason: observation.Refusal})
 		return MergeResult{Blocking: step}, err
 	}
 	if !observation.Merged {

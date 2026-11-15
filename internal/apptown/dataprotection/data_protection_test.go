@@ -44,6 +44,7 @@ import (
 // denies, each in one project ("deployment:restore@12") or in all
 // ("deployment:restore"); it remembers what it was asked.
 type grants struct {
+	visible    []ids.ID
 	mu         sync.Mutex
 	who        string
 	deny       map[string]bool
@@ -806,4 +807,16 @@ func TestBackupsOffSweepStartsNoCloudCopy(t *testing.T) {
 	if err != nil || receipt["copies"] != 1 {
 		t.Fatalf("enabled sweep: %+v %v", receipt, err)
 	}
+}
+
+func (g *grants) VisibleProjects(_ context.Context, capability access.Capability) ([]ids.ID, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	out := []ids.ID{}
+	for _, id := range g.visible {
+		if !g.deny[string(capability)] && !g.deny[string(capability)+"@"+id.String()] {
+			out = append(out, id)
+		}
+	}
+	return out, nil
 }

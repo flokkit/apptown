@@ -516,11 +516,11 @@ func TestSchedulesRequireDeclarationInAdoptedVersion(t *testing.T) {
 
 type scheduleStandingProcedure struct{}
 
-func (scheduleStandingProcedure) StandingProcedure(_ context.Context, _ database.Queryer, _ ids.ID, name string) (workflow.StandingProcedure, error) {
+func (scheduleStandingProcedure) standingProcedure(_ context.Context, _ database.Queryer, _ ids.ID, name string) (workflow.StandingProcedure, error) {
 	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: "the declared fix is within the bound and checks are met"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "approve", Means: "land the checked fix"}}, nil
 }
 func (p scheduleStandingProcedure) InstanceStandingProcedure(name string, _ []*adoption.ResolvedWorkflow) (workflow.StandingProcedure, error) {
-	return p.StandingProcedure(context.Background(), nil, ids.Nil, name)
+	return p.standingProcedure(context.Background(), nil, ids.Nil, name)
 }
 
 type scheduleStandingPortfolio struct{ held bool }
@@ -773,4 +773,13 @@ spec:
 
 func (p *scheduleStandingPortfolio) StandingReach(context.Context, database.Queryer, ids.ID) (workflow.StandingReach, error) {
 	return workflow.StandingReach{Repository: true}, nil
+}
+
+func (p scheduleStandingProcedure) StandingProcedures(ctx context.Context, q database.Queryer, id ids.ID, names []string) (map[string]workflow.StandingProcedureResult, error) {
+	out := map[string]workflow.StandingProcedureResult{}
+	for _, name := range names {
+		proc, err := p.standingProcedure(ctx, q, id, name)
+		out[name] = workflow.StandingProcedureResult{Procedure: proc, Err: err}
+	}
+	return out, nil
 }

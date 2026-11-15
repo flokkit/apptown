@@ -122,8 +122,11 @@ func (s StandingRules) question(ctx context.Context, q database.Queryer, in Stan
 		if admission {
 			return s.require(ctx, capability, r)
 		}
-		_, err := s.deps.Identity.StandingIssuerAllowsIn(ctx, q, actor.Principal, access.Permission{Capability: capability, Resource: r})
-		return err
+		facts, err := s.deps.Identity.StandingIssuerAllowsIn(ctx, q, actor.Principal, access.Permission{Capability: capability, Resource: r})
+		if err != nil {
+			return err
+		}
+		return facts.Allowed[0]
 	}
 	for _, p := range in.Projects {
 		if err := project.RefuseUnlessActive(ctx, q, p.ProjectID); err != nil {
@@ -140,7 +143,11 @@ func (s StandingRules) question(ctx context.Context, q database.Queryer, in Stan
 		if independent {
 			return StandingQuestion{}, fault.New(fault.Conflict, "this project's independent-approval policy requires a person to judge each change; a person approves each change instead")
 		}
-		proc, err := s.deps.Procedures.StandingProcedure(ctx, q, p.ProjectID, p.Workflow)
+		procedures, err := s.deps.Procedures.StandingProcedures(ctx, q, p.ProjectID, []string{p.Workflow})
+		proc := procedures[p.Workflow].Procedure
+		if err == nil {
+			err = procedures[p.Workflow].Err
+		}
 		if err != nil {
 			return StandingQuestion{}, err
 		}

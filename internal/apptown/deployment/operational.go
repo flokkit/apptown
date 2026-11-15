@@ -2,6 +2,8 @@ package deployment
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/fault"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -24,11 +26,44 @@ type OperationalObservation struct {
 	Hold                                  *CrashLoopHold
 }
 
-func (s *Service) Operational(ctx context.Context, projectID ids.ID) ([]OperationalObservation, error) {
-	records, err := s.authorizedListing(ctx, projectID)
+// Operational checks deployment visibility once for the entire requested set.
+func (s *Service) Operational(ctx context.Context, projects []ids.ID) (map[ids.ID][]OperationalObservation, error) {
+	authority, ok := s.authority.(access.ReadAuthorizer)
+	if !ok {
+		return nil, access.ErrAuthorityUnavailable
+	}
+	visible, err := authority.VisibleProjects(ctx, access.CapDeploymentRead)
 	if err != nil {
 		return nil, err
 	}
+	allowed := map[ids.ID]bool{}
+	for _, id := range visible {
+		allowed[id] = true
+	}
+	for _, id := range projects {
+		if !allowed[id] {
+			return nil, fault.New(fault.Forbidden, "project is not readable")
+		}
+	}
+	records, err := s.listRecords(ctx, projects)
+	if err != nil {
+		return nil, err
+	}
+	out := map[ids.ID][]OperationalObservation{}
+	for _, id := range projects {
+		out[id] = []OperationalObservation{}
+	}
+	for _, r := range records {
+		rows, err := s.operational(ctx, []listingRecord{r})
+		if err != nil {
+			return nil, err
+		}
+		out[r.deployment.ProjectID] = append(out[r.deployment.ProjectID], rows...)
+	}
+	return out, ctx.Err()
+}
+
+func (s *Service) operational(ctx context.Context, records []listingRecord) ([]OperationalObservation, error) {
 	out := make([]OperationalObservation, 0, len(records))
 	for _, r := range records {
 		d := r.deployment

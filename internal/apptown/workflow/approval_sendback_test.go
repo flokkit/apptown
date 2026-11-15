@@ -47,7 +47,7 @@ func TestApproverRejectionReturnsChatChangeWithItsFullNote(t *testing.T) {
 	if rejected.Status != StatusFail {
 		t.Fatalf("rejection changed to %s", rejected.Status)
 	}
-	var evidence ApprovalEvidence
+	var evidence approvalEvidence
 	if err := json.Unmarshal(rejected.Evidence, &evidence); err != nil {
 		t.Fatal(err)
 	}

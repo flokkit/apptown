@@ -14,9 +14,9 @@
       "file": "internal/database/query/handle.go",
       "declaration": "Handle.ExecContext",
       "text": "q",
-      "declaration_hash": "5160392a408a32da78478a753a005ad5e351ec9e29895251c173200aa10301b0",
+      "declaration_hash": "108ffe0cf6b05f7aaa00530f904b0b3d7a0277fc01519e20ea9c668e26f2446e",
       "tables": [],
-      "reason": "Checked handle forwards caller SQL through the pool or transaction executor; the database owner supplies the pool-scoped fault check and statement error formatting. Callsite literals are checked separately."
+      "reason": "Checked handle forwards caller SQL through the pool or transaction executor; the database owner supplies the pool-scoped fault check (which also sees arguments for test statement observers) and statement error formatting. Callsite literals are checked separately."
     },
     {
       "file": "internal/dbtest/suite.go",

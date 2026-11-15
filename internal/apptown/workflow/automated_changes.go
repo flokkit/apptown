@@ -51,7 +51,15 @@ func (s *Service) Attempts(ctx context.Context, project ids.ID, queue string, li
 	if err != nil {
 		return nil, err
 	}
-	observations, err := conformance.ScanObservationsIn(ctx, s.db, project)
+	heads, err := conformance.ScanObservationHeadsIn(ctx, s.db, project)
+	if err != nil {
+		return nil, err
+	}
+	selected := make([]ids.ID, 0, len(heads))
+	for _, h := range heads {
+		selected = append(selected, h.ID)
+	}
+	observations, err := conformance.ScanObservationsByIDIn(ctx, s.db, project, selected)
 	if err != nil {
 		return nil, err
 	}

@@ -11,7 +11,7 @@ import (
 
 func TestJanitorDeploymentReadShowsCurrentSettingsAndReleaseHold(t *testing.T) {
 	w, dep, base, _ := janitorReleaseWorld(t)
-	w.s.authority = &requestAuthority{}
+	w.s.authority = &requestAuthority{visible: []ids.ID{w.project}}
 	rel := requestJanitorBundle(t, w, nextJanitorBundle(t, w, base))
 	w.s.release.Sources = &requestSources{err: errors.New("cannot prepare")}
 	if err := w.s.ExecuteRelease(t.Context(), rel.ID); err == nil {
@@ -62,5 +62,15 @@ func TestJanitorDeploymentReadShowsCurrentSettingsAndReleaseHold(t *testing.T) {
 func TestJanitorProtectedReleaseSentenceUsesProtection(t *testing.T) {
 	if got := janitorReleaseSentence(RoutineUpdates{Mode: "automatic"}, true); !strings.Contains(got, "person must approve") || !strings.Contains(got, "automatically") {
 		t.Fatal(got)
+	}
+}
+
+func TestJanitorDeploymentSetRefusesAnyUnreadableProject(t *testing.T) {
+	t.Parallel()
+	s, authority, _, id := listingFixture(t, 0, absentObservation)
+	// Require would permit the request: the set must use its own visibility answer.
+	authority.projects = []ids.ID{id}
+	if _, err := s.JanitorDeployments(t.Context(), []ids.ID{id, ids.New(time.Now())}); err == nil {
+		t.Fatal("unreadable project in supplied set was trusted")
 	}
 }

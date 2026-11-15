@@ -5,12 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
@@ -103,6 +103,15 @@ func (s StandingRules) instanceQuestion(ctx context.Context, q database.Queryer,
 }
 
 func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, rule StandingRevision, pid ids.ID, workflow string, target ...ids.ID) (StandingProcedure, error) {
+	set := []ProjectWorkflows{{ProjectID: pid, Workflows: []string{workflow}}}
+	if len(target) > 0 {
+		set[0].target = target[0]
+	}
+	facts := s.standingFacts(ctx, q, []StandingRevision{rule}, set)
+	return s.judgeStanding(ctx, q, rule, pid, workflow, facts[0], facts[0].issuers[rule.Issuer.Principal])
+}
+
+func (s StandingRules) judgeStanding(ctx context.Context, q database.Queryer, rule StandingRevision, pid ids.ID, workflow string, facts standingProjectFacts, issuer standingIssuerFacts) (StandingProcedure, error) {
 	var out StandingProcedure
 	if s.deps.Identity == nil || s.deps.Procedures == nil {
 		return out, access.ErrAuthorityUnavailable
@@ -114,13 +123,18 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 	if _, err := normalizeStanding(rule.Question.Definition); err != nil {
 		return refuse("the standing approval's bounds changed; preview and confirm its current meaning")
 	}
-	if err := identity.RequireEnabledIn(ctx, q, access.Principal{Kind: "user", ID: rule.Issuer.Principal}); err != nil {
+	if err := issuer.err; err != nil {
+		var denied *access.Denied
+		if errors.Is(err, access.ErrPrincipalRequired) || errors.As(err, &denied) && denied.Code == access.DenyAccountDisabled {
+			// Eligibility's account preflight supplies only the durable principal.
+			return out, &access.Denied{Code: access.DenyAccountDisabled, Reason: "'s account is disabled or does not exist"}
+		}
 		return out, err
 	}
-	if err := project.RefuseUnlessActive(ctx, q, pid); err != nil {
+	if err := facts.activeErr; err != nil {
 		return out, err
 	}
-	level, err := s.effectiveLevelIn(ctx, q, rule.Question.Definition, pid)
+	level, err := facts.level(rule.Question.Definition)
 	if err != nil {
 		return out, err
 	}
@@ -150,35 +164,14 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 	if !selected {
 		return refuse("the workflow is outside this standing approval")
 	}
-	independent, err := workflowsql.New(q.SQL()).StandingIndependentApproval(ctx, pid)
-	if err != nil {
-		return out, err
+	if facts.independentErr != nil {
+		return out, facts.independentErr
 	}
-	if independent {
+	if facts.independent {
 		return refuse("independent approval requires a person")
 	}
-	var proc StandingProcedure
-	if in.Categories.WaysOfWorking && in.Scope == "instance" {
-		if len(target) > 0 {
-			reader, ok := s.deps.Procedures.(standingTargetProcedures)
-			if !ok {
-				return refuse("target procedure observation is unavailable")
-			}
-			proc, err = reader.StandingTargetProcedure(ctx, q, pid, target[0], workflow)
-		} else {
-			reader, ok := s.deps.Procedures.(standingInstanceProcedures)
-			if !ok || s.deps.Publications == nil {
-				return refuse("published procedure observation is unavailable")
-			}
-			library, readErr := s.deps.Publications.PublishedWorkflows(ctx, q)
-			if readErr != nil {
-				return out, readErr
-			}
-			proc, err = reader.InstanceStandingProcedure(workflow, library)
-		}
-	} else {
-		proc, err = s.deps.Procedures.StandingProcedure(ctx, q, pid, workflow)
-	}
+	selectedProcedure := facts.procedures[standingProcedureKey{rule.RuleID, workflow}]
+	proc, err := selectedProcedure.procedure, selectedProcedure.err
 	if err != nil {
 		return out, err
 	}
@@ -195,24 +188,27 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 	if !pinned {
 		return refuse("the standing approval meaning changed; a person must enable it again")
 	}
-	resource, err := project.AuthorityResourceIn(ctx, q, pid)
-	if err != nil {
-		return out, err
+	if facts.resourceErr != nil {
+		return out, facts.resourceErr
 	}
-	for _, cap := range []access.Capability{access.CapChangeApprove, access.CapChangeLand} {
-		if _, err := s.deps.Identity.StandingIssuerAllowsIn(ctx, q, rule.Issuer.Principal, access.Permission{Capability: cap, Resource: resource}); err != nil {
+	for _, err := range issuer.allowed {
+		if err != nil {
 			return out, err
 		}
 	}
+	if facts.approverErr != nil {
+		return out, facts.approverErr
+	}
+	_, root := access.RootGrant(issuer.facts.Grants)
 	for _, purpose := range []StandingPurpose{proc.Acceptance, proc.Landing} {
-		if err := requireApprover(ctx, q, operationPermission{ProjectID: pid}, purpose.Approvers, rule.Issuer.Name, rule.Issuer.Principal, s.now()); err != nil {
+		if err := judgeApprover(operationPermission{ProjectID: pid}, purpose.Approvers, rule.Issuer.Name, rule.Issuer.Principal, root, facts.approver, issuer.facts.Groups, issuer.facts.Grants); err != nil {
 			return out, err
 		}
 	}
 	if s.deps.Portfolio == nil {
 		return refuse("project coverage and release health are unavailable")
 	}
-	reach, err := s.deps.Portfolio.StandingReach(ctx, q, pid)
+	reach, err := facts.reach, facts.reachErr
 	if err != nil {
 		return out, err
 	}
@@ -243,7 +239,7 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 			}
 		}
 	}
-	hold, err := s.deps.Portfolio.StandingHold(ctx, q, pid)
+	hold, err := facts.hold, facts.holdErr
 	if err != nil {
 		return out, err
 	}
@@ -253,52 +249,82 @@ func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, ru
 	return proc, nil
 }
 
-// StandingForWorkflow is the scheduler's current eligibility read. The returned
-// revision is attribution for this firing; it is never an acceptance vote.
-// The level belongs to the eligible rule. A refusal describes the first
-// covered rule when none is eligible; errors mean eligibility is unknown.
-func (s StandingRules) StandingForWorkflow(ctx context.Context, pid ids.ID, workflow string) (StandingRevision, string, string, error) {
-	return s.standingForWorkflow(ctx, pid, workflow, ids.Nil)
-}
-
 func pinsWorkflow(rule StandingRevision, name string) bool {
 	return slices.ContainsFunc(rule.Question.Projects, func(p standingProjectMeaning) bool { return p.Procedure.Acceptance.Workflow == name })
 }
 
-// Execution uses its frozen adoption when matching approval meanings.
-func (s StandingRules) standingForWorkflow(ctx context.Context, pid ids.ID, workflow string, target ids.ID) (StandingRevision, string, string, error) {
-	var targets []ids.ID
-	if !target.IsZero() {
-		targets = []ids.ID{target}
-	}
+// ProjectWorkflows names the workflows to judge independently for one project.
+type ProjectWorkflows struct {
+	ProjectID ids.ID
+	Workflows []string
+	// target is an execution's frozen adoption, or zero for current scheduling.
+	target ids.ID
+}
+
+type StandingEligibilityResult struct {
+	Rule           StandingRevision
+	Level, Refused string
+	Err            error
+}
+
+// StandingEligibility reads current rules and issuer facts once for the set.
+// Each workflow retains its first eligible rule or first covered refusal.
+func (s StandingRules) StandingEligibility(ctx context.Context, set []ProjectWorkflows) (map[ids.ID]map[string]StandingEligibilityResult, error) {
 	rows, err := workflowsql.New(s.db.SQL()).CurrentStandingRules(ctx)
 	if err != nil {
-		return StandingRevision{}, "", "", err
+		return nil, err
 	}
-	refused := "waits for a standing approval"
-	covered := false
+	rules := make([]StandingRevision, 0, len(rows))
 	for _, row := range rows {
 		rule, err := readStandingRevision(row)
 		if err != nil {
-			return StandingRevision{}, "", "", err
+			return nil, err
 		}
-		if !pinsWorkflow(rule, workflow) {
-			continue
-		}
-		if _, err = s.eligibleForIn(ctx, s.db, rule, pid, workflow, targets...); err != nil {
-			if !standingRefusal(err) {
-				return StandingRevision{}, "", "", err
-			}
-			if !covered {
-				refused = err.Error()
-				covered = true
-			}
-			continue
-		}
-		level, err := s.effectiveLevelIn(ctx, s.db, rule.Question.Definition, pid)
-		return rule, level, "", err
+		rules = append(rules, rule)
 	}
-	return StandingRevision{}, "", refused, nil
+	facts := s.standingFacts(ctx, s.db, rules, set)
+	out := map[ids.ID]map[string]StandingEligibilityResult{}
+	for i, project := range set {
+		results := map[string]StandingEligibilityResult{}
+		out[project.ProjectID] = results
+		for _, name := range project.Workflows {
+			result := StandingEligibilityResult{Refused: "waits for a standing approval"}
+			covered := false
+			for _, rule := range rules {
+				if !pinsWorkflow(rule, name) {
+					continue
+				}
+				_, err := s.judgeStanding(ctx, s.db, rule, project.ProjectID, name, facts[i], facts[i].issuers[rule.Issuer.Principal])
+				if err != nil {
+					if !standingRefusal(err) {
+						result.Err = err
+						break
+					}
+					if !covered {
+						result.Refused = err.Error()
+						covered = true
+					}
+					continue
+				}
+				result.Rule = rule
+				result.Level, result.Err = facts[i].level(rule.Question.Definition)
+				result.Refused = ""
+				break
+			}
+			results[name] = result
+		}
+	}
+	return out, nil
+}
+
+// Execution and singleton scheduling use the same set judgment.
+func (s StandingRules) standingForWorkflow(ctx context.Context, pid ids.ID, name string, target ids.ID) (StandingRevision, string, string, error) {
+	results, err := s.StandingEligibility(ctx, []ProjectWorkflows{{ProjectID: pid, Workflows: []string{name}, target: target}})
+	if err != nil {
+		return StandingRevision{}, "", "", err
+	}
+	r := results[pid][name]
+	return r.Rule, r.Level, r.Refused, r.Err
 }
 
 type standingProjectChoice struct {

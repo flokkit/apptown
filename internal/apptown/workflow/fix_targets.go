@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/fix"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // fixableTargets observes settled named failures in this execution's stage.
@@ -20,7 +21,15 @@ func (e *Execution) fixableTargets(ctx context.Context, names []string, ds []fix
 	if err != nil {
 		return nil, "", err
 	}
-	observations, err := conformance.ScanObservationsIn(ctx, e.service.db, e.run.ProjectID)
+	heads, err := conformance.ScanObservationHeadsIn(ctx, e.service.db, e.run.ProjectID)
+	if err != nil {
+		return nil, "", err
+	}
+	selected := make([]ids.ID, 0, len(heads))
+	for _, h := range heads {
+		selected = append(selected, h.ID)
+	}
+	observations, err := conformance.ScanObservationsByIDIn(ctx, e.service.db, e.run.ProjectID, selected)
 	if err != nil {
 		return nil, "", err
 	}

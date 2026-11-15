@@ -51,7 +51,11 @@ func (a PackAdoptions) AdoptWhatIf(ctx context.Context, assessed *conformance.Wh
 			return err
 		}
 		name := procedure.Name
-		rule, _, _, err := a.Rules.StandingForWorkflow(ctx, p.ProjectID, name)
+		eligibility, err := a.Rules.StandingEligibility(ctx, []workflow.ProjectWorkflows{{ProjectID: p.ProjectID, Workflows: []string{name}}})
+		if err == nil {
+			err = eligibility[p.ProjectID][name].Err
+		}
+		rule := eligibility[p.ProjectID][name].Rule
 		if err != nil {
 			return err
 		}

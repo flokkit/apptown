@@ -23,7 +23,7 @@ func TestReviewPurgePreservesUsableSourceComparison(t *testing.T) {
 	})
 	assertKnown := func() {
 		t.Helper()
-		got, err := s.LatestMainScans(t.Context(), ch.ProjectID)
+		got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -43,7 +43,7 @@ func TestReviewPurgePreservesUsableSourceComparison(t *testing.T) {
 	}
 	assertKnown()
 	running.rows[0].Images["web"] = "digest-b"
-	got, err := s.LatestMainScans(t.Context(), ch.ProjectID)
+	got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestReviewPurgePreservesUsableSourceComparison(t *testing.T) {
 	// No deployments still needs the running scan's explicit answer that
 	// nothing is deployed; absence of an observation is not that answer.
 	running.rows = nil
-	got, err = s.LatestMainScans(t.Context(), ch.ProjectID)
+	got, err = s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

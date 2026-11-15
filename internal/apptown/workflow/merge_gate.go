@@ -69,7 +69,7 @@ func (p *preparedMergeGate) lock(ctx context.Context, tx *database.Tx) error {
 	return nil
 }
 
-func (p *preparedMergeGate) block(ctx context.Context, evidence MergeEvidence) (*Step, error) {
+func (p *preparedMergeGate) block(ctx context.Context, evidence mergeEvidence) (*Step, error) {
 	return database.Transact(ctx, p.db, func(tx *database.Tx) (*Step, error) {
 		if err := p.lock(ctx, tx); err != nil {
 			return nil, err

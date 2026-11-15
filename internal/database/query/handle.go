@@ -15,12 +15,12 @@ type Executor interface {
 
 type Handle struct {
 	Executor
-	Check func(string) error
+	Check func(string, ...any) error
 	Error func(error, string) error
 }
 
 func (d Handle) ExecContext(ctx context.Context, q string, args ...any) (sql.Result, error) {
-	if err := d.Check(q); err != nil {
+	if err := d.Check(q, args...); err != nil {
 		return nil, d.Error(err, q)
 	}
 	r, err := d.Executor.ExecContext(ctx, q, args...)
@@ -28,7 +28,7 @@ func (d Handle) ExecContext(ctx context.Context, q string, args ...any) (sql.Res
 }
 
 func (d Handle) QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error) {
-	if err := d.Check(q); err != nil {
+	if err := d.Check(q, args...); err != nil {
 		return nil, d.Error(err, q)
 	}
 	r, err := d.Executor.QueryContext(ctx, q, args...)
@@ -36,7 +36,7 @@ func (d Handle) QueryContext(ctx context.Context, q string, args ...any) (*sql.R
 }
 
 func (d Handle) QueryRowContext(ctx context.Context, q string, args ...any) *sql.Row {
-	if d.Check(q) != nil {
+	if d.Check(q, args...) != nil {
 		return d.Executor.QueryRowContext(ctx, "SELECT forge_injected_failure()")
 	}
 	return d.Executor.QueryRowContext(ctx, q, args...)

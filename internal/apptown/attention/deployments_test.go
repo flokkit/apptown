@@ -16,8 +16,12 @@ type operationalEvidence struct {
 	rows []deployment.OperationalObservation
 }
 
-func (o operationalEvidence) Operational(context.Context, ids.ID) ([]deployment.OperationalObservation, error) {
-	return o.rows, nil
+func (o operationalEvidence) Operational(_ context.Context, projects []ids.ID) (map[ids.ID][]deployment.OperationalObservation, error) {
+	out := map[ids.ID][]deployment.OperationalObservation{}
+	for _, id := range projects {
+		out[id] = o.rows
+	}
+	return out, nil
 }
 
 func TestDeploymentConditionsSeparateAttemptRuntimeAndHoldGenerations(t *testing.T) {

@@ -105,7 +105,7 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	reader := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, rules.deps.Identity, "reader"))
-	readable, err := rules.JanitorRules(reader)
+	readable, err := rules.janitorRules(reader)
 	if err != nil || len(readable) != 1 || readable[0].RuleID != rule.RuleID {
 		t.Fatalf("instance reader cannot read grant: %+v %v", readable, err)
 	}
@@ -121,7 +121,7 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		janitorTry(t, s, pid, rule, now.Add(time.Duration(i)*time.Minute), true)
 	}
-	rows, err := s.JanitorProjects(ctx)
+	rows, _, err := s.JanitorProjects(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 		t.Fatal(stopped.QueueSentences)
 	}
 	dbtest.FailNextStatement(t, s.db, "-- name: JanitorProjectChoices")
-	if _, err := s.JanitorProjects(ctx); err == nil {
+	if _, _, err := s.JanitorProjects(ctx); err == nil {
 		t.Fatal("database failure became an empty answer")
 	}
 }
@@ -385,7 +385,7 @@ func TestJanitorInstanceReadLeavesEligibilityToScheduler(t *testing.T) {
 	broken := workflowTestProject(t, s.db, "broken-project", "Broken project", "")
 	s.authority = aggregateAuthority{operationAuthority: s.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return append(visible, broken), nil }}
 	rules.deps.Portfolio.(*standingPortfolioFixture).failFor = broken
-	rows, err := s.JanitorProjects(ctx)
+	rows, _, err := s.JanitorProjects(ctx)
 	if err != nil || len(rows) != 2 {
 		t.Fatalf("%+v %v", rows, err)
 	}
@@ -393,7 +393,7 @@ func TestJanitorInstanceReadLeavesEligibilityToScheduler(t *testing.T) {
 
 type janitorReadDefinitions struct{}
 
-func (janitorReadDefinitions) AdoptedWorkflows(_ context.Context, source adoption.Source) ([]adoption.AdoptedWorkflow, error) {
+func (janitorReadDefinitions) AdoptedWorkflows(_ context.Context, source adoption.Source, _ ...string) ([]adoption.AdoptedWorkflow, error) {
 	var out []adoption.AdoptedWorkflow
 	for _, pin := range source.Revision.Receipt.Workflows {
 		body, err := stock.FS.ReadFile(pin.Name + ".yaml")
@@ -477,7 +477,7 @@ func TestJanitorProjectsClassifiesCompletedFacts(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			rows, err := s.JanitorProjects(ctx)
+			rows, _, err := s.JanitorProjects(ctx)
 			if err != nil || len(rows) != 1 {
 				t.Fatalf("rows=%+v: %v", rows, err)
 			}
@@ -485,5 +485,54 @@ func TestJanitorProjectsClassifiesCompletedFacts(t *testing.T) {
 				t.Fatalf("state=%+v, want %s", rows[0].State, tc.word)
 			}
 		})
+	}
+}
+
+func (janitorReadDefinitions) ScheduledWorkflowNames(context.Context, ids.ID) (map[string]bool, error) {
+	return map[string]bool{}, nil
+}
+
+func TestFleetScanAndJanitorReadsOmitProjectsOutsideTheirOwnVisibility(t *testing.T) {
+	t.Parallel()
+	s, _, ctx, _ := janitorReadFixture(t)
+	visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shown := visible[0]
+	hidden := workflowTestProject(t, s.db, "unreadable", "Unreadable", "")
+	s.authority = aggregateAuthority{operationAuthority: s.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return []ids.ID{shown}, nil }}
+	rows, _, err := s.JanitorProjects(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].ProjectID != shown {
+		t.Fatalf("Janitor visibility: %+v", rows)
+	}
+	scans, err := s.ScanAttention(ctx, []ids.ID{hidden, shown})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scans) != 1 || scans[0].ProjectID != shown {
+		t.Fatalf("scan visibility: %+v", scans)
+	}
+}
+
+func TestScanAttentionSharedObservationFailureRemainsUnknownForEachProject(t *testing.T) {
+	t.Parallel()
+	s, _, ctx, _ := janitorReadFixture(t)
+	visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbtest.FailNextStatement(t, s.db, "-- name: JanitorProjectLabels")
+	rows, err := s.ScanAttention(ctx, visible)
+	if err != nil || len(rows) != len(visible) {
+		t.Fatalf("lost source coverage: %+v %v", rows, err)
+	}
+	for _, row := range rows {
+		if row.Err == nil {
+			t.Fatalf("failed source became known: %+v", row)
+		}
 	}
 }

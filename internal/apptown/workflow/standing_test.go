@@ -29,7 +29,7 @@ type standingProcedureFixture struct {
 	err   error
 }
 
-func (f *standingProcedureFixture) StandingProcedure(_ context.Context, _ database.Queryer, _ ids.ID, name string) (StandingProcedure, error) {
+func (f *standingProcedureFixture) standingProcedure(_ context.Context, _ database.Queryer, _ ids.ID, name string) (StandingProcedure, error) {
 	return StandingProcedure{Acceptance: StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: f.means, Approvers: []string{"role:project-approver"}}, Landing: StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land this qualified candidate", Approvers: []string{"role:project-approver"}}}, f.err
 }
 func standingFixture(t *testing.T) (*stepAuthorityTestRig, StandingRules, *standingProcedureFixture, context.Context, StandingDefinition) {
@@ -304,6 +304,11 @@ func TestStandingConsentCurrentEligibilityUsesEnabledIssuerIdentity(t *testing.T
 	if err != nil || len(statuses) != 1 || statuses[0].Eligible {
 		t.Fatalf("disabled issuer still eligible: %+v %v", statuses, err)
 	}
+	_, _, refused, err := standingEligibilityOne(s, boss, a.ProjectID, "quick-change")
+	if err != nil || refused != "'s account is disabled or does not exist" {
+		t.Fatalf("disabled issuer wording changed: %q %v", refused, err)
+	}
+
 	if _, err := s.Disable(boss, r.RuleID, r.Revision); err != nil {
 		t.Fatalf("administrator could not disable former issuer's consent: %v", err)
 	}
@@ -499,4 +504,13 @@ func TestProjectPackConsentIsSeparateFromDependencyConsent(t *testing.T) {
 	if _, err := s.Preview(ctx, in); err == nil {
 		t.Fatal("pack consent also authorized dependencies")
 	}
+}
+
+func (f *standingProcedureFixture) StandingProcedures(ctx context.Context, q database.Queryer, id ids.ID, names []string) (map[string]StandingProcedureResult, error) {
+	out := map[string]StandingProcedureResult{}
+	for _, name := range names {
+		proc, err := f.standingProcedure(ctx, q, id, name)
+		out[name] = StandingProcedureResult{Procedure: proc, Err: err}
+	}
+	return out, nil
 }

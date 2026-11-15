@@ -28,7 +28,7 @@ func attributedStep(t *testing.T, step Step, evidence any) *Step {
 func TestOnlyTheDecidingRoundsApprovalsAreAttributed(t *testing.T) {
 	t.Parallel()
 	step := attributedStep(t, Step{ID: idstest.N(3), Name: "review", Type: "approval", Status: StatusPass, Config: json.RawMessage(`{"approvers":["role:project-approver"],"means":"configured"}`)},
-		ApprovalEvidence{
+		approvalEvidence{
 			PreviousDecisions: []ApprovalVote{{Approver: "early", Decision: VoteApprove, At: "2026-10-01T00:00:00Z"}, {Approver: "rejector", Decision: VoteReject, At: "2026-10-01T01:00:00Z"}},
 			Decisions:         []ApprovalVote{{Approver: "alice", Decision: VoteApprove, At: "2026-10-09T03:12:00Z", Candidate: "abc"}},
 			Quorum:            1, Approvals: 1, Means: "as recorded", Approver: "alice", Decision: VoteApprove, At: "2026-10-09T03:12:00Z", Candidate: "abc",
@@ -58,7 +58,7 @@ func TestChecksAreAttributedWithTheResultTheyRecorded(t *testing.T) {
 		{ID: idstest.N(3), Name: "lint", Type: "script", Status: StatusPass, Attempt: 1, OverrideBy: "bls", OverrideReason: "flaky mirror"},
 		// One vote of a quorum of two, then overridden: the override decided it.
 		attributedStep(t, Step{ID: idstest.N(4), Name: "approve", Type: "approval", Status: StatusPass, OverrideBy: "bls", OverrideReason: "on call"},
-			ApprovalEvidence{Decisions: []ApprovalVote{{Approver: "alice", Decision: VoteApprove, At: "2026-10-09T03:12:00Z"}}, Quorum: 2, Approvals: 1}),
+			approvalEvidence{Decisions: []ApprovalVote{{Approver: "alice", Decision: VoteApprove, At: "2026-10-09T03:12:00Z"}}, Quorum: 2, Approvals: 1}),
 	} {
 		if err := attributeStep(&a, step, true); err != nil {
 			t.Fatal(err)

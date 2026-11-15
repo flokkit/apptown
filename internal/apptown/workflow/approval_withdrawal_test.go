@@ -48,11 +48,11 @@ func TestApprovalWithdrawalRefusesClosedOrInvalidRounds(t *testing.T) {
 	t.Parallel()
 	valid := ApprovalWithdrawal{"operator", "not needed", "now"}
 	for _, state := range []StepState{0, StatusRunning, StatusPass, StatusFail, StatusError, StatusSkipped} {
-		if _, _, err := (ApprovalEvidence{}).withdraw(state, ApprovalConfig{}, valid); err == nil {
+		if _, _, err := (approvalEvidence{}).withdraw(state, ApprovalConfig{}, valid); err == nil {
 			t.Fatalf("withdrew %s", state)
 		}
 	}
-	for _, evidence := range []ApprovalEvidence{
+	for _, evidence := range []approvalEvidence{
 		{Withdrawal: &valid},
 		{Decisions: []ApprovalVote{{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteReject}}},
 		{Decisions: []ApprovalVote{{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteApprove}}},
@@ -63,7 +63,7 @@ func TestApprovalWithdrawalRefusesClosedOrInvalidRounds(t *testing.T) {
 		}
 	}
 	for _, withdrawal := range []ApprovalWithdrawal{{Reason: "reason", At: "now"}, {By: "actor", At: "now"}, {By: "actor", Reason: "reason"}} {
-		if _, _, err := (ApprovalEvidence{}).withdraw(StatusPending, ApprovalConfig{}, withdrawal); err == nil {
+		if _, _, err := (approvalEvidence{}).withdraw(StatusPending, ApprovalConfig{}, withdrawal); err == nil {
 			t.Fatal("missing withdrawal facts accepted")
 		}
 	}
@@ -76,7 +76,7 @@ func TestApprovalWithdrawalRefusesClosedOrInvalidRounds(t *testing.T) {
 
 func TestReopenedApprovalCanBeWithdrawnWithoutReusingItsOldVote(t *testing.T) {
 	t.Parallel()
-	old := ApprovalEvidence{Approver: "alice", Decision: VoteReject, Comment: "fix it", At: "old", Decisions: []ApprovalVote{{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteReject, Comment: "fix it", At: "old"}}}
+	old := approvalEvidence{Approver: "alice", Decision: VoteReject, Comment: "fix it", At: "old", Decisions: []ApprovalVote{{Approver: "alice", Principal: idstest.N(21), Via: "session", Decision: VoteReject, Comment: "fix it", At: "old"}}}
 	reopened, err := old.reopen(StatusFail)
 	if err != nil || reopened.Decision != 0 || reopened.Approver != "" || reopened.Comment != "" || reopened.LastRejection.Comment != "fix it" {
 		t.Fatalf("stale closing decision: %+v %v", reopened, err)

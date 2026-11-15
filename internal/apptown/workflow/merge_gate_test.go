@@ -62,7 +62,7 @@ func TestMergeGateConflictAndDriftHaveCommittedEvidence(t *testing.T) {
 	if err != nil || first == nil || first.Status != StatusNeedsHuman || !first.FinishedAt.Valid {
 		t.Fatalf("conflict: %+v %v", first, err)
 	}
-	var saved MergeEvidence
+	var saved mergeEvidence
 	if err := json.Unmarshal(first.Evidence, &saved); err != nil || len(saved.Conflicts) != 1 || saved.Conflicts[0] != "main.go" {
 		t.Fatalf("evidence: %+v %v", saved, err)
 	}

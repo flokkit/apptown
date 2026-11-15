@@ -168,7 +168,7 @@ func TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement(t *testi
 
 type janitorPageProcedure struct{}
 
-func (janitorPageProcedure) StandingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
+func (janitorPageProcedure) standingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
 	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: "restore-fixture", Version: 1, Step: "accept", Means: "accept bounded updates after required checks"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
 }
 
@@ -206,7 +206,7 @@ func TestJanitorPageReadsWithAnInstanceRuleAndAProjectWithoutARepository(t *test
 	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest}); err != nil {
 		t.Fatal(err)
 	}
-	if rule, _, _, err := a.standingRules.StandingForWorkflow(ctx, empty.ID, "janitor-update"); err != nil || !rule.RuleID.IsZero() {
+	if rule, _, _, err := standingEligibilityOne(a.standingRules, ctx, empty.ID, "janitor-update"); err != nil || !rule.RuleID.IsZero() {
 		t.Fatalf("a project without a repository: rule=%+v err=%v", rule, err)
 	}
 	w := authzCall(a.Handler(), "boss", "GET", "/api/v1/janitor", "")
@@ -402,6 +402,115 @@ func TestStandingConsentReadsPublishedLibraryOnce(t *testing.T) {
 	for _, wf := range published {
 		if wf.Version != 2 || wf.Name != wf.Doc.Metadata.Name || wf.Doc.Metadata.Description != "current" {
 			t.Fatalf("standing library mixed publication versions: %+v", wf)
+		}
+	}
+
+}
+
+func (f janitorPageProcedure) StandingProcedures(ctx context.Context, q database.Queryer, id ids.ID, names []string) (map[string]workflow.StandingProcedureResult, error) {
+	out := map[string]workflow.StandingProcedureResult{}
+	for _, name := range names {
+		proc, err := f.standingProcedure(ctx, q, id, name)
+		out[name] = workflow.StandingProcedureResult{Procedure: proc, Err: err}
+	}
+	return out, nil
+}
+
+// Caller and standing issuer facts stay constant as the visible fleet grows.
+func TestFleetReadsAuthorityFactsOnceForTheSet(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t)
+	person, err := a.Access.EnsurePerson(t.Context(), "boss")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "boss", Via: "session"}})
+	a.SyncStock(ctx)
+	pack, err := a.Ways.Pack(ctx, "apptown")
+	if err != nil {
+		t.Fatal(err)
+	}
+	projects := []ids.ID{}
+	add := func(i int) {
+		id, _, _ := fleetRepo(t, a, fmt.Sprintf("shape-%d", i), map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+		err := a.DB.InTx(ctx, func(tx *database.Tx) error {
+			return adoption.SetMembershipIn(ctx, tx, id, []adoption.Membership{{Pack: pack.Name, Version: pack.Version}}, "fixture", "fixture", time.Now())
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := recordCatalogFixture(a.Adoption, ctx, id, "boss"); err != nil {
+			t.Fatal(err)
+		}
+		projects = append(projects, id)
+	}
+	add(0)
+	add(1)
+	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	preview, err := a.standingRules.Preview(ctx, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: preview.Definition, ShownDigest: preview.Digest}); err != nil {
+		t.Fatal(err)
+	}
+	h := a.Handler()
+	counts := func() map[string]int {
+		out := map[string]int{}
+		for _, path := range []string{"/api/v1/janitor", "/api/v1/attention"} {
+			for _, name := range []string{"UserByPrincipal", "ActiveGrantsOfPrincipal"} {
+				count, stop := a.DB.CountStatements("-- name: " + name + " :")
+				w := authzCall(h, "boss", "GET", path, "")
+				stop()
+				if w.Code != 200 {
+					t.Fatalf("%s: %d %s", path, w.Code, w.Body.String())
+				}
+				out[path+name] = count()
+			}
+		}
+		return out
+	}
+	two := counts()
+	add(2)
+	add(3)
+	four := counts()
+	for key, n := range two {
+		if n == 0 || four[key] != n {
+			t.Errorf("%s: 2 projects=%d, 4=%d", key, n, four[key])
+		}
+	}
+	count, stop := a.DB.CountStatements("-- name: CurrentStandingRules :")
+	set := []workflow.ProjectWorkflows{}
+	for _, id := range projects[:2] {
+		set = append(set, workflow.ProjectWorkflows{ProjectID: id, Workflows: []string{"janitor-scan", "janitor-update"}})
+	}
+	results, err := a.standingRules.StandingEligibility(ctx, set)
+	stop()
+	if err != nil || count() != 1 {
+		t.Fatalf("rules read %d times: %v", count(), err)
+	}
+	for _, id := range projects[:2] {
+		for _, name := range set[0].Workflows {
+			r := results[id][name]
+			if r.Err != nil || r.Refused != "" || r.Rule.RuleID.IsZero() {
+				t.Fatalf("%s %s: %+v", id, name, r)
+			}
+		}
+	}
+	facts, _, err := a.Work.JanitorProjects(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopFailure := a.DB.FailNextStatement("-- name: CurrentStandingRules :")
+	defer stopFailure()
+	schedules := changeactions.Schedules{Standing: &a.standingRules, Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}
+	views, err := schedules.ForJanitor(ctx, facts, time.Now())
+	if err != nil {
+		t.Fatalf("shared eligibility failure lost the page: %v", err)
+	}
+	for _, id := range projects {
+		if !strings.HasPrefix(views[id].Janitor().RunNow, "Not known:") {
+			t.Fatalf("shared eligibility failure became a normal pause: %+v", views[id])
 		}
 	}
 

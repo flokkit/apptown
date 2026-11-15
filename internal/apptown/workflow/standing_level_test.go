@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/ids"
 	"strings"
 	"testing"
@@ -21,12 +22,12 @@ func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		got, cron, _, err := s.StandingForWorkflow(t.Context(), a.ProjectID, "test")
+		got, cron, _, err := standingEligibilityOne(s, t.Context(), a.ProjectID, "test")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if level == "off" {
-			if security, _, _, err := s.StandingForWorkflow(t.Context(), a.ProjectID, "security"); err != nil || !security.RuleID.IsZero() {
+			if security, _, _, err := standingEligibilityOne(s, t.Context(), a.ProjectID, "security"); err != nil || !security.RuleID.IsZero() {
 				t.Fatalf("off security fired: %+v %v", security, err)
 			}
 			if !got.RuleID.IsZero() {
@@ -40,7 +41,7 @@ func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
 			if got.RuleID != rule.RuleID || cron != want {
 				t.Fatalf("%s: %+v %s", level, got, cron)
 			}
-			_, security, _, err := s.StandingForWorkflow(t.Context(), a.ProjectID, "security")
+			_, security, _, err := standingEligibilityOne(s, t.Context(), a.ProjectID, "security")
 			if err != nil || security != want {
 				t.Fatalf("security cadence %s: %s %v", level, security, err)
 			}
@@ -85,5 +86,30 @@ func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
 	// A preview identifies a project that differs from the instance level.
 	if err := s.SetProjectChoice(boss, ids.Nil, "invalid", "invalid"); err == nil {
 		t.Fatal("invalid level accepted")
+	}
+}
+
+// Refusals and absent project choices belong to each workflow/rule judgment.
+func TestStandingEligibilityKeepsMixedResultsAndEachRulesFallbackLevel(t *testing.T) {
+	t.Parallel()
+	a, s, p, _, _ := standingFixture(t)
+	s.deps.Portfolio = &standingPortfolioFixture{projectID: a.ProjectID}
+	boss := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
+	in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	enableStanding(t, s, boss, in)
+	p.means = "a newly approved purpose"
+	p.docs = []*schema.Doc{{Metadata: schema.Metadata{Name: "test"}, Spec: schema.Spec{On: schema.On{Schedule: &schema.ScheduleTrigger{Standing: true, Cron: "0 6 * * 1", AggressiveCron: "0 6 * * *"}}}}}
+	in.Categories.Dependencies = "aggressive"
+	second := enableStanding(t, s, boss, in)
+	results, err := s.StandingEligibility(t.Context(), []ProjectWorkflows{{ProjectID: a.ProjectID, Workflows: []string{"security", "test"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	refused, eligible := results[a.ProjectID]["security"], results[a.ProjectID]["test"]
+	if refused.Err != nil || refused.Refused != "the standing approval meaning changed; a person must enable it again" || !refused.Rule.RuleID.IsZero() {
+		t.Fatalf("refused workflow: %+v", refused)
+	}
+	if eligible.Err != nil || eligible.Refused != "" || eligible.Rule.RuleID != second.RuleID || eligible.Level != "aggressive" {
+		t.Fatalf("eligible workflow: %+v", eligible)
 	}
 }

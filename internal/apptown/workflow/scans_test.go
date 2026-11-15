@@ -2,9 +2,11 @@ package workflow
 
 import (
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -34,7 +36,7 @@ func TestRunningFindingsRemainBoundToTheirScannedSoftware(t *testing.T) {
 	}
 	runningState.rows = running
 	recordObservations(t, s, ch, observations)
-	got, err := s.LatestMainScans(t.Context(), ch.ProjectID)
+	got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +53,7 @@ func TestRunningFindingsRemainBoundToTheirScannedSoftware(t *testing.T) {
 	observations[0].RunID = idstest.N(6)
 	observations[0].ObservedAt = now.Add(time.Second)
 	recordObservations(t, s, ch, observations[:1])
-	got, err = s.LatestMainScans(t.Context(), ch.ProjectID)
+	got, err = s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +64,7 @@ func TestRunningFindingsRemainBoundToTheirScannedSoftware(t *testing.T) {
 	observations[0].RunID = idstest.N(5)
 	observations[0].ObservedAt = now.Add(2 * time.Second)
 	recordObservations(t, s, ch, observations[:1])
-	got, err = s.LatestMainScans(t.Context(), ch.ProjectID)
+	got, err = s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +75,7 @@ func TestRunningFindingsRemainBoundToTheirScannedSoftware(t *testing.T) {
 	// historical, never a clean observation of the new subjects.
 	running[0].Images["web"] = "digest-b"
 	gittest.Run(t, repo, "-c", "user.name=test", "-c", "user.email=test@example.org", "commit", "--allow-empty", "-qm", "unrelated landing")
-	got, err = s.LatestMainScans(t.Context(), ch.ProjectID)
+	got, err = s.LatestMainScans(t.Context(), ch.ProjectID, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +90,7 @@ func TestScansOlderThanThreeDaysAreNotKnown(t *testing.T) {
 	main := gittest.Run(t, repo, "rev-parse", "HEAD")
 	o := conformance.ScanObservation{RunID: idstest.N(1), Subject: conformance.ScanSubject{On: "source", Commit: main}, Scanner: "osv", Verdict: "pass", ObservedAt: now.Add(-73 * time.Hour)}
 	recordObservations(t, s, ch, []conformance.ScanObservation{o})
-	got, err := s.LatestMainScans(t.Context(), ch.ProjectID)
+	got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +215,9 @@ func recordObservations(t *testing.T, s *Service, ch *Change, observations []con
 		} else {
 			o.StepID = o.RunID
 		}
-		o.ID = ids.New(o.ObservedAt)
+		if o.ID.IsZero() {
+			o.ID = ids.New(o.ObservedAt)
+		}
 		o.ProjectID, o.ChangeID = ch.ProjectID, ch.ID
 		o.Attempt = 1
 		if err := s.db.InTx(t.Context(), func(tx *database.Tx) error { return conformance.RecordScanObservationIn(t.Context(), tx, o) }); err != nil {
@@ -298,14 +302,42 @@ func TestALandingScanTakesItsHistoryScannerFromTheLastWholeScan(t *testing.T) {
 			if tc.history {
 				observations = append(observations, conformance.ScanObservation{RunID: idstest.N(2), Subject: conformance.ScanSubject{On: "source", Commit: main, History: main + ".." + main}, ExpectedScanners: both, Scanner: "gitleaks", Verdict: "pass", ObservedAt: now.Add(-time.Hour)})
 			}
+			for i := range observations {
+				observations[i].ID = ids.New(now)
+				if observations[i].Scanner == "gitleaks" && observations[i].Subject.History == "" {
+					observations[i].Findings = []conformance.Finding{{Finding: check.Finding{Fingerprint: "donor-finding"}}}
+				}
+			}
 			recordObservations(t, s, ch, observations)
-			got, err := s.LatestMainScans(t.Context(), ch.ProjectID)
+			got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if got.Known != tc.known || !strings.HasPrefix(got.Reason, tc.reason) || tc.reason == "" && got.Reason != "" {
 				t.Fatalf("known=%v reason=%q, want %v %q; source=%+v", got.Known, got.Reason, tc.known, tc.reason, got.Source)
 			}
+			if len(got.Historical) != 0 {
+				t.Fatalf("earlier=0 decoded history: %+v", got.Historical)
+			}
+			withEarlier, err := s.LatestMainScans(t.Context(), ch.ProjectID, 10)
+			if err != nil || !reflect.DeepEqual(got.Source, withEarlier.Source) || got.Known != withEarlier.Known || got.Reason != withEarlier.Reason {
+				t.Fatalf("history changed current scan: %+v %+v %v", got, withEarlier, err)
+			}
+			for _, o := range got.Source {
+				found := false
+				for _, want := range observations {
+					if want.ID == o.ID {
+						found = true
+						if want.Scanner != o.Scanner || !reflect.DeepEqual(want.Findings, o.Findings) && len(want.Findings) > 0 {
+							t.Fatalf("selected receipt changed: %+v %+v", want, o)
+						}
+					}
+				}
+				if !found {
+					t.Fatalf("unknown selected ID: %s", o.ID)
+				}
+			}
+
 			for _, o := range got.Source {
 				if o.Subject.History != "" {
 					t.Fatalf("a history observation became current: %+v", o)
@@ -344,7 +376,7 @@ func TestNotKnownReasonsNameTheirCase(t *testing.T) {
 		{"older than three days", []conformance.ScanObservation{source(1, "osv", old), source(1, "gitleaks", old), image}, "the last scan was on " + old.Format("2 Jan") + ", more than three days ago"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := latestMainScans(main, running, tc.observations, now)
+			got := classifyTestScans(main, running, tc.observations, now)
 			if got.Known || got.Reason != tc.want {
 				t.Fatalf("known=%v reason=%q, want %q", got.Known, got.Reason, tc.want)
 			}
@@ -356,12 +388,12 @@ func TestNotKnownReasonsNameTheirCase(t *testing.T) {
 func TestUnknownScansSayWhenNoScheduleScansSource(t *testing.T) {
 	s, ch, _, _, _ := automatedFixture(t)
 	s.scanSchedules = noScanSchedule{}
-	got, err := s.LatestMainScans(t.Context(), ch.ProjectID)
+	got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
 	if err != nil || !got.Unscheduled || got.Known || got.Reason != "its packs schedule no scan" {
 		t.Fatalf("unscheduled: %+v %v", got, err)
 	}
 	s.scanSchedules = noScanSchedule{err: errors.New("cannot read schedule")}
-	if _, err := s.LatestMainScans(t.Context(), ch.ProjectID); err == nil {
+	if _, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0); err == nil {
 		t.Fatal("read failure became no schedule")
 	}
 }
@@ -381,7 +413,7 @@ func TestUnscannedRunningImagesUseSingularAndPlural(t *testing.T) {
 		{1, "the image running on main has not been scanned since it was deployed"},
 		{2, "the images running on main and fly have not been scanned since they were deployed"},
 	} {
-		got := latestMainScans("main", running[:tc.n], []conformance.ScanObservation{source}, now)
+		got := classifyTestScans("main", running[:tc.n], []conformance.ScanObservation{source}, now)
 		if got.Known || got.Reason != tc.want {
 			t.Fatalf("%d deployments: %+v", tc.n, got)
 		}
@@ -404,5 +436,92 @@ func TestJanitorSummaryCountsDistinctCurrentFindingsAndImageOnlyUpdates(t *testi
 	scans.Running[0].ImageOnlyFindings = []conformance.Finding{finding("running")}
 	if !scans.janitorSummary().ImageUpdates {
 		t.Fatal("image-only findings lost")
+	}
+}
+
+func classifyTestScans(main string, running []RunningImages, observations []conformance.ScanObservation, now time.Time) MainScans {
+	heads := []conformance.ScanHead{}
+	for i := range observations {
+		if observations[i].ID.IsZero() {
+			observations[i].ID = ids.New(now)
+		}
+		o := observations[i]
+		heads = append(heads, conformance.ScanHead{ID: o.ID, RunID: o.RunID, Subject: o.Subject, Scanner: o.Scanner, ObservedAt: o.ObservedAt})
+	}
+	return latestMainScans(main, running, observations, selectScanHeads(main, heads), now)
+}
+func (s noScanSchedule) ScansSourceFrom(context.Context, ids.ID, ProcedureFacts) (bool, error) {
+	return false, s.err
+}
+
+// The head selector alone decides which receipts the current view loads.
+func TestCurrentScansLoadOnlySelectedReceiptCandidates(t *testing.T) {
+	t.Parallel()
+	s, ch, repo, _, _ := automatedFixture(t)
+	main := gittest.Run(t, repo, "rev-parse", "HEAD")
+	now := time.Now().UTC()
+	observations := []conformance.ScanObservation{}
+	for i := 0; i < 99; i++ {
+		on, commit, scanner, run := "source", "old", "osv", idstest.N(uint64(i+100))
+		if i < 2 {
+			commit = main
+			run = idstest.N(1)
+			scanner = []string{"osv", "gitleaks"}[i]
+		}
+		if i == 2 {
+			on = "running"
+			run = idstest.N(2)
+		}
+		observations = append(observations, conformance.ScanObservation{ID: idstest.N(uint64(i + 1000)), RunID: run, Subject: conformance.ScanSubject{On: on, Commit: commit}, Scanner: scanner, Verdict: "pass", ObservedAt: now.Add(-time.Duration(i) * time.Minute)})
+	}
+	recordObservations(t, s, ch, observations)
+	calls := 0
+	stop := s.db.ObserveStatements("-- name: ScanObservationsByID :", func(args []any) {
+		calls++
+		encoded, err := args[1].(driver.Valuer).Value()
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := strings.Trim(encoded.(string), "{}")
+		ids := strings.Split(got, ",")
+		if len(ids) != 3 {
+			t.Fatalf("loaded %d receipts, want 3 candidates: %s", len(ids), got)
+		}
+		for _, o := range observations[:3] {
+			if !strings.Contains(got, o.ID.String()) {
+				t.Errorf("missing candidate %s: %s", o.ID, got)
+			}
+		}
+	})
+	defer stop()
+	if _, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("receipt reads=%d, want one", calls)
+	}
+}
+
+func TestCurrentScansKeepNewestRunningRunWithoutFillingFromAnOlderRun(t *testing.T) {
+	t.Parallel()
+	s, ch, repo, _, running := automatedFixture(t)
+	main := gittest.Run(t, repo, "rev-parse", "HEAD")
+	now := time.Now().UTC()
+	dep, bundle := idstest.N(201), idstest.N(202)
+	running.rows = []RunningImages{{DeploymentID: dep, BundleID: bundle, Images: map[string]string{"web": "digest"}}}
+	subject := conformance.ScanSubject{On: "running", DeploymentID: dep, BundleID: bundle, Part: "web", Digest: "digest"}
+	current, old := ids.New(now), ids.New(now)
+	recordObservations(t, s, ch, []conformance.ScanObservation{
+		{RunID: idstest.N(10), Subject: conformance.ScanSubject{On: "source", Commit: main}, Scanner: "osv", Verdict: "pass", ObservedAt: now},
+		{ID: old, RunID: idstest.N(11), Subject: subject, Scanner: "trivy", Verdict: "pass", ObservedAt: now.Add(-time.Hour)},
+		{ID: current, RunID: idstest.N(12), Subject: subject, Scanner: "trivy", Verdict: "error", Reason: "newest running scan failed", ObservedAt: now.Add(-time.Minute)},
+	})
+	got, err := s.LatestMainScans(t.Context(), ch.ProjectID, 0)
+	if err != nil || got.Known || len(got.Running) != 1 || got.Running[0].ID != current || got.Reason != "newest running scan failed" {
+		t.Fatalf("current scans: %+v %v", got, err)
+	}
+	older, err := s.LatestMainScans(t.Context(), ch.ProjectID, 10)
+	if err != nil || !reflect.DeepEqual(got.Running, older.Running) || len(older.Historical) != 1 || older.Historical[0].ID != old {
+		t.Fatalf("older run changed current: %+v %v", older, err)
 	}
 }

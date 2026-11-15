@@ -31,7 +31,7 @@ const (
 
 type permission struct {
 	Action action
-	// ProjectID scopes a project operation. Projects scopes review admission;
+	// ProjectID scopes a project operation. Projects scopes a set read or review admission;
 	// nil means the fleet, an explicit empty selection means no projects.
 	ProjectID ids.ID
 	Projects  []ids.ID
@@ -211,10 +211,11 @@ func (s *Service) AdoptedCheck(ctx context.Context, projectID ids.ID, block, nam
 }
 
 // CurrentView reads stored conformance facts for an authorized project selection
-// in one query. Recorded main determines freshness; a poll never reads Git.
+// after one capability-specific visibility decision. An unreadable requested
+// project refuses the set. Recorded main determines freshness; a poll never reads Git.
 func (s *Service) CurrentView(ctx context.Context, projects []ids.ID) ([]ProjectStanding, error) {
-	for _, id := range projects {
-		if _, err := s.require(ctx, permission{Action: readProject, ProjectID: id}); err != nil {
+	if len(projects) > 0 {
+		if _, err := s.require(ctx, permission{Action: readProject, Projects: projects}); err != nil {
 			return nil, err
 		}
 	}

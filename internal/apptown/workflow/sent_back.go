@@ -71,7 +71,7 @@ func sentBackOf(run *Run, steps []*Step, events []Event) *SentBack {
 		if s.Stage != run.CurrentStage || s.Type != "approval" {
 			continue
 		}
-		var evidence ApprovalEvidence
+		var evidence approvalEvidence
 		if json.Unmarshal(s.Evidence, &evidence) == nil && evidence.LastRejection != nil {
 			out.By = evidence.LastRejection.Approver
 			return out

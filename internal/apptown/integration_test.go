@@ -792,6 +792,15 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 // verified current human authority and writes immutable consent itself.
 type restoreStandingProcedure struct{}
 
-func (restoreStandingProcedure) StandingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
+func (restoreStandingProcedure) standingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
 	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: "restore-fixture", Version: 1, Step: "accept", Means: "accept bounded updates after required checks"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
+}
+
+func (f restoreStandingProcedure) StandingProcedures(ctx context.Context, q database.Queryer, id ids.ID, names []string) (map[string]workflow.StandingProcedureResult, error) {
+	out := map[string]workflow.StandingProcedureResult{}
+	for _, name := range names {
+		proc, err := f.standingProcedure(ctx, q, id, name)
+		out[name] = workflow.StandingProcedureResult{Procedure: proc, Err: err}
+	}
+	return out, nil
 }

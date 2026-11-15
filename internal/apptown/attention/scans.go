@@ -7,7 +7,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -15,41 +14,38 @@ import (
 // Scans reports missing, stale and unavailable observations. Findings confined
 // to a running image never make an attention item.
 type Scans struct {
-	Work     *workflow.Service
-	Projects *project.Projects
+	Work *workflow.Service
 }
 
-func (s Scans) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, error) {
-	reaches, err := s.Work.JanitorReaches(ctx, id)
+// Snapshot reads the fleet once; each project keeps its own source result.
+func (s Scans) Snapshot(ctx context.Context, projects []ids.ID) (map[ids.ID]ScanSnapshot, error) {
+	rows, err := s.Work.ScanAttention(ctx, projects)
 	if err != nil {
-		return Snapshot{}, err
+		return nil, err
 	}
-	if !reaches {
-		return Snapshot{Name: "Scans", Known: true, Items: []Item{}}, nil
+	out := map[ids.ID]ScanSnapshot{}
+	for _, p := range rows {
+		out[p.ProjectID] = ScanSnapshot{Snapshot: scanSnapshot(p), Err: p.Err}
 	}
-	scans, err := s.Work.LatestMainScans(ctx, id)
-	if err != nil {
-		return Snapshot{}, err
+	return out, nil
+}
+
+func scanSnapshot(p workflow.ScanAttentionProject) Snapshot {
+	if !p.Reaches {
+		return Snapshot{Name: "Scans", Known: true, Items: []Item{}}
 	}
-	p, err := s.Projects.ByID(ctx, id)
-	if err != nil {
-		return Snapshot{}, err
-	}
+	id, scans := p.ProjectID, p.Scans
 	href := "/projects/" + p.Slug + "#janitor"
 	out := Snapshot{Name: "Scans", Href: href, Known: true, ObservedAt: scans.LastScan, Items: []Item{}}
 	if !scans.Known && !scans.NoRepository {
 		out.Items = append(out.Items, Item{Key: "scans/" + id.String(), Severity: SeverityWarning, Title: fmt.Sprintf("%s: scan not known", p.Name), Detail: scanDetail(scans.Reason, scans.Unscheduled), Href: href, Unknown: true, Stale: scans.Stale, ObservedAt: scans.LastScan})
 	}
-	queues, err := s.Work.Queues(ctx, id)
-	if err != nil {
-		return Snapshot{}, err
-	}
-	for _, state := range queues {
+	for _, state := range p.Queues {
 		if state.State == "stuck" || state.State == "stopped" {
 			out.Items = append(out.Items, queueItem(id, p.Name, href, state))
 		}
 	}
-	return out, nil
+	return out
 }
 
 // queueItem links to the queue's change when it has one: the change holds the

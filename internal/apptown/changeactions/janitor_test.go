@@ -295,7 +295,24 @@ func TestScheduleOnlyReadsDoNotResolveUnscheduledDefinitions(t *testing.T) {
 		t.Fatalf("schedule-only read: %+v %v", got, err)
 	}
 	w.schedules.FireDueSchedules(t.Context(), time.Now())
-	got, err := w.schedules.ForJanitor(t.Context(), w.project, time.Now())
+	call := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, ProjectID: w.project.ID}})
+	ad, err := adoption.CurrentReceiptIn(call, w.schedules.DB, w.project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, err := w.adoption.AdoptedWorkflows(call, adoption.Source{ProjectID: w.project.ID, Revision: ad})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scheduled, err := w.adoption.ScheduledWorkflowNames(call, w.project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	facts := workflow.ProcedureFacts{Receipt: ad, Workflows: items, Scheduled: scheduled}
+	queues := []workflow.QueueStatus{}
+	rows, err := w.schedules.ForJanitor(call, []workflow.JanitorProject{{ProjectID: w.project.ID, Slug: w.project.Slug, Facts: facts, Queues: queues}}, time.Now())
+	got := rows[w.project.ID]
+
 	if err != nil || !strings.Contains(got.Janitor().RunNow, "could not be read") {
 		t.Fatalf("publication read: %+v %v", got, err)
 	}

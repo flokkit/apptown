@@ -26,6 +26,9 @@ type authority struct {
 }
 
 func (a *authority) VisibleProjects(context.Context, access.Capability) ([]ids.ID, error) {
+	if a.revoked {
+		return nil, a.err
+	}
 	return a.projects, a.err
 }
 func (a *authority) Require(_ context.Context, p access.Permission) (access.Caller, error) {
@@ -717,4 +720,21 @@ func TestUnknownSourceWithAReadingSaysItCouldNotBeUsed(t *testing.T) {
 	if got := view.Sources[1].Reason; got != "No usable reading has been recorded yet." {
 		t.Fatalf("never read source: %q", got)
 	}
+}
+
+func (s *projectSource) Snapshot(ctx context.Context, projects []ids.ID) (map[ids.ID]ScanSnapshot, error) {
+	out := map[ids.ID]ScanSnapshot{}
+	for _, id := range projects {
+		snap, err := s.ProjectSnapshot(ctx, id)
+		out[id] = ScanSnapshot{Snapshot: snap, Err: err}
+	}
+	return out, nil
+}
+func (f projectRead) Snapshot(ctx context.Context, projects []ids.ID) (map[ids.ID]ScanSnapshot, error) {
+	out := map[ids.ID]ScanSnapshot{}
+	for _, id := range projects {
+		snap, err := f(ctx, id)
+		out[id] = ScanSnapshot{Snapshot: snap, Err: err}
+	}
+	return out, nil
 }

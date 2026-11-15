@@ -558,7 +558,7 @@ func TestEndedLandingWakesOnlyOldestQueuedWork(t *testing.T) {
 // queue/attention answers still come from their real owners.
 type queueAttentionDefinition struct{}
 
-func (queueAttentionDefinition) AdoptedWorkflows(context.Context, adoption.Source) ([]adoption.AdoptedWorkflow, error) {
+func (queueAttentionDefinition) AdoptedWorkflows(context.Context, adoption.Source, ...string) ([]adoption.AdoptedWorkflow, error) {
 	return []adoption.AdoptedWorkflow{{Name: "test", Version: 1, YAML: `apiVersion: apptown.dev/v1
 kind: Workflow
 metadata: {name: test, title: Dependency updates}
@@ -607,7 +607,7 @@ func TestAcceptedQueueWorkRemovesEarlierFailureFromAttention(t *testing.T) {
 	})
 	a.Work.Stop()
 	scheduled := verifiedContext(t.Context(), access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: ch.ProjectID})
-	source := attention.Scans{Work: a.Work, Projects: a.Projects}
+	source := attention.Scans{Work: a.Work}
 	for i := 0; i < 2; i++ {
 		created, err := database.Transact(scheduled, a.DB, func(tx *database.Tx) (workflow.CreatedChange, error) {
 			return workflow.CreateChangeIn(scheduled, tx, workflow.ChangeDraft{ProjectID: ch.ProjectID, Title: "Dependency updates", Queue: "updates"}, "apptown-system", time.Now())
@@ -642,7 +642,7 @@ func TestAcceptedQueueWorkRemovesEarlierFailureFromAttention(t *testing.T) {
 		if state.State != want {
 			t.Fatalf("queue: %+v", state)
 		}
-		snapshot, err := source.ProjectSnapshot(ctx, ch.ProjectID)
+		snapshot, err := readScanSnapshot(source, ctx, ch.ProjectID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -657,4 +657,8 @@ func TestAcceptedQueueWorkRemovesEarlierFailureFromAttention(t *testing.T) {
 		}
 		fail = false
 	}
+}
+
+func (queueAttentionDefinition) ScheduledWorkflowNames(context.Context, ids.ID) (map[string]bool, error) {
+	return map[string]bool{}, nil
 }
