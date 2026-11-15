@@ -1327,16 +1327,18 @@ func TestJanitorAttentionUsesTheJanitorProjectSet(t *testing.T) {
 		t.Fatalf("deleted project retained for inspection: %+v", state)
 	}
 	source := attention.Scans{Work: a.Work}
+	// An active project is read (its snapshot links to its Janitor section);
+	// one that schedules no scan chose that and makes no item.
 	t.Run("unscheduled active project", func(t *testing.T) {
 		got, err := readScanSnapshot(source, ctx, active)
-		if err != nil || !got.Known || len(got.Items) != 1 || got.Items[0].Detail != "Its packs schedule no scan. Adopting the platform pack would scan it." {
+		if err != nil || !got.Known || got.Href == "" || len(got.Items) != 0 {
 			t.Fatalf("active project's scans: %+v %v", got, err)
 		}
 	})
 	for _, id := range []ids.ID{deleted, copy} {
 		t.Run(id.String(), func(t *testing.T) {
 			got, err := readScanSnapshot(source, ctx, id)
-			if err != nil || !got.Known || len(got.Items) != 0 {
+			if err != nil || !got.Known || got.Href != "" || len(got.Items) != 0 {
 				t.Fatalf("excluded project's scans coverage: %+v %v", got, err)
 			}
 		})

@@ -11,8 +11,12 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// Scans reports missing, stale and unavailable observations. Findings confined
-// to a running image never make an attention item.
+// Scans reports scans that need a person: a scan whose scanner failed, or a
+// last scan more than three days old. Code or images newer than the last scan
+// are not an item: the next scheduled scan answers them, and the Janitor page
+// shows them as not known meanwhile. A project whose packs schedule no scan
+// made that choice; the Janitor page says so. Findings confined to a running
+// image never make an attention item.
 type Scans struct {
 	Work *workflow.Service
 }
@@ -37,8 +41,8 @@ func scanSnapshot(p workflow.ScanAttentionProject) Snapshot {
 	id, scans := p.ProjectID, p.Scans
 	href := "/projects/" + p.Slug + "#janitor"
 	out := Snapshot{Name: "Scans", Href: href, Known: true, ObservedAt: scans.LastScan, Items: []Item{}}
-	if !scans.Known && !scans.NoRepository {
-		out.Items = append(out.Items, Item{Key: "scans/" + id.String(), Severity: SeverityWarning, Title: fmt.Sprintf("%s: scan not known", p.Name), Detail: scanDetail(scans.Reason, scans.Unscheduled), Href: href, Unknown: true, Stale: scans.Stale, ObservedAt: scans.LastScan})
+	if !scans.Known && !scans.NoRepository && !scans.Unscheduled && (scans.Failed || scans.Stale) {
+		out.Items = append(out.Items, Item{Key: "scans/" + id.String(), Severity: SeverityWarning, Title: fmt.Sprintf("%s: scan not known", p.Name), Detail: scanDetail(scans.Reason), Href: href, Unknown: true, Stale: scans.Stale, ObservedAt: scans.LastScan})
 	}
 	for _, state := range p.Queues {
 		if state.State == "stuck" || state.State == "stopped" {
@@ -59,10 +63,7 @@ func queueItem(id ids.ID, name, href string, state workflow.QueueStatus) Item {
 
 // scanDetail is the owner's reason for the scans being not known, which names
 // the case, and what would answer it.
-func scanDetail(reason string, unscheduled bool) string {
-	if unscheduled {
-		return "Its packs schedule no scan. Adopting the platform pack would scan it."
-	}
+func scanDetail(reason string) string {
 	reason = strings.TrimRight(firstLine(reason), ".")
 	if reason == "" {
 		return "AppTown has no complete current scan. A new scan would answer it."

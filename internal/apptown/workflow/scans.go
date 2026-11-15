@@ -30,10 +30,14 @@ type MainScans struct {
 	Unscheduled bool `json:"unscheduled"`
 	// NoRepository: the project has no repository yet, so there is nothing
 	// to scan or update; it is outside the janitor's reach, not unknown.
-	NoRepository bool      `json:"noRepository"`
-	Known        bool      `json:"known"`
-	Stale        bool      `json:"stale"`
-	LastScan     time.Time `json:"lastScan"`
+	NoRepository bool `json:"noRepository"`
+	Known        bool `json:"known"`
+	Stale        bool `json:"stale"`
+	// Failed: a current scan ran and its scanner could not judge the software.
+	// Unlike code or images newer than the last scan, which the next scheduled
+	// scan answers, a failure needs a person.
+	Failed   bool      `json:"-"`
+	LastScan time.Time `json:"lastScan"`
 }
 
 type runningScan struct {
@@ -276,7 +280,7 @@ func latestMainScans(main string, running []RunningImages, observations []confor
 			out.Known = false
 		}
 		if o.Verdict == StatusError.String() || o.Subject.On == "source" && o.Scanner == "" {
-			out.Known = false
+			out.Known, out.Failed = false, true
 			out.Reason = o.Reason
 			if out.Reason == "" {
 				out.Reason = "scanner could not judge the software"
