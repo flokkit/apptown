@@ -140,8 +140,8 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 	if stopped.Queues[1].State != "stopped" || stopped.Queues[0].Stopped() {
 		t.Fatalf("queues=%+v", stopped.Queues)
 	}
-	if !strings.Contains(strings.Join(stopped.QueueSentences, " "), "Dependency updates stopped after 3 failed tries. Security fixes and Pack updates can still run.") {
-		t.Fatal(stopped.QueueSentences)
+	if stopped.State.Word != "needs you" {
+		t.Fatal(stopped.State)
 	}
 	dbtest.FailNextStatement(t, s.db, "-- name: JanitorProjectChoices")
 	if _, _, err := s.JanitorProjects(ctx); err == nil {
@@ -225,7 +225,7 @@ func TestJanitorLandedHistoryWindowsPagingAndVisibility(t *testing.T) {
 		t.Fatalf("next=%+v %v", next, err)
 	}
 	older, err := s.LandedJanitorChanges(t.Context(), time.Unix(0, 0), week, 0, 20)
-	if err != nil || len(older.Changes) != 1 || older.Changes[0].Schedule != "janitor-update" {
+	if err != nil || len(older.Changes) != 1 || older.Changes[0].Queue != "updates" {
 		t.Fatalf("older=%+v %v", older, err)
 	}
 	s.authority = aggregateAuthority{operationAuthority: s.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return []ids.ID{}, nil }}
@@ -243,31 +243,6 @@ func TestJanitorRepairSentenceReadsDefinition(t *testing.T) {
 		}
 		got := standingConsent(StandingCategories{Dependencies: "routine"}, []*schema.Doc{doc}, []*schema.Doc{doc})
 		if doc.RepairRounds() != rounds || !strings.Contains(got, fmt.Sprintf("up to %d repair sessions", rounds)) {
-			t.Fatal(got)
-		}
-	}
-}
-
-func TestJanitorNeverSaysSecurityCanRunWhenItIsOffOrStopped(t *testing.T) {
-	queues := []QueueStatus{{Queue: "updates", Failed: queueStopAfter, Words: "stopped after 3 failed tries"}, {Queue: "security", Failed: queueStopAfter, Words: "stopped after 3 failed tries"}}
-	if got := strings.Join(janitorQueueSentences(queues, true), " "); strings.Contains(got, "can still run") {
-		t.Fatal(got)
-	}
-	queues[0].State, queues[0].Words = "updating", "updating"
-	if got := janitorQueueSentences(queues, true)[0]; !strings.Contains(got, "stopped after 3 failed tries") {
-		t.Fatal(got)
-	}
-	queues[1].Failed = 0
-	if got := strings.Join(janitorQueueSentences(queues, false), " "); strings.Contains(got, "can still run") {
-		t.Fatal(got)
-	}
-
-}
-
-func TestJanitorQueueStopRulesUseAdmissionBound(t *testing.T) {
-	for _, title := range []string{"Security fixes", "Dependency updates", "Pack updates", "Base images"} {
-		got := janitorQueueSentences([]QueueStatus{{Title: title}}, true)
-		if len(got) != 1 || got[0] != fmt.Sprintf("%s stop after %d failed tries.", title, queueStopAfter) {
 			t.Fatal(got)
 		}
 	}
@@ -409,16 +384,16 @@ func TestJanitorProjectsClassifiesCompletedFacts(t *testing.T) {
 		failures     int
 		active       bool
 	}{
-		{name: "off for project", word: "turned off for this project", enabled: true, off: true},
-		{name: "off", word: "turned off"},
-		{name: "unknown", word: "unknown", enabled: true},
+		{name: "off for project", word: "off", enabled: true, off: true},
+		{name: "off", word: "off"},
+		{name: "unknown", word: "not known", enabled: true},
 		{name: "no repository", word: "no repository", enabled: true},
 		{name: "up to date", word: "up to date", enabled: true},
-		{name: "waiting", word: "waiting for a person", enabled: true},
-		{name: "stuck", word: "stuck since 2 Jan", enabled: true, failures: 1},
-		{name: "stopped", word: "Dependency updates stopped after 3 failed tries. Security fixes and Pack updates can still run.", enabled: true, failures: 3},
-		{name: "updating", word: "updating", enabled: true, active: true},
-		{name: "stopped and updating", word: "Dependency updates stopped after 3 failed tries. Security fixes and Pack updates can still run. · updating", enabled: true, failures: 3, active: true},
+		{name: "waiting", word: "needs you", enabled: true},
+		{name: "stuck", word: "needs you", enabled: true, failures: 1},
+		{name: "stopped", word: "needs you", enabled: true, failures: 3},
+		{name: "updating", word: "working", enabled: true, active: true},
+		{name: "stopped and updating", word: "needs you", enabled: true, failures: 3, active: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, rules, ctx, repo := janitorReadFixture(t)

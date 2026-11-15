@@ -408,30 +408,16 @@ func unansweredScanners(observations []conformance.ScanObservation) ([]string, b
 
 // janitorScans carries only the scan facts shown in the fleet view.
 type janitorScans struct {
-	Known        bool      `json:"known"`
-	Stale        bool      `json:"stale"`
-	NoRepository bool      `json:"noRepository"`
 	LastScan     time.Time `json:"lastScan"`
-	Findings     int       `json:"findings"`
 	ImageUpdates bool      `json:"imageUpdates"`
 }
 
 func (s MainScans) janitorSummary() janitorScans {
-	out := janitorScans{Known: s.Known, Stale: s.Stale, NoRepository: s.NoRepository, LastScan: s.LastScan}
-	fingerprints := map[string]bool{}
-	for _, scan := range s.Source {
-		for _, f := range scan.Findings {
-			fingerprints[f.Fingerprint] = true
-		}
-	}
+	out := janitorScans{LastScan: s.LastScan}
 	for _, scan := range s.Running {
-		for _, f := range scan.Findings {
-			fingerprints[f.Fingerprint] = true
-		}
 		if len(scan.ImageOnlyFindings) > 0 {
 			out.ImageUpdates = true
 		}
 	}
-	out.Findings = len(fingerprints)
 	return out
 }

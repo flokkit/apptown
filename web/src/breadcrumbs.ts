@@ -83,6 +83,7 @@ export const PAGE_ROUTES = [
   "/services/:name",
   "/policies",
   "/janitor",
+  "/janitor/settings",
   "/packs",
   "/packs/:name",
   "/account",

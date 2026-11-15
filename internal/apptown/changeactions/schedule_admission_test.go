@@ -126,7 +126,7 @@ spec:
 				if page.RunNow != schedule.Waiting {
 					t.Fatal(page)
 				}
-			} else if !page.NextUpdate.Equal(schedule.Next) {
+			} else if page.RunNow != schedule.Waiting {
 				t.Fatal(page)
 			}
 			if state == "stopped" || state == "off" || state == "no rule" {

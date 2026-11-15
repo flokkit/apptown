@@ -694,48 +694,27 @@ func asSchedule(ctx context.Context, projectID ids.ID) context.Context {
 
 // JanitorSchedule is the maintenance page's view of scheduler reads.
 type JanitorSchedule struct {
-	NextUpdate time.Time `json:"nextUpdate"`
-	NextReason string    `json:"nextReason"`
-	RunNow     string    `json:"runNow"`
+	RunNow          string `json:"runNow"`
+	ScheduleProblem string `json:"scheduleProblem"`
 }
 
-// Janitor selects discovery and update roles from the schedules' declarations.
+// Janitor selects update eligibility from the schedules' declarations.
 func (p ProjectSchedules) Janitor() JanitorSchedule {
-	out := JanitorSchedule{RunNow: "No janitor schedule adopted", NextReason: "No update schedule adopted"}
+	out := JanitorSchedule{RunNow: "No janitor schedule adopted"}
 	if p.EvalCopy {
 		out.RunNow = "an eval copy runs no schedule"
 	}
-	var problem string
 	for _, schedule := range append(slices.Clone(p.Schedules), p.publicationStarts...) {
 		if schedule.Problem != "" {
-			problem = schedule.Problem
+			out.ScheduleProblem = schedule.Problem
 			continue
 		}
-		if !schedule.Standing {
-			continue
-		}
-		if schedule.Queue != "" && (out.RunNow == "No janitor schedule adopted" || schedule.Waiting == "") {
+		if schedule.Standing && schedule.Queue != "" && (out.RunNow == "No janitor schedule adopted" || schedule.Waiting == "") {
 			out.RunNow = schedule.Waiting
 		}
-		// Publication catch-up contributes eligibility, not an update time.
-		if schedule.Cron == "" {
-			continue
-		}
-		if schedule.DiscoversTargets {
-			continue
-		}
-		if !schedule.Next.IsZero() {
-			if out.NextUpdate.IsZero() || schedule.Next.Before(out.NextUpdate) {
-				out.NextUpdate = schedule.Next
-				out.NextReason = ""
-			}
-		} else if out.NextUpdate.IsZero() {
-			out.NextReason = schedule.Refused
-		}
 	}
-	if problem != "" {
-		out.RunNow = "Not known: " + problem
-		out.NextReason = "Update time not known: " + problem
+	if out.ScheduleProblem != "" {
+		out.RunNow = "Not known: " + out.ScheduleProblem
 	}
 	return out
 }

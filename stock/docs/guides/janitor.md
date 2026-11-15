@@ -1,8 +1,8 @@
 # Janitor
 
-The Janitor page shows what the janitor may change, what it does
-when something goes wrong, which projects need a person, and the Changes it
-has landed. Nothing runs until a person grants permission.
+The Janitor page shows work that needs you, each project's state and recent
+Changes. Open a project for scans, findings, queues and Run now. Open a Change
+for its files and evidence. Janitor settings holds approvals and repair limits. Nothing runs until a person grants permission.
 
 ## What it may change
 
@@ -17,7 +17,7 @@ and, for security fixes, that the source scanner no longer reports the target.
 **Keep packs current** moves projects to newly published pack versions and makes
 any application changes those updates need.
 
-Each approval shows its limits, projects, automatic release destinations, who
+In Janitor settings, each approval shows its limits, projects, automatic release destinations, who
 granted it and when. An administrator uses **Preview** to read the exact meaning
 and affected deployments, then **Enable** to grant it. **Revoke** stops new work
 under that approval. Work that has already claimed permission may finish.
@@ -29,7 +29,7 @@ and why; it appears below the approval as well as beside the project.
 
 ## When something goes wrong
 
-The page reads repair limits from each project's adopted workflows. A failed
+Janitor settings reads repair limits from each project's adopted workflows. A failed
 check starts the declared repair sessions. Work that still fails waits for a
 person; a missing or unknown check never counts as success.
 

@@ -3678,21 +3678,8 @@
               "null"
             ]
           },
-          "deployment": {
-            "type": "string"
-          },
           "displayLabel": {
             "type": "string"
-          },
-          "number": {
-            "type": "integer"
-          },
-          "projectId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
           },
           "state": {
             "type": "string"
@@ -3700,10 +3687,7 @@
         },
         "required": [
           "changeId",
-          "projectId",
-          "number",
           "state",
-          "deployment",
           "displayLabel"
         ],
         "type": "object"
@@ -3743,12 +3727,6 @@
               "null"
             ]
           },
-          "protected": {
-            "type": "boolean"
-          },
-          "sentence": {
-            "type": "string"
-          },
           "setting": {
             "$ref": "#/components/schemas/RoutineUpdates"
           }
@@ -3759,9 +3737,7 @@
           "name",
           "displayLabel",
           "setting",
-          "protected",
-          "automatic",
-          "sentence"
+          "automatic"
         ],
         "type": "object"
       },
@@ -3788,9 +3764,6 @@
           "history": {
             "$ref": "#/components/schemas/JanitorHistory"
           },
-          "offset": {
-            "type": "integer"
-          },
           "releases": {
             "items": {
               "$ref": "#/components/schemas/JanitorChangeRelease"
@@ -3810,8 +3783,7 @@
           "history",
           "releases",
           "since",
-          "until",
-          "offset"
+          "until"
         ],
         "type": "object"
       },
@@ -3858,30 +3830,10 @@
               }
             ]
           },
-          "enabled": {
-            "type": "boolean"
-          },
-          "grantedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "issuer": {
-            "$ref": "#/components/schemas/Actor"
-          },
           "level": {
             "type": "string"
           },
           "name": {
-            "type": "string"
-          },
-          "nextReason": {
-            "type": "string"
-          },
-          "nextUpdate": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "problem": {
             "type": "string"
           },
           "procedures": {
@@ -3897,12 +3849,6 @@
               "null"
             ]
           },
-          "queueSentences": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
           "queues": {
             "items": {
               "$ref": "#/components/schemas/QueueStatus"
@@ -3914,6 +3860,9 @@
           },
           "scans": {
             "$ref": "#/components/schemas/janitorScans"
+          },
+          "scheduleProblem": {
+            "type": "string"
           },
           "slug": {
             "type": "string"
@@ -3927,18 +3876,12 @@
           "projectId",
           "slug",
           "name",
-          "enabled",
           "level",
-          "issuer",
-          "grantedAt",
           "queues",
           "scans",
-          "problem",
           "procedures",
-          "queueSentences",
-          "nextUpdate",
-          "nextReason",
-          "runNow"
+          "runNow",
+          "scheduleProblem"
         ],
         "type": "object"
       },
@@ -8548,25 +8491,9 @@
               "null"
             ]
           },
-          "files": {
-            "items": {
-              "$ref": "#/components/schemas/File"
-            },
-            "type": "array"
-          },
-          "grantedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "issuer": {
-            "$ref": "#/components/schemas/Actor"
-          },
           "landedAt": {
             "format": "date-time",
             "type": "string"
-          },
-          "number": {
-            "type": "integer"
           },
           "packVersions": {
             "items": {
@@ -8593,64 +8520,19 @@
           "queue": {
             "type": "string"
           },
-          "rule": {
-            "anyOf": [
-              {
-                "properties": {
-                  "kind": {
-                    "type": "string"
-                  },
-                  "scope": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "scope"
-                ],
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "ruleId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "ruleRevision": {
-            "type": "integer"
-          },
-          "schedule": {
-            "type": "string"
-          },
-          "slug": {
-            "type": "string"
-          },
           "title": {
             "type": "string"
           }
         },
         "required": [
-          "slug",
           "project",
           "packVersions",
           "changeId",
           "projectId",
-          "number",
           "title",
           "landedAt",
           "queue",
-          "files",
-          "packages",
-          "ruleRevision",
-          "issuer",
-          "grantedAt",
-          "schedule"
+          "packages"
         ],
         "type": "object"
       },
@@ -8658,9 +8540,6 @@
         "properties": {
           "problem": {
             "type": "string"
-          },
-          "repairRounds": {
-            "type": "integer"
           },
           "sentence": {
             "type": "string"
@@ -8682,7 +8561,6 @@
           "title",
           "workflow",
           "version",
-          "repairRounds",
           "stopRule",
           "sentence",
           "problem"
@@ -8691,32 +8569,16 @@
       },
       "janitorScans": {
         "properties": {
-          "findings": {
-            "type": "integer"
-          },
           "imageUpdates": {
-            "type": "boolean"
-          },
-          "known": {
             "type": "boolean"
           },
           "lastScan": {
             "format": "date-time",
             "type": "string"
-          },
-          "noRepository": {
-            "type": "boolean"
-          },
-          "stale": {
-            "type": "boolean"
           }
         },
         "required": [
-          "known",
-          "stale",
-          "noRepository",
           "lastScan",
-          "findings",
           "imageUpdates"
         ],
         "type": "object"

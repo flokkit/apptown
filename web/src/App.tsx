@@ -25,6 +25,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { currentUser, setCurrentUser } from './api'
 import Dashboard from './pages/Dashboard'
 import Janitor from './pages/Janitor'
+import JanitorSettings from './pages/janitor/Settings'
 import AttentionPage from './pages/Attention'
 import Projects from './pages/Projects'
 import Deployments from './pages/Deployments'
@@ -360,6 +361,7 @@ export default function App() {
           <Route path="/services/:name" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
           <Route path="/policies" element={<CoreArea area="ways"><WaysOfWorking tab="policies" /></CoreArea>} />
           <Route path="/janitor" element={<CoreArea area="projects"><InstanceGate page="janitor"><Janitor /></InstanceGate></CoreArea>} />
+          <Route path="/janitor/settings" element={<CoreArea area="projects"><InstanceGate page="janitor"><JanitorSettings /></InstanceGate></CoreArea>} />
           <Route path="/packs" element={<CoreArea area="ways"><WaysOfWorking tab="packs" /></CoreArea>} />
           <Route path="/packs/:name" element={<CoreArea area="ways"><PackPage /></CoreArea>} />
           <Route path="/account" element={<CoreArea area="people"><MyExternalSignIn /></CoreArea>} />

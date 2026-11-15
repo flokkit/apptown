@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
-	"time"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -33,7 +31,7 @@ type janitorProcedure struct {
 	Title        string `json:"title"`
 	Workflow     string `json:"workflow"`
 	Version      int    `json:"version"`
-	RepairRounds int    `json:"repairRounds"`
+	RepairRounds int    `json:"-"`
 	StopRule     string `json:"stopRule"`
 	Sentence     string `json:"sentence"`
 	Problem      string `json:"problem"`
@@ -54,21 +52,18 @@ type ProcedureFacts struct {
 }
 
 type JanitorProject struct {
-	Facts          ProcedureFacts     `json:"-"`
-	State          janitorState       `json:"state"`
-	ProjectID      ids.ID             `json:"projectId"`
-	Slug           string             `json:"slug"`
-	Name           string             `json:"name"`
-	Enabled        bool               `json:"enabled"`
-	Level          string             `json:"level"`
-	Choice         *janitorChoice     `json:"choice,omitempty"`
-	Issuer         access.Actor       `json:"issuer"`
-	GrantedAt      time.Time          `json:"grantedAt"`
-	Queues         []QueueStatus      `json:"queues"`
-	Scans          janitorScans       `json:"scans"`
-	Problem        string             `json:"problem"`
-	Procedures     []janitorProcedure `json:"procedures"`
-	QueueSentences []string           `json:"queueSentences"`
+	Facts      ProcedureFacts     `json:"-"`
+	State      janitorState       `json:"state"`
+	ProjectID  ids.ID             `json:"projectId"`
+	Slug       string             `json:"slug"`
+	Name       string             `json:"name"`
+	Enabled    bool               `json:"-"`
+	Level      string             `json:"level"`
+	Choice     *janitorChoice     `json:"choice,omitempty"`
+	Queues     []QueueStatus      `json:"queues"`
+	Scans      janitorScans       `json:"scans"`
+	Problem    string             `json:"-"`
+	Procedures []janitorProcedure `json:"procedures"`
 }
 
 // janitorRules is the read-only home for consent. Managing consent still uses
@@ -148,14 +143,12 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, []Stan
 	}
 	out := make([]JanitorProject, 0, len(labels))
 	for _, p := range labels {
-		item := JanitorProject{ProjectID: p.ID, Slug: p.Slug, Name: p.Name, Queues: []QueueStatus{}, Procedures: []janitorProcedure{}, QueueSentences: []string{}}
+		item := JanitorProject{ProjectID: p.ID, Slug: p.Slug, Name: p.Name, Queues: []QueueStatus{}, Procedures: []janitorProcedure{}}
 		for _, rule := range rules {
 			if rule.Enabled && ruleCovers(rule, p.ID) {
 				item.Enabled = true
 				if item.Level == "" {
 					item.Level = rule.Question.Definition.Categories.Dependencies
-					item.Issuer = rule.Issuer
-					item.GrantedAt = rule.EnabledAt
 				}
 			}
 		}
@@ -178,36 +171,12 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, []Stan
 			item.Problem = err.Error()
 			scans = MainScans{Reason: err.Error()}
 		}
-		item.QueueSentences = janitorQueueSentences(item.Queues, item.Enabled && item.Level != "off")
 		janitorProcedures(&item, definitions)
 		item.State = janitorProjectState(item, scans)
 		item.Scans = scans.janitorSummary()
 		out = append(out, item)
 	}
 	return out, rules, nil
-}
-
-// These are the only templates for queue policy on the janitor page. The stop
-// bound is the one admission uses, and each queue keeps its own failure count.
-func janitorQueueSentences(queues []QueueStatus, enabled bool) []string {
-	out := []string{}
-	var active []string
-	for _, q := range queues {
-		if enabled && !q.Stopped() {
-			active = append(active, q.Title)
-		}
-	}
-	for _, q := range queues {
-		sentence := fmt.Sprintf("%s stop after %d failed tries.", q.Title, queueStopAfter)
-		if q.Stopped() {
-			sentence = q.Title + " " + queueWords(QueueStatus{State: "stopped", Failed: q.Failed}) + "."
-			if len(active) > 0 {
-				sentence += " " + strings.Join(active, " and ") + " can still run."
-			}
-		}
-		out = append(out, sentence)
-	}
-	return out
 }
 
 type adoptedProcedure struct {
@@ -284,51 +253,34 @@ func janitorProcedures(p *JanitorProject, definitions []adoptedProcedure) {
 // janitorProjectState classifies the completed read, including procedure problems.
 func janitorProjectState(p JanitorProject, scans MainScans) janitorState {
 	state := janitorState{}
-	active, stopped, stuck, waiting := false, -1, -1, false
-	for i, q := range p.Queues {
+	active, attention := false, false
+	for _, q := range p.Queues {
 		switch q.State {
-		case "updating":
+		case "updating", "landing":
 			active = true
-		case "stopped":
-			if stopped < 0 {
-				stopped = i
-			}
-		case "stuck":
-			if stuck < 0 {
-				stuck = i
-			}
-		case "waiting":
-			waiting = true
+		case "stopped", "stuck", "waiting":
+			attention = true
 		}
 	}
 	switch {
-	case p.Level == "off":
-		state.Word = "turned off for this project"
-	case !p.Enabled:
-		state.Word = "turned off"
+	case p.Level == "off" || !p.Enabled:
+		state.Word = "off"
 	case scans.NoRepository:
 		state.Word = "no repository"
-	case stopped >= 0:
-		state.Word = p.QueueSentences[stopped]
-		if active {
-			state.Word += " · " + queueWords(QueueStatus{State: "updating"})
-		}
+	case attention:
+		state.Word = "needs you"
 	case active:
-		state.Word = queueWords(QueueStatus{State: "updating"})
-	case stuck >= 0:
-		state.Word = p.Queues[stuck].Words
+		state.Word = "working"
 	case p.Problem != "" || !scans.Known:
-		state.Word, state.Unknown, state.Help = "unknown", true, p.Problem
+		state.Word, state.Unknown, state.Help = "not known", true, p.Problem
 		if state.Help == "" {
 			state.Help = scans.Reason
 		}
 		if state.Help == "" {
 			state.Help = "Scan not known"
 		}
-	case waiting:
-		state.Word = queueWords(QueueStatus{State: "waiting"})
 	default:
-		state.Word = queueWords(QueueStatus{State: "up_to_date"})
+		state.Word = "up to date"
 	}
 	return state
 }

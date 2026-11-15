@@ -5,31 +5,20 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
-	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
 type janitorLandedChange struct {
-	Rule         *standingRuleIdentity `json:"rule,omitempty"`
-	Slug         string                `json:"slug"`
-	Project      string                `json:"project"`
-	PackVersions []adoption.PackPick   `json:"packVersions"`
-	ChangeID     ids.ID                `json:"changeId"`
-	ProjectID    ids.ID                `json:"projectId"`
-	Number       int64                 `json:"number"`
-	Title        string                `json:"title"`
-	LandedAt     time.Time             `json:"landedAt"`
-	Queue        string                `json:"queue"`
-	Files        []fix.File            `json:"files"`
-	Packages     []PackageMove         `json:"packages"`
-	RuleID       ids.ID                `json:"ruleId,omitzero"`
-	RuleRevision int64                 `json:"ruleRevision"`
-	Issuer       access.Actor          `json:"issuer"`
-	GrantedAt    time.Time             `json:"grantedAt"`
-	Schedule     string                `json:"schedule"`
+	Project      string              `json:"project"`
+	PackVersions []adoption.PackPick `json:"packVersions"`
+	ChangeID     ids.ID              `json:"changeId"`
+	ProjectID    ids.ID              `json:"projectId"`
+	Title        string              `json:"title"`
+	LandedAt     time.Time           `json:"landedAt"`
+	Queue        string              `json:"queue"`
+	Packages     []PackageMove       `json:"packages"`
 }
 
 type JanitorHistory struct {
@@ -39,7 +28,7 @@ type JanitorHistory struct {
 
 // LandedJanitorChanges pages by landing time within an explicit half-open
 // window. Visibility is fenced before LIMIT so hidden rows cannot crowd out
-// readable history. Original authority comes from the immutable revision.
+// readable history. Detail evidence remains on the Change.
 func (s *Service) LandedJanitorChanges(ctx context.Context, since, until time.Time, offset, limit int) (JanitorHistory, error) {
 	out := JanitorHistory{Changes: []janitorLandedChange{}}
 	visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
@@ -61,10 +50,7 @@ func (s *Service) LandedJanitorChanges(ctx context.Context, since, until time.Ti
 		rows = rows[:limit]
 	}
 	for _, row := range rows {
-		item := janitorLandedChange{Slug: row.Slug, Project: row.Name, PackVersions: []adoption.PackPick{}, ChangeID: row.ID, ProjectID: row.ProjectID, Number: row.Number, Title: row.Title, LandedAt: row.ClosedAt.Time, Queue: row.Queue, Packages: []PackageMove{}, RuleID: row.RuleID, RuleRevision: row.RuleRevision, Schedule: row.Schedule}
-		if err := json.Unmarshal(row.Files, &item.Files); err != nil {
-			return out, err
-		}
+		item := janitorLandedChange{Project: row.Name, PackVersions: []adoption.PackPick{}, ChangeID: row.ID, ProjectID: row.ProjectID, Title: row.Title, LandedAt: row.ClosedAt.Time, Queue: row.Queue, Packages: []PackageMove{}}
 		if err := json.Unmarshal(row.Packages, &item.Packages); err != nil {
 			return out, err
 		}
@@ -74,22 +60,6 @@ func (s *Service) LandedJanitorChanges(ctx context.Context, since, until time.Ti
 				return out, err
 			}
 			item.PackVersions = candidate.Packs
-		}
-		if !row.RuleID.IsZero() {
-			revision, err := workflowsql.New(s.db.SQL()).StandingRevision(ctx, workflowsql.StandingRevisionParams{RuleID: row.RuleID, Revision: row.RuleRevision})
-			if err != nil {
-				return out, err
-			}
-			rule, err := readStandingRevision(revision)
-			if err != nil {
-				return out, err
-			}
-			item.Rule, err = standingRuleIdentityIn(ctx, s.db, s.checked, rule)
-			if err != nil {
-				return out, err
-			}
-			item.Issuer = rule.Issuer
-			item.GrantedAt = rule.EnabledAt
 		}
 		out.Changes = append(out.Changes, item)
 	}

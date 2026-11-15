@@ -995,7 +995,7 @@ func testPackAdoption(t *testing.T, only string) {
 			recorded := false
 			for _, entry := range history.Changes {
 				if entry.ChangeID == landed.ID {
-					recorded = entry.RuleID == rule.RuleID && entry.RuleRevision == rule.Revision && entry.Issuer.Principal == rule.Issuer.Principal && slices.ContainsFunc(entry.PackVersions, func(p adoption.PackPick) bool { return p.Pack == "old-language" && p.Version == 2 })
+					recorded = landed.Janitor != nil && landed.Janitor.RuleID == rule.RuleID && landed.Janitor.RuleRevision == rule.Revision && landed.Janitor.Issuer.Principal == rule.Issuer.Principal && slices.ContainsFunc(entry.PackVersions, func(p adoption.PackPick) bool { return p.Pack == "old-language" && p.Version == 2 })
 				}
 			}
 			if !recorded {

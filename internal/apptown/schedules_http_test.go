@@ -124,10 +124,10 @@ func TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement(t *testi
 		t.Fatal(err)
 	}
 	for _, p := range shape.Projects {
-		if len(p.Scans) != 6 {
+		if len(p.Scans) != 2 {
 			t.Fatalf("fleet scan payload: %v", p.Scans)
 		}
-		for _, key := range []string{"known", "stale", "lastScan", "noRepository", "findings", "imageUpdates"} {
+		for _, key := range []string{"lastScan", "imageUpdates"} {
 			if _, ok := p.Scans[key]; !ok {
 				t.Fatalf("fleet scans missing %s: %v", key, p.Scans)
 			}
@@ -220,13 +220,13 @@ func TestJanitorPageReadsWithAnInstanceRuleAndAProjectWithoutARepository(t *test
 	}
 	// It reads as no repository, outside the janitor's reach: never an error
 	// from asking Git for an empty branch name. Its own scans page answers too.
-	if row, ok := rows[empty.ID]; !ok || row.Problem != "" || !row.Scans.NoRepository || row.Scans.Known {
+	if row, ok := rows[empty.ID]; !ok || row.State.Word != "no repository" || row.State.Unknown {
 		t.Fatalf("project without a repository: %s", w.Body)
 	}
 	if w := authzCall(a.Handler(), "boss", "GET", "/api/v1/projects/game/scans", ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"noRepository":true`) {
 		t.Fatalf("scans page of a project without a repository: %d %s", w.Code, w.Body)
 	}
-	if p, ok := rows[covered]; !ok || !p.Enabled || strings.HasPrefix(p.Problem, "Eligibility not known") {
+	if p, ok := rows[covered]; !ok || p.State.Word == "off" || strings.HasPrefix(p.State.Help, "Eligibility not known") {
 		t.Fatalf("covered project: %+v", p)
 	}
 }

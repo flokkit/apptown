@@ -1127,34 +1127,23 @@ export type JanitorHistoryView = {
   releases: JanitorChangeRelease[]
   since: string
   until: string
-  offset: number
 }
 
 export type JanitorLandedChange = {
-  rule?: { kind: string; scope: string } | null
-  slug: string
   project: string
   packVersions: PackPick[]
   changeId: string | null
   projectId: string | null
-  number: number
   title: string
   landedAt: string
   queue: string
-  files: File[]
   packages: PackageMove[]
-  ruleId?: string | null
-  ruleRevision: number
-  issuer: StandingActor
-  grantedAt: string
-  schedule: string
 }
 
 export type JanitorProcedure = {
   title: string
   workflow: string
   version: number
-  repairRounds: number
   stopRule: string
   sentence: string
   problem: string
@@ -3972,21 +3961,13 @@ export type JanitorHistory = {
 
 export type JanitorChangeRelease = {
   changeId: string | null
-  projectId: string | null
-  number: number
   state: string
-  deployment: string
   displayLabel: string
 }
 
 export type PackPick = {
   pack: string
   version: number
-}
-
-export type File = {
-  path: string
-  class: string
 }
 
 export type PackageMove = {
@@ -4001,19 +3982,13 @@ export type JanitorProject = {
   projectId: string | null
   slug: string
   name: string
-  enabled: boolean
   level: string
   choice?: JanitorChoice | null
-  issuer: StandingActor
-  grantedAt: string
   queues: QueueStatus[]
   scans: janitorScans
-  problem: string
   procedures: JanitorProcedure[]
-  queueSentences: string[]
-  nextUpdate: string
-  nextReason: string
   runNow: string
+  scheduleProblem: string
 }
 
 export type JanitorDeployment = {
@@ -4022,9 +3997,7 @@ export type JanitorDeployment = {
   name: string
   displayLabel: string
   setting: RoutineUpdates
-  protected: boolean
   automatic: boolean
-  sentence: string
   hold?: JanitorHold | null
 }
 
@@ -5523,11 +5496,7 @@ export type janitorState = {
 }
 
 export type janitorScans = {
-  known: boolean
-  stale: boolean
-  noRepository: boolean
   lastScan: string
-  findings: number
   imageUpdates: boolean
 }
 
@@ -5597,6 +5566,11 @@ export type OverviewHead = {
   sha: string
   subject: string
   when: string
+}
+
+export type File = {
+  path: string
+  class: string
 }
 
 export type ScanObservation = {

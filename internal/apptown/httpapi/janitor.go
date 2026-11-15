@@ -66,7 +66,6 @@ type JanitorHistoryView struct {
 	Releases []deployment.JanitorChangeRelease `json:"releases"`
 	Since    time.Time                         `json:"since"`
 	Until    time.Time                         `json:"until"`
-	Offset   int                               `json:"offset"`
 }
 
 func (h Janitor) History(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +113,7 @@ func (h Janitor) History(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, JanitorHistoryView{History: history, Releases: releases, Since: since, Until: until, Offset: offset})
+	WriteJSON(w, 200, JanitorHistoryView{History: history, Releases: releases, Since: since, Until: until})
 }
 
 // JanitorRunView reports each queue independently, including ordinary refusals.

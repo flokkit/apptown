@@ -100,7 +100,7 @@ spec:
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !page.Janitor().NextUpdate.Equal(got.Next) {
+		if page.Janitor().RunNow != got.Waiting {
 			t.Fatal(page.Janitor())
 		}
 		ad, err := adoption.CurrentReceiptIn(t.Context(), w.schedules.DB, w.project.ID)

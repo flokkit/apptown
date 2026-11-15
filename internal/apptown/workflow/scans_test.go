@@ -420,7 +420,7 @@ func TestUnscannedRunningImagesUseSingularAndPlural(t *testing.T) {
 	}
 }
 
-func TestJanitorSummaryCountsDistinctCurrentFindingsAndImageOnlyUpdates(t *testing.T) {
+func TestJanitorSummaryRetainsScanTimeAndImageOnlyUpdates(t *testing.T) {
 	t.Parallel()
 	finding := func(fp string) conformance.Finding { return conformance.Finding{Fingerprint: fp} }
 	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
@@ -430,7 +430,7 @@ func TestJanitorSummaryCountsDistinctCurrentFindingsAndImageOnlyUpdates(t *testi
 		Historical: []conformance.ScanObservation{{Findings: []conformance.Finding{finding("old")}}},
 	}
 	got := scans.janitorSummary()
-	if got.Findings != 3 || got.ImageUpdates || !got.Known || !got.Stale || !got.NoRepository || got.LastScan != at {
+	if got.ImageUpdates || got.LastScan != at {
 		t.Fatalf("summary: %+v", got)
 	}
 	scans.Running[0].ImageOnlyFindings = []conformance.Finding{finding("running")}
