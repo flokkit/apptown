@@ -1172,6 +1172,8 @@ export type JanitorStart = {
 }
 
 export type JanitorView = {
+  unknownRules: (string | null)[]
+  changedRules: (string | null)[]
   rules: StandingRevision[]
   projects: JanitorProject[]
   deployments: JanitorDeployment[]

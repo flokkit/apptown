@@ -17,7 +17,7 @@ export const packDefinition: StandingDefinition = {
   projects: [], administrative: true, delivery: 'full',
 }
 
-export function RuleConsent({ rule, packs, current, reload, project }: { rule?: StandingRevision; packs: boolean; current: boolean; reload: () => Promise<void>; project?: string }) {
+export function RuleConsent({ rule, packs, current, reload, project, changed = false }: { rule?: StandingRevision; changed?: boolean; packs: boolean; current: boolean; reload: () => Promise<void>; project?: string }) {
   const instance = useHolds('instance:manage-standing-approval')
   const local = useHolds('project:manage-standing-approval', project)
   const [level, setLevel] = useState(rule?.question.definition.categories.dependencies || 'routine')
@@ -27,7 +27,8 @@ export function RuleConsent({ rule, packs, current, reload, project }: { rule?: 
   const saved = rule?.question.definition
   const definition = saved?.scope !== 'instance' && saved ? packs ? saved : { ...saved, categories: { ...saved.categories, dependencies: level } } : packs ? packDefinition : dependencyDefinition(level)
   return <>
-    {rule?.enabled ? <button disabled={action.busy || !current} onClick={() => action.run(() => post(`/standing-approvals/${rule.ruleId}/disable`, { expectedRevision: rule.revision }))}>Revoke</button> : <div className="stack stack-2">
+    {rule?.enabled ? <button disabled={action.busy || !current} onClick={() => action.run(() => post(`/standing-approvals/${rule.ruleId}/disable`, { expectedRevision: rule.revision }))}>Revoke</button> : null}
+    {(!rule?.enabled || changed) && <div className="stack stack-2">
       {!packs && <select aria-label="Dependency update level" value={level} onChange={e => setLevel(e.target.value)} disabled={!current || action.busy}>
         <option value="routine">Routine · patch and minor</option><option value="aggressive">Aggressive · including major</option>
       </select>}

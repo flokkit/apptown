@@ -10,16 +10,19 @@ import { Status } from '../Status'
 import { fmtWhen } from '../format'
 import { TryAgain } from './janitor/TryAgain'
 import { firstLine } from './change/Head'
-import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, JanitorRunView, QueueStatus } from '../wire.gen'
+import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, JanitorRunView, QueueStatus, StandingRevision } from '../wire.gen'
 
 const projectTo = (p: JanitorProject) => `/projects/${p.slug}#janitor`
 const date = (value?: string) => value && !value.startsWith('0001-') ? fmtWhen(value) : 'Not known'
+
+const approvalName = (r: StandingRevision) => `${r.question.definition.categories.waysOfWorking ? 'Keep packs current' : 'Dependency updates'} approval`
+const changedReason = 'changed meaning; enable it again in Settings'
 
 function summary(data: JanitorView) {
   const rules = data.rules.filter(r => r.enabled)
   if (!rules.length) return 'Turned off'
   const groups = new Map<string, Set<string>>()
-  for (const { question: { definition: d } } of rules) {
+  for (const { question: { definition: d } } of rules.filter(r => !data.changedRules.includes(r.ruleId!))) {
     const scope = d.scope === 'instance' ? 'all projects' : data.projects.filter(p => d.projects.some(scope => scope.projectId === p.projectId)).map(p => p.name).join(', ')
     const kinds = groups.get(scope) ?? new Set<string>()
     if (d.categories.dependencies && d.categories.dependencies !== 'off') kinds.add(`Dependency updates (${d.categories.dependencies === 'aggressive' ? 'aggressive, including major' : 'routine, patch and minor'})`)
@@ -27,15 +30,15 @@ function summary(data: JanitorView) {
     if (d.categories.waysOfWorking) kinds.add('pack updates')
     groups.set(scope, kinds)
   }
-  return [...groups].map(([scope, kinds]) => `${[...kinds].join(', ')} · ${scope}`).join('; ')
+  return [...rules.filter(r => data.changedRules.includes(r.ruleId!)).map(r => `${approvalName(r)} ${changedReason}`), ...[...groups].map(([scope, kinds]) => `${[...kinds].join(', ')} · ${scope}`)].join('; ')
 }
 
-type Need = { key: string; project: JanitorProject; what: string; reason: string; to: string; queue?: QueueStatus }
+type Need = { key: string; project?: JanitorProject; what: string; reason: string; to: string; queue?: QueueStatus }
 function needs(data: JanitorView): Need[] {
-  return data.projects.flatMap(project => [
+  return [...data.rules.filter(r => data.changedRules.includes(r.ruleId!)).map(r => ({ key: `rule/${r.ruleId}`, what: approvalName(r), reason: changedReason, to: "/janitor/settings" })), ...data.projects.flatMap(project => [
     ...project.queues.filter(q => ['stuck', 'stopped', 'waiting'].includes(q.state)).map(queue => ({ key: `${project.projectId}/${queue.queue}`, project, what: queue.title, reason: [queue.words, firstLine(queue.reason)].filter(Boolean).join(' · '), to: queue.changeId ? `/changes/${queue.changeId}` : projectTo(project), queue })),
     ...data.deployments.filter(d => d.projectId === project.projectId && d.hold).map(d => ({ key: d.deploymentId!, project, what: d.displayLabel, reason: `Release ${d.hold!.releaseNumber} to ${d.displayLabel} ${d.hold!.reason === 'release failed' ? 'failed' : d.hold!.reason}`, to: `/projects/${project.slug}/deployments/${d.name}?tab=history` })),
-  ])
+  ])]
 }
 
 function History({ projects }: { projects: JanitorProject[] }) {
@@ -109,10 +112,10 @@ export default function Janitor() {
     {data && <>
       {refusals.map((reason, i) => <div className="record-note" key={i}>{reason}</div>)}
       {items.length > 0 && <Section title="Needs you"><ListTable label="Needs you" rows={items} rowKey={n => n.key} rowTo={n => n.to} columns={[
-        { key: 'project', label: 'Project', phone: 'name', render: n => <Link to={n.to}>{n.project.name}</Link> },
+        { key: 'project', label: 'Project', phone: 'name', render: n => <Link to={n.to}>{n.project?.name ?? 'All projects'}</Link> },
         { key: 'what', label: 'What', className: 'record-fit', render: n => n.what },
         { key: 'reason', label: 'Reason', render: n => n.reason },
-        { key: 'action', label: '', phone: 'action', render: n => n.queue && <TryAgain queue={n.queue} slug={n.project.slug} current={q.current && !action.busy} reload={q.reload} /> },
+        { key: 'action', label: '', phone: 'action', render: n => n.queue && <TryAgain queue={n.queue} slug={n.project!.slug} current={q.current && !action.busy} reload={q.reload} /> },
       ]} /></Section>}
       <Section title="Projects">{data.projects.length ? <ListTable label="Projects’ janitor state" columns={columns} rows={data.projects} rowKey={p => p.projectId!} rowTo={projectTo} /> : <p>No projects yet.</p>}</Section>
     </>}

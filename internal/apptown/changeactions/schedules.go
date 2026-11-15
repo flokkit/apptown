@@ -540,39 +540,16 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (Pr
 // already read by workflow. These observations convey no command authority.
 func (s Schedules) ForJanitor(ctx context.Context, projects []workflow.JanitorProject, now time.Time) (map[ids.ID]ProjectSchedules, error) {
 	carried := map[ids.ID][]carried{}
-	set := []workflow.ProjectWorkflows{}
 	for _, p := range projects {
 		items, err := s.carriedFrom(ctx, p.ProjectID, true, p.Facts)
 		if err != nil {
 			return nil, err
 		}
 		carried[p.ProjectID] = items
-		request := workflow.ProjectWorkflows{ProjectID: p.ProjectID}
-		for _, c := range items {
-			if c.standing != nil {
-				request.Workflows = append(request.Workflows, c.workflow)
-			}
-		}
-		set = append(set, request)
-	}
-	eligibility := map[ids.ID]map[string]workflow.StandingEligibilityResult{}
-	if s.Standing != nil {
-		var err error
-		eligibility, err = s.Standing.StandingEligibility(ctx, set)
-		if err != nil {
-			eligibility = map[ids.ID]map[string]workflow.StandingEligibilityResult{}
-			for _, request := range set {
-				results := map[string]workflow.StandingEligibilityResult{}
-				for _, name := range request.Workflows {
-					results[name] = workflow.StandingEligibilityResult{Err: err}
-				}
-				eligibility[request.ProjectID] = results
-			}
-		}
 	}
 	out := map[ids.ID]ProjectSchedules{}
 	for _, p := range projects {
-		row, err := s.scheduleView(ctx, project.Project{ID: p.ProjectID, Slug: p.Slug, Purpose: project.Ordinary}, now, carried[p.ProjectID], eligibility[p.ProjectID], p.Queues)
+		row, err := s.scheduleView(ctx, project.Project{ID: p.ProjectID, Slug: p.Slug, Purpose: project.Ordinary}, now, carried[p.ProjectID], p.Eligibility, p.Queues)
 		if err != nil {
 			return nil, err
 		}

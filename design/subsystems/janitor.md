@@ -29,6 +29,14 @@ Recorded revisions, sentences and digests remain unchanged.
 Workflow owns queue state words, shared by Attention and both Janitor views.
 Stuck dates use the UTC day. The Janitor overview lists deployment holds and
 queue problems in Needs you; a hold does not hide queue activity.
+Standing approvals whose meaning changed appear once per rule in the overview
+summary, Needs you and Attention, linking to Janitor settings. Settings shows
+“Changed meaning; enable it again” with Preview and Enable beside Revoke.
+Settings shows “Not known” when an enabled approval cannot be assessed, unless
+its meaning changed on another project. Attention keeps that source unknown
+when any rule cannot be assessed. These reads use runtime standing eligibility
+across visible projects. A project shows “needs you” when a changed meaning
+leaves a standing workflow without an eligible approval; an eligible overlapping approval keeps it runnable.
 
 Queues take their names and titles from adopted standing triggers. Procedures
 show the repair limits of those workflows and the workflows they call. Pack
@@ -266,7 +274,7 @@ A `fix` step dispatches pack adoption. A pinned workflow's dependency `fix` step
 errors: this pack version’s dependency update is no longer supported; adopt the
 current platform pack. Existing approvals keep their recorded meaning. After a
 project adopts a workflow with a different meaning, its old approval is ineligible;
-a person uses Revoke, Preview and Enable in Janitor settings to consent again.
+a person uses Preview and Enable in Janitor settings to consent again.
 
 A repair agent with `repairRounds: N` stays dormant until a check fails. Its
 session count is bounded over the run's lifetime. The stock workflows allow two

@@ -17,7 +17,7 @@ function Rules({ data, current, reload }: { data: JanitorView; current: boolean;
   const rows: { key: string; packs: boolean; rule?: StandingRevision }[] = data.rules.map(rule => ({ key: rule.ruleId!, packs: rule.question.definition.categories.waysOfWorking, rule }))
   for (const packs of [false, true]) if (!rows.some(r => r.packs === packs && r.rule?.question.definition.scope === 'instance')) rows.push({ key: packs ? 'packs-off' : 'dependencies-off', packs })
   const columns: ListColumn<typeof rows[number]>[] = [
-    { key: 'what', label: 'Change and limit', phone: 'name', render: r => <><strong>{r.packs ? 'Keep packs current' : 'Dependency updates'}</strong><div>{r.packs ? 'Newest published pack versions' : levelName(r.rule?.question.definition.categories.dependencies || 'routine')}</div>{r.rule?.question.definition.categories.securityFixes && <div>Security fixes within the same limits</div>}<span className="badge">{r.rule?.enabled ? 'On' : 'Turned off'}</span></> },
+    { key: 'what', label: 'Change and limit', phone: 'name', render: r => <><strong>{r.packs ? 'Keep packs current' : 'Dependency updates'}</strong><div>{r.packs ? 'Newest published pack versions' : levelName(r.rule?.question.definition.categories.dependencies || 'routine')}</div>{r.rule?.question.definition.categories.securityFixes && <div>Security fixes within the same limits</div>}<span className="badge">{data.changedRules.includes(r.rule?.ruleId ?? '') ? 'Changed meaning; enable it again' : r.rule?.enabled && data.unknownRules.includes(r.rule.ruleId) ? 'Not known' : r.rule?.enabled ? 'On' : 'Turned off'}</span></> },
     { key: 'scope', label: 'Projects', render: r => <>
       {!r.rule || r.rule.question.definition.scope === 'instance' ? 'All projects, including new ones' : data.projects.filter(p => covers(r.rule!, p)).map(p => p.name).join(', ')}
       {data.projects.filter(p => p.choice && (!r.packs || p.level === 'off') && (!r.rule || covers(r.rule, p))).map(p => <div key={p.projectId}><Link to={projectTo(p)}>{p.name}</Link> · {levelName(p.level)} · {p.choice!.person.name}, {date(p.choice!.at)} · {p.choice!.reason}</div>)}
@@ -32,7 +32,7 @@ function Rules({ data, current, reload }: { data: JanitorView; current: boolean;
     } },
     { key: 'by', label: 'Granted by', render: r => r.rule?.issuer.name || 'Nobody' },
     { key: 'when', label: 'When', kind: 'time', render: r => r.rule ? date(r.rule.enabledAt) : '—' },
-    { key: 'action', label: '', phone: 'action', render: r => <RuleConsent rule={r.rule} packs={r.packs} current={current} reload={reload} project={r.rule?.question.definition.scope === 'instance' ? undefined : data.projects.find(p => r.rule && covers(r.rule, p))?.slug} /> },
+    { key: 'action', label: '', phone: 'action', render: r => <RuleConsent changed={data.changedRules.includes(r.rule?.ruleId ?? '')} rule={r.rule} packs={r.packs} current={current} reload={reload} project={r.rule?.question.definition.scope === 'instance' ? undefined : data.projects.find(p => r.rule && covers(r.rule, p))?.slug} /> },
   ]
   return <ListTable label="Janitor approvals" rows={rows} columns={columns} rowKey={r => r.key} />
 }

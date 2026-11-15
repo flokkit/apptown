@@ -24,13 +24,22 @@ import (
 )
 
 type standingProcedureFixture struct {
-	docs  []*schema.Doc
-	means string
-	err   error
+	docs          []*schema.Doc
+	means         string
+	projectMeans  map[ids.ID]string
+	projectErrors map[ids.ID]error
+	err           error
 }
 
-func (f *standingProcedureFixture) standingProcedure(_ context.Context, _ database.Queryer, _ ids.ID, name string) (StandingProcedure, error) {
-	return StandingProcedure{Acceptance: StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: f.means, Approvers: []string{"role:project-approver"}}, Landing: StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land this qualified candidate", Approvers: []string{"role:project-approver"}}}, f.err
+func (f *standingProcedureFixture) standingProcedure(_ context.Context, _ database.Queryer, pid ids.ID, name string) (StandingProcedure, error) {
+	if err := f.projectErrors[pid]; err != nil {
+		return StandingProcedure{}, err
+	}
+	means := f.means
+	if current, ok := f.projectMeans[pid]; ok {
+		means = current
+	}
+	return StandingProcedure{Acceptance: StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: means, Approvers: []string{"role:project-approver"}}, Landing: StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land this qualified candidate", Approvers: []string{"role:project-approver"}}}, f.err
 }
 func standingFixture(t *testing.T) (*stepAuthorityTestRig, StandingRules, *standingProcedureFixture, context.Context, StandingDefinition) {
 	t.Helper()

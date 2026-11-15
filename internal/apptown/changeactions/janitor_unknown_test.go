@@ -82,7 +82,7 @@ func TestQueueDefinitionFailureStaysUnknownForCallers(t *testing.T) {
 	if snapshot, err := readScanSnapshot(attention.Scans{Work: work}, w.engine, w.project.ID); err == nil || !strings.Contains(err.Error(), "workflow definition unavailable") {
 		t.Errorf("attention lost definition failure: %+v %v", snapshot, err)
 	}
-	rows, _, err := work.JanitorProjects(w.engine)
+	rows, _, _, _, err := work.JanitorProjects(w.engine)
 	if err != nil || len(rows) != 1 || rows[0].ProjectID != w.project.ID || !strings.Contains(rows[0].Problem, "workflow definition unavailable") {
 		t.Fatalf("portfolio must keep unknown on the project row: %+v %v", rows, err)
 	}
