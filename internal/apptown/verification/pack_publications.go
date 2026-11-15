@@ -9,6 +9,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -24,8 +25,34 @@ func (f Fleet) RunPacksCatchUp(ctx context.Context, _ string, _ map[string]any) 
 		if err != nil || rule.RuleID.IsZero() {
 			return err
 		}
-		return f.startPackAssessmentsIn(ctx, tx, rule, "")
+		return f.startPackAssessmentsIn(ctx, tx, rule, "", ids.Nil, nil)
 	})
+}
+
+// CatchUpProject starts the nightly assessment for just this project. A zero
+// ID means the project is current. Schedules records the immediate requester.
+func (f Fleet) CatchUpProject(ctx context.Context, project ids.ID) (ids.ID, error) {
+	if project.IsZero() {
+		return ids.Nil, fault.New(fault.Invalid, "name the project to catch up")
+	}
+	var started ids.ID
+	if f.standing == nil {
+		return ids.Nil, fault.New(fault.Unprocessable, "waits for a standing approval")
+	}
+	err := f.db.InTx(ctx, func(tx *database.Tx) error {
+		rule, err := f.standing.PackRuleIn(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if rule.RuleID.IsZero() {
+			return fault.New(fault.Unprocessable, "waits for a standing approval")
+		}
+		return f.startPackAssessmentsIn(ctx, tx, rule, "", project, &started)
+	})
+	if err != nil {
+		return ids.Nil, err
+	}
+	return started, nil
 }
 
 // PublishedPackIn starts an assessment under current human consent, atomically
@@ -38,16 +65,16 @@ func (f Fleet) PublishedPackIn(ctx context.Context, tx *database.Tx, pack string
 	if err != nil || rule.RuleID.IsZero() {
 		return err
 	}
-	return f.startPackAssessmentsIn(ctx, tx, rule, pack)
+	return f.startPackAssessmentsIn(ctx, tx, rule, pack, ids.Nil, nil)
 }
 
 // PackRuleEnabledIn catches up each project once, including projects with earlier
 // finished assessments: assessment never proves adoption of its candidate.
 func (f Fleet) PackRuleEnabledIn(ctx context.Context, tx *database.Tx, rule workflow.StandingRevision) error {
-	return f.startPackAssessmentsIn(ctx, tx, rule, "")
+	return f.startPackAssessmentsIn(ctx, tx, rule, "", ids.Nil, nil)
 }
 
-func (f Fleet) startPackAssessmentsIn(ctx context.Context, tx *database.Tx, rule workflow.StandingRevision, pack string) error {
+func (f Fleet) startPackAssessmentsIn(ctx context.Context, tx *database.Tx, rule workflow.StandingRevision, pack string, only ids.ID, started *ids.ID) error {
 	publications, err := f.publications.LatestPackPublicationsIn(ctx, tx)
 	if err != nil {
 		return err
@@ -63,7 +90,7 @@ func (f Fleet) startPackAssessmentsIn(ctx context.Context, tx *database.Tx, rule
 			return err
 		}
 		for _, p := range below {
-			if !seen[p.ID] {
+			if (only.IsZero() || p.ID == only) && !seen[p.ID] {
 				projects = append(projects, p)
 				seen[p.ID] = true
 			}
@@ -123,8 +150,12 @@ func (f Fleet) startPackAssessmentsIn(ctx context.Context, tx *database.Tx, rule
 				}
 			}
 		}
-		if _, err := f.StartWhatIfIn(ctx, tx, in); err != nil {
+		id, err := f.StartWhatIfIn(ctx, tx, in)
+		if err != nil {
 			return err
+		}
+		if started != nil {
+			*started = id
 		}
 	}
 	return nil

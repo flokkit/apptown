@@ -3942,20 +3942,7 @@
             },
             "type": "array"
           },
-          "scanChangeId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "scanChangeNumber": {
-            "type": "integer"
-          },
-          "scanNow": {
-            "type": "string"
-          },
-          "scanWorkflow": {
+          "runNow": {
             "type": "string"
           },
           "scans": {
@@ -3982,11 +3969,94 @@
           "problem",
           "procedures",
           "queueSentences",
-          "scanChangeNumber",
           "nextUpdate",
           "nextReason",
-          "scanNow",
-          "scanWorkflow"
+          "runNow"
+        ],
+        "type": "object"
+      },
+      "JanitorRun": {
+        "additionalProperties": false,
+        "properties": {
+          "again": {
+            "type": "boolean"
+          },
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "queue": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "JanitorRunView": {
+        "properties": {
+          "starts": {
+            "items": {
+              "$ref": "#/components/schemas/JanitorStart"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "starts"
+        ],
+        "type": "object"
+      },
+      "JanitorStart": {
+        "properties": {
+          "busyChangeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "busyChangeNumber": {
+            "type": "integer"
+          },
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changeNumber": {
+            "type": "integer"
+          },
+          "current": {
+            "type": "boolean"
+          },
+          "queue": {
+            "type": "string"
+          },
+          "refused": {
+            "type": "string"
+          },
+          "whatIfId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workflow": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "workflow",
+          "changeNumber",
+          "current",
+          "refused",
+          "busyChangeNumber"
         ],
         "type": "object"
       },
@@ -17266,6 +17336,60 @@
         "x-apptown-used-by": "cli"
       }
     },
+    "/api/v1/projects/{slug}/janitor/run": {
+      "post": {
+        "operationId": "postProjectsSlugJanitorRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JanitorRun"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JanitorRunView"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "change:create",
+          "kind": "capability",
+          "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
     "/api/v1/projects/{slug}/janitor/settings": {
       "post": {
         "operationId": "postProjectsSlugJanitorSettings",
@@ -18819,7 +18943,8 @@
           "area": "projects",
           "tier": "always"
         },
-        "x-apptown-stability": "experimental"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/schedules": {

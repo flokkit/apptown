@@ -1155,6 +1155,28 @@ export type JanitorProcedure = {
   problem: string
 }
 
+export type JanitorRun = {
+  queue: string
+  again: boolean
+  changeId?: string | null
+}
+
+export type JanitorRunView = {
+  starts: JanitorStart[]
+}
+
+export type JanitorStart = {
+  queue: string
+  workflow: string
+  changeId?: string | null
+  changeNumber: number
+  whatIfId?: string | null
+  current: boolean
+  refused: string
+  busyChangeId?: string | null
+  busyChangeNumber: number
+}
+
 export type JanitorView = {
   rules: StandingRevision[]
   projects: JanitorProject[]
@@ -3984,12 +4006,9 @@ export type JanitorProject = {
   problem: string
   procedures: JanitorProcedure[]
   queueSentences: string[]
-  scanChangeId?: string | null
-  scanChangeNumber: number
   nextUpdate: string
   nextReason: string
-  scanNow: string
-  scanWorkflow: string
+  runNow: string
 }
 
 export type JanitorDeployment = {

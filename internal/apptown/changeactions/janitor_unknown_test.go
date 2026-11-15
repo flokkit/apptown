@@ -41,7 +41,7 @@ func TestJanitorScheduleProblemsSurviveHealthyRows(t *testing.T) {
 					rows = []changeactions.ProjectSchedule{problem.row, discovery, update}
 				}
 				got := (changeactions.ProjectSchedules{Schedules: rows}).Janitor()
-				if got.ScanNow != "Not known: "+problem.row.Problem || got.NextReason != "Update time not known: "+problem.row.Problem {
+				if got.RunNow != "Not known: "+problem.row.Problem || got.NextReason != "Update time not known: "+problem.row.Problem {
 					t.Fatalf("problem lost from aggregate: %+v", got)
 				}
 			})

@@ -19,8 +19,11 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/attention"
+	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
@@ -1342,5 +1345,80 @@ func TestJanitorAttentionUsesTheJanitorProjectSet(t *testing.T) {
 	dbtest.FailNextStatement(t, a.DB, "-- name: JanitorProjectLabels :many")
 	if _, err := source.ProjectSnapshot(ctx, active); err == nil {
 		t.Fatal("eligibility read failure became exclusion")
+	}
+}
+
+// Immediate pack catch-up checks the project's current choice before any
+// assessment or job; the nightly catch-up still uses its existing admission.
+func TestJanitorRunPacksChecksProjectChoiceAndRecordsRequester(t *testing.T) {
+	a := authzActors(t)
+	ctx := verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, a))
+	a.SyncStock(ctx)
+	enablePackRule(t, a, ctx)
+	behind, _, _ := fleetRepo(t, a, "immediate-behind", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	other, _, _ := fleetRepo(t, a, "other-behind", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	for _, id := range []ids.ID{behind, other} {
+		if err := recordCatalogFixture(a.Adoption, ctx, id, "boss"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	schedules := changeactions.Schedules{Standing: &a.standingRules, Packs: fleetReviewsFor(a), Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}
+	p := a.projectByID(ctx, behind)
+	if err := a.standingRules.SetProjectChoice(ctx, behind, "off", "Pause updates"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := a.conformance.RecentWhatIfs(ctx, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	countJobs := func() int {
+		t.Helper()
+		rows, err := jobs.List(ctx, a.DB, 500)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(rows)
+	}
+
+	jobsBefore := countJobs()
+	starts, err := schedules.RunJanitor(ctx, *p, changeactions.JanitorRun{Queue: "packs"}, a.cfg.clock.Now())
+	if err != nil || len(starts) != 1 || starts[0].Refused != "turned off for this project" {
+		t.Fatalf("off: %+v %v", starts, err)
+	}
+	after, err := a.conformance.RecentWhatIfs(ctx, 100)
+	if err != nil || len(after) != len(before) || countJobs() != jobsBefore {
+		t.Fatalf("off started assessment: %+v %v", after, err)
+	}
+	if err := a.standingRules.SetProjectChoice(ctx, behind, "routine", "Resume updates"); err != nil {
+		t.Fatal(err)
+	}
+	starts, err = schedules.RunJanitor(ctx, *p, changeactions.JanitorRun{Queue: "packs"}, a.cfg.clock.Now())
+	if err != nil || len(starts) != 1 || starts[0].WhatIfID.IsZero() || starts[0].Refused != "" {
+		t.Fatalf("allowed: %+v %v", starts, err)
+	}
+	after, err = a.conformance.RecentWhatIfs(ctx, 100)
+	if err != nil || len(after) != len(before)+1 || countJobs() != jobsBefore+1 {
+		t.Fatalf("assessments: %+v %v", after, err)
+	}
+	assessment, err := a.conformance.WhatIf(ctx, starts[0].WhatIfID)
+	if err != nil || len(assessment.Projects) != 1 || assessment.Projects[0].ProjectID != behind {
+		t.Fatalf("project scope: %+v %v", assessment, err)
+	}
+	receipts, err := audit.Recent(ctx, a.DB, audit.Filter{ProjectID: behind, KindPrefix: "schedule.run-requested"})
+	caller, _ := access.CallerFrom(ctx)
+	if err != nil || len(receipts) != 1 || receipts[0].ActorPrincipal != caller.Principal.ID || !strings.Contains(string(receipts[0].Payload), starts[0].WhatIfID.String()) {
+		t.Fatalf("requester: %+v %v", receipts, err)
+	}
+	// A current project needs no assessment, even though another project is behind.
+	candidate, err := a.Adoption.Prepare(ctx, other, adoption.Request{Packs: []adoption.PackPick{platformPick(t, a, ctx)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(ctx, other), a.projectByID(ctx, other), candidate, "boss", "fixture current"); err != nil {
+		t.Fatal(err)
+	}
+	id, err := fleetReviewsFor(a).CatchUpProject(ctx, other)
+	if err != nil || !id.IsZero() {
+		t.Fatalf("current project: %s %v", id, err)
 	}
 }

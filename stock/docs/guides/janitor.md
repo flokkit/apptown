@@ -53,12 +53,17 @@ next dependency update and recorded level. Missing scans and old scans stay
 visible; neither means the project is up to date. Findings confined to running
 images have their own count: the janitor does not update base images yet.
 
-**Scan now** runs the project's target-discovering scan straight away, as its schedule would:
-the Change is the janitor's, under the same approval, and AppTown records who
-asked. It needs permission to open and start work in the project. It is greyed,
-with the reason beside it, while a scan or security fix is running, when the
-janitor is off or waiting for approval, or when the project has not adopted the
-scan. The next scan follows its declared schedule from then.
+**Run now** starts the project's janitor queues straight away through the same
+schedules and pack assessment used overnight, with the same approvals. AppTown
+records who asked. **Run now for all projects** starts each eligible project;
+leaving the page leaves the remaining projects unstarted. Watch each queue on
+its project row. **Try again** ends a stuck or stopped queue's failed tries so
+it can try the same update again. **Close and try again** also closes the open
+change shown, using your permission to close it. Waiting and updating queues
+keep their progress and change links. A refused **Run now** can offer to close
+the busy change and try again. History stays recorded. If the
+new start fails, the next overnight run can still try. Agents use
+`apptown janitor run -p PROJECT [-queue QUEUE] [-again]`.
 
 **Last 7 days** lists landed Changes, changed dependency files or pack versions (older attempts retain package moves) and the
 releases that contain them. Each Change links to its checks and approval.
@@ -70,7 +75,7 @@ current deployment or scan evidence.
 The approval sentence shows the current published workflows' titles, cadence in
 UTC and repair limits. It authorizes what each project's adopted packs declare;
 new values apply when the project adopts a newer pack version. The Next update
-column and Scan now action read the scheduler's current answer. Queue and
+column and Run now action read the scheduler's current answer. Queue and
 procedure labels come from the adopted workflows' titles.
 
 When an adopted workflow changes the approval’s meaning, its existing approval

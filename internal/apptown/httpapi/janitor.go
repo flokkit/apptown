@@ -55,7 +55,7 @@ func (h Janitor) List(w http.ResponseWriter, r *http.Request) {
 			WriteFault(w, err)
 			return
 		}
-		schedules, err := h.schedules.Of(r.Context(), project, h.now())
+		schedules, err := h.schedules.ForJanitor(r.Context(), project, h.now())
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -125,4 +125,24 @@ func (h Janitor) History(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, 200, JanitorHistoryView{History: history, Releases: releases, Since: since, Until: until, Offset: offset})
+}
+
+// JanitorRunView reports each queue independently, including ordinary refusals.
+type JanitorRunView struct {
+	Starts []changeactions.JanitorStart `json:"starts"`
+}
+
+func (h Janitor) Run(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.schedules.Projects, w, r)
+	if !ok {
+		return
+	}
+	jsonCommand[changeactions.JanitorRun](w, r, jsonBody{strict: true}, func(req changeactions.JanitorRun) {
+		starts, err := h.schedules.RunJanitor(r.Context(), *p, req, h.now())
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		WriteJSON(w, 200, JanitorRunView{Starts: starts})
+	})
 }

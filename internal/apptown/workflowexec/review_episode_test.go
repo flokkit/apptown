@@ -2,9 +2,11 @@ package workflowexec
 
 import (
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -73,5 +75,105 @@ func TestReviewHumanActEndsQueueEpisode(t *testing.T) {
 				t.Fatalf("after %s: failed=%d stopped=%v state=%s; want failed=%d and not stopped", act, state.Failed, state.Stopped(), state.State, want)
 			}
 		})
+	}
+}
+
+// Ending an episode retains independent failure evidence while permitting the
+// same candidate. Skip remains a different act that suppresses the candidate.
+func TestTryQueueAgainPreservesHistoryAndAdmitsTheSameProposal(t *testing.T) {
+	for _, mode := range []string{"open", "closed"} {
+		t.Run(mode, func(t *testing.T) { testTryQueueAgain(t, mode == "closed") })
+	}
+}
+
+func testTryQueueAgain(t *testing.T, closed bool) {
+	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "attempt", Uses: ScriptKind, With: map[string]any{"run": "false"}}}}}}
+	f, _ := newTaskAppTown(t, "try-again", spec)
+	tree := "candidate"
+	var same bool
+	f.scriptRunner = func(e *workflow.Execution) {
+		if _, err := e.Claim(); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := e.StartFix(nil); err != nil {
+			t.Error(err)
+			return
+		}
+		var err error
+		same, _, err = e.KeepProposal("main", tree, nil)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if same {
+			e.Finish(workflow.EncodeOutcome(workflow.StatusSkipped, map[string]any{}, nil))
+			return
+		}
+		e.Finish(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{"reason": "checks failed"}, nil))
+		if closed {
+			if err := e.StopDuplicate("Automatic work stopped"); err != nil {
+				t.Error(err)
+			}
+		}
+	}
+	var last ids.ID
+	for _, candidate := range []string{"first", "second", "candidate"} {
+		tree = candidate
+		run := queueRun(t, f, "try-again", "updates")
+		last = run.ChangeID
+		queueExecute(t, f, queueSteps(t, f, run)["attempt"])
+		if same {
+			t.Fatal("distinct candidate suppressed")
+		}
+	}
+	before, err := f.work.Attempts(f.ctx, f.projectID, "updates", 20)
+	if err != nil || len(before) != 3 {
+		t.Fatalf("before: %+v %v", before, err)
+	}
+	expected := last
+	if closed {
+		expected = ids.Nil
+	}
+	state, err := f.work.QueueState(f.ctx, f.projectID, "updates")
+	if err != nil || !state.Stopped() || state.ChangeID != expected {
+		t.Fatalf("stopped: %+v %v", state, err)
+	}
+	if err := f.work.TryQueueAgain(f.ctx, f.projectID, "updates", ids.New(time.Now())); fault.KindOf(err) != fault.Conflict {
+		t.Fatalf("stale expected change: %v", err)
+	}
+	if err := f.work.TryQueueAgain(f.ctx, f.projectID, "updates", expected); err != nil {
+		t.Fatal(err)
+	}
+	ch, err := f.work.Change(f.ctx, last)
+	if err != nil || ch.State != workflow.ChangeAbandoned {
+		t.Fatalf("open change: %+v %v", ch, err)
+	}
+	state, err = f.work.QueueState(f.ctx, f.projectID, "updates")
+	if err != nil || state.State != "up_to_date" || state.Failed != 0 || !state.ChangeID.IsZero() {
+		t.Fatalf("reset: %+v %v", state, err)
+	}
+	after, err := f.work.Attempts(f.ctx, f.projectID, "updates", 20)
+	if err != nil || len(after) != len(before) {
+		t.Fatalf("history: %+v %v", after, err)
+	}
+	for i, row := range after {
+		if row.Outcome != "retried" || !row.Failed || row.Reason != before[i].Reason || row.Fingerprint == "" || row.Fingerprint != before[i].Fingerprint {
+			t.Fatalf("history changed: before=%+v after=%+v", before[i], row)
+		}
+	}
+	closed = false
+	run := queueRun(t, f, "try-again", "updates")
+	queueExecute(t, f, queueSteps(t, f, run)["attempt"])
+	if same {
+		t.Fatal("same candidate suppressed after try again")
+	}
+	if err := f.work.SkipUpdate(f.ctx, f.projectID, "updates", run.ChangeID); err != nil {
+		t.Fatal(err)
+	}
+	run = queueRun(t, f, "try-again", "updates")
+	queueExecute(t, f, queueSteps(t, f, run)["attempt"])
+	if !same {
+		t.Fatal("skip no longer suppresses")
 	}
 }

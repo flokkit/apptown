@@ -89,3 +89,26 @@ func TestJanitorAttemptsReadsTheNamedProjectAndQueue(t *testing.T) {
 		t.Fatalf("missing project made a request: %v %+v", err, seen)
 	}
 }
+
+func TestJanitorRunReadsExpectedChangeAndPrintsEachStart(t *testing.T) {
+	seen := jsonAppTown(t, func(method, path string) (int, string) {
+		if method == "GET" && path == "/projects/app/scans" {
+			return 200, `{"queues":[{"queue":"updates","changeId":"00000000-0001-7000-8000-000000000000"}]}`
+		}
+		if method == "POST" && path == "/projects/app/janitor/run" {
+			return 200, `{"starts":[{"queue":"updates","refused":"Already running: change #9"},{"queue":"packs","current":true}]}`
+		}
+		t.Fatalf("unexpected request: %s %s", method, path)
+		return 500, ""
+	})
+	out, err := run(t, "janitor", "run", "-p", "app", "-queue", "updates", "-again")
+	if err != nil || !strings.Contains(out, "Already running: change #9") || !strings.Contains(out, `"current": true`) {
+		t.Fatalf("starts: %q %v", out, err)
+	}
+	if len(*seen) != 2 || (*seen)[1].Body["changeId"] != "00000000-0001-7000-8000-000000000000" || (*seen)[1].Body["again"] != true || (*seen)[1].Body["queue"] != "updates" {
+		t.Fatalf("requests: %+v", *seen)
+	}
+	if _, err := run(t, "janitor", "run", "-p", "app", "-again"); err == nil || len(*seen) != 2 {
+		t.Fatalf("unnamed retry: %v %+v", err, *seen)
+	}
+}

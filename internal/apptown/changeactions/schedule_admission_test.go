@@ -8,6 +8,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/attention"
+	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
@@ -28,6 +29,7 @@ func TestMaintenanceReadAndActShareScheduleAdmission(t *testing.T) {
 				}
 				e.Settle(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{"reason": "fixture command failed"}, nil))
 			}})
+			t.Cleanup(w.work.Wait)
 			step := "script\n          with: {run: 'false'}"
 			if state == "busy" {
 				step = "agent/pi\n          with: {repairRounds: 2}"
@@ -121,7 +123,7 @@ spec:
 			}
 			page := got.Janitor()
 			if state == "discovery stopped" {
-				if page.ScanWorkflow != "team-care" || page.ScanNow != schedule.Refused {
+				if page.RunNow != schedule.Waiting {
 					t.Fatal(page)
 				}
 			} else if !page.NextUpdate.Equal(schedule.Next) {
@@ -136,6 +138,22 @@ spec:
 			if schedule.Refused == "" && err != nil || schedule.Refused != "" && (err == nil || err.Error() != schedule.Refused) {
 				t.Fatalf("read %q, act %v", schedule.Refused, err)
 			}
+			// Finish the admitted discovery run before testing another firing.
+			w.work.Wait()
+			starts, runErr := w.schedules.RunJanitor(human, w.project, changeactions.JanitorRun{}, now.Add(5*time.Hour))
+			if runErr != nil || len(starts) != 1 {
+				t.Fatalf("janitor: %+v %v", starts, runErr)
+			}
+			if state == "stopped" && !strings.Contains(starts[0].Refused, "stopped") {
+				t.Fatal(starts)
+			}
+			if (state == "off" || state == "no rule") && starts[0].Refused != schedule.Waiting {
+				t.Fatal(starts)
+			}
+			if state == "discovery stopped" && starts[0].ChangeID.IsZero() {
+				t.Fatal(starts)
+			}
+
 		})
 	}
 }

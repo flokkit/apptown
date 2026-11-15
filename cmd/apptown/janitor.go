@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/changeactions"
+	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"net/url"
 	"os"
 )
@@ -11,7 +13,40 @@ import (
 // separate requests so a script cannot silently agree to newly changed meaning.
 func cmdJanitor(args []string) error {
 	if len(args) == 0 {
-		return usagef("usage: apptown janitor <list|preview|enable|disable|history|assess|attempts> [options]")
+		return usagef("usage: apptown janitor <list|preview|enable|disable|history|assess|attempts|run> [options]")
+	}
+	if args[0] == "run" {
+		fs := newFlags("janitor run")
+		slug := fs.String("p", "", "project slug")
+		queue := fs.String("queue", "", "queue name (omitted: all)")
+		again := fs.Bool("again", false, "close the queue's open change and try again")
+		rest := parseArgs(fs, args[1:])
+		if *slug == "" || len(rest) != 0 || (*again && *queue == "") {
+			return usagef("usage: apptown janitor run -p <project> [-queue name] [-again]")
+		}
+		path := "/projects/" + url.PathEscape(*slug)
+		req := changeactions.JanitorRun{Queue: *queue, Again: *again}
+		if *again {
+			var view httpapi.ProjectScanView
+			if err := api.get(path+"/scans", &view); err != nil {
+				return err
+			}
+			found := false
+			for _, q := range view.Queues {
+				if q.Queue == *queue {
+					req.ChangeID = q.ChangeID
+					found = true
+				}
+			}
+			if !found {
+				return fmt.Errorf("queue %q is not adopted by this project", *queue)
+			}
+		}
+		var out httpapi.JanitorRunView
+		if err := api.post(path+"/janitor/run", req, &out); err != nil {
+			return err
+		}
+		return printJSON(out)
 	}
 	if args[0] == "attempts" {
 		fs := newFlags("janitor attempts")

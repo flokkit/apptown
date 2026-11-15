@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -30,6 +31,7 @@ type Schedules struct {
 	Projects *project.Projects
 	DB       *database.DB
 	Standing *workflow.StandingRules
+	Packs    packCatchUp
 }
 
 // FireDueSchedules fires each pack-supplied schedule that is due at now, reading
@@ -59,12 +61,15 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 		projects[p.ID] = p.Slug
 	}
 	for pid, slug := range projects {
-		carried, err := s.carriedBy(ctx, pid)
+		carried, err := s.carriedBy(ctx, pid, false)
 		if err != nil {
 			log.Printf("read failed: %v", err)
 			continue
 		}
 		for _, c := range carried {
+			if !c.scheduled {
+				continue
+			}
 			if c.err != nil {
 				log.Printf("schedule %s/%s: %v", slug, c.workflow, c.err)
 				continue
@@ -281,13 +286,13 @@ func (s Schedules) RunNow(ctx context.Context, p project.Project, workflowName s
 	if !p.Purpose.Schedules() {
 		return nil, fault.New(fault.Unprocessable, "an eval copy runs no schedule")
 	}
-	carried, err := s.carriedBy(ctx, p.ID)
+	carried, err := s.carriedBy(ctx, p.ID, false)
 	if err != nil {
 		return nil, err
 	}
 	var c *firing
 	for _, one := range carried {
-		if one.workflow == workflowName {
+		if one.workflow == workflowName && one.scheduled {
 			c = &firing{carried: one, projectID: p.ID, slug: p.Slug}
 		}
 	}
@@ -304,27 +309,8 @@ func (s Schedules) RunNow(ctx context.Context, p project.Project, workflowName s
 	if !eligible {
 		return nil, fault.New(fault.Unprocessable, c.waiting)
 	}
-	// A schedule the tick has not seen yet is armed here, so its firing is
-	// recorded and the tick follows its cron from now.
-	if _, found, err := workflow.ScheduleLastFiredIn(ctx, s.DB, p.ID, workflowName); err != nil {
-		return nil, err
-	} else if !found {
-		if err := workflow.ArmScheduleIn(ctx, s.DB, p.ID, workflowName, now); err != nil {
-			return nil, err
-		}
-	}
-	got, err := s.fire(ctx, *c, now, receiptActor)
-	if got.change != nil {
-		// A change committed, whether or not its run started: the request is
-		// recorded though the caller has gone.
-		receipt := map[string]any{"changeId": got.change.ID, "ruleId": c.rule.RuleID, "ruleRevision": c.rule.Revision}
-		if got.run != nil {
-			receipt["runId"] = got.run.ID
-		}
-		if rerr := audit.At(now).Record(context.WithoutCancel(ctx), s.DB, receiptActor, p.ID, "schedule.run-requested", workflowName, receipt); rerr != nil {
-			err = errors.Join(err, fmt.Errorf("change %s started; recording the request: %w", got.change.ID, rerr))
-		}
-	}
+	got, err := s.runRequested(ctx, *c, now, receiptActor)
+
 	if err != nil {
 		return got.change, err
 	}
@@ -334,10 +320,38 @@ func (s Schedules) RunNow(ctx context.Context, p project.Project, workflowName s
 	return got.change, nil
 }
 
-// carried is a schedule from a workflow scheduled by an adopted pack, whose
-// resolved version declares on.schedule. err says why the
-// workflow could not be read, so whether it carries one is unknown.
+func (s Schedules) runRequested(ctx context.Context, c firing, now time.Time, receiptActor string) (fired, error) {
+	p := project.Project{ID: c.projectID}
+	// A schedule the tick has not seen yet is armed here, so its firing is
+	// recorded and the tick follows its cron from now.
+	if _, found, err := workflow.ScheduleLastFiredIn(ctx, s.DB, p.ID, c.workflow); err != nil {
+		return fired{}, err
+	} else if !found {
+		if err := workflow.ArmScheduleIn(ctx, s.DB, p.ID, c.workflow, now); err != nil {
+			return fired{}, err
+		}
+	}
+	got, err := s.fire(ctx, c, now, receiptActor)
+	if got.change != nil {
+		// A change committed, whether or not its run started: the request is
+		// recorded though the caller has gone.
+		receipt := map[string]any{"changeId": got.change.ID, "ruleId": c.rule.RuleID, "ruleRevision": c.rule.Revision}
+		if got.run != nil {
+			receipt["runId"] = got.run.ID
+		}
+		if rerr := audit.At(now).Record(context.WithoutCancel(ctx), s.DB, receiptActor, p.ID, "schedule.run-requested", c.workflow, receipt); rerr != nil {
+			err = errors.Join(err, fmt.Errorf("change %s started; recording the request: %w", got.change.ID, rerr))
+		}
+	}
+	return got, err
+}
+
+// carried is an adopted schedule or standing publication start. Publications
+// have a queue but no clock; only the nightly catch-up starts their assessments.
+// err means the adopted definition could not be read.
 type carried struct {
+	scheduled        bool
+	publication      bool
 	standing         *schema.StandingTrigger
 	rule             workflow.StandingRevision
 	discoversTargets bool
@@ -352,11 +366,10 @@ func (c carried) skipIfActive() bool {
 	return c.trigger.SkipIfActive == nil || *c.trigger.SkipIfActive
 }
 
-// carriedBy is every schedule the project's adopted packs supply, the one
-// enumeration the scheduler fires from and the project's read shows, so the
-// two cannot disagree about which schedules exist. A project with nothing
-// adopted carries none; a failed adoption read is an error.
-func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID) ([]carried, error) {
+// carriedBy enumerates the adopted schedule declarations and standing
+// publication starts when requested by immediate starts or Janitor reads.
+// A project with nothing adopted carries none; a failed adoption read is an error.
+func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID, publications bool) ([]carried, error) {
 	ad, err := adoption.CurrentReceiptIn(ctx, s.DB, projectID)
 	if _, err := database.Lookup(err); err != nil {
 		return nil, err
@@ -368,21 +381,40 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID) ([]carried, 
 	if err != nil {
 		return nil, err
 	}
+	if publications {
+		for _, wf := range ad.Receipt.Workflows {
+			if _, exists := names[wf.Name]; !exists {
+				names[wf.Name] = false
+			}
+		}
+	}
 	var out []carried
+	ordered := make([]string, 0, len(names))
 	for name := range names {
+		ordered = append(ordered, name)
+	}
+	slices.Sort(ordered)
+	for _, name := range ordered {
+		scheduled := names[name]
 		version, yaml, err := s.Adoption.WorkflowVersion(ctx, adoption.Source{ProjectID: ad.ProjectID, Revision: ad}, name)
 		if err != nil {
-			out = append(out, carried{workflow: name, err: err})
+			out = append(out, carried{workflow: name, scheduled: scheduled, err: err})
 			continue
 		}
 		doc, err := schema.ParseWorkflowStored([]byte(yaml))
 		if err != nil {
 			// Whether it carries a schedule is unknown, not no: the scheduler
 			// cannot fire it, and the read says it could not be read.
-			out = append(out, carried{workflow: name, version: version, err: fmt.Errorf("its stored definition does not parse: %w", err)})
+			out = append(out, carried{workflow: name, scheduled: scheduled, version: version, err: fmt.Errorf("its stored definition does not parse: %w", err)})
 			continue
 		}
-		if doc.Metadata.System || doc.Spec.On.Schedule == nil || doc.Spec.On.Schedule.Cron == "" {
+		if doc.Metadata.System {
+			continue
+		}
+		if trigger, ok := doc.Standing(); publications && ok && doc.Spec.On.Publication != nil && trigger.Queue != "" {
+			out = append(out, carried{workflow: name, version: version, standing: &trigger, publication: true, trigger: schema.ScheduleTrigger{Queue: trigger.Queue}})
+		}
+		if !scheduled || doc.Spec.On.Schedule == nil || doc.Spec.On.Schedule.Cron == "" {
 			continue
 		}
 		discovers, scansSource := false, false
@@ -396,7 +428,7 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID) ([]carried, 
 				}
 			}
 		}
-		one := carried{workflow: name, version: version, trigger: *doc.Spec.On.Schedule, discoversTargets: discovers, scansSource: scansSource}
+		one := carried{scheduled: true, workflow: name, version: version, trigger: *doc.Spec.On.Schedule, discoversTargets: discovers, scansSource: scansSource}
 		if trigger, ok := doc.Standing(); ok {
 			one.standing = &trigger
 		}
@@ -409,8 +441,9 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID) ([]carried, 
 // EvalCopy: the project is an eval's throwaway copy, which runs no
 // schedule, so none is listed.
 type ProjectSchedules struct {
-	EvalCopy  bool              `json:"evalCopy"`
-	Schedules []ProjectSchedule `json:"schedules"`
+	publicationStarts []ProjectSchedule `json:"-"`
+	EvalCopy          bool              `json:"evalCopy"`
+	Schedules         []ProjectSchedule `json:"schedules"`
 }
 
 // ProjectSchedule is one schedule a project carries, named by its source:
@@ -450,12 +483,21 @@ type scheduleSource struct {
 // first at its next time after that. Missed firings are never replayed, so
 // a past Next means one firing at the next tick, not a backlog.
 func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (ProjectSchedules, error) {
+	return s.of(ctx, p, now, false)
+}
+
+// ForJanitor includes adopted publication starts needed by the Janitor read.
+func (s Schedules) ForJanitor(ctx context.Context, p project.Project, now time.Time) (ProjectSchedules, error) {
+	return s.of(ctx, p, now, true)
+}
+
+func (s Schedules) of(ctx context.Context, p project.Project, now time.Time, publications bool) (ProjectSchedules, error) {
 	// An eval's throwaway copy runs only what its eval starts in it.
 	if !p.Purpose.Schedules() {
 		return ProjectSchedules{EvalCopy: true, Schedules: []ProjectSchedule{}}, nil
 	}
 	projectID := p.ID
-	carried, err := s.carriedBy(ctx, projectID)
+	carried, err := s.carriedBy(ctx, projectID, publications)
 	if err != nil {
 		return ProjectSchedules{}, err
 	}
@@ -465,17 +507,21 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (Pr
 	}
 	out := ProjectSchedules{Schedules: []ProjectSchedule{}}
 	for _, c := range carried {
+		rows := &out.Schedules
+		if !c.scheduled {
+			rows = &out.publicationStarts
+		}
 		ps := ProjectSchedule{Queue: c.trigger.Queue, Standing: c.standing != nil, DiscoversTargets: c.discoversTargets, Source: scheduleSource{Workflow: c.workflow, Version: c.version}, TimeZone: "UTC", Cron: c.trigger.Cron, SkipIfActive: c.skipIfActive()}
 		if c.err != nil {
 			ps.Problem = "its workflow could not be read: " + c.err.Error()
-			out.Schedules = append(out.Schedules, ps)
+			*rows = append(*rows, ps)
 			continue
 		}
 		firing := firing{carried: c, projectID: projectID, slug: p.Slug}
 		eligible, err := s.resolve(ctx, &firing)
 		if err != nil {
 			ps.Problem = err.Error()
-			out.Schedules = append(out.Schedules, ps)
+			*rows = append(*rows, ps)
 			continue
 		}
 		ps.Cron = firing.trigger.Cron
@@ -486,17 +532,21 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (Pr
 			admitted, err := s.admit(ctx, firing)
 			if err != nil {
 				ps.Problem = err.Error()
-				out.Schedules = append(out.Schedules, ps)
+				*rows = append(*rows, ps)
 				continue
 			}
 			ps.Refused = admitted.refusal(c.trigger.Queue)
 			ps.Busy, ps.BusyNumber = admitted.busy, admitted.busyNumber
 			stopped = admitted.outcome == fireStopped
 		}
+		if c.publication {
+			*rows = append(*rows, ps)
+			continue
+		}
 		spec, err := schema.ParseCron(ps.Cron)
 		if err != nil {
 			ps.Problem = "its cron is not understood, so it never fires: " + err.Error()
-			out.Schedules = append(out.Schedules, ps)
+			*rows = append(*rows, ps)
 			continue
 		}
 		// The scheduler reads its cron in UTC: it judges each firing from
@@ -510,12 +560,12 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (Pr
 			}
 		}
 		if ps.Waiting != "" || stopped {
-			out.Schedules = append(out.Schedules, ps)
+			*rows = append(*rows, ps)
 			continue
 		}
 		ps.Next = spec.Next(from)
 		ps.Due = !ps.Next.After(now)
-		out.Schedules = append(out.Schedules, ps)
+		*rows = append(*rows, ps)
 	}
 	return out, nil
 }
@@ -527,19 +577,19 @@ func asSchedule(ctx context.Context, projectID ids.ID) context.Context {
 
 // JanitorSchedule is the maintenance page's view of scheduler reads.
 type JanitorSchedule struct {
-	ScanChangeID     ids.ID    `json:"scanChangeId,omitzero"`
-	ScanChangeNumber int64     `json:"scanChangeNumber"`
-	NextUpdate       time.Time `json:"nextUpdate"`
-	NextReason       string    `json:"nextReason"`
-	ScanNow          string    `json:"scanNow"`
-	ScanWorkflow     string    `json:"scanWorkflow"`
+	NextUpdate time.Time `json:"nextUpdate"`
+	NextReason string    `json:"nextReason"`
+	RunNow     string    `json:"runNow"`
 }
 
 // Janitor selects discovery and update roles from the schedules' declarations.
 func (p ProjectSchedules) Janitor() JanitorSchedule {
-	out := JanitorSchedule{ScanNow: "No scan schedule adopted", NextReason: "No update schedule adopted"}
+	out := JanitorSchedule{RunNow: "No janitor schedule adopted", NextReason: "No update schedule adopted"}
+	if p.EvalCopy {
+		out.RunNow = "an eval copy runs no schedule"
+	}
 	var problem string
-	for _, schedule := range p.Schedules {
+	for _, schedule := range append(slices.Clone(p.Schedules), p.publicationStarts...) {
 		if schedule.Problem != "" {
 			problem = schedule.Problem
 			continue
@@ -547,12 +597,17 @@ func (p ProjectSchedules) Janitor() JanitorSchedule {
 		if !schedule.Standing {
 			continue
 		}
+		if schedule.Queue != "" && (out.RunNow == "No janitor schedule adopted" || schedule.Waiting == "") {
+			out.RunNow = schedule.Waiting
+		}
+		// Publication catch-up contributes eligibility, not an update time.
+		if schedule.Cron == "" {
+			continue
+		}
 		if schedule.DiscoversTargets {
-			if out.ScanWorkflow == "" {
-				out.ScanWorkflow, out.ScanNow = schedule.Source.Workflow, schedule.Refused
-				out.ScanChangeID, out.ScanChangeNumber = schedule.Busy, schedule.BusyNumber
-			}
-		} else if !schedule.Next.IsZero() {
+			continue
+		}
+		if !schedule.Next.IsZero() {
 			if out.NextUpdate.IsZero() || schedule.Next.Before(out.NextUpdate) {
 				out.NextUpdate = schedule.Next
 				out.NextReason = ""
@@ -562,7 +617,7 @@ func (p ProjectSchedules) Janitor() JanitorSchedule {
 		}
 	}
 	if problem != "" {
-		out.ScanNow = "Not known: " + problem
+		out.RunNow = "Not known: " + problem
 		out.NextReason = "Update time not known: " + problem
 	}
 	return out
@@ -571,12 +626,15 @@ func (p ProjectSchedules) Janitor() JanitorSchedule {
 // ScansSource reports whether an adopted schedule scans source. Unreadable
 // definitions leave that answer unknown, even if another schedule scans.
 func (s Schedules) ScansSource(ctx context.Context, projectID ids.ID) (bool, error) {
-	carried, err := s.carriedBy(ctx, projectID)
+	carried, err := s.carriedBy(ctx, projectID, false)
 	if err != nil {
 		return false, err
 	}
 	scans := false
 	for _, c := range carried {
+		if !c.scheduled {
+			continue
+		}
 		if c.err != nil {
 			return false, c.err
 		}

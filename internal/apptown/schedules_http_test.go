@@ -250,7 +250,7 @@ func TestScanNowFiresTheJanitorScanScheduleForAPersonWhoMayOpenWork(t *testing.T
 		}
 		for _, p := range got.Projects {
 			if p.ProjectID == covered {
-				return p.ScanNow
+				return p.RunNow
 			}
 		}
 		t.Fatalf("project missing: %s", w.Body)
@@ -309,6 +309,30 @@ func TestScanNowFiresTheJanitorScanScheduleForAPersonWhoMayOpenWork(t *testing.T
 	if l := last(); l == nil || l.Outcome != workflow.ScheduleOpened || l.ChangeID != started.ChangeID {
 		t.Fatalf("the firing was not recorded: %+v", l)
 	}
+	janitorRun := "/api/v1/projects/janitor-scan-now/janitor/run"
+	if w := authzCall(h, "outsider", "POST", janitorRun, `{}`); w.Code != 403 {
+		t.Fatalf("run without create: %d %s", w.Code, w.Body)
+	}
+	a.addGrant("user", "outsider", "", string(access.CapChangeCreate), access.ScopeProject, covered.String(), "boss", "")
+	engine := access.WithCaller(ctx, access.Caller{Verified: true, Receipt: "system", Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: covered}})
+	blocking, err := a.Work.Create(engine, workflow.ChangeDraft{ProjectID: covered, Type: "scheduled", Title: "Blocked security update", Queue: "security", Schedule: "janitor-scan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	started.ChangeID = blocking.ID
+	body := fmt.Sprintf(`{"queue":"security","again":true,"changeId":%q}`, started.ChangeID)
+	if w := authzCall(h, "outsider", "POST", janitorRun, body); w.Code != 403 {
+		t.Fatalf("again without close: %d %s", w.Code, w.Body)
+	}
+	ch, err := a.Work.Change(ctx, started.ChangeID)
+	if err != nil || ch.State == workflow.ChangeAbandoned {
+		t.Fatalf("refused close changed work: %+v %v", ch, err)
+	}
+	stale := fmt.Sprintf(`{"queue":"security","again":true,"changeId":%q}`, ids.New(time.Now()))
+	if w := authzCall(h, "boss", "POST", janitorRun, stale); w.Code != 409 {
+		t.Fatalf("stale retry: %d %s", w.Code, w.Body)
+	}
+
 }
 
 // Count real database round trips at the same interface generated code uses.
