@@ -27,7 +27,9 @@ spec:
               release fixes a finding, leave that package unchanged and say so. Do not
               change toolchain versions, Dockerfile base images or .apptown/app.yaml.
               Change application code only where a moved package needs it. Run each
-              part's declared tests, then commit.
+              part's declared tests, then commit. If nothing can move within the level,
+              report for every part the command run to list newer releases and what
+              it showed.
       steps:
         - name: repair
           uses: agent/pi
@@ -55,7 +57,9 @@ spec:
               features, refactors, formatting, unrelated fixes, weakened or removed
               tests, toolchain or runtime changes. Fail when any change falls outside
               these, and name it. Answer unclear when you cannot tell whether a code
-              change is needed by a moved package.
+              change is needed by a moved package. When the change is empty, pass only
+              if the report shows nothing can move within the level for every part;
+              a truncated report cannot show that. Fail otherwise.
               Each named finding's package must have moved to a
               version that fixes it; whether the scanner still reports it is checked
               separately.

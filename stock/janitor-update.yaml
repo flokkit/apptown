@@ -34,7 +34,8 @@ spec:
               indirect package with overrides or resolutions only where that is the
               ecosystem's normal way, and say so in the commit message. Run each part's
               declared tests, then commit. If nothing can move within the level, change
-              nothing.
+              nothing. Report for every part the command run to list newer releases
+              and what it showed.
       steps:
         - name: repair
           uses: agent/pi
@@ -62,7 +63,9 @@ spec:
               features, refactors, formatting, unrelated fixes, weakened or removed
               tests, toolchain or runtime changes. Fail when any change falls outside
               these, and name it. Answer unclear when you cannot tell whether a code
-              change is needed by a moved package.
+              change is needed by a moved package. When the change is empty, pass only
+              if the report shows nothing can move within the level for every part;
+              a truncated report cannot show that. Fail otherwise.
         - name: tests
           uses: tests
         - name: boot

@@ -6,7 +6,7 @@ import (
 	"github.com/flokkit/apptown/internal/check"
 )
 
-// JudgeUpdate uses the checks slot and the same isolated diff-rubric evaluator
+// JudgeUpdate uses the checks slot and the same isolated rubric evaluator
 // as guidance. Its receipt gates standing acceptance rather than calibration.
 func (a *Guidance) JudgeUpdate(ctx context.Context, source workflow.Source, item check.Item, diff string) (workflow.CheckReceipt, error) {
 	by, meta, err := a.judgeChecks(ctx, source, []check.Item{item}, diff)
@@ -17,7 +17,7 @@ func (a *Guidance) JudgeUpdate(ctx context.Context, source workflow.Source, item
 	ev := check.Judgement(item, v, answered, check.Gate)
 	receipt := resultOf(ev)
 	receipt.Detail = ev.Detail
-	receipt.Evaluator, receipt.Scope = "routine", check.ScopeDiff
+	receipt.Evaluator, receipt.Scope = "routine", item.Scope
 	receipt.Evidence, receipt.Note = v.Evidence, v.Note
 	if meta != nil {
 		r := meta.Results[1]

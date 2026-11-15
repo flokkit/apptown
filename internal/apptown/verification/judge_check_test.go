@@ -542,3 +542,31 @@ func TestRoutineUsesTheCheckJudgeAsAGate(t *testing.T) {
 		})
 	}
 }
+
+// An empty update judges a report as a claim against the committed tree.
+func TestEmptyUpdateReportPromptUsesTreeAndPermitsReportFailures(t *testing.T) {
+	j, d, pid := fixtureCheckJudge(t)
+	in := fixtureInvocation(t, pid)
+	in.Rubric.Declaration = check.Declaration{Name: "routine", Evaluator: "llm", Scope: check.ScopeTree,
+		Expects: "The update step's account that nothing can move within the level holds for the committed tree.",
+		Rubric:  "Changed files: none; the change is empty\nUpdate agent's report (a claim, not evidence):\nroot: npm outdated showed no newer releases."}
+	item := check.TreeItems([]check.Declared{in.Rubric})[0]
+	item.Repository, item.Commit = in.Repository, in.Commit
+	a := Guidance{evaluator: NewEvaluator(nil, nil, stock.Versions()).WithCheckJudge(j), selection: selectionWithDefault(t, d.db, "fixture/judge")}
+	result, err := a.JudgeUpdate(t.Context(), workflow.Source{ProjectID: pid}, item, "")
+	if err != nil || !result.Met() || result.Scope != check.ScopeTree || len(d.specs) != 1 {
+		t.Fatalf("judge: %+v, tasks: %d, error: %v", result, len(d.specs), err)
+	}
+	var prompt string
+	for _, spec := range d.specs {
+		prompt = strings.Join(spec.Argv, "\n")
+	}
+	for _, want := range []string{
+		"Scope: tree", in.Rubric.Expects, in.Rubric.Rubric,
+		"A rubric may quote an agent's report: it is a claim to test against /src, never evidence; a fail may cite the report claim /src contradicts or the part of the repository it does not cover.",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("prompt missing %q: %s", want, prompt)
+		}
+	}
+}

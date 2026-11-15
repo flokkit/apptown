@@ -250,6 +250,9 @@ permits patch and minor releases, keeping 0.x packages within their minor;
 aggressive permits newer majors. The model judges every version and source
 change, direct dependencies and the minimum application repairs a moved package
 needs. AppTown independently witnesses protected inputs and required checks.
+When an update changes nothing, routine judges the update agent's report against
+the committed tree. A passing judgement lets the empty update close without approval
+once the other checks pass.
 A targeted fix fails while its source scanner still reports the package and any
 shared identifier, regardless of severity, baseline or exceptions.
 
