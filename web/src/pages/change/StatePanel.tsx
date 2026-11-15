@@ -78,8 +78,10 @@ export function MainConflictLine({ conflict }: { conflict: MainConflict }) {
 export function recoveryNote(d: NonNullable<ChangeView['detail']>): string {
   return d.steps.filter((s) => s.stage === d.run.currentStage && ['fail', 'error', 'needs_human'].includes(s.status))
     .map((s) => {
-      const ev = s.evidence as { reason?: string; actions?: string[]; summary?: string; findings?: string[]; log?: string; logTail?: string }
-      const words = [...new Set([ev.reason, ev.summary, ...(ev.findings ?? []), ev.log, ev.logTail, ...(ev.actions ?? [])].filter(Boolean))]
+      // A scan step's findings are a count summary, not a list of sentences.
+      const ev = s.evidence as { reason?: string; actions?: string[]; summary?: string; findings?: unknown; log?: string; logTail?: string }
+      const findings = Array.isArray(ev.findings) ? ev.findings as string[] : []
+      const words = [...new Set([ev.reason, ev.summary, ...findings, ev.log, ev.logTail, ...(ev.actions ?? [])].filter(Boolean))]
       return `${s.name}:\n${words.join('\n')}`
     })
     .join('\n\n')
