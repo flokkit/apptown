@@ -4,6 +4,7 @@ import { useGet, useAction } from '../data'
 import { post } from '../api'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { Section } from '../Section'
+import { PageHead } from '../PageHead'
 import { ListTable, type ListColumn } from '../ListTable'
 import { Status } from '../Status'
 import { fmtWhen } from '../format'
@@ -47,7 +48,7 @@ function History({ projects }: { projects: JanitorProject[] }) {
   const columns: ListColumn<JanitorLandedChange>[] = [
     { key: 'project', label: 'Project', phone: 'name', render: c => <Link to={`/changes/${c.changeId}?tab=changes`}>{c.project}</Link> },
     { key: 'summary', label: 'Change', render: c => c.packVersions.length ? `Pack versions: ${c.packVersions.map(p => `${p.pack} v${p.version}`).join(', ')}` : c.packages.length ? c.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') : projects.find(p => p.projectId === c.projectId)?.queues.find(q => q.queue === c.queue)?.title || c.title },
-    { key: 'releases', label: 'Released', render: c => {
+    { key: 'releases', label: 'Released', className: 'record-fit', render: c => {
       const names = [...new Set(data?.releases.filter(r => r.changeId === c.changeId && r.state === 'released').map(r => r.displayLabel))]
       return <Link to={`/changes/${c.changeId}?tab=details`}>{names.length ? `Released to ${names.join(', ')}` : 'Not released'}</Link>
     } },
@@ -101,15 +102,16 @@ export default function Janitor() {
     { key: 'scan', label: 'Last checked', kind: 'time', render: p => date(p.scans.lastScan) },
   ]
   return <div>
-    <h1>Janitor</h1>
+    <PageHead page="janitor" line={data && summary(data)} actions={<>
+      {data && <button disabled={!q.current || action.busy || !data.projects.some(p => !p.runNow)} onClick={runAll}>Run now for all projects</button>}
+      <Link className="btn primary" to="/janitor/settings">Settings</Link>
+    </>} />
     <ReadStatus q={q} what="janitor" /><StaleNote q={q} />
     {data && <>
-      <p>{summary(data)} · <Link to="/janitor/settings">Settings</Link></p>
-      <button disabled={!q.current || action.busy || !data.projects.some(p => !p.runNow)} onClick={runAll}>Run now for all projects</button>
       {refusals.map((reason, i) => <div className="record-note" key={i}>{reason}</div>)}
       {items.length > 0 && <Section title="Needs you"><ListTable label="Needs you" rows={items} rowKey={n => n.key} rowTo={n => n.to} columns={[
         { key: 'project', label: 'Project', phone: 'name', render: n => <Link to={n.to}>{n.project.name}</Link> },
-        { key: 'what', label: 'What', render: n => n.what },
+        { key: 'what', label: 'What', className: 'record-fit', render: n => n.what },
         { key: 'reason', label: 'Reason', render: n => n.reason },
         { key: 'action', label: '', phone: 'action', render: n => n.queue && <TryAgain queue={n.queue} slug={n.project.slug} current={q.current && !action.busy} reload={q.reload} /> },
       ]} /></Section>}

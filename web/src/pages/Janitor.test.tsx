@@ -272,7 +272,7 @@ it('keeps project dependency scope separate from instance pack scope', async () 
  data.rules = [rule(true), exact, rule(false, false)]
  const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data))
  await settled(client)
- expect(el.querySelector('a[href="/janitor/settings"]')?.parentElement?.textContent).toBe('pack updates · all projects; Dependency updates (routine, patch and minor), security fixes · Held app · Settings')
+ expect(el.querySelector('.page-head-line')?.textContent).toBe('pack updates · all projects; Dependency updates (routine, patch and minor), security fixes · Held app')
 })
 
 it('groups instance dependency and pack approvals under all projects', async () => {
@@ -280,7 +280,8 @@ it('groups instance dependency and pack approvals under all projects', async () 
  data.rules[0].question.definition = dependencyDefinition('aggressive')
  const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data))
  await settled(client)
- expect(el.querySelector('a[href="/janitor/settings"]')?.parentElement?.textContent).toBe('Dependency updates (aggressive, including major), security fixes, pack updates · all projects · Settings')
+ expect(el.querySelector('.page-head-line')?.textContent).toBe('Dependency updates (aggressive, including major), security fixes, pack updates · all projects')
+  expect(el.querySelector('.page-head-actions a.primary')?.getAttribute('href')).toBe('/janitor/settings')
 })
 
 it('keeps loading, empty, failed and stale answers distinct', async () => {
