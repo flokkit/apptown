@@ -460,7 +460,8 @@ func TestFailedReleaseRetryThroughWebAndCLI(t *testing.T) {
 	cli := filepath.Join(t.TempDir(), "apptown")
 	testinputs.GoBuild(t, "", nil, "../../cmd/apptown")
 	runner := execution.Runner{}
-	if out := runner.Run(t.Context(), execution.Local, execution.Request{Argv: []string{"go", "build", "-o", cli, "../../cmd/apptown"}, Timeout: time.Minute}); !out.Exited0() {
+	// A cold build under the race job's parallel tests took over a minute on CI twice.
+	if out := runner.Run(t.Context(), execution.Local, execution.Request{Argv: []string{"go", "build", "-o", cli, "../../cmd/apptown"}, Timeout: 10 * time.Minute}); !out.Exited0() {
 		t.Fatalf("build CLI: %s", out.Output)
 	}
 	srv := httptest.NewServer(a.Handler())

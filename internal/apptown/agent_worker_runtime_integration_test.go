@@ -42,7 +42,7 @@ func linuxAppTownCLI(t *testing.T) string {
 	cli := filepath.Join(t.TempDir(), "apptown-linux")
 	testinputs.GoBuild(t, "", []string{"GOOS=linux", "CGO_ENABLED=0"}, "../../cmd/apptown")
 	if out := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
-		Argv: []string{"go", "build", "-o", cli, "../../cmd/apptown"}, Env: []string{"GOOS=linux", "CGO_ENABLED=0"}, Timeout: 2 * time.Minute,
+		Argv: []string{"go", "build", "-o", cli, "../../cmd/apptown"}, Env: []string{"GOOS=linux", "CGO_ENABLED=0"}, Timeout: 10 * time.Minute,
 	}); out.RunErr != nil {
 		t.Fatalf("building the agents' CLI: %v: %s", out.RunErr, out.Output)
 	}
