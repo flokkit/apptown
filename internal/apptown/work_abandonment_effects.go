@@ -21,6 +21,11 @@ type abandonmentEffects struct{ now func() time.Time }
 // External ownership records join the Work transaction; no container or Git work
 // runs here. Existing jobs perform cleanup after commit with their usual limits.
 func (e abandonmentEffects) RecordAbandonIn(ctx context.Context, tx *database.Tx, in workflow.AbandonEffects) error {
+	for _, run := range in.EndedLandings {
+		if err := recordLandingNextIn(ctx, tx, run); err != nil {
+			return err
+		}
+	}
 	if in.CloseChange {
 		if err := identity.RevokeChangeTicketsIn(ctx, tx, in.ChangeID, clock.Or(e.now)()); err != nil {
 			return err

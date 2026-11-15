@@ -32,6 +32,9 @@ func (s Step) displayLabel() status.DisplayStatus {
 	case StatusNeedsHuman:
 		return status.DisplayWaitingForYou
 	case StatusPending:
+		if s.Type == "approval" && s.approvalReady {
+			return status.DisplayWaitingForApproval
+		}
 		return status.DisplayWaitingForChecks
 	case StatusSkipped:
 		return status.DisplayStopped

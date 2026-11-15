@@ -41,6 +41,7 @@ type Step struct {
 	IsCheck        bool `json:"isCheck"`
 	CheckAttention bool `json:"checkAttention"`
 	runEnded       bool
+	approvalReady  bool
 	StatusLabel    status.DisplayStatus `json:"statusLabel"`
 
 	// Attempt is observed identity, not an execution claim (OwnedAttempt).

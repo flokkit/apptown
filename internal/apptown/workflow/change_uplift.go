@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -88,7 +89,7 @@ func (s changeStore) openUplift(ctx context.Context, in Uplift, who string) (*Ch
 			}
 		}
 		if open {
-			return nil, fmt.Errorf("an adoption change is already open; land or abandon it first")
+			return nil, fault.New(fault.Conflict, "an adoption change is already open; land or abandon it first")
 		}
 		if in.InAdvance != nil {
 			// The yes is the verified caller's own, given directly.

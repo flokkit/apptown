@@ -116,7 +116,7 @@ SELECT p.slug,p.default_branch,c.branch,c.base_sha,c.landed_sha,c.state,c.run_id
 FROM changes c JOIN projects p ON p.id=c.project_id WHERE c.id=$1 AND c.project_id=$2;
 
 -- name: HasOpenUplift :one
-SELECT EXISTS(SELECT 1 FROM changes WHERE project_id=$1 AND type='uplift' AND state=$2);
+SELECT EXISTS(SELECT 1 FROM changes WHERE project_id=$1 AND type='uplift' AND state IN ($2, 'landing'));
 
 -- Change metadata list omits potentially large body/acceptance/candidate JSON.
 -- name: OpenChangesWithoutRunsMeta :many
@@ -304,5 +304,5 @@ UPDATE automated_changes SET outcome='skipped',reason='Skipped this update' WHER
 -- name: HasBlockingPackUplift :one
 SELECT EXISTS(SELECT 1 FROM changes c
 LEFT JOIN automated_changes a ON a.active_change_id=c.id
-WHERE c.project_id=$1 AND c.type='uplift' AND c.state=$2
-AND (NOT c.automated OR COALESCE(a.queue,'') <> 'packs'));
+WHERE c.project_id=$1 AND c.type='uplift' AND (c.state='landing' OR (c.state=$2
+AND (NOT c.automated OR COALESCE(a.queue,'') <> 'packs'))));

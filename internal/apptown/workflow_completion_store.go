@@ -8,6 +8,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/jobs"
+	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
 )
@@ -19,6 +20,11 @@ const workflowCompletionJob = "workflow-completion"
 type workflowCompletionEffects struct{ now func() time.Time }
 
 func (w workflowCompletionEffects) RecordCompletionIn(ctx context.Context, tx *database.Tx, in workflow.CompletedRun) error {
+	if in.Landing {
+		if err := recordLandingNextIn(ctx, tx, in.RunID); err != nil {
+			return err
+		}
+	}
 	if in.Narrative {
 		if err := (narratives{}).requestIn(ctx, tx, in.ChangeID); err != nil {
 			return err
@@ -55,4 +61,9 @@ func (j evalAdoptionJobs) AdoptionEnded(ctx context.Context, landingRunID ids.ID
 		return false, "", err
 	}
 	return job.Ended(), job.Error, nil
+}
+
+// Each ended landing owns a fresh wake, independent of a refusing work job.
+func recordLandingNextIn(ctx context.Context, tx *database.Tx, run ids.ID) error {
+	return (jobQueue{}).EnqueueIn(ctx, tx, jobs.Request{Operation: workcommands.LandingNextJob, Key: fmt.Sprintf("%s/next", run)})
 }

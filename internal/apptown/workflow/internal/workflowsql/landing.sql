@@ -50,3 +50,13 @@ SELECT EXISTS(SELECT 1 FROM workflow_continuations WHERE source_run_id=$1);
 
 -- name: WasRunSentBack :one
 SELECT EXISTS(SELECT 1 FROM workflow_continuations WHERE source_run_id=$1);
+
+-- Oldest accepted work waiting for a project's landing slot. An absent change
+-- selects across the project; a named change uses the same queue rule.
+-- name: OldestQueuedAcceptedWork :many
+SELECT r.id FROM workflow_landings l JOIN runs r ON r.id=l.work_run_id
+JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
+WHERE r.project_id=sqlc.arg(project_id) AND (sqlc.narg(change_id)::uuid IS NULL OR c.id=sqlc.narg(change_id))
+AND l.landing_run_id IS NULL AND c.state='in_progress'
+AND NOT EXISTS(SELECT 1 FROM workflow_continuations WHERE source_run_id=r.id)
+ORDER BY r.id LIMIT 1;

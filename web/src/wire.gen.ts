@@ -2953,7 +2953,7 @@ export type Target = {
   settingsRevision: number
 }
 
-export type DisplayStatus = "unknown" | "working" | "waiting" | "failed" | "stopped" | "landed" | "finished" | "waiting for you" | "waiting for checks" | "passed" | "excepted" | "not applicable" | "none" | "abandoned"
+export type DisplayStatus = "unknown" | "working" | "waiting" | "failed" | "stopped" | "landed" | "finished" | "waiting for you" | "waiting for checks" | "passed" | "excepted" | "not applicable" | "none" | "abandoned" | "waiting for approval"
 
 export type AcceptanceCheck = {
   block: string

@@ -232,7 +232,11 @@ func latestMainScans(main string, running []RunningImages, observations []confor
 			if len(unscanned) == 0 {
 				out.Reason = "the running images have not been scanned"
 			} else {
-				out.Reason = "the image " + strings.Join(unscanned, " and ") + " runs has not been scanned since it was deployed"
+				if len(unscanned) == 1 {
+					out.Reason = "the image running on " + unscanned[0] + " has not been scanned since it was deployed"
+				} else {
+					out.Reason = "the images running on " + strings.Join(unscanned, " and ") + " have not been scanned since they were deployed"
+				}
 			}
 		case out.Stale:
 			out.Reason = "the last scan was on " + out.LastScan.UTC().Format("2 Jan") + ", more than three days ago"

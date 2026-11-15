@@ -133,6 +133,19 @@ func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, v
 	}
 	for _, step := range steps {
 		step.runEnded = run.Status != RunRunning
+		if !step.runEnded && step.Stage == run.CurrentStage && step.Type == "approval" && step.Status == StatusPending {
+			stage, _ := spec.Stage(step.Stage)
+			var peers []*Step
+			for _, peer := range steps {
+				if peer.Stage == step.Stage {
+					peers = append(peers, peer)
+				}
+			}
+			step.approvalReady, err = dispatchReadySteps(stage, peers, step)
+			if err != nil {
+				return nil, err
+			}
+		}
 		if view != rowView && carriesCheckEvidence(step.Type) {
 			step.CheckReading = readingOf(step.Evidence)
 		}

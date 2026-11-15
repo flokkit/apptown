@@ -340,7 +340,7 @@ func TestNotKnownReasonsNameTheirCase(t *testing.T) {
 	}{
 		{"no source scan", []conformance.ScanObservation{image}, "the current code (5c406e206353) has not been scanned"},
 		{"a scanner without a result", []conformance.ScanObservation{source(1, "osv", now), image}, "gitleaks gave no result for the current code (5c406e206353)"},
-		{"running image not scanned", []conformance.ScanObservation{source(1, "osv", now), source(1, "gitleaks", now)}, "the image main runs has not been scanned since it was deployed"},
+		{"running image not scanned", []conformance.ScanObservation{source(1, "osv", now), source(1, "gitleaks", now)}, "the image running on main has not been scanned since it was deployed"},
 		{"older than three days", []conformance.ScanObservation{source(1, "osv", old), source(1, "gitleaks", old), image}, "the last scan was on " + old.Format("2 Jan") + ", more than three days ago"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -369,3 +369,21 @@ func TestUnknownScansSayWhenNoScheduleScansSource(t *testing.T) {
 type noScanSchedule struct{ err error }
 
 func (s noScanSchedule) ScansSource(context.Context, ids.ID) (bool, error) { return false, s.err }
+
+func TestUnscannedRunningImagesUseSingularAndPlural(t *testing.T) {
+	now := time.Now()
+	source := conformance.ScanObservation{RunID: idstest.N(1), Subject: conformance.ScanSubject{On: "source", Commit: "main"}, Scanner: "osv", ExpectedScanners: []string{"osv"}, Verdict: "pass", ObservedAt: now}
+	running := []RunningImages{{DeploymentID: idstest.N(2), Deployment: "main"}, {DeploymentID: idstest.N(3), Deployment: "fly"}}
+	for _, tc := range []struct {
+		n    int
+		want string
+	}{
+		{1, "the image running on main has not been scanned since it was deployed"},
+		{2, "the images running on main and fly have not been scanned since they were deployed"},
+	} {
+		got := latestMainScans("main", running[:tc.n], []conformance.ScanObservation{source}, now)
+		if got.Known || got.Reason != tc.want {
+			t.Fatalf("%d deployments: %+v", tc.n, got)
+		}
+	}
+}

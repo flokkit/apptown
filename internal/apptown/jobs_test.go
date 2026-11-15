@@ -79,13 +79,17 @@ func runJobForTest(t *testing.T, a *App, id int64) *rivertype.JobRow {
 
 // startJobForTest starts the queued job id on a consumer of its own and
 // returns at once: settled gives its outcome, and stop ends the consumer.
-func startJobForTest(t *testing.T, a *App, id int64) (settled <-chan *rivertype.JobRow, stop func()) {
+func startJobForTest(t *testing.T, a *App, id int64, selected ...map[string]jobs.Kind) (settled <-chan *rivertype.JobRow, stop func()) {
 	t.Helper()
 	queue := fmt.Sprintf("test_job_%d", id)
 	// sql-guarantee: Move only the selected existing job onto this test consumer queue and make it due; River JobUpdateFull has neither queue nor scheduled_at, and re-enqueueing would change the tested job identity.
 	completionExec(t, a.DB, `UPDATE river_job SET queue=$1,state='available',scheduled_at=now() WHERE id=$2`, queue, id)
 	workers := river.NewWorkers()
-	river.AddWorker(workers, jobs.Worker(apptownJobKinds(a)))
+	kinds := apptownJobKinds(a)
+	if len(selected) > 0 {
+		kinds = selected[0]
+	}
+	river.AddWorker(workers, jobs.Worker(kinds))
 	client, err := river.NewClient(riverdatabasesql.New(a.DB.Pool()), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{queue: {MaxWorkers: 1}}, PollOnly: true, TestOnly: true})
 	if err != nil {
 		t.Fatal(err)
