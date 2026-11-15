@@ -367,13 +367,13 @@ func TestWorkflowEngineEndsARunWithNothingToChange(t *testing.T) {
 		steps []*Step
 		ends  bool
 	}{
-		{"routine judged the empty report without an output kind", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReport":"update"}`), accept(StatusPending)}, true},
-		{"routine judged another report", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReport":"other"}`), accept(StatusPending)}, false},
+		{"routine judged the empty report without an output kind", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReports":["update"]}`), accept(StatusPending)}, true},
+		{"routine judged another report", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReports":["other"]}`), accept(StatusPending)}, false},
 		{"routine lacks a report receipt", []*Step{emptyUpdate(), routine(StatusPass, `{}`), accept(StatusPending)}, false},
 		{"routine was not applicable", []*Step{emptyUpdate(), routine(StatusNotApplicable, `{}`), accept(StatusPending)}, false},
-		{"routine failed the report", []*Step{emptyUpdate(), routine(StatusFail, `{"judgedReport":"update"}`), accept(StatusPending)}, false},
-		{"routine passed but a review left a finding", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReport":"update"}`), review(StatusPass, `{"findings":["deferred major"]}`), accept(StatusPending)}, false},
-		{"routine passed but review evidence is unreadable", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReport":"update"}`), review(StatusPass, `invalid`), accept(StatusPending)}, false},
+		{"routine failed the report", []*Step{emptyUpdate(), routine(StatusFail, `{"judgedReports":["update"]}`), accept(StatusPending)}, false},
+		{"routine passed but a review left a finding", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReports":["update"]}`), review(StatusPass, `{"findings":["deferred major"]}`), accept(StatusPending)}, false},
+		{"routine passed but review evidence is unreadable", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReports":["update"]}`), review(StatusPass, `invalid`), accept(StatusPending)}, false},
 		{"reviewed clean, only the approval waits", []*Step{update(nothing), review(StatusPass, `{"findings":[]}`), accept(StatusPending)}, true},
 		{"the review left something for a person", []*Step{update(nothing), review(StatusPass, `{"findings":["react 19 deferred: a major"]}`), accept(StatusPending)}, false},
 		{"another review left something for a person", []*Step{update(nothing), review(StatusPass, `{"findings":[]}`), {Name: "review-security", Type: "agent/review", Status: StatusPass, Config: of, Evidence: json.RawMessage(`{"findings":["react 19 deferred: a major"]}`)}, accept(StatusPending)}, false},

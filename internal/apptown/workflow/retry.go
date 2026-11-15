@@ -131,8 +131,9 @@ func (s *Service) RetryStep(ctx context.Context, in RetryCommand) (retried, erro
 // attribution alone is never permission. RunID optionally binds a transaction participant.
 type retryIntent struct {
 	RetryCommand
-	RunID ids.ID
-	Actor commandActor
+	RunID  ids.ID
+	Actor  commandActor
+	Reason string
 }
 
 type stepRetries struct {
@@ -276,7 +277,7 @@ func (s stepRetries) retryIn(ctx context.Context, tx *database.Tx, run *Run, ste
 	if err := invalidateRunDecisionIn(ctx, tx, run, now); err != nil {
 		return err
 	}
-	if err := recordReceiptIn(ctx, tx, run.ID, "step.retried", retryReceipt{step.Name, step.ID, step.Stage, req.Actor.Receipt, req.Mode.String(), step.Status, step.Evidence}, now); err != nil {
+	if err := recordReceiptIn(ctx, tx, run.ID, "step.retried", retryReceipt{step.Name, step.ID, step.Stage, req.Actor.Receipt, req.Mode.String(), step.Status, step.Evidence, req.Reason}, now); err != nil {
 		return err
 	}
 	if strings.TrimSpace(req.Feedback) != "" {
@@ -330,6 +331,7 @@ type retryReceipt struct {
 	Mode             string          `json:"mode"`
 	PreviousStatus   StepState       `json:"previousStatus"`
 	PreviousEvidence json.RawMessage `json:"previousEvidence"`
+	Reason           string          `json:"reason,omitempty"`
 }
 
 type retryFeedback struct {

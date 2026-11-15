@@ -2171,7 +2171,6 @@ export type StandingAssessment = {
 
 export type StandingCategories = {
   dependencies: string
-  baseImages: boolean
   securityFixes: boolean
   waysOfWorking: boolean
 }
@@ -2205,19 +2204,7 @@ export type StandingEnvironment = {
   promotion: boolean
 }
 
-export type StandingImageObservation = {
-  reference: string
-  manifest: string
-  configDigest: string
-  preparedImage: string
-  node: string
-  platform: string
-  reportDigest: string
-  scratchSettlement: string
-}
-
 export type StandingInspection = {
-  images?: StandingImageObservation[]
   classification: string
   reason: string
   classifier: string
@@ -2265,7 +2252,6 @@ export type StandingPurpose = {
 }
 
 export type StandingQuestion = {
-  baseImageFindings: standingBaseImagePreview
   portfolio?: StandingProjectPreview[]
   definition: StandingDefinition
   projects: StandingProjectMeaning[]
@@ -4246,6 +4232,7 @@ export type Lifecycle = {
 }
 
 export type Finding = {
+  scanPoint?: string
   fingerprint: string
   kind: string
   severity: string
@@ -4776,23 +4763,15 @@ export type NeedSelection = {
   params: Record<string, unknown>
 }
 
-export type standingBaseImagePreview = {
-  images: number
-  projects: number
-  message: string
-}
-
 export type StandingProjectPreview = {
   level: string
   overridesInstance: boolean
   followsMain: StandingEnvironment[]
   problem?: string
-  baseImageFindings: string[]
   projectId: string | null
   project: string
   onlyChecksStarts: boolean
   deployments: StandingEnvironment[]
-  baseImages: number
 }
 
 export type StepState = "pending" | "running" | "pass" | "fail" | "needs_human" | "error" | "skipped" | "not_applicable"
@@ -5497,7 +5476,6 @@ export type janitorState = {
 
 export type janitorScans = {
   lastScan: string
-  imageUpdates: boolean
 }
 
 export type JobLabel = "unknown" | "waiting" | "working" | "finished" | "failed" | "stopped"

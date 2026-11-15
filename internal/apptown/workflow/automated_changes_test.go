@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -446,4 +447,78 @@ func (scheduledScans) ScansSource(context.Context, ids.ID) (bool, error) { retur
 
 func (scheduledScans) ScansSourceFrom(context.Context, ids.ID, ProcedureFacts) (bool, error) {
 	return true, nil
+}
+
+// Judge infrastructure faults retry through the normal writer twice; error
+// evidence survives each reset and only the final attempt holds the queue.
+func TestQueueCheckFaultRetriesTwiceBeforeHolding(t *testing.T) {
+	for _, ownFault := range []bool{true, false} {
+		t.Run(fmt.Sprint(ownFault), func(t *testing.T) {
+			s, ch, _, _, _ := automatedFixture(t)
+			run := admitAutomatedRun(t, s, ch, "routine")
+			for attempt := 1; attempt <= 3; attempt++ {
+				steps, err := s.RunSteps(t.Context(), run.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				claim, err := newStepAttempts(s.db, func(string) bool { return true }).start(t.Context(), steps[0], "routine", ch.ProjectID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if attempt == 1 {
+					e := &Execution{service: s, ctx: t.Context(), step: steps[0], run: run, claim: claim}
+					if err := e.StartFix([]check.Finding{{Source: "osv", Identifiers: []string{"CVE-example"}, Package: &check.PackageRef{Name: "example"}}}); err != nil {
+						t.Fatal(err)
+					}
+				}
+				outcome, err := (CheckEvidence{Checks: []CheckReceipt{{Check: "routine", Verdict: VerdictError, AppTownFault: ownFault}}}).Outcome(StatusError, map[string]any{"reason": "no valid verdict"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				result, err := (reworkStore{db: s.db}).fail(t.Context(), claim, outcome)
+				if err != nil {
+					t.Fatal(err)
+				}
+				retried := ownFault && attempt < 3
+				if result.retried != retried || (result.held == nil) != retried {
+					t.Fatalf("attempt %d: %+v", attempt, result)
+				}
+				rows, err := workflowsql.New(s.db.SQL()).QueueAttempt(t.Context(), ch.ID)
+				if err != nil || len(rows) != 1 {
+					t.Fatalf("queue: %+v %v", rows, err)
+				}
+				if rows[0].FailedAttempt == retried {
+					t.Fatalf("attempt %d failure counted: %+v", attempt, rows[0])
+				}
+				if !retried {
+					break
+				}
+			}
+			receipts, err := workflowsql.New(s.db.SQL()).ReadRunEvents(t.Context(), workflowsql.ReadRunEventsParams{RunID: run.ID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			retries := 0
+			for _, r := range receipts {
+				if r.Kind != "step.retried" {
+					continue
+				}
+				retries++
+				var saved retryReceipt
+				if err := json.Unmarshal(r.PayloadJson, &saved); err != nil {
+					t.Fatal(err)
+				}
+				if saved.By != "engine" || saved.Reason != "the check could not decide; retried" || !strings.Contains(string(saved.PreviousEvidence), "no valid verdict") {
+					t.Fatalf("lost retry attribution/evidence: %+v", saved)
+				}
+			}
+			want := 0
+			if ownFault {
+				want = 2
+			}
+			if retries != want {
+				t.Fatalf("retries %d want %d", retries, want)
+			}
+		})
+	}
 }

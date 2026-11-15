@@ -56,6 +56,7 @@ type fixtureCheckAgent struct {
 	lastToken   string
 	refuseOnce  bool
 	noInference bool
+	badVerdict  string
 }
 
 func (d *fixtureCheckAgent) Ensure(ctx context.Context, s execution.TaskSpec) (execution.TaskObservation, error) {
@@ -134,6 +135,9 @@ func (d *fixtureCheckAgent) Start(ctx context.Context, ref execution.TaskRef) er
 	}
 	if d.unclear {
 		answer = `{"verdict":"unclear","note":"cannot decide"}`
+	}
+	if d.badVerdict != "" {
+		answer = d.badVerdict
 	}
 	dir := filepath.Join(s.Workspace, ".apptown")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -576,5 +580,19 @@ func TestEmptyUpdateReportPromptUsesTreeAndPermitsReportFailures(t *testing.T) {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("prompt missing %q: %s", want, prompt)
 		}
+	}
+}
+
+func TestFinishedJudgeWithoutValidVerdictIsAppTownFault(t *testing.T) {
+	for _, answer := range []string{`invalid`, `{"verdict":"unknown"}`} {
+		t.Run(answer, func(t *testing.T) {
+			j, d, pid := fixtureCheckJudge(t)
+			d.badVerdict = answer
+			in := fixtureInvocation(t, pid)
+			r := j.JudgeCheck(t.Context(), check.Item{Repository: in.Repository, Commit: in.Commit, Declared: in.Rubric, Recheck: in.Recheck}, in.Call, in.Diff)
+			if !r.Evidence.AppTownFault || r.Reason == "" || r.Verdict.Verdict != "" {
+				t.Fatalf("invalid answer classified as project fault: %+v", r)
+			}
+		})
 	}
 }

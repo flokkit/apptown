@@ -35,7 +35,6 @@ function needs(data: JanitorView): Need[] {
   return data.projects.flatMap(project => [
     ...project.queues.filter(q => ['stuck', 'stopped', 'waiting'].includes(q.state)).map(queue => ({ key: `${project.projectId}/${queue.queue}`, project, what: queue.title, reason: [queue.words, firstLine(queue.reason)].filter(Boolean).join(' · '), to: queue.changeId ? `/changes/${queue.changeId}` : projectTo(project), queue })),
     ...data.deployments.filter(d => d.projectId === project.projectId && d.hold).map(d => ({ key: d.deploymentId!, project, what: d.displayLabel, reason: `Release ${d.hold!.releaseNumber} to ${d.displayLabel} ${d.hold!.reason === 'release failed' ? 'failed' : d.hold!.reason}`, to: `/projects/${project.slug}/deployments/${d.name}?tab=history` })),
-    ...(project.scans.imageUpdates ? [{ key: `${project.projectId}/image`, project, what: 'Base image', reason: 'Base image needs an update; the janitor cannot do this', to: projectTo(project) }] : []),
   ])
 }
 

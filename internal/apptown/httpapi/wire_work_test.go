@@ -44,7 +44,6 @@ func init() {
 		wiregen.Named{Name: "StandingAssessment", Value: workflow.StandingAssessment{}},
 		wiregen.Named{Name: "StandingInspection", Value: workflow.StandingInspection{}},
 		wiregen.Named{Name: "StandingValidation", Value: workflow.StandingValidation{}},
-		wiregen.Named{Name: "StandingImageObservation", Value: workflow.StandingImageObservation{}},
 		wiregen.Named{Name: "StandingStatus", Value: workflow.StandingStatus{}},
 		wiregen.Named{Name: "StandingActor", Value: access.Actor{}},
 		wiregen.Named{Name: "StandingDisable", Value: StandingDisable{}},

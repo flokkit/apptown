@@ -7,6 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
+	"sort"
+
+	"github.com/google/go-containerregistry/pkg/name"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -91,30 +95,175 @@ func UpdateInputs(tree string) (map[string]any, error) {
 	return out, err
 }
 
-// Simple Dockerfiles may change application instructions while retaining their
-// base operands and ARG defaults. More complex syntax is compared byte for byte
-// so a continuation, heredoc or parser directive cannot hide an image change.
-func dockerBaseInputs(raw []byte) string {
+// Complex Dockerfiles retain their complete bytes; only simple FROM operands
+// have a bounded relaxation. ARGs and parser directives remain exact inputs.
+type dockerInputs struct {
+	Exact  string
+	Lines  []string
+	Stages []dockerStage
+}
+type dockerStage struct {
+	Flags, Alias, Operand string
+	External              bool
+	Repository, Variant   string
+}
+
+var tagVersion = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)*`)
+var inputWords = regexp.MustCompile(`\S+`)
+var patchVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
+
+func dockerBaseInputs(raw []byte) dockerInputs {
+	exact := dockerInputs{Exact: string(raw)}
 	if bytes.ContainsAny(raw, "\\\x00\r`") || bytes.Contains(raw, []byte("<<")) {
-		return string(raw)
+		return exact
 	}
-	var out []string
+	for _, c := range raw {
+		if c == 127 || c < 32 && c != '\n' && c != '\t' {
+			return exact
+		}
+	}
+	out := dockerInputs{}
+	aliases := map[string]bool{}
 	for _, line := range strings.Split(string(raw), "\n") {
 		trimmed := strings.TrimSpace(line)
 		fields := strings.Fields(trimmed)
 		if len(fields) == 0 {
 			continue
 		}
-		if strings.EqualFold(fields[0], "FROM") || strings.EqualFold(fields[0], "ARG") || strings.HasPrefix(trimmed, "#") && strings.Contains(trimmed, "=") {
-			out = append(out, line)
+		if strings.EqualFold(fields[0], "ARG") || strings.HasPrefix(trimmed, "#") && strings.Contains(trimmed, "=") {
+			out.Lines = append(out.Lines, line)
+		}
+		if !strings.EqualFold(fields[0], "FROM") {
+			continue
+		}
+		out.Lines = append(out.Lines, "FROM")
+		f := fields[1:]
+		stage := dockerStage{}
+		for len(f) > 0 && strings.HasPrefix(f[0], "--") {
+			stage.Flags += f[0] + " "
+			f = f[1:]
+		}
+		if len(f) != 1 && !(len(f) == 3 && strings.EqualFold(f[1], "AS")) {
+			return exact
+		}
+		stage.Operand = f[0]
+		if len(f) == 3 {
+			stage.Alias = f[2]
+		}
+		stage.External = !aliases[strings.ToLower(stage.Operand)] && !strings.EqualFold(stage.Operand, "scratch") && !strings.Contains(stage.Operand, "$")
+		if stage.External {
+			operand, digest, hasDigest := strings.Cut(stage.Operand, "@")
+			if hasDigest {
+				if _, err := name.NewDigest(operand + "@" + digest); err != nil {
+					return exact
+				}
+			}
+			ref, err := name.NewTag(operand)
+			if err != nil {
+				return exact
+			}
+			stage.Repository = ref.Context().Name()
+			// An absent tag has the same variant as Docker's implicit latest.
+			tag := ref.TagStr()
+			stage.Variant = tagVersion.ReplaceAllString(tag, "")
+		}
+		out.Stages = append(out.Stages, stage)
+		if stage.Alias != "" {
+			aliases[strings.ToLower(stage.Alias)] = true
 		}
 	}
-	return strings.Join(out, "\n")
+	return out
 }
 
-func CompareUpdateInputs(before, after map[string]any) error {
-	if !reflect.DeepEqual(before, after) {
-		return fmt.Errorf("toolchain versions or base-image inputs changed; a person must approve this change")
+// CompareUpdateInputs is the shared deterministic boundary for agent updates.
+// Security targets alone permit exact same-minor toolchain patch moves.
+func CompareUpdateInputs(before, after map[string]any, allowToolchainPatch bool) error {
+	keys := make([]string, 0, len(before)+len(after))
+	for k := range before {
+		keys = append(keys, k)
+	}
+	for k := range after {
+		if _, ok := before[k]; !ok {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		a, aok := before[k]
+		b, bok := after[k]
+		if aok && bok && reflect.DeepEqual(a, b) {
+			continue
+		}
+		refuse := func(why string) error { return fmt.Errorf("%s: %s; a person must approve this change", k, why) }
+		if aok && bok {
+			if x, ok := a.(dockerInputs); ok {
+				y, ok := b.(dockerInputs)
+				if !ok || x.Exact != "" || y.Exact != "" || !reflect.DeepEqual(x.Lines, y.Lines) || len(x.Stages) != len(y.Stages) {
+					return refuse("Dockerfile structure or ARG inputs changed")
+				}
+				for i, old := range x.Stages {
+					next := y.Stages[i]
+					why := ""
+					switch {
+					case old.Flags != next.Flags || old.Alias != next.Alias:
+						why = "flags or stage alias changed"
+					case !old.External || !next.External:
+						if old.Operand != next.Operand {
+							why = "stage, scratch or variable operand changed"
+						}
+					case old.Repository != next.Repository:
+						why = fmt.Sprintf("%s → %s changes the image", old.Operand, next.Operand)
+					case old.Variant != next.Variant:
+						why = fmt.Sprintf("variant %s → %s", old.Variant, next.Variant)
+					}
+					if why != "" {
+						return refuse(fmt.Sprintf("stage %d: %s", i+1, why))
+					}
+				}
+				continue
+			}
+			if allowToolchainPatch && !strings.Contains(k, ":") && k != ".apptown/app.yaml" && toolchainPatch(a, b) {
+				continue
+			}
+		}
+		return refuse("toolchain or build inputs changed")
 	}
 	return nil
+}
+
+func toolchainPatch(a, b any) bool {
+	switch a := a.(type) {
+	case map[string]any:
+		next, ok := b.(map[string]any)
+		if !ok || len(a) != len(next) {
+			return false
+		}
+		for k, v := range a {
+			w, ok := next[k]
+			if !ok || !reflect.DeepEqual(v, w) && !toolchainPatch(v, w) {
+				return false
+			}
+		}
+		return true
+	case string:
+		next, ok := b.(string)
+		if !ok {
+			return false
+		}
+		oldFields, nextFields := strings.Fields(a), strings.Fields(next)
+		if len(oldFields) != len(nextFields) || inputWords.ReplaceAllString(a, "") != inputWords.ReplaceAllString(next, "") {
+			return false
+		}
+		for i, v := range oldFields {
+			w := nextFields[i]
+			if v == w {
+				continue
+			}
+			if !patchVersion.MatchString(v) || !patchVersion.MatchString(w) || v[:strings.LastIndex(v, ".")] != w[:strings.LastIndex(w, ".")] {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }

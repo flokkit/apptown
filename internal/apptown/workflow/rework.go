@@ -22,6 +22,7 @@ type reworkStore struct {
 type reworkedResult struct {
 	runID   ids.ID
 	agentID ids.ID
+	retried bool
 	refusal error
 	held    *Run
 }
@@ -151,6 +152,27 @@ func (s reworkStore) fail(ctx context.Context, claim *Step, outcome StepOutcome)
 		if err != nil {
 			return result, err
 		}
+
+		if result.agentID.IsZero() && outcome.Status == StatusError && finished.Step.Attempt <= 2 {
+			facts, err := ReadCheckEvidence(finished.Step.Evidence)
+			// Unreadable evidence cannot establish an AppTown-only fault.
+			ownFault := err == nil && len(facts.Checks) > 0
+			for _, check := range facts.Checks {
+				ownFault = ownFault && check.AppTownFault
+			}
+			attempts, err := workflowsql.New(tx.SQL()).QueueAttempt(ctx, finished.Run.ChangeID)
+			if err != nil {
+				return result, err
+			}
+			if ownFault && len(attempts) > 0 {
+				_, err = newStepRetries(s.db, []string{finished.Step.Type}).retryStepIn(ctx, tx, retryIntent{
+					RetryCommand: RetryCommand{StepID: finished.Step.ID}, RunID: finished.Run.ID,
+					Actor: commandActor{Receipt: "engine"}, Reason: "the check could not decide; retried",
+				}, s.now())
+				result.retried = true
+				return result, err
+			}
+		}
 		if result.agentID.IsZero() && (outcome.Status == StatusFail || outcome.Status == StatusError || outcome.Status == StatusNeedsHuman) {
 			err = workflowsql.New(tx.SQL()).HoldQueueAttempt(ctx, workflowsql.HoldQueueAttemptParams{ID: finished.Run.ChangeID, Reason: finished.Step.Name + ": " + evidenceReason(finished.Step.Evidence)})
 			result.held = finished.Run
@@ -277,6 +299,10 @@ type reworkReceipt struct {
 func (s *Service) dispatchRework(result reworkedResult) {
 	if result.refusal != nil {
 		s.dispatcher.report(result.refusal)
+		return
+	}
+	if result.retried {
+		s.DispatchCommittedRetry(result.runID)
 		return
 	}
 	if !result.agentID.IsZero() {

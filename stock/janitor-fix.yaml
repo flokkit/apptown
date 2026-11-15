@@ -29,11 +29,19 @@ spec:
               overrides or resolutions only where that is the ecosystem's normal way,
               never to a pre-release, and say so in the commit message. If no stable
               release fixes a finding, leave that package unchanged and say so. Do not
-              change toolchain versions, Dockerfile base images or .apptown/app.yaml.
+              change .apptown/app.yaml. Fix image targets by moving FROM to the
+              smallest release of the same image and variant within the level whose
+              image no longer has the finding, following the janitor skill.
+              For a finding in the toolchain itself (Go stdlib or a runtime), use
+              the smallest patch release within its minor that fixes it, in every
+              declaration: mise or version file, go.mod toolchain line and build
+              image. Otherwise keep toolchain versions unchanged.
               Change application code only where a moved package needs it. Run each
               part's declared tests, then commit. If nothing can move within the level,
-              report for every part the command run to list newer releases and what
-              it showed.
+              change nothing. Your final message is what AppTown judges; files you write and do
+              not commit are not seen. For every part, give the command you ran to
+              list newer releases and the lines of its output that show the result;
+              for every FROM, give the tag listing you read.
       steps:
         - name: repair
           uses: agent/pi
@@ -59,18 +67,25 @@ spec:
               pinned by an override or resolution. An indirect package in a lockfile
               may be a pre-release when a stable direct dependency's declared range
               requires it. (2) No new direct dependency, unless it replaces one the update
-              removed or renamed. (3) Every change outside dependency files is the
+              removed or renamed. (3) Except for the image and toolchain moves below, every change
+              outside dependency files is the
               smallest change a moved package needs: a renamed API, a changed import, a
               configuration key the new version requires. (4) Nothing else changes: no
               features, refactors, formatting, unrelated fixes, weakened or removed
-              tests, toolchain or runtime changes. Fail when any change falls outside
+              tests or .apptown/app.yaml changes. Dockerfile FROM may move within the
+              level, keeping the same image and variant. Toolchain versions stay
+              unchanged. A toolchain patch within its minor is allowed only when a
+              named finding is in that toolchain and this is the smallest release
+              that fixes it. Fail when any change falls outside
               these, and name it. Answer unclear when you cannot tell whether a code
               change is needed by a moved package. When the change is empty, pass only
-              if the report shows nothing can move within the level for every part;
+              if the report names, for every part and every FROM, the command and
+              output showing nothing can move within the level. A reference to a
+              file is not a report;
               a truncated report cannot show that. Fail otherwise.
-              Each named finding's package must have moved to a
-              version that fixes it; whether the scanner still reports it is checked
-              separately.
+              Each named finding must be addressed by a package release, image move
+              or toolchain patch as above; whether the scanner still reports it is
+              checked separately.
         - name: tests
           uses: tests
         - name: boot

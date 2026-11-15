@@ -395,7 +395,6 @@ func (j *CheckJudge) JudgeCheck(ctx context.Context, item check.Item, call model
 		result.Reason = "check agent transcript does not identify its session"
 		return
 	}
-	result.Evidence.AppTownFault = false
 	var v check.Verdict
 	if err = json.Unmarshal(results["verdict"], &v); err != nil {
 		result.Reason = "check agent left no valid verdict"
@@ -412,6 +411,7 @@ func (j *CheckJudge) JudgeCheck(ctx context.Context, item check.Item, call model
 		result.Reason = "check agent returned an unknown verdict"
 		return
 	}
+	result.Evidence.AppTownFault = false
 	result.Verdict = v
 	result.Reason = ""
 	return

@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -59,6 +60,8 @@ func (e *Execution) fixableTargets(ctx context.Context, names []string, ds []fix
 		}
 		stopped = state.Stopped()
 	}
+	var publicPart string
+	var publicPartRead bool
 	seen := map[string]bool{}
 	var targets []check.Finding
 	for _, name := range names {
@@ -81,15 +84,65 @@ func (e *Execution) fixableTargets(ctx context.Context, names []string, ds []fix
 				return nil, "", err
 			}
 			for _, o := range observations {
-				if o.RunID != e.run.ID || o.StepID != s.ID || o.Attempt != s.Attempt || o.Subject.On != "source" {
+				if o.RunID != e.run.ID || o.StepID != s.ID || o.Attempt != s.Attempt || (o.Subject.On != "source" && o.Subject.On != "running") {
 					continue
 				}
 				for _, f := range o.Findings {
 					if f.Package == nil || previous[f.Fingerprint] || seen[f.Fingerprint] || stopped && !check.FailsAt(cfg.FailOn, f.Severity) {
 						continue
 					}
-					if slices.ContainsFunc(ds, func(d fix.Declaration) bool { return fix.SupportsTargets(d) && d.Ecosystem == f.Package.Ecosystem }) {
-						targets = append(targets, f.Finding)
+					image := o.Subject.On == "running"
+					if image {
+						if !check.FailsAt(cfg.FailOn, f.Severity) {
+							continue
+						}
+						if !publicPartRead {
+							source, err := ReadSourceIn(ctx, e.service.db, RunRef{ID: e.run.ID, ProjectID: e.run.ProjectID})
+							if err != nil {
+								return nil, "", err
+							}
+							repo, err := source.Repository(e.service.dataDir)
+							if err != nil {
+								return nil, "", err
+							}
+							contract, err := docker.ReadContractAt(ctx, repo, source.DefaultBranch)
+							if err != nil {
+								return nil, "", err
+							}
+							if part := contract.PublicPart(); part != nil {
+								publicPart = part.Name
+							}
+							publicPartRead = true
+						}
+						if publicPart == "" || publicPart != o.Subject.Part {
+							continue
+						}
+
+						shared := false
+						for _, scan := range observations {
+							if scan.RunID != e.run.ID || scan.Subject.On != "source" {
+								continue
+							}
+							if !slices.ContainsFunc(steps, func(step *Step) bool { return step.ID == scan.StepID && step.Attempt == scan.Attempt }) {
+								continue
+							}
+							for _, sf := range scan.Findings {
+								if samePackageFinding(f.Finding, sf.Finding) {
+									shared = true
+								}
+							}
+						}
+						if shared {
+							continue
+						}
+					}
+					if image || slices.ContainsFunc(ds, func(d fix.Declaration) bool { return fix.SupportsTargets(d) && d.Ecosystem == f.Package.Ecosystem }) {
+						target := f.Finding
+						target.ScanPoint = "source"
+						if image {
+							target.ScanPoint = "image"
+						}
+						targets = append(targets, target)
 						seen[f.Fingerprint] = true
 					}
 				}

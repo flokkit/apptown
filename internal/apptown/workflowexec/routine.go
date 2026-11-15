@@ -32,7 +32,8 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 	}
 	var classified []fix.File
 	var receipt workflow.CheckReceipt
-	var judgedReport, report string
+	var judgedReports []string
+	var report string
 	finish := func(status workflow.StepState, why string) {
 		verdict := workflow.VerdictError
 		switch status {
@@ -46,12 +47,12 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		receipt.Check, receipt.Evaluator, receipt.Verdict, receipt.Detail = task.Step().Name, "routine", verdict, why
 		facts := workflow.CheckEvidence{Checks: []workflow.CheckReceipt{receipt}}
 		extra := map[string]any{"reason": why, "files": classified}
-		if judgedReport != "" {
-			extra["judgedReport"] = judgedReport
+		if len(judgedReports) > 0 {
+			extra["judgedReports"] = judgedReports
 		}
 		task.Settle(facts.Outcome(status, extra))
 	}
-	fail := func(err error) { finish(workflow.StatusError, err.Error()) }
+	fail := func(err error) { receipt.AppTownFault = false; finish(workflow.StatusError, err.Error()) }
 	if a.bounds == nil {
 		fail(fmt.Errorf("update bounds are unavailable"))
 		return
@@ -85,6 +86,12 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		fail(err)
 		return
 	}
+	targets, err := runTargets(task.Run())
+	if err != nil {
+		fail(err)
+		return
+	}
+
 	if len(changes) == 0 {
 		steps, err := workflow.ReadScopedStepsIn(task.Context(), a.db, workflow.RunRef{ID: task.Run().ID, ProjectID: task.Run().ProjectID})
 		if err != nil {
@@ -96,11 +103,12 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 				NothingToChange bool   `json:"nothingToChange"`
 				Output          string `json:"output"`
 			}
-			if step.Stage == task.Step().Stage && step.Status == workflow.StatusPass && json.Unmarshal(step.Evidence, &ev) == nil && ev.NothingToChange {
-				judgedReport, report = step.Name, ev.Output
+			if step.Type == "agent/pi" && step.Stage == task.Step().Stage && step.Status == workflow.StatusPass && json.Unmarshal(step.Evidence, &ev) == nil && ev.NothingToChange {
+				judgedReports = append(judgedReports, step.Name)
+				report += "\nStep " + step.Name + ":\n" + ev.Output + "\n"
 			}
 		}
-		if judgedReport == "" {
+		if len(judgedReports) == 0 {
 			finish(workflow.StatusNotApplicable, "nothing to change")
 			return
 		}
@@ -159,7 +167,7 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 				return
 			}
 		}
-		if err := verification.CompareUpdateInputs(inputs[0], inputs[1]); err != nil {
+		if err := verification.CompareUpdateInputs(inputs[0], inputs[1], len(targets) > 0); err != nil {
 			finish(workflow.StatusFail, err.Error())
 			return
 		}
@@ -171,11 +179,6 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 	}
 	if strings.TrimSpace(cfg.Rubric) == "" {
 		fail(fmt.Errorf("routine needs a dependency update rubric"))
-		return
-	}
-	targets, err := runTargets(task.Run())
-	if err != nil {
-		fail(err)
 		return
 	}
 	facts := "\n\nApproved level: " + bound
@@ -192,7 +195,7 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 			}
 		}
 	}
-	if judgedReport != "" {
+	if len(judgedReports) > 0 {
 		facts += "\nChanged files: none; the change is empty\nUpdate agent's report (a claim, not evidence):\n" + report
 	} else {
 		facts += "\nChanged files:"
@@ -215,7 +218,7 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 	}
 	declaration := check.Declared{Identity: check.Identity{Namespace: task.Run().WorkflowName, Version: task.Run().WorkflowVersion}, Declaration: check.Declaration{Name: task.Step().Name, Expects: "The dependency update stays within its approved level and scope.", Evaluator: "llm", Scope: check.ScopeDiff, Rubric: cfg.Rubric + facts}}
 	var item check.Item
-	if judgedReport != "" {
+	if len(judgedReports) > 0 {
 		declaration.Scope = check.ScopeTree
 		declaration.Expects = "The update step's account that nothing can move within the level holds for the committed tree."
 		item = check.TreeItems([]check.Declared{declaration})[0]

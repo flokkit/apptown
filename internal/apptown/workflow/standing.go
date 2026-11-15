@@ -427,7 +427,6 @@ func (s StandingRules) List(ctx context.Context, projectID ids.ID) ([]StandingSt
 		}
 		if !projectID.IsZero() && r.Question.Definition.Scope == "instance" {
 			status.Rule.Question.Portfolio = slices.DeleteFunc(slices.Clone(r.Question.Portfolio), func(p StandingProjectPreview) bool { return p.ProjectID != projectID })
-			status.Rule.Question.BaseImageFindings = standingBaseImagePreview{}
 			if r.Enabled {
 				status.Eligible = false
 				for _, meaning := range r.Question.Projects {

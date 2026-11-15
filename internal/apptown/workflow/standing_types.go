@@ -19,7 +19,6 @@ import (
 // StandingCategories is consent to bounded classes, not a classification result.
 type StandingCategories struct {
 	Dependencies  string `json:"dependencies"`
-	BaseImages    bool   `json:"baseImages"`
 	SecurityFixes bool   `json:"securityFixes"`
 	WaysOfWorking bool   `json:"waysOfWorking"`
 }
@@ -89,27 +88,18 @@ type StandingProjectPreview struct {
 	OverridesInstance bool                  `json:"overridesInstance"`
 	FollowsMain       []StandingEnvironment `json:"followsMain"`
 	Problem           string                `json:"problem,omitempty"`
-	BaseImageFindings []string              `json:"baseImageFindings"`
 	ProjectID         ids.ID                `json:"projectId"`
 	Project           string                `json:"project"`
 	OnlyChecksStarts  bool                  `json:"onlyChecksStarts"`
 	Deployments       []StandingEnvironment `json:"deployments"`
-	BaseImages        int                   `json:"baseImages"`
-}
-
-type standingBaseImagePreview struct {
-	Images   int    `json:"images"`
-	Projects int    `json:"projects"`
-	Message  string `json:"message"`
 }
 
 type StandingQuestion struct {
-	BaseImageFindings standingBaseImagePreview `json:"baseImageFindings"`
-	Portfolio         []StandingProjectPreview `json:"portfolio,omitempty"`
-	Definition        StandingDefinition       `json:"definition"`
-	Projects          []standingProjectMeaning `json:"projects"`
-	Shown             string                   `json:"shown"`
-	Digest            string                   `json:"digest"`
+	Portfolio  []StandingProjectPreview `json:"portfolio,omitempty"`
+	Definition StandingDefinition       `json:"definition"`
+	Projects   []standingProjectMeaning `json:"projects"`
+	Shown      string                   `json:"shown"`
+	Digest     string                   `json:"digest"`
 }
 type StandingCommand struct {
 	RuleID           ids.ID             `json:"ruleId"`
@@ -144,17 +134,17 @@ func normalizeStanding(in StandingDefinition) (StandingDefinition, error) {
 		return invalid("select an exact project set; multiple projects require administrative management")
 	}
 	c := in.Categories
-	if c.WaysOfWorking && (c.Dependencies != "" || c.BaseImages || c.SecurityFixes) {
+	if c.WaysOfWorking && (c.Dependencies != "" || c.SecurityFixes) {
 		return invalid("keep packs current is its own category; enable it separately from dependency and image fixes")
 	}
 	if c.Dependencies != "" && c.Dependencies != "routine" && c.Dependencies != "aggressive" {
 		return invalid("dependency update level must be routine or aggressive")
 	}
-	if c.Dependencies == "" && !c.BaseImages && !c.WaysOfWorking {
+	if c.Dependencies == "" && !c.WaysOfWorking {
 		return invalid("select at least one bounded update category")
 	}
-	if c.SecurityFixes && c.Dependencies == "" && !c.BaseImages {
-		return invalid("security fixes require a permitted dependency or base-image class")
+	if c.SecurityFixes && c.Dependencies == "" {
+		return invalid("security fixes require a permitted dependency class")
 	}
 	in.Projects = slices.Clone(in.Projects)
 	slices.SortFunc(in.Projects, func(a, b StandingProject) int { return strings.Compare(a.ProjectID.String(), b.ProjectID.String()) })
@@ -196,7 +186,7 @@ func standingQuestion(in StandingDefinition, projects []standingProjectMeaning) 
 	q := StandingQuestion{Definition: in, Projects: projects}
 	var b strings.Builder
 	b.WriteString("I authorize the Janitor to accept and land only classified routine updates within these bounds, after every required check passes outright. This is standing consent, not a vote on work I have personally read.\n")
-	fmt.Fprintf(&b, "Dependency updates: %s; same-version base images: %t; security fixes within those bounds: %t; governed routine ways-of-working transitions: %t.\n", in.Categories.Dependencies, in.Categories.BaseImages, in.Categories.SecurityFixes, in.Categories.WaysOfWorking)
+	fmt.Fprintf(&b, "Dependency updates: %s; security fixes within those bounds: %t; governed routine ways-of-working transitions: %t.\n", in.Categories.Dependencies, in.Categories.SecurityFixes, in.Categories.WaysOfWorking)
 	for _, p := range projects {
 		fmt.Fprintf(&b, "Project %s: acceptance %s v%d / %s: %s; landing %s v%d / %s: %s.\n", p.ProjectID, p.Procedure.Acceptance.Workflow, p.Procedure.Acceptance.Version, p.Procedure.Acceptance.Step, p.Procedure.Acceptance.Means, p.Procedure.Landing.Workflow, p.Procedure.Landing.Version, p.Procedure.Landing.Step, p.Procedure.Landing.Means)
 	}

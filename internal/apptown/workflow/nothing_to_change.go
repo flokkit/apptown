@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"slices"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -21,7 +22,7 @@ import (
 //   - the change is still empty against its base, read under the
 //     repository's lock (a later step in the stage may have changed it);
 //   - an independent judgement of that step's report passed: an agent/review
-//     of its output kind or a routine naming it in judgedReport; no review in
+//     of its output kind or a routine naming it in judgedReports; no review in
 //     the stage left a finding: a deferred major or a reverted update is a
 //     finding, and leaves the decision to a person, whichever review
 //     raised it;
@@ -82,9 +83,9 @@ func reviewedWithoutFindings(steps []*Step, kind, name string) bool {
 	for _, s := range steps {
 		if s.Type == "routine" && s.Status == StatusPass {
 			var ev struct {
-				JudgedReport string `json:"judgedReport"`
+				JudgedReports []string `json:"judgedReports"`
 			}
-			if json.Unmarshal(s.Evidence, &ev) == nil && ev.JudgedReport == name {
+			if json.Unmarshal(s.Evidence, &ev) == nil && slices.Contains(ev.JudgedReports, name) {
 				reviewed = true
 			}
 		}
