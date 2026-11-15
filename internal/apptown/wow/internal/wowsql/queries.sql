@@ -141,3 +141,8 @@ WHERE (b.name,v.version) IN (SELECT unnest(sqlc.arg(blocks)::text[]),unnest(sqlc
 
 -- name: PackByID :one
 SELECT * FROM packs WHERE id=$1;
+
+-- name: WorkflowsAtVersions :many
+SELECT w.name,w.origin,v.version,v.yaml FROM lib_workflows w
+JOIN lib_workflow_versions v ON v.lib_id=w.id
+WHERE (w.name,v.version) IN (SELECT unnest(sqlc.arg(names)::text[]),unnest(sqlc.arg(versions)::bigint[]));

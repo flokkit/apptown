@@ -172,12 +172,12 @@ export default function Janitor() {
       {queue.title}: {queue.words}{queue.changeId && <> · <Link to={`/changes/${queue.changeId}`}>change #{queue.changeNumber}</Link></>} <TryAgain queue={queue} slug={p.slug} current={q.current && !bulk} reload={q.reload} />
     </div>)}</> },
     { key: 'scan', label: 'Last scan', kind: 'time', render: p => <>{date(p.scans.lastScan)}{p.scans.stale && <span className="badge">Old scan</span>}</> },
-    { key: 'findings', label: 'Findings', kind: 'number', render: p => p.scans.known ? new Set([...p.scans.source.flatMap(s => s.findings), ...p.scans.running.flatMap(s => s.findings)].map(f => f.fingerprint)).size : 'Not known' },
+    { key: 'findings', label: 'Findings', kind: 'number', render: p => p.scans.known ? p.scans.findings : 'Not known' },
     { key: 'next', label: 'Next update', render: p => p.nextReason || date(p.nextUpdate) },
     { key: 'level', label: 'Level', render: p => <>{levelName(p.level)}<div>{p.choice ? `${p.choice.person.name} · ${date(p.choice.at)}` : p.issuer.name ? `${p.issuer.name} · ${date(p.grantedAt)}` : 'Nobody has enabled updates'}</div></> },
     { key: 'run-now', label: '', phone: 'action', render: p => <RunNow project={p} current={q.current} reload={q.reload} register={register} bulk={bulk} /> },
   ]
-  const images = data?.projects.filter(p => p.scans.running.some(s => s.imageOnlyFindings.length > 0)).length ?? 0
+  const images = data?.projects.filter(p => p.scans.imageUpdates).length ?? 0
   return <div>
     <h1>Janitor</h1><p>Keeps projects updated within the limits people grant. <Link to="/docs/guides/janitor">Janitor guide</Link></p>
     <Section title="What it is allowed to do"><ReadStatus q={q} what="janitor approvals" /><StaleNote q={q} />{data && <Rules data={data} current={q.current} reload={q.reload} />}</Section>

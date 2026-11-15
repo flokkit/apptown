@@ -1447,3 +1447,49 @@ func (q *Queries) Workflows(ctx context.Context) ([]LibWorkflow, error) {
 	}
 	return items, nil
 }
+
+const workflowsAtVersions = `-- name: WorkflowsAtVersions :many
+SELECT w.name,w.origin,v.version,v.yaml FROM lib_workflows w
+JOIN lib_workflow_versions v ON v.lib_id=w.id
+WHERE (w.name,v.version) IN (SELECT unnest($1::text[]),unnest($2::bigint[]))
+`
+
+type WorkflowsAtVersionsParams struct {
+	Names    []string
+	Versions []int64
+}
+
+type WorkflowsAtVersionsRow struct {
+	Name    string
+	Origin  string
+	Version int64
+	Yaml    string
+}
+
+func (q *Queries) WorkflowsAtVersions(ctx context.Context, arg WorkflowsAtVersionsParams) ([]WorkflowsAtVersionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, workflowsAtVersions, pq.Array(arg.Names), pq.Array(arg.Versions))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorkflowsAtVersionsRow
+	for rows.Next() {
+		var i WorkflowsAtVersionsRow
+		if err := rows.Scan(
+			&i.Name,
+			&i.Origin,
+			&i.Version,
+			&i.Yaml,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

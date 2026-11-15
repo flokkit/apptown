@@ -17,8 +17,15 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
+// StandingReach is the repository and follows-main scope used by eligibility.
+type StandingReach struct {
+	Repository  bool
+	FollowsMain []StandingEnvironment
+}
+
 type standingPortfolio interface {
-	StandingPortfolio(context.Context, database.Queryer, ids.ID, StandingCategories) ([]StandingProjectPreview, error)
+	StandingReach(context.Context, database.Queryer, ids.ID) (StandingReach, error)
+	StandingPortfolio(context.Context, database.Queryer, StandingCategories) ([]StandingProjectPreview, error)
 	StandingHold(context.Context, database.Queryer, ids.ID) (string, error)
 }
 

@@ -19,6 +19,7 @@ type runtimeCatalog struct {
 	workflows     map[int]wow.WorkflowObservation
 	blockReads    []wow.BlockRef
 	workflowReads []wow.WorkflowRef
+	workflowSets  [][]wow.WorkflowRef
 }
 
 func (c *runtimeCatalog) Block(ctx context.Context, ref wow.BlockRef) (wow.BlockObservation, error) {
@@ -75,7 +76,7 @@ func TestRuntimeSourcesUseExactPinsAndRejectForeignReceipts(t *testing.T) {
 		t.Fatalf("a workflow the adoption does not have: %v", err)
 	}
 	for _, invalid := range []Source{{ProjectID: idstest.N(3)}, {ProjectID: idstest.N(4), Revision: revision}} {
-		beforeBlocks, beforeWorkflows := len(cat.blockReads), len(cat.workflowReads)
+		beforeBlocks, beforeWorkflows, beforeSets := len(cat.blockReads), len(cat.workflowReads), len(cat.workflowSets)
 		if _, err := s.Resolve(t.Context(), invalid); err == nil {
 			t.Fatal("guidance accepted missing/foreign receipt")
 		}
@@ -85,10 +86,13 @@ func TestRuntimeSourcesUseExactPinsAndRejectForeignReceipts(t *testing.T) {
 		if _, _, err := s.WorkflowVersion(t.Context(), invalid, "build"); err == nil {
 			t.Fatal("procedure accepted missing/foreign receipt")
 		}
+		if _, err := s.AdoptedWorkflows(t.Context(), invalid); err == nil {
+			t.Fatal("procedures accepted missing/foreign receipt")
+		}
 		if _, _, err := s.ResolveBlock(t.Context(), invalid, "rules/plain"); err == nil {
 			t.Fatal("resource accepted missing/foreign receipt")
 		}
-		if len(cat.blockReads) != beforeBlocks || len(cat.workflowReads) != beforeWorkflows {
+		if len(cat.blockReads) != beforeBlocks || len(cat.workflowReads) != beforeWorkflows || len(cat.workflowSets) != beforeSets {
 			t.Fatal("rejected scope reached catalog")
 		}
 	}
@@ -184,5 +188,49 @@ func TestRuntimeFixesUseOnlyEnabledPinnedVersions(t *testing.T) {
 	}
 	if _, err := s.Fixes(t.Context(), Source{ProjectID: idstest.N(4), Revision: revision}); err == nil {
 		t.Fatal("foreign receipt accepted")
+	}
+}
+
+func (c *runtimeCatalog) WorkflowVersions(_ context.Context, refs []wow.WorkflowRef) ([]wow.WorkflowObservation, error) {
+	c.workflowSets = append(c.workflowSets, append([]wow.WorkflowRef(nil), refs...))
+	var out []wow.WorkflowObservation
+	for _, ref := range refs {
+		if row, ok := c.workflows[ref.Version]; ok && row.Name == ref.Name {
+			out = append(out, row)
+		}
+	}
+	return out, nil
+}
+
+func TestAdoptedWorkflowsReadsPinsTogetherInReceiptOrder(t *testing.T) {
+	t.Parallel()
+	cat := &runtimeCatalog{workflows: map[int]wow.WorkflowObservation{
+		1: {Name: "first", Version: 1, YAML: "first pin"},
+		2: {Name: "second", Version: 2, YAML: "second pin"},
+	}}
+	source := Source{ProjectID: idstest.N(3), Revision: &RecordedRevision{ProjectID: idstest.N(3), Revision: 1, Receipt: Receipt{Workflows: []ReceiptWorkflow{
+		{Name: "second", Version: 2}, {Name: "missing", Version: 9}, {Name: "first", Version: 1}, {Name: "unpinned"},
+	}}}}
+	s := New(nil, Dependencies{Ways: cat})
+	got, err := s.AdoptedWorkflows(t.Context(), source)
+	if err != nil || len(got) != 4 {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if len(cat.workflowSets) != 1 || len(cat.workflowSets[0]) != 3 || len(cat.workflowReads) != 0 {
+		t.Fatalf("set reads=%+v individual reads=%+v", cat.workflowSets, cat.workflowReads)
+	}
+	if got[0].Name != "second" || got[0].Version != 2 || got[0].YAML != "second pin" || got[0].Err != nil || got[2].Name != "first" || got[2].Version != 1 || got[2].YAML != "first pin" || got[2].Err != nil {
+		t.Fatalf("receipt order or pins lost: %+v", got)
+	}
+	if got[1].Name != "missing" || !errors.Is(got[1].Err, sql.ErrNoRows) || got[1].Err.Error() != "adopted workflow missing v9 is unavailable: sql: no rows in result set" {
+		t.Fatalf("missing pin: %+v", got[1])
+	}
+	if got[3].Err == nil || got[3].Err.Error() != "adopted workflow unpinned has no pinned version" {
+		t.Fatalf("invalid pin: %+v", got[3])
+	}
+	cat.workflowSets = nil
+	version, body, err := s.WorkflowVersion(t.Context(), source, "first")
+	if err != nil || version != 1 || body != "first pin" || len(cat.workflowSets) != 1 || len(cat.workflowSets[0]) != 1 || cat.workflowSets[0][0] != (wow.WorkflowRef{Name: "first", Version: 1}) {
+		t.Fatalf("single selection: %d %q %v reads=%+v", version, body, err, cat.workflowSets)
 	}
 }

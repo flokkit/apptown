@@ -375,21 +375,6 @@
         ],
         "type": "object"
       },
-      "AddsLine": {
-        "properties": {
-          "kind": {
-            "type": "string"
-          },
-          "text": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "text"
-        ],
-        "type": "object"
-      },
       "AddsRow": {
         "properties": {
           "added": {
@@ -1317,7 +1302,7 @@
           },
           "lines": {
             "items": {
-              "$ref": "#/components/schemas/AddsLine"
+              "$ref": "#/components/schemas/addsLine"
             },
             "type": "array"
           },
@@ -3946,7 +3931,7 @@
             "type": "string"
           },
           "scans": {
-            "$ref": "#/components/schemas/MainScans"
+            "$ref": "#/components/schemas/JanitorScans"
           },
           "slug": {
             "type": "string"
@@ -4005,6 +3990,38 @@
         },
         "required": [
           "starts"
+        ],
+        "type": "object"
+      },
+      "JanitorScans": {
+        "properties": {
+          "findings": {
+            "type": "integer"
+          },
+          "imageUpdates": {
+            "type": "boolean"
+          },
+          "known": {
+            "type": "boolean"
+          },
+          "lastScan": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "noRepository": {
+            "type": "boolean"
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "known",
+          "stale",
+          "noRepository",
+          "lastScan",
+          "findings",
+          "imageUpdates"
         ],
         "type": "object"
       },
@@ -8171,6 +8188,21 @@
           "deploymentLabel",
           "href",
           "project"
+        ],
+        "type": "object"
+      },
+      "addsLine": {
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
         ],
         "type": "object"
       },

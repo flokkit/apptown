@@ -82,8 +82,8 @@ func (v ApprovalVote) MarshalJSON() ([]byte, error) {
 	}
 	return mergeApprovalJSON(v.original, known)
 }
-func (v *ApprovalRejection) UnmarshalJSON(raw []byte) error {
-	type fields ApprovalRejection
+func (v *approvalRejection) UnmarshalJSON(raw []byte) error {
+	type fields approvalRejection
 	var value struct {
 		fields
 		Decision ApprovalDecision `json:"decision"`
@@ -94,12 +94,12 @@ func (v *ApprovalRejection) UnmarshalJSON(raw []byte) error {
 	if value.Decision == VoteApprove {
 		return fmt.Errorf("rejection feedback cannot carry an approving vote")
 	}
-	*v = ApprovalRejection(value.fields)
+	*v = approvalRejection(value.fields)
 	v.original = bytes.Clone(raw)
 	return nil
 }
-func (v ApprovalRejection) MarshalJSON() ([]byte, error) {
-	type fields ApprovalRejection
+func (v approvalRejection) MarshalJSON() ([]byte, error) {
+	type fields approvalRejection
 	known, err := json.Marshal(fields(v))
 	if err != nil {
 		return nil, err

@@ -67,7 +67,7 @@ func TestARowReadOnlyOnTheChangesSideSaysSo(t *testing.T) {
 	if len(a.Rows[0].Removed) != 0 {
 		t.Fatalf("removals kept against an unreadable main: %+v", a.Rows[0])
 	}
-	want := []AddsLine{
+	want := []addsLine{
 		{"added", "App parts: part game (everything the change declares; main's could not be read, so some may already be there)"},
 		{"unknown", "App parts removed: unknown, .apptown/app.yaml at b does not parse"},
 		{"unknown", "Services removed: unknown, .apptown/app.yaml at b does not parse"},

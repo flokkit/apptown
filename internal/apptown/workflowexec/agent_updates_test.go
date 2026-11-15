@@ -523,7 +523,7 @@ func (p *agentUpdateStanding) InstanceStandingProcedure(name string, _ []*adopti
 func (p *agentUpdateStanding) PublishedWorkflows(context.Context, database.Queryer) ([]*adoption.ResolvedWorkflow, error) {
 	return []*adoption.ResolvedWorkflow{{Name: p.doc.Metadata.Name, Version: 1, Doc: p.doc}}, nil
 }
-func (p *agentUpdateStanding) StandingPortfolio(context.Context, database.Queryer, ids.ID, workflow.StandingCategories) ([]workflow.StandingProjectPreview, error) {
+func (p *agentUpdateStanding) StandingPortfolio(context.Context, database.Queryer, workflow.StandingCategories) ([]workflow.StandingProjectPreview, error) {
 	return []workflow.StandingProjectPreview{{ProjectID: p.project, Deployments: []workflow.StandingEnvironment{}}}, nil
 }
 func (p *agentUpdateStanding) StandingHold(context.Context, database.Queryer, ids.ID) (string, error) {
@@ -686,4 +686,8 @@ func TestEmptyAgentUpdateClosesOnlyAfterItsReportPasses(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (p *agentUpdateStanding) StandingReach(context.Context, database.Queryer, ids.ID) (workflow.StandingReach, error) {
+	return workflow.StandingReach{Repository: true}, nil
 }

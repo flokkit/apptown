@@ -33,14 +33,10 @@ func (p Portfolio) StandingHold(ctx context.Context, q database.Queryer, pid ids
 	}
 	return strings.Join(reasons, "; "), nil
 }
-func (p Portfolio) StandingPortfolio(ctx context.Context, q database.Queryer, pid ids.ID, _ workflow.StandingCategories) ([]workflow.StandingProjectPreview, error) {
-	owners := []project.RepositoryOwner{{Ref: project.RepositoryRef{ID: pid}}}
-	if pid.IsZero() {
-		var err error
-		owners, err = project.RepositoryOwnersIn(ctx, q)
-		if err != nil {
-			return nil, err
-		}
+func (p Portfolio) StandingPortfolio(ctx context.Context, q database.Queryer, _ workflow.StandingCategories) ([]workflow.StandingProjectPreview, error) {
+	owners, err := project.RepositoryOwnersIn(ctx, q)
+	if err != nil {
+		return nil, err
 	}
 	out := []workflow.StandingProjectPreview{}
 	for _, owner := range owners {
@@ -52,7 +48,7 @@ func (p Portfolio) StandingPortfolio(ctx context.Context, q database.Queryer, pi
 			return nil, err
 		}
 		// A project with no repository yet has no main to read or update.
-		if item.DefaultBranch == "" || (pid.IsZero() && !item.Purpose.Schedules()) {
+		if item.DefaultBranch == "" || !item.Purpose.Schedules() {
 			continue
 		}
 		preview := workflow.StandingProjectPreview{ProjectID: item.ID, Project: item.Slug, Deployments: []workflow.StandingEnvironment{}, BaseImageFindings: []string{}}
@@ -107,4 +103,23 @@ func onlyChecksStarts(c *appcontract.Contract) bool {
 		}
 	}
 	return true
+}
+
+// StandingReach reads eligibility facts without the consent preview's contract or scans.
+func (p Portfolio) StandingReach(ctx context.Context, q database.Queryer, pid ids.ID) (workflow.StandingReach, error) {
+	item, err := project.ByIDIn(ctx, q, pid)
+	if err != nil {
+		return workflow.StandingReach{}, err
+	}
+	out := workflow.StandingReach{Repository: item.DefaultBranch != ""}
+	deps, err := p.Releases.Deployments.ForProject(ctx, pid)
+	if err != nil {
+		return out, err
+	}
+	for _, dep := range deps {
+		if dep.Feed == "main" {
+			out.FollowsMain = append(out.FollowsMain, workflow.StandingEnvironment{DeploymentID: dep.ID, TargetID: dep.TargetID})
+		}
+	}
+	return out, nil
 }

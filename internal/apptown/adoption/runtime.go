@@ -227,17 +227,8 @@ func (s *Service) WorkflowVersion(ctx context.Context, source Source, name strin
 		if w.Name != name {
 			continue
 		}
-		if w.Version <= 0 {
-			return 0, "", fmt.Errorf("adopted workflow %s has no pinned version", name)
-		}
-		if s.deps.Ways == nil {
-			return 0, "", errCatalogUnavailable
-		}
-		wf, err := s.deps.Ways.Workflow(ctx, wow.WorkflowRef{Name: name, Version: w.Version})
-		if err != nil {
-			return 0, "", fmt.Errorf("adopted workflow %s v%d is unavailable: %w", name, w.Version, err)
-		}
-		return w.Version, wf.YAML, nil
+		items := s.readWorkflowPins(ctx, []ReceiptWorkflow{w})
+		return items[0].Version, items[0].YAML, items[0].Err
 	}
 	if s.deps.Ways == nil {
 		return 0, "", errCatalogUnavailable
@@ -340,4 +331,70 @@ func (s *Service) CandidateWorkflow(ctx context.Context, pin ReceiptWorkflow) (*
 		return nil, err
 	}
 	return &ResolvedWorkflow{Name: pin.Name, Version: pin.Version, Doc: doc}, nil
+}
+
+// AdoptedWorkflow retains receipt order and an individual pin's read failure.
+type AdoptedWorkflow struct {
+	Name    string
+	Version int
+	YAML    string
+	Err     error
+}
+
+// AdoptedWorkflows reads the receipt's exact procedures in one catalog set read.
+func (s *Service) AdoptedWorkflows(ctx context.Context, source Source) ([]AdoptedWorkflow, error) {
+	revision, err := source.receipt("adopted workflows")
+	if err != nil {
+		return nil, err
+	}
+	return s.readWorkflowPins(ctx, revision.Receipt.Workflows), nil
+}
+
+func (s *Service) readWorkflowPins(ctx context.Context, pins []ReceiptWorkflow) []AdoptedWorkflow {
+	refs := make([]wow.WorkflowRef, 0, len(pins))
+	for _, pin := range pins {
+		if pin.Version > 0 {
+			refs = append(refs, wow.WorkflowRef{Name: pin.Name, Version: pin.Version})
+		}
+	}
+	var rows []wow.WorkflowObservation
+	var readErr error
+	if len(refs) > 0 {
+		if s.deps.Ways == nil {
+			readErr = errCatalogUnavailable
+		} else {
+			rows, readErr = s.deps.Ways.WorkflowVersions(ctx, refs)
+		}
+	}
+	type key struct {
+		name    string
+		version int
+	}
+	found := make(map[key]wow.WorkflowObservation, len(rows))
+	for _, row := range rows {
+		found[key{row.Name, row.Version}] = row
+	}
+	out := make([]AdoptedWorkflow, 0, len(pins))
+	for _, pin := range pins {
+		item := AdoptedWorkflow{Name: pin.Name}
+		switch {
+		case pin.Version <= 0:
+			item.Err = fmt.Errorf("adopted workflow %s has no pinned version", pin.Name)
+		case s.deps.Ways == nil:
+			item.Err = errCatalogUnavailable
+		default:
+			row, ok := found[key{pin.Name, pin.Version}]
+			err := readErr
+			if err == nil && !ok {
+				err = sql.ErrNoRows
+			}
+			if err != nil {
+				item.Err = fmt.Errorf("adopted workflow %s v%d is unavailable: %w", pin.Name, pin.Version, err)
+			} else {
+				item.Version, item.YAML = pin.Version, row.YAML
+			}
+		}
+		out = append(out, item)
+	}
+	return out
 }

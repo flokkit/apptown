@@ -50,6 +50,20 @@ func TestWorkflowVersionReadsExactPublicationOnce(t *testing.T) {
 			}
 		}
 	}
+	service := New(db, Dependencies{})
+	rows, err := service.WorkflowVersions(t.Context(), []WorkflowRef{{Name: "wf-01", Version: 2}, {Name: "wf-00", Version: 1}, {Name: "wf-00", Version: 99}, {Name: "absent", Version: 1}})
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("exact set: %+v %v", rows, err)
+	}
+	for _, row := range rows {
+		if row.Name == "wf-00" && row.Version == 1 && row.YAML == declaration("wf-00", "original") {
+			continue
+		}
+		if row.Name == "wf-01" && row.Version == 2 && row.YAML == declaration("wf-01", "current") {
+			continue
+		}
+		t.Fatalf("set selected another publication: %+v", row)
+	}
 	counted := &countedQueries{Handle: db.SQL()}
 	for _, version := range []int{0, 1, 2} {
 		counted.reads = 0

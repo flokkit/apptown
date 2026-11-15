@@ -54,11 +54,11 @@ type failingQueueDefinition struct {
 	fail bool
 }
 
-func (d *failingQueueDefinition) WorkflowVersion(ctx context.Context, source adoption.Source, name string) (int, string, error) {
+func (d *failingQueueDefinition) AdoptedWorkflows(ctx context.Context, source adoption.Source) ([]adoption.AdoptedWorkflow, error) {
 	if d.fail {
-		return 0, "", fmt.Errorf("workflow definition unavailable")
+		return []adoption.AdoptedWorkflow{{Name: "clock", Err: fmt.Errorf("workflow definition unavailable")}}, nil
 	}
-	return d.Service.WorkflowVersion(ctx, source, name)
+	return d.Service.AdoptedWorkflows(ctx, source)
 }
 
 // Queue enumeration must distinguish an unreadable adoption from a readable
