@@ -20,7 +20,7 @@ library images `https://hub.docker.com/v2/repositories/library/<name>/tags?name=
 (follow pagination), or `crane ls` or `skopeo list-tags` when present. Pin a
 newer build of the same tag by digest. For a security target choose the
 smallest release whose image no longer has the finding. Leave stage
-references, scratch and operands containing `$` unchanged.
+references, scratch and operands containing `$` unchanged; they need no listing.
 Toolchain versions stay unchanged for dependency updates. For a security finding
 in the toolchain itself, use the smallest patch release within its minor that
 fixes it, updating every declaration, including mise, version files, go.mod's
@@ -36,8 +36,12 @@ moves, applied with `-u` and `npm install`; report `npm outdated --all`. uv:
 `uv tree --outdated`. Other ecosystems' dependency guidance names their
 commands.
 
-Your final message is what AppTown judges; files you write and do not commit
-are not seen. For every part, give the command you ran to list newer releases
-and the lines of its output that show the result; for every FROM, give the
-tag listing you read. Say when a command could not run; that is not proof
-that nothing can move.
+Your final message is what AppTown judges; write no report file.
+Everything AppTown judges goes in the final message. When nothing can move,
+start it with one sentence saying why, naming the image or package (for example
+"Waiting for a newer python:3.12-slim build: the newest build still has CVE-…").
+For every part that declares dependencies, give the command you ran to list
+newer releases and the lines of its output that show the result; for every
+external FROM, give the tag listing you read. `scratch`, stage names and
+operands containing `$` need no listing. A part with no manifest or Dockerfile
+needs no listing. Say when a command could not run.

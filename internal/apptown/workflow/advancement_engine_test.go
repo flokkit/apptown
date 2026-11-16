@@ -368,6 +368,12 @@ func TestWorkflowEngineEndsARunWithNothingToChange(t *testing.T) {
 		steps []*Step
 		ends  bool
 	}{
+		{"called empty fix with settled rebuild", []*Step{{Name: "scan-running:trivy", Type: "scan", Status: StatusFail}, {Name: "rebuild", Type: "rebuild", Status: StatusPass}, {Name: "fix", Type: "workflow/call", Status: StatusPass, Config: json.RawMessage(`{"whenFailed":["scan-running"]}`), Evidence: nothing}, accept(StatusPending)}, true},
+		{"called empty fix with inapplicable rebuild", []*Step{{Name: "scan-running:trivy", Type: "scan", Status: StatusFail}, {Name: "rebuild", Type: "rebuild", Status: StatusNotApplicable}, {Name: "fix", Type: "workflow/call", Status: StatusPass, Config: json.RawMessage(`{"whenFailed":["scan-running"]}`), Evidence: nothing}, accept(StatusPending)}, true},
+		{"called empty fix leaves unanswered scan", []*Step{{Name: "scan-source", Type: "scan", Status: StatusFail}, {Name: "fix", Type: "workflow/call", Status: StatusPass, Config: json.RawMessage(`{"whenFailed":["scan-running"]}`), Evidence: nothing}, accept(StatusPending)}, false},
+		{"called empty fix cannot excuse scanner error", []*Step{{Name: "scan-running", Type: "scan", Status: StatusError}, {Name: "fix", Type: "workflow/call", Status: StatusPass, Config: json.RawMessage(`{"whenFailed":["scan-running"]}`), Evidence: nothing}, accept(StatusPending)}, false},
+		{"called empty fix cannot excuse failed rebuild", []*Step{{Name: "rebuild", Type: "rebuild", Status: StatusFail}, {Name: "fix", Type: "workflow/call", Status: StatusPass, Config: json.RawMessage(`{}`), Evidence: nothing}, accept(StatusPending)}, false},
+		{"called empty fix keeps review findings", []*Step{{Name: "fix", Type: "workflow/call", Status: StatusPass, Config: json.RawMessage(`{}`), Evidence: nothing}, review(StatusPass, `{"findings":["deferred major"]}`), accept(StatusPending)}, false},
 		{"routine judged the empty report without an output kind", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReports":["update"]}`), accept(StatusPending)}, true},
 		{"routine judged another report", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReports":["other"]}`), accept(StatusPending)}, false},
 		{"routine lacks a report receipt", []*Step{emptyUpdate(), routine(StatusPass, `{}`), accept(StatusPending)}, false},
@@ -390,7 +396,7 @@ func TestWorkflowEngineEndsARunWithNothingToChange(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			stage := schema.Stage{Name: "uplift", Gate: &schema.Gate{Require: []string{"accept"}}}
-			if !strings.Contains(tc.name, "explicit gate") {
+			if !strings.Contains(tc.name, "explicit gate") && !strings.HasPrefix(tc.name, "called empty fix") {
 				stage.Gate = nil
 			}
 			for _, s := range tc.steps {
@@ -458,5 +464,107 @@ func TestWorkflowEngineWaitsForOptionalWorkOnlyAtCompletion(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+// Completion exports the same reviewed account even when the child's gate
+// passed; the root alone decides whether a waiting approval can close.
+func TestCompletedEmptyJanitorFixExportsAccount(t *testing.T) {
+	t.Parallel()
+	spec, err := stockCallee(t)("janitor-fix")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage := &spec.Stages[len(spec.Stages)-1]
+	plan, err := planStage(stage, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, records := testWorkflowEngine(t, *spec, stage.Name)
+	records.run.ParentRunID = idstest.N(8)
+	for _, p := range plan {
+		s := &Step{Name: p.check.Name, Type: p.check.Type, Status: StatusPass, Config: json.RawMessage(p.configJSON)}
+		switch s.Name {
+		case "update":
+			s.Evidence = json.RawMessage(`{"nothingToChange":true,"reason":"Waiting for a newer base image build"}`)
+		case "routine":
+			s.Evidence = json.RawMessage(`{"judgedReports":["update"]}`)
+		case "repair":
+			s.Status = StatusNotApplicable
+		}
+		if s.Type == "scan" {
+			s.Status = StatusNotApplicable
+		}
+		records.steps = append(records.steps, s)
+		records.checks = append(records.checks, p.check)
+	}
+	decision, err := records.run.advance(records.steps, records.checks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !decision.passed() || !decision.Complete {
+		t.Fatalf("child should be ready to complete: %+v", decision)
+	}
+	if account, ok := emptyResultAccount(records.steps); !ok || account != "Waiting for a newer base image build" {
+		t.Fatalf("completed empty janitor-fix has no account to export: %q %t", account, ok)
+	}
+}
+
+// Static image findings have no project fix target. A settled rebuild records
+// a separate release and must not keep this observation-only Change open.
+func TestStaticObservationClosesWithSettledRebuild(t *testing.T) {
+	t.Parallel()
+	spec, err := stockCallee(t)("janitor-scan")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, status := range []StepState{StatusPass, StatusNotApplicable, StatusFail, StatusError} {
+		t.Run(status.String(), func(t *testing.T) {
+			t.Parallel()
+			stage := &spec.Stages[len(spec.Stages)-1]
+			plan, err := planStage(stage, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w, records := testWorkflowEngine(t, *spec, stage.Name)
+			records.run.ChangeID = idstest.N(9)
+			rebuildFound := false
+			for _, p := range plan {
+				s := &Step{Name: p.check.Name, Type: p.check.Type, Config: json.RawMessage(p.configJSON), Status: StatusNotApplicable}
+				switch s.Name {
+				case "scan-running":
+					s.Status = StatusFail
+					s.Evidence = json.RawMessage(`{"reason":"file-server finding"}`)
+				case "rebuild":
+					rebuildFound = true
+					s.Status = status
+				case "accept":
+					s.Status = StatusPending
+				}
+				records.steps = append(records.steps, s)
+				records.checks = append(records.checks, p.check)
+			}
+			if !rebuildFound {
+				t.Fatal("shipped scan fixture is missing rebuild")
+			}
+			w.endNothing = func(context.Context, *Run) error {
+				records.trace = append(records.trace, "close change")
+				return nil
+			}
+			result, err := w.advance(t.Context(), records.run.ID, "system")
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantClosed := status == StatusPass || status == StatusNotApplicable
+			if closed := slices.Contains(records.trace, "close change"); closed != wantClosed || (result.RunStatus == RunAbandoned) != wantClosed {
+				t.Fatalf("static observation with %s rebuild: closed=%t, want %t; trace %v", status, closed, wantClosed, records.trace)
+			}
+			if wantClosed {
+				outcome, reason := quietOutcome(records.steps)
+				if outcome != "fail" || reason != "scan-running: file-server finding" {
+					t.Fatalf("scan verdict lost: %s %s", outcome, reason)
+				}
+			}
+		})
 	}
 }

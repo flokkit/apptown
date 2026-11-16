@@ -599,7 +599,7 @@ func TestEmptyAgentUpdateClosesOnlyAfterItsReportPasses(t *testing.T) {
 				if item.Scope != check.ScopeTree || check.Scope(item.Declaration) != check.ScopeTree || diff != "" || item.Repository == "" || item.Commit == "" {
 					t.Fatalf("empty update not tree scoped: %+v, diff %q", item, diff)
 				}
-				for _, want := range []string{report, "Changed files: none; the change is empty", "Update agent's report (a claim, not evidence):", "Approved level: routine", "a truncated report cannot show that"} {
+				for _, want := range []string{report, "Changed files: none; the change is empty", "Update agent's report (a claim, not evidence):", "Approved level: routine", "A reference to a file is not a report"} {
 					if !strings.Contains(item.Rubric, want) {
 						t.Fatalf("rubric missing %q: %s", want, item.Rubric)
 					}

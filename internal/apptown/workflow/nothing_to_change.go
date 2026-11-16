@@ -29,7 +29,9 @@ import (
 //   - every other step of the stage has settled as passed or skipped, no
 //     required check is missing, and only pending approvals hold the gate.
 //
-// Anything else (a failed scan, a running review, a rejected approval)
+// A call carries its child's reviewed empty-result account; failed scans named
+// in that call's whenFailed are retained observations and do not block closure.
+// Anything else (an unanswered failed scan, a running review, a rejected approval)
 // leaves the run waiting for a person as before.
 
 // nothingToChange is the account of the step that found nothing to change,
@@ -44,31 +46,56 @@ func (a advancement) nothingToChange(steps []*Step) (string, bool) {
 			return "", false
 		}
 	}
+	return emptyResultAccount(steps)
+}
+
+// emptyResultAccount judges a settled stage's reviewed empty result independently
+// of its gate. A completed child can hand this account to its calling step.
+func emptyResultAccount(steps []*Step) (string, bool) {
+	answered := map[string]bool{}
 	var account, kind, name string
+	callProducer := false
 	for _, s := range steps {
-		switch {
-		case s.Type == "approval" && s.Status == StatusPending:
-		case !s.Status.judged() && s.Status != StatusSkipped:
-			return "", false
-		}
 		var ev struct {
 			NothingToChange bool   `json:"nothingToChange"`
 			Reason          string `json:"reason"`
 		}
-		var cfg struct {
-			Output struct {
-				Kind string `json:"kind"`
-			} `json:"output"`
+		if s.Status != StatusPass || json.Unmarshal(s.Evidence, &ev) != nil || !ev.NothingToChange {
+			continue
 		}
-		if s.Status == StatusPass && json.Unmarshal(s.Evidence, &ev) == nil && ev.NothingToChange {
-			account, name = ev.Reason, s.Name
-			kind = ""
-			if json.Unmarshal(s.Config, &cfg) == nil {
-				kind = cfg.Output.Kind
+		if s.Type == "workflow/call" {
+			var cfg struct {
+				WhenFailed []string `json:"whenFailed"`
 			}
+			if json.Unmarshal(s.Config, &cfg) != nil {
+				return "", false
+			}
+			for _, observation := range cfg.WhenFailed {
+				answered[observation] = true
+			}
+			account, name, kind, callProducer = ev.Reason, s.Name, "", true
+		} else if s.Type == "agent/pi" {
+			var cfg struct {
+				Output struct {
+					Kind string `json:"kind"`
+				} `json:"output"`
+			}
+			if json.Unmarshal(s.Config, &cfg) != nil {
+				return "", false
+			}
+			account, name, kind, callProducer = ev.Reason, s.Name, cfg.Output.Kind, false
 		}
 	}
-	if name == "" || !reviewedWithoutFindings(steps, kind, name) {
+	for _, s := range steps {
+		baseName, _, _ := strings.Cut(s.Name, ":")
+		switch {
+		case s.Type == "approval" && s.Status == StatusPending:
+		case s.Type == "scan" && s.Status == StatusFail && (answered[s.Name] || answered[baseName]):
+		case !s.Status.judged() && s.Status != StatusSkipped:
+			return "", false
+		}
+	}
+	if name == "" || !reviewedWithoutFindings(steps, kind, name, callProducer) {
 		return "", false
 	}
 	return account, true
@@ -78,8 +105,7 @@ func (a advancement) nothingToChange(steps []*Step) (string, bool) {
 // naming the producer passed, and
 // no review of the stage left anything for a person. A review whose
 // evidence cannot be read has not said it left nothing.
-func reviewedWithoutFindings(steps []*Step, kind, name string) bool {
-	reviewed := false
+func reviewedWithoutFindings(steps []*Step, kind, name string, reviewed bool) bool {
 	for _, s := range steps {
 		if s.Type == "routine" && s.Status == StatusPass {
 			var ev struct {
@@ -221,7 +247,8 @@ func (s *Service) endNothingToChange(ctx context.Context, expected *Run) error {
 }
 
 // Queue observation-only runs close with their actual verdict, even findings or
-// an unavailable scanner. Any started work leaves failure for a person.
+// an unavailable scanner. A rebuild records a separate release, so it also
+// preserves observation-only closure when it passes.
 func deterministicSettled(steps []*Step, queue bool) bool {
 	if len(steps) == 0 {
 		return false
@@ -243,7 +270,7 @@ func deterministicSettled(steps []*Step, queue bool) bool {
 		if step.Type == "agent/review" {
 			return false
 		}
-		if step.Type != "scan" && !(step.Type == "workflow/call" && step.Status == StatusNotApplicable) {
+		if step.Type != "scan" && step.Status != StatusNotApplicable && !(step.Type == "rebuild" && step.Status == StatusPass) {
 			observing = false
 		}
 		switch step.Status {
