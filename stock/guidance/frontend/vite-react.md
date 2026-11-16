@@ -7,22 +7,21 @@ A browser UI is TypeScript and React, built with Vite and tested with
 Vitest. No server-side-rendering framework until search ranking or first
 paint at scale demands it.
 
-**package.json scripts.** Dockerfile, checks and README use:
+**package.json scripts**, used by the Dockerfile, README and checks:
 
     "dev":     "vite"
     "build":   "tsc --noEmit && vite build"
-    "test":    "vitest run"
+    "test":    "vitest run --reporter=default --reporter=junit --outputFile.junit=\"${APPTOWN_TEST_REPORT:-/dev/null}\""
     "preview": "vite preview --host 0.0.0.0 --port 8080"
 
-`tsconfig.json` keeps `"strict": true`; `builds` and `tests-pass` run
-`npm ci` and the scripts on every change.
+`tsconfig.json` keeps `"strict": true`.
 
 In `.apptown/app.yaml`, declare
 `test: ["npm ci && npm test"]` on each part, including static.
 Each command must work in a clean checkout: landing uses a fresh folder, so install dependencies first (`npm ci && npm test`).
 
-**Tests.** Test app rules in plain modules with Vitest beside the code
-(`src/thing.test.ts`); update tests for every behaviour change.
+**Tests.** Test app rules in plain modules beside the code
+(`src/thing.test.ts`); update them with every behaviour change.
 Use `jsdom` only for DOM logic.
 
 **Dependencies.** A few npm libraries where they do something hard (dates,
@@ -33,9 +32,8 @@ Beside every `package.json` of a part built with node, `.gitignore`
 covers `node_modules/` and `dist/`.
 
 **Served by the app's server**, when it has one (a browser-only app is
-served as static files: `frontend/browser-only`). A frontend stage of the
-image build runs `npm ci` and `npm run build`, and the server stage copies
-`dist/` in; never commit `dist/` to make a build pass. A Go binary embeds
+served as static files: `frontend/browser-only`). The image build's frontend
+stage runs `npm ci && npm run build`; the server stage copies `dist/` in; never commit `dist/` to make a build pass. A Go binary embeds
 it with `//go:embed all:frontend/dist`, an empty `frontend/dist/.keep`
 committed and the contents ignored (`frontend/dist/*`,
 `!frontend/dist/.keep`), so a clean checkout compiles. Client types come

@@ -457,3 +457,44 @@ func writeFakeDocker(t *testing.T, path, source string) {
 		t.Fatal(err)
 	}
 }
+
+func TestDockerArgsDefaultEnvironmentPrecedesCallerValues(t *testing.T) {
+	t.Parallel()
+	args := dockerArgs(Request{Image: "agent:test", Env: []string{"CI=custom", "TERM=custom"}})
+	var env []string
+	for i := 0; i+1 < len(args); i++ {
+		if args[i] == "-e" {
+			env = append(env, args[i+1])
+		}
+	}
+	want := []string{"CI=true", "NO_COLOR=1", "TERM=dumb", "FORCE_COLOR=0", "CI=custom", "TERM=custom"}
+	if len(env) < len(want) || !slices.Equal(env[:len(want)], want) {
+		t.Fatalf("step environment order: %q, want prefix %q", env, want)
+	}
+}
+
+func TestDockerRunnerCapturesPlainOutput(t *testing.T) {
+	t.Parallel()
+	fake := filepath.Join(t.TempDir(), "docker")
+	writeFakeDocker(t, fake, "#!/bin/sh\ncase \"$1\" in\nrun) printf '\\033[32mok\\033[0m\\n';;\ninspect) echo false;;\nesac\n")
+	var lines []string
+	out := (Runner{DockerBinary: fake}).Run(t.Context(), Docker, Request{
+		Image: "agent:test", Name: "plain-output", Argv: []string{"test"}, Timeout: time.Minute,
+		OnLine: func(line string) { lines = append(lines, line) },
+	})
+	if !out.Exited0() || string(out.Output) != "ok\n" || !slices.Equal(lines, []string{"ok"}) {
+		t.Fatalf("captured output %q, lines %q, outcome %+v", out.Output, lines, out)
+	}
+}
+
+func TestLocalRunnerPreservesDataBytes(t *testing.T) {
+	t.Parallel()
+	var lines []string
+	req := shell(`printf '\055old\r\n+new\r\n\033[31mliteral\033[0m\n'`)
+	req.OnLine = func(line string) { lines = append(lines, line) }
+	out := (Runner{}).Run(t.Context(), Local, req)
+	want := "-old\r\n+new\r\n\x1b[31mliteral\x1b[0m\n"
+	if !out.Exited0() || string(out.Output) != want || !slices.Equal(lines, []string{"-old\r", "+new\r", "\x1b[31mliteral\x1b[0m"}) {
+		t.Fatalf("local data changed: %q, lines %q, outcome %+v", out.Output, lines, out)
+	}
+}
