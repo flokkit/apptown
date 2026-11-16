@@ -2292,3 +2292,13 @@ CREATE TABLE notification_deliveries (
 CREATE UNIQUE INDEX notification_event ON notification_deliveries(channel,kind,item_key,opened_at) WHERE kind IN ('opened','resolved');
 CREATE UNIQUE INDEX notification_digest ON notification_deliveries(channel,digest_date) WHERE kind='digest';
 
+-- Source: internal/apptown/imagelines/schema.sql
+CREATE TABLE image_line_readings (
+ id UUID PRIMARY KEY,
+ line TEXT NOT NULL UNIQUE,
+ tag TEXT NOT NULL,
+ digest TEXT NOT NULL,
+ registry TEXT NOT NULL,
+ read_at TIMESTAMPTZ NOT NULL
+);
+

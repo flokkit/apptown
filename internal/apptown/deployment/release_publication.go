@@ -55,15 +55,15 @@ func (img releaseImage) IsStatic() bool {
 // image, with the command that serves them (docker.StaticSiteDockerfile),
 // as a Docker host's own build of it is (docker.PrepareImages).
 func (img releaseImage) Dockerfile(server string) (string, error) {
-	if server == "" {
-		return "", fmt.Errorf("no static server image: the tool versions name it")
+	if _, err := appcontract.StaticServerImage(server); err != nil {
+		return "", err
 	}
 	return docker.StaticSiteDockerfile(server, img.Port), nil
 }
 
-// ReleasePlan is what a release is made of: its distinct images, in the
+// releasePlan is what a release is made of: its distinct images, in the
 // contract's order, and which of them each part and init step runs.
-type ReleasePlan struct {
+type releasePlan struct {
 	Images      []releaseImage
 	Parts, Init map[string]string // part or init step -> image name
 }
@@ -71,8 +71,8 @@ type ReleasePlan struct {
 // PlanRelease is the release c declares: one image for each distinct build,
 // static site or image reference, shared by every part and init step that
 // declares the same.
-func PlanRelease(c *appcontract.Contract) ReleasePlan {
-	plan := ReleasePlan{Parts: map[string]string{}, Init: map[string]string{}}
+func PlanRelease(c *appcontract.Contract) releasePlan {
+	plan := releasePlan{Parts: map[string]string{}, Init: map[string]string{}}
 	named := map[releaseImage]string{}
 	add := func(name string, img releaseImage) string {
 		if n, ok := named[img]; ok {
@@ -193,7 +193,7 @@ type ReleasePublication struct {
 	ChangeID ids.ID
 	Tree     string // the landed commit
 	Contract []byte // its .apptown/app.yaml
-	Plan     ReleasePlan
+	Plan     releasePlan
 	// Built is each built image's export, by image name, as the worker
 	// captured it. AppTown trusts none of it: what it records is what the
 	// registry reads back.

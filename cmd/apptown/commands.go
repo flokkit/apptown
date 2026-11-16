@@ -87,6 +87,8 @@ var sections = []section{
 		commands: []command{
 			{[]string{"signin"}, `  signin <show|configure|test|enable|disable|bindings|bind|revoke>
     Manage external sign-in; configuration contains secret names only.`, cmdSignIn},
+			{[]string{"image"}, `  image newest <ref> --scope <line|patch|minor|major> [--json]
+                                        newest stable image and its recorded registry reading`, cmdImage},
 			{[]string{"janitor"}, `  janitor <choices|set|history|assess|attempts|run>
                                         manage Janitor choices and run project queues now`, cmdJanitor},
 			{[]string{"uplift"}, `  uplift [-p proj]                      dependency uplift (dependency-uplift workflow)`, verb("uplift")},

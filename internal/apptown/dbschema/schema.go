@@ -1010,6 +1010,14 @@ WHERE NOT (o.receipt ? 'expectedScanners');
 		`ALTER TABLE standing_project_choices DROP CONSTRAINT standing_project_choices_level_check`,
 		`ALTER TABLE standing_project_choices ADD CHECK (level IN ('instance','off','routine','aggressive'))`,
 	}},
+	{n: 244, note: "record registry version line readings", stmts: []string{`CREATE TABLE image_line_readings (
+ id UUID PRIMARY KEY,
+ line TEXT NOT NULL UNIQUE,
+ tag TEXT NOT NULL,
+ digest TEXT NOT NULL,
+ registry TEXT NOT NULL,
+ read_at TIMESTAMPTZ NOT NULL
+);`}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

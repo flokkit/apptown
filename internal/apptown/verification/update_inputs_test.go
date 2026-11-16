@@ -46,24 +46,24 @@ ENTRYPOINT ["/nextup"]
 	}{
 		{"split FROM keyword", "FROM\\\n alpine:3", "FROM\\\n busybox:3", false},
 		{"split ARG keyword", "FROM alpine:3\nARG\\\n VALUE=old", "FROM alpine:3\nARG\\\n VALUE=new", false},
-		{"LABEL patch", nextup, strings.Replace(nextup, "golang:1.27.3", "golang:1.27.4", 1), true},
+		{"LABEL patch", nextup, strings.Replace(nextup, "golang:1.27.3-alpine3.24", "golang:1.27.4-alpine3.24"+digest, 1), true},
 		{"LABEL digest", nextup, strings.Replace(nextup, "node:24.22.2-alpine", "node:24.22.2-alpine"+digest, 1), true},
-		{"continued RUN hides FROM", "FROM alpine:3.24\nRUN a \\\nFROM node:22", "FROM alpine:3.25\nRUN a \\\nFROM other:22", true},
-		{"continued RUN skips comments and blanks", "FROM alpine:3.24\nRUN a \\\n# comment\n\nFROM node:22", "FROM alpine:3.25\nRUN a \\\n# comment\n\nFROM other:22", true},
-		{"continuation trailing whitespace", "FROM alpine:3.24\nRUN a \\ \t\nFROM node:22", "FROM alpine:3.25\nRUN a \\ \t\nFROM other:22", true},
+		{"continued RUN hides FROM", "FROM alpine:3.24\nRUN a \\\nFROM node:22", "FROM alpine:3.25" + digest + "\nRUN a \\\nFROM other:22", true},
+		{"continued RUN skips comments and blanks", "FROM alpine:3.24\nRUN a \\\n# comment\n\nFROM node:22", "FROM alpine:3.25" + digest + "\nRUN a \\\n# comment\n\nFROM other:22", true},
+		{"continuation trailing whitespace", "FROM alpine:3.24\nRUN a \\ \t\nFROM node:22", "FROM alpine:3.25" + digest + "\nRUN a \\ \t\nFROM other:22", true},
 		{"escaped backslash before FROM", "FROM alpine:3.24\nRUN echo \\\\\nFROM golang:1.27.3-alpine3.24 AS build\nRUN go version", "FROM alpine:3.24\nRUN echo \\\\\nFROM other:1.27.3-alpine3.24 AS build\nRUN go version", false},
 		{"escaped backslash before ARG", "FROM alpine:3.24\nRUN echo \\\\\nARG VALUE=old", "FROM alpine:3.24\nRUN echo \\\\\nARG VALUE=new", false},
 		{"multiline ARG", "FROM node:22\nARG VALUE=\\\n old", "FROM node:23\nARG VALUE=\\\n old", false},
 		{"backslash in ARG", "FROM node:22\nARG VALUE=a\\b", "FROM node:23\nARG VALUE=a\\b", false},
 		{"backslash in FROM", "FROM ${NODE\\NAME}\nRUN echo a", "FROM ${NODE\\NAME}\nRUN echo b", false},
 		{"escape directive", "# EsCaPe = \\\nFROM node:22", "# EsCaPe = \\\nFROM node:23", false},
-		{"backtick in RUN, tag moved", "FROM node:22\nRUN echo `date`", "FROM node:23\nRUN echo `date`", true},
+		{"backtick in RUN, tag moved", "FROM node:22\nRUN echo `date`", "FROM node:23" + digest + "\nRUN echo `date`", true},
 		{"backtick in comment, digest added", "# `app` here\nFROM python:3.12-slim", "# `app` here\nFROM python:3.12-slim" + digest, true},
 		{"escape directive backtick", "# EsCaPe = `\nFROM node:22", "# EsCaPe = `\nFROM node:23", false},
 		{"node slim", "FROM node:22-slim", "FROM node:22.2-slim" + digest, true},
-		{"alpine", "FROM alpine:3.22", "FROM alpine:3.23", true},
+		{"alpine", "FROM alpine:3.22", "FROM alpine:3.23" + digest, true},
 		{"same-tag digest refreshed", "FROM eclipse-temurin:21-jre" + digest, "FROM eclipse-temurin:21-jre@sha256:" + strings.Repeat("b", 64), true},
-		{"digest removed", "FROM node:22-alpine" + digest, "FROM node:22-alpine", true},
+		{"digest removed", "FROM node:22-alpine" + digest, "FROM node:22-alpine", false},
 		{"runtime tag", "FROM gcr.io/distroless/static:nonroot", "FROM gcr.io/distroless/static:nonroot" + digest, true},
 		{"repository", "FROM node:22-slim", "FROM nodejs:22-slim", false},
 		{"variant", "FROM node:20-slim", "FROM node:22-alpine", false},
@@ -83,7 +83,8 @@ ENTRYPOINT ["/nextup"]
 		{"directive", "# syntax=docker/dockerfile:1\nFROM node:22", "# syntax=docker/dockerfile:2\nFROM node:22", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := CompareUpdateInputs(map[string]any{"Dockerfile": dockerBaseInputs([]byte(tc.before))}, map[string]any{"Dockerfile": dockerBaseInputs([]byte(tc.after))}, true, false)
+
+			err := CompareUpdateInputs(t.Context(), map[string]any{"Dockerfile": dockerBaseInputs([]byte(tc.before))}, map[string]any{"Dockerfile": dockerBaseInputs([]byte(tc.after))}, true, false, ImageUpdates{Security: true})
 			if (err == nil) != tc.allowed {
 				t.Fatalf("allowed=%t: %v", tc.allowed, err)
 			}
@@ -119,7 +120,7 @@ func TestUpdateInputsPermitOnlySecurityToolchainPatches(t *testing.T) {
 					}
 					before := put("1.27.3")
 					next := put(after)
-					err := CompareUpdateInputs(before, next, true, security)
+					err := CompareUpdateInputs(t.Context(), before, next, true, security, ImageUpdates{Security: true})
 					if (err == nil) != (security && after == "1.27.4") {
 						t.Fatalf("security=%t: %v", security, err)
 					}
@@ -127,24 +128,24 @@ func TestUpdateInputsPermitOnlySecurityToolchainPatches(t *testing.T) {
 			}
 		}
 	}
-	if CompareUpdateInputs(map[string]any{".go-version": "1.27"}, map[string]any{".go-version": "1.28"}, true, true) == nil {
+	if CompareUpdateInputs(t.Context(), map[string]any{".go-version": "1.27"}, map[string]any{".go-version": "1.28"}, true, true, ImageUpdates{Security: true}) == nil {
 		t.Fatal("minor toolchain versions moved")
 	}
-	if CompareUpdateInputs(map[string]any{"mise.toml:env": map[string]any{"GO": "1.27.3"}}, map[string]any{"mise.toml:env": map[string]any{"GO": "1.27.4"}}, true, true) == nil {
+	if CompareUpdateInputs(t.Context(), map[string]any{"mise.toml:env": map[string]any{"GO": "1.27.3"}}, map[string]any{"mise.toml:env": map[string]any{"GO": "1.27.4"}}, true, true, ImageUpdates{Security: true}) == nil {
 		t.Fatal("env changes passed")
 	}
 }
 
 func TestBaseImageChoiceGuardsFromVersionMoves(t *testing.T) {
 	before := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM node:24.1-alpine\n"))}
-	after := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM node:24.2-alpine\n"))}
-	if err := CompareUpdateInputs(before, after, false, false); err == nil || !strings.HasPrefix(err.Error(), "Moves a base image; base image updates are turned off.") {
+	after := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM node:24.2-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"))}
+	if err := CompareUpdateInputs(t.Context(), before, after, false, false, ImageUpdates{Security: true}); err == nil || !strings.HasPrefix(err.Error(), "Moves a base image; base image updates are turned off.") {
 		t.Fatal("base images off allowed a FROM version move")
 	}
-	if err := CompareUpdateInputs(before, after, true, false); err != nil {
+	if err := CompareUpdateInputs(t.Context(), before, after, true, false, ImageUpdates{Security: true}); err != nil {
 		t.Fatal(err)
 	}
-	if err := CompareUpdateInputs(map[string]any{".go-version": "1.27.3"}, map[string]any{".go-version": "1.27.4"}, true, false); err == nil || !strings.HasPrefix(err.Error(), "Changes the toolchain version or build inputs; your settings do not allow this change.") {
+	if err := CompareUpdateInputs(t.Context(), map[string]any{".go-version": "1.27.3"}, map[string]any{".go-version": "1.27.4"}, true, false, ImageUpdates{Security: true}); err == nil || !strings.HasPrefix(err.Error(), "Changes the toolchain version or build inputs; your settings do not allow this change.") {
 		t.Fatal("toolchain patches off allowed a patch")
 	}
 }

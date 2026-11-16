@@ -87,6 +87,9 @@ func TestCanonicalPublicPortUsedByDevCompose(t *testing.T) {
 		if c.PublicPart().Port != tc.port || c.Parts[1].Port != 0 {
 			t.Fatalf("canonical ports: %+v", c.Parts)
 		}
+		if c.HasStaticParts() {
+			c.StaticServer = "caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		}
 		raw, _, err := h.generateDevCompose(t.Context(), c, "", "localhost")
 		if err != nil {
 			t.Fatal(err)
@@ -116,6 +119,7 @@ func TestDevComposeServesABuiltStaticSiteFromItsExportedBuild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	c.StaticServer = "caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	raw, _, err := configurationFixture(t).generateDevCompose(t.Context(), c, "", "localhost")
 	if err != nil {
 		t.Fatalf("dev compose of a built static site: %v", err)
@@ -173,6 +177,9 @@ init:
 `))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if c.HasStaticParts() {
+		c.StaticServer = "caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	}
 	raw, _, err := h.generateDevCompose(t.Context(), c, "", "localhost")
 	if err != nil {
@@ -237,6 +244,7 @@ init:
 	if err != nil {
 		t.Fatal(err)
 	}
+	c.StaticServer = "caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	raw, _, err := configurationFixture(t).generateDevCompose(t.Context(), c, "", "localhost")
 	if err != nil {
 		t.Fatal(err)
@@ -259,5 +267,22 @@ init:
 		if strings.Contains(strings.ReplaceAll(c.written, "$$", ""), "$") || strings.ReplaceAll(c.written, "$$", "$") != c.want {
 			t.Errorf("%s: written %q; want %q as Compose reads it\n%s", c.what, c.written, c.want, raw)
 		}
+	}
+}
+
+func TestStaticComposeUsesOnlyTheProjectServer(t *testing.T) {
+	t.Parallel()
+	c, err := appcontract.Parse([]byte("app:\n  web: {static: ., public: true}\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := configurationFixture(t)
+	if _, _, err := h.generateDevCompose(t.Context(), c, "", "localhost"); err == nil || !strings.Contains(err.Error(), "Add staticServer:") {
+		t.Fatal(err)
+	}
+	c.StaticServer = "caddy:2.99.1-alpine@sha256:" + strings.Repeat("b", 64)
+	raw, _, err := h.generateDevCompose(t.Context(), c, "", "localhost")
+	if err != nil || !strings.Contains(raw, c.StaticServer) {
+		t.Fatalf("%s %v", raw, err)
 	}
 }

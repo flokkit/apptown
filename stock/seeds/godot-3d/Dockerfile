@@ -3,7 +3,7 @@
 # the static result. Neither the engine nor the toolchain ships to players.
 # Each RUN that downloads mounts the extra certificates AppTown gives a build
 # (the secret apptown-trust) and runs them first; without them it runs as is.
-FROM barichello/godot-ci:4.4.1 AS export
+FROM barichello/godot-ci:4.4 AS export
 WORKDIR /game
 COPY . .
 # Import first (the .godot cache is never committed), then export the Web

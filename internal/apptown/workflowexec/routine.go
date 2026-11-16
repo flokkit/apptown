@@ -7,10 +7,12 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
@@ -34,6 +36,7 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 	var receipt workflow.CheckReceipt
 	var judgedReports []string
 	var report string
+	var readings []imagelines.Reading
 	finish := func(status workflow.StepState, why string) {
 		verdict := workflow.VerdictError
 		switch status {
@@ -44,9 +47,12 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		case workflow.StatusNotApplicable:
 			verdict = workflow.VerdictNotApplicable
 		}
+		if status == workflow.StatusError && receipt.Verdict == workflow.VerdictCannotAssess {
+			verdict = workflow.VerdictCannotAssess
+		}
 		receipt.Check, receipt.Evaluator, receipt.Verdict, receipt.Detail = task.Step().Name, "routine", verdict, why
 		facts := workflow.CheckEvidence{Checks: []workflow.CheckReceipt{receipt}}
-		extra := map[string]any{"reason": why, "files": classified}
+		extra := map[string]any{"reason": why, "files": classified, "imageReadings": readings}
 		if len(judgedReports) > 0 {
 			extra["judgedReports"] = judgedReports
 		}
@@ -168,8 +174,13 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 				return
 			}
 		}
-		if err := verification.CompareUpdateInputs(inputs[0], inputs[1], choices.BaseImages, len(targets) > 0 && choices.ToolchainPatches); err != nil {
-			finish(workflow.StatusFail, err.Error())
+		if err := verification.CompareUpdateInputs(task.Context(), inputs[0], inputs[1], choices.BaseImages, len(targets) > 0 && choices.ToolchainPatches, verification.ImageUpdates{Resolver: a.images, Scope: verification.UpdateScope(bound), Security: len(targets) > 0, Readings: &readings}); err != nil {
+			if fault.KindOf(err) == fault.Unavailable {
+				receipt.Verdict = workflow.VerdictCannotAssess
+				finish(workflow.StatusError, err.Error())
+			} else {
+				finish(workflow.StatusFail, err.Error())
+			}
 			return
 		}
 	}

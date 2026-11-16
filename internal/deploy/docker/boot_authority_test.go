@@ -37,7 +37,7 @@ func TestBootRechecksAuthorityAfterPreparation(t *testing.T) {
 			refusal := errors.New("requester's permission withdrawn")
 			client := &recordingClient{}
 			resolved, filled := false, false
-			deps := Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{},
+			deps := Dependencies{DFImage: testDF, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{},
 				Secrets: authoritySecrets{after: func() {
 					resolved = true
 					if phase == "after secrets" {

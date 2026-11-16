@@ -174,7 +174,7 @@ func PrepareBoot(ctx context.Context, deps Dependencies, registry *RegistryCrede
 // machine's own probe and the images of one tool versions snapshot.
 func (p Prepared) Dependencies(probe prober, images toolversions.Images) Dependencies {
 	return Dependencies{Secrets: preparedSecrets{p}, Needs: preparedNeeds{p}, Registry: preparedLogin{p.Registry},
-		Integrations: preparedContributions{p}, Routes: preparedRoutes{p}, Probe: probe, StaticServer: images.StaticServer, ChownImage: images.Sh, DFImage: images.DF}
+		Integrations: preparedContributions{p}, Routes: preparedRoutes{p}, Probe: probe, ChownImage: images.Sh, DFImage: images.DF}
 }
 
 type preparedSecrets struct{ p Prepared }

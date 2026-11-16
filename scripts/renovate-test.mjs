@@ -255,11 +255,11 @@ try {
   assert.equal(deps(agent).filter(d => d.datasource === 'github-release-attachments').length, 10);
   assert.equal(deps('.github/workflows/ci.yml', 'gitleaks/gitleaks').length, 2);
   const catalog = 'stock/tool-versions.yaml';
+  assert.equal(deps(catalog, 'caddy').length, 0);
   const dockerHashes = content.get(agent).match(/^ARG DOCKER_SHA256_.*$/gm);
   const runtimes = [
     ['alpine/git', 'runtime Alpine Git', 'v2.47.3'],
     ['busybox', 'runtime BusyBox', '1.37.1'],
-    ['caddy', 'runtime Caddy', '2.10.3'],
     ['docker', 'runtime private Docker 27', '27.5.2'],
     ['postgres', 'stock Postgres 16', '16.16'],
     ['mariadb', 'stock MariaDB 11.4', '11.4.14'],

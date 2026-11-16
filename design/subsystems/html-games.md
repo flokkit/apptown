@@ -1,7 +1,7 @@
 # Browser game projects
 
-The HTML game seed is an ordinary web project with a Docker packaging recipe.
-Caddy serves the committed files and uses no-cache responses so clients can
+The HTML game seed declares its committed folder as `static: .`.
+The project pins its Caddy image in `staticServer:`. Caddy serves the files and uses no-cache responses so clients can
 revalidate after a release. The video-game and `frontend-only` seeds build
 with npm and Vite and declare a static site with a build
 (`static: { build: ., output: dist }`): their Dockerfile ends with a stage of
@@ -23,7 +23,6 @@ packaging.
 
 ## Implementation references
 
-- [stock/seeds/html-game/Dockerfile](../../stock/seeds/html-game/Dockerfile)
 - [stock/seeds/html-game/index.html](../../stock/seeds/html-game/index.html)
 - [stock/seeds/video-game/Dockerfile](../../stock/seeds/video-game/Dockerfile)
 - [internal/apptown/preview/command.go](../../internal/apptown/preview/command.go)

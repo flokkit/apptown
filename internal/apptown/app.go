@@ -50,6 +50,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/evals"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/maintenance"
@@ -73,6 +74,7 @@ import (
 // receive this object. workflow_wiring.go supplies the advancement engine's
 // operations. Database schema and migrations belong to dbschema.
 type App struct {
+	imageLines    imagelines.Resolver
 	imageRebuilds *releaseImageRebuilder
 
 	// images is the runtime images of the tool versions this AppTown shipped with.
@@ -344,6 +346,10 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.conformance = conformance.New(db, access.Checked{Authority: identity.Scoped(a.Access, "conformance"), Projects: a.Projects}, verification.NewSource(a.Adoption, cfg.dataDir), cfg.clock.Now, openRemediationsFor(db))
 	// Work consumes remediation's stateless budget participant. Remediation
 	// then consumes the fully constructed Work service.
+	a.imageLines = input.ImageResolver
+	if a.imageLines == nil {
+		a.imageLines = imagelines.New(db, cfg.clock.Now, a.workshop.Mirror)
+	}
 	a.steering = agentenv.NewInstructions(db, a.Integrations)
 	a.providers = inference.NewCatalog(db, a.Secrets)
 	a.providers.Now = cfg.clock.Now
@@ -377,7 +383,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	deploymentDeps.RestoreFiller = starter
 	deploymentDeps.Releases.Rollbacks = deploymentDeps.Releases.Data.(*releaseData)
 	a.Deployment = deployment.New(ctx, db, deploymentDeps)
-	a.lifecycle = projectlifecycle.New(db, projectlifecycle.Dependencies{Deployments: a.Deployment, Jobs: jobQueue{}, Identity: a.Access, Adoption: a.Adoption, Projects: a.Projects, Ways: a.Ways, Repositories: &a.repositories, Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: db, now: cfg.clock.Now}, Changes: changes, Superseded: workflow.NewAbandonments(db, abandonmentEffects{now: cfg.clock.Now}, &a.repositories).WithClock(cfg.clock.Now), Secrets: a.Secrets}, projectlifecycle.Config{DataDir: cfg.dataDir, Extensions: extensionNames, Seeding: cfg.seeding, Now: cfg.clock.Now})
+	a.lifecycle = projectlifecycle.New(db, projectlifecycle.Dependencies{Images: a.imageLines, Deployments: a.Deployment, Jobs: jobQueue{}, Identity: a.Access, Adoption: a.Adoption, Projects: a.Projects, Ways: a.Ways, Repositories: &a.repositories, Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: db, now: cfg.clock.Now}, Changes: changes, Superseded: workflow.NewAbandonments(db, abandonmentEffects{now: cfg.clock.Now}, &a.repositories).WithClock(cfg.clock.Now), Secrets: a.Secrets}, projectlifecycle.Config{DataDir: cfg.dataDir, Extensions: extensionNames, Seeding: cfg.seeding, Now: cfg.clock.Now})
 	a.HostReaders = deployment.HostReaders{Snapshots: a.hostSnapshots, Targets: a.targets, Hosts: a.hosts, Providers: a.targetProviders, Inventory: a.Deployment.Inventory}
 	a.vhostRules.deployments = a.Deployment.Deployments // standing hostnames route by its records
 	a.DataProtection = dataprotection.New(starter, dataProtectionDependencies(a))
@@ -399,7 +405,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.Work = workflow.New(a.life, db, a.workDependencies())
 	a.imageRebuilds.work = a.Work
 	a.attachments = workflow.NewAttachments(db, access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects}, workflow.GitWorkspace{DataDir: cfg.dataDir}, cfg.clock.Now)
-	a.standingRules = workflow.NewStandingRules(db, workflow.StandingDependencies{Packs: packPublicationReviews{fleet: func() *verification.Fleet { return fleetReviewsFor(a) }}, Portfolio: verification.Portfolio{Releases: a.Deployment}, Adoptions: a.Adoption, Inspector: verification.NewRoutineInspector(cfg.dataDir, &a.repositories, checksFor(a)).WithFixes(db, a.Adoption), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: identity.Scoped(a.Access, "standing-approval"), Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Adoptions: a.Adoption, Laws: workflowLawRules{}}, Now: cfg.clock.Now})
+	a.standingRules = workflow.NewStandingRules(db, workflow.StandingDependencies{Packs: packPublicationReviews{fleet: func() *verification.Fleet { return fleetReviewsFor(a) }}, Portfolio: verification.Portfolio{Releases: a.Deployment}, Adoptions: a.Adoption, Inspector: verification.NewRoutineInspector(cfg.dataDir, &a.repositories, checksFor(a)).WithFixes(db, a.Adoption).WithImages(a.imageLines), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: identity.Scoped(a.Access, "standing-approval"), Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Adoptions: a.Adoption, Laws: workflowLawRules{}}, Now: cfg.clock.Now})
 	a.ADRs = adrs.New(db, access.Checked{Authority: identity.Scoped(a.Access, "adrs"), Projects: a.Projects}, refreshADREvidence(a.Work, a.asEngine(a.life)), cfg.clock.Now)
 	a.Fixes = remediation.New(db, a.remediationDependencies())
 	a.Evals = evals.New(db, evalsDependencies(a))

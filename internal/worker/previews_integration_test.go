@@ -56,7 +56,7 @@ func siteTree(t *testing.T, contract string, files map[string]string) string {
 	return dir
 }
 
-const staticSite = "version: 1\napp:\n  web:\n    static: .\n    public: true\n"
+const staticSite = "staticServer: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d\nversion: 1\napp:\n  web:\n    static: .\n    public: true\n"
 
 // boot boots tree on the worker, prepared for the contract the tree
 // declares.
@@ -146,7 +146,7 @@ func TestIntegrationAWorkerPreviewIsServedKeptAndReplacedByIdentity(t *testing.T
 // as a local boot does, and leaves nothing of its stack on the worker.
 func TestIntegrationAFailedWorkerBootLeavesNothing(t *testing.T) {
 	w := startPreviewWorker(t)
-	contract := "version: 1\napp:\n  web:\n    static: .\n    public: true\n  jobs:\n    image: forge-test-no-such-image:none\n"
+	contract := "staticServer: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d\nversion: 1\napp:\n  web:\n    static: .\n    public: true\n  jobs:\n    image: forge-test-no-such-image:none\n"
 	st := w.boot(t, "commit-a+digest", siteTree(t, contract, map[string]string{"index.html": "page"}))
 	if st.Running || st.Error == "" || st.Phase == "" {
 		t.Fatalf("a failed boot answered %+v", st)
@@ -170,7 +170,7 @@ func TestIntegrationAFailedWorkerBootLeavesNothing(t *testing.T) {
 // of the tree: it serves the built page and AppTown's /_apptown/env.js.
 func TestIntegrationAWorkerPreviewBuildsAndServesADeclaredStaticSite(t *testing.T) {
 	w := startPreviewWorker(t)
-	contract := "version: 1\napp:\n  web:\n    static: { build: ., output: dist }\n    public: true\n"
+	contract := "staticServer: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d\nversion: 1\napp:\n  web:\n    static: { build: ., output: dist }\n    public: true\n"
 	tree := siteTree(t, contract, map[string]string{
 		"Dockerfile": "FROM scratch\nCOPY page.html /dist/index.html\n",
 		"page.html":  "built page",

@@ -266,7 +266,7 @@ func StaticServerCommand(port int) []string {
 // image with the command that serves it on port (StaticServerCommand): the
 // image describes itself, so every target runs it the same way and none adds
 // a command (a target that ran the file server's stock configuration would
-// serve its default page). The static-server tool version is Caddy on Alpine;
+// serve its default page). The project staticServer pin is Caddy on Alpine;
 // this recipe already assumes Caddy and takes Alpine package fixes each build.
 func StaticSiteDockerfile(server string, port int) string {
 	var cmd strings.Builder

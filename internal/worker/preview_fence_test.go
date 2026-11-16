@@ -50,7 +50,7 @@ func seedPreview(t *testing.T, state, dk, name string) {
 
 func reusePreview(t *testing.T, p worker.Previews, name string) error {
 	t.Helper()
-	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: .\n    public: true\n"))
+	c, err := appcontract.Parse([]byte("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nversion: 1\napp:\n  web:\n    static: .\n    public: true\n"))
 	if err != nil {
 		t.Fatal(err)
 	}

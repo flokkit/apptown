@@ -30,7 +30,7 @@ spec:
               overrides or resolutions only where that is the ecosystem's normal way,
               never to a pre-release, and say so in the commit message. If no stable
               release fixes a finding, leave that package unchanged and say so. Do not
-              change .apptown/app.yaml. Fix image targets by moving FROM to the
+              change .apptown/app.yaml except staticServer as the janitor skill says. Fix image targets by moving FROM to the
               smallest release of the same image and variant within the level whose
               image no longer has the finding, following the janitor skill.
               Base image updates: ${{inputs.baseImages}}. When false, leave FROM unchanged.
@@ -47,8 +47,9 @@ spec:
               "Waiting for a newer python:3.12-slim build: the newest build still has CVE-…").
               For every part that declares dependencies, give the command you ran to list
               newer releases and the lines of its output that show the result; for every
-              external FROM, give the tag listing you read. `scratch`, stage names and
-              operands containing `$` need no listing. A part with no manifest or Dockerfile
+              external FROM and staticServer, give the resolver answer, its reading time
+              and any stale warning or refusal. `scratch`, stage names and operands
+              containing `$` need no listing. A part with no manifest or image input
               needs no listing. Say when a command could not run.
       steps:
         - name: repair
@@ -81,10 +82,10 @@ spec:
               smallest change a moved package needs: a renamed API, a changed import, a
               configuration key the new version requires. (4) Nothing else changes: no
               features, refactors, formatting, unrelated fixes, weakened or removed
-              tests or .apptown/app.yaml changes. Dockerfile FROM may move within the
-              level, keeping the same image and variant; adding, refreshing or removing
-              the digest of the same image and tag is such a move at any level and
-              needs no proof that the digest is newer. Toolchain versions stay
+              tests or .apptown/app.yaml changes except staticServer. AppTown checks
+              moved FROM and staticServer images against its registry resolver, keeping
+              the same repository and variant and requiring a digest. The agent
+              reports resolver refusals and stale readings. Toolchain versions stay
               unchanged. A toolchain patch within its minor is allowed only when a
               named finding is in that toolchain and this is the smallest release
               that fixes it. Fail when any change falls outside
@@ -94,7 +95,7 @@ spec:
               image version changes."); details and citations follow. Answer unclear when
               you cannot tell whether a code change is needed by a moved package. When the change is empty, pass when
               the agent's final message gives, for every part that declares dependencies
-              and every external FROM, the command it ran and the output lines showing
+              and every image input, the command it ran and the output lines showing
               nothing can move within the level. `scratch`, a stage name and an operand
               containing `$` never move and need nothing; a part with no manifest or
               Dockerfile needs nothing (read the tree). Fail when the message shows

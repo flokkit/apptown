@@ -4,7 +4,7 @@
 # The build stamps name and published, as for update.yaml.
 #
 # In this release AppTown uses only the four runtime images below (apptown-sh,
-# apptown-df, static-server, private-docker). The other entries are the lines
+# apptown-df, private-docker). The other entries are the lines
 # packs may name; resolving them for runs and new projects comes later.
 # private-docker moves only with an AppTown release; a changed daemon is
 # accepted after the external-worker private Docker tests pass against it.
@@ -22,10 +22,6 @@ tools:
   # The df behind disk-space reads through Docker.
   apptown-df:
     "1": {version: 1.37.0, images: {run: "busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"}}
-  # Serves static output in release images and local compose.
-  # renovate: datasource=docker depName=caddy versioning=docker extractVersion=^(?<version>[0-9.]+)-alpine$
-  static-server:
-    "2": {version: 2.10.2, images: {run: "caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d"}}
   # The private Docker daemon of a chat or task.
   # renovate: datasource=docker depName=docker versioning=docker extractVersion=^(?<version>[0-9.]+)-dind$
   private-docker:

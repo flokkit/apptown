@@ -12,7 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
-	"github.com/flokkit/apptown/internal/toolversions"
 
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -21,13 +20,10 @@ import (
 // Configuration validates a caller's declaration and renders local development files.
 type Configuration struct {
 	catalog *dependency.Catalog
-	// tools names the static server a generated compose file serves
-	// static parts with: the tool versions current when it is generated.
-	tools toolversions.Source
 }
 
-func NewConfiguration(catalog *dependency.Catalog, tools toolversions.Source) Configuration {
-	return Configuration{catalog: catalog, tools: tools}
+func NewConfiguration(catalog *dependency.Catalog) Configuration {
+	return Configuration{catalog: catalog}
 }
 
 // AppTown-native contract's tooling surface (design/decisions/forge-native-contract.md):

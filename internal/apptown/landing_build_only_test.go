@@ -18,7 +18,8 @@ import (
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
-const localReleaseWorldContract = `app:
+const localReleaseWorldContract = `staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+app:
   web:
     public: true
     static: site

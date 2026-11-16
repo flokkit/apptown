@@ -50,7 +50,8 @@ func TestPreRecordReplayDoesNotReinterpretAnIgnoredSize(t *testing.T) {
 }
 func TestPreRecordRebuildDoesNotReinterpretAnIgnoredSize(t *testing.T) {
 	t.Parallel()
-	w := newDigestWorldWith(t, "", `app:
+	w := newDigestWorldWith(t, "", `staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+app:
   web: {static: site, public: true, ports: ["8080"]}
 needs:
   mariadb: {size: small}

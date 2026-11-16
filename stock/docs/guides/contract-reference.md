@@ -425,6 +425,22 @@ evidence; tolerated failures do not make stale evidence healthy.
 
 ## Static sites
 
+`staticServer:` pins the image serving every static part, as a tag and digest:
+
+```yaml
+staticServer: caddy:2.11.9-alpine@sha256:<digest>
+```
+
+Use a Docker Hub library Caddy 2 image with the exact `-alpine` variant and a
+digest. AppTown writes the Caddy configuration and installs Alpine packages in
+this image. A declaration with no static parts refuses this key. A static
+contract may be read without the pin, but release builds, previews and local
+container development refuse to serve it. The Janitor's next dependency update
+adds a missing pin when base image updates are on. A person can add it through
+a change using `apptown image newest caddy:2-alpine --scope line`.
+New static projects receive this pin at creation. Running deployments continue
+while a missing pin is added through a governed change.
+
 A `static` part serves files with AppTown's file server. It runs no code of
 yours and reads no environment, so `environment` (in the part or a
 profile), `command` and `dataDir` are refused on it; its

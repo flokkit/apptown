@@ -382,7 +382,7 @@ func TestARecordedBootWithAMissingImageChangesNothing(t *testing.T) {
 		}
 		return nil, nil
 	}}
-	_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Name: ByKey(idstest.N(7)).App(), StackID: ByKey(idstest.N(7)).Stack(), Workspace: t.TempDir(), Docker: Scope{Client: fake}, persistent: true,
+	_, err = NewHost(Dependencies{DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Name: ByKey(idstest.N(7)).App(), StackID: ByKey(idstest.N(7)).Stack(), Workspace: t.TempDir(), Docker: Scope{Client: fake}, persistent: true,
 		identity: &deploy.DockerIdentity{Deployment: "7", Generation: 2}, Recorded: &RecordedImages{Parts: map[string]string{"game": "sha256:gone"}}}, c)
 	if !errors.Is(err, ErrRecordedImageMissing) || AsBootError(err).Phase != phaseImages {
 		t.Fatalf("a missing recorded image: %v", err)

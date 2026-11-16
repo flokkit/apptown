@@ -524,7 +524,7 @@ func TestAWorkerChatsChangePreviewsItsSavedWork(t *testing.T) {
 	if err := w.a.Console.Send(ctx, s.ID, "go"); err != nil {
 		t.Fatal(err)
 	}
-	saved := w.commitOnWorker(t, s.ID, ".apptown/app.yaml", "version: 1\napp:\n  web:\n    static: .\n    public: true\n")
+	saved := w.commitOnWorker(t, s.ID, ".apptown/app.yaml", "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nversion: 1\napp:\n  web:\n    static: .\n    public: true\n")
 	// Asked for before the turn's save: the preview saves first.
 	resp := authzCall(w.a.Handler(), "owner", "POST", fmt.Sprintf("/api/v1/changes/%d/preview", w.change.ID), `{}`)
 	if resp.Code == 409 || resp.Code == 422 || resp.Code == 403 {

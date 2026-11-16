@@ -7,6 +7,7 @@
   ],
   "additionalProperties": false,
   "properties": {
+ "staticServer": {"type":"string", "description":"Digest-pinned Docker Hub Caddy 2 Alpine image serving all static parts. Required to serve static parts; refused without static parts."},
     "app": {
       "description": "The app's own containers. A map of named parts; exactly one has public: true (the front door).",
       "type": "object",

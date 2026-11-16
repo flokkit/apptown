@@ -38,7 +38,8 @@ import (
 // folder served on another port is another image.
 func TestAReleasePlanBuildsEachDistinctImageOnce(t *testing.T) {
 	t.Parallel()
-	c, err := appcontract.Parse([]byte(`app:
+	c, err := appcontract.Parse([]byte(`staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+app:
   web:
     public: true
     static: site
@@ -64,7 +65,7 @@ init:
 		t.Fatal(err)
 	}
 	plan := PlanRelease(c)
-	want := ReleasePlan{
+	want := releasePlan{
 		Images: []releaseImage{{Name: "part-api", Build: "server"}, {Name: "part-cache", Source: "example/cache:7"}, {Name: "part-mirror", Static: "site", Port: 9090}, {Name: "part-web", Static: "site", Port: 8080}, {Name: "init-assets", Build: "site"}},
 		Parts:  map[string]string{"web": "part-web", "mirror": "part-mirror", "api": "part-api", "jobs": "part-api", "cache": "part-cache"},
 		Init:   map[string]string{"migrate": "part-api", "seed": "part-cache", "assets": "init-assets"},
@@ -124,7 +125,7 @@ func TestAPublicationStopsWhenItsAttemptIsSuperseded(t *testing.T) {
 	if _, err := s.env.integrations.Bindings.Upsert(t.Context(), "hub", "container-registry", "direct", `{"url":"`+host+`","group":"team"}`, false); err != nil {
 		t.Fatal(err)
 	}
-	c, err := appcontract.Parse([]byte("app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n  worker:\n    build: worker\ninit:\n  - name: migrate\n    build: migrations\n"))
+	c, err := appcontract.Parse([]byte("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n  worker:\n    build: worker\ninit:\n  - name: migrate\n    build: migrations\n"))
 	if err != nil {
 		t.Fatal(err)
 	}

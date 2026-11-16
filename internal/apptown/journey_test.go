@@ -236,7 +236,7 @@ func b64(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) 
 // apptown pack's health rule requires, and the site serves it; stock land's
 // conformance gate refuses a served part without one.
 func staticSiteTask(text, page string) string {
-	contract := "app:\n  web:\n    static: site\n    public: true\n    health: { readiness: { http: /healthz } }\n"
+	contract := "staticServer: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d\napp:\n  web:\n    static: site\n    public: true\n    health: { readiness: { http: /healthz } }\n"
 	return text + ". " +
 		"[test:write-b64 site/index.html " + b64(page) + "] " +
 		"[test:write-b64 site/healthz " + b64("ok\n") + "] " +

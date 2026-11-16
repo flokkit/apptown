@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// Every shipped Dockerfile (the twelve starters and the agent image) takes
+// Every shipped Dockerfile (the eleven starters and the agent image) takes
 // the extra certificates AppTown gives it (internal/trust): each RUN that
 // downloads mounts the build secret and runs it first, and each starter's
 // runtime command that runs the app in an image with a shell runs
@@ -22,7 +22,7 @@ func TestShippedDockerfilesTakeTheExtraCertificates(t *testing.T) {
 	fetches := regexp.MustCompile(`\b(apt-get|apk|npm (ci|install)|pip install|uv (sync|tool)|mvn|cargo install|go (build|install)|dotnet publish|bundle install|composer install|curl|pi install)\b`)
 	files := map[string]string{}
 	seeds, err := fs.Glob(FS, "seeds/*/Dockerfile")
-	if err != nil || len(seeds) != 12 {
+	if err != nil || len(seeds) != 11 {
 		t.Fatalf("%d starter Dockerfiles: %v", len(seeds), err)
 	}
 	for _, p := range seeds {

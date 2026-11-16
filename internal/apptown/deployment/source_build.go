@@ -37,7 +37,7 @@ func (s *Service) BuildRelease(ctx context.Context, in SourceBuild) (*ReleaseBun
 	if err != nil {
 		return nil, err
 	}
-	host := docker.NewHost(docker.Dependencies{StaticServer: s.ToolVersions().Images.StaticServer, Registry: hostRegistry{s.env.integrations, in.ProjectID}})
+	host := docker.NewHost(docker.Dependencies{Registry: hostRegistry{s.env.integrations, in.ProjectID}})
 	parts, init, err := host.BuildImages(ctx, dk, fmt.Sprintf("build-%s-%s-%s", in.RunID, step, ids.New(s.now())), in.Tree, in.Contract)
 	if err != nil {
 		return nil, err

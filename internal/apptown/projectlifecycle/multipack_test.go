@@ -2,11 +2,13 @@ package projectlifecycle
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 )
 
@@ -19,6 +21,7 @@ import (
 func TestApplyingABackendWithAUIPackSeedsTheBackendsStarter(t *testing.T) {
 	t.Parallel()
 	f := newOwnerFixture(t, true)
+	f.lifecycle.images = seedResolver{}
 	p, err := f.lifecycle.Create(context.Background(), Draft{Slug: "shop", Name: "Shop", Actor: "bls"})
 	if err != nil {
 		t.Fatal(err)
@@ -40,6 +43,21 @@ func TestApplyingABackendWithAUIPackSeedsTheBackendsStarter(t *testing.T) {
 	}
 	if got.Toolchain != "go" || !slices.Contains(got.Seeded, ".apptown/app.yaml") || !slices.Contains(got.Seeded, "Dockerfile") {
 		t.Fatalf("toolchain %q, seeded %v; want go's mise.toml and go's starter", got.Toolchain, got.Seeded)
+	}
+	entries, err := audit.Recent(t.Context(), f.db, audit.Filter{ProjectID: p.ID, KindPrefix: "pack.applied"})
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("pack audit: %v %v", entries, err)
+	}
+	var payload struct {
+		Images []seedImage `json:"images"`
+	}
+	if err := json.Unmarshal(entries[0].Payload, &payload); err != nil || len(payload.Images) != 2 {
+		t.Fatalf("resolved images absent from audit: %s %v", entries[0].Payload, err)
+	}
+	for _, image := range payload.Images {
+		if !image.Stale || image.ReadAt.IsZero() || image.From == image.To {
+			t.Fatalf("unrecorded reading: %+v", image)
+		}
 	}
 	receipt, err := f.adoption.CurrentReceipt(t.Context(), p.ID)
 	if err != nil {

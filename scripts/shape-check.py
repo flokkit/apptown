@@ -40,7 +40,7 @@ APP = MOD + "apptown"     # the App, the composition root; AppTown's subsystems 
 DOMAIN = APP + "/"
 # Libraries sit at internal/<x>: they know nothing of AppTown and could be lifted into another
 # program. A library may not import the App or anything under it.
-LIBRARIES = {"fix", "oidclogin", "access", "backuparchive", "toolversions", "stockupdate", "check", "clock", "console", "containerresult", "database", "dbtest", "deploy", "diskspace", "dockerbuild", "dockerlabel", "durable", "enum", "execfile", "execution", "fault", "gitexec", "gitlab", "hostmem", "ids", "oci", "poll", "progress", "projectnotes", "repocontext", "routinechange", "localtls", "stamp", "trust", "strs", "telemetry", "testreport", "trailer", "wiregen", "worker"}
+LIBRARIES = {"imageline", "fix", "oidclogin", "access", "backuparchive", "toolversions", "stockupdate", "check", "clock", "console", "containerresult", "database", "dbtest", "deploy", "diskspace", "dockerbuild", "dockerlabel", "durable", "enum", "execfile", "execution", "fault", "gitexec", "gitlab", "hostmem", "ids", "oci", "poll", "progress", "projectnotes", "repocontext", "routinechange", "localtls", "stamp", "trust", "strs", "telemetry", "testreport", "trailer", "wiregen", "worker"}
 
 # A kernel is a subsystem every other subsystem may import, and which may import
 # only leaves, libraries and kernels. access is no longer one: the rule and its
@@ -51,7 +51,7 @@ LIBRARIES = {"fix", "oidclogin", "access", "backuparchive", "toolversions", "sto
 # operations is the ledger of long actions: any owner
 # admits its kinds there and the ledger imports no domain owner, so it is a kernel too.
 KERNELS = {"audit", "identity", "operations"}
-SUBSYSTEMS = ["identity", "project", "integration", "wow", "adoption", "deployment", "preview", "dataprotection", "workflow",
+SUBSYSTEMS = ["imagelines", "identity", "project", "integration", "wow", "adoption", "deployment", "preview", "dataprotection", "workflow",
               "console", "conformance", "model", "secret", "scm", "adrs", "complaint",
               "dependency", "usage", "agentenv", "tasks"]
 FACADES = ["changeconsole", "remediation", "projectlifecycle", "modelcall", "conversation", "workflowexec",
@@ -67,6 +67,7 @@ LEAVES = {"database", "audit", "enum", "fault", "gitexec", "localtls", "stamp", 
 # and libraries (each set began as the facade's actual imports), so a
 # new dependency is a visible diff here rather than something no gate sees.
 ALLOWED = {
+    "imagelines": set(),
     "agentenv":    {"integration", "project"},
     "adoption":    {"wow", "integration"},
     "adrs":        {"project"},
@@ -82,15 +83,15 @@ ALLOWED = {
     "changeconsole":    {"console", "conversation", "integration", "preview", "project", "repositoryedit", "scm",
                          "usage", "workflow"},
     "remediation":      {"adoption", "conformance", "project", "status", "workflow"},
-    "projectlifecycle": {"adoption", "agentenv", "adrs", "conformance", "console", "conversation", "dataprotection", "deployment", "integration",
+    "projectlifecycle": {"imagelines", "adoption", "agentenv", "adrs", "conformance", "console", "conversation", "dataprotection", "deployment", "integration",
                          "maintenance", "model", "modelcall", "project", "scm", "secret", "usage", "workflow", "wow"},
     "modelcall":        set(),
     "conversation":     {"adoption", "agentenv", "agentharness", "changeactions", "complaint", "console", "integration",
                          "model", "project", "scm", "usage", "workflow", "wow"},
-    "workflowexec":     {"adoption", "agentenv", "agentharness", "changeactions", "complaint", "console", "dataprotection", "deployment",
+    "workflowexec":     {"imagelines", "adoption", "agentenv", "agentharness", "changeactions", "complaint", "console", "dataprotection", "deployment",
                          "inference", "integration", "model", "preview", "project", "repositoryedit", "scm", "secret", "tasks", "usage",
                          "verification", "workflow", "wow"},
-    "verification":     {"adoption", "agentenv", "agentharness", "conformance", "deployment", "inference", "integration", "model", "modelcall",
+    "verification":     {"imagelines", "adoption", "agentenv", "agentharness", "conformance", "deployment", "inference", "integration", "model", "modelcall",
                          "preview", "project", "remediation", "repositoryedit", "scm", "secret", "usage", "workflow"},
     "maintenance":      {"agentenv", "console", "conversation", "deployment", "project", "scm", "tasks", "workflow"},
     "workcommands":     {"adoption", "conformance", "integration", "preview", "project", "projectlifecycle",

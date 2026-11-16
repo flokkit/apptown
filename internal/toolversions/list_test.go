@@ -29,10 +29,13 @@ func TestTheStockListNamesEveryRuntimeImageByDigest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for tool, ref := range map[string]string{toolSh: im.Sh, toolDF: im.DF, toolStaticServer: im.StaticServer, toolPrivateDocker: im.PrivateDocker} {
+	for tool, ref := range map[string]string{toolSh: im.Sh, toolDF: im.DF, toolPrivateDocker: im.PrivateDocker} {
 		if !strings.Contains(ref, "@sha256:") {
 			t.Errorf("%s: %q names no digest", tool, ref)
 		}
+	}
+	if l.HasLine("static-server", "2") {
+		t.Error("application static server is still release-bound")
 	}
 	if !l.HasLine("postgres", "16") || l.HasLine("postgres", "15") {
 		t.Error("HasLine does not read the list")

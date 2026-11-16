@@ -45,7 +45,8 @@ proxy (checked by Go's checksum database), so CI does not depend on GitHub's
 release downloads.
 
 Runtime catalog proposals include their exact versions and pinned image digests.
-Alpine Git and Caddy move with their central pins. BusyBox's version and
+Alpine Git moves with its central pin. Static apps keep their Caddy pin in
+`staticServer:` and the Janitor resolves it from registry readings. BusyBox's version and
 its digest-only image reference update together. Postgres and MariaDB stay on
 their declared lines. The logical `apptown-sh` line `1` uses upstream Alpine
 Git version `2`; it does not constrain the registry to version `1`.
@@ -120,6 +121,7 @@ version value. Removing a pin also requires removing its exception.
 | `deploy/ci-heavy/test-images.txt` | `test image preload` | Repeats references from code and fixed test fixtures for early pulls; update with those owners manually, since changing a preload does not change what tests run. |
 | `deploy/ci-heavy/Dockerfile` | `ARG DOCKER_CLI_` | Docker's static archive host has no supported paired checksum datasource; update the CI client and checksum together manually. |
 | `deploy/tool-pins.txt` | `glab` | Moves with the manual agent archive and both checksums. |
+| `internal/deploy/appcontract/static_server.go` | `const StaticServerLine = "caddy:2-alpine"` | Selects the Caddy 2 Alpine family supported by the generated Caddyfile and Alpine package command; project builds resolve the exact tag and digest through registry readings. |
 | `stock/toolchains/node.toml` | `node` | Partial selector intentionally selects the Node 24 line; exact catalogue versions receive updates. |
 | `stock/toolchains/python.toml` | `python` | Partial selector intentionally selects the Python 3.12 line. |
 | `stock/toolchains/ruby.toml` | `ruby` | Partial selector intentionally selects the Ruby 3.4 line. |

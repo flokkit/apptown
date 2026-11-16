@@ -42,7 +42,8 @@ import (
 
 // multipartApp has a static public part, a part built from the tree, an
 // image-only part, an init step built from the tree and an image-only one.
-const multipartApp = `app:
+const multipartApp = `staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+app:
   web:
     public: true
     static: site
@@ -304,7 +305,7 @@ func (w *noLocalWorld) land(t *testing.T, s *Service, dep *Deployment, runID ids
 	if err != nil {
 		t.Fatal(err)
 	}
-	host := docker.NewHost(docker.Dependencies{StaticServer: s.ToolVersions().Images.StaticServer})
+	host := docker.NewHost(docker.Dependencies{})
 	buildTarget, err := s.Targets.ByID(ctx, dep.TargetID)
 	if err != nil {
 		t.Fatal(err)

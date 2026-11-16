@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
@@ -19,6 +20,7 @@ import (
 // routineInspector uses committed objects and the existing check executor; it
 // never prepares a workspace or changes source to make it assessable.
 type routineInspector struct {
+	images   imagelines.Resolver
 	db       *database.DB
 	fixes    func(context.Context, workflow.Source) ([]fix.Declaration, []check.Finding, error)
 	dataDir  string
@@ -28,6 +30,11 @@ type routineInspector struct {
 
 func NewRoutineInspector(dataDir string, locks *scm.RepositoryLocks, executor Executor) routineInspector {
 	return routineInspector{dataDir: dataDir, locks: locks, executor: executor}
+}
+
+func (r routineInspector) WithImages(images imagelines.Resolver) routineInspector {
+	r.images = images
+	return r
 }
 
 type routineTree struct {

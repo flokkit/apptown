@@ -28,7 +28,7 @@ func TestAFillRunsAfterTheNeedsAndBeforeAnythingOfTheApp(t *testing.T) {
 	if err := os.WriteFile(ws+"/Dockerfile", []byte("FROM scratch\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	deps := Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
+	deps := Dependencies{DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
 	for _, failing := range []bool{false, true} {
 		client := &recordingClient{}
 		filledAt := -1
@@ -84,7 +84,7 @@ func TestStoppedBootCreatesAppPartsWithoutStartingThem(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := &recordingClient{}
-	host := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}})
+	host := NewHost(Dependencies{DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}})
 	_, err = host.Boot(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, stopped: true, Docker: Scope{Client: client}, Name: "apptown-preview-change-1", StackID: "pvsnap-change-1", Workspace: ws, Slug: "app", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir(), persistent: true, hostPort: 43210}, c)
 	if err != nil {
 		t.Fatal(err)

@@ -2,7 +2,6 @@ package docker
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
@@ -29,12 +28,11 @@ type Dependencies struct {
 	Routes       Routes
 	Probe        prober // nil is the default probe
 	// The images a boot runs for itself, from the tool versions snapshot its
-	// caller's unit of work took: the file server for static parts, an image
+	// caller's unit of work took: an image
 	// with chown for handing a volume to the app's user ("" skips it), and
 	// the df a new boot's disk admission runs.
-	StaticServer string
-	ChownImage   string
-	DFImage      string
+	ChownImage string
+	DFImage    string
 }
 
 func NewHost(deps Dependencies) *Host { return &Host{deps: deps} }
@@ -102,12 +100,6 @@ type prober interface {
 	Check(ctx context.Context, dk Scope, container, url string, timeout time.Duration, probe renderedProbe) (bool, string)
 }
 
-func (h *Host) staticServer() (string, error) {
-	if h.deps.StaticServer == "" {
-		return "", fmt.Errorf("no static server image: the tool versions name it")
-	}
-	return h.deps.StaticServer, nil
-}
 func (h *Host) chownImage() string { return h.deps.ChownImage }
 func (h *Host) login(ctx context.Context, dk Scope, image string) error {
 	if h.deps.Registry == nil {

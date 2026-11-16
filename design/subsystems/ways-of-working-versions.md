@@ -90,7 +90,7 @@ A pack names the version line of each tool it prescribes (`tools: {node:
 exactly, and a pack may name only lines the list has. A proposed service's
 image tag is on its tool's line. Changing a line is a new version of the
 pack. The runtime images AppTown runs for itself (the shell guidance checks
-run in, df, the static server, the private Docker daemon) are read from the
+run in, df, the private Docker daemon) are read from the
 list, by digest; the private Docker image is release-bound, and an
 attempt with private Docker records the digest the worker measured. The list has one owner per process (`internal/toolversions`,
 `Versions`), filled at start from the shipped update; owners that run these
@@ -100,6 +100,18 @@ rehearsal, a cache pass, a disk admission) takes one snapshot at its start
 and uses it throughout, so a newer list never mixes images within one unit.
 The private Docker image is read from the start snapshot only. A guidance
 step's evidence names the snapshot (`toolVersions`) beside its shell image.
+
+Application image builds are not tool versions. Seeds name image lines; project
+creation resolves every unpinned external FROM through `imagelines` and writes
+the selected tag and digest before writing any starter files. Static apps also
+pin their Caddy 2 Alpine server as `staticServer:` in `.apptown/app.yaml`.
+The Janitor uses the same registry resolver and routine verification checks that
+each moved image equals its answer. The `imageline` library uses tags lists and
+manifest HEADs, anonymously, through the bound Docker Hub mirror for Docker Hub
+images. The `imagelines` owner records each line's answer and reading time,
+reuses it for a day, and on registry failure uses a reading younger than seven
+days with an explicit stale warning in evidence. Older or absent readings refuse
+creation or the update check. There is no shipped image fallback.
 
 Every published workflow, block and pack version records where it came
 from as two fields: its **source** and its **signer**. Stock comes from the

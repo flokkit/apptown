@@ -16,6 +16,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 )
@@ -96,9 +97,10 @@ func (s *Service) ApplyPack(ctx execcontext.Context, p *project.Project, packs [
 	// stands and the files are named as not written.
 	var skipped []string
 	var seeded []string
+	var images []seedImage
 	if combined.Starter != "" {
 		var refused []string
-		seeded, refused, err = s.seedPackFiles(ctx, p, combined.Starter, who)
+		seeded, refused, images, err = s.seedPackFiles(ctx, p, combined.Starter, who)
 		for _, r := range refused {
 			missing = append(missing, "starter file "+r)
 		}
@@ -132,7 +134,7 @@ func (s *Service) ApplyPack(ctx execcontext.Context, p *project.Project, packs [
 	hash = compiled.Hash
 	audit.At(s.now()).BestEffort(ctx, s.db, who, p.ID, "pack.applied", label,
 		map[string]any{"packs": names, "guidance": pos, "workflows": installed, "policies": policiesInstalled,
-			"missing": missing, "guidanceHash": hash, "policyWarnings": len(violations), "seeded": seeded,
+			"images": images, "missing": missing, "guidanceHash": hash, "policyWarnings": len(violations), "seeded": seeded,
 			"toolchain": toolchainSeeded, "skipped": skipped})
 	return &PackApplied{Packs: names, GuidanceImports: pos,
 		WorkflowsInstalled: installed, PoliciesInstalled: policiesInstalled,
@@ -160,31 +162,53 @@ type PackApplied struct {
 // overwritten), and commits the batch. Returns the paths written, and each
 // file refused because AppTown would have written through a link the
 // repository holds, with why: that file is skipped, the rest are written.
-func (s *Service) seedPackFiles(ctx execcontext.Context, p *project.Project, packName, who string) (written, refused []string, err error) {
+func (s *Service) seedPackFiles(ctx execcontext.Context, p *project.Project, packName, who string) (written, refused []string, images []seedImage, err error) {
 	if p.DefaultBranch == "" {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	written, err = s.CommitGenesis(ctx, p, fmt.Sprintf("apptown: seed %s starter (pack apply)", packName), who,
 		func(dir string) ([]string, error) {
 			var w []string
-			w, refused, err = writePackSeeds(dir, s.ways.Seed(packName))
+			w, refused, images, err = writePackSeeds(ctx, dir, s.ways.Seed(packName), s.images)
 			return w, err
 		})
-	return written, refused, err
+	return written, refused, images, err
 }
 
-func writePackSeeds(dir string, seed fs.FS) (written, refused []string, _ error) {
+func writePackSeeds(ctx execcontext.Context, dir string, seed fs.FS, resolver imagelines.Resolver) (written, refused []string, images []seedImage, _ error) {
 	if seed == nil {
-		return nil, nil, nil // a pack without seeds is the common case
+		return nil, nil, nil, nil // a pack without seeds is the common case
 	}
+	files := map[string][]byte{}
 	err := fs.WalkDir(seed, ".", func(rel string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil //nolint:nilerr // an unreadable entry is skipped, as before
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
 		}
 		body, err := fs.ReadFile(seed, rel)
 		if err != nil {
+			return err
+		}
+		files[rel] = body
+		return nil
+	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	images, err = pinSeed(ctx, resolver, files)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	err = fs.WalkDir(seed, ".", func(rel string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
 			return nil
 		}
+		body := files[rel]
 		mode := os.FileMode(0o644)
 		if strings.HasPrefix(rel, "bin/") {
 			mode = 0o755 // binstubs (bin/rails) must run; the embed FS keeps no modes
@@ -225,7 +249,7 @@ func writePackSeeds(dir string, seed fs.FS) (written, refused []string, _ error)
 		}
 		return nil
 	})
-	return written, refused, err
+	return written, refused, images, err
 }
 
 // SeedToolchain writes stock/toolchains/<name>.toml as a new project's

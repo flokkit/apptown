@@ -71,7 +71,7 @@ func TestAGateBootFailsAnAppThatRefusesItsFrontPage(t *testing.T) {
 				t.Errorf("boot milestones: %v", stages)
 			}
 		}()
-		return NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}).Boot(ctx, BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: pageClient{port: u.Port(), disk: &diskDaemon{}}},
+		return NewHost(Dependencies{DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}).Boot(ctx, BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: pageClient{port: u.Port(), disk: &diskDaemon{}}},
 			Name: "apptown-preview-run-4", StackID: "pv4", Workspace: t.TempDir(), Slug: "shop", Deployment: "preview", Probe: time.Second,
 			Scratch: t.TempDir(), PageCheck: pageCheck, VisitorHost: host}, c)
 	}
@@ -109,12 +109,12 @@ func (p pathProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Durat
 // calling the stock page the site.
 func TestAStaticSiteBootRequiresAppTownsFileServer(t *testing.T) {
 	t.Parallel()
-	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: site\n    ports: [\"8080\"]\n    public: true\n"))
+	c, err := appcontract.Parse([]byte("staticServer: " + testStaticServer + "\n" + "version: 1\napp:\n  web:\n    static: site\n    ports: [\"8080\"]\n    public: true\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	boot := func(probe prober) error {
-		_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: probe}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: pageClient{port: "1", disk: &diskDaemon{}}},
+		_, err := NewHost(Dependencies{DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: probe}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: pageClient{port: "1", disk: &diskDaemon{}}},
 			Name: "apptown-preview-run-5", StackID: "pv5", Workspace: t.TempDir(), Slug: "site", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, c)
 		return err
 	}
@@ -146,7 +146,7 @@ func (p witnessProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Du
 // with no revision keeps the /_apptown/env.js check.
 func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 	t.Parallel()
-	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: site\n    ports: [\"8080\"]\n    public: true\n"))
+	c, err := appcontract.Parse([]byte("staticServer: " + testStaticServer + "\n" + "version: 1\napp:\n  web:\n    static: site\n    ports: [\"8080\"]\n    public: true\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 				return nil, nil
 			}}
 			var asked []renderedProbe
-			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: witnessProbe{serves: tc.serves, asked: &asked}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client},
+			_, err := NewHost(Dependencies{DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: witnessProbe{serves: tc.serves, asked: &asked}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client},
 				Name: "apptown-env-site-main", StackID: "env-site-main", Workspace: t.TempDir(), Slug: "site", Deployment: "main", Probe: time.Second, Scratch: t.TempDir(),
 				revision: tc.revision, Recorded: tc.recorded}, c)
 			if be := AsBootError(err); tc.wantErr != (err != nil) || (tc.wantErr && (be.Phase != PhaseProbe || !strings.Contains(be.Error(), appcontract.ReleasePath))) {
@@ -261,7 +261,7 @@ func TestAStaticFrontPageIsJudgedByItsAnswerNotItsMarkup(t *testing.T) {
 // Kills: the sealed boot returning after readiness alone.
 func TestASealedStaticBootNeedsAppTownsFileServer(t *testing.T) {
 	t.Parallel()
-	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: site\n    public: true\n"))
+	c, err := appcontract.Parse([]byte("staticServer: " + testStaticServer + "\n" + "version: 1\napp:\n  web:\n    static: site\n    public: true\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +303,7 @@ func TestASealedStaticBootNeedsAppTownsFileServer(t *testing.T) {
 				}
 				return nil, nil
 			}}
-			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client},
+			_, err := NewHost(Dependencies{DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}}).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client},
 				Name: "apptown-rehearsal-site", StackID: "rehearsal-site", Workspace: t.TempDir(), Slug: "site", Deployment: "main", Probe: time.Second, Scratch: t.TempDir(),
 				Sealed: &Sealed{ProbeImage: "probe", Host: "site.example"}, Recorded: &RecordedImages{Parts: map[string]string{"web": "sha256:web"}}}, c)
 			if !slices.Contains(paths, "/_apptown/env.js") {
