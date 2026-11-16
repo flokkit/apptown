@@ -435,9 +435,9 @@ Use a Docker Hub library Caddy 2 image with the exact `-alpine` variant and a
 digest. AppTown writes the Caddy configuration and installs Alpine packages in
 this image. A declaration with no static parts refuses this key. A static
 contract may be read without the pin, but release builds, previews and local
-container development refuse to serve it. The Janitor's next dependency update
-adds a missing pin when base image updates are on. A person can add it through
-a change using `apptown image newest caddy:2-alpine --scope line`.
+container development refuse to serve it. Add it through a change using
+`apptown image newest caddy:2-alpine --scope line`; the Janitor's updates move
+an existing pin and never add one.
 New static projects receive this pin at creation. Running deployments continue
 while a missing pin is added through a governed change.
 

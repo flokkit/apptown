@@ -248,12 +248,7 @@ func (p ImageUpdates) compare(ctx context.Context, old, next string) error {
 	if p.Resolver == nil {
 		return fault.New(fault.Unavailable, "image registry readings are unavailable")
 	}
-	scope := p.Scope
-	if old == "" {
-		old = appcontract.StaticServerLine
-		scope = imageline.Line
-	}
-	answer, err := p.Resolver.Answer(ctx, old, scope)
+	answer, err := p.Resolver.Answer(ctx, old, p.Scope)
 	if err != nil {
 		return fault.Wrap(fault.Unavailable, fmt.Errorf("image update is unknown: %w", err))
 	}
@@ -302,6 +297,9 @@ func CompareUpdateInputs(ctx context.Context, before, after map[string]any, base
 			next, _ := b.(string)
 			if !baseImages {
 				return fmt.Errorf("Moves a base image; base image updates are turned off. staticServer")
+			}
+			if old == "" {
+				return fmt.Errorf("Adds staticServer; an update moves an existing pin and never adds one")
 			}
 			if err := appcontract.ValidateStaticServer(next); err != nil {
 				return err

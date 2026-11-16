@@ -9,9 +9,9 @@ majors too) and each ecosystem's dependency guidance. Never downgrade, change
 sources, make a direct dependency a pre-release, pin an indirect package to
 one, or add a direct dependency the update does not need. An indirect
 pre-release that a stable direct dependency itself requires is allowed.
-For dependency updates and security fixes, change only `staticServer:` in
-`.apptown/app.yaml`, and only when base image updates are on. If static parts
-have no pin, add the answer to `apptown image newest caddy:2-alpine --scope line`.
+For dependency updates and security fixes, change only an existing
+`staticServer:` in `.apptown/app.yaml`, and only when base image updates are
+on; they never add a missing one.
 For a pack adoption, add or change only the declarations in `.apptown/app.yaml`
 that the new pack's failing checks name.
 
