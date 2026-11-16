@@ -207,9 +207,9 @@ func TestStandingVotePreservesAuthorityWithoutClaimingHumanAssent(t *testing.T) 
 }
 
 func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T) {
-	for _, mode := range []string{"revoke within claim", "checked code", "ship scan fail", "ship scan error", "ship build fail", "aggressive major", "routine during assessment", "routine at merge", "held back", "hold during assessment", "off during assessment", "purpose changed", "candidate moved", "rule disabled", "rule revised", "failed check", "model failed", "model unclear", "off at merge", "hold at merge", "disabled at merge"} {
+	for _, mode := range []string{"narrative during assessment", "authority during assessment", "revoke within claim", "checked code", "ship scan fail", "ship scan error", "ship build fail", "aggressive major", "routine during assessment", "routine at merge", "held back", "hold during assessment", "off during assessment", "purpose changed", "candidate moved", "rule disabled", "rule revised", "failed check", "model failed", "model unclear", "off at merge", "hold at merge", "disabled at merge"} {
 		t.Run(mode, func(t *testing.T) {
-			held := !strings.HasPrefix(mode, "ship ") && mode != "revoke within claim" && mode != "checked code" && mode != "aggressive major" && !strings.HasSuffix(mode, "at merge")
+			held := !strings.HasPrefix(mode, "ship ") && mode != "revoke within claim" && mode != "checked code" && mode != "narrative during assessment" && mode != "aggressive major" && !strings.HasSuffix(mode, "at merge")
 			const meaning = "declared fix in range and every check met"
 			rig := stepAuthoritySpecFixture(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "checks", Steps: []schema.Step{{Name: "tests", Uses: "tests"}}}, {Name: "final", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"standing": map[string]any{"class": "routine-update", "means": meaning}}}}}}})
 			ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, rig.Access, "boss"))
@@ -282,6 +282,26 @@ func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T)
 			rules = NewStandingRules(rig.DB, StandingDependencies{Identity: rig.Access, Authority: rig.Authorizer, Procedures: procedures, Publications: procedures, Portfolio: portfolio, Presence: standingPresenceFixture{clear: true}, Inspector: standingInspectorFunc(func(_ context.Context, _ Source, categories StandingCategories) (StandingInspection, error) {
 
 				switch mode {
+				case "narrative during assessment":
+					owner := newNarratives(rig.DB, narrativeNotesFunc(func(context.Context, *database.Tx, ids.ID, ids.ID, string) error { return nil }))
+					before, err := owner.source(ctx, source.ChangeID)
+					if err != nil {
+						t.Fatal(err)
+					}
+					const note = "The dependency update passed its checks."
+					if err := owner.publish(ctx, NarrativePublication{Source: before, Draft: NarrativeDraft{title: "Dependency updated", Note: note, met: requestMetYes}}); err != nil {
+						t.Fatal(err)
+					}
+					after, err := owner.source(ctx, source.ChangeID)
+					if err != nil || after.Change.Summary != note || after.Change.Summary == before.Change.Summary || after.Change.RequestMet != requestMetYes || after.Change.RequestMet == before.Change.RequestMet {
+						t.Fatalf("narrative did not change summary and request assessment: %+v %v", after.Change, err)
+					}
+				case "authority during assessment":
+					if _, err := database.Transact(ctx, rig.DB, func(tx *database.Tx) (scm.Authority, error) {
+						return scm.AdvanceAuthorityIn(ctx, tx, rig.ProjectID, source.Branch, scm.RunHolder(rig.RunID))
+					}); err != nil {
+						t.Fatal(err)
+					}
 				case "routine during assessment":
 					if err := rules.SetProjectChoice(ctx, rig.ProjectID, "routine", "reduce update level"); err != nil {
 						t.Fatal(err)
@@ -342,6 +362,36 @@ func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T)
 			cast, _ := result["cast"].(bool)
 			if err != nil || cast == held {
 				t.Fatalf("cast=%t held=%t: %v", cast, held, err)
+			}
+			if mode == "narrative during assessment" || mode == "authority during assessment" || mode == "rule revised" {
+				snapshot, err := rig.Work.Snapshot(ctx, rig.RunID, TraceView)
+				if err != nil {
+					t.Fatal(err)
+				}
+				want := "acceptance.standing.applied"
+				if held {
+					want = "acceptance.standing.withheld"
+				}
+				decisions := 0
+				for _, event := range snapshot.Events {
+					if event.Kind != "acceptance.standing.applied" && event.Kind != "acceptance.standing.withheld" {
+						continue
+					}
+					decisions++
+					var decision standingDecision
+					if err := json.Unmarshal(event.Payload, &decision); err != nil {
+						t.Fatal(err)
+					}
+					if mode == "rule revised" && decision.Reason != "the standing approval changed during inspection" {
+						t.Fatalf("rule revision misreported as source movement: %s", decision.Reason)
+					}
+					if event.Kind != want || mode == "authority during assessment" && decision.Reason != "the change's source or branch moved during inspection" {
+						t.Fatalf("standing decision: %s %+v", event.Kind, decision)
+					}
+				}
+				if decisions != 1 {
+					t.Fatalf("standing decisions: %d", decisions)
+				}
 			}
 			read, err := rig.Work.Step(ctx, rig.StepID)
 			if err != nil {

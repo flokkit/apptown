@@ -74,6 +74,43 @@ type standingObservation struct {
 	change    Change
 }
 
+// standingWitness includes only facts the consent depends on. Narrative and
+// display updates can run during inspection without changing that consent.
+type standingWitness struct {
+	source              Source
+	authority           scm.Authority
+	runID               ids.ID
+	status              RunState
+	stage               string
+	retryRevision       int64
+	adoptionID          ids.ID
+	workflowName        string
+	workflowVersion     int
+	changeID            ids.ID
+	state               ChangeState
+	changeType          string
+	changeRunID         ids.ID
+	branch              string
+	baseSHA             string
+	targetAdoptionID    ids.ID
+	targetCandidateJSON string
+	expectedRevision    int64
+	adoptedRevision     int64
+}
+
+func (o standingObservation) witness() standingWitness {
+	return standingWitness{
+		source: o.source, authority: o.authority,
+		runID: o.run.ID, status: o.run.Status, stage: o.run.CurrentStage,
+		retryRevision: o.run.RetryRevision, adoptionID: o.run.AdoptionID,
+		workflowName: o.run.WorkflowName, workflowVersion: o.run.WorkflowVersion,
+		changeID: o.change.ID, state: o.change.State, changeType: o.change.Type,
+		changeRunID: o.change.RunID, branch: o.change.Branch, baseSHA: o.change.BaseSHA,
+		targetAdoptionID: o.change.TargetAdoptionID, targetCandidateJSON: o.change.TargetCandidateJSON,
+		expectedRevision: o.change.ExpectedRevision, adoptedRevision: o.change.AdoptedRevision,
+	}
+}
+
 func (s StandingRules) assessmentSource(ctx context.Context, runID ids.ID) (standingObservation, error) {
 	var out standingObservation
 	auth := commandAuthority{db: s.db, checked: s.deps.Authority, clocked: s.clocked}
@@ -261,8 +298,11 @@ func (s StandingRules) assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 	if err != nil {
 		return out, err
 	}
-	if !reflect.DeepEqual(first, last) || current.Revision != rule.Revision {
-		return out, fault.New(fault.Conflict, "the rule or change moved during inspection; inspect it again")
+	if first.witness() != last.witness() {
+		return out, fault.New(fault.Conflict, "the change's source or branch moved during inspection")
+	}
+	if current.Revision != rule.Revision {
+		return out, fault.New(fault.Conflict, "the standing approval changed during inspection")
 	}
 	lastLevel, err := s.effectiveLevelIn(ctx, s.db, current.Question.Definition, last.source.ProjectID)
 	if err != nil {
