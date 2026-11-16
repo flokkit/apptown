@@ -16,14 +16,23 @@ export function RoutineUpdates({ slug, name }: { slug: string; name: string }) {
   const value = draft || { revision: deployment.routineUpdatesRevision, routineUpdates: deployment.routineUpdates }
   const moved = !!draft && draft.revision !== deployment.routineUpdatesRevision
   const edit = (settings: Settings) => setDraft({ ...value, routineUpdates: settings })
+  const choose = (mode: string) => {
+    if (mode === 'window') {
+      edit({ mode, days: 'sun', from: '02:00', to: '04:00', zone: Intl.DateTimeFormat().resolvedOptions().timeZone })
+      return
+    }
+    void action.run(async () => {
+      await put(`/projects/${slug}/deployments/${name}/routine-updates`, { revision: value.revision, routineUpdates: { mode } })
+      setDraft(null)
+    })
+  }
   return <Section title="Janitor releases">
-    <p>Choose when the janitor releases accepted updates here. Protected deployments still need a person's approval. A failed release or a rollback holds updates for a person.</p>
     <StaleNote q={current} />
     <form className="stack stack-3" onSubmit={async event => {
       event.preventDefault()
       if (await action.run(() => put(`/projects/${slug}/deployments/${name}/routine-updates`, value))) setDraft(null)
     }}>
-      <FieldRow label="Routine updates"><select aria-label="Routine updates" disabled={action.busy || !current.current} value={value.routineUpdates?.mode || 'automatic'} onChange={event => edit(event.target.value === 'window' ? { mode: 'window', days: 'sun', from: '02:00', to: '04:00', zone: Intl.DateTimeFormat().resolvedOptions().timeZone } : { mode: event.target.value })}>
+      <FieldRow label="Routine updates"><select aria-label="Routine updates" disabled={action.busy || !current.current || moved} value={value.routineUpdates?.mode || 'automatic'} onChange={event => choose(event.target.value)}>
         <option value="automatic">Automatically</option><option value="window">In a release window</option><option value="person">When a person says</option>
       </select></FieldRow>
       {value.routineUpdates?.mode === 'window' && <>
@@ -33,7 +42,7 @@ export function RoutineUpdates({ slug, name }: { slug: string; name: string }) {
         <FieldRow label="Time zone"><input aria-label="Window time zone" value={value.routineUpdates.zone || ''} disabled={action.busy || !current.current} onChange={e => edit({ ...value.routineUpdates, zone: e.target.value })} /></FieldRow>
       </>}
       {moved && <p role="alert">The settings changed while you were editing. Discard your changes and reload before saving.</p>}
-      <div className="row row-2"><button type="submit" className="primary" disabled={!draft || moved || !current.current || action.busy}>Save routine updates</button>{draft && <button type="button" disabled={action.busy} onClick={() => setDraft(null)}>Discard changes</button>}</div>
+      {value.routineUpdates?.mode === 'window' && <div className="row row-2"><button type="submit" className="primary" disabled={!draft || moved || !current.current || action.busy}>Save release window</button>{draft && <button type="button" disabled={action.busy} onClick={() => setDraft(null)}>Discard changes</button>}</div>}
       {action.err && <p className="error" role="alert">{action.err}</p>}
     </form>
   </Section>

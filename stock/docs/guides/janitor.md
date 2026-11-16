@@ -2,7 +2,8 @@
 
 The Janitor page says how many projects need you or how many it keeps up to
 date. When no choices are set, or every choice is off, it says “Janitor is off”.
-Open a project for scans, findings, queues and Run now. Open a Change for its
+Open Settings › General for a project’s Janitor choice and Run now.
+Open its Conformance page for scans and findings. Open a Change for its
 files and evidence. Settings contains What to keep updated. Nothing runs until
 a person saves choices.
 
@@ -39,9 +40,11 @@ where releases go automatically. A deployment's own page controls its release se
 Changing the workflows keeps these choices in place. Every Change records what ran.
 Turning choices off stops new claims; work that has already claimed permission may finish.
 
-A project's own Janitor section controls its update level. Turning it off stops
-both dependency and pack updates there. The choice records who changed it, when
-and why; it appears with the choices as well as beside the project.
+Settings › General has a Janitor section. Its Dependencies choice saves when you
+change it. Choose Same as everywhere to follow the shared choice, or Off, Patch
+and minor, or Including major for this project. Off stops both dependency and
+pack updates there. The choice records who changed it and when. Janitor settings
+names projects with their own choice and links to their settings.
 
 ## Fresh images for security fixes
 
@@ -111,14 +114,16 @@ again**. Technical details stay on the Change page.
 A failed release, uncertain release progress or a rollback holds the project
 back. Its row opens the deployment. A person's successful release of the newest
 code ends the hold. A deployment's own page controls its release setting and
-window. Protected deployments still need a person's approval. Unknown scans appear in Attention and the project's scan history. A project
-without Janitor queues is neither listed nor counted here. An unreadable update
+window in its Settings tab. Automatically and When a person says save on change.
+Choose In a release window, then set the window and press Save release window.
+Protected deployments still need a person's approval. Unknown scans appear in
+Attention and the Conformance project page. A project without Janitor queues is neither listed nor counted here. An unreadable update
 schedule on a project with queues offers **Run now** and reports why it cannot start.
 
 ## Running updates and history
 
-**Run now** in a project's Janitor section starts its queues through the same
-schedules and pack assessment used overnight, with the same choices. AppTown
+**Run now** in Settings › General’s Janitor section starts its queues through
+the same schedules and pack assessment used overnight, with the same choices. AppTown
 records who asked. **Try again** ends the named queue's failed tries and closes
 the open automated Change shown, using your permission to close it. It can try
 the same update again. History stays recorded. If the new start fails, the next

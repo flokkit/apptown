@@ -19,12 +19,19 @@ it('saves the selected release setting with its revision and refuses a moved dra
     await vi.waitFor(() => expect(el.querySelector('select')).not.toBeNull())
     const select = el.querySelector('select')!
     await act(async () => { select.value = 'person'; select.dispatchEvent(new Event('change', { bubbles: true })) })
-    await act(async () => el.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    expect(el.querySelector('button[type="submit"]')).toBeNull()
+    expect(el.textContent).not.toContain('Choose when the janitor')
     const save = fetch.mock.calls.find(call => ((call as unknown[])[1] as RequestInit)?.method === 'PUT') as unknown[] | undefined
     expect(save?.[0]).toContain('/projects/garden/deployments/main/routine-updates')
     expect(JSON.parse((save?.[1] as RequestInit).body as string)).toEqual({ revision: 7, routineUpdates: { mode: 'person' } })
     await act(async () => { select.value = 'window'; select.dispatchEvent(new Event('change', { bubbles: true })) })
     expect(el.querySelector('[aria-label="Window days"]')).not.toBeNull()
+    expect(fetch.mock.calls.filter(call => ((call as unknown[])[1] as RequestInit)?.method === 'PUT')).toHaveLength(1)
+    await act(async () => el.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    const saves = fetch.mock.calls.filter(call => ((call as unknown[])[1] as RequestInit)?.method === 'PUT') as unknown[][]
+    expect(saves).toHaveLength(2)
+    expect(JSON.parse((saves[1][1] as RequestInit).body as string)).toEqual({ revision: 7, routineUpdates: { mode: 'window', days: 'sun', from: '02:00', to: '04:00', zone: Intl.DateTimeFormat().resolvedOptions().timeZone } })
+    await act(async () => { select.value = 'window'; select.dispatchEvent(new Event('change', { bubbles: true })) })
     await act(async () => client.setQueryData(getKey('/projects/garden/deployments'), [{ ...deployment, routineUpdatesRevision: 8 }]))
     await vi.waitFor(() => expect(el.textContent).toContain('settings changed while you were editing'))
     expect((el.querySelector('button[type="submit"]') as HTMLButtonElement).disabled).toBe(true)

@@ -8116,16 +8116,12 @@
           },
           "person": {
             "$ref": "#/components/schemas/Actor"
-          },
-          "reason": {
-            "type": "string"
           }
         },
         "required": [
           "level",
           "person",
-          "at",
-          "reason"
+          "at"
         ],
         "type": "object"
       },
@@ -8242,16 +8238,12 @@
           },
           "person": {
             "$ref": "#/components/schemas/Actor"
-          },
-          "reason": {
-            "type": "string"
           }
         },
         "required": [
           "level",
           "person",
-          "at",
-          "reason"
+          "at"
         ],
         "type": "object"
       },
@@ -8270,11 +8262,15 @@
           "enabled": {
             "type": "boolean"
           },
+          "instanceLevel": {
+            "type": "string"
+          },
           "level": {
             "type": "string"
           }
         },
         "required": [
+          "instanceLevel",
           "enabled",
           "level"
         ],

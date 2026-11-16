@@ -1,3 +1,4 @@
+import { janitorLevelName } from '../../janitorLevels'
 import { Switch } from '../../Switch'
 import { put } from '../../api'
 import { useHolds } from '../../instancePages'
@@ -10,8 +11,7 @@ import { PageHead } from '../../PageHead'
 import { fmtWhen } from '../../format'
 import type { JanitorView, JanitorProject, JanitorChoices } from '../../wire.gen'
 
-const projectTo = (p: JanitorProject) => `/projects/${p.slug}#janitor`
-const levelName = (level: string) => level === 'aggressive' ? 'Aggressive · including major' : level === 'routine' ? 'Routine · patch and minor' : level === 'off' ? 'Turned off for this project' : 'Not recorded'
+const projectTo = (p: JanitorProject) => `/projects/${p.slug}/settings/general#janitor`
 const date = (value?: string) => value && !value.startsWith('0001-') ? fmtWhen(value) : 'Not known'
 const allOff: JanitorChoices = { dependencies: 'off', securityFixes: false, baseImages: false, toolchainPatches: false, packs: false }
 
@@ -28,11 +28,11 @@ function Choices({ data, current, reload }: { data: JanitorView; current: boolea
   return <>
     <div className="form-grid">
       <FieldRow label="Dependencies"><select value={choices.dependencies} disabled={!canSave || !current || action.busy} onChange={e => set({ ...choices, dependencies: e.target.value, ...(e.target.value === 'off' ? { securityFixes: false, toolchainPatches: false } : {}) })}>
-        <option value="off">Off</option><option value="routine">Patch and minor</option><option value="aggressive">Including major</option>
+        {['off', 'routine', 'aggressive'].map(level => <option key={level} value={level}>{janitorLevelName(level)}</option>)}
       </select></FieldRow>
       {([['securityFixes', 'Security fixes'], ['baseImages', 'Base images'], ['toolchainPatches', 'Toolchain patches for security fixes'], ['packs', 'Packs']] as const).map(([key, label]) => <FieldRow key={key} label={label}><Switch label={label} checked={choices[key]} disabled={!canSave || !current || action.busy || key === 'securityFixes' && choices.dependencies === 'off' || key === 'toolchainPatches' && !choices.securityFixes} onChange={checked => set({ ...choices, [key]: checked, ...(key === 'securityFixes' && !checked ? { toolchainPatches: false } : {}) })} /></FieldRow>)}
-      <span>Projects</span><div>All projects, including new ones{data.projects.filter(p => p.choice).map(p => <div key={p.projectId}><Link to={projectTo(p)}>{p.name}</Link> · {levelName(p.level)} · {p.choice!.person.name}, {date(p.choice!.at)} · {p.choice!.reason}</div>)}</div>
-      <span>Automatic releases</span><div>{!data.deployments.length ? 'None' : exceptions.length === data.deployments.length ? 'None' : exceptions.length ? `All deployments except ${exceptions.map(d => `${data.projects.find(p => p.projectId === d.projectId)?.name} / ${d.displayLabel}`).join(', ')}` : 'All deployments'}</div>
+      <span>Projects</span><div>All projects, including new ones · <Link to="/projects">change per project in its settings</Link>{data.projects.filter(p => p.choice).map(p => <div key={p.projectId}><Link to={projectTo(p)}>{p.name}</Link> · {janitorLevelName(p.choice!.level)} · {p.choice!.person.name}, {date(p.choice!.at)}</div>)}</div>
+      <span>Automatic releases</span><div>{!data.deployments.length ? 'None' : exceptions.length === data.deployments.length ? 'None' : exceptions.length ? `All deployments except ${exceptions.map(d => `${data.projects.find(p => p.projectId === d.projectId)?.name} / ${d.displayLabel}`).join(', ')}` : 'All deployments'} · <Link to="/deployments">change per deployment in its settings</Link></div>
     </div>
     <p>{saved ? `Set by ${saved.issuer.name}, ${date(saved.at)}` : 'Nobody has set these choices'}</p>
     {action.err && <div role="alert" className="error">{action.err}</div>}

@@ -60,9 +60,9 @@ func (h ProjectScans) List(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	view := ProjectScanView{Standing: projectStandingState{Enabled: standing.Enabled, Level: standing.Level}, HeldBack: held, Scans: scans, Recent: recent, Queues: queues}
+	view := ProjectScanView{Standing: projectStandingState{Enabled: standing.Enabled, Level: standing.Level, InstanceLevel: standing.InstanceLevel}, HeldBack: held, Scans: scans, Recent: recent, Queues: queues}
 	if standing.Choice != nil {
-		view.Standing.Choice = &projectStandingChoice{Level: standing.Choice.Level, Person: standing.Choice.Person, At: standing.Choice.At, Reason: standing.Choice.Reason}
+		view.Standing.Choice = &projectStandingChoice{Level: standing.Choice.Level, Person: standing.Choice.Person, At: standing.Choice.At}
 	}
 	WriteJSON(w, 200, view)
 }
@@ -104,10 +104,9 @@ func (h ProjectScans) SetChoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{strict: true}, func(in struct {
-		Level  string `json:"level"`
-		Reason string `json:"reason"`
+		Level string `json:"level"`
 	}) {
-		if err := h.standing.SetProjectChoice(r.Context(), p.ID, in.Level, in.Reason); err != nil {
+		if err := h.standing.SetProjectChoice(r.Context(), p.ID, in.Level); err != nil {
 			WriteFault(w, err)
 			return
 		}
@@ -116,13 +115,13 @@ func (h ProjectScans) SetChoice(w http.ResponseWriter, r *http.Request) {
 }
 
 type projectStandingState struct {
-	Enabled bool                   `json:"enabled"`
-	Level   string                 `json:"level"`
-	Choice  *projectStandingChoice `json:"choice,omitempty"`
+	InstanceLevel string                 `json:"instanceLevel"`
+	Enabled       bool                   `json:"enabled"`
+	Level         string                 `json:"level"`
+	Choice        *projectStandingChoice `json:"choice,omitempty"`
 }
 type projectStandingChoice struct {
 	Level  string       `json:"level"`
 	Person access.Actor `json:"person"`
 	At     string       `json:"at"`
-	Reason string       `json:"reason"`
 }

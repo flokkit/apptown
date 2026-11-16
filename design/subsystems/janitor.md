@@ -12,11 +12,14 @@ expected head under a lock. Only a verified person acting directly with
 The choices contain no workflow names, versions or approval meanings. Each Change
 records its procedures, assessment, checks and vote, including its standing meaning.
 
-Project choices remain `off`, `routine` or `aggressive`, with person, time and
-reason. A project-level off excludes all Janitor work. Instance dependencies off
+Project choices are `instance`, `off`, `routine` or `aggressive`, with person and
+time. Settings › General contains the Janitor Dependencies select, saved on change.
+“Same as everywhere” records `instance` and follows the instance dependency level.
+A project-level off excludes all Janitor work. Instance dependencies off
 excludes dependency schedules and security fixes, while packs can remain on.
-With no project choice, schedules use the instance dependency level. A project's
-level never turns on an instance dependency choice that is off.
+With no project choice or a latest `instance` record, schedules use the instance
+dependency level. A project’s level never turns on an instance dependency choice
+that is off.
 
 At each effect AppTown resolves the adopted working and landing procedures, or
 the frozen target for pack adoption. A working procedure needs a standing trigger:
@@ -51,11 +54,11 @@ before another save.
 
 `/janitor` shows work that needs a person and recent landed Changes. Only
 projects with standing queues are listed or counted. Unknown scans belong to
-Attention and the project's scan history. An unreadable update schedule on a
+Attention and the Conformance project page. An unreadable update schedule on a
 project with queues offers Run now and shows the scheduler's refusal.
 
-`/janitor/settings` shows the choices, who set them and when, project choices
-and automatic release destinations. Switches and the dependency select save on
+`/janitor/settings` links to project and deployment settings and shows the
+choices, who set them and when, project choices and automatic release destinations. Switches and the dependency select save on
 change, with one full-choice write at the read revision. Controls are disabled
 while saving or while the read is not current. A conflict reloads the current
 choices and shows the refusal without resubmitting. Attribution follows the reread.
@@ -298,8 +301,8 @@ the general entry for any carried schedule). The firing is the scheduler's
 own: the Change is opened through the schedule under the eligible rule, and
 `schedule.run-requested` records the person. A busy or stopped queue, a missing
 schedule or a missing eligible rule is refused and records no firing.
-**Run now** in the project's Janitor section fires every adopted standing queue
-through its nightly start.
+**Run now** in Settings › General’s Janitor section fires every adopted standing
+queue through its nightly start.
 `POST /api/v1/projects/{slug}/janitor/run` selects all queues or one named queue.
 `apptown janitor run -p PROJECT [-queue QUEUE] [-again]` uses this operation.
 Publication queues use the nightly pack catch-up, restricted to that project,
@@ -367,7 +370,8 @@ history and the release page show the same waiting reason.
 
 ## Scan observations and disposal
 
-The project's Janitor section shows the current scan summary and findings.
+The project Overview has no Janitor section. The Conformance project page shows
+the current source, running-image-only and unclassified findings.
 Conformance's Last scan lists each scanner subject, result and observation time,
 with the newest ten earlier observations below. An aggregate Not known and its
 reason appear above the results whenever the current scan is incomplete or

@@ -16,7 +16,7 @@ import { RunNow } from './janitor/RunNow'
 import { TryAgain } from './janitor/TryAgain'
 import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, QueueStatus } from '../wire.gen'
 
-const projectTo = (p: JanitorProject) => `/projects/${p.slug}#janitor`
+const projectTo = (p: JanitorProject) => `/projects/${p.slug}/settings/general#janitor`
 const date = (value?: string) => value && !value.startsWith('0001-') ? fmtWhen(value) : 'Not known'
 
 function summary(data: JanitorView, items: Need[]) {

@@ -1006,6 +1006,10 @@ WHERE NOT (o.receipt ? 'expectedScanners');
 		_, err = tx.SQL().ExecContext(ctx, `INSERT INTO standing_rule_revisions(rule_id,revision,enabled,record_json) VALUES($1,1,true,$2)`, r.RuleID, string(raw))
 		return err
 	}},
+	{n: 243, note: "allow projects to follow instance janitor choices", stmts: []string{
+		`ALTER TABLE standing_project_choices DROP CONSTRAINT standing_project_choices_level_check`,
+		`ALTER TABLE standing_project_choices ADD CHECK (level IN ('instance','off','routine','aggressive'))`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

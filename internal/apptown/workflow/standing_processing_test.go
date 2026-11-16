@@ -65,15 +65,15 @@ func TestInstanceStandingConsentRechecksEveryProjectAtUse(t *testing.T) {
 		t.Fatalf("no repository refusal: %+v %q %v", got, why, err)
 	}
 	portfolio.noRepository = false
-	if err := s.SetProjectChoice(boss, later, "off", "working on recovery"); err != nil {
+	if err := s.SetProjectChoice(boss, later, "off"); err != nil {
 		t.Fatal(err)
 	}
 	use(false)
 	state, err := s.ProjectState(boss, later)
-	if err != nil || state.Level != "off" || state.Choice == nil || state.Choice.Person.Name != "boss" || state.Choice.Reason != "working on recovery" || state.Choice.At == "" {
-		t.Fatalf("choice did not retain the person and reason: %+v %v", state, err)
+	if err != nil || state.Level != "off" || state.Choice == nil || state.Choice.Person.Name != "boss" || state.Choice.At == "" {
+		t.Fatalf("choice did not retain the person and time: %+v %v", state, err)
 	}
-	if err := s.SetProjectChoice(boss, later, "routine", "recovery finished"); err != nil {
+	if err := s.SetProjectChoice(boss, later, "routine"); err != nil {
 		t.Fatal(err)
 	}
 	use(true)
@@ -281,13 +281,13 @@ func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T)
 						t.Fatal(err)
 					}
 				case "routine during assessment":
-					if err := rules.SetProjectChoice(ctx, rig.ProjectID, "routine", "reduce update level"); err != nil {
+					if err := rules.SetProjectChoice(ctx, rig.ProjectID, "routine"); err != nil {
 						t.Fatal(err)
 					}
 				case "hold during assessment":
 					portfolio.hold = "release 2 failed"
 				case "off during assessment":
-					if err := rules.SetProjectChoice(ctx, rig.ProjectID, "off", "pause during inspection"); err != nil {
+					if err := rules.SetProjectChoice(ctx, rig.ProjectID, "off"); err != nil {
 						t.Fatal(err)
 					}
 				case "purpose changed":
@@ -486,7 +486,7 @@ func TestStandingCarryRequiresEveryLandingCheckAndCurrentProjectConsent(t *testi
 				portfolio.hold = "release failed"
 			}
 			if tc.off {
-				if err := rules.SetProjectChoice(ctx, a.ProjectID, "off", "pause updates"); err != nil {
+				if err := rules.SetProjectChoice(ctx, a.ProjectID, "off"); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -500,7 +500,7 @@ func TestStandingCarryRequiresEveryLandingCheckAndCurrentProjectConsent(t *testi
 					t.Fatalf("standing landing attribution: %q %v", by, err)
 				}
 				// The same current-rule read runs again at the merge claim.
-				if err := rules.SetProjectChoice(ctx, a.ProjectID, "off", "pause before merge"); err != nil {
+				if err := rules.SetProjectChoice(ctx, a.ProjectID, "off"); err != nil {
 					t.Fatal(err)
 				}
 				why, err := standingMergeRefusalIn(ctx, a.DB, current, &rules)
@@ -734,11 +734,11 @@ func standingCheckedCodeLanding(t *testing.T, rig *stepAuthorityTestRig, rules S
 		armed = mode == "revoke within claim"
 		switch mode {
 		case "routine at merge":
-			if err := rules.SetProjectChoice(ctx, rig.ProjectID, "routine", "reduce update level before effect"); err != nil {
+			if err := rules.SetProjectChoice(ctx, rig.ProjectID, "routine"); err != nil {
 				t.Fatal(err)
 			}
 		case "off at merge":
-			if err := rules.SetProjectChoice(ctx, rig.ProjectID, "off", "pause before effect"); err != nil {
+			if err := rules.SetProjectChoice(ctx, rig.ProjectID, "off"); err != nil {
 				t.Fatal(err)
 			}
 		case "hold at merge":
@@ -774,7 +774,7 @@ func standingCheckedCodeLanding(t *testing.T, rig *stepAuthorityTestRig, rules S
 			return
 		} // Re-enabling is a new revision and needs new acceptance.
 		if mode == "off at merge" {
-			if err := rules.SetProjectChoice(ctx, rig.ProjectID, "routine", "resume after recovery"); err != nil {
+			if err := rules.SetProjectChoice(ctx, rig.ProjectID, "routine"); err != nil {
 				t.Fatal(err)
 			}
 		} else {
@@ -900,9 +900,11 @@ func TestKeepPacksCurrentHasItsOwnCategoryAndEligibility(t *testing.T) {
 			t.Fatalf("eligible=%t: %+v %v", want, got, err)
 		}
 	}
+	p.trigger = "publication"
+	eligible(true) // Instance dependency off is not a project-wide refusal.
 	p.trigger = "schedule"
 	eligible(false) // Dependencies off never schedules dependency work.
-	if err := s.SetProjectChoice(ctx, a.ProjectID, "routine", "project preference"); err != nil {
+	if err := s.SetProjectChoice(ctx, a.ProjectID, "routine"); err != nil {
 		t.Fatal(err)
 	}
 	eligible(false) // A project preference cannot enable the instance choice.
@@ -911,11 +913,11 @@ func TestKeepPacksCurrentHasItsOwnCategoryAndEligibility(t *testing.T) {
 	portfolio.hold = "release 2 failed"
 	eligible(false)
 	portfolio.hold = ""
-	if err := s.SetProjectChoice(ctx, a.ProjectID, "off", "pause packs"); err != nil {
+	if err := s.SetProjectChoice(ctx, a.ProjectID, "off"); err != nil {
 		t.Fatal(err)
 	}
 	eligible(false)
-	if err := s.SetProjectChoice(ctx, a.ProjectID, "aggressive", "resume packs"); err != nil {
+	if err := s.SetProjectChoice(ctx, a.ProjectID, "aggressive"); err != nil {
 		t.Fatal(err)
 	}
 	eligible(true)
