@@ -117,7 +117,7 @@ export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, a
 
       {err && <span className="error small">{err}</span>}
     </>
-  const actions = overview || close ? <DecisionChoices note={comment} setNote={setComment} busy={busy || externalBusy}
+  const actions = overview || close ? <DecisionChoices children={children ? (details, actions) => <>{details}<div className="row row-2">{actions}</div></> : undefined} note={comment} setNote={setComment} busy={busy || externalBusy}
         accept={{ label: approveLabel, run: () => decide('approve'), disabled: unread || approveDisabled }}
         rework={close ? undefined : { label: 'Send back…', run: () => decide('reject') }} abandon={abandon} secondary={close} /> : <div className={compact ? 'row' : 'row decision-bar'} style={compact ? { gap: 4 } : { marginTop: 8 }}>
         <input placeholder={placeholder} value={comment} onChange={(e) => setComment(e.target.value)}

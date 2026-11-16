@@ -2,11 +2,14 @@ package workflow
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -54,14 +57,32 @@ func (s *Service) LandedJanitorChanges(ctx context.Context, since, until time.Ti
 		if err := json.Unmarshal(row.Packages, &item.Packages); err != nil {
 			return out, err
 		}
-		if len(row.TargetCandidateJson) > 0 {
+		if row.Type == "uplift" {
 			var candidate adoption.Candidate
 			if err := json.Unmarshal(row.TargetCandidateJson, &candidate); err != nil {
 				return out, err
 			}
-			item.PackVersions = candidate.Packs
+			item.PackVersions, err = changedAdoptionPacksIn(ctx, s.db, row.ProjectID, row.ClosedAt.Time, candidate)
+			if err != nil {
+				return out, err
+			}
 		}
 		out.Changes = append(out.Changes, item)
 	}
 	return out, nil
+}
+
+// Workflow owns the Change chronology; adoption owns comparison of pack picks.
+func changedAdoptionPacksIn(ctx context.Context, db database.Queryer, project ids.ID, before time.Time, target adoption.Candidate) ([]adoption.PackPick, error) {
+	raw, err := workflowsql.New(db.SQL()).PreviousLandedAdoption(ctx, workflowsql.PreviousLandedAdoptionParams{ProjectID: project, Before: before})
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	var previous adoption.Candidate
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &previous); err != nil {
+			return nil, err
+		}
+	}
+	return adoption.ChangedPacks(target.Packs, previous.Packs), nil
 }

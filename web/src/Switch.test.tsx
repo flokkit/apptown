@@ -9,12 +9,13 @@ it('supports a labelled, reversible immediate setting and a disabled state', () 
  const flips: boolean[] = [], el = document.createElement('div'), root = createRoot(el)
  function Setting({ disabled = false }: { disabled?: boolean }) {
   const [on, setOn] = useState(false)
-  return <Switch label="Evals" checked={on} disabled={disabled} onChange={next => { flips.push(next); setOn(next) }} />
+  return <Switch id="evals" label="Evals" checked={on} disabled={disabled} onChange={next => { flips.push(next); setOn(next) }} />
  }
  try {
   act(() => root.render(<Setting />))
   const button = el.querySelector<HTMLButtonElement>('[role=switch]')!
-  expect(button.getAttribute('aria-label')).toBe('Evals')
+  expect(button.id).toBe('evals')
+ expect(button.getAttribute('aria-label')).toBe('Evals')
   expect(button.getAttribute('aria-checked')).toBe('false')
   act(() => button.click())
   expect(button.getAttribute('aria-checked')).toBe('true')

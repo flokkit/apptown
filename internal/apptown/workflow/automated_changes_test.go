@@ -238,6 +238,9 @@ func admitAutomatedRun(t *testing.T, s *Service, ch *Change, kinds ...string) *R
 	if err != nil {
 		t.Fatal(err)
 	}
+	if ch.Type == "uplift" {
+		adopted = ch.TargetAdoptionID
+	}
 	run, err := s.runAdmissions.records.create(t.Context(), StartRequest{ProjectID: ch.ProjectID, ChangeID: ch.ID, WorkflowName: "scan", InputsJSON: "{}", requestedBy: "apptown-system"}, PreparedRun{AdoptionID: adopted, Workflow: DefinitionRef{Name: "scan", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "scan", Steps: steps}}}})
 	if err != nil {
 		t.Fatal(err)
@@ -553,7 +556,7 @@ func TestQueueKeepsPromotedChangeThroughOverrideAndAcceptance(t *testing.T) {
 	if err := e.StartFix(nil); err != nil {
 		t.Fatal(err)
 	}
-	outcome, err := EncodeOutcome(StatusFail, map[string]string{"reason": "Dockerfile restructure"}, nil)
+	outcome, err := EncodeOutcome(StatusFail, map[string]string{"reason": "dockerfile [routine:1] restructure. More detail."}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -561,7 +564,7 @@ func TestQueueKeepsPromotedChangeThroughOverrideAndAcceptance(t *testing.T) {
 		t.Fatal(err)
 	}
 	before, err := s.QueueState(t.Context(), ch.ProjectID, "security")
-	if err != nil || before.State != "decide" || before.Decide == nil || before.Decide.Act != nextOverride || before.Decide.StepID != routine.ID || before.Words != "goes beyond what your settings allow" {
+	if err != nil || before.State != "decide" || before.Decide == nil || before.Decide.Act != nextOverride || before.Decide.StepID != routine.ID || before.Words != "Dockerfile restructure." {
 		t.Fatalf("held: %+v %v", before, err)
 	}
 	ctx := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{Kind: "user", Name: "verified-person", Via: "session"}})
@@ -577,7 +580,7 @@ func TestQueueKeepsPromotedChangeThroughOverrideAndAcceptance(t *testing.T) {
 		t.Fatal(err)
 	}
 	after, err := s.QueueState(ctx, ch.ProjectID, "security")
-	if err != nil || after.ChangeID != ch.ID || after.State != "decide" || after.Decide == nil || after.Decide.Act != NextApprove || after.Decide.StepID != accept.ID {
+	if err != nil || after.ChangeID != ch.ID || after.State != "decide" || after.Decide == nil || after.Decide.Act != NextApprove || after.Decide.StepID != accept.ID || after.Words != "Waiting for your acceptance" {
 		t.Fatalf("after override: %+v %v", after, err)
 	}
 	if _, err := s.Approve(ctx, Approval{StepID: accept.ID, Decision: VoteApprove}); err != nil {
@@ -600,5 +603,116 @@ func TestQueueKeepsPromotedChangeThroughOverrideAndAcceptance(t *testing.T) {
 	kept, err := s.Change(ctx, ch.ID)
 	if err != nil || !kept.State.canRun() {
 		t.Fatalf("touched Change replaced: %+v %v", kept, err)
+	}
+}
+
+// A recorded empty source proposal is different from unobserved files or a pack target.
+func TestQueueDescribesOnlyRecordedProposals(t *testing.T) {
+	for _, kind := range []string{"unobserved", "empty", "packs", "promoted"} {
+		t.Run(kind, func(t *testing.T) {
+			s, ch, _, _, _ := automatedFixture(t)
+			if kind == "packs" {
+				created, err := database.Transact(t.Context(), s.db, func(tx *database.Tx) (CreatedChange, error) {
+					ctx := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: ch.ProjectID}})
+					created, err := CreateChangeIn(ctx, tx, ChangeDraft{ProjectID: ch.ProjectID, Type: "uplift", Title: "Adopt packs", Queue: "security"}, "apptown-system", time.Now())
+					if err != nil {
+						return created, err
+					}
+					target, err := (testTarget{digest: "packs"}).RecordTargetIn(ctx, tx, TargetChange{ProjectID: ch.ProjectID, ChangeID: created.Change.ID, Actor: "apptown-system"})
+					if err != nil {
+						return created, err
+					}
+					_, err = workflowsql.New(tx.SQL()).AttachUpliftTarget(ctx, workflowsql.AttachUpliftTargetParams{ID: created.Change.ID, ProjectID: ch.ProjectID, TargetAdoptionID: target.ID, TargetCandidateJson: []byte(`{"packs":[{"pack":"apptown","version":2}]}`)})
+					created.Change.TargetAdoptionID = target.ID
+					return created, err
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				ch = created.Change
+			}
+			run := admitAutomatedRun(t, s, ch, "routine")
+			steps, err := s.RunSteps(t.Context(), run.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			claim, err := newStepAttempts(s.db, func(string) bool { return true }).start(t.Context(), steps[0], "routine", ch.ProjectID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			e := &Execution{service: s, ctx: t.Context(), step: steps[0], run: run, claim: claim}
+			if err := e.StartFix(nil); err != nil {
+				t.Fatal(err)
+			}
+			if kind == "empty" {
+				if _, _, err := e.keepProposal("recorded-empty-source", nil); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if kind == "packs" {
+				if _, _, err := e.KeepPackProposal("main", "candidate"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			outcome, err := EncodeOutcome(StatusFail, map[string]string{"reason": "a report is missing. [report:1] More detail."}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := (reworkStore{db: s.db}).fail(t.Context(), claim, outcome); err != nil {
+				t.Fatal(err)
+			}
+			if kind == "promoted" {
+				ctx := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{Kind: "user", Name: "verified-person", Via: "session"}})
+				if _, err := s.Override(ctx, Override{StepID: steps[0].ID, Reason: "Accept the report"}); err != nil {
+					t.Fatal(err)
+				}
+				s.Wait()
+			}
+			read, err := s.QueueState(t.Context(), ch.ProjectID, "security")
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch kind {
+			case "empty":
+				if read.ChangeSummary != "Makes no change" {
+					t.Fatalf("empty: %+v", read)
+				}
+			case "packs":
+				if read.ChangeSummary != "Updates ways of working: apptown" {
+					t.Fatalf("packs: %+v", read)
+				}
+			case "unobserved":
+				if read.ChangeSummary != "" {
+					t.Fatalf("unobserved: %+v", read)
+				}
+			case "promoted":
+				if read.Decide != nil || read.Words != "Waiting for a decision on the change" {
+					t.Fatalf("promoted: %+v", read)
+				}
+			}
+			if kind != "promoted" && read.Words != "A report is missing." {
+				t.Fatalf("words: %+v", read)
+			}
+		})
+	}
+}
+
+func TestQueueDecisionReasonFallbacks(t *testing.T) {
+	for _, tc := range []struct {
+		reason string
+		status StepState
+		want   string
+	}{
+		{`{"files":[]}`, StatusFail, "A check did not pass"},
+		{`[evidence:1]`, StatusError, "A check could not finish"},
+		{"scan could not finish. [scan:1] More detail.", StatusError, "Scan could not finish."},
+	} {
+		raw, err := json.Marshal(map[string]string{"reason": tc.reason})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := decisionReason(&Step{Evidence: raw, Status: tc.status}); got != tc.want {
+			t.Fatalf("%q: %q want %q", tc.reason, got, tc.want)
+		}
 	}
 }

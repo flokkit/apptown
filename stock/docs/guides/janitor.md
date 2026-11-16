@@ -30,7 +30,9 @@ security fixes keep that file unchanged.
 
 In Janitor settings, choose dependencies **Off**, **Patch and minor** or
 **Including major**, plus **Security fixes**, **Base images**, **Toolchain patches
-for security fixes** and **Packs**. **Save** records your choices, name and time.
+for security fixes** and **Packs**. Each switch or dependency choice saves immediately and records your name and
+time. A concurrent change shows a conflict and the current choices; it does
+not overwrite them.
 Security fixes need dependency updates; toolchain patches need security fixes.
 Packs can stay on with dependencies off. The page also shows project choices and
 where releases go automatically. A deployment's own page controls its release setting.
@@ -65,7 +67,10 @@ Stopping dependency updates leaves security fixes able to run unless their own
 failure count has also stopped them.
 
 Needs you shows the project, what it was doing and why it needs you. A decision
-shows the changed files and offers **Accept** or **Close**. Accepting a failed
+says what the change would do and why it stopped, then offers **Accept** or
+**Close**. Pack changes name the ways of working they move; source changes name
+the changed files. A recorded empty source proposal says “Makes no change”.
+The reason describes the current check or says “Waiting for your acceptance”. Accepting a failed
 check asks for your reason and records an exception; its result stays on the
 record. The remaining checks run, then the Change asks for acceptance. Close
 skips the update and keeps the same proposal from coming back.
@@ -77,8 +82,9 @@ again**. Technical details stay on the Change page.
 A failed release, uncertain release progress or a rollback holds the project
 back. Its row opens the deployment. A person's successful release of the newest
 code ends the hold. A deployment's own page controls its release setting and
-window. Protected deployments still need a person's approval. Unknown scans or
-unreadable schedules appear as Not known; their rows open the project.
+window. Protected deployments still need a person's approval. Unknown scans appear in Attention and the project's scan history. A project
+without Janitor queues is neither listed nor counted here. An unreadable update
+schedule on a project with queues offers **Run now** and reports why it cannot start.
 
 ## Running updates and history
 
@@ -91,8 +97,9 @@ overnight run can still try. Agents use
 `apptown janitor run -p PROJECT [-queue QUEUE] [-again]`.
 
 **Recent updates** lists landed Changes from the last seven days: project, what
-changed and when. Dependency rows show package moves; pack rows name the ways
-of working. Click a row to open its Change for checks, acceptance and releases.
+changed and when. Dependency rows show package moves; pack rows name only ways
+of working whose version changed or that were added. A first adoption names all
+its packs. Click a row to open its Change for checks, acceptance and releases.
 **Older history** pages through earlier landings. History does not replace
 current deployment or scan evidence.
 

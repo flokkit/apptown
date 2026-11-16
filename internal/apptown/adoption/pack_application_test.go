@@ -68,3 +68,15 @@ func TestPackApplicationSealRejectsMutation(t *testing.T) {
 		t.Fatalf("unprepared candidate acquired pack authority: %v", err)
 	}
 }
+
+func TestChangedPacksKeepsOnlyAddedAndDifferentVersions(t *testing.T) {
+	target := []PackPick{{"apptown", 3}, {"same", 2}, {"added", 1}, {"older", 1}}
+	previous := []PackPick{{"apptown", 2}, {"same", 2}, {"removed", 1}, {"older", 2}}
+	got := ChangedPacks(target, previous)
+	if len(got) != 3 || got[0] != target[0] || got[1] != target[2] || got[2] != target[3] {
+		t.Fatalf("changed: %+v", got)
+	}
+	if got := ChangedPacks(target, nil); len(got) != len(target) {
+		t.Fatalf("first: %+v", got)
+	}
+}

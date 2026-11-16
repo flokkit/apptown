@@ -6,7 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -35,17 +38,18 @@ type queueDecision struct {
 }
 
 type QueueStatus struct {
-	Title        string        `json:"title"`
-	Queue        string        `json:"queue"`
-	State        string        `json:"state"`
-	Words        string        `json:"words"`
-	Since        time.Time     `json:"since"`
-	Failed       int           `json:"failed"`
-	Reason       string        `json:"reason"`
-	Files        []fix.File    `json:"files"`
-	Packages     []PackageMove `json:"packages"`
-	ChangeID     ids.ID        `json:"changeId,omitzero"`
-	ChangeNumber int64         `json:"changeNumber"`
+	ChangeSummary string        `json:"changeSummary"`
+	Title         string        `json:"title"`
+	Queue         string        `json:"queue"`
+	State         string        `json:"state"`
+	Words         string        `json:"words"`
+	Since         time.Time     `json:"since"`
+	Failed        int           `json:"failed"`
+	Reason        string        `json:"reason"`
+	Files         []fix.File    `json:"files"`
+	Packages      []PackageMove `json:"packages"`
+	ChangeID      ids.ID        `json:"changeId,omitzero"`
+	ChangeNumber  int64         `json:"changeNumber"`
 
 	Decide *queueDecision `json:"decide,omitempty"`
 }
@@ -113,6 +117,41 @@ func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queu
 			return out, err
 		}
 		out.ChangeNumber = ch.Number
+		if ch.Type == "uplift" {
+			var target adoption.Candidate
+			if err := json.Unmarshal([]byte(ch.TargetCandidateJSON), &target); err != nil {
+				return out, err
+			}
+			opened, err := time.Parse(time.RFC3339Nano, ch.CreatedAt)
+			if err != nil {
+				return out, err
+			}
+			picks, err := changedAdoptionPacksIn(ctx, db, project, opened, target)
+			if err != nil {
+				return out, err
+			}
+			names := make([]string, 0, len(picks))
+			for _, pick := range picks {
+				names = append(names, pick.Pack)
+			}
+			out.ChangeSummary = "Updates ways of working: " + strings.Join(names, ", ")
+		}
+		for _, r := range rows {
+			if r.ActiveChangeID != out.ChangeID {
+				continue
+			}
+			if err := json.Unmarshal(r.Files, &out.Files); err != nil {
+				return out, err
+			}
+			if err := json.Unmarshal(r.Packages, &out.Packages); err != nil {
+				return out, err
+			}
+			if ch.Type != "uplift" && r.Fingerprint != "" && len(out.Files) == 0 {
+				out.ChangeSummary = "Makes no change"
+			}
+			break
+		}
+
 		runs, err := workflowsql.New(db.SQL()).ChangeRuns(ctx, workflowsql.ChangeRunsParams{ProjectID: project, ChangeID: out.ChangeID})
 		if err != nil {
 			return out, err
@@ -220,7 +259,11 @@ func queueDecisionIn(ctx context.Context, db database.Queryer, run *Run, steps [
 			decision = &queueDecision{Act: act.Act, StepID: act.StepID}
 			for _, step := range steps {
 				if step.ID == act.StepID {
-					words = decisionWords(step.Type)
+					if act.Act == NextApprove {
+						words = "Waiting for your acceptance"
+					} else {
+						words = decisionReason(step)
+					}
 				}
 			}
 		}
@@ -238,7 +281,7 @@ func queueWords(q QueueStatus) string {
 		if q.Words != "" {
 			return q.Words
 		}
-		return "needs you"
+		return "Waiting for a decision on the change"
 	case "retrying":
 		return "trying again"
 	case "stopped":
@@ -248,21 +291,30 @@ func queueWords(q QueueStatus) string {
 	}
 }
 
-func decisionWords(kind string) string {
-	switch kind {
-	case "routine":
-		return "goes beyond what your settings allow"
-	case "tests":
-		return "the app's tests fail with it"
-	case "preview":
-		return "the app does not start with it"
-	case "scan":
-		return "a security scan found problems in it"
-	case "approval":
-		return "needs your yes"
-	default:
-		return "needs you"
+var evidenceBrackets = regexp.MustCompile(`\[[^\]]*\]`)
+
+func decisionReason(step *Step) string {
+	reason := strings.TrimSpace(evidenceReason(step.Evidence))
+	// Raw structured evidence is detail, not an explanatory sentence.
+	if json.Valid([]byte(reason)) {
+		reason = ""
 	}
+	reason = strings.Join(strings.Fields(evidenceBrackets.ReplaceAllString(reason, "")), " ")
+	if strings.IndexFunc(reason, unicode.IsLetter) >= 0 {
+		for i, r := range reason {
+			if (r == '.' || r == '!' || r == '?') && (i+1 == len(reason) || reason[i+1] == ' ') {
+				reason = reason[:i+1]
+				break
+			}
+		}
+		runes := []rune(reason)
+		runes[0] = unicode.ToUpper(runes[0])
+		return string(runes)
+	}
+	if step.Status == StatusError {
+		return "A check could not finish"
+	}
+	return "A check did not pass"
 }
 
 // StartFix records the attempted work at the producer session, not at a

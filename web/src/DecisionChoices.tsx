@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react'
 
 // Keep the offered choices equal in size, with full rows at each width.
-export function DecisionGrid({ children }: { children: ReactNode }) {
-  return <div className="ch-decision-choices">{children}</div>
+export function DecisionGrid({ children, inline = false }: { children: ReactNode; inline?: boolean }) {
+  return inline ? <>{children}</> : <div className="ch-decision-choices">{children}</div>
 }
 
 // Keep decision state here while a table places prose and buttons in separate cells.
@@ -45,7 +45,7 @@ export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, 
     </>, <div className="row">
         <button className="primary" disabled={busy || accept?.disabled || !reason.trim()} onClick={async () => { await accept?.prompt?.run(reason.trim()); setMode('choices') }}>{accept?.prompt?.label ?? accept?.label}</button>
         <button disabled={busy} onClick={() => setMode('choices')}>Cancel</button>
-      </div>) : layout(null, <DecisionGrid>
+      </div>) : layout(null, <DecisionGrid inline={!!children}>
       {accept && <button className={highlight ? highlight === 'accept' ? 'primary' : undefined : chat ? undefined : 'primary'} disabled={busy || accept.disabled} onClick={() => {
         if (accept.prompt) { setReason(''); setMode('reason') } else accept.run()
       }}>{accept.label}</button>}

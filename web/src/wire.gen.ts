@@ -4333,6 +4333,7 @@ export type JanitorHold = {
 }
 
 export type QueueStatus = {
+  changeSummary: string
   title: string
   queue: string
   state: string
