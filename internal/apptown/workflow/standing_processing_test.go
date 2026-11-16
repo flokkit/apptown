@@ -207,9 +207,9 @@ func TestStandingVotePreservesAuthorityWithoutClaimingHumanAssent(t *testing.T) 
 }
 
 func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T) {
-	for _, mode := range []string{"revoke within claim", "checked code", "aggressive major", "routine during assessment", "routine at merge", "held back", "hold during assessment", "off during assessment", "purpose changed", "candidate moved", "rule disabled", "rule revised", "failed check", "model failed", "model unclear", "off at merge", "hold at merge", "disabled at merge"} {
+	for _, mode := range []string{"revoke within claim", "checked code", "ship scan fail", "ship scan error", "ship build fail", "aggressive major", "routine during assessment", "routine at merge", "held back", "hold during assessment", "off during assessment", "purpose changed", "candidate moved", "rule disabled", "rule revised", "failed check", "model failed", "model unclear", "off at merge", "hold at merge", "disabled at merge"} {
 		t.Run(mode, func(t *testing.T) {
-			held := mode != "revoke within claim" && mode != "checked code" && mode != "aggressive major" && !strings.HasSuffix(mode, "at merge")
+			held := !strings.HasPrefix(mode, "ship ") && mode != "revoke within claim" && mode != "checked code" && mode != "aggressive major" && !strings.HasSuffix(mode, "at merge")
 			const meaning = "declared fix in range and every check met"
 			rig := stepAuthoritySpecFixture(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "checks", Steps: []schema.Step{{Name: "tests", Uses: "tests"}}}, {Name: "final", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"standing": map[string]any{"class": "routine-update", "means": meaning}}}}}}})
 			ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, rig.Access, "boss"))
@@ -368,16 +368,20 @@ func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T)
 
 func TestStandingCarryRequiresEveryLandingCheckAndCurrentProjectConsent(t *testing.T) {
 	for _, tc := range []struct {
-		name      string
-		verdict   CheckVerdict
-		hold, off bool
-		want      bool
+		name        string
+		verdict     CheckVerdict
+		hold, off   bool
+		want        bool
+		singleStage bool
 	}{
-		{"all checks met", VerdictPass, false, false, true},
-		{"already failing on main", VerdictFail, false, false, false},
-		{"waived landing check", VerdictExcepted, false, false, false},
-		{"held after acceptance", VerdictPass, true, false, false},
-		{"turned off after acceptance", VerdictPass, false, true, false},
+		{"all checks met", VerdictPass, false, false, true, false},
+		{"already failing on main", VerdictFail, false, false, false, false},
+		{"waived landing check", VerdictExcepted, false, false, false, false},
+		{"single stage/all checks met", VerdictPass, false, false, true, true},
+		{"single stage/already failing on main", VerdictFail, false, false, false, true},
+		{"single stage/waived landing check", VerdictExcepted, false, false, false, true},
+		{"held after acceptance", VerdictPass, true, false, false, false},
+		{"turned off after acceptance", VerdictPass, false, true, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a, rules, _, _, _ := standingFixture(t)
@@ -410,6 +414,11 @@ func TestStandingCarryRequiresEveryLandingCheckAndCurrentProjectConsent(t *testi
 				{Name: "approval", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"means": "I approve the landing", "standing": map[string]any{"class": "routine-update", "means": rule.Question.Projects[0].Procedure.Landing.Means}}}}},
 				{Name: "ship", Steps: []schema.Step{{Name: "record", Uses: "script"}}},
 			}}
+			if tc.singleStage {
+				// A single-stage landing merges at completion, after both checks and approval.
+				spec.Stages[1].Steps = append(spec.Stages[0].Steps, spec.Stages[1].Steps...)
+				spec.Stages = spec.Stages[1:2]
+			}
 			admissions := newRunAdmissions(a.DB, NewStages(nil, func(string) bool { return false }), nil)
 			landing, err := admissions.records.create(ctx, StartRequest{ProjectID: a.ProjectID, ChangeID: a.ChangeID, WorkflowName: "land", InputsJSON: "{}", acceptedRunID: work.ID, requestedBy: "apptown-system"}, PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: spec})
 			if err != nil {
@@ -437,12 +446,14 @@ func TestStandingCarryRequiresEveryLandingCheckAndCurrentProjectConsent(t *testi
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := (advanceStore{db: a.DB, stages: NewStages(nil, func(string) bool { return false })}).transition(ctx, current, "approval", "apptown-system"); err != nil {
-				t.Fatal(err)
-			}
-			current, err = readRun(ctx, a.DB, landing.ID)
-			if err != nil {
-				t.Fatal(err)
+			if !tc.singleStage {
+				if _, err := (advanceStore{db: a.DB, stages: NewStages(nil, func(string) bool { return false })}).transition(ctx, current, "approval", "apptown-system"); err != nil {
+					t.Fatal(err)
+				}
+				current, err = readRun(ctx, a.DB, landing.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 			store := landings{db: a.DB, standing: &rules, eligible: anyoneMayApprove}
 			if _, err := store.apply(ctx, work.ID, current.ID); err != nil {
@@ -654,7 +665,7 @@ func standingCheckedCodeLanding(t *testing.T, rig *stepAuthorityTestRig, rules S
 	}
 	spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{
 		{Name: "approval", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"standing": map[string]any{"class": "routine-update", "means": proc.Landing.Means}}}}},
-		{Name: "ship", Steps: []schema.Step{{Name: "record", Uses: "script"}}},
+		{Name: "ship", Steps: []schema.Step{{Name: "build-exists", Uses: "script"}, {Name: "scan-bundle", Uses: "scan", With: map[string]any{"on": "bundle"}}}, Gate: &schema.Gate{Require: []string{"build-exists"}}},
 	}}
 	admissions := newRunAdmissions(rig.DB, NewStages(nil, func(string) bool { return false }), nil)
 	landing, err := admissions.records.create(ctx, StartRequest{ProjectID: rig.ProjectID, ChangeID: rig.ChangeID, WorkflowName: "land", InputsJSON: "{}", acceptedRunID: work.ID, landingBy: "boss", requestedBy: "apptown-system"}, PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: spec, Events: []StartEvent{LandingPinRequired()}})
@@ -757,6 +768,64 @@ func standingCheckedCodeLanding(t *testing.T, rig *stepAuthorityTestRig, rules S
 	}
 	if err != nil || !result.Allowed {
 		t.Fatalf("checked code did not land: %+v %v", result, err)
+	}
+	if strings.HasPrefix(mode, "ship ") {
+		stages := NewStages(nil, func(string) bool { return false })
+		if _, err := (advanceStore{db: rig.DB, stages: stages}).transition(ctx, landing, "ship", "apptown-system"); err != nil {
+			t.Fatal(err)
+		}
+		landing, err = readRun(ctx, rig.DB, landing.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		steps, err := readSteps(ctx, rig.DB, landing.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		attempts := newStepAttempts(rig.DB, func(string) bool { return true })
+		for _, step := range steps {
+			if step.Stage != "ship" || step.Type == "scm/merged" {
+				continue
+			}
+			attempt, err := attempts.start(ctx, step, step.Type, ids.Nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			outcome := StepOutcome{Status: StatusPass, Evidence: json.RawMessage(mustJSON(map[string]string{"candidate": tip}))}
+			if step.Name == "build-exists" && mode == "ship build fail" {
+				outcome.Status = StatusFail
+			}
+			if step.Name == "scan-bundle" {
+				outcome.Status = StatusFail
+				if mode == "ship scan error" {
+					outcome.Status = StatusError
+				}
+				outcome.Evidence = json.RawMessage(`{"reason":"images observed"}`)
+			}
+			if err := attempts.finish(ctx, attempt, outcome); err != nil {
+				t.Fatal(err)
+			}
+		}
+		// Use the real merge admission again at completion, after the
+		// optional bundle observation has settled with a non-passing verdict.
+		advancer := newAdvancer(rig.DB, advanceRuntime{stages: stages, checks: advancementScopeChecks{refresh: func(context.Context, *Run) error { return nil }}, completion: completed})
+		mergeCalls := 0
+		advancer.engine.merge = func(ctx context.Context, run *Run) (MergeResult, error) {
+			mergeCalls++
+			return merges.Merge(ctx, run)
+		}
+		out, err := advancer.advanceRun(ctx, landing, "apptown-system")
+		if mode == "ship build fail" {
+			if err != nil || out.Advanced || mergeCalls != 0 || len(out.Blocking) != 1 || out.Blocking[0].Name != "build-exists" {
+				t.Fatalf("required ship build did not gate completion: %+v %v; merges=%d", out, err, mergeCalls)
+			}
+			wantRunState(t, rig.DB, landing.ID, RunRunning)
+			return
+		}
+		if err != nil || !out.Advanced || out.RunStatus != RunDone || mergeCalls != 1 {
+			t.Fatalf("post-merge scan blocked completion: %+v %v", out, err)
+		}
+		wantRunState(t, rig.DB, landing.ID, RunDone)
 	}
 	merged := gittest.Run(t, hub, "log", "-1", "--format=%B", "main")
 	if !strings.Contains(merged, "the janitor, under standing approval") || !strings.Contains(merged, "(rev 1), granted by boss") {

@@ -187,6 +187,11 @@ errors concerning the candidate or its bounds hold immediately.
 A failure can go to the dormant repair agent. The receipt keeps
 session, model, rubric and diff identities. Every required check must still be
 met for standing acceptance; a person may accept work that routine refuses.
+A landing's standing evidence includes every stage before the merge. A landing
+with more than one stage merges when it enters its final stage, so that stage
+is excluded. A single-stage landing merges at completion, so its stage is
+included. The completion recheck uses the same pre-merge evidence. Post-merge
+steps still follow the final stage's own gate.
 
 The assessment records source commits, tree, rule and run revisions, and a digest
 of the classified paths. It re-observes the source before returning. Standing
