@@ -18,9 +18,13 @@ changes a moved package needs. When it cannot decide, the Change waits for a
 person. With Base images on, the agent updates Dockerfile base images within the selected level. AppTown
 checks that each external image keeps its name and tag variant. Stage references,
 `scratch` and variable operands stay unchanged. Toolchains stay unchanged except
-when Toolchain patches is on, for patch releases within the same minor that a named security finding needs. The reporting scanner must no longer report each security target. Only
-the public part's running-image findings become image targets; other parts need
-a person.
+when Toolchain patches is on, for patch releases within the same minor that a named security finding needs. For a nonempty security fix, the reporting scanner must no longer report each
+security target. Only the public part's running-image findings become image
+targets. Static parts run AppTown's file server, so its image findings remain
+scan observations rather than project fix targets; source dependency findings
+still have their own fix targets. Findings in other parts need a person.
+Adding, refreshing or removing a digest on the same image and tag is a base-image
+update at any level.
 Direct dependencies move to stable releases only. A package they pull in may be
 a pre-release (alpha, beta, rc) when the stable release itself requires it; the
 janitor never pins one.
@@ -63,6 +67,10 @@ Ordinary release approvals, holds and windows still apply. Manual and promotion
 feeds receive no automatic rebuild. A project's own security workflow can
 leave out the `rebuild` step.
 
+A scan with no project fix targets closes as an observation after the rebuild
+passes or is not applicable. Its findings remain recorded. A failed rebuild
+keeps the Change open.
+
 A finding already reported at build does not trigger another rebuild: the
 recipe could not clear it. This includes fixes needed inside a compiled binary
 or a Dockerfile missing its upgrade. Source and base-image fixes still use the
@@ -90,9 +98,15 @@ new finding, but does not retry a finding that exhausted its tries until a
 person asks it to try again. Janitor's update and repair agents have 45 minutes
 per step.
 
-An empty update needs a final agent message with every part's release-listing
-command and relevant output, and every base image's tag listing. A reference to
-an uncommitted report file is insufficient.
+An empty update needs a final agent message with release-listing commands and
+relevant output for parts that declare dependencies and external base images.
+`scratch`, stage names, variable operands and parts without a manifest or
+Dockerfile need no listing. Write the account in the final message, not a report
+file. When an independent check passes the account, the empty Change closes as
+nothing to change without asking a person. This includes a security fix when
+no release or newer image build within the level fixes the finding. The scan's
+findings and verdict stay recorded, candidate scans are not applicable, and the
+next scheduled scan can offer the same targets again.
 
 Security fixes, dependency updates and pack updates have separate failure counts.
 Stopping dependency updates leaves security fixes able to run unless their own

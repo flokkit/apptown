@@ -57,9 +57,12 @@ ENTRYPOINT ["/nextup"]
 		{"backslash in ARG", "FROM node:22\nARG VALUE=a\\b", "FROM node:23\nARG VALUE=a\\b", false},
 		{"backslash in FROM", "FROM ${NODE\\NAME}\nRUN echo a", "FROM ${NODE\\NAME}\nRUN echo b", false},
 		{"escape directive", "# EsCaPe = \\\nFROM node:22", "# EsCaPe = \\\nFROM node:23", false},
-		{"backtick", "FROM node:22\nRUN echo `date`", "FROM node:23\nRUN echo `date`", false},
+		{"backtick in RUN, tag moved", "FROM node:22\nRUN echo `date`", "FROM node:23\nRUN echo `date`", true},
+		{"backtick in comment, digest added", "# `app` here\nFROM python:3.12-slim", "# `app` here\nFROM python:3.12-slim" + digest, true},
+		{"escape directive backtick", "# EsCaPe = `\nFROM node:22", "# EsCaPe = `\nFROM node:23", false},
 		{"node slim", "FROM node:22-slim", "FROM node:22.2-slim" + digest, true},
 		{"alpine", "FROM alpine:3.22", "FROM alpine:3.23", true},
+		{"same-tag digest refreshed", "FROM eclipse-temurin:21-jre" + digest, "FROM eclipse-temurin:21-jre@sha256:" + strings.Repeat("b", 64), true},
 		{"digest removed", "FROM node:22-alpine" + digest, "FROM node:22-alpine", true},
 		{"runtime tag", "FROM gcr.io/distroless/static:nonroot", "FROM gcr.io/distroless/static:nonroot" + digest, true},
 		{"repository", "FROM node:22-slim", "FROM nodejs:22-slim", false},
@@ -84,7 +87,7 @@ ENTRYPOINT ["/nextup"]
 			if (err == nil) != tc.allowed {
 				t.Fatalf("allowed=%t: %v", tc.allowed, err)
 			}
-			if err != nil && !strings.Contains(err.Error(), "Dockerfile") {
+			if err != nil && !strings.HasPrefix(err.Error(), "Changes the Dockerfile beyond image versions; your settings allow only image version changes.") {
 				t.Fatal(err)
 			}
 		})
@@ -135,13 +138,13 @@ func TestUpdateInputsPermitOnlySecurityToolchainPatches(t *testing.T) {
 func TestBaseImageChoiceGuardsFromVersionMoves(t *testing.T) {
 	before := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM node:24.1-alpine\n"))}
 	after := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM node:24.2-alpine\n"))}
-	if err := CompareUpdateInputs(before, after, false, false); err == nil {
+	if err := CompareUpdateInputs(before, after, false, false); err == nil || !strings.HasPrefix(err.Error(), "Moves a base image; base image updates are turned off.") {
 		t.Fatal("base images off allowed a FROM version move")
 	}
 	if err := CompareUpdateInputs(before, after, true, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := CompareUpdateInputs(map[string]any{".go-version": "1.27.3"}, map[string]any{".go-version": "1.27.4"}, true, false); err == nil {
+	if err := CompareUpdateInputs(map[string]any{".go-version": "1.27.3"}, map[string]any{".go-version": "1.27.4"}, true, false); err == nil || !strings.HasPrefix(err.Error(), "Changes the toolchain version or build inputs; your settings do not allow this change.") {
 		t.Fatal("toolchain patches off allowed a patch")
 	}
 }

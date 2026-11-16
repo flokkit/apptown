@@ -117,6 +117,22 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
 	}
+	if cfgErr == nil && len(targets) > 0 && (observation.Subject.On == "source" || observation.Subject.On == "image") {
+		source, err := workflow.ReadSourceIn(task.Context(), a.db, workflow.RunRef{ID: run.ID, ProjectID: run.ProjectID})
+		if err != nil {
+			finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+			return
+		}
+		empty, err := workflow.ChangeIsEmpty(task.Context(), a.dataDir, source)
+		if err != nil {
+			finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+			return
+		}
+		if empty {
+			finish(workflow.StatusNotApplicable, map[string]any{"reason": "the change is empty; the scan of main stands"})
+			return
+		}
+	}
 	if observation.Subject.On == "source" || observation.Subject.On == "image" {
 		expected, err := task.ScanScanners(observation.Subject.On)
 		if err != nil {

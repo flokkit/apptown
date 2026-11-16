@@ -201,6 +201,14 @@ func recordCompletedChild(ctx context.Context, tx *database.Tx, child *Run, at t
 	if json.Unmarshal(ev["childRunId"], &named) != nil || named != child.ID {
 		return nil
 	}
+	steps, err := readStageSteps(ctx, tx, child.ID, child.CurrentStage)
+	if err != nil {
+		return err
+	}
+	if account, ok := emptyResultAccount(steps); ok {
+		ev["nothingToChange"] = json.RawMessage("true")
+		setRetryField(ev, "reason", account)
+	}
 	ev["childRunId"], _ = json.Marshal(child.ID)
 	setRetryField(ev, "workflow", child.WorkflowName)
 	setRetryField(ev, "outcome", RunDone.String())

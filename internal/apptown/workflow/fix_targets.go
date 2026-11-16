@@ -132,7 +132,8 @@ func (e *Execution) fixableTargets(ctx context.Context, names []string, ds []fix
 							if err != nil {
 								return nil, "", err
 							}
-							if part := contract.PublicPart(); part != nil {
+							// Static parts run AppTown's file server, not an image the project can repair.
+							if part := contract.PublicPart(); part != nil && !part.IsStatic() {
 								publicPart = part.Name
 							}
 							publicPartRead = true

@@ -183,12 +183,15 @@ func TestRunningTargetsAreImageOnlyPublicPartFindingsAboveThreshold(t *testing.T
 	for _, tc := range []struct {
 		name, part, severity string
 		shared               bool
+		static               string
 		want                 int
 	}{
-		{"public image", "web", "high", false, 1},
-		{"another part", "worker", "high", false, 0},
-		{"below threshold", "web", "medium", false, 0},
-		{"source package", "web", "high", true, 0},
+		{"static folder", "web", "high", false, ".", 0},
+		{"static build", "web", "high", false, "{build: ., output: dist}", 0},
+		{"public image", "web", "high", false, "", 1},
+		{"another part", "worker", "high", false, "", 0},
+		{"below threshold", "web", "medium", false, "", 0},
+		{"source package", "web", "high", true, "", 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var got []check.Finding
@@ -247,7 +250,11 @@ func TestRunningTargetsAreImageOnlyPublicPartFindingsAboveThreshold(t *testing.T
 				t.Fatal(err)
 			}
 			gittest.Run(t, repo, "init", "-q", "-b", "main")
-			if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    public: true\n  worker:\n    build: worker\n"), 0600); err != nil {
+			build := "build: ."
+			if tc.static != "" {
+				build = "static: " + tc.static
+			}
+			if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte("app:\n  web:\n    "+build+"\n    public: true\n  worker:\n    build: worker\n"), 0600); err != nil {
 				t.Fatal(err)
 			}
 			gittest.Run(t, repo, "add", ".")

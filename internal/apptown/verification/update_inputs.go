@@ -117,7 +117,7 @@ var patchVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
 func dockerBaseInputs(raw []byte) dockerInputs {
 	exact := dockerInputs{Exact: string(raw)}
-	if bytes.ContainsAny(raw, "\x00\r`") || bytes.Contains(raw, []byte("<<")) {
+	if bytes.ContainsAny(raw, "\x00\r") || bytes.Contains(raw, []byte("<<")) {
 		return exact
 	}
 	for _, c := range raw {
@@ -232,7 +232,9 @@ func CompareUpdateInputs(before, after map[string]any, baseImages, allowToolchai
 		if aok && bok && reflect.DeepEqual(a, b) {
 			continue
 		}
-		refuse := func(why string) error { return fmt.Errorf("%s: %s; a person must approve this change", k, why) }
+		refuse := func(why string) error {
+			return fmt.Errorf("Changes the Dockerfile beyond image versions; your settings allow only image version changes. %s: %s", k, why)
+		}
 		if aok && bok {
 			if x, ok := a.(dockerInputs); ok {
 				y, ok := b.(dockerInputs)
@@ -250,7 +252,7 @@ func CompareUpdateInputs(before, after map[string]any, baseImages, allowToolchai
 							why = "stage, scratch or variable operand changed"
 						}
 					case !baseImages && old.Operand != next.Operand:
-						why = "base image updates are turned off"
+						return fmt.Errorf("Moves a base image; base image updates are turned off. %s: stage %d", k, i+1)
 					case old.Repository != next.Repository:
 						why = fmt.Sprintf("%s → %s changes the image", old.Operand, next.Operand)
 					case old.Variant != next.Variant:
@@ -266,7 +268,7 @@ func CompareUpdateInputs(before, after map[string]any, baseImages, allowToolchai
 				continue
 			}
 		}
-		return refuse("toolchain or build inputs changed")
+		return fmt.Errorf("Changes the toolchain version or build inputs; your settings do not allow this change. %s", k)
 	}
 	return nil
 }
