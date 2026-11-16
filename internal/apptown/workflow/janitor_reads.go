@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -24,7 +23,6 @@ type janitorChoice struct {
 	Level  string       `json:"level"`
 	Person access.Actor `json:"person"`
 	At     string       `json:"at"`
-	Reason string       `json:"reason"`
 }
 
 type janitorState struct {
@@ -79,10 +77,10 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, *Stand
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	byProject := map[ids.ID]janitorChoice{}
+	byProject := map[ids.ID]*standingProjectAct{}
 	for _, row := range choices {
-		var c janitorChoice
-		if err := json.Unmarshal(row.RecordJson, &c); err != nil {
+		c, err := projectChoiceFrom(row.RecordJson)
+		if err != nil {
 			return nil, nil, nil, err
 		}
 		byProject[row.ProjectID] = c
@@ -102,13 +100,15 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, *Stand
 	out := make([]JanitorProject, 0, len(labels))
 	for _, p := range labels {
 		item := JanitorProject{ProjectID: p.ID, Slug: p.Slug, Name: p.Name, Queues: []QueueStatus{}}
+		var in JanitorChoices
 		if rule != nil {
 			item.Enabled = rule.Enabled
-			item.Level = rule.Choices.Dependencies
+			in = rule.Choices
 		}
-		if choice, ok := byProject[p.ID]; ok {
-			item.Choice = &choice
-			item.Level = choice.Level
+		choice := byProject[p.ID]
+		item.Level = projectLevel(in, choiceLevel(choice))
+		if choice != nil {
+			item.Choice = &janitorChoice{Level: choice.Level, Person: choice.Person, At: choice.At}
 		}
 		facts := factsByProject[p.ID]
 		definitions := parseProcedures(facts)

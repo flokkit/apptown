@@ -106,7 +106,7 @@ func TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/janitor/settings", `{"level":"off","reason":"Waiting for a release"}`); w.Code != 200 {
+	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/janitor/settings", `{"level":"off"}`); w.Code != 200 {
 		t.Fatalf("choice: %d %s", w.Code, w.Body)
 	}
 	w := authzCall(h, "outsider", "GET", "/api/v1/janitor", "")
@@ -120,7 +120,7 @@ func TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement(t *testi
 	found := false
 	for _, p := range got.Projects {
 		if p.ProjectID == idstest.N(1) {
-			found = p.Level == "off" && p.Choice != nil && p.Choice.Person.Name == "owner" && p.Choice.At != "" && p.Choice.Reason == "Waiting for a release"
+			found = p.Level == "off" && p.Choice != nil && p.Choice.Person.Name == "owner" && p.Choice.At != ""
 		}
 	}
 	if !found {

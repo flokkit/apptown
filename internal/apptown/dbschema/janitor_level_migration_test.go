@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestMigration237PreservesProjectChoiceAttribution(t *testing.T) {
+func TestProjectChoiceMigrationsPreserveAttributionAndAllowInstance(t *testing.T) {
 	db := releaseDB(t)
 	if _, err := applyMigrations(t.Context(), db, migrations[:migrationIndex(t, 237)]); err != nil {
 		t.Fatal(err)
@@ -29,6 +29,11 @@ func TestMigration237PreservesProjectChoiceAttribution(t *testing.T) {
 	if _, err := applyMigrations(t.Context(), db, migrations); err != nil {
 		t.Fatal(err)
 	}
+	// sql-guarantee: the widened CHECK accepts inheritance without rewriting historical JSON.
+	id := ids.New(now)
+	if _, err := db.SQL().ExecContext(t.Context(), `INSERT INTO standing_project_choices(id,project_id,level,record_json,at) VALUES($1,$2,'instance','{"level":"instance"}',$3)`, id, pid, now); err != nil {
+		t.Fatal(err)
+	}
 	rows, err := db.SQL().QueryContext(t.Context(), `SELECT level,record_json FROM standing_project_choices ORDER BY level`)
 	if err != nil {
 		t.Fatal(err)
@@ -45,6 +50,10 @@ func TestMigration237PreservesProjectChoiceAttribution(t *testing.T) {
 		if err := json.Unmarshal(raw, &record); err != nil {
 			t.Fatal(err)
 		}
+		if level == "instance" {
+			count++
+			continue
+		}
 		if level != "off" && level != "routine" || record["level"] != level || record["reason"] != "project choice" || record["at"] != "2026-11-12T00:00:00Z" || record["person"].(map[string]any)["name"] != "sam" {
 			t.Fatalf("lost record: %s %s", level, raw)
 		}
@@ -53,7 +62,7 @@ func TestMigration237PreservesProjectChoiceAttribution(t *testing.T) {
 		}
 		count++
 	}
-	if err := rows.Err(); err != nil || count != 2 {
+	if err := rows.Err(); err != nil || count != 3 {
 		t.Fatalf("rows=%d %v", count, err)
 	}
 }

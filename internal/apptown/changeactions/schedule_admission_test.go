@@ -75,7 +75,7 @@ spec:
 				}
 			}
 			if state == "off" {
-				if err := w.schedules.Standing.SetProjectChoice(human, w.project.ID, "off", "fixture choice"); err != nil {
+				if err := w.schedules.Standing.SetProjectChoice(human, w.project.ID, "off"); err != nil {
 					t.Fatal(err)
 				}
 			}

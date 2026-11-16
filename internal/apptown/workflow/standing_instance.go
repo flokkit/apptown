@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -174,20 +173,16 @@ func (s StandingRules) standingForWorkflow(ctx context.Context, pid ids.ID, name
 type standingProjectChoice struct {
 	ProjectID ids.ID `json:"projectId"`
 	Level     string `json:"level"`
-	Reason    string `json:"reason"`
 }
 
-func (s StandingRules) SetProjectChoice(ctx context.Context, pid ids.ID, level string, reason string) error {
-	if level != "off" && level != "routine" && level != "aggressive" {
-		return fault.New(fault.Invalid, "select off, routine or aggressive")
+func (s StandingRules) SetProjectChoice(ctx context.Context, pid ids.ID, level string) error {
+	if level != "instance" && level != "off" && level != "routine" && level != "aggressive" {
+		return fault.New(fault.Invalid, "select instance, off, routine or aggressive")
 	}
-	in := standingProjectChoice{ProjectID: pid, Level: level, Reason: reason}
+	in := standingProjectChoice{ProjectID: pid, Level: level}
 	actor, err := s.human(ctx, s.db)
 	if err != nil {
 		return err
-	}
-	if strings.TrimSpace(in.Reason) == "" {
-		return fault.New(fault.Invalid, "give a reason for changing janitor updates")
 	}
 	resource, err := project.AuthorityResourceIn(ctx, s.db, in.ProjectID)
 	if err != nil {
@@ -219,9 +214,10 @@ type standingProjectAct struct {
 }
 
 type standingProjectState struct {
-	Enabled bool                `json:"enabled"`
-	Level   string              `json:"level"`
-	Choice  *standingProjectAct `json:"choice,omitempty"`
+	InstanceLevel string              `json:"instanceLevel"`
+	Enabled       bool                `json:"enabled"`
+	Level         string              `json:"level"`
+	Choice        *standingProjectAct `json:"choice,omitempty"`
 }
 
 func (s StandingRules) ProjectState(ctx context.Context, pid ids.ID) (standingProjectState, error) {
@@ -237,23 +233,21 @@ func (s StandingRules) ProjectState(ctx context.Context, pid ids.ID) (standingPr
 	if err != nil {
 		return out, err
 	}
-	if len(choices) > 0 {
-		out.Choice = &standingProjectAct{}
-		if err = json.Unmarshal(choices[0], out.Choice); err != nil {
-			return out, err
-		}
-		out.Level = out.Choice.Level
+	out.Choice, err = projectChoiceFrom(firstProjectChoice(choices))
+	if err != nil {
+		return out, err
 	}
 	rule, err := latestStanding(ctx, s.db)
 	if err != nil {
 		return out, err
 	}
+	var in JanitorChoices
 	if rule != nil {
 		out.Enabled = rule.Enabled
-		if out.Level == "" {
-			out.Level = rule.Choices.Dependencies
-		}
+		in = rule.Choices
 	}
+	out.InstanceLevel = in.Dependencies
+	out.Level = projectLevel(in, choiceLevel(out.Choice))
 
 	return out, nil
 }
@@ -265,18 +259,50 @@ func (s StandingRules) effectiveLevelIn(ctx context.Context, q database.Queryer,
 	if err != nil {
 		return "", err
 	}
-	if len(rows) == 0 || in.Dependencies == "off" {
-		return in.Dependencies, nil
-	}
-	var act standingProjectAct
-	if err := json.Unmarshal(rows[0], &act); err != nil {
+	choice, err := projectChoiceFrom(firstProjectChoice(rows))
+	if err != nil {
 		return "", err
 	}
-	switch act.Level {
-	case "off", "routine", "aggressive":
-		return act.Level, nil
+	return projectLevel(in, choiceLevel(choice)), nil
+}
+
+func firstProjectChoice(rows []json.RawMessage) []byte {
+	if len(rows) == 0 {
+		return nil
 	}
-	return "", fault.New(fault.Conflict, "project janitor level is invalid")
+	return rows[0]
+}
+
+func projectChoiceFrom(raw []byte) (*standingProjectAct, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var act standingProjectAct
+	if err := json.Unmarshal(raw, &act); err != nil {
+		return nil, err
+	}
+	switch act.Level {
+	case "instance":
+		return nil, nil
+	case "off", "routine", "aggressive":
+		return &act, nil
+	default:
+		return nil, fault.New(fault.Conflict, "project janitor level is invalid")
+	}
+}
+
+func choiceLevel(choice *standingProjectAct) string {
+	if choice == nil {
+		return ""
+	}
+	return choice.Level
+}
+
+func projectLevel(instance JanitorChoices, choice string) string {
+	if choice == "" || instance.Dependencies == "off" {
+		return instance.Dependencies
+	}
+	return choice
 }
 
 type standingTargetProcedures interface {

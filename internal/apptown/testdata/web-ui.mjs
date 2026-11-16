@@ -256,7 +256,7 @@ try {
     conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews', 'text-roles': '/text-roles',
     'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations',
     integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets', notifications: '/integrations/notifications',
-    janitor: '/janitor', 'janitor-settings': '/janitor/settings', 'project-janitor': '/projects/rocket-garden#janitor', packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
+    janitor: '/janitor', 'janitor-settings': '/janitor/settings', packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
     'people-groups': '/people/groups', 'people-group': '/people/groups/reviewers', 'people-account': '/people/accounts/sam', 'people-roles': '/people/roles', 'people-signin': '/people/sign-in', 'people-agents': '/people/agents-and-tokens',
     evals: '/evals', 'eval-new': '/evals/new', people: '/people/accounts', account: '/account', usage: '/usage',
     complaints: '/complaints', 'complaints-answered': '/complaints/answered', 'complaints-archive': '/complaints/archive',
@@ -930,11 +930,13 @@ try {
           // light whatever card it last passed over.
           if (size.startsWith('phone')) await page.mouse.move(-1, -1);
           // The open phone menu covers the viewport, not the whole page.
+          if (screen === 'overview' && (await page.getByRole('region', { name: 'Janitor', exact: true }).count() || await page.locator('#janitor').count())) throw new Error('Janitor remains on Overview');
+          if (screen === 'settings-general') await page.getByRole('region', { name: 'Janitor', exact: true }).getByLabel('Dependencies', { exact: true }).waitFor();
           timer.lap('checks');
           // A dialog covers the screen; the page under it is not part of the shot.
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}.png`, fullPage: !(screen === 'overview-navigation' && size.startsWith('phone')) && !(await page.locator('[role="dialog"]:visible').count()) });
-          if (screen === 'overview' || screen === 'conformance-project') {
-            const section = screen === 'overview' ? 'Janitor' : 'Last scan';
+          if (screen === 'conformance-project') {
+            const section = 'Last scan';
             await page.getByRole('region', { name: section, exact: true }).screenshot({ path: `${out}/${screen}/${size}-${theme}-scan-section.png`, style: ".topbar { visibility: hidden !important; }" });
           }
           timer.lap('screenshot');

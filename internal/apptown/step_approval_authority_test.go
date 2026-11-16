@@ -353,7 +353,10 @@ func TestJanitorSettingsHTTPChecksCurrentProjectAuthority(t *testing.T) {
 	pid := idstest.N(1)
 	h := a.Handler()
 	path := "/api/v1/projects/game/janitor/settings"
-	body := `{"level":"off","reason":"inspect updates"}`
+	if w := authzCall(h, "owner", "POST", path, `{"level":"off","reason":"inspect updates"}`); w.Code != 400 {
+		t.Fatalf("reason accepted: %d %s", w.Code, w.Body)
+	}
+	body := `{"level":"off"}`
 	if w := authzCall(h, "outsider", "POST", path, body); w.Code != 403 {
 		t.Fatalf("unscoped write: %d %s", w.Code, w.Body)
 	}
@@ -368,20 +371,20 @@ func TestJanitorSettingsHTTPChecksCurrentProjectAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if state.Level != "off" || state.Choice == nil || state.Choice.Person.Name != "outsider" || state.Choice.Reason != "inspect updates" {
+	if state.Level != "off" || state.Choice == nil || state.Choice.Person.Name != "outsider" {
 		t.Fatalf("choice lost attribution: %+v", state)
 	}
 	if _, err := a.Access.Revoke(t.Context(), grant, "boss"); err != nil {
 		t.Fatal(err)
 	}
-	if w := authzCall(h, "outsider", "POST", path, `{"level":"aggressive","reason":"resume"}`); w.Code != 403 {
+	if w := authzCall(h, "outsider", "POST", path, `{"level":"aggressive"}`); w.Code != 403 {
 		t.Fatalf("revoked write: %d %s", w.Code, w.Body)
 	}
 	after, err := a.standingRules.ProjectState(asPerson("owner"), pid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.Level != state.Level || after.Choice == nil || after.Choice.Reason != state.Choice.Reason || after.Choice.At != state.Choice.At {
+	if after.Level != state.Level || after.Choice == nil || after.Choice.At != state.Choice.At {
 		t.Fatal("refused write changed choice")
 	}
 }
@@ -855,7 +858,7 @@ func testPackAdoption(t *testing.T, only string) {
 				t.Fatalf("second target not adopted: %+v", members)
 			}
 			// The job uses current authority, not the publication's saved issuer label.
-			if err := a.standingRules.SetProjectChoice(ctx, pid, "off", "pause pack updates"); err != nil {
+			if err := a.standingRules.SetProjectChoice(ctx, pid, "off"); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := a.Ways.PublishPack(ctx, "old-language", "Old language", `{"description":"third publication"}`, ""); err != nil {
@@ -1065,7 +1068,7 @@ func TestJanitorRunPacksChecksProjectChoiceAndRecordsRequester(t *testing.T) {
 	}
 	schedules := changeactions.Schedules{Standing: &a.standingRules, Packs: fleetReviewsFor(a), Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}
 	p := a.projectByID(ctx, behind)
-	if err := a.standingRules.SetProjectChoice(ctx, behind, "off", "Pause updates"); err != nil {
+	if err := a.standingRules.SetProjectChoice(ctx, behind, "off"); err != nil {
 		t.Fatal(err)
 	}
 	before, err := a.conformance.RecentWhatIfs(ctx, 100)
@@ -1090,7 +1093,7 @@ func TestJanitorRunPacksChecksProjectChoiceAndRecordsRequester(t *testing.T) {
 	if err != nil || len(after) != len(before) || countJobs() != jobsBefore {
 		t.Fatalf("off started assessment: %+v %v", after, err)
 	}
-	if err := a.standingRules.SetProjectChoice(ctx, behind, "routine", "Resume updates"); err != nil {
+	if err := a.standingRules.SetProjectChoice(ctx, behind, "routine"); err != nil {
 		t.Fatal(err)
 	}
 	starts, err = schedules.RunJanitor(ctx, *p, changeactions.JanitorRun{Queue: "packs"}, a.cfg.clock.Now())

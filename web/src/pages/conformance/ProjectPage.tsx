@@ -1,4 +1,4 @@
-import { LastScan } from '../project/Janitor'
+import { LastScan } from './LastScan'
 import { ListTable } from '../../ListTable'
 import './list-migrations.css'
 import { QuietPrompt } from '../../QuietConfirm'

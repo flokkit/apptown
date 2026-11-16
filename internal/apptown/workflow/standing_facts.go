@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -37,10 +36,7 @@ func (f standingProjectFacts) level(in JanitorChoices) (string, error) {
 	if f.choiceErr != nil {
 		return "", f.choiceErr
 	}
-	if f.choice != "" && in.Dependencies != "off" {
-		return f.choice, nil
-	}
-	return in.Dependencies, nil
+	return projectLevel(in, f.choice), nil
 }
 
 // standingFacts assembles read facts for one judgment set. Errors stay attached
@@ -53,17 +49,10 @@ func (s StandingRules) standingFacts(ctx context.Context, q database.Queryer, ru
 		f.activeErr = project.RefuseUnlessActive(ctx, q, p.ProjectID)
 		choices, err := workflowsql.New(q.SQL()).LatestStandingProjectChoice(ctx, p.ProjectID)
 		f.choiceErr = err
-		if err == nil && len(choices) > 0 {
-			var act standingProjectAct
-			f.choiceErr = json.Unmarshal(choices[0], &act)
-			if f.choiceErr == nil {
-				switch act.Level {
-				case "off", "routine", "aggressive":
-					f.choice = act.Level
-				default:
-					f.choiceErr = fault.New(fault.Conflict, "project janitor level is invalid")
-				}
-			}
+		if err == nil {
+			var choice *standingProjectAct
+			choice, f.choiceErr = projectChoiceFrom(firstProjectChoice(choices))
+			f.choice = choiceLevel(choice)
 		}
 		f.independent, f.independentErr = workflowsql.New(q.SQL()).StandingIndependentApproval(ctx, p.ProjectID)
 		f.resource, f.resourceErr = project.AuthorityResourceIn(ctx, q, p.ProjectID)

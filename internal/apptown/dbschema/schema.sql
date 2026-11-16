@@ -1386,7 +1386,7 @@ CREATE TABLE IF NOT EXISTS automated_changes (
 CREATE TABLE IF NOT EXISTS standing_project_choices (
  id UUID PRIMARY KEY,
  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
- level TEXT NOT NULL CHECK (level IN ('off','routine','aggressive')),
+ level TEXT NOT NULL CHECK (level IN ('instance','off','routine','aggressive')),
  record_json JSONB NOT NULL,
  at TIMESTAMPTZ NOT NULL
 );

@@ -119,6 +119,8 @@ it.each([true, false])('shows open chats without a Past chats section (chat=%s)'
       expect(el.querySelector('.row-action a')?.textContent).toBe('Continue chat')
       expect(el.querySelector('.row-action a')?.getAttribute('href')).toBe('/changes/chat?tab=conversation')
     }
+    expect(el.querySelector('#janitor')).toBeNull()
+    expect(el.querySelector('section[aria-label="Janitor"]')).toBeNull()
     expect(el.textContent).not.toContain('Past chats')
     expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith('/transcript'))).toBe(false)
   } finally {

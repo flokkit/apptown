@@ -114,7 +114,7 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 	// The fixture's authority models an instance reader; each operation still
 	// goes through the production owner's permission check.
 	s.authority = aggregateAuthority{operationAuthority: s.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return []ids.ID{pid, second}, nil }}
-	if err := rules.SetProjectChoice(ctx, second, "off", "Waiting for the next release"); err != nil {
+	if err := rules.SetProjectChoice(ctx, second, "off"); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now().UTC()
@@ -133,7 +133,7 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 		byID[p.ProjectID] = p
 	}
 	off := byID[second]
-	if off.Level != "off" || off.Choice == nil || off.Choice.Person.Name != "boss" || off.Choice.At == "" || off.Choice.Reason != "Waiting for the next release" {
+	if off.Level != "off" || off.Choice == nil || off.Choice.Person.Name != "boss" || off.Choice.At == "" {
 		t.Fatalf("off=%+v", off)
 	}
 	stopped := byID[pid]
@@ -341,7 +341,7 @@ func TestJanitorProjectsClassifiesCompletedFacts(t *testing.T) {
 				rule = enableStanding(t, *rules, ctx, JanitorChoices{Dependencies: "routine", SecurityFixes: true})
 			}
 			if tc.off {
-				if err := rules.SetProjectChoice(ctx, pid, "off", "paused"); err != nil {
+				if err := rules.SetProjectChoice(ctx, pid, "off"); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -539,5 +539,42 @@ func TestJanitorLandedHistoryNamesOnlyMovedPacks(t *testing.T) {
 	history, err = s.LandedJanitorChanges(ctx, now.Add(-11*time.Hour), now.Add(-9*time.Hour), 0, 20)
 	if err != nil || len(history.Changes) != 1 || history.Changes[0].ChangeID != first || len(history.Changes[0].PackVersions) != 2 {
 		t.Fatalf("first: %+v %v", history, err)
+	}
+}
+
+func TestJanitorProjectsFollowInstanceAfterProjectReturns(t *testing.T) {
+	service, rules, ctx, _ := janitorReadFixture(t)
+	visible, err := service.authority.VisibleProjects(ctx, actionReadProject)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pid := visible[0]
+	for _, level := range []string{"off", "instance"} {
+		if err := rules.SetProjectChoice(ctx, pid, level); err != nil {
+			t.Fatal(err)
+		}
+		for _, instance := range []string{"aggressive", "routine", "off"} {
+			enableStanding(t, *rules, ctx, JanitorChoices{Dependencies: instance, Packs: true})
+			projects, _, _, err := service.JanitorProjects(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, p := range projects {
+				if p.ProjectID == pid {
+					found = true
+					want := instance
+					if level == "off" {
+						want = "off"
+					}
+					if p.Level != want || (p.Choice == nil) != (level == "instance") {
+						t.Fatalf("%s / %s: %+v", level, instance, p)
+					}
+				}
+			}
+			if !found {
+				t.Fatal("project missing")
+			}
+		}
 	}
 }

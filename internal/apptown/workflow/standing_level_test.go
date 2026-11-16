@@ -11,9 +11,9 @@ func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
 	in := JanitorChoices{Dependencies: "aggressive", SecurityFixes: true}
 	rule := enableStanding(t, s, boss, in)
 
-	for _, level := range []string{"", "routine", "off", "aggressive"} {
+	for _, level := range []string{"", "routine", "off", "instance", "aggressive"} {
 		if level != "" {
-			if err := s.SetProjectChoice(boss, a.ProjectID, level, "project decision"); err != nil {
+			if err := s.SetProjectChoice(boss, a.ProjectID, level); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -43,7 +43,7 @@ func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
 		}
 		bound, err := s.UpdateChoicesForRun(t.Context(), a.RunID)
 		want := level
-		if level == "" {
+		if level == "" || level == "instance" {
 			want = "aggressive"
 		}
 		if level == "off" {
@@ -52,19 +52,40 @@ func TestProjectLevelControlsCronBoundAndRecordedChoice(t *testing.T) {
 		if err != nil || bound.Dependencies != want {
 			t.Fatalf("bound %s: %+v %v", level, bound, err)
 		}
-		if level != "" {
+		if level != "" && level != "instance" {
 			state, err := s.ProjectState(boss, a.ProjectID)
-			if err != nil || state.Level != level || state.Choice == nil || state.Choice.Person.Name != "boss" || state.Choice.At == "" || state.Choice.Reason != "project decision" {
+			if err != nil || state.Level != level || state.Choice == nil || state.Choice.Person.Name != "boss" || state.Choice.At == "" {
 				t.Fatalf("state %+v %v", state, err)
 			}
 		}
 	}
-	if err := s.SetProjectChoice(boss, a.ProjectID, "routine", "choose weekly updates"); err != nil {
+	// Returning to the instance choice removes the override from both owner reads.
+	if err := s.SetProjectChoice(boss, a.ProjectID, "instance"); err != nil {
 		t.Fatal(err)
 	}
-
+	for _, instance := range []string{"aggressive", "routine"} {
+		rule = enableStanding(t, s, boss, JanitorChoices{Dependencies: instance})
+		state, err := s.ProjectState(boss, a.ProjectID)
+		if err != nil || state.Choice != nil || state.Level != instance || state.InstanceLevel != instance {
+			t.Fatalf("inherited state: %+v %v", state, err)
+		}
+		got, level, refused, err := standingEligibilityOne(s, boss, a.ProjectID, "test")
+		if err != nil || refused != "" || got.RuleID != rule.RuleID || level != instance {
+			t.Fatalf("inherited eligibility: %+v %s %s %v", got, level, refused, err)
+		}
+	}
+	if err := s.SetProjectChoice(boss, a.ProjectID, "routine"); err != nil {
+		t.Fatal(err)
+	}
+	for _, instance := range []string{"aggressive", "routine", "off"} {
+		enableStanding(t, s, boss, JanitorChoices{Dependencies: instance})
+		state, err := s.ProjectState(boss, a.ProjectID)
+		want := "routine"
+		if instance == "off" {
+			want = "off"
+		}
+		if err != nil || state.Choice == nil || state.Choice.Level != "routine" || state.Level != want || state.InstanceLevel != instance {
+			t.Fatalf("pinned state: %+v %v", state, err)
+		}
+	}
 }
-
-// Refusals and absent project choices belong to each workflow/rule judgment.
-
-// Runtime meaning diagnostics respect project/workflow scope and unchanged adopters.

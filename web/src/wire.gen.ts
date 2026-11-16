@@ -1119,7 +1119,6 @@ export type JanitorChoice = {
   level: string
   person: StandingActor
   at: string
-  reason: string
 }
 
 export type JanitorChoices = {
@@ -2193,10 +2192,10 @@ export type StandingProjectAct = {
   level: string
   person: StandingActor
   at: string
-  reason: string
 }
 
 export type StandingProjectState = {
+  instanceLevel: string
   enabled: boolean
   level: string
   choice?: StandingProjectAct | null

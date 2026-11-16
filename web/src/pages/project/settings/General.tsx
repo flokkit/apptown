@@ -1,3 +1,4 @@
+import { JanitorChoice } from './JanitorChoice'
 import './general.css'
 import { RepositoryAttachment } from './RepositoryAttachment'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
@@ -260,6 +261,7 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
       </Section>
 
       <RepoCard slug={project.slug} />
+      <JanitorChoice key={project.slug} slug={project.slug} />
 
       <Section title="Delete project">
         <DangerZone slug={project.slug} />

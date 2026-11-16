@@ -21,7 +21,7 @@ const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name
 const rule = (packs = false, enabled = true): StandingRevision => ({ ruleId: 'choices', revision: 3, enabled, issuer: actor, at, choices: { dependencies: enabled ? 'aggressive' : 'off', securityFixes: enabled, baseImages: enabled, toolchainPatches: enabled, packs } })
 function fixture(): JanitorView {
  const stopped = project('Stopped'); stopped.queues[1] = queue('updates', true); stopped.state.word = 'needs you'
- const off = { ...project('Off'), level: 'off', state: { word: 'off', unknown: false, help: '' }, choice: { level: 'off', person: actor, at, reason: 'Waiting for a release' } }
+ const off = { ...project('Off'), level: 'off', state: { word: 'off', unknown: false, help: '' }, choice: { level: 'off', person: actor, at } }
  return { unknown: [], choices: rule(true), projects: [stopped, project('Held'), off], deployments: [{ projectId: 'Held', deploymentId: 'dep', name: 'production', displayLabel: 'Customer office', automatic: true, hold: { deploymentId: 'dep', deployment: 'production', displayLabel: 'Customer office', releaseNumber: 9, reason: 'release failed' } }] }
 }
 const history = (): JanitorHistoryView => ({ history: { changes: [{ changeId: 'landed', projectId: 'Held', project: 'Held app', title: 'Update library', queue: 'updates', landedAt: at, packages: [{ ecosystem: 'npm', package: 'library', from: '1.0.0', to: '1.1.0' }], packVersions: [] }], more: false }, since: at, until: at })
@@ -268,4 +268,14 @@ it('disables decisions after a failed refresh', async()=>{
  await settled(client); failed=true
  await act(async()=>{await client.invalidateQueries({queryKey:['get','janitor']})});await settled(client)
  expect([...el.querySelectorAll('button')].filter(b=>['Accept','Close'].includes(b.textContent!)).every(b=>b.disabled)).toBe(true)
+})
+
+it('links both settings notes and names the project exception at its settings', async () => {
+ const { client, el } = await mount(async () => json(fixture()), true, {}, true)
+ await settled(client)
+ expect(el.querySelector('a[href="/projects"]')?.textContent).toBe('change per project in its settings')
+ expect(el.querySelector('a[href="/deployments"]')?.textContent).toBe('change per deployment in its settings')
+ const off = el.querySelector('a[href="/projects/Off/settings/general#janitor"]')!
+ expect(off.textContent).toBe('Off app')
+ expect(off.parentElement?.textContent).toContain('Off app · Off · Sam')
 })
