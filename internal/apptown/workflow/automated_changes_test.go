@@ -526,3 +526,79 @@ func TestQueueCheckFaultRetriesTwiceBeforeHolding(t *testing.T) {
 		})
 	}
 }
+
+// A person's exception promotes the Change; its later acceptance stays on Janitor.
+func TestQueueKeepsPromotedChangeThroughOverrideAndAcceptance(t *testing.T) {
+	s, ch, _, _, _ := automatedFixture(t)
+	run := admitAutomatedRun(t, s, ch, "routine", "tests", "approval")
+	steps, err := s.RunSteps(t.Context(), run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var routine, tests, accept *Step
+	for _, step := range steps {
+		if step.Type == "routine" {
+			routine = step
+		} else if step.Type == "tests" {
+			tests = step
+		} else {
+			accept = step
+		}
+	}
+	claim, err := newStepAttempts(s.db, func(string) bool { return true }).start(t.Context(), routine, "routine", ch.ProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &Execution{service: s, ctx: t.Context(), step: routine, run: run, claim: claim}
+	if err := e.StartFix(nil); err != nil {
+		t.Fatal(err)
+	}
+	outcome, err := EncodeOutcome(StatusFail, map[string]string{"reason": "Dockerfile restructure"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (reworkStore{db: s.db}).fail(t.Context(), claim, outcome); err != nil {
+		t.Fatal(err)
+	}
+	before, err := s.QueueState(t.Context(), ch.ProjectID, "security")
+	if err != nil || before.State != "decide" || before.Decide == nil || before.Decide.Act != nextOverride || before.Decide.StepID != routine.ID || before.Words != "goes beyond what your settings allow" {
+		t.Fatalf("held: %+v %v", before, err)
+	}
+	ctx := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{Kind: "user", Name: "verified-person", Via: "session"}})
+	if _, err := s.Override(ctx, Override{StepID: routine.ID, Reason: "Keep the Dockerfile restructure"}); err != nil {
+		t.Fatal(err)
+	}
+	s.Wait()
+	testClaim, err := newStepAttempts(s.db, func(string) bool { return true }).start(ctx, tests, "tests", ch.ProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := newStepAttempts(s.db, func(string) bool { return true }).finish(ctx, testClaim, StepOutcome{Status: StatusPass}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := s.QueueState(ctx, ch.ProjectID, "security")
+	if err != nil || after.ChangeID != ch.ID || after.State != "decide" || after.Decide == nil || after.Decide.Act != NextApprove || after.Decide.StepID != accept.ID {
+		t.Fatalf("after override: %+v %v", after, err)
+	}
+	if _, err := s.Approve(ctx, Approval{StepID: accept.ID, Decision: VoteApprove}); err != nil {
+		t.Fatal(err)
+	}
+	// A later scheduled proposal must not close the human-touched Change.
+	created, err := database.Transact(ctx, s.db, func(tx *database.Tx) (CreatedChange, error) {
+		return CreateChangeIn(access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: ch.ProjectID}}), tx, ChangeDraft{ProjectID: ch.ProjectID, Title: "next scan", Queue: "security"}, "apptown-system", time.Now())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := admitAutomatedRun(t, s, created.Change, "script")
+	if err := s.replaceUntouched(ctx, next); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PurgeAutomatedChanges(ctx); err != nil {
+		t.Fatal(err)
+	}
+	kept, err := s.Change(ctx, ch.ID)
+	if err != nil || !kept.State.canRun() {
+		t.Fatalf("touched Change replaced: %+v %v", kept, err)
+	}
+}

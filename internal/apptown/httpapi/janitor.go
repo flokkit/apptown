@@ -33,7 +33,6 @@ type JanitorView struct {
 	Choices     *workflow.StandingRevision     `json:"choices"`
 	Projects    []JanitorProject               `json:"projects"`
 	Deployments []deployment.JanitorDeployment `json:"deployments"`
-	ReleaseHold string                         `json:"releaseHold"`
 }
 
 func (h Janitor) List(w http.ResponseWriter, r *http.Request) {
@@ -59,14 +58,13 @@ func (h Janitor) List(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, JanitorView{Unknown: unknown, Choices: choices, Projects: rows, Deployments: deployments, ReleaseHold: deployment.JanitorReleaseHoldSentence()})
+	WriteJSON(w, 200, JanitorView{Unknown: unknown, Choices: choices, Projects: rows, Deployments: deployments})
 }
 
 type JanitorHistoryView struct {
-	History  workflow.JanitorHistory           `json:"history"`
-	Releases []deployment.JanitorChangeRelease `json:"releases"`
-	Since    time.Time                         `json:"since"`
-	Until    time.Time                         `json:"until"`
+	History workflow.JanitorHistory `json:"history"`
+	Since   time.Time               `json:"since"`
+	Until   time.Time               `json:"until"`
 }
 
 func (h Janitor) History(w http.ResponseWriter, r *http.Request) {
@@ -99,22 +97,7 @@ func (h Janitor) History(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	projects := []ids.ID{}
-	changes := []ids.ID{}
-	seen := map[ids.ID]bool{}
-	for _, c := range history.Changes {
-		changes = append(changes, c.ChangeID)
-		if !seen[c.ProjectID] {
-			projects = append(projects, c.ProjectID)
-			seen[c.ProjectID] = true
-		}
-	}
-	releases, err := h.releases.JanitorChangeReleases(r.Context(), projects, changes)
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
-	WriteJSON(w, 200, JanitorHistoryView{History: history, Releases: releases, Since: since, Until: until})
+	WriteJSON(w, 200, JanitorHistoryView{History: history, Since: since, Until: until})
 }
 
 // JanitorRunView reports each queue independently, including ordinary refusals.

@@ -11,19 +11,12 @@ import (
 )
 
 type JanitorDeployment struct {
-	ProjectID    ids.ID         `json:"projectId"`
-	DeploymentID ids.ID         `json:"deploymentId"`
-	Name         string         `json:"name"`
-	DisplayLabel string         `json:"displayLabel"`
-	Setting      RoutineUpdates `json:"setting"`
-	Automatic    bool           `json:"automatic"`
-	Hold         *JanitorHold   `json:"hold,omitempty"`
-}
-
-type JanitorChangeRelease struct {
-	ChangeID     ids.ID `json:"changeId"`
-	State        string `json:"state"`
-	DisplayLabel string `json:"displayLabel"`
+	ProjectID    ids.ID       `json:"projectId"`
+	DeploymentID ids.ID       `json:"deploymentId"`
+	Name         string       `json:"name"`
+	DisplayLabel string       `json:"displayLabel"`
+	Automatic    bool         `json:"automatic"`
+	Hold         *JanitorHold `json:"hold,omitempty"`
 }
 
 func (s *Service) requireJanitorProjects(ctx context.Context, projects []ids.ID) error {
@@ -74,32 +67,11 @@ func (s *Service) JanitorDeployments(ctx context.Context, projects []ids.ID) ([]
 			return nil, err
 		}
 		protected := (&Deployment{Audience: row.Audience, DataClass: row.DataClass}).Protected()
-		item := JanitorDeployment{ProjectID: row.ProjectID, DeploymentID: row.ID, Name: row.Name, DisplayLabel: row.DisplayLabel, Setting: setting, Automatic: !protected && setting.Mode != "person"}
+		item := JanitorDeployment{ProjectID: row.ProjectID, DeploymentID: row.ID, Name: row.Name, DisplayLabel: row.DisplayLabel, Automatic: !protected && setting.Mode != "person"}
 		if hold, ok := holds[row.ID]; ok {
 			item.Hold = &hold
 		}
 		out = append(out, item)
-	}
-	return out, nil
-}
-
-// JanitorReleaseHoldSentence describes the same release-health rule used by
-// HeldBackIn and release admission, without another stored policy.
-func JanitorReleaseHoldSentence() string {
-	return "Stops a project after a failed release or uncertain release progress, and never releases over a rollback. A person's successful release of the newest code ends the hold."
-}
-
-func (s *Service) JanitorChangeReleases(ctx context.Context, projects, changes []ids.ID) ([]JanitorChangeRelease, error) {
-	if err := s.requireJanitorProjects(ctx, projects); err != nil {
-		return nil, err
-	}
-	rows, err := deploymentsql.New(s.db.SQL()).JanitorChangeReleases(ctx, deploymentsql.JanitorChangeReleasesParams{ProjectIds: projects, ChangeIds: changes})
-	if err != nil {
-		return nil, err
-	}
-	out := make([]JanitorChangeRelease, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, JanitorChangeRelease{ChangeID: r.ChangeID, State: r.State, DisplayLabel: r.DisplayLabel})
 	}
 	return out, nil
 }

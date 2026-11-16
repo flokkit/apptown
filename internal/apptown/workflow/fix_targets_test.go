@@ -281,3 +281,96 @@ func TestRunningTargetsAreImageOnlyPublicPartFindingsAboveThreshold(t *testing.T
 		})
 	}
 }
+
+// Security scans keep discovering new findings after an episode is exhausted.
+func TestStoppedSecurityQueueSuppressesFaultedTargetsUntilTryAgain(t *testing.T) {
+	s, initial, _, _, _ := automatedFixture(t)
+	ds := stockNodeFix(t)
+	ctx := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: initial.ProjectID}})
+	producers := 0
+	for night, fingerprint := range []string{"same", "same", "same", "same", "new"} {
+		ch := initial
+		if night > 0 {
+			created, err := database.Transact(t.Context(), s.db, func(tx *database.Tx) (CreatedChange, error) {
+				return CreateChangeIn(ctx, tx, ChangeDraft{ProjectID: initial.ProjectID, Title: "security scan", Queue: "security"}, "apptown-system", time.Now())
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ch = created.Change
+		}
+		run := admitAutomatedRun(t, s, ch, "scan", "agent/pi")
+		steps, err := s.RunSteps(t.Context(), run.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var scan, producer *Step
+		for _, step := range steps {
+			if step.Type == "scan" {
+				scan = step
+			} else {
+				producer = step
+			}
+		}
+		owner := newStepAttempts(s.db, func(string) bool { return true })
+		claim, err := owner.start(t.Context(), scan, "scan", ch.ProjectID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		finding := check.Finding{Fingerprint: fingerprint, Severity: "high", Package: &check.PackageRef{Name: "example", Ecosystem: "npm", FixedIn: "1.0.1"}}
+		if err := s.db.InTx(t.Context(), func(tx *database.Tx) error {
+			return conformance.RecordScanObservationIn(t.Context(), tx, conformance.ScanObservation{ProjectID: ch.ProjectID, ChangeID: ch.ID, RunID: run.ID, StepID: scan.ID, Attempt: claim.Attempt, Subject: conformance.ScanSubject{On: "source"}, Scanner: "osv", Verdict: "fail", ObservedAt: time.Now(), Findings: conformance.WrapFindings([]check.Finding{finding})})
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := owner.finish(t.Context(), claim, StepOutcome{Status: StatusFail}); err != nil {
+			t.Fatal(err)
+		}
+		e := &Execution{service: s, ctx: t.Context(), step: producer, run: run}
+		targets, _, err := e.fixableTargets(t.Context(), []string{scan.Name}, ds)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if night == 3 {
+			if len(targets) != 0 || producers != 3 {
+				t.Fatalf("fourth scan retried exhausted targets: %+v starts=%d", targets, producers)
+			}
+			if _, err := s.Abandon(ctx, StopWork{ChangeID: ch.ID, Reason: "nothing new"}); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
+		if len(targets) != 1 {
+			t.Fatalf("night %d: targets=%+v", night+1, targets)
+		}
+		producers++
+		claim, err = owner.start(t.Context(), producer, "agent/pi", ch.ProjectID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		e.claim = claim
+		if err := e.StartFix(targets); err != nil {
+			t.Fatal(err)
+		}
+		outcome, err := EncodeOutcome(StatusError, map[string]string{"reason": "producer timed out"}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := (reworkStore{db: s.db}).fail(t.Context(), claim, outcome); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.Abandon(ctx, StopWork{ChangeID: ch.ID, Reason: "attempt finished"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if producers != 4 {
+		t.Fatalf("new finding did not start: %d", producers)
+	}
+	if err := s.TryQueueAgain(t.Context(), initial.ProjectID, "security", ids.Nil); err != nil {
+		t.Fatal(err)
+	}
+	state, err := s.QueueState(t.Context(), initial.ProjectID, "security")
+	if err != nil || state.Stopped() {
+		t.Fatalf("explicit retry did not end episode: %+v %v", state, err)
+	}
+}

@@ -22,7 +22,6 @@ func init() {
 		wiregen.Named{Name: "StandingVote", Value: reflect.Zero(reflect.TypeOf(workflow.ApprovalVote{}.Standing).Elem()).Interface()},
 		wiregen.Named{Name: "JanitorAttribution", Value: reflect.Zero(reflect.TypeOf(workflow.Change{}.Janitor).Elem()).Interface()},
 		wiregen.Named{Name: "JanitorChoice", Value: reflect.Zero(reflect.TypeOf(workflow.JanitorProject{}.Choice).Elem()).Interface()},
-		wiregen.Named{Name: "JanitorProcedure", Value: reflect.Zero(reflect.TypeOf(workflow.JanitorProject{}.Procedures).Elem()).Interface()},
 		wiregen.Named{Name: "JanitorLandedChange", Value: reflect.Zero(reflect.TypeOf(workflow.JanitorHistory{}.Changes).Elem()).Interface()},
 		wiregen.Named{Name: "JanitorRunView", Value: JanitorRunView{}},
 		wiregen.Named{Name: "JanitorRun", Value: changeactions.JanitorRun{}},

@@ -81,6 +81,8 @@ Nothing you run there can see the host's Docker or other projects.
   same working tree.
 - Published ports appear on the host named dind, NOT on localhost:
   ` + "`docker run -d -p 8080:8080 myapp` then `curl http://dind:8080`" + `.
+- Containers that use declared needs run with ` + "`--network host --dns 127.0.0.11`" + `
+  and are reached at ` + "`dind:PORT`" + `.
 - The daemon starts empty: images are pulled (Docker Hub pulls go
   through the org mirror when one is bound) or built here.
 - ` + "`docker build` steps do NOT inherit this session's env" + ` — pass

@@ -237,15 +237,39 @@ attribution follows the release event.
 Each queue declared by an adopted standing workflow keeps its own history. A proposal records
 main, the adopted versions, its first candidate tree, classified files and
 targets. Repair keeps that first fingerprint. A proposal identical to the queue's last held or skipped one stops
-before tests. A distinct proposal replaces earlier untouched work; human-touched
-work remains ordinary. A landed Change, a person's skip, or a person's touch of
-held work ends the failure episode; quiet scans and repeated proposals do not.
-Three uninterrupted failed tries stop the queue. A stopped security queue can
-try a new fixable finding at the scan's failure threshold.
+before tests. A fresh proposal replaces earlier untouched work; human-touched
+work remains ordinary and stays visible to its queue while open, including the
+acceptance after an override. If its later check fails or errors with nothing
+running, the queue remains `decide`: AppTown does not automatically retry a
+person's Change. The decision comes from the run's current next acts. A landed Change, a person's skip or Try again,
+or a closed human-touched Change ends the episode; quiet scans and repeated
+proposals do not. Check failures and requests for a person record `held`;
+AppTown errors record `faulted` and do not suppress identical proposals.
+Three uninterrupted failed tries stop the queue. A stopped security queue
+suppresses the faulted targets in its current episode and can try a new
+fixable finding at the scan's failure threshold.
+
+The Janitor overview leads with “N projects need you”, “Keeping N projects up to
+date”, or “Janitor is off” when choices are absent or all off. Needs you lists
+`decide` and `stopped` queues, release holds and unknown projects. Decision rows
+show the queue title, the owner's words and changed files. Accept uses the
+supplied `decide` action and step: the approval form or a check override with a
+required reason. Close skips the update and suppresses the same proposal.
+Stopped rows offer Try again. Release holds open the deployment; unknown rows
+open the project, using scan uncertainty and `scheduleProblem`. `retrying`
+queues remain AppTown's work and do not appear on the overview.
+
+Recent updates lists project, what changed and when, opening the Change.
+Dependency rows show package moves; pack rows name the ways of working without
+versions. Settings contains only What to keep updated, including project
+exceptions and automatic releases. Deployment pages own release windows.
 
 The project page shows queue state, moved packages, recent tries linked to their
-Changes, and paths to retry, chat or skip the update. Stuck and stopped queues
-each contribute one attention item. A skip retains its fingerprint and targets.
+Changes, and paths to retry, chat or skip the update. Queues are `retrying`
+while AppTown faults have tries left, `decide` when a person must decide, and
+`stopped` when tries are exhausted. `decide` supplies the existing approval or
+check override action and its step. Only `decide` and `stopped` contribute an
+attention item. A skip retains its fingerprint and targets.
 A person who may open and start work in a project can fire one of its
 carried schedules now (`POST /api/v1/projects/{slug}/schedules/{workflow}/run`;
 the general entry for any carried schedule). The firing is the scheduler's
@@ -253,18 +277,17 @@ own: the Change is opened through the schedule under the eligible rule, and
 `schedule.run-requested` records the person. A busy or stopped queue, a missing
 schedule or a missing eligible rule is refused and records no firing.
 **Run now** in the project's Janitor section fires every adopted standing queue
-through its nightly start. **Run now for all projects** requests each eligible
-project, two at a time; leaving the page leaves remaining projects unstarted.
+through its nightly start.
 `POST /api/v1/projects/{slug}/janitor/run` selects all queues or one named queue.
 `apptown janitor run -p PROJECT [-queue QUEUE] [-again]` uses this operation.
 Publication queues use the nightly pack catch-up, restricted to that project,
 after the standing owner checks project eligibility. The request records the
 person and the assessment. Nightly cadence and consent remain the default.
 
-**Try again** is offered for stuck or stopped queues and ends the named queue's
-current episode without suppressing its proposals. Waiting and updating queues
+**Try again** ends the named queue's
+current episode without suppressing its proposals. Deciding and updating queues
 keep their Change links and progress. A refused **Run now** can explicitly offer
-closure of the busy Change. **Close and try again** also closes that queue's open automated
+closure of the busy Change. It also closes that queue's open automated
 Change, requiring current close authority and the exact Change shown. Retained
 attempts keep their reasons, fingerprints and failed flags as history with
 outcome `retried`; Skip still suppresses the same proposal. A failed subsequent
@@ -360,7 +383,7 @@ three days, appear in Attention as not known; the detail names the scanner's
 reason or the date of the last scan. Code or images newer than the last scan
 are not an Attention item: the next scheduled scan answers them, and the
 Janitor page shows them as not known meanwhile.
-A stuck or stopped queue's Attention item carries the first line of its error
+A decide or stopped queue's Attention item carries the first line of its error
 and opens its change, which holds the rest.
 Running-image-only findings do not create Attention items.
 

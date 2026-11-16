@@ -639,7 +639,7 @@ func (q *Queries) EditChangeTitle(ctx context.Context, arg EditChangeTitleParams
 }
 
 const endAutomatedChange = `-- name: EndAutomatedChange :exec
-UPDATE automated_changes SET outcome=CASE WHEN outcome IN ('held','skipped','retried') AND $1::text='abandoned' THEN outcome ELSE $1::text END, reason=CASE WHEN (outcome IN ('held','skipped','retried') AND $1::text='abandoned') OR $2::text='' THEN reason ELSE $2::text END, ended_at=$3 WHERE id=$4
+UPDATE automated_changes SET outcome=CASE WHEN outcome IN ('held','faulted','skipped','retried') AND $1::text='abandoned' THEN outcome ELSE $1::text END, reason=CASE WHEN (outcome IN ('held','faulted','skipped','retried') AND $1::text='abandoned') OR $2::text='' THEN reason ELSE $2::text END, ended_at=$3 WHERE id=$4
 `
 
 type EndAutomatedChangeParams struct {
@@ -695,17 +695,18 @@ func (q *Queries) HasOpenUplift(ctx context.Context, arg HasOpenUpliftParams) (b
 }
 
 const holdQueueAttempt = `-- name: HoldQueueAttempt :exec
-UPDATE automated_changes SET outcome='held',reason=$1,failed_attempt=true
-WHERE id=$2 AND attempted_at IS NOT NULL
+UPDATE automated_changes SET outcome=$1::text,reason=$2,failed_attempt=true
+WHERE id=$3 AND attempted_at IS NOT NULL
 `
 
 type HoldQueueAttemptParams struct {
-	Reason string
-	ID     ids.ID
+	Outcome string
+	Reason  string
+	ID      ids.ID
 }
 
 func (q *Queries) HoldQueueAttempt(ctx context.Context, arg HoldQueueAttemptParams) error {
-	_, err := q.db.ExecContext(ctx, holdQueueAttempt, arg.Reason, arg.ID)
+	_, err := q.db.ExecContext(ctx, holdQueueAttempt, arg.Outcome, arg.Reason, arg.ID)
 	return err
 }
 

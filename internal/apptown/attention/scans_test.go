@@ -12,11 +12,11 @@ import (
 // A failed try's reason can be a whole tool output. Every Attention surface
 // shows the item's detail as it is, so the item carries the first line and
 // links to the change that holds the rest.
-func TestAStuckQueueItemIsOneLineAndOpensItsChange(t *testing.T) {
+func TestADecisionQueueItemIsOneLineAndOpensItsChange(t *testing.T) {
 	t.Parallel()
 	change := idstest.N(7)
 	reason := "update: part web: npm listing failed (exit 1): npm notice\nnpm notice New major version of npm available!\n    at walk ([eval]:8:34)\n"
-	state := workflow.QueueStatus{Title: "Dependency updates", Queue: "updates", State: "stuck", Words: "stuck since 13 Nov", Reason: reason, ChangeID: change, Packages: []workflow.PackageMove{{Package: "vite", From: "5.0.0", To: "5.1.0"}}}
+	state := workflow.QueueStatus{Title: "Dependency updates", Queue: "updates", State: "decide", Words: "needs you", Reason: reason, ChangeID: change, Packages: []workflow.PackageMove{{Package: "vite", From: "5.0.0", To: "5.1.0"}}}
 	item := queueItem(idstest.N(1), "Tidewell", "/projects/tidewell#janitor", state)
 	if item.Detail != "update: part web: npm listing failed (exit 1): npm notice · moved: vite 5.0.0 → 5.1.0" {
 		t.Fatalf("detail %q", item.Detail)
@@ -64,6 +64,19 @@ func TestOnlyFailedOrOverdueScansNeedAttention(t *testing.T) {
 		got := scanSnapshot(workflow.ScanAttentionProject{ProjectID: idstest.N(1), Slug: "p", Name: "P", Reaches: true, Scans: c.scans})
 		if (len(got.Items) == 1) != c.item || len(got.Items) > 1 {
 			t.Errorf("%s: items %+v", name, got.Items)
+		}
+	}
+}
+
+func TestOnlyDecisionsAndStoppedQueuesNeedAttention(t *testing.T) {
+	for _, state := range []string{"retrying", "decide", "stopped"} {
+		got := scanSnapshot(workflow.ScanAttentionProject{ProjectID: idstest.N(1), Reaches: true, Scans: workflow.MainScans{Known: true}, Queues: []workflow.QueueStatus{{State: state}}})
+		want := 1
+		if state == "retrying" {
+			want = 0
+		}
+		if len(got.Items) != want {
+			t.Fatalf("%s: %+v", state, got)
 		}
 	}
 }

@@ -247,7 +247,7 @@ SELECT change_id FROM runs WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project
 SELECT * FROM automated_changes WHERE project_id=$1 AND ($2::text='' OR queue=$2) ORDER BY opened_at DESC LIMIT $3;
 
 -- name: EndAutomatedChange :exec
-UPDATE automated_changes SET outcome=CASE WHEN outcome IN ('held','skipped','retried') AND sqlc.arg(outcome)::text='abandoned' THEN outcome ELSE sqlc.arg(outcome)::text END, reason=CASE WHEN (outcome IN ('held','skipped','retried') AND sqlc.arg(outcome)::text='abandoned') OR sqlc.arg(reason)::text='' THEN reason ELSE sqlc.arg(reason)::text END, ended_at=sqlc.arg(ended_at) WHERE id=sqlc.arg(id);
+UPDATE automated_changes SET outcome=CASE WHEN outcome IN ('held','faulted','skipped','retried') AND sqlc.arg(outcome)::text='abandoned' THEN outcome ELSE sqlc.arg(outcome)::text END, reason=CASE WHEN (outcome IN ('held','faulted','skipped','retried') AND sqlc.arg(outcome)::text='abandoned') OR sqlc.arg(reason)::text='' THEN reason ELSE sqlc.arg(reason)::text END, ended_at=sqlc.arg(ended_at) WHERE id=sqlc.arg(id);
 
 -- name: IsAutomatedQueueChange :one
 SELECT EXISTS(SELECT 1 FROM changes c JOIN automated_changes a ON a.id=c.id WHERE c.id=$1 AND c.automated AND a.queue<>'');
@@ -288,7 +288,7 @@ UPDATE automated_changes SET fingerprint=sqlc.arg(fingerprint),files=sqlc.arg(fi
 WHERE id=sqlc.arg(id) AND queue<>'';
 
 -- name: HoldQueueAttempt :exec
-UPDATE automated_changes SET outcome='held',reason=sqlc.arg(reason),failed_attempt=true
+UPDATE automated_changes SET outcome=sqlc.arg(outcome)::text,reason=sqlc.arg(reason),failed_attempt=true
 WHERE id=sqlc.arg(id) AND attempted_at IS NOT NULL;
 
 -- name: QueueAttempts :many

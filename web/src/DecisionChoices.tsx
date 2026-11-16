@@ -5,10 +5,15 @@ export function DecisionGrid({ children }: { children: ReactNode }) {
   return <div className="ch-decision-choices">{children}</div>
 }
 
-export type DecisionChoice = { label: string; run: () => unknown; disabled?: boolean; prompt?: { ask: string; run: (reason: string) => unknown } }
+// Keep decision state here while a table places prose and buttons in separate cells.
+export type DecisionLayout = (details: ReactNode, actions: ReactNode) => ReactNode
+
+export type DecisionChoice = { label: string; run: () => unknown; disabled?: boolean; prompt?: { label?: string; ask: string; run: (reason: string) => unknown } }
 
 // The page words and places only the acts AppTown offers.
-export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, conversation, busy, highlight, showConversation = false }: {
+export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, conversation, busy, highlight, showConversation = false, children, secondary }: {
+  children?: DecisionLayout
+  secondary?: DecisionChoice
   // showConversation: a held agent change can be taken into a chat from here.
   showConversation?: boolean
   highlight?: 'accept' | 'rework' | 'none'
@@ -19,8 +24,8 @@ export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, 
 }) {
   const [mode, setMode] = useState<'choices' | 'comment' | 'abandon' | 'reason'>('choices')
   const [reason, setReason] = useState('')
-  return <>
-    <div className="ch-decision-slot">
+  const layout: DecisionLayout = children ?? ((details, actions) => details ? <div className="ch-forward-reason">{details}{actions}</div> : actions)
+  const choices = <>
     {mode === 'comment' ? <div className="ch-send-back">
       <h3>What should change?</h3>
       <textarea className="prose" rows={2} autoFocus aria-label="What should change?" value={note} onChange={e => setNote(e.target.value)} />
@@ -34,14 +39,13 @@ export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, 
         <button className="danger" disabled={busy} onClick={() => { abandon?.run(); setMode('choices') }}>Abandon</button>
         <button disabled={busy} onClick={() => setMode('choices')}>Keep it</button>
       </div>
-    </div> : mode === 'reason' ? <div className="ch-forward-reason">
+    </div> : mode === 'reason' ? layout(<>
       <p>{accept?.prompt?.ask}</p>
       <input autoFocus aria-label="Why (required)" placeholder="Why (required)" value={reason} onChange={e => setReason(e.target.value)} />
-      <div className="row">
-        <button className="primary" disabled={busy || !reason.trim()} onClick={async () => { await accept?.prompt?.run(reason.trim()); setMode('choices') }}>{accept?.label}</button>
+    </>, <div className="row">
+        <button className="primary" disabled={busy || accept?.disabled || !reason.trim()} onClick={async () => { await accept?.prompt?.run(reason.trim()); setMode('choices') }}>{accept?.prompt?.label ?? accept?.label}</button>
         <button disabled={busy} onClick={() => setMode('choices')}>Cancel</button>
-      </div>
-    </div> : <DecisionGrid>
+      </div>) : layout(null, <DecisionGrid>
       {accept && <button className={highlight ? highlight === 'accept' ? 'primary' : undefined : chat ? undefined : 'primary'} disabled={busy || accept.disabled} onClick={() => {
         if (accept.prompt) { setReason(''); setMode('reason') } else accept.run()
       }}>{accept.label}</button>}
@@ -49,9 +53,12 @@ export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, 
       {rework && <button className={highlight === 'rework' ? 'primary' : undefined} disabled={busy} onClick={() => {
         setMode('comment')
       }}>Send back…</button>}
+      {secondary && <button disabled={busy || secondary.disabled} onClick={secondary.run}>{secondary.label}</button>}
       {abandon && <button className="danger" disabled={busy} onClick={() => setMode('abandon')}>Abandon change</button>}
-    </DecisionGrid>}
-    </div>
+    </DecisionGrid>)}
+  </>
+  return <>
+    {children ? choices : <div className="ch-decision-slot">{choices}</div>}
     {showConversation && conversation && !chat && <p>Want to talk it through first? <a href={conversation.href} onClick={e => {
       if (conversation.run) { e.preventDefault(); conversation.run() }
     }}>Open the conversation →</a></p>}

@@ -17,6 +17,7 @@ spec:
         - name: update
           uses: agent/pi
           with:
+            timeoutMinutes: 45
             docker: true
             needs: true
             mayChangeNothing: true
@@ -47,6 +48,7 @@ spec:
         - name: repair
           uses: agent/pi
           with:
+            timeoutMinutes: 45
             docker: true
             needs: true
             repairRounds: 2

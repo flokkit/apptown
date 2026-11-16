@@ -29,6 +29,11 @@ type PackageMove struct {
 	To        string `json:"to"`
 }
 
+type queueDecision struct {
+	Act    NextActKind `json:"act"`
+	StepID ids.ID      `json:"stepId"`
+}
+
 type QueueStatus struct {
 	Title        string        `json:"title"`
 	Queue        string        `json:"queue"`
@@ -41,6 +46,8 @@ type QueueStatus struct {
 	Packages     []PackageMove `json:"packages"`
 	ChangeID     ids.ID        `json:"changeId,omitzero"`
 	ChangeNumber int64         `json:"changeNumber"`
+
+	Decide *queueDecision `json:"decide,omitempty"`
 }
 
 // Stopped reports whether this queue’s episode has exhausted its attempts.
@@ -48,7 +55,7 @@ func (q QueueStatus) Stopped() bool { return q.Failed >= queueStopAfter }
 
 // QueueState derives the current episode from retained attempts. Quiet scans and
 // duplicate proposals neither fail an episode nor end it; landed work and a
-// person’s skip, try again or takeover end it.
+// person’s skip, try again or closed takeover end it.
 func (s *Service) QueueState(ctx context.Context, project ids.ID, queue string) (QueueStatus, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionReadProject, ProjectID: project}); err != nil {
 		return QueueStatus{}, err
@@ -57,32 +64,19 @@ func (s *Service) QueueState(ctx context.Context, project ids.ID, queue string) 
 }
 func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queue string) (QueueStatus, error) {
 	out := QueueStatus{Queue: queue, State: "up_to_date", Files: []fix.File{}, Packages: []PackageMove{}}
-	rows, err := workflowsql.New(db.SQL()).QueueAttempts(ctx, workflowsql.QueueAttemptsParams{ProjectID: project, Queue: queue})
+	rows, err := queueEpisodeIn(ctx, db, project, queue)
 	if err != nil {
 		return out, err
 	}
-	currentFailed := false
+	currentFailed, currentPromoted := false, false
+	currentOutcome := ""
 	for _, r := range rows {
-		if r.Outcome == "shipped" || r.Outcome == "skipped" || r.Outcome == "retried" {
-			break
-		}
-		if !r.ActiveChangeID.IsZero() {
-			ch, err := workflowsql.New(db.SQL()).ChangeByID(ctx, workflowsql.ChangeByIDParams{ID: r.ActiveChangeID, ProjectID: project})
-			if err != nil {
-				return out, err
-			}
-			// A landing also promotes its change so it is retained. It still
-			// belongs to this queue until it ends. A person's takeover of
-			// working changes ends the episode.
-			if !ch.Automated && ch.State != ChangeLanding.String() {
-				break
-			}
-		}
-		if r.FailedAttempt {
+		promoted := r.promoted
+		if r.FailedAttempt && !promoted {
 			out.Failed++
 			out.Since = r.OpenedAt
 		}
-		if out.Reason == "" && r.Outcome == "held" {
+		if out.Reason == "" && (r.Outcome == "held" || r.Outcome == "faulted") {
 			out.Reason = r.Reason
 			if err := json.Unmarshal(r.Files, &out.Files); err != nil {
 				return out, err
@@ -91,17 +85,28 @@ func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queu
 				return out, err
 			}
 		}
-		if out.ChangeID.IsZero() && !r.EndedAt.Valid && !r.ActiveChangeID.IsZero() {
+		if (out.ChangeID.IsZero() || promoted) && !r.EndedAt.Valid && !r.ActiveChangeID.IsZero() {
 			out.ChangeID = r.ActiveChangeID
-			currentFailed = r.FailedAttempt
+			currentFailed = r.FailedAttempt && !promoted
+			currentPromoted = promoted
+			currentOutcome = r.Outcome
 		}
 	}
 	if out.Failed > 0 {
-		out.State = "stuck"
+		out.State = "retrying"
+	}
+	if currentOutcome == "held" {
+		out.State = "decide"
 	}
 	if out.Stopped() {
 		out.State = "stopped"
 	}
+	// Janitor cannot replace or retry a person's Change. Its unresolved
+	// checks belong to that person even when AppTown caused the fault.
+	if currentPromoted && (currentOutcome == "held" || currentOutcome == "faulted") {
+		out.State = "decide"
+	}
+
 	if !out.ChangeID.IsZero() {
 		ch, err := readChangeInProject(ctx, db, out.ChangeID, project)
 		if err != nil {
@@ -117,7 +122,7 @@ func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queu
 			return out, err
 		}
 		landing := !queued.IsZero()
-		active, waiting := false, false
+		active := false
 		for _, run := range runs {
 			if run.Status != RunRunning.String() {
 				continue
@@ -137,16 +142,16 @@ func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queu
 			if err != nil {
 				return out, err
 			}
+			decision, words, err := queueDecisionIn(ctx, db, definition, steps)
+			if err != nil {
+				return out, err
+			}
+			if decision != nil && (out.Decide == nil || decision.Act == NextApprove) {
+				out.Decide, out.Words = decision, words
+			}
 			for _, step := range steps {
 				if step.Status == StatusRunning && step.Type != "workflow/call" || step.Type == "agent/pi" && step.Status == StatusPending {
 					active = true
-				}
-				if step.Type == "approval" && step.Status == StatusPending {
-					ready, err := dispatchReady(ctx, db, step)
-					if err != nil {
-						return out, err
-					}
-					waiting = waiting || ready
 				}
 			}
 		}
@@ -154,12 +159,73 @@ func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queu
 			out.State = "landing"
 		} else if active {
 			out.State = "updating"
-		} else if waiting && !currentFailed && !out.Stopped() {
-			out.State = "waiting"
+		} else if out.Decide != nil && out.Decide.Act == NextApprove && !currentFailed && (!out.Stopped() || currentPromoted) {
+			out.State = "decide"
+		}
+		if out.State != "decide" {
+			out.Decide, out.Words = nil, ""
 		}
 	}
 	out.Words = queueWords(out)
 	return out, nil
+}
+
+type queueEpisodeAttempt struct {
+	workflowsql.AutomatedChange
+	promoted bool
+}
+
+// queueEpisodeIn owns the boundaries shared by status and target suppression.
+// The final row can be open person-touched work, which stays visible but is
+// never counted as an automatic retry or replaced by Janitor.
+func queueEpisodeIn(ctx context.Context, db database.Queryer, project ids.ID, queue string) ([]queueEpisodeAttempt, error) {
+	q := workflowsql.New(db.SQL())
+	rows, err := q.QueueAttempts(ctx, workflowsql.QueueAttemptsParams{ProjectID: project, Queue: queue})
+	if err != nil {
+		return nil, err
+	}
+	var episode []queueEpisodeAttempt
+	for _, row := range rows {
+		if row.Outcome == "shipped" || row.Outcome == "skipped" || row.Outcome == "retried" {
+			break
+		}
+		promoted := false
+		if !row.ActiveChangeID.IsZero() {
+			ch, err := q.ChangeByID(ctx, workflowsql.ChangeByIDParams{ID: row.ActiveChangeID, ProjectID: project})
+			if err != nil {
+				return nil, err
+			}
+			promoted = !ch.Automated && ch.State != ChangeLanding.String()
+			if promoted && ch.State != ChangeInProgress.String() {
+				break
+			}
+		}
+		episode = append(episode, queueEpisodeAttempt{AutomatedChange: row, promoted: promoted})
+		if promoted {
+			break
+		}
+	}
+	return episode, nil
+}
+
+func queueDecisionIn(ctx context.Context, db database.Queryer, run *Run, steps []*Step) (*queueDecision, string, error) {
+	activity, err := readWorkflowSnapshotActivity(ctx, db, run, steps, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	var decision *queueDecision
+	words := ""
+	for _, act := range nextActs(run, steps, activity, nil, false) {
+		if act.Act == NextApprove || act.Act == nextOverride && decision == nil {
+			decision = &queueDecision{Act: act.Act, StepID: act.StepID}
+			for _, step := range steps {
+				if step.ID == act.StepID {
+					words = decisionWords(step.Type)
+				}
+			}
+		}
+	}
+	return decision, words, nil
 }
 
 func queueWords(q QueueStatus) string {
@@ -168,14 +234,34 @@ func queueWords(q QueueStatus) string {
 		return "waiting to land"
 	case "updating":
 		return "updating"
-	case "waiting":
-		return "waiting for a person"
-	case "stuck":
-		return "stuck since " + q.Since.UTC().Format("2 Jan")
+	case "decide":
+		if q.Words != "" {
+			return q.Words
+		}
+		return "needs you"
+	case "retrying":
+		return "trying again"
 	case "stopped":
-		return fmt.Sprintf("stopped after %d failed tries", q.Failed)
+		return "AppTown could not finish this update"
 	default:
 		return "up to date"
+	}
+}
+
+func decisionWords(kind string) string {
+	switch kind {
+	case "routine":
+		return "goes beyond what your settings allow"
+	case "tests":
+		return "the app's tests fail with it"
+	case "preview":
+		return "the app does not start with it"
+	case "scan":
+		return "a security scan found problems in it"
+	case "approval":
+		return "needs your yes"
+	default:
+		return "needs you"
 	}
 }
 
@@ -374,7 +460,7 @@ func (s *Service) TryQueueAgain(ctx context.Context, project ids.ID, queue strin
 					break
 				}
 			}
-			if row.Outcome == "held" || row.ID == expectedChange {
+			if row.Outcome == "held" || row.Outcome == "faulted" || row.ID == expectedChange {
 				if err := q.RetryQueueAttempt(ctx, row.ID); err != nil {
 					return err
 				}

@@ -62,7 +62,7 @@ spec:
 		t.Fatal(err)
 	}
 	base := time.Date(2026, 11, 15, 0, 0, 0, 0, time.UTC)
-	check := func(cron string, rounds int) {
+	check := func(cron string) {
 		t.Helper()
 		got := w.schedule(t, base)
 		if got.Cron != cron || got.Refused != "" || got.Queue != "deps" || got.Next.IsZero() || got.Problem != "" {
@@ -72,17 +72,6 @@ spec:
 		if err != nil || len(queues) != 1 || queues[0].Queue != "deps" || queues[0].Title != "Night deps" {
 			t.Fatalf("%+v %v", queues, err)
 		}
-		projects, _, _, err := w.work.JanitorProjects(human)
-		if err != nil || len(projects) != 1 || len(projects[0].Procedures) != 1 || projects[0].Procedures[0].Title != "Night deps" || projects[0].Procedures[0].RepairRounds != rounds {
-			t.Fatalf("%+v %v", projects, err)
-		}
-		page, err := w.schedules.Of(human, w.project, base)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if page.Janitor().RunNow != got.Waiting {
-			t.Fatal(page.Janitor())
-		}
 		ad, err := adoption.CurrentReceiptIn(t.Context(), w.schedules.DB, w.project.ID)
 		if err != nil {
 			t.Fatal(err)
@@ -90,9 +79,6 @@ spec:
 		resolved, err := w.adoption.Workflow(t.Context(), adoption.WorkflowRequest{Source: adoption.Source{ProjectID: w.project.ID, Revision: ad}, Name: "nightly-deps"})
 		if err != nil {
 			t.Fatal(err)
-		}
-		if resolved.Doc.RepairRounds() != rounds {
-			t.Fatal(resolved.Doc.RepairRounds())
 		}
 		eligible, level, _, err := standingEligibilityOne(*w.schedules.Standing, t.Context(), w.project.ID, "nightly-deps")
 		if err != nil || eligible.RuleID != rule.RuleID || level != "aggressive" {
@@ -116,7 +102,7 @@ spec:
 			t.Fatal(err)
 		}
 	}
-	check("0 6 * * *", 2)
+	check("0 6 * * *")
 	if _, err := w.ways.PublishPack(human, "schedule-nightly-deps", "Scheduled work", `{"workflows":["nightly-deps"],"schedules":["nightly-deps"],"description":"new cadence"}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
@@ -134,5 +120,5 @@ spec:
 	}); err != nil {
 		t.Fatal(err)
 	}
-	check("0 4 * * *", 3)
+	check("0 4 * * *")
 }

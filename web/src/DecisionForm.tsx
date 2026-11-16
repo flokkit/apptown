@@ -1,6 +1,6 @@
 import { InlineHelp } from './InlineHelp'
 import { useContext, useState } from 'react'
-import { DecisionChoices, type DecisionChoice } from './DecisionChoices'
+import { DecisionChoices, type DecisionLayout, type DecisionChoice } from './DecisionChoices'
 import { PRODUCT } from './brand'
 import { currentUser, post } from './api'
 import { useAction, useGet } from './data'
@@ -51,7 +51,10 @@ export function landingMeansFor(detail: { stages: string[]; landingMeans: string
   return step.type === 'approval' && step.stage === last && detail.landingMeans.length > 0 ? detail.landingMeans : undefined
 }
 
-export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, approveLabel = 'Approve', rejectLabel = 'Reject', placeholder = 'comment (optional)', compact, overview, abandon, externalBusy = false, onAccepted }: {
+export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, approveLabel = 'Approve', rejectLabel = 'Reject', placeholder = 'comment (optional)', compact, overview, abandon, externalBusy = false, onAccepted, close, approveDisabled = false, children }: {
+  children?: DecisionLayout
+  approveDisabled?: boolean
+  close?: DecisionChoice
   onAccepted?: () => void
   stepId: string
   means?: string; instructions?: string
@@ -93,12 +96,16 @@ export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, a
         throw e
       }
     })
+  if (close) {
+    means ??= question.data?.means
+    instructions ??= question.data?.instructions
+    alsoMeans ??= question.data?.landingMeans
+  }
   const unread = !question.current
-  return (
-    <div className="decision-form">
+  const details = <>
       <ContractAttention adds={adds} />
       {adds && <AddsSection adds={adds} />}
-      {!overview && <>
+      {!overview && !close && <>
       {means && <div className="decision-meaning" style={{ marginTop: 6 }}>Approving means: “{means}”{contractChanged(adds) && ' and the app contract changes above'}</div>}
       {alsoMeans?.map((m) => (
         <div key={m} className="decision-meaning" style={{ marginTop: 6 }}>If you may approve the landing, this also approves it: “{m}”</div>
@@ -106,19 +113,18 @@ export function DecisionForm({ stepId, means, alsoMeans, instructions, onDone, a
       </>}
       {instructions && <div style={{ marginTop: 2 }}>{instructions}</div>}
       {question.err && <div className="error small">What approving agrees to could not be read: {question.err}</div>}
-      {overview && <div className="decision-bottom"><div className="small muted decision-meaning">By accepting, you confirm: “{means}”{alsoMeans?.map(m => <span key={m}> You also confirm: “{m}”</span>)}{contractChanged(adds) && ' and the app contract changes above'}</div></div>}
+      {(overview || close) && <div className="decision-bottom"><div className="small muted decision-meaning">By accepting, you confirm: “{means}”{alsoMeans?.map(m => <span key={m}> You also confirm: “{m}”</span>)}{contractChanged(adds) && ' and the app contract changes above'}</div></div>}
 
-      {overview ? <DecisionChoices note={comment} setNote={setComment} busy={busy || externalBusy}
-        accept={{ label: approveLabel, run: () => decide('approve'), disabled: unread }}
-        rework={{ label: 'Send back…', run: () => decide('reject') }} abandon={abandon} /> : <div className={compact ? 'row' : 'row decision-bar'} style={compact ? { gap: 4 } : { marginTop: 8 }}>
+      {err && <span className="error small">{err}</span>}
+    </>
+  const actions = overview || close ? <DecisionChoices note={comment} setNote={setComment} busy={busy || externalBusy}
+        accept={{ label: approveLabel, run: () => decide('approve'), disabled: unread || approveDisabled }}
+        rework={close ? undefined : { label: 'Send back…', run: () => decide('reject') }} abandon={abandon} secondary={close} /> : <div className={compact ? 'row' : 'row decision-bar'} style={compact ? { gap: 4 } : { marginTop: 8 }}>
         <input placeholder={placeholder} value={comment} onChange={(e) => setComment(e.target.value)}
           style={compact ? { width: 180 } : undefined} aria-label="comment" />
         <button className={compact ? 'subtle' : 'primary'} disabled={busy || unread} onClick={() => decide('approve')}
           title={unread ? 'Reading what approving agrees to' : undefined}>{approveLabel}</button>
         <button className={compact ? 'subtle danger' : 'danger'} disabled={busy} onClick={() => decide('reject')}>{rejectLabel}</button>
-      </div>}
-      {err && <span className="error small">{err}</span>}
-
-    </div>
-  )
+      </div>
+  return children ? children(details, actions) : <div className="decision-form">{details}{actions}</div>
 }

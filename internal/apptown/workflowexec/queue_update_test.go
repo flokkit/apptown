@@ -64,7 +64,8 @@ func queueExecute(t *testing.T, f *taskAppTown, step *workflow.Step) {
 	}
 }
 
-func TestRepeatedAndSkippedProposalsStopBeforeTests(t *testing.T) {
+// Infrastructure faults must reach tests on every identical proposal, then stop.
+func TestFaultedProposalsRetryIdenticalCandidateUntilStopped(t *testing.T) {
 	raw, err := stock.FS.ReadFile("janitor-update.yaml")
 	if err != nil {
 		t.Fatal(err)
@@ -77,34 +78,46 @@ func TestRepeatedAndSkippedProposalsStopBeforeTests(t *testing.T) {
 	f.commands.judge = updateJudgeFunc(func(_ context.Context, _ workflow.Source, _ check.Item, _ string) (workflow.CheckReceipt, error) {
 		return workflow.CheckReceipt{Verdict: workflow.VerdictPass, Detail: "within scope"}, nil
 	})
-	// An unavailable test executor holds this proposal without starting repair;
-	// repair and its first-fingerprint guarantee have their own case.
+	checks := 0
 	f.checks = func(execution.Request) execution.Outcome {
+		checks++
 		return execution.Outcome{Termination: execution.LaunchFailed, RunErr: errors.New("test executor unavailable")}
 	}
-	var first ids.ID
+	var last ids.ID
 	for n := 0; n < 3; n++ {
 		run := queueRun(t, f, "updates", "updates")
 		steps := queueSteps(t, f, run)
 		queueExecute(t, f, steps["update"])
 		queueExecute(t, f, steps["routine"])
-		if n == 0 {
-			if status, _ := stepStatus(t, f, steps["routine"].ID); status != workflow.StatusPass {
-				t.Fatalf("routine: %s; steps: %+v", status, queueSteps(t, f, run)["update"])
-			}
-			queueExecute(t, f, steps["tests"])
-			first = run.ChangeID
-		} else {
-			steps = queueSteps(t, f, run)
-			if steps["routine"].Status != workflow.StatusSkipped || steps["tests"].Status != workflow.StatusPending {
-				t.Fatalf("duplicate reached tests: routine=%s %s, update=%s %s", steps["routine"].Status, steps["routine"].Evidence, steps["update"].Status, steps["update"].Evidence)
-			}
-			if n == 1 {
-				if err := f.work.SkipUpdate(f.ctx, f.projectID, "updates", first); err != nil {
-					t.Fatal(err)
-				}
-			}
+		queueExecute(t, f, steps["tests"])
+		if checks != n+1 {
+			t.Fatalf("identical candidate did not reach tests: %d", checks)
 		}
+		state, err := f.work.QueueState(f.ctx, f.projectID, "updates")
+		want := "retrying"
+		if n == 2 {
+			want = "stopped"
+		}
+		if err != nil || state.State != want || state.Failed != n+1 || state.Decide != nil {
+			t.Fatalf("attempt %d: %+v %v", n+1, state, err)
+		}
+		last = run.ChangeID
+	}
+	attempts, err := f.work.Attempts(f.ctx, f.projectID, "updates", 20)
+	if err != nil || len(attempts) != 3 {
+		t.Fatalf("attempts: %+v %v", attempts, err)
+	}
+	for _, attempt := range attempts {
+		if attempt.Outcome != "faulted" || !attempt.Failed {
+			t.Fatalf("fault lost on replacement: %+v", attempt)
+		}
+	}
+	if err := f.work.TryQueueAgain(f.ctx, f.projectID, "updates", last); err != nil {
+		t.Fatal(err)
+	}
+	state, err := f.work.QueueState(f.ctx, f.projectID, "updates")
+	if err != nil || state.Failed != 0 {
+		t.Fatalf("retry: %+v %v", state, err)
 	}
 }
 
@@ -178,7 +191,7 @@ func TestThreeUninterruptedFailuresStopOnlyTheirQueue(t *testing.T) {
 				t.Fatalf("worker dispatches=%d, local invocations=%d", worker.ensures, len(f.pi.requests()))
 			}
 			for _, a := range attempts {
-				if !a.Attempted || !a.Failed || a.Outcome != "held" {
+				if !a.Attempted || !a.Failed || a.Outcome != "faulted" {
 					t.Fatalf("lost attempt: %+v", a)
 				}
 			}
@@ -239,6 +252,10 @@ func TestProposalFingerprintBindsMainTreeTargetsAndAdoption(t *testing.T) {
 		}
 	}
 	propose(nil, false)
+	state, err := f.work.QueueState(f.ctx, f.projectID, "updates")
+	if err != nil || state.State != "decide" || state.Decide == nil || state.Decide.Act != "override" || state.Decide.StepID.IsZero() {
+		t.Fatalf("held proposal: %+v %v", state, err)
+	}
 	propose(nil, true)
 	main = "main-b"
 	propose(nil, false)

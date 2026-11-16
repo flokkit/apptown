@@ -1,36 +1,36 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useGet, useAction } from '../data'
-import { post } from '../api'
+import { currentUser, post } from '../api'
+import { DecisionForm } from '../DecisionForm'
+import { DecisionChoices, type DecisionLayout } from '../DecisionChoices'
+import { useHolds } from '../instancePages'
+import { changedFiles } from './janitor/files'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { Section } from '../Section'
 import { PageHead } from '../PageHead'
 import { ListTable, type ListColumn } from '../ListTable'
-import { Status } from '../Status'
 import { fmtWhen } from '../format'
 import { TryAgain } from './janitor/TryAgain'
-import { firstLine } from './change/Head'
-import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, JanitorRunView, QueueStatus } from '../wire.gen'
+import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, QueueStatus } from '../wire.gen'
 
 const projectTo = (p: JanitorProject) => `/projects/${p.slug}#janitor`
 const date = (value?: string) => value && !value.startsWith('0001-') ? fmtWhen(value) : 'Not known'
 
-function summary(data: JanitorView) {
- const c=data.choices?.choices
- if (!c || !data.choices?.enabled) return 'Turned off'
- const parts: string[]=[]
- if(c.dependencies !== 'off') parts.push(`Dependencies ${c.dependencies==='aggressive' ? 'including major' : 'patch and minor'}`)
- if(c.securityFixes) parts.push('security fixes')
- if(c.baseImages) parts.push('base images')
- if(c.toolchainPatches) parts.push('toolchain patches')
- if(c.packs) parts.push('packs')
- return parts.join(', ')
+function summary(data: JanitorView, items: Need[]) {
+ const c = data.choices?.choices
+ if (!c || c.dependencies === 'off' && !c.securityFixes && !c.baseImages && !c.toolchainPatches && !c.packs) return 'Janitor is off'
+ const count = new Set(items.map(n => n.project.projectId)).size
+ if (count) return count === 1 ? '1 project needs you' : `${count} projects need you`
+ const kept = data.projects.filter(p => p.state.word !== 'off' && p.state.word !== 'no repository').length
+ return `Keeping ${kept} ${kept === 1 ? 'project' : 'projects'} up to date`
 }
 
-type Need = { key: string; project?: JanitorProject; what: string; reason: string; to: string; queue?: QueueStatus }
+type Need = { key: string; project: JanitorProject; what: string; reason: string; to: string; queue?: QueueStatus }
 function needs(data: JanitorView): Need[] {
   return [...data.projects.flatMap(project => [
-    ...project.queues.filter(q => ['stuck', 'stopped', 'waiting'].includes(q.state)).map(queue => ({ key: `${project.projectId}/${queue.queue}`, project, what: queue.title, reason: [queue.words, firstLine(queue.reason)].filter(Boolean).join(' · '), to: queue.changeId ? `/changes/${queue.changeId}` : projectTo(project), queue })),
+    ...project.queues.filter(q => ['decide', 'stopped'].includes(q.state)).map(queue => ({ key: `${project.projectId}/${queue.queue}`, project, what: queue.title, reason: [queue.words, queue.state === 'decide' ? changedFiles(queue.packages, queue.files) : ''].filter(Boolean).join(' · '), to: queue.changeId ? `/changes/${queue.changeId}` : projectTo(project), queue })),
+    ...(project.scheduleProblem || project.state.unknown ? [{ key: `${project.projectId}/unknown`, project, what: 'Updates', reason: `Not known: ${project.scheduleProblem || project.state.help}`, to: projectTo(project) }] : []),
     ...data.deployments.filter(d => d.projectId === project.projectId && d.hold).map(d => ({ key: d.deploymentId!, project, what: d.displayLabel, reason: `Release ${d.hold!.releaseNumber} to ${d.displayLabel} ${d.hold!.reason === 'release failed' ? 'failed' : d.hold!.reason}`, to: `/projects/${project.slug}/deployments/${d.name}?tab=history` })),
   ])]
 }
@@ -43,12 +43,8 @@ function History({ projects }: { projects: JanitorProject[] }) {
   const data = q.data
   const columns: ListColumn<JanitorLandedChange>[] = [
     { key: 'project', label: 'Project', phone: 'name', render: c => <Link to={`/changes/${c.changeId}?tab=changes`}>{c.project}</Link> },
-    { key: 'summary', label: 'Change', render: c => c.packVersions.length ? `Pack versions: ${c.packVersions.map(p => `${p.pack} v${p.version}`).join(', ')}` : c.packages.length ? c.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') : projects.find(p => p.projectId === c.projectId)?.queues.find(q => q.queue === c.queue)?.title || c.title },
-    { key: 'releases', label: 'Released', className: 'record-fit', render: c => {
-      const names = [...new Set(data?.releases.filter(r => r.changeId === c.changeId && r.state === 'released').map(r => r.displayLabel))]
-      return <Link to={`/changes/${c.changeId}?tab=details`}>{names.length ? `Released to ${names.join(', ')}` : 'Not released'}</Link>
-    } },
-    { key: 'when', label: 'Landed', kind: 'time', render: c => date(c.landedAt) },
+    { key: 'summary', label: 'What changed', render: c => c.packVersions.length ? `Ways of working: ${c.packVersions.map(p => p.pack).join(', ')}` : c.packages.length ? c.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') : projects.find(p => p.projectId === c.projectId)?.queues.find(q => q.queue === c.queue)?.title || c.title },
+    { key: 'when', label: 'When', kind: 'time', render: c => date(c.landedAt) },
   ]
   return <>
     <h3>{page.older ? 'Older history' : 'Last 7 days'}</h3>
@@ -67,52 +63,54 @@ function History({ projects }: { projects: JanitorProject[] }) {
 export default function Janitor() {
   const q = useGet<JanitorView>('/janitor', { poll: 10000 })
   const data = q.data
-  const mounted = useRef(true)
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
-  const action = useAction(() => { void q.reload() })
-  const [refusals, setRefusals] = useState<string[]>([])
-  const runAll = () => action.run(async () => {
-    setRefusals([])
-    const pending = data!.projects.filter(p => !p.runNow)
-    const worker = async () => {
-      while (mounted.current && pending.length) {
-        const p = pending.shift()!
-        try {
-          const result = await post<JanitorRunView>(`/projects/${encodeURIComponent(p.slug)}/janitor/run`, { queue: '', again: false, changeId: '' })
-          for (const s of result.starts) if (s.refused) setRefusals(rows => [...rows, `${p.name} · ${s.refused}`])
-        } catch (err) { setRefusals(rows => [...rows, `${p.name} · ${err instanceof Error ? err.message : String(err)}`]) }
-      }
-    }
-    await Promise.all([worker(), worker()])
-  })
   const items = data ? needs(data) : []
-  const columns: ListColumn<JanitorProject>[] = [
-    { key: 'project', label: 'Project', phone: 'name', render: p => <Link to={projectTo(p)}>{p.name}</Link> },
-    { key: 'state', label: 'State', phone: 'state', render: p => {
-      const word = items.some(n => n.project === p) ? 'needs you' : p.scheduleProblem ? 'not known' : p.state.word
-      return <>{q.refreshFailed ? <Status word="unknown" reason="not known" help="The latest refresh failed. This is the last answer read." /> : <>
-        <Status word={word === 'not known' ? 'unknown' : word === 'needs you' ? 'waiting for you' : word === 'working' ? 'working' : word === 'up to date' ? 'current' : 'none'} reason={word} help={p.scheduleProblem && word === 'not known' ? p.scheduleProblem : p.state.help} />
-        {p.scheduleProblem && word === 'needs you' && <Status word="unknown" reason="not known" help={p.scheduleProblem} />}
-      </>}</>
-    } },
-    { key: 'scan', label: 'Last checked', kind: 'time', render: p => date(p.scans.lastScan) },
-  ]
   return <div>
-    <PageHead page="janitor" line={data && summary(data)} actions={<>
-      {data && <button disabled={!q.current || action.busy || !data.projects.some(p => !p.runNow)} onClick={runAll}>Run now for all projects</button>}
+    <PageHead page="janitor" line={data && summary(data, items)} actions={<>
       <Link className="btn primary" to="/janitor/settings">Settings</Link>
     </>} />
     <ReadStatus q={q} what="janitor" /><StaleNote q={q} />
     {data && <>
-      {refusals.map((reason, i) => <div className="record-note" key={i}>{reason}</div>)}
-      {items.length > 0 && <Section title="Needs you"><ListTable label="Needs you" rows={items} rowKey={n => n.key} rowTo={n => n.to} columns={[
-        { key: 'project', label: 'Project', phone: 'name', render: n => <Link to={n.to}>{n.project?.name ?? 'All projects'}</Link> },
-        { key: 'what', label: 'What', className: 'record-fit', render: n => n.what },
-        { key: 'reason', label: 'Reason', render: n => n.reason },
-        { key: 'action', label: '', phone: 'action', render: n => n.queue && <TryAgain queue={n.queue} slug={n.project!.slug} current={q.current && !action.busy} reload={q.reload} /> },
-      ]} /></Section>}
-      <Section title="Projects">{data.projects.length ? <ListTable label="Projects’ janitor state" columns={columns} rows={data.projects} rowKey={p => p.projectId!} rowTo={projectTo} /> : <p>No projects yet.</p>}</Section>
+      {/* Decisions share state across the prose and action cells, so this
+          table owns its rows and uses the shared record-table conventions. */}
+      {items.length > 0 && <Section title="Needs you"><table className="record-table record-table-links" aria-label="Needs you">
+        <thead><tr><th scope="col">Project</th><th scope="col" className="record-fit">What it was doing</th><th scope="col">Why</th><th scope="col" className="record-fit record-action" /></tr></thead>
+        <tbody>{items.map(n => <NeedRow key={`${n.key}/${n.queue?.changeId}/${n.queue?.decide?.stepId}`} need={n} current={q.current} reload={q.reload} />)}</tbody>
+      </table></Section>}
+
     </>}
-    <Section title="Recent work"><History projects={data?.projects || []} /></Section>
+    <Section title="Recent updates"><History projects={data?.projects || []} /></Section>
   </div>
+}
+
+function NeedRow({ need, current, reload }: { need: Need; current: boolean; reload: () => void }) {
+  const nav = useNavigate()
+  const row = (details?: ReactNode, actions?: ReactNode) => <tr data-linked onClick={e => {
+    if (!(e.target as Element).closest('a, button, input, select, [role=dialog]')) nav(need.to)
+  }}>
+    <td className="phone-name"><Link to={need.to}>{need.project.name}</Link></td>
+    <td className="record-fit phone-value" data-label="What it was doing">{need.what}</td>
+    <td className="phone-value" data-label="Why">{need.reason}{details}</td>
+    <td className="record-fit record-action phone-action">{actions}</td>
+  </tr>
+  return need.queue ? <QueueAction queue={need.queue} slug={need.project.slug} current={current} reload={reload}>{row}</QueueAction> : row()
+}
+
+function QueueAction({ queue, slug, current, reload, children }: { queue: QueueStatus; slug: string; current: boolean; reload: () => void; children: DecisionLayout }) {
+  const action = useAction(reload)
+  const canClose = useHolds('change:abandon', slug)
+  const canAccept = useHolds(queue.decide?.act === 'approve' ? 'change:approve' : 'change:override', slug)
+  const [note, setNote] = useState('')
+  if (queue.state === 'stopped') return <TryAgain queue={queue} slug={slug} current={current} reload={reload}>{children}</TryAgain>
+  const close = { label: 'Close', disabled: !canClose, run: () => action.run(() => post(`/projects/${encodeURIComponent(slug)}/janitor/${queue.queue}/skip`, { changeId: queue.changeId })) }
+  const layout = (details: ReactNode, actions: ReactNode) => children(<>{details}{action.err && <div className="error">{action.err}</div>}</>, actions)
+  return queue.decide?.act === 'approve' ? <DecisionForm key={queue.decide.stepId} stepId={queue.decide.stepId!} approveLabel="Accept" close={close} externalBusy={!current || action.busy} approveDisabled={!canAccept} onDone={reload}>{layout}</DecisionForm> :
+    <DecisionChoices note={note} setNote={setNote} busy={!current || action.busy} accept={queue.decide ? {
+      label: 'Accept', disabled: !canAccept, run: () => {}, prompt: {
+        label: 'Accept anyway',
+        ask: "Accept the change although the check did not pass? This records an exception in your name, with your reason; the check's result stays on the record.",
+        run: reason => action.run(() => post(`/steps/${queue.decide!.stepId}/override`, { user: currentUser(), reason })),
+      },
+    } : undefined}>{(details, actions) => layout(details && <div className="ch-forward-reason">{details}</div>, <div className="row row-2">
+      {actions}<button disabled={!current || action.busy || !canClose} onClick={close.run}>Close</button>
+    </div>)}</DecisionChoices>
 }

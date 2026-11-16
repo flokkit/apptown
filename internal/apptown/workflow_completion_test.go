@@ -635,7 +635,7 @@ func TestAcceptedQueueWorkRemovesEarlierFailureFromAttention(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := "stuck"
+		want := "decide"
 		if !fail {
 			want = "landing"
 		}

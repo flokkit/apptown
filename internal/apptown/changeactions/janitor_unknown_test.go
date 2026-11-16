@@ -16,7 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
-// Any unreadable schedule keeps both aggregate answers unknown, regardless of
+// Any unreadable schedule keeps the aggregate answer unknown, regardless of
 // the order in which healthy schedules are read.
 func TestJanitorScheduleProblemsSurviveHealthyRows(t *testing.T) {
 	t.Parallel()
@@ -41,7 +41,7 @@ func TestJanitorScheduleProblemsSurviveHealthyRows(t *testing.T) {
 					rows = []changeactions.ProjectSchedule{problem.row, discovery, update}
 				}
 				got := (changeactions.ProjectSchedules{Schedules: rows}).Janitor()
-				if got.RunNow != "Not known: "+problem.row.Problem || got.ScheduleProblem != problem.row.Problem {
+				if got.ScheduleProblem != problem.row.Problem {
 					t.Fatalf("problem lost from aggregate: %+v", got)
 				}
 			})
@@ -83,7 +83,12 @@ func TestQueueDefinitionFailureStaysUnknownForCallers(t *testing.T) {
 		t.Errorf("attention lost definition failure: %+v %v", snapshot, err)
 	}
 	rows, _, _, err := work.JanitorProjects(w.engine)
-	if err != nil || len(rows) != 1 || rows[0].ProjectID != w.project.ID || !strings.Contains(rows[0].Problem, "workflow definition unavailable") {
-		t.Fatalf("portfolio must keep unknown on the project row: %+v %v", rows, err)
+	if err != nil || len(rows) != 1 || rows[0].ProjectID != w.project.ID {
+		t.Fatalf("portfolio must retain the project: %+v %v", rows, err)
 	}
+	schedules, err := w.schedules.ForJanitor(w.engine, rows, time.Now())
+	if err != nil || !strings.Contains(schedules[w.project.ID].Janitor().ScheduleProblem, "workflow definition unavailable") {
+		t.Fatalf("schedule must keep unknown on the project row: %+v %v", schedules, err)
+	}
+
 }
