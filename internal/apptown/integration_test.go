@@ -633,12 +633,8 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	}
 	consentCtx := access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, db, "restore-fixture"), Kind: "user", Name: "restore-fixture", Via: "session"}})
 	consentOwner := workflow.NewStandingRules(db, workflow.StandingDependencies{Authority: access.Checked{Authority: app.Access, Projects: app.Projects}, Identity: app.Access, Procedures: restoreStandingProcedure{}})
-	consentInput := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: pid, Workflow: "restore-fixture"}}, Categories: workflow.StandingCategories{Dependencies: "routine"}, Delivery: "land-only"}
-	question, err := consentOwner.Preview(consentCtx, consentInput)
-	if err != nil {
-		t.Fatal(err)
-	}
-	consent, err := consentOwner.Enable(consentCtx, workflow.StandingCommand{Definition: consentInput, ShownDigest: question.Digest})
+	consentInput := workflow.JanitorChoices{Dependencies: "routine"}
+	consent, err := consentOwner.Save(consentCtx, workflow.JanitorChoicesCommand{Choices: consentInput})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -739,8 +735,8 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 
 	restoredIdentity := identity.New(restored, identity.Config{Projects: project.NewCatalogue(restored)})
 	restoredConsent := workflow.NewStandingRules(restored, workflow.StandingDependencies{Authority: access.Checked{Authority: restoredIdentity, Projects: project.New(restored, nil)}, Identity: restoredIdentity})
-	history, err := restoredConsent.History(consentCtx, consent.RuleID)
-	if err != nil || len(history) != 2 || !history[0].Enabled || history[1].Enabled || history[1].ChangedBy.Name != "restore" || history[1].Issuer.Principal != consent.Issuer.Principal || history[0].Question.Shown != history[1].Question.Shown {
+	history, err := restoredConsent.History(consentCtx)
+	if err != nil || len(history) != 2 || !history[0].Enabled || history[1].Enabled || history[1].Issuer.Name != "restore" || history[1].Issuer.Principal != consent.Issuer.Principal {
 		t.Fatalf("restored standing consent not disabled with provenance preserved: %+v %v", history, err)
 	}
 	main, found, err := scm.ReadMain(ctx, restored, pid)
@@ -793,7 +789,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 type restoreStandingProcedure struct{}
 
 func (restoreStandingProcedure) standingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
-	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: "restore-fixture", Version: 1, Step: "accept", Means: "accept bounded updates after required checks"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
+	return workflow.StandingProcedure{Trigger: "schedule", Acceptance: workflow.StandingPurpose{Workflow: "restore-fixture", Version: 1, Step: "accept", Means: "accept bounded updates after required checks"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
 }
 
 func (f restoreStandingProcedure) StandingProcedures(ctx context.Context, q database.Queryer, id ids.ID, names []string) (map[string]workflow.StandingProcedureResult, error) {

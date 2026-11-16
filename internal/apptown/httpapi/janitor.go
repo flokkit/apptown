@@ -29,16 +29,15 @@ type JanitorProject struct {
 }
 
 type JanitorView struct {
-	UnknownRules []ids.ID                       `json:"unknownRules"`
-	ChangedRules []ids.ID                       `json:"changedRules"`
-	Rules        []workflow.StandingRevision    `json:"rules"`
-	Projects     []JanitorProject               `json:"projects"`
-	Deployments  []deployment.JanitorDeployment `json:"deployments"`
-	ReleaseHold  string                         `json:"releaseHold"`
+	Unknown     []ids.ID                       `json:"unknown"`
+	Choices     *workflow.StandingRevision     `json:"choices"`
+	Projects    []JanitorProject               `json:"projects"`
+	Deployments []deployment.JanitorDeployment `json:"deployments"`
+	ReleaseHold string                         `json:"releaseHold"`
 }
 
 func (h Janitor) List(w http.ResponseWriter, r *http.Request) {
-	projects, rules, changed, unknown, err := h.work.JanitorProjects(r.Context())
+	projects, choices, unknown, err := h.work.JanitorProjects(r.Context())
 	if err != nil {
 		WriteFault(w, err)
 		return
@@ -60,7 +59,7 @@ func (h Janitor) List(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, JanitorView{UnknownRules: unknown, ChangedRules: changed, Rules: rules, Projects: rows, Deployments: deployments, ReleaseHold: deployment.JanitorReleaseHoldSentence()})
+	WriteJSON(w, 200, JanitorView{Unknown: unknown, Choices: choices, Projects: rows, Deployments: deployments, ReleaseHold: deployment.JanitorReleaseHoldSentence()})
 }
 
 type JanitorHistoryView struct {

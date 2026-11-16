@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/fault"
 
@@ -14,30 +15,20 @@ import (
 // PackRuleIn selects current human authority for starting an assessment. Project
 // eligibility and approval meanings are checked again before opening any Change.
 func (s StandingRules) PackRuleIn(ctx context.Context, q database.Queryer) (StandingRevision, error) {
-	rows, err := workflowsql.New(q.SQL()).CurrentStandingRules(ctx)
+	rule, err := latestStanding(ctx, q)
 	if err != nil {
 		return StandingRevision{}, err
 	}
-	for _, row := range rows {
-		rule, err := readStandingRevision(row)
-		if err != nil {
-			return rule, err
-		}
-		if !rule.Enabled || !rule.Question.Definition.Categories.WaysOfWorking {
-			continue
-		}
-		if _, err := normalizeStanding(rule.Question.Definition); err != nil {
-			continue
-		}
-		if err := identity.RequireEnabledIn(ctx, q, access.Principal{Kind: "user", ID: rule.Issuer.Principal}); err != nil {
-			if standingRefusal(err) {
-				continue
-			}
-			return StandingRevision{}, err
-		}
-		return rule, nil
+	if rule == nil || !rule.Enabled || !rule.Choices.Packs {
+		return StandingRevision{}, nil
 	}
-	return StandingRevision{}, nil
+	if _, err := s.deps.Identity.StandingIssuerAllowsIn(ctx, q, rule.Issuer.Principal); err != nil {
+		if standingRefusal(err) {
+			return StandingRevision{}, nil
+		}
+		return StandingRevision{}, err
+	}
+	return *rule, nil
 }
 
 // PackReviewAuthority rechecks the enabled revision before an assessment starts.
@@ -52,7 +43,7 @@ func (a packReviewAuthority) RequirePackReview(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if !current.Enabled || current.Revision != a.rule.Revision || !current.Question.Definition.Categories.WaysOfWorking {
+	if !current.Enabled || current.Revision != a.rule.Revision || !current.Choices.Packs {
 		return errStandingRevision
 	}
 	return identity.RequireEnabledIn(ctx, a.tx, access.Principal{Kind: "user", ID: current.Issuer.Principal})
@@ -73,7 +64,7 @@ func (s *Service) OpenPackUplift(ctx context.Context, in Uplift) (*Change, error
 		if err != nil {
 			return err
 		}
-		if !rule.Question.Definition.Categories.WaysOfWorking || rule.Revision != in.RuleRevision {
+		if !rule.Choices.Packs || rule.Revision != in.RuleRevision {
 			return errStandingRevision
 		}
 		if _, err := s.standing.eligibleForIn(ctx, tx, rule, in.ProjectID, in.Workflow); err != nil {
@@ -116,7 +107,7 @@ func (e *Execution) CheckAdoptionTarget() (adoption.RoutineTarget, error) {
 	if err != nil {
 		return adoption.RoutineTarget{}, err
 	}
-	if rule.RuleID.IsZero() || !rule.Question.Definition.Categories.WaysOfWorking {
+	if rule.RuleID.IsZero() || !rule.Choices.Packs {
 		return adoption.RoutineTarget{}, fault.New(fault.Conflict, "no eligible keep packs current rule")
 	}
 	if _, err := rules.eligibleForIn(e.ctx, e.service.db, rule, e.run.ProjectID, e.run.WorkflowName, e.run.AdoptionID); err != nil {
@@ -126,7 +117,7 @@ func (e *Execution) CheckAdoptionTarget() (adoption.RoutineTarget, error) {
 	if err != nil {
 		return adoption.RoutineTarget{}, err
 	}
-	target, err := rules.assessmentAdoption(e.ctx, standingObservation{change: *ch}, rule.Question.Definition.Categories)
+	target, err := rules.assessmentAdoption(e.ctx, standingObservation{change: *ch}, rule.Choices)
 	if err != nil {
 		return adoption.RoutineTarget{}, err
 	}

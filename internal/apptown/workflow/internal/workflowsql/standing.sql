@@ -17,10 +17,10 @@ INSERT INTO standing_rule_revisions(rule_id,revision,enabled,record_json) VALUES
 SELECT * FROM standing_rule_revisions WHERE rule_id=$1 AND revision=$2;
 
 -- name: StandingHistory :many
-SELECT * FROM standing_rule_revisions WHERE rule_id=$1 ORDER BY revision;
+SELECT * FROM standing_rule_revisions ORDER BY rule_id,revision;
 
 -- name: CurrentStandingRules :many
-SELECT r.* FROM standing_rule_revisions r JOIN standing_rules h ON h.id=r.rule_id AND h.current_revision=r.revision ORDER BY r.rule_id;
+SELECT r.* FROM standing_rule_revisions r JOIN standing_rules h ON h.id=r.rule_id AND h.current_revision=r.revision ORDER BY r.rule_id DESC LIMIT 1;
 
 -- name: StandingIndependentApproval :one
 SELECT require_independent_approval FROM projects WHERE id=$1;
@@ -33,3 +33,6 @@ INSERT INTO standing_project_choices(id,project_id,level,record_json,at) VALUES(
 
 -- name: LatestStandingProjectChoice :many
 SELECT record_json FROM standing_project_choices WHERE project_id=$1 ORDER BY at DESC,id DESC LIMIT 1;
+
+-- name: LockJanitorChoices :exec
+SELECT pg_advisory_xact_lock(242, 1);

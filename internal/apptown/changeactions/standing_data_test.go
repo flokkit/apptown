@@ -31,7 +31,7 @@ spec:
           with: {repairRounds: 2}
         - name: accept
           uses: approval
-          with: {means: I accept the checked update.}
+          with: {means: I accept the checked update., standing: {class: routine-update, means: checked updates}}
 `
 	publish := func(text string) {
 		t.Helper()
@@ -52,32 +52,12 @@ spec:
 		t.Fatal(err)
 	}
 	human := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "bls", Via: "session"}, Verified: true, Receipt: "bls"})
-	in := workflow.StandingDefinition{Scope: "instance", Delivery: "full", Categories: workflow.StandingCategories{Dependencies: "aggressive"}}
+	in := workflow.JanitorChoices{Dependencies: "aggressive"}
 	// The retired field is ignored. It cannot override the adopted declaration.
 	if err := json.Unmarshal([]byte(`{"schedules":[{"workflow":"nightly-deps","crons":{"aggressive":"* * * * *"}}]}`), &in); err != nil {
 		t.Fatal(err)
 	}
-	for _, level := range []string{"routine", "aggressive"} {
-		in.Categories.Dependencies = level
-		q, err := w.schedules.Standing.Preview(human, in)
-		if err != nil {
-			t.Fatal(err)
-		}
-		want := "every Tuesday at 07:00 UTC"
-		if level == "aggressive" {
-			want = "every day at 04:00 UTC"
-		}
-		for _, text := range []string{want, "up to 3 repair sessions", "Night deps", "its adopted packs declare", "The current packs declare"} {
-			if !strings.Contains(q.Shown, text) {
-				t.Fatalf("missing %q: %s", text, q.Shown)
-			}
-		}
-	}
-	q, err := w.schedules.Standing.Preview(human, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rule, err := w.schedules.Standing.Enable(human, workflow.StandingCommand{Definition: in, ShownDigest: q.Digest})
+	rule, err := w.schedules.Standing.Save(human, workflow.JanitorChoicesCommand{Choices: in})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +72,7 @@ spec:
 		if err != nil || len(queues) != 1 || queues[0].Queue != "deps" || queues[0].Title != "Night deps" {
 			t.Fatalf("%+v %v", queues, err)
 		}
-		projects, _, _, _, err := w.work.JanitorProjects(human)
+		projects, _, _, err := w.work.JanitorProjects(human)
 		if err != nil || len(projects) != 1 || len(projects[0].Procedures) != 1 || projects[0].Procedures[0].Title != "Night deps" || projects[0].Procedures[0].RepairRounds != rounds {
 			t.Fatalf("%+v %v", projects, err)
 		}

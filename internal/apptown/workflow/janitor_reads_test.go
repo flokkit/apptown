@@ -2,11 +2,8 @@ package workflow
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -15,7 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
@@ -34,7 +30,7 @@ func janitorReadFixture(t *testing.T) (*Service, *StandingRules, context.Context
 	projects := project.New(s.db, identity.Scoped(directory, "project"))
 	auth := access.Checked{Authority: directory, Projects: projects}
 	s.checked = auth
-	rules := NewStandingRules(s.db, StandingDependencies{Authority: auth, Identity: directory, Procedures: &standingProcedureFixture{means: "accept qualified changes"}, Publications: &standingProcedureFixture{}, Portfolio: &standingPortfolioFixture{}})
+	rules := NewStandingRules(s.db, StandingDependencies{Authority: auth, Identity: directory, Procedures: &standingProcedureFixture{means: "accept qualified changes"}, Portfolio: &standingPortfolioFixture{}})
 	s.standing = &rules
 	principal := testAdmittedPrincipal(t, directory, "boss")
 	ctx := stepVerifiedContext(t.Context(), principal)
@@ -98,7 +94,7 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	pid := idsVisible[0]
-	in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	in := JanitorChoices{Dependencies: "routine", SecurityFixes: true}
 	rule := enableStanding(t, *rules, ctx, in)
 	if _, err := rules.deps.Identity.EnsurePerson(t.Context(), "reader"); err != nil {
 		t.Fatal(err)
@@ -107,8 +103,8 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	reader := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, rules.deps.Identity, "reader"))
-	readable, err := rules.janitorRules(reader)
-	if err != nil || len(readable) != 1 || readable[0].RuleID != rule.RuleID {
+	readable, err := rules.janitorChoices(reader)
+	if err != nil || readable == nil || readable.RuleID != rule.RuleID {
 		t.Fatalf("instance reader cannot read grant: %+v %v", readable, err)
 	}
 
@@ -123,7 +119,7 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		janitorTry(t, s, pid, rule, now.Add(time.Duration(i)*time.Minute), true)
 	}
-	rows, _, _, _, err := s.JanitorProjects(ctx)
+	rows, _, _, err := s.JanitorProjects(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +142,7 @@ func TestJanitorInstanceReadKeepsQueuesChoicesAndReaderAuthority(t *testing.T) {
 		t.Fatal(stopped.State)
 	}
 	dbtest.FailNextStatement(t, s.db, "-- name: JanitorProjectChoices")
-	if _, _, _, _, err := s.JanitorProjects(ctx); err == nil {
+	if _, _, _, err := s.JanitorProjects(ctx); err == nil {
 		t.Fatal("database failure became an empty answer")
 	}
 }
@@ -155,16 +151,12 @@ func TestJanitorFailedUpdateKeepsOriginalGrantAfterRevisionAndPurge(t *testing.T
 	s, rules, ctx, repo := janitorReadFixture(t)
 	visible, _ := s.authority.VisibleProjects(ctx, actionReadProject)
 	pid := visible[0]
-	definition := StandingDefinition{Projects: []StandingProject{{ProjectID: pid, Workflow: "janitor-update"}}, Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "land-only"}
+	definition := JanitorChoices{Dependencies: "routine", SecurityFixes: true}
 	original := enableStanding(t, *rules, ctx, definition)
 	ch := janitorTry(t, s, pid, original, time.Now().UTC(), true)
 	gittest.Run(t, repo, "branch", ch.Branch)
-	definition.Categories.Dependencies = "aggressive"
-	q, err := rules.Preview(ctx, definition)
-	if err != nil {
-		t.Fatal(err)
-	}
-	revised, err := rules.Enable(ctx, StandingCommand{RuleID: original.RuleID, ExpectedRevision: original.Revision, Definition: definition, ShownDigest: q.Digest})
+	definition.Dependencies = "aggressive"
+	revised, err := rules.Save(ctx, JanitorChoicesCommand{ExpectedRevision: original.Revision, Choices: definition})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +164,7 @@ func TestJanitorFailedUpdateKeepsOriginalGrantAfterRevisionAndPurge(t *testing.T
 		t.Fatal("rule did not change")
 	}
 	read, err := s.Change(t.Context(), ch.ID)
-	if err != nil || read.Janitor == nil || read.Janitor.Rule == nil || read.Janitor.Rule.Kind != "Dependency updates" || read.Janitor.Rule.Scope == "" || read.Janitor.RuleID != original.RuleID || read.Janitor.RuleRevision != original.Revision || read.Janitor.Issuer.Principal != original.Issuer.Principal {
+	if err != nil || read.Janitor == nil || read.Janitor.Rule == nil || read.Janitor.Rule.Kind != "Dependencies patch and minor, security fixes" || read.Janitor.Rule.Scope == "" || read.Janitor.RuleID != original.RuleID || read.Janitor.RuleRevision != original.Revision || read.Janitor.Issuer.Principal != original.Issuer.Principal {
 		t.Fatalf("Change lost its original firing authority: %+v %v", read, err)
 	}
 
@@ -189,7 +181,7 @@ func TestJanitorFailedUpdateKeepsOriginalGrantAfterRevisionAndPurge(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(attempts) != 1 || attempts[0].Rule == nil || attempts[0].Rule.Kind != "Dependency updates" || attempts[0].Rule.Scope != read.Janitor.Rule.Scope || attempts[0].RuleID != original.RuleID || attempts[0].RuleRevision != original.Revision || attempts[0].RuleIssuer == nil || attempts[0].RuleIssuer.Principal != original.Issuer.Principal || attempts[0].RuleGrantedAt == nil || !attempts[0].RuleGrantedAt.Equal(original.EnabledAt) {
+	if len(attempts) != 1 || attempts[0].Rule == nil || attempts[0].Rule.Kind != "Dependencies patch and minor, security fixes" || attempts[0].Rule.Scope != read.Janitor.Rule.Scope || attempts[0].RuleID != original.RuleID || attempts[0].RuleRevision != original.Revision || attempts[0].RuleIssuer == nil || attempts[0].RuleIssuer.Principal != original.Issuer.Principal || attempts[0].RuleGrantedAt == nil || !attempts[0].RuleGrantedAt.Equal(original.At) {
 		t.Fatalf("original grant lost: %+v", attempts)
 	}
 }
@@ -237,70 +229,8 @@ func TestJanitorLandedHistoryWindowsPagingAndVisibility(t *testing.T) {
 	}
 }
 
-func TestJanitorRepairSentenceReadsDefinition(t *testing.T) {
-	for _, rounds := range []int{1, 4} {
-		doc, err := schema.ParseWorkflowStored([]byte(fmt.Sprintf("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: team-updates}\nspec:\n  kind: pipeline\n  on:\n    schedule: {cron: '0 6 * * 1', standing: true}\n  stages:\n    - name: fix\n      steps:\n        - name: repair\n          uses: agent/pi\n          with: {repairRounds: %d}\n", rounds)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		got := standingConsent(StandingCategories{Dependencies: "routine"}, []*schema.Doc{doc}, []*schema.Doc{doc})
-		if doc.RepairRounds() != rounds || !strings.Contains(got, fmt.Sprintf("up to %d repair sessions", rounds)) {
-			t.Fatal(got)
-		}
-	}
-}
-
 // Votes retain only the rule reference; labels must come from that revision's
 // existing history, independently of the firing and the current rule head.
-func TestJanitorVoteReadsRecordedRuleKindAndDisplayScope(t *testing.T) {
-	s, rules, ctx, _ := janitorReadFixture(t)
-	visible, _ := s.authority.VisibleProjects(ctx, actionReadProject)
-	pid := visible[0]
-	definition := StandingDefinition{Projects: []StandingProject{{ProjectID: pid, Workflow: "janitor-update"}}, Categories: StandingCategories{Dependencies: "routine"}, Delivery: "land-only"}
-	original := enableStanding(t, *rules, ctx, definition)
-	definition.Categories = StandingCategories{WaysOfWorking: true}
-	packs := enableStanding(t, *rules, ctx, definition)
-	question, err := rules.Preview(ctx, definition)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := rules.Enable(ctx, StandingCommand{RuleID: original.RuleID, ExpectedRevision: original.Revision, Definition: definition, ShownDigest: question.Digest}); err != nil {
-		t.Fatal(err)
-	}
-	p, err := project.ByIDIn(ctx, s.db, pid)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, rule := range []StandingRevision{original, packs} {
-		raw := []byte(fmt.Sprintf(`{"decisions":[{"standing":{"ruleId":%q,"revision":%d}}],"other":"retained"}`, rule.RuleID, rule.Revision))
-		step := &Step{Type: "approval", Evidence: rawJSON(string(raw))}
-		if err := standingEvidenceIdentityIn(ctx, s.db, s.checked, step); err != nil {
-			t.Fatal(err)
-		}
-		var got struct {
-			Decisions []struct {
-				Standing struct {
-					Rule standingRuleIdentity `json:"rule"`
-				} `json:"standing"`
-			} `json:"decisions"`
-			Other string `json:"other"`
-		}
-		if err := json.Unmarshal(step.Evidence, &got); err != nil {
-			t.Fatal(err)
-		}
-		kind := "Dependency updates"
-		if rule.RuleID == packs.RuleID {
-			kind = "Keep packs current"
-		}
-		if got.Decisions[0].Standing.Rule.Kind != kind || got.Decisions[0].Standing.Rule.Scope != p.Name || got.Other != "retained" {
-			t.Fatalf("wrong vote identity: %s", step.Evidence)
-		}
-	}
-	instance, err := standingRuleIdentityIn(ctx, s.db, s.checked, StandingRevision{Question: StandingQuestion{Definition: StandingDefinition{Scope: "instance"}}})
-	if err != nil || instance.Scope != "all projects" {
-		t.Fatalf("instance identity: %+v %v", instance, err)
-	}
-}
 
 func TestJanitorVoteIdentityOnChangeEvidenceReads(t *testing.T) {
 	rig, rules, _, ctx, definition := standingFixture(t)
@@ -325,7 +255,7 @@ func TestJanitorVoteIdentityOnChangeEvidenceReads(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(evidence.Decisions) != 1 || evidence.Decisions[0].Standing.Rule == nil || evidence.Decisions[0].Standing.Rule.Kind != "Dependency updates" || evidence.Decisions[0].Standing.Rule.Scope == "" {
+		if len(evidence.Decisions) != 1 || evidence.Decisions[0].Standing.Rule == nil || evidence.Decisions[0].Standing.Rule.Kind != "Dependencies patch and minor, security fixes, base images, toolchain patches" || evidence.Decisions[0].Standing.Rule.Scope == "" {
 			t.Fatalf("missing recorded rule identity: %s", step.Evidence)
 		}
 	}
@@ -362,7 +292,7 @@ func TestJanitorInstanceReadLeavesEligibilityToScheduler(t *testing.T) {
 	broken := workflowTestProject(t, s.db, "broken-project", "Broken project", "")
 	s.authority = aggregateAuthority{operationAuthority: s.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return append(visible, broken), nil }}
 	rules.deps.Portfolio.(*standingPortfolioFixture).failFor = broken
-	rows, _, _, _, err := s.JanitorProjects(ctx)
+	rows, _, _, err := s.JanitorProjects(ctx)
 	if err != nil || len(rows) != 2 {
 		t.Fatalf("%+v %v", rows, err)
 	}
@@ -406,7 +336,7 @@ func TestJanitorProjectsClassifiesCompletedFacts(t *testing.T) {
 			pid := visible[0]
 			var rule StandingRevision
 			if tc.enabled {
-				rule = enableStanding(t, *rules, ctx, StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"})
+				rule = enableStanding(t, *rules, ctx, JanitorChoices{Dependencies: "routine", SecurityFixes: true})
 			}
 			if tc.off {
 				if err := rules.SetProjectChoice(ctx, pid, "off", "paused"); err != nil {
@@ -454,7 +384,7 @@ func TestJanitorProjectsClassifiesCompletedFacts(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			rows, _, _, _, err := s.JanitorProjects(ctx)
+			rows, _, _, err := s.JanitorProjects(ctx)
 			if err != nil || len(rows) != 1 {
 				t.Fatalf("rows=%+v: %v", rows, err)
 			}
@@ -479,7 +409,7 @@ func TestFleetScanAndJanitorReadsOmitProjectsOutsideTheirOwnVisibility(t *testin
 	shown := visible[0]
 	hidden := workflowTestProject(t, s.db, "unreadable", "Unreadable", "")
 	s.authority = aggregateAuthority{operationAuthority: s.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return []ids.ID{shown}, nil }}
-	rows, _, _, _, err := s.JanitorProjects(ctx)
+	rows, _, _, err := s.JanitorProjects(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -514,151 +444,26 @@ func TestScanAttentionSharedObservationFailureRemainsUnknownForEachProject(t *te
 	}
 }
 
-type procedureFailureAfterFacts struct {
-	*standingProcedureFixture
-	calls   int
-	failure error
-}
-
-func (f *procedureFailureAfterFacts) StandingProcedures(ctx context.Context, q database.Queryer, pid ids.ID, names []string) (map[string]StandingProcedureResult, error) {
-	f.calls++
-	if f.calls > 1 {
-		return nil, f.failure
-	}
-	return f.standingProcedureFixture.StandingProcedures(ctx, q, pid, names)
-}
-
-func TestChangedStandingApprovalsPreservesUncertaintyAfterEligibleWinner(t *testing.T) {
-	service, rules, ctx, _ := janitorReadFixture(t)
-	visible, err := service.authority.VisibleProjects(ctx, actionReadProject)
-	if err != nil {
-		t.Fatal(err)
-	}
-	winner := enableStanding(t, *rules, ctx, StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"})
-	unassessed := enableStanding(t, *rules, ctx, StandingDefinition{Projects: []StandingProject{{ProjectID: visible[0], Workflow: "janitor-update"}}, Categories: StandingCategories{Dependencies: "routine"}, Delivery: "land-only"})
-	failure := errors.New("later rule procedure observation unavailable")
-	observer := &procedureFailureAfterFacts{standingProcedureFixture: rules.deps.Procedures.(*standingProcedureFixture), failure: failure}
-	rules.deps.Procedures = observer
-	results, err := rules.StandingEligibility(ctx, []ProjectWorkflows{{ProjectID: visible[0], Workflows: []string{"janitor-update"}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	result := results[visible[0]]["janitor-update"]
-	if result.Rule.RuleID != winner.RuleID || result.Err != nil || result.Refused != "" || result.Level != "routine" || !slices.Equal(result.Unassessed, []ids.ID{unassessed.RuleID}) {
-		t.Fatalf("execution winner/error changed: %+v", result)
-	}
-	observer.calls = 0
-	rows, _, changedIDs, unknown, err := service.JanitorProjects(ctx)
-	if err != nil || len(changedIDs) != 0 || !slices.Equal(unknown, []ids.ID{unassessed.RuleID}) || rows[0].Eligibility["janitor-update"].Rule.RuleID != winner.RuleID {
-		t.Fatalf("Janitor lost the winner or unassessed rule: rows=%+v changed=%v unknown=%v err=%v", rows, changedIDs, unknown, err)
-	}
-	observer.calls = 0
-	changed, err := service.ChangedStandingApprovals(ctx)
-	if err == nil {
-		t.Fatalf("later rule read failed but Attention receives a known result: changed=%+v err=%v observer calls=%d", changed, err, observer.calls)
-	}
-}
-
 func TestJanitorKeepsUnassessedApprovalsUnknown(t *testing.T) {
 	service, rules, ctx, _ := janitorReadFixture(t)
-	rule := enableStanding(t, *rules, ctx, StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"})
+	rule := enableStanding(t, *rules, ctx, JanitorChoices{Dependencies: "routine"})
 	procedures := rules.deps.Procedures.(*standingProcedureFixture)
 	procedures.means = "changed meaning"
 	failure := errors.New("procedure observation unavailable")
 	procedures.err = failure
-	if _, err := service.ChangedStandingApprovals(ctx); !errors.Is(err, failure) {
-		t.Fatalf("Attention should be unknown: %v", err)
-	}
-	rows, saved, changed, unknown, err := service.JanitorProjects(ctx)
+	rows, saved, unknown, err := service.JanitorProjects(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(saved) != 1 || !saved[0].Enabled || len(changed) != 0 || !slices.Equal(unknown, []ids.ID{rule.RuleID}) {
-		t.Fatalf("unassessed approval must stay unknown: saved=%+v changed=%v unknown=%v", saved, changed, unknown)
+	if saved == nil || !saved.Enabled || !slices.Equal(unknown, []ids.ID{rule.RuleID}) {
+		t.Fatalf("unassessed approval must stay unknown: saved=%+v unknown=%v", saved, unknown)
 	}
 	if rows[0].State.Word != "not known" || !rows[0].State.Unknown || rows[0].State.Help != failure.Error() {
 		t.Fatalf("project lost its eligibility failure: %+v", rows[0].State)
 	}
-	for name, result := range rows[0].Eligibility {
-		if !pinsWorkflow(rule, name) {
-			continue
-		}
+	for _, result := range rows[0].Eligibility {
 		if !slices.Equal(result.Unassessed, []ids.ID{rule.RuleID}) || !errors.Is(result.Err, failure) {
 			t.Fatalf("unassessed workflow: %+v", result)
-		}
-	}
-}
-
-func TestJanitorKeepsChangedAndUnassessedObservationsForTheSameApproval(t *testing.T) {
-	service, rules, ctx, _ := janitorReadFixture(t)
-	visible, err := service.authority.VisibleProjects(ctx, actionReadProject)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pid := visible[0]
-	second := workflowTestProject(t, service.db, "unassessed", "Unassessed", "")
-	receipt, err := adoption.CurrentReceiptIn(ctx, service.db, pid)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := service.db.InTx(ctx, func(tx *database.Tx) error {
-		return adoption.RecordIn(ctx, tx, second, 1, adoption.AdoptionCreate, "fixture", receipt.Receipt, "boss", time.Now())
-	}); err != nil {
-		t.Fatal(err)
-	}
-	service.authority = aggregateAuthority{operationAuthority: service.authority, read: func(context.Context, commandAction) ([]ids.ID, error) { return []ids.ID{pid, second}, nil }}
-	rule := enableStanding(t, *rules, ctx, StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"})
-	procedures := rules.deps.Procedures.(*standingProcedureFixture)
-	procedures.means = "changed meaning"
-	failure := errors.New("project procedure unavailable")
-	procedures.projectErrors = map[ids.ID]error{second: failure}
-	rows, _, changed, unknown, err := service.JanitorProjects(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Equal(changed, []ids.ID{rule.RuleID}) || !slices.Equal(unknown, []ids.ID{rule.RuleID}) {
-		t.Fatalf("both observations must survive: changed=%v unknown=%v", changed, unknown)
-	}
-	for _, row := range rows {
-		if row.ProjectID == pid && row.State.Word != "needs you" || row.ProjectID == second && row.Problem != failure.Error() {
-			t.Fatalf("project assessment: state=%+v problem=%s", row.State, row.Problem)
-		}
-	}
-	if _, err := service.ChangedStandingApprovals(ctx); !errors.Is(err, failure) {
-		t.Fatalf("partially unassessed source must stay unknown: %v", err)
-	}
-}
-
-func TestJanitorEligibilityMarksEveryPinningRuleUnassessedWhenReadFails(t *testing.T) {
-	service, rules, ctx, _ := janitorReadFixture(t)
-	visible, err := service.authority.VisibleProjects(ctx, actionReadProject)
-	if err != nil {
-		t.Fatal(err)
-	}
-	first := enableStanding(t, *rules, ctx, StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"})
-	second := enableStanding(t, *rules, ctx, StandingDefinition{Projects: []StandingProject{{ProjectID: visible[0], Workflow: "janitor-update"}}, Categories: StandingCategories{Dependencies: "routine"}, Delivery: "land-only"})
-	facts, err := service.procedureFacts(ctx, visible[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-	canceled, cancel := context.WithCancel(ctx)
-	cancel()
-	results, err := service.janitorEligibility(canceled, []JanitorProject{{ProjectID: visible[0], Facts: facts}}, []StandingRevision{first, second})
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("eligibility read: %v", err)
-	}
-	want := map[string][]ids.ID{
-		"janitor-update": {first.RuleID, second.RuleID},
-		"janitor-scan":   {first.RuleID},
-		"janitor-adopt":  nil,
-	}
-	if len(results[visible[0]]) != len(want) {
-		t.Fatalf("missing workflow results: %+v", results)
-	}
-	for name, ids := range want {
-		result := results[visible[0]][name]
-		if !slices.Equal(result.Unassessed, ids) || !errors.Is(result.Err, context.Canceled) {
-			t.Fatalf("%s lost unassessed rules or the read error: %+v", name, result)
 		}
 	}
 }

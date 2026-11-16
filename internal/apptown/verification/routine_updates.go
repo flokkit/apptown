@@ -35,7 +35,7 @@ func (r routineInspector) WithFixes(db *database.DB, ad *adoption.Service) routi
 	return r
 }
 
-func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (out workflow.StandingInspection, err error) {
+func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.Source, categories workflow.JanitorChoices) (out workflow.StandingInspection, err error) {
 	out.Classifier = "agent-update-v1"
 	out.Classification = "cannot-assess"
 	before, err := r.observe(ctx, source)
@@ -85,7 +85,7 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 		out.Reason = reason
 		return out, nil
 	}
-	if err := CompareUpdateInputs(inputs[0], inputs[1], len(targets) > 0); err != nil {
+	if err := CompareUpdateInputs(inputs[0], inputs[1], categories.BaseImages, len(targets) > 0 && categories.ToolchainPatches); err != nil {
 		return refuse(err.Error())
 	}
 	if len(targets) > 0 && !categories.SecurityFixes {

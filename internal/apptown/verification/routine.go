@@ -96,13 +96,13 @@ func (r routineInspector) observe(ctx context.Context, source workflow.Source) (
 	return out, nil
 }
 
-func (r routineInspector) InspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (workflow.StandingInspection, error) {
+func (r routineInspector) InspectRoutine(ctx context.Context, source workflow.Source, categories workflow.JanitorChoices) (workflow.StandingInspection, error) {
 	return r.inspectRoutine(ctx, source, categories)
 }
 
 // InspectRoutineWithAdoption is used only after Adoption verified a nonempty,
 // assessed target. An empty Git diff alone remains insufficient.
-func (r routineInspector) InspectRoutineWithAdoption(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (workflow.StandingInspection, error) {
+func (r routineInspector) InspectRoutineWithAdoption(ctx context.Context, source workflow.Source, categories workflow.JanitorChoices) (workflow.StandingInspection, error) {
 	out := workflow.StandingInspection{Classifier: "assessed-adoption-v1", Classification: "cannot-assess"}
 	before, err := r.observe(ctx, source)
 	if err != nil {
@@ -117,8 +117,8 @@ func (r routineInspector) InspectRoutineWithAdoption(ctx context.Context, source
 	return out, nil
 }
 
-func (r routineInspector) inspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (out workflow.StandingInspection, err error) {
-	if categories.Dependencies == "" && !categories.SecurityFixes {
+func (r routineInspector) inspectRoutine(ctx context.Context, source workflow.Source, categories workflow.JanitorChoices) (out workflow.StandingInspection, err error) {
+	if categories.Dependencies == "off" && !categories.SecurityFixes {
 		return workflow.StandingInspection{Classification: "requires-person", Reason: "the adoption target needs a separate assessment"}, nil
 	}
 	return r.inspectUpdates(ctx, source, categories)

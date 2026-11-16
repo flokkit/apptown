@@ -17,7 +17,7 @@ import (
 )
 
 type updateBounds interface {
-	UpdateBoundForRun(context.Context, ids.ID) (string, error)
+	UpdateChoicesForRun(context.Context, ids.ID) (workflow.JanitorChoices, error)
 }
 type updateJudge interface {
 	JudgeUpdate(context.Context, workflow.Source, check.Item, string) (workflow.CheckReceipt, error)
@@ -57,12 +57,13 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		fail(fmt.Errorf("update bounds are unavailable"))
 		return
 	}
-	bound, err := a.bounds.UpdateBoundForRun(task.Context(), task.Run().ID)
+	choices, err := a.bounds.UpdateChoicesForRun(task.Context(), task.Run().ID)
 	if err != nil {
 		fail(err)
 		return
 	}
-	if bound == "" {
+	bound := choices.Dependencies
+	if bound == "" || bound == "off" {
 		finish(workflow.StatusNotApplicable, "no eligible update rule")
 		return
 	}
@@ -167,7 +168,7 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 				return
 			}
 		}
-		if err := verification.CompareUpdateInputs(inputs[0], inputs[1], len(targets) > 0); err != nil {
+		if err := verification.CompareUpdateInputs(inputs[0], inputs[1], choices.BaseImages, len(targets) > 0 && choices.ToolchainPatches); err != nil {
 			finish(workflow.StatusFail, err.Error())
 			return
 		}

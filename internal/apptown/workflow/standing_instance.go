@@ -2,107 +2,26 @@ package workflow
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// errStandingMeaningChanged requires renewed consent to the current meaning.
-var errStandingMeaningChanged = fault.New(fault.Conflict, "the standing approval meaning changed; a person must enable it again")
-
-func normalizeInstanceStanding(in StandingDefinition) (StandingDefinition, error) {
-	bad := func(why string) (StandingDefinition, error) { return in, fault.New(fault.Invalid, why) }
-	if len(in.Projects) != 0 {
-		return bad("instance consent selects categories, not projects")
-	}
-	if in.Delivery != "full" {
-		return bad("instance consent includes releases under each deployment's setting")
-	}
-	if in.Categories.Dependencies == "" && !in.Categories.WaysOfWorking {
-		in.Categories.Dependencies = "routine"
-	}
-	if in.Categories.Dependencies != "" && in.Categories.Dependencies != "routine" && in.Categories.Dependencies != "aggressive" {
-		return bad("select a dependency update bound")
-	}
-	if in.Categories.WaysOfWorking && (in.Categories.Dependencies != "" || in.Categories.SecurityFixes) {
-		return bad("keep packs current is its own category; enable it separately from dependency fixes")
-	}
-	in.Administrative = true
-	return in, nil
-}
-
-func (s StandingRules) instanceQuestion(ctx context.Context, q database.Queryer, in StandingDefinition) (StandingQuestion, error) {
-	out := StandingQuestion{Definition: in}
-	procedures, ok := s.deps.Procedures.(standingInstanceProcedures)
-	if !ok || s.deps.Portfolio == nil || s.deps.Publications == nil {
-		return out, fault.New(fault.Unavailable, "instance standing approval observations are unavailable")
-	}
-	library, err := s.deps.Publications.PublishedWorkflows(ctx, q)
-	if err != nil {
-		return out, err
-	}
-	var covered, docs []*schema.Doc
-	for _, w := range library {
-		docs = append(docs, w.Doc)
-	}
-	for _, doc := range docs {
-		trigger, ok := doc.Standing()
-		if !ok || trigger.Publication != in.Categories.WaysOfWorking {
-			continue
-		}
-		proc, err := procedures.InstanceStandingProcedure(doc.Metadata.Name, library)
-		if err != nil {
-			return out, err
-		}
-		out.Projects = append(out.Projects, standingProjectMeaning{Procedure: proc})
-		covered = append(covered, doc)
-	}
-	out.Shown = standingConsent(in.Categories, covered, docs)
-	out.Portfolio, err = s.deps.Portfolio.StandingPortfolio(ctx, q, in.Categories)
-	if err != nil {
-		return out, err
-	}
-	for i := range out.Portfolio {
-		project := &out.Portfolio[i]
-		project.Level, err = s.effectiveLevelIn(ctx, q, in, project.ProjectID)
-		if err != nil {
-			return out, err
-		}
-		project.OverridesInstance = project.Level != in.Categories.Dependencies
-	}
-	// The dynamic preview is information, not the consent's project scope.
-	raw, err := json.Marshal(struct {
-		Definition StandingDefinition
-		Purposes   []standingProjectMeaning
-		Shown      string
-	}{in, out.Projects, out.Shown})
-	if err != nil {
-		return out, err
-	}
-	sum := sha256.Sum256(raw)
-	out.Digest = hex.EncodeToString(sum[:])
-	return out, nil
-}
-
 func (s StandingRules) eligibleForIn(ctx context.Context, q database.Queryer, rule StandingRevision, pid ids.ID, workflow string, target ...ids.ID) (StandingProcedure, error) {
 	set := []ProjectWorkflows{{ProjectID: pid, Workflows: []string{workflow}}}
 	if len(target) > 0 {
 		set[0].target = target[0]
 	}
-	facts := s.standingFacts(ctx, q, []StandingRevision{rule}, set)
-	return s.judgeStanding(ctx, q, rule, pid, workflow, facts[0], facts[0].issuers[rule.Issuer.Principal])
+	facts := s.standingFacts(ctx, q, rule, set)
+	return s.judgeStanding(ctx, q, rule, pid, workflow, facts[0], facts[0].issuer)
 }
 
 func (s StandingRules) judgeStanding(ctx context.Context, q database.Queryer, rule StandingRevision, pid ids.ID, workflow string, facts standingProjectFacts, issuer standingIssuerFacts) (StandingProcedure, error) {
@@ -113,9 +32,6 @@ func (s StandingRules) judgeStanding(ctx context.Context, q database.Queryer, ru
 	refuse := func(why string) (StandingProcedure, error) { return out, fault.New(fault.Conflict, why) }
 	if !rule.Enabled {
 		return refuse("standing approval is disabled")
-	}
-	if _, err := normalizeStanding(rule.Question.Definition); err != nil {
-		return refuse("the standing approval's bounds changed; preview and confirm its current meaning")
 	}
 	if err := issuer.err; err != nil {
 		var denied *access.Denied
@@ -128,35 +44,12 @@ func (s StandingRules) judgeStanding(ctx context.Context, q database.Queryer, ru
 	if err := facts.activeErr; err != nil {
 		return out, err
 	}
-	level, err := facts.level(rule.Question.Definition)
+	level, err := facts.level(rule.Choices)
 	if err != nil {
 		return out, err
 	}
-	if level == "off" {
+	if facts.choice == "off" {
 		return refuse("turned off for this project")
-	}
-	in := rule.Question.Definition
-	selected := false
-	if in.Scope == "instance" {
-		selected = pinsWorkflow(rule, workflow)
-	} else {
-		for _, p := range in.Projects {
-			if p.ProjectID == pid && p.Workflow == workflow {
-				selected = true
-			}
-		}
-	}
-	if !selected {
-		return refuse("the workflow is outside this standing approval")
-	}
-	if in.Scope != "instance" {
-		fresh, err := s.question(ctx, q, in, rule.Issuer, false)
-		if err != nil {
-			return out, err
-		}
-		if fresh.Digest != rule.Question.Digest {
-			return out, errStandingMeaningChanged
-		}
 	}
 	if facts.independentErr != nil {
 		return out, facts.independentErr
@@ -164,23 +57,22 @@ func (s StandingRules) judgeStanding(ctx context.Context, q database.Queryer, ru
 	if facts.independent {
 		return refuse("independent approval requires a person")
 	}
-	selectedProcedure := facts.procedures[standingProcedureKey{rule.RuleID, workflow}]
+	selectedProcedure := facts.procedures[workflow]
 	proc, err := selectedProcedure.procedure, selectedProcedure.err
 	if err != nil {
 		return out, err
 	}
-	pinned := false
-	for _, meaning := range rule.Question.Projects {
-		if in.Scope != "instance" && meaning.ProjectID != pid {
-			continue
+	switch proc.Trigger {
+	case "publication":
+		if !rule.Choices.Packs {
+			return refuse("pack updates are turned off")
 		}
-		a, b := meaning.Procedure.Acceptance, meaning.Procedure.Landing
-		if a.Workflow == workflow && a.Step == proc.Acceptance.Step && a.Means == proc.Acceptance.Means && b.Workflow == proc.Landing.Workflow && b.Step == proc.Landing.Step && b.Means == proc.Landing.Means {
-			pinned = true
+	case "schedule":
+		if level == "off" {
+			return refuse("dependency updates are turned off")
 		}
-	}
-	if !pinned {
-		return out, errStandingMeaningChanged
+	default:
+		return refuse("the workflow is outside the Janitor choices")
 	}
 	if facts.resourceErr != nil {
 		return out, facts.resourceErr
@@ -209,30 +101,6 @@ func (s StandingRules) judgeStanding(ctx context.Context, q database.Queryer, ru
 	if !reach.Repository {
 		return refuse("this project has no repository for the janitor to update")
 	}
-	if in.Scope != "instance" {
-		var selected []StandingEnvironment
-		for _, p := range in.Projects {
-			if p.ProjectID == pid {
-				selected = p.Environments
-			}
-		}
-		follows := reach.FollowsMain
-		if in.Delivery == "land-only" && len(follows) > 0 {
-			return refuse("accept and land only cannot release to a deployment following main")
-		}
-		if in.Delivery == "full" {
-			if len(selected) != len(follows) {
-				return refuse("the deployments following main changed; a person must confirm the exact release scope again")
-			}
-			for _, dep := range follows {
-				if !slices.ContainsFunc(selected, func(e StandingEnvironment) bool {
-					return e.DeploymentID == dep.DeploymentID && e.TargetID == dep.TargetID
-				}) {
-					return refuse("a deployment following main is outside the selected release scope")
-				}
-			}
-		}
-	}
 	hold, err := facts.hold, facts.holdErr
 	if err != nil {
 		return out, err
@@ -241,10 +109,6 @@ func (s StandingRules) judgeStanding(ctx context.Context, q database.Queryer, ru
 		return refuse("the project is held back: " + hold)
 	}
 	return proc, nil
-}
-
-func pinsWorkflow(rule StandingRevision, name string) bool {
-	return slices.ContainsFunc(rule.Question.Projects, func(p standingProjectMeaning) bool { return p.Procedure.Acceptance.Workflow == name })
 }
 
 // ProjectWorkflows names the workflows to judge independently for one project.
@@ -259,67 +123,39 @@ type StandingEligibilityResult struct {
 	Rule           StandingRevision
 	Level, Refused string
 	Err            error
-	MeaningChanged []ids.ID
-	// Unassessed names pinning rules whose judgement failed without a refusal.
-	Unassessed []ids.ID
+	Unassessed     []ids.ID
 }
 
-// StandingEligibility reads current rules and issuer facts once for the set.
-// Each workflow retains its first eligible rule or first covered refusal.
-// MeaningChanged and Unassessed include diagnostics after that decision settles.
+// StandingEligibility judges the one current record against each resolved procedure.
 func (s StandingRules) StandingEligibility(ctx context.Context, set []ProjectWorkflows) (map[ids.ID]map[string]StandingEligibilityResult, error) {
-	rows, err := workflowsql.New(s.db.SQL()).CurrentStandingRules(ctx)
+	current, err := latestStanding(ctx, s.db)
 	if err != nil {
 		return nil, err
 	}
-	rules := make([]StandingRevision, 0, len(rows))
-	for _, row := range rows {
-		rule, err := readStandingRevision(row)
-		if err != nil {
-			return nil, err
-		}
-		rules = append(rules, rule)
-	}
-	facts := s.standingFacts(ctx, s.db, rules, set)
 	out := map[ids.ID]map[string]StandingEligibilityResult{}
-	for i, project := range set {
+	var facts []standingProjectFacts
+	if current != nil {
+		facts = s.standingFacts(ctx, s.db, *current, set)
+	}
+	for i, p := range set {
 		results := map[string]StandingEligibilityResult{}
-		out[project.ProjectID] = results
-		for _, name := range project.Workflows {
-			result := StandingEligibilityResult{Refused: "waits for a standing approval"}
-			covered, settled := false, false
-			for _, rule := range rules {
-				if !pinsWorkflow(rule, name) {
-					continue
+		out[p.ProjectID] = results
+		for _, name := range p.Workflows {
+			r := StandingEligibilityResult{Refused: "waits for Janitor choices"}
+			if current != nil {
+				_, err := s.judgeStanding(ctx, s.db, *current, p.ProjectID, name, facts[i], facts[i].issuer)
+				if err == nil {
+					r.Rule = *current
+					r.Level, r.Err = facts[i].level(current.Choices)
+					r.Refused = ""
+				} else if standingRefusal(err) {
+					r.Refused = err.Error()
+				} else {
+					r.Err = err
+					r.Unassessed = []ids.ID{current.RuleID}
 				}
-				_, err := s.judgeStanding(ctx, s.db, rule, project.ProjectID, name, facts[i], facts[i].issuers[rule.Issuer.Principal])
-				if errors.Is(err, errStandingMeaningChanged) {
-					result.MeaningChanged = append(result.MeaningChanged, rule.RuleID)
-				}
-				if err != nil && !standingRefusal(err) {
-					result.Unassessed = append(result.Unassessed, rule.RuleID)
-				}
-				if settled {
-					continue
-				}
-				if err != nil {
-					if !standingRefusal(err) {
-						result.Err = err
-						settled = true
-						continue
-					}
-					if !covered {
-						result.Refused = err.Error()
-						covered = true
-					}
-					continue
-				}
-				result.Rule = rule
-				result.Level, result.Err = facts[i].level(rule.Question.Definition)
-				result.Refused = ""
-				settled = true
 			}
-			results[name] = result
+			results[name] = r
 		}
 	}
 	return out, nil
@@ -373,7 +209,7 @@ func (s StandingRules) SetProjectChoice(ctx context.Context, pid ids.ID, level s
 }
 
 func standingAttribution(v *standingVote) string {
-	return fmt.Sprintf("the janitor, under standing approval %s (rev %d), granted by %s", v.RuleID, v.Revision, v.Issuer.Name)
+	return fmt.Sprintf("the janitor, under the janitor choices (rev %d), set by %s", v.Revision, v.Issuer.Name)
 }
 
 type standingProjectAct struct {
@@ -408,45 +244,29 @@ func (s StandingRules) ProjectState(ctx context.Context, pid ids.ID) (standingPr
 		}
 		out.Level = out.Choice.Level
 	}
-	rows, err := workflowsql.New(s.db.SQL()).CurrentStandingRules(ctx)
+	rule, err := latestStanding(ctx, s.db)
 	if err != nil {
 		return out, err
 	}
-	for _, row := range rows {
-		rule, err := readStandingRevision(row)
-		if err != nil {
-			return out, err
-		}
-		if !rule.Enabled {
-			continue
-		}
-		if rule.Question.Definition.Scope == "instance" {
-			out.Enabled = true
-			if out.Level == "" {
-				out.Level = rule.Question.Definition.Categories.Dependencies
-			}
-		}
-		for _, p := range rule.Question.Definition.Projects {
-			if p.ProjectID == pid {
-				out.Enabled = true
-				if out.Level == "" {
-					out.Level = rule.Question.Definition.Categories.Dependencies
-				}
-			}
+	if rule != nil {
+		out.Enabled = rule.Enabled
+		if out.Level == "" {
+			out.Level = rule.Choices.Dependencies
 		}
 	}
+
 	return out, nil
 }
 
 // effectiveLevelIn is shared by firing, fix execution and standing assessment.
 // No project record means the instance's level applies.
-func (s StandingRules) effectiveLevelIn(ctx context.Context, q database.Queryer, in StandingDefinition, pid ids.ID) (string, error) {
+func (s StandingRules) effectiveLevelIn(ctx context.Context, q database.Queryer, in JanitorChoices, pid ids.ID) (string, error) {
 	rows, err := workflowsql.New(q.SQL()).LatestStandingProjectChoice(ctx, pid)
 	if err != nil {
 		return "", err
 	}
-	if len(rows) == 0 {
-		return in.Categories.Dependencies, nil
+	if len(rows) == 0 || in.Dependencies == "off" {
+		return in.Dependencies, nil
 	}
 	var act standingProjectAct
 	if err := json.Unmarshal(rows[0], &act); err != nil {

@@ -32,7 +32,7 @@ func (q *Queries) AdvanceStandingRule(ctx context.Context, arg AdvanceStandingRu
 }
 
 const currentStandingRules = `-- name: CurrentStandingRules :many
-SELECT r.rule_id, r.revision, r.enabled, r.record_json FROM standing_rule_revisions r JOIN standing_rules h ON h.id=r.rule_id AND h.current_revision=r.revision ORDER BY r.rule_id
+SELECT r.rule_id, r.revision, r.enabled, r.record_json FROM standing_rule_revisions r JOIN standing_rules h ON h.id=r.rule_id AND h.current_revision=r.revision ORDER BY r.rule_id DESC LIMIT 1
 `
 
 func (q *Queries) CurrentStandingRules(ctx context.Context) ([]StandingRuleRevision, error) {
@@ -120,6 +120,15 @@ func (q *Queries) LatestStandingProjectChoice(ctx context.Context, projectID ids
 	return items, nil
 }
 
+const lockJanitorChoices = `-- name: LockJanitorChoices :exec
+SELECT pg_advisory_xact_lock(242, 1)
+`
+
+func (q *Queries) LockJanitorChoices(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, lockJanitorChoices)
+	return err
+}
+
 const lockStandingRule = `-- name: LockStandingRule :one
 SELECT current_revision FROM standing_rules WHERE id=$1 FOR UPDATE
 `
@@ -172,11 +181,11 @@ func (q *Queries) StandingConsidered(ctx context.Context, arg StandingConsidered
 }
 
 const standingHistory = `-- name: StandingHistory :many
-SELECT rule_id, revision, enabled, record_json FROM standing_rule_revisions WHERE rule_id=$1 ORDER BY revision
+SELECT rule_id, revision, enabled, record_json FROM standing_rule_revisions ORDER BY rule_id,revision
 `
 
-func (q *Queries) StandingHistory(ctx context.Context, ruleID ids.ID) ([]StandingRuleRevision, error) {
-	rows, err := q.db.QueryContext(ctx, standingHistory, ruleID)
+func (q *Queries) StandingHistory(ctx context.Context) ([]StandingRuleRevision, error) {
+	rows, err := q.db.QueryContext(ctx, standingHistory)
 	if err != nil {
 		return nil, err
 	}

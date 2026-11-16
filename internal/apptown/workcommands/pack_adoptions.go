@@ -59,7 +59,7 @@ func (a PackAdoptions) AdoptWhatIf(ctx context.Context, assessed *conformance.Wh
 		if err != nil {
 			return err
 		}
-		if rule.RuleID.IsZero() || !rule.Question.Definition.Categories.WaysOfWorking {
+		if rule.RuleID.IsZero() || !rule.Choices.Packs {
 			continue
 		}
 		fingerprint, err := candidate.Fingerprint()

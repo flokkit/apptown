@@ -17,7 +17,7 @@ import (
 
 func TestAgentUpdateMigrationPreservesRecordedObservations(t *testing.T) {
 	db := releaseDB(t)
-	if _, err := applyMigrations(t.Context(), db, migrations[:len(migrations)-1]); err != nil {
+	if _, err := applyMigrations(t.Context(), db, migrations[:migrationIndex(t, 241)]); err != nil {
 		t.Fatal(err)
 	}
 	pid, err := database.Transact(t.Context(), db, func(tx *database.Tx) (ids.ID, error) {

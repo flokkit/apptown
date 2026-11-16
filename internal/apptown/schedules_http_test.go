@@ -3,20 +3,26 @@ package apptown
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"testing/fstest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
+	"github.com/flokkit/apptown/internal/apptown/verification"
+	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/ids"
 
-	"database/sql"
 	"encoding/json"
-	"github.com/flokkit/apptown/internal/apptown/wow"
-	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/database/query"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/database"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
@@ -94,13 +100,9 @@ func TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement(t *testi
 	// Rule creation uses declaration-only test data with the real consent owner.
 	// The page reads the same immutable grant without assessing eligibility.
 	rules := workflow.NewStandingRules(a.DB, workflow.StandingDependencies{Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Identity: a.Access, Procedures: janitorPageProcedure{}})
-	definition := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: idstest.N(1), Workflow: "restore-fixture"}}, Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "land-only"}
+	definition := workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}
 	ctx := verifiedContext(t.Context(), access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "header", Credential: identity.HeaderCredential("boss")})
-	q, err := rules.Preview(ctx, definition)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rule, err := rules.Enable(ctx, workflow.StandingCommand{Definition: definition, ShownDigest: q.Digest})
+	rule, err := rules.Save(ctx, workflow.JanitorChoicesCommand{Choices: definition})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +114,7 @@ func TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement(t *testi
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &got) != nil {
 		t.Fatalf("read: %d %s", w.Code, w.Body)
 	}
-	if len(got.Projects) != 2 || len(got.Rules) != 1 || got.Rules[0].RuleID != rule.RuleID {
+	if len(got.Projects) != 2 || got.Choices == nil || got.Choices.RuleID != rule.RuleID {
 		t.Fatalf("view=%s", w.Body)
 	}
 	var shape struct {
@@ -142,7 +144,7 @@ func TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement(t *testi
 	if !found {
 		t.Fatalf("project choice missing: %s", w.Body)
 	}
-	denied := authzCall(h, "outsider", "POST", "/api/v1/standing-approvals/"+rule.RuleID.String()+"/disable", fmt.Sprintf(`{"expectedRevision":%d}`, rule.Revision))
+	denied := authzCall(h, "outsider", "PUT", "/api/v1/janitor/choices", fmt.Sprintf(`{"choices":{"dependencies":"off"},"expectedRevision":%d}`, rule.Revision))
 	if denied.Code != 403 {
 		t.Fatalf("reader revoked consent: %d %s", denied.Code, denied.Body)
 	}
@@ -169,7 +171,7 @@ func TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement(t *testi
 type janitorPageProcedure struct{}
 
 func (janitorPageProcedure) standingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
-	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: "restore-fixture", Version: 1, Step: "accept", Means: "accept bounded updates after required checks"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
+	return workflow.StandingProcedure{Trigger: "schedule", Acceptance: workflow.StandingPurpose{Workflow: "restore-fixture", Version: 1, Step: "accept", Means: "accept bounded updates after required checks"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
 }
 
 // A project with no repository yet (no main branch) is outside the janitor's
@@ -195,15 +197,11 @@ func TestJanitorPageReadsWithAnInstanceRuleAndAProjectWithoutARepository(t *test
 			t.Fatal(err)
 		}
 	}
-	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	in := workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}
 	if err := json.Unmarshal([]byte(`{"schedules":[{"workflow":"janitor-update","crons":{"routine":"0 6 * * 1","aggressive":"0 6 * * *"}},{"workflow":"janitor-scan","crons":{"routine":"0 5 * * *","aggressive":"0 5 * * *"}}]}`), &in); err != nil {
 		t.Fatal(err)
 	}
-	q, err := a.standingRules.Preview(ctx, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest}); err != nil {
+	if _, err := a.standingRules.Save(ctx, workflow.JanitorChoicesCommand{Choices: in}); err != nil {
 		t.Fatal(err)
 	}
 	if rule, _, _, err := standingEligibilityOne(a.standingRules, ctx, empty.ID, "janitor-update"); err != nil || !rule.RuleID.IsZero() {
@@ -275,21 +273,17 @@ func TestScanNowFiresTheJanitorScanScheduleForAPersonWhoMayOpenWork(t *testing.T
 		return ""
 	}
 	const run = "/api/v1/projects/janitor-scan-now/schedules/janitor-scan/run"
-	if got := scanNow(); got != "waits for a standing approval" {
+	if got := scanNow(); got != "waits for Janitor choices" {
 		t.Fatalf("scan without a janitor approval: %q", got)
 	}
 	if w := authzCall(h, "boss", "POST", run, ""); w.Code != 422 {
 		t.Fatalf("fired without a standing approval: %d %s", w.Code, w.Body)
 	}
-	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	in := workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}
 	if err := json.Unmarshal([]byte(`{"schedules":[{"workflow":"janitor-update","crons":{"routine":"0 6 * * 1","aggressive":"0 6 * * *"}},{"workflow":"janitor-scan","crons":{"routine":"0 5 * * *","aggressive":"0 5 * * *"}}]}`), &in); err != nil {
 		t.Fatal(err)
 	}
-	q, err := a.standingRules.Preview(ctx, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest}); err != nil {
+	if _, err := a.standingRules.Save(ctx, workflow.JanitorChoicesCommand{Choices: in}); err != nil {
 		t.Fatal(err)
 	}
 	if got := scanNow(); got != "" {
@@ -353,60 +347,6 @@ func TestScanNowFiresTheJanitorScanScheduleForAPersonWhoMayOpenWork(t *testing.T
 
 }
 
-// Count real database round trips at the same interface generated code uses.
-type standingCountedQueries struct {
-	query.Handle
-	reads  int
-	writes int
-}
-
-func (d *standingCountedQueries) SQL() query.Handle {
-	return dbtest.WithExecutor(d.Handle, d)
-}
-func (d *standingCountedQueries) ExecContext(ctx context.Context, q string, args ...any) (sql.Result, error) {
-	d.writes++
-	return d.Executor.ExecContext(ctx, q, args...)
-}
-func (d *standingCountedQueries) QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error) {
-	d.reads++
-	return d.Executor.QueryContext(ctx, q, args...)
-}
-func (d *standingCountedQueries) QueryRowContext(ctx context.Context, q string, args ...any) *sql.Row {
-	d.reads++
-	return d.Executor.QueryRowContext(ctx, q, args...)
-}
-
-func TestStandingConsentReadsPublishedLibraryOnce(t *testing.T) {
-	t.Parallel()
-	db := testDB(t)
-	declaration := func(name, description string) string {
-		return fmt.Sprintf("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: %s, description: %s}\nspec: {kind: pipeline, stages: [{name: work, steps: [{name: work, uses: script, with: {run: 'true'}}]}]}\n", name, description)
-	}
-	library := wow.NewWorkflows(db)
-	for i := range 12 {
-		name := fmt.Sprintf("wf-%02d", i)
-		for _, description := range []string{"original", "current"} {
-			if _, _, err := library.Put(t.Context(), declaration(name, description), "alice"); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-	counted := &standingCountedQueries{Handle: db.SQL()}
-	// Standing consent must use the same bulk publication read, including the
-	// version it pins, rather than fetching each workflow again by name.
-	counted.reads = 0
-	published, err := (&adoption.Service{}).PublishedWorkflows(t.Context(), counted)
-	if err != nil || counted.reads != 1 || len(published) != 12 {
-		t.Fatalf("standing library: %d reads, %d workflows: %v", counted.reads, len(published), err)
-	}
-	for _, wf := range published {
-		if wf.Version != 2 || wf.Name != wf.Doc.Metadata.Name || wf.Doc.Metadata.Description != "current" {
-			t.Fatalf("standing library mixed publication versions: %+v", wf)
-		}
-	}
-
-}
-
 func (f janitorPageProcedure) StandingProcedures(ctx context.Context, q database.Queryer, id ids.ID, names []string) (map[string]workflow.StandingProcedureResult, error) {
 	out := map[string]workflow.StandingProcedureResult{}
 	for _, name := range names {
@@ -446,12 +386,8 @@ func TestFleetReadsAuthorityFactsOnceForTheSet(t *testing.T) {
 	}
 	add(0)
 	add(1)
-	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
-	preview, err := a.standingRules.Preview(ctx, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: preview.Definition, ShownDigest: preview.Digest}); err != nil {
+	in := workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}
+	if _, err := a.standingRules.Save(ctx, workflow.JanitorChoicesCommand{Choices: in}); err != nil {
 		t.Fatal(err)
 	}
 	h := a.Handler()
@@ -497,7 +433,7 @@ func TestFleetReadsAuthorityFactsOnceForTheSet(t *testing.T) {
 			}
 		}
 	}
-	facts, _, _, _, err := a.Work.JanitorProjects(ctx)
+	facts, _, _, err := a.Work.JanitorProjects(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -514,4 +450,167 @@ func TestFleetReadsAuthorityFactsOnceForTheSet(t *testing.T) {
 		}
 	}
 
+}
+
+type workflowChangeInspection struct{ a *App }
+
+func (f workflowChangeInspection) InspectRoutine(ctx context.Context, source workflow.Source, _ workflow.JanitorChoices) (workflow.StandingInspection, error) {
+	run, err := workflow.ReadRunIn(ctx, f.a.DB, source.RunID)
+	if err != nil {
+		return workflow.StandingInspection{}, err
+	}
+	selected, err := verification.SelectCommit(ctx, f.a.DB, f.a.cfg.dataDir, run, source)
+	return workflow.StandingInspection{Classification: "routine-dependency", Candidate: selected.Commit}, err
+}
+
+func TestJanitorChoicesSurviveAnAdoptedWorkflowMeaningAndVersionChange(t *testing.T) {
+	a := authzActors(t)
+	ctx := verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, a))
+	a.SyncStock(ctx)
+	pid, _, _ := fleetRepo(t, a, "workflow-change", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	declare := func(means string) string {
+		return fmt.Sprintf(`apiVersion: apptown.dev/v1
+kind: Workflow
+metadata: {name: janitor-update, title: Dependency updates}
+spec:
+  kind: pipeline
+  role: working
+  on:
+    schedule: {cron: '* * * * *', queue: updates, standing: true}
+  stages:
+    - name: update
+      steps:
+        - {name: update, uses: agent/pi}
+        - name: accept
+          uses: approval
+          with:
+            means: I accept this checked update.
+            standing: {class: routine-update, means: %q}
+`, means)
+	}
+	adopt := func(means string) int {
+		t.Helper()
+		shipped := wow.New(a.DB, wow.Dependencies{Stock: fstest.MapFS{"janitor-update.yaml": &fstest.MapFile{Data: []byte(declare(means))}}})
+		if counts := shipped.SyncStockWorkflows(ctx); counts.Errors != 0 || counts.Skipped != 0 {
+			t.Fatalf("workflow release: %+v", counts)
+		}
+		version, _, err := a.Ways.WorkflowVersion(ctx, "janitor-update", 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		packVersion, err := a.Ways.PublishPack(ctx, "choice-test", "Choice test", fmt.Sprintf(`{"description":%q,"workflows":["janitor-update","land"],"schedules":["janitor-update"]}`, means), "fixture")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := a.DB.InTx(ctx, func(tx *database.Tx) error {
+			return adoption.SetMembershipIn(ctx, tx, pid, []adoption.Membership{{Pack: "choice-test", Version: int64(packVersion)}}, "boss", "test adoption", time.Now())
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := recordCatalogFixture(a.Adoption, ctx, pid, "boss"); err != nil {
+			t.Fatal(err)
+		}
+		candidate, err := a.Adoption.Prepare(ctx, pid, adoption.Request{Packs: []adoption.PackPick{{Pack: "choice-test", Version: int64(packVersion)}}, AdvanceWorkflows: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := a.DB.InTx(ctx, func(tx *database.Tx) error {
+			_, err := a.Adoption.AdoptIn(ctx, tx, pid, *candidate, candidate.ExpectedRevision, "boss", "adopt workflow version", adoption.OperationSelect)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return version
+	}
+	const original = "original scheduled update acceptance"
+	const changed = "changed scheduled update acceptance"
+	first := adopt(original)
+	a.standingRules = workflow.NewStandingRules(a.DB, workflow.StandingDependencies{Authority: access.Checked{Authority: identity.Scoped(a.Access, "standing-approval"), Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Adoptions: a.Adoption, Laws: workflowLawRules{}}, Portfolio: verification.Portfolio{Releases: a.Deployment}, Presence: holderPresenceFor(a), Inspector: workflowChangeInspection{a}})
+	saved, err := a.standingRules.Save(ctx, workflow.JanitorChoicesCommand{Choices: workflow.JanitorChoices{Dependencies: "routine", BaseImages: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := adopt(changed)
+	if second <= first {
+		t.Fatal("workflow version did not advance")
+	}
+	rebuildWork(t, a, func(d *workflow.Dependencies) {
+		d.Standing = &a.standingRules
+		d.Runners["agent/pi"] = func(e *workflow.Execution) {
+			if _, err := e.Claim(); err != nil {
+				return
+			}
+			source, err := workflow.ReadSourceIn(e.Context(), a.DB, workflow.RunRef{ID: e.Run().ID, ProjectID: pid})
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			folder, err := source.Workspace(a.cfg.dataDir)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			if err = os.WriteFile(filepath.Join(folder, "site", "index.html"), []byte("updated"), 0644); err != nil {
+				t.Error(err)
+				return
+			}
+			if err = repositoryedit.CommitStep(e.Context(), a.DB, a.cfg.dataDir, a.branches, repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, e.Run(), e.Step(), a.cfg.clock.Now()); err != nil {
+				t.Error(err)
+				return
+			}
+			e.Settle((workflow.CheckEvidence{Checks: []workflow.CheckReceipt{{Check: "check", Verdict: workflow.VerdictPass}}}).Outcome(workflow.StatusPass, nil))
+		}
+	})
+	schedules := changeactions.Schedules{Standing: &a.standingRules, Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}
+	now := time.Now().UTC().Truncate(time.Minute)
+	schedules.FireDueSchedules(ctx, now)
+	schedules.FireDueSchedules(ctx, now.Add(time.Minute))
+	a.Work.Wait()
+	attempts, err := a.Work.Attempts(ctx, pid, "updates", 10)
+	if err != nil || len(attempts) != 1 || attempts[0].RuleID != saved.RuleID {
+		t.Fatalf("changed workflow did not fire: %+v %v", attempts, err)
+	}
+	runs, err := a.Work.ChangeRuns(ctx, attempts[0].ChangeID, workflow.ChangeRuns{})
+	if err != nil || len(runs) != 1 || runs[0].WorkflowVersion != second {
+		t.Fatalf("adopted workflow: %+v want version %d: %v", *runs[0], second, err)
+	}
+	jobs := operationJobs(t, a, standingAcceptanceJob)
+	if len(jobs) != 1 {
+		t.Fatalf("acceptance jobs: %+v", jobs)
+	}
+	assessment, assessErr := a.standingRules.Assess(ctx, runs[0].ID)
+	if assessErr != nil {
+		t.Fatalf("assessment: %+v %v", assessment, assessErr)
+	}
+	result, err := a.Work.RunStandingAcceptance(ctx, jobs[0].Key, nil)
+	if err != nil || result["cast"] != true {
+		snap, _ := a.Work.Snapshot(ctx, runs[0].ID, workflow.DetailView)
+		t.Fatalf("changed meaning paused acceptance: %+v %v; assessment=%+v events=%+v steps=%+v", result, err, assessment, snap.Events, snap.Steps)
+	}
+	snapshot, err := a.Work.Snapshot(ctx, runs[0].ID, workflow.DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, step := range snapshot.Steps {
+		if step.Type != "approval" {
+			continue
+		}
+		ev, err := workflow.ReadApprovalEvidence(step.Evidence)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, v := range ev.Decisions {
+			if v.Standing != nil && v.Standing.RuleID == saved.RuleID && v.Standing.Means == changed {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("current procedure missing from vote: %+v", snapshot.Steps)
+	}
+	current, err := a.standingRules.Current(ctx)
+	if err != nil || current == nil || current.Revision != saved.Revision || current.Choices != saved.Choices {
+		t.Fatalf("choices changed: %+v %v", current, err)
+	}
 }

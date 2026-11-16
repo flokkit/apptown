@@ -54,7 +54,7 @@ func (s StandingRules) checkStandingLanding(ctx context.Context, q database.Quer
 		}
 		return "", err
 	}
-	level, err := s.effectiveLevelIn(ctx, q, rule.Question.Definition, run.ProjectID)
+	level, err := s.effectiveLevelIn(ctx, q, rule.Choices, run.ProjectID)
 	if err != nil {
 		return "", err
 	}

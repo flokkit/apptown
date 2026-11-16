@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/database"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,8 +11,10 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"testing/fstest"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/database"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -164,183 +164,40 @@ func (workPermissionFunc) VisibleProjects(context.Context, access.Capability) ([
 	return nil, access.ErrAuthorityUnavailable
 }
 
-func TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer(t *testing.T) {
+func TestJanitorChoicesHTTPRequiresAuthorityAndExpectedRevision(t *testing.T) {
 	a := authzActors(t)
-	a.Ways.SyncStockWorkflows(t.Context())
-	var workingYAML string
-	for _, kind := range []string{"working", "landing"} {
-		name := "janitor-work"
-		system := "false"
-		if kind == "landing" {
-			name = "janitor-land"
-			system = "true"
-		}
-		body := fmt.Sprintf(`apiVersion: apptown.dev/v1
-kind: Workflow
-metadata: {name: %s, system: %s}
-spec:
-  kind: pipeline
-  role: %s
-  stages:
-    - name: accept
-      steps:
-        - name: approve
-          uses: approval
-          with:
-            means: I reviewed this change
-            standing: {class: routine-update, means: Bounded routine updates after all required checks pass}
-`, name, system, kind)
-		if kind == "working" {
-			workingYAML = body
-		}
-		if _, _, err := a.Ways.PublishWorkflow(t.Context(), body, "boss"); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := a.Ways.BindSystemWorkflow(t.Context(), "land", "janitor-land", "boss"); err != nil {
-		t.Fatal(err)
-	}
-	p, err := a.Projects.BySlug(t.Context(), "game")
-	if err != nil {
-		t.Fatal(err)
-	}
-	projectID := p.ID
-	if err := recordCatalogFixture(a.Adoption, t.Context(), projectID, "boss"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.Adoption.RecordCurrent(t.Context(), projectID, adoption.AdoptionEdit, "explicit standing declaration fixture", "boss"); err != nil {
-		t.Fatal(err)
-	}
-	definition := fmt.Sprintf(`{"projects":[{"projectId":%q,"workflow":"janitor-work","environments":[]}],"categories":{"dependencies":"routine","securityFixes":true},"delivery":"land-only"}`, projectID.String())
 	h := a.Handler()
-	refused := authzCall(h, "outsider", "POST", "/api/v1/standing-approvals/preview", definition)
-	if refused.Code != http.StatusForbidden {
-		t.Fatalf("unscoped actor reached consent: %d %s", refused.Code, refused.Body)
+	body := `{"choices":{"dependencies":"aggressive","securityFixes":true,"baseImages":true,"toolchainPatches":true,"packs":false},"expectedRevision":0}`
+	if w := authzCall(h, "outsider", "PUT", "/api/v1/janitor/choices", body); w.Code != 403 {
+		t.Fatalf("unauthorized save: %d %s", w.Code, w.Body)
 	}
-	question := authzCall(h, "boss", "POST", "/api/v1/standing-approvals/preview", definition)
-	if question.Code != http.StatusOK {
-		t.Fatalf("declared meaning preview: %d %s", question.Code, question.Body)
-	}
-	var preview struct {
-		Digest string
-		Shown  string
-	}
-	if err := json.Unmarshal(question.Body.Bytes(), &preview); err != nil {
-		t.Fatal(err)
-	}
-	if preview.Digest == "" || !strings.Contains(preview.Shown, "Running software remains unchanged") {
-		t.Fatalf("wrong meaning: %+v", preview)
-	}
-	saved := authzCall(h, "boss", "POST", "/api/v1/standing-approvals", fmt.Sprintf(`{"definition":%s,"shownDigest":%q,"issuer":"outsider"}`, definition, preview.Digest))
-	if saved.Code != http.StatusOK {
+	saved := authzCall(h, "boss", "PUT", "/api/v1/janitor/choices", body)
+	var r workflow.StandingRevision
+	if saved.Code != 200 || json.Unmarshal(saved.Body.Bytes(), &r) != nil || r.Issuer.Name != "boss" || r.At.IsZero() || !r.Choices.BaseImages {
 		t.Fatalf("save: %d %s", saved.Code, saved.Body)
 	}
-	var consent struct {
-		RuleID   ids.ID
-		Revision int64
-		Issuer   struct{ Name string }
+	if w := authzCall(h, "boss", "PUT", "/api/v1/janitor/choices", body); w.Code != 409 {
+		t.Fatalf("stale save: %d %s", w.Code, w.Body)
 	}
-	if err := json.Unmarshal(saved.Body.Bytes(), &consent); err != nil {
-		t.Fatal(err)
+	if w := authzCall(h, "boss", "PUT", "/api/v1/janitor/choices", strings.TrimSuffix(body, "}")+`,"shownDigest":"old"}`); w.Code != 400 {
+		t.Fatalf("digest accepted: %d %s", w.Code, w.Body)
 	}
-	if consent.RuleID.IsZero() || consent.Revision != 1 || consent.Issuer.Name != "boss" {
-		t.Fatalf("stored issuer followed untrusted input: %+v", consent)
-	}
-
-	// Assessment accepts identities only. A caller's claimed verdict cannot turn
-	// unavailable committed source into routine evidence or automatic assent.
-	change, e := a.Work.Create(asPerson("boss"), workflow.ChangeDraft{ProjectID: projectID, Title: "inspect missing committed source"})
-	if e != nil {
-		t.Fatal(e)
-	}
-	run, e := a.Work.StartRun(asPerson("boss"), workflow.StartChangeRun{ChangeID: change.ID, Workflow: "janitor-work"})
-	if e != nil {
-		t.Fatal(e)
-	}
-	a.Work.Wait()
-	if e = a.Projects.SetDefaultBranch(t.Context(), projectID, "main"); e != nil {
-		t.Fatal(e)
-	}
-	assessed := authzCall(h, "boss", "POST", "/api/v1/standing-approvals/"+consent.RuleID.String()+"/assess", fmt.Sprintf(`{"runId":%q,"classification":"routine-dependency","processingAvailable":true,"candidate":"untrusted-candidate"}`, run.ID.String()))
-	if assessed.Code != http.StatusOK {
-		t.Fatalf("exact assessment route: %d %s", assessed.Code, assessed.Body)
-	}
-	var inspection struct {
-		ProcessingAvailable bool
-		Inspection          struct {
-			Classification string
-			Candidate      string
+	for _, path := range []string{"/api/v1/janitor/choices", "/api/v1/janitor/choices/history"} {
+		if w := authzCall(h, "boss", "GET", path, ""); w.Code != 200 {
+			t.Fatalf("%s: %d %s", path, w.Code, w.Body)
 		}
 	}
-	if e = json.Unmarshal(assessed.Body.Bytes(), &inspection); e != nil {
-		t.Fatal(e)
-	}
-	if !inspection.ProcessingAvailable || inspection.Inspection.Classification != "cannot-assess" || inspection.Inspection.Candidate == "untrusted-candidate" {
-		t.Fatalf("untrusted assessment accepted: %+v", inspection)
-	}
-	// This fixture seeds transparent instance reads. Remove that explicit
-	// grant before asserting the unscoped-reader case; names alone are not scope.
-	grants, err := a.Access.AllGrants(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, grant := range grants {
-		if grant.Subject == identity.GroupAllUsers && grant.RoleName == access.RoleAuditor && grant.ScopeType == access.ScopeInstance {
-			if _, err := a.Access.Revoke(t.Context(), grant.ID, "boss"); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-	for _, route := range []string{"/api/v1/standing-approvals", "/api/v1/standing-approvals/" + consent.RuleID.String() + "/history"} {
-		read := authzCall(h, "boss", "GET", route, "")
-		if read.Code != http.StatusOK || !strings.Contains(read.Body.String(), consent.RuleID.String()) {
-			t.Fatalf("owner read: %d %s", read.Code, read.Body)
-		}
-		other := authzCall(h, "outsider", "GET", route, "")
-		if strings.Contains(other.Body.String(), consent.RuleID.String()) || other.Code != http.StatusOK && other.Code != http.StatusForbidden {
-			t.Fatalf("unscoped read: %d %s", other.Code, other.Body)
-		}
+	if w := authzCall(h, "outsider", "POST", "/api/v1/janitor/assess", `{"run":"00000000-0001-7000-8000-000000000000"}`); w.Code == 200 {
+		t.Fatalf("unauthorized assessment: %s", w.Body)
 	}
 
-	deniedAssessment := authzCall(h, "outsider", "POST", "/api/v1/standing-approvals/"+consent.RuleID.String()+"/assess", fmt.Sprintf(`{"runId":%q}`, run.ID.String()))
-	if deniedAssessment.Code != http.StatusForbidden {
-		t.Fatalf("unscoped inspection: %d %s", deniedAssessment.Code, deniedAssessment.Body)
+	history, err := a.standingRules.History(verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, a)))
+	if err != nil || len(history) != 1 || history[0].Issuer.Principal != r.Issuer.Principal {
+		t.Fatalf("history: %+v %v", history, err)
 	}
-	otherDisable := authzCall(h, "outsider", "POST", "/api/v1/standing-approvals/"+consent.RuleID.String()+"/disable", `{"expectedRevision":1}`)
-	if otherDisable.Code != http.StatusForbidden {
-		t.Fatalf("unscoped disable: %d %s", otherDisable.Code, otherDisable.Body)
-	}
-	disabled := authzCall(h, "boss", "POST", "/api/v1/standing-approvals/"+consent.RuleID.String()+"/disable", `{"expectedRevision":1}`)
-	if disabled.Code != http.StatusOK {
-		t.Fatalf("disable: %d %s", disabled.Code, disabled.Body)
-	}
-	// A selected declaration alone is insufficient: its real lifecycle role
-	// must still supply working acceptance after a governed version update.
-	if _, _, err := a.Ways.PublishWorkflow(t.Context(), strings.Replace(strings.Replace(workingYAML, "role: working", "role: record", 1), "name: janitor-work", "name: janitor-record", 1), "boss"); err != nil {
-		t.Fatal(err)
-	}
-	if err := recordCatalogFixture(a.Adoption, t.Context(), projectID, "boss"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.Adoption.RecordCurrent(t.Context(), projectID, adoption.AdoptionEdit, "record workflow is not working acceptance", "boss"); err != nil {
-		t.Fatal(err)
-	}
-	wrongRole := authzCall(h, "boss", "POST", "/api/v1/standing-approvals/preview", strings.Replace(definition, "janitor-work", "janitor-record", 1))
-	if wrongRole.Code != http.StatusConflict || !strings.Contains(wrongRole.Body.String(), "working role") {
-		t.Fatalf("record purpose admitted as working acceptance: %d %s", wrongRole.Code, wrongRole.Body)
-	}
-
-	if err := a.Adoption.InstallPolicy(t.Context(), projectID, "standing-needs-check", "Check before acceptance", "requireStepBefore", map[string]any{"uses": "approval", "requires": "checks"}, "fixture", "boss"); err != nil {
-		t.Fatal(err)
-	}
-	lawRefusal := authzCall(h, "boss", "POST", "/api/v1/standing-approvals/preview", definition)
-	if lawRefusal.Code != http.StatusConflict || !strings.Contains(lawRefusal.Body.String(), "standing-needs-check") {
-		t.Fatalf("current law ignored: %d %s", lawRefusal.Code, lawRefusal.Body)
-	}
-
 }
 
-func TestJanitorInstancePreviewReadsMainAndReleaseSettings(t *testing.T) {
+func TestJanitorChoicesCoverProjectsAndReleaseSettings(t *testing.T) {
 	a := authzActors(t)
 	person, err := a.Access.EnsurePerson(t.Context(), "boss")
 	if err != nil {
@@ -400,39 +257,13 @@ func TestJanitorInstancePreviewReadsMainAndReleaseSettings(t *testing.T) {
 			}
 		}
 	}
-	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	in := workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}
 	if err := json.Unmarshal([]byte(`{"schedules":[{"workflow":"janitor-update","crons":{"routine":"0 6 * * 1","aggressive":"0 6 * * *"}},{"workflow":"janitor-scan","crons":{"routine":"0 5 * * *","aggressive":"0 5 * * *"}}]}`), &in); err != nil {
 		t.Fatal(err)
 	}
-	q, err := a.standingRules.Preview(ctx, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(q.Shown, "releases it to the running app") || !strings.Contains(q.Shown, "including ones created later") {
-		t.Fatalf("missing consent: %s", q.Shown)
-	}
-	if len(q.Portfolio) != 2 {
-		t.Fatalf("preview omitted active repository projects: %+v", q.Portfolio)
-	}
-	for _, p := range q.Portfolio {
-		if p.ProjectID == pid {
-			if !p.OnlyChecksStarts || len(p.Deployments) != 2 {
-				t.Fatalf("covered preview: %+v", p)
-			}
-			for _, dep := range p.Deployments {
-				if dep.Deployment != "automatic" && dep.Deployment != "window" {
-					t.Fatalf("deployment should not get automatic releases: %+v", dep)
-				}
-			}
-		} else if p.ProjectID == java {
-			if !p.OnlyChecksStarts {
-				t.Fatalf("Java preview: %+v", p)
-			}
-		}
-	}
 	// This project really has a Java part and its pack declares no dependency
 	// fixes. Both dependency and pack consent apply there.
-	if _, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest}); err != nil {
+	if _, err := a.standingRules.Save(ctx, workflow.JanitorChoicesCommand{Choices: in}); err != nil {
 		t.Fatal(err)
 	}
 	if dependency, _, _, err := standingEligibilityOne(a.standingRules, ctx, java, "janitor-update"); err != nil || dependency.RuleID.IsZero() {
@@ -555,21 +386,20 @@ func TestJanitorSettingsHTTPChecksCurrentProjectAuthority(t *testing.T) {
 	}
 }
 
-func packRuleDefinition(t *testing.T) workflow.StandingDefinition {
-	t.Helper()
-	var in workflow.StandingDefinition
-	if err := json.Unmarshal([]byte(`{"scope":"instance","delivery":"full","categories":{"waysOfWorking":true},"schedules":[{"workflow":"janitor-adopt","crons":{}}]}`), &in); err != nil {
-		t.Fatal(err)
-	}
-	return in
-}
 func enablePackRule(t *testing.T, a *App, ctx context.Context) workflow.StandingRevision {
 	t.Helper()
-	q, err := a.standingRules.Preview(ctx, packRuleDefinition(t))
+	old, err := a.standingRules.Current(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rule, err := a.standingRules.Enable(ctx, workflow.StandingCommand{Definition: q.Definition, ShownDigest: q.Digest})
+	in := workflow.JanitorChoices{Dependencies: "off", Packs: true}
+	var rev int64
+	if old != nil {
+		in = old.Choices
+		in.Packs = true
+		rev = old.Revision
+	}
+	rule, err := a.standingRules.Save(ctx, workflow.JanitorChoicesCommand{Choices: in, ExpectedRevision: rev})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -937,6 +767,22 @@ func testPackAdoption(t *testing.T, only string) {
 			if err != nil || len(again) != 1 {
 				t.Fatalf("repeated delivery: %+v %v", again, err)
 			}
+			if rule.Choices.Dependencies != "off" || !rule.Choices.Packs {
+				t.Fatalf("packs-only fixture: %+v", rule.Choices)
+			}
+			state, err := a.standingRules.ProjectState(ctx, pid)
+			if err != nil || !state.Enabled || state.Choice != nil && state.Choice.Level == "off" {
+				t.Fatalf("packs-only project excluded: %+v %v", state, err)
+			}
+			projects, _, _, err := a.Work.JanitorProjects(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, p := range projects {
+				if p.ProjectID == pid && p.State.Word == "off" {
+					t.Fatalf("packs-only project reads off: %+v", p)
+				}
+			}
 			for _, job := range operationJobs(t, a, standingAcceptanceJob) {
 				result, err := a.Work.RunStandingAcceptance(ctx, job.Key, nil)
 				if err != nil || result["cast"] != true {
@@ -1098,153 +944,6 @@ func testAdmittedPrincipalForPacks(t *testing.T, a *App) access.Principal {
 
 // A candidate supplies the procedure that its run will execute. The current
 // adoption may still pin the actual triggerless declaration from the old release.
-func TestPackPublicationBootstrapsOldTriggerlessPinAndUsesDeclaredQueue(t *testing.T) {
-	for _, name := range []string{"janitor-adopt", "keep-packs"} {
-		t.Run(name, func(t *testing.T) {
-			a := authzActors(t)
-			ctx := verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, a))
-			a.SyncStock(ctx)
-			q, err := a.standingRules.Preview(ctx, workflow.StandingDefinition{Scope: "instance", Delivery: "full", Categories: workflow.StandingCategories{WaysOfWorking: true}})
-			if err != nil {
-				t.Fatal(err)
-			}
-			for i := range q.Projects {
-				q.Projects[i].Procedure.Acceptance.Workflow = name
-			}
-			body, err := stock.FS.ReadFile("janitor-adopt.yaml")
-			if err != nil {
-				t.Fatal(err)
-			}
-			current := strings.ReplaceAll(string(body), "janitor-adopt", name)
-			current = strings.Replace(current, "queue: packs", "queue: pack-moves", 1)
-			old := strings.Replace(current, "  on:\n    publication: {queue: pack-moves, standing: true}\n", "", 1)
-			old = strings.Replace(old, "  title: Pack updates\n", "", 1)
-			oldStock := strings.Replace(string(body), "  on:\n    publication: {queue: packs, standing: true}\n", "", 1)
-			oldStock = strings.Replace(oldStock, "  title: Pack updates\n", "", 1)
-			initial := fstest.MapFS{"janitor-adopt.yaml": &fstest.MapFile{Data: []byte(oldStock)}}
-			initial[name+".yaml"] = &fstest.MapFile{Data: []byte(old)}
-			release := wow.New(a.DB, wow.Dependencies{Stock: initial})
-			release.SyncStockWorkflows(ctx)
-			platform, err := a.Ways.Pack(ctx, adoption.PlatformPack)
-			if err != nil {
-				t.Fatal(err)
-			}
-			spec := platform.Spec()
-			spec.Guidance = nil
-			for i, n := range spec.Workflows {
-				if n == "janitor-adopt" {
-					spec.Workflows[i] = name
-				}
-			}
-			raw, err := json.Marshal(spec)
-			if err != nil {
-				t.Fatal(err)
-			}
-			version, err := a.Ways.PublishPack(ctx, adoption.PlatformPack, platform.Description, string(raw), "stock")
-			if err != nil {
-				t.Fatal(err)
-			}
-			pid, _, _ := fleetRepo(t, a, "bootstrap", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
-			if err := recordCatalogFixture(a.Adoption, ctx, pid, "boss"); err != nil {
-				t.Fatal(err)
-			}
-			candidate, err := a.Adoption.Prepare(ctx, pid, adoption.Request{Packs: []adoption.PackPick{{Pack: adoption.PlatformPack, Version: int64(version)}}})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := a.lifecycle.Adopt(adoption.WithSystemAuthority(ctx, pid), a.projectByID(ctx, pid), candidate, "boss", "old publication"); err != nil {
-				t.Fatal(err)
-			}
-			q.Shown = "Keep packs current. AppTown moves projects to newly published versions of the packs they use, with up to two repair sessions."
-			q.Digest = "old-recorded-pack-consent"
-			rule := workflow.StandingRevision{RuleID: ids.New(time.Now()), Revision: 1, Enabled: true, Question: q, Issuer: workflow.StandingRevision{}.Issuer, EnabledAt: time.Now()}
-			rule.Issuer.Name = "boss"
-			rule.Issuer.Principal = testPrincipalOf(t, a.DB, "boss")
-			rule.Issuer.Via = "session"
-			record, err := json.Marshal(rule)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var legacy map[string]any
-			if err := json.Unmarshal(record, &legacy); err != nil {
-				t.Fatal(err)
-			}
-			legacy["question"].(map[string]any)["definition"].(map[string]any)["schedules"] = []any{map[string]any{"workflow": name, "crons": map[string]string{}}}
-			record, err = json.Marshal(legacy)
-			if err != nil {
-				t.Fatal(err)
-			}
-			// sql-guarantee: no current operation can create retired consent JSON.
-			if _, err := a.DB.SQL().ExecContext(ctx, `INSERT INTO standing_rules(id,current_revision) VALUES($1,1)`, rule.RuleID); err != nil {
-				t.Fatal(err)
-			}
-			// sql-guarantee: preserve the old sentence and definition as recorded evidence.
-			if _, err := a.DB.SQL().ExecContext(ctx, `INSERT INTO standing_rule_revisions(rule_id,revision,enabled,record_json) VALUES($1,1,true,$2)`, rule.RuleID, record); err != nil {
-				t.Fatal(err)
-			}
-			for publication := 1; publication <= 2; publication++ {
-				release = wow.New(a.DB, wow.Dependencies{Stock: fstest.MapFS{fmt.Sprintf("%s.yaml", name): &fstest.MapFile{Data: []byte(current)}}})
-				release.SyncStockWorkflows(ctx)
-				// A changed publication captures the candidate's current workflow pins.
-
-				raw, err = json.Marshal(spec)
-				if err != nil {
-					t.Fatal(err)
-				}
-				var published map[string]any
-				if err := json.Unmarshal(raw, &published); err != nil {
-					t.Fatal(err)
-				}
-				published["description"] = fmt.Sprintf("Publication %d", publication)
-				raw, err = json.Marshal(published)
-				if err != nil {
-					t.Fatal(err)
-				}
-				version, err = a.Ways.PublishPack(ctx, adoption.PlatformPack, platform.Description, string(raw), "stock")
-				if err != nil {
-					t.Fatal(err)
-				}
-				assessment, err := a.conformance.LatestWhatIf(ctx, adoption.PlatformPack, int64(version))
-				if err != nil || assessment == nil {
-					t.Fatalf("%+v %v", assessment, err)
-				}
-				finished := runWhatIf(t, a, ctx, assessment.ID)
-				if finished.State != conformance.WhatIfDone {
-					t.Fatal(finished.State)
-				}
-				attempts, err := a.Work.Attempts(ctx, pid, "pack-moves", 10)
-				if err != nil || len(attempts) != publication {
-					t.Fatalf("attempts %+v %v", attempts, err)
-				}
-				change, err := a.Work.Change(ctx, attempts[0].ChangeID)
-				if err != nil {
-					t.Fatal(err)
-				}
-				runs, err := a.Work.ChangeRuns(ctx, change.ID, workflow.ChangeRuns{})
-				if err != nil || len(runs) == 0 || runs[0].WorkflowName != name {
-					t.Fatalf("runs %+v %v", runs, err)
-				}
-				if _, err := a.Work.Abandon(ctx, workflow.StopWork{ChangeID: change.ID, Reason: "test adopts the prepared publication"}); err != nil {
-					t.Fatal(err)
-				}
-				// The opened run was dispatched; let it settle before the
-				// next publication and before the App shuts down.
-				a.Work.Wait()
-				picks := []adoption.PackPick{{Pack: adoption.PlatformPack, Version: int64(version)}}
-				candidate, err = a.Adoption.Prepare(ctx, pid, adoption.Request{Packs: picks})
-				if err != nil {
-					t.Fatal(err)
-				}
-				if err := a.DB.InTx(ctx, func(tx *database.Tx) error {
-					_, err := a.Adoption.AdoptIn(ctx, tx, pid, *candidate, candidate.ExpectedRevision, "boss", "prepared publication", adoption.OperationSelect)
-					return err
-				}); err != nil {
-					t.Fatal(err)
-				}
-			}
-		})
-	}
-}
 
 func TestJanitorNightlyCatchUpUsesCurrentRule(t *testing.T) {
 	a := authzActors(t)

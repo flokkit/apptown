@@ -10,8 +10,9 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/google/go-containerregistry/pkg/name"
 	"strings"
+
+	"github.com/google/go-containerregistry/pkg/name"
 
 	"github.com/BurntSushi/toml"
 	"gopkg.in/yaml.v3"
@@ -214,7 +215,7 @@ func dockerBaseInputs(raw []byte) dockerInputs {
 
 // CompareUpdateInputs is the shared deterministic boundary for agent updates.
 // Security targets alone permit exact same-minor toolchain patch moves.
-func CompareUpdateInputs(before, after map[string]any, allowToolchainPatch bool) error {
+func CompareUpdateInputs(before, after map[string]any, baseImages, allowToolchainPatch bool) error {
 	keys := make([]string, 0, len(before)+len(after))
 	for k := range before {
 		keys = append(keys, k)
@@ -248,6 +249,8 @@ func CompareUpdateInputs(before, after map[string]any, allowToolchainPatch bool)
 						if old.Operand != next.Operand {
 							why = "stage, scratch or variable operand changed"
 						}
+					case !baseImages && old.Operand != next.Operand:
+						why = "base image updates are turned off"
 					case old.Repository != next.Repository:
 						why = fmt.Sprintf("%s → %s changes the image", old.Operand, next.Operand)
 					case old.Variant != next.Variant:

@@ -140,13 +140,13 @@ it('puts rollback first when releases hold back a project kept by the janitor', 
     expect(links.slice(0, 2).map(a => a.textContent)).toEqual(['Roll back', 'Try again'])
     expect(links[0].getAttribute('href')).toBe('/projects/project/deployments/production?tab=history&rollbackBefore=12')
     expect(links[1].getAttribute('href')).toBe('/projects/project/deployments/production?tab=history')
-    expect(el.textContent).toContain('Dependency updates approval for all projects (revision 3), granted by Priya')
+    expect(el.textContent).toContain('janitor choices (rev 3), set by Priya · Dependency updates')
   })
 })
 
 it('shows the off level with its recorded person and time', async () => {
   const data = fixture()
-  data.standing = { enabled: true, level: 'off', choice: { person: { name: 'Sam', principal: 'person', via: '' }, at: '2026-11-12T00:00:00Z', reason: 'Recovery' } }
+  data.standing = { enabled: true, level: 'off', choice: { level: 'off', person: { name: 'Sam', principal: 'person', via: '' }, at: '2026-11-12T00:00:00Z', reason: 'Recovery' } }
   await render(data, true, el => {
     expect(el.textContent).toContain('Turned off for this project · Sam')
     expect(el.textContent).not.toContain('Kept updated by the janitor · routine')
@@ -208,7 +208,7 @@ it('offers one Run now and retains attribution for disposed and schedule-only tr
     expect([...el.querySelectorAll('button')].filter(b=>b.textContent==='Run now')).toHaveLength(1)
     const table=el.querySelector('table[aria-label="Recent tries"]')!
     expect(table.textContent).toContain('From')
-    expect(table.textContent).toContain('Dependency updates approval for all projects (revision 2), granted by Priya')
+    expect(table.textContent).toContain('janitor choices (rev 2), set by Priya · Dependency updates')
     expect(table.textContent).toContain('Schedule nightly-scan')
     expect(table.querySelector('a[href^="/changes/"]')).toBeNull()
   })

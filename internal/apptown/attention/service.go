@@ -86,7 +86,6 @@ type Sources struct {
 	Notifications    instanceReader
 	ReleaseApprovals instanceReader
 	Integrations     instanceReader
-	JanitorApprovals instanceReader
 	Checks           interface {
 		Snapshot(context.Context, []ids.ID) (Snapshot, error)
 	}
@@ -264,11 +263,6 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 			snap, err = s.sources.Integrations.Snapshot(ctx)
 		}
 		out.add("integrations", "Integrations", snap, err)
-		snap, err = Snapshot{}, nil
-		if s.sources.JanitorApprovals != nil {
-			snap, err = s.sources.JanitorApprovals.Snapshot(ctx)
-		}
-		out.add("janitor-approvals", "Janitor approvals", snap, err)
 	} else if fault.KindOf(integrationErr) != fault.Forbidden {
 		return empty, integrationErr
 	}

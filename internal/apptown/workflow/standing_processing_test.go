@@ -7,65 +7,45 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
-	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
 type standingPortfolioFixture struct {
-	projectID     ids.ID
-	forbidPreview *testing.T
-	noRepository  bool
-	follows       []StandingEnvironment
-	hold          string
+	projectID    ids.ID
+	noRepository bool
+	hold         string
 	// failFor names a project whose coverage cannot be read.
 	failFor ids.ID
 }
 
-func (f *standingPortfolioFixture) StandingPortfolio(_ context.Context, _ database.Queryer, _ StandingCategories) ([]StandingProjectPreview, error) {
-	if f.forbidPreview != nil {
-		f.forbidPreview.Fatal("eligibility called the consent preview")
-	}
-	id := f.projectID
-	if !f.failFor.IsZero() && id == f.failFor {
-		return nil, errors.New("deployment requires a selected revision")
-	}
-	return []StandingProjectPreview{{ProjectID: id, OnlyChecksStarts: true, Deployments: []StandingEnvironment{{ProjectID: id, Deployment: "main", Setting: "automatic"}}}}, nil
-}
 func (f *standingPortfolioFixture) StandingHold(context.Context, database.Queryer, ids.ID) (string, error) {
 	return f.hold, nil
-}
-func (f *standingProcedureFixture) InstanceStandingProcedure(name string, _ []*adoption.ResolvedWorkflow) (StandingProcedure, error) {
-	return f.standingProcedure(context.Background(), nil, ids.Nil, name)
 }
 
 // One instance consent applies to future projects, but each use reads current
 // project choice, coverage, approval meaning, issuer grants and release health.
 func TestInstanceStandingConsentRechecksEveryProjectAtUse(t *testing.T) {
-	a, s, p, owner, _ := standingFixture(t)
+	a, s, p, _, _ := standingFixture(t)
+	owner := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "owner"))
 	portfolio := &standingPortfolioFixture{}
 	s.deps.Portfolio = portfolio
-	in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
-	if _, err := s.Preview(owner, in); err == nil {
+	in := JanitorChoices{Dependencies: "routine", SecurityFixes: true}
+	if _, err := s.Save(owner, JanitorChoicesCommand{Choices: in}); err == nil {
 		t.Fatal("a project owner enabled instance consent without instance administration")
 	}
 	boss := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
 	rule := enableStanding(t, s, boss, in)
-	if !strings.Contains(rule.Question.Shown, "releases it to the running app") || !strings.Contains(rule.Question.Shown, "including ones created later") || !strings.Contains(rule.Question.Shown, "it writes any code") || len(rule.Question.Portfolio) != 1 || !rule.Question.Portfolio[0].OnlyChecksStarts {
-		t.Fatalf("incomplete question: %+v", rule.Question)
-	}
 	later, err := database.Transact(t.Context(), a.DB, func(tx *database.Tx) (ids.ID, error) {
 		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "later", Name: "Later"})
 	})
@@ -79,7 +59,6 @@ func TestInstanceStandingConsentRechecksEveryProjectAtUse(t *testing.T) {
 			t.Fatalf("eligible=%t: %+v %s %v", want, got, cron, err)
 		}
 	}
-	portfolio.forbidPreview = t
 	use(true)
 	portfolio.noRepository = true
 	if got, _, why, err := standingEligibilityOne(s, t.Context(), later, "test"); err != nil || !got.RuleID.IsZero() || why != "this project has no repository for the janitor to update" {
@@ -102,10 +81,8 @@ func TestInstanceStandingConsentRechecksEveryProjectAtUse(t *testing.T) {
 	use(false)
 	portfolio.hold = ""
 	p.means = "a changed approval meaning"
-	use(false)
-	p.means = rule.Question.Projects[0].Procedure.Acceptance.Means
 	use(true)
-	if _, err := s.Disable(boss, rule.RuleID, rule.Revision); err != nil {
+	if _, err := s.Save(boss, JanitorChoicesCommand{Choices: JanitorChoices{Dependencies: "off"}, ExpectedRevision: rule.Revision}); err != nil {
 		t.Fatal(err)
 	}
 	use(false)
@@ -118,8 +95,8 @@ func TestAnAgentCannotGrantInstanceStandingConsent(t *testing.T) {
 	person.Via = "console/agent"
 	person.Purpose = access.TokenAgent
 	ctx := stepVerifiedContext(t.Context(), person)
-	in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"}
-	if _, err := s.Preview(ctx, in); err == nil {
+	in := JanitorChoices{Dependencies: "routine"}
+	if _, err := s.Save(ctx, JanitorChoicesCommand{Choices: in}); err == nil {
 		t.Fatal("agent assent was accepted")
 	}
 }
@@ -201,7 +178,7 @@ func TestStandingVotePreservesAuthorityWithoutClaimingHumanAssent(t *testing.T) 
 		t.Fatal(err)
 	}
 	got, err := database.Transact(ctx, a.DB, func(tx *database.Tx) (string, error) { return approvedByIn(ctx, tx, run) })
-	if err != nil || got != "the janitor, under standing approval "+vote.Standing.RuleID.String()+" (rev 3), granted by owner" {
+	if err != nil || got != "the janitor, under the janitor choices (rev 3), set by owner" {
 		t.Fatalf("landing attribution: %q %v", got, err)
 	}
 }
@@ -209,7 +186,8 @@ func TestStandingVotePreservesAuthorityWithoutClaimingHumanAssent(t *testing.T) 
 func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T) {
 	for _, mode := range []string{"narrative during assessment", "authority during assessment", "revoke within claim", "checked code", "ship scan fail", "ship scan error", "ship build fail", "aggressive major", "routine during assessment", "routine at merge", "held back", "hold during assessment", "off during assessment", "purpose changed", "candidate moved", "rule disabled", "rule revised", "failed check", "model failed", "model unclear", "off at merge", "hold at merge", "disabled at merge"} {
 		t.Run(mode, func(t *testing.T) {
-			held := !strings.HasPrefix(mode, "ship ") && mode != "revoke within claim" && mode != "checked code" && mode != "narrative during assessment" && mode != "aggressive major" && !strings.HasSuffix(mode, "at merge")
+			held := !strings.HasPrefix(mode, "ship ") && mode != "revoke within claim" && mode != "checked code" && mode != "narrative during assessment" && mode != "purpose changed" && mode != "aggressive major" && !strings.HasSuffix(mode, "at merge")
+
 			const meaning = "declared fix in range and every check met"
 			rig := stepAuthoritySpecFixture(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "checks", Steps: []schema.Step{{Name: "tests", Uses: "tests"}}}, {Name: "final", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"standing": map[string]any{"class": "routine-update", "means": meaning}}}}}}})
 			ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, rig.Access, "boss"))
@@ -279,7 +257,7 @@ func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T)
 			}
 			procedures := &standingProcedureFixture{means: meaning}
 			var rules StandingRules
-			rules = NewStandingRules(rig.DB, StandingDependencies{Identity: rig.Access, Authority: rig.Authorizer, Procedures: procedures, Publications: procedures, Portfolio: portfolio, Presence: standingPresenceFixture{clear: true}, Inspector: standingInspectorFunc(func(_ context.Context, _ Source, categories StandingCategories) (StandingInspection, error) {
+			rules = NewStandingRules(rig.DB, StandingDependencies{Identity: rig.Access, Authority: rig.Authorizer, Procedures: procedures, Portfolio: portfolio, Presence: standingPresenceFixture{clear: true}, Inspector: standingInspectorFunc(func(_ context.Context, _ Source, categories JanitorChoices) (StandingInspection, error) {
 
 				switch mode {
 				case "narrative during assessment":
@@ -315,24 +293,19 @@ func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T)
 				case "purpose changed":
 					procedures.means = "a different approval purpose"
 				case "rule revised":
-					rows, err := rules.List(ctx, rig.ProjectID)
-					if err != nil || len(rows) != 1 {
-						t.Fatalf("rules: %+v %v", rows, err)
+					old, err := rules.Current(ctx)
+					if err != nil || old == nil {
+						t.Fatalf("choices: %+v %v", old, err)
 					}
-					old := rows[0].Rule
-					q, err := rules.Preview(ctx, old.Question.Definition)
-					if err != nil {
-						t.Fatal(err)
-					}
-					if _, err := rules.Enable(ctx, StandingCommand{RuleID: old.RuleID, ExpectedRevision: old.Revision, Definition: q.Definition, ShownDigest: q.Digest}); err != nil {
+					if _, err := rules.Save(ctx, JanitorChoicesCommand{Choices: old.Choices, ExpectedRevision: old.Revision}); err != nil {
 						t.Fatal(err)
 					}
 				case "rule disabled":
-					rows, err := rules.List(ctx, rig.ProjectID)
-					if err != nil || len(rows) != 1 {
-						t.Fatalf("rules: %+v %v", rows, err)
+					old, err := rules.Current(ctx)
+					if err != nil || old == nil {
+						t.Fatalf("choices: %+v %v", old, err)
 					}
-					if _, err := rules.Disable(ctx, rows[0].Rule.RuleID, rows[0].Rule.Revision); err != nil {
+					if _, err := rules.Save(ctx, JanitorChoicesCommand{Choices: JanitorChoices{Dependencies: "off"}, ExpectedRevision: old.Revision}); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -342,9 +315,9 @@ func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T)
 				}
 				return StandingInspection{Classification: "routine-dependency", Candidate: candidate, ChangedFiles: []string{"app.go"}}, nil
 			})})
-			in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"}
+			in := JanitorChoices{Dependencies: "routine"}
 			if mode == "aggressive major" || mode == "routine during assessment" || mode == "routine at merge" {
-				in.Categories.Dependencies = "aggressive"
+				in.Dependencies = "aggressive"
 			}
 			rule := enableStanding(t, rules, ctx, in)
 			rig.Work.standing = &rules
@@ -438,9 +411,9 @@ func TestStandingCarryRequiresEveryLandingCheckAndCurrentProjectConsent(t *testi
 			ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
 			portfolio := &standingPortfolioFixture{}
 			rules.deps.Portfolio = portfolio
-			in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"}
+			in := JanitorChoices{Dependencies: "routine"}
 			rule := enableStanding(t, rules, ctx, in)
-			authority := &standingVote{Level: "routine", RuleID: rule.RuleID, Revision: rule.Revision, Issuer: rule.Issuer, Means: rule.Question.Projects[0].Procedure.Acceptance.Means, AssessmentDigest: "checked-source"}
+			authority := &standingVote{Level: "routine", RuleID: rule.RuleID, Revision: rule.Revision, Issuer: rule.Issuer, Means: "accept bounded routine updates after all checks pass", AssessmentDigest: "checked-source"}
 			work, err := readRun(ctx, a.DB, a.RunID)
 			if err != nil {
 				t.Fatal(err)
@@ -450,7 +423,7 @@ func TestStandingCarryRequiresEveryLandingCheckAndCurrentProjectConsent(t *testi
 				t.Fatal(err)
 			}
 			_, err = database.Transact(ctx, a.DB, func(tx *database.Tx) (reworkedResult, error) {
-				return (reworkStore{db: a.DB}).approveIn(ctx, tx, work, accept, ApprovalVote{Approver: "the janitor", Principal: rule.Issuer.Principal, Via: "standing", Decision: VoteApprove, Standing: authority, AlsoApproves: []string{rule.Question.Projects[0].Procedure.Landing.Means}})
+				return (reworkStore{db: a.DB}).approveIn(ctx, tx, work, accept, ApprovalVote{Approver: "the janitor", Principal: rule.Issuer.Principal, Via: "standing", Decision: VoteApprove, Standing: authority, AlsoApproves: []string{"land this qualified candidate"}})
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -461,7 +434,7 @@ func TestStandingCarryRequiresEveryLandingCheckAndCurrentProjectConsent(t *testi
 			}
 			spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{
 				{Name: "checks", Steps: []schema.Step{{Name: "tests", Uses: "tests"}}},
-				{Name: "approval", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"means": "I approve the landing", "standing": map[string]any{"class": "routine-update", "means": rule.Question.Projects[0].Procedure.Landing.Means}}}}},
+				{Name: "approval", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"means": "I approve the landing", "standing": map[string]any{"class": "routine-update", "means": "land this qualified candidate"}}}}},
 				{Name: "ship", Steps: []schema.Step{{Name: "record", Uses: "script"}}},
 			}}
 			if tc.singleStage {
@@ -523,7 +496,7 @@ func TestStandingCarryRequiresEveryLandingCheckAndCurrentProjectConsent(t *testi
 			}
 			if tc.want {
 				by, err := database.Transact(ctx, a.DB, func(tx *database.Tx) (string, error) { return approvedByIn(ctx, tx, current) })
-				if err != nil || by != "the janitor, under standing approval "+authority.RuleID.String()+" (rev 1), granted by boss" {
+				if err != nil || by != "the janitor, under the janitor choices (rev 1), set by boss" {
 					t.Fatalf("standing landing attribution: %q %v", by, err)
 				}
 				// The same current-rule read runs again at the merge claim.
@@ -643,7 +616,8 @@ func rigRun(t *testing.T, rig *stepAuthorityTestRig) *Run {
 }
 
 func TestInstanceStandingRefusesAnIssuerWhoLostLandingAuthority(t *testing.T) {
-	a, rules, _, owner, _ := standingFixture(t)
+	a, rules, _, _, _ := standingFixture(t)
+	owner := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "owner"))
 	rules.deps.Portfolio = &standingPortfolioFixture{}
 	pid, err := database.Transact(t.Context(), a.DB, func(tx *database.Tx) (ids.ID, error) {
 		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "issuer-check", Name: "Issuer check"})
@@ -663,7 +637,7 @@ func TestInstanceStandingRefusesAnIssuerWhoLostLandingAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	in := StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"}
+	in := JanitorChoices{Dependencies: "routine"}
 	enableStanding(t, rules, owner, in)
 	if rule, _, _, err := standingEligibilityOne(rules, t.Context(), pid, "test"); err != nil || rule.RuleID.IsZero() {
 		t.Fatalf("current issuer refused: %+v %v", rule, err)
@@ -747,13 +721,13 @@ func standingCheckedCodeLanding(t *testing.T, rig *stepAuthorityTestRig, rules S
 			return
 		}
 		armed = false
-		rows, err := rules.List(ctx, rig.ProjectID)
-		if err != nil || len(rows) != 1 {
-			t.Fatalf("rules: %+v %v", rows, err)
+		old, err := rules.Current(ctx)
+		if err != nil || old == nil {
+			t.Fatalf("choices: %+v %v", old, err)
 		}
 		revokeCtx, cancel := context.WithTimeout(ctx, time.Second)
 		defer cancel()
-		_, err = rules.Disable(revokeCtx, rows[0].Rule.RuleID, rows[0].Rule.Revision)
+		_, err = rules.Save(revokeCtx, JanitorChoicesCommand{Choices: JanitorChoices{Dependencies: "off"}, ExpectedRevision: old.Revision})
 		revoked = err == nil
 	}}
 	driver := standingClaimDriver{Driver: (scm.GitDrivers{DataDir: dir}).Driver(), prepared: func() {
@@ -770,11 +744,11 @@ func standingCheckedCodeLanding(t *testing.T, rig *stepAuthorityTestRig, rules S
 		case "hold at merge":
 			rules.deps.Portfolio.(*standingPortfolioFixture).hold = "release failed during preparation"
 		case "disabled at merge":
-			rows, err := rules.List(ctx, rig.ProjectID)
-			if err != nil || len(rows) != 1 {
-				t.Fatalf("rules: %+v %v", rows, err)
+			old, err := rules.Current(ctx)
+			if err != nil || old == nil {
+				t.Fatalf("choices: %+v %v", old, err)
 			}
-			if _, err := rules.Disable(ctx, rows[0].Rule.RuleID, rows[0].Rule.Revision); err != nil {
+			if _, err := rules.Save(ctx, JanitorChoicesCommand{Choices: JanitorChoices{Dependencies: "off"}, ExpectedRevision: old.Revision}); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -783,11 +757,11 @@ func standingCheckedCodeLanding(t *testing.T, rig *stepAuthorityTestRig, rules S
 	merges.standing = &rules
 	result, err := merges.Merge(ctx, landing)
 	if revoked && result.Allowed {
-		rows, readErr := rules.List(ctx, rig.ProjectID)
+		old, readErr := rules.Current(ctx)
 		if readErr != nil {
 			t.Fatal(readErr)
 		}
-		t.Fatalf("merge succeeded after revocation committed inside its claim: allowed=%t enabled=%t main=%s candidate=%s", result.Allowed, rows[0].Rule.Enabled, gittest.Run(t, hub, "rev-parse", "main"), tip)
+		t.Fatalf("merge succeeded after revocation committed inside its claim: allowed=%t enabled=%t main=%s candidate=%s", result.Allowed, old.Enabled, gittest.Run(t, hub, "rev-parse", "main"), tip)
 	}
 	if strings.HasSuffix(mode, "at merge") {
 		if err != nil || result.Allowed || result.Blocking == nil {
@@ -878,7 +852,7 @@ func standingCheckedCodeLanding(t *testing.T, rig *stepAuthorityTestRig, rules S
 		wantRunState(t, rig.DB, landing.ID, RunDone)
 	}
 	merged := gittest.Run(t, hub, "log", "-1", "--format=%B", "main")
-	if !strings.Contains(merged, "the janitor, under standing approval") || !strings.Contains(merged, "(rev 1), granted by boss") {
+	if !strings.Contains(merged, "the janitor, under the janitor choices") || !strings.Contains(merged, "(rev 1), set by boss") {
 		t.Fatalf("merge lost standing attribution: %s", merged)
 	}
 	if got := gittest.Run(t, hub, "show", "main:app.go"); !strings.Contains(got, "repaired") {
@@ -911,15 +885,14 @@ func (r reviewClaimLaws) ViolationsIn(ctx context.Context, q database.Queryer, p
 // Pack consent is independent of dependency levels and declarations. Release
 // health and the project's off choice still apply at every use.
 func TestKeepPacksCurrentHasItsOwnCategoryAndEligibility(t *testing.T) {
-	a, s, _, _, _ := standingFixture(t)
+	a, s, p, _, _ := standingFixture(t)
+	p.trigger = "publication"
 	ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
 	portfolio := &standingPortfolioFixture{}
 	s.deps.Portfolio = portfolio
-	in := StandingDefinition{Scope: "instance", Delivery: "full", Categories: StandingCategories{WaysOfWorking: true}}
+	in := JanitorChoices{Dependencies: "off", Packs: true}
 	rule := enableStanding(t, s, ctx, in)
-	if rule.Question.Definition.Categories.Dependencies != "" || !strings.Contains(rule.Question.Shown, "newly published") || !strings.Contains(rule.Question.Shown, "not applicable") {
-		t.Fatalf("pack meaning: %+v", rule.Question)
-	}
+
 	eligible := func(want bool) {
 		t.Helper()
 		got, _, _, err := standingEligibilityOne(s, ctx, a.ProjectID, "test")
@@ -927,6 +900,13 @@ func TestKeepPacksCurrentHasItsOwnCategoryAndEligibility(t *testing.T) {
 			t.Fatalf("eligible=%t: %+v %v", want, got, err)
 		}
 	}
+	p.trigger = "schedule"
+	eligible(false) // Dependencies off never schedules dependency work.
+	if err := s.SetProjectChoice(ctx, a.ProjectID, "routine", "project preference"); err != nil {
+		t.Fatal(err)
+	}
+	eligible(false) // A project preference cannot enable the instance choice.
+	p.trigger = "publication"
 	eligible(true)
 	portfolio.hold = "release 2 failed"
 	eligible(false)
@@ -939,9 +919,12 @@ func TestKeepPacksCurrentHasItsOwnCategoryAndEligibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	eligible(true)
+	withoutPacks := enableStanding(t, s, ctx, JanitorChoices{Dependencies: "routine"})
+	eligible(false)
+	rule = withoutPacks
 	mixed := in
-	mixed.Categories.Dependencies = "routine"
-	if _, err := s.Preview(ctx, mixed); err == nil {
+	mixed.Dependencies = "routine"
+	if _, err := s.Save(ctx, JanitorChoicesCommand{Choices: mixed, ExpectedRevision: rule.Revision}); err != nil {
 		t.Fatal("packs became a dependency level")
 	}
 }
@@ -1021,10 +1004,10 @@ func TestRetryingAWithheldCheckGetsAFreshStandingDecision(t *testing.T) {
 		}
 	}
 	procedures := &standingProcedureFixture{means: meaning}
-	rules := NewStandingRules(rig.DB, StandingDependencies{Identity: rig.Access, Authority: rig.Authorizer, Procedures: procedures, Publications: procedures, Portfolio: &standingPortfolioFixture{}, Presence: standingPresenceFixture{clear: true}, Inspector: standingInspectorFunc(func(context.Context, Source, StandingCategories) (StandingInspection, error) {
+	rules := NewStandingRules(rig.DB, StandingDependencies{Identity: rig.Access, Authority: rig.Authorizer, Procedures: procedures, Portfolio: &standingPortfolioFixture{}, Presence: standingPresenceFixture{clear: true}, Inspector: standingInspectorFunc(func(context.Context, Source, JanitorChoices) (StandingInspection, error) {
 		return StandingInspection{Classification: "routine-dependency", Candidate: tip}, nil
 	})})
-	enableStanding(t, rules, ctx, StandingDefinition{Scope: "instance", Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"})
+	enableStanding(t, rules, ctx, JanitorChoices{Dependencies: "routine"})
 	rig.Work.standing = &rules
 	rig.Work.abandonments.locks = &scm.RepositoryLocks{}
 	rig.Work.pins = landingPins{db: rig.DB, dataDir: dir}
@@ -1065,85 +1048,9 @@ func TestRetryingAWithheldCheckGetsAFreshStandingDecision(t *testing.T) {
 	}
 }
 
-func (f *standingProcedureFixture) PublishedWorkflows(context.Context, database.Queryer) ([]*adoption.ResolvedWorkflow, error) {
-	docs := f.docs
-	if docs == nil {
-		var out []*schema.Doc
-		for _, name := range []string{"test", "security", "janitor-update", "janitor-scan"} {
-			out = append(out, &schema.Doc{Metadata: schema.Metadata{Name: name}, Spec: schema.Spec{On: schema.On{Schedule: &schema.ScheduleTrigger{Standing: true, Cron: "0 6 * * 1", AggressiveCron: "0 6 * * *"}}}})
-		}
-		for _, name := range []string{"test", "janitor-adopt"} {
-			out = append(out, &schema.Doc{Metadata: schema.Metadata{Name: name}, Spec: schema.Spec{On: schema.On{Publication: &schema.PublicationTrigger{Standing: true, Queue: "packs"}}}})
-		}
-		docs = out
-	}
-	var library []*adoption.ResolvedWorkflow
-	for _, doc := range docs {
-		library = append(library, &adoption.ResolvedWorkflow{Name: doc.Metadata.Name, Version: 1, Doc: doc})
-	}
-	return library, nil
-}
-
 // An immutable revision from an older release is evidence. No current owner
 // operation can write its retired schedules/crons shape, so this fixture inserts
 // that historical JSON directly and checks storage independently after reads.
-func TestRecordedInstanceConsentKeepsOldJSONMeaningAndDigest(t *testing.T) {
-	a, s, _, _, _ := standingFixture(t)
-	s.deps.Portfolio = &standingPortfolioFixture{projectID: a.ProjectID}
-	human := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
-	in := StandingDefinition{Scope: "instance", Delivery: "full", Categories: StandingCategories{Dependencies: "aggressive", SecurityFixes: true}}
-	q, err := s.Preview(human, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	q.Shown = "Every night AppTown applies dependency updates, including major versions, with up to two repair sessions."
-	q.Digest = "recorded-digest-from-the-old-definition"
-	caller, _ := access.CallerFrom(human)
-	rule := StandingRevision{RuleID: ids.New(time.Now()), Revision: 1, Enabled: true, Question: q, Issuer: caller.Principal.Actor(), EnabledAt: time.Now()}
-	raw, err := json.Marshal(rule)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var old map[string]any
-	if err := json.Unmarshal(raw, &old); err != nil {
-		t.Fatal(err)
-	}
-	old["question"].(map[string]any)["definition"].(map[string]any)["schedules"] = []any{map[string]any{"workflow": "test", "crons": map[string]string{"routine": "0 6 * * 1", "aggressive": "0 6 * * *"}}}
-	raw, err = json.Marshal(old)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// sql-guarantee: current operations cannot create the old recorded JSON.
-	if _, err = a.DB.SQL().ExecContext(t.Context(), `INSERT INTO standing_rules(id,current_revision) VALUES($1,1)`, rule.RuleID); err != nil {
-		t.Fatal(err)
-	}
-	// sql-guarantee: the revision retains the retired schedules/crons shape.
-	if _, err = a.DB.SQL().ExecContext(t.Context(), `INSERT INTO standing_rule_revisions(rule_id,revision,enabled,record_json) VALUES($1,1,true,$2)`, rule.RuleID, raw); err != nil {
-		t.Fatal(err)
-	}
-	got, level, _, err := standingEligibilityOne(s, t.Context(), a.ProjectID, "test")
-	if err != nil || got.RuleID != rule.RuleID || level != "aggressive" || got.Question.Shown != q.Shown || got.Question.Digest != q.Digest {
-		t.Fatalf("%+v %s %v", got, level, err)
-	}
-	// Verify the stored evidence through the owner's generated storage query,
-	// independently of the rule reader and eligibility operation.
-	revision, err := workflowsql.New(a.DB.SQL()).StandingRevision(t.Context(), workflowsql.StandingRevisionParams{RuleID: rule.RuleID, Revision: 1})
-	if err != nil {
-		t.Fatal(err)
-	}
-	stored := revision.RecordJson
-	var retained map[string]any
-	if err := json.Unmarshal(stored, &retained); err != nil {
-		t.Fatal(err)
-	}
-	var original map[string]any
-	if err := json.Unmarshal(raw, &original); err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(original, retained) {
-		t.Fatalf("recorded revision changed: %s", stored)
-	}
-}
 
 func TestStandingEvidenceAcceptsReasonedUnneededCall(t *testing.T) {
 	for _, reason := range []string{"nothing fixable", ""} {
@@ -1179,38 +1086,5 @@ func (f *standingPortfolioFixture) StandingReach(_ context.Context, _ database.Q
 	if !f.failFor.IsZero() && id == f.failFor {
 		return StandingReach{}, errors.New("deployment requires a selected revision")
 	}
-	return StandingReach{Repository: !f.noRepository, FollowsMain: f.follows}, nil
-}
-
-func TestStandingReachPreservesReleaseScopeRefusals(t *testing.T) {
-	for _, delivery := range []string{"land-only", "full"} {
-		t.Run(delivery, func(t *testing.T) {
-			t.Parallel()
-			a, rules, _, ctx, in := standingFixture(t)
-			portfolio := &standingPortfolioFixture{forbidPreview: t}
-			rules.deps.Portfolio = portfolio
-			rules.deps.Destinations = standingDestinationFixture{project: a.ProjectID}
-			in.Delivery = delivery
-			selected := StandingEnvironment{DeploymentID: a.ProjectID, TargetID: a.ProjectID}
-			if delivery == "full" {
-				in.Projects[0].Environments = []StandingEnvironment{selected}
-			}
-			enableStanding(t, rules, ctx, in)
-			check := func(want string) {
-				t.Helper()
-				got, _, why, err := standingEligibilityOne(rules, t.Context(), a.ProjectID, "quick-change")
-				if err != nil || !got.RuleID.IsZero() || why != want {
-					t.Fatalf("scope refusal: %+v %q %v", got, why, err)
-				}
-			}
-			if delivery == "land-only" {
-				portfolio.follows = []StandingEnvironment{selected}
-				check("accept and land only cannot release to a deployment following main")
-			} else {
-				check("the deployments following main changed; a person must confirm the exact release scope again")
-				portfolio.follows = []StandingEnvironment{{DeploymentID: selected.DeploymentID, TargetID: ids.Nil}}
-				check("a deployment following main is outside the selected release scope")
-			}
-		})
-	}
+	return StandingReach{Repository: !f.noRepository}, nil
 }

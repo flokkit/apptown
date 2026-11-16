@@ -74,15 +74,11 @@ func TestAPersonFiresAStandingScheduleNowAsTheScheduleWould(t *testing.T) {
 	if _, err := w.schedules.RunNow(human, w.project, "nightly-scan", noon); fault.KindOf(err) != fault.Unprocessable {
 		t.Fatalf("fired without a standing approval: %v", err)
 	}
-	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
+	in := workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}
 	if err := json.Unmarshal([]byte(`{"schedules":[{"workflow":"nightly-scan","crons":{"routine":"0 5 * * *","aggressive":"0 5 * * *"}}]}`), &in); err != nil {
 		t.Fatal(err)
 	}
-	q, err := w.schedules.Standing.Preview(human, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rule, err := w.schedules.Standing.Enable(human, workflow.StandingCommand{Definition: in, ShownDigest: q.Digest})
+	rule, err := w.schedules.Standing.Save(human, workflow.JanitorChoicesCommand{Choices: in})
 	if err != nil {
 		t.Fatal(err)
 	}

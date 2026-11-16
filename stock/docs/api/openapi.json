@@ -3695,6 +3695,38 @@
         ],
         "type": "object"
       },
+      "JanitorChoices": {
+        "properties": {
+          "baseImages": {
+            "type": "boolean"
+          },
+          "dependencies": {
+            "type": "string"
+          },
+          "packs": {
+            "type": "boolean"
+          },
+          "securityFixes": {
+            "type": "boolean"
+          },
+          "toolchainPatches": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "JanitorChoicesCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "choices": {
+            "$ref": "#/components/schemas/JanitorChoices"
+          },
+          "expectedRevision": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "JanitorDeployment": {
         "properties": {
           "automatic": {
@@ -3975,15 +4007,15 @@
       },
       "JanitorView": {
         "properties": {
-          "changedRules": {
-            "items": {
-              "format": "uuid",
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "type": "array"
+          "choices": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StandingRevision"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "deployments": {
             "items": {
@@ -4000,13 +4032,7 @@
           "releaseHold": {
             "type": "string"
           },
-          "rules": {
-            "items": {
-              "$ref": "#/components/schemas/StandingRevision"
-            },
-            "type": "array"
-          },
-          "unknownRules": {
+          "unknown": {
             "items": {
               "format": "uuid",
               "type": [
@@ -4018,9 +4044,8 @@
           }
         },
         "required": [
-          "unknownRules",
-          "changedRules",
-          "rules",
+          "unknown",
+          "choices",
           "projects",
           "deployments",
           "releaseHold"
@@ -7193,8 +7218,9 @@
         "type": "object"
       },
       "StandingAssess": {
+        "additionalProperties": false,
         "properties": {
-          "runId": {
+          "run": {
             "format": "uuid",
             "type": [
               "string",
@@ -7233,6 +7259,9 @@
               "null"
             ]
           },
+          "choices": {
+            "$ref": "#/components/schemas/JanitorChoices"
+          },
           "inspection": {
             "$ref": "#/components/schemas/StandingInspection"
           },
@@ -7248,9 +7277,6 @@
               "string",
               "null"
             ]
-          },
-          "questionDigest": {
-            "type": "string"
           },
           "retryRevision": {
             "type": "integer"
@@ -7280,7 +7306,7 @@
           "level",
           "ruleId",
           "ruleRevision",
-          "questionDigest",
+          "choices",
           "projectId",
           "changeId",
           "runId",
@@ -7291,110 +7317,6 @@
           "inspection",
           "processingAvailable"
         ],
-        "type": "object"
-      },
-      "StandingCategories": {
-        "properties": {
-          "dependencies": {
-            "type": "string"
-          },
-          "securityFixes": {
-            "type": "boolean"
-          },
-          "waysOfWorking": {
-            "type": "boolean"
-          }
-        },
-        "type": "object"
-      },
-      "StandingCommand": {
-        "properties": {
-          "definition": {
-            "$ref": "#/components/schemas/StandingDefinition"
-          },
-          "expectedRevision": {
-            "type": "integer"
-          },
-          "ruleId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "shownDigest": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "StandingDefinition": {
-        "properties": {
-          "administrative": {
-            "type": "boolean"
-          },
-          "categories": {
-            "$ref": "#/components/schemas/StandingCategories"
-          },
-          "delivery": {
-            "type": "string"
-          },
-          "projects": {
-            "items": {
-              "$ref": "#/components/schemas/StandingProject"
-            },
-            "type": "array"
-          },
-          "scope": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "StandingDisable": {
-        "properties": {
-          "expectedRevision": {
-            "type": "integer"
-          }
-        },
-        "type": "object"
-      },
-      "StandingEnvironment": {
-        "properties": {
-          "deployment": {
-            "type": "string"
-          },
-          "deploymentId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "project": {
-            "type": "string"
-          },
-          "projectId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "promotion": {
-            "type": "boolean"
-          },
-          "setting": {
-            "type": "string"
-          },
-          "targetId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
         "type": "object"
       },
       "StandingInspection": {
@@ -7445,195 +7367,20 @@
         ],
         "type": "object"
       },
-      "StandingProcedure": {
-        "properties": {
-          "acceptance": {
-            "$ref": "#/components/schemas/StandingPurpose"
-          },
-          "landing": {
-            "$ref": "#/components/schemas/StandingPurpose"
-          }
-        },
-        "required": [
-          "acceptance",
-          "landing"
-        ],
-        "type": "object"
-      },
-      "StandingProject": {
-        "properties": {
-          "environments": {
-            "items": {
-              "$ref": "#/components/schemas/StandingEnvironment"
-            },
-            "type": "array"
-          },
-          "projectId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "workflow": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "StandingProjectMeaning": {
-        "properties": {
-          "procedure": {
-            "$ref": "#/components/schemas/StandingProcedure"
-          },
-          "projectId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "projectId",
-          "procedure"
-        ],
-        "type": "object"
-      },
-      "StandingProjectPreview": {
-        "properties": {
-          "deployments": {
-            "items": {
-              "$ref": "#/components/schemas/StandingEnvironment"
-            },
-            "type": "array"
-          },
-          "followsMain": {
-            "items": {
-              "$ref": "#/components/schemas/StandingEnvironment"
-            },
-            "type": "array"
-          },
-          "level": {
-            "type": "string"
-          },
-          "onlyChecksStarts": {
-            "type": "boolean"
-          },
-          "overridesInstance": {
-            "type": "boolean"
-          },
-          "problem": {
-            "type": "string"
-          },
-          "project": {
-            "type": "string"
-          },
-          "projectId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "level",
-          "overridesInstance",
-          "followsMain",
-          "projectId",
-          "project",
-          "onlyChecksStarts",
-          "deployments"
-        ],
-        "type": "object"
-      },
-      "StandingPurpose": {
-        "properties": {
-          "approvers": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "means": {
-            "type": "string"
-          },
-          "step": {
-            "type": "string"
-          },
-          "version": {
-            "type": "integer"
-          },
-          "workflow": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "workflow",
-          "version",
-          "step",
-          "means",
-          "approvers"
-        ],
-        "type": "object"
-      },
-      "StandingQuestion": {
-        "properties": {
-          "definition": {
-            "$ref": "#/components/schemas/StandingDefinition"
-          },
-          "digest": {
-            "type": "string"
-          },
-          "portfolio": {
-            "items": {
-              "$ref": "#/components/schemas/StandingProjectPreview"
-            },
-            "type": "array"
-          },
-          "projects": {
-            "items": {
-              "$ref": "#/components/schemas/StandingProjectMeaning"
-            },
-            "type": "array"
-          },
-          "shown": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "definition",
-          "projects",
-          "shown",
-          "digest"
-        ],
-        "type": "object"
-      },
       "StandingRevision": {
         "properties": {
-          "changedAt": {
+          "at": {
             "format": "date-time",
             "type": "string"
           },
-          "changedBy": {
-            "$ref": "#/components/schemas/Actor"
+          "choices": {
+            "$ref": "#/components/schemas/JanitorChoices"
           },
           "enabled": {
             "type": "boolean"
           },
-          "enabledAt": {
-            "format": "date-time",
-            "type": "string"
-          },
           "issuer": {
             "$ref": "#/components/schemas/Actor"
-          },
-          "question": {
-            "$ref": "#/components/schemas/StandingQuestion"
-          },
-          "reason": {
-            "type": "string"
           },
           "revision": {
             "type": "integer"
@@ -7650,35 +7397,9 @@
           "ruleId",
           "revision",
           "enabled",
-          "question",
+          "choices",
           "issuer",
-          "enabledAt",
-          "changedBy",
-          "changedAt",
-          "reason"
-        ],
-        "type": "object"
-      },
-      "StandingStatus": {
-        "properties": {
-          "eligible": {
-            "type": "boolean"
-          },
-          "processingAvailable": {
-            "type": "boolean"
-          },
-          "reason": {
-            "type": "string"
-          },
-          "rule": {
-            "$ref": "#/components/schemas/StandingRevision"
-          }
-        },
-        "required": [
-          "rule",
-          "eligible",
-          "reason",
-          "processingAvailable"
+          "at"
         ],
         "type": "object"
       },
@@ -8598,6 +8319,9 @@
           "at": {
             "type": "string"
           },
+          "level": {
+            "type": "string"
+          },
           "person": {
             "$ref": "#/components/schemas/Actor"
           },
@@ -8606,6 +8330,7 @@
           }
         },
         "required": [
+          "level",
           "person",
           "at",
           "reason"
@@ -13643,6 +13368,166 @@
         },
         "x-apptown-feature": {
           "area": "projects",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/janitor/assess": {
+      "post": {
+        "operationId": "postJanitorAssess",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StandingAssess"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandingAssessment"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "janitor"
+        ],
+        "x-apptown-access": {
+          "contract": "standingApprovals.Assess",
+          "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/janitor/choices": {
+      "get": {
+        "operationId": "getJanitorChoices",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/StandingRevision"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "janitor"
+        ],
+        "x-apptown-access": {
+          "contract": "standingApprovals.List",
+          "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      },
+      "put": {
+        "operationId": "putJanitorChoices",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JanitorChoicesCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandingRevision"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "janitor"
+        ],
+        "x-apptown-access": {
+          "contract": "standingApprovals.Save",
+          "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/janitor/choices/history": {
+      "get": {
+        "operationId": "getJanitorChoicesHistory",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StandingRevision"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "janitor"
+        ],
+        "x-apptown-access": {
+          "contract": "standingApprovals.History",
+          "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
           "tier": "always"
         },
         "x-apptown-stability": "experimental",
@@ -20272,287 +20157,6 @@
           "tier": "always"
         },
         "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/standing-approvals": {
-      "get": {
-        "operationId": "getStandingApprovals",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "projectId",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/StandingStatus"
-                  },
-                  "type": "array"
-                }
-              }
-            },
-            "description": "the operation's result"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "standing-approvals"
-        ],
-        "x-apptown-access": {
-          "contract": "standingApprovals.List",
-          "kind": "owner"
-        },
-        "x-apptown-feature": {
-          "area": "setup",
-          "tier": "always"
-        },
-        "x-apptown-stability": "experimental",
-        "x-apptown-used-by": "cli"
-      },
-      "post": {
-        "operationId": "postStandingApprovals",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StandingCommand"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StandingRevision"
-                }
-              }
-            },
-            "description": "the operation's result"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "standing-approvals"
-        ],
-        "x-apptown-access": {
-          "contract": "standingApprovals.Enable",
-          "kind": "owner"
-        },
-        "x-apptown-feature": {
-          "area": "setup",
-          "tier": "always"
-        },
-        "x-apptown-stability": "experimental",
-        "x-apptown-used-by": "cli"
-      }
-    },
-    "/api/v1/standing-approvals/preview": {
-      "post": {
-        "operationId": "postStandingApprovalsPreview",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StandingDefinition"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StandingQuestion"
-                }
-              }
-            },
-            "description": "the operation's result"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "standing-approvals"
-        ],
-        "x-apptown-access": {
-          "contract": "standingApprovals.Preview",
-          "kind": "owner"
-        },
-        "x-apptown-feature": {
-          "area": "landing",
-          "tier": "always"
-        },
-        "x-apptown-stability": "experimental",
-        "x-apptown-used-by": "cli"
-      }
-    },
-    "/api/v1/standing-approvals/{id}/assess": {
-      "post": {
-        "operationId": "postStandingApprovalsIdAssess",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StandingAssess"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StandingAssessment"
-                }
-              }
-            },
-            "description": "the operation's result"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "standing-approvals"
-        ],
-        "x-apptown-access": {
-          "contract": "standingApprovals.Assess",
-          "kind": "owner"
-        },
-        "x-apptown-feature": {
-          "area": "setup",
-          "tier": "always"
-        },
-        "x-apptown-stability": "experimental",
-        "x-apptown-used-by": "cli"
-      }
-    },
-    "/api/v1/standing-approvals/{id}/disable": {
-      "post": {
-        "operationId": "postStandingApprovalsIdDisable",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StandingDisable"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StandingRevision"
-                }
-              }
-            },
-            "description": "the operation's result"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "standing-approvals"
-        ],
-        "x-apptown-access": {
-          "contract": "standingApprovals.Disable",
-          "kind": "owner"
-        },
-        "x-apptown-feature": {
-          "area": "setup",
-          "tier": "always"
-        },
-        "x-apptown-stability": "experimental",
-        "x-apptown-used-by": "cli"
-      }
-    },
-    "/api/v1/standing-approvals/{id}/history": {
-      "get": {
-        "operationId": "getStandingApprovalsIdHistory",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/StandingRevision"
-                  },
-                  "type": "array"
-                }
-              }
-            },
-            "description": "the operation's result"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "standing-approvals"
-        ],
-        "x-apptown-access": {
-          "contract": "standingApprovals.History",
-          "kind": "owner"
-        },
-        "x-apptown-feature": {
-          "area": "setup",
-          "tier": "always"
-        },
-        "x-apptown-stability": "experimental",
-        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/steps/{id}/advice": {

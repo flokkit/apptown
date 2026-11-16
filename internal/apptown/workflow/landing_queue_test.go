@@ -155,10 +155,11 @@ func TestCurrentAcceptedQueueWorkWaitsToLandDespiteEarlierFailure(t *testing.T) 
 func TestLandingUpliftAlwaysBlocksAnotherAdoption(t *testing.T) {
 	for _, automated := range []bool{false, true} {
 		t.Run(map[bool]string{false: "manual", true: "automated packs"}[automated], func(t *testing.T) {
-			rig, rules, _, _, _ := standingFixture(t)
+			rig, rules, procedures, _, _ := standingFixture(t)
+			procedures.trigger = "publication"
 			ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, rig.Access, "boss"))
 			rules.deps.Portfolio = &standingPortfolioFixture{}
-			rule := enableStanding(t, rules, ctx, StandingDefinition{Scope: "instance", Delivery: "full", Categories: StandingCategories{WaysOfWorking: true}})
+			rule := enableStanding(t, rules, ctx, JanitorChoices{Dependencies: "off", Packs: true})
 			s := rig.Work
 			if err := s.db.InTx(t.Context(), func(tx *database.Tx) error {
 				return adoption.RecordIn(t.Context(), tx, rig.ProjectID, 1, adoption.AdoptionCreate, "packs", adoption.EmptyReceipt(), "boss", time.Now())

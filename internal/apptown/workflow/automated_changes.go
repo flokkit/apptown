@@ -80,7 +80,7 @@ func (s *Service) Attempts(ctx context.Context, project ids.ID, queue string, li
 				return nil, err
 			}
 			a.RuleIssuer = &rule.Issuer
-			a.RuleGrantedAt = &rule.EnabledAt
+			a.RuleGrantedAt = &rule.At
 		}
 		if err := json.Unmarshal(row.Files, &a.Files); err != nil {
 			return nil, err
@@ -203,7 +203,7 @@ func janitorAttributionIn(ctx context.Context, db database.Queryer, authority ac
 			return nil, err
 		}
 		out.Issuer = rule.Issuer
-		out.GrantedAt = rule.EnabledAt
+		out.GrantedAt = rule.At
 	}
 	return out, nil
 }

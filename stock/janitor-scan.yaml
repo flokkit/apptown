@@ -24,6 +24,7 @@ spec:
           uses: workflow/call
           with:
             workflow: janitor-fix
+            with: {toolchainPatches: "${{inputs.toolchainPatches}}", baseImages: "${{inputs.baseImages}}"}
             whenFailed: [scan-source, scan-running]
             findings: fixable
         - name: accept

@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"slices"
 
@@ -19,11 +18,11 @@ import (
 // standingInspector observes exact source and independently validates supported
 // dependency inputs. It cannot accept, publish, land or deploy the result.
 type standingInspector interface {
-	InspectRoutine(context.Context, Source, StandingCategories) (StandingInspection, error)
+	InspectRoutine(context.Context, Source, JanitorChoices) (StandingInspection, error)
 }
 
 type standingAdoptionInspector interface {
-	InspectRoutineWithAdoption(context.Context, Source, StandingCategories) (StandingInspection, error)
+	InspectRoutineWithAdoption(context.Context, Source, JanitorChoices) (StandingInspection, error)
 }
 type standingAdoptions interface {
 	CheckRoutineTargetIn(context.Context, *database.Tx, ids.ID, ids.ID, ids.ID, int64, []byte) (adoption.RoutineTarget, error)
@@ -55,7 +54,7 @@ type StandingAssessment struct {
 	Adoption            *adoption.RoutineTarget `json:"adoption,omitempty"`
 	RuleID              ids.ID                  `json:"ruleId"`
 	RuleRevision        int64                   `json:"ruleRevision"`
-	QuestionDigest      string                  `json:"questionDigest"`
+	Choices             JanitorChoices          `json:"choices"`
 	ProjectID           ids.ID                  `json:"projectId"`
 	ChangeID            ids.ID                  `json:"changeId"`
 	RunID               ids.ID                  `json:"runId"`
@@ -211,23 +210,18 @@ func (s StandingRules) observeAssessmentSource(ctx context.Context, runID ids.ID
 
 // Assess is classification only. It neither stores reusable assent nor accepts
 // caller-provided evidence. A future effect owner must obtain fresh evidence.
-func (s StandingRules) Assess(ctx context.Context, ruleID, runID ids.ID) (StandingAssessment, error) {
+func (s StandingRules) Assess(ctx context.Context, runID ids.ID) (StandingAssessment, error) {
 	if _, err := s.assessmentSource(ctx, runID); err != nil {
 		return StandingAssessment{}, err
 	}
-	rule, err := currentStanding(ctx, s.db, ruleID)
+	rule, err := latestStanding(ctx, s.db)
 	if err != nil {
 		return StandingAssessment{}, err
 	}
-	if err = func() error {
-		if rule.Question.Definition.Scope == "instance" {
-			return nil
-		}
-		return s.readable(ctx, s.db, rule.Question.Definition)
-	}(); err != nil {
-		return StandingAssessment{}, err
+	if rule == nil {
+		return StandingAssessment{}, fault.New(fault.Conflict, "save Janitor choices first")
 	}
-	return s.assess(ctx, ruleID, runID)
+	return s.assess(ctx, rule.RuleID, runID)
 }
 
 func (s StandingRules) assess(ctx context.Context, ruleID, runID ids.ID) (StandingAssessment, error) {
@@ -241,41 +235,23 @@ func (s StandingRules) assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 		return out, err
 	}
 
-	selected := rule.Question.Definition.Scope == "instance" && pinsWorkflow(rule, first.source.WorkflowName)
-	for _, p := range rule.Question.Definition.Projects {
-		if p.ProjectID == first.source.ProjectID && p.Workflow == first.source.WorkflowName {
-			selected = true
-		}
-	}
-	if !selected {
-		return out, fault.New(fault.Conflict, "the run is outside the rule's selected projects and workflow")
-	}
-	status, err := s.status(ctx, rule)
-	if err != nil {
+	if _, err := s.eligibleForIn(ctx, s.db, rule, first.source.ProjectID, first.source.WorkflowName, first.run.AdoptionID); err != nil {
 		return out, err
-	}
-	if !status.Eligible {
-		return out, fault.New(fault.Conflict, status.Reason)
 	}
 	if s.deps.Inspector == nil {
 		return out, fault.New(fault.Unavailable, "routine inspection is unavailable")
 	}
-	categories := rule.Question.Definition.Categories
-	categories.Dependencies, err = s.effectiveLevelIn(ctx, s.db, rule.Question.Definition, first.source.ProjectID)
+	categories := rule.Choices
+	categories.Dependencies, err = s.effectiveLevelIn(ctx, s.db, rule.Choices, first.source.ProjectID)
 	if err != nil {
 		return out, err
-	}
-	if categories.Dependencies == "off" {
-		return out, fault.New(fault.Conflict, "the janitor is turned off")
 	}
 	target, err := s.assessmentAdoption(ctx, first, categories)
 	if err != nil {
 		return out, err
 	}
-	if rule.Question.Definition.Scope == "instance" && categories.WaysOfWorking {
-		if _, err := s.eligibleForIn(ctx, s.db, rule, first.source.ProjectID, first.source.WorkflowName, first.run.AdoptionID); err != nil {
-			return out, err
-		}
+	if target == nil && categories.Dependencies == "off" {
+		return out, fault.New(fault.Conflict, "dependency updates are turned off")
 	}
 	var inspection StandingInspection
 	if target != nil {
@@ -304,14 +280,14 @@ func (s StandingRules) assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 	if current.Revision != rule.Revision {
 		return out, fault.New(fault.Conflict, "the standing approval changed during inspection")
 	}
-	lastLevel, err := s.effectiveLevelIn(ctx, s.db, current.Question.Definition, last.source.ProjectID)
+	lastLevel, err := s.effectiveLevelIn(ctx, s.db, current.Choices, last.source.ProjectID)
 	if err != nil {
 		return out, err
 	}
 	if lastLevel != categories.Dependencies {
 		return out, fault.New(fault.Conflict, "project update level changed during inspection")
 	}
-	lastTarget, err := s.assessmentAdoption(ctx, last, current.Question.Definition.Categories)
+	lastTarget, err := s.assessmentAdoption(ctx, last, current.Choices)
 	if err != nil {
 		return out, err
 	}
@@ -324,17 +300,13 @@ func (s StandingRules) assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 			inspection.Classification += "-and-adoption"
 		}
 	}
-	status, err = s.status(ctx, current)
-	if err != nil {
+	if _, err := s.eligibleForIn(ctx, s.db, current, last.source.ProjectID, last.source.WorkflowName, last.run.AdoptionID); err != nil {
 		return out, err
 	}
-	if !status.Eligible {
-		return out, fault.New(fault.Conflict, fmt.Sprintf("standing eligibility changed during inspection: %s", status.Reason))
-	}
-	return StandingAssessment{Level: categories.Dependencies, ProcessingAvailable: true, Adoption: target, RuleID: ruleID, RuleRevision: rule.Revision, QuestionDigest: rule.Question.Digest, ProjectID: first.source.ProjectID, ChangeID: first.source.ChangeID, RunID: runID, Stage: first.run.CurrentStage, RetryRevision: first.run.RetryRevision, AdoptionID: first.run.AdoptionID, AdoptionRevision: first.source.AdoptionRevision, Inspection: inspection}, nil
+	return StandingAssessment{Level: categories.Dependencies, ProcessingAvailable: true, Adoption: target, RuleID: ruleID, RuleRevision: rule.Revision, Choices: rule.Choices, ProjectID: first.source.ProjectID, ChangeID: first.source.ChangeID, RunID: runID, Stage: first.run.CurrentStage, RetryRevision: first.run.RetryRevision, AdoptionID: first.run.AdoptionID, AdoptionRevision: first.source.AdoptionRevision, Inspection: inspection}, nil
 }
 
-func (s StandingRules) assessmentAdoption(ctx context.Context, observed standingObservation, categories StandingCategories) (*adoption.RoutineTarget, error) {
+func (s StandingRules) assessmentAdoption(ctx context.Context, observed standingObservation, categories JanitorChoices) (*adoption.RoutineTarget, error) {
 	ch := observed.change
 	if ch.Type != "uplift" {
 		if !ch.TargetAdoptionID.IsZero() || ch.TargetCandidateJSON != "" && ch.TargetCandidateJSON != "{}" {
@@ -342,7 +314,7 @@ func (s StandingRules) assessmentAdoption(ctx context.Context, observed standing
 		}
 		return nil, nil
 	}
-	if !categories.WaysOfWorking {
+	if !categories.Packs {
 		return nil, fault.New(fault.Conflict, "ways-of-working updates are not permitted by this rule")
 	}
 	origin, err := workflowsql.New(s.db.SQL()).QueueAttempt(ctx, ch.ID)
