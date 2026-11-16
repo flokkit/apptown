@@ -1,3 +1,4 @@
+import { PRODUCT } from '../brand'
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useGet, useAction } from '../data'
@@ -11,6 +12,7 @@ import { Section } from '../Section'
 import { PageHead } from '../PageHead'
 import { ListTable, type ListColumn } from '../ListTable'
 import { fmtWhen } from '../format'
+import { RunNow } from './janitor/RunNow'
 import { TryAgain } from './janitor/TryAgain'
 import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, QueueStatus } from '../wire.gen'
 
@@ -22,15 +24,15 @@ function summary(data: JanitorView, items: Need[]) {
  if (!c || c.dependencies === 'off' && !c.securityFixes && !c.baseImages && !c.toolchainPatches && !c.packs) return 'Janitor is off'
  const count = new Set(items.map(n => n.project.projectId)).size
  if (count) return count === 1 ? '1 project needs you' : `${count} projects need you`
- const kept = data.projects.filter(p => p.state.word !== 'off' && p.state.word !== 'no repository').length
+ const kept = data.projects.filter(p => p.queues.length > 0 && p.state.word !== 'off' && p.state.word !== 'no repository').length
  return `Keeping ${kept} ${kept === 1 ? 'project' : 'projects'} up to date`
 }
 
-type Need = { key: string; project: JanitorProject; what: string; reason: string; to: string; queue?: QueueStatus }
+type Need = { key: string; project: JanitorProject; what: string; reason: string; to: string; queue?: QueueStatus; scheduleProblem?: boolean }
 function needs(data: JanitorView): Need[] {
-  return [...data.projects.flatMap(project => [
-    ...project.queues.filter(q => ['decide', 'stopped'].includes(q.state)).map(queue => ({ key: `${project.projectId}/${queue.queue}`, project, what: queue.title, reason: [queue.words, queue.state === 'decide' ? changedFiles(queue.packages, queue.files) : ''].filter(Boolean).join(' · '), to: queue.changeId ? `/changes/${queue.changeId}` : projectTo(project), queue })),
-    ...(project.scheduleProblem || project.state.unknown ? [{ key: `${project.projectId}/unknown`, project, what: 'Updates', reason: `Not known: ${project.scheduleProblem || project.state.help}`, to: projectTo(project) }] : []),
+  return [...data.projects.filter(p => p.queues.length > 0).flatMap(project => [
+    ...project.queues.filter(q => ['decide', 'stopped'].includes(q.state)).map(queue => ({ key: `${project.projectId}/${queue.queue}`, project, what: queue.title, reason: [queue.state === 'decide' ? queue.changeSummary || changedFiles(queue.packages, queue.files) : '', queue.words].filter(Boolean).join(' · '), to: queue.changeId ? `/changes/${queue.changeId}` : projectTo(project), queue })),
+    ...(project.scheduleProblem ? [{ key: `${project.projectId}/unknown`, project, what: 'Updates', reason: `${PRODUCT} could not read this project's update schedule · ${project.scheduleProblem}`, to: projectTo(project), scheduleProblem: true }] : []),
     ...data.deployments.filter(d => d.projectId === project.projectId && d.hold).map(d => ({ key: d.deploymentId!, project, what: d.displayLabel, reason: `Release ${d.hold!.releaseNumber} to ${d.displayLabel} ${d.hold!.reason === 'release failed' ? 'failed' : d.hold!.reason}`, to: `/projects/${project.slug}/deployments/${d.name}?tab=history` })),
   ])]
 }
@@ -82,7 +84,7 @@ export default function Janitor() {
   </div>
 }
 
-function NeedRow({ need, current, reload }: { need: Need; current: boolean; reload: () => void }) {
+function NeedRow({ need, current, reload }: { need: Need; current: boolean; reload: () => Promise<void> }) {
   const nav = useNavigate()
   const row = (details?: ReactNode, actions?: ReactNode) => <tr data-linked onClick={e => {
     if (!(e.target as Element).closest('a, button, input, select, [role=dialog]')) nav(need.to)
@@ -92,7 +94,7 @@ function NeedRow({ need, current, reload }: { need: Need; current: boolean; relo
     <td className="phone-value" data-label="Why">{need.reason}{details}</td>
     <td className="record-fit record-action phone-action">{actions}</td>
   </tr>
-  return need.queue ? <QueueAction queue={need.queue} slug={need.project.slug} current={current} reload={reload}>{row}</QueueAction> : row()
+  return need.queue ? <QueueAction queue={need.queue} slug={need.project.slug} current={current} reload={reload}>{row}</QueueAction> : row(undefined, need.scheduleProblem ? <RunNow slug={need.project.slug} queues={need.project.queues} current={current} reload={reload} /> : undefined)
 }
 
 function QueueAction({ queue, slug, current, reload, children }: { queue: QueueStatus; slug: string; current: boolean; reload: () => void; children: DecisionLayout }) {

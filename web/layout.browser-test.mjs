@@ -1123,6 +1123,28 @@ try {
       assert.deepEqual(split, [], `Recent tries keeps its words whole beside a long error at ${width}, ${size}`)
     }
   }
+  // Record-table controls share a body-text-height slot, including menu
+  // buttons and button links. Phone styles must not restore a taller button.
+  for (const width of [390, 1440]) for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('http://layout.test/')
+    await page.evaluate(theme => {
+      document.documentElement.dataset.theme = theme
+      document.documentElement.dataset.size = 'medium'
+      document.getElementById('root').innerHTML = `<main class="main"><table class="record-table"><tbody>
+        <tr><td class="phone-name">Needs you</td><td class="record-action phone-action"><div class="row row-2"><button class="primary">Accept</button><button>Close</button></div></td></tr>
+        <tr><td class="phone-name">Token</td><td class="record-action phone-action"><button class="subtle danger">Revoke</button></td></tr>
+        <tr><td class="phone-name">Deployment</td><td class="record-action phone-action"><a class="btn" href="#deployment">Open</a><button class="more-menu-button">⋯</button></td></tr>
+      </tbody></table></main>`
+    }, theme)
+    await fontsReady(page)
+    const controls = await page.locator('.record-table td :is(button, a.btn)').evaluateAll(buttons => buttons.map(button => ({ height: button.getBoundingClientRect().height, line: parseFloat(getComputedStyle(button.closest('td')).lineHeight) })))
+    assert.ok(controls.every(c => Math.abs(c.height - c.line) < 1), `record buttons sit at text height at ${width}, ${theme}: ${JSON.stringify(controls)}`)
+    const accept = await page.getByRole('button', { name: 'Accept', exact: true }).boundingBox()
+    const close = await page.getByRole('button', { name: 'Close', exact: true }).boundingBox()
+    assert.equal(accept.y, close.y, `Accept and Close stay beside each other at ${width}, ${theme}`)
+    if (out) await page.screenshot({ path: `${out}/record-buttons-${theme}-${width}.png`, fullPage: true })
+  }
   assert.deepEqual(misses, [], 'phone round 3')
   assert.deepEqual(consoleLines.filter(line => line.includes('validateDOMNesting')), [], 'layout fixtures use valid HTML nesting')
   console.log('layout: label fixtures, rows, disclosures and phone composer passed')

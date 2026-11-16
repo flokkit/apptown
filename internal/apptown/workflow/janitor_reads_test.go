@@ -2,7 +2,9 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -465,5 +467,77 @@ func TestJanitorKeepsUnassessedApprovalsUnknown(t *testing.T) {
 		if !slices.Equal(result.Unassessed, []ids.ID{rule.RuleID}) || !errors.Is(result.Err, failure) {
 			t.Fatalf("unassessed workflow: %+v", result)
 		}
+	}
+}
+
+// History compares against all landed adoptions, including a person's adoption
+// outside the requested history window, rather than the preceding Janitor row.
+func TestJanitorLandedHistoryNamesOnlyMovedPacks(t *testing.T) {
+	s, _, ctx, _ := janitorReadFixture(t)
+	visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := visible[0]
+	now := time.Now().UTC()
+	record := func(at time.Time, queue string, revision int64, packs []adoption.PackPick, shipped bool) ids.ID {
+		t.Helper()
+		recordCtx := ctx
+		if queue != "" {
+			recordCtx = access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: project}})
+		}
+		created, err := database.Transact(ctx, s.db, func(tx *database.Tx) (CreatedChange, error) {
+			ch, err := CreateChangeIn(recordCtx, tx, ChangeDraft{ProjectID: project, Type: "uplift", Title: "Adopt packs", Queue: queue}, "boss", at)
+			if err != nil {
+				return ch, err
+			}
+			target, err := (testTarget{digest: fmt.Sprint(ch.Change.ID)}).RecordTargetIn(ctx, tx, TargetChange{ProjectID: project, ChangeID: ch.Change.ID, Actor: "boss"})
+			if err != nil {
+				return ch, err
+			}
+			raw, err := json.Marshal(adoption.Candidate{Packs: packs})
+			if err != nil {
+				return ch, err
+			}
+			if _, err := workflowsql.New(tx.SQL()).AttachUpliftTarget(ctx, workflowsql.AttachUpliftTargetParams{ID: ch.Change.ID, ProjectID: project, TargetAdoptionID: target.ID, TargetCandidateJson: raw}); err != nil {
+				return ch, err
+			}
+			action := ShipChange
+			if !shipped {
+				action = abandonChange
+			}
+			if _, err := TransitionChangeIn(ctx, tx, project, ch.Change.ID, ChangeMove{Action: action}, at); err != nil {
+				return ch, err
+			}
+			if shipped {
+				err = StampUpliftAdoptionIn(ctx, tx, UpliftAdoption{Change: ChangeRef{ID: ch.Change.ID, ProjectID: project}, Revision: revision})
+			}
+			return ch, err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return created.Change.ID
+	}
+	first := record(now.Add(-10*time.Hour), "packs", 1, []adoption.PackPick{{Pack: "apptown", Version: 1}, {Pack: "web", Version: 1}}, true)
+	record(now.Add(-9*time.Hour), "", 2, []adoption.PackPick{{Pack: "apptown", Version: 2}, {Pack: "web", Version: 2}}, true)
+	record(now.Add(-8*time.Hour), "packs", 3, []adoption.PackPick{{Pack: "apptown", Version: 99}, {Pack: "web", Version: 99}}, false)
+	second := record(now.Add(-time.Hour), "packs", 3, []adoption.PackPick{{Pack: "apptown", Version: 3}, {Pack: "web", Version: 2}, {Pack: "added", Version: 1}}, true)
+	history, err := s.LandedJanitorChanges(ctx, now.Add(-2*time.Hour), now, 0, 20)
+	if err != nil || len(history.Changes) != 1 {
+		t.Fatalf("history: %+v %v", history, err)
+	}
+	got := history.Changes[0]
+	if got.ChangeID != second || len(got.PackVersions) != 2 || got.PackVersions[0].Pack != "apptown" || got.PackVersions[1].Pack != "added" {
+		t.Fatalf("second: %+v", got)
+	}
+	dbtest.FailNextStatement(t, s.db, "-- name: PreviousLandedAdoption")
+	if _, err := s.LandedJanitorChanges(ctx, now.Add(-2*time.Hour), now, 0, 20); err == nil {
+		t.Fatal("previous-adoption failure was hidden")
+	}
+
+	history, err = s.LandedJanitorChanges(ctx, now.Add(-11*time.Hour), now.Add(-9*time.Hour), 0, 20)
+	if err != nil || len(history.Changes) != 1 || history.Changes[0].ChangeID != first || len(history.Changes[0].PackVersions) != 2 {
+		t.Fatalf("first: %+v %v", history, err)
 	}
 }

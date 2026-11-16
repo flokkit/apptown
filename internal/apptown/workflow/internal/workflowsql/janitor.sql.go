@@ -16,7 +16,7 @@ import (
 )
 
 const janitorLandedChanges = `-- name: JanitorLandedChanges :many
-SELECT a.id, a.project_id, a.active_change_id, a.queue, a.what, a.opened_at, a.ended_at, a.outcome, a.reason, a.fingerprint, a.packages, a.targets, a.attempted_at, a.failed_attempt, a.schedule, a.rule_id, a.rule_revision, a.files,c.number,c.title,c.target_candidate_json,c.closed_at,p.slug,p.name
+SELECT a.id, a.project_id, a.active_change_id, a.queue, a.what, a.opened_at, a.ended_at, a.outcome, a.reason, a.fingerprint, a.packages, a.targets, a.attempted_at, a.failed_attempt, a.schedule, a.rule_id, a.rule_revision, a.files,c.number,c.title,c.type,c.target_candidate_json,c.closed_at,p.slug,p.name
 FROM automated_changes a JOIN changes c ON c.id=a.active_change_id AND c.project_id=a.project_id
 JOIN projects p ON p.id=a.project_id
 WHERE a.project_id=ANY($1::uuid[]) AND a.outcome='shipped' AND a.queue<>''
@@ -54,6 +54,7 @@ type JanitorLandedChangesRow struct {
 	Files               json.RawMessage
 	Number              int64
 	Title               string
+	Type                string
 	TargetCandidateJson json.RawMessage
 	ClosedAt            sql.NullTime
 	Slug                string
@@ -96,6 +97,7 @@ func (q *Queries) JanitorLandedChanges(ctx context.Context, arg JanitorLandedCha
 			&i.Files,
 			&i.Number,
 			&i.Title,
+			&i.Type,
 			&i.TargetCandidateJson,
 			&i.ClosedAt,
 			&i.Slug,
@@ -181,4 +183,23 @@ func (q *Queries) JanitorProjectLabels(ctx context.Context, projectIds []ids.ID)
 		return nil, err
 	}
 	return items, nil
+}
+
+const previousLandedAdoption = `-- name: PreviousLandedAdoption :one
+SELECT target_candidate_json FROM changes
+WHERE project_id=$1 AND type='uplift' AND adopted_revision>0
+AND closed_at<$2::timestamptz
+ORDER BY closed_at DESC,id DESC LIMIT 1
+`
+
+type PreviousLandedAdoptionParams struct {
+	ProjectID ids.ID
+	Before    time.Time
+}
+
+func (q *Queries) PreviousLandedAdoption(ctx context.Context, arg PreviousLandedAdoptionParams) (json.RawMessage, error) {
+	row := q.db.QueryRowContext(ctx, previousLandedAdoption, arg.ProjectID, arg.Before)
+	var target_candidate_json json.RawMessage
+	err := row.Scan(&target_candidate_json)
+	return target_candidate_json, err
 }

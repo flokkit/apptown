@@ -5478,6 +5478,9 @@
           "changeNumber": {
             "type": "integer"
           },
+          "changeSummary": {
+            "type": "string"
+          },
           "decide": {
             "anyOf": [
               {
@@ -5524,6 +5527,7 @@
           }
         },
         "required": [
+          "changeSummary",
           "title",
           "queue",
           "state",

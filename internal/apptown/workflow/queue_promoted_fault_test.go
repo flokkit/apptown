@@ -48,7 +48,7 @@ func TestPromotedCheckFailureRequiresDecision(t *testing.T) {
 				t.Fatal(err)
 			}
 			before, err := s.QueueState(t.Context(), ch.ProjectID, "security")
-			if err != nil || before.State != "decide" || before.Decide == nil || before.Decide.Act != nextOverride || before.Decide.StepID != routine.ID || before.Words != "goes beyond what your settings allow" {
+			if err != nil || before.State != "decide" || before.Decide == nil || before.Decide.Act != nextOverride || before.Decide.StepID != routine.ID || before.Words != "Dockerfile restructure" {
 				t.Fatalf("held: %+v %v", before, err)
 			}
 			ctx := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{Kind: "user", Name: "verified-person", Via: "session"}})
@@ -87,7 +87,7 @@ func TestPromotedCheckFailureRequiresDecision(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got.State != "decide" || got.ChangeID != ch.ID || got.Failed != 0 || got.Decide == nil || got.Decide.Act != nextOverride || got.Decide.StepID != tests.ID {
+			if got.State != "decide" || got.ChangeID != ch.ID || got.Failed != 0 || got.Decide == nil || got.Decide.Act != nextOverride || got.Decide.StepID != tests.ID || got.Words != "Executor unavailable" {
 				t.Fatalf("open promoted Change with a faulted tests step must retain its check decision: %+v", got)
 			}
 		})

@@ -36,6 +36,21 @@ type PackPick struct {
 	Version int64  `json:"version"`
 }
 
+// ChangedPacks lists target packs that were added or changed version.
+func ChangedPacks(target, previous []PackPick) []PackPick {
+	versions := make(map[string]int64, len(previous))
+	for _, pick := range previous {
+		versions[pick.Pack] = pick.Version
+	}
+	changed := []PackPick{}
+	for _, pick := range target {
+		if version, ok := versions[pick.Pack]; !ok || version != pick.Version {
+			changed = append(changed, pick)
+		}
+	}
+	return changed
+}
+
 // pickNames is the picks' pack names, sorted: the packs a receipt says
 // govern the project. Every pick counts the same; none is the primary.
 func pickNames(picks []PackPick) []string {

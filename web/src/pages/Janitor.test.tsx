@@ -14,7 +14,7 @@ import type { JanitorView, JanitorHistoryView, JanitorProject, StandingRevision 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const at = '2026-11-12T10:00:00Z'
 const actor = { name: 'Sam', principal: 'person', via: 'session' }
-const queue = (name: string, stopped = false) => ({ title: name === 'updates' ? 'Dependency updates' : name === 'packs' ? 'Pack updates' : 'Security fixes', queue: name, state: stopped ? 'stopped' : 'up_to_date', words: stopped ? 'AppTown could not finish this update' : 'up to date', failed: stopped ? 3 : 0, reason: '', since: at, files: [], packages: [], changeNumber: 0 })
+const queue = (name: string, stopped = false) => ({ title: name === 'updates' ? 'Dependency updates' : name === 'packs' ? 'Pack updates' : 'Security fixes', queue: name, state: stopped ? 'stopped' : 'up_to_date', words: stopped ? 'AppTown could not finish this update' : 'up to date', failed: stopped ? 3 : 0, reason: '', since: at, files: [], packages: [], changeNumber: 0, changeSummary: '' })
 const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name: `${id} app`, level: 'routine', state: { word: 'up to date', unknown: false, help: '' },
  queues: [queue('security'), queue('updates'), queue('packs')],
  scheduleProblem: '' })
@@ -54,7 +54,7 @@ it('shows decisions, exhausted retries and release holds with one route to their
  data.projects[0].queues[1].changeId = 'stopped-change'
  data.projects[0].queues[1].reason = 'Technical fault must stay on the Change'
  const decision = data.projects[1].queues[1]
- Object.assign(decision, {state:'decide', words:'goes beyond what your settings allow', changeId:'decision', decide:{act:'override',stepId:'check'}, files:[{path:'go.mod',class:'dependency'}]})
+ Object.assign(decision, {state:'decide', words:'Report is missing', changeSummary:'Makes no change', changeId:'decision', decide:{act:'override',stepId:'check'}, files:[{path:'go.mod',class:'dependency'}]})
  data.projects[1].queues[0] = {...queue('security'), state:'retrying',words:'trying again',reason:'hidden retry'}
  const {client, el} = await mount(async url => json(url.includes('/history') ? history() : data))
  await settled(client)
@@ -63,8 +63,8 @@ it('shows decisions, exhausted retries and release holds with one route to their
  const needs = el.querySelector('table[aria-label="Needs you"]')!
  expect(needs.querySelectorAll('tbody tr')).toHaveLength(3)
  expect(needs.textContent).toContain('AppTown could not finish this update')
- expect(needs.textContent).toContain('go.mod')
- expect(needs.textContent).toContain('goes beyond what your settings allow')
+ expect(needs.textContent).toContain('Makes no change · Report is missing')
+ expect(needs.textContent).not.toContain('needs you')
  expect([...needs.querySelectorAll('button')].map(b => b.textContent)).toEqual(['Try again','Accept','Close'])
  expect(needs.textContent).toContain('Release 9 to Customer office failed')
  expect(needs.querySelector('a[href="/changes/decision"]')?.closest('tr')?.dataset.linked).toBe('true')
@@ -74,24 +74,26 @@ it('shows decisions, exhausted retries and release holds with one route to their
  expect(el.querySelector('details, summary')).toBeNull()
 })
 
-it.each([false, true])('shows unknown projects even beside attention=%s', async attention => {
+it.each([false, true])('offers Run now for unreadable schedules even beside attention=%s', async attention => {
  const data = fixture(); data.projects = [project('one')]; data.deployments = []
  data.projects[0].scheduleProblem = 'queue security was not read'
  if (attention) data.projects[0].queues[0] = queue('security', true)
  const {client, el} = await mount(async url => json(url.includes('/history') ? history() : data))
  await settled(client)
  expect(el.querySelector('.page-head-line')?.textContent).toBe('1 project needs you')
- const row = [...el.querySelectorAll('tbody tr')].find(r => r.textContent?.includes('Not known: queue security was not read'))!
- expect(row.textContent).toContain('Not known: queue security was not read')
- expect(row.querySelector('button')).toBeNull()
+ const row = [...el.querySelectorAll('tbody tr')].find(r => r.textContent?.includes("AppTown could not read this project's update schedule"))!
+ expect(row.textContent).toContain('queue security was not read')
+ expect(row.querySelector('button')?.textContent).toBe('Run now')
 })
 
-it('shows scan uncertainty as a project row', async () => {
+it('leaves scan uncertainty to Attention and excludes projects without queues', async () => {
  const data = fixture(); data.deployments=[]; data.projects=[project('one')]
  data.projects[0].state={word:'not known',unknown:true,help:'Scan not known'}
+ data.projects.push({...project('empty'),queues:[],state:{word:'not known',unknown:true,help:'No scan'}})
  const {client,el}=await mount(async url=>json(url.includes('/history')?history():data)); await settled(client)
- expect(el.textContent).toContain('Not known: Scan not known')
- expect(el.querySelector('.page-head-line')?.textContent).toBe('1 project needs you')
+ expect(el.textContent).not.toContain('Scan not known')
+ expect(el.textContent).not.toContain('empty app')
+ expect(el.querySelector('.page-head-line')?.textContent).toBe('Keeping 1 project up to date')
 })
 
 it('names updated ways of working without versions', async () => {
@@ -173,38 +175,48 @@ it('retries the exact stopped change and reports the refusal on its Needs-you ro
  expect(row.querySelector('.record-action')?.textContent).toBe('Try again')
 })
 
-it('shows choices and attribution, saves only edits at the expected revision', async () => {
- const calls: [string, unknown][]=[]
+it('saves each switch and select change once at the read revision and refreshes attribution', async () => {
+ const calls: unknown[]=[]
  const data=fixture()
- const {client,el}=await mount(async(url,init)=>{
-  if(init?.method==='PUT'){const body=JSON.parse(String(init.body));calls.push([url,body]);data.choices={...data.choices!,choices:body.choices,revision:4};return json(data.choices)}
+ const {client,el}=await mount(async(_url,init)=>{
+  if(init?.method==='PUT') {
+   const body=JSON.parse(String(init.body)); calls.push(body)
+   data.choices={...data.choices!,choices:body.choices,revision:data.choices!.revision+1,issuer:{...actor,name:'Priya'}}
+  }
   return json(data)
  },true,undefined,true)
  await settled(client)
  expect(el.textContent).toContain('Set by Sam')
- expect(el.textContent).toContain('All projects, including new ones')
- expect(el.textContent).toContain('Off app · Turned off for this project · Sam')
- for(const word of ['Preview','Enable','Revoke','Changed meaning']) expect(el.textContent).not.toContain(word)
- const save=[...el.querySelectorAll('button')].find(b=>b.textContent==='Save')!
- expect(save.disabled).toBe(true)
+ expect([...el.querySelectorAll('button')].some(b=>b.textContent==='Save')).toBe(false)
+ const security=el.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Security fixes"]')!
+ await act(async()=>security.click()); await settled(client)
+ expect(calls).toEqual([{choices:{...rule(true).choices,securityFixes:false,toolchainPatches:false},expectedRevision:3}])
+ expect(security.getAttribute('aria-checked')).toBe('false')
+ expect(el.querySelector<HTMLLabelElement>(`label[for="${security.id}"]`)?.textContent).toBe('Security fixes')
+ expect(el.textContent).toContain('Set by Priya')
  const select=el.querySelector('select')!
- await act(async()=>{select.value='routine';select.dispatchEvent(new Event('change',{bubbles:true}))})
- expect(save.disabled).toBe(false)
- await act(async()=>save.click())
- expect(calls).toEqual([['/api/v1/janitor/choices',{choices:{...data.choices!.choices,dependencies:'routine'},expectedRevision:3}]])
+ await act(async()=>{select.value='off';select.dispatchEvent(new Event('change',{bubbles:true}))}); await settled(client)
+ expect(calls).toHaveLength(2)
+ expect(calls[1]).toEqual({choices:{...data.choices!.choices,dependencies:'off',securityFixes:false,toolchainPatches:false},expectedRevision:4})
 })
-it('hides Save from readers and prevents a stale editor overwriting newer choices',async()=>{
- let data=fixture()
- const {client,el}=await mount(async()=>json(data),true,undefined,true)
+it('shows the conflict and current value without resubmitting a lost race',async()=>{
+ const data=fixture(); let writes=0
+ const {client,el}=await mount(async(_url,init)=>{
+  if(init?.method==='PUT') {
+   writes++
+   data.choices={...data.choices!,revision:4,issuer:{...actor,name:'Priya'}}
+   return new Response(JSON.stringify({error:'The choices changed. Read current choices.'}),{status:409})
+  }
+  return json(data)
+ },true,undefined,true)
  await settled(client)
- const select=el.querySelector('select')!
- await act(async()=>{select.value='routine';select.dispatchEvent(new Event('change',{bubbles:true}))})
- data={...data,choices:{...data.choices!,revision:4}}
- await act(async()=>{await client.invalidateQueries({queryKey:['get','janitor']})});await settled(client)
- expect([...el.querySelectorAll('button')].find(b=>b.textContent==='Save')?.disabled).toBe(true)
- expect(el.textContent).toContain('The choices changed')
- const reader=await mount(async()=>json(data),false,undefined,true);await settled(reader.client)
- expect([...reader.el.querySelectorAll('button')].some(b=>b.textContent==='Save')).toBe(false)
+ await act(async()=>el.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Packs"]')!.click()); await settled(client)
+ expect(writes).toBe(1)
+ expect(el.querySelector('[role="alert"]')?.textContent).toContain('The choices changed')
+ expect(el.querySelector('[aria-label="Packs"]')?.getAttribute('aria-checked')).toBe('true')
+ expect(el.textContent).toContain('Set by Priya')
+ const reader=await mount(async()=>json(data),false,undefined,true); await settled(reader.client)
+ expect([...reader.el.querySelectorAll<HTMLButtonElement>('[role="switch"]')].every(b=>b.disabled)).toBe(true)
 })
 
 it.each(['approve', 'override', 'close'])('acts on the supplied decision identity: %s', async operation => {

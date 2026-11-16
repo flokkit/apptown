@@ -49,27 +49,27 @@ before another save.
 
 ## Janitor page
 
-`/janitor` shows what is on, work that needs a person, each project's short
-state and last checked time, and recent landed Changes. Queue problems, release
-holds appear in Needs you. Unknown scan or schedule
-reads remain visibly not known, including beside work that needs a person.
-Project rows open the project's Janitor section; recent work opens the Change's
-Changes tab, and its release summary opens Details. Only successful releases
-count as released.
+`/janitor` shows work that needs a person and recent landed Changes. Only
+projects with standing queues are listed or counted. Unknown scans belong to
+Attention and the project's scan history. An unreadable update schedule on a
+project with queues offers Run now and shows the scheduler's refusal.
 
-`/janitor/settings` shows the choices, who set them and when, project choices,
-automatic release destinations, adopted repair limits and release settings.
-Only a manager sees Save; it requires an edit and the expected revision.
-Concurrent settings changes require reading the current choices before saving.
+`/janitor/settings` shows the choices, who set them and when, project choices
+and automatic release destinations. Switches and the dependency select save on
+change, with one full-choice write at the read revision. Controls are disabled
+while saving or while the read is not current. A conflict reloads the current
+choices and shows the refusal without resubmitting. Attribution follows the reread.
 
 Workflow owns the instance project-state and landed-Change reads, fenced by the
 caller's readable project set before paging. Deployment owns the instance settings,
 holds and Change-release membership reads. The HTTP handler joins owner results;
 it reads no tables and owns the response types. Last-seven-days history and paged
 older history use landing time, with deterministic identity ordering for
-simultaneous landings. Package
-moves come from retained attempts; pack versions come from the Change's immutable
-adoption candidate. Original grant attribution reads the recorded rule revision,
+simultaneous landings. Package moves come from retained attempts; pack moves
+compare the Change's immutable target candidate with the previous landed
+uplift's target in the same project, including a person's adoption. Only added
+or version-changed packs are listed; a first adoption lists all packs.
+Original grant attribution reads the recorded rule revision,
 including for failed work whose Change is purged. Every attribution names the recorded choices, revision and issuer, with a link to Janitor. The Change heading shows that original firing grant and its time on every tab, separately from later acceptance votes, including when the votes use a different rule. Vote labels read the referenced revision from the standing-rule history. Missing or stale scan evidence
 and failed refreshes remain visibly different from clean or empty answers.
 
@@ -78,7 +78,7 @@ Attention's Scans source uses the same set, returning known empty coverage for
 deleted projects and eval copies. An eligibility read failure remains an error.
 When a scan is not known, Workflow asks the scheduler whether the adopted
 schedules scan source. Unreadable definitions remain errors. If none scans,
-the reason says that the packs schedule no scan; the Janitor page shows it and
+the reason says that the packs schedule no scan; the project’s scan history shows it and
 Attention does not, since the project chose it. A current complete scan remains known
 regardless of whether the project still schedules scans.
 
@@ -214,7 +214,7 @@ A `fix` step dispatches pack adoption. A pinned workflow's dependency `fix` step
 errors: this pack version’s dependency update is no longer supported; adopt the
 current platform pack. Existing approvals keep their recorded meaning. After a
 project adopts a workflow with a different meaning, its old approval is ineligible;
-a person uses Preview and Enable in Janitor settings to consent again.
+a person accepts that Change under its current meaning.
 
 A repair agent with `repairRounds: N` stays dormant until a check fails. Its
 session count is bounded over the run's lifetime. The stock workflows allow two
@@ -251,17 +251,22 @@ fixable finding at the scan's failure threshold.
 
 The Janitor overview leads with “N projects need you”, “Keeping N projects up to
 date”, or “Janitor is off” when choices are absent or all off. Needs you lists
-`decide` and `stopped` queues, release holds and unknown projects. Decision rows
-show the queue title, the owner's words and changed files. Accept uses the
+`decide` and `stopped` queues, release holds and unreadable update schedules.
+Decision rows show what the proposal does, then the current decision's reason.
+Pack proposals name moved packs; source proposals show classified files. Only a
+fingerprinted empty source proposal says “Makes no change”. An override uses
+the check's first explanatory sentence without citations, capitalised, or
+“A check did not pass” / “A check could not finish” when it has no prose.
+Approval says “Waiting for your acceptance”; a promoted Change with no decision
+act says “Waiting for a decision on the change”. Accept uses the
 supplied `decide` action and step: the approval form or a check override with a
 required reason. Close skips the update and suppresses the same proposal.
-Stopped rows offer Try again. Release holds open the deployment; unknown rows
-open the project, using scan uncertainty and `scheduleProblem`. `retrying`
-queues remain AppTown's work and do not appear on the overview.
+Stopped rows offer Try again. Release holds open the deployment. Unreadable
+schedules offer Run now. `retrying` queues remain AppTown's work and do not appear on the overview.
 
 Recent updates lists project, what changed and when, opening the Change.
-Dependency rows show package moves; pack rows name the ways of working without
-versions. Settings contains only What to keep updated, including project
+Dependency rows show package moves; pack rows name only added or version-changed
+ways of working without versions. Settings contains only What to keep updated, including project
 exceptions and automatic releases. Deployment pages own release windows.
 
 The project page shows queue state, moved packages, recent tries linked to their
@@ -382,7 +387,7 @@ A scan whose scanner could not judge the software, and a last scan older than
 three days, appear in Attention as not known; the detail names the scanner's
 reason or the date of the last scan. Code or images newer than the last scan
 are not an Attention item: the next scheduled scan answers them, and the
-Janitor page shows them as not known meanwhile.
+project’s scan history shows them as not known meanwhile.
 A decide or stopped queue's Attention item carries the first line of its error
 and opens its change, which holds the rest.
 Running-image-only findings do not create Attention items.

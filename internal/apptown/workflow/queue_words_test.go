@@ -14,8 +14,8 @@ func TestQueueStateReturnsWords(t *testing.T) {
 	}{
 		{"up_to_date", "up to date", 0, ""},
 		{"updating", "updating", 0, "script"},
-		{"decide", "needs your yes", 0, "approval"},
-		{"decide", "needs you", 1, ""},
+		{"decide", "Waiting for your acceptance", 0, "approval"},
+		{"decide", "Package registry unavailable", 1, ""},
 		{"stopped", "AppTown could not finish this update", 3, ""},
 	} {
 		t.Run(tc.state, func(t *testing.T) {
@@ -47,13 +47,13 @@ func TestQueueStateReturnsWords(t *testing.T) {
 	}
 }
 
-// The holding step determines the sentence, rather than its technical evidence.
-func TestQueueDecisionWordsNameTheFailedCheck(t *testing.T) {
+// Missing prose names an unanswered check without inventing a diagnosis.
+func TestQueueDecisionWordsExplainMissingEvidence(t *testing.T) {
 	for _, tc := range []struct{ kind, words string }{
-		{"routine", "goes beyond what your settings allow"},
-		{"tests", "the app's tests fail with it"},
-		{"preview", "the app does not start with it"},
-		{"scan", "a security scan found problems in it"},
+		{"routine", "A check did not pass"},
+		{"tests", "A check did not pass"},
+		{"preview", "A check did not pass"},
+		{"scan", "A check did not pass"},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
 			s, ch, _, _, _ := automatedFixture(t)
