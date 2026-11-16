@@ -254,7 +254,7 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 		// repository.
 		cmd.Env = append(withoutTrustScript(gitexec.Environ()), req.Env...)
 	}
-	output, err, started := stream(cmd, req.OnLine)
+	output, err, started := stream(cmd, req.OnLine, backend == Docker)
 	out = classified(output, err, ctx, started)
 	if req.Report != "" && out.Termination == Exited {
 		out.Report, out.ReportErr = ReadReport(req.Workspace, req.Report)
@@ -379,6 +379,10 @@ func runArgs(req Request, limits Limits) []string {
 	return append(args[:1:1], append(LimitFlags(limits), args[1:]...)...)
 }
 
+// nonInteractiveEnv is the default environment for step containers. Caller
+// values follow these defaults and override them. Local processes are unchanged.
+var nonInteractiveEnv = []string{"CI=true", "NO_COLOR=1", "TERM=dumb", "FORCE_COLOR=0"}
+
 func dockerArgs(req Request) []string {
 	args := []string{"run", "--rm", "--init", "--name", req.Name}
 	if req.Workspace != "" { // a task with no workspace mounts none
@@ -403,6 +407,9 @@ func dockerArgs(req Request) []string {
 	if req.Network != "" {
 		args = append(args, "--network", req.Network)
 	}
+	for _, env := range nonInteractiveEnv {
+		args = append(args, "-e", env)
+	}
 	for _, env := range req.Env {
 		args = append(args, "-e", env)
 	}
@@ -418,7 +425,7 @@ func dockerArgs(req Request) []string {
 
 // Output is bounded even for a process that never emits a newline. Oversized
 // lines stream in fragments so draining stdout cannot consume unbounded memory.
-func stream(cmd *exec.Cmd, onLine func(string)) ([]byte, error, bool) {
+func stream(cmd *exec.Cmd, onLine func(string), plain bool) ([]byte, error, bool) {
 	pr, pw := io.Pipe()
 	defer pr.Close()
 	cmd.Stdout, cmd.Stderr = pw, pw
@@ -427,6 +434,9 @@ func stream(cmd *exec.Cmd, onLine func(string)) ([]byte, error, bool) {
 	go func() {
 		defer close(done)
 		eachFragment(pr, func(fragment []byte) {
+			if plain {
+				fragment = PlainText(fragment)
+			}
 			n := min(len(fragment), maxCapturedOutput-len(output))
 			output = append(output, fragment[:n]...)
 			if onLine != nil {

@@ -331,6 +331,7 @@ func recordTestReport(evidence map[string]any, o execution.Outcome, output strin
 	if len(r.Skipped) > 0 {
 		evidence["skippedTests"] = r.Skipped[:min(len(r.Skipped), skippedShown)]
 	}
+	r.Log = string(execution.PlainText([]byte(r.Log)))
 	if r.Log == "" {
 		return output
 	}

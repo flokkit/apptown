@@ -997,7 +997,7 @@ func (a *commands) collect(task *workflow.Execution, plan scriptPlan, attempt ta
 	readOutput := func() error {
 		return a.tasks.whileUnreachable(ctx, operation, func(ctx context.Context) error {
 			page, err := a.tasks.Driver.Output(ctx, ref, execution.OutputRead{Max: maxTaskOutput})
-			outcome.Output = page.Data
+			outcome.Output = execution.PlainText(page.Data)
 			return err
 		})
 	}

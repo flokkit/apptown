@@ -3,6 +3,20 @@
 `Runner` runs a bounded process locally or in Docker and returns its outcome;
 it knows nothing about projects, workflows or persistence.
 
+Step containers receive `CI=true`, `NO_COLOR=1`,
+`TERM=dumb` and `FORCE_COLOR=0`, before caller environment overrides. Both
+Runner Docker runs and DockerTasks use these defaults on AppTown and workers;
+they do not change task request identity. Local processes, interactive consoles,
+previews and deployed apps do not receive these defaults.
+
+Stored step output and live Runner lines contain plain text without terminal
+escapes. `PlainText` removes terminal escapes and keeps the last carriage-return
+redraw within each line; CRLF becomes LF. Docker Runner output is cleaned before
+capture and callbacks. Task byte cursors address raw output; script logs and
+release failure tails are cleaned when recorded, as are decoded test-report logs.
+Local output, raw reports and agent JSON streams retain their bytes. Cleaning
+is per fragment and does not reassemble escapes across the 1 MiB fragment bound.
+
 `TaskDriver` is the contract for a task whose identity must survive its
 caller (the first-slice plan, step 3): ensure a task by operation key (the
 same key finds the same task), start it, observe it, wait for it, read its

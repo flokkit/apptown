@@ -172,7 +172,7 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget, fini
 			runner.stopQuietly(ctx, attempt, ref) // its stop is recorded; the release removes it either way
 			reason = fmt.Sprintf("the release build ran past its %s", releaseBuildWallClock)
 		}
-		finish(workflow.StatusFail, map[string]any{"reason": reason, "failedStage": deploy.Building, "logTail": outputTail(page.Data)})
+		finish(workflow.StatusFail, map[string]any{"reason": reason, "failedStage": deploy.Building, "logTail": outputTail(execution.PlainText(page.Data))})
 		return nil, false
 	}
 	var captured map[string]execution.ImageCapture

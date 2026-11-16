@@ -30,6 +30,12 @@ project declares could not be installed"), not a failure of the change: run the
 checks again. A project chat's snapshot
 is read-only; use a change workspace for edits and project-local installs.
 
+Step containers run with `CI=true`, `NO_COLOR=1`, `TERM=dumb` and
+`FORCE_COLOR=0`; an explicitly supplied step environment value overrides its
+default. Stored step output has no terminal escapes, and carriage-return redraws
+keep the last text within each line. Interactive consoles, previews and deployed
+apps do not receive these step defaults.
+
 ## Test counts
 
 The tests step runs each part’s declared `test:` commands from `.apptown/app.yaml`
