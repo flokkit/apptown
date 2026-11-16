@@ -549,6 +549,11 @@ func TestStandingScheduleUsesDeclaredCronAndKeepsItsOriginalAuthorityAfterPurge(
 		if err := json.Unmarshal([]byte(task.Run().InputsJSON), &inputs); err != nil {
 			t.Errorf("effective level missing: %s (%v)", task.Run().InputsJSON, err)
 		}
+		prompt := workflow.Interpolate(t.Context(), nil, "Update at level ${{inputs.level}}. Base image updates: ${{inputs.baseImages}}. Toolchain patches: ${{inputs.toolchainPatches}}.", task.Run(), nil, "")
+		want := "Update at level " + inputs.Level + ". Base image updates: false. Toolchain patches: false."
+		if prompt != want || strings.Contains(prompt, "(no input") {
+			t.Errorf("scheduled prompt = %q, want %q", prompt, want)
+		}
 		if err := task.StartFix(nil); err != nil {
 			t.Error(err)
 			return

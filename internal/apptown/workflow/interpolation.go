@@ -21,6 +21,8 @@ var interpRe = regexp.MustCompile(`\$\{\{\s*([a-zA-Z]+)\.([a-zA-Z0-9_-]+)\s*\}\}
 // ${{project.*}} and
 // ${{artifact.<kind>}} (latest artifact body of that kind on this run) and
 // ${{preview.url}} / ${{preview.host}} (this run's latest recorded preview).
+// ${{inputs.*}} renders strings unquoted and other values as compact JSON.
+// Unreadable run inputs render an error message rather than an absent key.
 func Interpolate(ctx context.Context, q database.Queryer, s string, run *Run, item *Change, projectSlug string) string {
 	return interpRe.ReplaceAllStringFunc(s, func(m string) string {
 		parts := interpRe.FindStringSubmatch(m)
@@ -54,13 +56,32 @@ func Interpolate(ctx context.Context, q database.Queryer, s string, run *Run, it
 				return projectSlug
 			}
 		case "inputs":
-			// ${{inputs.*}}: parameters a workflow/call parent passed in
-			// (frozen at invocation; composition.md §2).
-			var inputs map[string]string
-			if json.Unmarshal([]byte(run.InputsJSON), &inputs) == nil {
-				if v, ok := inputs[key]; ok {
-					return v
+			// A scheduled run passes booleans alongside strings; keep every
+			// JSON value so one non-string cannot hide the other inputs.
+			var inputs map[string]json.RawMessage
+			err := json.Unmarshal([]byte(run.InputsJSON), &inputs)
+			if err == nil && inputs == nil {
+				err = fmt.Errorf("run inputs must be a JSON object")
+			}
+			if err != nil {
+				log.Printf("read run inputs failed: %v", err)
+				return "(AppTown could not read this run's inputs)"
+			}
+			if v, ok := inputs[key]; ok {
+				if len(v) > 0 && v[0] == '"' {
+					var value string
+					if err := json.Unmarshal(v, &value); err != nil {
+						log.Printf("read run input failed: %v", err)
+						return "(AppTown could not read this run's inputs)"
+					}
+					return value
 				}
+				var compact bytes.Buffer
+				if err := json.Compact(&compact, v); err != nil {
+					log.Printf("read run input failed: %v", err)
+					return "(AppTown could not read this run's inputs)"
+				}
+				return compact.String()
 			}
 			return "(no input \"" + key + "\" passed to this run)"
 		case "artifact":
